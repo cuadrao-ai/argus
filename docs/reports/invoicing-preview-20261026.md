@@ -1,185 +1,298 @@
-# Invoicing connected design preview, 2026-10-26
+# Facturación: design and behavior record
 
-## Scope and entry
+Status: **draft for the user's final review; not an approved checkpoint**.
+Updated: 26 October 2026. This consolidated guide replaces the chronological notes
+previously in this file. The current implementation takes precedence over those
+older descriptions, especially for partial draft saving and the expanded editor.
 
-Frontend-only first pass on `codex/frontend-design-after-home-20261024`, following the frozen Registros checkpoint `22aab17dd8f3258e4692f13aa002509b9fd85b73`. Open `/biz?view=invoicing` on the existing local server. Desktop navigation includes Facturación only in development with mock authentication. Phone verification uses the direct URL; the shared phone navigation remains unchanged.
+Code baseline: `22b12a6b74bbc66c5bf005b2f63318554861235a` on
+`codex/frontend-design-after-home-20261024`.
 
-No backend, provider activation, real issuance, email sending, hosted access, push or checkpoint handoff is included.
+- [Backend requirements and acceptance handoff](../handoffs/invoicing-design-checkpoint-20261026.md)
+- [Shared Business design rules](../../.agent/designs/cuadrao-business-app/DESIGN.md)
+- Local workspace: `http://127.0.0.1:4387/biz?view=invoicing`
+- Seeded workspace: `http://127.0.0.1:4387/biz?invoicePreview=seeded&view=invoicing`
 
-## Connected behavior
+## 1. What is real in this preview
 
-- Workspace uses Todas, Borradores, Por cobrar, Cobradas and Anuladas stage tabs. Counts follow the selected Business and page period. The overdue shortcut belongs inside Por cobrar. Tabs support arrow keys, Home and End, and link to their results panel. A true first-use empty state offers one Create invoice action. Filtered empty results offer clear filters.
-- Search matches customer name, invoice reference and notes in the local fixture set. Command-K focuses this search when no editor or dossier is open.
-- A compact filter-aware adjusted-total/collected/outstanding summary use issued invoices only, exclude drafts and uncertain issuance, and preserve separate currencies. Pagination changes displayed rows, not totals.
-- Date controls, currency filtering, customer/date sorting, density and numbered pagination use the established workspace patterns. Page sizes are 25, 50 and 100; relevant query changes reset the page.
-- Desktop rows open the connected dossier. Below the table container breakpoint the same records become a phone list with aligned amounts and explicit due-date text.
-- Draft editor opens in the shared right dossier while the workspace remains mounted. The normal editor has one column. The header expansion control reveals the live invoice preview beside it without remounting the draft. Expansion keeps the normal drawer-space claim, so the workspace is not squeezed to the expanded width. Phones use Editar and Vista previa inside the same full sheet. The editor retains customer entry, items, exact quantity/price/tax, currency, calendar dates, terms, customer-visible notes and payment instructions.
-- Shared inline validation checks required fields, valid date ordering, email format, positive total and bounded decimals. Save focuses the first invalid field. Closing an edited draft offers save/discard; reload warns about unsaved changes.
-- Save/reopen retains the same local invoice identity. Sample issuance is explicit and separate from delivery. Delivery preparation saves channel/recipient without claiming a message was sent or a public link exists.
-- Payments include amount, original currency, date, method and reference. Partial payments reduce the same invoice balance; they are not extra sales. Overpayment, currency mismatch, draft payment and repeated payment ID are rejected in the local model.
-- Uncertain issuance cannot be blindly repeated. A failed-delivery example offers review/preparation. Actual status recovery requires backend checks.
-- Customer HTML uses the selected Business name and saved identity image, customer details, invoice items, totals, due date and payment instructions. Issued invoices also show collected and outstanding amounts. Browser print/save-as-PDF is an alternative action, not a generated or hosted PDF service. Blocked popups show a message.
-- Concise local history shows saved/issued/prepared facts and linked payments. It does not invent actor identities or precise event timestamps.
+The interactions are implemented frontend behavior. Invoice, customer, payment,
+correction and schedule data are synthetic and session-local. They are scoped by
+selected Business and fixture variant in a module-level store. Closing and
+reopening the surface retains saved local records; reload or module replacement
+resets that store. No durable invoice/customer/payment/schedule API is connected.
+Existing Business context supplies the selected Business identity.
 
-## Reused components and patterns
+Fiscal status fixtures, payment calculations and correction reducers demonstrate
+states; they do not establish hosted issuance, delivery, collection or fiscal
+acceptance. A polished screen is not proof of those services.
 
-Actual reuse: `AdaptivePanel`, `FormField`/`useFieldChecks`, `SegmentedControl`, `ToolbarPicker`, `RecordsDatePreview`, pagination page-link helper, shared button/field classes, money formatting, `SavedIdentityMark`, sidebar navigation button. Dossier gradient and phone-sheet behavior come from the shared panel.
+## 2. Workspace and navigation
 
-Invoice-specific components include `InvoicingPreview`, `InvoiceEditor`, `InvoiceDossier`, `InvoiceDocument`, `InvoiceStageTabs`, `InvoiceCorrections`, `InvoiceDateField`, the local invoice model/reducer and scoped CSS. `InvoiceDateField` reuses the shared calendar. Existing RecordRow-specific table code is unchanged. The shared panel extension is opt-in. Existing consumers keep their width and controls; phone sheets do not receive a desktop expansion control.
+The surface heading aligns with Registros. Facturas, Clientes and Programadas use
+the shared workspace segmented control. Inside Facturas, an underline tab bar
+selects Todas, Borradores, Por cobrar, Cobradas or Anuladas. Fiscal processing,
+delivery and collection are separate facts, not interchangeable tab labels.
 
-## Preview truth and remaining frontend work
+The order in Facturas is:
 
-All invoice data is synthetic, scoped by selected Business and explicit fixture variant in memory. The default starts empty. Changes survive closing/reopening the local surface but reset on reload or module refresh. No invoice/customer/payment API is wired by this work. Existing Business context supplies the selected identity.
+1. Workspace switch and invoice-stage tabs.
+2. Search, period, filters, Crear factura and Ajustes.
+3. Financial cards, only in Todas when there are financial summary values.
+4. Invoice table or compact phone list.
+5. Pagination outside the table card.
 
-This is a connected first pass, not full Registros feature parity. Follow-up design/implementation includes named saved views, column configuration, URL restoration, request loading/failure skeletons, selection/export, phone navigation placement and guarding unsaved edits when navigating through the shared sidebar. Dates now reuse the shared calendar and DD/MM/YYYY entry. Customer document currently reuses Business name/image, not every profile contact/legal field. Printed output and actual PDF generation still need dedicated verification. Do not describe these as completed features.
+A row opens its dossier without replacing the list. Creation opens the expanded
+editor dossier immediately. Expanding/collapsing preserves the same draft.
 
-## Backend dependencies for a later authorized checkpoint
+### Scope that a screenshot does not reveal
 
-1. One authoritative Business-scoped customer/invoice/item model, durable draft persistence, version checks for concurrent editing and idempotent commands. Basic customer identity must not become name-based matching.
-2. Issuer readiness, fiscal numbering, applicable tax rules and fiscal acceptance are server-owned. Uncertain issuance needs reliable reconciliation before retry. Do not infer sent, viewed or paid from issuance.
-3. Delivery needs actual email outcomes and secure customer links with explicit access, expiry/revocation and public-document rules. A recipient preview must not expose internal notes or broader Business data. PDF generation/versioning and legal issuer details need their own contract.
-4. Payments require durable allocations linked to the invoice, exact amounts, original currency, idempotency and concurrency protection. The local correction model does not establish backend correction or refund policy. Instructions are not payment processing.
-5. Rows, counts, totals, pagination and eventual exports must share one authorized query definition. Totals exclude unconfirmed issuance and never sum currencies. Direct numbered navigation, deterministic ordering and changing-data recovery follow the agreed Registros contract.
-6. Activity needs real actor/event timestamps and links, not UI-created audit claims. Issued-document branding/legal identity must have an explicit snapshot policy.
-7. Acceptance: create/save/reload same draft; reject invalid data; issue once; recover uncertain response safely; prepare/send without conflating statuses; payment40 on invoice100 leaves60; payment60 leaves0; repeated request does not duplicate allocation; reject unauthorized Business access; preserve mixed-currency meaning; independently verify hosted recipient access and PDF output.
-
-Do not send this document as a checkpoint until the user authorizes that checkpoint. Coordinate the eventual contract with the existing customer/invoice/payment-allocation milestone rather than adding parallel persistence.
-
-## Verification
-
-- 30 focused tests pass across `invoicing-preview.test.ts`, `invoicing-panel.dom.test.tsx` and `business-date-picker.dom.test.tsx`. They cover save/issue/preparation/40+60 payments, exact arithmetic, correction outcomes, retry/idempotency, original evidence preservation, fiscal types/states, shared-panel compatibility and date validation accessibility.
-- Focused ESLint and `git diff --check` pass.
-- Current browser checks on the existing server covered desktop at 1440px and phone at 389px, light/dark appearances and EN/ES copy. Verified cold-start artwork, expansion without losing draft fields, phone editor/preview switching without horizontal overflow, save/issue, partial and final payments, confirmed cancellation and failed-correction retry without changing the original balance. Required date validation retains its accessible error after invalid text is cleared.
-- Full workspace TypeScript is not clean: pre-existing errors include `foundation/home-greeting.ts` timer typing and `transacciones/RecordsResultsSummary.tsx` nullable string, plus unrelated test declarations. No new invoice-file errors appeared in the filtered check. No full-build or hosted acceptance claim.
-- Current evidence outside Git: `/private/tmp/invoicing-cold-start-desktop-es.png`, `/private/tmp/invoicing-cold-start-desktop-light.png`, `/private/tmp/invoicing-cold-start-phone-light.png`, `/private/tmp/invoicing-cold-start-phone-dark.png`.
-
-## Fiscal and correction first pass
-
-E32 is the default document type. E31 requires a customer RNC or identity number in the editor. The local check validates 9 or 11 digits only; it does not establish registry identity or legal eligibility. Tax entry remains illustrative.
-
-Fiscal state is separate from invoice issuance, delivery and payment. The local model names processing, accepted, accepted with observations, rejected, failed and uncertain outcomes. Sample issuance enters processing. Repeating issuance on an issued or uncertain invoice does nothing. No timer fabricates an accepted result.
-
-The dossier reserves a section for official XML, official PDF and fiscal verification. They are unavailable in this frontend preview. The printable customer HTML is separate and does not become an official fiscal PDF. Issuing readiness is unknown and links to the existing Business details settings. It does not introduce a setup form in Facturación.
-
-Each correction keeps its ID, kind, reason, exact amount and numbered attempt history. E34 full cancellation and partial credit are distinct from E33 debit adjustments. Preparing a request leaves it pending locally. Failed requests retain their fields and can retry with the same correction ID and a new attempt number. Stale or duplicate resolutions cannot apply a second adjustment. Only a confirmed full cancellation enters Anuladas. A full cancellation uses the remaining creditable total, not the unpaid balance. A partial credit equal to the total remains credited, not void; without payments it appears under Todas, not Cobradas.
-
-Original items, total, issuance, delivery and payment evidence remain intact. Confirmed credits reduce the current balance; confirmed debits increase it. A credit exceeding the unpaid amount creates an explicit customer credit balance. It does not infer a refund or erase a payment. Pending and failed outcomes cannot change balances. Only one correction may be pending per invoice.
-
-Backend work must supply authoritative fiscal outcomes, correction eligibility, reference relationships, idempotency keys, invoice versions and concurrency handling. It must also define readiness/certificate checks, numbering, tax rules, official evidence availability and delivery ownership. Re-preparing or re-sending must reuse the existing invoice ID. No requests or official asset URLs are invented here.
-
-## Deterministic review fixtures
-
-Open `/biz?view=invoicing` for the default empty workspace. Add `&invoicePreview=seeded` for the preserved sample records. Each explicit variant has separate local session state; closing and reopening the same Business and variant retains its records. Reload resets the preview. There are no product-facing fixture controls.
-
-The following variants modify invoice M-002 only:
-
-| `invoicePreview` value | State |
+| Element | Current local scope |
 | --- | --- |
-| `correction-pending` | Full cancellation awaits confirmation; original balance remains |
-| `correction-failed` | Full cancellation failed; retry retains its ID |
-| `correction-confirmed` | Full cancellation is confirmed and appears in Anuladas |
-| `partial-confirmed` | Confirmed partial credit reduces the balance without voiding |
-| `credit-balance` | Payment plus confirmed credit leaves a customer credit balance |
-| `debit-confirmed` | Confirmed debit raises the current total and balance |
-| `fiscal-processing` | Processing |
-| `fiscal-accepted` | Accepted |
-| `fiscal-observations` | Accepted with observations |
-| `fiscal-rejected` | Rejected |
-| `fiscal-failed` | Failed |
-| `fiscal-uncertain` | Uncertain |
+| Stage-tab counts | Selected Business and page period; not narrowed by search or currency |
+| Rows and result count | Period, selected stage, search, currency and overdue shortcut |
+| Financial cards | Same filtered result set, across all its pages; eligible issued invoices only |
+| Pagination | Slices local results; does not change the financial total |
+| Customers and schedules | Selected Business and local fixture session |
 
-Outcome resolution is exposed only to reducer tests and these deterministic fixtures. The customer-facing correction form cannot confirm or fail its own request.
+Search matches customer name, invoice reference and invoice notes. Command-K
+focuses this surface's search when an editor/dossier is not open. It does not
+search every field or remote records. Currency lives inside Filtros; overdue is a
+removable shortcut in the collection view. The period control reuses the custom
+calendar, including an unbounded local Todo selection.
 
-## Current verification limits
+Ajustes offers row density and sorting. Customer and issue-date headers also sort.
+It is not the full Registros column picker, saved-view manager or export menu.
+There is no mixed-currency amount sort.
 
-The final focused suite has 30 passing tests. Focused ESLint and `git diff --check` also passed. An independent read-only review identified competing date-field accessibility updates; optional invalid/description props now give the shared DatePicker one owner for those attributes. A regression test failed before the fix and passes afterward. The reviewer confirmed the fix and reported no further findings. A filtered TypeScript check found no invoice-component or shared-panel errors. The repository-wide check still fails on existing timer/nullability errors and test declarations. The DOM environment cannot parse CSS `min()` widths; live desktop/phone review verified the actual layout. Expansion is immediate and does not animate layout properties. No backend or hosted acceptance is claimed.
+## 3. Financial cards and table
 
-## Cold-start illustration
+Todas shows Facturado, Cobrado and Por cobrar below the controls. Other stage tabs
+hide the cards. These are summaries, not stage selectors or clickable drilldowns.
+Search and filters update them; changing the page does not.
 
-Asset: `web/public/images/invoicing/first-invoice.png`. Generated with the built-in image-generation tool using the existing confirmation envelope and notification bell as style references. The transparent image replaces the simple outlined paper illustration and is decorative, with no paid or accepted marker.
+They reuse the compact Registros card family: rounded neutral/sage/cream surfaces,
+neutral text, an icon, short label, prominent amount and dark-theme equivalents.
+Each card shows at most two currencies, in the same order across the three cards.
+Currencies are never added together. Above two, one shared breakdown action opens
+the existing dossier, with all currencies grouped separately and the three
+amounts inside each group. This action does not apply a currency filter. Closing
+returns focus to its trigger. Privacy masking applies to amounts.
 
-Prompt used:
+Facturado currently means original issued total plus confirmed debit adjustments
+minus confirmed credits. Cobrado is allocated payments. Por cobrar is the
+remaining balance. Drafts and uncertain issuance do not become confirmed money.
+The model counts exclusions, but this component does not yet expose their
+explanation. That integration gap is explicitly carried in the handoff.
 
-> Create one new invoice illustration for Cuadrao's empty invoicing screen, matching these two reference illustrations as a cohesive asset family. References are style guides only, not subjects to duplicate. A single upright cream invoice sheet with a softly folded corner, slight three-quarter tilt, softly rounded silhouette, a few deep forest-green abstract item lines and a separated total line, subtle sage-green thickness/shading and one small lime accent tab. Sculpted matte paper, gentle 3D volume and fine soft texture like the bell and envelope. Quiet, polished, friendly, legible at 150px. No letters, numbers, currency symbols, checkmark, paid stamp, logos, surrounding objects, glow cloud, or background card. Centered composition with modest breathing room, fully transparent alpha background. This is decorative blank invoice artwork, not proof of payment or acceptance. Save the resulting asset and return its local path.
+A known empty filtered set for a selected currency can show 0/0/0 in that currency.
+This must never stand in for loading, an unavailable amount or a failed request.
+With no summary currencies otherwise, the summary is absent.
 
-## Customers local preview
+The desktop invoice table separates Moneda from numeric Total and Por cobrar.
+One currency cell applies to both amounts in that row; numbers are right-aligned
+with tabular figures. Currency display follows Registros, while future exports
+must carry the currency code. Dates are explicit. Missing or inapplicable values
+use a dash; unknown issuance balance is not a fabricated zero.
 
-Facturación now contains Facturas and Clientes inside the existing invoice workspace. Clientes has a searchable active/archived list and a customer dossier with add, edit, archive and restore. Archiving requires a quiet confirmation. Restoring uses the same customer ID. The dossier reuses the shared desktop gradient, full phone sheet, identity initials, form validation and button styles. Its save action sits after a divider and uses the requested full-width 8px corners.
+Phone uses compact identity/value/state rows rather than a shrunken desktop table.
+Amounts keep their currency context and due dates retain a descriptive label.
 
-A separate customer registry stores ID, name, email, address, tax ID and active/archived status. It shares the existing Business-and-fixture-scoped session with invoices. Fixture snapshots seed the registry once. Later invoice changes never rebuild it. A customer can exist before their first invoice. Customer edits and archive/restore do not rewrite invoice snapshots.
+Pagination now matches Registros: count on the left, `25 por página` in the center,
+first/previous, a bounded page-number range, next/last on the right. Sizes are
+25/50/100. Query changes reset the page; density does not. This is local slicing,
+not proof of server-side pagination or counts.
 
-The invoice editor always offers a searchable customer picker, including the empty state. Only active customers appear for a new selection. Adding a customer opens the same customer form inside the invoice drawer, preserves the draft, saves a stable customer ID and selects its snapshot on return. Desktop picker search receives focus after opening. Phone search waits for the user to choose the field. Existing drafts keep their saved customer identity even after that customer is archived. Invoice-specific detail edits change only that snapshot. Invoice save now requires a selected or newly created customer ID.
+## 4. Empty states and setup
 
-Customer activity joins invoices by customer ID, never by name. It lists linked drafts and issued/uncertain invoices but calculates financial totals only from issued invoices. Each currency has its own heading and totals. Confirmed adjustments and recorded payments use the existing settlement model. Credit balances have an explicit customer-credit label; they do not imply a refund. Payment history links back to the invoice and uses the recorded date, method and reference. All amounts reuse the shared masking class and formatter. Customer and invoice dossiers replace each other when opening linked activity. Editing holds the workspace switch until the current form closes; customer source actions are held while its dossier is open to preserve unsaved fields.
+The first-use Todas state shows three setup cards above the invoice artwork:
+Business details, customer creation and first invoice. Each opens the relevant
+existing setting or workflow. The first saved local draft replaces this cold start
+with the working list. Filters with no matches show a clear-filter recovery, not
+an invitation to set up the Business again.
 
-The change remains a synthetic local preview. Closing and reopening the same Business/fixture retains the registry during the session. Reload or module refresh clears it. No customer API, persistence, authorization, real fiscal identity check or hosted data was added. Backend work must provide a Business-scoped customer registry, stable IDs, archive/restore rules, durable versions and an explicit invoice-snapshot policy. It must also decide how archived customers may be used when issuing existing drafts. Local email and tax-ID format validation does not verify identity or fiscal eligibility.
+Setup progress is an approved requirement, not connected persistence: checkmarks
+must derive from valid saved facts automatically. Visiting a card is not completion.
+Automatic progress tracking does not mean every form silently autosaves. See the
+handoff for the exact backend requirement.
 
-Verification for this addition: 37 focused tests pass across customer model/DOM, invoice model/panel and date-picker files. Seven new tests cover independent customer creation, edit/archive/restore, immutable invoice snapshots, stable-ID activity, issued-only mixed-currency totals and credit, picker search, one-panel inline creation with draft preservation on desktop/phone, archived picker exclusion, keyboard search, and Business/fixture isolation. Focused ESLint and `git diff --check` pass. Repository-wide TypeScript remains blocked by existing application errors in `home-greeting.ts` and `RecordsResultsSummary.tsx`, plus shared test declaration errors. The new DOM test inherits that existing `bun:test` hook declaration issue. There are no TypeScript diagnostics in the invoice/customer component or model files.
+Other empty stages have contextual invoice artwork and copy; Clientes uses the
+customer illustration and Programadas the calendar illustration. There is no bell
+artwork borrowed from notifications. Art is decorative and never implies approval.
 
-Live Spanish/light browser checks on the existing local server covered desktop and a 390px phone viewport: empty list, required-name validation, add, archive confirmation, restore, searchable invoice selection, inline creation preserving an entered invoice item and price, linked draft navigation, and customer edits preserving the saved invoice snapshot. The phone picker uses the shared sheet without opening the keyboard automatically; no horizontal overflow was observed. Independent review caught Enter submitting the surrounding invoice form and a discard warning remaining after customer save. Both have failing-before/passing-after regression coverage; desktop Enter also passed a live check. These checks prove the local preview only, not backend or hosted acceptance.
+## 5. Invoice creation: one draft, four steps
 
-## Customers, schedules and contextual empty states
+Desktop opens a wide dossier with the current form on the left, a vertical divider,
+and a longer live invoice on the right. The footer remains anchored. Long content
+may scroll; the editor does not present all four sections as one long form.
+Phone uses the same draft in the full sheet with Editar/Vista previa.
 
-Clientes now uses a desktop table. The identity cell shows the saved name and email or tax ID. Last activity includes the available event kind and explicit date; last issued invoice and last recorded payment have separate cells. Next planned draft links from the customer dossier to its active schedule. Creation date is hidden by default and available in the table settings checkbox. Known creation dates survive edits; seeded customers with no known creation date show a dash. Phone uses compact identity rows and keeps activity and the next planned date accessible in the dossier. No business/person association is inferred from a name.
+### Step 1: ¿Para quién es esta factura?
 
-Programadas sits alongside Facturas and Clientes. A schedule chooses an active customer through the shared picker and copies an existing valid invoice draft's items, tax, currency and terms. Its copy remains separate from later source edits. The form supports a name, start date, weekly/monthly/yearly recurrence, save/edit and pause/resume. Month-end and leap-year occurrences clamp to the last valid day while retaining the original anchor for later occurrences. The next planned date is derived from that anchor and today, not from a fabricated execution event. Paused schedules remain accessible; archived customers retain their schedules but cannot be selected for new schedules or resume a paused one. Inline customer creation preserves the schedule, including when the user discards an unfinished customer.
+The first customer-name field is both the existing-customer picker and the entry
+point for a new customer. It is not duplicated after selection. Cold start shows
+that field and its information notice only. Selecting a customer fills the remaining
+fields; adding one reveals those fields in place. The notice disappears once its
+purpose is satisfied. Changing customer does not discard item or terms work.
 
-Creating a draft is the default and only enabled schedule mode in this preview. Automatic issuance and delivery is a visible, disabled choice explaining the missing issuer, permission and delivery checks. This is a session-only schedule definition. Nothing runs, issues or sends automatically, and reload clears it. No manual execution, timer, durable queue or network call was added. A Business/fixture switch isolates each local schedule registry.
+Email, tax identification and address use shared labels, placeholders, blur/error
+feedback and reserved validation space. Customer limits are name 120, email 254,
+address 240 and tax ID 120 characters. Domestic numeric IDs require 9 or 11 digits,
+excluding an all-zero value; spaces and hyphens are accepted for formatting. This
+is format validation, not registry verification. E31 requires domestic identification.
+In the document, identification is labeled `RNC:` or `CED:` with a colon.
 
-Empty states distinguish the first invoice from an empty invoice stage after other invoices exist, and from a search/date/currency filter with no results. Only first use has the create-first-invoice CTA; filtered zero offers clearing filters. Empty active schedules with paused entries offer View paused, rather than repeating first-use onboarding. The contextual artwork uses the established visual family: `web/public/images/invoicing/first-invoice.png`, `schedule-calendar.png` and `customer-directory.png`. The latter two were generated with the built-in image tool for this addition; they do not represent execution or fiscal acceptance.
+The document type belongs to the invoice's terms, not the customer's metadata.
+Saving a valid new customer can populate the local customer registry. Saving an
+incomplete invoice draft must not create an invalid customer record.
 
-Invoice desktop money columns now form one group: Moneda | Total | Por cobrar. Moneda displays the shared currency symbol; both money columns contain numeric values only, aligned right with tabular figures. Phone retains the currency with the amount because it has no column header. No conversion or mixed-currency amount sorting was introduced.
+### Step 2: Detalles / Details
 
-### Backend dependencies and future hosted acceptance
+Currency sits beside the heading. Each product has Description, a compact Quantity,
+Price and its own delete action. Tax and fixed line discount sit below. Adding a
+product collapses the prior item into a readable summary and expands the new one.
+Clicking that summary reopens it. Validation opens the affected item instead of
+hiding its error. At least one item remains; the local maximum is 50.
 
-- Persist Business-scoped customers and schedules with stable IDs, versions, authorization and a deliberate policy for invoice/customer snapshots. Supply actual creation, activity, invoice and payment timestamps; an unknown timestamp must stay unknown.
-- Define the schedule timezone, due-time, day anchor, pause/resume and missed-occurrence policy. A planned date does not prove a draft was generated. Identify the source template version and preserve its intended terms.
-- Execute each occurrence once with an idempotent schedule/occurrence identity. Concurrent edits need version checks; retries must not duplicate a draft, fiscal issuance or delivery. Archived customers and revoked permissions must block execution under explicit rules.
-- Default execution to draft creation. Automatic issuance requires explicit opt-in plus verified issuer configuration, certificate, fiscal requirements, permissions and a single delivery owner. Recheck gates at execution. Separate generation, fiscal processing and delivery outcomes, including failed and uncertain states.
-- Provide filtered customer and schedule queries/counts before scaling beyond local fixtures. The preview's last-activity data uses known local customer changes and invoice/payment dates, not a full audit feed.
-- Hosted acceptance must prove save/reload, Business isolation, archive/history preservation, month-end and leap recurrence, timezone changes, pause/resume, concurrent edits, duplicate retries, readiness revocation, and failed/uncertain issuance or delivery without duplicate documents. Those checks remain unperformed in this design lane.
+Description is bounded to 160 characters. Numeric entry rejects invalid formats,
+uses decimal precision limits and formats valid money on blur. The common money
+parser accepts up to seven integer digits and two fractional digits; individual
+quantity/tax controls have tighter bounds. Discounts cannot exceed that line's
+quantity times price. Each discount reduces its line before tax. Exact scaled
+arithmetic drives the form, document and summary, but fiscal tax/rounding acceptance
+still requires backend verification.
 
-Focused regression coverage adds schedule anchoring, next-date selection, save/edit/pause identity, draft-only gating, archived customer validation, customer creation metadata, empty-state distinctions, nested customer discard, local schedule search and the desktop/phone currency presentation. Final local verification: 30 focused model and DOM tests pass across invoice panel/model, customer model/DOM and schedule model coverage. Scoped ESLint and git diff --check pass. Desktop and phone browser checks on the existing server cover the shared currency column, numeric-only desktop amounts, currency-bearing phone amounts, contextual empty artwork, schedule save and pause/resume. Independent review also caught a schedule unit price bypassing privacy masking and customer-specific schedule discard copy; both are fixed with regression coverage. These checks establish local preview behavior only; backend persistence, execution and hosted acceptance remain outstanding.
+Customer-visible invoice notes are separate from email text and use the shared
+500-character counter. The action reads Añadir producto, not Añadir concepto.
 
+### Step 3: Condiciones
 
-## Cold-start setup progress: held backend requirement
+Invoice document type, issue date, due date and payment instructions live here.
+Issue and due dates are side by side on desktop. The custom calendar allows typed
+dates and inline validation, without a browser-native calendar layered on top.
+Due-date shortcuts are Today, +7 days, +15 days and +1 month, relative to today.
+The month shortcut clamps to the last valid day. Issue-date shortcuts are Today
+and Yesterday.
+Dates must be valid and ordered. Payment instructions are bounded to 500 characters.
+Provider numbering and actual fiscal eligibility remain server responsibilities.
 
-The three setup cards in Facturas > Todas open Business details, customer creation and invoice creation. The current frontend provides these shortcuts; durable completion tracking is not wired.
+### Step 4: Review and email preparation
 
-At the next approved checkpoint, the orchestrator must wire progress to saved, Business-scoped facts:
+A clear review heading leads into To, optional Cc and Message. Quiet links return
+to Customer, Details or Terms without losing the draft. The right preview uses a
+real Factura/Correo tab bar with keyboard navigation, not a segmented control.
 
-- Business details completes when the required profile details are saved and valid. Reconcile the exact fields with the Business profile contract. This is separate from fiscal issuer readiness.
-- Customer completes when at least one customer has been saved.
-- First invoice completes when at least one invoice draft has been saved.
+To starts from the customer snapshot. Cc accepts up to five comma- or
+semicolon-separated valid addresses. Message is limited to 500 characters and is
+separate from the note printed on the invoice. Email preview updates from the same
+draft. Its illustrated PDF tile is not an actual generated attachment.
 
-Opening a destination, typing unsaved values or attempting a failed save must not complete a step. The frontend replaces the card icon with a checkmark when completion is confirmed and keeps the shortcut usable. Progress updates automatically from the underlying data; there is no separate Save progress or Mark complete action. This does not introduce form autosave: forms retain their existing save behavior, and any future autosave needs its own contract.
+The current primary action saves email preparation locally. It does not issue,
+send or mark delivery successful. The UI states that boundary. Do not describe it
+as the reference screenshot's working Send button.
 
-The backend owns these completion facts and applies authorization and Business isolation. Progress must survive reload and new sessions, and reflect the selected Business rather than a local visited-card flag. Loading or failed retrieval must not fabricate completion or incompletion. Existing valid data must count without requiring users to repeat setup. Setup cards must not become a new gate that prevents draft creation.
+### Actions and document details
 
-The current cold-start cards disappear once an invoice exists. Preserve that transition when the first draft is saved; do not keep the checklist in the populated workspace merely to display its final checkmark.
+- Next validates only the current step; Back retains all inputs.
+- Save draft allows incomplete data, including incomplete email preparation.
+  Issuance and preparation have their own validation gates.
+- The primary action uses the collaborator-invite button shape. Quiet Save draft
+  and Back actions avoid a second competing primary action or redundant Cancel.
+- Closing a changed draft offers save/discard. Reload warns about unsaved work,
+  but it does not make the session store durable.
+- The preview updates as the form changes. Its customer/date regions have a middle
+  divider and a horizontal divider before products. Footer branding is localized.
+- Rounded corner brackets frame the active document section without covering text.
+  They squeeze gently three times on section entry and respect reduced motion.
+  They are editing aids, absent from saved/printed output.
+- Copy refresh support does not amount to recovery across every code hot reload.
 
-Hosted acceptance remains required: visiting without saving leaves progress unchanged; successful valid saves update the relevant step; failed or invalid saves do not; existing saved data restores progress after reload and a new session; switching Businesses shows only that Business's progress; revoked access exposes no protected data; failed progress retrieval has an honest recovery state; saving the first draft transitions to the populated invoice view.
+## 6. Existing invoice dossier
 
-Delivery hold: append this requirement to the eventual checkpoint handoff. Do not send it to the orchestrator before the user's explicit checkpoint clearance. No backend implementation or hosted verification is claimed here.
+The dossier keeps the invoice, customer snapshot, payment allocations, corrections,
+delivery preparation and local history connected. Browser print/customer HTML is
+available separately from official fiscal files. Blocked popups are handled.
+Official XML, official PDF and verification slots remain unavailable in this preview.
 
+The local payment model supports basic partial payments: 40 against 100 leaves 60;
+60 more leaves 0. Wrong currency, overpayment, draft payment and duplicate payment
+IDs are rejected. These actions record illustrative allocations, not bank transfers.
 
-## Expanded invoice step editor
+Issuance, fiscal processing, delivery and settlement remain separate. Sample
+issuance enters processing; there is no timer that declares fiscal acceptance.
+Uncertain issuance cannot simply be issued again. Local history is not a durable
+actor-attributed audit log.
 
-Invoice creation now opens the existing dossier expanded by default. Desktop shows the current form section on the left and the live invoice on the right. The steps are Cliente, Conceptos, Condiciones and Revisar. Next validates the current section, Back preserves edits, and the review step links back to each section. Save draft retains the existing whole-draft validity requirement and routes to the first section needing attention. Draft saving remains session-local.
+Corrections preserve the original invoice. Full cancellation and partial credit
+use distinct paths from debit adjustment. Requests remain pending until an outcome
+is resolved; failed requests preserve their data and allow a new attempt. Duplicate
+or stale resolution cannot apply the same adjustment twice. Only confirmed full
+cancellation enters Anuladas. A full-value partial credit is not automatically a
+cancellation. Payments remain linked and a customer credit is not an automatic refund.
+These are local model behaviors, not provider calls.
 
-The preview marks the active customer, items, or terms area; review marks the whole document. These markers are editing aids and do not appear on a saved document or in print. On phone, the full-height sheet uses the shared Edit/Preview control and keeps the same draft and step. Long item lists and short viewports can still scroll within the sheet. Nested customer creation keeps the existing discard protection.
+## 7. Clientes and Programadas
 
-Local verification: 25 focused tests passed; scoped ESLint and diff checks passed. Browser checks on the existing server covered desktop expanded layout, current-step validation, live rendering, Back preservation, save-draft transition, and phone Edit/Preview preservation and reachable footer actions. Repository-wide TypeScript checking is blocked by existing test typing errors; no invoice editor or document diagnostics were reported. No backend, hosted acceptance, push or checkpoint handoff occurred.
+Clientes is a desktop table, not a gallery of contact cards. It shows identity,
+last activity, last invoice, last payment and next planned draft. Creation date is
+available in settings and hidden by default. Search, active/archive access and the
+customer dossier support add, edit, archive confirmation and restore locally.
+Customer edits do not rewrite invoice snapshots. Archived customers remain in
+history but are excluded from new-customer selection. Customer links use IDs, not
+name matching. A company/person relationship is not inferred from similar names.
 
+Programadas creates a separate template copy from a saved draft, tied to an active
+customer. Weekly, monthly and yearly schedules preserve month-end/leap-year
+anchors. Users can edit, pause and resume. Planned dates are not claims that a run
+occurred. Creating a draft is the default mode. Automatic issuance is visibly
+unavailable until real readiness exists and must eventually require explicit opt-in.
+No worker, timer, billing charge or hosted recurring execution is connected.
 
-## Item discounts and invoice/email review
+## 8. Reuse and remaining frontend gaps
 
-The expanded editor keeps Cliente, Conceptos, Condiciones and Revisar. Conceptos now supports an optional fixed discount on each item, labeled in the invoice currency. Blank means zero. The discount cannot exceed quantity multiplied by unit price. The shared model rounds each line in exact hundredths, subtracts the discount before calculating that line's tax, and derives the item, invoice, email and workspace amounts from the same draft. Invoice preview shows a discount total only when one exists. This is a line discount, not a percentage or a separately allocated invoice-wide discount.
+Reuse includes AdaptivePanel, FormField/useFieldChecks, custom calendars,
+SegmentedControl for workspace switching, ToolbarPicker, shared button classes,
+identity marks, money formatting, the Records summary card styles and pagination
+page-link helpers. The theme-aware dossier gradient stays in the shared panel.
 
-Revisar adds To, optional Cc and a 500-character email message. The To field starts from the invoice's customer snapshot. Cc accepts up to five comma- or semicolon-separated addresses. These inputs use shared nonempty blur validation and clear an error when repaired. The message is separate from the note printed on the invoice. Factura/Correo switches the right-hand preview; the phone keeps Edit/Preview and shows the same review switch inside Preview. The email preview derives its customer, reference, currency, amount and due date from the current invoice. Its PDF tile illustrates the intended attachment; it does not provide a generated or official file.
+This surface does not yet implement full Registros parity: saved views, column
+configuration, selection/export, URL-based query restoration, request loading/error
+skeletons and all sidebar-navigation unsaved-edit guards remain separate work.
+Do not infer these from visual similarity. Customer HTML does not yet incorporate
+every saved Business legal/contact field. Generated/printed output requires its own
+verification before hosted acceptance.
 
-Save draft preserves unfinished email preparation without requiring a valid delivery address. Save preparation checks the address fields and saves the same local draft with its email configuration. It does not issue, deliver, mark sent or change fiscal status. The action boundary states this limitation. Existing draft-validity requirements still apply. Back, editing a previous section and reopening a saved draft retain the item discount, invoice note and email inputs. All local state remains isolated to the existing Business/fixture session and clears on reload.
+## 9. Reproducible local review
 
-Future backend work must reconcile line discounts and tax rounding with the fiscal document contract before real issuance. Email preparation needs durable, authorized draft storage, separate delivery state and a single delivery owner. Actual PDF/XML generation, official assets, sending, retries and hosted acceptance remain outside this change. No email or fiscal request was added. Hold these requirements for the approved checkpoint handoff.
+Keep the existing server. Omit `invoicePreview` for a cold start; use `seeded` for
+the four-record example. The query parameter selects synthetic state, not a provider
+or live account. Other explicit values exercise `correction-pending`,
+`correction-failed`, `correction-confirmed`, `partial-confirmed`, `credit-balance`,
+`debit-confirmed`, and fiscal `processing`, `accepted`, `observations`, `rejected`,
+`failed`, `uncertain` prefixed with `fiscal-`. Fixture dates move with the local day.
 
-Local verification: 41 focused model and DOM tests passed across invoice, customer, schedule, summary and panel coverage. New tests cover exact discount math and invalid bounds, email validation, draft save with unfinished email, reopening without lost input, separate invoice notes/email message, and unchanged issuance/delivery/fiscal states. Scoped ESLint and git diff --check pass. Browser review on the existing port 4387 covered the expanded desktop editor and a 390px phone viewport with no horizontal overflow. A synthetic item (quantity 2, price 100, discount 10, tax 18%) rendered 224.20; an excessive discount blocked Next. Invalid recipient email showed inline feedback and cleared on repair. Back, phone Edit/Preview, Factura/Correo, and save/reopen preserved the item and email preparation. The saved record remained Borrador, sin emitir and Sin enviar. These are local preview checks, not hosted issuance or delivery proof.
+Useful review actions beyond screenshots: open a row; save/reopen an incomplete
+draft; use the customer picker with arrows/Enter/Escape; add a second item and reopen
+the collapsed first one; paste invalid money; switch the review's invoice/email
+tabs with arrow keys; close a changed draft; archive/restore a customer; pause a
+schedule; change page size; select a currency with no matching invoices.
+
+Source map: `InvoicingPreview` owns workspace state and query scope; `InvoiceEditor`
+owns the step flow; `InvoiceDocument` and `InvoiceEmailPreview` render the same
+snapshot; `InvoiceDossier` and `InvoiceCorrections` expose record actions;
+`InvoiceResultsSummary` and `invoice-results-summary` own the metric presentation
+and aggregation. Customer and schedule components use their respective local models.
+All are under `web/components/business-app/invoicing/`.
+
+## 10. Evidence and review boundary
+
+This document was reconciled against the code baseline above. The prior local
+sweep at `d172de300` recorded desktop/phone, EN/ES and light/dark checks and partial
+draft recovery. The subsequent `22b12a6b7` change aligned pagination and received a
+focused desktop check. Those are dated local checks, not a fresh complete browser
+sweep at this documentation revision.
+
+Repository-wide TypeScript was previously not clean because of unrelated test and
+Records typing issues. No clean full build, hosted verification, fiscal activation,
+production issuing or delivery acceptance is claimed. Fresh focused test results
+for this review are recorded in the handoff. User review is still required before
+sending anything to the orchestrator.

@@ -1337,3 +1337,48 @@ For invoice tables, group Moneda | Total | Por cobrar. Currency appears once in
 its own column and both amounts align right with tabular figures. On phone,
 retain currency beside each amount since there is no shared column header.
 Keep filtering currency separate from changing display or converting values.
+
+
+### Invoicing editor and workspace contract, 26 October 2026
+
+Use the [current behavior guide](../../../docs/reports/invoicing-preview-20261026.md)
+for the complete implemented interaction inventory and preview limitations. The
+[review-draft handoff](../../../docs/handoffs/invoicing-design-checkpoint-20261026.md)
+owns outstanding wiring and acceptance requirements; it is not checkpoint clearance.
+
+Facturación has its own identity: workspace segments for Facturas, Clientes and
+Programadas, then underline stage tabs inside Facturas. Do not reproduce the large
+Records overview cards. Financial metric cards appear only in Todas, below the
+controls, and follow the filtered results across pages. They are read-only and use
+the compact Records card family. Preserve two currency rows plus a single overflow
+dossier action. Do not introduce another currency filter. Moneda gives the currency
+context for both Total and Por cobrar in the desktop table.
+
+Before the first invoice, three setup cards sit above the contextual invoice art.
+Their actions open existing flows. A completion check must derive from valid saved
+facts, never from a click or visit. This progress contract still needs backend
+connection; the illustration and polished cards do not establish readiness.
+
+Creation opens the dossier expanded, with a left step form and right live document
+separated by a vertical hairline. Use Customer, Details, Terms and Review. The name
+picker remains the one name field, whether selecting or adding a customer. Hide
+unneeded fields at cold start and remove the autofill notice after it has served
+its purpose. Invoice type belongs to Terms, not the customer's identity.
+
+Only one item editor is expanded at a time. Its collapsed summary remains one click
+away; invalid fields reopen the affected item. Quantity stays compact and delete
+has its own aligned target. The footer stays anchored. Next is the single primary
+step action; Save draft and Back are quiet. Save draft accepts unfinished work.
+Review has one primary preparation action near the email fields and quiet section
+edit links. Use the collaborator-invite primary button shape, not extra pill CTAs.
+
+The final document/email preview uses an underline tab bar. Live section markers
+are rounded corner brackets, inset clear of content, with three subtle squeezes on
+section entry and a reduced-motion alternative. Never put editing markers in saved
+or printed output. The document's customer/date split, products divider and localized
+branding footer preserve a clear reading order.
+
+Pagination sits outside the table card: result count left, page-size picker centered,
+and bounded page navigation right. Match Registros spacing, labels and focus targets.
+These shared patterns do not imply all Records features are already implemented in
+Facturación. Saved views, exports and request recovery need their own contracts.
