@@ -50,7 +50,8 @@ import { businessWorkspaceCurrency } from "@/lib/business-api";
 import { dismissToast, showToast, useToasts } from "./foundation/toasts";
 import { EmptyState } from "./foundation/EmptyState";
 import { resolveLanguage } from "@/lib/language-features";
-import { refusedForGood } from "@/lib/failure-screen";
+import { referenceCode, refusedForGood } from "@/lib/failure-screen";
+import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { setCurrencyView, useCurrencyView } from "@/lib/business-currency-view";
 import { currencySymbol } from "@/lib/money-entry";
 import { MonthCurrencyMenu } from "./MonthCurrencyMenu";
@@ -62,6 +63,9 @@ const monthArrowClass =
 
 /** Rows each money card shows before "Ver las N". */
 const MONEY_ROWS = 4;
+/** The reference a failed read shows: the API error's request id when the client wrapped it, else a generated one. */
+const readReference = (error: unknown) => referenceCode(error instanceof MonthCloseError && error.cause ? error.cause : error);
+
 /** Home's cards preview a short list; the reveal opens the rest in place. */
 const HOME_MONEY_ROWS = 3;
 
@@ -413,6 +417,7 @@ function BusinessMonthCloseContent({
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
   // With an error: the server refused on purpose, so the error offers no Reintentar.
   const [refused, setRefused] = useState(false);
+  const [reference, setReference] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const [fiscalOpen, setFiscalOpen] = useState(false);
@@ -423,6 +428,7 @@ function BusinessMonthCloseContent({
   const [openItems, setOpenItems] = useState<OpenItems | null>(null);
   const [openPhase, setOpenPhase] = useState<"loading" | "ready" | "error">("loading");
   const [openRefused, setOpenRefused] = useState(false);
+  const [openReference, setOpenReference] = useState<string | null>(null);
   const [openAttempt, setOpenAttempt] = useState(0);
   const inFlight = useRef(new Set<string>());
   const [workProblems, setWorkProblems] = useState<ReadonlyMap<string, WorkProblem>>(() => new Map());
@@ -452,6 +458,7 @@ function BusinessMonthCloseContent({
     } catch (error) {
       if (openGeneration.current !== request) return;
       setOpenRefused(refusedForGood(error));
+      setOpenReference(readReference(error));
       setOpenPhase("error");
     }
   }
@@ -490,6 +497,7 @@ function BusinessMonthCloseContent({
       (error: unknown) => {
         if (generation.current !== request) return;
         setRefused(refusedForGood(error));
+        setReference(readReference(error));
         setPhase("error");
       },
     );
@@ -1042,14 +1050,20 @@ function BusinessMonthCloseContent({
     );
   }
 
+  /** A read that failed: what failed, the reference to quote, and the way out (Reintentar, or the contact line for a refusal for good). */
+  function loadFailure(title: string, failedRefused: boolean, failedReference: string | null, retry: () => void) {
+    return (
+      <>
+        <EmptyState kind="error" compact title={title} body={failedRefused ? t("auth.business_unavailable.body", "If you think this is a mistake, email us at hola@cuadrao.ai.") : t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={failedRefused ? undefined : { label: t("business.month_close.retry", "Try again"), run: retry }} />
+        {failedReference ? <div className="flex justify-center pb-2"><ReferenceCode reference={failedReference} /></div> : null}
+      </>
+    );
+  }
+
   function moneyError() {
     return (
       <div data-testid="month-close-money-error" className={`${cardClass} flex-1`}>
-        {openRefused ? (
-          <EmptyState kind="error" compact title={t("business.month_close.open_items_error", "We couldn't load what is left to collect and pay")} body={t("auth.business_unavailable.body", "If you think this is a mistake, email us at hola@cuadrao.ai.")} />
-        ) : (
-          <EmptyState kind="error" compact title={t("business.month_close.open_items_error", "We couldn't load what is left to collect and pay")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("business.month_close.retry", "Try again"), run: () => setOpenAttempt((value) => value + 1) }} />
-        )}
+        {loadFailure(t("business.month_close.open_items_error", "We couldn't load what is left to collect and pay"), openRefused, openReference, () => setOpenAttempt((value) => value + 1))}
       </div>
     );
   }
@@ -1224,11 +1238,7 @@ function BusinessMonthCloseContent({
           {!checklistShown && receiptStatus ? <div className={cardClass}>{receiptStatus}</div> : null}
           {phase === "error" ? (
             <div data-testid="month-close-error" data-layout="error" className={cardClass}>
-              {refused ? (
-                <EmptyState kind="error" compact title={t("business.month_close.error_title", "We couldn't load the month")} body={t("auth.business_unavailable.body", "If you think this is a mistake, email us at hola@cuadrao.ai.")} />
-              ) : (
-                <EmptyState kind="error" compact title={t("business.month_close.error_title", "We couldn't load the month")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("business.month_close.retry", "Try again"), run: () => setAttempt((value) => value + 1) }} />
-              )}
+              {loadFailure(t("business.month_close.error_title", "We couldn't load the month"), refused, reference, () => setAttempt((value) => value + 1))}
             </div>
           ) : !snapshot ? (
             <div role="status" data-testid="month-close-loading" data-layout="loading" aria-busy="true" className="grid gap-6 @min-[60rem]:grid-cols-[minmax(0,11fr)_minmax(0,9fr)]">
@@ -1304,11 +1314,7 @@ function BusinessMonthCloseContent({
       {phase === "error" ? (
         <div data-testid="month-close-error" data-layout="error" className={`${cardClass} ${WIDE.full}`}>
           {/* A refusal for good is not the connection's fault, and asking again gets the same answer. */}
-          {refused ? (
-            <EmptyState kind="error" compact title={t("business.month_close.error_title", "We couldn't load the month")} body={t("auth.business_unavailable.body", "If you think this is a mistake, email us at hola@cuadrao.ai.")} />
-          ) : (
-            <EmptyState kind="error" compact title={t("business.month_close.error_title", "We couldn't load the month")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("business.month_close.retry", "Try again"), run: () => setAttempt((value) => value + 1) }} />
-          )}
+          {loadFailure(t("business.month_close.error_title", "We couldn't load the month"), refused, reference, () => setAttempt((value) => value + 1))}
         </div>
       ) : !snapshot ? (
         <div role="status" data-testid="month-close-loading" data-layout="loading" aria-busy="true" className={WIDE.full}>
