@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "bun:test";
 import { reportAnswerSchema, reportTotalSchema, type ReportAnswer } from "@/lib/business-reports-api";
-import { reportSummary } from "@/lib/business-reporting-wire";
+import { reportSummary, summaryIncludesUnreviewed } from "@/lib/business-reporting-wire";
 
 const total = (patch: Record<string, unknown>) => reportTotalSchema.parse({ currency: "DOP", kind: "income", basis: "document_family_amount", matching_count: 2, known_amount_minor: 30000, unknown_count: 0, unsupported_count: 0, complete: true, amount_minor: 30000, known_amount: "300.00", amount: "300.00", ...patch });
 const answer = (totals: unknown[]): ReportAnswer => reportAnswerSchema.parse({
@@ -39,4 +39,16 @@ test("an incomplete total keeps its null amount and carries the labelled known p
 test("settled and balance are never filled and a missing answer is empty rather than zero", () => {
   assert.equal(reportSummary(wire, "venta").currencies.every((currency) => currency.settled === null && currency.balance === null), true);
   assert.deepEqual(reportSummary(undefined, "venta").currencies, []);
+});
+
+test("the review qualifier shows unless the stage filter is exactly ready for export or the server reports no review or approval documents", () => {
+  const overview = (needs_review: number, awaiting_approval: number) => ({ needs_review, awaiting_approval, ready_for_export: 5 });
+  assert.equal(summaryIncludesUnreviewed([], overview(1, 0)), true);
+  assert.equal(summaryIncludesUnreviewed([], undefined), true);
+  assert.equal(summaryIncludesUnreviewed(["ready_for_export"], overview(60, 40)), false);
+  assert.equal(summaryIncludesUnreviewed(["needs_review", "ready_for_export"], overview(60, 40)), true);
+  assert.equal(summaryIncludesUnreviewed(["awaiting_approval"], undefined), true);
+  assert.equal(summaryIncludesUnreviewed([], overview(0, 0)), false);
+  assert.equal(summaryIncludesUnreviewed([], overview(0, 2)), true);
+  assert.equal(summaryIncludesUnreviewed([], overview(2, 0)), true);
 });

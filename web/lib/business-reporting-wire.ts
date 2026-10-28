@@ -50,6 +50,12 @@ export function reportSummary(answer: ReportAnswer | undefined, kind: RecordRow[
   return { currencies, exclusions: { unconfirmed: 0, personal: 0, unavailable: 0 } };
 }
 
+/** Server totals cover every matching document whatever its stage. They are plain finalized money only for the ready-for-export stage or when the server reports no document to review or approve. */
+export function summaryIncludesUnreviewed(reviewStages: readonly string[], overview: ReportAnswer["overview"]): boolean {
+  if (reviewStages.length === 1 && reviewStages[0] === "ready_for_export") return false;
+  return !(overview && overview.needs_review === 0 && overview.awaiting_approval === 0);
+}
+
 export const defaultReportRequest = (): ReportRequest => reportRequestSchema.parse({});
 export const recipeFromRequest = (request: ReportRequest): ReportRecipe => {
   const recipe = { schema_version: request.schema_version, filters: request.filters, columns: request.columns, sort: request.sort };

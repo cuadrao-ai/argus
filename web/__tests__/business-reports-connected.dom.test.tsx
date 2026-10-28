@@ -226,8 +226,37 @@ test("sales card one shows the server document totals per currency and later car
   assert.match(cards()[0].textContent!, /Facturado/);
   for (const later of cards().slice(1)) { assert.equal(later.querySelectorAll('.cuadrao-amount').length, 0); assert.match(later.textContent!, /-/); }
   assert.equal(document.body.textContent?.includes('Cobros, pagos y saldos pendientes aún no están disponibles.'), true);
-  assert.equal(document.body.textContent?.includes('Importes confirmados'), false);
+  assert.equal(summary.querySelectorAll('[data-summary-qualifier]').length, 1);
+  assert.ok(cards()[0].querySelector('[data-summary-qualifier]'));
+  assert.equal(cards()[0].querySelector('[data-summary-qualifier]')!.textContent, 'Incluye documentos por revisar o por aprobar.');
   assert.ok(page.fixture.calls.every((call) => !call.path.includes('/totals')));
+});
+
+test("the review qualifier hides under the ready-for-export filter and shows again when it is cleared", async () => {
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: 'all' }, record_families: ['sale'] } }) });
+  assert.ok(document.querySelector('[data-summary-qualifier]'));
+  await page.click(document.querySelector('[data-overview-filter="export"]'));
+  await page.settle(() => document.querySelector('[data-testid="records-count"]')?.textContent?.includes('0') ?? false);
+  assert.deepEqual((page.fixture.calls.filter((call) => call.path.endsWith('/reports/query')).at(-1)!.body as { filters: { review_stages: string[] } }).filters.review_stages, ['ready_for_export']);
+  assert.equal(document.querySelector('[data-summary-qualifier]'), null);
+  await page.click(document.querySelector('[data-overview-filter="export"]'));
+  await page.settle(() => document.querySelector('[data-summary-qualifier]') !== null);
+});
+
+test("the review qualifier stays when the filter keeps review stages beside ready for export", async () => {
+  await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: 'all' }, record_families: ['sale'], review_stages: ['needs_review', 'ready_for_export'] } }) });
+  assert.ok(document.querySelector('[data-summary-qualifier]'));
+});
+
+test("the review qualifier hides when the server overview reports nothing to review or approve", async () => {
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: 'all' }, record_families: ['sale'] } }) });
+  page.fixture.controls.overview = { needs_review: 0, awaiting_approval: 0, ready_for_export: 126 };
+  await page.click(document.querySelector('[data-testid="records-refresh"]'));
+  await page.settle(() => document.querySelector('[data-summary-qualifier]') === null);
+  assert.equal(cards()[0].querySelectorAll('.cuadrao-amount').length > 0, true);
+  page.fixture.controls.overview = { needs_review: 0, awaiting_approval: 3, ready_for_export: 123 };
+  await page.click(document.querySelector('[data-testid="records-refresh"]'));
+  await page.settle(() => document.querySelector('[data-summary-qualifier]') !== null);
 });
 
 test("expense card one keeps an unknown currency unknown and never invents a code or zero", async () => {

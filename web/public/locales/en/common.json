@@ -2612,6 +2612,7 @@
       "reporting": {
         "access_unavailable": "You do not have access to this feature.",
         "financial_cards_pending": "Collections, payments and balances due are not available yet.",
+        "includes_unreviewed": "Includes documents still to review or approve.",
         "invalid_page": "Records changed. Open the last available page.",
         "pending_contract": "This feature is not connected yet.",
         "records_only": "The ZIP includes only filtered records. It does not include original files.",

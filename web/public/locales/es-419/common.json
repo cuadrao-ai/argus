@@ -2612,6 +2612,7 @@
       "reporting": {
         "access_unavailable": "No tienes acceso a esta función.",
         "financial_cards_pending": "Cobros, pagos y saldos pendientes aún no están disponibles.",
+        "includes_unreviewed": "Incluye documentos por revisar o por aprobar.",
         "invalid_page": "Los registros cambiaron. Abre la última página disponible.",
         "pending_contract": "Esta función aún no está conectada.",
         "records_only": "El ZIP incluye solo los registros filtrados. No incluye archivos originales.",
