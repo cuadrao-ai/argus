@@ -23,6 +23,7 @@ from argus.domain.business.contracts.facts import (
     fiscal_inclusion,
     is_personal,
     is_sin_comprobante,
+    personal_mark_admits,
 )
 from argus.domain.business.dgii_validation import credit_note, reportable_607
 from argus.domain.business.fiscal_identity import normalized_ncf
@@ -137,26 +138,23 @@ def in_month(document: MonthDocument, start: date, end: date) -> bool:
 
 
 def in_close(document: MonthDocument) -> bool:
-    if document.role == "receipt":
-        return document.include_606 is True if document.personal else True
-    return not document.personal
+    return personal_mark_admits(
+        document.personal, document.include_606, sale=document.role == "invoice"
+    )
 
 
 def in_606(document: MonthDocument) -> bool:
-    if (
-        document.role != "receipt"
-        or normalized_ncf(document.ecf or document.ncf) is None
-    ):
-        return False
-    if document.personal:
-        return document.include_606 is True
-    return True
+    return (
+        document.role == "receipt"
+        and normalized_ncf(document.ecf or document.ncf) is not None
+        and in_close(document)
+    )
 
 
 def in_607(document: MonthDocument) -> bool:
     return (
         document.role == "invoice"
-        and not document.personal
+        and in_close(document)
         and reportable_607(document.ecf or document.ncf)
     )
 

@@ -175,6 +175,26 @@ describe("Inicio on a live Business", () => {
     } finally { await page.close(); }
   });
 
+  const failedCard = (page: { host: HTMLElement }) => page.host.querySelector('[data-testid="home-needs-attention"] [role="status"]') === null && page.host.textContent?.includes("No pudimos cargar lo que necesita atención") === true;
+  const cardReference = (page: { host: HTMLElement }) => page.host.querySelector('[data-testid="home-needs-attention"] [data-testid="error-reference"]')?.getAttribute("title") ?? "";
+
+  test("a refused Business's failed card shows the server's request id", async () => {
+    const page = await mount("view=overview", { overview: async () => { throw Object.assign(new Error("Not found"), { status: 404, code: "business_unavailable", requestId: "4ea79978-ce17-4853-b232-b2a72f4c9ce7" }); } });
+    try {
+      await page.settle(() => failedCard(page));
+      assert.equal(cardReference(page), "4ea79978-ce17-4853-b232-b2a72f4c9ce7");
+    } finally { await page.close(); }
+  });
+
+  test("a failed card with no request id shows a generated Ref. beside Reintentar", async () => {
+    const page = await mount("view=overview", { overview: async () => { throw Object.assign(new Error("Conflict"), { status: 409, code: "conflict" }); } });
+    try {
+      await page.settle(() => failedCard(page));
+      assert.match(cardReference(page), /^c[0-9a-f]{8}$/);
+      assert.ok(page.host.querySelector('[data-testid="home-needs-attention"]')?.textContent?.includes("Reintentar"));
+    } finally { await page.close(); }
+  });
+
   const overview = (needsReview: number) => ({ overview: { needs_review: needsReview, awaiting_approval: 0, ready_for_export: 0 } });
   const emptyBandeja = async (): Promise<Partial<BusinessDataSource>> => {
     const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");

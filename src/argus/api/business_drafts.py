@@ -40,6 +40,7 @@ from argus.domain.business.contracts.facts import (
     BusinessAccountFunding,
     BusinessResolution,
     Known,
+    personal_mark_admits,
 )
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.search import SearchQuery
@@ -568,13 +569,18 @@ def overview_with_drafts(context: BusinessContext, start, end) -> dict:  # noqa:
     data["awaiting_review"] = counts["pending_review_count"] - data["needs_attention"]
     data["ready_to_review_count"] = counts["ready_to_review_count"]
     data["por_igualar_count"] = counts["por_igualar_count"]
-    # Gastos reales leave the owner's personal receipts out; con valor fiscal
-    # are the real ones that carry an NCF or an e-CF; the rest do not go into
-    # the 606. All three from the same rows, so the line never disagrees.
+    # Gastos reales are the receipts the Personal mark admits, by the rule
+    # month close and Registros share; con valor fiscal are the real ones that
+    # carry an NCF or an e-CF; the rest do not go into the 606. All three from
+    # the same rows, so the line never disagrees.
     rows = _with_records(
         context, context.service.expense_rows(context.scope, start, data["to"])
     )
-    real = [row for row in rows if not row.get("personal")]
+    real = [
+        row
+        for row in rows
+        if personal_mark_admits(bool(row.get("personal")), row.get("include_606"))
+    ]
     fiscal = [row for row in real if row.get("fiscal_value")]
     data["totals"] = ledger.totals(real)
     data["fiscal_totals"] = ledger.totals(fiscal)
@@ -731,10 +737,35 @@ def receipt_detail(context: BusinessContext, receipt) -> dict:
     return detail
 
 
+def with_whatsapp_sources(dossier, captured: frozenset[str]):  # noqa: ANN001, ANN201
+    """The dossier's attachment sources that arrived by WhatsApp say so, from the
+    intake store's captured connections, the fact /business/receipts reads; the
+    stored source row says web for every attachment and is never written back."""
+
+    if not captured:
+        return dossier
+    sources = tuple(
+        source.model_copy(update={"channel": "whatsapp"})
+        if source.kind == "attachment" and str(source.connection_id) in captured
+        else source
+        for source in dossier.sources
+    )
+    return dossier.model_copy(update={"sources": sources})
+
+
+def with_source_channels(dossier, *, space_id: str, owner_id: str):  # noqa: ANN001, ANN201
+    """Every dossier the drafts API returns passes here: WhatsApp first, then
+    email, the same order the receipt list decides a channel."""
+
+    return with_email_sources(
+        with_whatsapp_sources(dossier, _captured(owner_id)), space_id
+    )
+
+
 def with_email_sources(dossier, space_id: str):  # noqa: ANN001, ANN201
     """The dossier's attachment sources that arrived by email say so, with their
-    deliveries, from the email queue; the stored source row knows only web or
-    whatsapp, so this is decided here and never written back."""
+    deliveries, from the email queue; the stored source row says web for every
+    attachment, so this is decided here and never written back."""
 
     from argus.api.email_intake import arrived_by_email, email_receipt_flags
 

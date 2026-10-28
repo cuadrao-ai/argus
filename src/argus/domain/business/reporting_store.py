@@ -233,7 +233,11 @@ def _projected(
 ) -> tuple[RecordedSnapshot, tuple[ReportRecord, ...]]:
     from argus.domain.business.actions.dossier import record_context, workflow_blockers
     from argus.domain.business.contracts.dossier import ReviewQuestion
-    from argus.domain.business.contracts.facts import BusinessResolution
+    from argus.domain.business.contracts.facts import (
+        BusinessResolution,
+        fiscal_inclusion,
+        is_personal,
+    )
     from argus.domain.business.reporting_projection import DraftState, project, value
     from argus.domain.business.transactions import ActionTransaction
     from argus.domain.ingestion.reconcile.store_postgres import _PostgresTx
@@ -296,6 +300,8 @@ def _projected(
             facts,
             resolution.dgii,
             tuple(source.source_id for source in sources),
+            personal=is_personal(facts),
+            include_606=fiscal_inclusion(facts),
         )
         dependency = hashlib.sha256(
             _json(

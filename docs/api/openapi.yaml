@@ -21754,6 +21754,18 @@ components:
       required:
       - action
       - disclosure_token
+    ExcludedPersonal:
+      properties:
+        income:
+          type: integer
+          default: 0
+        expense:
+          type: integer
+          default: 0
+      additionalProperties: false
+      type: object
+      description: Matching rows the Personal mark keeps out of every total, counted
+        by the family the cards group on (a sale is income, a purchase expense).
     Error:
       type: object
       description: RFC 9457 Problem Details with code and request_id.
@@ -31039,6 +31051,11 @@ components:
           $ref: '#/components/schemas/ResolvedPeriod'
         excluded_unknown_dates:
           type: integer
+        excluded_personal:
+          $ref: '#/components/schemas/ExcludedPersonal'
+          default:
+            income: 0
+            expense: 0
         counterparties:
           items:
             $ref: '#/components/schemas/FilterOption'
@@ -31675,6 +31692,13 @@ components:
         has_document:
           type: boolean
           default: false
+        personal:
+          type: boolean
+          default: false
+        include_606:
+          anyOf:
+          - type: boolean
+          - type: 'null'
         document_kind:
           type: string
           enum:

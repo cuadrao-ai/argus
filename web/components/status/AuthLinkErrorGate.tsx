@@ -3,21 +3,22 @@
 import { useLayoutEffect, useState, type ReactNode } from "react";
 
 import { AuthLinkErrorScreen } from "@/components/status/AuthLinkErrorScreen";
-import { mapAuthLinkError, type AuthLinkErrorView } from "@/lib/auth-link-error";
+import { mapAuthLinkError, rendersOwnLinkError, type AuthLinkErrorView } from "@/lib/auth-link-error";
+import { referenceCode } from "@/lib/failure-screen";
 
 export function AuthLinkErrorGate({ children }: { children: ReactNode }) {
-  const [view, setView] = useState<AuthLinkErrorView | null>(null);
+  const [shown, setShown] = useState<{ view: AuthLinkErrorView; reference: string } | null>(null);
 
   useLayoutEffect(() => {
-    if (window.location.pathname === "/auth/link-error") return;
-    const mapped = mapAuthLinkError({
+    if (rendersOwnLinkError(window.location.pathname)) return;
+    const view = mapAuthLinkError({
       search: window.location.search,
       hash: window.location.hash,
       pathname: window.location.pathname,
     });
-    if (mapped) setView(mapped);
+    if (view) setShown({ view, reference: referenceCode(null) });
   }, []);
 
-  if (view) return <AuthLinkErrorScreen view={view} />;
+  if (shown) return <AuthLinkErrorScreen view={shown.view} reference={shown.reference} />;
   return children;
 }

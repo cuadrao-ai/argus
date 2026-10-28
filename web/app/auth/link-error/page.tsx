@@ -1,5 +1,6 @@
 import { AuthLinkErrorClient } from "@/components/status/AuthLinkErrorClient";
 import { mapAuthLinkError } from "@/lib/auth-link-error";
+import { referenceCode } from "@/lib/failure-screen";
 
 export default async function AuthLinkErrorPage({
   searchParams,
@@ -16,5 +17,5 @@ export default async function AuthLinkErrorPage({
     hash: "",
     pathname: "/auth/link-error",
   });
-  return <AuthLinkErrorClient view={view} />;
+  return <AuthLinkErrorClient view={view} reference={referenceCode(null)} />;
 }

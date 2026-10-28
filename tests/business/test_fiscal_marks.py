@@ -19,6 +19,7 @@ from argus.domain.business.contracts.facts import (
     Unknown,
     WholeBusinessShare,
     fiscal_inclusion,
+    fiscal_question_applies,
     fiscal_value,
     is_personal,
 )
@@ -194,6 +195,18 @@ def test_the_606_gate_opens_only_on_an_open_or_accepted_draft(
         is False
     )
     assert fiscal_inclusion_available(accountant_tx, facts(), state) is False
+
+
+def test_the_606_question_is_for_purchases_never_for_a_personal_sale():
+    personal = dict(
+        business_share=known(WholeBusinessShare(kind="none")),
+        fiscal=FiscalFacts(ncf=known("B0100000001"), include_606=known(True)),
+    )
+    assert fiscal_question_applies(facts(**personal)) is True
+    assert fiscal_inclusion(facts(**personal)) is True
+    sale = facts(kind=known("income"), **personal)
+    assert fiscal_question_applies(sale) is False
+    assert fiscal_inclusion(sale) is None
 
 
 def test_approval_admits_a_personal_receipt_and_still_refuses_a_partial_share():

@@ -3,6 +3,7 @@ import { readSessionStored, removeSessionStored, writeSessionStored } from "./br
 import { classifyFailure, emailRetrySeconds } from "./failure-screen";
 import { acquirePasswordAuthCaptchaToken } from "./guest-captcha";
 import { PASSWORD_MIN_LENGTH } from "./password-strength";
+import { recoveryProof } from "./recovery-proof";
 import { getSupabaseClient } from "./supabase-client";
 
 export type AuthSecurityPort = {
@@ -29,12 +30,6 @@ export type SessionActionResult = {
 type ClearArgusCookies = () => Promise<void>;
 type RecoveryProofStore = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 const RECOVERY_PROOF_KEY = "cuadrao:recovery-session:v1";
-
-async function sessionFingerprint(sessionId: string): Promise<string> {
-  const bytes = new TextEncoder().encode(sessionId);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
-}
 
 type AuthIdentityReader = {
   getClaims: () => Promise<{ data: { claims: { sub?: string; session_id?: string } } | null; error: unknown | null }>;
@@ -113,7 +108,13 @@ export function createAuthSecurityActions(
     if (!store || !auth.getValidatedSession) return null;
     const identity = await auth.getValidatedSession();
     if (!identity) return null;
-    return `${identity.userId}:${await sessionFingerprint(identity.sessionId)}`;
+    return recoveryProof(identity.userId, identity.sessionId);
+  };
+  const keepRecoveryProof = async (proof: string | null) => {
+    if (!proof) throw new Error("Recovery session could not be verified.");
+    if (!store) throw new Error("Recovery session could not be saved.");
+    try { store.setItem(RECOVERY_PROOF_KEY, proof); }
+    catch { throw new Error("Recovery session could not be saved."); }
   };
   const hasRecoveryProof = async () => {
     let stored: string | null;
@@ -199,11 +200,15 @@ export function createAuthSecurityActions(
       const { data, error } = await auth.exchangeCodeForSession(code);
       throwOnAuthError(error);
       if (data?.redirectType !== "recovery") throw new Error("The link is not a recovery link.");
-      const proof = await currentRecoveryProof();
-      if (!proof) throw new Error("Recovery session could not be verified.");
-      if (!store) throw new Error("Recovery session could not be saved.");
-      try { store.setItem(RECOVERY_PROOF_KEY, proof); }
-      catch { throw new Error("Recovery session could not be saved."); }
+      await keepRecoveryProof(await currentRecoveryProof());
+    },
+
+    // The server confirm route verified the recovery link and set the session;
+    // its proof counts only when it names this browser's live session.
+    async acceptRecoveryProof(proof: string): Promise<void> {
+      clearRecoveryProof();
+      const current = await currentRecoveryProof();
+      await keepRecoveryProof(current && current === proof ? current : null);
     },
 
     async hasRecoverySession(): Promise<boolean> {

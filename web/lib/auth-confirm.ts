@@ -1,3 +1,6 @@
+import { referenceCode } from "./failure-screen";
+import { recoveryProof, recoveryProofLocation, sessionIdFromAccessToken } from "./recovery-proof";
+
 const CONFIRM_TYPES = ["email", "signup", "magiclink", "recovery", "invite", "email_change"] as const;
 
 export type AuthConfirmType = (typeof CONFIRM_TYPES)[number];
@@ -72,37 +75,64 @@ export function resolveAuthConfirm(requestUrl: URL): ConfirmDecision {
 
 export type AuthConfirmVerifier = (
   input: { token_hash: string; type: AuthConfirmType },
-) => Promise<{ error: unknown }>;
+) => Promise<{
+  error: unknown;
+  data?: { session?: { access_token: string; user: { id: string } } | null } | null;
+}>;
 
 const ERROR_TOKEN = /^[A-Za-z0-9_]{1,64}$/;
+
+/** Our own refusal codes; a provider refusal keeps the provider's code (otp_expired and the like). */
+export const CONFIRM_MALFORMED_LINK = "malformed_link";
+export const CONFIRM_VERIFY_FAILED = "verify_failed";
 
 function errorToken(value: string | null): string | null {
   return value && ERROR_TOKEN.test(value) ? value : null;
 }
 
-export function confirmErrorLocation(requestUrl: URL, type: string | null): string {
-  const params = new URLSearchParams();
-  const error = errorToken(requestUrl.searchParams.get("error"));
-  const errorCode = errorToken(requestUrl.searchParams.get("error_code"));
-  const named = errorToken(type ?? requestUrl.searchParams.get("type"));
-  if (error) params.set("error", error);
-  if (errorCode) params.set("error_code", errorCode);
-  if (named) params.set("type", named);
-  const query = params.toString();
-  return query ? `/auth/confirm/error?${query}` : "/auth/confirm/error";
+function providerCode(error: unknown): string | null {
+  if (!error || typeof error !== "object" || !("code" in error)) return null;
+  return errorToken(typeof error.code === "string" ? error.code : null);
 }
 
-export async function confirmAuthGet(request: Request, verify: AuthConfirmVerifier): Promise<Response> {
+export function confirmErrorLocation(requestUrl: URL, type: string | null, code: string, reference: string): string {
+  const params = new URLSearchParams();
+  params.set("error_code", code);
+  const named = errorToken(type ?? requestUrl.searchParams.get("type"));
+  if (named) params.set("type", named);
+  params.set("ref", reference);
+  return `/auth/confirm/error?${params.toString()}`;
+}
+
+export type ConfirmRefusal = { reference: string; type: string | null; code: string };
+
+export async function confirmAuthGet(
+  request: Request,
+  verify: AuthConfirmVerifier,
+  report: (refusal: ConfirmRefusal) => void = (refusal) => console.warn("auth confirm refused", refusal),
+): Promise<Response> {
   const requestUrl = new URL(request.url);
   const decision = resolveAuthConfirm(requestUrl);
-  if (!decision.ok) return redirect(confirmErrorLocation(requestUrl, null));
+  const refuse = (type: string | null, code: string) => {
+    const reference = referenceCode(null);
+    report({ reference, type, code });
+    return redirect(confirmErrorLocation(requestUrl, type, code, reference));
+  };
+  if (!decision.ok) return refuse(null, CONFIRM_MALFORMED_LINK);
+  let proof: string | null = null;
   try {
     const result = await verify({ token_hash: decision.tokenHash, type: decision.type });
-    if (result.error) return redirect(confirmErrorLocation(requestUrl, decision.type));
+    if (result.error) return refuse(decision.type, providerCode(result.error) ?? CONFIRM_VERIFY_FAILED);
+    if (decision.type === "recovery") {
+      const session = result.data?.session;
+      const sessionId = session ? sessionIdFromAccessToken(session.access_token) : null;
+      if (!session || !sessionId) return refuse(decision.type, CONFIRM_VERIFY_FAILED);
+      proof = await recoveryProof(session.user.id, sessionId);
+    }
   } catch {
-    return redirect(confirmErrorLocation(requestUrl, decision.type));
+    return refuse(decision.type, CONFIRM_VERIFY_FAILED);
   }
-  return redirect(decision.next);
+  return redirect(proof ? recoveryProofLocation(decision.next, proof) : decision.next);
 }
 
 function redirect(path: string): Response {

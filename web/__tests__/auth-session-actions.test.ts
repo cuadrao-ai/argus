@@ -9,6 +9,7 @@ import {
   type AuthSecurityPort,
 } from "../lib/auth-security";
 import { STORAGE_REGISTRY } from "../lib/browser-storage";
+import { recoveryProof } from "../lib/recovery-proof";
 import { synchronizeCurrentBrowserLogout } from "../lib/argus-api";
 
 function authPort(options?: {
@@ -121,6 +122,39 @@ describe("account security actions", () => {
     expect(await reloadedPage.hasRecoverySession()).toBe(false);
     port.auth.getValidatedSession = async () => ({ userId: "person-1", sessionId: "session-1" });
     expect(await reloadedPage.hasRecoverySession()).toBe(false);
+  });
+
+  test("a proof the confirm route handed over opens recovery only for the session it names", async () => {
+    const port = authPort();
+    const store = recoveryStore();
+    const handedOver = await recoveryProof("person-1", "session-1");
+    const landing = createAuthSecurityActions(port.auth, async () => undefined, store);
+    await landing.acceptRecoveryProof(handedOver);
+    expect(await landing.hasRecoverySession()).toBe(true);
+    expect(store.getItem("cuadrao:recovery-session:v1")).not.toContain("session-1");
+    const reloaded = createAuthSecurityActions(port.auth, async () => undefined, store);
+    expect(await reloaded.hasRecoverySession()).toBe(true);
+
+    port.auth.getValidatedSession = async () => ({ userId: "person-1", sessionId: "session-2" });
+    const other = createAuthSecurityActions(port.auth, async () => undefined, recoveryStore());
+    expect(other.acceptRecoveryProof(handedOver)).rejects.toThrow();
+    expect(await other.hasRecoverySession()).toBe(false);
+    expect(port.updates).toEqual([]);
+  });
+
+  test("a handed-over proof is useless without a live session or with blocked storage", async () => {
+    const port = authPort();
+    const handedOver = await recoveryProof("person-1", "session-1");
+    port.auth.getValidatedSession = async () => null;
+    const signedOut = createAuthSecurityActions(port.auth, async () => undefined, recoveryStore());
+    expect(signedOut.acceptRecoveryProof(handedOver)).rejects.toThrow();
+    expect(await signedOut.hasRecoverySession()).toBe(false);
+
+    port.auth.getValidatedSession = async () => ({ userId: "person-1", sessionId: "session-1" });
+    const denied = { getItem: () => { throw new Error("storage denied"); }, setItem: () => { throw new Error("storage denied"); }, removeItem: () => { throw new Error("storage denied"); } };
+    const blocked = createAuthSecurityActions(port.auth, async () => undefined, denied);
+    expect(blocked.acceptRecoveryProof(handedOver)).rejects.toThrow();
+    expect(await blocked.hasRecoverySession()).toBe(false);
   });
 
   test("a failed or reused code removes an older recovery proof", async () => {

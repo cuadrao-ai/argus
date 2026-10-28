@@ -42,12 +42,25 @@ for (const width of [390, 1280]) {
     await shot(page, `unknown-type-${width}`);
   });
 
-  test(`a confirm failure at ${width} uses the link screen`, async ({ page }) => {
+  test(`an expired confirm at ${width} uses the link screen with the logged reference`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 });
-    await page.goto("/auth/confirm/error?error=access_denied&error_code=otp_expired&type=invite");
+    await page.goto("/auth/confirm/error?error_code=otp_expired&type=invite&ref=c0ffee11");
+    await expect(page.getByRole("heading", { level: 1, name: "Este enlace ya venció o ya se usó." })).toBeVisible();
     await expect(page.getByText("Pide a quien te invitó que te envíe otra invitación.")).toBeVisible();
+    await expect(page.getByTestId("error-reference")).toContainText("Ref. c0ffee11");
     await expect(page.locator("body")).not.toContainText(frameworkText);
     await shot(page, `confirm-invite-${width}`);
+  });
+
+  test(`a malformed confirm at ${width} is not called expired`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto("/auth/confirm/error?error_code=malformed_link&type=recovery&ref=c0ffee22");
+    await expect(page.getByRole("heading", { level: 1, name: "Este enlace no funcionó" })).toBeVisible();
+    await expect(page.getByText("Al enlace le falta una parte o se copió mal. Ábrelo desde el correo o pide uno nuevo.")).toBeVisible();
+    await expect(page.getByTestId("error-reference")).toContainText("Ref. c0ffee22");
+    await expect(page.getByRole("link", { name: "Pedir un enlace nuevo" })).toHaveAttribute("href", "/auth/forgot-password");
+    await expect(page.locator("body")).not.toContainText(frameworkText);
+    await shot(page, `confirm-malformed-${width}`);
   });
 
   test(`the server screen at ${width} names the retry, home, reference, and address`, async ({ page }) => {

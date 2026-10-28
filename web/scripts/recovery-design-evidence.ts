@@ -39,6 +39,7 @@ export default function RecoveryEvidenceFixture() {
   const actions = (() => ({
     hasRecoverySession: async () => true,
     exchangeRecoveryCode: async () => undefined,
+    acceptRecoveryProof: async () => undefined,
     resetRecoveredPassword: async () => result,
     signOutAllSessions: async () => complete,
     changePassword: async () => complete,

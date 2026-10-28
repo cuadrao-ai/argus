@@ -4,6 +4,7 @@ from decimal import Decimal
 import pytest
 from argus.domain.business.reporting import ReportIdentity
 from argus.domain.business.reporting_query import (
+    ExcludedPersonal,
     ReportFilters,
     ReportRecord,
     ReportRequest,
@@ -140,6 +141,54 @@ def test_currency_totals_distinguish_gross_recorded_and_proposed():
     assert buckets["DOP", "document_gross_amount"].known_amount_minor == 20000
     assert buckets["DOP", "document_credit_adjustment"].amount_minor is None
     assert Decimal(buckets["USD", "proposed_activity_amount"].amount_minor) == 1000
+
+
+def test_a_personal_row_counts_only_as_a_purchase_the_accountant_put_in_the_606():
+    rows = [
+        record("business", recorded_amount="5.00", linked_activity_ids=("a",)),
+        record(
+            "personal", recorded_amount="25.00", linked_activity_ids=("b",), personal=True
+        ),
+        record(
+            "declined",
+            recorded_amount="1.00",
+            linked_activity_ids=("e",),
+            personal=True,
+            include_606=False,
+        ),
+        record(
+            "included",
+            recorded_amount="40.00",
+            linked_activity_ids=("c",),
+            personal=True,
+            include_606=True,
+        ),
+        record(
+            "sale",
+            recorded_amount="70.00",
+            linked_activity_ids=("d",),
+            family="sale",
+            money_kind="income",
+            personal=True,
+            include_606=True,
+        ),
+    ]
+    result = run(rows)
+    buckets = {(item.kind, item.basis): item for item in result.totals}
+    assert buckets["expense", "recorded_activity_amount"].known_amount_minor == 4500
+    assert buckets["expense", "recorded_activity_amount"].matching_count == 2
+    assert ("income", "recorded_activity_amount") not in buckets
+    assert result.excluded_personal == ExcludedPersonal(income=1, expense=2)
+
+
+def test_a_personal_open_draft_stays_out_of_the_proposed_total():
+    rows = [
+        record("business", proposed_amount="40.00"),
+        record("personal", proposed_amount="100.00", personal=True),
+    ]
+    buckets = {(item.kind, item.basis): item for item in run(rows).totals}
+    proposed = buckets["expense", "proposed_activity_amount"]
+    assert (proposed.matching_count, proposed.known_amount_minor) == (1, 4000)
 
 
 def test_duplicate_public_anchor_and_effect_are_refused():

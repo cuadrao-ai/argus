@@ -471,6 +471,25 @@ describe("emails in the Bandeja", () => {
     assert.equal(inertHost(), null);
   });
 
+  test("Escape closes the dossier and puts focus on the row with no animation frame to wait for", async () => {
+    const page = await mount({ width: 1280, panel: { kind: "inbox" } });
+    await inboxReady(page);
+    await page.choose("attention");
+    const trigger = emailRow(page, "noticias@proveedor.example")!.querySelector("button")!;
+    trigger.focus();
+    await page.act(async () => trigger.click());
+    await page.settle(() => emailDetail() !== null, "the email detail");
+    const frames = window.requestAnimationFrame;
+    window.requestAnimationFrame = () => 0;
+    try {
+      await page.act(async () => { document.querySelector('[data-testid="side-drawer"] h2')!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
+      assert.equal(emailDetail(), null, "the dossier is gone");
+      assert.equal(document.activeElement, trigger, "focus is on the row, never on the body");
+    } finally {
+      window.requestAnimationFrame = frames;
+    }
+  });
+
   test("on a phone an email is the whole page with a way back to the Bandeja", async () => {
     const page = await mount({ width: 390, panel: { kind: "email", emailId: "email-boletin" } });
     await page.settle(() => emailDetail() !== null, "the email detail");

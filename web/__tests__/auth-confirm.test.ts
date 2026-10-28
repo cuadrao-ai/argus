@@ -7,6 +7,7 @@ import { parseAuthMail, renderAuthMail, type AuthMail } from "../server/emails/a
 import { buildDashboardAuthPaste } from "../server/emails/auth-paste";
 import { renderAccountEmail } from "../server/emails/account-layout.generated";
 import { createAuthSecurityActions, type AuthSecurityPort } from "../lib/auth-security";
+import { recoveryProof } from "../lib/recovery-proof";
 
 const origin = "https://app.example.test";
 const hash = "a".repeat(64);
@@ -16,14 +17,24 @@ function confirmRequest(query: string) {
   return new Request(`${origin}/auth/confirm?${query}`);
 }
 
+const accessToken = `h.${Buffer.from(JSON.stringify({ sub: "person-1", session_id: "session-1" })).toString("base64url")}.s`;
+const session = { access_token: accessToken, user: { id: "person-1" } };
+
 function verifier(result: { error: unknown } | "throw") {
   const calls: Array<{ token_hash: string; type: AuthConfirmType }> = [];
+  const refusals: Array<{ reference: string; type: string | null; code: string }> = [];
   const verify = async (input: { token_hash: string; type: AuthConfirmType }) => {
     calls.push(input);
     if (result === "throw") throw new Error("synthetic verify failure");
-    return result;
+    return result.error ? result : { error: null, data: { session } };
   };
-  return { calls, verify };
+  const report = (refusal: { reference: string; type: string | null; code: string }) => { refusals.push(refusal); };
+  return { calls, refusals, verify, report };
+}
+
+function refusal(location: string | null) {
+  const url = new URL(location ?? "", origin);
+  return { path: url.pathname, code: url.searchParams.get("error_code"), type: url.searchParams.get("type"), ref: url.searchParams.get("ref"), hash: url.hash };
 }
 
 test("a valid token verifies and redirects only to the internal path", async () => {
@@ -34,8 +45,35 @@ test("a valid token verifies and redirects only to the internal path", async () 
   );
   expect(response.status).toBe(303);
   expect(response.headers.get("cache-control")).toBe("no-store");
-  expect(response.headers.get("location")).toBe("/auth/recovery");
+  const proof = await recoveryProof("person-1", "session-1");
+  expect(response.headers.get("location")).toBe(`/auth/recovery#recovery_proof=${proof}`);
   expect(calls).toEqual([{ token_hash: hash, type: "recovery" }]);
+});
+
+test("the proof a confirm redirect carries opens the recovery form in that browser and survives reload", async () => {
+  const { verify } = verifier({ error: null });
+  const response = await confirmAuthGet(confirmRequest(`token_hash=${hash}&type=recovery`), verify);
+  const handedOver = new URLSearchParams(new URL(response.headers.get("location") ?? "", origin).hash.slice(1)).get("recovery_proof") ?? "";
+  const port: AuthSecurityPort = {
+    async exchangeCodeForSession() { return { data: { redirectType: "recovery" }, error: null }; },
+    async updateUser() { return { error: null }; },
+    async signOut() { return { error: null }; },
+    async getValidatedSession() { return { userId: "person-1", sessionId: "session-1" }; },
+  };
+  const values = new Map<string, string>();
+  const store = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => { values.set(key, value); },
+    removeItem: (key: string) => { values.delete(key); },
+  };
+  const landing = createAuthSecurityActions(port, async () => undefined, store);
+  expect(await landing.hasRecoverySession()).toBe(false);
+  await landing.acceptRecoveryProof(handedOver);
+  expect(await landing.hasRecoverySession()).toBe(true);
+  expect(await createAuthSecurityActions(port, async () => undefined, store).hasRecoverySession()).toBe(true);
+  const ordinary = createAuthSecurityActions({ ...port, getValidatedSession: async () => ({ userId: "person-1", sessionId: "password-session" }) }, async () => undefined, store);
+  expect(await ordinary.hasRecoverySession()).toBe(false);
+  expect(ordinary.acceptRecoveryProof(handedOver)).rejects.toThrow();
 });
 
 test("a same-origin absolute next is reduced to its path before redirect", async () => {
@@ -51,29 +89,47 @@ test("a same-origin absolute next is reduced to its path before redirect", async
 test("a missing next stays internal and a signup type is accepted", async () => {
   const recovery = verifier({ error: null });
   const recoveryResponse = await confirmAuthGet(confirmRequest(`token_hash=${hash}&type=recovery`), recovery.verify);
-  expect(recoveryResponse.headers.get("location")).toBe("/auth/recovery");
+  expect(recoveryResponse.headers.get("location")).toStartWith("/auth/recovery#recovery_proof=");
   const signup = verifier({ error: null });
   const signupResponse = await confirmAuthGet(confirmRequest(`token_hash=pkce_${"c".repeat(64)}&type=signup`), signup.verify);
   expect(signupResponse.headers.get("location")).toBe("/");
   expect(signup.calls).toEqual([{ token_hash: `pkce_${"c".repeat(64)}`, type: "signup" }]);
 });
 
-test("an invalid token shows the confirm error and does not echo the hash", async () => {
-  for (const result of [{ error: { message: "expired" } } as const, "throw" as const]) {
-    const { calls, verify } = verifier(result);
-    const response = await confirmAuthGet(
-      confirmRequest(`token_hash=${hash}&type=email&next=/`),
-      verify,
-    );
-    expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("/auth/confirm/error?type=email");
-    expect(response.headers.get("location")).not.toContain(hash);
+test("a refused token names the provider code, logs a reference, and does not echo the hash", async () => {
+  const expired = verifier({ error: { code: "otp_expired", status: 403, message: "Email link is invalid or has expired" } });
+  const response = await confirmAuthGet(confirmRequest(`token_hash=${hash}&type=email&next=/`), expired.verify, expired.report);
+  expect(response.status).toBe(303);
+  const seen = refusal(response.headers.get("location"));
+  expect(seen).toMatchObject({ path: "/auth/confirm/error", code: "otp_expired", type: "email", hash: "" });
+  expect(seen.ref).toMatch(/^[A-Za-z0-9_-]{4,64}$/);
+  expect(expired.refusals).toEqual([{ reference: seen.ref, type: "email", code: "otp_expired" }]);
+  expect(response.headers.get("location")).not.toContain(hash);
+  expect(expired.calls).toHaveLength(1);
+
+  for (const result of [{ error: { message: "no code" } } as const, "throw" as const]) {
+    const { calls, verify, report } = verifier(result);
+    const failed = await confirmAuthGet(confirmRequest(`token_hash=${hash}&type=email&next=/`), verify, report);
+    expect(refusal(failed.headers.get("location"))).toMatchObject({ code: "verify_failed", type: "email" });
     expect(calls).toHaveLength(1);
   }
+
   const malformed = verifier({ error: null });
-  const response = await confirmAuthGet(confirmRequest("token_hash=short&type=email&next=/"), malformed.verify);
-  expect(response.headers.get("location")).toBe("/auth/confirm/error?type=email");
+  const short = await confirmAuthGet(confirmRequest("token_hash=short&type=email&next=/"), malformed.verify, malformed.report);
+  expect(refusal(short.headers.get("location"))).toMatchObject({ code: "malformed_link", type: "email" });
   expect(malformed.calls).toHaveLength(0);
+  expect(malformed.refusals[0]?.code).toBe("malformed_link");
+});
+
+test("a recovery verify that returns no session is refused, never handed over", async () => {
+  const calls: unknown[] = [];
+  const response = await confirmAuthGet(
+    confirmRequest(`token_hash=${hash}&type=recovery`),
+    async (input) => { calls.push(input); return { error: null, data: { session: null } }; },
+    () => undefined,
+  );
+  expect(refusal(response.headers.get("location"))).toMatchObject({ code: "verify_failed", type: "recovery", hash: "" });
+  expect(calls).toHaveLength(1);
 });
 
 test("an external next is rejected before the token is verified", async () => {
@@ -91,7 +147,7 @@ test("an external next is rejected before the token is verified", async () => {
       confirmRequest(`token_hash=${hash}&type=email&next=${encodeURIComponent(next)}`),
       verify,
     );
-    expect(response.headers.get("location")).toBe("/auth/confirm/error?type=email");
+    expect(refusal(response.headers.get("location"))).toMatchObject({ path: "/auth/confirm/error", code: "malformed_link", type: "email" });
     expect(response.headers.get("location")).not.toContain("evil.example");
     expect(calls).toHaveLength(0);
   }
@@ -104,7 +160,7 @@ test("a localhost bind origin never appears in the redirect", async () => {
     success.verify,
   );
   const location = response.headers.get("location");
-  expect(location).toBe("/auth/recovery?from=email#done");
+  expect(location).toBe(`/auth/recovery?from=email#recovery_proof=${await recoveryProof("person-1", "session-1")}`);
   expect(location).not.toContain("://");
   expect(location).not.toContain("localhost");
 
@@ -114,29 +170,26 @@ test("a localhost bind origin never appears in the redirect", async () => {
     blocked.verify,
   );
   const errorLocation = errorResponse.headers.get("location");
-  expect(errorLocation).toBe("/auth/confirm/error?type=recovery");
+  expect(refusal(errorLocation)).toMatchObject({ code: "malformed_link", type: "recovery" });
   expect(errorLocation).not.toContain("://");
   expect(errorLocation).not.toContain("localhost");
   expect(blocked.calls).toHaveLength(0);
 });
 
-test("a confirm failure passes error, error_code, and type, and drops the token", async () => {
-  const { verify } = verifier({ error: { message: "expired" } });
+test("a refusal keeps only its own code: request error params and hostile codes never pass through", async () => {
+  const { verify, report } = verifier({ error: { message: "expired" } });
   const response = await confirmAuthGet(
     confirmRequest(`token_hash=${hash}&type=recovery&error=access_denied&error_code=otp_expired`),
     verify,
+    report,
   );
-  expect(response.headers.get("location")).toBe(
-    "/auth/confirm/error?error=access_denied&error_code=otp_expired&type=recovery",
-  );
+  expect(refusal(response.headers.get("location"))).toMatchObject({ code: "verify_failed", type: "recovery" });
+  expect(new URL(response.headers.get("location") ?? "", origin).searchParams.get("error")).toBeNull();
   expect(response.headers.get("location")).not.toContain(hash);
 
-  const hostile = verifier({ error: { message: "nope" } });
-  const dropped = await confirmAuthGet(
-    confirmRequest(`token_hash=${hash}&type=recovery&error=${encodeURIComponent("otp expired at the provider")}`),
-    hostile.verify,
-  );
-  expect(dropped.headers.get("location")).toBe("/auth/confirm/error?type=recovery");
+  const hostile = verifier({ error: { code: "otp expired at the provider" } });
+  const dropped = await confirmAuthGet(confirmRequest(`token_hash=${hash}&type=recovery`), hostile.verify, hostile.report);
+  expect(refusal(dropped.headers.get("location"))).toMatchObject({ code: "verify_failed", type: "recovery" });
 });
 
 test("the confirm route wires verifyOtp through the server client", () => {

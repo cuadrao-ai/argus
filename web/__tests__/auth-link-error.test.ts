@@ -3,6 +3,8 @@ import { describe, expect, test } from "bun:test";
 import {
   authLinkErrorRedirect,
   confirmErrorView,
+  confirmReference,
+  rendersOwnLinkError,
   mapAuthLinkError,
   notFoundHref,
   prefilledEmail,
@@ -19,6 +21,7 @@ describe("mapAuthLinkError", () => {
         pathname: "/auth/recovery",
       }),
     ).toEqual({
+      problem: "expired",
       kind: "request",
       flow: "recovery",
       email: null,
@@ -34,6 +37,7 @@ describe("mapAuthLinkError", () => {
         pathname: "/",
       }),
     ).toEqual({
+      problem: "expired",
       kind: "request",
       flow: "recovery",
       email: "ada@example.test",
@@ -50,6 +54,7 @@ describe("mapAuthLinkError", () => {
         knownEmail: "other@example.test",
       }),
     ).toEqual({
+      problem: "expired",
       kind: "request",
       flow: "email_change",
       email: "ada@example.test",
@@ -66,6 +71,7 @@ describe("mapAuthLinkError", () => {
         knownEmail: "ada@example.test",
       }),
     ).toEqual({
+      problem: "expired",
       kind: "request",
       flow: "email_change",
       email: "ada@example.test",
@@ -80,7 +86,7 @@ describe("mapAuthLinkError", () => {
         hash: "",
         pathname: "/auth/recovery",
       }),
-    ).toEqual({ kind: "invite" });
+    ).toEqual({ problem: "expired", kind: "invite" });
   });
 
   test("a hash can name the flow when the query only names the failure", () => {
@@ -90,7 +96,7 @@ describe("mapAuthLinkError", () => {
         hash: "#type=invite",
         pathname: "/auth/recovery",
       }),
-    ).toEqual({ kind: "invite" });
+    ).toEqual({ problem: "expired", kind: "invite" });
   });
 
   test("other failures and unknown flows stay on the page that received them", () => {
@@ -147,6 +153,7 @@ describe("authLinkErrorRedirect", () => {
         pathname: "/auth/link-error",
       }),
     ).toEqual({
+      problem: "expired",
       kind: "request",
       flow: "recovery",
       email: null,
@@ -163,7 +170,7 @@ describe("authLinkErrorRedirect", () => {
     expect(target?.searchParams.get("type")).toBe("invite");
   });
 
-  test("does not redirect a screen that is already the shared one", () => {
+  test("does not redirect a screen that is already the shared one or the confirm route's own", () => {
     expect(
       authLinkErrorRedirect({
         origin,
@@ -171,6 +178,22 @@ describe("authLinkErrorRedirect", () => {
         searchParams: new URLSearchParams("error=access_denied&type=recovery"),
       }),
     ).toBeNull();
+    expect(
+      authLinkErrorRedirect({
+        origin,
+        pathname: "/auth/confirm/error",
+        searchParams: new URLSearchParams("error_code=otp_expired&type=recovery&ref=c0ffee00"),
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("rendersOwnLinkError", () => {
+  test("the shared screen and the confirm error page keep their own view and reference", () => {
+    expect(rendersOwnLinkError("/auth/link-error")).toBe(true);
+    expect(rendersOwnLinkError("/auth/confirm/error")).toBe(true);
+    expect(rendersOwnLinkError("/auth/recovery")).toBe(false);
+    expect(rendersOwnLinkError("/")).toBe(false);
   });
 });
 
@@ -195,20 +218,35 @@ describe("prefilledEmail", () => {
 });
 
 describe("confirmErrorView", () => {
-  test("a recovery confirm failure is the request screen", () => {
-    expect(confirmErrorView("?error=access_denied&error_code=otp_expired&type=recovery&email=ada@example.test")).toEqual({
+  test("a used or expired recovery link asks for a new one", () => {
+    expect(confirmErrorView("?error_code=otp_expired&type=recovery&ref=c0ffee00")).toEqual({
+      problem: "expired",
       kind: "request",
       flow: "recovery",
-      email: "ada@example.test",
-      href: "/auth/forgot-password?email=ada%40example.test",
+      email: null,
+      href: "/auth/forgot-password",
     });
   });
 
-  test("an invite confirm failure does not offer a request form", () => {
-    expect(confirmErrorView("?type=invite")).toEqual({ kind: "invite" });
+  test("a link missing a part says so and keeps the invite exit", () => {
+    expect(confirmErrorView("?error_code=malformed_link&type=invite")).toEqual({ problem: "malformed", kind: "invite" });
   });
 
-  test("a confirm type that is not a link flow still gets the request screen", () => {
-    expect(confirmErrorView("?type=signup")).toMatchObject({ kind: "request", flow: "recovery" });
+  test("any other refusal is not called expired", () => {
+    expect(confirmErrorView("?error_code=verify_failed&type=email_change")).toEqual({
+      problem: "rejected",
+      kind: "request",
+      flow: "email_change",
+      email: null,
+      href: "/account/security",
+    });
+    expect(confirmErrorView("?type=signup")).toMatchObject({ problem: "rejected", kind: "request", flow: "recovery" });
+    expect(confirmErrorView("")).toMatchObject({ problem: "rejected", kind: "request", flow: "recovery" });
+  });
+
+  test("the logged reference is read back only when it is a plain id", () => {
+    expect(confirmReference("?error_code=otp_expired&ref=c0ffee00")).toBe("c0ffee00");
+    expect(confirmReference("?ref=<script>")).toBeNull();
+    expect(confirmReference("?error_code=otp_expired")).toBeNull();
   });
 });

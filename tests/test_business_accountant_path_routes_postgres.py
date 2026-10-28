@@ -362,6 +362,7 @@ def test_an_invited_accountant_is_admitted_only_by_the_allowlist_and_works_from_
         [
             "manifest.json",
             "records.csv",
+            "personal.csv",
             "records.xlsx",
             "unresolved.csv",
             "dgii/606-607.xlsx",

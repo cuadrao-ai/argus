@@ -35,6 +35,10 @@ _REQUIRED = (
     "money_effect",
     "adjustment_effect",
     "recorded_currency",
+    # The Personal mark and the 606 answer say why a listed row is in or out
+    # of the manifest totals.
+    "personal",
+    "include_606",
 )
 
 
