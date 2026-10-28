@@ -10,6 +10,7 @@ let ready = true;
 let resetResult: typeof complete | { currentSessionPreserved: "unknown"; freshLoginRequired: false; revocation: "failed"; cookieSync: "not_required"; revocationAuthority?: "absent" | "unknown" | "present" } = complete;
 let retryResult: typeof resetResult = complete;
 let retryCalls = 0;
+const acceptedProofs: string[] = [];
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/auth/recovery" });
@@ -22,6 +23,8 @@ afterEach(() => {
   resetResult = complete;
   retryResult = complete;
   retryCalls = 0;
+  acceptedProofs.length = 0;
+  window.history.replaceState(null, "", "/auth/recovery");
 });
 afterAll(async () => {
   await GlobalRegistrator.unregister();
@@ -43,6 +46,7 @@ async function mount(language: "es-419" | "en" = "es-419") {
   const actions = (() => ({
     hasRecoverySession: async () => ready,
     exchangeRecoveryCode: async () => undefined,
+    acceptRecoveryProof: async (proof: string) => { acceptedProofs.push(proof); if (!ready) throw new Error("fixture"); },
     resetRecoveredPassword: async (password: string) => { calls.push(password); return resetResult; },
     signOutAllSessions: async () => { retryCalls += 1; return retryResult; },
     retryCookieCleanup: async () => "cleared",
@@ -69,6 +73,33 @@ describe("reset password", () => {
       assert.ok(page.host.textContent?.includes("Este enlace de recuperación falta, venció o ya fue usado."));
       assert.ok(!page.host.textContent?.includes("Tu contraseña fue actualizada."));
       assert.deepEqual(calls, []);
+      const reference = page.host.querySelector<HTMLElement>('[data-testid="error-reference"]');
+      assert.match(reference?.textContent ?? "", /Ref\. [A-Za-z0-9_-]{4,}/, "the invalid state shows a reference");
+      assert.equal(page.host.querySelector('a[href="/auth/forgot-password"]')?.textContent, "Solicitar un enlace nuevo");
+    } finally { await page.close(); }
+  });
+
+  test("a proof handed over by the confirm route opens the form and leaves the address", async () => {
+    const proof = `person-1:${"a".repeat(64)}`;
+    window.history.replaceState(null, "", `/auth/recovery#recovery_proof=${proof}`);
+    const page = await mount();
+    try {
+      assert.deepEqual(acceptedProofs, [proof]);
+      assert.ok(page.host.querySelector("form input"), "the password form shows");
+      assert.equal(window.location.hash, "");
+      assert.equal(window.location.pathname, "/auth/recovery");
+    } finally { await page.close(); }
+  });
+
+  test("a handed-over proof the session does not match stays on the invalid state", async () => {
+    ready = false;
+    window.history.replaceState(null, "", `/auth/recovery#recovery_proof=person-2:${"b".repeat(64)}`);
+    const page = await mount();
+    try {
+      assert.equal(acceptedProofs.length, 1);
+      assert.equal(page.host.querySelector("form"), null);
+      assert.ok(page.host.textContent?.includes("Vamos a buscar un nuevo enlace"));
+      assert.equal(window.location.hash, "");
     } finally { await page.close(); }
   });
 

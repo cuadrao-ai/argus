@@ -3,15 +3,17 @@
 import { useEffect, useState } from "react";
 
 import { AuthLinkErrorScreen } from "@/components/status/AuthLinkErrorScreen";
-import { confirmErrorView, type AuthLinkErrorView } from "@/lib/auth-link-error";
+import { confirmErrorView, confirmReference, type AuthLinkErrorView } from "@/lib/auth-link-error";
+import { referenceCode } from "@/lib/failure-screen";
 
 export default function ConfirmErrorPage() {
-  const [view, setView] = useState<AuthLinkErrorView | null>(null);
+  const [shown, setShown] = useState<{ view: AuthLinkErrorView; reference: string } | null>(null);
 
   useEffect(() => {
-    setView(confirmErrorView(window.location.search));
+    const search = window.location.search;
+    setShown({ view: confirmErrorView(search), reference: confirmReference(search) ?? referenceCode(null) });
   }, []);
 
-  if (!view) return null;
-  return <AuthLinkErrorScreen view={view} />;
+  if (!shown) return null;
+  return <AuthLinkErrorScreen view={shown.view} reference={shown.reference} />;
 }

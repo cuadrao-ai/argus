@@ -1494,7 +1494,8 @@
     },
     "confirm": {
       "error_title": "Este enlace no funcionó",
-      "error_body": "Falta, venció o ya se usó. Pide uno nuevo e inténtalo otra vez.",
+      "malformed_body": "Al enlace le falta una parte o se copió mal. Ábrelo desde el correo o pide uno nuevo.",
+      "rejected_body": "No pudimos verificar este enlace. Pide uno nuevo e inténtalo otra vez.",
       "back_to_sign_in": "Volver a iniciar sesión"
     },
     "legal": {
