@@ -18,8 +18,9 @@ product API on saved data and prints PASS/FAIL/UNTESTED per step:
 before the action the presenter performs live. Case 1 is not seeded. Seeding
 is idempotent: it looks for its own synthetic records (names carry "Ensayo",
 files are the numbered pack, keys start with ``jose-seed-v1``) before it
-writes, so a rerun creates nothing. ``--dry-run`` only reads and prints the
-plan. Seed always requires ``--expect-business <id prefix>`` and refuses any
+writes, so a rerun creates nothing. ``--dry-run`` (rehearse and seed) only
+reads and prints the planned writes; the client refuses any write while it is
+on. Seed always requires ``--expect-business <id prefix>`` and refuses any
 other Business. It saves ``--business-name`` only when the server reports
 ``name_required``, and turns receipt reading on only with ``--enable-reading``
 (otherwise it stops when reading is off).
@@ -164,6 +165,37 @@ SEED_INFORMAL_FACTS = {
     "counterparty": "Colmado Ensayo Demo (registrada)",
 }
 ACCOUNT = {"nickname": "Cuenta Ensayo DOP", "type": "checking", "currency": "DOP"}
+
+READ_ONLY_POSTS = ("/api/v1/business/reports/query",)
+
+PLANNED_WRITES = {
+    "0": [
+        "POST /business/receipt-reading (only when reading is off)",
+        "POST /business/accounts (only when there is no DOP checking account)",
+    ],
+    "2": [
+        "POST /business/captures (the cash note)",
+        "PATCH /business/drafts/{id}/review (informal receipt, owner funds)",
+        "POST /business/drafts/{id}/approve",
+        "PATCH /business/month-close/documents/{activity} (pagado, efectivo)",
+    ],
+    "3": [
+        "POST /business/receipts (03-farmacia-recibo.png)",
+        "POST /business/drafts/{id}/personal",
+        "PATCH /business/drafts/{id}/review",
+        "POST /business/drafts/{id}/approve",
+    ],
+    "1": [
+        "staging: none until the phone's document arrives; local: signed webhooks",
+        "PATCH /business/drafts/{id}/review (funding, business share)",
+        "POST /business/drafts/{id}/approve",
+    ],
+    "4": [
+        "POST /business/bank/imports (the statement, sent twice with one key)",
+        "POST /business/bank/suggestions/{id}/confirm (sent twice with one key)",
+    ],
+    "5": ["none: one GET /business/exports, skipped under --dry-run"],
+}
 
 FIX_1417 = "merge #1417 (personal separation): personal rows leave Registros totals, records.csv and the 606; personal.csv carries them"
 
@@ -356,9 +388,16 @@ class Api:
         self.http = httpx.Client(timeout=120)
         self.token: str | None = None
         self.grant: str | None = None
+        self.dry_run = False
         self.log: list[dict[str, Any]] = []
 
     def call(self, method: str, path: str, *, ok: bool = True, **kw: Any) -> Resp:
+        if (
+            self.dry_run
+            and method.upper() not in ("GET", "HEAD")
+            and path not in READ_ONLY_POSTS
+        ):
+            raise AssertionError(f"dry-run: refused {method} {path.split('?')[0]}")
         headers = {"Origin": self.origin, **kw.pop("headers", {})}
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
@@ -926,6 +965,32 @@ class Rehearsal:
             state["base"] = self.books.snapshot()
             state["base_receipts"] = {r["id"] for r in self.books.receipts()}
             obs.update(state["base"])
+
+    def plan(self) -> dict[str, Any]:
+        """--dry-run: read the Business, print every write a real run would make."""
+
+        api = self.api
+        reading = api.get("/business/receipt-reading?language=es-419")
+        accounts = [
+            a
+            for a in api.get("/business/workspace")["accounts"]
+            if a.get("currency") == "DOP"
+            and a.get("type", "checking") in ("checking", "savings")
+        ]
+        baseline = self.books.snapshot()
+        print(
+            f"  reads    reading enabled: {reading['enabled']}; DOP accounts: {len(accounts)}; baseline {json.dumps(baseline, default=str)[:300]}"
+        )
+        plan = {c: PLANNED_WRITES[c] for c in ("0", *self.args.cases)}
+        for case, writes in plan.items():
+            for write in writes:
+                print(f"  plan     case {case}: {write}")
+        return {
+            "reading_enabled": reading["enabled"],
+            "dop_accounts": len(accounts),
+            "baseline": baseline,
+            "planned": plan,
+        }
 
     def case2(self) -> None:
         api, state, rec = self.api, self.state, self.rec
@@ -2217,6 +2282,7 @@ def run(args: argparse.Namespace) -> None:
             require_loopback(value, what)
     files = pack_files(args.receipts_dir)
     api = Api(args.api, args.web)
+    api.dry_run = args.dry_run and not local
     health = api.call("GET", "/health").body
     sha = health.get("git_sha") or (
         subprocess.run(
@@ -2286,6 +2352,7 @@ def run(args: argparse.Namespace) -> None:
             f"{' with id prefix ' + prefix if prefix else ''} (it has: {owned})"
         )
     space = chosen[0]
+    api.dry_run = args.dry_run
     api.grant = space.get("grant_id")
     space_id = str(space.get("space_id") or space.get("id"))
     print(
@@ -2338,6 +2405,13 @@ def run(args: argparse.Namespace) -> None:
     rec = Recorder(api, out)
     rehearsal = Rehearsal(api, rec, args, files, env)
     rehearsal.state["sign_in"] = sign_in
+    if args.dry_run:
+        report = {**meta, "dry_run": True, **rehearsal.plan()}
+        (out / "plan.json").write_text(
+            json.dumps(report, ensure_ascii=False, indent=1, default=str)
+        )
+        (out / "calls.json").write_text(json.dumps(api.log, indent=1))
+        return
     rehearsal.setup()
     for case in args.cases:
         print(f"case {case}")
@@ -2457,7 +2531,7 @@ def main() -> None:
     go.add_argument(
         "--dry-run",
         action="store_true",
-        help="seed: read and print the plan, write nothing",
+        help="read and print the planned writes, write nothing (seed and rehearse)",
     )
     go.add_argument(
         "--business-name", help="seed: saved only when the server reports name_required"
