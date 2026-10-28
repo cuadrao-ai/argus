@@ -2545,6 +2545,7 @@ def main() -> None:
     go.set_defaults(handler=run)
     args = parser.parse_args()
     if args.command == "run":
+        args.cases = list(dict.fromkeys(args.cases))
         if args.target == "local" and not args.env_file:
             parser.error("--env-file is required for --target local")
         if args.target == "staging" and not args.account:
