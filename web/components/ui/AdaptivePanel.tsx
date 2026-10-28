@@ -36,7 +36,7 @@ type DrawerBounds = { preferred: number; min: number; maxVw: number };
  * so it may take half the screen; everything else stays under 40%. A dossier
  * (an incoming item: its form beside its original) lies over the page, as
  * Facturación's expanded editor does, and may take most of it; the page under
- * it keeps its width and its own keys.
+ * it keeps its width, and its owner makes what the drawer covers inert.
  */
 const DRAWER_WIDTH: Record<AdaptivePanelWidth, DrawerBounds> = {
   sm: { preferred: 360, min: 320, maxVw: 40 },
