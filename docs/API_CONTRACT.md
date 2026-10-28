@@ -9461,7 +9461,7 @@ closed enum of the ledger's own action names (`review_draft`,
 `prepare_attachment`, `rebind_attachment`, `settle_remainder`, `mark_personal`,
 `decide_606`, `resolve_duplicate`, `edit_current_note`,
 `append_supporting_file`, `receipt_upload`, `receipt_review`,
-`receipt_confirm`, `email_ai_consent_declined`, `set_business_rnc`,
+`receipt_confirm`, `set_business_rnc`,
 `business_propose_activity`, `business_attach_source`,
 `business_propose_allocation`, `business_ask`, `owner_grant`, `grant_access`,
 `invite_access`, `accept_invite`, `revoke_grant`, `revoke_invite`,
@@ -9474,7 +9474,9 @@ field of the command leaves the ledger.
 Only rows whose outcome is `applied` list; refused, failed, stale, replayed and
 in-flight rows do not. Ledger marks of a read or a look-up (`access_seen`,
 `business_read_context`, `business_find_related`, `business_explain_status`)
-are not changes and never list; `business_ask` lists, because an applied Ask
+are not changes and never list, and neither does `email_ai_consent_declined`,
+the owner's own answer to the one-time email AI notice, which changes no
+Business record. `business_ask` lists, because an applied Ask
 opens a question on the draft it names. A
 member whose live grant allows `read` sees only the listed actions that are
 not access changes; an action the feed does not list never reaches a member,

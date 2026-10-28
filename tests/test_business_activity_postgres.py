@@ -432,6 +432,25 @@ def test_an_action_the_feed_does_not_know_lists_as_other_for_managers_only(
         assert "business_future_action" not in text
 
 
+def test_the_owners_email_ai_consent_answer_lists_for_no_one(people, business, authority):
+    with Connection.connect(shared.DSN) as db:
+        receipt(
+            db,
+            business,
+            people["owner"],
+            {"action": "email_ai_consent_declined"},
+            seconds_ago=1,
+        )
+        db.commit()
+
+    for role in ("editor", "viewer"):
+        assert _seen(authority, people[role], business).items == (), role
+    for manager in ("owner", "admin"):
+        page = _seen(authority, people[manager], business)
+        assert [i.action for i in page.items] == ["owner_grant"], manager
+        assert "email_ai_consent" not in page.model_dump_json()
+
+
 def test_over_http_a_page_shows_only_what_the_feed_promises(people, business, authority):
     from argus.api.business import BusinessPerson, require_business_person
     from argus.api.business_drafts import DraftContext, stored_drafts

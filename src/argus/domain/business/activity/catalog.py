@@ -62,7 +62,6 @@ CATALOG: Mapping[str, ActionSpec] = MappingProxyType(
         "receipt_upload": ActionSpec(),
         "receipt_review": ActionSpec(),
         "receipt_confirm": ActionSpec(),
-        "email_ai_consent_declined": ActionSpec(),
         "set_business_rnc": ActionSpec(),
         "business_propose_activity": ActionSpec(object=_PLANNED_DRAFT),
         "business_attach_source": ActionSpec(object=_PLANNED_DRAFT),
@@ -78,6 +77,7 @@ CATALOG: Mapping[str, ActionSpec] = MappingProxyType(
     }
 )
 
+#: A read or a look-up: not a change, so no page lists it.
 READ_MARKS: frozenset[str] = frozenset(
     {
         "access_seen",
@@ -86,6 +86,9 @@ READ_MARKS: frozenset[str] = frozenset(
         "business_explain_status",
     }
 )
+#: A person's own state, not a change to the Business, so no page lists it.
+PERSONAL_STATE: frozenset[str] = frozenset({"email_ai_consent_declined"})
+UNLISTED: frozenset[str] = READ_MARKS | PERSONAL_STATE
 
 
 @dataclass(frozen=True)
@@ -93,7 +96,7 @@ class Visibility:
     """Which action names a reader's page may hold. A member's page holds only
     the names the catalog lists for members, so a new ledger action never
     reaches members before the catalog names it. A manager's page holds every
-    name but the read marks, and one the catalog does not know shows as
+    name but the unlisted ones, and one the catalog does not know shows as
     ``other``."""
 
     only: tuple[str, ...] | None
@@ -102,7 +105,7 @@ class Visibility:
 
 def visibility(*, manager: bool) -> Visibility:
     if manager:
-        return Visibility(only=None, hidden=tuple(sorted(READ_MARKS)))
+        return Visibility(only=None, hidden=tuple(sorted(UNLISTED)))
     listed = (name for name, spec in CATALOG.items() if spec.audience == "member")
     return Visibility(only=tuple(sorted(listed)), hidden=())
 

@@ -30,7 +30,6 @@ ActivityAction = Literal[
     "receipt_upload",
     "receipt_review",
     "receipt_confirm",
-    "email_ai_consent_declined",
     "set_business_rnc",
     "business_propose_activity",
     "business_attach_source",

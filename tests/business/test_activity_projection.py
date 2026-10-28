@@ -11,7 +11,9 @@ import pytest
 from argus.domain.business.access import AccessAction
 from argus.domain.business.activity.catalog import (
     CATALOG,
+    PERSONAL_STATE,
     READ_MARKS,
+    UNLISTED,
     Visibility,
     project,
     visibility,
@@ -61,9 +63,11 @@ def row(command: dict, outcome: dict | None = None, **actor: str) -> dict:
     }
 
 
-def test_every_listed_action_is_in_the_enum_and_no_read_mark_is():
+def test_every_listed_action_is_in_the_enum_and_no_unlisted_one_is():
     assert set(CATALOG) == set(get_args(ActivityAction)) - {"other"}
-    assert not READ_MARKS & set(CATALOG)
+    assert not UNLISTED & set(CATALOG)
+    assert not UNLISTED & set(get_args(ActivityAction))
+    assert "email_ai_consent_declined" in PERSONAL_STATE
 
 
 def test_every_access_action_is_a_manager_change_or_a_read_mark():
@@ -71,13 +75,15 @@ def test_every_access_action_is_a_manager_change_or_a_read_mark():
     assert managed == set(get_args(AccessAction)) - READ_MARKS
 
 
-def test_a_member_sees_only_listed_changes_and_a_manager_everything_but_reads():
+def test_a_member_sees_only_listed_changes_and_a_manager_everything_but_unlisted():
     member = visibility(manager=False)
     assert member.only is not None
     assert set(member.only) == set(CATALOG) - ACCESS_CHANGES
+    assert "email_ai_consent_declined" not in member.only
     assert member.hidden == ()
-    manager = Visibility(only=None, hidden=tuple(sorted(READ_MARKS)))
+    manager = Visibility(only=None, hidden=tuple(sorted(UNLISTED)))
     assert visibility(manager=True) == manager
+    assert "email_ai_consent_declined" in manager.hidden
 
 
 def _action_names(annotation: object) -> set[str]:
@@ -105,8 +111,8 @@ UNTYPED_LEDGER_ACTIONS = frozenset({"email_ai_consent_declined"})
 
 def test_every_typed_ledger_action_has_a_catalog_decision():
     assert len(TYPED_LEDGER_ACTIONS) > 20
-    assert TYPED_LEDGER_ACTIONS <= set(CATALOG) | READ_MARKS
-    assert set(CATALOG) | READ_MARKS == TYPED_LEDGER_ACTIONS | UNTYPED_LEDGER_ACTIONS
+    assert TYPED_LEDGER_ACTIONS <= set(CATALOG) | UNLISTED
+    assert set(CATALOG) | UNLISTED == TYPED_LEDGER_ACTIONS | UNTYPED_LEDGER_ACTIONS
 
 
 @pytest.mark.parametrize(
@@ -152,7 +158,6 @@ def test_every_typed_ledger_action_has_a_catalog_decision():
         ({"action": "review_draft", "draft_id": "not-a-uuid"}, None, None),
         ({"action": "receipt_review", "subjects": [str(DRAFT)]}, None, None),
         ({"action": "receipt_upload", "subjects": [str(DRAFT)]}, None, None),
-        ({"action": "email_ai_consent_declined"}, None, None),
     ],
 )
 def test_the_object_is_the_server_owned_id_when_one_is_known(
@@ -169,6 +174,7 @@ def test_the_object_is_the_server_owned_id_when_one_is_known(
     "command",
     [
         {"action": "business_future_action", "draft_id": str(DRAFT)},
+        {"action": "email_ai_consent_declined"},
         {"action": 7},
         {"no_action": True},
         {"action": ["review_draft"]},
