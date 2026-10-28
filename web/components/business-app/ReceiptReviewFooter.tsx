@@ -9,8 +9,9 @@ import { secondaryButtonClass } from "./business-ui";
  * The record's less frequent actions behind one "Más" control in the footer.
  * Its contents stay mounted while it is closed, so a change in flight inside
  * it (a Personal mark, a note) keeps its state. Escape and a click outside close it.
- * On a phone the trigger is an icon, so the footer's three actions share one row,
- * and the panel spans the footer instead of hanging off the trigger past the screen's edge.
+ * On a phone the trigger is an icon, so the footer's actions fit one row when their
+ * labels are short and wrap when they are not, and the panel spans the footer instead
+ * of hanging off the trigger past the screen's edge.
  */
 export function ReceiptMoreMenu({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
@@ -70,7 +71,7 @@ export default function ReceiptReviewFooter({ status, actions }: { status?: Reac
   return (
     <div className="relative flex flex-wrap items-center gap-x-4 gap-y-2 tablet:static">
       <div className="min-w-0 flex-1 basis-56 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{status}</div>
-      <div className="flex items-center justify-end gap-2 max-tablet:w-full tablet:flex-wrap">{actions}</div>
+      <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>
     </div>
   );
 }
