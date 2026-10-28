@@ -216,6 +216,13 @@ def test_lists_only_applied_changes_newest_first(people, business, authority):
     assert len({i.id for i in page.items}) == 2
     assert all(len(i.id) == 32 for i in page.items)
 
+    owner = _seen(authority, people["owner"], business)
+    assert [i.action for i in owner.items] == [
+        "owner_grant",
+        "settle_remainder",
+        "review_draft",
+    ]
+
 
 def test_access_changes_list_only_for_a_reader_who_may_manage(
     people, business, authority
