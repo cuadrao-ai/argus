@@ -44,7 +44,7 @@ export default function BusinessOverviewPanel() {
         monthClose={monthClose}
         layout="finance"
         arrange={home}
-        review={records.error ? (records.refused ? { state: "refused" } : { state: "failed", retry: reload }) : porRevisar === null ? { state: records.inbox === null ? "loading" : "unknown" } : {
+        review={records.error ? (records.refused ? { state: "refused", reference: records.failureReference } : { state: "failed", retry: reload, reference: records.failureReference }) : porRevisar === null ? { state: records.inbox === null ? "loading" : "unknown" } : {
           count: porRevisar,
           detail: null,
           reading,
