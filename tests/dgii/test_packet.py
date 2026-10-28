@@ -9,12 +9,13 @@ from xml.etree import ElementTree
 from zipfile import ZipFile
 
 import pytest
-from argus.domain.business.contracts.dgii import FiscalReview
+from argus.domain.business.contracts.dgii import FiscalReview, PurchaseDeclaration
 from argus.domain.business.contracts.facts import (
     BusinessFacts,
     FiscalFacts,
     Known,
     Unknown,
+    WholeBusinessShare,
 )
 from argus.domain.business.dgii_export import build_fiscal_packet
 from argus.domain.business.dgii_validation import FiscalRecord
@@ -427,3 +428,66 @@ def test_seeded_month_annex_matches_reference_bytes():
     for number in ("B0100009876", "B0400000310"):
         fields = next(line.split("|") for line in purchase if f"|{number}|" in line)
         assert (fields[6], fields[11], fields[17]) == ("", "", "")
+
+
+@pytest.mark.parametrize(
+    ("answer", "disposition", "reason"),
+    [
+        (None, "excluded", "personal"),
+        (False, "excluded", "personal"),
+        (True, "606", "included"),
+    ],
+)
+def test_personal_purchase_enters_the_606_only_with_the_accountants_yes(
+    answer, disposition, reason
+):
+    records = practice_records()
+    business = packet()
+    modified = {
+        str(record.declaration.purchase_activity_id)
+        for record in records
+        if isinstance(record.declaration, PurchaseDeclaration)
+    }
+    [purchase] = [
+        record
+        for record, item in zip(records, business.manifest["reconciliation"], strict=True)
+        if item["disposition"] == "606"
+        and record.kind == "expense"
+        and record.activity_id not in modified
+    ]
+    source = (UUID(int=900),)
+    fiscal = purchase.facts.fiscal.model_copy(
+        update={
+            "include_606": Known(value=answer, origin="member_set", source_ids=source)
+            if answer is not None
+            else Unknown()
+        }
+    )
+    facts = purchase.facts.model_copy(
+        update={
+            "business_share": Known(
+                value=WholeBusinessShare(kind="none"),
+                origin="owner_stated",
+                source_ids=source,
+            ),
+            "fiscal": fiscal,
+        }
+    )
+    personal = tuple(
+        replace(record, facts=facts) if record is purchase else record
+        for record in records
+    )
+    result = packet(personal)
+    [item] = [
+        row
+        for row in result.manifest["reconciliation"]
+        if row["activity_id"] == purchase.activity_id
+    ]
+    assert (item["disposition"], item["reason"]) == (disposition, reason)
+    assert result.manifest["issues"] == []
+    excluded = disposition == "excluded"
+    assert result.manifest["forms"]["606"]["record_count"] == 3 - excluded
+    business_gross = Decimal(business.manifest["totals_dop"]["purchase_invoice_gross"])
+    assert Decimal(result.manifest["totals_dop"]["purchase_invoice_gross"]) == (
+        business_gross - Decimal(purchase.amount) if excluded else business_gross
+    )

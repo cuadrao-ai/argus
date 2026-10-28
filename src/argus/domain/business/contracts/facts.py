@@ -440,3 +440,7 @@ def fiscal_inclusion(facts: BusinessFacts) -> bool | None:
         return None
     answer = facts.fiscal.include_606
     return answer.value if isinstance(answer, Known) else None
+
+
+def personal_mark_admits(personal: bool, include_606: bool | None) -> bool:
+    return not personal or include_606 is True
