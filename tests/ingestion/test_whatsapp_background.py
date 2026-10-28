@@ -8,7 +8,7 @@ from argus.domain.ingestion.whatsapp.intake import DeliveryInFlight
 from argus.domain.ingestion.whatsapp.media import MediaUnavailable
 
 from tests.ingestion.test_whatsapp_intake import _world
-from tests.ingestion.whatsapp_cases import ALICE_PHONE, image
+from tests.ingestion.whatsapp_cases import ALICE_PHONE, ORIGIN, image
 from tests.ingestion.whatsapp_support import RECEIPT_PNG, Media
 
 
@@ -51,8 +51,11 @@ async def test_the_webhook_answers_before_the_media_is_fetched() -> None:
     gate.opened.set()
     await work.drain(timeout=5)
     assert world.record("wamid.BG-ONE").status == "captured"
-    assert len(world.captures(world.alice)) == 1
-    assert "Recibido. Revísalo aquí:" in world.transport.bodies()[-1]
+    [connection_id] = world.captures(world.alice)
+    # Reading is off in this world: the acknowledgement keeps the review link.
+    assert world.transport.bodies()[-1] == (
+        f"Recibido. Revísalo aquí: {ORIGIN}/biz?receipt={connection_id}"
+    )
 
 
 @pytest.mark.asyncio

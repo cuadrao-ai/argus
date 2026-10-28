@@ -20,6 +20,7 @@ from argus.domain.ingestion.documents.service import (
 from argus.domain.ingestion.documents.store import InMemoryDocumentStore
 from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.ingestion.sink import SubmitResult
+from argus.domain.ingestion.whatsapp.replies import ReplyFailed
 from argus.domain.ingestion.whatsapp.store import InMemoryWhatsAppStore
 
 from tests.business_reading_support import reading_setting, turn_reading
@@ -114,7 +115,7 @@ async def test_with_the_switch_on_the_receipt_is_read_and_followed_up_once() -> 
     assert _status(world, connection_id) == "review_ready"
     assert extractor.calls == 1
     assert world.transport.bodies()[-2:] == [
-        f"Recibido. Revísalo aquí: {link}",
+        "Recibido. Lo estoy leyendo.",
         f"Leí: Ferretería Ochoa, 850 DOP. Revísalo antes de guardar: {link}",
     ]
 
@@ -126,6 +127,25 @@ async def test_with_the_switch_off_the_receipt_waits_unread_and_no_follow_up() -
     assert _status(world, connection_id) == "saved"
     assert extractor.calls == 0
     assert len(world.transport.sent) == 2
+    assert world.transport.bodies()[-1] == (
+        f"Recibido. Revísalo aquí: {cases.ORIGIN}/biz?receipt={connection_id}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_with_document_jobs_on_the_acknowledgement_keeps_the_link(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    jobs = Mock()
+    monkeypatch.setattr("argus.api.document_jobs._jobs", jobs)
+    world, extractor, _ = _world(on=True)
+    connection_id = await _send(world, "wamid.READ-JOBS")
+    assert jobs.start.called
+    assert extractor.calls == 0
+    assert len(world.transport.sent) == 2
+    assert world.transport.bodies()[-1] == (
+        f"Recibido. Revísalo aquí: {cases.ORIGIN}/biz?receipt={connection_id}"
+    )
 
 
 @pytest.mark.asyncio
@@ -145,7 +165,45 @@ async def test_a_switch_turned_off_after_capture_stops_the_read() -> None:
     [connection_id] = world.captures(world.alice)
     assert extractor.calls == 0
     assert _status(world, connection_id) == "saved"
-    assert len(world.transport.sent) == 2
+    assert world.transport.bodies()[-2:] == _promised_then_link(connection_id)
+
+
+def _promised_then_link(connection_id: str) -> list[str]:
+    """A reading acknowledgement whose read never settled, then the standard
+    acknowledgement with the link in its place."""
+
+    return [
+        "Recibido. Lo estoy leyendo.",
+        f"Recibido. Revísalo aquí: {cases.ORIGIN}/biz?receipt={connection_id}",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_read_that_cannot_start_falls_back_to_the_link() -> None:
+    world, extractor, _ = _world(on=True)
+    # Preparation must go through Business actions, and none are wired.
+    world.documents.business_preparation_required = True
+    connection_id = await _send(world, "wamid.READ-NO-START")
+    assert extractor.calls == 0
+    assert _status(world, connection_id) == "saved"
+    assert world.transport.bodies()[-2:] == _promised_then_link(connection_id)
+
+
+@pytest.mark.asyncio
+async def test_a_follow_up_that_fails_to_send_falls_back_to_the_link() -> None:
+    world, extractor, _ = _world(on=True)
+    record = world.transport.send
+
+    async def send(payload: dict[str, Any]) -> None:
+        if payload["text"]["body"].startswith("Leí:"):
+            raise ReplyFailed("transport")
+        await record(payload)
+
+    world.transport.send = send
+    connection_id = await _send(world, "wamid.READ-SEND-FAIL")
+    assert extractor.calls == 1
+    assert _status(world, connection_id) == "review_ready"
+    assert world.transport.bodies()[-2:] == _promised_then_link(connection_id)
 
 
 @pytest.mark.asyncio
@@ -154,10 +212,11 @@ async def test_a_read_that_fails_sends_the_open_it_follow_up() -> None:
     extractor.fail = True
     connection_id = await _send(world, "wamid.READ-FAIL")
     assert _status(world, connection_id) == "needs_attention"
-    assert world.transport.bodies()[-1] == (
+    assert world.transport.bodies()[-2:] == [
+        "Recibido. Lo estoy leyendo.",
         "No pudimos leer bien tu recibo. Ábrelo en Cuadrao para completarlo: "
-        f"{cases.ORIGIN}/biz?receipt={connection_id}"
-    )
+        f"{cases.ORIGIN}/biz?receipt={connection_id}",
+    ]
 
 
 @pytest.mark.asyncio
@@ -187,7 +246,7 @@ async def test_a_read_that_stops_leaves_the_receipt_saved_and_the_owner_unharmed
     [connection_id] = world.captures(world.alice)
     assert _status(world, connection_id) == "queued"
     assert world.record("wamid.READ-STOP").status == "captured"
-    assert len(world.transport.sent) == 2  # the link and the acknowledgement only
+    assert world.transport.bodies()[-2:] == _promised_then_link(connection_id)
 
 
 @pytest.mark.asyncio
@@ -280,7 +339,7 @@ async def test_a_switch_turned_off_while_the_source_is_read_stops_before_the_pro
     connection_id = await _send(world, "wamid.READ-LATE")
     assert extractor.calls == 0
     assert _status(world, connection_id) == "saved"
-    assert len(world.transport.sent) == 2
+    assert world.transport.bodies()[-2:] == _promised_then_link(connection_id)
 
 
 @pytest.mark.parametrize(

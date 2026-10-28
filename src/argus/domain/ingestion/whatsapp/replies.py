@@ -20,6 +20,8 @@ from argus.domain.ingestion.whatsapp.media import GRAPH_HOST
 from argus.domain.ingestion.whatsapp.store import SENDER_LINK_REVOKED
 
 # Founder-approved copy, October 8, 2026 (docs/specs/lanes/cuadrao-whatsapp-intake.md).
+# "captured_reading" approved October 28, 2026: the acknowledgement of a receipt
+# read inline right after it carries no link; the follow-up carries it.
 _RESEND = (
     "No pudimos guardarlo. Envíalo de nuevo.",
     "We couldn't save it. Please send it again.",
@@ -29,6 +31,10 @@ REPLIES: dict[str, tuple[str, str]] = {
     "captured": (
         "Recibido. Revísalo aquí: {link}",
         "Received. Review it here: {link}",
+    ),
+    "captured_reading": (
+        "Recibido. Lo estoy leyendo.",
+        "Received. I'm reading it.",
     ),
     "read_ready": (
         "Ya leímos tu recibo. Revísalo y confírmalo en Cuadrao: {link}",
@@ -108,11 +114,19 @@ _SAME_REPLY = {
 }
 
 
-def reply_key(status: str, error_code: str | None, *, duplicate: bool = False) -> str:
+def reply_key(
+    status: str,
+    error_code: str | None,
+    *,
+    duplicate: bool = False,
+    reading: bool = False,
+) -> str:
     """Captured and linked answer by status; everything else by its error code."""
 
     if status == "captured" and duplicate:
         return "duplicate"
+    if status == "captured" and reading:
+        return "captured_reading"
     key = error_code if status in ("rejected", "failed") and error_code else status
     return _SAME_REPLY.get(key, key)
 

@@ -302,6 +302,14 @@ def test_reply_uses_one_language_spanish_unless_the_owner_is_english() -> None:
         "The file is larger than 10 MB. Send a smaller photo or PDF."
     )
     assert reply_key("captured", None, duplicate=True) == "duplicate"
+    assert reply_key("captured", None, reading=True) == "captured_reading"
+    assert reply_key("captured", None, duplicate=True, reading=True) == "duplicate"
+    assert compose_reply("captured_reading", language="es-419") == (
+        "Recibido. Lo estoy leyendo."
+    )
+    assert compose_reply("captured_reading", language="en") == (
+        "Received. I'm reading it."
+    )
     assert reply_payload(to="15550101234", in_reply_to="wamid.X", body="Hola") == {
         "messaging_product": "whatsapp",
         "recipient_type": "individual",

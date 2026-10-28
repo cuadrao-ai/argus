@@ -90,6 +90,10 @@ class CaptureFailed(Exception):
 class Captured:
     connection_id: str
     already_held: bool
+    # The receipt was queued and will be read inline right after the
+    # acknowledgement. The destination decides it once at capture time; the
+    # acknowledgement and the follow-up both read it, never recompute it.
+    reading: bool = False
 
 
 class IntakeDestination(Protocol):
@@ -335,28 +339,38 @@ class WhatsAppIntake:
         self, message: InboundMessage, settlement: Settlement, log
     ) -> None:  # noqa: ANN001
         """One more message, once the receipt is read: where it stands. Best
-        effort; the acknowledgement already carried the link."""
+        effort. A ``reading`` acknowledgement promised the link, so when the
+        read does not settle or the follow-up does not go out, the standard
+        acknowledgement with the link stands in; every other acknowledgement
+        already carried it."""
 
         if settlement.status != "captured" or settlement.duplicate:
             return
+        sent = False
         try:
             result = await self.destination.read(
                 owner_id=settlement.destination_owner_id or "",
                 connection_id=settlement.connection_id or "",
             )
             if result is None or result[0] not in ("review_ready", "needs_attention"):
-                return
-            status, found = result
-            if status == "needs_attention":
-                key = "read_attention"
+                reason = {"status": None if result is None else result[0]}
             else:
-                key = "read_summary" if found else "read_ready"
-            await self._reply(message, settlement, log, key=key, read=found)
+                status, found = result
+                if status == "needs_attention":
+                    key = "read_attention"
+                else:
+                    key = "read_summary" if found else "read_ready"
+                sent = await self._reply(message, settlement, log, key=key, read=found)
+                reason = {"status": status, "follow_up": "not_sent"}
         except Exception as error:
+            reason = {"failure_mode": getattr(error, "code", type(error).__name__)}
+            log.warning("WhatsApp receipt read follow-up skipped", **reason)
+        if settlement.reading and not sent:
             log.warning(
-                "WhatsApp receipt read follow-up skipped",
-                failure_mode=getattr(error, "code", type(error).__name__),
+                "WhatsApp receipt acknowledged as reading but no follow-up was sent",
+                **reason,
             )
+            await self._reply(message, settlement, log, key="captured")
 
     async def _discard(self, captured: Settlement, log) -> None:  # noqa: ANN001
         """The link ended while this receipt was being saved; the sender is
@@ -471,6 +485,7 @@ class WhatsAppIntake:
             owner,
             captured.connection_id,
             duplicate=captured.already_held,
+            reading=captured.reading,
         )
 
     async def _reply(
@@ -480,13 +495,18 @@ class WhatsAppIntake:
         log,  # noqa: ANN001
         key: str | None = None,
         read: dict[str, str] | None = None,
-    ) -> None:
+    ) -> bool:
+        """``True`` when the message went out."""
+
         resolved_key = key or reply_key(
-            settlement.status, settlement.error_code, duplicate=settlement.duplicate
+            settlement.status,
+            settlement.error_code,
+            duplicate=settlement.duplicate,
+            reading=settlement.reading,
         )
         if resolved_key == "whatsapp_sender_not_linked":
             suppressed("unknown_sender", self.keys.sender(message.sender))
-            return
+            return False
         if (
             resolved_key != "whatsapp_link_code_invalid"
             and await asyncio.to_thread(
@@ -495,19 +515,19 @@ class WhatsAppIntake:
             is None
         ):
             suppressed("unknown_sender", self.keys.sender(message.sender))
-            return
+            return False
         if settlement.error_code in FAILURE_REASONS:
-            return
+            return False
         if self.transport is None or not self.send_enabled():
-            return
+            return False
         if self.clock() - message.sent_at > SERVICE_WINDOW:
             log.info("WhatsApp acknowledgement skipped: outside the service window")
-            return
+            return False
         url = None
         if settlement.status == "captured":
             if not self.app_origin:
                 log.warning("WhatsApp acknowledgement skipped: no app origin")
-                return
+                return False
             url = review_url(self.app_origin, settlement.connection_id or "")
         elif settlement.error_code == "whatsapp_receipt_missing" and self.app_origin:
             url = inbox_url(self.app_origin)
@@ -522,6 +542,7 @@ class WhatsAppIntake:
             await self.transport.send(
                 reply_payload(to=message.sender, in_reply_to=message.id, body=body)
             )
+            return True
         except ReplyFailed as error:
             reason = (
                 error.args[0]
@@ -551,3 +572,4 @@ class WhatsAppIntake:
             log.warning(
                 f"WhatsApp acknowledgement not sent: {rendered}", **diagnostics
             )
+            return False
