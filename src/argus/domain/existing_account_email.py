@@ -74,7 +74,10 @@ def send_existing_account_notice(
             subject=message["subject"],
             plain_text=message["text"],
             html=message["html"],
-            idempotency_key=_idempotency_key(normalized, sent_at or datetime.now(timezone.utc)),
+            idempotency_key=_idempotency_key(
+                normalized, sent_at or datetime.now(timezone.utc)
+            ),
         )
+        logger.info("existing_account_notice_sent")
     except Exception as error:
         logger.warning("existing_account_notice_failed", error=type(error).__name__)

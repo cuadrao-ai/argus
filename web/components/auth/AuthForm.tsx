@@ -562,7 +562,7 @@ export default function AuthForm({
             </button>
           </div>
           <div data-testid="auth-check-email-exits" className="mx-auto mt-3 flex max-w-[400px] flex-col items-center gap-1 text-[14px] text-black/60 dark:text-white/60">
-            {onModeChange ? (
+            {allowModeSwitch && onModeChange ? (
               <p>
                 {t("landing.already_account")}{" "}
                 <button type="button" disabled={isConfirming}

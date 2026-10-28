@@ -132,3 +132,32 @@ def test_denied_and_failed_signups_send_no_notice(
 
     assert denied.status_code == failed.status_code == 400
     assert sent == []
+
+
+def test_notice_is_queued_after_the_response_not_sent_inline(
+    gateway: MagicMock,
+    sent: list[dict[str, object]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from argus.domain.existing_account_email import send_existing_account_notice
+    from starlette.background import BackgroundTasks
+
+    queued: list[tuple[object, dict[str, object]]] = []
+    monkeypatch.setattr(
+        BackgroundTasks,
+        "add_task",
+        lambda self, func, *args, **kwargs: queued.append((func, kwargs)),
+    )
+    existing_email = fake.unique.email()
+    gateway.signup.return_value = _provider_user(existing_email, existing=True)
+
+    response = _signup(existing_email)
+
+    assert response.status_code == 200
+    assert sent == []
+    assert queued == [
+        (
+            send_existing_account_notice,
+            {"recipient": existing_email, "language": "es-419"},
+        )
+    ]
