@@ -175,15 +175,18 @@ test("a member with export and no Agregar keeps the menu trigger and its focus w
   const page = await mount();
   const live = globalThis.fetch;
   let release: () => void = () => undefined;
+  let exportStarted = false;
   const held = new Promise<void>((resolve) => { release = resolve; });
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    if (String(input).endsWith("/reports/export")) await held;
+    if (String(input).endsWith("/reports/export")) { exportStarted = true; await held; }
     return live(input, init);
   }) as typeof fetch;
   const trigger = () => document.querySelector<HTMLButtonElement>('[data-testid="add-menu-more"]');
   assert.equal(document.querySelector('[data-testid="business-primary-upload"]'), null);
+  await page.settle(() => document.querySelector('[data-testid="records-count"]') !== null && trigger() !== null);
   await page.click(trigger());
   await page.click(page.button(spanish.business.overview.export_records));
+  await page.settle(() => exportStarted && trigger()?.getAttribute("aria-disabled") === "true");
   assert.ok(trigger(), "the trigger stays while the export runs");
   assert.equal(document.activeElement, trigger(), "focus returns to the trigger and stays");
   assert.equal(trigger()!.getAttribute("aria-disabled"), "true", "an empty menu leaves the trigger inert");
