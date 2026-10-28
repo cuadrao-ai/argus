@@ -76,8 +76,8 @@ function RecordContent({ panel, preview }: { panel: RecordPanel; preview?: Recor
 }
 
 /**
- * A record on a desktop, beside the list it came from (an expense) or over it (an incoming
- * item, in its wide dossier). The tray is not modal:
+ * A record on a desktop: beside Registros, which it came from, or in the wide dossier over the
+ * Bandeja. The tray is not modal:
  * a click on another row swaps the record, and closing returns to the list
  * with focus on the row that was open.
  */
@@ -97,7 +97,7 @@ function RecordTray({ panel, list, listRef, returnFocusRef, preview }: { panel: 
   return (
     <AdaptivePanel
       modal={false}
-      width={panel.kind === "expense" ? "record" : "dossier"}
+      width={list === "inbox" ? "dossier" : "record"}
       title={t("business.tray.title", "Details")}
       closeLabel={t("common.close", "Close")}
       onClose={close}
@@ -162,7 +162,7 @@ export default function BusinessPanel() {
         <RecordsAnnotationsPreview><div ref={listRef} tabIndex={-1} data-column={column} className={`w-full ${record && !tray ? "pb-0" : "pb-6"} outline-none ${COLUMN[column]}`}>
       <BusinessContextCue />
       {/* A dossier tray lies over the list, so what it covers leaves the Tab order and the accessibility tree. */}
-      <div inert={tray && record?.kind !== "expense" ? true : undefined}>
+      <div inert={tray === "inbox" ? true : undefined}>
       {/* Keyed by what the page shows, so opening a record beside the list keeps the list mounted. */}
       <PanelErrorBoundary key={tray ?? (record ? recordKey(record) : panel.kind)}>
         {shown === "overview" ? <BusinessOverviewPanel /> : null}

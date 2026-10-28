@@ -7,6 +7,7 @@ import { ChevronLeft, Maximize2, Minimize2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { useModalSurface } from "@/components/layout/useModalSurface";
+import { focusableWithin, nextFocusIndex } from "@/components/layout/overlayFocus";
 import BottomSheet, { type SheetSnap } from "@/components/ui/BottomSheet";
 import { useSheetStack } from "@/components/ui/sheetStack";
 import styles from "./adaptive-panel.module.css";
@@ -244,12 +245,28 @@ function TrayDrawer(props: DrawerProps & StackPlace) {
       className="fixed inset-y-0 right-0 z-[70]"
       role="region"
       onKeyDown={(event) => {
-        if (event.key !== "Escape" || event.defaultPrevented || !dismissible) return;
+        if (event.defaultPrevented) return;
+        if (event.key === "Tab" && props.width === "dossier") holdTabInside(event);
+        if (event.key !== "Escape" || !dismissible) return;
         event.preventDefault();
         onClose();
       }}
     />
   );
+}
+
+/**
+ * A dossier lies over most of the page, so Tab past either end of it wraps instead of landing on a
+ * control it covers. Escape closes it; a layer opened from inside it keeps its own Tab handling.
+ */
+function holdTabInside(event: React.KeyboardEvent<HTMLDivElement>) {
+  if (!(event.target instanceof Node) || !event.currentTarget.contains(event.target)) return;
+  const stops = focusableWithin(event.currentTarget);
+  const at = stops.indexOf(document.activeElement as HTMLElement);
+  const leaving = event.shiftKey ? at <= 0 : at === stops.length - 1;
+  if (!stops.length || !leaving) return;
+  event.preventDefault();
+  stops[nextFocusIndex({ count: stops.length, currentIndex: at, direction: event.shiftKey ? "focus-previous" : "focus-next" })]?.focus();
 }
 
 function DrawerPanel({

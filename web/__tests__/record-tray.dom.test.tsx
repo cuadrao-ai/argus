@@ -219,7 +219,7 @@ describe("what a dossier tray covers", () => {
     assert.equal(covered(page), null, "the list is live again");
   });
 
-  test("an expense from Transacciones keeps the narrower tray, with its list beside it and live", async () => {
+  test("Registros keeps its narrower tray beside a live list, for an expense and for a receipt behind one", async () => {
     const page = await mount();
     await page.open({ kind: "transactions" });
     const saved = (text: string) => [...page.host.querySelectorAll<HTMLElement>("[data-record-id]")].find((item) => item.textContent?.includes(text)) ?? null;
@@ -228,6 +228,33 @@ describe("what a dossier tray covers", () => {
     await page.settle(() => page.recordTitle() === "Estación Ruta 3", "Estación Ruta 3 in the tray");
     assert.equal(page.tray()!.getAttribute("data-width"), "record");
     assert.equal(covered(page), null, "the list beside the expense stays in the Tab order");
+    await page.click(saved("Nube Hosting"));
+    await page.settle(() => page.tray()?.querySelector('[data-testid="business-record-review"]') != null, "the receipt in the tray");
+    assert.equal(page.tray()!.getAttribute("data-width"), "record");
+    assert.equal(covered(page), null, "the list beside the receipt stays in the Tab order");
+  });
+
+  test("Tab past either end of the dossier wraps inside it, and a layer opened from it keeps its own Tab", async () => {
+    const page = await mount();
+    await openInbox(page);
+    await openRow(page, "Ferretería La Esquina");
+    const tray = page.tray()!;
+    const stops = [...tray.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])')];
+    const press = async (target: HTMLElement, shiftKey: boolean) => {
+      const event = new KeyboardEvent("keydown", { key: "Tab", shiftKey, bubbles: true, cancelable: true });
+      await page.act(async () => { target.dispatchEvent(event); });
+      return event.defaultPrevented;
+    };
+    assert.ok(stops.length > 2, "the dossier has controls to wrap between");
+    stops[stops.length - 1].focus();
+    assert.equal(await press(stops[stops.length - 1], false), true);
+    assert.equal(document.activeElement, stops[0], "Tab from the last control lands on the first");
+    assert.equal(await press(stops[0], true), true);
+    assert.equal(document.activeElement, stops[stops.length - 1], "Shift+Tab from the first lands on the last");
+    stops[1].focus();
+    assert.equal(await press(stops[1], false), false, "inside the dossier the browser keeps its own order");
+    const outside = page.action("Papelería Central")!;
+    assert.equal(await press(outside, false), false, "a key from outside the dossier is not held");
   });
 });
 
