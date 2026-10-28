@@ -69,7 +69,7 @@ export const KEY_HINT_CLASS = "tablet:after:ml-1 tablet:after:rounded-mark table
 /** The footer's one shape: what is left in plain words on the left, the actions on the right. */
 export default function ReceiptReviewFooter({ status, actions }: { status?: ReactNode; actions: ReactNode }) {
   return (
-    <div className="relative flex flex-wrap items-center gap-x-4 gap-y-2 tablet:static">
+    <div className="relative flex flex-wrap items-center justify-end gap-x-4 gap-y-2 tablet:static">
       <div className="min-w-0 flex-1 basis-56 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{status}</div>
       <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>
     </div>
