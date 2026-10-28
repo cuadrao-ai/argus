@@ -81,7 +81,7 @@ export type BusinessPanelState =
   | { kind: "overview" }
   | { kind: "inbox" }
   | { kind: "invoicing" }
-  // Actividad: local design draft only, behind the development preview gate.
+  // Actividad: the history of changes in this Business, live from the server.
   | { kind: "activity" }
   // Transacciones, the third screen: the period's saved records, or the bank's movements to igualar. `expenseId` is the record a phone comes back from.
   | { kind: "transactions"; expenseId?: string }
