@@ -7,7 +7,7 @@ import pytest
 from argus.domain.ingestion.documents import rebuilt
 from argus.domain.ingestion.documents.models import DocumentExtractionError
 from argus.domain.ingestion.documents.objects import SourceStorageUnavailable
-from PIL import Image
+from PIL import Image, ImageOps
 
 
 def image_bytes(image_format="PNG", *, frames=1):
@@ -189,3 +189,78 @@ sys.stdout.write("1")
 """,
     )
     assert rebuilt.image_pixels(image_bytes(), "image/png") == 1
+
+
+def picture(size=(2000, 1500)):
+    ramp = Image.linear_gradient("L").resize(size)
+    return Image.merge(
+        "RGB",
+        (
+            ramp,
+            ramp.transpose(Image.Transpose.FLIP_LEFT_RIGHT),
+            ramp.transpose(Image.Transpose.FLIP_TOP_BOTTOM),
+        ),
+    )
+
+
+def encoded(image, image_format, **options):
+    output = io.BytesIO()
+    image.save(output, format=image_format, **options)
+    return output.getvalue()
+
+
+def flattened_on_white(content):
+    with Image.open(io.BytesIO(content)) as source:
+        source.load()
+        oriented = ImageOps.exif_transpose(source).convert("RGBA")
+        white = Image.new("RGBA", oriented.size, "white")
+        image = Image.alpha_composite(white, oriented).convert("RGB")
+    image.thumbnail((1600, 1600))
+    return encoded(image, "JPEG", quality=90)
+
+
+def rotated_with_comment():
+    exif = Image.Exif()
+    exif[0x0112] = 6
+    return encoded(
+        picture(), "JPEG", exif=exif.tobytes(), comment=b"source note", quality=88
+    )
+
+
+def translucent():
+    image = picture().convert("RGBA")
+    image.putalpha(Image.linear_gradient("L").resize(image.size))
+    return encoded(image, "PNG")
+
+
+def keyed(mode):
+    """A PNG whose tRNS key is a colour the picture paints, with no alpha band."""
+    image = picture().convert(mode)
+    return encoded(image, "PNG", transparency=image.getpixel((0, 0)))
+
+
+@pytest.mark.parametrize(
+    "content,media_type",
+    [
+        (rotated_with_comment(), "image/jpeg"),
+        (encoded(picture().convert("L"), "JPEG"), "image/jpeg"),
+        (encoded(picture().convert("CMYK"), "JPEG"), "image/jpeg"),
+        (encoded(picture(), "PNG"), "image/png"),
+        (translucent(), "image/png"),
+        (keyed("P"), "image/png"),
+        (keyed("L"), "image/png"),
+        (keyed("RGB"), "image/png"),
+    ],
+    ids=[
+        "rotated-comment-jpeg",
+        "gray-jpeg",
+        "cmyk-jpeg",
+        "png",
+        "alpha-png",
+        "palette-trns-png",
+        "gray-trns-png",
+        "rgb-trns-png",
+    ],
+)
+def test_rebuilt_copy_is_the_upright_image_flattened_on_white(content, media_type):
+    assert rebuilt.rebuild_image(content, media_type) == flattened_on_white(content)

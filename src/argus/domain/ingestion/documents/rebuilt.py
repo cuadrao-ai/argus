@@ -26,13 +26,20 @@ if TYPE_CHECKING:
 MAX_PIXELS = 20_000_000
 MAX_TEXT_BYTES = 200_000
 # Set limits in a fresh child, never preexec_fn in the threaded API process.
-_RESOURCE_WRAPPER = (
-    "import os,resource,sys; "
-    "resource.setrlimit(resource.RLIMIT_AS,(536870912,536870912)) if sys.platform == 'linux' else None; "
-    "resource.setrlimit(resource.RLIMIT_CPU,(20,20)); "
-    "resource.setrlimit(resource.RLIMIT_FSIZE,(10485760,10485760)); "
-    "os.execvp(sys.argv[1],sys.argv[1:])"
-)
+# When the instance runs out of memory the kernel must kill this child, not the API.
+_RESOURCE_WRAPPER = """
+import os, resource, sys
+if sys.platform == "linux":
+    resource.setrlimit(resource.RLIMIT_AS, (536870912, 536870912))
+    try:
+        with open("/proc/self/oom_score_adj", "w") as score:
+            score.write("1000")
+    except OSError:
+        pass
+resource.setrlimit(resource.RLIMIT_CPU, (20, 20))
+resource.setrlimit(resource.RLIMIT_FSIZE, (10485760, 10485760))
+os.execvp(sys.argv[1], sys.argv[1:])
+"""
 
 
 # Standalone child code avoids importing the application before resource limits apply.
@@ -54,9 +61,16 @@ try:
             sys.stdout.write(str(pixels))
         else:
             source.load()
-            oriented = ImageOps.exif_transpose(source).convert("RGBA")
-            background = Image.new("RGBA", oriented.size, "white")
-            image = Image.alpha_composite(background, oriented).convert("RGB")
+            ImageOps.exif_transpose(source, in_place=True)
+            # Each full-size copy of a 12 MP photo costs 48 MB beside the API, so
+            # only a transparent image is flattened on white. No source metadata.
+            if source.has_transparency_data:
+                oriented = source.convert("RGBA")
+                background = Image.new("RGBA", oriented.size, "white")
+                image = Image.alpha_composite(background, oriented).convert("RGB")
+            else:
+                image = source if source.mode == "RGB" else source.convert("RGB")
+                image.info = {}
             image.thumbnail((1600, 1600))
             image.save(target_path, format="JPEG", quality=90)
 except (Image.DecompressionBombError, Image.DecompressionBombWarning):
