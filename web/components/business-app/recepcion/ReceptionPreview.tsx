@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties } from "react";
+import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { resolveLanguage } from "@/lib/language-features";
 import type { ReceiptSummary } from "@/lib/business-api";
@@ -162,10 +163,8 @@ function ReceptionWorkspace({ live }: { live: boolean }) {
   const columns = `${selectColumn} minmax(${documentWidth}px, 1.2fr) ${attachmentWidth}px ${preferences.source ? "150px" : ""} ${preferences.sender ? `minmax(${senderWidth}px, 240px)` : ""} ${moneyColumns} minmax(${statusWidth}px, 0.8fr) ${arrivalWidth ? `${arrivalWidth}px` : ""} 136px`;
   const compactColumns = `${selectColumn} minmax(${documentWidth}px, 1.2fr) ${attachmentWidth}px ${preferences.source || preferences.sender ? `minmax(${senderWidth}px,240px)` : ""} ${moneyColumns} minmax(${statusWidth}px, 0.8fr) ${arrivalWidth ? `${arrivalWidth}px` : ""} 136px`;
   const closeDetail = () => {
-    setOpenedId(null);
-    requestAnimationFrame(() => {
-      (detailTrigger.current?.isConnected ? detailTrigger.current : list.current)?.focus({ preventScroll: true });
-    });
+    flushSync(() => setOpenedId(null));
+    (detailTrigger.current?.isConnected ? detailTrigger.current : list.current)?.focus({ preventScroll: true });
   };
   const navigateFrom = (row: ReceptionRow, next: Parameters<typeof openPanel>[0]) => {
     dossierReturns.set(source, { scope, filters, query, page: currentPage, pageSize, period, archived, admittedIds, organization: live ? organization : applyOrganizationPreview(organization, [`${row.kind}:${row.id}`], "seen"), preferences });
