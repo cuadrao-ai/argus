@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
@@ -11,7 +11,6 @@ import { CHANNEL_ICON } from "./foundation/channel-icons";
 import { formatTimestamp } from "./business-format";
 import { TrayFooter, TraySlot, useRecordTray } from "./record-tray";
 import { resolveLanguage } from "@/lib/language-features";
-import { useState } from "react";
 
 /** Where the record came from, as its first source says: the channel is the source's own. */
 export type ReceiptOrigin = { channel: keyof typeof CHANNEL_ICON; receivedAt: string; message?: boolean };
@@ -124,8 +123,8 @@ export default function ReceiptReviewFrame({ recordId, back, title, badge, amoun
   const tabs = isBelowTablet;
   return (
     <section aria-labelledby="receipt-review-title" data-testid="business-record-review" data-presentation="page">
-      {/* Opaque, so the form never shows through it while it scrolls under. */}
-      <header className="sticky top-0 z-20 -mx-4 mb-4 border-b border-[#DCE0DA] bg-[#FFFEFA] px-4 pb-3 pt-2 tablet:-mx-8 tablet:px-8 dark:border-white/10 dark:bg-[#1f2225]">
+      {/* Opaque, and its shadow fills the see-through app bar above it, so the form never shows through either while it scrolls under. */}
+      <header className="sticky top-0 z-20 -mx-4 mb-4 border-b border-[#DCE0DA] bg-[#F7F5EE] px-4 pb-3 pt-2 shadow-[0_-6rem_0_0_#F7F5EE] tablet:-mx-8 tablet:px-8 dark:border-white/10 dark:bg-[#141517] dark:shadow-[0_-6rem_0_0_#141517]">
         <div className="flex items-center justify-between gap-2">
           <button type="button" onClick={() => openPanel({ kind: back })} className="flex min-h-11 items-center gap-2 rounded-full pr-3 text-[15px] text-[#56635e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white/70">
             <ArrowLeft className="h-5 w-5" aria-hidden="true" />
