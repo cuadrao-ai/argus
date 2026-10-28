@@ -2822,7 +2822,10 @@ allowlisted emails from unlisted, requested, or disabled ones. The Auth provider
 and profile write are not called for that conflict. If the Auth email already
 exists, Argus preserves Supabase's public duplicate-signup response instead of
 letting the username check reveal that account. An obfuscated response with an
-empty identity list never creates a profile.
+empty identity list never creates a profile. After that response is sent, the
+server emails the existing address once per hour at most, in the request
+`language`, with a link to sign in. The response body, status and headers do
+not change, and a failed send is logged without the address.
 
 ```json
 {

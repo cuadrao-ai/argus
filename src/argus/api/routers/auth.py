@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from math import ceil
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from loguru import logger
@@ -45,6 +45,7 @@ from argus.api.schemas import (
     User,
     guest_safe_user,
 )
+from argus.domain.existing_account_email import send_existing_account_notice
 from argus.domain.login_browser_check import CaptchaVerificationError
 from argus.domain.supabase_guest_accounts import EmailAlreadyRegisteredError
 from argus.domain.username_signup import (
@@ -778,7 +779,9 @@ def signup_guest_account(
 
 
 @router.post("/auth/signup")
-def signup(request: Request, body: SignupRequest) -> JSONResponse:
+def signup(
+    request: Request, body: SignupRequest, background_tasks: BackgroundTasks
+) -> JSONResponse:
     if api_state.supabase_gateway is None:
         raise problem(
             request,
@@ -832,6 +835,12 @@ def signup(request: Request, body: SignupRequest) -> JSONResponse:
                 _emit_account_registration_completed_event(
                     profile,
                     surface="direct_signup",
+                )
+            else:
+                background_tasks.add_task(
+                    send_existing_account_notice,
+                    recipient=body.email,
+                    language=body.language,
                 )
             return auth_response(request, result)
     except HTTPException:

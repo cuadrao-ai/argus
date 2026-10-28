@@ -29,6 +29,7 @@ async function renderSpanishSignup(props: {
   onConfirmEmailCode?: (input: { email: string; code: string }) => Promise<void>;
   onEmailConfirmed?: () => void | Promise<void>;
   onResendEmailCode?: (input: { email: string }) => Promise<void>;
+  onModeChange?: (mode: "signup" | "login") => void;
 }) {
   const i18n = i18next.createInstance();
   await i18n.init({
@@ -96,7 +97,7 @@ describe("signup confirmation code", () => {
     expect(state?.querySelectorAll("[data-otp-slot]").length).toBe(8);
     expect(state?.querySelectorAll("input").length).toBe(1);
     expect(state?.querySelector("[data-confirmation-illustration]")?.getAttribute("aria-hidden")).toBe("true");
-    expect(state?.textContent).toContain("¿No ves el correo? Revisa la carpeta de spam.");
+    expect(state?.textContent).toContain(es419.auth.signup.confirmation_help);
     expect(state?.getAttribute("role")).not.toBe("status");
     expect(state?.textContent).toContain("Escribe el código que te enviamos a ada@example.com.");
     expect(page.host.textContent).toContain("Código de confirmación");
@@ -309,4 +310,25 @@ test("browser-check refusal uses short resend feedback without clearing the code
     window.setInterval = originalInterval;
     await act(async () => { page.root.unmount(); });
   }
+});
+
+test("the check-email step offers sign-in and password recovery", async () => {
+  const modes: Array<"signup" | "login"> = [];
+  const page = await renderSpanishSignup({ onModeChange: (mode) => modes.push(mode) });
+  const exits = page.host.querySelector("[data-testid='auth-check-email-exits']");
+  expect(exits?.textContent).toContain("¿Ya tienes una cuenta? Iniciar sesión");
+  const recovery = exits?.querySelector("a");
+  expect(recovery?.getAttribute("href")).toBe("/auth/forgot-password");
+  expect(recovery?.textContent).toBe("¿Olvidaste tu contraseña?");
+
+  await act(async () => {
+    (exits?.querySelector("button") as HTMLButtonElement).click();
+  });
+  expect(modes).toEqual(["login"]);
+  await page.renderMode("login");
+  expect(page.host.querySelector("[data-testid='auth-check-email']")).toBeNull();
+  expect((page.host.querySelector('input[type="email"]') as HTMLInputElement).value).toBe("ada@example.com");
+  await act(async () => {
+    page.root.unmount();
+  });
 });

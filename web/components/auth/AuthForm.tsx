@@ -561,6 +561,25 @@ export default function AuthForm({
               {resendSeconds > 0 ? t("auth.signup.confirmation_resend_wait", { seconds: resendSeconds }) : t("auth.signup.confirmation_resend")}
             </button>
           </div>
+          <div data-testid="auth-check-email-exits" className="mx-auto mt-3 flex max-w-[400px] flex-col items-center gap-1 text-[14px] text-black/60 dark:text-white/60">
+            {onModeChange ? (
+              <p>
+                {t("landing.already_account")}{" "}
+                <button type="button" disabled={isConfirming}
+                  className="min-h-11 rounded-item px-1 font-medium text-black underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] dark:text-white"
+                  onClick={() => {
+                    onModeChange("login");
+                    if (emailFirst) requestAnimationFrame(() => cardRef.current?.querySelector("h2")?.focus());
+                  }}>
+                  {t("landing.sign_in")}
+                </button>
+              </p>
+            ) : null}
+            <Link href="/auth/forgot-password" onClick={() => rememberRecoveryEmail(email)}
+              className="flex min-h-11 items-center rounded-item px-3 font-medium text-black underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] dark:text-white">
+              {t("auth.recovery.forgot")}
+            </Link>
+          </div>
         </div>
       ) : (
         <div data-auth-entry-content={emailFirst ? "true" : undefined}>

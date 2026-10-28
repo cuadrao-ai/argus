@@ -16,6 +16,11 @@
           "keep_current": true
         },
         {
+          "name": "ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD",
+          "kind": "secret",
+          "keep_current": true
+        },
+        {
           "name": "ARGUS_CHECKPOINTER_MODE",
           "kind": "plain",
           "keep_current": true

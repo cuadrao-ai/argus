@@ -41,6 +41,18 @@
         "subject": "El plazo para reabrir {businessName} está por vencer",
         "title": "Aún puedes reabrir {businessName}"
       }
+    },
+    "existing_account": {
+      "after_action": "Si no fuiste tú, ignora este correo. Tu cuenta sigue igual.",
+      "cta": "Iniciar sesión",
+      "paragraphs": [
+        "Hola,",
+        "Alguien intentó crear una cuenta nueva en Cuadrao con este correo, pero ya tienes una.",
+        "Entra con tu contraseña. Si no la recuerdas, toca ¿Olvidaste tu contraseña? en la pantalla de entrada."
+      ],
+      "preheader": "Entra con tu contraseña o cámbiala si no la recuerdas.",
+      "subject": "Ya tienes una cuenta en Cuadrao",
+      "title": "Ya tienes una cuenta"
     }
   },
   "en": {
@@ -85,6 +97,18 @@
         "subject": "The deadline to reopen {businessName} is approaching",
         "title": "You can still reopen {businessName}"
       }
+    },
+    "existing_account": {
+      "after_action": "If this was not you, ignore this email. Your account has not changed.",
+      "cta": "Sign in",
+      "paragraphs": [
+        "Hi,",
+        "Someone tried to create a new Cuadrao account with this email, but you already have one.",
+        "Sign in with your password. If you forgot it, tap Forgot password? on the sign-in screen."
+      ],
+      "preheader": "Sign in with your password, or reset it if you forgot it.",
+      "subject": "You already have a Cuadrao account",
+      "title": "You already have an account"
     }
   }
 }
