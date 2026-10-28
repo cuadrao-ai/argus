@@ -15,7 +15,6 @@ from argus.domain.business.contracts.facts import (
     FiscalFacts,
     Known,
     Unknown,
-    WholeBusinessShare,
 )
 from argus.domain.business.dgii_export import build_fiscal_packet
 from argus.domain.business.dgii_validation import FiscalRecord
@@ -455,26 +454,10 @@ def test_personal_purchase_enters_the_606_only_with_the_accountants_yes(
         and record.kind == "expense"
         and record.activity_id not in modified
     ]
-    source = (UUID(int=900),)
-    fiscal = purchase.facts.fiscal.model_copy(
-        update={
-            "include_606": Known(value=answer, origin="member_set", source_ids=source)
-            if answer is not None
-            else Unknown()
-        }
-    )
-    facts = purchase.facts.model_copy(
-        update={
-            "business_share": Known(
-                value=WholeBusinessShare(kind="none"),
-                origin="owner_stated",
-                source_ids=source,
-            ),
-            "fiscal": fiscal,
-        }
-    )
     personal = tuple(
-        replace(record, facts=facts) if record is purchase else record
+        replace(record, personal=True, include_606=answer)
+        if record is purchase
+        else record
         for record in records
     )
     result = packet(personal)

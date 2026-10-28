@@ -183,6 +183,7 @@ class ReportRecord(Contract):
     funding_kind: str | None = None
     has_document: bool = False
     personal: bool = False
+    include_606: bool | None = None
     document_kind: DocumentKind = "unknown"
     fiscal_classification: str = "unknown"
     fiscal_number: str | None = None

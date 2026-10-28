@@ -107,7 +107,7 @@ def test_previously_resolved_context_does_not_keep_access(actions, users, state)
         read_recorded(service.authority, stale)
 
 
-def test_approved_revision_survives_later_unapproved_marks(actions):
+def test_approved_revision_survives_later_marks_that_move_the_record(actions):
     service, context, _ = actions
     draft, activity_id = record_expense(service, context)
     before = read_recorded(service.authority, context)
@@ -124,7 +124,10 @@ def test_approved_revision_survives_later_unapproved_marks(actions):
     assert service.dossier(context, draft).facts.business_share.value.kind == "none"
     assert record.sources
     assert all(source.linked for source in record.sources)
-    assert report(before).fingerprint == report(after).fingerprint
+    # The approved facts stay as approved; the mark beside them is the draft's
+    # current one, so the recorded subset changes and a stale export is refused.
+    assert record.approved.personal is True
+    assert report(before).fingerprint != report(after).fingerprint
 
 
 def test_actual_refund_and_owner_funded_record_are_not_dropped_or_duplicated(actions):

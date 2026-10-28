@@ -11,7 +11,12 @@ from pydantic import TypeAdapter
 
 from argus.domain.business.contracts.dgii import PurchaseDeclaration, SalesDeclaration
 from argus.domain.business.contracts.dossier import AccountChoice
-from argus.domain.business.contracts.facts import BusinessFacts, Known, is_personal
+from argus.domain.business.contracts.facts import (
+    BusinessFacts,
+    Known,
+    fiscal_inclusion,
+    is_personal,
+)
 from argus.domain.business.dgii_validation import (
     FiscalRecord,
     fact_value,
@@ -89,6 +94,9 @@ def project(
         raise ValueError("report source required")
     approved = recorded.approved if recorded else draft.fiscal
     facts = approved.facts
+    # The Personal mark and the 606 answer change after approval; every reader
+    # takes them from the draft as it stands now.
+    marks = draft.facts if draft else facts
     activity = json.loads(recorded.activity_json) if recorded else None
     has_draft = draft is not None
     settled = bool(
@@ -253,7 +261,8 @@ def project(
             and source.connection_status not in (None, "disconnected")
             for source in sources
         ),
-        personal=is_personal(facts),
+        personal=is_personal(marks),
+        include_606=fiscal_inclusion(marks),
         document_kind=document_kind,
         fiscal_classification=fiscal_number[:3]
         if fiscal_number

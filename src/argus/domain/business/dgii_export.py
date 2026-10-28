@@ -16,8 +16,6 @@ from argus.domain.business.contracts.dgii import (
     money_text,
 )
 from argus.domain.business.contracts.facts import (
-    fiscal_inclusion,
-    is_personal,
     is_sin_comprobante,
     personal_mark_admits,
 )
@@ -241,9 +239,7 @@ def fiscal_manifest(
             "reason": None,
         }
         bridge.append(item)
-        if not personal_mark_admits(
-            is_personal(record.facts), fiscal_inclusion(record.facts)
-        ):
+        if not personal_mark_admits(record.personal, record.include_606):
             item.update(disposition="excluded", reason="personal")
             continue
         if isinstance(record.declaration, PurchaseDeclaration):

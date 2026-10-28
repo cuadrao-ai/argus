@@ -31678,6 +31678,10 @@ components:
         personal:
           type: boolean
           default: false
+        include_606:
+          anyOf:
+          - type: boolean
+          - type: 'null'
         document_kind:
           type: string
           enum:
