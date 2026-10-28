@@ -246,7 +246,7 @@ function TrayDrawer(props: DrawerProps & StackPlace) {
       role="region"
       onKeyDown={(event) => {
         if (event.defaultPrevented) return;
-        if (event.key === "Tab" && props.width === "dossier") holdTabInside(event);
+        if (event.key === "Tab" && props.width === "dossier") holdTabInside(event, titleRef.current);
         if (event.key !== "Escape" || !dismissible) return;
         event.preventDefault();
         onClose();
@@ -259,10 +259,11 @@ function TrayDrawer(props: DrawerProps & StackPlace) {
  * A dossier lies over most of the page, so Tab past either end of it wraps instead of landing on a
  * control it covers. Escape closes it; a layer opened from inside it keeps its own Tab handling.
  */
-function holdTabInside(event: React.KeyboardEvent<HTMLDivElement>) {
+function holdTabInside(event: React.KeyboardEvent<HTMLDivElement>, title: HTMLElement | null) {
   if (!(event.target instanceof Node) || !event.currentTarget.contains(event.target)) return;
   const stops = focusableWithin(event.currentTarget);
   const at = stops.indexOf(document.activeElement as HTMLElement);
+  if (at === -1 && document.activeElement !== title) return;
   const leaving = event.shiftKey ? at <= 0 : at === stops.length - 1;
   if (!stops.length || !leaving) return;
   event.preventDefault();

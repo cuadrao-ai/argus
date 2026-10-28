@@ -253,6 +253,13 @@ describe("what a dossier tray covers", () => {
     assert.equal(document.activeElement, stops[stops.length - 1], "Shift+Tab from the first lands on the last");
     stops[1].focus();
     assert.equal(await press(stops[1], false), false, "inside the dossier the browser keeps its own order");
+    const { focusableWithin } = await import("@/components/layout/overlayFocus");
+    const summary = tray.querySelector<HTMLElement>("summary");
+    assert.ok(summary, "the dossier has a disclosure");
+    assert.ok(focusableWithin(tray).includes(summary), "a disclosure is a stop the trap can see");
+    summary.focus();
+    assert.equal(await press(summary, true), false, "Shift+Tab from a disclosure is left to the browser");
+    assert.equal(await press(summary, false), false, "Tab from a disclosure is left to the browser");
     const outside = page.action("Papelería Central")!;
     assert.equal(await press(outside, false), false, "a key from outside the dossier is not held");
   });
