@@ -20,6 +20,7 @@ from argus.domain.ingestion.documents.service import (
 from argus.domain.ingestion.documents.store import InMemoryDocumentStore
 from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.ingestion.sink import SubmitResult
+from argus.domain.ingestion.whatsapp.replies import ReplyFailed
 from argus.domain.ingestion.whatsapp.store import InMemoryWhatsAppStore
 
 from tests.business_reading_support import reading_setting, turn_reading
@@ -164,7 +165,45 @@ async def test_a_switch_turned_off_after_capture_stops_the_read() -> None:
     [connection_id] = world.captures(world.alice)
     assert extractor.calls == 0
     assert _status(world, connection_id) == "saved"
-    assert len(world.transport.sent) == 2
+    assert world.transport.bodies()[-2:] == _promised_then_link(connection_id)
+
+
+def _promised_then_link(connection_id: str) -> list[str]:
+    """A reading acknowledgement whose read never settled, then the standard
+    acknowledgement with the link in its place."""
+
+    return [
+        "Recibido. Lo estoy leyendo.",
+        f"Recibido. Revísalo aquí: {cases.ORIGIN}/biz?receipt={connection_id}",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_read_that_cannot_start_falls_back_to_the_link() -> None:
+    world, extractor, _ = _world(on=True)
+    # Preparation must go through Business actions, and none are wired.
+    world.documents.business_preparation_required = True
+    connection_id = await _send(world, "wamid.READ-NO-START")
+    assert extractor.calls == 0
+    assert _status(world, connection_id) == "saved"
+    assert world.transport.bodies()[-2:] == _promised_then_link(connection_id)
+
+
+@pytest.mark.asyncio
+async def test_a_follow_up_that_fails_to_send_falls_back_to_the_link() -> None:
+    world, extractor, _ = _world(on=True)
+    record = world.transport.send
+
+    async def send(payload: dict[str, Any]) -> None:
+        if payload["text"]["body"].startswith("Leí:"):
+            raise ReplyFailed("transport")
+        await record(payload)
+
+    world.transport.send = send
+    connection_id = await _send(world, "wamid.READ-SEND-FAIL")
+    assert extractor.calls == 1
+    assert _status(world, connection_id) == "review_ready"
+    assert world.transport.bodies()[-2:] == _promised_then_link(connection_id)
 
 
 @pytest.mark.asyncio
@@ -207,7 +246,7 @@ async def test_a_read_that_stops_leaves_the_receipt_saved_and_the_owner_unharmed
     [connection_id] = world.captures(world.alice)
     assert _status(world, connection_id) == "queued"
     assert world.record("wamid.READ-STOP").status == "captured"
-    assert len(world.transport.sent) == 2  # the link and the acknowledgement only
+    assert world.transport.bodies()[-2:] == _promised_then_link(connection_id)
 
 
 @pytest.mark.asyncio
@@ -300,7 +339,7 @@ async def test_a_switch_turned_off_while_the_source_is_read_stops_before_the_pro
     connection_id = await _send(world, "wamid.READ-LATE")
     assert extractor.calls == 0
     assert _status(world, connection_id) == "saved"
-    assert len(world.transport.sent) == 2
+    assert world.transport.bodies()[-2:] == _promised_then_link(connection_id)
 
 
 @pytest.mark.parametrize(

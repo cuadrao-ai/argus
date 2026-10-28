@@ -22,11 +22,13 @@ from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
 from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.ingestion.whatsapp.intake import CaptureFailed
+from argus.domain.ingestion.whatsapp.store_postgres import PostgresWhatsAppStore
 
 from tests import test_business_actions_postgres as shared
 from tests.business_reading_support import ROUTE, reading_setting, turn_reading
 from tests.document_sources_support import source_objects
-from tests.ingestion.whatsapp_support import RECEIPT_PNG
+from tests.ingestion import whatsapp_cases as cases
+from tests.ingestion.whatsapp_support import ALICE_PHONE, RECEIPT_PNG, Media
 
 actions = shared.actions
 users = shared.users
@@ -158,6 +160,39 @@ async def test_a_whatsapp_receipt_is_read_through_the_owners_grant(actions):  # 
     result = await destination.read(owner_id=owner, connection_id=connection_id)
     assert result is not None and result[0] == "review_ready"
     assert extractor.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_the_acknowledgement_promises_the_read_and_the_follow_up_links(  # noqa: ANN201
+    actions,
+    users,  # noqa: ANN001
+):
+    """The whole intake on Postgres: the settled message carries ``reading``
+    through the store, so the acknowledgement has no link and the one
+    follow-up has it."""
+
+    destination, documents, extractor, owner = _rig(actions)
+    pool = documents.business_actions.authority.pool
+    world = cases.build_world(
+        documents=documents,
+        store=PostgresWhatsAppStore(pool),
+        clock=cases.Clock(),
+        alice=owner,
+        bob=users["other"],
+        spaces=destination.spaces,
+    )
+    world.intake.destination = destination
+    await world.link(owner, ALICE_PHONE)
+    world.graph.media["700000000000201"] = Media(RECEIPT_PNG, "image/png")
+    await world.deliver(cases.image("700000000000201", "wamid.READ-PG"))
+    [connection_id] = world.captures(owner)
+    assert extractor.calls == 1
+    assert _draft(destination, owner, connection_id).status == "review_ready"
+    assert world.transport.bodies()[-2:] == [
+        "Recibido. Lo estoy leyendo.",
+        "Ya leímos tu recibo. Revísalo y confírmalo en Cuadrao: "
+        f"{cases.ORIGIN}/biz?receipt={connection_id}",
+    ]
 
 
 @pytest.mark.asyncio
