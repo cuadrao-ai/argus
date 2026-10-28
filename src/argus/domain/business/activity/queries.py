@@ -69,11 +69,13 @@ _ACTOR_KEY = (
     + _key("e.space_id::text || ':actor:' || e.actor_id::text")
     + " end"
 )
+#: Expiry against the read transaction's clock: a stable function, so the
+#: planner may push the keyset and actor bounds into the events scan.
 _LIVE_GRANT = (
     "select 1 from public.business_client_grants g"
     " where g.space_id = e.space_id and g.grantee_id = e.actor_id"
     " and g.revoked_at is null"
-    " and (g.expires_at is null or g.expires_at > clock_timestamp())"
+    " and (g.expires_at is null or g.expires_at > now())"
 )
 _ANY_GRANT = (
     "select 1 from public.business_client_grants g"
