@@ -61,22 +61,26 @@ describe("Historial", () => {
     const approval = { status: "recorded", activity_id: "x", reviewed_version: 3, approved_revision: 3, approved_at: at(11, 0, 5), actor: actor("Lucía Mateo") } as BusinessDossier["approval_result"];
     const page = await render(<ReceiptHistory history={history} accounts={[]} sources={sources} approval={approval} />);
     const section = page.host.querySelector('[data-testid="receipt-history"]')!;
-    assert.equal(section.querySelector("h3")?.textContent, "Historial");
+    // One folded row, "Historial · N"; it opens to every event, newest first.
+    assert.equal(section.querySelector("h3")?.textContent, "Historial · 5");
+    const fold = section.querySelector<HTMLButtonElement>("h3 button")!;
+    assert.equal(fold.getAttribute("aria-expanded"), "false");
+    assert.equal(section.querySelector("ol")?.hidden, true, "folded until opened");
+    await page.act(async () => { fold.click(); });
+    assert.equal(section.querySelector("ol")?.hidden, false);
     const lines = () => [...section.querySelectorAll("li")].map((item) => [...item.querySelectorAll("p")].map((line) => line.textContent));
     assert.deepEqual(lines(), [
       ["Moneda cambiada de DOP a USD", "Ana Peña · 11/10, 8:00 a.m."],
       ["Aprobado", "Lucía Mateo · 11/10, 12:05 a.m."],
       ["Monto cambiado de RD$ 1,200.00 a RD$ 1,250.00", "Ana Peña · 10/10, 1:05 p.m."],
-    ], "collapsed to the newest three");
+      ["Leído", "Cuadrao · 10/10, 9:25 a.m."],
+      ["Recibido · WhatsApp", "10/10, 9:20 a.m."],
+    ]);
     const dots = [...section.querySelectorAll<HTMLElement>('[data-testid="history-dot"]')].map((dot) => dot.style.backgroundColor);
-    assert.deepEqual(dots, ["#56635e", "#2f5a49", "#56635e"], "gray dots except the status change");
+    assert.deepEqual(dots, ["#56635e", "#2f5a49", "#56635e", "#56635e", "#56635e"], "gray dots except the status change");
     assert.equal(section.querySelectorAll("li svg").length, 0, "no icon per event");
-    const seeAll = [...section.querySelectorAll("button")].find((button) => button.textContent === "Ver todo")!;
-    await page.act(async () => { seeAll.click(); });
-    assert.deepEqual(lines().slice(3), [["Leído", "Cuadrao · 10/10, 9:25 a.m."], ["Recibido · WhatsApp", "10/10, 9:20 a.m."]]);
-    assert.equal([...section.querySelectorAll("button")].some((button) => button.textContent === "Ver todo"), false);
     assert.doesNotMatch(section.textContent ?? "", /revisi[oó]n|tras aprobar|primer flujo|registrado|desconocido/i);
-    assert.equal(document.activeElement, section.querySelectorAll("li")[3], "focus lands on the first event Ver todo revealed");
+    assert.equal(document.activeElement, section.querySelectorAll("li")[0], "focus lands on the newest event the fold revealed");
     await page.close();
   });
 
