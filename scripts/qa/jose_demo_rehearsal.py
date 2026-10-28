@@ -1671,23 +1671,28 @@ class Rehearsal:
             "4",
             "statement-imported",
             "S.csv (sandbox_csv): 201, inserted + unchanged 3 (a seeded Business already"
-            " holds the lines); same key + bytes 200 created:false, inserted 0",
+            " holds the lines); same key + bytes 200 created:false, same import, no new movement",
         ) as obs:
             need(state, "account_id")
             first = import_statement(
                 api, state["account_id"], STATEMENT, self.key("import")
             )
+            movements_before = period_movements(api)["counts"]["movimientos"]
             again = import_statement(
                 api, state["account_id"], STATEMENT, self.key("import")
             )
             obs.update(
                 first={
                     k: first.body.get(k)
-                    for k in ("inserted_count", "unchanged_count", "created")
+                    for k in ("id", "inserted_count", "unchanged_count", "created")
                 },
                 first_status=first.status,
-                again={k: again.body.get(k) for k in ("inserted_count", "created")},
+                again={k: again.body.get(k) for k in ("id", "created")},
                 again_status=again.status,
+                movements=[
+                    movements_before,
+                    period_movements(api)["counts"]["movimientos"],
+                ],
             )
             expect(
                 first.status == 201
@@ -1697,8 +1702,12 @@ class Rehearsal:
             expect(
                 again.status == 200
                 and again.body["created"] is False
-                and again.body["inserted_count"] == 0,
+                and again.body["id"] == first.body["id"],
                 "replayed import was not a replay",
+            )
+            expect(
+                obs["movements"][0] == obs["movements"][1],
+                "the replay added bank movements",
             )
             state["c4_imported"] = True
         with rec.step(
@@ -1996,12 +2005,16 @@ def import_statement(api: Api, account_id: str, content: bytes, key: str) -> Res
     )
 
 
+def period_movements(api: Api) -> dict[str, Any]:
+    return api.get(
+        f"/business/bank/movements?period_start={PERIOD[0]}&period_end={PERIOD[1]}&segment=todas"
+    )
+
+
 def find_suggestion(
     api: Api, amount: str, activity_id: str | None
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-    body = api.get(
-        f"/business/bank/movements?period_start={PERIOD[0]}&period_end={PERIOD[1]}&segment=todas"
-    )
+    body = period_movements(api)
     for line in body.get("items", body.get("lines", [])):
         if money(abs(float(line.get("amount", 0)))) != amount:
             continue
