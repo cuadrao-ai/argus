@@ -35,7 +35,7 @@ function invoiceIdentity(value: SavedInvoice): SavedInvoice {
 }
 const pagination = { total: z.number().int().nonnegative(), page: z.number().int().positive(), page_size: z.union([z.literal(25), z.literal(50), z.literal(100)]) };
 const customerPageSchema = z.object({ items: z.array(customerSchema), ...pagination });
-const invoicePageSchema = z.object({ items: z.array(invoiceSchema), ...pagination, stage_counts: z.record(z.string(), z.number().int().nonnegative()), summaries: z.array(z.object({ currency: z.enum(["DOP", "USD", "EUR"]), billed: amount, collected: z.null(), outstanding: z.null() })), query_version: z.string() });
+const invoicePageSchema = z.object({ items: z.array(invoiceSchema), ...pagination, stage_counts: z.record(z.string(), z.number().int().nonnegative()), summaries: z.array(z.object({ currency: z.enum(["DOP", "USD", "EUR"]), billed: amount, collected: z.null(), outstanding: z.null() })), query_version: z.string(), issuance_available: z.boolean().default(false) });
 export type InvoiceDraft = z.infer<typeof invoiceDraftSchema>;
 export type SavedInvoice = z.infer<typeof invoiceSchema>;
 export type SavedCustomer = z.infer<typeof customerSchema>;
