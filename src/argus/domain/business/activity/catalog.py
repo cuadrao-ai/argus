@@ -67,6 +67,7 @@ CATALOG: Mapping[str, ActionSpec] = MappingProxyType(
         "business_propose_activity": ActionSpec(object=_PLANNED_DRAFT),
         "business_attach_source": ActionSpec(object=_PLANNED_DRAFT),
         "business_propose_allocation": ActionSpec(object=_PLANNED_DRAFT),
+        "business_ask": ActionSpec(object=_PLANNED_DRAFT),
         "owner_grant": ActionSpec("manager", _GRANT),
         "grant_access": ActionSpec("manager", _GRANT),
         "invite_access": ActionSpec("manager", _INVITE),
@@ -82,7 +83,6 @@ READ_MARKS: frozenset[str] = frozenset(
         "access_seen",
         "business_read_context",
         "business_find_related",
-        "business_ask",
         "business_explain_status",
     }
 )

@@ -35,6 +35,7 @@ ActivityAction = Literal[
     "business_propose_activity",
     "business_attach_source",
     "business_propose_allocation",
+    "business_ask",
     "owner_grant",
     "grant_access",
     "invite_access",

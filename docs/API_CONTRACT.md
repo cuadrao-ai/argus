@@ -9463,17 +9463,19 @@ closed enum of the ledger's own action names (`review_draft`,
 `append_supporting_file`, `receipt_upload`, `receipt_review`,
 `receipt_confirm`, `email_ai_consent_declined`, `set_business_rnc`,
 `business_propose_activity`, `business_attach_source`,
-`business_propose_allocation`, `owner_grant`, `grant_access`, `invite_access`,
-`accept_invite`, `revoke_grant`, `revoke_invite`, `change_role`) plus `other`
+`business_propose_allocation`, `business_ask`, `owner_grant`, `grant_access`,
+`invite_access`, `accept_invite`, `revoke_grant`, `revoke_invite`,
+`change_role`) plus `other`
 for an action the feed does not know; the server never echoes the stored
 command. `object` is `{kind: draft|grant|invite, id}` when the action names
 one and the server knows its id, else `null`. No label, amount, email or other
 field of the command leaves the ledger.
 
 Only rows whose outcome is `applied` list; refused, failed, stale, replayed and
-in-flight rows do not. Ledger marks of a read, a look-up or a question
-(`access_seen`, `business_read_context`, `business_find_related`,
-`business_ask`, `business_explain_status`) are not changes and never list. Any
+in-flight rows do not. Ledger marks of a read or a look-up (`access_seen`,
+`business_read_context`, `business_find_related`, `business_explain_status`)
+are not changes and never list; `business_ask` lists, because an applied Ask
+opens a question on the draft it names. Any
 member whose live grant allows `read` sees the Business's changes. The access
 changes (`owner_grant`, `grant_access`, `invite_access`, `accept_invite`,
 `revoke_grant`, `revoke_invite`, `change_role`) list only for a reader whose

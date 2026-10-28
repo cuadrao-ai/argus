@@ -88,6 +88,22 @@ def test_a_member_never_gets_access_changes_and_a_manager_gets_every_change():
         ),
         ({"action": "business_attach_source", "draft": {"from_action": 0}}, None, None),
         (
+            {
+                "action": "business_ask",
+                "draft": {"from_action": 0},
+                "field": "amount",
+                "asked_of": "owner",
+                "prompt": "Cuanto fue en total",
+            },
+            {
+                "outcome": "applied",
+                "draft_id": str(DRAFT),
+                "version": 1,
+                "question_id": str(uuid4()),
+            },
+            ("draft", DRAFT),
+        ),
+        (
             {"action": "invite_access", "invite_id": str(DRAFT), "email": "x@y.test"},
             None,
             ("invite", DRAFT),
