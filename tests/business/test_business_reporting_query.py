@@ -174,6 +174,16 @@ def test_a_personal_row_counts_only_as_a_purchase_the_accountant_put_in_the_606(
     assert result.excluded_personal == ExcludedPersonal(income=1, expense=1)
 
 
+def test_a_personal_open_draft_stays_out_of_the_proposed_total():
+    rows = [
+        record("business", proposed_amount="40.00"),
+        record("personal", proposed_amount="100.00", personal=True),
+    ]
+    buckets = {(item.kind, item.basis): item for item in run(rows).totals}
+    proposed = buckets["expense", "proposed_activity_amount"]
+    assert (proposed.matching_count, proposed.known_amount_minor) == (1, 4000)
+
+
 def test_duplicate_public_anchor_and_effect_are_refused():
     with pytest.raises(ValueError, match="duplicate"):
         run([record(), record()])
