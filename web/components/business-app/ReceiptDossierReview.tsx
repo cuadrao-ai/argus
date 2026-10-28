@@ -20,7 +20,9 @@ import ReceiptSourcePreview from "./ReceiptSourcePreview";
 import ReceiptMessages from "./ReceiptMessages";
 import ReceiptRecordFacts from "./ReceiptRecordFacts";
 import ReceiptFactEditor from "./ReceiptFactEditor";
-import { ACTIVITY_FIELDS, MORE_FIELDS, extractedConfirmationPatch } from "./receipt-fact-rows";
+import { ACTIVITY_FIELDS, MORE_FIELDS, extractedConfirmationPatch, fiscalFactRows, recordFactRows } from "./receipt-fact-rows";
+import { dossierAttention } from "./dossier-attention";
+import DossierAttentionStrip from "./DossierAttentionStrip";
 import ReceiptReviewQuestions from "./ReceiptReviewQuestions";
 import ReceiptHistory from "./ReceiptHistory";
 import ReceiptDocumentType from "./ReceiptDocumentType";
@@ -39,12 +41,6 @@ type Operation = { kind: "idle" } | { kind: "saving" | "approving" } | { kind: "
 
 export function approvalLine(canApprove: boolean, canPrepare: boolean): "prepare_only" | null {
   return !canApprove && canPrepare ? "prepare_only" : null;
-}
-
-export function ReceiptApprovalGuidance({ dossier }: { dossier: BusinessDossier }) {
-  const { t } = useTranslation();
-  if (!dossier.blockers.length || dossier.review_state === "accepted" && dossier.approval_result?.status === "recorded") return null;
-  return <div className={`${SURFACE_CARD} text-[13px] text-black/70 dark:text-white/70`}><p className="font-medium">{t("business.dossier.before_approval", "Before approval")}</p><ul className="mt-2 space-y-2">{dossier.blockers.map((blocker, index) => <li key={`${blocker.code}-${index}`}>{t(blocker.code === "possible_duplicate" ? "business.attention.duplicate" : `business.dossier.blocker.${blocker.code}`, t("business.dossier.blocker_fallback", "This record needs further review before approval."))}{blocker.field ? ` · ${t(`business.dossier.field.${blocker.field}`, blocker.field)}` : ""}</li>)}</ul></div>;
 }
 
 export function ReceiptDuplicateResolution({ dossier, busy = false, onChanged, onBusyChange, onOpenOriginal }: {
@@ -316,6 +312,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const missingFields = [...new Set(dossier.blockers.flatMap((blocker) => blocker.code === "fact_required" && blocker.field ? [blocker.field] : []))];
   const confirmations = extractedConfirmationPatch(dossier, edits);
   const confirmationCount = Object.keys(confirmations).length;
+  const attention = dossierAttention(dossier, [...recordFactRows(dossier), ...fiscalFactRows(dossier.facts)], t);
 
   const requestApproval = (next = false) => {
     if (!canApprove || !supportedKind || !approvable) return;
@@ -375,11 +372,12 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
           <ReceiptEcfChecks verification={dossier.ecf_checks ?? null} qr={dossier.dgii_qr ?? null} />
       </>}
     >
+          <DossierAttentionStrip items={attention} />
           <ReceiptDocumentType dossier={dossier} busy={busy || dirty} onChanged={setDossier} />
           <div>
             {operation.kind === "uncertain" && operation.action === "save" ? <h3 className="mb-4 font-display text-[18px] font-medium leading-6 text-[#172b26] dark:text-white">{t("business.dossier.pending_details", "Your unconfirmed edits")}</h3> : null}
             {canPrepare && confirmationCount > 0 ? <button type="button" className={`${secondaryButtonClass} mb-4`} disabled={!mutable} onClick={() => void write("save", confirmations)}>{t("business.dossier.confirm_read", { count: confirmationCount, defaultValue: "Confirm {{count}}" })}</button> : null}
-            <ReceiptRecordFacts dossier={dossier} accounts={accounts} onEdit={canPrepare && mutable ? (key) => setEditing((current) => current.includes(key) ? current : [...current, key]) : undefined} editor={canPrepare ? (key) => editing.includes(key) || key === "occurred_on" && dossier.facts.occurred_on.state === "unknown" ? <ReceiptFactEditor key={`${key}-${editReset}`} field={key} autoFocus={editing.includes(key)} facts={dossier.facts} patch={edits} accounts={accounts} currencies={receiptCurrencyOptions(records.workspace, accounts, currency)} disabled={!mutable} onChange={(patch, invalid) => {
+            <ReceiptRecordFacts dossier={dossier} accounts={accounts} attention={attention} onEdit={canPrepare && mutable ? (key) => setEditing((current) => current.includes(key) ? current : [...current, key]) : undefined} editor={canPrepare ? (key) => editing.includes(key) || key === "occurred_on" && dossier.facts.occurred_on.state === "unknown" ? <ReceiptFactEditor key={`${key}-${editReset}`} field={key} autoFocus={editing.includes(key)} facts={dossier.facts} patch={edits} accounts={accounts} currencies={receiptCurrencyOptions(records.workspace, accounts, currency)} disabled={!mutable} onChange={(patch, invalid) => {
               setEdits((current) => ({ ...current, ...patch }));
               setInvalidFields((current) => invalid ? [...new Set([...current, key])] : current.filter((field) => field !== key));
             }} /> : null : undefined} />
@@ -390,7 +388,6 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
           <ReceiptMarksCard dossier={dossier} busy={busy || fiscalBusy || fiscalDirty} onChanged={setDossier} />
           {source.mode === "live" ? <FiscalDeclarationEditor key={`${dossier.draft_id}-${dossier.version}`} dossier={dossier} disabled={busy || dirty || capturePending || captureOpen} onBusy={setFiscalBusy} onDirty={setFiscalDirty} onChanged={(value) => { setDossier(value); reload(); }} /> : null}
           <ReceiptReviewQuestions questions={dossier.questions} />
-          <ReceiptApprovalGuidance dossier={dossier} />
           <ReceiptDuplicateResolution dossier={dossier} busy={busy || dirty || fiscalDirty || capturePending || captureOpen} onBusyChange={setDuplicateBusy} onChanged={(next) => { setDossier(next); reload(); }} onOpenOriginal={(id) => openPanel({ kind: "draft", draftId: id })} />
           {problem ? <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]"><CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />{problem}</p> : null}
           {duplicate ? <div role="alert" data-testid="dossier-duplicate" className={SURFACE_CARD}><p className="text-[15px] leading-[22px] text-[#172b26] dark:text-white">{t("business.dossier.duplicate_recorded", "You already recorded this fiscal receipt.")}</p>{duplicate.recordId ? <button type="button" className={`${secondaryButtonClass} mt-3`} onClick={() => openPanel({ kind: "draft", draftId: duplicate.recordId as string })}>{t("business.dossier.see_recorded", "See the recorded one")}</button> : null}</div> : null}

@@ -2778,6 +2778,14 @@
       "approved_by": "Approved by {{name}} · permission granted by {{issuer}}",
       "approving": "Approving…",
       "approval_effect": "Approval records this revision as one expense. Saving review details does not record it.",
+      "attention": {
+        "fiscal_disagree": "The record and its file disagree on the fiscal number: the file carries e-CF {{encf}}.",
+        "footer_one": "{{count}} thing to review before approving",
+        "footer_other": "{{count}} things to review before approving",
+        "suggestion": "{{field}}: suggestion to confirm",
+        "title_one": "{{count}} to review",
+        "title_other": "{{count}} to review"
+      },
       "prepare_only": "Your permission allows preparing this record. A person with approval permission must approve it.",
       "read_only": "Your permission allows viewing this record.",
       "read_from_receipt": "Read from the receipt",

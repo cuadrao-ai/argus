@@ -2778,6 +2778,14 @@
       "approved_by": "Aprobado por {{name}} · permiso otorgado por {{issuer}}",
       "approving": "Aprobando…",
       "approval_effect": "Aprobar registra esta revisión como un gasto. Guardar los detalles de revisión no lo registra.",
+      "attention": {
+        "fiscal_disagree": "El registro y su archivo no coinciden en el comprobante: el archivo trae el e-CF {{encf}}.",
+        "footer_one": "{{count}} cosa por revisar antes de aprobar",
+        "footer_other": "{{count}} cosas por revisar antes de aprobar",
+        "suggestion": "{{field}}: sugerencia por confirmar",
+        "title_one": "{{count}} por revisar",
+        "title_other": "{{count}} por revisar"
+      },
       "prepare_only": "Puedes revisar y preparar este recibo. El dueño lo aprueba.",
       "read_only": "Tu permiso permite ver este registro.",
       "read_from_receipt": "Leído del recibo",

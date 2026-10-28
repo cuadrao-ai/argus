@@ -11,6 +11,7 @@ import { SURFACE_CARD } from "./foundation/surfaces";
 import { presentBusinessFact, presentFiscalFact } from "./receipt-fact-presentation";
 import { ACTIVITY_FIELDS as ACTIVITY, MORE_FIELDS as MORE, fiscalFactRows, recordFactRows, reviewCounts, type FactRow } from "./receipt-fact-rows";
 import { resolveLanguage } from "@/lib/language-features";
+import type { AttentionItem } from "./dossier-attention";
 const FISCAL = ["rnc", "ncf", "itbis", "ecf"] as const;
 
 const labelClass = "text-[13px] font-medium leading-[18px] text-[#172b26] dark:text-white";
@@ -21,8 +22,10 @@ const sourceClass = "text-[13px] leading-[18px] text-[#56635e] dark:text-white/7
  * the read's source is said once per card, and only a field the backend
  * blocks on carries a line of its own.
  */
-export default function ReceiptRecordFacts({ dossier, accounts, onEdit, onEditRnc, editor, cards = true }: {
+export default function ReceiptRecordFacts({ dossier, accounts, attention = [], onEdit, onEditRnc, editor, cards = true }: {
   dossier: BusinessDossier;
+  /** What needs the person; each row an item points at carries a marker. */
+  attention?: readonly AttentionItem[];
   accounts: BusinessAccount[];
   onEdit?: (key: BusinessFactField) => void;
   onEditRnc?: () => void;
@@ -57,9 +60,10 @@ export default function ReceiptRecordFacts({ dossier, accounts, onEdit, onEditRn
   const read = (found: (FactRow<string> | undefined)[]) => found.some((row) => row?.standing === "suggestion");
   const card = cards ? `${SURFACE_CARD} space-y-4` : "space-y-4 pt-4";
 
+  const flagged = (key: string) => attention.some((item) => item.field === key || (item.field === "fiscal" && (key === "ncf" || key === "ecf" || key === "fiscal_number")));
   const field = (key: string, label: string, content: ReactNode, row?: FactRow<string>) => (
-    <div key={key} data-fact={key} data-standing={row?.standing} data-blocked={row?.blocked || row?.asked ? "true" : undefined} className="space-y-2">
-      <dt className={labelClass}>{label}</dt>
+    <div key={key} data-fact={key} data-standing={row?.standing} data-blocked={row?.blocked || row?.asked ? "true" : undefined} data-attention={flagged(key) ? "true" : undefined} className="space-y-2">
+      <dt className={`${labelClass} flex items-center gap-1.5`}>{flagged(key) ? <span aria-hidden="true" data-testid="attention-marker" className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#c27a1e] dark:bg-[#e8b26f]" /> : null}{label}</dt>
       <dd className={`break-words text-[15px] leading-[22px] text-[#172b26] dark:text-white ${key === "amount" || key === "itbis" ? "[font-variant-numeric:tabular-nums]" : ""}`}>
         {key === "amount" || key === "itbis" ? <span className="cuadrao-amount">{content}</span> : content}
         {row?.blocked || row?.asked ? (

@@ -17,7 +17,9 @@ async function mount(mode: Mode = "success", options: { readOnly?: boolean; clos
   const i18next = (await import("i18next")).default;
   const { I18nextProvider } = await import("react-i18next");
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
-  const { ReceiptApprovalGuidance, ReceiptDuplicateResolution } = await import("@/components/business-app/ReceiptDossierReview");
+  const { ReceiptDuplicateResolution } = await import("@/components/business-app/ReceiptDossierReview");
+  const DossierAttentionStrip = (await import("@/components/business-app/DossierAttentionStrip")).default;
+  const { dossierAttention } = await import("@/components/business-app/dossier-attention");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
   const fixture = await createFixtureBusinessDataSource().dossier(dossierFixtureIds.ready);
@@ -51,12 +53,12 @@ async function mount(mode: Mode = "success", options: { readOnly?: boolean; clos
     const [dossier, setDossier] = useState(initial);
     const [busy, setBusy] = useState(false);
     return <I18nextProvider i18n={i18n}>
-      <ReceiptApprovalGuidance dossier={dossier} />
+      <DossierAttentionStrip items={dossierAttention(dossier, [], i18n.t.bind(i18n))} />
       <ReceiptDuplicateResolution dossier={dossier} busy={busy || options.externalBusy} onBusyChange={setBusy} onChanged={setDossier} onOpenOriginal={(id) => opened.push(id)} />
     </I18nextProvider>;
   }
   await act(async () => { root.render(<View />); });
-  const buttons = () => Array.from(host.querySelectorAll("button"));
+  const buttons = () => Array.from(host.querySelectorAll<HTMLButtonElement>('[data-testid="receipt-duplicate-resolution"] button'));
   const decide = () => buttons().find((button) => button.textContent?.includes("Es otra compra"));
   const flush = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
   return { host, requests, opened, buttons, decide, act, flush, release, cleanup: async () => {
