@@ -21,6 +21,8 @@ from argus.domain.business.activity.queries import (
 )
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.activity import (
+    EARLIEST_DAY,
+    LATEST_DAY,
     ActionGroup,
     ActivityFilters,
     ActivityPage,
@@ -29,6 +31,7 @@ from argus.domain.business.contracts.activity import (
     PageSize,
 )
 
+_SPAN = f"{EARLIEST_DAY.isoformat()} to {LATEST_DAY.isoformat()}"
 _GRANT_REFUSALS = {
     403: {
         "description": "`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is missing, someone else's, revoked or expired; `business_permission_denied`: the live grant does not allow this."
@@ -49,11 +52,13 @@ def activity_page(
     cursor: Annotated[str | None, Query(max_length=256)] = None,
     since: Annotated[
         date | None,
-        Query(alias="from", description="First calendar day, Business time zone."),
+        Query(
+            alias="from", description=f"First calendar day, Business time zone, {_SPAN}."
+        ),
     ] = None,
     until: Annotated[
         date | None,
-        Query(alias="to", description="Last calendar day, Business time zone."),
+        Query(alias="to", description=f"Last calendar day, Business time zone, {_SPAN}."),
     ] = None,
     actor: Annotated[
         list[ActorId] | None,
@@ -82,7 +87,7 @@ def activity_page(
             status_code=422,
             code="invalid_date_range",
             title="Invalid date range",
-            detail="`to` is before `from`.",
+            detail=f"`to` is before `from`, or a day is outside {_SPAN}.",
             headers=NO_STORE,
         ) from None
     try:

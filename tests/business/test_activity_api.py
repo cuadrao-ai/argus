@@ -79,12 +79,17 @@ def test_filters_are_validated_at_the_boundary(alice: Owner):
         },
     )
     assert ok.status_code == 200, ok.text
-    reversed_range = _get(alice, {"from": "2026-10-02", "to": "2026-10-01"})
-    assert (reversed_range.status_code, reversed_range.json()["code"]) == (
-        422,
-        "invalid_date_range",
-    )
-    assert reversed_range.headers["cache-control"] == "no-store"
+    for params in (
+        {"from": "2026-10-02", "to": "2026-10-01"},
+        {"to": "9999-12-31"},
+        {"from": "0001-01-01"},
+    ):
+        refused = _get(alice, params)
+        assert (refused.status_code, refused.json()["code"]) == (
+            422,
+            "invalid_date_range",
+        ), params
+        assert refused.headers["cache-control"] == "no-store"
     for params in (
         {"from": "yesterday"},
         {"to": "2026-13-01"},

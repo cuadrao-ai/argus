@@ -8,7 +8,13 @@ from datetime import date, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BeforeValidator, StringConstraints, field_validator, model_validator
+from pydantic import (
+    BeforeValidator,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from argus.domain.business.contracts.authority import ActorKind
 from argus.domain.business.contracts.facts import Contract
@@ -116,13 +122,20 @@ class ActivityPage(Contract):
     actors: tuple[ActivityFacetActor, ...] | None = None
 
 
+#: The calendar days a filter accepts. The ends of the date type have no
+#: next day or no Business-zone instant, so they are refused at the boundary.
+EARLIEST_DAY = date(2000, 1, 1)
+LATEST_DAY = date(2999, 12, 31)
+FilterDay = Annotated[date, Field(ge=EARLIEST_DAY, le=LATEST_DAY)]
+
+
 class ActivityFilters(Contract):
     """The filter set one page was read with. Dates are calendar days in the
     Business time zone, inclusive. Within one field the values are OR'ed;
     across fields they are AND'ed. A cursor is bound to the whole set."""
 
-    since: date | None = None
-    until: date | None = None
+    since: FilterDay | None = None
+    until: FilterDay | None = None
     actors: tuple[ActorId, ...] = ()
     areas: tuple[Area, ...] = ()
     groups: tuple[ActionGroup, ...] = ()

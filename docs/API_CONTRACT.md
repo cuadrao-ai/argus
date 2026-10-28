@@ -9514,8 +9514,9 @@ returned to the Business); `include` on `decide_606` (`true`: included in the
 606). The client localizes them.
 
 Filters, all optional query parameters, narrow the page on the server:
-`from` and `to` (`YYYY-MM-DD`, calendar days in the Business time zone,
-inclusive; `to` before `from` is 422 `invalid_date_range`), `actor` (repeatable
+`from` and `to` (`YYYY-MM-DD`, calendar days in the Business time zone from
+2000-01-01 to 2999-12-31, inclusive; `to` before `from`, or a day outside that
+span, is 422 `invalid_date_range`), `actor` (repeatable
 `id` from `actors`, at most 50), `area` (repeatable, at most 4) and
 `action_group` (repeatable, at most 9: `uploads` for `receipt_upload`;
 `reading` for `prepare_attachment`; `reviews` for `review_draft`,

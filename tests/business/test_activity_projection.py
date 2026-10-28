@@ -33,6 +33,8 @@ from argus.domain.business.activity.queries import (
 from argus.domain.business.annotations import NoteCommand
 from argus.domain.business.contracts.actions import Command
 from argus.domain.business.contracts.activity import (
+    EARLIEST_DAY,
+    LATEST_DAY,
     ActionGroup,
     ActivityAction,
     ActivityFilters,
@@ -423,6 +425,16 @@ def test_filters_canonicalize_and_refuse_a_reversed_range():
     with pytest.raises(ValidationError):
         ActivityFilters(areas=("mail",))
     assert ActivityFilters(since=date(2026, 10, 27), until=date(2026, 10, 27))
+    # The ends of the date type cannot become a Business-zone instant range.
+    for day in (date.max, date.min, LATEST_DAY + timedelta(days=1)):
+        with pytest.raises(ValidationError):
+            ActivityFilters(until=day)
+        with pytest.raises(ValidationError):
+            ActivityFilters(since=day)
+    assert day_bounds(ActivityFilters(since=EARLIEST_DAY, until=LATEST_DAY)) == (
+        datetime(2000, 1, 1, 4, 0, tzinfo=timezone.utc),
+        datetime(3000, 1, 1, 4, 0, tzinfo=timezone.utc),
+    )
 
 
 def test_day_bounds_are_whole_days_in_the_business_time_zone():

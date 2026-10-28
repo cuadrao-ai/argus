@@ -1010,8 +1010,8 @@ paths:
           - type: string
             format: date
           - type: 'null'
-          description: First calendar day, Business time zone.
-        description: First calendar day, Business time zone.
+          description: First calendar day, Business time zone, 2000-01-01 to 2999-12-31.
+        description: First calendar day, Business time zone, 2000-01-01 to 2999-12-31.
       - name: to
         in: query
         required: false
@@ -1020,8 +1020,8 @@ paths:
           - type: string
             format: date
           - type: 'null'
-          description: Last calendar day, Business time zone.
-        description: Last calendar day, Business time zone.
+          description: Last calendar day, Business time zone, 2000-01-01 to 2999-12-31.
+        description: Last calendar day, Business time zone, 2000-01-01 to 2999-12-31.
       - name: actor
         in: query
         required: false

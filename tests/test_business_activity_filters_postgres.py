@@ -402,6 +402,10 @@ def test_over_http_a_page_shows_only_what_the_feed_promises(people, business, au
         refused = client.get("/business/activity", params={"cursor": "not-a-cursor"})
         assert refused.status_code == 422
         assert refused.json()["detail"]["code"] == "invalid_cursor"
+        for params in ({"to": "9999-12-31"}, {"from": "0001-01-01"}):
+            refused = client.get("/business/activity", params=params)
+            assert refused.status_code == 422, params
+            assert refused.json()["detail"]["code"] == "invalid_date_range"
 
         with Connection.connect(shared.DSN) as db:
             db.execute(
