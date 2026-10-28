@@ -188,6 +188,19 @@ describe("the Business top bar on a desktop", () => {
     assert.equal(document.body.textContent?.includes("Exportar registros"), false);
   });
 
+  test("on a phone, a Viewer's Inicio has no empty action band, and an owner's keeps its menu", async () => {
+    const viewer = { space_id: "fixture-client", name: "Colmado Peña", grant_id: "fixture-grant-client", role: "accountant" as const, business_role: "viewer" as const, permissions: ["read" as const], capabilities: ["read" as const], access_seen: true };
+    const page = await mount({ width: 390, grant: "fixture-grant-client", overrides: { spaces: async () => [viewer] } });
+    await page.settle(() => page.api().chosen?.business_role === "viewer", "the viewer business");
+    await page.wait(400);
+    const band = page.screen().querySelector<HTMLElement>('[data-testid="inicio-actions"]');
+    assert.ok(band === null || (band.childElementCount === 0 && band.classList.contains("empty:hidden")), "an empty band is hidden, not padded");
+    const owner = await mount({ width: 390 });
+    await owner.ready();
+    const ownerBand = owner.screen().querySelector<HTMLElement>('[data-testid="inicio-actions"]');
+    assert.ok(ownerBand?.querySelector('[data-testid="add-menu-page"]'), "an owner's band holds the menu");
+  });
+
   for (const kind of ["overview", "inbox", "transactions"] as const) test(`Exportar registros from the menu opens the one export sheet over ${kind}`, async () => {
     const page = await mount();
     await page.ready();
