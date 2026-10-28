@@ -1,5 +1,6 @@
 import io
 import struct
+import sys
 import threading
 import time
 import zlib
@@ -131,6 +132,23 @@ sys.stdout.write("1")
 """,
     )
     assert rebuilt.image_pixels(png(), "image/png") == 1
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="Linux OOM killer only")
+def test_out_of_memory_kernel_kills_the_child_before_the_api(monkeypatch):
+    """A large transparent image can exhaust a 512 MB instance; the kernel
+    must then kill the child, which maps to a rejected image, not the API."""
+
+    monkeypatch.setattr(
+        rebuilt,
+        "_IMAGE_REBUILD",
+        "import sys; sys.stdout.write(open('/proc/self/oom_score_adj').read().strip())",
+    )
+    with open("/proc/self/oom_score_adj") as api:
+        api_score = api.read()
+    assert rebuilt.image_pixels(png(), "image/png") == 1000
+    with open("/proc/self/oom_score_adj") as api:
+        assert api.read() == api_score
 
 
 def test_signal_exit_is_logged_and_child_is_reaped(monkeypatch, tmp_path):

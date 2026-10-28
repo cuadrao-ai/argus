@@ -26,13 +26,20 @@ if TYPE_CHECKING:
 MAX_PIXELS = 20_000_000
 MAX_TEXT_BYTES = 200_000
 # Set limits in a fresh child, never preexec_fn in the threaded API process.
-_RESOURCE_WRAPPER = (
-    "import os,resource,sys; "
-    "resource.setrlimit(resource.RLIMIT_AS,(536870912,536870912)) if sys.platform == 'linux' else None; "
-    "resource.setrlimit(resource.RLIMIT_CPU,(20,20)); "
-    "resource.setrlimit(resource.RLIMIT_FSIZE,(10485760,10485760)); "
-    "os.execvp(sys.argv[1],sys.argv[1:])"
-)
+# When the instance runs out of memory the kernel must kill this child, not the API.
+_RESOURCE_WRAPPER = """
+import os, resource, sys
+if sys.platform == "linux":
+    resource.setrlimit(resource.RLIMIT_AS, (536870912, 536870912))
+    try:
+        with open("/proc/self/oom_score_adj", "w") as score:
+            score.write("1000")
+    except OSError:
+        pass
+resource.setrlimit(resource.RLIMIT_CPU, (20, 20))
+resource.setrlimit(resource.RLIMIT_FSIZE, (10485760, 10485760))
+os.execvp(sys.argv[1], sys.argv[1:])
+"""
 
 
 # Standalone child code avoids importing the application before resource limits apply.
