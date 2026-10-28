@@ -51,7 +51,7 @@ export default function ActionMenu({ actions, label, placement, portal = false, 
 
   const empty = actions.length === 0;
   useEffect(() => {
-    if (open && empty) setOpen(false);
+    if (open && empty) close();
   }, [open, empty]);
 
   useEffect(() => {
