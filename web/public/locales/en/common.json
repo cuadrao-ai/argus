@@ -2565,6 +2565,9 @@
             "payable": "To pay",
             "receivable": "To collect"
           },
+          "no_currency": "No currency",
+          "partial": "Partial: {{amount}}",
+          "partial_meaning": "Incomplete amount",
           "personal_one": "{{count}} personal",
           "personal_other": "{{count}} personal",
           "restore": "Restore defaults",
@@ -2608,11 +2611,12 @@
       "coverage": "Bank up to date through {{day}}.",
       "reporting": {
         "access_unavailable": "You do not have access to this feature.",
-        "financial_cards_pending": "Amount unavailable.",
+        "financial_cards_pending": "Collections, payments and balances due are not available yet.",
         "invalid_page": "Records changed. Open the last available page.",
         "pending_contract": "This feature is not connected yet.",
         "records_only": "The ZIP includes only filtered records. It does not include original files.",
         "refresh": "Refresh",
+        "refresh_records": "Refresh records",
         "reload": "Reload",
         "report_changed": "Records changed. Refresh before exporting.",
         "retry": "Retry",

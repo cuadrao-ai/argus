@@ -214,13 +214,82 @@ test("older v1 servers keep query usable and leave unsupported overview unavaila
   assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
 });
 
-test("automatic sales cards stay unknown even if every matching row has a binary paid status", async () => {
-  await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: 'all' }, record_families: ['sale'] } }) });
+const amounts = (card: Element) => [...card.querySelectorAll("[data-currency]")].map((row) => row.textContent);
+const cards = () => [...document.querySelectorAll('[data-testid="records-results-summary"] [data-summary-part]')];
+
+test("sales card one shows the server document totals per currency and later cards stay unavailable", async () => {
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: 'all' }, record_families: ['sale'] } }) });
   const summary = document.querySelector('[data-testid="records-results-summary"]')!;
   assert.equal(summary.getAttribute('data-summary-kind'), 'venta');
-  assert.equal(summary.querySelectorAll('[data-summary-part]').length, 3);
-  assert.equal(summary.querySelectorAll('.cuadrao-amount').length, 0);
-  assert.equal(document.body.textContent?.includes('Monto no disponible.'), true);
+  assert.equal(cards().length, 3);
+  assert.deepEqual(amounts(cards()[0]), ['RD$6,200.00', 'US$100.00']);
+  assert.match(cards()[0].textContent!, /Facturado/);
+  for (const later of cards().slice(1)) { assert.equal(later.querySelectorAll('.cuadrao-amount').length, 0); assert.match(later.textContent!, /-/); }
+  assert.equal(document.body.textContent?.includes('Cobros, pagos y saldos pendientes aún no están disponibles.'), true);
+  assert.equal(document.body.textContent?.includes('Importes confirmados'), false);
+  assert.ok(page.fixture.calls.every((call) => !call.path.includes('/totals')));
+});
+
+test("expense card one keeps an unknown currency unknown and never invents a code or zero", async () => {
+  await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: 'all' }, record_families: ['purchase'] } }) });
+  const [first, second] = [...cards()[0].querySelectorAll("[data-currency], .currencyRow, dd > div")];
+  assert.match(cards()[0].textContent!, /Gastos/);
+  assert.equal(first.textContent, 'RD$6,200.00');
+  assert.match(second.textContent!, /^Sin moneda-/);
+  assert.equal(cards()[0].querySelectorAll('.cuadrao-amount').length, 1);
+  assert.doesNotMatch(cards()[0].textContent!, /(?<![\d,])0\.00/);
+});
+
+test("card one follows the same answer as rows and count when the search changes", async () => {
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: 'all' }, record_families: ['sale'] } }) });
+  assert.match(document.querySelector('[data-testid="records-count"]')!.textContent!, /63/);
+  const before = page.fixture.calls.filter((call) => call.path.endsWith('/reports/query')).length;
+  await page.type(document.querySelector('input[type="search"]')!, 'pena');
+  await page.settle(() => document.querySelector('[data-testid="records-count"]')?.textContent?.includes('1 de 1') ?? false);
+  assert.deepEqual(amounts(cards()[0]), ['RD$100.00']);
+  const queries = page.fixture.calls.filter((call) => call.path.endsWith('/reports/query'));
+  assert.equal(queries.length - before, 1);
+  assert.equal((queries.at(-1)!.body as { filters: { q: string } }).filters.q, 'pena');
+});
+
+test("an incomplete server total shows unknown beside its labelled known part, never as final money", async () => {
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: 'all' }, record_families: ['sale'] } }) });
+  const row = page.fixture.records.find((record) => record.family === 'sale' && record.currency === 'DOP')!;
+  row.gross_amount = null;
+  await page.click(document.querySelector('[data-testid="records-refresh"]'));
+  await page.settle(() => cards()[0]?.querySelector('[data-partial-known]') !== null);
+  const dop = cards()[0].querySelector('[data-currency="DOP"]') ?? cards()[0].querySelector('dd > div')!;
+  assert.equal(dop.querySelectorAll('.cuadrao-amount').length, 0);
+  assert.match(dop.textContent!, /-/);
+  assert.match(dop.textContent!, /Parcial: RD\$6,100\.00/);
+  assert.equal(cards()[0].querySelectorAll('.cuadrao-amount').length, 1);
+});
+
+test("desktop shows a refresh control that reloads the query and holds a busy state until it answers", async () => {
+  const page = await mount();
+  const control = () => document.querySelector<HTMLButtonElement>('[data-testid="records-refresh"]')!;
+  assert.ok(control());
+  assert.equal(control().getAttribute('aria-label'), 'Actualizar registros');
+  assert.equal(control().disabled, false);
+  const live = globalThis.fetch;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/reports/query') ? gate.then(() => live(input, init)) : live(input, init)) as typeof fetch;
+  const before = page.fixture.calls.filter((call) => call.path.endsWith('/reports/query')).length;
+  await page.click(control());
+  assert.equal(control().disabled, true);
+  assert.equal(control().getAttribute('aria-busy'), 'true');
+  await page.click(control());
+  release();
+  await page.settle(() => !control().disabled);
+  assert.equal(control().getAttribute('aria-busy'), 'false');
+  assert.equal(page.fixture.calls.filter((call) => call.path.endsWith('/reports/query')).length - before, 1);
+  globalThis.fetch = live;
+});
+
+test("the phone keeps the pull gesture and gets no toolbar refresh control", async () => {
+  await mount({ width: 390 });
+  assert.equal(document.querySelector('[data-testid="records-refresh"]'), null);
 });
 
 test("view conflicts keep the unsaved name and require current version readback before another save", async () => {

@@ -85,8 +85,10 @@ const FIXTURE_ALLOCATIONS: Readonly<Record<string, PreviewAllocation>> = {
   "gasto:exp-hosting": { currency: "USD", total: "24.00", payments: ["12.00"] },
   "venta:exp-gas": { currency: "DOP", total: "2100.00", payments: ["1000.00", "400.00"] },
 };
-export type SettlementCurrency = { currency: string; total: string; settled: string | null; balance: string | null };
-export function summarizeSettlementPreview(rows: readonly RecordRow[], businessId: string | null, kind: RecordRow["kind"]): { currencies: SettlementCurrency[]; exclusions: SummaryExclusions } {
+/** An empty currency is the server's unknown currency. A null total with a `known` amount is an incomplete server total. */
+export type SettlementCurrency = { currency: string; total: string | null; known?: string | null; settled: string | null; balance: string | null };
+export type SettlementSummary = { currencies: SettlementCurrency[]; exclusions: SummaryExclusions };
+export function summarizeSettlementPreview(rows: readonly RecordRow[], businessId: string | null, kind: RecordRow["kind"]): SettlementSummary {
   const matching = rows.filter((row) => row.kind === kind);
   const summary = summarizePreviewRecords(matching, businessId);
   const key = kind === "venta" ? "sales" : "expenses";

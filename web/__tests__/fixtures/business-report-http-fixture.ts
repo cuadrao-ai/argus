@@ -1,8 +1,25 @@
-import { reportAnswerSchema, reportRequestSchema, type ReportRecord } from "@/lib/business-reports-api";
+import { reportAnswerSchema, reportRequestSchema, type ReportRecord, type ReportTotal } from "@/lib/business-reports-api";
 
 export const fixtureId = (value: number) => `00000000-0000-4000-8000-${String(value).padStart(12, "0")}`;
 export const FROZEN_REPORT_BACKEND = "eda4bb38ab2a195761523b084dbbfb6862e67c7e";
 const text = (value: string) => value.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase();
+const cents = (amount: string) => BigInt(amount.replace(".", ""));
+const decimal = (minor: bigint) => `${minor / BigInt(100)}.${String(minor % BigInt(100)).padStart(2, "0")}`;
+/** Mirrors the server's document-family totals for rows that are all document-dated: one total per currency and family, null amount while any row is unknown. */
+export function documentFamilyTotals(rows: readonly ReportRecord[]): ReportTotal[] {
+  const groups = new Map<string, { currency: string | null; kind: string; rows: ReportRecord[] }>();
+  for (const row of rows) {
+    const kind = row.family === "sale" ? "income" : row.family === "purchase" ? "expense" : "unknown";
+    const key = `${row.currency}:${kind}`;
+    groups.set(key, { currency: row.currency, kind, rows: [...groups.get(key)?.rows ?? [], row] });
+  }
+  return [...groups.values()].map(({ currency, kind, rows: members }) => {
+    const known = members.reduce((sum, row) => row.gross_amount === null ? sum : sum + cents(row.gross_amount), BigInt(0));
+    const unknown = members.filter((row) => row.gross_amount === null || currency === null).length;
+    return { currency, kind, basis: "document_family_amount", matching_count: members.length, known_amount_minor: Number(known), unknown_count: unknown, unsupported_count: 0, complete: unknown === 0, amount_minor: unknown === 0 ? Number(known) : null, known_amount: currency ? decimal(known) : null, amount: currency && unknown === 0 ? decimal(known) : null };
+  });
+}
+
 export function createBusinessReportHttpFixture() {
   const records: ReportRecord[] = Array.from({ length: 126 }, (_, index) => ({
     row_id: `draft:${fixtureId(index + 1)}`, draft_id: fixtureId(index + 1), linked_activity_ids: [fixtureId(1000 + index)], revision: 3,
@@ -40,7 +57,7 @@ export function createBusinessReportHttpFixture() {
       if (effective_sort.startsWith("name_")) matching.sort((a, b) => (a.counterparty ?? "").localeCompare(b.counterparty ?? "") * (effective_sort.endsWith("asc") ? 1 : -1));
       const items = matching.slice((report.page - 1) * report.page_size, report.page * report.page_size).map((row) => ({ ...row, can_edit_note: !controls.readOnly, can_append_supporting: !controls.readOnly, attachment_sources: row.attachment_sources?.map((source) => ({ ...source, source_available: source.receipt_id === fixtureId(700) ? controls.originalAvailable : source.source_available, download_available: !controls.readOnly && (source.receipt_id !== fixtureId(700) || controls.originalAvailable) })) }));
       return Response.json(reportAnswerSchema.parse({ items, matching_count: matching.length, page: report.page, page_size: report.page_size, page_count: Math.ceil(matching.length / report.page_size),
-        totals: [{ currency: "DOP", kind: "expense", basis: "document_family_amount", matching_count: matching.length, known_amount_minor: 10000, unknown_count: 1, unsupported_count: 0, complete: false, amount_minor: null, known_amount: "100.00", amount: null }],
+        totals: documentFamilyTotals(matching),
         fingerprint: "a".repeat(64), captured_at: "2026-10-26T12:00:00Z", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0,
         counterparties: [{ key: "101001577", labels: ["Proveedor autorizado"] }], categories: ["uncategorized"], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable", "records_only_evidence_separate"],
         ...controls.legacy ? {} : { overview: { needs_review: 60, awaiting_approval: 40, ready_for_export: 20 }, effective_sort, sort_unavailable_reason: blocked ? "amount_sort_requires_single_known_currency" : null } }));

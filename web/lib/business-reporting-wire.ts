@@ -5,6 +5,7 @@ import {
 } from "./business-reports-api";
 import type { ReportRecord } from "./business-reports-api";
 import type { RecordRow } from "@/components/business-app/transacciones/transacciones-model";
+import type { SettlementSummary } from "@/components/business-app/transacciones/records-results-preview";
 import type { RecordsSort } from "@/components/business-app/transacciones/records-pagination";
 import type { ReportSort } from "./business-reports-api";
 import type { RecordsColumnKey, RecordsViewPreferences } from "@/components/business-app/transacciones/records-view-preferences";
@@ -37,6 +38,16 @@ export function businessReportRow(report: ReportRecord): RecordRow {
     hasProof: report.has_document, marks: { personal: false, markedBy: null, fiscal: null },
     opens: report.draft_id ? { kind: "draft", draftId: report.draft_id, list: "transactions" } : activityId ? { kind: "expense", expenseId: activityId } : null,
   };
+}
+
+const SUMMARY_KIND = { venta: "income", gasto: "expense" } as const;
+/** First card: the server's document-family total per currency for the family. Settled and balance stay unavailable until allocation exists. */
+export function reportSummary(answer: ReportAnswer | undefined, kind: RecordRow["kind"]): SettlementSummary {
+  const currencies = (answer?.totals ?? [])
+    .filter((total) => total.basis === "document_family_amount" && total.kind === SUMMARY_KIND[kind])
+    .map((total) => ({ currency: total.currency ?? "", total: total.complete ? total.amount : null, known: total.complete ? null : total.known_amount, settled: null, balance: null }))
+    .sort((a, b) => Number(!a.currency) - Number(!b.currency) || a.currency.localeCompare(b.currency));
+  return { currencies, exclusions: { unconfirmed: 0, personal: 0, unavailable: 0 } };
 }
 
 export const defaultReportRequest = (): ReportRequest => reportRequestSchema.parse({});
