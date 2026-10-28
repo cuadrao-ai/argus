@@ -87,6 +87,7 @@ def test_export_is_full_filtered_answer_and_explicitly_records_only(client, acti
     assert manifest["scope"] == "filtered_records_only"
     assert manifest["fingerprint"] == answer["fingerprint"]
     assert all(row["stage"] == "awaiting_approval" for row in rows)
+    assert all((row["personal"], row["include_606"]) == ("False", "") for row in rows)
 
 
 def test_stale_export_requires_explicit_refresh(client, actions):
