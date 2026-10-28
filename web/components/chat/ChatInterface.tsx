@@ -573,7 +573,9 @@ export default function ChatInterface() {
   const bannerSpace = workspace && !online ? BANNER_HEIGHT_PX : 0;
   const surfaceFade = `${layout.businessShell ? "bg-[#F7F5EE]/80" : "bg-[#f9f9f9]/80"} dark:bg-[#141517]/80`;
   const searchEntryEnabled = omnisearchEnabled && businessSearchEntryEnabled(workspace?.id);
-  const openSearch = useCallback(() => { if (searchEntryEnabled) setSearchOverlayOpen(true); }, [searchEntryEnabled]);
+  // A click handler may pass its event: only a string seeds the search.
+  const [searchSeed, setSearchSeed] = useState("");
+  const openSearch = useCallback((query?: unknown) => { if (!searchEntryEnabled) return; setSearchSeed(typeof query === "string" ? query : ""); setSearchOverlayOpen(true); }, [searchEntryEnabled]);
   const [invitationOpenRequest, setInvitationOpenRequest] = useState<InvitationOpenRequest | null>(null);
   const openPersonalInvitation = useCallback((trigger: HTMLElement) => {
     setInvitationOpenRequest((previous) => ({ id: (previous?.id ?? 0) + 1, trigger }));
@@ -2148,6 +2150,7 @@ export default function ChatInterface() {
         (!isGuest || canUseOmnisearch) &&
         searchOverlayOpen && (
           <ChatCommandPalette
+            initialQuery={searchSeed}
             onClose={() => setSearchOverlayOpen(false)}
             onOpenConversation={(convId, messageId, openAtLeftOff) => {
               setSearchOverlayOpen(false);
@@ -2179,11 +2182,11 @@ export default function ChatInterface() {
         {/* ── Unified View Header (SOTA: Absolute to content panel for perfect centering) ── */}
         {/* Content scrolls under the bar through a soft fade, on every screen the bar is on. */}
         {currentView === "workspace" || (currentView === "chat" && !showEmptyChatSurface) ? (
-          <div data-testid="header-fade" className={`pointer-events-none absolute inset-x-0 top-[var(--cuadrao-banner-space,0px)] z-[40] h-32 backdrop-blur-[0.8px] [mask-image:linear-gradient(to_bottom,black_48%,transparent_100%)] ${surfaceFade}`} />
+          <div data-testid="header-fade" className={`workspace-bar-fade pointer-events-none absolute inset-x-0 top-[var(--cuadrao-banner-space,0px)] z-[40] h-32 tablet:h-[calc(var(--workspace-bar,5rem)*1.6)] backdrop-blur-[0.8px] [mask-image:linear-gradient(to_bottom,black_48%,transparent_100%)] ${surfaceFade}`} />
         ) : null}
         {currentView !== "settings" && (
           // A workspace with a search field in its bar spans its one canvas, so search and avatar sit on the canvas's edges on every screen.
-          <header className={`absolute inset-x-0 top-[var(--cuadrao-banner-space,0px)] z-[50] flex h-20 items-center justify-between gap-2 px-4 pointer-events-none tablet:gap-4 ${workspace?.headerSearch ? WORKSPACE_BAR_PADDING_CLASS : "tablet:px-8"}`}>
+          <header data-workspace-bar={workspace?.headerSearch ? "" : undefined} className={`absolute inset-x-0 top-[var(--cuadrao-banner-space,0px)] z-[50] flex h-20 tablet:h-[var(--workspace-bar,5rem)] items-center tablet:[align-items:var(--workspace-bar-align,center)] tablet:pt-[var(--workspace-bar-inset,0px)] justify-between gap-2 px-4 pointer-events-none tablet:gap-4 ${workspace?.headerSearch ? WORKSPACE_BAR_PADDING_CLASS : "tablet:px-8"}`}>
             {mobileShell.isBelowTablet && (
               <div className="pointer-events-auto shrink-0">
                 <ChatShellMenuTrigger

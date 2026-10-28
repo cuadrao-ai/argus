@@ -91,6 +91,8 @@ type BottomSheetProps = {
   onClose: () => void;
   /** Accessible name for the sheet, rendered as its heading unless hidden. */
   title: string;
+  /** A small mark before the heading, such as a channel's logo; decorative, the title names the sheet. */
+  titleIcon?: ReactNode;
   /** Accessible name for the close control. */
   closeLabel: string;
   /** Accessible name for the back arrow shown when another sheet waits beneath. */
@@ -116,6 +118,7 @@ export function BottomSheetSurface({
   isOpen,
   onClose,
   title,
+  titleIcon,
   closeLabel,
   backLabel,
   dismissible = true,
@@ -250,7 +253,8 @@ export function BottomSheetSurface({
               </button>
             ) : null}
             <div className="min-w-0 flex-1 pt-2">
-              <h2 id={headingId} className={titleHidden ? "sr-only" : `font-display ${headerSize === "large" ? "text-[21px]" : "text-[17px]"} font-medium tracking-tight text-black dark:text-white`}>
+              <h2 id={headingId} className={titleHidden ? "sr-only" : `flex items-center gap-2 font-display ${headerSize === "large" ? "text-[21px]" : "text-[17px]"} font-medium tracking-tight text-black dark:text-white`}>
+                {titleIcon && !titleHidden ? <span aria-hidden="true" className="flex shrink-0">{titleIcon}</span> : null}
                 {title}
               </h2>
               {description ? (

@@ -13,7 +13,7 @@ type Edges = { l: number; r: number };
 const PRESS_REACH_PX = 14;
 
 /**
- * The one segmented control: a tinted track and one white thumb that travels
+ * The one segmented control: a tinted track and one bordered thumb that travels
  * to the chosen segment. The thumb's leading edge moves first and the trailing
  * edge follows on a softer spring, so it stretches by its width (never a
  * scale, which would bend the round ends) and settles with a small bounce.
@@ -114,13 +114,13 @@ export function SegmentedControl<K extends string>({ label, segments, value, onC
       role="radiogroup"
       aria-label={label}
       data-testid={testId}
-      className={`relative gap-0.5 ${stacked ? "rounded-surface" : "rounded-full"} bg-[#EDECE6] p-1 dark:bg-white/[0.06] ${fill ? "flex w-full" : "inline-flex max-w-full overflow-x-auto [scrollbar-width:none]"}`}
+      className={`relative gap-0.5 ${stacked ? "rounded-surface" : "rounded-full"} bg-[var(--segment-track)] p-1 ${fill ? "flex w-full" : "inline-flex max-w-full overflow-x-auto [scrollbar-width:none]"}`}
     >
       <span
         ref={thumb}
         aria-hidden="true"
         data-segment-thumb
-        className={`pointer-events-none absolute bottom-1 left-0 top-1 ${stacked ? "rounded-item" : "rounded-full"} bg-white transition-opacity duration-150 ease-out will-change-transform dark:bg-[#2a2d31] ${value === null ? "opacity-0" : "opacity-100"}`}
+        className={`pointer-events-none absolute bottom-1 left-0 top-1 ${stacked ? "rounded-item" : "rounded-full"} border border-[var(--segment-thumb-border)] bg-[var(--segment-thumb)] transition-opacity duration-150 ease-out will-change-transform ${value === null ? "opacity-0" : "opacity-100"}`}
       />
       {segments.map((segment, index) => {
         const checked = segment.key === value;
@@ -139,13 +139,14 @@ export function SegmentedControl<K extends string>({ label, segments, value, onC
             onPointerCancel={settle}
             onClick={() => onChange(segment.key)}
             onKeyDown={(event) => move(event, index)}
-            className={`relative min-h-11 ${stacked ? "flex flex-col items-center justify-center gap-1 rounded-item py-2 text-[12px] leading-4" : "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-[14px]"} px-4 font-medium transition-colors duration-200 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] disabled:opacity-50 motion-reduce:transition-none ${fill ? "min-w-0 flex-auto px-2" : "shrink-0"} ${
-              checked ? "text-[#172b26] dark:text-white" : "text-[#56635e] hover:text-[#172b26] dark:text-white/60 dark:hover:text-white"
+            className={`relative min-h-11 ${stacked ? "flex flex-col items-center justify-center gap-1 rounded-item py-2 text-[12px] leading-4" : "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-[14px]"} px-4 font-medium transition-colors duration-200 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--cuadrao-green)] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none ${fill ? "min-w-0 flex-auto px-2" : "shrink-0"} ${
+              // Selected: the bordered thumb sits under it. Hover only tints an unchosen segment, with no border, so it never reads as chosen.
+              checked ? "text-[var(--segment-text-strong)]" : "text-[var(--segment-text)] enabled:hover:bg-[var(--segment-hover)] enabled:hover:text-[var(--segment-text-strong)]"
             }`}
           >
             {segment.icon ? <segment.icon className="h-4 w-4 shrink-0" aria-hidden="true" /> : null}
             <span className={stacked ? "text-center" : undefined}>{segment.label}</span>
-            {segment.count != null ? <span className="-ml-0.5 font-normal tabular-nums text-[#7d8a84] dark:text-white/50">{segment.count}</span> : null}
+            {segment.count != null ? <span className="-ml-0.5 font-normal tabular-nums text-[var(--segment-text)]">{segment.count}</span> : null}
           </button>
         );
       })}

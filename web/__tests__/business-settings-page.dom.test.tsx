@@ -135,7 +135,8 @@ describe("the Negocio page", () => {
   test("the owner sees Perfil, Acceso and Recepción, and each tab writes the address bar", async () => {
     const page = await mount("view=business", OWN);
     try {
-      assert.equal(page.host.querySelector('[data-testid="business-settings"] h2')?.textContent, "Negocio");
+      // The top bar carries the title on desktop, as on every main screen; Negocio has no Agregar of its own.
+      assert.equal([...page.host.querySelectorAll('[data-testid="business-settings"] button')].some((button) => button.textContent?.includes("Agregar")), false);
       assert.deepEqual(page.tabs().map((tab) => tab.textContent?.trim()), ["Perfil", "Acceso", "Recepción"]);
       assert.equal(page.chosenTab(), "Perfil");
       assert.ok(page.host.querySelector('[data-testid="business-profile-preview"]'), "the approved profile overview is visible");

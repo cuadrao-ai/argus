@@ -62,6 +62,17 @@
   --cuadrao-menu-surface: #ffffff;
   --argus-scroll-indicator: rgba(0, 0, 0, 0.12);
   --argus-scroll-indicator-dark: rgba(255, 255, 255, 0.16);
+  /* The segmented control's states, one owner for every selector and set of page tabs.
+     The selected pill's border keeps 3:1 against the track; every label keeps 4.5:1. */
+  --segment-track: #EDECE6;
+  --segment-thumb: #ffffff;
+  --segment-thumb-border: #7d8a84;
+  --segment-text: #56635e;
+  --segment-text-strong: #172b26;
+  --segment-hover: rgb(0 0 0 / 0.05);
+  /* A list card's header band and the hairline under it: a step darker than the card body. */
+  --surface-header: rgb(0 0 0 / 0.025);
+  --surface-divider: #DCE0DA;
 }
 
 .dark {
@@ -70,6 +81,14 @@
   --cuadrao-cream: #172b26;
   --cuadrao-green: #8fcbb0;
   --cuadrao-menu-surface: #1f2225;
+  --segment-track: rgb(255 255 255 / 0.06);
+  --segment-thumb: rgb(255 255 255 / 0.16);
+  --segment-thumb-border: rgb(255 255 255 / 0.6);
+  --segment-text: rgb(255 255 255 / 0.7);
+  --segment-text-strong: #ffffff;
+  --segment-hover: rgb(255 255 255 / 0.06);
+  --surface-header: rgb(255 255 255 / 0.035);
+  --surface-divider: rgb(255 255 255 / 0.1);
 }
 
 body {
@@ -84,6 +103,25 @@ body {
   body {
     transition: none;
   }
+}
+
+/* A screen may bound the workspace (body[data-workspace-bounded] with --workspace-canvas-max): the canvas caps and
+   centers, the bar's gutter widens to the same edges, and the bar is opaque for its own height so scrolled content
+   never shows behind its heading, then fades as before. Without the marker both keep their fluid defaults. */
+body[data-workspace-bounded] [data-workspace-canvas] {
+  max-width: var(--workspace-canvas-max);
+  margin-inline: auto;
+}
+
+@media (min-width: 45rem) {
+  body[data-workspace-bounded] [data-workspace-bar] {
+    padding-inline: max(2rem, calc((100% - var(--workspace-canvas-max)) / 2));
+  }
+  body[data-workspace-bounded] .workspace-bar-fade {
+    background-color: #F7F5EE;
+    mask-image: linear-gradient(to bottom, black var(--workspace-bar, 5rem), transparent 100%);
+  }
+  .dark body[data-workspace-bounded] .workspace-bar-fade { background-color: #141517; }
 }
 
 :where(

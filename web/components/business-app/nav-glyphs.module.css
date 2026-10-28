@@ -41,35 +41,27 @@
   transform-origin: center;
 }
 
-/* Inicio: the cards settle into place corner to corner. */
-.icon:not([data-move]) [data-part="tile"],
-.icon[data-move] [data-rest] {
-  visibility: hidden;
+/* Inicio: the house hops and lands, settling on its ground. */
+.icon[data-move] [data-part="house"] {
+  transform-box: view-box;
+  transform-origin: 128px 224px;
+  animation: nav-move-house 420ms;
 }
 
-.icon[data-move] [data-part="tile"] {
-  animation: nav-move-tile 360ms;
-}
-
-.icon[data-move] [data-part="tile"]:nth-of-type(2),
-.icon[data-move] [data-part="tile"]:nth-of-type(3) {
-  animation-delay: 50ms;
-}
-
-.icon[data-move] [data-part="tile"]:nth-of-type(4) {
-  animation-delay: 100ms;
-}
-
-@keyframes nav-move-tile {
+@keyframes nav-move-house {
   0% {
-    animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
   }
-  30% {
-    transform: scale(0.55);
-    animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1);
+  35% {
+    transform: translateY(-40px);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.5);
   }
-  65% {
-    transform: scale(1.06);
+  62% {
+    transform: translateY(0) scale(1.08, 0.88);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  82% {
+    transform: scale(0.98, 1.03);
     animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
@@ -134,39 +126,23 @@
   }
 }
 
-/* Transacciones: money goes out and comes back, the two arrows sliding past each other and settling. */
-.icon[data-move] [data-part="arrow-left"] {
-  animation: nav-move-arrow-left 500ms;
+/* Registros: the table unfolds from its header row and settles, like a list filling in. */
+.icon[data-move] [data-part="table"] {
+  transform-box: view-box;
+  transform-origin: 128px 48px;
+  animation: nav-move-table 400ms;
 }
 
-.icon[data-move] [data-part="arrow-right"] {
-  animation: nav-move-arrow-right 500ms 60ms;
-}
-
-@keyframes nav-move-arrow-left {
+@keyframes nav-move-table {
   0% {
-    animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+    animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
   }
-  35% {
-    transform: translateX(-32px);
-    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  30% {
+    transform: scaleY(0.72);
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1);
   }
-  70% {
-    transform: translateX(5px);
-    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  }
-}
-
-@keyframes nav-move-arrow-right {
-  0% {
-    animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
-  }
-  35% {
-    transform: translateX(32px);
-    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  70% {
-    transform: translateX(-5px);
+  68% {
+    transform: scaleY(1.06);
     animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
@@ -180,6 +156,49 @@
   0%,100% { transform:translateY(0) rotate(0deg); }
   45% { transform:translateY(-10px) rotate(-7deg); }
   72% { transform:translateY(-3px) rotate(2deg); }
+}
+
+/* Actividad: the hands turn back a full hour while the rewind arrow pulls back and settles. Both turn about the clock's center. */
+.icon[data-move] [data-part="clock-hands"],
+.icon[data-move] [data-part="clock-dial"] {
+  transform-box: view-box;
+  transform-origin: 128px 128px;
+}
+
+.icon[data-move] [data-part="clock-hands"] {
+  animation: nav-move-clock-hands 520ms;
+}
+
+.icon[data-move] [data-part="clock-dial"] {
+  animation: nav-move-clock-dial 520ms;
+}
+
+@keyframes nav-move-clock-hands {
+  0% {
+    transform: rotate(0deg);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  78% {
+    transform: rotate(-372deg);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  100% {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes nav-move-clock-dial {
+  0% {
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  30% {
+    transform: rotate(-16deg);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  65% {
+    transform: rotate(3deg);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

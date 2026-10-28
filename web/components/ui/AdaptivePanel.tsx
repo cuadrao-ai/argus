@@ -44,6 +44,7 @@ const DRAWER_WIDTH: Record<AdaptivePanelWidth, DrawerBounds> = {
 
 export default function AdaptivePanel({
   title,
+  titleIcon,
   summary,
   headerSize = "default",
   onClose,
@@ -62,6 +63,8 @@ export default function AdaptivePanel({
   children,
 }: {
   title: string;
+  /** A small mark before the title, such as a channel's logo; decorative, the title names the panel. */
+  titleIcon?: ReactNode;
   /** One line under the title; on a phone it is what the peek snap shows. */
   summary?: ReactNode;
   headerSize?: "default" | "large";
@@ -120,6 +123,7 @@ export default function AdaptivePanel({
         onClose={onClose}
         dismissible={dismissible}
         title={title}
+        titleIcon={titleIcon}
         description={summary}
         headerSize={headerSize}
         closeLabel={closeLabel}
@@ -135,7 +139,7 @@ export default function AdaptivePanel({
     );
   }
 
-  return <SideDrawer {...{ title, summary, headerSize, titleId, overlayId, panelRef, onClose, closeLabel, stackBackLabel, dismissible, modal, width, footer, returnFocusRef, initialFocusRef, back, expansion, children }} />;
+  return <SideDrawer {...{ title, titleIcon, summary, headerSize, titleId, overlayId, panelRef, onClose, closeLabel, stackBackLabel, dismissible, modal, width, footer, returnFocusRef, initialFocusRef, back, expansion, children }} />;
 }
 
 const EXPANDED_WIDTH: DrawerBounds = { preferred: 1200, min: 720, maxVw: 88 };
@@ -172,6 +176,7 @@ function useDrawerSpace(id: string, { preferred, min, maxVw }: DrawerBounds, dra
 
 type DrawerProps = {
   title: string;
+  titleIcon?: ReactNode;
   summary?: ReactNode;
   headerSize: "default" | "large";
   titleId: string;
@@ -245,6 +250,7 @@ function TrayDrawer(props: DrawerProps & StackPlace) {
 
 function DrawerPanel({
   title,
+  titleIcon,
   summary,
   headerSize,
   titleId,
@@ -297,7 +303,7 @@ function DrawerPanel({
           </button>
         ) : null}
         <div className="min-w-0 flex-1 pt-2.5">
-          <h2 id={titleId} ref={titleRef} tabIndex={titleRef ? -1 : undefined} className={`rounded-mark font-display ${headerSize === "large" ? "text-[21px]" : "text-[17px]"} font-medium text-black focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white`}>{title}</h2>
+          <h2 id={titleId} ref={titleRef} tabIndex={titleRef ? -1 : undefined} className={`rounded-mark font-display ${headerSize === "large" ? "text-[21px]" : "text-[17px]"} font-medium text-black focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white ${titleIcon ? "flex items-center gap-2" : ""}`}>{titleIcon ? <span aria-hidden="true" className="flex shrink-0">{titleIcon}</span> : null}{title}</h2>
           {summary ? <p className={`mt-1 ${headerSize === "large" ? "text-[14px]" : "text-[13px]"} text-[#56635e] dark:text-white/70`}>{summary}</p> : null}
         </div>
         {expansion ? (

@@ -78,6 +78,11 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         active={isActive("invoicing")} collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "invoicing" })} iconSize={20} variant="business"
       /> : null}
+      {process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <SidebarNavButton
+        glyph={navGlyph(NAV_GLYPHS.activity)} label={t("business.nav.activity")}
+        active={isActive("activity")} collapsed={shell.sidebarCollapsed}
+        onClick={() => openPanel({ kind: "activity" })} iconSize={20} variant="business"
+      /> : null}
     </nav>
   );
 }

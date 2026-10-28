@@ -36,10 +36,82 @@
   white-space: nowrap;
 }
 
+.intro {
+  margin-top: 4px;
+}
+
+.header[data-intro] {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+
+/* Only the sentence wraps to its own row; the greeting and search keep sharing the first. */
+.header[data-intro] .welcome {
+  flex-basis: 0;
+}
+
+/* Search sits on the first row with the bar's actions, not centered on the taller greeting block. */
+.header[data-intro] .search {
+  align-self: flex-start;
+}
+
+.introRow {
+  flex-basis: 100%;
+}
+
+
 .search {
   flex: 0 1 380px;
   min-width: 160px;
 }
+
+/* The bar's tools after the heading: search, then Agregar, on the heading's first row. A screen title takes that
+   row's 44px line, so it centers on the same line as the tools and the shell's icons beside them. */
+.toolbar .titleLine { line-height: 44px; }
+.tools { display: flex; flex-shrink: 0; align-items: center; gap: 8px; margin-left: auto; align-self: flex-start; }
+
+/* The bar measures itself: a 200px "Buscar ⌘K" field once the heading (320px), the field and Agregar all fit,
+   else the search button. */
+.toolbar { container-type: inline-size; }
+.stableField { display: none; width: 200px; }
+.stableButton { display: inline-flex; }
+@container (min-width: 44rem) {
+  .stableField { display: block; }
+  .stableButton { display: none; }
+}
+
+/* A list's search button is wider for its scope pill; until the bar has room for it, the round search button stands in. */
+[data-scoped] .stableField { width: 300px; }
+@container (max-width: 47.99rem) {
+  [data-scoped] .stableField { display: none; }
+  [data-scoped] .stableButton { display: inline-flex; }
+}
+.scopedField { position: relative; display: flex; align-items: center; }
+.scopedButton {
+  display: flex; flex: 1; min-width: 0; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px;
+  border: 1px solid #DCE0DA; background: #FFFEFA; color: #56635e; font-size: 15px; text-align: left;
+  transition: border-color 80ms;
+}
+.scopedButton:hover { border-color: #7d8a84; }
+.scopedButton:focus-visible { outline: 2px solid #2f5a49; outline-offset: 2px; }
+.scopedField:has(.scopedClear) .scopedButton { padding-right: 44px; }
+.scopePill {
+  flex-shrink: 0; padding: 2px 8px; background: rgb(0 0 0 / 5%);
+  color: #172b26; font-size: 13px; font-weight: 500; white-space: nowrap;
+}
+.scopedText { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scopedQuery { color: #172b26; font-weight: 500; }
+.scopedKbd { flex-shrink: 0; border: 1px solid #DCE0DA; padding: 0 6px; font-size: 12px; color: #56635e; }
+.scopedClear {
+  position: absolute; right: 4px; display: inline-flex; width: 36px; height: 36px; align-items: center; justify-content: center; color: #56635e;
+}
+.scopedClear:hover { background: rgb(0 0 0 / 5%); }
+.scopedClear:focus-visible { outline: 2px solid #2f5a49; }
+:global(.dark) .scopedButton { border-color: rgb(255 255 255 / 10%); background: #1f2225; color: rgb(255 255 255 / 65%); }
+:global(.dark) .scopePill, :global(.dark) .scopedQuery { color: white; }
+:global(.dark) .scopePill { background: rgb(255 255 255 / 8%); }
+:global(.dark) .scopedKbd { border-color: rgb(255 255 255 / 15%); color: rgb(255 255 255 / 60%); }
+:global(.dark) .scopedClear { color: rgb(255 255 255 / 70%); }
 
 :global(.dark) .date { color: rgb(255 255 255 / 0.6); }
 :global(.dark) .greeting { color: white; }

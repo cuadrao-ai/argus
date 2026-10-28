@@ -1,33 +1,23 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { FileText } from "@phosphor-icons/react";
+import { ClockCounterClockwise, House, Receipt, Table, Tray, type Icon } from "@phosphor-icons/react";
 import styles from "./nav-glyphs.module.css";
 
 type Weight = "regular" | "fill";
 
 /** A screen icon drawn in parts, so each part can act out the screen's meaning. */
 export type NavGlyph = {
-  name: "overview" | "inbox" | "transactions" | "invoicing";
+  name: "overview" | "inbox" | "transactions" | "invoicing" | "activity";
   /** Whether the move plays again when the pointer leaves: true for moves that read the same both ways. */
   replayOnLeave: boolean;
   draw: (weight: Weight, uid: string) => ReactNode;
 };
 
 // Each part is one subpath group of the Phosphor 2.1 icon of the same weight, copied so the icon at rest is the Phosphor icon.
-const TILES: Record<Weight, readonly string[]> = {
-  regular: [
-    "M104,40H56A16,16,0,0,0,40,56v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V56A16,16,0,0,0,104,40Zm0,64H56V56h48v48Z",
-    "M200,40H152a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,64H152V56h48v48Z",
-    "M104,136H56a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V152A16,16,0,0,0,104,136Zm0,64H56V152h48v48Z",
-    "M200,136H152a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V152A16,16,0,0,0,200,136Zm0,64H152V152h48v48Z",
-  ],
-  fill: [
-    "M120,56v48a16,16,0,0,1-16,16H56a16,16,0,0,1-16-16V56A16,16,0,0,1,56,40h48A16,16,0,0,1,120,56Z",
-    "M200,40H152a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Z",
-    "M104,136H56a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V152A16,16,0,0,0,104,136Z",
-    "M200,136H152a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V152A16,16,0,0,0,200,136Z",
-  ],
+const HOUSE: Record<Weight, string> = {
+  regular: "M219.31,108.68l-80-80a16,16,0,0,0-22.62,0l-80,80A15.87,15.87,0,0,0,32,120v96a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V160h32v56a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V120A15.87,15.87,0,0,0,219.31,108.68ZM208,208H160V152a8,8,0,0,0-8-8H104a8,8,0,0,0-8,8v56H48V120l80-80,80,80Z",
+  fill: "M224,120v96a8,8,0,0,1-8,8H160a8,8,0,0,1-8-8V164a4,4,0,0,0-4-4H108a4,4,0,0,0-4,4v52a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V120a16,16,0,0,1,4.69-11.31l80-80a16,16,0,0,1,22.62,0l80,80A16,16,0,0,1,224,120Z",
 };
 
 const TRAY: Record<Weight, string> = {
@@ -38,27 +28,36 @@ const TRAY: Record<Weight, string> = {
 const TRAY_OPENING = "M208,48V152h-28.7A15.86,15.86,0,0,0,168,156.69L148.69,176H107.31L88,156.69A15.86,15.86,0,0,0,76.69,152H48V48Z";
 const RECEIPT = "M92,64H164a8,8,0,0,1,8,8v64a8,8,0,0,1-8,8H92a8,8,0,0,1-8-8V72A8,8,0,0,1,92,64Zm8,16v48h56V80Z";
 
-const ARROWS: Record<Weight, { left: string; right: string }> = {
+// Phosphor's table. Its cells are holes in the one frame path, so it moves as a whole.
+const TABLE: Record<Weight, string> = {
+  regular: "M224,48H32a8,8,0,0,0-8,8V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A8,8,0,0,0,224,48ZM40,112H80v32H40Zm56,0H216v32H96ZM216,64V96H40V64ZM40,160H80v32H40Zm176,32H96V160H216v32Z",
+  fill: "M224,48H32a8,8,0,0,0-8,8V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A8,8,0,0,0,224,48ZM40,112H80v32H40Zm56,0H216v32H96ZM40,160H80v32H40Zm176,32H96V160H216v32Z",
+};
+
+/**
+ * Which Phosphor icon means each screen. The rail draws these same icons in parts (below) so they can move;
+ * everywhere else a screen's icon appears, such as its heading sentence, it uses this map.
+ */
+export const SCREEN_ICON: Record<NavGlyph["name"], Icon> = { overview: House, inbox: Tray, transactions: Table, invoicing: Receipt, activity: ClockCounterClockwise };
+
+/** Phosphor's clock-counter-clockwise, split into its hands and its dial with the rewind arrow, so the hands can turn back. */
+const CLOCK: Record<Weight, { hands: string; dial: string }> = {
   regular: {
-    left: "M74.34,117.66a8,8,0,0,0,11.32-11.32L67.31,88H208a8,8,0,0,0,0-16H67.31L85.66,53.66A8,8,0,0,0,74.34,42.34l-32,32a8,8,0,0,0,0,11.32Z",
-    right: "M213.66,181.66l-32,32a8,8,0,0,1-11.32-11.32L188.69,184H48a8,8,0,0,1,0-16H188.69l-18.35-18.34a8,8,0,0,1,11.32-11.32l32,32A8,8,0,0,1,213.66,181.66Z",
+    hands: "M136,80v43.47l36.12,21.67a8,8,0,0,1-8.24,13.72l-40-24A8,8,0,0,1,120,128V80a8,8,0,0,1,16,0Z",
+    dial: "M128,32A95.44,95.44,0,0,0,60.08,60.15C52.81,67.51,46.35,74.59,40,82V64a8,8,0,0,0-16,0v40a8,8,0,0,0,8,8H72a8,8,0,0,0,0-16H49c7.15-8.42,14.27-16.35,22.39-24.57a80,80,0,1,1,1.66,114.75,8,8,0,1,0-11,11.64A96,96,0,1,0,128,32Z",
   },
   fill: {
-    left: "M42.34,85.66a8,8,0,0,1,0-11.32l32-32A8,8,0,0,1,88,48V72H208a8,8,0,0,1,0,16H88v24a8,8,0,0,1-13.66,5.66Z",
-    right: "M213.66,170.34l-32-32A8,8,0,0,0,168,144v24H48a8,8,0,0,0,0,16H168v24a8,8,0,0,0,13.66,5.66l32-32A8,8,0,0,0,213.66,170.34Z",
+    hands: "M128,72a8,8,0,0,0-8,8v48a8,8,0,0,0,3.88,6.86l40,24a8,8,0,1,0,8.24-13.72L136,123.47V80A8,8,0,0,0,128,72Z",
+    dial: "M224,128A96,96,0,0,1,62.11,197.82a8,8,0,1,1,11-11.64A80,80,0,1,0,71.43,71.43C67.9,75,64.58,78.51,61.35,82L77.66,98.34A8,8,0,0,1,72,112H32a8,8,0,0,1-8-8V64a8,8,0,0,1,13.66-5.66L50,70.7c3.22-3.49,6.54-7,10.06-10.55A96,96,0,0,1,224,128Z",
   },
 };
 
-/** The Business screens' icons. Inicio's cards settle into place; a receipt drops into the Bandeja; Transacciones' money goes out and comes in. */
+/** The Business screens' icons. Inicio's house hops and lands; a receipt drops into the Bandeja; Registros' table unfolds and settles. */
 export const NAV_GLYPHS = {
   overview: {
     name: "overview",
-    replayOnLeave: true,
-    // A lone filled tile is convex, which Chrome draws with a slightly different edge than the joined icon, so the tiles stand in for the whole only while they move.
-    draw: (weight) => <>
-      {TILES[weight].map((d) => <path key={d} data-part="tile" d={d} />)}
-      <path data-rest="" d={TILES[weight].join("")} />
-    </>,
+    replayOnLeave: false,
+    draw: (weight) => <path data-part="house" d={HOUSE[weight]} />,
   },
   inbox: {
     name: "inbox",
@@ -80,16 +79,21 @@ export const NAV_GLYPHS = {
   },
   transactions: {
     name: "transactions",
-    replayOnLeave: true,
-    draw: (weight) => <>
-      <path data-part="arrow-left" d={ARROWS[weight].left} />
-      <path data-part="arrow-right" d={ARROWS[weight].right} />
-    </>,
+    replayOnLeave: false,
+    draw: (weight) => <path data-part="table" d={TABLE[weight]} />,
   },
   invoicing: {
     name: "invoicing",
     replayOnLeave: false,
-    draw: (weight) => <g data-part="invoice-document"><FileText weight={weight} size={256} /></g>,
+    draw: (weight) => <g data-part="invoice-document"><Receipt weight={weight} size={256} /></g>,
+  },
+  activity: {
+    name: "activity",
+    replayOnLeave: false,
+    draw: (weight) => <>
+      <path data-part="clock-dial" d={CLOCK[weight].dial} />
+      <path data-part="clock-hands" d={CLOCK[weight].hands} />
+    </>,
   },
 } as const satisfies Record<string, NavGlyph>;
 

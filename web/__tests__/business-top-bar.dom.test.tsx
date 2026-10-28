@@ -214,10 +214,13 @@ describe("the Business top bar on a desktop", () => {
     assert.equal(document.querySelectorAll('[data-testid="export-records-panel"]').length, 1);
   });
 
-  test("Agregar belongs to each content heading, while the search field belongs only to Home", async () => {
+  test("Agregar belongs to each content heading but Negocio's, while the search field belongs only to Home", async () => {
     const page = await mount();
     await page.ready();
-    for (const kind of ["overview", "inbox", "transactions", "business"] as const) {
+    await page.open({ kind: "business" });
+    await page.settle(() => page.api().panel.kind === "business", "business");
+    assert.equal(page.screen().querySelector('[data-testid="add-menu-header"]'), null, "adding documents is not a Negocio task");
+    for (const kind of ["overview", "inbox", "transactions"] as const) {
       await page.open({ kind });
       await page.settle(() => page.api().panel.kind === kind, kind);
       const owner = kind === "inbox" ? "reception-add" : "add-menu-header";

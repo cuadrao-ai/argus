@@ -16,7 +16,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import AccessRolePicker from "./AccessRolePicker";
 import { invitationStorageKeys } from "./businessAccessPreviewState";
 import { profileChecklist, readBusinessProfilePreview, saveBusinessProfilePreview, saveBusinessProvidedDetails, type ProfileChecklistKey, type BusinessProvidedDetails } from "./businessProfilePreviewState";
-import {quietButtonClass} from "@/components/business-app/business-ui";
+import {canManageBusiness, quietButtonClass} from "@/components/business-app/business-ui";
 import BusinessProfileCard from "./BusinessProfileCard";
 import BusinessProfileDetails from "./BusinessProfileDetails";
 import WorkspaceSetupPreview from "./WorkspaceSetupPreview";
@@ -25,6 +25,7 @@ import { businessAppearanceState,businessSettingsRequest,subscribeBusinessAppear
 import type { FiscalProfile } from "@/lib/business-dgii";
 import {referenceCode} from "@/lib/failure-screen";
 import {ReferenceCode} from "@/components/status/ReferenceCode";
+import { SettingsColumns } from "@/components/business-app/foundation/SettingsLayout";
 
 const changedEvent = "workspace-preview-profile-changed";
 const emptyStorage = {getItem:()=>null,setItem:()=>{}};
@@ -81,7 +82,7 @@ function BusinessProfileContent() {
   const imagePending=live&&server.profile?.appearance.kind==="image"&&appearanceState!=="ready";
   const failureReference=server.reference??fiscalReference;
   const country = records.workspace?.country;
-  const canEdit = live ? Boolean(chosen?.permissions?.includes("manage")) && !server.refused : chosen?.role === "owner";
+  const canEdit = canManageBusiness(chosen, live) && !(live && server.refused);
   const [footerTarget,setFooterTarget] = useState<HTMLDivElement|null>(null);
   const [selected,setSelected] = useState<ProfileSection|null>(null);
   const [fiscalDraft,setFiscalDraft] = useState<FiscalProfileDraft|null>(null);
@@ -163,19 +164,23 @@ function BusinessProfileContent() {
   return <>
     <style>{`[data-profile-identity] form{max-width:none}[data-profile-identity] form>div.grid{grid-template-columns:minmax(0,1fr)}[data-profile-identity]>div{margin-top:0}.profile-section-row{display:flex;width:100%;min-width:0;align-items:center;gap:16px;padding:20px 12px;text-align:left;border-radius:8px}.profile-section-row:hover,.profile-section-row[aria-expanded=true]{background:rgba(0,0,0,.04)}.dark .profile-section-row:hover,.dark .profile-section-row[aria-expanded=true]{background:rgba(255,255,255,.06)}.profile-section-copy{min-width:0;flex:1}.profile-section-summary{display:block;overflow-wrap:anywhere;line-height:1.5;margin-top:5px}[data-profile-dossier-content] iframe{max-width:100%}
     `}</style>
-    <div data-testid="business-profile-preview" style={{gridTemplateColumns:isBelowDesktop ? undefined : selected ? "minmax(0,1fr)" : "minmax(0,1fr) 20rem"}} className="grid items-start gap-6">
-      <div className="min-w-0 space-y-6">
+    {/* Perfil keeps the same 40rem main card as Acceso and Recepción; its checklist sits beside it only when the canvas has room. */}
+    <div data-testid="business-profile-preview">
+      <SettingsColumns
+        main={<>
         <section className={SURFACE_CARD} aria-label={t("business.settings.profile_overview")}>
           <div className="mb-5 flex items-center gap-3"><BusinessMark businessId={businessId} name={name}/><div className="min-w-0 flex-1"><h2 className="font-display break-words text-[21px] font-medium">{profile.name}</h2>{countryLabel ? <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/70">{countryLabel}</p> : null}{canEdit?<><button type="button" className={quietButtonClass} disabled={imagePending&&appearanceState!=="failed"} aria-busy={imagePending&&appearanceState!=="failed"?true:undefined} onClick={event=>{if(imagePending)retryProfile();else select({section:"appearance",trigger:event.currentTarget});}}>{t(imagePending&&appearanceState==="failed"?"common.retry":"identity.change_image")}</button>{imagePending?<p role={appearanceState==="failed"?"alert":"status"} className="text-[14px] text-[#56635e] dark:text-white/70">{t(appearanceState==="failed"?"common.error_occurred":"common.loading")}</p>:null}</>:null}</div><button type="button" className={`${quietButtonClass} shrink-0`} aria-expanded={selected === "card"} aria-controls={selected === "card" ? "profile-section-dossier" : undefined} onClick={event=>select({section:"card",trigger:event.currentTarget})}>{t("business.settings.profile_view")}</button></div>
           <div className="divide-y divide-black/10 dark:divide-white/10">{sections.map(section=><button key={section.key} type="button" className="profile-section-row focus-visible:outline-2 focus-visible:outline-offset-2" aria-expanded={selected === section.key} aria-controls={selected === section.key ? "profile-section-dossier" : undefined} onClick={event=>select({section:section.key,trigger:event.currentTarget})}>
             <span className="profile-section-copy"><span className="text-[16px] font-medium">{section.title}</span><span className="profile-section-summary text-[14px] text-[#56635e] dark:text-white/70">{section.summary}</span></span><ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[#56635e] dark:text-white/70" />
           </button>)}</div>
         </section>
-      </div>
-      {!selected ? <aside className="rounded-surface border border-[#DCE0DA] bg-[#FFFEFA] p-2 dark:border-white/10 dark:bg-[#1f2225]" aria-labelledby="profile-next-title">
+        </>}
+        aside={!selected ? <aside className="rounded-surface border border-[#DCE0DA] bg-[#FFFEFA] p-2 dark:border-white/10 dark:bg-[#1f2225]" aria-labelledby="profile-next-title">
         <div className="rounded-item bg-black/5 p-4 dark:bg-white/5"><h2 id="profile-next-title" className="font-display text-[21px] font-medium">{t("business.settings.profile_finish")}</h2><p className="mt-2 text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{t("business.settings.profile_finish_detail")}</p>{checklistRows("basic")}</div>
         <div className="px-4 pb-3 pt-5"><h3 className="text-[16px] font-medium">{t("business.settings.profile_additional")}</h3>{checklistRows("additional")}</div>
-      </aside> : null}
+      </aside> : undefined}
+        compact={!selected ? { label: t("business.settings.profile_finish"), detail: t("business.settings.profile_progress", { done: profile.checklist.filter(item => item.complete).length, total: profile.checklist.length }), content: <>{checklistRows("basic")}<h3 className="mt-4 text-[16px] font-medium">{t("business.settings.profile_additional")}</h3>{checklistRows("additional")}</> } : undefined}
+      />
     </div>
     {selected ? <AdaptivePanel title={selectedTitle} summary={businessContext} headerSize="large" modal={false} width="lg" onClose={close} onBack={isBelowDesktop && selected !== "appearance" ? close : undefined} backLabel={t("business.settings.profile_overview")} closeLabel={t("common.close")} snaps={["full"]} initialSnap="full" returnFocusRef={opener}><div id="profile-section-dossier" style={{padding:isBelowDesktop ? undefined : 20}}>{dossier}{hasEditableForm ? <div ref={setFooterTarget} data-footer-slot="" className="mt-6 border-t border-[#DCE0DA] pt-4 empty:hidden dark:border-white/10" /> : null}</div></AdaptivePanel> : null}
     <ConfirmDialog isOpen={pending !== null} title={t("business.settings.profile_discard_title")} description={t("business.settings.profile_discard_detail")} confirmLabel={t("business.settings.profile_discard")} cancelLabel={t("business.settings.profile_keep_editing")} onCancel={()=>setPending(null)} onConfirm={()=>{if(pending)applySelection(pending);}} />
