@@ -110,6 +110,8 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     const control = opened ?? (onEdit ? (
       <button
         type="button"
+        // Opening on press, not on release: leaving a field above can show its error and move this row before the release.
+        onPointerDown={(event) => { if (event.button === 0) onEdit(key); }}
         onClick={() => onEdit(key)}
         aria-label={`${t("business.dossier.edit", "Edit details")} · ${label}`}
         className="group -mx-2 -my-[7px] flex min-h-9 w-[calc(100%+1rem)] items-center gap-2 rounded-item px-2 text-left hover:bg-black/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.06]"
