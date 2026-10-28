@@ -97,7 +97,7 @@ const inboxReady = (page: Awaited<ReturnType<typeof mount>>) =>
   page.settle(() => receptionRows(page.host).length > 0, "the Bandeja rows");
 
 const failureOf = (page: { host: HTMLElement }) => page.host.querySelector<HTMLElement>('[role="alert"]');
-const FAILED = "No pudimos cargar todo el contenido.";
+const FAILED = "No pudimos cargar tus notas ni tus correos.";
 
 describe("the Bandeja views", () => {
   test("Todos opens first; each view lists its arrivals newest first and shows the server's count", async () => {
@@ -216,6 +216,36 @@ describe("a list that did not load", () => {
     });
   });
 
+  describe("the line names the list that failed", () => {
+    const SERVER = () => Object.assign(new Error("API error 500"), { status: 500, code: "internal_error" });
+    const EMAIL_OFF = () => Object.assign(new Error("Email receiving is unavailable."), { status: 503, code: "email_capture_unavailable" });
+    const line = (page: { host: HTMLElement }) => failureOf(page)?.querySelector("p")?.textContent ?? "";
+    test("only the notes failed", async () => {
+      const page = await mount({ panel: { kind: "inbox" }, overrides: () => ({ receiptPage: async () => NOTHING, captures: async () => { throw SERVER(); } }) });
+      await page.settle(() => failureOf(page) !== null, "the failure");
+      assert.match(line(page), /^No pudimos cargar tus notas\./);
+      assert.doesNotMatch(line(page), /correos|todo el contenido/);
+    });
+    test("only the emails failed", async () => {
+      const page = await mount({ panel: { kind: "inbox" }, overrides: () => ({ receiptPage: async () => NOTHING, emailDeliveries: async () => { throw SERVER(); } }) });
+      await page.settle(() => failureOf(page) !== null, "the failure");
+      assert.match(line(page), /^No pudimos cargar tus correos\./);
+      assert.doesNotMatch(line(page), /notas|todo el contenido/);
+    });
+    test("refused email capture names the emails and keeps the contact line", async () => {
+      const page = await mount({ panel: { kind: "inbox" }, overrides: () => ({ receiptPage: async () => NOTHING, emailDeliveries: async () => { throw EMAIL_OFF(); } }) });
+      await page.settle(() => failureOf(page) !== null, "the failure");
+      assert.match(line(page), /^No pudimos cargar tus correos\./);
+      assert.match(line(page), /escríbenos a hola@cuadrao\.ai/);
+      assert.equal([...failureOf(page)!.querySelectorAll("button")].some((button) => button.textContent === "Reintentar"), false);
+    });
+    test("a failed read of the arrivals keeps the general line", async () => {
+      const page = await mount({ panel: { kind: "inbox" }, overrides: fixture => ({ receiptPage: async (view, signal) => { if (view === "all") throw SERVER(); return fixture.receiptPage!(view, signal); } }) });
+      await page.settle(() => failureOf(page) !== null, "the failure");
+      assert.match(line(page), /^No pudimos cargar todo el contenido\./);
+    });
+  });
+
   test("Reintentar asks again only for the lists that failed, and their recovery shows the true empty state", async () => {
     const { calls, overrides, recover } = failing();
     const page = await mount({ panel: { kind: "inbox" }, overrides });
@@ -250,7 +280,7 @@ describe("a list the server refused for good", () => {
     }) });
     await page.settle(() => failureOf(page) !== null, "the failure");
     assert.deepEqual(actions(page), [], "asking again gets the same refusal");
-    assert.match(failureOf(page)!.textContent ?? "", /No pudimos cargar todo el contenido\./);
+    assert.match(failureOf(page)!.textContent ?? "", /No pudimos cargar tus notas ni tus correos\./, "the line names what was refused");
     assert.match(failureOf(page)!.textContent ?? "", /escríbenos a hola@cuadrao\.ai/, "a refusal always has a way out");
     assert.equal(tabCount(page.host, "review"), "-", "a 3 beside a list that failed would contradict it");
     assert.equal(page.host.querySelector('[data-testid="reception-empty"]'), null);
