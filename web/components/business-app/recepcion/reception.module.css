@@ -207,3 +207,11 @@
 
 .detailOriginal [data-testid="receipt-original-source"] > div { min-height:300px; }
 @media (min-width:1024px) { .detailOriginal [data-testid="receipt-original-source"] > div { min-height:520px; } }
+@container reception (max-width:1120px) {
+  .workspace[data-selectable=false] .row { grid-template-columns:minmax(0,1fr) auto!important; }
+  .workspace[data-selectable=false] .identity,.workspace[data-selectable=false] .source { grid-column:1 / -1; }
+  .workspace[data-selectable=false] .state { grid-column:1; }
+  .workspace[data-selectable=false] .rowAction { grid-column:2; }
+  .workspace[data-selectable=false] .columns > span:first-child { display:block; padding-left:0; }
+  .workspace[data-selectable=false] .columns > span:nth-child(2) { display:none; }
+}
