@@ -90,6 +90,31 @@ def test_export_is_full_filtered_answer_and_explicitly_records_only(client, acti
     assert all((row["personal"], row["include_606"]) == ("False", "") for row in rows)
 
 
+def test_export_marks_personal_rows_and_the_totals_leave_them_out(client, actions):
+    http, _ = client
+    service, context, _ = actions
+    business = document_backed_expense(service, context, personal=False)
+    personal = document_backed_expense(service, context, personal=True)
+    answer = query(http)
+    response = http.post(
+        "/business/reports/export",
+        json={"expected_fingerprint": answer["fingerprint"], "report": {}},
+    )
+    assert response.status_code == 200, response.text
+    with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+        rows = {
+            json.loads(row["linked_activity_ids"])[0]: row
+            for row in csv.DictReader(
+                io.StringIO(archive.read("records.csv").decode("utf-8-sig"))
+            )
+        }
+        manifest = json.loads(archive.read("manifest.json"))
+    assert (rows[business]["personal"], rows[personal]["personal"]) == ("False", "True")
+    assert manifest["matching_count"] == 2
+    for total in manifest["totals"]:
+        assert (total["matching_count"], total["amount"]) == (1, "850.00")
+
+
 def test_stale_export_requires_explicit_refresh(client, actions):
     http, _ = client
     service, context, _ = actions
