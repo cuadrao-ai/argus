@@ -54,9 +54,16 @@ try:
             sys.stdout.write(str(pixels))
         else:
             source.load()
-            oriented = ImageOps.exif_transpose(source).convert("RGBA")
-            background = Image.new("RGBA", oriented.size, "white")
-            image = Image.alpha_composite(background, oriented).convert("RGB")
+            ImageOps.exif_transpose(source, in_place=True)
+            # Each full-size copy of a 12 MP photo costs 48 MB beside the API, so
+            # only a transparent image is flattened on white. No source metadata.
+            if source.has_transparency_data:
+                oriented = source.convert("RGBA")
+                background = Image.new("RGBA", oriented.size, "white")
+                image = Image.alpha_composite(background, oriented).convert("RGB")
+            else:
+                image = source if source.mode == "RGB" else source.convert("RGB")
+                image.info = {}
             image.thumbnail((1600, 1600))
             image.save(target_path, format="JPEG", quality=90)
 except (Image.DecompressionBombError, Image.DecompressionBombWarning):
