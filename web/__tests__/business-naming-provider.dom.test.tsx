@@ -37,7 +37,7 @@ async function mount(fetcher: typeof fetch, options: { strict?: boolean; export?
   let naming: ReturnType<typeof useBusinessNaming>;
   function Probe() { naming = useBusinessNaming(); return null; }
   const render = async (id: string, role: "owner" | "accountant" = "owner") => {
-    const context = { chosen: { space_id: id, role, name: "Mi negocio", grant_id: `${id}-grant`, capabilities: ["read"] }, source: { mode: "live" }, reload() {} } as unknown as BusinessContextValue;
+    const context = { chosen: { space_id: id, role, name: "Mi negocio", grant_id: `${id}-grant`, capabilities: ["read"], permissions: ["read", "export"] }, source: { mode: "live" }, reload() {} } as unknown as BusinessContextValue;
     const ProfileMenu = options.profile ? (await import("@/components/sidebar/ProfileMenu")).default : null;
     const workspace = { conversationSurface: "business" } as ChatWorkspace;
     const child = <I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><BusinessNamingProvider><Probe />{ProfileMenu ? <ChatWorkspaceProvider value={workspace}><ProfileMenu isOpen onClose={() => {}} onLogout={() => {}} anchorRef={{ current: host }} /></ChatWorkspaceProvider> : null}{options.export ? <ExportRecordsPanel month="2026-10" monthClose={sampleMonthClose} onClose={() => {}} /> : null}</BusinessNamingProvider></BusinessContext.Provider></I18nextProvider>;

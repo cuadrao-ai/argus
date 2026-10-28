@@ -612,6 +612,7 @@ function BusinessWorkspaceContent({
     actions,
     owner: chosen?.role !== "accountant",
     scope: chosen?.space_id ?? "own",
+    canExport: chosen?.permissions?.includes("export") === true,
     openExport,
   });
 

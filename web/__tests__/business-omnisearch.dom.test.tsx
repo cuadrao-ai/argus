@@ -29,13 +29,13 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 const added: string[] = [];
 const actions: BusinessActions = { create: [{ id: "upload_receipt", label: "Agregar", icon: Plus, run: () => added.push("add") }], composer: [], starterEntries: [] };
 
-async function mount() {
+async function mount(canExport = true) {
   const source = createFixtureBusinessDataSource();
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
   const opened: (BusinessPanelState | "export")[] = [];
   function Harness() {
-    const search = useBusinessSearch({ source, accounts: [], openPanel: (panel) => opened.push(panel), actions, owner: true, scope: "own", openExport: () => opened.push("export") });
+    const search = useBusinessSearch({ source, accounts: [], openPanel: (panel) => opened.push(panel), actions, owner: true, scope: "own", canExport, openExport: () => opened.push("export") });
     const [open, setOpen] = useState(false);
     const workspace = { id: "business", conversationSurface: "business", chatAvailable: false, search } as unknown as ChatWorkspace;
     return (
@@ -121,6 +121,18 @@ test("on focus the search is not empty: it names what it reads and offers every 
     assert.deepEqual(rows("Ir a"), ["InicioPantalla", "BandejaPantalla", "RegistrosPantalla", "NegocioPantalla", "Equipo y accesosPantalla", "RecepciónPantalla"]);
     assert.deepEqual(rows("Acciones"), ["AgregarAcción", "Exportar registrosAcción", "Copiar dirección de reenvíoAcción"]);
     assert.ok(!/Argus/.test(paletteText()), "no Argus words on a Business search");
+  } finally { await view.unmount(); }
+});
+
+test("a member without the export permission is offered no Exportar in the search", async () => {
+  const view = await mount(false);
+  try {
+    await view.openSearch();
+    assert.deepEqual(rows("Acciones"), ["AgregarAcción", "Copiar dirección de reenvíoAcción"]);
+    for (const query of ["exportar", "606"]) {
+      await type(view.input(), query);
+      assert.ok(!/Exportar/.test(paletteText()), `"${query}" finds no Exportar`);
+    }
   } finally { await view.unmount(); }
 });
 

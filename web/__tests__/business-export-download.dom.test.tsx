@@ -15,8 +15,8 @@ import type { GrantedSpace } from "@/lib/business-api";
 import spanish from "@/public/locales/es-419/common.json";
 import { currentMonthKey, shiftMonthKey, windowForMonth } from "@/lib/business-month-close";
 
-const own: GrantedSpace = { space_id: "own-space", grant_id: "own-grant", name: "Taller Luna", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true };
-const client: GrantedSpace = { ...own, space_id: "client-space", grant_id: "client-grant", name: "Colmado Sol", role: "accountant", capabilities: ["read"] };
+const own: GrantedSpace = { space_id: "own-space", grant_id: "own-grant", name: "Taller Luna", role: "owner", capabilities: ["read", "prepare", "approve"], permissions: ["read", "prepare", "approve", "download", "export"], access_seen: true };
+const client: GrantedSpace = { ...own, space_id: "client-space", grant_id: "client-grant", name: "Colmado Sol", role: "accountant", capabilities: ["read"], permissions: ["read", "download", "export"] };
 const bytes = new Uint8Array([80, 75, 3, 4, 0, 255]);
 const original = { fetch: globalThis.fetch, create: URL.createObjectURL, revoke: URL.revokeObjectURL, auth: process.env.NEXT_PUBLIC_MOCK_AUTH };
 let calls: { url: URL; init?: RequestInit }[] = [];
@@ -148,12 +148,21 @@ for (const change of ["business", "month", "permission", "session"] as const) te
     assert.equal(exports().length, 1);
     if (change === "business") await view.render({ chosen: own });
     if (change === "month") await view.choose("last_month");
-    if (change === "permission") await view.render({ chosen: { ...client, capabilities: [] } });
+    if (change === "permission") await view.render({ chosen: { ...client, capabilities: [], permissions: [] } });
     if (change === "session") invalidateBrowserAuth();
     await act(async () => finish(new Response(bytes, { headers: { "Content-Type": "application/zip" } })));
     assert.equal(downloads.length, 0);
     if (change !== "session") assert.equal(exports()[0].init?.signal?.aborted, true);
     if (change === "permission") assert.equal(view.button(), undefined);
+  } finally { await view.close(); }
+});
+
+test("a read-only member never gets Exportar, even with read", async () => {
+  const view = await mount({ ...client, capabilities: ["read"], permissions: ["read"] });
+  try {
+    assert.ok(document.querySelector('[data-testid="export-records-panel"]'), "the sheet opens");
+    assert.equal(view.button(), undefined, "read without export shows no Exportar");
+    assert.equal(exports().length, 0);
   } finally { await view.close(); }
 });
 
@@ -169,10 +178,10 @@ test("a changed grant before a click never exports a different Business", async 
 });
 
 test("preview and unreadable Businesses never dispatch exports", async () => {
-  const view = await mount({ ...client, capabilities: [] });
+  const view = await mount({ ...client, capabilities: [], permissions: [] });
   try {
     assert.ok(document.querySelector('[data-testid="export-records-panel"]'), "the sheet opens");
-    assert.equal(view.button(), undefined, "no read, no Exportar in the sheet");
+    assert.equal(view.button(), undefined, "no export permission, no Exportar in the sheet");
     await view.render({ chosen: own, source: { ...view.context.source, mode: "fixture" } });
     await view.open();
     assert.equal(view.button()!.disabled, true);
