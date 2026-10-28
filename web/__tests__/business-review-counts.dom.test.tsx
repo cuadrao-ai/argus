@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import { receptionRows, receptionTab } from "./support/reception";
 import type { ReceiptActivityCounts } from "@/lib/business-api";
 
 // The real workspace provider over the sample source, with the Resumen, the
@@ -79,35 +80,37 @@ async function mount(overrides: { activity?: (counts: ReceiptActivityCounts) => 
       if (done()) return;
     }
   };
+  const updateButton = () => [...host.querySelectorAll("button")].find((button) => button.textContent === "Actualizar lista") ?? null;
+  const noteRows = () => receptionRows(host).filter((row) => row.dataset.kind === "note").length;
   const text = (selector: string) => host.querySelector(selector)?.textContent ?? null;
   // The Resumen's review task shows the same server count as the Bandeja.
   const reviewTask = () => host.querySelector('[data-testid="resumen"] [data-testid="month-close-task-review"]');
   const reviewCount = () => reviewTask()?.querySelector("p")?.textContent?.match(/^(\d+) por revisar en la Bandeja/)?.[1] ?? null;
   const attentionTask = () => host.querySelector('[data-testid="resumen"] [data-testid="month-close-task-attention"]');
   const readingStatus = () => host.querySelector('[data-testid="resumen"] [data-testid="month-close-reading"]');
-  const rows = () => host.querySelectorAll('[data-testid="bandeja-row"], [data-testid="bandeja-note"]').length;
-  const segment = (key: "review" | "problem" | "all") => host.querySelector<HTMLButtonElement>(`[data-testid="bandeja-segments"] [data-segment="${key}"]`);
-  const choose = (key: "review" | "problem" | "all") => act(async () => segment(key)!.click());
+  const rows = () => receptionRows(host).length;
+  const segment = (key: "review" | "attention" | "all") => receptionTab(host, key === "all" ? "all" : key);
+  const choose = (key: "review" | "attention" | "all") => act(async () => segment(key)!.click());
   await settle(() => rows() > 0 && api?.records.notes !== null && api?.records.overview !== null && reviewCount() !== null);
-  return { act, root, host, settle, text, rows, segment, choose, reviewCount, attentionTask, readingStatus, api: () => api!, source };
+  return { act, root, host, settle, text, rows, noteRows, updateButton, segment, choose, reviewCount, attentionTask, readingStatus, api: () => api!, source };
 }
 
 describe("the Bandeja and the Resumen on one saved state", () => {
   test("the Resumen card, the sidebar badge and the Por revisar segment agree; attention is its own count", async () => {
     const page = await mount();
+    await page.choose("review");
     assert.equal(page.rows(), 4, "Por revisar lists the four receipts to review");
     assert.equal(page.reviewCount(), "4");
     assert.equal(page.text('[data-testid="business-inbox-count"]'), "4");
     assert.equal(page.segment("review")?.textContent, "Por revisar4");
     await page.choose("all");
-    assert.equal(page.rows(), 5, "Todo lists five receipts; the email itself is not a row");
+    assert.equal(receptionRows(page.host).filter((row) => row.dataset.kind === "receipt").length, 6, "Todos lists the receipts; an email whose file became a receipt is not a row");
     assert.equal(page.host.querySelector('[data-testid="inicio-por-revisar"]'), null, "the old card is gone");
     assert.equal(page.host.querySelector('[data-testid="overview-inbox-count"]'), null);
     assert.equal(page.host.querySelector('[data-testid="overview-real-expenses"]'), null);
     assert.equal(page.host.textContent?.includes("necesita tu atención"), false);
     assert.equal(/Revisar \d+ recibos/.test(page.host.textContent ?? ""), false);
     assert.equal(page.host.textContent?.includes("DOP"), false);
-    assert.match(page.text('[data-testid="business-inbox-receipts"]') ?? "", /RD\$/);
     await page.act(async () => page.root.unmount());
   });
 
@@ -118,8 +121,10 @@ describe("the Bandeja and the Resumen on one saved state", () => {
       page.api().reload();
     });
     // The note row comes from the notes list, the number from the server's next count.
-    await page.settle(() => page.host.querySelectorAll('[data-testid="bandeja-note"]').length === 1 && page.segment("review")?.textContent === "Por revisar5");
-    assert.equal(page.host.querySelectorAll('[data-testid="bandeja-note"]').length, 1);
+    await page.settle(() => page.segment("review")?.textContent === "Por revisar5" && page.updateButton() !== null);
+    await page.act(async () => page.updateButton()!.click());
+    await page.choose("review");
+    assert.equal(page.noteRows(), 1);
     assert.equal(page.rows(), 5);
     assert.equal(page.segment("review")?.textContent, "Por revisar5");
     await page.act(async () => page.root.unmount());
@@ -132,7 +137,7 @@ describe("the Bandeja and the Resumen on one saved state", () => {
       page.api().reload();
     });
     // The note row comes from the notes list, the number from the server's next count.
-    await page.settle(() => page.host.querySelectorAll('[data-testid="bandeja-note"]').length === 1 && page.segment("review")?.textContent === "Por revisar5");
+    await page.settle(() => page.segment("review")?.textContent === "Por revisar5");
     assert.equal(page.segment("review")?.textContent, "Por revisar5");
     assert.equal(page.reviewCount(), "5");
     assert.equal(page.text('[data-testid="business-inbox-count"]'), "5");
@@ -142,17 +147,17 @@ describe("the Bandeja and the Resumen on one saved state", () => {
   test("the Con problema segment counts the receipts with a problem and the emails that brought none, and lists what it counts", async () => {
     const page = await mount();
     const { problemCount } = await import("@/components/business-app/inbox-count");
-    await page.settle(() => page.segment("problem")?.textContent === "Con problema5");
-    assert.equal(page.segment("problem")?.textContent, "Con problema5");
+    await page.settle(() => page.segment("attention")?.textContent === "Necesitan atención5");
+    assert.equal(page.segment("attention")?.textContent, "Necesitan atención5");
     assert.equal(problemCount(page.api().records), 5, "the one owner gives the same number");
-    await page.choose("problem");
-    assert.equal(page.rows() + page.host.querySelectorAll('[data-testid="bandeja-email"]').length, 5, "the segment lists the five it counts");
+    await page.choose("attention");
+    assert.equal(page.rows(), 5, "the view lists the five it counts");
     await page.act(async () => page.root.unmount());
   });
 
   test("the Resumen's con problema and the Con problema segment give one number", async () => {
     const page = await mount();
-    await page.settle(() => page.segment("problem")?.textContent === "Con problema5");
+    await page.settle(() => page.segment("attention")?.textContent === "Necesitan atención5");
     try {
       assert.match(page.attentionTask()?.textContent ?? "", /5 con problema/);
       assert.match(page.readingStatus()?.textContent ?? "", /1 todavía leyendo/);
@@ -173,6 +178,7 @@ describe("the Bandeja and the Resumen on one saved state", () => {
     assert.equal(page.reviewCount(), "3");
     assert.equal(page.text('[data-testid="business-inbox-count"]'), "3");
     assert.equal(page.segment("review")?.textContent, "Por revisar3");
+    await page.choose("review");
     assert.equal(page.rows(), 3);
     await page.act(async () => page.api().reload());
     await page.settle(() => false);

@@ -139,7 +139,7 @@ test("without a consent provider, model actions stay blocked and manual recordin
     </I18nextProvider>
   );
   await act(async () => { root.render(tree(<><Starters /><ReceiptReadingControl /><BusinessInboxPanel /></>, [inboxReceipt])); });
-  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  for (let i = 0; i < 40 && !host.textContent?.includes("Ferretería"); i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
   const labels = [...host.querySelectorAll("button")].map((button) => button.textContent);
   assert.equal(labels.includes("Add"), true);
   assert.equal(labels.includes("What did I spend this month?"), false);

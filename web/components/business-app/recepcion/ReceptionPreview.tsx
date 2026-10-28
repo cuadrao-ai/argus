@@ -180,7 +180,7 @@ function ReceptionWorkspace({ live }: { live: boolean }) {
   const counts = live
     ? { all: undefined, review: inboxCount(records), processing: readingCount(records), attention: problemCount(records), archived: undefined, combined: undefined }
     : { all: undefined, review: activeRows.filter(row => receptionMatches(row, "review")).length, processing: activeRows.filter(row => receptionMatches(row, "processing")).length, attention: activeRows.filter(row => receptionMatches(row, "attention")).length, archived: rows.length - activeRows.length, combined: undefined };
-  const unseenIds = new Set(live ? rows.filter(row => row.kind === "receipt" && row.receipt.activity?.unread === true).map(row => `${row.kind}:${row.id}`) : organization.unseen);
+  const unseenIds = new Set(live ? rows.filter(row => row.kind === "receipt" && row.receipt.activity?.unread === true && row.receipt.bandeja?.leyendo !== true).map(row => `${row.kind}:${row.id}`) : organization.unseen);
   const markSeenLocally = (row: ReceptionRow) => { if (!live) setOrganization(current => applyOrganizationPreview(current, [`${row.kind}:${row.id}`], "seen")); };
   const reviewNext = live && chosen?.role === "accountant" ? rows.find(row => row.kind === "receipt" && row.receipt.bandeja?.por_revisar === true) : undefined;
   const inPanel = phone || panel.kind !== "inbox";
@@ -213,7 +213,7 @@ function ReceptionWorkspace({ live }: { live: boolean }) {
         <ReceptionFilters key={scope} senders={senders} value={filters} onChange={applyFilters} />
         {live ? null : <div className={styles.bulkSlot}>{selected.length ? <ReceptionBulkBar count={selected.length} archived={archived} canOrganize={chosen?.capabilities.includes("prepare") === true} apply={apply} clear={() => setSelectedIds([])} /> : null}</div>}
         {query || period.key !== "all" ? <button className={quietButtonClass} onClick={clear}>{word("clear")}</button> : null}
-        <div className={styles.tools}>{reviewNext ? <button type="button" data-testid="business-primary-review" className={primaryButtonClass} onClick={() => navigateFrom(reviewNext, { kind: "receipt", receiptId: reviewNext.id, list: "inbox" })}>{t("business.inbox.review_receipts")}</button> : null}<ReceptionAddMenu key={scope} /><ReceptionSettings value={preferences} onChange={setPreferences} /></div>
+        <div className={styles.tools}>{reviewNext ? <button type="button" data-testid="business-primary-review" data-primary="true" className={primaryButtonClass} onClick={() => navigateFrom(reviewNext, { kind: "receipt", receiptId: reviewNext.id, list: "inbox" })}>{t("business.inbox.review_receipts")}</button> : null}<ReceptionAddMenu key={scope} withExport={live} /><ReceptionSettings value={preferences} onChange={setPreferences} /></div>
       </div>
       {newCount > 0 ? <div className={styles.updateNotice} role="status"><span>{t("business.reception_preview.new_arrivals", { count: newCount })}</span><button type="button" className={quietButtonClass} onClick={() => { setAdmittedIds(latestIds); setSelectedIds([]); setPage(1); }}>{word("update_list")}</button></div> : null}
       <ReceptionFilterChips value={filters} senders={senders} onChange={applyFilters} />

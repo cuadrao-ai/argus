@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Copy, Plus, Settings } from "lucide-react";
+import { ChevronDown, Copy, Download, Plus, Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useOverlayLayer } from "@/components/layout/overlayStack";
 import { businessReceivingAddress } from "@/lib/business-email";
@@ -14,9 +14,9 @@ import styles from "./reception.module.css";
 
 type AddressLoad = { source: ReturnType<typeof useBusiness>["source"]; revision: number; address: string | null; failed: boolean };
 
-export default function ReceptionAddMenu() {
+export default function ReceptionAddMenu({ withExport = false }: { withExport?: boolean }) {
   const { t } = useTranslation();
-  const { actions, chosen, source, revision, openPanel } = useBusiness();
+  const { actions, chosen, source, revision, openPanel, openExport } = useBusiness();
   const [loaded, setLoaded] = useState<AddressLoad | null>(null);
   const [position, setPosition] = useState<{ right: number; top: number } | null>(null);
   const [copyFailed, setCopyFailed] = useState(false);
@@ -51,7 +51,7 @@ export default function ReceptionAddMenu() {
     else setCopyFailed(true);
   };
   return <div className={styles.addSplit} data-testid="reception-add">
-    <button type="button" data-testid="business-primary-upload" className={`${primaryButtonClass} rounded-r-none pl-4 pr-3`} onClick={add.run}><Plus size={16} aria-hidden="true" />{add.label}</button>
+    <button type="button" data-testid="business-primary-upload" data-primary="true" className={`${primaryButtonClass} rounded-r-none pl-4 pr-3`} onClick={add.run}><Plus size={16} aria-hidden="true" />{add.label}</button>
     <button ref={trigger} type="button" className={`${primaryButtonClass} min-w-11 rounded-l-none border-l border-[var(--cuadrao-cream)]/25 px-3`} aria-label={t("business.reception_preview.forward_options")} aria-haspopup="menu" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => {
       if (open) { close(); return; }
       const rect = trigger.current?.getBoundingClientRect();
@@ -66,6 +66,7 @@ export default function ReceptionAddMenu() {
         {address ? <p className={styles.forwardAddress}><WrappingAddress address={address} /></p> : null}
         {copyFailed ? <p role="alert">{t("business.email.copy_failed")}</p> : null}
       </div>
+      {withExport && chosen?.capabilities.includes("read") ? <button type="button" role="menuitem" className={styles.forwardAction} onClick={() => { close(); openExport(); }}><Download size={18} aria-hidden="true" /><span>{t("business.overview.export_records")}</span></button> : null}
       {current ? <button type="button" role="menuitem" className={styles.forwardAction} onClick={address ? () => void copy() : setup}>{address ? <Copy size={18} aria-hidden="true" /> : <Settings size={18} aria-hidden="true" />}<span>{t(address ? "business.overview.copy_forward" : "business.reception_preview.setup_forward")}</span></button> : null}
     </div>, document.body) : null}
   </div>;

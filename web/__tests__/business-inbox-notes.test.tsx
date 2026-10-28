@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "bun:test";
 
-import { inboxCount, openNotesByDraft } from "../components/business-app/BusinessInboxPanel";
+import { inboxCount, openNotesByDraft } from "../components/business-app/inbox-count";
 import type { BusinessCapture } from "../lib/business-api";
 
 // The draft's version runs ahead of the note's revision (later actions bump it).

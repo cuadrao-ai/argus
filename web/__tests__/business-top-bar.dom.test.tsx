@@ -106,7 +106,11 @@ async function mount({ width = 1280, grant = null, overrides = {}, renderPanel =
     await act(async () => within.querySelector<HTMLButtonElement>('[data-testid="add-menu-more"]')!.click());
     return menuItems();
   };
-  return { act, ready, host, bar, screen, settle, open, openMenu, menuItems, searches, invitationTriggers, unmount, api: () => api! };
+  const openReceptionMenu = async () => {
+    await act(async () => document.querySelector<HTMLButtonElement>('[data-testid="reception-add"] button[aria-haspopup="menu"]')!.click());
+    return menuItems();
+  };
+  return { act, ready, host, bar, screen, settle, open, openMenu, openReceptionMenu, menuItems, searches, invitationTriggers, unmount, api: () => api! };
 }
 
 describe("the Business top bar on a desktop", () => {
@@ -179,7 +183,8 @@ describe("the Business top bar on a desktop", () => {
     await page.ready();
     await page.open({ kind });
     assert.equal(document.querySelector('[data-testid="export-records-panel"]'), null);
-    const exportItem = (await page.openMenu(page.screen())).find((item) => item.textContent === "Exportar registros")!;
+    const items = kind === "inbox" ? await page.openReceptionMenu() : await page.openMenu(page.screen());
+    const exportItem = items.find((item) => item.textContent === "Exportar registros")!;
     await page.act(async () => exportItem.click());
     await page.settle(() => document.querySelector('[data-testid="export-records-panel"]') !== null, "the export sheet");
     assert.equal(page.api().panel.kind, kind, "the screen underneath stays");
@@ -192,10 +197,11 @@ describe("the Business top bar on a desktop", () => {
     for (const kind of ["overview", "inbox", "transactions", "business"] as const) {
       await page.open({ kind });
       await page.settle(() => page.api().panel.kind === kind, kind);
-      const add = page.screen().querySelector<HTMLElement>('[data-testid="add-menu-header"] [data-testid="business-primary-upload"]')!;
+      const owner = kind === "inbox" ? "reception-add" : "add-menu-header";
+      const add = page.screen().querySelector<HTMLElement>(`[data-testid="${owner}"] [data-testid="business-primary-upload"]`)!;
       assert.match(add.className, /bg-\[var\(--cuadrao-green\)\]/, kind);
       assert.equal(add.getAttribute("data-primary"), "true", kind);
-      assert.match(page.screen().querySelector('[data-testid="add-menu-more"]')!.className, /bg-\[var\(--cuadrao-green\)\]/, kind);
+      assert.match((kind === "inbox" ? page.screen().querySelector('[data-testid="reception-add"] button[aria-haspopup="menu"]') : page.screen().querySelector('[data-testid="add-menu-more"]'))!.className, /bg-\[var\(--cuadrao-green\)\]/, kind);
       assert.equal(page.bar().querySelector('[data-testid="add-menu-header"]'), null);
       assert.equal(Boolean(page.bar().querySelector('[data-testid="header-search"]')), kind === "overview");
       assert.ok(page.bar().querySelector('[data-business-search-anchor]'), "Cmd K keeps its anchor on every screen");
@@ -236,7 +242,11 @@ describe("Ocultar montos", () => {
     const marked = () => page.screen().querySelectorAll(".cuadrao-amount").length;
     await page.settle(() => marked() > 0, "Inicio's amounts");
     await page.open({ kind: "inbox" });
-    await page.settle(() => page.screen().querySelector('[data-testid="business-inbox-receipts"] .cuadrao-amount') !== null, "the Bandeja's amounts");
+    await page.settle(() => page.screen().querySelector('[data-testid="reception-row"]') !== null, "the Bandeja rows");
+    await page.act(async () => page.screen().querySelector<HTMLButtonElement>('button[aria-label="Opciones de vista"]')!.click());
+    const monto = [...document.querySelectorAll<HTMLLabelElement>("label")].find((label) => label.textContent === "Monto")!;
+    await page.act(async () => monto.querySelector("input")!.click());
+    await page.settle(() => page.screen().querySelector('[data-testid="reception-amount"].cuadrao-amount') !== null, "the Bandeja's amounts");
     await page.open({ kind: "transactions" });
     await page.settle(() => page.screen().querySelector('[data-testid="transacciones-records"] .cuadrao-amount') !== null, "Transacciones' amounts");
     await page.open({ kind: "receipt", receiptId: "rcpt-ferreteria" });
@@ -256,8 +266,7 @@ describe("the Business top bar on a phone", () => {
     assert.deepEqual(page.searches, ["open"]);
     for (const kind of ["overview", "inbox", "transactions"] as const) {
       await page.open({ kind });
-      const placement = kind === "overview" ? "page" : "header";
-      const selector = `[data-testid="add-menu-${placement}"]`;
+      const selector = kind === "inbox" ? '[data-testid="reception-add"]' : `[data-testid="add-menu-${kind === "overview" ? "page" : "header"}"]`;
       await page.settle(() => page.screen().querySelector(selector) !== null, `${kind}'s Agregar`);
       const menu = page.screen().querySelector(selector)!;
       assert.equal(menu.querySelector('[data-testid="business-primary-upload"]')?.textContent, "Agregar", kind);

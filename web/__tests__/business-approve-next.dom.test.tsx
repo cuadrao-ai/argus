@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { ReceiptDetail, ReceiptSummary } from "@/lib/business-api";
 import type { BusinessDossier } from "@/lib/business-dossier";
+import { receptionRows, rowState } from "./support/reception";
 
 // The real workspace provider over a small in-memory server: three receipts
 // awaiting review in the Bandeja's order (Uno, Dos, Tres) with an email's own
@@ -243,11 +244,11 @@ describe("Aprobar y siguiente on the receipt review page", () => {
   test("approving the last row returns to the Bandeja, which lists the rows skipped before it", async () => {
     const page = await mount();
     await page.open("rcpt-tres");
-    await page.click("Aprobar y siguiente", () => page.panel().kind === "inbox" && page.host.querySelector('[data-testid="business-inbox-receipts"]') !== null);
+    await page.click("Aprobar y siguiente", () => page.panel().kind === "inbox" && page.host.querySelector('[data-testid="reception-row"]') !== null);
     await page.settle(() => false);
     assert.deepEqual(page.panel(), { kind: "inbox" }, "no jump back to an earlier row");
-    const rows = page.host.querySelector('[data-testid="business-inbox-receipts"]')?.textContent ?? "";
-    assert.ok(rows.includes("Uno") && rows.includes("Dos") && !rows.includes("Tres"), rows);
+    const stateOf = (name: string) => rowState(receptionRows(page.host).find((row) => row.textContent?.includes(name))!);
+    assert.deepEqual([stateOf("Uno"), stateOf("Dos"), stateOf("Tres")], ["Listo para revisar", "Listo para revisar", "Aprobado"], "the skipped rows still wait; the approved one is recorded");
     await page.act(async () => page.root.unmount());
   });
 
@@ -293,9 +294,9 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     await page.settle(() => page.button("Aprobar y siguiente") !== null);
     await page.click("Aprobar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-tres");
     await page.settle(() => page.button("Aprobar y siguiente") !== null);
-    await page.click("Aprobar y siguiente", () => page.panel().kind === "inbox" && (page.host.textContent ?? "").includes("Todo aprobado. Pa'que cuadre."));
+    await page.click("Aprobar y siguiente", () => page.panel().kind === "inbox" && page.host.querySelector("#reception-tab-review")?.textContent === "Por revisar0");
     assert.deepEqual(page.panel(), { kind: "inbox" });
-    assert.ok(page.host.querySelector('[data-testid="business-inbox-empty"]')?.textContent?.includes("Todo aprobado. Pa'que cuadre."), "the empty Bandeja says everything is approved after the server confirms every receipt");
+    assert.deepEqual(receptionRows(page.host).map(rowState), ["Aprobado", "Aprobado", "Aprobado"], "every receipt is recorded once the server confirms it");
     assert.equal(page.badge(), null, "the badge shows no number once the server counts nothing waiting");
     await page.act(async () => page.root.unmount());
   });

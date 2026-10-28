@@ -134,6 +134,20 @@ test("live marks a receipt unseen only when the server says its activity is unre
   assert.equal(dotted().length, 1, "opening a note marks nothing locally");
 });
 
+test("a receipt still being read never carries the dot, and each channel keeps its own word", async () => {
+  const page = await mount({
+    production: true,
+    tweak: receipts => receipts.map(receipt => receipt.id === "reading-receipt"
+      ? { ...receipt, channel: "email" as const, activity: { state: "reading" as const, unread: true, completion_cursor: null } }
+      : receipt.id === "review-receipt" ? { ...receipt, channel: "whatsapp" as const, activity: { state: "ready" as const, unread: false, completion_cursor: "c" } } : { ...receipt, channel: "web" as const, activity: { state: "ready" as const, unread: false, completion_cursor: "c" } }),
+  });
+  const row = (name: string) => rows(page).find(item => item.textContent?.includes(name))!;
+  assert.equal(row("Recibo en lectura").getAttribute("data-unseen"), "false");
+  assert.equal(row("Recibo en lectura").querySelector('[data-testid="reception-channel"]')?.textContent, "Correo");
+  assert.equal(row("Recibo admitido").querySelector('[data-testid="reception-channel"]')?.textContent, "WhatsApp");
+  assert.equal(row("Recibo con problema").querySelector('[data-testid="reception-channel"]')?.textContent, "Carga manual");
+});
+
 test("opening a ready, unread receipt acknowledges it once through the read route and reloads", async () => {
   const calls: [string, string][] = [];
   const page = await mount({
