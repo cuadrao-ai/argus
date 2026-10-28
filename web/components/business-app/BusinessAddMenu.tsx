@@ -14,7 +14,9 @@ import { showToast } from "./foundation/toasts";
  * registros, Copiar dirección de reenvío). It sits beside the content heading
  * from the tablet stop up and at the top of each screen on a phone.
  * A contador, who adds nothing, gets the menu alone; a role with no item at all
- * gets no trigger. The trigger follows the role, not a load or an export in
+ * gets no trigger. With the export item resting and nothing else to offer, the
+ * trigger stays but is aria-disabled and opens nothing (native disabled would
+ * drop focus). The trigger follows the role, not a load or an export in
  * flight, so it keeps its place and its focus while the export item rests.
  */
 export default function BusinessAddMenu({ placement, onExport, exportEnabled = true }: { placement: "header" | "page"; onExport?: () => void; exportEnabled?: boolean }) {
@@ -66,7 +68,8 @@ export default function BusinessAddMenu({ placement, onExport, exportEnabled = t
             aria-haspopup="menu"
             aria-expanded={open}
             aria-controls={open ? menuId : undefined}
-            onClick={toggle}
+            aria-disabled={more.length ? undefined : true}
+            onClick={more.length ? toggle : undefined}
             className={add
               ? `${primaryButtonClass} min-w-11 rounded-l-none border-l border-[var(--cuadrao-cream)]/25 px-3`
               : `${secondaryButtonClass} ${page ? "w-full" : ""}`}

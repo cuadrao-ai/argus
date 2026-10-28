@@ -186,9 +186,14 @@ test("a member with export and no Agregar keeps the menu trigger and its focus w
   await page.click(page.button(spanish.business.overview.export_records));
   assert.ok(trigger(), "the trigger stays while the export runs");
   assert.equal(document.activeElement, trigger(), "focus returns to the trigger and stays");
+  assert.equal(trigger()!.getAttribute("aria-disabled"), "true", "an empty menu leaves the trigger inert");
+  await page.click(trigger());
+  assert.equal(document.querySelector('[role="menu"]'), null, "pressing the inert trigger opens no menu");
+  assert.equal(document.activeElement, trigger(), "focus stays on the inert trigger");
   release();
   await page.settle(() => page.downloads.length === 1);
   assert.ok(trigger(), "the trigger is still there after the download");
+  assert.equal(trigger()!.hasAttribute("aria-disabled"), false, "the export item is back and the trigger is live");
 });
 
 test("viewer metadata never grants append or source bytes, and unavailable originals stay linked", async () => {
