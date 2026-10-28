@@ -68,7 +68,11 @@ def wa_biz(
         )
         stub = ReceiptStub()
         monkeypatch.setattr(documents_service(), "extractor", stub)
-        documents_service().business_receipt_consent.route_resolver = lambda: {"gateway":"synthetic","interpretation":[{"model":"receipt-fixture"}],"reply":[]}
+        documents_service().business_receipt_consent.route_resolver = lambda: {
+            "gateway": "synthetic",
+            "interpretation": [{"model": "receipt-fixture"}],
+            "reply": [],
+        }
         test_client.graph = graph
         yield test_client, stub
 
@@ -232,3 +236,13 @@ def test_dossier_attachment_sources_that_arrived_by_whatsapp_say_so(monkeypatch)
         "email",
         "web",
     ]
+    asked = []
+
+    def captured_for(owner_id: str) -> frozenset[str]:
+        asked.append(owner_id)
+        return captured
+
+    monkeypatch.setattr(api, "_captured", captured_for)
+    composed = api.with_source_channels(dossier, space_id="space", owner_id="owner")
+    assert [s.channel for s in composed.sources] == ["whatsapp", "web", "email", "web"]
+    assert asked == ["owner"]
