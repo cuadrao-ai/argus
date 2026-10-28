@@ -7,7 +7,7 @@ import { currencySymbol } from "@/lib/money-entry";
 import { formatAmount } from "../business-format";
 import { PlainAmount, Unknown } from "./transacciones-parts";
 import type { RecordRow } from "./transacciones-model";
-import { summarizeSettlementPreview, type SettlementCurrency } from "./records-results-preview";
+import { summarizeSettlementPreview, type SettlementCurrency, type SettlementSummary } from "./records-results-preview";
 import { useTransaccionesWords } from "./transacciones-words";
 import styles from "./records-results-preview.module.css";
 
@@ -23,12 +23,18 @@ const METRICS = [
   { key: "balance", icon: Clock3, sale: "receivable", expense: "payable" },
 ] as const;
 
-export function RecordsSummaryCards({ summary, kind }: { summary: ReturnType<typeof summarizeSettlementPreview>; kind: RecordRow["kind"] }) {
+export function RecordsSummaryCards({ summary, kind, qualifier }: { summary: SettlementSummary; kind: RecordRow["kind"]; qualifier?: string }) {
   const { t, locale } = useTransaccionesWords();
   const [expanded, setExpanded] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
-  const word = (key: string) => t(`business.transactions.layout.results.${key}`);
+  const word = (key: string, options?: Record<string, string>) => t(`business.transactions.layout.results.${key}`, options);
   const label = (metric: typeof METRICS[number]) => word(`metrics.${kind === "venta" ? metric.sale : metric.expense}`);
+  const partial = (currency: SettlementCurrency) => {
+    const amount = `${currencySymbol(currency.currency)}${formatAmount(currency.known!, currency.currency, locale)}`;
+    const [before, after] = word("partial", { amount }).split(amount);
+    return <><Unknown meaning={word("partial_meaning")} /><span className={styles.partial} data-partial-known>{before}<span className="cuadrao-amount tabular-nums">{amount}</span>{after}</span></>;
+  };
+  const code = (currency: SettlementCurrency) => currency.currency || word("no_currency");
   const visible: (SettlementCurrency | undefined)[] = summary.currencies.length ? summary.currencies.slice(0, 2) : [undefined];
   const exclusions = (["unconfirmed", "personal", "unavailable"] as const).filter((reason) => summary.exclusions[reason] > 0).map((reason) => t(`business.transactions.layout.results.${reason}`, { count: summary.exclusions[reason] }));
   const close = () => { setExpanded(false); trigger.current?.focus(); };
@@ -40,16 +46,16 @@ export function RecordsSummaryCards({ summary, kind }: { summary: ReturnType<typ
         </details> : null}
       </dt>
       <dd className={styles.values}>{visible.map((currency) => <div className={styles.currencyRow} key={currency?.currency ?? "unknown"} data-currency={currency?.currency}>
-        {currency?.[metric.key] != null ? <span className="cuadrao-amount"><span className={styles.symbol}>{currencySymbol(currency.currency)}</span>{formatAmount(currency[metric.key], currency.currency, locale)}</span> : <><span className={styles.symbol}>{currency?.currency}</span><Unknown /></>}
-      </div>)}</dd>
+        {currency?.[metric.key] != null ? <span className="cuadrao-amount"><span className={styles.symbol}>{currencySymbol(currency.currency)}</span>{formatAmount(currency[metric.key], currency.currency, locale)}</span> : <><span className={styles.symbol}>{currency ? code(currency) : null}</span>{currency?.known != null && metric.key === "total" ? partial(currency) : <Unknown />}</>}
+      </div>)}{index === 0 && qualifier ? <p className={styles.qualifier} data-summary-qualifier>{qualifier}</p> : null}</dd>
     </div>)}</dl>
     {summary.currencies.length > 2 ? <button ref={trigger} type="button" className={styles.breakdown} aria-expanded={expanded} onClick={() => setExpanded(true)}>
       {t("business.transactions.layout.results.view_currencies", { count: summary.currencies.length })}<ChevronRight size={16} aria-hidden="true" />
     </button> : null}
     {expanded && summary.currencies.length > 2 ? <AdaptivePanel modal={false} width="md" snaps={["half", "full"]} initialSnap="full" title={word("breakdown_title")} summary={t("business.transactions.layout.results.currencies", { count: summary.currencies.length })} closeLabel={t("common.close")} onClose={close} returnFocusRef={trigger}>
       <div className={styles.currencyList} data-testid="records-currency-breakdown">
-        {summary.currencies.map((currency) => <section className={styles.currencyGroup} key={currency.currency} data-currency={currency.currency} aria-label={currency.currency}>
-          <h3>{currency.currency}</h3><dl>{METRICS.map((metric) => <div key={metric.key}><dt>{label(metric)}</dt><dd>{currency[metric.key] != null ? <PlainAmount money={{ currency: currency.currency, amount: currency[metric.key]! }} /> : <Unknown />}</dd></div>)}</dl>
+        {summary.currencies.map((currency) => <section className={styles.currencyGroup} key={currency.currency} data-currency={currency.currency} aria-label={code(currency)}>
+          <h3>{code(currency)}</h3><dl>{METRICS.map((metric) => <div key={metric.key}><dt>{label(metric)}</dt><dd>{currency[metric.key] != null ? <PlainAmount money={{ currency: currency.currency, amount: currency[metric.key]! }} /> : currency.known != null && metric.key === "total" ? partial(currency) : <Unknown />}</dd></div>)}</dl>
         </section>)}
         {exclusions.length ? <p className={styles.basis}>{word("basis")} · {exclusions.join(" · ")}</p> : null}
       </div>
