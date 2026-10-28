@@ -43,6 +43,7 @@ async function mount({ production = false, width = 1440, role = "owner", prepare
   const chosen: GrantedSpace = { space_id: "count-business", grant_id: "count-grant", name: "Negocio sintético", role, capabilities: prepare ? ["read", "prepare"] : ["read"], access_seen: true };
   let uploads = 0;
   let reloads = 0;
+  let exports = 0;
   const opened: BusinessPanelState[] = [];
   let context: BusinessContextValue = {
     userId: "count-person", source: { ...source, receiptPage: async () => ({ items: receipts, activity: globalActivity }), ...(markRead ? { markReceiptRead: markRead } : {}) },
@@ -50,7 +51,7 @@ async function mount({ production = false, width = 1440, role = "owner", prepare
     spaces: [chosen], chosen, chooseBusiness: () => {}, markAccessSeen: async () => {}, lostAccess: false, clearLostAccess: () => {}, revision: 0, reload: () => { reloads++; }, refresh: async () => "updated",
     period: { key: "all", from: "", to: null }, setPeriod: () => {}, panel: { kind: "inbox" }, openPanel: next => opened.push(next),
     actions: { create: role === "owner" && prepare ? [{ id: "upload_receipt", label: "Agregar", icon: Plus, run: () => { uploads++; } }] : [], composer: [], starterEntries: [] },
-    bridge: null, attachedReceipt: null, clearAttachedReceipt: () => {}, openExport: () => {}, emailRefresh: { refresh: () => {}, refreshing: false, stalled: false }, retrySources: () => {},
+    bridge: null, attachedReceipt: null, clearAttachedReceipt: () => {}, openExport: () => { exports++; }, emailRefresh: { refresh: () => {}, refreshing: false, stalled: false }, retrySources: () => {},
   };
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
   const render = () => act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Inbox /></BusinessContext.Provider></I18nextProvider>); });
@@ -63,7 +64,7 @@ async function mount({ production = false, width = 1440, role = "owner", prepare
   const badge = (key: string) => tab(key)?.querySelector("span")?.textContent;
   const row = (name: string) => [...host.querySelectorAll<HTMLElement>('[data-testid="reception-row"]')].find(element => element.textContent?.includes(name));
   const organize = async (name: string, action: string) => { await click(row(name)?.querySelector("input")); await click(host.querySelector<HTMLButtonElement>(`button[aria-label="${action}"]`)); };
-  return { host, context, opened, uploads: () => uploads, reloads: () => reloads, click, tab, badge, row, organize, act, settle, async changeArrivals() { receipts = [...receipts.filter(receipt => receipt.id !== "review-receipt"), { ...receipts[0], id: "new-receipt", merchant: "Recibo sin admitir" }]; context = { ...context, revision: context.revision + 1 }; await render(); await settle(() => host.textContent?.includes("Actualizar lista") === true); } };
+  return { host, context, opened, uploads: () => uploads, exports: () => exports, reloads: () => reloads, click, tab, badge, row, organize, act, settle, async changeArrivals() { receipts = [...receipts.filter(receipt => receipt.id !== "review-receipt"), { ...receipts[0], id: "new-receipt", merchant: "Recibo sin admitir" }]; context = { ...context, revision: context.revision + 1 }; await render(); await settle(() => host.textContent?.includes("Actualizar lista") === true); } };
 }
 
 test("preview badges count admitted mixed arrivals independently of global activity, filters and local archives", async () => {
@@ -104,6 +105,28 @@ test("a read-only owner sees no Add capability in the live Bandeja", async () =>
   const page = await mount({ production: true, prepare: false });
   assert.equal(page.host.querySelector('[data-testid="business-primary-upload"]'), null);
   assert.equal(page.host.querySelector('[data-testid="business-primary-review"]'), null);
+});
+
+for (const [who, options] of [["an accountant", { role: "accountant" as const }], ["a read-only owner", { prepare: false }]] as const) test(`${who} gets Exportar registros from the live Bandeja menu and nothing they cannot do`, async () => {
+  const page = await mount({ production: true, ...options });
+  const trigger = page.host.querySelector<HTMLButtonElement>('[data-testid="reception-more"]');
+  assert.ok(trigger, "the menu is there without Agregar");
+  assert.equal(trigger.getAttribute("aria-haspopup"), "menu");
+  assert.equal(page.host.querySelector('[data-testid="business-primary-upload"]'), null);
+  await page.click(trigger);
+  const items = [...document.querySelectorAll<HTMLButtonElement>('[role="menu"] [role="menuitem"]')];
+  assert.deepEqual(items.map(item => item.textContent), ["Exportar registros"], "no forwarding address or create item for a role that cannot add");
+  assert.equal(document.querySelector('[role="menu"]')?.textContent?.includes("reenv"), false);
+  await page.click(items[0]);
+  assert.equal(page.exports(), 1);
+});
+
+test("the owner who can add keeps Agregar with Exportar registros and the forwarding address in its menu", async () => {
+  const page = await mount({ production: true });
+  assert.equal(page.host.querySelector('[data-testid="reception-more"]'), null);
+  await page.click(page.host.querySelector<HTMLButtonElement>('[data-testid="reception-add"] button[aria-haspopup="menu"]'));
+  const items = [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].map(item => item.textContent);
+  assert.ok(items.includes("Exportar registros"));
 });
 
 test("live shows only what arrived: no example note, no selection, no archive, no seen toggles", async () => {
