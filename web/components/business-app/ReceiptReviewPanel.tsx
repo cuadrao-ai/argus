@@ -18,6 +18,7 @@ import { SURFACE_CARD } from "./foundation/surfaces";
 import { handTitleFocus } from "./bandeja-order";
 import { receiptCurrencyOptions } from "./receipt-currencies";
 import { receiptReviewAccess } from "./receipt-review-access";
+import { useReceiptStateWord } from "./receipt-state-word";
 import MoneyInput from "@/components/money/MoneyInput";
 import { moneyProblemFromServer } from "@/lib/money-entry";
 import type { ReceiptDetail, ReceiptReviewFields } from "@/lib/business-api";
@@ -48,6 +49,7 @@ const inputClass =
 
 function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const { t, i18n } = useTranslation();
+  const stateWord = useReceiptStateWord();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const money = (amount: string | null, currency: string | null) => formatMoney(amount, currency, locale) || UNKNOWN_VALUE;
   const categoryLabel = useCategoryLabel();
@@ -142,7 +144,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       recordId={receiptId}
       back={confirmed ? "transactions" : "inbox"}
       title={detail.merchant || (confirmed ? t("business.review.saved_title", "Saved expense") : t("business.review.title", "Review receipt"))}
-      badge={<StatusPill status={detail.status} label={t(`business.status.${detail.status}`, { defaultValue: "" }) || undefined} />}
+      badge={<StatusPill status={detail.status} label={stateWord(detail) || undefined} />}
       amount={!reading && detail.amount && detail.currency ? formatMoney(detail.amount, detail.currency, locale) : null}
       source={source}
       footer={footer}

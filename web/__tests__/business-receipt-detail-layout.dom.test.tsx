@@ -3,6 +3,8 @@ import { afterAll, beforeAll, describe, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
 import type { BusinessDossier } from "@/lib/business-dossier";
+import type { ReceiptDetail } from "@/lib/business-api";
+import { dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
 
 mock.module("next/navigation", () => ({
   usePathname: () => "/biz",
@@ -21,7 +23,7 @@ afterAll(async () => {
 type Change = (dossier: BusinessDossier) => void;
 
 /** Ferretería La Esquina opened as a prepared record; the change edits the record the server returns. */
-async function mount({ change, overrides = {} }: { change?: Change; overrides?: Partial<BusinessDataSource> } = {}) {
+async function mount({ change, overrides = {}, receipt = {}, until = "footer" }: { change?: Change; overrides?: Partial<BusinessDataSource>; receipt?: Partial<ReceiptDetail>; until?: "footer" | "top" } = {}) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -39,7 +41,7 @@ async function mount({ change, overrides = {} }: { change?: Change; overrides?: 
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
   const source: BusinessDataSource = {
     ...fixture,
-    receipt: async (id, signal) => ({ ...await fixture.receipt(id, signal), draft_id: dossierFixtureIds.fiscal }),
+    receipt: async (id, signal) => ({ ...await fixture.receipt(id, signal), draft_id: dossierFixtureIds.fiscal, ...receipt }),
     dossier: async (id) => {
       const dossier = structuredClone(await fixture.dossier(id));
       change?.(dossier);
@@ -67,7 +69,7 @@ async function mount({ change, overrides = {} }: { change?: Change; overrides?: 
   };
   const footer = () => host.querySelector<HTMLElement>('[data-testid="receipt-review-footer"]');
   const button = (name: string) => [...(footer()?.querySelectorAll<HTMLButtonElement>("button") ?? [])].find((item) => item.textContent === name);
-  await settle(() => Boolean(footer()));
+  await settle(() => Boolean(until === "top" ? host.querySelector('[data-testid="receipt-top-block"]') : footer()));
   return { host, act, settle, footer, button, close: () => act(async () => { root.unmount(); host.remove(); }) };
 }
 
@@ -88,6 +90,16 @@ describe("the receipt detail's top block", () => {
     const review = page.host.querySelector('[data-testid="business-record-review"]')!;
     assert.ok(review.textContent!.indexOf("Ferretería La Esquina") < review.textContent!.indexOf("Fecha de actividad"));
     await page.close();
+  });
+
+  test("the status word is the list's: a confirmed receipt reads Aprobado, not the server's status name", async () => {
+    for (const draft_id of [dossierFixtureIds.fiscal, null]) {
+      for (const [status, word] of [["review_ready", "Listo para revisar"], ["confirmed", "Aprobado"]] as const) {
+        const page = await mount({ receipt: { status, draft_id }, until: "top" });
+        assert.equal(page.host.querySelector('[data-testid="receipt-top-block"] [data-testid="status-pill"]')?.textContent, word, `${status} ${draft_id ? "with" : "without"} a draft`);
+        await page.close();
+      }
+    }
   });
 
   test("an unknown total is hidden, never shown as zero", async () => {
