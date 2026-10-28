@@ -182,6 +182,40 @@ describe("a list that did not load", () => {
     assert.equal(tabCount(page.host, "attention"), "-");
   });
 
+  describe("a server reference", () => {
+    const requestId = "4ea79978-ce17-4853-b232-b2a72f4c9ce7";
+    const serverError = () => Object.assign(new Error("API error 500"), { status: 500, requestId });
+    const reference = (page: { host: HTMLElement }) => failureOf(page)?.querySelector<HTMLButtonElement>('[data-testid="error-reference"]') ?? null;
+    const assertShortAndCopyable = async (page: Awaited<ReturnType<typeof mount>>) => {
+      const copied: string[] = [];
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (value: string) => { copied.push(value); } } });
+      const shown = reference(page)!;
+      assert.equal(shown.querySelector("[data-reference-short]")?.textContent, "Ref. 4ea79978");
+      assert.equal(shown.title, requestId);
+      assert.ok(shown.textContent?.includes(requestId), "the accessible name carries the full id");
+      await page.act(async () => shown.click());
+      assert.deepEqual(copied, [requestId]);
+    };
+
+    test("a notes failure reads short, keeps the full id in its title and copies the full id", async () => {
+      const page = await mount({ panel: { kind: "inbox" }, overrides: () => ({ captures: async () => { throw serverError(); } }) });
+      await page.settle(() => reference(page) !== null, "the reference");
+      await assertShortAndCopyable(page);
+    });
+
+    test("an emails failure carries its reference", async () => {
+      const page = await mount({ panel: { kind: "inbox" }, overrides: () => ({ emailDeliveries: async () => { throw serverError(); } }) });
+      await page.settle(() => reference(page) !== null, "the reference");
+      await assertShortAndCopyable(page);
+    });
+
+    test("a failed full read of the arrivals carries its reference", async () => {
+      const page = await mount({ panel: { kind: "inbox" }, overrides: fixture => ({ receiptPage: async (view, signal) => { if (view === "all") throw serverError(); return fixture.receiptPage!(view, signal); } }) });
+      await page.settle(() => reference(page) !== null, "the reference");
+      await assertShortAndCopyable(page);
+    });
+  });
+
   test("Reintentar asks again only for the lists that failed, and their recovery shows the true empty state", async () => {
     const { calls, overrides, recover } = failing();
     const page = await mount({ panel: { kind: "inbox" }, overrides });
@@ -205,7 +239,7 @@ describe("a list the server refused for good", () => {
   const NOTHING = { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 0, needs_attention_count: 0, ready_to_review_count: 0 } };
   const BUSINESS_OFF = () => Object.assign(new Error("Business is not available."), { status: 404, code: "business_unavailable" });
   const EMAIL_OFF = () => Object.assign(new Error("Email receiving is unavailable."), { status: 503, code: "email_capture_unavailable" });
-  const actions = (page: { host: HTMLElement }) => [...(failureOf(page)?.querySelectorAll("button") ?? [])].map((button) => button.textContent);
+  const actions = (page: { host: HTMLElement }) => [...(failureOf(page)?.querySelectorAll("button") ?? [])].filter((button) => button.dataset.testid !== "error-reference").map((button) => button.textContent);
 
   test("offers no Reintentar, claims no empty state and no count", async () => {
     const calls = { notes: 0, emails: 0 };

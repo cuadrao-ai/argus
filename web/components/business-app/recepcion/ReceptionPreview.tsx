@@ -6,6 +6,7 @@ import { resolveLanguage } from "@/lib/language-features";
 import type { ReceiptSummary } from "@/lib/business-api";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
+import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { useBusiness } from "../BusinessWorkspace";
 import ReceiptReadingControl from "../ReceiptReadingControl";
 import { loadFailure, type LoadFailure } from "../bandeja-sources";
@@ -103,6 +104,7 @@ function ReceptionWorkspace({ live }: { live: boolean }) {
   const pending = !arrivals || records.notes === null || records.emails === null;
   const failed = !!arrivals?.failure || records.error || !!records.notesFailure || !!records.emailsFailure;
   const refused = records.refused || arrivals?.failure?.refused;
+  const reference = arrivals?.failure?.reference ?? records.notesFailure?.reference ?? records.emailsFailure?.reference ?? null;
   const retryableSources = (["notes", "emails"] as const).filter(key => {
     const failure = key === "notes" ? records.notesFailure : records.emailsFailure;
     return failure && !failure.refused && !failure.offline;
@@ -218,7 +220,7 @@ function ReceptionWorkspace({ live }: { live: boolean }) {
       {newCount > 0 ? <div className={styles.updateNotice} role="status"><span>{t("business.reception_preview.new_arrivals", { count: newCount })}</span><button type="button" className={quietButtonClass} onClick={() => { setAdmittedIds(latestIds); setSelectedIds([]); setPage(1); }}>{word("update_list")}</button></div> : null}
       <ReceptionFilterChips value={filters} senders={senders} onChange={applyFilters} />
       <ReceiptReadingControl />
-      {failed ? <div className={styles.error} role="alert"><p>{refused ? t("auth.business_unavailable.title") : word("error")}</p>{canRetry ? <button className={quietButtonClass} onClick={retry}>{t("common.retry")}</button> : null}</div> : null}
+      {failed ? <div className={styles.error} role="alert"><p>{refused ? t("auth.business_unavailable.title") : word("error")}{reference ? <span className="ml-2 inline-flex align-middle"><ReferenceCode reference={reference} /></span> : null}</p>{canRetry ? <button className={quietButtonClass} onClick={retry}>{t("common.retry")}</button> : null}</div> : null}
       <div ref={list} id="reception-list" role="tabpanel" aria-labelledby={`reception-tab-${activeTab}`} tabIndex={0} className={styles.list}>
         <div className={styles.columns}>{live ? null : <label className={styles.checkbox}><input type="checkbox" checked={allSelected} disabled={pending || failed || !pageIds.length} aria-label={word("select_page")} ref={node => { if (node) node.indeterminate = selected.length > 0 && !allSelected; }} onChange={() => setSelectedIds(allSelected ? [] : pageIds)} /></label>}<span>{word("document")}</span><span>{word("file")}</span>{preferences.source ? <span className={styles.channelHeading}>{word("source")}</span> : null}{preferences.sender ? <span className={styles.senderHeading}>{word("sender")}</span> : null}{preferences.source || preferences.sender ? <span className={styles.combinedHeading}>{word(preferences.source && preferences.sender ? "sender_source" : preferences.source ? "source" : "sender")}</span> : null}{preferences.amount ? <span className={styles.amountHeading}>{word("amount")}</span> : null}{preferences.currency ? <span className={styles.currencyHeading}>{t("business.transactions.columns.moneda")}</span> : null}<span>{word("status")}</span>{preferences.arrival ? <span>{word("arrival")}</span> : null}<span className="sr-only">{word("next_action")}</span></div>
         {pending && !failed ? <ReceptionSkeleton preferences={preferences} selectable={!live} /> : <ul aria-label={word("list_label")}>
