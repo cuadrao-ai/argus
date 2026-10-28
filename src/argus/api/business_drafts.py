@@ -40,6 +40,7 @@ from argus.domain.business.contracts.facts import (
     BusinessAccountFunding,
     BusinessResolution,
     Known,
+    personal_mark_admits,
 )
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.search import SearchQuery
@@ -568,13 +569,18 @@ def overview_with_drafts(context: BusinessContext, start, end) -> dict:  # noqa:
     data["awaiting_review"] = counts["pending_review_count"] - data["needs_attention"]
     data["ready_to_review_count"] = counts["ready_to_review_count"]
     data["por_igualar_count"] = counts["por_igualar_count"]
-    # Gastos reales leave the owner's personal receipts out; con valor fiscal
-    # are the real ones that carry an NCF or an e-CF; the rest do not go into
-    # the 606. All three from the same rows, so the line never disagrees.
+    # Gastos reales are the receipts the Personal mark admits, by the rule
+    # month close and Registros share; con valor fiscal are the real ones that
+    # carry an NCF or an e-CF; the rest do not go into the 606. All three from
+    # the same rows, so the line never disagrees.
     rows = _with_records(
         context, context.service.expense_rows(context.scope, start, data["to"])
     )
-    real = [row for row in rows if not row.get("personal")]
+    real = [
+        row
+        for row in rows
+        if personal_mark_admits(bool(row.get("personal")), row.get("include_606"))
+    ]
     fiscal = [row for row in real if row.get("fiscal_value")]
     data["totals"] = ledger.totals(real)
     data["fiscal_totals"] = ledger.totals(fiscal)

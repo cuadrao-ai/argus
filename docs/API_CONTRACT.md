@@ -10016,8 +10016,10 @@ person starts their space, every route below except POST `/space` answers 404
     month-close lines always carry it; month close counts such a record
     and leaves it out of the 606, the 607 and the close reasons (see the
     [month-close contract](contracts/business-month-close.md)). The
-    overview's `totals` are "Gastos reales" (approved expenses that are not
-    personal), `fiscal_totals` are those with fiscal
+    overview's `totals` are "Gastos reales" (approved expenses the Personal
+    mark admits: not personal, or a purchase the accountant answered
+    `include_606` yes, the rule month close, the DGII packet, Registros and
+    the export share), `fiscal_totals` are those with fiscal
     value and `without_fiscal_totals` the rest, all per currency from the same
     rows. The export's records gain `personal`, `fiscal_value` and
     `include_606` (`yes`, `no` or empty); a personal expense stays in the
@@ -10663,7 +10665,9 @@ accept path recorded.
   and returns a no-store ZIP of the full filtered answer: `records.csv`,
   `records.xlsx`, and `manifest.json`. It includes unresolved matching rows with
   honest workflow and effect fields. Selected columns preserve order; identity,
-  workflow and effect columns always remain. Spreadsheet cells are literal text.
+  workflow and effect columns always remain, and so do `personal` and
+  `include_606`, which say why a listed row is in or out of the manifest totals.
+  Spreadsheet cells are literal text.
   XLSX includes server-computed Records, Totals and Scope sheets with no formulas.
   The manifest states trusted Business/actor/grant, query, resolved dates,
   captured/generated time, matching count, semantic totals, coverage limitations

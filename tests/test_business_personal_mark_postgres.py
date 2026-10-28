@@ -86,8 +86,10 @@ def _everywhere(world, activity: str) -> dict:  # noqa: ANN001
         for item in summary["reconciliation"]
     }
     canonical = {row["activity_id"]: row for row in manifest["records"]}
+    overview = _get(world, "/business/overview", **{"from": START, "to": END}).json()
     return {
         "row": (rows[activity]["personal"], rows[activity]["include_606"]),
+        "overview": overview["totals"],
         "registros": (
             totals["recorded_activity_amount"],
             totals["document_family_amount"],
@@ -129,6 +131,7 @@ def test_the_mark_moves_the_record_on_every_reader_at_once(web) -> None:  # noqa
     )
     business = {
         "row": (False, None),
+        "overview": [{"currency": "DOP", "amount": "1680.00", "count": 2}],
         "registros": ((2, "1680.00"), (2, "1680.00")),
         "close": (150000, 18000, sorted([purchase, informal])),
         "handoff": (["1180.00", "500.00"], [], "no"),
@@ -136,6 +139,7 @@ def test_the_mark_moves_the_record_on_every_reader_at_once(web) -> None:  # noqa
     }
     personal = {
         "row": (True, None),
+        "overview": [{"currency": "DOP", "amount": "500.00", "count": 1}],
         "registros": ((1, "500.00"), (1, "500.00")),
         "close": (50000, 0, [informal]),
         "handoff": (["500.00"], [purchase], "yes"),
