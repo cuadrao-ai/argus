@@ -46,6 +46,7 @@ from argus.domain.business.search import SearchQuery
 from argus.domain.business.service import BusinessService
 from argus.domain.business.transactions import (
     GrantImportStore,
+    LegacyAction,
     record_legacy_action,
     transaction,
 )
@@ -154,7 +155,7 @@ def stored_drafts(
     return None
 
 
-def legacy_action(request) -> str | None:  # noqa: ANN001
+def legacy_action(request) -> LegacyAction | None:  # noqa: ANN001
     """The name a legacy receipt write leaves in the ledger, from the route."""
 
     path = request.url.path

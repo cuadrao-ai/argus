@@ -15,6 +15,7 @@ from argus.api.financial_accounts import (
     require_financial_accounts_context,
 )
 from argus.api.routers.business import router as business_router
+from argus.api.routers.business_activity import router as business_activity_router
 from argus.api.routers.business_customers import router as business_customers_router
 from argus.api.routers.business_drafts import router as business_drafts_router
 from argus.api.routers.business_export import router as business_export_router
@@ -209,6 +210,7 @@ router.include_router(business_email_router)
 router.include_router(business_export_router)
 router.include_router(business_month_close_router)
 router.include_router(business_open_items_router)
+router.include_router(business_activity_router)
 router.include_router(business_fiscal_router)
 router.include_router(business_fiscal_operations_router)
 router.include_router(business_customers_router)

@@ -9443,6 +9443,62 @@ sales use the Business plus NCF regardless of buyer identity and keep
 `fiscal_duplicate_document`. Printed identifier spaces
 or hyphens and NCF letter case normalize for identity without changing sources.
 
+### Business activity feed
+
+`GET /business/activity?limit=25|50|100&cursor=<opaque>` lists who changed what
+and when in the working Business (the chosen `X-Business-Grant`'s Business, else
+the caller's own), from the action ledger, newest first. It is read-only and
+additive: no existing route changes. The page is
+`{items: [...], next_cursor: string|null}`; `limit` defaults to 25 and accepts
+only 25, 50 and 100 (any other value is 422 `validation_error`). Each item is
+`{id, occurred_at, actor: {display_name, kind}, action, object}`. `id` is an
+opaque, stable string per ledger row. `occurred_at` is the row's `created_at`.
+`actor.display_name` is the name the ledger stored when the action ran, so a
+member who later left shows as `Exmiembro`; the server never joins the account
+table. `actor.kind` is `member`, `owner_via_agent` or `extractor`. `action` is a
+closed enum of the ledger's own action names (`review_draft`,
+`approve_expense`, `approve_income`, `approve_refund`, `capture_note`,
+`prepare_attachment`, `rebind_attachment`, `settle_remainder`, `mark_personal`,
+`decide_606`, `resolve_duplicate`, `edit_current_note`,
+`append_supporting_file`, `receipt_upload`, `receipt_review`,
+`receipt_confirm`, `set_business_rnc`,
+`business_propose_activity`, `business_attach_source`,
+`business_propose_allocation`, `business_ask`, `owner_grant`, `grant_access`,
+`invite_access`, `accept_invite`, `revoke_grant`, `revoke_invite`,
+`change_role`) plus `other`,
+which only a reader whose live grant allows `manage` sees, for an action the
+feed does not know yet; the server never echoes the stored command. `object` is `{kind: draft|grant|invite, id}` when the action names
+one and the server knows its id, else `null`. No label, amount, email or other
+field of the command leaves the ledger.
+
+Only rows whose outcome is `applied` list; refused, failed, stale, replayed and
+in-flight rows do not. Ledger marks of a read or a look-up (`access_seen`,
+`business_read_context`, `business_find_related`, `business_explain_status`)
+are not changes and never list, and neither does `email_ai_consent_declined`,
+the owner's own answer to the one-time email AI notice, which changes no
+Business record. `business_ask` lists, because an applied Ask
+opens a question on the draft it names. A
+member whose live grant allows `read` sees only the listed actions that are
+not access changes; an action the feed does not list never reaches a member,
+so a new ledger action stays hidden from members until the feed names it. The
+access changes (`owner_grant`, `grant_access`, `invite_access`,
+`accept_invite`, `revoke_grant`, `revoke_invite`, `change_role`) and `other`
+list only for a reader whose live grant allows `manage`, the same rule as
+`GET /business/access`. The page
+is scoped to one Business; a cursor from another Business positions within
+this one and reveals nothing of the other.
+
+`next_cursor` is an opaque cursor for the older rows, `null` on the last page.
+The order is `created_at` descending with a stable tie-break, so a page does
+not move when a newer row lands: a cursor taken before new activity continues
+from the same row. A cursor the feed did not issue is 422 `invalid_cursor`.
+The in-memory app keeps no ledger: the read answers 200 with `items` empty and
+`next_cursor` null once the caller's Business exists. A missing, foreign,
+revoked or expired `X-Business-Grant` answers 403 `business_grant_not_live`; a
+caller whose own grant is no longer live answers 404
+`business_record_not_found`; a ledger that cannot be read answers 503
+`business_activity_unavailable`. Every answer is `Cache-Control: no-store`.
+
 ### Business customers and invoice editor
 
 The default-off `CUADRAO_BUSINESS_INVOICING_ENABLED` gate requires the existing
