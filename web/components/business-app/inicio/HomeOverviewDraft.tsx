@@ -258,10 +258,11 @@ function NeedsAttention({ c, toReview: liveToReview, retryCount }: { c: Copy; to
   else if (toReview.kind === "loading") footer = <CountLoading label={c.loading} />;
   if (records.error && !forceEmpty) {
     // The Business did not load: say so with the server's reference and a way to try again, never an endless skeleton.
+    const reference = records.failureReference ?? records.serverReference;
     return (
       <Section title={c.needs} icon={CircleAlert} testId="home-needs-attention">
         <EmptyState kind="error" compact title={c.needsFailed} body={records.refused ? undefined : c.needsFailedBody} action={records.refused ? undefined : { label: c.retry, run: reload }} />
-        {records.serverReference ? <div className="flex justify-center pb-2"><ReferenceCode reference={records.serverReference} /></div> : null}
+        {reference ? <div className="flex justify-center pb-2"><ReferenceCode reference={reference} /></div> : null}
       </Section>
     );
   }
