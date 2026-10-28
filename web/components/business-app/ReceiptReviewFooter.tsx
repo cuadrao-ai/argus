@@ -9,6 +9,7 @@ import { secondaryButtonClass } from "./business-ui";
  * The record's less frequent actions behind one "Más" control in the footer.
  * Its contents stay mounted while it is closed, so a change in flight inside
  * it (a Personal mark, a note) keeps its state. Escape and a click outside close it.
+ * On a phone the panel spans the footer instead of hanging off the trigger past the screen's edge.
  */
 export function ReceiptMoreMenu({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
@@ -26,7 +27,7 @@ export function ReceiptMoreMenu({ children }: { children: ReactNode }) {
   return (
     <div
       ref={host}
-      className="relative"
+      className="tablet:relative"
       data-testid="receipt-more"
       onKeyDown={(event) => {
         if (event.key !== "Escape" || !open) return;
@@ -40,7 +41,7 @@ export function ReceiptMoreMenu({ children }: { children: ReactNode }) {
         {t("common.more", "More")}
         <ChevronDown className={`h-4 w-4 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`} aria-hidden="true" />
       </button>
-      <div id="receipt-more-panel" hidden={!open} className="absolute bottom-full right-0 z-20 mb-2 w-[min(22rem,calc(100vw-2rem))] space-y-3 rounded-surface border border-[#DCE0DA] bg-[#FFFEFA] p-3 shadow-[0_8px_28px_rgba(23,43,38,0.14)] dark:border-white/10 dark:bg-[#1f2225]">
+      <div id="receipt-more-panel" hidden={!open} className="absolute inset-x-0 bottom-full z-20 mb-2 space-y-3 tablet:left-auto tablet:w-[22rem] rounded-surface border border-[#DCE0DA] bg-[#FFFEFA] p-3 shadow-[0_8px_28px_rgba(23,43,38,0.14)] dark:border-white/10 dark:bg-[#1f2225]">
         {children}
       </div>
     </div>
@@ -65,7 +66,7 @@ export const KEY_HINT_CLASS = "tablet:after:ml-1 tablet:after:rounded-mark table
 /** The footer's one shape: what is left in plain words on the left, the actions on the right. */
 export default function ReceiptReviewFooter({ status, actions }: { status?: ReactNode; actions: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+    <div className="relative flex flex-wrap items-center gap-x-4 gap-y-2 tablet:static">
       <div className="min-w-0 flex-1 basis-56 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{status}</div>
       <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>
     </div>
