@@ -5,7 +5,7 @@ import hashlib
 import io
 import json
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
@@ -19,6 +19,7 @@ from argus.domain.business.contracts.facts import BusinessFacts, Known
 from argus.domain.business.dgii_export import build_fiscal_packet
 from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.ledger import occurred_on
+from argus.domain.business.month_close import document_settlement
 from argus.domain.business.rnc_registry import (
     RncRegistry,
     postgres_rnc_fetch,
@@ -67,6 +68,7 @@ SHEET_COLUMNS = (
     "Total",
     "Moneda",
     "Estado",
+    "Pago",
 )
 ID_COLUMNS = tuple(column for column in COLUMNS if column != "note")
 UNRESOLVED_COLUMNS = ("draft_id", "version", "review_state", "occurred_on", "reason")
@@ -114,6 +116,9 @@ class ExportSnapshot:
     fiscal_records: tuple[FiscalRecord, ...] = ()
     business_rnc: str | None = None
     business_name: str = ""
+    # Stored settlement rows by activity id, read on the same snapshot as the
+    # activities. Month close and bank matching write them.
+    settlements: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
 
 
 def _text(value: Any) -> str:
@@ -211,10 +216,12 @@ def sheet_rows(
     rows: Sequence[Mapping[str, str]],
     records: Sequence[FiscalRecord],
     reconciliation: Sequence[Mapping[str, Any]],
+    settlements: Mapping[str, Mapping[str, Any]],
 ) -> list[dict[str, str]]:
     """Each recorded row as the accountant reads it: supplier and fiscal facts
-    from the approved revision, the 606 answer from its declaration, and the
-    fiscal packet's disposition. Subtotal is the total less a known ITBIS."""
+    from the approved revision, the 606 answer from its declaration, the
+    fiscal packet's disposition and the month-close settlement. Subtotal is
+    the total less a known ITBIS."""
 
     approved = {str(UUID(str(record.activity_id))): record for record in records}
     status = {
@@ -228,6 +235,7 @@ def sheet_rows(
         declaration = record.declaration if record else None
         purchase = declaration if isinstance(declaration, PurchaseDeclaration) else None
         itbis = _known(getattr(facts.fiscal, "itbis", None))
+        settlement = document_settlement(row, settlements)
         sheet.append(
             {
                 "Fecha": row["occurred_on"],
@@ -246,6 +254,7 @@ def sheet_rows(
                 "Total": row["amount"],
                 "Moneda": row["currency"],
                 "Estado": status.get(row["activity_id"], ""),
+                "Pago": settlement.status if settlement else "",
             }
         )
     return sheet
@@ -381,7 +390,10 @@ def build_archive(
             registry=registry,
         )
         sheet = sheet_rows(
-            rows, snapshot.fiscal_records, fiscal.manifest["reconciliation"]
+            rows,
+            snapshot.fiscal_records,
+            fiscal.manifest["reconciliation"],
+            snapshot.settlements,
         )
         csv_bytes = _csv(sheet, SHEET_COLUMNS)
         xlsx_bytes = _xlsx(sheet, rows, snapshot.unresolved)
@@ -576,6 +588,7 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                 for a in activities
             )
             from argus.domain.business.dgii_snapshot import fiscal_snapshot
+            from argus.domain.business.month_close_store import read_settlements
 
             fiscal_records, business_rnc, business_name = fiscal_snapshot(
                 cursor, context, activities
@@ -589,6 +602,9 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                 fiscal_records,
                 business_rnc,
                 business_name,
+                settlements=read_settlements(
+                    cursor, context.owner_id, str(context.actor.space_id)
+                ),
             )
 
     store = PostgresDocumentStore(authority.pool, objects)

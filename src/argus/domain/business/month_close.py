@@ -604,6 +604,24 @@ def _as_date(value: object) -> date | None:
     return date.fromisoformat(str(value))
 
 
+def document_settlement(
+    activity: Mapping, settlements: Mapping[str, Mapping]
+) -> Settlement | None:
+    """The settlement of a recorded income or expense: ``pendiente`` until a
+    stored row settles it. A transfer has none."""
+
+    if activity.get("kind") not in {"income", "expense"}:
+        return None
+    row = settlements.get(str(activity["activity_id"]))
+    if row is None:
+        return IMPLICIT
+    return Settlement(
+        str(row["status"]),
+        _as_date(row.get("settled_on")),
+        _text(row.get("payment_method")),
+    )
+
+
 def project_documents(
     activities: Sequence[Mapping],
     resolutions: Sequence[Mapping],
@@ -621,25 +639,18 @@ def project_documents(
         latest.setdefault(str(row["activity_id"]), row)
     documents = []
     for activity in activities:
-        kind = activity.get("kind")
-        if kind not in {"income", "expense"}:
+        settlement = document_settlement(activity, settlements)
+        if settlement is None:
             continue
         activity_id = str(activity["activity_id"])
         parts = read_fiscal(
             latest.get(activity_id, {}).get("resolution"), activity["currency"]
         )
-        settlement = settlements.get(activity_id)
-        if settlement is None:
-            status, settled_on, method = IMPLICIT.status, None, None
-        else:
-            status = str(settlement["status"])
-            settled_on = _as_date(settlement.get("settled_on"))
-            method = _text(settlement.get("payment_method"))
         documents.append(
             MonthDocument(
                 activity_id=activity_id,
                 space_id=space_id,
-                role="invoice" if kind == "income" else "receipt",
+                role="invoice" if activity["kind"] == "income" else "receipt",
                 currency=str(activity["currency"]),
                 total_minor=int(activity["amount_minor"]),
                 itbis_minor=parts.itbis_minor,
@@ -653,9 +664,9 @@ def project_documents(
                 counterparty=parts.counterparty,
                 sin_comprobante=parts.sin_comprobante,
                 due_on=parts.due_on,
-                status=status,
-                settled_on=settled_on,
-                payment_method=method,
+                status=settlement.status,
+                settled_on=settlement.settled_on,
+                payment_method=settlement.payment_method,
             )
         )
     return documents

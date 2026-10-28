@@ -672,6 +672,7 @@ def test_records_sheet_has_the_accountant_columns(actions):
             "Total",
             "Moneda",
             "Estado",
+            "Pago",
         ],
         [
             "2026-09-05",
@@ -685,6 +686,7 @@ def test_records_sheet_has_the_accountant_columns(actions):
             "1180.00",
             "DOP",
             "606",
+            "pendiente",
         ],
     ]
     assert sheet_rows(workbook) == rows

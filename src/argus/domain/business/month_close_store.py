@@ -373,7 +373,14 @@ def collect_documents(pool, connection, owner_id: str, space_id: str):
     with connection.cursor(row_factory=dict_row) as cursor:
         cursor.execute(_DRAFTS, (owner_id, space_id))
         resolutions = cursor.fetchall()
-        cursor.execute(_SETTLEMENTS, (space_id, owner_id))
-        settlements = {row["activity_id"]: row for row in cursor.fetchall()}
+        settlements = read_settlements(cursor, owner_id, space_id)
     documents = project_documents(activities, resolutions, settlements, space_id)
     return documents, {str(activity["activity_id"]): activity for activity in activities}
+
+
+def read_settlements(cursor, owner_id: str, space_id: str) -> dict[str, dict]:
+    """Every stored settlement of the Business, by activity id, on the
+    caller's own snapshot. The export reads them beside its activities."""
+
+    cursor.execute(_SETTLEMENTS, (space_id, owner_id))
+    return {row["activity_id"]: row for row in cursor.fetchall()}
