@@ -9,7 +9,7 @@ from xml.etree import ElementTree
 from zipfile import ZipFile
 
 import pytest
-from argus.domain.business.contracts.dgii import FiscalReview
+from argus.domain.business.contracts.dgii import FiscalReview, PurchaseDeclaration
 from argus.domain.business.contracts.facts import (
     BusinessFacts,
     FiscalFacts,
@@ -427,3 +427,76 @@ def test_seeded_month_annex_matches_reference_bytes():
     for number in ("B0100009876", "B0400000310"):
         fields = next(line.split("|") for line in purchase if f"|{number}|" in line)
         assert (fields[6], fields[11], fields[17]) == ("", "", "")
+
+
+@pytest.mark.parametrize(
+    ("answer", "disposition", "reason"),
+    [
+        (None, "excluded", "personal"),
+        (False, "excluded", "personal"),
+        (True, "606", "included"),
+    ],
+)
+def test_personal_purchase_enters_the_606_only_with_the_accountants_yes(
+    answer, disposition, reason
+):
+    records = practice_records()
+    business = packet()
+    modified = {
+        str(record.declaration.purchase_activity_id)
+        for record in records
+        if isinstance(record.declaration, PurchaseDeclaration)
+    }
+    [purchase] = [
+        record
+        for record, item in zip(records, business.manifest["reconciliation"], strict=True)
+        if item["disposition"] == "606"
+        and record.kind == "expense"
+        and record.activity_id not in modified
+    ]
+    personal = tuple(
+        replace(record, personal=True, include_606=answer)
+        if record is purchase
+        else record
+        for record in records
+    )
+    result = packet(personal)
+    [item] = [
+        row
+        for row in result.manifest["reconciliation"]
+        if row["activity_id"] == purchase.activity_id
+    ]
+    assert (item["disposition"], item["reason"]) == (disposition, reason)
+    assert result.manifest["issues"] == []
+    excluded = disposition == "excluded"
+    assert result.manifest["forms"]["606"]["record_count"] == 3 - excluded
+    business_gross = Decimal(business.manifest["totals_dop"]["purchase_invoice_gross"])
+    assert Decimal(result.manifest["totals_dop"]["purchase_invoice_gross"]) == (
+        business_gross - Decimal(purchase.amount) if excluded else business_gross
+    )
+
+
+def test_a_personal_sale_stays_out_of_the_607_whatever_the_606_answer():
+    records = practice_records()
+    business = packet()
+    [sale] = [
+        record
+        for record, item in zip(records, business.manifest["reconciliation"], strict=True)
+        if item["disposition"] == "607"
+    ]
+    result = packet(
+        tuple(
+            replace(record, personal=True, include_606=True) if record is sale else record
+            for record in records
+        )
+    )
+    [item] = [
+        row
+        for row in result.manifest["reconciliation"]
+        if row["activity_id"] == sale.activity_id
+    ]
+    assert (item["disposition"], item["reason"]) == ("excluded", "personal")
+    assert result.manifest["forms"]["607"]["record_count"] == 0
+    assert Decimal(result.manifest["totals_dop"]["sales_gross"]) == Decimal(
+        business.manifest["totals_dop"]["sales_gross"]
+    ) - Decimal(sale.amount)

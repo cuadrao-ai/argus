@@ -27,6 +27,8 @@ describe("Business report controller", () => {
     expect(row.hasProof).toBe(true);
     expect(row.report?.stage).toBeNull();
     expect(businessReportRow({ ...report, currency: null, gross_amount: null }).money).toEqual({ amount: "", currency: "" });
+    expect(row.marks).toEqual({ personal: false, markedBy: null, fiscal: null });
+    expect(businessReportRow({ ...report, personal: true }).marks.personal).toBe(true);
   });
   test("server page/count/totals remain authoritative and page size/recipe reset page one", async () => {
     const requests: ReportRequest[] = [];

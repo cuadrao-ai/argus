@@ -3,7 +3,12 @@ from __future__ import annotations
 from pydantic import TypeAdapter
 
 from argus.domain.business.contracts.dgii import DgiiDeclaration
-from argus.domain.business.contracts.facts import BusinessFacts
+from argus.domain.business.contracts.facts import (
+    BusinessFacts,
+    BusinessResolution,
+    fiscal_inclusion,
+    is_personal,
+)
 from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.ledger import occurred_on
 from argus.domain.recording.owner_funds import owner_funded
@@ -16,9 +21,10 @@ def fiscal_snapshot(cursor, context, activities):
     )
     profile = cursor.fetchone()
     # Facts and evidence come from the approved revision. The declaration may
-    # be the approval's own revision, written at the version after it.
+    # be the approval's own revision, written at the version after it. The
+    # Personal mark and the 606 answer come from the draft as it stands now.
     cursor.execute(
-        "select e.id,e.activity_id,v.version,v.after_facts,d.after_dgii,v.source_ids"
+        "select e.id,e.activity_id,e.resolution,v.version,v.after_facts,d.after_dgii,v.source_ids"
         " from public.financial_import_events e"
         " join public.business_action_receipts a on a.space_id=e.owner_space_id"
         " and a.actor_id::text=e.resolution->'approval_receipt'->>'actor_id'"
@@ -44,6 +50,11 @@ def fiscal_snapshot(cursor, context, activities):
     for activity in activities:
         identifier = activity["activity_id"]
         row = approved.get(identifier)
+        current = (
+            BusinessResolution.model_validate(row["resolution"]["business"]).facts
+            if row
+            else BusinessFacts()
+        )
         records.append(
             FiscalRecord(
                 activity_id=identifier,
@@ -66,6 +77,8 @@ def fiscal_snapshot(cursor, context, activities):
                 if row
                 else (),
                 owner_funded=owner_funded(activity),
+                personal=is_personal(current),
+                include_606=fiscal_inclusion(current),
             )
         )
     return tuple(records), profile["business_rnc"], profile["name"]

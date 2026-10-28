@@ -603,3 +603,59 @@ def test_legacy_inline_nonimage_export_keeps_verified_bytes(actions, attachment)
     files = unpack(export_package(service.authority, context, PERIOD, objects))
     source = json.loads(files["manifest.json"])["sources"][0]
     assert source["availability"] == "unavailable" and source["file"] is None
+
+
+@pytest.mark.owner_acts
+def test_personal_purchase_is_handed_over_apart_with_its_original(actions):
+    from argus.domain.business.export import PERSONAL_COLUMNS, SHEET_COLUMNS
+
+    from tests.test_business_reporting_postgres import record_personal_expense
+
+    service, context, _ = actions
+    draft, version = shared.create(service, context)
+    facts = BusinessFactPatch.model_validate(
+        {
+            name: {"state": "known", "value": value}
+            for name, value in {
+                "kind": "expense",
+                "amount": "1250",
+                "currency": "DOP",
+                "occurred_on": "2026-10-26",
+                "funding": {"kind": "owner_funds"},
+                "business_share": {"kind": "all"},
+            }.items()
+        }
+    )
+    service.review(context, draft, ReviewDraft(version=version, facts=facts), "review")
+    business = service.approve(
+        context,
+        draft,
+        ApproveExpense(version=version + 1, action="record_expense"),
+        "approve",
+    )
+    assert business.outcome == "applied"
+    _, personal = record_personal_expense(service, context)
+    files = unpack(
+        export_package(service.authority, context, PERIOD, InMemorySourceObjects())
+    )
+    rows = sheet(files)
+    assert rows[0] == list(SHEET_COLUMNS) and len(rows) == 2
+    assert rows[1][SHEET_COLUMNS.index("Total")] == "1250.00"
+    manifest = json.loads(files["manifest.json"])
+    records = {row["activity_id"]: row for row in manifest["records"]}
+    assert records[personal]["personal"] == "yes"
+    assert records[str(business.activity_id)]["personal"] == "no"
+    included = {source["source_id"]: source for source in manifest["sources"]}
+    linked = records[personal]["source_ids"].split(";")
+    message = next(source for source in linked if included[source]["kind"] == "message")
+    assert files[included[message]["file"]] == b"Paid 850 pesos"
+    handed = list(csv.reader(io.StringIO(files["personal.csv"].decode("utf-8-sig"))))
+    assert handed[0] == list(PERSONAL_COLUMNS) and len(handed) == 2
+    assert handed[1][:4] == [personal, "2026-10-01", "850.00", "DOP"]
+    assert set(handed[1][4].split(";")) == {included[source]["file"] for source in linked}
+    disposition = {
+        item["activity_id"]: (item["disposition"], item["reason"])
+        for item in manifest["dgii"]["reconciliation"]
+    }
+    assert disposition[personal] == ("excluded", "personal")
+    assert disposition[str(business.activity_id)] != ("excluded", "personal")

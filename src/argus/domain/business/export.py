@@ -15,7 +15,11 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import xlsxwriter
 
 from argus.domain.business.contracts.dgii import PurchaseDeclaration, money_text
-from argus.domain.business.contracts.facts import BusinessFacts, Known
+from argus.domain.business.contracts.facts import (
+    BusinessFacts,
+    Known,
+    personal_mark_admits,
+)
 from argus.domain.business.dgii_export import build_fiscal_packet
 from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.ledger import occurred_on
@@ -72,6 +76,7 @@ SHEET_COLUMNS = (
 )
 ID_COLUMNS = tuple(column for column in COLUMNS if column != "note")
 UNRESOLVED_COLUMNS = ("draft_id", "version", "review_state", "occurred_on", "reason")
+PERSONAL_COLUMNS = ("Registro", "Fecha", "Total", "Moneda", "Originales")
 
 
 class ExportLimit(ValueError):
@@ -255,9 +260,45 @@ def sheet_rows(
                 "Moneda": row["currency"],
                 "Estado": status.get(row["activity_id"], ""),
                 "Pago": settlement.status if settlement else "",
+                "Personal": "sí" if row["personal"] == "yes" else "no",
             }
         )
     return sheet
+
+
+def personal_handoff(
+    sheet: Sequence[Mapping[str, str]],
+    rows: Sequence[Mapping[str, str]],
+    originals: Mapping[str, str],
+) -> tuple[list[Mapping[str, str]], list[dict[str, str]]]:
+    """To hand everything over in one sheet with a Personal column instead, return
+    ``(list(sheet), [])`` here and add "Personal" to SHEET_COLUMNS."""
+
+    admitted = [
+        personal_mark_admits(
+            row["personal"] == "yes",
+            {"yes": True, "no": False}.get(row["include_606"]),
+            sale=row["kind"] == "income",
+        )
+        for row in rows
+    ]
+    business = [line for line, counts in zip(sheet, admitted, strict=True) if counts]
+    personal = [
+        {
+            "Registro": row["activity_id"],
+            "Fecha": row["occurred_on"],
+            "Total": row["amount"],
+            "Moneda": row["currency"],
+            "Originales": ";".join(
+                originals[source]
+                for source in row["source_ids"].split(";")
+                if source in originals
+            ),
+        }
+        for row, counts in zip(rows, admitted, strict=True)
+        if not counts
+    ]
+    return business, personal
 
 
 def _csv(rows: Sequence[Mapping[str, Any]], columns: Sequence[str]) -> bytes:
@@ -272,6 +313,7 @@ def _xlsx(
     sheet_values: Sequence[Mapping[str, Any]],
     rows: Sequence[Mapping[str, Any]],
     unresolved: Sequence[Mapping[str, Any]],
+    personal: Sequence[Mapping[str, Any]],
 ) -> bytes:
     output = io.BytesIO()
     with xlsxwriter.Workbook(
@@ -283,6 +325,7 @@ def _xlsx(
             ("Recorded money", SHEET_COLUMNS, sheet_values),
             ("Record ids", ID_COLUMNS, rows),
             ("Unresolved drafts", UNRESOLVED_COLUMNS, unresolved),
+            ("Personal", PERSONAL_COLUMNS, personal),
         ):
             sheet = book.add_worksheet(name)
             for col, label in enumerate(columns):
@@ -395,9 +438,16 @@ def build_archive(
             fiscal.manifest["reconciliation"],
             snapshot.settlements,
         )
-        csv_bytes = _csv(sheet, SHEET_COLUMNS)
-        xlsx_bytes = _xlsx(sheet, rows, snapshot.unresolved)
+        business, personal = personal_handoff(
+            sheet,
+            rows,
+            {entry["source_id"]: entry["file"] for entry in entries if entry["file"]},
+        )
+        csv_bytes = _csv(business, SHEET_COLUMNS)
+        personal_bytes = _csv(personal, PERSONAL_COLUMNS)
+        xlsx_bytes = _xlsx(business, rows, snapshot.unresolved, personal)
         archive.writestr("records.csv", csv_bytes)
+        archive.writestr("personal.csv", personal_bytes)
         archive.writestr("records.xlsx", xlsx_bytes)
         for name, content in fiscal.files.items():
             archive.writestr(name, content)
@@ -426,6 +476,7 @@ def build_archive(
             "sources": entries,
             "files": {
                 "records.csv": hashlib.sha256(csv_bytes).hexdigest(),
+                "personal.csv": hashlib.sha256(personal_bytes).hexdigest(),
                 "records.xlsx": hashlib.sha256(xlsx_bytes).hexdigest(),
                 **{
                     name: hashlib.sha256(content).hexdigest()
