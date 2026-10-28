@@ -9457,7 +9457,7 @@ Only an Owner can submit the existing fiscal operation.
 | `POST /business/customers` | `{data,archived}` plus `Idempotency-Key` | 201 customer; incomplete identity is 422 |
 | `GET /business/customers/{customer_id}` | none | Customer with version and timestamps |
 | `PUT /business/customers/{customer_id}` | `{data,archived,expected_version}` plus `Idempotency-Key` | Versioned customer, including archive/restore |
-| `GET /business/invoices` | `page`, `page_size`, `search`, `currency`, `stage`, `date_from`, `date_to`, `sort` | Rows, matching total, period stage counts, per-currency billed sums and query version |
+| `GET /business/invoices` | `page`, `page_size`, `search`, `currency`, `stage`, `date_from`, `date_to`, `sort` | Rows, matching total, period stage counts, per-currency billed sums, query version and `issuance_available` |
 | `POST /business/invoices` | `{data}` plus `Idempotency-Key` | 201 saved incomplete draft and immutable revision |
 | `GET /business/invoices/{invoice_id}` | none | Complete saved draft, revision, exact amounts, field errors and optional operation |
 | `PUT /business/invoices/{invoice_id}` | `{data,expected_version}` plus `Idempotency-Key` | New immutable revision, or 409 with attempted input and current version |
@@ -9515,6 +9515,10 @@ filters. Stages are draft, issued, processing, rejected and uncertain. Payment-b
 stages are unavailable until shared allocations exist. Only the first confirmed
 accepted/accepted-with-observations fiscal outcome enters billed sums. Query version
 changes with saved revisions and fiscal observations; clients refresh explicitly.
+`issuance_available` is true only when the fiscal operation service is wired in the
+serving process, the same condition that lets `prepare` and submit answer instead of
+404 `fiscal_sandbox_unavailable`. Clients disable preparation and issuance when it is
+false. It names no provider, configuration or credential.
 
 ### Business fiscal sandbox operations
 
