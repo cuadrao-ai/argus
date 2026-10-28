@@ -24,6 +24,17 @@ other Business. It saves ``--business-name`` only when the server reports
 ``name_required``, and turns receipt reading on only with ``--enable-reading``
 (otherwise it stops when reading is off).
 
+``--profile alive`` adds Aug-Oct 2026 synthetic history after the demo states
+(``ALIVE_ROWS``): notes entered by hand and approved (DOP, a few USD, no fiscal
+fact), one personal purchase, cash settled in month close, a statement whose
+matches are confirmed and bank charges marked, open notes, four pack uploads
+(07 approved, 04 to review, 08 and 13 needing attention), and, when the API has
+invoicing on, customers and incomplete drafts that are never prepared or
+issued. Markers ``(ensayo A01)`` and ``jose-seed-alive-v1-*`` keys make a rerun
+write nothing. Each model read the seed causes, including the unread backlog
+that turning reading on reads, is counted at ``--read-cost-ceiling``; the seed
+refuses past $0.75 (``--spent-usd``, ``--reserve-reads``). One export call.
+
 Evidence: ``<evidence>/steps/<case>-<step>.json``, ``summary.json``, ``calls.json``
 (method, path, status, request id; never bodies of secrets) and ``screens/``
 at 1440 px. Nothing secret is written.
@@ -263,7 +274,11 @@ def serve_api(args: argparse.Namespace) -> None:
 
         from tests.business.receipt_stub import ReceiptStub
 
-        printed_by_digest = {PACK[k][2]: PRINTED[k] for k in PACK}
+        printed_by_digest = {
+            **{PACK[k][2]: PRINTED[k] for k in PACK},
+            **{ALIVE_PACK[k][2]: PRINTED[k] for k in ALIVE_PACK if k in PRINTED},
+        }
+        rows_by_digest = {ALIVE_PACK[k][2]: PRINTED_ROWS[k] for k in PRINTED_ROWS}
 
         class PrintedReceiptReader:
             """The product projection (batch_from_result) over a fixed read of each pack file."""
@@ -272,7 +287,29 @@ def serve_api(args: argparse.Namespace) -> None:
                 pass
 
             async def extract(self, *, content: bytes, **kwargs: Any) -> Any:
-                printed = printed_by_digest.get(hashlib.sha256(content).hexdigest())
+                digest = hashlib.sha256(content).hexdigest()
+                if digest in rows_by_digest:
+                    stub = ReceiptStub()
+                    stub.details = None
+                    stub.rows = [
+                        {
+                            "page": 1,
+                            "row": index,
+                            "evidence": "transaction",
+                            "status": "posted",
+                            "amount": amount,
+                            "currency": "DOP",
+                            "occurred_on": day,
+                            "direction": "outflow",
+                            "kind_hint": "expense",
+                            "merchant": merchant,
+                        }
+                        for index, (day, merchant, amount) in enumerate(
+                            rows_by_digest[digest], start=1
+                        )
+                    ]
+                    return await stub.extract(content=content, **kwargs)
+                printed = printed_by_digest.get(digest)
                 if printed is None:
                     raise DocumentExtractionError("document_unreadable")
                 purchase = {
@@ -1790,13 +1827,16 @@ class Seeder:
         self.api, self.args, self.files = api, args, files
         self.created: list[dict[str, Any]] = []
         self.planned: list[str] = []
+        self.budget = ReadBudget(
+            args.read_cost_ceiling, args.spent_usd, args.reserve_reads
+        )
 
-    def act(self, what: str, write) -> Any:  # noqa: ANN001
+    def act(self, what: str, write, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN001
         if self.args.dry_run:
             self.planned.append(what)
             print(f"  plan     {what}")
             return None
-        value = write()
+        value = write(*args, **kwargs)
         print(f"  wrote    {what}")
         return value
 
@@ -1896,6 +1936,7 @@ class Seeder:
         if mine:
             found = mine[0]
         else:
+            self.budget.take(f"reading {name}")
             found = self.act(
                 f"upload {name}",
                 lambda: upload(self.api, self.files[key], name, media_type, idem),
@@ -1936,6 +1977,14 @@ class Seeder:
         reading = api.get("/business/receipt-reading?language=es-419")
         out["reading"] = {"enabled_before": reading["enabled"]}
         if not reading["enabled"]:
+            backlog = [
+                r for r in Books(api).receipts() if r.get("status") in ("saved", "queued")
+            ]
+            out["reading"]["unread_backlog"] = len(backlog)
+            # Turning reading on reads every saved, unread receipt of the Business.
+            self.budget.take(
+                "the unread backlog read when reading turns on", len(backlog)
+            )
             if not self.args.enable_reading:
                 raise SystemExit(
                     "refusing: receipt reading is off for this Business; pass --enable-reading to turn it on"
@@ -2104,6 +2153,18 @@ class Seeder:
             "jose-seed-v1-case5-note",
             out["5"],
         )
+        if self.args.profile == "alive":
+            out["alive"] = Alive(self, account_id).run()
+        out["read_budget"] = {
+            "reads_caused": self.budget.reads,
+            "reserved_reads": self.budget.reserve,
+            "ceiling_usd_per_read": self.budget.ceiling,
+            "already_spent_usd": self.budget.spent,
+            "projected_usd": self.budget.projected(),
+            "stop_usd": self.budget.stop,
+        }
+        if self.args.profile == "alive":
+            out["planned_counts"] = planned_counts()
         if not self.args.dry_run:
             out["5"]["october_expenses"] = [
                 {k: e[k] for k in ("id", "merchant", "amount", "occurred_on")}
@@ -2132,8 +2193,935 @@ class Seeder:
                 }
                 for r in csv_rows(archive.read("records.csv"))
             ]
+        if self.args.profile == "alive" and not self.args.dry_run:
+            out["screen_counts"] = screen_counts(api)
         out["planned"] = self.planned
         return out
+
+
+# ---------------------------------------------------------------- seed --profile alive
+
+
+@dataclass(frozen=True)
+class AliveRow:
+    """One synthetic operating record, entered by hand through a note.
+
+    ``end``: open (note left in Notas en revisión), approved, personal.
+    ``paid``: month-close payment method once settled; None stays pendiente.
+    ``bank``: matched (statement line confirmed), suggested (left offered), None (no line)."""
+
+    tag: str
+    kind: str
+    occurred_on: str
+    counterparty: str
+    amount: str
+    currency: str = "DOP"
+    funding: str = "owner"
+    receipt_state: str | None = "informal_receipt"
+    end: str = "approved"
+    paid: str | None = None
+    bank: str | None = None
+
+    @property
+    def marker(self) -> str:
+        return f"(ensayo {self.tag})"
+
+    @property
+    def text(self) -> str:
+        symbol = "US$" if self.currency == "USD" else "RD$"
+        day = "/".join(reversed(self.occurred_on.split("-")))
+        verb = "Cobro" if self.kind == "income" else "Pago"
+        return f"{verb}: {self.counterparty}, {symbol} {float(self.amount):,.2f}, {day}. {self.marker}"
+
+
+# Aug-Oct 2026 for an invented colmado. No real names, RNCs or NCFs; no fiscal
+# fact on a hand-entered row. October avoids the demo totals (450.00, 2,826.10,
+# 548.70, 716.85, 365.80) and income stays out of October so the rehearsal's
+# records.csv-against-expenses check keeps its meaning.
+ALIVE_ROWS = (
+    AliveRow(
+        "A01",
+        "expense",
+        "2026-08-02",
+        "Distribuidora de Víveres El Progreso",
+        "8450.00",
+        funding="bank",
+        bank="matched",
+    ),
+    AliveRow(
+        "A02",
+        "expense",
+        "2026-08-05",
+        "Panadería La Espiga Dorada",
+        "1320.00",
+        paid="efectivo",
+    ),
+    AliveRow(
+        "A03",
+        "expense",
+        "2026-08-09",
+        "Agua Purificada Manantial del Valle",
+        "960.00",
+        receipt_state="no_receipt",
+        paid="efectivo",
+    ),
+    AliveRow(
+        "A04",
+        "income",
+        "2026-08-12",
+        "Ventas de la semana (cuadre de caja)",
+        "18500.00",
+        funding="bank",
+        receipt_state=None,
+    ),
+    AliveRow(
+        "A05",
+        "expense",
+        "2026-08-15",
+        "Alquiler del local, agosto",
+        "15000.00",
+        funding="bank",
+        receipt_state="no_receipt",
+        bank="matched",
+    ),
+    AliveRow(
+        "A06",
+        "expense",
+        "2026-08-20",
+        "Embutidos y Lácteos Santa Clara",
+        "6275.50",
+        funding="bank",
+        bank="matched",
+    ),
+    AliveRow(
+        "A07",
+        "expense",
+        "2026-08-22",
+        "Suscripción del programa de inventario",
+        "29.00",
+        currency="USD",
+        receipt_state="no_receipt",
+        paid="tarjeta",
+    ),
+    AliveRow(
+        "A08",
+        "income",
+        "2026-08-26",
+        "Ventas de la semana (cuadre de caja)",
+        "21340.00",
+        funding="bank",
+        receipt_state=None,
+    ),
+    AliveRow(
+        "A09",
+        "expense",
+        "2026-08-28",
+        "Servicio de luz, agosto",
+        "4850.00",
+        funding="bank",
+        receipt_state=None,
+        bank="matched",
+    ),
+    AliveRow(
+        "B01",
+        "expense",
+        "2026-09-01",
+        "Distribuidora de Víveres El Progreso",
+        "9120.00",
+        funding="bank",
+        bank="matched",
+    ),
+    AliveRow(
+        "B02",
+        "expense",
+        "2026-09-04",
+        "Panadería La Espiga Dorada",
+        "1410.00",
+        paid="efectivo",
+    ),
+    AliveRow(
+        "B03",
+        "income",
+        "2026-09-08",
+        "Ventas de la semana (cuadre de caja)",
+        "19750.00",
+        funding="bank",
+        receipt_state=None,
+    ),
+    AliveRow(
+        "B04",
+        "expense",
+        "2026-09-10",
+        "Alquiler del local, septiembre",
+        "15000.00",
+        funding="bank",
+        receipt_state="no_receipt",
+        bank="matched",
+    ),
+    AliveRow(
+        "B05",
+        "expense",
+        "2026-09-14",
+        "Refrigeración Hermanos Ensayo, reparación de nevera",
+        "3500.00",
+        receipt_state=None,
+    ),
+    AliveRow(
+        "B06",
+        "expense",
+        "2026-09-16",
+        "Supermercado, compra de la casa",
+        "2180.00",
+        end="personal",
+    ),
+    AliveRow(
+        "B07",
+        "expense",
+        "2026-09-18",
+        "Embutidos y Lácteos Santa Clara",
+        "5980.25",
+        funding="bank",
+        bank="suggested",
+    ),
+    AliveRow(
+        "B08",
+        "expense",
+        "2026-09-22",
+        "Suscripción del programa de inventario",
+        "29.00",
+        currency="USD",
+        receipt_state="no_receipt",
+        paid="tarjeta",
+    ),
+    AliveRow(
+        "B09",
+        "income",
+        "2026-09-24",
+        "Ventas de la semana (cuadre de caja)",
+        "22610.00",
+        funding="bank",
+        receipt_state=None,
+    ),
+    AliveRow(
+        "B10",
+        "expense",
+        "2026-09-27",
+        "Servicio de luz, septiembre",
+        "5120.00",
+        funding="bank",
+        receipt_state=None,
+    ),
+    AliveRow(
+        "C01",
+        "expense",
+        "2026-10-02",
+        "Distribuidora de Víveres El Progreso",
+        "8990.00",
+        funding="bank",
+        bank="matched",
+    ),
+    AliveRow(
+        "C02",
+        "expense",
+        "2026-10-05",
+        "Panadería La Espiga Dorada",
+        "1275.00",
+        paid="efectivo",
+    ),
+    AliveRow(
+        "C03",
+        "expense",
+        "2026-10-13",
+        "Embutidos y Lácteos Santa Clara",
+        "6410.75",
+        funding="bank",
+    ),
+    AliveRow(
+        "C04",
+        "income",
+        "2026-10-14",
+        "Ventas de la semana (cuadre de caja)",
+        "20880.00",
+        funding="bank",
+        receipt_state=None,
+        end="open",
+    ),
+    AliveRow(
+        "C05",
+        "expense",
+        "2026-10-22",
+        "Alojamiento de la tienda en línea",
+        "12.00",
+        currency="USD",
+        receipt_state="no_receipt",
+    ),
+    AliveRow(
+        "C06",
+        "expense",
+        "2026-10-24",
+        "Gas propano para la cocina",
+        "1850.00",
+        paid="efectivo",
+    ),
+    AliveRow(
+        "C07",
+        "expense",
+        "2026-10-25",
+        "Fundas y envases desechables",
+        "980.00",
+        end="open",
+    ),
+)
+# Statement lines beside the rows: income deposits and monthly bank charges.
+ALIVE_BANK_EXTRA = (
+    ("2026-08-12", "DEPOSITO VENTAS ENSAYO", "18500.00", "open"),
+    ("2026-08-26", "DEPOSITO VENTAS ENSAYO", "21340.00", "open"),
+    ("2026-08-31", "COMISION MANEJO CUENTA ENSAYO", "-175.00", "cargo_banco"),
+    ("2026-09-08", "DEPOSITO VENTAS ENSAYO", "19750.00", "open"),
+    ("2026-09-24", "DEPOSITO VENTAS ENSAYO", "22610.00", "open"),
+    ("2026-09-30", "COMISION MANEJO CUENTA ENSAYO", "-175.00", "cargo_banco"),
+    ("2026-10-14", "DEPOSITO VENTAS ENSAYO", "20880.00", "open"),
+)
+# Numbered pack files the alive profile uploads (each is one model read).
+# 02 is never uploaded: case 1 sends it live over WhatsApp.
+ALIVE_PACK = {
+    "U": (
+        "07-compra-unica.csv",
+        "text/csv",
+        "a0b36853fce90f4ff376f778ade0147dbdbed6577529d8b778a44af29fbda146",
+        "approve",
+    ),
+    "G": (
+        "04-gasolinera-foto-rotada.jpg",
+        "image/jpeg",
+        "40dd76246a2f00b42b6b20f64c712620c4d450e0fd3e23f17cfae5dc6d78c852",
+        "review",
+    ),
+    "V": (
+        "08-varias-compras.csv",
+        "text/csv",
+        "cfe572e744451d256440f06b429b44becf29db98b4d045914957426ba10661b3",
+        "attention",
+    ),
+    "B": (
+        "13-borroso-ilegible.jpg",
+        "image/jpeg",
+        "a54dbd80c6d974418c4ba1a018fadb95f984ee3cc0c9c26dc40a4ecc5cff44e6",
+        "attention",
+    ),
+}
+PRINTED.update(
+    {
+        "U": {
+            "merchant": "Ferretería El Tornillo",
+            "occurred_on": "2026-10-06",
+            "subtotal": "1180.00",
+            "itbis": "212.40",
+            "total": "1392.40",
+            "rnc": "1-23-45678-9",
+            "ncf": "B0100000111",
+        },
+        "G": {
+            "merchant": "GASOLINERA DEL ESTE",
+            "occurred_on": "2026-10-11",
+            "subtotal": "2550.00",
+            "itbis": "459.00",
+            "total": "3009.00",
+            "rnc": "1-23-45678-9",
+            "ncf": "B0100000321",
+        },
+    }
+)
+# 08 prints five purchases (LEEME: "varias compras"); 13 is unreadable.
+PRINTED_ROWS = {
+    "V": [
+        ("2026-10-01", "Colmado La Esquina", "1260.50"),
+        ("2026-10-03", "Gasolinera Del Este", "2000.00"),
+        ("2026-10-05", "Farmacia San Rafael", "615.00"),
+        ("2026-10-08", "Restaurante Doña Mery", "1485.00"),
+        ("2026-10-10", "Ferretería El Tornillo", "2395.00"),
+    ]
+}
+ALIVE_CUSTOMERS = (
+    ("Cafetería Ensayo Los Robles", "compras@cafeteria-ensayo.example.com"),
+    ("Hotel Ensayo Brisas del Mar", "cuentas@hotel-ensayo.example.com"),
+    ("Colegio Ensayo San Marcos", "administracion@colegio-ensayo.example.com"),
+)
+# Incomplete on purpose (no date, or an item without price): nothing is prepared or issued.
+ALIVE_INVOICES = (
+    ("F01", 0, [("1", "Bandejas de picadera para 40 personas", "2", "3500.00")], ""),
+    ("F02", 1, [("1", "Desayunos del personal, octubre", "30", "")], "2026-10-20"),
+)
+ALIVE_KEY = "jose-seed-alive-v1"
+
+
+def alive_statement() -> bytes:
+    lines = [("date", "name", "amount", "iso_currency_code", "pending")]
+    for row in ALIVE_ROWS:
+        if row.bank:
+            name = row.counterparty.upper().replace(",", "")
+            lines.append((row.occurred_on, name, f"-{row.amount}", "DOP", "false"))
+    for day, name, amount, _ in ALIVE_BANK_EXTRA:
+        lines.append((day, name, amount, "DOP", "false"))
+    out = io.StringIO()
+    csv.writer(out, lineterminator="\n").writerows(lines)
+    return out.getvalue().encode()
+
+
+@dataclass
+class ReadBudget:
+    """Model reads cost money and the API does not report their price, so each
+    read the seed causes is counted at a ceiling price and refused past the stop."""
+
+    ceiling: float
+    spent: float
+    reserve: int
+    stop: float = 0.75
+    reads: int = 0
+
+    def projected(self, more: int = 0) -> float:
+        return round(self.spent + (self.reads + more + self.reserve) * self.ceiling, 4)
+
+    def take(self, what: str, count: int = 1) -> None:
+        if self.projected(count) > self.stop:
+            raise SystemExit(
+                f"refusing: {what} would bring projected read spend to ${self.projected(count):.2f} (stop ${self.stop:.2f})"
+            )
+        self.reads += count
+
+
+class Alive:
+    """Three months of believable history on top of the demo seed. Every write
+    is found first (note marker, pack filename, statement line, customer name,
+    invoice note), so a rerun writes nothing."""
+
+    def __init__(self, seeder: Seeder, account_id: str | None) -> None:
+        self.s, self.api, self.account_id = seeder, seeder.api, account_id
+        self.out: dict[str, Any] = {
+            "rows": {},
+            "uploads": {},
+            "bank": {},
+            "invoicing": {},
+        }
+
+    def key(self, name: str) -> str:
+        return f"{ALIVE_KEY}-{name}"
+
+    def dossier(self, draft_id: str) -> dict[str, Any]:
+        return self.api.get(f"/business/drafts/{draft_id}/dossier")
+
+    def find_note(self, row: AliveRow) -> str | None:
+        page = self.api.get(
+            "/business/captures", params={"q": row.marker, "view": "all", "limit": 50}
+        )
+        return next(
+            (n["draft_id"] for n in page.get("items", []) if n.get("text") == row.text),
+            None,
+        )
+
+    def facts(self, row: AliveRow) -> dict[str, Any]:
+        funding = (
+            {"kind": "business_account", "account_id": self.account_id}
+            if row.funding == "bank"
+            else {"kind": "owner_funds"}
+        )
+        patch = {
+            "kind": known(row.kind),
+            "amount": known(row.amount),
+            "currency": known(row.currency),
+            "occurred_on": known(row.occurred_on),
+            "counterparty": known(row.counterparty),
+            "funding": known(funding),
+            "business_share": known({"kind": "all"}),
+        }
+        if row.receipt_state:
+            patch["receipt_state"] = known(row.receipt_state)
+        return patch
+
+    def row(self, row: AliveRow) -> None:
+        report: dict[str, Any] = {"end": row.end}
+        self.out["rows"][row.tag] = report
+        draft_id = self.find_note(row)
+        if not draft_id:
+            made = self.s.act(
+                f"note {row.tag} {row.text!r}",
+                self.api.send,
+                "POST",
+                "/business/captures",
+                {"text": row.text, "document_type": "recibo"},
+                key=self.key(f"{row.tag}-note"),
+            )
+            if made is None:
+                for step in (
+                    "review facts",
+                    "mark personal" if row.end == "personal" else None,
+                    None if row.end == "open" else "approve",
+                    f"settle pagado {row.paid}" if row.paid else None,
+                ):
+                    if step:
+                        self.s.act(f"{step} {row.tag}", lambda: None)
+                return
+            draft_id = made["draft_id"]
+        report["draft_id"] = draft_id
+        dossier = self.dossier(draft_id)
+        if dossier["review_state"] == "open" and fact(dossier, "amount") is None:
+            if row.funding == "bank" and not self.account_id:
+                raise SystemExit("refusing: a bank-funded row needs the Business account")
+            self.s.act(
+                f"review {row.tag} facts",
+                self.api.send,
+                "PATCH",
+                f"/business/drafts/{draft_id}/review",
+                {"version": dossier["version"], "facts": self.facts(row)},
+                key=self.key(f"{row.tag}-review"),
+            )
+            dossier = self.dossier(draft_id)
+        if (
+            row.end == "personal"
+            and dossier["review_state"] == "open"
+            and not dossier.get("personal")
+        ):
+            self.s.act(
+                f"mark {row.tag} personal",
+                self.api.send,
+                "POST",
+                f"/business/drafts/{draft_id}/personal",
+                {"version": dossier["version"], "personal": True},
+                key=self.key(f"{row.tag}-personal"),
+            )
+            dossier = self.dossier(draft_id)
+        if row.end != "open" and dossier["review_state"] == "open":
+            self.s.act(
+                f"approve {row.tag}",
+                self.api.send,
+                "POST",
+                f"/business/drafts/{draft_id}/approve",
+                {
+                    "version": dossier["version"],
+                    "action": "record_income"
+                    if row.kind == "income"
+                    else "record_expense",
+                },
+                key=self.key(f"{row.tag}-approve"),
+            )
+            dossier = self.dossier(draft_id)
+        report.update(
+            review_state=dossier["review_state"],
+            blockers=blocker_fields(dossier),
+            activity_id=(dossier.get("approval_result") or {}).get("activity_id"),
+        )
+
+    def settle(self, rows: list[tuple[AliveRow, str | None]]) -> None:
+        """Cash and card purchases paid in month close; bank-matched ones are settled by the match."""
+
+        for month in sorted({row.occurred_on[:7] for row, _ in rows}):
+            payables = {
+                p["activity_id"]: p
+                for p in self.api.get(f"/business/month-close?month={month}")[
+                    "cuentas_por_pagar"
+                ]
+            }
+            for row, activity_id in rows:
+                if row.occurred_on[:7] != month or activity_id not in payables:
+                    continue
+                if payables[activity_id].get("status") != "pendiente":
+                    continue
+                self.s.act(
+                    f"settle {row.tag} pagado {row.paid}",
+                    self.api.send,
+                    "PATCH",
+                    f"/business/month-close/documents/{activity_id}",
+                    {
+                        "status": "pagado",
+                        "settled_on": row.occurred_on,
+                        "payment_method": row.paid,
+                    },
+                )
+
+    def uploads(self) -> None:
+        receipts = Books(self.api).receipts()
+        for key, (name, media_type, digest, end) in ALIVE_PACK.items():
+            report: dict[str, Any] = {"end": end}
+            self.out["uploads"][name] = report
+            found = next(
+                (
+                    r
+                    for r in receipts
+                    if r.get("filename") == name and r.get("channel") == "web"
+                ),
+                None,
+            )
+            if found is None:
+                content = (self.s.args.receipts_dir / name).read_bytes()
+                if hashlib.sha256(content).hexdigest() != digest:
+                    raise SystemExit(
+                        f"{name} is not the synthetic pack file (sha256 differs)"
+                    )
+                self.s.budget.take(f"reading {name}")
+                found = self.s.act(
+                    f"upload {name} (one model read)",
+                    self.upload,
+                    content,
+                    name,
+                    media_type,
+                    self.key(f"upload-{key}"),
+                )
+                if found is None:
+                    continue
+            found = read_receipt(self.api, found["id"])
+            report.update(
+                receipt_id=found["id"],
+                status=found.get("status"),
+                draft_id=found.get("draft_id"),
+            )
+            if end != "approve" or not found.get("draft_id"):
+                continue
+            draft_id = found["draft_id"]
+            dossier = self.dossier(draft_id)
+            if dossier["review_state"] == "open" and blocker_fields(dossier):
+                self.s.act(
+                    f"review {name}: funding owner, share all",
+                    self.api.send,
+                    "PATCH",
+                    f"/business/drafts/{draft_id}/review",
+                    {
+                        "version": dossier["version"],
+                        "facts": {
+                            "funding": known({"kind": "owner_funds"}),
+                            "business_share": known({"kind": "all"}),
+                        },
+                    },
+                    key=self.key(f"upload-{key}-review"),
+                )
+                dossier = self.dossier(draft_id)
+            if dossier["review_state"] == "open" and not blocker_fields(dossier):
+                self.s.act(
+                    f"approve {name}",
+                    self.api.send,
+                    "POST",
+                    f"/business/drafts/{draft_id}/approve",
+                    {"version": dossier["version"], "action": "record_expense"},
+                    key=self.key(f"upload-{key}-approve"),
+                )
+                dossier = self.dossier(draft_id)
+            activity_id = (dossier.get("approval_result") or {}).get("activity_id")
+            report.update(review_state=dossier["review_state"], activity_id=activity_id)
+            if activity_id:
+                printed = PRINTED[key]
+                self.settle(
+                    [
+                        (
+                            AliveRow(
+                                key,
+                                "expense",
+                                printed["occurred_on"],
+                                name,
+                                printed["total"],
+                                paid="efectivo",
+                            ),
+                            activity_id,
+                        )
+                    ]
+                )
+
+    def upload(self, content: bytes, name: str, media_type: str, key: str) -> Any:
+        """Document POSTs are limited to five a minute per person: wait out a 429."""
+
+        headers = {
+            "Content-Type": media_type,
+            "Idempotency-Key": key,
+            "X-Document-Filename": name,
+        }
+        for _ in range(4):
+            sent = self.api.call(
+                "POST",
+                "/api/v1/business/receipts",
+                content=content,
+                headers=dict(headers),
+                ok=False,
+            )
+            if sent.status != 429:
+                break
+            wait = int(sent.headers.get("retry-after") or 60) + 1
+            print(f"  wait     {wait}s for the upload rate limit")
+            time.sleep(wait)
+        expect(200 <= sent.status < 300, f"upload {name} answered {sent.status}")
+        return sent.body
+
+    def movements(self, month: str) -> list[dict[str, Any]]:
+        start = f"{month}-01"
+        end = f"{month}-{31 if month.endswith(('08', '10')) else 30}"
+        return self.api.get(
+            f"/business/bank/movements?period_start={start}&period_end={end}&segment=todas"
+        ).get("items", [])
+
+    def bank(self) -> None:
+        if not self.account_id:
+            self.s.act(
+                "import the alive statement (after the account exists)", lambda: None
+            )
+            return
+        first = ALIVE_ROWS[0]
+        present = any(
+            line.get("occurred_on") == first.occurred_on
+            and line.get("amount") == f"-{first.amount}"
+            for line in self.movements(first.occurred_on[:7])
+        )
+        if not present:
+            imported = self.s.act(
+                f"import the alive statement ({len(alive_statement().splitlines()) - 1} lines, Aug-Oct)",
+                import_statement,
+                self.api,
+                self.account_id,
+                alive_statement(),
+                self.key("statement"),
+            )
+            if imported is None:
+                return
+            self.out["bank"]["import"] = {
+                "status": imported.status,
+                **{
+                    k: imported.body.get(k)
+                    for k in ("inserted_count", "unchanged_count", "created")
+                },
+            }
+        activities = {tag: r.get("activity_id") for tag, r in self.out["rows"].items()}
+        for month in ("2026-08", "2026-09", "2026-10"):
+            lines = self.movements(month)
+            for row in ALIVE_ROWS:
+                if row.bank != "matched" or row.occurred_on[:7] != month:
+                    continue
+                for line in lines:
+                    suggestion = next(
+                        (
+                            s
+                            for s in line.get("suggestions") or []
+                            if (s.get("document") or {}).get("activity_id")
+                            == activities.get(row.tag)
+                        ),
+                        None,
+                    )
+                    if suggestion and line.get("state") == "sugerencia":
+                        self.s.act(
+                            f"confirm the statement match for {row.tag}",
+                            self.api.call,
+                            "POST",
+                            f"/api/v1/business/bank/suggestions/{suggestion['id']}/confirm",
+                            headers={"Idempotency-Key": self.key(f"{row.tag}-confirm")},
+                        )
+            for day, _name, amount, end in ALIVE_BANK_EXTRA:
+                if end != "cargo_banco" or day[:7] != month:
+                    continue
+                line = next(
+                    (
+                        x
+                        for x in lines
+                        if x.get("occurred_on") == day
+                        and x.get("amount") == amount
+                        and x.get("state") == "falta_comprobante"
+                    ),
+                    None,
+                )
+                if line:
+                    self.s.act(
+                        f"mark the {day} bank charge as no receipt needed (cargo_banco)",
+                        self.api.call,
+                        "PUT",
+                        f"/api/v1/business/bank/movements/{line['id']}/disposition",
+                        json={"reason": "cargo_banco"},
+                        headers={"Idempotency-Key": self.key(f"charge-{day}")},
+                    )
+
+    def invoicing(self) -> None:
+        listed = self.api.call(
+            "GET", "/api/v1/business/customers?page_size=100", ok=False
+        )
+        if listed.status == 404:
+            self.out["invoicing"] = {
+                "skipped": "invoicing is off on this API (business_invoicing_unavailable)"
+            }
+            print("  skip     customers and invoice drafts: invoicing is off on this API")
+            return
+        expect(listed.status == 200, f"customers answered {listed.status}")
+        have = {c["data"]["name"]: c["id"] for c in listed.body["items"]}
+        ids = []
+        for index, (name, email) in enumerate(ALIVE_CUSTOMERS):
+            if name not in have:
+                made = self.s.act(
+                    f"customer {name!r}",
+                    self.api.send,
+                    "POST",
+                    "/business/customers",
+                    {"data": {"name": name, "email": email}},
+                    key=self.key(f"customer-{index}"),
+                )
+                have[name] = made and made["id"]
+            ids.append(have[name])
+        invoices = self.api.get("/business/invoices?page_size=100")["items"]
+        notes = {i["data"].get("notes") for i in invoices}
+        for tag, customer, items, issued_on in ALIVE_INVOICES:
+            note = f"Borrador de prueba (ensayo {tag})"
+            if note in notes or ids[customer] is None:
+                continue
+            self.s.act(
+                f"incomplete invoice draft {tag} (never prepared or issued)",
+                self.api.send,
+                "POST",
+                "/business/invoices",
+                {
+                    "data": {
+                        "customer_id": ids[customer],
+                        "customer_input": {
+                            "name": ALIVE_CUSTOMERS[customer][0],
+                            "email": ALIVE_CUSTOMERS[customer][1],
+                        },
+                        "currency": "DOP",
+                        "issued_on": issued_on,
+                        "items": [
+                            {"id": i, "description": d, "quantity": q, "price": p}
+                            for i, d, q, p in items
+                        ],
+                        "notes": note,
+                    }
+                },
+                key=self.key(f"invoice-{tag}"),
+            )
+        self.out["invoicing"] = {"customers": len(ids), "drafts": len(ALIVE_INVOICES)}
+
+    def run(self) -> dict[str, Any]:
+        print("alive: Aug-Oct 2026 notes entered by hand, approved, settled")
+        for row in ALIVE_ROWS:
+            self.row(row)
+        self.settle(
+            [
+                (row, self.out["rows"][row.tag].get("activity_id"))
+                for row in ALIVE_ROWS
+                if row.paid and row.funding == "owner"
+            ]
+        )
+        print(
+            "alive: numbered pack uploads (07 approved, 04 to review, 08 and 13 need attention)"
+        )
+        self.uploads()
+        print("alive: Aug-Oct statement, matches confirmed, bank charges marked")
+        self.bank()
+        print("alive: invoicing customers and incomplete drafts")
+        self.invoicing()
+        return self.out
+
+
+def planned_counts() -> dict[str, Any]:
+    """What the alive profile adds, by screen, from its own table."""
+
+    rows = ALIVE_ROWS
+    recorded = [r for r in rows if r.end != "open"]
+    by_month: dict[str, dict[str, int]] = {}
+    for r in recorded:
+        cell = by_month.setdefault(
+            r.occurred_on[:7], {"expense": 0, "income": 0, "personal": 0}
+        )
+        cell["personal" if r.end == "personal" else r.kind] += 1
+    statement = alive_statement().splitlines()[1:]
+    return {
+        "bandeja": {
+            "notes_open": sum(r.end == "open" for r in rows),
+            "uploads": {v[0]: v[3] for v in ALIVE_PACK.values()},
+        },
+        "registros_recorded_by_month": by_month,
+        "registros_usd_rows": sum(r.currency == "USD" for r in recorded),
+        "month_close": {
+            "settled_by_hand": sum(bool(r.paid) for r in recorded) + 1,
+            "settled_by_bank_match": sum(r.bank == "matched" for r in recorded),
+            "left_pendiente": sum(
+                r.kind == "expense"
+                and r.end == "approved"
+                and not r.paid
+                and r.bank != "matched"
+                for r in recorded
+            ),
+            "without_receipt_state": sum(
+                r.receipt_state is None and r.kind == "expense" for r in recorded
+            ),
+        },
+        "bank_lines": {
+            "total": len(statement),
+            "matched": sum(r.bank == "matched" for r in rows),
+            "suggested": sum(r.bank == "suggested" for r in rows),
+            "cargo_banco": sum(e[3] == "cargo_banco" for e in ALIVE_BANK_EXTRA),
+            "open_deposits": sum(e[3] == "open" for e in ALIVE_BANK_EXTRA),
+        },
+        "facturacion": {
+            "customers": len(ALIVE_CUSTOMERS),
+            "incomplete_drafts": len(ALIVE_INVOICES),
+        },
+        "model_reads": len(ALIVE_PACK),
+    }
+
+
+def screen_counts(api: Api) -> dict[str, Any]:
+    """The Business as each screen reads it, from the server."""
+
+    receipts = Books(api).receipts()
+    statuses: dict[str, int] = {}
+    for r in receipts:
+        statuses[r.get("status")] = statuses.get(r.get("status"), 0) + 1
+    notes = api.get("/business/captures", params={"view": "inbox", "limit": 50})
+    months = {}
+    for month, last in (("2026-08", "31"), ("2026-09", "30"), ("2026-10", "31")):
+        close = api.get(f"/business/month-close?month={month}")
+        payables = close.get("cuentas_por_pagar", [])
+        overview = api.get(f"/business/overview?from={month}-01&to={month}-{last}")
+        moves = api.get(
+            f"/business/bank/movements?period_start={month}-01&period_end={month}-{last}&segment=todas"
+        ).get("counts", {})
+        months[month] = {
+            "expenses": len(
+                api.get(f"/business/expenses?from={month}-01&to={month}-{last}")["items"]
+            ),
+            "overview_totals": overview.get("totals"),
+            "payables_pendiente": len(payables),
+            "receipts_by_status": [
+                c.get("by_status", {}).get("receipts")
+                for c in close.get("currencies", [])
+            ],
+            "bank": {
+                k: moves.get(k)
+                for k in (
+                    "movimientos",
+                    "igualadas",
+                    "sugerencias",
+                    "falta_comprobante",
+                    "no_lleva_comprobante",
+                )
+            },
+        }
+    open_items = api.get("/business/open-items")
+    activity = api.call("GET", "/api/v1/business/activity?limit=100", ok=False)
+    customers = api.call("GET", "/api/v1/business/customers?page_size=100", ok=False)
+    invoices = api.call("GET", "/api/v1/business/invoices?page_size=100", ok=False)
+    return {
+        "bandeja": {
+            "receipts_by_status": statuses,
+            "notes_in_review": len(notes.get("items", [])),
+        },
+        "months": months,
+        "open_items": {
+            k: v.get("count")
+            for k, v in open_items.items()
+            if isinstance(v, dict) and "count" in v
+        },
+        "actividad_items": len((activity.body or {}).get("items", []))
+        if activity.status == 200
+        else f"status {activity.status}",
+        "facturacion": {
+            "customers": customers.body.get("total")
+            if customers.status == 200
+            else f"status {customers.status}",
+            "invoices": invoices.body.get("total")
+            if invoices.status == 200
+            else f"status {invoices.status}",
+        },
+    }
 
 
 # ---------------------------------------------------------------- run
@@ -2248,6 +3236,11 @@ def run(args: argparse.Namespace) -> None:
                 {"name": "seed-bandeja", "path": "/biz?view=inbox"},
                 {"name": "seed-registros", "path": "/biz?view=transactions"},
             ]
+            if args.profile == "alive":
+                shots += [
+                    {"name": "seed-facturacion", "path": "/biz?view=invoicing"},
+                    {"name": "seed-actividad", "path": "/biz?view=activity"},
+                ]
             for name, case, key, param in (
                 ("seed-case2-note", "2", "draft_id", "draft"),
                 ("seed-case3-ready-personal", "3", "receipt_id", "receipt"),
@@ -2406,6 +3399,30 @@ def main() -> None:
         action="store_true",
         help="seed: turn receipt reading on when it is off (model spend on staging)",
     )
+    go.add_argument(
+        "--profile",
+        choices=("demo", "alive"),
+        default="demo",
+        help="seed: demo = cases 2-5 ready; alive = that plus Aug-Oct synthetic history",
+    )
+    go.add_argument(
+        "--read-cost-ceiling",
+        type=float,
+        default=0.05,
+        help="seed: USD counted per model read the seed causes (the API reports no price)",
+    )
+    go.add_argument(
+        "--spent-usd",
+        type=float,
+        default=0.0,
+        help="seed: read spend already made under the $1.00 cap (stop $0.75)",
+    )
+    go.add_argument(
+        "--reserve-reads",
+        type=int,
+        default=1,
+        help="seed: reads kept for the rehearsal (case 1 WhatsApp read)",
+    )
     go.add_argument("--no-screens", dest="screens", action="store_false")
     go.set_defaults(handler=run)
     args = parser.parse_args()
@@ -2416,6 +3433,8 @@ def main() -> None:
             parser.error("--account is required for --target staging")
         if args.mode == "seed" and not args.expect_business:
             parser.error("--expect-business is required for --mode seed")
+        if args.profile != "demo" and args.mode != "seed":
+            parser.error("--profile is a seed option")
     args.handler(args)
 
 
