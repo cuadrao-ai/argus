@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, CheckCheck, ChevronDown, ChevronRight, Inbox, ListFilter, Users, Mail, MessageCircle, Upload, PencilLine, X } from "lucide-react";
+import { ArrowLeft, CheckCheck, ChevronDown, ChevronRight, Inbox, ListFilter, Users, X } from "lucide-react";
+import { EnvelopeSimple, NotePencil, UploadSimple, WhatsappLogo } from "@phosphor-icons/react";
 import { useTranslation } from "react-i18next";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
@@ -11,7 +12,7 @@ import styles from "../transacciones/records-filter-preview.module.css";
 import { emptyReceptionFilters, type ReceptionFiltersValue, type SenderIdentity } from "./reception-filters";
 
 type Props = { senders: SenderIdentity[]; value: ReceptionFiltersValue; onChange: (value: ReceptionFiltersValue) => void };
-const CHANNELS = [{ value: "whatsapp", icon: MessageCircle }, { value: "email", icon: Mail }, { value: "web", icon: Upload }, { value: "note", icon: PencilLine }] as const;
+const CHANNELS = [{ value: "whatsapp", icon: WhatsappLogo }, { value: "email", icon: EnvelopeSimple }, { value: "web", icon: UploadSimple }, { value: "note", icon: NotePencil }] as const;
 const GROUPS = ["source", "sender", "status"] as const;
 
 function FilterEditor({ senders, value, onChange, close, phone = false }: Props & { close: () => void; phone?: boolean }) {

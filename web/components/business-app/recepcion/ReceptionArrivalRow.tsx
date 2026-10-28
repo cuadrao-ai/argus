@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Eye, EnvelopeSimple, ChatCircle, UploadSimple, NotePencil } from "@phosphor-icons/react";
+import { ArrowRight, Eye, EnvelopeSimple, ChatCircle, UploadSimple, NotePencil, WhatsappLogo } from "@phosphor-icons/react";
 import ReceptionStatus from "./ReceptionStatus";
 import { useTranslation } from "react-i18next";
 import { currencySymbol } from "@/lib/money-entry";
@@ -14,7 +14,7 @@ import type { ReceptionPreferences } from "./ReceptionControls";
 import ReceptionOriginal from "./ReceptionOriginal";
 import styles from "./reception.module.css";
 
-const SOURCE_ICONS = { web: UploadSimple, email: EnvelopeSimple, whatsapp: ChatCircle, note: NotePencil };
+export const SOURCE_ICONS = { web: UploadSimple, email: EnvelopeSimple, whatsapp: WhatsappLogo, note: NotePencil };
 export default function ReceptionArrivalRow({ row, panel, openPanel, preferences, selectable, checked, unseen, onCheck, onSeen, onInspect, inspecting }: { onInspect: () => void; inspecting: boolean; selectable: boolean; checked: boolean; unseen: boolean; onCheck: () => void; onSeen: () => void; row: ReceptionRow; panel: BusinessPanelState; openPanel: (panel: BusinessPanelState) => void; preferences: ReceptionPreferences }) {
   const { t, i18n } = useTranslation();
   const { chosen } = useBusiness();
