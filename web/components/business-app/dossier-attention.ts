@@ -42,11 +42,11 @@ export function dossierAttention(
 
   const verification = dossier.ecf_checks;
   if (verification) {
-    // The read row names each field it compared, in the server's own words for both values.
+    // One item per field the read and the XML disagree on, in the same words as the e-CF card, so each points at its row.
     const read = verification.checks.find((check) => check.name === "read_matches_xml" && check.state === "failed");
-    const compared = Object.entries(read?.detail ?? {});
-    for (const [name, detail] of compared) {
-      items.push({ key: `check-read-${name}`, field: ECF_FIELD[name] ?? null, kind: "check_failed", text: `${t(`business.dossier.ecf_field_${name}`, name)}: ${detail}` });
+    const compared = Object.keys(read?.detail ?? {});
+    for (const name of compared) {
+      items.push({ key: `check-read-${name}`, field: ECF_FIELD[name] ?? null, kind: "check_failed", text: t("business.dossier.ecf_read_failed", "Review: the read differs from the XML in {{fields}}", { fields: t(`business.dossier.ecf_field_${name}`, name) }) });
     }
     for (const row of ecfRows(verification, t)) {
       if (row.state !== "failed" || (row.key === "read" && compared.length)) continue;

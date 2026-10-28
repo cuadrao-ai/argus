@@ -16,11 +16,12 @@ async function setup() {
 }
 
 describe("what needs the person on a dossier", () => {
-  test("the fiscal case: the unconfirmed merchant, the ITBIS the XML disagrees on in the server's words, and the NCF the e-CF file contradicts", async () => {
+  test("the fiscal case: the unconfirmed merchant, the ITBIS the XML disagrees on in the e-CF card's words, and the NCF the e-CF file contradicts", async () => {
     const { fixtures, attention } = await setup();
     const items = attention(await fixtures.dossier(dossierFixtureIds.fiscal));
     assert.deepEqual(items.map((item) => [item.kind, item.field]), [["check_failed", "itbis"], ["suggestion", "counterparty"], ["contradiction", "fiscal"]]);
-    assert.equal(items[0].text, "ITBIS: read=526.27 xml=526.72", "the detail is shown as the server wrote it, never parsed");
+    assert.equal(items[0].text, "Revisar: la lectura difiere del XML en ITBIS");
+    assert.doesNotMatch(items.map((item) => item.text).join(" "), /read=|xml=/, "the server's raw detail never reaches the person");
     assert.equal(items[1].text, "Comercio o persona: sugerencia por confirmar");
     assert.match(items[2].text, /no coinciden.*E310000000777/);
   });
