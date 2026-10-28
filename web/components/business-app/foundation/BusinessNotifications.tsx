@@ -91,9 +91,9 @@ export default function BusinessNotifications({ businessId, businessName, previe
   const invitationLive=useRef(true);
   useEffect(()=>{
     invitationLive.current=true;
-    if(!preview&&open){setInvitationError(false);getBusinessInvitations().then(value=>{if(invitationLive.current)setInvitations(value);},()=>{if(invitationLive.current)setInvitationError(true);});}
+    if(!preview){setInvitationError(false);getBusinessInvitations().then(value=>{if(invitationLive.current)setInvitations(value);},()=>{if(invitationLive.current)setInvitationError(true);});}
     return()=>{invitationLive.current=false;};
-  },[preview,open,businessId,invitationAttempt]);
+  },[preview,businessId,invitationAttempt]);
   const acceptInvitation=async(invitation:RecipientInvitation)=>{
     if(accepting||acceptRefused.has(invitation.id))return;
     setAccepting(invitation.id);setAcceptFailed(false);
@@ -119,6 +119,8 @@ export default function BusinessNotifications({ businessId, businessName, previe
   const notices = preview && businessId && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? SAMPLE_NOTICES.filter((notice) => !dismissed[keyFor(notice)]) : [];
   const isUnread = (notice: Notice) => notice.unread && !read[keyFor(notice)];
   const unread = notices.filter(isUnread);
+  const pendingInvitations = !preview && !invitationError ? invitations?.length ?? 0 : 0;
+  const waiting = unread.length + pendingInvitations;
   const visible = filter === "unread" ? unread : notices;
   const state = !notices.length ? "empty-all" : !visible.length ? "empty-unread" : "populated";
   const close = () => { setOpen(false); triggerRef.current?.focus(); };
@@ -195,9 +197,9 @@ export default function BusinessNotifications({ businessId, businessName, previe
     if (!isBelowTablet && event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node)) setOpen(false);
   }}>
     <Tooltip content={title} side="bottom">
-      <button ref={triggerRef} type="button" data-testid="business-notifications-trigger" aria-label={title} aria-describedby={unread.length ? unreadId : undefined} aria-haspopup="dialog" aria-expanded={open} aria-controls={open && !isBelowTablet ? panelId : undefined} onClick={() => setOpen((value) => !value)} className={`relative flex h-11 w-11 items-center justify-center rounded-full text-[#56635e] transition-colors hover:bg-[#e3ebe1] hover:text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white dark:focus-visible:outline-[#8fcbb0] ${open ? "bg-[#e3ebe1] dark:bg-white/10" : ""}`}>
+      <button ref={triggerRef} type="button" data-testid="business-notifications-trigger" aria-label={title} aria-describedby={waiting ? unreadId : undefined} aria-haspopup="dialog" aria-expanded={open} aria-controls={open && !isBelowTablet ? panelId : undefined} onClick={() => { if (!open) setInvitationAttempt((value) => value + 1); setOpen(!open); }} className={`relative flex h-11 w-11 items-center justify-center rounded-full text-[#56635e] transition-colors hover:bg-[#e3ebe1] hover:text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white dark:focus-visible:outline-[#8fcbb0] ${open ? "bg-[#e3ebe1] dark:bg-white/10" : ""}`}>
         <Bell className="h-5 w-5" aria-hidden="true" />
-        {unread.length ? <><span aria-hidden="true" className={styles.bellDot} /><span id={unreadId} className="sr-only">{t("business.notifications.unread_count", { count: unread.length })}</span></> : null}
+        {waiting ? <><span aria-hidden="true" className={styles.bellDot} /><span id={unreadId} className="sr-only">{t("business.notifications.unread_count", { count: waiting })}</span></> : null}
       </button>
     </Tooltip>
     {open && !isBelowTablet ? <div id={panelId} role="dialog" aria-labelledby={titleId} data-testid="business-notifications-popover" className={`${styles.popover} absolute right-0 top-full z-[70] mt-2 rounded-surface border border-[#DCE0DA] bg-[var(--cuadrao-menu-surface)] text-[#172b26] dark:border-white/10 dark:text-white`}>

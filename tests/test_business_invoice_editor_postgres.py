@@ -137,7 +137,9 @@ def test_read_snapshot_survives_concurrent_committed_save(
         )
     else:
         observed = (
-            invoices(editor, lane.owner, lane.grant, Query()).items[0]
+            invoices(
+                editor, lane.owner, lane.grant, Query(), issuance_available=False
+            ).items[0]
             if target == "operation_list"
             else editor.invoice(lane.owner, lane.grant, saved.id)
         )
@@ -378,12 +380,16 @@ async def test_query_counts_and_totals_share_filters_but_stage_counts_are_period
     await lane.service.submit(
         lane.owner, lane.grant, prepared.operation.id, prepared.operation.payload_digest
     )
-    page = invoices(editor, lane.owner, lane.grant, Query(currency="DOP"))
+    page = invoices(
+        editor, lane.owner, lane.grant, Query(currency="DOP"), issuance_available=False
+    )
     assert page.total == 1
     assert page.stage_counts == {"draft": 1, "issued": 1}
     assert page.summaries[0].billed == "35.40"
     assert page.summaries[0].outstanding is None
-    empty = invoices(editor, lane.owner, lane.grant, Query(search="no match"))
+    empty = invoices(
+        editor, lane.owner, lane.grant, Query(search="no match"), issuance_available=False
+    )
     assert empty.total == 0
     assert empty.stage_counts == page.stage_counts
 
@@ -404,7 +410,9 @@ def test_closed_business_denies_every_editor_boundary(editor, lane, draft):
     )
     calls = [
         lambda: editor.invoice(lane.owner, lane.grant, saved.id),
-        lambda: invoices(editor, lane.owner, lane.grant, Query()),
+        lambda: invoices(
+            editor, lane.owner, lane.grant, Query(), issuance_available=False
+        ),
         lambda: create(editor, lane, draft),
         lambda: prepare(editor, lane.service, lane.owner, lane.grant, saved.id, 1),
     ]
@@ -469,9 +477,16 @@ def test_preparation_changes_query_version_and_foreign_customer_is_not_linkable(
     from tests.test_business_spaces_migration_postgres import space
 
     saved = create(editor, lane, draft)
-    before = invoices(editor, lane.owner, lane.grant, Query()).query_version
+    before = invoices(
+        editor, lane.owner, lane.grant, Query(), issuance_available=False
+    ).query_version
     prepare(editor, lane.service, lane.owner, lane.grant, saved.id, 1)
-    assert invoices(editor, lane.owner, lane.grant, Query()).query_version != before
+    assert (
+        invoices(
+            editor, lane.owner, lane.grant, Query(), issuance_available=False
+        ).query_version
+        != before
+    )
     with lane.store.pool.connection() as db:
         other_business = space(db, users["other"])
         other_customer = db.execute(
@@ -493,7 +508,7 @@ async def test_conflicting_legal_evidence_is_excluded_from_billed_summary(
         lane.owner, lane.grant, operation.id, operation.payload_digest
     )
     lane.store.record(operation.id, lane.provider.event("callback", legal="REJECTED"))
-    page = invoices(editor, lane.owner, lane.grant, Query())
+    page = invoices(editor, lane.owner, lane.grant, Query(), issuance_available=False)
     assert page.stage_counts == {"uncertain": 1}
     assert page.summaries == ()
     assert page.items[0].operation.state.legal == "ACCEPTED"

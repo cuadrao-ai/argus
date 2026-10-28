@@ -13,8 +13,13 @@ from argus.domain.business.fiscal_sandbox.service import Service
 from argus.domain.business.fiscal_sandbox.store import Store
 
 
+def fiscal_service(request: Request) -> Service | None:
+    """The one read of whether fiscal issuance is wired in this process."""
+    return getattr(request.app.state, "fiscal_sandbox", None)
+
+
 def require_fiscal(request: Request) -> Service:
-    service = getattr(request.app.state, "fiscal_sandbox", None)
+    service = fiscal_service(request)
     if service is None:
         raise HTTPException(
             404,
