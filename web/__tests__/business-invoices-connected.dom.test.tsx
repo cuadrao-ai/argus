@@ -10,8 +10,9 @@ import { removeSessionStored } from "@/lib/browser-storage";
 const realFlags = { ...await import("@/lib/private-alpha-flags") };
 mock.module("@/lib/private-alpha-flags", () => ({ ...realFlags, businessInvoicingEnabled: true }));
 
-beforeAll(() => { GlobalRegistrator.register({ url: "http://localhost/biz?view=invoicing" }); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); });
-afterAll(async () => { await GlobalRegistrator.unregister(); });
+const originalZone = process.env.TZ;
+beforeAll(() => { process.env.TZ = "America/Santo_Domingo"; GlobalRegistrator.register({ url: "http://localhost/biz?view=invoicing" }); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); });
+afterAll(async () => { if (originalZone === undefined) delete process.env.TZ; else process.env.TZ = originalZone; await GlobalRegistrator.unregister(); });
 async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; losePrepare?: boolean; holdCreate?: boolean; entry?: boolean; selectedGrant?: string | null; missingActor?: boolean; missingPermissions?: boolean; directory?: "loading" | "failed"; checkTaxId?: boolean; customerRecords?: SavedCustomer[]; rejectCustomerTax?: boolean; holdReads?: boolean; readFailure?: number; noPrepare?: boolean; refuse?: "prepare" | "customer"; fiscalOff?: boolean; loseCustomerCreate?: boolean; rejectFirstInvoiceCreate?: boolean } = {}) {
   const { act, StrictMode } = await import("react");
   const { createRoot } = await import("react-dom/client");
