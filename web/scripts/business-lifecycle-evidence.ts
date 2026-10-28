@@ -62,13 +62,16 @@ try {
       if (path === "receipts") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, confirmed_count: 0, dismissed_count: 0 } } });
       if (path === "month-close") return route.fulfill({ json: monthCloseWire("2026-10") });
       if (path === "open-items") { const none = { count: 0, totals: [], overdue: { count: 0, totals: [] }, items: [] }; return route.fulfill({ json: { today: "2026-10-21", cuentas_por_cobrar: none, cuentas_por_pagar: none } }); }
+      if (path === "invitations") return route.fulfill({ json: [] });
+      const profileSpace = path.match(/^spaces\/([^/]+)\/profile$/)?.[1];
+      if (profileSpace) return route.fulfill({ json: { space_id: profileSpace, name: [owner, client, closed].find(space => space.space_id === profileSpace)?.name ?? owner.name, country: "DO", currency: "DOP", revision: 0, details: {}, appearance: { kind: "default" }, image: null } });
       throw new Error(`Unmapped synthetic endpoint ${path}`);
     });
     const query = state.startsWith("close-") ? `?lifecycle=close&business=${owner.space_id}` : state === "transfer-picker" ? `?lifecycle=transfer&business=${owner.space_id}` : state.startsWith("accept-") ? `?transfer=${transfer.id}` : state === "owner-datos" ? "?view=business&tab=datos" : "";
     try {
       await page.goto(`${baseURL}/biz${query}`);
       await page.addStyleTag({ content: FREEZE_CSS });
-      if (state === "owner-datos") { await expect(page.getByTestId("business-lifecycle-controls")).toBeVisible(); await expect(page.locator('input[name="business-name"]')).toHaveValue(owner.name); await page.getByTestId("business-lifecycle-controls").scrollIntoViewIfNeeded(); }
+      if (state === "owner-datos") { await expect(page.getByTestId("business-lifecycle-controls")).toBeVisible(); await expect(page.getByText(owner.name, { exact: true }).first()).toBeVisible(); await page.getByTestId("business-lifecycle-controls").scrollIntoViewIfNeeded(); }
       if (state === "close-download") await expect(page.getByRole("button", { name: "Descargar comprobantes", exact: true })).toBeVisible();
       if (state === "close-confirm" || state === "close-uncertain") {
         await page.getByRole("button", { name: "Cerrar negocio", exact: true }).click();
