@@ -89,7 +89,7 @@ try {
       if (state === "owner-closed") { await expect(page.getByRole("button", { name: "Reabrir negocio", exact: true })).toBeVisible(); await expect(page.getByText("Para descargar comprobantes, primero debes reabrir el negocio.")).toBeVisible(); }
       if (state === "member-closed") { await expect(page.getByTestId("business-member-closed")).toBeVisible(); expect(calls.every(call => call.method === "GET")).toBe(true); }
       if (state === "closed-banner") await expect(page.getByTestId("business-closed-owner-banner")).toBeVisible();
-      if (state === "switcher") { await page.getByRole("button", { name: "Colmado Rosa", exact: true }).first().click(); await expect(page.getByRole("menu")).toContainText("Cerrados"); }
+      if (state === "switcher") { await page.getByRole("button", { name: "Colmado Rosa", exact: true }).first().click(); await expect((width === 390 ? page.getByRole("dialog", { name: "Colmado Rosa", exact: true }) : page.getByRole("menu", { name: "Colmado Rosa", exact: true })).getByText("Cerrados", { exact: true })).toBeVisible(); }
       if (state.startsWith("deletion-")) {
         await page.getByTestId("header-profile-trigger").click();
         await page.getByRole("button", { name: "Controles de datos", exact: true }).click();
