@@ -239,7 +239,9 @@ async def test_a_read_that_cannot_start_waits_saved_with_its_reason(  # noqa: AN
 
 
 @pytest.mark.asyncio
-async def test_a_read_refused_by_the_owners_own_grant_records_the_literal_code(actions, users):  # noqa: ANN001
+async def test_a_read_refused_by_the_owners_own_grant_records_the_literal_code(
+    actions, users
+):  # noqa: ANN001
     """No fake: the owner's grant loses prepare in the table the authority
     reads, so the read cannot start for a permission reason (the WhatsApp
     path refuses with ``CaptureFailed``), and the draft records exactly
