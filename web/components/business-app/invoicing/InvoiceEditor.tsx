@@ -234,7 +234,7 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
         <label className={fieldLabelClass} htmlFor="invoice-email-message">{word("email_message")}<textarea id="invoice-email-message" rows={3} className={fieldClass} maxLength={500} value={email.message} placeholder={word("email_message_placeholder")} onChange={event => updateEmail("message", event.target.value)} /><span className={styles.counter}>{email.message.length}/500</span></label>
         <div className={styles.reviewSubmit}>
           <button className={`${primaryButtonClass} ${styles.editorPrimary}`} type="submit">{word(connection ? "save_draft" : "email_save_preparation")}</button>
-          {connection ? null : <p className={styles.muted}>{word("email_local_boundary")}</p>}
+          <p className={styles.muted}>{connection ? t("business.invoicing.save_only_note") : word("email_local_boundary")}</p>
         </div>
         </> : null}
         {attempted.has(step) && Object.keys(errors).some(key => stepForField(key) === step) ? <p role="alert" className={styles.error}>{word("editor_check_step")}</p> : null}

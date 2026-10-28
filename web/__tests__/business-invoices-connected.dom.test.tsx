@@ -482,3 +482,15 @@ test("a prepared invoice keeps its fiscal number as identity", async () => {
     assert.equal(uuidText.test(document.body.textContent ?? ""), false);
   } finally { await page.close(); }
 });
+test("the invoice dossier lists payments, corrections and delivery as static unavailable blocks and the editor review says nothing is sent", async () => {
+  const page = await mount({ record: { ...savedInvoice(readyDraft()), field_errors: {}, amounts: { subtotal: "100.01", discount: "0.00", tax: "0.00", total: "100.01" } } }); try {
+    await page.openRow();
+    const blocks = document.querySelector('[data-testid="invoice-unavailable-blocks"]'); assert.ok(blocks);
+    for (const text of ["Payments", "Corrections", "Delivery", "Payments cannot be recorded here yet.", "Not available yet.", "Sending is not available yet."]) assert.ok(blocks.textContent?.includes(text), text);
+    assert.equal(blocks.querySelectorAll("button, a, input").length, 0, "blocks are static");
+    await page.click("Edit draft"); await page.click("Next"); await page.click("Next"); await page.click("Next");
+    assert.ok(document.querySelector('[data-testid="invoice-editor"]')?.textContent?.includes("Saved only; nothing is sent."));
+    assert.equal(document.body.textContent?.includes("Saved for this session"), false);
+    assert.equal(page.calls.filter(call => call.method !== "GET").length, 0);
+  } finally { await page.close(); }
+});
