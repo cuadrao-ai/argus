@@ -255,7 +255,7 @@ def test_sin_comprobante_counts_in_the_month_and_stays_out_of_the_606_and_607(
         packet["forms"]["607"]["record_count"],
     ) == (1, 1)
     bridge_rows = {row["activity_id"]: row for row in packet["reconciliation"]}
-    for activity in (cash_purchase, cash_sale, dollar_purchase, personal_purchase):
+    for activity in (cash_purchase, cash_sale, dollar_purchase):
         assert (
             bridge_rows[activity]["disposition"],
             bridge_rows[activity]["reason"],
@@ -263,6 +263,11 @@ def test_sin_comprobante_counts_in_the_month_and_stays_out_of_the_606_and_607(
             "excluded",
             "no_fiscal_number",
         )
+    # The Personal mark keeps a record out before its missing number is looked at.
+    assert (
+        bridge_rows[personal_purchase]["disposition"],
+        bridge_rows[personal_purchase]["reason"],
+    ) == ("excluded", "personal")
     assert {bridge_rows[a]["disposition"] for a in (fiscal_purchase, fiscal_sale)} == {
         "606",
         "607",
