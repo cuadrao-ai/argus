@@ -20,7 +20,7 @@ import { FOCUS_RING } from "../foundation/presentation";
 import { canManageBusiness, cardClass, quietButtonClass } from "../business-ui";
 import { SCREEN_ICON } from "../nav-glyphs";
 import { RECENT_WORK, SETUP_STATE, type RecentWork, type SetupStep, type SetupStepKey } from "./home-draft-data";
-import { useHomeCounts, useSampleBusiness } from "./useHomeCounts";
+import { useHomeCounts, useSampleBusiness, type ReviewCount } from "./useHomeCounts";
 
 const COPY = {
   es: {
@@ -31,6 +31,7 @@ const COPY = {
     loading: "Cargando la Bandeja",
     needsFailed: "No pudimos cargar lo que necesita atención",
     needsFailedBody: "Tus documentos están guardados. Revisa tu conexión e inténtalo otra vez.",
+    reviewCountFailed: "No pudimos cargar cuántos registros esperan revisión",
     retry: "Reintentar",
     showing: (shown: number, total: number) => `Mostrando ${shown} de ${total}`,
     customize: "Personalizar Inicio",
@@ -76,6 +77,7 @@ const COPY = {
     loading: "Loading the Inbox",
     needsFailed: "We couldn't load what needs attention",
     needsFailedBody: "Your documents are saved. Check your connection and try again.",
+    reviewCountFailed: "We couldn't load how many records await review",
     retry: "Try again",
     showing: (shown: number, total: number) => `Showing ${shown} of ${total}`,
     customize: "Customize Home",
@@ -203,6 +205,29 @@ function SummaryRow({ Icon, label, verb, onOpen, testId }: { Icon: LucideIcon; l
   );
 }
 
+/** The review count is on its way: a quiet skeleton line where the summary row will stand. */
+function CountLoading({ label }: { label: string }) {
+  return (
+    <div role="status" aria-busy="true" className="flex min-h-12 items-center gap-3 border-t border-[color:var(--surface-divider)] px-5">
+      <span className="sr-only">{label}</span>
+      <span aria-hidden="true" className={`h-[18px] w-[18px] shrink-0 animate-pulse rounded-full motion-reduce:animate-none ${SKELETON}`} />
+      <span aria-hidden="true" className={`h-4 w-2/5 animate-pulse rounded-mark motion-reduce:animate-none ${SKELETON}`} />
+    </div>
+  );
+}
+
+/** The review count could not be read: say so with its reference and a way to ask again, never a zero. */
+function CountFailed({ c, reference, retry }: { c: Copy; reference: string; retry: () => void }) {
+  return (
+    <div data-testid="home-records-to-review-failed" role="alert" className="flex min-h-12 flex-wrap items-center gap-x-3 gap-y-1 border-t border-[color:var(--surface-divider)] px-5 py-2">
+      <CircleAlert aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[#9e2f39] dark:text-[#ec9aa0]" />
+      <span className="min-w-0 flex-1 text-[15px] text-[#172b26] dark:text-white">{c.reviewCountFailed}</span>
+      <ReferenceCode reference={reference} />
+      <button type="button" className={`${quietButtonClass} text-[14px]`} onClick={retry}>{c.retry}</button>
+    </div>
+  );
+}
+
 /** Rows each list previews, so the month's figures begin in view on a laptop. Bandeja ("Ver todo") holds every waiting row; older work stays in its own screen. */
 const PREVIEW_ROWS = { needs: 4, recent: 3 } as const;
 
@@ -212,7 +237,7 @@ const PREVIEW_ROWS = { needs: 4, recent: 3 } as const;
  * count from the server (MISSING: `waiting_on_person_count`). The local preview loads every fixture row, so
  * there the union of loaded rows is exact; elsewhere the count stays hidden until the server sends it.
  */
-function NeedsAttention({ c, toReview: liveToReview }: { c: Copy; toReview: number | null }) {
+function NeedsAttention({ c, toReview: liveToReview, retryCount }: { c: Copy; toReview: ReviewCount; retryCount: () => void }) {
   const { records, openPanel, source, reload } = useBusiness();
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
@@ -226,8 +251,11 @@ function NeedsAttention({ c, toReview: liveToReview }: { c: Copy; toReview: numb
   const ready = records.inbox !== null || forceEmpty;
   // Registros keeps its own review queue (GET /business/reports overview, this month). It is a different queue from
   // Bandeja's, so it is a summary row under the list, never added to the count. MISSING: Registros opened on that filter.
-  const toReview = forceEmpty ? 0 : liveToReview ?? 0;
-  const footer = toReview > 0 ? <SummaryRow testId="home-records-to-review" Icon={FileSearch} label={c.recordsToReview(toReview)} verb={c.review} onOpen={() => openPanel({ kind: "transactions" })} /> : null;
+  const toReview: ReviewCount = forceEmpty ? { kind: "ready", value: 0 } : liveToReview;
+  let footer: ReactNode = null;
+  if (toReview.kind === "ready" && toReview.value > 0) footer = <SummaryRow testId="home-records-to-review" Icon={FileSearch} label={c.recordsToReview(toReview.value)} verb={c.review} onOpen={() => openPanel({ kind: "transactions" })} />;
+  else if (toReview.kind === "failed") footer = <CountFailed c={c} reference={toReview.reference} retry={retryCount} />;
+  else if (toReview.kind === "loading") footer = <CountLoading label={c.loading} />;
   if (records.error && !forceEmpty) {
     // The Business did not load: say so with the server's reference and a way to try again, never an endless skeleton.
     return (
@@ -237,8 +265,9 @@ function NeedsAttention({ c, toReview: liveToReview }: { c: Copy; toReview: numb
       </Section>
     );
   }
-  if (!ready) {
-    // Bandeja still loading: the card as it will stand, header and four row cards, never an empty panel.
+  // Bandeja still loading, or nothing in it while the review count is still on its way: the card as it will stand,
+  // header and four row cards, never an empty panel and never "Todo al día" before the server has said so.
+  if (!ready || (rows.length === 0 && toReview.kind === "loading")) {
     return (
       <Section title={c.needs} icon={CircleAlert} testId="home-needs-attention">
         <ul role="status" aria-busy="true" className="space-y-2">
@@ -254,8 +283,8 @@ function NeedsAttention({ c, toReview: liveToReview }: { c: Copy; toReview: numb
       </Section>
     );
   }
-  if (ready && rows.length === 0) {
-    // Nothing waiting in Bandeja: a short settled line, never an empty panel the height of five rows.
+  if (rows.length === 0) {
+    // Nothing waiting in Bandeja and the count is a number: a short settled line, never an empty panel the height of five rows.
     return <Section title={c.needs} icon={CircleAlert} testId="home-needs-attention" footer={footer}>{footer ? null : <EmptyState kind="done" settled title={c.allClearTitle} body={c.allClearBody} />}</Section>;
   }
   return (
@@ -459,7 +488,7 @@ export function HomeWork() {
       <h2 id="home-work-title" className="font-display text-[21px] font-medium text-[#172b26] dark:text-white">{c.today}</h2>
     </div>
     <div data-testid="home-work" className={setup || keepWorking ? "space-y-6 @min-[60rem]:grid @min-[60rem]:grid-cols-[minmax(0,11fr)_minmax(0,9fr)] @min-[60rem]:gap-6 @min-[60rem]:space-y-0" : ""}>
-      <div><NeedsAttention c={c} toReview={counts.toReview} /></div>
+      <div><NeedsAttention c={c} toReview={counts.toReview} retryCount={counts.retry} /></div>
       {setup || keepWorking ? <div className="flex flex-col justify-between gap-4">
         {setup ? <GuidedSetup c={c} stage="active" /> : null}
         {keepWorking ? <ContinueWorking c={c} recents={recents} drafts={drafts} /> : null}

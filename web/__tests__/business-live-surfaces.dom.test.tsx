@@ -20,6 +20,11 @@ mock.module("@/lib/business-activity-api", () => ({
   getBusinessActivity: (cursor: string | null) => { requested.push(cursor); return feed(cursor); },
 }));
 
+// Inicio's review count answers from here, so each test chooses what the server says.
+const reports = await import("@/lib/business-reports-api");
+let report: () => Promise<unknown> = async () => ({ overview: { needs_review: 0, awaiting_approval: 0, ready_for_export: 0 } });
+mock.module("@/lib/business-reports-api", () => ({ ...reports, queryBusinessReport: () => report() }));
+
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz" });
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -34,7 +39,7 @@ afterAll(async () => {
 
 const OWN: GrantedSpace = { space_id: "s-own", name: "Ferretería Luna", grant_id: "g-own", role: "owner", business_role: "owner", permissions: ["read", "prepare", "approve", "manage", "assign_owner", "download", "export"], capabilities: ["read", "prepare", "approve"] } as GrantedSpace;
 
-async function mount(query: string, overrides: Partial<BusinessDataSource> = {}) {
+async function mount(query: string, overrides: Partial<BusinessDataSource> = {}, userId: string | null = null) {
   search = query;
   window.history.replaceState(null, "", `/biz?${query}`);
   const { act, useEffect } = await import("react");
@@ -65,7 +70,7 @@ async function mount(query: string, overrides: Partial<BusinessDataSource> = {})
     root.render(
       <I18nextProvider i18n={i18n}>
         <BusinessConsentTestProvider accepted>
-          <BusinessWorkspaceProvider source={source as never}>
+          <BusinessWorkspaceProvider source={source as never} userId={userId}>
             <Shell />
           </BusinessWorkspaceProvider>
         </BusinessConsentTestProvider>
@@ -75,8 +80,9 @@ async function mount(query: string, overrides: Partial<BusinessDataSource> = {})
   const settle = async (done: () => boolean) => {
     for (let i = 0; i < 120 && !done(); i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
   };
+  const wait = (ms: number) => act(async () => { await new Promise((resolve) => setTimeout(resolve, ms)); });
   const click = (element: Element) => act(async () => { (element as HTMLElement).click(); });
-  return { host, settle, click, close: () => act(async () => root.unmount()) };
+  return { host, settle, wait, click, close: () => act(async () => root.unmount()) };
 }
 
 const item = (id: string, name: string, action: string, minutesAgo: number) => ({
@@ -129,6 +135,74 @@ describe("Inicio on a live Business", () => {
       assert.equal(card?.querySelector('[aria-busy="true"]'), null);
       assert.ok(card?.textContent?.includes("No pudimos cargar lo que necesita atención"));
       assert.equal(card?.textContent?.includes("Reintentar"), false, "a refused Business offers no retry that cannot help");
+    } finally { await page.close(); }
+  });
+
+  const overview = (needsReview: number) => ({ overview: { needs_review: needsReview, awaiting_approval: 0, ready_for_export: 0 } });
+  const emptyBandeja = async (): Promise<Partial<BusinessDataSource>> => {
+    const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+    const base = createFixtureBusinessDataSource({ chatAvailable: true });
+    return { receipts: async () => [], receiptPage: async (...args: Parameters<NonNullable<typeof base.receiptPage>>) => ({ ...(await base.receiptPage!(...args)), items: [] }) };
+  };
+  const card = (page: { host: HTMLElement }) => page.host.querySelector('[data-testid="home-needs-attention"]');
+
+  test("shows a skeleton while the review count loads, never Todo al día", async () => {
+    report = () => new Promise(() => undefined);
+    const page = await mount("view=overview", await emptyBandeja(), "u-1");
+    try {
+      await page.settle(() => card(page) !== null);
+      await page.wait(600);
+      assert.ok(card(page)?.querySelector('[aria-busy="true"]'), "a skeleton stands where the count will");
+      assert.equal(card(page)?.textContent?.includes("Todo al día"), false);
+    } finally { await page.close(); }
+  });
+
+  test("a review count that fails says so with the server's reference and Reintentar, then recovers", async () => {
+    report = async () => { throw Object.assign(new Error("Unavailable"), { status: 500, requestId: "req-9c2d41ab" }); };
+    const page = await mount("view=overview", await emptyBandeja(), "u-1");
+    try {
+      await page.settle(() => page.host.querySelector('[data-testid="home-records-to-review-failed"]') !== null);
+      const failed = page.host.querySelector('[data-testid="home-records-to-review-failed"]');
+      assert.ok(failed, "the count's failure is shown");
+      assert.ok(failed.textContent?.includes("req-9c2d"), "the server's reference");
+      assert.equal(card(page)?.textContent?.includes("Todo al día"), false, "a failed count is not zero");
+      report = async () => overview(3);
+      const retry = [...failed.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Reintentar");
+      assert.ok(retry);
+      await page.click(retry);
+      await page.settle(() => page.host.querySelector('[data-testid="home-records-to-review"]') !== null);
+      assert.ok(page.host.querySelector('[data-testid="home-records-to-review"]')?.textContent?.includes("3 registros por revisar"));
+      assert.equal(page.host.querySelector('[data-testid="home-records-to-review-failed"]'), null);
+    } finally { await page.close(); }
+  });
+
+  test("a failed review count sits under the Bandeja rows it does not replace", async () => {
+    report = async () => { throw Object.assign(new Error("Unavailable"), { status: 500, requestId: "req-9c2d41ab" }); };
+    const page = await mount("view=overview", {}, "u-1");
+    try {
+      await page.settle(() => page.host.querySelector('[data-testid="home-records-to-review-failed"]') !== null);
+      assert.ok(card(page)?.textContent?.includes("Ferretería La Esquina"), "the rows the server did send still show");
+      assert.ok(card(page)?.querySelector('[data-testid="home-records-to-review-failed"]'));
+    } finally { await page.close(); }
+  });
+
+  test("a review count that fails without a request id still shows a reference", async () => {
+    report = async () => { throw new Error("offline"); };
+    const page = await mount("view=overview", await emptyBandeja(), "u-1");
+    try {
+      await page.settle(() => page.host.querySelector('[data-testid="home-records-to-review-failed"]') !== null);
+      assert.match(page.host.querySelector('[data-testid="home-records-to-review-failed"]')?.textContent ?? "", /Ref\. c[0-9a-f]{7}/);
+      assert.equal(card(page)?.textContent?.includes("Todo al día"), false);
+    } finally { await page.close(); }
+  });
+
+  test("says Todo al día only when the server counted zero", async () => {
+    report = async () => overview(0);
+    const page = await mount("view=overview", await emptyBandeja(), "u-1");
+    try {
+      await page.settle(() => card(page)?.textContent?.includes("Todo al día") === true);
+      assert.ok(card(page)?.textContent?.includes("Todo al día"));
+      assert.equal(page.host.querySelector('[data-testid="home-records-to-review-failed"]'), null);
     } finally { await page.close(); }
   });
 
