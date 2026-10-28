@@ -1784,16 +1784,28 @@ class Rehearsal:
                 != (h if isinstance(h, str) else (h or {}).get("sha256"))
             ]
             sources = manifest.get("sources") or []
+            listed = {s.get("file"): s for s in sources}
+            unlisted = [n for n in images if n not in listed]
+            source_bad = [
+                n
+                for n, s in listed.items()
+                if n in z and hashlib.sha256(z[n]).hexdigest() != s.get("sha256")
+            ]
             obs.update(
                 originals=originals,
                 hash_mismatches=bad,
+                source_hash_mismatches=source_bad,
+                unlisted_originals=unlisted,
                 availability=sorted({s.get("availability") for s in sources}),
             )
+            expect(hashes and sources, "manifest lists no files or sources")
             expect(
                 len(images) >= wanted,
                 f"{len(images)} image originals for {wanted} receipt cases",
             )
+            expect(not unlisted, f"originals missing from the manifest: {unlisted}")
             expect(not bad, f"manifest hash mismatch: {bad}")
+            expect(not source_bad, f"manifest source hash mismatch: {source_bad}")
             expect(
                 all(s.get("availability") == "included" for s in sources),
                 "a source is not included",
