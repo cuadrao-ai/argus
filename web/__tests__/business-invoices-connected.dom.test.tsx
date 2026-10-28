@@ -12,7 +12,7 @@ mock.module("@/lib/private-alpha-flags", () => ({ ...realFlags, businessInvoicin
 
 beforeAll(() => { GlobalRegistrator.register({ url: "http://localhost/biz?view=invoicing" }); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
-async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; losePrepare?: boolean; holdCreate?: boolean; entry?: boolean; selectedGrant?: string | null; missingActor?: boolean; missingPermissions?: boolean; directory?: "loading" | "failed"; checkTaxId?: boolean; customerRecords?: SavedCustomer[]; rejectCustomerTax?: boolean; holdReads?: boolean; readFailure?: number; noPrepare?: boolean; fiscalOff?: boolean } = {}) {
+async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; losePrepare?: boolean; holdCreate?: boolean; entry?: boolean; selectedGrant?: string | null; missingActor?: boolean; missingPermissions?: boolean; directory?: "loading" | "failed"; checkTaxId?: boolean; customerRecords?: SavedCustomer[]; rejectCustomerTax?: boolean; holdReads?: boolean; readFailure?: number; noPrepare?: boolean; fiscalOff?: boolean; loseCustomerCreate?: boolean; rejectFirstInvoiceCreate?: boolean } = {}) {
   const { act, StrictMode } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { I18nextProvider } = await import("react-i18next");
@@ -29,7 +29,8 @@ async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; los
   let record = options.record ?? null, creates = 0, prepareEffects = 0, loseCreate = options.loseCreate, losePrepare = options.losePrepare;
   const calls: { path: string; query: string; method: string; body: unknown; key: string | null }[] = [];
   let releaseCreate: (() => void) | undefined; let heldSignal: AbortSignal | null | undefined;
-  const createdCustomers: SavedCustomer[] = structuredClone(options.customerRecords ?? []);
+  const createdCustomers: SavedCustomer[] = structuredClone(options.customerRecords ?? []), customerByKey = new Map<string, SavedCustomer>();
+  let loseCustomerCreate = options.loseCustomerCreate, rejectFirstInvoiceCreate = options.rejectFirstInvoiceCreate;
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input)), method = init?.method ?? "GET", body = init?.body ? JSON.parse(String(init.body)) : null;
     calls.push({ path: url.pathname, query: url.search, method, body, key: new Headers(init?.headers).get("Idempotency-Key") });
@@ -42,9 +43,14 @@ async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; los
     if (url.pathname.includes("/business/customers") && ["POST", "PUT"].includes(method)) {
       if (options.rejectCustomerTax && !/^(?:[0-9]{9}|[0-9]{11})$/.test(body.data.tax_id)) return Response.json({ code: "customer_invalid", context: { field_errors: { tax_id: "tax_id" } } }, { status: 422 });
       if (method === "PUT") { const index = createdCustomers.findIndex(customer => url.pathname.endsWith(`/${customer.id}`)); assert.ok(index >= 0); assert.equal(body.expected_version, createdCustomers[index].version); createdCustomers[index] = { ...createdCustomers[index], data: body.data, version: createdCustomers[index].version + 1 }; return Response.json(createdCustomers[index]); }
-      const customer = { ...savedCustomer(), data: body.data }; createdCustomers.push(customer); return Response.json(customer);
+      const key = new Headers(init?.headers).get("Idempotency-Key") ?? "";
+      let customer = customerByKey.get(key);
+      if (!customer) { customer = { ...savedCustomer(), id: `50000000-0000-4000-8000-${String(createdCustomers.length + 5).padStart(12, "0")}`, data: body.data }; customerByKey.set(key, customer); createdCustomers.push(customer); }
+      if (loseCustomerCreate) { loseCustomerCreate = false; throw new TypeError("synthetic customer response lost after commit"); }
+      return Response.json(customer);
     }
     if (url.pathname.endsWith("/business/invoices") && method === "POST") {
+      if (rejectFirstInvoiceCreate) { rejectFirstInvoiceCreate = false; return Response.json({ code: "invoice_invalid", context: { field_errors: {} } }, { status: 422 }); }
       if (!record) { record = savedInvoice(body.data); creates++; }
       if (options.holdCreate) { heldSignal = init?.signal; await new Promise<void>(resolve => { releaseCreate = resolve; }); }
       if (loseCreate) { loseCreate = false; throw new TypeError("synthetic response lost after commit"); }
@@ -535,5 +541,52 @@ test("Scheduled is a visibly unavailable tab with a calendar empty state, no cre
     assert.equal(document.querySelector('input[type="search"]'), null);
     assert.equal(page.calls.length, reads, "no request for a schedules list");
     await page.click("Invoices"); assert.ok(document.querySelector("tbody tr"));
+  } finally { await page.close(); }
+});
+const customerPosts = (page: Awaited<ReturnType<typeof mount>>) => page.calls.filter(call => call.method === "POST" && call.path.endsWith("/business/customers"));
+const invoicePosts = (page: Awaited<ReturnType<typeof mount>>) => page.calls.filter(call => call.method === "POST" && call.path.endsWith("/business/invoices"));
+async function addNewCustomer(page: Awaited<ReturnType<typeof mount>>, name: string) {
+  await page.click("Create invoice"); await page.fill("#invoice-customer-search", name);
+  const option = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(node => node.textContent?.startsWith("Add customer")); assert.ok(option, "add customer option");
+  await page.act(async () => option.click());
+}
+test("Add customer in the editor saves a registry customer through an idempotent POST before the draft links to it", async () => {
+  const page = await mount(); try {
+    await addNewCustomer(page, "Taller Nuevo"); await page.click("Save draft");
+    const [customerPost] = customerPosts(page); assert.equal(customerPosts(page).length, 1); assert.ok(customerPost.key, "customer POST carries an idempotency key");
+    assert.equal((customerPost.body as { data: { name: string } }).data.name, "Taller Nuevo");
+    const saved = page.customerRecords(); assert.equal(saved.length, 1);
+    assert.equal(page.record()?.data.customer_id, saved[0].id, "the draft links to the persisted customer");
+    assert.equal(page.record()?.data.customer_input.name, "Taller Nuevo");
+    assert.ok(page.calls.indexOf(customerPost) < page.calls.indexOf(invoicePosts(page)[0]), "customer is persisted first");
+    await page.reopen(); await page.click("Customers");
+    assert.ok(document.body.textContent?.includes("Taller Nuevo"), "reload shows the same customer"); assert.equal(page.customerRecords().length, 1);
+  } finally { await page.close(); }
+});
+test("a lost customer response retries the same key and never creates a duplicate customer or invoice", async () => {
+  const page = await mount({ loseCustomerCreate: true }); try {
+    await addNewCustomer(page, "Taller Retry"); await page.click("Save draft");
+    assert.equal(invoicePosts(page).length, 0, "the draft waits for the customer");
+    await page.click("Retry the same request");
+    const posts = customerPosts(page); assert.equal(posts.length, 2); assert.equal(posts[1].key, posts[0].key); assert.deepEqual(posts[1].body, posts[0].body);
+    assert.equal(page.customerRecords().length, 1); assert.equal(invoicePosts(page).length, 1); assert.equal(page.record()?.data.customer_id, page.customerRecords()[0].id);
+  } finally { await page.close(); }
+});
+test("a rejected draft save after the customer was created reuses that customer on the next Save", async () => {
+  const page = await mount({ rejectFirstInvoiceCreate: true }); try {
+    await addNewCustomer(page, "Taller Segundo"); await page.click("Save draft");
+    assert.equal(customerPosts(page).length, 1); assert.equal(invoicePosts(page).length, 1); assert.equal(page.record(), null);
+    await page.click("Save draft");
+    assert.equal(customerPosts(page).length, 1, "no second customer"); assert.equal(page.customerRecords().length, 1);
+    assert.equal(page.record()?.data.customer_id, page.customerRecords()[0].id);
+  } finally { await page.close(); }
+});
+test("a rejected new customer keeps the editor open, saves no draft and marks the field", async () => {
+  const page = await mount({ rejectCustomerTax: true }); try {
+    await addNewCustomer(page, "Taller Rechazado");
+    const tax = document.querySelector<HTMLInputElement>("#invoice-taxId"); assert.ok(tax);
+    await page.fill("#invoice-taxId", "33"); await page.click("Save draft");
+    assert.equal(invoicePosts(page).length, 0); assert.equal(page.customerRecords().length, 0);
+    assert.ok(document.querySelector('[data-testid="invoice-editor"]')); assert.ok(document.body.textContent?.includes("The new customer was not saved."));
   } finally { await page.close(); }
 });

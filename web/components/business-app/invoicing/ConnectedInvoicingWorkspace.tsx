@@ -24,11 +24,12 @@ import CustomerForm from "./CustomerForm";
 import InvoiceDocument, { InvoiceDate, useInvoiceWords } from "./InvoiceDocument";
 import { invoiceReference } from "./invoice-reference";
 import { createInvoiceCommandController, type CommandState, type InvoiceCommandController } from "./invoice-command-controller";
-import { blankInvoiceDraft, customerForEditor, draftFromEditor, invoiceForEditor } from "./invoice-editor-adapter";
+import { blankInvoiceDraft, customerForEditor, invoiceForEditor, linkedDraftFromEditor } from "./invoice-editor-adapter";
 import type { BusinessCustomer } from "./customer-preview-model";
 import type { InvoicePreview } from "./invoice-preview-model";
 import styles from "./invoicing-preview.module.css";
 
+type PendingInvoiceSave = { id: string | null; version: number | null; base: api.InvoiceDraft; draft: InvoicePreview };
 export type InvoiceCapabilities = { prepare: boolean; issue: boolean; download: boolean };
 export type InvoiceWorkspaceTransport = Pick<typeof api, "listInvoices" | "listCustomers" | "getInvoice" | "getCustomer" | "saveInvoice" | "saveCustomer" | "prepareInvoice" | "submitInvoice" | "getInvoiceOperation" | "downloadInvoiceArtifact">;
 const liveTransport: InvoiceWorkspaceTransport = api;
@@ -86,6 +87,8 @@ function ConnectedInvoiceCanvas({ scope, business, capabilities, transport = liv
   const [conflictReviewed, setConflictReviewed] = useState(false), [downloadFailed, setDownloadFailed] = useState(false), [issuanceUnavailable, setIssuanceUnavailable] = useState(false);
   const controller = useRef<InvoiceCommandController | null>(null);
   const readAbort = useRef<AbortController | null>(null);
+  const pendingInvoice = useRef<PendingInvoiceSave | null>(null);
+  const createdCustomer = useRef<{ localId: string; record: api.SavedCustomer } | null>(null);
   useEffect(() => {
     const commands = createInvoiceCommandController(scope, undefined, { invoice: transport.saveInvoice, customer: transport.saveCustomer, prepare: transport.prepareInvoice, submit: transport.submitInvoice });
     controller.current = commands; setCommandState(commands.getSnapshot());
@@ -94,8 +97,13 @@ function ConnectedInvoiceCanvas({ scope, business, capabilities, transport = liv
       if (state.kind === "failed") setConflictReviewed(false);
       if (state.kind === "failed" && state.failure === "unavailable") setIssuanceUnavailable(true);
       if (state.kind === "saved") {
-        if (state.result.kind === "invoice") { setSelected(state.result.record); setEditing(null); }
-        else setCustomerEditing({ record: state.result.record, initial: customerForEditor(state.result.record) });
+        if (state.result.kind === "invoice") { pendingInvoice.current = null; createdCustomer.current = null; setSelected(state.result.record); setEditing(null); }
+        else if (pendingInvoice.current) {
+          const pending = pendingInvoice.current, record = state.result.record;
+          pendingInvoice.current = null;
+          createdCustomer.current = { localId: pending.draft.customer.id, record };
+          queueMicrotask(() => void commands.submit({ kind: "invoice", id: pending.id, key: crypto.randomUUID(), body: { data: linkedDraftFromEditor(pending.draft, pending.base, [], record), expected_version: pending.version } }));
+        } else setCustomerEditing({ record: state.result.record, initial: customerForEditor(state.result.record) });
         setRefresh(value => value + 1);
       }
     });
@@ -145,10 +153,18 @@ function ConnectedInvoiceCanvas({ scope, business, capabilities, transport = liv
     try { const record = await transport.getInvoice(scope, id, abort.signal); if (!abort.signal.aborted) { setSelected(record); setEditing(null); } }
     catch (error) { if (!abort.signal.aborted) { setLoadError(true); if (error instanceof api.InvoiceProblem && [401, 403].includes(error.status)) setAccessLost(true); } }
   };
-  const saveDraft = (draft: InvoicePreview) => {
+  const saveDraft = (draft: InvoicePreview, options?: { newCustomer: boolean }) => {
     if (!editing || blocked || busy) return;
-    void controller.current?.submit({ kind: "invoice", id: editing.id, key: crypto.randomUUID(), body: { data: draftFromEditor(draft, editing.data, pickerCustomers), expected_version: editing.version } });
+    const pending: PendingInvoiceSave = { id: editing.id, version: editing.version, base: editing.data, draft };
+    const created = createdCustomer.current?.localId === draft.customer.id ? createdCustomer.current.record : null;
+    if (!created && options?.newCustomer && draft.customer.name.trim()) {
+      pendingInvoice.current = pending;
+      void controller.current?.submit({ kind: "customer", id: null, key: crypto.randomUUID(), body: { data: { name: draft.customer.name, email: draft.customer.email, tax_id: draft.customer.taxId, address: draft.customer.address, phone: "", notes: "" }, archived: false, expected_version: null } });
+      return;
+    }
+    void controller.current?.submit({ kind: "invoice", id: pending.id, key: crypto.randomUUID(), body: { data: linkedDraftFromEditor(draft, pending.base, pickerCustomers, created), expected_version: pending.version } });
   };
+  const closeEditor = () => { pendingInvoice.current = null; createdCustomer.current = null; setEditing(null); };
   const saveCustomer = (draft: BusinessCustomer) => {
     if (!customerEditing || blocked || busy) return;
     const previous = customerEditing.record;
@@ -174,7 +190,7 @@ function ConnectedInvoiceCanvas({ scope, business, capabilities, transport = liv
   const customerFirstEmpty = !loading && !loadError && customers?.total === 0 && !customerQuery.search && !customerQuery.archived && customerQuery.page === 1;
   const editingReference = editing?.id && selected?.id === editing.id ? invoiceReference(selected, t, locale) : "";
   const startCustomer = () => setCustomerEditing({ record: null, initial: { id: "new", name: "", email: "", taxId: "", address: "", status: "active" } });
-  const startInvoice = () => { setSelected(null); setEditing({ id: null, version: null, data: blankInvoiceDraft() }); };
+  const startInvoice = () => { pendingInvoice.current = null; createdCustomer.current = null; setSelected(null); setEditing({ id: null, version: null, data: blankInvoiceDraft() }); };
   const invoiceCreate = <button className={primaryButtonClass} disabled={!capabilities.prepare || blocked || busy} onClick={startInvoice}><Plus size={18} />{word("create")}</button>;
   const customerCreate = <button className={primaryButtonClass} disabled={!capabilities.prepare || blocked || busy} onClick={startCustomer}><Plus size={18} />{word("customers_add")}</button>;
   return <section className={styles.workspace} data-testid="connected-invoicing-workspace">
@@ -191,7 +207,7 @@ function ConnectedInvoiceCanvas({ scope, business, capabilities, transport = liv
     </div>
     {count !== null && !loading && !loadError ? <footer className={styles.pagination}><span>{word("result_count", { from: count ? (page - 1) * pageSize + 1 : 0, to: Math.min(page * pageSize, count), count })}</span><ToolbarPicker flip label={word("page_size")} value={t("business.transactions.pagination.per_page", { count: pageSize })}>{close => ([25, 50, 100] as const).map(page_size => <button type="button" className={styles.option} key={page_size} onClick={() => { if (section === "invoices") setQuery(current => ({ ...current, page_size, page: 1 })); else setCustomerQuery(current => ({ ...current, page_size, page: 1 })); close(); }}>{t("business.transactions.pagination.per_page", { count: page_size })}</button>)}</ToolbarPicker><nav aria-label={word("pages")}>{pageLinks(page, pages).map((value, index) => value === "gap" ? <span key={`gap${index}`}>…</span> : <button key={value} disabled={loading} aria-current={page === value ? "page" : undefined} onClick={() => setPage(value)}>{value}</button>)}</nav></footer> : null}
     </>}
-    {editing ? <InvoiceEditor key={editing.id ?? "new"} initial={invoiceForEditor(editing.data, editing.id ?? "new", null, editingReference)} business={business} customers={pickerCustomers.map(customerForEditor)} onAddCustomer={() => undefined} onSave={saveDraft} onClose={() => setEditing(null)} connection={{ busy, blocked: blocked || !capabilities.prepare || Boolean(selected?.operation), amounts: selected?.amounts ?? null, savedInput: selected ? invoiceForEditor(selected.data, selected.id, null, invoiceReference(selected, t, locale)) : null, errorInput: commandState.kind === "failed" && commandState.command?.kind === "invoice" ? invoiceForEditor(commandState.command.body.data, editing.id ?? "new", null, editingReference) : null, fieldErrors: commandState.kind === "failed" ? commandState.fieldErrors : selected?.field_errors ?? {}, status: <>{status}{pickerStatus === "failed" ? <div role="alert"><p>{t("business.invoicing.load_failed")}</p><button type="button" className={quietButtonClass} onClick={() => setRefresh(value => value + 1)}>{t("common.retry")}</button></div> : null}</>, customerSearchStatus: pickerStatus, onCustomerSearch: setCustomerSearch }} /> : null}
+    {editing ? <InvoiceEditor key={editing.id ?? "new"} initial={invoiceForEditor(editing.data, editing.id ?? "new", null, editingReference)} business={business} customers={pickerCustomers.map(customerForEditor)} onAddCustomer={() => undefined} onSave={saveDraft} onClose={closeEditor} connection={{ busy, blocked: blocked || !capabilities.prepare || Boolean(selected?.operation), amounts: selected?.amounts ?? null, savedInput: selected ? invoiceForEditor(selected.data, selected.id, null, invoiceReference(selected, t, locale)) : null, errorInput: commandState.kind === "failed" && commandState.command?.kind === "invoice" ? invoiceForEditor(commandState.command.body.data, editing.id ?? "new", null, editingReference) : commandState.kind === "failed" && commandState.command?.kind === "customer" ? pendingInvoice.current?.draft ?? null : null, fieldErrors: commandState.kind === "failed" ? commandState.command?.kind === "customer" ? Object.fromEntries(Object.entries(commandState.fieldErrors).map(([field]) => [`customer_input.${field}`, "customer_invalid"])) : commandState.fieldErrors : selected?.field_errors ?? {}, status: <>{status}{pickerStatus === "failed" ? <div role="alert"><p>{t("business.invoicing.load_failed")}</p><button type="button" className={quietButtonClass} onClick={() => setRefresh(value => value + 1)}>{t("common.retry")}</button></div> : null}</>, customerSearchStatus: pickerStatus, onCustomerSearch: setCustomerSearch }} /> : null}
     {customerEditing ? <AdaptivePanel title={word("customers_tab")} summary={business} dismissible={!busy} onClose={() => customerDirty ? setLeavingCustomer(true) : setCustomerEditing(null)} closeLabel={t("common.close")} width="record"><CustomerForm key={`${customerEditing.initial.id}:${customerEditing.initial.updatedAt ?? "new"}`} onDirty={setCustomerDirty} initial={customerEditing.initial} onSave={saveCustomer} connection={{ busy, blocked: blocked || !capabilities.prepare, status, fieldErrors: commandState.kind === "failed" ? commandState.fieldErrors : {}, errorInput: commandState.kind === "failed" && commandState.command?.kind === "customer" ? commandState.command.body.data : null }} />{customerEditing.record ? <button type="button" className={quietButtonClass} disabled={busy || blocked || customerDirty || !capabilities.prepare} onClick={() => { const record = customerEditing.record; if (record) void controller.current?.submit({ kind: "customer", id: record.id, key: crypto.randomUUID(), body: { data: record.data, expected_version: record.version, archived: !record.archived } }); }}>{t(customerEditing.record.archived ? "common.restore" : "common.archive")}</button> : null}</AdaptivePanel> : null}
     {leavingCustomer ? <AdaptivePanel title={word("unsaved")} closeLabel={t("common.close")} onClose={() => setLeavingCustomer(false)}><div className={styles.panelBody}><p>{word("leave_note")}</p><button className={quietButtonClass} onClick={() => setLeavingCustomer(false)}>{t("common.cancel")}</button><button className={primaryButtonClass} onClick={() => { setLeavingCustomer(false); setCustomerEditing(null); }}>{word("discard")}</button></div></AdaptivePanel> : null}
     {selected && !editing ? <AdaptivePanel title={selected.operation?.number ?? word("draft_title")} summary={business} width="record" onClose={() => setSelected(null)} closeLabel={t("common.close")}><div className={styles.panelBody}>

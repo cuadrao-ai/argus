@@ -29,6 +29,9 @@ export function draftFromEditor(draft: InvoicePreview, base: InvoiceDraft, custo
     payment_type: draft.fiscalInput?.payment_type ?? null, income_type: draft.fiscalInput?.income_type ?? null, tax_inclusion: draft.fiscalInput?.tax_inclusion ?? null,
   };
 }
+export function linkedDraftFromEditor(draft: InvoicePreview, base: InvoiceDraft, customers: SavedCustomer[], linked: SavedCustomer | null): InvoiceDraft {
+  return draftFromEditor(linked ? { ...draft, customer: { ...draft.customer, id: linked.id } } : draft, base, linked ? [linked, ...customers] : customers);
+}
 export function blankInvoiceDraft(): InvoiceDraft {
   return { customer_id: null, customer_input: { name: "", email: "", tax_id: "", address: "", phone: "", notes: "" }, currency: "DOP", document_type: "E32", issued_on: "", due_on: "", items: [], terms: "", instructions: "", notes: "", delivery: { to: "", cc: [], message: "" }, payment_type: null, income_type: null, tax_inclusion: null };
 }
