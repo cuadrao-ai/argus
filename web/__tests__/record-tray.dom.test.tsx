@@ -218,6 +218,17 @@ describe("what a dossier tray covers", () => {
     await page.settle(() => page.tray() === null, "the tray to close");
     assert.equal(covered(page), null, "the list is live again");
   });
+
+  test("an expense from Transacciones keeps the narrower tray, with its list beside it and live", async () => {
+    const page = await mount();
+    await page.open({ kind: "transactions" });
+    const saved = (text: string) => [...page.host.querySelectorAll<HTMLElement>("[data-record-id]")].find((item) => item.textContent?.includes(text)) ?? null;
+    await page.settle(() => saved("Estación Ruta 3") !== null, "the saved records");
+    await page.click(saved("Estación Ruta 3"));
+    await page.settle(() => page.recordTitle() === "Estación Ruta 3", "Estación Ruta 3 in the tray");
+    assert.equal(page.tray()!.getAttribute("data-width"), "record");
+    assert.equal(covered(page), null, "the list beside the expense stays in the Tab order");
+  });
 });
 
 describe("a record below the desktop stop", () => {
