@@ -116,6 +116,7 @@ try {
         }
         if (path.endsWith("/invoices")) { assert.equal(method, "GET"); assert.equal(request.headers()["x-business-grant"], fixtureId(3001)); return json({ items: [], total: 0, page: 1, page_size: 25, stage_counts: { draft: 0, issued: 0, processing: 0, rejected: 0, uncertain: 0 }, summaries: [], query_version: "synthetic-query" }); }
         if (path.endsWith("/customers")) { assert.equal(method, "GET"); return json({ items: [], total: 0, page: 1, page_size: 25 }); }
+        if (path.endsWith("/invitations")) return json([]);
         if (path.endsWith("/consent")) return route.fallback();
         throw new Error(`Unhandled synthetic Business request ${method} ${path}`);
       });
