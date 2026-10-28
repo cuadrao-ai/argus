@@ -14,7 +14,8 @@ import { showToast } from "./foundation/toasts";
  * registros, Copiar dirección de reenvío). It sits beside the content heading
  * from the tablet stop up and at the top of each screen on a phone.
  * A contador, who adds nothing, gets the menu alone; a role with no item at all
- * gets no trigger.
+ * gets no trigger. The trigger follows the role, not a load or an export in
+ * flight, so it keeps its place and its focus while the export item rests.
  */
 export default function BusinessAddMenu({ placement, onExport, exportEnabled = true }: { placement: "header" | "page"; onExport?: () => void; exportEnabled?: boolean }) {
   const { t } = useTranslation();
@@ -27,11 +28,12 @@ export default function BusinessAddMenu({ placement, onExport, exportEnabled = t
     if (copied) showToast({ kind: "info", text: t("business.email.copied", "Address copied.") });
     else openPanel({ kind: "business", tab: "correo" });
   };
+  const canExport = chosen?.permissions?.includes("export") === true;
   const more = [
-    ...(chosen?.permissions?.includes("export") === true && exportEnabled ? [{ id: "export", icon: Download, label: t("business.overview.export_records", "Export records"), run: onExport ?? openExport }] : []),
+    ...(canExport && exportEnabled ? [{ id: "export", icon: Download, label: t("business.overview.export_records", "Export records"), run: onExport ?? openExport }] : []),
     ...(owner && forwardAddress ? [{ id: "copy_forward", icon: Copy, label: t("business.overview.copy_forward", "Copy forwarding address"), run: () => void copyForward(forwardAddress) }] : []),
   ];
-  if (!add && !more.length) return null;
+  if (!add && !canExport && !(owner && forwardAddress)) return null;
   const page = placement === "page";
   const moreLabel = t("business.add_menu.more", "More actions");
   return (

@@ -171,6 +171,26 @@ test("the existing export menu holds 409 for explicit refresh and never exports 
   assert.equal(exports.length, 2); assert.equal((exports[0].body as { expected_fingerprint: string }).expected_fingerprint, "a".repeat(64));
 });
 
+test("a member with export and no Agregar keeps the menu trigger and its focus while an export runs", async () => {
+  const page = await mount();
+  const live = globalThis.fetch;
+  let release: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input).endsWith("/reports/export")) await held;
+    return live(input, init);
+  }) as typeof fetch;
+  const trigger = () => document.querySelector<HTMLButtonElement>('[data-testid="add-menu-more"]');
+  assert.equal(document.querySelector('[data-testid="business-primary-upload"]'), null);
+  await page.click(trigger());
+  await page.click(page.button(spanish.business.overview.export_records));
+  assert.ok(trigger(), "the trigger stays while the export runs");
+  assert.equal(document.activeElement, trigger(), "focus returns to the trigger and stays");
+  release();
+  await page.settle(() => page.downloads.length === 1);
+  assert.ok(trigger(), "the trigger is still there after the download");
+});
+
 test("viewer metadata never grants append or source bytes, and unavailable originals stay linked", async () => {
   const page = await mount({ readOnly: true });
   await page.click(document.querySelector(`[data-record-attachment="draft:${fixtureId(1)}"]`));
