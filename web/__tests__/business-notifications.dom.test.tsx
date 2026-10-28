@@ -10,9 +10,9 @@ beforeAll(() => {
 });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
-async function mount(width: number, language = "es-419", preview = false, mock = true) {
+async function mount(width: number, language = "es-419", preview = false, mock = true, respond: typeof fetch = async () => Response.json([])) {
   const originalFetch=globalThis.fetch;
-  globalThis.fetch=async()=>Response.json([]);
+  globalThis.fetch=respond;
   const originalEnv = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
   Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: String(mock) });
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
@@ -90,6 +90,60 @@ test("an expired acceptance is refused and the same invitation has no blind retr
   const accept=[...page.host.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent==="Accept invitation")!;
   await act(async()=>accept.click());assert.equal(accept.disabled,true);assert.equal(writes,1);assert.deepEqual(page.accepted,[]);assert.match(page.host.textContent??"",/This invitation could not be accepted/);
  }finally{await page.close();}
+});
+
+const pendingInvitation={id:"invite-1",space_id:"business-b",name:"Taller Sol",requested_role:"admin",expires_at:"2026-11-02T12:00:00Z"};
+const settle=async()=>{for(let i=0;i<5;i++)await act(async()=>{await Promise.resolve();});};
+const bellDot=(trigger:HTMLElement)=>trigger.querySelector('[aria-hidden="true"][class*="bellDot"]');
+
+test("a pending invitation lights the bell dot before the bell is opened",async()=>{
+  const calls:string[]=[];
+  const page=await mount(1280,"en",false,true,async(url)=>{calls.push(String(url));return Response.json([pendingInvitation]);});
+  try{
+    await settle();
+    assert.ok(calls.some(url=>url.endsWith("/business/invitations")),"the invitations were read on mount: "+JSON.stringify(calls));
+    assert.equal(page.trigger.getAttribute("aria-expanded"),"false");
+    assert.ok(bellDot(page.trigger),"the dot shows without opening");
+    assert.match(document.getElementById(page.trigger.getAttribute("aria-describedby")!)?.textContent??"",/1 unread notification/);
+  }finally{await page.close();}
+});
+
+test("no invitations shows no dot, and a failed read shows no dot either",async()=>{
+  const none=await mount(1280,"en",false,true,async()=>Response.json([]));
+  try{
+    await settle();
+    assert.equal(bellDot(none.trigger),null);
+    assert.equal(none.trigger.getAttribute("aria-describedby"),null);
+  }finally{await none.close();}
+  const failed=await mount(1280,"en",false,true,async()=>Response.json({code:"unavailable"},{status:503}));
+  try{
+    await settle();
+    assert.equal(bellDot(failed.trigger),null);
+    assert.equal(failed.trigger.getAttribute("aria-describedby"),null);
+    await act(async()=>failed.trigger.click());
+    await settle();
+    assert.equal(failed.host.querySelector('[role="alert"]')?.textContent,"We couldn't load access. Try again.");
+    assert.equal(bellDot(failed.trigger),null);
+  }finally{await failed.close();}
+});
+
+test("the dot waits while the invitations load and clears once the invitation is accepted",async()=>{
+  let release:(value:Response)=>void=()=>undefined;
+  const page=await mount(1280,"en",false,true,(_url,init)=>init?.method==="POST"?Promise.resolve(Response.json({space_id:"business-b",grant_id:"accepted-grant"})):new Promise<Response>(resolve=>{release=resolve;}));
+  try{
+    assert.equal(bellDot(page.trigger),null,"loading is not a pending invitation");
+    await act(async()=>release(Response.json([pendingInvitation])));
+    await settle();
+    assert.ok(bellDot(page.trigger));
+    await act(async()=>page.trigger.click());
+    const accept=[...page.host.querySelectorAll<HTMLButtonElement>("button")].find(item=>item.textContent==="Accept invitation")!;
+    await act(async()=>release(Response.json([pendingInvitation])));
+    await settle();
+    await act(async()=>accept.click());
+    await settle();
+    assert.deepEqual(page.accepted,["accepted-grant"]);
+    assert.equal(bellDot(page.trigger),null);
+  }finally{await page.close();}
 });
 
 test("phone notifications use the shared bottom sheet", async () => {
