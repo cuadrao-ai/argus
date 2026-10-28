@@ -36,6 +36,8 @@ export function useBusinessSearch({
   scope,
   canExport,
   openExport,
+  listScope = null,
+  adaptive = false,
 }: {
   source: BusinessDataSource;
   accounts: readonly BusinessAccount[];
@@ -48,6 +50,9 @@ export function useBusinessSearch({
   /** The export permission, as the server grants it; a member without it is not offered Exportar. */
   canExport: boolean;
   openExport: () => void;
+  /** The list on screen that lends its query (Bandeja, Registros): the search starts scoped to it. */
+  listScope?: { list: "inbox" | "transactions"; apply?: (query: string) => void } | null;
+  adaptive?: boolean;
 }): WorkspaceSearch {
   const { t, i18n } = useTranslation();
   const stateWord = useReceiptStateWord();
@@ -97,16 +102,27 @@ export function useBusinessSearch({
         ],
       },
     ];
+    const place = listScope ? t(listScope.list === "inbox" ? "business.nav.inbox" : "business.nav.transactions") : "";
     return {
       previewAvailable: true,
+      adaptive,
+      // A list's scope keeps its own kinds and actions: Bandeja its documents and email, Registros its records.
+      scope: listScope ? {
+        chip: t("business.search.scope_in", { place, defaultValue: "In {{place}}" }),
+        clearLabel: t("business.search.scope_clear", "Search the whole business"),
+        groups: listScope.list === "inbox" ? ["receipts", "email_deliveries", "email_senders"] : ["expenses", "ventas", "captures"],
+        actions: listScope.list === "inbox" ? ["add", "copy_forward"] : ["add", "export"],
+        filterLabel: (query: string) => t("business.search.filter_list", { place, query, defaultValue: "Filter {{place}} by “{{query}}”" }),
+        apply: listScope.apply,
+      } : undefined,
       shortcuts,
       recents: { key: "cuadrao:business_recent_searches:v1", scope, server: recentsServer },
       copy: {
         placeholder: t("business.search.placeholder", "Search a merchant, amount or note"),
         noResultsHint: t("business.search.no_results_hint", "Search by merchant, amount, category, account or note text."),
         region: t("business.search.region", "Business records"),
-        loading: t("business.search.loading", "Searching your business"),
-        failed: t("business.search.failed", "We couldn't search your business."),
+        loading: t("business.search.loading", "Searching this business"),
+        failed: t("business.search.failed", "We couldn't search this business."),
         retry: t("command_palette.retry_search", "Try searching again"),
         recent: t("business.search.recent", "Recent searches"),
         showMore: (count) => t("business.search.show_more", { count, defaultValue: "See {{count}} more" }),
@@ -145,5 +161,5 @@ export function useBusinessSearch({
         return [kinds.expenses, kinds.ventas, kinds.receipts, notes, kinds.accounts, kinds.email_deliveries, kinds.email_senders];
       },
     };
-  }, [accounts, actions.create, canExport, categoryLabel, forwardAddress, locale, openPanel, owner, recentsServer, scope, source, stateWord, t]);
+  }, [accounts, actions.create, adaptive, canExport, categoryLabel, forwardAddress, listScope, locale, openPanel, owner, recentsServer, scope, source, stateWord, t]);
 }

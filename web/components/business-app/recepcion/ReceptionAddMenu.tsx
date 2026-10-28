@@ -14,7 +14,8 @@ import styles from "./reception.module.css";
 
 type AddressLoad = { source: ReturnType<typeof useBusiness>["source"]; revision: number; address: string | null; failed: boolean };
 
-export default function ReceptionAddMenu({ withExport = false }: { withExport?: boolean }) {
+/** `addInBar`: Agregar lives in the top bar (redesign preview), so this keeps only the "Más acciones" export menu. */
+export default function ReceptionAddMenu({ withExport = false, addInBar = false }: { withExport?: boolean; addInBar?: boolean }) {
   const { t } = useTranslation();
   const { actions, chosen, source, revision, openPanel, openExport } = useBusiness();
   const [loaded, setLoaded] = useState<AddressLoad | null>(null);
@@ -26,7 +27,7 @@ export default function ReceptionAddMenu({ withExport = false }: { withExport?: 
   const open = position !== null;
   const current = loaded?.source === source && loaded.revision === revision ? loaded : null;
   const address = current?.address;
-  const add = chosen?.role !== "accountant" ? actions.create.find(action => action.id === "upload_receipt") : undefined;
+  const add = !addInBar && chosen?.role !== "accountant" ? actions.create.find(action => action.id === "upload_receipt") : undefined;
   const canExport = withExport && chosen?.permissions?.includes("export") === true;
   const close = () => { setPosition(null); trigger.current?.focus(); };
   useEffect(() => {

@@ -26,8 +26,8 @@ export type ChatShellBridge = Readonly<{
   greetingName: string | null;
   /** Signed-in member identity, from the shell account response. */
   memberEmail?: string | null;
-  /** Opens the shared search. Absent when this shell has no search. */
-  openSearch?: () => void;
+  /** Opens the shared search, optionally starting from a typed query. Absent when this shell has no search. */
+  openSearch?: (query?: string) => void;
   openPersonalInvitation?: (trigger: HTMLElement) => void;
   /** Shows the workspace's main panel, leaving any open conversation. */
   showWorkspace: () => void;
@@ -92,9 +92,28 @@ export type WorkspaceRecentSearchesServer = Readonly<{
  * The workspace's own records in the shared omnisearch, above conversations.
  * Each group is already authorized and matched by the workspace's backend.
  */
+/**
+ * The list a workspace search starts scoped to (Business Bandeja, Registros). Its chip leads the field; removing it
+ * searches everything. `apply` hands the query to the list's own filter, so the list stays its query's one owner.
+ */
+export type WorkspaceSearchScope = Readonly<{
+  chip: string;
+  clearLabel: string;
+  groups: readonly string[];
+  actions: readonly string[];
+  filterLabel: (query: string) => string;
+  apply?: (query: string) => void;
+}>;
+
 export type WorkspaceSearch = Readonly<{
   /** Hits carry previews, so the palette keeps its dossier pane and sheet. */
   previewAvailable?: boolean;
+  /**
+   * The window sizes itself (compact, the preview pane only beside a result that has one, no manual toggle) and
+   * lists screens only when typed text matches them. Business redesign preview only; other searches keep theirs.
+   */
+  adaptive?: boolean;
+  scope?: WorkspaceSearchScope;
   find: (query: string) => Promise<readonly WorkspaceSearchGroup[]>;
   /**
    * Screens and actions, listed before a query and matched by it on the

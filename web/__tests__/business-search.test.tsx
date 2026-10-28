@@ -14,13 +14,15 @@ import { useBusinessSearch } from "../components/business-app/useBusinessSearch"
 import type { BusinessPanelState } from "../components/business-app/BusinessWorkspace";
 import type { BusinessCapture } from "../lib/business-api";
 import type { BusinessSearchResult } from "../lib/business-search-api";
+import en from "../public/locales/en/common.json";
+import es419 from "../public/locales/es-419/common.json";
 
 const COPY: WorkspaceSearch["copy"] = {
   placeholder: "Search a merchant, amount or note",
   noResultsHint: "Search by merchant, amount, category, account or a note's text.",
   region: "Business records",
-  loading: "Searching your business",
-  failed: "We couldn't search your business.",
+  loading: "Searching this business",
+  failed: "We couldn't search this business.",
   retry: "Try searching again",
   recent: "Recent searches",
   showMore: (count) => `See more (${count})`,
@@ -52,13 +54,20 @@ describe("workspace results in the omnisearch", () => {
     expect(rendered({ status: "ready", groups: [] })).toBe("");
   });
 
-  test("loading and failure each say so in place, and failure offers a retry", () => {
-    expect(rendered({ status: "loading" })).toContain(">Searching your business</div>");
-    expect(rendered({ status: "loading" })).toContain('role="status"');
-    const failed = rendered({ status: "failed" });
-    expect(failed).toContain('role="alert"');
-    expect(failed).toContain("We couldn&#x27;t search your business.");
-    expect(failed).toContain(">Try searching again</button>");
+  test.each([
+    ["en", "Searching this business", "We couldn't search this business.", "Try searching again"],
+    ["es-419", "Buscando en este negocio", "No pudimos buscar en este negocio.", "Intentar la búsqueda de nuevo"],
+  ] as const)("loading and failure say the app's own words in %s, in place, and failure offers a retry", async (language, loading, failed, retry) => {
+    // The hook's copy, read through the shipped locale files: the words a person sees, not a copy of them.
+    const { search: real } = await businessSearch({}, [], language);
+    const shown = (state: Parameters<typeof WorkspaceSearchResults>[0]["state"]) =>
+      renderToStaticMarkup(<WorkspaceSearchResults search={real} state={state} retry={noop} onOpened={noop} />).replaceAll("&#x27;", "'");
+    expect(shown({ status: "loading" })).toContain(`>${loading}</div>`);
+    expect(shown({ status: "loading" })).toContain('role="status"');
+    const failure = shown({ status: "failed" });
+    expect(failure).toContain('role="alert"');
+    expect(failure).toContain(failed);
+    expect(failure).toContain(`>${retry}</button>`);
   });
 
   test("hits render under their group with title, detail and amount", () => {
@@ -120,9 +129,12 @@ describe("the sample source answers like the API", () => {
 
 const NO_RESULTS: BusinessSearchResult = { expenses: [], ventas: [], receipts: [], accounts: [], email_deliveries: [], email_senders: [], next_cursors: {} };
 
-async function businessSearch(partial: Partial<BusinessSearchResult>, notes: BusinessCapture[] | Error = []) {
+async function businessSearch(partial: Partial<BusinessSearchResult>, notes: BusinessCapture[] | Error = [], language?: "en" | "es-419") {
   const i18n = i18next.createInstance();
-  await i18n.init({ lng: "en", resources: {} });
+  // Without a language the hook's built-in fallbacks speak; with one, the shipped locale file does.
+  await i18n.init(language
+    ? { lng: language, fallbackLng: false, interpolation: { escapeValue: false }, resources: { en: { translation: en }, "es-419": { translation: es419 } } }
+    : { lng: "en", resources: {} });
   const found = { ...NO_RESULTS, ...partial };
   const opened: BusinessPanelState[] = [];
   const periods: string[] = [];

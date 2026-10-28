@@ -8,6 +8,8 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useBusiness } from "../BusinessWorkspace";
 import BusinessAddMenu from "../BusinessAddMenu";
+import { INICIO_REDESIGN_PREVIEW } from "../inicio/preview";
+import { RecordsExportButton } from "./RecordsExportButton";
 import { MonthCurrencyMenu } from "../MonthCurrencyMenu";
 import BusinessPeriodControl, { usePeriodLabel } from "../BusinessPeriodControl";
 import OutsidePeriodNote from "../OutsidePeriodNote";
@@ -51,7 +53,7 @@ export default function TransaccionesPanel() {
 
 function LegacyTransaccionesPanel() {
   const { t, locale } = useTransaccionesWords();
-  const { period, setPeriod, panel, records, actions, chosen } = useBusiness();
+  const { period, setPeriod, panel, records, actions, chosen, openExport } = useBusiness();
   const igualarOn = useIgualarEnabled();
   const periodLabel = usePeriodLabel();
   const { isBelowTablet: phone } = useResponsiveLayout();
@@ -146,7 +148,7 @@ function LegacyTransaccionesPanel() {
           {phone ? <div className="ml-auto">{run}</div> : <div className="ml-auto"><DensityMenu state={densityState} /></div>}
         </div> : null}
         {!igualar && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <RecordsOverviewPreview loading={list.kind === "loading"} counts={overviewPreviewCounts(periodRecords, chosen?.space_id ?? null)} selected={previewFilters.review} onChoose={(review) => setPreviewFilters((current) => ({ ...current, review: current.review.includes(review) ? [] : [review] }))} /> : null}
-        {!igualar ? <RecordsToolbar appliedPeriod={previewPeriod} onPeriodChange={setPreviewPeriod} appliedFilters={previewFilters} onFiltersChange={setPreviewFilters} preferences={viewPreferences} onPreferencesChange={setViewPreferences} onPreviewChange={() => setPreviewRevision((value) => value + 1)} filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={<>{!phone ? <BusinessAddMenu placement="header" /> : null}{localPaging ? <RecordsSettingsPreview value={viewPreferences} onChange={setViewPreferences} /> : !phone ? <DensityMenu state={densityState} /> : null}</>} /> : null}
+        {!igualar ? <RecordsToolbar appliedPeriod={previewPeriod} onPeriodChange={setPreviewPeriod} appliedFilters={previewFilters} onFiltersChange={setPreviewFilters} preferences={viewPreferences} onPreferencesChange={setViewPreferences} onPreviewChange={() => setPreviewRevision((value) => value + 1)} filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={<>{phone ? null : INICIO_REDESIGN_PREVIEW ? <RecordsExportButton onExport={openExport} /> : <BusinessAddMenu placement="header" />}{localPaging ? <RecordsSettingsPreview value={viewPreferences} onChange={setViewPreferences} /> : !phone ? <DensityMenu state={densityState} /> : null}</>} /> : null}
         {!igualar && records.overview ? <div className="-mt-1 mb-4"><OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /></div> : null}
         {igualar && controller.currencyMenu ? (
           <div data-testid="transacciones-currency" className="mb-3">
