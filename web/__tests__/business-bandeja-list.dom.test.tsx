@@ -251,6 +251,7 @@ describe("a list the server refused for good", () => {
     await page.settle(() => failureOf(page) !== null, "the failure");
     assert.deepEqual(actions(page), [], "asking again gets the same refusal");
     assert.match(failureOf(page)!.textContent ?? "", /No pudimos cargar todo el contenido\./);
+    assert.match(failureOf(page)!.textContent ?? "", /escríbenos a hola@cuadrao\.ai/, "a refusal always has a way out");
     assert.equal(tabCount(page.host, "review"), "-", "a 3 beside a list that failed would contradict it");
     assert.equal(page.host.querySelector('[data-testid="reception-empty"]'), null);
     const before = { ...calls };
@@ -265,6 +266,7 @@ describe("a list the server refused for good", () => {
     await page.settle(() => failureOf(page) !== null, "the Bandeja error");
     assert.equal(failureOf(page)!.querySelectorAll("button").length, 0);
     assert.match(failureOf(page)!.textContent ?? "", /Cuadrao Business aún no está disponible para tu cuenta\./);
+    assert.match(failureOf(page)!.textContent ?? "", /escríbenos a hola@cuadrao\.ai/);
     assert.doesNotMatch(failureOf(page)!.textContent ?? "", /conexión/);
   });
 
@@ -278,6 +280,7 @@ describe("a list the server refused for good", () => {
     }) });
     await page.settle(() => failureOf(page) !== null, "the failure");
     assert.deepEqual(actions(page), ["Reintentar"]);
+    assert.doesNotMatch(failureOf(page)!.textContent ?? "", /escríbenos/, "a retry is the way out while one list can pass");
     const before = { ...calls };
     emailsDown = false;
     await page.act(async () => [...failureOf(page)!.querySelectorAll("button")].find((button) => button.textContent === "Reintentar")!.click());
