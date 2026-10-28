@@ -8,11 +8,15 @@ from uuid import uuid4
 
 import pytest
 from argus.domain.business.contracts.activity import ActivityFilters
+from argus.domain.business.custody_graph import PostgresBusinessCustodyGraph
+from argus.domain.business.custody_objects import PostgresBusinessCustodyCopies
+from argus.domain.business.transfer import PostgresBusinessTransfer
 from psycopg import Connection
 
 from tests import test_financial_accounts_postgres as shared
 from tests.test_business_activity_postgres import (
     _actions,
+    _actor_id,
     _facet,
     _seen,
     authority,  # noqa: F401 - fixture
@@ -24,6 +28,7 @@ from tests.test_business_activity_postgres import (
     receipt,
     transfer,
 )
+from tests.test_business_custody_graph_postgres import FakeAuth, FakeObjects, claim
 from tests.test_business_spaces_migration_postgres import owned_space
 
 pytestmark = pytest.mark.skipif(not shared.DSN, reason="Disposable database required")
@@ -87,19 +92,16 @@ def test_a_derived_event_lists_for_managers_with_the_persons_name(
     business,  # noqa: F811
     authority,  # noqa: F811
 ):
-    erased, unknown = str(uuid4()), str(uuid4())
+    unknown = str(uuid4())
     with Connection.connect(shared.DSN) as db:
         name(db, people["admin"], "Carlos Méndez")
-        db.execute(
-            "insert into auth.users (id, email) values (%s, %s)",
-            (erased, f"erased-{erased[:8]}@example.test"),
-        )
-        db.execute(
-            "insert into public.profiles (id, email, username) values (%s, %s, %s)",
-            (erased, f"erased-{erased[:8]}@example.test", "exmiembro-" + erased[:8]),
-        )
-        db.execute(
-            "insert into argus_private.account_placeholders (id) values (%s)", (erased,)
+        receipt(
+            db,
+            business,
+            people["admin"],
+            {"action": "set_business_rnc", "rnc": "131234567"},
+            seconds_ago=60,
+            display_name="Carlos Admin",
         )
         transfer(db, business, people["owner"], people["admin"], seconds_ago=50)
         transfer(db, business, people["owner"], people["editor"], status="pending")
@@ -111,7 +113,6 @@ def test_a_derived_event_lists_for_managers_with_the_persons_name(
             status="cancelled",
             seconds_ago=45,
         )
-        transfer(db, business, people["owner"], erased, seconds_ago=40)
         transfer(db, business, people["owner"], unknown, seconds_ago=35)
         reading_consent(db, business, people["owner"], seconds_ago=30, revoked=True)
         reading_consent(db, business, people["owner"], seconds_ago=20)
@@ -127,8 +128,11 @@ def test_a_derived_event_lists_for_managers_with_the_persons_name(
         try:
             for role in ("editor", "viewer"):
                 page = _seen(authority, people[role], business)
-                assert _actions(page) == ["review_draft"], role
-                assert _facet(page) == [("Ana Editora", "member", "current")]
+                assert _actions(page) == ["review_draft", "set_business_rnc"], role
+                assert _facet(page) == [
+                    ("Ana Editora", "member", "current"),
+                    ("Carlos Admin", "member", "current"),
+                ]
             for manager in ("owner", "admin"):
                 page = _seen(authority, people[manager], business)
                 listed = [
@@ -165,25 +169,26 @@ def test_a_derived_event_lists_for_managers_with_the_persons_name(
                     ("ownership_transferred", None, "business", True, None),
                     (
                         "ownership_transferred",
-                        ("Exmiembro", None),
-                        "business",
-                        True,
-                        None,
-                    ),
-                    (
-                        "ownership_transferred",
                         ("Carlos Méndez", "current"),
                         "business",
                         True,
                         None,
                     ),
+                    (
+                        "set_business_rnc",
+                        ("Carlos Admin", "current"),
+                        "business",
+                        False,
+                        None,
+                    ),
                 ], manager
+                # The facet names a person by their newest row that stored a
+                # name, so the older ledger row wins over the profile.
                 assert _facet(page) == sorted(
                     [
                         ("Ana Editora", "member", "current"),
                         (owner_name, "member", "current"),
-                        ("Exmiembro", "member", None),
-                        ("Carlos Méndez", "member", "current"),
+                        ("Carlos Admin", "member", "current"),
                     ]
                 )
                 assert _actions(
@@ -193,24 +198,132 @@ def test_a_derived_event_lists_for_managers_with_the_persons_name(
                         business,
                         ActivityFilters(groups=("settings",)),
                     )
-                ) == ["receipt_reading_enabled", "receipt_reading_enabled"]
+                ) == [
+                    "receipt_reading_enabled",
+                    "receipt_reading_enabled",
+                    "set_business_rnc",
+                ]
                 text = page.model_dump_json()
-                for leak in (
-                    erased,
-                    unknown,
-                    "exmiembro-",
-                    "cuadrao.invalid",
-                    *people.values(),
-                ):
+                for leak in (unknown, "cuadrao.invalid", *people.values()):
                     assert leak not in text, leak
         finally:
             db.execute(
                 "delete from public.business_ownership_transfers where space_id=%s",
                 (business,),
             )
+            db.commit()
+
+
+def test_a_departed_owners_rows_name_the_erased_member(
+    people,  # noqa: F811
+    business,  # noqa: F811
+    authority,  # noqa: F811
+):
+    """The owner turns reading on and hands the Business to the editor, then
+    deletes their account. Every row of theirs, ledger and derived, names
+    Exmiembro, shares one actor id, and stays in the facet."""
+
+    pool = authority.pool
+    owner, editor = people["owner"], people["editor"]
+    with Connection.connect(shared.DSN) as db:
+        name(db, editor, "Ana Editora")
+        db.execute(
+            "update auth.users set email_confirmed_at=now() where id=%s", (editor,)
+        )
+        editor_grant = str(
             db.execute(
-                "delete from argus_private.account_placeholders where id=%s", (erased,)
+                "select id from public.business_client_grants"
+                " where space_id=%s and grantee_id=%s",
+                (business, editor),
+            ).fetchone()[0]
+        )
+        receipt(
+            db,
+            business,
+            owner,
+            {"action": "set_business_rnc", "rnc": "131234567"},
+            seconds_ago=40,
+            display_name="Dueño",
+        )
+        reading_consent(db, business, owner, seconds_ago=30)
+        db.commit()
+    transfers = PostgresBusinessTransfer(pool)
+    pending = transfers.request(
+        owner_id=owner,
+        space_id=business,
+        target_grant_id=editor_grant,
+        confirmation="Colmado",
+        idempotency_key="transfer",
+    )
+    transfers.accept(actor_id=editor, transfer_id=pending.id)
+    reservation = PostgresBusinessCustodyCopies(pool, FakeObjects(), FakeAuth()).prepare(
+        space_id=business, departing_user_id=owner
+    )
+    run, token = claim({"pool": pool, "old": owner})
+    try:
+        assert (
+            PostgresBusinessCustodyGraph(pool)
+            .detach(
+                space_id=business,
+                departing_user_id=owner,
+                reservation=reservation,
+                deletion_run_id=run,
+                claim_id=token,
             )
-            db.execute("delete from public.profiles where id=%s", (erased,))
-            db.execute("delete from auth.users where id=%s", (erased,))
+            .moved
+        )
+
+        page = _seen(authority, editor, business)
+        listed = [
+            (
+                i.action,
+                None if i.actor is None else (i.actor.display_name, i.actor.membership),
+            )
+            for i in page.items
+        ]
+        assert listed == [
+            ("ownership_transferred", ("Ana Editora", "current")),
+            ("owner_grant", ("Exmiembro", None)),
+            ("receipt_reading_enabled", ("Exmiembro", None)),
+            ("set_business_rnc", ("Exmiembro", None)),
+        ]
+        assert _facet(page) == [
+            ("Ana Editora", "member", "current"),
+            ("Exmiembro", "member", None),
+        ]
+        former = ActivityFilters(actors=(_actor_id(page, "Exmiembro"),))
+        assert _actions(_seen(authority, editor, business, former)) == [
+            "owner_grant",
+            "receipt_reading_enabled",
+            "set_business_rnc",
+        ]
+        text = page.model_dump_json()
+        for leak in (
+            owner,
+            reservation.custodian_id,
+            reservation.deleted_actor_id,
+            "exmiembro-",
+            "cuadrao.invalid",
+            "131234567",
+        ):
+            assert leak not in text, leak
+    finally:
+        with Connection.connect(shared.DSN) as db:
+            for statement in (
+                "delete from argus_private.business_custody_changes where space_id=%s",
+                "delete from argus_private.business_custody_moves where space_id=%s",
+                "delete from argus_private.business_custody_objects where space_id=%s",
+                "delete from argus_private.business_custody_reservations where space_id=%s",
+                "delete from public.spaces where id=%s",
+            ):
+                db.execute(statement, (business,))
+            db.execute(
+                "delete from argus_private.account_deletion_runs where user_id=%s",
+                (owner,),
+            )
+            db.execute("delete from auth.users where id=%s", (reservation.custodian_id,))
+            db.execute(
+                "delete from argus_private.account_placeholders where id=%s",
+                (reservation.custodian_id,),
+            )
             db.commit()

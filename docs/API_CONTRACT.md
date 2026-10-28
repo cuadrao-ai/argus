@@ -9460,7 +9460,10 @@ recorded no actor at all (the client shows "Actor no registrado"; no row says
 who when the record does not). `display_name` is the name the ledger stored
 when the action ran, so a member who later left keeps their name, and an
 account the departure flow erased shows `Exmiembro`; the server never joins the
-account table for a ledger row. `kind` is `member`, `owner_via_agent` or
+account table for a ledger row. A derived event stores an id and no name, so
+the server names its actor from the profile, as `Exmiembro` when the departure
+flow aliased that id, and not at all (`actor` null) when neither names it.
+`kind` is `member`, `owner_via_agent` or
 `extractor` (automated processing; the client names it Cuadrao). `id` is an
 opaque id per person and Business, the same on every row of that person and
 in `actors`, never an account id or an email; every `extractor` row of a
@@ -9532,8 +9535,9 @@ a filter, for any reader.
 with at least one row the reader may see under the `from`, `to`, `area` and
 `action_group` filters (the `actor` filter does not narrow it), as
 `{id, display_name, kind, membership}` sorted by name, with the name the
-newest such row stored. An actor whose only rows are manager-only never
-appears in a member's `actors`.
+newest such row stored, or the derived-event name above when none of their
+rows stored one. An actor whose only rows are manager-only never appears in a
+member's `actors`.
 
 Only rows whose outcome is `applied` list; refused, failed, stale, replayed and
 in-flight rows do not. Ledger marks of a read or a look-up (`access_seen`,
