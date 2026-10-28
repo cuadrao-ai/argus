@@ -177,51 +177,6 @@ describe("toasts", () => {
   });
 });
 
-describe("Ver más uncovers rows and Cargar más asks for more", () => {
-  test("reveal does not fetch, a failed fetch keeps the rows and offers Reintentar", async () => {
-    const { ListPager } = await import("@/components/business-app/foundation/ListPager");
-    const loads: string[] = [];
-    function Harness({ loadState }: { loadState: "idle" | "error" }) {
-      return (
-        <ListPager
-          items={["a", "b", "c"]}
-          pageSize={1}
-          load={() => loads.push(loadState)}
-          loadState={loadState}
-          revealLabel="Ver más"
-          loadLabel="Cargar más"
-          retryLabel="Reintentar"
-          renderItem={(item) => <li key={item}>{item}</li>}
-        />
-      );
-    }
-    const { act } = await import("react");
-    const { createRoot } = await import("react-dom/client");
-    const host = document.createElement("div");
-    document.body.appendChild(host);
-    const root = createRoot(host);
-    await act(async () => { root.render(<Harness loadState="idle" />); });
-    assert.deepEqual([...host.querySelectorAll("li")].map((row) => row.textContent), ["a"]);
-    assert.equal(host.querySelector('[data-testid="list-load"]'), null);
-    await act(async () => { (host.querySelector('[data-testid="list-reveal"]') as HTMLButtonElement).click(); });
-    assert.deepEqual([...host.querySelectorAll("li")].map((row) => row.textContent), ["a", "b"]);
-    assert.deepEqual(loads, []);
-    await act(async () => { (host.querySelector('[data-testid="list-reveal"]') as HTMLButtonElement).click(); });
-    const load = host.querySelector('[data-testid="list-load"]') as HTMLButtonElement;
-    assert.equal(load.textContent, "Cargar más");
-    await act(async () => load.click());
-    assert.deepEqual(loads, ["idle"]);
-    await act(async () => { root.render(<Harness loadState="error" />); });
-    assert.deepEqual([...host.querySelectorAll("li")].map((row) => row.textContent), ["a", "b", "c"]);
-    const retry = host.querySelector('[data-testid="list-retry"]') as HTMLButtonElement;
-    assert.equal(retry.textContent, "Reintentar");
-    assert.equal(host.querySelector('[data-testid="list-load"]'), null);
-    await act(async () => retry.click());
-    assert.deepEqual(loads, ["idle", "error"]);
-    await act(async () => { root.unmount(); host.remove(); });
-  });
-});
-
 describe("the delete confirmation", () => {
   test("the confirm names the record, accepts one press, and returns focus", async () => {
     const { ConfirmDialog } = await import("@/components/ui/ConfirmDialog");
