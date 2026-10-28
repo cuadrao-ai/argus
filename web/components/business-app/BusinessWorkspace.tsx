@@ -38,7 +38,7 @@ import { classifyFailure, referenceCode, refusedForGood, runQuietRetries, sessio
 import { normalizeEnabledLanguage } from "@/lib/language-features";
 import { responsiveLayoutSnapshot, subscribeResponsiveLayout } from "@/lib/responsive-layout";
 import { withBusinessSpace, type BusinessDataSource } from "./business-data";
-import { periodRange, type Period, type PeriodKey } from "./business-format";
+import { periodRange, type Period, type PeriodKey, formatBusinessName } from "./business-format";
 import { useBusinessActions, type BusinessActions } from "./business-actions";
 import { clearTitleFocusUnless } from "./bandeja-order";
 import BusinessSidebarNav, { BusinessSidebarFooter } from "./BusinessSidebarNav";
@@ -73,6 +73,7 @@ import { emailDeliveriesNeedRefresh, type BusinessEmailDelivery } from "@/lib/bu
 import { canEnterBusiness } from "@/lib/business-privacy-notice";
 import { useBusinessConsent } from "./business-consent-context";
 import { quietButtonClass } from "./business-ui";
+import { applyListSearch, useListLending } from "./foundation/list-search";
 import { loadFailure, type BandejaSource, type LoadFailure } from "./bandeja-sources";
 import { beginBusinessAppearance, failBusinessAppearance, getBusinessProfile, publishBusinessAppearance } from "@/lib/business-profile-api";
 
@@ -80,6 +81,8 @@ export type BusinessPanelState =
   | { kind: "overview" }
   | { kind: "inbox" }
   | { kind: "invoicing" }
+  // Actividad: the history of changes in this Business, live from the server.
+  | { kind: "activity" }
   // Transacciones, the third screen: the period's saved records, or the bank's movements to igualar. `expenseId` is the record a phone comes back from.
   | { kind: "transactions"; expenseId?: string }
   | { kind: "expense"; expenseId: string }
@@ -180,6 +183,7 @@ function panelFromSearch(params: URLSearchParams): BusinessPanelState {
   const expenseId = params.get("expense");
   if (expenseId) return { kind: "expense", expenseId };
   const view = params.get("view");
+  if (view === "activity") return { kind: "activity" };
   if (view === "invoicing" && (businessInvoicingEnabled || process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true")) return { kind: "invoicing" };
   // Correos left the Bandeja; its history lives in Negocio > Correo de recibos.
   if (view === "inbox" && params.get("segment") === "emails") return { kind: "business", tab: "correo" };
@@ -605,6 +609,10 @@ function BusinessWorkspaceContent({
   const directoryValue = useMemo<BusinessContextValue>(() => ({ ...value, directoryStatus }), [value, directoryStatus]);
 
   const chatAvailable = businessChatAvailable(records.workspace) && consent.accepted && !closedAccessName;
+  // The list on screen lends its query; the search then starts scoped to it (redesign preview, wide screens).
+  const scopedList = panel.kind === "inbox" || panel.kind === "transactions" ? panel.kind : null;
+  const lending = useListLending(scopedList);
+  const listScope = useMemo(() => (scopedList && lending ? { list: scopedList, apply: (query: string) => applyListSearch(scopedList, query) } : null), [scopedList, lending]);
   const businessSearch = useBusinessSearch({
     source,
     accounts: records.workspace?.accounts ?? NO_ACCOUNTS,
@@ -614,6 +622,8 @@ function BusinessWorkspaceContent({
     scope: chosen?.space_id ?? "own",
     canExport: chosen?.permissions?.includes("export") === true,
     openExport,
+    listScope,
+    adaptive: true,
   });
 
   const keyboardShortcuts = useBusinessKeyboardShortcuts({ openPanel, actions, chosen });
@@ -636,7 +646,7 @@ function BusinessWorkspaceContent({
       sidebarHeader: (shell) => shell.isBelowTablet ? null : <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onInvite={localPreview ? () => setInvitationBusiness(chosen?.space_id ?? null) : () => openPanel({ kind: "business", tab: "equipo" })} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId):Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} />,
       sidebarMark: () => <BusinessMark businessId={chosen?.space_id} name={chosen?.name} />,
       sidebarFooter: (shell) => shell.isBelowTablet ? null : <BusinessSidebarFooter shell={shell} />,
-      headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onInvite={localPreview ? () => setInvitationBusiness(chosen?.space_id ?? null) : () => openPanel({ kind: "business", tab: "equipo" })} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId):Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} /> : null,
+      headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onOpenActivity={() => openPanel({ kind: "activity" })} onInvite={localPreview ? () => setInvitationBusiness(chosen?.space_id ?? null) : () => openPanel({ kind: "business", tab: "equipo" })} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId):Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} /> : null,
       headerActions: (shell) => closedAccessName ? null : <>
         {uploads.length > 0 ? <button type="button" className={quietButtonClass} onClick={() => setIntakeTarget(uploads.find((item) => item.status !== "saved" && item.status !== "rejected")?.target ?? uploads[0].target)}>
           {t("business.intake.open_queue", "Uploads ({{count}})", { count: uploads.length })}
@@ -650,7 +660,7 @@ function BusinessWorkspaceContent({
         <AmountsToggle />
         <BusinessNotifications key={chosen?.space_id} businessId={chosen?.space_id} businessName={chosen?.name} preview={localPreview} onInvitationAccepted={grantId=>{chooseBusiness(grantId);reload();showToast({kind:"success",text:t("business_access.invitation_accepted")});}} onAction={(tab) => openPanel({ kind: "business", tab })} />
       </>,
-      headerSearch: (shell) => <BusinessHeader home={shell.currentView === "workspace" && panel.kind === "overview" && !closedAccessName} name={shell.greetingName} title={shell.currentView === "workspace" && !closedAccessName ? panel.kind === "transactions" ? t("business.transactions.title") : panel.kind === "inbox" ? t("business.inbox.title") : panel.kind === "invoicing" ? t("business.invoicing_preview.title") : undefined : undefined} onSearch={shell.openSearch} />,
+      headerSearch: (shell) => <BusinessHeader home={shell.currentView === "workspace" && panel.kind === "overview" && !closedAccessName} name={shell.greetingName} business={formatBusinessName(chosen?.name, t("business.overview.title", "My business"))} title={shell.currentView === "workspace" && !closedAccessName ? panel.kind === "transactions" ? t("business.transactions.title") : panel.kind === "inbox" ? t("business.inbox.title") : panel.kind === "invoicing" ? t("business.invoicing_preview.title") : undefined : undefined} screen={shell.currentView === "workspace" && !closedAccessName ? panel.kind : undefined} onSearch={shell.openSearch} />,
       panel: () => closedAccessName ? <BusinessClosedAccess returnHome={!spaces?.length} businessName={closedAccessName} onReturn={() => { setClosedAccess(false); if (!spaces?.length) window.location.assign("/"); else chooseBusiness(spaces.find(space => space.role === "owner") ? null : spaces[0].grant_id); }} /> : <><BusinessClosedOwnerBanner businesses={closedSpaces} /><BusinessPanel /></>,
       starterEntries: () => actions.starterEntries,
       emptyChatLead: () => <BusinessHome variant="new_chat" />,

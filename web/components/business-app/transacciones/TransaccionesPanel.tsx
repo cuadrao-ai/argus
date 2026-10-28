@@ -8,6 +8,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useBusiness } from "../BusinessWorkspace";
 import BusinessAddMenu from "../BusinessAddMenu";
+import { RecordsExportButton } from "./RecordsExportButton";
 import { MonthCurrencyMenu } from "../MonthCurrencyMenu";
 import BusinessPeriodControl, { usePeriodLabel } from "../BusinessPeriodControl";
 import OutsidePeriodNote from "../OutsidePeriodNote";
@@ -51,7 +52,7 @@ export default function TransaccionesPanel() {
 
 function LegacyTransaccionesPanel() {
   const { t, locale } = useTransaccionesWords();
-  const { period, setPeriod, panel, records, actions, chosen } = useBusiness();
+  const { period, setPeriod, panel, records, actions, chosen, openExport } = useBusiness();
   const igualarOn = useIgualarEnabled();
   const periodLabel = usePeriodLabel();
   const { isBelowTablet: phone } = useResponsiveLayout();
@@ -131,7 +132,7 @@ function LegacyTransaccionesPanel() {
             {phone || panel.kind !== "transactions" ? <h2 className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">{t("business.transactions.title")}</h2> : null}
             {igualar ? <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/65">{subtitle}</p> : null}
           </div>
-          <div className="flex flex-wrap items-center gap-3">{phone ? null : run}{phone || igualar ? <BusinessAddMenu placement="header" /> : null}</div>
+          <div className="flex flex-wrap items-center gap-3">{phone ? null : run}{phone ? <BusinessAddMenu placement="header" /> : null}</div>
         </div> : null}
         {igualar ? <div className="mb-4 flex flex-wrap items-center gap-2">
           <SegmentedControl
@@ -146,7 +147,7 @@ function LegacyTransaccionesPanel() {
           {phone ? <div className="ml-auto">{run}</div> : <div className="ml-auto"><DensityMenu state={densityState} /></div>}
         </div> : null}
         {!igualar && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <RecordsOverviewPreview loading={list.kind === "loading"} counts={overviewPreviewCounts(periodRecords, chosen?.space_id ?? null)} selected={previewFilters.review} onChoose={(review) => setPreviewFilters((current) => ({ ...current, review: current.review.includes(review) ? [] : [review] }))} /> : null}
-        {!igualar ? <RecordsToolbar appliedPeriod={previewPeriod} onPeriodChange={setPreviewPeriod} appliedFilters={previewFilters} onFiltersChange={setPreviewFilters} preferences={viewPreferences} onPreferencesChange={setViewPreferences} onPreviewChange={() => setPreviewRevision((value) => value + 1)} filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={<>{!phone ? <BusinessAddMenu placement="header" /> : null}{localPaging ? <RecordsSettingsPreview value={viewPreferences} onChange={setViewPreferences} /> : !phone ? <DensityMenu state={densityState} /> : null}</>} /> : null}
+        {!igualar ? <RecordsToolbar appliedPeriod={previewPeriod} onPeriodChange={setPreviewPeriod} appliedFilters={previewFilters} onFiltersChange={setPreviewFilters} preferences={viewPreferences} onPreferencesChange={setViewPreferences} onPreviewChange={() => setPreviewRevision((value) => value + 1)} filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={<>{phone ? null : <RecordsExportButton onExport={openExport} />}{localPaging ? <RecordsSettingsPreview value={viewPreferences} onChange={setViewPreferences} /> : !phone ? <DensityMenu state={densityState} /> : null}</>} /> : null}
         {!igualar && records.overview ? <div className="-mt-1 mb-4"><OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /></div> : null}
         {igualar && controller.currencyMenu ? (
           <div data-testid="transacciones-currency" className="mb-3">

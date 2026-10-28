@@ -5,7 +5,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createInstance } from "i18next";
 import { History } from "lucide-react";
-import { ArrowsLeftRight, SquaresFour, Tray, type Icon } from "@phosphor-icons/react";
+import { ClockCounterClockwise, House, Table, Tray, type Icon } from "@phosphor-icons/react";
 import { I18nextProvider } from "react-i18next";
 import type { ReactNode } from "react";
 import type { BusinessContextValue, BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
@@ -107,9 +107,10 @@ function phosphorPath(Glyph: Icon, weight: "regular" | "fill") {
 test("each icon is drawn in parts that, at rest, are exactly the Phosphor icon it replaces in both weights", async () => {
   const { NAV_GLYPHS, NavIcon } = await import("@/components/business-app/nav-glyphs");
   const cases = [
-    { glyph: NAV_GLYPHS.overview, phosphor: SquaresFour, parts: ["tile", "tile", "tile", "tile"] },
+    { glyph: NAV_GLYPHS.overview, phosphor: House, parts: ["house"] },
     { glyph: NAV_GLYPHS.inbox, phosphor: Tray, parts: ["tray"] },
-    { glyph: NAV_GLYPHS.transactions, phosphor: ArrowsLeftRight, parts: ["arrow-left", "arrow-right"] },
+    { glyph: NAV_GLYPHS.transactions, phosphor: Table, parts: ["table"] },
+    { glyph: NAV_GLYPHS.activity, phosphor: ClockCounterClockwise, parts: ["clock-dial", "clock-hands"] },
   ] as const;
   for (const { glyph, phosphor, parts } of cases) {
     const host = document.createElement("div");
@@ -174,8 +175,8 @@ test("a pointer entering a rail row plays its move once, and a move already play
   }
 });
 
-test("leaving replays the move for Inicio and Transacciones, whose moves read both ways, and not for the Bandeja", async () => {
-  for (const [name, replays] of [["overview", true], ["inbox", false], ["transactions", true]] as const) {
+test("leaving does not replay a move: each one reads in one direction", async () => {
+  for (const [name, replays] of [["overview", false], ["inbox", false], ["transactions", false]] as const) {
     const row = await mountRow(name);
     await row.pointer("pointerenter");
     await settle(() => moves[0].finish());

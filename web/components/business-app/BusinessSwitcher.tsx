@@ -6,7 +6,7 @@ import { profileSubmenuClass } from "@/components/sidebar/profileMenuPlacement";
 import {SavedIdentityMark} from "@/components/identity/IdentityMark";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { createPortal } from "react-dom";
-import { ArrowLeftRight, BriefcaseBusiness, Check, ChevronRight, Plus, Settings2, UserRoundPlus } from "lucide-react";
+import { ArrowLeftRight, BriefcaseBusiness, Check, ChevronRight, History, Plus, Settings2, UserRoundPlus } from "lucide-react";
 import { useEffect, useLayoutEffect, useId, useMemo, useRef, useState } from "react";
 import { businessDeadlineParts } from "@/lib/business-lifecycle-api";
 import { resolveLanguage } from "@/lib/language-features";
@@ -24,7 +24,7 @@ export function BusinessMark({businessId,name}:{businessId?:string;name?:string}
 
 type MenuMode = "closed" | "menu" | "choose";
 
-export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, collapsed, onChoose, onOpenSettings, onInvite, onAddBusiness, memberEmail }: {
+export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, collapsed, onChoose, onOpenSettings, onOpenActivity, onInvite, onAddBusiness, memberEmail }: {
   spaces: GrantedSpace[] | null;
   closedSpaces?: ClosedGrantedSpace[];
   chosen: GrantedSpace | null;
@@ -32,6 +32,8 @@ export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, co
   onChoose: (grantId: string | null) => void;
   /** Opens the Negocio page: name and RNC, team and access, receipt email. */
   onOpenSettings: () => void;
+  /** Phones only: the rail carries Actividad on wider screens, so the menu is its one door here. */
+  onOpenActivity?: () => void;
   onInvite?: () => void;
   onAddBusiness?: () => void;
   memberEmail?: string | null;
@@ -147,6 +149,10 @@ export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, co
       <p data-testid="business-member-access" className="mt-1 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.your_access")} · {current.business_role ? t(`workspace_setup_preview.permission_${current.business_role}`) : "-"}</p>
     </div>
     <div className="mb-2 border-b border-black/10 pb-2 dark:border-white/10">
+      {onOpenActivity ? <button type="button" role="menuitem" className={menuItemClass} onClick={() => { setMode("closed"); onOpenActivity(); }}>
+        <History aria-hidden="true" className="h-5 w-5 shrink-0" />
+        {t("business.nav.activity")}
+      </button> : null}
       {current.permissions?.includes("manage") && onInvite ? <button type="button" role="menuitem" className={menuItemClass} onClick={() => { closeToButton(); onInvite(); }}>
         <UserRoundPlus aria-hidden="true" className="h-5 w-5 shrink-0" />
         {t("business.switcher.invite")}

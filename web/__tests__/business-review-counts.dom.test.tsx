@@ -24,7 +24,7 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-async function mount(overrides: { activity?: (counts: ReceiptActivityCounts) => ReceiptActivityCounts | null; grant?: string | null } = {}) {
+async function mount(overrides: { activity?: (counts: ReceiptActivityCounts) => ReceiptActivityCounts | null; grant?: string | null; bars?: boolean } = {}) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -36,6 +36,7 @@ async function mount(overrides: { activity?: (counts: ReceiptActivityCounts) => 
   const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
   const BusinessInboxPanel = (await import("@/components/business-app/BusinessInboxPanel")).default;
   const BusinessSidebarNav = (await import("@/components/business-app/BusinessSidebarNav")).default;
+  const BusinessHeader = (await import("@/components/business-app/foundation/BusinessHeader")).default;
   const { setChosenGrant } = await import("@/lib/business-grant");
   setChosenGrant(overrides.grant ?? null);
   const i18n = i18next.createInstance();
@@ -55,7 +56,9 @@ async function mount(overrides: { activity?: (counts: ReceiptActivityCounts) => 
     return (
       <div>
         <div data-testid="sidebar"><BusinessSidebarNav shell={shell} /></div>
+        {overrides.bars ? <div data-testid="bar-resumen"><BusinessHeader home name={null} screen="overview" /></div> : null}
         <div data-testid="resumen"><BusinessOverviewPanel /></div>
+        {overrides.bars ? <div data-testid="bar-bandeja"><BusinessHeader home={false} name={null} screen="inbox" /></div> : null}
         <div data-testid="bandeja"><BusinessInboxPanel /></div>
       </div>
     );
@@ -83,7 +86,9 @@ async function mount(overrides: { activity?: (counts: ReceiptActivityCounts) => 
   const updateButton = () => [...host.querySelectorAll("button")].find((button) => button.textContent === "Actualizar lista") ?? null;
   const noteRows = () => receptionRows(host).filter((row) => row.dataset.kind === "note").length;
   const text = (selector: string) => host.querySelector(selector)?.textContent ?? null;
-  // The Resumen's review task shows the same server count as the Bandeja.
+  // Inicio's Finanzas por mes keeps the close steps behind "Ver cuáles"; its review step shows the same server
+  // count as the Bandeja.
+  const tasksToggle = () => host.querySelector<HTMLButtonElement>('[data-testid="resumen"] [data-testid="month-close-tasks-toggle"]');
   const reviewTask = () => host.querySelector('[data-testid="resumen"] [data-testid="month-close-task-review"]');
   const reviewCount = () => reviewTask()?.querySelector("p")?.textContent?.match(/^(\d+) por revisar en la Bandeja/)?.[1] ?? null;
   const attentionTask = () => host.querySelector('[data-testid="resumen"] [data-testid="month-close-task-attention"]');
@@ -91,7 +96,9 @@ async function mount(overrides: { activity?: (counts: ReceiptActivityCounts) => 
   const rows = () => receptionRows(host).length;
   const segment = (key: "review" | "attention" | "all") => receptionTab(host, key === "all" ? "all" : key);
   const choose = (key: "review" | "attention" | "all") => act(async () => segment(key)!.click());
-  await settle(() => rows() > 0 && api?.records.notes !== null && api?.records.overview !== null && reviewCount() !== null);
+  await settle(() => rows() > 0 && api?.records.notes !== null && api?.records.overview !== null && tasksToggle() !== null);
+  if (tasksToggle()?.getAttribute("aria-expanded") === "false") await act(async () => tasksToggle()!.click());
+  await settle(() => reviewCount() !== null);
   return { act, root, host, settle, text, rows, noteRows, updateButton, segment, choose, reviewCount, attentionTask, readingStatus, api: () => api!, source };
 }
 
@@ -186,13 +193,15 @@ describe("the Bandeja and the Resumen on one saved state", () => {
     await page.act(async () => page.root.unmount());
   });
 
-  test("desktop Inicio and Bandeja each offer Agregar, and the accountant's Bandeja keeps one Revisar recibos", async () => {
-    const owner = await mount();
+  test("desktop Inicio and Bandeja each offer one Agregar, in the top bar, and the accountant's Bandeja keeps one Revisar recibos", async () => {
+    const owner = await mount({ bars: true });
     for (const id of ["resumen", "bandeja"]) {
+      const bar = owner.host.querySelector(`[data-testid="bar-${id}"] [data-testid="business-bar-tools"]`)!;
+      assert.equal(bar.querySelectorAll('[data-testid="add-menu-header"]').length, 1, `${id}'s bar has one Agregar`);
+      assert.equal(bar.querySelectorAll('[data-testid="business-primary-upload"]').length, 1);
       const screen = owner.host.querySelector(`[data-testid="${id}"]`)!;
-      assert.equal(screen.querySelectorAll('[data-primary="true"]').length, 1, `${id} has one primary`);
-      assert.equal(screen.querySelectorAll('[data-testid="business-primary-upload"]').length, 1);
-      for (const gone of ["inicio-actions", "inicio-export", "inicio-forward-copy", "inicio-primary-review", "add-menu-page"]) {
+      assert.equal(screen.querySelectorAll('[data-primary="true"]').length, 0, `${id} leaves its primary to the bar`);
+      for (const gone of ["business-primary-upload", "inicio-actions", "inicio-export", "inicio-forward-copy", "inicio-primary-review", "add-menu-page", "add-menu-header"]) {
         assert.equal(screen.querySelector(`[data-testid="${gone}"]`), null, `${id} has no ${gone}`);
       }
     }

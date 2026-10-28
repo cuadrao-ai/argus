@@ -2,17 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, CheckCheck, ChevronDown, ChevronRight, Inbox, ListFilter, Users, X } from "lucide-react";
-import { EnvelopeSimple, NotePencil, UploadSimple, WhatsappLogo } from "@phosphor-icons/react";
 import { useTranslation } from "react-i18next";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import RecordsPreviewPopover from "../transacciones/RecordsPreviewPopover";
 import RecordsFilterSelection from "../transacciones/RecordsFilterSelection";
 import styles from "../transacciones/records-filter-preview.module.css";
+import { CHANNEL_ICON, CHANNELS } from "../foundation/channel-icons";
 import { emptyReceptionFilters, type ReceptionFiltersValue, type SenderIdentity } from "./reception-filters";
 
 type Props = { senders: SenderIdentity[]; value: ReceptionFiltersValue; onChange: (value: ReceptionFiltersValue) => void };
-const CHANNELS = [{ value: "whatsapp", icon: WhatsappLogo }, { value: "email", icon: EnvelopeSimple }, { value: "web", icon: UploadSimple }, { value: "note", icon: NotePencil }] as const;
 const GROUPS = ["source", "sender", "status"] as const;
 
 function FilterEditor({ senders, value, onChange, close, phone = false }: Props & { close: () => void; phone?: boolean }) {
@@ -45,7 +44,7 @@ function FilterEditor({ senders, value, onChange, close, phone = false }: Props 
     {!phone || !choosing ? <section className={styles.editor} role={phone ? undefined : "tabpanel"} aria-label={word(group)}>
       {phone ? <button ref={back} type="button" className={styles.clear} onClick={() => setChoosing(true)}><ArrowLeft size={18} aria-hidden="true" />{shared("back")}</button> : null}
       <div className="flex items-center justify-between gap-3"><h3 className={styles.heading}>{word(group)}</h3><button type="button" className={styles.clear} onClick={() => setDraft({ ...draft, [group === "source" ? "channels" : group === "sender" ? "senders" : "states"]: [] })}>{word("clear_group")}</button></div>
-      {group === "source" ? <RecordsFilterSelection options={CHANNELS.map(({ value, icon: Icon }) => ({ value, label: word(`source_${value}`), icon: <Icon size={17} aria-hidden="true" /> }))} selected={draft.channels} onChange={channels => setDraft({ ...draft, channels })} /> : group === "status" ? <RecordsFilterSelection options={(["review", "processing", "attention"] as const).map(value => ({ value, label: word(value) }))} selected={draft.states} onChange={states => setDraft({ ...draft, states })} /> : <>
+      {group === "source" ? <RecordsFilterSelection options={CHANNELS.map((value) => { const Icon = CHANNEL_ICON[value]; return { value, label: word(`source_${value}`), icon: <Icon size={17} aria-hidden="true" /> }; })} selected={draft.channels} onChange={channels => setDraft({ ...draft, channels })} /> : group === "status" ? <RecordsFilterSelection options={(["review", "processing", "attention"] as const).map(value => ({ value, label: word(value) }))} selected={draft.states} onChange={states => setDraft({ ...draft, states })} /> : <>
         <input type="search" className={`${styles.input} ${styles.search}`} aria-label={word("sender_search")} placeholder={word("sender_search")} value={query} onChange={event => setQuery(event.target.value)} />
         <RecordsFilterSelection options={senders.map(sender => ({ value: sender.id, label: sender.name || sender.address, description: sender.name ? sender.address : undefined }))} selected={draft.senders} query={query} keepSelectedVisible onChange={senders => setDraft({ ...draft, senders })} />
       </>}

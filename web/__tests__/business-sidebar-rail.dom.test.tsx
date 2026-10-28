@@ -159,14 +159,14 @@ test("saved collapsed or hover Business preferences start compact", async () => 
   }
 });
 
-test("the labeled rail stacks Inicio to Transacciones under the business card, with the Cuadrao mark at the foot", async () => {
+test("the labeled rail stacks Inicio to Actividad under the business card, with the Cuadrao mark at the foot", async () => {
   await mountRail({ storedMode: "expanded" });
   assert.match(aside().className, /\bw-60\b/);
   assert.match(aside().className, /bg-\[var\(--cuadrao-cream\)\]/);
   assert.match(aside().className, /\bborder-r\b/);
   assert.deepEqual(
     rows().map((button) => button.textContent?.replace(/Ctrl.*$|⌘.*$/, "").replace(/\d+$/, "").trim()),
-    ["Inicio", "Bandeja", "Registros"],
+    ["Inicio", "Bandeja", "Registros", "Actividad"],
   );
   for (const button of rows()) {
     assert.match(button.className, /\bh-11\b/, button.textContent ?? "");

@@ -1,7 +1,8 @@
 "use client";
 
-import { ArrowRight, Eye, EnvelopeSimple, ChatCircle, UploadSimple, NotePencil, WhatsappLogo } from "@phosphor-icons/react";
+import { ArrowRight, Eye, ChatCircle } from "@phosphor-icons/react";
 import ReceptionStatus from "./ReceptionStatus";
+import { CHANNEL_ICON } from "../foundation/channel-icons";
 import { useTranslation } from "react-i18next";
 import { currencySymbol } from "@/lib/money-entry";
 import { Unknown } from "../transacciones/transacciones-parts";
@@ -14,7 +15,6 @@ import type { ReceptionPreferences } from "./ReceptionControls";
 import ReceptionOriginal from "./ReceptionOriginal";
 import styles from "./reception.module.css";
 
-export const SOURCE_ICONS = { web: UploadSimple, email: EnvelopeSimple, whatsapp: WhatsappLogo, note: NotePencil };
 export default function ReceptionArrivalRow({ row, panel, openPanel, preferences, selectable, checked, unseen, onCheck, onSeen, onInspect, inspecting }: { onInspect: () => void; inspecting: boolean; selectable: boolean; checked: boolean; unseen: boolean; onCheck: () => void; onSeen: () => void; row: ReceptionRow; panel: BusinessPanelState; openPanel: (panel: BusinessPanelState) => void; preferences: ReceptionPreferences }) {
   const { t, i18n } = useTranslation();
   const { chosen } = useBusiness();
@@ -26,7 +26,7 @@ export default function ReceptionArrivalRow({ row, panel, openPanel, preferences
   const money = receipt && preferences.amount ? formatMoney(receipt.amount, receipt.currency, locale) : null;
   const sender = receptionSender(row);
   const action = receipt?.expense_id ? "action_record" : receptionAction(row, chosen?.capabilities.includes("prepare") === true);
-  const SourceIcon = SOURCE_ICONS[row.source];
+  const SourceIcon = CHANNEL_ICON[row.source];
   const open = (target: BusinessPanelState) => { onSeen(); openPanel(target); };
   const selected = inspecting || (row.kind !== "message" && isOpenRecord(panel, target));
   const arrival = preferences.arrival ? <time dateTime={row.receivedAt} title={new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(row.receivedAt))}>{formatRelativeTime(row.receivedAt, locale)}</time> : null;

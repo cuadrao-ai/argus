@@ -12,6 +12,9 @@ import InvitationPreviewModal from "./InvitationPreviewModal";
 import { fieldClass, fieldLabelClass } from "@/components/ui/form-field";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { useBusiness } from "@/components/business-app/BusinessWorkspace";
+import { CHANNEL_ICON } from "@/components/business-app/foundation/channel-icons";
+
+const WhatsAppIcon = CHANNEL_ICON.whatsapp;
 
 
 function PreviewCopy({ slot }: { slot: HTMLElement }) {
@@ -171,7 +174,7 @@ export default function WorkspaceSetupPreview({ invitation, profileInvoicing, re
   />;
   const dossierContent = <iframe key={`${chosen?.space_id ?? "unselected"}:${dossier}`} ref={dossierFrame} src={`/design-workspace/card${scope}${scope ? "&" : "?"}surface=${dossier}${profileInvoicing ? "&entry=profile" : ""}`} title={dossier === "whatsapp" ? "WhatsApp" : t("workspace_setup_preview.invoice_title")} onLoad={syncAppearance} className="block w-full border-0" style={{ height: dossierHeight }} />;
   return <>{accessSlots.filter(slot => slot.isConnected).map(slot => createPortal(<InvitationAccessPicker slot={slot} />, slot, slot.dataset.key ?? "access"))}{emailSlot?.isConnected ? createPortal(<BusinessEmailAddress />, emailSlot) : null}{copySlots.filter(slot => slot.isConnected).map((slot, index) => createPortal(<PreviewCopy slot={slot} />, slot, String(index)))}{invitation ? <InvitationPreviewModal frame={frame} onClose={() => onClose?.()}>{guide}</InvitationPreviewModal> : profileInvoicing || reception ? null : guide}
-    {dossier ? embedded ? dossierContent : <AdaptivePanel title={dossier === "whatsapp" ? "WhatsApp" : t("workspace_setup_preview.invoice_title")} closeLabel={t("common.close", "Close")} onClose={() => {setDossier(null);if(profileInvoicing || reception)onClose?.();}} width="lg" snaps={["full"]} initialSnap="full">
+    {dossier ? embedded ? dossierContent : <AdaptivePanel title={dossier === "whatsapp" ? "WhatsApp" : t("workspace_setup_preview.invoice_title")} titleIcon={dossier === "whatsapp" ? <WhatsAppIcon size={20} /> : undefined} closeLabel={t("common.close", "Close")} onClose={() => {setDossier(null);if(profileInvoicing || reception)onClose?.();}} width="lg" snaps={["full"]} initialSnap="full">
       {dossierContent}
     </AdaptivePanel> : null}
   </>;

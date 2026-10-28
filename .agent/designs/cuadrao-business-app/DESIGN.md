@@ -671,6 +671,67 @@ Regression coverage lives in `business-canvas.dom.test.tsx`,
 `web/__tests__/`. Browser checks must also cover the open tray, both rail modes,
 both themes and narrow viewports; DOM tests alone do not prove pixel geometry.
 
+### Page heading, approved October 27, 2026
+
+Each top-level screen (Bandeja, Registros, Facturación, Actividad, and Negocio
+from Configurar negocio) has one
+heading group: its title and one sentence that says what the screen is for. Nested
+sections, trays and dialogs have no sentence.
+
+- **The sentence** is supporting text, not a second heading: 16px body, regular
+  weight, 24px line height, secondary ink `#56635e` (white at 70% in dark). Weight,
+  colour and spacing keep it below the title, never low contrast. Aim for one line
+  on desktop and at most two on a narrow phone. It wraps and never truncates or
+  shrinks.
+- **The icon** before the sentence is the screen's own rail icon, at 1em (16px), in
+  the same stroke style. It sits on the first line's middle when the sentence wraps
+  and never shrinks.
+- **Desktop and tablet:** the top bar holds the group. The title is followed by the
+  sentence 4px below it. The bar grows to fit the group plus 21px above and below,
+  at any width or wrap. Its fade and the content offset grow with it, so the
+  sentence is never washed out. Screens without a sentence keep the 80px bar.
+  The heading carries no Agregar; Negocio has none, since adding documents is not
+  a settings task. Negocio's icon is the briefcase of the business mark.
+  Search and the bar's actions align to the group's first row. Inicio has no
+  sentence (Lucas, October 27): its date, Business and greeting stand alone in the
+  bar, which grows to fit them as it does a sentence.
+- **Phone:** the title and sentence open the content, 8px apart, with 34px before
+  the filters or the first card.
+- Copy lives in `business.page_intro.<screen>`. Owner: `PageHeading.tsx` and
+  `BusinessHeader.tsx` under `web/components/business-app/foundation/`; the screen
+  icons come from `SCREEN_ICON` in `nav-glyphs.tsx`, the same owner as the rail.
+
+### Top bar, canvas and search, approved October 28, 2026
+
+- **One bounded box.** Every Business screen's content and its top bar share one box:
+  fluid up to 80rem (`BUSINESS_CANVAS_MAX`), centered beyond it, Registros included. The
+  bar's controls end on the content's right edge. The bar is opaque for its own
+  height, so scrolled content never shows behind the heading. Owner:
+  `body[data-workspace-bounded]` in `globals.css`, set by `BusinessHeader.tsx`.
+- **One bar, one order:** heading · Buscar ⌘K · Agregar · invitation, privacy,
+  notifications · avatar. The title takes the 44px line of the controls, so all sit on
+  one center line. Agregar appears once per screen, in the bar, never on Negocio. A
+  screen's toolbar keeps only its own tools (Registros: views, period, filters,
+  Export, table settings).
+- **Search field:** "Buscar ⌘K", 200px, a field and never a hover expansion. When
+  the bar has no room beside the heading and Agregar it becomes the 44px search
+  button. A phone keeps its own search icon.
+- **Scoped search (Bandeja, Registros):** the list owns its query (Registros' report
+  request and URL, Bandeja's return position) and lends it while on screen
+  (`foundation/list-search.ts`). The bar's button reads "En Bandeja · Buscar", or the
+  applied filter, "En Bandeja · colmado ×"; the × clears it. A phone keeps the
+  list's own search field.
+- **One search window.** Compact by default: 680px, centered on the content, laid over
+  the bar. It widens to 1040px only beside a highlighted record that has a preview,
+  and highlights the first such record itself. It never shows an empty preview pane,
+  and it has no manual Collapse toggle. On a list it opens with the scope chip
+  ("En Registros ×"): results keep that list's kinds, actions keep that list's (Agregar
+  and Exportar in Registros, Agregar and the forwarding address in Bandeja), and
+  screens are left out. Enter, or the first row "Filtrar Registros por “…”", filters
+  the list and closes. Removing the chip, or Backspace in an empty field, searches the
+  whole Business. Empty, the window lists recent searches, then actions; screens show
+  only when typed text matches one. Chat search keeps its own window unchanged.
+
 ### Sidebar and account
 
 Lucas set this on October 20, 2026. The left sidebar is where you work; the
@@ -731,12 +792,16 @@ top right is who you are.
   are on. Becoming the current screen crossfades the two weights in 120ms (the
   outline leaves 60ms later, so the icon never dims) and settles the icon from
   92% to full size in 180ms, ease out, no overshoot; a press shrinks it to 92%.
-  Each icon also acts out its screen in one short move: Inicio's four cards
-  shrink and settle back corner to corner (360ms, 50ms apart); a receipt drops
+  Each icon also acts out its screen in one short move: Inicio's house
+  (Phosphor `house`, Lucas, October 27, 2026) hops and lands, settling on its
+  ground (420ms); a receipt drops
   into the Bandeja, bounces once as the tray dips 1px, then slides in behind
-  the lip (560ms); Transacciones' arrows slide past each other and settle
-  (500ms, the second 60ms later). The move plays on pointer hover over the
-  row's soft fill (Inicio and Transacciones again on leave), on keyboard
+  the lip (560ms); Registros' table (Phosphor `table`) unfolds from its header
+  row and settles (400ms); Facturación's receipt (Phosphor `receipt`) lifts
+  like a sheet picked up (240ms); Actividad's clock hands turn back one full turn
+  while its rewind arrow pulls back and settles (520ms), both about the clock's
+  center. The move plays on pointer hover over the
+  row's soft fill (no move replays on leave), on keyboard
   focus, and when the icon becomes the current screen, which is the only
   trigger on phones. A move under way finishes rather than restarting, and
   every move ends at rest. At rest the icons are Phosphor's, pixel for pixel.
@@ -812,9 +877,27 @@ a 44px target.
 ### Segmented control
 
 One control picks one of a few periods or views. A tinted track holds the
-segments; the chosen one is white. It is a radio group: arrow keys move the
-choice. Keep it to four short words or fewer. A rare choice (any other dates)
-is a link under the control, not another segment.
+segments; the chosen one is a filled pill with a border. It is a radio group:
+arrow keys move the choice. Keep it to four short words or fewer. A rare choice
+(any other dates) is a link under the control, not another segment.
+
+States (Lucas, October 27, 2026). One set of tokens, `--segment-*` in
+`web/app/globals.css`, serves every selector and set of page tabs; no screen
+patches its colours.
+
+| State | Light | Dark |
+| --- | --- | --- |
+| Track | `#EDECE6` | white at 6% |
+| Selected | white fill, `#7d8a84` 1px border, `#172b26` label | white at 16% fill, white at 60% border, white label |
+| Default label | `#56635e` | white at 70% |
+| Hover (unselected) | black at 5% tint, `#172b26` label, no border | white at 6% tint, white label, no border |
+| Focus | 2px inset ring in Cuadrao green | 2px inset ring in Cuadrao green (`#8fcbb0`) |
+| Disabled | 50% opacity, no hover | same |
+
+The selected pill's border keeps at least 3:1 against the track and the fill
+(light 3.04 and 3.6, dark 6.55 and 3.91). Every label and count keeps 4.5:1 or
+more. A hovered segment never shows a border, so it never reads as chosen. The
+geometry and spacing are unchanged.
 
 Its thumb moves on springs, not a fade or a jump:
 

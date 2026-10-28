@@ -33,13 +33,16 @@ afterEach(async () => {
 const refusal = (status: number, code: string) => Object.assign(new Error(`API error ${status}`), { status, code, requestId: "4ea79978-ce17-4853-b232-b2a72f4c9ce7" });
 const NETWORK = () => new TypeError("Failed to fetch");
 
+/** The short reference a failure shows: the server's request id, else a generated one. */
+const REF = /Ref\. \S{8}/;
 const BUSINESS_OFF = () => refusal(404, "business_unavailable");
 const EMAIL_OFF = () => refusal(503, "email_capture_unavailable");
 const BANK_DOWN = () => refusal(503, "business_bank_unavailable");
 const SERVER_DOWN = () => refusal(500, "internal_error");
 
 const CONNECTION_BLAME = /conexión/;
-const buttons = (within: Element | null) => [...(within?.querySelectorAll("button") ?? [])].map((button) => button.textContent);
+/** The ways out a failure offers; the reference's copy control is not one. */
+const buttons = (within: Element | null) => [...(within?.querySelectorAll("button:not([data-testid=\"error-reference\"])") ?? [])].map((button) => button.textContent);
 
 describe("which failures asking again can help", () => {
   test("the two explicit refusals are for good; each needs its status and its code together", () => {
@@ -111,6 +114,7 @@ describe("Inicio's month when a read fails", () => {
     assert.deepEqual(buttons(error()), [], "asking again gets the same refusal");
     assert.doesNotMatch(error()!.textContent ?? "", CONNECTION_BLAME);
     assert.match(error()!.textContent ?? "", /hola@cuadrao\.ai/, "the way out is to write to us");
+    assert.match(error()!.textContent ?? "", REF, "and the reference to quote");
     assert.equal(host.querySelector('[data-testid="month-close-empty"]'), null, "a refused month is not an empty one");
     assert.equal(host.querySelector('[data-testid="month-close-checklist-ready"]'), null, "nor a ready one");
   });
@@ -123,6 +127,7 @@ describe("Inicio's month when a read fails", () => {
       const error = () => host.querySelector('[data-testid="month-close-error"]');
       await settle(act, () => error() !== null, "the month error");
       assert.deepEqual(buttons(error()), ["Reintentar"]);
+      assert.match(error()!.textContent ?? "", REF, "the failure carries a reference");
       const before = calls.month;
       await act(async () => [...error()!.querySelectorAll("button")][0].click());
       await settle(act, () => calls.month > before, "the second read");
@@ -138,6 +143,7 @@ describe("Inicio's month when a read fails", () => {
     assert.deepEqual(buttons(error()), []);
     assert.doesNotMatch(error()!.textContent ?? "", CONNECTION_BLAME);
     assert.match(error()!.textContent ?? "", /hola@cuadrao\.ai/);
+    assert.match(error()!.textContent ?? "", REF, "and the reference to quote");
     assert.equal(host.querySelector('[data-testid="month-close-receivable"]'), null, "no Todo cobrado beside a refusal");
     assert.ok(host.querySelector('[data-testid="month-close-checklist"]'), "the month's own read still shows");
   });
@@ -149,7 +155,19 @@ describe("Inicio's month when a read fails", () => {
     const error = () => host.querySelector('[data-testid="month-close-money-error"]');
     await settle(act, () => error() !== null, "the open items error");
     assert.deepEqual(buttons(error()), ["Reintentar"]);
+    assert.match(error()!.textContent ?? "", REF, "the failure carries a reference");
   });
+
+  for (const [name, testId, fail] of [["the month", "month-close-error", "month"], ["Por cobrar y Por pagar", "month-close-money-error", "open"]] as const) {
+    test(`the server's request id is the reference shown on ${name}`, async () => {
+      const withId = () => Object.assign(SERVER_DOWN(), { requestId: "req-4d8e1f60" });
+      const { client } = failing({ [fail]: withId });
+      const { act, host, root } = await renderMonthCloseView(client, now);
+      unmounts.push(() => act(async () => root.unmount()));
+      await settle(act, () => host.querySelector(`[data-testid="${testId}"]`) !== null, "the error");
+      assert.match(host.querySelector(`[data-testid="${testId}"]`)!.textContent ?? "", /Ref\. req-4d8e/);
+    });
+  }
 });
 
 describe("Inicio when the Business itself does not load", () => {
@@ -224,7 +242,7 @@ describe("Inicio when the Business itself does not load", () => {
       reads += 1;
       if (failed) throw NETWORK();
       return { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0 } };
-    } }, (host) => host.querySelector('[data-testid="month-close-task-settle"]') !== null);
+    } }, (host) => host.querySelector('[data-testid="month-close-checklist"] [data-testid="month-close-tasks-toggle"]') !== null);
     await view.settle(() => view.api().records.receiptActivity?.ready_to_review_count === 0);
     failed = true;
     await view.act(async () => view.api().reload());

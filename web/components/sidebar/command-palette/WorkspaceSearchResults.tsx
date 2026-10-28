@@ -248,8 +248,8 @@ function ShortcutGroups({ search, groups, onOpened }: { search: WorkspaceSearch;
   return <>{groups.map((group) => <HitGroup key={group.id} group={group} rows={null} handlers={{ onOpened }} copy={search.copy} />)}</>;
 }
 
-/** Before a query: what was searched lately, then where to go and what to do. */
-export function WorkspaceSearchHome({ search, recents, onFill, onOpened }: { search: WorkspaceSearch; recents: RecentSearches; onFill: (query: string) => void; onOpened: () => void }) {
+/** Before a query: what was searched lately, then where to go and what to do (`groups`, when the window trims them). */
+export function WorkspaceSearchHome({ search, groups = search.shortcuts, recents, onFill, onOpened }: { search: WorkspaceSearch; groups?: readonly WorkspaceSearchGroup[]; recents: RecentSearches; onFill: (query: string) => void; onOpened: () => void }) {
   return (
     <section aria-label={search.copy.region} data-testid="workspace-search-home" className="flex flex-col gap-3 px-3 pt-3">
       {recents.items.length ? (
@@ -273,7 +273,7 @@ export function WorkspaceSearchHome({ search, recents, onFill, onOpened }: { sea
           ))}
         </div>
       ) : null}
-      <ShortcutGroups search={search} groups={search.shortcuts} onOpened={onOpened} />
+      <ShortcutGroups search={search} groups={groups} onOpened={onOpened} />
     </section>
   );
 }

@@ -13,6 +13,7 @@ import BusinessOverviewPanel from "./BusinessOverviewPanel";
 import BusinessInboxPanel from "./BusinessInboxPanel";
 import TransaccionesPanel from "./transacciones/TransaccionesPanel";
 import InvoiceWorkspaceEntry from "./invoicing/InvoiceWorkspaceEntry";
+import ActivityDraft from "./actividad/ActivityDraft";
 import { RecordsAnnotationsPreview } from "./transacciones/RecordsAnnotationsPreview";
 import { RecordEvidenceContext, RecordGlanceContext } from "./transacciones/RecordGlanceContext";
 import type { RecordRow } from "./transacciones/transacciones-model";
@@ -114,7 +115,7 @@ function RecordTray({ panel, list, listRef, preview }: { panel: RecordPanel; lis
 
 /** Inside the one canvas every screen starts at its left edge; a list or a form keeps a narrower column there. */
 const COLUMN = { canvas: "", reading: "max-w-3xl", form: "max-w-[40rem]" } as const;
-const SCREEN_COLUMN: Partial<Record<BusinessPanelState["kind"], keyof typeof COLUMN>> = { overview: "canvas", inbox: "canvas", transactions: "canvas", invoicing: "canvas", receipt: "canvas", draft: "canvas", business: "form", expense: "form" };
+const SCREEN_COLUMN: Partial<Record<BusinessPanelState["kind"], keyof typeof COLUMN>> = { overview: "canvas", inbox: "canvas", transactions: "canvas", invoicing: "canvas", activity: "canvas", receipt: "canvas", draft: "canvas", business: "canvas", expense: "form" };
 
 export default function BusinessPanel() {
   const { panel, lostAccess, records, reload, openPanel, chosen, userId, directoryStatus } = useBusiness();
@@ -144,9 +145,9 @@ export default function BusinessPanel() {
   const recordsPhonePreview = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" && record && recordList(record) === "transactions";
   const tray = record && (!isBelowDesktop || recordsPhonePreview) ? recordList(record) : null;
   const shown = tray ?? panel.kind;
-  const profilePreview = panel.kind === "business" && (!panel.tab || panel.tab === "datos");
   const preview = previewEnabled && record?.kind === "expense" && glance?.scope === scope && glance.row.opens?.kind === "expense" && glance.row.opens.expenseId === record.expenseId ? glance.row : undefined;
-  const column = profilePreview ? "canvas" : SCREEN_COLUMN[shown] ?? "reading";
+  // Negocio bounds its own columns through SettingsLayout, so every tab shares one left edge and width.
+  const column = SCREEN_COLUMN[shown] ?? "reading";
   return (
     <RecordGlanceContext.Provider value={previewEnabled ? openGlance : null}>
       <RecordEvidenceContext.Provider value={(row) => { if (row.opens) { setGlance(null); openPanel(row.opens); } }}>
@@ -158,6 +159,7 @@ export default function BusinessPanel() {
         {shown === "inbox" ? <BusinessInboxPanel /> : null}
         {shown === "transactions" ? <TransaccionesPanel /> : null}
         {shown === "invoicing" ? <InvoiceWorkspaceEntry directoryStatus={directoryStatus} onRetry={reload} scope={userId && chosen?.permissions?.includes("read") === true ? { userId, businessId: chosen.space_id, grantId: chosen.grant_id } : null} business={chosen?.name ?? ""} capabilities={{ prepare: chosen?.permissions?.includes("prepare") === true, issue: chosen?.permissions?.includes("approve") === true, download: chosen?.permissions?.includes("download") === true }} previewEnabled={previewEnabled} /> : null}
+        {shown === "activity" ? <ActivityDraft /> : null}
         {shown === "business" ? <BusinessSettingsPanel tab={panel.kind === "business" ? panel.tab : undefined} /> : null}
         {record && !tray ? <RecordContent panel={record} /> : null}
       </PanelErrorBoundary>
