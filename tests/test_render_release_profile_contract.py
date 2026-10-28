@@ -24,13 +24,19 @@ def _source(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
+BLUEPRINT_DECLARES_STAGING_OVERRIDE = {"CUADRAO_BUSINESS_BANK_MATCHING_ENABLED"}
+
+
 def _blueprint_env_item(entry: dict) -> dict:
     item = {"key": entry["name"]}
     if "value" not in entry:
         item["sync"] = False
         return item
     value = entry["value"]
-    if entry["name"] in APPROVED_STAGING_OVERRIDES:
+    if (
+        entry["name"] in APPROVED_STAGING_OVERRIDES
+        and entry["name"] not in BLUEPRINT_DECLARES_STAGING_OVERRIDE
+    ):
         value = "false"
     item["value"] = value
     return item

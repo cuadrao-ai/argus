@@ -261,7 +261,7 @@ services:
       - key: CUADRAO_BUSINESS_PILOT_ENABLED
         value: "true"
       - key: CUADRAO_BUSINESS_BANK_MATCHING_ENABLED
-        value: "false"
+        value: "true"
       - key: CUADRAO_BUSINESS_INVOICING_ENABLED
         value: "false"
       - key: CUADRAO_BUSINESS_SUPPLIER_FAST_PATH_ENABLED
@@ -384,9 +384,9 @@ services:
       - key: NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED
         value: "true"
       - key: NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED
-        value: "false"
+        value: "true"
       - key: NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED
-        value: "false"
+        value: "true"
       - key: NEXT_PUBLIC_CUADRAO_BUSINESS_INVOICING_ENABLED
         value: "false"
       - key: NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED

@@ -26,6 +26,18 @@ APPROVED_STAGING_OVERRIDES: dict[str, str] = {
         "controls for a reviewed manual release. Activation remains behind "
         "founder approval, CI, Eval, and manual release gates. Prod stays false."
     ),
+    "NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED": (
+        "Lucas set it on the staging dashboard 2026-10-28 for the demo loop; "
+        "the declaration keeps a blueprint sync from resetting it. Prod stays false."
+    ),
+    "NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED": (
+        "Lucas approved bank matching on staging 2026-10-28 (demo loop approval "
+        "3). Prod stays false."
+    ),
+    "CUADRAO_BUSINESS_BANK_MATCHING_ENABLED": (
+        "Lucas approved bank matching on staging 2026-10-28 (demo loop approval "
+        "2). Prod stays false."
+    ),
 }
 
 
@@ -254,7 +266,7 @@ def test_staging_exception_cannot_hide_other_true_values(surface: str) -> None:
 def test_another_staging_flag_still_needs_its_own_approval() -> None:
     profile = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-    name = "NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED"
+    name = "NEXT_PUBLIC_CUADRAO_BUSINESS_INVOICING_ENABLED"
     entry = next(
         entry for entry in manifest["services"]["web"]["entries"] if entry["name"] == name
     )
