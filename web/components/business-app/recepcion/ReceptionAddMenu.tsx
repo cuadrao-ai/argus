@@ -27,7 +27,7 @@ export default function ReceptionAddMenu({ withExport = false }: { withExport?: 
   const current = loaded?.source === source && loaded.revision === revision ? loaded : null;
   const address = current?.address;
   const add = chosen?.role !== "accountant" ? actions.create.find(action => action.id === "upload_receipt") : undefined;
-  const canExport = withExport && chosen?.capabilities.includes("read") === true;
+  const canExport = withExport && chosen?.permissions?.includes("export") === true;
   const close = () => { setPosition(null); trigger.current?.focus(); };
   useEffect(() => {
     if (!add) return undefined;

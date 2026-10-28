@@ -110,7 +110,7 @@ async function mount({ width = 1280, grant = null, overrides = {}, renderPanel =
     await act(async () => document.querySelector<HTMLButtonElement>('[data-testid="reception-add"] button[aria-haspopup="menu"]')!.click());
     return menuItems();
   };
-  return { act, ready, host, bar, screen, settle, open, openMenu, openReceptionMenu, menuItems, searches, invitationTriggers, unmount, api: () => api! };
+  return { act, wait, ready, host, bar, screen, settle, open, openMenu, openReceptionMenu, menuItems, searches, invitationTriggers, unmount, api: () => api! };
 }
 
 describe("the Business top bar on a desktop", () => {
@@ -176,6 +176,16 @@ describe("the Business top bar on a desktop", () => {
     assert.equal(trigger.getAttribute("aria-haspopup"), "menu");
     assert.ok(trigger.textContent?.trim(), "the lone trigger names itself");
     assert.deepEqual((await page.openMenu(menu)).map((item) => item.textContent), ["Exportar registros"]);
+  });
+
+  test("a Viewer, whose grant lacks the export permission, gets no menu trigger at all", async () => {
+    const viewer = { space_id: "fixture-client", name: "Colmado Peña", grant_id: "fixture-grant-client", role: "accountant" as const, business_role: "viewer" as const, permissions: ["read" as const], capabilities: ["read" as const], access_seen: true };
+    const page = await mount({ grant: "fixture-grant-client", overrides: { spaces: async () => [viewer] } });
+    await page.settle(() => page.api().chosen?.business_role === "viewer", "the viewer business");
+    await page.wait(400);
+    assert.equal(page.screen().querySelector('[data-testid="add-menu-header"]'), null);
+    assert.equal(document.querySelector('[data-testid="add-menu-more"]'), null);
+    assert.equal(document.body.textContent?.includes("Exportar registros"), false);
   });
 
   for (const kind of ["overview", "inbox", "transactions"] as const) test(`Exportar registros from the menu opens the one export sheet over ${kind}`, async () => {

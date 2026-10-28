@@ -13,7 +13,8 @@ import { showToast } from "./foundation/toasts";
  * The one global action: Agregar, with a menu for the rarer ones (Exportar
  * registros, Copiar dirección de reenvío). It sits beside the content heading
  * from the tablet stop up and at the top of each screen on a phone.
- * A contador, who adds nothing, gets the menu alone.
+ * A contador, who adds nothing, gets the menu alone; a role with no item at all
+ * gets no trigger.
  */
 export default function BusinessAddMenu({ placement, onExport, exportEnabled = true }: { placement: "header" | "page"; onExport?: () => void; exportEnabled?: boolean }) {
   const { t } = useTranslation();
@@ -27,9 +28,10 @@ export default function BusinessAddMenu({ placement, onExport, exportEnabled = t
     else openPanel({ kind: "business", tab: "correo" });
   };
   const more = [
-    ...(chosen?.capabilities.includes("read") && exportEnabled ? [{ id: "export", icon: Download, label: t("business.overview.export_records", "Export records"), run: onExport ?? openExport }] : []),
+    ...(chosen?.permissions?.includes("export") === true && exportEnabled ? [{ id: "export", icon: Download, label: t("business.overview.export_records", "Export records"), run: onExport ?? openExport }] : []),
     ...(owner && forwardAddress ? [{ id: "copy_forward", icon: Copy, label: t("business.overview.copy_forward", "Copy forwarding address"), run: () => void copyForward(forwardAddress) }] : []),
   ];
+  if (!add && !more.length) return null;
   const page = placement === "page";
   const moreLabel = t("business.add_menu.more", "More actions");
   return (

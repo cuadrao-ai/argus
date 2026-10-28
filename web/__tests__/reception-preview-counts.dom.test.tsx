@@ -17,7 +17,10 @@ afterEach(async () => {
 });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
-async function mount({ production = false, width = 1440, role = "owner", prepare = true, tweak = receipts => receipts, markRead }: { production?: boolean; width?: number; role?: GrantedSpace["role"]; prepare?: boolean; tweak?: (receipts: ReceiptSummary[]) => ReceiptSummary[]; markRead?: (id: string, cursor: string) => Promise<ReceiptActivity> } = {}) {
+const OWNER_PERMISSIONS: GrantedSpace["permissions"] = ["read", "prepare", "approve", "manage", "assign_owner", "download", "export"];
+const EDITOR_PERMISSIONS: GrantedSpace["permissions"] = ["read", "prepare", "download", "export"];
+
+async function mount({ production = false, width = 1440, role = "owner", prepare = true, permissions, tweak = receipts => receipts, markRead }: { production?: boolean; width?: number; role?: GrantedSpace["role"]; prepare?: boolean; permissions?: GrantedSpace["permissions"]; tweak?: (receipts: ReceiptSummary[]) => ReceiptSummary[]; markRead?: (id: string, cursor: string) => Promise<ReceiptActivity> } = {}) {
   Reflect.set(process.env, "NODE_ENV", production ? "production" : "development");
   process.env.NEXT_PUBLIC_MOCK_AUTH = production ? "false" : "true";
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 1000 });
@@ -40,7 +43,7 @@ async function mount({ production = false, width = 1440, role = "owner", prepare
   const emails = (await source.emailDeliveries()).filter(email => email.id === "email-boletin" || email.id === "email-estacion");
   assert.equal(emails.length, 2);
   const globalActivity = { reading_count: 92, unread_count: 94, presentation: "unread" as const, pending_review_count: 95, needs_attention_count: 93, ready_to_review_count: 91 };
-  const chosen: GrantedSpace = { space_id: "count-business", grant_id: "count-grant", name: "Negocio sintético", role, capabilities: prepare ? ["read", "prepare"] : ["read"], access_seen: true };
+  const chosen: GrantedSpace = { space_id: "count-business", grant_id: "count-grant", name: "Negocio sintético", role, capabilities: prepare ? ["read", "prepare"] : ["read"], permissions: permissions ?? (role === "owner" ? OWNER_PERMISSIONS : EDITOR_PERMISSIONS), access_seen: true };
   let uploads = 0;
   let reloads = 0;
   let exports = 0;
@@ -107,7 +110,7 @@ test("a read-only owner sees no Add capability in the live Bandeja", async () =>
   assert.equal(page.host.querySelector('[data-testid="business-primary-review"]'), null);
 });
 
-for (const [who, options] of [["an accountant", { role: "accountant" as const }], ["a read-only owner", { prepare: false }]] as const) test(`${who} gets Exportar registros from the live Bandeja menu and nothing they cannot do`, async () => {
+for (const [who, options] of [["an accountant with export", { role: "accountant" as const }], ["an owner who cannot add", { prepare: false }]] as const) test(`${who} gets Exportar registros from the live Bandeja menu and nothing they cannot do`, async () => {
   const page = await mount({ production: true, ...options });
   const trigger = page.host.querySelector<HTMLButtonElement>('[data-testid="reception-more"]');
   assert.ok(trigger, "the menu is there without Agregar");
@@ -119,6 +122,15 @@ for (const [who, options] of [["an accountant", { role: "accountant" as const }]
   assert.equal(document.querySelector('[role="menu"]')?.textContent?.includes("reenv"), false);
   await page.click(items[0]);
   assert.equal(page.exports(), 1);
+});
+
+test("a Viewer, whose grant lacks the export permission, gets no menu and no Exportar on the live Bandeja", async () => {
+  const page = await mount({ production: true, role: "accountant", prepare: false, permissions: ["read"] });
+  assert.equal(page.host.querySelector('[data-testid="reception-add"]'), null);
+  assert.equal(page.host.querySelector('[data-testid="reception-more"]'), null);
+  assert.equal(page.host.querySelector('[data-testid="business-primary-upload"]'), null);
+  assert.equal(page.host.textContent?.includes("Exportar registros"), false);
+  assert.equal(page.exports(), 0);
 });
 
 test("the owner who can add keeps Agregar with Exportar registros and the forwarding address in its menu", async () => {
