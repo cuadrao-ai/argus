@@ -2240,12 +2240,11 @@ def run(args: argparse.Namespace) -> None:
             },
         )
         spaces = api.get("/business/spaces")["spaces"]
+    prefix = args.expect_business or ""
     chosen = [
-        s
-        for s in spaces
-        if str(s.get("space_id") or s.get("id")).startswith(args.expect_business or "")
+        s for s in spaces if str(s.get("space_id") or s.get("id")).startswith(prefix)
     ]
-    if args.expect_business and len(chosen) != 1:
+    if len(chosen) != 1:
         owned = (
             ", ".join(
                 f"{str(x.get('space_id') or x.get('id'))[:8]} {x.get('name')!r}"
@@ -2254,10 +2253,9 @@ def run(args: argparse.Namespace) -> None:
             or "none"
         )
         raise SystemExit(
-            f"refusing: signed-in account has no single Business with id prefix {args.expect_business} (it has: {owned})"
+            f"refusing: signed-in account has no single Business"
+            f"{' with id prefix ' + prefix if prefix else ''} (it has: {owned})"
         )
-    if not chosen:
-        raise SystemExit("refusing: no Business for this account")
     space = chosen[0]
     api.grant = space.get("grant_id")
     space_id = str(space.get("space_id") or space.get("id"))
@@ -2448,8 +2446,14 @@ def main() -> None:
             parser.error("--env-file is required for --target local")
         if args.target == "staging" and not args.account:
             parser.error("--account is required for --target staging")
-        if args.mode == "seed" and not args.expect_business:
-            parser.error("--expect-business is required for --mode seed")
+        if (args.mode == "seed" or args.target == "staging") and not args.expect_business:
+            parser.error(
+                "--expect-business is required for seed and for --target staging"
+            )
+        if args.target == "staging" and len(args.expect_business) < 6:
+            parser.error(
+                "--expect-business needs at least 6 characters of the Business id"
+            )
     args.handler(args)
 
 
