@@ -130,6 +130,7 @@ class InvoicePage(Strict):
     stage_counts: dict[str, int]
     summaries: tuple[InvoiceSummary, ...]
     query_version: str
+    issuance_available: bool
 
 
 class CustomerPage(Strict):

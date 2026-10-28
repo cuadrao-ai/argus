@@ -24696,6 +24696,8 @@ components:
           type: array
         query_version:
           type: string
+        issuance_available:
+          type: boolean
       additionalProperties: false
       type: object
       required:
@@ -24706,6 +24708,7 @@ components:
       - stage_counts
       - summaries
       - query_version
+      - issuance_available
     InvoicePrepare:
       properties:
         expected_version:
