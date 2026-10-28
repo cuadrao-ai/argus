@@ -11,7 +11,9 @@ A linked owner sends a receipt photo (JPEG, PNG) or PDF to the Cuadrao WhatsApp
 number. Cuadrao saves it as a document draft with `consent: false` and replies
 with a signed-in review link, `/biz?receipt=<id>`. With receipt reading on and
 inline preparation, the acknowledgement says the receipt is being read and has
-no link; the one follow-up carries it. Correction, "Prepare with
+no link; the one follow-up carries it. If the read does not settle or the
+follow-up cannot be sent, the standard acknowledgement with the link is sent
+in its place. Correction, "Prepare with
 AI" and approval happen only on the web. WhatsApp never queues AI preparation.
 
 **October 10, 2026:** the [Business agent execution spec](cuadrao-business-agent-execution-spec.md)
@@ -146,4 +148,6 @@ The founder chose separate Personal and Business spaces on October 8
 - Founder decision, October 28, 2026: when the receipt is read inline right after
   the acknowledgement, the acknowledgement drops the link. Approved copy:
   "Recibido. Lo estoy leyendo." and "Received. I'm reading it." The follow-up
-  carries the review link.
+  carries the review link. When the read does not settle or the follow-up
+  cannot be sent, the standard "captured" acknowledgement with the link is
+  sent instead, so every sender ends with a link.

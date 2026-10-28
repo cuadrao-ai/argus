@@ -9089,7 +9089,10 @@ Business receipt-reading setting off, a received receipt is saved unread, and
 read after the acknowledgement. When the receipt will be read inline right after
 the acknowledgement, the acknowledgement says it is being read ("Recibido. Lo
 estoy leyendo.", "Received. I'm reading it.") and carries no link; the one
-follow-up carries the review link. Every other acknowledgement keeps the review
+follow-up carries the review link. If that read does not settle or the
+follow-up cannot be sent, the sender gets the standard acknowledgement with
+the review link instead, under the same 24 hour window and outbound rules.
+Every other acknowledgement keeps the review
 link: reading off, or document jobs on. The setting is checked again just before the
 provider call, whoever asks for the read; the only window left is the commit and
 the request start. One
