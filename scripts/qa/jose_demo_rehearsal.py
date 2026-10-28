@@ -582,19 +582,34 @@ const page = await context.newPage();
 let token = null;
 page.on("request", req => { const h = req.headers()["authorization"]; if (h && h.startsWith("Bearer ") && req.url().startsWith(job.api)) token = h.slice(7); });
 const out = { shots: [], errors: [] };
+const CODES = ["email_step_failed", "password_step_failed", "login_rejected", "timeout", "consent_required", "shot_on_auth_page"];
+const fail = (code) => { throw new Error(code); };
+const onAuth = () => { const u = new URL(page.url()); return /\/(auth|login)(\/|\?|$)/.test(u.pathname + "/") || u.searchParams.has("auth") || u.pathname === "/"; };
+async function fillChecked(selector, allowed, value, code) {
+  const field = page.locator(selector).first();
+  try {
+    await field.waitFor({ state: "visible", timeout: 15000 });
+    const type = (await field.evaluate(el => el.type)) || "text";
+    if (!allowed.includes(type)) fail(code);
+    await field.fill(value);
+  } catch (e) { if (e.message === code) throw e; fail(code); }
+}
 try {
   await page.goto(job.web + "/login", { waitUntil: "domcontentloaded" });
-  await page.locator('input[type="email"]').first().fill(job.email);
-  await page.locator('input[type="email"]').first().press("Enter");
-  const password = page.locator('input[type="password"]:visible').first();
-  await password.waitFor({ timeout: 30000 });
-  await password.fill(job.password);
-  await password.press("Enter");
-  await page.waitForURL(u => u.pathname.startsWith("/biz"), { timeout: 60000 });
+  await fillChecked('input[type="email"]:visible, input[type="text"]:visible', ["email", "text"], job.email, "email_step_failed");
+  try { await page.getByRole("button", { name: /^(Continuar|Continue)$/i }).first().click({ timeout: 15000 }); } catch { fail("email_step_failed"); }
+  await fillChecked('input[type="password"]:visible', ["password"], job.password, "password_step_failed");
+  await page.locator('input[type="password"]:visible').first().press("Enter");
+  const deadline = Date.now() + 60000;
+  while (onAuth()) {
+    if (Date.now() > deadline) fail("timeout");
+    if (await page.locator('[role="alert"]:not(#__next-route-announcer__):visible', { hasText: /\S/ }).count() > 0) fail("login_rejected");
+    await page.waitForTimeout(250);
+  }
   await page.waitForLoadState("networkidle").catch(() => {});
   const gate = page.getByRole("checkbox").first();
   if (await gate.waitFor({ state: "visible", timeout: 8000 }).then(() => true, () => false)) {
-    if (!job.accept_consent) throw new Error("first-use consent screen shown; accept it in the product first");
+    if (!job.accept_consent) fail("consent_required");
     await gate.check();
     await page.getByRole("button", { name: /Continuar|Continue/ }).click();
     await gate.waitFor({ state: "hidden", timeout: 20000 });
@@ -603,22 +618,29 @@ try {
     try {
       await page.goto(job.web + shot.path, { waitUntil: "domcontentloaded" });
       await page.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
+      if (onAuth()) fail("shot_on_auth_page");
       if (shot.text) await page.getByText(shot.text, { exact: false }).first().waitFor({ timeout: 20000 });
       await page.waitForTimeout(800);
       await page.screenshot({ path: `${job.out}/${shot.name}.png`, fullPage: false });
       out.shots.push(shot.name);
-    } catch (e) { out.errors.push(`${shot.name}: ${String(e).slice(0, 200)}`); }
+    } catch (e) { out.errors.push(`${shot.name}: ${CODES.includes(e.message) ? e.message : "shot_failed"}`); }
   }
   for (let i = 0; i < 20 && !token; i++) await page.waitForTimeout(500);
 } catch (e) {
-  out.errors.push(`login: ${String(e).slice(0, 300)}`);
-  await page.screenshot({ path: `${job.out}/login-failed.png` }).catch(() => {});
+  out.errors.push(`login: ${CODES.includes(e.message) ? e.message : "login_failed"}`);
 }
 await browser.close();
 out.signed_in = Boolean(token);
 if (job.want_token) out.token = token;
 process.stdout.write(JSON.stringify(out));
 """
+
+
+def error_name(stderr: str) -> str:
+    """Only the error's name: a browser failure must not echo what was typed."""
+
+    found = re.search(r"\b(\w*Error|ERR_[A-Z_]+)\b", stderr)
+    return found.group(1) if found else "unknown"
 
 
 def browser(
@@ -657,7 +679,9 @@ def browser(
         return json.loads(result.stdout)
     except ValueError:
         return {
-            "errors": [f"browser exited {result.returncode}: {result.stderr[-400:]}"],
+            "errors": [
+                f"browser exited {result.returncode}: {error_name(result.stderr)}"
+            ],
             "shots": [],
             "signed_in": False,
         }
