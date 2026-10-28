@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { resolveLanguage } from "@/lib/language-features";
 import type { ReceiptSummary } from "@/lib/business-api";
@@ -101,6 +101,16 @@ function ReceptionWorkspace({ live }: { live: boolean }) {
     return () => { current = false; controller.abort(); };
   }, [source, scope, revision, attempt, inboxContent]);
   const arrivals = loaded?.scope === scope && loaded.source === source ? loaded : null;
+  const arrivalsDown = !!arrivals?.failure && !arrivals.failure.refused;
+  const sourcesDown = (["notes", "emails"] as const).filter(key => { const failure = key === "notes" ? records.notesFailure : records.emailsFailure; return failure && !failure.refused; });
+  const askAgain = useEffectEvent(() => { if (arrivalsDown) setAttempt(value => value + 1); if (sourcesDown.length) retrySources(sourcesDown); });
+  const askArrivalsAgain = useEffectEvent(() => { if (arrivalsDown) setAttempt(value => value + 1); });
+  // A healthy list re-reads only when its content changed; a failed one asks again on the next poll tick and when the connection returns.
+  useEffect(() => { askArrivalsAgain(); }, [records.inbox]);
+  useEffect(() => {
+    window.addEventListener("online", askAgain);
+    return () => window.removeEventListener("online", askAgain);
+  }, []);
   const pending = !arrivals || records.notes === null || records.emails === null;
   const failed = !!arrivals?.failure || records.error || !!records.notesFailure || !!records.emailsFailure;
   const refused = records.refused || arrivals?.failure?.refused;
