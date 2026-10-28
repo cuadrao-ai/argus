@@ -65,9 +65,12 @@ export default function ReceptionDossier({ live, row, onClose, onNavigate, retur
   const action = row.kind === "receipt" && row.receipt.expense_id ? "action_record" : row.kind === "note" ? "action_review" : receptionAction(row, chosen?.capabilities.includes("prepare") === true);
   const showAction = target && row.kind !== "email" && (action === "action_review" || action === "action_resolve" || action === "action_record");
   const amount = row.kind === "receipt" ? formatMoney(row.receipt.amount, row.receipt.currency, locale) : null;
-  return <AdaptivePanel modal={false} width="record" title={word("detail_title")} closeLabel={t("common.close")} onClose={onClose} returnFocusRef={returnFocusRef} initialFocusRef={heading} snaps={["full"]} initialSnap="full" footer={showAction ? <div className={styles.detailFooter}><button type="button" className={primaryButtonClass} onClick={() => onNavigate(target)}>{word(action)}</button></div> : undefined}>
+  return <AdaptivePanel modal={false} width="dossier" title={t("business.tray.title", "Details")} closeLabel={t("common.close")} onClose={onClose} returnFocusRef={returnFocusRef} initialFocusRef={heading} snaps={["full"]} initialSnap="full" footer={showAction ? <div className={styles.detailFooter}><button type="button" className={primaryButtonClass} onClick={() => onNavigate(target)}>{word(action)}</button></div> : undefined}>
     <BusinessContext.Provider value={{ ...business, openPanel: onNavigate }}>
       <section ref={section} onFocusCapture={event => { focused.current = event.target as HTMLElement; }} className={styles.detail} data-testid="reception-dossier" data-kind={row.kind}>
+        {/* The dossier's two columns: what arrived and from where on the left, the original itself on the right. */}
+        <div className={styles.detailColumns}>
+        <div className={styles.detailMain}>
         <header className={styles.detailHeader}><h2 ref={heading} tabIndex={-1}>{title}</h2>{row.kind !== "email" ? <ReceptionStatus row={row} full /> : null}</header>
         <section aria-label={word("arrival_context")} className={styles.detailContext}>
           <h3>{word("arrival_context")}</h3>
@@ -78,10 +81,14 @@ export default function ReceptionDossier({ live, row, onClose, onNavigate, retur
             {row.kind === "message" || row.kind === "note" ? <><dt>{word("file")}</dt><dd>{word("without_file")}</dd></> : null}
           </dl>
         </section>
+        {row.kind === "message" ? <p className={styles.detailPreview}>{word("note_preview_help")}</p> : null}
+        </div>
+        <div className={styles.detailSide}>
         {row.kind === "receipt" ? <section className={styles.detailOriginal} aria-label={word("original_content")}><h3>{word("original_content")}</h3><ReceiptSourcePreview detail={row.receipt} initialExpanded showArrivalContext={false} />{amount ? <dl className={styles.detailAmount}><dt>{word("extracted_amount")}</dt><dd className="cuadrao-amount">{amount}</dd></dl> : null}</section> : null}
         {text ? <section className={styles.detailText} aria-label={word(row.kind === "receipt" ? "original_caption" : "original_message")}><h3>{word(row.kind === "receipt" ? "original_caption" : "original_message")}</h3><blockquote data-testid="reception-original-text">{text}</blockquote></section> : null}
         {row.kind === "email" ? <section className={styles.detailEmail} aria-label={word("original_email")}><h3>{word("original_email")}</h3><EmailDeliveryDetail delivery={row.email.delivery} inbox={records.inbox} loadDetail={source.emailDelivery} retryDelivery={async id => { await source.retryEmailDelivery(id); emailRefresh.refresh(); }} openReceipt={id => onNavigate({ kind: "receipt", receiptId: id, list: "inbox" })} /></section> : null}
-        {row.kind === "message" ? <p className={styles.detailPreview}>{word("note_preview_help")}</p> : null}
+        </div>
+        </div>
       </section>
     </BusinessContext.Provider>
   </AdaptivePanel>;

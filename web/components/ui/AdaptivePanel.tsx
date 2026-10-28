@@ -24,7 +24,7 @@ import styles from "./adaptive-panel.module.css";
  * Preferences returns you to Preferences rather than dismissing everything.
  */
 
-export type AdaptivePanelWidth = "sm" | "md" | "lg" | "record";
+export type AdaptivePanelWidth = "sm" | "md" | "lg" | "record" | "dossier";
 
 type PanelExpansion = { expanded: boolean; onToggle: () => void; expandLabel: string; collapseLabel: string };
 
@@ -33,13 +33,17 @@ type DrawerBounds = { preferred: number; min: number; maxVw: number };
 /**
  * The drawer's preferred width and its bounds. A record holds its receipt
  * image and its fields in one column beside a list that needs only its rows,
- * so it may take half the screen; everything else stays under 40%.
+ * so it may take half the screen; everything else stays under 40%. A dossier
+ * (an incoming item: its form beside its original) lies over the page, as
+ * Facturación's expanded editor does, and may take most of it; the page under
+ * it keeps its width and its own keys.
  */
 const DRAWER_WIDTH: Record<AdaptivePanelWidth, DrawerBounds> = {
   sm: { preferred: 360, min: 320, maxVw: 40 },
   md: { preferred: 420, min: 320, maxVw: 40 },
   lg: { preferred: 560, min: 320, maxVw: 40 },
   record: { preferred: 640, min: 420, maxVw: 50 },
+  dossier: { preferred: 1040, min: 640, maxVw: 80 },
 };
 
 export default function AdaptivePanel({
@@ -144,7 +148,6 @@ export default function AdaptivePanel({
 
 const EXPANDED_WIDTH: DrawerBounds = { preferred: 1200, min: 720, maxVw: 88 };
 
-/** While the drawer is drawn, the page gives up its width so it stays readable beside it. */
 /**
  * Every drawn drawer claims the room it needs; the page gives up the widest
  * claim. A drawer stacked on another hands its claim over without the page
@@ -200,7 +203,8 @@ type StackPlace = { drawn: boolean; hasBelow: boolean };
 
 function SideDrawerSurface(props: DrawerProps) {
   const place = useSheetStack(props.overlayId, true);
-  useDrawerSpace(props.overlayId, DRAWER_WIDTH[props.width], place.drawn);
+  // A dossier opens over the page instead of beside it, so the page keeps its width under it.
+  useDrawerSpace(props.overlayId, DRAWER_WIDTH[props.width], place.drawn && props.width !== "dossier");
   return props.modal ? <ModalDrawer {...props} {...place} /> : <TrayDrawer {...props} {...place} />;
 }
 

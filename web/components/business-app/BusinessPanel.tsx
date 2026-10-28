@@ -96,7 +96,7 @@ function RecordTray({ panel, list, listRef, preview }: { panel: RecordPanel; lis
   return (
     <AdaptivePanel
       modal={false}
-      width="record"
+      width="dossier"
       title={t("business.tray.title", "Details")}
       closeLabel={t("common.close", "Close")}
       onClose={close}

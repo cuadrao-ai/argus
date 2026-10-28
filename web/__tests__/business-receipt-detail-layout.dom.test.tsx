@@ -83,7 +83,7 @@ describe("the receipt detail's top block", () => {
     const top = page.host.querySelector('[data-testid="receipt-top-block"]')!;
     assert.equal(top.querySelector("h2")?.textContent, "Ferretería La Esquina");
     assert.match(top.querySelector('[data-testid="receipt-total"]')?.textContent ?? "", /^RD\$ \d{1,3}(,\d{3})*\.\d{2}$/);
-    assert.equal(top.querySelector('[data-testid="status-pill"]')?.textContent, "Pendiente");
+    assert.equal(top.querySelector('[data-testid="status-pill"]')?.textContent, "Listo para revisar");
     assert.doesNotMatch(top.textContent ?? "", /Revisión|Mi negocio/);
     const review = page.host.querySelector('[data-testid="business-record-review"]')!;
     assert.ok(review.textContent!.indexOf("Ferretería La Esquina") < review.textContent!.indexOf("Fecha de actividad"));
@@ -113,7 +113,7 @@ describe("a record opened without its receipt", () => {
     const i18n = i18next.createInstance();
     await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
     const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
-    for (const [state, shown] of [["open", "Pendiente"], ["accepting", "Consultando resultado de aprobación"]] as const) {
+    for (const [state, shown] of [["open", "Listo para revisar"], ["accepting", "Consultando resultado de aprobación"]] as const) {
       const source: BusinessDataSource = { ...fixture, dossier: async (id) => ({ ...structuredClone(await fixture.dossier(id)), review_state: state }) };
       const host = document.createElement("div");
       document.body.appendChild(host);
