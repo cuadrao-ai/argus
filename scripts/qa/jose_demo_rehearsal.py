@@ -2044,6 +2044,7 @@ class Seeder:
         self.api, self.args, self.files = api, args, files
         self.created: list[dict[str, Any]] = []
         self.planned: list[str] = []
+        self.out: dict[str, Any] = {"2": {}, "3": {}, "4": {}, "5": {}}
         self.budget = ReadBudget(
             args.read_cost_ceiling, args.spent_usd, args.reserve_reads
         )
@@ -2171,8 +2172,7 @@ class Seeder:
         return found
 
     def run(self) -> dict[str, Any]:
-        api = self.api
-        out: dict[str, Any] = {"2": {}, "3": {}, "4": {}, "5": {}}
+        api, out = self.api, self.out
         name = api.get("/business/space/name")
         out["business_name"] = {
             "name": name.get("name"),
@@ -3453,42 +3453,55 @@ def run(args: argparse.Namespace) -> None:
     }
 
     if args.mode == "seed":
-        result = Seeder(api, args, files).run()
-        if args.screens and not args.dry_run:
-            shots = [
-                {"name": "seed-inicio", "path": "/biz?view=overview"},
-                {"name": "seed-bandeja", "path": "/biz?view=inbox"},
-                {"name": "seed-registros", "path": "/biz?view=transactions"},
-            ]
-            if args.profile == "alive":
-                shots += [
-                    {"name": "seed-facturacion", "path": "/biz?view=invoicing"},
-                    {"name": "seed-actividad", "path": "/biz?view=activity"},
+        seeder = Seeder(api, args, files)
+        finished = False
+        try:
+            result = seeder.run()
+            if args.screens and not args.dry_run:
+                shots = [
+                    {"name": "seed-inicio", "path": "/biz?view=overview"},
+                    {"name": "seed-bandeja", "path": "/biz?view=inbox"},
+                    {"name": "seed-registros", "path": "/biz?view=transactions"},
                 ]
-            for name, case, key, param in (
-                ("seed-case2-note", "2", "draft_id", "draft"),
-                ("seed-case3-ready-personal", "3", "receipt_id", "receipt"),
-            ):
-                if result[case].get(key):
-                    shots.append(
-                        {"name": name, "path": f"/biz?{param}={result[case][key]}"}
-                    )
-            shot = browser(
-                args.web,
-                args.api,
-                email,
-                password,
-                shots,
-                out / "screens",
-                want_token=False,
+                if args.profile == "alive":
+                    shots += [
+                        {"name": "seed-facturacion", "path": "/biz?view=invoicing"},
+                        {"name": "seed-actividad", "path": "/biz?view=activity"},
+                    ]
+                for name, case, key, param in (
+                    ("seed-case2-note", "2", "draft_id", "draft"),
+                    ("seed-case3-ready-personal", "3", "receipt_id", "receipt"),
+                ):
+                    if result[case].get(key):
+                        shots.append(
+                            {"name": name, "path": f"/biz?{param}={result[case][key]}"}
+                        )
+                shot = browser(
+                    args.web,
+                    args.api,
+                    email,
+                    password,
+                    shots,
+                    out / "screens",
+                    want_token=False,
+                )
+                meta["screens"] = {
+                    "taken": shot.get("shots"),
+                    "errors": shot.get("errors"),
+                }
+            finished = True
+        finally:
+            report = {
+                **meta,
+                "dry_run": args.dry_run,
+                "finished": finished,
+                "seeded": seeder.out,
+            }
+            (out / "seed.json").write_text(
+                json.dumps(report, ensure_ascii=False, indent=1, default=str)
             )
-            meta["screens"] = {"taken": shot.get("shots"), "errors": shot.get("errors")}
-        report = {**meta, "dry_run": args.dry_run, "seeded": result}
-        (out / "seed.json").write_text(
-            json.dumps(report, ensure_ascii=False, indent=1, default=str)
-        )
+            (out / "calls.json").write_text(json.dumps(api.log, indent=1))
         print(json.dumps(result, ensure_ascii=False, indent=1, default=str))
-        (out / "calls.json").write_text(json.dumps(api.log, indent=1))
         return
 
     rec = Recorder(api, out)
