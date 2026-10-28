@@ -7,7 +7,8 @@ import { SlidersHorizontal } from "lucide-react";
 import { getMe } from "@/lib/argus-api";
 import { getChosenGrant } from "@/lib/business-grant";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "@/lib/browser-auth-generation";
-import { businessReportRow, recipeFromRequest, reportSummary, summaryIncludesUnreviewed, recordsPresentationToReport, recordsSortToReport, reportLocation, reportPresentationToRecords, restoreReportLocation, type ReportFailure, type ReportingTransport } from "@/lib/business-reporting-wire";
+import { isProgrammaticPop } from "@/lib/overlay-history";
+import { businessReportRow, recipeFromRequest, reportSummary, summaryIncludesUnreviewed, recordsPresentationToReport, recordsSortToReport, reportPresentationToRecords, restoreReportLocation, writeReportLocation, type ReportFailure, type ReportingTransport } from "@/lib/business-reporting-wire";
 import { reportRequestSchema, type ReportAnswer, type ReportFilters, type ReportPeriod, type ReportRequest, type ReportScope } from "@/lib/business-reports-api";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useBusiness } from "../BusinessWorkspace";
@@ -106,17 +107,10 @@ export function ConnectedBusinessReports({ scope, period, transport, initial }: 
   const filter: RecordsFilter = { query: state.request.filters.q, kind: state.request.filters.record_families.length === 1 ? state.request.filters.record_families[0] === "sale" ? "venta" : "gasto" : "all" };
   const filters = reportFiltersForUi(state.request.filters);
   const selectedPeriod = periodForUi(state.request.filters.period, answer);
-  const updateUrl = (request: ReportRequest, anchor = state.anchor, push = false) => {
-    const url = new URL(window.location.href);
-    const encoded = new URLSearchParams(reportLocation(request, anchor));
-    encoded.forEach((value, key) => url.searchParams.set(key, value));
-    if (!anchor) url.searchParams.delete("report_row");
-    url.searchParams.set("report_scope", scopeKey);
-    if (url.href !== window.location.href) window.history[push ? "pushState" : "replaceState"](null, "", `${url.pathname}${url.search}`);
-  };
+  const updateUrl = (request: ReportRequest, anchor = state.anchor, push = false) => writeReportLocation(request, anchor, scopeKey, push);
   useEffect(() => { updateUrl(state.request); }, [state.request, state.anchor]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const restore = () => { const url = new URL(window.location.href); if (url.searchParams.get("report_scope") !== scopeKey) return; const next = restoreReportLocation(url.searchParams); setUrlInvalid(next.invalid); controller.rememberAnchor(next.anchor); void controller.load(next.request); };
+    const restore = (event: PopStateEvent) => { if (isProgrammaticPop(event)) return; const url = new URL(window.location.href); if (url.searchParams.get("report_scope") !== scopeKey) return; const next = restoreReportLocation(url.searchParams); setUrlInvalid(next.invalid); controller.rememberAnchor(next.anchor); void controller.load(next.request); };
     window.addEventListener("popstate", restore);
     return () => window.removeEventListener("popstate", restore);
   }, [controller, scopeKey]);

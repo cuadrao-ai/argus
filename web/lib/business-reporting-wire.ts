@@ -4,6 +4,7 @@ import {
   type ReportAnswer, type ReportProblem, type ReportRecipe, type ReportRequest, type ReportScope, type ReportViewCommand, type SavedReportView, type ReportPresentation,
 } from "./business-reports-api";
 import type { ReportRecord } from "./business-reports-api";
+import { consumeOverlayEntriesForNavigation } from "./overlay-history";
 import type { RecordRow } from "@/components/business-app/transacciones/transacciones-model";
 import type { SettlementSummary } from "@/components/business-app/transacciones/records-results-preview";
 import type { RecordsSort } from "@/components/business-app/transacciones/records-pagination";
@@ -212,6 +213,16 @@ export function reportLocation(request: ReportRequest, anchor: string | null): s
   const params = new URLSearchParams({ report: JSON.stringify(request) });
   if (anchor) params.set("report_row", anchor);
   return params.toString();
+}
+/** The one writer of the report into the address bar. A step taken from an open sheet lands on the entry the sheet pushed; pushed on top, the sheet's closing back() would undo it. */
+export function writeReportLocation(request: ReportRequest, anchor: string | null, scopeKey: string, push: boolean): void {
+  const url = new URL(window.location.href);
+  new URLSearchParams(reportLocation(request, anchor)).forEach((value, key) => url.searchParams.set(key, value));
+  if (!anchor) url.searchParams.delete("report_row");
+  url.searchParams.set("report_scope", scopeKey);
+  if (url.href === window.location.href) return;
+  const step = push && !consumeOverlayEntriesForNavigation();
+  window.history[step ? "pushState" : "replaceState"](null, "", `${url.pathname}${url.search}`);
 }
 export function restoreReportLocation(params: URLSearchParams): { request: ReportRequest; anchor: string | null; invalid: boolean } {
   try {
