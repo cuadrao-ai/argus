@@ -621,3 +621,52 @@ def test_package_capture_is_canonical_utc_instant_not_record_date(monkeypatch, i
     assert manifest["period"]["end"] == "2025-12-31"
     assert manifest["records"] == []
     assert manifest["unresolved_drafts"][0]["occurred_on"] is None
+
+
+def test_personal_purchase_leaves_the_business_sheet_for_personal_csv():
+    personal_activity, personal_source = UUID(int=5), UUID(int=6)
+    files = unpack(
+        export.build_archive(
+            snapshot(
+                activities=(
+                    activity(),
+                    activity(activity_id=str(personal_activity), personal="yes"),
+                ),
+                sources=(
+                    *snapshot().sources,
+                    export.ExportSource(
+                        personal_source,
+                        (UUID(int=7),),
+                        (personal_activity,),
+                        "message",
+                        text="personal note",
+                    ),
+                ),
+            ),
+            lambda _: None,
+        )
+    )
+    business = list(csv.reader(io.StringIO(files["records.csv"].decode("utf-8-sig"))))
+    assert business[0] == list(export.SHEET_COLUMNS) and len(business) == 2
+    assert business[1][export.SHEET_COLUMNS.index("Total")] == "850.00"
+    personal = list(csv.reader(io.StringIO(files["personal.csv"].decode("utf-8-sig"))))
+    assert personal == [
+        list(export.PERSONAL_COLUMNS),
+        [
+            str(personal_activity),
+            "2026-10-11",
+            "850.00",
+            "DOP",
+            f"originals/{personal_source}.txt",
+        ],
+    ]
+    assert files[f"originals/{personal_source}.txt"] == b"personal note"
+    assert sheet_rows(files["records.xlsx"], 1) == business
+    assert sheet_rows(files["records.xlsx"], 4) == personal
+    manifest = json.loads(files["manifest.json"])
+    assert [row["personal"] for row in manifest["records"]] == ["", "yes"]
+    assert len(sheet_rows(files["records.xlsx"], 2)) == 3
+    assert (
+        manifest["files"]["personal.csv"]
+        == hashlib.sha256(files["personal.csv"]).hexdigest()
+    )
