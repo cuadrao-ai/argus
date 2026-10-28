@@ -10,9 +10,10 @@ import { removeSessionStored } from "@/lib/browser-storage";
 const realFlags = { ...await import("@/lib/private-alpha-flags") };
 mock.module("@/lib/private-alpha-flags", () => ({ ...realFlags, businessInvoicingEnabled: true }));
 
-beforeAll(() => { GlobalRegistrator.register({ url: "http://localhost/biz?view=invoicing" }); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); });
-afterAll(async () => { await GlobalRegistrator.unregister(); });
-async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; losePrepare?: boolean; holdCreate?: boolean; entry?: boolean; selectedGrant?: string | null; missingActor?: boolean; missingPermissions?: boolean; directory?: "loading" | "failed"; checkTaxId?: boolean; customerRecords?: SavedCustomer[]; rejectCustomerTax?: boolean; holdReads?: boolean; readFailure?: number; noPrepare?: boolean } = {}) {
+const originalZone = process.env.TZ;
+beforeAll(() => { process.env.TZ = "America/Santo_Domingo"; GlobalRegistrator.register({ url: "http://localhost/biz?view=invoicing" }); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); });
+afterAll(async () => { if (originalZone === undefined) delete process.env.TZ; else process.env.TZ = originalZone; await GlobalRegistrator.unregister(); });
+async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; losePrepare?: boolean; holdCreate?: boolean; entry?: boolean; selectedGrant?: string | null; missingActor?: boolean; missingPermissions?: boolean; directory?: "loading" | "failed"; checkTaxId?: boolean; customerRecords?: SavedCustomer[]; rejectCustomerTax?: boolean; holdReads?: boolean; readFailure?: number; noPrepare?: boolean; refuse?: "prepare" | "customer"; issuanceOff?: boolean; issue?: boolean; fiscalOff?: boolean; loseCustomerCreate?: boolean; rejectFirstInvoiceCreate?: boolean } = {}) {
   const { act, StrictMode } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { I18nextProvider } = await import("react-i18next");
@@ -29,7 +30,8 @@ async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; los
   let record = options.record ?? null, creates = 0, prepareEffects = 0, loseCreate = options.loseCreate, losePrepare = options.losePrepare;
   const calls: { path: string; query: string; method: string; body: unknown; key: string | null }[] = [];
   let releaseCreate: (() => void) | undefined; let heldSignal: AbortSignal | null | undefined;
-  const createdCustomers: SavedCustomer[] = structuredClone(options.customerRecords ?? []);
+  const createdCustomers: SavedCustomer[] = structuredClone(options.customerRecords ?? []), customerByKey = new Map<string, SavedCustomer>();
+  let loseCustomerCreate = options.loseCustomerCreate, rejectFirstInvoiceCreate = options.rejectFirstInvoiceCreate;
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input)), method = init?.method ?? "GET", body = init?.body ? JSON.parse(String(init.body)) : null;
     calls.push({ path: url.pathname, query: url.search, method, body, key: new Headers(init?.headers).get("Idempotency-Key") });
@@ -37,20 +39,28 @@ async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; los
       if (options.holdReads) return new Promise<Response>(() => {});
       if (options.readFailure) return Response.json({ code: "synthetic_read_failure" }, { status: options.readFailure });
     }
-    if (url.pathname.endsWith("/business/invoices") && method === "GET") return Response.json({ items: record ? [record] : [], total: record ? 1 : 0, page: 1, page_size: 25, stage_counts: { draft: record && !record.operation ? 1 : 0, issued: record?.operation?.state.legal === "ACCEPTED" ? 1 : 0, uncertain: record?.operation?.state.submission === "unknown" ? 1 : 0 }, summaries: [], query_version: "synthetic-version" });
+    if (url.pathname.endsWith("/business/invoices") && method === "GET") return Response.json({ items: record ? [record] : [], total: record ? 1 : 0, page: 1, page_size: 25, stage_counts: { draft: record && !record.operation ? 1 : 0, issued: record?.operation?.state.legal === "ACCEPTED" ? 1 : 0, uncertain: record?.operation?.state.submission === "unknown" ? 1 : 0 }, summaries: [], query_version: "synthetic-version", issuance_available: !options.issuanceOff });
     if (url.pathname.endsWith("/business/customers") && method === "GET") return Response.json({ items: createdCustomers, total: createdCustomers.length, page: 1, page_size: 25 });
+    if (options.refuse === "customer" && url.pathname.includes("/business/customers") && method === "POST") return Response.json({ code: "business_unavailable", request_id: "customer-ref-0001" }, { status: 404 });
+    if (options.refuse === "prepare" && url.pathname.endsWith("/prepare")) return Response.json({ code: "business_record_not_found", request_id: "prepare-ref-0001" }, { status: 404 });
     if (url.pathname.includes("/business/customers") && ["POST", "PUT"].includes(method)) {
       if (options.rejectCustomerTax && !/^(?:[0-9]{9}|[0-9]{11})$/.test(body.data.tax_id)) return Response.json({ code: "customer_invalid", context: { field_errors: { tax_id: "tax_id" } } }, { status: 422 });
       if (method === "PUT") { const index = createdCustomers.findIndex(customer => url.pathname.endsWith(`/${customer.id}`)); assert.ok(index >= 0); assert.equal(body.expected_version, createdCustomers[index].version); createdCustomers[index] = { ...createdCustomers[index], data: body.data, version: createdCustomers[index].version + 1 }; return Response.json(createdCustomers[index]); }
-      const customer = { ...savedCustomer(), data: body.data }; createdCustomers.push(customer); return Response.json(customer);
+      const key = new Headers(init?.headers).get("Idempotency-Key") ?? "";
+      let customer = customerByKey.get(key);
+      if (!customer) { customer = { ...savedCustomer(), id: `50000000-0000-4000-8000-${String(createdCustomers.length + 5).padStart(12, "0")}`, data: body.data }; customerByKey.set(key, customer); createdCustomers.push(customer); }
+      if (loseCustomerCreate) { loseCustomerCreate = false; throw new TypeError("synthetic customer response lost after commit"); }
+      return Response.json(customer);
     }
     if (url.pathname.endsWith("/business/invoices") && method === "POST") {
+      if (rejectFirstInvoiceCreate) { rejectFirstInvoiceCreate = false; return Response.json({ code: "invoice_invalid", context: { field_errors: {} } }, { status: 422 }); }
       if (!record) { record = savedInvoice(body.data); creates++; }
       if (options.holdCreate) { heldSignal = init?.signal; await new Promise<void>(resolve => { releaseCreate = resolve; }); }
       if (loseCreate) { loseCreate = false; throw new TypeError("synthetic response lost after commit"); }
       return Response.json(record);
     }
     if (url.pathname.endsWith(`/business/invoices/${invoiceId}`) && method === "PUT" && record) { record = { ...record, version: record.version + 1, data: body.data, field_errors: options.checkTaxId ? /^(?:[0-9]{9}|[0-9]{11})$/.test(body.data.customer_input.tax_id) ? {} : { "customer_input.tax_id": "tax_id" } : record.field_errors, amounts: body.data.tax_inclusion === "included" ? null : record.amounts }; return Response.json(record); }
+    if (options.fiscalOff && ["/prepare", "/submit"].some(suffix => url.pathname.endsWith(suffix))) return Response.json({ type: "https://api.argus.app/problems/http-error", title: "Request Failed", status: 404, detail: "fiscal_sandbox_unavailable", code: "http_error", request_id: "synthetic-request" }, { status: 404 });
     if (url.pathname.endsWith("/prepare") && record) {
       if (record.data.tax_inclusion === "included") return Response.json({ code: "invoice_not_ready", context: { field_errors: { tax_inclusion: "unsupported" } } }, { status: 422 });
       if (!record.operation) { record = { ...record, operation: preparedOperation() }; prepareEffects++; }
@@ -64,13 +74,14 @@ async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; los
   const context: BusinessContextValue = { userId: options.missingActor ? null : invoiceScope.userId, source, records: { workspace: null, overview: null, inbox: [], notes: [], notesTruncated: false, emails: [], error: false }, spaces: [], chosen: { space_id: invoiceScope.businessId, grant_id: invoiceScope.grantId!, name: "Synthetic Business", role: "owner", capabilities: ["read", "prepare", "approve"], permissions: options.missingPermissions ? undefined : ["read", "prepare", "approve", "download"], access_seen: true }, chooseBusiness: () => undefined, markAccessSeen: async () => undefined, lostAccess: false, clearLostAccess: () => undefined, revision: 0, reload: () => undefined, refresh: async () => "updated", period: periodRange("all"), setPeriod: () => undefined, panel: { kind: "invoicing" }, openPanel: () => undefined, actions: { create: [], composer: [], starterEntries: [] }, bridge: null, attachedReceipt: null, clearAttachedReceipt: () => undefined, openExport: () => undefined, emailRefresh: { refresh: () => undefined, refreshing: false, stalled: false }, retrySources: () => undefined };
   let currentContext: BusinessContextValue = options.directory ? { ...context, chosen: null, directoryStatus: options.directory } : context;
   const host = document.createElement("div"); document.body.append(host); let root = createRoot(host);
-  const render = async () => { await act(async () => { root.render(<StrictMode><I18nextProvider i18n={i18n}><BusinessContext.Provider value={currentContext}>{options.entry ? <BusinessPanel /> : <ConnectedInvoicingWorkspace scope={invoiceScope} business="Synthetic Business" capabilities={{ prepare: !options.noPrepare, issue: false, download: true }} />}</BusinessContext.Provider></I18nextProvider></StrictMode>); }); };
+  const render = async () => { await act(async () => { root.render(<StrictMode><I18nextProvider i18n={i18n}><BusinessContext.Provider value={currentContext}>{options.entry ? <BusinessPanel /> : <ConnectedInvoicingWorkspace scope={invoiceScope} business="Synthetic Business" capabilities={{ prepare: !options.noPrepare, issue: Boolean(options.issue), download: true }} />}</BusinessContext.Provider></I18nextProvider></StrictMode>); }); };
   await render();
   const button = (text: string) => { const found = [...document.querySelectorAll<HTMLButtonElement>("button")].find(node => node.textContent?.trim() === text && !node.closest("[hidden]")); assert.ok(found, `missing button ${text}`); return found; };
   const click = async (text: string) => { await act(async () => button(text).click()); };
   const fill = async (selector: string, value: string) => { const input = document.querySelector<HTMLInputElement>(selector); assert.ok(input); await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value); input.dispatchEvent(new Event("input", { bubbles: true })); }); };
+  const openRow = async () => { const link = document.querySelector<HTMLButtonElement>("tbody tr td:first-child button"); assert.ok(link, "missing invoice row link"); await act(async () => link.click()); };
   const reopen = async () => { await act(async () => root.unmount()); root = createRoot(host); await render(); };
-  return { calls, click, fill, button, act, reopen, customerRecords: () => createdCustomers, advanceAccepted: () => { if (record?.operation) record = { ...record, operation: { ...record.operation, state: { ...record.operation.state, submission: "identified", processing: "FINISHED", legal: "ACCEPTED", xml: "available", pdf: "available" } } }; }, resolveDirectory: async () => { currentContext = { ...context, directoryStatus: "ready" }; await render(); }, release: () => releaseCreate?.(), signal: () => heldSignal, record: () => record, creates: () => creates, prepareEffects: () => prepareEffects, async close() { await act(async () => root.unmount()); host.remove(); globalThis.fetch = previousFetch; setChosenGrant(previousGrant); if (previousMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = previousMock; removeSessionStored("cuadrao:invoice_commands:v1"); } };
+  return { calls, click, fill, button, act, reopen, openRow, customerRecords: () => createdCustomers, advanceAccepted: () => { if (record?.operation) record = { ...record, operation: { ...record.operation, state: { ...record.operation.state, submission: "identified", processing: "FINISHED", legal: "ACCEPTED", xml: "available", pdf: "available" } } }; }, resolveDirectory: async () => { currentContext = { ...context, directoryStatus: "ready" }; await render(); }, release: () => releaseCreate?.(), signal: () => heldSignal, record: () => record, creates: () => creates, prepareEffects: () => prepareEffects, async close() { await act(async () => root.unmount()); host.remove(); globalThis.fetch = previousFetch; setChosenGrant(previousGrant); if (previousMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = previousMock; removeSessionStored("cuadrao:invoice_commands:v1"); } };
 }
 function preparedOperation(): FiscalOperation {
   return { id: "60000000-0000-4000-8000-000000000006", invoice_id: invoiceId, invoice_revision_id: savedInvoice().revision_id, business_id: invoiceScope.businessId, case_id: "synthetic-saved-revision", kind: "E32", number: "E320000000001", payload_digest: "a".repeat(64), provider_id: null, state: { submission: "prepared", processing: "unreported", legal: "unreported", xml: "unreported", pdf: "unreported", delivery: "not_requested", reconciliation: "not_needed", diagnostics: [], needs_review: false } };
@@ -107,7 +118,7 @@ test("customer contact is posted only through explicit customer Save", async () 
 test("lost prepare response retries the same saved revision and never submits or reports issued", async () => {
   const data: InvoiceDraft = { ...incompleteInvoice(), customer_input: { ...incompleteInvoice().customer_input, name: "Saved customer input" }, payment_type: "cash", income_type: 1, tax_inclusion: "excluded", issued_on: "2026-10-27", due_on: "2026-10-27", items: [{ id: "item-one", description: "Service", quantity: "1", price: "100.01", discount: "0", tax: "0", classification: "services", tax_treatment: "exempt" }] };
   const page = await mount({ record: { ...savedInvoice(data), field_errors: {}, amounts: { subtotal: "100.01", discount: "0.00", tax: "0.00", total: "100.01" } }, losePrepare: true }); try {
-    await page.click(invoiceId); assert.ok(document.body.textContent?.includes("Preparing this invoice locks its details.")); await page.click("Prepare issuance"); await page.click("Retry the same request");
+    await page.openRow(); assert.ok(document.body.textContent?.includes("Preparing this invoice locks its details.")); await page.click("Prepare issuance"); await page.click("Retry the same request");
     const prepares = page.calls.filter(call => call.path.endsWith("/prepare")); assert.equal(prepares.length, 2); assert.deepEqual(prepares[1], prepares[0]); assert.equal(page.prepareEffects(), 1);
     assert.equal(page.calls.some(call => call.path.endsWith("/submit")), false); assert.ok(document.body.textContent?.includes("Prepared, not issued")); assert.equal(page.record()?.payment_state, "unknown"); assert.equal(page.record()?.delivery_state, "not_sent");
   } finally { await page.close(); }
@@ -117,7 +128,7 @@ test("saved decimal totals disappear after local price edits and included-tax sa
   const data = { ...incompleteInvoice(), customer_input: { ...incompleteInvoice().customer_input, name: "Saved contact snapshot" }, issued_on: "2026-10-27", due_on: "2026-10-27", payment_type: "cash" as const, income_type: 1 as const, tax_inclusion: "excluded" as const, items: [{ id: "price-item", description: "Saved service", quantity: "1", price: "100.01", discount: "0", tax: "0", classification: "services" as const, tax_treatment: "exempt" as const }] };
   const page = await mount({ record: { ...savedInvoice(data), field_errors: {}, amounts: { subtotal: "100.01", discount: "0.00", tax: "0.00", total: "100.01" } } });
   try {
-    await page.click(invoiceId); await page.click("Edit draft"); await page.click("Next");
+    await page.openRow(); await page.click("Edit draft"); await page.click("Next");
     const totals = () => document.querySelector('[data-testid="invoice-editor"] [data-testid="invoice-customer-document"] [class*="documentTotals"]')?.textContent;
     assert.ok(totals()?.includes("100.01")); await page.fill('#invoice-price-item-price', "200.020");
     await page.act(async () => { const input = document.querySelector<HTMLInputElement>("#invoice-price-item-price")!; input.focus(); input.blur(); });
@@ -128,7 +139,7 @@ test("saved decimal totals disappear after local price edits and included-tax sa
     assert.equal(page.record()?.data.items[0].price, "200.020"); assert.equal(page.record()?.data.tax_inclusion, "included"); assert.equal(page.record()?.amounts, null);
     await page.click("Prepare issuance"); assert.ok(document.body.textContent?.includes("Review the marked fields")); assert.equal(page.record()?.operation, null);
     await page.click("Edit draft"); assert.ok(document.body.textContent?.includes("not supported for issuing"));
-    await page.reopen(); await page.click(invoiceId); await page.click("Edit draft"); await page.click("Next"); assert.equal(document.querySelector<HTMLInputElement>("#invoice-price-item-price")?.value, "200.020");
+    await page.reopen(); await page.openRow(); await page.click("Edit draft"); await page.click("Next"); assert.equal(document.querySelector<HTMLInputElement>("#invoice-price-item-price")?.value, "200.020");
   } finally { await page.close(); }
 });
 
@@ -136,7 +147,7 @@ test("the five fiscal choices remain blank until explicit selection and incomple
   const page = await mount({ record: savedInvoice() });
   const choose = async (label: string, value: string) => { const span = [...document.querySelectorAll("span")].find(node => node.textContent === label); assert.ok(span, label); const button = span.parentElement?.querySelector("button"); assert.ok(button); await page.act(async () => button.click()); await page.click(value); };
   try {
-    await page.click(invoiceId); await page.click("Edit draft");
+    await page.openRow(); await page.click("Edit draft");
     assert.equal(page.record()?.data.payment_type, null); assert.equal(page.record()?.data.income_type, null); assert.equal(page.record()?.data.tax_inclusion, null);
     await choose("Fiscal payment terms", "Credit"); assert.ok(!document.body.textContent?.includes("Complete this field before preparing issuance.")); await choose("Income type", "Other income"); await choose("Prices and tax", "Tax included"); await page.click("Save draft");
     assert.equal(page.record()?.data.payment_type, "credit"); assert.equal(page.record()?.data.income_type, 6); assert.equal(page.record()?.data.tax_inclusion, "included"); assert.equal(page.record()?.payment_state, "unknown");
@@ -258,7 +269,7 @@ test("connected fiscal customer digits survive blur, Save and immutable prepare 
     const data: InvoiceDraft = { ...incompleteInvoice(), document_type: "E31", customer_input: { ...incompleteInvoice().customer_input, name: "Fiscal customer" }, payment_type: "cash", income_type: 1, tax_inclusion: "excluded", issued_on: "2026-10-27", due_on: "2026-10-27", items: [{ id: "fiscal-item", description: "Service", quantity: "1", price: "100.01", discount: "0", tax: "0", classification: "services", tax_treatment: "exempt" }] };
     const page = await mount({ record: { ...savedInvoice(data), field_errors: { "customer_input.tax_id": "required" } }, checkTaxId: true });
     try {
-      await page.click(invoiceId); await page.click("Edit draft"); await page.fill("#invoice-taxId", digits);
+      await page.openRow(); await page.click("Edit draft"); await page.fill("#invoice-taxId", digits);
       await page.act(async () => { const input = document.querySelector<HTMLInputElement>("#invoice-taxId")!; input.focus(); input.blur(); });
       await page.click("Save draft"); assert.equal(page.record()?.data.customer_input.tax_id, digits); await page.click("Prepare issuance");
       assert.equal(page.prepareEffects(), 1); assert.equal(page.record()?.data.customer_input.tax_id, digits);
@@ -270,7 +281,7 @@ test("connected fiscal customer digits survive blur, Save and immutable prepare 
 test("manually formatted fiscal ID remains an exact incomplete draft with a visible server field error", async () => {
   const page = await mount({ record: { ...savedInvoice(), field_errors: { "customer_input.tax_id": "required" } }, checkTaxId: true });
   try {
-    await page.click(invoiceId); await page.click("Edit draft"); await page.fill("#invoice-customer-search", "Draft customer"); await page.click("Add customer · Draft customer"); await page.fill("#invoice-taxId", "131-79389-1"); await page.click("Save draft");
+    await page.openRow(); await page.click("Edit draft"); await page.fill("#invoice-customer-search", "Draft customer"); await page.click("Add customer · Draft customer"); await page.fill("#invoice-taxId", "131-79389-1"); await page.click("Save draft");
     assert.equal(page.record()?.data.customer_input.tax_id, "131-79389-1"); assert.equal(page.button("Prepare issuance").disabled, true);
     await page.click("Edit draft"); assert.equal(document.querySelector<HTMLInputElement>("#invoice-taxId")?.value, "131-79389-1"); assert.equal(document.querySelector<HTMLInputElement>("#invoice-taxId")?.getAttribute("aria-invalid"), "true");
   } finally { await page.close(); }
@@ -440,5 +451,197 @@ test("connected invoice rows and their nested buttons open one authoritative dos
     assert.equal(reads(), 2, "nested button must not bubble into a second GET"); assert.equal(row().getAttribute("data-selected"), "true");
     await page.click("Edit draft"); assert.equal(row().getAttribute("data-selected"), "false");
     assert.equal(page.calls.filter(call => call.method !== "GET").length, 0);
+  } finally { await page.close(); }
+});
+
+const readyDraft = (): InvoiceDraft => ({ ...incompleteInvoice(), customer_input: { ...incompleteInvoice().customer_input, name: "Synthetic ready customer" }, payment_type: "cash", income_type: 1, tax_inclusion: "excluded", issued_on: "2026-10-27", due_on: "2026-10-27", items: [{ id: "item-one", description: "Service", quantity: "1", price: "100.01", discount: "0", tax: "0", classification: "services", tax_treatment: "exempt" }] });
+test("with fiscal issuance off, Prepare issuance becomes a disabled note and editing stays usable across reload", async () => {
+  const page = await mount({ record: { ...savedInvoice(readyDraft()), field_errors: {}, amounts: { subtotal: "100.01", discount: "0.00", tax: "0.00", total: "100.01" } }, fiscalOff: true }); try {
+    await page.openRow(); await page.click("Prepare issuance");
+    assert.equal(page.calls.filter(call => call.path.endsWith("/prepare")).length, 1);
+    assert.ok(document.body.textContent?.includes("Fiscal issuance is not available yet."));
+    assert.equal(document.body.textContent?.includes("Retry the same request"), false);
+    assert.equal(document.body.textContent?.includes("We could not confirm whether it was saved"), false);
+    assert.equal(page.button("Prepare issuance").disabled, true);
+    assert.ok(document.body.textContent?.includes("Issuance is not available yet."));
+    assert.ok(document.body.textContent?.includes("If you think this is a mistake, email us at hola@cuadrao.ai."), "the unavailable state names a way out");
+    assert.equal(document.querySelector('[data-testid="error-reference"]')?.textContent?.includes("Ref. syntheti"), true, "the unavailable state shows its reference");
+    assert.equal(sessionStorage.getItem("cuadrao:invoice_commands:v1"), null);
+    await page.click("Edit draft"); await page.click("Save draft");
+    assert.equal(page.calls.filter(call => call.method === "PUT" && call.path.endsWith(`/business/invoices/${invoiceId}`)).length, 1, "a later save reaches the server");
+    assert.ok(document.body.textContent?.includes("Saved to this Business."));
+    await page.reopen(); await page.openRow(); await page.click("Edit draft"); await page.click("Save draft");
+    assert.equal(page.calls.filter(call => call.method === "PUT").length, 2, "a reload leaves saving usable");
+  } finally { await page.close(); }
+});
+
+const preparable = () => ({ ...savedInvoice(readyDraft()), field_errors: {}, amounts: { subtotal: "100.01", discount: "0.00", tax: "0.00", total: "100.01" } });
+test("when the page reports issuance unavailable, Prepare issuance is disabled with a note before any click", async () => {
+  const page = await mount({ record: preparable(), issuanceOff: true }); try {
+    await page.openRow();
+    assert.equal(page.button("Prepare issuance").disabled, true);
+    assert.ok(document.body.textContent?.includes("Issuance is not available yet."));
+    assert.equal(page.button("Edit draft").disabled, false, "editing stays usable");
+    await page.click("Prepare issuance");
+    assert.equal(page.calls.filter(call => call.method !== "GET").length, 0, "no request is sent");
+  } finally { await page.close(); }
+});
+test("when the page reports issuance available, Prepare issuance is enabled and sends the prepare request", async () => {
+  const page = await mount({ record: preparable() }); try {
+    await page.openRow();
+    assert.equal(page.button("Prepare issuance").disabled, false);
+    assert.equal(document.body.textContent?.includes("Issuance is not available yet."), false);
+    await page.click("Prepare issuance");
+    assert.equal(page.calls.filter(call => call.path.endsWith("/prepare")).length, 1);
+  } finally { await page.close(); }
+});
+test("Issue invoice follows the page's issuance availability before any click", async () => {
+  for (const issuanceOff of [true, false]) {
+    const page = await mount({ record: { ...preparable(), operation: preparedOperation() }, issue: true, issuanceOff }); try {
+      await page.openRow();
+      assert.equal(page.button("Issue invoice").disabled, issuanceOff);
+      assert.equal(document.body.textContent?.includes("Issuance is not available yet."), issuanceOff);
+    } finally { await page.close(); }
+  }
+});
+test("a refused prepare says what was refused, shows its reference and the contact line, with no Retry", async () => {
+  const page = await mount({ record: { ...savedInvoice(readyDraft()), field_errors: {}, amounts: { subtotal: "100.01", discount: "0.00", tax: "0.00", total: "100.01" } }, refuse: "prepare" }); try {
+    await page.openRow(); await page.click("Prepare issuance");
+    const text = document.body.textContent ?? "";
+    assert.ok(text.includes("Cuadrao refused to prepare this invoice. Your draft is kept;"));
+    assert.ok(text.includes("If you think this is a mistake, email us at hola@cuadrao.ai."));
+    assert.ok(document.querySelector('[data-testid="error-reference"]')?.textContent?.includes("Ref. prepare-"));
+    assert.equal(text.includes("Retry the same request"), false); assert.equal(sessionStorage.getItem("cuadrao:invoice_commands:v1"), null);
+  } finally { await page.close(); }
+});
+test("a refused customer save keeps draft wording out of the Customer form and still names a way out", async () => {
+  const page = await mount({ refuse: "customer" }); try {
+    await page.click("Customers"); await page.click("Add customer"); await page.fill("#customer-name", "Refused customer"); await page.click("Save customer");
+    const text = document.body.textContent ?? "";
+    assert.ok(text.includes("Cuadrao refused to save this customer."));
+    assert.equal(text.includes("draft is kept"), false, "no draft exists in the Customer form");
+    assert.ok(text.includes("If you think this is a mistake, email us at hola@cuadrao.ai."));
+    assert.ok(document.querySelector('[data-testid="error-reference"]')?.textContent?.includes("Ref. customer"));
+  } finally { await page.close(); }
+});
+
+const uuidText = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+test("a saved draft is named by its draft label and no UUID reaches the table, phone list, dossier or editor", async () => {
+  const data = readyDraft(), page = await mount({ record: { ...savedInvoice(data), field_errors: {}, amounts: { subtotal: "100.01", discount: "0.00", tax: "0.00", total: "100.01" } } }); try {
+    const link = document.querySelector("tbody tr td:first-child button"); assert.equal(link?.textContent, "Draft · Oct 27, 2026");
+    assert.equal(uuidText.test(document.body.textContent ?? ""), false, "list");
+    await page.openRow(); assert.equal(uuidText.test(document.body.textContent ?? ""), false, "dossier");
+    assert.ok(document.querySelector('[data-testid="invoice-customer-document"]')?.textContent?.includes("Draft · Oct 27, 2026"));
+    await page.click("Edit draft"); assert.equal(uuidText.test(document.body.textContent ?? ""), false, "editor");
+    assert.ok(document.querySelector('[data-testid="invoice-editor"]')?.textContent?.includes("Draft · Oct 27, 2026"));
+    assert.equal(uuidText.test(document.querySelector('[class*="phoneList"]')?.textContent ?? ""), false, "phone list");
+  } finally { await page.close(); }
+});
+test("a prepared invoice keeps its fiscal number as identity", async () => {
+  const page = await mount({ record: { ...savedInvoice(readyDraft()), field_errors: {}, operation: preparedOperation() } }); try {
+    assert.equal(document.querySelector("tbody tr td:first-child button")?.textContent, "E320000000001");
+    assert.equal(uuidText.test(document.body.textContent ?? ""), false);
+  } finally { await page.close(); }
+});
+test("the invoice dossier lists payments, corrections and delivery as static unavailable blocks and the editor review says nothing is sent", async () => {
+  const page = await mount({ record: { ...savedInvoice(readyDraft()), field_errors: {}, amounts: { subtotal: "100.01", discount: "0.00", tax: "0.00", total: "100.01" } } }); try {
+    await page.openRow();
+    const blocks = document.querySelector('[data-testid="invoice-unavailable-blocks"]'); assert.ok(blocks);
+    for (const text of ["Payments", "Corrections", "Delivery", "Payments cannot be recorded here yet.", "Not available yet.", "Sending is not available yet."]) assert.ok(blocks.textContent?.includes(text), text);
+    assert.equal(blocks.querySelectorAll("button, a, input").length, 0, "blocks are static");
+    await page.click("Edit draft"); await page.click("Next"); await page.click("Next"); await page.click("Next");
+    assert.ok(document.querySelector('[data-testid="invoice-editor"]')?.textContent?.includes("Saved only; nothing is sent."));
+    assert.equal(document.body.textContent?.includes("Saved for this session"), false);
+    assert.equal(page.calls.filter(call => call.method !== "GET").length, 0);
+  } finally { await page.close(); }
+});
+test("the connected first-use state offers the three setup cards as navigation only, with no readiness marks", async () => {
+  const page = await mount(); try {
+    const cards = document.querySelector('[data-testid="invoice-setup-cards"]'); assert.ok(cards);
+    assert.deepEqual([...cards.querySelectorAll("strong")].map(node => node.textContent), ["Business details", "Add a customer", "Prepare your first invoice"]);
+    assert.equal(cards.querySelector("svg[class*='check'], [aria-checked], [role='checkbox']"), null);
+    await page.act(async () => cards.querySelectorAll("button")[1].click()); assert.ok(document.querySelector("#customer-name"));
+    assert.equal(page.calls.filter(call => call.method !== "GET").length, 0);
+  } finally { await page.close(); }
+  const filtered = await mount({ record: savedInvoice() }); try { assert.equal(document.querySelector('[data-testid="invoice-setup-cards"]'), null, "populated list has no setup cards"); } finally { await filtered.close(); }
+  const readOnly = await mount({ noPrepare: true }); try {
+    const guarded = [...document.querySelectorAll<HTMLButtonElement>('[data-testid="invoice-setup-cards"] button')].map(node => node.disabled);
+    assert.deepEqual(guarded, [false, true, true]);
+  } finally { await readOnly.close(); }
+});
+test("Settings sets row height on the table and sends the newest or oldest sort to the server", async () => {
+  const page = await mount({ record: savedInvoice() }); try {
+    const sorts = () => page.calls.filter(call => call.method === "GET" && call.path.endsWith("/business/invoices")).map(call => new URLSearchParams(call.query).get("sort"));
+    assert.equal(sorts().at(-1), "newest");
+    const frame = () => document.querySelector('[class*="tableFrame"]'); assert.equal(frame()?.getAttribute("data-density"), "normal");
+    await page.click("Settings");
+    const radio = (name: string) => [...document.querySelectorAll<HTMLElement>('[role="radio"], button')].find(node => node.textContent?.trim() === name); 
+    const compact = radio("Compact"); assert.ok(compact); await page.act(async () => compact.click());
+    assert.equal(frame()?.getAttribute("data-density"), "compact");
+    assert.equal(page.calls.filter(call => call.method !== "GET").length, 0, "density is client-only");
+    const oldest = radio("Oldest"); assert.ok(oldest); await page.act(async () => oldest.click());
+    assert.equal(sorts().at(-1), "oldest");
+    const newest = radio("Newest"); assert.ok(newest); await page.act(async () => newest.click());
+    assert.equal(sorts().at(-1), "newest");
+  } finally { await page.close(); }
+});
+test("Scheduled is a visibly unavailable tab with a calendar empty state, no create and no requests", async () => {
+  const page = await mount({ record: savedInvoice() }); try {
+    const reads = page.calls.length;
+    await page.click("Scheduled");
+    const view = document.querySelector('[data-testid="schedules-unavailable"]'); assert.ok(view);
+    assert.ok(view.querySelector('img[src*="schedule-calendar"]'), "calendar artwork");
+    assert.ok(view.textContent?.includes("Scheduled invoices are not available yet."));
+    assert.equal(view.querySelectorAll("button").length, 0, "no create or other action");
+    assert.equal(document.querySelector('input[type="search"]'), null);
+    assert.equal(page.calls.length, reads, "no request for a schedules list");
+    await page.click("Invoices"); assert.ok(document.querySelector("tbody tr"));
+  } finally { await page.close(); }
+});
+const customerPosts = (page: Awaited<ReturnType<typeof mount>>) => page.calls.filter(call => call.method === "POST" && call.path.endsWith("/business/customers"));
+const invoicePosts = (page: Awaited<ReturnType<typeof mount>>) => page.calls.filter(call => call.method === "POST" && call.path.endsWith("/business/invoices"));
+async function addNewCustomer(page: Awaited<ReturnType<typeof mount>>, name: string) {
+  await page.click("Create invoice"); await page.fill("#invoice-customer-search", name);
+  const option = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(node => node.textContent?.startsWith("Add customer")); assert.ok(option, "add customer option");
+  await page.act(async () => option.click());
+}
+test("Add customer in the editor saves a registry customer through an idempotent POST before the draft links to it", async () => {
+  const page = await mount(); try {
+    await addNewCustomer(page, "Taller Nuevo"); await page.click("Save draft");
+    const [customerPost] = customerPosts(page); assert.equal(customerPosts(page).length, 1); assert.ok(customerPost.key, "customer POST carries an idempotency key");
+    assert.equal((customerPost.body as { data: { name: string } }).data.name, "Taller Nuevo");
+    const saved = page.customerRecords(); assert.equal(saved.length, 1);
+    assert.equal(page.record()?.data.customer_id, saved[0].id, "the draft links to the persisted customer");
+    assert.equal(page.record()?.data.customer_input.name, "Taller Nuevo");
+    assert.ok(page.calls.indexOf(customerPost) < page.calls.indexOf(invoicePosts(page)[0]), "customer is persisted first");
+    await page.reopen(); await page.click("Customers");
+    assert.ok(document.body.textContent?.includes("Taller Nuevo"), "reload shows the same customer"); assert.equal(page.customerRecords().length, 1);
+  } finally { await page.close(); }
+});
+test("a lost customer response retries the same key and never creates a duplicate customer or invoice", async () => {
+  const page = await mount({ loseCustomerCreate: true }); try {
+    await addNewCustomer(page, "Taller Retry"); await page.click("Save draft");
+    assert.equal(invoicePosts(page).length, 0, "the draft waits for the customer");
+    await page.click("Retry the same request");
+    const posts = customerPosts(page); assert.equal(posts.length, 2); assert.equal(posts[1].key, posts[0].key); assert.deepEqual(posts[1].body, posts[0].body);
+    assert.equal(page.customerRecords().length, 1); assert.equal(invoicePosts(page).length, 1); assert.equal(page.record()?.data.customer_id, page.customerRecords()[0].id);
+  } finally { await page.close(); }
+});
+test("a rejected draft save after the customer was created reuses that customer on the next Save", async () => {
+  const page = await mount({ rejectFirstInvoiceCreate: true }); try {
+    await addNewCustomer(page, "Taller Segundo"); await page.click("Save draft");
+    assert.equal(customerPosts(page).length, 1); assert.equal(invoicePosts(page).length, 1); assert.equal(page.record(), null);
+    await page.click("Save draft");
+    assert.equal(customerPosts(page).length, 1, "no second customer"); assert.equal(page.customerRecords().length, 1);
+    assert.equal(page.record()?.data.customer_id, page.customerRecords()[0].id);
+  } finally { await page.close(); }
+});
+test("a rejected new customer keeps the editor open, saves no draft and marks the field", async () => {
+  const page = await mount({ rejectCustomerTax: true }); try {
+    await addNewCustomer(page, "Taller Rechazado");
+    const tax = document.querySelector<HTMLInputElement>("#invoice-taxId"); assert.ok(tax);
+    await page.fill("#invoice-taxId", "33"); await page.click("Save draft");
+    assert.equal(invoicePosts(page).length, 0); assert.equal(page.customerRecords().length, 0);
+    assert.ok(document.querySelector('[data-testid="invoice-editor"]')); assert.ok(document.body.textContent?.includes("The new customer was not saved."));
   } finally { await page.close(); }
 });

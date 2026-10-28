@@ -37,7 +37,7 @@ function fieldSnapshot(invoice: InvoicePreview): Record<string, unknown> {
 
 export type ConnectedInvoiceEditor = { busy: boolean; blocked: boolean; amounts: SavedInvoice["amounts"]; fieldErrors: Record<string, string>; savedInput: InvoicePreview | null; status: ReactNode; errorInput?: InvoicePreview | null; customerSearchStatus?: "pending" | "failed" | "ready"; onCustomerSearch?: (value: string) => void };
 
-export default function InvoiceEditor({ initial, business, customers, onAddCustomer, onSave, onClose, connection }: { connection?: ConnectedInvoiceEditor; initial: InvoicePreview; business: string; customers: BusinessCustomer[]; onAddCustomer: (customer: BusinessCustomer) => void; onSave: (invoice: InvoicePreview) => void; onClose: () => void }) {
+export default function InvoiceEditor({ initial, business, customers, onAddCustomer, onSave, onClose, connection }: { connection?: ConnectedInvoiceEditor; initial: InvoicePreview; business: string; customers: BusinessCustomer[]; onAddCustomer: (customer: BusinessCustomer) => void; onSave: (invoice: InvoicePreview, options?: { newCustomer: boolean }) => void; onClose: () => void }) {
   const { word, t } = useInvoiceWords();
   const [draft, setDraft] = useState(initial);
   const [activeItemId, setActiveItemId] = useState(initial.items[0]?.id ?? "");
@@ -69,7 +69,7 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
     if (!connection) return null;
     const field = key === "id" ? "customer_id" : key === "issuedOn" ? "issued_on" : key === "dueOn" ? "due_on" : ["name", "email", "taxId", "address"].includes(key) ? `customer_input.${key === "taxId" ? "tax_id" : key}` : draft.items.reduce((path, item) => key.startsWith(`${item.id}-`) ? `items.${item.id}.${key.slice(item.id.length + 1)}` : path, key);
     const reason = reportedErrors[field];
-    return reason ? t(`business.invoicing.${reason === "required" ? "field_required" : "field_unsupported"}`) : null;
+    return reason ? t(`business.invoicing.${reason === "required" ? "field_required" : reason === "customer_invalid" ? "customer_field_invalid" : "field_unsupported"}`) : null;
   };
   const errorOf = (key: string) => serverError(key) || checks.errorOf(key) || ((attempted.has(stepForField(key)) || draft.items.some(item => checkedItems.has(item.id) && key.startsWith(`${item.id}-`))) && errors[key] ? word(`error_${errors[key]}`) : null);
   const feedback = (key: string) => ({ id: `invoice-${key}`, error: errorOf(key), onBlur: () => checks.blur(key), reserveMessages: [word(`error_${errors[key] ?? (key === "name" || key.endsWith("description") ? "required" : "date")}`)] });
@@ -109,7 +109,7 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
   }, email);
   const updateEmail = (key: keyof typeof email, value: string) => setDraft(current => ({ ...current, emailDraft: { ...invoiceEmailDraft(current), [key]: value } }));
   const prepareEmail = () => {
-    if (connection) { onSave(draft); return; }
+    if (connection) { onSave(draft, { newCustomer: addingCustomer }); return; }
     setReviewView("email");
     if (!emailChecks.submit()) { requestAnimationFrame(() => form.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus()); return; }
     if (validDraft(draft)) onSave({ ...draft, emailDraft: email });
@@ -164,7 +164,7 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
   };
   const save = () => {
     saveNewCustomer();
-    onSave(draft);
+    onSave(draft, { newCustomer: Boolean(connection) && addingCustomer });
   };
   return <>
   <AdaptivePanel title={word("draft_title")} summary={draft.reference ? `${business} · ${draft.reference}` : business} width="lg" snaps={["full"]} initialSnap="full" dismissible={!connection?.busy} closeLabel={t("common.close")} onClose={() => changed ? setLeaving(true) : onClose()} expansion={{ expanded, onToggle: () => setExpanded(value => !value), expandLabel: word("expand_editor"), collapseLabel: word("collapse_editor") }}>
@@ -234,7 +234,7 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
         <label className={fieldLabelClass} htmlFor="invoice-email-message">{word("email_message")}<textarea id="invoice-email-message" rows={3} className={fieldClass} maxLength={500} value={email.message} placeholder={word("email_message_placeholder")} onChange={event => updateEmail("message", event.target.value)} /><span className={styles.counter}>{email.message.length}/500</span></label>
         <div className={styles.reviewSubmit}>
           <button className={`${primaryButtonClass} ${styles.editorPrimary}`} type="submit">{word(connection ? "save_draft" : "email_save_preparation")}</button>
-          {connection ? null : <p className={styles.muted}>{word("email_local_boundary")}</p>}
+          <p className={styles.muted}>{connection ? t("business.invoicing.save_only_note") : word("email_local_boundary")}</p>
         </div>
         </> : null}
         {attempted.has(step) && Object.keys(errors).some(key => stepForField(key) === step) ? <p role="alert" className={styles.error}>{word("editor_check_step")}</p> : null}
