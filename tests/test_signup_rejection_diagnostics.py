@@ -11,7 +11,7 @@ from argus.api.routers import auth
 from argus.api.schemas import SignupRequest
 from argus.domain.username_signup import UsernameSignupPrevalidation
 from faker import Faker
-from fastapi import HTTPException, Request
+from fastapi import BackgroundTasks, HTTPException, Request
 from loguru import logger
 
 fake = Faker()
@@ -49,7 +49,7 @@ def test_closed_admission_reports_internal_reason_without_provider_call(signup_c
     sink = logger.add(lambda message: records.append(message.record))
     try:
         with pytest.raises(HTTPException) as caught:
-            auth.signup(request, body)
+            auth.signup(request, body, BackgroundTasks())
     finally:
         logger.remove(sink)
 
@@ -82,7 +82,7 @@ def test_admission_denial_stays_private_on_both_signup_routes(
     )
     with pytest.raises(HTTPException) as caught:
         if surface == "direct_signup":
-            auth.signup(request, body)
+            auth.signup(request, body, BackgroundTasks())
         else:
             auth.signup_guest_account(request, body, user=MagicMock())
     assert caught.value.detail["code"] == "auth_signup_failed"
@@ -111,7 +111,7 @@ def test_known_rejection_stage_preserves_public_error_and_redacts_input(
     sink = logger.add(lambda message: records.append(message.record))
     try:
         with pytest.raises(HTTPException) as caught:
-            auth.signup(request, body)
+            auth.signup(request, body, BackgroundTasks())
     finally:
         logger.remove(sink)
     assert caught.value.detail == {
