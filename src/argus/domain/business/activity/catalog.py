@@ -88,13 +88,23 @@ READ_MARKS: frozenset[str] = frozenset(
 )
 
 
-def excluded_actions(*, manager: bool) -> list[str]:
-    excluded = set(READ_MARKS)
-    if not manager:
-        excluded.update(
-            name for name, spec in CATALOG.items() if spec.audience == "manager"
-        )
-    return sorted(excluded)
+@dataclass(frozen=True)
+class Visibility:
+    """Which action names a reader's page may hold. A member's page holds only
+    the names the catalog lists for members, so a new ledger action never
+    reaches members before the catalog names it. A manager's page holds every
+    name but the read marks, and one the catalog does not know shows as
+    ``other``."""
+
+    only: tuple[str, ...] | None
+    hidden: tuple[str, ...]
+
+
+def visibility(*, manager: bool) -> Visibility:
+    if manager:
+        return Visibility(only=None, hidden=tuple(sorted(READ_MARKS)))
+    listed = (name for name, spec in CATALOG.items() if spec.audience == "member")
+    return Visibility(only=tuple(sorted(listed)), hidden=())
 
 
 def project(row: LedgerRow) -> ActivityItem:

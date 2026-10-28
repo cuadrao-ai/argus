@@ -3,7 +3,8 @@ from __future__ import annotations
 import base64
 import json
 from datetime import datetime, timedelta, timezone
-from typing import get_args
+from types import UnionType
+from typing import Annotated, Literal, Union, get_args, get_origin
 from uuid import UUID, uuid4
 
 import pytest
@@ -11,8 +12,9 @@ from argus.domain.business.access import AccessAction
 from argus.domain.business.activity.catalog import (
     CATALOG,
     READ_MARKS,
-    excluded_actions,
+    Visibility,
     project,
+    visibility,
 )
 from argus.domain.business.activity.queries import (
     Cursor,
@@ -20,7 +22,12 @@ from argus.domain.business.activity.queries import (
     decode_cursor,
     encode_cursor,
 )
+from argus.domain.business.annotations import NoteCommand
+from argus.domain.business.contracts.actions import Command
 from argus.domain.business.contracts.activity import ActivityAction
+from argus.domain.business.fiscal_profile import FiscalProfileChange
+from argus.domain.business.supporting_files import SupportingCommand
+from argus.domain.business.transactions import LegacyAction
 
 AT = datetime(2026, 10, 27, 15, 4, 5, 123456, tzinfo=timezone.utc)
 ITEM_ID = "f" * 32
@@ -64,9 +71,42 @@ def test_every_access_action_is_a_manager_change_or_a_read_mark():
     assert managed == set(get_args(AccessAction)) - READ_MARKS
 
 
-def test_a_member_never_gets_access_changes_and_a_manager_gets_every_change():
-    assert set(excluded_actions(manager=True)) == READ_MARKS
-    assert set(excluded_actions(manager=False)) == READ_MARKS | ACCESS_CHANGES
+def test_a_member_sees_only_listed_changes_and_a_manager_everything_but_reads():
+    member = visibility(manager=False)
+    assert member.only is not None
+    assert set(member.only) == set(CATALOG) - ACCESS_CHANGES
+    assert member.hidden == ()
+    manager = Visibility(only=None, hidden=tuple(sorted(READ_MARKS)))
+    assert visibility(manager=True) == manager
+
+
+def _action_names(annotation: object) -> set[str]:
+    origin = get_origin(annotation)
+    if origin is Annotated:
+        return _action_names(get_args(annotation)[0])
+    if origin in (Union, UnionType):
+        return set().union(*(_action_names(member) for member in get_args(annotation)))
+    if origin is Literal:
+        return set(get_args(annotation))
+    return _action_names(annotation.model_fields["action"].annotation)
+
+
+TYPED_LEDGER_ACTIONS = (
+    _action_names(Command)
+    | _action_names(AccessAction)
+    | _action_names(FiscalProfileChange)
+    | _action_names(NoteCommand)
+    | _action_names(SupportingCommand)
+    | _action_names(LegacyAction)
+)
+#: In the ledger's allow-list (20261014100000) with no Python command type.
+UNTYPED_LEDGER_ACTIONS = frozenset({"email_ai_consent_declined"})
+
+
+def test_every_typed_ledger_action_has_a_catalog_decision():
+    assert len(TYPED_LEDGER_ACTIONS) > 20
+    assert TYPED_LEDGER_ACTIONS <= set(CATALOG) | READ_MARKS
+    assert set(CATALOG) | READ_MARKS == TYPED_LEDGER_ACTIONS | UNTYPED_LEDGER_ACTIONS
 
 
 @pytest.mark.parametrize(

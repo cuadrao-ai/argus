@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 
 from psycopg.rows import dict_row
 
-from argus.domain.business.activity.catalog import excluded_actions, project
+from argus.domain.business.activity.catalog import project, visibility
 from argus.domain.business.authority import (
     ActionContext,
     ActionError,
@@ -48,7 +48,9 @@ _PAGE = f"""
         from public.business_action_receipts
         where space_id = %(space_id)s
           and outcome->>'outcome' = 'applied'
-          and coalesce(command->>'action', '') <> all(%(excluded)s::text[])
+          and (%(only)s::text[] is null
+               or command->>'action' = any(%(only)s::text[]))
+          and coalesce(command->>'action', '') <> all(%(hidden)s::text[])
           and (%(before_at)s::timestamptz is null
                or created_at <= %(before_at)s::timestamptz)
     ) applied
@@ -93,12 +95,14 @@ def read_activity(
         live.require("read")
         if live.context.owner_id != context.owner_id:
             raise ActionError("not_found", "business_record_not_found")
+        visible = visibility(manager="manage" in live.permissions)
         with connection.cursor(row_factory=dict_row) as cursor:
             cursor.execute(
                 _PAGE,
                 {
                     "space_id": context.actor.space_id,
-                    "excluded": excluded_actions(manager="manage" in live.permissions),
+                    "only": None if visible.only is None else list(visible.only),
+                    "hidden": list(visible.hidden),
                     "before_at": before.occurred_at if before else None,
                     "before_id": before.id if before else None,
                     "limit": limit + 1,

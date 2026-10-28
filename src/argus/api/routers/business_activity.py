@@ -40,7 +40,8 @@ def activity_page(
     cursor: Annotated[str | None, Query(max_length=256)] = None,
 ):
     """Who changed what and when in the working Business: applied ledger rows,
-    newest first. Access changes list only for a reader who may manage."""
+    newest first. Access changes, and an action the feed does not know yet, list
+    only for a reader who may manage."""
 
     response.headers.update(NO_STORE)
     try:

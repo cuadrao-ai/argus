@@ -407,7 +407,7 @@ def test_the_stored_name_shows_not_the_profile(people, business, authority):
     ]
 
 
-def test_an_action_the_feed_does_not_know_is_other_without_its_input(
+def test_an_action_the_feed_does_not_know_lists_as_other_for_managers_only(
     people, business, authority
 ):
     with Connection.connect(shared.DSN) as db:
@@ -420,11 +420,16 @@ def test_an_action_the_feed_does_not_know_is_other_without_its_input(
         )
         db.commit()
 
-    page = _seen(authority, people["viewer"], business)
-    assert [(i.action, i.object) for i in page.items] == [("other", None)]
-    text = page.model_dump_json()
-    assert SECRET not in text
-    assert "business_future_action" not in text
+    for role in ("editor", "viewer"):
+        assert _seen(authority, people[role], business).items == (), role
+    for manager in ("owner", "admin"):
+        page = _seen(authority, people[manager], business)
+        listed = [(i.action, i.object) for i in page.items]
+        assert ("other", None) in listed, manager
+        assert {action for action, _ in listed} == {"owner_grant", "other"}, manager
+        text = page.model_dump_json()
+        assert SECRET not in text
+        assert "business_future_action" not in text
 
 
 def test_over_http_a_page_shows_only_what_the_feed_promises(people, business, authority):

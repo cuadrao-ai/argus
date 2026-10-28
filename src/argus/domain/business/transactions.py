@@ -4,7 +4,7 @@ import hashlib
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from psycopg import Connection
 from psycopg.rows import dict_row
@@ -81,13 +81,16 @@ def transaction(
         authorize(connection, context.actor, context.grant_id).require(capability)
 
 
+LegacyAction = Literal["receipt_upload", "receipt_review", "receipt_confirm"]
+
+
 class GrantImportStore:
     def __init__(
         self,
         authority: BusinessAuthority,
         context: ActionContext,
         capability: Capability,
-        action: str | None = None,
+        action: LegacyAction | None = None,
         request_key: str | None = None,
     ) -> None:
         self.authority = authority
@@ -123,7 +126,7 @@ class GrantImportStore:
 def record_legacy_action(
     connection: Connection,
     live: Authorization,
-    action: str,
+    action: LegacyAction,
     subjects: list[str],
     request_key: str | None = None,
 ) -> None:

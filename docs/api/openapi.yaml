@@ -978,7 +978,9 @@ paths:
       - business
       description: 'Who changed what and when in the working Business: applied ledger rows,
 
-        newest first. Access changes list only for a reader who may manage.'
+        newest first. Access changes, and an action the feed does not know yet, list
+
+        only for a reader who may manage.'
       parameters:
       - name: limit
         in: query
