@@ -97,6 +97,7 @@ type PreviewHold = "loading" | "empty" | "error";
 
 function previewHold(): PreviewHold | null {
   if (typeof window === "undefined") return null;
+  if (process.env.NODE_ENV !== "development" || process.env.NEXT_PUBLIC_MOCK_AUTH !== "true") return null;
   const value = new URLSearchParams(window.location.search).get("monthClose");
   if (value === "loading" || value === "empty" || value === "error") return value;
   return null;
