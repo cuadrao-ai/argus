@@ -1641,7 +1641,8 @@ class Rehearsal:
         with rec.step(
             "4",
             "statement-imported",
-            "S.csv (sandbox_csv): 201, inserted_count 3; same key + bytes 200 created:false",
+            "S.csv (sandbox_csv): 201, inserted + unchanged 3 (a seeded Business already"
+            " holds the lines); same key + bytes 200 created:false, inserted 0",
         ) as obs:
             need(state, "account_id")
             first = import_statement(
@@ -1660,11 +1661,14 @@ class Rehearsal:
                 again_status=again.status,
             )
             expect(
-                first.status == 201 and first.body["inserted_count"] == 3,
-                "first import did not insert 3 lines",
+                first.status == 201
+                and first.body["inserted_count"] + first.body["unchanged_count"] == 3,
+                "first import did not account for 3 lines",
             )
             expect(
-                again.status == 200 and again.body["created"] is False,
+                again.status == 200
+                and again.body["created"] is False
+                and again.body["inserted_count"] == 0,
                 "replayed import was not a replay",
             )
             state["c4_imported"] = True
