@@ -63,6 +63,7 @@ try {
       if (path === "month-close") return route.fulfill({ json: monthCloseWire("2026-10") });
       if (path === "open-items") { const none = { count: 0, totals: [], overdue: { count: 0, totals: [] }, items: [] }; return route.fulfill({ json: { today: "2026-10-21", cuentas_por_cobrar: none, cuentas_por_pagar: none } }); }
       if (path === "invitations") return route.fulfill({ json: [] });
+      if (path === `spaces/${owner.space_id}/profile`) return route.fulfill({ json: { space_id: owner.space_id, name: owner.name, country: "DO", currency: "DOP", revision: 0, details: {}, appearance: { kind: "default" }, image: null } });
       throw new Error(`Unmapped synthetic endpoint ${path}`);
     });
     const query = state.startsWith("close-") ? `?lifecycle=close&business=${owner.space_id}` : state === "transfer-picker" ? `?lifecycle=transfer&business=${owner.space_id}` : state.startsWith("accept-") ? `?transfer=${transfer.id}` : state === "owner-datos" ? "?view=business&tab=datos" : "";

@@ -75,6 +75,7 @@ try {
           return route.fulfill({ json: { today: "2026-10-21", cuentas_por_cobrar: none, cuentas_por_pagar: none } });
         }
         if (path === "invitations") return route.fulfill({ json: [] });
+        if (path === "spaces/fixture-space/profile") return route.fulfill({ json: { space_id: "fixture-space", name: "Colmado de prueba", country: "DO", currency: "DOP", revision: 0, details: {}, appearance: { kind: "default" }, image: null } });
         throw new Error(`Unmapped synthetic endpoint ${path}`);
       });
       await page.goto(`${baseURL}/biz${state.startsWith("bandeja") ? "?view=inbox" : ""}`);
