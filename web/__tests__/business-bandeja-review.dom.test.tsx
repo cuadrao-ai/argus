@@ -3,6 +3,7 @@ import { afterAll, beforeAll, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { ReceiptActivityCounts, ReceiptSummary } from "@/lib/business-api";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
+import { receptionRows, rowState, rowTitles, receptionTab, tabCount } from "./support/reception";
 
 mock.module("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(""),
@@ -70,41 +71,25 @@ async function mount(overrides: Partial<BusinessDataSource> = {}, grant: string 
   };
 }
 
-test("a Bandeja that has never been used keeps the plain empty copy", async () => {
+test("a Bandeja that has never been used says so and offers Agregar", async () => {
   const page = await mount({
     receiptPage: async () => ({ items: [], activity: none }),
   });
   try {
-    await page.settle(() => page.host.querySelector('[data-testid="business-inbox-empty"]') !== null);
-    const card = page.host.querySelector('[data-testid="business-inbox-empty"]')!;
-    const empty = card.textContent ?? "";
-    assert.equal(card.querySelector("[data-empty-kind]")?.getAttribute("data-empty-kind"), "first_run");
-    assert.equal(card.querySelector("h3")?.textContent, "Aquí llegan tus recibos");
-    assert.equal(empty.includes("Todo aprobado"), false);
-    assert.equal(empty.includes("Súbelos, escríbelos o reenvíalos por correo."), true);
-    assert.equal([...card.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Agregar"), true, "the empty Bandeja offers Agregar");
+    await page.settle(() => page.host.querySelector('[data-testid="reception-empty"]') !== null);
+    const card = page.host.querySelector('[data-testid="reception-empty"]')!;
+    assert.equal(card.getAttribute("data-empty-kind"), "first_run");
+    assert.equal(card.querySelector("h3")?.textContent, "Tus archivos y notas llegan aquí");
+    assert.equal(page.host.querySelector("[data-testid=reception-add] [data-testid=business-primary-upload]")?.textContent, "Agregar", "the empty Bandeja offers Agregar");
   } finally { await page.close(); }
 });
 
-test("an approved Bandeja reads the locked empty line from the server's closed counts, with no second read of every receipt", async () => {
-  const views: string[] = [];
-  const page = await mount({
-    receiptPage: async (view) => { views.push(view); return { items: [], activity: { ...none, confirmed_count: 3, dismissed_count: 0 } }; },
-  });
-  try {
-    await page.settle(() => (page.host.textContent ?? "").includes("Todo aprobado. Pa'que cuadre."));
-    assert.equal(page.host.textContent?.includes("Todo aprobado. Pa'que cuadre."), true);
-    assert.ok(views.length > 0 && views.every((view) => view === "inbox"), `only the inbox view is read, got ${views.join(",")}`);
-  } finally { await page.close(); }
-});
-
-test("a Bandeja emptied by a dismissal, or by a server that sends no closed counts, keeps the plain empty copy", async () => {
-  for (const activity of [{ ...none, confirmed_count: 2, dismissed_count: 1 }, none]) {
+test("a Bandeja whose receipts were all approved, dismissed, or counted by an older server reads the same plain empty state", async () => {
+  for (const activity of [{ ...none, confirmed_count: 3, dismissed_count: 0 }, { ...none, confirmed_count: 2, dismissed_count: 1 }, none]) {
     const page = await mount({ receiptPage: async () => ({ items: [], activity }) });
     try {
-      await page.settle(() => page.host.querySelector('[data-testid="business-inbox-empty"]') !== null);
-      assert.equal(page.host.textContent?.includes("Todo aprobado"), false);
-      assert.equal(page.host.querySelector("h3")?.textContent, "Aquí llegan tus recibos");
+      await page.settle(() => page.host.querySelector('[data-testid="reception-empty"]') !== null);
+      assert.equal(page.host.querySelector("h3")?.textContent, "Tus archivos y notas llegan aquí");
     } finally { await page.close(); }
   }
 });
@@ -116,44 +101,38 @@ test("still-reading and unreadable receipts stay off the por revisar number", as
   const reading: ReceiptSummary = { ...ready, id: "rcpt-reading", status: "queued", merchant: "En lectura", activity: { state: "reading", unread: true, completion_cursor: null }, bandeja: { por_revisar: false, con_problema: false, leyendo: true } };
   const items = [ready, reading, blurry];
   const page = await mount({
-    receiptPage: async (view) => ({ items: view === "all" ? items : items, activity: { ...none, pending_review_count: 3, reading_count: 1, needs_attention_count: 1, ready_to_review_count: 1 } }),
+    receiptPage: async () => ({ items, activity: { ...none, pending_review_count: 3, reading_count: 1, needs_attention_count: 1, ready_to_review_count: 1 } }),
   });
   try {
-    const segment = (key: string) => page.host.querySelector(`[data-testid="bandeja-segments"] [data-segment="${key}"]`)?.textContent;
-    // The bar shows while the list loads; its counts arrive with it.
-    await page.settle(() => /\d/.test(segment("review") ?? ""));
-    assert.equal(segment("review"), "Por revisar1");
-    assert.equal(segment("problem"), "Con problema1");
-    assert.equal(segment("all"), "Todo");
+    await page.settle(() => /\d/.test(tabCount(page.host, "review") ?? ""));
+    assert.deepEqual([tabCount(page.host, "review"), tabCount(page.host, "processing"), tabCount(page.host, "attention")], ["1", "1", "1"]);
     assert.equal(page.host.textContent?.includes("necesita tu atención"), false);
-    assert.equal(/Revisar \d+ recibo/.test(page.host.textContent ?? ""), false);
-    assert.match(page.host.textContent ?? "", /RD\$/);
+    assert.match(page.host.textContent ?? "", /Ferretería/);
     assert.equal((page.host.textContent ?? "").includes("DOP"), false);
   } finally { await page.close(); }
 });
 
-test("each segment lists what the server flags, and a queued receipt the server is not reading never says Leyendo", async () => {
+test("each view lists what the server flags, and a queued receipt the server is not reading never says Leyendo", async () => {
   const fixture = (await import("@/components/business-app/fixture-data")).createFixtureBusinessDataSource();
   const ready = await fixture.receipt("rcpt-ferreteria");
   const flags = (por_revisar: boolean, con_problema: boolean, leyendo: boolean) => ({ por_revisar, con_problema, leyendo });
-  // Statuses that the old browser rule read the other way: the server's flags decide.
   const queued: ReceiptSummary = { ...ready, id: "rcpt-queued", status: "queued", merchant: "En cola", activity: { state: "saved_unread", unread: false, completion_cursor: null }, bandeja: flags(false, false, false) };
   const flaggedProblem: ReceiptSummary = { ...ready, id: "rcpt-flagged", merchant: "Marcado", activity: { state: "ready", unread: false, completion_cursor: null }, bandeja: flags(false, true, false) };
   const page = await mount({
     receiptPage: async () => ({ items: [queued, flaggedProblem], activity: { ...none, pending_review_count: 2, needs_attention_count: 1 } }),
   });
-  const names = () => [...page.host.querySelectorAll('[data-testid="bandeja-row"]')].map((row) => row.querySelector("span span span")?.textContent);
-  const choose = (key: string) => page.act(async () => page.host.querySelector<HTMLButtonElement>(`[data-testid="bandeja-segments"] [data-segment="${key}"]`)!.click());
+  const choose = (key: "all" | "review" | "processing" | "attention") => page.act(async () => receptionTab(page.host, key)!.click());
   try {
-    await page.settle(() => page.host.querySelector('[data-testid="bandeja-segment-empty"]') !== null);
-    assert.deepEqual(names(), [], "neither row is flagged por revisar");
-    await choose("problem");
-    assert.deepEqual(names(), ["Marcado"]);
+    await page.settle(() => receptionRows(page.host).length === 2);
+    await choose("review");
+    assert.deepEqual(rowTitles(page.host), [], "neither row is flagged por revisar");
+    assert.equal(page.host.querySelector('[data-testid="reception-empty"]')?.getAttribute("data-empty-kind"), "filtered");
+    await choose("attention");
+    assert.deepEqual(rowTitles(page.host), ["Marcado"]);
     await choose("all");
-    assert.deepEqual(names().sort(), ["En cola", "Marcado"]);
-    const row = [...page.host.querySelectorAll('[data-testid="bandeja-row"]')].find((item) => item.textContent?.includes("En cola"))!;
-    assert.equal(row.querySelector('[data-testid="receipt-reading-ring"]'), null, "no spinner for a receipt nothing reads");
-    assert.match(row.querySelector('[data-testid="bandeja-row-state"]')?.textContent ?? "", /^Guardado, sin leer · /);
+    assert.deepEqual(rowTitles(page.host).sort(), ["En cola", "Marcado"]);
+    const row = receptionRows(page.host).find((item) => item.textContent?.includes("En cola"))!;
+    assert.match(rowState(row), /^Guardado, sin leer/);
     assert.equal(row.textContent?.includes("Leyendo"), false);
   } finally { await page.close(); }
 });
@@ -172,11 +151,11 @@ test("a contador gets Revisar recibos as the green primary and no upload", async
   } finally { await page.close(); }
 });
 
-test("the segment bar stays while the list loads, with no count until one is known", async () => {
+test("the views stay while the list loads, with no count until one is known", async () => {
   const page = await mount({ receiptPage: () => new Promise(() => {}) });
   try {
-    await page.settle(() => page.host.querySelector('[data-testid="bandeja-segments"]') !== null);
-    const bar = page.host.querySelector('[data-testid="bandeja-segments"]')?.textContent ?? "";
+    await page.settle(() => page.host.querySelector('[role="tablist"]') !== null);
+    const bar = page.host.querySelector('[role="tablist"]')?.textContent ?? "";
     assert.match(bar, /Por revisar/);
     assert.equal(/\d/.test(bar), false, "an unknown count is never shown as 0");
   } finally { await page.close(); }
