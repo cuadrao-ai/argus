@@ -9,7 +9,7 @@ from argus.api.business_drafts import (
     DraftContext,
     action_problem,
     require_drafts,
-    with_email_sources,
+    with_source_channels,
 )
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
@@ -101,7 +101,9 @@ def _run(request, response, context, draft_id, command=None, key=None):
             if isinstance(result, Refused):
                 raise action_problem(request, result)
         dossier = context.service.dossier(actor, draft_id)
-        return with_email_sources(dossier, str(actor.actor.space_id))
+        return with_source_channels(
+            dossier, space_id=str(actor.actor.space_id), owner_id=actor.owner_id
+        )
     except ActionError as error:
         raise action_problem(request, error.result) from None
 
