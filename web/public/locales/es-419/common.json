@@ -3340,6 +3340,7 @@
       "block_delivery": "Envío",
       "block_delivery_unavailable": "Sin enviar. El envío aún no está disponible.",
       "save_only_note": "Solo se guarda; no se envía.",
+      "schedules_unavailable": "Las facturas programadas aún no están disponibles. Nada se crea ni se ejecuta de forma automática.",
       "unavailable": "La emisión fiscal no está disponible todavía. Tu borrador se conserva y puedes seguir editándolo.",
       "refused": "No pudimos completar esta solicitud. Tu borrador se conserva.",
       "issuance_unavailable": "Emisión no disponible todavía.",

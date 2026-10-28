@@ -3102,6 +3102,7 @@
       "block_delivery": "Delivery",
       "block_delivery_unavailable": "Not sent. Sending is not available yet.",
       "save_only_note": "Saved only; nothing is sent.",
+      "schedules_unavailable": "Scheduled invoices are not available yet. Nothing is created or run automatically.",
       "unavailable": "Fiscal issuance is not available yet. Your draft is kept and you can keep editing it.",
       "refused": "We could not complete this request. Your draft is kept.",
       "issuance_unavailable": "Issuance is not available yet.",

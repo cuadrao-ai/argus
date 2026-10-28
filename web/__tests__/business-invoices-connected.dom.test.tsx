@@ -524,3 +524,16 @@ test("Settings sets row height on the table and sends the newest or oldest sort 
     assert.equal(sorts().at(-1), "newest");
   } finally { await page.close(); }
 });
+test("Scheduled is a visibly unavailable tab with a calendar empty state, no create and no requests", async () => {
+  const page = await mount({ record: savedInvoice() }); try {
+    const reads = page.calls.length;
+    await page.click("Scheduled");
+    const view = document.querySelector('[data-testid="schedules-unavailable"]'); assert.ok(view);
+    assert.ok(view.querySelector('img[src*="schedule-calendar"]'), "calendar artwork");
+    assert.ok(view.textContent?.includes("Scheduled invoices are not available yet."));
+    assert.equal(view.querySelectorAll("button").length, 0, "no create or other action");
+    assert.equal(document.querySelector('input[type="search"]'), null);
+    assert.equal(page.calls.length, reads, "no request for a schedules list");
+    await page.click("Invoices"); assert.ok(document.querySelector("tbody tr"));
+  } finally { await page.close(); }
+});
