@@ -3343,7 +3343,11 @@
       "schedules_unavailable": "Las facturas programadas aún no están disponibles. Nada se crea ni se ejecuta de forma automática.",
       "customer_field_invalid": "Revisa este dato. El cliente nuevo no se guardó.",
       "unavailable": "La emisión fiscal no está disponible todavía. Tu borrador se conserva y puedes seguir editándolo.",
-      "refused": "No pudimos completar esta solicitud. Tu borrador se conserva.",
+      "refused": "Cuadrao rechazó esta solicitud. Volver a enviarla daría la misma respuesta.",
+      "refused_invoice": "Cuadrao rechazó guardar este borrador. Tu borrador se conserva; volver a enviarlo daría la misma respuesta.",
+      "refused_customer": "Cuadrao rechazó guardar este cliente. Volver a enviarlo daría la misma respuesta.",
+      "refused_prepare": "Cuadrao rechazó preparar esta factura. Tu borrador se conserva; volver a intentarlo daría la misma respuesta.",
+      "refused_submit": "Cuadrao rechazó emitir esta factura. La factura preparada se conserva; volver a intentarlo daría la misma respuesta.",
       "issuance_unavailable": "Emisión no disponible todavía.",
       "unset": "Elige una opción"
     },

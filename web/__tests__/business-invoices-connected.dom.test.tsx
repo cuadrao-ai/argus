@@ -12,7 +12,7 @@ mock.module("@/lib/private-alpha-flags", () => ({ ...realFlags, businessInvoicin
 
 beforeAll(() => { GlobalRegistrator.register({ url: "http://localhost/biz?view=invoicing" }); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
-async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; losePrepare?: boolean; holdCreate?: boolean; entry?: boolean; selectedGrant?: string | null; missingActor?: boolean; missingPermissions?: boolean; directory?: "loading" | "failed"; checkTaxId?: boolean; customerRecords?: SavedCustomer[]; rejectCustomerTax?: boolean; holdReads?: boolean; readFailure?: number; noPrepare?: boolean; fiscalOff?: boolean; loseCustomerCreate?: boolean; rejectFirstInvoiceCreate?: boolean } = {}) {
+async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; losePrepare?: boolean; holdCreate?: boolean; entry?: boolean; selectedGrant?: string | null; missingActor?: boolean; missingPermissions?: boolean; directory?: "loading" | "failed"; checkTaxId?: boolean; customerRecords?: SavedCustomer[]; rejectCustomerTax?: boolean; holdReads?: boolean; readFailure?: number; noPrepare?: boolean; refuse?: "prepare" | "customer"; fiscalOff?: boolean; loseCustomerCreate?: boolean; rejectFirstInvoiceCreate?: boolean } = {}) {
   const { act, StrictMode } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { I18nextProvider } = await import("react-i18next");
@@ -40,6 +40,8 @@ async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; los
     }
     if (url.pathname.endsWith("/business/invoices") && method === "GET") return Response.json({ items: record ? [record] : [], total: record ? 1 : 0, page: 1, page_size: 25, stage_counts: { draft: record && !record.operation ? 1 : 0, issued: record?.operation?.state.legal === "ACCEPTED" ? 1 : 0, uncertain: record?.operation?.state.submission === "unknown" ? 1 : 0 }, summaries: [], query_version: "synthetic-version" });
     if (url.pathname.endsWith("/business/customers") && method === "GET") return Response.json({ items: createdCustomers, total: createdCustomers.length, page: 1, page_size: 25 });
+    if (options.refuse === "customer" && url.pathname.includes("/business/customers") && method === "POST") return Response.json({ code: "business_unavailable", request_id: "customer-ref-0001" }, { status: 404 });
+    if (options.refuse === "prepare" && url.pathname.endsWith("/prepare")) return Response.json({ code: "business_record_not_found", request_id: "prepare-ref-0001" }, { status: 404 });
     if (url.pathname.includes("/business/customers") && ["POST", "PUT"].includes(method)) {
       if (options.rejectCustomerTax && !/^(?:[0-9]{9}|[0-9]{11})$/.test(body.data.tax_id)) return Response.json({ code: "customer_invalid", context: { field_errors: { tax_id: "tax_id" } } }, { status: 422 });
       if (method === "PUT") { const index = createdCustomers.findIndex(customer => url.pathname.endsWith(`/${customer.id}`)); assert.ok(index >= 0); assert.equal(body.expected_version, createdCustomers[index].version); createdCustomers[index] = { ...createdCustomers[index], data: body.data, version: createdCustomers[index].version + 1 }; return Response.json(createdCustomers[index]); }
@@ -461,12 +463,35 @@ test("with fiscal issuance off, Prepare issuance becomes a disabled note and edi
     assert.equal(document.body.textContent?.includes("We could not confirm whether it was saved"), false);
     assert.equal(page.button("Prepare issuance").disabled, true);
     assert.ok(document.body.textContent?.includes("Issuance is not available yet."));
+    assert.ok(document.body.textContent?.includes("If you think this is a mistake, email us at hola@cuadrao.ai."), "the unavailable state names a way out");
+    assert.equal(document.querySelector('[data-testid="error-reference"]')?.textContent?.includes("Ref. syntheti"), true, "the unavailable state shows its reference");
     assert.equal(sessionStorage.getItem("cuadrao:invoice_commands:v1"), null);
     await page.click("Edit draft"); await page.click("Save draft");
     assert.equal(page.calls.filter(call => call.method === "PUT" && call.path.endsWith(`/business/invoices/${invoiceId}`)).length, 1, "a later save reaches the server");
     assert.ok(document.body.textContent?.includes("Saved to this Business."));
     await page.reopen(); await page.openRow(); await page.click("Edit draft"); await page.click("Save draft");
     assert.equal(page.calls.filter(call => call.method === "PUT").length, 2, "a reload leaves saving usable");
+  } finally { await page.close(); }
+});
+
+test("a refused prepare says what was refused, shows its reference and the contact line, with no Retry", async () => {
+  const page = await mount({ record: { ...savedInvoice(readyDraft()), field_errors: {}, amounts: { subtotal: "100.01", discount: "0.00", tax: "0.00", total: "100.01" } }, refuse: "prepare" }); try {
+    await page.openRow(); await page.click("Prepare issuance");
+    const text = document.body.textContent ?? "";
+    assert.ok(text.includes("Cuadrao refused to prepare this invoice. Your draft is kept;"));
+    assert.ok(text.includes("If you think this is a mistake, email us at hola@cuadrao.ai."));
+    assert.ok(document.querySelector('[data-testid="error-reference"]')?.textContent?.includes("Ref. prepare-"));
+    assert.equal(text.includes("Retry the same request"), false); assert.equal(sessionStorage.getItem("cuadrao:invoice_commands:v1"), null);
+  } finally { await page.close(); }
+});
+test("a refused customer save keeps draft wording out of the Customer form and still names a way out", async () => {
+  const page = await mount({ refuse: "customer" }); try {
+    await page.click("Customers"); await page.click("Add customer"); await page.fill("#customer-name", "Refused customer"); await page.click("Save customer");
+    const text = document.body.textContent ?? "";
+    assert.ok(text.includes("Cuadrao refused to save this customer."));
+    assert.equal(text.includes("draft is kept"), false, "no draft exists in the Customer form");
+    assert.ok(text.includes("If you think this is a mistake, email us at hola@cuadrao.ai."));
+    assert.ok(document.querySelector('[data-testid="error-reference"]')?.textContent?.includes("Ref. customer"));
   } finally { await page.close(); }
 });
 

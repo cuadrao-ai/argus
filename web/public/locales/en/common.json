@@ -3105,7 +3105,11 @@
       "schedules_unavailable": "Scheduled invoices are not available yet. Nothing is created or run automatically.",
       "customer_field_invalid": "Check this detail. The new customer was not saved.",
       "unavailable": "Fiscal issuance is not available yet. Your draft is kept and you can keep editing it.",
-      "refused": "We could not complete this request. Your draft is kept.",
+      "refused": "Cuadrao refused this request. Sending it again would get the same answer.",
+      "refused_invoice": "Cuadrao refused to save this draft. Your draft is kept; sending it again would get the same answer.",
+      "refused_customer": "Cuadrao refused to save this customer. Sending it again would get the same answer.",
+      "refused_prepare": "Cuadrao refused to prepare this invoice. Your draft is kept; trying again would get the same answer.",
+      "refused_submit": "Cuadrao refused to issue this invoice. The prepared invoice is kept; trying again would get the same answer.",
       "issuance_unavailable": "Issuance is not available yet.",
       "unset": "Choose an option"
     },

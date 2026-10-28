@@ -8,6 +8,7 @@ import { currencySymbol } from "@/lib/money-entry";
 import { getChosenGrant, subscribeChosenGrant } from "@/lib/business-grant";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { primaryButtonClass, quietButtonClass } from "../business-ui";
 import { useBusiness } from "../BusinessWorkspace";
 import { formatAmount, periodRange, type Period } from "../business-format";
@@ -57,7 +58,14 @@ function CommandStatus({ state, retry, reload }: { state: CommandState; retry: (
   if (state.kind === "idle" || state.kind === "disposed") return null;
   if (state.kind === "pending") return <p role="status">{t("business.invoicing.saving")}</p>;
   if (state.kind === "saved") return <p role="status">{t(`business.invoicing.${state.result.kind === "customer" ? "customer_saved" : "saved"}`)}</p>;
-  return <div role="alert" className={styles.notice}><p>{t(`business.invoicing.${state.failure}`)}</p>{state.retryable ? <button type="button" className={quietButtonClass} onClick={retry}>{t("business.invoicing.retry")}</button> : state.failure === "conflict" ? <button type="button" className={quietButtonClass} onClick={reload}>{t("business.invoicing.reload")}</button> : null}</div>;
+  const terminal = state.failure === "unavailable" || state.failure === "refused";
+  const message = state.failure === "refused" ? t([`business.invoicing.refused_${state.command?.kind ?? "request"}`, "business.invoicing.refused"]) : t(`business.invoicing.${state.failure}`);
+  return <div role="alert" className={styles.notice}>
+    <p>{message}</p>
+    {terminal ? <p>{t("auth.business_unavailable.body")}</p> : null}
+    {state.reference ? <ReferenceCode reference={state.reference} /> : null}
+    {state.retryable ? <button type="button" className={quietButtonClass} onClick={retry}>{t("business.invoicing.retry")}</button> : state.failure === "conflict" ? <button type="button" className={quietButtonClass} onClick={reload}>{t("business.invoicing.reload")}</button> : null}
+  </div>;
 }
 function ConnectedInvoiceCanvas({ scope, business, capabilities, transport = liveTransport }: { scope: api.InvoiceScope; business: string; capabilities: InvoiceCapabilities; transport?: InvoiceWorkspaceTransport }) {
   const { word, locale, t } = useInvoiceWords();

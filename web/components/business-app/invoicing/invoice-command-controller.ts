@@ -18,7 +18,7 @@ export type CommandFailure = "uncertain" | "conflict" | "invalid" | "access" | "
 export type CommandState =
   | { kind: "idle" }
   | { kind: "pending"; command: InvoiceCommand }
-  | { kind: "failed"; command: InvoiceCommand | null; failure: CommandFailure; fieldErrors: Record<string, string>; retryable: boolean }
+  | { kind: "failed"; command: InvoiceCommand | null; failure: CommandFailure; fieldErrors: Record<string, string>; retryable: boolean; reference?: string }
   | { kind: "saved"; result: CommandResult }
   | { kind: "disposed" };
 export type InvoiceCommandJournal = { read: (scope: api.InvoiceScope) => InvoiceCommand | null; write: (scope: api.InvoiceScope, command: InvoiceCommand) => boolean; clear: (scope: api.InvoiceScope) => void };
@@ -81,7 +81,7 @@ export function createInvoiceCommandController(scope: api.InvoiceScope, journal:
       const failure = failureOf(error, command);
       const retryable = failure === "uncertain";
       if (!retryable) journal.clear(scope);
-      publish({ kind: "failed", command: failure === "access" ? null : command, failure, retryable, fieldErrors: error instanceof api.InvoiceProblem ? error.fieldErrors : {} });
+      publish({ kind: "failed", command: failure === "access" ? null : command, failure, retryable, fieldErrors: error instanceof api.InvoiceProblem ? error.fieldErrors : {}, reference: error instanceof api.InvoiceProblem ? error.requestId : undefined });
     }
   }
   return {
