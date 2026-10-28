@@ -436,6 +436,7 @@ def test_access_changes_list_only_for_a_reader_who_may_manage(
     assert "membership_version" not in text
     for person in people.values():
         assert person not in text
+        assert person.replace("-", "") not in text
 
 
 def test_a_reader_sees_one_business_even_through_a_foreign_cursor(

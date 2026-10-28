@@ -69,6 +69,25 @@ def test_a_label_comes_only_from_a_record_the_reader_may_read(
                 seconds_ago=1,
                 draft_id=draft_id,
             )
+        # A grant of another Business, named by a row of ours, has no label.
+        foreign_grant = str(
+            db.execute(
+                "select id from public.business_client_grants"
+                " where space_id=%s and grantee_id=%s",
+                (elsewhere, people["stranger"]),
+            ).fetchone()[0]
+        )
+        receipt(
+            db,
+            business,
+            people["owner"],
+            {
+                "action": "change_role",
+                "grant_id": foreign_grant,
+                "business_role": "editor",
+            },
+            seconds_ago=2,
+        )
         db.commit()
 
     for role in ("viewer", "owner"):
@@ -84,7 +103,13 @@ def test_a_label_comes_only_from_a_record_the_reader_may_read(
             blank: None,
             foreign: None,
         } | {k: None for k in labels if k not in (known, unknown, blank, foreign)}
-        assert "Colmado Ajeno" not in page.model_dump_json()
+        text = page.model_dump_json()
+        assert "Colmado Ajeno" not in text
+        assert "fin-stranger-" not in text
+    owner = _seen(authority, people["owner"], business)
+    assert [i.object.label for i in owner.items if str(i.object.id) == foreign_grant] == [
+        None
+    ]
 
 
 def test_a_derived_event_lists_for_managers_with_the_persons_name(
@@ -300,8 +325,10 @@ def test_a_departed_owners_rows_name_the_erased_member(
         text = page.model_dump_json()
         for leak in (
             owner,
+            owner.replace("-", ""),
             reservation.custodian_id,
             reservation.deleted_actor_id,
+            reservation.deleted_actor_id.replace("-", ""),
             "exmiembro-",
             "cuadrao.invalid",
             "131234567",

@@ -378,6 +378,8 @@ def test_over_http_a_page_shows_only_what_the_feed_promises(people, business, au
             EMAIL,
             people["owner"],
             people["editor"],
+            people["owner"].replace("-", ""),
+            people["editor"].replace("-", ""),
             "input_hash",
             "command",
             "idempotency",
