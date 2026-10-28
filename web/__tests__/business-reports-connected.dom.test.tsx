@@ -288,10 +288,14 @@ test("an incomplete server total shows unknown beside its labelled known part, n
   await page.click(document.querySelector('[data-testid="records-refresh"]'));
   await page.settle(() => cards()[0]?.querySelector('[data-partial-known]') !== null);
   const dop = cards()[0].querySelector('[data-currency="DOP"]') ?? cards()[0].querySelector('dd > div')!;
-  assert.equal(dop.querySelectorAll('.cuadrao-amount').length, 0);
+  assert.equal([...dop.querySelectorAll('.cuadrao-amount')].filter((amount) => !amount.closest('[data-partial-known]')).length, 0);
   assert.match(dop.textContent!, /-/);
   assert.match(dop.textContent!, /Parcial: RD\$6,100\.00/);
-  assert.equal(cards()[0].querySelectorAll('.cuadrao-amount').length, 1);
+  const known = dop.querySelector('[data-partial-known] .cuadrao-amount')!;
+  assert.equal(known.textContent, 'RD$6,100.00');
+  assert.ok(known.classList.contains('tabular-nums'));
+  assert.equal(dop.querySelector('[data-partial-known]')!.textContent, 'Parcial: RD$6,100.00');
+  assert.equal(cards()[0].querySelectorAll('.cuadrao-amount').length, 2);
 });
 
 test("desktop shows a refresh control that reloads the query and holds a busy state until it answers", async () => {

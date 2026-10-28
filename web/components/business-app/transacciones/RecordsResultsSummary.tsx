@@ -29,7 +29,11 @@ export function RecordsSummaryCards({ summary, kind, qualifier }: { summary: Set
   const trigger = useRef<HTMLButtonElement>(null);
   const word = (key: string, options?: Record<string, string>) => t(`business.transactions.layout.results.${key}`, options);
   const label = (metric: typeof METRICS[number]) => word(`metrics.${kind === "venta" ? metric.sale : metric.expense}`);
-  const partial = (currency: SettlementCurrency) => <><Unknown meaning={word("partial_meaning")} /><span className={styles.partial} data-partial-known>{word("partial", { amount: `${currencySymbol(currency.currency)}${formatAmount(currency.known!, currency.currency, locale)}` })}</span></>;
+  const partial = (currency: SettlementCurrency) => {
+    const amount = `${currencySymbol(currency.currency)}${formatAmount(currency.known!, currency.currency, locale)}`;
+    const [before, after] = word("partial", { amount }).split(amount);
+    return <><Unknown meaning={word("partial_meaning")} /><span className={styles.partial} data-partial-known>{before}<span className="cuadrao-amount tabular-nums">{amount}</span>{after}</span></>;
+  };
   const code = (currency: SettlementCurrency) => currency.currency || word("no_currency");
   const visible: (SettlementCurrency | undefined)[] = summary.currencies.length ? summary.currencies.slice(0, 2) : [undefined];
   const exclusions = (["unconfirmed", "personal", "unavailable"] as const).filter((reason) => summary.exclusions[reason] > 0).map((reason) => t(`business.transactions.layout.results.${reason}`, { count: summary.exclusions[reason] }));
