@@ -90,6 +90,10 @@ class CaptureFailed(Exception):
 class Captured:
     connection_id: str
     already_held: bool
+    # The receipt was queued and will be read inline right after the
+    # acknowledgement. The destination decides it once at capture time; the
+    # acknowledgement and the follow-up both read it, never recompute it.
+    reading: bool = False
 
 
 class IntakeDestination(Protocol):
@@ -335,7 +339,8 @@ class WhatsAppIntake:
         self, message: InboundMessage, settlement: Settlement, log
     ) -> None:  # noqa: ANN001
         """One more message, once the receipt is read: where it stands. Best
-        effort; the acknowledgement already carried the link."""
+        effort; a ``reading`` acknowledgement promised it, every other
+        acknowledgement already carried the link."""
 
         if settlement.status != "captured" or settlement.duplicate:
             return
@@ -345,6 +350,11 @@ class WhatsAppIntake:
                 connection_id=settlement.connection_id or "",
             )
             if result is None or result[0] not in ("review_ready", "needs_attention"):
+                if settlement.reading:
+                    log.warning(
+                        "WhatsApp receipt acknowledged as reading but no follow-up was sent",
+                        status=None if result is None else result[0],
+                    )
                 return
             status, found = result
             if status == "needs_attention":
@@ -471,6 +481,7 @@ class WhatsAppIntake:
             owner,
             captured.connection_id,
             duplicate=captured.already_held,
+            reading=captured.reading,
         )
 
     async def _reply(
@@ -482,7 +493,10 @@ class WhatsAppIntake:
         read: dict[str, str] | None = None,
     ) -> None:
         resolved_key = key or reply_key(
-            settlement.status, settlement.error_code, duplicate=settlement.duplicate
+            settlement.status,
+            settlement.error_code,
+            duplicate=settlement.duplicate,
+            reading=settlement.reading,
         )
         if resolved_key == "whatsapp_sender_not_linked":
             suppressed("unknown_sender", self.keys.sender(message.sender))

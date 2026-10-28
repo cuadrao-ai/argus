@@ -22,6 +22,7 @@ from loguru import logger
 from argus.api import state as api_state
 from argus.api.business_spaces import business_spaces, space_missing_problem
 from argus.api.dependencies import problem
+from argus.api.document_jobs import document_jobs
 from argus.api.documents import documents_service
 from argus.api.ingestion import IngestionContext, ingestion_hub, require_ingestion_context
 from argus.domain.business.config import business_pilot_enabled
@@ -129,7 +130,16 @@ class DocumentsDestination:
             ) from None
         except DocumentServiceError:
             raise CaptureFailed("whatsapp_capture_failed") from None
-        return Captured(outcome.connection_id, already_held=outcome.replayed)
+        # Queued by ``upload`` and prepared inline by ``read``: the follow-up
+        # carries the link. A replay is a duplicate and gets the duplicate reply.
+        reading = (
+            outcome.status == "queued"
+            and not outcome.replayed
+            and document_jobs() is None
+        )
+        return Captured(
+            outcome.connection_id, already_held=outcome.replayed, reading=reading
+        )
 
     def _reading(self, owner_id: str) -> bool:
         if self.reading_enabled is None:

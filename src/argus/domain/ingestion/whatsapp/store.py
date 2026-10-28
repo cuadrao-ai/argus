@@ -51,8 +51,10 @@ class Settlement:
     connection_id: str | None = None
     error_code: str | None = None
     # Not stored; they choose the reply. ``duplicate``: the destination already
-    # held these bytes. ``reply_language``: the sender link's, if any.
+    # held these bytes. ``reading``: an inline read follows the acknowledgement.
+    # ``reply_language``: the sender link's, if any.
     duplicate: bool = False
+    reading: bool = False
     reply_language: str | None = None
 
 
@@ -63,6 +65,7 @@ def revoked(settlement: Settlement) -> Settlement:
         connection_id=None,
         error_code=SENDER_LINK_REVOKED,
         duplicate=False,
+        reading=False,
     )
 
 

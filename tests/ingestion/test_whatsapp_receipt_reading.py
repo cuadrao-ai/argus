@@ -114,7 +114,7 @@ async def test_with_the_switch_on_the_receipt_is_read_and_followed_up_once() -> 
     assert _status(world, connection_id) == "review_ready"
     assert extractor.calls == 1
     assert world.transport.bodies()[-2:] == [
-        f"Recibido. Revísalo aquí: {link}",
+        "Recibido. Lo estoy leyendo.",
         f"Leí: Ferretería Ochoa, 850 DOP. Revísalo antes de guardar: {link}",
     ]
 
@@ -126,6 +126,25 @@ async def test_with_the_switch_off_the_receipt_waits_unread_and_no_follow_up() -
     assert _status(world, connection_id) == "saved"
     assert extractor.calls == 0
     assert len(world.transport.sent) == 2
+    assert world.transport.bodies()[-1] == (
+        f"Recibido. Revísalo aquí: {cases.ORIGIN}/biz?receipt={connection_id}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_with_document_jobs_on_the_acknowledgement_keeps_the_link(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    jobs = Mock()
+    monkeypatch.setattr("argus.api.document_jobs._jobs", jobs)
+    world, extractor, _ = _world(on=True)
+    connection_id = await _send(world, "wamid.READ-JOBS")
+    assert jobs.start.called
+    assert extractor.calls == 0
+    assert len(world.transport.sent) == 2
+    assert world.transport.bodies()[-1] == (
+        f"Recibido. Revísalo aquí: {cases.ORIGIN}/biz?receipt={connection_id}"
+    )
 
 
 @pytest.mark.asyncio
@@ -154,10 +173,11 @@ async def test_a_read_that_fails_sends_the_open_it_follow_up() -> None:
     extractor.fail = True
     connection_id = await _send(world, "wamid.READ-FAIL")
     assert _status(world, connection_id) == "needs_attention"
-    assert world.transport.bodies()[-1] == (
+    assert world.transport.bodies()[-2:] == [
+        "Recibido. Lo estoy leyendo.",
         "No pudimos leer bien tu recibo. Ábrelo en Cuadrao para completarlo: "
-        f"{cases.ORIGIN}/biz?receipt={connection_id}"
-    )
+        f"{cases.ORIGIN}/biz?receipt={connection_id}",
+    ]
 
 
 @pytest.mark.asyncio
