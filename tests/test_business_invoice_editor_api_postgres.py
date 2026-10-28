@@ -3,7 +3,6 @@ from uuid import uuid4
 
 import pytest
 from argus.api.business_drafts import require_drafts
-from argus.api.fiscal_operations import require_fiscal
 from argus.api.routers.business_customers import router as customers_router
 from argus.api.routers.business_invoices import router
 from fastapi import FastAPI
@@ -37,7 +36,7 @@ def client(lane, editor, monkeypatch):
         grant_id=lane.grant,
         service=SimpleNamespace(authority=SimpleNamespace(pool=lane.store.pool)),
     )
-    app.dependency_overrides[require_fiscal] = lambda: lane.service
+    app.state.fiscal_sandbox = lane.service
     with TestClient(app) as result:
         yield result
 
@@ -63,8 +62,29 @@ def test_create_reload_conflict_prepare_and_list(client, draft):
     )
     assert prepared.status_code == 200, prepared.text
     assert prepared.json()["operation"]["invoice_id"] == saved["id"]
-    assert client.get("/business/invoices").json()["total"] == 1
+    page = client.get("/business/invoices").json()
+    assert page["total"] == 1
+    assert page["issuance_available"] is True
     assert client.get("/business/invoices?page_size=13").status_code == 422
+
+
+def test_list_reports_issuance_unavailable_without_fiscal_service(client, draft):
+    client.app.state.fiscal_sandbox = None
+    response = client.post(
+        "/business/invoices",
+        json={"data": draft.model_dump(mode="json")},
+        headers={"Idempotency-Key": str(uuid4())},
+    )
+    assert response.status_code == 201, response.text
+    page = client.get("/business/invoices").json()
+    assert page["total"] == 1
+    assert page["issuance_available"] is False
+    prepared = client.post(
+        "/business/invoices/" + response.json()["id"] + "/prepare",
+        json={"expected_version": 1},
+    )
+    assert prepared.status_code == 404
+    assert prepared.json()["detail"] == "fiscal_sandbox_unavailable"
 
 
 def test_disabled_and_invalid_customer_never_creates(client, monkeypatch):

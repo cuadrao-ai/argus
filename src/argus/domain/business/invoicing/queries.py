@@ -62,7 +62,12 @@ with base as (
 
 
 def invoices(
-    store: Store, actor: TrustedActor, grant: UUID | None, query: Query
+    store: Store,
+    actor: TrustedActor,
+    grant: UUID | None,
+    query: Query,
+    *,
+    issuance_available: bool,
 ) -> InvoicePage:
     start = query.date_from.isoformat() if query.date_from else None
     end = query.date_to.isoformat() if query.date_to else None
@@ -103,6 +108,7 @@ def invoices(
             items=tuple(store.invoice_view(db, row, lock=False) for row in rows),
             page=query.page,
             page_size=query.page_size,
+            issuance_available=issuance_available,
             **metadata,
         )
 

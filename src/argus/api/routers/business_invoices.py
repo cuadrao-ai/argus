@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
 
-from argus.api.fiscal_operations import require_fiscal
+from argus.api.fiscal_operations import fiscal_service, require_fiscal
 from argus.api.routers.business_customers import (
     Context,
     Key,
@@ -33,7 +33,10 @@ router = APIRouter(
 
 @router.get("", response_model=InvoicePage)
 def list_invoices(
-    request: Request, context: Context, query: Annotated[Query, Depends()]
+    request: Request,
+    context: Context,
+    query: Annotated[Query, Depends()],
+    fiscal: Annotated[Service | None, Depends(fiscal_service)],
 ) -> InvoicePage:
     try:
         return invoices(
@@ -41,6 +44,7 @@ def list_invoices(
             _actor(context),
             context.grant_id,
             query,
+            issuance_available=fiscal is not None,
         )
     except ActionError as error:
         raise invoice_problem(request, error) from None
