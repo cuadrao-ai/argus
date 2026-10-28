@@ -96,7 +96,9 @@ describe("spanish status copy", () => {
     const expired = await render(
       createElement(AuthLinkErrorScreen, {
         homeHref: "/?auth=login",
+        reference: "c0ffee0011",
         view: {
+          problem: "expired",
           kind: "request",
           flow: "recovery",
           email: "ada@example.test",
@@ -108,7 +110,23 @@ describe("spanish status copy", () => {
     const invite = await render(
       createElement(AuthLinkErrorScreen, {
         homeHref: "/chat",
-        view: { kind: "invite" },
+        reference: "c0ffee0022",
+        view: { problem: "expired", kind: "invite" },
+      }),
+      "es-419",
+    );
+    const malformed = await render(
+      createElement(AuthLinkErrorScreen, {
+        reference: "c0ffee0033",
+        view: { problem: "malformed", kind: "request", flow: "recovery", email: null, href: "/auth/forgot-password" },
+      }),
+      "es-419",
+    );
+    const rejected = await render(
+      createElement(AuthLinkErrorScreen, {
+        homeHref: "/chat",
+        reference: "c0ffee0044",
+        view: { problem: "rejected", kind: "invite" },
       }),
       "es-419",
     );
@@ -121,7 +139,16 @@ describe("spanish status copy", () => {
     assert.equal(invite.querySelector("p")?.textContent, "Pide a quien te invitó que te envíe otra invitación.");
     assert.equal(invite.querySelector("a")?.textContent, "Ir a Cuadrao");
     assert.equal(invite.querySelector("a")?.getAttribute("href"), "/chat");
-    for (const host of [missing, expired, invite]) {
+    assert.equal(expired.querySelector('[data-testid="error-reference"]')?.getAttribute("title"), "c0ffee0011");
+    assert.equal(expired.querySelector("[data-reference-short]")?.textContent, "Ref. c0ffee00");
+    assert.equal(malformed.querySelector("h1")?.textContent, "Este enlace no funcionó");
+    assert.equal(malformed.querySelector("p")?.textContent, "Al enlace le falta una parte o se copió mal. Ábrelo desde el correo o pide uno nuevo.");
+    assert.equal(malformed.querySelector("a")?.textContent, "Pedir un enlace nuevo");
+    assert.equal(malformed.querySelector('[data-testid="error-reference"]')?.getAttribute("title"), "c0ffee0033");
+    assert.equal(rejected.querySelector("h1")?.textContent, "Este enlace no funcionó");
+    assert.equal(rejected.querySelector("p")?.textContent, "No pudimos verificar este enlace. Pide uno nuevo e inténtalo otra vez.");
+    assert.equal(rejected.querySelector("a")?.textContent, "Ir a Cuadrao");
+    for (const host of [missing, expired, invite, malformed, rejected]) {
       assert.equal(host.textContent?.includes("\u2014"), false);
       assert.equal(host.textContent?.includes("This page could not be found"), false);
     }

@@ -2,32 +2,50 @@ export const AUTH_LINK_FLOWS = ["recovery", "email_change", "invite"] as const;
 
 export type AuthLinkFlow = (typeof AUTH_LINK_FLOWS)[number];
 
-export type AuthLinkErrorView =
+/** What was refused: a used or expired link, a link missing a part, or a link the provider would not verify. */
+export type AuthLinkProblem = "expired" | "malformed" | "rejected";
+
+export type AuthLinkErrorView = { problem: AuthLinkProblem } & (
   | {
       kind: "request";
       flow: "recovery" | "email_change";
       href: string;
       email: string | null;
     }
-  | { kind: "invite" };
+  | { kind: "invite" }
+);
 
 const REQUEST_PATH = {
   recovery: "/auth/forgot-password",
   email_change: "/account/security",
 } as const;
 
+const REFERENCE = /^[A-Za-z0-9_-]{4,64}$/;
+
 export function prefilledEmail(value: string | null | undefined): string {
   return readableEmail(value) ?? "";
 }
 
+/** The confirm route's own refusal, by the error_code it set; see auth-confirm.ts. */
 export function confirmErrorView(search: string): AuthLinkErrorView {
   const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
-  const type = params.get("type");
-  const probe = new URLSearchParams(params);
-  if (!isUsedOrExpired(probe)) probe.set("error", "access_denied");
-  if (type !== "invite" && type !== "email_change" && type !== "recovery") probe.set("type", "recovery");
-  return mapAuthLinkError({ search: probe.toString(), hash: "", pathname: "/" })
-    ?? { kind: "request", flow: "recovery", email: null, href: requestHref("recovery", null) };
+  const code = params.get("error_code");
+  const problem: AuthLinkProblem = isUsedOrExpired(params) ? "expired" : code === "malformed_link" ? "malformed" : "rejected";
+  const named = params.get("type");
+  const flow = isFlow(named) ? named : "recovery";
+  if (flow === "invite") return { problem, kind: "invite" };
+  return { problem, kind: "request", flow, email: null, href: requestHref(flow, null) };
+}
+
+/** The reference the confirm route logged with its refusal, when the URL still carries it. */
+export function confirmReference(search: string): string | null {
+  const value = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search).get("ref");
+  return value && REFERENCE.test(value) ? value : null;
+}
+
+/** The shared screen itself, and the confirm route's error page, which keeps the reference the route logged. */
+export function rendersOwnLinkError(pathname: string): boolean {
+  return pathname === "/auth/link-error" || pathname === "/auth/confirm/error";
 }
 
 export function notFoundHref(signedIn: boolean, home: string): string {
@@ -44,9 +62,9 @@ export function mapAuthLinkError(input: {
   if (!isUsedOrExpired(params)) return null;
   const flow = flowFrom(params, input.pathname);
   if (!flow) return null;
-  if (flow === "invite") return { kind: "invite" };
+  if (flow === "invite") return { problem: "expired", kind: "invite" };
   const email = readableEmail(params.get("email")) ?? readableEmail(input.knownEmail);
-  return { kind: "request", flow, email, href: requestHref(flow, email) };
+  return { problem: "expired", kind: "request", flow, email, href: requestHref(flow, email) };
 }
 
 export function authLinkErrorRedirect(input: {
@@ -54,7 +72,7 @@ export function authLinkErrorRedirect(input: {
   pathname: string;
   searchParams: URLSearchParams;
 }): URL | null {
-  if (input.pathname === "/auth/link-error") return null;
+  if (rendersOwnLinkError(input.pathname)) return null;
   const view = mapAuthLinkError({
     search: input.searchParams.toString(),
     hash: "",

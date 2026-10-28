@@ -4,6 +4,7 @@ import {
   authLinkErrorRedirect,
   confirmErrorView,
   confirmReference,
+  rendersOwnLinkError,
   mapAuthLinkError,
   notFoundHref,
   prefilledEmail,
@@ -184,6 +185,15 @@ describe("authLinkErrorRedirect", () => {
         searchParams: new URLSearchParams("error_code=otp_expired&type=recovery&ref=c0ffee00"),
       }),
     ).toBeNull();
+  });
+});
+
+describe("rendersOwnLinkError", () => {
+  test("the shared screen and the confirm error page keep their own view and reference", () => {
+    expect(rendersOwnLinkError("/auth/link-error")).toBe(true);
+    expect(rendersOwnLinkError("/auth/confirm/error")).toBe(true);
+    expect(rendersOwnLinkError("/auth/recovery")).toBe(false);
+    expect(rendersOwnLinkError("/")).toBe(false);
   });
 });
 

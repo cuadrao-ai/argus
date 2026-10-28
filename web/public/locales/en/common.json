@@ -1494,7 +1494,8 @@
     },
     "confirm": {
       "error_title": "This link didn’t work",
-      "error_body": "It is missing, expired, or already used. Ask for a new one and try again.",
+      "malformed_body": "The link is missing a part or was copied wrong. Open it from the email or request a new one.",
+      "rejected_body": "We could not verify this link. Request a new one and try again.",
       "back_to_sign_in": "Back to sign in"
     },
     "legal": {

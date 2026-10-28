@@ -12,8 +12,11 @@ import {
   getAuthSecurityActions,
   type SessionActionResult,
 } from "@/lib/auth-security";
+import { referenceCode } from "@/lib/failure-screen";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
 import { PASSWORD_MIN_LENGTH } from "@/lib/password-strength";
+import { recoveryProofFromHash } from "@/lib/recovery-proof";
+import { ReferenceCode } from "@/components/status/ReferenceCode";
 
 type RecoveryState = "checking" | "ready" | "invalid" | "saving" | "done";
 
@@ -27,25 +30,25 @@ export function RecoveryReset({ actions = getAuthSecurityActions }: { actions?: 
   const [result, setResult] = useState<SessionActionResult | null>(null);
   const [retryingRevocation, setRetryingRevocation] = useState(false);
   const [error, setError] = useState<"auth.recovery.password_rejected" | "auth.recovery.revocation_retry_error" | null>(null);
+  const [reference] = useState(() => referenceCode(null));
 
   useEffect(() => {
     if (exchangeStarted.current) return;
     exchangeStarted.current = true;
     const code = new URLSearchParams(window.location.search).get("code");
-    if (code) window.history.replaceState(null, "", window.location.pathname);
-    if (!code) {
-      Promise.resolve().then(() => actions().hasRecoverySession())
-        .then((ready) => setState(ready ? "ready" : "invalid"))
-        .catch(() => setState("invalid"));
-      return;
-    }
+    const proof = recoveryProofFromHash(window.location.hash);
+    if (code || proof) window.history.replaceState(null, "", window.location.pathname);
+    const settle = (verified: Promise<unknown>) => verified
+      .then(() => setState("ready"))
+      .catch(() => setState("invalid"));
     try {
-      actions()
-        .exchangeRecoveryCode(code)
-        .then(() => {
-          setState("ready");
-        })
-        .catch(() => setState("invalid"));
+      if (code) settle(actions().exchangeRecoveryCode(code));
+      else if (proof) settle(actions().acceptRecoveryProof(proof));
+      else {
+        Promise.resolve().then(() => actions().hasRecoverySession())
+          .then((ready) => setState(ready ? "ready" : "invalid"))
+          .catch(() => setState("invalid"));
+      }
     } catch {
       setState("invalid");
     }
@@ -124,6 +127,7 @@ export function RecoveryReset({ actions = getAuthSecurityActions }: { actions?: 
                   "This recovery link is missing, expired, or already used.",
                 )}
             </p>
+            <p><ReferenceCode reference={reference} /></p>
             <Link
               href="/auth/forgot-password"
               className={`${styles.primary} auth-primary`}
