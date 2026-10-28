@@ -9,6 +9,7 @@ import { ConnectedBusinessReports, reportFiltersForUi, reportFiltersFromUi } fro
 import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
 import { emptyPreviewFilters, validPreviewAmount } from "@/components/business-app/transacciones/records-filter-preview-model";
 import { reportRequestSchema, type ReportRequest } from "@/lib/business-reports-api";
+import { restoreReportLocation } from "@/lib/business-reporting-wire";
 import { setChosenGrant } from "@/lib/business-grant";
 import { createBusinessReportHttpFixture, fixtureId } from "./fixtures/business-report-http-fixture";
 import spanish from "@/public/locales/es-419/common.json";
@@ -16,7 +17,7 @@ import spanish from "@/public/locales/es-419/common.json";
 let cleanup = async () => {};
 const originalMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
 beforeAll(() => { process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 900 }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
-afterEach(async () => { await cleanup(); (await import("@/components/layout/overlayStack")).resetOverlayStack(); document.body.innerHTML = ""; window.history.replaceState(null, "", "/biz"); });
+afterEach(async () => { await cleanup(); (await import("@/components/layout/overlayStack")).resetOverlayStack(); document.body.innerHTML = ""; (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL("http://localhost/biz"); });
 afterAll(async () => { await GlobalRegistrator.unregister(); if (originalMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMock; });
 async function mount(options: { readOnly?: boolean; large?: boolean; legacy?: boolean; initial?: ReportRequest; width?: number; role?: string } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width: options.width ?? 1440, height: 900 });
@@ -460,4 +461,47 @@ test("an action refusal re-reads current authority and keeps a still-authorized 
   await page.click(document.querySelector(`[data-record-attachment="draft:${fixtureId(1)}"]`));
   assert.equal(document.querySelector('input[type="file"]'), null);
   assert.equal((page.button('Original sintético.pdf') as HTMLButtonElement).disabled, true);
+});
+
+const sentFilters = (page: Awaited<ReturnType<typeof mount>>) => page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).map((call) => (call.body as ReportRequest).filters);
+const addressFilters = () => restoreReportLocation(new URL(window.location.href).searchParams).request.filters;
+const pause = (ms: number) => act(async () => { await new Promise((resolve) => setTimeout(resolve, ms)); });
+
+test("a phone Filtros choice holds after its sheet closes, and back still undoes it", async () => {
+  const page = await mount({ width: 390 });
+  const before = sentFilters(page).length;
+  await page.click(page.button("Filtros"));
+  await page.click(document.querySelector('[role="dialog"] [data-group="record"]'));
+  await page.click([...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="radio"]')].find((radio) => radio.parentElement?.textContent === "Venta"));
+  await page.click(page.button("Aplicar"));
+  await page.settle(() => document.querySelector('[role="dialog"]') === null && document.querySelector('[data-testid="records-count"]') !== null);
+  await pause(200);
+  assert.deepEqual(sentFilters(page).slice(before).map((filters) => filters.record_families), [["sale"]]);
+  assert.deepEqual(addressFilters().record_families, ["sale"]);
+  assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent ?? "", /Venta/);
+  assert.ok(document.querySelector('[data-testid="records-results-summary"]'));
+  await act(async () => window.history.back());
+  await page.settle(() => document.querySelector('[data-testid="records-preview-filter-chips"]') === null);
+  assert.deepEqual(sentFilters(page).at(-1)!.record_families, []);
+});
+
+test("a phone period preset holds after its sheet closes", async () => {
+  const page = await mount({ width: 390, initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "this_month" } } }) });
+  const before = sentFilters(page).length;
+  await page.click(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]'));
+  await page.click(page.button("Todo"));
+  await page.settle(() => document.querySelector('[role="dialog"]') === null && document.querySelector('[data-testid="records-count"]') !== null);
+  await pause(200);
+  assert.deepEqual(sentFilters(page).slice(before).map((filters) => filters.period), [{ kind: "all" }]);
+  assert.deepEqual(addressFilters().period, { kind: "all" });
+});
+
+test("closing the phone Filtros sheet without a choice sends no query", async () => {
+  const page = await mount({ width: 390 });
+  const before = sentFilters(page).length;
+  await page.click(page.button("Filtros"));
+  await page.click(document.querySelector('[role="dialog"] button[aria-label="Cerrar"]'));
+  await page.settle(() => document.querySelector('[role="dialog"]') === null);
+  await pause(200);
+  assert.equal(sentFilters(page).length, before);
 });
