@@ -13,19 +13,35 @@ import { receptionAction, receptionDocumentTitle, receptionSender, type Receptio
 import ReceptionStatus from "./ReceptionStatus";
 import styles from "./reception.module.css";
 
-export type ReceptionDossierProps = { row: ReceptionRow; onClose: () => void; onNavigate: (next: BusinessPanelState) => void; returnFocusRef: RefObject<HTMLElement | null> };
+export type ReceptionDossierProps = { live: boolean; row: ReceptionRow; onClose: () => void; onNavigate: (next: BusinessPanelState) => void; returnFocusRef: RefObject<HTMLElement | null> };
 export function receptionReviewTarget(row: ReceptionRow): BusinessPanelState | null {
   if (row.kind === "receipt") return row.receipt.expense_id ? { kind: "expense", expenseId: row.receipt.expense_id } : { kind: "receipt", receiptId: row.id, list: "inbox" };
   if (row.kind === "note") return { kind: "draft", draftId: row.id, list: "inbox" };
   if (row.kind === "email") return { kind: "email", emailId: row.id };
   return null;
 }
-export default function ReceptionDossier({ row, onClose, onNavigate, returnFocusRef }: ReceptionDossierProps) {
+/** Opening a ready receipt acknowledges it for this person through the same server route as the record panel. Nothing is marked seen locally. */
+function useAcknowledgeOnOpen(row: ReceptionRow, live: boolean) {
+  const { source, reload } = useBusiness();
+  const sent = useRef<string | null>(null);
+  const activity = row.kind === "receipt" ? row.receipt.activity : null;
+  const id = row.kind === "receipt" ? row.id : null;
+  const cursor = activity?.state === "ready" && activity.unread ? activity.completion_cursor : null;
+  useEffect(() => {
+    if (!live || !id || !cursor || !source.markReceiptRead || sent.current === cursor) return;
+    sent.current = cursor;
+    const request = source.markReceiptRead(id, cursor);
+    request.then(result => { if (result.completion_cursor === cursor && !result.unread) reload(); }, () => { sent.current = null; });
+  }, [live, id, cursor, source, reload]);
+}
+
+export default function ReceptionDossier({ live, row, onClose, onNavigate, returnFocusRef }: ReceptionDossierProps) {
   const { t, i18n } = useTranslation();
   const business = useBusiness();
   const { chosen, source, records, emailRefresh } = business;
   const word = (key: string) => t(`business.reception_preview.${key}`);
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
+  useAcknowledgeOnOpen(row, live);
   const heading = useRef<HTMLHeadingElement>(null);
   const section = useRef<HTMLElement>(null);
   const focused = useRef<HTMLElement | null>(null);

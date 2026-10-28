@@ -389,8 +389,8 @@ export function createFixtureBusinessDataSource(
     spaces: async () => {
       await delay();
       return [
-        { space_id: "fixture-space", name: "Mi negocio", grant_id: "fixture-grant-own", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true },
-        { space_id: "fixture-client", name: "Colmado Peña", grant_id: "fixture-grant-client", role: "accountant", capabilities: ["read", "prepare"], access_seen: seenGrants.has("fixture-grant-client") },
+        { space_id: "fixture-space", name: "Mi negocio", grant_id: "fixture-grant-own", role: "owner", business_role: "owner", permissions: ["read", "prepare", "approve", "manage", "assign_owner", "download", "export"], capabilities: ["read", "prepare", "approve"], access_seen: true },
+        { space_id: "fixture-client", name: "Colmado Peña", grant_id: "fixture-grant-client", role: "accountant", business_role: "editor", permissions: ["read", "prepare", "download", "export"], capabilities: ["read", "prepare"], access_seen: seenGrants.has("fixture-grant-client") },
       ];
     },
     markAccessSeen: async (grantId: string) => {

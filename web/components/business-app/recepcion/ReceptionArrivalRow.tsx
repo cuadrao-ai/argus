@@ -15,7 +15,7 @@ import ReceptionOriginal from "./ReceptionOriginal";
 import styles from "./reception.module.css";
 
 const SOURCE_ICONS = { web: UploadSimple, email: EnvelopeSimple, whatsapp: ChatCircle, note: NotePencil };
-export default function ReceptionArrivalRow({ row, panel, openPanel, preferences, checked, unseen, onCheck, onSeen, onInspect, inspecting }: { onInspect: () => void; inspecting: boolean; checked: boolean; unseen: boolean; onCheck: () => void; onSeen: () => void; row: ReceptionRow; panel: BusinessPanelState; openPanel: (panel: BusinessPanelState) => void; preferences: ReceptionPreferences }) {
+export default function ReceptionArrivalRow({ row, panel, openPanel, preferences, selectable, checked, unseen, onCheck, onSeen, onInspect, inspecting }: { onInspect: () => void; inspecting: boolean; selectable: boolean; checked: boolean; unseen: boolean; onCheck: () => void; onSeen: () => void; row: ReceptionRow; panel: BusinessPanelState; openPanel: (panel: BusinessPanelState) => void; preferences: ReceptionPreferences }) {
   const { t, i18n } = useTranslation();
   const { chosen } = useBusiness();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
@@ -31,7 +31,7 @@ export default function ReceptionArrivalRow({ row, panel, openPanel, preferences
   const selected = inspecting || (row.kind !== "message" && isOpenRecord(panel, target));
   const arrival = preferences.arrival ? <time dateTime={row.receivedAt} title={new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(row.receivedAt))}>{formatRelativeTime(row.receivedAt, locale)}</time> : null;
   return <li className={styles.row} data-selected={selected} data-checked={checked} data-unseen={unseen} aria-current={selected ? "true" : undefined} data-testid="reception-row" data-kind={row.kind} onClick={event => { if (!(event.target as HTMLElement).closest("button,input,label,a")) onInspect(); }}>
-    <label className={styles.checkbox}><input type="checkbox" checked={checked} onChange={onCheck} aria-label={t("business.reception_preview.select_document", { name: title })} /></label>
+    {selectable ? <label className={styles.checkbox}><input type="checkbox" checked={checked} onChange={onCheck} aria-label={t("business.reception_preview.select_document", { name: title })} /></label> : null}
     <button type="button" onClick={onInspect} className={styles.identity}>
       <span className={styles.documentText}>{unseen ? <span className={styles.unseenDot} aria-hidden="true" /> : null}<span className={styles.title}>{unseen ? <span className="sr-only">{word("unseen")}: </span> : null}{row.kind === "note" || row.kind === "message" ? <ChatCircle className={styles.noteIcon} size={15} aria-hidden="true" /> : null}{title}</span>{money ? <span className={`${styles.mobileMoney} cuadrao-amount`}>{money}</span> : null}</span>
     </button>

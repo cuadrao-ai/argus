@@ -78,7 +78,7 @@ function ownText(element: Element) {
 test("a turned-on reading stays off the first screen, and a turned-off reading still explains how to turn it on", async () => {
   const on = await mountInbox({ receiptReading: async () => reading(true) });
   try {
-    await on.settle(() => on.host.querySelector('[data-testid="business-inbox-receipts"]') !== null);
+    await on.settle(() => on.host.querySelector('[data-testid="reception-row"]') !== null);
     assert.equal(on.host.querySelector('[data-testid="receipt-reading-control"]'), null);
     assert.equal(on.host.textContent?.includes("La lectura de recibos está activada."), false);
   } finally { await on.close(); }
@@ -99,9 +99,8 @@ test("reading off is one line under the title with an outlined action; the words
   try {
     await off.settle(() => off.host.querySelector('[data-testid="receipt-reading-control"]') !== null);
     const notice = off.host.querySelector('[data-testid="receipt-reading-control"]')!;
-    const title = off.host.querySelector("h2")!;
-    assert.equal(title.textContent, "Bandeja");
-    assert.ok(title.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING, "the notice sits under the title");
+    const tabs = off.host.querySelector('[role="tablist"]')!;
+    assert.ok(tabs.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING, "the notice sits under the views");
     assert.deepEqual([...notice.querySelectorAll("p")].map((line) => line.textContent), ["Tus recibos están guardados sin leer. Activa la lectura para prepararlos para revisión."]);
     assert.equal(off.host.textContent?.includes("Permiso de prueba"), false, "the consent words are not repeated on the page");
     const action = notice.querySelector("button")!;
@@ -122,21 +121,21 @@ test("reading off is one line under the title with an outlined action; the words
 test("a reading setting that did not load claims nothing", async () => {
   const unknown = await mountInbox({ receiptReading: async () => { throw Object.assign(new Error("down"), { status: 503 }); } });
   try {
-    await unknown.settle(() => unknown.host.querySelector('[data-testid="bandeja-segments"]') !== null);
+    await unknown.settle(() => unknown.host.querySelector('[role="tablist"]') !== null);
     assert.equal(unknown.host.querySelector('[data-testid="receipt-reading-control"]'), null);
     assert.equal(unknown.host.textContent?.includes("sin leer"), false);
   } finally { await unknown.close(); }
 });
 
-test("Bandeja shows one header Agregar, no subhead or page duplicate, and its existing segments", async () => {
+test("Bandeja shows one Agregar, no subhead or page duplicate, and Reception's views", async () => {
   const page = await mountInbox();
   try {
-    await page.settle(() => page.host.querySelector('[data-testid="business-inbox-receipts"]') !== null);
-    assert.equal([...page.host.querySelectorAll("p")].some((node) => ownText(node).includes(PHRASE)), false, "the counts live on the segments, not in a subhead");
-    const segments = [...page.host.querySelectorAll<HTMLButtonElement>('[data-testid="bandeja-segments"] [data-segment]')];
-    assert.deepEqual(segments.map((segment) => segment.dataset.segment), ["review", "problem", "all"]);
+    await page.settle(() => page.host.querySelector('[data-testid="reception-row"]') !== null);
+    assert.equal([...page.host.querySelectorAll("p")].some((node) => ownText(node).includes(PHRASE)), false, "the counts live on the views, not in a subhead");
+    const views = [...page.host.querySelectorAll<HTMLButtonElement>('[role="tablist"] [role="tab"]')];
+    assert.deepEqual(views.map((view) => view.id), ["reception-tab-all", "reception-tab-review", "reception-tab-processing", "reception-tab-attention"], "live has no Archivados view");
     assert.equal(document.querySelector('[data-testid="email-address"]'), null, "the receiving address lives in Negocio");
-    assert.equal(page.host.querySelectorAll('[data-testid="add-menu-header"] [data-testid="business-primary-upload"]').length, 1, "the cleared desktop heading owns Agregar");
+    assert.equal(page.host.querySelectorAll('[data-testid="reception-add"] [data-testid="business-primary-upload"]').length, 1, "the toolbar owns Agregar");
     assert.equal(page.host.querySelectorAll('[data-testid="business-primary-upload"]').length, 1, "Agregar is not duplicated");
     assert.equal(page.host.querySelectorAll('[data-testid="add-menu-page"]').length, 0);
   } finally { await page.close(); }

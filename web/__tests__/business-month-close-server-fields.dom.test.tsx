@@ -353,7 +353,7 @@ describe("a mark sends the server's day and a method the server lists", () => {
 });
 
 describe("Exportar shows each form's own status from the packet", () => {
-  const own = { space_id: "own-space", grant_id: "own-grant", name: "Taller Luna", role: "owner" as const, capabilities: ["read", "prepare", "approve"] as const, access_seen: true };
+  const own = { space_id: "own-space", grant_id: "own-grant", name: "Taller Luna", role: "owner" as const, capabilities: ["read", "prepare", "approve"] as const, permissions: ["read", "prepare", "approve", "download", "export"] as const, access_seen: true };
   const original = { fetch: globalThis.fetch, auth: process.env.NEXT_PUBLIC_MOCK_AUTH };
   // Far from any real clock, so only the server's day can put these months on the control.
   const FAR_TODAY = "2031-03-15";

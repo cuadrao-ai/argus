@@ -77,11 +77,12 @@ async function mount({ width = 1280 }: { width?: number } = {}) {
   const tray = () => document.querySelector<HTMLElement>('[data-testid="side-drawer"]');
   const recordTitle = () => tray()?.querySelector("#receipt-review-title, #expense-detail-title")?.textContent ?? null;
   const row = (text: string) => [...host.querySelectorAll<HTMLElement>('[data-testid="panel"] li')].find((item) => item.textContent?.includes(text)) ?? null;
+  const action = (text: string) => row(text)?.querySelector<HTMLElement>('button[class~="rowAction"]') ?? null;
   const click = async (element: HTMLElement | null | undefined) => {
     assert.ok(element, "the control is on the page");
     await act(async () => element.click());
   };
-  return { act, host, settle, tray, recordTitle, row, click, panel: () => api!.panel, open: (next: Parameters<typeof api.openPanel>[0]) => act(async () => api!.openPanel(next)) };
+  return { act, host, settle, tray, recordTitle, row, action, click, panel: () => api!.panel, open: (next: Parameters<typeof api.openPanel>[0]) => act(async () => api!.openPanel(next)) };
 }
 
 type Page = Awaited<ReturnType<typeof mount>>;
@@ -92,7 +93,7 @@ async function openInbox(page: Page) {
 }
 
 async function openRow(page: Page, merchant: string) {
-  await page.click(page.row(merchant)?.querySelector("button"));
+  await page.click(page.action(merchant));
   await page.settle(() => page.recordTitle() === merchant, `${merchant} in the tray`);
 }
 
@@ -105,7 +106,7 @@ describe("a record in the desktop tray", () => {
     assert.equal(tray.getAttribute("role"), "region", "the tray is a labelled region");
     assert.equal(tray.getAttribute("aria-modal"), null, "the tray is not modal");
     assert.equal(document.querySelector('[data-testid="side-drawer"]')?.parentElement, document.body, "no overlay wraps the tray");
-    assert.ok(page.host.querySelector('[data-testid="business-inbox-receipts"]'), "the Bandeja list is still on the page");
+    assert.ok(page.host.querySelector('[data-testid="reception-preview"]'), "the Bandeja list is still on the page");
     assert.equal(page.row("Ferretería La Esquina")?.getAttribute("aria-current"), "true");
     assert.equal(page.row("Papelería Central")?.getAttribute("aria-current"), null);
     assert.equal(document.activeElement, tray.querySelector("h2"), "focus is on the tray title");
@@ -157,7 +158,7 @@ describe("a record in the desktop tray", () => {
     const page = await mount();
     await openInbox(page);
     await openRow(page, "Ferretería La Esquina");
-    const listButton = page.row("Papelería Central")!.querySelector("button")!;
+    const listButton = page.action("Papelería Central")!;
     listButton.focus();
     await page.act(async () => { listButton.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
     assert.ok(page.tray(), "the tray is still open");
@@ -205,10 +206,10 @@ describe("a record below the desktop stop", () => {
   test("a phone keeps the full page with its way back and no tray", async () => {
     const page = await mount({ width: 390 });
     await openInbox(page);
-    await page.click(page.row("Ferretería La Esquina")?.querySelector("button"));
+    await page.click(page.action("Ferretería La Esquina"));
     await page.settle(() => page.host.querySelector("#receipt-review-title")?.textContent === "Ferretería La Esquina", "the receipt page");
     assert.equal(page.tray(), null, "no tray and no bottom sheet");
-    assert.equal(page.host.querySelector('[data-testid="business-inbox-receipts"]'), null, "the record replaces the list");
+    assert.equal(page.host.querySelector('[data-testid="reception-preview"]'), null, "the record replaces the list");
     assert.equal(page.host.querySelector('[data-testid="business-record-review"]')?.getAttribute("data-presentation"), "page");
     assert.ok([...page.host.querySelectorAll("button")].some((button) => button.textContent === "Bandeja"), "the way back is on the page");
   });

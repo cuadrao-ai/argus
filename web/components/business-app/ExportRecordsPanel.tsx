@@ -154,10 +154,10 @@ export default function ExportRecordsPanel({ month: startMonth, monthClose, onCl
   const fiscal = useFiscalLine(range, monthClose, current?.snapshot ?? null);
   const available = source.mode === "live";
   const scope = chosen ? { name: chosen.name, grantId: chosen.role === "owner" ? null : chosen.grant_id } : null;
-  const canRead = Boolean(chosen?.capabilities.includes("read"));
+  const canExport = chosen?.permissions?.includes("export") === true;
 
   // A change of Business, access or period drops the download in flight: it would save what the owner no longer asked for.
-  useEffect(() => () => request.current?.abort(), [chosen?.grant_id, canRead, available, range?.from, range?.to]);
+  useEffect(() => () => request.current?.abort(), [chosen?.grant_id, canExport, available, range?.from, range?.to]);
 
   const segments = current ? [
     { key: "this_month" as const, label: monthName(current.month, locale) },
@@ -188,7 +188,7 @@ export default function ExportRecordsPanel({ month: startMonth, monthClose, onCl
     }
   };
 
-  const footer = canRead ? (
+  const footer = canExport ? (
     <div className="space-y-2">
       {problem ? <p role="alert" className="text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{problem}</p> : null}
       {!available ? <p className="text-[13px] text-[#56635e] dark:text-white/70">{t("business.export.preview", "Downloads are available in the connected Business view.")}</p> : null}
@@ -209,7 +209,7 @@ export default function ExportRecordsPanel({ month: startMonth, monthClose, onCl
       footer={footer}
     >
       <div className="pb-6 pt-2 desktop:px-5" data-testid="export-records-panel">
-        {canRead ? (
+        {canExport ? (
           <>
             <h3 className="mb-2 text-[13px] font-medium text-[#56635e] dark:text-white/70">{t("business.period.label", "Period")}</h3>
             {!choice || !range ? (

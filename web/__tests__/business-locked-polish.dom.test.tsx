@@ -351,7 +351,7 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
         <BusinessAccessPanel />
       </>
     ));
-    await page.settle(() => page.host.querySelectorAll('[data-testid="bandeja-row"]').length > 0 && page.buttons("Quitar acceso").length > 0);
+    await page.settle(() => page.host.querySelectorAll('[data-testid="reception-row"]').length > 0 && page.buttons("Quitar acceso").length > 0);
     const headings = [...page.host.querySelectorAll("h1,h2,h3,h4,h5,h6,[role=heading]")];
     assert.ok(headings.length >= 5);
     assert.deepEqual(headings.filter((heading) => !heading.textContent?.trim()).map((heading) => heading.outerHTML), []);

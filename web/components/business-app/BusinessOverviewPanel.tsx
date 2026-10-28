@@ -20,7 +20,7 @@ export default function BusinessOverviewPanel() {
 
   return (
     <section aria-labelledby="business-overview-title">
-      {isBelowTablet ? <div data-testid="inicio-actions" className="mb-5" style={{ paddingTop: 32 }}><BusinessAddMenu placement="page" /></div> : null}
+      {isBelowTablet ? <div data-testid="inicio-actions" className="mb-5 empty:hidden" style={{ paddingTop: 32 }}><BusinessAddMenu placement="page" /></div> : null}
       {process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <WorkspaceSetupPreview /> : null}
       <BusinessMonthClosePanel
         monthClose={monthClose}

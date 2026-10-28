@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { resolveLanguage } from "@/lib/language-features";
 import type { ReceiptSummary } from "@/lib/business-api";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
+import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { useBusiness } from "../BusinessWorkspace";
 import ReceiptReadingControl from "../ReceiptReadingControl";
 import { loadFailure, type LoadFailure } from "../bandeja-sources";
@@ -16,8 +17,9 @@ import ReceptionFilters, { ReceptionFilterChips } from "./ReceptionFilters";
 import { emptyReceptionFilters, receptionFilterMatches, receptionArrivedInPeriod, receptionSenderIdentity, type SenderIdentity, type ReceptionFiltersValue } from "./reception-filters";
 import ReceptionEmptyState from "./ReceptionEmptyState";
 import { showToast, dismissToast } from "../foundation/toasts";
-import { quietButtonClass } from "../business-ui";
+import { primaryButtonClass, quietButtonClass } from "../business-ui";
 import { receptionNoteExample, receptionRows, receptionMatches, receptionSearchText, type ReceptionRow, type ReceptionView } from "./reception-model";
+import { inboxCount, problemCount, readingCount } from "../inbox-count";
 import ReceptionArrivalRow from "./ReceptionArrivalRow";
 import ReceptionDossier from "./ReceptionDossier";
 import ReceptionSkeleton from "./ReceptionSkeleton";
@@ -33,6 +35,7 @@ import styles from "./reception.module.css";
 
 type ReceptionTab = ReceptionView | "archived" | "combined";
 const BASE_VIEWS: ReceptionTab[] = ["all", "review", "processing", "attention"];
+const BASE_COLUMN_PX = 44;
 type ArrivalLoad = { scope: string; source: ReturnType<typeof useBusiness>["source"]; items: ReceiptSummary[]; failure: LoadFailure | null };
 
 
@@ -40,12 +43,17 @@ type ReturnPosition = { scope: string; filters: ReceptionFiltersValue; query: st
 // Only the immediate dossier return uses this in-memory snapshot. Reload never restores it.
 const dossierReturns = new WeakMap<object, ReturnPosition>();
 
-export default function ReceptionPreview() {
+/**
+ * `live` renders the server's arrivals and nothing else. Archive, restore,
+ * seen and unseen have no durable backend, so live hides them and the dev
+ * preview keeps its local, labeled stand-ins.
+ */
+export default function ReceptionPreview({ live = false }: { live?: boolean }) {
   const { chosen } = useBusiness();
-  return <ReceptionWorkspace key={`${chosen?.space_id ?? "own"}:${chosen?.grant_id ?? chosen?.role ?? "unknown"}`} />;
+  return <ReceptionWorkspace live={live} key={`${chosen?.space_id ?? "own"}:${chosen?.grant_id ?? chosen?.role ?? "unknown"}`} />;
 }
 
-function ReceptionWorkspace() {
+function ReceptionWorkspace({ live }: { live: boolean }) {
   const { t, i18n } = useTranslation();
   const locale = resolveLanguage({ device: i18n.resolvedLanguage ?? i18n.language });
   const word = (key: string) => t(`business.reception_preview.${key}`);
@@ -64,7 +72,7 @@ function ReceptionWorkspace() {
   const [admittedIds, setAdmittedIds] = useState<string[] | null>(returnPosition?.admittedIds ?? null);
   const [archived, setArchived] = useState(returnPosition?.archived ?? false);
   const activeTab: ReceptionTab = archived ? "archived" : filters.states.length > 1 ? "combined" : filters.states[0] ?? "all";
-  const views: ReceptionTab[] = [...BASE_VIEWS, ...(filters.states.length > 1 ? ["combined" as const] : []), "archived"];
+  const views: ReceptionTab[] = [...BASE_VIEWS, ...(filters.states.length > 1 ? ["combined" as const] : []), ...(live ? [] : ["archived" as const])];
   const [organization, setOrganization] = useState(() => returnPosition?.organization ?? emptyOrganizationPreview());
   const [openedId, setOpenedId] = useState<string | null>(null);
   const detailTrigger = useRef<HTMLElement | null>(null);
@@ -81,6 +89,8 @@ function ReceptionWorkspace() {
   const [query, setQuery] = useState(returnPosition?.query ?? "");
   const tabs = useRef<HTMLDivElement>(null);
   const [preferences, setPreferences] = useState(() => returnPosition?.preferences ?? defaultReceptionPreferences());
+  // The poll hands over a new array every tick; re-read the full list only when what it carries changed.
+  const inboxContent = useMemo(() => JSON.stringify(records.inbox), [records.inbox]);
   useEffect(() => {
     let current = true;
     const controller = new AbortController();
@@ -89,18 +99,32 @@ function ReceptionWorkspace() {
       if (current) setLoaded(previous => ({ scope, source, items: previous?.scope === scope && previous.source === source ? previous.items : [], failure: loadFailure(error) }));
     });
     return () => { current = false; controller.abort(); };
-  }, [source, scope, revision, attempt, records.inbox]);
+  }, [source, scope, revision, attempt, inboxContent]);
   const arrivals = loaded?.scope === scope && loaded.source === source ? loaded : null;
+  const arrivalsDown = !!arrivals?.failure && !arrivals.failure.refused;
+  const sourcesDown = (["notes", "emails"] as const).filter(key => { const failure = key === "notes" ? records.notesFailure : records.emailsFailure; return failure && !failure.refused; });
+  const askAgain = useEffectEvent(() => { if (arrivalsDown) setAttempt(value => value + 1); if (sourcesDown.length) retrySources(sourcesDown); });
+  const askArrivalsAgain = useEffectEvent(() => { if (arrivalsDown) setAttempt(value => value + 1); });
+  // A healthy list re-reads only when its content changed; a failed one asks again on the next poll tick and when the connection returns.
+  useEffect(() => { askArrivalsAgain(); }, [records.inbox]);
+  useEffect(() => {
+    window.addEventListener("online", askAgain);
+    return () => window.removeEventListener("online", askAgain);
+  }, []);
   const pending = !arrivals || records.notes === null || records.emails === null;
   const failed = !!arrivals?.failure || records.error || !!records.notesFailure || !!records.emailsFailure;
   const refused = records.refused || arrivals?.failure?.refused;
+  const reference = arrivals?.failure?.reference ?? records.notesFailure?.reference ?? records.emailsFailure?.reference ?? null;
   const retryableSources = (["notes", "emails"] as const).filter(key => {
     const failure = key === "notes" ? records.notesFailure : records.emailsFailure;
     return failure && !failure.refused && !failure.offline;
   });
   const retryableArrivals = arrivals?.failure && !arrivals.failure.refused && !arrivals.failure.offline;
   const canRetry = !refused && (retryableArrivals || records.error || retryableSources.length > 0);
-  const latestRows = refused ? [] : [receptionNoteExample(word("note_example"), noteArrivedAt), ...receptionRows(arrivals?.items ?? [], records.notes ?? [], records.emails ?? [])];
+  const onlySourcesFailed = !arrivals?.failure && !records.error && !refused && (!!records.notesFailure || !!records.emailsFailure);
+  const sourcesLine = records.notesFailure && records.emailsFailure ? "failed_notes_emails" : records.notesFailure ? "failed_notes" : "failed_emails";
+  const refusedForGood = !canRetry && (refused || !!records.notesFailure?.refused || !!records.emailsFailure?.refused);
+  const latestRows = refused ? [] : [...(live ? [] : [receptionNoteExample(word("note_example"), noteArrivedAt)]), ...receptionRows(arrivals?.items ?? [], records.notes ?? [], records.emails ?? [])];
   const latestIds = latestRows.map(row => `${row.kind}:${row.id}`);
   const admissionKey = latestIds.join("|");
   useEffect(() => {
@@ -108,9 +132,9 @@ function ReceptionWorkspace() {
       const initialIds = admissionKey ? admissionKey.split("|") : [];
       setAdmittedIds(initialIds);
       // Seed mixed attention only on the first load of this development preview.
-      setOrganization(current => applyOrganizationPreview(current, initialIds.filter((_, index) => index % 3 === 0), "unseen"));
+      if (!live) setOrganization(current => applyOrganizationPreview(current, initialIds.filter((_, index) => index % 3 === 0), "unseen"));
     }
-  }, [pending, failed, admittedIds, admissionKey]);
+  }, [pending, failed, admittedIds, admissionKey, live]);
   const byId = new Map(latestRows.map(row => [`${row.kind}:${row.id}`, row]));
   const openedRow = openedId ? byId.get(openedId) : undefined;
   const rows = (admittedIds ?? latestIds).map(id => byId.get(id)).filter((row): row is ReceptionRow => !!row);
@@ -130,10 +154,12 @@ function ReceptionWorkspace() {
   const currencyWidth = preferences.currency ? recordsWidth("moneda") : 0;
   const arrivalWidth = preferences.arrival ? recordsWidth("fecha") : 0;
   const moneyColumns = `${preferences.amount ? amountSize.width : ""} ${currencyWidth ? `${currencyWidth}px` : ""}`;
-  const commonWidth = 44 + documentWidth + attachmentWidth + currencyWidth + statusWidth + arrivalWidth + 136;
+  const selectWidth = live ? 0 : BASE_COLUMN_PX;
+  const commonWidth = selectWidth + documentWidth + attachmentWidth + currencyWidth + statusWidth + arrivalWidth + 136;
   const minimum = (sourceWidth: number) => `calc(${commonWidth + sourceWidth}px + ${preferences.amount ? amountSize.width : "0px"})`;
-  const columns = `44px minmax(${documentWidth}px, 1.2fr) ${attachmentWidth}px ${preferences.source ? "150px" : ""} ${preferences.sender ? `minmax(${senderWidth}px, 240px)` : ""} ${moneyColumns} minmax(${statusWidth}px, 0.8fr) ${arrivalWidth ? `${arrivalWidth}px` : ""} 136px`;
-  const compactColumns = `44px minmax(${documentWidth}px, 1.2fr) ${attachmentWidth}px ${preferences.source || preferences.sender ? `minmax(${senderWidth}px,240px)` : ""} ${moneyColumns} minmax(${statusWidth}px, 0.8fr) ${arrivalWidth ? `${arrivalWidth}px` : ""} 136px`;
+  const selectColumn = live ? "" : `${BASE_COLUMN_PX}px`;
+  const columns = `${selectColumn} minmax(${documentWidth}px, 1.2fr) ${attachmentWidth}px ${preferences.source ? "150px" : ""} ${preferences.sender ? `minmax(${senderWidth}px, 240px)` : ""} ${moneyColumns} minmax(${statusWidth}px, 0.8fr) ${arrivalWidth ? `${arrivalWidth}px` : ""} 136px`;
+  const compactColumns = `${selectColumn} minmax(${documentWidth}px, 1.2fr) ${attachmentWidth}px ${preferences.source || preferences.sender ? `minmax(${senderWidth}px,240px)` : ""} ${moneyColumns} minmax(${statusWidth}px, 0.8fr) ${arrivalWidth ? `${arrivalWidth}px` : ""} 136px`;
   const closeDetail = () => {
     setOpenedId(null);
     requestAnimationFrame(() => {
@@ -141,7 +167,7 @@ function ReceptionWorkspace() {
     });
   };
   const navigateFrom = (row: ReceptionRow, next: Parameters<typeof openPanel>[0]) => {
-    dossierReturns.set(source, { scope, filters, query, page: currentPage, pageSize, period, archived, admittedIds, organization: applyOrganizationPreview(organization, [`${row.kind}:${row.id}`], "seen"), preferences });
+    dossierReturns.set(source, { scope, filters, query, page: currentPage, pageSize, period, archived, admittedIds, organization: live ? organization : applyOrganizationPreview(organization, [`${row.kind}:${row.id}`], "seen"), preferences });
     setOpenedId(null);
     openPanel(next);
   };
@@ -166,7 +192,12 @@ function ReceptionWorkspace() {
     requestAnimationFrame(() => list.current?.focus({ preventScroll: true }));
   };
   const activeRows = rows.filter(row => !organization.archived.includes(`${row.kind}:${row.id}`));
-  const counts = { all: undefined, review: activeRows.filter(row => receptionMatches(row, "review")).length, processing: activeRows.filter(row => receptionMatches(row, "processing")).length, attention: activeRows.filter(row => receptionMatches(row, "attention")).length, archived: rows.length - activeRows.length, combined: undefined };
+  const counts = live
+    ? { all: undefined, review: inboxCount(records), processing: readingCount(records), attention: problemCount(records), archived: undefined, combined: undefined }
+    : { all: undefined, review: activeRows.filter(row => receptionMatches(row, "review")).length, processing: activeRows.filter(row => receptionMatches(row, "processing")).length, attention: activeRows.filter(row => receptionMatches(row, "attention")).length, archived: rows.length - activeRows.length, combined: undefined };
+  const unseenIds = new Set(live ? rows.filter(row => row.kind === "receipt" && row.receipt.activity?.unread === true && row.receipt.bandeja?.leyendo !== true).map(row => `${row.kind}:${row.id}`) : organization.unseen);
+  const markSeenLocally = (row: ReceptionRow) => { if (!live) setOrganization(current => applyOrganizationPreview(current, [`${row.kind}:${row.id}`], "seen")); };
+  const reviewNext = live && chosen?.role === "accountant" ? rows.find(row => row.kind === "receipt" && row.receipt.bandeja?.por_revisar === true) : undefined;
   const inPanel = phone || panel.kind !== "inbox";
   const retry = () => {
     if (retryableArrivals) setAttempt(value => value + 1);
@@ -175,7 +206,7 @@ function ReceptionWorkspace() {
   };
   const clear = () => { applyFilters(emptyReceptionFilters()); setQuery(""); setPeriod(periodRange("all")); };
   return <PullToRefresh onRefresh={refresh}>
-    <section className={styles.workspace} aria-label={t("business.inbox.title")} data-testid="reception-preview" data-density={preferences.density} data-source={preferences.source || preferences.sender} data-arrival={preferences.arrival} style={{ "--columns": columns, "--compact-columns": compactColumns, "--table-min-width": minimum((preferences.source ? 150 : 0) + (preferences.sender ? senderWidth : 0)), "--compact-min-width": minimum(preferences.source || preferences.sender ? senderWidth : 0), "--row-height": `${DENSITY_ROW_PX[preferences.density]}px` } as CSSProperties}>
+    <section className={styles.workspace} aria-label={t("business.inbox.title")} data-testid="reception-preview" data-mode={live ? "live" : "preview"} data-selectable={!live} data-density={preferences.density} data-source={preferences.source || preferences.sender} data-arrival={preferences.arrival} style={{ "--columns": columns, "--compact-columns": compactColumns, "--table-min-width": minimum((preferences.source ? 150 : 0) + (preferences.sender ? senderWidth : 0)), "--compact-min-width": minimum(preferences.source || preferences.sender ? senderWidth : 0), "--row-height": `${DENSITY_ROW_PX[preferences.density]}px` } as CSSProperties}>
       {inPanel ? <div className={styles.phoneHeading}><h2 className="font-display">{t("business.inbox.title")}</h2></div> : null}
       <div className={styles.topline}>
         <div ref={tabs} className={styles.tabs} role="tablist" aria-label={word("views")} onKeyDown={event => {
@@ -195,24 +226,24 @@ function ReceptionWorkspace() {
         <ReceptionSearch value={query} onChange={next => { setSelectedIds([]); setPage(1); setQuery(next); }} />
         <div role="group" aria-label={word("arrival_date")}><RecordsDatePreview period={period} value={period} title={word("arrival_date")} allDatesLabel={word("all_dates")} onChange={next => { setSelectedIds([]); setPage(1); setPeriod(next); }} /></div>
         <ReceptionFilters key={scope} senders={senders} value={filters} onChange={applyFilters} />
-        <div className={styles.bulkSlot}>{selected.length ? <ReceptionBulkBar count={selected.length} archived={archived} canOrganize={chosen?.capabilities.includes("prepare") === true} apply={apply} clear={() => setSelectedIds([])} /> : null}</div>
+        {live ? null : <div className={styles.bulkSlot}>{selected.length ? <ReceptionBulkBar count={selected.length} archived={archived} canOrganize={chosen?.capabilities.includes("prepare") === true} apply={apply} clear={() => setSelectedIds([])} /> : null}</div>}
         {query || period.key !== "all" ? <button className={quietButtonClass} onClick={clear}>{word("clear")}</button> : null}
-        <div className={styles.tools}><ReceptionAddMenu key={scope} /><ReceptionSettings value={preferences} onChange={setPreferences} /></div>
+        <div className={styles.tools}>{reviewNext ? <button type="button" data-testid="business-primary-review" data-primary="true" className={primaryButtonClass} onClick={() => navigateFrom(reviewNext, { kind: "receipt", receiptId: reviewNext.id, list: "inbox" })}>{t("business.inbox.review_receipts")}</button> : null}<ReceptionAddMenu key={scope} withExport={live} /><ReceptionSettings value={preferences} onChange={setPreferences} /></div>
       </div>
       {newCount > 0 ? <div className={styles.updateNotice} role="status"><span>{t("business.reception_preview.new_arrivals", { count: newCount })}</span><button type="button" className={quietButtonClass} onClick={() => { setAdmittedIds(latestIds); setSelectedIds([]); setPage(1); }}>{word("update_list")}</button></div> : null}
       <ReceptionFilterChips value={filters} senders={senders} onChange={applyFilters} />
       <ReceiptReadingControl />
-      {failed ? <div className={styles.error} role="alert"><p>{refused ? t("auth.business_unavailable.title") : word("error")}</p>{canRetry ? <button className={quietButtonClass} onClick={retry}>{t("common.retry")}</button> : null}</div> : null}
+      {failed ? <div className={styles.error} role="alert"><p>{refused ? t("auth.business_unavailable.title") : onlySourcesFailed ? t(`business.inbox.${sourcesLine}`) : word("error")}{refusedForGood ? <> {t("auth.business_unavailable.body")}</> : null}{reference ? <span className="ml-2 inline-flex align-middle"><ReferenceCode reference={reference} /></span> : null}</p>{canRetry ? <button className={quietButtonClass} onClick={retry}>{t("common.retry")}</button> : null}</div> : null}
       <div ref={list} id="reception-list" role="tabpanel" aria-labelledby={`reception-tab-${activeTab}`} tabIndex={0} className={styles.list}>
-        <div className={styles.columns}><label className={styles.checkbox}><input type="checkbox" checked={allSelected} disabled={pending || failed || !pageIds.length} aria-label={word("select_page")} ref={node => { if (node) node.indeterminate = selected.length > 0 && !allSelected; }} onChange={() => setSelectedIds(allSelected ? [] : pageIds)} /></label><span>{word("document")}</span><span>{word("file")}</span>{preferences.source ? <span className={styles.channelHeading}>{word("source")}</span> : null}{preferences.sender ? <span className={styles.senderHeading}>{word("sender")}</span> : null}{preferences.source || preferences.sender ? <span className={styles.combinedHeading}>{word(preferences.source && preferences.sender ? "sender_source" : preferences.source ? "source" : "sender")}</span> : null}{preferences.amount ? <span className={styles.amountHeading}>{word("amount")}</span> : null}{preferences.currency ? <span className={styles.currencyHeading}>{t("business.transactions.columns.moneda")}</span> : null}<span>{word("status")}</span>{preferences.arrival ? <span>{word("arrival")}</span> : null}<span className="sr-only">{word("next_action")}</span></div>
-        {pending && !failed ? <ReceptionSkeleton preferences={preferences} /> : <ul aria-label={word("list_label")}>
-          {shown.map(row => <ReceptionArrivalRow key={`${row.kind}-${row.id}`} row={row} panel={panel} openPanel={next => navigateFrom(row, next)} inspecting={openedId === `${row.kind}:${row.id}`} onInspect={() => { detailTrigger.current = document.activeElement as HTMLElement; setOrganization(current => applyOrganizationPreview(current, [`${row.kind}:${row.id}`], "seen")); setOpenedId(`${row.kind}:${row.id}`); }} preferences={preferences} checked={selected.includes(`${row.kind}:${row.id}`)} unseen={organization.unseen.includes(`${row.kind}:${row.id}`)} onCheck={() => { const id = `${row.kind}:${row.id}`; setSelectedIds(selected.includes(id) ? selected.filter(value => value !== id) : [...selected, id]); }} onSeen={() => setOrganization(current => applyOrganizationPreview(current, [`${row.kind}:${row.id}`], "seen"))} />)}
+        <div className={styles.columns}>{live ? null : <label className={styles.checkbox}><input type="checkbox" checked={allSelected} disabled={pending || failed || !pageIds.length} aria-label={word("select_page")} ref={node => { if (node) node.indeterminate = selected.length > 0 && !allSelected; }} onChange={() => setSelectedIds(allSelected ? [] : pageIds)} /></label>}<span>{word("document")}</span><span>{word("file")}</span>{preferences.source ? <span className={styles.channelHeading}>{word("source")}</span> : null}{preferences.sender ? <span className={styles.senderHeading}>{word("sender")}</span> : null}{preferences.source || preferences.sender ? <span className={styles.combinedHeading}>{word(preferences.source && preferences.sender ? "sender_source" : preferences.source ? "source" : "sender")}</span> : null}{preferences.amount ? <span className={styles.amountHeading}>{word("amount")}</span> : null}{preferences.currency ? <span className={styles.currencyHeading}>{t("business.transactions.columns.moneda")}</span> : null}<span>{word("status")}</span>{preferences.arrival ? <span>{word("arrival")}</span> : null}<span className="sr-only">{word("next_action")}</span></div>
+        {pending && !failed ? <ReceptionSkeleton preferences={preferences} selectable={!live} /> : <ul aria-label={word("list_label")}>
+          {shown.map(row => <ReceptionArrivalRow key={`${row.kind}-${row.id}`} row={row} panel={panel} openPanel={next => navigateFrom(row, next)} inspecting={openedId === `${row.kind}:${row.id}`} onInspect={() => { detailTrigger.current = document.activeElement as HTMLElement; markSeenLocally(row); setOpenedId(`${row.kind}:${row.id}`); }} preferences={preferences} selectable={!live} checked={selected.includes(`${row.kind}:${row.id}`)} unseen={unseenIds.has(`${row.kind}:${row.id}`)} onCheck={() => { const id = `${row.kind}:${row.id}`; setSelectedIds(selected.includes(id) ? selected.filter(value => value !== id) : [...selected, id]); }} onSeen={() => markSeenLocally(row)} />)}
         </ul>}
         {!pending && !failed && !shown.length ? <ReceptionEmptyState filtered={rows.length > 0} title={word(rows.length ? "empty" : "empty_start")} body={word(rows.length ? "empty_help" : "empty_start_help")} action={rows.length ? { label: word("clear"), run: clear } : undefined} /> : null}
       </div>
       {!pending && !failed ? <RecordsPaginationControls page={currentPage} pages={pages} pageSize={pageSize} rangeLabel={t("business.reception_preview.document_range", { from: matched.length ? (currentPage - 1) * pageSize + 1 : 0, to: Math.min(currentPage * pageSize, matched.length), count: matched.length })} label={word("pagination")} pageSizeLabel={word("page_size")} onPageChange={next => { setSelectedIds([]); setPage(next); }} onPageSizeChange={size => { setSelectedIds([]); setPageSize(size); setPage(1); }} /> : null}
       {records.notesTruncated ? <p className={styles.historyNote}>{t("business.inbox.notes_latest")}</p> : null}
-      {openedRow ? <ReceptionDossier key={openedId} row={openedRow} returnFocusRef={detailTrigger} onClose={closeDetail} onNavigate={next => navigateFrom(openedRow, next)} /> : null}
+      {openedRow ? <ReceptionDossier key={openedId} live={live} row={openedRow} returnFocusRef={detailTrigger} onClose={closeDetail} onNavigate={next => navigateFrom(openedRow, next)} /> : null}
     </section>
   </PullToRefresh>;
 }

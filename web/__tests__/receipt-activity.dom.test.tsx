@@ -5,11 +5,10 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
-import { renderToStaticMarkup } from "react-dom/server";
 import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
 import { BusinessContext, type BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import { periodRange } from "@/components/business-app/business-format";
-import { ReceiptRow, inboxCount } from "@/components/business-app/BusinessInboxPanel";
+import { inboxCount } from "@/components/business-app/inbox-count";
 import ReceiptReadingControl from "@/components/business-app/ReceiptReadingControl";
 import { BusinessConsentTestProvider } from "@/components/business-app/business-consent-context";
 import ReceiptDossierReview from "@/components/business-app/ReceiptDossierReview";
@@ -108,34 +107,9 @@ test("switching Business aborts discovery and ignores the old response", async (
   await act(async () => page.root.unmount());
 });
 
-test("a receipt row has exactly one marker and the badge uses server count", async () => {
-  const detail = await receipt();
-  const render = (row: ReceiptDetail) => renderToStaticMarkup(<I18nextProvider i18n={i18n}><ReceiptRow receipt={row} onOpen={() => {}} /></I18nextProvider>);
-  const reading = render({ ...detail, activity: { state: "reading", unread: true, completion_cursor: null }, bandeja: { por_revisar: false, con_problema: false, leyendo: true } });
-  assert.ok(reading.includes("receipt-reading-ring"));
-  // A queued receipt nothing will read: the server leaves it out of leyendo, so it never spins.
-  const queued = render({ ...detail, status: "queued", activity: { state: "saved_unread", unread: false, completion_cursor: null }, bandeja: { por_revisar: false, con_problema: false, leyendo: false } });
-  assert.ok(!queued.includes("receipt-reading-ring"));
-  assert.ok(!queued.includes("Reading…"));
-  assert.ok(queued.includes("Saved, not read"));
-  assert.ok(!reading.includes("receipt-unread-dot"));
-  const ready = render(detail);
-  assert.ok(ready.includes("receipt-unread-dot"));
-  assert.ok(!ready.includes("receipt-reading-ring"));
+test("the badge uses the server count and an unknown count is never 0", () => {
   assert.equal(inboxCount({ receiptActivity: null }), null);
   assert.equal(inboxCount({ receiptActivity: { ...counts, ready_to_review_count: 1 } }), 1);
-});
-
-test("a row names its type, Sale or Purchase, and a problem row names none", async () => {
-  const detail = await receipt();
-  const type = (row: ReceiptDetail) => {
-    const box = document.createElement("div");
-    box.innerHTML = renderToStaticMarkup(<I18nextProvider i18n={i18n}><ul><ReceiptRow receipt={row} onOpen={() => {}} /></ul></I18nextProvider>);
-    return box.querySelector('[data-testid="bandeja-row-type"]')?.textContent;
-  };
-  assert.equal(type({ ...detail, document_type: "venta" }), "Sale");
-  assert.equal(type({ ...detail, document_type: "recibo" }), "Purchase");
-  assert.equal(type({ ...detail, document_type: "venta", status: "needs_attention", attention: "unreadable" }), "");
 });
 
 test("opening or old hydration does not mark seen; focused visible hydrated content does", async () => {

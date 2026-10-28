@@ -34,6 +34,7 @@ export function useBusinessSearch({
   actions,
   owner,
   scope,
+  canExport,
   openExport,
 }: {
   source: BusinessDataSource;
@@ -44,6 +45,8 @@ export function useBusinessSearch({
   owner: boolean;
   /** Which Business the recent searches belong to. */
   scope: string;
+  /** The export permission, as the server grants it; a member without it is not offered Exportar. */
+  canExport: boolean;
   openExport: () => void;
 }): WorkspaceSearch {
   const { t, i18n } = useTranslation();
@@ -89,7 +92,7 @@ export function useBusinessSearch({
         label: t("business.search.actions", "Actions"),
         hits: [
           ...(add ? [{ id: "add", icon: Plus, title: add.label, detail: "", amount: null, badge: action, keywords: t("business.search.keywords_add", "upload receipt photo file note"), open: add.run }] : []),
-          { id: "export", icon: Download, title: t("business.overview.export_records", "Export records"), detail: "", amount: null, badge: action, keywords: "606 607", open: openExport },
+          ...(canExport ? [{ id: "export", icon: Download, title: t("business.overview.export_records", "Export records"), detail: "", amount: null, badge: action, keywords: "606 607", open: openExport }] : []),
           ...(copyAddress ? [{ id: "copy_forward", icon: Copy, title: t("business.overview.copy_forward", "Copy forwarding address"), detail: "", amount: null, badge: action, keywords: t("business.search.keywords_copy_forward", "email"), open: () => void copyAddress() }] : []),
         ],
       },
@@ -142,5 +145,5 @@ export function useBusinessSearch({
         return [kinds.expenses, kinds.ventas, kinds.receipts, notes, kinds.accounts, kinds.email_deliveries, kinds.email_senders];
       },
     };
-  }, [accounts, actions.create, categoryLabel, forwardAddress, locale, openPanel, owner, recentsServer, scope, source, stateWord, t]);
+  }, [accounts, actions.create, canExport, categoryLabel, forwardAddress, locale, openPanel, owner, recentsServer, scope, source, stateWord, t]);
 }

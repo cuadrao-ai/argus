@@ -18,7 +18,7 @@ const originalMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
 beforeAll(() => { process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 900 }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
 afterEach(async () => { await cleanup(); (await import("@/components/layout/overlayStack")).resetOverlayStack(); document.body.innerHTML = ""; window.history.replaceState(null, "", "/biz"); });
 afterAll(async () => { await GlobalRegistrator.unregister(); if (originalMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMock; });
-async function mount(options: { readOnly?: boolean; large?: boolean; legacy?: boolean; initial?: ReportRequest; width?: number } = {}) {
+async function mount(options: { readOnly?: boolean; large?: boolean; legacy?: boolean; initial?: ReportRequest; width?: number; role?: string } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width: options.width ?? 1440, height: 900 });
   const { createRoot } = await import("react-dom/client");
   const fixture = createBusinessReportHttpFixture(); if (options.large) { fixture.records[0].gross_amount = "9007199254740993.01"; fixture.records[0].recorded_amount = "9007199254740993.01"; fixture.records[3].document_kind = "credit_note"; fixture.records[3].gross_amount = "20.00"; fixture.records[3].adjustment_effect = "known"; fixture.records[4].gross_amount = "-20.00"; fixture.records[4].document_kind = "credit_note"; fixture.records[4].adjustment_effect = "known"; } fixture.controls.readOnly = options.readOnly ?? false; fixture.controls.legacy = options.legacy ?? false;
@@ -32,7 +32,7 @@ async function mount(options: { readOnly?: boolean; large?: boolean; legacy?: bo
   const downloads: Blob[] = []; URL.createObjectURL = (blob) => { downloads.push(blob as Blob); return "blob:synthetic"; }; URL.revokeObjectURL = () => undefined;
   setChosenGrant(null);
   const source = createFixtureBusinessDataSource({ chatAvailable: false });
-  const context = { chosen: { space_id: fixtureId(3000), grant_id: fixtureId(3001), role: "owner", name: "Colmado sintético", capabilities: options.readOnly ? ["read"] : ["read", "prepare", "approve"] }, source, revision: 0, actions: { create: [] }, panel: { kind: "transactions" }, openPanel: () => undefined, records: { workspace: await source.workspace(), inbox: [] } } as unknown as BusinessContextValue;
+  const context = { chosen: { space_id: fixtureId(3000), grant_id: fixtureId(3001), role: options.role ?? "owner", name: "Colmado sintético", capabilities: options.readOnly ? ["read"] : ["read", "prepare", "approve"], permissions: options.readOnly ? ["read"] : ["read", "prepare", "approve", "download", "export"] }, source, revision: 0, actions: { create: [] }, panel: { kind: "transactions" }, openPanel: () => undefined, records: { workspace: await source.workspace(), inbox: [] } } as unknown as BusinessContextValue;
   const i18n = i18next.createInstance(); await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const host = document.createElement("div"); document.body.appendChild(host); const root = createRoot(host);
   await act(async () => root.render(<StrictMode><I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><ConnectedBusinessReports initial={options.initial} scope={{ userId: "synthetic-person", businessId: fixtureId(3000), grantId: null }} period={{ key: "all", from: "", to: null }} /></BusinessContext.Provider></I18nextProvider></StrictMode>));
@@ -169,6 +169,34 @@ test("the existing export menu holds 409 for explicit refresh and never exports 
   await page.settle(() => page.downloads.length === 1);
   const exports = page.fixture.calls.filter((call) => call.path.endsWith("/reports/export"));
   assert.equal(exports.length, 2); assert.equal((exports[0].body as { expected_fingerprint: string }).expected_fingerprint, "a".repeat(64));
+});
+
+test("a member with export and no Agregar keeps the menu trigger and its focus while an export runs", async () => {
+  const page = await mount({ role: "accountant" });
+  const live = globalThis.fetch;
+  let release: () => void = () => undefined;
+  let exportStarted = false;
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input).endsWith("/reports/export")) { exportStarted = true; await held; }
+    return live(input, init);
+  }) as typeof fetch;
+  const trigger = () => document.querySelector<HTMLButtonElement>('[data-testid="add-menu-more"]');
+  assert.equal(document.querySelector('[data-testid="business-primary-upload"]'), null);
+  await page.settle(() => document.querySelector('[data-testid="records-count"]') !== null && trigger() !== null);
+  await page.click(trigger());
+  await page.click(page.button(spanish.business.overview.export_records));
+  await page.settle(() => exportStarted && trigger()?.getAttribute("aria-disabled") === "true");
+  assert.ok(trigger(), "the trigger stays while the export runs");
+  assert.equal(document.activeElement, trigger(), "focus returns to the trigger and stays");
+  assert.equal(trigger()!.getAttribute("aria-disabled"), "true", "an empty menu leaves the trigger inert");
+  await page.click(trigger());
+  assert.equal(document.querySelector('[role="menu"]'), null, "pressing the inert trigger opens no menu");
+  assert.equal(document.activeElement, trigger(), "focus stays on the inert trigger");
+  release();
+  await page.settle(() => page.downloads.length === 1);
+  assert.ok(trigger(), "the trigger is still there after the download");
+  assert.equal(trigger()!.hasAttribute("aria-disabled"), false, "the export item is back and the trigger is live");
 });
 
 test("viewer metadata never grants append or source bytes, and unavailable originals stay linked", async () => {

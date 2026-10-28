@@ -137,6 +137,8 @@ async function businessSearch(partial: Partial<BusinessSearchResult>, notes: Bus
       actions,
       owner: true,
       scope: "own",
+      canExport: true,
+      openExport: noop,
     });
     return null;
   }

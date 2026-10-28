@@ -154,8 +154,8 @@ describe("Inicio month close source", () => {
 
 describe("Inicio export records panel", () => {
   const bytes = new Uint8Array([80, 75, 3, 4, 0, 255]);
-  const own = { space_id: "own-space", grant_id: "own-grant", name: "Taller Luna", role: "owner" as const, capabilities: ["read", "prepare", "approve"] as const, access_seen: true };
-  const client = { ...own, space_id: "client-space", grant_id: "client-grant", name: "Colmado Sol", role: "accountant" as const, capabilities: ["read"] as const };
+  const own = { space_id: "own-space", grant_id: "own-grant", name: "Taller Luna", role: "owner" as const, capabilities: ["read", "prepare", "approve"] as const, permissions: ["read", "prepare", "approve", "download", "export"] as const, access_seen: true };
+  const client = { ...own, space_id: "client-space", grant_id: "client-grant", name: "Colmado Sol", role: "accountant" as const, capabilities: ["read"] as const, permissions: ["read", "download", "export"] as const };
   let calls: { url: URL; init?: RequestInit }[] = [];
   let downloads: { filename: string; blob: Blob }[] = [];
   let respond: (init?: RequestInit) => Promise<Response> = async () => new Response(bytes, { headers: { "Content-Type": "application/zip" } });

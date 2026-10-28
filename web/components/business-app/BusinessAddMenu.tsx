@@ -13,7 +13,11 @@ import { showToast } from "./foundation/toasts";
  * The one global action: Agregar, with a menu for the rarer ones (Exportar
  * registros, Copiar dirección de reenvío). It sits beside the content heading
  * from the tablet stop up and at the top of each screen on a phone.
- * A contador, who adds nothing, gets the menu alone.
+ * A contador, who adds nothing, gets the menu alone; a role with no item at all
+ * gets no trigger. With the export item resting and nothing else to offer, the
+ * trigger stays but is aria-disabled and opens nothing (native disabled would
+ * drop focus). The trigger follows the role, not a load or an export in
+ * flight, so it keeps its place and its focus while the export item rests.
  */
 export default function BusinessAddMenu({ placement, onExport, exportEnabled = true }: { placement: "header" | "page"; onExport?: () => void; exportEnabled?: boolean }) {
   const { t } = useTranslation();
@@ -26,10 +30,12 @@ export default function BusinessAddMenu({ placement, onExport, exportEnabled = t
     if (copied) showToast({ kind: "info", text: t("business.email.copied", "Address copied.") });
     else openPanel({ kind: "business", tab: "correo" });
   };
+  const canExport = chosen?.permissions?.includes("export") === true;
   const more = [
-    ...(chosen?.capabilities.includes("read") && exportEnabled ? [{ id: "export", icon: Download, label: t("business.overview.export_records", "Export records"), run: onExport ?? openExport }] : []),
+    ...(canExport && exportEnabled ? [{ id: "export", icon: Download, label: t("business.overview.export_records", "Export records"), run: onExport ?? openExport }] : []),
     ...(owner && forwardAddress ? [{ id: "copy_forward", icon: Copy, label: t("business.overview.copy_forward", "Copy forwarding address"), run: () => void copyForward(forwardAddress) }] : []),
   ];
+  if (!add && !canExport && !(owner && forwardAddress)) return null;
   const page = placement === "page";
   const moreLabel = t("business.add_menu.more", "More actions");
   return (
@@ -62,7 +68,8 @@ export default function BusinessAddMenu({ placement, onExport, exportEnabled = t
             aria-haspopup="menu"
             aria-expanded={open}
             aria-controls={open ? menuId : undefined}
-            onClick={toggle}
+            aria-disabled={more.length ? undefined : true}
+            onClick={more.length ? toggle : undefined}
             className={add
               ? `${primaryButtonClass} min-w-11 rounded-l-none border-l border-[var(--cuadrao-cream)]/25 px-3`
               : `${secondaryButtonClass} ${page ? "w-full" : ""}`}

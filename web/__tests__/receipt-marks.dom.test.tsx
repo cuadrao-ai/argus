@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import type { BusinessOverview, ReceiptSummary } from "@/lib/business-api";
+import type { BusinessOverview } from "@/lib/business-api";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import type { BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 
@@ -13,8 +13,6 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-const receipt = (over: Partial<ReceiptSummary> = {}): ReceiptSummary =>
-  ({ id: "rcpt-1", channel: "web", filename: "recibo.png", source_text: null, media_type: "image/png", size_bytes: 10, received_at: "2026-10-12T14:00:00Z", status: "review_ready", error_code: null, attention: null, preparable: false, enterable: false, expense_id: null, merchant: "Ferretería Luna", occurred_on: "2026-10-12", amount: "850.00", currency: "DOP", category_id: null, account_id: null, ...over }) as ReceiptSummary;
 
 async function setup() {
   const { act } = await import("react");
@@ -309,9 +307,8 @@ describe("the review page's fiscal details", () => {
 });
 
 describe("one owner for the marks", () => {
-  test("the Bandeja row and the record agree on Personal for a grantee's mark, the owner's mark and after an unmark", async () => {
+  test("the record names Personal and who marked it for a grantee's mark, the owner's mark and after an unmark", async () => {
     const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
-    const { ReceiptRow } = await import("@/components/business-app/BusinessInboxPanel");
     const { default: ReceiptMarksCard } = await import("@/components/business-app/ReceiptMarksCard");
     const owner = { chosen: null, reload: () => undefined, source: {} } as unknown as BusinessContextValue;
     const cases: { name: string; personal: boolean; by: string | null }[] = [
@@ -322,10 +319,7 @@ describe("one owner for the marks", () => {
     for (const item of cases) {
       const server = { personal: item.personal, personal_marked_by: item.by, fiscal_value: "ncf" as const, include_606: null };
       const env = await setup();
-      await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={owner}><ul><ReceiptRow receipt={receipt({ ...server, personal_editable: true })} onOpen={() => undefined} /></ul></BusinessContext.Provider></env.I18nextProvider>); });
-      const row = env.host.querySelector('[data-testid="bandeja-row-state"]')!.textContent!.split(" · ").includes("Personal");
       await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={owner}><ReceiptMarksCard dossier={{ draft_id: "d-1", version: 3, capabilities: ["read", "prepare"], history: [], facts: { business_share: { state: "unknown", value: null, origin: null, verified: false, source_ids: [] }, fiscal: null }, ...server } as unknown as BusinessDossier} onChanged={() => undefined} /></BusinessContext.Provider></env.I18nextProvider>); });
-      assert.equal(row, item.personal, item.name);
       assert.equal(env.host.querySelector('[data-mark="personal"]') !== null, item.personal, item.name);
       assert.equal(env.host.querySelector('[data-mark="personal"] .sr-only')?.textContent ?? null, item.by ? `Marcado por ${item.by}` : null, `${item.name}: the record names who marked it`);
       await env.act(async () => env.root.unmount());
@@ -334,23 +328,6 @@ describe("one owner for the marks", () => {
 });
 
 describe("the server states what the browser used to guess", () => {
-  test("an unreadable receipt nobody read says nothing about its fiscal number; a read one without a number does", async () => {
-    const env = await setup();
-    const { ReceiptRow } = await import("@/components/business-app/BusinessInboxPanel");
-    const render = (item: ReceiptSummary) => env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><ul><ReceiptRow receipt={item} onOpen={() => undefined} /></ul></env.I18nextProvider>); });
-    const said = () => env.host.querySelector('[data-testid="bandeja-row-state"]')!.textContent!.split(" · ");
-    await render(receipt({ status: "needs_attention", attention: "unreadable" as ReceiptSummary["attention"], merchant: null, amount: null }));
-    assert.equal(said().some((part) => part === "Sin comprobante" || part === "Falta NCF"), false, "nothing read, nothing claimed");
-    await render(receipt({ status: "review_ready", fiscal_known: true, fiscal_value: null }));
-    assert.equal(said().includes("Falta NCF"), true);
-    await render(receipt({ status: "review_ready", fiscal_known: true, fiscal_value: null, sin_comprobante: true }));
-    assert.equal(said().includes("Sin comprobante"), true);
-    assert.equal(said().includes("Falta NCF"), false);
-    await render(receipt({ status: "review_ready", fiscal_known: true, fiscal_value: "ecf" }));
-    assert.equal(said().some((part) => part === "Sin comprobante" || part === "Falta NCF"), false);
-    await env.act(async () => env.root.unmount());
-  });
-
   test("the 606 line names whoever answered, even when the owner edited the record afterwards", async () => {
     const env = await setup();
     const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");

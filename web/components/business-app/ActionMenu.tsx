@@ -49,6 +49,11 @@ export default function ActionMenu({ actions, label, placement, portal = false, 
     if (menuVisible) itemRefs.current[0]?.focus();
   }, [menuVisible]);
 
+  const empty = actions.length === 0;
+  useEffect(() => {
+    if (open && empty) close();
+  }, [open, empty]);
+
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: PointerEvent) => {

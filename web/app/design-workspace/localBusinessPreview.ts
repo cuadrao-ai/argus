@@ -69,6 +69,7 @@ export function localBusinessGrant(business: LocalBusiness): GrantedSpace {
     grant_id: business.id,
     name: business.name,
     role: "owner",
+    permissions: ["read", "prepare", "approve", "manage", "download", "export", "assign_owner"],
     capabilities: ["read", "prepare", "approve"],
     access_seen: true,
   };

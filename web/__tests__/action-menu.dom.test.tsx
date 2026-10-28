@@ -39,3 +39,23 @@ test("items that arrive while the menu is open keep focus on the item it was on,
     host.remove();
   }
 });
+
+test("a menu left with no item closes and stays closed when an item returns", async () => {
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  try {
+    await act(async () => root.render(<Menu actions={[exportAll]} />));
+    const trigger = host.querySelector("button")!;
+    await act(async () => trigger.click());
+    assert.ok(document.querySelector('[role="menu"]'));
+    await act(async () => root.render(<Menu actions={[]} />));
+    assert.equal(document.querySelector('[role="menu"]'), null);
+    assert.equal(document.activeElement, trigger, "focus returns to the trigger");
+    await act(async () => root.render(<Menu actions={[exportAll]} />));
+    assert.equal(document.querySelector('[role="menu"]'), null, "no orphan menu reopens");
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+  }
+});
