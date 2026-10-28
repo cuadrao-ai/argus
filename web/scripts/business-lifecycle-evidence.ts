@@ -70,7 +70,7 @@ try {
     try {
       await page.goto(`${baseURL}/biz${query}`);
       await page.addStyleTag({ content: FREEZE_CSS });
-      if (state === "owner-datos") { await expect(page.getByTestId("business-lifecycle-controls")).toBeVisible(); await expect(page.locator('input[name="business-name"]')).toHaveValue(owner.name); await page.getByTestId("business-lifecycle-controls").scrollIntoViewIfNeeded(); }
+      if (state === "owner-datos") { await expect(page.getByTestId("business-lifecycle-controls")).toBeVisible(); await expect(page.getByText(owner.name, { exact: true }).first()).toBeVisible(); await page.getByTestId("business-lifecycle-controls").scrollIntoViewIfNeeded(); }
       if (state === "close-download") await expect(page.getByRole("button", { name: "Descargar comprobantes", exact: true })).toBeVisible();
       if (state === "close-confirm" || state === "close-uncertain") {
         await page.getByRole("button", { name: "Cerrar negocio", exact: true }).click();
