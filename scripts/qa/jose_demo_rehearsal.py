@@ -18,8 +18,9 @@ product API on saved data and prints PASS/FAIL/UNTESTED per step:
 before the action the presenter performs live. Case 1 is not seeded. Seeding
 is idempotent: it looks for its own synthetic records (names carry "Ensayo",
 files are the numbered pack, keys start with ``jose-seed-v1``) before it
-writes, so a rerun creates nothing. ``--dry-run`` only reads and prints the
-plan. Seed always requires ``--expect-business <id prefix>`` and refuses any
+writes, so a rerun creates nothing. ``--dry-run`` (rehearse and seed) only
+reads and prints the planned writes; the client refuses any write while it is
+on. Seed always requires ``--expect-business <id prefix>`` and refuses any
 other Business. It saves ``--business-name`` only when the server reports
 ``name_required``, and turns receipt reading on only with ``--enable-reading``
 (otherwise it stops when reading is off).
@@ -44,11 +45,12 @@ Local (disposable Supabase stack; never ports 54332/58432/4390)::
     # API at the tip with two local-only seams: a stub reader that returns what
     # the pack files print, and a scripted Meta media host. --extractor real
     # keeps the product's model reader (one read, about a cent).
-    python scripts/qa/jose_demo_rehearsal.py serve-api --env-file <api.env> --port 57741
+    python scripts/qa/jose_demo_rehearsal.py serve-api --env-file <api.env> --port 57741 \\
+        --outbound-log <replies.jsonl>
     # web: bun run build --webpack && bun run start -p 57742 (staging flags)
     python scripts/qa/jose_demo_rehearsal.py run --target local \\
         --api http://127.0.0.1:57741 --web http://127.0.0.1:57742 \\
-        --env-file <api.env> --evidence <dir>
+        --env-file <api.env> --outbound-log <replies.jsonl> --evidence <dir>
     python scripts/qa/jose_demo_rehearsal.py run --target local --mode seed \\
         --env-file <api.env> --local-account <file> --expect-business <prefix> ...
 
@@ -63,8 +65,12 @@ Staging (only after Lucas approves the milestone deploy and the seed)::
         --web https://cuadrao-web-staging.onrender.com \\
         --account qa-owner-tester --expect-business b65130e8 --evidence <dir>
 
+Staging refuses any ``--api``/``--web`` host that is not an https
+``<service>-staging.onrender.com`` and always needs ``--expect-business``
+(seed and rehearse alike).
+
 The account file (``--accounts-file``, default ``temp/staging-walk-accounts.json``
-in the main checkout) is read only inside this process; sign-in goes through the
+in the main checkout, ``{"<entry>": {"<email>": "<password>"}}``) is read only inside this process; sign-in goes through the
 web login headless and the session token stays in memory. On staging the script
 never signs a webhook: case 1 waits ``--whatsapp-wait`` seconds for a document
 from the linked phone, else it is UNTESTED.
@@ -172,7 +178,47 @@ SEED_INFORMAL_FACTS = {
 }
 ACCOUNT = {"nickname": "Cuenta Ensayo DOP", "type": "checking", "currency": "DOP"}
 
+READ_ONLY_POSTS = ("/api/v1/business/reports/query",)
+DUPLICATE_REPLY = ("Ya lo teníamos", "We already had this one")
+
+PLANNED_WRITES = {
+    "0": [
+        "POST /business/receipt-reading (only when reading is off)",
+        "POST /business/accounts (only when there is no DOP checking account)",
+    ],
+    "2": [
+        "POST /business/captures (the cash note)",
+        "PATCH /business/drafts/{id}/review (informal receipt, owner funds)",
+        "POST /business/drafts/{id}/approve",
+        "PATCH /business/month-close/documents/{activity} (pagado, efectivo)",
+    ],
+    "3": [
+        "POST /business/receipts (03-farmacia-recibo.png)",
+        "POST /business/drafts/{id}/personal",
+        "PATCH /business/drafts/{id}/review",
+        "POST /business/drafts/{id}/approve",
+    ],
+    "1": [
+        "staging: none until the phone's document arrives; local: signed webhooks",
+        "PATCH /business/drafts/{id}/review (funding, business share)",
+        "POST /business/drafts/{id}/approve",
+    ],
+    "4": [
+        "POST /business/bank/imports (the statement, sent twice with one key)",
+        "POST /business/bank/suggestions/{id}/confirm (sent twice with one key)",
+    ],
+    "5": ["none: one GET /business/exports, skipped under --dry-run"],
+}
+
 FIX_1417 = "merge #1417 (personal separation): personal rows leave Registros totals, records.csv and the 606; personal.csv carries them"
+
+
+def outbound_replies(log: Path) -> list[str]:
+    """The reply texts serve-api's scripted Meta host recorded, oldest first."""
+
+    if not log.exists():
+        return []
+    return [json.loads(line)["text"] for line in log.read_text().splitlines() if line]
 
 
 def media_id(digest: str, attempt: int) -> str:
@@ -193,6 +239,28 @@ def load_env_file(path: Path) -> dict[str, str]:
 def require_loopback(url: str, what: str) -> None:
     if urlsplit(url.replace("postgresql://", "http://", 1)).hostname not in LOOPBACK:
         raise SystemExit(f"refusing: {what} is not a loopback address")
+
+
+def require_staging_host(url: str, what: str) -> None:
+    """Staging runs write real rows: only the staging services, over https."""
+
+    parts = urlsplit(url)
+    host = parts.hostname or ""
+    try:
+        port = parts.port
+    except ValueError:
+        port = -1
+    if (
+        parts.scheme != "https"
+        or parts.username
+        or parts.password
+        or port not in (None, 443)
+        or not host.endswith("-staging.onrender.com")
+        or host == "-staging.onrender.com"
+    ):
+        raise SystemExit(
+            f"refusing: {what} must be https://<service>-staging.onrender.com (got host {host or 'none'})"
+        )
 
 
 def pack_files(receipts_dir: Path) -> dict[str, bytes]:
@@ -232,6 +300,13 @@ def serve_api(args: argparse.Namespace) -> None:
         # Local stand-in for graph.facebook.com and its media CDN; nothing leaves the host.
         path = request.url.path
         if request.url.host == "graph.facebook.com" and path.endswith("/messages"):
+            if args.outbound_log:
+                try:
+                    sent = json.loads(request.content)["text"]["body"]
+                except (ValueError, KeyError, TypeError):
+                    sent = ""
+                with args.outbound_log.open("a") as log:
+                    log.write(json.dumps({"text": sent}, ensure_ascii=False) + "\n")
             return httpx.Response(200, json={"messages": [{"id": "wamid.LOCAL"}]})
         if request.url.host == "graph.facebook.com":
             mid = path.rsplit("/", 1)[-1]
@@ -367,9 +442,16 @@ class Api:
         self.http = httpx.Client(timeout=120)
         self.token: str | None = None
         self.grant: str | None = None
+        self.dry_run = False
         self.log: list[dict[str, Any]] = []
 
     def call(self, method: str, path: str, *, ok: bool = True, **kw: Any) -> Resp:
+        if (
+            self.dry_run
+            and method.upper() not in ("GET", "HEAD")
+            and path not in READ_ONLY_POSTS
+        ):
+            raise AssertionError(f"dry-run: refused {method} {path.split('?')[0]}")
         headers = {"Origin": self.origin, **kw.pop("headers", {})}
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
@@ -619,19 +701,34 @@ const page = await context.newPage();
 let token = null;
 page.on("request", req => { const h = req.headers()["authorization"]; if (h && h.startsWith("Bearer ") && req.url().startsWith(job.api)) token = h.slice(7); });
 const out = { shots: [], errors: [] };
+const CODES = ["email_step_failed", "password_step_failed", "login_rejected", "timeout", "consent_required", "shot_on_auth_page"];
+const fail = (code) => { throw new Error(code); };
+const onAuth = () => { const u = new URL(page.url()); return /\/(auth|login)(\/|\?|$)/.test(u.pathname + "/") || u.searchParams.has("auth") || u.pathname === "/"; };
+async function fillChecked(selector, allowed, value, code) {
+  const field = page.locator(selector).first();
+  try {
+    await field.waitFor({ state: "visible", timeout: 15000 });
+    const type = (await field.evaluate(el => el.type)) || "text";
+    if (!allowed.includes(type)) fail(code);
+    await field.fill(value);
+  } catch (e) { if (e.message === code) throw e; fail(code); }
+}
 try {
   await page.goto(job.web + "/login", { waitUntil: "domcontentloaded" });
-  await page.locator('input[type="email"]').first().fill(job.email);
-  await page.locator('input[type="email"]').first().press("Enter");
-  const password = page.locator('input[type="password"]:visible').first();
-  await password.waitFor({ timeout: 30000 });
-  await password.fill(job.password);
-  await password.press("Enter");
-  await page.waitForURL(u => u.pathname.startsWith("/biz"), { timeout: 60000 });
+  await fillChecked('input[type="email"]:visible, input[type="text"]:visible', ["email", "text"], job.email, "email_step_failed");
+  try { await page.getByRole("button", { name: /^(Continuar|Continue)$/i }).first().click({ timeout: 15000 }); } catch { fail("email_step_failed"); }
+  await fillChecked('input[type="password"]:visible', ["password"], job.password, "password_step_failed");
+  await page.locator('input[type="password"]:visible').first().press("Enter");
+  const deadline = Date.now() + 60000;
+  while (onAuth()) {
+    if (Date.now() > deadline) fail("timeout");
+    if (await page.locator('[role="alert"]:not(#__next-route-announcer__):visible', { hasText: /\S/ }).count() > 0) fail("login_rejected");
+    await page.waitForTimeout(250);
+  }
   await page.waitForLoadState("networkidle").catch(() => {});
   const gate = page.getByRole("checkbox").first();
   if (await gate.waitFor({ state: "visible", timeout: 8000 }).then(() => true, () => false)) {
-    if (!job.accept_consent) throw new Error("first-use consent screen shown; accept it in the product first");
+    if (!job.accept_consent) fail("consent_required");
     await gate.check();
     await page.getByRole("button", { name: /Continuar|Continue/ }).click();
     await gate.waitFor({ state: "hidden", timeout: 20000 });
@@ -640,22 +737,29 @@ try {
     try {
       await page.goto(job.web + shot.path, { waitUntil: "domcontentloaded" });
       await page.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
+      if (onAuth()) fail("shot_on_auth_page");
       if (shot.text) await page.getByText(shot.text, { exact: false }).first().waitFor({ timeout: 20000 });
       await page.waitForTimeout(800);
       await page.screenshot({ path: `${job.out}/${shot.name}.png`, fullPage: false });
       out.shots.push(shot.name);
-    } catch (e) { out.errors.push(`${shot.name}: ${String(e).slice(0, 200)}`); }
+    } catch (e) { out.errors.push(`${shot.name}: ${CODES.includes(e.message) ? e.message : "shot_failed"}`); }
   }
   for (let i = 0; i < 20 && !token; i++) await page.waitForTimeout(500);
 } catch (e) {
-  out.errors.push(`login: ${String(e).slice(0, 300)}`);
-  await page.screenshot({ path: `${job.out}/login-failed.png` }).catch(() => {});
+  out.errors.push(`login: ${CODES.includes(e.message) ? e.message : "login_failed"}`);
 }
 await browser.close();
 out.signed_in = Boolean(token);
 if (job.want_token) out.token = token;
 process.stdout.write(JSON.stringify(out));
 """
+
+
+def error_name(stderr: str) -> str:
+    """Only the error's name: a browser failure must not echo what was typed."""
+
+    found = re.search(r"\b(\w*Error|ERR_[A-Z_]+)\b", stderr)
+    return found.group(1) if found else "unknown"
 
 
 def browser(
@@ -694,29 +798,41 @@ def browser(
         return json.loads(result.stdout)
     except ValueError:
         return {
-            "errors": [f"browser exited {result.returncode}: {result.stderr[-400:]}"],
+            "errors": [
+                f"browser exited {result.returncode}: {error_name(result.stderr)}"
+            ],
             "shots": [],
             "signed_in": False,
         }
 
 
 def staging_account(path: Path, entry: str) -> tuple[str, str]:
-    """The entry as ``{entry: {email, password}}`` or a list item named by name/label/id."""
+    """The entry as ``{entry: {email: password}}`` (the accounts file), ``{entry:
+    {email, password}}``, or a list item named by name/label/id. Values never print."""
 
-    data = json.loads(path.read_text())
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, ValueError):
+        raise SystemExit("accounts file unreadable") from None
     if isinstance(data, dict):
         items = data.items()
     else:
-        items = ((i.get("name") or i.get("label") or i.get("id"), i) for i in data)
+        items = (
+            (i.get("name") or i.get("label") or i.get("id"), i)
+            for i in data
+            if isinstance(i, dict)
+        )
     for name, item in items:
-        if (
-            name == entry
-            and isinstance(item, dict)
-            and item.get("email")
-            and item.get("password")
-        ):
-            return item["email"], item["password"]
-    raise SystemExit(f"account entry {entry!r} not found with email and password fields")
+        if name != entry or not isinstance(item, dict):
+            continue
+        email, password = item.get("email"), item.get("password")
+        if isinstance(email, str) and isinstance(password, str) and email and password:
+            return email, password
+        if len(item) == 1:
+            email, password = next(iter(item.items()))
+            if "@" in email and isinstance(password, str) and password:
+                return email, password
+    raise SystemExit(f"account entry {entry!r} not found as an email and password pair")
 
 
 def local_owner(
@@ -903,6 +1019,32 @@ class Rehearsal:
             state["base"] = self.books.snapshot()
             state["base_receipts"] = {r["id"] for r in self.books.receipts()}
             obs.update(state["base"])
+
+    def plan(self) -> dict[str, Any]:
+        """--dry-run: read the Business, print every write a real run would make."""
+
+        api = self.api
+        reading = api.get("/business/receipt-reading?language=es-419")
+        accounts = [
+            a
+            for a in api.get("/business/workspace")["accounts"]
+            if a.get("currency") == "DOP"
+            and a.get("type", "checking") in ("checking", "savings")
+        ]
+        baseline = self.books.snapshot()
+        print(
+            f"  reads    reading enabled: {reading['enabled']}; DOP accounts: {len(accounts)}; baseline {json.dumps(baseline, default=str)[:300]}"
+        )
+        plan = {c: PLANNED_WRITES[c] for c in ("0", *self.args.cases)}
+        for case, writes in plan.items():
+            for write in writes:
+                print(f"  plan     case {case}: {write}")
+        return {
+            "reading_enabled": reading["enabled"],
+            "dop_accounts": len(accounts),
+            "baseline": baseline,
+            "planned": plan,
+        }
 
     def case2(self) -> None:
         api, state, rec = self.api, self.state, self.rec
@@ -1431,11 +1573,17 @@ class Rehearsal:
         with rec.step(
             "1",
             "duplicate-resend",
-            "same bytes again: replayed; no new receipt, draft, expense or read",
+            "same bytes again: the API replies that it already had it; no new receipt, draft, expense or read",
         ) as obs:
             need(state, "c1_activity")
             if not local:
                 raise Untested("staging resend is Lucas's phone action")
+            log = self.args.outbound_log
+            if log is None:
+                raise Untested(
+                    "no dedupe signal without --outbound-log (serve-api --outbound-log)"
+                )
+            replies_before = len(outbound_replies(log))
             receipts_before = {r["id"] for r in self.books.receipts()}
             version_before = api.get(f"/business/drafts/{state['c1_draft']}/dossier")[
                 "version"
@@ -1452,18 +1600,29 @@ class Rehearsal:
                     },
                 }
             )
-            time.sleep(4)
+            expect(sent.status == 200, f"webhook answered {sent.status}")
+            replies = wait_for(
+                lambda: outbound_replies(log)[replies_before:],
+                lambda new: any(d in text for text in new for d in DUPLICATE_REPLY),
+                timeout=60,
+                every=1,
+            )
             rows = self.books.receipts()
             again = next((r for r in rows if r["id"] == state["c1_receipt"]), {})
             obs.update(
                 webhook_status=sent.status,
+                duplicate_reply=any(d in t for t in replies for d in DUPLICATE_REPLY),
+                replies_after_resend=len(replies),
                 new_receipts=sorted({r["id"] for r in rows} - receipts_before),
                 new_expenses=sorted(
                     {e["id"] for e in self.books.expenses()} - expenses_before
                 ),
                 replayed=again.get("replayed"),
             )
-            expect(sent.status == 200, f"webhook answered {sent.status}")
+            expect(
+                obs["duplicate_reply"],
+                "no 'already had it' reply within 60s: the resend was not seen as a duplicate",
+            )
             obs["draft_version"] = [
                 version_before,
                 api.get(f"/business/drafts/{state['c1_draft']}/dossier")["version"],
@@ -1696,16 +1855,28 @@ class Rehearsal:
                 != (h if isinstance(h, str) else (h or {}).get("sha256"))
             ]
             sources = manifest.get("sources") or []
+            listed = {s.get("file"): s for s in sources}
+            unlisted = [n for n in images if n not in listed]
+            source_bad = [
+                n
+                for n, s in listed.items()
+                if n in z and hashlib.sha256(z[n]).hexdigest() != s.get("sha256")
+            ]
             obs.update(
                 originals=originals,
                 hash_mismatches=bad,
+                source_hash_mismatches=source_bad,
+                unlisted_originals=unlisted,
                 availability=sorted({s.get("availability") for s in sources}),
             )
+            expect(hashes and sources, "manifest lists no files or sources")
             expect(
                 len(images) >= wanted,
                 f"{len(images)} image originals for {wanted} receipt cases",
             )
+            expect(not unlisted, f"originals missing from the manifest: {unlisted}")
             expect(not bad, f"manifest hash mismatch: {bad}")
+            expect(not source_bad, f"manifest source hash mismatch: {source_bad}")
             expect(
                 all(s.get("availability") == "included" for s in sources),
                 "a source is not included",
@@ -3128,6 +3299,9 @@ def screen_counts(api: Api) -> dict[str, Any]:
 
 
 def run(args: argparse.Namespace) -> None:
+    if args.target == "staging":
+        require_staging_host(args.api, "--api")
+        require_staging_host(args.web, "--web")
     out = args.evidence.resolve()
     out.mkdir(parents=True, exist_ok=True)
     local = args.target == "local"
@@ -3142,6 +3316,7 @@ def run(args: argparse.Namespace) -> None:
             require_loopback(value, what)
     files = pack_files(args.receipts_dir)
     api = Api(args.api, args.web)
+    api.dry_run = args.dry_run and not local
     health = api.call("GET", "/health").body
     sha = health.get("git_sha") or (
         subprocess.run(
@@ -3194,12 +3369,11 @@ def run(args: argparse.Namespace) -> None:
             },
         )
         spaces = api.get("/business/spaces")["spaces"]
+    prefix = args.expect_business or ""
     chosen = [
-        s
-        for s in spaces
-        if str(s.get("space_id") or s.get("id")).startswith(args.expect_business or "")
+        s for s in spaces if str(s.get("space_id") or s.get("id")).startswith(prefix)
     ]
-    if args.expect_business and len(chosen) != 1:
+    if len(chosen) != 1:
         owned = (
             ", ".join(
                 f"{str(x.get('space_id') or x.get('id'))[:8]} {x.get('name')!r}"
@@ -3208,11 +3382,11 @@ def run(args: argparse.Namespace) -> None:
             or "none"
         )
         raise SystemExit(
-            f"refusing: signed-in account has no single Business with id prefix {args.expect_business} (it has: {owned})"
+            f"refusing: signed-in account has no single Business"
+            f"{' with id prefix ' + prefix if prefix else ''} (it has: {owned})"
         )
-    if not chosen:
-        raise SystemExit("refusing: no Business for this account")
     space = chosen[0]
+    api.dry_run = args.dry_run
     api.grant = space.get("grant_id")
     space_id = str(space.get("space_id") or space.get("id"))
     print(
@@ -3270,6 +3444,13 @@ def run(args: argparse.Namespace) -> None:
     rec = Recorder(api, out)
     rehearsal = Rehearsal(api, rec, args, files, env)
     rehearsal.state["sign_in"] = sign_in
+    if args.dry_run:
+        report = {**meta, "dry_run": True, **rehearsal.plan()}
+        (out / "plan.json").write_text(
+            json.dumps(report, ensure_ascii=False, indent=1, default=str)
+        )
+        (out / "calls.json").write_text(json.dumps(api.log, indent=1))
+        return
     rehearsal.setup()
     for case in args.cases:
         print(f"case {case}")
@@ -3327,6 +3508,11 @@ def main() -> None:
     serve.add_argument("--port", type=int, default=57741)
     serve.add_argument("--receipts-dir", type=Path, default=receipts)
     serve.add_argument("--extractor", choices=("stub", "real"), default="stub")
+    serve.add_argument(
+        "--outbound-log",
+        type=Path,
+        help="append each WhatsApp reply the API sends to this JSONL file",
+    )
     serve.add_argument(
         "--openrouter-key-file",
         type=Path,
@@ -3389,7 +3575,7 @@ def main() -> None:
     go.add_argument(
         "--dry-run",
         action="store_true",
-        help="seed: read and print the plan, write nothing",
+        help="read and print the planned writes, write nothing (seed and rehearse)",
     )
     go.add_argument(
         "--business-name", help="seed: saved only when the server reports name_required"
@@ -3423,16 +3609,28 @@ def main() -> None:
         default=1,
         help="seed: reads kept for the rehearsal (case 1 WhatsApp read)",
     )
+    go.add_argument(
+        "--outbound-log",
+        type=Path,
+        help="local: the file serve-api --outbound-log appends replies to (case 1 resend)",
+    )
     go.add_argument("--no-screens", dest="screens", action="store_false")
     go.set_defaults(handler=run)
     args = parser.parse_args()
     if args.command == "run":
+        args.cases = list(dict.fromkeys(args.cases))
         if args.target == "local" and not args.env_file:
             parser.error("--env-file is required for --target local")
         if args.target == "staging" and not args.account:
             parser.error("--account is required for --target staging")
-        if args.mode == "seed" and not args.expect_business:
-            parser.error("--expect-business is required for --mode seed")
+        if (args.mode == "seed" or args.target == "staging") and not args.expect_business:
+            parser.error(
+                "--expect-business is required for seed and for --target staging"
+            )
+        if args.target == "staging" and len(args.expect_business) < 6:
+            parser.error(
+                "--expect-business needs at least 6 characters of the Business id"
+            )
         if args.profile != "demo" and args.mode != "seed":
             parser.error("--profile is a seed option")
     args.handler(args)
