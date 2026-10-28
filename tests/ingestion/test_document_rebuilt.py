@@ -233,6 +233,12 @@ def translucent():
     return encoded(image, "PNG")
 
 
+def keyed(mode):
+    """A PNG whose tRNS key is a colour the picture paints, with no alpha band."""
+    image = picture().convert(mode)
+    return encoded(image, "PNG", transparency=image.getpixel((0, 0)))
+
+
 @pytest.mark.parametrize(
     "content,media_type",
     [
@@ -241,7 +247,9 @@ def translucent():
         (encoded(picture().convert("CMYK"), "JPEG"), "image/jpeg"),
         (encoded(picture(), "PNG"), "image/png"),
         (translucent(), "image/png"),
-        (encoded(picture().convert("P"), "PNG", transparency=0), "image/png"),
+        (keyed("P"), "image/png"),
+        (keyed("L"), "image/png"),
+        (keyed("RGB"), "image/png"),
     ],
     ids=[
         "rotated-comment-jpeg",
@@ -249,7 +257,9 @@ def translucent():
         "cmyk-jpeg",
         "png",
         "alpha-png",
-        "palette-png",
+        "palette-trns-png",
+        "gray-trns-png",
+        "rgb-trns-png",
     ],
 )
 def test_rebuilt_copy_is_the_upright_image_flattened_on_white(content, media_type):
