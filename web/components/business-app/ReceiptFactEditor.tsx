@@ -51,7 +51,12 @@ export default function ReceiptFactEditor({ facts, accounts, currencies, disable
       {field === "counterparty" ? <label className="block text-[13px] text-black/65 dark:text-white/65"><span className="sr-only">{label("counterparty")}</span><input className={inputClass} value={scalar("counterparty")} disabled={disabled} onChange={(event) => setScalar("counterparty", event.target.value)} autoComplete="off" /></label> : null}
       {field === "occurred_on" ? <div><label htmlFor={dateId} className="sr-only">{label("occurred_on")}</label><DatePicker id={dateId} label={label("occurred_on")} value={(patch.occurred_on ?? facts.occurred_on).value ?? ""} disabled={disabled} onChange={(iso, invalid) => set("occurred_on", iso ? { state: "known", value: iso } : { state: "unknown", value: null }, invalid)} /></div> : null}
       {field === "currency" ? <label className="text-[13px] text-black/65 dark:text-white/65"><span className="sr-only">{label("currency")}</span><select className={inputClass} value={scalar("currency")} disabled={disabled} onChange={(event) => setScalar("currency", event.target.value)}><option value="">{choose}</option>{currencies.map((currency) => <option key={currency}>{currency}</option>)}</select></label> : null}
-      {field === "amount" ? <MoneyInput label={label("amount")} currency={scalar("currency")} value={scalar("amount") || null} disabled={disabled} onValueChange={({ value, invalid }) => { set("amount", value ? { state: "known", value } : { state: "unknown", value: null }, invalid); }} testId="dossier-review-amount" /> : null}
+      {field === "amount" ? (
+        // The amount says what is wrong when it loses focus; its line is held open beforehand, so that message never moves the rows below in the middle of a tap.
+        <div className="[&_p[aria-live]]:mt-1 [&_p[aria-live]]:min-h-5 [&_p[aria-live]]:text-[13px] [&_p[aria-live]]:leading-5">
+          <MoneyInput label={label("amount")} currency={scalar("currency")} value={scalar("amount") || null} disabled={disabled} onValueChange={({ value, invalid }) => { set("amount", value ? { state: "known", value } : { state: "unknown", value: null }, invalid); }} testId="dossier-review-amount" />
+        </div>
+      ) : null}
       {field === "funding" ? <label className="block text-[13px] text-black/65 dark:text-white/65"><span className="sr-only">{label("funding")}</span><select className={inputClass} value={fundingValue} disabled={disabled} onChange={(event) => {
         const value = event.target.value;
         if (!value || value === "owner_does_not_know") set("funding", { state: value === "owner_does_not_know" ? value : "unknown", value: null });
