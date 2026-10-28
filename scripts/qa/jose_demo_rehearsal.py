@@ -664,22 +664,32 @@ def browser(
 
 
 def staging_account(path: Path, entry: str) -> tuple[str, str]:
-    """The entry as ``{entry: {email, password}}`` or a list item named by name/label/id."""
+    """The entry as ``{entry: {email: password}}`` (the accounts file), ``{entry:
+    {email, password}}``, or a list item named by name/label/id. Values never print."""
 
-    data = json.loads(path.read_text())
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, ValueError):
+        raise SystemExit("accounts file unreadable") from None
     if isinstance(data, dict):
         items = data.items()
     else:
-        items = ((i.get("name") or i.get("label") or i.get("id"), i) for i in data)
+        items = (
+            (i.get("name") or i.get("label") or i.get("id"), i)
+            for i in data
+            if isinstance(i, dict)
+        )
     for name, item in items:
-        if (
-            name == entry
-            and isinstance(item, dict)
-            and item.get("email")
-            and item.get("password")
-        ):
-            return item["email"], item["password"]
-    raise SystemExit(f"account entry {entry!r} not found with email and password fields")
+        if name != entry or not isinstance(item, dict):
+            continue
+        email, password = item.get("email"), item.get("password")
+        if isinstance(email, str) and isinstance(password, str) and email and password:
+            return email, password
+        if len(item) == 1:
+            email, password = next(iter(item.items()))
+            if "@" in email and isinstance(password, str) and password:
+                return email, password
+    raise SystemExit(f"account entry {entry!r} not found as an email and password pair")
 
 
 def local_owner(
