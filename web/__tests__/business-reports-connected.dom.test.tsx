@@ -281,6 +281,24 @@ test("card one follows the same answer as rows and count when the search changes
   assert.equal((queries.at(-1)!.body as { filters: { q: string } }).filters.q, 'pena');
 });
 
+test("card one shows unknown, not the previous query's totals, while the next query loads", async () => {
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: 'all' }, record_families: ['sale'] } }) });
+  assert.deepEqual(amounts(cards()[0]), ['RD$6,200.00', 'US$100.00']);
+  const live = globalThis.fetch;
+  let release!: () => void;
+  let started = false;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/reports/query') ? (started = true, gate.then(() => live(input, init))) : live(input, init)) as typeof fetch;
+  await page.type(document.querySelector('input[type="search"]')!, 'pena');
+  await page.settle(() => started);
+  assert.equal(cards()[0].querySelectorAll('.cuadrao-amount').length, 0);
+  assert.doesNotMatch(cards()[0].textContent!, /6,200|100\.00/);
+  release();
+  await page.settle(() => cards()[0].querySelectorAll('.cuadrao-amount').length > 0);
+  assert.deepEqual(amounts(cards()[0]), ['RD$100.00']);
+  globalThis.fetch = live;
+});
+
 test("an incomplete server total shows unknown beside its labelled known part, never as final money", async () => {
   const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: 'all' }, record_families: ['sale'] } }) });
   const row = page.fixture.records.find((record) => record.family === 'sale' && record.currency === 'DOP')!;
