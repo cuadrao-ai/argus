@@ -647,7 +647,13 @@ class Books:
             "close_payables_dop": dop.get("cuentas_por_pagar", "0.00"),
             "close_receipts": dop.get("by_status", {}).get("receipts"),
             "open_payables": open_items["cuentas_por_pagar"]["count"],
-            "registros_gastos_dop": card.get("amount", "0.00"),
+            # The Registros card's figure: the full total, or the known part it
+            # shows as partial while a matching row's amount is unknown.
+            "registros_gastos_dop": card.get("known_amount"),
+            "registros_complete": card.get("complete"),
+            "registros_personal_excluded": report.get("excluded_personal", {}).get(
+                "expense"
+            ),
             "expense_ids": sorted(e["id"] for e in self.expenses()),
         }
 
@@ -1249,6 +1255,7 @@ class Rehearsal:
                 and money(receipt.get("amount")) == "548.70",
                 "read differs from the printed receipt",
             )
+            state["c3_read"] = self.books.snapshot()
         with rec.step(
             "3",
             "marked-personal",
@@ -1307,28 +1314,50 @@ class Rehearsal:
             ("close_expense_dop", "out-of-month-close", None),
             ("close_payables_dop", "out-of-payables", None),
             ("open_payables", "out-of-open-items", None),
-            (
-                "registros_gastos_dop",
-                "out-of-registros-card",
-                FIX_1417 + " (gap 3a, reporting_query.py document_family_amount)",
-            ),
         ):
-            hop = (
-                "POST /api/v1/business/reports/query totals[document_family_amount]"
-                if fix
-                else None
-            )
             with rec.step(
-                "3",
-                label,
-                f"{place} unchanged by the personal purchase",
-                fix=fix,
-                hop=hop,
+                "3", label, f"{place} unchanged by the personal purchase", fix=fix
             ) as obs:
                 need(state, "c3_activity")
                 before, after = state["c3_before"][place], state["c3_after"][place]
                 obs.update(before=before, after=after)
                 expect(before == after, f"{place} moved {before} -> {after}")
+        with rec.step(
+            "3",
+            "out-of-registros-card",
+            "Registros gastos DOP: counts the open 548.70 draft after the read, drops"
+            " exactly 548.70 once it is approved personal; one more personal exclusion",
+            fix=FIX_1417 + " (gap 3a, reporting_query.py document_family_amount)",
+            hop="POST /api/v1/business/reports/query totals[document_family_amount]",
+        ) as obs:
+            need(state, "c3_read", "c3_activity")
+            read, after = state["c3_read"], state["c3_after"]
+            obs.update(
+                read=read["registros_gastos_dop"],
+                after=after["registros_gastos_dop"],
+                complete=[read["registros_complete"], after["registros_complete"]],
+                personal_excluded=[
+                    read["registros_personal_excluded"],
+                    after["registros_personal_excluded"],
+                ],
+            )
+            expect(
+                read["registros_gastos_dop"] is not None
+                and after["registros_gastos_dop"] is not None,
+                "no Registros gastos DOP total in the report",
+            )
+            delta = round(
+                float(read["registros_gastos_dop"])
+                - float(after["registros_gastos_dop"]),
+                2,
+            )
+            obs["delta"] = money(delta)
+            expect(delta == 548.70, f"Registros gastos DOP moved by {delta}, not 548.70")
+            expect(
+                after["registros_personal_excluded"]
+                == (read["registros_personal_excluded"] or 0) + 1,
+                "the personal purchase is not counted as excluded",
+            )
         with rec.step(
             "3", "original-kept", "the original opens (200, image bytes)"
         ) as obs:
