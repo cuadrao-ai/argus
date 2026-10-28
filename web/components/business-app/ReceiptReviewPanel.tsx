@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { AlertCircle, CircleAlert, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { ReceiptShortcutRegistration, receiptNavigationActions } from "./BusinessReviewShortcuts";
+import { ReceiptShortcutRegistration, receiptNavigationActions, receiptPlace } from "./BusinessReviewShortcuts";
 import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
 import ReceiptReadingControl from "./ReceiptReadingControl";
 import ReceiptDossierReview from "./ReceiptDossierReview";
@@ -13,6 +13,7 @@ import { rebindAndPrepare } from "./receipt-rebind";
 import { useReceiptReadPoll } from "./receipt-read-poll";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
 import ReceiptReviewFrame from "./ReceiptReviewFrame";
+import ReceiptReviewFooter from "./ReceiptReviewFooter";
 import { DatePicker } from "./foundation/DatePicker";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { handTitleFocus } from "./bandeja-order";
@@ -139,6 +140,12 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const terminal = terminalRead(detail.attention, detail.error_code);
   const uploadAnother = canAddRecords(chosen) ? actions.create.find((action) => action.id === "upload_receipt") : null;
   if (detail.draft_id && !unprepared) return <ReceiptDossierReview draftId={detail.draft_id} onUnprepared={retainReceipt} receipt={detail} />;
+  const openReceipt = (id: string) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id }); };
+  const position = receiptPlace(receiptId, records.inbox);
+  const moves = !busy && uncertainVersion === null && !FIELDS.some((key) => (detail[key] ?? "") !== draft[key]) ? receiptNavigationActions(receiptId, records.inbox, openReceipt) : {};
+  const place = position ? { ...position, previous: moves.previous, next: moves.next } : null;
+  // Guardar y siguiente moves on the way the keyboard's next does, from the list as it stood before the save.
+  const nextAfterSave = receiptNavigationActions(receiptId, records.inbox, openReceipt).next;
   const frame = (children: React.ReactNode, source: React.ReactNode = <ReceiptSourcePreview detail={detail} />, reading = false, footer?: React.ReactNode) => (
     <ContentFade><ReceiptReviewFrame
       recordId={receiptId}
@@ -146,6 +153,8 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       title={detail.merchant || (confirmed ? t("business.review.saved_title", "Saved expense") : t("business.review.title", "Review receipt"))}
       badge={<StatusPill status={detail.status} label={stateWord(detail) || undefined} />}
       amount={!reading && detail.amount && detail.currency ? formatMoney(detail.amount, detail.currency, locale) : null}
+      origin={{ channel: detail.channel, receivedAt: detail.received_at }}
+      place={place}
       source={source}
       footer={footer}
     >
@@ -227,8 +236,8 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     }
   };
 
-  const save = async () => {
-    if (inFlight.current || busy || uncertainVersion !== null) return;
+  const save = async (): Promise<boolean> => {
+    if (inFlight.current || busy || uncertainVersion !== null) return false;
     inFlight.current = true;
     setBusy("save");
     setProblem(null);
@@ -239,6 +248,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       show(reviewed);
       setUnprepared(false);
       reload();
+      return true;
     } catch (error) {
       const { code, status } = error as { code?: string; status?: number };
       if (moneyProblemFromServer(code, submitted.currency)) setAmountError(code ?? null);
@@ -252,6 +262,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
         const fresh = await source.receipt(detail.id).catch(() => null);
         if (fresh) show(fresh);
       }
+      return false;
     } finally {
       inFlight.current = false;
       setBusy(null);
@@ -317,7 +328,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   return (
     <>
       <ReceiptShortcutRegistration actions={{
-        ...(!busy && uncertainVersion === null && !Object.keys(changedFields()).length ? receiptNavigationActions(receiptId, records.inbox, (id) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id }); }) : {}),
+        ...moves,
         ...(!locked && !busy ? { edit: () => document.querySelector<HTMLElement>('[data-testid="receipt-review-fields"] input:not(:disabled), [data-testid="receipt-review-fields"] select:not(:disabled)')?.focus() } : {}),
       }} />
       {frame(
@@ -504,24 +515,21 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
         </>,
         false,
         // Save is the receipt's one action, pinned at the drawer's foot like the record's Aprobar.
-        !confirmed && canPrepare ? (
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                className={primaryButtonClass}
-                disabled={busy !== null || missing.length > 0 || amountInvalid || dateInvalid || waitingForAi || locked || !Object.keys(changedFields()).length}
-                onClick={() => void save()}
-              >
+        !confirmed && canPrepare ? (() => {
+          const unsaveable = busy !== null || missing.length > 0 || amountInvalid || dateInvalid || waitingForAi || locked || !Object.keys(changedFields()).length;
+          return <ReceiptReviewFooter
+            status={missing.length > 0 ? <span>{t("business.review.missing", "Fill in the details marked Needed to save this expense.")}</span> : null}
+            actions={<>
+              {uncertainVersion !== null ? <button type="button" className={secondaryButtonClass} disabled={busy !== null} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button> : null}
+              <button type="button" className={nextAfterSave ? secondaryButtonClass : primaryButtonClass} disabled={unsaveable} onClick={() => void save()}>
                 {busy === "save" ? t("business.review.confirming", "Saving…") : t("business.dossier.save", "Save review details")}
               </button>
-              {missing.length > 0 ? (
-                <span className="text-[13px] text-black/55 dark:text-white/55">
-                  {t("business.review.missing", "Fill in the details marked Needed to save this expense.")}
-                </span>
-              ) : null}
-              {uncertainVersion !== null ? <button type="button" className={secondaryButtonClass} disabled={busy !== null} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button> : null}
-            </div>
-        ) : undefined,
+              {nextAfterSave ? <button type="button" className={primaryButtonClass} disabled={unsaveable} onClick={() => void save().then((saved) => { if (saved) nextAfterSave(); })}>
+                {t("business.review.save_next", "Save and next")}
+              </button> : null}
+            </>}
+          />;
+        })() : undefined,
       )}
       <ReceiptSeenBoundary receipt={detail} hydrated={detail.activity?.state === "ready" && !incompleteBridge} />
     </>

@@ -27,7 +27,7 @@ const ECF_FIELD: Record<string, FactKey> = { itbis: "itbis", rnc: "rnc", ecf: "e
  */
 export function dossierAttention(
   dossier: Pick<BusinessDossier, "blockers" | "review_state" | "approval_result" | "ecf_checks" | "fiscal_value" | "facts">,
-  rows: readonly FactRow<FactKey>[],
+  rows: readonly FactRow<FactKey | "include_606">[],
   t: T,
 ): AttentionItem[] {
   if (dossier.review_state === "accepted" && dossier.approval_result?.status === "recorded") return [];
@@ -56,8 +56,9 @@ export function dossierAttention(
 
   const named = new Set(items.map((item) => item.field));
   for (const row of rows) {
-    if (row.standing !== "suggestion" || named.has(row.key)) continue;
-    items.push({ key: `suggestion-${row.key}`, field: row.key, kind: "suggestion", text: t("business.dossier.attention.suggestion", "{{field}}: suggestion to confirm", { field: label(row.key) }) });
+    const field = row.key;
+    if (field === "include_606" || row.standing !== "suggestion" || named.has(field)) continue;
+    items.push({ key: `suggestion-${field}`, field, kind: "suggestion", text: t("business.dossier.attention.suggestion", "{{field}}: suggestion to confirm", { field: label(field) }) });
   }
 
   const encf = verification?.encf;

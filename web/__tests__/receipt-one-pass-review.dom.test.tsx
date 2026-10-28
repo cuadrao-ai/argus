@@ -139,27 +139,33 @@ async function fill(page: Awaited<ReturnType<typeof setup>>, selector: string, v
   });
 }
 
+/** The bulk confirm names its one field, or counts several. */
+function confirmLabel(page: { i18n: { t: (key: string) => string }; confirmations: () => object }, count: number, spanish = true): string {
+  if (count === 1) return `${spanish ? "Confirmar" : "Confirm"} ${page.i18n.t(`business.dossier.field.${Object.keys(page.confirmations())[0]}`)}`;
+  return spanish ? `Confirmar ${count} datos leídos` : `Confirm ${count} read details`;
+}
+
 describe("one-pass receipt review", () => {
   test("receipt copy follows the selected language and keeps canonical labels on other surfaces", async () => {
     const page = await setup();
     try {
       const count = Object.keys(page.confirmations()).length;
-      assert.ok(button(page.host, `Confirmar ${count} datos leídos`));
+      assert.ok(button(page.host, confirmLabel(page, count)));
       assert.ok(button(page.host, "Aprobar"));
-      assert.ok(page.host.textContent?.includes("Leído del recibo"));
+      assert.ok(/· (del recibo|del mensaje|sugerida)/.test(page.host.textContent ?? ""));
       assert.ok(page.host.textContent?.includes("Agrega la fecha para aprobar"));
       assert.equal(page.i18n.t("business.dossier.approve"), "Aprobar gasto");
       assert.equal(page.i18n.t("business.dossier.confirm_value"), "Confirmar");
       await page.act(async () => { await page.i18n.changeLanguage("en"); });
-      assert.ok(button(page.host, `Confirm ${count}`));
+      assert.ok(button(page.host, confirmLabel(page, count, false)));
       assert.ok(button(page.host, "Approve expense"));
-      assert.ok(page.host.textContent?.includes("Read from the receipt"));
+      assert.ok(/· (from the receipt|from the message|suggested)/.test(page.host.textContent ?? ""));
       assert.ok(page.host.textContent?.includes("Add the date to approve"));
-      for (const copy of ["Leído del recibo", "Agrega la fecha para aprobar", "datos leídos"]) assert.ok(!page.host.textContent?.includes(copy));
+      for (const copy of ["del recibo", "Agrega la fecha para aprobar", "datos leídos", "Confirmar"]) assert.ok(!page.host.textContent?.includes(copy), copy);
       await page.act(async () => { await page.i18n.changeLanguage("es-419"); });
-      assert.ok(button(page.host, `Confirmar ${count} datos leídos`));
+      assert.ok(button(page.host, confirmLabel(page, count)));
       assert.ok(button(page.host, "Aprobar"));
-      assert.ok(page.host.textContent?.includes("Leído del recibo"));
+      assert.ok(/· (del recibo|del mensaje|sugerida)/.test(page.host.textContent ?? ""));
       assert.ok(page.host.textContent?.includes("Agrega la fecha para aprobar"));
       assert.equal(page.saved.length, 0);
       assert.equal(page.approvals(), 0);
@@ -169,16 +175,16 @@ describe("one-pass receipt review", () => {
   test("confirmation preserves edited and missing values, hides at zero, and never approves", async () => {
     const page = await setup();
     try {
-      assert.equal(page.host.querySelector('[data-testid="receipt-current-facts"] dl > div')?.getAttribute("data-fact"), "occurred_on");
+      assert.equal(page.host.querySelector('[data-testid="receipt-current-facts"] dl > div:not([data-fact="document_type"])')?.getAttribute("data-fact"), "occurred_on", "the date leads the form after Compra or Venta");
       assert.equal(page.host.querySelector<HTMLInputElement>('[placeholder="dd/mm/aaaa"]')?.value, "");
       assert.ok(page.host.textContent?.includes("Agrega la fecha para aprobar"));
-      assert.ok(page.host.textContent?.includes("Leído del recibo"));
+      assert.ok(/· (del recibo|del mensaje|sugerida)/.test(page.host.textContent ?? ""));
       assert.equal(page.host.querySelectorAll(".lucide-sparkles").length, 0);
       await page.act(async () => (page.host.querySelector('[data-fact="amount"] button') as HTMLButtonElement).click());
       assert.equal(document.activeElement, page.host.querySelector('[data-testid="dossier-review-amount"]'));
       await fill(page, '[data-testid="dossier-review-amount"]', "950");
       const count = Object.keys(page.confirmations()).length - 1;
-      await page.act(async () => button(page.host, `Confirmar ${count} datos leídos`).click());
+      await page.act(async () => button(page.host, confirmLabel(page, count)).click());
       assert.ok(page.saved.length === 1);
       assert.equal(Object.hasOwn(page.saved[0] as object, "amount"), false);
       assert.equal(Object.hasOwn(page.saved[0] as object, "occurred_on"), false);
@@ -223,7 +229,8 @@ describe("one-pass receipt review", () => {
       const page = await setup([...capabilities]);
       try {
         assert.equal(page.host.textContent?.includes("Puedes revisar y preparar este recibo. El dueño lo aprueba."), capabilities.length === 2);
-        assert.equal(page.host.querySelector('[data-testid="receipt-review-footer"]'), null);
+        // The footer keeps Más; it offers no approval.
+        assert.ok(![...page.host.querySelectorAll('[data-testid="receipt-review-footer"] button')].some((item) => item.textContent?.startsWith("Aprobar")));
         if (capabilities.length === 1) {
           assert.equal(page.host.querySelector('[data-fact="amount"] button'), null);
           assert.equal(page.host.querySelector<HTMLInputElement>('[placeholder="dd/mm/aaaa"]')?.value, "");

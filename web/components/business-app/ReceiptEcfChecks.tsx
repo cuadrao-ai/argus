@@ -1,10 +1,11 @@
 "use client";
 
-import { AlertCircle, CheckCircle2, CircleDashed, ExternalLink } from "lucide-react";
+import { useState } from "react";
+import { AlertCircle, CheckCircle2, ChevronDown, CircleDashed, ExternalLink } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { DgiiQr, EcfCheck, EcfVerification } from "@/lib/business-dossier";
 import { formatRelativeTime } from "./business-format";
-import { secondaryButtonClass } from "./business-ui";
+import { quietButtonClass, secondaryButtonClass } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { resolveLanguage } from "@/lib/language-features";
 
@@ -159,8 +160,14 @@ const STATE_STYLE: Record<RowState, { Icon: typeof CheckCircle2; className: stri
   not_checked: { Icon: CircleDashed, className: "text-[#56635e] dark:text-white/70" },
 };
 
+/**
+ * One summary row, "Factura electrónica · N de M bien", with what failed listed
+ * open under it. The rest, the DGII link and what the file proves wait behind
+ * "Ver las M comprobaciones". When it was checked is said once.
+ */
 export default function ReceiptEcfChecks({ verification, qr = null }: { verification: EcfVerification | null | undefined; qr?: DgiiQr | null }) {
   const { t, i18n } = useTranslation();
+  const [open, setOpen] = useState(false);
   if (!verification) return null;
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const typeLabel = verification.tipo_ecf ? t(`business.dossier.ecf_type_${verification.tipo_ecf}`, "") : "";
@@ -172,36 +179,48 @@ export default function ReceiptEcfChecks({ verification, qr = null }: { verifica
   const when = formatRelativeTime(verification.checked_at ?? null, locale);
   const checkedAt = when ? t("business.dossier.ecf_checked_ago", "checked {{when}}", { when }) : "";
   const link = dgiiLink(qr?.url);
+  const rows = ecfRows(verification, t);
+  const ok = rows.filter((row) => row.state === "verified").length;
   return (
-    <section className={SURFACE_CARD} aria-labelledby="receipt-ecf-checks-title" data-testid="receipt-ecf-checks">
-      <h3 id="receipt-ecf-checks-title" className="text-[14px] font-medium text-black dark:text-white">{t("business.dossier.ecf_title", "Electronic invoice verification")}</h3>
-      {document ? <p className="mt-1 text-[13px] text-black/60 dark:text-white/60">{document}</p> : null}
-      <ul className="mt-4 divide-y divide-black/[0.05] dark:divide-white/[0.05]">
-        {ecfRows(verification, t).map((row) => {
+    <section className={SURFACE_CARD} aria-labelledby="receipt-ecf-checks-title" data-testid="receipt-ecf-checks" data-open={open ? "true" : undefined}>
+      <button type="button" aria-expanded={open} aria-controls="receipt-ecf-checks-rest" onClick={() => setOpen((value) => !value)} className="-m-2 flex w-[calc(100%+1rem)] items-center justify-between gap-3 rounded-item p-2 text-left hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.05]">
+        <span className="min-w-0">
+          <span className="block text-[14px] font-medium text-black dark:text-white"><span id="receipt-ecf-checks-title">{t("business.dossier.ecf_title", "Electronic invoice")}</span> · <span data-testid="receipt-ecf-summary">{t("business.dossier.ecf_summary", { ok, total: rows.length, defaultValue: "{{ok}} of {{total}} fine" })}</span></span>
+          <span className="block text-[13px] text-black/60 dark:text-white/60">{[document, checkedAt].filter(Boolean).join(" · ")}</span>
+        </span>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-[#56635e] transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`} aria-hidden="true" />
+      </button>
+      <ul className="mt-3 divide-y divide-black/[0.05] empty:hidden dark:divide-white/[0.05]">
+        {rows.map((row) => {
           const { Icon, className } = STATE_STYLE[row.state];
+          // What failed stays in view; the rest wait behind the toggle.
           return (
-            <li key={row.key} data-row={row.key} data-state={row.state} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+            <li key={row.key} data-row={row.key} data-state={row.state} hidden={!open && row.state !== "failed"} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
               <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${className}`} aria-hidden="true" />
               <span className="min-w-0 flex-1">
                 <span className="block text-[14px] font-medium text-black dark:text-white">{row.title}</span>
                 <span className={`block text-[13px] ${className}`}>{row.caption}</span>
                 {row.notes?.length ? <span className="block text-[13px] text-black/55 dark:text-white/55">{row.notes.join(" ")}</span> : null}
-                {checkedAt ? <span className="block text-[12px] text-[#56635e] dark:text-white/70">{checkedAt}</span> : null}
               </span>
             </li>
           );
         })}
       </ul>
-      {link ? (
-        <div className="mt-4">
-          <a href={link} target="_blank" rel="noopener noreferrer" data-testid="receipt-dgii-verify" className={secondaryButtonClass}>
-            <ExternalLink className="h-4 w-4" aria-hidden="true" />
-            {t("business.dossier.ecf_qr_verify", "Check on DGII")}
-          </a>
-          <p className="mt-2 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.ecf_qr_verify_note", "Opens DGII's official consultation page in a new tab. Cuadrao sends nothing.")}</p>
-        </div>
+      {!open ? (
+        <button type="button" onClick={() => setOpen(true)} className={`${quietButtonClass} mt-1 text-[14px]`}>{t("business.dossier.ecf_see_all", { count: rows.length, defaultValue: "See all {{count}} checks" })}</button>
       ) : null}
-      <p className="mt-4 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.ecf_note", "What the file proves by itself. Nothing here confirms DGII accepted the invoice; a row marked Review does not block approval.")}</p>
+      <div id="receipt-ecf-checks-rest" hidden={!open}>
+        {link ? (
+          <div className="mt-4">
+            <a href={link} target="_blank" rel="noopener noreferrer" data-testid="receipt-dgii-verify" className={secondaryButtonClass}>
+              <ExternalLink className="h-4 w-4" aria-hidden="true" />
+              {t("business.dossier.ecf_qr_verify", "Check on DGII")}
+            </a>
+            <p className="mt-2 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.ecf_qr_verify_note", "Opens DGII's official consultation page in a new tab. Cuadrao sends nothing.")}</p>
+          </div>
+        ) : null}
+        <p className="mt-4 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.ecf_note", "What the file proves by itself. Nothing here confirms DGII accepted the invoice; a row marked Review does not block approval.")}</p>
+      </div>
     </section>
   );
 }

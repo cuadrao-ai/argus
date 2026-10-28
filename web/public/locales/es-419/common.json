@@ -2741,6 +2741,8 @@
       "not_verified": "Sin verificar",
       "needs_resolution": "Necesita una decisión antes de aprobar",
       "messages": "Mensajes originales",
+      "messages_title_one": "Mensaje original",
+      "messages_title_other": "Mensajes originales",
       "proposals": "Propuestas del agente",
       "fiscal_details": "Datos fiscales",
       "web_actions": "Revisiones en la web",
@@ -2791,8 +2793,11 @@
       "read_from_receipt": "Leído del recibo",
       "recorded": "Se registró un gasto tras aprobar la revisión {{version}}.",
       "correction_unsupported": "Las correcciones después del registro no están disponibles en este primer flujo.",
-      "ecf_title": "Verificación de la factura electrónica",
+      "ecf_title": "Factura electrónica",
       "ecf_note": "Lo que el archivo demuestra por sí mismo. Nada aquí confirma que la DGII aceptó la factura; una fila con «Revisar» no impide aprobar.",
+      "ecf_see_all_one": "Ver la {{count}} comprobación",
+      "ecf_see_all_other": "Ver las {{count}} comprobaciones",
+      "ecf_summary": "{{ok}} de {{total}} bien",
       "ecf_document": "e-CF {{encf}} · tipo {{tipo}}, {{label}}",
       "ecf_document_untyped": "e-CF {{encf}} · tipo {{tipo}}",
       "ecf_type_31": "crédito fiscal",
@@ -2875,7 +2880,7 @@
         "category_id": "Categoría",
         "funding": "Cómo se pagó",
         "business_share": "Parte del negocio",
-        "receipt_state": "Recibo",
+        "receipt_state": "Comprobante",
         "rnc": "RNC",
         "ncf": "NCF",
         "ecf": "e-CF",
@@ -2888,7 +2893,8 @@
         "missing": "Falta"
       },
       "confirm_value": "Confirmar",
-      "confirm_read": "Confirmar {{count}} datos leídos",
+      "confirm_read_one": "Confirmar {{field}}",
+      "confirm_read_other": "Confirmar {{count}} datos leídos",
       "suggestions_pending_one": "{{count}} sugerencia por confirmar",
       "suggestions_pending_other": "{{count}} sugerencias por confirmar",
       "missing_pending_one": "Falta {{count}} dato",
@@ -2902,12 +2908,29 @@
         "member_set": "Indicado por el revisor · sin verificar",
         "matched": "Vinculado a la fuente · sin verificar"
       },
+      "origin_tag": {
+        "from_message": "del mensaje",
+        "from_receipt": "del recibo",
+        "matched": "vinculada a la fuente",
+        "member_set": "del revisor",
+        "owner_stated": "del dueño",
+        "qr_decoded": "del código QR",
+        "suggested": "sugerida"
+      },
+      "place": "{{index}} de {{total}}",
       "receipt": {
         "fiscal_receipt": "Con NCF o e-CF",
         "informal_receipt": "Recibo sin NCF",
         "no_receipt": "Sin recibo"
       },
       "receipt_hint": "Los dos últimos quedan fuera del 606 y 607.",
+      "section": {
+        "fiscal": "Fiscal",
+        "payment": "Pago"
+      },
+      "tab_form": "Formulario",
+      "tab_original": "Original",
+      "view_label": "Vista",
       "share": {
         "all": "Todo para el negocio",
         "none": "Solo personal",
@@ -4138,6 +4161,7 @@
       "saved_waiting": "Guardado, sin leer.",
       "retry": "Reintentar con IA",
       "retry_consent": "Si reintentas, el recibo se envía a nuestro proveedor de IA.",
+      "save_next": "Guardar y siguiente",
       "saved_body": "Guardado como un gasto de {{amount}}.",
       "saved_title": "Gasto guardado",
       "source": "Recibo original",

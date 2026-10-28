@@ -38,7 +38,7 @@ describe("the electronic invoice verification card", () => {
     const dossier = await fixture.dossier(dossierFixtureIds.fiscal);
     const verification = { ...dossier.ecf_checks!, checked_at: BASE.checked_at };
     const html = await render(verification, "es-419");
-    assert.ok(html.includes("Verificación de la factura electrónica"));
+    assert.ok(html.includes("Factura electrónica") && html.includes("4 de 6 bien"), "one summary row names what passed");
     assert.ok(html.includes("e-CF E310000000777 · tipo 31, crédito fiscal"));
     assert.equal((html.match(/<li /g) ?? []).length, 6);
     assert.ok(html.includes("Contenido sin cambios desde la firma"));
@@ -124,7 +124,7 @@ describe("the electronic invoice verification card", () => {
     const fixture = createDossierFixtures([{ id: "scoped-account", nickname: "Client cash", type: "cash", currency: "DOP" }]);
     const dossier = await fixture.dossier(dossierFixtureIds.fiscal);
     const html = await render(dossier.ecf_checks, "en");
-    assert.ok(html.includes("Electronic invoice verification"));
+    assert.ok(html.includes("Electronic invoice"));
     assert.ok(html.includes("Content unchanged since it was signed"));
     assert.ok(html.includes("Valid on the date the document declares (09-10-2026 14:05:00); valid today. Revocation not checked."));
     assert.ok(html.includes("RNC; that does not prove its identity."));

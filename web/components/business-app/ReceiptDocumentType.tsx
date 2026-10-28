@@ -6,6 +6,7 @@ import type { BusinessDossier } from "@/lib/business-dossier";
 import { randomId } from "@/lib/random-id";
 import { useBusiness } from "./BusinessWorkspace";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { FACT_LABEL_CLASS, FACT_ROW_CLASS } from "./ReceiptRecordFacts";
 
 type DocumentType = NonNullable<BusinessDossier["document_type"]>;
 
@@ -49,9 +50,9 @@ export default function ReceiptDocumentType({ dossier, busy = false, onChanged }
     : null;
 
   return (
-    <div data-testid="receipt-document-type" data-type={current} data-detected={dossier.document_type_detected ? "true" : undefined}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[14px] text-[#56635e] dark:text-white/70">{t("business.dossier.type_label", "Type")}</p>
+    <div data-testid="receipt-document-type" data-fact="document_type" data-type={current} data-detected={dossier.document_type_detected ? "true" : undefined} className={FACT_ROW_CLASS}>
+      <dt className={FACT_LABEL_CLASS}>{t("business.dossier.type_label", "Type")}</dt>
+      <dd className="min-w-0 py-1">
         {dossier.document_type_editable ? (
           <SegmentedControl
             testId="receipt-document-type-control"
@@ -62,11 +63,11 @@ export default function ReceiptDocumentType({ dossier, busy = false, onChanged }
             onChange={(next) => void change(next)}
           />
         ) : (
-          <p className="text-[15px] font-medium text-[#172b26] dark:text-white">{label(current)}</p>
+          <p className="py-[3px] text-[15px] leading-[22px] text-[#172b26] dark:text-white">{label(current)}</p>
         )}
-      </div>
-      {note ? <p className="mt-1 text-[13px] text-[#56635e] dark:text-white/70">{note}</p> : null}
-      {problem ? <p role="alert" className="mt-1 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{problem}</p> : null}
+        {note ? <p className="mt-1 text-[13px] text-[#56635e] dark:text-white/70">{note}</p> : null}
+        {problem ? <p role="alert" className="mt-1 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{problem}</p> : null}
+      </dd>
     </div>
   );
 }

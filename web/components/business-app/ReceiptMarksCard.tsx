@@ -17,7 +17,7 @@ import { Switch } from "@/components/ui/Switch";
  * answers whether a personal receipt with a fiscal number goes into the 606,
  * when the server says the caller may. The owner reads that answer; the app never gives it.
  */
-export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: { dossier: BusinessDossier; busy?: boolean; onChanged: (next: BusinessDossier) => void }) {
+export default function ReceiptMarksCard({ dossier, busy = false, onChanged, bare = false }: { dossier: BusinessDossier; busy?: boolean; onChanged: (next: BusinessDossier) => void; /** Inside a surface that is already a panel, such as the footer's Más. */ bare?: boolean }) {
   const { t } = useTranslation();
   const { source, chosen, reload } = useBusiness();
   const [working, setWorking] = useState(false);
@@ -69,12 +69,12 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
   };
 
   return (
-    <div className={SURFACE_CARD} data-testid="receipt-marks-card">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className={bare ? "" : SURFACE_CARD} data-testid="receipt-marks-card">
+      <div className="flex flex-wrap items-center justify-between gap-3 empty:hidden">
         <RecordMarks personal={personal} fiscal={recordFiscalMark(dossier)} markedBy={markedBy} />
       </div>
       {canPrepare ? (
-        <div className="mt-4 flex items-center justify-between gap-4 border-t border-[#DCE0DA] pt-4 dark:border-white/10">
+        <div className={`flex items-center justify-between gap-4 ${bare ? "" : "mt-4 border-t border-[#DCE0DA] pt-4 dark:border-white/10"}`}>
           <span className="min-w-0">
             <span className="block text-[15px] font-medium text-[#172b26] dark:text-white">{t("business.marks.mark_personal", "Personal")}</span>
             <span className="block text-[13px] text-[#56635e] dark:text-white/70">{t("business.marks.personal_help", "It does not count in the Business totals.")}</span>

@@ -185,15 +185,17 @@ async function mount({ strict = false, role = "owner", refuse = null, unrecorded
 }
 
 describe("Aprobar y siguiente on the receipt review page", () => {
-  test("the owner sees green Aprobar as the primary action, with Aprobar y siguiente beside it", async () => {
+  test("the owner sees green Aprobar y siguiente as the primary action, with Aprobar beside it and its keys named", async () => {
     const page = await mount();
     await page.open("rcpt-uno");
     const next = page.button("Aprobar y siguiente");
     const plain = page.button("Aprobar");
     assert.ok(next, "Aprobar y siguiente is shown");
     assert.ok(plain, "Aprobar stays");
-    assert.ok(next.className.includes("border"), "Aprobar y siguiente is the secondary button");
-    assert.ok(plain.className.includes("bg-[var(--cuadrao-green)]"), "Aprobar is the green primary button");
+    // The approved footer design: Aprobar y siguiente is the primary, with its keyboard hint.
+    assert.ok(next.className.includes("bg-[var(--cuadrao-green)]"), "Aprobar y siguiente is the green primary button");
+    assert.ok(plain.className.includes("border"), "Aprobar is the secondary button");
+    assert.match(next.getAttribute("data-keys") ?? "", /↵/);
     await page.act(async () => page.root.unmount());
   });
 

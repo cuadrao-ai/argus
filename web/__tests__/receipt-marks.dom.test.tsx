@@ -274,7 +274,7 @@ describe("the review page's fiscal details", () => {
     const { default: ReceiptRecordFacts } = await import("@/components/business-app/ReceiptRecordFacts");
     const unknown = { state: "unknown", value: null, origin: null, verified: false, source_ids: [] };
     const ncf = fiscal && (fiscal as { ncf?: { state?: string } }).ncf?.state === "known";
-    const d = { draft_id: "d-1", version: 1, capabilities: ["read"], blockers: [], questions: [], history: [], fiscal_known: true, fiscal_value: ncf ? "ncf" : null, facts: { kind: unknown, amount: unknown, currency: unknown, occurred_on: unknown, counterparty: unknown, funding: unknown, business_share: unknown, receipt_state: unknown, category_id: unknown, fiscal } } as unknown as BusinessDossier;
+    const d = { draft_id: "d-1", version: 1, capabilities: ["read"], blockers: [], questions: [], history: [], sources: [], fiscal_known: true, fiscal_value: ncf ? "ncf" : null, facts: { kind: unknown, amount: unknown, currency: unknown, occurred_on: unknown, counterparty: unknown, funding: unknown, business_share: unknown, receipt_state: unknown, category_id: unknown, fiscal } } as unknown as BusinessDossier;
     await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><ReceiptRecordFacts dossier={d} accounts={[]} /></env.I18nextProvider>); });
     return env;
   }
@@ -301,7 +301,9 @@ describe("the review page's fiscal details", () => {
     await english.act(async () => english.root.unmount());
     const withNcf = await facts({ rnc: unknown, ncf: { state: "known", value: "B0100000001", origin: "extracted", verified: false, source_ids: ["s"] }, ecf: unknown, itbis: unknown });
     assert.equal(withNcf.host.querySelector('[data-fact="fiscal_number"]'), null);
-    assert.equal(withNcf.host.querySelector('[data-fact="ncf"] dd')?.textContent, "B0100000001");
+    // The read number carries its origin tag after the value.
+    assert.ok(withNcf.host.querySelector('[data-fact="ncf"] dd')?.textContent?.startsWith("B0100000001"));
+    assert.ok(withNcf.host.querySelector('[data-fact="ncf"] dd [data-origin="extracted"]'));
     await withNcf.act(async () => withNcf.root.unmount());
   });
 });
