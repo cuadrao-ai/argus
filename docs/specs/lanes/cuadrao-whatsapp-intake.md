@@ -9,7 +9,9 @@ boundary decision (`cuadrao-business-boundary-proposal.md`, not approved).
 
 A linked owner sends a receipt photo (JPEG, PNG) or PDF to the Cuadrao WhatsApp
 number. Cuadrao saves it as a document draft with `consent: false` and replies
-with a signed-in review link, `/biz?receipt=<id>`. Correction, "Prepare with
+with a signed-in review link, `/biz?receipt=<id>`. With receipt reading on and
+inline preparation, the acknowledgement says the receipt is being read and has
+no link; the one follow-up carries it. Correction, "Prepare with
 AI" and approval happen only on the web. WhatsApp never queues AI preparation.
 
 **October 10, 2026:** the [Business agent execution spec](cuadrao-business-agent-execution-spec.md)
@@ -95,7 +97,8 @@ it with Ctrl-C and delete the callback URL in the Meta dashboard.
 3. Send the same photo again. Proof: no second draft.
 4. Turn outbound on and restart. Send a second synthetic receipt. Proof: the
    phone receives the acknowledgement with the review link, and the link opens
-   the draft only when signed in as you.
+   the draft only when signed in as you. With receipt reading on and inline
+   preparation, the acknowledgement has no link and the follow-up carries it.
 5. `DELETE /api/v1/whatsapp/link`, then send a photo. Proof: no capture and a
    "connect from the web app" reply.
 6. Stop the tunnel. Remove the callback URL. Logs never hold a phone number,
@@ -140,3 +143,7 @@ The founder chose separate Personal and Business spaces on October 8
 - The reply language is the sender link's `reply_language`, set from the web
   language when the person created the link code.
 - The founder approved the reply copy in `whatsapp/replies.py` on October 8, 2026.
+- Founder decision, October 28, 2026: when the receipt is read inline right after
+  the acknowledgement, the acknowledgement drops the link. Approved copy:
+  "Recibido. Lo estoy leyendo." and "Received. I'm reading it." The follow-up
+  carries the review link.

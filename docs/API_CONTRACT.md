@@ -9086,7 +9086,11 @@ Changing the words an owner was shown asks for consent again. With the
 Business receipt-reading setting off, a received receipt is saved unread, and
 `POST /api/v1/business/receipts/{id}/prepare` returns 422
 `business_receipt_reading_off` instead of queueing it. With it on, the receipt is
-read after the acknowledgement. The setting is checked again just before the
+read after the acknowledgement. When the receipt will be read inline right after
+the acknowledgement, the acknowledgement says it is being read ("Recibido. Lo
+estoy leyendo.", "Received. I'm reading it.") and carries no link; the one
+follow-up carries the review link. Every other acknowledgement keeps the review
+link: reading off, or document jobs on. The setting is checked again just before the
 provider call, whoever asks for the read; the only window left is the commit and
 the request start. One
 follow-up message tells the sender what was read, only inside the 24 hour
