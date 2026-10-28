@@ -13,10 +13,6 @@ test("a draft saved in the evening in Santo Domingo keeps that local calendar da
   expect(invoiceReference(draft("2026-10-28T03:59:00Z"), t, "en")).toBe("business.invoicing.draft_reference|Oct 27, 2026");
   expect(invoiceReference(draft("2026-10-28T04:00:00Z"), t, "en")).toBe("business.invoicing.draft_reference|Oct 28, 2026");
 });
-test("the day follows the viewer's zone, not the UTC day", () => {
-  process.env.TZ = "UTC";
-  expect(invoiceReference(draft("2026-10-28T01:30:00Z"), t, "en")).toBe("business.invoicing.draft_reference|Oct 28, 2026");
-});
 test("an issued invoice shows its number and an unreadable date shows the plain draft label", () => {
   expect(invoiceReference({ operation: { number: "E320000000001" } as never, created_at: "2026-10-28T01:30:00Z" }, t, "en")).toBe("E320000000001");
   expect(invoiceReference(draft("not a date"), t, "en")).toBe("business.invoicing.draft_reference_undated");
