@@ -36,7 +36,7 @@ export function businessReportRow(report: ReportRecord): RecordRow {
     kind: report.family === "sale" ? "venta" : "gasto", occurredOn: report.report_date ?? "", counterparty: report.counterparty,
     money: { amount: report.gross_amount ?? "", currency: report.currency ?? "" }, categoryId: report.category_key === "uncategorized" ? null : report.category_key,
     account: report.funding_kind === "checking" || report.funding_kind === "savings" ? { kind: "bank", name: report.funding_label } : report.funding_kind === "credit_card" ? { kind: "card", name: report.funding_label } : report.funding_kind === "cash" ? { kind: "cash", name: report.funding_label } : null,
-    hasProof: report.has_document, marks: { personal: false, markedBy: null, fiscal: null },
+    hasProof: report.has_document, marks: { personal: report.personal ?? false, markedBy: null, fiscal: null },
     opens: report.draft_id ? { kind: "draft", draftId: report.draft_id, list: "transactions" } : activityId ? { kind: "expense", expenseId: activityId } : null,
   };
 }

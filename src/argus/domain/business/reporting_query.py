@@ -182,6 +182,7 @@ class ReportRecord(Contract):
     funding_label: str | None = None
     funding_kind: str | None = None
     has_document: bool = False
+    personal: bool = False
     document_kind: DocumentKind = "unknown"
     fiscal_classification: str = "unknown"
     fiscal_number: str | None = None
@@ -327,6 +328,7 @@ def _matches(row: ReportRecord, filters: ReportFilters, period: ResolvedPeriod) 
 def _totals(
     rows: tuple[ReportRecord, ...], identity: ReportIdentity, observed_at: datetime
 ) -> tuple[Total, ...]:
+    rows = tuple(row for row in rows if not row.personal)
     result = []
     for basis, field in (
         ("recorded_activity_amount", "recorded_amount"),

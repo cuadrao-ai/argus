@@ -61,7 +61,7 @@ export const reportRecordSchema = z.object({
   recorded_amount: decimal.nullable(), recorded_currency: z.string().nullable(), proposed_amount: decimal.nullable(), money_kind: z.string(),
   money_effect: effect, adjustment_effect: effect.nullable(), counterparty: z.string().nullable(), counterparty_key: z.string().nullable(),
   category_key: z.string(), funding_key: z.string().nullable(), funding_label: z.string().nullable(), funding_kind: z.string().nullable(),
-  has_document: z.boolean(), document_kind: documentKind, fiscal_classification: z.string(), fiscal_number: z.string().nullable(),
+  has_document: z.boolean(), personal: z.boolean().optional(), document_kind: documentKind, fiscal_classification: z.string(), fiscal_number: z.string().nullable(),
   note: z.string().nullable(), settlement_status: z.string().nullable(), dependency_fingerprint: z.string(),
   can_edit_note: z.boolean().optional(), can_append_supporting: z.boolean().optional(), annotation_unavailable_reason: z.string().nullable().optional(), attachment_sources: z.array(reportAttachmentSourceSchema).optional(),
 });

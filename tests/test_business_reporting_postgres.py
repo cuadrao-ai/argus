@@ -533,3 +533,20 @@ def test_document_issue_and_gross_survive_different_current_money_date_and_amoun
         ).amount
         == "25.00"
     )
+
+
+def record_personal_expense(service, context):
+    draft = shared.ready(service, context)
+    version = service.dossier(context, draft).version
+    marked = service.mark_personal(
+        context, draft, MarkPersonal(version=version, personal=True), str(uuid4())
+    )
+    assert marked.outcome == "applied", marked
+    outcome = service.approve(
+        context,
+        draft,
+        ApproveExpense(version=version + 1, action="record_expense"),
+        str(uuid4()),
+    )
+    assert outcome.outcome == "applied", outcome
+    return draft, str(outcome.activity_id)
