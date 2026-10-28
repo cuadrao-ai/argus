@@ -130,6 +130,14 @@ describe("spanish status copy", () => {
       }),
       "es-419",
     );
+    const malformedInvite = await render(
+      createElement(AuthLinkErrorScreen, {
+        homeHref: "/chat",
+        reference: "c0ffee0055",
+        view: { problem: "malformed", kind: "invite" },
+      }),
+      "es-419",
+    );
 
     assert.equal(missing.querySelector("h1")?.textContent, "No encontramos esta página.");
     assert.equal(missing.querySelector("p")?.textContent, "Puede que el enlace esté viejo o mal copiado.");
@@ -146,9 +154,17 @@ describe("spanish status copy", () => {
     assert.equal(malformed.querySelector("a")?.textContent, "Pedir un enlace nuevo");
     assert.equal(malformed.querySelector('[data-testid="error-reference"]')?.getAttribute("title"), "c0ffee0033");
     assert.equal(rejected.querySelector("h1")?.textContent, "Este enlace no funcionó");
-    assert.equal(rejected.querySelector("p")?.textContent, "No pudimos verificar este enlace. Pide uno nuevo e inténtalo otra vez.");
+    assert.equal(rejected.querySelector("h1")?.textContent, "Este enlace no funcionó");
+    assert.equal(rejected.querySelector("p")?.textContent, "Pide a quien te invitó que te envíe otra invitación.");
     assert.equal(rejected.querySelector("a")?.textContent, "Ir a Cuadrao");
-    for (const host of [missing, expired, invite, malformed, rejected]) {
+    assert.equal(malformedInvite.querySelector("p")?.textContent, "Pide a quien te invitó que te envíe otra invitación.");
+    assert.equal(malformedInvite.querySelector("a")?.textContent, "Ir a Cuadrao");
+    for (const host of [rejected, malformedInvite]) {
+      assert.equal(host.textContent?.includes("Pide uno nuevo"), false);
+      assert.equal(host.textContent?.includes("pide uno nuevo"), false);
+      assert.equal(host.querySelectorAll("a").length, 1);
+    }
+    for (const host of [missing, expired, invite, malformed, rejected, malformedInvite]) {
       assert.equal(host.textContent?.includes("\u2014"), false);
       assert.equal(host.textContent?.includes("This page could not be found"), false);
     }

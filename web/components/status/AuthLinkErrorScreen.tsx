@@ -23,12 +23,12 @@ export function AuthLinkErrorScreen({
   const title = expired
     ? t("auth.screen.link_expired_title", "This link expired or was already used.")
     : t("auth.confirm.error_title", "This link didn’t work");
-  const detail = view.problem === "malformed"
-    ? t("auth.confirm.malformed_body", "The link is missing a part or was copied wrong. Open it from the email or request a new one.")
-    : view.problem === "rejected"
-      ? t("auth.confirm.rejected_body", "We could not verify this link. Request a new one and try again.")
-      : view.kind === "invite"
-        ? t("auth.screen.invite_line", "Ask the person who invited you to send another invitation.")
+  const detail = view.kind === "invite"
+    ? t("auth.screen.invite_line", "Ask the person who invited you to send another invitation.")
+    : view.problem === "malformed"
+      ? t("auth.confirm.malformed_body", "The link is missing a part or was copied wrong. Open it from the email or request a new one.")
+      : view.problem === "rejected"
+        ? t("auth.confirm.rejected_body", "We could not verify this link. Request a new one and try again.")
         : undefined;
   const code = <ReferenceCode reference={reference} />;
 
