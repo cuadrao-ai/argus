@@ -186,6 +186,7 @@
 .detailContext { padding-bottom:20px; border-bottom:1px solid var(--line); }
 .detailContext dl { display:grid; grid-template-columns:96px minmax(0,1fr); gap:12px 16px; font-size:14px; line-height:20px; }
 .detailContext dt { color:var(--muted); }
+.channelValue { display:inline-flex; align-items:center; gap:6px; }
 .detailContext dd { margin:0; overflow-wrap:anywhere; }
 .detailOriginal { min-width:0; }
 .detailText blockquote { margin:0; border-left:2px solid var(--line); padding-left:14px; font-size:15px; line-height:24px; white-space:pre-wrap; overflow-wrap:anywhere; }

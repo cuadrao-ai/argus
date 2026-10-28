@@ -9,6 +9,7 @@ import { EmailDeliveryDetail } from "../BusinessEmailDeliveries";
 import ReceiptSourcePreview from "../ReceiptSourcePreview";
 import { formatTimestamp, formatMoney } from "../business-format";
 import { primaryButtonClass } from "../business-ui";
+import { SOURCE_ICONS } from "./ReceptionArrivalRow";
 import { receptionAction, receptionDocumentTitle, receptionSender, type ReceptionRow } from "./reception-model";
 import ReceptionStatus from "./ReceptionStatus";
 import styles from "./reception.module.css";
@@ -71,7 +72,7 @@ export default function ReceptionDossier({ live, row, onClose, onNavigate, retur
         <section aria-label={word("arrival_context")} className={styles.detailContext}>
           <h3>{word("arrival_context")}</h3>
           <dl>
-            <dt>{word("source")}</dt><dd>{word(`source_${row.source}`)}</dd>
+            <dt>{word("source")}</dt><dd>{(() => { const Icon = SOURCE_ICONS[row.source as keyof typeof SOURCE_ICONS]; return <span className={styles.channelValue}>{Icon ? <Icon size={16} aria-hidden="true" /> : null}{word(`source_${row.source}`)}</span>; })()}</dd>
             <dt>{word("sender")}</dt><dd data-testid="reception-detail-sender">{sender || t("business.email.no_sender")}</dd>
             <dt>{word("arrival")}</dt><dd><time dateTime={row.receivedAt}>{formatTimestamp(row.receivedAt, locale)}</time></dd>
             {row.kind === "message" || row.kind === "note" ? <><dt>{word("file")}</dt><dd>{word("without_file")}</dd></> : null}
