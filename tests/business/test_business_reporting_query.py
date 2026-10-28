@@ -4,6 +4,7 @@ from decimal import Decimal
 import pytest
 from argus.domain.business.reporting import ReportIdentity
 from argus.domain.business.reporting_query import (
+    ExcludedPersonal,
     ReportFilters,
     ReportRecord,
     ReportRequest,
@@ -165,10 +166,12 @@ def test_a_personal_row_counts_only_as_a_purchase_the_accountant_put_in_the_606(
             include_606=True,
         ),
     ]
-    buckets = {(item.kind, item.basis): item for item in run(rows).totals}
+    result = run(rows)
+    buckets = {(item.kind, item.basis): item for item in result.totals}
     assert buckets["expense", "recorded_activity_amount"].known_amount_minor == 4500
     assert buckets["expense", "recorded_activity_amount"].matching_count == 2
     assert ("income", "recorded_activity_amount") not in buckets
+    assert result.excluded_personal == ExcludedPersonal(income=1, expense=1)
 
 
 def test_duplicate_public_anchor_and_effect_are_refused():

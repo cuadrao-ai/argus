@@ -10619,6 +10619,9 @@ accept path recorded.
   attachment availability does not switch date basis. Missing dates remain null, never capture/approval/payment dates.
   They match `all`; bounded periods exclude them. `excluded_unknown_dates` counts
   those matching the other active filters before applying the date condition.
+  `excluded_personal` counts the matching rows the Personal mark keeps out of
+  every total, as `income` (sales) and `expense` (purchases), so a card can say
+  how many personal records its total leaves out.
   `all` has no time cap. A snapshot over 10,000 source rows refuses explicitly
   with `business_report_too_large`; it never clips. `amount_min`/`amount_max`
   require exactly one selected currency and exact nonnegative decimal strings,

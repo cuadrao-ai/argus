@@ -36,6 +36,14 @@ test("an incomplete total keeps its null amount and carries the labelled known p
   assert.deepEqual(sales.at(-1), { currency: "", total: null, known: null, settled: null, balance: null });
 });
 
+test("the personal exclusion count is the server's, per family, and zero when the server sends none", () => {
+  const counted = reportAnswerSchema.parse({ ...wire, excluded_personal: { income: 1, expense: 2 } });
+  assert.equal(reportSummary(counted, "venta").exclusions.personal, 1);
+  assert.equal(reportSummary(counted, "gasto").exclusions.personal, 2);
+  assert.equal(reportSummary(wire, "gasto").exclusions.personal, 0);
+  assert.equal(reportSummary(undefined, "gasto").exclusions.personal, 0);
+});
+
 test("settled and balance are never filled and a missing answer is empty rather than zero", () => {
   assert.equal(reportSummary(wire, "venta").currencies.every((currency) => currency.settled === null && currency.balance === null), true);
   assert.deepEqual(reportSummary(undefined, "venta").currencies, []);

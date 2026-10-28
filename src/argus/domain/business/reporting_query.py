@@ -232,6 +232,14 @@ class ReportOverview(Contract):
     ready_for_export: int = 0
 
 
+class ExcludedPersonal(Contract):
+    """Matching rows the Personal mark keeps out of every total, counted by
+    the family the cards group on (a sale is income, a purchase expense)."""
+
+    income: int = 0
+    expense: int = 0
+
+
 class ReportAnswer(Contract):
     items: tuple[ReportRecord, ...]
     overview: ReportOverview = ReportOverview()
@@ -246,6 +254,7 @@ class ReportAnswer(Contract):
     captured_at: datetime
     resolved_period: ResolvedPeriod
     excluded_unknown_dates: int
+    excluded_personal: ExcludedPersonal = ExcludedPersonal()
     counterparties: tuple[FilterOption, ...]
     categories: tuple[str, ...]
     funding_sources: tuple[FundingOption, ...]
@@ -327,16 +336,16 @@ def _matches(row: ReportRecord, filters: ReportFilters, period: ResolvedPeriod) 
     return True
 
 
+def _admitted(row: ReportRecord) -> bool:
+    return personal_mark_admits(
+        row.personal, row.include_606, sale=row.money_kind == "income"
+    )
+
+
 def _totals(
     rows: tuple[ReportRecord, ...], identity: ReportIdentity, observed_at: datetime
 ) -> tuple[Total, ...]:
-    rows = tuple(
-        row
-        for row in rows
-        if personal_mark_admits(
-            row.personal, row.include_606, sale=row.money_kind == "income"
-        )
-    )
+    rows = tuple(filter(_admitted, rows))
     result = []
     for basis, field in (
         ("recorded_activity_amount", "recorded_amount"),
@@ -586,7 +595,12 @@ def run_query(
         }
     )
     chosen_sort, reason = effective_sort(rows, request.sort)
+    left_out = [row for row in rows if not _admitted(row)]
     return ReportAnswer(
+        excluded_personal=ExcludedPersonal(
+            income=sum(row.family == "sale" for row in left_out),
+            expense=sum(row.family == "purchase" for row in left_out),
+        ),
         overview=overview,
         effective_sort=chosen_sort,
         sort_unavailable_reason=reason,
