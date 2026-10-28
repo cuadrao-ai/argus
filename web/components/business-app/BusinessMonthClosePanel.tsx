@@ -344,8 +344,9 @@ function itbisCard(value: string | null | undefined): { state: "pending" | "fina
 
 export type MonthCloseReview =
   | { count: number; detail: string | null; reading?: number; attention?: number; open: () => void }
-  | { state: "loading" | "unknown" | "refused" }
-  | { state: "failed"; retry: () => void };
+  | { state: "loading" | "unknown" }
+  | { state: "refused"; reference?: string | null }
+  | { state: "failed"; retry: () => void; reference?: string | null };
 
 type BusinessMonthCloseViewProps = {
   client: MonthCloseClient;
@@ -704,9 +705,10 @@ function BusinessMonthCloseContent({
       <div data-testid={reviewProblem.state === "failed" || reviewProblem.state === "refused" ? "inicio-error" : undefined} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[14px] text-[#56635e] dark:text-white/70">
         <div className="min-w-0 flex-1">
           <p>{reviewProblem.state === "refused" ? t("auth.business_unavailable.title") : t(`business.month_close.receipts_${reviewProblem.state}`)}</p>
-          {reviewProblem.state === "refused" ? <p>{t("auth.business_unavailable.body")}</p> : null}
+          {reviewProblem.state === "refused" ? <p>{t("auth.business_unavailable.body")}{reviewProblem.reference ? <span className="ml-2 inline-flex align-middle"><ReferenceCode reference={reviewProblem.reference} /></span> : null}</p> : null}
         </div>
         {reviewProblem.state === "failed" ? <button type="button" className={`${quietButtonClass} shrink-0 px-3`} onClick={reviewProblem.retry}>{t("common.retry")}</button> : null}
+        {reviewProblem.state === "failed" && reviewProblem.reference ? <ReferenceCode reference={reviewProblem.reference} /> : null}
       </div>
     </div>
   );

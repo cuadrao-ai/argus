@@ -116,6 +116,8 @@ type Records = {
   refused?: boolean;
   closed?: boolean;
   serverReference?: string | null;
+  /** With error: the reference to show beside its way out (the server's request id, else a generated one). */
+  failureReference?: string | null;
 };
 
 export type BusinessDirectoryStatus = "loading" | "ready" | "failed";
@@ -456,7 +458,7 @@ function BusinessWorkspaceContent({
     ]))
       .then(([workspace, overview, page]) => {
         if (cancelled) return;
-        setRecords((current) => ({ ...current, workspace, overview, inbox: page.items, receiptActivity: page.activity, error: false, refused: false, closed: false, serverReference: null }));
+        setRecords((current) => ({ ...current, workspace, overview, inbox: page.items, receiptActivity: page.activity, error: false, refused: false, closed: false, serverReference: null, failureReference: null }));
         reloadWaits.answered("records", revision, true);
       })
       .catch((error: unknown) => {
@@ -479,18 +481,18 @@ function BusinessWorkspaceContent({
         }
         reloadWaits.answered("records", revision, false);
         if (kind === "closed") {
-          setRecords((current) => ({ ...current, error: false, refused: false, closed: true, serverReference: null }));
+          setRecords((current) => ({ ...current, error: false, refused: false, closed: true, serverReference: null, failureReference: null }));
           return;
         }
         if (refusedForGood(error)) {
-          setRecords((current) => ({ ...current, error: true, refused: true, closed: false, serverReference: null }));
+          setRecords((current) => ({ ...current, error: true, refused: true, closed: false, serverReference: null, failureReference: referenceCode(error) }));
           return;
         }
         if (kind === "unavailable" || kind === "server") {
-          setRecords((current) => ({ ...current, error: false, refused: false, closed: false, serverReference: referenceCode(error) }));
+          setRecords((current) => ({ ...current, error: false, refused: false, closed: false, serverReference: referenceCode(error), failureReference: null }));
           return;
         }
-        setRecords((current) => ({ ...current, error: true, refused: false, closed: false, serverReference: null }));
+        setRecords((current) => ({ ...current, error: true, refused: false, closed: false, serverReference: null, failureReference: referenceCode(error) }));
       });
     return () => {
       cancelled = true;

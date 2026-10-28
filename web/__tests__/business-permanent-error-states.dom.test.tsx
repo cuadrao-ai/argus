@@ -261,6 +261,20 @@ describe("Inicio when the Business itself does not load", () => {
     assert.equal(view.host.querySelector('[data-testid="month-close-receipts-status"]'), null);
   });
 
+  test("the receipt count's failure shows a Ref. beside the way out: the server's request id, else a generated one, and on a refusal beside the contact line", async () => {
+    const status = (host: HTMLElement) => host.querySelector('[data-testid="month-close-receipts-status"]');
+    const reference = (host: HTMLElement) => status(host)?.querySelector('[data-testid="error-reference"]');
+    const conflict = await mountInicio({ receiptPage: async () => { throw refusal(409, "conflict"); } }, (host) => status(host) !== null && /No pudimos cargar/.test(status(host)!.textContent ?? ""));
+    assert.equal(reference(conflict.host)?.getAttribute("title"), "4ea79978-ce17-4853-b232-b2a72f4c9ce7");
+    assert.deepEqual(buttons(status(conflict.host)), ["Reintentar"]);
+    const dropped = await mountInicio({ receiptPage: async () => { throw NETWORK(); } }, (host) => status(host) !== null && /No pudimos cargar/.test(status(host)!.textContent ?? ""));
+    assert.match(reference(dropped.host)?.getAttribute("title") ?? "", /^c[0-9a-f]{8}$/);
+    assert.deepEqual(buttons(status(dropped.host)), ["Reintentar"]);
+    const refused = await mountInicio({ receiptPage: async () => { throw BUSINESS_OFF(); } }, (host) => status(host) !== null && /hola@cuadrao\.ai/.test(status(host)!.textContent ?? ""));
+    assert.equal(reference(refused.host)?.getAttribute("title"), "4ea79978-ce17-4853-b232-b2a72f4c9ce7");
+    assert.deepEqual(buttons(status(refused.host)), []);
+  });
+
   test("a dropped request keeps Reintentar", async () => {
     const view = await mountInicio({ overview: async () => { throw NETWORK(); } });
     const error = view.error()!;
