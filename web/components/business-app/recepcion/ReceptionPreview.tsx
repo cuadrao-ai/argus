@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties } from "react";
+import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { resolveLanguage } from "@/lib/language-features";
 import type { ReceiptSummary } from "@/lib/business-api";
@@ -59,7 +60,7 @@ function ReceptionWorkspace({ live }: { live: boolean }) {
   const locale = resolveLanguage({ device: i18n.resolvedLanguage ?? i18n.language });
   const word = (key: string) => t(`business.reception_preview.${key}`);
   const { source, records, chosen, panel, openPanel, revision, refresh, reload, retrySources } = useBusiness();
-  const { isBelowTablet: phone } = useResponsiveLayout();
+  const { isBelowTablet: phone, isBelowDesktop } = useResponsiveLayout();
   const scope = `${chosen?.space_id ?? "own"}:${chosen?.grant_id ?? chosen?.role ?? "unknown"}`;
   const [returnPosition] = useState(() => { const saved = dossierReturns.get(source); return saved?.scope === scope ? saved : undefined; });
   useEffect(() => { if (panel.kind === "inbox") dossierReturns.delete(source); }, [source, panel.kind]);
@@ -162,10 +163,8 @@ function ReceptionWorkspace({ live }: { live: boolean }) {
   const columns = `${selectColumn} minmax(${documentWidth}px, 1.2fr) ${attachmentWidth}px ${preferences.source ? "150px" : ""} ${preferences.sender ? `minmax(${senderWidth}px, 240px)` : ""} ${moneyColumns} minmax(${statusWidth}px, 0.8fr) ${arrivalWidth ? `${arrivalWidth}px` : ""} 136px`;
   const compactColumns = `${selectColumn} minmax(${documentWidth}px, 1.2fr) ${attachmentWidth}px ${preferences.source || preferences.sender ? `minmax(${senderWidth}px,240px)` : ""} ${moneyColumns} minmax(${statusWidth}px, 0.8fr) ${arrivalWidth ? `${arrivalWidth}px` : ""} 136px`;
   const closeDetail = () => {
-    setOpenedId(null);
-    requestAnimationFrame(() => {
-      (detailTrigger.current?.isConnected ? detailTrigger.current : list.current)?.focus({ preventScroll: true });
-    });
+    flushSync(() => setOpenedId(null));
+    (detailTrigger.current?.isConnected ? detailTrigger.current : list.current)?.focus({ preventScroll: true });
   };
   const navigateFrom = (row: ReceptionRow, next: Parameters<typeof openPanel>[0]) => {
     dossierReturns.set(source, { scope, filters, query, page: currentPage, pageSize, period, archived, admittedIds, organization: live ? organization : applyOrganizationPreview(organization, [`${row.kind}:${row.id}`], "seen"), preferences });
@@ -214,6 +213,8 @@ function ReceptionWorkspace({ live }: { live: boolean }) {
   useLendListSearch("inbox", searchInBar ? { query, setQuery: searchQuery } : null);
   return <PullToRefresh onRefresh={refresh}>
     <section className={styles.workspace} aria-label={t("business.inbox.title")} data-testid="reception-preview" data-mode={live ? "live" : "preview"} data-selectable={!live} data-density={preferences.density} data-source={preferences.source || preferences.sender} data-arrival={preferences.arrival} style={{ "--columns": columns, "--compact-columns": compactColumns, "--table-min-width": minimum((preferences.source ? 150 : 0) + (preferences.sender ? senderWidth : 0)), "--compact-min-width": minimum(preferences.source || preferences.sender ? senderWidth : 0), "--row-height": `${DENSITY_ROW_PX[preferences.density]}px` } as CSSProperties}>
+      {/* On a desktop the dossier lies over the list, so what it covers leaves the Tab order and the accessibility tree. */}
+      <div inert={openedRow && !isBelowDesktop ? true : undefined}>
       {inPanel ? <div className={styles.phoneHeading}><h2 className="font-display">{t("business.inbox.title")}</h2></div> : null}
       <div className={styles.topline}>
         <div ref={tabs} className={styles.tabs} role="tablist" aria-label={word("views")} onKeyDown={event => {
@@ -250,6 +251,7 @@ function ReceptionWorkspace({ live }: { live: boolean }) {
       </div>
       {!pending && !failed ? <RecordsPaginationControls page={currentPage} pages={pages} pageSize={pageSize} rangeLabel={t("business.reception_preview.document_range", { from: matched.length ? (currentPage - 1) * pageSize + 1 : 0, to: Math.min(currentPage * pageSize, matched.length), count: matched.length })} label={word("pagination")} pageSizeLabel={word("page_size")} onPageChange={next => { setSelectedIds([]); setPage(next); }} onPageSizeChange={size => { setSelectedIds([]); setPageSize(size); setPage(1); }} /> : null}
       {records.notesTruncated ? <p className={styles.historyNote}>{t("business.inbox.notes_latest")}</p> : null}
+      </div>
       {openedRow ? <ReceptionDossier key={openedId} live={live} row={openedRow} returnFocusRef={detailTrigger} onClose={closeDetail} onNavigate={next => navigateFrom(openedRow, next)} /> : null}
     </section>
   </PullToRefresh>;

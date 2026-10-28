@@ -177,6 +177,12 @@
 .noteIcon { display:inline-block; margin-right:6px; vertical-align:-2px; color:var(--muted); }
 
 .detail { --line:color-mix(in srgb,var(--fg) 11%,transparent); --muted:color-mix(in srgb,var(--fg) 66%,transparent); padding:20px; color:var(--fg); display:flex; flex-direction:column; gap:24px; }
+.detail { container-type:inline-size; }
+.detailColumns, .detailMain, .detailSide { display:flex; flex-direction:column; gap:24px; min-width:0; }
+@container (min-width: 52rem) {
+  .detailColumns { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:start; gap:32px; }
+  .detailSide { position:sticky; top:0; }
+}
 .detailHeader { display:flex; flex-direction:column; gap:12px; }
 .detailHeader h2 { font-family:var(--font-display); font-size:22px; line-height:28px; font-weight:500; overflow-wrap:anywhere; outline:none; }
 .detailHeader h2:focus-visible { outline:2px solid var(--cuadrao-green); outline-offset:4px; border-radius:4px; }

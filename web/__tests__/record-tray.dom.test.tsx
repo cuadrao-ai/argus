@@ -202,6 +202,69 @@ describe("a record in the desktop tray", () => {
   });
 });
 
+describe("what a dossier tray covers", () => {
+  const covered = (page: Page) => page.host.querySelector('[data-testid="reception-preview"], [data-record-id]')?.closest("[inert]") ?? null;
+
+  test("an incoming item opens wide over the Bandeja, whose list leaves the Tab order until it closes", async () => {
+    const page = await mount();
+    await openInbox(page);
+    assert.equal(covered(page), null, "nothing is inert before a dossier opens");
+    await openRow(page, "Ferretería La Esquina");
+    assert.equal(page.tray()!.getAttribute("data-width"), "dossier");
+    assert.ok(covered(page), "the list under the dossier is inert");
+    assert.equal(page.tray()!.closest("[inert]"), null, "the dossier itself is not");
+    const title = page.tray()!.querySelector("h2")!;
+    await page.act(async () => { title.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
+    await page.settle(() => page.tray() === null, "the tray to close");
+    assert.equal(covered(page), null, "the list is live again");
+  });
+
+  test("Registros keeps its narrower tray beside a live list, for an expense and for a receipt behind one", async () => {
+    const page = await mount();
+    await page.open({ kind: "transactions" });
+    const saved = (text: string) => [...page.host.querySelectorAll<HTMLElement>("[data-record-id]")].find((item) => item.textContent?.includes(text)) ?? null;
+    await page.settle(() => saved("Estación Ruta 3") !== null, "the saved records");
+    await page.click(saved("Estación Ruta 3"));
+    await page.settle(() => page.recordTitle() === "Estación Ruta 3", "Estación Ruta 3 in the tray");
+    assert.equal(page.tray()!.getAttribute("data-width"), "record");
+    assert.equal(covered(page), null, "the list beside the expense stays in the Tab order");
+    await page.click(saved("Nube Hosting"));
+    await page.settle(() => page.tray()?.querySelector('[data-testid="business-record-review"]') != null, "the receipt in the tray");
+    assert.equal(page.tray()!.getAttribute("data-width"), "record");
+    assert.equal(covered(page), null, "the list beside the receipt stays in the Tab order");
+  });
+
+  test("Tab past either end of the dossier wraps inside it, and a layer opened from it keeps its own Tab", async () => {
+    const page = await mount();
+    await openInbox(page);
+    await openRow(page, "Ferretería La Esquina");
+    const tray = page.tray()!;
+    const stops = [...tray.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])')];
+    const press = async (target: HTMLElement, shiftKey: boolean) => {
+      const event = new KeyboardEvent("keydown", { key: "Tab", shiftKey, bubbles: true, cancelable: true });
+      await page.act(async () => { target.dispatchEvent(event); });
+      return event.defaultPrevented;
+    };
+    assert.ok(stops.length > 2, "the dossier has controls to wrap between");
+    stops[stops.length - 1].focus();
+    assert.equal(await press(stops[stops.length - 1], false), true);
+    assert.equal(document.activeElement, stops[0], "Tab from the last control lands on the first");
+    assert.equal(await press(stops[0], true), true);
+    assert.equal(document.activeElement, stops[stops.length - 1], "Shift+Tab from the first lands on the last");
+    stops[1].focus();
+    assert.equal(await press(stops[1], false), false, "inside the dossier the browser keeps its own order");
+    const { focusableWithin } = await import("@/components/layout/overlayFocus");
+    const summary = tray.querySelector<HTMLElement>("summary");
+    assert.ok(summary, "the dossier has a disclosure");
+    assert.ok(focusableWithin(tray).includes(summary), "a disclosure is a stop the trap can see");
+    summary.focus();
+    assert.equal(await press(summary, true), false, "Shift+Tab from a disclosure is left to the browser");
+    assert.equal(await press(summary, false), false, "Tab from a disclosure is left to the browser");
+    const outside = page.action("Papelería Central")!;
+    assert.equal(await press(outside, false), false, "a key from outside the dossier is not held");
+  });
+});
+
 describe("a record below the desktop stop", () => {
   test("a phone keeps the full page with its way back and no tray", async () => {
     const page = await mount({ width: 390 });

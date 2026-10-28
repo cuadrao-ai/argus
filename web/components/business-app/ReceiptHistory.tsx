@@ -12,7 +12,7 @@ import FiscalRevision from "./FiscalRevision";
 import { resolveLanguage } from "@/lib/language-features";
 
 /** One thing that happened to the record, as the rail shows it. Only an approval changes the status, so only it gets a status dot. */
-type HistoryEvent = { id: string; at: string; line: string | null; who: string | null; approved?: boolean; testId?: string; detail?: ReactNode };
+type HistoryEvent = { id: string; at: string; line: string | null; who: string | null; approved?: boolean; testId?: string; detail?: ReactNode; diff?: { before: string; after: string } };
 
 const COLLAPSED = 3;
 /** Spanish agrees the participle with the field's name. */
@@ -77,6 +77,8 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
     return t(FEMININE.has(key) ? "business.history.changed_female" : "business.history.changed", "{{field}} changed from {{before}} to {{after}}", { field, before, after });
   };
   const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  /** A correction that replaced one value with another shows both, old struck through; a first value or a cleared one is the sentence alone. */
+  const diffOf = (before: string, after: string) => before && after && before !== after ? { before, after } : undefined;
 
   const events: HistoryEvent[] = [];
   // What arrived is a file or a WhatsApp message; a chat proposal or a web action is not a receipt coming in.
@@ -97,7 +99,7 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
     const facts = (Object.keys(revision.after).filter((key) => key !== "fiscal") as BusinessFactField[]).filter((key) => !same(revision.before?.[key], revision.after[key]));
     for (const key of facts) {
       const show = (side: BusinessDraftRevision["before"]) => side ? presentBusinessFact(key, side, accounts, locale, labels) : "";
-      events.push({ id: `${revision.version}-${key}`, at, line: changed(key, show(revision.before), show(revision.after)), who });
+      events.push({ id: `${revision.version}-${key}`, at, line: changed(key, show(revision.before), show(revision.after)), who, diff: diffOf(show(revision.before), show(revision.after)) });
     }
     for (const key of BUSINESS_FISCAL_FIELDS) {
       if (key === "include_606") {
@@ -113,13 +115,13 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
       const show = (side: BusinessDraftRevision["before"]) => side ? presentFiscalFact(key, side, locale, labels) : "";
       const line = changed(key, show(revision.before), show(revision.after));
       const verified = key === "rnc" && line === null && after?.state === "known" && after.verified && !before?.verified;
-      events.push({ id: `${revision.version}-${key}`, at, line: verified ? t("business.history.rnc_verified", "RNC verified") : line, who });
+      events.push({ id: `${revision.version}-${key}`, at, line: verified ? t("business.history.rnc_verified", "RNC verified") : line, who, diff: verified ? undefined : diffOf(show(revision.before), show(revision.after)) });
     }
     if (revision.after_current_note !== undefined && revision.after_current_note !== null && revision.before_current_note !== revision.after_current_note) {
       const field = t("business.transactions.columns.notas");
       const after = revision.after_current_note || t("business.dossier.not_recorded", "Not recorded");
       const line = revision.before_current_note ? t("business.history.changed", { field, before: revision.before_current_note, after }) : t("business.history.set", { field, after });
-      events.push({ id: `${revision.version}-current-note`, at, line, who, testId: "history-current-note" });
+      events.push({ id: `${revision.version}-current-note`, at, line, who, testId: "history-current-note", diff: diffOf(revision.before_current_note ?? "", revision.after_current_note) });
     }
     const attachments = revision.source_ids.map((id) => sources.find((source) => source.id === id)).filter((source) => source?.kind === "attachment");
     if (revision.before && attachments.length && same(revision.before, revision.after)) {
@@ -145,13 +147,22 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
 
   return (
     <section className={SURFACE_CARD} aria-labelledby={titleId} data-testid="receipt-history">
-      <h3 id={titleId} className="font-display text-[18px] font-medium leading-6 text-[#172b26] dark:text-white">{t("business.history.title", "History")}</h3>
+      <div className="flex items-baseline gap-2">
+        <h3 id={titleId} className="font-display text-[18px] font-medium leading-6 text-[#172b26] dark:text-white">{t("business.history.title", "History")}</h3>
+        <span data-testid="history-count" className="text-[13px] text-[#56635e] dark:text-white/70">{newestFirst.length}</span>
+      </div>
       <ol ref={list} className="mt-4">
         {shown.map((event, index) => (
           <li key={event.id} tabIndex={-1} data-testid={event.testId ?? "history-event"} data-approved={event.approved ? "true" : undefined} className="relative rounded-item pb-4 pl-6 last:pb-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49]">
             {index < shown.length - 1 ? <span aria-hidden="true" className="absolute bottom-0 left-[5px] top-3 w-px bg-[#DCE0DA] dark:bg-white/15" /> : null}
             <span aria-hidden="true" data-testid="history-dot" className="absolute left-0 top-[5px] h-3 w-3 rounded-full" style={{ backgroundColor: event.approved ? BUSINESS_STATUS.approved.ink : MUTED_TEXT }} />
             <p className="break-words text-[15px] leading-[22px] text-[#172b26] dark:text-white">{event.line}</p>
+            {/* The sentence says it for every reader; the diff shows it at a glance. */}
+            {event.diff ? <div aria-hidden="true" data-testid="history-diff" className="mt-1 flex flex-wrap items-center gap-1.5 text-[14px] leading-5">
+              <del className="rounded-mark bg-[#f6dfe0] px-1.5 text-[#9e2f39] dark:bg-[#4a2a2f] dark:text-[#ec9aa0]">{event.diff.before}</del>
+              <span className="text-[#56635e] dark:text-white/60">→</span>
+              <ins className="rounded-mark bg-[#e3ebe1] px-1.5 text-[#2f5a49] no-underline dark:bg-[#293b32] dark:text-[#8fcbb0]">{event.diff.after}</ins>
+            </div> : null}
             <p className="mt-1 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{[event.who, historyWhen(event.at, am, pm)].filter(Boolean).join(" · ")}</p>
             {event.detail}
           </li>

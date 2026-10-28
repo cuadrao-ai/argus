@@ -28,6 +28,7 @@ import ReceiptMarksCard from "./ReceiptMarksCard";
 import ReceiptReviewFrame from "./ReceiptReviewFrame";
 import { formatMoney, UNKNOWN_VALUE } from "./business-format";
 import { receiptCurrencyOptions } from "./receipt-currencies";
+import { useReceiptStateWord } from "./receipt-state-word";
 import { handTitleFocus, nextBandejaReceipt } from "./bandeja-order";
 import { primaryButtonClass, secondaryButtonClass, StatusPill } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
@@ -136,6 +137,7 @@ export function ReceiptReadPurchases({ dossier, busy, onSettle }: { dossier: Bus
 
 export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }: { draftId: string; onUnprepared?: () => void; receipt?: ReceiptDetail }) {
   const { t, i18n } = useTranslation();
+  const stateWord = useReceiptStateWord();
   const { source, reload, records, openPanel } = useBusiness();
   const [dossier, setDossier] = useState<BusinessDossier | null>(null);
   const [unavailable, setUnavailable] = useState(false);
@@ -356,7 +358,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
       back={recorded ? "transactions" : "inbox"}
       title={title}
       history={<ReceiptHistory history={dossier.history} accounts={accounts} sources={dossier.sources} approval={dossier.approval_result} />}
-      badge={pillStatus ? <StatusPill status={pillStatus} /> : <span className="text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{t(`business.dossier.state.${dossier.review_state}`, dossier.review_state)}</span>}
+      // The list's own words for the status, so Bandeja and its dossier say the same thing.
+      badge={pillStatus ? <StatusPill status={pillStatus} label={(receipt ? stateWord(receipt) : pillStatus === "review_ready" ? t("business.inbox.row_ready", "Ready to review") : "") || undefined} /> : <span className="text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{t(`business.dossier.state.${dossier.review_state}`, dossier.review_state)}</span>}
       amount={amount !== null && currency !== null ? formatMoney(amount, currency, i18n.resolvedLanguage ?? resolveLanguage({})) : null}
       mark={dossier.bill_mark}
       footer={!approval && canApprove ? <div className="flex flex-wrap items-center gap-3">

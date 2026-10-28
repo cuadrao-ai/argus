@@ -18,6 +18,7 @@ import { SURFACE_CARD } from "./foundation/surfaces";
 import { handTitleFocus } from "./bandeja-order";
 import { receiptCurrencyOptions } from "./receipt-currencies";
 import { receiptReviewAccess } from "./receipt-review-access";
+import { useReceiptStateWord } from "./receipt-state-word";
 import MoneyInput from "@/components/money/MoneyInput";
 import { moneyProblemFromServer } from "@/lib/money-entry";
 import type { ReceiptDetail, ReceiptReviewFields } from "@/lib/business-api";
@@ -48,6 +49,7 @@ const inputClass =
 
 function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const { t, i18n } = useTranslation();
+  const stateWord = useReceiptStateWord();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const money = (amount: string | null, currency: string | null) => formatMoney(amount, currency, locale) || UNKNOWN_VALUE;
   const categoryLabel = useCategoryLabel();
@@ -137,14 +139,15 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const terminal = terminalRead(detail.attention, detail.error_code);
   const uploadAnother = canAddRecords(chosen) ? actions.create.find((action) => action.id === "upload_receipt") : null;
   if (detail.draft_id && !unprepared) return <ReceiptDossierReview draftId={detail.draft_id} onUnprepared={retainReceipt} receipt={detail} />;
-  const frame = (children: React.ReactNode, source: React.ReactNode = <ReceiptSourcePreview detail={detail} />, reading = false) => (
+  const frame = (children: React.ReactNode, source: React.ReactNode = <ReceiptSourcePreview detail={detail} />, reading = false, footer?: React.ReactNode) => (
     <ContentFade><ReceiptReviewFrame
       recordId={receiptId}
       back={confirmed ? "transactions" : "inbox"}
       title={detail.merchant || (confirmed ? t("business.review.saved_title", "Saved expense") : t("business.review.title", "Review receipt"))}
-      badge={<StatusPill status={detail.status} />}
+      badge={<StatusPill status={detail.status} label={stateWord(detail) || undefined} />}
       amount={!reading && detail.amount && detail.currency ? formatMoney(detail.amount, detail.currency, locale) : null}
       source={source}
+      footer={footer}
     >
       {children}
     </ReceiptReviewFrame></ContentFade>
@@ -475,24 +478,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                 {t("business.review.view_expenses", "View expenses")}
               </button>
             </div>
-          ) : canPrepare ? (
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                className={primaryButtonClass}
-                disabled={busy !== null || missing.length > 0 || amountInvalid || dateInvalid || waitingForAi || locked || !Object.keys(changedFields()).length}
-                onClick={() => void save()}
-              >
-                {busy === "save" ? t("business.review.confirming", "Saving…") : t("business.dossier.save", "Save review details")}
-              </button>
-              {missing.length > 0 ? (
-                <span className="text-[13px] text-black/55 dark:text-white/55">
-                  {t("business.review.missing", "Fill in the details marked Needed to save this expense.")}
-                </span>
-              ) : null}
-              {uncertainVersion !== null ? <button type="button" className={secondaryButtonClass} disabled={busy !== null} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button> : null}
-            </div>
-          ) : <p className="text-[13px] text-black/65 dark:text-white/65">{t("business.dossier.read_only", "Your permission allows viewing this record.")}</p>}
+          ) : canPrepare ? null : <p className="text-[13px] text-black/65 dark:text-white/65">{t("business.dossier.read_only", "Your permission allows viewing this record.")}</p>}
         </>,
         <>
           <ReceiptSourcePreview detail={detail} />
@@ -516,6 +502,26 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
             </details>
           ) : null}
         </>,
+        false,
+        // Save is the receipt's one action, pinned at the drawer's foot like the record's Aprobar.
+        !confirmed && canPrepare ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                className={primaryButtonClass}
+                disabled={busy !== null || missing.length > 0 || amountInvalid || dateInvalid || waitingForAi || locked || !Object.keys(changedFields()).length}
+                onClick={() => void save()}
+              >
+                {busy === "save" ? t("business.review.confirming", "Saving…") : t("business.dossier.save", "Save review details")}
+              </button>
+              {missing.length > 0 ? (
+                <span className="text-[13px] text-black/55 dark:text-white/55">
+                  {t("business.review.missing", "Fill in the details marked Needed to save this expense.")}
+                </span>
+              ) : null}
+              {uncertainVersion !== null ? <button type="button" className={secondaryButtonClass} disabled={busy !== null} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button> : null}
+            </div>
+        ) : undefined,
       )}
       <ReceiptSeenBoundary receipt={detail} hydrated={detail.activity?.state === "ready" && !incompleteBridge} />
     </>

@@ -7,6 +7,7 @@ import { ChevronLeft, Maximize2, Minimize2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { useModalSurface } from "@/components/layout/useModalSurface";
+import { focusableWithin, nextFocusIndex } from "@/components/layout/overlayFocus";
 import BottomSheet, { type SheetSnap } from "@/components/ui/BottomSheet";
 import { useSheetStack } from "@/components/ui/sheetStack";
 import styles from "./adaptive-panel.module.css";
@@ -24,7 +25,7 @@ import styles from "./adaptive-panel.module.css";
  * Preferences returns you to Preferences rather than dismissing everything.
  */
 
-export type AdaptivePanelWidth = "sm" | "md" | "lg" | "record";
+export type AdaptivePanelWidth = "sm" | "md" | "lg" | "record" | "dossier";
 
 type PanelExpansion = { expanded: boolean; onToggle: () => void; expandLabel: string; collapseLabel: string };
 
@@ -33,13 +34,17 @@ type DrawerBounds = { preferred: number; min: number; maxVw: number };
 /**
  * The drawer's preferred width and its bounds. A record holds its receipt
  * image and its fields in one column beside a list that needs only its rows,
- * so it may take half the screen; everything else stays under 40%.
+ * so it may take half the screen; everything else stays under 40%. A dossier
+ * (an incoming item: its form beside its original) lies over the page, as
+ * Facturación's expanded editor does, and may take most of it; the page under
+ * it keeps its width, and its owner makes what the drawer covers inert.
  */
 const DRAWER_WIDTH: Record<AdaptivePanelWidth, DrawerBounds> = {
   sm: { preferred: 360, min: 320, maxVw: 40 },
   md: { preferred: 420, min: 320, maxVw: 40 },
   lg: { preferred: 560, min: 320, maxVw: 40 },
   record: { preferred: 640, min: 420, maxVw: 50 },
+  dossier: { preferred: 1040, min: 640, maxVw: 80 },
 };
 
 export default function AdaptivePanel({
@@ -144,7 +149,6 @@ export default function AdaptivePanel({
 
 const EXPANDED_WIDTH: DrawerBounds = { preferred: 1200, min: 720, maxVw: 88 };
 
-/** While the drawer is drawn, the page gives up its width so it stays readable beside it. */
 /**
  * Every drawn drawer claims the room it needs; the page gives up the widest
  * claim. A drawer stacked on another hands its claim over without the page
@@ -200,7 +204,8 @@ type StackPlace = { drawn: boolean; hasBelow: boolean };
 
 function SideDrawerSurface(props: DrawerProps) {
   const place = useSheetStack(props.overlayId, true);
-  useDrawerSpace(props.overlayId, DRAWER_WIDTH[props.width], place.drawn);
+  // A dossier opens over the page instead of beside it, so the page keeps its width under it.
+  useDrawerSpace(props.overlayId, DRAWER_WIDTH[props.width], place.drawn && props.width !== "dossier");
   return props.modal ? <ModalDrawer {...props} {...place} /> : <TrayDrawer {...props} {...place} />;
 }
 
@@ -240,12 +245,29 @@ function TrayDrawer(props: DrawerProps & StackPlace) {
       className="fixed inset-y-0 right-0 z-[70]"
       role="region"
       onKeyDown={(event) => {
-        if (event.key !== "Escape" || event.defaultPrevented || !dismissible) return;
+        if (event.defaultPrevented) return;
+        if (event.key === "Tab" && props.width === "dossier") holdTabInside(event, titleRef.current);
+        if (event.key !== "Escape" || !dismissible) return;
         event.preventDefault();
         onClose();
       }}
     />
   );
+}
+
+/**
+ * A dossier lies over most of the page, so Tab past either end of it wraps instead of landing on a
+ * control it covers. Escape closes it; a layer opened from inside it keeps its own Tab handling.
+ */
+function holdTabInside(event: React.KeyboardEvent<HTMLDivElement>, title: HTMLElement | null) {
+  if (!(event.target instanceof Node) || !event.currentTarget.contains(event.target)) return;
+  const stops = focusableWithin(event.currentTarget);
+  const at = stops.indexOf(document.activeElement as HTMLElement);
+  if (at === -1 && document.activeElement !== title) return;
+  const leaving = event.shiftKey ? at <= 0 : at === stops.length - 1;
+  if (!stops.length || !leaving) return;
+  event.preventDefault();
+  stops[nextFocusIndex({ count: stops.length, currentIndex: at, direction: event.shiftKey ? "focus-previous" : "focus-next" })]?.focus();
 }
 
 function DrawerPanel({
@@ -285,6 +307,7 @@ function DrawerPanel({
       aria-modal={role === "dialog" ? "true" : undefined}
       aria-labelledby={titleId}
       data-testid="side-drawer"
+      data-width={width}
       data-expanded={expansion ? expansion.expanded : undefined}
       hidden={hidden}
       onKeyDown={onKeyDown}

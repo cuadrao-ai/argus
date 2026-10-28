@@ -14,9 +14,11 @@ import { TrayFooter, useRecordTray } from "./record-tray";
  * Every state of a receipt renders inside this frame, read or not, prepared
  * or not.
  *
- * Inside the desktop tray it is one column (source, fields, history) with no
- * way back, since the tray's close control returns to the list, and the footer
- * goes to the tray's pinned footer.
+ * Inside the tray (the wide dossier drawer) it has no way back, since the
+ * drawer's close control returns to the list, and the footer goes to the
+ * drawer's pinned footer. A wide drawer puts the fields and their history on
+ * the left and the original on the right, held in view while the form scrolls;
+ * a narrow one stacks source, fields and history.
  */
 export default function ReceiptReviewFrame({ recordId, back, title, badge, amount, mark, source, children, history, footer }: {
   recordId: string;
@@ -56,12 +58,12 @@ export default function ReceiptReviewFrame({ recordId, back, title, badge, amoun
   );
   if (presentation === "tray") {
     return (
-      <section aria-labelledby="receipt-review-title" data-testid="business-record-review" data-presentation="tray">
+      <section aria-labelledby="receipt-review-title" data-testid="business-record-review" data-presentation="tray" className="@container">
         {top}
-        <div className="space-y-4">
-          <div className="min-w-0 space-y-4" data-testid="receipt-review-source">{source}</div>
-          <div className="min-w-0 space-y-4" data-testid="receipt-review-fields">{children}</div>
-          {history ? <div className="min-w-0 empty:hidden" data-testid="receipt-review-history">{history}</div> : null}
+        <div className="grid gap-4 @[52rem]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] @[52rem]:items-start @[52rem]:gap-6">
+          <div className="min-w-0 space-y-4 @[52rem]:sticky @[52rem]:top-0 @[52rem]:col-start-2 @[52rem]:row-span-2 @[52rem]:row-start-1" data-testid="receipt-review-source">{source}</div>
+          <div className="min-w-0 space-y-4 @[52rem]:col-start-1 @[52rem]:row-start-1" data-testid="receipt-review-fields">{children}</div>
+          {history ? <div className="min-w-0 empty:hidden @[52rem]:col-start-1 @[52rem]:row-start-2" data-testid="receipt-review-history">{history}</div> : null}
         </div>
         {footer ? <TrayFooter><div data-testid="receipt-review-footer">{footer}</div></TrayFooter> : null}
       </section>

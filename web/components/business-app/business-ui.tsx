@@ -37,8 +37,8 @@ export function PanelHeading({ title, subtitle, action }: { title: string; subti
   );
 }
 
-export function StatusPill({ status }: { status: ReceiptStatus }) {
-  return <FoundationStatusPill status={status} />;
+export function StatusPill({ status, label }: { status: ReceiptStatus; label?: string }) {
+  return <FoundationStatusPill status={status} label={label} />;
 }
 
 export function useStatusLabel() {
