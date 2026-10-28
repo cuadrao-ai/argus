@@ -34,11 +34,12 @@ Local (disposable Supabase stack; never ports 54332/58432/4390)::
     # API at the tip with two local-only seams: a stub reader that returns what
     # the pack files print, and a scripted Meta media host. --extractor real
     # keeps the product's model reader (one read, about a cent).
-    python scripts/qa/jose_demo_rehearsal.py serve-api --env-file <api.env> --port 57741
+    python scripts/qa/jose_demo_rehearsal.py serve-api --env-file <api.env> --port 57741 \\
+        --outbound-log <replies.jsonl>
     # web: bun run build --webpack && bun run start -p 57742 (staging flags)
     python scripts/qa/jose_demo_rehearsal.py run --target local \\
         --api http://127.0.0.1:57741 --web http://127.0.0.1:57742 \\
-        --env-file <api.env> --evidence <dir>
+        --env-file <api.env> --outbound-log <replies.jsonl> --evidence <dir>
     python scripts/qa/jose_demo_rehearsal.py run --target local --mode seed \\
         --env-file <api.env> --local-account <file> --expect-business <prefix> ...
 
@@ -167,6 +168,7 @@ SEED_INFORMAL_FACTS = {
 ACCOUNT = {"nickname": "Cuenta Ensayo DOP", "type": "checking", "currency": "DOP"}
 
 READ_ONLY_POSTS = ("/api/v1/business/reports/query",)
+DUPLICATE_REPLY = ("Ya lo teníamos", "We already had this one")
 
 PLANNED_WRITES = {
     "0": [
@@ -198,6 +200,14 @@ PLANNED_WRITES = {
 }
 
 FIX_1417 = "merge #1417 (personal separation): personal rows leave Registros totals, records.csv and the 606; personal.csv carries them"
+
+
+def outbound_replies(log: Path) -> list[str]:
+    """The reply texts serve-api's scripted Meta host recorded, oldest first."""
+
+    if not log.exists():
+        return []
+    return [json.loads(line)["text"] for line in log.read_text().splitlines() if line]
 
 
 def media_id(digest: str, attempt: int) -> str:
@@ -279,6 +289,13 @@ def serve_api(args: argparse.Namespace) -> None:
         # Local stand-in for graph.facebook.com and its media CDN; nothing leaves the host.
         path = request.url.path
         if request.url.host == "graph.facebook.com" and path.endswith("/messages"):
+            if args.outbound_log:
+                try:
+                    sent = json.loads(request.content)["text"]["body"]
+                except (ValueError, KeyError, TypeError):
+                    sent = ""
+                with args.outbound_log.open("a") as log:
+                    log.write(json.dumps({"text": sent}, ensure_ascii=False) + "\n")
             return httpx.Response(200, json={"messages": [{"id": "wamid.LOCAL"}]})
         if request.url.host == "graph.facebook.com":
             mid = path.rsplit("/", 1)[-1]
@@ -1519,11 +1536,17 @@ class Rehearsal:
         with rec.step(
             "1",
             "duplicate-resend",
-            "same bytes again: replayed; no new receipt, draft, expense or read",
+            "same bytes again: the API replies that it already had it; no new receipt, draft, expense or read",
         ) as obs:
             need(state, "c1_activity")
             if not local:
                 raise Untested("staging resend is Lucas's phone action")
+            log = self.args.outbound_log
+            if log is None:
+                raise Untested(
+                    "no dedupe signal without --outbound-log (serve-api --outbound-log)"
+                )
+            replies_before = len(outbound_replies(log))
             receipts_before = {r["id"] for r in self.books.receipts()}
             version_before = api.get(f"/business/drafts/{state['c1_draft']}/dossier")[
                 "version"
@@ -1540,18 +1563,29 @@ class Rehearsal:
                     },
                 }
             )
-            time.sleep(4)
+            expect(sent.status == 200, f"webhook answered {sent.status}")
+            replies = wait_for(
+                lambda: outbound_replies(log)[replies_before:],
+                lambda new: any(d in text for text in new for d in DUPLICATE_REPLY),
+                timeout=60,
+                every=1,
+            )
             rows = self.books.receipts()
             again = next((r for r in rows if r["id"] == state["c1_receipt"]), {})
             obs.update(
                 webhook_status=sent.status,
+                duplicate_reply=any(d in t for t in replies for d in DUPLICATE_REPLY),
+                replies_after_resend=len(replies),
                 new_receipts=sorted({r["id"] for r in rows} - receipts_before),
                 new_expenses=sorted(
                     {e["id"] for e in self.books.expenses()} - expenses_before
                 ),
                 replayed=again.get("replayed"),
             )
-            expect(sent.status == 200, f"webhook answered {sent.status}")
+            expect(
+                obs["duplicate_reply"],
+                "no 'already had it' reply within 60s: the resend was not seen as a duplicate",
+            )
             obs["draft_version"] = [
                 version_before,
                 api.get(f"/business/drafts/{state['c1_draft']}/dossier")["version"],
@@ -2482,6 +2516,11 @@ def main() -> None:
     serve.add_argument("--receipts-dir", type=Path, default=receipts)
     serve.add_argument("--extractor", choices=("stub", "real"), default="stub")
     serve.add_argument(
+        "--outbound-log",
+        type=Path,
+        help="append each WhatsApp reply the API sends to this JSONL file",
+    )
+    serve.add_argument(
         "--openrouter-key-file",
         type=Path,
         default=Path(
@@ -2552,6 +2591,11 @@ def main() -> None:
         "--enable-reading",
         action="store_true",
         help="seed: turn receipt reading on when it is off (model spend on staging)",
+    )
+    go.add_argument(
+        "--outbound-log",
+        type=Path,
+        help="local: the file serve-api --outbound-log appends replies to (case 1 resend)",
     )
     go.add_argument("--no-screens", dest="screens", action="store_false")
     go.set_defaults(handler=run)
