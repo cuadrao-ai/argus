@@ -9,6 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, Request, Response
 
 from argus.api.business import require_business_surface
+from argus.api.business_drafts import with_source_channels
 from argus.api.business_reports import Context, ReportingRoute, _run
 from argus.api.dependencies import problem
 from argus.api.documents import (
@@ -44,6 +45,14 @@ class SupportingResponse(Contract):
     dossier: BusinessDossier
 
 
+def _dossier(context, actor, draft_id: UUID) -> BusinessDossier:  # noqa: ANN001
+    return with_source_channels(
+        context.service.dossier(actor, draft_id),
+        space_id=str(actor.actor.space_id),
+        owner_id=actor.owner_id,
+    )
+
+
 @router.put("/drafts/{draft_id}/current-note", response_model=NoteResponse)
 def update_current_note(
     request: Request,
@@ -56,9 +65,7 @@ def update_current_note(
     def command() -> NoteResponse:
         actor = context.for_draft(draft_id)
         result = edit_note(context.service.authority, actor, draft_id, body, key)
-        return NoteResponse(
-            result=result, dossier=context.service.dossier(actor, draft_id)
-        )
+        return NoteResponse(result=result, dossier=_dossier(context, actor, draft_id))
 
     return _run(request, response, command)
 
@@ -102,7 +109,7 @@ async def upload_supporting_file(
             key,
         )
         return SupportingResponse(
-            result=result, dossier=context.service.dossier(actor, draft_id)
+            result=result, dossier=_dossier(context, actor, draft_id)
         )
 
     try:

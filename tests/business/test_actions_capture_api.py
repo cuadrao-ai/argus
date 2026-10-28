@@ -1,14 +1,15 @@
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from argus.api.business import BusinessPerson, require_business_person
 from argus.api.business_drafts import DraftContext, require_drafts, stored_drafts
 from argus.api.routers.business_manual import router
-from argus.domain.business.authority import ActionError
+from argus.domain.business.authority import ActionContext, ActionError
 from argus.domain.business.contracts.actions import Applied, OutcomeUnknown, Refused
-from argus.domain.business.contracts.dossier import BusinessDossier
+from argus.domain.business.contracts.authority import TrustedActor
+from argus.domain.business.contracts.dossier import AttachmentSource, BusinessDossier
 from argus.domain.business.contracts.facts import BusinessFacts
 from argus.domain.business.spaces import InMemorySpaceStore
 from fastapi import FastAPI
@@ -36,13 +37,24 @@ class CaptureService:
         )
         self.outcome = Applied(outcome="applied", draft_id=self.view.draft_id, version=1)
 
+    def _context(self, trusted: TrustedActor) -> ActionContext:
+        return ActionContext(
+            actor=trusted,
+            grant_id=uuid4(),
+            owner_id=str(self.actor),
+            space_name="Shop",
+            current_owner_id=str(self.actor),
+        )
+
     def resolve_actor(self, actor, **_pin):
         self.calls.append(("owner", actor))
-        return actor
+        return self._context(actor)
 
     def context_for_draft(self, actor, draft, **_pin):
         self.calls.append(("draft", actor, draft))
-        return self.actor
+        return self._context(
+            TrustedActor(actor_id=actor, actor_kind="member", space_id=UUID(self.space))
+        )
 
     def capture(self, actor, request, key):
         self.calls.append(("capture", request, key))
@@ -129,6 +141,43 @@ def test_append_uses_existing_draft_authority_without_owner_workspace(capture_ap
     assert response.status_code == 200
     assert api.service.calls[0] == ("draft", api.actor, draft)
     assert api.service.calls[1][1].draft.version == 7
+
+
+def test_note_added_to_a_whatsapp_record_keeps_the_whatsapp_channel(
+    capture_api, monkeypatch
+):
+    """The dossier a note answers with reads the same captured set the receipt
+    list reads, keyed on the Business owner, so the original stays WhatsApp."""
+
+    api = capture_api
+    original = AttachmentSource(
+        id=uuid4(),
+        channel="web",
+        received_at=datetime.now(timezone.utc),
+        connection_id=uuid4(),
+        filename="recibo.jpg",
+        media_type="image/jpeg",
+    )
+    api.service.view = api.service.view.model_copy(update={"sources": (original,)})
+    asked = []
+
+    def captured(owner_id):
+        asked.append(owner_id)
+        return frozenset({str(original.connection_id)})
+
+    monkeypatch.setattr("argus.api.business_drafts._captured", captured)
+    monkeypatch.setattr("argus.api.email_intake.email_receipt_flags", lambda space_id: {})
+    response = api.client.post(
+        "/business/captures",
+        json={
+            "text": "Nota",
+            "draft": {"draft_id": str(api.service.view.draft_id), "version": 3},
+        },
+        headers={"Idempotency-Key": "note"},
+    )
+    assert response.status_code == 200, response.text
+    assert [s["channel"] for s in response.json()["sources"]] == ["whatsapp"]
+    assert asked == [str(api.actor)]
 
 
 @pytest.mark.parametrize(
