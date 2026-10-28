@@ -3656,8 +3656,8 @@ def main() -> None:
     go.add_argument(
         "--reserve-reads",
         type=int,
-        default=1,
-        help="seed: reads kept for the rehearsal (case 1 WhatsApp read)",
+        default=2,
+        help="seed: reads kept for the rehearsal (case 3 03-farmacia upload, case 1 WhatsApp read)",
     )
     go.add_argument(
         "--outbound-log",
