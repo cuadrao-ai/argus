@@ -11,3 +11,6 @@ export const CHANNEL_ICON: Record<"whatsapp" | "email" | "web" | "note", Icon> =
   web: UploadSimple,
   note: NotePencil,
 };
+
+/** The channels in the order a filter lists them. */
+export const CHANNELS = Object.keys(CHANNEL_ICON) as (keyof typeof CHANNEL_ICON)[];
