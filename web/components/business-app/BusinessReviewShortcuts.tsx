@@ -32,6 +32,13 @@ export function ReceiptShortcutRegistration({ actions }: { actions: ReviewShortc
   return null;
 }
 
+/** The receipt's place among the receipts a person reviews in order, or null outside that list. */
+export function receiptPlace(receiptId: string, rows: readonly { id: string; email_original?: boolean }[] | null): { index: number; total: number } | null {
+  const receipts = (rows ?? []).filter((row) => !row.email_original);
+  const index = receipts.findIndex((row) => row.id === receiptId);
+  return index < 0 ? null : { index: index + 1, total: receipts.length };
+}
+
 export function receiptNavigationActions(receiptId: string, rows: readonly { id: string; email_original?: boolean }[] | null, open: (id: string) => void): ReviewShortcutActions {
   const receipts = (rows ?? []).filter((row) => !row.email_original);
   const index = receipts.findIndex((row) => row.id === receiptId);

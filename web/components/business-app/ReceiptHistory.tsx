@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { BusinessAccount } from "@/lib/business-api";
 import { BUSINESS_FISCAL_FIELDS, type BusinessDossier, type BusinessDraftRevision, type BusinessFactField, type BusinessFact, type BusinessFiscalField } from "@/lib/business-dossier";
 import { BUSINESS_STATUS, MUTED_TEXT } from "./foundation/presentation";
 import { SURFACE_CARD } from "./foundation/surfaces";
-import { quietButtonClass, useCategoryLabel } from "./business-ui";
+import { useCategoryLabel } from "./business-ui";
 import { presentBusinessFact, presentFiscalFact } from "./receipt-fact-presentation";
 import FiscalRevision from "./FiscalRevision";
 import { resolveLanguage } from "@/lib/language-features";
@@ -14,7 +15,6 @@ import { resolveLanguage } from "@/lib/language-features";
 /** One thing that happened to the record, as the rail shows it. Only an approval changes the status, so only it gets a status dot. */
 type HistoryEvent = { id: string; at: string; line: string | null; who: string | null; approved?: boolean; testId?: string; detail?: ReactNode; diff?: { before: string; after: string } };
 
-const COLLAPSED = 3;
 /** Spanish agrees the participle with the field's name. */
 const FEMININE = new Set<string>(["occurred_on", "currency", "category_id", "kind", "business_share"]);
 
@@ -45,9 +45,11 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
   const [open, setOpen] = useState(false);
   const titleId = useId();
   const list = useRef<HTMLOListElement>(null);
-  // Ver todo disappears once pressed, so focus moves to the first event it revealed.
+  const opened = useRef(false);
+  // Opening the fold moves focus to the newest event it revealed.
   useEffect(() => {
-    if (open) (list.current?.children[COLLAPSED] as HTMLElement | undefined)?.focus();
+    if (!open || !opened.current) return;
+    (list.current?.children[0] as HTMLElement | undefined)?.focus();
   }, [open]);
   const labels = {
     unknown: "",
@@ -141,17 +143,19 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
   if (!kept.length) return null;
   // Newest first; events of one revision keep their field order.
   const newestFirst = kept.map((event, index) => ({ event, index })).sort((a, b) => Date.parse(b.event.at) - Date.parse(a.event.at) || a.index - b.index).map(({ event }) => event);
-  const shown = open ? newestFirst : newestFirst.slice(0, COLLAPSED);
+  const shown = newestFirst;
   const am = t("business.history.am", "a.m.");
   const pm = t("business.history.pm", "p.m.");
 
   return (
-    <section className={SURFACE_CARD} aria-labelledby={titleId} data-testid="receipt-history">
-      <div className="flex items-baseline gap-2">
-        <h3 id={titleId} className="font-display text-[18px] font-medium leading-6 text-[#172b26] dark:text-white">{t("business.history.title", "History")}</h3>
-        <span data-testid="history-count" className="text-[13px] text-[#56635e] dark:text-white/70">{newestFirst.length}</span>
-      </div>
-      <ol ref={list} className="mt-4">
+    <section className={SURFACE_CARD} aria-labelledby={titleId} data-testid="receipt-history" data-open={open ? "true" : undefined}>
+      <h3 id={titleId} className="font-display text-[16px] font-medium leading-6 text-[#172b26] dark:text-white">
+        <button type="button" aria-expanded={open} onClick={() => { opened.current = true; setOpen((value) => !value); }} className="-m-2 flex w-[calc(100%+1rem)] items-center justify-between gap-3 rounded-item p-2 text-left hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.05]">
+          <span>{t("business.history.title", "History")} <span data-testid="history-count" className="text-[#56635e] dark:text-white/70">· {newestFirst.length}</span></span>
+          <ChevronDown className={`h-4 w-4 shrink-0 text-[#56635e] transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`} aria-hidden="true" />
+        </button>
+      </h3>
+      <ol ref={list} hidden={!open} className="mt-4">
         {shown.map((event, index) => (
           <li key={event.id} tabIndex={-1} data-testid={event.testId ?? "history-event"} data-approved={event.approved ? "true" : undefined} className="relative rounded-item pb-4 pl-6 last:pb-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49]">
             {index < shown.length - 1 ? <span aria-hidden="true" className="absolute bottom-0 left-[5px] top-3 w-px bg-[#DCE0DA] dark:bg-white/15" /> : null}
@@ -168,11 +172,6 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
           </li>
         ))}
       </ol>
-      {!open && newestFirst.length > COLLAPSED ? (
-        <button type="button" onClick={() => setOpen(true)} className={`${quietButtonClass} mt-2`}>
-          {t("business.history.see_all", "See all")}
-        </button>
-      ) : null}
     </section>
   );
 }

@@ -27,6 +27,12 @@ export const OPEN_ROW_CLASS = "aria-[current=true]:bg-[var(--cuadrao-green)]/10"
 export type RecordTrayValue = Readonly<{
   /** The drawer's pinned footer; the record's actions are portalled here. */
   footer: HTMLElement | null;
+  /** Under the drawer's title: a receipt's total, status and where it came from. Null for a record that keeps the drawer's own header. */
+  summary: HTMLElement | null;
+  /** Beside the drawer's close control: a receipt's place in its list. */
+  headerActions: HTMLElement | null;
+  /** A receipt names the drawer after itself; null gives the drawer back its own title. */
+  setTitle: (title: string | null) => void;
   /** A record opened without a list (a link, a reload) names the list it belongs beside once it has loaded. */
   settleList: (list: RecordList) => void;
 }>;
@@ -41,4 +47,11 @@ export function useRecordTray(): RecordTrayValue | null {
 export function TrayFooter({ children }: { children: ReactNode }) {
   const tray = useRecordTray();
   return tray?.footer ? createPortal(children, tray.footer) : null;
+}
+
+/** Renders into one of the drawer's header slots, or nowhere while it has none. */
+export function TraySlot({ slot, children }: { slot: "summary" | "headerActions"; children: ReactNode }) {
+  const tray = useRecordTray();
+  const target = tray?.[slot];
+  return target ? createPortal(children, target) : null;
 }

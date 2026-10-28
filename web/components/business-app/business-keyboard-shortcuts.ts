@@ -17,7 +17,7 @@ export function useBusinessKeyboardShortcuts({ openPanel, actions, chosen }: { o
   const review = useRunReviewShortcut();
   return [
     { id: "approve", label: t("business.dossier.approve_action", "Approve expense"), code: "Enter", keyLabel: "Enter", shift: true, run: () => review("approve") },
-    { id: "approve_next", label: t("business.dossier.approve_next", "Approve and next"), code: "KeyS", keyLabel: "S", shift: true, run: () => review("approve_next") },
+    { id: "approve_next", label: t("business.dossier.approve_next", "Approve and next"), code: "Enter", keyLabel: "↵", run: () => review("approve_next") },
     { id: "previous", label: t("business.shortcuts.previous_receipt", "Previous receipt"), code: "ArrowUp", keyLabel: "↑", shift: true, run: () => review("previous") },
     { id: "next", label: t("business.shortcuts.next_receipt", "Next receipt"), code: "ArrowDown", keyLabel: "↓", shift: true, run: () => review("next") },
     { id: "edit", label: t("business.shortcuts.edit_detail", "Edit a detail"), code: "KeyE", keyLabel: "E", shift: true, run: () => review("edit") },

@@ -65,9 +65,15 @@ export default function AdaptivePanel({
   returnFocusRef,
   initialFocusRef,
   expansion,
+  titleId: titleIdProp,
+  headerActions,
   children,
 }: {
   title: string;
+  /** The title's element id, for a record whose own page labels itself by it. */
+  titleId?: string;
+  /** Controls before the close button, such as a record's previous and next. */
+  headerActions?: ReactNode;
   /** A small mark before the title, such as a channel's logo; decorative, the title names the panel. */
   titleIcon?: ReactNode;
   /** One line under the title; on a phone it is what the peek snap shows. */
@@ -106,7 +112,8 @@ export default function AdaptivePanel({
   const { t } = useTranslation();
   const { isBelowDesktop } = useResponsiveLayout();
   const overlayId = useId();
-  const titleId = useId();
+  const generatedTitleId = useId();
+  const titleId = titleIdProp ?? generatedTitleId;
   const panelRef = useRef<HTMLDivElement>(null);
   const stackBackLabel = t("common.back", "Back");
 
@@ -144,7 +151,7 @@ export default function AdaptivePanel({
     );
   }
 
-  return <SideDrawer {...{ title, titleIcon, summary, headerSize, titleId, overlayId, panelRef, onClose, closeLabel, stackBackLabel, dismissible, modal, width, footer, returnFocusRef, initialFocusRef, back, expansion, children }} />;
+  return <SideDrawer {...{ title, titleIcon, summary, headerSize, titleId, overlayId, panelRef, onClose, closeLabel, stackBackLabel, dismissible, modal, width, footer, returnFocusRef, initialFocusRef, back, expansion, headerActions, children }} />;
 }
 
 const EXPANDED_WIDTH: DrawerBounds = { preferred: 1200, min: 720, maxVw: 88 };
@@ -193,6 +200,7 @@ type DrawerProps = {
   modal: boolean;
   width: AdaptivePanelWidth;
   expansion?: PanelExpansion;
+  headerActions?: ReactNode;
   footer?: ReactNode;
   returnFocusRef?: React.RefObject<HTMLElement | null>;
   initialFocusRef?: React.RefObject<HTMLElement | null>;
@@ -283,6 +291,7 @@ function DrawerPanel({
   dismissible,
   width,
   expansion,
+  headerActions,
   footer,
   back,
   children,
@@ -327,8 +336,10 @@ function DrawerPanel({
         ) : null}
         <div className="min-w-0 flex-1 pt-2.5">
           <h2 id={titleId} ref={titleRef} tabIndex={titleRef ? -1 : undefined} className={`rounded-mark font-display ${headerSize === "large" ? "text-[21px]" : "text-[17px]"} font-medium text-black focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white ${titleIcon ? "flex items-center gap-2" : ""}`}>{titleIcon ? <span aria-hidden="true" className="flex shrink-0">{titleIcon}</span> : null}{title}</h2>
-          {summary ? <p className={`mt-1 ${headerSize === "large" ? "text-[14px]" : "text-[13px]"} text-[#56635e] dark:text-white/70`}>{summary}</p> : null}
+          {/* A summary slot another component portals into takes no room while it is empty. */}
+          {summary ? <div className={`mt-1 ${headerSize === "large" ? "text-[14px]" : "text-[13px]"} text-[#56635e] has-[>[data-header-slot]:empty]:hidden dark:text-white/70`}>{summary}</div> : null}
         </div>
+        {headerActions}
         {expansion ? (
           <button type="button" onClick={expansion.onToggle} aria-label={expansion.expanded ? expansion.collapseLabel : expansion.expandLabel} aria-expanded={expansion.expanded} className={styles.expandButton}>
             {expansion.expanded ? <Minimize2 size={18} aria-hidden="true" /> : <Maximize2 size={18} aria-hidden="true" />}

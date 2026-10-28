@@ -12,6 +12,8 @@ const SHARED_CONTEXTS = new Map([
   ["business.reception_preview.source_whatsapp", "WhatsApp"],
   ["business.transactions.layout.results.personal_one", "{{count}} personal"],
   ["business.notifications.times.recent", "5 min"],
+  ["business.dossier.section.fiscal", "Fiscal"],
+  ["business.dossier.tab_original", "Original"],
 ]);
 const SAME_IN_BOTH = new Set(["RNC", "NCF", "e-NCF", "e-CF", "ITBIS", "DGII", "Cédula", "Total", "total", "Personal", "Normal", "No", "Ref."]);
 

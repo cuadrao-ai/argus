@@ -71,24 +71,11 @@ export function factRows<K extends BusinessFactField | BusinessFiscalField>(
 
 export const RECORD_FIELDS: readonly BusinessFactField[] = ["kind", "counterparty", "occurred_on", "amount", "currency", "category_id", "funding", "business_share", "receipt_state"];
 
-/** Where the receipt detail shows each field: the activity card, then (after the fiscal card) the rest. */
-export const ACTIVITY_FIELDS: readonly BusinessFactField[] = ["occurred_on", "amount", "currency"];
-export const MORE_FIELDS: readonly BusinessFactField[] = ["category_id", "counterparty", "kind", "funding", "business_share", "receipt_state"];
-
-/**
- * What the page says about completeness, in the same numbers the rows show:
- * suggestions waiting on a person; "missing" is every row with no value that
- * a blocker names (each reads Falta); "unresolved" is every other row that a
- * blocker or an open question names while it has a value or an owner's
- * "doesn't know" (each carries the decision marker).
- */
-export function reviewCounts(rows: readonly FactRow<string>[]): { suggestions: number; missing: number; unresolved: number } {
-  return {
-    suggestions: rows.filter((row) => row.standing === "suggestion").length,
-    missing: rows.filter((row) => row.standing === "empty" && row.blocked).length,
-    unresolved: rows.filter((row) => (row.blocked || row.asked) && row.standing !== "empty").length,
-  };
-}
+/** Where the form shows each field: the activity section, the fiscal section (which opens with the receipt state), then how it was paid. */
+export const KIND_FIELDS: readonly BusinessFactField[] = ["occurred_on", "amount", "currency", "counterparty", "category_id", "kind"];
+export const PAYMENT_FIELDS: readonly BusinessFactField[] = ["funding", "business_share"];
+/** Every record field in the form's reading order. */
+export const FORM_FIELDS: readonly BusinessFactField[] = [...KIND_FIELDS, "receipt_state", ...PAYMENT_FIELDS];
 
 export function recordFactRows(dossier: Pick<BusinessDossier, "facts" | "blockers" | "questions">): FactRow<BusinessFactField>[] {
   return factRows(RECORD_FIELDS, (key) => dossier.facts[key], blockedFields(dossier), askedFields(dossier))

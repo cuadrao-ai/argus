@@ -7,7 +7,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
 import spanish from "@/public/locales/es-419/common.json";
-import { approvalLine, ReceiptApprovalGuidance, ReceiptReadPurchases } from "@/components/business-app/ReceiptDossierReview";
+import { approvalLine, ReceiptReadPurchases } from "@/components/business-app/ReceiptDossierReview";
+import DossierAttentionStrip from "@/components/business-app/DossierAttentionStrip";
+import { dossierAttention } from "@/components/business-app/dossier-attention";
 import { finishPeriodExportRequest, saveBlobDownload, startPeriodExportRequest } from "@/components/business-app/ExportRecordsPanel";
 import { factsRevision, type BusinessDossier } from "@/lib/business-dossier";
 import { businessExportPeriodValid, fetchBusinessExport, approveBusinessDraft, getBusinessDossier, reviewBusinessDraft, listBusinessExpenses, type BusinessExpense } from "@/lib/business-api";
@@ -16,22 +18,22 @@ import { createFixtureBusinessDataSource } from "@/components/business-app/fixtu
 import { createDossierFixtures, dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
 import { presentBusinessFact, presentFiscalFact } from "@/components/business-app/receipt-fact-presentation";
 
-test("accepted recorded dossiers omit preapproval guidance while open and uncertain blockers remain", async () => {
+test("the attention strip leaves out a recorded dossier's blockers and keeps them while open or uncertain", async () => {
   const fixture = createDossierFixtures([{ id: "scoped-account", nickname: "Client cash", type: "cash", currency: "DOP" }]);
   const ready = await fixture.dossier(dossierFixtureIds.ready);
   const accepted = await fixture.approveDraft(ready.draft_id, ready.version);
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
-  const render = (dossier: BusinessDossier) => renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(ReceiptApprovalGuidance, { dossier })));
+  const render = (dossier: BusinessDossier) => renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(DossierAttentionStrip, { items: dossierAttention(dossier, [], i18n.t.bind(i18n)) })));
   const closed = { ...accepted, blockers: [{ code: "business_draft_not_open", field: null }] };
   assert.equal(render(closed), "");
   const open = await fixture.dossier(dossierFixtureIds.unknown);
-  assert.match(render(open), /Antes de aprobar/);
+  assert.match(render(open), /por revisar/);
   assert.match(render(open), /Cómo se pagó/);
   const uncertain = { ...open, review_state: "accepting" as const, approval_result: { status: "outcome_unknown" as const, code: "recording_unknown", reviewed_version: open.version } };
-  assert.match(render(uncertain), /Antes de aprobar/);
-  assert.match(render({ ...closed, approval_result: uncertain.approval_result }), /Antes de aprobar/);
-  assert.match(render({ ...closed, review_state: "open" }), /Antes de aprobar/);
+  assert.match(render(uncertain), /por revisar/);
+  assert.match(render({ ...closed, approval_result: uncertain.approval_result }), /por revisar/);
+  assert.match(render({ ...closed, review_state: "open" }), /por revisar/);
 });
 
 test("canonical draft transport binds explicit ID, version, human effect and idempotency", async () => {

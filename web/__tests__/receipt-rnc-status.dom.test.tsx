@@ -107,7 +107,8 @@ test("unrelated receipts retain their counts and have no fiscal RNC row", async 
   dossier.facts.counterparty = known("Taller de prueba");
   await env.act(async () => env.root.render(<env.I18nextProvider i18n={env.i18n}><Facts dossier={dossier} accounts={accounts} /></env.I18nextProvider>));
   assert.equal(env.host.querySelector('[data-fact="rnc"]'), null);
-  assert.equal(env.host.querySelector('[data-testid="receipt-facts-fiscal"]'), null);
+  // The Fiscal section always holds the Comprobante row; a record with no fiscal facts shows nothing else there.
+  assert.deepEqual([...env.host.querySelectorAll('[data-testid="receipt-facts-fiscal"] [data-fact]')].map((row) => row.getAttribute("data-fact")), ["receipt_state"]);
   assert.equal(env.host.querySelector('[data-testid="receipt-review-counts"]'), null);
   await env.close();
 });

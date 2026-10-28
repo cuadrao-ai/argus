@@ -82,8 +82,9 @@ const noDate: Change = (dossier) => {
 describe("the receipt detail's top block", () => {
   test("supplier, total and status come first, with no business name or revision number", async () => {
     const page = await mount();
+    // One header: the supplier is its title, and the block under it holds the total and the status.
     const top = page.host.querySelector('[data-testid="receipt-top-block"]')!;
-    assert.equal(top.querySelector("h2")?.textContent, "Ferretería La Esquina");
+    assert.equal(page.host.querySelector("#receipt-review-title")?.textContent, "Ferretería La Esquina");
     assert.match(top.querySelector('[data-testid="receipt-total"]')?.textContent ?? "", /^RD\$ \d{1,3}(,\d{3})*\.\d{2}$/);
     assert.equal(top.querySelector('[data-testid="status-pill"]')?.textContent, "Listo para revisar");
     assert.doesNotMatch(top.textContent ?? "", /Revisión|Mi negocio/);
@@ -143,10 +144,11 @@ describe("a record opened without its receipt", () => {
 });
 
 describe("the footer", () => {
-  test("holds Aprobar and Aprobar y siguiente, and nothing else, with no reason while Aprobar is open", async () => {
+  test("holds Más, Aprobar and Aprobar y siguiente, and nothing else, with no reason while Aprobar is open", async () => {
     const page = await mount();
     const footer = page.footer()!;
-    assert.deepEqual([...footer.querySelectorAll("button")].map((item) => item.textContent), ["Aprobar", "Aprobar y siguiente"]);
+    // Más holds the Personal mark, the note and the refresh; only its trigger sits in the footer row.
+    assert.deepEqual([...footer.querySelectorAll("button")].filter((item) => !item.closest("#receipt-more-panel")).map((item) => item.textContent), ["Más", "Aprobar", "Aprobar y siguiente"]);
     assert.equal(page.button("Aprobar")?.disabled, false);
     assert.equal(footer.querySelector('[data-testid="approve-reason"]'), null);
     await page.close();

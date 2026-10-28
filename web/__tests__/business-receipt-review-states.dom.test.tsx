@@ -135,7 +135,9 @@ test("a disabled Aprobar names the missing facts beside it", async () => {
     assert.equal(approve.disabled, true);
     const reason = page.host.querySelector('[data-testid="approve-reason"]');
     assert.equal(reason?.textContent, "Falta: Cómo se pagó, Parte del negocio");
-    assert.equal(reason?.parentElement, approve.parentElement, "the reason sits with the button");
+    // The footer says what is left on its left and holds the actions on its right.
+    assert.ok(reason?.closest('[data-testid="receipt-review-footer"]') && reason.closest('[data-testid="receipt-review-footer"]') === approve.closest('[data-testid="receipt-review-footer"]'), "the reason sits in the footer with the button");
+    assert.equal(approve.getAttribute("aria-describedby"), reason?.id);
   } finally {
     await page.close();
   }

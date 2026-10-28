@@ -17,9 +17,15 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
 
     test("the card lists each check with its state and keeps approval available", async ({ page }) => {
       await openRecord(page, dossierFixtureIds.fiscal, "es-419");
+      // Below the desktop stop the card sits on the Original tab.
+      const tabs = page.getByTestId("receipt-review-tabs");
+      if (await tabs.isVisible()) await tabs.getByText("Original", { exact: true }).click();
       const card = page.getByTestId("receipt-ecf-checks");
       await expect(card).toBeVisible();
-      await expect(card.getByRole("heading", { name: "Verificación de la factura electrónica" })).toBeVisible();
+      await expect(card).toContainText("Factura electrónica · 4 de 6 bien");
+      // Folded, only what failed shows; the rest open on request.
+      await expect(card.locator("li:visible")).toHaveCount(1);
+      await card.getByRole("button", { name: "Ver las 6 comprobaciones", exact: true }).click();
       await expect(card).toContainText("Contenido sin cambios desde la firma");
       await expect(card).toContainText("Revisar: la lectura difiere del XML en ITBIS");
       await expect(card).toContainText("Aceptación por la DGII no consultada");

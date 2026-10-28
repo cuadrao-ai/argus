@@ -30,6 +30,16 @@ const saveButton = (page: Page) => page.getByRole("button", { name: "Guardar det
 const editField = (page: Page, label: string) => page.getByRole("button", { name: `Editar detalles · ${label}`, exact: true });
 const fact = (page: Page, key: string) => page.getByTestId("receipt-current-facts").locator(`[data-fact="${key}"]`);
 
+/** Below the desktop stop the form and the original are tabs; from it both columns show and there are no tabs. */
+async function showTab(page: Page, name: "Formulario" | "Original") {
+  const tabs = page.getByTestId("receipt-review-tabs");
+  if (await tabs.isVisible()) await tabs.getByText(name, { exact: true }).click();
+}
+
+async function openMore(page: Page) {
+  await page.getByTestId("receipt-more").getByRole("button", { name: "Más", exact: true }).click();
+}
+
 async function openHistory(page: Page) {
   const all = page.getByTestId("receipt-history").getByRole("button", { name: "Ver todo", exact: true });
   if (await all.isVisible()) await all.click();
@@ -49,7 +59,9 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
 
     test("unknown funding stays beside its original and saves before explicit approval", async ({ page }) => {
       await openRecord(page, dossierFixtureIds.unknown);
+      await showTab(page, "Original");
       await expect(page.getByRole("blockquote")).toContainText("No tengo recibo");
+      await showTab(page, "Formulario");
       await expect(fact(page, "funding")).toHaveAttribute("data-standing", "empty");
       await expect(fact(page, "funding")).toContainText("Necesita una decisión antes de aprobar");
       await expect(fact(page, "currency")).toHaveAttribute("data-standing", "default");
@@ -75,6 +87,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       const history = await openHistory(page);
       await expect(history).toContainText("Ana Peña");
       await expect(page.getByTestId("business-record-review")).toContainText("permiso otorgado por Lucía Mateo");
+      await showTab(page, "Original");
       await expect(page.getByRole("region", { name: "Revisiones en la web" })).toBeVisible();
       await capture(page, `approved-history-${viewport.width}`);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -92,13 +105,14 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       const change = history.locator("li").first();
       await expect(change).toContainText("Actividad: Gasto");
       await expect(change).toContainText("Ana Peña");
+      await showTab(page, "Original");
       await expect(page.getByRole("region", { name: "Revisiones en la web" })).toBeVisible();
     });
 
     test("fiscal facts and before-after changes stay readable in Spanish", async ({ page }) => {
       await openRecord(page, dossierFixtureIds.fiscal);
       const fiscal = page.getByTestId("receipt-facts-fiscal");
-      await expect(fiscal).toContainText("Datos fiscales");
+      await expect(fiscal.getByRole("heading", { name: "Fiscal", exact: true })).toBeVisible();
       await expect(fiscal).toContainText("RNC");
       await expect(fiscal).toContainText("1-31-99988-8");
       await expect(fiscal.getByRole("status", { name: "Estado del RNC: RNC sin verificar" })).toBeVisible();
@@ -117,6 +131,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
 
     test("proposal-only original text is labelled as an agent proposal in Spanish", async ({ page }) => {
       await openRecord(page, dossierFixtureIds.proposal);
+      await showTab(page, "Original");
       const proposal = page.getByRole("region", { name: "Propuestas del agente" });
       await expect(proposal).toContainText("Propuesta: gasto de 3,450 DOP");
       await expect(page.getByRole("region", { name: "Mensajes originales" })).toHaveCount(0);
@@ -277,6 +292,7 @@ test.describe("Server authority and uncertain outcomes", () => {
     await page.getByRole("textbox", { name: "Comercio o persona", exact: true }).fill("Acknowledged correction");
     await saveButton(page).click();
     await expect(page.getByTestId("receipt-current-facts")).toContainText("Acknowledged correction");
+    await openMore(page);
     await page.getByRole("button", { name: "Consultar registro actual", exact: true }).click();
     await expect(approveButton(page)).toBeEnabled();
     await expect(page.getByTestId("receipt-current-facts")).toContainText("Acknowledged correction");
@@ -300,18 +316,19 @@ test.describe("Server authority and uncertain outcomes", () => {
     await expect(page.getByTestId("receipt-current-facts")).toContainText("Fecha de actividad");
   });
 
-  test("Confirmar on a suggestion saves that one value as the reviewer's at a new revision and clears the suggestion count", async ({ page }) => {
+  test("Confirmar on a suggestion saves that one value as the reviewer's at a new revision and clears it from what needs review", async ({ page }) => {
     await openRecord(page, dossierFixtureIds.fiscal);
     const merchant = fact(page, "counterparty");
+    const attention = page.getByTestId("dossier-attention");
     await expect(merchant).toHaveAttribute("data-standing", "suggestion");
-    await expect(page.getByTestId("receipt-review-counts")).toContainText("1 sugerencia por confirmar");
+    await expect(attention).toContainText("Comercio o persona: sugerencia por confirmar");
 
-    await page.getByRole("button", { name: "Confirmar 1 datos leídos", exact: true }).click();
+    await page.getByRole("button", { name: "Confirmar Comercio o persona", exact: true }).click();
 
     await expect(merchant).toHaveAttribute("data-standing", "person");
     await expect(merchant).toContainText("Ferretería La Esquina");
-    await expect(page.getByRole("button", { name: /^Confirmar \d+ datos leídos$/ })).toHaveCount(0);
-    await expect(page.getByTestId("receipt-review-counts")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Confirmar / })).toHaveCount(0);
+    await expect(attention).not.toContainText("sugerencia por confirmar");
     const actions = page.getByRole("region", { name: "Revisiones en la web" });
     await actions.getByText("Acción enviada originalmente").last().click();
     await expect(actions.locator("pre").last()).toHaveText(JSON.stringify({ version: 2, facts: { counterparty: { state: "known", value: "Ferretería La Esquina" } } }));

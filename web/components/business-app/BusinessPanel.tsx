@@ -85,10 +85,15 @@ function RecordTray({ panel, list, listRef, returnFocusRef, preview }: { panel: 
   const { t } = useTranslation();
   const { openPanel } = useBusiness();
   const [footer, setFooter] = useState<HTMLDivElement | null>(null);
+  const [summary, setSummary] = useState<HTMLDivElement | null>(null);
+  const [headerActions, setHeaderActions] = useState<HTMLDivElement | null>(null);
+  const [title, setTitle] = useState<string | null>(null);
+  // A receipt's dossier makes the drawer's header its own: its name, total, status, origin and place in the list.
+  const receiptHeader = panel.kind === "receipt" || panel.kind === "draft";
   const settleList = useCallback((next: RecordList) => {
     if ((panel.kind === "receipt" || panel.kind === "draft") && panel.list === undefined && next !== list) openPanel({ ...panel, list: next });
   }, [list, openPanel, panel]);
-  const tray = useMemo(() => ({ footer, settleList }), [footer, settleList]);
+  const tray = useMemo(() => ({ footer, summary: receiptHeader ? summary : null, headerActions: receiptHeader ? headerActions : null, setTitle, settleList }), [footer, summary, headerActions, receiptHeader, settleList]);
   const close = () => {
     const host = listRef.current;
     returnFocusRef.current = host?.querySelector<HTMLElement>('[aria-current="true"] button, tr[aria-selected="true"]') ?? host;
@@ -98,7 +103,11 @@ function RecordTray({ panel, list, listRef, returnFocusRef, preview }: { panel: 
     <AdaptivePanel
       modal={false}
       width={list === "inbox" ? "dossier" : "record"}
-      title={t("business.tray.title", "Details")}
+      title={(receiptHeader ? title : null) ?? t("business.tray.title", "Details")}
+      titleId={receiptHeader ? "receipt-review-title" : undefined}
+      headerSize={receiptHeader ? "large" : "default"}
+      summary={receiptHeader ? <div ref={setSummary} data-header-slot="" /> : undefined}
+      headerActions={receiptHeader ? <div ref={setHeaderActions} data-header-actions="" className="flex items-center empty:hidden" /> : undefined}
       closeLabel={t("common.close", "Close")}
       onClose={close}
       footer={<div ref={setFooter} data-footer-slot="" />}
