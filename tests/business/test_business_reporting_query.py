@@ -142,6 +142,35 @@ def test_currency_totals_distinguish_gross_recorded_and_proposed():
     assert Decimal(buckets["USD", "proposed_activity_amount"].amount_minor) == 1000
 
 
+def test_a_personal_row_counts_only_as_a_purchase_the_accountant_put_in_the_606():
+    rows = [
+        record("business", recorded_amount="5.00", linked_activity_ids=("a",)),
+        record(
+            "personal", recorded_amount="25.00", linked_activity_ids=("b",), personal=True
+        ),
+        record(
+            "included",
+            recorded_amount="40.00",
+            linked_activity_ids=("c",),
+            personal=True,
+            include_606=True,
+        ),
+        record(
+            "sale",
+            recorded_amount="70.00",
+            linked_activity_ids=("d",),
+            family="sale",
+            money_kind="income",
+            personal=True,
+            include_606=True,
+        ),
+    ]
+    buckets = {(item.kind, item.basis): item for item in run(rows).totals}
+    assert buckets["expense", "recorded_activity_amount"].known_amount_minor == 4500
+    assert buckets["expense", "recorded_activity_amount"].matching_count == 2
+    assert ("income", "recorded_activity_amount") not in buckets
+
+
 def test_duplicate_public_anchor_and_effect_are_refused():
     with pytest.raises(ValueError, match="duplicate"):
         run([record(), record()])

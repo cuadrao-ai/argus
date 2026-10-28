@@ -15,7 +15,11 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import xlsxwriter
 
 from argus.domain.business.contracts.dgii import PurchaseDeclaration, money_text
-from argus.domain.business.contracts.facts import BusinessFacts, Known
+from argus.domain.business.contracts.facts import (
+    BusinessFacts,
+    Known,
+    personal_mark_admits,
+)
 from argus.domain.business.dgii_export import build_fiscal_packet
 from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.ledger import occurred_on
@@ -270,7 +274,15 @@ def personal_handoff(
     """To hand everything over in one sheet with a Personal column instead, return
     ``(list(sheet), [])`` here and add "Personal" to SHEET_COLUMNS."""
 
-    business = [line for line in sheet if line["Personal"] == "no"]
+    admitted = [
+        personal_mark_admits(
+            row["personal"] == "yes",
+            {"yes": True, "no": False}.get(row["include_606"]),
+            sale=row["kind"] == "income",
+        )
+        for row in rows
+    ]
+    business = [line for line, counts in zip(sheet, admitted, strict=True) if counts]
     personal = [
         {
             "Registro": row["activity_id"],
@@ -283,8 +295,8 @@ def personal_handoff(
                 if source in originals
             ),
         }
-        for row in rows
-        if row["personal"] == "yes"
+        for row, counts in zip(rows, admitted, strict=True)
+        if not counts
     ]
     return business, personal
 

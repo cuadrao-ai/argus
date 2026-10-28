@@ -670,3 +670,30 @@ def test_personal_purchase_leaves_the_business_sheet_for_personal_csv():
         manifest["files"]["personal.csv"]
         == hashlib.sha256(files["personal.csv"]).hexdigest()
     )
+
+
+def test_the_accountants_606_yes_hands_a_personal_purchase_over_as_business():
+    purchase, sale = UUID(int=5), UUID(int=6)
+    files = unpack(
+        export.build_archive(
+            snapshot(
+                activities=(
+                    activity(),
+                    activity(
+                        activity_id=str(purchase), personal="yes", include_606="yes"
+                    ),
+                    activity(
+                        activity_id=str(sale),
+                        kind="income",
+                        personal="yes",
+                        include_606="yes",
+                    ),
+                ),
+            ),
+            lambda _: None,
+        )
+    )
+    business = list(csv.reader(io.StringIO(files["records.csv"].decode("utf-8-sig"))))
+    assert len(business) == 3
+    personal = list(csv.reader(io.StringIO(files["personal.csv"].decode("utf-8-sig"))))
+    assert [row[0] for row in personal[1:]] == [str(sale)]

@@ -474,3 +474,29 @@ def test_personal_purchase_enters_the_606_only_with_the_accountants_yes(
     assert Decimal(result.manifest["totals_dop"]["purchase_invoice_gross"]) == (
         business_gross - Decimal(purchase.amount) if excluded else business_gross
     )
+
+
+def test_a_personal_sale_stays_out_of_the_607_whatever_the_606_answer():
+    records = practice_records()
+    business = packet()
+    [sale] = [
+        record
+        for record, item in zip(records, business.manifest["reconciliation"], strict=True)
+        if item["disposition"] == "607"
+    ]
+    result = packet(
+        tuple(
+            replace(record, personal=True, include_606=True) if record is sale else record
+            for record in records
+        )
+    )
+    [item] = [
+        row
+        for row in result.manifest["reconciliation"]
+        if row["activity_id"] == sale.activity_id
+    ]
+    assert (item["disposition"], item["reason"]) == ("excluded", "personal")
+    assert result.manifest["forms"]["607"]["record_count"] == 0
+    assert Decimal(result.manifest["totals_dop"]["sales_gross"]) == Decimal(
+        business.manifest["totals_dop"]["sales_gross"]
+    ) - Decimal(sale.amount)

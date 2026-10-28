@@ -14,7 +14,11 @@ import io
 import json
 import zipfile
 
-from tests.test_business_scope_switch_routes_postgres import API, web  # noqa: F401
+from tests.test_business_scope_switch_routes_postgres import (  # noqa: F401
+    API,
+    GRANT,
+    web,
+)
 from tests.test_business_sin_comprobante_postgres import (
     PRACTICE,
     _close,
@@ -152,3 +156,18 @@ def test_the_mark_moves_the_record_on_every_reader_at_once(web) -> None:  # noqa
 
     _mark(web, draft, True)
     assert _everywhere(web, purchase) == personal
+
+    # The accountant's yes puts the purchase back on every surface, still marked.
+    version = _get(web, f"/business/drafts/{draft}/dossier").json()["version"]
+    _send(
+        web,
+        "POST",
+        f"/business/drafts/{draft}/fiscal-inclusion",
+        {"version": version, "include": True},
+        {**web.bob.headers, GRANT: web.grant_a},
+    )
+    assert _everywhere(web, purchase) == {
+        **business,
+        "row": (True, True),
+        "handoff": (["1180.00", "500.00"], [], "yes"),
+    }

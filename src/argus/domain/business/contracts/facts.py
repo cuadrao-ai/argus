@@ -442,5 +442,13 @@ def fiscal_inclusion(facts: BusinessFacts) -> bool | None:
     return answer.value if isinstance(answer, Known) else None
 
 
-def personal_mark_admits(personal: bool, include_606: bool | None) -> bool:
-    return not personal or include_606 is True
+def personal_mark_admits(
+    personal: bool, include_606: bool | None, *, sale: bool = False
+) -> bool:
+    """Whether a record counts for the Business: not marked Personal, or a
+    personal purchase the accountant answered "¿Incluir en 606?" yes. The
+    606 is the purchases report, so the answer never admits a personal sale.
+    Month close, the DGII packet, Registros totals and the export handoff all
+    decide here."""
+
+    return not personal or (not sale and include_606 is True)

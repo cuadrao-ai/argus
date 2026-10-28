@@ -138,23 +138,23 @@ def in_month(document: MonthDocument, start: date, end: date) -> bool:
 
 
 def in_close(document: MonthDocument) -> bool:
-    if document.role == "receipt":
-        return personal_mark_admits(document.personal, document.include_606)
-    return not document.personal
+    return personal_mark_admits(
+        document.personal, document.include_606, sale=document.role == "invoice"
+    )
 
 
 def in_606(document: MonthDocument) -> bool:
     return (
         document.role == "receipt"
         and normalized_ncf(document.ecf or document.ncf) is not None
-        and personal_mark_admits(document.personal, document.include_606)
+        and in_close(document)
     )
 
 
 def in_607(document: MonthDocument) -> bool:
     return (
         document.role == "invoice"
-        and not document.personal
+        and in_close(document)
         and reportable_607(document.ecf or document.ncf)
     )
 

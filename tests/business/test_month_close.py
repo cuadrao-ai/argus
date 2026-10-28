@@ -296,9 +296,11 @@ def test_a_personal_sale_is_not_607_income():
         itbis_minor=1800,
         status="cobrado",
     )
+    # The 606 answer is a purchases answer; it never admits a personal sale.
     personal = document(
         activity_id="personal-sale",
         personal=True,
+        include_606=True,
         total_minor=59000,
         itbis_minor=9000,
         status="cobrado",

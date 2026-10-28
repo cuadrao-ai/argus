@@ -239,7 +239,9 @@ def fiscal_manifest(
             "reason": None,
         }
         bridge.append(item)
-        if not personal_mark_admits(record.personal, record.include_606):
+        if not personal_mark_admits(
+            record.personal, record.include_606, sale=record.kind == "income"
+        ):
             item.update(disposition="excluded", reason="personal")
             continue
         if isinstance(record.declaration, PurchaseDeclaration):

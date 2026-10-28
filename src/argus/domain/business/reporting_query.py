@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from argus.domain.business.contracts.facts import personal_mark_admits
 from argus.domain.business.reporting import ReportIdentity, ReportRow, summarize
 from argus.domain.recording.currency import (
     format_minor_units,
@@ -329,7 +330,13 @@ def _matches(row: ReportRecord, filters: ReportFilters, period: ResolvedPeriod) 
 def _totals(
     rows: tuple[ReportRecord, ...], identity: ReportIdentity, observed_at: datetime
 ) -> tuple[Total, ...]:
-    rows = tuple(row for row in rows if not row.personal)
+    rows = tuple(
+        row
+        for row in rows
+        if personal_mark_admits(
+            row.personal, row.include_606, sale=row.money_kind == "income"
+        )
+    )
     result = []
     for basis, field in (
         ("recorded_activity_amount", "recorded_amount"),
