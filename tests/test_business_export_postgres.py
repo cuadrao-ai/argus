@@ -1,3 +1,4 @@
+import csv
 import io
 import json
 from dataclasses import replace
@@ -15,6 +16,8 @@ from argus.domain.business.contracts.actions import (
 from argus.domain.business.contracts.dossier import AttachmentSource
 from argus.domain.business.contracts.facts import BusinessFactPatch
 from argus.domain.business.export import ExportPeriod, export_package
+from argus.domain.business.month_close import Settlement
+from argus.domain.business.month_close_store import settle_document
 from argus.domain.ingestion.documents.models import DocumentDraft
 from argus.domain.ingestion.documents.objects import InMemorySourceObjects
 from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
@@ -31,6 +34,58 @@ PERIOD = ExportPeriod(date(2026, 10, 1), date(2026, 10, 31))
 def unpack(content):
     with ZipFile(io.BytesIO(content)) as archive:
         return {name: archive.read(name) for name in archive.namelist()}
+
+
+def sheet(files):
+    return list(csv.reader(io.StringIO(files["records.csv"].decode("utf-8-sig"))))
+
+
+@pytest.mark.owner_acts
+def test_sheet_payment_state_follows_the_stored_settlement(actions):
+    service, context, _ = actions
+    draft, version = shared.create(service, context)
+    facts = BusinessFactPatch.model_validate(
+        {
+            name: {"state": "known", "value": value}
+            for name, value in {
+                "kind": "expense",
+                "amount": "1250",
+                "currency": "DOP",
+                "occurred_on": "2026-10-26",
+                "funding": {"kind": "owner_funds"},
+                "business_share": {"kind": "all"},
+            }.items()
+        }
+    )
+    service.review(context, draft, ReviewDraft(version=version, facts=facts), "review")
+    approved = service.approve(
+        context,
+        draft,
+        ApproveExpense(version=version + 1, action="record_expense"),
+        "approve",
+    )
+    assert approved.outcome == "applied"
+    files = unpack(
+        export_package(service.authority, context, PERIOD, InMemorySourceObjects())
+    )
+    before = sheet(files)
+    assert before[0][-2:] == ["Estado", "Pago"]
+    assert before[1][-1] == "pendiente"
+    activity_id = json.loads(files["manifest.json"])["records"][0]["activity_id"]
+    settled = settle_document(
+        service.authority,
+        context,
+        activity_id,
+        Settlement("pagado", date(2026, 10, 26), "transferencia"),
+    )
+    assert settled["changed"] is True
+    after = sheet(
+        unpack(
+            export_package(service.authority, context, PERIOD, InMemorySourceObjects())
+        )
+    )
+    assert after[1][-1] == "pagado"
+    assert after[1][:-1] == before[1][:-1]
 
 
 @pytest.mark.owner_acts

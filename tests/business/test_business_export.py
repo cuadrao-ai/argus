@@ -142,6 +142,48 @@ def test_untrusted_cells_never_become_formulas_or_hyperlinks(note):
     assert json.loads(files["manifest.json"])["records"][0]["note"] == note
 
 
+def test_sheet_ends_with_the_settlement_and_unresolved_drafts_carry_none():
+    paid = activity()
+    pending = activity(activity_id=str(UUID(int=5)))
+    transfer = activity(activity_id=str(UUID(int=6)), kind="transfer")
+    settlements = {
+        str(ACTIVITY): {
+            "status": "pagado",
+            "settled_on": date(2026, 10, 11),
+            "payment_method": "transferencia",
+        }
+    }
+    unresolved = (
+        {
+            "draft_id": str(DRAFT),
+            "version": 1,
+            "review_state": "open",
+            "occurred_on": "2026-10-12",
+            "reason": "not_recorded",
+        },
+    )
+    files = unpack(
+        export.build_archive(
+            snapshot(
+                activities=(paid, pending, transfer),
+                settlements=settlements,
+                unresolved=unresolved,
+            ),
+            lambda _: None,
+        )
+    )
+    rows = list(csv.reader(io.StringIO(files["records.csv"].decode("utf-8-sig"))))
+    assert rows[0] == list(export.SHEET_COLUMNS)
+    assert rows[0][-2:] == ["Estado", "Pago"]
+    assert [row[-1] for row in rows[1:]] == ["pagado", "pendiente", ""]
+    assert sheet_rows(files["records.xlsx"]) == rows
+    drafts = list(csv.reader(io.StringIO(files["unresolved.csv"].decode("utf-8-sig"))))
+    assert drafts[0] == list(export.UNRESOLVED_COLUMNS)
+    assert drafts[1][drafts[0].index("review_state")] == "open"
+    assert "Pago" not in sheet_rows(files["records.xlsx"], 2)[0]
+    assert "Pago" not in sheet_rows(files["records.xlsx"], 3)[0]
+
+
 def test_canonical_kind_currency_and_receiving_account_remain_explicit():
     income = activity(
         activity_id=str(UUID(int=9)),
@@ -563,6 +605,7 @@ def test_package_capture_is_canonical_utc_instant_not_record_date(monkeypatch, i
                 "resolution": {},
             }
         ],
+        [],
         [],
         [],
     ]
