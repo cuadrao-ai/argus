@@ -170,3 +170,65 @@ def test_forwards_and_captions_reach_the_inbox_like_a_direct_send(wa_biz) -> Non
         ("whatsapp", "saved", "image/png"),
     ]
     assert stub.calls == []
+
+
+def test_dossier_attachment_sources_that_arrived_by_whatsapp_say_so(monkeypatch) -> None:  # noqa: ANN001
+    """The dossier reads the same captured set /business/receipts reads: a
+    WhatsApp arrival says whatsapp, a web upload keeps web, and an email arrival
+    of the same file still wins, as it does on the receipt list."""
+
+    from datetime import datetime, timedelta, timezone
+    from uuid import uuid4
+
+    from argus.api import business_drafts as api
+    from argus.domain.business.contracts.dossier import (
+        AttachmentSource,
+        BusinessDossier,
+        MessageSource,
+    )
+
+    now = datetime(2026, 10, 26, 15, 0, tzinfo=timezone.utc)
+
+    def attachment(name: str) -> AttachmentSource:
+        return AttachmentSource(
+            id=uuid4(),
+            channel="web",
+            received_at=now,
+            connection_id=uuid4(),
+            filename=name,
+            media_type="image/png",
+        )
+
+    by_whatsapp, by_web, whatsapp_then_email = (
+        attachment("wa.png"),
+        attachment("web.png"),
+        attachment("both.png"),
+    )
+    note = MessageSource(
+        id=uuid4(), kind="message", channel="web", received_at=now, text="nota"
+    )
+    dossier = BusinessDossier.model_construct(
+        sources=(by_whatsapp, by_web, whatsapp_then_email, note)
+    )
+    captured = frozenset(
+        {str(by_whatsapp.connection_id), str(whatsapp_then_email.connection_id)}
+    )
+    seen = api.with_whatsapp_sources(dossier, captured)
+    assert [s.channel for s in seen.sources] == ["whatsapp", "web", "whatsapp", "web"]
+    assert api.with_whatsapp_sources(dossier, frozenset()) is dossier
+    monkeypatch.setattr(
+        "argus.api.email_intake.email_receipt_flags",
+        lambda space_id: {
+            str(whatsapp_then_email.connection_id): (
+                ("d1",),
+                False,
+                now - timedelta(minutes=1),
+            )
+        },
+    )
+    assert [s.channel for s in api.with_email_sources(seen, "space").sources] == [
+        "whatsapp",
+        "web",
+        "email",
+        "web",
+    ]
