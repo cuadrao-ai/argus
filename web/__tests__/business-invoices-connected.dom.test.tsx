@@ -494,3 +494,17 @@ test("the invoice dossier lists payments, corrections and delivery as static una
     assert.equal(page.calls.filter(call => call.method !== "GET").length, 0);
   } finally { await page.close(); }
 });
+test("the connected first-use state offers the three setup cards as navigation only, with no readiness marks", async () => {
+  const page = await mount(); try {
+    const cards = document.querySelector('[data-testid="invoice-setup-cards"]'); assert.ok(cards);
+    assert.deepEqual([...cards.querySelectorAll("strong")].map(node => node.textContent), ["Business details", "Add a customer", "Prepare your first invoice"]);
+    assert.equal(cards.querySelector("svg[class*='check'], [aria-checked], [role='checkbox']"), null);
+    await page.act(async () => cards.querySelectorAll("button")[1].click()); assert.ok(document.querySelector("#customer-name"));
+    assert.equal(page.calls.filter(call => call.method !== "GET").length, 0);
+  } finally { await page.close(); }
+  const filtered = await mount({ record: savedInvoice() }); try { assert.equal(document.querySelector('[data-testid="invoice-setup-cards"]'), null, "populated list has no setup cards"); } finally { await filtered.close(); }
+  const readOnly = await mount({ noPrepare: true }); try {
+    const guarded = [...document.querySelectorAll<HTMLButtonElement>('[data-testid="invoice-setup-cards"] button')].map(node => node.disabled);
+    assert.deepEqual(guarded, [false, true, true]);
+  } finally { await readOnly.close(); }
+});
