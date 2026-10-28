@@ -7,6 +7,7 @@ import { SlidersHorizontal } from "lucide-react";
 import { getMe } from "@/lib/argus-api";
 import { getChosenGrant } from "@/lib/business-grant";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "@/lib/browser-auth-generation";
+import { isProgrammaticPop } from "@/lib/overlay-history";
 import { businessReportRow, recipeFromRequest, reportSummary, summaryIncludesUnreviewed, recordsPresentationToReport, recordsSortToReport, reportPresentationToRecords, restoreReportLocation, writeReportLocation, type ReportFailure, type ReportingTransport } from "@/lib/business-reporting-wire";
 import { reportRequestSchema, type ReportAnswer, type ReportFilters, type ReportPeriod, type ReportRequest, type ReportScope } from "@/lib/business-reports-api";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
@@ -109,7 +110,7 @@ export function ConnectedBusinessReports({ scope, period, transport, initial }: 
   const updateUrl = (request: ReportRequest, anchor = state.anchor, push = false) => writeReportLocation(request, anchor, scopeKey, push);
   useEffect(() => { updateUrl(state.request); }, [state.request, state.anchor]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const restore = () => { const url = new URL(window.location.href); if (url.searchParams.get("report_scope") !== scopeKey) return; const next = restoreReportLocation(url.searchParams); setUrlInvalid(next.invalid); controller.rememberAnchor(next.anchor); void controller.load(next.request); };
+    const restore = (event: PopStateEvent) => { if (isProgrammaticPop(event)) return; const url = new URL(window.location.href); if (url.searchParams.get("report_scope") !== scopeKey) return; const next = restoreReportLocation(url.searchParams); setUrlInvalid(next.invalid); controller.rememberAnchor(next.anchor); void controller.load(next.request); };
     window.addEventListener("popstate", restore);
     return () => window.removeEventListener("popstate", restore);
   }, [controller, scopeKey]);
