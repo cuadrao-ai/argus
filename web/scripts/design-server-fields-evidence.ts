@@ -74,6 +74,7 @@ try {
           const none = { count: 0, totals: [], overdue: { count: 0, totals: [] }, items: [] };
           return route.fulfill({ json: { today: "2026-10-21", cuentas_por_cobrar: none, cuentas_por_pagar: none } });
         }
+        if (path === "invitations") return route.fulfill({ json: [] });
         throw new Error(`Unmapped synthetic endpoint ${path}`);
       });
       await page.goto(`${baseURL}/biz${state.startsWith("bandeja") ? "?view=inbox" : ""}`);

@@ -67,6 +67,7 @@ try {
       if (path === "receipts") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, confirmed_count: 0, dismissed_count: 0 } } });
       if (path === "month-close") return route.fulfill({ json: monthCloseWire("2026-10") });
       if (path === "open-items") { const none = { count: 0, totals: [], overdue: { count: 0, totals: [] }, items: [] }; return route.fulfill({ json: { today: "2026-10-22", cuentas_por_cobrar: none, cuentas_por_pagar: none } }); }
+      if (path === "invitations") return route.fulfill({ json: [] });
       unexpected.push(`Unmapped synthetic endpoint ${path}`);
       return route.fulfill({ status: 503, json: { code: "unmapped_synthetic_endpoint" } });
     });
