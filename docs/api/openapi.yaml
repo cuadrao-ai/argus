@@ -971,6 +971,71 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/activity:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      description: 'Who changed what and when in the working Business: applied ledger rows,
+
+        newest first. Access changes list only for a reader who may manage.'
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          enum:
+          - 25
+          - 50
+          - 100
+          type: integer
+          default: 25
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 256
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityPage'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   # Bank tables are server-only. HTTP access checks and locks the live Business
   # grant; closure, expiry, revocation, issuer loss and anonymous identity deny it.
   # Bindings use the same Business and record custodian, independent of its current
@@ -15698,6 +15763,21 @@ components:
       required:
       - account_id
       - recipients
+    ActivityActor:
+      properties:
+        display_name:
+          type: string
+        kind:
+          type: string
+          enum:
+          - owner_via_agent
+          - member
+          - extractor
+      additionalProperties: false
+      type: object
+      required:
+      - display_name
+      - kind
     ActivityHistory:
       properties:
         items:
@@ -15721,6 +15801,74 @@ components:
       required:
       - activity
       - archived
+    ActivityItem:
+      properties:
+        id:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+        actor:
+          $ref: '#/components/schemas/ActivityActor'
+        action:
+          type: string
+          enum:
+          - review_draft
+          - approve_expense
+          - approve_income
+          - approve_refund
+          - capture_note
+          - prepare_attachment
+          - rebind_attachment
+          - settle_remainder
+          - mark_personal
+          - decide_606
+          - resolve_duplicate
+          - edit_current_note
+          - append_supporting_file
+          - receipt_upload
+          - receipt_review
+          - receipt_confirm
+          - email_ai_consent_declined
+          - set_business_rnc
+          - business_propose_activity
+          - business_attach_source
+          - business_propose_allocation
+          - owner_grant
+          - grant_access
+          - invite_access
+          - accept_invite
+          - revoke_grant
+          - revoke_invite
+          - change_role
+          - other
+        object:
+          anyOf:
+          - $ref: '#/components/schemas/ActivityObject'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - occurred_at
+      - actor
+      - action
+    ActivityObject:
+      properties:
+        kind:
+          type: string
+          enum:
+          - draft
+          - grant
+          - invite
+        id:
+          type: string
+          format: uuid
+      additionalProperties: false
+      type: object
+      required:
+      - kind
+      - id
     ActivityOperationResponse:
       properties:
         account:
@@ -15734,6 +15882,20 @@ components:
       - account
       - activity
       - replayed
+    ActivityPage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/ActivityItem'
+          type: array
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - items
     ActivityPageResponse:
       properties:
         items:
