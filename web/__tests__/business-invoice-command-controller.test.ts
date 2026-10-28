@@ -100,6 +100,15 @@ test("fiscal issuance off is terminal: not journaled, not retryable and never bl
   await controller.submit(create()); expect(controller.getSnapshot().kind).toBe("saved"); controller.dispose();
   expect(createInvoiceCommandController(invoiceScope, store, wire).getSnapshot().kind).toBe("idle");
 });
+test("a 404 http_error on an invoice or customer save stays refused and never reads as fiscal unavailable", async () => {
+  for (const kind of ["invoice", "customer"] as const) {
+    const store = journal(), wire = transport();
+    wire[kind] = async () => { throw new InvoiceProblem(404, "http_error", {}, "ref-from-server"); };
+    const controller = createInvoiceCommandController(invoiceScope, store, wire);
+    await controller.submit(kind === "invoice" ? create() : { kind: "customer", id: null, key: "customer-create", body: { data: savedCustomer().data, archived: false, expected_version: null } });
+    expect(controller.getSnapshot()).toMatchObject({ kind: "failed", failure: "refused", retryable: false, reference: "ref-from-server" }); expect(store.read(invoiceScope)).toBeNull(); controller.dispose();
+  }
+});
 test("definite client rejections are terminal while network and server failures stay retryable", async () => {
   const cases: [number, string, string, boolean][] = [[404, "invoice_not_found", "refused", false], [400, "http_error", "refused", false], [413, "http_error", "refused", false], [429, "http_error", "uncertain", true], [408, "http_error", "uncertain", true], [500, "http_error", "uncertain", true], [503, "http_error", "uncertain", true]];
   for (const [status, code, failure, retryable] of cases) {
