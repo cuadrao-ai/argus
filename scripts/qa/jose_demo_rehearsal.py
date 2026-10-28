@@ -2281,6 +2281,10 @@ class Seeder:
             out["4"]["activity_id"] = (dossier.get("approval_result") or {}).get(
                 "activity_id"
             )
+            # The status recorded at upload predates the approval above.
+            out["4"]["status"] = api.get(f"/business/receipts/{receipt['id']}").get(
+                "status"
+            )
         elif self.args.dry_run:
             self.act(
                 "after the read: review (funding bank account, share all) and approve the 01-colmado draft",
