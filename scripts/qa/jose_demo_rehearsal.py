@@ -52,8 +52,12 @@ Staging (only after Lucas approves the milestone deploy and the seed)::
         --web https://cuadrao-web-staging.onrender.com \\
         --account qa-owner-tester --expect-business b65130e8 --evidence <dir>
 
+Staging refuses any ``--api``/``--web`` host that is not an https
+``<service>-staging.onrender.com`` and always needs ``--expect-business``
+(seed and rehearse alike).
+
 The account file (``--accounts-file``, default ``temp/staging-walk-accounts.json``
-in the main checkout) is read only inside this process; sign-in goes through the
+in the main checkout, ``{"<entry>": {"<email>": "<password>"}}``) is read only inside this process; sign-in goes through the
 web login headless and the session token stays in memory. On staging the script
 never signs a webhook: case 1 waits ``--whatsapp-wait`` seconds for a document
 from the linked phone, else it is UNTESTED.
@@ -182,6 +186,28 @@ def load_env_file(path: Path) -> dict[str, str]:
 def require_loopback(url: str, what: str) -> None:
     if urlsplit(url.replace("postgresql://", "http://", 1)).hostname not in LOOPBACK:
         raise SystemExit(f"refusing: {what} is not a loopback address")
+
+
+def require_staging_host(url: str, what: str) -> None:
+    """Staging runs write real rows: only the staging services, over https."""
+
+    parts = urlsplit(url)
+    host = parts.hostname or ""
+    try:
+        port = parts.port
+    except ValueError:
+        port = -1
+    if (
+        parts.scheme != "https"
+        or parts.username
+        or parts.password
+        or port not in (None, 443)
+        or not host.endswith("-staging.onrender.com")
+        or host == "-staging.onrender.com"
+    ):
+        raise SystemExit(
+            f"refusing: {what} must be https://<service>-staging.onrender.com (got host {host or 'none'})"
+        )
 
 
 def pack_files(receipts_dir: Path) -> dict[str, bytes]:
@@ -2174,6 +2200,9 @@ class Seeder:
 
 
 def run(args: argparse.Namespace) -> None:
+    if args.target == "staging":
+        require_staging_host(args.api, "--api")
+        require_staging_host(args.web, "--web")
     out = args.evidence.resolve()
     out.mkdir(parents=True, exist_ok=True)
     local = args.target == "local"
