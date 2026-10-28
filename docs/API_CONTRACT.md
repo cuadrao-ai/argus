@@ -9400,7 +9400,7 @@ missing write capability returns 403. Stale versions and same-key/different-inpu
 requests return 409; invalid facts or unresolved approval blockers return 422.
 An uncertain financial effect is `outcome_unknown`, not success or safe retry.
 
-`GET /business/exports?start=YYYY-MM-DD&end=YYYY-MM-DD&draft_id=<optional UUID>` returns a no-store `application/zip` containing `records.csv`, `records.xlsx`, `unresolved.csv`, original non-image attachments and rebuilt image JPEGs under the existing `originals/` archive folder and `manifest.json`. Dates are required and inclusive, covering 1–366 days. The optional canonical draft anchor selects its Business through existing `context_for_draft` and the actual caller's live named export permission; absent anchor selects only the authenticated owner's existing Business. There is no space bootstrap, guessed accountant destination or caller authority. Missing/foreign/inaccessible anchors return 404 `business_record_not_found`; no own Business returns 404 `business_space_missing`; existing capability/availability refusals are preserved. Invalid ranges return 422 and bounded collection/archive overflow returns 413 with the specific export code. A single authorized canonical snapshot supplies current recorded money, exact funding/source links and separately labeled unresolved/undated drafts. Image copies are built lazily outside snapshot locks. Source reads and final response release recheck the same grant and source identity, with existing grant/Business/source locks; authorization failure aborts the response. Missing downloadable copies and source links are explicit in the manifest and never counted as complete evidence. Unresolved or undated drafts never contribute to recorded-money totals. Amount/kind/date/account/category/receipt facts are not invented or converted, and the export writes no ledger, draft or permission. `records.csv` and the first `records.xlsx` sheet hold one row per recorded activity with the columns `Fecha`, `Proveedor`, `RNC`, `NCF`, `Tipo de gasto`, `Forma de pago`, `Subtotal`, `ITBIS`, `Total`, `Moneda`, `Estado`, `Pago`, in that order. The supplier and fiscal facts come from the approved revision, the expense type and payment form from its 606 declaration (a suggested type stays empty), `Subtotal` is the total less a known ITBIS, and `Estado` is the activity's DGII reconciliation disposition. `Pago` is the stored settlement status of a recorded income or expense (`pendiente`, `pagado` or `cobrado`, the same words month close and bank matching write): `pendiente` until a settlement or a confirmed bank match stores one, and empty for a transfer. The second sheet keeps the internal ids and canonical fields without the note, the third the unresolved drafts; `manifest.json` `records` keeps the canonical rows.
+`GET /business/exports?start=YYYY-MM-DD&end=YYYY-MM-DD&draft_id=<optional UUID>` returns a no-store `application/zip` containing `records.csv`, `records.xlsx`, `unresolved.csv`, original non-image attachments and rebuilt image JPEGs under the existing `originals/` archive folder and `manifest.json`. Dates are required and inclusive, covering 1–366 days. The optional canonical draft anchor selects its Business through existing `context_for_draft` and the actual caller's live named export permission; absent anchor selects only the authenticated owner's existing Business. There is no space bootstrap, guessed accountant destination or caller authority. Missing/foreign/inaccessible anchors return 404 `business_record_not_found`; no own Business returns 404 `business_space_missing`; existing capability/availability refusals are preserved. Invalid ranges return 422 and bounded collection/archive overflow returns 413 with the specific export code. A single authorized canonical snapshot supplies current recorded money, exact funding/source links and separately labeled unresolved/undated drafts. Image copies are built lazily outside snapshot locks. Source reads and final response release recheck the same grant and source identity, with existing grant/Business/source locks; authorization failure aborts the response. Missing downloadable copies and source links are explicit in the manifest and never counted as complete evidence. Unresolved or undated drafts never contribute to recorded-money totals. Amount/kind/date/account/category/receipt facts are not invented or converted, and the export writes no ledger, draft or permission. `records.csv` and the first `records.xlsx` sheet hold one row per recorded activity with the columns `Fecha`, `Proveedor`, `RNC`, `NCF`, `Tipo de gasto`, `Forma de pago`, `Subtotal`, `ITBIS`, `Total`, `Moneda`, `Estado`, `Pago`, in that order. The supplier and fiscal facts come from the approved revision, the expense type and payment form from its 606 declaration (a suggested type stays empty), `Subtotal` is the total less a known ITBIS, and `Estado` is the activity's DGII reconciliation disposition. `Pago` is the stored settlement status of a recorded income or expense (`pendiente`, `pagado` or `cobrado`, the same words month close and bank matching write): `pendiente` until a settlement or a confirmed bank match stores one, and empty for a transfer. The second sheet keeps the internal ids and canonical fields without the note, the third the unresolved drafts; `manifest.json` `records` keeps the canonical rows. A record that carries the owner's Personal mark (`business_share` none, stated by a person) is not a business row: it leaves `records.csv` and the first sheet and is listed in `personal.csv` and the fourth sheet `Personal` with the columns `Registro`, `Fecha`, `Total`, `Moneda`, `Originales` (the `originals/` paths of its included sources). Its originals stay under `originals/`, its canonical row stays in the second sheet and in `manifest.json` `records` with `personal` `yes`, and `manifest.json` `files` hashes `personal.csv`. In the DGII packet such a record has disposition `excluded` with reason `personal` unless it is a purchase the accountant answered `include_606` yes, the same rule month close applies; that answer also puts the purchase back among the business rows of `records.csv` and the first sheet, while a personal sale stays out whatever the answer. The mark and the 606 answer are read from the draft as it stands when the package is built, not from the approved revision: both change after approval, and month close, Registros and this package read them from the same place, so one mark moves the record on every surface at once.
 
 **DGII period export.** The same authorized ZIP additionally contains
 `dgii/606-607.xlsx` and `dgii/summary.json`. TXT names are
@@ -10016,8 +10016,10 @@ person starts their space, every route below except POST `/space` answers 404
     month-close lines always carry it; month close counts such a record
     and leaves it out of the 606, the 607 and the close reasons (see the
     [month-close contract](contracts/business-month-close.md)). The
-    overview's `totals` are "Gastos reales" (approved expenses that are not
-    personal), `fiscal_totals` are those with fiscal
+    overview's `totals` are "Gastos reales" (approved expenses the Personal
+    mark admits: not personal, or a purchase the accountant answered
+    `include_606` yes, the rule month close, the DGII packet, Registros and
+    the export share), `fiscal_totals` are those with fiscal
     value and `without_fiscal_totals` the rest, all per currency from the same
     rows. The export's records gain `personal`, `fiscal_value` and
     `include_606` (`yes`, `no` or empty); a personal expense stays in the
@@ -10588,7 +10590,15 @@ accept path recorded.
   `currencies`, `counterparties`, `categories`, `funding_sources`,
   `document_kinds` (`invoice`, `receipt`, `credit_note`, `unknown`) and
   `fiscal_classifications`. `has_document` is a live linked attachment, separate
-  from download availability and fiscal number. Categories use activity IDs plus
+  from download availability and fiscal number. Each row carries `personal`, the
+  owner's Personal mark, and `include_606`, the accountant's 606 answer (`null`
+  while no answer applies), both read from the draft as it stands now, after
+  approval too, the same source month close and the export handoff read.
+  A personal row stays listed and searchable and counts in a total of any
+  basis only when it is a purchase the accountant answered `include_606` yes;
+  a personal sale never counts. Month close, the DGII packet and the export
+  handoff admit by the same rule.
+  Categories use activity IDs plus
   `uncategorized`; funding uses `account:<id>` or `owner_funds` and returns the
   source account type/name, never a balance. Counterparty keys are exact normalized
   tax identities within this Business. Aliases share a key; equal names never
@@ -10611,6 +10621,9 @@ accept path recorded.
   attachment availability does not switch date basis. Missing dates remain null, never capture/approval/payment dates.
   They match `all`; bounded periods exclude them. `excluded_unknown_dates` counts
   those matching the other active filters before applying the date condition.
+  `excluded_personal` counts the matching rows the Personal mark keeps out of
+  every total, as `income` (sales) and `expense` (purchases), so a card can say
+  how many personal records its total leaves out.
   `all` has no time cap. A snapshot over 10,000 source rows refuses explicitly
   with `business_report_too_large`; it never clips. `amount_min`/`amount_max`
   require exactly one selected currency and exact nonnegative decimal strings,
@@ -10652,7 +10665,9 @@ accept path recorded.
   and returns a no-store ZIP of the full filtered answer: `records.csv`,
   `records.xlsx`, and `manifest.json`. It includes unresolved matching rows with
   honest workflow and effect fields. Selected columns preserve order; identity,
-  workflow and effect columns always remain. Spreadsheet cells are literal text.
+  workflow and effect columns always remain, and so do `personal` and
+  `include_606`, which say why a listed row is in or out of the manifest totals.
+  Spreadsheet cells are literal text.
   XLSX includes server-computed Records, Totals and Scope sheets with no formulas.
   The manifest states trusted Business/actor/grant, query, resolved dates,
   captured/generated time, matching count, semantic totals, coverage limitations

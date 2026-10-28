@@ -61,7 +61,7 @@ export const reportRecordSchema = z.object({
   recorded_amount: decimal.nullable(), recorded_currency: z.string().nullable(), proposed_amount: decimal.nullable(), money_kind: z.string(),
   money_effect: effect, adjustment_effect: effect.nullable(), counterparty: z.string().nullable(), counterparty_key: z.string().nullable(),
   category_key: z.string(), funding_key: z.string().nullable(), funding_label: z.string().nullable(), funding_kind: z.string().nullable(),
-  has_document: z.boolean(), document_kind: documentKind, fiscal_classification: z.string(), fiscal_number: z.string().nullable(),
+  has_document: z.boolean(), personal: z.boolean().optional(), document_kind: documentKind, fiscal_classification: z.string(), fiscal_number: z.string().nullable(),
   note: z.string().nullable(), settlement_status: z.string().nullable(), dependency_fingerprint: z.string(),
   can_edit_note: z.boolean().optional(), can_append_supporting: z.boolean().optional(), annotation_unavailable_reason: z.string().nullable().optional(), attachment_sources: z.array(reportAttachmentSourceSchema).optional(),
 });
@@ -74,7 +74,8 @@ export const reportAnswerSchema = z.object({
   items: z.array(reportRecordSchema), matching_count: count, page: z.number().int().positive(), page_size: z.union([z.literal(25), z.literal(50), z.literal(100)]), page_count: count,
   totals: z.array(reportTotalSchema), fingerprint: z.string().regex(/^[0-9a-f]{64}$/), captured_at: z.string(),
   resolved_period: z.object({ from_date: day.nullable(), to_date: day.nullable(), calendar: z.literal("America/Santo_Domingo") }),
-  excluded_unknown_dates: count, counterparties: z.array(z.object({ key: z.string(), labels: z.array(z.string()) })), categories: z.array(z.string()),
+  excluded_unknown_dates: count, excluded_personal: z.object({ income: count, expense: count }).optional(),
+  counterparties: z.array(z.object({ key: z.string(), labels: z.array(z.string()) })), categories: z.array(z.string()),
   funding_sources: z.array(z.object({ key: z.string(), label: z.string().nullable(), kind: z.string().nullable() })), coverage_notes: z.array(z.string()),
   overview: z.object({ needs_review: count, awaiting_approval: count, ready_for_export: count }).optional(), effective_sort: reportSortSchema.optional(),
   sort_unavailable_reason: z.literal("amount_sort_requires_single_known_currency").nullable().optional(),

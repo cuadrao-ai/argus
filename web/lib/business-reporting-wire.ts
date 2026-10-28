@@ -36,7 +36,7 @@ export function businessReportRow(report: ReportRecord): RecordRow {
     kind: report.family === "sale" ? "venta" : "gasto", occurredOn: report.report_date ?? "", counterparty: report.counterparty,
     money: { amount: report.gross_amount ?? "", currency: report.currency ?? "" }, categoryId: report.category_key === "uncategorized" ? null : report.category_key,
     account: report.funding_kind === "checking" || report.funding_kind === "savings" ? { kind: "bank", name: report.funding_label } : report.funding_kind === "credit_card" ? { kind: "card", name: report.funding_label } : report.funding_kind === "cash" ? { kind: "cash", name: report.funding_label } : null,
-    hasProof: report.has_document, marks: { personal: false, markedBy: null, fiscal: null },
+    hasProof: report.has_document, marks: { personal: report.personal ?? false, markedBy: null, fiscal: null },
     opens: report.draft_id ? { kind: "draft", draftId: report.draft_id, list: "transactions" } : activityId ? { kind: "expense", expenseId: activityId } : null,
   };
 }
@@ -48,7 +48,7 @@ export function reportSummary(answer: ReportAnswer | undefined, kind: RecordRow[
     .filter((total) => total.basis === "document_family_amount" && total.kind === SUMMARY_KIND[kind])
     .map((total) => ({ currency: total.currency ?? "", total: total.complete ? total.amount : null, known: total.complete ? null : total.known_amount, settled: null, balance: null }))
     .sort((a, b) => Number(!a.currency) - Number(!b.currency) || a.currency.localeCompare(b.currency));
-  return { currencies, exclusions: { unconfirmed: 0, personal: 0, unavailable: 0 } };
+  return { currencies, exclusions: { unconfirmed: 0, personal: answer?.excluded_personal?.[SUMMARY_KIND[kind]] ?? 0, unavailable: 0 } };
 }
 
 /** Server totals cover every matching document whatever its stage. They are plain finalized money only for the ready-for-export stage or when the server reports no document to review or approve. */

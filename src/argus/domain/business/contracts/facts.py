@@ -427,10 +427,16 @@ def is_sin_comprobante(facts: BusinessFacts) -> bool:
 
 def fiscal_question_applies(facts: BusinessFacts) -> bool:
     """Whether "¿Incluir en 606?" is a question on this record: a personal
-    receipt that carries a fiscal number. The answer and the dossier's
+    receipt that carries a fiscal number. The 606 is the purchases report, so
+    a sale never gets the question. The answer and the dossier's
     ``fiscal_inclusion_available`` both start here."""
 
-    return is_personal(facts) and fiscal_value(facts) is not None
+    kind = facts.kind
+    return (
+        is_personal(facts)
+        and fiscal_value(facts) is not None
+        and not (isinstance(kind, Known) and kind.value == "income")
+    )
 
 
 def fiscal_inclusion(facts: BusinessFacts) -> bool | None:
@@ -440,3 +446,15 @@ def fiscal_inclusion(facts: BusinessFacts) -> bool | None:
         return None
     answer = facts.fiscal.include_606
     return answer.value if isinstance(answer, Known) else None
+
+
+def personal_mark_admits(
+    personal: bool, include_606: bool | None, *, sale: bool = False
+) -> bool:
+    """Whether a record counts for the Business: not marked Personal, or a
+    personal purchase the accountant answered "¿Incluir en 606?" yes. The
+    606 is the purchases report, so the answer never admits a personal sale.
+    Month close, the DGII packet, Registros totals and the export handoff all
+    decide here."""
+
+    return not personal or (not sale and include_606 is True)

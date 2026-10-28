@@ -87,6 +87,32 @@ def test_export_is_full_filtered_answer_and_explicitly_records_only(client, acti
     assert manifest["scope"] == "filtered_records_only"
     assert manifest["fingerprint"] == answer["fingerprint"]
     assert all(row["stage"] == "awaiting_approval" for row in rows)
+    assert all((row["personal"], row["include_606"]) == ("False", "") for row in rows)
+
+
+def test_export_marks_personal_rows_and_the_totals_leave_them_out(client, actions):
+    http, _ = client
+    service, context, _ = actions
+    business = document_backed_expense(service, context, personal=False)
+    personal = document_backed_expense(service, context, personal=True)
+    answer = query(http)
+    response = http.post(
+        "/business/reports/export",
+        json={"expected_fingerprint": answer["fingerprint"], "report": {}},
+    )
+    assert response.status_code == 200, response.text
+    with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+        rows = {
+            json.loads(row["linked_activity_ids"])[0]: row
+            for row in csv.DictReader(
+                io.StringIO(archive.read("records.csv").decode("utf-8-sig"))
+            )
+        }
+        manifest = json.loads(archive.read("manifest.json"))
+    assert (rows[business]["personal"], rows[personal]["personal"]) == ("False", "True")
+    assert manifest["matching_count"] == 2
+    for total in manifest["totals"]:
+        assert (total["matching_count"], total["amount"]) == (1, "850.00")
 
 
 def test_stale_export_requires_explicit_refresh(client, actions):
@@ -295,3 +321,72 @@ def test_http_credit_amount_strings_are_signed_and_money_refund_stays_separate(
     expected = ORACLE["P04"]["gross"]
     assert credit["known_amount"] == credit["amount"] == "-" + expected
     assert cash_refund["known_amount"] == cash_refund["amount"] == expected
+
+
+def document_backed_expense(service, context, *, personal):
+    from argus.domain.business.contracts.actions import (
+        ApproveExpense,
+        MarkPersonal,
+        ProposeActivity,
+    )
+    from argus.domain.business.contracts.facts import BusinessFactPatch
+
+    evidence = shared.source(service, context)
+    facts = BusinessFactPatch.model_validate(
+        {
+            name: {"state": "known", "value": value}
+            for name, value in {
+                "kind": "expense",
+                "amount": "850",
+                "currency": "DOP",
+                "occurred_on": "2026-10-01",
+                "funding": {"kind": "owner_funds"},
+                "business_share": {"kind": "all"},
+                "receipt_state": "informal_receipt",
+            }.items()
+        }
+    )
+    key, lease = shared.prepare(
+        service, context, [ProposeActivity(facts=facts, source_ids=(evidence,))]
+    )
+    proposed = service.execute(context, key, 0, lease=lease)
+    assert proposed.outcome == "applied", proposed
+    draft = proposed.draft_id
+    version = service.dossier(context, draft).version
+    if personal:
+        marked = service.mark_personal(
+            context, draft, MarkPersonal(version=version, personal=True), str(uuid4())
+        )
+        assert marked.outcome == "applied", marked
+        version += 1
+    approved = service.approve(
+        context,
+        draft,
+        ApproveExpense(version=version, action="record_expense"),
+        str(uuid4()),
+    )
+    assert approved.outcome == "applied", approved
+    return str(approved.activity_id)
+
+
+def test_personal_rows_stay_listed_but_count_in_no_total(client, actions):
+    http, _ = client
+    service, context, _ = actions
+    business = document_backed_expense(service, context, personal=False)
+    personal = document_backed_expense(service, context, personal=True)
+    answer = query(http)
+    assert answer["matching_count"] == 2
+    rows = {row["linked_activity_ids"][0]: row for row in answer["items"]}
+    assert (rows[business]["personal"], rows[personal]["personal"]) == (False, True)
+    assert rows[personal]["date_basis"] == "document_issue"
+    expenses = [total for total in answer["totals"] if total["kind"] == "expense"]
+    assert {total["basis"] for total in expenses} >= {
+        "recorded_activity_amount",
+        "document_family_amount",
+    }
+    for total in expenses:
+        assert (total["currency"], total["matching_count"], total["amount"]) == (
+            "DOP",
+            1,
+            "850.00",
+        )
