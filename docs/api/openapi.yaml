@@ -980,7 +980,9 @@ paths:
 
         newest first. Access changes, and an action the feed does not know yet, list
 
-        only for a reader who may manage.'
+        only for a reader who may manage. Values of one filter are OR''ed, filters
+
+        are AND''ed, and a cursor continues only the filter set that issued it.'
       parameters:
       - name: limit
         in: query
@@ -999,6 +1001,74 @@ paths:
           anyOf:
           - type: string
             maxLength: 256
+          - type: 'null'
+      - name: from
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          description: First calendar day, Business time zone.
+        description: First calendar day, Business time zone.
+      - name: to
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          description: Last calendar day, Business time zone.
+        description: Last calendar day, Business time zone.
+      - name: actor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: array
+            items:
+              type: string
+              pattern: ^[0-9a-f]{32}$
+            maxItems: 50
+          - type: 'null'
+          description: Actor ids from the page's `actors`.
+        description: Actor ids from the page's `actors`.
+      - name: area
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: array
+            items:
+              enum:
+              - documents
+              - records
+              - invoicing
+              - business
+              type: string
+            maxItems: 4
+          - type: 'null'
+      - name: action_group
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: array
+            items:
+              enum:
+              - uploads
+              - reading
+              - reviews
+              - approvals
+              - edits
+              - files
+              - invoices
+              - access
+              - settings
+              type: string
+            maxItems: 9
           - type: 'null'
       - name: X-Business-Grant
         in: header
@@ -15775,9 +15845,47 @@ components:
           - owner_via_agent
           - member
           - extractor
+        id:
+          anyOf:
+          - type: string
+            pattern: ^[0-9a-f]{32}$
+          - type: 'null'
+        membership:
+          anyOf:
+          - type: string
+            enum:
+            - current
+            - former
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
+      - display_name
+      - kind
+    ActivityFacetActor:
+      properties:
+        id:
+          type: string
+          pattern: ^[0-9a-f]{32}$
+        display_name:
+          type: string
+        kind:
+          type: string
+          enum:
+          - owner_via_agent
+          - member
+          - extractor
+        membership:
+          anyOf:
+          - type: string
+            enum:
+            - current
+            - former
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - id
       - display_name
       - kind
     ActivityHistory:
@@ -15811,7 +15919,9 @@ components:
           type: string
           format: date-time
         actor:
-          $ref: '#/components/schemas/ActivityActor'
+          anyOf:
+          - $ref: '#/components/schemas/ActivityActor'
+          - type: 'null'
         action:
           type: string
           enum:
@@ -15843,10 +15953,36 @@ components:
           - revoke_grant
           - revoke_invite
           - change_role
+          - ownership_transferred
+          - receipt_reading_enabled
           - other
         object:
           anyOf:
           - $ref: '#/components/schemas/ActivityObject'
+          - type: 'null'
+        area:
+          anyOf:
+          - type: string
+            enum:
+            - documents
+            - records
+            - invoicing
+            - business
+          - type: 'null'
+        restricted:
+          type: boolean
+          default: false
+        role:
+          anyOf:
+          - $ref: '#/components/schemas/BusinessRole'
+          - type: 'null'
+        personal:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+        include:
+          anyOf:
+          - type: boolean
           - type: 'null'
       additionalProperties: false
       type: object
@@ -15866,6 +16002,10 @@ components:
         id:
           type: string
           format: uuid
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -15893,6 +16033,12 @@ components:
         next_cursor:
           anyOf:
           - type: string
+          - type: 'null'
+        actors:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/ActivityFacetActor'
+            type: array
           - type: 'null'
       additionalProperties: false
       type: object
