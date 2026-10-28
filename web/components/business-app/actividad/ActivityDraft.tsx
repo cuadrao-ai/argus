@@ -391,6 +391,7 @@ export default function ActivityDraft() {
       </div>
       {live ? (feed.next ? <div className="mt-4 flex flex-col items-center gap-2">
         {feed.more === "error" ? <p role="alert" className="text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">{c.loadMoreFailed}</p> : null}
+        {feed.more === "error" && feed.moreReference ? <ReferenceCode reference={feed.moreReference} /> : null}
         <button type="button" onClick={feed.loadMore} disabled={feed.more === "loading"} aria-busy={feed.more === "loading"} className={secondaryButtonClass}>{c.loadMore}</button>
       </div> : null) : filtered.length > shown ? <div className="mt-4 flex justify-center"><button type="button" onClick={() => setShown((n) => n + PAGE)} className={secondaryButtonClass}>{c.loadMore}</button></div> : null}
     </>;

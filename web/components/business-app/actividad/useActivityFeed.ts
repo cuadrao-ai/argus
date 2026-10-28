@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { getBusinessActivity, type BusinessActivityItem } from "@/lib/business-activity-api";
+import { referenceCode } from "@/lib/failure-screen";
 
-type Feed = { key: string; status: "ready" | "error"; items: BusinessActivityItem[]; next: string | null; more: "idle" | "loading" | "error"; reference?: string };
+type Feed = { key: string; status: "ready" | "error"; items: BusinessActivityItem[]; next: string | null; more: "idle" | "loading" | "error"; reference?: string; moreReference?: string };
 
 /**
  * The live Actividad history: the first page per Business (and per retry), then "Cargar más" on next_cursor. A failed
- * first page keeps the server's reference for the error state; a failed next page keeps the rows already shown.
+ * first page and a failed next page each keep a reference to show (the server's request id, else a generated one);
+ * a failed next page keeps the rows already shown.
  */
 export function useActivityFeed(enabled: boolean, businessId: string | null) {
   const [attempt, setAttempt] = useState(0);
@@ -19,7 +21,7 @@ export function useActivityFeed(enabled: boolean, businessId: string | null) {
     const controller = new AbortController();
     getBusinessActivity(null, controller.signal).then(
       (page) => setFeed({ key, status: "ready", items: page.items, next: page.next_cursor, more: "idle" }),
-      (error: { requestId?: string }) => { if (!controller.signal.aborted) setFeed({ key, status: "error", items: [], next: null, more: "idle", reference: error?.requestId }); },
+      (error) => { if (!controller.signal.aborted) setFeed({ key, status: "error", items: [], next: null, more: "idle", reference: referenceCode(error) }); },
     );
     return () => controller.abort();
   }, [enabled, businessId, key]);
@@ -30,7 +32,7 @@ export function useActivityFeed(enabled: boolean, businessId: string | null) {
     setFeed({ ...current, more: "loading" });
     getBusinessActivity(cursor).then(
       (page) => setFeed((state) => (state?.key === key ? { ...state, items: [...state.items, ...page.items], next: page.next_cursor, more: "idle" } : state)),
-      () => setFeed((state) => (state?.key === key ? { ...state, more: "error" } : state)),
+      (error) => setFeed((state) => (state?.key === key ? { ...state, more: "error", moreReference: referenceCode(error) } : state)),
     );
   };
   return {
@@ -39,6 +41,7 @@ export function useActivityFeed(enabled: boolean, businessId: string | null) {
     next: current?.next ?? null,
     more: current?.more ?? "idle",
     reference: current?.reference,
+    moreReference: current?.moreReference,
     retry: () => setAttempt((value) => value + 1),
     loadMore,
   } as const;

@@ -126,6 +126,43 @@ describe("Actividad on a live Business", () => {
   });
 });
 
+describe("Actividad failures carry a reference", () => {
+  const failWith = (requestId?: string) => async () => { throw Object.assign(new Error("Unavailable"), { status: 503, ...(requestId ? { requestId } : {}) }); };
+
+  test("a failed first page without a request id still shows a Ref. and Reintentar", async () => {
+    feed = failWith();
+    const page = await mount("view=activity");
+    try {
+      await page.settle(() => page.host.textContent?.includes("No pudimos cargar la actividad") === true);
+      const text = page.host.textContent ?? "";
+      assert.match(text, /Ref\. c[0-9a-f]{7}/);
+      assert.ok(text.includes("Reintentar"));
+      assert.ok(text.includes("Ir a Inicio"));
+    } finally { await page.close(); }
+  });
+
+  for (const [label, requestId, expected] of [["the server's request id", "req-5b21c9de", /Ref\. req-5b21/], ["a generated reference when the server sent none", undefined, /Ref\. c[0-9a-f]{7}/]] as const) {
+    test(`a failed Cargar más keeps the rows and shows ${label}`, async () => {
+      feed = async (cursor) => {
+        if (cursor) return failWith(requestId)();
+        return { items: [item("a1", "Lucía Peña", "approve_expense", 5)], next_cursor: "c-2" };
+      };
+      const page = await mount("view=activity");
+      try {
+        await page.settle(() => page.host.textContent?.includes("Lucía Peña") === true);
+        const more = [...page.host.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Cargar más");
+        assert.ok(more);
+        await page.click(more);
+        await page.settle(() => page.host.textContent?.includes("No pudimos cargar más actividad") === true);
+        const text = page.host.textContent ?? "";
+        assert.match(text, expected);
+        assert.ok(text.includes("Lucía Peña"), "the rows already shown stay");
+        assert.ok([...page.host.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Cargar más"), "and so does the way to try again");
+      } finally { await page.close(); }
+    });
+  }
+});
+
 describe("Inicio on a live Business", () => {
   test("a Business that fails to load says so, never an endless skeleton", async () => {
     const page = await mount("view=overview", { overview: async () => { throw Object.assign(new Error("Not found"), { status: 404, code: "business_unavailable" }); } });
