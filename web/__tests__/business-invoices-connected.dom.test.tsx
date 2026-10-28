@@ -508,3 +508,19 @@ test("the connected first-use state offers the three setup cards as navigation o
     assert.deepEqual(guarded, [false, true, true]);
   } finally { await readOnly.close(); }
 });
+test("Settings sets row height on the table and sends the newest or oldest sort to the server", async () => {
+  const page = await mount({ record: savedInvoice() }); try {
+    const sorts = () => page.calls.filter(call => call.method === "GET" && call.path.endsWith("/business/invoices")).map(call => new URLSearchParams(call.query).get("sort"));
+    assert.equal(sorts().at(-1), "newest");
+    const frame = () => document.querySelector('[class*="tableFrame"]'); assert.equal(frame()?.getAttribute("data-density"), "normal");
+    await page.click("Settings");
+    const radio = (name: string) => [...document.querySelectorAll<HTMLElement>('[role="radio"], button')].find(node => node.textContent?.trim() === name); 
+    const compact = radio("Compact"); assert.ok(compact); await page.act(async () => compact.click());
+    assert.equal(frame()?.getAttribute("data-density"), "compact");
+    assert.equal(page.calls.filter(call => call.method !== "GET").length, 0, "density is client-only");
+    const oldest = radio("Oldest"); assert.ok(oldest); await page.act(async () => oldest.click());
+    assert.equal(sorts().at(-1), "oldest");
+    const newest = radio("Newest"); assert.ok(newest); await page.act(async () => newest.click());
+    assert.equal(sorts().at(-1), "newest");
+  } finally { await page.close(); }
+});
