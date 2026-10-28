@@ -31675,6 +31675,9 @@ components:
         has_document:
           type: boolean
           default: false
+        personal:
+          type: boolean
+          default: false
         document_kind:
           type: string
           enum:
