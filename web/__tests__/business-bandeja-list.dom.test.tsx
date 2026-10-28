@@ -455,6 +455,22 @@ describe("emails in the Bandeja", () => {
     assert.ok(emailDetail()!.textContent?.includes("boletin.zip"));
   });
 
+  test("on a desktop the dossier takes the covered list out of the Tab order, and closing puts it back", async () => {
+    const page = await mount({ width: 1280, panel: { kind: "inbox" } });
+    await inboxReady(page);
+    await page.choose("attention");
+    const trigger = emailRow(page, "noticias@proveedor.example")!.querySelector("button")!;
+    const inertHost = () => page.host.querySelector('[data-testid="reception-preview"] > [inert]');
+    assert.equal(inertHost(), null);
+    await page.act(async () => trigger.click());
+    await page.settle(() => emailDetail() !== null, "the email detail");
+    assert.ok(inertHost()?.querySelector('[role="tablist"]'), "the tabs and rows are inert");
+    assert.equal(document.querySelector('[data-testid="reception-dossier"]')?.closest("[inert]"), null);
+    await page.act(async () => { document.querySelector('[data-testid="side-drawer"] button[aria-label="Cerrar"]')!.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+    await page.settle(() => emailDetail() === null, "the dossier to close");
+    assert.equal(inertHost(), null);
+  });
+
   test("on a phone an email is the whole page with a way back to the Bandeja", async () => {
     const page = await mount({ width: 390, panel: { kind: "email", emailId: "email-boletin" } });
     await page.settle(() => emailDetail() !== null, "the email detail");

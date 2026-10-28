@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
@@ -80,7 +80,7 @@ function RecordContent({ panel, preview }: { panel: RecordPanel; preview?: Recor
  * a click on another row swaps the record, and closing returns to the list
  * with focus on the row that was open.
  */
-function RecordTray({ panel, list, listRef, preview }: { panel: RecordPanel; list: RecordList; listRef: RefObject<HTMLDivElement | null>; preview?: RecordRow }) {
+function RecordTray({ panel, list, listRef, returnFocusRef, preview }: { panel: RecordPanel; list: RecordList; listRef: RefObject<HTMLDivElement | null>; returnFocusRef: RefObject<HTMLElement | null>; preview?: RecordRow }) {
   const { t } = useTranslation();
   const { openPanel } = useBusiness();
   const [footer, setFooter] = useState<HTMLDivElement | null>(null);
@@ -90,7 +90,7 @@ function RecordTray({ panel, list, listRef, preview }: { panel: RecordPanel; lis
   const tray = useMemo(() => ({ footer, settleList }), [footer, settleList]);
   const close = () => {
     const host = listRef.current;
-    (host?.querySelector<HTMLElement>('[aria-current="true"] button, tr[aria-selected="true"]') ?? host)?.focus();
+    returnFocusRef.current = host?.querySelector<HTMLElement>('[aria-current="true"] button, tr[aria-selected="true"]') ?? host;
     openPanel({ kind: list });
   };
   return (
@@ -125,6 +125,13 @@ export default function BusinessPanel() {
   const openGlance = (row: RecordRow) => { if (!row.opens) return; setGlance({ scope, row }); openPanel(row.opens); };
   const { isBelowDesktop } = useResponsiveLayout();
   const listRef = useRef<HTMLDivElement>(null);
+  // The list is inert while a dossier covers it, so focus goes back to its row once the tray has gone.
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const target = returnFocusRef.current;
+    returnFocusRef.current = null;
+    if (target?.isConnected) target.focus();
+  }, [panel]);
   if (records.closed) {
     return (
       <div className={`flex w-full justify-center pb-6 ${COLUMN.reading}`}>
@@ -153,6 +160,8 @@ export default function BusinessPanel() {
       <RecordEvidenceContext.Provider value={(row) => { if (row.opens) { setGlance(null); openPanel(row.opens); } }}>
         <RecordsAnnotationsPreview><div ref={listRef} tabIndex={-1} data-column={column} className={`w-full ${record && !tray ? "pb-0" : "pb-6"} outline-none ${COLUMN[column]}`}>
       <BusinessContextCue />
+      {/* A dossier tray lies over the list, so what it covers leaves the Tab order and the accessibility tree. */}
+      <div inert={tray ? true : undefined}>
       {/* Keyed by what the page shows, so opening a record beside the list keeps the list mounted. */}
       <PanelErrorBoundary key={tray ?? (record ? recordKey(record) : panel.kind)}>
         {shown === "overview" ? <BusinessOverviewPanel /> : null}
@@ -163,7 +172,8 @@ export default function BusinessPanel() {
         {shown === "business" ? <BusinessSettingsPanel tab={panel.kind === "business" ? panel.tab : undefined} /> : null}
         {record && !tray ? <RecordContent panel={record} /> : null}
       </PanelErrorBoundary>
-      {record && tray ? <RecordTray panel={record} list={tray} listRef={listRef} preview={preview} /> : null}
+      </div>
+      {record && tray ? <RecordTray panel={record} list={tray} listRef={listRef} returnFocusRef={returnFocusRef} preview={preview} /> : null}
         </div></RecordsAnnotationsPreview>
       </RecordEvidenceContext.Provider>
     </RecordGlanceContext.Provider>

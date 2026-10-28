@@ -289,6 +289,7 @@ function DrawerPanel({
       aria-modal={role === "dialog" ? "true" : undefined}
       aria-labelledby={titleId}
       data-testid="side-drawer"
+      data-width={width}
       data-expanded={expansion ? expansion.expanded : undefined}
       hidden={hidden}
       onKeyDown={onKeyDown}

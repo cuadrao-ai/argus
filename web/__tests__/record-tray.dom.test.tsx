@@ -202,6 +202,24 @@ describe("a record in the desktop tray", () => {
   });
 });
 
+describe("what a dossier tray covers", () => {
+  const covered = (page: Page) => page.host.querySelector('[data-testid="reception-preview"], [data-record-id]')?.closest("[inert]") ?? null;
+
+  test("an incoming item opens wide over the Bandeja, whose list leaves the Tab order until it closes", async () => {
+    const page = await mount();
+    await openInbox(page);
+    assert.equal(covered(page), null, "nothing is inert before a dossier opens");
+    await openRow(page, "Ferretería La Esquina");
+    assert.equal(page.tray()!.getAttribute("data-width"), "dossier");
+    assert.ok(covered(page), "the list under the dossier is inert");
+    assert.equal(page.tray()!.closest("[inert]"), null, "the dossier itself is not");
+    const title = page.tray()!.querySelector("h2")!;
+    await page.act(async () => { title.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
+    await page.settle(() => page.tray() === null, "the tray to close");
+    assert.equal(covered(page), null, "the list is live again");
+  });
+});
+
 describe("a record below the desktop stop", () => {
   test("a phone keeps the full page with its way back and no tray", async () => {
     const page = await mount({ width: 390 });
