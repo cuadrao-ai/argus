@@ -118,12 +118,12 @@ describe("the Business top bar on a desktop", () => {
     const page = await mount();
     const search = page.bar().querySelector<HTMLButtonElement>('[data-testid="header-search"]')!;
     assert.ok(search, "the top bar carries the search field");
-    assert.equal(search.querySelector("span")?.textContent, "Busca comercio, monto o nota");
+    assert.equal(search.querySelector("span")?.textContent, "Buscar");
     assert.equal(search.getAttribute("aria-label"), "Busca comercio, monto o nota", "named even when the bar is narrow and only the icon shows");
     await page.act(async () => search.click());
     assert.deepEqual(page.searches, ["open"]);
     const order = [...page.bar().querySelectorAll("[data-testid]")].map((node) => node.getAttribute("data-testid")).filter((id) => ["header-search", "add-menu-header", "amounts-toggle"].includes(id!));
-    assert.deepEqual(order, ["header-search", "amounts-toggle"]);
+    assert.deepEqual(order, ["header-search", "add-menu-header", "amounts-toggle"]);
     const greeting = page.bar().querySelector("h1")!;
     assert.match(greeting.querySelector(".sr-only")?.textContent ?? greeting.textContent ?? "", /^(Buenos días|Buenas tardes|Buenas noches|Noche de enfoque), Ana$/);
     assert.ok(page.bar().querySelector("time")?.getAttribute("datetime"));
@@ -133,7 +133,7 @@ describe("the Business top bar on a desktop", () => {
   test("the owner's Agregar opens the upload, and its menu offers Exportar registros and Copiar dirección de reenvío", async () => {
     const page = await mount();
     await page.ready();
-    const menu = page.screen().querySelector('[data-testid="add-menu-header"]')!;
+    const menu = page.bar().querySelector('[data-testid="add-menu-header"]')!;
     const add = menu.querySelector<HTMLButtonElement>('[data-testid="business-primary-upload"]')!;
     assert.equal(add.textContent, "Agregar");
     await page.ready();
@@ -150,7 +150,7 @@ describe("the Business top bar on a desktop", () => {
   test("a copy the browser refuses opens Negocio, Correo de recibos, where the address is, and shows no toast", async () => {
     const page = await mount();
     await page.ready();
-    const menu = page.screen().querySelector('[data-testid="add-menu-header"]')!;
+    const menu = page.bar().querySelector('[data-testid="add-menu-header"]')!;
     await page.ready();
     await page.openMenu(menu);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async () => { throw new Error("refused"); } } });
@@ -164,13 +164,13 @@ describe("the Business top bar on a desktop", () => {
   test("an owner without a forwarding address gets no Copiar dirección", async () => {
     const page = await mount({ overrides: { emailIntake: async () => ({ enabled: false, receiving_address: null }) as never } });
     await page.ready();
-    assert.deepEqual((await page.openMenu(page.screen())).map((item) => item.textContent), ["Exportar registros"]);
+    assert.deepEqual((await page.openMenu(page.bar())).map((item) => item.textContent), ["Exportar registros"]);
   });
 
   test("a contador gets the menu alone, with no Agregar and no copy of the owner's address", async () => {
     const page = await mount({ grant: "fixture-grant-client" });
     await page.settle(() => page.api().chosen?.role === "accountant", "the client business");
-    const menu = page.screen().querySelector('[data-testid="add-menu-header"]')!;
+    const menu = page.bar().querySelector('[data-testid="add-menu-header"]')!;
     assert.equal(menu.querySelector('[data-testid="business-primary-upload"]'), null);
     const trigger = menu.querySelector<HTMLButtonElement>('[data-testid="add-menu-more"]')!;
     assert.equal(trigger.getAttribute("aria-haspopup"), "menu");
@@ -183,7 +183,7 @@ describe("the Business top bar on a desktop", () => {
     const page = await mount({ grant: "fixture-grant-client", overrides: { spaces: async () => [viewer] } });
     await page.settle(() => page.api().chosen?.business_role === "viewer", "the viewer business");
     await page.wait(400);
-    assert.equal(page.screen().querySelector('[data-testid="add-menu-header"]'), null);
+    assert.equal(page.bar().querySelector('[data-testid="add-menu-header"]'), null);
     assert.equal(document.querySelector('[data-testid="add-menu-more"]'), null);
     assert.equal(document.body.textContent?.includes("Exportar registros"), false);
   });
@@ -206,7 +206,7 @@ describe("the Business top bar on a desktop", () => {
     await page.ready();
     await page.open({ kind });
     assert.equal(document.querySelector('[data-testid="export-records-panel"]'), null);
-    const items = kind === "inbox" ? await page.openReceptionMenu() : await page.openMenu(page.screen());
+    const items = kind === "inbox" ? await page.openReceptionMenu() : await page.openMenu(page.bar());
     const exportItem = items.find((item) => item.textContent === "Exportar registros")!;
     await page.act(async () => exportItem.click());
     await page.settle(() => document.querySelector('[data-testid="export-records-panel"]') !== null, "the export sheet");
@@ -214,22 +214,24 @@ describe("the Business top bar on a desktop", () => {
     assert.equal(document.querySelectorAll('[data-testid="export-records-panel"]').length, 1);
   });
 
-  test("Agregar belongs to each content heading but Negocio's, while the search field belongs only to Home", async () => {
+  test("Agregar sits once in the bar after search on every screen but Negocio, and no content heading carries it", async () => {
     const page = await mount();
     await page.ready();
     await page.open({ kind: "business" });
     await page.settle(() => page.api().panel.kind === "business", "business");
-    assert.equal(page.screen().querySelector('[data-testid="add-menu-header"]'), null, "adding documents is not a Negocio task");
+    assert.equal(page.bar().querySelector('[data-testid="add-menu-header"]'), null, "adding documents is not a Negocio task");
+    assert.ok(page.bar().querySelector('[data-testid="business-bar-tools"] [data-testid="stable-search"]'), "Negocio keeps search");
     for (const kind of ["overview", "inbox", "transactions"] as const) {
       await page.open({ kind });
       await page.settle(() => page.api().panel.kind === kind, kind);
-      const owner = kind === "inbox" ? "reception-add" : "add-menu-header";
-      const add = page.screen().querySelector<HTMLElement>(`[data-testid="${owner}"] [data-testid="business-primary-upload"]`)!;
+      const tools = page.bar().querySelector<HTMLElement>('[data-testid="business-bar-tools"]')!;
+      assert.deepEqual([...tools.children].map((node) => node.getAttribute("data-testid")), ["stable-search", "add-menu-header"], kind);
+      const add = tools.querySelector<HTMLElement>('[data-testid="add-menu-header"] [data-testid="business-primary-upload"]')!;
       assert.match(add.className, /bg-\[var\(--cuadrao-green\)\]/, kind);
       assert.equal(add.getAttribute("data-primary"), "true", kind);
-      assert.match((kind === "inbox" ? page.screen().querySelector('[data-testid="reception-add"] button[aria-haspopup="menu"]') : page.screen().querySelector('[data-testid="add-menu-more"]'))!.className, /bg-\[var\(--cuadrao-green\)\]/, kind);
-      assert.equal(page.bar().querySelector('[data-testid="add-menu-header"]'), null);
-      assert.equal(Boolean(page.bar().querySelector('[data-testid="header-search"]')), kind === "overview");
+      assert.match(tools.querySelector('[data-testid="add-menu-more"]')!.className, /bg-\[var\(--cuadrao-green\)\]/, kind);
+      assert.equal(page.screen().querySelector('[data-testid="business-primary-upload"]'), null, `${kind}: Agregar appears once, in the bar`);
+      assert.equal(page.screen().querySelector('[data-testid="add-menu-header"]'), null, kind);
       assert.ok(page.bar().querySelector('[data-business-search-anchor]'), "Cmd K keeps its anchor on every screen");
     }
   });
@@ -237,7 +239,7 @@ describe("the Business top bar on a desktop", () => {
   test("the menu has no Ver correos: an email is how a receipt arrived, not a place", async () => {
     const page = await mount();
     await page.ready();
-    const items = (await page.openMenu(page.screen())).map((item) => item.textContent);
+    const items = (await page.openMenu(page.bar())).map((item) => item.textContent);
     assert.equal(items.includes("Ver correos"), false);
   });
 });

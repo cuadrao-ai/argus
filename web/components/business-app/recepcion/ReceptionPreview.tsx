@@ -13,8 +13,7 @@ import { loadFailure, type LoadFailure } from "../bandeja-sources";
 import ReceptionBulkBar from "./ReceptionBulkBar";
 import { applyOrganizationPreview, emptyOrganizationPreview, undoOrganizationPreview, type OrganizationAction, type OrganizationPreview } from "./reception-organization-preview";
 import ReceptionAddMenu from "./ReceptionAddMenu";
-import { useLendListSearch } from "../foundation/list-search";
-import { INICIO_REDESIGN_PREVIEW } from "../inicio/preview";
+import { barSearchAvailable, useLendListSearch } from "../foundation/list-search";
 import ReceptionFilters, { ReceptionFilterChips } from "./ReceptionFilters";
 import { emptyReceptionFilters, receptionFilterMatches, receptionArrivedInPeriod, receptionSenderIdentity, type SenderIdentity, type ReceptionFiltersValue } from "./reception-filters";
 import ReceptionEmptyState from "./ReceptionEmptyState";
@@ -208,10 +207,11 @@ function ReceptionWorkspace({ live }: { live: boolean }) {
   };
   const clear = () => { applyFilters(emptyReceptionFilters()); setQuery(""); setPeriod(periodRange("all")); };
   const searchQuery = (next: string) => { setSelectedIds([]); setPage(1); setQuery(next); };
-  // In the redesign preview a wide screen searches from the top bar, scoped to Bandeja: this list lends it the query,
-  // and Agregar lives in the bar too, so this toolbar keeps only Export ("Más acciones"). A phone keeps both here.
-  const barTools = INICIO_REDESIGN_PREVIEW && !phone;
-  useLendListSearch("inbox", barTools ? { query, setQuery: searchQuery } : null);
+  // A wide screen keeps Agregar in the top bar, so this toolbar keeps only Export ("Más acciones"); with the bar's
+  // search on, it also searches from there, scoped to Bandeja, through the query this list lends. A phone keeps both.
+  const barTools = !phone;
+  const searchInBar = barTools && barSearchAvailable;
+  useLendListSearch("inbox", searchInBar ? { query, setQuery: searchQuery } : null);
   return <PullToRefresh onRefresh={refresh}>
     <section className={styles.workspace} aria-label={t("business.inbox.title")} data-testid="reception-preview" data-mode={live ? "live" : "preview"} data-selectable={!live} data-density={preferences.density} data-source={preferences.source || preferences.sender} data-arrival={preferences.arrival} style={{ "--columns": columns, "--compact-columns": compactColumns, "--table-min-width": minimum((preferences.source ? 150 : 0) + (preferences.sender ? senderWidth : 0)), "--compact-min-width": minimum(preferences.source || preferences.sender ? senderWidth : 0), "--row-height": `${DENSITY_ROW_PX[preferences.density]}px` } as CSSProperties}>
       {inPanel ? <div className={styles.phoneHeading}><h2 className="font-display">{t("business.inbox.title")}</h2></div> : null}
@@ -230,11 +230,11 @@ function ReceptionWorkspace({ live }: { live: boolean }) {
         </div>
       </div>
       <div className={styles.toolbar} data-selecting={selected.length > 0}>
-        {barTools ? null : <ReceptionSearch value={query} onChange={searchQuery} />}
+        {searchInBar ? null : <ReceptionSearch value={query} onChange={searchQuery} />}
         <div role="group" aria-label={word("arrival_date")}><RecordsDatePreview period={period} value={period} title={word("arrival_date")} allDatesLabel={word("all_dates")} onChange={next => { setSelectedIds([]); setPage(1); setPeriod(next); }} /></div>
         <ReceptionFilters key={scope} senders={senders} value={filters} onChange={applyFilters} />
         {live ? null : <div className={styles.bulkSlot}>{selected.length ? <ReceptionBulkBar count={selected.length} archived={archived} canOrganize={chosen?.capabilities.includes("prepare") === true} apply={apply} clear={() => setSelectedIds([])} /> : null}</div>}
-        {(query && !barTools) || period.key !== "all" ? <button className={quietButtonClass} onClick={clear}>{word("clear")}</button> : null}
+        {(query && !searchInBar) || period.key !== "all" ? <button className={quietButtonClass} onClick={clear}>{word("clear")}</button> : null}
         <div className={styles.tools}>{reviewNext ? <button type="button" data-testid="business-primary-review" data-primary="true" className={primaryButtonClass} onClick={() => navigateFrom(reviewNext, { kind: "receipt", receiptId: reviewNext.id, list: "inbox" })}>{t("business.inbox.review_receipts")}</button> : null}<ReceptionAddMenu key={scope} withExport={live} addInBar={barTools} /><ReceptionSettings value={preferences} onChange={setPreferences} /></div>
       </div>
       {newCount > 0 ? <div className={styles.updateNotice} role="status"><span>{t("business.reception_preview.new_arrivals", { count: newCount })}</span><button type="button" className={quietButtonClass} onClick={() => { setAdmittedIds(latestIds); setSelectedIds([]); setPage(1); }}>{word("update_list")}</button></div> : null}

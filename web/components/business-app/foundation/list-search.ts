@@ -1,6 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useSyncExternalStore } from "react";
+import { businessSearchEntryEnabled, omnisearchEnabled } from "@/lib/private-alpha-flags";
 
 /**
  * A list (Bandeja, Registros) keeps owning its text query: Registros' lives in its report request and URL,
@@ -8,6 +9,12 @@ import { useLayoutEffect, useSyncExternalStore } from "react";
  * top bar's search button and the search window read and write through the loan. No loan, no scope.
  */
 export type SearchableList = "inbox" | "transactions";
+
+/**
+ * Whether the top bar can search a Business at all: the shell's own rule (omnisearch and Business Buscar). When it
+ * cannot, a list keeps its own search field instead of lending its query to a bar that has no search.
+ */
+export const barSearchAvailable = omnisearchEnabled && businessSearchEntryEnabled("business");
 type Loan = { query: string; setQuery: (query: string) => void; maxLength?: number };
 
 const loans = new Map<SearchableList, Loan>();

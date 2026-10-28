@@ -50,20 +50,10 @@
   flex-basis: 0;
 }
 
-/* Search sits on the first row with the bar's actions, not centered on the taller greeting block. */
-.header[data-intro] .search {
-  align-self: flex-start;
-}
-
 .introRow {
   flex-basis: 100%;
 }
 
-
-.search {
-  flex: 0 1 380px;
-  min-width: 160px;
-}
 
 /* The bar's tools after the heading: search, then Agregar, on the heading's first row. A screen title takes that
    row's 44px line, so it centers on the same line as the tools and the shell's icons beside them. */

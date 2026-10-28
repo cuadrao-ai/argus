@@ -154,10 +154,11 @@ test("saved views persist only recipes, rename with versions, restore page one a
   await page.settle(() => page.fixture.views.length === 0);
 });
 
-test("the existing export menu holds 409 for explicit refresh and never exports an unseen changed set", async () => {
+test("the toolbar Export holds 409 for explicit refresh and never exports an unseen changed set", async () => {
   const page = await mount(); page.fixture.controls.exportChanged = true;
-  await page.click(document.querySelector('[data-testid="add-menu-more"]'));
-  await page.click(page.button(spanish.business.overview.export_records));
+  // Agregar lives in the top bar; the toolbar carries Export as its own button.
+  assert.equal(document.querySelector('[data-testid="transacciones"] [data-testid="add-menu-header"]'), null);
+  await page.click(document.querySelector('[data-testid="records-export"]'));
   await page.settle(() => document.querySelector('[role="alert"]')?.textContent?.includes("registros cambiaron") ?? false);
   assert.equal(page.fixture.calls.filter((call) => call.path.endsWith("/reports/export")).length, 1);
   assert.equal(page.downloads.length, 0);
@@ -166,38 +167,42 @@ test("the existing export menu holds 409 for explicit refresh and never exports 
   await page.click(page.button("Actualizar"));
   await page.settle(() => page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).length > before && document.querySelector('[data-testid="records-count"]') !== null);
   page.fixture.controls.exportChanged = false;
-  await page.click(document.querySelector('[data-testid="add-menu-more"]')); await page.click(page.button(spanish.business.overview.export_records));
+  await page.click(document.querySelector('[data-testid="records-export"]'));
   await page.settle(() => page.downloads.length === 1);
   const exports = page.fixture.calls.filter((call) => call.path.endsWith("/reports/export"));
   assert.equal(exports.length, 2); assert.equal((exports[0].body as { expected_fingerprint: string }).expected_fingerprint, "a".repeat(64));
 });
 
-test("a member with export and no Agregar keeps the menu trigger and its focus while an export runs", async () => {
+test("a member with export and no Agregar keeps the Export button in place and focused, unavailable, while an export runs", async () => {
   const page = await mount({ role: "accountant" });
   const live = globalThis.fetch;
   let release: () => void = () => undefined;
   let exportStarted = false;
+  let exportRequests = 0;
   const held = new Promise<void>((resolve) => { release = resolve; });
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    if (String(input).endsWith("/reports/export")) { exportStarted = true; await held; }
+    if (String(input).endsWith("/reports/export")) { exportStarted = true; exportRequests += 1; await held; }
     return live(input, init);
   }) as typeof fetch;
-  const trigger = () => document.querySelector<HTMLButtonElement>('[data-testid="add-menu-more"]');
+  const exportButton = () => document.querySelector<HTMLButtonElement>('[data-testid="records-export"]');
   assert.equal(document.querySelector('[data-testid="business-primary-upload"]'), null);
-  await page.settle(() => document.querySelector('[data-testid="records-count"]') !== null && trigger() !== null);
-  await page.click(trigger());
-  await page.click(page.button(spanish.business.overview.export_records));
-  await page.settle(() => exportStarted && trigger()?.getAttribute("aria-disabled") === "true");
-  assert.ok(trigger(), "the trigger stays while the export runs");
-  assert.equal(document.activeElement, trigger(), "focus returns to the trigger and stays");
-  assert.equal(trigger()!.getAttribute("aria-disabled"), "true", "an empty menu leaves the trigger inert");
-  await page.click(trigger());
-  assert.equal(document.querySelector('[role="menu"]'), null, "pressing the inert trigger opens no menu");
-  assert.equal(document.activeElement, trigger(), "focus stays on the inert trigger");
+  assert.equal(document.querySelector('[data-testid="add-menu-header"]'), null, "the toolbar carries no Agregar");
+  const unavailable = () => exportButton()?.getAttribute("aria-disabled") === "true";
+  await page.settle(() => document.querySelector('[data-testid="records-count"]') !== null && exportButton() !== null && !unavailable());
+  const before = exportButton()!;
+  before.focus();
+  await page.click(before);
+  await page.settle(() => exportStarted && unavailable());
+  assert.equal(exportButton(), before, "the button stays in place while the export runs");
+  assert.equal(exportButton()!.disabled, false, "aria-disabled, not disabled, so focus stays");
+  assert.equal(document.activeElement, before, "focus stays on Export while it runs");
+  await page.click(exportButton());
+  assert.equal(exportRequests, 1, "pressing the disabled button starts no second export");
   release();
   await page.settle(() => page.downloads.length === 1);
-  assert.ok(trigger(), "the trigger is still there after the download");
-  assert.equal(trigger()!.hasAttribute("aria-disabled"), false, "the export item is back and the trigger is live");
+  assert.equal(exportButton(), before, "the button is still there after the download");
+  await page.settle(() => !unavailable());
+  assert.equal(unavailable(), false, "the export is live again");
 });
 
 test("viewer metadata never grants append or source bytes, and unavailable originals stay linked", async () => {

@@ -5,8 +5,9 @@ import type { ReceiptActivityCounts, ReceiptSummary } from "@/lib/business-api";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
 import { receptionRows, rowState, rowTitles, receptionTab, tabCount } from "./support/reception";
 
+let search = "";
 mock.module("next/navigation", () => ({
-  useSearchParams: () => new URLSearchParams(""),
+  useSearchParams: () => new URLSearchParams(search),
   useRouter: () => ({ push() {}, replace() {} }),
   usePathname: () => "/biz",
 }));
@@ -19,7 +20,11 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 
 const none: ReceiptActivityCounts = { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, needs_attention_count: 0, ready_to_review_count: 0 };
 
-async function mount(overrides: Partial<BusinessDataSource> = {}, grant: string | null = null) {
+// A desktop shell's top bar, which holds the one Agregar on every Business screen but Negocio.
+const DESKTOP_SHELL = { currentView: "workspace", conversationId: null, isBelowTablet: false, sidebarCollapsed: false, showWorkspace: () => undefined, newChat: () => undefined, prepareQuestion: () => undefined, openSearch: undefined };
+
+async function mount(overrides: Partial<BusinessDataSource> = {}, grant: string | null = null, { bar = false }: { bar?: boolean } = {}) {
+  search = bar ? "view=inbox" : "";
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -30,6 +35,7 @@ async function mount(overrides: Partial<BusinessDataSource> = {}, grant: string 
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { setChosenGrant } = await import("@/lib/business-grant");
   const BusinessInboxPanel = (await import("@/components/business-app/BusinessInboxPanel")).default;
+  const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
   setChosenGrant(grant);
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
@@ -41,6 +47,10 @@ async function mount(overrides: Partial<BusinessDataSource> = {}, grant: string 
     panel = business.panel.kind === "receipt" ? business.panel.receiptId : business.panel.kind;
     return <BusinessInboxPanel />;
   }
+  function Bar() {
+    const workspace = useChatWorkspace();
+    return <header data-testid="top-bar">{workspace?.headerSearch?.(DESKTOP_SHELL as never)}</header>;
+  }
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
@@ -49,6 +59,7 @@ async function mount(overrides: Partial<BusinessDataSource> = {}, grant: string 
       <I18nextProvider i18n={i18n}>
         <BusinessConsentTestProvider accepted>
           <BusinessWorkspaceProvider source={source as BusinessDataSource}>
+            {bar ? <Bar /> : null}
             <Probe />
           </BusinessWorkspaceProvider>
         </BusinessConsentTestProvider>
@@ -67,20 +78,22 @@ async function mount(overrides: Partial<BusinessDataSource> = {}, grant: string 
     host,
     settle,
     panel: () => panel,
-    close: async () => { await act(async () => { root.unmount(); }); host.remove(); setChosenGrant(null); },
+    close: async () => { await act(async () => { root.unmount(); }); host.remove(); setChosenGrant(null); search = ""; },
   };
 }
 
 test("a Bandeja that has never been used says so and offers Agregar", async () => {
   const page = await mount({
     receiptPage: async () => ({ items: [], activity: none }),
-  });
+  }, null, { bar: true });
   try {
     await page.settle(() => page.host.querySelector('[data-testid="reception-empty"]') !== null);
     const card = page.host.querySelector('[data-testid="reception-empty"]')!;
     assert.equal(card.getAttribute("data-empty-kind"), "first_run");
     assert.equal(card.querySelector("h3")?.textContent, "Tus archivos y notas llegan aquí");
-    assert.equal(page.host.querySelector("[data-testid=reception-add] [data-testid=business-primary-upload]")?.textContent, "Agregar", "the empty Bandeja offers Agregar");
+    // On a wide screen the one Agregar lives in the top bar; the Bandeja toolbar does not repeat it.
+    assert.equal(page.host.querySelector("[data-testid=top-bar] [data-testid=add-menu-header] [data-testid=business-primary-upload]")?.textContent, "Agregar", "the empty Bandeja offers Agregar");
+    assert.equal(page.host.querySelectorAll("[data-testid=business-primary-upload]").length, 1, "Agregar is offered once");
   } finally { await page.close(); }
 });
 

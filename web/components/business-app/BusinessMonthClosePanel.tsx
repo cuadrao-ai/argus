@@ -796,19 +796,19 @@ function BusinessMonthCloseContent({
   }
 
   /**
-   * Home's compact "Registrar cobro / pago": it opens the record's own payment workflow and rereads the open
-   * items once that workflow saves. It never marks a document settled itself. Without a workflow it stays
-   * disabled and says so (MISSING: a server-backed payment workflow for open items).
+   * Home's compact "Registrar cobro / pago": it opens the record's own payment workflow and rereads the open items
+   * once that workflow saves; it never marks a document settled itself. With no workflow it is not shown
+   * (MISSING: a server-backed payment workflow for open items; `openSettlement` is the seam).
    */
   function settlementAction(document: MonthCloseDocument) {
-    const label = document.kind === "invoice" ? t("business.month_close.record_collection", "Record collection") : t("business.month_close.record_payment", "Record payment");
     const open = openSettlement?.(document) ?? null;
-    const button = (
-      <button type="button" data-testid="month-close-settle" data-available={open ? "true" : "false"} aria-label={`${label}: ${nameOf(document, t)}`} disabled={!open} onClick={open ? () => open(() => void readOpenItems()) : undefined} className={`${moneyCard.action} inline-flex min-h-11 shrink-0 items-center rounded-full px-3 text-[14px] font-medium text-[var(--cuadrao-green)] hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/50 disabled:cursor-not-allowed disabled:text-[#56635e]/60 dark:hover:bg-white/[0.05] dark:disabled:text-white/40`}>
+    if (!open) return null;
+    const label = document.kind === "invoice" ? t("business.month_close.record_collection", "Record collection") : t("business.month_close.record_payment", "Record payment");
+    return (
+      <button type="button" data-testid="month-close-settle" aria-label={`${label}: ${nameOf(document, t)}`} onClick={() => open(() => void readOpenItems())} className={`${moneyCard.action} inline-flex min-h-11 shrink-0 items-center rounded-full px-3 text-[14px] font-medium text-[var(--cuadrao-green)] hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/50 dark:hover:bg-white/[0.05]`}>
         {label}
       </button>
     );
-    return open ? button : <Tooltip content={t("business.month_close.settlement_unavailable", "Recording a payment here isn't available yet.")} side="top"><span className={moneyCard.action}>{button}</span></Tooltip>;
   }
 
   function moneyColumn(testId: string, title: string, list: OpenItemsList, empty: { title: string; body: string }) {

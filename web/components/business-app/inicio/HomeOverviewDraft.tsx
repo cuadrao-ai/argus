@@ -1,7 +1,7 @@
 "use client";
 
-// DRAFT (design lane, light pass): Inicio overview. Answers three questions: what needs my attention,
-// where can I continue, what setup remains. Copy stays here until Lucas approves the shape.
+// Inicio's first layer, Resumen del negocio: what needs attention, where to continue and what setup remains, plus
+// Personalizar Inicio. Draft copy lives here (es-419 first) until the copy pass moves it to the locale files.
 
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -12,14 +12,15 @@ import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { readStored, writeStored } from "@/lib/browser-storage";
 import type { ReceiptSummary } from "@/lib/business-api";
 import { useBusiness, type BusinessPanelState } from "../BusinessWorkspace";
-import { businessInvoicingEnabled } from "@/lib/private-alpha-flags";
 import { formatRelativeTime } from "../business-format";
 import { EmptyState } from "../foundation/EmptyState";
+import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { CHANNEL_ICON } from "../foundation/channel-icons";
 import { FOCUS_RING } from "../foundation/presentation";
 import { canManageBusiness, cardClass, quietButtonClass } from "../business-ui";
 import { SCREEN_ICON } from "../nav-glyphs";
-import { INVOICE_STAGE_COUNTS, RECENT_WORK, REPORT_OVERVIEW, SETUP_STATE, type SetupStep, type SetupStepKey } from "./home-draft-data";
+import { RECENT_WORK, SETUP_STATE, type RecentWork, type SetupStep, type SetupStepKey } from "./home-draft-data";
+import { useHomeCounts, useSampleBusiness } from "./useHomeCounts";
 
 const COPY = {
   es: {
@@ -28,6 +29,9 @@ const COPY = {
     invoiceDrafts: (n: number) => (n === 1 ? "1 factura en borrador" : `${n} facturas en borrador`),
     needs: "Necesita atención",
     loading: "Cargando la Bandeja",
+    needsFailed: "No pudimos cargar lo que necesita atención",
+    needsFailedBody: "Tus documentos están guardados. Revisa tu conexión e inténtalo otra vez.",
+    retry: "Reintentar",
     showing: (shown: number, total: number) => `Mostrando ${shown} de ${total}`,
     customize: "Personalizar Inicio",
     customizeLead: "Cambia el orden de las secciones de tu Inicio. Solo cambia tu vista en este negocio.",
@@ -70,6 +74,9 @@ const COPY = {
     invoiceDrafts: (n: number) => (n === 1 ? "1 invoice draft" : `${n} invoice drafts`),
     needs: "Needs attention",
     loading: "Loading the Inbox",
+    needsFailed: "We couldn't load what needs attention",
+    needsFailedBody: "Your documents are saved. Check your connection and try again.",
+    retry: "Try again",
     showing: (shown: number, total: number) => `Showing ${shown} of ${total}`,
     customize: "Customize Home",
     customizeLead: "Change the order of your Home's sections. It only changes your view of this business.",
@@ -177,6 +184,9 @@ function RowCard({ Icon, title, tag, date, verb, onOpen }: { Icon: Icon | Lucide
 }
 
 const TAG = "rounded-mark px-1.5 py-0.5 text-[13px] font-medium";
+
+/** `?attention=empty`, `?setup=new`: sample states for the local design preview only, never a real Business. */
+const sampleParam = (name: string) => process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" && typeof window !== "undefined" ? new URLSearchParams(window.location.search).get(name) : null;
 const SKELETON = "bg-black/[0.06] dark:bg-white/[0.08]";
 
 /**
@@ -202,11 +212,11 @@ const PREVIEW_ROWS = { needs: 4, recent: 3 } as const;
  * count from the server (MISSING: `waiting_on_person_count`). The local preview loads every fixture row, so
  * there the union of loaded rows is exact; elsewhere the count stays hidden until the server sends it.
  */
-function NeedsAttention({ c }: { c: Copy }) {
-  const { records, openPanel, source } = useBusiness();
+function NeedsAttention({ c, toReview: liveToReview }: { c: Copy; toReview: number | null }) {
+  const { records, openPanel, source, reload } = useBusiness();
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
-  const forceEmpty = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("attention") === "empty";
+  const forceEmpty = sampleParam("attention") === "empty";
   const inbox = forceEmpty ? [] : records.inbox ?? [];
   const problems = inbox.filter((r) => r.bandeja?.con_problema);
   const review = inbox.filter((r) => r.bandeja?.por_revisar && !r.bandeja?.con_problema);
@@ -216,8 +226,17 @@ function NeedsAttention({ c }: { c: Copy }) {
   const ready = records.inbox !== null || forceEmpty;
   // Registros keeps its own review queue (GET /business/reports overview, this month). It is a different queue from
   // Bandeja's, so it is a summary row under the list, never added to the count. MISSING: Registros opened on that filter.
-  const toReview = forceEmpty ? 0 : REPORT_OVERVIEW.needs_review;
+  const toReview = forceEmpty ? 0 : liveToReview ?? 0;
   const footer = toReview > 0 ? <SummaryRow testId="home-records-to-review" Icon={FileSearch} label={c.recordsToReview(toReview)} verb={c.review} onOpen={() => openPanel({ kind: "transactions" })} /> : null;
+  if (records.error && !forceEmpty) {
+    // The Business did not load: say so with the server's reference and a way to try again, never an endless skeleton.
+    return (
+      <Section title={c.needs} icon={CircleAlert} testId="home-needs-attention">
+        <EmptyState kind="error" compact title={c.needsFailed} body={records.refused ? undefined : c.needsFailedBody} action={records.refused ? undefined : { label: c.retry, run: reload }} />
+        {records.serverReference ? <div className="flex justify-center pb-2"><ReferenceCode reference={records.serverReference} /></div> : null}
+      </Section>
+    );
+  }
   if (!ready) {
     // Bandeja still loading: the card as it will stand, header and four row cards, never an empty panel.
     return (
@@ -257,19 +276,17 @@ function NeedsAttention({ c }: { c: Copy }) {
   );
 }
 
-function ContinueWorking({ c }: { c: Copy }) {
+function ContinueWorking({ c, recents, drafts }: { c: Copy; recents: readonly RecentWork[]; drafts: number }) {
   const { openPanel } = useBusiness();
   const { i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const icon: Record<string, Icon> = { invoice_draft: SCREEN_ICON.invoicing, record: SCREEN_ICON.transactions, receipt: SCREEN_ICON.inbox };
-  // Invoice drafts (GET /business/invoices stage_counts) are unfinished work, so they sit here, where Facturación
-  // shows: the flag, or the local preview. MISSING: Facturación opened on its drafts stage.
-  const drafts = businessInvoicingEnabled || process.env.NODE_ENV === "development" ? INVOICE_STAGE_COUNTS.draft ?? 0 : 0;
+  // Invoice drafts are unfinished work, so they sit here (useHomeCounts). MISSING: Facturación opened on its drafts stage.
   const footer = drafts > 0 ? <SummaryRow testId="home-invoice-drafts" Icon={FilePenLine} label={c.invoiceDrafts(drafts)} verb={c.open} onOpen={() => openPanel({ kind: "invoicing" })} /> : null;
   return (
     <Section title={c.continue} icon={PenLine} footer={footer}>
       <ul className="space-y-2">
-        {RECENT_WORK.slice(0, PREVIEW_ROWS.recent).map((item) => (
+        {recents.slice(0, PREVIEW_ROWS.recent).map((item) => (
           <li key={item.id}>
             <RowCard Icon={icon[item.kind]} title={item.label} tag={<span className={`${TAG} bg-black/5 text-[#56635e] dark:bg-white/10 dark:text-white/70`}>{c.recentKinds[item.kind]}</span>} date={formatRelativeTime(item.edited_at, locale)} onOpen={() => openPanel(item.target.kind === "draft" ? { kind: "draft", draftId: item.target.id, list: "transactions" } : { kind: "invoicing" })} />
           </li>
@@ -419,27 +436,34 @@ export function HomeCustomize({ order, onChange, isDefault }: { order: HomeSecti
 /** A brand-new Business leads with setup; it stays above the movable sections. */
 export function HomeSetupLead() {
   const c = useCopy();
-  const stage = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("setup") === "new" ? "new" : "active";
-  return stage === "new" ? <GuidedSetup c={c} stage="new" /> : null;
+  const samples = useSampleBusiness();
+  return samples && sampleParam("setup") === "new" ? <GuidedSetup c={c} stage="new" /> : null;
 }
 
 
 export function HomeWork() {
   const c = useCopy();
-  const stage = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("setup") === "new" ? "new" : "active";
-  // Two columns only when each has room (the content box, not the window, decides). Both columns end on one line:
-  // the cards keep their content height, and the right column pins Continuar trabajando to the row's bottom.
+  const counts = useHomeCounts();
+  // Recent work and setup progress have no endpoint yet (MISSING: GET /business/recents, GET /business/setup): the
+  // local preview shows their samples, a live Business does not show them at all rather than invent them.
+  const samples = useSampleBusiness();
+  const setup = samples && sampleParam("setup") !== "new";
+  const recents = samples ? RECENT_WORK : [];
+  const drafts = counts.drafts ?? 0;
+  const keepWorking = recents.length > 0 || drafts > 0;
+  // Two columns only when each has room (the content box, not the window, decides) and the right one has something.
+  // Both columns end on one line: the cards keep their content height, and Continuar trabajando pins to the bottom.
   return (
     <section className="@container space-y-4" aria-labelledby="home-work-title">
     <div className="flex min-h-11 items-center">
       <h2 id="home-work-title" className="font-display text-[21px] font-medium text-[#172b26] dark:text-white">{c.today}</h2>
     </div>
-    <div data-testid="home-work" className="space-y-6 @min-[60rem]:grid @min-[60rem]:grid-cols-[minmax(0,11fr)_minmax(0,9fr)] @min-[60rem]:gap-6 @min-[60rem]:space-y-0">
-      <div><NeedsAttention c={c} /></div>
-      <div className="flex flex-col justify-between gap-4">
-        {stage === "active" ? <GuidedSetup c={c} stage="active" /> : null}
-        <ContinueWorking c={c} />
-      </div>
+    <div data-testid="home-work" className={setup || keepWorking ? "space-y-6 @min-[60rem]:grid @min-[60rem]:grid-cols-[minmax(0,11fr)_minmax(0,9fr)] @min-[60rem]:gap-6 @min-[60rem]:space-y-0" : ""}>
+      <div><NeedsAttention c={c} toReview={counts.toReview} /></div>
+      {setup || keepWorking ? <div className="flex flex-col justify-between gap-4">
+        {setup ? <GuidedSetup c={c} stage="active" /> : null}
+        {keepWorking ? <ContinueWorking c={c} recents={recents} drafts={drafts} /> : null}
+      </div> : null}
     </div>
     </section>
   );

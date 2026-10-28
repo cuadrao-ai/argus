@@ -3593,7 +3593,6 @@
       "overdue_included_other": "Includes {{count}} overdue",
       "record_collection": "Record collection",
       "record_payment": "Record payment",
-      "settlement_unavailable": "Recording a payment here isn't available yet.",
       "checklist_required": "Needed to close the month",
       "filing_ready": "You already have everything for the 606 and the 607. Close the month when you finish marking what was collected and what was paid.",
       "nothing_open": "All settled",

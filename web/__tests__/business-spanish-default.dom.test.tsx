@@ -126,13 +126,13 @@ describe("Business stays in Spanish for an en-US browser", () => {
     return visible;
   }
 
-  const spanishCopy = ["Mi negocio", "en la Bandeja", "Ingresos", "Agregar", "Escríbelo", "Se guardan como", "Compra", "Comercio", "Fecha"];
-  const englishCopy = ["in the Inbox", "Income", "Add", "Write it", "Saved as", "Purchase", "Merchant", "Date"];
+  const spanishCopy = ["Mi negocio", "Resumen del negocio", "Necesita atención", "Ingresos", "Agregar", "Escríbelo", "Se guardan como", "Compra", "Comercio", "Fecha"];
+  const englishCopy = ["Business overview", "Needs attention", "Income", "Add", "Write it", "Saved as", "Purchase", "Merchant", "Date"];
   const retiredEnglishCopy = ["Upload receipts", "Record expense", "Open inbox", "Actual expenses", "to review"];
 
   test("an en-US browser with a Spanish account sees overview, the Agregar sheet, and receipt review in Spanish", async () => {
     const greeting = spanish.business.overview.greetings[greetingPeriod(new Date().getHours())];
-    const visible = await renderShown("es-419", [greeting, "en la Bandeja", "Ingresos", "Agregar", "Escríbelo", "Comercio"]);
+    const visible = await renderShown("es-419", [greeting, "Necesita atención", "Ingresos", "Agregar", "Escríbelo", "Comercio"]);
     assert.ok(visible.includes(greeting), greeting);
     for (const spanishText of spanishCopy) assert.ok(visible.includes(spanishText), spanishText);
     for (const englishText of [...englishCopy, ...retiredEnglishCopy]) assert.equal(visible.includes(englishText), false, englishText);
@@ -141,7 +141,7 @@ describe("Business stays in Spanish for an en-US browser", () => {
 
   test("an English account sees the same surfaces in English", async () => {
     const greeting = english.business.overview.greetings[greetingPeriod(new Date().getHours())];
-    const visible = await renderShown("en", [greeting, "in the Inbox", "Income", "Merchant", "Write it"]);
+    const visible = await renderShown("en", [greeting, "Needs attention", "Income", "Merchant", "Write it"]);
     assert.ok(visible.includes(greeting), greeting);
     for (const englishText of englishCopy) assert.ok(visible.includes(englishText), englishText);
     for (const spanishText of spanishCopy) assert.equal(visible.includes(spanishText), false, spanishText);

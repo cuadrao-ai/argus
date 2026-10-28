@@ -5,8 +5,9 @@ import type { ReactNode } from "react";
 import type { GrantedSpace, ReceiptReading } from "@/lib/business-api";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
 
+let search = "";
 mock.module("next/navigation", () => ({
-  useSearchParams: () => new URLSearchParams(""),
+  useSearchParams: () => new URLSearchParams(search),
   useRouter: () => ({ push() {}, replace() {} }),
   usePathname: () => "/biz",
 }));
@@ -31,7 +32,11 @@ const reading = (enabled: boolean): ReceiptReading => ({
   revoked_at: null,
 });
 
-async function mountInbox(overrides: Partial<BusinessDataSource> = {}) {
+// A desktop shell's top bar, which holds the one Agregar on every Business screen but Negocio.
+const DESKTOP_SHELL = { currentView: "workspace", conversationId: null, isBelowTablet: false, sidebarCollapsed: false, showWorkspace: () => undefined, newChat: () => undefined, prepareQuestion: () => undefined, openSearch: undefined };
+
+async function mountInbox(overrides: Partial<BusinessDataSource> = {}, { bar = false }: { bar?: boolean } = {}) {
+  search = bar ? "view=inbox" : "";
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -42,7 +47,12 @@ async function mountInbox(overrides: Partial<BusinessDataSource> = {}) {
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { setChosenGrant } = await import("@/lib/business-grant");
   const BusinessInboxPanel = (await import("@/components/business-app/BusinessInboxPanel")).default;
+  const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
   setChosenGrant(null);
+  function Bar() {
+    const workspace = useChatWorkspace();
+    return <header data-testid="top-bar">{workspace?.headerSearch?.(DESKTOP_SHELL as never)}</header>;
+  }
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const source = { ...createFixtureBusinessDataSource({ chatAvailable: false }), ...overrides };
@@ -54,6 +64,7 @@ async function mountInbox(overrides: Partial<BusinessDataSource> = {}) {
       <I18nextProvider i18n={i18n}>
         <BusinessConsentTestProvider accepted>
           <BusinessWorkspaceProvider source={source as BusinessDataSource}>
+            {bar ? <Bar /> : null}
             <BusinessInboxPanel />
           </BusinessWorkspaceProvider>
         </BusinessConsentTestProvider>
@@ -67,7 +78,7 @@ async function mountInbox(overrides: Partial<BusinessDataSource> = {}) {
     }
     assert.fail("the inbox did not settle");
   };
-  const close = () => act(async () => { root.unmount(); host.remove(); });
+  const close = () => act(async () => { root.unmount(); host.remove(); search = ""; });
   return { act, host, settle, close };
 }
 
@@ -128,14 +139,15 @@ test("a reading setting that did not load claims nothing", async () => {
 });
 
 test("Bandeja shows one Agregar, no subhead or page duplicate, and Reception's views", async () => {
-  const page = await mountInbox();
+  const page = await mountInbox({}, { bar: true });
   try {
     await page.settle(() => page.host.querySelector('[data-testid="reception-row"]') !== null);
     assert.equal([...page.host.querySelectorAll("p")].some((node) => ownText(node).includes(PHRASE)), false, "the counts live on the views, not in a subhead");
     const views = [...page.host.querySelectorAll<HTMLButtonElement>('[role="tablist"] [role="tab"]')];
     assert.deepEqual(views.map((view) => view.id), ["reception-tab-all", "reception-tab-review", "reception-tab-processing", "reception-tab-attention"], "live has no Archivados view");
     assert.equal(document.querySelector('[data-testid="email-address"]'), null, "the receiving address lives in Negocio");
-    assert.equal(page.host.querySelectorAll('[data-testid="reception-add"] [data-testid="business-primary-upload"]').length, 1, "the toolbar owns Agregar");
+    assert.equal(page.host.querySelectorAll('[data-testid="top-bar"] [data-testid="add-menu-header"] [data-testid="business-primary-upload"]').length, 1, "the top bar owns Agregar");
+    assert.equal(page.host.querySelectorAll('[data-testid="reception-add"] [data-testid="business-primary-upload"]').length, 0, "the toolbar does not repeat it");
     assert.equal(page.host.querySelectorAll('[data-testid="business-primary-upload"]').length, 1, "Agregar is not duplicated");
     assert.equal(page.host.querySelectorAll('[data-testid="add-menu-page"]').length, 0);
   } finally { await page.close(); }

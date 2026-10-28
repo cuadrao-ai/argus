@@ -118,11 +118,14 @@ describe("§1.8 line 100: the Business is named by its name, and Argus is not na
     assert.equal(markName(mark), "Colmado Lucía");
     await mark.close();
     const page = await mount(() => <BusinessOverviewPanel />, ownSpace("Colmado Lucía"));
-    await page.settle(() => page.business().spaces !== null);
+    await page.settle(() => page.business().spaces !== null && page.host.querySelector('[data-testid="month-close-cards"]') !== null);
     assert.equal(overviewTitle(page), null, "the desktop greeting belongs to the top bar");
-    const row = page.host.querySelector('[data-testid="inicio-greeting-row"]');
-    assert.match(row?.className ?? "", /flex-wrap/, "a phone wraps the month under the greeting");
-    assert.deepEqual([...(row?.children ?? [])].map((child) => child.id || child.getAttribute("data-testid")), ["month-close-switcher"], "the month stays above the checklist");
+    assert.equal(page.host.querySelector('[data-testid="home-heading"]'), null);
+    assert.equal(page.host.querySelector('[data-testid="inicio-greeting-row"]'), null, "the old greeting row is gone");
+    const head = page.host.querySelector('[data-testid="month-close-month-block"] > [data-testid="month-close-head"]');
+    assert.ok(head?.querySelector('[data-testid="month-close-switcher"]'), "the month heads its own block");
+    const cards = page.host.querySelector('[data-testid="month-close-cards"]')!;
+    assert.ok((head!.compareDocumentPosition(cards) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0, "the month stays above its figures and checklist");
     await page.close();
   });
 
@@ -180,10 +183,11 @@ describe("§1.8 line 101: dates read 1 oct 2026 and the period label follows the
   test("the Resumen leads with what to review, ahead of the month figures", async () => {
     const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
     const page = await mount(() => <BusinessOverviewPanel />);
-    await page.settle(() => page.host.querySelector('[data-testid="month-close-cards"]') !== null && page.host.querySelector('[data-testid="month-close-task-review"]') !== null);
+    const needs = () => page.host.querySelector('[data-testid="home-needs-attention"]');
+    await page.settle(() => page.host.querySelector('[data-testid="month-close-cards"]') !== null && (needs()?.querySelectorAll("li button").length ?? 0) > 0);
     assert.equal(page.host.querySelector('[data-testid="overview-real-expenses"]'), null);
     assert.equal(page.host.querySelector('[data-testid="inicio-por-revisar"]'), null, "the old card is gone");
-    const action = page.host.querySelector('[data-testid="month-close-task-review"]');
+    const action = needs();
     const cards = page.host.querySelector('[data-testid="month-close-cards"]');
     assert.ok(action && cards && (action.compareDocumentPosition(cards) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0);
     await page.close();
@@ -243,7 +247,7 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
         accessible.querySelectorAll('[aria-hidden="true"]').forEach((element) => element.remove());
         return accessible.getAttribute("aria-label") ?? accessible.textContent?.replace(/\d+$/, "").trim();
       });
-      assert.deepEqual(names, ["Inicio", "Bandeja", "Registros"]);
+      assert.deepEqual(names, ["Inicio", "Bandeja", "Registros", "Actividad"]);
       assert.ok(items.every((button) => button.querySelector("svg")), "each name sits with its icon");
       await page.close();
     }

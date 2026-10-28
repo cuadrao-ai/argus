@@ -224,7 +224,7 @@ describe("Inicio when the Business itself does not load", () => {
       reads += 1;
       if (failed) throw NETWORK();
       return { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0 } };
-    } }, (host) => host.querySelector('[data-testid="month-close-task-settle"]') !== null);
+    } }, (host) => host.querySelector('[data-testid="month-close-checklist"] [data-testid="month-close-tasks-toggle"]') !== null);
     await view.settle(() => view.api().records.receiptActivity?.ready_to_review_count === 0);
     failed = true;
     await view.act(async () => view.api().reload());

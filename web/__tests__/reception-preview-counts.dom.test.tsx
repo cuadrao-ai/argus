@@ -20,7 +20,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 const OWNER_PERMISSIONS: GrantedSpace["permissions"] = ["read", "prepare", "approve", "manage", "assign_owner", "download", "export"];
 const EDITOR_PERMISSIONS: GrantedSpace["permissions"] = ["read", "prepare", "download", "export"];
 
-async function mount({ production = false, width = 1440, role = "owner", prepare = true, permissions, tweak = receipts => receipts, markRead }: { production?: boolean; width?: number; role?: GrantedSpace["role"]; prepare?: boolean; permissions?: GrantedSpace["permissions"]; tweak?: (receipts: ReceiptSummary[]) => ReceiptSummary[]; markRead?: (id: string, cursor: string) => Promise<ReceiptActivity> } = {}) {
+async function mount({ production = false, width = 1440, role = "owner", prepare = true, permissions, tweak = receipts => receipts, markRead, bar = false }: { production?: boolean; width?: number; role?: GrantedSpace["role"]; prepare?: boolean; permissions?: GrantedSpace["permissions"]; tweak?: (receipts: ReceiptSummary[]) => ReceiptSummary[]; markRead?: (id: string, cursor: string) => Promise<ReceiptActivity>; bar?: boolean } = {}) {
   Reflect.set(process.env, "NODE_ENV", production ? "production" : "development");
   process.env.NEXT_PUBLIC_MOCK_AUTH = production ? "false" : "true";
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 1000 });
@@ -30,6 +30,7 @@ async function mount({ production = false, width = 1440, role = "owner", prepare
   const { Plus } = await import("lucide-react");
   const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
   const Inbox = (await import("@/components/business-app/BusinessInboxPanel")).default;
+  const BusinessHeader = (await import("@/components/business-app/foundation/BusinessHeader")).default;
   const source = (await import("@/components/business-app/fixture-data")).createFixtureBusinessDataSource({ chatAvailable: false });
   const i18n = (await import("i18next")).default.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: (await import("@/public/locales/es-419/common.json")).default } }, interpolation: { escapeValue: false } });
@@ -57,7 +58,7 @@ async function mount({ production = false, width = 1440, role = "owner", prepare
     bridge: null, attachedReceipt: null, clearAttachedReceipt: () => {}, openExport: () => { exports++; }, emailRefresh: { refresh: () => {}, refreshing: false, stalled: false }, retrySources: () => {},
   };
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
-  const render = () => act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Inbox /></BusinessContext.Provider></I18nextProvider>); });
+  const render = () => act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}>{bar ? <header data-testid="top-bar"><BusinessHeader home={false} name={null} title="Bandeja" screen="inbox" /></header> : null}<Inbox /></BusinessContext.Provider></I18nextProvider>); });
   cleanup = async () => { await act(async () => root.unmount()); host.remove(); };
   await render();
   const settle = async (ready: () => boolean) => { for (let i = 0; i < 50; i++) { await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); }); if (ready()) return; } throw new Error(`Missing expected state: ${host.textContent}`); };
@@ -94,11 +95,15 @@ test("preview badges count admitted mixed arrivals independently of global activ
 const rows = (page: Awaited<ReturnType<typeof mount>>) => [...page.host.querySelectorAll<HTMLElement>('[data-testid="reception-row"]')];
 
 for (const width of [1440, 390]) for (const role of ["owner", "accountant"] as const) test(`the live Bandeja renders Reception and ${role} actions at ${width}px`, async () => {
-  const page = await mount({ production: true, width, role });
+  // A desktop shell shows the top bar, which holds the one Agregar; a phone keeps Agregar in the Bandeja toolbar.
+  const page = await mount({ production: true, width, role, bar: width >= 768 });
   assert.equal(page.host.querySelector('[data-testid="reception-preview"]')?.getAttribute("data-mode"), "live");
   const titles = [...page.host.querySelectorAll("h2")].filter(heading => heading.textContent === "Bandeja");
   assert.equal(titles.length, width < 768 ? 1 : 0, "desktop uses the existing Workspace header, phones retain the panel heading");
-  const upload = page.host.querySelector<HTMLButtonElement>('[data-testid="business-primary-upload"]');
+  const uploads = page.host.querySelectorAll<HTMLButtonElement>('[data-testid="business-primary-upload"]');
+  assert.ok(uploads.length <= 1, "Agregar appears once");
+  const upload = uploads[0] ?? null;
+  if (upload) assert.ok(upload.closest(width < 768 ? '[data-testid="reception-add"]' : '[data-testid="top-bar"] [data-testid="add-menu-header"]'), width < 768 ? "a phone keeps Agregar in the toolbar" : "a wide screen keeps Agregar in the top bar");
   const review = page.host.querySelector<HTMLButtonElement>('[data-testid="business-primary-review"]');
   if (role === "owner") { assert.ok(upload); assert.equal(review, null); await page.click(upload); assert.equal(page.uploads(), 1); }
   else { assert.equal(upload, null); assert.ok(review); assert.equal(review.textContent, "Revisar recibos"); await page.click(review); assert.deepEqual(page.opened, [{ kind: "receipt", receiptId: "review-receipt", list: "inbox" }]); }
@@ -134,9 +139,30 @@ test("a Viewer, whose grant lacks the export permission, gets no menu and no Exp
 });
 
 test("the owner who can add keeps Agregar with Exportar registros and the forwarding address in its menu", async () => {
-  const page = await mount({ production: true });
-  assert.equal(page.host.querySelector('[data-testid="reception-more"]'), null);
-  await page.click(page.host.querySelector<HTMLButtonElement>('[data-testid="reception-add"] button[aria-haspopup="menu"]'));
+  // A wide screen: Agregar and its menu sit in the top bar; the Bandeja toolbar keeps only Más acciones with Exportar.
+  const page = await mount({ production: true, bar: true });
+  assert.equal(page.host.querySelector('[data-testid="reception-add"] [data-testid="business-primary-upload"]'), null, "the toolbar does not repeat Agregar");
+  const bar = page.host.querySelector('[data-testid="top-bar"] [data-testid="add-menu-header"]');
+  assert.ok(bar?.querySelector('[data-testid="business-primary-upload"]'), "the top bar holds Agregar");
+  await page.click(bar?.querySelector<HTMLButtonElement>('[data-testid="add-menu-more"]'));
+  await page.settle(() => document.querySelector('[role="menu"]')?.textContent?.includes("Copiar dirección de reenvío") === true);
+  const barItems = [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].map(item => item.textContent);
+  assert.ok(barItems.includes("Exportar registros"));
+  assert.ok(barItems.includes("Copiar dirección de reenvío"));
+  await page.click(page.host.querySelector<HTMLButtonElement>('[data-testid="top-bar"] [data-testid="add-menu-more"]'));
+  const more = page.host.querySelector<HTMLButtonElement>('[data-testid="reception-add"] [data-testid="reception-more"]');
+  assert.ok(more, "the toolbar keeps Más acciones");
+  await page.click(more);
+  assert.deepEqual([...document.querySelectorAll('[role="menu"] [role="menuitem"]')].map(item => item.textContent), ["Exportar registros"]);
+  await cleanup(); cleanup = async () => {};
+  document.body.innerHTML = "";
+
+  // A phone keeps Agregar in the toolbar, its menu holding Exportar registros and the forwarding address.
+  const phone = await mount({ production: true, width: 390 });
+  assert.equal(phone.host.querySelector('[data-testid="reception-more"]'), null);
+  assert.ok(phone.host.querySelector('[data-testid="reception-add"] [data-testid="business-primary-upload"]'));
+  await phone.click(phone.host.querySelector<HTMLButtonElement>('[data-testid="reception-add"] button[aria-haspopup="menu"]'));
+  await phone.settle(() => document.querySelector('[role="menu"]')?.textContent?.includes("recibos-7f3a9c21") === true);
   const items = [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].map(item => item.textContent);
   assert.ok(items.includes("Exportar registros"));
 });

@@ -1,7 +1,8 @@
 "use client";
 
-// DRAFT (design lane, light pass): shape review only. Copy lives here until Lucas
-// approves the shape; the concrete pass moves it to the locale files and wires the API.
+// Actividad: the live history reads GET /business/activity (#1407) and shows only what that feed returns. The local
+// preview (sample data, `?activity=contract|empty|loading|error`) also shows the fields #1410 and ACT-2a add.
+// Copy still lives here, draft, until the copy pass moves it to the locale files.
 
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -14,7 +15,9 @@ import { formatRelativeDay, formatShortDay } from "../business-format";
 import { EmptyState } from "../foundation/EmptyState";
 import { PageHeading } from "../foundation/PageHeading";
 import ActivitySkeleton from "./ActivitySkeleton";
-import { ACTIVITY_CARD, ACTIVITY_DAY, ACTIVITY_GRID, ACTIVITY_HEADER_ROW, ACTIVITY_ROW } from "./activity-layout";
+import { ACTIVITY_CARD, ACTIVITY_DAY, ACTIVITY_GRID, ACTIVITY_GRID_LIVE, ACTIVITY_HEADER_ROW, ACTIVITY_ROW } from "./activity-layout";
+import { useActivityFeed } from "./useActivityFeed";
+import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { secondaryButtonClass } from "../business-ui";
 import { ToolbarPicker } from "../transacciones/RecordsToolbar";
 import ActivityFilters, { ActivityFilterChips, EMPTY_ACTIVITY_FILTERS, type ActivityFilterValue, type ActivityFilterWords } from "./ActivityFilters";
@@ -26,7 +29,7 @@ type ActorKind = "member" | "owner_via_agent" | "extractor";
 type LedgerAction =
   | "review_draft" | "approve_expense" | "approve_income" | "approve_refund" | "capture_note" | "prepare_attachment"
   | "rebind_attachment" | "settle_remainder" | "mark_personal" | "decide_606" | "resolve_duplicate" | "edit_current_note"
-  | "append_supporting_file" | "receipt_upload" | "receipt_review" | "receipt_confirm" | "email_ai_consent_declined"
+  | "append_supporting_file" | "receipt_upload" | "receipt_review" | "receipt_confirm" | "business_ask"
   | "set_business_rnc" | "business_propose_activity" | "business_attach_source" | "business_propose_allocation"
   | "owner_grant" | "grant_access" | "invite_access" | "accept_invite" | "revoke_grant" | "revoke_invite" | "change_role" | "other";
 type ActivityItem = {
@@ -82,7 +85,7 @@ const ACTION_META: Record<DraftItem["action"], { area: Area; group: Group }> = {
   receipt_reading_enabled: { area: "business", group: "settings" },
   receipt_reading_disabled: { area: "business", group: "settings" },
   ownership_transferred: { area: "business", group: "access" },
-  email_ai_consent_declined: { area: "business", group: "settings" },
+  business_ask: { area: "records", group: "other" },
   owner_grant: { area: "business", group: "access" },
   grant_access: { area: "business", group: "access" },
   invite_access: { area: "business", group: "access" },
@@ -110,7 +113,7 @@ const COPY = {
       edit_current_note: "editó una nota", settle_remainder: "saldó el resto de un registro", mark_personal: "marcó un gasto como personal",
       decide_606: "decidió si un gasto va al 606", business_propose_activity: "propuso un registro", business_propose_allocation: "propuso cómo repartir un pago",
       invoice_draft_created: "creó un borrador de factura", invoice_revision_saved: "guardó cambios en una factura",
-      set_business_rnc: "actualizó el RNC del negocio", receipt_reading_enabled: "activó la lectura de recibos", receipt_reading_disabled: "desactivó la lectura de recibos", ownership_transferred: "aceptó la propiedad del negocio", email_ai_consent_declined: "no autorizó leer correos con IA",
+      set_business_rnc: "actualizó el RNC del negocio", receipt_reading_enabled: "activó la lectura de recibos", receipt_reading_disabled: "desactivó la lectura de recibos", ownership_transferred: "aceptó la propiedad del negocio", business_ask: "le preguntó a Cuadrao",
       owner_grant: "dio acceso de dueño", grant_access: "dio acceso", invite_access: "envió una invitación", accept_invite: "aceptó una invitación",
       revoke_grant: "quitó un acceso", revoke_invite: "canceló una invitación", change_role: "cambió un rol", other: "hizo un cambio",
     } as Record<DraftItem["action"], string>,
@@ -123,11 +126,13 @@ const COPY = {
     loadMore: "Cargar más",
     am: "a.m.", pm: "p.m.",
     firstRunTitle: "Todavía no hay actividad",
-    firstRunBody: "Cuando alguien suba, revise o apruebe algo en tu negocio, lo verás aquí.",
+    firstRunBody: "Cuando alguien suba, revise o apruebe algo en este negocio, lo verás aquí.",
     filteredTitle: "Nada coincide con estos filtros",
     filteredBody: "Hay actividad fuera de esta fecha o de estos filtros.",
     errorTitle: "No pudimos cargar la actividad",
-    errorBody: "Tus registros están bien. Inténtalo de nuevo en un momento. Ref. 7f3a2c",
+    errorBody: "Tus registros están bien. Inténtalo de nuevo en un momento.",
+    goHome: "Ir a Inicio",
+    loadMoreFailed: "No pudimos cargar más actividad.",
     retry: "Reintentar",
   },
   en: {
@@ -144,7 +149,7 @@ const COPY = {
       edit_current_note: "edited a note", settle_remainder: "settled a record's remainder", mark_personal: "marked an expense as personal",
       decide_606: "decided whether an expense goes in the 606", business_propose_activity: "proposed a record", business_propose_allocation: "proposed how to split a payment",
       invoice_draft_created: "created an invoice draft", invoice_revision_saved: "saved changes to an invoice",
-      set_business_rnc: "updated the business RNC", receipt_reading_enabled: "turned on receipt reading", receipt_reading_disabled: "turned off receipt reading", ownership_transferred: "accepted ownership of the business", email_ai_consent_declined: "declined AI reading of emails",
+      set_business_rnc: "updated the business RNC", receipt_reading_enabled: "turned on receipt reading", receipt_reading_disabled: "turned off receipt reading", ownership_transferred: "accepted ownership of the business", business_ask: "asked Cuadrao",
       owner_grant: "gave owner access", grant_access: "gave access", invite_access: "sent an invitation", accept_invite: "accepted an invitation",
       revoke_grant: "removed access", revoke_invite: "cancelled an invitation", change_role: "changed a role", other: "made a change",
     } as Record<DraftItem["action"], string>,
@@ -157,11 +162,13 @@ const COPY = {
     loadMore: "Load more",
     am: "a.m.", pm: "p.m.",
     firstRunTitle: "No activity yet",
-    firstRunBody: "When someone uploads, reviews or approves something in your business, you will see it here.",
+    firstRunBody: "When someone uploads, reviews or approves something in this business, you will see it here.",
     filteredTitle: "Nothing matches these filters",
     filteredBody: "There is activity outside this date or these filters.",
     errorTitle: "We could not load the activity",
-    errorBody: "Your records are fine. Try again in a moment. Ref. 7f3a2c",
+    errorBody: "Your records are fine. Try again in a moment.",
+    goHome: "Go to Home",
+    loadMoreFailed: "We couldn't load more activity.",
     retry: "Try again",
   },
 } as const;
@@ -216,19 +223,26 @@ const PAGE = 12;
 const localDay = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const capitalize = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slice(1);
 
+/** A live row as the screen draws it; an action this screen does not know yet reads as "other". */
+const fromFeed = (item: ActivityItem | (Omit<ActivityItem, "action"> & { action: string })): DraftItem => ({ ...item, action: item.action in ACTION_META ? (item.action as LedgerAction) : "other" });
+
 export default function ActivityDraft() {
   const { i18n } = useTranslation();
-  const { openPanel } = useBusiness();
+  const { openPanel, source, chosen } = useBusiness();
+  // Live: the feed as it is, no filters, no Registro column, no record links (those need #1410). Preview: samples.
+  const live = source.mode === "live";
+  const feed = useActivityFeed(live, chosen?.space_id ?? null);
   const lang = (i18n.resolvedLanguage ?? resolveLanguage({})) === "en" ? "en" : "es";
   const locale = lang === "en" ? "en-US" : "es-419";
   const c = COPY[lang];
-  const mode = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("activity");
+  const mode = live || typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("activity");
   const [filters, setFilters] = useState<ActivityFilterValue>(EMPTY_ACTIVITY_FILTERS);
   const [shown, setShown] = useState(PAGE);
   // Applying a filter starts the history over: first page, newest first (live: a new first cursor).
   const applyFilters = (next: ActivityFilterValue) => { setFilters(next); setShown(PAGE); };
   const { date, people, areas, actions: groups } = filters;
-  const all = useMemo(() => (mode === "empty" ? [] : mode === "contract" ? toContract(fixtureItems()) : fixtureItems()) as DraftItem[], [mode]);
+  const liveItems = feed.items;
+  const all = useMemo(() => (live ? liveItems.map(fromFeed) : mode === "empty" ? [] : mode === "contract" ? toContract(fixtureItems()) : fixtureItems()) as DraftItem[], [live, liveItems, mode]);
 
   const today = localDay(new Date().toISOString());
   const filtered = all.filter((item) => {
@@ -242,7 +256,7 @@ export default function ActivityDraft() {
     if (groups.length && !groups.includes(meta.group)) return false;
     return true;
   });
-  const page = filtered.slice(0, shown);
+  const page = live ? filtered : filtered.slice(0, shown);
   const days = page.reduce<{ day: string; items: DraftItem[] }[]>((acc, item) => {
     const day = localDay(item.occurred_at);
     const last = acc[acc.length - 1];
@@ -258,6 +272,7 @@ export default function ActivityDraft() {
   };
   const time = (iso: string) => { const d = new Date(iso); const h = d.getHours(); return `${h % 12 || 12}:${String(d.getMinutes()).padStart(2, "0")} ${h < 12 ? c.am : c.pm}`; };
   const open = (item: DraftItem) => {
+    if (live) return undefined;
     if (item.object?.kind === "draft") return () => openPanel({ kind: "draft", draftId: item.object!.id, list: "transactions" });
     // Grants, invites and invoices have no record screen to open yet (MISSING: link target); they stay plain, never a generic destination.
     return undefined;
@@ -316,21 +331,26 @@ export default function ActivityDraft() {
     ? <>{item.missing.object_label}{item.missing.detail ? <span className="text-[#56635e] dark:text-white/60"> · {item.missing.detail}</span> : null}</>
     : <span aria-label={c.noRecord} className="text-[#56635e] dark:text-white/60">-</span>;
 
+  const columns = live ? [c.cols.who, c.cols.what, c.cols.area, c.cols.time] : [c.cols.who, c.cols.what, c.cols.record, c.cols.area, c.cols.time];
   let body: React.ReactNode;
-  if (mode === "error") {
-    body = <div className="rounded-surface border border-black/[0.06] bg-white dark:border-white/[0.06] dark:bg-[#1f2225]"><EmptyState kind="error" title={c.errorTitle} body={c.errorBody} action={{ label: c.retry, run: () => window.location.reload() }} /></div>;
-  } else if (mode === "loading") {
-    body = <ActivitySkeleton columns={[c.cols.who, c.cols.what, c.cols.record, c.cols.area, c.cols.time]} />;
+  if (mode === "error" || (live && feed.status === "error")) {
+    // A failure says what happened, keeps the server's reference and offers a way out.
+    body = <div className="rounded-surface border border-black/[0.06] bg-white dark:border-white/[0.06] dark:bg-[#1f2225]">
+      <EmptyState kind="error" title={c.errorTitle} body={c.errorBody} action={{ label: c.retry, run: live ? feed.retry : () => window.location.reload() }} secondary={{ label: c.goHome, run: () => openPanel({ kind: "overview" }) }} />
+      {live && feed.reference ? <div className="flex justify-center pb-6"><ReferenceCode reference={feed.reference} /></div> : null}
+    </div>;
+  } else if (mode === "loading" || (live && feed.status === "loading")) {
+    body = <ActivitySkeleton columns={columns} withRecord={!live} />;
   } else if (all.length === 0) {
     body = <div className="rounded-surface border border-black/[0.06] bg-white dark:border-white/[0.06] dark:bg-[#1f2225]"><EmptyState kind="first_run" mark="calendar" title={c.firstRunTitle} body={c.firstRunBody} /></div>;
   } else if (filtered.length === 0) {
     body = <div className="rounded-surface border border-black/[0.06] bg-white dark:border-white/[0.06] dark:bg-[#1f2225]"><EmptyState kind="filtered" title={c.filteredTitle} body={c.filteredBody} action={{ label: c.filters.clear, run: clear }} /></div>;
   } else {
-    const grid = ACTIVITY_GRID;
+    const grid = live ? ACTIVITY_GRID_LIVE : ACTIVITY_GRID;
     body = <>
       <div className={ACTIVITY_CARD}>
         <div className={`${ACTIVITY_HEADER_ROW} ${grid}`}>
-          <span>{c.cols.who}</span><span>{c.cols.what}</span><span>{c.cols.record}</span><span>{c.cols.area}</span><span className="text-right">{c.cols.time}</span>
+          {columns.map((label, index) => <span key={label} className={index === columns.length - 1 ? "text-right" : undefined}>{label}</span>)}
         </div>
         {days.map(({ day, items }) => (
           <section key={day} aria-label={dayLabel(day)}>
@@ -343,7 +363,7 @@ export default function ActivityDraft() {
                   {/* Desktop: one row per change. */}
                   <span className="hidden min-w-0 items-center gap-2.5 md:flex">{who.mark}<span className="truncate">{who.name}</span></span>
                   <span className="hidden min-w-0 truncate md:block">{what(item, true)}{channel(item) ? <span className="text-[#56635e] dark:text-white/60"> · {channel(item)}</span> : null}</span>
-                  <span className="hidden min-w-0 truncate md:block">{record(item)}</span>
+                  {live ? null : <span className="hidden min-w-0 truncate md:block">{record(item)}</span>}
                   <span className="hidden min-w-0 items-center gap-1.5 truncate text-[#56635e] dark:text-white/60 md:flex">{c.areas[ACTION_META[item.action].area]}{restricted(item) ? <Lock size={14} aria-label={c.managersOnly} /> : null}</span>
                   <span className="hidden text-right tabular-nums text-[#56635e] dark:text-white/60 md:block">{time(item.occurred_at)}</span>
                   {/* Phone: a sentence, then where and when. */}
@@ -369,7 +389,10 @@ export default function ActivityDraft() {
           </section>
         ))}
       </div>
-      {filtered.length > shown ? <div className="mt-4 flex justify-center"><button type="button" onClick={() => setShown((n) => n + PAGE)} className={secondaryButtonClass}>{c.loadMore}</button></div> : null}
+      {live ? (feed.next ? <div className="mt-4 flex flex-col items-center gap-2">
+        {feed.more === "error" ? <p role="alert" className="text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">{c.loadMoreFailed}</p> : null}
+        <button type="button" onClick={feed.loadMore} disabled={feed.more === "loading"} aria-busy={feed.more === "loading"} className={secondaryButtonClass}>{c.loadMore}</button>
+      </div> : null) : filtered.length > shown ? <div className="mt-4 flex justify-center"><button type="button" onClick={() => setShown((n) => n + PAGE)} className={secondaryButtonClass}>{c.loadMore}</button></div> : null}
     </>;
   }
 
@@ -377,7 +400,7 @@ export default function ActivityDraft() {
     <div data-testid="business-activity-draft">
       <PageHeading screen="activity" />
       {/* The controls stay while the history loads; empty and failed states have nothing to filter. */}
-      {mode === "empty" || mode === "error" ? null : toolbar}
+      {live || mode === "empty" || mode === "error" ? null : toolbar}
       {body}
     </div>
   );

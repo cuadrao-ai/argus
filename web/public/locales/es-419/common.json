@@ -3831,7 +3831,6 @@
       "overdue_included_other": "Incluye {{count}} vencidas",
       "record_collection": "Registrar cobro",
       "record_payment": "Registrar pago",
-      "settlement_unavailable": "Todavía no se puede registrar el pago desde aquí.",
       "checklist_required": "Necesario para cerrar el mes",
       "filing_ready": "Ya tienes todo para el 606 y el 607. Cierra el mes cuando termines de marcar lo cobrado y lo pagado.",
       "nothing_open": "Todo al día",

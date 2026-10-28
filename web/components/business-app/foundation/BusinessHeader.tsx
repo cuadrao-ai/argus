@@ -8,16 +8,15 @@ import BusinessAddMenu from "../BusinessAddMenu";
 import { useListSearchLoan, type SearchableList } from "./list-search";
 import styles from "./business-header.module.css";
 import { HomeHeading } from "./HomeHeading";
-import { HOME_CANVAS_MAX, INICIO_REDESIGN_PREVIEW } from "../inicio/preview";
+import { BUSINESS_CANVAS_MAX } from "./business-canvas";
 import { PageDescription, usePageIntro } from "./PageHeading";
 
 export default function BusinessHeader({ home, name, business, title, screen, onSearch }: { home: boolean; name: string | null; business?: string; title?: string; screen?: string; onSearch?: (query?: string) => void }) {
   const intro = usePageIntro(screen);
   const group = useRef<HTMLDivElement>(null);
   const sentence = intro?.description;
-  // Inicio's redesign keeps its greeting in the bar, inset to the same capped box as its content.
-  const homeBar = INICIO_REDESIGN_PREVIEW && home;
-  const fitted = Boolean(sentence) || homeBar;
+  // Inicio keeps its greeting in the bar, so like a sentence it sizes the bar.
+  const fitted = Boolean(sentence) || home;
   // A heading group (a sentence, or Inicio's date and greeting) sizes the bar: its height plus 21px above and
   // below, whatever it wraps to, with the other actions on its first row. The shell's bar, fade, gutter and
   // content offset read these; otherwise they keep their 80px, centered default.
@@ -33,29 +32,28 @@ export default function BusinessHeader({ home, name, business, title, screen, on
     observer.observe(node);
     return () => { observer.disconnect(); for (const name of ["--workspace-bar", "--workspace-bar-align", "--workspace-bar-inset"]) body.removeProperty(name); };
   }, [fitted]);
-  // In the preview every Business screen shares Inicio's bounded box: the canvas and the bar are capped and centered
-  // on it, and the bar is opaque under its heading so scrolled content never shows behind it.
+  // Every Business screen shares one bounded box: the canvas and the bar are capped and centered on it, and the bar
+  // is opaque under its heading so scrolled content never shows behind it.
   useLayoutEffect(() => {
-    if (!INICIO_REDESIGN_PREVIEW) return;
     const body = document.body;
-    body.style.setProperty("--workspace-canvas-max", HOME_CANVAS_MAX);
+    body.style.setProperty("--workspace-canvas-max", BUSINESS_CANVAS_MAX);
     body.dataset.workspaceBounded = "";
     return () => { body.style.removeProperty("--workspace-canvas-max"); delete body.dataset.workspaceBounded; };
   }, []);
-  // In the preview every Business screen's bar holds the same tools in one order after its heading: search, then
-  // the one Agregar (never on Negocio, which adds no documents). The share, privacy, notification and profile
-  // controls follow from the shell. Each screen's own Agregar is retired as its owner moves to this one.
-  const tools = INICIO_REDESIGN_PREVIEW ? (
+  // Every Business screen's bar holds the same tools in one order after its heading: search, then the one Agregar
+  // (never on Negocio, which adds no documents). The invitation, privacy, notification and profile controls follow
+  // from the shell.
+  const tools = (
     <div data-testid="business-bar-tools" className={styles.tools}>
       {onSearch ? screen === "inbox" || screen === "transactions" ? <ScopedSearch list={screen} onOpen={onSearch} /> : <StableSearch onOpen={onSearch} /> : null}
       {screen && screen !== "business" ? <BusinessAddMenu placement="header" /> : null}
     </div>
-  ) : null;
+  );
   return (
-    <div ref={group} data-business-search-anchor data-testid="business-desktop-header" data-intro={sentence ? "" : undefined} className={`${styles.header} ${INICIO_REDESIGN_PREVIEW ? styles.toolbar : ""}`}>
+    <div ref={group} data-business-search-anchor data-testid="business-desktop-header" data-intro={sentence ? "" : undefined} className={`${styles.header} ${styles.toolbar}`}>
       {home ? <>
         <HomeHeading name={name} business={business} className={styles.welcome} />
-        {tools ?? (onSearch ? <div className={styles.search}><HeaderSearch onOpen={onSearch} /></div> : null)}
+        {tools}
         {/* Inicio's sentence takes its own row under the greeting and search, so the search never narrows it. */}
         {intro ? <div className={`${styles.intro} ${styles.introRow}`}><PageDescription text={intro.description} icon={intro.icon} /></div> : null}
       </> : intro ? <><div className={styles.welcome}>

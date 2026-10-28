@@ -701,13 +701,10 @@ sections, trays and dialogs have no sentence.
   `BusinessHeader.tsx` under `web/components/business-app/foundation/`; the screen
   icons come from `SCREEN_ICON` in `nav-glyphs.tsx`, the same owner as the rail.
 
-### Top bar, canvas and search, approved October 28, 2026 (redesign preview)
-
-The Business redesign shows in the local preview only (`INICIO_REDESIGN_PREVIEW`
-in `inicio/preview.ts`). Production keeps the layout above until it ships.
+### Top bar, canvas and search, approved October 28, 2026
 
 - **One bounded box.** Every Business screen's content and its top bar share one box:
-  fluid up to 80rem (`HOME_CANVAS_MAX`), centered beyond it, Registros included. The
+  fluid up to 80rem (`BUSINESS_CANVAS_MAX`), centered beyond it, Registros included. The
   bar's controls end on the content's right edge. The bar is opaque for its own
   height, so scrolled content never shows behind the heading. Owner:
   `body[data-workspace-bounded]` in `globals.css`, set by `BusinessHeader.tsx`.

@@ -2,12 +2,12 @@
 // Each reshapes the real open-items response and recomputes its counts and totals from the rows, so the cards
 // render exactly what the server would send for that data. Outside the local preview the response passes through.
 import type { MonthCloseDocument, OpenItems, OpenItemsList, OpenItemsTotal } from "@/lib/business-month-close";
-import { INICIO_REDESIGN_PREVIEW } from "./preview";
 
 type MoneyPreview = "current" | "empty" | "long";
 
 function moneyPreview(): MoneyPreview | null {
-  if (!INICIO_REDESIGN_PREVIEW || typeof window === "undefined") return null;
+  // Sample states are a local design tool: development with mock sign-in only, never a real Business.
+  if (process.env.NODE_ENV !== "development" || process.env.NEXT_PUBLIC_MOCK_AUTH !== "true" || typeof window === "undefined") return null;
   const value = new URLSearchParams(window.location.search).get("money");
   return value === "current" || value === "empty" || value === "long" ? value : null;
 }

@@ -15,8 +15,7 @@ import type { RecordKind } from "./transacciones-model";
 import { useTransaccionesWords } from "./transacciones-words";
 import RecordsDatePreview from "./RecordsDatePreview";
 import { useRecordsSearchShortcut } from "./useRecordsSearchShortcut";
-import { useLendListSearch } from "../foundation/list-search";
-import { INICIO_REDESIGN_PREVIEW } from "../inicio/preview";
+import { barSearchAvailable, useLendListSearch } from "../foundation/list-search";
 import RecordsFiltersPreview, { type ReportFilterCatalogues } from "./RecordsFiltersPreview";
 import type { ReportPeriod } from "@/lib/business-reports-api";
 import { emptyPreviewFilters, type PreviewFilters } from "./records-filter-preview-model";
@@ -87,9 +86,10 @@ export function RecordsToolbar({ connected, filter, onChange, period, setPeriod,
   const periodName = usePeriodLabel();
   const searchInput = useRef<HTMLInputElement>(null);
   const { isBelowTablet: phone, isBelowDesktop } = useResponsiveLayout();
-  // In the redesign preview the search moves to the top bar on a wide screen: this list lends it the query (and the
-  // same 200-character cap). With no field here, ⌘K falls through to the search window, scoped to Registros.
-  const searchInBar = INICIO_REDESIGN_PREVIEW && !phone;
+  // On a wide screen with the bar's search on, the search lives in the top bar: this list lends it the query (and the
+  // same 200-character cap), and ⌘K reaches the search window scoped to Registros. A phone, or a build without
+  // Business search, keeps its own field.
+  const searchInBar = !phone && barSearchAvailable;
   useLendListSearch("transactions", searchInBar ? { query: filter.query, setQuery: (query) => onChange({ ...filter, query }), maxLength: connected ? 200 : undefined } : null);
   useRecordsSearchShortcut(searchInput);
   const datePreview = Boolean(connected) || process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";

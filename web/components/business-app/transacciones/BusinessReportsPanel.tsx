@@ -13,7 +13,6 @@ import { reportRequestSchema, type ReportAnswer, type ReportFilters, type Report
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useBusiness } from "../BusinessWorkspace";
 import BusinessAddMenu from "../BusinessAddMenu";
-import { INICIO_REDESIGN_PREVIEW } from "../inicio/preview";
 import { RecordsExportButton } from "./RecordsExportButton";
 import { saveBlobDownload } from "../ExportRecordsPanel";
 import { periodRange, todayIso, type Period } from "../business-format";
@@ -152,8 +151,8 @@ export function ConnectedBusinessReports({ scope, period, transport, initial }: 
   const create = actions.create.find((action) => action.id === "upload_receipt");
   const exportEnabled = state.load.kind === "ready" && state.export.kind !== "busy" && !(state.export.kind === "failed" && state.export.problem.kind === "changed");
   const add = <BusinessAddMenu placement="header" onExport={() => void exportReport()} exportEnabled={exportEnabled} />;
-  // In the redesign preview Agregar lives in the top bar; the toolbar keeps Export as its own button, same gate.
-  const toolbarAction = INICIO_REDESIGN_PREVIEW ? <RecordsExportButton onExport={() => void exportReport()} enabled={exportEnabled} /> : add;
+  // Agregar lives in the top bar; the toolbar keeps Export as its own button, same gate. A phone keeps Agregar here.
+  const toolbarAction = <RecordsExportButton onExport={() => void exportReport()} enabled={exportEnabled} />;
   return <RecordsAnnotationsPreview connected={{ scope, rows, refresh: controller.refresh, revoke: recheckAnnotationAccess }}><PullToRefresh onRefresh={async () => { await controller.refresh(); return controller.getSnapshot().load.kind === "ready" ? "updated" : "failed"; }}>
     <section ref={screen} tabIndex={-1} data-testid="transacciones" data-report-connected data-report-schema={state.request.schema_version} className="pb-6 outline-none">
       {phone || panel.kind !== "transactions" ? <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><h2 className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">{t("business.transactions.title")}</h2>{add}</div> : null}
