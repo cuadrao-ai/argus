@@ -71,7 +71,7 @@ try {
     try {
       await page.goto(`${baseURL}/biz${query}`);
       await page.addStyleTag({ content: FREEZE_CSS });
-      if (state === "owner-datos") { await expect(page.getByTestId("business-lifecycle-controls")).toBeVisible(); await expect(page.getByText(owner.name, { exact: true }).first()).toBeVisible(); await page.getByTestId("business-lifecycle-controls").scrollIntoViewIfNeeded(); }
+      if (state === "owner-datos") { await expect(page.getByTestId("business-lifecycle-controls")).toBeVisible(); await expect(page.getByTestId("business-profile-preview").getByRole("heading", { name: owner.name })).toBeVisible(); await page.getByTestId("business-lifecycle-controls").scrollIntoViewIfNeeded(); }
       if (state === "close-download") await expect(page.getByRole("button", { name: "Descargar comprobantes", exact: true })).toBeVisible();
       if (state === "close-confirm" || state === "close-uncertain") {
         await page.getByRole("button", { name: "Cerrar negocio", exact: true }).click();
@@ -89,7 +89,7 @@ try {
       if (state === "owner-closed") { await expect(page.getByRole("button", { name: "Reabrir negocio", exact: true })).toBeVisible(); await expect(page.getByText("Para descargar comprobantes, primero debes reabrir el negocio.")).toBeVisible(); }
       if (state === "member-closed") { await expect(page.getByTestId("business-member-closed")).toBeVisible(); expect(calls.every(call => call.method === "GET")).toBe(true); }
       if (state === "closed-banner") await expect(page.getByTestId("business-closed-owner-banner")).toBeVisible();
-      if (state === "switcher") { await page.getByRole("button", { name: "Colmado Rosa", exact: true }).first().click(); await expect(page.getByRole("menu")).toContainText("Cerrados"); }
+      if (state === "switcher") { await page.getByRole("button", { name: "Colmado Rosa", exact: true }).first().click(); await expect((width === 390 ? page.getByRole("dialog", { name: "Colmado Rosa", exact: true }) : page.getByRole("menu", { name: "Colmado Rosa", exact: true })).getByText("Cerrados", { exact: true })).toBeVisible(); }
       if (state.startsWith("deletion-")) {
         await page.getByTestId("header-profile-trigger").click();
         await page.getByRole("button", { name: "Controles de datos", exact: true }).click();
