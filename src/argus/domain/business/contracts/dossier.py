@@ -40,8 +40,9 @@ def web_action_text(command: dict[str, Any]) -> str:
 class AttachmentSource(Contract):
     id: UUID
     kind: Literal["attachment"] = "attachment"
-    #: ``email`` and the deliveries are set at the API boundary from the email
-    #: queue; the stored row knows only web or whatsapp.
+    #: The stored row says ``web`` for every attachment. ``whatsapp`` comes from
+    #: the intake store and ``email`` (with its deliveries) from the email queue,
+    #: both set at the API boundary.
     channel: Literal["web", "whatsapp", "email"]
     received_at: datetime
     connection_id: UUID
