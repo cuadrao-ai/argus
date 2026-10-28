@@ -8,7 +8,6 @@ import english from "@/public/locales/en/common.json";
 import spanish from "@/public/locales/es-419/common.json";
 import { BusinessContext, type BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import ReceiptSourcePreview from "@/components/business-app/ReceiptSourcePreview";
-import type { ReceiptSummary } from "@/lib/business-api";
 
 async function i18n(lng: "es-419" | "en") {
   const instance = i18next.createInstance();

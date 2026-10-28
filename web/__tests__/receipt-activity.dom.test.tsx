@@ -5,7 +5,6 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
-import { renderToStaticMarkup } from "react-dom/server";
 import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
 import { BusinessContext, type BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import { periodRange } from "@/components/business-app/business-format";

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import type { BusinessOverview, ReceiptSummary } from "@/lib/business-api";
+import type { BusinessOverview } from "@/lib/business-api";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import type { BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 
@@ -13,8 +13,6 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-const receipt = (over: Partial<ReceiptSummary> = {}): ReceiptSummary =>
-  ({ id: "rcpt-1", channel: "web", filename: "recibo.png", source_text: null, media_type: "image/png", size_bytes: 10, received_at: "2026-10-12T14:00:00Z", status: "review_ready", error_code: null, attention: null, preparable: false, enterable: false, expense_id: null, merchant: "Ferretería Luna", occurred_on: "2026-10-12", amount: "850.00", currency: "DOP", category_id: null, account_id: null, ...over }) as ReceiptSummary;
 
 async function setup() {
   const { act } = await import("react");
