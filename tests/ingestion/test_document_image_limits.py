@@ -1,5 +1,6 @@
 import io
 import struct
+import threading
 import time
 import zlib
 from types import SimpleNamespace
@@ -9,7 +10,7 @@ import pytest
 from argus.domain.ingestion.documents import rebuilt
 from argus.domain.ingestion.documents.models import DocumentExtractionError
 from loguru import logger
-from PIL import Image
+from PIL import Image, ImageDraw
 
 
 def png(width=24, height=16, *, frames=1):
@@ -217,3 +218,38 @@ def test_resource_failure_kills_child_and_emits_alert(monkeypatch, reason):
     assert len(processes) == 1 and processes[0].returncode is not None
     assert records[-1]["extra"]["reason"] == reason
     assert records[-1]["extra"]["alert"] is True
+
+
+def test_phone_photo_rebuild_fits_beside_the_api_on_a_512_mb_instance():
+    """Staging runs the API at about 354 MB on a 512 MB instance, so the
+    child rebuilding a 12 MP phone photo must stay under 150 MB."""
+
+    photo = Image.new("RGB", (4032, 3024), "white")
+    ImageDraw.Draw(photo).rectangle((400, 300, 3600, 2700), fill=(30, 90, 60))
+    content = io.BytesIO()
+    photo.save(content, format="JPEG", quality=85)
+    del photo
+    peak, done = 0, threading.Event()
+
+    def sample():
+        nonlocal peak
+        while not done.is_set():
+            for child in psutil.Process().children(recursive=True):
+                try:
+                    # Before exec a forked child still reports this process.
+                    if "image/jpeg" in child.cmdline():
+                        peak = max(peak, child.memory_info().rss)
+                except psutil.Error:
+                    pass
+            time.sleep(0.001)
+
+    sampler = threading.Thread(target=sample)
+    sampler.start()
+    try:
+        copy = rebuilt.rebuild_image(content.getvalue(), "image/jpeg")
+    finally:
+        done.set()
+        sampler.join()
+    with Image.open(io.BytesIO(copy)) as image:
+        assert image.size == (1600, 1200)
+    assert 0 < peak < 150 * 1024 * 1024
