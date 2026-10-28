@@ -13,7 +13,7 @@ mock.module("@/lib/private-alpha-flags", () => ({ ...realFlags, businessInvoicin
 const originalZone = process.env.TZ;
 beforeAll(() => { process.env.TZ = "America/Santo_Domingo"; GlobalRegistrator.register({ url: "http://localhost/biz?view=invoicing" }); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); });
 afterAll(async () => { if (originalZone === undefined) delete process.env.TZ; else process.env.TZ = originalZone; await GlobalRegistrator.unregister(); });
-async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; losePrepare?: boolean; holdCreate?: boolean; entry?: boolean; selectedGrant?: string | null; missingActor?: boolean; missingPermissions?: boolean; directory?: "loading" | "failed"; checkTaxId?: boolean; customerRecords?: SavedCustomer[]; rejectCustomerTax?: boolean; holdReads?: boolean; readFailure?: number; noPrepare?: boolean; refuse?: "prepare" | "customer"; fiscalOff?: boolean; loseCustomerCreate?: boolean; rejectFirstInvoiceCreate?: boolean } = {}) {
+async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; losePrepare?: boolean; holdCreate?: boolean; entry?: boolean; selectedGrant?: string | null; missingActor?: boolean; missingPermissions?: boolean; directory?: "loading" | "failed"; checkTaxId?: boolean; customerRecords?: SavedCustomer[]; rejectCustomerTax?: boolean; holdReads?: boolean; readFailure?: number; noPrepare?: boolean; refuse?: "prepare" | "customer"; issuanceOff?: boolean; issue?: boolean; fiscalOff?: boolean; loseCustomerCreate?: boolean; rejectFirstInvoiceCreate?: boolean } = {}) {
   const { act, StrictMode } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { I18nextProvider } = await import("react-i18next");
@@ -39,7 +39,7 @@ async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; los
       if (options.holdReads) return new Promise<Response>(() => {});
       if (options.readFailure) return Response.json({ code: "synthetic_read_failure" }, { status: options.readFailure });
     }
-    if (url.pathname.endsWith("/business/invoices") && method === "GET") return Response.json({ items: record ? [record] : [], total: record ? 1 : 0, page: 1, page_size: 25, stage_counts: { draft: record && !record.operation ? 1 : 0, issued: record?.operation?.state.legal === "ACCEPTED" ? 1 : 0, uncertain: record?.operation?.state.submission === "unknown" ? 1 : 0 }, summaries: [], query_version: "synthetic-version" });
+    if (url.pathname.endsWith("/business/invoices") && method === "GET") return Response.json({ items: record ? [record] : [], total: record ? 1 : 0, page: 1, page_size: 25, stage_counts: { draft: record && !record.operation ? 1 : 0, issued: record?.operation?.state.legal === "ACCEPTED" ? 1 : 0, uncertain: record?.operation?.state.submission === "unknown" ? 1 : 0 }, summaries: [], query_version: "synthetic-version", issuance_available: !options.issuanceOff });
     if (url.pathname.endsWith("/business/customers") && method === "GET") return Response.json({ items: createdCustomers, total: createdCustomers.length, page: 1, page_size: 25 });
     if (options.refuse === "customer" && url.pathname.includes("/business/customers") && method === "POST") return Response.json({ code: "business_unavailable", request_id: "customer-ref-0001" }, { status: 404 });
     if (options.refuse === "prepare" && url.pathname.endsWith("/prepare")) return Response.json({ code: "business_record_not_found", request_id: "prepare-ref-0001" }, { status: 404 });
@@ -74,7 +74,7 @@ async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; los
   const context: BusinessContextValue = { userId: options.missingActor ? null : invoiceScope.userId, source, records: { workspace: null, overview: null, inbox: [], notes: [], notesTruncated: false, emails: [], error: false }, spaces: [], chosen: { space_id: invoiceScope.businessId, grant_id: invoiceScope.grantId!, name: "Synthetic Business", role: "owner", capabilities: ["read", "prepare", "approve"], permissions: options.missingPermissions ? undefined : ["read", "prepare", "approve", "download"], access_seen: true }, chooseBusiness: () => undefined, markAccessSeen: async () => undefined, lostAccess: false, clearLostAccess: () => undefined, revision: 0, reload: () => undefined, refresh: async () => "updated", period: periodRange("all"), setPeriod: () => undefined, panel: { kind: "invoicing" }, openPanel: () => undefined, actions: { create: [], composer: [], starterEntries: [] }, bridge: null, attachedReceipt: null, clearAttachedReceipt: () => undefined, openExport: () => undefined, emailRefresh: { refresh: () => undefined, refreshing: false, stalled: false }, retrySources: () => undefined };
   let currentContext: BusinessContextValue = options.directory ? { ...context, chosen: null, directoryStatus: options.directory } : context;
   const host = document.createElement("div"); document.body.append(host); let root = createRoot(host);
-  const render = async () => { await act(async () => { root.render(<StrictMode><I18nextProvider i18n={i18n}><BusinessContext.Provider value={currentContext}>{options.entry ? <BusinessPanel /> : <ConnectedInvoicingWorkspace scope={invoiceScope} business="Synthetic Business" capabilities={{ prepare: !options.noPrepare, issue: false, download: true }} />}</BusinessContext.Provider></I18nextProvider></StrictMode>); }); };
+  const render = async () => { await act(async () => { root.render(<StrictMode><I18nextProvider i18n={i18n}><BusinessContext.Provider value={currentContext}>{options.entry ? <BusinessPanel /> : <ConnectedInvoicingWorkspace scope={invoiceScope} business="Synthetic Business" capabilities={{ prepare: !options.noPrepare, issue: Boolean(options.issue), download: true }} />}</BusinessContext.Provider></I18nextProvider></StrictMode>); }); };
   await render();
   const button = (text: string) => { const found = [...document.querySelectorAll<HTMLButtonElement>("button")].find(node => node.textContent?.trim() === text && !node.closest("[hidden]")); assert.ok(found, `missing button ${text}`); return found; };
   const click = async (text: string) => { await act(async () => button(text).click()); };
@@ -475,6 +475,35 @@ test("with fiscal issuance off, Prepare issuance becomes a disabled note and edi
   } finally { await page.close(); }
 });
 
+const preparable = () => ({ ...savedInvoice(readyDraft()), field_errors: {}, amounts: { subtotal: "100.01", discount: "0.00", tax: "0.00", total: "100.01" } });
+test("when the page reports issuance unavailable, Prepare issuance is disabled with a note before any click", async () => {
+  const page = await mount({ record: preparable(), issuanceOff: true }); try {
+    await page.openRow();
+    assert.equal(page.button("Prepare issuance").disabled, true);
+    assert.ok(document.body.textContent?.includes("Issuance is not available yet."));
+    assert.equal(page.button("Edit draft").disabled, false, "editing stays usable");
+    await page.click("Prepare issuance");
+    assert.equal(page.calls.filter(call => call.method !== "GET").length, 0, "no request is sent");
+  } finally { await page.close(); }
+});
+test("when the page reports issuance available, Prepare issuance is enabled and sends the prepare request", async () => {
+  const page = await mount({ record: preparable() }); try {
+    await page.openRow();
+    assert.equal(page.button("Prepare issuance").disabled, false);
+    assert.equal(document.body.textContent?.includes("Issuance is not available yet."), false);
+    await page.click("Prepare issuance");
+    assert.equal(page.calls.filter(call => call.path.endsWith("/prepare")).length, 1);
+  } finally { await page.close(); }
+});
+test("Issue invoice follows the page's issuance availability before any click", async () => {
+  for (const issuanceOff of [true, false]) {
+    const page = await mount({ record: { ...preparable(), operation: preparedOperation() }, issue: true, issuanceOff }); try {
+      await page.openRow();
+      assert.equal(page.button("Issue invoice").disabled, issuanceOff);
+      assert.equal(document.body.textContent?.includes("Issuance is not available yet."), issuanceOff);
+    } finally { await page.close(); }
+  }
+});
 test("a refused prepare says what was refused, shows its reference and the contact line, with no Retry", async () => {
   const page = await mount({ record: { ...savedInvoice(readyDraft()), field_errors: {}, amounts: { subtotal: "100.01", discount: "0.00", tax: "0.00", total: "100.01" } }, refuse: "prepare" }); try {
     await page.openRow(); await page.click("Prepare issuance");
