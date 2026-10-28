@@ -3333,6 +3333,8 @@
       "taxable": "Gravado",
       "uncertain": "No pudimos confirmar si se guardó. Reintenta la misma solicitud.",
       "uncertain_stage": "Por confirmar",
+      "draft_reference": "Borrador · {{date}}",
+      "draft_reference_undated": "Borrador",
       "unavailable": "La emisión fiscal no está disponible todavía. Tu borrador se conserva y puedes seguir editándolo.",
       "refused": "No pudimos completar esta solicitud. Tu borrador se conserva.",
       "issuance_unavailable": "Emisión no disponible todavía.",

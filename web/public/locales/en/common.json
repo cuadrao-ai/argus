@@ -3095,6 +3095,8 @@
       "taxable": "Taxable",
       "uncertain": "We could not confirm whether it was saved. Retry the same request.",
       "uncertain_stage": "Uncertain",
+      "draft_reference": "Draft · {{date}}",
+      "draft_reference_undated": "Draft",
       "unavailable": "Fiscal issuance is not available yet. Your draft is kept and you can keep editing it.",
       "refused": "We could not complete this request. Your draft is kept.",
       "issuance_unavailable": "Issuance is not available yet.",

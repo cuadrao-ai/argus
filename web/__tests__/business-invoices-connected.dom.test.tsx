@@ -109,7 +109,7 @@ test("customer contact is posted only through explicit customer Save", async () 
 test("lost prepare response retries the same saved revision and never submits or reports issued", async () => {
   const data: InvoiceDraft = { ...incompleteInvoice(), customer_input: { ...incompleteInvoice().customer_input, name: "Saved customer input" }, payment_type: "cash", income_type: 1, tax_inclusion: "excluded", issued_on: "2026-10-27", due_on: "2026-10-27", items: [{ id: "item-one", description: "Service", quantity: "1", price: "100.01", discount: "0", tax: "0", classification: "services", tax_treatment: "exempt" }] };
   const page = await mount({ record: { ...savedInvoice(data), field_errors: {}, amounts: { subtotal: "100.01", discount: "0.00", tax: "0.00", total: "100.01" } }, losePrepare: true }); try {
-    await page.click(invoiceId); assert.ok(document.body.textContent?.includes("Preparing this invoice locks its details.")); await page.click("Prepare issuance"); await page.click("Retry the same request");
+    await page.openRow(); assert.ok(document.body.textContent?.includes("Preparing this invoice locks its details.")); await page.click("Prepare issuance"); await page.click("Retry the same request");
     const prepares = page.calls.filter(call => call.path.endsWith("/prepare")); assert.equal(prepares.length, 2); assert.deepEqual(prepares[1], prepares[0]); assert.equal(page.prepareEffects(), 1);
     assert.equal(page.calls.some(call => call.path.endsWith("/submit")), false); assert.ok(document.body.textContent?.includes("Prepared, not issued")); assert.equal(page.record()?.payment_state, "unknown"); assert.equal(page.record()?.delivery_state, "not_sent");
   } finally { await page.close(); }
@@ -119,7 +119,7 @@ test("saved decimal totals disappear after local price edits and included-tax sa
   const data = { ...incompleteInvoice(), customer_input: { ...incompleteInvoice().customer_input, name: "Saved contact snapshot" }, issued_on: "2026-10-27", due_on: "2026-10-27", payment_type: "cash" as const, income_type: 1 as const, tax_inclusion: "excluded" as const, items: [{ id: "price-item", description: "Saved service", quantity: "1", price: "100.01", discount: "0", tax: "0", classification: "services" as const, tax_treatment: "exempt" as const }] };
   const page = await mount({ record: { ...savedInvoice(data), field_errors: {}, amounts: { subtotal: "100.01", discount: "0.00", tax: "0.00", total: "100.01" } } });
   try {
-    await page.click(invoiceId); await page.click("Edit draft"); await page.click("Next");
+    await page.openRow(); await page.click("Edit draft"); await page.click("Next");
     const totals = () => document.querySelector('[data-testid="invoice-editor"] [data-testid="invoice-customer-document"] [class*="documentTotals"]')?.textContent;
     assert.ok(totals()?.includes("100.01")); await page.fill('#invoice-price-item-price', "200.020");
     await page.act(async () => { const input = document.querySelector<HTMLInputElement>("#invoice-price-item-price")!; input.focus(); input.blur(); });
@@ -130,7 +130,7 @@ test("saved decimal totals disappear after local price edits and included-tax sa
     assert.equal(page.record()?.data.items[0].price, "200.020"); assert.equal(page.record()?.data.tax_inclusion, "included"); assert.equal(page.record()?.amounts, null);
     await page.click("Prepare issuance"); assert.ok(document.body.textContent?.includes("Review the marked fields")); assert.equal(page.record()?.operation, null);
     await page.click("Edit draft"); assert.ok(document.body.textContent?.includes("not supported for issuing"));
-    await page.reopen(); await page.click(invoiceId); await page.click("Edit draft"); await page.click("Next"); assert.equal(document.querySelector<HTMLInputElement>("#invoice-price-item-price")?.value, "200.020");
+    await page.reopen(); await page.openRow(); await page.click("Edit draft"); await page.click("Next"); assert.equal(document.querySelector<HTMLInputElement>("#invoice-price-item-price")?.value, "200.020");
   } finally { await page.close(); }
 });
 
@@ -138,7 +138,7 @@ test("the five fiscal choices remain blank until explicit selection and incomple
   const page = await mount({ record: savedInvoice() });
   const choose = async (label: string, value: string) => { const span = [...document.querySelectorAll("span")].find(node => node.textContent === label); assert.ok(span, label); const button = span.parentElement?.querySelector("button"); assert.ok(button); await page.act(async () => button.click()); await page.click(value); };
   try {
-    await page.click(invoiceId); await page.click("Edit draft");
+    await page.openRow(); await page.click("Edit draft");
     assert.equal(page.record()?.data.payment_type, null); assert.equal(page.record()?.data.income_type, null); assert.equal(page.record()?.data.tax_inclusion, null);
     await choose("Fiscal payment terms", "Credit"); assert.ok(!document.body.textContent?.includes("Complete this field before preparing issuance.")); await choose("Income type", "Other income"); await choose("Prices and tax", "Tax included"); await page.click("Save draft");
     assert.equal(page.record()?.data.payment_type, "credit"); assert.equal(page.record()?.data.income_type, 6); assert.equal(page.record()?.data.tax_inclusion, "included"); assert.equal(page.record()?.payment_state, "unknown");
@@ -260,7 +260,7 @@ test("connected fiscal customer digits survive blur, Save and immutable prepare 
     const data: InvoiceDraft = { ...incompleteInvoice(), document_type: "E31", customer_input: { ...incompleteInvoice().customer_input, name: "Fiscal customer" }, payment_type: "cash", income_type: 1, tax_inclusion: "excluded", issued_on: "2026-10-27", due_on: "2026-10-27", items: [{ id: "fiscal-item", description: "Service", quantity: "1", price: "100.01", discount: "0", tax: "0", classification: "services", tax_treatment: "exempt" }] };
     const page = await mount({ record: { ...savedInvoice(data), field_errors: { "customer_input.tax_id": "required" } }, checkTaxId: true });
     try {
-      await page.click(invoiceId); await page.click("Edit draft"); await page.fill("#invoice-taxId", digits);
+      await page.openRow(); await page.click("Edit draft"); await page.fill("#invoice-taxId", digits);
       await page.act(async () => { const input = document.querySelector<HTMLInputElement>("#invoice-taxId")!; input.focus(); input.blur(); });
       await page.click("Save draft"); assert.equal(page.record()?.data.customer_input.tax_id, digits); await page.click("Prepare issuance");
       assert.equal(page.prepareEffects(), 1); assert.equal(page.record()?.data.customer_input.tax_id, digits);
@@ -272,7 +272,7 @@ test("connected fiscal customer digits survive blur, Save and immutable prepare 
 test("manually formatted fiscal ID remains an exact incomplete draft with a visible server field error", async () => {
   const page = await mount({ record: { ...savedInvoice(), field_errors: { "customer_input.tax_id": "required" } }, checkTaxId: true });
   try {
-    await page.click(invoiceId); await page.click("Edit draft"); await page.fill("#invoice-customer-search", "Draft customer"); await page.click("Add customer · Draft customer"); await page.fill("#invoice-taxId", "131-79389-1"); await page.click("Save draft");
+    await page.openRow(); await page.click("Edit draft"); await page.fill("#invoice-customer-search", "Draft customer"); await page.click("Add customer · Draft customer"); await page.fill("#invoice-taxId", "131-79389-1"); await page.click("Save draft");
     assert.equal(page.record()?.data.customer_input.tax_id, "131-79389-1"); assert.equal(page.button("Prepare issuance").disabled, true);
     await page.click("Edit draft"); assert.equal(document.querySelector<HTMLInputElement>("#invoice-taxId")?.value, "131-79389-1"); assert.equal(document.querySelector<HTMLInputElement>("#invoice-taxId")?.getAttribute("aria-invalid"), "true");
   } finally { await page.close(); }
@@ -461,5 +461,24 @@ test("with fiscal issuance off, Prepare issuance becomes a disabled note and edi
     assert.ok(document.body.textContent?.includes("Saved to this Business."));
     await page.reopen(); await page.openRow(); await page.click("Edit draft"); await page.click("Save draft");
     assert.equal(page.calls.filter(call => call.method === "PUT").length, 2, "a reload leaves saving usable");
+  } finally { await page.close(); }
+});
+
+const uuidText = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+test("a saved draft is named by its draft label and no UUID reaches the table, phone list, dossier or editor", async () => {
+  const data = readyDraft(), page = await mount({ record: { ...savedInvoice(data), field_errors: {}, amounts: { subtotal: "100.01", discount: "0.00", tax: "0.00", total: "100.01" } } }); try {
+    const link = document.querySelector("tbody tr td:first-child button"); assert.equal(link?.textContent, "Draft · Oct 27, 2026");
+    assert.equal(uuidText.test(document.body.textContent ?? ""), false, "list");
+    await page.openRow(); assert.equal(uuidText.test(document.body.textContent ?? ""), false, "dossier");
+    assert.ok(document.querySelector('[data-testid="invoice-customer-document"]')?.textContent?.includes("Draft · Oct 27, 2026"));
+    await page.click("Edit draft"); assert.equal(uuidText.test(document.body.textContent ?? ""), false, "editor");
+    assert.ok(document.querySelector('[data-testid="invoice-editor"]')?.textContent?.includes("Draft · Oct 27, 2026"));
+    assert.equal(uuidText.test(document.querySelector('[class*="phoneList"]')?.textContent ?? ""), false, "phone list");
+  } finally { await page.close(); }
+});
+test("a prepared invoice keeps its fiscal number as identity", async () => {
+  const page = await mount({ record: { ...savedInvoice(readyDraft()), field_errors: {}, operation: preparedOperation() } }); try {
+    assert.equal(document.querySelector("tbody tr td:first-child button")?.textContent, "E320000000001");
+    assert.equal(uuidText.test(document.body.textContent ?? ""), false);
   } finally { await page.close(); }
 });
