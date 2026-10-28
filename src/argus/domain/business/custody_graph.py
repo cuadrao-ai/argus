@@ -19,6 +19,11 @@ class CustodyGraphError(RuntimeError):
     pass
 
 
+#: The name every departure rewrite stores over an erased member's rows; SQL
+#: business_custody_identity_json holds the same literal.
+ERASED_NAME = "Exmiembro"
+
+
 @dataclass(frozen=True)
 class CustodyMoveResult:
     space_id: str
@@ -102,9 +107,9 @@ def _identity(value: Any, old: str, custodian: str, actor: str) -> Any:
         if value.get(key) == old:
             result[key] = custodian
     if value.get("actor_id") == old and "display_name" in value:
-        result["display_name"] = "Exmiembro"
+        result["display_name"] = ERASED_NAME
     if value.get("issuer_id") == old and "issuer_display_name" in value:
-        result["issuer_display_name"] = "Exmiembro"
+        result["issuer_display_name"] = ERASED_NAME
     return result
 
 

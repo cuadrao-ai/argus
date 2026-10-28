@@ -37,10 +37,8 @@ from argus.domain.business.contracts.activity import (
     ObjectKind,
     PageSize,
 )
+from argus.domain.business.custody_graph import ERASED_NAME
 from argus.domain.business.reporting_query import CALENDAR
-
-#: The name the departure migration writes over an erased member's rows.
-ERASED_NAME = "Exmiembro"
 
 
 class InvalidCursor(ValueError):
