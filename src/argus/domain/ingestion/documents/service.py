@@ -31,6 +31,7 @@ from argus.domain.ingestion.documents.models import (
 from argus.domain.ingestion.documents.objects import SourceStorageUnavailable
 from argus.domain.ingestion.documents.preparation import PreparedDocument, validate_source
 from argus.domain.ingestion.documents.rebuilt import ensure_rebuilt_image
+from argus.domain.ingestion.documents.storage_text import clean_extracted_text
 from argus.domain.ingestion.documents.store import (
     CaptureHook,
     DocumentStore,
@@ -720,6 +721,7 @@ class DocumentsService:
                     observed_at=self.hub.clock(),
                     **prepared_args,
                 )
+                batch = clean_extracted_text(batch)
                 self._validate(batch, connection_id)
                 if not self.store.save(
                     user_id=user_id,

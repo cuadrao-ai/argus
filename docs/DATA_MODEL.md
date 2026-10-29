@@ -3833,6 +3833,13 @@ under the attempt's live lease before the provider can be reached. The job is
 replaced together with the draft only while no lease is live. Legacy rows can have a batch without retained source; a duplicate
 upload can attach that source without changing the frozen batch.
 
+Before a newly extracted batch is saved, NUL characters in extracted string
+values are replaced with U+FFFD so the JSONB write succeeds. A changed batch
+records `metadata.text_cleaning.nul_replacements` as the number of replacements.
+An unchanged batch has no cleaning marker. The retained source bytes and their
+SHA-256 stay unchanged. Replacement does not join damaged amount or fiscal
+identifier digits into a valid value. Existing fiscal validation still applies.
+
 **Business preparation binding (`20261011194500`).** The existing `financial_document_extractions` row has an immutable optional `preparation_binding`. It names the binding ID, Business/owner, source connection and SHA-256, captured extractor provenance for the actual preparing human and exact grant/issuer, explicit target (`null` means create), affirmative per-document consent and capture time. This is not a new permission or consent policy. Later consent withdrawal still blocks completion.
 
 A bound extraction's saved batch cannot be replaced or cleared. A `prepare_attachment` action receipt requires a nonnull batch on the exact bound document. The service validates that JSON as `ExtractionBatch`, recomputes its digest with the existing canonical input encoder and compares the caller checkpoint before writing. SQL enforces linkage and immutability; it does not independently hash Python canonical JSON or authorize completion. The command stores that digest and the original binding, including explicit `target: null`; the existing receipt input hash covers the full command.
