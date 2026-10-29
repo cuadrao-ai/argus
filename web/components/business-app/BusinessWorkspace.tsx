@@ -73,7 +73,7 @@ import { emailDeliveriesNeedRefresh, type BusinessEmailDelivery } from "@/lib/bu
 import { canEnterBusiness } from "@/lib/business-privacy-notice";
 import { useBusinessConsent } from "./business-consent-context";
 import { quietButtonClass } from "./business-ui";
-import { applyListSearch, useListLending } from "./foundation/list-search";
+import { applyListSearch, useLendingList } from "./foundation/list-search";
 import { loadFailure, type BandejaSource, type LoadFailure } from "./bandeja-sources";
 import { beginBusinessAppearance, failBusinessAppearance, getBusinessProfile, publishBusinessAppearance } from "@/lib/business-profile-api";
 
@@ -611,10 +611,9 @@ function BusinessWorkspaceContent({
   const directoryValue = useMemo<BusinessContextValue>(() => ({ ...value, directoryStatus }), [value, directoryStatus]);
 
   const chatAvailable = businessChatAvailable(records.workspace) && consent.accepted && !closedAccessName;
-  // The list on screen lends its query; the search then starts scoped to it (redesign preview, wide screens).
-  const scopedList = panel.kind === "inbox" || panel.kind === "transactions" ? panel.kind : null;
-  const lending = useListLending(scopedList);
-  const listScope = useMemo(() => (scopedList && lending ? { list: scopedList, apply: (query: string) => applyListSearch(scopedList, query) } : null), [scopedList, lending]);
+  // The list on screen lends its query (wide screens with bar search); the search then starts scoped to it.
+  const scopedList = useLendingList(panel.kind);
+  const listScope = useMemo(() => (scopedList ? { list: scopedList, apply: (query: string) => applyListSearch(scopedList, query) } : null), [scopedList]);
   const businessSearch = useBusinessSearch({
     source,
     accounts: records.workspace?.accounts ?? NO_ACCOUNTS,
