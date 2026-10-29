@@ -134,7 +134,7 @@ All environment evidence below is tied to exact candidate
   - `argus-app:ARGUS_APP_ORIGIN`: the repository still declares the Render
     hostname while live production correctly uses `https://arguschat.ai`.
     This remains accepted until PR `#470` lands.
-  - `argus-api:ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED`: the founder enabled this
+  - `argus-api:CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED`: the founder enabled this
     live on Render to open public account creation. Its declaration is in
     unmerged PR `#470`, so the current contract correctly reports it as
     `unexpected_live_env`.
@@ -232,7 +232,7 @@ Every gate below cites exact candidate
 - Known accepted config differences:
   - `argus-api:ARGUS_APP_ORIGIN`
   - `argus-app:ARGUS_APP_ORIGIN`
-  - `argus-api:ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED`
+  - `argus-api:CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED`
 - Automated browser auth remains bounded by Turnstile as recorded in issue
   `#452`.
 - Public account access was already founder-enabled live and was not changed by

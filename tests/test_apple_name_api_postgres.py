@@ -28,10 +28,10 @@ pytestmark = pytest.mark.skipif(
 
 def test_signed_auth_name_retry_relaunch_and_explicit_clear(monkeypatch):
     auth_router.reset_auth_attempt_limiter_for_tests()
-    for flag in ("NEXT_PUBLIC_MOCK_AUTH", "ARGUS_MOCK_AUTH", "ARGUS_DEV_MEMORY_FALLBACK"):
+    for flag in ("NEXT_PUBLIC_MOCK_AUTH", "CUADRAO_MOCK_AUTH", "ARGUS_DEV_MEMORY_FALLBACK"):
         monkeypatch.setenv(flag, "false")
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_APPLE_REVOCATION_CAPTURE_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_APPLE_REVOCATION_CAPTURE_ENABLED", "true")
     gateway = local_supabase_gateway()
     created = []
     dsn = os.environ["ARGUS_DISPOSABLE_DATABASE_URL"]

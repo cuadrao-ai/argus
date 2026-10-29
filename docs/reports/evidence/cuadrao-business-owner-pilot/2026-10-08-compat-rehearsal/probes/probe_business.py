@@ -390,7 +390,7 @@ def grant() -> None:
 
     from tests.household.financial_fixtures import NOW, setup, share
 
-    os.environ.setdefault("ARGUS_INVITE_CODE_SECRET", secrets.token_hex(32))
+    os.environ.setdefault("CUADRAO_INVITE_CODE_SECRET", secrets.token_hex(32))
     state = json.loads(HANDOFF.read_text())
     person, ids = state["person"], state["ids"]
     pool = ConnectionPool(DSN, min_size=1, max_size=5)

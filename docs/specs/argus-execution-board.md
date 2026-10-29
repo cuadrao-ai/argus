@@ -49,7 +49,7 @@ This section is a status record. It grants no merge, deploy or spend authority.
 
 ### Configuration notes
 
-- `ARGUS_CORS_ALLOW_ORIGINS` has no `CUADRAO_` twin. It is read only in
+- `CUADRAO_CORS_ALLOW_ORIGINS` has no `CUADRAO_` twin. It is read only in
   `src/argus/api/app_setup.py:46`. Set it under its Argus name.
 - The private-alpha email allowlist is the table `private_alpha_allowlist`. Its
   rows exist only in each Supabase project's database (the schema is in
@@ -1091,7 +1091,7 @@ Existing `ConnectedCuadraoAuthFlow` handles email auth. Native Apple and Google
 sign-in exist on iOS behind the default-off `ARGUS_APPLE_SIGN_IN_ENABLED` and
 `ARGUS_GOOGLE_SIGN_IN_ENABLED` switches (#795; later Mac verification is recorded in the current mobile roadmap above), and the
 backend's Apple token capture and revocation sits behind
-`ARGUS_APPLE_REVOCATION_CAPTURE_ENABLED` (#793, #802). None is enabled: the keys
+`CUADRAO_APPLE_REVOCATION_CAPTURE_ENABLED` (#793, #802). None is enabled: the keys
 are still owed by the founder and the [#800](https://github.com/lagarcess/argus/issues/800)
 gates stand. Sign-in for TestFlight is **Apple, Google and
 email** ([October 2 founder
@@ -1102,7 +1102,7 @@ which does not exist yet: today's sign-up ends on an emailed confirmation link. 
 owns member/invitation management and explicit account consent;
 `HouseholdPlanPeople` owns shared-plan permissions. In-app deletion,
 [Lane 6](lanes/mvee-five-lane-handoff.md#lane-6-account-deletion), is built
-behind the default-off `ARGUS_ACCOUNT_DELETION_ENABLED` (#799, #801); while it is
+behind the default-off `CUADRAO_ACCOUNT_DELETION_ENABLED` (#799, #801); while it is
 off, login deletion stays a support request. Account archive is not an account
 move. The team
 connecting each checkpoint owns the remaining contract gaps; simulated UI acceptance
@@ -1110,11 +1110,11 @@ must stay distinguished from connected acceptance.
 
 | Landing checkpoint | User items | UI deliverable | Closure evidence and existing responsibility |
 | --- | --- | --- | --- |
-| 1. Trust and profile | 1 | Delete-account consequences, verification, pending/retry and confirmed signed-out finish, Spanish and English, with Iris's founder-locked copy | Ordinary member, admin and financial-owner variants; "Exmiembro" / "Former member" in other people's plans and plan handover per decision 17; a shared debt plan archived read-only with Iris's banner instead (decision 19, Head of Engineering); no false success or deletion of another owner's data. C07/C10, identity and Household owners, Lane 6. Backend and web landed default-off: census #791, command #799, route and web flow #801, behind `ARGUS_ACCOUNT_DELETION_ENABLED`, which #805 and #806 block. No native flow is on integration. The [API contract](../API_CONTRACT.md#post-accountdelete) and the [launch runbook](../PRIVATE_LAUNCH_RUNBOOK.md#account-deletion-runs-lane-6) own the deletion model. The resume sweep is operator-run with no cron, by founder decision (October 3), and none is to be created |
+| 1. Trust and profile | 1 | Delete-account consequences, verification, pending/retry and confirmed signed-out finish, Spanish and English, with Iris's founder-locked copy | Ordinary member, admin and financial-owner variants; "Exmiembro" / "Former member" in other people's plans and plan handover per decision 17; a shared debt plan archived read-only with Iris's banner instead (decision 19, Head of Engineering); no false success or deletion of another owner's data. C07/C10, identity and Household owners, Lane 6. Backend and web landed default-off: census #791, command #799, route and web flow #801, behind `CUADRAO_ACCOUNT_DELETION_ENABLED`, which #805 and #806 block. No native flow is on integration. The [API contract](../API_CONTRACT.md#post-accountdelete) and the [launch runbook](../PRIVATE_LAUNCH_RUNBOOK.md#account-deletion-runs-lane-6) own the deletion model. The resume sweep is operator-run with no cron, by founder decision (October 3), and none is to be created |
 | 1. Trust and profile | 2 | Signed-in Privacy and Terms destinations | Actual approved links, return to Settings, both languages. C07, native identity/support |
 | 1. Trust and profile | 3 | Apple and Google auth alongside email | Founder decision, October 2: Apple, Google and email, Apple and Google behind default-off flags until the keys arrive; email with an in-app confirmation step. Loading, cancellation, error, missing-name recovery and return to invitation; connected credentials/session owned by auth; Apple token revocation, and revoking every Google token Argus holds, at deletion is Lane 6. C07/C10 |
 | 1. Trust and profile | 13–14 | Remove email-notification toggle; hide unsupported rows (including Memory, Usage, More options and conversation bulk actions) and the avatar-editing entry, which release builds hide and development builds keep in full ([decision of October 3, 2026](argus-decision-log.md#october-3-2026-avatar-editing-in-release)) | `fc7650ea`, from Yelena's UI checklist, hides Personalization, Security and sessions, Shared conversations, Removed activity and photos; `26055a28` hides the avatar-editing entry; #786 (`a20362d3`) hides Usage, More options and conversation bulk actions as a Head of Engineering judgment call; Memory (`.memory`) waits for native memory. They are designed rows whose backend is owed, hidden only in release builds: `CuadraoFirstRelease` shows every row, including the avatar editor, in development builds (#790). The [hidden-rows backend list](lanes/cuadrao-profile-hidden-rows-backend.md) names what each needs, ordered after chat. Audit all entry paths for hidden destinations and preserve supported preferences/sign-out. C07/C08 |
-| 2. Access and Household | 4 | Invitation gate after install and cuadrao.ai waitlist | Valid, invalid, expired, already-used, cancelled auth and admitted-user return. Preserve link intent/manual code recovery. C02/C08 plus auth, Lane 1. The connected iPhone invitation client for items 4 to 8 is built default-off behind `ARGUS_BETA_INVITES_ENABLED` and `ARGUS_INVITE_UNIVERSAL_LINK_ENABLED` (#810), verified with host model and simulator checks ([evidence](../reports/evidence/cuadrao-household-invites/README.md)) and enabled nowhere; universal links wait on AASA and Associated Domains. |
+| 2. Access and Household | 4 | Invitation gate after install and cuadrao.ai waitlist | Valid, invalid, expired, already-used, cancelled auth and admitted-user return. Preserve link intent/manual code recovery. C02/C08 plus auth, Lane 1. The connected iPhone invitation client for items 4 to 8 is built default-off behind `CUADRAO_BETA_INVITES_ENABLED` and `CUADRAO_INVITE_UNIVERSAL_LINK_ENABLED` (#810), verified with host model and simulator checks ([evidence](../reports/evidence/cuadrao-household-invites/README.md)) and enabled nowhere; universal links wait on AASA and Associated Domains. |
 | 2. Access and Household | 5–6 | Personal invitation link/code/QR, remaining quota out of ten and accepted notice | Sharing is not acceptance; counter and notice derive from canonical status; QR scans; the QR card names its purpose. C02/C08, Lane 1 |
 | 2. Access and Household | 7 | Administrator-only household invitation without personal quota charge, which also admits a new person to the beta | Existing integration invitation preview/accept and account-sharing boundaries preserved. C02/C05, Household, Lane 1 |
 | 2. Access and Household | 8 | Founder-only group access link: creation, cap, expiry, usage and full/waitlist states | Beta only, never household membership. Capacity race/expiry recovery; confirmed enrollment before joined-waitlist wording. Redemptions do not use a personal quota, per Lane 1. C02/C08, Lane 1 |
@@ -1603,7 +1603,7 @@ lane.
   SKIPPED at concurrent-branch limit (not a sole gate); Codex P1 contributor
   freeze fixed and resolved; **0** unresolved review threads; modularity budget
   clean.
-- `ARGUS_HOUSEHOLDS_ENABLED` remains default-off in `.env.example`,
+- `CUADRAO_HOUSEHOLDS_ENABLED` remains default-off in `.env.example`,
   `render.yaml`, and the release profile (October 6 readback; the original
   record also named `.github/argus-env.sh`, which no longer carries it). Additive migrations
   `20261001190000` and `20261002000000`–`20261002050000` are not applied to
@@ -1639,7 +1639,7 @@ stack work or another delivery lane.
 - Pre-merge Exact head: PR CI / push CI / local smoke / Supabase Preview
   SUCCESS; Codex follow-up clean; **0** unresolved review threads; modularity
   budget clean.
-- `ARGUS_HOUSEHOLDS_ENABLED` remains default-off in `.env.example`,
+- `CUADRAO_HOUSEHOLDS_ENABLED` remains default-off in `.env.example`,
   `render.yaml`, and `.github/argus-env.sh`. Additive consent/grant migrations
   are not applied to production by this landing.
 - Accepted proof retains the assembled native/API/Postgres packet under
@@ -1672,7 +1672,7 @@ design-branch work or another delivery lane.
   fixed (non-recursive `is_active_household_member`, deletion-safe
   `ON DELETE SET NULL` + active-admin CHECK, household-then-invitation lock
   order), and **0** unresolved review threads.
-- No linked closing issues. `ARGUS_HOUSEHOLDS_ENABLED` remains default-off in
+- No linked closing issues. `CUADRAO_HOUSEHOLDS_ENABLED` remains default-off in
   `.env.example`, `render.yaml`, `.github/argus-env.sh` and the private-alpha
   release profile. Migration `20261001090000_household_membership.sql` is not
   applied to production by this landing.
@@ -1696,7 +1696,7 @@ design-branch work or another delivery lane.
 
 This lane connected Household consent and canonical financial projections to
 landed #763 membership and #760's connected shell under the approved permission
-policy. `ARGUS_HOUSEHOLDS_ENABLED` stays server-default-off. Durable evidence:
+policy. `CUADRAO_HOUSEHOLDS_ENABLED` stays server-default-off. Durable evidence:
 [connected-household-native](../reports/evidence/connected-household-native/README.md).
 Restart recipe: [ios/HOUSEHOLD_SETUP.md](../../ios/HOUSEHOLD_SETUP.md).
 

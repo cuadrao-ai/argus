@@ -1,9 +1,9 @@
 """Apple client-secret inputs, read from the environment.
 
-``ARGUS_APPLE_TEAM_ID`` and ``ARGUS_APPLE_SIGN_IN_KEY_ID`` are the 10-character
-Apple Developer team and key ids. ``ARGUS_APPLE_SIGN_IN_PRIVATE_KEY`` is the
+``CUADRAO_APPLE_TEAM_ID`` and ``CUADRAO_APPLE_SIGN_IN_KEY_ID`` are the 10-character
+Apple Developer team and key ids. ``CUADRAO_APPLE_SIGN_IN_PRIVATE_KEY`` is the
 contents of the ``.p8`` key file (PEM; literal ``\\n`` escapes are accepted for
-single-line secret stores). ``ARGUS_APPLE_BUNDLE_ID`` is the native app's
+single-line secret stores). ``CUADRAO_APPLE_BUNDLE_ID`` is the native app's
 bundle id, the Apple client that issues the authorization codes the app sends.
 
 The key is a secret and lives only in the deployment's environment. A missing
@@ -19,10 +19,10 @@ from dataclasses import dataclass, field
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
-TEAM_ID_ENV = "ARGUS_APPLE_TEAM_ID"
-KEY_ID_ENV = "ARGUS_APPLE_SIGN_IN_KEY_ID"
-PRIVATE_KEY_ENV = "ARGUS_APPLE_SIGN_IN_PRIVATE_KEY"
-BUNDLE_ID_ENV = "ARGUS_APPLE_BUNDLE_ID"
+TEAM_ID_ENV = "CUADRAO_APPLE_TEAM_ID"
+KEY_ID_ENV = "CUADRAO_APPLE_SIGN_IN_KEY_ID"
+PRIVATE_KEY_ENV = "CUADRAO_APPLE_SIGN_IN_PRIVATE_KEY"
+BUNDLE_ID_ENV = "CUADRAO_APPLE_BUNDLE_ID"
 
 ISSUER = "https://appleid.apple.com"
 TOKEN_URL = "https://appleid.apple.com/auth/token"

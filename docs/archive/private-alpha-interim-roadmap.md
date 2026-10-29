@@ -333,9 +333,9 @@ guest-canary/public-exposure observation window is now open. The checklist
 below is preserved as the template for future promotions.
 
 Guest code is integrated, not deployed or publicly exposed. The checked-in
-product defaults are `ARGUS_GUEST_ACCESS_ENABLED=true` and
+product defaults are `CUADRAO_GUEST_ACCESS_ENABLED=true` and
 `NEXT_PUBLIC_GUEST_ACCESS_ENABLED=true`, with explicit `false` as rollback.
-`ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=false` remains the separate permanent
+`CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=false` remains the separate permanent
 account gate.
 
 Before promotion to `main` or any internet-facing Guest traffic, the release

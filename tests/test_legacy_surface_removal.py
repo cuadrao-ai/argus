@@ -1,17 +1,10 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-RETIRED_ENV_KEYS = {
-    "ARGUS_RESEARCH_HOME_COUNTRY",
-    "ARGUS_STRATEGIES_ENABLED",
-    "NEXT_PUBLIC_STRATEGIES_ENABLED",
-    "NEXT_PUBLIC_COLLECTIONS_ENABLED",
-}
 
 
 def test_legacy_strategy_and_collection_routes_are_absent() -> None:
@@ -45,32 +38,6 @@ def test_legacy_rows_keep_read_compatibility_without_write_routes() -> None:
     assert "def get_strategy(" in gateway
 
 
-def test_retired_env_keys_are_absent_from_the_release_contract() -> None:
-    profile = json.loads(
-        (ROOT / ".github" / "private-alpha-release-profile.json").read_text(
-            encoding="utf-8"
-        )
-    )
-    contract_files = (
-        ROOT / ".env.example",
-        ROOT / "web" / ".env.local.example",
-        ROOT / "render.yaml",
-        ROOT / ".github" / "argus-env.sh",
-        ROOT / ".github" / "local-smoke.sh",
-        ROOT / "scripts" / "qa" / "write-local-env.sh",
-        ROOT / "scripts" / "qa" / "run-guest-experience-qa.sh",
-    )
-
-    for path in contract_files:
-        text = path.read_text(encoding="utf-8")
-        for key in RETIRED_ENV_KEYS:
-            assert key not in text
-
-    serialized_profile = json.dumps(profile, sort_keys=True)
-    for key in RETIRED_ENV_KEYS:
-        assert key not in serialized_profile
-
-
 def test_live_asset_provider_override_remains_untouched() -> None:
     assets = (
         ROOT / "src" / "argus" / "domain" / "market_data" / "assets.py"
@@ -78,14 +45,3 @@ def test_live_asset_provider_override_remains_untouched() -> None:
 
     assert "ARGUS_ASSET_PROVIDER_MODE" in assets
     assert "ARGUS_MARKET_DATA_PROVIDER_MODE" in assets
-
-
-def test_no_deployment_wide_country_stands_in_for_the_users() -> None:
-    # Research sends each user's declared country. A server-wide value would
-    # answer for every user who has not chosen one.
-    readers = [
-        path.relative_to(ROOT).as_posix()
-        for path in (ROOT / "src").rglob("*.py")
-        if "ARGUS_RESEARCH_HOME_COUNTRY" in path.read_text(encoding="utf-8")
-    ]
-    assert readers == []

@@ -21,7 +21,7 @@ departure retention freezes, and connected Home/Plan/Search surfaces.
 
 Additive migrations `20261001190000` and `20261002000000`–`20261002050000` are
 not applied to production by this landing. They stay clear of the ingestion
-reserved block `20261002120000`–`20261002120300`. `ARGUS_HOUSEHOLDS_ENABLED`
+reserved block `20261002120000`–`20261002120300`. `CUADRAO_HOUSEHOLDS_ENABLED`
 remains default-off in tracked templates. Physical iPhone/internet delivery,
 external invitation delivery, hosted enablement, Preview repair, and design
 checkpoint `aba489b0…` adoption remain outside this land.
@@ -43,7 +43,7 @@ checkpoint `aba489b0…` adoption remain outside this land.
 
 Landing updates the execution manifest, integration ledger, documentation
 authority remainder, and this report. No new production environment variables.
-`ARGUS_HOUSEHOLDS_ENABLED` already present and `false` in `.env.example`,
+`CUADRAO_HOUSEHOLDS_ENABLED` already present and `false` in `.env.example`,
 `render.yaml`, and `.github/argus-env.sh` at the time. On the October 6
 readback the flag is `false` in `.env.example`, `render.yaml` and
 `.github/private-alpha-release-profile.json`; `.github/argus-env.sh` no longer

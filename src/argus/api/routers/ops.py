@@ -33,7 +33,7 @@ _INELIGIBLE_DETAIL = "Access request is not eligible for approval."
 
 
 def _ops_token() -> str:
-    return (os.getenv("ARGUS_OPS_TOKEN") or "").strip()
+    return (os.getenv("CUADRAO_OPS_TOKEN") or "").strip()
 
 
 def _latin1_bytes(value: str) -> bytes | None:

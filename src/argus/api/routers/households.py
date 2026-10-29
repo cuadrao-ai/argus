@@ -403,7 +403,7 @@ def list_shared_accounts(
 
 
 # Beta invites, the founder group link and the in-app code gate. Default-off
-# behind ARGUS_BETA_INVITES_ENABLED; the gate itself is ARGUS_BETA_INVITE_GATE_ENABLED.
+# behind CUADRAO_BETA_INVITES_ENABLED; the gate itself is CUADRAO_BETA_INVITE_GATE_ENABLED.
 
 
 def keyed(request, body):

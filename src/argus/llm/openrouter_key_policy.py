@@ -10,8 +10,8 @@ OpenRouterTrafficClass = Literal["guest", "registered"]
 
 _HOSTED_APP_ENVS = frozenset({"production", "staging", "preview"})
 _HOSTED_KEY_ENV_BY_TRAFFIC_CLASS: dict[OpenRouterTrafficClass, str] = {
-    "guest": "ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY",
-    "registered": "ARGUS_PROD_OPENROUTER_API_KEY",
+    "guest": "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY",
+    "registered": "CUADRAO_PROD_OPENROUTER_API_KEY",
 }
 _current_traffic_class: ContextVar[OpenRouterTrafficClass | None] = ContextVar(
     "argus_openrouter_traffic_class",
@@ -51,8 +51,8 @@ def validate_hosted_openrouter_configuration() -> None:
     guest_key = resolve_openrouter_api_key("guest")
     if registered_key == guest_key:
         raise RuntimeError(
-            "ARGUS_PROD_OPENROUTER_API_KEY and "
-            "ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY must use distinct "
+            "CUADRAO_PROD_OPENROUTER_API_KEY and "
+            "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY must use distinct "
             "credentials in hosted environments."
         )
 

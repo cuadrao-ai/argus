@@ -584,7 +584,7 @@ same way, as `campaign`.
 ### RM-19. Render and release flags
 
 Exists: `render.yaml` declares the web service `argus-app` env keys
-(`NEXT_PUBLIC_APP_ENV`, `NEXT_PUBLIC_OMNISEARCH_ENABLED`, and others; it
+(`[removed obsolete setting]`, `NEXT_PUBLIC_OMNISEARCH_ENABLED`, and others; it
 also declares `NEXT_PUBLIC_POSTHOG_KEY`, which no web code reads).
 `.github/private-alpha-release-profile.json` and
 `tests/test_private_alpha_release_profile.py` check that flags are declared

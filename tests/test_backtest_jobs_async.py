@@ -641,7 +641,7 @@ def _run() -> BacktestRun:
 
 @pytest.fixture(autouse=True)
 def _mock_auth_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "true")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "true")
     monkeypatch.setenv("ARGUS_DEV_MEMORY_FALLBACK", "false")
 
 

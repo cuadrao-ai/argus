@@ -137,7 +137,7 @@ def test_actual_transport_mime_recipient_and_window_idempotency(monkeypatch):
 
 
 def test_missing_transport_configuration_is_an_error(monkeypatch):
-    monkeypatch.setenv("ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD", "")
+    monkeypatch.setenv("CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD", "")
     with pytest.raises(RuntimeError, match="configuration"):
         send_invite_email(
             invite=AccessInvite("id", "person@example.test", EXPIRY, EXPIRY),

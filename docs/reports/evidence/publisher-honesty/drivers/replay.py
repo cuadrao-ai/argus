@@ -193,10 +193,10 @@ CASES = (
 def _hermetic_env() -> None:
     os.environ.update(
         {
-            "ARGUS_PERSISTENCE_MODE": "memory",
+            "CUADRAO_PERSISTENCE_MODE": "memory",
             "ARGUS_DEV_MEMORY_FALLBACK": "true",
-            "ARGUS_CHECKPOINTER_MODE": "memory",
-            "ARGUS_MOCK_AUTH": "true",
+            "CUADRAO_CHECKPOINTER_MODE": "memory",
+            "CUADRAO_MOCK_AUTH": "true",
             "ARGUS_MARKET_DATA_PROVIDER_MODE": "synthetic_unit_fixture",
             "ARGUS_RESEARCH_RAIL_ENABLED": "true",
             "DATABASE_URL": "",

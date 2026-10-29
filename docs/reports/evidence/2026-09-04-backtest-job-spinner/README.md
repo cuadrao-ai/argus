@@ -109,7 +109,7 @@ So the proof stops being a conversation job:
 - `workflows/proof.py` owns `PROOF_OPERATION_SCOPE = "workflows.proof"` and
   writes it explicitly, with no conversation. `ensure_proof_conversation`,
   `create_proof_conversation`, `DEFAULT_PROOF_CONVERSATION_ID`,
-  `ARGUS_WORKFLOW_PROOF_CONVERSATION_ID`, and `seed --conversation-id` are
+  `[removed obsolete setting]`, and `seed --conversation-id` are
   gone; the seed output carries `operation_scope` instead of a conversation.
   Every activity reader joins jobs to a conversation, so a proof row is
   unrepresentable as activity rather than filtered out of it; there is no

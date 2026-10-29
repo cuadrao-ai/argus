@@ -8,15 +8,15 @@ import pytest
 
 import scripts.ops.staging_env as se
 
-AUDIT_API = """APP_ENV ARGUS_BUSINESS_PILOT_ENABLED ARGUS_CHECKPOINTER_MODE ARGUS_DEV_MEMORY_FALLBACK
-ARGUS_DOCUMENT_EXTRACTION_ENABLED ARGUS_FINANCIAL_ACCOUNTS_ENABLED ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY
-ARGUS_INGESTION_ENABLED ARGUS_MOCK_AUTH ARGUS_PERSISTENCE_MODE ARGUS_PROD_OPENROUTER_API_KEY ARGUS_VISION_MODEL
+AUDIT_API = """APP_ENV ARGUS_BUSINESS_PILOT_ENABLED CUADRAO_CHECKPOINTER_MODE ARGUS_DEV_MEMORY_FALLBACK
+ARGUS_DOCUMENT_EXTRACTION_ENABLED ARGUS_FINANCIAL_ACCOUNTS_ENABLED CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY
+ARGUS_INGESTION_ENABLED CUADRAO_MOCK_AUTH CUADRAO_PERSISTENCE_MODE CUADRAO_PROD_OPENROUTER_API_KEY ARGUS_VISION_MODEL
 CUADRAO_APP_ORIGIN CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED CUADRAO_BUSINESS_EMAIL_DOMAIN
 CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED CUADRAO_BUSINESS_PILOT_ENABLED CUADRAO_DOCUMENT_EXTRACTION_ENABLED
 CUADRAO_INGESTION_ENABLED CUADRAO_VISION_MODEL CUADRAO_WHATSAPP_DISPLAY_PHONE_NUMBER
 CUADRAO_WHATSAPP_INTAKE_ENABLED CUADRAO_WHATSAPP_NUMBER_ID CUADRAO_WHATSAPP_OUTBOUND_ENABLED
 CUADRAO-DEV-KEY-PILOT DATABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY SUPABASE_URL""".split()
-AUDIT_WEB = """CUADRAO_RESEND_WEBHOOK_SECRET NEXT_PUBLIC_ARGUS_API_URL NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY
+AUDIT_WEB = """CUADRAO_RESEND_WEBHOOK_SECRET NEXT_PUBLIC_CUADRAO_API_URL NEXT_PUBLIC_ARGUS_API_URL NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY
 NEXT_PUBLIC_BUSINESS_PILOT_ENABLED NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY NEXT_PUBLIC_ENABLE_SPANISH
 NEXT_PUBLIC_SUPABASE_ANON_KEY NEXT_PUBLIC_SUPABASE_URL""".split()
 
@@ -60,22 +60,22 @@ def live_for(manifest, label, audit):
         live["NEXT_PUBLIC_ARGUS_API_URL"] = (
             "https://cuadrao-api-staging.onrender.com/api/v1"
         )
+        live["NEXT_PUBLIC_CUADRAO_API_URL"] = "https://canonical.example.test/api/v1"
     if label == "api":
-        live["ARGUS_PROD_OPENROUTER_API_KEY"] = SECRET_VALUES[0]
-        live["ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY"] = "guest-different-EEEE5555"
+        live["CUADRAO_PROD_OPENROUTER_API_KEY"] = SECRET_VALUES[0]
+        live["CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"] = "guest-different-EEEE5555"
         live["SUPABASE_SERVICE_ROLE_KEY"] = SECRET_VALUES[2]
     return live
 
 
-def test_every_audited_name_is_classified(manifest):
+def test_unmanaged_live_names_are_preserved(manifest):
     for label, audit in (("api", AUDIT_API), ("web", AUDIT_WEB)):
         svc = manifest["services"][label]
-        classified = (
-            {e["name"] for e in svc["entries"]}
-            | {r["name"] for r in svc["remove"]}
-            | {h["name"] for h in svc["hold"]}
-        )
-        assert set(audit) <= classified
+        live = live_for(manifest, label, audit)
+        plan = se.compute_plan(svc, live, {}, generator=lambda: "gen")
+        managed = {e["name"] for e in svc["entries"]} | {e["name"] for e in svc["remove"]}
+        for name in set(live) - managed:
+            assert plan.final[name] == live[name]
 
 
 def test_manifest_holds_no_secret_value(manifest):
@@ -114,18 +114,18 @@ def test_plan_api_adds_deletes_and_holds(manifest):
     actions = dict(plan.actions)
     assert actions["CUADRAO_FINANCIAL_ACCOUNTS_ENABLED"] == "add"
     assert plan.final["CUADRAO_FINANCIAL_ACCOUNTS_ENABLED"] == "true"
-    assert plan.final["ARGUS_HOUSEHOLDS_ENABLED"] == "true"
-    assert dict(plan.actions)["ARGUS_INVITE_FOUNDER_USER_ID"] == "skip"
+    assert plan.final["CUADRAO_HOUSEHOLDS_ENABLED"] == "true"
+    assert dict(plan.actions)["CUADRAO_INVITE_FOUNDER_USER_ID"] == "skip"
     assert len(plan.final["CUADRAO_INGESTION_SECRET_KEY"]) == 44
-    assert actions["ARGUS_FINANCIAL_ACCOUNTS_ENABLED"] == "delete"
-    assert actions["ARGUS_VISION_MODEL"] == "delete"
+    assert actions["ARGUS_FINANCIAL_ACCOUNTS_ENABLED"] == "extra"
+    assert actions["ARGUS_VISION_MODEL"] == "extra"
     assert actions["CUADRAO-DEV-KEY-PILOT"] == "hold"
     assert "CUADRAO-DEV-KEY-PILOT" in plan.final
     assert actions["CUADRAO_WHATSAPP_VERIFY_TOKEN"] == "add"
     assert {
         "CUADRAO_WHATSAPP_VERIFY_TOKEN",
         "CUADRAO_WHATSAPP_SENDER_KEY",
-        "ARGUS_INVITE_CODE_SECRET",
+        "CUADRAO_INVITE_CODE_SECRET",
     } <= plan.generated.keys()
     assert set(plan.missing) == {
         "CUADRAO_WHATSAPP_ACCESS_TOKEN",
@@ -135,6 +135,12 @@ def test_plan_api_adds_deletes_and_holds(manifest):
 
 
 def test_removal_blocked_when_twin_unset(manifest):
+    manifest["services"]["web"]["remove"].append(
+        {
+            "name": "NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY",
+            "requires": "NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY",
+        }
+    )
     live = live_for(manifest, "web", AUDIT_WEB)
     del live["NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY"]
     plan = se.compute_plan(manifest["services"]["web"], live, {})
@@ -143,17 +149,21 @@ def test_removal_blocked_when_twin_unset(manifest):
     assert plan.problems
 
 
-def test_web_copies_api_url_then_deletes_old_name(manifest):
+def test_web_preserves_canonical_api_url_without_managing_the_old_name(manifest):
     live = live_for(manifest, "web", AUDIT_WEB)
     plan = se.compute_plan(manifest["services"]["web"], live, {})
-    assert plan.final["NEXT_PUBLIC_CUADRAO_API_URL"] == live["NEXT_PUBLIC_ARGUS_API_URL"]
-    assert "NEXT_PUBLIC_ARGUS_API_URL" not in plan.final
+    assert (
+        plan.final["NEXT_PUBLIC_CUADRAO_API_URL"] == live["NEXT_PUBLIC_CUADRAO_API_URL"]
+    )
+    assert plan.final["NEXT_PUBLIC_ARGUS_API_URL"] == live["NEXT_PUBLIC_ARGUS_API_URL"]
     assert "CUADRAO_RESEND_WEBHOOK_SECRET" not in plan.final
 
 
 def test_distinct_openrouter_keys(manifest):
     live = live_for(manifest, "api", AUDIT_API)
-    live["ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY"] = live["ARGUS_PROD_OPENROUTER_API_KEY"]
+    live["CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"] = live[
+        "CUADRAO_PROD_OPENROUTER_API_KEY"
+    ]
     plan = se.compute_plan(manifest["services"]["api"], live, {})
     assert any("must differ" in p for p in plan.problems)
 
@@ -201,7 +211,10 @@ def test_apply_single_put_per_service_and_never_prints_values(
     ]
     api_env = client.puts[0][1]
     assert api_env["CUADRAO_RESEND_WEBHOOK_SECRET"] == "whsec-GGGG7777"
-    assert "ARGUS_VISION_MODEL" not in api_env
+    assert (
+        api_env["ARGUS_VISION_MODEL"]
+        == client.live["srv-db4mrrvlk1mc73d733j0"]["ARGUS_VISION_MODEL"]
+    )
     captured = capsys.readouterr()
     everything = "\n".join(lines) + captured.out + captured.err
     values = list(full_secrets().values()) + SECRET_VALUES + ["rnd_APIKEYVALUE"]
@@ -460,7 +473,7 @@ def test_cors_origin_in_manifest(manifest):
     entry = next(
         e
         for e in manifest["services"]["api"]["entries"]
-        if e["name"] == "ARGUS_CORS_ALLOW_ORIGINS"
+        if e["name"] == "CUADRAO_CORS_ALLOW_ORIGINS"
     )
     assert entry["value"] == "https://cuadrao-web-staging.onrender.com"
 
@@ -468,16 +481,16 @@ def test_cors_origin_in_manifest(manifest):
 def test_households_wait_for_invite_secret(manifest):
     service = manifest["services"]["api"]
     for entry in service["entries"]:
-        if entry["name"] == "ARGUS_INVITE_CODE_SECRET":
+        if entry["name"] == "CUADRAO_INVITE_CODE_SECRET":
             entry["kind"] = "secret"
     live = live_for(manifest, "api", AUDIT_API)
     plan = se.compute_plan(service, live, {})
     actions = dict(plan.actions)
     assert (
-        actions["ARGUS_HOUSEHOLDS_ENABLED"] == "blocked"
-        and actions["ARGUS_BETA_INVITES_ENABLED"] == "blocked"
+        actions["CUADRAO_HOUSEHOLDS_ENABLED"] == "blocked"
+        and actions["CUADRAO_BETA_INVITES_ENABLED"] == "blocked"
     )
-    assert "ARGUS_HOUSEHOLDS_ENABLED" not in plan.final
+    assert "CUADRAO_HOUSEHOLDS_ENABLED" not in plan.final
 
 
 def test_plan_and_dry_run_output_never_leak_values(
@@ -513,7 +526,7 @@ def test_plan_and_dry_run_output_never_leak_values(
 )
 def test_malformed_api_base_url_is_rejected(manifest, bad):
     live = live_for(manifest, "web", AUDIT_WEB)
-    live["NEXT_PUBLIC_ARGUS_API_URL"] = bad
+    live["NEXT_PUBLIC_CUADRAO_API_URL"] = bad
     plan = se.compute_plan(manifest["services"]["web"], live, {})
     assert any("NEXT_PUBLIC_CUADRAO_API_URL must be" in p for p in plan.problems)
     manifest["services"]["web"]["entries"].append(
@@ -525,7 +538,9 @@ def test_malformed_api_base_url_is_rejected(manifest, bad):
 
 def test_good_api_base_url_passes(manifest):
     live = live_for(manifest, "web", AUDIT_WEB)
-    live["NEXT_PUBLIC_ARGUS_API_URL"] = "https://cuadrao-api-staging.onrender.com/api/v1"
+    live["NEXT_PUBLIC_CUADRAO_API_URL"] = (
+        "https://cuadrao-api-staging.onrender.com/api/v1"
+    )
     plan = se.compute_plan(manifest["services"]["web"], live, {})
     assert plan.problems == []
 

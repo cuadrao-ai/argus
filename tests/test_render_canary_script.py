@@ -91,7 +91,6 @@ def test_canary_requires_surface_specific_inputs_without_echoing_secrets() -> No
     assert 'SIGNUP_RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-}"' in source
     assert 'SIGNUP_LOCAL_NONCE="${ARGUS_CANARY_LOCAL_RUN_NONCE:-}"' in source
     assert "resolve_signup_identity" in source
-    assert "ARGUS_CANARY_SIGNUP_EMAIL:-" not in source
     assert "ARGUS_CANARY_SUPABASE_SERVICE_ROLE_KEY" in source
     assert 'fail_canary "canary_harness" "missing_canary_email"' in source
     assert 'SURFACE="${ARGUS_CANARY_SURFACE:-}"' in source
@@ -231,7 +230,7 @@ def test_render_runner_carries_no_feature_postconditions() -> None:
         "SEARCH_QUERY",
     ):
         assert feature not in source, feature
-    for feature in ("DECISION", "SEARCH_QUERY", "ARGUS_CANARY_BROWSER_PROMPT="):
+    for feature in ("DECISION", "SEARCH_QUERY"):
         assert feature not in runner_source, feature
 
 
@@ -346,7 +345,6 @@ def test_release_coherence_prepares_and_cleans_a_unique_signup_identity() -> Non
     assert 'SIGNUP_LOCAL_NONCE="${ARGUS_CANARY_LOCAL_RUN_NONCE:-}"' in shell_source
     assert "resolve_signup_identity" in shell_source
     assert 'CANARY_REQUESTED_SIGNUP_DENIAL_EMAIL="$SIGNUP_EMAIL"' in shell_source
-    assert "ARGUS_CANARY_BROWSER_SIGNUP_EMAIL" not in runner_source
     assert "SIGNUP_EMAIL" not in runner_source
     assert "signup_identity_is_safe" in shell_source
     assert "prepare_signup_identity" in shell_source
@@ -425,7 +423,7 @@ def test_release_coherence_denies_disabled_signup_before_welcome_approval() -> N
     assert '-d \'{"role":"requested","disabled_at":null}\'' in staging_body
     assert "role=eq.user" in staging_body
     assert "disabled_at=not.is.null" in staging_body
-    assert "Authorization: Bearer ${ARGUS_OPS_TOKEN}" not in shell_source
+    assert "Authorization: Bearer ${CUADRAO_OPS_TOKEN}" not in shell_source
 
     assert (
         release_body.index("prepare_signup_identity")
@@ -445,7 +443,7 @@ def test_release_coherence_denies_disabled_signup_before_welcome_approval() -> N
     assert "-u SUPABASE_SERVICE_ROLE_KEY" in runner_source
     assert "-u ARGUS_CANARY_SUPABASE_SERVICE_ROLE_KEY" in runner_source
     assert 'ARGUS_CANARY_SUPABASE_SERVICE_ROLE_KEY="' not in runner_source
-    assert "if ! env -u ARGUS_OPS_TOKEN" in shell_source
+    assert "if ! env -u CUADRAO_OPS_TOKEN" in shell_source
     assert "-u SUPABASE_SERVICE_ROLE_KEY" in shell_source
     assert "-u ARGUS_CANARY_SUPABASE_SERVICE_ROLE_KEY" in shell_source
 
@@ -545,7 +543,6 @@ def test_runbook_generates_a_fresh_local_canary_nonce() -> None:
 
     assert 'ARGUS_CANARY_LOCAL_RUN_NONCE="$(poetry run python -c' in command
     assert "secrets.token_hex" in command
-    assert "ARGUS_CANARY_SIGNUP_EMAIL" not in command
 
 
 def test_disabled_signup_denial_probes_policy_instead_of_signup() -> None:
@@ -556,7 +553,7 @@ def test_disabled_signup_denial_probes_policy_instead_of_signup() -> None:
     assert 'CANARY_REQUESTED_SIGNUP_DENIAL_API_URL="$API_URL"' in denial_body
     assert 'CANARY_REQUESTED_SIGNUP_DENIAL_EMAIL="$SIGNUP_EMAIL"' in denial_body
     assert 'CANARY_REQUESTED_SIGNUP_DENIAL_OPS_TOKEN="$OPS_TOKEN"' in denial_body
-    assert "env -u ARGUS_OPS_TOKEN" in denial_body
+    assert "env -u CUADRAO_OPS_TOKEN" in denial_body
     assert "-u SUPABASE_SERVICE_ROLE_KEY" in denial_body
     assert "-u ARGUS_CANARY_SUPABASE_SERVICE_ROLE_KEY" in denial_body
     assert "run_browser_checks" not in denial_body

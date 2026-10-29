@@ -8,7 +8,7 @@ from argus.domain.recording.money_schemas import MoneyRequest
 
 
 class TransferSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="ARGUS_", extra="ignore")
+    model_config = SettingsConfigDict(env_prefix="CUADRAO_", extra="ignore")
     cross_currency_transfers_enabled: bool = False
 
 

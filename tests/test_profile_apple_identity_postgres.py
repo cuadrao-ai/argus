@@ -118,7 +118,7 @@ def test_real_local_auth_session_only_exposes_its_owner(monkeypatch):
     }
     ids, tokens, emails = [], [], []
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     monkeypatch.setenv("ARGUS_DEV_MEMORY_FALLBACK", "false")
     monkeypatch.setattr(api_state, "DATABASE_URL", DSN)
     monkeypatch.setattr(api_state, "supabase_gateway", local_supabase_gateway())

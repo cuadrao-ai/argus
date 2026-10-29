@@ -14,7 +14,7 @@ struct InvitationFlags: Equatable {
             let value = bundle.object(forInfoDictionaryKey: key)
             return value as? Bool == true || (value as? String)?.lowercased() == "true"
         }
-        return InvitationFlags(surface: on("ARGUS_BETA_INVITES_ENABLED"), links: on("ARGUS_INVITE_UNIVERSAL_LINK_ENABLED"))
+        return InvitationFlags(surface: on("CUADRAO_BETA_INVITES_ENABLED"), links: on("CUADRAO_INVITE_UNIVERSAL_LINK_ENABLED"))
     }
 }
 

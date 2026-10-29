@@ -744,8 +744,8 @@ class TestProviderSelection:
         monkeypatch.setattr(openrouter_web_search, "post_json", fake_post_json)
         monkeypatch.setenv("APP_ENV", "production")
         monkeypatch.setenv("OPENROUTER_API_KEY", "")
-        monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "registered-key")
-        monkeypatch.setenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
+        monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "registered-key")
+        monkeypatch.setenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
         monkeypatch.setenv("ARGUS_DISCOVERY_OPENROUTER_SEARCH_MODEL", "m/x")
 
         with openrouter_traffic_class("guest"):

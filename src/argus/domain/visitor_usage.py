@@ -26,7 +26,7 @@ _REGISTERED_SUBJECT_PREFIX = "user:"
 def visitor_digest(identity: str) -> str:
     """Keyed digest, never the raw value: the counter tells visitors apart
     without retaining addresses, and keying defeats brute-forcing IPv4."""
-    secret = os.getenv("ARGUS_VISITOR_KEY_SECRET", "argus-visitor-key").encode()
+    secret = os.getenv("CUADRAO_VISITOR_KEY_SECRET", "argus-visitor-key").encode()
     return hmac.new(secret, identity.encode(), hashlib.sha256).hexdigest()[:32]
 
 

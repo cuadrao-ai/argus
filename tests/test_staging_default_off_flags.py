@@ -13,11 +13,11 @@ MANIFEST_PATH = ROOT / "scripts" / "ops" / "staging_env_manifest.json"
 RENDER_PATH = ROOT / "render.yaml"
 
 APPROVED_STAGING_OVERRIDES: dict[str, str] = {
-    "ARGUS_BETA_INVITES_ENABLED": (
+    "CUADRAO_BETA_INVITES_ENABLED": (
         "Staging tests the invite flow end to end (7-day invite expiry from "
         "#1228; invite email under #1226/#1267). Prod stays false."
     ),
-    "ARGUS_HOUSEHOLDS_ENABLED": (
+    "CUADRAO_HOUSEHOLDS_ENABLED": (
         "The Consumer staging proof uses households ahead of the iOS beta "
         "build. Prod stays false."
     ),
@@ -79,7 +79,7 @@ def test_temp_manifest_true_flag_fails_and_a_reasoned_override_passes() -> None:
             "api": {
                 "env": {
                     "SAMPLE_FLAG_ENABLED": "false",
-                    "ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED": "true",
+                    "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED": "true",
                     "ARGUS_DEV_MEMORY_FALLBACK": "false",
                 }
             }
@@ -91,7 +91,7 @@ def test_temp_manifest_true_flag_fails_and_a_reasoned_override_passes() -> None:
                 "entries": [
                     {"name": "SAMPLE_FLAG_ENABLED", "value": "true"},
                     {
-                        "name": "ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED",
+                        "name": "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED",
                         "value": "true",
                     },
                 ]

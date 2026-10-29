@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-auth-generation";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
-import { ARGUS_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
+import { CUADRAO_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
 import { getChosenGrant, subscribeChosenGrant } from "./business-grant";
 
 const uuid = z.string().uuid();
@@ -64,7 +64,7 @@ async function request<T>(scope: InvoiceScope, path: string, options: RequestIni
     const auth = await authenticatedRequestHeaders(scope.userId);
     check();
     const signals = [abort.signal, AbortSignal.timeout(30_000), ...(options.signal ? [options.signal] : [])];
-    const response = await fetch(`${ARGUS_API_BASE_URL}${path}`, { ...options, cache: "no-store", credentials: "omit", signal: AbortSignal.any(signals), headers: argusApiRequestHeaders(options.headers, auth, path) });
+    const response = await fetch(`${CUADRAO_API_BASE_URL}${path}`, { ...options, cache: "no-store", credentials: "omit", signal: AbortSignal.any(signals), headers: argusApiRequestHeaders(options.headers, auth, path) });
     check();
     if (!response.ok) {
       const body = z.record(z.string(), z.unknown()).catch({}).parse(await response.json().catch(() => ({})));

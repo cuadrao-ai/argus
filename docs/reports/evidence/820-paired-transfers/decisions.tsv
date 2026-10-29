@@ -1,6 +1,6 @@
 date	decision	evidence	owner
 2026-10-05	Select additive source amount plus explicit destination actual amount; no rates or ledger	Accepted A/B synthesis and MVEE currency lock	Root contract captain
-2026-10-05	Keep creation default-off pending native and phone acceptance	ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED false in template and Blueprint	Paired transfer worker
+2026-10-05	Keep creation default-off pending native and phone acceptance	CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED false in template and Blueprint	Paired transfer worker
 2026-10-05	Use Field exclude_if for null omission and preserve actual nested preimages	Baseline frozen standalone and six-envelope hashes; OpenAPI compatibility	Paired transfer worker
 2026-10-05	Use one complete-role denomination predicate for all personal/shared Plan eligibility	activity_in_currency; incomplete and duplicated pair tests	Paired transfer worker
 2026-10-05	Preserve authoritative account denomination and exact leg revisions	193 focused and 36 API/shared bridge checks on isolated Postgres	Paired transfer worker

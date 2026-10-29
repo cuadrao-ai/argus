@@ -38,8 +38,8 @@
     <key>ARGUS_CAPTCHA_URL</key><string>$(ARGUS_CAPTCHA_URL)</string>
     <key>ARGUS_APPLE_SIGN_IN_ENABLED</key><string>$(ARGUS_APPLE_SIGN_IN_ENABLED)</string>
     <key>ARGUS_GOOGLE_SIGN_IN_ENABLED</key><string>$(ARGUS_GOOGLE_SIGN_IN_ENABLED)</string>
-    <key>ARGUS_BETA_INVITES_ENABLED</key><string>$(ARGUS_BETA_INVITES_ENABLED)</string>
-    <key>ARGUS_INVITE_UNIVERSAL_LINK_ENABLED</key><string>$(ARGUS_INVITE_UNIVERSAL_LINK_ENABLED)</string>
+    <key>CUADRAO_BETA_INVITES_ENABLED</key><string>$(CUADRAO_BETA_INVITES_ENABLED)</string>
+    <key>CUADRAO_INVITE_UNIVERSAL_LINK_ENABLED</key><string>$(CUADRAO_INVITE_UNIVERSAL_LINK_ENABLED)</string>
     <key>GOOGLE_SIGN_IN_IOS_CLIENT_ID</key><string>$(GOOGLE_SIGN_IN_IOS_CLIENT_ID)</string>
     <key>GOOGLE_SIGN_IN_WEB_CLIENT_ID</key><string>$(GOOGLE_SIGN_IN_WEB_CLIENT_ID)</string>
     <!-- Google Sign-In callback: the iOS client's reversed id. Inert placeholder by default. -->

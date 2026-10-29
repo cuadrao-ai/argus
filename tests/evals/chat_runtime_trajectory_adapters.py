@@ -545,11 +545,11 @@ class ConcreteTrajectoryRuntime:
 
         self._monkeypatch.setattr(api_state, "supabase_gateway", None)
         self._monkeypatch.setenv("OPENROUTER_API_KEY", "trajectory-fixture-key")
-        self._monkeypatch.setenv("ARGUS_CHAT_MODEL", "openai/trajectory-fixture")
+        self._monkeypatch.setenv("CUADRAO_CHAT_MODEL", "openai/trajectory-fixture")
         self._monkeypatch.setenv("PERPLEXITY_API_KEY", "")
         self._monkeypatch.setenv("ARGUS_GROUNDED_DISCOVERY_ENABLED", "false")
         self._monkeypatch.setenv("ARGUS_DEV_MEMORY_FALLBACK", "true")
-        self._monkeypatch.setenv("ARGUS_RUNTIME_STREAM_WORKER", "false")
+        self._monkeypatch.setenv("CUADRAO_RUNTIME_STREAM_WORKER", "false")
         self._monkeypatch.setenv("ARGUS_BACKTEST_JOBS_SHADOW_ENABLED", "true")
         self._monkeypatch.setenv("ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED", "true")
         self._monkeypatch.setenv("ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED", "true")

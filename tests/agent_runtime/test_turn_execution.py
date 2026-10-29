@@ -61,7 +61,7 @@ def test_primary_and_fallback_share_one_call_allowance(
         turn_execution_scope,
     )
 
-    monkeypatch.setenv("ARGUS_TURN_CALL_ALLOWANCE", "1")
+    monkeypatch.setenv("CUADRAO_TURN_CALL_ALLOWANCE", "1")
 
     with turn_execution_scope(entry_state=_typed_state()) as execution:
         primary = reserve_provider_call(
@@ -91,10 +91,10 @@ async def test_exhausted_reservation_records_skipped_receipt_without_provider_ca
     )
     from argus.llm import openrouter
 
-    monkeypatch.setenv("ARGUS_TURN_CALL_ALLOWANCE", "1")
+    monkeypatch.setenv("CUADRAO_TURN_CALL_ALLOWANCE", "1")
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "primary/model")
-    monkeypatch.setenv("ARGUS_STRUCTURED_FALLBACK_MODEL", "fallback/model")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "primary/model")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_FALLBACK_MODEL", "fallback/model")
     clients_created = 0
 
     class _ForbiddenAsyncClient:
@@ -154,10 +154,10 @@ async def test_missing_provider_configuration_does_not_reserve_call(
     else:
         monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     if missing_model:
-        monkeypatch.delenv("ARGUS_STRUCTURED_MODEL", raising=False)
-        monkeypatch.delenv("ARGUS_STRUCTURED_FALLBACK_MODEL", raising=False)
+        monkeypatch.delenv("CUADRAO_STRUCTURED_MODEL", raising=False)
+        monkeypatch.delenv("CUADRAO_STRUCTURED_FALLBACK_MODEL", raising=False)
     else:
-        monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "primary/model")
+        monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "primary/model")
 
     with turn_execution_scope(entry_state=_typed_state()) as execution:
         receipt_token = openrouter.begin_openrouter_route_receipt_capture()
@@ -334,7 +334,7 @@ def test_provider_permit_uses_remaining_absolute_deadline(
 
     clock = _Clock()
     monkeypatch.setattr(turn_execution, "_monotonic", clock)
-    monkeypatch.setenv("ARGUS_TURN_DEADLINE_SECONDS", "0.25")
+    monkeypatch.setenv("CUADRAO_TURN_DEADLINE_SECONDS", "0.25")
 
     with turn_execution.turn_execution_scope(entry_state=_typed_state()):
         clock.advance(0.1)
@@ -355,7 +355,7 @@ async def test_async_reasoning_compatibility_retry_needs_its_own_permit(
     from argus.agent_runtime.turn_execution import turn_execution_scope
     from argus.llm import openrouter
 
-    monkeypatch.setenv("ARGUS_TURN_CALL_ALLOWANCE", "1")
+    monkeypatch.setenv("CUADRAO_TURN_CALL_ALLOWANCE", "1")
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     posts: list[dict[str, object]] = []
 
@@ -407,7 +407,7 @@ def test_sync_reasoning_compatibility_retry_needs_its_own_permit(
     from argus.agent_runtime.turn_execution import turn_execution_scope
     from argus.llm import openrouter
 
-    monkeypatch.setenv("ARGUS_TURN_CALL_ALLOWANCE", "1")
+    monkeypatch.setenv("CUADRAO_TURN_CALL_ALLOWANCE", "1")
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     posts: list[dict[str, object]] = []
 
@@ -459,7 +459,7 @@ async def test_chat_completion_first_post_is_accounted(
     from argus.agent_runtime.turn_execution import turn_execution_scope
     from argus.llm import openrouter
 
-    monkeypatch.setenv("ARGUS_TURN_CALL_ALLOWANCE", "1")
+    monkeypatch.setenv("CUADRAO_TURN_CALL_ALLOWANCE", "1")
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     posts = 0
 
@@ -522,12 +522,12 @@ async def test_calibrated_production_corridor_reaches_n_and_blocks_n_plus_one(
     assert interpreter.model_name is None
     assert clarifier.model_name is None
 
-    monkeypatch.delenv("ARGUS_TURN_CALL_ALLOWANCE", raising=False)
+    monkeypatch.delenv("CUADRAO_TURN_CALL_ALLOWANCE", raising=False)
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "structured/primary")
-    monkeypatch.setenv("ARGUS_STRUCTURED_FALLBACK_MODEL", "structured/fallback")
-    monkeypatch.setenv("ARGUS_CHAT_MODEL", "chat/primary")
-    monkeypatch.setenv("ARGUS_CHAT_FALLBACK_MODEL", "chat/fallback")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "structured/primary")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_FALLBACK_MODEL", "structured/fallback")
+    monkeypatch.setenv("CUADRAO_CHAT_MODEL", "chat/primary")
+    monkeypatch.setenv("CUADRAO_CHAT_FALLBACK_MODEL", "chat/fallback")
     posts: list[tuple[str, str]] = []
 
     class _AsyncClient:
@@ -680,11 +680,11 @@ def test_call_allowance_override_can_lower_but_not_raise_policy(
     from argus.agent_runtime import turn_execution
 
     policy = len(PROVEN_PRODUCTION_BUILDER_CORRIDOR)
-    monkeypatch.setenv("ARGUS_TURN_CALL_ALLOWANCE", str(policy + 10))
+    monkeypatch.setenv("CUADRAO_TURN_CALL_ALLOWANCE", str(policy + 10))
     with turn_execution.turn_execution_scope(entry_state={}) as execution:
         assert execution.call_allowance == policy
 
-    monkeypatch.setenv("ARGUS_TURN_CALL_ALLOWANCE", "3")
+    monkeypatch.setenv("CUADRAO_TURN_CALL_ALLOWANCE", "3")
     with turn_execution.turn_execution_scope(entry_state={}) as execution:
         assert execution.call_allowance == 3
 
@@ -697,8 +697,8 @@ def test_research_recovery_reserves_one_scoped_call_without_extending_deadline(
 
     clock = _Clock()
     monkeypatch.setattr(turn_execution, "_monotonic", clock)
-    monkeypatch.setenv("ARGUS_TURN_CALL_ALLOWANCE", str(allowance))
-    monkeypatch.setenv("ARGUS_TURN_DEADLINE_SECONDS", "20")
+    monkeypatch.setenv("CUADRAO_TURN_CALL_ALLOWANCE", str(allowance))
+    monkeypatch.setenv("CUADRAO_TURN_DEADLINE_SECONDS", "20")
     with turn_execution.turn_execution_scope(entry_state={}) as execution:
         for _ in range(allowance):
             assert turn_execution.reserve_provider_call("interpretation") is not None
@@ -799,8 +799,8 @@ async def test_an_exhausted_allowance_does_not_start_a_repair(
     from argus.llm import openrouter
 
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "primary/model")
-    monkeypatch.setenv("ARGUS_STRUCTURED_FALLBACK_MODEL", "fallback/model")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "primary/model")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_FALLBACK_MODEL", "fallback/model")
     posts: list[str] = []
 
     async def post(*, retry_attempt: Any, **_: Any) -> Any:

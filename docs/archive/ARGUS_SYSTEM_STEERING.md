@@ -718,8 +718,8 @@ Owns:
 
 Current config:
 
-- `ARGUS_UTILITY_MODEL`
-- `ARGUS_UTILITY_FALLBACK_MODEL`
+- `CUADRAO_UTILITY_MODEL`
+- `CUADRAO_UTILITY_FALLBACK_MODEL`
 
 Owns:
 
@@ -732,8 +732,8 @@ Owns:
 
 Current config:
 
-- `ARGUS_CHAT_MODEL`
-- `ARGUS_CHAT_FALLBACK_MODEL`
+- `CUADRAO_CHAT_MODEL`
+- `CUADRAO_CHAT_FALLBACK_MODEL`
 
 Known current model intent from branch discussion:
 
@@ -752,8 +752,8 @@ Owns:
 
 Current config:
 
-- `ARGUS_STRUCTURED_MODEL`
-- `ARGUS_STRUCTURED_FALLBACK_MODEL`
+- `CUADRAO_STRUCTURED_MODEL`
+- `CUADRAO_STRUCTURED_FALLBACK_MODEL`
 
 Known current model intent from branch discussion:
 
@@ -771,8 +771,8 @@ Owns:
 
 Current config:
 
-- `ARGUS_CONTEXT_MODEL`
-- `ARGUS_CONTEXT_FALLBACK_MODEL`
+- `CUADRAO_CONTEXT_MODEL`
+- `CUADRAO_CONTEXT_FALLBACK_MODEL`
 
 Owns:
 

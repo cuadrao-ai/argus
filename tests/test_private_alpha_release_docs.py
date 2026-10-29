@@ -17,7 +17,7 @@ from tests.release_promotion_evidence_support import (
 
 ROOT = Path(__file__).resolve().parents[1]
 RELEASE_PROFILE_PATH = ROOT / ".github" / "private-alpha-release-profile.json"
-PUBLIC_ACCOUNT_ACCESS_FLAG = "ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED"
+PUBLIC_ACCOUNT_ACCESS_FLAG = "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED"
 # The release profile owns this flag's value. Product truth is where prose states
 # it, and every other doc may point here rather than repeat it.
 CANONICAL_VALUE_DOC = "docs/PRODUCT.md"
@@ -361,7 +361,7 @@ def test_public_account_access_claim_detector_reads_grammar_not_phrases() -> Non
         "Public registration is open, so the only refusal is a disabled "
         "allowlist entry.",
         # A neighbouring flag's value is not this flag's, even in one sentence.
-        f"Set `ARGUS_GUEST_ACCESS_ENABLED=false` but keep "
+        f"Set `CUADRAO_GUEST_ACCESS_ENABLED=false` but keep "
         f"`{PUBLIC_ACCOUNT_ACCESS_FLAG}=true`.",
         # Negation holds however far it sits from the state word.
         "Public signup is not expected to be open.",
@@ -787,12 +787,16 @@ def test_production_migration_gate_is_executable_and_precedes_service_deploy() -
     assert runbook_gate_index < runbook_landing_index
     assert runbook_landing_index < runbook_landed_gate_index
     assert runbook_landed_gate_index < tester_gate.index("sync the Blueprint")
-    assert runbook_landed_gate_index < tester_gate.index("api-real-workflow-on")
+    assert runbook_landed_gate_index < tester_gate.index(
+        "Confirm the approved workflow controls"
+    )
     assert runbook_landed_gate_index < tester_gate.index(
         "Deploy production `cuadrao-api`, then **`argus-backtests`**"
     )
     assert runbook_gate_index < tester_gate.index("sync the Blueprint")
-    assert runbook_gate_index < tester_gate.index("api-real-workflow-on")
+    assert runbook_gate_index < tester_gate.index(
+        "Confirm the approved workflow controls"
+    )
     assert runbook_gate_index < tester_gate.index(
         "Deploy production `cuadrao-api`, then **`argus-backtests`**"
     )
@@ -1099,7 +1103,7 @@ def test_private_launch_runbook_assigns_app_origin_and_smtp_secret_correctly() -
     assert "Both `argus-app` and `argus-api`" in ownership_text
     assert "password-recovery redirects" in ownership_text
     assert "approval signup links" in ownership_text
-    assert "`ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD`" in ownership_text
+    assert "`CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD`" in ownership_text
 
 
 def test_execution_realism_contract_is_consistent_across_canon_and_release_docs() -> None:

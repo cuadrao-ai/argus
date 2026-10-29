@@ -291,7 +291,7 @@ the `argus-qa` stack remain untouched.
   and delete-all ownership to exist, and Guest unavailability to be proven at
   the request, service, database, provider, event, cleanup, link, and handoff
   boundaries.
-- The donor's `ARGUS_MEMORY_ENABLED` and related proposed flags are not accepted
+- The donor's `[removed obsolete setting]` and related proposed flags are not accepted
   current-base control points. A future control separates registered-user code
   integration from exposure, tests neutral-off and enabled states, has an owner
   and retirement condition, and never substitutes for authorization or RLS.

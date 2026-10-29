@@ -79,7 +79,7 @@ def test_model_or_flag_mismatch_fails_promotion(
 @pytest.mark.parametrize(
     ("service", "key"),
     [
-        ("api", "ARGUS_RUNTIME_EVENT_TIMEOUT_SECONDS"),
+        ("api", "CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS"),
         ("api", "ARGUS_RESEARCH_GLOBAL_DAILY_CEILING"),
         ("web", "NEXT_PUBLIC_RESEARCH_RAIL_ENABLED"),
         ("workflow", "ENABLE_MARKET_DATA_CACHE"),
@@ -124,31 +124,31 @@ def test_writer_records_environment_and_refuses_a_mid_run_change(
 def test_capture_uses_runtime_model_resolution_and_keeps_missing_flags_unknown(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from argus.llm.memory_embedding import DEFAULT_EMBEDDING_MODEL
     from argus.llm.openrouter import resolve_openrouter_model
 
     from tests.evals import measurement_eval_scorecard as writer
     from tests.promotion_evidence_configuration import measured_release_configuration
 
-    monkeypatch.setenv("ARGUS_CHAT_MODEL", "  provider/model  ")
-    monkeypatch.setenv("ARGUS_CHAT_FALLBACK_MODEL", "  ")
+    monkeypatch.setenv("CUADRAO_CHAT_MODEL", "  provider/model  ")
+    monkeypatch.setenv("CUADRAO_CHAT_FALLBACK_MODEL", "  ")
     monkeypatch.setenv("ARGUS_MEMORY_EMBEDDING_MODEL", "  ")
-    monkeypatch.delenv("ARGUS_RESEARCH_RAIL_ENABLED", raising=False)
+    monkeypatch.delenv("CUADRAO_ACCOUNT_DELETION_ENABLED", raising=False)
     observed = measured_release_configuration(
         writer._candidate_sha(ROOT), repository_root=ROOT
     )
-    assert observed["ARGUS_CHAT_MODEL"] == resolve_openrouter_model()
-    assert observed["ARGUS_CHAT_FALLBACK_MODEL"] == resolve_openrouter_model(
+    assert observed["CUADRAO_CHAT_MODEL"] == resolve_openrouter_model()
+    assert observed["CUADRAO_CHAT_FALLBACK_MODEL"] == resolve_openrouter_model(
         fallback=True
     )
-    assert observed["ARGUS_MEMORY_EMBEDDING_MODEL"] == DEFAULT_EMBEDDING_MODEL
-    assert observed["ARGUS_RESEARCH_RAIL_ENABLED"] is None
+    assert "ARGUS_MEMORY_EMBEDDING_MODEL" not in observed
+    assert "ARGUS_RESEARCH_RAIL_ENABLED" not in observed
+    assert observed["CUADRAO_ACCOUNT_DELETION_ENABLED"] is None
 
 
 @pytest.mark.parametrize("change", ["added", "removed", "missing-value", "flag-alias"])
 def test_configuration_requires_all_current_keys(tmp_path: Path, change: str) -> None:
     measured, profile, scorecard = _measured(tmp_path)
-    key = "ARGUS_RESEARCH_RAIL_ENABLED"
+    key = "CUADRAO_ACCOUNT_DELETION_ENABLED"
     candidate = measured
     if change == "added":
         key = "ARGUS_NEW_CAPABILITY_ENABLED"
@@ -178,7 +178,7 @@ def test_targeted_ab_uses_shared_configuration_check(tmp_path: Path, side: str) 
         if name == side:
             provenance["release_configuration"] = {
                 **provenance["release_configuration"],
-                "ARGUS_CHAT_MODEL": "wrong/model",
+                "CUADRAO_CHAT_MODEL": "wrong/model",
             }
         paths[name] = write_evidence(
             tmp_path,
@@ -190,7 +190,7 @@ def test_targeted_ab_uses_shared_configuration_check(tmp_path: Path, side: str) 
                 "measurement": {"attempts": 10, "defect_count": 0},
             },
         )
-    with pytest.raises(AssertionError, match="ARGUS_CHAT_MODEL"):
+    with pytest.raises(AssertionError, match="CUADRAO_CHAT_MODEL"):
         assert_prose_failure_measured_on_both_sides(
             " ".join(f"`{path}`" for path in paths.values()),
             tmp_path / "new-promotion.md",
@@ -207,7 +207,7 @@ def test_baseline_configuration_change_does_not_hide_new_failures(tmp_path: Path
     )
 
     measured, profile, baseline = _measured(tmp_path)
-    profile["services"]["api"]["env"]["ARGUS_CHAT_MODEL"] += "-changed"
+    profile["services"]["api"]["env"]["CUADRAO_CHAT_MODEL"] += "-changed"
     candidate = commit_files(tmp_path, {PROFILE: json.dumps(profile)})
     relative = write_evidence(tmp_path, "baseline.json", baseline)
     manifest = (
@@ -221,9 +221,9 @@ def test_baseline_configuration_change_does_not_hide_new_failures(tmp_path: Path
             candidate_results=[{"id": "case-a", "status": "failed"}],
             repository_root=tmp_path,
         )
-    baseline["provenance"]["release_configuration"]["ARGUS_CHAT_MODEL"] = "wrong/model"
+    baseline["provenance"]["release_configuration"]["CUADRAO_CHAT_MODEL"] = "wrong/model"
     write_evidence(tmp_path, "baseline.json", baseline)
-    with pytest.raises(AssertionError, match="ARGUS_CHAT_MODEL"):
+    with pytest.raises(AssertionError, match="CUADRAO_CHAT_MODEL"):
         assert_main_promotion_baseline_comparison(
             manifest,
             tmp_path / "new-promotion.md",
@@ -232,7 +232,7 @@ def test_baseline_configuration_change_does_not_hide_new_failures(tmp_path: Path
         )
 
 
-@pytest.mark.parametrize("key", ["ARGUS_CHAT_MODEL", "ARGUS_RESEARCH_RAIL_ENABLED"])
+@pytest.mark.parametrize("key", ["CUADRAO_CHAT_MODEL", "ARGUS_RESEARCH_RAIL_ENABLED"])
 def test_scorecard_records_a_disagreeing_environment_without_substituting_contract(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, key: str
 ) -> None:

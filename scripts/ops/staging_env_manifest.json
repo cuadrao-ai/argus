@@ -16,32 +16,27 @@
           "keep_current": true
         },
         {
-          "name": "ARGUS_CHECKPOINTER_MODE",
+          "name": "CUADRAO_CHECKPOINTER_MODE",
           "kind": "plain",
           "keep_current": true
         },
         {
-          "name": "ARGUS_DEV_MEMORY_FALLBACK",
+          "name": "CUADRAO_MOCK_AUTH",
           "kind": "plain",
           "keep_current": true
         },
         {
-          "name": "ARGUS_MOCK_AUTH",
+          "name": "CUADRAO_PERSISTENCE_MODE",
           "kind": "plain",
           "keep_current": true
         },
         {
-          "name": "ARGUS_PERSISTENCE_MODE",
-          "kind": "plain",
-          "keep_current": true
-        },
-        {
-          "name": "ARGUS_PROD_OPENROUTER_API_KEY",
+          "name": "CUADRAO_PROD_OPENROUTER_API_KEY",
           "kind": "secret",
           "keep_current": true
         },
         {
-          "name": "ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY",
+          "name": "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY",
           "kind": "secret",
           "keep_current": true
         },
@@ -237,37 +232,32 @@
           "kind": "secret"
         },
         {
-          "name": "ARGUS_HOUSEHOLDS_ENABLED",
+          "name": "CUADRAO_HOUSEHOLDS_ENABLED",
           "kind": "plain",
           "value": "true",
           "requires": [
-            "ARGUS_INVITE_CODE_SECRET"
+            "CUADRAO_INVITE_CODE_SECRET"
           ]
         },
         {
-          "name": "ARGUS_BETA_INVITES_ENABLED",
+          "name": "CUADRAO_BETA_INVITES_ENABLED",
           "kind": "plain",
           "value": "true",
           "requires": [
-            "ARGUS_INVITE_CODE_SECRET"
+            "CUADRAO_INVITE_CODE_SECRET"
           ]
         },
         {
-          "name": "ARGUS_IN_PLACE_CARD_EDITS_ENABLED",
+          "name": "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED",
           "kind": "plain",
           "value": "true"
         },
         {
-          "name": "ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED",
-          "kind": "plain",
-          "value": "true"
-        },
-        {
-          "name": "ARGUS_INVITE_CODE_SECRET",
+          "name": "CUADRAO_INVITE_CODE_SECRET",
           "kind": "generated"
         },
         {
-          "name": "ARGUS_VISITOR_KEY_SECRET",
+          "name": "CUADRAO_VISITOR_KEY_SECRET",
           "kind": "generated"
         },
         {
@@ -276,38 +266,17 @@
           "b64_bytes": 32
         },
         {
-          "name": "ARGUS_INVITE_FOUNDER_USER_ID",
+          "name": "CUADRAO_INVITE_FOUNDER_USER_ID",
           "kind": "secret",
           "optional": true
         },
         {
-          "name": "ARGUS_CORS_ALLOW_ORIGINS",
+          "name": "CUADRAO_CORS_ALLOW_ORIGINS",
           "kind": "plain",
           "value": "https://cuadrao-web-staging.onrender.com"
         }
       ],
-      "remove": [
-        {
-          "name": "ARGUS_BUSINESS_PILOT_ENABLED",
-          "requires": "CUADRAO_BUSINESS_PILOT_ENABLED"
-        },
-        {
-          "name": "ARGUS_DOCUMENT_EXTRACTION_ENABLED",
-          "requires": "CUADRAO_DOCUMENT_EXTRACTION_ENABLED"
-        },
-        {
-          "name": "ARGUS_INGESTION_ENABLED",
-          "requires": "CUADRAO_INGESTION_ENABLED"
-        },
-        {
-          "name": "ARGUS_VISION_MODEL",
-          "requires": "CUADRAO_VISION_MODEL"
-        },
-        {
-          "name": "ARGUS_FINANCIAL_ACCOUNTS_ENABLED",
-          "requires": "CUADRAO_FINANCIAL_ACCOUNTS_ENABLED"
-        }
-      ],
+      "remove": [],
       "hold": [
         {
           "name": "CUADRAO-DEV-KEY-PILOT",
@@ -320,8 +289,8 @@
       ],
       "distinct": [
         [
-          "ARGUS_PROD_OPENROUTER_API_KEY",
-          "ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY"
+          "CUADRAO_PROD_OPENROUTER_API_KEY",
+          "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"
         ]
       ]
     },
@@ -351,11 +320,6 @@
           "value": "skedzwocnmrhfigiwyzi"
         },
         {
-          "name": "NEXT_PUBLIC_BUSINESS_PILOT_ENABLED",
-          "kind": "plain",
-          "value": "true"
-        },
-        {
           "name": "NEXT_PUBLIC_BUSINESS_ONLY_WEB",
           "kind": "plain",
           "value": "true"
@@ -381,14 +345,9 @@
           "value": "false"
         },
         {
-          "name": "NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED",
-          "kind": "plain",
-          "value": "false"
-        },
-        {
           "name": "NEXT_PUBLIC_CUADRAO_API_URL",
           "kind": "plain",
-          "copy_from": "NEXT_PUBLIC_ARGUS_API_URL"
+          "keep_current": true
         },
         {
           "name": "NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY",
@@ -414,19 +373,17 @@
       "remove": [
         {
           "name": "CUADRAO_RESEND_WEBHOOK_SECRET"
-        },
-        {
-          "name": "NEXT_PUBLIC_ARGUS_API_URL",
-          "requires": "NEXT_PUBLIC_CUADRAO_API_URL"
-        },
-        {
-          "name": "NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY",
-          "requires": "NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY"
         }
       ],
       "hold": [
-        { "name": "CUADRAO_AUTH_EMAIL_HOOK_SECRET", "reason": "Inject only for reviewed staging hook activation." },
-        { "name": "CUADRAO_AUTH_EMAIL_RESEND_API_KEY", "reason": "Dedicated Auth sending credential; activation only after review." },
+        {
+          "name": "CUADRAO_AUTH_EMAIL_HOOK_SECRET",
+          "reason": "Inject only for reviewed staging hook activation."
+        },
+        {
+          "name": "CUADRAO_AUTH_EMAIL_RESEND_API_KEY",
+          "reason": "Dedicated Auth sending credential; activation only after review."
+        },
         {
           "name": "CUADRAO_EMAIL_ASSET_ORIGIN",
           "reason": "Optional HTTPS origin for shared email images. Preserve current value; do not inject during this build."

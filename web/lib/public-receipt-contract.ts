@@ -1,6 +1,6 @@
 import { cache } from "react";
 import type { AssetClass } from "./argus-types";
-import { ARGUS_API_BASE_URL } from "./argus-api-transport";
+import { CUADRAO_API_BASE_URL } from "./argus-api-transport";
 import { receiptDocumentSupported, type PublicReceiptDocument, type ReceiptKind } from "./public-receipt-turns";
 
 /**
@@ -163,7 +163,7 @@ export async function fetchPublicReceipt(
   }
   try {
     const response = await fetch(
-      `${ARGUS_API_BASE_URL}/public/receipts/${encodeURIComponent(publicId)}`,
+      `${CUADRAO_API_BASE_URL}/public/receipts/${encodeURIComponent(publicId)}`,
       {
         headers: { Accept: "application/json" },
         cache: "no-store",

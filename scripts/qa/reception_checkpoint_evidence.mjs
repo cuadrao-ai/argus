@@ -34,7 +34,7 @@ const safe = value => String(value).replace(/https?:\/\/[^\s"'<>]+/g, "[URL omit
 const pathname = value => { try { return new URL(value).pathname; } catch { return "[invalid URL]"; } };
 const environment = {
   PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: process.env.TMPDIR,
-  NEXT_PUBLIC_MOCK_AUTH: "true", NEXT_PUBLIC_APP_ENV: "local", NEXT_PUBLIC_ENABLE_SPANISH: "true",
+  NEXT_PUBLIC_MOCK_AUTH: "true", NEXT_PUBLIC_ENABLE_SPANISH: "true",
   NEXT_PUBLIC_BUSINESS_PILOT_ENABLED: "true", NEXT_PUBLIC_CUADRAO_BUSINESS_INVOICING_ENABLED: "true",
   NEXT_PUBLIC_CUADRAO_API_URL: `${fixture.origin}/api/v1`, NEXT_TELEMETRY_DISABLED: "1",
 };

@@ -10,7 +10,7 @@
 
 ## Outcome and remaining work
 
-Default-off Household membership lifecycle behind `ARGUS_HOUSEHOLDS_ENABLED`:
+Default-off Household membership lifecycle behind `CUADRAO_HOUSEHOLDS_ENABLED`:
 create household, synthetic invite, accept, explicit account grants (view/edit),
 leave/remove/revoke/close/transfer-admin, security-definer membership RLS helper,
 and deletion-safe historical attribution (`ON DELETE SET NULL` with active-admin
@@ -39,7 +39,7 @@ default-off; no hosted migration or activation.
 ## Documentation and environment audit
 
 Landing updates the execution manifest, integration ledger, documentation
-authority remainder, and this report. `ARGUS_HOUSEHOLDS_ENABLED` already landed
+authority remainder, and this report. `CUADRAO_HOUSEHOLDS_ENABLED` already landed
 in `.env.example`, `render.yaml`, `.github/argus-env.sh`, and the private-alpha
 release profile as `false`. No secrets inspected or rewritten. No linked issues
 to close.

@@ -5,7 +5,7 @@ It answers what the request carried and which address the single client-IP owner
 (`argus.api.client_ip.resolve_client_ip`) chose, so a forged `CF-Connecting-IP`,
 `True-Client-IP` or `X-Forwarded-For` can be seen to win or lose. It changes nothing.
 
-It is off unless `ARGUS_CLIENT_IP_ECHO_ENABLED` is true, and even then it answers a
+It is off unless `CUADRAO_CLIENT_IP_ECHO_ENABLED` is true, and even then it answers a
 byte-identical 404 without the ops token. Turn it off, or remove this module, after
 the check. It is left out of the OpenAPI document on purpose.
 """
@@ -20,7 +20,7 @@ from argus.api.client_ip import resolve_client_ip, trusted_client_ip_header_name
 from argus.api.ops_contract import CLIENT_IP_ECHO_PATH
 from argus.api.routers.ops import _require_ops_authorization
 
-CLIENT_IP_ECHO_ENV = "ARGUS_CLIENT_IP_ECHO_ENABLED"
+CLIENT_IP_ECHO_ENV = "CUADRAO_CLIENT_IP_ECHO_ENABLED"
 _ECHOED_HEADERS = (
     "cf-connecting-ip",
     "cf-connecting-o2o",

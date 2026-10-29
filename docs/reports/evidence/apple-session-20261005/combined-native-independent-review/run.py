@@ -34,7 +34,7 @@ try:
   r=httpx.post(cfg['SUPABASE_URL']+'/auth/v1/admin/users',headers=headers,json={'email':email,'password':password,'email_confirm':True});assert r.status_code==200
   users.append({'id':r.json()['id'],'email':email,'password':password})
  fixture=root/'fixture.json';fixture.write_text(json.dumps({'apiURL':'http://127.0.0.1:60341','supabaseURL':cfg['SUPABASE_URL'],'publicAnonKey':cfg['SUPABASE_ANON_KEY'],'users':users}));fixture.chmod(0o600)
- env={**os.environ,**cfg,'PYTHONPATH':base+'/src:'+base+'/web','ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED':'true','ARGUS_MOCK_AUTH':'false','NEXT_PUBLIC_MOCK_AUTH':'false','ARGUS_DEV_MEMORY_FALLBACK':'false'}
+ env={**os.environ,**cfg,'PYTHONPATH':base+'/src:'+base+'/web','CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED':'true','CUADRAO_MOCK_AUTH':'false','NEXT_PUBLIC_MOCK_AUTH':'false','ARGUS_DEV_MEMORY_FALLBACK':'false'}
  log=open(root/'api.log','w');api=subprocess.Popen(['/private/tmp/cuadrao-scipy-env-20261005/bin/python','-m','uvicorn','argus.api.main:app','--host','127.0.0.1','--port','60341'],cwd=base,env=env,stdout=log,stderr=log)
  wait_http('http://127.0.0.1:60341/health')
  testenv={**os.environ,'ARGUS_SESSION_LIVE_CONFIG':str(fixture),'CLANG_MODULE_CACHE_PATH':str(root/'clang-cache'),'SWIFTPM_MODULECACHE_OVERRIDE':str(root/'module-cache')}

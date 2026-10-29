@@ -24,11 +24,11 @@ def test_chat_reset_header_matches_quota_window(
     owner = guest_compute_ceiling if account == "guest" else registered_compute_ceiling
     monkeypatch.setattr(owner, "datetime", SimpleNamespace(now=lambda _tz: received_at))
     if account == "guest":
-        monkeypatch.setenv("ARGUS_GUEST_SESSION_DAILY_TURN_CEILING", str(limit))
+        monkeypatch.setenv("CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING", str(limit))
         claim = _guest(mock_gateway, monkeypatch, turns_today=0, session_used=limit)
         headers = GUEST_HEADERS
     else:
-        monkeypatch.setenv("ARGUS_REGISTERED_DAILY_TURN_CEILING", str(limit))
+        monkeypatch.setenv("CUADRAO_REGISTERED_DAILY_TURN_CEILING", str(limit))
         claim = _registered(mock_gateway, monkeypatch, turns_today=limit)
         headers = REGISTERED_HEADERS
 

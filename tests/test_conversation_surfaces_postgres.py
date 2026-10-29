@@ -93,9 +93,9 @@ def _insert_pre_s4_conversation(person: str, title: str) -> str:
 @pytest.fixture
 def rig(monkeypatch: pytest.MonkeyPatch) -> Iterator[Rig]:
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     monkeypatch.setenv("ARGUS_DEV_MEMORY_FALLBACK", "false")
     monkeypatch.setenv("ARGUS_BUSINESS_PILOT_ENABLED", "true")
     monkeypatch.setenv("ARGUS_BUSINESS_CHAT_ENABLED", "true")

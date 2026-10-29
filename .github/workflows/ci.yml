@@ -316,7 +316,7 @@ jobs:
       ALPACA_API_KEY: ""
       ALPACA_SECRET_KEY: ""
       ARGUS_MARKET_DATA_PROVIDER_MODE: synthetic_unit_fixture
-      ARGUS_MOCK_AUTH: "false"
+      CUADRAO_MOCK_AUTH: "false"
       NEXT_PUBLIC_MOCK_AUTH: "false"
     steps:
       - name: Checkout

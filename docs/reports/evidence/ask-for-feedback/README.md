@@ -113,7 +113,7 @@ still stands.
 
 The test run read the credential from the integration `.env` into its own
 process and never printed it. In that file
-`ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD=${RESEND_API_KEY}` sits above the
+`CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD=${RESEND_API_KEY}` sits above the
 `RESEND_API_KEY` line, so a loader that reads in order, such as python-dotenv or
 `source .env`, sees the password as empty. The run resolved that one reference
 itself, and no `.env` was edited. Hosted services set the password directly.

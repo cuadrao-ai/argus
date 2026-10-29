@@ -122,7 +122,7 @@ flags or rollout configuration.
 | Notifications | Hidden/flagged for Alpha | Enable as part of the next product push; behavior follows the MVEE Updates experience. Implementation and rollout still need their assigned work. |
 | Subscriptions | Hidden/flagged for Alpha | No enablement change approved; preserve the existing gate. |
 | Personalization memory | Shipped and flag-on in production (`ARGUS_ENABLE_PERSONALIZATION_MEMORY=true`). Exposure limited to `admin` and `developer` (`MEMORY_EXPOSURE_ROLES`). Semantic recall off (`ARGUS_ENABLE_MEMORY_SEMANTIC_RECALL=false`). Ordinary registered accounts see the unavailable state. | Widen to registered users only with earned opt-in plus inspect/edit/delete/reset/disable/"why was this used?" controls. Memory must not be required for the idea/evidence/comparison loop. |
-| Evidence receipt sharing | Deployed `argus-api` code at `a9286b21` verified; production `render.yaml` / Blueprint on `main` declare `ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED=true` and `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED=true`. Hosted environment fingerprints and live env-var readback remain pending in [`2026-09-17-main-production-promotion.md`](release-manifests/2026-09-17-main-production-promotion.md), and `argus-app` was not independently verified, so neither hosted API nor UI flag value is confirmed live. Integration Blueprint may still declare both `false` until the next promotion aligns it. | Preserve shareable-by-default with owner turn selection and exact preview as the privacy boundary. |
+| Evidence receipt sharing | Deployed `argus-api` code at `a9286b21` verified; production `render.yaml` / Blueprint on `main` declare `CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED=true` and `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED=true`. Hosted environment fingerprints and live env-var readback remain pending in [`2026-09-17-main-production-promotion.md`](release-manifests/2026-09-17-main-production-promotion.md), and `argus-app` was not independently verified, so neither hosted API nor UI flag value is confirmed live. Integration Blueprint may still declare both `false` until the next promotion aligns it. | Preserve shareable-by-default with owner turn selection and exact preview as the privacy boundary. |
 
 An approved future experience does not contradict a currently hidden feature.
 Update this table when the corresponding release changes availability. Design
@@ -452,9 +452,9 @@ email profile.
 
 The checked-in policy opens guest entry and permanent accounts alike:
 
-- `ARGUS_GUEST_ACCESS_ENABLED=true`
+- `CUADRAO_GUEST_ACCESS_ENABLED=true`
 - `NEXT_PUBLIC_GUEST_ACCESS_ENABLED=true`
-- `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true`
+- `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true`
 
 The frontend presentation flag cannot grant access. The server remains
 authoritative. The two Guest flags default on when unset; explicit `false` is
@@ -482,7 +482,7 @@ Conversation is not an allowance: it is free, and the usage panel says so with
 no limit. An anonymous endpoint is still not unbounded, so guest turns carry a
 silent anti-abuse ceiling per visitor per day, sized so no real person reaches
 it; it is never rendered or promised as an allowance. A signed-in account
-carries its own silent daily chat ceiling (200, `ARGUS_REGISTERED_DAILY_TURN_CEILING`)
+carries its own silent daily chat ceiling (200, `CUADRAO_REGISTERED_DAILY_TURN_CEILING`)
 and a daily research ceiling (15, `ARGUS_REGISTERED_DAILY_RESEARCH_CEILING`) so
 one login cannot run unbounded LLM spend. Those caps are never projected as
 allowances. Honest heavy chat users can hit 200 in a day. A fresh session cannot mint a fresh daily allowance—the visitor

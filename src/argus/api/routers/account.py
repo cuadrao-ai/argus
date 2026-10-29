@@ -1,7 +1,7 @@
 """In-app account deletion (Lane 6).
 
 ``POST /api/v1/account/delete`` runs the whole deletion command for the signed-in
-person. It is off unless ``ARGUS_ACCOUNT_DELETION_ENABLED`` is on, and while off
+person. It is off unless ``CUADRAO_ACCOUNT_DELETION_ENABLED`` is on, and while off
 it answers 404 before any authentication. The user id comes only from the
 verified session, never from the request body. A guest session is deleted
 the same way. A person whose run is in flight (locked out of every other
@@ -30,7 +30,7 @@ from argus.domain.account_deletion.service import (
 )
 from argus.domain.apple_sign_in.client import MAX_CODE_LENGTH
 
-FLAG = "ARGUS_ACCOUNT_DELETION_ENABLED"
+FLAG = "CUADRAO_ACCOUNT_DELETION_ENABLED"
 
 router = APIRouter(prefix="/api/v1", tags=["account"])
 
@@ -156,7 +156,7 @@ _RESPONSES: dict = {  # type: ignore[type-arg]
         "(an account placeholder or a current owner of an open Business)."
     ),
     404: _problem(
-        "`not_found`: `ARGUS_ACCOUNT_DELETION_ENABLED` is off; answered before "
+        "`not_found`: `CUADRAO_ACCOUNT_DELETION_ENABLED` is off; answered before "
         "any session check."
     ),
     429: _problem(

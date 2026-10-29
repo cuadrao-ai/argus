@@ -70,8 +70,8 @@ Searched `src`, `tests`, `docs`, `scripts` and `.github`. Active `result_summary
 The founder must provide these local environment lines; this lane never wrote environment files:
 
 ```dotenv
-ARGUS_READOUT_MODEL=openai/gpt-5.6-luna
-ARGUS_READOUT_FALLBACK_MODEL=openai/gpt-5.6-luna
+CUADRAO_READOUT_MODEL=openai/gpt-5.6-luna
+CUADRAO_READOUT_FALLBACK_MODEL=openai/gpt-5.6-luna
 ```
 
 The founder merges and deploys. This lane does neither.

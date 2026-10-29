@@ -141,7 +141,7 @@ def test_changed_carried_backtest_produces_new_confirmation_without_live_run(
     from tests.test_public_excerpt_api import _create, _seed
 
     monkeypatch.setattr(api_state, "supabase_gateway", None)
-    monkeypatch.setenv("ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED", "true")
     api_state.store.reset()
     client = TestClient(app)
     user_id = _seed(client)

@@ -1,7 +1,7 @@
 # Connected Household
 
 The Connected Cuadrao shell mounts Household Home, account details and Search
-beside Personal. `ARGUS_HOUSEHOLDS_ENABLED` stays server-default-off. The native
+beside Personal. `CUADRAO_HOUSEHOLDS_ENABLED` stays server-default-off. The native
 client uses the canonical `/api/v1/households` and `/household-invitations` API;
 it has no membership store or money calculation. Accounts remain on Home.
 Household controls appear only after server discovery succeeds. The typed

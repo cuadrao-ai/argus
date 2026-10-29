@@ -74,7 +74,7 @@ jobs:
       - name: Check release-coherence secrets
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-          ARGUS_OPS_TOKEN: ${{ secrets.ARGUS_OPS_TOKEN }}
+          CUADRAO_OPS_TOKEN: ${{ secrets.CUADRAO_OPS_TOKEN }}
           ARGUS_WORKFLOW_DATABASE_URL: ${{ secrets.ARGUS_WORKFLOW_DATABASE_URL }}
           ARGUS_CANARY_SUPABASE_URL: ${{ secrets.ARGUS_CANARY_SUPABASE_URL }}
           ARGUS_CANARY_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.ARGUS_CANARY_SUPABASE_SERVICE_ROLE_KEY }}
@@ -82,7 +82,7 @@ jobs:
           missing=()
           for name in \
             RENDER_API_KEY \
-            ARGUS_OPS_TOKEN \
+            CUADRAO_OPS_TOKEN \
             ARGUS_WORKFLOW_DATABASE_URL \
             ARGUS_CANARY_SUPABASE_URL \
             ARGUS_CANARY_SUPABASE_SERVICE_ROLE_KEY
@@ -105,7 +105,7 @@ jobs:
       - name: Run direct API signup-denial probe
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-          ARGUS_OPS_TOKEN: ${{ secrets.ARGUS_OPS_TOKEN }}
+          CUADRAO_OPS_TOKEN: ${{ secrets.CUADRAO_OPS_TOKEN }}
           ARGUS_WORKFLOW_DATABASE_URL: ${{ secrets.ARGUS_WORKFLOW_DATABASE_URL }}
           ARGUS_CANARY_SUPABASE_URL: ${{ secrets.ARGUS_CANARY_SUPABASE_URL }}
           ARGUS_CANARY_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.ARGUS_CANARY_SUPABASE_SERVICE_ROLE_KEY }}

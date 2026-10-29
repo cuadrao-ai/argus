@@ -41,12 +41,12 @@ def _memory_backend(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def sharing_on(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED", "true")
 
 
 @pytest.fixture
 def sharing_off(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED", raising=False)
+    monkeypatch.delenv("CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED", raising=False)
 
 
 def _client() -> TestClient:
@@ -665,7 +665,7 @@ def test_flag_off_is_identical_for_an_unauthenticated_production_client(
     this covers the path the mock-auth tests above cannot reach.
     """
     monkeypatch.delenv("NEXT_PUBLIC_MOCK_AUTH", raising=False)
-    monkeypatch.delenv("ARGUS_MOCK_AUTH", raising=False)
+    monkeypatch.delenv("CUADRAO_MOCK_AUTH", raising=False)
     client = _client()
     reference = client.get("/api/v1/definitely-not-a-route")
     assert reference.status_code == 404

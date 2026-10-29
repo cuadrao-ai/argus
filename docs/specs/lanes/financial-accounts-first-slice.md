@@ -45,7 +45,7 @@ never reads as zero.
 | Account types, nature table, locks, the single liability sign flip, edit rules | `src/argus/domain/recording/accounts.py` |
 | Opening anchor, revisions, balance derivation, correction rules | `src/argus/domain/recording/records.py` |
 | Wire schemas | `src/argus/domain/recording/schemas.py` (pydantic). `src/argus/api/schemas.py` is at its modularity budget and is not touched. |
-| Persistence | `src/argus/domain/recording/repository.py` (protocol plus an in-memory twin for `ARGUS_PERSISTENCE_MODE=memory`) and `src/argus/domain/recording/postgres_repository.py` (psycopg over `DATABASE_URL`, the personalization-memory precedent). |
+| Persistence | `src/argus/domain/recording/repository.py` (protocol plus an in-memory twin for `CUADRAO_PERSISTENCE_MODE=memory`) and `src/argus/domain/recording/postgres_repository.py` (psycopg over `DATABASE_URL`, the personalization-memory precedent). |
 | Migration | `supabase/migrations/20260928200000_financial_accounts_first_slice.sql`: `financial_accounts`, `financial_records`, `financial_record_revisions`, `financial_account_idempotency`, two SQL functions, owner-only RLS. |
 | HTTP | `src/argus/api/routers/financial_accounts.py` and `src/argus/api/financial_accounts.py` (flag, gate, repository selection). OpenAPI regenerated. |
 | Contract docs | `docs/API_CONTRACT.md` (new endpoint section), `docs/DATA_MODEL.md` (new entity section and RLS rule). |

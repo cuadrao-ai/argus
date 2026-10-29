@@ -25,7 +25,7 @@ or safe-area acceptance.
 
 Signed-out evidence:
 
-- Both `ARGUS_MOCK_AUTH` and `NEXT_PUBLIC_MOCK_AUTH` were **false** for the running
+- Both `CUADRAO_MOCK_AUTH` and `NEXT_PUBLIC_MOCK_AUTH` were **false** for the running
   servers. No sign-in or guest identity was created in the browser.
 - Cookies were empty for every capture. Session storage was empty; the only local
   storage key was the non-authentication language preference `i18nextLng`.
@@ -34,7 +34,7 @@ Signed-out evidence:
 - No search, login form, navigation, sidebar, or dossier dialog mounted on a receipt.
 
 The local process overrides were
-`ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED=true`,
+`CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED=true`,
 `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED=true`, and
 `NEXT_PUBLIC_ENABLE_SPANISH=true`. Persistence was memory mode, with no database or
 provider credentials. Chat-runtime startup was disabled in the verification

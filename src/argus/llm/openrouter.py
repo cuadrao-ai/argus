@@ -112,8 +112,8 @@ _TIER_FALLBACK_ENV = model_policy.TIER_FALLBACK_ENV
 
 _VALID_REASONING_EFFORTS = frozenset(("xhigh", "high", "medium", "low", "minimal", "none"))
 _REASONING_EFFORT_ENV_BY_TASK: dict[OpenRouterTask, str] = {
-    "interpretation": "ARGUS_STRUCTURED_REASONING_EFFORT",
-    "capability_conflict": "ARGUS_CAPABILITY_REASONING_EFFORT",
+    "interpretation": "CUADRAO_STRUCTURED_REASONING_EFFORT",
+    "capability_conflict": "CUADRAO_CAPABILITY_REASONING_EFFORT",
 }
 _PROMPT_CACHE_STRUCTURED_ARTIFACT_TASKS = frozenset(("interpretation", "interpretation_repair", "field_fidelity", "capability_conflict"))
 
@@ -236,7 +236,8 @@ def openrouter_profile_for_task(task: OpenRouterTask) -> OpenRouterProfile:
 
 
 def _task_timeout_override_seconds(task: OpenRouterTask) -> int | None:
-    raw_value = os.getenv(f"ARGUS_OPENROUTER_{task.upper()}_TIMEOUT_SECONDS", "")
+    prefix = "CUADRAO" if task in model_policy.CANONICAL_TIMEOUT_TASKS else "ARGUS"
+    raw_value = os.getenv(f"{prefix}_OPENROUTER_{task.upper()}_TIMEOUT_SECONDS", "")
     if not raw_value.strip():
         return None
     try:

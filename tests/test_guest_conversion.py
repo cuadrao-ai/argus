@@ -65,11 +65,11 @@ def _workspace() -> GuestWorkspace:
 @pytest.fixture(autouse=True)
 def _conversion_environment(monkeypatch: pytest.MonkeyPatch):
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
-    monkeypatch.delenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", raising=False)
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
+    monkeypatch.delenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", raising=False)
     yield
     auth_router.reset_auth_attempt_limiter_for_tests()
 
@@ -621,7 +621,7 @@ def _post_guest_signup(gateway: MagicMock) -> object:
 def test_guest_signup_creates_a_distinct_account_and_keeps_pending_handoff(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
     gateway = MagicMock(spec=SupabaseGateway)
     gateway.private_alpha_email_allowed.return_value = True
     gateway.get_guest_signup_handoff.side_effect = [

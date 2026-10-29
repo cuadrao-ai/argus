@@ -1070,10 +1070,10 @@ def test_protected_approval_replay_uses_real_gateway_and_sends_once(
 
         real_gateway = SupabaseGateway(client=create_client(LOCAL_URL, LOCAL_SERVICE_KEY))
         monkeypatch.setattr(api_state, "supabase_gateway", real_gateway)
-        monkeypatch.setenv("ARGUS_OPS_TOKEN", ops_token)
+        monkeypatch.setenv("CUADRAO_OPS_TOKEN", ops_token)
         monkeypatch.setenv("ARGUS_APP_ORIGIN", "https://argus.example")
         monkeypatch.setenv(
-            "ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD",
+            "CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD",
             fake.password(),
         )
         monkeypatch.setattr(

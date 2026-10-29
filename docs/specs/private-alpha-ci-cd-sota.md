@@ -684,7 +684,7 @@ Before any guest traffic:
   projections must remain explicitly unmeasured.
 
 Canary failure rolls back presentation first, then server guest bootstrap. It
-does not touch `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true`, which the founder
+does not touch `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true`, which the founder
 authorized separately on 2026-08-12; closing public registration again is its
 own founder decision. A local Block 4 pass is not “public ready.”
 
