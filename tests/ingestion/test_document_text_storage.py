@@ -1,10 +1,10 @@
-"""Extracted text persists without rewriting the uploaded evidence."""
-
 import hashlib
+from decimal import Decimal, InvalidOperation
 from unittest.mock import AsyncMock
 
 import pytest
 from argus.domain.business.contracts.actions import canonical_input_hash
+from argus.domain.business.fiscal_identity import normalized_ncf, normalized_taxpayer_id
 from argus.domain.ingestion.documents.models import (
     ExtractedObservation,
     ExtractionBatch,
@@ -119,10 +119,16 @@ async def test_database_safe_text_is_preserved_without_cleaning_marker(
 async def test_replacement_does_not_join_fiscal_or_money_digits(prepared_receipt) -> None:
     batch = ExtractionBatch(
         candidates=(),
-        receipt=ReceiptDetails(rnc="123\x00456", ncf="B010\x000123", total="1\x0000.00"),
+        receipt=ReceiptDetails(
+            rnc="123\x00456789", ncf="B010\x000000001", total="1\x0000.00"
+        ),
     )
     _, _, _, _, _, _, saved = await prepared_receipt(batch)
-    assert saved.receipt.rnc == "123�456"
-    assert saved.receipt.ncf == "B010�0123"
+    assert saved.receipt.rnc == "123�456789"
+    assert saved.receipt.ncf == "B010�0000001"
     assert saved.receipt.total == "1�00.00"
     assert saved.metadata["text_cleaning"] == {"nul_replacements": 3}
+    assert normalized_taxpayer_id(saved.receipt.rnc) is None
+    assert normalized_ncf(saved.receipt.ncf) is None
+    with pytest.raises(InvalidOperation):
+        Decimal(saved.receipt.total)

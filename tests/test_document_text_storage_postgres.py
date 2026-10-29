@@ -1,5 +1,3 @@
-"""Exercise the extraction JSONB adapter with synthetic text and no app schema."""
-
 import os
 
 import psycopg
