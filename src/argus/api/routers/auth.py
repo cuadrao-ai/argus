@@ -17,6 +17,7 @@ from argus.api.dependencies import (
     browser_cookie_policy,
     current_user,
     problem,
+    request_access_token,
 )
 from argus.api.guest_access import (
     account_context,
@@ -986,6 +987,31 @@ def _enforce_browser_auth_origin(request: Request) -> None:
 @router.post("/auth/logout")
 def logout(request: Request) -> JSONResponse:
     _enforce_browser_auth_origin(request)
+    try:
+        gateway = api_state.supabase_gateway
+        if gateway is not None:
+            authorization = request.headers.get("Authorization")
+            if authorization is not None:
+                token = (
+                    authorization.removeprefix("Bearer ").strip()
+                    if authorization.startswith("Bearer ")
+                    else None
+                )
+            else:
+                token = request_access_token(request)
+                refresh = request.cookies.get("sb-refresh-token")
+                if refresh:
+                    try:
+                        payload = gateway.refresh_browser_session(refresh)
+                        token = payload["session"]["access_token"]
+                    except Exception:
+                        logger.warning(
+                            "Logout refresh resolution failed; using access cookie"
+                        )
+            if token:
+                gateway.client.auth.admin.sign_out(token, scope="local")
+    except Exception:
+        logger.warning("Logout session revocation failed; clearing browser cookies")
     response = JSONResponse({"success": True})
     delete_browser_cookie(response, "sb-auth-token", path="/")
     delete_browser_cookie(response, "sb-refresh-token", path="/")

@@ -3045,9 +3045,19 @@ row as a pending revoke and alerts. Storage is in
 
 ## `POST /auth/logout`
 
-Clear Argus's mirrored cookies after the browser client has revoked its local
-or global Supabase session. This endpoint does not choose a revocation scope
-and must not be treated as a second session owner.
+Revoke the presented session through Supabase sign-out with `local` scope,
+then clear the mirrored access and refresh cookies. Other sessions are not
+revoked. A supplied Authorization header takes precedence over cookies and
+never falls back to browser refresh credentials. Browser requests resolve the
+refresh cookie with the provider before revocation. An absent or unusable refresh
+cookie falls back to the access cookie. Stale access-cookie claims do not block
+revocation of a valid refresh session. No renewed cookies are returned by logout.
+
+Cookie cleanup remains idempotent. The response below confirms cookie cleanup,
+including when credentials are absent, already revoked, or revocation fails.
+A failed revocation is logged without credentials and both cookies are still
+cleared. During a provider failure, a copied refresh token may remain usable.
+The browser client continues to clear its own stored session separately.
 
 An untrusted browser `Origin` returns the standard `403
 csrf_origin_rejected` problem response and does not clear cookies.
