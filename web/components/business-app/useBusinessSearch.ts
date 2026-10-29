@@ -13,6 +13,7 @@ import { formatDay } from "./business-format";
 import { useCategoryLabel } from "./business-ui";
 import type { BusinessPanelState } from "./BusinessWorkspace";
 import { copyText } from "./foundation/CopyButton";
+import { SEARCHABLE_LISTS, type SearchableList } from "./foundation/list-search";
 import { showToast } from "./foundation/toasts";
 import { useReceiptStateWord } from "./receipt-state-word";
 import { useSourceForwardAddress } from "./useForwardAddress";
@@ -50,8 +51,8 @@ export function useBusinessSearch({
   /** The export permission, as the server grants it; a member without it is not offered Exportar. */
   canExport: boolean;
   openExport: () => void;
-  /** The list on screen that lends its query (Bandeja, Registros): the search starts scoped to it. */
-  listScope?: { list: "inbox" | "transactions"; apply?: (query: string) => void } | null;
+  /** The list on screen that lends its query (Bandeja, Registros, a Facturación section): the search starts scoped to it. */
+  listScope?: { list: SearchableList; apply?: (query: string) => void } | null;
   adaptive?: boolean;
 }): WorkspaceSearch {
   const { t, i18n } = useTranslation();
@@ -102,18 +103,18 @@ export function useBusinessSearch({
         ],
       },
     ];
-    const place = listScope ? t(listScope.list === "inbox" ? "business.nav.inbox" : "business.nav.transactions") : "";
+    const scoped = listScope ? { ...SEARCHABLE_LISTS[listScope.list], apply: listScope.apply } : null;
+    const place = scoped ? t(scoped.place) : "";
     return {
       previewAvailable: true,
       adaptive,
-      // A list's scope keeps its own kinds and actions: Bandeja its documents and email, Registros its records.
-      scope: listScope ? {
+      scope: scoped ? {
         chip: t("business.search.scope_in", { place, defaultValue: "In {{place}}" }),
         clearLabel: t("business.search.scope_clear", "Search the whole business"),
-        groups: listScope.list === "inbox" ? ["receipts", "email_deliveries", "email_senders"] : ["expenses", "ventas", "captures"],
-        actions: listScope.list === "inbox" ? ["add", "copy_forward"] : ["add", "export"],
+        groups: scoped.groups,
+        actions: scoped.actions,
         filterLabel: (query: string) => t("business.search.filter_list", { place, query, defaultValue: "Filter {{place}} by “{{query}}”" }),
-        apply: listScope.apply,
+        apply: scoped.apply,
       } : undefined,
       shortcuts,
       recents: { key: "cuadrao:business_recent_searches:v1", scope, server: recentsServer },

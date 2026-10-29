@@ -5,7 +5,7 @@ import { Search, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { HeaderSearch } from "./HeaderSearch";
 import BusinessAddMenu from "../BusinessAddMenu";
-import { useListSearchLoan, type SearchableList } from "./list-search";
+import { SEARCHABLE_LISTS, useLendingList, useListSearchLoan } from "./list-search";
 import styles from "./business-header.module.css";
 import { HomeHeading } from "./HomeHeading";
 import { BUSINESS_CANVAS_MAX } from "./business-canvas";
@@ -45,7 +45,7 @@ export default function BusinessHeader({ home, name, business, title, screen, on
   // from the shell.
   const tools = (
     <div data-testid="business-bar-tools" className={styles.tools}>
-      {onSearch ? screen === "inbox" || screen === "transactions" ? <ScopedSearch list={screen} onOpen={onSearch} /> : <StableSearch onOpen={onSearch} /> : null}
+      {onSearch ? <ScopedSearch screen={screen} onOpen={onSearch} /> : null}
       {screen && screen !== "business" ? <BusinessAddMenu placement="header" /> : null}
     </div>
   );
@@ -87,15 +87,17 @@ function StableSearch({ onOpen, field, scoped = false }: { onOpen: () => void; f
 }
 
 /**
- * On a list (Bandeja, Registros) the bar's search button carries the list's scope, and the filter it applied:
- * "En Bandeja · colmado". It opens the one search window, scoped to that list and holding that filter; the × clears
- * the list's filter. A list that lends no query (a phone, or one not wired) keeps the plain button.
+ * On a list (Bandeja, Registros, a Facturación section) the bar's search button carries the list's scope, and the
+ * filter it applied: "En Bandeja · colmado". It opens the one search window, scoped to that list and holding that
+ * filter; the × clears the list's filter. A screen whose list lends no query (a phone, or no list) keeps the plain
+ * button.
  */
-function ScopedSearch({ list, onOpen }: { list: SearchableList; onOpen: (query?: string) => void }) {
+function ScopedSearch({ screen, onOpen }: { screen?: string; onOpen: (query?: string) => void }) {
   const { t } = useTranslation();
+  const list = useLendingList(screen);
   const loan = useListSearchLoan(list);
-  if (!loan) return <StableSearch onOpen={onOpen} />;
-  const place = list === "inbox" ? t("business.nav.inbox", "Inbox") : t("business.nav.transactions", "Records");
+  if (!list || !loan) return <StableSearch onOpen={onOpen} />;
+  const place = t(SEARCHABLE_LISTS[list].place);
   const scopeLabel = t("business.search.scoped_label", { place, defaultValue: "Search {{place}}" });
   const command = typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
   const field = (

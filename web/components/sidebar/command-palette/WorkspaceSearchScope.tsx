@@ -8,6 +8,8 @@ import type { WorkspaceSearch, WorkspaceSearchScope } from "@/components/chat/Ch
  * A workspace search that starts scoped to the list on screen (Business Bandeja, Registros). The scope keeps its
  * list's kinds of results and its actions, and no screens, since the list is where the person already is.
  * Removing the scope (its chip's ×, or Backspace in an empty field) searches everything for the rest of the visit.
+ * A scope that keeps no kinds of results (a Facturación section) has nothing to ask the server, so `searchesRecords`
+ * is false and the window runs no search: only the filter row and the scope's own actions show.
  */
 export function useWorkspaceSearchScope(search: WorkspaceSearch | null) {
   const [removed, setRemoved] = useState(false);
@@ -21,7 +23,8 @@ export function useWorkspaceSearchScope(search: WorkspaceSearch | null) {
       shortcuts: search.shortcuts.flatMap((group) => (group.id === "actions" ? [{ ...group, hits: group.hits.filter((hit) => actions.includes(hit.id)) }] : [])),
     };
   }, [search, scope]);
-  return { scope, scopedSearch, remove: () => setRemoved(true) };
+  const searchesRecords = !scope || scope.groups.length > 0;
+  return { scope, scopedSearch, searchesRecords, remove: () => setRemoved(true) };
 }
 
 /** In a scope, Backspace on an empty field removes it and Enter filters the list by the query, then closes. */

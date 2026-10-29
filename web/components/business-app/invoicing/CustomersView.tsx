@@ -5,6 +5,7 @@ import { Plus, Search, SlidersHorizontal } from "lucide-react";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { primaryButtonClass, quietButtonClass } from "../business-ui";
 import { ToolbarPicker } from "../transacciones/RecordsToolbar";
+import { useLendListSearch, useSearchInBar } from "../foundation/list-search";
 import { InvoiceDate, InvoiceMoney, useInvoiceWords } from "./InvoiceDocument";
 import { CustomerMark } from "./CustomerPicker";
 import { customerRecentActivity, matchesCustomer, type BusinessCustomer } from "./customer-preview-model";
@@ -20,15 +21,19 @@ export default function CustomersView({ customers, invoices, schedules, panelOpe
   const [status, setStatus] = useState<BusinessCustomer["status"]>("active");
   const [showCreated, setShowCreated] = useState(false);
   const search = useRef<HTMLInputElement>(null);
+  const searchInBar = useSearchInBar();
+  useLendListSearch("customers", searchInBar ? { query, setQuery } : null);
+  // With the search in the top bar, ⌘K is the bar's.
   useEffect(() => {
+    if (searchInBar) return;
     const focus = (event: KeyboardEvent) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k" && !panelOpen) { event.preventDefault(); event.stopImmediatePropagation(); search.current?.focus(); } };
     window.addEventListener("keydown", focus, true);
     return () => window.removeEventListener("keydown", focus, true);
-  }, [panelOpen]);
+  }, [panelOpen, searchInBar]);
   const rows = customers.filter(customer => customer.status === status && matchesCustomer(customer, query)).sort((a, b) => a.name.localeCompare(b.name, locale));
   return <div data-testid="customers-view">
     <div className={`${styles.toolbar} ${styles.customerToolbar}`}>
-      <label className={styles.search}><Search size={17} aria-hidden="true" /><input ref={search} type="search" aria-label={word("customers_search")} placeholder={word("customers_search")} value={query} onChange={event => setQuery(event.target.value)} /></label>
+      {searchInBar ? null : <label className={styles.search}><Search size={17} aria-hidden="true" /><input ref={search} type="search" aria-label={word("customers_search")} placeholder={word("customers_search")} value={query} onChange={event => setQuery(event.target.value)} /></label>}
       <SegmentedControl label={word("customers_status")} value={status} onChange={setStatus} segments={(["active", "archived"] as const).map(key => ({ key, label: word(`customers_${key}`), count: customers.filter(customer => customer.status === key).length }))} />
       <button className={`${primaryButtonClass} ${styles.create}`} disabled={panelOpen} onClick={onAdd}><Plus size={18} aria-hidden="true" />{word("customers_add")}</button>
       <ToolbarPicker label={word("settings")} value={word("settings")} icon={<SlidersHorizontal size={16} />} flip>{() => <label className={controlStyles.choice}><input type="checkbox" checked={showCreated} onChange={event => setShowCreated(event.target.checked)} /><span>{word("customers_created")}</span></label>}</ToolbarPicker>

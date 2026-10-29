@@ -6,6 +6,7 @@ import { currencySymbol } from "@/lib/money-entry";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { useBusiness } from "../BusinessWorkspace";
+import { useLendListSearch, useSearchInBar } from "../foundation/list-search";
 import { primaryButtonClass, quietButtonClass } from "../business-ui";
 import { periodRange, todayIso, type Period } from "../business-format";
 import { ToolbarPicker } from "../transacciones/RecordsToolbar";
@@ -61,14 +62,18 @@ function InvoiceWorkspace({ scope, business, variant }: { scope: string; busines
   const [density, setDensity] = useState<"compact" | "normal" | "comfortable">("normal");
   const [sort, setSort] = useState<"newest" | "oldest" | "customer">("newest");
   const search = useRef<HTMLInputElement>(null);
+  const searchInBar = useSearchInBar();
+  useLendListSearch("invoices", searchInBar && section === "invoices" && invoices.length > 0 ? { query, setQuery: next => { setQuery(next); setPage(1); } } : null);
   useEffect(() => { sessionInvoices.set(scope, { invoices, customers, schedules }); }, [scope, invoices, customers, schedules]);
+  // With the search in the top bar, ⌘K is the bar's.
   useEffect(() => {
+    if (searchInBar) return;
     const focusSearch = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k" && section === "invoices" && !editing && !selectedId && !customerPanel) { event.preventDefault(); event.stopImmediatePropagation(); search.current?.focus(); }
     };
     window.addEventListener("keydown", focusSearch, true);
     return () => window.removeEventListener("keydown", focusSearch, true);
-  }, [editing, selectedId, section, customerPanel]);
+  }, [editing, selectedId, section, customerPanel, searchInBar]);
   const choose = (value: InvoiceFilter) => { setFilter(value); setOverdueOnly(false); setPage(1); };
   const inPeriod = invoices.filter(invoice => period.key === "all" || (invoice.issuedOn >= period.from && (!period.to || invoice.issuedOn <= period.to)));
   const normalize = (value: string) => value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase(locale);
@@ -100,7 +105,7 @@ function InvoiceWorkspace({ scope, business, variant }: { scope: string; busines
     <div role="tabpanel" id="invoice-stage-results" aria-labelledby={`invoice-stage-${filter}`} tabIndex={0}>
     {invoices.length ? <>
     <div className={styles.toolbar}>
-      <label className={styles.search}><Search size={17} aria-hidden="true" /><input ref={search} type="search" value={query} placeholder={word("search")} aria-label={word("search")} onChange={event => { setQuery(event.target.value); setPage(1); }} /></label>
+      {searchInBar ? null : <label className={styles.search}><Search size={17} aria-hidden="true" /><input ref={search} type="search" value={query} placeholder={word("search")} aria-label={word("search")} onChange={event => { setQuery(event.target.value); setPage(1); }} /></label>}
       <RecordsDatePreview period={period} value={period} onChange={value => { setPeriod(value); setPage(1); }} />
       <ToolbarPicker label={word("filters")} value={word("filters")}>{close => <><p className={styles.pickerLabel}>{word("currency")}</p>{(["all", ...CURRENCIES] as const).map(value => <button key={value} className={styles.option} onClick={() => { setCurrency(value); setPage(1); close(); }}>{value === "all" ? word("all_currencies") : value}{currency === value ? <Check size={16} /> : null}</button>)}</>}</ToolbarPicker>
       <button className={`${primaryButtonClass} ${styles.create}`} aria-label={word("create")} onClick={create}><Plus size={18} /><span>{word("create")}</span></button>
