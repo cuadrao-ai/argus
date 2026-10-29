@@ -232,7 +232,7 @@ def test_baseline_configuration_change_does_not_hide_new_failures(tmp_path: Path
         )
 
 
-@pytest.mark.parametrize("key", ["CUADRAO_CHAT_MODEL", "ARGUS_RESEARCH_RAIL_ENABLED"])
+@pytest.mark.parametrize("key", ["CUADRAO_CHAT_MODEL", "CUADRAO_ACCOUNT_DELETION_ENABLED"])
 def test_scorecard_records_a_disagreeing_environment_without_substituting_contract(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, key: str
 ) -> None:
@@ -240,7 +240,8 @@ def test_scorecard_records_a_disagreeing_environment_without_substituting_contra
 
     for name, value in _configuration(_profile()).items():
         monkeypatch.setenv(name, value)
-    different = "wrong/model" if key.endswith("_MODEL") else "false"
+    expected = _configuration(_profile())[key]
+    different = "wrong/model" if key.endswith("_MODEL") else str(expected != "true").lower()
     monkeypatch.setenv(key, different)
     monkeypatch.setenv("ARGUS_MARKET_DATA_PROVIDER_MODE", "synthetic_unit_fixture")
     monkeypatch.setenv("ARGUS_ASSET_PROVIDER_MODE", "synthetic_unit_fixture")
