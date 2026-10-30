@@ -9,7 +9,9 @@
 #   any change outside docs/ can affect them.
 # run_marketing: marketing-checks. Marketing is its own package; outside
 #   marketing/ it reads only supabase/functions/ (tests/test_ci_job_selection.py
-#   proves that against the tree). Only those two paths select it.
+#   proves that against the tree). Those two paths select it, and so do
+#   .github/workflows/ci.yml (which defines the job and its pins) and this
+#   script (which selects it).
 #
 # Non-pull_request events and an empty file list run every job. Unknown paths
 #   run the heavy jobs, not marketing-checks.
@@ -39,12 +41,13 @@ is_docs_path() {
   [ "$path" = "docs" ] || [ "${path#docs/}" != "$path" ]
 }
 
-# marketing-checks reads only these paths. Everything else, including
-# .github/ and any new top-level path, skips it.
+# marketing-checks reads only marketing/ and supabase/functions/; ci.yml defines
+# the job and this script selects it. Everything else, including other .github/
+# paths and any new top-level path, skips it.
 selects_marketing() {
   local path="${1#./}"
   case "$path" in
-    marketing/*|supabase/functions/*) return 0 ;;
+    marketing/*|supabase/functions/*|.github/workflows/ci.yml|.github/docs-only-changes.sh) return 0 ;;
     *) return 1 ;;
   esac
 }

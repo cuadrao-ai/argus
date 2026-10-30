@@ -80,9 +80,9 @@ CASES = {
         EVERY,
     ),
     "supabase-config": (["supabase/config.toml"], HEAVY),
-    "ci-workflow": ([".github/workflows/ci.yml"], HEAVY),
+    "ci-workflow-defines-marketing-job": ([".github/workflows/ci.yml"], EVERY),
     "other-workflow": ([f".github/workflows/{FAKE.word()}.yml"], HEAVY),
-    "ci-helper-script": ([".github/docs-only-changes.sh"], HEAVY),
+    "selection-script-selects-marketing": ([".github/docs-only-changes.sh"], EVERY),
     "docs-only": ([f"docs/{FAKE.word()}.md", "docs/api/openapi.yaml"], DOCS),
     "native-only": ([f"ios/{FAKE.word()}.swift", f"mobile/android/{FAKE.word()}.kt"], HEAVY),
     "unknown-top-level": ([f"{FAKE.word()}-tool/config.yml"], HEAVY),
@@ -98,7 +98,8 @@ CASES = {
         EVERY,
     ),
     "docs-beside-marketing": ([f"docs/{FAKE.word()}.md", "marketing/app/page.tsx"], EVERY),
-    "docs-beside-workflow": ([f"docs/{FAKE.word()}.md", ".github/workflows/ci.yml"], HEAVY),
+    "docs-beside-workflow": ([f"docs/{FAKE.word()}.md", ".github/workflows/ci.yml"], EVERY),
+    "other-github-path": ([".github/CODEOWNERS", ".github/workflows/ci.yml.bak"], HEAVY),
     "marketing-prefix-lookalike": (["marketing-notes.md", "supabase/functions.md"], HEAVY),
 }
 
