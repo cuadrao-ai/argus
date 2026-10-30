@@ -3827,7 +3827,7 @@ or split proposals. `batch` holds typed observations, receipt itemization,
 projection issues and compatible canonical candidates. It may be null before
 preparation. `preparation_job` names the current preparation attempt (number,
 ID, the draft version it was dispatched for, dispatch time, when its provider
-call started, and a retry request) when `ARGUS_DOCUMENT_JOBS_ENABLED` is on.
+call started, and a retry request) when `CUADRAO_DOCUMENT_JOBS_ENABLED` (older `ARGUS_DOCUMENT_JOBS_ENABLED`) is on.
 Only that attempt may claim the draft. The provider-call time is committed
 under the attempt's live lease before the provider can be reached. The job is
 replaced together with the draft only while no lease is live. Legacy rows can have a batch without retained source; a duplicate
@@ -4203,3 +4203,30 @@ percent of them, added 14,778,368 bytes to the registry. Re-running the swap
 with the same load contents produces the same registry. Proven by
 `tests/test_dgii_rnc_postgres.py`. Migration
 `supabase/migrations/20261018190000_dgii_rnc_registry.sql`.
+
+## Tables without a detailed section
+
+These live tables exist in the migrations but have no section above yet. The migration is the schema.
+
+| Table | Area | Created in `supabase/migrations/` |
+| --- | --- | --- |
+| `checkpoint_migrations` | Chat runtime checkpointer | `20260608041032_secure_checkpoint_rls.sql:6` |
+| `checkpoints` | Chat runtime checkpointer | `20260608041032_secure_checkpoint_rls.sql:10` |
+| `checkpoint_blobs` | Chat runtime checkpointer | `20260608041032_secure_checkpoint_rls.sql:21` |
+| `checkpoint_writes` | Chat runtime checkpointer | `20260608041032_secure_checkpoint_rls.sql:31` |
+| `argus_memory_vectors` | Personalization memory recall index | `20260807120000_add_memory_semantic_recall_index.sql:9` |
+| `cuadrao_early_access_signups` | Marketing early-access signups | `20260920000000_cuadrao_early_access_signups.sql:21` |
+| `financial_expectations` | Connected plan | `20260929150000_connected_plan.sql:1` |
+| `financial_plan_selections` | Connected plan | `20260929150000_connected_plan.sql:9` |
+| `financial_plan_definition_revisions` | Shared household planning | `20261002000000_shared_household_planning.sql:4` |
+| `financial_plan_responsibilities` | Shared household planning | `20261002000000_shared_household_planning.sql:66` |
+| `household_plan_receipts` | Shared household planning | `20261002000000_shared_household_planning.sql:75` |
+| `financial_goal_allocation_revisions` | Shared household planning | `20261002000000_shared_household_planning.sql:158` |
+| `household_plan_archived_claims` | Shared household planning | `20261002000000_shared_household_planning.sql:185` |
+| `household_plan_archived_allocations` | Shared household planning | `20261002000000_shared_household_planning.sql:191` |
+| `household_plan_archived_activities` | Shared household planning | `20261002020000_shared_plan_retained_revision_scope.sql:16` |
+| `household_deletion_events` | Account deletion | `20261004090000_account_deletion.sql:310` |
+| `whatsapp_outbox` | Business WhatsApp worker | `20261011020000_business_whatsapp_worker.sql:75` |
+| `whatsapp_reply_groups` | Business WhatsApp replies | `20261016065035_whatsapp_reply_grouping.sql:4` |
+| `whatsapp_reply_days` | Business WhatsApp replies | `20261016065035_whatsapp_reply_grouping.sql:19` |
+| `whatsapp_reply_attempts` | Business WhatsApp replies | `20261016065035_whatsapp_reply_grouping.sql:30` |
