@@ -1,6 +1,6 @@
 export const designServerFieldsReception = {
   root: '[data-testid="reception-preview"]',
-  views: '[data-testid="bandeja-segments"]',
+  views: '[role="tablist"][aria-label="Vistas de Bandeja"]',
   tabs: {
     all: '#reception-tab-all',
     review: '#reception-tab-review',
