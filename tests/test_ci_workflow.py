@@ -803,6 +803,15 @@ def test_pull_request_heavy_jobs_use_the_shared_docs_change_gate() -> None:
         "${{ github.event.pull_request.base.sha }}"
     )
     assert "if" not in evidence_step
+    size_step = next(
+        step
+        for step in ownership_steps
+        if step.get("name") == "Reject new or changed files over 2 MB"
+    )
+    assert size_step["run"] == "python scripts/ci/check_file_size.py"
+    assert size_step["env"]["PR_BASE_SHA"] == (
+        "${{ github.event.pull_request.base.sha }}"
+    )
 
     heavy_if = (
         f"({_DRAFT_OR_PUSH} || {_FULL_RUN}) && "
