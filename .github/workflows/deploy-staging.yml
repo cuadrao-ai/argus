@@ -1,14 +1,16 @@
 name: Deploy staging
 
-# Path map. render.yaml gives cuadrao-web-staging rootDir web, so web/ deploys
-# that service. cuadrao-api-staging rootDir is . and its build is poetry install,
+# Path map. The live web service is cuadrao-app-staging. Its build root is web/,
+# from the blueprint service whose rootDir is web, so web/ deploys that service.
+# cuadrao-api-staging rootDir is . and its build is poetry install,
 # so pyproject.toml, poetry.lock, .python-version, src/, and
 # web/argus_display_contract/ deploy the API. That last path is the poetry
 # package included from web. supabase/migrations and supabase/config.toml follow
 # the backend paths ci.yml marks heavy. A root Dockerfile or requirements.txt
 # maps to the API because the build root is the repository. render.yaml has no
 # dockerfilePath. docs/ is docs-only in docs-only-changes.sh and deploys nothing.
-# marketing/ is out of scope. autoDeploy stays off.
+# marketing/ is out of scope, and so is the marketing staging service.
+# autoDeploy stays off.
 
 "on":
   workflow_dispatch:
@@ -128,7 +130,7 @@ jobs:
             printf '%s\n' "$service_id" > "$RUNNER_TEMP/${name}.id"
           done < "$RUNNER_TEMP/allowlist.txt"
           api_base="$(cat "$RUNNER_TEMP/cuadrao-api-staging.base")"
-          web_base="$(cat "$RUNNER_TEMP/cuadrao-web-staging.base")"
+          web_base="$(cat "$RUNNER_TEMP/cuadrao-app-staging.base")"
           older="$(API_BASE="$api_base" WEB_BASE="$web_base" \
             python3 scripts/ci/deploy_staging.py older-base)"
           {

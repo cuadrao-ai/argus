@@ -20,7 +20,12 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "ci" / "deploy_staging.py"
 WORKFLOW = ROOT / ".github" / "workflows" / "deploy-staging.yml"
 SKIP = "Nothing deployable changed since the comparison commit. Skipping deploy."
-PROD_NAMES = ("cuadrao-api", "cuadrao-web", "cuadrao-marketing")
+PROD_NAMES = (
+    "cuadrao-api",
+    "cuadrao-app",
+    "cuadrao-marketing",
+    "cuadrao-web",
+)
 FAKE = Faker()
 
 
@@ -156,11 +161,19 @@ def test_prod_service_names_are_rejected() -> None:
         assert result.returncode == 1, name
         assert name in result.stderr
         assert "cuadrao-api-staging" in result.stderr
-        assert "cuadrao-web-staging" in result.stderr
+        assert "cuadrao-app-staging" in result.stderr
+
+
+def test_marketing_staging_name_is_rejected() -> None:
+    result = run("allow-name", "--name", "cuadrao-marketing-staging")
+    assert result.returncode == 1
+    assert "cuadrao-marketing-staging" in result.stderr
+    assert "cuadrao-api-staging" in result.stderr
+    assert "cuadrao-app-staging" in result.stderr
 
 
 def test_staging_service_names_are_allowed() -> None:
-    for name in ("cuadrao-api-staging", "cuadrao-web-staging"):
+    for name in ("cuadrao-api-staging", "cuadrao-app-staging"):
         result = run("allow-name", "--name", name)
         assert result.returncode == 0, result.stderr
         assert result.stdout == ""
@@ -169,7 +182,7 @@ def test_staging_service_names_are_allowed() -> None:
 def test_web_only_change_selects_web() -> None:
     path = f"web/{FAKE.word()}/{FAKE.word()}.tsx"
     result = run("select-services", stdin=path + "\n")
-    assert selected(result) == ["cuadrao-web-staging"]
+    assert selected(result) == ["cuadrao-app-staging"]
 
 
 def test_backend_only_change_selects_api() -> None:
@@ -191,14 +204,16 @@ def test_force_all_selects_both_staging_services() -> None:
         stdin="docs/PRODUCT.md\n",
         env={"FORCE_ALL": "true"},
     )
-    assert selected(result) == ["cuadrao-api-staging", "cuadrao-web-staging"]
+    assert selected(result) == ["cuadrao-api-staging", "cuadrao-app-staging"]
 
 
 def test_path_rules_follow_render_build_and_poetry_packages() -> None:
     blueprint = yaml.safe_load((ROOT / "render.yaml").read_text(encoding="utf-8"))
     services = {item["name"]: item for item in blueprint["services"]}
     api = services["cuadrao-api-staging"]
-    web = services["cuadrao-web-staging"]
+    web_blocks = [item for item in blueprint["services"] if item.get("rootDir") == "web"]
+    assert len(web_blocks) == 1
+    web = web_blocks[0]
     assert api["rootDir"] == "."
     assert api["autoDeployTrigger"] == "off"
     assert "poetry install" in api["buildCommand"]
@@ -228,7 +243,7 @@ def test_path_rules_follow_render_build_and_poetry_packages() -> None:
         stdin="pyproject.toml\npoetry.lock\n.python-version\nDockerfile\nrequirements.txt\n",
     )
 
-    assert selected(shared) == ["cuadrao-api-staging", "cuadrao-web-staging"]
+    assert selected(shared) == ["cuadrao-api-staging", "cuadrao-app-staging"]
     assert selected(schema) == ["cuadrao-api-staging"]
     assert selected(config) == ["cuadrao-api-staging"]
     assert selected(edge) == []
@@ -260,7 +275,7 @@ def test_each_service_uses_its_own_diff(tmp_path: Path) -> None:
     )
 
     assert selected(untouched_web) == []
-    assert selected(both) == ["cuadrao-api-staging", "cuadrao-web-staging"]
+    assert selected(both) == ["cuadrao-api-staging", "cuadrao-app-staging"]
 
 
 def test_ci_success_allows_skipped_docs_checks(tmp_path: Path) -> None:
@@ -518,13 +533,13 @@ def test_summarize_deploy_hides_ids(tmp_path: Path) -> None:
     result = run(
         "summarize-deploy",
         "--name",
-        "cuadrao-web-staging",
+        "cuadrao-app-staging",
         "--response",
         str(response),
     )
 
     assert result.returncode == 0, result.stderr
-    assert "cuadrao-web-staging" in result.stdout
+    assert "cuadrao-app-staging" in result.stdout
     assert "srv-" not in result.stdout
     assert "dep-" not in result.stdout
 
@@ -546,8 +561,11 @@ def test_workflow_is_manual_and_least_privilege() -> None:
     }
     assert "secrets.RENDER_API_KEY" in text
     assert "RENDER_API_KEY is missing" in text
+    assert "cuadrao-app-staging" in text
+    assert "cuadrao-web-staging" not in text
     assert "cuadrao-marketing" not in text
     assert re.search(r"(?<![\w-])cuadrao-api(?!-staging)\b", text) is None
+    assert re.search(r"(?<![\w-])cuadrao-app(?!-staging)\b", text) is None
     assert re.search(r"(?<![\w-])cuadrao-web(?!-staging)\b", text) is None
     assert "uses:" not in text
     assert "set -x" not in text

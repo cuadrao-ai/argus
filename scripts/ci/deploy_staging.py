@@ -1,10 +1,11 @@
 """Decide which staging service a commit deploys.
 
-The path table matches render.yaml. cuadrao-web-staging builds web/. The API
-service builds the repository root with poetry, including the package under
-web/argus_display_contract. supabase/migrations and supabase/config.toml follow
-the backend paths the CI classifier treats as heavy. docs/ and marketing/
-deploy nothing.
+The live web service is cuadrao-app-staging. Its build root is web/, from the
+blueprint service whose rootDir is web. The API service builds the repository
+root with poetry, including the package under web/argus_display_contract.
+supabase/migrations and supabase/config.toml follow the backend paths the CI
+classifier treats as heavy. docs/ deploy nothing. The marketing staging
+service stays out of this deploy.
 """
 
 from __future__ import annotations
@@ -21,8 +22,17 @@ from pathlib import Path
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 SERVICE_ID_RE = re.compile(r"^srv-[A-Za-z0-9]+$")
 API_SERVICE = "cuadrao-api-staging"
-WEB_SERVICE = "cuadrao-web-staging"
+WEB_SERVICE = "cuadrao-app-staging"
 ALLOWED = (API_SERVICE, WEB_SERVICE)
+REJECTED = frozenset(
+    {
+        "cuadrao-api",
+        "cuadrao-app",
+        "cuadrao-marketing",
+        "cuadrao-web",
+        "cuadrao-marketing-staging",
+    }
+)
 SKIP_LINE = "Nothing deployable changed since the comparison commit. Skipping deploy."
 CI_CHECK = "ci"
 
@@ -97,7 +107,7 @@ def select_services(
 
 
 def allow_name(name: str) -> str:
-    if name not in ALLOWED:
+    if name in REJECTED or name not in ALLOWED:
         raise DeployError(
             f"Refusing service {name}. Staging deploy allows only "
             f"{API_SERVICE} and {WEB_SERVICE}."

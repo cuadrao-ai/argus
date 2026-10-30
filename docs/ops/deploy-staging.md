@@ -1,6 +1,6 @@
 # Deploy staging
 
-Deploy one green commit to the staging API service, the staging web service, or both. The workflow is [Deploy staging](../../.github/workflows/deploy-staging.yml).
+Deploy one green commit to `cuadrao-api-staging`, `cuadrao-app-staging`, or both. The workflow is [Deploy staging](../../.github/workflows/deploy-staging.yml). `cuadrao-marketing-staging` stays out of this workflow.
 
 1. Open Actions, choose Deploy staging, and run it from `codex/private-alpha-next`.
 2. Leave the commit empty to deploy that ref. Or paste a full 40-character SHA that is already on `codex/private-alpha-next` and whose `ci` check succeeded.
