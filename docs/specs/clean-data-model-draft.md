@@ -274,11 +274,19 @@ Every step is a new migration. No applied migration is edited. James applies to 
 10. Change money foreign keys from `cascade` to `restrict` per the #1446 answer. Two-way in data, but it changes deletion behavior. Staging proof first with the deletion census.
 11. Revoke the `authenticated` grant on `business_consent_acceptances` after the API serves it. Two-way.
 12. Detach backtest foreign keys from kept tables (D7). **One-way.** Staging proof first.
-13. Drop guest policies and columns (D8). **One-way** for columns.
+13. Delete remaining anonymous auth users (D13), after the guest drain and with hosted anonymous sign-in off. **One-way, Lucas decides through Yelena.** Staging proof first. This must come before step 15 (see Guest removal safety, R5).
 14. Drop the backtest set (D9), idea spine (D10) and context packets (D11). **One-way.** Staging proof first.
-15. Drop the guest set (D12) and anonymous auth users (D13). **One-way.** Staging proof first.
+15. Drop guest policies and columns (D8), then the guest set (D12). **One-way, Lucas decides through Yelena.** Staging proof first. Run only after step 13 shows zero anonymous users. If step 15 must run first, the same migration replaces each dropped `*_guest_session_active` policy with one restrictive not-anonymous policy per kept table, so no window opens.
 16. Drop leftover tables (`private_alpha_allowlist`, welcome deliveries and claims, checkpoint bookkeeping) after their readers go. **One-way.** Each needs its own decision.
 17. Run the hard-gate tests and real-Postgres matrix on the final schema (D14).
+
+### Guest removal safety
+
+From the October 30 guest-removal security triage (`/workspace/scan-triage/guest-removal-security-2026-10-30.md`, tip `8c3869f`). File and line references re-checked on this branch.
+
+- **R1 (High). Keep a permanent anonymous refusal in `current_user`.** Anonymous tokens take the guest branch at `src/argus/api/dependencies.py:561-591`. If that branch is deleted, an anonymous token falls through to `permanent_account_access_allowed` (`src/argus/api/guest_access.py:48-54`). With public account access on in production, that check allows an empty email, and the request gets a registered context. The guest branch is replaced, not deleted. It refuses `is_anonymous` with a 401, permanently. The `is_anonymous` predicates in Business, recording, household and transfer SQL stay as the backstop.
+- **R2 (Medium). Do not delete the compute ceiling file blindly.** `check_guest_compute_ceiling` is the only path to the registered per-user daily ceiling (`src/argus/api/chat/guest_compute_ceiling.py:117-126`), called from `src/argus/api/routers/agent.py:416` and `:419`. Keep it, or call `check_registered_compute_ceiling` directly at every call site in the same change. Never remove it without a replacement.
+- **R4 and R5 (Medium). Order of anonymous users versus guest policies.** The kill switch stops only new guest sessions. Live guests keep working until their workspace expires. The restrictive `*_guest_session_active` policies (`supabase/migrations/20260724101324_add_guest_workspaces.sql:238-300`) are what refuse an anonymous token at the data API after expiry. So anonymous users are deleted (D13) before those policies and tables go (D8, D12), or the dropping migration adds a not-anonymous restrictive policy in the same transaction. Section 4 steps 13 and 15 follow this order. Both are one-way and go to Lucas through Yelena.
 
 Steps 6 to 11 can land before 12 to 16 because they touch only Business tables. The pilot gate needs steps 1 to 11. Steps 12 to 16 remove bloat but do not change what a pilot Business writes.
 
@@ -292,7 +300,7 @@ Steps 6 to 11 can land before 12 to 16 because they touch only Business tables. 
 | D10 (inferred) | Drop the idea spine. | Drop, after confirming no shown receipt or calculation reads `evidence_artifacts` (public excerpts read it today). |
 | D11 (inferred) | Drop the context-packet tables. Keep `route_receipts`. | Drop. Document extraction still writes `route_receipts`, so it stays. |
 | D12 (inferred) | Drop the guest tables. | Drop after the drain empties them. |
-| D13 (inferred) | Delete remaining anonymous auth users in production. | Delete, after D12, with a count shown first. |
+| D13 (inferred) | Delete remaining anonymous auth users in production. | Delete before D8 and D12 (R5), after the drain and with anonymous sign-in off, with a count shown first. |
 | #1446 Q1 | Cascade versus purge against "never lose money records". | Money rows never cascade. A closed Business keeps its money records for the legal period, then the purge job removes them with a run record. The legal period needs a lawyer's number. |
 | #1446 Q2 | The consent table. | One generation table for all consent kinds. Old tables stay read-only as evidence. Nobody is opted in by migration. |
 | D-M1 (new) | Typed entries as a new table or as generated columns on import events. | Generated columns and indexes on `financial_import_events` first. It is smaller and keeps one writer. Move to a table only if the review flow needs it. |
