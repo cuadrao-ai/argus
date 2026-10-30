@@ -990,7 +990,7 @@
   max-width: 370px;
 }
 .formArea {
-  padding: 32px;
+  padding: 32px 32px 8px;
   background: #f0f2ea;
   border: 1px solid #e0e5da;
   border-radius: 8px;
@@ -1076,8 +1076,32 @@
 .phoneErrorSlot { display: grid; margin: -10px 0 18px; }
 .formFields .phoneError { grid-area: 1 / 1; margin: 0; font-size: 13px; color: #973b2d; }
 .choices input[aria-invalid="true"] { border-color: #a44030; }
-.pilotRow { display: flex; align-items: center; min-height: 44px; gap: 10px; margin-bottom: 20px; font-size: 14px; cursor: pointer; }
-.pilotRow input { width: 18px; height: 18px; margin: 0; accent-color: var(--ink); }
+.pilotRow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  gap: 10px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.pilotRow::before {
+  content: "";
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  left: -13px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.pilotRow input {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--ink);
+}
 .fieldRow { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); column-gap: 16px; }
 .field .fieldHint { font-size: 13px; line-height: 1.5; color: #5a685b; font-style: italic; margin: -2px 0 8px; }
 .field textarea + .fieldHint { margin: 6px 0 0; }
@@ -1091,8 +1115,21 @@
   margin-top: 20px !important;
 }
 .formPrivacy a {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 12px 8px;
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+.site[data-page="contact"] :is(a, button, input, textarea, summary):focus-visible,
+.site[data-page="contact"] .choice input:focus-visible + span,
+.formPrivacy a:focus-visible,
+.pilotRow input:focus-visible {
+  outline: 2px solid var(--cta-rest);
+  outline-offset: 2px;
 }
 .formFailure {
   font-size: 14px;
