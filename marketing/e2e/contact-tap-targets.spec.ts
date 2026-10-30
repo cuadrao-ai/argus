@@ -149,6 +149,7 @@ test.describe("contact form tap targets", () => {
     for (let index = 0; index < count; index += 1) {
       const link = links.nth(index);
       if (!(await link.isVisible())) continue;
+      if (await link.evaluate((node) => node.closest("footer") !== null)) continue;
       await link.evaluate((node: HTMLElement) => node.focus({ focusVisible: true }));
       await expect(link).toHaveCSS("outline-width", "2px");
       await expect(link).toHaveCSS("outline-style", "solid");
@@ -191,15 +192,61 @@ test.describe("contact form tap targets", () => {
       }
       expect(measured.length).toBeGreaterThan(0);
       console.log(measured.join("\n"));
-      const anchors = page.locator("footer nav a");
+      const anchors = page.locator("footer a");
       const count = await anchors.count();
+      expect(count).toBeGreaterThanOrEqual(13);
       for (let index = 0; index < count; index += 1) {
         const link = anchors.nth(index);
         await link.evaluate((node: HTMLElement) => node.focus({ focusVisible: true }));
         await expect(link).toHaveCSS("outline-width", "2px");
         await expect(link).toHaveCSS("outline-style", "solid");
-        await expect(link).toHaveCSS("outline-color", "rgb(47, 90, 73)");
+        await expect(link).toHaveCSS("outline-color", "rgb(247, 245, 238)");
+        await expect(link).toHaveCSS("outline-offset", "2px");
+        const clipped = await link.evaluate((node) => {
+          const style = getComputedStyle(node);
+          const rect = node.getBoundingClientRect();
+          const reach = Number.parseFloat(style.outlineOffset) + Number.parseFloat(style.outlineWidth);
+          const ring = {
+            top: rect.top - reach,
+            right: rect.right + reach,
+            bottom: rect.bottom + reach,
+            left: rect.left - reach,
+          };
+          let parent = node.parentElement;
+          while (parent) {
+            const parentStyle = getComputedStyle(parent);
+            const clips = parentStyle.overflowX !== "visible" || parentStyle.overflowY !== "visible";
+            if (clips) {
+              const bounds = parent.getBoundingClientRect();
+              if (ring.top < bounds.top - 0.5 || ring.right > bounds.right + 0.5 || ring.bottom > bounds.bottom + 0.5 || ring.left < bounds.left - 0.5) {
+                return true;
+              }
+            }
+            parent = parent.parentElement;
+          }
+          return false;
+        });
+        expect(clipped).toBe(false);
       }
     }
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const privacy = page.locator("#contact-privacy a");
+    await privacy.evaluate((node: HTMLElement) => node.focus({ focusVisible: true }));
+    await expect(privacy).toHaveCSS("outline-width", "2px");
+    await expect(privacy).toHaveCSS("outline-offset", "2px");
+    await expect(privacy).toHaveCSS("outline-color", "rgb(47, 90, 73)");
+
+    await page.goto("/");
+    const home = page.locator("header a").first();
+    await home.evaluate((node: HTMLElement) => node.focus({ focusVisible: true }));
+    await expect(home).toHaveCSS("outline-width", "3px");
+    await expect(home).toHaveCSS("outline-offset", "5px");
+    await expect(home).toHaveCSS("outline-color", "rgb(119, 141, 57)");
+    const homeFooter = page.locator("footer a").first();
+    await homeFooter.evaluate((node: HTMLElement) => node.focus({ focusVisible: true }));
+    await expect(homeFooter).toHaveCSS("outline-width", "3px");
+    await expect(homeFooter).toHaveCSS("outline-offset", "5px");
+    await expect(homeFooter).toHaveCSS("outline-color", "rgb(119, 141, 57)");
   });
 });

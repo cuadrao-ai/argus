@@ -1131,6 +1131,10 @@
   outline: 2px solid var(--cta-rest);
   outline-offset: 2px;
 }
+.site[data-page="contact"] footer a:focus-visible {
+  outline: 2px solid #f7f5ee;
+  outline-offset: 2px;
+}
 .formFailure {
   font-size: 14px;
   line-height: 1.45;
