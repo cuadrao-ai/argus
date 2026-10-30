@@ -3,7 +3,7 @@
   "writes": [
     {
       "service": "argus-backtests",
-      "key": "ARGUS_READOUT_MODEL",
+      "key": "CUADRAO_READOUT_MODEL",
       "value": "openai/gpt-5.6-luna",
       "method": "PUT",
       "http_status": 200,
@@ -12,7 +12,7 @@
     },
     {
       "service": "argus-backtests",
-      "key": "ARGUS_READOUT_FALLBACK_MODEL",
+      "key": "CUADRAO_READOUT_FALLBACK_MODEL",
       "value": "openai/gpt-5.6-luna",
       "method": "PUT",
       "http_status": 200,
@@ -21,7 +21,7 @@
     },
     {
       "service": "argus-api",
-      "key": "ARGUS_READOUT_MODEL",
+      "key": "CUADRAO_READOUT_MODEL",
       "value": "openai/gpt-5.6-luna",
       "method": "PUT",
       "http_status": 200,
@@ -30,7 +30,7 @@
     },
     {
       "service": "argus-api",
-      "key": "ARGUS_READOUT_FALLBACK_MODEL",
+      "key": "CUADRAO_READOUT_FALLBACK_MODEL",
       "value": "openai/gpt-5.6-luna",
       "method": "PUT",
       "http_status": 200,

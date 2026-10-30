@@ -114,8 +114,8 @@ def test_login_route_returns_captcha_unavailable_instead_of_a_wrong_password(
 ) -> None:
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
-    monkeypatch.delenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", raising=False)
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
+    monkeypatch.delenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", raising=False)
     gateway = MagicMock()
     gateway.private_alpha_email_allowed.return_value = True
     gateway.private_alpha_email_disabled.return_value = False

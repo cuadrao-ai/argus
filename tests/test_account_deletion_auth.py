@@ -44,7 +44,7 @@ class _Request:
 
 @pytest.fixture
 def wired(monkeypatch):  # noqa: ANN001, ANN201
-    monkeypatch.delenv("ARGUS_MOCK_AUTH", raising=False)
+    monkeypatch.delenv("CUADRAO_MOCK_AUTH", raising=False)
     monkeypatch.delenv("NEXT_PUBLIC_MOCK_AUTH", raising=False)
     monkeypatch.setenv("SUPABASE_JWT_SECRET", SECRET)
     monkeypatch.setattr(api_state, "DATABASE_URL", "postgresql://x@db/argus")

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-auth-generation";
-import { ARGUS_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
+import { CUADRAO_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
 import { getChosenGrant } from "./business-grant";
 import type { IdentityAppearance, IdentityCrop } from "./identity-appearance";
 
@@ -24,7 +24,7 @@ export async function businessSettingsRequest<T>(path: string, options: RequestI
   const headers = argusApiRequestHeaders(options.headers, auth, path);
   if (scope.grant) headers.set("X-Business-Grant", scope.grant);
   else headers.delete("X-Business-Grant");
-  const response = await fetch(`${ARGUS_API_BASE_URL}${path}`, { ...options, headers, credentials: "include", cache: "no-store" });
+  const response = await fetch(`${CUADRAO_API_BASE_URL}${path}`, { ...options, headers, credentials: "include", cache: "no-store" });
   check();
   const text = await response.text();
   const body = text ? JSON.parse(text) : undefined;

@@ -126,7 +126,7 @@ financial_record_revisions
 financial_account_idempotency
 ```
 
-Default-off, registered-only (`ARGUS_HOUSEHOLDS_ENABLED`):
+Default-off, registered-only (`CUADRAO_HOUSEHOLDS_ENABLED`):
 ```text
 households
 household_members
@@ -134,7 +134,7 @@ household_invitations
 household_account_grants
 ```
 
-Default-off, registered-only (`ARGUS_BETA_INVITES_ENABLED`; household
+Default-off, registered-only (`CUADRAO_BETA_INVITES_ENABLED`; household
 invitations also write the record):
 ```text
 beta_invitations
@@ -470,7 +470,7 @@ and login; it should not be exposed as a frontend product surface.
   pre-created Auth user, or password-setup flow.
 - Add a new private-alpha user with only an `email`; set `role` only for
   `admin` or `developer` access. Use `disabled_at` to revoke access.
-- `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` decides what this table denies, and
+- `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` decides what this table denies, and
   it has been open in production since 2026-08-12. Only a row with `disabled_at`
   set is denied now; a missing email is admitted. When that flag is off instead,
   a missing email is denied too.
@@ -1592,7 +1592,7 @@ Cost model notes:
 A public evidence receipt: an immutable, sanitized snapshot of one or more
 eligible answers selected from one conversation, created by a registered owner
 and revocable by that owner. This extends the existing receipt table behind the
-default-off `ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED` flag.
+default-off `CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED` flag.
 
 The pipeline is `owned assistant messages -> PublicExcerptSnapshot ->
 PublicExcerptView`. Backtest messages resolve their canonical EvidenceArtifact
@@ -2057,7 +2057,7 @@ Archived accounts retain their money in this projection.
 
 The landed `20261001090000_household_membership.sql` is extended by
 `20261001120000_household_consent_recovery.sql`, behind default-off
-`ARGUS_HOUSEHOLDS_ENABLED`. These remain the only Household membership tables.
+`CUADRAO_HOUSEHOLDS_ENABLED`. These remain the only Household membership tables.
 Financial ownership stays `financial_accounts.user_id`; no share changes
 `space_id`, financial ownership, or the Personal owner-only RLS policies.
 
@@ -2079,7 +2079,7 @@ The short typed code is not stored on this table: its keyed digest lives in
 `argus_private.invite_code_digests` (migration
 `20261003150100_invite_code_digests_private.sql`, #789) holds one row per typed
 code: `digest` (primary key, `v2.<key id>.<HMAC-SHA-256 hex>` under
-`ARGUS_INVITE_CODE_SECRET`, enforced by a check), exactly one of
+`CUADRAO_INVITE_CODE_SECRET`, enforced by a check), exactly one of
 `household_invitation_id` or `beta_invitation_id` (unique, cascading), `created_at`
 and `rehashed_at` (set when a code found under the previous secret moves to the
 current one). The schema is unreachable for anon and authenticated; the table has
@@ -2460,7 +2460,7 @@ subject on `research_searches`.
   the visitor digest and one unit against `session:<guest user id>` in the
   same transaction, at turn start. The guest hits whichever daily ceiling
   is lower. The visitor ceiling is 300. The session ceiling defaults to 100
-  (`ARGUS_GUEST_SESSION_DAILY_TURN_CEILING`) so one workspace cannot reset
+  (`CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING`) so one workspace cannot reset
   the cap by changing IP. A claim that is admitted stands if the turn later
   errors; there is no release. A claim RPC error is not treated as
   exhaustion; the guest sees a short retry, not the daily-cap 429.
@@ -2473,7 +2473,7 @@ subject on `research_searches`.
 ### Signed-in compute policy
 - A signed-in account's ordinary chat turns claim one
   `account_compute_turns` unit against `user:<account id>` at turn start.
-  The daily ceiling defaults to 200 (`ARGUS_REGISTERED_DAILY_TURN_CEILING`).
+  The daily ceiling defaults to 200 (`CUADRAO_REGISTERED_DAILY_TURN_CEILING`).
   A claim that is admitted stands if the turn later errors; there is no
   release. A claim RPC error is not treated as exhaustion; the user sees a
   short retry, not the daily-cap 429. Migration
@@ -2567,7 +2567,7 @@ conversation recovery is exposed in the current product.
 Used specifically for **conversations** to hide them from the primary sidebar without deleting the data.
 
 ### Account deletion (Lane 6)
-`POST /account/delete`, behind the default-off `ARGUS_ACCOUNT_DELETION_ENABLED`,
+`POST /account/delete`, behind the default-off `CUADRAO_ACCOUNT_DELETION_ENABLED`,
 runs one deletion command for registered and guest accounts. The
 [account deletion census](specs/lanes/account-deletion-fk-census.md) owns what
 happens to each table. Rows other people still rely on, such as the person's
@@ -3278,7 +3278,7 @@ asset commands until an accepted response or explicit failure resolution.
 `public.apple_sign_in_credentials`
 (`supabase/migrations/20261003150000_apple_sign_in_credentials.sql`) holds one
 row per person who signed in with Apple while
-`ARGUS_APPLE_REVOCATION_CAPTURE_ENABLED` was on: `user_id` (primary key, the
+`CUADRAO_APPLE_REVOCATION_CAPTURE_ENABLED` was on: `user_id` (primary key, the
 verified session's user), `client_id` (the Apple client the token was issued
 to, the bundle id for the native app), `secret_ciphertext` (Apple's refresh
 token sealed with AES-256-GCM under `ARGUS_INGESTION_SECRET_KEY`, bound to

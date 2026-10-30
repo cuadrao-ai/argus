@@ -21,10 +21,10 @@ from api_matrix import (
 
 _AUTH_ENV_VARS = (
     "NEXT_PUBLIC_MOCK_AUTH",
-    "ARGUS_MOCK_AUTH",
-    "ARGUS_GUEST_ACCESS_ENABLED",
+    "CUADRAO_MOCK_AUTH",
+    "CUADRAO_GUEST_ACCESS_ENABLED",
     "NEXT_PUBLIC_GUEST_ACCESS_ENABLED",
-    "ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED",
+    "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED",
     "ARGUS_ENABLE_PERSONALIZATION_MEMORY",
     # Hermeticity: the default classifier must see no key so it skips, never
     # calls the network, and the assessor fails closed unless a test injects

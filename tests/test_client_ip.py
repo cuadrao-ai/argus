@@ -108,7 +108,7 @@ def test_configured_header_is_the_only_trusted_read(monkeypatch) -> None:
 
 
 def _hosted_env(monkeypatch) -> None:
-    monkeypatch.setenv("ARGUS_PERSISTENCE_MODE", "supabase")
+    monkeypatch.setenv("CUADRAO_PERSISTENCE_MODE", "supabase")
     monkeypatch.setenv("ARGUS_DEV_MEMORY_FALLBACK", "false")
     reset_trusted_header_fallback_warning_for_tests()
 
@@ -152,7 +152,7 @@ def test_hosted_invalid_trusted_header_warns_separately_and_throttles(
 
 
 def test_local_dev_fallback_does_not_warn(monkeypatch) -> None:
-    monkeypatch.setenv("ARGUS_PERSISTENCE_MODE", "memory")
+    monkeypatch.setenv("CUADRAO_PERSISTENCE_MODE", "memory")
     monkeypatch.setenv("ARGUS_DEV_MEMORY_FALLBACK", "true")
     reset_trusted_header_fallback_warning_for_tests()
     request = _request(headers={"X-Forwarded-For": "198.51.100.1"})

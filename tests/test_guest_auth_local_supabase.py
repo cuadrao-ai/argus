@@ -189,11 +189,11 @@ def test_real_anonymous_identity_survives_reload(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     gateway = _gateway()
 
     user_id: str | None = None
@@ -241,11 +241,11 @@ def test_real_guest_terminal_message_settles_visitor_day_window(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     gateway = _gateway()
     user_id: str | None = None
     try:
@@ -378,11 +378,11 @@ def test_guest_run_through_real_flag_off_tool_corridor_settles_simulation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     monkeypatch.setenv("ARGUS_DEV_MEMORY_FALLBACK", "false")
     monkeypatch.setenv("ARGUS_MARKET_DATA_PROVIDER_MODE", "synthetic_unit_fixture")
     monkeypatch.setenv("ARGUS_BACKTEST_JOBS_SHADOW_ENABLED", "false")
@@ -567,11 +567,11 @@ def test_expired_real_anonymous_session_renews_with_fresh_identity(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     gateway = _gateway()
     expired_user_id: str | None = None
     renewed_user_id: str | None = None
@@ -740,9 +740,9 @@ def test_signup_taken_username_creates_no_auth_user_or_profile(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     gateway = _gateway()
     suffix = secrets.token_hex(6)
     existing_email = f"username-owner-{suffix}@example.test"
@@ -867,9 +867,9 @@ def test_concurrent_same_username_signup_calls_auth_only_for_winner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     gateway = _gateway()
     suffix = secrets.token_hex(6)
     first_email = f"username-race-first-{suffix}@example.test"
@@ -961,11 +961,11 @@ def test_signup_creates_profile_before_first_login_claims_pending_handoff(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     gateway = _gateway()
     email = f"first-login-claim-{secrets.token_hex(6)}@example.test"
     password = f"FirstLogin-{secrets.token_urlsafe(18)}"
@@ -1095,11 +1095,11 @@ def test_existing_account_claim_preserves_same_conversation_and_deletes_source_o
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     gateway = _gateway()
     email = f"block3-claim-{secrets.token_hex(6)}@example.test"
     password = f"Block3-{secrets.token_urlsafe(18)}"

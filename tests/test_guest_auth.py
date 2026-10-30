@@ -51,9 +51,9 @@ def _workspace(profile: User) -> GuestWorkspace:
 def _guest_auth_environment(monkeypatch: pytest.MonkeyPatch):
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
-    monkeypatch.delenv("ARGUS_GUEST_ACCESS_ENABLED", raising=False)
-    monkeypatch.delenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", raising=False)
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
+    monkeypatch.delenv("CUADRAO_GUEST_ACCESS_ENABLED", raising=False)
+    monkeypatch.delenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", raising=False)
     monkeypatch.delenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", raising=False)
 
 
@@ -83,7 +83,7 @@ def gateway() -> MagicMock:
 
 
 def _enable_guest(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
 
 
@@ -91,7 +91,7 @@ def test_guest_flag_off_creates_no_anonymous_auth_user(
     gateway,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "false")
     with (
         patch.object(api_state, "supabase_gateway", gateway),
         TestClient(app) as client,
@@ -114,7 +114,7 @@ def test_guest_flag_off_drains_an_existing_verified_guest_session(
     gateway,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "false")
     gateway.get_auth_user_from_token.return_value = (
         gateway.sign_in_anonymously.return_value["user"]
     )
@@ -492,7 +492,7 @@ def test_public_account_mode_allows_unlisted_signup_without_role_elevation(
     gateway,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
     gateway.private_alpha_email_disabled.return_value = False
     gateway.signup.return_value = {"user": {"id": "ordinary-user"}, "session": None}
     with (
@@ -519,7 +519,7 @@ def test_public_account_mode_still_blocks_explicitly_disabled_identity(
     gateway,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
     gateway.private_alpha_email_disabled.return_value = True
     with (
         patch.object(api_state, "supabase_gateway", gateway),

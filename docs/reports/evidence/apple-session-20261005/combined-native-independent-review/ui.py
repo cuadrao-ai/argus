@@ -40,7 +40,7 @@ try:
   response=httpx.post(cfg['SUPABASE_URL']+'/auth/v1/admin/users',headers=headers,json={'email':email,'password':password,'email_confirm':True})
   assert response.status_code==200
   users.append({'id':response.json()['id'],'email':email,'password':password})
- env={**os.environ,**cfg,'PYTHONPATH':str(base/'src')+':'+str(base/'web'),'ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED':'true','ARGUS_MOCK_AUTH':'false','NEXT_PUBLIC_MOCK_AUTH':'false','ARGUS_DEV_MEMORY_FALLBACK':'false'}
+ env={**os.environ,**cfg,'PYTHONPATH':str(base/'src')+':'+str(base/'web'),'CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED':'true','CUADRAO_MOCK_AUTH':'false','NEXT_PUBLIC_MOCK_AUTH':'false','ARGUS_DEV_MEMORY_FALLBACK':'false'}
  api_log=open(root/'ui-api.log','w')
  api=subprocess.Popen(['/private/tmp/cuadrao-scipy-env-20261005/bin/python','-m','uvicorn','argus.api.main:app','--host','127.0.0.1','--port','60341'],cwd=base,env=env,stdout=api_log,stderr=api_log)
  print('OWN_API_PID',api.pid,flush=True);wait('http://127.0.0.1:60341/health')

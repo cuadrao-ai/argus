@@ -324,7 +324,7 @@ def _prepare_event(world, provider, monkeypatch, kind):  # noqa: ANN001
     pool, space, people, _, _ = world
     _confirm(pool, people["owner"])
     with monkeypatch.context() as preparation:
-        preparation.delenv("ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD")
+        preparation.delenv("CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD")
         close(world)
         if kind == "purge_reminder":
             _age(pool, space.id, 23)

@@ -1,7 +1,7 @@
 import XCTest
 
 /// An accepted deletion (202) shows "Eliminación en curso" once; the next launch is the signed-out entry, not that screen.
-/// Needs the isolated stack with `ARGUS_ACCOUNT_DELETION_ENABLED` on and an identity it may delete.
+/// Needs the isolated stack with `CUADRAO_ACCOUNT_DELETION_ENABLED` on and an identity it may delete.
 extension FinancialLoopUITests {
     func testAcceptedDeletionRelaunchesSignedOut() throws {
         try signIn()

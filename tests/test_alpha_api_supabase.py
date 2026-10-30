@@ -915,7 +915,7 @@ def test_me_usage_openapi_contract_publishes_operation_classes():
 
 def test_me_usage_requires_authentication(mock_gateway, monkeypatch):
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
 
     response = client.get("/api/v1/me/usage")
 
@@ -1349,7 +1349,7 @@ def test_guest_run_backtest_supabase_persists_guest_traffic_class(
     mock_gateway.get_active_guest_workspace.return_value = workspace
     mock_gateway.client = object()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     monkeypatch.setattr(
         backtest_router,
         "visitor_within_limits",
@@ -1830,7 +1830,7 @@ def test_unauthorized_missing_token(mock_gateway):
     import os
 
     os.environ["NEXT_PUBLIC_MOCK_AUTH"] = "false"
-    os.environ["ARGUS_MOCK_AUTH"] = "false"
+    os.environ["CUADRAO_MOCK_AUTH"] = "false"
 
     response = client.get("/api/v1/me")
     assert response.status_code == 401
@@ -1840,7 +1840,7 @@ def test_unauthorized_invalid_token(mock_gateway):
     import os
 
     os.environ["NEXT_PUBLIC_MOCK_AUTH"] = "false"
-    os.environ["ARGUS_MOCK_AUTH"] = "false"
+    os.environ["CUADRAO_MOCK_AUTH"] = "false"
     mock_gateway.get_auth_user_from_token.side_effect = Exception("Invalid token")
 
     response = client.get("/api/v1/me", headers={"Authorization": "Bearer invalid-token"})
@@ -1849,7 +1849,7 @@ def test_unauthorized_invalid_token(mock_gateway):
 
 def test_unauthorized_revoked_supabase_session(mock_gateway, monkeypatch):
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     monkeypatch.setattr(api_state, "DATABASE_URL", "postgresql://auth-pool/argus")
     mock_gateway.get_auth_user_from_token.return_value = {
         "id": "00000000-0000-0000-0000-000000000001",
@@ -1879,7 +1879,7 @@ def test_auth_session_verification_failure_fails_closed(mock_gateway, monkeypatc
     from argus.api.auth_sessions import AuthSessionVerificationUnavailable
 
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     monkeypatch.setattr(api_state, "DATABASE_URL", "postgresql://auth-pool/argus")
     mock_gateway.get_auth_user_from_token.return_value = {
         "id": "00000000-0000-0000-0000-000000000001",
@@ -1904,7 +1904,7 @@ def test_profile_creation_on_first_login(mock_gateway):
     import os
 
     os.environ["NEXT_PUBLIC_MOCK_AUTH"] = "false"
-    os.environ["ARGUS_MOCK_AUTH"] = "false"
+    os.environ["CUADRAO_MOCK_AUTH"] = "false"
     mock_gateway.get_auth_user_from_token.return_value = {
         "id": "00000000-0000-0000-0000-000000000001",
         "email": "developer@argus.local",
@@ -1929,7 +1929,7 @@ def test_authenticated_request_blocks_private_alpha_email_without_access(mock_ga
     import os
 
     os.environ["NEXT_PUBLIC_MOCK_AUTH"] = "false"
-    os.environ["ARGUS_MOCK_AUTH"] = "false"
+    os.environ["CUADRAO_MOCK_AUTH"] = "false"
     mock_gateway.get_auth_user_from_token.return_value = {
         "id": "user-1",
         "email": "disabled@example.com",
@@ -2187,7 +2187,7 @@ def test_signup_allows_email_on_private_alpha_allowlist(mock_gateway, monkeypatc
 
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = True
     mock_gateway.signup.return_value = {
         "session": {
@@ -2228,7 +2228,7 @@ def test_signup_duplicate_obfuscated_user_does_not_emit_product_event(
 
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     captured_events: list[tuple[str, dict[str, object]]] = []
 
     def fake_capture_product_event(kind: str, **payload: object) -> None:
@@ -2271,7 +2271,7 @@ def test_signup_keeps_obfuscated_duplicate_indistinguishable_without_profile(
 
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = True
     fresh_provider_response = {
         "session": None,
@@ -2341,7 +2341,7 @@ def test_signup_retry_does_not_reveal_profile_creation_through_username(
 
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = True
     mock_gateway.signup.side_effect = [
         {
@@ -2417,7 +2417,7 @@ def test_signup_normalizes_taken_username_before_creating_auth_user_or_profile(
 
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = True
     with patch(
         "argus.api.routers.auth.serialized_username_signup",
@@ -2453,7 +2453,7 @@ def test_signup_normalizes_taken_username_before_creating_auth_user_or_profile(
 
 def test_signup_passes_selected_language_to_gateway(mock_gateway, monkeypatch):
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = True
     mock_gateway.signup.return_value = {"user": {"id": "user-1"}}
 
@@ -2485,7 +2485,7 @@ def test_signup_rejects_unsupported_language_before_provider_signup(
     monkeypatch,
 ):
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
 
     response = client.post(
         "/api/v1/auth/signup",
@@ -2509,7 +2509,7 @@ def test_password_auth_requires_captcha_before_provider_call(
     monkeypatch,
 ):
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = True
 
     response = client.post(
@@ -2529,7 +2529,7 @@ def test_password_auth_bounds_captcha_before_provider_call(
     monkeypatch,
 ):
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = True
 
     response = client.post(
@@ -2554,7 +2554,7 @@ def test_public_signup_allowlist_denial_matches_provider_failure(
 
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = False
     headers = {"X-Request-Id": "signup-enumeration-regression"}
 
@@ -2617,7 +2617,7 @@ def test_public_signup_allowlist_denial_matches_taken_username_precheck(
 
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     headers = {"X-Request-Id": "signup-username-enumeration-regression"}
     mock_gateway.private_alpha_email_allowed.return_value = False
 
@@ -2666,7 +2666,7 @@ def test_login_normalizes_private_alpha_access_failures(
     monkeypatch,
 ):
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = False
 
     response = client.post(
@@ -2692,7 +2692,7 @@ def test_login_normalizes_private_alpha_access_failures(
 
 def test_login_normalizes_provider_auth_failures(mock_gateway, monkeypatch):
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = True
     mock_gateway.login.side_effect = RuntimeError("invalid provider password")
 
@@ -2723,7 +2723,7 @@ def test_login_rate_limit_blocks_extra_attempt_before_provider(
 
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = True
     mock_gateway.login.side_effect = RuntimeError("invalid provider password")
     headers = {"CF-Connecting-IP": "203.0.113.10"}
@@ -2764,7 +2764,7 @@ def test_signup_rate_limit_blocks_extra_attempt_before_allowlist_check(
 
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = False
     headers = {"CF-Connecting-IP": "203.0.113.11"}
 

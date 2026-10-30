@@ -67,7 +67,7 @@ the app when its callback scheme is missing.
 - After Apple sign-in, the app sends Apple's one-time authorization code to
   `POST /api/v1/auth/apple/authorization-code` so account deletion can revoke the
   Apple tokens (Guideline 5.1.1(v)). The server keeps capture off unless
-  `ARGUS_APPLE_REVOCATION_CAPTURE_ENABLED` is set; sign-in never depends on it.
+  `CUADRAO_APPLE_REVOCATION_CAPTURE_ENABLED` is set; sign-in never depends on it.
 
 ### Provider setup
 
@@ -79,8 +79,8 @@ placeholder), `<ref>` the Supabase project ref and `<web>` the web origin.
   - **N:** Identifiers → `<bundle-id>` → enable Sign in with Apple.
   - **N:** Keys → new key with Sign in with Apple for `<bundle-id>`. Download the
     `.p8` once and note the Key ID and Team ID. These go to the API environment
-    (`ARGUS_APPLE_TEAM_ID`, `ARGUS_APPLE_SIGN_IN_KEY_ID`,
-    `ARGUS_APPLE_SIGN_IN_PRIVATE_KEY`, `ARGUS_APPLE_BUNDLE_ID=<bundle-id>`) for
+    (`CUADRAO_APPLE_TEAM_ID`, `CUADRAO_APPLE_SIGN_IN_KEY_ID`,
+    `CUADRAO_APPLE_SIGN_IN_PRIVATE_KEY`, `CUADRAO_APPLE_BUNDLE_ID=<bundle-id>`) for
     token revocation, never to the app.
   - **W:** Services ID (for example `<bundle-id>.web`) with Sign in with Apple:
     domain `<ref>.supabase.co`, return URL `https://<ref>.supabase.co/auth/v1/callback`.

@@ -48,7 +48,7 @@ import { attributionBody } from "./landing-intent";
 import { resultReadoutContentFromMetadata, type ResultReadoutContent } from "./result-readout-content";
 import { resultReadoutFacts } from "./result-readout-facts";
 import {
-  ARGUS_API_BASE_URL,
+  CUADRAO_API_BASE_URL,
   apiFetch,
   unauthenticatedApiFetch,
 } from "./argus-api-transport";
@@ -982,7 +982,7 @@ export async function streamChatMessage(
   const authHeaders = await authenticatedRequestHeaders(options.expectedUserId);
   options.signal?.throwIfAborted();
 
-  const response = await fetch(`${ARGUS_API_BASE_URL}/chat/stream`, {
+  const response = await fetch(`${CUADRAO_API_BASE_URL}/chat/stream`, {
     method: "POST",
     credentials: options.expectedUserId === undefined ? "include" : "omit",
     signal: options.signal,

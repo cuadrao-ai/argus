@@ -237,7 +237,7 @@ defers a Pro decision until that changes.
 
 ## Approval SMTP secret
 
-`ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD` is present on the live `argus-api` Render
+`CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD` is present on the live `argus-api` Render
 service. The value was copied from the locally resolved Resend credential only
 after verifying that interpolation produced an actual `re_...` credential, not
 the literal `${RESEND_API_KEY}` reference. A redacted Render control-plane

@@ -1278,21 +1278,21 @@ Use explicit, config-driven names so implementation agents do not invent a new
 contract:
 
 - `PERPLEXITY_API_KEY`: secret backend key, already expected in local env.
-- `NEXT_PUBLIC_EVIDENCE_SEARCH_ENABLED=false`: frontend gate for the composer
+- `[removed obsolete setting]=false`: frontend gate for the composer
   `Search` control.
-- `ARGUS_EVIDENCE_SEARCH_ENABLED=false`: backend gate for evidence-search
+- `[removed obsolete setting]=false`: backend gate for evidence-search
   execution.
-- `ARGUS_EVIDENCE_SEARCH_TIMEOUT_SECONDS=25`: first-pass chat-turn timeout.
-- `ARGUS_EVIDENCE_SEARCH_CONTEXT_SIZE=low`: default web-search context size for
+- `[removed obsolete setting]=25`: first-pass chat-turn timeout.
+- `[removed obsolete setting]=low`: default web-search context size for
   light evidence.
-- `ARGUS_EVIDENCE_SEARCH_MAX_OUTPUT_TOKENS=1200`: bound answer/candidate
+- `[removed obsolete setting]=1200`: bound answer/candidate
   verbosity.
-- `ARGUS_EVIDENCE_SEARCH_MAX_CANDIDATES=3`: never show more than three
+- `[removed obsolete setting]=3`: never show more than three
   candidate chips in v1.
-- `ARGUS_EVIDENCE_SEARCH_MODELS=openai/gpt-5.4-nano,google/gemini-3.1-flash-lite,perplexity/sonar,nvidia/nemotron-3-super-120b-a12b,xai/grok-4.3`:
+- `[removed obsolete setting]=openai/gpt-5.4-nano,google/gemini-3.1-flash-lite,perplexity/sonar,nvidia/nemotron-3-super-120b-a12b,xai/grok-4.3`:
   ordered Perplexity Agent API model fallback chain.
-- `ARGUS_EVIDENCE_SEARCH_HOURLY_LIMIT=5` and
-  `ARGUS_EVIDENCE_SEARCH_DAILY_LIMIT=20`: initial private-alpha per-user
+- `[removed obsolete setting]=5` and
+  `[removed obsolete setting]=20`: initial private-alpha per-user
   limits.
 
 These defaults are intentionally modest. If Search latency or reasoning quality

@@ -46,10 +46,10 @@ GOOGLE_SIGN_IN_WEB_CLIENT_ID =
 GOOGLE_SIGN_IN_IOS_URL_SCHEME = argus-google-sign-in-unconfigured
 // Read /invites/access after sign-in: the beta gate and the Invitations row. While off the
 // app sends no invites request and the signed-in shell mounts at once.
-ARGUS_BETA_INVITES_ENABLED = false
+CUADRAO_BETA_INVITES_ENABLED = false
 // Handle invitation links of either shape. Stays off until cuadrao.ai serves the AASA file
 // and the app has the Associated Domains entitlement for it.
-ARGUS_INVITE_UNIVERSAL_LINK_ENABLED = false
+CUADRAO_INVITE_UNIVERSAL_LINK_ENABLED = false
 // Optional ignored overrides for local development; never put secrets here.
 #include? "Local.xcconfig"
 // Opt-in device overrides belong to the approved local signing setup.

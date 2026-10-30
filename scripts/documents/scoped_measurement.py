@@ -548,7 +548,7 @@ def _surface() -> dict:
 def _profile() -> dict:
     profile = OPENROUTER_PROFILES["document_extraction"]
     raw_timeout = os.getenv(
-        "ARGUS_OPENROUTER_DOCUMENT_EXTRACTION_TIMEOUT_SECONDS", ""
+        "CUADRAO_OPENROUTER_DOCUMENT_EXTRACTION_TIMEOUT_SECONDS", ""
     ).strip()
     timeout = profile.timeout_seconds
     if raw_timeout:

@@ -20,14 +20,14 @@
   "proposed_workflow_requests": [
     {
       "method": "PUT",
-      "url": "https://api.render.com/v1/services/wfl-d8hpsmuq1p3s73duv3q0/env-vars/ARGUS_READOUT_MODEL",
+      "url": "https://api.render.com/v1/services/wfl-d8hpsmuq1p3s73duv3q0/env-vars/CUADRAO_READOUT_MODEL",
       "body": {
         "value": "openai/gpt-5.6-luna"
       }
     },
     {
       "method": "PUT",
-      "url": "https://api.render.com/v1/services/wfl-d8hpsmuq1p3s73duv3q0/env-vars/ARGUS_READOUT_FALLBACK_MODEL",
+      "url": "https://api.render.com/v1/services/wfl-d8hpsmuq1p3s73duv3q0/env-vars/CUADRAO_READOUT_FALLBACK_MODEL",
       "body": {
         "value": "openai/gpt-5.6-luna"
       }

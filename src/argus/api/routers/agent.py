@@ -162,7 +162,7 @@ RuntimeEventTimeoutError = TurnRuntimeEventTimeoutError
 
 def _runtime_event_timeout_seconds() -> float:
     return _positive_float_env(
-        "ARGUS_RUNTIME_EVENT_TIMEOUT_SECONDS",
+        "CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS",
         RUNTIME_EVENT_TIMEOUT_SECONDS,
         min_value=1.0,
     )
@@ -173,7 +173,7 @@ def _runtime_event_keepalive_seconds() -> float:
     return min(
         timeout_seconds,
         _positive_float_env(
-            "ARGUS_RUNTIME_EVENT_KEEPALIVE_SECONDS",
+            "CUADRAO_RUNTIME_EVENT_KEEPALIVE_SECONDS",
             RUNTIME_EVENT_KEEPALIVE_SECONDS,
             min_value=0.1,
         ),

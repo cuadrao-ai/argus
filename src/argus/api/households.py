@@ -1,6 +1,6 @@
 """Exposure gate for household membership and account grants.
 
-Default-off behind ``ARGUS_HOUSEHOLDS_ENABLED``. While off, or when durable mode
+Default-off behind ``CUADRAO_HOUSEHOLDS_ENABLED``. While off, or when durable mode
 has no database, routes answer 404 so the surface does not exist. Guests are
 refused after authentication. Household sharing requires financial accounts in
 memory mode so grants can resolve owned accounts.
@@ -21,8 +21,8 @@ from argus.api.schemas import User
 from argus.domain.household.errors import HouseholdError
 from argus.domain.household.service import HouseholdService
 
-FLAG = "ARGUS_HOUSEHOLDS_ENABLED"
-INVITES_FLAG = "ARGUS_BETA_INVITES_ENABLED"
+FLAG = "CUADRAO_HOUSEHOLDS_ENABLED"
+INVITES_FLAG = "CUADRAO_BETA_INVITES_ENABLED"
 TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 
 _service: HouseholdService | None = None
@@ -83,7 +83,7 @@ def _code_secret_ready(surface: str) -> bool:
     if reason is None:
         return True
     logger.error(
-        "{} stay off: invite code secret unusable ({}). Set ARGUS_INVITE_CODE_SECRET.",
+        "{} stay off: invite code secret unusable ({}). Set CUADRAO_INVITE_CODE_SECRET.",
         surface,
         reason,
     )

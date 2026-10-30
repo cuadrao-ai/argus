@@ -13,7 +13,7 @@ from faker import Faker
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB_ROOT = ROOT / "web"
-SUPPORT_EMAIL_ENV = "NEXT_PUBLIC_ARGUS_SUPPORT_EMAIL"
+SUPPORT_EMAIL_ENV = "NEXT_PUBLIC_CUADRAO_SUPPORT_EMAIL"
 WEB_OWNER = "web/lib/support-email.ts"
 CODE_SUFFIXES = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs")
 fake = Faker()

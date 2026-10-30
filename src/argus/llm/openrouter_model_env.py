@@ -7,22 +7,39 @@ SONNET_5_5_MODEL = "anthropic/claude-sonnet-5.5"
 # so this module stays import-cycle-free.
 TIER_PRIMARY_ENV: dict[str, tuple[str, ...]] = {
     "vision": ("CUADRAO_VISION_MODEL", "ARGUS_VISION_MODEL"),
-    "utility": ("ARGUS_UTILITY_MODEL",),
-    "chat": ("ARGUS_CHAT_MODEL",),
-    "structured": ("ARGUS_STRUCTURED_MODEL",),
-    "context": ("ARGUS_CONTEXT_MODEL",),
-    "readout": ("ARGUS_READOUT_MODEL",),
+    "utility": ("CUADRAO_UTILITY_MODEL",),
+    "chat": ("CUADRAO_CHAT_MODEL",),
+    "structured": ("CUADRAO_STRUCTURED_MODEL",),
+    "context": ("CUADRAO_CONTEXT_MODEL",),
+    "readout": ("CUADRAO_READOUT_MODEL",),
 }
 
 TIER_FALLBACK_ENV: dict[str, tuple[str, ...]] = {
     "vision": (),
-    "utility": ("ARGUS_UTILITY_FALLBACK_MODEL",),
-    "chat": ("ARGUS_CHAT_FALLBACK_MODEL",),
-    "structured": ("ARGUS_STRUCTURED_FALLBACK_MODEL",),
-    "context": ("ARGUS_CONTEXT_FALLBACK_MODEL",),
-    "readout": ("ARGUS_READOUT_FALLBACK_MODEL",),
+    "utility": ("CUADRAO_UTILITY_FALLBACK_MODEL",),
+    "chat": ("CUADRAO_CHAT_FALLBACK_MODEL",),
+    "structured": ("CUADRAO_STRUCTURED_FALLBACK_MODEL",),
+    "context": ("CUADRAO_CONTEXT_FALLBACK_MODEL",),
+    "readout": ("CUADRAO_READOUT_FALLBACK_MODEL",),
 }
 
+
+CANONICAL_TIMEOUT_TASKS = frozenset(
+    {
+        "asset_mention_preflight",
+        "capability_conflict",
+        "chat_composer",
+        "clarification",
+        "document_extraction",
+        "field_fidelity",
+        "interpretation",
+        "interpretation_repair",
+        "knowledge_route",
+        "knowledge_voicing",
+        "name_suggestion",
+        "result_summary",
+    }
+)
 
 _TEMPERATURE_UNSUPPORTED_MODELS = frozenset(
     {

@@ -114,8 +114,8 @@ remain unchanged under the fixed compatibility list.
   - real workflow task verified:
 - Feature flags:
 - Guest staged mode:
-  - `ARGUS_GUEST_ACCESS_ENABLED`:
-  - `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED`:
+  - `CUADRAO_GUEST_ACCESS_ENABLED`:
+  - `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED`:
   - `NEXT_PUBLIC_GUEST_ACCESS_ENABLED`:
   - permanent account allowlist verified:
 - Anonymous Auth / abuse controls:

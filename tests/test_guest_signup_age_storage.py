@@ -57,11 +57,11 @@ def _workspace() -> GuestWorkspace:
 @pytest.fixture(autouse=True)
 def _guest_signup_environment(monkeypatch: pytest.MonkeyPatch):
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
-    monkeypatch.delenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", raising=False)
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
+    monkeypatch.delenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", raising=False)
     yield
     auth_router.reset_auth_attempt_limiter_for_tests()
 

@@ -40,11 +40,11 @@ async def test_q2_slow_sync_lookup_answers_before_runtime_turn_deadline(
     fallback_remaining: list[float] = []
     admission = _Turn()
     deadline_seconds = 4.0
-    monkeypatch.setenv("ARGUS_TURN_DEADLINE_SECONDS", str(deadline_seconds))
-    monkeypatch.delenv("ARGUS_TURN_CALL_ALLOWANCE", raising=False)
+    monkeypatch.setenv("CUADRAO_TURN_DEADLINE_SECONDS", str(deadline_seconds))
+    monkeypatch.delenv("CUADRAO_TURN_CALL_ALLOWANCE", raising=False)
     monkeypatch.setenv("OPENROUTER_API_KEY", "stub")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "structured/primary")
-    monkeypatch.setenv("ARGUS_STRUCTURED_FALLBACK_MODEL", "structured/fallback")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "structured/primary")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_FALLBACK_MODEL", "structured/fallback")
     interpreter_posts: list[tuple[str, str, bool]] = []
 
     class SlowProvider:
@@ -263,7 +263,7 @@ async def test_research_attempts_share_remaining_budget_and_preserve_answer_time
 ) -> None:
     now = [0.0]
     monkeypatch.setattr(turn_execution, "_monotonic", lambda: now[0])
-    monkeypatch.setenv("ARGUS_TURN_DEADLINE_SECONDS", "180")
+    monkeypatch.setenv("CUADRAO_TURN_DEADLINE_SECONDS", "180")
     received: list[float] = []
     answer_timeout = openrouter_task_timeout_seconds("knowledge_voicing")
 
@@ -293,7 +293,7 @@ async def test_expired_research_budget_releases_an_unused_claim(
 
     now = [0.0]
     monkeypatch.setattr(turn_execution, "_monotonic", lambda: now[0])
-    monkeypatch.setenv("ARGUS_TURN_DEADLINE_SECONDS", "180")
+    monkeypatch.setenv("CUADRAO_TURN_DEADLINE_SECONDS", "180")
     admission = _Turn()
     calls: list[str] = []
 

@@ -16,8 +16,7 @@ class Result(BaseModel):
 def configured(monkeypatch):
     monkeypatch.setenv("APP_ENV", "test")
     monkeypatch.setenv("OPENROUTER_API_KEY", "synthetic-test-key")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "openai/test-primary")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL_FALLBACK", "openai/test-fallback")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "openai/test-primary")
     monkeypatch.setattr(openrouter, "resolve_openrouter_api_key", lambda: "synthetic-test-key")
 
 

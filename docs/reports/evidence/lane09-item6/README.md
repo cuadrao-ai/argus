@@ -199,7 +199,7 @@ The owning upload lane Eval must recheck the shared `openIntake` method.
 From `web/`, the reproduction and repaired run used this same command:
 
 ```sh
-env -i PATH=/opt/homebrew/bin:/usr/bin:/bin HOME=/Users/garces NEXT_PUBLIC_MOCK_AUTH=true NEXT_PUBLIC_ENABLE_SPANISH=true NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true NEXT_PUBLIC_CUADRAO_BUSINESS_PILOT_ENABLED=true NEXT_PUBLIC_ARGUS_API_URL=http://localhost:3197/api/v1 NEXT_PUBLIC_SUPABASE_URL=http://localhost:3197 NEXT_PUBLIC_SUPABASE_ANON_KEY=synthetic PLAYWRIGHT_PORT=3197 NEXT_DIST_DIR=.next-upload-repair /opt/homebrew/bin/bunx playwright test e2e/business-receipt-upload-recovery.spec.ts
+env -i PATH=/opt/homebrew/bin:/usr/bin:/bin HOME=/Users/garces NEXT_PUBLIC_MOCK_AUTH=true NEXT_PUBLIC_ENABLE_SPANISH=true NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true NEXT_PUBLIC_ARGUS_API_URL=http://localhost:3197/api/v1 NEXT_PUBLIC_SUPABASE_URL=http://localhost:3197 NEXT_PUBLIC_SUPABASE_ANON_KEY=synthetic PLAYWRIGHT_PORT=3197 NEXT_DIST_DIR=.next-upload-repair /opt/homebrew/bin/bunx playwright test e2e/business-receipt-upload-recovery.spec.ts
 ```
 
 Before the repair, `2 failed`. After the repair, `2 passed (3.3s)`.

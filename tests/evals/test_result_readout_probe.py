@@ -173,8 +173,8 @@ def probe_request(monkeypatch, provider_rates):
         openrouter_key_policy, "resolve_openrouter_api_key", lambda: "test-only"
     )
     monkeypatch.setattr(credentials, "perplexity_api_key", lambda: "test-only")
-    monkeypatch.setenv("ARGUS_READOUT_MODEL", RESULT_BREAKDOWN_MODEL)
-    monkeypatch.setenv("ARGUS_READOUT_FALLBACK_MODEL", RESULT_BREAKDOWN_MODEL)
+    monkeypatch.setenv("CUADRAO_READOUT_MODEL", RESULT_BREAKDOWN_MODEL)
+    monkeypatch.setenv("CUADRAO_READOUT_FALLBACK_MODEL", RESULT_BREAKDOWN_MODEL)
     for rate in provider_rates.values():
         rate["model"] = RESULT_BREAKDOWN_MODEL
     case = load_fixture_set(

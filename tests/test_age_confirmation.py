@@ -83,8 +83,8 @@ def test_signup_routes_never_return_age_confirmation_required(
     from argus.domain.store import utcnow
 
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     gateway = MagicMock()
     gateway.private_alpha_email_disabled.return_value = False
     gateway.signup.return_value = {
@@ -165,7 +165,7 @@ def test_guest_bootstrap_does_not_accept_age_confirmation(monkeypatch):
 
     gateway = MagicMock()
     gateway.sign_in_anonymously.side_effect = RuntimeError("stop after the call")
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     with (
         patch.object(api_state, "supabase_gateway", gateway),
         patch.object(auth_router, "current_user", side_effect=HTTPException(401)),
@@ -248,8 +248,8 @@ def test_direct_signup_initializes_a_legacy_null_attestation_from_the_validated_
     from argus.domain.store import utcnow
 
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     gateway = MagicMock()
     gateway.private_alpha_email_disabled.return_value = False
     gateway.signup.return_value = {

@@ -1,7 +1,7 @@
 # Evidence receipts: browser evidence
 
 Captured at lane head against a **production build** with
-`ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED=true` and
+`CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED=true` and
 `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED=true`, on a local memory-mode backend
 with no provider keys. Phone width first, then desktop.
 

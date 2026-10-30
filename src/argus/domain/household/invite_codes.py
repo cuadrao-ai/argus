@@ -40,8 +40,8 @@ TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _CONFUSABLE = str.maketrans({"O": "0", "I": "1", "L": "1", "U": "V"})
 
 # Read by InviteCodeSecretSettings (env_prefix + field name).
-CODE_SECRET_ENV = "ARGUS_INVITE_CODE_SECRET"
-CODE_SECRET_PREVIOUS_ENV = "ARGUS_INVITE_CODE_SECRET_PREVIOUS"
+CODE_SECRET_ENV = "CUADRAO_INVITE_CODE_SECRET"
+CODE_SECRET_PREVIOUS_ENV = "CUADRAO_INVITE_CODE_SECRET_PREVIOUS"
 MIN_SECRET_LENGTH = 32
 # A placeholder like "a" * 32 or "changeme" repeated is refused. This is a
 # floor against obvious mistakes, not a strength proof: generate the secret
@@ -53,9 +53,9 @@ DIGEST_VERSION = "v2"
 DIGEST_PATTERN = re.compile(r"^v2\.[0-9a-f]{8}\.[0-9a-f]{64}$")
 # Flags that turn on a surface which makes or looks up codes.
 CODE_FLAGS = (
-    "ARGUS_HOUSEHOLDS_ENABLED",
-    "ARGUS_BETA_INVITES_ENABLED",
-    "ARGUS_BETA_INVITE_GATE_ENABLED",
+    "CUADRAO_HOUSEHOLDS_ENABLED",
+    "CUADRAO_BETA_INVITES_ENABLED",
+    "CUADRAO_BETA_INVITE_GATE_ENABLED",
 )
 
 
@@ -76,14 +76,14 @@ def format_code(code: str) -> str:
 
 
 class InviteCodeSecretSettings(BaseSettings):
-    """``ARGUS_INVITE_CODE_SECRET`` and ``ARGUS_INVITE_CODE_SECRET_PREVIOUS``.
+    """``CUADRAO_INVITE_CODE_SECRET`` and ``CUADRAO_INVITE_CODE_SECRET_PREVIOUS``.
 
     Read fresh on each call (like the surface flags), never from a file, and
     kept as ``SecretStr`` so a repr or log line cannot show a value. Length
     and presence are checked by ``CodeHasher.from_secrets``, which fails closed.
     """
 
-    model_config = SettingsConfigDict(env_prefix="ARGUS_INVITE_CODE_", extra="ignore")
+    model_config = SettingsConfigDict(env_prefix="CUADRAO_INVITE_CODE_", extra="ignore")
     secret: SecretStr | None = None
     secret_previous: SecretStr | None = None
 
@@ -201,11 +201,11 @@ class InviteSettings:
     @classmethod
     def from_env(cls) -> InviteSettings:
         return cls(
-            universal_link_enabled=_flag("ARGUS_INVITE_UNIVERSAL_LINK_ENABLED"),
-            gate_enabled=_flag("ARGUS_BETA_INVITE_GATE_ENABLED"),
-            waitlist_url=_text("ARGUS_WAITLIST_URL"),
-            testflight_url=_text("ARGUS_TESTFLIGHT_PUBLIC_URL"),
-            founder_user_id=_text("ARGUS_INVITE_FOUNDER_USER_ID"),
+            universal_link_enabled=_flag("CUADRAO_INVITE_UNIVERSAL_LINK_ENABLED"),
+            gate_enabled=_flag("CUADRAO_BETA_INVITE_GATE_ENABLED"),
+            waitlist_url=_text("CUADRAO_WAITLIST_URL"),
+            testflight_url=_text("CUADRAO_TESTFLIGHT_PUBLIC_URL"),
+            founder_user_id=_text("CUADRAO_INVITE_FOUNDER_USER_ID"),
         )
 
     def is_founder(self, user_id: str | None) -> bool:

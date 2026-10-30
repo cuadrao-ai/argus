@@ -72,7 +72,7 @@ _GUEST_SESSION_DAILY_TURN_CEILING_DEFAULT = 100
 # Honest heavy users can hit it. Env-overridable without a deploy.
 _REGISTERED_DAILY_TURN_CEILING_DEFAULT = 200
 _REGISTERED_DAILY_RESEARCH_CEILING_DEFAULT = 15
-REGISTERED_DAILY_TURN_CEILING_ENV = "ARGUS_REGISTERED_DAILY_TURN_CEILING"
+REGISTERED_DAILY_TURN_CEILING_ENV = "CUADRAO_REGISTERED_DAILY_TURN_CEILING"
 REGISTERED_DAILY_RESEARCH_CEILING_ENV = "ARGUS_REGISTERED_DAILY_RESEARCH_CEILING"
 # One user-facing refusal for every compute ceiling. Guest and signed-in
 # 429s raise this exact detail so the copy cannot drift.
@@ -131,7 +131,7 @@ def _warn_invalid_positive_int_env(name: str, raw: str, default: int) -> None:
 
 def guest_session_daily_turn_ceiling() -> int:
     return positive_int_env(
-        "ARGUS_GUEST_SESSION_DAILY_TURN_CEILING",
+        "CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING",
         _GUEST_SESSION_DAILY_TURN_CEILING_DEFAULT,
     )
 

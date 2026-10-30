@@ -274,7 +274,7 @@ def test_openai_structured_wire_retains_exact_local_validation(
             return respond(kwargs["json"])
 
     monkeypatch.setenv("OPENROUTER_API_KEY", "mock-key")
-    monkeypatch.setenv("ARGUS_STRUCTURED_FALLBACK_MODEL", "")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_FALLBACK_MODEL", "")
     monkeypatch.setattr(openrouter.httpx, "Client", Client)
     monkeypatch.setattr(openrouter.httpx, "AsyncClient", AsyncClient)
     openrouter.clear_openrouter_route_receipts()

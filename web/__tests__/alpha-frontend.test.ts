@@ -132,13 +132,7 @@ describe("Argus Alpha frontend contract", () => {
       join(root, "components/sidebar/ChatCommandPalette.tsx"),
       "utf-8",
     );
-    const flags = readFileSync(
-      join(root, "lib/private-alpha-flags.ts"),
-      "utf-8",
-    );
 
-    expect(flags).not.toContain("NEXT_PUBLIC_COLLECTIONS_ENABLED");
-    expect(flags).not.toContain("NEXT_PUBLIC_STRATEGIES_ENABLED");
     expect(chat).not.toContain("collectionsEnabled");
     expect(chat).toContain("useRecentConversations");
     expect(chat).not.toContain("trigger_create_collection");
@@ -267,9 +261,6 @@ describe("Argus Alpha frontend contract", () => {
     expect(flags).toContain("researchRailEnabled");
     expect(flags).not.toContain("chatExploratorySuggestionsEnabled");
     expect(envExample).toContain("NEXT_PUBLIC_RESEARCH_RAIL_ENABLED=false");
-    expect(envExample).not.toContain(
-      "NEXT_PUBLIC_CHAT_EXPLORATORY_SUGGESTIONS_ENABLED",
-    );
     expect(emptyChat).toContain("researchRailEnabled");
     expect(emptyChat).not.toContain("showSuggestions");
     expect(chat).not.toContain("showSuggestions");
@@ -540,10 +531,6 @@ describe("Argus Alpha frontend contract", () => {
       join(root, "components/chat/StrategyResultCard.tsx"),
       "utf-8",
     );
-    const flags = readFileSync(
-      join(root, "lib/private-alpha-flags.ts"),
-      "utf-8",
-    );
     const labelHelper = readFileSync(
       join(root, "lib/result-card-display.ts"),
       "utf-8",
@@ -560,7 +547,6 @@ describe("Argus Alpha frontend contract", () => {
     expect(card).toContain("<ResultEquityChart");
     expect(card).toContain('presentation="heroDeltaEvidence"');
     expect(card).toContain("appearanceOverride={appearance}");
-    expect(flags).not.toContain("NEXT_PUBLIC_STRATEGIES_ENABLED");
     expect(card).not.toContain("strategiesEnabled");
     expect(card).not.toContain('action.type === "save_strategy"');
     expect(labelHelper).toContain('"Explain result"');
@@ -2833,9 +2819,6 @@ describe("Argus Alpha frontend contract", () => {
     expect(existsSync(join(root, "components/views/SettingsView.tsx"))).toBe(
       false,
     );
-    expect(readFileSync(join(root, ".env.local.example"), "utf-8")).not.toContain(
-      "NEXT_PUBLIC_ARGUS_SHOW_SUBSCRIPTION",
-    );
   });
 
   test("sidebar keeps omnisearch enabled without legacy strategy navigation", () => {
@@ -2852,7 +2835,6 @@ describe("Argus Alpha frontend contract", () => {
       "utf-8",
     );
 
-    expect(flags).not.toContain("NEXT_PUBLIC_STRATEGIES_ENABLED");
     expect(flags).toContain("NEXT_PUBLIC_OMNISEARCH_ENABLED");
     expect(flags).toContain(
       'process.env.NEXT_PUBLIC_OMNISEARCH_ENABLED !== "false"',

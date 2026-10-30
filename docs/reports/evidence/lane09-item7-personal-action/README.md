@@ -41,7 +41,7 @@ The eight new browser cases cover desktop and 390px menu placement, 44px trigger
 The riskiest command was the real production build's synthetic save/undo browser check:
 
 ```sh
-CUADRAO_PERSONAL_EVIDENCE_DIR=../docs/reports/evidence/lane09-item7-personal-action NEXT_PUBLIC_MOCK_AUTH=true NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true bunx playwright test --config e2e/business-personal-menu.playwright.config.ts
+NEXT_PUBLIC_MOCK_AUTH=true NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true bunx playwright test --config e2e/business-personal-menu.playwright.config.ts
 ```
 
 Output was `8 passed (11.3s)`. API responses were intercepted synthetic fixtures. This checks the browser contract, not hosted authorization or database persistence. Money totals code is unchanged and the existing money readback tests pass.

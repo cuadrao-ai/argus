@@ -56,7 +56,7 @@ Read `xcrun xcresulttool get test-results summary --path RESULT.xcresult` after 
 run. A zero exit code with zero tests is not acceptance.
 
 The scripts generate synthetic `ARGUS_TEST_EMAIL`, `ARGUS_TEST_PASSWORD` and their
-`_B` forms in ignored files. `ARGUS_TEST_ACCOUNTS_UI_ENABLED` is true. Credentials,
+`_B` forms in ignored files. `[removed obsolete setting]` is true. Credentials,
 stack logs and generated configurations are not included in this evidence.
 
 The first setup attempt used port 59500. Supabase restored an old retained volume

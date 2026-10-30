@@ -21,7 +21,7 @@ transfer recording. The incoming migration adds nullable Apple subject metadata
 only; this lane has no financial migration. Integration changes none of this
 lane's environment files or directly affected financial tests.
 
-The profile still owns `ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED=false`.
+The profile still owns `CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED=false`.
 The environment template and Blueprint retain that default. The shell API key
 list still derives from the profile CLI and rejects profile-load failure.
 No rate, Plan credit or shared-space semantics were added during reconciliation.

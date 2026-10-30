@@ -111,14 +111,14 @@ def run(args: argparse.Namespace) -> None:
         "models": {
             name: os.getenv(name, "")
             for name in (
-                "ARGUS_STRUCTURED_MODEL",
-                "ARGUS_STRUCTURED_FALLBACK_MODEL",
-                "ARGUS_CHAT_MODEL",
+                "CUADRAO_STRUCTURED_MODEL",
+                "CUADRAO_STRUCTURED_FALLBACK_MODEL",
+                "CUADRAO_CHAT_MODEL",
             )
         },
         "market_data_provider_mode": os.getenv("ARGUS_MARKET_DATA_PROVIDER_MODE", ""),
         "research_rail_enabled": os.getenv("ARGUS_RESEARCH_RAIL_ENABLED", ""),
-        "turn_call_allowance": os.getenv("ARGUS_TURN_CALL_ALLOWANCE", ""),
+        "turn_call_allowance": os.getenv("CUADRAO_TURN_CALL_ALLOWANCE", ""),
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     if args.output.exists():

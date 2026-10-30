@@ -19,7 +19,7 @@ fake = Faker()
 
 @pytest.fixture
 def signup_context(monkeypatch):
-    monkeypatch.delenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", raising=False)
+    monkeypatch.delenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", raising=False)
     gateway = MagicMock()
     gateway.private_alpha_email_allowed.return_value = False
     monkeypatch.setattr(api_state, "supabase_gateway", gateway)

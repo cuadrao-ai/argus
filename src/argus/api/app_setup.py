@@ -47,7 +47,7 @@ def _cors_allow_origins_for(configured: str) -> tuple[str, ...]:
 
 
 def cors_allow_origins() -> list[str]:
-    configured = os.getenv("ARGUS_CORS_ALLOW_ORIGINS", "")
+    configured = os.getenv("CUADRAO_CORS_ALLOW_ORIGINS", "")
     return list(_cors_allow_origins_for(configured))
 
 

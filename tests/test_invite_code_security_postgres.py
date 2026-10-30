@@ -143,8 +143,8 @@ def test_rotation_finds_old_codes_and_rehashes_them_on_use(lane):
 
 
 def test_without_a_secret_nothing_is_written_and_codes_are_refused(lane, monkeypatch):
-    monkeypatch.delenv("ARGUS_INVITE_CODE_SECRET", raising=False)
-    monkeypatch.delenv("ARGUS_INVITE_CODE_SECRET_PREVIOUS", raising=False)
+    monkeypatch.delenv("CUADRAO_INVITE_CODE_SECRET", raising=False)
+    monkeypatch.delenv("CUADRAO_INVITE_CODE_SECRET_PREVIOUS", raising=False)
     sender = lane.users[1]
     existing = lane.beta(sender).invitation
     unkeyed = PostgresInviteStore(lane.pool, settings=lane.settings, clock=lane.clock)

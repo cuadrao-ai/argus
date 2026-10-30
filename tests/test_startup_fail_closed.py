@@ -15,7 +15,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from loguru import logger
 
-FLAGS = ("NEXT_PUBLIC_MOCK_AUTH", "ARGUS_MOCK_AUTH", "ARGUS_DEV_ENDPOINTS_ENABLED")
+FLAGS = ("NEXT_PUBLIC_MOCK_AUTH", "CUADRAO_MOCK_AUTH", "ARGUS_DEV_ENDPOINTS_ENABLED")
 ENV_NAMES = ("APP_ENV", "ENVIRONMENT", "ARGUS_ENV", "ARGUS_APP_ENV")
 LOCAL_ENVS = ("local", "development", "dev", "test", "local-smoke")
 fake = Faker()
@@ -111,8 +111,8 @@ def test_hosted_markers_override_a_local_label(
     app, checkpointer, _ = startup
     monkeypatch.setenv("APP_ENV", local_environment)
     monkeypatch.setenv(name, value)
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "true")
-    with pytest.raises(RuntimeError, match="ARGUS_MOCK_AUTH"):
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "true")
+    with pytest.raises(RuntimeError, match="CUADRAO_MOCK_AUTH"):
         with TestClient(app):
             pass
     checkpointer.assert_not_called()
@@ -181,8 +181,8 @@ def _startup_process(config: dict[str, str]) -> subprocess.CompletedProcess[str]
         "PATH": os.defpath,
         "PYTHONPATH": os.pathsep.join(sys.path),
         "APP_ENV": "staging",
-        "ARGUS_PERSISTENCE_MODE": "memory",
-        "ARGUS_CHECKPOINTER_MODE": "memory",
+        "CUADRAO_PERSISTENCE_MODE": "memory",
+        "CUADRAO_CHECKPOINTER_MODE": "memory",
         **config,
     }
     return subprocess.run(
@@ -213,7 +213,7 @@ def test_process_starts_for_local_smoke_configuration() -> None:
     result = _startup_process(
         {
             "APP_ENV": "local-smoke",
-            "ARGUS_MOCK_AUTH": "true",
+            "CUADRAO_MOCK_AUTH": "true",
             "NEXT_PUBLIC_MOCK_AUTH": "true",
         }
     )
@@ -225,7 +225,7 @@ def test_process_exits_nonzero_without_public_key_in_supabase_mode() -> None:
     service_key = fake.pystr(min_chars=32, max_chars=32)
     result = _startup_process(
         {
-            "ARGUS_PERSISTENCE_MODE": "supabase",
+            "CUADRAO_PERSISTENCE_MODE": "supabase",
             "SUPABASE_URL": "http://127.0.0.1:9",
             "SUPABASE_SERVICE_ROLE_KEY": service_key,
             "DATABASE_URL": "postgresql://test@127.0.0.1:9/test",
