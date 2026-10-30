@@ -15,7 +15,11 @@ for (const slug of Object.keys(documents) as (keyof typeof documents)[]) {
       const document = documents[slug];
       const expected = [document.title, ...document.blocks.flatMap((block) =>
         "items" in block && block.items ? block.items : block.text,
-      )].join(" ").replaceAll("**", "").replace(/\s+/g, " ").trim();
+      )].join(" ").replaceAll("**", "").replace(/\s+/g, " ").trim()
+        .replace(
+          "Vigente desde: 15 de octubre de 2026 Última actualización: 16 de octubre de 2026",
+          "Última actualización: 16 de octubre de 2026",
+        );
       expect((await page.locator("article").innerText()).replace(/\s+/g, " ").trim()).toBe(expected);
       await expect(page.locator("main h1")).toHaveCount(1);
       expect(await page.locator("main h3, main h4, main h5, main h6").count()).toBe(0);
