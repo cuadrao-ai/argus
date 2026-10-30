@@ -1,9 +1,10 @@
 """Fail when a pull request adds or changes a file over 2 MB.
 
-The diff is `git diff --name-status --find-renames --diff-filter=ACMR
+The diff is `git diff --name-status --find-renames --diff-filter=ACMRT
 <merge-base>...HEAD`, so files already on the base branch and files that
-arrive by merging the base never fail. A rename that keeps the content
-unchanged does not fail. Sizes are the blob sizes at HEAD.
+arrive by merging the base never fail. A rename or copy passes only when
+its blob id at HEAD equals the source blob id at the merge base. Sizes are
+the blob sizes at HEAD.
 
 Files under marketing/public/ are site assets and are allowed.
 """
@@ -45,7 +46,7 @@ def changed_paths(root: Path, base: str) -> list[str]:
             "diff",
             "--name-status",
             "--find-renames",
-            "--diff-filter=ACMR",
+            "--diff-filter=ACMRT",
             "-z",
             f"{merge_base}...HEAD",
         ],
@@ -59,13 +60,24 @@ def changed_paths(root: Path, base: str) -> list[str]:
     while index < len(parts):
         status = parts[index]
         if status[0] in "RC":
-            if status != "R100":
-                paths.append(parts[index + 2])
+            source, target = parts[index + 1], parts[index + 2]
+            if blob_id(root, f"{merge_base}:{source}") != blob_id(root, f"HEAD:{target}"):
+                paths.append(target)
             index += 3
             continue
         paths.append(parts[index + 1])
         index += 2
     return paths
+
+
+def blob_id(root: Path, spec: str) -> str:
+    return subprocess.run(
+        ["git", "rev-parse", spec],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
 
 
 def blob_size(root: Path, path: str) -> int:
@@ -108,7 +120,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     for path, size in found:
         print(
-            f"{path}: {size / 1024 / 1024:.1f} MB is over the 2 MB limit. "
+            f"{path}: {size / 1024 / 1024:.1f} MiB is over the 2 MiB limit. "
             "Attach it on the pull request or upload it with actions/upload-artifact.",
             file=sys.stderr,
         )

@@ -90,3 +90,34 @@ def test_missing_base_fails(tmp_path: Path) -> None:
     repo = init_repo(tmp_path)
     commit_bytes(repo, "README.md", b"base\n")
     assert run_check(repo, "0" * 40).returncode == 1
+
+
+def test_changed_rename_over_limit_fails(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path)
+    lines = [f"line {n:08d} ".ljust(64, "x").encode() + b"\n" for n in range(49152)]
+    base = commit_bytes(repo, "docs/old.txt", b"".join(lines))
+    git(repo, "mv", "docs/old.txt", "docs/moved.txt")
+    lines[0], lines[1] = lines[1], lines[0]
+    (repo / "docs/moved.txt").write_bytes(b"".join(lines))
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "move and reorder")
+    result = run_check(repo, base)
+    assert result.returncode == 1
+    assert "docs/moved.txt" in result.stderr
+
+
+def test_symlink_replaced_by_big_file_fails(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path)
+    commit_bytes(repo, "README.md", b"base\n")
+    (repo / "docs").mkdir()
+    (repo / "docs/link").symlink_to("../README.md")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "link")
+    base = git(repo, "rev-parse", "HEAD")
+    (repo / "docs/link").unlink()
+    (repo / "docs/link").write_bytes(BIG)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "replace link")
+    result = run_check(repo, base)
+    assert result.returncode == 1
+    assert "docs/link" in result.stderr
