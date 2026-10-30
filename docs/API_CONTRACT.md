@@ -3685,7 +3685,7 @@ chat turn recalls no saved memory, and `POST /memory/candidates` and
 when a source is a Business conversation, one of its messages, or evidence it
 produced.
 
-**Business chat.** `ARGUS_BUSINESS_CHAT_ENABLED` is a default-off flag nested
+**Business chat.** `CUADRAO_BUSINESS_CHAT_ENABLED` (older `ARGUS_BUSINESS_CHAT_ENABLED`) is a default-off flag nested
 inside `ARGUS_BUSINESS_PILOT_ENABLED`; Business chat stays off until Business
 turns have their own tool restrictions. While it is off (or the pilot is off),
 `POST /conversations` with `surface: business` and every turn or card action on
@@ -3700,6 +3700,17 @@ conversations keep working, so their owner can see and delete them. Every
 `POST` under `/conversations/{conversation_id}` must declare its side, Business
 chat or Personal only; `tests/test_business_chat_flag.py` enforces this.
 `GET /business/workspace` reports the flag as `chat_available`.
+
+## `GET /chat/starter-prompts`
+
+Returns the localized generic starter prompts for the signed-in user's profile
+language. Requires a session.
+
+```json
+{ "prompts": ["string"] }
+```
+
+---
 
 ## `GET /conversations`
 
@@ -8805,7 +8816,7 @@ marked for attention and is never automatically billed again. Explicit prepare
 or resume recovers from retained source; completed preparation is replayed without
 another model call. Identical owner/file captures reuse the same draft.
 
-`ARGUS_DOCUMENT_JOBS_ENABLED` (default off) changes only who runs and recovers
+`CUADRAO_DOCUMENT_JOBS_ENABLED` (older `ARGUS_DOCUMENT_JOBS_ENABLED`) (default off) changes only who runs and recovers
 preparation; routes and bodies stay the same. Off, the rules above hold
 exactly. On, capture and `/prepare` or `/resume` record one attempt before
 responding and hand it to a worker (a Render Workflow task, or a task in the
@@ -8831,7 +8842,7 @@ Only the owner's `/prepare` or `/resume` with `X-Extraction-Consent: true`
 starts a new paid attempt from `needs_attention`. A superseded attempt's late
 result is refused. Instances coordinate through the database, so one attempt is
 dispatched once. Settings are `ARGUS_DOCUMENT_JOBS_ENABLED`,
-`ARGUS_DOCUMENT_JOBS_WORKFLOW_TASK` and `ARGUS_DOCUMENT_JOBS_SWEEP_SECONDS`. Design:
+`CUADRAO_DOCUMENT_JOBS_WORKFLOW_TASK` and `CUADRAO_DOCUMENT_JOBS_SWEEP_SECONDS` (older `ARGUS_` names). Design:
 `docs/specs/lanes/cuadrao-document-preparation-jobs.md`.
 
 Preparation preserves extracted observations and receipt itemization separately
