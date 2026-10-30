@@ -13,9 +13,7 @@ from argus.api.chat.backtest_jobs import (
     backtest_job_shadow_context,
     payload_hash,
 )
-from argus.api.main import app
 from argus.api.schemas import BacktestRun, User
-from fastapi.testclient import TestClient
 
 
 class _DelegateTool:
@@ -846,82 +844,6 @@ def test_execute_stage_returns_job_artifact_without_result_explanation() -> None
     assert result.patch["artifact_references"][0]["artifact_kind"] == "backtest_job"
 
 
-def test_backtest_job_status_endpoint_returns_job_and_result(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from argus.api import state as api_state
-
-    gateway = _HydrationGateway()
-    monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-    client = TestClient(app)
-
-    response = client.get("/api/v1/backtest-jobs/job-async-1")
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["job"]["status"] == "succeeded"
-    assert payload["job"]["result_run_id"] == "run-workflow-1"
-    assert payload["run"]["id"] == "run-workflow-1"
-    assert payload["run"]["conversation_result_card"]["title"] == "AAPL buy and hold"
-    assert payload["result_readout"] is None
-    assert payload["run"]["metrics"] == gateway.run.metrics
-    assert payload["run"]["config_snapshot"] == gateway.run.config_snapshot
-    stored_job = gateway.get_backtest_job(
-        user_id=gateway.user.id, job_id=payload["job"]["id"]
-    )
-    assert stored_job is not None
-    private_readout = stored_job["execution_metadata"]["workflow_backtest"][
-        "result_readout"
-    ]
-    assert private_readout.startswith("**Quick take**")
-    assert "Backend generated readout" in private_readout
-    assert "Backend generated readout" not in response.text
-    assert payload["result_readout_source"] == "llm_explain_stage"
-    assert payload["result_readout_fallback_used"] is False
-
-
-def test_backtest_job_status_does_not_return_run_for_failed_finalization(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from argus.api import state as api_state
-
-    class _FailedFinalizationHydrationGateway(_HydrationGateway):
-        def get_backtest_job(
-            self,
-            *,
-            user_id: str,
-            job_id: str,
-        ) -> dict[str, object] | None:
-            job = super().get_backtest_job(user_id=user_id, job_id=job_id)
-            assert job is not None
-            return {
-                **job,
-                "status": "failed",
-                "result_run_id": "run-workflow-1",
-                "failure_code": "finalization_failed",
-                "failure_detail": "execution_failed",
-                "retryable": True,
-            }
-
-        def get_backtest_run(
-            self,
-            *,
-            user_id: str,
-            run_id: str,
-        ) -> BacktestRun | None:
-            raise AssertionError("failed finalization must not hydrate a run")
-
-    gateway = _FailedFinalizationHydrationGateway()
-    monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-    client = TestClient(app)
-
-    response = client.get("/api/v1/backtest-jobs/job-async-1")
-
-    assert response.status_code == 200
-    assert response.json()["job"]["status"] == "failed"
-    assert response.json()["run"] is None
-
-
 def test_terminal_render_task_timeout_reconciles_running_job() -> None:
     from argus.api.chat.backtest_jobs import reconcile_terminal_render_task_run
 
@@ -1075,31 +997,6 @@ def test_terminal_render_task_reconciliation_ignores_malformed_metadata() -> Non
     assert reconciled == job
     assert task_client.calls == []
     assert gateway.failed_updates == []
-
-
-def test_backtest_job_status_endpoint_reads_database_truth_without_render(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from argus.api import state as api_state
-    from argus.api.chat.backtest_jobs import RenderTaskRunClient
-
-    gateway = _TimedOutJobGateway()
-    render_calls: list[str] = []
-    monkeypatch.setattr(
-        RenderTaskRunClient,
-        "get_task_run",
-        lambda _self, task_run_id: render_calls.append(task_run_id),
-    )
-    monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-    client = TestClient(app)
-
-    response = client.get("/api/v1/backtest-jobs/job-timeout-1")
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["job"]["status"] == "running"
-    assert payload["job"]["failure_code"] is None
-    assert render_calls == []
 
 
 def test_stale_backtest_job_scan_reconciles_terminal_task_run() -> None:
