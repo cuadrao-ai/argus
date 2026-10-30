@@ -643,3 +643,46 @@ def test_a_facet_names_the_actor_by_their_newest_stored_name(people, business, a
     ]
     assert ("Carlos Admin", "member", "current") in _facet(page)
     assert "Carlos Méndez" not in [a.display_name for a in page.actors]
+
+
+def test_a_grant_label_names_only_a_grant_of_this_business(people, business, authority):
+    """A ledger row may carry any grant id; the label joins only grants of
+    the Business being read, so a foreign grant's person never leaks."""
+
+    with Connection.connect(shared.DSN) as db:
+        name(db, people["editor"], "Ana Editora")
+        name(db, people["stranger"], "Vecino Ajeno")
+        elsewhere = owned_space(db, people["stranger"])
+        mine, foreign = (
+            db.execute(
+                "select id::text from public.business_client_grants"
+                " where space_id=%s and grantee_id=%s",
+                (space, person),
+            ).fetchone()[0]
+            for space, person in (
+                (business, people["editor"]),
+                (elsewhere, people["stranger"]),
+            )
+        )
+        for grant_id in (mine, foreign):
+            receipt(
+                db,
+                business,
+                people["owner"],
+                {
+                    "action": "change_role",
+                    "grant_id": grant_id,
+                    "business_role": "editor",
+                },
+                seconds_ago=1,
+                display_name="Dueño",
+            )
+        db.commit()
+    page = _seen(authority, people["admin"], business)
+    labels = {
+        str(i.object.id): i.object.label
+        for i in page.items
+        if i.object is not None and i.object.kind == "grant" and i.action == "change_role"
+    }
+    assert labels == {mine: "Ana Editora", foreign: None}
+    assert "Vecino Ajeno" not in page.model_dump_json()

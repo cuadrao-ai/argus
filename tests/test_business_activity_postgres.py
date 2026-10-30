@@ -800,3 +800,25 @@ def test_over_http_the_last_calendar_day_is_a_refusal_not_a_crash(
         )
         assert bounded.status_code == 200, bounded.text
         assert [i["action"] for i in bounded.json()["items"]] == ["owner_grant"]
+
+
+def test_an_actor_id_spells_no_account_id(people, business, authority):
+    """The opaque actor id must not be the account id in any spelling: dashed,
+    without dashes, or upper-cased."""
+
+    with Connection.connect(shared.DSN) as db:
+        receipt(
+            db,
+            business,
+            people["editor"],
+            {"action": "review_draft", "draft_id": str(uuid4())},
+            seconds_ago=1,
+            display_name="Ana Editora",
+        )
+        db.commit()
+    page = _seen(authority, people["owner"], business)
+    text = json.dumps(page.model_dump(mode="json")).lower()
+    assert {a.display_name for a in page.actors} >= {"Ana Editora"}
+    for person in people.values():
+        for spelling in (person, person.replace("-", ""), person.upper()):
+            assert spelling.lower() not in text, spelling
