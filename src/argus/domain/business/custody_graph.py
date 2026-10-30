@@ -14,6 +14,10 @@ from pydantic import TypeAdapter
 from argus.domain.business.contracts.actions import Command, canonical_input_hash
 from argus.domain.business.custody_objects import CustodyReservation
 
+#: The name every departure rewrite writes over an erased member's rows; the
+#: activity feed names a departure alias the same way.
+ERASED_NAME = "Exmiembro"
+
 
 class CustodyGraphError(RuntimeError):
     pass
@@ -102,9 +106,9 @@ def _identity(value: Any, old: str, custodian: str, actor: str) -> Any:
         if value.get(key) == old:
             result[key] = custodian
     if value.get("actor_id") == old and "display_name" in value:
-        result["display_name"] = "Exmiembro"
+        result["display_name"] = ERASED_NAME
     if value.get("issuer_id") == old and "issuer_display_name" in value:
-        result["issuer_display_name"] = "Exmiembro"
+        result["issuer_display_name"] = ERASED_NAME
     return result
 
 

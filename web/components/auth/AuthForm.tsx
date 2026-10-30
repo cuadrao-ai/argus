@@ -5,7 +5,7 @@ import { rememberRecoveryEmail } from "./recovery-email";
 
 import { AlertCircle, Check, EyeClosed, LoaderCircle } from "lucide-react";
 import Image from "next/image";
-import { type FormEvent, useEffect, useId, useRef, useState } from "react";
+import { type FormEvent, type MouseEvent, useEffect, useId, useRef, useState } from "react";
 import { FormField, PasswordField, useFieldChecks } from "@/components/ui/FormField";
 import { fieldLabelClass } from "@/components/ui/form-field";
 import { PASSWORD_MIN_LENGTH } from "@/lib/password-strength";
@@ -47,7 +47,7 @@ type AuthFormProps = {
     submission: AuthFormSubmission,
   ) => Promise<AuthFormSubmissionResult | void>;
   onConfirmEmailCode?: (input: { email: string; code: string }) => Promise<void>;
-  onEmailConfirmed?: () => void | Promise<void>;
+  onEmailConfirmed?: (input: { signal: AbortSignal }) => void | Promise<void>;
   onResendEmailCode?: (input: { email: string }) => Promise<EmailResendAcceptance | void>;
 };
 
@@ -212,7 +212,14 @@ export default function AuthForm({
   const cardRef = useRef<HTMLDivElement>(null);
   const [request, setRequest] = useState<{ status: "idle" | "pending" } | { status: "failed"; code: string }>({ status: "idle" });
   const pending = useRef(false);
-  const generation = useRef(0);
+  // The choice in force, meaning this mode and this step. Every request
+  // captures its signal when it starts, and a request whose choice was
+  // superseded drops its result instead of routing or rendering it.
+  const choice = useRef(new AbortController());
+  const supersedeChoice = () => {
+    choice.current.abort();
+    choice.current = new AbortController();
+  };
   const errorRef = useRef<HTMLParagraphElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -231,6 +238,20 @@ export default function AuthForm({
   const confirming = useRef(false);
   const isConfirming = confirmationStatus === "verifying";
   const isVerified = confirmationStatus === "verified";
+  // While the code is checked, the loading button is why sign-in, recovery
+  // and resend wait: one value disables them and names their explanation.
+  const competingActionsWaitOn = isConfirming ? "auth-confirmation-submit" : undefined;
+  // Only a plain primary click chooses recovery in this tab. A modified or
+  // middle click opens recovery elsewhere, so this tab changes nothing.
+  const chooseRecovery = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (competingActionsWaitOn) {
+      event.preventDefault();
+      return;
+    }
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    supersedeChoice();
+    rememberRecoveryEmail(email);
+  };
   const codeErrorMessage = codeErrorKind !== null ? AUTH_ERROR_MESSAGE_BY_CODE[codeErrorKind] ?? GENERIC_AUTH_ERROR : null;
   const codeError = codeErrorKind === "incomplete"
     ? t("auth.signup.confirmation_code_incomplete", { count: CONFIRMATION_CODE_LENGTH })
@@ -283,7 +304,7 @@ export default function AuthForm({
     pending.current = false;
     setRequest({ status: "idle" });
     resetChecks();
-    return () => { generation.current += 1; };
+    return supersedeChoice;
   }, [mode, resetChecks, emailFirst]);
 
   useEffect(() => {
@@ -337,18 +358,18 @@ export default function AuthForm({
   const handleResendCode = async () => {
     if (confirming.current || isVerified || Date.now() < resendAvailableAt) return;
     confirming.current = true;
-    const current = generation.current;
+    const { signal } = choice.current;
     setResend({ status: "pending" });
     setCodeErrorKind(null);
     try {
       const accepted = await (onResendEmailCode ? onResendEmailCode({ email: email.trim() }) : resendSignupEmail({ email: email.trim() }));
-      if (current !== generation.current) return;
+      if (signal.aborted) return;
       setResend({ status: "sent" });
       const seconds = accepted?.retryAfterSeconds ?? 30;
       setResendAvailableAt(Date.now() + seconds * 1000);
       setResendSeconds(seconds);
     } catch (error) {
-      if (current !== generation.current) return;
+      if (signal.aborted) return;
       setResend({ status: "failed", code: authErrorCode(error) });
       if (error instanceof EmailOtpError && error.code === "too_many_requests") {
         const seconds = error.retryAfterSeconds ?? 30;
@@ -356,7 +377,7 @@ export default function AuthForm({
         setResendSeconds(seconds);
       }
     } finally {
-      if (current === generation.current) confirming.current = false;
+      if (!signal.aborted) confirming.current = false;
     }
   };
 
@@ -371,7 +392,7 @@ export default function AuthForm({
       return;
     }
     pending.current = true;
-    const current = generation.current;
+    const { signal } = choice.current;
     setRequest({ status: "pending" });
     try {
       const result = await onSubmit({
@@ -380,13 +401,13 @@ export default function AuthForm({
         email: email.trim(),
         password,
       });
-      if (current !== generation.current) return;
+      if (signal.aborted) return;
       setNeedsEmailConfirmation(Boolean(result && result.status === "email_confirmation_required"));
       setRequest({ status: "idle" });
     } catch (error) {
-      if (current === generation.current) setRequest({ status: "failed", code: authErrorCode(error) });
+      if (!signal.aborted) setRequest({ status: "failed", code: authErrorCode(error) });
     } finally {
-      if (current === generation.current) pending.current = false;
+      if (!signal.aborted) pending.current = false;
     }
   };
 
@@ -399,7 +420,7 @@ export default function AuthForm({
       return;
     }
     confirming.current = true;
-    const current = generation.current;
+    const { signal } = choice.current;
     setCodeErrorKind(null);
     setResend({ status: "idle" });
     if (!isVerified) {
@@ -412,10 +433,10 @@ export default function AuthForm({
         } else {
           await verifyEmailOtp({ email: email.trim(), token, type: "signup" });
         }
-        if (current !== generation.current) return;
+        if (signal.aborted) return;
         setConfirmationStatus("verified");
       } catch (error) {
-        if (current !== generation.current) return;
+        if (signal.aborted) return;
         setCodeErrorKind(authErrorCode(error) || "generic");
         setConfirmationStatus("editing");
         if (["otp_rejected", "otp_expired"].includes(authErrorCode(error))) {
@@ -425,17 +446,17 @@ export default function AuthForm({
         }
         confirming.current = false;
         requestAnimationFrame(() => {
-          if (current === generation.current) confirmationInputRef.current?.focus();
+          if (!signal.aborted) confirmationInputRef.current?.focus();
         });
         return;
       }
     }
     try {
-      await onEmailConfirmed?.();
+      await onEmailConfirmed?.({ signal });
     } catch (error) {
-      if (current === generation.current) setCodeErrorKind(authErrorCode(error) || "generic");
+      if (!signal.aborted) setCodeErrorKind(authErrorCode(error) || "generic");
     } finally {
-      if (current === generation.current) confirming.current = false;
+      if (!signal.aborted) confirming.current = false;
     }
   };
 
@@ -540,6 +561,7 @@ export default function AuthForm({
             </div>
             <button
               type="submit"
+              id="auth-confirmation-submit"
               disabled={isConfirming || isResending || (isVerified && !codeErrorKind)}
               className="font-display flex w-full items-center justify-center rounded-[9999px] bg-black px-[32px] py-[14px] text-[16px] font-medium text-white transition-opacity hover:opacity-85 focus:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black disabled:opacity-50 dark:bg-white dark:text-black dark:focus-visible:ring-white"
             >
@@ -556,10 +578,32 @@ export default function AuthForm({
           </p>
           <div className="mx-auto mt-3 max-w-[400px] text-center text-[14px]">
             <button type="button" disabled={resendSeconds > 0 || isConfirming || isResending || isVerified}
+              aria-describedby={competingActionsWaitOn}
               className="min-h-11 rounded-item px-3 underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] disabled:cursor-not-allowed disabled:no-underline"
               onClick={() => void handleResendCode()}>
               {resendSeconds > 0 ? t("auth.signup.confirmation_resend_wait", { seconds: resendSeconds }) : t("auth.signup.confirmation_resend")}
             </button>
+          </div>
+          <div data-testid="auth-check-email-exits" className="mx-auto mt-3 flex max-w-[400px] flex-col items-center gap-1 text-[14px] text-black/60 dark:text-white/60">
+            {allowModeSwitch && onModeChange ? (
+              <p>
+                {t("landing.already_account")}{" "}
+                <button type="button" disabled={Boolean(competingActionsWaitOn)} aria-describedby={competingActionsWaitOn}
+                  className="min-h-11 rounded-item px-1 font-medium text-black underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] disabled:cursor-not-allowed disabled:no-underline dark:text-white"
+                  onClick={() => {
+                    supersedeChoice();
+                    onModeChange("login");
+                    if (emailFirst) requestAnimationFrame(() => cardRef.current?.querySelector("h2")?.focus());
+                  }}>
+                  {t("landing.sign_in")}
+                </button>
+              </p>
+            ) : null}
+            <Link href="/auth/forgot-password" onClick={chooseRecovery} onAuxClick={chooseRecovery}
+              aria-disabled={competingActionsWaitOn ? true : undefined} aria-describedby={competingActionsWaitOn}
+              className="flex min-h-11 items-center rounded-item px-3 font-medium text-black underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] aria-disabled:cursor-not-allowed aria-disabled:no-underline dark:text-white">
+              {t("auth.recovery.forgot")}
+            </Link>
           </div>
         </div>
       ) : (

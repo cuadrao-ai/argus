@@ -139,6 +139,8 @@ services:
     envVars:
       - key: APP_ENV
         sync: false
+      - key: CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD
+        sync: false
       - key: CUADRAO_CHECKPOINTER_MODE
         sync: false
       - key: CUADRAO_MOCK_AUTH

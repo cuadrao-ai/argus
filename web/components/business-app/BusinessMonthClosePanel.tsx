@@ -348,6 +348,8 @@ export type MonthCloseReview =
   | { state: "refused"; reference?: string | null }
   | { state: "failed"; retry: () => void; reference?: string | null };
 
+export type MonthCloseParts = { month: ReactNode; money: ReactNode; receiptStatus: ReactNode };
+
 type BusinessMonthCloseViewProps = {
   client: MonthCloseClient;
   /** Selected Business grant. A change reloads this snapshot and keeps the mock's books apart; null holds the load until the Business is known. */
@@ -367,8 +369,8 @@ type BusinessMonthCloseViewProps = {
   headingAction?: ReactNode;
   /** What a Por cobrar or Por pagar row opens; null leaves the row plain. */
   openDocument?: (document: MonthCloseDocument) => (() => void) | null;
-  /** The finance layout's two parts, for a screen that places them itself (Home's section order). */
-  arrange?: (parts: { month: ReactNode; money: ReactNode }) => ReactNode;
+  arrange?: (parts: MonthCloseParts) => ReactNode;
+  receiptStatusPlacement?: "lead" | "default";
   /** A row's own payment workflow: the opener, given `onSaved` to call after it saves; null while the record has none. No caller passes one yet. */
   openSettlement?: (document: MonthCloseDocument) => ((onSaved: () => void) => void) | null;
   /** The Business's own currency: the figures' default and the first in its menu. Null while unknown. */
@@ -400,6 +402,7 @@ function BusinessMonthCloseContent({
   openDocument,
   openSettlement,
   arrange,
+  receiptStatusPlacement = "default",
   businessCurrency = null,
   layout = "inicio",
 }: BusinessMonthCloseViewProps) {
@@ -702,8 +705,8 @@ function BusinessMonthCloseContent({
   const reviewProblem = review && "state" in review ? review : { state: "unknown" as const };
   const receiptStatus = knownReview ? null : (
     <div data-testid="month-close-receipts-status">
-      <div data-testid={reviewProblem.state === "failed" || reviewProblem.state === "refused" ? "inicio-error" : undefined} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[14px] text-[#56635e] dark:text-white/70">
-        <div className="min-w-0 flex-1">
+      <div role={reviewProblem.state === "failed" || reviewProblem.state === "refused" ? "alert" : undefined} data-testid={reviewProblem.state === "failed" || reviewProblem.state === "refused" ? "inicio-error" : undefined} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[14px] text-[#56635e] dark:text-white/70">
+        <div className="min-w-0 flex-1 basis-full tablet:basis-auto">
           <p>{reviewProblem.state === "refused" ? t("auth.business_unavailable.title") : t(`business.month_close.receipts_${reviewProblem.state}`)}</p>
           {reviewProblem.state === "refused" ? <p>{t("auth.business_unavailable.body")}{reviewProblem.reference ? <span className="ml-2 inline-flex align-middle"><ReferenceCode reference={reviewProblem.reference} /></span> : null}</p> : null}
         </div>
@@ -712,10 +715,12 @@ function BusinessMonthCloseContent({
       </div>
     </div>
   );
+  const receiptStatusInLead = finance && Boolean(arrange) && receiptStatusPlacement === "lead";
+  const embeddedReceiptStatus = receiptStatusInLead ? null : receiptStatus;
   const showFilingReady = !gate.ok && gate.reason === "closed" && !locked;
   const showStepsNote = tasks.length > 0 && Boolean(knownReview) && !knownReview?.reading;
   const showClose = canClose && tasks.length === 0;
-  const showChecklistFooter = Boolean(receiptStatus || reason || showFilingReady || showStepsNote || showClose);
+  const showChecklistFooter = Boolean(embeddedReceiptStatus || reason || showFilingReady || showStepsNote || showClose);
   const checklistShown = phase !== "error" && snapshot !== null && !noDocuments && !locked;
 
   function renderRow(document: MonthCloseDocument, layout: "pending" | "overdue" | "closed" = "pending") {
@@ -1175,7 +1180,7 @@ function BusinessMonthCloseContent({
                 </>
               )}
               {showChecklistFooter ? <div data-testid="month-close-checklist-footer" className="mt-auto flex min-h-11 flex-wrap items-center justify-end gap-x-4 gap-y-2 border-t border-black/[0.06] pt-3 dark:border-white/[0.06]">
-                {receiptStatus ? <div className="basis-full">{receiptStatus}</div> : null}
+                {embeddedReceiptStatus ? <div className="basis-full">{embeddedReceiptStatus}</div> : null}
                 {reason ? (
                   <p id="month-close-reason" data-testid="month-close-reason" className="min-w-0 flex-1 text-[14px] text-[#56635e] dark:text-white/70">{reason}</p>
                 ) : showFilingReady ? (
@@ -1237,7 +1242,7 @@ function BusinessMonthCloseContent({
         <h2 className="sr-only">{t("business.month_close.finance_title", "Finances")}</h2>
         <section aria-label={monthName ? t("business.month_close.checklist_title", { month: monthName, defaultValue: "To close {{month}}" }) : undefined} data-testid="month-close-month-block" className="space-y-3">
           {switcherHead}
-          {!checklistShown && receiptStatus ? <div className={cardClass}>{receiptStatus}</div> : null}
+          {!checklistShown && embeddedReceiptStatus ? <div className={cardClass}>{embeddedReceiptStatus}</div> : null}
           {phase === "error" ? (
             <div data-testid="month-close-error" data-layout="error" className={cardClass}>
               {loadFailure(t("business.month_close.error_title", "We couldn't load the month"), refused, reference, () => setAttempt((value) => value + 1))}
@@ -1291,7 +1296,7 @@ function BusinessMonthCloseContent({
       </div>
     );
     const moneyPart = <div className="@container">{moneySection()}</div>;
-    return arrange ? <>{arrange({ month: monthPart, money: moneyPart })}</> : <div className="space-y-6">{monthPart}{moneyPart}</div>;
+    return arrange ? <>{arrange({ month: monthPart, money: moneyPart, receiptStatus: receiptStatusInLead ? receiptStatus : null })}</> : <div className="space-y-6">{monthPart}{moneyPart}</div>;
   }
 
   return (
@@ -1311,7 +1316,7 @@ function BusinessMonthCloseContent({
         )}
       </div>
 
-      {!checklistShown && receiptStatus ? <div className={`${cardClass} ${WIDE.left}`}>{receiptStatus}</div> : null}
+      {!checklistShown && embeddedReceiptStatus ? <div className={`${cardClass} ${WIDE.left}`}>{embeddedReceiptStatus}</div> : null}
 
       {phase === "error" ? (
         <div data-testid="month-close-error" data-layout="error" className={`${cardClass} ${WIDE.full}`}>
@@ -1453,7 +1458,7 @@ export function useMonthCloseSource(): MonthCloseSource {
   return { client: source.mode === "fixture" ? sampleClientFor(source, chosen?.space_id?.startsWith(LOCAL_BUSINESS_PREFIX)) : monthCloseClient, scopeKey };
 }
 
-export default function BusinessMonthClosePanel({ monthClose, onMonthChange, review, header, headingAction, layout, arrange }: { monthClose: MonthCloseSource; onMonthChange?: (month: string) => void; review?: MonthCloseReview | null; header?: (switcher: ReactNode) => ReactNode; headingAction?: ReactNode; layout?: "inicio" | "finance"; arrange?: (parts: { month: ReactNode; money: ReactNode }) => ReactNode }) {
+export default function BusinessMonthClosePanel({ monthClose, onMonthChange, review, header, headingAction, layout, arrange, receiptStatusPlacement }: { monthClose: MonthCloseSource; onMonthChange?: (month: string) => void; review?: MonthCloseReview | null; header?: (switcher: ReactNode) => ReactNode; headingAction?: ReactNode; layout?: "inicio" | "finance"; arrange?: BusinessMonthCloseViewProps["arrange"]; receiptStatusPlacement?: BusinessMonthCloseViewProps["receiptStatusPlacement"] }) {
   const { chosen, actions, openPanel, records } = useBusiness();
   const add = canAddRecords(chosen) ? actions.create.find((action) => action.id === "upload_receipt") : undefined;
   // An open item carries only its activity id. A receipt's is its saved expense's id; an invoice has no record screen yet.
@@ -1472,6 +1477,7 @@ export default function BusinessMonthClosePanel({ monthClose, onMonthChange, rev
       businessCurrency={businessWorkspaceCurrency(records?.workspace)}
       layout={layout}
       arrange={arrange}
+      receiptStatusPlacement={receiptStatusPlacement}
     />
   );
 }

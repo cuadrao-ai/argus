@@ -1481,7 +1481,7 @@
       "confirmation_code_rejected": "Revisa el código e inténtalo de nuevo.",
       "confirmation_rate_limited": "Espera un momento e inténtalo de nuevo.",
       "confirmation_submit": "Confirmar",
-      "confirmation_help": "¿No ves el correo? Revisa la carpeta de spam.",
+      "confirmation_help": "¿No te llega? Revisa la carpeta de spam. Si ya tienes una cuenta con este correo, te enviamos un enlace para entrar.",
       "confirmation_loading": "Confirmando...",
       "confirmation_resend": "Reenviar código",
       "confirmation_resend_wait": "Reenviar en {{seconds}} s",
@@ -1631,6 +1631,18 @@
         "subject": "El plazo para reabrir {businessName} está por vencer",
         "title": "Aún puedes reabrir {businessName}"
       }
+    },
+    "existing_account": {
+      "after_action": "Si no fuiste tú, ignora este correo. Tu cuenta sigue igual.",
+      "cta": "Iniciar sesión",
+      "paragraphs": [
+        "Hola,",
+        "Alguien intentó crear una cuenta nueva en Cuadrao con este correo, pero ya tienes una.",
+        "Entra con tu contraseña. Si no la recuerdas, toca ¿Olvidaste tu contraseña? en la pantalla de entrada."
+      ],
+      "preheader": "Entra con tu contraseña o cámbiala si no la recuerdas.",
+      "subject": "Ya tienes una cuenta en Cuadrao",
+      "title": "Ya tienes una cuenta"
     },
     "footer": {
       "help": "¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai",

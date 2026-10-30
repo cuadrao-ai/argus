@@ -6,6 +6,8 @@ import { chromium, expect } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "../e2e/support/breakpoint-fixture";
 import { monthCloseWire } from "../e2e/support/month-close-wire";
+import { fulfillSyntheticBusinessFallback } from "../e2e/support/synthetic-business-fallback";
+import { designServerFieldsReception } from "../e2e/support/design-server-fields-reception";
 
 const baseURL = process.env.EVIDENCE_BASE_URL ?? "http://127.0.0.1:3198";
 if (!["127.0.0.1", "localhost"].includes(new URL(baseURL).hostname)) throw new Error("Evidence requires a local server");
@@ -31,6 +33,7 @@ try {
       });
       await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
       const source = createFixtureBusinessDataSource({ chatAvailable: false });
+      const spaces = (await source.spaces()).slice(0, 1);
       const calls = { notes: 0, emails: 0, receipts: 0 };
       let receiptsDown = true;
       let releaseReceipts = () => {};
@@ -57,7 +60,7 @@ try {
         if (path === "workspace") return route.fulfill({ json: await source.workspace() });
         if (path === "space/name-prompt") return route.fulfill({ json: { id: "fixture-space", name: "Colmado de prueba", name_required: false, name_prompt_seen: true, show_prompt: false } });
         if (path === "space") return route.fulfill({ json: { id: "fixture-space", name: "Colmado de prueba" } });
-        if (path === "spaces") return route.fulfill({ json: { spaces: (await source.spaces()).slice(0, 1) } });
+        if (path === "spaces") return route.fulfill({ json: { spaces } });
         if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });
         if (state === "bandeja-al-dia" && path === "receipts") return route.fulfill({ json: { items: [await source.receipt("rcpt-confirmed")], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, confirmed_count: 1, dismissed_count: 0 } } });
         if (path === "receipts") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, confirmed_count: 0, dismissed_count: 0 } } });
@@ -76,19 +79,68 @@ try {
         }
         if (path === "invitations") return route.fulfill({ json: [] });
         if (path === "spaces/fixture-space/profile") return route.fulfill({ json: { space_id: "fixture-space", name: "Colmado de prueba", country: "DO", currency: "DOP", revision: 0, details: {}, appearance: { kind: "default" }, image: null } });
-        throw new Error(`Unmapped synthetic endpoint ${path}`);
+        return fulfillSyntheticBusinessFallback(route);
       });
+      const selectedSources = state === "bandeja-mixed" ? Promise.all(
+        ([["captures", 404], ["email/deliveries", 500]] as const).map(([path, status]) => page.waitForResponse(response =>
+          new URL(response.url()).pathname === `/api/v1/business/${path}`
+          && response.request().method() === "GET"
+          && response.request().headers()["x-business-grant"] === spaces[0].grant_id
+          && response.status() === status)),
+      ) : null;
       await page.goto(`${baseURL}/biz${state.startsWith("bandeja") ? "?view=inbox" : ""}`);
-      await expect(page.getByTestId(state.startsWith("bandeja") ? "bandeja-segments" : "month-close")).toBeVisible();
+      const reception = page.locator(designServerFieldsReception.root);
+      const receptionViews = reception.locator(designServerFieldsReception.views);
+      const receptionAlert = reception.locator(designServerFieldsReception.alert);
+      if (state.startsWith("bandeja")) {
+        await expect(reception).toBeVisible();
+        await expect(reception).toHaveAttribute("data-mode", "live");
+        await expect(receptionViews).toBeVisible();
+      } else {
+        await expect(page.getByTestId("month-close")).toBeVisible();
+      }
       if (state === "inicio-business-refused" || state === "inicio-receipts-failed") await expect(page.getByTestId("inicio-error")).toBeVisible();
       if (state === "inicio-month-refused" || state === "inicio-month-500") await expect(page.getByTestId("month-close-error")).toBeVisible();
       if (state === "inicio-open-items-refused") await expect(page.getByTestId("month-close-money-error")).toBeVisible();
-      if (state === "bandeja-al-dia") await expect(page.getByText("Tus recibos están al día.", { exact: true })).toBeVisible();
-      if (state === "bandeja-mixed") {
-        await expect(page.getByTestId("bandeja-sources-failed")).toContainText("No pudimos cargar tus notas ni tus correos.");
-        await expect(page.getByTestId("bandeja-sources-failed").getByRole("button", { name: "Reintentar", exact: true })).toBeVisible();
+      if (state === "bandeja-al-dia") {
+        const all = receptionViews.locator(designServerFieldsReception.tabs.all);
+        const review = receptionViews.locator(designServerFieldsReception.tabs.review);
+        const rows = reception.locator(designServerFieldsReception.row);
+        const empty = reception.locator(designServerFieldsReception.empty);
+        await expect(all).toHaveAttribute("aria-selected", "true");
+        await expect(receptionAlert).toHaveCount(0);
+        await expect(rows).toHaveCount(1);
+        await expect(rows).toContainText("Nube Hosting");
+        await expect(rows).toBeVisible();
+        await expect(empty).toHaveCount(0);
+        for (const [key, label] of [["review", "Por revisar"], ["processing", "En proceso"], ["attention", "Necesitan atención"]] as const) {
+          await expect(receptionViews.locator(designServerFieldsReception.tabs[key])).toHaveText(new RegExp(`^${label}\\s*0$`));
+        }
+        await review.click();
+        await expect(review).toHaveAttribute("aria-selected", "true");
+        await expect(empty).toBeVisible();
+        await expect(empty).toHaveAttribute("data-empty-kind", "filtered");
+        await expect(empty.getByRole("heading")).toHaveText("No hay contenido en esta vista");
+        await expect(empty).toContainText("Prueba otra vista o cambia los filtros.");
+        await expect(rows).toHaveCount(0);
+        await empty.getByRole("button", { name: "Limpiar filtros", exact: true }).click();
+        await expect(all).toHaveAttribute("aria-selected", "true");
+        await expect(empty).toHaveCount(0);
+        await expect(rows).toHaveCount(1);
+        await expect(rows).toContainText("Nube Hosting");
+        await expect(rows).toBeVisible();
       }
-      if (state === "bandeja-refused") await expect(page.getByTestId("bandeja-sources-failed").getByText(/hola@cuadrao.ai/)).toBeVisible();
+      if (state === "bandeja-mixed") {
+        await expect(receptionAlert).toContainText("No pudimos cargar tus notas ni tus correos.");
+        await expect(receptionAlert.getByRole("button", { name: "Reintentar", exact: true })).toBeVisible();
+        await expect(receptionAlert).not.toContainText("hola@cuadrao.ai");
+      }
+      if (state === "bandeja-refused") {
+        await expect(receptionAlert).toContainText("No pudimos cargar tus notas ni tus correos.");
+        await expect(receptionAlert.getByText(/hola@cuadrao.ai/)).toBeVisible();
+        await expect(receptionAlert).not.toContainText("conexión");
+        await expect(receptionAlert.getByRole("button", { name: "Reintentar", exact: true })).toHaveCount(0);
+      }
       if (state === "inicio-receipts-failed") {
         await expect(page.getByTestId("month-close-checklist")).toBeVisible();
         await expect(page.getByTestId("month-close-checklist-ready")).toHaveCount(stage === "before" ? 1 : 0);
@@ -111,6 +163,11 @@ try {
         }
         if (failed) await expect(page.getByTestId("inicio-error")).toHaveCount(1);
         if (state === "inicio-receipts-tasks") {
+          const checklist = page.getByTestId("month-close-checklist");
+          const disclosure = checklist.getByRole("button", { name: "Ver cuáles", exact: true });
+          await expect(disclosure).toHaveAttribute("aria-expanded", "false");
+          await disclosure.click();
+          await expect(checklist.getByRole("button", { name: "Ocultar", exact: true })).toHaveAttribute("aria-expanded", "true");
           await expect(page.getByTestId("month-close-task-settle")).toBeVisible();
           await expect(page.getByTestId("month-close-steps-note")).toHaveCount(0);
         }
@@ -120,7 +177,7 @@ try {
         await expect(page.getByTestId("month-close-checklist-ready")).toBeVisible();
         await expect(page.getByTestId("month-close-close")).toBeVisible();
       }
-      for (const id of ["inicio-error", "month-close-error", "month-close-money-error", "bandeja-sources-failed"]) {
+      for (const id of ["inicio-error", "month-close-error", "month-close-money-error"]) {
         const error = page.getByTestId(id);
         if (state.includes("refused") && await error.count()) {
           await expect(error).not.toContainText("conexión");
@@ -129,9 +186,10 @@ try {
       }
       if (state === "inicio-month-500") await expect(page.getByTestId("month-close-error").getByRole("button", { name: "Reintentar", exact: true })).toBeVisible();
       if (state === "bandeja-refused" || state === "bandeja-mixed") {
-        await expect(page.getByTestId("bandeja-segments")).toContainText("-");
-        await expect(page.getByTestId("business-inbox-empty")).toHaveCount(0);
-        await expect(page.getByTestId("bandeja-segment-empty")).toHaveCount(0);
+        for (const [key, label] of [["review", "Por revisar"], ["processing", "En proceso"], ["attention", "Necesitan atención"]] as const) {
+          await expect(receptionViews.locator(designServerFieldsReception.tabs[key])).toHaveText(new RegExp(`^${label}\\s*-$`));
+        }
+        await expect(reception.locator(designServerFieldsReception.empty)).toHaveCount(0);
       }
       await page.evaluate((label) => {
         const stamp = document.createElement("div");
@@ -164,12 +222,15 @@ try {
       releaseReceipts();
       if (state === "inicio-receipts-loading") await expect(page.getByTestId("month-close-checklist-ready")).toBeVisible();
       if (state === "bandeja-mixed") {
+        await selectedSources;
         const before = { ...calls };
         emailsDown = false;
-        await page.getByTestId("bandeja-sources-failed").getByRole("button", { name: "Reintentar", exact: true }).click();
-        await expect(page.getByTestId("bandeja-sources-failed")).toContainText("No pudimos cargar tus notas.");
-        await expect(page.getByTestId("bandeja-sources-failed")).not.toContainText("correos");
-        await expect(page.getByTestId("bandeja-sources-failed").getByRole("button", { name: "Reintentar", exact: true })).toHaveCount(0);
+        await receptionAlert.getByRole("button", { name: "Reintentar", exact: true }).click();
+        await expect(receptionAlert).toContainText("No pudimos cargar tus notas.");
+        await expect(receptionAlert).not.toContainText("correos");
+        await expect(receptionAlert).toContainText("hola@cuadrao.ai");
+        await expect(receptionAlert).not.toContainText("conexión");
+        await expect(receptionAlert.getByRole("button", { name: "Reintentar", exact: true })).toHaveCount(0);
         expect(calls.notes, "permanently refused notes are not retried").toBe(before.notes);
         expect(calls.emails, "only transient email failure is retried").toBeGreaterThan(before.emails);
         retryChecks.push({ width, notes_before: before.notes, notes_after: calls.notes, emails_before: before.emails, emails_after: calls.emails });

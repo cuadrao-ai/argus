@@ -6,6 +6,7 @@ import { chromium, expect } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { FREEZE_CSS, fulfillAcceptedBusinessConsent, installBreakpointFixture } from "../e2e/support/breakpoint-fixture";
 import { monthCloseWire } from "../e2e/support/month-close-wire";
+import { fulfillSyntheticBusinessFallback } from "../e2e/support/synthetic-business-fallback";
 
 const baseURL = process.env.EVIDENCE_BASE_URL ?? "http://127.0.0.1:3198";
 if (!["127.0.0.1", "localhost"].includes(new URL(baseURL).hostname)) throw new Error("Evidence requires a local server");
@@ -65,7 +66,7 @@ try {
       if (path === "invitations") return route.fulfill({ json: [] });
       const profileSpace = path.match(/^spaces\/([^/]+)\/profile$/)?.[1];
       if (profileSpace) return route.fulfill({ json: { space_id: profileSpace, name: [owner, client, closed].find(space => space.space_id === profileSpace)?.name ?? owner.name, country: "DO", currency: "DOP", revision: 0, details: {}, appearance: { kind: "default" }, image: null } });
-      throw new Error(`Unmapped synthetic endpoint ${path}`);
+      return fulfillSyntheticBusinessFallback(route);
     });
     const query = state.startsWith("close-") ? `?lifecycle=close&business=${owner.space_id}` : state === "transfer-picker" ? `?lifecycle=transfer&business=${owner.space_id}` : state.startsWith("accept-") ? `?transfer=${transfer.id}` : state === "owner-datos" ? "?view=business&tab=datos" : "";
     try {

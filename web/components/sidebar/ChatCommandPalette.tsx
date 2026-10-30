@@ -314,7 +314,7 @@ function ChatCommandPaletteSurface({
   const [isDossierSheetOpen, setIsDossierSheetOpen] = useState(false);
   const adaptive = workspaceSearch?.adaptive === true; // Business redesign: the window sizes itself (paletteLayout).
   const toggleLayout = adaptive ? undefined : toggleSavedLayout;
-  const { scope: workspaceScope, scopedSearch, remove: removeScope } = useWorkspaceSearchScope(workspaceSearch);
+  const { scope: workspaceScope, scopedSearch, searchesRecords, remove: removeScope } = useWorkspaceSearchScope(workspaceSearch);
   const rowActionVariant = paletteRowActionVariant(isBelowDesktop);
   const shortcutLegend = useCommandPaletteShortcutLegend();
   const [dossierPaneState, setDossierPaneState] = useState<DossierPaneState>(
@@ -529,7 +529,7 @@ function ChatCommandPaletteSurface({
     };
   }, [chatAvailable, decisionStateFilter, isLedgerMode, query, retryNonce, searchSurface]);
 
-  const workspaceResults = useWorkspaceSearch(isLedgerMode ? null : scopedSearch, query);
+  const workspaceResults = useWorkspaceSearch(isLedgerMode || !searchesRecords ? null : scopedSearch, query);
   const workspaceRecents = useRecentSearches(workspaceSearch?.recents ?? null);
   const [workspaceSelection, setWorkspaceSelection] = useState<string | null>(null);
   const [workspaceSheet, setWorkspaceSheet] = useState(false);
@@ -1552,7 +1552,7 @@ function ChatCommandPaletteSurface({
               </div>
             ) : displayItems.length === 0 &&
               !assetRollupDisplay &&
-              !isLedgerMode ? (workspaceSearch ? (isFiltering && workspaceResults.quiet ? <>
+              !isLedgerMode ? (workspaceSearch ? (isFiltering && searchesRecords && workspaceResults.quiet ? <>
                 <WorkspaceSearchNoMatch search={workspaceSearch} query={query} waiting={isWaitingForIndexableQuery} onOpened={onClose} />
                 {askText && onAsk ? <div className="mt-3 px-3"><AskArgusRow label={workspaceSearch.copy.ask} text={askText} onAsk={onAsk} /></div> : null}
               </> : null) : workspaceResults.quiet && !isFieldOnly &&
