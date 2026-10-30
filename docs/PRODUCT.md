@@ -1,4 +1,4 @@
-# Argus product
+# Cuadrao product
 
 **Status:** Current product direction, approved September 26, 2026.
 **Audience:** Founders, product/design, engineers, and collaborating agents.
