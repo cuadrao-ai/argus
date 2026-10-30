@@ -1037,9 +1037,9 @@ This supersedes:
   including its [October 9 amendment](#october-9-2026-iphone-on-device-guest-book-probar-sin-cuenta).
 - The Oct 13 guest lock, recorded by Iris, not in this log.
 
-Those entries keep their text; this entry supersedes them by reference. The
-guest-code confirmation the October 30 old Argus removal entry left open is
-recorded here.
+Those entries keep their text; this entry supersedes them by reference. Guest
+code is covered by this entry; the October 30 old Argus removal entry points
+here.
 
 This entry does not remove guest code or turn anything off. Removal goes in
 thin steps after Lucas answers the open data questions (existing guest rows in
