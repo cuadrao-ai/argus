@@ -11,7 +11,7 @@ The three biggest gaps between the current and the target model:
 
 1. **Receipt facts live in JSON, so the database cannot enforce them.** RNC, NCF, amount, date and kind sit inside `financial_import_events.resolution`. Only sales have a database-enforced NCF-once rule (`supabase/migrations/20261021050000_business_sale_ncf_once.sql:42`). Purchases have no RNC plus NCF unique key, and duplicates are decided in code on merchant, date, amount and currency (`src/argus/domain/business/duplicates.py:25`).
 2. **Delete behavior contradicts money retention.** 37 foreign keys to `spaces` are `on delete cascade`, and import events cascade from `auth.users` (`supabase/migrations/20261002120300_financial_import_reconciliation.sql:12`). Deleting a Business or a person can remove receipts, entries and history. The 606 and 607 exports leave no durable record of what was sent.
-3. **Business shares one schema with 68 tables it does not use**, and kept tables still point at them. 25 old Argus, 4 guest-only, 9 leftover, 28 Personal or household and 2 chat-telemetry tables with no clear owner sit beside the 98 Business and shared tables. `backtest_runs` has 7 inbound foreign keys, including from kept tables, and guest columns and policies remain on `profiles`, `conversations`, `messages` and `usage_counters`. There is no per-receipt processing trail.
+3. **Business shares one schema with 66 tables it does not use**, and kept tables still point at them. 25 old Argus, 3 guest-only, 8 leftover, 28 Personal or household and 2 chat-telemetry tables with no clear owner sit beside the 98 Business and shared tables and 2 shared tables kept outside Business (the marketing waitlist and the compute-ceiling counters). `backtest_runs` has 7 inbound foreign keys, including from kept tables, and guest columns and policies remain on `profiles`, `conversations`, `messages` and `usage_counters`. There is no per-receipt processing trail.
 
 Decision labels. D7 to D13 are the needs-Lucas items of the removal plan steps with the same ids (`/workspace/specs/db-removal-plan-2026-10-30.md`, not in the repo). No separate D7 to D13 decision definitions exist in `docs/`. The wording of each decision in section 5 is **inferred** from those plan steps.
 
@@ -51,6 +51,8 @@ All 166 creating-migration references agree. Most owner differences are only lab
 | `dgii_rnc_load` | no writer | no app writer | Written by `scripts/ops/dgii_rnc_import.py` through the constant at `:66`, COPY at `:193`. | writer filled in |
 | `financial_source_gmail_senders` | first writer was a table list | no writer | Name constant at `src/argus/domain/ingestion/gmail/senders_postgres.py:18`, insert at `:55`. | writer filled in |
 | `profile_photos`, `business_logos` | no reader or writer | no app writer | Table map at `src/argus/domain/profile_images/store.py:15-17`, select at `:47`, insert at `:57`. | filled in |
+| `cuadrao_early_access_signups` | leftover, "truly none in app code" | alpha leftover | Live marketing waitlist: constant `marketing/lib/forms/signup.ts:13`, upsert `:23`, read `marketing/lib/ops/signups.ts:35`, RPC store `marketing/lib/waitlist/store.ts:20-35` over `cuadrao_waitlist_*` (`20261017010000_personal_waitlist_confirmation.sql:33`, `:67`, `:82`, `:98`, `:108`, `:114`), reminders `supabase/functions/waitlist-reminders/handler.ts:27`; grants test `tests/test_client_grants_postgres.py:214`, retention test `tests/sql/m1_retention_registry.sql:15`. The earlier scan missed `marketing/` and `supabase/functions/`. | shared (marketing waitlist, keep) |
+| `visitor_usage_counters` | guest only | guest only | Also the registered per-user daily ceiling: RPC `claim_registered_compute_usage` at `src/argus/api/chat/registered_compute_ceiling.py:134`, which writes the table (`20260925140000_claim_registered_compute_usage.sql:29`); in-process twin at `:159`. Ties to R2. | shared (registered ceiling and guest ceiling), keep |
 | `collection_strategies` | no writer | tests-only writers | Agrees; `src/argus/domain/store.py:93` is an in-memory field, not SQL. | truly none |
 
 #### Business (66)
@@ -168,27 +170,34 @@ All 166 creating-migration references agree. Most owner differences are only lab
 | `route_receipts` | unknown | `supabase/migrations/20260519000001_add_context_packets_route_receipts.sql:33` | `profiles` on delete set null; `conversations` on delete set null; `backtest_runs` on delete set null; `messages` on delete set null | `scripts/benchmarks/run_turn_latency.py:46` (+1) | `src/argus/domain/supabase_gateway.py:1668` |
 | `cost_ledger_entries` | unknown | `supabase/migrations/20260702000001_add_cost_ledger_entries.sql:4` | `profiles` on delete set null; `conversations` on delete set null; `messages` on delete set null; `backtest_runs` on delete set null; `backtest_jobs` on delete set null; `route_receipts` on delete set null | truly none in app code (tests only) | `src/argus/domain/supabase_gateway.py:1674` |
 
-#### leftover (9)
+#### shared, kept outside Business (2)
+
+The "Owner" column here is this draft's class, because the schema map labels these alpha leftover and guest only.
+
+| Table | Owner in schema map | Created at | FKs out (on delete) | App readers | App writers |
+|---|---|---|---|---|---|
+| `cuadrao_early_access_signups` | shared (marketing waitlist, keep) | `supabase/migrations/20260920000000_cuadrao_early_access_signups.sql:21` | none | REST via constant `marketing/lib/forms/signup.ts:13`, read at `marketing/lib/ops/signups.ts:35` (import at `:3`) | REST upsert at `marketing/lib/forms/signup.ts:23`; SQL functions `cuadrao_waitlist_*` (`supabase/migrations/20261017010000_personal_waitlist_confirmation.sql:33`, `:67`, `:82`, `:98`, `:108`, `:114`) called by RPC from `marketing/lib/waitlist/store.ts:20-35` and `supabase/functions/waitlist-reminders/handler.ts:27`; retention by `cuadrao_waitlist_purge` (`supabase/migrations/20261017010000_personal_waitlist_confirmation.sql:114`) |
+| `visitor_usage_counters` | shared (registered ceiling and guest ceiling) | `supabase/migrations/20260727230000_add_visitor_usage_counters.sql:21` | none | name constant `src/argus/domain/visitor_usage.py:20` | SQL functions `supabase/migrations/20260727230000_add_visitor_usage_counters.sql:79` and `supabase/migrations/20260925140000_claim_registered_compute_usage.sql:29` (RPC from `src/argus/api/chat/registered_compute_ceiling.py:134`); in-process twins of the same counters at `src/argus/api/chat/registered_compute_ceiling.py:159`, `src/argus/api/chat/guest_compute_ceiling.py:221`, `src/argus/api/chat/research_evidence.py:227`, `:252`, `:275`, `src/argus/api/routers/profile.py:282`, `src/argus/domain/chat_turn_lifecycle.py:451` |
+
+#### leftover (8)
 
 | Table | Owner in schema map | Created at | FKs out (on delete) | App readers | App writers |
 |---|---|---|---|---|---|
 | `private_alpha_allowlist` | alpha leftover | `supabase/migrations/20260530000001_private_alpha_allowlist.sql:4` | none | `src/argus/domain/supabase_guest_accounts.py:45` (+2) | `src/argus/domain/supabase_gateway.py:383` |
 | `private_alpha_access_welcome_deliveries` | alpha leftover | `supabase/migrations/20260812142717_add_access_welcome_deliveries.sql:1` | none | `src/argus/domain/supabase_gateway.py:413` | none in app code; SQL function `supabase/migrations/20260812142717_add_access_welcome_deliveries.sql:77` |
 | `private_alpha_access_welcome_claims` | alpha leftover | `supabase/migrations/20260812173805_claim_access_welcome_delivery.sql:1` | none | truly none in app code (tests only) | none in app code; SQL function `supabase/migrations/20260812173805_claim_access_welcome_delivery.sql:76` |
-| `cuadrao_early_access_signups` | alpha leftover | `supabase/migrations/20260920000000_cuadrao_early_access_signups.sql:21` | none | truly none in app code (tests only) | none in app code; SQL function `supabase/migrations/20261017010000_personal_waitlist_confirmation.sql:42` |
 | `beta_invitations` | alpha leftover | `supabase/migrations/20261003140000_household_invite_codes_and_beta_access.sql:24` | `auth.users` on delete set null | `src/argus/domain/household/invites.py:144` (+10) | `src/argus/domain/household/invites.py:216` (+5) |
 | `invite_sender_refs` | alpha leftover | `supabase/migrations/20261003140000_household_invite_codes_and_beta_access.sql:59` | `auth.users` on delete cascade | `src/argus/domain/household/invite_record.py:22` | `src/argus/domain/household/invite_record.py:16` |
 | `invite_referrals` | alpha leftover | `supabase/migrations/20261003140000_household_invite_codes_and_beta_access.sql:66` | `beta_invitations` on delete set null; `household_invitations` on delete set null; `invite_referrals` on delete set null; `auth.users` on delete set null | `src/argus/domain/household/invite_record.py:92` (+6) | `src/argus/domain/household/invite_record.py:60` (+4) |
 | `beta_admissions` | alpha leftover | `supabase/migrations/20261003140000_household_invite_codes_and_beta_access.sql:109` | `auth.users` on delete cascade; `invite_referrals` on delete set null | `src/argus/domain/household/invite_record.py:29` (+1) | `src/argus/domain/household/invite_record.py:43` |
 | `beta_invite_quota_grants` | alpha leftover | `supabase/migrations/20261003140000_household_invite_codes_and_beta_access.sql:124` | `auth.users` on delete set null | `src/argus/domain/household/invites.py:142` (+1) | `src/argus/domain/household/invites.py:570` |
 
-#### guest only (4)
+#### guest only (3)
 
 | Table | Owner in schema map | Created at | FKs out (on delete) | App readers | App writers |
 |---|---|---|---|---|---|
 | `guest_workspaces` | guest only | `supabase/migrations/20260724101324_add_guest_workspaces.sql:64` | `profiles` on delete set null; `conversations` on delete set null | `src/argus/domain/supabase_guest_accounts.py:242` (+2) | `src/argus/domain/supabase_guest_accounts.py:285` |
 | `guest_workspace_handoffs` | guest only | `supabase/migrations/20260724211312_guest_workspace_handoffs.sql:72` | `guest_workspaces` on delete cascade; `profiles` on delete set null; `conversations` on delete cascade; `auth.users` on delete set null | `src/argus/domain/supabase_guest_accounts.py:147` (+1) | none in app code; SQL function `supabase/migrations/20260724211312_guest_workspace_handoffs.sql:371` |
-| `visitor_usage_counters` | guest only | `supabase/migrations/20260727230000_add_visitor_usage_counters.sql:21` | none | `src/argus/domain/visitor_usage.py:20` | none in app code; SQL function `supabase/migrations/20260727230000_add_visitor_usage_counters.sql:79` |
 | `guest_funnel_milestones` | guest only | `supabase/migrations/20260808120000_add_guest_funnel_milestones.sql:25` | none | `src/argus/domain/guest_funnel_milestones.py:18` | none in app code; SQL function `supabase/migrations/20260808120000_add_guest_funnel_milestones.sql:79` |
 
 #### old Argus (25)
@@ -277,6 +286,8 @@ Rules for every table below:
 | Consent | one `business_consents` generation table plus its commands | `business_ai_consents`, `business_receipt_reading_consents`, `business_whatsapp_ai_consents`, `business_consent_acceptances` | consent service only | PK `id`; one live generation per `(space_id, kind)`; insert only; revocation is a new row | kept as evidence; purge only by #1446 rule | consent inferred from a migration or a link |
 | Deletion | `argus_private.business_purge_runs`, `business_purge_objects` | same | closed-Business purge job only | one run per Business; object list with hashes | the run record outlives the data | the purged data itself |
 
+Kept outside Business, unchanged by this model: `cuadrao_early_access_signups` (marketing waitlist) keeps its table, its `cuadrao_waitlist_*` functions and its retention purge (`cuadrao_waitlist_purge`, `supabase/migrations/20261017010000_personal_waitlist_confirmation.sql:114`; listed in `tests/sql/m1_retention_registry.sql:15`). `visitor_usage_counters` stays because the registered per-user ceiling writes it (`supabase/migrations/20260925140000_claim_registered_compute_usage.sql:29`). Neither may hold Business receipt or money data.
+
 `business_entries` is a new typed projection, not a second ledger. Confirmed money still lands in `financial_activity_groups` and revisions. The entry is the reviewed reading of one receipt. Whether to add it, or add generated columns and indexes on `financial_import_events`, is decision D-M1 in section 5.
 
 ## 3. Observability built into the model
@@ -307,7 +318,7 @@ Every step is a new migration. No applied migration is edited. James applies to 
 12. Detach backtest foreign keys from kept tables (D7). **One-way.** Staging proof first.
 13. Delete remaining anonymous auth users (D13), after the guest drain and with hosted anonymous sign-in off. **One-way, Lucas decides through Yelena.** Staging proof first. This must come before step 15 (see Guest removal safety, R5).
 14. Drop the backtest set (D9), idea spine (D10), context packets (D11), and the old Argus tables the plan missed (`public_excerpt_snapshots`, `refusal_observations`, `argus_memory_vectors`, nine `memory_*`). **One-way.** Staging proof first.
-15. Drop guest policies and columns (D8), then the guest set (D12). **One-way, Lucas decides through Yelena.** Staging proof first. Run only after step 13 shows zero anonymous users. If step 15 must run first, the same migration replaces each dropped `*_guest_session_active` policy with one restrictive not-anonymous policy per kept table, so no window opens.
+15. Drop guest policies and columns (D8), then the guest set (D12) except `visitor_usage_counters`, which the registered ceiling still writes (R2). **One-way, Lucas decides through Yelena.** Staging proof first. Run only after step 13 shows zero anonymous users. If step 15 must run first, the same migration replaces each dropped `*_guest_session_active` policy with one restrictive not-anonymous policy per kept table, so no window opens.
 16. Drop leftover tables (`private_alpha_allowlist`, welcome deliveries and claims, checkpoint bookkeeping) after their readers go. **One-way.** Each needs its own decision.
 17. Run the hard-gate tests and real-Postgres matrix on the final schema (D14).
 
@@ -330,7 +341,7 @@ Steps 6 to 11 can land before 12 to 16 because they touch only Business tables. 
 | D9 (inferred) | Drop the backtest tables with production rows unknown. | Drop after the backup. The backup is the only rollback. |
 | D10 (inferred) | Drop the idea spine. | Drop, after confirming no shown receipt or calculation reads `evidence_artifacts` (public excerpts read it today). |
 | D11 (inferred) | Drop the context-packet tables, and decide `route_receipts`. | Drop both context-packet tables. Drop `route_receipts` too if chat goes, after detaching `cost_ledger_entries.route_receipt_id`. The plan's keep reason is wrong at the tip. |
-| D12 (inferred) | Drop the guest tables. | Drop after the drain empties them. |
+| D12 (inferred) | Drop the guest tables. | Drop `guest_workspaces`, `guest_workspace_handoffs` and `guest_funnel_milestones` after the drain empties them. Keep `visitor_usage_counters` (registered ceiling); drop only its guest functions and purge guest-keyed rows. |
 | D13 (inferred) | Delete remaining anonymous auth users in production. | Delete before D8 and D12 (R5), after the drain and with anonymous sign-in off, with a count shown first. |
 | #1446 Q1 | Cascade versus purge against "never lose money records". | Money rows never cascade. A closed Business keeps its money records for the legal period, then the purge job removes them with a run record. The legal period needs a lawyer's number. |
 | #1446 Q2 | The consent table. | Data shape only: see the open item below, for Iris. |
