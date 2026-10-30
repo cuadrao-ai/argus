@@ -940,9 +940,6 @@ def test_real_postgres_matrix_runs_on_pinned_and_latest_supabase_cli() -> None:
     assert pinned_only == [
         "Run provider-free guest backend tests",
         "Run required local anonymous Auth matrix",
-        "Set up Bun",
-        "Install frontend dependencies",
-        "Run guest frontend tests",
     ]
 
 
