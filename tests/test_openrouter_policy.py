@@ -52,6 +52,12 @@ from tests.result_readout_fixtures import readout_draft
 @pytest.fixture(autouse=True)
 def _provider_fixture_mode(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("ARGUS_MARKET_DATA_PROVIDER_MODE", "synthetic_unit_fixture")
+    for name in (
+        "CUADRAO_OPENROUTER_API_KEY_DEV",
+        "CUADRAO_OPENROUTER_API_KEY_STG",
+        "CUADRAO_OPENROUTER_API_KEY_PROD",
+    ):
+        monkeypatch.delenv(name, raising=False)
     clear_asset_cache()
     yield
     clear_asset_cache()
@@ -110,6 +116,156 @@ def test_hosted_guest_never_falls_back_to_dev_key(
         match="ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY",
     ):
         resolve_openrouter_api_key("guest")
+
+
+@pytest.mark.parametrize(
+    ("app_env", "env_key"),
+    [
+        ("production", "CUADRAO_OPENROUTER_API_KEY_PROD"),
+        ("staging", "CUADRAO_OPENROUTER_API_KEY_STG"),
+    ],
+)
+def test_hosted_per_env_key_wins_over_registered_key(
+    monkeypatch: pytest.MonkeyPatch,
+    app_env: str,
+    env_key: str,
+) -> None:
+    monkeypatch.setenv("APP_ENV", app_env)
+    monkeypatch.setenv(env_key, "env-specific-key")
+    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "registered-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "dev-only")
+    monkeypatch.setenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
+
+    assert resolve_openrouter_api_key("registered") == "env-specific-key"
+
+
+@pytest.mark.parametrize("app_env", ["production", "staging", "preview"])
+def test_hosted_falls_back_to_registered_key_when_per_env_key_is_unset(
+    monkeypatch: pytest.MonkeyPatch,
+    app_env: str,
+) -> None:
+    monkeypatch.setenv("APP_ENV", app_env)
+    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "registered-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "dev-only")
+
+    assert resolve_openrouter_api_key("registered") == "registered-key"
+
+
+@pytest.mark.parametrize(
+    ("app_env", "other_key"),
+    [
+        ("staging", "CUADRAO_OPENROUTER_API_KEY_PROD"),
+        ("staging", "CUADRAO_OPENROUTER_API_KEY_DEV"),
+        ("production", "CUADRAO_OPENROUTER_API_KEY_STG"),
+        ("production", "CUADRAO_OPENROUTER_API_KEY_DEV"),
+        ("preview", "CUADRAO_OPENROUTER_API_KEY_PROD"),
+        ("preview", "CUADRAO_OPENROUTER_API_KEY_STG"),
+        ("preview", "CUADRAO_OPENROUTER_API_KEY_DEV"),
+    ],
+)
+def test_hosted_ignores_another_environments_key(
+    monkeypatch: pytest.MonkeyPatch,
+    app_env: str,
+    other_key: str,
+) -> None:
+    monkeypatch.setenv("APP_ENV", app_env)
+    monkeypatch.setenv(other_key, "other-env-key")
+    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "registered-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "dev-only")
+
+    assert resolve_openrouter_api_key("registered") == "registered-key"
+
+
+def test_hosted_guest_ignores_per_env_keys(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_PROD", "env-specific-key")
+    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "registered-key")
+    monkeypatch.setenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "dev-only")
+
+    assert resolve_openrouter_api_key("guest") == "guest-key"
+
+
+@pytest.mark.parametrize("app_env", ["", "dev", "development"])
+def test_local_per_env_key_wins_over_openrouter_key(
+    monkeypatch: pytest.MonkeyPatch,
+    app_env: str,
+) -> None:
+    if app_env:
+        monkeypatch.setenv("APP_ENV", app_env)
+    else:
+        monkeypatch.delenv("APP_ENV", raising=False)
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_DEV", "local-env-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "dev-key")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_PROD", "prod-key")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_STG", "stg-key")
+    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "registered-key")
+    monkeypatch.setenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
+
+    assert resolve_openrouter_api_key() == "local-env-key"
+    assert resolve_openrouter_api_key("registered") == "local-env-key"
+    assert resolve_openrouter_api_key("guest") == "local-env-key"
+
+
+def test_local_falls_back_to_openrouter_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("APP_ENV", "dev")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "dev-key")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_PROD", "prod-key")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_STG", "stg-key")
+
+    assert resolve_openrouter_api_key() == "dev-key"
+
+
+def test_key_selection_log_records_the_name_and_not_the_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from argus.llm import openrouter_key_policy as policy
+    from loguru import logger
+
+    secret = "sentinel-openrouter-secret-9f3c2a"
+    policy._selected_key_names.clear()
+    lines: list[str] = []
+    sink = logger.add(lambda message: lines.append(str(message)), level="INFO")
+    try:
+        monkeypatch.setenv("APP_ENV", "staging")
+        monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_PROD", secret)
+        monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", secret)
+        monkeypatch.setenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", secret)
+        monkeypatch.setenv("OPENROUTER_API_KEY", secret)
+
+        assert resolve_openrouter_api_key("registered") == secret
+        assert resolve_openrouter_api_key("registered") == secret
+        assert resolve_openrouter_api_key("guest") == secret
+        registered_lines = [
+            line for line in lines if "key_name=ARGUS_PROD_OPENROUTER_API_KEY" in line
+        ]
+        guest_lines = [
+            line
+            for line in lines
+            if "key_name=ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY" in line
+        ]
+        assert registered_lines
+        assert len(registered_lines) == 1
+        assert guest_lines
+        assert len(guest_lines) == 1
+
+        monkeypatch.setenv("CUADRAO_OPENROUTER_API_KEY_STG", "stg-specific-key")
+        assert resolve_openrouter_api_key("registered") == "stg-specific-key"
+        staged_lines = [
+            line for line in lines if "key_name=CUADRAO_OPENROUTER_API_KEY_STG" in line
+        ]
+        assert len(staged_lines) == 1
+
+        monkeypatch.delenv("CUADRAO_OPENROUTER_API_KEY_STG")
+        monkeypatch.delenv("CUADRAO_OPENROUTER_API_KEY_PROD")
+        monkeypatch.delenv("ARGUS_PROD_OPENROUTER_API_KEY")
+        monkeypatch.setenv("APP_ENV", "production")
+        with pytest.raises(RuntimeError, match="ARGUS_PROD_OPENROUTER_API_KEY") as exc:
+            resolve_openrouter_api_key("registered")
+        captured = "\n".join(lines) + "\n" + str(exc.value)
+        assert secret not in captured
+    finally:
+        logger.remove(sink)
 
 
 def test_hosted_configuration_rejects_shared_traffic_credential(
