@@ -370,21 +370,6 @@ def test_poller_failure_marks_the_job_and_posts_an_honest_note(monkeypatch) -> N
     assert created and "won't quote figures" in created[0]["content"]
 
 
-def _stored_message(message_id: str, content: str, metadata: dict[str, Any]):
-    from datetime import datetime, timezone
-
-    from argus.api.schemas import Message
-
-    return Message(
-        id=message_id,
-        conversation_id="c1",
-        role="assistant",
-        content=content,
-        created_at=datetime(2026, 8, 22, 1, 25, 58, tzinfo=timezone.utc),
-        metadata=metadata,
-    )
-
-
 def _research_gateway() -> _JobGateway:
     gateway = _JobGateway()
     gateway.create_backtest_job(

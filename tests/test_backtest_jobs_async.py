@@ -254,61 +254,6 @@ class _AsyncJobTool:
         }
 
 
-class _HydrationGateway:
-    def __init__(self) -> None:
-        self.user = User(
-            id="user-1",
-            email="mock@example.com",
-            username=None,
-            display_name="Mock Developer",
-            language="en",
-            locale="en-US",
-            is_admin=True,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
-        )
-        self.run = _run()
-
-    def get_or_create_mock_user(self) -> User:
-        return self.user
-
-    def get_backtest_job(self, *, user_id: str, job_id: str) -> dict[str, object] | None:
-        if user_id != self.user.id or job_id != "job-async-1":
-            return None
-        return {
-            "id": "job-async-1",
-            "conversation_id": "conversation-1",
-            "request_message_id": "message-1",
-            "confirmation_message_id": "confirmation-message-1",
-            "status": "succeeded",
-            "result_run_id": self.run.id,
-            "failure_code": None,
-            "failure_detail": None,
-            "retryable": False,
-            "queued_at": "2026-06-06T12:00:00+00:00",
-            "started_at": "2026-06-06T12:00:01+00:00",
-            "finished_at": "2026-06-06T12:00:04+00:00",
-            "created_at": "2026-06-06T12:00:00+00:00",
-            "updated_at": "2026-06-06T12:00:04+00:00",
-            "execution_metadata": {
-                "workflow_backtest": {
-                    "result_readout": (
-                        "**Quick take**\n\n"
-                        "Backend generated readout.\n\n"
-                        "- Tested: AAPL buy and hold."
-                    ),
-                    "result_readout_source": "llm_explain_stage",
-                    "result_readout_fallback_used": False,
-                }
-            },
-        }
-
-    def get_backtest_run(self, *, user_id: str, run_id: str) -> BacktestRun | None:
-        if user_id != self.user.id or run_id != self.run.id:
-            return None
-        return self.run
-
-
 class _TimedOutJobGateway:
     def __init__(self) -> None:
         self.user = User(
