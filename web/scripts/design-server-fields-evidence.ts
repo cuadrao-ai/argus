@@ -163,6 +163,11 @@ try {
         }
         if (failed) await expect(page.getByTestId("inicio-error")).toHaveCount(1);
         if (state === "inicio-receipts-tasks") {
+          const checklist = page.getByTestId("month-close-checklist");
+          const disclosure = checklist.getByRole("button", { name: "Ver cuáles", exact: true });
+          await expect(disclosure).toHaveAttribute("aria-expanded", "false");
+          await disclosure.click();
+          await expect(checklist.getByRole("button", { name: "Ocultar", exact: true })).toHaveAttribute("aria-expanded", "true");
           await expect(page.getByTestId("month-close-task-settle")).toBeVisible();
           await expect(page.getByTestId("month-close-steps-note")).toHaveCount(0);
         }
