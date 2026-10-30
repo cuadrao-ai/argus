@@ -5,7 +5,7 @@ import { rememberRecoveryEmail } from "./recovery-email";
 
 import { AlertCircle, Check, EyeClosed, LoaderCircle } from "lucide-react";
 import Image from "next/image";
-import { type FormEvent, useEffect, useId, useRef, useState } from "react";
+import { type FormEvent, type MouseEvent, useEffect, useId, useRef, useState } from "react";
 import { FormField, PasswordField, useFieldChecks } from "@/components/ui/FormField";
 import { fieldLabelClass } from "@/components/ui/form-field";
 import { PASSWORD_MIN_LENGTH } from "@/lib/password-strength";
@@ -238,6 +238,20 @@ export default function AuthForm({
   const confirming = useRef(false);
   const isConfirming = confirmationStatus === "verifying";
   const isVerified = confirmationStatus === "verified";
+  // While the code is checked, the loading button is why sign-in, recovery
+  // and resend wait: one value disables them and names their explanation.
+  const competingActionsWaitOn = isConfirming ? "auth-confirmation-submit" : undefined;
+  // Only a plain primary click chooses recovery in this tab. A modified or
+  // middle click opens recovery elsewhere, so this tab changes nothing.
+  const chooseRecovery = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (competingActionsWaitOn) {
+      event.preventDefault();
+      return;
+    }
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    supersedeChoice();
+    rememberRecoveryEmail(email);
+  };
   const codeErrorMessage = codeErrorKind !== null ? AUTH_ERROR_MESSAGE_BY_CODE[codeErrorKind] ?? GENERIC_AUTH_ERROR : null;
   const codeError = codeErrorKind === "incomplete"
     ? t("auth.signup.confirmation_code_incomplete", { count: CONFIRMATION_CODE_LENGTH })
@@ -547,6 +561,7 @@ export default function AuthForm({
             </div>
             <button
               type="submit"
+              id="auth-confirmation-submit"
               disabled={isConfirming || isResending || (isVerified && !codeErrorKind)}
               className="font-display flex w-full items-center justify-center rounded-[9999px] bg-black px-[32px] py-[14px] text-[16px] font-medium text-white transition-opacity hover:opacity-85 focus:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black disabled:opacity-50 dark:bg-white dark:text-black dark:focus-visible:ring-white"
             >
@@ -563,6 +578,7 @@ export default function AuthForm({
           </p>
           <div className="mx-auto mt-3 max-w-[400px] text-center text-[14px]">
             <button type="button" disabled={resendSeconds > 0 || isConfirming || isResending || isVerified}
+              aria-describedby={competingActionsWaitOn}
               className="min-h-11 rounded-item px-3 underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] disabled:cursor-not-allowed disabled:no-underline"
               onClick={() => void handleResendCode()}>
               {resendSeconds > 0 ? t("auth.signup.confirmation_resend_wait", { seconds: resendSeconds }) : t("auth.signup.confirmation_resend")}
@@ -572,8 +588,8 @@ export default function AuthForm({
             {allowModeSwitch && onModeChange ? (
               <p>
                 {t("landing.already_account")}{" "}
-                <button type="button"
-                  className="min-h-11 rounded-item px-1 font-medium text-black underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] dark:text-white"
+                <button type="button" disabled={Boolean(competingActionsWaitOn)} aria-describedby={competingActionsWaitOn}
+                  className="min-h-11 rounded-item px-1 font-medium text-black underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] disabled:cursor-not-allowed disabled:no-underline dark:text-white"
                   onClick={() => {
                     supersedeChoice();
                     onModeChange("login");
@@ -583,8 +599,9 @@ export default function AuthForm({
                 </button>
               </p>
             ) : null}
-            <Link href="/auth/forgot-password" onClick={() => { supersedeChoice(); rememberRecoveryEmail(email); }}
-              className="flex min-h-11 items-center rounded-item px-3 font-medium text-black underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] dark:text-white">
+            <Link href="/auth/forgot-password" onClick={chooseRecovery} onAuxClick={chooseRecovery}
+              aria-disabled={competingActionsWaitOn ? true : undefined} aria-describedby={competingActionsWaitOn}
+              className="flex min-h-11 items-center rounded-item px-3 font-medium text-black underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] aria-disabled:cursor-not-allowed aria-disabled:no-underline dark:text-white">
               {t("auth.recovery.forgot")}
             </Link>
           </div>
