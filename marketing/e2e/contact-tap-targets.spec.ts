@@ -126,10 +126,12 @@ test.describe("contact form tap targets", () => {
       };
     });
     for (const key of Object.keys(DESKTOP) as (keyof typeof DESKTOP)[]) {
-      for (const field of ["dx", "dy", "w", "h"] as const) {
+      const fields = key === "footer" ? (["dx", "dy", "w"] as const) : (["dx", "dy", "w", "h"] as const);
+      for (const field of fields) {
         expect(Math.abs(current[key][field] - DESKTOP[key][field])).toBeLessThanOrEqual(1);
       }
     }
+    expect(current.footer.h).toBeGreaterThan(DESKTOP.footer.h);
     expect(name.w).toBeGreaterThan(44);
 
     const link = await box(page, "#contact-privacy a");
@@ -154,5 +156,50 @@ test.describe("contact form tap targets", () => {
       checked += 1;
     }
     expect(checked).toBeGreaterThan(3);
+  });
+
+  test("contact page footer links are at least 44px tall at 390 and 1280", async ({ page }) => {
+    for (const width of [390, 1280]) {
+      await page.setViewportSize({ width, height: 1400 });
+      await page.goto("/contacto");
+      const columns = await page.evaluate(() =>
+        [...document.querySelectorAll("footer nav")].map((nav) =>
+          [...nav.querySelectorAll("a")].map((link) => {
+            const rect = link.getBoundingClientRect();
+            return {
+              name: (link.textContent || "").replace(/\s+/g, " ").trim(),
+              width: rect.width,
+              height: rect.height,
+              y: rect.y,
+              fontSize: getComputedStyle(link).fontSize,
+            };
+          }),
+        ),
+      );
+      const measured: string[] = [];
+      for (const links of columns) {
+        expect(links.length).toBeGreaterThan(0);
+        for (const link of links) {
+          measured.push(`${width} ${link.name} ${link.width.toFixed(2)}x${link.height.toFixed(2)}`);
+          expect(link.width).toBeGreaterThanOrEqual(44);
+          expect(link.height).toBeGreaterThanOrEqual(44);
+          expect(link.fontSize).toBe("13px");
+        }
+        for (let index = 0; index < links.length - 1; index += 1) {
+          expect(links[index + 1].y - (links[index].y + links[index].height)).toBeGreaterThan(0);
+        }
+      }
+      expect(measured.length).toBeGreaterThan(0);
+      console.log(measured.join("\n"));
+      const anchors = page.locator("footer nav a");
+      const count = await anchors.count();
+      for (let index = 0; index < count; index += 1) {
+        const link = anchors.nth(index);
+        await link.evaluate((node: HTMLElement) => node.focus({ focusVisible: true }));
+        await expect(link).toHaveCSS("outline-width", "2px");
+        await expect(link).toHaveCSS("outline-style", "solid");
+        await expect(link).toHaveCSS("outline-color", "rgb(47, 90, 73)");
+      }
+    }
   });
 });

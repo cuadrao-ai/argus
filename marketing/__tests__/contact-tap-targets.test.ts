@@ -27,4 +27,6 @@ test("the privacy link grows by padding and the contact page focus ring uses the
   expect(link).not.toContain("margin");
   expect(css).toContain('outline: 2px solid var(--cta-rest)');
   expect(read("business-pages.tsx")).toContain('data-page="contact"');
+  expect(css).toContain("min-height: 44px;\n  padding-block: 4px;");
+  expect(css).not.toMatch(/\.businessFooterGrid nav > a \{[^}]*margin/);
 });
