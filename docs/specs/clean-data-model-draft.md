@@ -27,6 +27,15 @@ Classification rules:
 - **Guest only** and **old Argus** follow the removal plan.
 - **Personal/household** means the consumer app's household and planning tables. They are outside the Business target and outside the removal plan. They stay untouched here.
 
+### Findings that correct the removal plan
+
+From a repo-only schema map made the same day, re-checked on this branch:
+
+- **`route_receipts` is written only by the chat path.** The only insert is `src/argus/domain/supabase_gateway.py:1668`, reached from `src/argus/api/routers/agent.py:672`. Document extraction only puts receipts in its result metadata (`src/argus/domain/ingestion/documents/extractor.py:613`). The plan's D11 reason for keeping it ("document extraction writes it") does not hold at the tip.
+- **Old Argus tables missing from the plan's drop steps:** `public_excerpt_snapshots`, `refusal_observations`, `argus_memory_vectors` and the nine `memory_*` tables.
+- **`cost_ledger_entries` has no clear owner** and references `route_receipts` (`supabase/migrations/20260702000001_add_cost_ledger_entries.sql:29`, `on delete set null`). Dropping `route_receipts` needs that column detached first, as D7 does for backtest links.
+- **Four consent tables overlap:** `business_ai_consents`, `business_receipt_reading_consents`, `business_whatsapp_ai_consents` and `business_consent_acceptances`. Section 2 collapses them into one.
+
 #### Business (66)
 
 | Table | Created at | First reader in src | First writer in src |
@@ -275,7 +284,7 @@ Every step is a new migration. No applied migration is edited. James applies to 
 11. Revoke the `authenticated` grant on `business_consent_acceptances` after the API serves it. Two-way.
 12. Detach backtest foreign keys from kept tables (D7). **One-way.** Staging proof first.
 13. Delete remaining anonymous auth users (D13), after the guest drain and with hosted anonymous sign-in off. **One-way, Lucas decides through Yelena.** Staging proof first. This must come before step 15 (see Guest removal safety, R5).
-14. Drop the backtest set (D9), idea spine (D10) and context packets (D11). **One-way.** Staging proof first.
+14. Drop the backtest set (D9), idea spine (D10), context packets (D11), and the old Argus tables the plan missed (`public_excerpt_snapshots`, `refusal_observations`, `argus_memory_vectors`, nine `memory_*`). **One-way.** Staging proof first.
 15. Drop guest policies and columns (D8), then the guest set (D12). **One-way, Lucas decides through Yelena.** Staging proof first. Run only after step 13 shows zero anonymous users. If step 15 must run first, the same migration replaces each dropped `*_guest_session_active` policy with one restrictive not-anonymous policy per kept table, so no window opens.
 16. Drop leftover tables (`private_alpha_allowlist`, welcome deliveries and claims, checkpoint bookkeeping) after their readers go. **One-way.** Each needs its own decision.
 17. Run the hard-gate tests and real-Postgres matrix on the final schema (D14).
@@ -298,7 +307,7 @@ Steps 6 to 11 can land before 12 to 16 because they touch only Business tables. 
 | D8 (inferred) | Drop guest columns on kept tables, or leave them dead. | Drop them. Dead columns are the bloat named on October 30. |
 | D9 (inferred) | Drop the backtest tables with production rows unknown. | Drop after the backup. The backup is the only rollback. |
 | D10 (inferred) | Drop the idea spine. | Drop, after confirming no shown receipt or calculation reads `evidence_artifacts` (public excerpts read it today). |
-| D11 (inferred) | Drop the context-packet tables. Keep `route_receipts`. | Drop. Document extraction still writes `route_receipts`, so it stays. |
+| D11 (inferred) | Drop the context-packet tables, and decide `route_receipts`. | Drop both context-packet tables. Drop `route_receipts` too if chat goes, after detaching `cost_ledger_entries.route_receipt_id`. The plan's keep reason is wrong at the tip. |
 | D12 (inferred) | Drop the guest tables. | Drop after the drain empties them. |
 | D13 (inferred) | Delete remaining anonymous auth users in production. | Delete before D8 and D12 (R5), after the drain and with anonymous sign-in off, with a count shown first. |
 | #1446 Q1 | Cascade versus purge against "never lose money records". | Money rows never cascade. A closed Business keeps its money records for the legal period, then the purge job removes them with a run record. The legal period needs a lawyer's number. |
