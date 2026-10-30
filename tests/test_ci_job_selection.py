@@ -80,15 +80,26 @@ CASES = {
         EVERY,
     ),
     "supabase-config": (["supabase/config.toml"], HEAVY),
-    "ci-workflow": ([".github/workflows/ci.yml"], EVERY),
-    "other-workflow": ([f".github/workflows/{FAKE.word()}.yml"], EVERY),
-    "ci-helper-script": ([".github/docs-only-changes.sh"], EVERY),
+    "ci-workflow": ([".github/workflows/ci.yml"], HEAVY),
+    "other-workflow": ([f".github/workflows/{FAKE.word()}.yml"], HEAVY),
+    "ci-helper-script": ([".github/docs-only-changes.sh"], HEAVY),
     "docs-only": ([f"docs/{FAKE.word()}.md", "docs/api/openapi.yaml"], DOCS),
     "native-only": ([f"ios/{FAKE.word()}.swift", f"mobile/android/{FAKE.word()}.kt"], HEAVY),
-    "unknown-top-level": ([f"{FAKE.word()}-tool/config.yml"], EVERY),
-    "unknown-root-file": (["Makefile", ".gitattributes"], EVERY),
-    "unknown-beside-backend": ([f"src/argus/{FAKE.word()}.py", "temp/.gitkeep"], EVERY),
+    "unknown-top-level": ([f"{FAKE.word()}-tool/config.yml"], HEAVY),
+    "unknown-root-file": (["Makefile", ".gitattributes"], HEAVY),
+    "unknown-beside-backend": ([f"src/argus/{FAKE.word()}.py", "temp/.gitkeep"], HEAVY),
     "root-markdown": (["AGENTS.md"], HEAVY),
+    "marketing-beside-backend": (
+        [f"src/argus/{FAKE.word()}.py", f"marketing/lib/{FAKE.word()}.ts"],
+        EVERY,
+    ),
+    "edge-function-beside-workflow": (
+        [".github/workflows/ci.yml", "supabase/functions/waitlist-reminders/index.ts"],
+        EVERY,
+    ),
+    "docs-beside-marketing": ([f"docs/{FAKE.word()}.md", "marketing/app/page.tsx"], EVERY),
+    "docs-beside-workflow": ([f"docs/{FAKE.word()}.md", ".github/workflows/ci.yml"], HEAVY),
+    "marketing-prefix-lookalike": (["marketing-notes.md", "supabase/functions.md"], HEAVY),
 }
 
 
@@ -381,7 +392,7 @@ def test_marketing_reads_only_paths_that_select_marketing_checks():
                 if outputs(classify("--files", path))["run_marketing"] != "true":
                     violations.append(f"{read} -> {path}")
     assert not violations, (
-        "marketing-checks reads paths that skip it; make skips_marketing in "
+        "marketing-checks reads paths that skip it; make selects_marketing in "
         f"{SCRIPT.name} select marketing for them: {violations}"
     )
 

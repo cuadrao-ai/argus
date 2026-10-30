@@ -60,7 +60,7 @@ pull request:
 | --- | --- |
 | Only `docs/` | docs-checks |
 | Anything else | backend-checks, frontend-checks, guest-release-gates |
-| Also `marketing/`, `supabase/functions/`, `.github/` or an unlisted path | plus marketing-checks |
+| Also `marketing/` or `supabase/functions/` | plus marketing-checks |
 
 Backend and web cannot narrow: backend tests scan `git ls-files`, and a web
 test runs `git grep` over the whole checkout. guest-release-gates holds the

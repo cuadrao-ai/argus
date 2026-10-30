@@ -9,9 +9,10 @@
 #   any change outside docs/ can affect them.
 # run_marketing: marketing-checks. Marketing is its own package; outside
 #   marketing/ it reads only supabase/functions/ (tests/test_ci_job_selection.py
-#   proves that against the tree). Paths not listed below select it.
+#   proves that against the tree). Only those two paths select it.
 #
-# Non-pull_request events, an empty file list and unknown paths run every job.
+# Non-pull_request events and an empty file list run every job. Unknown paths
+#   run the heavy jobs, not marketing-checks.
 # A failed file listing exits non-zero, which fails the aggregate ci check.
 
 set -euo pipefail
@@ -38,16 +39,12 @@ is_docs_path() {
   [ "$path" = "docs" ] || [ "${path#docs/}" != "$path" ]
 }
 
-# Paths marketing-checks cannot read. Everything else, including .github/,
-# marketing/, supabase/functions/ and any new top-level path, selects it.
-skips_marketing() {
+# marketing-checks reads only these paths. Everything else, including
+# .github/ and any new top-level path, skips it.
+selects_marketing() {
   local path="${1#./}"
   case "$path" in
-    supabase/functions/*) return 1 ;;
-    docs/*|web/*|src/*|tests/*|scripts/*|workflows/*|fixtures/*|supabase/*) return 0 ;;
-    ios/*|mobile/*|prototypes/*|.agent/*) return 0 ;;
-    pyproject.toml|poetry.lock|uv.lock|.python-version|render.yaml) return 0 ;;
-    AGENTS.md|CLAUDE.md|README.md|.env.example|.pre-commit-config.yaml|.mcp.json|.codex/*) return 0 ;;
+    marketing/*|supabase/functions/*) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -69,7 +66,7 @@ classify_files() {
     if ! is_docs_path "$path"; then
       docs_only="false"
     fi
-    if ! skips_marketing "$path"; then
+    if selects_marketing "$path"; then
       run_marketing="true"
     fi
   done
