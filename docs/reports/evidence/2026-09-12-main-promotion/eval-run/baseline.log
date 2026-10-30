@@ -2082,14 +2082,14 @@ Traceback (most recent call last):
   File "/Users/garces/.codex/worktrees/eca1/private-alpha-next/.venv/lib/python3.10/site-packages/alpaca/common/rest.py", line 131, in _request
     return self._one_request(method, url, opts, retry)
            │    │            │       │    │     └ 3
-           │    │            │       │    └ {'headers': {'APCA-API-KEY-ID': '<redacted>', 'APCA-API-SECRET-KEY': 'B3x6kgYLisJkWBe6LsJvF5owSQmBdA7XRTFFMte...
+           │    │            │       │    └ {'headers': {'APCA-API-KEY-ID': '<redacted>', 'APCA-API-SECRET-KEY': '<redacted>...
            │    │            │       └ 'https://paper-api.alpaca.markets/v2/clock'
            │    │            └ 'GET'
            │    └ <function RESTClient._one_request at 0x10f5ef0a0>
            └ <alpaca.trading.client.TradingClient object at 0x119f25ab0>
   File "/Users/garces/.codex/worktrees/eca1/private-alpha-next/.venv/lib/python3.10/site-packages/alpaca/common/rest.py", line 195, in _one_request
     response = self._session.request(method, url, **opts)
-               │    │        │       │       │      └ {'headers': {'APCA-API-KEY-ID': '<redacted>', 'APCA-API-SECRET-KEY': 'B3x6kgYLisJkWBe6LsJvF5owSQmBdA7XRTFFMte...
+               │    │        │       │       │      └ {'headers': {'APCA-API-KEY-ID': '<redacted>', 'APCA-API-SECRET-KEY': '<redacted>...
                │    │        │       │       └ 'https://paper-api.alpaca.markets/v2/clock'
                │    │        │       └ 'GET'
                │    │        └ <function Session.request at 0x107435990>
