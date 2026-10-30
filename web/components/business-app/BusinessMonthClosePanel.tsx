@@ -706,7 +706,7 @@ function BusinessMonthCloseContent({
   const receiptStatus = knownReview ? null : (
     <div data-testid="month-close-receipts-status">
       <div role={reviewProblem.state === "failed" || reviewProblem.state === "refused" ? "alert" : undefined} data-testid={reviewProblem.state === "failed" || reviewProblem.state === "refused" ? "inicio-error" : undefined} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[14px] text-[#56635e] dark:text-white/70">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-full tablet:basis-auto">
           <p>{reviewProblem.state === "refused" ? t("auth.business_unavailable.title") : t(`business.month_close.receipts_${reviewProblem.state}`)}</p>
           {reviewProblem.state === "refused" ? <p>{t("auth.business_unavailable.body")}{reviewProblem.reference ? <span className="ml-2 inline-flex align-middle"><ReferenceCode reference={reviewProblem.reference} /></span> : null}</p> : null}
         </div>
