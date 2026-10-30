@@ -6,7 +6,8 @@ import { formatBusinessName } from "./business-format";
 import { inboxCount, problemCount, readingCount } from "./inbox-count";
 import { useBusiness } from "./BusinessWorkspace";
 import BusinessAddMenu from "./BusinessAddMenu";
-import BusinessMonthClosePanel, { useMonthCloseSource } from "./BusinessMonthClosePanel";
+import BusinessMonthClosePanel, { useMonthCloseSource, type MonthCloseParts } from "./BusinessMonthClosePanel";
+import { cardClass } from "./business-ui";
 import { HomeHeading } from "./foundation/HomeHeading";
 import { HomeCustomize, HomeSetupLead, HomeWork, useHomeOrder, type HomeSectionKey } from "./inicio/HomeOverviewDraft";
 
@@ -25,11 +26,12 @@ export default function BusinessOverviewPanel() {
   const monthClose = useMonthCloseSource();
   const homeOrder = useHomeOrder(userId, chosen?.space_id);
 
-  const home = (parts: { month: React.ReactNode; money: React.ReactNode }) => {
-    const sections: Record<HomeSectionKey, React.ReactNode> = { work: <HomeWork />, ...parts };
+  const home = (parts: MonthCloseParts) => {
+    const sections: Record<HomeSectionKey, React.ReactNode> = { work: <HomeWork />, month: parts.month, money: parts.money };
     return (
       <div data-testid="home-overview" className="w-full space-y-6 pb-6">
         {isBelowTablet ? <HomeHeading name={bridge?.greetingName} business={formatBusinessName(chosen?.name, t("business.overview.title", "My business"))} /> : null}
+        {parts.receiptStatus ? <div className={cardClass}>{parts.receiptStatus}</div> : null}
         <HomeSetupLead />
         {homeOrder.order.map((key) => <div key={key} data-home-section={key}>{sections[key]}</div>)}
         <div className="flex border-t border-[color:var(--surface-divider)] pt-4"><HomeCustomize order={homeOrder.order} onChange={homeOrder.save} isDefault={homeOrder.isDefault} /></div>
@@ -44,6 +46,7 @@ export default function BusinessOverviewPanel() {
         monthClose={monthClose}
         layout="finance"
         arrange={home}
+        receiptStatusPlacement={isBelowTablet ? "lead" : "default"}
         review={records.error ? (records.refused ? { state: "refused", reference: records.failureReference } : { state: "failed", retry: reload, reference: records.failureReference }) : porRevisar === null ? { state: records.inbox === null ? "loading" : "unknown" } : {
           count: porRevisar,
           detail: null,
