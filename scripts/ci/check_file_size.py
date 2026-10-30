@@ -1,4 +1,4 @@
-"""Fail when a pull request adds or changes a file over 2 MB.
+"""Fail when a pull request adds or changes a file over 2 MiB.
 
 The diff is `git diff --name-status --find-renames --diff-filter=ACMRT
 <merge-base>...HEAD`, so files already on the base branch and files that
