@@ -85,19 +85,20 @@ collect_git_files() {
   if ! git cat-file -e "${base_ref}^{commit}" 2>/dev/null; then
     git fetch --no-tags --depth=1 origin "$base_ref" >/dev/null
   fi
-  git diff --name-only --no-renames --diff-filter=ACDMRTUXB "${base_ref}...HEAD"
+  # -z prints raw NUL-terminated paths. Without it Git quotes and escapes
+  # paths with non-ASCII bytes or control characters ("marketing/app/espa\303\261ol.tsx"),
+  # and the quoted string matches no prefix.
+  git diff -z --name-only --no-renames --diff-filter=ACDMRTUXB "${base_ref}...HEAD"
 }
 
-# Command substitution keeps a git failure fatal; process substitution would
-# hide it and classify whatever partial list was printed.
+# The listing goes to a temp file, not a pipe or process substitution, so a git
+# failure stays fatal under set -e instead of classifying a partial list.
+# Command substitution would drop the NUL separators.
 classify_git_files() {
-  local listing
-  listing="$(collect_git_files "$1")"
-  if [ -n "$listing" ]; then
-    mapfile -t FILES <<< "$listing"
-  else
-    FILES=()
-  fi
+  LISTING="$(mktemp)"
+  trap 'rm -f "$LISTING"' EXIT
+  collect_git_files "$1" > "$LISTING"
+  mapfile -d '' -t FILES < "$LISTING"
   classify_files "${FILES[@]+"${FILES[@]}"}"
 }
 
