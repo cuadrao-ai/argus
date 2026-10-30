@@ -284,6 +284,39 @@ describe("Ocultar montos", () => {
 });
 
 describe("the Business top bar on a phone", () => {
+  test("a receipt failure keeps the settlement task reachable through Ver cuáles on a phone", async () => {
+    const page = await mount({ width: 390, overrides: {
+      receiptPage: async () => { throw new Error("Receipt count unavailable"); },
+    } });
+    await page.settle(() => page.screen().querySelector('[data-testid="inicio-error"]') !== null && page.screen().querySelector('[data-testid="month-close-checklist"]') !== null && page.screen().querySelector('[data-testid="month-close-payable"]') !== null, "the receipt failure, checklist, and money cards");
+    await page.act(async () => window.dispatchEvent(new Event("resize")));
+    assert.equal(page.screen().querySelector('[data-testid="inicio-error"]')?.getAttribute("role"), "alert");
+    assert.equal(page.screen().querySelector('[data-testid="month-close-close"]'), null, "a receipt failure prevents closing the month");
+    const toggle = page.screen().querySelector<HTMLButtonElement>('[data-testid="month-close-tasks-toggle"]')!;
+    assert.equal(toggle.textContent, "Ver cuáles");
+    assert.equal(toggle.getAttribute("aria-expanded"), "false");
+    assert.equal(page.screen().querySelector('[data-testid="month-close-task-settle"]'), null);
+    await page.act(async () => toggle.click());
+    assert.equal(page.screen().querySelector('[data-testid="month-close-tasks-toggle"]')?.getAttribute("aria-expanded"), "true");
+    const task = page.screen().querySelector('[data-testid="month-close-task-settle"]');
+    assert.ok(task, "the disclosure reveals the settlement task");
+    const see = task.querySelector<HTMLButtonElement>("button")!;
+    assert.equal(see.textContent, "Ver");
+    assert.equal(see.disabled, false);
+    const money = page.screen().querySelector<HTMLElement>("#month-close-money");
+    assert.ok(money, "the task has a mounted destination");
+    assert.equal(money.querySelector("h3")?.textContent, "Cobros y pagos");
+    assert.ok(money.querySelector('[data-testid="month-close-receivable"]'));
+    assert.ok(money.querySelector('[data-testid="month-close-payable"]'));
+    assert.ok(money.querySelector('[data-testid="month-close-row"]'), "the destination contains real open-item rows");
+    const scroll = mock(() => undefined);
+    money.scrollIntoView = scroll;
+    await page.act(async () => see.click());
+    assert.equal(scroll.mock.calls.length, 1, "Ver scrolls to the real money section");
+    assert.ok(page.screen().querySelector('[data-testid="inicio-error"]'), "settlement remains reachable while the receipt failure persists");
+    assert.equal(page.screen().querySelector('[data-testid="month-close-close"]'), null);
+  });
+
   test("Inicio keeps one receipt failure after the phone greeting, preserves the desktop footer, and retries the source", async () => {
     const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
     const fixture = createFixtureBusinessDataSource({ chatAvailable: true });
