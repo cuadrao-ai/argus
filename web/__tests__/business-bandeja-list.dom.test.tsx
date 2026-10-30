@@ -4,6 +4,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessCapture, ReceiptSummary } from "@/lib/business-api";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
 import type { BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
+import { designServerFieldsReception as receptionEvidence } from "../e2e/support/design-server-fields-reception";
 import { receptionRows, rowState, rowTitles, receptionTab, tabCount } from "./support/reception";
 
 // The real workspace and panel router over the sample source. The sample's
@@ -100,6 +101,49 @@ const failureOf = (page: { host: HTMLElement }) => page.host.querySelector<HTMLE
 const FAILED = "No pudimos cargar tus notas ni tus correos.";
 
 describe("the Bandeja views", () => {
+  test("the evidence selectors keep a confirmed receipt reachable after clearing an empty review view", async () => {
+    const page = await mount({
+      panel: { kind: "inbox" },
+      overrides: (fixture) => ({
+        receiptPage: async () => ({
+          items: [await fixture.receipt("rcpt-confirmed")],
+          activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, confirmed_count: 1, dismissed_count: 0 },
+        }),
+        emailDeliveries: async () => [],
+      }),
+    });
+    await inboxReady(page);
+    const reception = page.host.querySelector(receptionEvidence.root);
+    assert.ok(reception, "the live Reception is mounted");
+    assert.equal(reception.getAttribute("data-mode"), "live");
+    const views = reception.querySelector(receptionEvidence.views);
+    assert.ok(views, "the evidence script can find the Bandeja views");
+    assert.equal(views.getAttribute("role"), "tablist");
+    assert.equal(views.getAttribute("aria-label"), "Vistas de Bandeja");
+    const tab = (key: keyof typeof receptionEvidence.tabs) => views.querySelector<HTMLButtonElement>(receptionEvidence.tabs[key]);
+    assert.equal(tab("all")?.getAttribute("aria-selected"), "true");
+    for (const [key, label] of [["review", "Por revisar"], ["processing", "En proceso"], ["attention", "Necesitan atención"]] as const) {
+      assert.equal(tab(key)?.textContent, `${label}0`);
+    }
+    assert.equal(reception.querySelectorAll(receptionEvidence.alert).length, 0);
+    assert.equal(reception.querySelectorAll(receptionEvidence.empty).length, 0);
+    assert.equal(reception.querySelectorAll(receptionEvidence.row).length, 1);
+    assert.ok(reception.querySelector(receptionEvidence.row)?.textContent?.includes("Nube Hosting"));
+    await page.act(async () => tab("review")!.click());
+    assert.equal(tab("review")?.getAttribute("aria-selected"), "true");
+    const empty = reception.querySelector(receptionEvidence.empty);
+    assert.equal(empty?.getAttribute("data-empty-kind"), "filtered");
+    assert.equal(empty?.querySelector("h3")?.textContent, "No hay contenido en esta vista");
+    assert.equal(reception.querySelectorAll(receptionEvidence.row).length, 0);
+    const clear = [...(empty?.querySelectorAll("button") ?? [])].find(button => button.textContent === "Limpiar filtros");
+    assert.ok(clear, "Limpiar filtros returns to Todos");
+    await page.act(async () => clear.click());
+    assert.equal(tab("all")?.getAttribute("aria-selected"), "true");
+    assert.equal(reception.querySelectorAll(receptionEvidence.empty).length, 0);
+    assert.equal(reception.querySelectorAll(receptionEvidence.row).length, 1);
+    assert.ok(reception.querySelector(receptionEvidence.row)?.textContent?.includes("Nube Hosting"));
+  });
+
   test("Todos opens first; each view lists its arrivals newest first and shows the server's count", async () => {
     const page = await mount({ panel: { kind: "inbox" } });
     await inboxReady(page);
