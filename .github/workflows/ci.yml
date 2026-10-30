@@ -84,6 +84,11 @@ jobs:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: python scripts/ci/check_no_evidence_media.py
 
+      - name: Reject new or changed files over 2 MB
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python scripts/ci/check_file_size.py
+
       - name: Run branch ownership gate
         run: python .agent/scripts/ownership/verify_branch_ownership.py
 

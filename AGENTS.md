@@ -116,6 +116,7 @@ cd marketing && bun run lint && bun run typecheck && bun test && bun run build
 - Hotspot files need the lead's `landing-next` label, and a pull request over about 800 non-test lines needs `size-approved`.
 - Merge `codex/private-alpha-next` in before the last push. Never rebase a published branch.
 - Attach visual evidence on the pull request, or upload it with actions/upload-artifact. Do not commit it. Capture it at the exact head.
+- CI fails a pull request that adds or changes a file over 2 MiB, including renames with new content and type changes. Only existing files the pull request leaves unchanged are exempt. Site assets under `marketing/public/` are allowed.
 - Never merge your own PR. Report the PR link, head SHA, tests added and the proof.
 - Review against the named parent branch; never assume `main` is the comparison base.
 - Findings give file and line, severity, impact and the smallest safe fix.
