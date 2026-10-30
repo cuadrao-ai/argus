@@ -225,9 +225,12 @@ API Control Plane (argus-api / FastAPI / Render)
 
 ## Existing Alpha web surface
 
-The existing Alpha runs as a web app / PWA. The
+Three clients ship from this repository: the public website (`cuadrao-web`,
+built from `marketing/`), the signed-in web app on staging (`cuadrao-web-staging`,
+built from `web/`, Business only through `NEXT_PUBLIC_BUSINESS_ONLY_WEB`), and
+the native iPhone app (`ios/ArgusFoundation/`). The
 [Cuadrao launch boundary](specs/argus-minimum-viable-ecosystem-experience.md#consumer-and-business-launch-boundary)
-owns the later consumer iPhone and business web direction.
+owns the consumer iPhone and business web direction.
 
 **Chosen because:**
 
@@ -353,6 +356,21 @@ The backend should coordinate systems, not become monolithic business chaos.
 - Becoming deeply stateful
 - Importing or executing the heavy backtest stack in the API startup path
 
+## Cuadrao Business and intake surfaces
+
+The same FastAPI service hosts Cuadrao Business. Its routes live in
+`src/argus/api/routers/business_*.py` and its domain in
+`src/argus/domain/business/`, including the DGII fiscal profile, 606/607 export
+and month close. Request and response shapes for month close are in
+[the month-close contract](contracts/business-month-close.md).
+
+Receipts reach a Business space by upload, by email (`/business/email` and the
+`/webhooks/resend` webhook in `routers/email_intake.py`) and by WhatsApp
+(`/webhooks/whatsapp` and `/whatsapp` in `routers/whatsapp.py`, default off).
+Each arrives as a saved document draft. The `workflows/document_job.py` task
+prepares drafts outside the request.
+
+---
 # 7. Communication Protocols
 
 ## Chat Messaging
