@@ -99,6 +99,7 @@ test.describe("contact submit unavailable state", () => {
       await page.goto("/contacto");
       const button = page.locator('main button[type="submit"]');
       await expect(button).toBeDisabled();
+      await expect(button.locator("svg")).toHaveCount(1);
       const styles = await paint(button);
       expect(styles.cursor).toBe("not-allowed");
       expect(styles.opacity).toBe("1");
@@ -145,6 +146,7 @@ test.describe("contact submit unavailable state", () => {
       const privacy = page.locator("#contact-privacy");
       await expect(button).toBeEnabled();
       await expect(button).toHaveText("Enviar mensaje");
+      await expect(button.locator("svg")).toHaveCount(1);
       await expect.poll(async () => (await paint(button)).backgroundColor).toBe(ENABLED.backgroundColor);
       const enabled = await paint(button);
       expect(enabled).toEqual(ENABLED);
@@ -159,6 +161,7 @@ test.describe("contact submit unavailable state", () => {
       await button.click();
       await expect(button).toHaveAttribute("aria-disabled", "true");
       await expect(button).toHaveText("Enviando…");
+      await expect(button.locator("svg")).toHaveCount(0);
       await expect.poll(async () => (await paint(button)).backgroundColor).toBe(UNAVAILABLE.backgroundColor);
       const sending = await paint(button);
       expect(sending.backgroundColor).toBe(UNAVAILABLE.backgroundColor);

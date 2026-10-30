@@ -11,6 +11,7 @@ test("the contact submit control keeps the sending label and the unavailable sig
   expect(form).toContain("disabled={!hydrated}");
   expect(form).toContain("aria-disabled={sending}");
   expect(form).toContain("{sending ? copy.sending : copy.submit}");
+  expect(form).toContain("{!sending && <ArrowRight");
   expect(form).toContain("if (pending.current) return;");
 });
 

@@ -377,7 +377,7 @@ export function ContactForm({ locale }: { locale: BusinessLocale }) {
               className={`${styles.button} ${styles.submit}`}
             >
               {sending ? copy.sending : copy.submit}
-              <ArrowRight size={18} aria-hidden="true" />
+              {!sending && <ArrowRight size={18} aria-hidden="true" />}
             </button>
             <p className={styles.nextStep}>{copy.nextStep}</p>
           </fieldset>
