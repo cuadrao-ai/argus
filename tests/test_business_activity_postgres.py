@@ -743,3 +743,24 @@ def test_a_leak_check_sees_a_real_page(people, business, authority):
     page = _seen(authority, people["viewer"], business)
     assert _actions(page) == ["set_business_rnc"]
     assert "131234567" not in json.dumps(page.model_dump(mode="json"))
+
+
+def test_the_read_lets_postgres_push_the_page_bound_into_the_visible_rows(business):
+    """A volatile call inside the visible rows makes Postgres materialize every
+    row of the Business before the actor filter and the keyset bound apply;
+    the grant check reads the transaction's time instead."""
+
+    from argus.domain.business.activity import queries
+
+    scope = {
+        "space_id": business,
+        "only": None,
+        "hidden": [],
+        "since": None,
+        "until": None,
+    }
+    page = {**scope, "actors": None, "before_at": None, "before_id": None, "limit": 26}
+    with Connection.connect(shared.DSN) as db:
+        for query, params in ((queries._PAGE, page), (queries._FACETS, scope)):
+            plan = "\n".join(r[0] for r in db.execute("explain " + query, params))
+            assert "CTE Scan" not in plan, plan

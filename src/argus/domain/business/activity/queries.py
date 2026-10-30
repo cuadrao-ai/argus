@@ -73,7 +73,7 @@ _LIVE_GRANT = (
     "select 1 from public.business_client_grants g"
     " where g.space_id = e.space_id and g.grantee_id = e.actor_id"
     " and g.revoked_at is null"
-    " and (g.expires_at is null or g.expires_at > clock_timestamp())"
+    " and (g.expires_at is null or g.expires_at > now())"
 )
 _ANY_GRANT = (
     "select 1 from public.business_client_grants g"
