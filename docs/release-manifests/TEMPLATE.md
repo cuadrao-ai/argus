@@ -143,7 +143,6 @@ remain unchanged under the fixed compatibility list.
 - Canary checks, each with its status from the evidence:
   - `services_same_commit`:
   - `signed_in_chat_answer`, with `sign_in_attempts`:
-  - `backtest_completes`, with the backtest job and run labels:
   - `research_answer_with_sources`:
   - Release guards (release config, disabled signup denial, welcome email):
   - Exact candidate SHA verified:

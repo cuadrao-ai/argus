@@ -309,7 +309,7 @@ def test_browser_checks_start_from_private_storage_state_without_auth_forms() ->
     assert "storage_state_has_no_session" in spec
     assert 'page.getByTestId("chat-input")' in spec
     assert '"contenteditable", "true"' in normalized_spec
-    assert "isRunBacktestRequest" in spec
+    assert "isRunBacktestRequest" not in spec
 
 
 def test_render_runner_has_surface_specific_fail_red_entrypoints() -> None:

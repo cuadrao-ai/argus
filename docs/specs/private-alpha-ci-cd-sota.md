@@ -558,12 +558,11 @@ Objective:
 
 Scope (narrowed by founder decision, 2026-09-13, #614: the canary keeps its
 purpose and never follows features):
-- Check exactly the four checks the release profile names in
+- Check exactly the three checks the release profile names in
   `canary.required_steps`: the three services run the same commit
   (`services_same_commit`), a signed-in canary account loads the chat and gets
-  one ordinary answer (`signed_in_chat_answer`), one backtest completes
-  (`backtest_completes`), and one research question returns an answer with
-  sources (`research_answer_with_sources`). Every failure names its check.
+  one ordinary answer (`signed_in_chat_answer`), and one research question
+  returns an answer with sources (`research_answer_with_sources`). Every failure names its check.
 - Keep the release-coherence guards: workflow env parity
   (`workflow_env_fingerprint`, `workflow_env_status=ready`), effective workflow
   runtime proof (`workflow_runtime_provider_mode=live_provider`,
@@ -586,7 +585,7 @@ Likely files:
 Verification:
 - Canary fails when the environment contract drifts or when one of the four
   checks fails, and the failure names the check.
-- Canary passes only when commit, env, and the four checks all agree.
+- Canary passes only when commit, env, and the three checks all agree.
 - Canary evidence should be stored with the release manifest so the same SHA
   and env fingerprint can be audited later.
 - Canary evidence should note whether the backtest service is in proof or real

@@ -20,10 +20,9 @@ AUTO_DEPLOY_TRIGGERS = ("off", "checksPass")
 CANARY_CHECKS = (
     "services_same_commit",
     "signed_in_chat_answer",
-    "backtest_completes",
     "research_answer_with_sources",
 )
-CANARY_PROMPTS = ("chat_prompt", "backtest_prompt", "research_prompt")
+CANARY_PROMPTS = ("chat_prompt", "research_prompt")
 FORBIDDEN_KEY_FRAGMENTS = (
     "candidate_sha",
     "deploy_id",

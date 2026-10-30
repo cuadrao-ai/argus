@@ -25,15 +25,12 @@ type CheckResult = {
   reason?: string;
   sign_in_attempts?: number;
   conversation_id?: string;
-  backtest_job_id?: string;
-  backtest_run_id?: string;
 };
 type CheckContext = {
   page: Page;
   result: CheckResult;
   save: () => Promise<void>;
 };
-type JobSnapshot = { job: JsonRecord; run: JsonRecord | null };
 
 const expectedUserId = process.env.ARGUS_CANARY_BROWSER_USER_ID;
 const handoffPath = process.env.ARGUS_CANARY_BROWSER_CHECKS_HANDOFF;
@@ -42,30 +39,19 @@ const checkIds = (process.env.ARGUS_CANARY_BROWSER_CHECKS ?? "")
   .map((value) => value.trim())
   .filter(Boolean);
 const chatPrompt = process.env.ARGUS_CANARY_BROWSER_CHAT_PROMPT;
-const backtestPrompt = process.env.ARGUS_CANARY_BROWSER_BACKTEST_PROMPT;
 const researchPrompt = process.env.ARGUS_CANARY_BROWSER_RESEARCH_PROMPT;
 const artifactProbe =
   process.env.ARGUS_CANARY_BROWSER_ARTIFACT_PROBE ?? "none";
 const redactionProbeValue =
   process.env.ARGUS_CANARY_BROWSER_REDACTION_PROBE_VALUE;
-const labels = JSON.parse(
-  process.env.ARGUS_CANARY_STATIC_LABELS_JSON ?? "{}",
-) as Record<string, string>;
 
 // A retried sign-in still reports its attempt count in the evidence.
 const SIGN_IN_ATTEMPTS = 2;
 const SIGN_IN_RETRY_DELAY_MS = 5_000;
 const COMPOSER_RELEASE_TIMEOUT_MS = 240_000;
-const PENDING_JOB_STATUSES = new Set(["queued", "running"]);
 
 /** Sign-in failed, so no later check can run. */
 class SignInFailure extends CheckFailure {}
-
-function label(key: string): string {
-  const value = labels[key];
-  if (!value) throw new Error(`Missing authoritative static label: ${key}`);
-  return value;
-}
 
 function requireConfig(value: string | undefined, name: string): string {
   if (!value?.trim()) throw new Error(`Missing browser canary config: ${name}`);
@@ -121,15 +107,6 @@ function isChatStreamRequest(request: Request): boolean {
     request.method() === "POST" &&
     apiPath(request.url())?.endsWith("/api/v1/chat/stream") === true
   );
-}
-
-function isRunBacktestRequest(request: Request): boolean {
-  if (!isChatStreamRequest(request)) return false;
-  try {
-    return record(record(request.postDataJSON())?.action)?.type === "run_backtest";
-  } catch {
-    return false;
-  }
 }
 
 async function problemCode(response: Response): Promise<string> {
@@ -248,7 +225,7 @@ async function sendTurn(
     .catch(() => null);
   const turn = settledRequest(
     page,
-    (request) => isChatStreamRequest(request) && !isRunBacktestRequest(request),
+    isChatStreamRequest,
     turnTimeout,
   );
   await page.getByTestId("chat-input").fill(prompt);
@@ -332,37 +309,6 @@ async function persistedAnswerFailure(
     : null;
 }
 
-function watchBacktestJobs(page: Page) {
-  let latest: JobSnapshot | null = null;
-  const isTerminal = (snapshot: JobSnapshot | null) =>
-    snapshot !== null && !PENDING_JOB_STATUSES.has(String(snapshot.job.status));
-  page.on("response", (response) => {
-    const path = apiPath(response.url());
-    if (
-      response.request().method() !== "GET" ||
-      !path ||
-      !/\/api\/v1\/backtest-jobs\/[^/]+$/.test(path) ||
-      !response.ok()
-    ) {
-      return;
-    }
-    void response.json().then(
-      (value: unknown) => {
-        const payload = record(value);
-        const job = record(payload?.job);
-        if (job && !isTerminal(latest)) {
-          latest = { job, run: record(payload?.run) };
-        }
-      },
-      () => undefined,
-    );
-  });
-  return {
-    latest: () => latest,
-    terminal: () => (isTerminal(latest) ? latest : null),
-  };
-}
-
 async function signedInChatAnswer(context: CheckContext): Promise<void> {
   const { page, result, save } = context;
   result.sign_in_attempts = await openSignedInChat(page);
@@ -383,71 +329,6 @@ async function signedInChatAnswer(context: CheckContext): Promise<void> {
     ordinaryAnswerFailure,
   );
   if (failure) throw new CheckFailure(reasonCode(failure));
-}
-
-async function backtestCompletes(context: CheckContext): Promise<void> {
-  const { page, result, save } = context;
-  await openSignedInChat(page);
-  const jobs = watchBacktestJobs(page);
-  const conversationId = await sendTurn(
-    context,
-    requireConfig(backtestPrompt, "backtest prompt"),
-    240_000,
-  );
-
-  const runButton = page
-    .getByRole("button", {
-      name: label("chat.confirmation.actions.run_backtest"),
-    })
-    .last();
-  await expect(runButton)
-    .toBeVisible({ timeout: 30_000 })
-    .catch(() => {
-      throw new CheckFailure("confirmation_not_offered");
-    });
-  const runAction = settledRequest(page, isRunBacktestRequest, 180_000);
-  await runButton.click();
-  await requireSettledOk(await runAction, "run_action");
-
-  try {
-    await expect
-      .poll(() => jobs.terminal() !== null, {
-        timeout: 420_000,
-        intervals: [2_000],
-      })
-      .toBe(true);
-  } catch {
-    const pending = jobs.latest();
-    if (typeof pending?.job.id === "string") {
-      result.backtest_job_id = pending.job.id;
-    }
-    throw new CheckFailure(
-      reasonCode(
-        "backtest_job_not_finished",
-        String(pending?.job.status ?? "never_polled"),
-      ),
-    );
-  }
-
-  const { job, run } = jobs.terminal() as JobSnapshot;
-  result.backtest_job_id = privateId(job.id, "backtest_job_id_missing");
-  await save();
-  if (job.status !== "succeeded") {
-    throw new CheckFailure(
-      reasonCode(
-        "backtest_job",
-        String(job.status),
-        String(job.failure_code ?? "no_code"),
-      ),
-    );
-  }
-  if (job.conversation_id !== conversationId) {
-    throw new CheckFailure("backtest_job_conversation_mismatch");
-  }
-  if (run?.status !== "completed" || run.id !== job.result_run_id) {
-    throw new CheckFailure("backtest_run_not_completed");
-  }
-  result.backtest_run_id = privateId(run.id, "backtest_run_id_missing");
 }
 
 async function researchAnswerWithSources(
@@ -475,7 +356,6 @@ async function researchAnswerWithSources(
 
 const CHECKS = new Map<string, (context: CheckContext) => Promise<void>>([
   ["signed_in_chat_answer", signedInChatAnswer],
-  ["backtest_completes", backtestCompletes],
   ["research_answer_with_sources", researchAnswerWithSources],
 ]);
 

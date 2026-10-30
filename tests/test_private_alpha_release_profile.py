@@ -16,10 +16,10 @@ ROOT = Path(__file__).resolve().parents[1]
 PROFILE_PATH = ROOT / ".github" / "private-alpha-release-profile.json"
 PROFILE_UTILITY = ROOT / ".github" / "private-alpha-release-profile.py"
 # Founder decision, 2026-09-13 (#614): the canary checks exactly these, in order.
+# The backtest step left the list before Part A removes the backtest routes.
 FOUNDER_CANARY_CHECKS = [
     "services_same_commit",
     "signed_in_chat_answer",
-    "backtest_completes",
     "research_answer_with_sources",
 ]
 
@@ -92,14 +92,13 @@ def test_release_profile_is_non_secret_and_defines_the_fixed_canary() -> None:
     assert set(canary) == {
         "language",
         "chat_prompt",
-        "backtest_prompt",
         "research_prompt",
         "required_steps",
     }
     assert canary["language"] == "es-419"
     assert canary["required_steps"] == FOUNDER_CANARY_CHECKS
     assert canary["required_steps"] == list(_profile_module().CANARY_CHECKS)
-    for field in ("chat_prompt", "backtest_prompt", "research_prompt"):
+    for field in ("chat_prompt", "research_prompt"):
         assert canary[field].strip()
         assert "—" not in canary[field]
 
@@ -265,11 +264,11 @@ def test_profile_utility_resolves_the_canary_static_labels() -> None:
 
 
 def test_profile_utility_exposes_only_the_canary_check_inputs() -> None:
-    for field in ("language", "chat_prompt", "backtest_prompt", "research_prompt"):
+    for field in ("language", "chat_prompt", "research_prompt"):
         result = _profile_utility("canary-value", field)
         assert result.returncode == 0, result.stderr
         assert result.stdout.strip()
-    for removed in ("prompt", "decision_state", "decision_note", "search_query"):
+    for removed in ("prompt", "backtest_prompt", "decision_state", "decision_note", "search_query"):
         assert _profile_utility("canary-value", removed).returncode != 0
 
 

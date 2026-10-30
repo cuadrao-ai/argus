@@ -204,9 +204,6 @@ def test_canary_language_and_check_names_are_profile_owned() -> None:
     assert 'ARGUS_CANARY_BROWSER_CHECKS="$browser_checks"' in source
     assert 'ARGUS_CANARY_BROWSER_CHAT_PROMPT="$CANARY_CHAT_PROMPT"' in runner_source
     assert (
-        'ARGUS_CANARY_BROWSER_BACKTEST_PROMPT="$CANARY_BACKTEST_PROMPT"' in runner_source
-    )
-    assert (
         'ARGUS_CANARY_BROWSER_RESEARCH_PROMPT="$CANARY_RESEARCH_PROMPT"' in runner_source
     )
 
@@ -265,14 +262,10 @@ def test_browser_checks_read_product_owned_signals() -> None:
     assert 'payload?.account_kind !== "registered"' in spec
     assert 'isApiResponse(response, "/conversations", "POST")' in spec
     assert '"/api/v1/chat/stream"' in spec
-    assert '?.type === "run_backtest"' in spec
-    assert r"/\/api\/v1\/backtest-jobs\/[^/]+$/" in spec
-    assert 'job.status !== "succeeded"' in spec
-    assert 'run?.status !== "completed"' in spec
+    assert "backtest" not in spec.lower()
     assert 'page.getByTestId("research-sources-open")' in spec
     assert 'page.getByTestId("user-turn-recovery")' in spec
     assert '"[data-message-id]"' in spec
-    assert 'label("chat.confirmation.actions.run_backtest")' in spec
     # Answer checks judge the persisted turn through the chat's projection, then
     # the message the reopened chat renders by what it announces.
     compact = "".join(spec.split())
@@ -1060,7 +1053,7 @@ def test_browser_runner_is_profile_driven_and_executable() -> None:
 
     assert "private-alpha-release-profile.py" in runner_source
     assert "static-key-values" in runner_source
-    for field in ("chat_prompt", "backtest_prompt", "research_prompt"):
+    for field in ("chat_prompt", "research_prompt"):
         assert f"canary-value {field}" in runner_source
     assert "private-alpha-release-canary.spec.ts" in runner_source
     assert "ARGUS_CANARY_BROWSER_CHECKS_HANDOFF" in runner_source

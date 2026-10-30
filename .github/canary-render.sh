@@ -1493,7 +1493,7 @@ run_authenticated_browser_surface() {
   CANARY_STATUS="passed"
   CANARY_CAPTURE_WRITE_STATUS="not_written_success"
   write_canary_evidence
-  echo "Authenticated browser checks passed: a signed-in answer, one completed backtest, and a research answer with sources."
+  echo "Authenticated browser checks passed: a signed-in answer and a research answer with sources."
 }
 
 require_supabase_verifier_inputs

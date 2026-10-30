@@ -791,14 +791,13 @@ pre-export opt-in).
 separate fail-red jobs, so one cannot hide or relabel a failure in the other.
 The canary is a small fixed check that never follows features (founder
 decision, 2026-09-13, #614). The release profile's `canary.required_steps`
-names its four checks:
+names its three checks:
 
 - `services_same_commit`: `argus-api` and `argus-backtests` run the candidate
   commit. `cuadrao-web` ships marketing from `main` by hand. The check records
   its commit and does not require that commit to equal the candidate.
 - `signed_in_chat_answer`: the signed-in canary account loads the chat and gets
   one ordinary answer.
-- `backtest_completes`: one backtest completes.
 - `research_answer_with_sources`: one research question returns an answer with
   sources.
 
@@ -958,8 +957,8 @@ Read the job name, the failed check, and its reason before treating a canary red
 as a product regression. `Release coherence` owns `services_same_commit` and the
 `release_config`, `disabled_signup_denial`, and `welcome_email` guards.
 `Authenticated browser journey` owns session creation and the
-`signed_in_chat_answer`, `backtest_completes`, and
-`research_answer_with_sources` checks. `canary_harness` means the canary itself
+`signed_in_chat_answer` and `research_answer_with_sources`
+checks. `canary_harness` means the canary itself
 could not run, not that the product failed. A browser job must never report a
 Turnstile challenge timeout, because it does not cross an auth form.
 

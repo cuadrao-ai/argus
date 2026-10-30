@@ -126,28 +126,25 @@ def test_browser_check_import_names_the_first_check_that_did_not_pass(
     user_id = faker.uuid4()
     names = _browser_checks()
     conversation_id = faker.uuid4()
-    job_id = faker.uuid4()
     handoff = _passing_handoff(faker, user_id)
-    handoff["checks"][names[1]] = {
+    handoff["checks"][names[0]] = {
         "status": "failed",
-        "reason": "backtest_job_failed_market_data_unavailable",
+        "reason": "assistant_answer_missing",
         "conversation_id": conversation_id,
-        "backtest_job_id": job_id,
     }
-    handoff["checks"][names[2]] = {"status": "not_run"}
+    handoff["checks"][names[1]] = {"status": "not_run"}
 
     result, _, _ = _run_import(tmp_path, handoff, user_id=user_id)
 
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == (
-        f"{names[1]}|backtest_job_failed_market_data_unavailable|"
-        f"{conversation_id}|{job_id}"
+        f"{names[0]}|assistant_answer_missing|{conversation_id}|-"
     )
     assert (
-        f"canary_check={names[1]} status=failed "
-        "reason=backtest_job_failed_market_data_unavailable" in result.stderr
+        f"canary_check={names[0]} status=failed "
+        "reason=assistant_answer_missing" in result.stderr
     )
-    assert f"canary_check={names[2]} status=not_run" in result.stderr
+    assert f"canary_check={names[1]} status=not_run" in result.stderr
 
     handoff["checks"] = {name: {"status": "not_run"} for name in names}
     unrun, _, _ = _run_import(tmp_path, handoff, user_id=user_id)
