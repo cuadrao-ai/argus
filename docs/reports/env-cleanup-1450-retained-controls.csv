@@ -39,7 +39,6 @@ ARGUS_BUSINESS_EMAIL_DOMAIN,alias_in_use,Approved DELETE alias still has a runti
 ARGUS_BUSINESS_EMAIL_INTAKE_ENABLED,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,tests/test_email_intake_settings.py:34
 ARGUS_BUSINESS_INVITE_EMAIL_ENABLED,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,src/argus/api/business_invite_delivery.py:27
 ARGUS_BUSINESS_PILOT_ENABLED,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,docs/API_CONTRACT.md:3658; docs/handoffs/cuadrao-business-lane.md:30
-ARGUS_BUSINESS_SUPPLIER_FAST_PATH_ENABLED,active_control,"test/CI only, not a hosted setting",no reader: tests/business/test_supplier_fast_path.py:153 only unsets it (monkeypatch.delenv); code reads CUADRAO_BUSINESS_SUPPLIER_FAST_PATH_ENABLED
 ARGUS_CANARY_ALLOW_HARNESS_MISMATCH,active_control,test/CI only (canary),.github/canary-render.sh:35
 ARGUS_CANARY_API_URL,active_control,test/CI only (canary),.github/canary-render.sh:17; tests/test_render_canary_script.py:80
 ARGUS_CANARY_APP_URL,active_control,test/CI only (canary),.github/canary-browser.sh:15; .github/canary-render.sh:16; tests/test_render_canary_script.py:79
@@ -140,7 +139,6 @@ ARGUS_IN_PLACE_CARD_EDITS_ENABLED,active_control,Parent resolved newest active-c
 ARGUS_ISSUE_340_TEST_PORT,active_control,"test/CI only, not a hosted setting",web/e2e/issue-340-guest-dossier-conversion-gate.playwright.config.ts:6
 ARGUS_ISSUE_422_CAPTURE_PHASE,active_control,"test/CI only, not a hosted setting",web/e2e/issue-422-breakpoint-regressions.spec.ts:26
 ARGUS_ISSUE_480_CAPTURE_EVIDENCE,active_control,"test/CI only, not a hosted setting",web/e2e/issue-480-guest-signup-email.spec.ts:159
-ARGUS_LIVE_EVAL_BUDGET_USD,active_control,Executable documented verification control or preserved test reader,no code reader: documented command only (docs/handoffs/cuadrao-business-lane.md:905)
 ARGUS_LIVE_GUEST_QA,active_control,"test/CI only, not a hosted setting",web/e2e/guest-live-checkpoint.spec.ts:5
 ARGUS_LOCAL_AUTH_EMAIL_CONFIRMATIONS_ENABLED,active_control,"test/CI only, not a hosted setting",tests/test_guest_auth_local_supabase.py:43; tests/test_guest_signup_local_supabase.py:35
 ARGUS_LOCAL_BUNDLE_IDENTIFIER,active_control,Build system uses this input to select app and test bundle identifiers.,ios/ArgusFoundation.xcodeproj/project.pbxproj:43
@@ -194,7 +192,6 @@ ARGUS_REHEARSAL_ADMIN_URL,active_control,Direct reader in a checked-in executabl
 ARGUS_REHEARSAL_CANDIDATE,active_control,Executable documented verification control or preserved test reader,docs/reports/evidence/cuadrao-migration-rehearsal-20261007/rehearse_migration_upgrade.py:39
 ARGUS_REHEARSAL_CONTAINER,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/cuadrao-migration-rehearsal-20261007/rehearse_migration_upgrade.py:8
 ARGUS_REHEARSAL_MAIN,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/cuadrao-migration-rehearsal-20261007/rehearse_migration_upgrade.py:41
-ARGUS_RELEASE_SHA,active_control,Executable documented verification control or preserved test reader,no code reader: runbook shell variable only (docs/PRIVATE_LAUNCH_RUNBOOK.md:419; :757)
 ARGUS_RENDER_API_BUILD_COMMAND,active_control,"test/CI only, not a hosted setting",.github/render-env-sync.sh:806
 ARGUS_RENDER_API_SERVICE_ID,active_control,"test/CI only, not a hosted setting",.github/render-env-sync.sh:14
 ARGUS_RENDER_API_START_COMMAND,active_control,"test/CI only, not a hosted setting",.github/render-env-sync.sh:807
@@ -248,12 +245,8 @@ ARGUS_TEST_PASSWORD_B,active_control,Native test reads dynamically generated suf
 ARGUS_TEST_PASSWORD_C,active_control,Native test reads dynamically generated suffixed email/password environment key.,ios/scripts/auth/run-ui.py:127; ios/scripts/auth/test_run_ui.py:105
 ARGUS_TEST_PROJECT_ROOT,active_control,"test/CI only, not a hosted setting",tests/evals/test_measurement_eval_live_environment.py:136
 ARGUS_TEST_PROVIDER_API_KEY,test_fixture,test/CI only (synthetic fixture),tests/evals/test_prose_evidence.py:344
-ARGUS_TEST_RECONCILE_BANK_ID,active_control,Executable documented verification control or preserved test reader,no code reader: archived evidence patch only (docs/reports/evidence/consumer-signed-in-free-staging-20261009/boundary-readiness-test-delta.patch:56)
-ARGUS_TEST_RECONCILE_CASH_ID,active_control,Executable documented verification control or preserved test reader,no code reader: archived evidence patch only (docs/reports/evidence/consumer-signed-in-free-staging-20261009/boundary-readiness-test-delta.patch:57)
-ARGUS_TEST_RECONCILE_CASH_NAME,active_control,Executable documented verification control or preserved test reader,no code reader: archived evidence patch only (docs/reports/evidence/consumer-signed-in-free-staging-20261009/boundary-readiness-test-delta.patch:58)
 ARGUS_TEST_RELEASE_FLAG,test_fixture,"Synthetic env fixture for generic environment handling, no dedicated runtime control.",docs/reports/evidence/820-paired-transfers/ci-membership-red.txt:16; tests/test_release_environment_membership.py:29
 ARGUS_TEST_RESPONSE_LOSS_PROXY,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/ConnectedAssetUITests.swift:119; ios/ArgusFoundationUITests/ConnectedDebtUITests.swift:20; ios/ArgusFoundationUITests/HouseholdUITests.swift:119; ios/ArgusFoundationUITests/PersonalMoneyUITests.swift:285; ios/ArgusFoundationUITests/SharedHouseholdPlanningUITests.swift:255
-ARGUS_TEST_RETAINED_GOAL,active_control,Executable documented verification control or preserved test reader,no code reader: archived evidence patch only (docs/reports/evidence/consumer-signed-in-free-staging-20261009/boundary-readiness-test-delta.patch:39)
 ARGUS_TEST_SEARCH_QUERY,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/ConnectedBudgetUITests.swift:70; ios/ArgusFoundationUITests/ConnectedDebtUITests.swift:137; ios/ArgusFoundationUITests/ConnectedGoalUITests.swift:159
 ARGUS_TEST_SHARED_PLAN_ACCOUNT_A,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/SharedHouseholdPlanningUITests.swift:8
 ARGUS_TEST_SHARED_PLAN_ACCOUNT_B,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/SharedHouseholdPlanningUITests.swift:9
