@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import date
 from uuid import uuid4
 
@@ -7,6 +8,7 @@ import pytest
 from argus.domain.business.activity.queries import decode_cursor
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.activity import ActivityFilters
+from argus.domain.business.departures import PostgresBusinessDepartures
 from psycopg import Connection
 
 from tests import test_business_activity_postgres as activity
@@ -345,23 +347,43 @@ def test_a_label_comes_only_from_a_record_the_reader_may_read(
         assert "Colmado Ajeno" not in page.model_dump_json()
 
 
+def departure_alias(db: Connection, space_id: str, alias: str) -> str:
+    """The alias the departure flow leaves in a Business once the member's
+    account is gone; returns the deletion run it belongs to."""
+
+    run = str(uuid4())
+    db.execute(
+        "insert into argus_private.account_deletion_runs (id, status) values (%s, 'done')",
+        (run,),
+    )
+    db.execute(
+        "insert into argus_private.business_departure_aliases"
+        " (space_id, actor_id, deletion_run_id, identity_cleaned_at)"
+        " values (%s, %s, %s, clock_timestamp())",
+        (space_id, alias, run),
+    )
+    return run
+
+
+def claimed_departure(db: Connection, person: str) -> tuple[str, str]:
+    run, claim = str(uuid4()), str(uuid4())
+    db.execute(
+        "insert into argus_private.account_deletion_runs"
+        " (id, subject_hash, user_id, analytics_distinct_id, status, claim_id,"
+        " claimed_until)"
+        " values (%s, %s, %s, 'synthetic', 'started', %s, now() + interval '15 minutes')",
+        (run, hashlib.sha256(run.encode()).hexdigest(), person, claim),
+    )
+    return run, claim
+
+
 def test_a_derived_event_lists_for_managers_with_the_persons_name(
     people, business, authority
 ):
     erased, unknown = str(uuid4()), str(uuid4())
     with Connection.connect(shared.DSN) as db:
         name(db, people["admin"], "Carlos Méndez")
-        db.execute(
-            "insert into auth.users (id, email) values (%s, %s)",
-            (erased, f"erased-{erased[:8]}@example.test"),
-        )
-        db.execute(
-            "insert into public.profiles (id, email, username) values (%s, %s, %s)",
-            (erased, f"erased-{erased[:8]}@example.test", "exmiembro-" + erased[:8]),
-        )
-        db.execute(
-            "insert into argus_private.account_placeholders (id) values (%s)", (erased,)
-        )
+        run = departure_alias(db, business, erased)
         transfer(db, business, people["owner"], people["admin"], seconds_ago=50)
         transfer(db, business, people["owner"], people["editor"], status="pending")
         transfer(
@@ -470,8 +492,154 @@ def test_a_derived_event_lists_for_managers_with_the_persons_name(
                 (business,),
             )
             db.execute(
-                "delete from argus_private.account_placeholders where id=%s", (erased,)
+                "delete from argus_private.business_departure_aliases where actor_id=%s",
+                (erased,),
             )
-            db.execute("delete from public.profiles where id=%s", (erased,))
-            db.execute("delete from auth.users where id=%s", (erased,))
+            db.execute(
+                "delete from argus_private.account_deletion_runs where id=%s", (run,)
+            )
             db.commit()
+
+
+def test_a_member_who_left_keeps_the_departure_name_on_every_row(
+    people, business, authority
+):
+    """The departure flow rewrites the person's ledger rows and the derived
+    columns to one alias; the feed names that alias Exmiembro everywhere and
+    lists it once in `actors`."""
+
+    admin = people["admin"]
+    with Connection.connect(shared.DSN) as db:
+        receipt(
+            db,
+            business,
+            admin,
+            {"action": "review_draft", "draft_id": str(uuid4())},
+            seconds_ago=60,
+            display_name="Carlos Admin",
+        )
+        transfer(db, business, people["owner"], admin, seconds_ago=50)
+        db.execute(
+            "update public.business_client_grants set business_role='owner'"
+            " where space_id=%s and grantee_id=%s",
+            (business, admin),
+        )
+        reading_consent(db, business, admin, seconds_ago=40)
+        db.execute(
+            "update public.business_client_grants set business_role='admin'"
+            " where space_id=%s and grantee_id=%s",
+            (business, admin),
+        )
+        transfer(db, business, admin, people["owner"], seconds_ago=30)
+        run, claim = claimed_departure(db, admin)
+        db.commit()
+    try:
+        PostgresBusinessDepartures(authority.pool).detach(
+            user_id=admin, run_id=run, claim_id=claim
+        )
+        with Connection.connect(shared.DSN) as db:
+            alias = db.execute(
+                "select actor_id::text from argus_private.business_departure_aliases"
+                " where space_id=%s and departing_user_id=%s",
+                (business, admin),
+            ).fetchone()[0]
+        owner_name = "fin-owner-" + people["owner"][:8]
+        page = _seen(authority, people["owner"], business)
+        assert [
+            (
+                i.action,
+                None if i.actor is None else (i.actor.display_name, i.actor.membership),
+            )
+            for i in page.items
+        ] == [
+            ("owner_grant", (owner_name, "current")),
+            ("ownership_transferred", (owner_name, "current")),
+            ("receipt_reading_enabled", ("Exmiembro", None)),
+            ("ownership_transferred", ("Exmiembro", None)),
+            ("review_draft", ("Exmiembro", None)),
+        ]
+        assert _facet(page) == [
+            ("Exmiembro", "member", None),
+            (owner_name, "member", "current"),
+        ]
+        assert len({i.actor.id for i in page.items[2:]}) == 1
+        member = _seen(authority, people["viewer"], business)
+        assert [(i.action, i.actor.display_name) for i in member.items] == [
+            ("review_draft", "Exmiembro")
+        ]
+        assert _facet(member) == [("Exmiembro", "member", None)]
+        for text in (page.model_dump_json(), member.model_dump_json()):
+            for leak in (alias, alias.replace("-", ""), admin, "Carlos Admin"):
+                assert leak not in text, leak
+    finally:
+        with Connection.connect(shared.DSN) as db:
+            db.execute(
+                "delete from argus_private.business_departure_aliases"
+                " where deletion_run_id=%s",
+                (run,),
+            )
+            db.execute(
+                "delete from argus_private.account_deletion_runs where id=%s", (run,)
+            )
+            db.commit()
+
+
+def test_a_deleted_creator_keeps_the_departure_name(people, business, authority):
+    """Account deletion of a Business creator rewrites the derived columns to
+    the custody reservation's deleted actor; the feed names it Exmiembro."""
+
+    gone = str(uuid4())
+    with Connection.connect(shared.DSN) as db:
+        db.execute(
+            "insert into argus_private.business_custody_reservations"
+            " (space_id, custodian_id, deleted_actor_id) values (%s, %s, %s)",
+            (business, str(uuid4()), gone),
+        )
+        transfer(db, business, people["owner"], gone, seconds_ago=10)
+        db.commit()
+    try:
+        page = _seen(authority, people["admin"], business)
+        assert [
+            None if i.actor is None else i.actor.display_name
+            for i in page.items
+            if i.action == "ownership_transferred"
+        ] == ["Exmiembro"]
+        assert ("Exmiembro", "member", None) in _facet(page)
+        assert gone not in page.model_dump_json()
+    finally:
+        with Connection.connect(shared.DSN) as db:
+            db.execute(
+                "delete from public.business_ownership_transfers where space_id=%s",
+                (business,),
+            )
+            db.execute(
+                "delete from argus_private.business_custody_reservations"
+                " where space_id=%s",
+                (business,),
+            )
+            db.commit()
+
+
+def test_a_facet_names_the_actor_by_their_newest_stored_name(people, business, authority):
+    """A derived row stores no name, so the facet keeps the name the newest
+    ledger row stored instead of falling back to the profile."""
+
+    with Connection.connect(shared.DSN) as db:
+        name(db, people["admin"], "Carlos Méndez")
+        receipt(
+            db,
+            business,
+            people["admin"],
+            {"action": "review_draft", "draft_id": str(uuid4())},
+            seconds_ago=20,
+            display_name="Carlos Admin",
+        )
+        transfer(db, business, people["owner"], people["admin"], seconds_ago=10)
+        db.commit()
+    page = _seen(authority, people["owner"], business)
+    assert [(i.action, i.actor.display_name) for i in page.items[1:]] == [
+        ("ownership_transferred", "Carlos Méndez"),
+        ("review_draft", "Carlos Admin"),
+    ]
+    assert ("Carlos Admin", "member", "current") in _facet(page)
+    assert "Carlos Méndez" not in [a.display_name for a in page.actors]

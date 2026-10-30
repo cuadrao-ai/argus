@@ -132,13 +132,19 @@ _FACETS = f"""
     select distinct on (actor_key)
            actor_id, actor_key, actor_kind, display_name, membership
     from visible
-    order by actor_key, created_at desc, id desc
+    order by actor_key, display_name is null, created_at desc, id desc
 """
+#: A departure leaves an alias in the derived columns: a member's from the
+#: departure flow, a deleted creator's from the custody reservation.
 _NAMES = """
-    select p.id, p.display_name, p.username, a.id is not null as erased
-    from public.profiles p
-    left join argus_private.account_placeholders a on a.id = p.id
-    where p.id = any(%(ids)s::uuid[])
+    select i.id, p.id is not null as named, p.display_name, p.username,
+           d.actor_id is not null or r.deleted_actor_id is not null as erased
+    from unnest(%(ids)s::uuid[]) as i(id)
+    left join public.profiles p on p.id = i.id
+    left join argus_private.business_departure_aliases d
+           on d.space_id = %(space_id)s and d.actor_id = i.id
+    left join argus_private.business_custody_reservations r
+           on r.space_id = %(space_id)s and r.deleted_actor_id = i.id
 """
 _DRAFT_LABELS = """
     select id, resolution->'business'->'facts'->'counterparty' as counterparty
@@ -237,7 +243,7 @@ def read_activity(
                 cursor.execute(_FACETS, scope)
                 facets = cursor.fetchall()
             page = rows[:limit]
-            _fill_names(cursor, page + (facets or []))
+            _fill_names(cursor, context.actor.space_id, page + (facets or []))
             items = tuple(project(row) for row in page)
             labels = _labels(cursor, context.actor.space_id, items)
     items = tuple(with_labels(item, labels) for item in items)
@@ -248,18 +254,20 @@ def read_activity(
     )
 
 
-def _fill_names(cursor, rows: list[dict]) -> None:
+def _fill_names(cursor, space_id: UUID, rows: list[dict]) -> None:
     """A derived source stores the actor's id, not a name: the profile names
-    the person, and an erased account keeps the departure name."""
+    the person, and a departure alias keeps the departure name."""
 
     unnamed = {str(row["actor_id"]) for row in rows if row["display_name"] is None}
     if not unnamed:
         return
-    cursor.execute(_NAMES, {"ids": sorted(unnamed)})
+    cursor.execute(_NAMES, {"space_id": space_id, "ids": sorted(unnamed)})
     names = {
         str(row["id"]): ERASED_NAME
         if row["erased"]
         else _profile_label(row["display_name"], row["username"])
+        if row["named"]
+        else None
         for row in cursor.fetchall()
     }
     for row in rows:
