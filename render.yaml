@@ -236,6 +236,8 @@ services:
     envVars:
       - key: APP_ENV
         sync: false
+      - key: ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD
+        sync: false
       - key: ARGUS_CHECKPOINTER_MODE
         sync: false
       - key: ARGUS_DEV_MEMORY_FALLBACK

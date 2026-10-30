@@ -1481,7 +1481,7 @@
       "confirmation_code_rejected": "Check the code and try again.",
       "confirmation_rate_limited": "Wait a moment, then try again.",
       "confirmation_submit": "Confirm",
-      "confirmation_help": "Can’t find the email? Check your spam folder.",
+      "confirmation_help": "Can’t find it? Check your spam folder. If this email already has an account, we sent you a link to sign in.",
       "confirmation_loading": "Confirming...",
       "confirmation_resend": "Resend code",
       "confirmation_resend_wait": "Resend in {{seconds}} s",
@@ -1631,6 +1631,18 @@
         "subject": "The deadline to reopen {businessName} is approaching",
         "title": "You can still reopen {businessName}"
       }
+    },
+    "existing_account": {
+      "after_action": "If this was not you, ignore this email. Your account has not changed.",
+      "cta": "Sign in",
+      "paragraphs": [
+        "Hi,",
+        "Someone tried to create a new Cuadrao account with this email, but you already have one.",
+        "Sign in with your password. If you forgot it, tap Forgot password? on the sign-in screen."
+      ],
+      "preheader": "Sign in with your password, or reset it if you forgot it.",
+      "subject": "You already have a Cuadrao account",
+      "title": "You already have an account"
     },
     "footer": {
       "help": "Need help? Email hola@cuadrao.ai",

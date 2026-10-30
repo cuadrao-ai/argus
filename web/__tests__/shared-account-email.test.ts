@@ -80,11 +80,11 @@ const accountCopy = { "es-419": spanish.account_email, en: english.account_email
     const deployed = readFileSync(new URL("../server/emails/account-layout.generated.ts", import.meta.url),"utf8");
     expect(deployed.slice(deployed.indexOf("\n")+1)).toBe(canonical);
   });
-  test("marketing email copy derives only the shared footer and lifecycle copy from web catalogs", () => {
+  test("marketing email copy derives only the shared footer, lifecycle and existing-account copy from web catalogs", () => {
     const generated = JSON.parse(readFileSync(new URL("../../marketing/lib/email/account-copy.generated.json", import.meta.url), "utf8"));
     const expected = Object.fromEntries(["es-419", "en"].map(locale => {
-      const { footer, business_lifecycle } = JSON.parse(readFileSync(new URL(`../public/locales/${locale}/common.json`, import.meta.url), "utf8")).account_email;
-      return [locale, { footer, business_lifecycle }];
+      const { footer, business_lifecycle, existing_account } = JSON.parse(readFileSync(new URL(`../public/locales/${locale}/common.json`, import.meta.url), "utf8")).account_email;
+      return [locale, { footer, business_lifecycle, existing_account }];
     }));
     expect(generated).toEqual(expected);
     for (const locale of ["es-419", "en"] as const) {
