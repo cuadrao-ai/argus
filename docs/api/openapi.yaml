@@ -421,152 +421,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v1/backtest-jobs/by-action/{confirmation_id}:
-    get:
-      tags:
-      - backtests
-      parameters:
-      - name: confirmation_id
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BacktestJobResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: No owner-scoped reservation exists for this action identity.
-        '409':
-          description: The action identity is linked to different immutable inputs.
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-  /api/v1/backtest-jobs/{job_id}:
-    get:
-      tags:
-      - backtests
-      parameters:
-      - name: job_id
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BacktestJobResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/v1/backtests/run:
-    post:
-      tags:
-      - backtests
-      parameters:
-      - name: Idempotency-Key
-        in: header
-        required: true
-        schema:
-          type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/BacktestRunRequest'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BacktestRunResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '400':
-          description: Missing required Idempotency-Key header.
-        '409':
-          description: The data window changed after approval and must be reviewed again.
-        '503':
-          description: 'Problem Details when bounded auth-session verification is temporarily
-            unavailable (`auth_session_verification_unavailable`) or market data is temporarily
-            unavailable (`market_data_unavailable`).
-
-            '
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/v1/backtests/{run_id}:
-    get:
-      tags:
-      - backtests
-      parameters:
-      - name: run_id
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BacktestRunResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   /api/v1/business/access:
     get:
       tags:
@@ -1108,11 +962,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  # Bank tables are server-only. HTTP access checks and locks the live Business
-  # grant; closure, expiry, revocation, issuer loss and anonymous identity deny it.
-  # Bindings use the same Business and record custodian, independent of its current
-  # owner. Invalid existing bindings are retained and refuse account_not_in_space.
-  # Shared HTTP request and response schemas remain unchanged.
   /api/v1/business/bank/imports:
     post:
       tags:
@@ -2415,8 +2264,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -2863,8 +2712,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -3818,8 +3667,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -3870,8 +3719,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -3924,8 +3773,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -3969,8 +3818,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -5801,8 +5650,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -5853,8 +5702,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -5916,8 +5765,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -5978,8 +5827,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -6024,8 +5873,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -6038,7 +5887,8 @@ paths:
               $ref: '#/components/schemas/ExportReport'
       responses:
         '200':
-          description: Complete filtered records, CSV, XLSX and scope manifest; originals excluded.
+          description: Complete filtered records, CSV, XLSX and scope manifest; originals
+            excluded.
           content:
             application/zip: {}
         '403':
@@ -6074,8 +5924,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -6791,8 +6641,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -6902,8 +6752,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -7085,8 +6935,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -7141,8 +6991,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -16804,275 +16654,6 @@ components:
       required:
       - token
       - mark
-    BacktestJob:
-      properties:
-        id:
-          type: string
-        conversation_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-        request_message_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-        confirmation_message_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-        status:
-          type: string
-          enum:
-          - queued
-          - running
-          - succeeded
-          - failed
-          - canceled
-          - expired
-        operation_scope:
-          anyOf:
-          - type: string
-          - type: 'null'
-        result_run_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-        failure_code:
-          anyOf:
-          - type: string
-          - type: 'null'
-        failure_detail:
-          anyOf:
-          - type: string
-          - type: 'null'
-        retryable:
-          type: boolean
-          default: false
-        queued_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-        started_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-        finished_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-        created_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-        updated_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-      type: object
-      required:
-      - id
-      - status
-    BacktestJobResponse:
-      properties:
-        job:
-          $ref: '#/components/schemas/BacktestJob'
-        run:
-          anyOf:
-          - $ref: '#/components/schemas/BacktestRun'
-          - type: 'null'
-        result_message:
-          anyOf:
-          - $ref: '#/components/schemas/Message'
-          - type: 'null'
-        result_readout:
-          type: 'null'
-        result_readout_content:
-          anyOf:
-          - $ref: '#/components/schemas/ResultReadoutContent'
-          - type: 'null'
-        result_readout_source:
-          anyOf:
-          - type: string
-          - type: 'null'
-        result_readout_fallback_used:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-        result_readout_failure_mode:
-          anyOf:
-          - type: string
-          - type: 'null'
-        next_experiments:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-      type: object
-      required:
-      - job
-    BacktestRun:
-      properties:
-        id:
-          type: string
-        conversation_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-        strategy_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-        status:
-          type: string
-          enum:
-          - queued
-          - running
-          - completed
-          - failed
-        asset_class:
-          type: string
-          enum:
-          - equity
-          - crypto
-          - currency_pair
-        symbols:
-          items:
-            type: string
-          type: array
-        allocation_method:
-          type: string
-          const: equal_weight
-        benchmark_symbol:
-          type: string
-        metrics:
-          additionalProperties: true
-          type: object
-        config_snapshot:
-          additionalProperties: true
-          type: object
-        conversation_result_card:
-          additionalProperties: true
-          type: object
-        created_at:
-          type: string
-          format: date-time
-        chart:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-        trades:
-          anyOf:
-          - items:
-              additionalProperties: true
-              type: object
-            type: array
-          - type: 'null'
-        figures:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-      type: object
-      required:
-      - id
-      - status
-      - asset_class
-      - symbols
-      - allocation_method
-      - benchmark_symbol
-      - metrics
-      - config_snapshot
-      - conversation_result_card
-      - created_at
-    BacktestRunRequest:
-      properties:
-        strategy_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-        conversation_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-        template:
-          anyOf:
-          - type: string
-            enum:
-            - buy_and_hold
-            - buy_the_dip
-            - dca_accumulation
-            - moving_average_crossover
-            - rsi_mean_reversion
-          - type: 'null'
-        asset_class:
-          anyOf:
-          - type: string
-            enum:
-            - equity
-            - crypto
-            - currency_pair
-          - type: 'null'
-        symbols:
-          anyOf:
-          - items:
-              type: string
-            type: array
-          - type: 'null'
-        timeframe:
-          anyOf:
-          - type: string
-          - type: 'null'
-        start_date:
-          anyOf:
-          - type: string
-            format: date
-          - type: 'null'
-        end_date:
-          anyOf:
-          - type: string
-            format: date
-          - type: 'null'
-        side:
-          anyOf:
-          - type: string
-            enum:
-            - long
-            - short
-            - long_short
-            - market_neutral
-          - type: 'null'
-        starting_capital:
-          anyOf:
-          - type: number
-          - type: 'null'
-        allocation_method:
-          anyOf:
-          - type: string
-            const: equal_weight
-          - type: 'null'
-        parameters:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-        benchmark_symbol:
-          anyOf:
-          - type: string
-          - type: 'null'
-      type: object
-    BacktestRunResponse:
-      properties:
-        run:
-          $ref: '#/components/schemas/BacktestRun'
-      type: object
-      required:
-      - run
     BalanceResponse:
       properties:
         state:
@@ -21900,18 +21481,6 @@ components:
       required:
       - action
       - disclosure_token
-    ExcludedPersonal:
-      properties:
-        income:
-          type: integer
-          default: 0
-        expense:
-          type: integer
-          default: 0
-      additionalProperties: false
-      type: object
-      description: Matching rows the Personal mark keeps out of every total, counted
-        by the family the cards group on (a sale is income, a purchase expense).
     Error:
       type: object
       description: RFC 9457 Problem Details with code and request_id.
@@ -22032,6 +21601,19 @@ components:
       required:
       - connection
       - created
+    ExcludedPersonal:
+      properties:
+        income:
+          type: integer
+          default: 0
+        expense:
+          type: integer
+          default: 0
+      additionalProperties: false
+      type: object
+      description: 'Matching rows the Personal mark keeps out of every total, counted by
+
+        the family the cards group on (a sale is income, a purchase expense).'
     ExistingDefinition:
       properties:
         ref:
@@ -31351,6 +30933,100 @@ components:
           default: []
       additionalProperties: false
       type: object
+    ReportFiltersV2:
+      properties:
+        q:
+          type: string
+          maxLength: 200
+          default: ''
+        period:
+          $ref: '#/components/schemas/Period'
+          default:
+            kind: all
+        record_families:
+          items:
+            type: string
+            enum:
+            - sale
+            - purchase
+          type: array
+          default: []
+        review_stages:
+          items:
+            type: string
+            enum:
+            - needs_review
+            - awaiting_approval
+            - ready_for_export
+          type: array
+          default: []
+        has_document:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+        currencies:
+          items:
+            type: string
+          type: array
+          maxItems: 200
+          default: []
+        amount_min:
+          anyOf:
+          - type: string
+          - type: 'null'
+        amount_max:
+          anyOf:
+          - type: string
+          - type: 'null'
+        counterparties:
+          items:
+            type: string
+          type: array
+          maxItems: 200
+          default: []
+        categories:
+          items:
+            type: string
+          type: array
+          maxItems: 200
+          default: []
+        funding_sources:
+          items:
+            type: string
+          type: array
+          maxItems: 200
+          default: []
+        document_kinds:
+          items:
+            type: string
+            enum:
+            - invoice
+            - receipt
+            - credit_note
+            - unknown
+          type: array
+          default: []
+        fiscal_classifications:
+          items:
+            type: string
+          type: array
+          maxItems: 100
+          default: []
+      additionalProperties: false
+      type: object
+    ReportOverview:
+      properties:
+        needs_review:
+          type: integer
+          default: 0
+        awaiting_approval:
+          type: integer
+          default: 0
+        ready_for_export:
+          type: integer
+          default: 0
+      additionalProperties: false
+      type: object
     ReportRecipe-Input:
       properties:
         schema_version:
@@ -31451,100 +31127,6 @@ components:
           type: string
           const: date_desc
           default: date_desc
-      additionalProperties: false
-      type: object
-    ReportFiltersV2:
-      properties:
-        q:
-          type: string
-          maxLength: 200
-          default: ''
-        period:
-          $ref: '#/components/schemas/Period'
-          default:
-            kind: all
-        record_families:
-          items:
-            type: string
-            enum:
-            - sale
-            - purchase
-          type: array
-          default: []
-        review_stages:
-          items:
-            type: string
-            enum:
-            - needs_review
-            - awaiting_approval
-            - ready_for_export
-          type: array
-          default: []
-        has_document:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-        currencies:
-          items:
-            type: string
-          type: array
-          maxItems: 200
-          default: []
-        amount_min:
-          anyOf:
-          - type: string
-          - type: 'null'
-        amount_max:
-          anyOf:
-          - type: string
-          - type: 'null'
-        counterparties:
-          items:
-            type: string
-          type: array
-          maxItems: 200
-          default: []
-        categories:
-          items:
-            type: string
-          type: array
-          maxItems: 200
-          default: []
-        funding_sources:
-          items:
-            type: string
-          type: array
-          maxItems: 200
-          default: []
-        document_kinds:
-          items:
-            type: string
-            enum:
-            - invoice
-            - receipt
-            - credit_note
-            - unknown
-          type: array
-          default: []
-        fiscal_classifications:
-          items:
-            type: string
-          type: array
-          maxItems: 100
-          default: []
-      additionalProperties: false
-      type: object
-    ReportOverview:
-      properties:
-        needs_review:
-          type: integer
-          default: 0
-        awaiting_approval:
-          type: integer
-          default: 0
-        ready_for_export:
-          type: integer
-          default: 0
       additionalProperties: false
       type: object
     ReportRecipeV2-Input:
@@ -32186,32 +31768,6 @@ components:
       type: object
       required:
       - membership_id
-    ResultReadoutContent:
-      properties:
-        schema_version:
-          type: string
-          const: result_readout/v1
-        surface:
-          type: string
-          enum:
-          - quick_take
-          - breakdown
-        language:
-          type: string
-          enum:
-          - en
-          - es-419
-        text:
-          anyOf:
-          - type: string
-          - type: 'null'
-      additionalProperties: false
-      type: object
-      required:
-      - schema_version
-      - surface
-      - language
-      - text
     RetrievedMemoryOut:
       properties:
         record:
