@@ -475,3 +475,13 @@ def test_a_cursor_round_trips_only_with_the_filters_that_issued_it():
     ):
         with pytest.raises(InvalidCursor):
             decode_cursor(cursor, NONE)
+
+
+def test_the_feed_names_an_erased_member_as_the_departure_rewrite_does():
+    from argus.domain.business import custody_graph
+    from argus.domain.business.activity import queries
+
+    rewritten = custody_graph._identity(
+        {"actor_id": "old", "display_name": "Ana"}, "old", "custody", "alias"
+    )
+    assert rewritten["display_name"] == custody_graph.ERASED_NAME == queries.ERASED_NAME
