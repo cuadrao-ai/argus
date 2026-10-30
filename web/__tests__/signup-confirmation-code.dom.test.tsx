@@ -381,8 +381,13 @@ describe("an exit chosen while a code operation is pending wins over its late re
     };
   }
 
+  // A code check disables the exits (the design's "disable competing
+  // actions"), so there the sign-in choice can only arrive from the parent as
+  // a mode change. A resend leaves them live.
+  const exitsLiveDuring = (operation: string) => operation.startsWith("a resend");
+
   for (const [operation, props] of Object.entries(operations)) {
-    test(`${operation}: sign-in stays usable and the login view shows no trace of it`, async () => {
+    test(`${operation}: sign-in ${exitsLiveDuring(operation) ? "stays usable" : "waits and the parent's mode change wins"}, and the login view shows no trace of it`, async () => {
       const armed = armResend();
       const settle: Settle = { resolve: () => {}, reject: () => {} };
       const modes: Array<"signup" | "login"> = [];
@@ -391,9 +396,16 @@ describe("an exit chosen while a code operation is pending wins over its late re
       try {
         const code = await startPending(page, operation, armed);
         const signIn = page.host.querySelector("[data-testid='auth-check-email-exits'] button") as HTMLButtonElement;
-        expect(signIn.disabled).toBe(false);
-        await act(async () => { signIn.click(); });
-        expect(modes).toEqual(["login"]);
+        if (exitsLiveDuring(operation)) {
+          expect(signIn.disabled).toBe(false);
+          await act(async () => { signIn.click(); });
+          expect(modes).toEqual(["login"]);
+        } else {
+          expect(signIn.disabled).toBe(true);
+          await act(async () => { signIn.click(); });
+          expect(modes).toEqual([]);
+          await page.renderMode("login");
+        }
 
         await act(async () => { settle.resolve(); });
         expect(finished).toBe(0);
@@ -412,6 +424,7 @@ describe("an exit chosen while a code operation is pending wins over its late re
       }
     });
 
+    if (!exitsLiveDuring(operation)) continue;
     test(`${operation}: password recovery stays usable and the late result is dropped`, async () => {
       const armed = armResend();
       const settle: Settle = { resolve: () => {}, reject: () => {} };
@@ -462,5 +475,192 @@ describe("an exit chosen while a code operation is pending wins over its late re
     } finally {
       await act(async () => { page.root.unmount(); });
     }
+  });
+
+  const confirming = es419.auth.signup.confirmation_loading;
+  const exitsOf = (host: HTMLElement) => ({
+    loading: host.querySelector("[data-testid='auth-check-email'] form button[type='submit']") as HTMLButtonElement,
+    signIn: host.querySelector("[data-testid='auth-check-email-exits'] button") as HTMLButtonElement,
+    recovery: host.querySelector("[data-testid='auth-check-email-exits'] a") as HTMLAnchorElement,
+    resend: [...host.querySelectorAll("button")].find((button) => button.textContent === es419.auth.signup.confirmation_resend) as HTMLButtonElement,
+  });
+  // The anchor's own click() is replaced by other files, so the click is dispatched; the listener
+  // records whether the component left it to the browser before it stops happy-dom from navigating.
+  function watchClicks(host: HTMLElement) {
+    const leftToBrowser: boolean[] = [];
+    const listener = (event: Event) => { leftToBrowser.push(!event.defaultPrevented); event.preventDefault(); };
+    host.addEventListener("click", listener);
+    host.addEventListener("auxclick", listener);
+    return { leftToBrowser, stop: () => { host.removeEventListener("click", listener); host.removeEventListener("auxclick", listener); } };
+  }
+  const dispatch = (target: Element, type: "click" | "auxclick", init: MouseEventInit = {}) =>
+    act(async () => { target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, ...init })); });
+
+  describe("while the code is checked, the competing actions wait and the loading button says why", () => {
+    test("sign-in, recovery and resend are disabled and described by the loading button, a click runs nothing, and the late success finishes", async () => {
+      const armed = armResend();
+      const settle: Settle = { resolve: () => {}, reject: () => {} };
+      const modes: Array<"signup" | "login"> = [];
+      let finished = 0;
+      let resent = 0;
+      const page = await renderSpanishSignup({
+        ...operations["a code check that succeeds late"](settle),
+        onResendEmailCode: async () => { resent += 1; },
+        onEmailConfirmed: () => { finished += 1; },
+        onModeChange: (mode) => modes.push(mode),
+      });
+      let clicks = { leftToBrowser: [] as boolean[], stop: () => {} };
+      try {
+        await act(async () => { armed.tick(); });
+        const code = await startPending(page, "a code check that succeeds late", armed);
+        clicks = watchClicks(page.host);
+        const { loading, signIn, recovery, resend } = exitsOf(page.host);
+        expect(loading.textContent).toBe(confirming);
+        expect(loading.id).not.toBe("");
+        for (const action of [signIn, recovery, resend]) expect(action.getAttribute("aria-describedby")).toBe(loading.id);
+        expect(signIn.disabled).toBe(true);
+        expect(resend.disabled).toBe(true);
+        expect(recovery.getAttribute("aria-disabled")).toBe("true");
+
+        await act(async () => { signIn.click(); resend.click(); });
+        await dispatch(recovery, "click");
+        await dispatch(recovery, "click", { metaKey: true });
+        await dispatch(recovery, "auxclick", { button: 1 });
+        expect(modes).toEqual([]);
+        expect(resent).toBe(0);
+        expect(takeRecoveryEmail()).toBe("");
+        expect(clicks.leftToBrowser).toEqual([false, false, false]);
+        expect(page.host.querySelector("[data-otp-status]")?.getAttribute("data-otp-status")).toBe("verifying");
+        expect(code.readOnly).toBe(true);
+
+        await act(async () => { settle.resolve(); });
+        expect(finished).toBe(1);
+        expect(page.host.querySelector("[data-otp-status]")?.getAttribute("data-otp-status")).toBe("verified");
+      } finally {
+        clicks.stop();
+        armed.restore();
+        await act(async () => { page.root.unmount(); });
+      }
+    });
+
+    test("after a rejected code the competing actions are usable again and the explanation is gone", async () => {
+      const armed = armResend();
+      const settle: Settle = { resolve: () => {}, reject: () => {} };
+      const modes: Array<"signup" | "login"> = [];
+      const page = await renderSpanishSignup({ ...operations["a code check that fails late"](settle), onModeChange: (mode) => modes.push(mode) });
+      try {
+        await startPending(page, "a code check that fails late", armed);
+        const locked = exitsOf(page.host);
+        expect(locked.signIn.disabled).toBe(true);
+        expect(locked.recovery.getAttribute("aria-disabled")).toBe("true");
+
+        await act(async () => { settle.resolve(); });
+        const { loading, signIn, recovery } = exitsOf(page.host);
+        expect(page.host.querySelector("#auth-confirmation-code-note")?.textContent).toContain(es419.auth.signup.confirmation_code_rejected);
+        expect(loading.textContent).not.toBe(confirming);
+        expect(signIn.disabled).toBe(false);
+        expect(recovery.getAttribute("aria-disabled")).toBeNull();
+        expect(signIn.getAttribute("aria-describedby")).toBeNull();
+        expect(recovery.getAttribute("aria-describedby")).toBeNull();
+        await act(async () => { signIn.click(); });
+        expect(modes).toEqual(["login"]);
+      } finally {
+        armed.restore();
+        await act(async () => { page.root.unmount(); });
+      }
+    });
+  });
+
+  describe("a modified or middle click on password recovery leaves this tab as it is", () => {
+    const openElsewhere: Array<[string, "click" | "auxclick", MouseEventInit]> = [
+      ["Cmd-click", "click", { metaKey: true }],
+      ["Ctrl-click", "click", { ctrlKey: true }],
+      ["Shift-click", "click", { shiftKey: true }],
+      ["Alt-click", "click", { altKey: true }],
+      ["middle click", "auxclick", { button: 1 }],
+      ["middle click reported as a click", "click", { button: 1 }],
+    ];
+
+    test.each(openElsewhere)("%s during a pending code check: this tab keeps verifying and the late success finishes", async (_name, type, init) => {
+      const settle: Settle = { resolve: () => {}, reject: () => {} };
+      let finished = 0;
+      const page = await renderSpanishSignup({ ...operations["a code check that succeeds late"](settle), onEmailConfirmed: () => { finished += 1; } });
+      let clicks = { leftToBrowser: [] as boolean[], stop: () => {} };
+      try {
+        const code = await startPending(page, "a code check that succeeds late", armResend());
+        clicks = watchClicks(page.host);
+        await dispatch(exitsOf(page.host).recovery, type, init);
+        expect(takeRecoveryEmail()).toBe("");
+        expect(page.host.querySelector("[data-otp-status]")?.getAttribute("data-otp-status")).toBe("verifying");
+        expect(exitsOf(page.host).loading.textContent).toBe(confirming);
+
+        await act(async () => { settle.resolve(); });
+        expect(finished).toBe(1);
+        expect(page.host.querySelector("[data-otp-status]")?.getAttribute("data-otp-status")).toBe("verified");
+        expect(code.readOnly).toBe(true);
+      } finally {
+        clicks.stop();
+        await act(async () => { page.root.unmount(); });
+      }
+    });
+
+    test.each(openElsewhere)("%s during a resend in flight: the browser gets the click, this tab remembers nothing, and the late result lands", async (_name, type, init) => {
+      const armed = armResend();
+      const settle: Settle = { resolve: () => {}, reject: () => {} };
+      const page = await renderSpanishSignup(operations["a resend that is accepted late"](settle));
+      let clicks = { leftToBrowser: [] as boolean[], stop: () => {} };
+      try {
+        const code = await startPending(page, "a resend that is accepted late", armed);
+        clicks = watchClicks(page.host);
+        await dispatch(exitsOf(page.host).recovery, type, init);
+        expect(clicks.leftToBrowser).toEqual([true]);
+        expect(takeRecoveryEmail()).toBe("");
+        expect(page.host.querySelector("#auth-confirmation-code-note")?.textContent).toBe(es419.auth.signup.confirmation_resend_pending);
+
+        await act(async () => { settle.resolve(); });
+        expect(page.host.querySelector("#auth-confirmation-code-note")?.textContent).toBe(es419.auth.signup.confirmation_resend_sent);
+        expect(code.value).toBe("01234567");
+      } finally {
+        clicks.stop();
+        armed.restore();
+        await act(async () => { page.root.unmount(); });
+      }
+    });
+
+    test("a plain click on recovery during a resend in flight is the choice: the late result is dropped", async () => {
+      const armed = armResend();
+      const settle: Settle = { resolve: () => {}, reject: () => {} };
+      const page = await renderSpanishSignup(operations["a resend that is accepted late"](settle));
+      let clicks = { leftToBrowser: [] as boolean[], stop: () => {} };
+      try {
+        await startPending(page, "a resend that is accepted late", armed);
+        clicks = watchClicks(page.host);
+        await dispatch(exitsOf(page.host).recovery, "click");
+        expect(takeRecoveryEmail()).toBe("ada@example.com");
+        await act(async () => { settle.resolve(); });
+        expectNoLateResult(page.host);
+      } finally {
+        clicks.stop();
+        armed.restore();
+        await act(async () => { page.root.unmount(); });
+      }
+    });
+
+    test("a modified click on the sign-in button is still a choice made in this tab", async () => {
+      const armed = armResend();
+      const settle: Settle = { resolve: () => {}, reject: () => {} };
+      const modes: Array<"signup" | "login"> = [];
+      const page = await renderSpanishSignup({ ...operations["a resend that is accepted late"](settle), onModeChange: (mode) => modes.push(mode) });
+      try {
+        await startPending(page, "a resend that is accepted late", armed);
+        await dispatch(exitsOf(page.host).signIn, "click", { metaKey: true });
+        expect(modes).toEqual(["login"]);
+        await act(async () => { settle.resolve(); });
+        expectNoLateResult(page.host);
+      } finally {
+        armed.restore();
+        await act(async () => { page.root.unmount(); });
+      }
+    });
   });
 });

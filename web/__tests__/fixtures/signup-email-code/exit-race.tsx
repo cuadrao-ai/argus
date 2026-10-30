@@ -120,16 +120,31 @@ function expectLoginView(host: HTMLElement) {
   expect((host.querySelector('input[type="email"]') as HTMLInputElement).value).toBe("ada@example.com");
 }
 
-test("sign-in chosen while the code is being checked: the late success does not leave the sign-in path", async () => {
+test("while the code is being checked, sign-in and recovery wait on the loading button, and the late success finishes", async () => {
   const host = await openFrontDoor();
   await reachCheckEmail(host);
-  await chooseSignIn(host);
-  expectLoginView(host);
+  const loading = host.querySelector("[data-testid='auth-check-email'] form button[type='submit']") as HTMLButtonElement;
+  const signIn = host.querySelector("[data-testid='auth-check-email-exits'] button") as HTMLButtonElement;
+  const recovery = host.querySelector("[data-testid='auth-check-email-exits'] a") as HTMLAnchorElement;
+  expect(loading.textContent).toBe(es419.auth.signup.confirmation_loading);
+  expect(signIn.disabled).toBe(true);
+  expect(recovery.getAttribute("aria-disabled")).toBe("true");
+  expect(signIn.getAttribute("aria-describedby")).toBe(loading.id);
+  expect(recovery.getAttribute("aria-describedby")).toBe(loading.id);
+  const leftToBrowser: boolean[] = [];
+  const keepPage = (event: Event) => { leftToBrowser.push(!event.defaultPrevented); event.preventDefault(); };
+  host.addEventListener("click", keepPage);
+  await act(async () => { signIn.click(); });
+  await act(async () => { recovery.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, metaKey: true })); });
+  host.removeEventListener("click", keepPage);
+  expect(leftToBrowser).toEqual([false]);
+  expect(host.querySelector("[data-testid='auth-check-email']")).not.toBeNull();
+  expect(new URLSearchParams(window.location.search).get("auth")).toBe("signup");
+  expect(navigations).toEqual([]);
 
   await act(async () => { verifyGate.open(); });
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
-  expect(navigations).toEqual([]);
-  expectLoginView(host);
+  expect(navigations).toEqual(["replace /biz", "refresh"]);
 });
 
 test("sign-in chosen while the confirmed signup is still saving the chosen language: no navigation", async () => {
