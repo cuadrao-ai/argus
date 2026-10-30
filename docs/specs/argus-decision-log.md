@@ -39,6 +39,7 @@ supersession rules. These decisions do not assert implementation completion.
 | 2026-10-10 | Clarify the first Business outcome as a working hosted internet system and an invite-only web beta. Authorize the bounded build, clean integration merges and staging only. Preserve varied natural-language flows and the existing runtime. Detailed record: [Hosted Business beta and build grant](#october-10-2026-hosted-business-beta-and-build-grant). | Lucas, relayed by the root coordinator |
 | 2026-10-12 | The Business live acceptance gate is the invariant measurement: the varied owner-wording corpus judged by saved state, and the frozen seven cases judged by invariants (no money recorded before human approval, no model approval, one money record per human approval, honest reply, foreign scope untouched, replays change nothing, at most one open owner question). The frozen exact-step runs stay as recorded history and are not required to pass. Reason: the frozen cases pinned exact steps from a scripted flow and do not match how real owners write. Detailed record: [October 12 Business invariant gate](#october-12-2026-business-invariant-gate). | Lucas |
 | 2026-10-18 | Lock Business income intake: a Venta arrives on the same channels as a Gasto and is classified by issuer RNC for the 607 or the 606; each item gets a WhatsApp reply with the month so far; José's first session is judged on two moments; and the build order follows Iris's briefs. A sale with no NCF counts in income, stays off the 607 and shows as its own **Ventas sin comprobante** totals line; Cuadrao issues no NCF or e-CF. Detailed record: [October 18 Business income](#october-18-2026-business-income-on-every-channel). | Lucas |
+| 2026-10-30 | Strip old Argus from Cuadrao, code included, through thin PRs. Backtest is removed. Guest code and ticker and market-data code are not part of this decision and stay open until Lucas confirms them separately. Detailed record: [October 30 old Argus removal](#october-30-2026-old-argus-removal). | Lucas, relayed by Yelena |
 
 
 ## October 12, 2026 Business invariant gate
@@ -977,3 +978,25 @@ Lucas locked these points on October 18, 2026. Iris owns the product content.
    when the contador resolves it, and the owner gets one reminder before the
    15th. Cuadrao does not issue NCFs or e-CF. (Confirmed by DR counsel prep,
    Oct 18 2026.)
+
+
+## October 30, 2026: old Argus removal
+
+Lucas approved this on October 30, 2026. Yelena relayed it at 2:41 PM CT; it
+was not given in this log's source chat.
+
+1. Old Argus comes out of Cuadrao, code included, one thin PR at a time.
+2. Backtest is removed. This follows the investing chat surface removal merged
+   on October 18 in [#1265](https://github.com/lagarcess/argus/pull/1265). That
+   October 18 call has no entry in this log.
+3. Open, not decided:
+   - Guest code. The [September 28 guest access lock](#september-28-2026--guest-access-and-ecosystem-runtime-sequence),
+     as amended on [October 9](#october-9-2026-iphone-on-device-guest-book-probar-sin-cuenta),
+     stays in force until Lucas reopens it.
+   - Ticker and market-data code. The [October 4 launch shape](#october-4-2026-cuadrao-launch-shape)
+     keeps the provider code and removes only the keys. That stands until
+     Lucas confirms otherwise.
+
+This entry does not change the canon docs (ARCHITECTURE, DATA_MODEL,
+API_CONTRACT, PRODUCT, DOCUMENTATION_AUTHORITY and the MVEE). They stay on hold
+until Lucas answers the six open canon questions. No Locked row is edited.
