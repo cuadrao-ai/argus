@@ -6,6 +6,7 @@ import { chromium, expect } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "../e2e/support/breakpoint-fixture";
 import { monthCloseWire } from "../e2e/support/month-close-wire";
+import { fulfillSyntheticBusinessFallback } from "../e2e/support/synthetic-business-fallback";
 
 const baseURL = process.env.EVIDENCE_BASE_URL ?? "http://127.0.0.1:3198";
 if (!["127.0.0.1", "localhost"].includes(new URL(baseURL).hostname)) throw new Error("Evidence requires a local server");
@@ -76,7 +77,7 @@ try {
         }
         if (path === "invitations") return route.fulfill({ json: [] });
         if (path === "spaces/fixture-space/profile") return route.fulfill({ json: { space_id: "fixture-space", name: "Colmado de prueba", country: "DO", currency: "DOP", revision: 0, details: {}, appearance: { kind: "default" }, image: null } });
-        throw new Error(`Unmapped synthetic endpoint ${path}`);
+        return fulfillSyntheticBusinessFallback(route);
       });
       await page.goto(`${baseURL}/biz${state.startsWith("bandeja") ? "?view=inbox" : ""}`);
       await expect(page.getByTestId(state.startsWith("bandeja") ? "bandeja-segments" : "month-close")).toBeVisible();
