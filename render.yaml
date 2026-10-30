@@ -276,6 +276,8 @@ services:
         sync: false
       - key: NEXT_PUBLIC_MOCK_AUTH
         value: "false"
+      - key: NEXT_PUBLIC_BUSINESS_PILOT_ENABLED
+        value: "true"
       - key: NEXT_PUBLIC_BUSINESS_ONLY_WEB
         value: "true"
       - key: NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED

@@ -310,17 +310,17 @@ CUADRAO_WAITLIST_SCHEDULER_KEY,active_control,Scheduled reminder request authent
 CUADRAO_WAITLIST_TEST_CONTAINER,active_control,"test/CI only, not a hosted setting",marketing/__tests__/waitlist-removal-postgres.test.ts:11
 NEXT_PUBLIC_ARGUS_API_URL,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,tests/test_environment_scripts.py:997; web/__tests__/guest-captcha-ux.test.ts:322
 NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN,active_control,"test/CI only, not a hosted setting",web/__tests__/auth-captcha-confirmation.test.ts:13; web/__tests__/guest-captcha-ux.test.ts:318
-NEXT_PUBLIC_ARGUS_SUPPORT_EMAIL,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,web/lib/support-email.ts:4
+NEXT_PUBLIC_ARGUS_SUPPORT_EMAIL,alias_in_use,Fallback reader kept after NEXT_PUBLIC_CUADRAO_SUPPORT_EMAIL; hosted files declare only the Cuadrao name (Lucas Oct 30 2026).,web/lib/support-email.ts:9
 NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,web/__tests__/auth-captcha-confirmation.test.ts:16; web/__tests__/guest-captcha-ux.test.ts:321
 NEXT_PUBLIC_CUADRAO_LOCAL_QA_CAPTCHA_TOKEN,active_control,"test/CI only, not a hosted setting",web/__tests__/public-env.test.ts:14; web/lib/public-env.ts:24
 NEXT_PUBLIC_API_URL,active_control,Forbidden legacy name is consumed by generic environment validation; retaining preserves rejection behavior.,.github/argus-env.sh:65
-NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,web/lib/private-alpha-flags.ts:75
-NEXT_PUBLIC_BUSINESS_PILOT_ENABLED,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,tests/test_staging_web_blueprint.py:28; web/__tests__/business-settings-cleanup.dom.test.tsx:145
+NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED,alias_in_use,Fallback reader kept after NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED; hosted files declare only the Cuadrao name (Lucas Oct 30 2026). Still in .env.example.,web/lib/private-alpha-flags.ts:75
+NEXT_PUBLIC_BUSINESS_PILOT_ENABLED,active_control,"Exception to the approved delete list per Lucas Oct 30 2026: pilot needs it, no NEXT_PUBLIC_CUADRAO_ name. Declared in render.yaml (cuadrao-web-staging) and scripts/ops/staging_env_manifest.json.",web/lib/private-alpha-flags.ts:29; tests/test_staging_web_blueprint.py:28
 NEXT_PUBLIC_E2E_ALLOW_MOCK_SIGNUP,active_control,"test/CI only, not a hosted setting",web/app/page.tsx:172
 NEXT_PUBLIC_MOCK_API,active_control,Forbidden legacy name is consumed by generic environment validation; retaining preserves rejection behavior.,.github/argus-env.sh:66
-NEXT_PUBLIC_OMNISEARCH_ENABLED,active_control,legacy Argus family,web/__tests__/alpha-frontend.test.ts:2850; web/lib/private-alpha-flags.ts:2
+NEXT_PUBLIC_OMNISEARCH_ENABLED,active_control,"Exception to the approved delete list per Lucas Oct 30 2026: still read by web code, no replacement. Declared in .env.example and .github/private-alpha-release-profile.json until the reader is removed.",web/lib/private-alpha-flags.ts:2
 NEXT_PUBLIC_POSTHOG_KEY,active_control,"test/CI only, not a hosted setting",tests/test_environment_scripts.py:60
-NEXT_PUBLIC_RESEARCH_RAIL_ENABLED,active_control,legacy Argus family,web/__tests__/research-rail-flag-off.test.ts:5; web/lib/private-alpha-flags.ts:8
+NEXT_PUBLIC_RESEARCH_RAIL_ENABLED,active_control,"Exception to the approved delete list per Lucas Oct 30 2026: still read by web code, no replacement. Declared in .env.example and .github/private-alpha-release-profile.json until the reader is removed.",web/lib/private-alpha-flags.ts:8
 ACCEPTANCE_PRIVATE_REPEAT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/2026-09-17-final-acceptance-e8a4ccee/drivers/export_replay.py:7
 ACCESS_TOKEN,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/whatsapp/config.py:56
 AFTER_RESULT_ENV_FILE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/conversation-after-result/interpreter-payload/after_result_turn_cost.py:6
