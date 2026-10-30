@@ -47,7 +47,7 @@ type AuthFormProps = {
     submission: AuthFormSubmission,
   ) => Promise<AuthFormSubmissionResult | void>;
   onConfirmEmailCode?: (input: { email: string; code: string }) => Promise<void>;
-  onEmailConfirmed?: () => void | Promise<void>;
+  onEmailConfirmed?: (input: { signal: AbortSignal }) => void | Promise<void>;
   onResendEmailCode?: (input: { email: string }) => Promise<EmailResendAcceptance | void>;
 };
 
@@ -212,7 +212,14 @@ export default function AuthForm({
   const cardRef = useRef<HTMLDivElement>(null);
   const [request, setRequest] = useState<{ status: "idle" | "pending" } | { status: "failed"; code: string }>({ status: "idle" });
   const pending = useRef(false);
-  const generation = useRef(0);
+  // The choice in force, meaning this mode and this step. Every request
+  // captures its signal when it starts, and a request whose choice was
+  // superseded drops its result instead of routing or rendering it.
+  const choice = useRef(new AbortController());
+  const supersedeChoice = () => {
+    choice.current.abort();
+    choice.current = new AbortController();
+  };
   const errorRef = useRef<HTMLParagraphElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -283,7 +290,7 @@ export default function AuthForm({
     pending.current = false;
     setRequest({ status: "idle" });
     resetChecks();
-    return () => { generation.current += 1; };
+    return supersedeChoice;
   }, [mode, resetChecks, emailFirst]);
 
   useEffect(() => {
@@ -337,18 +344,18 @@ export default function AuthForm({
   const handleResendCode = async () => {
     if (confirming.current || isVerified || Date.now() < resendAvailableAt) return;
     confirming.current = true;
-    const current = generation.current;
+    const { signal } = choice.current;
     setResend({ status: "pending" });
     setCodeErrorKind(null);
     try {
       const accepted = await (onResendEmailCode ? onResendEmailCode({ email: email.trim() }) : resendSignupEmail({ email: email.trim() }));
-      if (current !== generation.current) return;
+      if (signal.aborted) return;
       setResend({ status: "sent" });
       const seconds = accepted?.retryAfterSeconds ?? 30;
       setResendAvailableAt(Date.now() + seconds * 1000);
       setResendSeconds(seconds);
     } catch (error) {
-      if (current !== generation.current) return;
+      if (signal.aborted) return;
       setResend({ status: "failed", code: authErrorCode(error) });
       if (error instanceof EmailOtpError && error.code === "too_many_requests") {
         const seconds = error.retryAfterSeconds ?? 30;
@@ -356,7 +363,7 @@ export default function AuthForm({
         setResendSeconds(seconds);
       }
     } finally {
-      if (current === generation.current) confirming.current = false;
+      if (!signal.aborted) confirming.current = false;
     }
   };
 
@@ -371,7 +378,7 @@ export default function AuthForm({
       return;
     }
     pending.current = true;
-    const current = generation.current;
+    const { signal } = choice.current;
     setRequest({ status: "pending" });
     try {
       const result = await onSubmit({
@@ -380,13 +387,13 @@ export default function AuthForm({
         email: email.trim(),
         password,
       });
-      if (current !== generation.current) return;
+      if (signal.aborted) return;
       setNeedsEmailConfirmation(Boolean(result && result.status === "email_confirmation_required"));
       setRequest({ status: "idle" });
     } catch (error) {
-      if (current === generation.current) setRequest({ status: "failed", code: authErrorCode(error) });
+      if (!signal.aborted) setRequest({ status: "failed", code: authErrorCode(error) });
     } finally {
-      if (current === generation.current) pending.current = false;
+      if (!signal.aborted) pending.current = false;
     }
   };
 
@@ -399,7 +406,7 @@ export default function AuthForm({
       return;
     }
     confirming.current = true;
-    const current = generation.current;
+    const { signal } = choice.current;
     setCodeErrorKind(null);
     setResend({ status: "idle" });
     if (!isVerified) {
@@ -412,10 +419,10 @@ export default function AuthForm({
         } else {
           await verifyEmailOtp({ email: email.trim(), token, type: "signup" });
         }
-        if (current !== generation.current) return;
+        if (signal.aborted) return;
         setConfirmationStatus("verified");
       } catch (error) {
-        if (current !== generation.current) return;
+        if (signal.aborted) return;
         setCodeErrorKind(authErrorCode(error) || "generic");
         setConfirmationStatus("editing");
         if (["otp_rejected", "otp_expired"].includes(authErrorCode(error))) {
@@ -425,17 +432,17 @@ export default function AuthForm({
         }
         confirming.current = false;
         requestAnimationFrame(() => {
-          if (current === generation.current) confirmationInputRef.current?.focus();
+          if (!signal.aborted) confirmationInputRef.current?.focus();
         });
         return;
       }
     }
     try {
-      await onEmailConfirmed?.();
+      await onEmailConfirmed?.({ signal });
     } catch (error) {
-      if (current === generation.current) setCodeErrorKind(authErrorCode(error) || "generic");
+      if (!signal.aborted) setCodeErrorKind(authErrorCode(error) || "generic");
     } finally {
-      if (current === generation.current) confirming.current = false;
+      if (!signal.aborted) confirming.current = false;
     }
   };
 
@@ -565,9 +572,10 @@ export default function AuthForm({
             {allowModeSwitch && onModeChange ? (
               <p>
                 {t("landing.already_account")}{" "}
-                <button type="button" disabled={isConfirming}
+                <button type="button"
                   className="min-h-11 rounded-item px-1 font-medium text-black underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] dark:text-white"
                   onClick={() => {
+                    supersedeChoice();
                     onModeChange("login");
                     if (emailFirst) requestAnimationFrame(() => cardRef.current?.querySelector("h2")?.focus());
                   }}>
@@ -575,7 +583,7 @@ export default function AuthForm({
                 </button>
               </p>
             ) : null}
-            <Link href="/auth/forgot-password" onClick={() => rememberRecoveryEmail(email)}
+            <Link href="/auth/forgot-password" onClick={() => { supersedeChoice(); rememberRecoveryEmail(email); }}
               className="flex min-h-11 items-center rounded-item px-3 font-medium text-black underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] dark:text-white">
               {t("auth.recovery.forgot")}
             </Link>
