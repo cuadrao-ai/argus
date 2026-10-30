@@ -99,3 +99,18 @@ def test_filters_are_validated_at_the_boundary(alice: Owner):
             422,
             "validation_error",
         ), params
+
+
+def test_the_last_calendar_day_is_refused_as_a_range_end(alice: Owner):
+    """The day after 9999-12-31 does not exist, so the range has no end to
+    compute; the answer is the same refusal as a reversed range, not a 500."""
+
+    for params in ({"to": "9999-12-31"}, {"from": "9999-12-31", "to": "9999-12-31"}):
+        refused = _get(alice, params)
+        assert (refused.status_code, refused.json()["code"]) == (
+            422,
+            "invalid_date_range",
+        ), params
+        assert refused.headers["cache-control"] == "no-store"
+    assert _get(alice, {"from": "9999-12-31"}).status_code == 200
+    assert _get(alice, {"to": "9999-12-30"}).status_code == 200

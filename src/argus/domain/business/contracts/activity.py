@@ -136,4 +136,6 @@ class ActivityFilters(Contract):
     def ordered_days(self) -> ActivityFilters:
         if self.since is not None and self.until is not None and self.since > self.until:
             raise ValueError("the range ends before it starts")
+        if self.until is not None and self.until >= date.max:
+            raise ValueError("the calendar holds no day after the range's end")
         return self

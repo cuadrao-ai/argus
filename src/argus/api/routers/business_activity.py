@@ -82,7 +82,7 @@ def activity_page(
             status_code=422,
             code="invalid_date_range",
             title="Invalid date range",
-            detail="`to` is before `from`.",
+            detail="`to` is before `from`, or is the calendar's last day.",
             headers=NO_STORE,
         ) from None
     try:

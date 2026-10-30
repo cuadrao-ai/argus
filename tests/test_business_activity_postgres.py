@@ -764,3 +764,39 @@ def test_the_read_lets_postgres_push_the_page_bound_into_the_visible_rows(busine
         for query, params in ((queries._PAGE, page), (queries._FACETS, scope)):
             plan = "\n".join(r[0] for r in db.execute("explain " + query, params))
             assert "CTE Scan" not in plan, plan
+
+
+def test_over_http_the_last_calendar_day_is_a_refusal_not_a_crash(
+    people, business, authority
+):
+    from argus.api.business import BusinessPerson, require_business_person
+    from argus.api.business_drafts import DraftContext, stored_drafts
+    from argus.api.routers.business_activity import router
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+
+    @app.middleware("http")
+    async def request_id(request, call_next):
+        request.state.request_id = "synthetic-activity"
+        return await call_next(request)
+
+    app.include_router(router)
+    service = SimpleNamespace(authority=authority, resolve_actor=authority.resolve_actor)
+    app.dependency_overrides[stored_drafts] = lambda: DraftContext(
+        service, UUID(people["owner"]), business, None
+    )
+    app.dependency_overrides[require_business_person] = lambda: BusinessPerson(
+        people["owner"], None
+    )
+    with TestClient(app, raise_server_exceptions=False) as client:
+        refused = client.get("/business/activity", params={"to": "9999-12-31"})
+        assert refused.status_code == 422, refused.text
+        assert refused.json()["detail"]["code"] == "invalid_date_range"
+        assert refused.headers["cache-control"] == "no-store"
+        bounded = client.get(
+            "/business/activity", params={"from": "0001-01-01", "to": "9999-12-30"}
+        )
+        assert bounded.status_code == 200, bounded.text
+        assert [i["action"] for i in bounded.json()["items"]] == ["owner_grant"]
