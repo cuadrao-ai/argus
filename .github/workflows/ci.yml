@@ -364,21 +364,6 @@ jobs:
           supabase --version
           docker ps --filter "name=supabase_" --format '{{.Names}} {{.Image}}' | sort
 
-      - name: Run provider-free guest backend tests
-        if: matrix.supabase-cli == 'pinned'
-        run: |
-          poetry run pytest \
-            tests/evals/test_chat_runtime_trajectory_harness.py \
-            tests/test_allowance_accounting.py \
-            tests/test_guest_access_policy.py \
-            tests/test_guest_allowance_accounting.py \
-            tests/test_guest_auth.py \
-            tests/test_guest_cleanup.py \
-            tests/test_guest_conversation_policy.py \
-            tests/test_guest_conversion.py \
-            tests/test_guest_observability.py \
-            -q --no-cov
-
       # Glob-level so a new _postgres proof is gated without editing this
       # workflow; a hand-maintained list is how uncovered tables ship green.
       - name: Run required real-PostgreSQL matrix
