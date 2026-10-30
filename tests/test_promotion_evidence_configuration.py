@@ -7,6 +7,10 @@ from pathlib import Path
 
 import pytest
 
+from tests.promotion_evidence_configuration import (
+    assert_release_configuration_matches,
+    release_configuration_at_commit,
+)
 from tests.promotion_evidence_repository import (
     commit_files,
     commit_measured_repository,
@@ -52,6 +56,129 @@ def _gate(tmp_path: Path, measured: str, candidate: str, scorecard: dict) -> Non
         f"- Live eval scorecard: `{relative}`\n"
     )
     assert_main_promotion_live_eval_evidence(manifest, repository_root=tmp_path)
+
+
+def _historical_configuration(tmp_path: Path, environment: dict[str, str]) -> str:
+    commit_measured_repository(tmp_path)
+    return commit_files(
+        tmp_path,
+        {PROFILE: json.dumps({"services": {"api": {"env": environment}}})},
+    )
+
+
+@pytest.mark.parametrize("contract_prefix", ["ARGUS", "CUADRAO"])
+@pytest.mark.parametrize("receipt_prefix", ["ARGUS", "CUADRAO"])
+def test_approved_configuration_renames_keep_historical_evidence(
+    tmp_path: Path, contract_prefix: str, receipt_prefix: str
+) -> None:
+    configuration = {"CHAT_MODEL": "test/model", "ACCOUNT_DELETION_ENABLED": "false"}
+    contract = {f"{contract_prefix}_{key}": value for key, value in configuration.items()}
+    receipt = {f"{receipt_prefix}_{key}": value for key, value in configuration.items()}
+    sha = _historical_configuration(tmp_path, contract)
+    assert_release_configuration_matches(
+        receipt, shipped_sha=sha, repository_root=tmp_path, evidence="historical"
+    )
+    assert release_configuration_at_commit(sha, repository_root=tmp_path) == contract
+    assert receipt == {
+        f"{receipt_prefix}_{key}": value for key, value in configuration.items()
+    }
+
+
+@pytest.mark.parametrize(
+    ("suffix", "expected", "actual"),
+    [
+        ("CHAT_MODEL", "test/model", "wrong/model"),
+        ("CHAT_MODEL", "test/model", " test/model "),
+        ("ACCOUNT_DELETION_ENABLED", "false", "true"),
+        ("ACCOUNT_DELETION_ENABLED", "false", "0"),
+        ("ACCOUNT_DELETION_ENABLED", "false", None),
+    ],
+)
+def test_approved_configuration_rename_preserves_exact_values(
+    tmp_path: Path, suffix: str, expected: str, actual: str | None
+) -> None:
+    sha = _historical_configuration(tmp_path, {f"ARGUS_{suffix}": expected})
+    with pytest.raises(AssertionError, match=suffix):
+        assert_release_configuration_matches(
+            {f"CUADRAO_{suffix}": actual},
+            shipped_sha=sha,
+            repository_root=tmp_path,
+            evidence="historical",
+        )
+
+
+@pytest.mark.parametrize("change", ["missing", "extra"])
+def test_approved_configuration_rename_requires_exact_key_set(
+    tmp_path: Path, change: str
+) -> None:
+    sha = _historical_configuration(tmp_path, {"ARGUS_CHAT_MODEL": "test/model"})
+    receipt = {"CUADRAO_CHAT_MODEL": "test/model"}
+    if change == "missing":
+        receipt.clear()
+    else:
+        receipt["CUADRAO_ACCOUNT_DELETION_ENABLED"] = "false"
+    with pytest.raises(AssertionError, match="release_configuration"):
+        assert_release_configuration_matches(
+            receipt, shipped_sha=sha, repository_root=tmp_path, evidence="historical"
+        )
+
+
+@pytest.mark.parametrize("side", ["contract", "receipt"])
+@pytest.mark.parametrize("second_value", ["test/model", "wrong/model"])
+def test_approved_configuration_rename_rejects_dual_keys(
+    tmp_path: Path, side: str, second_value: str
+) -> None:
+    contract = {"ARGUS_CHAT_MODEL": "test/model"}
+    receipt = {"CUADRAO_CHAT_MODEL": "test/model"}
+    if side == "contract":
+        contract["CUADRAO_CHAT_MODEL"] = second_value
+    else:
+        receipt["ARGUS_CHAT_MODEL"] = second_value
+    sha = _historical_configuration(tmp_path, contract)
+    with pytest.raises(AssertionError, match="duplicate.*CUADRAO_CHAT_MODEL"):
+        assert_release_configuration_matches(
+            receipt, shipped_sha=sha, repository_root=tmp_path, evidence="historical"
+        )
+
+
+@pytest.mark.parametrize(
+    ("contract_key", "receipt_key"),
+    [
+        ("ARGUS_APP_ORIGIN", "CUADRAO_APP_ORIGIN"),
+        ("ARGUS_UNAPPROVED_ENABLED", "CUADRAO_UNAPPROVED_ENABLED"),
+        ("OTHER_CHAT_MODEL", "CUADRAO_CHAT_MODEL"),
+    ],
+)
+def test_unapproved_configuration_names_are_not_aliases(
+    tmp_path: Path, contract_key: str, receipt_key: str
+) -> None:
+    sha = _historical_configuration(tmp_path, {contract_key: "true"})
+    with pytest.raises(AssertionError, match="release_configuration"):
+        assert_release_configuration_matches(
+            {receipt_key: "true"},
+            shipped_sha=sha,
+            repository_root=tmp_path,
+            evidence="historical",
+        )
+
+
+def test_approved_configuration_rename_uses_shipped_git_object(tmp_path: Path) -> None:
+    sha = _historical_configuration(tmp_path, {"ARGUS_CHAT_MODEL": "test/model"})
+    current_profile = {"services": {"api": {"env": {"CUADRAO_CHAT_MODEL": "wrong/model"}}}}
+    commit_files(tmp_path, {PROFILE: json.dumps(current_profile)})
+    assert_release_configuration_matches(
+        {"CUADRAO_CHAT_MODEL": "test/model"},
+        shipped_sha=sha,
+        repository_root=tmp_path,
+        evidence="historical",
+    )
+    with pytest.raises(AssertionError, match="CHAT_MODEL"):
+        assert_release_configuration_matches(
+            {"CUADRAO_CHAT_MODEL": "wrong/model"},
+            shipped_sha=sha,
+            repository_root=tmp_path,
+            evidence="historical",
+        )
 
 
 @pytest.mark.parametrize("key", sorted(_configuration(_profile())))
