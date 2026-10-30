@@ -40,7 +40,7 @@ supersession rules. These decisions do not assert implementation completion.
 | 2026-10-12 | The Business live acceptance gate is the invariant measurement: the varied owner-wording corpus judged by saved state, and the frozen seven cases judged by invariants (no money recorded before human approval, no model approval, one money record per human approval, honest reply, foreign scope untouched, replays change nothing, at most one open owner question). The frozen exact-step runs stay as recorded history and are not required to pass. Reason: the frozen cases pinned exact steps from a scripted flow and do not match how real owners write. Detailed record: [October 12 Business invariant gate](#october-12-2026-business-invariant-gate). | Lucas |
 | 2026-10-18 | Lock Business income intake: a Venta arrives on the same channels as a Gasto and is classified by issuer RNC for the 607 or the 606; each item gets a WhatsApp reply with the month so far; José's first session is judged on two moments; and the build order follows Iris's briefs. A sale with no NCF counts in income, stays off the 607 and shows as its own **Ventas sin comprobante** totals line; Cuadrao issues no NCF or e-CF. Detailed record: [October 18 Business income](#october-18-2026-business-income-on-every-channel). | Lucas |
 | 2026-10-30 | Strip old Argus from Cuadrao, code included, in thin daily slices alongside the pilot. Backtest is removed first, on its own. Ticker and market-data code follows; Lucas reopened the October 4 market-data lock on October 30. One-way steps need his go each time. Guest code is covered by the no guest mode entry below. Detailed record: [October 30 old Argus removal](#october-30-2026-old-argus-removal). | Lucas |
-| 2026-10-30 | No guest mode in Cuadrao. Supersedes the September 28 guest access lock, its October 9 amendment, and the October 13 guest lock. Removes no code and turns nothing off. Detailed record: [October 30 no guest mode](#october-30-2026-no-guest-mode-in-cuadrao). | Lucas |
+| 2026-10-30 | No guest mode in Cuadrao. Supersedes the September 28 guest access lock, its October 9 amendment, the October 11 guest receipts entry, and the October 13 guest lock. Scoping of this plan, not a Lucas quote: this entry removes no code and turns nothing off. Detailed record: [October 30 no guest mode](#october-30-2026-no-guest-mode-in-cuadrao). | Lucas |
 
 
 ## October 12, 2026 Business invariant gate
@@ -987,10 +987,10 @@ Lucas's words reached the author through Yelena and Iris in chat. Items
 marked "recorded by Iris" are her notes of his calls, not his verbatim
 messages, except where quoted.
 
-- October 18, 2026, recorded by Iris, not in this log before now: the old
-  Argus investing chat ("Test an investing idea against history") is not
-  Cuadrao. Nobody polishes it; it is removed from Cuadrao's web app, and web
-  is Cuadrao Business only. This covers the web app and the chat entry point.
+- October 18, Lucas, recorded by Iris (her written note, not a verbatim
+  quote), not in this log before now: the old investing chat is not Cuadrao,
+  nobody polishes it, it is removed from the web app, and web is Cuadrao
+  Business only. This covers the web app and the chat entry point.
   It does not name the backtest runtime or tables.
 - October 30, about 2:41 PM CT: "yeah strip argus we dont need it". Old
   Argus comes out of Cuadrao, code included.
@@ -1014,9 +1014,10 @@ Scope order:
    that entry keeps its text.
 
 Database work for this is planned separately and not decided here. One-way
-steps (deleting anonymous guest users, dropping guest columns, turning off
-`POST /auth/guest`, and any database drop) need Lucas's go each time, brought
-to him one at a time with their cost. Guest code is covered by the
+steps (deleting anonymous guest data, dropping guest columns and turning off
+`POST /auth/guest`) come to Lucas for a go each time, one at a time with their
+cost (Oct 30 plan, Iris's record, not a verbatim quote). Any database drop is
+planned, not decided. Guest code is covered by the
 [no guest mode entry](#october-30-2026-no-guest-mode-in-cuadrao).
 
 This entry does not change the canon docs (ARCHITECTURE, DATA_MODEL,
@@ -1035,13 +1036,17 @@ This supersedes:
 
 - The [September 28 guest access lock](#september-28-2026--guest-access-and-ecosystem-runtime-sequence),
   including its [October 9 amendment](#october-9-2026-iphone-on-device-guest-book-probar-sin-cuenta).
+- The [October 11 guest receipts entry](#october-11-2026-guest-receipts-stay-on-the-iphone),
+  superseded by Lucas's October 30 (about 2:50 PM CT) cancellation of the Oct 13
+  guest lock: no guest mode, everyone signs in.
 - The Oct 13 guest lock, recorded by Iris, not in this log.
 
 Those entries keep their text; this entry supersedes them by reference. Guest
 code is covered by this entry; the October 30 old Argus removal entry points
 here.
 
-This entry does not remove guest code or turn anything off. Removal goes in
+Scoping of this plan, not a Lucas quote: this entry removes no code and turns
+nothing off. Removal goes in
 thin steps after Lucas answers the open data questions (existing guest rows in
 production, one-way column drops, live-session cutover) and the deploy ask.
 The canon docs (ARCHITECTURE, DATA_MODEL, API_CONTRACT, PRODUCT,
