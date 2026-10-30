@@ -15,7 +15,7 @@ October 8, 2026. The founder authorized this check: read-only, with no receipt c
 
 ## Live configuration
 
-- **argus-api:** 67 service variables; `ARGUS_PERSISTENCE_MODE=supabase`.
+- **argus-api:** 67 service variables; `CUADRAO_PERSISTENCE_MODE=supabase`.
 - **argus-app:** 13 service variables.
 - **Environment groups:** none.
 - **Not set on either service, so off by default:**

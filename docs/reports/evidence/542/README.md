@@ -102,8 +102,8 @@ poetry run pytest \
   -q -o addopts=''
 3 passed
 
-ARGUS_RUNTIME_EVENT_TIMEOUT_SECONDS= \
-ARGUS_RUNTIME_EVENT_KEEPALIVE_SECONDS= \
+CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS= \
+CUADRAO_RUNTIME_EVENT_KEEPALIVE_SECONDS= \
 poetry run pytest tests/test_chat_stream_contract.py \
   tests/test_allowance_accounting.py tests/test_chat_runtime_cutover.py \
   tests/test_alpha_api_supabase.py -q -o addopts='' -x

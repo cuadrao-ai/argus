@@ -49,7 +49,7 @@ The order puts the smallest backend gap first. Rows 4 to 6 also depend on chat f
 ## Shared conversations (`.shared`)
 
 - **Needs.** The person's share links, each with a revoke action. The screen says: "Links you share will appear here."
-- **Exists.** The owner routes in the [API contract](../../API_CONTRACT.md#public-evidence-receipts), in `src/argus/api/routers/evidence_receipts.py`: `GET /public-excerpts` (the owner's list) and `DELETE /public-excerpts/{snapshot_id}` (revoke), plus candidate, preview and create under `/conversations/{conversation_id}/public-excerpt*`. Table: `public_excerpt_snapshots`. All of it sits behind `ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED`, which is `"false"` on integration and `"true"` on `main`.
+- **Exists.** The owner routes in the [API contract](../../API_CONTRACT.md#public-evidence-receipts), in `src/argus/api/routers/evidence_receipts.py`: `GET /public-excerpts` (the owner's list) and `DELETE /public-excerpts/{snapshot_id}` (revoke), plus candidate, preview and create under `/conversations/{conversation_id}/public-excerpt*`. Table: `public_excerpt_snapshots`. All of it sits behind `CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED`, which is `"false"` on integration and `"true"` on `main`.
 - **Missing.** A native client, and a native way to create a share from chat. The founder decides whether sharing is on before the next promotion to `main`. The [sharing spec](../conversation-sharing.md) owns the behavior.
 
 ## Personalization (`.personalization`)

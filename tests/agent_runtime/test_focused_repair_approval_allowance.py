@@ -180,17 +180,16 @@ def _replay(
         OPENROUTER_API_KEY="hermetic-test-key",
         ARGUS_ASSET_PROVIDER_MODE="synthetic_unit_fixture",
         ARGUS_MARKET_DATA_PROVIDER_MODE="synthetic_unit_fixture",
-        ARGUS_STRUCTURED_MODEL="x-ai/grok-4.3",
-        ARGUS_STRUCTURED_FALLBACK_MODEL="anthropic/claude-haiku-4.5",
-        ARGUS_CHAT_MODEL="deepseek/deepseek-v4-flash",
-        ARGUS_CHAT_FALLBACK_MODEL="qwen/qwen3.5-9b",
+        CUADRAO_STRUCTURED_MODEL="x-ai/grok-4.3",
+        CUADRAO_STRUCTURED_FALLBACK_MODEL="anthropic/claude-haiku-4.5",
+        CUADRAO_CHAT_MODEL="deepseek/deepseek-v4-flash",
+        CUADRAO_CHAT_FALLBACK_MODEL="qwen/qwen3.5-9b",
         ARGUS_RESEARCH_RAIL_ENABLED="false",
         ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED="false",
-        ARGUS_RUNTIME_STREAM_WORKER="false",
-        ARGUS_ENABLE_SPANISH="true",
+        CUADRAO_RUNTIME_STREAM_WORKER="false",
     ).items():
         monkeypatch.setenv(key, value)
-    monkeypatch.delenv("ARGUS_TURN_CALL_ALLOWANCE", raising=False)
+    monkeypatch.delenv("CUADRAO_TURN_CALL_ALLOWANCE", raising=False)
     if allowance == "off":
         monkeypatch.setattr(turn_execution, "_turn_call_allowance", lambda: 10_000)
 

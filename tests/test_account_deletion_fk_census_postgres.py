@@ -50,8 +50,8 @@ def _invite_code_secret(monkeypatch):  # noqa: ANN001, ANN202
 
     Same test secret as tests/household; it passes the placeholder floor.
     """
-    monkeypatch.setenv("ARGUS_INVITE_CODE_SECRET", TEST_CODE_SECRET)
-    monkeypatch.delenv("ARGUS_INVITE_CODE_SECRET_PREVIOUS", raising=False)
+    monkeypatch.setenv("CUADRAO_INVITE_CODE_SECRET", TEST_CODE_SECRET)
+    monkeypatch.delenv("CUADRAO_INVITE_CODE_SECRET_PREVIOUS", raising=False)
 
 
 CENSUS_DOC = (

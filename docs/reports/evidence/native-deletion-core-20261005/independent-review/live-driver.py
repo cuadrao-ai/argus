@@ -21,7 +21,7 @@ try:
   r=httpx.post(cfg['SUPABASE_URL']+'/auth/v1/admin/users',headers=headers,json={'email':email,'password':password,'email_confirm':True});assert r.status_code==200
   users.append({'id':r.json()['id'],'email':email,'password':password})
  fixture.write_text(json.dumps({'apiURL':'http://127.0.0.1:60343','supabaseURL':cfg['SUPABASE_URL'],'publicAnonKey':cfg['SUPABASE_ANON_KEY'],'users':users}));fixture.chmod(0o600)
- env={**os.environ,**cfg,'PYTHONPATH':str(base/'web')+':'+str(base/'src')+':'+str(base),'PYTHON_DOTENV_DISABLED':'1','ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED':'true','ARGUS_ACCOUNT_DELETION_ENABLED':'true','ARGUS_MOCK_AUTH':'false','NEXT_PUBLIC_MOCK_AUTH':'false','ARGUS_DEV_MEMORY_FALLBACK':'false','APP_ENV':'test','ARGUS_ANALYTICS_DELETION_ENABLED':'false'}
+ env={**os.environ,**cfg,'PYTHONPATH':str(base/'web')+':'+str(base/'src')+':'+str(base),'PYTHON_DOTENV_DISABLED':'1','CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED':'true','CUADRAO_ACCOUNT_DELETION_ENABLED':'true','CUADRAO_MOCK_AUTH':'false','NEXT_PUBLIC_MOCK_AUTH':'false','ARGUS_DEV_MEMORY_FALLBACK':'false','APP_ENV':'test','ARGUS_ANALYTICS_DELETION_ENABLED':'false'}
  log=open(root/'api-private.log','w')
  api=subprocess.Popen(['/private/tmp/cuadrao-scipy-env-20261005/bin/python','-m','uvicorn','argus.api.main:app','--host','127.0.0.1','--port','60343'],cwd=base,env=env,stdout=log,stderr=log)
  print('OWN_API_PID',api.pid,flush=True);wait('http://127.0.0.1:60343/health')

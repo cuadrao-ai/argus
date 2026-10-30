@@ -137,7 +137,7 @@ Render MCP was reached through the repository-configured endpoint and credential
 
 - Expected mode: `real-workflow`.
 - Release profile hash: `71659a53a4c39b129c62ab0cb42068205be3a78d60c229f95898fe64353f3733`.
-- `ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED=true` and `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED=true` agree in Blueprint, release profile and declared environment example on `origin/main`. Correction 2026-09-25: production `render.yaml` on `main` has both flags `true`. The integration Blueprint still has both `false`.
+- `CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED=true` and `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED=true` agree in Blueprint, release profile and declared environment example on `origin/main`. Correction 2026-09-25: production `render.yaml` on `main` has both flags `true`. The integration Blueprint still has both `false`.
 - API/app were observed with `autoDeployTrigger=off`; the profile retains manual mode for all three services.
 - Hosted environment fingerprints, workflow effective-provider proof, warmup, guest controls/cleanup and post-deploy audit remain pending. No existing identity or guest workspace was modified for QA.
 

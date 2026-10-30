@@ -204,8 +204,8 @@ def test_conversation_title_finalizer_persists_utility_route_receipt(
         return "Tesla SPY Check"
 
     monkeypatch.setattr(api_state, "supabase_gateway", FakeGateway())
-    monkeypatch.setenv("ARGUS_UTILITY_MODEL", "utility/primary")
-    monkeypatch.setenv("ARGUS_UTILITY_FALLBACK_MODEL", "utility/fallback")
+    monkeypatch.setenv("CUADRAO_UTILITY_MODEL", "utility/primary")
+    monkeypatch.setenv("CUADRAO_UTILITY_FALLBACK_MODEL", "utility/fallback")
     monkeypatch.setattr(
         "argus.api.artifact_naming.suggest_entity_name",
         _suggest_entity_name,
@@ -261,8 +261,8 @@ def test_conversation_title_finalizer_records_observable_skip(
             return kwargs
 
     monkeypatch.setattr(api_state, "supabase_gateway", FakeGateway())
-    monkeypatch.setenv("ARGUS_UTILITY_MODEL", "utility/primary")
-    monkeypatch.setenv("ARGUS_UTILITY_FALLBACK_MODEL", "utility/fallback")
+    monkeypatch.setenv("CUADRAO_UTILITY_MODEL", "utility/primary")
+    monkeypatch.setenv("CUADRAO_UTILITY_FALLBACK_MODEL", "utility/fallback")
 
     title = title_finalization.finalize_conversation_title_after_turn(
         user_id=_user_id(),

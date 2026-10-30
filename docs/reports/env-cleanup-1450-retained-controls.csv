@@ -1,0 +1,627 @@
+name,classification,reason,evidence
+ARGUS_ACCESS_REQUEST_TEST_PORT,active_control,"test/CI only, not a hosted setting",web/e2e/public-alpha-access-request.playwright.config.ts:5
+ARGUS_AGE_PAYLOAD_PROOF,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/AgeSignupPayloadUITests.swift:6
+ARGUS_AGE_TEST_DATABASE_URL,active_control,"test/CI only, not a hosted setting",tests/test_age_confirmation_postgres.py:11
+ARGUS_ANALYTICS_DELETION_ENABLED,active_control,legacy Argus family,src/argus/observability/analytics_deletion.py:14
+ARGUS_ANDROID_API_URL,active_control,Debug Android build injects native local-auth configuration from generated environment names.,mobile/android/README.md:108
+ARGUS_ANDROID_CAPTCHA_TOKEN,active_control,Debug Android build injects native local-auth configuration from generated environment names.,mobile/android/README.md:111
+ARGUS_ANDROID_LOCAL_AUTH,active_control,"Active environment control, consumed through a helper or platform adapter.",mobile/android/app/build.gradle.kts:25
+ARGUS_ANDROID_RECOVERY_URL,active_control,Debug Android build injects native local-auth configuration from generated environment names.,mobile/android/README.md:112
+ARGUS_ANDROID_SUPABASE_ANON_KEY,active_control,Debug Android build injects native local-auth configuration from generated environment names.,mobile/android/README.md:110
+ARGUS_ANDROID_SUPABASE_URL,active_control,Debug Android build injects native local-auth configuration from generated environment names.,mobile/android/README.md:109
+ARGUS_API_TEST_KEY,test_fixture,test/CI only (synthetic fixture),docs/reports/evidence/865/verify-reconcile-loader.py:35
+ARGUS_API_URL,active_control,"Active environment control, consumed through a helper or platform adapter.",ios/ArgusFoundation/Auth/NativeAuthConfiguration.swift:17
+ARGUS_APPLE_SIGN_IN_ENABLED,active_control,"Active environment control, consumed through a helper or platform adapter.",ios/ArgusFoundation/Auth/NativeProviderSignIn.swift:37
+ARGUS_APPLY_DATABASE_URL,active_control,Default explicit operator-selected DSN environment input used by migration approval executor.,scripts/ops/apply_approved_migrations.py:567
+ARGUS_APP_ENV,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,src/argus/observability/envelope.py:167
+ARGUS_ASSET_FIXTURE_PATH,active_control,legacy Argus family,src/argus/domain/market_data/assets.py:368; tests/evals/test_measurement_eval_live.py:50
+ARGUS_ASSET_PROVIDER_MODE,active_control,legacy Argus family,src/argus/domain/market_data/assets.py:98; tests/evals/test_measurement_eval_live.py:47
+ARGUS_ASSET_UNIVERSE_LOADER_TIMEOUT_SECONDS,active_control,legacy Argus family,src/argus/domain/market_data/assets.py:88
+ARGUS_AUTH_CONFIRMATION_TEST_PORT,active_control,"test/CI only, not a hosted setting",web/e2e/auth-confirmation-state.playwright.config.ts:5
+ARGUS_AUTH_ENABLED,active_control,"Active environment control, consumed through a helper or platform adapter.",ios/ArgusFoundation/Auth/NativeAuthConfiguration.swift:10
+ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED,active_control,backtesting legacy name (worker service stays),.github/argus-env.sh:121; src/argus/api/chat/backtest_jobs.py:96; tests/test_environment_scripts.py:239
+ARGUS_BACKTEST_JOBS_GLOBAL_QUEUED_LIMIT,active_control,backtesting legacy name (worker service stays),.github/argus-env.sh:128; .github/render-env-sync.sh:218
+ARGUS_BACKTEST_JOBS_GLOBAL_RUNNING_LIMIT,active_control,backtesting legacy name (worker service stays),.github/argus-env.sh:127; .github/render-env-sync.sh:217
+ARGUS_BACKTEST_JOBS_SHADOW_ENABLED,active_control,backtesting legacy name (worker service stays),.github/argus-env.sh:120; src/argus/api/chat/backtest_jobs.py:90
+ARGUS_BACKTEST_JOBS_USER_QUEUED_LIMIT,active_control,backtesting legacy name (worker service stays),.github/argus-env.sh:126; .github/render-env-sync.sh:216
+ARGUS_BACKTEST_JOBS_USER_RUNNING_LIMIT,active_control,backtesting legacy name (worker service stays),.github/argus-env.sh:125; .github/render-env-sync.sh:215
+ARGUS_BACKTEST_REAL_WORKFLOW_TASK,active_control,backtesting legacy name (worker service stays),.github/argus-env.sh:10; .github/local-smoke.sh:126; src/argus/api/chat/backtest_jobs.py:203
+ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED,active_control,backtesting legacy name (worker service stays),.github/argus-env.sh:122; src/argus/api/chat/backtest_jobs.py:103; tests/test_environment_scripts.py:240
+ARGUS_BACKTEST_WORKFLOW_TASK,active_control,backtesting legacy name (worker service stays),.github/argus-env.sh:9; .github/local-smoke.sh:125; src/argus/api/chat/backtest_jobs.py:206; workflows/trigger_proof.py:19
+ARGUS_BACKTEST_WORKFLOW_TIMEOUT_SECONDS,active_control,backtesting legacy name (worker service stays),workflows/main.py:55
+ARGUS_BENCHMARK_LIVE_PROVIDER,active_control,"test/CI only, not a hosted setting",scripts/benchmarks/backtest_infra_benchmark.py:985
+ARGUS_BREAKPOINT_BASELINE_PORT,active_control,"test/CI only, not a hosted setting",web/e2e/breakpoint-baselines.playwright.config.ts:48
+ARGUS_BREAKPOINT_LANDING_PORT,active_control,"test/CI only, not a hosted setting",web/e2e/breakpoint-audit-landing.playwright.config.ts:11
+ARGUS_BUSINESS_BANK_MATCHING_ENABLED,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,tests/business/test_bank_api.py:33
+ARGUS_BUSINESS_CHAT_ENABLED,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,docs/API_CONTRACT.md:3685; docs/handoffs/cuadrao-business-lane.md:815
+ARGUS_BUSINESS_EMAIL_CAPTURE_ENABLED,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,tests/test_email_intake_settings.py:33; tests/test_email_intake_startup.py:30
+ARGUS_BUSINESS_EMAIL_DOMAIN,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,tests/test_email_intake_settings.py:35; tests/test_setting_names.py:120
+ARGUS_BUSINESS_EMAIL_INTAKE_ENABLED,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,tests/test_email_intake_settings.py:34
+ARGUS_BUSINESS_INVITE_EMAIL_ENABLED,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,src/argus/api/business_invite_delivery.py:27
+ARGUS_BUSINESS_PILOT_ENABLED,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,docs/API_CONTRACT.md:3658; docs/handoffs/cuadrao-business-lane.md:30
+ARGUS_BUSINESS_SUPPLIER_FAST_PATH_ENABLED,active_control,"test/CI only, not a hosted setting",tests/business/test_supplier_fast_path.py:153
+ARGUS_CANARY_ALLOW_HARNESS_MISMATCH,active_control,test/CI only (canary),.github/canary-render.sh:35
+ARGUS_CANARY_API_URL,active_control,test/CI only (canary),.github/canary-render.sh:17; tests/test_render_canary_script.py:80
+ARGUS_CANARY_APP_URL,active_control,test/CI only (canary),.github/canary-browser.sh:15; .github/canary-render.sh:16; tests/test_render_canary_script.py:79
+ARGUS_CANARY_BROWSER_ARTIFACT_PROBE,active_control,test/CI only (canary),.github/canary-browser.sh:20; .github/canary-render.sh:38; web/e2e/private-alpha-release-canary.spec.ts:48
+ARGUS_CANARY_BROWSER_BACKTEST_PROMPT,active_control,legacy Argus family,web/e2e/private-alpha-release-canary.spec.ts:45
+ARGUS_CANARY_BROWSER_CHAT_PROMPT,active_control,test/CI only (canary),web/e2e/private-alpha-release-canary.spec.ts:44
+ARGUS_CANARY_BROWSER_CHECKS,active_control,test/CI only (canary),.github/canary-browser.sh:16; tests/test_render_canary_script.py:204; web/e2e/private-alpha-release-canary.spec.ts:39
+ARGUS_CANARY_BROWSER_CHECKS_HANDOFF,active_control,test/CI only (canary),.github/canary-browser.sh:16; web/e2e/private-alpha-release-canary.spec.ts:39
+ARGUS_CANARY_BROWSER_REDACTION_PROBE_VALUE,active_control,test/CI only (canary),.github/canary-browser.sh:21; .github/canary-render.sh:39; web/e2e/private-alpha-release-canary.spec.ts:50
+ARGUS_CANARY_BROWSER_RESEARCH_PROMPT,active_control,legacy Argus family,web/e2e/private-alpha-release-canary.spec.ts:46
+ARGUS_CANARY_BROWSER_SESSION_HANDOFF,active_control,"Active environment control, consumed through a helper or platform adapter.",web/e2e/support/private-alpha-canary-session.ts:440
+ARGUS_CANARY_BROWSER_STORAGE_STATE,active_control,test/CI only (canary),.github/canary-browser.sh:18; web/playwright.config.ts:6
+ARGUS_CANARY_BROWSER_USER_ID,active_control,test/CI only (canary),.github/canary-browser.sh:19; web/e2e/private-alpha-release-canary.spec.ts:38
+ARGUS_CANARY_CAPTURE_PATH,active_control,test/CI only (canary),.github/canary-render.sh:31; tests/test_render_canary_script.py:705
+ARGUS_CANARY_EMAIL,active_control,test/CI only (canary),.github/canary-render.sh:18; tests/test_render_canary_script.py:88
+ARGUS_CANARY_EVIDENCE_PATH,active_control,test/CI only (canary),.github/canary-render.sh:30; tests/test_render_canary_script.py:704
+ARGUS_CANARY_EXPECT_MODE,active_control,test/CI only (canary),.github/canary-render.sh:29; tests/test_render_canary_script.py:156
+ARGUS_CANARY_HARNESS_SHA,active_control,test/CI only (canary),.github/canary-render.sh:34
+ARGUS_CANARY_LANGUAGE,active_control,test/CI only (canary),.github/canary-render.sh:28; tests/test_render_canary_script.py:194
+ARGUS_CANARY_LOCAL_RUN_NONCE,active_control,test/CI only (canary),.github/canary-render.sh:23; tests/test_render_canary_script.py:92
+ARGUS_CANARY_PASSWORD,active_control,test/CI only (canary),.github/canary-render.sh:20; tests/test_render_canary_script.py:89
+ARGUS_CANARY_REDACT_SIMULATE_FAILURE,active_control,test/CI only (canary),.github/canary-render.sh:40
+ARGUS_CANARY_SHA,active_control,test/CI only (canary),.github/canary-render.sh:32; tests/test_render_canary_script.py:159
+ARGUS_CANARY_STATIC_LABELS_JSON,active_control,test/CI only (canary),web/e2e/private-alpha-release-canary.spec.ts:52
+ARGUS_CANARY_SUPABASE_SERVICE_ROLE_KEY,active_control,test/CI only (canary),.github/canary-render.sh:26; .github/warmup-render.sh:52
+ARGUS_CANARY_SUPABASE_URL,active_control,test/CI only (canary),.github/canary-render.sh:25; .github/warmup-render.sh:51
+ARGUS_CANARY_SURFACE,active_control,test/CI only (canary),.github/canary-render.sh:36; tests/test_private_alpha_canary_split.py:257; tests/test_render_canary_script.py:96
+ARGUS_CANDIDATE_SHA,active_control,"test/CI only, not a hosted setting",web/__tests__/guest-browser-harness.test.ts:738; web/e2e/guest-live-checkpoint.spec.ts:103
+ARGUS_CANONICAL_WORKTREE_ROOT,active_control,"test/CI only, not a hosted setting",.github/setup-worktree-env.sh:108; tests/test_worktree_environment_setup.py:83
+ARGUS_CAPTCHA_URL,active_control,"Active environment control, consumed through a helper or platform adapter.",ios/ArgusFoundation/Auth/NativeAuthConfiguration.swift:20
+ARGUS_CAPTURE_USAGE_CLASSES_EVIDENCE,active_control,"test/CI only, not a hosted setting",web/e2e/usage-allowance.spec.ts:581
+ARGUS_CAPTURE_USAGE_METER_EVIDENCE,active_control,"test/CI only, not a hosted setting",web/e2e/usage-allowance.spec.ts:328
+ARGUS_CI_BUN_VERSION,active_control,Workflow tool-version pin consumed in action setup inputs.,.github/workflows/ci.yml:27
+ARGUS_CI_SUPABASE_CLI_VERSION,active_control,Workflow tool-version pin consumed in action setup inputs.,.github/workflows/ci.yml:28
+ARGUS_COMPAT_BUILD2_ROOT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/cuadrao-compat-matrix-20261008/compat_matrix.py:182
+ARGUS_COMPAT_BUILD2_SHA,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/cuadrao-compat-matrix-20261008/compat_matrix.py:183
+ARGUS_COMPAT_OLD_ROOT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/cuadrao-compat-matrix-20261008/compat_matrix.py:9
+ARGUS_COMPAT_PYTHON,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/cuadrao-compat-matrix-20261008/compat_matrix.py:10
+ARGUS_COMPAT_TAIL,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/cuadrao-compat-matrix-20261008/compat_matrix.py:184
+ARGUS_CONTEXT_PACKETS_ENABLED,active_control,legacy Argus family,.github/argus-env.sh:129; src/argus/api/chat/context_packets.py:35
+ARGUS_CONTEXT_PACKET_BUDGET_SECONDS,active_control,legacy Argus family,src/argus/api/chat/context_packets.py:40
+ARGUS_CUADRAO_LEGAL_LINKS_ENABLED,active_control,"Active environment control, consumed through a helper or platform adapter.",ios/ArgusFoundation/Cuadrao/CuadraoLegalURLs.swift:12
+ARGUS_CUADRAO_PRIVACY_URL,active_control,"Active environment control, consumed through a helper or platform adapter.",ios/ArgusFoundation/Cuadrao/CuadraoLegalURLs.swift:16
+ARGUS_CUADRAO_TERMS_URL,active_control,"Active environment control, consumed through a helper or platform adapter.",ios/ArgusFoundation/Cuadrao/CuadraoLegalURLs.swift:17
+ARGUS_DEV_ENDPOINTS_ENABLED,active_control,"test/CI only, not a hosted setting",src/argus/api/routers/dev.py:16
+ARGUS_DEV_MEMORY_FALLBACK,active_control,legacy Argus family,src/argus/api/client_ip.py:55; src/argus/api/dependencies.py:434; src/argus/api/state.py:34
+ARGUS_DISCOVERY_DAILY_LIMIT,active_control,"Active environment control, consumed through a helper or platform adapter.",src/argus/domain/research/search/config.py:86
+ARGUS_DISCOVERY_GLOBAL_DAILY_CEILING,active_control,"Active environment control, consumed through a helper or platform adapter.",src/argus/domain/usage_limits.py:192
+ARGUS_DISCOVERY_HOURLY_LIMIT,active_control,"Active environment control, consumed through a helper or platform adapter.",src/argus/domain/research/search/config.py:83
+ARGUS_DISCOVERY_MAX_CANDIDATES,active_control,"Active environment control, consumed through a helper or platform adapter.",src/argus/domain/research/search/config.py:77
+ARGUS_DISCOVERY_OPENROUTER_SEARCH_MODEL,active_control,legacy Argus family,src/argus/domain/research/search/selection.py:25
+ARGUS_DISCOVERY_SEARCH_PROVIDER,active_control,legacy Argus family,src/argus/domain/research/search/config.py:68
+ARGUS_DISCOVERY_SEARCH_TIMEOUT_SECONDS,active_control,"Active environment control, consumed through a helper or platform adapter.",src/argus/domain/research/search/config.py:72
+ARGUS_DISPOSABLE_DATABASE_URL,active_control,"test/CI only, not a hosted setting",scripts/ops/tests/test_production_migration_gate.py:1056
+ARGUS_DOCUMENT_EXTRACTION_ENABLED,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,tests/ingestion/test_documents_while_off.py:61
+ARGUS_DOCUMENT_EXTRACTION_MAX_BYTES,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,docs/specs/cuadrao-master-plan.md:747; tests/ingestion/test_documents_api.py:190
+ARGUS_DOCUMENT_EXTRACTION_MAX_PAGES,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,tests/test_setting_names.py:118
+ARGUS_DOCUMENT_JOBS_ENABLED,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,docs/API_CONTRACT.md:8805; docs/DATA_MODEL.md:3830
+ARGUS_DOCUMENT_JOBS_SWEEP_SECONDS,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,docs/API_CONTRACT.md:8831; docs/reports/evidence/cuadrao-business-owner-pilot/2026-10-08-flags-off/harness/launcher.py:73
+ARGUS_DOCUMENT_JOBS_WORKFLOW_TASK,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,docs/API_CONTRACT.md:8831; docs/specs/lanes/cuadrao-document-preparation-jobs.md:15
+ARGUS_DOTENV_PROCESS_VALUE,test_fixture,test/CI only (synthetic fixture),tests/test_dotenv_loading.py:41
+ARGUS_DOTENV_SENTINEL,test_fixture,test/CI only (synthetic fixture),tests/test_dotenv_loading.py:22
+ARGUS_ENABLE_ARTIFACT_NAMING_IN_TESTS,active_control,"test/CI only, not a hosted setting",src/argus/api/chat/title_finalization.py:162
+ARGUS_ENABLE_EXECUTION_REALISM,active_control,legacy Argus family,src/argus/domain/backtesting/config.py:111
+ARGUS_ENABLE_MEMORY_SEMANTIC_RECALL,active_control,legacy Argus family,src/argus/api/personalization_memory.py:58
+ARGUS_ENABLE_PERSONALIZATION_MEMORY,active_control,legacy Argus family,src/argus/memory/service.py:121; tests/memory/test_semantic_recall_degradation.py:416
+ARGUS_ENV,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,src/argus/observability/envelope.py:166
+ARGUS_ENV_FILE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/clarification-retention/drivers/haiku_case.py:4
+ARGUS_EVAL_ENV_FILE,active_control,"test/CI only, not a hosted setting",tests/evals/replay_prose_judge_verdicts.py:16; tests/evals/test_measurement_eval_live.py:17; tests/evals/test_research_routing_live.py:21
+ARGUS_EVAL_JUDGE_MODEL,active_control,"test/CI only, not a hosted setting",tests/evals/measurement_eval_harness.py:731; tests/evals/replay_prose_judge_verdicts.py:322
+ARGUS_EVIDENCE_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/chat-action-recovery.spec.ts:1350; web/e2e/issue-542-admission-conflict.spec.ts:359; web/e2e/issue-609-research-lookup-recovery.spec.ts:310
+ARGUS_EXAMPLE,test_fixture,test/CI only (synthetic fixture),tests/promotion_evidence_repository.py:237
+ARGUS_EXPECTED_CANDIDATE_SHA,active_control,"test/CI only, not a hosted setting",scripts/qa/run-guest-experience-qa.sh:24
+ARGUS_FINANCIAL_ACCOUNTS_ENABLED,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,ios/scripts/auth/test_local_stack.py:180
+ARGUS_FINANCIAL_MODEL_SCRATCH_PATH,active_control,"test/CI only, not a hosted setting",ios/FinancialModelTests/run.py:112
+ARGUS_FINANCIAL_MODEL_TEST_FILTER,active_control,"test/CI only, not a hosted setting",ios/FinancialModelTests/run.py:118
+ARGUS_FONT_QA_PORT,active_control,"test/CI only, not a hosted setting",web/e2e/font-offline.playwright.config.ts:5
+ARGUS_FONT_SCREENSHOT_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/font-offline.spec.ts:75
+ARGUS_FRED_CONTEXT_SERIES,active_control,legacy Argus family,src/argus/context/providers.py:30
+ARGUS_GOOGLE_SIGN_IN_ENABLED,active_control,"Active environment control, consumed through a helper or platform adapter.",ios/ArgusFoundation/Auth/NativeProviderSignIn.swift:39
+ARGUS_GROUNDED_DISCOVERY_ENABLED,active_control,"Active environment control, consumed through a helper or platform adapter.",src/argus/domain/research/search/config.py:66
+ARGUS_GUEST_CAPTCHA_UX_TEST_PORT,active_control,"test/CI only, not a hosted setting",web/e2e/guest-auth-captcha-ux.playwright.config.ts:5
+ARGUS_GUEST_QA_ALLOW_TEST_DIFF,active_control,"test/CI only, not a hosted setting",web/e2e/support/guest-qa.ts:665
+ARGUS_GUEST_QA_API_PORT,active_control,"test/CI only, not a hosted setting",scripts/qa/run-guest-experience-qa.sh:62
+ARGUS_GUEST_QA_APP_PORT,active_control,"test/CI only, not a hosted setting",scripts/qa/run-guest-experience-qa.sh:61
+ARGUS_GUEST_QA_CAPTURE_DURABLE_EVIDENCE,active_control,"test/CI only, not a hosted setting",scripts/qa/run-guest-experience-qa.sh:54
+ARGUS_GUEST_QA_DB_CONTAINER,active_control,"test/CI only, not a hosted setting",scripts/qa/run-guest-experience-qa.sh:63; web/e2e/issue-480-guest-signup-email.spec.ts:127
+ARGUS_GUEST_QA_ENTRY,active_control,"test/CI only, not a hosted setting",web/e2e/guest-experience.global-setup.ts:9; web/e2e/guest-experience.playwright.config.ts:7
+ARGUS_GUEST_QA_EVIDENCE_SEGMENT,active_control,"test/CI only, not a hosted setting",web/e2e/support/guest-qa.ts:3093
+ARGUS_GUEST_QA_PREFLIGHT,active_control,"test/CI only, not a hosted setting",web/e2e/guest-experience.playwright.config.ts:6
+ARGUS_GUEST_QA_REQUIRE_ZERO_STATE,active_control,"test/CI only, not a hosted setting",web/e2e/guest-experience.global-setup.ts:11
+ARGUS_GUEST_QA_SUPABASE_WORKDIR,active_control,"test/CI only, not a hosted setting",scripts/qa/run-guest-experience-qa.sh:64
+ARGUS_HOUSEHOLD_MODEL_SCRATCH_PATH,active_control,"test/CI only, not a hosted setting",ios/FinancialModelTests/run_household.py:71
+ARGUS_INGESTION_ENABLED,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,docs/API_CONTRACT.md:8433; docs/DATA_MODEL.md:148
+ARGUS_INGESTION_SECRET_KEY,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,scripts/qa/business_month_guard.py:59; src/argus/domain/ingestion/secrets.py:5
+ARGUS_INVITATION_MODEL_SCRATCH_PATH,active_control,"test/CI only, not a hosted setting",ios/FinancialModelTests/run_invitations.py:41
+ARGUS_IN_PLACE_CARD_EDITS_ENABLED,active_control,Parent resolved newest active-control exception to preserve this default-off editing safety gate.,src/argus/domain/edit_contract_config.py:21
+ARGUS_ISSUE_340_TEST_PORT,active_control,"test/CI only, not a hosted setting",web/e2e/issue-340-guest-dossier-conversion-gate.playwright.config.ts:6
+ARGUS_ISSUE_422_CAPTURE_PHASE,active_control,"test/CI only, not a hosted setting",web/e2e/issue-422-breakpoint-regressions.spec.ts:26
+ARGUS_ISSUE_480_CAPTURE_EVIDENCE,active_control,"test/CI only, not a hosted setting",web/e2e/issue-480-guest-signup-email.spec.ts:159
+ARGUS_LIVE_EVAL_BUDGET_USD,active_control,Executable documented verification control or preserved test reader,docs/handoffs/cuadrao-business-lane.md:905
+ARGUS_LIVE_GUEST_QA,active_control,"test/CI only, not a hosted setting",web/e2e/guest-live-checkpoint.spec.ts:5
+ARGUS_LOCAL_AUTH_EMAIL_CONFIRMATIONS_ENABLED,active_control,"test/CI only, not a hosted setting",tests/test_guest_auth_local_supabase.py:43; tests/test_guest_signup_local_supabase.py:35
+ARGUS_LOCAL_BUNDLE_IDENTIFIER,active_control,Build system uses this input to select app and test bundle identifiers.,ios/ArgusFoundation.xcodeproj/project.pbxproj:43
+ARGUS_LOCAL_MAILPIT_URL,active_control,"test/CI only, not a hosted setting",tests/test_guest_auth_local_supabase.py:41; tests/test_guest_signup_local_supabase.py:33; web/e2e/issue-480-guest-signup-email.spec.ts:88
+ARGUS_LOCAL_SMOKE_API_PORT,active_control,"test/CI only, not a hosted setting",.github/local-smoke.sh:27
+ARGUS_LOCAL_SMOKE_EXPECTED_SHA,active_control,"test/CI only, not a hosted setting",.github/local-smoke.sh:32
+ARGUS_LOCAL_SMOKE_HOST,active_control,"test/CI only, not a hosted setting",.github/local-smoke.sh:26
+ARGUS_LOCAL_SMOKE_SLEEP_SECONDS,active_control,"test/CI only, not a hosted setting",.github/local-smoke.sh:30
+ARGUS_LOCAL_SMOKE_SOURCE_ONLY,active_control,"test/CI only, not a hosted setting",.github/local-smoke.sh:390
+ARGUS_LOCAL_SMOKE_TIMEOUT_SECONDS,active_control,"test/CI only, not a hosted setting",.github/local-smoke.sh:29
+ARGUS_LOCAL_SMOKE_WEB_PORT,active_control,"test/CI only, not a hosted setting",.github/local-smoke.sh:28
+ARGUS_LOCAL_SMOKE_WORKFLOW_MODE,active_control,"test/CI only, not a hosted setting",.github/local-smoke.sh:31
+ARGUS_LOCAL_SUPABASE_ANON_KEY,active_control,"test/CI only, not a hosted setting",tests/local_supabase_support.py:17; tests/test_age_confirmation_postgres.py:100; tests/test_business_workspace_postgres.py:533; tests/test_financial_accounts_api_postgres.py:4
+ARGUS_LOCAL_SUPABASE_SERVICE_ROLE_KEY,active_control,"test/CI only, not a hosted setting",tests/local_supabase_support.py:16; tests/test_access_request_postgres.py:16; tests/test_age_confirmation_postgres.py:101
+ARGUS_LOCAL_SUPABASE_URL,active_control,"test/CI only, not a hosted setting",tests/document_sources_support.py:15; tests/local_supabase_support.py:15; tests/test_access_request_postgres.py:15
+ARGUS_MARKET_DATA_PROVIDER_MODE,active_control,legacy Argus family,ios/scripts/auth/test_local_stack.py:181; scripts/benchmarks/backtest_infra_benchmark.py:268; scripts/benchmarks/interpret_stage_ab.py:119
+ARGUS_MEMORY_EMBEDDING_DIMENSIONS,active_control,"Active environment control, consumed through a helper or platform adapter.",src/argus/llm/memory_embedding.py:308
+ARGUS_MEMORY_EMBEDDING_MODEL,active_control,legacy Argus family,src/argus/llm/memory_embedding.py:291
+ARGUS_MEMORY_EMBEDDING_TIMEOUT_SECONDS,active_control,"Active environment control, consumed through a helper or platform adapter.",src/argus/llm/memory_embedding.py:312
+ARGUS_MEMORY_VECTOR_COLLECTION,active_control,legacy Argus family,src/argus/api/personalization_memory.py:87
+ARGUS_MENU_AUDIT_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/support/menu-settings-fixture.ts:6
+ARGUS_NEW_CAPABILITY_ENABLED,test_fixture,test/CI only (synthetic fixture),tests/test_promotion_evidence_configuration.py:154
+ARGUS_OPENROUTER_DISCOVERY_EXTRACTION_TIMEOUT_SECONDS,active_control,Task-specific timeout generated dynamically from task name; preserves bounded provider calls.,docs/reports/evidence/2026-09-12-main-promotion/environment-parity-after.json:471; docs/reports/evidence/2026-09-12-main-promotion/template-added-keys.json:28
+ARGUS_OPENROUTER_DISCOVERY_MODEL_KNOWLEDGE_TIMEOUT_SECONDS,active_control,Task-specific timeout generated dynamically from task name; preserves bounded provider calls.,docs/reports/evidence/2026-09-12-main-promotion/environment-parity-after.json:478; docs/reports/evidence/2026-09-12-main-promotion/template-added-keys.json:30
+ARGUS_OPENROUTER_DISCOVERY_VOICING_TIMEOUT_SECONDS,active_control,Task-specific timeout generated dynamically from task name; preserves bounded provider calls.,docs/reports/evidence/2026-09-12-main-promotion/environment-parity-after.json:485; docs/reports/evidence/2026-09-12-main-promotion/template-added-keys.json:29
+ARGUS_OPENROUTER_MEMORY_SENSITIVITY_TIMEOUT_SECONDS,active_control,Task-specific timeout generated dynamically from task name; preserves bounded provider calls.,docs/reports/evidence/2026-09-12-main-promotion/environment-parity-after.json:527; docs/reports/evidence/2026-09-12-main-promotion/template-added-keys.json:33
+ARGUS_OVERLAY_EVIDENCE_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/drawer-overlay-motion.spec.ts:20
+ARGUS_PARTIAL_KEY,test_fixture,test/CI only (synthetic fixture),docs/reports/evidence/865/loader-before.txt:109; docs/reports/evidence/865/verify-reconcile-loader.py:26
+ARGUS_PARTIAL_WEB_KEY,test_fixture,test/CI only (synthetic fixture),docs/reports/evidence/865/verify-reconcile-loader.py:35
+ARGUS_POSTHOG_DELETION_API_KEY,active_control,Tuple of names iterated by os.getenv to configure active deletion adapter.,src/argus/observability/analytics_deletion.py:71
+ARGUS_POSTHOG_DELETION_HOST,active_control,Tuple of names iterated by os.getenv to configure active deletion adapter.,src/argus/observability/analytics_deletion.py:69
+ARGUS_POSTHOG_DELETION_PROJECT_ID,active_control,Tuple of names iterated by os.getenv to configure active deletion adapter.,src/argus/observability/analytics_deletion.py:70
+ARGUS_PRIVATE_LAUNCH_API_SERVICE_ID,active_control,"test/CI only, not a hosted setting",.github/render-env-sync.sh:14
+ARGUS_PRIVATE_LAUNCH_API_URL,active_control,"test/CI only, not a hosted setting",.github/argus-env.sh:5; .github/canary-render.sh:17; .github/warmup-render.sh:49; tests/test_render_canary_script.py:80
+ARGUS_PRIVATE_LAUNCH_APP_URL,active_control,"test/CI only, not a hosted setting",.github/canary-browser.sh:15; .github/canary-render.sh:16; .github/warmup-render.sh:48; tests/test_render_canary_script.py:79
+ARGUS_PRIVATE_LAUNCH_WEB_SERVICE_ID,active_control,"test/CI only, not a hosted setting",.github/render-env-sync.sh:15
+ARGUS_PRODUCTION_DATABASE_SSL_ROOT_CERT,active_control,Explicit source mapping is os.environ unless injected; safety checks for migration target.,scripts/ops/production_migration_gate.py:675
+ARGUS_PRODUCTION_DATABASE_URL,active_control,Explicit source mapping is os.environ unless injected; safety checks for migration target.,scripts/ops/production_migration_gate.py:664
+ARGUS_PUBLIC_ALPHA_API_URL,active_control,"test/CI only, not a hosted setting",scripts/benchmarks/public_alpha_render_load.py:1199
+ARGUS_PUBLIC_ALPHA_APP_URL,active_control,"test/CI only, not a hosted setting",scripts/benchmarks/public_alpha_render_load.py:1200
+ARGUS_PUBLIC_ALPHA_CANDIDATE_SHA,active_control,"test/CI only, not a hosted setting",scripts/benchmarks/public_alpha_render_load.py:1206
+ARGUS_PUBLIC_ALPHA_LOAD_IDENTITIES_JSON,active_control,"test/CI only, not a hosted setting",scripts/benchmarks/public_alpha_render_load.py:1194
+ARGUS_PUBLIC_ALPHA_LOAD_PROMPT,active_control,"test/CI only, not a hosted setting",scripts/benchmarks/public_alpha_render_load.py:1211
+ARGUS_PUBLIC_ALPHA_SUPABASE_SERVICE_ROLE_KEY,active_control,"Active environment control, consumed through a helper or platform adapter.",scripts/benchmarks/public_alpha_render_load.py:1204
+ARGUS_PUBLIC_ALPHA_SUPABASE_URL,active_control,"test/CI only, not a hosted setting",scripts/benchmarks/public_alpha_render_load.py:1202
+ARGUS_QA_API_BASE,active_control,"test/CI only, not a hosted setting",scripts/qa/setup-local-identities.sh:13
+ARGUS_QA_APPROVED_SUPABASE_REF,active_control,"test/CI only, not a hosted setting",scripts/qa/assert-nonprod-target.sh:4; web/e2e/qa-248/global-setup.ts:26; web/e2e/qa-248/helpers.ts:13; web/e2e/support/guest-qa.ts:642
+ARGUS_READINESS_ASSET_TIMEOUT_SECONDS,active_control,legacy Argus family,.github/local-smoke.sh:121; src/argus/api/routers/ops.py:74
+ARGUS_REGISTERED_DAILY_RESEARCH_CEILING,active_control,"Active environment control, consumed through a helper or platform adapter.",src/argus/domain/usage_limits.py:76
+ARGUS_REHEARSAL_ADMIN_URL,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/cuadrao-migration-rehearsal-20261007/rehearse_migration_upgrade.py:7
+ARGUS_REHEARSAL_CANDIDATE,active_control,Executable documented verification control or preserved test reader,docs/reports/evidence/cuadrao-migration-rehearsal-20261007/rehearse_migration_upgrade.py:39
+ARGUS_REHEARSAL_CONTAINER,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/cuadrao-migration-rehearsal-20261007/rehearse_migration_upgrade.py:8
+ARGUS_REHEARSAL_MAIN,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/cuadrao-migration-rehearsal-20261007/rehearse_migration_upgrade.py:41
+ARGUS_RELEASE_SHA,active_control,Executable documented verification control or preserved test reader,docs/PRIVATE_LAUNCH_RUNBOOK.md:417
+ARGUS_RENDER_API_BUILD_COMMAND,active_control,"test/CI only, not a hosted setting",.github/render-env-sync.sh:806
+ARGUS_RENDER_API_SERVICE_ID,active_control,"test/CI only, not a hosted setting",.github/render-env-sync.sh:14
+ARGUS_RENDER_API_START_COMMAND,active_control,"test/CI only, not a hosted setting",.github/render-env-sync.sh:807
+ARGUS_RENDER_BACKTESTS_WORKFLOW_ID,active_control,legacy Argus family,.github/render-env-sync.sh:16
+ARGUS_RENDER_WEB_SERVICE_ID,active_control,"test/CI only, not a hosted setting",.github/render-env-sync.sh:15
+ARGUS_RENDER_WORKFLOW_BUILD_COMMAND,active_control,"test/CI only, not a hosted setting",.github/render-env-sync.sh:849
+ARGUS_RENDER_WORKFLOW_PROOF_POLL_SECONDS,active_control,legacy Argus family,workflows/trigger_proof.py:115
+ARGUS_RENDER_WORKFLOW_PROOF_TASK,active_control,legacy Argus family,src/argus/api/chat/backtest_jobs.py:207; workflows/trigger_proof.py:20
+ARGUS_RENDER_WORKFLOW_PROOF_TIMEOUT_SECONDS,active_control,legacy Argus family,workflows/trigger_proof.py:107
+ARGUS_RENDER_WORKFLOW_SERVICE_ID,active_control,"test/CI only, not a hosted setting",.github/render-env-sync.sh:16
+ARGUS_RENDER_WORKFLOW_START_COMMAND,active_control,"test/CI only, not a hosted setting",.github/render-env-sync.sh:850
+ARGUS_REPLAY_POSTGREST_URL,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/542/docn/replay.py:4
+ARGUS_REPO_ROOT,active_control,"test/CI only, not a hosted setting",ios/FinancialModelTests/ConnectedDetailPresentationTests.swift:101; ios/FinancialModelTests/CurrencyChoiceTests.swift:15
+ARGUS_RESEARCH_BACKGROUND_DEADLINE_SECONDS,active_control,legacy Argus family,src/argus/domain/research/config.py:309
+ARGUS_RESEARCH_CENSUS_TEST_DSN,active_control,legacy Argus family,tests/test_research_spine_cleanup.py:15
+ARGUS_RESEARCH_GLOBAL_DAILY_CEILING,active_control,"Active environment control, consumed through a helper or platform adapter.",src/argus/domain/usage_limits.py:207
+ARGUS_RESEARCH_RAIL_ENABLED,active_control,legacy Argus family,scripts/benchmarks/interpret_stage_ab.py:120; src/argus/domain/research/config.py:130
+ARGUS_RESEND_WEBHOOK_SECRET,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,tests/business/test_business_email_api.py:40; tests/business/test_email_intake_secret_trimming.py:39
+ARGUS_RUN_LIVE_EVALS,active_control,"test/CI only, not a hosted setting",tests/conftest.py:16; tests/evals/measurement_eval_scorecard.py:234; tests/evals/replay_prose_judge_verdicts.py:16
+ARGUS_RUN_LIVE_RESEARCH_ROUTING_EVALS,active_control,legacy Argus family,tests/evals/test_research_routing_live.py:58
+ARGUS_SESSION_LIVE_CONFIG,active_control,"test/CI only, not a hosted setting",ios/Packages/ArgusSession/Tests/ArgusSessionTests/LiveSessionTests.swift:94
+ARGUS_SHARING_EVIDENCE_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/receipt-sharing-service.spec.ts:46
+ARGUS_SHARING_FIXTURE_API,active_control,"test/CI only, not a hosted setting",web/e2e/receipt-sharing-service.spec.ts:10
+ARGUS_STALE_JOBS_SUPABASE_SERVICE_ROLE_KEY,active_control,test/CI only (canary),.github/stale-backtest-jobs.sh:13; .github/warmup-render.sh:52
+ARGUS_STALE_JOBS_SUPABASE_URL,active_control,test/CI only (canary),.github/stale-backtest-jobs.sh:10; .github/warmup-render.sh:51
+ARGUS_SUPABASE_ANON_KEY,active_control,"Active environment control, consumed through a helper or platform adapter.",ios/ArgusFoundation/Auth/NativeAuthConfiguration.swift:26
+ARGUS_SUPABASE_URL,active_control,"Active environment control, consumed through a helper or platform adapter.",ios/ArgusFoundation/Auth/NativeAuthConfiguration.swift:18
+ARGUS_SWIFT_CACHE_PATH,active_control,"test/CI only, not a hosted setting",ios/FinancialModelTests/run.py:114; ios/FinancialModelTests/run_household.py:76
+ARGUS_SWIFT_DISABLE_SANDBOX,active_control,"test/CI only, not a hosted setting",ios/FinancialModelTests/run.py:116
+ARGUS_SYNTHETIC_PROFILE_KEY,test_fixture,test/CI only (synthetic fixture),docs/reports/evidence/865/loader-before.txt:22; tests/test_web_env_profile.py:54
+ARGUS_TEST_APPEARANCE,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/CuadraoPerfilIdiomaUITests.swift:17; ios/ArgusFoundationUITests/CuadraoPerfilReleaseUITests.swift:9; ios/ArgusFoundationUITests/GuestPlansUITests.swift:230
+ARGUS_TEST_ASSET_PROVIDER_MODE,test_fixture,"Synthetic env fixture for generic environment handling, no dedicated runtime control.",tests/evals/test_prose_evidence.py:345
+ARGUS_TEST_AUTH_UI_ENABLED,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/AuthJourneyUITests.swift:160; ios/ArgusFoundationUITests/AuthUITests.swift:35
+ARGUS_TEST_CONTENT_SIZE,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/GuestPlansUITests.swift:227
+ARGUS_TEST_EMAIL,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/AuthJourneyUITests.swift:18; ios/ArgusFoundationUITests/ConnectedProfileRecoveryUITests.swift:11; ios/ArgusFoundationUITests/FinancialLoopUITests.swift:191
+ARGUS_TEST_EMAIL_B,active_control,Native test reads dynamically generated suffixed email/password environment key.,docs/reports/evidence/apple-session-20261005/combined-native-independent-review/ui.py:64; ios/scripts/auth/run-ui.py:115
+ARGUS_TEST_EMAIL_C,active_control,Native test reads dynamically generated suffixed email/password environment key.,ios/scripts/auth/run-ui.py:126; ios/scripts/auth/test_run_ui.py:102
+ARGUS_TEST_EXPECT_APPLE,active_control,"Active environment control, consumed through a helper or platform adapter.",ios/ArgusFoundationUITests/CuadraoSignInPresentationUITests.swift:48
+ARGUS_TEST_EXPECT_GOOGLE,active_control,"Active environment control, consumed through a helper or platform adapter.",ios/ArgusFoundationUITests/CuadraoSignInPresentationUITests.swift:49
+ARGUS_TEST_FAULT_URL,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/HouseholdUITests.swift:120; ios/ArgusFoundationUITests/PersonalMoneyUITests.swift:328; ios/ArgusFoundationUITests/SearchUITests.swift:259; ios/ArgusFoundationUITests/SharedHouseholdPlanningUITests.swift:10
+ARGUS_TEST_GOAL_SUPPORTED,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/ConnectedGoalUITests.swift:160
+ARGUS_TEST_HOUSEHOLD_RESUME_ID,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/HouseholdUITests.swift:294
+ARGUS_TEST_HOUSEHOLD_RESUME_PRIVATE_ID,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/HouseholdUITests.swift:296
+ARGUS_TEST_HOUSEHOLD_RESUME_SHARED_ID,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/HouseholdUITests.swift:295
+ARGUS_TEST_HOUSEHOLD_RESUME_STAMP,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/HouseholdUITests.swift:288
+ARGUS_TEST_HOUSEHOLD_SURFACE_OFF,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/HouseholdUITests.swift:5
+ARGUS_TEST_LANGUAGE,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/AuthJourneyUITests.swift:22; ios/ArgusFoundationUITests/ConnectedAssetUITests.swift:59; ios/ArgusFoundationUITests/ConnectedChrome.swift:80
+ARGUS_TEST_NATIVE_PROVIDER_APPEARANCE,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/NativeProviderAppearanceUITests.swift:9
+ARGUS_TEST_PASSWORD,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/AuthJourneyUITests.swift:18; ios/ArgusFoundationUITests/FinancialLoopUITests.swift:412
+ARGUS_TEST_PASSWORD_B,active_control,Native test reads dynamically generated suffixed email/password environment key.,docs/reports/evidence/apple-session-20261005/combined-native-independent-review/ui.py:64; ios/scripts/auth/run-ui.py:116
+ARGUS_TEST_PASSWORD_C,active_control,Native test reads dynamically generated suffixed email/password environment key.,ios/scripts/auth/run-ui.py:127; ios/scripts/auth/test_run_ui.py:105
+ARGUS_TEST_PROJECT_ROOT,active_control,"test/CI only, not a hosted setting",tests/evals/test_measurement_eval_live_environment.py:136
+ARGUS_TEST_PROVIDER_API_KEY,test_fixture,test/CI only (synthetic fixture),tests/evals/test_prose_evidence.py:344
+ARGUS_TEST_RECONCILE_BANK_ID,active_control,Executable documented verification control or preserved test reader,docs/reports/evidence/consumer-signed-in-free-staging-20261009/boundary-readiness-test-delta.patch:56
+ARGUS_TEST_RECONCILE_CASH_ID,active_control,Executable documented verification control or preserved test reader,docs/reports/evidence/consumer-signed-in-free-staging-20261009/boundary-readiness-test-delta.patch:57
+ARGUS_TEST_RECONCILE_CASH_NAME,active_control,Executable documented verification control or preserved test reader,docs/reports/evidence/consumer-signed-in-free-staging-20261009/boundary-readiness-test-delta.patch:58
+ARGUS_TEST_RELEASE_FLAG,test_fixture,"Synthetic env fixture for generic environment handling, no dedicated runtime control.",docs/reports/evidence/820-paired-transfers/ci-membership-red.txt:16; tests/test_release_environment_membership.py:29
+ARGUS_TEST_RESPONSE_LOSS_PROXY,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/ConnectedAssetUITests.swift:119; ios/ArgusFoundationUITests/ConnectedDebtUITests.swift:20; ios/ArgusFoundationUITests/HouseholdUITests.swift:119; ios/ArgusFoundationUITests/PersonalMoneyUITests.swift:285; ios/ArgusFoundationUITests/SharedHouseholdPlanningUITests.swift:255
+ARGUS_TEST_RETAINED_GOAL,active_control,Executable documented verification control or preserved test reader,docs/reports/evidence/consumer-signed-in-free-staging-20261009/boundary-readiness-test-delta.patch:39
+ARGUS_TEST_SEARCH_QUERY,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/ConnectedBudgetUITests.swift:70; ios/ArgusFoundationUITests/ConnectedDebtUITests.swift:137; ios/ArgusFoundationUITests/ConnectedGoalUITests.swift:159
+ARGUS_TEST_SHARED_PLAN_ACCOUNT_A,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/SharedHouseholdPlanningUITests.swift:8
+ARGUS_TEST_SHARED_PLAN_ACCOUNT_B,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/SharedHouseholdPlanningUITests.swift:9
+ARGUS_TEST_SHARED_PLAN_ACCOUNT_B_NAME,active_control,Native test reads shared-plan fixture fields through dynamic key prefix.,ios/scripts/auth/test_shared_plan_scene.py:51
+ARGUS_TEST_SHARED_PLAN_HOUSEHOLD,active_control,"test/CI only, not a hosted setting",ios/ArgusFoundationUITests/SharedHouseholdPlanningUITests.swift:6
+ARGUS_TEST_SHARED_PLAN_STAMP,active_control,Native test reads shared-plan fixture fields through dynamic key prefix.,ios/scripts/auth/shared_plan_scene.py:53; ios/scripts/auth/test_shared_plan_scene.py:52
+ARGUS_TRUSTED_CLIENT_IP_HEADER,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,src/argus/api/client_ip.py:7; web/app/api/auth/recovery/route.ts:25
+ARGUS_UI_TESTS_ALLOW_PREVIEW_BUILD,active_control,Native UI-test safety gate rejects the wrong preview build unless explicitly allowed.,ios/ArgusFoundationUITests/CuadraoBuildGate.swift:8
+ARGUS_UNKNOWN_PROVIDER_TOKEN,test_fixture,test/CI only (synthetic fixture),ios/scripts/auth/test_local_stack.py:159
+ARGUS_VISION_MODEL,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,scripts/documents/benchmark.py:245; scripts/documents/scoped_measurement.py:780
+ARGUS_WARMUP_API_URL,active_control,test/CI only (canary),.github/warmup-render.sh:49
+ARGUS_WARMUP_APP_URL,active_control,test/CI only (canary),.github/warmup-render.sh:48
+ARGUS_WARMUP_EXPECT_MODE,active_control,test/CI only (canary),.github/canary-render.sh:29; .github/warmup-render.sh:24; tests/test_render_canary_script.py:156
+ARGUS_WARMUP_SLEEP_SECONDS,active_control,test/CI only (canary),.github/warmup-render.sh:54
+ARGUS_WARMUP_TIMEOUT_SECONDS,active_control,test/CI only (canary),.github/warmup-render.sh:53
+ARGUS_WEB_DIR,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/new-york-today/drivers/retest_card_proof.mjs:6
+ARGUS_WEB_URL,active_control,"Active environment control, consumed through a helper or platform adapter.",ios/ArgusFoundation/Auth/NativeAuthConfiguration.swift:19
+ARGUS_WHATSAPP_ACCESS_TOKEN,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,docs/reports/evidence/cuadrao-business-owner-pilot/2026-10-08-flags-off/harness/launcher.py:77; tests/ingestion/whatsapp_support.py:37
+ARGUS_WHATSAPP_AGENT_ENABLED,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,docs/API_CONTRACT.md:9068; tests/ingestion/test_business_whatsapp_wiring.py:275
+ARGUS_WHATSAPP_APP_SECRET,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,docs/reports/evidence/cuadrao-business-owner-pilot/2026-10-08-flags-off/harness/launcher.py:74; tests/ingestion/whatsapp_support.py:36
+ARGUS_WHATSAPP_DISPLAY_PHONE_NUMBER,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,tests/ingestion/whatsapp_support.py:40
+ARGUS_WHATSAPP_GRAPH_API_VERSION,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,src/argus/domain/ingestion/whatsapp/config.py:70
+ARGUS_WHATSAPP_INTAKE_ENABLED,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,docs/API_CONTRACT.md:8993; docs/reports/evidence/cuadrao-business-owner-pilot/2026-10-08-flags-off/evidence-log.md:41
+ARGUS_WHATSAPP_OUTBOUND_ENABLED,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,docs/reports/evidence/cuadrao-business-owner-pilot/2026-10-08-flags-off/evidence-log.md:33; docs/reports/evidence/cuadrao-business-owner-pilot/2026-10-08-flags-off/harness/launcher.py:55
+ARGUS_WHATSAPP_PHONE_NUMBER_ID,alias_in_use,Explicit validation_alias AliasChoices remains a live settings reader.,src/argus/domain/ingestion/whatsapp/config.py:63
+ARGUS_WHATSAPP_REPLY_DAILY_LIMIT,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,src/argus/domain/ingestion/whatsapp/config.py:80
+ARGUS_WHATSAPP_REPLY_GROUP_WAIT_SECONDS,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,src/argus/domain/ingestion/whatsapp/config.py:77
+ARGUS_WHATSAPP_SENDER_KEY,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,docs/reports/evidence/cuadrao-business-owner-pilot/2026-10-08-flags-off/harness/launcher.py:76; tests/ingestion/whatsapp_support.py:38
+ARGUS_WHATSAPP_VERIFY_TOKEN,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,docs/reports/evidence/cuadrao-business-owner-pilot/2026-10-08-flags-off/harness/launcher.py:75; tests/ingestion/whatsapp_support.py:35
+ARGUS_WORKFLOW_DATABASE_URL,active_control,legacy Argus family,.github/render-env-sync.sh:56
+ARGUS_WORKFLOW_PROOF_PLAN,active_control,legacy Argus family,workflows/main.py:56
+ARGUS_WORKFLOW_PROOF_USER_ID,active_control,legacy Argus family,workflows/proof.py:28
+ARGUS_WORKFLOW_PYTHON,active_control,"test/CI only, not a hosted setting",.github/workflow-proof.sh:18
+CUADRAO_ACTIVITY_EVIDENCE_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/business-receipt-activity.spec.ts:7
+CUADRAO_CLUTTER_BASELINE,active_control,"test/CI only, not a hosted setting",web/e2e/business-clutter.spec.ts:5
+CUADRAO_CLUTTER_EVIDENCE_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/business-clutter.spec.ts:6
+CUADRAO_CONSENT_EVIDENCE_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/business-consent.spec.ts:5
+CUADRAO_DESIGN_PREVIEW,active_control,"Active environment control, consumed through a helper or platform adapter.",ios/ArgusFoundation/Cuadrao/CuadraoDesignPreview.swift:4
+CUADRAO_DGII_FIXTURE_OUTPUT,active_control,"test/CI only, not a hosted setting",tests/test_business_dgii_postgres.py:199
+CUADRAO_E2E_LIVE_API,active_control,"test/CI only, not a hosted setting",web/e2e/business-upload-review-live.spec.ts:33
+CUADRAO_FOUNDER_PHONE,active_control,Native compile-time conditional; not an app-managed hosted setting.,ios/ArgusFoundation/Cuadrao/CuadraoProfileCanvas.swift:91
+CUADRAO_LOADING_BASELINE,active_control,"test/CI only, not a hosted setting",web/e2e/business-loading.spec.ts:4; web/e2e/fullscreen-loading.spec.ts:4
+CUADRAO_LOADING_EVIDENCE_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/business-loading.spec.ts:5; web/e2e/fullscreen-loading.spec.ts:5
+CUADRAO_MANUAL_EVIDENCE_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/business-manual-capture.spec.ts:74
+CUADRAO_MONTH_CLOSE_EVIDENCE_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/business-month-close.spec.ts:25
+CUADRAO_NAV_EVIDENCE_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/business-navigation-shortcuts.spec.ts:16
+CUADRAO_NAV_PRODUCTION,active_control,"test/CI only, not a hosted setting",web/e2e/business-navigation.playwright.config.ts:4
+CUADRAO_NOTICE_FROM,active_control,"test/CI only, not a hosted setting",marketing/scripts/signups.ts:8
+CUADRAO_RECORD_EVIDENCE_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/business-access.spec.ts:10; web/e2e/business-approve-next.spec.ts:5; web/e2e/business-record-review.spec.ts:8; web/e2e/business-search-preview.spec.ts:102
+CUADRAO_STAGING_SECRETS_FILE,active_control,"test/CI only, not a hosted setting",scripts/ops/staging_env.py:341
+CUADRAO_UPLOAD_BASELINE,active_control,"test/CI only, not a hosted setting",web/e2e/business-upload-controls.spec.ts:6
+CUADRAO_UPLOAD_EVIDENCE_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/business-upload-controls.spec.ts:7
+CUADRAO_WAITLIST_SCHEDULER_KEY,active_control,Scheduled reminder request authentication input.,supabase/functions/waitlist-reminders/handler.ts:13
+CUADRAO_WAITLIST_TEST_CONTAINER,active_control,"test/CI only, not a hosted setting",marketing/__tests__/waitlist-removal-postgres.test.ts:11
+NEXT_PUBLIC_ARGUS_API_URL,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,tests/test_environment_scripts.py:997; web/__tests__/guest-captcha-ux.test.ts:322
+NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN,active_control,"test/CI only, not a hosted setting",web/__tests__/auth-captcha-confirmation.test.ts:13; web/__tests__/guest-captcha-ux.test.ts:318
+NEXT_PUBLIC_ARGUS_SUPPORT_EMAIL,alias_in_use,Fallback reader kept after NEXT_PUBLIC_CUADRAO_SUPPORT_EMAIL; hosted files declare only the Cuadrao name (Lucas Oct 30 2026).,web/lib/support-email.ts:9
+NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,web/__tests__/auth-captcha-confirmation.test.ts:16; web/__tests__/guest-captcha-ux.test.ts:321
+NEXT_PUBLIC_CUADRAO_LOCAL_QA_CAPTCHA_TOKEN,active_control,"test/CI only, not a hosted setting",web/__tests__/public-env.test.ts:14; web/lib/public-env.ts:24
+NEXT_PUBLIC_API_URL,active_control,Forbidden legacy name is consumed by generic environment validation; retaining preserves rejection behavior.,.github/argus-env.sh:65
+NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED,alias_in_use,Fallback reader kept after NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED; hosted files declare only the Cuadrao name (Lucas Oct 30 2026). Still in .env.example.,web/lib/private-alpha-flags.ts:75
+NEXT_PUBLIC_BUSINESS_PILOT_ENABLED,active_control,"Exception to the approved delete list per Lucas Oct 30 2026: pilot needs it, no NEXT_PUBLIC_CUADRAO_ name. Declared in render.yaml (cuadrao-web-staging) and scripts/ops/staging_env_manifest.json.",web/lib/private-alpha-flags.ts:29; tests/test_staging_web_blueprint.py:28
+NEXT_PUBLIC_E2E_ALLOW_MOCK_SIGNUP,active_control,"test/CI only, not a hosted setting",web/app/page.tsx:172
+NEXT_PUBLIC_MOCK_API,active_control,Forbidden legacy name is consumed by generic environment validation; retaining preserves rejection behavior.,.github/argus-env.sh:66
+NEXT_PUBLIC_OMNISEARCH_ENABLED,active_control,"Exception to the approved delete list per Lucas Oct 30 2026: still read by web code, no replacement. Declared in .env.example and .github/private-alpha-release-profile.json until the reader is removed.",web/lib/private-alpha-flags.ts:2
+NEXT_PUBLIC_POSTHOG_KEY,active_control,"test/CI only, not a hosted setting",tests/test_environment_scripts.py:60
+NEXT_PUBLIC_RESEARCH_RAIL_ENABLED,active_control,"Exception to the approved delete list per Lucas Oct 30 2026: still read by web code, no replacement. Declared in .env.example and .github/private-alpha-release-profile.json until the reader is removed.",web/lib/private-alpha-flags.ts:8
+ACCEPTANCE_PRIVATE_REPEAT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/2026-09-17-final-acceptance-e8a4ccee/drivers/export_replay.py:7
+ACCESS_TOKEN,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/whatsapp/config.py:56
+AFTER_RESULT_ENV_FILE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/conversation-after-result/interpreter-payload/after_result_turn_cost.py:6
+AFTER_RESULT_TREE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/conversation-after-result/interpreter-payload/after_result_turn_cost.py:23
+AGENT_ENABLED,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/whatsapp/config.py:50
+AGENT_FALLBACK_MODEL,active_control,Forbidden legacy name is consumed by generic environment validation; retaining preserves rejection behavior.,.github/argus-env.sh:68
+AGENT_MODEL,active_control,Forbidden legacy name is consumed by generic environment validation; retaining preserves rejection behavior.,.github/argus-env.sh:67
+ALPACA_API_KEY,active_control,backtesting legacy name (worker service stays),.github/render-env-sync.sh:58; src/argus/context/providers.py:439; src/argus/domain/market_data/assets.py:218
+ALPACA_PAPER_TRADING,active_control,backtesting legacy name (worker service stays),src/argus/domain/market_data/assets.py:223; src/argus/domain/market_data/capabilities.py:95
+ALPACA_SECRET_KEY,active_control,backtesting legacy name (worker service stays),.github/render-env-sync.sh:59; src/argus/context/providers.py:440; src/argus/domain/market_data/assets.py:219
+API_KEY,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/email_intake/config.py:24
+APP_SECRET,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/whatsapp/config.py:55
+ARTIFACT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/receipt-sharing/2026-09-03-end-to-end/drivers/driver-c.js:8
+BACKEND_CHECKS,active_control,"test/CI only, not a hosted setting",tests/test_ci_workflow.py:276
+BANDEJA_FIRST_SCREEN,active_control,"test/CI only, not a hosted setting",web/e2e/business-bandeja-first-screen.spec.ts:5
+BASE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/cuadrao-business/approved-revision-20261015/shots.mjs:2; docs/reports/evidence/cuadrao-business/expense-account-setup-20261015/shots.mjs:2; docs/reports/evidence/cuadrao-business/expense-account-setup-20261015b/shots.mjs:2
+BASE_REF,active_control,"test/CI only, not a hosted setting",tests/test_pr_guards.py:382
+BRANDED_STATUS_SHOTS,active_control,"test/CI only, not a hosted setting",web/e2e/branded-error-screens.spec.ts:28; web/e2e/branded-status.spec.ts:23
+CANARY_API_DEPLOY_SHA,active_control,test/CI only (canary),.github/canary-render.sh:244
+CANARY_API_DEPLOY_STATUS,active_control,test/CI only (canary),.github/canary-render.sh:246
+CANARY_ARTIFACT_KIND,active_control,test/CI only (canary),.github/canary-render.sh:322
+CANARY_BROWSER_CHECK_EVIDENCE,active_control,test/CI only (canary),.github/canary-render.sh:231
+CANARY_BROWSER_STATUS,active_control,test/CI only (canary),.github/canary-render.sh:232
+CANARY_CAPTURE_PATH,active_control,test/CI only (canary),.github/canary-render.sh:31
+CANARY_CAPTURE_WRITE_FAILURE_REASON,active_control,test/CI only (canary),.github/canary-render.sh:157
+CANARY_CAPTURE_WRITE_STATUS,active_control,test/CI only (canary),.github/canary-render.sh:156
+CANARY_CHECKED_OUT_SHA,active_control,test/CI only (canary),.github/canary-render.sh:252
+CANARY_DESTINATION,active_control,test/CI only (canary),.github/canary-render.sh:321
+CANARY_ENV_FINGERPRINT,active_control,test/CI only (canary),.github/canary-render.sh:237
+CANARY_EVIDENCE_JSON,active_control,test/CI only (canary),.github/canary-render.sh:323
+CANARY_EXPECTED_MODE,active_control,test/CI only (canary),.github/canary-render.sh:235
+CANARY_EXPECTED_SHA,active_control,test/CI only (canary),.github/canary-render.sh:251
+CANARY_FAILED,active_control,test/CI only (canary),.github/canary-render.sh:154
+CANARY_FAILURE_REASON,active_control,test/CI only (canary),.github/canary-render.sh:155
+CANARY_HANDOFF_CONTRACT,active_control,test/CI only (canary),.github/canary-render.sh:771
+CANARY_HARNESS_SHA,active_control,test/CI only (canary),.github/canary-render.sh:34
+CANARY_JOB_RESPONSE_FILE,active_control,test/CI only (canary),.github/canary-render.sh:370
+CANARY_LANGUAGE,active_control,test/CI only (canary),.github/canary-browser.sh:59; .github/canary-render.sh:28
+CANARY_LOGIN_EMAIL,active_control,test/CI only (canary),.github/canary-render.sh:1022
+CANARY_MESSAGES_FILE,active_control,test/CI only (canary),.github/canary-render.sh:369
+CANARY_RAW_IDS_FILE,active_control,test/CI only (canary),.github/canary-render.sh:325
+CANARY_REAL_WORKFLOW_TASK,active_control,test/CI only (canary),.github/canary-render.sh:243
+CANARY_REDACT_DIR,active_control,test/CI only (canary),.github/canary-render.sh:901
+CANARY_REDACT_EMAIL,active_control,test/CI only (canary),.github/canary-render.sh:903
+CANARY_REDACT_PASSWORD,active_control,test/CI only (canary),.github/canary-render.sh:902
+CANARY_REDACT_PROBE_VALUE,active_control,test/CI only (canary),.github/canary-render.sh:906
+CANARY_REDACT_SESSION_PATH,active_control,test/CI only (canary),.github/canary-render.sh:904
+CANARY_REDACT_SIMULATE_FAILURE,active_control,test/CI only (canary),.github/canary-render.sh:40; tests/test_private_alpha_canary_split.py:724
+CANARY_REDACT_STORAGE_STATE_PATH,active_control,test/CI only (canary),.github/canary-render.sh:905
+CANARY_RELEASE_EVIDENCE_JSON,active_control,test/CI only (canary),.github/canary-render.sh:368
+CANARY_RELEASE_PROFILE_HASH,active_control,test/CI only (canary),.github/canary-render.sh:236
+CANARY_REQUESTED_SIGNUP_DENIAL_API_URL,active_control,Required canary endpoint read via REQUIRED_ENV iteration.,.github/canary-requested-signup-denial.py:24
+CANARY_REQUIRED_CHECKS,active_control,test/CI only (canary),.github/canary-render.sh:229
+CANARY_RUN_STARTED_AT,active_control,test/CI only (canary),.github/canary-render.sh:37
+CANARY_SAME_COMMIT_CHECK,active_control,test/CI only (canary),.github/canary-render.sh:770
+CANARY_SESSION_EMAIL,active_control,test/CI only (canary),.github/canary-render.sh:712
+CANARY_SESSION_USER_ID,active_control,test/CI only (canary),.github/canary-render.sh:768
+CANARY_SHELL_CHECK_RESULTS,active_control,test/CI only (canary),.github/canary-render.sh:230; tests/test_canary_check_evidence.py:248
+CANARY_SIGNUP_EMAIL,active_control,test/CI only (canary),.github/canary-render.sh:1023
+CANARY_SIGNUP_LOCAL_NONCE,active_control,test/CI only (canary),.github/canary-render.sh:996
+CANARY_SIGNUP_RUN_ATTEMPT,active_control,test/CI only (canary),.github/canary-render.sh:995
+CANARY_SIGNUP_RUN_ID,active_control,test/CI only (canary),.github/canary-render.sh:994
+CANARY_STATUS,active_control,test/CI only (canary),.github/canary-render.sh:153
+CANARY_SURFACE,active_control,test/CI only (canary),.github/canary-render.sh:36
+CANARY_USER_ID,active_control,test/CI only (canary),.github/canary-render.sh:324
+CANARY_WARMUP_OUTPUT,active_control,test/CI only (canary),.github/canary-render.sh:160
+CANARY_WEB_DEPLOY_SHA,active_control,test/CI only (canary),.github/canary-render.sh:245
+CANARY_WEB_DEPLOY_STATUS,active_control,test/CI only (canary),.github/canary-render.sh:247
+CANARY_WORKFLOW_ENV_FINGERPRINT,active_control,test/CI only (canary),.github/canary-render.sh:238
+CANARY_WORKFLOW_ENV_STATUS,active_control,test/CI only (canary),.github/canary-render.sh:239
+CANARY_WORKFLOW_RUNTIME_PROOF,active_control,test/CI only (canary),.github/canary-render.sh:241
+CANARY_WORKFLOW_RUNTIME_PROVIDER_MODE,active_control,test/CI only (canary),.github/canary-render.sh:240
+CANARY_WORKFLOW_TASK,active_control,test/CI only (canary),.github/canary-render.sh:242
+CANARY_WORKFLOW_VERSION_COMMIT,active_control,test/CI only (canary),.github/canary-render.sh:248
+CANARY_WORKFLOW_VERSION_ID,active_control,test/CI only (canary),.github/canary-render.sh:249
+CANARY_WORKFLOW_VERSION_STATUS,active_control,test/CI only (canary),.github/canary-render.sh:250
+CANDIDATE_SHA,active_control,"dead, no runtime read site (docs/history only)",.github/canary-render.sh:32
+CAPTURE_ENABLED,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/email_intake/config.py:18
+CI,active_control,platform-provided/reserved (not ours to set),marketing/playwright.config.ts:23; web/e2e/breakpoint-baselines.playwright.config.ts:13; web/e2e/fullscreen-loading.playwright.config.ts:18
+COMPAT_HANDOFF,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/cuadrao-business-owner-pilot/2026-10-08-compat-rehearsal/probes/probe_accounts.py:18; docs/reports/evidence/cuadrao-business-owner-pilot/2026-10-08-compat-rehearsal/probes/probe_b1_capture.py:6; docs/reports/evidence/cuadrao-business-owner-pilot/2026-10-08-compat-rehearsal/probes/probe_business.py:23; docs/reports/evidence/cuadrao-business-owner-pilot/2026-10-08-compat-rehearsal/probes/probe_docs.py:20
+COMPAT_SKIP_ENTER,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/cuadrao-business-owner-pilot/2026-10-08-compat-rehearsal/probes/probe_business.py:571
+COMPAT_TAG,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/cuadrao-business-owner-pilot/2026-10-08-compat-rehearsal/probes/probe_accounts.py:93
+COMPAT_WRITES,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/cuadrao-business-owner-pilot/2026-10-08-compat-rehearsal/probes/probe_business.py:309
+COMPUTE_LIMIT_SHOT_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/fixtures/compute-limit-journey.ts:208
+CONV,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/receipt-sharing/2026-09-03-end-to-end/drivers/driver-c.js:9
+CONVERSATION_ACTIVITY_EVIDENCE_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/support/conversation-activity-fixture.ts:18
+D10_AFTER,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/decision-10/drivers/browser_proof.mjs:4
+D10_API_PORT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/decision-10/drivers/ask.py:16; docs/reports/evidence/decision-10/drivers/browser_proof.mjs:14; docs/reports/evidence/decision-10/drivers/serve.py:18
+D10_ENV_FILE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/decision-10/drivers/perplexity_plain.py:16; docs/reports/evidence/decision-10/drivers/probe_health.py:16; docs/reports/evidence/decision-10/drivers/probe_scenario.py:18; docs/reports/evidence/decision-10/drivers/record_scenario_probe.py:22; docs/reports/evidence/decision-10/drivers/rerun_cases.py:18; docs/reports/evidence/decision-10/drivers/serve.py:4
+D10_PROOF_IDS,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/decision-10/drivers/browser_proof.mjs:16
+D10_QUESTION,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/decision-10/drivers/probe_scenario.py:25; docs/reports/evidence/decision-10/drivers/record_scenario_probe.py:57
+D10_REPORT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/decision-10/drivers/browser_proof.mjs:45
+D10_TIMEOUT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/decision-10/drivers/probe_scenario.py:26
+D10_TREE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/decision-10/drivers/browser_proof.mjs:4; docs/reports/evidence/decision-10/drivers/perplexity_plain.py:16; docs/reports/evidence/decision-10/drivers/probe_health.py:14; docs/reports/evidence/decision-10/drivers/probe_scenario.py:16; docs/reports/evidence/decision-10/drivers/record_scenario_probe.py:20; docs/reports/evidence/decision-10/drivers/rerun_cases.py:2; docs/reports/evidence/decision-10/drivers/serve.py:3
+D10_TREE_LABEL,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/decision-10/drivers/ask.py:22
+D10_WEB_PORT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/decision-10/drivers/browser_proof.mjs:15; docs/reports/evidence/decision-10/drivers/serve.py:19
+DAILY_BYTE_LIMIT,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/email_intake/config.py:40
+DAILY_MESSAGE_LIMIT,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/email_intake/config.py:35
+DEVELOPER_DIR,active_control,Toolchain selection consumed by native build tools.,.github/workflows/cuadrao-ios-age-confirmation.yml:20
+DGII_RNC_LOAD_ENABLED,active_control,Workflow activation gate mapped to ENABLED for import CLI.,.github/workflows/dgii-rnc-import.yml:62
+DGII_RNC_LOAD_HEADROOM_FLOOR,active_control,"test/CI only, not a hosted setting",scripts/ops/dgii_rnc_import.py:299
+DGII_RNC_SIZE_LIMIT,active_control,"test/CI only, not a hosted setting",scripts/ops/dgii_rnc_import.py:302
+DGII_RNC_STATEMENT_TIMEOUT,active_control,"test/CI only, not a hosted setting",scripts/ops/dgii_rnc_import.py:296
+DISPLAY_PHONE_NUMBER,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/whatsapp/config.py:67
+DOCS_CHANGE_GATE,active_control,"test/CI only, not a hosted setting",tests/test_ci_workflow.py:262
+DOCS_CHECKS,active_control,"test/CI only, not a hosted setting",tests/test_ci_workflow.py:275
+DOCS_ONLY,active_control,"test/CI only, not a hosted setting",tests/test_ci_workflow.py:19
+DRY_RUN,active_control,Import write-safety flag read by _flag from environment.,scripts/ops/dgii_rnc_import.py:262
+E2E_SCREENSHOT_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/business-signed-in-home.spec.ts:9
+ENABLED,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/documents/config.py:3
+ENABLE_MARKET_DATA_CACHE,active_control,legacy Argus family,src/argus/domain/market_data/provider.py:32
+ENVIRONMENT,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,src/argus/observability/envelope.py:168
+EVIDENCE_BASELINE,active_control,"test/CI only, not a hosted setting",web/scripts/auth-design-evidence.ts:77
+EVIDENCE_BASE_URL,active_control,"test/CI only, not a hosted setting",web/scripts/auth-design-evidence.ts:11; web/scripts/business-lifecycle-evidence.ts:10; web/scripts/design-server-fields-evidence.ts:10; web/scripts/receipt-duplicate-resolution-evidence.ts:12; web/scripts/recovery-design-evidence.ts:11
+EVIDENCE_BROWSER,active_control,"test/CI only, not a hosted setting",web/scripts/auth-design-evidence.ts:16
+EVIDENCE_CASE,active_control,"test/CI only, not a hosted setting",web/scripts/business-lifecycle-evidence.ts:18; web/scripts/design-server-fields-evidence.ts:16
+EVIDENCE_COUNTS_ONLY,active_control,"test/CI only, not a hosted setting",scripts/qa/reception_checkpoint_evidence.mjs:32
+EVIDENCE_EXPECTED_HEAD,active_control,"test/CI only, not a hosted setting",scripts/qa/invoice_client_wiring_evidence.mjs:15; scripts/qa/pilot_invoicing_evidence.mjs:14; scripts/qa/reception_checkpoint_evidence.mjs:17
+EVIDENCE_FIXTURE_BASE_URL,active_control,"test/CI only, not a hosted setting",scripts/qa/invoice_client_wiring_evidence.mjs:24; scripts/qa/pilot_invoicing_evidence.mjs:22; scripts/qa/reception_checkpoint_evidence.mjs:26; web/scripts/home-checkpoint-evidence.ts:12; web/scripts/registros-wiring-evidence.ts:15
+EVIDENCE_FIXTURE_PORT,active_control,"test/CI only, not a hosted setting",web/scripts/home-checkpoint-fixture.ts:32; web/scripts/registros-wiring-fixture.ts:20
+EVIDENCE_FLOWS,active_control,"test/CI only, not a hosted setting",web/e2e/support/master-editing-evidence.ts:23
+EVIDENCE_FROZEN_SOURCE_HEAD,active_control,"test/CI only, not a hosted setting",scripts/qa/pilot_invoicing_evidence.mjs:16
+EVIDENCE_OUT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/confirmation-summary-prose/capture_confirmation_evidence.mjs:20
+EVIDENCE_OUTPUT,active_control,"test/CI only, not a hosted setting",scripts/qa/invoice_client_wiring_evidence.mjs:21; scripts/qa/pilot_invoicing_evidence.mjs:19; scripts/qa/reception_checkpoint_evidence.mjs:22
+EVIDENCE_STAGE,active_control,"test/CI only, not a hosted setting",web/scripts/design-server-fields-evidence.ts:12
+EVIDENCE_WEB_BASE_URL,active_control,"test/CI only, not a hosted setting",scripts/qa/invoice_client_wiring_evidence.mjs:23; scripts/qa/pilot_invoicing_evidence.mjs:21; scripts/qa/reception_checkpoint_evidence.mjs:25; web/scripts/home-checkpoint-evidence.ts:11; web/scripts/home-checkpoint-fixture.ts:25
+EVIDENCE_WIDTHS,active_control,"test/CI only, not a hosted setting",web/scripts/auth-design-evidence.ts:21
+FEEDBACK_ASK_EVIDENCE_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/feedback-ask.spec.ts:16
+FEEDBACK_ASK_LIVE_API,active_control,"test/CI only, not a hosted setting",web/e2e/feedback-ask.spec.ts:15
+FEEDBACK_DIALOG_SHOT_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/feedback-dialog-no-attachments.spec.ts:12
+FLAG_STATE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/cuadrao-business-owner-pilot/2026-10-08-flags-off/harness/launcher.py:3
+FOUNDATION_SHOT,active_control,"test/CI only, not a hosted setting",web/e2e/business-foundation-widths.spec.ts:20
+FRED_API_KEY,active_control,legacy Argus family,src/argus/context/providers.py:48
+FRONTEND_CHECKS,active_control,"test/CI only, not a hosted setting",tests/test_ci_workflow.py:277
+GITHUB_EVENT_NAME,active_control,platform-provided/reserved (not ours to set),.github/canary-render.sh:616; .github/canary-resolve-deployed.sh:13; .github/docs-only-changes.sh:152
+GITHUB_EVENT_PATH,active_control,platform-provided/reserved (not ours to set),scripts/ci/check_pr_body.py:96; scripts/ci/check_pr_guards.py:190; tests/test_pr_body_check.py:64
+GITHUB_HEAD_REF,active_control,platform-provided/reserved (not ours to set),.agent/scripts/ownership/verify_branch_ownership.py:54
+GITHUB_REF_NAME,active_control,platform-provided/reserved (not ours to set),.agent/scripts/ownership/verify_branch_ownership.py:58
+GM_API_PORT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/grounded-math/drivers/ask.py:23; docs/reports/evidence/grounded-math/drivers/serve.py:31; docs/reports/evidence/grounded-math/drivers/walk.mjs:16
+GM_ASK_SEND,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/grounded-math/drivers/walk.mjs:336
+GM_BASE_TREE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/grounded-math/drivers/record_btc_old_request.py:5
+GM_CONVERSATION_ID,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/grounded-math/drivers/ask.py:10
+GM_ENV_FILE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/grounded-math/drivers/record_btc_old_request.py:6; docs/reports/evidence/grounded-math/drivers/record_btc_probe.py:7; docs/reports/evidence/grounded-math/drivers/record_calculations_probe.py:7; docs/reports/evidence/grounded-math/drivers/record_scenario_probe.py:7; docs/reports/evidence/grounded-math/drivers/serve.py:5
+GM_HEAD,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/grounded-math/drivers/walk.mjs:348
+GM_LANGUAGES,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/grounded-math/drivers/walk.mjs:6
+GM_PACKETS_OUT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/grounded-math/drivers/serve.py:64
+GM_QUESTION,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/grounded-math/drivers/record_scenario_probe.py:59
+GM_REPORT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/grounded-math/drivers/walk.mjs:343
+GM_RESTORE_TURNS,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/grounded-math/drivers/serve.py:9
+GM_SCENES,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/grounded-math/drivers/walk.mjs:6
+GM_SEEDS,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/grounded-math/drivers/walk.mjs:6
+GM_SEED_OUT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/grounded-math/drivers/serve.py:9
+GM_TREE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/grounded-math/drivers/record_btc_old_request.py:6; docs/reports/evidence/grounded-math/drivers/record_btc_probe.py:7; docs/reports/evidence/grounded-math/drivers/record_calculations_probe.py:7; docs/reports/evidence/grounded-math/drivers/record_scenario_probe.py:7; docs/reports/evidence/grounded-math/drivers/serve.py:27; docs/reports/evidence/grounded-math/drivers/walk.mjs:6
+GM_WEB_PORT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/grounded-math/drivers/serve.py:32; docs/reports/evidence/grounded-math/drivers/walk.mjs:17
+GRAPH_API_VERSION,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/whatsapp/config.py:70
+GUEST_RELEASE_GATES,active_control,"test/CI only, not a hosted setting",tests/test_ci_workflow.py:281
+HC_API_PORT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/home-country/drivers/settings_proof.mjs:16
+HC_TREE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/home-country/drivers/row_heights.mjs:5; docs/reports/evidence/home-country/drivers/settings_proof.mjs:7
+HC_WEB_PORT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/home-country/drivers/row_heights.mjs:4; docs/reports/evidence/home-country/drivers/settings_proof.mjs:17
+HOME,active_control,platform-provided/reserved (not ours to set),.github/setup.sh:19; mobile/android/scripts/verify.sh:4
+I590_API_PORT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/issue-590/drivers/browser_demo.mjs:17; docs/reports/evidence/issue-590/drivers/serve.py:20
+I590_ENV_FILE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/issue-590/drivers/run_case.py:6; docs/reports/evidence/issue-590/drivers/serve.py:3
+I590_TREE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/issue-590/drivers/browser_demo.mjs:8; docs/reports/evidence/issue-590/drivers/run_case.py:2; docs/reports/evidence/issue-590/drivers/serve.py:3
+I590_WEB_PORT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/issue-590/drivers/browser_demo.mjs:18; docs/reports/evidence/issue-590/drivers/serve.py:21
+INTAKE_ENABLED,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/whatsapp/config.py:7
+ISSUE411_QA_OUTPUT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/411/browser/observe_local_api.py:17
+ISSUE411_QA_SOURCE_ROOT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/411/browser/observe_local_api.py:16
+ISSUE411_QA_TREE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/411/browser/observe_local_api.py:69
+ISSUE531_QA_API_PORT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/531/browser/replay_api.py:22
+ISSUE531_QA_SOURCE_ROOT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/531/browser/replay_api.py:18
+ISSUE531_QA_WEB_PORT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/531/browser/replay_api.py:21
+ISSUE533_QA_API_PORT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/533/browser/replay_api.py:21
+ISSUE533_QA_TREE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/533/browser/replay_api.py:5
+ISSUE533_QA_WEB_PORT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/533/browser/replay_api.py:20
+ISSUE_245_EVIDENCE_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/issue-245-recents-progressive-disclosure.spec.ts:15
+ISSUE_252_CANDIDATE_SHA,active_control,"test/CI only, not a hosted setting",web/e2e/issue-252-conversation-switching.spec.ts:1100
+ISSUE_252_PERF,active_control,"test/CI only, not a hosted setting",web/e2e/issue-252-conversation-switching.spec.ts:982
+ISSUE_334_EVIDENCE_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/issue-334-omnisearch-shortcut-legend.spec.ts:5
+ISSUE_334_PLAYWRIGHT_PORT,active_control,"test/CI only, not a hosted setting",web/e2e/issue-334-browser-matrix.playwright.config.ts:3
+ISSUE_688_EVIDENCE_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/issue-688-browser-safety.spec.ts:48
+LANE_C_EVIDENCE_PATH,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/lift-loop-lane-c/test_proof.py:443
+LIFT_EDIT_SCREENSHOT_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/lift-edit-contract.spec.ts:16
+MARKETING_CAPTURE_URL,active_control,"test/CI only, not a hosted setting",marketing/scripts/capture-final-polish.mjs:8; marketing/scripts/capture-personal-footer.mjs:6; marketing/scripts/capture-personal-pet.mjs:6; marketing/scripts/capture-story.mjs:6; marketing/scripts/capture-touchup.mjs:5
+MARKETING_CHECKS,active_control,"test/CI only, not a hosted setting",tests/test_ci_workflow.py:278
+MARKETING_E2E_MOCK_PORT,active_control,"test/CI only, not a hosted setting",marketing/e2e/ports.ts:1
+MARKETING_E2E_PUBLIC_PORT,active_control,"test/CI only, not a hosted setting",marketing/e2e/ports.ts:4
+MARKETING_E2E_SITE_PORT,active_control,"test/CI only, not a hosted setting",marketing/e2e/ports.ts:2
+MARKET_DATA_CACHE_TTL,active_control,legacy Argus family,src/argus/domain/market_data/assets.py:79; src/argus/domain/market_data/provider.py:42
+MAX_BYTES,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/documents/config.py:22
+MAX_PAGES,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/documents/config.py:35
+MEASURED_SHA,active_control,Executable documented verification control or preserved test reader,docs/release-manifests/NEXT-PROMOTION-CHECKLIST.md:134
+MEM0_TELEMETRY,active_control,platform-provided/reserved (not ours to set),src/argus/api/personalization_memory_index.py:57; tests/memory/test_mem0_configuration.py:105
+MOCK_PROVIDER_PORT,active_control,"test/CI only, not a hosted setting",marketing/e2e/mock-providers.mjs:7
+MOCK_USER_EMAIL,active_control,"test/CI only, not a hosted setting",.github/canary-render.sh:18; scripts/benchmarks/run_turn_latency.py:148; src/argus/domain/supabase_gateway.py:199; tests/test_alpha_api_supabase.py:1952
+MOCK_USER_PASSWORD,active_control,"test/CI only, not a hosted setting",.github/canary-render.sh:20; src/argus/domain/supabase_gateway.py:200; tests/test_alpha_api_supabase.py:1953
+NAME_PROMPT_BASELINE,active_control,"test/CI only, not a hosted setting",web/e2e/business-name-prompt.spec.ts:55
+NEXT_DEV_ALLOWED_ORIGINS,active_control,"test/CI only, not a hosted setting",web/next.config.ts:8
+NEXT_DIST_DIR,active_control,"test/CI only, not a hosted setting",web/next.config.ts:28
+NEXT_TELEMETRY_DISABLED,active_control,Framework CLI control supplied in local setup and CI.,.github/setup.sh:20
+NODE_ENV,active_control,platform-provided/reserved (not ours to set),web/__tests__/auth-captcha-confirmation.test.ts:11
+NODE_VERSION,active_control,"Hosted build-tool version pin consumed by platform, not by repository application source; remove hosted declaration only per platform-input exception.",tests/test_ci_workflow.py:216
+OTG_API_PORT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/open-the-gates/drivers/ask.py:15; docs/reports/evidence/open-the-gates/drivers/serve.py:15; docs/reports/evidence/open-the-gates/drivers/serve_seeded.py:18
+OTG_IDS_FILE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/open-the-gates/drivers/drive_multi.mjs:14; docs/reports/evidence/open-the-gates/drivers/serve_seeded.py:48
+OTG_TREE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/open-the-gates/drivers/drive_multi.mjs:7; docs/reports/evidence/open-the-gates/drivers/drive_share.mjs:8; docs/reports/evidence/open-the-gates/drivers/perplexity_plain.py:16; docs/reports/evidence/open-the-gates/drivers/probe_fast.py:16; docs/reports/evidence/open-the-gates/drivers/probe_shape.py:16; docs/reports/evidence/open-the-gates/drivers/run_case_live.py:13; docs/reports/evidence/open-the-gates/drivers/serve.py:12; docs/reports/evidence/open-the-gates/drivers/serve_seeded.py:15
+OTG_WEB_PORT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/open-the-gates/drivers/serve.py:16; docs/reports/evidence/open-the-gates/drivers/serve_seeded.py:19
+OUT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/cuadrao-business/approved-revision-20261015/shots.mjs:2; docs/reports/evidence/cuadrao-business/expense-account-setup-20261015/shots.mjs:2; docs/reports/evidence/cuadrao-business/expense-account-setup-20261015b/shots.mjs:2; docs/reports/evidence/receipt-sharing/2026-09-03-end-to-end/drivers/driver-a.js:5; docs/reports/evidence/receipt-sharing/2026-09-03-end-to-end/drivers/driver-b.js:5; docs/reports/evidence/receipt-sharing/2026-09-03-end-to-end/drivers/driver-c.js:5; docs/reports/evidence/receipt-sharing/2026-09-03-end-to-end/drivers/driver-r.js:5
+OUTBOUND_ENABLED,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/whatsapp/config.py:9
+OWNERSHIP_GATE,active_control,"test/CI only, not a hosted setting",tests/test_ci_workflow.py:265
+PATH,active_control,platform-provided/reserved (not ours to set),.github/setup.sh:19; scripts/ops/tests/test_database_target_guards.py:396; scripts/qa/business_client_wiring_evidence.mjs:233; scripts/qa/reception_checkpoint_evidence.mjs:36
+PERPLEXITY_API_KEY,active_control,legacy Argus family,src/argus/domain/research/credentials.py:15; src/argus/llm/memory_embedding.py:301
+PGHOSTADDR,active_control,platform-provided/reserved (not ours to set),tests/evals/business_runtime_capture.py:96
+PGSERVICE,active_control,platform-provided/reserved (not ours to set),tests/evals/business_runtime_capture.py:96
+PHONE_NUMBER_ID,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/whatsapp/config.py:62
+PH_QA_API_PORT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/publisher-honesty/browser/drive.mjs:16; docs/reports/evidence/publisher-honesty/browser/replay_api.py:38
+PH_QA_IDS_FILE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/publisher-honesty/browser/drive.mjs:13; docs/reports/evidence/publisher-honesty/browser/replay_api.py:41
+PH_QA_TREE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/publisher-honesty/browser/drive.mjs:10; docs/reports/evidence/publisher-honesty/browser/replay_api.py:35
+PH_QA_WEB_PORT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/publisher-honesty/browser/drive.mjs:17; docs/reports/evidence/publisher-honesty/browser/replay_api.py:39
+PLAYWRIGHT_BASE_URL,active_control,platform-provided/reserved (not ours to set),web/e2e/breakpoint-baselines.playwright.config.ts:36; web/e2e/fullscreen-loading.playwright.config.ts:4; web/e2e/support/guest-qa.ts:673; web/playwright.config.ts:5
+PLAYWRIGHT_CHANNEL,active_control,platform-provided/reserved (not ours to set),web/e2e/business-consent.playwright.config.ts:15
+PLAYWRIGHT_PORT,active_control,platform-provided/reserved (not ours to set),web/e2e/business-consent.playwright.config.ts:4; web/e2e/issue-688-browser-safety.playwright.config.ts:2; web/playwright.config.ts:4
+PLAYWRIGHT_REUSE_EXISTING_SERVER,active_control,platform-provided/reserved (not ours to set),web/playwright.config.ts:8
+POETRY_VERSION,active_control,External installation script reads the tool-version pin during local setup.,.github/setup.sh:37
+PORT,active_control,platform-provided/reserved (not ours to set),.github/argus-env.sh:13; marketing/e2e/mock-providers.mjs:7; prototypes/chart-validation/web/server.mjs:20; tests/test_environment_scripts.py:396
+PR568_QA_API_PORT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/568/browser/drive.mjs:14; docs/reports/evidence/568/browser/replay_api.py:22
+PR568_QA_IDS_FILE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/568/browser/drive.mjs:11; docs/reports/evidence/568/browser/replay_api.py:64
+PR568_QA_TREE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/568/browser/drive.mjs:8; docs/reports/evidence/568/browser/replay_api.py:18
+PR568_QA_WEB_PORT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/568/browser/drive.mjs:15; docs/reports/evidence/568/browser/replay_api.py:21
+PROBE_NAVIGATOR,active_control,"test/CI only, not a hosted setting",web/__tests__/business-language-choice.test.ts:13
+PROBE_OUT,active_control,Executable documented verification control or preserved test reader,docs/reports/evidence/cuadrao-business-owner-pilot/2026-10-08-s4-chat-surfaces/flag_off_chat_journey_probe.py.txt:25
+PROBE_STORED,active_control,"test/CI only, not a hosted setting",web/__tests__/business-language-choice.test.ts:16
+PROFILE_WRITE_EVIDENCE_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/profile-home-country-save.spec.ts:20; web/e2e/profile-language-save.spec.ts:24
+PR_BASE_SHA,active_control,"test/CI only, not a hosted setting",.github/docs-only-changes.sh:131; scripts/ci/check_no_evidence_media.py:132; scripts/ci/check_pr_guards.py:306
+PR_HEAD_SHA,active_control,"test/CI only, not a hosted setting",scripts/ci/check_pr_guards.py:307; tests/test_pr_guards.py:68
+PYTHONPATH,active_control,platform-provided/reserved (not ours to set),scripts/benchmarks/backtest_infra_benchmark.py:363; scripts/ops/tests/test_backfill_backtest_evidence.py:26
+QA_ARGUS_API,active_control,"test/CI only, not a hosted setting",web/e2e/qa-241/j241.helpers.ts:9; web/e2e/qa-248/global-setup.ts:20; web/e2e/qa-248/helpers.ts:12
+QA_CELLS,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/437/qa-driver.mjs:77
+QA_EXPECT_VERIFICATION_OUTAGE,active_control,"test/CI only, not a hosted setting",web/e2e/qa-248/4-verification-outage.spec.ts:16
+QA_FOLLOWUP,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/440/qa-driver.mjs:12
+QA_HEAD_SHA,active_control,"test/CI only, not a hosted setting",web/e2e/qa-271/journey.spec.ts:28
+QA_IDEA,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/440/qa-driver.mjs:14
+QA_LANG,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/440/qa-driver.mjs:13
+QA_MAILPIT_URL,active_control,"test/CI only, not a hosted setting",web/e2e/qa-248/global-setup.ts:28; web/e2e/qa-248/helpers.ts:11
+QA_OUT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/437/qa-driver.mjs:10; docs/reports/evidence/440/qa-driver.mjs:2
+QA_RECOVERY_EMAIL,active_control,Parsed local test identity environment file consumed by auth tests.,web/e2e/qa-248/helpers.ts:30
+QA_RECOVERY_PASSWORD,active_control,Parsed local test identity environment file consumed by auth tests.,web/e2e/qa-248/helpers.ts:31
+QA_SECOND_EMAIL,active_control,Parsed local test identity environment file consumed by auth tests.,web/e2e/qa-248/helpers.ts:32
+QA_SECOND_PASSWORD,active_control,Parsed local test identity environment file consumed by auth tests.,web/e2e/qa-248/helpers.ts:33
+QA_SKIP_DRAWER,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/440/qa-driver.mjs:4
+QA_TAG,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/440/qa-driver.mjs:2
+RAIL_CHECKSUM_OUT,active_control,"test/CI only, not a hosted setting",scripts/qa/research_rail_flag_off_checksum.py:191
+RANKED_GAP_SCREENSHOT_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/ranked-comparison-gap.spec.ts:49
+RECEIVING_DOMAIN,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/email_intake/config.py:30
+RECEIVING_ENABLED,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/email_intake/config.py:20
+REGISTRY_NETWORK_DIR,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/registry-declaration/6b8d846e/browser/harness/registry-evidence-hooks.ts:6; docs/reports/evidence/registry-declaration/b17d2577/browser/harness/registry-evidence-hooks.ts:6
+REGISTRY_SCREENSHOT_DIR,active_control,"test/CI only, not a hosted setting",web/e2e/tool-registry.spec.ts:32
+RENDER,active_control,platform-provided/reserved (not ours to set),src/argus/api/dependencies.py:57
+RENDER_API_KEY,active_control,platform-provided/reserved (not ours to set),.github/canary-resolve-deployed.sh:10; .github/render-env-sync.sh:53
+RENDER_GIT_COMMIT,active_control,platform-provided/reserved (not ours to set),web/__tests__/health-route.test.ts:4
+RENDER_LOCAL_DEV_URL,active_control,platform-provided/reserved (not ours to set),src/argus/api/chat/backtest_jobs.py:116
+RENDER_SERVICE_ID,active_control,platform-provided/reserved (not ours to set),src/argus/api/dependencies.py:58
+RENDER_TASK_RUN_ID,active_control,platform-provided/reserved (not ours to set),workflows/main.py:66
+RENDER_USE_LOCAL_DEV,active_control,platform-provided/reserved (not ours to set),src/argus/api/chat/backtest_jobs.py:109
+REPLAY_API,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/confirmation-summary-prose/capture_confirmation_evidence.mjs:19
+REPLAY_API_PORT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/confirmation-summary-prose/replay_confirmation_api.py:34
+REPLAY_LANGUAGE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/confirmation-summary-prose/replay_confirmation_api.py:36
+REPLAY_VERDICT_REASON,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/2026-09-14-acceptance/drivers/record_replay_verdict.py:19
+REPLAY_WEB_ORIGIN,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/confirmation-summary-prose/capture_confirmation_evidence.mjs:18
+REPLAY_WEB_PORT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/confirmation-summary-prose/replay_confirmation_api.py:35
+REPLY_DAILY_LIMIT,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/whatsapp/config.py:80
+REPLY_GROUP_WAIT_SECONDS,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/whatsapp/config.py:77
+REQUESTED_EMAIL,active_control,Executable documented verification control or preserved test reader,docs/PRIVATE_LAUNCH_RUNBOOK.md:1176
+ROUTE_CHECK_API,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/confirmation-summary-prose/route-check/route_check_driver.py:25
+ROUTE_CHECK_CAP_USD,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/confirmation-summary-prose/route-check/route_check_driver.py:27
+ROUTE_CHECK_ENV_FILE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/confirmation-summary-prose/route-check/route_check_api.py:5
+ROUTE_CHECK_LANGUAGES,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/confirmation-summary-prose/route-check/route_check_driver.py:29
+ROUTE_CHECK_OUT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/confirmation-summary-prose/route-check/route_check_api.py:36; docs/reports/evidence/confirmation-summary-prose/route-check/route_check_driver.py:26; docs/reports/evidence/confirmation-summary-prose/route-check/summarize_route_check.py:3
+ROUTE_CHECK_PORT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/confirmation-summary-prose/route-check/route_check_api.py:37
+ROUTE_CHECK_SOURCE_ROOT,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/confirmation-summary-prose/route-check/route_check_api.py:29
+ROUTE_CHECK_SPENT_BEFORE_USD,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/confirmation-summary-prose/route-check/route_check_driver.py:4
+RUN_HEAVY,active_control,"test/CI only, not a hosted setting",tests/test_ci_workflow.py:269
+RUN_MARKETING,active_control,"test/CI only, not a hosted setting",tests/test_ci_job_selection.py:225; tests/test_ci_workflow.py:272
+SCORECARD,active_control,Executable documented verification control or preserved test reader,docs/release-manifests/NEXT-PROMOTION-CHECKLIST.md:134
+SECRET_PRESENT,test_fixture,test/CI only (synthetic fixture),.github/workflows/dgii-rnc-import.yml:64; scripts/ops/dgii_rnc_import.py:263
+SENDER_KEY,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/whatsapp/config.py:57
+SIDEBAR_FIX_SHOTS,active_control,"test/CI only, not a hosted setting",web/e2e/business-sidebar-desktop.spec.ts:8
+SUPABASE_ACCESS_TOKEN,active_control,Connector authorization and project-selector configuration expanded from process environment.,.mcp.json:7
+SUPABASE_ANON_PUBLIC_KEY,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,src/argus/domain/supabase_gateway.py:216
+SUPABASE_POSTGRES_DIRECT_URL,active_control,Database alias examined by generic non-production target guard.,scripts/qa/assert-nonprod-target.sh:56
+SUPABASE_POSTGRES_SESSION_POOLER_URL,active_control,"test/CI only, not a hosted setting",.github/argus-env.sh:22; scripts/benchmarks/run_turn_latency.py:179; tests/test_environment_scripts.py:265
+SUPABASE_POSTGRES_TRANSACTION_POOLER_URL,active_control,"dead, no runtime read site (docs/history only)",.github/render-env-sync.sh:56; tests/test_environment_scripts.py:266
+SUPABASE_PROJECT_REF,active_control,Connector authorization and project-selector configuration expanded from process environment.,.mcp.json:5
+SUPABASE_PROJECT_URL,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,.github/canary-render.sh:25
+SUPABASE_STAGING_DB_URL,active_control,"test/CI only, not a hosted setting",scripts/ops/dgii_rnc_import.py:86
+SWEEP_SECONDS,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/documents/config.py:122
+TICKER_MENTION_EVIDENCE_DIR,active_control,legacy Argus family,web/e2e/ticker-mention-tokens.spec.ts:6
+TMPDIR,active_control,platform-provided/reserved (not ours to set),.github/local-smoke.sh:87; scripts/qa/reception_checkpoint_evidence.mjs:36
+TREE,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/2026-08-24-main-promotion/judge-replay.py:7
+TZ,active_control,platform-provided/reserved (not ours to set),web/__tests__/business-invoices-connected.dom.test.tsx:13; web/__tests__/invoice-reference.test.ts:5
+VERIFY_TOKEN,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/whatsapp/config.py:54
+WEBHOOK_SECRET,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/email_intake/config.py:27
+WEB_PACKAGE_JSON,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/533/browser/capture.js:8
+WEB_PKG,active_control,Direct reader in a checked-in executable QA/evidence driver; retain its control behavior.,docs/reports/evidence/receipt-sharing/2026-09-03-end-to-end/drivers/driver-a.js:2; docs/reports/evidence/receipt-sharing/2026-09-03-end-to-end/drivers/driver-b.js:2; docs/reports/evidence/receipt-sharing/2026-09-03-end-to-end/drivers/driver-c.js:2; docs/reports/evidence/receipt-sharing/2026-09-03-end-to-end/drivers/driver-r.js:2
+WORKFLOW_PROOF_SEED,active_control,legacy Argus family,.github/warmup-render.sh:155
+WORKFLOW_TASK,alias_in_use,Approved DELETE alias still has a runtime reader; latest behavior-preservation exception applies.,.github/canary-render.sh:136

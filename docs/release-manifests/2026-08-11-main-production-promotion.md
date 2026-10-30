@@ -111,14 +111,14 @@
 | API | `ARGUS_RESEARCH_RAIL_ENABLED` | `true` | Enable the production research path. |
 | API | `ARGUS_RESEARCH_GLOBAL_DAILY_CEILING` | `5000` | Bound total daily research-provider spend. |
 | API | `ARGUS_ENABLE_MEMORY_SEMANTIC_RECALL` | `false` | Keep semantic memory recall off. |
-| API | `ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED` | `false` | Keep public evidence receipts unavailable. |
+| API | `CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED` | `false` | Keep public evidence receipts unavailable. |
 | API | `ARGUS_IN_PLACE_CARD_EDITS_ENABLED` | `false` | Keep capital/date drawer editing disabled. |
 | API | `ARGUS_MEMORY_EMBEDDING_MODEL` | `pplx-embed-v1-0.6b` | Pin the dormant semantic-memory embedding contract. |
 | API | `ARGUS_MEMORY_EMBEDDING_DIMENSIONS` | `1024` | Match the dormant vector schema to the pinned model. |
 | API | `ARGUS_MEMORY_EMBEDDING_TIMEOUT_SECONDS` | `8.0` | Bound dormant embedding-provider calls if later enabled. |
 | API | `ARGUS_MEMORY_VECTOR_COLLECTION` | `argus_memory_vectors` | Name the dormant memory vector collection. |
 | API | `ARGUS_DISCOVERY_SEARCH_PROVIDER` | `perplexity_direct` | Use the production discovery/research provider boundary. |
-| API | `ARGUS_MOCK_AUTH` | `false` | Require real production authentication. |
+| API | `CUADRAO_MOCK_AUTH` | `false` | Require real production authentication. |
 | API | `ARGUS_BACKTEST_JOBS_SHADOW_ENABLED` | `true` | Preserve job-path observation during real-workflow operation. |
 | API | `ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED` | `true` | Allow the API to dispatch hosted backtest work. |
 | API | `ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED` | `true` | Execute the real hosted workflow instead of proof-shadow only. |
@@ -132,10 +132,10 @@
 | Web | `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED` | `false` | Hide public evidence-receipt controls. |
 | Workflow | `ENABLE_MARKET_DATA_CACHE` | `false` | Avoid stale workflow-local market-data cache state. |
 | Workflow | `ALPACA_PAPER_TRADING` | `true` | Keep workflow provider access in paper mode. |
-| Removed | `ARGUS_STRATEGIES_ENABLED` | `<absent>` | Remove the obsolete legacy strategy-surface gate. |
-| Removed | `NEXT_PUBLIC_STRATEGIES_ENABLED` | `<absent>` | Remove the obsolete web strategy-surface gate. |
-| Removed | `NEXT_PUBLIC_COLLECTIONS_ENABLED` | `<absent>` | Remove the obsolete current Collections surface gate. |
-| Removed | `NEXT_PUBLIC_CHAT_EXPLORATORY_SUGGESTIONS_ENABLED` | `<absent>` | Remove the obsolete exploratory-suggestions gate. |
+| Removed | `[removed obsolete setting]` | `<absent>` | Remove the obsolete legacy strategy-surface gate. |
+| Removed | `[removed obsolete setting]` | `<absent>` | Remove the obsolete web strategy-surface gate. |
+| Removed | `[removed obsolete setting]` | `<absent>` | Remove the obsolete current Collections surface gate. |
+| Removed | `[removed obsolete setting]` | `<absent>` | Remove the obsolete exploratory-suggestions gate. |
 
 ## Gate Evidence
 

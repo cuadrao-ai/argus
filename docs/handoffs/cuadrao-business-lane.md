@@ -902,7 +902,7 @@ Optional; it is not needed to resume.
 - **Postgres tests.** These need a disposable local Supabase stack, with `ARGUS_DISPOSABLE_DATABASE_URL`, plus `ARGUS_LOCAL_SUPABASE_URL`, `ARGUS_LOCAL_SUPABASE_ANON_KEY` and `ARGUS_LOCAL_SUPABASE_SERVICE_ROLE_KEY` for the Storage tests. Use one database per pytest process.
 - **The live eval:** **not authorized; reference only.**
   ```bash
-  ARGUS_RUN_LIVE_EVALS=1 ARGUS_LIVE_EVAL_BUDGET_USD=<approved> ARGUS_EVAL_FIXTURE_SET=all ARGUS_EVAL_ENV_FILE=<untracked file> ARGUS_MARKET_DATA_PROVIDER_MODE=live_provider ARGUS_ASSET_PROVIDER_MODE=live_provider poetry run pytest tests/evals/test_measurement_eval_live.py -q
+  ARGUS_RUN_LIVE_EVALS=1 ARGUS_LIVE_EVAL_BUDGET_USD=<approved> ARGUS_EVAL_ENV_FILE=<untracked file> ARGUS_MARKET_DATA_PROVIDER_MODE=live_provider ARGUS_ASSET_PROVIDER_MODE=live_provider poetry run pytest tests/evals/test_measurement_eval_live.py -q
   ```
   The run refuses to start if the research rail, `PERPLEXITY_API_KEY`, or `ARGUS_DISCOVERY_SEARCH_PROVIDER=openrouter_web_search` is set. See `tests/evals/README.md`.
 

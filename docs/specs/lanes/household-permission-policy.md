@@ -4,7 +4,7 @@
 **Owners:** [MVEE Household](../argus-minimum-viable-ecosystem-experience.md#12-household-collaboration-approved-minimum-capacity)
 for consent and financial meaning; [execution board](../argus-execution-board.md#connected-spaces-and-household-lane)
 for delivery; this file for the locked permission package.
-**Flag:** `ARGUS_HOUSEHOLDS_ENABLED` (default off).
+**Flag:** `CUADRAO_HOUSEHOLDS_ENABLED` (default off).
 
 ## Locked package
 

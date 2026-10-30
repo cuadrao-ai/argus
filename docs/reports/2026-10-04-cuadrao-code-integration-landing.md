@@ -58,7 +58,7 @@ claimed from test idleness alone.
 
 ## Configuration and remaining gates
 
-`ARGUS_BETA_INVITES_ENABLED` and `ARGUS_INVITE_UNIVERSAL_LINK_ENABLED` are false
+`CUADRAO_BETA_INVITES_ENABLED` and `CUADRAO_INVITE_UNIVERSAL_LINK_ENABLED` are false
 in the tracked development configuration and local example, and are exposed by
 Info.plist to the canonical invitation flag reader. No template is missing.
 Provider keys, Associated Domains/AASA, push configuration, hosted flags and

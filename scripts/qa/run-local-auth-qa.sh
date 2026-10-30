@@ -61,7 +61,7 @@ done
 # Outage phase: healthy auth provider, dead session-verification database.
 # Memory checkpointer keeps startup off the dead DATABASE_URL.
 cleanup
-ARGUS_CHECKPOINTER_MODE=memory \
+CUADRAO_CHECKPOINTER_MODE=memory \
   DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:54390/postgres" \
   poetry run uvicorn argus.api.main:app --host 127.0.0.1 --port 8000 \
   >> "$EVIDENCE_DIR/backend.log" 2>&1 &

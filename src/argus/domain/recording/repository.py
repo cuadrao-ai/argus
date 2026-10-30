@@ -139,7 +139,7 @@ def _utcnow() -> datetime:
 
 
 class InMemoryFinancialAccountRepository:
-    """Deterministic twin for ``ARGUS_PERSISTENCE_MODE=memory`` and unit tests."""
+    """Deterministic twin for ``CUADRAO_PERSISTENCE_MODE=memory`` and unit tests."""
 
     def __init__(self, clock: Callable[[], datetime] = _utcnow) -> None:
         self._clock = clock

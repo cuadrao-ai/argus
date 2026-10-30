@@ -132,7 +132,7 @@ PYTHONPATH=web:src:. /private/tmp/cuadrao-scipy-env-20261005/bin/python -m pytes
 Python checks use `/private/tmp/cuadrao-scipy-env-20261005/bin/python` with
 `PYTHONPATH=web:src:.`. PostgreSQL tests need the reserved disposable stack and
 `ARGUS_DISPOSABLE_DATABASE_URL`; signed proof additionally requires
-`ARGUS_APPLE_LOCAL_AUTH_PROOF=1` and synthetic local Auth configuration.
+`[removed obsolete setting]=1` and synthetic local Auth configuration.
 Do not run them against a hosted database or reset a shared stack.
 
 ## Diagnostic history

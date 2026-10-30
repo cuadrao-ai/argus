@@ -1,7 +1,7 @@
 {
   "captured_at": "2026-08-21",
   "branch_head": "acf553b7 (fix #508 + fix #523 applied)",
-  "topology": "local backend (uvicorn, ARGUS_MOCK_AUTH=true, ARGUS_PERSISTENCE_MODE=memory, ARGUS_MARKET_DATA_PROVIDER_MODE=synthetic_unit_fixture, canonical env sourced into the process only) + web dev server (NEXT_PUBLIC_MOCK_AUTH=true, NEXT_PUBLIC_ENABLE_SPANISH=true); no env file written",
+  "topology": "local backend (uvicorn, CUADRAO_MOCK_AUTH=true, CUADRAO_PERSISTENCE_MODE=memory, ARGUS_MARKET_DATA_PROVIDER_MODE=synthetic_unit_fixture, canonical env sourced into the process only) + web dev server (NEXT_PUBLIC_MOCK_AUTH=true, NEXT_PUBLIC_ENABLE_SPANISH=true); no env file written",
   "cases": [
     {
       "id": "english-workspace-confirmation",

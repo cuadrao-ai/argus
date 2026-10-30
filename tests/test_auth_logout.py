@@ -22,8 +22,8 @@ SESSION = "/api/v1/auth/session"
 @pytest.fixture
 def auth(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
     profile = api_state.store.get_or_create_dev_user()
 
     def access(session: str, expiry: int = 4102444800) -> str:

@@ -283,7 +283,7 @@ def test_one_request_can_claim_research_then_record_one_admission_refusal(
 
     monkeypatch.setattr(api_state, "supabase_gateway", None)
     monkeypatch.setenv("ARGUS_BACKTEST_JOBS_SHADOW_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_RUNTIME_STREAM_WORKER", "true")
+    monkeypatch.setenv("CUADRAO_RUNTIME_STREAM_WORKER", "true")
 
     gateway = _ConflictReceiptGateway()
     claim_guest_keys: list[str | None] = []

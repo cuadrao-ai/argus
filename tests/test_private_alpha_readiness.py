@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 
 def test_internal_readiness_is_404_when_ops_token_missing(monkeypatch) -> None:
-    monkeypatch.delenv("ARGUS_OPS_TOKEN", raising=False)
+    monkeypatch.delenv("CUADRAO_OPS_TOKEN", raising=False)
     client = TestClient(app)
 
     response = client.get("/internal/readiness")
@@ -17,7 +17,7 @@ def test_internal_readiness_is_404_when_ops_token_missing(monkeypatch) -> None:
 
 
 def test_internal_readiness_requires_matching_bearer_token(monkeypatch) -> None:
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", "test-token")
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", "test-token")
     client = TestClient(app)
 
     response = client.get(
@@ -42,7 +42,7 @@ def test_internal_readiness_returns_safe_check_summary(monkeypatch) -> None:
             ],
         }
 
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", "test-token")
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", "test-token")
     monkeypatch.setattr(ops, "run_readiness_checks", _ready_checks)
     client = TestClient(app)
 
@@ -57,8 +57,8 @@ def test_internal_readiness_returns_safe_check_summary(monkeypatch) -> None:
     assert payload["checks"][0]["name"] == "supabase"
     assert "SUPABASE_SERVICE_ROLE_KEY" not in response.text
     assert "OPENROUTER_API_KEY" not in response.text
-    assert "ARGUS_PROD_OPENROUTER_API_KEY" not in response.text
-    assert "ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY" not in response.text
+    assert "CUADRAO_PROD_OPENROUTER_API_KEY" not in response.text
+    assert "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY" not in response.text
     assert "ALPACA_SECRET_KEY" not in response.text
 
 
@@ -78,7 +78,7 @@ def test_internal_readiness_returns_503_when_any_check_is_degraded(monkeypatch) 
             ],
         }
 
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", "test-token")
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", "test-token")
     monkeypatch.setattr(ops, "run_readiness_checks", _degraded_checks)
     client = TestClient(app)
 

@@ -93,7 +93,7 @@ def route(world, monkeypatch):  # noqa: F811
     )
     monkeypatch.setenv(account_route.FLAG, "true")
     monkeypatch.setenv("SUPABASE_JWT_SECRET", SECRET)
-    monkeypatch.delenv("ARGUS_MOCK_AUTH", raising=False)
+    monkeypatch.delenv("CUADRAO_MOCK_AUTH", raising=False)
     monkeypatch.delenv("NEXT_PUBLIC_MOCK_AUTH", raising=False)
     monkeypatch.setattr(api_state, "DATABASE_URL", DSN)
     monkeypatch.setattr(api_state, "supabase_gateway", gateway)

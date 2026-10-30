@@ -514,7 +514,7 @@ def _warmup(
             "elapsed_ms": readiness.elapsed_ms,
         }
     else:
-        checks["readiness"] = {"status": "skipped_missing_ARGUS_OPS_TOKEN"}
+        checks["readiness"] = {"status": "skipped_missing_CUADRAO_OPS_TOKEN"}
 
     frontend_started = time.perf_counter()
     response = client.get(app_url)
@@ -1170,7 +1170,7 @@ def main(argv: list[str] | None = None) -> int:
             "ARGUS_CANARY_SUPABASE_SERVICE_ROLE_KEY",
             "SUPABASE_SERVICE_ROLE_KEY",
         ),
-        ops_token=_env_first("ARGUS_OPS_TOKEN"),
+        ops_token=_env_first("CUADRAO_OPS_TOKEN"),
         prompt=args.prompt,
         repeat=args.repeat,
         timeout_seconds=args.timeout_seconds,

@@ -254,8 +254,8 @@ passes at this head, so the fingerprint's own `last_measured` is not moved.
 
 In the full live run this case failed after grok timed out and haiku answered
 the interpretation (executable, starting capital 0.0). Its rerun passed on
-grok and never exercised that path. With `ARGUS_STRUCTURED_MODEL` and
-`ARGUS_STRUCTURED_FALLBACK_MODEL` set to `anthropic/claude-haiku-4.5` in the
+grok and never exercised that path. With `CUADRAO_STRUCTURED_MODEL` and
+`CUADRAO_STRUCTURED_FALLBACK_MODEL` set to `anthropic/claude-haiku-4.5` in the
 process environment (`drivers/haiku_case.py`), three runs each:
 
 | Tree | Attempt 1 | Attempt 2 | Attempt 3 | Cost |

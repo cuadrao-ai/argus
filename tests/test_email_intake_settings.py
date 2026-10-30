@@ -5,7 +5,6 @@ from argus.domain.ingestion.email_intake.config import EmailIntakeSettings
 @pytest.mark.parametrize(
     "other_key",
     [
-        "ARGUS_RESEND_RECEIVING_API_KEY",
         "RESEND_API_KEY",
         "RESEND_MARKETING_API_KEY",
         "MARKETING_RESEND_API_KEY",

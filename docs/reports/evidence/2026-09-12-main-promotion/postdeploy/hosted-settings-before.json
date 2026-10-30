@@ -9,12 +9,12 @@
   },
   "readout_values": {
     "argus-backtests": {
-      "ARGUS_READOUT_MODEL": null,
-      "ARGUS_READOUT_FALLBACK_MODEL": null
+      "CUADRAO_READOUT_MODEL": null,
+      "CUADRAO_READOUT_FALLBACK_MODEL": null
     },
     "argus-api": {
-      "ARGUS_READOUT_MODEL": null,
-      "ARGUS_READOUT_FALLBACK_MODEL": null
+      "CUADRAO_READOUT_MODEL": null,
+      "CUADRAO_READOUT_FALLBACK_MODEL": null
     }
   }
 }

@@ -762,7 +762,7 @@ personalization means stable declared settings, country and currency (decision
 wait on the decision 10 lane ended when #589 landed.
 
 **Today.** `home_location()` in `src/argus/domain/research/config.py` reads
-`ARGUS_RESEARCH_HOME_COUNTRY`, and `retrieval_spec()` puts it on every research
+`[removed obsolete setting]`, and `retrieval_spec()` puts it on every research
 request, which `src/argus/domain/research/perplexity_agent.py` sends as
 `user_location`. No country or currency exists on the profile, `/me` or
 Settings. Personalization memory (#386, #392) stores saved decisions and holds
@@ -781,7 +781,7 @@ likely sends no location at all.
   parameter, never through prompt text. A user with no country sends no
   location. A guest has no stored country; the lane reports what a session-only
   pick would cost.
-- `ARGUS_RESEARCH_HOME_COUNTRY` and `home_location()` are removed, not kept as a
+- `[removed obsolete setting]` and `home_location()` are removed, not kept as a
   fallback.
 
 **Done means.** A registered user picks a country in Settings in English or
@@ -1146,7 +1146,7 @@ been recorded.
   personal financial figures follow decision 8.
 - Each submission emails the founder at support@get-argus.com through the existing
   Resend sender (the `src/argus/domain/access_approval_email.py` pattern and
-  `ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD`), with no new release setting. A failed
+  `CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD`), with no new release setting. A failed
   email never fails the submission.
 - Guests and signed-in users both work, and the existing feedback quota still
   applies.
@@ -1248,7 +1248,7 @@ and re-run with changed inputs. Behavior-preserving for existing decisions.
 
 ### Sharing on  ·  ships in **Sharing**
 
-Built and dark since 2026-08-10. `ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED` and
+Built and dark since 2026-08-10. `CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED` and
 `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED` are `false` in `render.yaml` and
 the release profile.
 
@@ -1540,7 +1540,7 @@ the guardrail lane alone; every other lane was told to stay out of it.
 | Decisions | Plumbing | **Landed** `67facaf5`. |
 | Retrieval parameters | Grounding | **Landed** `41bf9930`. #404 and #545 closed. A follow-on, PR #568 `6f7e7354`, made a withheld answer keep the pages it already paid to retrieve, reframed from "sources used to inform this answer" to where Argus looked, and cached the withhold so the same unanswerable question is not billed twice. It filed #569, answered by PR #571: a turn now reports what it paid rather than what it published, so a discarded packet, a retry either kept or thrown away, and a response rejected after its invoice all reach the ledger. Eleven inline degraded turns between 2026-08-13 and 2026-09-02 recorded zero spend, under about $1.50 and not worth a backfill; the three thorough `missing_public_sources` turns on 2026-09-08 were already correct, and no research job has ever failed in production. |
 | Sharing on | Sharing | **LANDED, switched off** `c8e05b4f`, PR #632, closing #604. Answers are shareable by default: selection happens inside the conversation, a question and its final answer are one unit, and the owner's choice and exact preview are the privacy boundary. Argus's own ids and account data never reach the page. The founder turns the flags on at promotion, and migration `20260914120000_share_plain_answer_receipts.sql` runs then. |
-| Share the answer | The calculations | **LANDED** `ba5a9fb7`, PR #574, 2026-09-09. Answers are shared from a header turn selection, behind `ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED`, which is off in production. Calculations become eligible turns in Any grounded math. Correction 2026-09-25: that "off in production" wording is the landing-time state, not the current production state. Current sharing availability is owned by [PRODUCT.md Current production availability and planned changes](../PRODUCT.md#current-production-availability-and-planned-changes). |
+| Share the answer | The calculations | **LANDED** `ba5a9fb7`, PR #574, 2026-09-09. Answers are shared from a header turn selection, behind `CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED`, which is off in production. Calculations become eligible turns in Any grounded math. Correction 2026-09-25: that "off in production" wording is the landing-time state, not the current production state. Current sharing availability is owned by [PRODUCT.md Current production availability and planned changes](../PRODUCT.md#current-production-availability-and-planned-changes). |
 | Lift the loop, Lane A | The spine | **Landed** `f7c9192b`. |
 | Lift the loop, Lane C | The spine | **Ran, report landed** `6fa3f55a`, docs only. Its finding is that Lane A did not make the loop reusable, and its import probes are the failing test the catalog-edge lane inherits. |
 | Subtract the guardrails | The spine | **LANDED** `695d9250`, PR #565. Ordinary chat first outcome went from 35.27s to 15.63s p50 and its guardrail share from 44.2 percent to 2.3 percent, measured head/base/head/base interleaved so provider drift cannot fake it. The compute-shaped probe went 25.85s to 16.14s. Composer starvation went from 9 turns in 2 runs to zero. Its three eval failures were re-run on head and on a lane-free tree: two pass on both, one fails on both and is pre-existing. |
@@ -1553,7 +1553,7 @@ the guardrail lane alone; every other lane was told to stay out of it.
 | What to try next after a result | outside the releases | **LANDED** `aadd70eb`, PR #592, closing #590. Asking what to try next after a result answers with that result's Try next rows and a one-sentence lead-in in the workspace language, on both follow-up paths and for every strategy family, through the one rows owner `next_experiments_sidecar`; the retry message appears only when no row can be built. No model-facing text changed. Its live run was 61 passed and 8 failed against the baseline's 63 and 6; six of the seven flips passed a rerun, and the one that failed twice got no read from the structured tier, so it never reached this code. |
 | A clarification reply keeps what the user said | outside the releases | **LANDED** `05196b33`, PR #591. After Argus asks a question, the reply keeps every fact the user already gave (asset, dates, money, costs), an explicit new idea starts clean, money the user typed outranks an audit's guess, and one owner removes em dashes from visible replies. Its full live run on the merged tree was 65 passed and 6 failed; four passed a rerun, and the other two failed outside its code (research publishing on a Spanish forward question, and a discovery answer whose voicing model timed out). On the Haiku fallback it refused a named cap three times out of three where integration lost it once. The founder kept the rule that money the user typed outranks an audit's cap of the same amount. |
 | Let the AI answer forward and valuation questions | its own promotion | **LANDED** `4482aaa6`, PR #589, as decision 10. Forward and valuation questions get cited scenarios with shown math instead of the future-performance refusal. It also raised the balanced research timeout to 150 seconds for every question, a latency tradeoff the founder accepted. Its scorecard's three discovery failures were rerun on integration with live market data: two pass, because the lane's driver had kept the `.env`'s synthetic market data, and the third is the older dead end filed as #590. |
-| Home country per user | its own promotion | **LANDED** `65bc661b`, PR #593. A registered user picks a country in Settings, sees the currency it implies and can override it, in English and Spanish. Research sends that user's country on the inline path, thorough jobs and the research tool; a user with none sends no location. `ARGUS_RESEARCH_HOME_COUNTRY`, `home_location()`, `LOCAL_SOURCE_DOMAINS` and `local_sources` are gone. Its research-case live run sent no location on any call, matching the baseline. Apply `supabase/migrations/20260911120000_add_profile_home_country.sql` (additive) at promotion. A guest session pick is not built; the lane priced it at about a day. |
+| Home country per user | its own promotion | **LANDED** `65bc661b`, PR #593. A registered user picks a country in Settings, sees the currency it implies and can override it, in English and Spanish. Research sends that user's country on the inline path, thorough jobs and the research tool; a user with none sends no location. `[removed obsolete setting]`, `home_location()`, `LOCAL_SOURCE_DOMAINS` and `local_sources` are gone. Its research-case live run sent no location on any call, matching the baseline. Apply `supabase/migrations/20260911120000_add_profile_home_country.sql` (additive) at promotion. A guest session pick is not built; the lane priced it at about a day. |
 | The conversation after a result | its own promotion | **LANDED** `f14c0dec`, PR #597, 2026-09-12. Questions after a result are answered by the model with one ordered list of next steps, runnable tests and questions together. One owner states the benchmark gap and cost drag as the difference of the shown returns. Runs record fee and slippage dollars, and a stored dollar cost is answered. A stated cost the audit cannot confirm is asked about, never shown at 0 bps, while a 0 only the model's read carries is dropped. New monthly-buy runs store the worst drop's dates; answers never invent a date, order or cause and carry no heading. A stored run fact is answered without research and the reply must state it, and an asset or benchmark reply must name each ticker. A moved start names the asset whose data sets it, from continuous history. Its live run was 64 passed and 7 failed against 67 and 4; the six new failures passed a rerun at the fix, and NVDA failed in both. The fingerprint is refrozen on that run. No migration. |
 | Any grounded math | The calculations | **LANDED** `8e9f40bc`, PR #607. Measured 69 of 71 at `dc8608c8` with the fingerprint refrozen and the browser walk done. Fourteen Codex rounds, then one final scoped review whose only finding is #622. #620 holds binding page-cited and finance-data inputs to their rows and the market test row for plans with a starting amount plus deposits. Its migration widens `public_excerpt_snapshots_kind_check` and is applied at the next promotion. |
 | Teach the method | Grounding | **Done.** Greetings LANDED `7e9efe71`, PR #601, 2026-09-12: neutral lines for everyone, testing and market lines only for a registered person with a completed run, guests always neutral and shown the A mark instead of the old heading. The broad-question follow-ups moved into Any grounded math. The welcome line was closed by the founder 2026-09-14. |
@@ -1901,7 +1901,7 @@ Resolved:
 - **No Dominican source list.** Dropped by the founder 2026-09-10; #593 removed
   `LOCAL_SOURCE_DOMAINS` and `local_sources`.
 - **Home country comes from the user.** Landed in #593: country and currency are
-  user settings, and `ARGUS_RESEARCH_HOME_COUNTRY` is gone.
+  user settings, and `[removed obsolete setting]` is gone.
 
 ---
 

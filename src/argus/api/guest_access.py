@@ -25,7 +25,7 @@ def _enabled(name: str, *, default: bool = False) -> bool:
 
 
 def guest_access_enabled() -> bool:
-    server_enabled = _enabled("ARGUS_GUEST_ACCESS_ENABLED", default=True)
+    server_enabled = _enabled("CUADRAO_GUEST_ACCESS_ENABLED", default=True)
     presentation = os.getenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED")
     if presentation is None or not presentation.strip():
         return server_enabled
@@ -36,7 +36,7 @@ def guest_access_enabled() -> bool:
 
 
 def public_account_access_enabled() -> bool:
-    return _enabled("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED")
+    return _enabled("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED")
 
 
 class PermanentAccessGateway(Protocol):

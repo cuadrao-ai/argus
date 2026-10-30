@@ -104,7 +104,7 @@ and approval-email path, CAPTCHA wiring, and recorded hosted evidence. At that
 landing the permanent-account gate was still closed, so PR #319 itself did not
 authorize public account access or a new tester cohort. The founder opened the
 gate later, on 2026-08-12, and
-`ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` is now live in production.
+`CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` is now live in production.
 PR #320 unified the frontend failure vocabulary as `53c36d40`; PRs #323, #325,
 and #328 delivered the bounded auth copy, error-localization, and card-container
 corrections as `c1a13949`, `05fbef06`, and `403ea114`; and PR #327 removed the
@@ -330,7 +330,7 @@ Pre-flight is complete and its findings are the promotion agent's brief:
 - Env truth is layered: render.yaml plus a dashboard-set layer. The ceremony
   reconciles declared-vs-live; the discovery stack (provider, search model,
   daily ceiling, Perplexity key) is the highest-risk gap and gets a hosted
-  probe. `ARGUS_VISITOR_KEY_SECRET` (fresh high-entropy value) and
+  probe. `CUADRAO_VISITOR_KEY_SECRET` (fresh high-entropy value) and
   `NEXT_PUBLIC_ARGUS_SUPPORT_EMAIL` are already set on the services; the
   deploy bakes them in. Hosted key identity must verify as the argus-prod
   OpenRouter key.
@@ -928,7 +928,7 @@ DONE + landed on `codex/private-alpha-next`:
   explicit `false|0|off|no` kill switch preserving the pre-realism path.
 - Interpreter cost/perf (#156/#157, PR #172): automatic stable-prefix prompt
   caching on structured-artifact calls + per-tier reasoning-effort env overrides
-  (`ARGUS_STRUCTURED_REASONING_EFFORT`, `ARGUS_CAPABILITY_REASONING_EFFORT`).
+  (`CUADRAO_STRUCTURED_REASONING_EFFORT`, `CUADRAO_CAPABILITY_REASONING_EFFORT`).
 - #149 result-followup timeout recovery fixed for Python 3.10 (#168).
 - `codex/p2.1a-capability-registry` is SUPERSEDED — its deploy work (onboarding-flag
   gate, grok-4.3/claude-haiku model swap, deploy contract, widened LLM timeouts) is
@@ -1046,8 +1046,8 @@ LANES BY GATE (the board agents execute from):
 - **B5 Interpreter cost/perf (#156, #157).** DONE — merged as PR #172. Automatic
   stable-prefix prompt caching on structured-artifact calls
   (interpretation/repair/field-fidelity/capability-conflict) and per-tier
-  reasoning-effort env overrides (`ARGUS_STRUCTURED_REASONING_EFFORT`,
-  `ARGUS_CAPABILITY_REASONING_EFFORT`) so dev runs cheap and production runs at
+  reasoning-effort env overrides (`CUADRAO_STRUCTURED_REASONING_EFFORT`,
+  `CUADRAO_CAPABILITY_REASONING_EFFORT`) so dev runs cheap and production runs at
   full effort. OPEN follow-up on this lane: #159 (quality-gated model cascade —
   cheap primary, capable escalation; low-priority/deferred). NOTE: #160
   (interpreter dead-ends) surfaced from this lane's investigation but is a
@@ -1462,9 +1462,9 @@ disclosure. See
   visitor/day identity so renewing the temporary session cannot reset them.
   The integrated code is not a public-ready or deployed release.
 - Guest is now an accepted part of the normal product shape:
-  `ARGUS_GUEST_ACCESS_ENABLED=true` and
+  `CUADRAO_GUEST_ACCESS_ENABLED=true` and
   `NEXT_PUBLIC_GUEST_ACCESS_ENABLED=true` are default-on emergency kill
-  switches. `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` is the independent
+  switches. `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` is the independent
   permanent-account gate and the founder opened it in production on 2026-08-12,
   so public registration is open.
 - Public exposure still requires a branch-deployed exact-SHA canary, hosted

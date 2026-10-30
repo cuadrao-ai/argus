@@ -55,7 +55,7 @@ read/history/correction/retry adaptation, then acceptance and activation.
 
 ## Default-off activation boundary
 
-`ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED=false` is declared in the existing template
+`CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED=false` is declared in the existing template
 and Render blueprint. The common planner refuses mixed-currency preview and new
 confirmation while off; read projection remains available and old accepted receipt
 replay retains its contract. This slice changes no native files or hosted flags.

@@ -8,7 +8,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from importlib.resources import files
 
-SMTP_PASSWORD_ENV = "ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD"
+SMTP_PASSWORD_ENV = "CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD"
 # Owned by argus_display_contract/support_contact.json, which the web build also reads.
 SUPPORT_EMAIL_ADDRESS: str = json.loads(
     files("argus_display_contract").joinpath("support_contact.json").read_text()

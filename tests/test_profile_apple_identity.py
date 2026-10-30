@@ -92,7 +92,7 @@ def test_missing_database_is_only_absent_for_explicit_memory_mock(owner, monkeyp
     monkeypatch.setattr(api_state, "DATABASE_URL", "")
     assert profile.get_me(request, user).model_dump()["apple_identity"] is None
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     with pytest.raises(HTTPException) as raised:
         profile.get_me(request, user)
     assert raised.value.status_code == 503

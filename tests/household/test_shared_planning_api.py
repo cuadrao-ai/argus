@@ -172,5 +172,5 @@ def test_api_guest_and_default_off_gate(api, monkeypatch):
     )
     assert response.status_code == 403
     del app.dependency_overrides[require_households_surface]
-    monkeypatch.setenv("ARGUS_HOUSEHOLDS_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_HOUSEHOLDS_ENABLED", "false")
     assert send(client, s, s["b"], "GET", "/plan").status_code == 404

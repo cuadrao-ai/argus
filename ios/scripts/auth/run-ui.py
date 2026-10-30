@@ -108,7 +108,6 @@ for target in targets:
     target.setdefault("EnvironmentVariables", {}).update(
         {
             "ARGUS_TEST_AUTH_UI_ENABLED": "true",
-            "ARGUS_TEST_ACCOUNTS_UI_ENABLED": str(args.accounts).lower(),
             "ARGUS_TEST_LANGUAGE": args.language,
             "ARGUS_TEST_APPEARANCE": args.appearance,
             "ARGUS_TEST_RESPONSE_LOSS_PROXY": str(args.response_loss_proxy).lower(),

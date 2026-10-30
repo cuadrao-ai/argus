@@ -33,7 +33,7 @@ pytestmark = pytest.mark.skipif(not DSN, reason="Disposable PostgreSQL required"
 
 
 def test_household_pair_retry_and_revoked_source_are_currency_safe(lane, monkeypatch):
-    monkeypatch.setenv("ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
     service, records, (a, b, _) = lane
     hid, mid, _ = setup(lane)
     source, dest = (
@@ -95,7 +95,7 @@ def test_household_pair_retry_and_revoked_source_are_currency_safe(lane, monkeyp
 def test_shared_goal_corrected_private_pair_discloses_only_plan_denomination(
     lane, monkeypatch, source_currency, destination_currency, expected_amount
 ):
-    monkeypatch.setenv("ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
     s = scene(lane)
     goal = create(s, "goal")
     original = personal(s, s["b"], request("transfer", s["ba"], "20", s["bd"]))

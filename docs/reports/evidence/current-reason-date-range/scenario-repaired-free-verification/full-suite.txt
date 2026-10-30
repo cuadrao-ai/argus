@@ -719,10 +719,10 @@ E
 E       If you did not intend to touch model-facing text, revert instead.
 
 tests/test_interpreter_prompt_freeze.py:77: Failed
-_ test_model_or_flag_mismatch_fails_promotion[eval-environment-ARGUS_STRUCTURED_FALLBACK_MODEL] _
+_ test_model_or_flag_mismatch_fails_promotion[eval-environment-CUADRAO_STRUCTURED_FALLBACK_MODEL] _
 
 tmp_path = PosixPath('/private/var/folders/04/_3s7_2qd2z3_pxhb1jgjj5m00000gn/T/pytest-of-garces/pytest-71/test_model_or_flag_mismatch_fa47')
-key = 'ARGUS_STRUCTURED_FALLBACK_MODEL', changed_in = 'eval-environment'
+key = 'CUADRAO_STRUCTURED_FALLBACK_MODEL', changed_in = 'eval-environment'
 
     @pytest.mark.parametrize("key", sorted(_configuration(_profile())))
     @pytest.mark.parametrize("changed_in", ["contract", "eval-environment"])
@@ -835,5 +835,5 @@ tests/test_auth_sessions.py::test_auth_session_timeout_maps_to_verification_unav
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
 =========================== short test summary info ============================
 FAILED tests/test_interpreter_prompt_freeze.py::test_model_facing_text_matches_its_measured_fingerprint
-FAILED tests/test_promotion_evidence_configuration.py::test_model_or_flag_mismatch_fails_promotion[eval-environment-ARGUS_STRUCTURED_FALLBACK_MODEL]
+FAILED tests/test_promotion_evidence_configuration.py::test_model_or_flag_mismatch_fails_promotion[eval-environment-CUADRAO_STRUCTURED_FALLBACK_MODEL]
 ===== 2 failed, 8919 passed, 614 skipped, 5 warnings in 185.05s (0:03:05) ======

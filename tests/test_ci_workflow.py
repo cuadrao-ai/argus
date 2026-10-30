@@ -357,7 +357,7 @@ def test_private_alpha_canary_workflow_scopes_secrets_to_operational_steps() -> 
     workflow = _canary_workflow()
     secret_names = {
         "RENDER_API_KEY",
-        "ARGUS_OPS_TOKEN",
+        "CUADRAO_OPS_TOKEN",
         "ARGUS_WORKFLOW_DATABASE_URL",
         "ARGUS_CANARY_EMAIL",
         "ARGUS_CANARY_SUPABASE_URL",
@@ -367,7 +367,7 @@ def test_private_alpha_canary_workflow_scopes_secrets_to_operational_steps() -> 
     browser = workflow["jobs"]["authenticated-browser-journey"]
     release_secret_names = {
         "RENDER_API_KEY",
-        "ARGUS_OPS_TOKEN",
+        "CUADRAO_OPS_TOKEN",
         "ARGUS_WORKFLOW_DATABASE_URL",
         "ARGUS_CANARY_SUPABASE_URL",
         "ARGUS_CANARY_SUPABASE_SERVICE_ROLE_KEY",
@@ -403,7 +403,7 @@ def test_private_alpha_canary_workflow_scopes_secrets_to_operational_steps() -> 
         browser_operational_secret_names
     )
     assert browser_steps["Run authenticated browser checks"].isdisjoint(
-        {"ARGUS_OPS_TOKEN", "ARGUS_WORKFLOW_DATABASE_URL"}
+        {"CUADRAO_OPS_TOKEN", "ARGUS_WORKFLOW_DATABASE_URL"}
     )
     for steps in (release_steps, browser_steps):
         for name, secrets in steps.items():

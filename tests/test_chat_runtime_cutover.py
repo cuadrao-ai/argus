@@ -308,8 +308,8 @@ def test_inline_and_threaded_streams_use_one_scope(
     monkeypatch.setattr(agent_router, "runtime_worker_enabled", lambda: threaded)
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("OPENROUTER_API_KEY", "dev-only")
-    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "registered-key")
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
+    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "registered-key")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
     monkeypatch.setattr(
         agent_router,
         "stream_agent_turn_events",

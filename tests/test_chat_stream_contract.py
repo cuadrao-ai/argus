@@ -375,23 +375,23 @@ def test_runtime_worker_auto_mode_is_reserved_for_prod_like_streams(
 ) -> None:
     from argus.api.chat.runtime_worker import runtime_worker_enabled
 
-    monkeypatch.delenv("ARGUS_RUNTIME_STREAM_WORKER", raising=False)
-    monkeypatch.setenv("ARGUS_PERSISTENCE_MODE", "memory")
-    monkeypatch.setenv("ARGUS_CHECKPOINTER_MODE", "memory")
+    monkeypatch.delenv("CUADRAO_RUNTIME_STREAM_WORKER", raising=False)
+    monkeypatch.setenv("CUADRAO_PERSISTENCE_MODE", "memory")
+    monkeypatch.setenv("CUADRAO_CHECKPOINTER_MODE", "memory")
 
     assert runtime_worker_enabled() is False
 
-    monkeypatch.setenv("ARGUS_PERSISTENCE_MODE", "supabase")
+    monkeypatch.setenv("CUADRAO_PERSISTENCE_MODE", "supabase")
     assert runtime_worker_enabled() is True
 
-    monkeypatch.setenv("ARGUS_PERSISTENCE_MODE", "memory")
-    monkeypatch.setenv("ARGUS_CHECKPOINTER_MODE", "postgres")
+    monkeypatch.setenv("CUADRAO_PERSISTENCE_MODE", "memory")
+    monkeypatch.setenv("CUADRAO_CHECKPOINTER_MODE", "postgres")
     assert runtime_worker_enabled() is True
 
-    monkeypatch.setenv("ARGUS_RUNTIME_STREAM_WORKER", "false")
+    monkeypatch.setenv("CUADRAO_RUNTIME_STREAM_WORKER", "false")
     assert runtime_worker_enabled() is False
 
-    monkeypatch.setenv("ARGUS_RUNTIME_STREAM_WORKER", "true")
+    monkeypatch.setenv("CUADRAO_RUNTIME_STREAM_WORKER", "true")
     assert runtime_worker_enabled() is True
 
 
@@ -1125,8 +1125,8 @@ def test_chat_stream_visible_failure_path_is_terminal_for_turn(
 
     monkeypatch.setattr(agent_router, "runtime_worker_enabled", lambda: True)
     # Workspace dotenv values otherwise override these intentionally tiny test clocks.
-    monkeypatch.setenv("ARGUS_RUNTIME_EVENT_TIMEOUT_SECONDS", "")
-    monkeypatch.setenv("ARGUS_RUNTIME_EVENT_KEEPALIVE_SECONDS", "")
+    monkeypatch.setenv("CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS", "")
+    monkeypatch.setenv("CUADRAO_RUNTIME_EVENT_KEEPALIVE_SECONDS", "")
     monkeypatch.setattr(agent_router, "RUNTIME_EVENT_TIMEOUT_SECONDS", 0.01)
     monkeypatch.setattr(agent_router, "RUNTIME_EVENT_KEEPALIVE_SECONDS", 0.005)
     monkeypatch.setattr(
@@ -1233,8 +1233,8 @@ def test_chat_stream_runtime_keepalive_preserves_slow_progressing_turn(
     )
     monkeypatch.setattr(agent_router, "RUNTIME_EVENT_TIMEOUT_SECONDS", 1)
     monkeypatch.setattr(agent_router, "RUNTIME_EVENT_KEEPALIVE_SECONDS", 0.01)
-    monkeypatch.setenv("ARGUS_RUNTIME_EVENT_TIMEOUT_SECONDS", "")
-    monkeypatch.setenv("ARGUS_RUNTIME_EVENT_KEEPALIVE_SECONDS", "")
+    monkeypatch.setenv("CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS", "")
+    monkeypatch.setenv("CUADRAO_RUNTIME_EVENT_KEEPALIVE_SECONDS", "")
     client = _client()
     conversation = _conversation(client)
 
@@ -1275,9 +1275,9 @@ async def test_events_cannot_reset_the_absolute_turn_deadline(
 
     clock = _Clock()
     monkeypatch.setattr(turn_execution, "_monotonic", clock)
-    monkeypatch.setenv("ARGUS_TURN_DEADLINE_SECONDS", "0.25")
-    monkeypatch.setenv("ARGUS_RUNTIME_EVENT_TIMEOUT_SECONDS", "1")
-    monkeypatch.setenv("ARGUS_RUNTIME_EVENT_KEEPALIVE_SECONDS", "0.1")
+    monkeypatch.setenv("CUADRAO_TURN_DEADLINE_SECONDS", "0.25")
+    monkeypatch.setenv("CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS", "1")
+    monkeypatch.setenv("CUADRAO_RUNTIME_EVENT_KEEPALIVE_SECONDS", "0.1")
 
     async def _many_timely_events():
         for index in range(40):
@@ -1319,9 +1319,9 @@ async def test_turn_deadline_diagnostic_uses_total_turn_elapsed(
 
     clock = _Clock()
     monkeypatch.setattr(turn_execution, "_monotonic", clock)
-    monkeypatch.setenv("ARGUS_TURN_DEADLINE_SECONDS", "0.25")
-    monkeypatch.setenv("ARGUS_RUNTIME_EVENT_TIMEOUT_SECONDS", "5")
-    monkeypatch.setenv("ARGUS_RUNTIME_EVENT_KEEPALIVE_SECONDS", "0.1")
+    monkeypatch.setenv("CUADRAO_TURN_DEADLINE_SECONDS", "0.25")
+    monkeypatch.setenv("CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS", "5")
+    monkeypatch.setenv("CUADRAO_RUNTIME_EVENT_KEEPALIVE_SECONDS", "0.1")
 
     async def _events():
         clock.advance(0.2)

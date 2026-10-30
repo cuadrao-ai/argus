@@ -20,7 +20,7 @@ def _signup_environment(monkeypatch: pytest.MonkeyPatch) -> None:
 
     auth.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     monkeypatch.setenv("CUADRAO_APP_ORIGIN", APP_ORIGIN)
 
 
@@ -122,7 +122,7 @@ def test_denied_and_failed_signups_send_no_notice(
     sent: list[dict[str, object]],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
     gateway.private_alpha_email_disabled.return_value = True
     denied = _signup(fake.unique.email())
 

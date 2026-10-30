@@ -64,7 +64,7 @@ CANARY_RESEARCH_PROMPT="$(python3 "$RELEASE_PROFILE_TOOL" canary-value research_
 
 echo "Running authenticated browser canary checks"
 cd web
-env -u ARGUS_OPS_TOKEN \
+env -u CUADRAO_OPS_TOKEN \
   -u ARGUS_WORKFLOW_DATABASE_URL \
   -u RENDER_API_KEY \
   -u SUPABASE_SERVICE_ROLE_KEY \

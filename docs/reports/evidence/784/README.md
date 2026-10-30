@@ -180,7 +180,7 @@ From the #795 entry on #784:
 4. **Apple, device only.** Enable the capability on the App ID, use
    `CODE_SIGN_ENTITLEMENTS = Config/SignInWithApple.entitlements` in `Device.local.xcconfig`
    and set `ARGUS_APPLE_SIGN_IN_ENABLED=true`. Sign in, and expect Connected Home. With #793
-   deployed and `ARGUS_APPLE_REVOCATION_CAPTURE_ENABLED=true`,
+   deployed and `CUADRAO_APPLE_REVOCATION_CAPTURE_ENABLED=true`,
    `POST /api/v1/auth/apple/authorization-code` returns 204.
 5. **Screenshots, before and after.** The create-account and sign-in screens with the
    switches off, which should be identical, and on.

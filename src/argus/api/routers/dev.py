@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/v1", tags=["dev"])
 def dev_endpoints_enabled() -> bool:
     return (
         os.getenv("ARGUS_DEV_ENDPOINTS_ENABLED", "").strip().lower() == "true"
-        or os.getenv("ARGUS_MOCK_AUTH", "").strip().lower() == "true"
+        or os.getenv("CUADRAO_MOCK_AUTH", "").strip().lower() == "true"
         or os.getenv("NEXT_PUBLIC_MOCK_AUTH", "").strip().lower() == "true"
     )
 

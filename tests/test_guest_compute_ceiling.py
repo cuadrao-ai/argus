@@ -107,10 +107,10 @@ def _guest(
     turns_today: int,
     session_used: int | None = None,
 ) -> _FakeComputeClaimClient:
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     _configure_guest_account(mock_gateway)
     fake = _FakeComputeClaimClient(
         visitor_used=turns_today,
@@ -133,13 +133,13 @@ def _terminal_message_ids(mock_gateway) -> set[str]:
 def test_session_ceiling_reads_env_or_the_code_owned_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("ARGUS_GUEST_SESSION_DAILY_TURN_CEILING", raising=False)
+    monkeypatch.delenv("CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING", raising=False)
     assert guest_session_daily_turn_ceiling() == 100
-    monkeypatch.setenv("ARGUS_GUEST_SESSION_DAILY_TURN_CEILING", "25")
+    monkeypatch.setenv("CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING", "25")
     assert guest_session_daily_turn_ceiling() == 25
-    monkeypatch.setenv("ARGUS_GUEST_SESSION_DAILY_TURN_CEILING", "0")
+    monkeypatch.setenv("CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING", "0")
     assert guest_session_daily_turn_ceiling() == 100
-    monkeypatch.setenv("ARGUS_GUEST_SESSION_DAILY_TURN_CEILING", "nope")
+    monkeypatch.setenv("CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING", "nope")
     assert guest_session_daily_turn_ceiling() == 100
 
 

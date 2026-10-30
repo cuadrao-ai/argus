@@ -1027,9 +1027,9 @@ runtime and accounting owners.
 
 Two server flags own separate policy boundaries:
 
-- `ARGUS_GUEST_ACCESS_ENABLED` defaults on; explicit `false` is the emergency
+- `CUADRAO_GUEST_ACCESS_ENABLED` defaults on; explicit `false` is the emergency
   bootstrap kill switch.
-- `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` separately controls ordinary
+- `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` separately controls ordinary
   permanent-account access. Unlike the guest flag it fails closed when unset, so
   an environment that omits it denies public registration. The founder opened it
   in production on 2026-08-12; explicit `false` closes it again.

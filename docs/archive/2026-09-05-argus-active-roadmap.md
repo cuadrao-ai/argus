@@ -310,7 +310,7 @@ reliable versioning and a way to read them back.
 ### 5. Sharing — BUILT AND DARK, 2026-08-10
 
 Merged as PR #397 at `33001adc`, 101 files. Both
-`ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED` and its `NEXT_PUBLIC_` twin stay
+`CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED` and its `NEXT_PUBLIC_` twin stay
 `false`, and that is deliberate rather than pending.
 
 **Why it did not ship on with the rail.** The founder parked it until Argus
@@ -464,7 +464,7 @@ is stranded. Confirm that before deleting, but do not invent a migration for
 state that does not exist.
 
 **One decision to raise, not take.** Two flags gate the same chips.
-`NEXT_PUBLIC_CHAT_EXPLORATORY_SUGGESTIONS_ENABLED` is `false` in `render.yaml`,
+`[removed obsolete setting]` is `false` in `render.yaml`,
 `.github/argus-env.sh`, `.github/private-alpha-release-profile.json`, and
 `.env.example`, while the research rail's own flag governs the same surface and
 rail spec section 10 makes prebaked suggestions part of the signed-in empty

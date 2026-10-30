@@ -37,7 +37,7 @@
   },
   "public_account_access_enabled": true,
   "reused_compiled_frontend": false,
-  "production_setting_source": "Founder supplied ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true; no hosted configuration reread",
+  "production_setting_source": "Founder supplied CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true; no hosted configuration reread",
   "assertions": {
     "api_and_browser_me_flag_true": true,
     "four_signup_forms_visible": true,

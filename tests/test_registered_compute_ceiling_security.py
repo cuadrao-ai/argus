@@ -35,7 +35,7 @@ def test_concurrent_signed_in_claims_at_one_remaining_accept_exactly_one(
 ) -> None:
     monkeypatch.setattr(api_state, "supabase_gateway", None)
     api_state.store.visitor_usage_counters.clear()
-    monkeypatch.setenv("ARGUS_REGISTERED_DAILY_TURN_CEILING", "2")
+    monkeypatch.setenv("CUADRAO_REGISTERED_DAILY_TURN_CEILING", "2")
     first = claim_registered_compute_turn(account_key=ACCOUNT_KEY)
     assert first.available is True
 
@@ -67,7 +67,7 @@ def test_concurrent_signed_in_claims_at_one_remaining_accept_exactly_one(
 def test_concurrent_signed_in_endpoint_claims_reject_the_overshoot(
     mock_gateway, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("ARGUS_REGISTERED_DAILY_TURN_CEILING", "1")
+    monkeypatch.setenv("CUADRAO_REGISTERED_DAILY_TURN_CEILING", "1")
     fake = _registered(mock_gateway, monkeypatch, turns_today=0)
     barrier = Barrier(6)
 
