@@ -3686,7 +3686,7 @@ when a source is a Business conversation, one of its messages, or evidence it
 produced.
 
 **Business chat.** `CUADRAO_BUSINESS_CHAT_ENABLED` (older `ARGUS_BUSINESS_CHAT_ENABLED`) is a default-off flag nested
-inside `ARGUS_BUSINESS_PILOT_ENABLED`; Business chat stays off until Business
+inside `CUADRAO_BUSINESS_PILOT_ENABLED` (older `ARGUS_BUSINESS_PILOT_ENABLED`); Business chat stays off until Business
 turns have their own tool restrictions. While it is off (or the pilot is off),
 `POST /conversations` with `surface: business` and every turn or card action on
 a Business conversation answer 404 `business_chat_unavailable` with
@@ -8841,7 +8841,7 @@ attempt whose worker died as follows:
 Only the owner's `/prepare` or `/resume` with `X-Extraction-Consent: true`
 starts a new paid attempt from `needs_attention`. A superseded attempt's late
 result is refused. Instances coordinate through the database, so one attempt is
-dispatched once. Settings are `ARGUS_DOCUMENT_JOBS_ENABLED`,
+dispatched once. Settings are `CUADRAO_DOCUMENT_JOBS_ENABLED`,
 `CUADRAO_DOCUMENT_JOBS_WORKFLOW_TASK` and `CUADRAO_DOCUMENT_JOBS_SWEEP_SECONDS` (older `ARGUS_` names). Design:
 `docs/specs/lanes/cuadrao-document-preparation-jobs.md`.
 
