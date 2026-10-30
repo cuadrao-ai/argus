@@ -38,6 +38,18 @@ for (const { home, other, label, phoneLabel, lang, cta, login } of cases) {
       expect(boxes[0]!.y).toBeLessThan(boxes[1]!.y);
       expect(boxes[1]!.y).toBeLessThan(boxes[2]!.y);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
+      const edges = await nav.evaluate((panel) => {
+        const textLeft = (node: Element) => {
+          const range = document.createRange();
+          const text = [...node.childNodes].find((child) => child.nodeType === Node.TEXT_NODE && child.textContent?.trim());
+          range.selectNodeContents(text ?? node);
+          return range.getBoundingClientRect().left;
+        };
+        const link = panel.querySelector("[data-language-switch]")!;
+        const peer = panel.querySelector("a")!;
+        return { link: textLeft(link), peer: textLeft(peer) };
+      });
+      expect(Math.abs(edges.link - edges.peer)).toBeLessThanOrEqual(0.5);
     } else {
       expect(boxes[0]!.x).toBeLessThan(boxes[1]!.x);
       expect(boxes[1]!.x).toBeLessThan(boxes[2]!.x);

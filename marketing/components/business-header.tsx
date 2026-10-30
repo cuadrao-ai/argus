@@ -24,7 +24,7 @@ function LanguageSwitch({
   return (
     <span className={languageStyles.slot}>
       <a
-        className={languageStyles.link}
+        className={phone ? `${languageStyles.link} ${languageStyles.phone}` : languageStyles.link}
         href={link.href}
         hrefLang={link.lang}
         lang={link.lang}

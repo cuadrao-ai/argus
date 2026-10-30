@@ -24,6 +24,10 @@
   outline-offset: 2px;
 }
 
+.phone {
+  margin-left: -12px;
+}
+
 .srOnly {
   position: absolute;
   width: 1px;
