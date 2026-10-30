@@ -9447,123 +9447,57 @@ or hyphens and NCF letter case normalize for identity without changing sources.
 
 `GET /business/activity?limit=25|50|100&cursor=<opaque>` lists who changed what
 and when in the working Business (the chosen `X-Business-Grant`'s Business, else
-the caller's own), newest first. It is read-only and additive: no existing route
-changes. The page is `{items: [...], next_cursor: string|null, actors: [...]|null}`;
-`limit` defaults to 25 and accepts only 25, 50 and 100 (any other value is 422
-`validation_error`). Each item is
-`{id, occurred_at, actor, action, object, area, restricted, role, personal, include}`.
-`id` is an opaque, stable string per row. `occurred_at` is the row's server
-timestamp.
-
-`actor` is `{display_name, kind, id, membership}`, or `null` when the source
-recorded no actor at all (the client shows "Actor no registrado"; no row says
-who when the record does not). `display_name` is the name the ledger stored
-when the action ran, so a member who later left keeps their name, and an
-account the departure flow erased shows `Exmiembro`; the server never joins the
-account table for a ledger row. `kind` is `member`, `owner_via_agent` or
-`extractor` (automated processing; the client names it Cuadrao). `id` is an
-opaque id per person and Business, the same on every row of that person and
-in `actors`, never an account id or an email; every `extractor` row of a
-Business shares one `id`. `membership` is `current` while the person holds a
-live grant on the Business, `former` once every grant of theirs is revoked or
-expired, and `null` when no grant history exists (the extractor, an erased
-account).
-
-`action` is a closed enum of the ledger's own action names (`review_draft`,
+the caller's own), from the action ledger, newest first. It is read-only and
+additive: no existing route changes. The page is
+`{items: [...], next_cursor: string|null}`; `limit` defaults to 25 and accepts
+only 25, 50 and 100 (any other value is 422 `validation_error`). Each item is
+`{id, occurred_at, actor: {display_name, kind}, action, object}`. `id` is an
+opaque, stable string per ledger row. `occurred_at` is the row's `created_at`.
+`actor.display_name` is the name the ledger stored when the action ran, so a
+member who later left shows as `Exmiembro`; the server never joins the account
+table. `actor.kind` is `member`, `owner_via_agent` or `extractor`. `action` is a
+closed enum of the ledger's own action names (`review_draft`,
 `approve_expense`, `approve_income`, `approve_refund`, `capture_note`,
 `prepare_attachment`, `rebind_attachment`, `settle_remainder`, `mark_personal`,
 `decide_606`, `resolve_duplicate`, `edit_current_note`,
 `append_supporting_file`, `receipt_upload`, `receipt_review`,
-`receipt_confirm`, `set_business_rnc`, `business_propose_activity`,
-`business_attach_source`, `business_propose_allocation`, `business_ask`,
-`owner_grant`, `grant_access`, `invite_access`, `accept_invite`,
-`revoke_grant`, `revoke_invite`, `change_role`), two events read from other
-tables (`ownership_transferred`: an accepted ownership transfer, the new owner
-as actor at its acceptance; `receipt_reading_enabled`: the owner turning
-Business receipt reading on, at its consent), plus `other`, which only a reader
-whose live grant allows `manage` sees, for an action the feed does not know
-yet; the server never echoes the stored command. Turning receipt reading off
-does not list yet: the consent table records when, not who.
-
-`area` places the action for the Area filter and is server-owned: `documents`
-(`receipt_upload`, `prepare_attachment`, `rebind_attachment`,
-`append_supporting_file`, `business_attach_source`, `resolve_duplicate`),
-`records` (`review_draft`, the approvals, `capture_note`, `settle_remainder`,
-`mark_personal`, `decide_606`, `edit_current_note`, `receipt_review`,
-`receipt_confirm`, `business_propose_activity`, `business_propose_allocation`,
-`business_ask`), `business` (`set_business_rnc`, the access changes,
-`ownership_transferred`, `receipt_reading_enabled`); `invoicing` is reserved
-and empty until invoice events carry an actor. `other` has `area: null`.
-`restricted` is `true` on a row only a reader who may manage sees (the access
-changes, the two derived events and `other`), so the client can mark it.
-
-`object` is `{kind: draft|grant|invite, id, label}` when the action names one
-and the server knows its id, else `null`. `label` is a human name for the
-object from a record the reader may read, else `null`: a draft's counterparty
-when it is known, a grant's person by their current profile label. An invite
-names only an email, so its label is always `null`. No amount, email or other
+`receipt_confirm`, `set_business_rnc`,
+`business_propose_activity`, `business_attach_source`,
+`business_propose_allocation`, `business_ask`, `owner_grant`, `grant_access`,
+`invite_access`, `accept_invite`, `revoke_grant`, `revoke_invite`,
+`change_role`) plus `other`,
+which only a reader whose live grant allows `manage` sees, for an action the
+feed does not know yet; the server never echoes the stored command. `object` is `{kind: draft|grant|invite, id}` when the action names
+one and the server knows its id, else `null`. No label, amount, email or other
 field of the command leaves the ledger.
-
-Three actions carry one typed field of the stored command, `null` elsewhere:
-`role` (`owner|admin|editor|viewer`) on `grant_access`, `invite_access` and
-`change_role`; `personal` on `mark_personal` (`true`: marked personal; `false`:
-returned to the Business); `include` on `decide_606` (`true`: included in the
-606). The client localizes them.
-
-Filters, all optional query parameters, narrow the page on the server:
-`from` and `to` (`YYYY-MM-DD`, calendar days in the Business time zone,
-inclusive; `to` before `from` is 422 `invalid_date_range`), `actor` (repeatable
-`id` from `actors`, at most 50), `area` (repeatable, at most 4) and
-`action_group` (repeatable, at most 9: `uploads` for `receipt_upload`;
-`reading` for `prepare_attachment`; `reviews` for `review_draft`,
-`receipt_review`, `business_ask`, `resolve_duplicate`; `approvals` for the
-approvals, `receipt_confirm`, `decide_606`; `edits` for `capture_note`,
-`settle_remainder`, `mark_personal`, `edit_current_note`,
-`business_propose_activity`, `business_propose_allocation`; `files` for
-`rebind_attachment`, `append_supporting_file`, `business_attach_source`;
-`invoices`, reserved and empty; `access` for the access changes and
-`ownership_transferred`; `settings` for `set_business_rnc` and
-`receipt_reading_enabled`). Values of one filter are OR'ed and the filters are
-AND'ed. An unknown value is 422 `validation_error`. An `area` or
-`action_group` filter matches catalog actions only, so `other` never matches
-a filter, for any reader.
-
-`actors` lists, on the first page only (`null` on a cursor page), every actor
-with at least one row the reader may see under the `from`, `to`, `area` and
-`action_group` filters (the `actor` filter does not narrow it), as
-`{id, display_name, kind, membership}` sorted by name, with the name the
-newest such row stored. An actor whose only rows are manager-only never
-appears in a member's `actors`.
 
 Only rows whose outcome is `applied` list; refused, failed, stale, replayed and
 in-flight rows do not. Ledger marks of a read or a look-up (`access_seen`,
 `business_read_context`, `business_find_related`, `business_explain_status`)
 are not changes and never list, and neither does `email_ai_consent_declined`,
 the owner's own answer to the one-time email AI notice, which changes no
-Business record. `business_ask` lists, because an applied Ask opens a question
-on the draft it names. A member whose live grant allows `read` sees only the
-listed actions that are not access changes; an action the feed does not list
-never reaches a member, so a new ledger action stays hidden from members until
-the feed names it. The access changes (`owner_grant`, `grant_access`,
-`invite_access`, `accept_invite`, `revoke_grant`, `revoke_invite`,
-`change_role`), `ownership_transferred`, `receipt_reading_enabled` and
-`other` list only for a reader whose live grant allows `manage`, the same rule
-as `GET /business/access`, in rows, in `actors` and under every filter. The
-page is scoped to one Business; a cursor from another Business positions
-within this one and reveals nothing of the other.
+Business record. `business_ask` lists, because an applied Ask
+opens a question on the draft it names. A
+member whose live grant allows `read` sees only the listed actions that are
+not access changes; an action the feed does not list never reaches a member,
+so a new ledger action stays hidden from members until the feed names it. The
+access changes (`owner_grant`, `grant_access`, `invite_access`,
+`accept_invite`, `revoke_grant`, `revoke_invite`, `change_role`) and `other`
+list only for a reader whose live grant allows `manage`, the same rule as
+`GET /business/access`. The page
+is scoped to one Business; a cursor from another Business positions within
+this one and reveals nothing of the other.
 
 `next_cursor` is an opaque cursor for the older rows, `null` on the last page.
-The order is `occurred_at` descending with a stable tie-break, so a page does
+The order is `created_at` descending with a stable tie-break, so a page does
 not move when a newer row lands: a cursor taken before new activity continues
-from the same row. A cursor is bound to the filter set that issued it: sent
-with any other `from`, `to`, `actor`, `area` or `action_group`, or one the feed
-did not issue, it is 422 `invalid_cursor`. The in-memory app keeps no ledger:
-the read answers 200 with `items` empty, `next_cursor` null and `actors` empty
-once the caller's Business exists. A missing, foreign, revoked or expired
-`X-Business-Grant` answers 403 `business_grant_not_live`; a caller whose own
-grant is no longer live answers 404 `business_record_not_found`; a ledger that
-cannot be read answers 503 `business_activity_unavailable`. Every answer is
-`Cache-Control: no-store`.
+from the same row. A cursor the feed did not issue is 422 `invalid_cursor`.
+The in-memory app keeps no ledger: the read answers 200 with `items` empty and
+`next_cursor` null once the caller's Business exists. A missing, foreign,
+revoked or expired `X-Business-Grant` answers 403 `business_grant_not_live`; a
+caller whose own grant is no longer live answers 404
+`business_record_not_found`; a ledger that cannot be read answers 503
+`business_activity_unavailable`. Every answer is `Cache-Control: no-store`.
 
 ### Business customers and invoice editor
 
