@@ -301,6 +301,7 @@ describe("the Business top bar on a phone", () => {
     const statuses = () => page.screen().querySelectorAll<HTMLElement>('[data-testid="month-close-receipts-status"]');
     const status = statuses()[0];
     assert.equal(statuses().length, 1);
+    assert.equal(status.querySelector('[data-testid="inicio-error"]')?.getAttribute("role"), "alert");
     assert.equal(status.querySelector("p")?.textContent, "No pudimos cargar el conteo de recibos. Aún no se puede cerrar el mes.");
     assert.deepEqual([...status.querySelectorAll("button")].filter((button) => button.dataset.testid !== "error-reference").map((button) => button.textContent), ["Reintentar"]);
     const greeting = page.screen().querySelector('[data-testid="home-heading"]')!;
