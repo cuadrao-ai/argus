@@ -6,6 +6,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { I18nextProvider } from "react-i18next";
 
 import AuthForm from "../components/auth/AuthForm";
+import { takeRecoveryEmail } from "../components/auth/recovery-email";
 import es419 from "../public/locales/es-419/common.json";
 
 beforeAll(() => {
@@ -27,7 +28,7 @@ async function setNativeValue(element: HTMLInputElement, value: string) {
 
 async function renderSpanishSignup(props: {
   onConfirmEmailCode?: (input: { email: string; code: string }) => Promise<void>;
-  onEmailConfirmed?: () => void | Promise<void>;
+  onEmailConfirmed?: (input: { signal: AbortSignal }) => void | Promise<void>;
   onResendEmailCode?: (input: { email: string }) => Promise<void>;
   onModeChange?: (mode: "signup" | "login") => void;
 }) {
@@ -330,5 +331,136 @@ test("the check-email step offers sign-in and password recovery", async () => {
   expect((page.host.querySelector('input[type="email"]') as HTMLInputElement).value).toBe("ada@example.com");
   await act(async () => {
     page.root.unmount();
+  });
+});
+
+describe("an exit chosen while a code operation is pending wins over its late result", () => {
+  type Settle = { resolve: () => void; reject: () => void };
+  const operations: Record<string, (settle: Settle) => Parameters<typeof renderSpanishSignup>[0]> = {
+    "a code check that succeeds late": (settle) => ({ onConfirmEmailCode: () => new Promise<void>((resolve) => { settle.resolve = resolve; }) }),
+    "a code check that fails late": (settle) => ({ onConfirmEmailCode: () => new Promise<void>((_, reject) => {
+      settle.resolve = () => reject(Object.assign(new Error("private"), { code: "otp_rejected" }));
+    }) }),
+    "a resend that is accepted late": (settle) => ({ onResendEmailCode: () => new Promise<void>((resolve) => { settle.resolve = resolve; }) }),
+    "a resend that is refused late": (settle) => ({ onResendEmailCode: () => new Promise<void>((_, reject) => {
+      settle.resolve = () => reject(Object.assign(new Error("private"), { code: "captcha_unavailable" }));
+    }) }),
+  };
+  const lateResults = [
+    es419.auth.signup.confirmation_resend_sent,
+    es419.auth.signup.confirmation_resend_failed,
+    es419.auth.signup.confirmation_code_rejected,
+  ];
+  function expectNoLateResult(host: HTMLElement) {
+    const note = host.querySelector("#auth-confirmation-code-note")?.textContent ?? "";
+    for (const text of lateResults) expect(note).not.toContain(text);
+    expect(host.querySelector("[data-otp-status]")?.getAttribute("data-otp-status")).not.toBe("verified");
+  }
+
+  async function startPending(page: Awaited<ReturnType<typeof renderSpanishSignup>>, operation: string, armed: { tick: () => void; restore: () => void }) {
+    const code = page.host.querySelector("[data-testid='auth-confirmation-code']") as HTMLInputElement;
+    await setNativeValue(code, "01234567");
+    if (operation.startsWith("a resend")) {
+      await act(async () => { armed.tick(); });
+      const resend = [...page.host.querySelectorAll("button")].find((button) => button.textContent === es419.auth.signup.confirmation_resend) as HTMLButtonElement;
+      await act(async () => { resend.click(); });
+    } else {
+      await act(async () => { code.closest("form")?.requestSubmit(); });
+    }
+    return code;
+  }
+
+  function armResend() {
+    const originalInterval = window.setInterval;
+    const originalNow = Date.now;
+    let tick: () => void = () => {};
+    window.setInterval = ((handler: () => void) => { tick = handler; return 0; }) as typeof window.setInterval;
+    return {
+      tick: () => { Date.now = () => originalNow() + 31_000; tick(); },
+      restore: () => { Date.now = originalNow; window.setInterval = originalInterval; },
+    };
+  }
+
+  for (const [operation, props] of Object.entries(operations)) {
+    test(`${operation}: sign-in stays usable and the login view shows no trace of it`, async () => {
+      const armed = armResend();
+      const settle: Settle = { resolve: () => {}, reject: () => {} };
+      const modes: Array<"signup" | "login"> = [];
+      let finished = 0;
+      const page = await renderSpanishSignup({ ...props(settle), onEmailConfirmed: () => { finished += 1; }, onModeChange: (mode) => modes.push(mode) });
+      try {
+        const code = await startPending(page, operation, armed);
+        const signIn = page.host.querySelector("[data-testid='auth-check-email-exits'] button") as HTMLButtonElement;
+        expect(signIn.disabled).toBe(false);
+        await act(async () => { signIn.click(); });
+        expect(modes).toEqual(["login"]);
+
+        await act(async () => { settle.resolve(); });
+        expect(finished).toBe(0);
+        expectNoLateResult(page.host);
+        expect(document.activeElement).not.toBe(code);
+
+        await page.renderMode("login");
+        expect(page.host.querySelector("[data-testid='auth-check-email']")).toBeNull();
+        expect(page.host.querySelector("[role='alert']")).toBeNull();
+        expect(page.host.querySelector("h2")?.textContent).toBe(es419.auth.login.title);
+        expect((page.host.querySelector('input[type="email"]') as HTMLInputElement).value).toBe("ada@example.com");
+        expect(finished).toBe(0);
+      } finally {
+        armed.restore();
+        await act(async () => { page.root.unmount(); });
+      }
+    });
+
+    test(`${operation}: password recovery stays usable and the late result is dropped`, async () => {
+      const armed = armResend();
+      const settle: Settle = { resolve: () => {}, reject: () => {} };
+      let finished = 0;
+      const page = await renderSpanishSignup({ ...props(settle), onEmailConfirmed: () => { finished += 1; } });
+      const keepPage = (event: Event) => event.preventDefault();
+      page.host.addEventListener("click", keepPage);
+      try {
+        const code = await startPending(page, operation, armed);
+        const recovery = page.host.querySelector("[data-testid='auth-check-email-exits'] a") as HTMLAnchorElement;
+        expect(recovery.getAttribute("aria-disabled")).toBeNull();
+        // Other files replace HTMLAnchorElement.prototype.click for downloads, so dispatch the click itself.
+        await act(async () => { recovery.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true })); });
+        expect(takeRecoveryEmail()).toBe("ada@example.com");
+
+        await act(async () => { settle.resolve(); });
+        expect(finished).toBe(0);
+        expectNoLateResult(page.host);
+        expect(document.activeElement).not.toBe(code);
+      } finally {
+        page.host.removeEventListener("click", keepPage);
+        armed.restore();
+        await act(async () => { page.root.unmount(); });
+      }
+    });
+  }
+
+  test("sign-in chosen while the confirmed signup is still finishing aborts that continuation", async () => {
+    let release: () => void = () => {};
+    let seen: AbortSignal | undefined;
+    const modes: Array<"signup" | "login"> = [];
+    const page = await renderSpanishSignup({
+      onConfirmEmailCode: async () => {},
+      onEmailConfirmed: ({ signal }) => { seen = signal; return new Promise<void>((resolve) => { release = resolve; }); },
+      onModeChange: (mode) => modes.push(mode),
+    });
+    try {
+      const code = page.host.querySelector("[data-testid='auth-confirmation-code']") as HTMLInputElement;
+      await setNativeValue(code, "01234567");
+      await act(async () => { code.closest("form")?.requestSubmit(); });
+      expect(seen?.aborted).toBe(false);
+      const signIn = page.host.querySelector("[data-testid='auth-check-email-exits'] button") as HTMLButtonElement;
+      expect(signIn.disabled).toBe(false);
+      await act(async () => { signIn.click(); });
+      expect(modes).toEqual(["login"]);
+      expect(seen?.aborted).toBe(true);
+      await act(async () => { release(); });
+    } finally {
+      await act(async () => { page.root.unmount(); });
+    }
   });
 });
