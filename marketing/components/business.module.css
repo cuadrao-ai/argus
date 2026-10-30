@@ -1179,6 +1179,17 @@
 .submit:hover {
   background: var(--cta-deep);
 }
+.formFields > button.submit:is(:disabled, [aria-disabled="true"]) {
+  background: var(--accent);
+  border-color: var(--muted);
+  color: var(--ink) !important;
+  cursor: not-allowed;
+  opacity: 1;
+  transform: none;
+}
+.formFields > button.submit:is(:disabled, [aria-disabled="true"]) svg {
+  transform: none;
+}
 .button:hover svg {
   transform: translate(2px, -2px);
 }
