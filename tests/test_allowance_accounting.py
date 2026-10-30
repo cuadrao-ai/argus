@@ -10,6 +10,7 @@ for both messages and simulations.
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -20,6 +21,7 @@ from argus.api.main import app
 from argus.api.schemas import Conversation, Message, User
 from argus.domain.backtest_finalization import MemoryBacktestFinalizationGateway
 from argus.domain.chat_turn_lifecycle import TransitionResult
+from argus.domain.guest_workspaces import GuestWorkspace
 from argus.domain.store import AlphaStore, utcnow
 from argus.domain.supabase_gateway import SupabaseGateway
 from fastapi.testclient import TestClient
@@ -58,6 +60,34 @@ def _conversation(conversation_id: str = "conv-1") -> Conversation:
         created_at=now,
         updated_at=now,
     )
+
+
+class _FakeVisitorClient:
+    """Chainable stub for visitor_usage_counters reads, routed by resource."""
+
+    def __init__(self, used_by_resource: dict[str, int]) -> None:
+        self._used = used_by_resource
+        self._resource: str | None = None
+
+    def table(self, name: str) -> "_FakeVisitorClient":
+        assert name == "visitor_usage_counters"
+        return self
+
+    def select(self, *_args: Any) -> "_FakeVisitorClient":
+        return self
+
+    def eq(self, column: str, value: Any) -> "_FakeVisitorClient":
+        if column == "resource":
+            self._resource = str(value)
+        return self
+
+    def limit(self, *_args: Any) -> "_FakeVisitorClient":
+        return self
+
+    def execute(self) -> Any:
+        used = self._used.get(self._resource or "", 0)
+        rows = [{"used_count": used}] if used else []
+        return SimpleNamespace(data=rows)
 
 
 @pytest.fixture
@@ -178,6 +208,36 @@ def _stream_events(stream: str, event_type: str) -> list[dict[str, Any]]:
         if event.get("type") == event_type:
             events.append(event["payload"])
     return events
+
+
+def _configure_guest_account(mock_gateway: MagicMock) -> GuestWorkspace:
+    profile = _profile().model_copy(
+        update={
+            "email": None,
+            "username": None,
+            "display_name": None,
+            "is_admin": False,
+        }
+    )
+    workspace = GuestWorkspace(
+        user_id=profile.id,
+        conversation_id="00000000-0000-0000-0000-000000000101",
+        status="active",
+        created_at=profile.created_at,
+        expires_at=profile.created_at + timedelta(days=7),
+        claimed_by=None,
+        claimed_at=None,
+        updated_at=profile.created_at,
+    )
+    mock_gateway.get_auth_user_from_token.return_value = {
+        "id": profile.id,
+        "email": None,
+        "is_anonymous": True,
+    }
+    mock_gateway.get_or_create_profile_for_auth_user.return_value = profile
+    mock_gateway.get_active_guest_workspace.return_value = workspace
+    mock_gateway.get_user.return_value = profile
+    return workspace
 
 
 def test_chat_entry_reads_no_conversation_meter(mock_gateway):
