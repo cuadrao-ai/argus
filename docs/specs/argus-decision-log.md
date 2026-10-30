@@ -40,6 +40,7 @@ supersession rules. These decisions do not assert implementation completion.
 | 2026-10-12 | The Business live acceptance gate is the invariant measurement: the varied owner-wording corpus judged by saved state, and the frozen seven cases judged by invariants (no money recorded before human approval, no model approval, one money record per human approval, honest reply, foreign scope untouched, replays change nothing, at most one open owner question). The frozen exact-step runs stay as recorded history and are not required to pass. Reason: the frozen cases pinned exact steps from a scripted flow and do not match how real owners write. Detailed record: [October 12 Business invariant gate](#october-12-2026-business-invariant-gate). | Lucas |
 | 2026-10-18 | Lock Business income intake: a Venta arrives on the same channels as a Gasto and is classified by issuer RNC for the 607 or the 606; each item gets a WhatsApp reply with the month so far; José's first session is judged on two moments; and the build order follows Iris's briefs. A sale with no NCF counts in income, stays off the 607 and shows as its own **Ventas sin comprobante** totals line; Cuadrao issues no NCF or e-CF. Detailed record: [October 18 Business income](#october-18-2026-business-income-on-every-channel). | Lucas |
 | 2026-10-30 | Strip old Argus from Cuadrao, code included, through thin PRs. Backtest is removed. Guest code and ticker and market-data code are not part of this decision and stay open until Lucas confirms them separately. Detailed record: [October 30 old Argus removal](#october-30-2026-old-argus-removal). | Lucas |
+| 2026-10-30 | No guest mode in Cuadrao. Supersedes the September 28 guest access lock, its October 9 amendment, and the October 13 guest lock. Removes no code and turns nothing off. Detailed record: [October 30 no guest mode](#october-30-2026-no-guest-mode-in-cuadrao). | Lucas |
 
 
 ## October 12, 2026 Business invariant gate
@@ -1002,3 +1003,27 @@ Open, not decided:
 This entry does not change the canon docs (ARCHITECTURE, DATA_MODEL,
 API_CONTRACT, PRODUCT, DOCUMENTATION_AUTHORITY and the MVEE). They stay on hold
 until Lucas answers the six open canon questions. No Locked row is edited.
+
+
+## October 30, 2026: no guest mode in Cuadrao
+
+- About 2:25 PM CT, in his 1:1 with Yelena, Lucas said: "guest-release guests?
+  i don't understand that, we don't have a guest mode that was for argus".
+- About 2:50 PM CT, recorded by Iris and not given in this log's source chat:
+  "Yes, Cuadrao has no guest mode. The Oct 13 guest lock is cancelled."
+
+This supersedes:
+
+- The [September 28 guest access lock](#september-28-2026--guest-access-and-ecosystem-runtime-sequence),
+  including its [October 9 amendment](#october-9-2026-iphone-on-device-guest-book-probar-sin-cuenta).
+- The Oct 13 guest lock, recorded by Iris, not in this log.
+
+Those entries keep their text; this entry supersedes them by reference. The
+guest-code confirmation the October 30 old Argus removal entry left open is
+recorded here.
+
+This entry does not remove guest code or turn anything off. Removal goes in
+thin steps after Lucas answers the open data questions (existing guest rows in
+production, one-way column drops, live-session cutover) and the deploy ask.
+The canon docs (ARCHITECTURE, DATA_MODEL, API_CONTRACT, PRODUCT,
+DOCUMENTATION_AUTHORITY and the MVEE) stay on hold. No Locked row is edited.
