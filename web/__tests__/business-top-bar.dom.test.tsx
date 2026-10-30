@@ -284,6 +284,50 @@ describe("Ocultar montos", () => {
 });
 
 describe("the Business top bar on a phone", () => {
+  test("Inicio keeps one receipt failure after the phone greeting, preserves the desktop footer, and retries the source", async () => {
+    const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+    const fixture = createFixtureBusinessDataSource({ chatAvailable: true });
+    const receiptReads: string[] = [];
+    const page = await mount({ width: 390, overrides: {
+      receiptPage: async (...args) => {
+        receiptReads.push(args[0]);
+        if (receiptReads.length === 1) throw Object.assign(new Error("Receipt count temporarily unavailable"), { requestId: "req-mobile-receipts" });
+        return fixture.receiptPage!(...args);
+      },
+    } });
+    await page.settle(() => page.screen().querySelector('[data-testid="inicio-error"]') !== null && page.screen().querySelector('[data-testid="month-close-checklist"]') !== null, "the receipt failure and month checklist");
+    // Happy DOM initializes each media-query listener's match state on resize.
+    await page.act(async () => window.dispatchEvent(new Event("resize")));
+    const statuses = () => page.screen().querySelectorAll<HTMLElement>('[data-testid="month-close-receipts-status"]');
+    const status = statuses()[0];
+    assert.equal(statuses().length, 1);
+    assert.equal(status.querySelector("p")?.textContent, "No pudimos cargar el conteo de recibos. Aún no se puede cerrar el mes.");
+    assert.deepEqual([...status.querySelectorAll("button")].filter((button) => button.dataset.testid !== "error-reference").map((button) => button.textContent), ["Reintentar"]);
+    const greeting = page.screen().querySelector('[data-testid="home-heading"]')!;
+    const firstSection = page.screen().querySelector('[data-home-section]')!;
+    const mobilePlacement = {
+      followsGreeting: Boolean(greeting.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING),
+      precedesSections: Boolean(status.compareDocumentPosition(firstSection) & Node.DOCUMENT_POSITION_FOLLOWING),
+      outsideChecklist: status.closest('[data-testid="month-close-checklist"]') === null,
+    };
+    assert.deepEqual([...page.screen().querySelectorAll('[data-home-section]')].map((section) => section.getAttribute("data-home-section")), ["work", "month", "money"]);
+    for (const width of [1440, 390, 1440, 390]) {
+      await page.act(async () => (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 }));
+      assert.equal(statuses().length, 1, `one receipt status after resizing to ${width}px`);
+      assert.equal(page.screen().querySelector('[data-testid="home-heading"]') !== null, width === 390);
+      assert.deepEqual([...page.screen().querySelectorAll('[data-home-section]')].map((section) => section.getAttribute("data-home-section")), ["work", "month", "money"]);
+      if (width === 1440) assert.ok(statuses()[0].closest('[data-testid="month-close-checklist-footer"]'), "desktop keeps the receipt status in the checklist footer");
+    }
+    assert.deepEqual(receiptReads, ["inbox"], "resizing does not refetch receipts");
+    const retry = [...statuses()[0].querySelectorAll("button")].find((button) => button.textContent === "Reintentar")!;
+    await page.act(async () => retry.click());
+    await page.settle(() => page.api().records.inbox !== null && !page.api().records.error, "the receipt source recovery");
+    assert.deepEqual(receiptReads, ["inbox", "inbox"], "Reintentar reaches the receipt source again");
+    assert.equal(statuses().length, 0, "a recovered receipt count removes the failure");
+    assert.equal(page.screen().querySelector('[data-testid="inicio-error"]'), null);
+    assert.deepEqual(mobilePlacement, { followsGreeting: true, precedesSections: true, outsideChecklist: true }, "the phone receipt status belongs after the greeting and before every customizable section, outside the checklist");
+  });
+
   test("the top bar has no Agregar; Inicio, the Bandeja and Transacciones each start with their own", async () => {
     const page = await mount({ width: 390 });
     assert.equal(page.bar().querySelector('[data-testid="add-menu-header"]'), null);
