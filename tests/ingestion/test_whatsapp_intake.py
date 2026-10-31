@@ -35,6 +35,7 @@ from tests.ingestion.whatsapp_support import (
     fixture,
     sign,
 )
+from tests.ingestion.whatsapp_unlinked_cases import UNLINKED_CASES
 
 
 def _world() -> cases.World:
@@ -406,3 +407,9 @@ async def test_a_repeated_linked_text_is_answered_once() -> None:
     await world.deliver(message)
     await world.deliver(message)
     assert world.transport.bodies()[before:] == [RECEIPT_MISSING]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", UNLINKED_CASES, ids=lambda case: case.__name__)
+async def test_unlinked_case(case) -> None:  # noqa: ANN001
+    await case(_world())

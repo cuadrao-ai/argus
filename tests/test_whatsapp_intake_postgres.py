@@ -25,6 +25,7 @@ from tests.ingestion.whatsapp_support import (
     RefusingExtractor,
     fixture,
 )
+from tests.ingestion.whatsapp_unlinked_cases import UNLINKED_CASES
 
 users = shared.users
 pytestmark = pytest.mark.skipif(
@@ -519,3 +520,9 @@ async def test_owner_erasure_cascades_pending_attempt_and_daily_counter(pool, us
                 ).fetchone() == (0,)
     finally:
         release_custodian(space_id)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", UNLINKED_CASES, ids=lambda case: case.__name__)
+async def test_unlinked_case_on_postgres(case, pool, users) -> None:  # noqa: ANN001
+    await case(_world(pool, users))
