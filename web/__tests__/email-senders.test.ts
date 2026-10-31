@@ -81,7 +81,40 @@ test("senders group by status and keep the order they arrived in", () => {
 
 test("a list without the sender envelope is refused", () => {
   assert.throws(() => parseEmailSenderList([]), EmailSenderRequestError);
-  assert.throws(() => parseEmailSenderList({ items: [{ id: "x", kind: "address", value: "a@b.example", status: "pending", tag: "gray" }] }), EmailSenderRequestError);
+  assert.throws(() => parseEmailSenderList({ senders: [oldServer] }), EmailSenderRequestError);
+});
+
+test("a row the screen cannot read is left out, and the rest keep their order", () => {
+  const listed = parseEmailSenderList({
+    items: [
+      handAdded,
+      { ...oldServer, id: "new-status", status: "quarantined" },
+      { kind: "address", value: "sin-id@negocio.example", status: "pending" },
+      { id: "no-value", kind: "address", status: "pending" },
+      oldServer,
+    ],
+  });
+  assert.deepEqual(listed.map((item) => item.id), ["hand", "old"]);
+});
+
+test("an unknown tag reads as no tag and an unknown auth result reads as null", () => {
+  const [gray, later] = parseEmailSenderList({
+    items: [{ ...handAdded, tag: "gray" }, { ...oldServer, tag: "verified", last_auth_result: "temperror" }],
+  });
+  assert.deepEqual(gray, { id: "hand", kind: "domain", value: "proveedor.example", status: "pending", tag: null, default_approved: false, last_auth_result: null, last_seen_at: null });
+  assert.deepEqual(later, { id: "old", kind: "address", value: "old@negocio.example", status: "authorized", tag: "verified", default_approved: false, last_auth_result: null });
+  const unverified = parseEmailSenderList({ items: [{ ...handAdded, tag: "unverified" }] });
+  assert.deepEqual([gray!, unverified[0]!].map((item) => senderCheckFailed(senderForView(item).tag)), [false, true]);
+});
+
+test("a posted sender takes an unknown tag or auth result, but not an unknown status", async () => {
+  Object.assign(process.env, { NEXT_PUBLIC_MOCK_AUTH: "true" });
+  const returned = { id: "s1", kind: "address", value: "nueva@negocio.example", status: "authorized", tag: "spoofed", last_auth_result: "temperror", last_seen_at: null };
+  const body = { kind: "address", value: "nueva@negocio.example", status: "authorized" } as const;
+  globalThis.fetch = (async () => Response.json(returned)) as typeof fetch;
+  assert.deepEqual(await liveEmailSenderClient.update(body), { ...returned, tag: null, default_approved: false, last_auth_result: null });
+  globalThis.fetch = (async () => Response.json({ ...returned, status: "quarantined" })) as typeof fetch;
+  await assert.rejects(liveEmailSenderClient.update(body), (error: EmailSenderRequestError) => error.code === "email_sender_invalid_response");
 });
 
 test("the stub stays off outside the dev mock preview", () => {

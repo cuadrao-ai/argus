@@ -34,6 +34,8 @@ from argus.domain.business.contracts.facts import (
     Known,
 )
 from argus.domain.business.duplicates import pending_duplicates
+from argus.domain.business.review_flags import review_flags
+from argus.domain.business.rnc_registry import postgres_rnc_fetch, registry_from_config
 from argus.domain.business.transactions import ActionTransaction
 from argus.domain.ingestion.receipt_review import DUPLICATE_WARNINGS
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
@@ -311,6 +313,15 @@ def dossier(
         questions=questions,
         history=revisions,
         blockers=tuple(blocked),
+        review_flags=review_flags(
+            facts,
+            registry_from_config(
+                "dgii",
+                postgres_rnc_fetch(
+                    lambda query, params: next(iter(tx.rows(query, params)), None)
+                ),
+            ),
+        ),
         approval_available=approvable,
         duplicate_candidates=duplicate_candidates(tx, event, duplicate_ids),
         approval_action=APPROVAL_ACTION[facts.kind.value] if approvable else None,

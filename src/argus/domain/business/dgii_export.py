@@ -22,9 +22,9 @@ from argus.domain.business.contracts.facts import (
 from argus.domain.business.dgii_columns import COLUMNS, OPTIONAL_AMOUNTS
 from argus.domain.business.dgii_line import (
     confirmed_declaration,
-    first_missing,
     hard_rejects,
     line_review,
+    missing_items,
 )
 from argus.domain.business.dgii_validation import (
     FiscalRecord,
@@ -443,13 +443,13 @@ def line_verdicts(
     rnc: str | None,
     captured_on: date,
     registry: RncRegistry | None = None,
-) -> dict[str, str | None]:
+) -> dict[str, tuple[str, ...] | None]:
     """For each record the export would report, None when its month's 606 or
-    607 carries it as a line, else the first thing missing. Records the export
+    607 carries it as a line, else what is missing, first fix first. Records the export
     leaves out by rule (Personal, no fiscal number, B02 summary) are absent."""
 
     by_id = {record.activity_id: record for record in records}
-    verdicts: dict[str, str | None] = {}
+    verdicts: dict[str, tuple[str, ...] | None] = {}
     months = {(record.occurred_on.year, record.occurred_on.month) for record in records}
     for year, month in months:
         manifest, _rows = fiscal_manifest(
@@ -471,7 +471,7 @@ def line_verdicts(
                     for issue in manifest["issues"]
                     if issue["activity_id"] == identifier
                 ]
-                verdicts[identifier] = first_missing(by_id[identifier], issues)
+                verdicts[identifier] = missing_items(by_id[identifier], issues)
     return verdicts
 
 

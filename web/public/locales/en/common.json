@@ -2280,6 +2280,10 @@
           "approval_title": "This RNC has an error. Approve anyway?",
           "approval_body": "You'll need to fix it before exporting the 606."
         },
+        "check_digit": {
+          "label": "RNC has an error",
+          "reason": "This RNC's check digit does not match. A number may be mistyped."
+        },
         "unverified": {
           "label": "RNC not verified",
           "reason": "We haven't checked it with the DGII yet."
@@ -2617,7 +2621,18 @@
           "approval": "Awaiting approval",
           "ready": "Ready",
           "review": "To review",
-          "unknown": "Status unavailable"
+          "unknown": "Status unavailable",
+          "missing": {
+            "several": "Fiscal details missing",
+            "expense_type_missing": "Expense type is missing",
+            "rnc_missing": "RNC is missing",
+            "rnc_invalid": "RNC has an error",
+            "ncf_invalid": "NCF has an error",
+            "ncf_missing": "NCF is missing",
+            "date_missing": "Date is missing",
+            "payment_method_missing": "Payment method is missing",
+            "detail_missing": "A detail is missing"
+          }
         }
       },
       "title": "Records",
@@ -2865,6 +2880,22 @@
       "approval_failed": "Approval did not finish. Check the current record before another action.",
       "duplicate_recorded": "You already recorded this fiscal receipt.",
       "see_recorded": "See the recorded one",
+      "review_flag": {
+        "rnc_check_digit": {
+          "title": "Check the RNC",
+          "text": "This RNC's check digit does not match. A number may be mistyped."
+        },
+        "ncf_malformed": {
+          "title": "Check the NCF",
+          "text": "The NCF does not match the B-series or E-series format."
+        },
+        "itbis_high": {
+          "text": "The ITBIS looks high. Check that it is right."
+        },
+        "export_blocked": "If you approve it as is, the month's 606 can't be exported until you fix it.",
+        "fix": "Fix",
+        "approve_anyway": "Approve anyway"
+      },
       "missing_draft": "The prepared record isn't available yet. Check the current receipt before continuing.",
       "missing_list": "Missing: {{fields}}",
       "refused": "This action could not be completed. Check the current record before trying again.",
@@ -3724,6 +3755,7 @@
       "ecf": "e-CF {{value}}",
       "missing_rnc": "No RNC",
       "missing_ncf": "No NCF or e-CF",
+      "ncf_malformed": "NCF has an error",
       "loading": "Loading the month",
       "open_items_beyond_one": "And {{count}} more not shown here.",
       "open_items_beyond_other": "And {{count}} more not shown here.",

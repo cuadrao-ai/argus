@@ -97,6 +97,15 @@ export function readBusinessDossier(value: unknown): BusinessDossier {
   return { ...body, review_note: readReviewNote(body.review_note) };
 }
 
+export const REVIEW_FLAG_CODES = ["rnc_check_digit", "ncf_malformed", "itbis_high"] as const;
+export type ReviewFlagCode = (typeof REVIEW_FLAG_CODES)[number];
+/** A read value to check again. A `confirm` flag stops approval until the person approves anyway; the rest only warn. */
+export type ReviewFlag = { code: ReviewFlagCode; field: "rnc" | "ncf" | "itbis"; confirm: boolean };
+
+export function isReviewFlagCode(value: unknown): value is ReviewFlagCode {
+  return REVIEW_FLAG_CODES.includes(value as ReviewFlagCode);
+}
+
 export type BusinessApprovalAction = "record_expense" | "record_income" | "record_refund";
 /** An approved purchase a refund or credit note may name; `id` is the activity `purchase_activity_id` takes. */
 export type RefundCandidate = { id: string; merchant: string | null; occurred_on: string; amount: string; currency: string };
@@ -142,6 +151,8 @@ export type BusinessDossier = BusinessRecordContext & {
   questions: BusinessReviewQuestion[];
   history: BusinessDraftRevision[];
   blockers: { code: string; field: BusinessFactField | null }[];
+  /** Computed on every read, after approval too. Absent from servers older than #1590. */
+  review_flags?: ReviewFlag[];
   approval_available: boolean;
   duplicate_candidates?: { draft_id: string; version: number }[];
   /** The approve action this draft takes, by its kind; null while approval is not available. Absent from servers older than #1353. */

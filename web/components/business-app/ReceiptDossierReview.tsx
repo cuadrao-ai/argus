@@ -9,10 +9,11 @@ import type { ReceiptDetail } from "@/lib/business-api";
 import { useEffect, useRef, useState } from "react";
 import { Check, CircleAlert, Loader2, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { factsRevision, readReviewNote, type BusinessDossier, type BusinessFactField, type BusinessFactPatch } from "@/lib/business-dossier";
+import { factsRevision, readReviewNote, type BusinessDossier, type BusinessFactField, type BusinessFactPatch, type ReviewFlag, type ReviewFlagCode } from "@/lib/business-dossier";
 import ReceiptEcfChecks from "./ReceiptEcfChecks";
-import FiscalDeclarationEditor from "./FiscalDeclarationEditor";
-import { duplicateRecordId, resolveBusinessDuplicate, type BusinessCaptureInput } from "@/lib/business-api";
+import FiscalDeclarationEditor, { focusFiscalField } from "./FiscalDeclarationEditor";
+import ReviewFlagConfirm from "./ReviewFlagConfirm";
+import { confirmationFlags, duplicateRecordId, resolveBusinessDuplicate, type BusinessCaptureInput } from "@/lib/business-api";
 import { NOTES_ENTRY_ENABLED } from "@/lib/business-notes-entry";
 import ManualCaptureDialog from "./ManualCaptureDialog";
 import { randomId } from "@/lib/random-id";
@@ -46,6 +47,9 @@ function rowValues(target: EventTarget): string[] {
 }
 
 type Operation = { kind: "idle" } | { kind: "saving" | "approving" } | { kind: "uncertain"; action: "save" | "approve"; version: number };
+type ApprovalRequest = { next: boolean; anyway: boolean };
+/** The step shown before approving one revision: the missing or wrong-length RNC warning, or the dossier's confirm flags. */
+type ApprovalCheck = { draftId: string; version: number; next: boolean } & ({ kind: "rnc"; status: "missing" | "invalid_length" } | { kind: "flags"; codes: ReviewFlagCode[] });
 
 export function approvalLine(canApprove: boolean, canPrepare: boolean): "prepare_only" | null {
   return !canApprove && canPrepare ? "prepare_only" : null;
@@ -166,10 +170,19 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const [fiscalDirty, setFiscalDirty] = useState(false);
   const [duplicate, setDuplicate] = useState<{ recordId: string | null } | null>(null);
   const [highlight, setHighlight] = useState<string[]>([]);
-  const [rncConfirmation, setRncConfirmation] = useState<{ draftId: string; version: number; next: boolean; status: "missing" | "invalid_length" } | null>(null);
+  const [approvalCheck, setApprovalCheck] = useState<ApprovalCheck | null>(null);
+  const [fixing, setFixing] = useState<{ field: ReviewFlag["field"] | null } | null>(null);
   const inFlight = useRef(false);
   const reviewRequest = useRef<{ version: number; facts: BusinessFactPatch; key: string } | null>(null);
-  const approvalKey = useRef<{ version: number; key: string } | null>(null);
+  // One key per request body: a retry repeats it, and approving anyway is a different request with its own key.
+  const approvalKey = useRef<{ version: number; anyway: boolean; key: string } | null>(null);
+
+  // After the confirm step has closed and handed focus back, so the field keeps it.
+  useEffect(() => {
+    if (!fixing) return;
+    setFixing(null);
+    focusFiscalField(fixing.field);
+  }, [fixing]);
 
   useEffect(() => {
     let cancelled = false;
@@ -214,7 +227,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
     } finally { setChecking(false); }
   };
 
-  const write = async (action: "save" | "approve", facts?: BusinessFactPatch): Promise<BusinessDossier | null> => {
+  const write = async (action: "save" | "approve", facts?: BusinessFactPatch, request: ApprovalRequest = { next: false, anyway: false }): Promise<BusinessDossier | null> => {
     const approval = dossier?.approval_action;
     if (!dossier || inFlight.current || duplicateBusy || fiscalBusy || action === "approve" && (fiscalDirty || !approval) || operation.kind !== "idle" || action === "save" && !facts) return null;
     inFlight.current = true;
@@ -230,8 +243,10 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
         reviewRequest.current = null;
       }
       else if (approval) {
-        if (approvalKey.current?.version !== dossier.version) approvalKey.current = { version: dossier.version, key: randomId() };
-        next = await source.approveDraft(draftId, dossier.version, approvalKey.current.key, approval);
+        const previous = approvalKey.current;
+        const sent = previous?.version === dossier.version && previous.anyway === request.anyway ? previous : { version: dossier.version, anyway: request.anyway, key: randomId() };
+        approvalKey.current = sent;
+        next = await source.approveDraft(draftId, dossier.version, sent.key, approval, request.anyway);
       } else return null;
       setDossier(next);
       if (action === "save" && facts) {
@@ -245,6 +260,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
       return next;
     } catch (error) {
       const { code, status } = error as { code?: string; status?: number };
+      const flagged = request.anyway ? [] : confirmationFlags(error);
       if (status && status >= 400 && status < 500) reviewRequest.current = null;
       if (code === "stale_version") {
         setOperation({ kind: "idle" });
@@ -257,6 +273,9 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
       } else if (code === "duplicate_comprobante") {
         setOperation({ kind: "idle" });
         setDuplicate({ recordId: duplicateRecordId(error) });
+      } else if (flagged.length) {
+        setOperation({ kind: "idle" });
+        setApprovalCheck({ draftId: dossier.draft_id, version: dossier.version, next: request.next, kind: "flags", codes: flagged });
       } else if (status && status >= 400 && status < 500) {
         setOperation({ kind: "idle" });
         setProblem(t(`business.dgii.error.${code}`, t(`business.dossier.blocker.${code}`, t("business.dossier.refused", "This action could not be completed. Check the current record before trying again."))));
@@ -276,12 +295,12 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
 
   // Only a recorded approval moves on, to the next row of the Bandeja as the server lists it now,
   // and only while the owner is still on this receipt: leaving it or switching Business unmounts the page.
-  const approveAndNext = async () => {
+  const approveAndNext = async (anyway: boolean) => {
     if (!receipt) return;
     const seen = records.inbox;
     setAdvancing(true);
     try {
-      const approved = await write("approve");
+      const approved = await write("approve", undefined, { next: true, anyway });
       if (approved?.approval_result?.status !== "recorded" || !pageOpen.current) return;
       const fresh = await source.receipts("inbox").catch(() => null);
       if (!pageOpen.current) return;
@@ -324,14 +343,27 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const confirmationCount = Object.keys(confirmations).length;
   const attention = dossierAttention(dossier, [...recordFactRows(dossier), ...fiscalFactRows(dossier.facts)], t);
 
+  const flags = dossier.review_flags ?? [];
+  const confirmCodes = flags.filter((flag) => flag.confirm).map((flag) => flag.code);
+  const approve = ({ next, anyway }: ApprovalRequest) => {
+    if (next) void approveAndNext(anyway);
+    else void write("approve", undefined, { next, anyway });
+  };
+  // The server flags no check digit on a missing or wrong-length RNC, so that step comes first and the flags step follows it.
   const requestApproval = (next = false) => {
     if (!canApprove || !supportedKind || !approvable) return;
-    const status = rncStatus(dossier.facts.fiscal?.rnc);
+    const at = { draftId: dossier.draft_id, version: dossier.version, next };
+    const status = rncStatus(dossier.facts.fiscal?.rnc, flags);
     const showsFiscal = Boolean(dossier.facts.fiscal) || dossier.fiscal_known === true && !dossier.fiscal_value;
-    if (showsFiscal && status !== "unverified") {
-      setRncConfirmation({ draftId: dossier.draft_id, version: dossier.version, next, status });
-    } else if (next) void approveAndNext();
-    else void write("approve");
+    if (showsFiscal && (status === "missing" || status === "invalid_length")) setApprovalCheck({ ...at, kind: "rnc", status });
+    else if (confirmCodes.length) setApprovalCheck({ ...at, kind: "flags", codes: confirmCodes });
+    else approve({ next, anyway: false });
+  };
+  /** A step opened for an older revision, or one that can no longer be approved, approves nothing. */
+  const confirmApproval = (check: ApprovalCheck, anyway: boolean) => {
+    setApprovalCheck(null);
+    if (!canApprove || !supportedKind || !approvable || check.draftId !== dossier.draft_id || check.version !== dossier.version) return;
+    approve({ next: check.next, anyway });
   };
   const reason = busy || supportedKind && approvable ? null
     : dirty ? t("business.dossier.edit_note", "Saving updates the review details. Approval is a separate action.")
@@ -432,20 +464,26 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
             <button type="button" disabled={busy || checking} onClick={() => void refresh()} className={`${secondaryButtonClass} mt-4`}><RotateCcw className="h-4 w-4" aria-hidden="true" />{t("business.dossier.refresh", "Check current record")}</button>
           </div> : null}
     </ReceiptReviewFrame>
-    {rncConfirmation ? <ConfirmDialog
+    {approvalCheck?.kind === "rnc" ? <ConfirmDialog
       isOpen
-      title={t(`business.dgii.rnc_check.${rncConfirmation.status}.approval_title`)}
-      description={t(`business.dgii.rnc_check.${rncConfirmation.status}.approval_body`)}
-      confirmLabel={rncConfirmation.next ? t("business.dossier.approve_next", "Approve and next") : approvalLabel}
+      title={t(`business.dgii.rnc_check.${approvalCheck.status}.approval_title`)}
+      description={t(`business.dgii.rnc_check.${approvalCheck.status}.approval_body`)}
+      confirmLabel={approvalCheck.next ? t("business.dossier.approve_next", "Approve and next") : approvalLabel}
       cancelLabel={t("common.cancel", "Cancel")}
       isBusy={busy}
-      onCancel={() => setRncConfirmation(null)}
-      onConfirm={() => {
-        setRncConfirmation(null);
-        if (!canApprove || !supportedKind || !approvable || rncConfirmation.draftId !== dossier.draft_id || rncConfirmation.version !== dossier.version) return;
-        if (rncConfirmation.next) void approveAndNext();
-        else void write("approve");
+      onCancel={() => setApprovalCheck(null)}
+      onConfirm={() => confirmCodes.length
+        ? setApprovalCheck({ draftId: approvalCheck.draftId, version: approvalCheck.version, next: approvalCheck.next, kind: "flags", codes: confirmCodes })
+        : confirmApproval(approvalCheck, false)}
+    /> : null}
+    {approvalCheck?.kind === "flags" ? <ReviewFlagConfirm
+      codes={approvalCheck.codes}
+      onClose={() => setApprovalCheck(null)}
+      onFix={() => {
+        setApprovalCheck(null);
+        setFixing({ field: flags.find((flag) => approvalCheck.codes.includes(flag.code))?.field ?? null });
       }}
+      onApproveAnyway={() => confirmApproval(approvalCheck, true)}
     /> : null}
     {receipt ? <ReceiptSeenBoundary receipt={receipt} hydrated={dossier.draft_id === receipt.draft_id && dossier.version === receipt.version} /> : null}
   </></ContentFade>

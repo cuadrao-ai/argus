@@ -291,7 +291,7 @@ def project(
 
 
 def with_export_verdicts(
-    rows: tuple[ReportRecord, ...], verdicts: dict[str, str | None]
+    rows: tuple[ReportRecord, ...], verdicts: dict[str, tuple[str, ...] | None]
 ) -> tuple[ReportRecord, ...]:
     """A recorded row is ready only when the export carries it as a line."""
 
@@ -305,7 +305,11 @@ def with_export_verdicts(
         if missing is None:
             return row.model_copy(update={"export_line": True})
         return row.model_copy(
-            update={"stage": "needs_fiscal_data", "export_missing": missing}
+            update={
+                "stage": "needs_fiscal_data",
+                "export_missing": missing[0],
+                "export_missing_several": len(missing) > 1,
+            }
         )
 
     return tuple(judged(row) for row in rows)

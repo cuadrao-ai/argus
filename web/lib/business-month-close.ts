@@ -82,6 +82,8 @@ export type MonthCloseDocument = {
   fiscal_known?: boolean;
   /** No comprobante fiscal: counts in the month, stays out of the 606 and 607, never blocks the close. */
   sin_comprobante?: boolean;
+  /** The server's `ncf_malformed` list names this document: it has an NCF or e-CF, not in the B or E series format. */
+  ncf_malformed?: boolean;
 };
 
 export type MonthCloseWindow = {
@@ -875,7 +877,7 @@ function readWireLine(value: unknown): WireLine {
   };
 }
 
-function wireDocument(line: WireLine): MonthCloseDocument {
+function wireDocument(line: WireLine, ncfMalformed = false): MonthCloseDocument {
   return {
     id: line.activity_id,
     kind: line.document_kind,
@@ -891,6 +893,7 @@ function wireDocument(line: WireLine): MonthCloseDocument {
     status: line.status as MonthCloseStatus,
     fiscal_known: Boolean(line.fiscal),
     ...(line.fiscal ? { sin_comprobante: line.fiscal.sin_comprobante } : {}),
+    ...(ncfMalformed ? { ncf_malformed: true } : {}),
   };
 }
 
@@ -965,6 +968,10 @@ export function readMonthCloseWire(value: unknown): MonthCloseSnapshot {
       lines.push(line);
     }
   }
+  // A subset of missing_ncf; servers older than #1590 do not send it.
+  const malformedLines = value.ncf_malformed ?? [];
+  if (!Array.isArray(malformedLines)) throw new MonthCloseError("unavailable", "month close documents are missing");
+  const malformed = new Set(malformedLines.map((item) => readWireLine(item).activity_id));
   const blockers: MonthCloseBlocker[] = [];
   let unreviewedFromReason: number | undefined;
   for (const reason of value.reasons) {
@@ -997,7 +1004,7 @@ export function readMonthCloseWire(value: unknown): MonthCloseSnapshot {
     earliest_month: value.earliest_month ?? null,
     payment_methods: readPaymentMethods(value.payment_methods),
     dgii_forms: readDgiiForms(value.dgii_forms),
-    documents: lines.map(wireDocument),
+    documents: lines.map((line) => wireDocument(line, malformed.has(line.activity_id))),
     blockers,
     figures: readFigures(value.currencies),
     unreviewed_movements,

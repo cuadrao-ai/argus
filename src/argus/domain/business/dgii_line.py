@@ -47,6 +47,10 @@ COPY = {
     "date_missing": {"es": "Falta la fecha", "en": "Date is missing"},
     "ncf_missing": {"es": "Falta el NCF", "en": "NCF is missing"},
     "detail_missing": {"es": "Falta un dato", "en": "A detail is missing"},
+    "fiscal_details_missing": {
+        "es": "Faltan datos fiscales",
+        "en": "Fiscal details missing",
+    },
     "payment_method_missing": {
         "es": "Falta la forma de pago",
         "en": "Payment method is missing",
@@ -54,6 +58,26 @@ COPY = {
     "rnc_unverified": {
         "es": "Todavía no lo hemos verificado con la DGII.",
         "en": "We have not verified it with the DGII yet.",
+    },
+    "rnc_check_digit": {
+        "es": "El dígito verificador del RNC no coincide. Revisa que esté bien escrito.",
+        "en": "The RNC check digit does not match. Check that it is written correctly.",
+    },
+    "ncf_malformed": {
+        "es": "El NCF no tiene el formato correcto. Debe ser B más 10 dígitos, o E más 12 si es e-CF. Revisa lo que dice el comprobante.",
+        "en": "The NCF is not in the right format. It is B plus 10 digits, or E plus 12 for an e-CF. Check what the receipt says.",
+    },
+    "itbis_high": {
+        "es": "El ITBIS parece alto para este total. Revisa los montos.",
+        "en": "The ITBIS looks high for this total. Check the amounts.",
+    },
+    "duplicate_comprobante": {
+        "es": "Ya registraste este comprobante.",
+        "en": "You already recorded this receipt.",
+    },
+    "duplicate_comprobante_action": {
+        "es": "Ver el registrado",
+        "en": "See the recorded one",
     },
 }
 
@@ -87,14 +111,19 @@ _MISSING = {
 }
 
 
-def first_missing(record: FiscalRecord, issues: list[dict]) -> str:
+def missing_items(record: FiscalRecord, issues: list[dict]) -> tuple[str, ...]:
+    """Every named fix the record needs, in MISSING_ORDER, or DETAIL_MISSING."""
     absent = identity_digits(fact_value(record, "rnc")) is None
     found = [_MISSING.get((issue["code"], issue["field"])) for issue in issues]
     found = [
         "rnc_missing" if code == "rnc_invalid" and absent else code for code in found
     ]
-    known = [code for code in MISSING_ORDER if code in found]
-    return known[0] if known else DETAIL_MISSING
+    known = tuple(code for code in MISSING_ORDER if code in found)
+    return known or (DETAIL_MISSING,)
+
+
+def first_missing(record: FiscalRecord, issues: list[dict]) -> str:
+    return missing_items(record, issues)[0]
 
 
 def reason(code: str, locale: str = "es") -> str:
