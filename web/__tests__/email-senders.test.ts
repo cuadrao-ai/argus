@@ -40,16 +40,20 @@ test("only a failed check is flagged, whatever the auth result says", () => {
   assert.equal(older!.last_auth_result, "aligned");
 });
 
-test.each([
+const MOVES = [
   ["pending", false, ["authorized", "blocked"]],
   ["authorized", false, ["blocked"]],
   ["blocked", false, ["authorized"]],
   ["pending", true, ["authorized"]],
   ["authorized", true, []],
   ["blocked", true, ["authorized"]],
-] as const)("%s with default_approved %j moves to %j", (status, default_approved, moves) => {
-  assert.deepEqual(senderMoves({ status, default_approved }), moves);
-});
+] as const;
+
+for (const [status, default_approved, moves] of MOVES) {
+  test(`${status} with default_approved ${default_approved} moves to ${JSON.stringify(moves)}`, () => {
+    assert.deepEqual(senderMoves({ status, default_approved }), moves);
+  });
+}
 
 test("default_approved is optional on the wire, and a missing one reads as false", () => {
   const items = parseEmailSenderList({ items: [oldServer, { ...oldServer, id: "owner", default_approved: true }, { ...oldServer, id: "member", default_approved: false }] });
