@@ -10351,6 +10351,14 @@ accept path recorded.
     message is stored, it is in no inbox group and no Bandeja count. A
     retried delivery whose original is already stored is not affected. An
     authorized sender's mail is routed exactly as below, whatever the verdict.
+    With the flag on, the Business's own people (live grantees, by account
+    address) are approved by default: their first message writes an
+    `authorized` row (audit `sender_authorized`, no actor) when no row for
+    that address exists, never over a blocked or pending one. While the one
+    switch (`DEFAULT_APPROVAL_REQUIRES_ALIGNED`) is on, only an `aligned`
+    message approves them; any other verdict leaves them `pending`. A person
+    removed from the Business keeps an authorized row until someone blocks
+    or removes it.
   - Each inbound message gets one verdict from the provider's
     `authentication.{spf,dkim,dmarc}` and the From headers:
     - `ambiguous`: two From headers or addresses, a malformed `From :`

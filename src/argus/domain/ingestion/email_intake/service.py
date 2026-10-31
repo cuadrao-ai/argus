@@ -293,14 +293,12 @@ class EmailCapture:
         if standing == "blocked":
             self.store.finish(delivery, "rejected", "email_sender_blocked")
             return False
-        if (
-            self.pending_senders()
-            and not delivery.original_document_id
-            and not admitted(self.store, route.space_id, sender, auth)
-        ):
-            # Fetched and judged in memory only; nothing of the mail is kept.
-            self.store.finish(delivery, "rejected", PENDING_CODE)
-            return False
+        if self.pending_senders() and not delivery.original_document_id:
+            if not admitted(self.store, route.space_id, sender, auth):
+                # Fetched and judged in memory only; nothing of the mail is kept.
+                self.store.finish(delivery, "rejected", PENDING_CODE)
+                return False
+            standing = "authorized"
         first = (
             standing == "authorized"
             and auth == "aligned"
