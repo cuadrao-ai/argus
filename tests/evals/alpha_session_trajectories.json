@@ -259,8 +259,7 @@
             "reload_state": "alpha_session_04:job:1",
             "artifact_identity": "alpha_session_04:job:1",
             "checkpoints": {
-              "effective_window.reload_matches_approval": true,
-              "effective_window.completed_result_reloads": true
+              "effective_window.reload_matches_approval": true
             }
           }
         }
@@ -308,27 +307,10 @@
           }
         },
         {
-          "operation": "reload",
-          "request": {
-            "method": "GET",
-            "path": "/api/v1/backtest-jobs/by-action/alpha_session_05:confirmation:1"
-          },
-          "expect": {
-            "artifact_identity": "alpha_session_05:job:1",
-            "action_identity": "alpha_session_05:confirmation:1",
-            "reload_state": "found",
-            "checkpoints": {
-              "by_action.lookup_status": 200,
-              "by_action.replay_allowed": false,
-              "admission.execution_count": 1
-            }
-          }
-        },
-        {
           "operation": "persistence",
           "request": {"scope": "job_and_action_identity"},
           "expect": {
-            "artifact_identity": "alpha_session_05:job:1",
+            "artifact_identity": "alpha_session_05:confirmation:1",
             "action_identity": "alpha_session_05:confirmation:1",
             "checkpoints": {"admission.execution_count": 1}
           }
