@@ -90,7 +90,7 @@ def test_an_old_packet_without_the_count_reads_zero():
 
 
 def test_a_saved_receipt_in_memory_mode_keeps_the_month_open(alice: Owner):  # noqa: F811
-    month = ledger.today().strftime("%Y-%m")
+    month = PURCHASE["occurred_on"][:7]
     assert alice.upload().status_code in (200, 201, 202)
     answer = alice.get("/month-close", month=month)
     assert answer.status_code == 200, answer.text
