@@ -293,3 +293,51 @@ class TestPrintedIdentifierSplit:
         )
         assert identity_digits(projected.rnc.value) == "123456789"
         assert normalized_ncf(projected.ncf.value) == "B0100000987"
+
+    @pytest.mark.parametrize(
+        ("name", "read"),
+        [
+            pytest.param("rnc", "RNC 1--131000002", id="rnc-prefix-repeated-separators"),
+            pytest.param("rnc", "RNC 131000002--1", id="rnc-suffix-repeated-separators"),
+            pytest.param("rnc", "RNC 1 - 131000002", id="rnc-prefix-mixed-separators"),
+            pytest.param("rnc", "RNC 131000002\uff19", id="rnc-suffix-fullwidth-digit"),
+            pytest.param("rnc", "RNC \uff19131000002", id="rnc-prefix-fullwidth-digit"),
+            pytest.param(
+                "rnc", "RNC 131000002-\u0669", id="rnc-suffix-arabic-indic-digit"
+            ),
+            pytest.param(
+                "rnc", "RNC \u0669--131000002", id="rnc-prefix-arabic-indic-digit"
+            ),
+            pytest.param("ncf", "NCF B0100000987\uff19", id="ncf-suffix-fullwidth-digit"),
+            pytest.param(
+                "ncf", "NCF \uff21B0100000987", id="ncf-prefix-fullwidth-letter"
+            ),
+            pytest.param("ncf", "NCF \uff19B0100000987", id="ncf-prefix-fullwidth-digit"),
+            pytest.param("ncf", "NCF B0100000987\u00e9", id="ncf-suffix-accented-letter"),
+            pytest.param("ncf", "NCF \u00f1B0100000987", id="ncf-prefix-accented-letter"),
+        ],
+    )
+    def test_a_read_that_runs_on_past_the_identifier_stays_whole(
+        self, name: str, read: str
+    ) -> None:
+        receipt = ReceiptDetails(**{name: read})
+        projected = extractor.fiscal_facts_from_receipt(receipt, source_id=uuid4())
+        assert getattr(projected, name).value == read
+        assert getattr(receipt, name) == read
+
+    def test_boundary_reads_kept_whole_stay_rejected_by_strict_cleanup(self) -> None:
+        from argus.domain.business.fiscal_identity import identity_digits, normalized_ncf
+
+        assert identity_digits("RNC 1--131000002") is None
+        assert identity_digits("RNC 131000002\uff19") is None
+        assert normalized_ncf("NCF B0100000987\uff19") is None
+
+    def test_first_cleanly_bounded_candidate_still_wins(self) -> None:
+        projected = extractor.fiscal_facts_from_receipt(
+            ReceiptDetails(
+                rnc="RNC 101987654 / 131000002", ncf="NCF B0100000987 o B0100000988"
+            ),
+            source_id=uuid4(),
+        )
+        assert projected.rnc.value == "101987654"
+        assert projected.ncf.value == "B0100000987"

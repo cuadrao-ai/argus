@@ -15,18 +15,32 @@ _PRINTED_NCF = re.compile(
 
 def printed_rnc(value: str) -> str:
     """The RNC or cédula as printed, without label or note text around it.
-    A read with no 9 or 11 digit number is returned unchanged."""
+    A read with no 9 or 11 digit number, or one whose number runs on into more
+    digits (any script, any run of separators), is returned unchanged."""
 
     match = _PRINTED_RNC.search(value)
-    return match.group(0) if match else value
+    if match is None:
+        return value
+    before = value[: match.start()].rstrip(" -")
+    after = value[match.end() :].lstrip(" -")
+    if (before and before[-1].isdigit()) or (after and after[0].isdigit()):
+        return value
+    return match.group(0)
 
 
 def printed_ncf(value: str) -> str:
     """The NCF or e-CF number as printed, without label or note text around it.
-    Digits are never padded or fixed; a read with no B or E series stays unchanged."""
+    Digits are never padded or fixed; a read with no B or E series, or one that
+    runs on into more letters or digits (any script), stays unchanged."""
 
     match = _PRINTED_NCF.search(value)
-    return match.group(0) if match else value
+    if match is None:
+        return value
+    before = value[: match.start()]
+    after = value[match.end() :]
+    if (before and before[-1].isalnum()) or (after and after[0].isalnum()):
+        return value
+    return match.group(0)
 
 
 def identity_digits(value: str | None) -> str | None:
