@@ -73,6 +73,10 @@ def test_each_read_answers_its_empty_shape_once_the_business_exists(alice: Owner
                 "otro",
             ],
             "dgii_forms": {"606": "no_operations", "607": "no_operations"},
+            "dgii_foreign_currency": {
+                "606": {"pending_rate_count": 0, "reason": None},
+                "607": {"pending_rate_count": 0, "reason": None},
+            },
             "currencies": [],
             "missing_rnc": [],
             "missing_ncf": [],
