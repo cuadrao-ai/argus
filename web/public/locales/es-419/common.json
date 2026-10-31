@@ -3078,6 +3078,11 @@
           "title": "Dale tu toque al negocio",
           "body": "Personaliza el logo, la descripción y los datos de {{business}}.",
           "action": "Ver perfil"
+        },
+        "sender": {
+          "title": "Nuevo remitente",
+          "body": "Un remitente nuevo escribió a tu correo de recepción. Autorízalo para recibir sus próximos correos.",
+          "action": "Revisar"
         }
       },
       "times": {
@@ -4027,11 +4032,29 @@
       "alias_once": "Puedes personalizar esta dirección una sola vez.",
       "alias_save": "Guardar dirección",
       "email_title": "Correo de recepción",
-      "history_link": "Ver correos recibidos",
       "history_title": "Correos recibidos",
       "reading_body": "Extrae los datos de tus recibos y prepara los registros para revisión. No los aprueba automáticamente.",
       "reading_off": "Si la desactivas, los recibos se guardan sin leer.",
       "reading_title": "Lectura de recibos con IA",
+      "senders": {
+        "action_error": "No se pudo guardar este remitente. Inténtalo de nuevo.",
+        "authorize": "Autorizar",
+        "authorized_heading": "Autorizados",
+        "block": "Bloquear",
+        "blocked_heading": "Bloqueados",
+        "empty": "Todavía no hay remitentes.",
+        "error": "No se pudo cargar la lista.",
+        "forbidden": "No tienes permiso para administrar los remitentes.",
+        "list_title": "Remitentes",
+        "loading": "Cargando remitentes…",
+        "pending_count": "{{count}}",
+        "pending_empty": "No hay remitentes pendientes.",
+        "pending_heading": "Pendientes",
+        "retry": "Reintentar",
+        "tag_unverified": "Sin verificar",
+        "tag_unverified_tip": "No pudimos confirmar que este correo viene de quien dice. Autoriza solo si conoces al remitente.",
+        "tag_verified_tip": "El correo pasó la verificación del remitente."
+      },
       "whatsapp_connect": "Conecta WhatsApp para enviar documentos a {{business}}.",
       "whatsapp_connected": "Número terminado en {{last4}} conectado a {{business}}."
     },

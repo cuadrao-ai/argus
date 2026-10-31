@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterAll, afterEach, beforeAll, describe, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, mock, spyOn, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { GrantedSpace, ReceiptReading } from "@/lib/business-api";
 import type { BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
@@ -268,21 +268,16 @@ describe("the Negocio page", () => {
         assert.equal(toggle(page)?.disabled,true);
       } finally { await page.close(); }
     });
-    test("received emails stay behind a quiet link and detail returns to the same dossier list", async () => {
+    test("reception shows the sender list and leaves received-mail history closed", async () => {
+      const errors=spyOn(console,"error");
       const page=await mount("view=business&tab=correo",OWN);
       try {
-        assert.equal(page.host.querySelector('[data-testid="email-history"]'),null);
-        const link=[...page.host.querySelectorAll('button')].find(button=>button.textContent?.includes("Ver correos recibidos"));
-        assert.ok(link);await page.click(link);
-        await page.settle(()=>document.querySelector('[data-testid="email-delivery-row"]') != null);
-        assert.equal(document.querySelectorAll('[data-testid="side-drawer"]').length,1);
-        await page.click(document.querySelector('[data-testid="email-delivery-row"]')!);
-        assert.ok(document.querySelector('[data-testid="email-detail"]'));
-        assert.equal(document.querySelectorAll('[data-testid="side-drawer"]').length,1);
-        const back=[...document.querySelectorAll('button')].find(button=>button.textContent?.trim()==="Correos recibidos");
-        assert.ok(back);await page.click(back);
-        assert.ok(document.querySelector('[data-testid="email-history"]'));
-      }finally{await page.close();}
+        await page.settle(() => page.host.querySelector('[data-testid="email-senders"]') !== null);
+        assert.ok(page.host.querySelector('[data-testid="email-senders"]'));
+        assert.equal(errors.mock.calls.some((call:unknown[])=>String(call[0]).includes("same key")),false);
+        assert.equal(page.host.textContent?.includes("Ver correos recibidos"), false);
+        assert.equal(page.host.querySelector('[data-testid="email-history"]'), null);
+      }finally{errors.mockRestore();await page.close();}
     });
   });});
 

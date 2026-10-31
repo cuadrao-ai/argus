@@ -379,7 +379,26 @@ def _projected(
                 }
             )
         )
-    return snapshot, tuple(public_rows)
+    from argus.domain.business.dgii_export import line_verdicts
+    from argus.domain.business.reporting_projection import with_export_verdicts
+    from argus.domain.business.rnc_registry import (
+        postgres_rnc_fetch,
+        registry_from_config,
+    )
+
+    with connection.cursor(row_factory=dict_row) as cursor:
+
+        def lookup(sql, params):
+            cursor.execute(sql, params)
+            return cursor.fetchone()
+
+        verdicts = line_verdicts(
+            tuple(record.approved for record in snapshot.records),
+            rnc=filer_identity,
+            captured_on=snapshot.observed_at.date(),
+            registry=registry_from_config("dgii", postgres_rnc_fetch(lookup)),
+        )
+    return snapshot, with_export_verdicts(tuple(public_rows), verdicts)
 
 
 def read_report_snapshot(

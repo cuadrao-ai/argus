@@ -271,48 +271,48 @@ _ONE_FROM = _from_bytes("caja@tienda.test")
         ({"dkim": "fail", "spf": "pass"}, None, None, "failed"),
         ({"dmarc": "gray", "dkim": "pass"}, None, None, "aligned"),
         ({"dmarc": "gray", "dkim": "fail"}, None, None, "failed"),
-        ({"dmarc": "gray", "dkim": "gray", "spf": "pass"}, None, None, "unknown"),
-        ({"dmarc": "processing_failed"}, None, None, "unknown"),
+        ({"dmarc": "gray", "dkim": "gray", "spf": "pass"}, None, None, "none"),
+        ({"dmarc": "processing_failed"}, None, None, "no_result"),
         ({"dmarc": "processing_failed", "dkim": "pass"}, None, None, "aligned"),
         ({"dmarc": "processing_failed", "dkim": "fail"}, None, None, "failed"),
-        ({"dmarc": "unknown"}, None, None, "unknown"),
-        ({"dmarc": None, "dkim": None, "spf": "pass"}, None, None, "unknown"),
-        ({}, None, None, "unknown"),
-        (None, None, None, "unknown"),
-        ("pass", None, None, "unknown"),
-        ({"spf": "pass"}, None, None, "unknown"),
-        ({"spf": "fail"}, None, None, "unknown"),
+        ({"dmarc": "none"}, None, None, "none"),
+        ({"dmarc": None, "dkim": None, "spf": "pass"}, None, None, "none"),
+        ({}, None, None, "no_result"),
+        (None, None, None, "no_result"),
+        ("pass", None, None, "no_result"),
+        ({"spf": "pass"}, None, None, "none"),
+        ({"spf": "fail"}, None, None, "none"),
         ({"dmarc": "pass"}, _ONE_FROM, "caja@tienda.test", "aligned"),
         ({"dmarc": "pass"}, _ONE_FROM, "Caja <caja@tienda.test>", "aligned"),
         (
             {"dmarc": "pass"},
             _from_bytes("caja@tienda.test", "otro@tienda.test"),
             "caja@tienda.test",
-            "unknown",
+            "ambiguous",
         ),
         (
             {"dmarc": "pass"},
             _from_bytes("caja@tienda.test, otro@tienda.test"),
             "caja@tienda.test",
-            "unknown",
+            "ambiguous",
         ),
-        ({"dmarc": "pass"}, _ONE_FROM, "otro@tienda.test", "unknown"),
-        ({"dmarc": "pass"}, _ONE_FROM, None, "unknown"),
-        ({"dmarc": "pass"}, _ONE_FROM, "", "unknown"),
-        ({"dmarc": "pass"}, _ONE_FROM, "   ", "unknown"),
-        ({"dmarc": "fail"}, _ONE_FROM, None, "unknown"),
-        ({"dmarc": "pass"}, _with_extra_from(b"From:"), "caja@tienda.test", "unknown"),
+        ({"dmarc": "pass"}, _ONE_FROM, "otro@tienda.test", "ambiguous"),
+        ({"dmarc": "pass"}, _ONE_FROM, None, "ambiguous"),
+        ({"dmarc": "pass"}, _ONE_FROM, "", "ambiguous"),
+        ({"dmarc": "pass"}, _ONE_FROM, "   ", "ambiguous"),
+        ({"dmarc": "fail"}, _ONE_FROM, None, "ambiguous"),
+        ({"dmarc": "pass"}, _with_extra_from(b"From:"), "caja@tienda.test", "ambiguous"),
         (
             {"dmarc": "pass"},
             _with_extra_from(b"From : otro@tienda.test"),
             "caja@tienda.test",
-            "unknown",
+            "ambiguous",
         ),
         (
             {"dmarc": "pass"},
             _with_extra_from(b"From\t: otro@tienda.test"),
             "caja@tienda.test",
-            "unknown",
+            "ambiguous",
         ),
     ],
 )
@@ -338,7 +338,7 @@ def test_the_in_app_verifier_does_not_decide_the_provider_verdict():
         provider_verdict(
             {"spf": "pass"}, raw=signed, provider_from="proveedor@example.test"
         )
-        == "unknown"
+        == "none"
     )
 
 
@@ -362,26 +362,41 @@ def test_a_token_address_without_an_alias_still_routes():
     assert route.alias is None
 
 
-def test_routing_never_approves_and_unverified_mail_goes_to_new_senders():
-    new = decide("new", "unknown", first_authorized=False)
-    assert (new.group, new.approved, new.skip) == ("remitentes_nuevos", False, False)
+def test_routing_never_approves_and_splits_unverified_authorized_mail():
+    note = "No pudimos verificar este remitente."
     aligned = decide("authorized", "aligned", first_authorized=True)
-    assert (aligned.group, aligned.note, aligned.first_scan, aligned.approved) == (
+    assert (aligned.group, aligned.auth, aligned.note, aligned.first_scan) == (
         "bandeja",
+        "aligned",
         None,
         True,
-        False,
     )
-    pending = decide("authorized", "failed", first_authorized=True)
-    assert (pending.group, pending.note, pending.skip, pending.first_scan, pending.approved) == (
-        "remitentes_nuevos",
-        None,
-        False,
-        False,
-        False,
-    )
-    unknown = decide("authorized", "unknown", first_authorized=False)
-    assert (unknown.group, unknown.approved) == ("remitentes_nuevos", False)
+    # Read with the note: failed, and none (no DMARC policy, no own DKIM).
+    # ``none`` is stored as ``failed`` until the auth_result check is widened.
+    for verdict, stored in (("failed", "failed"), ("none", "failed")):
+        pending = decide("authorized", verdict, first_authorized=True)
+        assert (pending.group, pending.auth, pending.note, pending.first_scan) == (
+            "bandeja",
+            stored,
+            note,
+            False,
+        )
+    # Never read: the From is in doubt or the provider said nothing. Both are
+    # stored as ``unknown``, which the standing check refuses.
+    for verdict in ("ambiguous", "no_result", "unknown"):
+        held = decide("authorized", verdict, first_authorized=True)
+        assert (held.group, held.auth, held.note, held.first_scan) == (
+            "remitentes_nuevos",
+            "unknown",
+            note,
+            False,
+        )
+    for verdict in ("aligned", "failed", "none", "ambiguous", "no_result"):
+        stranger = decide("new", verdict, first_authorized=False)
+        assert (stranger.group, stranger.note) == ("remitentes_nuevos", None)
+    for verdict in ("aligned", "failed", "none", "ambiguous", "no_result", "unknown"):
+        for standing in ("authorized", "new"):
+            assert decide(standing, verdict, first_authorized=True).approved is False
     assert FIRST_SCAN_LABEL == "Prueba recibida"
 
 

@@ -500,7 +500,7 @@ class EmailSenderHit(_Wire):
     id: str
     kind: Literal["address", "domain"]
     value: str
-    status: Literal["authorized", "blocked"]
+    status: Literal["authorized", "blocked", "pending"]
 
 
 class SearchCursors(_Wire):

@@ -17691,6 +17691,10 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        review_note:
+          anyOf:
+          - type: string
+          - type: 'null'
         note_edit_available:
           type: boolean
           default: false
@@ -21483,6 +21487,7 @@ components:
           enum:
           - authorized
           - blocked
+          - pending
       additionalProperties: false
       type: object
       required:
@@ -30808,6 +30813,8 @@ components:
             needs_review: 0
             awaiting_approval: 0
             ready_for_export: 0
+            needs_fiscal_data: 0
+            export_lines: 0
         effective_sort:
           type: string
           default: date_desc
@@ -30933,6 +30940,7 @@ components:
             enum:
             - needs_review
             - awaiting_approval
+            - needs_fiscal_data
             - ready_for_export
           type: array
           default: []
@@ -31014,6 +31022,7 @@ components:
             enum:
             - needs_review
             - awaiting_approval
+            - needs_fiscal_data
             - ready_for_export
           type: array
           default: []
@@ -31080,6 +31089,12 @@ components:
           type: integer
           default: 0
         ready_for_export:
+          type: integer
+          default: 0
+        needs_fiscal_data:
+          type: integer
+          default: 0
+        export_lines:
           type: integer
           default: 0
       additionalProperties: false
@@ -31402,8 +31417,16 @@ components:
             enum:
             - needs_review
             - awaiting_approval
+            - needs_fiscal_data
             - ready_for_export
           - type: 'null'
+        export_missing:
+          anyOf:
+          - type: string
+          - type: 'null'
+        export_line:
+          type: boolean
+          default: false
         technical_state:
           anyOf:
           - type: string

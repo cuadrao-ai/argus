@@ -11,19 +11,21 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { quietButtonClass } from "../business-ui";
 import styles from "./business-notifications.module.css";
 import { acceptBusinessInvitation, getBusinessInvitations, type RecipientInvitation } from "@/lib/business-api";
+import { listEmailSenders, pendingSenderCount } from "@/lib/business-email";
 
 type Filter = "all" | "unread";
 export type NotificationTarget = "equipo" | "correo" | "datos";
 type Notice = {
-  id: "access" | "channel" | "profile";
+  id: "access" | "channel" | "profile" | "sender";
   target: NotificationTarget;
   unread: boolean;
-  time: "recent" | "earlier" | "yesterday";
+  time?: "recent" | "earlier" | "yesterday";
 };
 const SAMPLE_NOTICES: readonly Notice[] = [
   { id: "access", target: "equipo", unread: true, time: "recent" },
   { id: "channel", target: "correo", unread: true, time: "earlier" },
   { id: "profile", target: "datos", unread: false, time: "yesterday" },
+  { id: "sender", target: "correo", unread: true },
 ];
 
 type Props = {
@@ -88,7 +90,15 @@ export default function BusinessNotifications({ businessId, businessName, previe
   const [acceptFailed,setAcceptFailed]=useState(false);
   const [acceptRefused,setAcceptRefused]=useState<Set<string>>(new Set());
   const [invitationAttempt,setInvitationAttempt]=useState(0);
+  const [pendingSenders,setPendingSenders]=useState(0);
   const invitationLive=useRef(true);
+  useEffect(()=>{
+    if(preview){setPendingSenders(0);return undefined;}
+    let current=true;
+    const controller=new AbortController();
+    listEmailSenders(controller.signal).then((items)=>{if(current)setPendingSenders(pendingSenderCount(items));},()=>{if(current)setPendingSenders(0);});
+    return()=>{current=false;controller.abort();};
+  },[preview,businessId,invitationAttempt]);
   useEffect(()=>{
     invitationLive.current=true;
     if(!preview){setInvitationError(false);getBusinessInvitations().then(value=>{if(invitationLive.current)setInvitations(value);},()=>{if(invitationLive.current)setInvitationError(true);});}
@@ -116,7 +126,10 @@ export default function BusinessNotifications({ businessId, businessName, previe
   const unreadId = useId();
   const title = t("business.notifications.title");
   const keyFor = (notice: Notice) => JSON.stringify([businessId, notice.id]);
-  const notices = preview && businessId && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? SAMPLE_NOTICES.filter((notice) => !dismissed[keyFor(notice)]) : [];
+  const samples = preview && businessId && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? SAMPLE_NOTICES.filter((notice) => !dismissed[keyFor(notice)]) : [];
+  const senderNotice: Notice = { id: "sender", target: "correo", unread: true };
+  const liveSender = !preview && pendingSenders > 0 && !dismissed[keyFor(senderNotice)] ? [senderNotice] : [];
+  const notices = [...liveSender, ...samples];
   const isUnread = (notice: Notice) => notice.unread && !read[keyFor(notice)];
   const unread = notices.filter(isUnread);
   const pendingInvitations = !preview && !invitationError ? invitations?.length ?? 0 : 0;
@@ -166,7 +179,7 @@ export default function BusinessNotifications({ businessId, businessName, previe
           <div className={styles.rowHeading}>
             <span className={styles.dotSlot}>{isUnread(notice) ? <span role="img" aria-label={t("business.notifications.unread_label")} className={styles.dot} /> : null}</span>
             <h3 className={isUnread(notice) ? styles.unreadTitle : styles.readTitle}>{t(`business.notifications.samples.${notice.id}.title`)}</h3>
-            <span className={styles.timestamp}>{t(`business.notifications.times.${notice.time}`)}</span>
+            {notice.time ? <span className={styles.timestamp}>{t(`business.notifications.times.${notice.time}`)}</span> : null}
           </div>
           <p className={styles.description}>{t(`business.notifications.samples.${notice.id}.body`, { business: businessName })}</p>
           <div className={styles.rowActions}>

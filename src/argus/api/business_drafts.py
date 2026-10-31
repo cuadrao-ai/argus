@@ -768,25 +768,56 @@ def with_whatsapp_sources(dossier, captured: frozenset[str]):  # noqa: ANN001, A
     return dossier.model_copy(update={"sources": sources})
 
 
-def with_source_channels(dossier, *, space_id: str, owner_id: str):  # noqa: ANN001, ANN201
+def with_source_channels(dossier, *, space_id: str, owner_id: str, service=None):  # noqa: ANN001, ANN201
     """Every dossier the drafts API returns passes here: WhatsApp first, then
-    email, the same order the receipt list decides a channel."""
+    email, the same order the receipt list decides a channel. ``service`` lends
+    its database for the review note when email receiving is off."""
 
+    pool = getattr(getattr(service, "authority", None), "pool", None)
     return with_email_sources(
-        with_whatsapp_sources(dossier, _captured(owner_id)), space_id
+        with_whatsapp_sources(dossier, _captured(owner_id)), space_id, pool=pool
     )
 
 
-def with_email_sources(dossier, space_id: str):  # noqa: ANN001, ANN201
+def _stored_review_note(dossier, space_id: str, pool):  # noqa: ANN001, ANN202
+    """With email receiving off, the note still comes from the stored deliveries,
+    the same rows the approve gate falls back to."""
+
+    from argus.api.email_intake import email_review_note
+    from argus.domain.ingestion.email_intake.store import PostgresEmailStore
+
+    store = PostgresEmailStore(pool)
+    membership = store.membership(space_id)
+    delivery_ids = {
+        delivery_id
+        for source in dossier.sources
+        if source.kind == "attachment" and str(source.connection_id) in membership
+        for delivery_id in membership[str(source.connection_id)]["delivery_ids"]
+    }
+    note = email_review_note(space_id, delivery_ids, store=store)
+    return dossier.model_copy(update={"review_note": note})
+
+
+def with_email_sources(dossier, space_id: str, pool=None):  # noqa: ANN001, ANN201
     """The dossier's attachment sources that arrived by email say so, with their
     deliveries, from the email queue; the stored source row says web for every
     attachment, so this is decided here and never written back."""
 
-    from argus.api.email_intake import arrived_by_email, email_receipt_flags
+    from argus.api.email_intake import (
+        arrived_by_email,
+        email_receipt_flags,
+        email_review_note,
+    )
 
     flags = email_receipt_flags(space_id)
     if not flags:
-        return dossier
+        return dossier if pool is None else _stored_review_note(dossier, space_id, pool)
+    delivery_ids = {
+        delivery_id
+        for source in dossier.sources
+        if source.kind == "attachment" and str(source.connection_id) in flags
+        for delivery_id in flags[str(source.connection_id)][0]
+    }
     sources = tuple(
         source.model_copy(
             update={
@@ -802,7 +833,12 @@ def with_email_sources(dossier, space_id: str):  # noqa: ANN001, ANN201
         else source
         for source in dossier.sources
     )
-    return dossier.model_copy(update={"sources": sources})
+    return dossier.model_copy(
+        update={
+            "sources": sources,
+            "review_note": email_review_note(space_id, delivery_ids),
+        }
+    )
 
 
 def unread_backlog(context: BusinessContext) -> list[str]:
