@@ -54,8 +54,15 @@ def admitted(store: SenderRows, space_id: str, sender: str | None, verdict: str)
 
 
 def _member(store: SenderRows, space_id: str, sender: str | None) -> bool:
+    return in_members(store.member_addresses(space_id), sender)
+
+
+def in_members(members: frozenset[str], sender: str | None) -> bool:
+    """Whether an address is one of the Business's people. The one member rule:
+    intake's default approval and the list's ``default_approved`` both use it."""
+
     address = bare_address(sender)
-    return bool(address) and address.lower() in store.member_addresses(space_id)
+    return bool(address) and address.lower() in members
 
 
 def tag(last_auth_result: str | None) -> str | None:

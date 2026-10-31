@@ -38,6 +38,7 @@ from argus.domain.ingestion.email_intake.alias import (
 )
 from argus.domain.ingestion.email_intake.config import EmailIntakeSettings
 from argus.domain.ingestion.email_intake.routing import FIRST_SCAN_LABEL
+from argus.domain.ingestion.email_intake.sender_policy import in_members
 from argus.domain.ingestion.email_intake.sender_policy import tag as sender_tag
 from argus.domain.ingestion.email_intake.service import EmailCapture
 from argus.domain.ingestion.email_intake.signatures import (
@@ -473,8 +474,14 @@ def list_senders(
 ) -> dict[str, Any]:
     response.headers.update(NO_STORE)
     runtime = _runtime(request)
-    rules = runtime.store.list_senders(context.scope.owner.space_id)
-    return {"items": [_sender_item(rule) for rule in sorted(rules, key=_sender_order)]}
+    space_id = context.scope.owner.space_id
+    rules = runtime.store.list_senders(space_id)
+    members = runtime.store.member_addresses(space_id)
+    return {
+        "items": [
+            _sender_item(rule, members) for rule in sorted(rules, key=_sender_order)
+        ]
+    }
 
 
 _STATUS_ORDER = {"pending": 0, "authorized": 1, "blocked": 2}
@@ -491,7 +498,8 @@ def _sender_order(rule) -> tuple:  # noqa: ANN001
     )
 
 
-def _sender_item(rule) -> dict[str, Any]:  # noqa: ANN001
+def _sender_item(rule, members: frozenset[str]) -> dict[str, Any]:  # noqa: ANN001
+    # Owner and team addresses, read live; the web shows no Bloquear for them.
     seen = rule.last_seen_at
     return {
         "id": rule.id,
@@ -499,6 +507,7 @@ def _sender_item(rule) -> dict[str, Any]:  # noqa: ANN001
         "value": rule.value,
         "status": rule.status,
         "tag": sender_tag(rule.last_auth_result),
+        "default_approved": rule.kind == "address" and in_members(members, rule.value),
         "last_auth_result": rule.last_auth_result,
         "last_seen_at": (
             seen.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -538,7 +547,7 @@ def authorize_sender(
     )
     if existed:
         response.status_code = 200
-    return _sender_item(rule)
+    return _sender_item(rule, runtime.store.member_addresses(space_id))
 
 
 @router.delete("/senders/{sender_id}", status_code=204)

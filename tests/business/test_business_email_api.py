@@ -688,6 +688,7 @@ def test_owner_authorizes_one_sender_and_refuses_a_free_mail_domain(alice, runti
             "value": "caja@tienda.test",
             "status": "authorized",
             "tag": None,
+            "default_approved": False,
             "last_auth_result": None,
             "last_seen_at": None,
         }

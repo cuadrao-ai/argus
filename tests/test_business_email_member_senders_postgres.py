@@ -74,3 +74,37 @@ def test_the_default_never_overrides_a_blocked_owner(rig):
     saved = _send(rig, owner, ALIGNED)
     assert (saved.state, saved.error_code) == ("rejected", "email_sender_blocked")
     assert _status(rig, owner) == ("blocked", None)
+
+
+@pytest.mark.parametrize("required", [True, False])
+def test_default_approved_follows_the_live_grant_not_the_switch(
+    rig, monkeypatch, required
+):
+    from argus.api.routers.email_intake import _sender_item
+
+    monkeypatch.setattr(sender_policy, "DEFAULT_APPROVAL_REQUIRES_ALIGNED", required)
+    space, store = rig["route"].space_id, rig["store"]
+    other = _email(rig, "other")
+    store.upsert_sender(space, "address", other, "blocked")
+    for value, status in (("caja@tienda.test", "authorized"), ("zz@x.test", "blocked")):
+        store.upsert_sender(space, "address", value, status)
+    store.record_sender(space, "nuevo@proveedor.test", "aligned")
+    store.upsert_sender(space, "domain", other.split("@")[1], "authorized")
+
+    def flags():
+        members = store.member_addresses(space)
+        return {
+            (r.kind, r.value): _sender_item(r, members)["default_approved"]
+            for r in store.list_senders(space)
+        }
+
+    found = flags()
+    assert found.pop(("address", other)) is True
+    assert set(found.values()) == {False}
+    with rig["pool"].connection() as db:
+        db.execute(
+            "update public.business_client_grants set revoked_at=now()"
+            " where space_id=%s and grantee_id=%s",
+            (space, rig["users"]["other"]),
+        )
+    assert flags()[("address", other)] is False

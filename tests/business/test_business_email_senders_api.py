@@ -55,6 +55,7 @@ def test_the_list_is_pending_then_authorized_then_blocked_with_tags(
         "value",
         "status",
         "tag",
+        "default_approved",
         "last_auth_result",
         "last_seen_at",
     }
@@ -92,3 +93,38 @@ def test_a_client_cannot_set_pending(alice: Owner, runtime) -> None:  # noqa: F8
     )
     assert refused.status_code == 422, refused.text
     assert runtime.store.list_senders(alice.scope().owner.space_id) == []
+
+
+def test_default_approved_marks_owner_and_team_rows_only(
+    alice: Owner,  # noqa: F811
+    runtime,  # noqa: F811
+) -> None:
+    space = alice.scope().owner.space_id
+    store = runtime.store
+    store.add_member(space, "Jose@Negocio.test")
+    store.add_member(space, "ana@negocio.test")
+    store.upsert_sender(space, "address", "jose@negocio.test", "blocked")
+    store.upsert_sender(space, "address", "caja@tienda.test", "authorized")
+    store.upsert_sender(space, "address", "zz@bloqueado.test", "blocked")
+    store.upsert_sender(space, "domain", "negocio.test", "authorized")
+    _seen(store, space, "nuevo@proveedor.test", "aligned", T1)
+    _seen(store, space, "ana@negocio.test", "failed", T2)
+    items = alice.get("/email/senders").json()["items"]
+    assert {(i["kind"], i["value"]): i["default_approved"] for i in items} == {
+        ("address", "ana@negocio.test"): True,
+        ("address", "nuevo@proveedor.test"): False,
+        ("address", "caja@tienda.test"): False,
+        ("address", "jose@negocio.test"): True,
+        ("address", "zz@bloqueado.test"): False,
+        ("domain", "negocio.test"): False,
+    }
+    authorized = alice.post(
+        "/email/senders",
+        {"kind": "address", "value": "ana@negocio.test", "status": "authorized"},
+    )
+    assert authorized.json()["default_approved"] is True
+    store._members[space].discard("ana@negocio.test")
+    removed = alice.get("/email/senders").json()["items"]
+    assert [
+        i["default_approved"] for i in removed if i["value"] == "ana@negocio.test"
+    ] == [False]
