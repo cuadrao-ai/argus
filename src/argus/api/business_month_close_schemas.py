@@ -93,6 +93,11 @@ class CloseReason(_Wire):
     document_kind: Literal["invoice", "receipt"]
 
 
+class UnreviewedReason(_Wire):
+    code: Literal["movimientos_sin_revisar"]
+    count: int
+
+
 class DocumentLine(_Wire):
     activity_id: str
     document_kind: Literal["invoice", "receipt"]
@@ -125,7 +130,7 @@ class MonthClose(_Wire):
     starts: date = Field(alias="from")
     to: date
     closed: bool
-    reasons: list[CloseReason]
+    reasons: list[CloseReason | UnreviewedReason]
     # The first month with a document this close would show; null while none.
     earliest_month: str | None
     payment_methods: list[str]
@@ -135,6 +140,8 @@ class MonthClose(_Wire):
     missing_ncf: list[DocumentLine]
     cuentas_por_cobrar: list[DocumentLine]
     cuentas_por_pagar: list[DocumentLine]
+    # Receipt and note drafts the Bandeja still lists in this month.
+    unreviewed_movements_count: int = 0
 
 
 class OpenTotal(_Wire):

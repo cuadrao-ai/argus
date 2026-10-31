@@ -26608,7 +26608,9 @@ components:
           type: boolean
         reasons:
           items:
-            $ref: '#/components/schemas/CloseReason'
+            anyOf:
+            - $ref: '#/components/schemas/CloseReason'
+            - $ref: '#/components/schemas/UnreviewedReason'
           type: array
         earliest_month:
           anyOf:
@@ -26640,6 +26642,9 @@ components:
           items:
             $ref: '#/components/schemas/DocumentLine'
           type: array
+        unreviewed_movements_count:
+          type: integer
+          default: 0
       additionalProperties: false
       type: object
       required:
@@ -33810,6 +33815,18 @@ components:
       - period_start
       - period_end
       - lines
+    UnreviewedReason:
+      properties:
+        code:
+          type: string
+          const: movimientos_sin_revisar
+        count:
+          type: integer
+      additionalProperties: false
+      type: object
+      required:
+      - code
+      - count
     UnsettledApproval:
       properties:
         status:

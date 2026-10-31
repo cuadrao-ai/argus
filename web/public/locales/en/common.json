@@ -3696,6 +3696,8 @@
       "reason_not_month": "Choose a calendar month to close it.",
       "blocker_rnc": "{{name}} has no RNC",
       "blocker_ncf": "{{name}} has no NCF or e-CF",
+      "unreviewed_movements_one": "You have 1 unreviewed item in {{month}}. Review it in the Bandeja before closing the month.",
+      "unreviewed_movements_other": "You have {{count}} unreviewed items in {{month}}. Review them in the Bandeja before closing the month.",
       "choose_month": "Choose month",
       "currency_menu": "Currency",
       "currency_menu_named": "Currency: {{currency}}",

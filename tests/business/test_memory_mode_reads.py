@@ -78,6 +78,7 @@ def test_each_read_answers_its_empty_shape_once_the_business_exists(alice: Owner
             "missing_ncf": [],
             "cuentas_por_cobrar": [],
             "cuentas_por_pagar": [],
+            "unreviewed_movements_count": 0,
         },
     )
     assert _code(alice.get("/month-close", month="2026-13")) == (422, "month_invalid")

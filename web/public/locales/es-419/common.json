@@ -3934,6 +3934,8 @@
       "reason_not_month": "Elige un mes de calendario para cerrarlo.",
       "blocker_rnc": "{{name}} no tiene RNC",
       "blocker_ncf": "{{name}} no tiene NCF ni e-CF",
+      "unreviewed_movements_one": "Tienes 1 movimiento sin revisar en {{month}}. Revísalo en la Bandeja antes de cerrar el mes.",
+      "unreviewed_movements_other": "Tienes {{count}} movimientos sin revisar en {{month}}. Revísalos en la Bandeja antes de cerrar el mes.",
       "choose_month": "Elegir mes",
       "currency_menu": "Moneda",
       "currency_menu_named": "Moneda: {{currency}}",
