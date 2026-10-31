@@ -25,7 +25,6 @@ fake = Faker()
 _SENTINEL_SECRET = "SENTINEL_LOCAL_SECRET_VALUE_682"
 _OPS_SCRIPT_MODULES = (
     "scripts.ops.cleanup_expired_guest_workspaces",
-    "scripts.ops.stale_backtest_jobs",
     "scripts.ops.release_expired_access_welcome_claims",
 )
 

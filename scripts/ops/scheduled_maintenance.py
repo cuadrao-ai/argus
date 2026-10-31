@@ -34,9 +34,9 @@ class JobOutcome:
 
 
 def maintenance_jobs(
-    *, guest_limit: int, stale_limit: int, deletion_limit: int = 25
+    *, guest_limit: int, deletion_limit: int = 25
 ) -> tuple[MaintenanceJob, ...]:
-    """Retention first: it has a documented deadline and shrinks the stale scan."""
+    """Retention first: it has a documented deadline."""
     return (
         MaintenanceJob(
             name="guest_workspace_retention",
@@ -44,15 +44,6 @@ def maintenance_jobs(
                 "scripts/ops/cleanup_expired_guest_workspaces.py",
                 "--limit",
                 str(guest_limit),
-            ),
-        ),
-        MaintenanceJob(
-            name="stale_backtest_jobs",
-            argv=(
-                "scripts/ops/stale_backtest_jobs.py",
-                "--json",
-                "--limit",
-                str(stale_limit),
             ),
         ),
         MaintenanceJob(
@@ -124,7 +115,6 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Run the scheduled Argus retention and reconciliation jobs.",
     )
     parser.add_argument("--guest-limit", type=int, default=25, choices=range(1, 101))
-    parser.add_argument("--stale-limit", type=int, default=100)
     parser.add_argument("--deletion-limit", type=int, default=25, choices=range(1, 101))
     return parser
 
@@ -134,7 +124,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     outcomes = run_maintenance(
         maintenance_jobs(
             guest_limit=args.guest_limit,
-            stale_limit=args.stale_limit,
             deletion_limit=args.deletion_limit,
         )
     )
