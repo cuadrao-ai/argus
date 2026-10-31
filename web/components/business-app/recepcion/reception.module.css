@@ -217,22 +217,23 @@
 
 .remitentes { margin:0 0 16px; }
 .remitentesTitle { margin:0 0 8px; font-family:var(--font-display); font-size:16px; font-weight:500; }
-.remitentesList { list-style:none; margin:0; padding:0; border:1px solid var(--line); border-radius:16px; overflow:hidden; background:var(--cuadrao-menu-surface); }
+.remitentesList { list-style:none; margin:0; padding:0; border:1px solid var(--line); overflow:hidden; background:var(--cuadrao-menu-surface); }
 .remitente { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; min-height:44px; padding:8px 12px; border-bottom:1px solid var(--line); }
 .remitente:last-child { border-bottom:0; }
 .remitenteIdentity { display:flex; align-items:center; gap:8px; min-width:0; flex:1 1 160px; }
-.remitenteDot { width:8px; height:8px; border-radius:999px; background:#735c14; flex-shrink:0; }
-.remitenteLabel { font-weight:500; }
-.remitenteSender { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted); }
+.remitenteDot { position:static; left:auto; top:auto; width:8px; height:8px; background:#735c14; flex-shrink:0; }
+.remitenteLabel { font-weight:500; flex-shrink:0; white-space:nowrap; }
+.remitenteSender { min-width:0; flex:1 1 auto; overflow:visible; white-space:normal; overflow-wrap:anywhere; color:var(--muted); }
 .remitenteNotice { flex:1 0 100%; color:var(--muted); font-size:12px; line-height:16px; }
-.remitenteActions { display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; }
+.remitenteActions { display:flex; flex-wrap:nowrap; gap:8px; margin-left:auto; flex-shrink:0; }
+.remitenteActions > button { min-height:44px; }
 .remitenteError { flex:1 0 100%; margin:0; font-size:13px; line-height:18px; }
 @media (max-width:640px) {
   .remitente { flex-direction:column; align-items:stretch; gap:8px; }
   .remitenteIdentity { display:grid; grid-template-columns:8px minmax(0,1fr); column-gap:8px; row-gap:4px; width:100%; flex:none; }
   .remitenteDot { grid-row:1; grid-column:1; align-self:center; }
-  .remitenteLabel { grid-row:1; grid-column:2; white-space:nowrap; }
-  .remitenteSender { grid-row:2; grid-column:2; overflow:visible; text-overflow:unset; white-space:normal; overflow-wrap:anywhere; }
+  .remitenteLabel { grid-row:1; grid-column:2; }
+  .remitenteSender { grid-row:2; grid-column:2; }
   .remitente .reviewNote,.remitenteNotice,.remitenteActions,.remitenteError { margin-left:16px; width:calc(100% - 16px); flex:none; }
   .remitenteActions { display:flex; flex-wrap:nowrap; }
   .remitenteActions > button { flex:1 1 0; min-width:0; min-height:44px; }

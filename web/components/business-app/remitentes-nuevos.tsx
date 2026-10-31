@@ -63,7 +63,7 @@ export default function RemitentesNuevos({ items }: { items: readonly BusinessEm
           return (
             <li key={item.id} className={styles.remitente} data-testid="remitente-nuevo-row">
               <span className={styles.remitenteIdentity}>
-                <span className={styles.remitenteDot} aria-hidden="true" />
+                <span className={`${styles.unseenDot} ${styles.remitenteDot}`} aria-hidden="true" />
                 <span className={styles.remitenteLabel} data-testid="remitente-label">{t("business.inbox.remitente_nuevo", "New sender")}</span>
                 <span className={styles.remitenteSender} data-testid="remitente-sender">{item.sender || t("business.email.no_sender", "Sender unavailable")}</span>
               </span>

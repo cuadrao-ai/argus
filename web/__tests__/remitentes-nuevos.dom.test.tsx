@@ -287,14 +287,18 @@ test("sender standing chooses the note and the buttons", async () => {
   assert.equal(note()?.textContent, "Nota de la API 41");
 });
 
-test("a phone row keeps the address whole and the label on one line", () => {
+test("the sender address wraps at every width and the label stays one line", () => {
   const css = readFileSync(new URL("../components/business-app/recepcion/reception.module.css", import.meta.url), "utf8");
-  const phone = css.slice(css.indexOf("@media (max-width:640px)"));
-  const senderRule = phone.slice(phone.indexOf(".remitenteSender"), phone.indexOf(".remitente .reviewNote"));
-  assert.match(senderRule, /overflow-wrap:anywhere/);
-  assert.equal(senderRule.includes("ellipsis"), false);
-  assert.match(phone, /\.remitenteLabel \{[^}]*white-space:nowrap/);
-  assert.match(phone, /min-height:44px/);
+  const blocks = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter((block) => block[1].includes(".remitenteSender") || block[1].includes(".remitenteLabel") || block[1].includes(".remitenteActions > button"));
+  const sender = blocks.filter((block) => block[1].includes(".remitenteSender")).map((block) => block[2]).join(" ");
+  const label = blocks.filter((block) => block[1].includes(".remitenteLabel")).map((block) => block[2]).join(" ");
+  assert.match(sender, /overflow-wrap:\s*anywhere/);
+  assert.equal(sender.includes("ellipsis"), false);
+  assert.equal(sender.includes("nowrap"), false);
+  assert.match(label, /white-space:\s*nowrap/);
+  assert.match(blocks.filter((block) => block[1].includes(".remitenteActions > button")).map((block) => block[2]).join(" "), /min-height:\s*44px/);
+  assert.equal(css.includes(".remitentesList") && /border-radius/.test(css.slice(css.indexOf(".remitentesList"), css.indexOf(".remitente {"))), false);
+  assert.equal(/\.remitenteDot\s*\{[^}]*border-radius/.test(css), false);
 });
 
 test("the Por revisar tab and the badge share one count", async () => {
