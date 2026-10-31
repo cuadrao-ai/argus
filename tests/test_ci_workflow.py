@@ -4,6 +4,7 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 from pathlib import Path
 
 import yaml
@@ -177,8 +178,13 @@ def test_ci_runs_guest_release_gates_with_disposable_local_supabase() -> None:
     )
     assert "supabase --version" in joined_steps
     assert '--format \'{{.Names}} {{.Image}}\'' in joined_steps
-    assert "supabase start" in joined_steps
-    assert "supabase db reset" in joined_steps
+    # `supabase start` applies every migration and the seed; a reset after it
+    # replays them for no new coverage.
+    assert (
+        "supabase start -x studio,postgres-meta,realtime,imgproxy,edge-runtime,mailpit"
+        in joined_steps
+    )
+    assert "supabase db reset" not in joined_steps
     assert "ARGUS_DISPOSABLE_DATABASE_URL" in joined_steps
     assert "ARGUS_LOCAL_SUPABASE_URL" in joined_steps
     assert "ARGUS_LOCAL_SUPABASE_ANON_KEY" in joined_steps
@@ -196,6 +202,105 @@ def test_ci_runs_guest_release_gates_with_disposable_local_supabase() -> None:
     assert guest_job["env"]["ALPACA_SECRET_KEY"] == ""
     assert guest_job["env"]["ARGUS_MARKET_DATA_PROVIDER_MODE"] == "synthetic_unit_fixture"
     assert "live_provider" not in joined_steps
+
+
+_PILOT_POSTGRES_GLOBS = (
+    "tests/test_business*_postgres.py",
+    "tests/test_whatsapp*_postgres.py",
+    "tests/test_ingestion*_postgres.py",
+    "tests/test_fiscal*_postgres.py",
+    "tests/test_registros*_postgres.py",
+    "tests/test_document*_postgres.py",
+    "tests/test_rls*_postgres.py",
+    "tests/test_access*_postgres.py",
+    "tests/test_client_grants_postgres.py",
+    "tests/test_account_deletion_fk_census_postgres.py",
+)
+
+
+def _run_postgres_matrix_step(
+    tmp_path: Path, cwd: Path, event: str
+) -> tuple[subprocess.CompletedProcess[str], list[str]]:
+    """Run the matrix step's Bash with a poetry that records its arguments."""
+    step = next(
+        step
+        for step in _workflow()["jobs"]["database-checks"]["steps"]
+        if step.get("name") == "Run required real-PostgreSQL matrix"
+    )
+    scratch = Path(tempfile.mkdtemp(dir=tmp_path))
+    log = scratch / "poetry-args.log"
+    poetry = scratch / "poetry"
+    poetry.write_text(
+        f"#!/bin/bash\nprintf '%s\\n' \"$@\" >> \"{log}\"\n", encoding="utf-8"
+    )
+    poetry.chmod(0o755)
+    result = subprocess.run(
+        ["bash", "--noprofile", "--norc", "-c", step["run"]],
+        cwd=cwd,
+        env={
+            **os.environ,
+            "PATH": f"{scratch}{os.pathsep}{os.environ['PATH']}",
+            "GITHUB_EVENT_NAME": event,
+        },
+        capture_output=True,
+        text=True,
+    )
+    args = log.read_text(encoding="utf-8").splitlines() if log.exists() else []
+    return result, [arg for arg in args if arg.startswith("tests/")]
+
+
+def test_pull_requests_run_the_pilot_postgres_set_and_other_events_run_every_proof(
+    tmp_path: Path,
+) -> None:
+    pilot = sorted(
+        {
+            str(path.relative_to(ROOT))
+            for glob in _PILOT_POSTGRES_GLOBS
+            for path in ROOT.glob(glob)
+        }
+    )
+    everything = sorted(
+        str(path.relative_to(ROOT)) for path in ROOT.glob("tests/test_*_postgres.py")
+    )
+    assert "tests/test_business_postgres.py" in pilot
+    assert "tests/test_client_grants_postgres.py" in pilot
+    assert "tests/test_account_deletion_fk_census_postgres.py" in pilot
+    assert set(pilot) < set(everything)
+
+    result, files = _run_postgres_matrix_step(tmp_path, ROOT, "pull_request")
+    assert result.returncode == 0, result.stderr
+    assert sorted(files) == pilot
+
+    for event in ("push", "schedule", "workflow_dispatch"):
+        result, files = _run_postgres_matrix_step(tmp_path, ROOT, event)
+        assert result.returncode == 0, result.stderr
+        assert sorted(files) == everything, event
+
+
+def test_a_pilot_postgres_glob_that_matches_no_file_fails_the_step(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    (repo / "tests").mkdir(parents=True)
+    for glob in _PILOT_POSTGRES_GLOBS:
+        if "whatsapp" not in glob:
+            (repo / glob.replace("*", "")).touch()
+
+    missing, _ = _run_postgres_matrix_step(tmp_path, repo, "pull_request")
+    assert missing.returncode != 0
+    assert "tests/test_whatsapp*_postgres.py" in missing.stderr
+
+    # A file named without a trailing word still matches its prefix glob.
+    (repo / "tests/test_whatsapp_postgres.py").touch()
+    found, files = _run_postgres_matrix_step(tmp_path, repo, "pull_request")
+    assert found.returncode == 0, found.stderr
+    assert "tests/test_whatsapp_postgres.py" in files
+
+    # A literal pilot file that has gone missing fails too.
+    (repo / "tests/test_client_grants_postgres.py").unlink()
+    gone, _ = _run_postgres_matrix_step(tmp_path, repo, "pull_request")
+    assert gone.returncode != 0
+    assert "tests/test_client_grants_postgres.py" in gone.stderr
 
 
 def test_marketing_checks_prove_the_runtime_and_tooling_render_will_use() -> None:
@@ -732,7 +837,7 @@ def test_real_postgres_matrix_runs_on_pinned_and_latest_supabase_cli() -> None:
     )
     by_name = {step.get("name"): step for step in guest_job["steps"]}
     always = (
-        "Start disposable local Supabase and reset migrations",
+        "Start disposable local Supabase",
         "Print Supabase CLI and image versions",
         "Run required real-PostgreSQL matrix",
     )

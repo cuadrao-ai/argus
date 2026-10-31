@@ -303,10 +303,13 @@ jobs:
             marketing/test-results
           retention-days: 14
 
-  # Runs the guest gates, every shared tests/test_*_postgres.py proof and a
-  # replay of all migrations against a local Supabase, on the pinned and the
-  # latest Supabase CLI. Formerly named guest-release-gates; no branch setting
-  # requires either name.
+  # Runs the guest gates and the real-Postgres proofs against a local Supabase
+  # whose start applies every migration and the seed once. A pull request runs
+  # the pilot set of tests/test_*_postgres.py on the pinned CLI; a push, the
+  # schedule and a manual run run every tests/test_*_postgres.py, so a new proof
+  # is gated after merge. The start skips the Supabase containers no test here
+  # reads. Formerly named guest-release-gates; no branch setting requires
+  # either name.
   database-checks:
     runs-on: ubuntu-latest
     needs: docs-change-gate
@@ -349,10 +352,13 @@ jobs:
           version: ${{ matrix.supabase-cli == 'latest' && 'latest' || env.ARGUS_CI_SUPABASE_CLI_VERSION }}
           github-token: ${{ github.token }}
 
-      - name: Start disposable local Supabase and reset migrations
+      # Auth, REST and Storage are what the tests call. Excluded: Studio and
+      # postgres-meta (dashboard), Realtime, imgproxy (image transforms),
+      # Edge Runtime (no test serves a function) and Mailpit (sign-up here
+      # needs no email confirmation, and no job exports a Mailpit URL).
+      - name: Start disposable local Supabase
         run: |
-          supabase start
-          supabase db reset
+          supabase start -x studio,postgres-meta,realtime,imgproxy,edge-runtime,mailpit
           eval "$(supabase status -o env)"
           {
             echo "ARGUS_DISPOSABLE_DATABASE_URL=$DB_URL"
@@ -368,10 +374,40 @@ jobs:
 
       # Glob-level so a new _postgres proof is gated without editing this
       # workflow; a hand-maintained list is how uncovered tables ship green.
+      # A pull request runs the pilot set. Every other event runs the full
+      # tests/test_*_postgres.py glob. A glob that matches no file fails the step.
       - name: Run required real-PostgreSQL matrix
         run: |
+          set -euo pipefail
+          shopt -s nullglob
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            patterns=(
+              'tests/test_business*_postgres.py'
+              'tests/test_whatsapp*_postgres.py'
+              'tests/test_ingestion*_postgres.py'
+              'tests/test_fiscal*_postgres.py'
+              'tests/test_registros*_postgres.py'
+              'tests/test_document*_postgres.py'
+              'tests/test_rls*_postgres.py'
+              'tests/test_access*_postgres.py'
+              'tests/test_client_grants_postgres.py'
+              'tests/test_account_deletion_fk_census_postgres.py'
+            )
+          else
+            patterns=('tests/test_*_postgres.py')
+          fi
+          files=()
+          for pattern in "${patterns[@]}"; do
+            matched=($pattern)
+            if [ "${#matched[@]}" -eq 0 ] || [ ! -e "${matched[0]}" ]; then
+              echo "No test file matches $pattern" >&2
+              exit 1
+            fi
+            files+=("${matched[@]}")
+          done
+          echo "Running ${#files[@]} real-PostgreSQL test files for $GITHUB_EVENT_NAME"
           poetry run pytest \
-            tests/test_*_postgres.py \
+            "${files[@]}" \
             --junitxml=temp/guest-postgres-junit.xml \
             -q --no-cov
           poetry run python scripts/qa/assert_pytest_gate.py \
