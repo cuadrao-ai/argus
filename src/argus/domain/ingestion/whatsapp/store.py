@@ -205,7 +205,9 @@ class InMemoryWhatsAppStore:
             if current.status not in RETRYABLE or current.claim_until != claim_until:
                 return None
             if settlement.connection_id is not None and not any(
-                link.active and link.owner == settlement.destination_owner_id
+                link.active
+                and link.owner == settlement.destination_owner_id
+                and link.sender == current.sender_hash
                 for link in self._links
             ):
                 settlement = revoked(settlement)
