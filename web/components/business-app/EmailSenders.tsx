@@ -18,7 +18,7 @@ import {
   type SenderTagView,
   EmailSenderRequestError,
 } from "@/lib/business-email";
-import { secondaryButtonClass } from "./business-ui";
+import { quietButtonClass, secondaryButtonClass } from "./business-ui";
 import { FOCUS_RING } from "./foundation/presentation";
 
 const copy = (key: string) => `business.reception.senders.${key}`;
@@ -34,7 +34,7 @@ function SenderTag({ view }: { view: SenderTagView }) {
   const tip = view === "verified" ? "tag_verified_tip" : "tag_unverified_tip";
   return (
     <Tooltip content={t(copy(tip))} side="top">
-      <button type="button" data-testid="email-sender-tag" data-verification={view} className={`inline-flex min-h-11 w-fit items-center self-start rounded-full border border-[#DCE0DA] px-3 text-[13px] ${FOCUS_RING} ${view === "verified" ? "text-[#2f5a49]" : "text-[#56635e]"} dark:border-white/10`}>
+      <button type="button" data-testid="email-sender-tag" data-verification={view} className={`inline-flex min-h-11 w-fit items-center self-start rounded-full border border-[color:var(--surface-divider)] px-3 text-[13px] ${FOCUS_RING} ${view === "verified" ? "text-[var(--cuadrao-green)]" : "text-[#56635e]"}`}>
         {t(copy(name))}
       </button>
     </Tooltip>
@@ -115,7 +115,7 @@ export default function EmailSenders({ client }: { client?: EmailSenderClient })
 
   const grouped = items ? groupSenders(items.map(senderForView)) : null;
   const pending = grouped?.pending ?? [];
-  const sectionClass = "border-t border-[#DCE0DA] pt-1 dark:border-white/10";
+  const sectionClass = "border-t border-[color:var(--surface-divider)] pt-1";
   const headingClass = "px-2 text-[14px] text-[#56635e] dark:text-white/70";
 
   return (
@@ -124,7 +124,7 @@ export default function EmailSenders({ client }: { client?: EmailSenderClient })
       {failure ? (
         <div className="mt-3" role="alert" data-testid="email-senders-error">
           <p className="text-[14px] text-[#56635e] dark:text-white/70">{t(copy("error"))}</p>
-          <button type="button" className={`${secondaryButtonClass} mt-3`} onClick={() => setAttempt((value) => value + 1)}>{t(copy("retry"))}</button>
+          <button type="button" className={`${quietButtonClass} mt-3`} onClick={() => setAttempt((value) => value + 1)}>{t(copy("retry"))}</button>
         </div>
       ) : null}
       {!failure && !grouped ? (
