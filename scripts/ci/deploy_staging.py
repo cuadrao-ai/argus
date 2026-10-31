@@ -16,6 +16,9 @@ import os
 import re
 import subprocess
 import sys
+import time
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -35,6 +38,26 @@ REJECTED = frozenset(
 )
 SKIP_LINE = "Nothing deployable changed since the comparison commit. Skipping deploy."
 CI_CHECK = "ci"
+PENDING_DEPLOY = frozenset(
+    {
+        "created",
+        "build_in_progress",
+        "update_in_progress",
+        "pre_deploy_in_progress",
+        "queued",
+    }
+)
+FAILED_DEPLOY = frozenset(
+    {
+        "build_failed",
+        "update_failed",
+        "deactivated",
+        "canceled",
+    }
+)
+DEFAULT_TIMEOUT_SECONDS = 900
+DEFAULT_INTERVAL_SECONDS = 15
+DEPLOY_ID_RE = re.compile(r"^dep-[A-Za-z0-9]+$")
 
 
 class DeployError(Exception):
@@ -288,10 +311,20 @@ def summarize_deploy(payload: object, name: str) -> str:
     return f"Requested deploy for {name}."
 
 
+def split_paths(data: bytes) -> list[str]:
+    if b"\0" in data:
+        if data.endswith(b"\0"):
+            data = data[:-1]
+        parts = data.split(b"\0")
+    else:
+        parts = data.splitlines()
+    return [part.decode("utf-8", "surrogateescape") for part in parts if part]
+
+
 def read_paths(path: str | None) -> list[str]:
     if not path:
         return []
-    return Path(path).read_text(encoding="utf-8").splitlines()
+    return split_paths(Path(path).read_bytes())
 
 
 def command_validate(args: argparse.Namespace) -> int:
@@ -325,7 +358,7 @@ def command_select(args: argparse.Namespace) -> int:
         api_paths = read_paths(args.api_paths)
         web_paths = read_paths(args.web_paths)
     else:
-        shared = sys.stdin.read().splitlines()
+        shared = split_paths(sys.stdin.buffer.read())
         api_paths = shared
         web_paths = shared
     chosen = select_services(api_paths, web_paths, force_all=force_all)
@@ -384,6 +417,151 @@ def command_summarize(args: argparse.Namespace) -> int:
     return 0
 
 
+def deploy_commit(payload: dict[str, object]) -> str:
+    commit = payload.get("commit")
+    if isinstance(commit, dict):
+        return str(commit.get("id") or "").lower()
+    if isinstance(commit, str):
+        return commit.lower()
+    return ""
+
+
+def classify_deploy(payload: dict[str, object], expected_sha: str, name: str) -> str:
+    status = str(payload.get("status") or "")
+    if status == "live":
+        if deploy_commit(payload) != expected_sha:
+            raise DeployError(f"{name} is live at a different commit.")
+        return "live"
+    if status in FAILED_DEPLOY:
+        raise DeployError(f"{name} deploy failed: {status}.")
+    if status in PENDING_DEPLOY:
+        return "pending"
+    label = status or "missing"
+    raise DeployError(f"{name} deploy failed: unexpected status {label}.")
+
+
+def poll_deploy(
+    fetch,
+    *,
+    name: str,
+    expected_sha: str,
+    timeout: float,
+    interval: float,
+    now,
+    sleep,
+) -> None:
+    start = now()
+    while True:
+        if now() - start >= timeout:
+            raise DeployError(f"{name} deploy timed out.")
+        try:
+            payload = fetch()
+        except StopIteration:
+            raise DeployError(f"{name} deploy timed out.") from None
+        if not isinstance(payload, dict):
+            raise DeployError(f"{name} deploy failed: unexpected status missing.")
+        if classify_deploy(payload, expected_sha, name) == "live":
+            return
+        sleep(interval)
+
+
+def posted_deploy_id(payload: object) -> str:
+    if not isinstance(payload, dict):
+        raise DeployError("Deploy response had no status.")
+    value = str(payload.get("id") or "")
+    if DEPLOY_ID_RE.fullmatch(value) is None:
+        raise DeployError("Deploy id is not usable.")
+    return value
+
+
+def fetch_render_deploy(
+    service_id: str, deploy_id: str, api_key: str
+) -> dict[str, object]:
+    if SERVICE_ID_RE.fullmatch(service_id) is None:
+        raise DeployError("Service id is not usable.")
+    if DEPLOY_ID_RE.fullmatch(deploy_id) is None:
+        raise DeployError("Deploy id is not usable.")
+    if not api_key:
+        raise DeployError(
+            "RENDER_API_KEY is missing. Lucas adds it as a repository secret."
+        )
+    url = f"https://api.render.com/v1/services/{service_id}/deploys/{deploy_id}"
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Accept": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            body = response.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        raise DeployError(f"Deploy status request failed: HTTP {exc.code}.") from None
+    except Exception as exc:
+        raise DeployError(
+            f"Deploy status request failed: {type(exc).__name__}."
+        ) from None
+    payload = read_json(body)
+    if not isinstance(payload, dict):
+        raise DeployError("Cannot read the deploy status.")
+    return payload
+
+
+def command_wait(args: argparse.Namespace) -> int:
+    allow_name(args.name)
+    expected = resolve_sha(args.sha, args.sha)
+    timeout = float(args.timeout)
+    interval = float(args.interval)
+    if args.responses:
+        payloads = [
+            read_json(line)
+            for line in Path(args.responses).read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        clock = {"t": 0.0}
+
+        def now() -> float:
+            return clock["t"]
+
+        def sleep(seconds: float) -> None:
+            clock["t"] += seconds
+
+        def fetch():
+            if not payloads:
+                raise StopIteration
+            return payloads.pop(0)
+
+        poll_deploy(
+            fetch,
+            name=args.name,
+            expected_sha=expected,
+            timeout=timeout,
+            interval=interval,
+            now=now,
+            sleep=sleep,
+        )
+    else:
+        payload = read_json(Path(args.response).read_text(encoding="utf-8"))
+        deploy_id = posted_deploy_id(payload)
+        api_key = os.environ.get("RENDER_API_KEY", "")
+
+        def fetch_live():
+            return fetch_render_deploy(args.service_id, deploy_id, api_key)
+
+        poll_deploy(
+            fetch_live,
+            name=args.name,
+            expected_sha=expected,
+            timeout=timeout,
+            interval=interval,
+            now=time.monotonic,
+            sleep=time.sleep,
+        )
+    print(f"{args.name} is live.")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Decide a staging deploy.")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -434,6 +612,16 @@ def build_parser() -> argparse.ArgumentParser:
     summary.add_argument("--name", required=True)
     summary.add_argument("--response", required=True)
     summary.set_defaults(func=command_summarize)
+
+    wait = commands.add_parser("wait-deploy")
+    wait.add_argument("--name", required=True)
+    wait.add_argument("--sha", required=True)
+    wait.add_argument("--responses")
+    wait.add_argument("--service-id")
+    wait.add_argument("--response")
+    wait.add_argument("--timeout", default=str(DEFAULT_TIMEOUT_SECONDS))
+    wait.add_argument("--interval", default=str(DEFAULT_INTERVAL_SECONDS))
+    wait.set_defaults(func=command_wait)
     return parser
 
 

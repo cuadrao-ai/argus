@@ -37,7 +37,7 @@ permissions:
 
 concurrency:
   group: deploy-staging
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -50,6 +50,8 @@ jobs:
       DRY_RUN: ${{ inputs.dry_run }}
     steps:
       - name: Fetch the selected ref
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           git init --quiet .
@@ -80,6 +82,7 @@ jobs:
       - name: Require a green ci check
         env:
           TARGET_SHA: ${{ env.TARGET_SHA }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           gh api --paginate \
@@ -155,9 +158,9 @@ jobs:
             .github/docs-only-changes.sh
           cp "$RUNNER_TEMP/deploy-tools/scripts/ci/deploy_staging.py" \
             scripts/ci/deploy_staging.py
-          git diff --name-only --no-renames --diff-filter=ACDMRTUXB \
+          git diff --name-only -z --no-renames --diff-filter=ACDMRTUXB \
             "${API_BASE}...${TARGET_SHA}" > "$RUNNER_TEMP/api-paths.txt"
-          git diff --name-only --no-renames --diff-filter=ACDMRTUXB \
+          git diff --name-only -z --no-renames --diff-filter=ACDMRTUXB \
             "${WEB_BASE}...${TARGET_SHA}" > "$RUNNER_TEMP/web-paths.txt"
           .github/docs-only-changes.sh
           python3 scripts/ci/deploy_staging.py select-services \
@@ -197,7 +200,11 @@ jobs:
               --data "$body" \
               --output "$RUNNER_TEMP/deploy-body.json" \
               "https://api.render.com/v1/services/${service_id}/deploys"
-            python3 scripts/ci/deploy_staging.py summarize-deploy \
+            python3 scripts/ci/deploy_staging.py wait-deploy \
               --name "$name" \
-              --response "$RUNNER_TEMP/deploy-body.json"
+              --service-id "$service_id" \
+              --response "$RUNNER_TEMP/deploy-body.json" \
+              --sha "$TARGET_SHA" \
+              --timeout 900 \
+              --interval 15
           done < "$RUNNER_TEMP/selection.txt"

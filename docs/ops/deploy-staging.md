@@ -7,4 +7,4 @@ Deploy one green commit to `cuadrao-api-staging`, `cuadrao-app-staging`, or both
 3. Leave `force_all` off to deploy only the service whose paths changed. Turn `force_all` on to deploy both staging services.
 4. Turn `dry_run` on to stop before the deploy request. The run still reads which commit is live.
 
-Lucas adds the `RENDER_API_KEY` repository secret before the first run. The workflow reads that secret and does not turn auto-deploy on. A run with nothing deployable since the live commit skips and stays green.
+Lucas adds the `RENDER_API_KEY` repository secret before the first run. The workflow reads that secret and does not turn auto-deploy on. A run with nothing deployable since the live commit skips and stays green. A newer dispatch waits for the running one. GitHub keeps only the newest pending run. The job waits until each requested deploy is live for that commit, and a failure stops the run.

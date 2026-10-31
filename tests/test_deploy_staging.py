@@ -517,6 +517,149 @@ def test_older_base_is_the_ancestor(tmp_path: Path) -> None:
     assert result.stdout.strip() == parent
 
 
+SHA = "a" * 40
+
+
+def write_status(path: Path, status: str, commit: str = SHA) -> None:
+    path.write_text(
+        json.dumps({"status": status, "commit": {"id": commit}}) + "\n",
+        encoding="utf-8",
+    )
+
+
+def wait_deploy(path: Path, *extra: str) -> subprocess.CompletedProcess[str]:
+    return run(
+        "wait-deploy",
+        "--name",
+        "cuadrao-api-staging",
+        "--sha",
+        SHA,
+        "--responses",
+        str(path),
+        "--timeout",
+        "5",
+        "--interval",
+        "1",
+        *extra,
+    )
+
+
+def test_failed_or_unknown_deploy_status_exits_nonzero(tmp_path: Path) -> None:
+    for status in (
+        "build_failed",
+        "update_failed",
+        "deactivated",
+        "canceled",
+        "rolled_back",
+    ):
+        payload = tmp_path / f"{status}.jsonl"
+        write_status(payload, status)
+        result = wait_deploy(payload)
+        assert result.returncode != 0, status
+        assert "cuadrao-api-staging" in result.stderr
+
+
+def test_live_deploy_for_the_requested_commit_exits_zero(tmp_path: Path) -> None:
+    payload = tmp_path / "live.jsonl"
+    write_status(payload, "build_in_progress")
+    payload.write_text(
+        payload.read_text(encoding="utf-8")
+        + json.dumps({"status": "live", "commit": {"id": SHA}})
+        + "\n",
+        encoding="utf-8",
+    )
+    result = wait_deploy(payload)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "cuadrao-api-staging is live."
+
+
+def test_live_deploy_at_another_commit_fails(tmp_path: Path) -> None:
+    payload = tmp_path / "mismatch.jsonl"
+    write_status(payload, "live", "b" * 40)
+    result = wait_deploy(payload)
+    assert result.returncode != 0
+    assert "cuadrao-api-staging" in result.stderr
+
+
+def test_pending_deploy_times_out(tmp_path: Path) -> None:
+    payload = tmp_path / "pending.jsonl"
+    write_status(payload, "build_in_progress")
+    result = wait_deploy(payload, "--timeout", "1")
+    assert result.returncode != 0
+    assert "timed out" in result.stderr
+    assert "cuadrao-api-staging" in result.stderr
+
+
+def git_diff_z(repo: Path, base: str, head: str) -> bytes:
+    return subprocess.check_output(
+        [
+            "git",
+            "diff",
+            "--name-only",
+            "-z",
+            "--no-renames",
+            "--diff-filter=ACDMRTUXB",
+            f"{base}...{head}",
+        ],
+        cwd=repo,
+    )
+
+
+def add_file(repo: Path, relative: str) -> str:
+    target = repo.joinpath(*relative.split("/"))
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("x\n", encoding="utf-8")
+    subprocess.run(["git", "add", "--", relative], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "add"], cwd=repo, check=True)
+    return git(repo, "rev-parse", "HEAD")
+
+
+def test_unusual_git_paths_select_the_service(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    base = init_repo(repo)
+    api_file = tmp_path / "api.z"
+    web_file = tmp_path / "web.z"
+    api_file.write_bytes(b"")
+
+    accent = add_file(repo, "web/src/ñandú.ts")
+    web_file.write_bytes(git_diff_z(repo, base, accent))
+    accent_result = run(
+        "select-services",
+        "--api-paths",
+        str(api_file),
+        "--web-paths",
+        str(web_file),
+    )
+
+    parent = accent
+    newline_head = add_file(repo, "web/src/line\nbreak.ts")
+    web_file.write_bytes(git_diff_z(repo, parent, newline_head))
+    newline_result = run(
+        "select-services",
+        "--api-paths",
+        str(api_file),
+        "--web-paths",
+        str(web_file),
+    )
+
+    spaced = add_file(repo, "src/argus/my module.py")
+    api_file.write_bytes(git_diff_z(repo, newline_head, spaced))
+    web_file.write_bytes(b"")
+    spaced_result = run(
+        "select-services",
+        "--api-paths",
+        str(api_file),
+        "--web-paths",
+        str(web_file),
+    )
+
+    assert selected(accent_result) == ["cuadrao-app-staging"]
+    assert selected(newline_result) == ["cuadrao-app-staging"]
+    assert newline_result.stdout.strip() != SKIP
+    assert selected(spaced_result) == ["cuadrao-api-staging"]
+
+
 def test_summarize_deploy_hides_ids(tmp_path: Path) -> None:
     response = tmp_path / "response.json"
     response.write_text(
@@ -557,7 +700,7 @@ def test_workflow_is_manual_and_least_privilege() -> None:
     assert workflow["permissions"] == {"contents": "read", "checks": "read"}
     assert workflow["concurrency"] == {
         "group": "deploy-staging",
-        "cancel-in-progress": True,
+        "cancel-in-progress": False,
     }
     assert "secrets.RENDER_API_KEY" in text
     assert "RENDER_API_KEY is missing" in text
@@ -592,3 +735,9 @@ def test_workflow_is_manual_and_least_privilege() -> None:
     assert "/v1/services/" in text
     assert "commitId" in text
     assert "/deploys" in text
+    assert "--name-only -z" in text
+    for job in workflow["jobs"].values():
+        for step in job["steps"]:
+            script = step.get("run") or ""
+            if re.search(r"\bgh ", script):
+                assert (step.get("env") or {}).get("GH_TOKEN") == "${{ github.token }}"
