@@ -10,7 +10,7 @@ from datetime import timedelta
 import pytest
 from argus.domain.ingestion.whatsapp.intake import CLAIM_SECONDS, RECOVERY_ATTEMPTS
 
-from tests.ingestion.whatsapp_cases import ORIGIN, World, image
+from tests.ingestion.whatsapp_cases import ORIGIN, UNLINKED, World, image
 from tests.ingestion.whatsapp_support import (
     ALICE_PHONE,
     RECEIPT_PNG,
@@ -159,7 +159,7 @@ async def a_lapsed_claim_with_no_envelope_fails_visibly(world: World) -> None:
     assert len(world.transport.sent) == replies
 
 
-async def a_sender_who_unlinked_meanwhile_gets_nothing_and_leaves_no_envelope(
+async def a_sender_who_unlinked_meanwhile_gets_the_unlinked_line_and_no_envelope(
     world: World,
 ) -> None:
     await world.link(world.alice, ALICE_PHONE)
@@ -172,7 +172,7 @@ async def a_sender_who_unlinked_meanwhile_gets_nothing_and_leaves_no_envelope(
     record = world.record("wamid.CASE-GONE")
     assert (record.status, record.claim_envelope) == ("rejected", None)
     assert world.captures(world.alice) == []
-    assert len(world.transport.sent) == replies
+    assert world.transport.bodies()[replies:] == [UNLINKED]
 
 
 async def webhook_traffic_runs_the_sweep_without_background_jobs(world: World) -> None:
@@ -205,6 +205,6 @@ RECOVERY_CASES = (
     retries_are_bounded_then_the_sender_is_asked_once_to_resend,
     concurrent_sweeps_make_one_receipt,
     a_lapsed_claim_with_no_envelope_fails_visibly,
-    a_sender_who_unlinked_meanwhile_gets_nothing_and_leaves_no_envelope,
+    a_sender_who_unlinked_meanwhile_gets_the_unlinked_line_and_no_envelope,
     webhook_traffic_runs_the_sweep_without_background_jobs,
 )

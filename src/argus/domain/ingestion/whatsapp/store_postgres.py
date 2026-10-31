@@ -9,11 +9,14 @@ from psycopg_pool import ConnectionPool
 from argus.domain.ingestion.whatsapp.reply_groups import PendingFailure
 from argus.domain.ingestion.whatsapp.reply_groups_postgres import PostgresReplyGroups
 from argus.domain.ingestion.whatsapp.store import (
+    UNLINKED_REPLY_RESERVED,
     Claim,
     InboundRecord,
     SenderLink,
     Settlement,
+    dominican_day,
     revoked,
+    unlinked_reply_key,
 )
 
 _INBOUND_COLUMNS = (
@@ -175,6 +178,25 @@ class PostgresWhatsAppStore:
                 (provider_message_key,),
             ).fetchone()
         return _record(row) if row else None
+
+    def reserve_unlinked_reply(
+        self, *, sender_hash: bytes, provider_message_key: bytes, now: datetime
+    ) -> bool:
+        with self._pool.connection() as connection, connection.transaction():
+            (received_at,) = connection.execute(
+                "select received_at from public.whatsapp_inbound_messages "
+                "where provider_message_key = %s",
+                (provider_message_key,),
+            ).fetchone()
+            key = unlinked_reply_key(sender_hash, dominican_day(received_at))
+            row = connection.execute(
+                "insert into public.whatsapp_inbound_messages "
+                "(provider_message_key, sender_hash, status, error_code, received_at, "
+                "updated_at) values (%s, %s, 'rejected', %s, %s, %s) "
+                "on conflict (provider_message_key) do nothing returning 1",
+                (key, sender_hash, UNLINKED_REPLY_RESERVED, now, now),
+            ).fetchone()
+        return row is not None
 
     def captured_connections(self, *, destination_owner_id: str) -> frozenset[str]:
         with self._pool.connection() as connection:
