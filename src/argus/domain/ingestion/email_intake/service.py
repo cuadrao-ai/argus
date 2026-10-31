@@ -39,7 +39,7 @@ from argus.domain.ingestion.email_intake.models import (
     RecipientRoute,
 )
 from argus.domain.ingestion.email_intake.provider import EmailProviderError, ReceivedEmail
-from argus.domain.ingestion.email_intake.routing import bounce_copy, decide
+from argus.domain.ingestion.email_intake.routing import NO_RESULT, bounce_copy, decide
 from argus.domain.ingestion.email_intake.sender_policy import PENDING_CODE, admitted
 from argus.domain.ingestion.email_intake.store import BUDGET_CODES, EmailStore, LeaseLost
 from argus.domain.owner_scope import BusinessSpace
@@ -324,7 +324,7 @@ class EmailCapture:
                     connection_id=delivery.original_document_id,
                     scope=BusinessSpace(delivery.space_id),
                 )
-                auth = delivery.auth_result or "unknown"
+                auth = delivery.auth_result or NO_RESULT
             else:
                 if self.provider is None:
                     raise EmailProviderError("email_provider_unavailable", retryable=True)

@@ -805,7 +805,7 @@ EMAIL_CASES = [
     ("aligned-authorized", ALIGNED, True, {}, 200, None),
     ("failed-authorized", FORGED, True, {}, 200, NOTE),
     ("no-dmarc-policy-authorized", NO_POLICY, True, {}, 200, NOTE),
-    ("no-result-authorized", None, True, {}, 403, None),
+    ("no-result-authorized", None, True, {}, 200, None),
     (
         "two-from-authorized",
         ALIGNED,

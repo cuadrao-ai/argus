@@ -1,4 +1,4 @@
-"""Email sender checks: authorized senders held with a note, unlisted senders in new senders."""
+"""Email sender checks: authorized senders in Bandeja, unlisted senders in new senders."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from tests.ingestion.test_email_intake_service import _authorize, rig
 
 
 @pytest.mark.asyncio
-async def test_an_authorized_from_with_no_result_is_held_with_a_note_and_warns():
+async def test_an_authorized_from_with_no_result_lands_in_bandeja_and_warns():
     from loguru import logger
 
     seen: list[str] = []
@@ -29,12 +29,7 @@ async def test_an_authorized_from_with_no_result_is_held_with_a_note_and_warns()
                 saved.auth_result,
                 saved.review_note,
                 saved.approved,
-            ) == (
-                "remitentes_nuevos",
-                "unknown",
-                "No pudimos verificar este remitente.",
-                False,
-            )
+            ) == ("bandeja", "no_result", None, False)
     finally:
         logger.remove(sink)
     assert seen.count("email_auth_no_result") == 3
