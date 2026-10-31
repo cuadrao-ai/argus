@@ -1,12 +1,23 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Info } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { setBusinessEmailSender } from "@/lib/business-api";
 import type { BusinessEmailDelivery, BusinessEmailInboxGroup } from "@/lib/business-email";
 import { useBusiness } from "./BusinessWorkspace";
 import { dangerButtonClass, primaryButtonClass } from "./business-ui";
 import styles from "./recepcion/reception.module.css";
+
+/** An already-authorized sender in this group can only be blocked. A missing standing is the older two-button row. */
+function blockOnly(item: BusinessEmailDelivery): boolean {
+  return item.sender_standing === "authorized";
+}
+
+function remitenteNote(item: BusinessEmailDelivery): string | null {
+  if (item.sender_standing !== "authorized") return null;
+  return typeof item.review_note === "string" && item.review_note !== "" ? item.review_note : null;
+}
 
 /** The remitentes group when the server sent one with rows. Anything else is no group. */
 export function remitentesNuevosItems(groups: readonly BusinessEmailInboxGroup[] | null | undefined): BusinessEmailDelivery[] {
@@ -48,17 +59,19 @@ export default function RemitentesNuevos({ items }: { items: readonly BusinessEm
       <ul className={styles.remitentesList}>
         {items.map((item) => {
           const busy = pendingId === item.id;
+          const note = remitenteNote(item);
           return (
             <li key={item.id} className={styles.remitente} data-testid="remitente-nuevo-row">
               <span className={styles.remitenteIdentity}>
                 <span className={styles.remitenteDot} aria-hidden="true" />
-                <span className={styles.remitenteLabel}>{t("business.inbox.remitente_nuevo", "New sender")}</span>
-                <span className={styles.remitenteSender}>{item.sender || t("business.email.no_sender", "Sender unavailable")}</span>
+                <span className={styles.remitenteLabel} data-testid="remitente-label">{t("business.inbox.remitente_nuevo", "New sender")}</span>
+                <span className={styles.remitenteSender} data-testid="remitente-sender">{item.sender || t("business.email.no_sender", "Sender unavailable")}</span>
               </span>
+              {note ? <span data-testid="bandeja-review-note" className={styles.reviewNote}><Info size={14} aria-hidden="true" />{note}</span> : null}
               {item.notice ? <span className={styles.remitenteNotice}>{item.notice}</span> : null}
               {owner ? (
                 <span className={styles.remitenteActions}>
-                  <button type="button" className={primaryButtonClass} disabled={busy || !item.sender} onClick={() => void act(item, "authorized")}>{t("business.inbox.authorize_sender", "Authorize sender")}</button>
+                  {blockOnly(item) ? null : <button type="button" className={primaryButtonClass} disabled={busy || !item.sender} onClick={() => void act(item, "authorized")}>{t("business.inbox.authorize_sender", "Authorize sender")}</button>}
                   <button type="button" className={dangerButtonClass} disabled={busy || !item.sender} onClick={() => void act(item, "blocked")}>{t("business.inbox.block_sender", "Block")}</button>
                 </span>
               ) : null}

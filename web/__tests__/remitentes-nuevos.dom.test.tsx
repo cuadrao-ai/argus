@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { afterAll, afterEach, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
@@ -248,6 +249,109 @@ test("an inbox failure does not replace the Bandeja rows", async () => {
   assert.equal(host.querySelector('[data-testid="inbox-state"]')?.textContent, "failed");
   assert.equal(host.querySelector('[data-testid="group-size"]')?.textContent, "0");
   assert.equal(host.querySelector('[data-testid="bandeja-rows"]')?.textContent, "Recibo");
+});
+
+test("sender standing chooses the note and the buttons", async () => {
+  const { act } = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
+  const RemitentesNuevos = (await import("@/components/business-app/remitentes-nuevos")).default;
+  const { i18n, I18nextProvider } = await spanish();
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  cleanup = async () => { await act(async () => root.unmount()); host.remove(); };
+  const paint = (role: "owner" | "accountant", item: BusinessEmailDelivery) => act(async () => {
+    const value = { chosen: { role, capabilities: ["read"] }, source: {}, panel: { kind: "inbox" }, openPanel: () => undefined, records: {} } as unknown as BusinessContextValue;
+    root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={value}><RemitentesNuevos items={[item]} /></BusinessContext.Provider></I18nextProvider>);
+  });
+  const labels = () => [...host.querySelectorAll("button")].map((button) => button.textContent);
+  const note = () => host.querySelector('[data-testid="bandeja-review-note"]');
+  await paint("owner", sender({ sender_standing: "authorized", review_note: "Nota de la API 41", notice: null }));
+  assert.equal(/ellipsis|truncate/.test(host.querySelector('[data-testid="remitente-sender"]')?.className ?? ""), false);
+  assert.deepEqual(labels(), ["Bloquear"]);
+  assert.equal(note()?.textContent, "Nota de la API 41");
+  assert.equal(note()?.className.includes("9e2f39"), false);
+  assert.equal(host.textContent?.includes("No pudimos verificar este remitente."), false);
+  await paint("owner", sender({ sender_standing: "new", review_note: "Nota de la API 41", notice: null }));
+  assert.deepEqual(labels(), ["Autorizar remitente", "Bloquear"]);
+  assert.equal(note(), null);
+  await paint("owner", sender({ notice: null }));
+  assert.deepEqual(labels(), ["Autorizar remitente", "Bloquear"]);
+  assert.equal(note(), null);
+  await paint("owner", sender({ sender_standing: "blocked", review_note: "Nota de la API 41", notice: null }));
+  assert.deepEqual(labels(), ["Autorizar remitente", "Bloquear"]);
+  assert.equal(note(), null);
+  await paint("accountant", sender({ sender_standing: "authorized", review_note: "Nota de la API 41", notice: null }));
+  assert.deepEqual(labels(), []);
+  assert.equal(note()?.textContent, "Nota de la API 41");
+});
+
+test("a phone row keeps the address whole and the label on one line", () => {
+  const css = readFileSync(new URL("../components/business-app/recepcion/reception.module.css", import.meta.url), "utf8");
+  const phone = css.slice(css.indexOf("@media (max-width:640px)"));
+  const senderRule = phone.slice(phone.indexOf(".remitenteSender"), phone.indexOf(".remitente .reviewNote"));
+  assert.match(senderRule, /overflow-wrap:anywhere/);
+  assert.equal(senderRule.includes("ellipsis"), false);
+  assert.match(phone, /\.remitenteLabel \{[^}]*white-space:nowrap/);
+  assert.match(phone, /min-height:44px/);
+});
+
+test("the Por revisar tab and the badge share one count", async () => {
+  const { act } = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
+  const Inbox = (await import("@/components/business-app/BusinessInboxPanel")).default;
+  const BusinessSidebarNav = (await import("@/components/business-app/BusinessSidebarNav")).default;
+  const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+  const { i18n, I18nextProvider } = await spanish();
+  const previousNode = process.env.NODE_ENV;
+  const previousMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
+  process.env.NODE_ENV = "production";
+  process.env.NEXT_PUBLIC_MOCK_AUTH = "false";
+  const source = createFixtureBusinessDataSource({ chatAvailable: false });
+  const receipts = await source.receipts("inbox");
+  const notes = await source.captures("", 50, "inbox");
+  const emails = await source.emailDeliveries();
+  const activity = { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 1, needs_attention_count: 0, ready_to_review_count: 1 };
+  const emailInbox = [{ id: "remitentes_nuevos", items: [sender({ id: "one" }), sender({ id: "two", sender: "otro@proveedor.example" })] }, { id: "bandeja", items: [] }];
+  const shell = { currentView: "workspace" as const, conversationId: null, isBelowTablet: false, sidebarCollapsed: false, greetingName: null, showWorkspace: () => undefined, newChat: () => undefined, prepareQuestion: () => undefined };
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  cleanup = async () => {
+    await act(async () => root.unmount());
+    host.remove();
+    if (previousNode === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNode;
+    if (previousMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH;
+    else process.env.NEXT_PUBLIC_MOCK_AUTH = previousMock;
+  };
+  const paint = (role: "owner" | "accountant") => act(async () => {
+    const value = {
+      source: { ...source, receiptPage: async () => ({ items: receipts, activity }) },
+      records: { workspace: await source.workspace(), overview: null, inbox: receipts, notes: notes.items, notesTruncated: false, emails, error: false, receiptActivity: activity, emailInbox },
+      chosen: { role, space_id: "own", grant_id: "own", name: "Mi negocio", capabilities: role === "owner" ? ["read", "prepare", "approve"] : ["read"], access_seen: true },
+      spaces: [], chooseBusiness: () => undefined, markAccessSeen: async () => undefined, lostAccess: false, clearLostAccess: () => undefined,
+      revision: 0, reload: () => undefined, refresh: async () => "updated" as const, period: { key: "all", from: "", to: null }, setPeriod: () => undefined,
+      panel: { kind: "inbox" }, openPanel: () => undefined, actions: { create: [], composer: [], starterEntries: [] }, bridge: null,
+      attachedReceipt: null, clearAttachedReceipt: () => undefined, openExport: () => undefined, emailRefresh: { refresh: () => undefined, refreshing: false, stalled: false },
+      emailInboxRefresh: { refresh: async () => undefined }, retrySources: () => undefined,
+    } as unknown as BusinessContextValue;
+    root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={value}><BusinessSidebarNav shell={shell} /><Inbox /></BusinessContext.Provider></I18nextProvider>);
+  });
+  const reviewCount = () => host.querySelector("#reception-tab-review span")?.textContent ?? "";
+  await paint("owner");
+  for (let i = 0; i < 40 && reviewCount() !== "3"; i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+  await act(async () => { host.querySelector<HTMLButtonElement>("#reception-tab-review")?.click(); });
+  assert.ok(host.querySelector('[data-testid="remitentes-nuevos"]'));
+  assert.equal(reviewCount(), "3");
+  assert.equal(host.querySelector('[data-testid="business-inbox-count"]')?.textContent, "3");
+  await paint("accountant");
+  for (let i = 0; i < 40 && reviewCount() !== "1"; i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+  assert.equal(reviewCount(), "1");
+  assert.equal(host.querySelector('[data-testid="business-inbox-count"]')?.textContent, "1");
+  assert.equal([...host.querySelectorAll("button")].some((button) => button.textContent === "Autorizar remitente" || button.textContent === "Bloquear"), false);
 });
 
 test("the sidebar badge counts remitentes nuevos for the owner only", async () => {
