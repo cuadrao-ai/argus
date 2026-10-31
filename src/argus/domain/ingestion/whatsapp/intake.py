@@ -156,20 +156,31 @@ class _Lease:
     done: asyncio.Event = field(default_factory=asyncio.Event)
 
 
-async def _drain(task: asyncio.Task, on_cancel: Callable[[], Any]) -> Any:
-    """Await ``task`` to its end even if the caller is cancelled, any number of
-    times. Each cancellation runs ``on_cancel``; the first is re-raised only
-    once the task has finished."""
+async def _bounded(task: asyncio.Task, timeout: float) -> Any:
+    """``task``'s result within ``timeout`` seconds. On timeout or on the
+    caller's cancellation the task is cancelled and awaited to its end, its
+    cleanup included, before ``TimeoutError`` or the cancellation is raised.
+    ``asyncio.wait_for`` cannot promise that: on Python 3.10 a second
+    cancellation escapes it while the cancelled work is still running."""
 
     cancelled = False
+    try:
+        await asyncio.wait({task}, timeout=timeout)
+    except asyncio.CancelledError:
+        cancelled = True
+    timed_out = not cancelled and not task.done()
+    if not task.done():
+        task.cancel()
     while not task.done():
         try:
             await asyncio.wait({task})
         except asyncio.CancelledError:
             cancelled = True
-            on_cancel()
+            task.cancel()
     if cancelled:
         raise asyncio.CancelledError
+    if timed_out:
+        raise asyncio.TimeoutError
     return task.result()
 
 
@@ -180,8 +191,14 @@ async def _stop(lease: _Lease, task: asyncio.Task | None) -> None:
     its token to ``lease.held``."""
 
     lease.done.set()
-    if task is not None:
-        await _drain(task, lambda: None)
+    cancelled = False
+    while task is not None and not task.done():
+        try:
+            await asyncio.wait({task})
+        except asyncio.CancelledError:
+            cancelled = True
+    if cancelled:
+        raise asyncio.CancelledError
 
 
 @dataclass(frozen=True)
@@ -474,20 +491,16 @@ class WhatsAppIntake:
             if not renewed:
                 log.info("WhatsApp claim taken by another worker; skipped")
                 return False
-        # The work is a retained task: ``wait_for`` and the documents service
-        # end it only once a cancelled capture thread has ended, and the
-        # heartbeat is stopped only after that, even when this coroutine is
-        # cancelled, so the claim is renewed for as long as the thread lives.
+        # The work is a retained task: the documents service ends it only
+        # once a cancelled capture thread has ended, and the heartbeat is
+        # stopped only after that, even when this coroutine is cancelled, so
+        # the claim is renewed for as long as the thread lives.
         heartbeat = (
             asyncio.create_task(self._heartbeat(key, lease)) if held is not None else None
         )
-        work = asyncio.create_task(
-            asyncio.wait_for(
-                self._decide(message, sender), timeout=self.processing_seconds
-            )
-        )
+        work = asyncio.create_task(self._decide(message, sender))
         try:
-            settlement = await _drain(work, work.cancel)
+            settlement = await _bounded(work, self.processing_seconds)
         except Exception as error:
             code = (
                 "whatsapp_processing_timeout"
