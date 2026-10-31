@@ -228,6 +228,30 @@ test("authorize and block replace the row from the returned item, including a ne
   } finally { await page.close(); }
 });
 
+test("Autorizar on a blocked sender posts authorized and the row takes the returned item", async () => {
+  const blocked = { ...wireRow("b1", "proveedor.example", "blocked"), kind: "domain", tag: "unverified", last_auth_result: "failed" };
+  const calls = serve(({ method }) => method === "POST"
+    ? { ...blocked, status: "authorized", tag: "verified", last_auth_result: "aligned" }
+    : { items: [blocked] });
+  const page = await mount(liveEmailSenderClient);
+  try {
+    await page.settle(() => rows(page.host).length === 1);
+    assert.deepEqual(actions(rows(page.host)[0]!), [[senderCopy.authorize, secondaryButtonClass]]);
+    assert.equal(note(rows(page.host)[0]!)?.textContent, senderCopy.tag_unverified);
+    await act(async () => button(rows(page.host)[0]!, senderCopy.authorize)!.click());
+    await page.settle(() => rows(page.host)[0]?.getAttribute("data-status") === "authorized");
+    assert.deepEqual(calls, [
+      { method: "GET", body: null },
+      { method: "POST", body: { kind: "domain", value: "proveedor.example", status: "authorized" } },
+    ]);
+    const row = rows(page.host)[0]!;
+    assert.equal(row.getAttribute("data-status"), "authorized");
+    assert.equal(row.closest("section")?.getAttribute("aria-labelledby"), "email-senders-authorized");
+    assert.deepEqual(actions(row), [[senderCopy.block, quietButtonClass]]);
+    assert.equal(note(row)?.textContent, undefined);
+  } finally { await page.close(); }
+});
+
 test("a 422 keeps the buttons enabled and a 403 disables them", async () => {
   let calls = 0;
   const rejected = await mount({
