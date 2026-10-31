@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useId, useMemo, useRef, useState,
 import { FileText, Pencil, Plus, StickyNote, X } from "lucide-react";
 import Image from "next/image";
 import { appendBusinessReportSupportingFile, downloadBusinessReportAttachment, getBusinessReportAnnotationDossier, setBusinessReportCurrentNote, type CurrentNoteCommand, type ReportScope, type SupportingFileCommand } from "@/lib/business-reports-api";
+import { NOTES_ENTRY_ENABLED } from "@/lib/business-notes-entry";
 import { reportFailure, type ReportFailure } from "@/lib/business-reporting-wire";
 import { saveBlobDownload } from "../ExportRecordsPanel";
 import type { ReceiptLimits } from "@/lib/business-api";
@@ -82,12 +83,13 @@ export function RecordsAnnotationsPreview({ children, connected }: { children: R
   const [selected, setSelected] = useState<EditorSelection | null>(null);
   const read = (row: RecordRow) => canRead ? row.report ? { note: row.report.note ?? "", attachments: [] } : annotations.get(annotationKey(scope, row)) ?? EMPTY_ANNOTATION : EMPTY_ANNOTATION;
   const edit = (row: RecordRow, kind: EditorSelection["kind"]) => {
+    if (kind === "note" && !NOTES_ENTRY_ENABLED) return;
     if (row.report && !(kind === "note" ? noteEditable(row) || Boolean(row.report.note) : attachmentEditable(row) || row.hasProof === true)) return;
     if (!row.report && kind === "attachment" && !attachmentPreviewEnabled) return;
     setSelected({ scope, row, kind, opener: document.activeElement instanceof HTMLElement ? document.activeElement : null });
   };
   const selectedRow = selected ? connected?.rows.find((row) => recordRowKey(row) === recordRowKey(selected.row)) ?? selected.row : null;
-  const active = canRead && selected?.scope === scope && (selected.kind === "note" || connected || attachmentPreviewEnabled) ? { ...selected, row: selectedRow! } : null;
+  const active = canRead && selected?.scope === scope && (selected.kind === "note" ? NOTES_ENTRY_ENABLED : connected || attachmentPreviewEnabled) ? { ...selected, row: selectedRow! } : null;
   const save = (value: RecordAnnotation) => {
     if (!active || !canEdit) return;
     setAnnotations((current) => new Map(current).set(annotationKey(scope, active.row), value));
@@ -103,7 +105,7 @@ export function RecordNotePreview({ row }: { row: RecordRow }) {
   const annotations = useContext(AnnotationContext);
   const { t } = useTransaccionesWords();
   const note = row.report?.note ?? annotations?.read(row).note ?? "";
-  if (!annotations?.noteEditable(row)) return note ? <span className={cells.noteButton} title={note}>{note}</span> : <Unknown />;
+  if (!NOTES_ENTRY_ENABLED || !annotations?.noteEditable(row)) return note ? <span className={cells.noteButton} title={note}>{note}</span> : <Unknown />;
   return <Tooltip content={note || t("business.transactions.layout.annotations.add_note")} side="top"><button type="button" data-record-note={recordRowKey(row)} className={note ? cells.noteButton : styles.icon} aria-label={t("business.transactions.layout.annotations.edit_note_for", { name: row.counterparty ?? t("business.transactions.unknown") })} onClick={(event) => { event.stopPropagation(); annotations.edit(row, "note"); }}>{note || <span className={cells.emptyAction} aria-hidden="true"><span className={cells.emptyActionDash}>{UNKNOWN_VALUE}</span><Pencil size={16} className={cells.emptyActionIcon} /></span>}</button></Tooltip>;
 }
 
@@ -132,7 +134,7 @@ export function RecordAnnotationActions({ row }: { row: RecordRow }) {
   if (!annotations?.canRead) return null;
   const saved = annotations.read(row);
   const NoteIcon = saved.note ? StickyNote : Pencil;
-  const note = annotations.noteEditable(row) || saved.note;
+  const note = NOTES_ENTRY_ENABLED && (annotations.noteEditable(row) || saved.note);
   const attachment = saved.attachments.length || row.hasProof || row.hasProof === false && annotations.attachmentEditable(row);
   if (!note && !attachment) return null;
   return <div className={cells.touchActions}>
