@@ -331,6 +331,7 @@ function fiscalLine(document: MonthCloseDocument, text: (key: string, fallback: 
 
 function blockerLabel(blocker: MonthCloseBlocker, document: MonthCloseDocument, text: Text): string {
   if (blocker.kind === "missing_rnc") return text("business.month_close.blocker_rnc", "{{name}} has no RNC", { name: nameOf(document, text) });
+  if (document.ncf_malformed) return [nameOf(document, text), text("business.month_close.ncf_malformed", "NCF has an error")].join(" · ");
   return text("business.month_close.blocker_ncf", "{{name}} has no NCF or e-CF", { name: nameOf(document, text) });
 }
 

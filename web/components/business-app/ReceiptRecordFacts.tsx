@@ -50,6 +50,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
   const categoryLabel = useCategoryLabel();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const fiscal = dossier.facts.fiscal;
+  const flags = dossier.review_flags ?? [];
   const labels = {
     unknown: "",
     ownerUnknown: t("business.dossier.owner_unknown", "Owner doesn't know"),
@@ -139,9 +140,15 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
   // A Compra/Venta control already says the kind; the kind row returns while it needs a person.
   const kindShown = !typeRow || kind.state !== "known" || kindRow?.blocked || kindRow?.asked || flagged("kind");
   const fiscalFields = (fiscal || noFiscal ? FISCAL.filter((key) => !noFiscal || (key !== "ncf" && key !== "ecf")) : []).flatMap((key) => {
-    if (key === "rnc") return [field("rnc", t("business.dossier.field.rnc", "RNC"), <RncStatusBlock fact={fiscal?.rnc} onEditRnc={onEditRnc} />, undefined, origin(fiscal?.rnc), [fiscal?.rnc.value])];
+    if (key === "rnc") return [field("rnc", t("business.dossier.field.rnc", "RNC"), <RncStatusBlock fact={fiscal?.rnc} flags={flags} onEditRnc={onEditRnc} />, undefined, origin(fiscal?.rnc), [fiscal?.rnc.value])];
     const shownValue = presentFiscalFact(key, dossier.facts, locale, labels);
-    const shown = field(key, t(`business.dossier.field.${key}`, key), shownValue, fiscalRows.get(key), origin(fiscal?.[key]), [shownValue, fiscal?.[key].value]);
+    const itbisHigh = key === "itbis" && flags.some((flag) => flag.code === "itbis_high") ? (
+      <span data-testid="itbis-high" className="mt-1 flex items-center gap-1 text-[13px] leading-[18px] text-[#735c14] dark:text-[#e8b26f]">
+        <CircleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        {t("business.dossier.review_flag.itbis_high.text")}
+      </span>
+    ) : null;
+    const shown = field(key, t(`business.dossier.field.${key}`, key), shownValue, fiscalRows.get(key), <>{origin(fiscal?.[key])}{itbisHigh}</>, [shownValue, fiscal?.[key].value]);
     return key === "itbis" && noFiscal
       ? [field("fiscal_number", `${t("business.dossier.field.ncf", "NCF")} / ${t("business.dossier.field.ecf", "e-CF")}`, t("business.marks.no_fiscal_chip", "No fiscal receipt number")), shown]
       : [shown];

@@ -51,7 +51,7 @@ export type BusinessDataSource = Readonly<{
   dossier: (id: string) => Promise<BusinessDossier>;
   reviewDraft: (id: string, version: number, facts: BusinessFactPatch, key: string) => Promise<BusinessDossier>;
   setDocumentType: (id: string, version: number, documentType: "recibo" | "venta", key: string) => Promise<BusinessDossier>;
-  approveDraft: (id: string, version: number, key: string, action: BusinessApprovalAction) => Promise<BusinessDossier>;
+  approveDraft: (id: string, version: number, key: string, action: BusinessApprovalAction, approveAnyway?: boolean) => Promise<BusinessDossier>;
   settleRemainder: (id: string, version: number, key: string) => Promise<BusinessDossier>;
   /** The owner marks the receipt as personal or takes the mark back. */
   markPersonal: (id: string, version: number, personal: boolean, key: string) => Promise<BusinessDossier>;

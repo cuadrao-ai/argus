@@ -11,6 +11,16 @@ import { formatDay, formatMoney, UNKNOWN_VALUE } from "./business-format";
 import { SURFACE_CARD } from "./foundation/surfaces";
 
 const inputClass = "mt-2 block min-h-11 w-full rounded-item border border-[#7d8a84] bg-[#FFFEFA] px-3 text-[16px] text-[#172b26] dark:bg-[#141517] dark:text-white";
+const EDITOR_ID = "fiscal-declaration";
+
+/** Opens the tax details and puts the cursor on one field, or on the summary when the field is not listed. */
+export function focusFiscalField(field: string | null): void {
+  const editor = document.querySelector<HTMLDetailsElement>(`[data-testid="${EDITOR_ID}"]`);
+  if (!editor) return;
+  editor.open = true;
+  const target = (field ? editor.querySelector<HTMLElement>(`[name="${field}"]`) : null) ?? editor.querySelector<HTMLElement>("summary");
+  target?.focus();
+}
 
 export default function FiscalDeclarationEditor({ dossier, disabled, onChanged, onBusy, onDirty }: { dossier: BusinessDossier; disabled: boolean; onChanged: (value: BusinessDossier) => void; onBusy: (value: boolean) => void; onDirty: (value: boolean) => void }) {
   const { t, i18n } = useTranslation();
@@ -60,7 +70,7 @@ export default function FiscalDeclarationEditor({ dossier, disabled, onChanged, 
       setProblem(t(`business.dgii.error.${code}`, t("business.dgii.save_failed", "We couldn't confirm the tax details were saved. Check the current record before you approve.")));
     } finally { setBusy(false); onBusy(false); }
   };
-  return <details className={SURFACE_CARD} data-testid="fiscal-declaration">
+  return <details className={SURFACE_CARD} data-testid={EDITOR_ID}>
     <summary className="min-h-11 cursor-pointer text-[14px] font-medium text-black dark:text-white">{t("business.dgii.details", "Tax details for 606 / 607")}</summary>
     <p className="my-3 text-[13px] text-black/65 dark:text-white/65">{t("business.dgii.review_note", "Use the amounts on the receipt and your tax classification. Leave blank anything you don't know. Saving creates a revision; approving is a separate step.")}</p>
     <label className="block text-[13px]">{t("business.dgii.form", "Form")}<select className={inputClass} value={form} disabled={!editable || uncertain} onChange={(event) => { change(); setForm(event.target.value === "607" ? "607" : "606"); setValues({}); }}><option value="606">606</option><option value="607">607</option></select></label>
@@ -69,7 +79,7 @@ export default function FiscalDeclarationEditor({ dossier, disabled, onChanged, 
       const value = field.name === "rnc" ? fiscal.rnc : field.name === "ncf" ? fiscal.ncf : field.name === "itbis" ? fiscal.itbis : values[field.name] ?? "";
       const setValue = (value: string) => { change(); if (common) setFiscal((current) => ({ ...current, [field.name]: value })); else setValues((current) => ({ ...current, [field.name]: value })); };
       const suggested = field.name === "category" && values.category_suggested === "true";
-      return <label key={field.name} className="block text-[13px] text-black/65 dark:text-white/65">{field.label}{suggested ? <span className="ml-2 text-black/45 dark:text-white/45">{t("business.dgii.suggested", "Suggested")}</span> : null}{field.kind === "select" ? <select className={inputClass} value={value} disabled={!editable || uncertain} onChange={(event) => setValue(event.target.value)}><option value="">{t("business.dossier.unknown", "Unknown")}</option>{field.options.map((option) => <option key={option} value={option}>{option}</option>)}</select> : <input className={inputClass} type={field.kind === "date" ? "date" : "text"} inputMode={field.kind === "money" ? "decimal" : undefined} value={value} disabled={!editable || uncertain} onChange={(event) => setValue(event.target.value)} />}</label>;
+      return <label key={field.name} className="block text-[13px] text-black/65 dark:text-white/65">{field.label}{suggested ? <span className="ml-2 text-black/45 dark:text-white/45">{t("business.dgii.suggested", "Suggested")}</span> : null}{field.kind === "select" ? <select name={field.name} className={inputClass} value={value} disabled={!editable || uncertain} onChange={(event) => setValue(event.target.value)}><option value="">{t("business.dossier.unknown", "Unknown")}</option>{field.options.map((option) => <option key={option} value={option}>{option}</option>)}</select> : <input name={field.name} className={inputClass} type={field.kind === "date" ? "date" : "text"} inputMode={field.kind === "money" ? "decimal" : undefined} value={value} disabled={!editable || uncertain} onChange={(event) => setValue(event.target.value)} />}</label>;
     })}</div>
     {form === "606" ? <div className="my-4 space-y-3"><label className="flex min-h-11 items-center gap-2 text-[13px]"><input type="checkbox" checked={actualRefund} disabled={!editable || uncertain} onChange={(event) => { change(); setActualRefund(event.target.checked); }} />{t("business.dgii.actual_refund", "Money was refunded for this credit note")}</label>{actualRefund ? <RefundCandidates candidates={candidates} chosen={values.purchase_activity_id ?? ""} refused={refused} disabled={!editable || uncertain} locale={locale} onChoose={(id) => { change(); setRefused(null); setValues((current) => ({ ...current, purchase_activity_id: id })); }} /> : null}</div> : null}
     {problem ? <p role="alert" className="my-3 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{problem}</p> : null}

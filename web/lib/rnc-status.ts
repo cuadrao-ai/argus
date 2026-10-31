@@ -1,9 +1,11 @@
-import type { BusinessFact } from "./business-dossier";
+import type { BusinessFact, ReviewFlag } from "./business-dossier";
 
-export type RncStatus = "missing" | "invalid_length" | "unverified";
+export type RncStatus = "missing" | "invalid_length" | "check_digit" | "unverified";
 
-export function rncStatus(fact: BusinessFact<string> | null | undefined): RncStatus {
+/** Presence and length are read here. Whether the check digit matches is the dossier's `rnc_check_digit` flag alone. */
+export function rncStatus(fact: BusinessFact<string> | null | undefined, flags: readonly ReviewFlag[]): RncStatus {
   if (fact?.state !== "known" || !fact.value.trim()) return "missing";
+  if (flags.some((flag) => flag.code === "rnc_check_digit")) return "check_digit";
   const digits = fact.value.replace(/\D/g, "");
   return digits.length === 9 || digits.length === 11 ? "unverified" : "invalid_length";
 }

@@ -52,12 +52,12 @@ for (const [value, label, reason, formatted] of [
 test("optional actions use 44px targets, valid values have none", async () => {
   const env = await setup(); const { default: Block } = await import("@/components/business-app/RncStatusBlock"); let edits = 0;
   for (const [fact, label] of [[undefined, "Agregar RNC"], [known("123"), "Editar RNC"]] as const) {
-    await env.act(async () => env.root.render(<env.I18nextProvider i18n={env.i18n}><Block fact={fact} onEditRnc={() => { edits += 1; }} /></env.I18nextProvider>));
+    await env.act(async () => env.root.render(<env.I18nextProvider i18n={env.i18n}><Block fact={fact} flags={[]} onEditRnc={() => { edits += 1; }} /></env.I18nextProvider>));
     const button = env.host.querySelector("button")!; assert.equal(button.textContent, label); assert.ok(button.className.includes("min-h-11") && button.className.includes("min-w-11"));
     await env.act(async () => button.click());
   }
   assert.equal(edits, 2);
-  await env.act(async () => env.root.render(<env.I18nextProvider i18n={env.i18n}><Block fact={known("101123456")} onEditRnc={() => { edits += 1; }} /></env.I18nextProvider>));
+  await env.act(async () => env.root.render(<env.I18nextProvider i18n={env.i18n}><Block fact={known("101123456")} flags={[]} onEditRnc={() => { edits += 1; }} /></env.I18nextProvider>));
   assert.equal(env.host.querySelector("button"), null); await env.close();
 });
 async function mountReview(dossier: BusinessDossier, language = "es-419") {

@@ -3,6 +3,9 @@ import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { createHttpMonthCloseClient, type MonthCloseClient, type MonthCloseFigures, type MonthCloseSnapshot } from "../lib/business-month-close";
 import type { BusinessContextValue } from "../components/business-app/BusinessWorkspace";
+import english from "../public/locales/en/common.json";
+import spanish from "../public/locales/es-419/common.json";
+import { READ_VALUES, receiptLine } from "./fixtures/review-flags";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost" });
@@ -585,4 +588,36 @@ describe("Exportar shows each form's own status from the packet", () => {
       await view.unmount();
     }
   });
+});
+
+describe("a malformed NCF reads as an error in the month's list, not as a missing one", () => {
+  const cases = [
+    { malformed: ["Ferretería La Esquina"], missing: [] },
+    { malformed: ["Ferretería La Esquina", "Colmado Don Pedro"], missing: ["Supermercado Bravo"] },
+  ];
+  for (const language of ["es-419", "en"] as const) {
+    for (const names of cases) {
+      const count = names.malformed.length + names.missing.length;
+      test(`${language}: ${names.malformed.length} malformed and ${names.missing.length} missing`, async () => {
+        const copy = (language === "en" ? english : spanish).business.month_close;
+        const malformed = names.malformed.map((name, index) => receiptLine(`act-malformed-${index}`, name, READ_VALUES.ncf.flagged, SERVER_TODAY));
+        const missing = names.missing.map((name, index) => receiptLine(`act-missing-${index}`, name, null, SERVER_TODAY));
+        const reasons = [...malformed, ...missing].map((item) => ({ code: "missing_ncf", activity_id: item.activity_id }));
+        const { client } = serverClient({ month: () => ({ reasons, missing_ncf: [...malformed, ...missing], ncf_malformed: malformed }) });
+        const view = await renderInicio(client, { count: 0, detail: null, open() {} }, "inicio", language);
+        try {
+          const task = view.find("month-close-task-fiscal");
+          assert.equal(task?.querySelector("p")?.textContent, (count === 1 ? copy.checklist_fiscal_one : copy.checklist_fiscal_other).replace("{{count}}", String(count)));
+          const which = task?.querySelector<HTMLButtonElement>('button[aria-controls="month-close-blockers"]');
+          assert.ok(which);
+          await view.act(async () => which.click());
+          assert.deepEqual([...view.host.querySelectorAll('[data-testid="month-close-blocker"]')].map((item) => item.textContent), [
+            ...names.malformed.map((name) => `${name} · ${copy.ncf_malformed}`),
+            ...names.missing.map((name) => copy.blocker_ncf.replace("{{name}}", name)),
+          ]);
+          assert.equal(view.find("month-close-close"), null, "a malformed NCF still keeps the month open");
+        } finally { await view.unmount(); }
+      });
+    }
+  }
 });
