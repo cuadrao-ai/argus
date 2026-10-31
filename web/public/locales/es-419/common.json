@@ -2617,7 +2617,18 @@
           "approval": "Por aprobar",
           "ready": "Listo",
           "review": "Por revisar",
-          "unknown": "Estado no disponible"
+          "unknown": "Estado no disponible",
+          "missing": {
+            "several": "Faltan datos fiscales",
+            "expense_type_missing": "Falta el tipo de gasto",
+            "rnc_missing": "Falta el RNC",
+            "rnc_invalid": "RNC con error",
+            "ncf_invalid": "NCF con error",
+            "ncf_missing": "Falta el NCF",
+            "date_missing": "Falta la fecha",
+            "payment_method_missing": "Falta la forma de pago",
+            "detail_missing": "Falta un dato"
+          }
         }
       },
       "title": "Registros",

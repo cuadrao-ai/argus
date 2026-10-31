@@ -47,6 +47,10 @@ COPY = {
     "date_missing": {"es": "Falta la fecha", "en": "Date is missing"},
     "ncf_missing": {"es": "Falta el NCF", "en": "NCF is missing"},
     "detail_missing": {"es": "Falta un dato", "en": "A detail is missing"},
+    "fiscal_details_missing": {
+        "es": "Faltan datos fiscales",
+        "en": "Fiscal details missing",
+    },
     "payment_method_missing": {
         "es": "Falta la forma de pago",
         "en": "Payment method is missing",
@@ -87,14 +91,19 @@ _MISSING = {
 }
 
 
-def first_missing(record: FiscalRecord, issues: list[dict]) -> str:
+def missing_items(record: FiscalRecord, issues: list[dict]) -> tuple[str, ...]:
+    """Every named fix the record needs, in MISSING_ORDER, or DETAIL_MISSING."""
     absent = identity_digits(fact_value(record, "rnc")) is None
     found = [_MISSING.get((issue["code"], issue["field"])) for issue in issues]
     found = [
         "rnc_missing" if code == "rnc_invalid" and absent else code for code in found
     ]
-    known = [code for code in MISSING_ORDER if code in found]
-    return known[0] if known else DETAIL_MISSING
+    known = tuple(code for code in MISSING_ORDER if code in found)
+    return known or (DETAIL_MISSING,)
+
+
+def first_missing(record: FiscalRecord, issues: list[dict]) -> str:
+    return missing_items(record, issues)[0]
 
 
 def reason(code: str, locale: str = "es") -> str:

@@ -3,7 +3,7 @@ from datetime import date
 
 from argus.domain.business.contracts.facts import Unknown
 from argus.domain.business.dgii_export import fiscal_manifest, line_verdicts
-from argus.domain.business.dgii_line import first_missing, reason
+from argus.domain.business.dgii_line import first_missing, missing_items, reason
 from argus.domain.business.reporting_projection import with_export_verdicts
 from argus.domain.business.reporting_query import ReportFilters
 
@@ -186,3 +186,59 @@ class TestFirstMissingNamesNcfAndPayment:
         issues = [{"code": "fiscal_unheard_of", "activity_id": "a", "field": "x"}]
         assert first_missing(self.subject, issues) == "detail_missing"
         assert reason(first_missing(self.subject, issues)) == "Falta un dato"
+
+
+def revised_date():
+    return {
+        "code": "fiscal_activity_revision_changed",
+        "activity_id": "a",
+        "field": "occurred_on",
+    }
+
+
+class TestFixOrder:
+    def test_missing_date_and_ncf_names_the_date_first(self):
+        subject = supplier(purchase(), VALID)
+        issues = [required("ncf"), revised_date()]
+        assert missing_items(subject, issues) == ("date_missing", "ncf_missing")
+        assert first_missing(subject, issues) == "date_missing"
+
+    def test_a_b01_without_rnc_reads_as_rnc_missing(self):
+        subject = supplier(purchase(), VALID)
+        issue = {"code": "fiscal_b01_rnc_required", "activity_id": "a", "field": "rnc"}
+        assert first_missing(subject, [issue]) == "rnc_missing"
+
+    def test_a_bad_rnc_with_no_rnc_digits_reads_as_rnc_missing(self):
+        subject = fiscal(supplier(purchase(), VALID), rnc=None)
+        issue = {
+            "code": "fiscal_identity_check_digit",
+            "activity_id": "a",
+            "field": "rnc",
+        }
+        assert first_missing(subject, [issue]) == "rnc_missing"
+        present = supplier(purchase(), VALID)
+        assert first_missing(present, [issue]) == "rnc_invalid"
+
+    def test_one_missing_item_is_not_several(self):
+        subject = supplier(purchase(), VALID)
+        assert missing_items(subject, [required("ncf")]) == ("ncf_missing",)
+        assert reason("fiscal_details_missing", "en") == "Fiscal details missing"
+
+    def test_a_row_missing_two_things_says_several(self):
+        base = fiscal(supplier(purchase(), VALID), ncf="B0100000001")
+        typeless = base.declaration.model_copy(update={"category": None})
+        records = (
+            named(replace(supplier(base, INVALID), declaration=typeless), 1),
+            named(fiscal(base, ncf=None), 2),
+        )
+        judged = with_export_verdicts(
+            rows(records),
+            line_verdicts(
+                records, rnc="199990013", captured_on=CAPTURED, registry=MapRegistry({})
+            ),
+        )
+        assert [(r.export_missing, r.export_missing_several) for r in judged] == [
+            ("expense_type_missing", True),
+            ("ncf_missing", False),
+            (None, False),
+        ]

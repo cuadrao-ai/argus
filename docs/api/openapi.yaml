@@ -31400,6 +31400,9 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        export_missing_several:
+          type: boolean
+          default: false
         export_line:
           type: boolean
           default: false

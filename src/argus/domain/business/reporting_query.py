@@ -169,6 +169,7 @@ class ReportRecord(Contract):
     family: Family | None = None
     stage: Stage | None = None
     export_missing: str | None = None
+    export_missing_several: bool = False
     export_line: bool = False
     technical_state: str | None = None
     workflow_blockers: tuple[str, ...] = ()
