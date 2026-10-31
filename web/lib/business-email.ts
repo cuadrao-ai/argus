@@ -150,7 +150,7 @@ function parseSender(body: unknown): EmailSender {
   return parsed.data;
 }
 
-/** A row the screen cannot show (a status it does not know, no id or value) is left out, so one new server value never fails the whole list. */
+/** A row that does not fit the sender shape, such as one with a status this client does not know, is left out, so one new server value never fails the whole list. */
 export function parseEmailSenderList(body: unknown): EmailSender[] {
   const parsed = z.object({ items: z.array(z.unknown()) }).safeParse(body);
   if (!parsed.success) throw new EmailSenderRequestError(0, "email_sender_invalid_response");
