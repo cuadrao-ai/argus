@@ -14,56 +14,50 @@ _PRINTED_NCF = re.compile(
 )
 
 
-# Characters that may join an identifier to its neighbor: letters, numbers,
-# combining marks, spaces, dashes, connectors, minus signs, and invisible
-# format or control characters. Any other punctuation, such as ":" or "(",
-# ends it.
-_JOINS = ("L", "N", "M", "Z", "Pd", "Pc", "Cf", "Cc")
+# The only characters that may sit right next to an identifier, besides one
+# space. Anything else adjacent keeps the whole read.
+EDGE_PUNCTUATION = frozenset(":,.;()[]/")
 
 
-def _joins(char: str) -> bool:
-    category = unicodedata.category(char)
-    if category.startswith(_JOINS):
+def _note_letter(char: str) -> bool:
+    """A letter that may start a label or note after one space: any Unicode
+    letter whose compatibility form holds no digit."""
+
+    return unicodedata.category(char).startswith("L") and not any(
+        part.isdigit() for part in unicodedata.normalize("NFKC", char)
+    )
+
+
+def _edge_clean(side: str) -> bool:
+    """Whether the text next to a candidate, nearest character first, ends it.
+    Clean is the string boundary, an EDGE_PUNCTUATION character, or one space
+    of any kind (Unicode Zs, so a PDF's no-break space counts) followed by the string boundary, an EDGE_PUNCTUATION character or a
+    letter. Every other neighbor keeps the read whole."""
+
+    if not side or side[0] in EDGE_PUNCTUATION:
         return True
-    return category == "Sm" and "MINUS" in unicodedata.name(char, "")
-
-
-def _side_continues(side: str) -> bool:
-    """Whether the text next to a candidate, nearest character first, runs into it.
-    The nearest character must not join the identifier, except a single space
-    (Zs). After that one space the next character must not join either,
-    except a letter: a label before or a note after."""
-
-    if not side:
-        return False
     if unicodedata.category(side[0]) != "Zs":
-        return _joins(side[0])
-    if len(side) == 1:
         return False
-    nxt = side[1]
-    return not unicodedata.category(nxt).startswith("L") and _joins(nxt)
+    return len(side) == 1 or side[1] in EDGE_PUNCTUATION or _note_letter(side[1])
 
 
 def _isolated(value: str, match: re.Match[str]) -> str:
     """The matched token when both of its edges are clean, otherwise the read.
-    Each edge is inspected after NFKC, so a combining mark or a compatibility
-    form counts as the letter or number it stands for. The token itself is
-    returned exactly as printed."""
+    The token itself is returned exactly as printed."""
 
-    before = unicodedata.normalize("NFKC", value[: match.start()])[::-1]
-    after = unicodedata.normalize("NFKC", value[match.end() :])
-    if _side_continues(before) or _side_continues(after):
-        return value
-    return match.group(0)
+    before = value[: match.start()][::-1]
+    after = value[match.end() :]
+    if _edge_clean(before) and _edge_clean(after):
+        return match.group(0)
+    return value
 
 
 def printed_rnc(value: str) -> str:
     """The RNC or cédula as printed, without label or note text around it.
     The token is the first 9 or 11 digit number with its printed dashes or
-    spaces. Each edge must be followed by a character that is not a letter,
-    number, combining mark, space, dash, connector, minus sign or invisible
-    format or control character, or by one space and then a letter or a
-    character that is none of those. So
+    spaces. Each edge must be the string boundary, one of ": , . ; ( ) [ ] /",
+    or one space (any Unicode Zs, such as a no-break space) followed by the boundary, one of those characters or a
+    letter. So
     "RNC 1-23-45678-9 (ficticio)" gives "1-23-45678-9", and a read whose number
     runs on ("1 131000002", "131000002 9", "131000002ñ") or has no such number
     is returned unchanged."""

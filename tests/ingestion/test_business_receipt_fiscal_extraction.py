@@ -388,6 +388,24 @@ class TestPrintedIdentifierSplit:
             pytest.param("rnc", "RNC 131000002", "131000002", id="rnc-plain"),
             pytest.param("rnc", "RNC: 1-23-45678-9", "1-23-45678-9", id="rnc-colon"),
             pytest.param("rnc", "RNC\u00a0131000002", "131000002", id="rnc-nbsp-label"),
+            pytest.param(
+                "rnc", "131000002\u00a0nota", "131000002", id="rnc-nbsp-note"
+            ),
+            pytest.param(
+                "ncf", "NCF\u2009B0100000987\u3000(ficticio)", "B0100000987",
+                id="ncf-thin-and-ideographic-space",
+            ),
+            pytest.param("rnc", "RNC 131000002\u00a0", "131000002", id="rnc-nbsp-end"),
+            pytest.param(
+                "rnc", "RNC 131000002\u00a0\u00a0x", None, id="rnc-two-nbsp"
+            ),
+            pytest.param(
+                "rnc", "RNC 131000002\u00a0-x", None, id="rnc-nbsp-then-dash"
+            ),
+            pytest.param("rnc", "RNC 131000002\u2028x", None, id="rnc-line-separator"),
+            pytest.param(
+                "rnc", "RNC 131000002\u2029x", None, id="rnc-paragraph-separator"
+            ),
             pytest.param("ncf", "NCF B0100000987", "B0100000987", id="ncf-plain"),
             pytest.param(
                 "ncf", "ncf b0100000987 (ficticio)", "b0100000987", id="ncf-lowercase"
@@ -447,3 +465,40 @@ def test_any_format_or_control_character_at_an_edge_keeps_the_read_whole(
             projected = extractor.fiscal_facts_from_receipt(receipt, source_id=source_id)
             assert getattr(projected, name).value == read, repr(read)
             assert getattr(receipt, name) == read
+
+
+_SPACES = frozenset(
+    chr(code)
+    for code in range(0x110000)
+    if unicodedata.category(chr(code)) == "Zs"
+)
+
+
+@pytest.mark.parametrize(
+    ("name", "token"), [("rnc", "131000002"), ("ncf", "B0100000987")]
+)
+def test_only_edge_punctuation_or_one_space_may_touch_an_identifier(
+    name: str, token: str
+) -> None:
+    """Every code point beside the token: the read splits only for the ASCII
+    edge punctuation or a Unicode Zs space; everything else keeps it whole."""
+
+    from argus.domain.business.fiscal_identity import (
+        EDGE_PUNCTUATION,
+        printed_ncf,
+        printed_rnc,
+    )
+
+    printed = printed_rnc if name == "rnc" else printed_ncf
+    permitted = EDGE_PUNCTUATION | _SPACES
+    for code in range(0x110000):
+        char = chr(code)
+        if char.isascii() and char.isalnum():
+            continue
+        clean = char in permitted
+        for read in (f"{char}{token}", f"{token}{char}"):
+            assert printed(read) == (token if clean else read), repr(read)
+        if char in _SPACES:
+            assert printed(f"x{char}{token}{char}nota") == token, repr(char)
+            assert printed(f"{token}{char}9") == f"{token}{char}9", repr(char)
+            assert printed(f"1{char}{token}") == f"1{char}{token}", repr(char)
