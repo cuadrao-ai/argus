@@ -2,9 +2,11 @@
 # Classify changed files for CI job selection. The name predates job selection;
 # the local smoke workflow calls it too, and reads only run_heavy.
 #
-# docs_only: every changed file is under docs/. Root-level *.md is not
-#   docs-only: backend tests read AGENTS.md and other root markdown.
-# run_heavy: backend-checks, frontend-checks and guest-release-gates. Backend
+# docs_only: every changed file is under docs/ or is the root README.md. No
+#   test reads the root README (tests/test_ci_job_selection.py proves that).
+#   Other root-level *.md is not docs-only: backend tests read AGENTS.md and
+#   other root markdown.
+# run_heavy: backend-checks, frontend-checks and database-checks. Backend
 #   tests scan `git ls-files` and web tests `git grep` the whole repository, so
 #   any change outside docs/ can affect them.
 # run_marketing: marketing-checks. Marketing is its own package; outside
@@ -38,7 +40,7 @@ write_result() {
 is_docs_path() {
   local path="${1#./}"
   [ -n "$path" ] || return 1
-  [ "$path" = "docs" ] || [ "${path#docs/}" != "$path" ]
+  [ "$path" = "docs" ] || [ "$path" = "README.md" ] || [ "${path#docs/}" != "$path" ]
 }
 
 # marketing-checks reads only marketing/ and supabase/functions/; ci.yml defines

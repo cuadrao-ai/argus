@@ -1,4 +1,4 @@
-name: Private Alpha Local Smoke
+name: Local boot smoke
 
 "on":
   workflow_dispatch:

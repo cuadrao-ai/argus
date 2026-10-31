@@ -135,7 +135,7 @@ Everything, every PR:
 
 1. CI green on the PR head (`.github/workflows/ci.yml` jobs: docs-change-gate,
    ownership-gate, docs-checks, backend-checks, frontend-checks,
-   guest-release-gates, plus any job the change triggers).
+   database-checks, plus any job the change triggers).
 2. Codex review completed on the head.
 3. Every review thread replied to and resolved (E4).
 

@@ -190,7 +190,7 @@ poetry run pytest tests -q --no-cov
 The ordinary suite deliberately skips opt-in live/DB tests. This is acceptable
 only alongside the separate required local matrices below. Never set live-eval
 flags just to remove these skips. CI's required `ci` rollup includes ownership,
-backend, frontend and guest-release-gates; also inspect the runtime-regression,
+backend, frontend and database-checks; also inspect the runtime-regression,
 local-smoke and any other required checks returned by `gh pr checks "$PR"`.
 
 ## Local database commands
