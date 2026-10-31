@@ -179,7 +179,11 @@ A route may carry one current alias. Changing it appends the previous
 recipient to `business_email_retired_aliases` and leaves existing deliveries
 on the route id. Deleting the route keeps the live alias reserved.
 `business_email_senders` is one rule per Business, kind, and
-value. `business_email_address_events` appends one row when that address stops
+value. Its status is `authorized`, `blocked` or `pending`
+(`pending` is written only by intake, for a sender not on the list, while
+`CUADRAO_BUSINESS_EMAIL_PENDING_SENDERS_ENABLED` is on). `last_auth_result`
+and `last_seen_at` hold the last message's sender verdict and arrival time;
+they are null on rows that have seen no mail since 20261031094421. `business_email_address_events` appends one row when that address stops
 or changes, and when a sender is authorized, removed, or blocked. The row
 stores the actor, the time, the old address, and the new address. The daily
 allowance day is America/Santo_Domingo.

@@ -37,6 +37,7 @@ NAMES = (
     "FINANCIAL_ACCOUNTS_ENABLED",
     "BUSINESS_EMAIL_CAPTURE_ENABLED",
     "BUSINESS_EMAIL_INTAKE_ENABLED",
+    "BUSINESS_EMAIL_PENDING_SENDERS_ENABLED",
     "BUSINESS_EMAIL_DOMAIN",
     "RESEND_WEBHOOK_SECRET",
     "APP_ORIGIN",
@@ -82,6 +83,10 @@ def test_the_shared_reader_prefers_the_cuadrao_name(
         (
             "BUSINESS_EMAIL_INTAKE_ENABLED",
             lambda: EmailIntakeSettings().receiving_enabled,
+        ),
+        (
+            "BUSINESS_EMAIL_PENDING_SENDERS_ENABLED",
+            lambda: EmailIntakeSettings().pending_senders_enabled,
         ),
     ],
 )

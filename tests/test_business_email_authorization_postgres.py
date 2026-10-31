@@ -122,9 +122,10 @@ def _email_read_observed(world, delivery, case):
 CASES = [
     ("new_aligned", "new", {"dmarc": "pass", "dkim": "pass"}, None, 0),
     ("new_unknown", "new", {"dmarc": "unknown", "dkim": "gray"}, None, 0),
-    ("authorized_failed", "authorized", {"dmarc": "fail", "dkim": "fail"}, None, 0),
-    ("authorized_unknown", "authorized", {"dmarc": "unknown", "dkim": "gray"}, None, 0),
-    ("authorized_gray", "authorized", {"dmarc": "gray", "dkim": "gray"}, None, 0),
+    ("authorized_failed", "authorized", {"dmarc": "fail", "dkim": "fail"}, None, 1),
+    ("authorized_unknown", "authorized", {"dmarc": "unknown", "dkim": "gray"}, None, 1),
+    ("authorized_gray", "authorized", {"dmarc": "gray", "dkim": "gray"}, None, 1),
+    ("authorized_no_result", "authorized", {}, None, 0),
     ("blocked", "blocked", {"dmarc": "pass", "dkim": "pass"}, None, 0),
     (
         "reading_off",
@@ -163,7 +164,7 @@ CASES = [
     "case,standing,auth,change,expected", CASES, ids=[x[0] for x in CASES]
 )
 @pytest.mark.owner_acts
-def test_only_live_authorized_aligned_mail_reaches_automatic_extraction(
+def test_only_live_authorized_mail_reaches_automatic_extraction(
     email_reader_boundary, case, standing, auth, change, expected
 ):
     world = email_reader_boundary
@@ -218,8 +219,10 @@ def test_only_live_authorized_aligned_mail_reaches_automatic_extraction(
 @pytest.mark.parametrize(
     "auth,expected",
     [
-        ({"dmarc": "gray", "dkim": "gray"}, "unknown"),
-        ({"dmarc": "unknown", "dkim": "gray"}, "unknown"),
+        ({"dmarc": "gray", "dkim": "gray"}, "none"),
+        ({"dmarc": "unknown", "dkim": "gray"}, "none"),
+        ({"dmarc": "processing_failed", "dkim": "processing_failed"}, "no_result"),
+        (None, "no_result"),
         ({"dmarc": "gray", "dkim": "pass"}, "aligned"),
         ({"dmarc": "fail", "dkim": "pass"}, "failed"),
     ],
@@ -453,3 +456,24 @@ def test_email_attachment_link_rolls_back_with_failed_capture(rig):
             "select draft->>'source_available' from public.financial_document_extractions where user_id=%s",
             (rig["users"]["owner"],),
         ).fetchone() == ("false",)
+
+
+@pytest.mark.owner_acts
+def test_an_authorized_delivery_with_no_stored_verdict_is_refused(receipts):
+    from argus.domain.business.authority import ActionError
+
+    from tests.test_business_email_intake_postgres import ALIGNED, deliver
+
+    receipts["store"].upsert_sender(
+        receipts["space"], "address", receipts["provider"].sender, "authorized"
+    )
+    attachment = deliver(receipts, ALIGNED)
+    with receipts["pool"].connection() as db:
+        db.execute(
+            "update public.business_email_deliveries set auth_result=null"
+            " where space_id=%s",
+            (receipts["space"],),
+        )
+    with pytest.raises(ActionError, match="email_sender_unauthorized"):
+        prepare(receipts, attachment)
+    assert receipts["documents"].extractor.calls == 0

@@ -559,6 +559,95 @@ def test_new_senders_are_listed_before_the_tray(alice, runtime):  # noqa: F811
     assert [item["id"] for item in groups[1]["items"]] == [tray.id]
 
 
+def test_the_tray_carries_the_unverified_sender_note(alice, runtime):  # noqa: F811
+    from dataclasses import replace
+
+    store = runtime.store
+    route = _route_for(store, alice, "ferreterianunez@recibos.example.test")
+    space_id = alice.scope().owner.space_id
+    pending = store.enqueue(
+        "resend",
+        str(uuid4()),
+        (route.recipient,),
+        route_id=route.id,
+        space_id=space_id,
+        principal_id=route.principal_id,
+    )
+    store._deliveries[pending.id] = replace(
+        store.get(pending.id, space_id),
+        state="captured",
+        inbox_group="bandeja",
+        auth_result="failed",
+        review_note="No pudimos verificar este remitente.",
+    )
+    groups = alice.get("/email/inbox").json()["groups"]
+    item = groups[1]["items"][0]
+    assert (item["id"], item["review_note"], item["approved"]) == (
+        pending.id,
+        "No pudimos verificar este remitente.",
+        False,
+    )
+
+
+def test_inbox_items_carry_the_sender_standing_and_only_authorized_ones_the_note(
+    alice,  # noqa: F811
+    runtime,
+):
+    from dataclasses import replace
+
+    store = runtime.store
+    route = _route_for(store, alice, "remitentes@recibos.example.test")
+    space_id = alice.scope().owner.space_id
+    note = "No pudimos verificar este remitente."
+    store.upsert_sender(space_id, "address", "caja@tienda.test", "authorized")
+    store.upsert_sender(space_id, "address", "spam@otro.test", "blocked")
+    rows = {
+        "held": ("caja@tienda.test", "remitentes_nuevos", "unknown", note),
+        "pending": ("caja@tienda.test", "bandeja", "failed", note),
+        "blocked": ("spam@otro.test", "remitentes_nuevos", "aligned", None),
+        "new": ("x@nuevo.test", "remitentes_nuevos", "failed", None),
+    }
+    ids = {}
+    for name, (sender, group, auth, review_note) in rows.items():
+        pending = store.enqueue(
+            "resend",
+            str(uuid4()),
+            (route.recipient,),
+            route_id=route.id,
+            space_id=space_id,
+            principal_id=route.principal_id,
+        )
+        store._deliveries[pending.id] = replace(
+            store.get(pending.id, space_id),
+            state="captured",
+            sender=sender,
+            inbox_group=group,
+            auth_result=auth,
+            review_note=review_note,
+        )
+        ids[pending.id] = name
+    items = [
+        item
+        for group in alice.get("/email/inbox").json()["groups"]
+        for item in group["items"]
+    ]
+    seen = {
+        ids[item["id"]]: (item["sender_standing"], item["review_note"])
+        for item in items
+        if item["id"] in ids
+    }
+    assert seen == {
+        "held": ("authorized", note),
+        "pending": ("authorized", note),
+        "blocked": ("blocked", None),
+        "new": ("new", None),
+    }
+    listed = alice.get("/email/deliveries").json()["items"]
+    assert {ids[i["id"]]: i["sender_standing"] for i in listed if i["id"] in ids} == {
+        name: standing for name, (standing, _note) in seen.items()
+    }
+
+
 def test_owner_authorizes_one_sender_and_refuses_a_free_mail_domain(alice, runtime):  # noqa: F811
     body = {"kind": "address", "value": "Caja@Tienda.test", "status": "authorized"}
     created = alice.post("/email/senders", body)
@@ -598,6 +687,10 @@ def test_owner_authorizes_one_sender_and_refuses_a_free_mail_domain(alice, runti
             "kind": "address",
             "value": "caja@tienda.test",
             "status": "authorized",
+            "tag": None,
+            "default_approved": False,
+            "last_auth_result": None,
+            "last_seen_at": None,
         }
     ]
     taken = runtime.store.create_route(
@@ -804,7 +897,7 @@ def test_approve_waits_until_the_sender_is_authorized(alice: Owner, runtime) -> 
     assert store.get(delivery.id, route.space_id).approved is False
 
 
-def test_approve_refuses_a_forged_from_and_an_unreachable_email_store(
+def test_unverified_mail_held_before_its_sender_was_authorized_stays_refused(
     alice: Owner,  # noqa: F811
     runtime,
 ) -> None:
@@ -843,10 +936,6 @@ def test_approve_refuses_a_forged_from_and_an_unreachable_email_store(
     store.finish(claimed, "captured")
     draft_id = uuid4()
     store.link_draft_documents(route.space_id, draft_id, [document_id])
-    alice.post(
-        "/email/senders",
-        {"kind": "address", "value": "caja@tienda.test", "status": "authorized"},
-    )
 
     class Recording:
         def __init__(self) -> None:
@@ -878,6 +967,19 @@ def test_approve_refuses_a_forged_from_and_an_unreachable_email_store(
         assert forged.status_code == 403, forged.text
         assert forged.json()["detail"]["code"] == "email_sender_unauthorized"
         assert service.calls == []
+        alice.post(
+            "/email/senders",
+            {"kind": "address", "value": "caja@tienda.test", "status": "authorized"},
+        )
+        delivery = store.get(claimed.id, route.space_id)
+        assert (delivery.auth_result, delivery.approved) == ("failed", False)
+        # Held without the note: authorizing the sender later does not open it.
+        pressed = drafts.post(url, json=body, headers={"Idempotency-Key": str(uuid4())})
+        assert pressed.status_code == 403, pressed.text
+        assert pressed.json()["detail"]["code"] == "email_sender_unauthorized"
+        assert service.calls == []
+        assert store.get(claimed.id, route.space_id).approved is False
+        service.calls.clear()
 
         def unreachable(*_args, **_kwargs):
             raise RuntimeError("email store unreachable")

@@ -38,6 +38,8 @@ from argus.domain.ingestion.email_intake.alias import (
 )
 from argus.domain.ingestion.email_intake.config import EmailIntakeSettings
 from argus.domain.ingestion.email_intake.routing import FIRST_SCAN_LABEL
+from argus.domain.ingestion.email_intake.sender_policy import in_members
+from argus.domain.ingestion.email_intake.sender_policy import tag as sender_tag
 from argus.domain.ingestion.email_intake.service import EmailCapture
 from argus.domain.ingestion.email_intake.signatures import (
     WebhookSignatureError,
@@ -472,11 +474,46 @@ def list_senders(
 ) -> dict[str, Any]:
     response.headers.update(NO_STORE)
     runtime = _runtime(request)
+    space_id = context.scope.owner.space_id
+    rules = runtime.store.list_senders(space_id)
+    members = runtime.store.member_addresses(space_id)
     return {
         "items": [
-            {"id": item.id, "kind": item.kind, "value": item.value, "status": item.status}
-            for item in runtime.store.list_senders(context.scope.owner.space_id)
+            _sender_item(rule, members) for rule in sorted(rules, key=_sender_order)
         ]
+    }
+
+
+_STATUS_ORDER = {"pending": 0, "authorized": 1, "blocked": 2}
+
+
+def _sender_order(rule) -> tuple:  # noqa: ANN001
+    # Pending first, then authorized, then blocked; newest arrival first, never
+    # seen last. The store lists by created_at, id; the sort is stable.
+    seen = rule.last_seen_at
+    return (
+        _STATUS_ORDER.get(rule.status, 3),
+        seen is None,
+        -seen.timestamp() if seen else 0,
+    )
+
+
+def _sender_item(rule, members: frozenset[str]) -> dict[str, Any]:  # noqa: ANN001
+    # Owner and team addresses, read live; the web shows no Bloquear for them.
+    seen = rule.last_seen_at
+    return {
+        "id": rule.id,
+        "kind": rule.kind,
+        "value": rule.value,
+        "status": rule.status,
+        "tag": sender_tag(rule.last_auth_result),
+        "default_approved": rule.kind == "address" and in_members(members, rule.value),
+        "last_auth_result": rule.last_auth_result,
+        "last_seen_at": (
+            seen.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+            if seen
+            else None
+        ),
     }
 
 
@@ -510,7 +547,7 @@ def authorize_sender(
     )
     if existed:
         response.status_code = 200
-    return {"id": rule.id, "kind": rule.kind, "value": rule.value, "status": rule.status}
+    return _sender_item(rule, runtime.store.member_addresses(space_id))
 
 
 @router.delete("/senders/{sender_id}", status_code=204)
@@ -621,6 +658,9 @@ def _group(
         )
     row = email_row(delivery, parts, lambda part: repeats[part.id])
     result["standing"] = row.standing
+    result["sender_standing"] = runtime.store.sender_standing(
+        delivery.space_id, delivery.sender
+    )
     result["saved_receipt_count"] = row.saved_receipt_count
     result["no_receipt_reason"] = row.no_receipt_reason
     return result

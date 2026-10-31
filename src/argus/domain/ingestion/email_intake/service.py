@@ -40,6 +40,7 @@ from argus.domain.ingestion.email_intake.models import (
 )
 from argus.domain.ingestion.email_intake.provider import EmailProviderError, ReceivedEmail
 from argus.domain.ingestion.email_intake.routing import bounce_copy, decide
+from argus.domain.ingestion.email_intake.sender_policy import PENDING_CODE, admitted
 from argus.domain.ingestion.email_intake.store import BUDGET_CODES, EmailStore, LeaseLost
 from argus.domain.owner_scope import BusinessSpace
 
@@ -113,6 +114,7 @@ class EmailCapture:
         enabled: Callable[[], bool],
         receiving_enabled: Callable[[], bool] | None = None,
         read_receipt=None,
+        pending_senders: Callable[[], bool] | None = None,
     ) -> None:
         self.store, self.documents, self.provider, self.enabled = (
             store,
@@ -123,6 +125,9 @@ class EmailCapture:
         self.route_authority = route_authority
         self.read_receipt = read_receipt
         self.receiving_enabled = receiving_enabled or (lambda: self.provider is not None)
+        self.pending_senders = pending_senders or (
+            lambda: EmailIntakeSettings().pending_senders_enabled
+        )
 
     def check_route(self, route: RecipientRoute) -> None:
         """Raise unless the route is live and its grant still allows prepare.
@@ -288,6 +293,12 @@ class EmailCapture:
         if standing == "blocked":
             self.store.finish(delivery, "rejected", "email_sender_blocked")
             return False
+        if self.pending_senders() and not delivery.original_document_id:
+            if not admitted(self.store, route.space_id, sender, auth):
+                # Fetched and judged in memory only; nothing of the mail is kept.
+                self.store.finish(delivery, "rejected", PENDING_CODE)
+                return False
+            standing = "authorized"
         first = (
             standing == "authorized"
             and auth == "aligned"
@@ -334,6 +345,14 @@ class EmailCapture:
                     raw=raw,
                     provider_from=received.provider_from,
                 )
+                if auth == "no_result":
+                    # Before the pilot: if this fires for every intake, the
+                    # provider stopped sending results and nothing is read.
+                    logger.warning(
+                        "email_auth_no_result",
+                        delivery_id=delivery.id,
+                        route_id=route.id,
+                    )
                 if not await self._keep_after_alignment(delivery, route, raw, auth):
                     return
             await asyncio.to_thread(self.check_route, route)

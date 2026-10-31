@@ -50,6 +50,7 @@ def _dossier(context, actor, draft_id: UUID) -> BusinessDossier:  # noqa: ANN001
         context.service.dossier(actor, draft_id),
         space_id=str(actor.actor.space_id),
         owner_id=actor.owner_id,
+        service=context.service,
     )
 
 
