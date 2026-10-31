@@ -125,18 +125,50 @@ def test_month_close_carries_the_count_beside_the_unchanged_status():
     }
 
 
-def test_undeclared_dollar_lines_count_once_on_their_own_form():
-    records = practice_records()
-    expense = next(r for r in records if r.kind == "expense")
-    income = next(r for r in records if r.kind == "income")
-    undeclared = tuple(
-        replace(r, currency="USD", declaration=None) for r in (expense, income)
-    )
-    manifest, _rows = fiscal_manifest(undeclared, **SEPTEMBER)
+def _wire(records):
+    manifest, _rows = fiscal_manifest(records, **SEPTEMBER)
     statuses = {form: shape["status"] for form, shape in manifest["forms"].items()}
     body = month_close("2026-09", DAY, (), statuses, foreign_currency(manifest["forms"]))
-    wire = MonthClose.model_validate(body).model_dump(by_alias=True, mode="json")
-    assert wire["dgii_foreign_currency"] == {
-        "606": {"pending_rate_count": 1, "reason": NOTE},
-        "607": {"pending_rate_count": 1, "reason": NOTE},
+    return MonthClose.model_validate(body).model_dump(by_alias=True, mode="json")
+
+
+def test_an_undeclared_dollar_line_counts_on_both_forms_it_puts_in_review():
+    records = practice_records()
+    for kind in ("expense", "refund", "income"):
+        line = next(r for r in records if r.kind == kind)
+        wire = _wire((replace(line, currency="USD", declaration=None),))
+        assert wire["dgii_forms"] == {"606": "needs_review", "607": "needs_review"}
+        assert wire["dgii_foreign_currency"] == {
+            "606": {"pending_rate_count": 1, "reason": NOTE},
+            "607": {"pending_rate_count": 1, "reason": NOTE},
+        }, kind
+
+
+def test_a_dollar_money_movement_is_never_a_pending_rate_line():
+    expense = next(r for r in practice_records() if r.kind == "expense")
+    for kind in ("transfer", "owner_withdrawal"):
+        for declaration in (None, expense.declaration):
+            line = replace(expense, kind=kind, currency="USD", declaration=declaration)
+            manifest, rows = fiscal_manifest((line,), **SEPTEMBER)
+            assert rows == {"606": [], "607": []}
+            for form in ("606", "607"):
+                shape = manifest["forms"][form]
+                assert shape["foreign_currency_pending_rate_count"] == 0, kind
+                assert "foreign_currency_note" not in shape
+            assert "note" not in manifest["reconciliation"][0]
+
+
+def test_foreign_lines_never_reach_peso_totals_and_both_forms_stay_in_review():
+    records = _dollars(1, 4)
+    assert {r.kind for r in records if r.currency == "USD"} == {"expense", "income"}
+    manifest, rows = fiscal_manifest(records, **SEPTEMBER)
+    baseline, baseline_rows = fiscal_manifest(
+        tuple(r for r in records if r.currency != "USD"), **SEPTEMBER
+    )
+    assert rows == baseline_rows
+    assert manifest["totals_dop"] == baseline["totals_dop"]
+    assert manifest["totals_complete"] is False
+    assert {f: s["status"] for f, s in manifest["forms"].items()} == {
+        "606": "needs_review",
+        "607": "needs_review",
     }

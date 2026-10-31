@@ -43,6 +43,8 @@ from argus.domain.business.rnc_registry import RncRegistry, UnknownRncRegistry
 FOREIGN_CURRENCY_NOTE = "Moneda extranjera: pendiente de tasa"
 # Plain words a person reads in place of a reason code.
 REASON_TEXT = {"fiscal_conversion_required": FOREIGN_CURRENCY_NOTE}
+# Only these kinds reach a 606 or 607 line; transfers and card payments never do.
+DECLARED_KINDS = frozenset({"expense", "refund", "income"})
 
 
 @dataclass(frozen=True)
@@ -261,11 +263,12 @@ def fiscal_manifest(
             if is_sin_comprobante(record.facts):
                 item.update(disposition="excluded", reason="no_fiscal_number")
                 continue
-            item.update(reason="fiscal_conversion_required", note=FOREIGN_CURRENCY_NOTE)
-            if record.declaration:
-                pending_rate[record.declaration.form] += 1
-            else:
-                pending_rate["607" if record.kind == "income" else "606"] += 1
+            item["reason"] = "fiscal_conversion_required"
+            if record.kind in DECLARED_KINDS:
+                item["note"] = FOREIGN_CURRENCY_NOTE
+                targets = (record.declaration.form,) if record.declaration else COLUMNS
+                for form in targets:
+                    pending_rate[form] += 1
             issues.extend(collect(record))
             continue
         if record.kind == "expense":
