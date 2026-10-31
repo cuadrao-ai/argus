@@ -105,6 +105,8 @@ class Invoice(Strict):
     revision_id: UUID
     data: InvoiceDraft
     field_errors: dict[str, str]
+    # Why issue is refused while the draft itself stays valid and saved.
+    fiscal_blockers: list[Literal["foreign_currency_pending_rate"]] = []
     amounts: InvoiceAmounts | None
     operation: FiscalOperation | None = None
     payment_state: Literal["unknown"] = "unknown"

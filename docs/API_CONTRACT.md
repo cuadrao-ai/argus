@@ -9391,11 +9391,30 @@ own status words for that calendar month: `no_aplica`, `needs_review`,
 the ZIP carries the TXT). Each currency block adds `itbis_cobrado_minor` and
 `itbis_cobrado` (ITBIS charged on the sales marked `cobrado`) and
 `net_result_final` (true while no document of that currency in the month is
-`pendiente`). Each open-items list adds `overdue: {count, totals}` over every
+`pendiente` and, for a currency other than DOP, while that currency has no
+document waiting for an exchange rate; a non-DOP block with any document that
+is not sin comprobante is never final, because no rate exists yet). Each open-items list adds `overdue: {count, totals}` over every
 pending document in it, not only the page: pending with `due_on` before
 `today`; no due date is never overdue. Every document counts in its own
-currency's block; only the DGII files and `dgii_forms` are DOP-only. All
-additive; nothing renamed.
+currency's block; only the DGII files and `dgii_forms` are DOP-only.
+`dgii_foreign_currency` sits beside `dgii_forms`:
+`{"606": {pending_rate_count, reason}, "607": {pending_rate_count, reason}}`.
+`pending_rate_count` (int, default 0) counts the month's non-DOP expense,
+refund and income lines, not personal and not sin comprobante, that the export
+holds back for a rate. A declared line counts once, on its declared form; a
+line with no form declaration counts on both forms. Transfers and other money
+movements never count. A form whose status is `no_aplica` (no RNC) counts 0.
+`reason` is `"Moneda extranjera: pendiente de tasa"`
+when the count is above 0, else null. The exported `dgii/summary.json` carries
+the same per-form `foreign_currency_pending_rate_count` and, when above 0,
+`foreign_currency_note`; each held-back reconciliation line keeps
+`reason: "fiscal_conversion_required"` and adds `note` with the same words.
+
+The invoice response (editor save, read and list item) adds
+`fiscal_blockers`: `["foreign_currency_pending_rate"]` for a non-DOP draft,
+`[]` for DOP. The draft stays saved and valid. Renamed: the issue-time refusal
+of a non-DOP invoice now returns `field_errors.currency =
+"foreign_currency_pending_rate"`, formerly `fx_basis_required`.
 
 The same existing
 `POST /business/drafts/{draft_id}/approve` takes the action-discriminated union

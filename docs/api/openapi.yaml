@@ -20863,6 +20863,14 @@ components:
       - connection
       - device_token
       - intake_url
+    DgiiForeignCurrency:
+      properties:
+        '606':
+          $ref: '#/components/schemas/ForeignCurrencyForm'
+        '607':
+          $ref: '#/components/schemas/ForeignCurrencyForm'
+      additionalProperties: false
+      type: object
     DgiiForms:
       properties:
         '606':
@@ -22686,6 +22694,18 @@ components:
       - as_of
       - points
       - order
+    ForeignCurrencyForm:
+      properties:
+        pending_rate_count:
+          type: integer
+          default: 0
+        reason:
+          anyOf:
+          - type: string
+            const: 'Moneda extranjera: pendiente de tasa'
+          - type: 'null'
+      additionalProperties: false
+      type: object
     Fulfillment:
       properties:
         expected_version:
@@ -24386,6 +24406,12 @@ components:
           additionalProperties:
             type: string
           type: object
+        fiscal_blockers:
+          items:
+            type: string
+            const: foreign_currency_pending_rate
+          type: array
+          default: []
         amounts:
           anyOf:
           - $ref: '#/components/schemas/InvoiceAmounts'
@@ -26622,6 +26648,8 @@ components:
           type: array
         dgii_forms:
           $ref: '#/components/schemas/DgiiForms'
+        dgii_foreign_currency:
+          $ref: '#/components/schemas/DgiiForeignCurrency'
         currencies:
           items:
             $ref: '#/components/schemas/CurrencyBlock'
