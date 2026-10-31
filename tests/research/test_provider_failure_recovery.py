@@ -19,7 +19,6 @@ from typing import Any
 
 import httpx
 import pytest
-from argus.agent_runtime import research_answer as ra
 from argus.agent_runtime import research_calculation
 from argus.agent_runtime import research_grounded as grounded
 from argus.agent_runtime.calculated_answer import CalculatedAnswer
@@ -37,7 +36,6 @@ from argus.domain.supabase_gateway import SupabaseGateway
 
 from tests.research.conftest import (
     agent_response,
-    educational_interpretation,
     request_body,
     run_research_turn,
     set_research_query,
@@ -693,50 +691,6 @@ def _final_payload(stream: str) -> dict[str, Any]:
     finals = [event for event in events if event.get("type") == "final"]
     assert len(finals) == 1
     return finals[0]["payload"]
-
-
-def _chat_over_the_rail(monkeypatch: pytest.MonkeyPatch, steps: list[Step]):
-    """The chat route, with each turn composed by the real research rail over
-    a scripted provider. Returns the API client, the provider and the message
-    every turn was asked."""
-    from argus.agent_runtime.research_query import ResearchQueryExtraction
-    from argus.agent_runtime.runtime import _public_result
-    from argus.agent_runtime.state.models import RunState, UserState
-    from argus.api.main import app
-    from argus.api.routers import agent as agent_router
-    from fastapi.testclient import TestClient
-
-    clock = ScriptedClock()
-    client, provider = scripted_client(clock, steps)
-    monkeypatch.setattr(grounded, "_client", lambda: client)
-    interpretation = educational_interpretation().model_copy(
-        update={
-            "research_query": ResearchQueryExtraction(
-                question_kind="live_quote", symbols=["AAPL"]
-            )
-        }
-    )
-    asked: list[str] = []
-
-    async def _research_turn(*, message: str, user: UserState, **_: Any):
-        asked.append(message)
-        result = await ra.research_answer_stage_result(
-            interpretation=interpretation,
-            state=RunState.new(current_user_message=message, recent_thread_history=[]),
-            user=UserState(user_id=user.user_id, language_preference="en"),
-        )
-        assert result is not None
-        yield {
-            "type": "final",
-            "payload": _public_result(
-                {"stage_outcome": result.outcome, **result.stage_patch}
-            ),
-        }
-
-    monkeypatch.setattr(agent_router, "stream_agent_turn_events", _research_turn)
-    api = TestClient(app)
-    api.post("/api/v1/dev/reset")
-    return api, provider, asked
 
 
 def _ask(api, conversation_id: str) -> dict[str, Any]:
