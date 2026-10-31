@@ -14,6 +14,7 @@ from loguru import logger
 
 from argus.domain.business.document_type import DocumentType
 from argus.domain.ingestion.connections import (
+    DEFAULT_LEASE,
     LIVE,
     ConnectionNotFound,
     DuplicateConnection,
@@ -190,17 +191,27 @@ class DocumentsService:
                 created_at=connection.created_at,
                 updated_at=connection.updated_at,
             )
+        now = self.hub.clock()
+        # With jobs off nothing redispatches a queued read whose task never ran
+        # (a restart drops it), so it is presumed lost after one lease window.
+        lost_queue = draft.status == "queued" and draft.updated_at + DEFAULT_LEASE <= now
         if (
-            draft.status == "preparing"
+            (draft.status == "preparing" or lost_queue)
             and not self.jobs_recover_interruptions
-            and not lease_live(connection, self.hub.clock())
+            and not lease_live(connection, now)
         ):
-            draft = self._update(
-                user_id,
-                draft,
-                status="needs_attention",
-                error_code="document_preparation_interrupted",
-            )
+            try:
+                draft = self._update(
+                    user_id,
+                    draft,
+                    status="needs_attention",
+                    error_code="document_preparation_interrupted",
+                )
+            except DocumentServiceError as error:
+                if error.code != "document_version_conflict":
+                    raise
+                # A worker or another read moved the draft first; theirs stands.
+                draft = self.store.draft(user_id=user_id, connection_id=connection_id)
         return draft
 
     def _read_source(self, user_id: str, connection_id: str) -> bytes:

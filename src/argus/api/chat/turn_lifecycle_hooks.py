@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from argus.api.chat.legacy_onboarding_markers import is_legacy_onboarding_marker
-from argus.api.chat.refusal_evidence import record_terminal_pair
 from argus.api.chat.retry import durable_retry_last_turn_metadata
 from argus.api.message_store import (
     create_message,
@@ -62,19 +61,9 @@ class ChatTurnLifecycleHooks:
         metadata: dict[str, Any] | None,
         settle_usage: dict[str, Any] | None = None,
     ) -> Message:
-        return self._observe(
-            self._complete(content=content, metadata=metadata, settle_usage=settle_usage)
+        return self._complete(
+            content=content, metadata=metadata, settle_usage=settle_usage
         )
-
-    def _observe(self, message: Message) -> Message:
-        record_terminal_pair(
-            user_id=self.user_id,
-            conversation_id=self.conversation_id,
-            request_id=self.request_id,
-            request_message=self.request_message,
-            response_message=message,
-        )
-        return message
 
     def _complete(
         self,
@@ -126,13 +115,11 @@ class ChatTurnLifecycleHooks:
         failure_code: str,
         retryable: bool,
     ) -> Message:
-        return self._observe(
-            self._recoverable_failure(
-                content=content,
-                metadata=metadata,
-                failure_code=failure_code,
-                retryable=retryable,
-            )
+        return self._recoverable_failure(
+            content=content,
+            metadata=metadata,
+            failure_code=failure_code,
+            retryable=retryable,
         )
 
     def _recoverable_failure(

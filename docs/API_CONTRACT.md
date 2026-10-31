@@ -3685,8 +3685,8 @@ chat turn recalls no saved memory, and `POST /memory/candidates` and
 when a source is a Business conversation, one of its messages, or evidence it
 produced.
 
-**Business chat.** `ARGUS_BUSINESS_CHAT_ENABLED` is a default-off flag nested
-inside `ARGUS_BUSINESS_PILOT_ENABLED`; Business chat stays off until Business
+**Business chat.** `CUADRAO_BUSINESS_CHAT_ENABLED` (older `ARGUS_BUSINESS_CHAT_ENABLED`) is a default-off flag nested
+inside `CUADRAO_BUSINESS_PILOT_ENABLED` (older `ARGUS_BUSINESS_PILOT_ENABLED`); Business chat stays off until Business
 turns have their own tool restrictions. While it is off (or the pilot is off),
 `POST /conversations` with `surface: business` and every turn or card action on
 a Business conversation answer 404 `business_chat_unavailable` with
@@ -3700,6 +3700,17 @@ conversations keep working, so their owner can see and delete them. Every
 `POST` under `/conversations/{conversation_id}` must declare its side, Business
 chat or Personal only; `tests/test_business_chat_flag.py` enforces this.
 `GET /business/workspace` reports the flag as `chat_available`.
+
+## `GET /chat/starter-prompts`
+
+Returns the localized generic starter prompts for the signed-in user's profile
+language. Requires a session.
+
+```json
+{ "prompts": ["string"] }
+```
+
+---
 
 ## `GET /conversations`
 
@@ -6674,27 +6685,13 @@ symbol lineage. This protects the bounded per-keystroke read contract.
 
 # 17.1 Private Alpha Observability Envelope
 
-### Internal question/outcome evidence
+### Internal question/outcome evidence (retired)
 
-The Refusal log observes terminal chat replies and validated artifact-action
-requests rejected before message storage. This adds no public endpoint, request
-field, response metadata, SSE frame, visible copy, or model-facing text.
-The service-only `refusal_log` SQL view is documented in
-`docs/DATA_MODEL.md` under `refusal_observations and refusal_log`.
-
-Accepted turns link the exact persisted user/assistant messages and read their
-question, action, original outcome metadata, and response from those owners.
-Rejected actions retain the submitted question, validated action, actual HTTP
-status, and unchanged problem response. Caller-supplied artifact/conversation
-ids remain claims; the evidence writer neither resolves them nor treats them
-as proof of ownership. Repeated rejected requests count independently even when
-they reuse `X-Request-ID`.
-
-The writer observes all terminal replies without identifying which ones are
-refusals or deciding whether a boundary is correct. Observation failure leaves
-the public response and allowance behavior unchanged and emits only a
-content-free operational failure. This evidence remains internal to Supabase,
-outside frontend reads, PostHog, model context, and the live-eval fingerprint.
+Historical. The Refusal log evidence writes for terminal chat replies and
+rejected artifact actions were removed, and the backing `refusal_log` view and
+`refusal_observations` table were dropped by
+`20261030220000_drop_refusal_observations.sql`. No public endpoint, request
+field, response metadata, SSE frame, or model-facing text changed.
 
 ### Product event envelope
 
@@ -8805,7 +8802,7 @@ marked for attention and is never automatically billed again. Explicit prepare
 or resume recovers from retained source; completed preparation is replayed without
 another model call. Identical owner/file captures reuse the same draft.
 
-`ARGUS_DOCUMENT_JOBS_ENABLED` (default off) changes only who runs and recovers
+`CUADRAO_DOCUMENT_JOBS_ENABLED` (older `ARGUS_DOCUMENT_JOBS_ENABLED`) (default off) changes only who runs and recovers
 preparation; routes and bodies stay the same. Off, the rules above hold
 exactly. On, capture and `/prepare` or `/resume` record one attempt before
 responding and hand it to a worker (a Render Workflow task, or a task in the
@@ -8830,8 +8827,8 @@ attempt whose worker died as follows:
 Only the owner's `/prepare` or `/resume` with `X-Extraction-Consent: true`
 starts a new paid attempt from `needs_attention`. A superseded attempt's late
 result is refused. Instances coordinate through the database, so one attempt is
-dispatched once. Settings are `ARGUS_DOCUMENT_JOBS_ENABLED`,
-`ARGUS_DOCUMENT_JOBS_WORKFLOW_TASK` and `ARGUS_DOCUMENT_JOBS_SWEEP_SECONDS`. Design:
+dispatched once. Settings are `CUADRAO_DOCUMENT_JOBS_ENABLED`,
+`CUADRAO_DOCUMENT_JOBS_WORKFLOW_TASK` and `CUADRAO_DOCUMENT_JOBS_SWEEP_SECONDS` (older `ARGUS_` names). Design:
 `docs/specs/lanes/cuadrao-document-preparation-jobs.md`.
 
 Preparation preserves extracted observations and receipt itemization separately
