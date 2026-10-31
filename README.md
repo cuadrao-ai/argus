@@ -1,36 +1,41 @@
-# Argus
+# Cuadrao
 
 Cuadrao helps small businesses in the Dominican Republic and their accountants turn receipts and invoices into reviewed records and the 606/607 reports.
 
 The personal iOS app is archived at tag `archive/ios-personal-2026-10-30` and branch `archive/ios-personal`.
 
-Argus helps people understand their finances, organize their money, and see
-how their choices affect what comes next.
+## How it works
 
-We are building a personal and household financial ecosystem, starting with
-Dominican residents managing cash, accounts, debt, and income that arrives by
-quincena or varies. The experience centers on knowing what is committed, what
-remains until the next income, and what changes when a decision is made.
+1. **Bring documents in.** In this order of priority:
+   - Upload receipts and invoices from the app.
+   - Forward them by email to the business's own receipts address.
+   - Send them by WhatsApp.
+2. **Read.** Cuadrao extracts the merchant, date, amounts, NCF and RNC from each document.
+3. **Review and approve.** The owner or the accountant checks each record, fixes what is wrong, and approves it. A possible duplicate blocks approval until someone resolves it.
+4. **Follow up.** Each record keeps a status, so the owner can see what is still open:
+   - A purchase is *pendiente* or *pagado*.
+   - A sale is *pendiente* or *cobrado*.
+   - The month-close view lists the sales still to collect and the ITBIS on sales already collected.
+5. **Export.** Approved records produce the 606 and 607 reports.
 
-## Product and implementation
+## Currencies
 
-The approved [minimum viable ecosystem experience (MVEE)](docs/specs/argus-minimum-viable-ecosystem-experience.md)
-connects recording, understanding, planning, relevant updates, and an easy
-return. It includes personal and shared household views, with explicit control
-over what partners share.
+Amounts are stored in the currency of the document and shown by currency. When a month holds more than one currency, a currency menu switches the figures. The DGII reports declare pesos (DOP) only. Foreign-currency lines are kept, marked "Moneda extranjera: pendiente de tasa", and are not converted.
 
-The existing Alpha provides grounded finance chat, calculations, research,
-historical simulations, and retrieval. Those capabilities carry forward.
-The broader ecosystem is approved product direction, not a claim that every
-surface, ingestion method, household feature, or native app is implemented.
+## Where the owner starts
 
-## Working on Argus
+The app opens on Inicio, which counts what is waiting for review and flags the ones with problems. Tapping it opens the Bandeja, where documents wait to be read, reviewed or fixed. Registros holds the approved records. Mail from a sender that isn't on the business's list is kept apart in Remitentes nuevos.
 
-- [Product overview](docs/PRODUCT.md): audience, purpose, experience, and existing behavior.
-- [MVEE](docs/specs/argus-minimum-viable-ecosystem-experience.md): detailed approved experience and open decisions.
+## Where we're heading
+
+Business owners should be able to follow each receipt through its whole life in one place, in the currency it was issued in. That life runs from received to reviewed, to paid or collected, to exported. At any moment the owner should know what needs their action.
+
+## Working on Cuadrao
+
+- [Product overview](docs/PRODUCT.md): audience, purpose, and behavior.
 - [Documentation authority](docs/DOCUMENTATION_AUTHORITY.md): what each document owns and where historical work belongs.
 - [AGENTS.md](AGENTS.md): codebase facts, checks, and safety rules for coding agents.
+- The integration branch is `codex/private-alpha-next`. Open pull requests against it.
+- Some older Argus code remains in the repository under `src/argus/`.
 
-Technical work starts from an explicit assignment and the relevant architecture,
-API, and data contracts. The experience specification does not select a new
-architecture or authorize a deployment.
+Technical work starts from an explicit assignment and the relevant architecture, API, and data contracts.
