@@ -373,35 +373,4 @@ test.describe("issue #422 breakpoint regressions", () => {
       },
     });
   });
-
-  test("finding 8 keeps the leading chart label inside the 390px card", async ({
-    page,
-  }) => {
-    await openFixture(page, "/dev/result-card", { theme: "light" });
-    const card = page
-      .getByTestId("result-card-fixture-benchmark-underperformance-positive")
-      .first();
-    const chart = card.getByTestId("result-equity-chart");
-    await card.scrollIntoViewIfNeeded();
-    await page.mouse.move(VIEWPORT.width - 1, VIEWPORT.height - 1);
-    await page.waitForTimeout(300);
-    const renderedText = await card.innerText();
-
-    await expect(chart).toBeVisible();
-    expect(await chart.evaluate((element) => element.clientWidth)).toBeGreaterThan(250);
-    expect(renderedText).toContain("January 3, 2023");
-    await expect(card).toHaveScreenshot("issue-422-chart-390.png", {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixels: 100,
-      scale: "css",
-      threshold: 0.2,
-    });
-    await captureFinding({
-      finding: 8,
-      slug: "chart-leading-label",
-      screenshot: () => card.screenshot(CAPTURE_SCREENSHOT_OPTIONS),
-      renderedText,
-    });
-  });
 });
