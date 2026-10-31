@@ -23,7 +23,7 @@ WORKFLOW = yaml.safe_load((ROOT / ".github" / "workflows" / "ci.yml").read_text(
 FAKE = Faker()
 
 ALWAYS = {"docs-change-gate", "ownership-gate", "ci"}
-HEAVY = ALWAYS | {"backend-checks", "frontend-checks", "guest-release-gates"}
+HEAVY = ALWAYS | {"backend-checks", "frontend-checks", "database-checks"}
 EVERY = HEAVY | {"marketing-checks"}
 DOCS = ALWAYS | {"docs-checks"}
 
@@ -92,6 +92,8 @@ CASES = {
     "unknown-root-file": (["Makefile", ".gitattributes"], HEAVY),
     "unknown-beside-backend": ([f"src/argus/{FAKE.word()}.py", "temp/.gitkeep"], HEAVY),
     "root-markdown": (["AGENTS.md"], HEAVY),
+    "readme-only": (["README.md"], DOCS),
+    "readme-beside-code": (["README.md", f"src/argus/{FAKE.word()}.py"], HEAVY),
     "marketing-beside-backend": (
         [f"src/argus/{FAKE.word()}.py", f"marketing/lib/{FAKE.word()}.ts"],
         EVERY,
@@ -123,8 +125,8 @@ def test_changed_paths_select_expected_jobs(paths, expected):
 
 def test_migrations_always_reach_the_real_postgres_matrix():
     migration = f"supabase/migrations/20261021120002_{FAKE.word()}.sql"
-    assert "guest-release-gates" in jobs_for(migration)
-    matrix = WORKFLOW["jobs"]["guest-release-gates"]["strategy"]["matrix"]
+    assert "database-checks" in jobs_for(migration)
+    matrix = WORKFLOW["jobs"]["database-checks"]["strategy"]["matrix"]
     # A pull request runs both CLI legs; only the probe narrows to latest.
     assert '\'["pinned", "latest"]\'' in matrix["supabase-cli"]
 
@@ -149,7 +151,7 @@ def test_manual_full_run_reaches_every_job():
         "default": False,
     }
     for name, job in WORKFLOW["jobs"].items():
-        if name in {"docs-change-gate", "guest-release-gates"}:
+        if name in {"docs-change-gate", "database-checks"}:
             assert "github.event_name == 'workflow_dispatch'" in job["if"], name
         elif name != "docs-checks":
             assert full_run in job["if"], name
@@ -264,7 +266,7 @@ RESULT_KEYS = {
     "backend-checks": "BACKEND_CHECKS",
     "frontend-checks": "FRONTEND_CHECKS",
     "marketing-checks": "MARKETING_CHECKS",
-    "guest-release-gates": "GUEST_RELEASE_GATES",
+    "database-checks": "DATABASE_CHECKS",
 }
 
 

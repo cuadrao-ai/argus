@@ -106,7 +106,7 @@ def test_aggregate_rejects_invalid_flag(tmp_path, flag):
     assert aggregate(tmp_path, flag).returncode != 0
 
 
-HEAVY_JOBS = {"BACKEND_CHECKS", "FRONTEND_CHECKS", "MARKETING_CHECKS", "GUEST_RELEASE_GATES"}
+HEAVY_JOBS = {"BACKEND_CHECKS", "FRONTEND_CHECKS", "MARKETING_CHECKS", "DATABASE_CHECKS"}
 
 
 def selected(job, flag):
@@ -137,7 +137,7 @@ def aggregate(tmp_path, flag="true", **overrides):
         "BACKEND_CHECKS",
         "FRONTEND_CHECKS",
         "MARKETING_CHECKS",
-        "GUEST_RELEASE_GATES",
+        "DATABASE_CHECKS",
     ],
 )
 @pytest.mark.parametrize("state", ["success", "failure", "cancelled", "skipped"])

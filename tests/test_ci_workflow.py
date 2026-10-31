@@ -163,7 +163,7 @@ def test_backend_checks_gates_the_suite_by_directory() -> None:
 
 def test_ci_runs_guest_release_gates_with_disposable_local_supabase() -> None:
     jobs = _workflow()["jobs"]
-    guest_job = jobs["guest-release-gates"]
+    guest_job = jobs["database-checks"]
     joined_steps = "\n".join(str(step.get("run", "")) for step in guest_job["steps"])
     uses_steps = {
         str(step.get("uses", "")): step for step in guest_job["steps"] if step.get("uses")
@@ -252,7 +252,7 @@ def test_ci_aggregator_requires_all_active_quality_jobs() -> None:
         "backend-checks",
         "frontend-checks",
         "marketing-checks",
-        "guest-release-gates",
+        "database-checks",
     ]
     assert jobs["ci"]["if"] == f"always() && ({_DRAFT_OR_PUSH} || {_FULL_RUN})"
     aggregator_env = jobs["ci"]["steps"][0]["env"]
@@ -275,8 +275,8 @@ def test_ci_aggregator_requires_all_active_quality_jobs() -> None:
     assert aggregator_env["MARKETING_CHECKS"] == (
         "${{ needs.marketing-checks.result }}"
     )
-    assert aggregator_env["GUEST_RELEASE_GATES"] == (
-        "${{ needs.guest-release-gates.result }}"
+    assert aggregator_env["DATABASE_CHECKS"] == (
+        "${{ needs.database-checks.result }}"
     )
     aggregator_run = jobs["ci"]["steps"][0]["run"]
     assert "CI checks passed." in aggregator_run
@@ -288,13 +288,13 @@ def test_ci_aggregator_requires_all_active_quality_jobs() -> None:
     assert 'require_selected backend-checks "$RUN_HEAVY"' in aggregator_run
     assert 'require_selected frontend-checks "$RUN_HEAVY"' in aggregator_run
     assert 'require_selected marketing-checks "$RUN_MARKETING"' in aggregator_run
-    assert 'require_selected guest-release-gates "$RUN_HEAVY"' in aggregator_run
+    assert 'require_selected database-checks "$RUN_HEAVY"' in aggregator_run
 
 
 def test_private_alpha_smoke_workflow_runs_local_predeploy_gate() -> None:
     workflow = _smoke_workflow()
 
-    assert workflow["name"] == "Private Alpha Local Smoke"
+    assert workflow["name"] == "Local boot smoke"
     assert workflow["permissions"] == {"contents": "read"}
     assert workflow["on"]["push"]["branches"] == ["codex/private-alpha-next"]
     assert workflow["on"]["pull_request"]["branches"] == [
@@ -632,7 +632,7 @@ def test_pull_request_heavy_jobs_use_the_shared_docs_change_gate() -> None:
         f"({_DRAFT_OR_PUSH} || {_FULL_RUN}) && "
         "needs.docs-change-gate.outputs.run_marketing == 'true'"
     )
-    guest_job = jobs["guest-release-gates"]
+    guest_job = jobs["database-checks"]
     assert _job_needs(guest_job) == ["docs-change-gate"]
     assert guest_job["if"] == (
         f"({_DRAFT_OR_PUSH} || {_LATEST_CLI_PROBE}) && "
@@ -719,7 +719,7 @@ def test_ci_aggregator_allows_skipped_docs_checks_when_not_docs_only() -> None:
 
 def test_real_postgres_matrix_runs_on_pinned_and_latest_supabase_cli() -> None:
     workflow = _workflow()
-    guest_job = workflow["jobs"]["guest-release-gates"]
+    guest_job = workflow["jobs"]["database-checks"]
 
     assert workflow["on"]["schedule"] == [{"cron": "17 9 * * 1"}]
     assert "workflow_dispatch" in workflow["on"]
@@ -749,7 +749,7 @@ def test_real_postgres_matrix_runs_on_pinned_and_latest_supabase_cli() -> None:
 
 def test_scheduled_probe_runs_no_other_job() -> None:
     jobs = _workflow()["jobs"]
-    probe_jobs = {"docs-change-gate", "guest-release-gates"}
+    probe_jobs = {"docs-change-gate", "database-checks"}
 
     for name, job in jobs.items():
         if name in probe_jobs:

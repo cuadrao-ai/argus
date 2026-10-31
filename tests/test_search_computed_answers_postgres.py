@@ -1,7 +1,7 @@
 """Real-Postgres proof of the computed-answer reads Search and comparisons use.
 
 Every read runs through the real ``SupabaseGateway`` over PostgREST against the
-disposable local stack the guest-release-gates job resets (the
+disposable local stack the database-checks job resets (the
 ``tests/test_*_postgres.py`` glob carries this file without a workflow edit).
 Rows are seeded with psycopg under the ``search_identities`` owner and
 stranger, and each computed answer stores the real calculation card and the
