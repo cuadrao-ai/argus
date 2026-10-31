@@ -426,33 +426,6 @@ test.describe("signed-in surfaces", () => {
     });
 
     /*
-     * A persisted result card hydrates from a run fetch rather than from
-     * message metadata, so it cannot be stubbed onto a transcript message. The
-     * committed playground renders the same component from static fixtures,
-     * which is what the width behaviour is read from here.
-     */
-    test(`result card fixtures at ${band}`, async ({ page }) => {
-      await open(page, band, "/dev/result-card", {});
-      await capture(page, `signed-in/result-card-playground-${band}-en-dark`, PROOF.result);
-
-      for (const fixture of [
-        "positive-single-symbol",
-        "negative-single-symbol",
-        "benchmark-underperformance-positive",
-        "modeled-execution-costs",
-      ]) {
-        const card = page.getByTestId(`result-card-fixture-${fixture}`).first();
-        if (!(await card.count())) continue;
-        await card.scrollIntoViewIfNeeded();
-        await page.waitForTimeout(300);
-        const base = join(OUT_DIR, `signed-in/result-card-${fixture}-${band}-en-dark`);
-        await mkdir(dirname(base), { recursive: true });
-        await card.screenshot({ path: `${base}.png` });
-        await writeFile(`${base}.txt`, await card.innerText(), "utf8");
-      }
-    });
-
-    /*
      * The cross pass. Crossing every view by language and theme is ~300
      * captures that nobody reads, so it is spent only where copy length or
      * theming actually breaks things: the metric table, the allowance meters

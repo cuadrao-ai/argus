@@ -25,14 +25,8 @@ describe("auth link proxy", () => {
     expect(response.headers.get("location")).toBeNull();
   });
 
-  test("does not turn the dev result card into an auth redirect", () => {
-    const response = proxy(new NextRequest("https://app.example.test/dev/result-card/preview"));
-    expect(response.headers.get("location")).toBeNull();
-  });
-
-  test("matches auth routes as well as the dev playground", () => {
+  test("matches auth routes", () => {
     const source = readFileSync(join(import.meta.dir, "../proxy.ts"), "utf-8");
-    expect(source).toContain('"/dev/result-card/:path*"');
     expect(source).toContain("authLinkErrorRedirect");
     expect(source).toContain("decideBusinessOnlyWeb");
   });
