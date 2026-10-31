@@ -62,7 +62,7 @@ No forecast or unimplemented commitment values are fabricated in connected Home.
 
 ## Reproduce and resume
 
-[Connected setup and verification commands](../../../../../ios/ACCOUNTS_SETUP.md)
+Connected setup and verification commands (removed; see tag `archive/ios-personal-2026-10-30`)
 cover an isolated stack, existing CAPTCHA bridge, session tests, production-model
 harness and the serial connected UI suite. Run the UI suite against one allocated
 stack and simulator; it appends synthetic accounts and verifies Home deltas rather

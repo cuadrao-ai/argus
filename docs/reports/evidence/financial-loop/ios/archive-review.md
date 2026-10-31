@@ -49,7 +49,7 @@ credentials or raw auth diagnostics are committed. The founder-demo `client.json
 identity and simulator `197C9C31-77FD-4D31-A9C6-EACA55732B15` were not used or changed.
 
 To repeat, use the existing isolated UI launcher described in
-[Accounts setup](../../../../../ios/ACCOUNTS_SETUP.md), configure its synthetic test
+Accounts setup (removed; see tag `archive/ios-personal-2026-10-30`), configure its synthetic test
 identity to the separate retained verifier, choose an available simulator, and
 select only `ArgusFoundationUITests/FinancialLoopUITests/testArchiveManagementRestoresSameAccount`.
 Do not run this mutation test against the founder demo identity. It creates one
