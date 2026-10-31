@@ -9,7 +9,7 @@ import { primaryButtonClass, quietButtonClass, secondaryButtonClass } from "@/co
 import EmailSenders from "@/components/business-app/EmailSenders";
 import { fieldHintClass } from "@/components/ui/form-field";
 import { TOOLTIP_DELAY_MS } from "@/components/ui/Tooltip";
-import { EmailSenderRequestError, type EmailSender, type EmailSenderClient, type EmailSenderUpdate } from "@/lib/business-email";
+import { EmailSenderRequestError, parseEmailSenderList, type EmailSender, type EmailSenderClient, type EmailSenderUpdate } from "@/lib/business-email";
 import english from "@/public/locales/en/common.json";
 import spanish from "@/public/locales/es-419/common.json";
 
@@ -21,6 +21,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 
 const sender = (overrides: Partial<EmailSender> & Pick<EmailSender, "id" | "value" | "status">): EmailSender => ({
   kind: "address",
+  default_approved: false,
   ...overrides,
 });
 
@@ -78,6 +79,31 @@ test("pending senders stay first, each group offers its own actions, and only a 
   } finally { await page.close(); }
 });
 
+test("a default-approved sender is never offered Bloquear, and a sender without the field shows as before", async () => {
+  const listed = parseEmailSenderList({
+    items: [
+      { id: "owner-pending", kind: "address", value: "ana@negocio.example", status: "pending", default_approved: true },
+      { id: "owner", kind: "address", value: "dueno@negocio.example", status: "authorized", default_approved: true },
+      { id: "older", kind: "address", value: "proveedor@negocio.example", status: "authorized" },
+      { id: "owner-blocked", kind: "address", value: "luis@negocio.example", status: "blocked", default_approved: true },
+    ],
+  });
+  const page = await mount({ list: async () => listed, update: async (body) => ({ ...listed[0]!, ...body }) });
+  try {
+    await page.settle(() => rows(page.host).length === 4);
+    assert.deepEqual(rows(page.host).map((row) => row.querySelector("span")?.textContent), [
+      "ana@negocio.example", "dueno@negocio.example", "proveedor@negocio.example", "luis@negocio.example",
+    ]);
+    assert.deepEqual(rows(page.host).map(actions), [
+      [[senderCopy.authorize, primaryButtonClass]],
+      [],
+      [[senderCopy.block, quietButtonClass]],
+      [[senderCopy.authorize, secondaryButtonClass]],
+    ]);
+    assert.equal(rows(page.host)[1]!.querySelectorAll("button").length, 0);
+  } finally { await page.close(); }
+});
+
 test("an empty pending group stays open without a count, and no senders is its own empty state", async () => {
   const settled = mixed.filter((item) => item.status !== "pending");
   const page = await mount({ list: async () => settled, update: async (body) => ({ ...settled[0]!, ...body }) });
@@ -90,7 +116,7 @@ test("an empty pending group stays open without a count, and no senders is its o
     assert.match(page.host.textContent ?? "", /proveedor\.example/);
     assert.match(page.host.textContent ?? "", /spam@lista\.example/);
   } finally { await page.close(); }
-  const empty = await mount({ list: async () => [], update: async (body) => ({ id: "new", kind: body.kind, value: body.value, status: body.status }) });
+  const empty = await mount({ list: async () => [], update: async (body) => sender({ id: "new", ...body }) });
   try {
     await empty.settle(() => empty.host.querySelector("[data-testid='email-senders-empty']") !== null);
     assert.match(empty.host.textContent ?? "", /Todavía no hay remitentes\./);
@@ -100,7 +126,7 @@ test("an empty pending group stays open without a count, and no senders is its o
 
 test("loading and a failed load with retry", async () => {
   let release: (value: EmailSender[]) => void = () => undefined;
-  const loading = await mount({ list: () => new Promise((resolve) => { release = resolve; }), update: async (body) => ({ id: "new", ...body }) });
+  const loading = await mount({ list: () => new Promise((resolve) => { release = resolve; }), update: async (body) => sender({ id: "new", ...body }) });
   try {
     assert.equal(loading.host.querySelector("[data-testid='email-senders-loading']")?.getAttribute("aria-busy"), "true");
     assert.match(loading.host.textContent ?? "", /Cargando remitentes…/);
@@ -110,7 +136,7 @@ test("loading and a failed load with retry", async () => {
   let lists = 0;
   const failed = await mount({
     list: async () => { lists += 1; throw new EmailSenderRequestError(503, "unavailable"); },
-    update: async (body) => ({ id: "new", ...body }),
+    update: async (body) => sender({ id: "new", ...body }),
   });
   try {
     await failed.settle(() => failed.host.querySelector("[data-testid='email-senders-error']") !== null);
@@ -131,7 +157,7 @@ test("authorize and block replace the row from the returned item, including a ne
     update: async (body) => {
       calls.push(body);
       if (!created) return { ...mixed[0]!, status: body.status, tag: "verified" };
-      return { id: "created", kind: body.kind, value: "nueva@negocio.example", status: body.status, tag: null };
+      return sender({ id: "created", kind: body.kind, value: "nueva@negocio.example", status: body.status, tag: null });
     },
   });
   try {

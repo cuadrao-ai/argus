@@ -40,10 +40,22 @@ test("only a failed check is flagged, whatever the auth result says", () => {
   assert.equal(older!.last_auth_result, "aligned");
 });
 
-test("a pending sender can go either way and a settled one only to the other side", () => {
-  assert.deepEqual(senderMoves("pending"), ["authorized", "blocked"]);
-  assert.deepEqual(senderMoves("authorized"), ["blocked"]);
-  assert.deepEqual(senderMoves("blocked"), ["authorized"]);
+test.each([
+  ["pending", false, ["authorized", "blocked"]],
+  ["authorized", false, ["blocked"]],
+  ["blocked", false, ["authorized"]],
+  ["pending", true, ["authorized"]],
+  ["authorized", true, []],
+  ["blocked", true, ["authorized"]],
+] as const)("%s with default_approved %j moves to %j", (status, default_approved, moves) => {
+  assert.deepEqual(senderMoves({ status, default_approved }), moves);
+});
+
+test("default_approved is optional on the wire, and a missing one reads as false", () => {
+  const items = parseEmailSenderList({ items: [oldServer, { ...oldServer, id: "owner", default_approved: true }, { ...oldServer, id: "member", default_approved: false }] });
+  const views = items.map(senderForView);
+  assert.deepEqual(views.map((view) => view.default_approved), [false, true, false]);
+  assert.deepEqual(views.map(senderMoves), [["blocked"], [], ["blocked"]]);
 });
 
 test("senders group by status and keep the order they arrived in", () => {
@@ -89,7 +101,7 @@ test("the dev stub can fail a status change and can return an empty list", async
   assert.ok(settled.some((item) => item.status === "blocked"));
 });
 
-test("200 and 201 both return the sender item, and the post never sends pending", async () => {
+test("200 and 201 both return the sender item with or without default_approved, and the post never sends pending", async () => {
   Object.assign(process.env, { NEXT_PUBLIC_MOCK_AUTH: "true" });
   const calls: { method: string; body: unknown }[] = [];
   const item = { id: "s1", kind: "address", value: "nueva@negocio.example", status: "authorized", tag: "unverified", last_auth_result: "none", last_seen_at: "2026-10-30T00:00:00Z" };
@@ -99,14 +111,14 @@ test("200 and 201 both return the sender item, and the post never sends pending"
     calls.push({ method, body: init?.body ? JSON.parse(String(init.body)) : null });
     if (method === "GET") return Response.json({ items: [{ id: "old", kind: "address", value: "old@negocio.example", status: "blocked" }] });
     posts += 1;
-    return Response.json(item, { status: posts === 1 ? 200 : 201 });
+    return posts === 1 ? Response.json(item, { status: 200 }) : Response.json({ ...item, default_approved: true }, { status: 201 });
   }) as typeof fetch;
   const listed = await listEmailSenders();
-  assert.deepEqual(listed, [{ id: "old", kind: "address", value: "old@negocio.example", status: "blocked" }]);
+  assert.deepEqual(listed, [{ id: "old", kind: "address", value: "old@negocio.example", status: "blocked", default_approved: false }]);
   const updated = await liveEmailSenderClient.update({ kind: "address", value: "nueva@negocio.example", status: "authorized" });
   const created = await liveEmailSenderClient.update({ kind: "address", value: "nueva@negocio.example", status: "blocked" });
-  assert.deepEqual(updated, item);
-  assert.deepEqual(created, item);
+  assert.deepEqual(updated, { ...item, default_approved: false });
+  assert.deepEqual(created, { ...item, default_approved: true });
   assert.deepEqual(calls.map((call) => call.body), [
     null,
     { kind: "address", value: "nueva@negocio.example", status: "authorized" },

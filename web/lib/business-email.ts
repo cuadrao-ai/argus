@@ -62,11 +62,12 @@ const emailSenderSchema = z.object({
   value: z.string().min(1),
   status: z.enum(["pending", "authorized", "blocked"]),
   tag: z.enum(["verified", "unverified"]).nullable().optional(),
+  default_approved: z.boolean().default(false),
   last_auth_result: senderAuthResult.nullable().optional(),
   last_seen_at: z.string().nullable().optional(),
 });
 
-/** One sender row from GET /business/email/senders. `tag` may be absent on an older server. */
+/** One sender row from GET /business/email/senders. An older server may omit `tag` and `default_approved`; a missing `default_approved` reads as false. */
 export type EmailSender = z.infer<typeof emailSenderSchema>;
 
 /** The row the screen may render. `last_auth_result` stays on the wire type and never crosses into the view. */
@@ -105,9 +106,9 @@ export function senderCheckFailed(tag: EmailSender["tag"]): boolean {
 
 const SETTLED_STATUSES = ["authorized", "blocked"] as const satisfies readonly EmailSenderUpdate["status"][];
 
-/** Where a sender can go from where it stands: a pending one either way, a settled one only to the other side. */
-export function senderMoves(status: EmailSender["status"]): EmailSenderUpdate["status"][] {
-  return SETTLED_STATUSES.filter((next) => next !== status);
+/** Where a sender can go from where it stands: a pending one either way, a settled one only to the other side. A default-approved sender, an owner or team member with a live grant, is never offered a block. */
+export function senderMoves({ status, default_approved }: Pick<EmailSender, "status" | "default_approved">): EmailSenderUpdate["status"][] {
+  return SETTLED_STATUSES.filter((next) => next !== status && !(default_approved && next === "blocked"));
 }
 
 export function senderForView(sender: EmailSender): EmailSenderView {
@@ -117,6 +118,7 @@ export function senderForView(sender: EmailSender): EmailSenderView {
     value: sender.value,
     status: sender.status,
     tag: sender.tag,
+    default_approved: sender.default_approved,
     last_seen_at: sender.last_seen_at,
   };
 }
@@ -189,11 +191,11 @@ export async function listEmailSenders(signal?: AbortSignal): Promise<EmailSende
   return liveEmailSenderClient.list(signal);
 }
 
-const STUB_SENDERS: readonly EmailSender[] = [
+const STUB_SENDERS: readonly z.input<typeof emailSenderSchema>[] = [
   { id: "sender-pending-verified", kind: "address", value: "facturas@ferreteria.example", status: "pending", tag: "verified", last_auth_result: "aligned", last_seen_at: "2026-10-30T15:00:00Z" },
   { id: "sender-pending-unverified", kind: "address", value: "avisos@correo.example", status: "pending", tag: "unverified", last_auth_result: "no_result", last_seen_at: "2026-10-29T15:00:00Z" },
   { id: "sender-pending-hand", kind: "address", value: "manual@dueno.example", status: "pending", tag: null, last_auth_result: null, last_seen_at: null },
-  { id: "sender-owner", kind: "address", value: "dueno@negocio.example", status: "authorized", tag: "verified", last_auth_result: "aligned", last_seen_at: "2026-10-28T12:00:00Z" },
+  { id: "sender-owner", kind: "address", value: "dueno@negocio.example", status: "authorized", tag: "verified", default_approved: true, last_auth_result: "aligned", last_seen_at: "2026-10-28T12:00:00Z" },
   { id: "sender-team", kind: "address", value: "equipo@negocio.example", status: "authorized", last_seen_at: "2026-10-20T12:00:00Z" },
   { id: "sender-domain", kind: "domain", value: "proveedor.example", status: "authorized", tag: null, last_auth_result: null, last_seen_at: null },
   { id: "sender-blocked", kind: "address", value: "spam@lista.example", status: "blocked", tag: "unverified", last_auth_result: "failed", last_seen_at: "2026-10-01T12:00:00Z" },
@@ -202,7 +204,7 @@ const STUB_SENDERS: readonly EmailSender[] = [
 function stubItems(mode: EmailSenderPreview): EmailSender[] {
   if (mode === "empty") return [];
   const source = mode === "settled" ? STUB_SENDERS.filter((item) => item.status !== "pending") : STUB_SENDERS;
-  return source.map((item) => ({ ...item }));
+  return source.map((item) => emailSenderSchema.parse(item));
 }
 
 export function createEmailSenderStub(preview: EmailSenderPreview | null): EmailSenderClient {
@@ -219,7 +221,7 @@ export function createEmailSenderStub(preview: EmailSenderPreview | null): Email
       const index = items.findIndex((item) => item.kind === body.kind && item.value === body.value);
       const next: EmailSender = index >= 0
         ? { ...items[index], status: body.status }
-        : { id: "sender-new", kind: body.kind, value: body.value, status: body.status, tag: null, last_auth_result: null, last_seen_at: null };
+        : emailSenderSchema.parse({ id: "sender-new", kind: body.kind, value: body.value, status: body.status, tag: null, last_auth_result: null, last_seen_at: null });
       if (index >= 0) items = items.map((item, itemIndex) => itemIndex === index ? next : item);
       else items = [...items, next];
       return { ...next };

@@ -61,19 +61,22 @@ function SenderRow({
 }) {
   const { t } = useTranslation();
   const disabled = busy || refused;
+  const moves = senderMoves(sender);
   return (
     <li data-testid="email-sender-row" data-status={sender.status} className="border-t border-[#EEF0EC] py-3 dark:border-white/[0.06]">
       <div className="flex items-center gap-3">
         <span className="min-w-0 break-all text-[16px] text-[#172b26] dark:text-white">{sender.value}</span>
         {senderCheckFailed(sender.tag) ? <UnverifiedNote /> : null}
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        {senderMoves(sender.status).map((move) => (
-          <button key={move} type="button" className={moveClass(sender.status, move)} disabled={disabled} onClick={() => onChange(move)}>
-            {t(copy(move === "authorized" ? "authorize" : "block"))}
-          </button>
-        ))}
-      </div>
+      {moves.length ? (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {moves.map((move) => (
+            <button key={move} type="button" className={moveClass(sender.status, move)} disabled={disabled} onClick={() => onChange(move)}>
+              {t(copy(move === "authorized" ? "authorize" : "block"))}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {failed ? <p role="alert" data-testid="email-sender-error" className="mt-2 text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">{t(copy("action_error"))}</p> : null}
     </li>
   );
