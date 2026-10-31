@@ -671,11 +671,8 @@ def receipts(actions, users, monkeypatch):
         )
 
 
-_SAME = object()
-
-
 def deliver(
-    receipts, authentication, *, provider_from=_SAME, extra_from=None, rejected=False
+    receipts, authentication, *, provider_from=..., extra_from=None, rejected=False
 ) -> str | None:
     """One email through the signed webhook and the worker; its receipt part.
     ``extra_from`` is a header line added after the message's own From."""
@@ -686,7 +683,7 @@ def deliver(
 
     receipts["provider"].authentication = authentication
     receipts["provider"].provider_from = (
-        receipts["provider"].sender if provider_from is _SAME else provider_from
+        receipts["provider"].sender if provider_from is ... else provider_from
     )
     if extra_from is not None:
         raw = message()
