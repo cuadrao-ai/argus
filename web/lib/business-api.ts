@@ -4,7 +4,7 @@ import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-a
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { apiFetch, CUADRAO_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
 import type { ArgusLanguage } from "./language-features";
-import { readBusinessDossier, type BusinessApprovalAction, type BusinessDossier, type BusinessFactPatch, type BusinessRecordContext } from "./business-dossier";
+import { isReviewFlagCode, readBusinessDossier, type BusinessApprovalAction, type BusinessDossier, type BusinessFactPatch, type BusinessRecordContext, type ReviewFlagCode } from "./business-dossier";
 import { getChosenGrant } from "./business-grant";
 import { businessSettingsRequest } from "./business-profile-api";
 
@@ -243,13 +243,23 @@ export async function setBusinessDraftDocumentType(draftId: string, version: num
   });
 }
 
-/** `action` is the dossier's `approval_action`: the server names the approve action the draft takes. */
-export async function approveBusinessDraft(draftId: string, version: number, idempotencyKey: string, action: BusinessApprovalAction): Promise<BusinessDossier> {
+/**
+ * `action` is the dossier's `approval_action`: the server names the approve action the draft takes.
+ * `approveAnyway` passes the draft's confirm flags; servers older than #1590 refuse the field, so it is sent only when true.
+ */
+export async function approveBusinessDraft(draftId: string, version: number, idempotencyKey: string, action: BusinessApprovalAction, approveAnyway = false): Promise<BusinessDossier> {
   return fetchDossier(`/business/drafts/${encodeURIComponent(draftId)}/approve`, {
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
-    body: JSON.stringify({ version, action }),
+    body: JSON.stringify(approveAnyway ? { version, action, approve_anyway: true } : { version, action }),
   });
+}
+
+/** The flags an approval refused to pass without `approve_anyway`: `approval_confirmation_required` names them in `context.flags`. */
+export function confirmationFlags(error: unknown): ReviewFlagCode[] {
+  const { code, context } = (error ?? {}) as { code?: unknown; context?: { flags?: unknown } | null };
+  const flags = context?.flags;
+  return code === "approval_confirmation_required" && Array.isArray(flags) ? flags.filter(isReviewFlagCode) : [];
 }
 
 /** The draft an approval refused as a second copy of: `duplicate_comprobante` names it in `context.existing_record_id`. */

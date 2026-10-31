@@ -1,22 +1,24 @@
 "use client";
 
 import { useTranslation } from "react-i18next";
-import type { BusinessFact } from "@/lib/business-dossier";
+import type { BusinessFact, ReviewFlag } from "@/lib/business-dossier";
 import { formatRnc, rncStatus } from "@/lib/rnc-status";
 import { quietButtonClass } from "./business-ui";
 
 const TONES = {
   missing: { color: "#9e2f39", backgroundColor: "#f6dfe0" },
   invalid_length: { color: "#9e2f39", backgroundColor: "#f6dfe0" },
+  check_digit: { color: "#9e2f39", backgroundColor: "#f6dfe0" },
   unverified: { color: "#735c14", backgroundColor: "#f2e8c9" },
 };
 
-export default function RncStatusBlock({ fact, onEditRnc }: {
+export default function RncStatusBlock({ fact, flags, onEditRnc }: {
   fact?: BusinessFact<string> | null;
+  flags: readonly ReviewFlag[];
   onEditRnc?: () => void;
 }) {
   const { t } = useTranslation();
-  const status = rncStatus(fact);
+  const status = rncStatus(fact, flags);
   const label = t(`business.dgii.rnc_check.${status}.label`);
   return <div data-testid="rnc-status" data-rnc-status={status}>
     {fact?.state === "known" && fact.value.trim() ? <p className="mb-1.5 tabular-nums">{formatRnc(fact.value)}</p> : null}
@@ -24,6 +26,6 @@ export default function RncStatusBlock({ fact, onEditRnc }: {
       <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />{label}
     </span>
     <p className="mt-1 text-[14px] leading-5 text-black/55 dark:text-white/55">{t(`business.dgii.rnc_check.${status}.reason`)}</p>
-    {onEditRnc && status !== "unverified" ? <button type="button" onClick={onEditRnc} className={`${quietButtonClass} mt-1 min-w-11`}>{t(`business.dgii.rnc_check.${status}.action`)}</button> : null}
+    {onEditRnc && (status === "missing" || status === "invalid_length") ? <button type="button" onClick={onEditRnc} className={`${quietButtonClass} mt-1 min-w-11`}>{t(`business.dgii.rnc_check.${status}.action`)}</button> : null}
   </div>;
 }

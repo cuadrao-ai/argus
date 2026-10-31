@@ -2280,6 +2280,10 @@
           "approval_title": "Este RNC tiene un error. ¿Aprobar de todos modos?",
           "approval_body": "Tendrás que corregirlo antes de exportar el 606."
         },
+        "check_digit": {
+          "label": "RNC con error",
+          "reason": "[PENDIENTE COPY] No se puede exportar hasta corregir el RNC."
+        },
         "unverified": {
           "label": "RNC sin verificar",
           "reason": "Todavía no lo hemos verificado con la DGII."
@@ -2865,6 +2869,22 @@
       "approval_failed": "La aprobación no terminó. Consulta el registro actual antes de realizar otra acción.",
       "duplicate_recorded": "Ya registraste este comprobante.",
       "see_recorded": "Ver el registrado",
+      "review_flag": {
+        "rnc_check_digit": {
+          "title": "Revisa el RNC",
+          "text": "El dígito verificador de este RNC no coincide. Puede tener un número mal escrito."
+        },
+        "ncf_malformed": {
+          "title": "Revisa el NCF",
+          "text": "El NCF no tiene el formato de la serie B o E."
+        },
+        "itbis_high": {
+          "text": "El ITBIS parece alto. Revisa que esté bien."
+        },
+        "export_blocked": "Si lo apruebas así, el 606 del mes no se podrá exportar hasta que lo corrijas.",
+        "fix": "Corregir",
+        "approve_anyway": "Aprobar de todos modos"
+      },
       "missing_draft": "El movimiento preparado todavía no está disponible. Revisa el recibo actual antes de continuar.",
       "missing_list": "Falta: {{fields}}",
       "refused": "No se pudo completar esta acción. Consulta el registro actual antes de intentarlo de nuevo.",
