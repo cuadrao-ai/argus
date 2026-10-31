@@ -10354,9 +10354,10 @@ accept path recorded.
     With the flag on, the Business's own people (live grantees, by account
     address) are approved by default: their first message writes an
     `authorized` row (audit `sender_authorized`, no actor) when no row for
-    that address exists, never over a blocked or pending one. While the one
-    switch (`DEFAULT_APPROVAL_REQUIRES_ALIGNED`) is on, only an `aligned`
-    message approves them; any other verdict leaves them `pending`. A person
+    that address exists, never over a blocked or pending one, whatever the
+    verdict: owner and team mail is approved even if its sender check
+    fails. The one switch (`DEFAULT_APPROVAL_REQUIRES_ALIGNED`, off) would
+    make only an `aligned` message approve them. A person
     removed from the Business keeps an authorized row until someone blocks
     or removes it.
   - Each inbound message gets one verdict from the provider's

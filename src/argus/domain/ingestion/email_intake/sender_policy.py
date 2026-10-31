@@ -19,10 +19,11 @@ from argus.domain.ingestion.email_intake.standing import SENDER_PENDING
 PENDING_CODE = SENDER_PENDING
 
 
-#: The one switch for the owner/team default. True: only an aligned message
-#: approves them; failed, none, ambiguous and no_result stay pending (Sin
-#: verificar). False: their address alone approves them. Open with Lucas.
-DEFAULT_APPROVAL_REQUIRES_ALIGNED = True
+#: The one switch for the owner/team default. False (shipped, Lucas Oct 31):
+#: their address alone approves them, whatever the verdict. True: only an
+#: aligned message approves them; failed, none, ambiguous and no_result stay
+#: pending (Sin verificar). The tag on the row is shown either way.
+DEFAULT_APPROVAL_REQUIRES_ALIGNED = False
 
 
 def default_approves(is_member: bool, verdict: str) -> bool:

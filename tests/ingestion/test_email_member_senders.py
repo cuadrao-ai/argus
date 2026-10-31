@@ -72,8 +72,9 @@ async def test_an_aligned_member_is_approved_and_lands_in_bandeja():
     [(FORGED, "failed"), (NO_POLICY, "none"), (None, "no_result")],
 )
 async def test_an_unverified_member_is_pending_while_alignment_is_required(
-    authentication, verdict
+    authentication, verdict, monkeypatch
 ):
+    monkeypatch.setattr(sender_policy, "DEFAULT_APPROVAL_REQUIRES_ALIGNED", True)
     world = _world(authentication)
     saved = await _send(world)
     assert (saved.state, saved.error_code) == ("rejected", "email_sender_pending")
@@ -81,8 +82,8 @@ async def test_an_unverified_member_is_pending_while_alignment_is_required(
 
 
 @pytest.mark.asyncio
-async def test_with_the_switch_off_an_unverified_member_is_approved(monkeypatch):
-    monkeypatch.setattr(sender_policy, "DEFAULT_APPROVAL_REQUIRES_ALIGNED", False)
+async def test_by_default_an_unverified_member_is_approved():
+    assert sender_policy.DEFAULT_APPROVAL_REQUIRES_ALIGNED is False
     world = _world(FORGED)
     saved = await _send(world)
     assert (saved.state, saved.inbox_group) == ("captured", "bandeja")
