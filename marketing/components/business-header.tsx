@@ -3,12 +3,43 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ArrowLeft, Menu, X } from "lucide-react";
 import { businessSignInHref } from "@/lib/business-signin";
-import { businessPath, type BusinessPage } from "@/lib/site-routes";
-import { businessContent, type BusinessLocale } from "./content";
+import { languageSwitch } from "@/lib/language-link";
+import { businessPath, type BusinessLocale, type BusinessPage } from "@/lib/site-routes";
+import { businessContent } from "./content";
 import styles from "./business.module.css";
+import languageStyles from "./business-language-link.module.css";
 import shell from "./touchup-shell.module.css";
 import { siteCopy } from "./site-copy";
-import { BusinessLanguageToggle } from "./business-language-toggle";
+
+function LanguageSwitch({
+  locale,
+  page,
+  phone = false,
+}: {
+  locale: BusinessLocale;
+  page: BusinessPage;
+  phone?: boolean;
+}) {
+  const link = languageSwitch(locale, page);
+  return (
+    <span className={languageStyles.slot}>
+      <a
+        className={phone ? `${languageStyles.link} ${languageStyles.phone}` : languageStyles.link}
+        href={link.href}
+        hrefLang={link.lang}
+        lang={link.lang}
+        data-language-switch=""
+      >
+        {phone ? (
+          <span className={languageStyles.srOnly} lang={locale}>
+            {link.phoneLabel}
+          </span>
+        ) : null}
+        {link.label}
+      </a>
+    </span>
+  );
+}
 
 const subscribeToHostname = () => () => {};
 const getSignInSnapshot = () => businessSignInHref(window.location.hostname);
@@ -135,7 +166,10 @@ export function BusinessHeader({
       ))}
     </span>
   ) : (
-    <BusinessLanguageToggle locale={locale} page={page} label={copy.language} />
+    <LanguageSwitch locale={locale} page={page} />
+  );
+  const phoneLanguage = spanishOnly || personal ? languageLinks : (
+    <LanguageSwitch locale={locale} page={page} phone />
   );
   const signIn = signInHref ? (
     <a className={styles.loginLink} href={signInHref}>
@@ -202,13 +236,13 @@ export function BusinessHeader({
             {secondary ? (
               backLink
             ) : null}
-            {languageLinks}
             {!secondary && (
               <a className={styles.buttonSmall} data-header-cta data-business-cta={!personal ? true : undefined} href={primaryHref}>
                 {primaryLabel}
               </a>
             )}
             {!personal && !secondary && signIn}
+            {languageLinks}
           </div>
         </nav>
         <button
@@ -248,7 +282,6 @@ export function BusinessHeader({
             {page !== "personal" && (
               <a href={`${home}#preguntas`}>{siteCopy[locale].faqLink}</a>
             )}
-            {languageLinks}
             {secondary ? (
               backLink
             ) : (
@@ -257,6 +290,7 @@ export function BusinessHeader({
               </a>
             )}
             {!personal && !secondary && signIn}
+            {phoneLanguage}
           </nav>
         )}
       </header>
