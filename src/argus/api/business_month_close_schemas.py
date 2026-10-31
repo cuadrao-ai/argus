@@ -158,6 +158,8 @@ class MonthClose(_Wire):
     )
     currencies: list[CurrencyBlock]
     missing_rnc: list[DocumentLine]
+    # The missing_ncf lines whose NCF is present but malformed, as read.
+    ncf_malformed: list[DocumentLine] = Field(default_factory=list)
     missing_ncf: list[DocumentLine]
     cuentas_por_cobrar: list[DocumentLine]
     cuentas_por_pagar: list[DocumentLine]

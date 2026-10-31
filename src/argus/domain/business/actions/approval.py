@@ -40,6 +40,7 @@ from argus.domain.business.contracts.facts import (
     OwnerFunding,
 )
 from argus.domain.business.purchase_review import declaration_from_facts
+from argus.domain.business.review_flags import unconfirmed
 from argus.domain.business.transactions import ActionTransaction, transaction
 from argus.domain.ingestion.reconcile.model import ImportEvent
 from argus.domain.ingestion.reconcile.recording import _NOT_WRITTEN
@@ -54,6 +55,7 @@ def _reviewed_facts(
     draft_id: UUID,
     version: int,
     kind: Literal["expense", "income", "refund"],
+    approve_anyway: bool = False,
 ) -> tuple[ImportEvent, BusinessFacts]:
     event = mutations.event_at(tx, ExistingDraft(draft_id=draft_id, version=version))
     view = dossier.dossier(tx, draft_id)
@@ -71,6 +73,11 @@ def _reviewed_facts(
         raise ActionError("invalid_input", "activity_kind_unsupported")
     validate_facts(tx, view.facts)
     require_distinct_fiscal_document(tx, event, view.facts)
+    flagged = unconfirmed(view.review_flags)
+    if flagged and not approve_anyway:
+        raise ActionError(
+            "invalid_input", "approval_confirmation_required", flags=flagged
+        )
     return event, view.facts
 
 
@@ -191,9 +198,10 @@ def reviewed_request(
     draft_id: UUID,
     version: int,
     kind: Literal["expense", "income", "refund"],
+    approve_anyway: bool = False,
 ) -> MoneyRequest:
     with transaction(service.authority, context, "approve") as tx:
-        event, facts = _reviewed_facts(tx, draft_id, version, kind)
+        event, facts = _reviewed_facts(tx, draft_id, version, kind, approve_anyway)
         purchase = refund_reference(event) if kind == "refund" else None
     draft = _money_request(facts, context.actor.space_id, kind, purchase)
     preview = service.imports.money.preview(
@@ -252,7 +260,14 @@ def approve(
             money_request = (
                 None
                 if old is not None
-                else reviewed_request(service, context, draft_id, request.version, kind)
+                else reviewed_request(
+                    service,
+                    context,
+                    draft_id,
+                    request.version,
+                    kind,
+                    bool(request.approve_anyway),
+                )
             )
         except (ActionError, *_NOT_WRITTEN) as error:
             return refuse(
@@ -279,7 +294,11 @@ def approve(
                     plans.start_receipt(tx, key, command)
                     try:
                         event, facts = _reviewed_facts(
-                            tx, draft_id, request.version, kind
+                            tx,
+                            draft_id,
+                            request.version,
+                            kind,
+                            bool(request.approve_anyway),
                         )
                     except ActionError as error:
                         return plans.finish_receipt(tx, key, error.result)

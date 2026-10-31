@@ -49,6 +49,26 @@ COPY = {
         "es": "Todavía no lo hemos verificado con la DGII.",
         "en": "We have not verified it with the DGII yet.",
     },
+    "rnc_check_digit": {
+        "es": "El dígito verificador del RNC no coincide. Revisa que esté bien escrito.",
+        "en": "The RNC check digit does not match. Check that it is written correctly.",
+    },
+    "ncf_malformed": {
+        "es": "El NCF no tiene el formato correcto. Debe ser B más 10 dígitos, o E más 12 si es e-CF. Revisa lo que dice el comprobante.",
+        "en": "The NCF is not in the right format. It is B plus 10 digits, or E plus 12 for an e-CF. Check what the receipt says.",
+    },
+    "itbis_high": {
+        "es": "El ITBIS parece alto para este total. Revisa los montos.",
+        "en": "The ITBIS looks high for this total. Check the amounts.",
+    },
+    "duplicate_comprobante": {
+        "es": "Ya registraste este comprobante.",
+        "en": "You already recorded this receipt.",
+    },
+    "duplicate_comprobante_action": {
+        "es": "Ver el registrado",
+        "en": "See the recorded one",
+    },
 }
 
 

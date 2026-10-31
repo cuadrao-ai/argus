@@ -107,6 +107,15 @@ class Blocker(Contract):
     field: FactField | None = None
 
 
+class ReviewFlag(Contract):
+    """A read value to check again. ``confirm`` flags need ``approve_anyway``
+    on the approve request; the rest only warn."""
+
+    code: Literal["rnc_check_digit", "ncf_malformed", "itbis_high"]
+    field: Literal["rnc", "ncf", "itbis"]
+    confirm: bool
+
+
 class RecordedApproval(Contract):
     status: Literal["recorded"] = "recorded"
     activity_id: UUID
@@ -173,6 +182,7 @@ class BusinessDossier(RecordContext):
     questions: tuple[ReviewQuestion, ...]
     history: tuple[DraftRevision, ...]
     blockers: tuple[Blocker, ...]
+    review_flags: tuple[ReviewFlag, ...] = ()
     approval_available: bool
     duplicate_candidates: tuple[DuplicateCandidate, ...] = ()
     #: The approve action this draft takes once ``approval_available``, by its
@@ -240,6 +250,7 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "fiscal_inclusion_available": True,
     "refund_candidates": True,
     "duplicate_candidates": True,
+    "review_flags": True,
     "history": {
         "__all__": {
             "before_due_on",
