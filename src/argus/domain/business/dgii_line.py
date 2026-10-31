@@ -45,6 +45,8 @@ COPY = {
     "rnc_invalid": {"es": "RNC con error", "en": "RNC has an error"},
     "ncf_invalid": {"es": "NCF con error", "en": "NCF has an error"},
     "date_missing": {"es": "Falta la fecha", "en": "Date is missing"},
+    "ncf_missing": {"es": "Falta el NCF", "en": "NCF is missing"},
+    "detail_missing": {"es": "Falta un dato", "en": "A detail is missing"},
     "payment_method_missing": {
         "es": "Falta la forma de pago",
         "en": "Payment method is missing",
@@ -56,15 +58,19 @@ COPY = {
 }
 
 
-# What a person fixes first for a record the 606/607 cannot carry yet. Export
-# issue codes outside this table pass through unchanged.
+# What a person fixes first for a record the 606/607 cannot carry yet. Copy
+# approved by Iris. Codes outside this table read as DETAIL_MISSING.
 MISSING_ORDER = (
     "expense_type_missing",
     "rnc_missing",
     "rnc_invalid",
     "ncf_invalid",
     "date_missing",
+    "ncf_missing",
+    "payment_method_missing",
 )
+# Shown when an export issue code has no named fix yet. Never a raw code.
+DETAIL_MISSING = "detail_missing"
 _MISSING = {
     ("fiscal_declaration_missing", "declaration"): "expense_type_missing",
     ("fiscal_fact_required", "category"): "expense_type_missing",
@@ -76,6 +82,8 @@ _MISSING = {
     ("fiscal_ncf_malformed", "ncf"): "ncf_invalid",
     ("fiscal_ncf_unsupported", "ncf"): "ncf_invalid",
     ("fiscal_activity_revision_changed", "occurred_on"): "date_missing",
+    ("fiscal_fact_required", "ncf"): "ncf_missing",
+    ("fiscal_fact_required", "payment_method"): "payment_method_missing",
 }
 
 
@@ -86,7 +94,7 @@ def first_missing(record: FiscalRecord, issues: list[dict]) -> str:
         "rnc_missing" if code == "rnc_invalid" and absent else code for code in found
     ]
     known = [code for code in MISSING_ORDER if code in found]
-    return known[0] if known else issues[0]["code"]
+    return known[0] if known else DETAIL_MISSING
 
 
 def reason(code: str, locale: str = "es") -> str:

@@ -10,7 +10,7 @@ const count = z.number().int().nonnegative();
 // Decimal text owns money. Large legacy JSON minor-unit numbers remain unused metadata.
 const minorNumber = z.number().refine(Number.isInteger);
 const family = z.enum(["sale", "purchase"]);
-const stage = z.enum(["needs_review", "awaiting_approval", "ready_for_export"]);
+const stage = z.enum(["needs_review", "awaiting_approval", "needs_fiscal_data", "ready_for_export"]);
 const documentKind = z.enum(["invoice", "receipt", "credit_note", "unknown"]);
 const effect = z.enum(["known", "unknown", "unsupported"]);
 const viewName = z.string().trim().refine((value) => Array.from(value).length >= 1 && Array.from(value).length <= 120);
@@ -56,7 +56,7 @@ export const reportAttachmentSourceSchema = z.object({
 });
 export const reportRecordSchema = z.object({
   row_id: z.string().min(1), draft_id: z.string().nullable(), linked_activity_ids: z.array(z.string()), revision: count,
-  report_date: day.nullable(), date_basis: z.enum(["document_issue", "activity_effective"]), family: family.nullable(), stage: stage.nullable(),
+  report_date: day.nullable(), date_basis: z.enum(["document_issue", "activity_effective"]), family: family.nullable(), stage: stage.nullable(), export_missing: z.string().nullable().optional(), export_line: z.boolean().optional(),
   technical_state: z.string().nullable(), workflow_blockers: z.array(z.string()), currency: z.string().nullable(), gross_amount: decimal.nullable(),
   recorded_amount: decimal.nullable(), recorded_currency: z.string().nullable(), proposed_amount: decimal.nullable(), money_kind: z.string(),
   money_effect: effect, adjustment_effect: effect.nullable(), counterparty: z.string().nullable(), counterparty_key: z.string().nullable(),
@@ -77,7 +77,7 @@ export const reportAnswerSchema = z.object({
   excluded_unknown_dates: count, excluded_personal: z.object({ income: count, expense: count }).optional(),
   counterparties: z.array(z.object({ key: z.string(), labels: z.array(z.string()) })), categories: z.array(z.string()),
   funding_sources: z.array(z.object({ key: z.string(), label: z.string().nullable(), kind: z.string().nullable() })), coverage_notes: z.array(z.string()),
-  overview: z.object({ needs_review: count, awaiting_approval: count, ready_for_export: count }).optional(), effective_sort: reportSortSchema.optional(),
+  overview: z.object({ needs_review: count, awaiting_approval: count, needs_fiscal_data: count.optional(), ready_for_export: count, export_lines: count.optional() }).optional(), effective_sort: reportSortSchema.optional(),
   sort_unavailable_reason: z.literal("amount_sort_requires_single_known_currency").nullable().optional(),
 });
 export const savedReportViewSchema = z.object({

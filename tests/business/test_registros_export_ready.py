@@ -3,7 +3,7 @@ from datetime import date
 
 from argus.domain.business.contracts.facts import Unknown
 from argus.domain.business.dgii_export import fiscal_manifest, line_verdicts
-from argus.domain.business.dgii_line import reason
+from argus.domain.business.dgii_line import first_missing, reason
 from argus.domain.business.reporting_projection import with_export_verdicts
 from argus.domain.business.reporting_query import ReportFilters
 
@@ -129,7 +129,7 @@ class TestRegistrosReadyMatchesTheExport:
             ("needs_fiscal_data", "rnc_invalid", False),
             ("needs_fiscal_data", "ncf_invalid", False),
             ("needs_fiscal_data", "date_missing", False),
-            ("needs_fiscal_data", "fiscal_conversion_required", False),
+            ("needs_fiscal_data", "detail_missing", False),
             ("awaiting_approval", None, False),
         ]
 
@@ -142,6 +142,9 @@ class TestRegistrosReadyMatchesTheExport:
                 "rnc_invalid",
                 "ncf_invalid",
                 "date_missing",
+                "ncf_missing",
+                "payment_method_missing",
+                "detail_missing",
             )
         ] == [
             "Falta el tipo de gasto",
@@ -149,4 +152,37 @@ class TestRegistrosReadyMatchesTheExport:
             "RNC con error",
             "NCF con error",
             "Falta la fecha",
+            "Falta el NCF",
+            "Falta la forma de pago",
+            "Falta un dato",
         ]
+        assert [reason(c, "en") for c in ("ncf_missing", "detail_missing")] == [
+            "NCF is missing",
+            "A detail is missing",
+        ]
+
+
+def required(field):
+    return {"code": "fiscal_fact_required", "activity_id": "a", "field": field}
+
+
+class TestFirstMissingNamesNcfAndPayment:
+    subject = supplier(purchase(), VALID)
+
+    def test_only_ncf_missing(self):
+        assert first_missing(self.subject, [required("ncf")]) == "ncf_missing"
+
+    def test_only_payment_method_missing(self):
+        assert (
+            first_missing(self.subject, [required("payment_method")])
+            == "payment_method_missing"
+        )
+
+    def test_both_missing_names_ncf_first(self):
+        issues = [required("payment_method"), required("ncf")]
+        assert first_missing(self.subject, issues) == "ncf_missing"
+
+    def test_unmapped_code_reads_as_a_missing_detail(self):
+        issues = [{"code": "fiscal_unheard_of", "activity_id": "a", "field": "x"}]
+        assert first_missing(self.subject, issues) == "detail_missing"
+        assert reason(first_missing(self.subject, issues)) == "Falta un dato"
