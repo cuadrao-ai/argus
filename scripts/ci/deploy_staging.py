@@ -1,12 +1,4 @@
-"""Decide which staging service a commit deploys.
-
-The live web service is cuadrao-app-staging. Its build root is web/, from the
-blueprint service whose rootDir is web. The API service builds the repository
-root with poetry, including the package under web/argus_display_contract.
-supabase/migrations and supabase/config.toml follow the backend paths the CI
-classifier treats as heavy. docs/ deploy nothing. The marketing staging
-service stays out of this deploy.
-"""
+"""Decide which staging service a commit deploys."""
 
 from __future__ import annotations
 
@@ -242,7 +234,6 @@ def require_green(runs: list[dict[str, object]], status: dict[str, object]) -> N
     ci_run = latest.get(CI_CHECK)
     if ci_run is None or ci_run.get("conclusion") != "success":
         raise DeployError("The ci check has not succeeded at this commit.")
-    # A skipped docs-checks run is a passing gate. Any other conclusion is not.
     docs = latest.get("docs-checks")
     if docs is not None and docs.get("conclusion") not in {"success", "skipped"}:
         raise DeployError("docs-checks did not succeed or skip.")
@@ -267,17 +258,8 @@ def live_commit(payload: object) -> str | None:
             deploys.append(deploy)
     deploys.sort(key=lambda item: str(item.get("createdAt") or ""), reverse=True)
     for deploy in deploys:
-        if deploy.get("status") != "live":
-            continue
-        commit = deploy.get("commit")
-        sha = ""
-        if isinstance(commit, dict):
-            sha = str(commit.get("id") or "")
-        elif isinstance(commit, str):
-            sha = commit
-        sha = sha.lower()
-        if SHA_RE.fullmatch(sha):
-            return sha
+        if deploy.get("status") == "live" and SHA_RE.fullmatch(deploy_commit(deploy)):
+            return deploy_commit(deploy)
     return None
 
 
@@ -302,13 +284,6 @@ def resolve_service(payload: object, expect: str) -> str:
     if len(found) != 1:
         raise DeployError(f"Expected one service named {expect}.")
     return found[0]
-
-
-def summarize_deploy(payload: object, name: str) -> str:
-    allow_name(name)
-    if not isinstance(payload, dict) or not str(payload.get("status") or ""):
-        raise DeployError("Deploy response had no status.")
-    return f"Requested deploy for {name}."
 
 
 def split_paths(data: bytes) -> list[str]:
@@ -411,12 +386,6 @@ def command_older(args: argparse.Namespace) -> int:
     return 0
 
 
-def command_summarize(args: argparse.Namespace) -> int:
-    payload = read_json(Path(args.response).read_text(encoding="utf-8"))
-    print(summarize_deploy(payload, args.name))
-    return 0
-
-
 def deploy_commit(payload: dict[str, object]) -> str:
     commit = payload.get("commit")
     if isinstance(commit, dict):
@@ -511,8 +480,6 @@ def fetch_render_deploy(
 def command_wait(args: argparse.Namespace) -> int:
     allow_name(args.name)
     expected = resolve_sha(args.sha, args.sha)
-    timeout = float(args.timeout)
-    interval = float(args.interval)
     if args.responses:
         payloads = [
             read_json(line)
@@ -521,43 +488,35 @@ def command_wait(args: argparse.Namespace) -> int:
         ]
         clock = {"t": 0.0}
 
-        def now() -> float:
-            return clock["t"]
-
-        def sleep(seconds: float) -> None:
-            clock["t"] += seconds
-
         def fetch():
             if not payloads:
                 raise StopIteration
             return payloads.pop(0)
 
-        poll_deploy(
-            fetch,
-            name=args.name,
-            expected_sha=expected,
-            timeout=timeout,
-            interval=interval,
-            now=now,
-            sleep=sleep,
-        )
+        def now() -> float:
+            return clock["t"]
+
+        def sleep(seconds: float) -> None:
+            clock["t"] += seconds
     else:
-        payload = read_json(Path(args.response).read_text(encoding="utf-8"))
-        deploy_id = posted_deploy_id(payload)
+        body = read_json(Path(args.response).read_text(encoding="utf-8"))
+        deploy_id = posted_deploy_id(body)
         api_key = os.environ.get("RENDER_API_KEY", "")
 
-        def fetch_live():
+        def fetch():
             return fetch_render_deploy(args.service_id, deploy_id, api_key)
 
-        poll_deploy(
-            fetch_live,
-            name=args.name,
-            expected_sha=expected,
-            timeout=timeout,
-            interval=interval,
-            now=time.monotonic,
-            sleep=time.sleep,
-        )
+        now = time.monotonic
+        sleep = time.sleep
+    poll_deploy(
+        fetch,
+        name=args.name,
+        expected_sha=expected,
+        timeout=float(args.timeout),
+        interval=float(args.interval),
+        now=now,
+        sleep=sleep,
+    )
     print(f"{args.name} is live.")
     return 0
 
@@ -565,63 +524,51 @@ def command_wait(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Decide a staging deploy.")
     commands = parser.add_subparsers(dest="command", required=True)
+    optional = {"default": None}
+    repo = {"default": "."}
+    required = {"required": True}
 
-    validate = commands.add_parser("validate-sha")
-    validate.add_argument("--sha", default=None)
-    validate.add_argument("--repo", default=".")
-    validate.set_defaults(func=command_validate)
+    def add(name: str, func, options: tuple[tuple[str, dict], ...] = ()) -> None:
+        command = commands.add_parser(name)
+        for flag, kwargs in options:
+            command.add_argument(flag, **kwargs)
+        command.set_defaults(func=func)
 
-    ancestor = commands.add_parser("assert-ancestor")
-    ancestor.add_argument("--sha", required=True)
-    ancestor.add_argument("--tip", required=True)
-    ancestor.add_argument("--repo", default=".")
-    ancestor.set_defaults(func=command_ancestor)
-
-    allow = commands.add_parser("allow-name")
-    allow.add_argument("--name", required=True)
-    allow.set_defaults(func=command_allow)
-
-    allowlist = commands.add_parser("allowlist")
-    allowlist.set_defaults(func=command_allowlist)
-
-    select = commands.add_parser("select-services")
-    select.add_argument("--api-paths")
-    select.add_argument("--web-paths")
-    select.set_defaults(func=command_select)
-
-    require = commands.add_parser("require-green")
-    require.add_argument("--check-runs", required=True)
-    require.add_argument("--status", required=True)
-    require.set_defaults(func=command_require)
-
-    live = commands.add_parser("live-commit")
-    live.set_defaults(func=command_live)
-
-    resolve = commands.add_parser("resolve-service")
-    resolve.add_argument("--expect", required=True)
-    resolve.set_defaults(func=command_resolve)
-
-    base = commands.add_parser("comparison-base")
-    base.set_defaults(func=command_base)
-
-    older = commands.add_parser("older-base")
-    older.add_argument("--repo", default=".")
-    older.set_defaults(func=command_older)
-
-    summary = commands.add_parser("summarize-deploy")
-    summary.add_argument("--name", required=True)
-    summary.add_argument("--response", required=True)
-    summary.set_defaults(func=command_summarize)
-
-    wait = commands.add_parser("wait-deploy")
-    wait.add_argument("--name", required=True)
-    wait.add_argument("--sha", required=True)
-    wait.add_argument("--responses")
-    wait.add_argument("--service-id")
-    wait.add_argument("--response")
-    wait.add_argument("--timeout", default=str(DEFAULT_TIMEOUT_SECONDS))
-    wait.add_argument("--interval", default=str(DEFAULT_INTERVAL_SECONDS))
-    wait.set_defaults(func=command_wait)
+    add("validate-sha", command_validate, (("--sha", optional), ("--repo", repo)))
+    add(
+        "assert-ancestor",
+        command_ancestor,
+        (("--sha", required), ("--tip", required), ("--repo", repo)),
+    )
+    add("allow-name", command_allow, (("--name", required),))
+    add("allowlist", command_allowlist)
+    add(
+        "select-services",
+        command_select,
+        (("--api-paths", optional), ("--web-paths", optional)),
+    )
+    add(
+        "require-green",
+        command_require,
+        (("--check-runs", required), ("--status", required)),
+    )
+    add("live-commit", command_live)
+    add("resolve-service", command_resolve, (("--expect", required),))
+    add("comparison-base", command_base)
+    add("older-base", command_older, (("--repo", repo),))
+    add(
+        "wait-deploy",
+        command_wait,
+        (
+            ("--name", required),
+            ("--sha", required),
+            ("--responses", optional),
+            ("--service-id", optional),
+            ("--response", optional),
+            ("--timeout", {"default": str(DEFAULT_TIMEOUT_SECONDS)}),
+            ("--interval", {"default": str(DEFAULT_INTERVAL_SECONDS)}),
+        ),
+    )
     return parser
 
 

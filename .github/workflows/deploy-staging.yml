@@ -1,16 +1,10 @@
 name: Deploy staging
 
-# Path map. The live web service is cuadrao-app-staging. Its build root is web/,
-# from the blueprint service whose rootDir is web, so web/ deploys that service.
-# cuadrao-api-staging rootDir is . and its build is poetry install,
-# so pyproject.toml, poetry.lock, .python-version, src/, and
-# web/argus_display_contract/ deploy the API. That last path is the poetry
-# package included from web. supabase/migrations and supabase/config.toml follow
-# the backend paths ci.yml marks heavy. A root Dockerfile or requirements.txt
-# maps to the API because the build root is the repository. render.yaml has no
-# dockerfilePath. docs/ is docs-only in docs-only-changes.sh and deploys nothing.
-# marketing/ is out of scope, and so is the marketing staging service.
-# autoDeploy stays off.
+# Path map. cuadrao-app-staging builds web/ (blueprint rootDir web).
+# cuadrao-api-staging builds the repo root with poetry: pyproject.toml,
+# poetry.lock, .python-version, src/, web/argus_display_contract/,
+# supabase/migrations, supabase/config.toml, Dockerfile, requirements.txt.
+# docs/ and marketing stay out. autoDeploy stays off.
 
 "on":
   workflow_dispatch:

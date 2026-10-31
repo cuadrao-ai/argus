@@ -660,33 +660,6 @@ def test_unusual_git_paths_select_the_service(tmp_path: Path) -> None:
     assert selected(spaced_result) == ["cuadrao-api-staging"]
 
 
-def test_summarize_deploy_hides_ids(tmp_path: Path) -> None:
-    response = tmp_path / "response.json"
-    response.write_text(
-        json.dumps(
-            {
-                "id": "dep-secret",
-                "status": "build_in_progress",
-                "service": {"id": "srv-secret"},
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    result = run(
-        "summarize-deploy",
-        "--name",
-        "cuadrao-app-staging",
-        "--response",
-        str(response),
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert "cuadrao-app-staging" in result.stdout
-    assert "srv-" not in result.stdout
-    assert "dep-" not in result.stdout
-
-
 def test_workflow_is_manual_and_least_privilege() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     workflow = yaml.safe_load(text)
