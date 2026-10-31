@@ -22,7 +22,7 @@ from argus.domain.business.contracts.invoicing import (
 from argus.domain.business.fiscal_sandbox.contracts import digest
 from argus.domain.business.fiscal_sandbox.store import Store as FiscalStore
 
-from .validation import amounts, customer_errors, draft_errors
+from .validation import amounts, customer_errors, draft_errors, fiscal_blockers
 
 
 class InvoiceError(ActionError):
@@ -213,6 +213,7 @@ class Store:
             revision_id=revision["id"],
             data=data,
             field_errors=draft_errors(data),
+            fiscal_blockers=fiscal_blockers(data),
             amounts=InvoiceAmounts.model_validate(revision["amounts"])
             if revision["amounts"]
             else None,

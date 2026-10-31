@@ -131,5 +131,4 @@ def test_only_the_run_finalization_boundary_mints_versions() -> None:
     assert callers == {
         "argus/api/chat/evidence.py",
         "argus/api/chat/persistence.py",
-        "argus/api/routers/backtest.py",
     }, f"unexpected IdeaVersion finalization callers: {sorted(callers)}"

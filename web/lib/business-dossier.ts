@@ -86,6 +86,17 @@ export type ReadVsQr = { read: string; qr: string };
 export type EcfCheck = { name: EcfCheckName; state: EcfCheckState; code: string | null; detail: Record<string, string>; read_vs_qr?: Record<string, ReadVsQr> };
 export type EcfVerification = { encf: string | null; tipo_ecf: string | null; checked_at: string; checks: EcfCheck[] };
 
+export function readReviewNote(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  return text ? text : null;
+}
+
+export function readBusinessDossier(value: unknown): BusinessDossier {
+  const body = typeof value === "object" && value !== null && !Array.isArray(value) ? value as BusinessDossier & { review_note?: unknown } : {} as BusinessDossier;
+  return { ...body, review_note: readReviewNote(body.review_note) };
+}
+
 export type BusinessApprovalAction = "record_expense" | "record_income" | "record_refund";
 /** An approved purchase a refund or credit note may name; `id` is the activity `purchase_activity_id` takes. */
 export type RefundCandidate = { id: string; merchant: string | null; occurred_on: string; amount: string; currency: string };
@@ -135,6 +146,8 @@ export type BusinessDossier = BusinessRecordContext & {
   duplicate_candidates?: { draft_id: string; version: number }[];
   /** The approve action this draft takes, by its kind; null while approval is not available. Absent from servers older than #1353. */
   approval_action?: BusinessApprovalAction | null;
+  /** The server's sentence for this draft. Absent and null mean there is none. The web shows the words as sent. */
+  review_note?: string | null;
   /** The caller may answer the 606 question now, by the gate that action enforces. */
   fiscal_inclusion_available?: boolean;
   /** Purchases this draft may refund, newest first; empty unless it is a refund or a credit note. */

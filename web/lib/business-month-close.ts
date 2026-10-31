@@ -8,9 +8,9 @@ import { currencyDigits, minorToDecimal } from "./money-entry";
  * Assumed HTTP contract, under `/api/v1`:
  *
  * - `GET /business/month-close?month=YYYY-MM`
- *   The selected month is the only query. `closed` is derived: true when
- *   every business document has an RNC and a fiscal number. There is no
- *   close request.
+ *   The selected month is the only query. `closed` is false while a document
+ *   lacks an RNC or a fiscal number, or while unreviewed drafts remain in the
+ *   Bandeja. There is no close request.
  * - `PATCH /business/month-close/documents/{activity_id}`
  *   Body: `status`, `settled_on`, `payment_method`. A settled status needs
  *   both a date and a method. Pending omits them.
@@ -38,10 +38,11 @@ import { currencyDigits, minorToDecimal } from "./money-entry";
  * its own.
  *
  * `canCloseMonth` and `monthCloseBlockers` are the pure fiscal gate. A month
- * closes when the window is one calendar month, it is not already closed, and
- * every document has an RNC and either an NCF or an e-CF. A pending document
- * does not block the close. The Exportar "Listo para 606/607" checklist
- * imports this same pair; do not fork a second check.
+ * closes when the window is one calendar month, it is not already closed,
+ * every document has an RNC and either an NCF or an e-CF, and no draft for
+ * that month is still unreviewed. A pending document does not block the close.
+ * The Exportar "Listo para 606/607" checklist imports this same pair; do not
+ * fork a second check.
  *
  * A currency's net shows only when its block says `net_result_final`.
  * Overdue counts and totals are the server's; a row's lateness chip reads its
@@ -108,6 +109,8 @@ export type MonthCloseSnapshot = {
   closed?: boolean;
   /** Present means these blockers, including none. Absent means derive them from the documents. */
   blockers?: MonthCloseBlocker[];
+  /** Drafts still in the Bandeja for this month. Zero when the server omits the count. */
+  unreviewed_movements: number;
   /** One block per currency the month holds, in the server's order. A month with no documents has none. */
   figures: MonthCloseFigures[];
 };
@@ -488,8 +491,9 @@ export function monthCloseRequestPath(month: string): string {
  * Pure close gate. The month-close button and the Exportar 606/607 checklist
  * both call this. Pending collection or payment is not an input.
  */
-export function canCloseMonth(snapshot: Pick<MonthCloseSnapshot, "month" | "closed_at" | "documents" | "blockers" | "closed">): MonthCloseGate {
+export function canCloseMonth(snapshot: Pick<MonthCloseSnapshot, "month" | "closed_at" | "documents" | "blockers" | "closed" | "unreviewed_movements">): MonthCloseGate {
   if (!snapshot.month) return { ok: false, reason: "not_calendar_month" };
+  if (snapshot.unreviewed_movements > 0) return { ok: false, reason: "blockers" };
   if (snapshot.closed_at || snapshot.closed) return { ok: false, reason: "closed" };
   const blockers = snapshot.blockers ?? monthCloseBlockers(snapshot.documents);
   if (blockers.some(isFiscalBlocker)) return { ok: false, reason: "blockers" };
@@ -497,8 +501,9 @@ export function canCloseMonth(snapshot: Pick<MonthCloseSnapshot, "month" | "clos
 }
 
 export function monthFilingNotice(
-  snapshot: Pick<MonthCloseSnapshot, "closed" | "closed_at" | "blockers" | "documents">,
+  snapshot: Pick<MonthCloseSnapshot, "closed" | "closed_at" | "blockers" | "documents" | "unreviewed_movements">,
 ): boolean {
+  if (snapshot.unreviewed_movements > 0) return false;
   if (snapshot.closed_at) return false;
   if (snapshot.closed === true) return true;
   if (snapshot.closed === false) return false;
@@ -626,6 +631,7 @@ function snapshotFor(documents: readonly MonthCloseDocument[], window: MonthClos
     dgii_forms: sampleForms(inWindow, to, today),
     documents: inWindow,
     figures: monthCloseFiguresFrom(inWindow),
+    unreviewed_movements: 0,
   };
 }
 
@@ -723,7 +729,7 @@ export function createMockMonthCloseClient(options: MockMonthCloseOptions = {}):
       const from = `${month}-01`;
       const to = lastDayOfMonth(year, monthNumber);
       const included = documentsInWindow(current.documents, from, to);
-      const gate = canCloseMonth({ month, closed_at: current.closedAt.get(month) ?? null, documents: included });
+      const gate = canCloseMonth({ month, closed_at: current.closedAt.get(month) ?? null, documents: included, unreviewed_movements: 0 });
       if (!gate.ok && gate.reason === "blockers") throw new MonthCloseError("blockers", "month still has blockers");
       if (!current.closedAt.has(month)) current.closedAt.set(month, new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0).toISOString());
       return snapshotFor(current.documents, { from, to }, today, current.closedAt);
@@ -928,12 +934,25 @@ export function readMonthCloseWire(value: unknown): MonthCloseSnapshot {
       lines.push(line);
     }
   }
-  const blockers: MonthCloseBlocker[] = value.reasons.map((reason) => {
-    if (!isRecord(reason) || (reason.code !== "missing_rnc" && reason.code !== "missing_ncf") || typeof reason.activity_id !== "string") {
-      throw new MonthCloseError("unavailable", "month close document was not an object");
+  const blockers: MonthCloseBlocker[] = [];
+  let unreviewedFromReason: number | undefined;
+  for (const reason of value.reasons) {
+    if (!isRecord(reason) || typeof reason.code !== "string") throw new MonthCloseError("unavailable", "month close document was not an object");
+    if (reason.code === "movimientos_sin_revisar") {
+      if (unreviewedFromReason !== undefined) throw new MonthCloseError("unavailable", "month close unreviewed count is unknown");
+      unreviewedFromReason = readWholeCount(reason.count);
+      continue;
     }
-    return { kind: reason.code, id: `${reason.activity_id}:${reason.code}`, documentId: reason.activity_id };
-  });
+    if (reason.code !== "missing_rnc" && reason.code !== "missing_ncf") throw new MonthCloseError("unavailable", "month close document was not an object");
+    if (typeof reason.activity_id !== "string") throw new MonthCloseError("unavailable", "month close document was not an object");
+    const code = reason.code === "missing_rnc" ? "missing_rnc" : "missing_ncf";
+    blockers.push({ kind: code, id: `${reason.activity_id}:${code}`, documentId: reason.activity_id });
+  }
+  const unreviewedFromField = value.unreviewed_movements_count === undefined ? undefined : readWholeCount(value.unreviewed_movements_count);
+  if (unreviewedFromReason !== undefined && unreviewedFromField !== undefined && unreviewedFromReason !== unreviewedFromField) {
+    throw new MonthCloseError("unavailable", "month close unreviewed count is unknown");
+  }
+  const unreviewed_movements = unreviewedFromReason ?? unreviewedFromField ?? 0;
   if (!(value.earliest_month === undefined || value.earliest_month === null || (typeof value.earliest_month === "string" && MONTH.test(value.earliest_month)))) {
     throw new MonthCloseError("unavailable", "month close earliest month is unknown");
   }
@@ -950,7 +969,13 @@ export function readMonthCloseWire(value: unknown): MonthCloseSnapshot {
     documents: lines.map(wireDocument),
     blockers,
     figures: readFigures(value.currencies),
+    unreviewed_movements,
   };
+}
+
+function readWholeCount(value: unknown): number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) throw new MonthCloseError("unavailable", "month close unreviewed count is unknown");
+  return value;
 }
 
 function readCount(value: unknown): number {

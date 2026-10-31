@@ -140,3 +140,9 @@ def draft_errors(data: InvoiceDraft) -> dict[str, str]:
     if total is not None and Decimal(total.total) <= 0:
         errors["items"] = "total"
     return errors
+
+
+def fiscal_blockers(data: InvoiceDraft) -> list[str]:
+    """Reasons a saved draft cannot be issued yet, shown before issue."""
+
+    return ["foreign_currency_pending_rate"] if data.currency != "DOP" else []

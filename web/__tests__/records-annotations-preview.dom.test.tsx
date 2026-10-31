@@ -53,51 +53,23 @@ async function mount(width = 1440, readOnly = false) {
   const button = (text: string) => [...document.querySelectorAll<HTMLButtonElement>("button")].find((node) => node.textContent === text)!;
   const click = (node: Element | null | undefined) => act(async () => { assert.ok(node); (node as HTMLElement).click(); });
   const key = (node: Element, key: string) => act(async () => { node.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true })); });
-  const type = (text: string) => act(async () => { const field = document.querySelector("textarea")!; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(field, text); field.dispatchEvent(new Event("input", { bubbles: true })); });
-  const note = (kind = "gasto") => host.querySelector(`[data-record-note="${kind}:exp-gas"]`)!;
   const attachment = (kind = "gasto") => host.querySelector(`[data-record-attachment="${kind}:exp-gas"]`)!;
   const choose = async (...files: File[]) => {
     await act(async () => { const input = document.querySelector<HTMLInputElement>('input[type="file"]')!; Object.defineProperty(input, "files", { value: files, configurable: true }); input.dispatchEvent(new Event("change", { bubbles: true })); });
     for (let attempt = 0; attempt < 30 && document.querySelector<HTMLInputElement>('input[type="file"]')?.disabled; attempt++) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 5)); });
     assert.equal(document.querySelector<HTMLInputElement>('input[type="file"]')?.disabled, false);
   };
-  return { act, host, button, click, key, type, note, attachment, choose, calls };
+  return { act, host, button, click, key, attachment, choose, calls };
 }
 
-test("notes save explicitly, cancel discards, and Business/kind/filter/viewport changes keep the right current note", async () => {
+test("the records table keeps the note column and does not offer a note editor", async () => {
   const page = await mount();
-  await page.click(page.note()); await page.type("A current note"); await page.click(document.querySelector('[role="dialog"] button[aria-label="Cerrar"]'));
-  await page.click(page.note()); assert.equal(document.querySelector("textarea")!.value, "");
-  await page.type("  Keep this note  "); await page.click(page.button("Guardar"));
-  assert.equal(page.note().textContent, "Keep this note"); assert.notEqual(page.note("venta").textContent, "Keep this note");
-  assert.equal(page.host.querySelector('[data-testid="note-search"]')!.textContent, "true");
-  await page.click(page.button("Filter")); await page.click(page.button("Filter")); assert.equal(page.note().textContent, "Keep this note");
-  await page.click(page.button("Business")); assert.notEqual(page.note().textContent, "Keep this note");
-  assert.equal(page.host.querySelector('[data-testid="note-search"]')!.textContent, "false");
-  await page.click(page.button("Business")); assert.equal(page.note().textContent, "Keep this note");
-  await page.click(page.button("Viewport")); assert.equal(page.host.querySelector("button button"), null);
-  await page.click(page.note());
-  assert.equal(document.querySelector("textarea")!.value, "Keep this note");
-  await page.type("Discard on close"); await page.key(document.querySelector("textarea")!, "Escape");
-  assert.equal(document.querySelector('[role="dialog"]'), null); assert.equal(page.calls.opens, 0); assert.equal(page.calls.network, 0);
-  await page.click(page.note()); await page.type("A replacement"); await page.click(page.button("Guardar"));
-  assert.equal(page.host.querySelector('[data-testid="note-search"]')!.textContent, "false");
-});
-
-test("note counter follows the draft and oversized paste saves only the 500-character limit", async () => {
-  const page = await mount();
-  await page.click(page.note());
-  const field = document.querySelector("textarea")!;
-  assert.equal(field.maxLength, 500);
-  const counter = document.getElementById(field.getAttribute("aria-describedby")!)!;
-  assert.equal(counter.textContent, "0/500");
-  assert.equal(counter.getAttribute("aria-live"), null);
-  await page.type("a".repeat(500) + "overflow");
-  assert.equal(field.value, "a".repeat(500));
-  assert.equal(counter.textContent, "500/500");
-  await page.click(page.button("Guardar"));
-  await page.click(page.note());
-  assert.equal(document.querySelector("textarea")!.value, "a".repeat(500));
+  const notes = page.host.querySelector('[data-record-key="gasto:exp-gas"] [data-col="notas"]')!;
+  assert.ok(notes);
+  assert.equal(notes.querySelector("button"), null);
+  assert.equal(page.host.querySelector("[data-record-note]"), null);
+  assert.equal(document.querySelector("textarea"), null);
+  assert.ok(page.attachment());
   assert.equal(page.calls.network, 0);
 });
 
@@ -139,11 +111,11 @@ test("local files add without replacing, preserve existing evidence, isolate rec
   assert.equal(page.calls.opens, 1); assert.equal(page.calls.network, 0);
 });
 
-test("note and attachment keyboard actions do not open the dossier, dates/money/status have distinct cells", async () => {
+test("attachment keyboard actions do not open the dossier, and the note column has no editor", async () => {
   const page = await mount();
-  await page.key(page.note(), "Enter"); assert.equal(page.calls.opens, 0);
+  assert.equal(page.host.querySelector("[data-record-note]"), null);
+  assert.equal(document.querySelector("textarea"), null);
   await page.key(page.attachment(), "Enter"); assert.equal(page.calls.opens, 0);
-  await page.click(page.note()); await page.type("Keep"); await page.click(page.button("Guardar"));
   const row = page.host.querySelector('[data-record-key="gasto:exp-gas"]')!;
   assert.equal(row.querySelector('[data-col="fecha"]')!.textContent, "25 oct 2026");
   assert.equal(row.querySelector('[data-col="monto"]')!.textContent, "9,007,199,254,740,993.01");
@@ -164,16 +136,16 @@ test("read-only rows offer no note editor or add-attachment control", async () =
   assert.equal(page.calls.network, 0);
 });
 
-test("phone record actions open the shared sheet and keep targets separate from record opening", async () => {
+test("phone rows keep the attachment control and do not offer a note entry", async () => {
   const page = await mount(390);
-  await page.click(page.note());
+  assert.equal(page.host.querySelector("[data-record-note]"), null);
+  assert.equal(document.querySelector("textarea"), null);
+  assert.ok(page.attachment());
+  await page.click(page.attachment());
   assert.ok(document.querySelector('[role="dialog"]'));
-  assert.notEqual(document.activeElement?.tagName, "TEXTAREA");
-  assert.equal(document.querySelector('[role="dialog"]')?.getAttribute("data-snap"), "half");
-  await page.type("Phone note"); await page.click(page.button("Guardar"));
-  await page.click(page.note());
-  assert.equal(document.querySelector("textarea")!.value, "Phone note");
-  await page.click(document.querySelector('[role="dialog"] button[aria-label="Cerrar"]')); assert.equal(page.calls.opens, 0); assert.equal(page.host.querySelector("button button"), null);
+  assert.equal(document.querySelector("textarea"), null);
+  assert.equal(page.calls.opens, 0);
+  assert.equal(page.host.querySelector("button button"), null);
 });
 
 test("attachment names accept ordinary PDF/PNG files and reject path separators and control characters", async () => {

@@ -175,7 +175,7 @@ describe("open items across months", () => {
     };
     const client: MonthCloseClient = {
       mode: "mock",
-      async load(month) { return { month, from: `${month}-01`, to: `${month}-31`, closed_at: null, earliest_month: null, today: "2026-10-18", payment_methods: ["otro"], dgii_forms: null, documents: [], figures: [] }; },
+      async load(month) { return { month, from: `${month}-01`, to: `${month}-31`, closed_at: null, unreviewed_movements: 0, earliest_month: null, today: "2026-10-18", payment_methods: ["otro"], dgii_forms: null, documents: [], figures: [] }; },
       async openItems() { return openItemsFrom([pending], "2026-10-18"); },
       async markCobrado() { throw new Error("no mark"); },
       async markPagado() { throw new Error("no mark"); },

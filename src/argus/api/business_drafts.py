@@ -555,6 +555,19 @@ def receipt_summaries(context: BusinessContext, view: str) -> list[dict]:
     return items
 
 
+def receipt_read_dates(context: BusinessContext) -> dict[str, str]:
+    """Each receipt's own read date by id, for the month close of a receipt
+    whose proposal has none (an ambiguous purchase)."""
+
+    from argus.domain.business.receipts import read_date
+
+    return {
+        receipt.id: day
+        for receipt in context.service.receipts(context.scope)
+        if (day := read_date(receipt.review))
+    }
+
+
 def overview_with_drafts(context: BusinessContext, start, end) -> dict:  # noqa: ANN001
     """The home overview with its receipt counts from the Bandeja's own
     projection over the overlaid views: an approved draft is a saved expense
