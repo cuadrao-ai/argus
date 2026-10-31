@@ -218,7 +218,7 @@ test("dismiss and read state stay with their Business across switching", async (
 test("quiet actions open existing settings targets and close notifications", async () => {
   const page = await mount(1280, "en", true);
   try {
-    for (const label of ["View team", "View channels", "View profile", "[PENDIENTE COPY] View list"]) {
+    for (const label of ["View team", "View channels", "View profile", "Review"]) {
       await click(page.trigger); await click(button(label));
       assert.equal(document.querySelector('[data-testid="business-notifications-popover"]'), null);
     }
@@ -298,7 +298,7 @@ test("a pending sender opens Reception from Nuevo remitente, and an empty list d
     assert.ok(bellDot(withSender.trigger));
     await act(async () => withSender.trigger.click());
     await settle();
-    const open = button("[PENDIENTE COPY] Ver lista");
+    const open = button("Revisar");
     assert.equal(open?.closest("[data-notice]")?.getAttribute("data-notice"), "sender");
     assert.match(withSender.host.textContent ?? "", /Nuevo remitente/);
     await click(open);

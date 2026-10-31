@@ -59,7 +59,7 @@ test("pending senders stay first, the count shows, and tags follow tag only", as
     await page.settle(() => rows(page.host).length === 6);
     const pending = page.host.querySelector("details")!;
     assert.equal(pending.open, true);
-    assert.equal(page.host.querySelector("[data-testid='email-senders-pending-count']")?.textContent, "[PENDIENTE COPY] 4");
+    assert.equal(page.host.querySelector("[data-testid='email-senders-pending-count']")?.textContent, "4");
     assert.deepEqual(rows(page.host).map((row) => row.getAttribute("data-status")), ["pending", "pending", "pending", "pending", "authorized", "blocked"]);
     assert.deepEqual(rows(page.host).map((row) => row.querySelector("span")?.textContent), [
       "avisos@correo.example", "facturas@ferreteria.example", "manual@dueno.example", "viejo@negocio.example", "proveedor.example", "spam@lista.example",
@@ -81,14 +81,14 @@ test("an empty pending group stays open without a count, and no senders is its o
     const pending = page.host.querySelector("details")!;
     assert.equal(pending.open, true);
     assert.equal(page.host.querySelector("[data-testid='email-senders-pending-count']"), null);
-    assert.match(pending.textContent ?? "", /\[PENDIENTE COPY\] Nadie en espera/);
+    assert.match(pending.textContent ?? "", /No hay remitentes pendientes\./);
     assert.match(page.host.textContent ?? "", /proveedor\.example/);
     assert.match(page.host.textContent ?? "", /spam@lista\.example/);
   } finally { await page.close(); }
   const empty = await mount({ list: async () => [], update: async (body) => ({ id: "new", kind: body.kind, value: body.value, status: body.status }) });
   try {
     await empty.settle(() => empty.host.querySelector("[data-testid='email-senders-empty']") !== null);
-    assert.match(empty.host.textContent ?? "", /\[PENDIENTE COPY\] No hay remitentes/);
+    assert.match(empty.host.textContent ?? "", /Todavía no hay remitentes\./);
     assert.equal(empty.host.querySelector("details"), null);
   } finally { await empty.close(); }
 });
@@ -98,7 +98,7 @@ test("loading and a failed load with retry", async () => {
   const loading = await mount({ list: () => new Promise((resolve) => { release = resolve; }), update: async (body) => ({ id: "new", ...body }) });
   try {
     assert.equal(loading.host.querySelector("[data-testid='email-senders-loading']")?.getAttribute("aria-busy"), "true");
-    assert.match(loading.host.textContent ?? "", /\[PENDIENTE COPY\] Cargando remitentes/);
+    assert.match(loading.host.textContent ?? "", /Cargando remitentes…/);
     await act(async () => release([]));
     await loading.settle(() => loading.host.querySelector("[data-testid='email-senders-empty']") !== null);
   } finally { await loading.close(); }
@@ -109,7 +109,7 @@ test("loading and a failed load with retry", async () => {
   });
   try {
     await failed.settle(() => failed.host.querySelector("[data-testid='email-senders-error']") !== null);
-    const retry = [...failed.host.querySelectorAll("button")].find((item) => item.textContent === "[PENDIENTE COPY] Reintentar");
+    const retry = [...failed.host.querySelectorAll("button")].find((item) => item.textContent === "Reintentar");
     assert.ok(retry);
     assert.match(retry.className, /min-h-11/);
     await act(async () => retry.click());
@@ -171,7 +171,7 @@ test("a 422 keeps the buttons enabled and a 403 disables them", async () => {
     await forbidden.settle(() => rows(forbidden.host).length === 1);
     await act(async () => button(rows(forbidden.host)[0]!, "Autorizar")!.click());
     await forbidden.settle(() => forbidden.host.querySelector("[data-testid='email-senders-forbidden']") !== null);
-    assert.match(forbidden.host.textContent ?? "", /\[PENDIENTE COPY\] Solo un administrador puede cambiar remitentes/);
+    assert.match(forbidden.host.textContent ?? "", /No tienes permiso para administrar los remitentes\./);
     for (const control of rows(forbidden.host)[0]!.querySelectorAll("button")) {
       if (control.getAttribute("data-testid") !== "email-sender-tag") assert.equal(control.disabled, true);
     }

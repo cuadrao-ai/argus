@@ -3767,8 +3767,8 @@
         },
         "sender": {
           "title": "New sender",
-          "body": "[PENDIENTE COPY] A sender is waiting",
-          "action": "[PENDIENTE COPY] View list"
+          "body": "A new sender wrote to your receiving email. Authorize them to receive their next emails.",
+          "action": "Review"
         }
       },
       "times": {
@@ -3937,20 +3937,20 @@
       "reading_off": "When turned off, receipts are saved unread.",
       "reading_title": "AI receipt reading",
       "senders": {
-        "action_error": "[PENDIENTE COPY] This sender could not be saved.",
+        "action_error": "This sender could not be saved. Try again.",
         "authorize": "Authorize",
-        "authorized_heading": "[PENDIENTE COPY] Authorized",
+        "authorized_heading": "Authorized",
         "block": "Block",
-        "blocked_heading": "[PENDIENTE COPY] Blocked",
-        "empty": "[PENDIENTE COPY] There are no senders",
-        "error": "[PENDIENTE COPY] The list could not be loaded",
-        "forbidden": "[PENDIENTE COPY] Only an administrator can change senders",
-        "list_title": "[PENDIENTE COPY] Senders",
-        "loading": "[PENDIENTE COPY] Loading senders",
-        "pending_count": "[PENDIENTE COPY] {{count}}",
-        "pending_empty": "[PENDIENTE COPY] No one is waiting",
-        "pending_heading": "[PENDIENTE COPY] Pending",
-        "retry": "[PENDIENTE COPY] Try again",
+        "blocked_heading": "Blocked",
+        "empty": "No senders yet.",
+        "error": "The list could not be loaded.",
+        "forbidden": "You don't have permission to manage senders.",
+        "list_title": "Senders",
+        "loading": "Loading senders…",
+        "pending_count": "{{count}}",
+        "pending_empty": "No pending senders.",
+        "pending_heading": "Pending",
+        "retry": "Try again",
         "tag_unverified": "Unverified",
         "tag_unverified_tip": "We could not confirm this message is from who it says. Authorize it only if you know the sender.",
         "tag_verified": "Verified",
