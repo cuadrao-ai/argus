@@ -19,7 +19,6 @@ from typing import Any
 
 import httpx
 import pytest
-from argus.agent_runtime import research_answer as ra
 from argus.agent_runtime import research_calculation
 from argus.agent_runtime import research_grounded as grounded
 from argus.agent_runtime.calculated_answer import CalculatedAnswer
@@ -37,7 +36,6 @@ from argus.domain.supabase_gateway import SupabaseGateway
 
 from tests.research.conftest import (
     agent_response,
-    educational_interpretation,
     request_body,
     run_research_turn,
     set_research_query,
@@ -695,50 +693,6 @@ def _final_payload(stream: str) -> dict[str, Any]:
     return finals[0]["payload"]
 
 
-def _chat_over_the_rail(monkeypatch: pytest.MonkeyPatch, steps: list[Step]):
-    """The chat route, with each turn composed by the real research rail over
-    a scripted provider. Returns the API client, the provider and the message
-    every turn was asked."""
-    from argus.agent_runtime.research_query import ResearchQueryExtraction
-    from argus.agent_runtime.runtime import _public_result
-    from argus.agent_runtime.state.models import RunState, UserState
-    from argus.api.main import app
-    from argus.api.routers import agent as agent_router
-    from fastapi.testclient import TestClient
-
-    clock = ScriptedClock()
-    client, provider = scripted_client(clock, steps)
-    monkeypatch.setattr(grounded, "_client", lambda: client)
-    interpretation = educational_interpretation().model_copy(
-        update={
-            "research_query": ResearchQueryExtraction(
-                question_kind="live_quote", symbols=["AAPL"]
-            )
-        }
-    )
-    asked: list[str] = []
-
-    async def _research_turn(*, message: str, user: UserState, **_: Any):
-        asked.append(message)
-        result = await ra.research_answer_stage_result(
-            interpretation=interpretation,
-            state=RunState.new(current_user_message=message, recent_thread_history=[]),
-            user=UserState(user_id=user.user_id, language_preference="en"),
-        )
-        assert result is not None
-        yield {
-            "type": "final",
-            "payload": _public_result(
-                {"stage_outcome": result.outcome, **result.stage_patch}
-            ),
-        }
-
-    monkeypatch.setattr(agent_router, "stream_agent_turn_events", _research_turn)
-    api = TestClient(app)
-    api.post("/api/v1/dev/reset")
-    return api, provider, asked
-
-
 def _ask(api, conversation_id: str) -> dict[str, Any]:
     response = api.post(
         "/api/v1/chat/stream",
@@ -752,205 +706,8 @@ def _messages(api, conversation_id: str) -> list[dict[str, Any]]:
     return api.get(f"/api/v1/conversations/{conversation_id}/messages").json()["items"]
 
 
-def test_an_outage_settles_with_a_durable_retry_that_asks_the_same_question(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    api, provider, asked = _chat_over_the_rail(
-        monkeypatch, [*[status(500)] * ATTEMPTS, answer()]
-    )
-    conversation_id = api.post("/api/v1/conversations", json={}).json()["conversation"][
-        "id"
-    ]
-
-    live = _ask(api, conversation_id)
-
-    assert live["recovery"] == {"code": "research_lookup_failed", "retryable": True}
-    assert live["retry_last_turn"] == {"message": QUESTION}
-    assert live["research"]["degraded"] == {
-        "code": "research_unavailable_http_error",
-        "status": 500,
-    }
-    assert "next_experiments" not in live
-
-    request, failure = _messages(api, conversation_id)[-2:]
-    assert request["role"] == "user" and request["content"] == QUESTION
-    assert failure["content"] == RECOVERY_FALLBACK_MESSAGES["research_lookup_failed"]
-    assert failure["metadata"]["agent_runtime_turn"] == {
-        "turn_id": request["id"],
-        "request_id": failure["metadata"]["agent_runtime_turn"]["request_id"],
-        "status": "recoverable_failed",
-        "terminal": True,
-        "reconciled_outcome": None,
-        "failure_code": "research_lookup_failed",
-        "retryable": True,
-    }
-    assert failure["metadata"]["retry_last_turn"] == {
-        "request_message_id": request["id"],
-        "message": QUESTION,
-    }
-    assert failure["metadata"]["recovery"] == live["recovery"]
-    assert failure["metadata"]["research"]["degraded"] == live["research"]["degraded"]
-    assert "next_experiments" not in failure["metadata"]
-
-    # Retry re-sends the persisted question, and the rail asks the provider again.
-    retried = _ask(api, conversation_id)
-
-    assert "recovery" not in retried
-    assert retried["assistant_response"].startswith("Apple closed")
-    assert asked == [QUESTION, QUESTION]
-    assert len(provider.requests) == ATTEMPTS + 1
-    assert all(QUESTION in request_body(sent)["input"] for sent in provider.requests)
-    assert _messages(api, conversation_id)[-1]["content"].startswith("Apple closed")
-
-
-def test_a_refused_request_ends_on_the_quiet_recovery_with_nothing_to_retry(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    api, provider, asked = _chat_over_the_rail(monkeypatch, [status(400)])
-    conversation_id = api.post("/api/v1/conversations", json={}).json()["conversation"][
-        "id"
-    ]
-
-    live = _ask(api, conversation_id)
-
-    assert live["recovery"] == {"code": "research_lookup_unavailable", "retryable": False}
-    assert "retry_last_turn" not in live
-    assert live["research"]["degraded"] == {
-        "code": "research_unavailable_http_error",
-        "status": 400,
-    }
-    assert len(provider.requests) == 1
-
-    failure = _messages(api, conversation_id)[-1]
-    assert failure["content"] == RECOVERY_FALLBACK_MESSAGES["research_lookup_unavailable"]
-    assert failure["metadata"]["agent_runtime_turn"]["status"] == "completed"
-    assert "retry_last_turn" not in failure["metadata"]
-    assert failure["metadata"]["recovery"] == live["recovery"]
-    assert asked == [QUESTION]
-
-
-def test_an_answer_without_the_lookup_settles_with_its_notice_and_a_durable_retry(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from argus.api.chat.previews import research_lookup_failed
-    from argus.api.chat.title_finalization import artifact_naming_assistant_message
-
-    api, _provider, asked = _chat_over_the_rail(
-        monkeypatch, [*[status(500)] * ATTEMPTS, answer()]
-    )
-    monkeypatch.setattr(
-        research_calculation, "answer_without_lookup", lambda **_: ANSWERED
-    )
-    conversation_id = api.post("/api/v1/conversations", json={}).json()["conversation"][
-        "id"
-    ]
-
-    live = _ask(api, conversation_id)
-
-    assert live["assistant_response"].startswith(NO_LOOKUP_ANSWER)
-    assert live["recovery"] == {
-        "code": "research_lookup_failed",
-        "retryable": True,
-        "under_answer": True,
-    }
-    assert live["retry_last_turn"] == {"message": QUESTION}
-
-    request, answered = _messages(api, conversation_id)[-2:]
-    metadata = answered["metadata"]
-    assert answered["content"].startswith(NO_LOOKUP_ANSWER)
-    assert metadata["agent_runtime_turn"]["status"] == "recoverable_failed"
-    assert metadata["agent_runtime_turn"]["failure_code"] == "research_lookup_failed"
-    assert metadata["retry_last_turn"] == {
-        "request_message_id": request["id"],
-        "message": QUESTION,
-    }
-    assert metadata["recovery"] == live["recovery"]
-    # The degraded flag keeps the answer out of conversation naming.
-    assert metadata["research"]["degraded"] == {
-        "code": "research_unavailable_http_error",
-        "status": 500,
-    }
-    assert research_lookup_failed(metadata)
-    assert (
-        artifact_naming_assistant_message(answered["content"], metadata=metadata) is None
-    )
-
-    retried = _ask(api, conversation_id)
-
-    assert "recovery" not in retried
-    assert retried["assistant_response"].startswith("Apple closed")
-    assert asked == [QUESTION, QUESTION]
-
-
 # --- A registered call: its recovery speaks for its turn only when it is alone -
 
 
 TRANSIENT_RECOVERY = {"code": "research_lookup_failed", "retryable": True}
 
-
-@pytest.mark.asyncio()
-@pytest.mark.parametrize("tool_name", ["thorough_research", "balanced_lookup"])
-@pytest.mark.parametrize(
-    ("calls", "turn_recovery"),
-    [(1, TRANSIENT_RECOVERY), (2, None)],
-    ids=["one_call", "two_calls"],
-)
-async def test_a_registered_lookup_failure_settles_a_turn_only_when_alone(
-    monkeypatch: pytest.MonkeyPatch,
-    tool_name: str,
-    calls: int,
-    turn_recovery: dict[str, Any] | None,
-) -> None:
-    """A registered research call whose lookup fails ends on the lookup recovery,
-    published through the same projection its answer would take: a thorough
-    call when its background submission fails at publication, a balanced call
-    when its inline lookup fails at execution. One call's recovery settles its
-    turn; a turn with several calls keeps each failure on its own card instead
-    of settling as one failure."""
-    from argus.api.chat import research_jobs
-    from argus.api.chat.tool_results import prepare_runtime_tool_publication
-    from argus.domain.tool_contracts import ToolResultCard
-
-    from tests.research.test_registry_discarded_spend import _call, _execute
-    from tests.research.test_research_jobs import _JobGateway
-
-    class _SubmissionDown:
-        def submit_background(self, prompt: str, spec: Any) -> str:
-            raise ResearchUnavailableError("http_error", "http 503", status=503)
-
-    gateway = _JobGateway()
-    monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-    monkeypatch.setattr(research_jobs, "_client", lambda: _SubmissionDown())
-    clock = ScriptedClock()
-    inline, _provider = scripted_client(clock, [status(503)] * ATTEMPTS * calls)
-    monkeypatch.setattr(grounded, "_client", lambda: inline)
-    result = await _execute(*[_call(tool_name) for _ in range(calls)])
-    runtime_result = result.stage_patch
-
-    publication = prepare_runtime_tool_publication(
-        runtime_result,
-        runtime_result["tool_effects"],
-        assistant_text=None,
-        user_id="u1",
-        conversation_id="c1",
-        request_message_id="m1",
-        request_id="r1",
-    )
-
-    assert gateway.rows == {}
-    cards = [ToolResultCard.model_validate(card) for card in publication.cards]
-    assert [card.outcome.status for card in cards] == ["unavailable"] * calls
-    assert all(
-        effect.stage_patch["recovery"] == TRANSIENT_RECOVERY
-        for effect in publication.effects
-    )
-    assert runtime_result.get("recovery") == turn_recovery
-    if turn_recovery is not None:
-        assert runtime_result["research"]["degraded"] == {
-            "code": "research_unavailable_http_error",
-            "status": 503,
-        }
-        assert (
-            publication.assistant_text
-            == RECOVERY_FALLBACK_MESSAGES["research_lookup_failed"]
-        )

@@ -549,29 +549,6 @@ def _drive_retired_registries() -> None:
         )
 
 
-def _drive_runtime_measurement() -> None:
-    from argus.api.chat.measurement_events import emit_runtime_measurement_events
-
-    emit_runtime_measurement_events(
-        user_id="guest-raw-id",
-        conversation_id="conversation-1",
-        runtime_result={
-            "message_id": "message-1",
-            "run": {"id": "run-1"},
-            "backtest_job": {"id": "job-1"},
-            "comparison_started": {"source": "workflow_boundary", "candidate_count": 2},
-        },
-        metadata={
-            "confirmation_card": {},
-            "next_experiments": {"rows": [{"kind": "compare"}]},
-            "active_confirmation_reference": {
-                "metadata": {"validation": {"failure_code": "asset_mismatch"}}
-            },
-        },
-        account=_guest_context(),
-    )
-
-
 def _drive_guest_cleanup() -> None:
     class _Gateway:
         def claim_expired_guest_workspaces(self, *, limit: int, dry_run: bool):
@@ -623,7 +600,6 @@ def _drive_http_surfaces(monkeypatch: pytest.MonkeyPatch) -> None:
     "drive",
     [
         _drive_retired_registries,
-        _drive_runtime_measurement,
         _drive_guest_cleanup,
         _drive_http_surfaces,
     ],

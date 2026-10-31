@@ -523,11 +523,6 @@ def test_the_chat_routes_and_the_email_retry_refuse_a_chosen_grant(
             ),
             client.delete(f"/api/v1/conversations/{own}", headers=with_grant),
             client.post(
-                "/api/v1/chat/stream",
-                json={"conversation_id": own, "message": "hola"},
-                headers=with_grant,
-            ),
-            client.post(
                 f"/api/v1/conversations/{own}/messages/{uuid4()}/continue",
                 headers=with_grant,
             ),

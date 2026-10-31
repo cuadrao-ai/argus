@@ -59,12 +59,6 @@ def test_chat_service_facade_is_retired() -> None:
     assert importlib.util.find_spec("argus.api.chat_service") is None
 
 
-def test_agent_router_does_not_route_new_code_through_chat_service_facade() -> None:
-    source = _source("src/argus/api/routers/agent.py")
-
-    assert "argus.api.chat_service" not in source
-
-
 def test_launch_code_and_tests_do_not_import_chat_service_facade() -> None:
     scanned_paths = [
         path

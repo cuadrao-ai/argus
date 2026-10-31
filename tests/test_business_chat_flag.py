@@ -31,17 +31,11 @@ def _code(response) -> tuple[int, str | None]:  # noqa: ANN001
 def _turns(
     client: TestClient,  # noqa: F811
     conversation_id: str,
-    *,
-    with_body_routes: bool = True,
 ) -> list[tuple[int, str | None]]:
-    """Each way a chat turn or card action reaches a conversation. The body
-    route runs a turn when admitted, so only a refused side may be sent it."""
+    """Each way a card action reaches a conversation."""
 
     base = f"/api/v1/conversations/{conversation_id}"
-    body_routes = (
-        ("/api/v1/chat/stream", {"conversation_id": conversation_id, "message": "hi"}),
-    )
-    path_routes = (
+    calls = (
         (f"{base}/messages/{ID}/continue", None),
         (f"{base}/messages/{ID}/computation/refresh", None),
         (
@@ -51,7 +45,6 @@ def _turns(
         (f"{base}/confirmations/{ID}/peer-assets", {}),
         (f"{base}/confirmations/{ID}/direct-edit", {}),
     )
-    calls = (body_routes if with_body_routes else ()) + path_routes
     return [
         _code(
             client.post(
@@ -77,8 +70,8 @@ def test_business_chat_off_refuses_every_turn_but_keeps_reading_and_deleting(
         "/api/v1/conversations", json={"surface": "business"}, headers=_as(ALICE)
     )
     assert _code(started) == UNAVAILABLE
-    assert _turns(client, business) == [UNAVAILABLE] * 6
-    assert UNAVAILABLE not in _turns(client, personal, with_body_routes=False)
+    assert _turns(client, business) == [UNAVAILABLE] * 5
+    assert UNAVAILABLE not in _turns(client, personal)
 
     listed = client.get(
         "/api/v1/conversations", params={"surface": "business"}, headers=_as(ALICE)
@@ -110,7 +103,7 @@ def test_business_chat_is_nested_inside_the_pilot(
         "/api/v1/conversations", json={"surface": "business"}, headers=_as(ALICE)
     )
     assert _code(started) == (404, "business_unavailable")
-    assert _turns(client, business) == [UNAVAILABLE] * 6
+    assert _turns(client, business) == [UNAVAILABLE] * 5
 
 
 def test_every_conversation_write_route_names_its_side() -> None:
@@ -145,4 +138,4 @@ def test_every_route_naming_a_conversation_in_its_body_is_refused_while_off() ->
             for param in route.dependant.body_params
         )
     )
-    assert body_keyed == ["/api/v1/chat/stream"]
+    assert body_keyed == []

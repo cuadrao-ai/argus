@@ -262,7 +262,7 @@ def test_unlink_with_business_or_intake_off_ends_the_link_and_codes(
     assert _objects(api.person) == 0
 
 
-def test_business_chat_off_refuses_turns_but_keeps_read_and_delete(api: Api) -> None:
+def test_business_chat_off_refuses_new_conversations_but_keeps_read_and_delete(api: Api) -> None:
     with api.running() as client:
         assert client.get("/api/v1/me", headers=api.headers).status_code == 200
     with ConnectionPool(DSN, min_size=0, max_size=2) as pool:
@@ -288,14 +288,8 @@ def test_business_chat_off_refuses_turns_but_keeps_read_and_delete(api: Api) -> 
         started = client.post(
             "/api/v1/conversations", json={"surface": "business"}, headers=api.headers
         )
-        turn = client.post(
-            "/api/v1/chat/stream",
-            json={"conversation_id": business, "message": "hi"},
-            headers=api.headers,
-        )
         unavailable = (404, "business_chat_unavailable")
         assert (started.status_code, started.json()["code"]) == unavailable
-        assert (turn.status_code, turn.json()["code"]) == unavailable
         messages = client.get(
             f"/api/v1/conversations/{business}/messages", headers=api.headers
         )

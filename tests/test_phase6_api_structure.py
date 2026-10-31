@@ -29,7 +29,6 @@ def test_required_api_router_modules_exist() -> None:
         "auth",
         "profile",
         "conversations",
-        "agent",
         "history",
         "search",
         "discovery",

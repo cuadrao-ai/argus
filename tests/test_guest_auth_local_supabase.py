@@ -18,17 +18,14 @@ import httpx
 import jwt
 import psycopg
 import pytest
-from argus.agent_runtime.stages.confirm import _coverage_preflight
 from argus.api import state as api_state
 from argus.api.main import app
-from argus.api.routers import agent as agent_router
 from argus.api.routers import auth as auth_router
 from argus.api.schemas import GuestPendingAction, Message
 from argus.domain.guest_cleanup import cleanup_expired_guest_workspaces
 from argus.domain.owner_scope import PERSONAL
 from argus.domain.store import utcnow
 from argus.domain.username_signup import serialized_username_signup
-from argus.domain.visitor_usage import visitor_key_for
 from fastapi.testclient import TestClient
 from supabase_auth.errors import AuthApiError
 
@@ -75,48 +72,6 @@ def test_postgrest_utc_timestamp_rejects_real_differences_and_invalid_input() ->
         _parse_postgrest_utc_timestamp("2026-07-26T07:57:19.593040-05:00")
     with pytest.raises(ValueError):
         _parse_postgrest_utc_timestamp("not-a-timestamp")
-
-
-def _deterministic_launch_payload(language: str) -> dict[str, Any]:
-    base_launch_payload = {
-        "strategy_type": "buy_and_hold",
-        "symbol": "AAPL",
-        "symbols": ["AAPL"],
-        "asset_class": "equity",
-        "timeframe": "1D",
-        "date_range": {"start": "2024-01-01", "end": "2024-03-31"},
-        "sizing_mode": "capital_amount",
-        "capital_amount": 10_000,
-        "benchmark_symbol": "SPY",
-        "language": language,
-    }
-    preflight = _coverage_preflight(
-        base_launch_payload,
-        optional_parameter_status={},
-    )
-    assert preflight["outcome"] == "ready_to_confirm"
-    return dict(preflight["launch_payload"])
-
-
-def _deterministic_real_tool_turn(launch_payload: dict[str, Any]):
-    async def turn(**_: Any):
-        result = api_state.build_backtest_tool().run(launch_payload)
-        assert result["success"] is True
-        tool_payload = result["payload"]
-        yield {
-            "type": "final",
-            "payload": {
-                "stage_outcome": "ready_to_respond",
-                "assistant_response": "The deterministic simulation completed.",
-                "final_response_payload": {
-                    "result": tool_payload["envelope"],
-                    "result_card": tool_payload["result_card"],
-                    "explanation_context": tool_payload["explanation_context"],
-                },
-            },
-        }
-
-    return turn
 
 
 def _mailpit_messages() -> list[dict[str, Any]]:
@@ -368,195 +323,6 @@ def test_real_guest_terminal_message_settles_visitor_day_window(
             assert visitor_counters == [
                 {"period": "day", "used_count": 1, "limit_count": 10}
             ]
-    finally:
-        if user_id:
-            with suppress(Exception):
-                gateway.delete_auth_user(user_id)
-
-
-def test_guest_run_through_real_flag_off_tool_corridor_settles_simulation(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
-    monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_DEV_MEMORY_FALLBACK", "false")
-    monkeypatch.setenv("ARGUS_MARKET_DATA_PROVIDER_MODE", "synthetic_unit_fixture")
-    monkeypatch.setenv("ARGUS_BACKTEST_JOBS_SHADOW_ENABLED", "false")
-    monkeypatch.setenv("ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED", "false")
-    monkeypatch.setenv("ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED", "false")
-    # Keep this owner-isolated proof deterministic on a reused disposable
-    # database where other accounting tests may leave unrelated queued jobs.
-    monkeypatch.setenv("ARGUS_BACKTEST_JOBS_USER_RUNNING_LIMIT", "1000")
-    monkeypatch.setenv("ARGUS_BACKTEST_JOBS_USER_QUEUED_LIMIT", "1000")
-    monkeypatch.setenv("ARGUS_BACKTEST_JOBS_GLOBAL_RUNNING_LIMIT", "1000000")
-    monkeypatch.setenv("ARGUS_BACKTEST_JOBS_GLOBAL_QUEUED_LIMIT", "1000000")
-    gateway = _gateway()
-    user_id: str | None = None
-
-    # Visitor counters outlive guest accounts by design; on a reused local
-    # database the TestClient identity accumulates, so start from zero.
-    gateway.client.table("visitor_usage_counters").delete().eq(
-        "visitor_key", visitor_key_for("testclient")
-    ).execute()
-
-    launch_payload = _deterministic_launch_payload("en")
-
-    try:
-        with (
-            patch.object(api_state, "supabase_gateway", gateway),
-            patch.object(api_state, "DATABASE_URL", LOCAL_DATABASE_URL),
-            patch.object(
-                agent_router,
-                "stream_agent_turn_events",
-                _deterministic_real_tool_turn(launch_payload),
-            ),
-            TestClient(app, base_url="http://localhost:3000") as client,
-        ):
-            created = client.post(
-                "/api/v1/auth/guest",
-                json={"age_confirmed_at": "2026-01-01T00:00:00Z", "captcha_token": "local-captcha-proof", "language": "en"},
-                headers={"origin": "http://localhost:3000"},
-            )
-            assert created.status_code == 200
-            user_id = str(created.json()["user"]["id"])
-            assert created.json()["user"]["is_anonymous"] is True
-
-            profile = gateway.get_user(user_id=user_id)
-            workspace = gateway.get_active_guest_workspace(
-                user_id=user_id,
-                at=datetime.now(timezone.utc),
-            )
-            assert profile is not None
-            assert workspace is not None
-            assert workspace.expires_at - workspace.created_at == timedelta(days=7)
-
-            created_conversation = client.post("/api/v1/conversations", json={})
-            assert created_conversation.status_code == 200
-            conversation_id = created_conversation.json()["conversation"]["id"]
-            confirmation_id = f"confirmation-{secrets.token_hex(8)}"
-            confirmation_payload = {
-                "strategy": {
-                    "strategy_type": "buy_and_hold",
-                    "strategy_thesis": "Buy and hold AAPL.",
-                    "asset_universe": ["AAPL"],
-                    "asset_class": "equity",
-                    "timeframe": "1D",
-                    "date_range": launch_payload["date_range"],
-                    "capital_amount": 10_000,
-                },
-                "optional_parameters": {},
-                "launch_payload": launch_payload,
-                "validation": {"status": "ready_to_run", "executable": True},
-            }
-            gateway.create_message(
-                user_id=user_id,
-                conversation_id=conversation_id,
-                role="assistant",
-                content="Ready to test AAPL.",
-                metadata={
-                    "conversation_mode": "confirm",
-                    "agent_runtime_stage_outcome": "await_approval",
-                    "confirmation_payload": confirmation_payload,
-                    "confirmation_card": {
-                        "confirmation_id": confirmation_id,
-                        "confirmation_state": "active",
-                        "title": "AAPL buy and hold",
-                        "summary": "Ready to test AAPL.",
-                        "rows": [],
-                        "actions": [],
-                    },
-                },
-            )
-
-            completed = client.post(
-                "/api/v1/chat/stream",
-                headers={
-                    "Idempotency-Key": confirmation_id,
-                    "origin": "http://localhost:3000",
-                },
-                json={
-                    "conversation_id": conversation_id,
-                    "action": {
-                        "type": "run_backtest",
-                        "label": "Run backtest",
-                        "presentation": "confirmation",
-                        "payload": {
-                            "confirmation_id": confirmation_id,
-                            "conversation_id": conversation_id,
-                        },
-                    },
-                },
-            )
-            assert completed.status_code == 200
-            assert '"result_card"' in completed.text
-
-            runs = (
-                gateway.client.table("backtest_runs")
-                .select("id")
-                .eq("user_id", user_id)
-                .eq("conversation_id", conversation_id)
-                .execute()
-                .data
-            )
-            jobs = (
-                gateway.client.table("backtest_jobs")
-                .select("id")
-                .eq("user_id", user_id)
-                .eq("conversation_id", conversation_id)
-                .execute()
-                .data
-            )
-            counters = (
-                gateway.client.table("usage_counters")
-                .select("resource,period,used_count,limit_count")
-                .eq("user_id", user_id)
-                .eq("resource", "backtest_runs")
-                .eq("period", "guest_session")
-                .execute()
-                .data
-            )
-            visitor_rows = (
-                gateway.client.table("visitor_usage_counters")
-                .select("resource,period,used_count")
-                .eq("visitor_key", visitor_key_for("testclient"))
-                .eq("resource", "backtest_runs")
-                .eq("period", "day")
-                .execute()
-                .data
-            )
-            usage = client.get("/api/v1/me/usage")
-            assert usage.status_code == 200
-            day_window = usage.json()["allowances"]["execution"]["day"]
-
-            assert len(runs) == 1
-            # The workspace-keyed reservation still owns replay identity; the
-            # visitor row is the cross-renewal bound the day window reads.
-            assert {
-                "jobs": len(jobs),
-                "counters": counters,
-                "visitor_used": [row["used_count"] for row in visitor_rows],
-                "usage": {
-                    "used": day_window["used"],
-                    "remaining": day_window["remaining"],
-                    "limit": day_window["limit"],
-                },
-            } == {
-                "jobs": 1,
-                "counters": [
-                    {
-                        "resource": "backtest_runs",
-                        "period": "guest_session",
-                        "used_count": 1,
-                        "limit_count": 2,
-                    }
-                ],
-                "visitor_used": [1],
-                "usage": {"used": 1, "remaining": 1, "limit": 2},
-            }
     finally:
         if user_id:
             with suppress(Exception):

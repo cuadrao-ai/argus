@@ -352,25 +352,6 @@ print(f"readiness_status={payload.get('status', 'unknown')}")
 PY
 }
 
-check_api_smoke_path() {
-  local starter_json="${SMOKE_DIR}/starter-prompts.json"
-
-  curl -fsS \
-    --max-time 20 \
-    "${API_URL}/api/v1/chat/starter-prompts" > "$starter_json"
-  python3 - "$starter_json" <<'PY'
-import json
-import pathlib
-import sys
-
-payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
-prompts = payload.get("prompts")
-if not isinstance(prompts, list) or not prompts:
-    raise SystemExit("starter prompts response was empty")
-print("api_smoke=ready")
-PY
-}
-
 start_api() {
   echo "Starting local API on ${API_URL}"
   poetry run uvicorn argus.api.main:app --host "$API_HOST" --port "$API_PORT" >"$API_LOG" 2>&1 &
@@ -402,7 +383,6 @@ start_api
 start_web
 wait_for_url "api_health" "${API_URL}/health"
 check_local_readiness
-check_api_smoke_path
 wait_for_url "web" "$WEB_URL"
 
 echo "verification_status=ready"

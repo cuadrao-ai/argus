@@ -322,7 +322,6 @@ def test_active_openapi_uses_alpha_contract_names() -> None:
     for path in (
         "/api/v1/me",
         "/api/v1/conversations",
-        "/api/v1/chat/stream",
         "/api/v1/history",
     ):
         assert path in text
@@ -506,17 +505,6 @@ def test_api_contract_documents_recovery_transport_rejections() -> None:
     assert "4,096 bytes" in recovery_contract
     assert "`415 Unsupported Media Type`" in recovery_contract
     assert "`application/json`" in recovery_contract
-
-
-def test_chat_stream_openapi_declares_stale_action_problem_response() -> None:
-    document = yaml.safe_load(
-        (ROOT / "docs" / "api" / "openapi.yaml").read_text(encoding="utf-8")
-    )
-
-    responses = document["paths"]["/api/v1/chat/stream"]["post"]["responses"]
-    stale = responses["409"]["content"]["application/json"]
-    assert stale["schema"] == {"$ref": "#/components/schemas/Error"}
-    assert list(responses["200"]["content"]) == ["text/event-stream"]
 
 
 def test_supabase_migration_matches_alpha_data_model() -> None:

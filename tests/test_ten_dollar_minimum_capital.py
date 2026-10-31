@@ -28,8 +28,6 @@ from argus.agent_runtime.stages.launch_validation_recovery import (
     _validate_launch_envelope,
 )
 from argus.agent_runtime.state.models import RunState, StrategySummary
-from argus.api import state as api_state
-from argus.api.chat.breakdown import result_breakdown_context
 from argus.api.chat.confirmation import runtime_confirmation_card
 from argus.api.chat.persistence import build_runtime_backtest_run
 from argus.api.main import app
@@ -248,7 +246,7 @@ def test_the_readout_reads_the_stored_precision_without_a_series(language: str) 
     assert f"Ending portfolio value: {expected}" in headline
 
 
-def test_breakdown_and_conversation_sheets_carry_the_card_precision() -> None:
+def test_conversation_sheets_carry_the_card_precision() -> None:
     launch = run_launch_backtest(_launch_request("buy_and_hold", 10.0))
     run = build_runtime_backtest_run(
         user_id="precision-owner",
@@ -260,7 +258,6 @@ def test_breakdown_and_conversation_sheets_carry_the_card_precision() -> None:
     )
     assert run is not None
     assert stored_currency_fraction_digits(run.conversation_result_card) == 2
-    assert stored_currency_fraction_digits(result_breakdown_context(run)) == 2
     sheet = _run_sheet(
         {
             "result_card": run.conversation_result_card,
@@ -530,59 +527,3 @@ def _stream_payloads(stream: str, event_type: str) -> list[dict[str, Any]]:
             payloads.append(event.get("payload", event))
     return payloads
 
-
-@pytest.mark.parametrize("language", LANGUAGES)
-def test_a_ten_dollar_run_retests_at_ten_and_its_card_holds_the_floor(
-    in_place_edits: None, language: str
-) -> None:
-    client = _client()
-    conversation_id = _conversation_id(client, language)
-    user_id = _user_id(client)
-    launch = run_launch_backtest(_launch_request("buy_and_hold", 10.0, symbol="TSLA"))
-    run = build_runtime_backtest_run(
-        user_id=user_id,
-        conversation_id=conversation_id,
-        result_card=launch.result_card,
-        envelope=launch.envelope.model_dump(mode="python"),
-        default_benchmark_func=lambda _asset_class, _symbols: "SPY",
-        run_id=SOURCE_RUN_ID,
-    )
-    assert run is not None, launch.envelope.failure_reason
-    run = run.model_copy(
-        update={
-            "conversation_result_card": {
-                **run.conversation_result_card,
-                "evidence_artifact_id": "3f2504e0-4f89-41d3-9a0c-0305e82c3311",
-                "idea_id": "3f2504e0-4f89-41d3-9a0c-0305e82c3312",
-                "idea_version_id": "3f2504e0-4f89-41d3-9a0c-0305e82c3313",
-            }
-        }
-    )
-    api_state.store.backtest_runs[run.id] = run
-    api_state.store.backtest_run_owners[run.id] = user_id
-    try:
-        response = client.post(
-            "/api/v1/chat/stream",
-            json={
-                "conversation_id": conversation_id,
-                "action": {
-                    "type": "retest_run",
-                    "payload": {
-                        "source_run_id": run.id,
-                        "window_policy": "preserve_start_ending_latest_available",
-                        "contract_version": "argus_retest_run/v2",
-                    },
-                },
-                "language": language,
-            },
-        )
-        assert response.status_code == 200, response.text
-        [final] = _stream_payloads(response.text, "final")
-        assert final["confirmation_payload"]["launch_payload"]["capital_amount"] == 10.0
-
-        _assert_in_place_edits_hold_the_floor(
-            client, conversation_id, final["confirmation"]["confirmation_id"]
-        )
-    finally:
-        api_state.store.backtest_runs.pop(run.id, None)
-        api_state.store.backtest_run_owners.pop(run.id, None)

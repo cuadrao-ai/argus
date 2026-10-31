@@ -244,14 +244,6 @@ def test_server_owners_emit_only_the_guest_events_awaiting_rename(
         assert not re.search(rf'(?:_event\(\s*|kind=)"{event}"', source), event
 
 
-def test_chat_owner_calls_first_settled_response_observer() -> None:
-    source = (
-        Path(__file__).parents[1] / "src/argus/api/chat/measurement_events.py"
-    ).read_text()
-
-    assert "emit_guest_turn_funnel_events(" in source
-
-
 def test_first_message_reader_uses_guest_session_counter_truth() -> None:
     account = _guest_context()
     with patch(

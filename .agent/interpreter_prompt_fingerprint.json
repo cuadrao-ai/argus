@@ -103,11 +103,6 @@
       "chars": 713,
       "sha256": "15f28666f1e0a1b154a8706ca90ebef8e4799ae3198187b052ff8db741d18347"
     },
-    "src/argus/api/chat/breakdown.py": {
-      "entries": 2,
-      "chars": 284,
-      "sha256": "5e0374f13476e43242d497971640227a4ccd99888fe641ef094c42fef873dea6"
-    },
     "src/argus/domain/calculations/answer_request.py": {
       "entries": 11,
       "chars": 1192,

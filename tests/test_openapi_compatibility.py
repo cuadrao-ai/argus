@@ -323,27 +323,6 @@ def test_response_schema_drift_fails_with_named_difference(
     ), failures
 
 
-def test_streaming_normalization_is_narrow(generated: dict, checked: dict) -> None:
-    projection = openapi_compat.structural_projection(checked)
-    stream = projection["POST /api/v1/chat/stream"]
-    assert stream["responses"]["200"] == {"text/event-stream": {}}
-    # The request schema and error responses remain structural gate inputs.
-    assert stream["request"], "chat stream request schema must stay compared"
-    assert "409" in stream["responses"]
-    assert "422" in stream["responses"]
-    assert "503" in stream["responses"]
-
-
-def test_chat_stream_declares_the_approved_request_boundary_failures(
-    generated: dict,
-) -> None:
-    responses = generated["paths"]["/api/v1/chat/stream"]["post"]["responses"]
-    for status in ("413", "500"):
-        assert responses[status]["content"]["application/json"]["schema"] == {
-            "$ref": "#/components/schemas/Error"
-        }
-
-
 def test_openapi_contract_exposes_lazy_run_dossier_history(
     generated: dict,
 ) -> None:

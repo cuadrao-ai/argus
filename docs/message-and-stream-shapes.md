@@ -43,7 +43,6 @@ The OpenAPI 200 response for `POST /api/v1/chat/stream` is `type: string`. It do
 JSON `type` strings on `sse_data` payloads:
 
 <!-- frame-types -->
-- `error`
 - `final`
 - `stage_outcome`
 - `stage_start`
@@ -201,6 +200,7 @@ The frame is `data: [DONE]`. It has no JSON object and no `message_id`.
 JSON `type` comparisons in `parseChatStreamFrame` that are absent from the emitted JSON type block:
 
 <!-- parser-only -->
+- `error`
 - `title`
 <!-- /parser-only -->
 

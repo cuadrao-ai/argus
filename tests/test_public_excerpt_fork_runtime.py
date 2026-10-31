@@ -13,7 +13,7 @@ import pytest
 from argus.agent_runtime.graph.workflow import build_workflow
 from argus.agent_runtime.runtime import run_agent_turn
 from argus.agent_runtime.stages.interpret_types import StructuredInterpretation
-from argus.agent_runtime.state.models import StrategySummary, UserState
+from argus.agent_runtime.state.models import UserState
 from argus.api import state as api_state
 from argus.api.message_store import (
     load_runtime_thread_history,
@@ -131,70 +131,3 @@ async def test_current_figures_followup_dispatches_fresh_research_from_imported_
     assert not api_state.store.backtest_runs
     cache_clear()
 
-
-def test_changed_carried_backtest_produces_new_confirmation_without_live_run(
-    monkeypatch,
-):
-    from argus.api.main import app
-    from fastapi.testclient import TestClient
-
-    from tests.test_public_excerpt_api import _create, _seed
-
-    monkeypatch.setattr(api_state, "supabase_gateway", None)
-    monkeypatch.setenv("CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED", "true")
-    api_state.store.reset()
-    client = TestClient(app)
-    user_id = _seed(client)
-    receipt = _create(client)
-    fork = client.post(
-        f"/api/v1/public/receipts/{receipt['public_id']}/fork",
-        json={"request_id": str(uuid4())},
-    ).json()
-    conversation_id = fork["conversation"]["id"]
-    assert api_state.store.conversation_owners[conversation_id] == user_id
-    initial_runs = set(api_state.store.backtest_runs)
-    interpreter = RecordingInterpreter(
-        StructuredInterpretation(
-            intent="backtest_execution",
-            task_relation="new_task",
-            requires_clarification=False,
-            user_goal_summary="Test the shared AAPL idea with 300 dollars",
-            semantic_turn_act="new_idea",
-            candidate_strategy_draft=StrategySummary(
-                strategy_type="buy_and_hold",
-                asset_universe=["AAPL"],
-                asset_class="equity",
-                date_range={"start": "2024-01-02", "end": "2024-12-31"},
-                capital_amount=300,
-                sizing_mode="capital_amount",
-            ),
-        )
-    )
-    workflow = build_workflow(
-        structured_interpreter=interpreter, checkpointer=MemorySaver()
-    )
-    monkeypatch.setattr(
-        api_state, "get_agent_runtime_workflow", lambda _request=None: workflow
-    )
-    response = client.post(
-        "/api/v1/chat/stream",
-        json={
-            "conversation_id": conversation_id,
-            "message": "Change it to $300",
-            "language": "en",
-        },
-    )
-    assert response.status_code == 200, response.text
-    imported = api_state.store.messages[conversation_id][:2]
-    own_confirmation = api_state.store.messages[conversation_id][-1]
-    assert (
-        own_confirmation.metadata["confirmation_payload"]["strategy"]["capital_amount"]
-        == 300
-    )
-    assert own_confirmation.metadata["confirmation_card"]["confirmation_id"]
-    assert "shared_conversation" not in own_confirmation.metadata
-    assert interpreter.requests[0].latest_task_snapshot is None
-    assert len(interpreter.requests[0].recent_thread_history) == 2
-    assert set(api_state.store.backtest_runs) == initial_runs
-    assert not api_state.store.backtest_jobs
-    assert all(set(message.metadata) == {"shared_conversation"} for message in imported)
