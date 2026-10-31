@@ -2282,7 +2282,7 @@
         },
         "check_digit": {
           "label": "RNC con error",
-          "reason": "[PENDIENTE COPY] No se puede exportar hasta corregir el RNC."
+          "reason": "El dígito verificador de este RNC no coincide. Puede tener un número mal escrito."
         },
         "unverified": {
           "label": "RNC sin verificar",

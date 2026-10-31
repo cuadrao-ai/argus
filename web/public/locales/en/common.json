@@ -2282,7 +2282,7 @@
         },
         "check_digit": {
           "label": "RNC has an error",
-          "reason": "[PENDIENTE COPY] You can't export until the RNC is fixed."
+          "reason": "This RNC's check digit does not match. A number may be mistyped."
         },
         "unverified": {
           "label": "RNC not verified",
@@ -2882,8 +2882,8 @@
           "text": "The ITBIS looks high. Check that it is right."
         },
         "export_blocked": "If you approve it as is, the month's 606 can't be exported until you fix it.",
-        "fix": "[PENDIENTE COPY] Fix",
-        "approve_anyway": "[PENDIENTE COPY] Approve anyway"
+        "fix": "Fix",
+        "approve_anyway": "Approve anyway"
       },
       "missing_draft": "The prepared record isn't available yet. Check the current receipt before continuing.",
       "missing_list": "Missing: {{fields}}",
