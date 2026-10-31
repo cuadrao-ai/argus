@@ -511,7 +511,7 @@ async def test_authorized_mail_books_when_the_server_says_it_is_aligned():
 
 
 @pytest.mark.asyncio
-async def test_a_forged_from_with_a_failed_check_goes_to_new_senders_and_counts():
+async def test_an_authorized_from_with_a_failed_check_is_pending_with_a_note_and_counts():
     raw = (
         b"Authentication-Results: mx.example; dmarc=pass\r\n"
         + message(("recibo.png", "image/png", png()))
@@ -524,10 +524,10 @@ async def test_a_forged_from_with_a_failed_check_goes_to_new_senders_and_counts(
     assert await world.runtime.next()
     saved = world.store.get(delivery.id, world.route.space_id)
     assert saved.auth_result == "failed"
-    assert saved.review_note is None
+    assert saved.review_note == "No pudimos verificar este remitente."
     assert saved.approved is False
     assert saved.cap_exempt is False
-    assert saved.inbox_group == "remitentes_nuevos"
+    assert saved.inbox_group == "bandeja"
     assert saved.state == "captured"
     day = business_day(world.clock())
     assert world.store._usage[(world.route.id, day)][0] == 1

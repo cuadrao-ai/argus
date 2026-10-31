@@ -8,6 +8,7 @@ BOUNCE_TEXT = "Esta dirección ya no recibe recibos."
 REPORT_LABEL = "Reportar dirección"
 REPORT_MAILBOX = "admin@cuadrao.ai"
 FIRST_SCAN_LABEL = "Prueba recibida"
+UNVERIFIED_SENDER_NOTE = "No pudimos verificar este remitente."
 
 
 def bounce_copy() -> str:
@@ -25,6 +26,10 @@ class IntakeDecision:
 
 
 def decide(standing: str, auth: str, *, first_authorized: bool) -> IntakeDecision:
+    if standing == "authorized" and auth == "failed":
+        return IntakeDecision(
+            "bandeja", auth, UNVERIFIED_SENDER_NOTE, False, False, False
+        )
     if auth != "aligned" or standing == "new":
         group = "remitentes_nuevos" if standing in ("new", "authorized") else None
         return IntakeDecision(group, auth, None, False, False, False)

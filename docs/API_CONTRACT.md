@@ -10339,7 +10339,12 @@ accept path recorded.
     remain enabled, and final Business approval stays with the owner.
   - GET `/api/v1/business/email/inbox` groups deliveries as
     `remitentes_nuevos`, then `bandeja`. A first scan from an authorized
-    sender sets `notice` to "Prueba recibida".
+    sender sets `notice` to "Prueba recibida". Mail from an authorized sender
+    whose provider DMARC or DKIM result is `fail` lands in `bandeja` with
+    `review_note` set to "No pudimos verificar este remitente." and
+    `approved` false. Every other item has `review_note` null. Mail from a
+    sender not on the list, or an authorized sender whose result is neither
+    pass nor fail, lands in `remitentes_nuevos`.
   - DELETE `/api/v1/business/email` switches the address off. A route can be
     switched off, never pointed at another Business or person.
   - GET `/api/v1/business/email/deliveries` and `/{id}` list the Business's

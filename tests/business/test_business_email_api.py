@@ -559,6 +559,36 @@ def test_new_senders_are_listed_before_the_tray(alice, runtime):  # noqa: F811
     assert [item["id"] for item in groups[1]["items"]] == [tray.id]
 
 
+def test_the_tray_carries_the_unverified_sender_note(alice, runtime):  # noqa: F811
+    from dataclasses import replace
+
+    store = runtime.store
+    route = _route_for(store, alice, "ferreterianunez@recibos.example.test")
+    space_id = alice.scope().owner.space_id
+    pending = store.enqueue(
+        "resend",
+        str(uuid4()),
+        (route.recipient,),
+        route_id=route.id,
+        space_id=space_id,
+        principal_id=route.principal_id,
+    )
+    store._deliveries[pending.id] = replace(
+        store.get(pending.id, space_id),
+        state="captured",
+        inbox_group="bandeja",
+        auth_result="failed",
+        review_note="No pudimos verificar este remitente.",
+    )
+    groups = alice.get("/email/inbox").json()["groups"]
+    item = groups[1]["items"][0]
+    assert (item["id"], item["review_note"], item["approved"]) == (
+        pending.id,
+        "No pudimos verificar este remitente.",
+        False,
+    )
+
+
 def test_owner_authorizes_one_sender_and_refuses_a_free_mail_domain(alice, runtime):  # noqa: F811
     body = {"kind": "address", "value": "Caja@Tienda.test", "status": "authorized"}
     created = alice.post("/email/senders", body)
