@@ -7,6 +7,7 @@ from argus.domain.business.contracts.facts import BusinessFacts, FiscalFacts, Kn
 from argus.domain.business.dgii_line import reason
 from argus.domain.business.month_close import summarize
 from argus.domain.business.review_flags import review_flags, unconfirmed
+from argus.domain.business.rnc_registry import RncRecord
 
 from tests.business.test_month_close import DAY, document
 
@@ -50,8 +51,60 @@ class TestRncCheckDigit:
         assert codes(facts(rnc="12345")) == []
 
 
+    @pytest.mark.parametrize(
+        ("rnc", "expected"),
+        [
+            ("100000022", []),
+            ("100000021", ["rnc_check_digit"]),
+            ("100000012", []),
+            ("100000013", ["rnc_check_digit"]),
+        ],
+        ids=["sum-mod-11-zero-checks-as-2", "sum-mod-11-zero-not-1", "last-weight-2", "last-weight-off"],
+    )
+    def test_mod_11_edges(self, rnc, expected):
+        assert codes(facts(rnc=rnc)) == expected
+
+
+class ListedRegistry:
+    def __init__(self, *numbers):
+        self.numbers = numbers
+
+    def lookup(self, number):
+        if number not in self.numbers:
+            return None
+        return RncRecord(
+            rnc=number,
+            name="Made-up SRL",
+            trade_name=None,
+            status="ACTIVO",
+            file_date=None,
+            verification="verificado",
+        )
+
+
+class TestRegister:
+    def test_a_listed_number_with_a_bad_digit_is_never_flagged(self):
+        registry = ListedRegistry("199990022")
+        assert review_flags(facts(rnc="199990022"), registry) == ()
+
+    def test_an_unlisted_number_with_the_same_bad_digit_is_flagged(self):
+        registry = ListedRegistry("199990022")
+        flagged = review_flags(facts(rnc="199990023"), registry)
+        assert [flag.code for flag in flagged] == ["rnc_check_digit"]
+
+
 class TestNcfFormat:
-    @pytest.mark.parametrize("ncf", ["B01000008", "B010000008", "B0100000001X"])
+    @pytest.mark.parametrize(
+        "ncf",
+        [
+            "B01000008",
+            "B010000008",
+            "B0100000001X",
+            "A0100000001",
+            "C0100000001",
+            "B01000000012",
+        ],
+    )
     def test_a_malformed_ncf_is_flagged_and_kept_as_read(self, ncf):
         view = facts(ncf=ncf)
         assert codes(view) == ["ncf_malformed"]

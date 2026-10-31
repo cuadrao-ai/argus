@@ -94,9 +94,13 @@ class PostgresWhatsAppStore:
             # the write; whatsapp_capture_same_space checks the same fact.
             if settlement.connection_id is not None and (
                 connection.execute(
-                    "select 1 from public.whatsapp_sender_links"
-                    " where destination_owner_id = %s and status = 'active' for share",
-                    (settlement.destination_owner_id,),
+                    "select 1 from public.whatsapp_sender_links l"
+                    " join public.whatsapp_inbound_messages m"
+                    " on m.sender_hash = l.wa_id_hash"
+                    " where m.provider_message_key = %s"
+                    " and l.destination_owner_id = %s and l.status = 'active'"
+                    " for share of l",
+                    (provider_message_key, settlement.destination_owner_id),
                 ).fetchone()
                 is None
             ):
