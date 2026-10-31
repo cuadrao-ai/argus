@@ -188,7 +188,9 @@ def test_ci_runs_guest_release_gates_with_disposable_local_supabase() -> None:
     assert "ARGUS_LOCAL_SUPABASE_URL" in joined_steps
     assert "ARGUS_LOCAL_SUPABASE_ANON_KEY" in joined_steps
     assert "ARGUS_LOCAL_SUPABASE_SERVICE_ROLE_KEY" in joined_steps
-    assert "tests/evals/test_chat_runtime_trajectory_harness.py" in joined_steps
+    # The provider-free guest tests run in backend-checks' directory-level
+    # `pytest tests`; repeating them here bought no extra coverage.
+    assert "tests/evals/test_chat_runtime_trajectory_harness.py" not in joined_steps
     # Glob, not a hand-list: a new _postgres proof must be gated without
     # editing the workflow. The hand-list was how uncovered tables shipped.
     assert "tests/test_*_postgres.py" in joined_steps
@@ -938,7 +940,6 @@ def test_real_postgres_matrix_runs_on_pinned_and_latest_supabase_cli() -> None:
         if step.get("if") == "matrix.supabase-cli == 'pinned'"
     ]
     assert pinned_only == [
-        "Run provider-free guest backend tests",
         "Run required local anonymous Auth matrix",
         "Set up Bun",
         "Install frontend dependencies",
