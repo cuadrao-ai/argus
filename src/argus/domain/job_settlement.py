@@ -21,7 +21,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 
-from argus.domain.backtest_job_scopes import RESEARCH_OPERATION_SCOPE
+from argus.domain.job_scopes import RESEARCH_OPERATION_SCOPE
 
 
 @dataclass(frozen=True)
