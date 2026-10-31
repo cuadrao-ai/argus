@@ -65,12 +65,12 @@ pull request:
 Backend and web cannot narrow: backend tests scan `git ls-files`, and a web
 test runs `git grep` over the whole checkout. database-checks holds the
 guest gates and every shared `tests/test_*_postgres.py` proof, replaying all
-migrations on the pinned and latest Supabase CLI; its tests read `docs/`, `web/`,
+migrations on the pinned Supabase CLI for a pull request, and on the pinned and latest CLI for a push; its tests read `docs/`, `web/`,
 `scripts/` and `fixtures/`, so it runs with the backend. It was named guest-release-gates before; no branch setting requires either name. ci.yml defines marketing-checks and the classifier selects it, so
 editing either runs it. Marketing reads nothing else outside its
 package; [the guard](../tests/test_ci_job_selection.py) proves that against the
-tree. Pushes run every code job on both CLIs, and so does a manual run with
-`full_run` checked. Without it, a manual or scheduled run is the latest-CLI
+tree. A pull request runs the Postgres tests on the pinned CLI only. Pushes run every code job on both CLIs, and so does a manual run with
+`full_run` checked. Without it, a manual run, and the weekly schedule, is the latest-CLI
 Postgres probe. A git failure fails the classifier and so the `ci` check. The
 docs-only lane still skips web and Postgres tests that read `docs/` (for example
 `docs/api/openapi.yaml`), as it did before.
