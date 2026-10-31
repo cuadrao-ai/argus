@@ -147,7 +147,7 @@ UTC day and a second daily ceiling per authenticated guest session. Both
 use `guest_compute_turns` in `visitor_usage_counters`: the visitor row is
 keyed on a digest of the trusted client IP, and the session row is keyed
 on `session:<guest user id>`. The visitor ceiling defaults to 300. The
-session ceiling defaults to 100 (`ARGUS_GUEST_SESSION_DAILY_TURN_CEILING`)
+session ceiling defaults to 100 (`CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING`)
 so one workspace hopping IPs cannot inherit the shared-NAT headroom. A
 guest hits whichever remaining count is lower. The unit is claimed
 atomically before model work (`claim_guest_compute_usage`); a failed turn
@@ -171,7 +171,7 @@ persistence error) is not a daily cap: `POST /chat/stream` answers
 `503` with `code: "guest_compute_claim_unavailable"` and a short
 `Retry-After`. Run actions are execution and do not count.
 Signed-in accounts carry their own daily chat ceiling, default 200
-(`ARGUS_REGISTERED_DAILY_TURN_CEILING`), claimed atomically before
+(`CUADRAO_REGISTERED_DAILY_TURN_CEILING`), claimed atomically before
 model work (`claim_registered_compute_usage`) against `user:<account id>`
 on `account_compute_turns`, at the same point in the turn as the guest
 claim, so a `404` or a rejected replay costs nothing. A failed turn
@@ -738,7 +738,7 @@ owner preview uses the same layout. Anyone with the link can read it without an
 access list or sign-in wall; only the receiver-owned write needs authentication.
 The existing guest bootstrap supplies that authentication for signed-out users.
 
-Behind the default-off `ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED` flag. While it is
+Behind the default-off `CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED` flag. While it is
 off, every path below answers exactly as a route that does not exist: status 404
 with body `{"detail":"Not Found"}`, produced by the same handler an unmatched path
 uses. A distinctive problem body would still advertise that receipt code is
@@ -1116,7 +1116,7 @@ projection and when a retry preserves an existing name.
 The text is user-supplied account presentation, not verified legal identity.
 It never fills `preferred_name` or copies names into Auth metadata.
 
-The existing `ARGUS_APPLE_REVOCATION_CAPTURE_ENABLED` flag keeps this command
+The existing `CUADRAO_APPLE_REVOCATION_CAPTURE_ENABLED` flag keeps this command
 default off. While off, the plain 404 is returned before authentication or body
 parsing. When on, it requires the verified registered owner's account capability,
 durable PostgreSQL, and one unambiguous current Apple identity from the shared
@@ -2388,7 +2388,7 @@ Supabase Auth handles identity/session heavy lifting. Alpha should keep auth low
 - email + password
 
 **Private-alpha access:**
-- `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` is the one gate over permanent
+- `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` is the one gate over permanent
   signup, login, and authenticated requests, and it has been open in production
   since 2026-08-12. Public registration is therefore open: the server-side
   Supabase `private_alpha_allowlist` table admits any email and denies only a
@@ -2458,7 +2458,7 @@ Supabase Auth handles identity/session heavy lifting. Alpha should keep auth low
   left out of the generated OpenAPI document (`include_in_schema=False`), so it
   needs no entry in the exclusion list above. It exists
   for the forged-header check at the promotion that carries #674 (#694). It is
-  off unless `ARGUS_CLIENT_IP_ECHO_ENABLED` is true. It reads and changes
+  off unless `CUADRAO_CLIENT_IP_ECHO_ENABLED` is true. It reads and changes
   nothing. It returns the address `argus.api.client_ip.resolve_client_ip`
   chose, the trusted header name, the socket peer, and the client IP headers
   and `Host` the request carried. Missing or invalid ops authorization, or the
@@ -2608,10 +2608,10 @@ Supabase Auth handles identity/session heavy lifting. Alpha should keep auth low
 ## Guest identity and policy endpoints
 
 Guest access is additive and server-authoritative.
-`ARGUS_GUEST_ACCESS_ENABLED` defaults to `true`; explicit `false` is the
+`CUADRAO_GUEST_ACCESS_ENABLED` defaults to `true`; explicit `false` is the
 emergency bootstrap kill switch. `NEXT_PUBLIC_GUEST_ACCESS_ENABLED` also
 defaults to `true` and controls presentation only. The independent
-`ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` policy has been open in production
+`CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` policy has been open in production
 since 2026-08-12, so guests may create permanent accounts. That policy is the
 one flag here that fails closed when unset, so an environment omitting it denies
 permanent accounts rather than allowing them.
@@ -2729,7 +2729,7 @@ owner until that claim commits.
 excluded from owner rewriting: they retain anonymous attribution or become
 null through their existing foreign-key behavior.
 
-`ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` has been live in production since
+`CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` has been live in production since
 2026-08-12, so unlisted ordinary accounts may authenticate without role
 elevation while explicitly disabled rows stay blocked. When that flag is off
 instead, permanent signup and login admit active allowlist roles only.
@@ -2973,7 +2973,7 @@ call does not finish within 30 seconds, login returns `400`
 
 ## `POST /auth/apple/authorization-code`
 
-Default-off behind `ARGUS_APPLE_REVOCATION_CAPTURE_ENABLED`. The native app
+Default-off behind `CUADRAO_APPLE_REVOCATION_CAPTURE_ENABLED`. The native app
 calls it right after a Sign in with Apple through Supabase Auth's ID-token
 sign-in, under that new session, with Apple's one-time authorization code. The
 API exchanges the code at Apple, checks that the returned identity token's
@@ -3414,7 +3414,7 @@ Argus supports English and Spanish (Latin America) in Alpha.
 
 Deletes the signed-in person's account, in the app. A guest session is deleted
 by the same command. Off unless
-`ARGUS_ACCOUNT_DELETION_ENABLED` is on; while off it answers `404` before any
+`CUADRAO_ACCOUNT_DELETION_ENABLED` is on; while off it answers `404` before any
 authentication. The account is always the session's. The body requires a
 confirmation and accepts an optional `apple_authorization_code` of 1–512 ASCII
 characters. Any other field is a `422`:
@@ -3685,8 +3685,8 @@ chat turn recalls no saved memory, and `POST /memory/candidates` and
 when a source is a Business conversation, one of its messages, or evidence it
 produced.
 
-**Business chat.** `ARGUS_BUSINESS_CHAT_ENABLED` is a default-off flag nested
-inside `ARGUS_BUSINESS_PILOT_ENABLED`; Business chat stays off until Business
+**Business chat.** `CUADRAO_BUSINESS_CHAT_ENABLED` (older `ARGUS_BUSINESS_CHAT_ENABLED`) is a default-off flag nested
+inside `CUADRAO_BUSINESS_PILOT_ENABLED` (older `ARGUS_BUSINESS_PILOT_ENABLED`); Business chat stays off until Business
 turns have their own tool restrictions. While it is off (or the pilot is off),
 `POST /conversations` with `surface: business` and every turn or card action on
 a Business conversation answer 404 `business_chat_unavailable` with
@@ -3700,6 +3700,17 @@ conversations keep working, so their owner can see and delete them. Every
 `POST` under `/conversations/{conversation_id}` must declare its side, Business
 chat or Personal only; `tests/test_business_chat_flag.py` enforces this.
 `GET /business/workspace` reports the flag as `chat_available`.
+
+## `GET /chat/starter-prompts`
+
+Returns the localized generic starter prompts for the signed-in user's profile
+language. Requires a session.
+
+```json
+{ "prompts": ["string"] }
+```
+
+---
 
 ## `GET /conversations`
 
@@ -6674,27 +6685,13 @@ symbol lineage. This protects the bounded per-keystroke read contract.
 
 # 17.1 Private Alpha Observability Envelope
 
-### Internal question/outcome evidence
+### Internal question/outcome evidence (retired)
 
-The Refusal log observes terminal chat replies and validated artifact-action
-requests rejected before message storage. This adds no public endpoint, request
-field, response metadata, SSE frame, visible copy, or model-facing text.
-The service-only `refusal_log` SQL view is documented in
-`docs/DATA_MODEL.md` under `refusal_observations and refusal_log`.
-
-Accepted turns link the exact persisted user/assistant messages and read their
-question, action, original outcome metadata, and response from those owners.
-Rejected actions retain the submitted question, validated action, actual HTTP
-status, and unchanged problem response. Caller-supplied artifact/conversation
-ids remain claims; the evidence writer neither resolves them nor treats them
-as proof of ownership. Repeated rejected requests count independently even when
-they reuse `X-Request-ID`.
-
-The writer observes all terminal replies without identifying which ones are
-refusals or deciding whether a boundary is correct. Observation failure leaves
-the public response and allowance behavior unchanged and emits only a
-content-free operational failure. This evidence remains internal to Supabase,
-outside frontend reads, PostHog, model context, and the live-eval fingerprint.
+Historical. The Refusal log evidence writes for terminal chat replies and
+rejected artifact actions were removed, and the backing `refusal_log` view and
+`refusal_observations` table were dropped by
+`20261030220000_drop_refusal_observations.sql`. No public endpoint, request
+field, response metadata, SSE frame, or model-facing text changed.
 
 ### Product event envelope
 
@@ -7361,7 +7358,7 @@ the tap's row holds the rating. Message thumbs send `positive` or `negative`.
 Every accepted submission, guest or registered and of any type, is emailed to
 `support@get-argus.com` after the response is sent, through the Resend SMTP
 credential the access welcome email already uses
-(`ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD`). The email carries the type, account kind,
+(`CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD`). The email carries the type, account kind,
 profile language, message, and the sanitized context above, and adds no contact
 details the submission did not already carry. A missing credential or a failed
 delivery is logged and never changes the response or the saved feedback.
@@ -7518,7 +7515,7 @@ formatted amount, minor amount, currency and fraction digits. When the source is
 hidden, the legacy top-level amount stays null and its required currency fields
 derive from the first visible leg. Hidden source denomination is not disclosed.
 
-`ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED` defaults to false and rejects mixed-currency
+`CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED` defaults to false and rejects mixed-currency
 preview and confirmation with `cross_currency_transfers_disabled`. While enabled
 locally, a missing received amount fails with `destination_amount_required`; an
 unequal same-currency pair fails with `transfer_amount_mismatch`. Non-transfer
@@ -7907,7 +7904,7 @@ Unknown assets and debts may link. Omission never withdraws a known estimate.
 
 # 17.4 Households (canonical membership and financial adapters)
 
-Registered-only, default-off `ARGUS_HOUSEHOLDS_ENABLED`. The landed
+Registered-only, default-off `CUADRAO_HOUSEHOLDS_ENABLED`. The landed
 `households`, `household_members`, `household_invitations`, and
 `household_account_grants` remain the only Household authority. Personal
 financial endpoints remain strict-owner. While disabled, Household routes
@@ -7972,7 +7969,7 @@ The `code` is 12 Crockford base32 characters (60 bits) shown as
 letters. Only a keyed digest is stored, outside every client-readable table,
 with the same single use, expiry and revoke rules (see
 [Invite code security](#invite-code-security)). `link` is
-`https://cuadrao.ai/invite#<token>` when `ARGUS_INVITE_UNIVERSAL_LINK_ENABLED`
+`https://cuadrao.ai/invite#<token>` when `CUADRAO_INVITE_UNIVERSAL_LINK_ENABLED`
 is on, otherwise today's `argus-household://invite#<token>`. The QR is drawn on
 the device from `link`; no QR image is stored. Accepting a household invitation
 also admits the person to the beta and marks the who-invited-whom record
@@ -7988,7 +7985,7 @@ own account consent, grouped as `{account_id,recipients:[{membership_id,permissi
 
 ## Beta invites, founder group link and code gate
 
-Registered-only, default-off `ARGUS_BETA_INVITES_ENABLED`, durable PostgreSQL
+Registered-only, default-off `CUADRAO_BETA_INVITES_ENABLED`, durable PostgreSQL
 only. While disabled, or in memory mode, every `/api/v1/invites` route returns
 `404 invites_unavailable` before authentication. Responses are
 `Cache-Control: no-store`. Decisions: [October 2 lane locks](specs/argus-decision-log.md#october-2-2026-cuadrao-lane-locks);
@@ -8012,17 +8009,17 @@ Each user has 10 beta invites; a live or accepted invite uses one, a revoked or
 expired unaccepted invite returns it. The eleventh answers
 `409 beta_invite_quota_exhausted`. A beta code admits one person; a person who
 is already admitted does not use it up (`outcome:already_admitted`). The founder
-is `ARGUS_INVITE_FOUNDER_USER_ID`; anyone else gets `403 founder_required`. A
+is `CUADRAO_INVITE_FOUNDER_USER_ID`; anyone else gets `403 founder_required`. A
 group link is the one exception to single use: redemption increments the count
 in one guarded update, so concurrent taps cannot pass the cap. Over the cap the
 answer is `409 group_link_full`, the overflow is counted, and redeem failures
-carry `context.waitlist_url` when `ARGUS_WAITLIST_URL` is set. A group link is
+carry `context.waitlist_url` when `CUADRAO_WAITLIST_URL` is set. A group link is
 beta-only and never creates a household membership; its record rows name the
-link, not a person, as the inviter. With `ARGUS_BETA_INVITE_GATE_ENABLED` on, a
+link, not a person, as the inviter. With `CUADRAO_BETA_INVITE_GATE_ENABLED` on, a
 caller who has not redeemed a beta code, a household invitation or a group link
 gets `admitted:false` from access and `403 beta_invite_required` when sending a
 beta invite. The gate is read by the native app; it does not change
-`ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED` or web sign-up. Accounts that existed when
+`CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED` or web sign-up. Accounts that existed when
 the migration ran are admitted. The caller is always the verified JWT subject;
 a missing or null subject (as under `service_role`) owns nothing, is never the
 founder, and is refused with `401 verified_user_required`. Row-level security on
@@ -8031,11 +8028,11 @@ the new tables likewise matches no row when `auth.uid()` is null.
 ## Invite code security
 
 Applies to household invitation codes and to beta and group-link codes (#789).
-Without it, none of `ARGUS_HOUSEHOLDS_ENABLED`, `ARGUS_BETA_INVITES_ENABLED` or
-`ARGUS_BETA_INVITE_GATE_ENABLED` may be turned on in a hosted environment.
+Without it, none of `CUADRAO_HOUSEHOLDS_ENABLED`, `CUADRAO_BETA_INVITES_ENABLED` or
+`CUADRAO_BETA_INVITE_GATE_ENABLED` may be turned on in a hosted environment.
 
 **Keyed digests.** A code is stored only as HMAC-SHA-256 under
-`ARGUS_INVITE_CODE_SECRET` (at least 32 characters, and not an obvious
+`CUADRAO_INVITE_CODE_SECRET` (at least 32 characters, and not an obvious
 placeholder such as one repeated character: at least 10 distinct characters and
 about 96 bits by a per-character entropy estimate; generate with
 `openssl rand -base64 48`), written `v2.<key id>.<hex>`, where the key id is
@@ -8055,14 +8052,14 @@ the release warmup (`.github/warmup-render.sh`) fails. `/health` is unchanged. I
 looking up a code answers `503 invite_codes_unavailable`. There is no unkeyed
 fallback. Link tokens keep working.
 
-**Rotation.** Set `ARGUS_INVITE_CODE_SECRET_PREVIOUS` to the old secret and
-`ARGUS_INVITE_CODE_SECRET` to the new one, then deploy. New codes use the new
+**Rotation.** Set `CUADRAO_INVITE_CODE_SECRET_PREVIOUS` to the old secret and
+`CUADRAO_INVITE_CODE_SECRET` to the new one, then deploy. New codes use the new
 secret; a code is looked up under the new secret first and then the old one, and
 a code found under the old secret is re-hashed to the new one on that lookup
 (`rehashed_at`). Keep the old secret for at least the longest remaining code
 lifetime: seven days when no group link is live, otherwise until the last live
 group link expires (at most a year), or revoke and re-issue those links. Then
-remove `ARGUS_INVITE_CODE_SECRET_PREVIOUS`; any code still under the old key
+remove `CUADRAO_INVITE_CODE_SECRET_PREVIOUS`; any code still under the old key
 stops working, and its link keeps working. If a secret leaks, rotate without the
 previous secret: every outstanding code stops at once and links still work.
 Digests still under a key: `select split_part(digest,'.',2), count(*) from
@@ -8284,7 +8281,7 @@ payment merely because they are contributions.
 
 ### Routes and commands
 
-All routes reuse registered-only `ARGUS_HOUSEHOLDS_ENABLED`, server discovery,
+All routes reuse registered-only `CUADRAO_HOUSEHOLDS_ENABLED`, server discovery,
 `Cache-Control: no-store`, and live membership checks. They are additive under
 `/api/v1/households/{household_id}/plan`:
 
@@ -8805,7 +8802,7 @@ marked for attention and is never automatically billed again. Explicit prepare
 or resume recovers from retained source; completed preparation is replayed without
 another model call. Identical owner/file captures reuse the same draft.
 
-`ARGUS_DOCUMENT_JOBS_ENABLED` (default off) changes only who runs and recovers
+`CUADRAO_DOCUMENT_JOBS_ENABLED` (older `ARGUS_DOCUMENT_JOBS_ENABLED`) (default off) changes only who runs and recovers
 preparation; routes and bodies stay the same. Off, the rules above hold
 exactly. On, capture and `/prepare` or `/resume` record one attempt before
 responding and hand it to a worker (a Render Workflow task, or a task in the
@@ -8830,8 +8827,8 @@ attempt whose worker died as follows:
 Only the owner's `/prepare` or `/resume` with `X-Extraction-Consent: true`
 starts a new paid attempt from `needs_attention`. A superseded attempt's late
 result is refused. Instances coordinate through the database, so one attempt is
-dispatched once. Settings are `ARGUS_DOCUMENT_JOBS_ENABLED`,
-`ARGUS_DOCUMENT_JOBS_WORKFLOW_TASK` and `ARGUS_DOCUMENT_JOBS_SWEEP_SECONDS`. Design:
+dispatched once. Settings are `CUADRAO_DOCUMENT_JOBS_ENABLED`,
+`CUADRAO_DOCUMENT_JOBS_WORKFLOW_TASK` and `CUADRAO_DOCUMENT_JOBS_SWEEP_SECONDS` (older `ARGUS_` names). Design:
 `docs/specs/lanes/cuadrao-document-preparation-jobs.md`.
 
 Preparation preserves extracted observations and receipt itemization separately

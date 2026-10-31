@@ -178,7 +178,7 @@ def _required_idempotency_key(request: Request, raw: str | None) -> str:
         status_code=400,
         code="idempotency_key_required",
         title="Idempotency Key Required",
-        detail="POST /financial-accounts requires an Idempotency-Key header.",
+        detail="This request requires an Idempotency-Key header.",
     )
 
 

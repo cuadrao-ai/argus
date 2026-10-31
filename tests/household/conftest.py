@@ -52,8 +52,8 @@ def invite_code_secret(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """
     from argus.api import invite_limits
 
-    monkeypatch.setenv("ARGUS_INVITE_CODE_SECRET", TEST_CODE_SECRET)
-    monkeypatch.delenv("ARGUS_INVITE_CODE_SECRET_PREVIOUS", raising=False)
+    monkeypatch.setenv("CUADRAO_INVITE_CODE_SECRET", TEST_CODE_SECRET)
+    monkeypatch.delenv("CUADRAO_INVITE_CODE_SECRET_PREVIOUS", raising=False)
     invite_limits.reset()
     yield
     invite_limits.reset()
@@ -110,12 +110,12 @@ def gateway(identities: dict[str, dict[str, Any]]) -> MagicMock:
 @pytest.fixture
 def surface_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ARGUS_FINANCIAL_ACCOUNTS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_HOUSEHOLDS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_HOUSEHOLDS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
 
 
 @pytest.fixture

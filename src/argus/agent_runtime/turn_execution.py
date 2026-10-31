@@ -574,9 +574,9 @@ def _runtime_event_boundary(runtime_event: dict[str, Any]) -> dict[str, str]:
 
 
 def _turn_deadline_seconds() -> float:
-    raw = os.getenv("ARGUS_TURN_DEADLINE_SECONDS")
+    raw = os.getenv("CUADRAO_TURN_DEADLINE_SECONDS")
     if raw is None or not raw.strip():
-        raw = os.getenv("ARGUS_RUNTIME_EVENT_TIMEOUT_SECONDS")
+        raw = os.getenv("CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS")
     if raw is None or not raw.strip():
         return DEFAULT_TURN_DEADLINE_SECONDS
     try:
@@ -587,7 +587,7 @@ def _turn_deadline_seconds() -> float:
 
 
 def _turn_call_allowance() -> int:
-    raw = os.getenv("ARGUS_TURN_CALL_ALLOWANCE")
+    raw = os.getenv("CUADRAO_TURN_CALL_ALLOWANCE")
     if raw is None or not raw.strip():
         return DEFAULT_TURN_CALL_ALLOWANCE
     try:

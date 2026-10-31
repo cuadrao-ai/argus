@@ -28,10 +28,10 @@ LUNA_MODEL = "openai/gpt-5.6-luna"
 def tier_environment(monkeypatch: pytest.MonkeyPatch, provider_free_env) -> None:
     monkeypatch.setenv("APP_ENV", "development")
     for tier in ("UTILITY", "CHAT", "STRUCTURED", "CONTEXT"):
-        monkeypatch.setenv(f"ARGUS_{tier}_MODEL", f"{tier.lower()}/primary")
-        monkeypatch.setenv(f"ARGUS_{tier}_FALLBACK_MODEL", f"{tier.lower()}/fallback")
-    monkeypatch.setenv("ARGUS_READOUT_MODEL", LUNA_MODEL)
-    monkeypatch.setenv("ARGUS_READOUT_FALLBACK_MODEL", LUNA_MODEL)
+        monkeypatch.setenv(f"CUADRAO_{tier}_MODEL", f"{tier.lower()}/primary")
+        monkeypatch.setenv(f"CUADRAO_{tier}_FALLBACK_MODEL", f"{tier.lower()}/fallback")
+    monkeypatch.setenv("CUADRAO_READOUT_MODEL", LUNA_MODEL)
+    monkeypatch.setenv("CUADRAO_READOUT_FALLBACK_MODEL", LUNA_MODEL)
 
 
 def test_quick_take_resolves_only_the_readout_tier_and_deduplicates_luna() -> None:
@@ -47,8 +47,8 @@ def test_quick_take_resolves_only_the_readout_tier_and_deduplicates_luna() -> No
 def test_missing_readout_configuration_cannot_borrow_another_tier(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("ARGUS_READOUT_MODEL", "")
-    monkeypatch.setenv("ARGUS_READOUT_FALLBACK_MODEL", "")
+    monkeypatch.setenv("CUADRAO_READOUT_MODEL", "")
+    monkeypatch.setenv("CUADRAO_READOUT_FALLBACK_MODEL", "")
     assert openrouter.openrouter_model_candidates(task="result_summary") == []
     assert openrouter.resolve_openrouter_model(task="result_summary") == ""
 
@@ -168,12 +168,12 @@ async def test_luna_attempt_preserves_receipt_usage_and_never_tries_another_mode
 )
 def test_readout_models_reach_each_runtime_environment_contract(contract: str) -> None:
     values = _contract_array(contract)
-    for key in ("ARGUS_READOUT_MODEL", "ARGUS_READOUT_FALLBACK_MODEL"):
+    for key in ("CUADRAO_READOUT_MODEL", "CUADRAO_READOUT_FALLBACK_MODEL"):
         assert values.count(key) == 1
 
 
 @pytest.mark.parametrize("service", ["argus-api", "argus-backtests"])
-@pytest.mark.parametrize("key", ["ARGUS_READOUT_MODEL", "ARGUS_READOUT_FALLBACK_MODEL"])
+@pytest.mark.parametrize("key", ["CUADRAO_READOUT_MODEL", "CUADRAO_READOUT_FALLBACK_MODEL"])
 def test_release_audit_rejects_missing_readout_model_configuration(
     tmp_path: Path, service: str, key: str
 ) -> None:

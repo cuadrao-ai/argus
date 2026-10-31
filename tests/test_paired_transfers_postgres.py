@@ -15,7 +15,7 @@ pytestmark = shared.pytestmark
 
 @pytest.fixture
 def paired(scene, monkeypatch):
-    monkeypatch.setenv("ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
     source, dest = account(scene, currency="USD"), account(scene, currency="DOP")
     money, body = command(
         scene,

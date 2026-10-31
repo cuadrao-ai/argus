@@ -82,7 +82,7 @@ def test_view_no_write_and_fork_is_owned_idempotent_and_revoked_copy_survives(
     from tests.test_public_excerpt_api import _create, _seed
 
     monkeypatch.setattr(state, "supabase_gateway", None)
-    monkeypatch.setenv("ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED", "true")
     state.store.reset()
     client = TestClient(app)
     owner = _seed(client)
@@ -135,7 +135,7 @@ def test_flag_off_fork_is_hidden_before_auth_or_body_validation(monkeypatch):
     def auth_must_not_run():
         raise AssertionError("auth resolved behind disabled flag")
 
-    monkeypatch.delenv("ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED", raising=False)
+    monkeypatch.delenv("CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED", raising=False)
     app.dependency_overrides[current_user] = auth_must_not_run
     try:
         client = TestClient(app)

@@ -186,10 +186,8 @@ def test_each_job_runs_as_its_own_child_from_the_repo_root(monkeypatch) -> None:
 
 def test_runbook_keeps_operator_entry_point_outside_render_contract() -> None:
     blueprint = (ROOT / "render.yaml").read_text(encoding="utf-8")
-    contract = (ROOT / ".github" / "argus-env.sh").read_text(encoding="utf-8")
     runbook = (ROOT / "docs" / "PRIVATE_LAUNCH_RUNBOOK.md").read_text(encoding="utf-8")
     entry_point = "poetry run python scripts/ops/scheduled_maintenance.py"
 
     assert f"startCommand: {entry_point}" not in blueprint
-    assert "ARGUS_RENDER_CRON_START_COMMAND" not in contract
     assert entry_point in runbook

@@ -117,7 +117,7 @@ hash_stdin() {
 
 configure_local_smoke_env() {
   export APP_ENV=local-smoke
-  export ARGUS_OPS_TOKEN="${ARGUS_OPS_TOKEN:-local-smoke-token}"
+  export CUADRAO_OPS_TOKEN="${CUADRAO_OPS_TOKEN:-local-smoke-token}"
   export ARGUS_READINESS_ASSET_TIMEOUT_SECONDS="${ARGUS_READINESS_ASSET_TIMEOUT_SECONDS:-10}"
   argus_export_dev_mode
   export ARGUS_CONTEXT_PACKETS_ENABLED=false
@@ -138,12 +138,10 @@ configure_local_smoke_env() {
       ;;
   esac
 
-  export NEXT_PUBLIC_APP_ENV=local-smoke
   export NEXT_PUBLIC_MOCK_AUTH=true
   export NEXT_PUBLIC_ENABLE_SPANISH=true
   export NEXT_PUBLIC_ARGUS_API_URL="${API_URL}/api/v1"
   export NEXT_PUBLIC_OMNISEARCH_ENABLED=true
-  export NEXT_PUBLIC_CHAT_EXPLORATORY_SUGGESTIONS_ENABLED=false
 }
 
 json_env_report() {
@@ -161,11 +159,11 @@ local_env_fingerprint() {
   {
     printf "workflow_mode=%s\n" "$WORKFLOW_MODE"
     for key in \
-      ARGUS_PERSISTENCE_MODE \
+      CUADRAO_PERSISTENCE_MODE \
       ARGUS_DEV_MEMORY_FALLBACK \
       ARGUS_MARKET_DATA_PROVIDER_MODE \
-      ARGUS_CHECKPOINTER_MODE \
-      ARGUS_MOCK_AUTH \
+      CUADRAO_CHECKPOINTER_MODE \
+      CUADRAO_MOCK_AUTH \
       ARGUS_BACKTEST_JOBS_SHADOW_ENABLED \
       ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED \
       ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED \
@@ -174,8 +172,7 @@ local_env_fingerprint() {
       NEXT_PUBLIC_MOCK_AUTH \
       NEXT_PUBLIC_ENABLE_SPANISH \
       NEXT_PUBLIC_ARGUS_API_URL \
-      NEXT_PUBLIC_OMNISEARCH_ENABLED \
-      NEXT_PUBLIC_CHAT_EXPLORATORY_SUGGESTIONS_ENABLED
+      NEXT_PUBLIC_OMNISEARCH_ENABLED
     do
       printf "%s=%s\n" "$key" "${!key:-}"
     done
@@ -199,11 +196,11 @@ print_contract_report() {
   fi
   echo "workflow_mode=$WORKFLOW_MODE"
   echo "runtime_mode=$(json_env_report \
-    ARGUS_PERSISTENCE_MODE \
+    CUADRAO_PERSISTENCE_MODE \
     ARGUS_DEV_MEMORY_FALLBACK \
     ARGUS_MARKET_DATA_PROVIDER_MODE \
-    ARGUS_CHECKPOINTER_MODE \
-    ARGUS_MOCK_AUTH \
+    CUADRAO_CHECKPOINTER_MODE \
+    CUADRAO_MOCK_AUTH \
     ARGUS_BACKTEST_JOBS_SHADOW_ENABLED \
     ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED \
     ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED \
@@ -211,8 +208,7 @@ print_contract_report() {
     ARGUS_BACKTEST_REAL_WORKFLOW_TASK)"
   echo "feature_flags=$(json_env_report \
     NEXT_PUBLIC_ENABLE_SPANISH \
-    NEXT_PUBLIC_OMNISEARCH_ENABLED \
-    NEXT_PUBLIC_CHAT_EXPLORATORY_SUGGESTIONS_ENABLED)"
+    NEXT_PUBLIC_OMNISEARCH_ENABLED)"
   echo "env_fingerprint=$(local_env_fingerprint)"
 }
 
@@ -293,7 +289,7 @@ check_local_readiness() {
       -o "$readiness_json" \
       -w "%{http_code}" \
       --max-time 20 \
-      -H "Authorization: Bearer ${ARGUS_OPS_TOKEN}" \
+      -H "Authorization: Bearer ${CUADRAO_OPS_TOKEN}" \
       "${API_URL}/internal/readiness?force=true"
   )"
   if [ "$status" != "200" ] && [ "$status" != "503" ]; then
@@ -325,7 +321,7 @@ statuses = {
     for check in checks
 }
 allowed_degraded_readiness = set()
-if os.environ.get("ARGUS_PERSISTENCE_MODE") == "memory":
+if os.environ.get("CUADRAO_PERSISTENCE_MODE") == "memory":
     allowed_degraded_readiness.add("supabase")
 unexpected_degraded = []
 allowed_degraded_seen = False

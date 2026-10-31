@@ -28,8 +28,8 @@
     "author_loader": 17
   },
   "configuration_names": [
-    "ARGUS_BETA_INVITES_ENABLED",
-    "ARGUS_BETA_INVITE_GATE_ENABLED"
+    "CUADRAO_BETA_INVITES_ENABLED",
+    "CUADRAO_BETA_INVITE_GATE_ENABLED"
   ],
   "configuration_disposition": "existing flags explicitly false in Render and canonical release profile; no hosted application or activation",
   "scope_and_limits": "Entropy floor mutation and own-PID lock observer red controls; census/document assertions; generation and deployment ordering clarified. Hosted WEB_CONCURRENCY/readback, secret setup, destructive migration approval/application and activation remain open; parent804 not closed.",

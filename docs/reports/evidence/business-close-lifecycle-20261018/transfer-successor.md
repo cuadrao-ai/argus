@@ -109,8 +109,8 @@ The final test command was run from the repository root.
 
 ```sh
 ARGUS_DISPOSABLE_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:59432/business_transfer_mail_testdb \
-OPENROUTER_API_KEY= ARGUS_PROD_OPENROUTER_API_KEY= \
-ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY= ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD= \
+OPENROUTER_API_KEY= CUADRAO_PROD_OPENROUTER_API_KEY= \
+CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY= CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD= \
 /private/tmp/cuadrao-lane6c-parsers-deps/.venv/bin/python3.10 -m pytest \
 -o addopts= --disable-warnings -q \
 tests/test_business_transfer_mail.py tests/test_business_transfer_mail_postgres.py \

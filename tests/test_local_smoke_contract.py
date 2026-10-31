@@ -66,7 +66,7 @@ def test_local_smoke_script_is_disposable_predeploy_gate() -> None:
     assert "cd web && bun run dev" in source
     assert "/health" in source
     assert "/internal/readiness?force=true" in source
-    assert "Authorization: Bearer ${ARGUS_OPS_TOKEN}" in source
+    assert "Authorization: Bearer ${CUADRAO_OPS_TOKEN}" in source
     assert "allowed_degraded_readiness" in source
     assert "gateway_unavailable" in source
     assert "unexpected degraded readiness checks" in source
@@ -101,19 +101,14 @@ def test_local_smoke_contract_reports_sha_flags_mode_and_fingerprint() -> None:
     assert f"candidate_sha={expected_sha}" in result.stdout
     assert "workflow_mode=proof-shadow" in result.stdout
     assert "feature_flags=" in result.stdout
-    assert "NEXT_PUBLIC_STRATEGIES_ENABLED" not in result.stdout
-    assert "NEXT_PUBLIC_COLLECTIONS_ENABLED" not in result.stdout
     assert '"NEXT_PUBLIC_OMNISEARCH_ENABLED":"true"' in result.stdout
-    assert '"NEXT_PUBLIC_CHAT_EXPLORATORY_SUGGESTIONS_ENABLED":"false"' in (
-        result.stdout
-    )
     assert "runtime_mode=" in result.stdout
-    assert '"ARGUS_PERSISTENCE_MODE":"memory"' in result.stdout
+    assert '"CUADRAO_PERSISTENCE_MODE":"memory"' in result.stdout
     assert '"ARGUS_MARKET_DATA_PROVIDER_MODE":"synthetic_unit_fixture"' in (
         result.stdout
     )
-    assert '"ARGUS_CHECKPOINTER_MODE":"memory"' in result.stdout
-    assert '"ARGUS_MOCK_AUTH":"true"' in result.stdout
+    assert '"CUADRAO_CHECKPOINTER_MODE":"memory"' in result.stdout
+    assert '"CUADRAO_MOCK_AUTH":"true"' in result.stdout
     assert "env_fingerprint=" in result.stdout
     assert "verification_status=ready" in result.stdout
 

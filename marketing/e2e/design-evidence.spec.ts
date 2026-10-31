@@ -5,7 +5,7 @@ const cases = [
     locale: "es",
     home: "/",
     contact: "/contacto",
-    language: "Idioma",
+    language: "English",
     contactAction: "Hablemos de tu negocio",
     login: "Iniciar sesión",
     menu: "Abrir menú",
@@ -20,7 +20,7 @@ const cases = [
     locale: "en",
     home: "/en",
     contact: "/en/contact",
-    language: "Language",
+    language: "Español",
     contactAction: "Let’s talk about your business",
     login: "Log in",
     menu: "Open menu",
@@ -44,13 +44,13 @@ for (const copy of cases) {
     if (info.project.name === "mobile") await page.screenshot(screenshot);
     else await header.screenshot(screenshot);
 
-    const language = nav.getByRole("group", { name: copy.language });
+    const language = nav.locator("[data-language-switch]");
     const contact = nav.getByRole("link", { name: copy.contactAction, exact: true });
     const login = nav.getByRole("button", { name: copy.login, exact: true });
-    await expect(language).toBeVisible();
+    await expect(language).toContainText(copy.language);
     await expect(contact).toHaveAttribute("href", "/contacto");
     await expect(login).toHaveAttribute("data-preview-unwired", "true");
-    const boxes = await Promise.all([language, contact, login].map((item) => item.boundingBox()));
+    const boxes = await Promise.all([contact, login, language].map((item) => item.boundingBox()));
     if (info.project.name === "mobile") {
       expect(boxes[0]!.y).toBeLessThan(boxes[1]!.y);
       expect(boxes[1]!.y).toBeLessThan(boxes[2]!.y);

@@ -1,6 +1,6 @@
 """Exposure gate and process wiring for Sign in with Apple token capture.
 
-Default-off behind ``ARGUS_APPLE_REVOCATION_CAPTURE_ENABLED``. While off,
+Default-off behind ``CUADRAO_APPLE_REVOCATION_CAPTURE_ENABLED``. While off,
 :class:`AppleCaptureFlagGateMiddleware` answers the capture path with the plain
 404 of a route that doesn't exist, before routing, so before the body is read
 or authentication runs: invalid JSON, no session and a valid call all look the
@@ -40,7 +40,7 @@ from argus.domain.apple_sign_in.identity import (
 )
 from argus.domain.ingestion.secrets import SecretBox, SecretBoxUnavailable
 
-FLAG = "ARGUS_APPLE_REVOCATION_CAPTURE_ENABLED"
+FLAG = "CUADRAO_APPLE_REVOCATION_CAPTURE_ENABLED"
 CAPTURE_PATH = "/api/v1/auth/apple/authorization-code"
 APPLE_NAME_PATH = "/api/v1/me/apple-name"
 TRUE_VALUES = frozenset({"1", "true", "yes", "on"})

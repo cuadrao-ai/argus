@@ -49,7 +49,7 @@ def reset_trusted_header_fallback_warning_for_tests() -> None:
 
 
 def _hosted_runtime() -> bool:
-    persistence = os.getenv("ARGUS_PERSISTENCE_MODE", "memory").strip().lower()
+    persistence = os.getenv("CUADRAO_PERSISTENCE_MODE", "memory").strip().lower()
     if persistence != "supabase":
         return False
     return os.getenv("ARGUS_DEV_MEMORY_FALLBACK", "").strip().lower() != "true"

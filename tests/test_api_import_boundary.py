@@ -109,15 +109,15 @@ def _run_import_probe() -> dict[str, Any]:
     env = os.environ.copy()
     env.update(
         {
-            "ARGUS_PERSISTENCE_MODE": "memory",
-            "ARGUS_CHECKPOINTER_MODE": "memory",
+            "CUADRAO_PERSISTENCE_MODE": "memory",
+            "CUADRAO_CHECKPOINTER_MODE": "memory",
             "ARGUS_DEV_MEMORY_FALLBACK": "true",
-            "ARGUS_MOCK_AUTH": "true",
+            "CUADRAO_MOCK_AUTH": "true",
             "ARGUS_BACKTEST_JOBS_SHADOW_ENABLED": "true",
             "ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED": "true",
             "ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED": "true",
             "ARGUS_MARKET_DATA_PROVIDER_MODE": "synthetic_unit_fixture",
-            "ARGUS_OPS_TOKEN": "test-token",
+            "CUADRAO_OPS_TOKEN": "test-token",
             "PYTHONPATH": str(REPO_ROOT / "src"),
         }
     )

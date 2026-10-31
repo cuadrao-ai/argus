@@ -27,9 +27,9 @@ pytestmark = pytest.mark.skipif(
 def test_density_is_normal_until_chosen_and_kept_per_person(monkeypatch) -> None:  # noqa: ANN001
     auth_router.reset_auth_attempt_limiter_for_tests()
     for name, value in {
-        "ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED": "true",
+        "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED": "true",
         "NEXT_PUBLIC_MOCK_AUTH": "false",
-        "ARGUS_MOCK_AUTH": "false",
+        "CUADRAO_MOCK_AUTH": "false",
         "ARGUS_DEV_MEMORY_FALLBACK": "false",
     }.items():
         monkeypatch.setenv(name, value)

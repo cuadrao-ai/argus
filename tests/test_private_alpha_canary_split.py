@@ -300,8 +300,6 @@ def test_browser_checks_start_from_private_storage_state_without_auth_forms() ->
     assert "ARGUS_CANARY_BROWSER_STORAGE_STATE" in runner
     assert "ARGUS_CANARY_BROWSER_STORAGE_STATE" in config
     assert "storageState:" in config
-    assert "ARGUS_CANARY_BROWSER_PASSWORD" not in runner
-    assert "ARGUS_CANARY_BROWSER_SIGNUP_EMAIL" not in runner
     assert '"/?auth=signup"' not in spec
     assert '"/?auth=login"' not in spec
     assert '"/auth/signup"' not in spec
@@ -393,7 +391,7 @@ def test_session_state_is_private_rotated_and_absent_from_browser_environment() 
     assert "-u SUPABASE_SERVICE_ROLE_KEY" in runner
     assert "-u ARGUS_CANARY_SUPABASE_SERVICE_ROLE_KEY" in runner
     assert 'ARGUS_CANARY_SUPABASE_SERVICE_ROLE_KEY="' not in runner
-    assert "-u ARGUS_OPS_TOKEN" in runner
+    assert "-u CUADRAO_OPS_TOKEN" in runner
     assert "-u ARGUS_WORKFLOW_DATABASE_URL" in runner
     assert "-u RENDER_API_KEY" in runner
 

@@ -19,9 +19,9 @@ pytestmark = pytest.mark.skipif(
 
 def test_currency_roundtrip_preserves_concurrent_preference(monkeypatch):
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     monkeypatch.setenv("ARGUS_DEV_MEMORY_FALLBACK", "false")
     gateway = local_supabase_gateway()
     created = []

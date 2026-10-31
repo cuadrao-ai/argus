@@ -71,11 +71,11 @@ def test_release_profile_is_non_secret_and_defines_the_fixed_canary() -> None:
     assert profile["services"]["api"]["env"]["ARGUS_APP_ORIGIN"] == (
         "https://arguschat.ai"
     )
-    assert profile["services"]["api"]["env"]["ARGUS_CORS_ALLOW_ORIGINS"] == (
+    assert profile["services"]["api"]["env"]["CUADRAO_CORS_ALLOW_ORIGINS"] == (
         "https://argus-app-suz5.onrender.com,https://arguschat.ai,"
         "https://www.arguschat.ai"
     )
-    assert "ARGUS_CORS_ALLOW_ORIGINS" not in profile["services"]["api"][
+    assert "CUADRAO_CORS_ALLOW_ORIGINS" not in profile["services"]["api"][
         "required_present"
     ]
     assert profile["services"]["web"]["env"]["ARGUS_APP_ORIGIN"] == (
@@ -107,9 +107,9 @@ def test_release_profile_is_non_secret_and_defines_the_fixed_canary() -> None:
     assert "eyjhb" not in serialized
     assert "bearer " not in serialized
     assert "sk-" not in serialized
-    assert "ARGUS_GUEST_ACCESS_ENABLED" not in profile["services"]["api"]["env"]
+    assert "CUADRAO_GUEST_ACCESS_ENABLED" not in profile["services"]["api"]["env"]
     assert (
-        profile["services"]["api"]["env"]["ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED"]
+        profile["services"]["api"]["env"]["CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED"]
         == "true"
     )
     assert "NEXT_PUBLIC_GUEST_ACCESS_ENABLED" not in profile["services"]["web"]["env"]
@@ -190,13 +190,13 @@ def test_public_account_access_is_open_in_every_release_contract() -> None:
     ).stdout.splitlines()
     backend_example = (ROOT / ".env.example").read_text(encoding="utf-8")
 
-    assert render_api_env["ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED"] == "true"
+    assert render_api_env["CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED"] == "true"
     assert (
-        profile["services"]["api"]["env"]["ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED"]
+        profile["services"]["api"]["env"]["CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED"]
         == "true"
     )
-    assert "ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED" in env_contract
-    assert "ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true" in backend_example
+    assert "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED" in env_contract
+    assert "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true" in backend_example
 
 
 def test_guest_and_public_account_access_are_open_in_env_templates() -> None:
@@ -208,10 +208,10 @@ def test_guest_and_public_account_access_are_open_in_env_templates() -> None:
     backend_example = (ROOT / ".env.example").read_text(encoding="utf-8")
     web_example = (ROOT / "web" / ".env.local.example").read_text(encoding="utf-8")
 
-    assert "ARGUS_GUEST_ACCESS_ENABLED=true" in backend_example
-    assert "ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true" in backend_example
+    assert "CUADRAO_GUEST_ACCESS_ENABLED=true" in backend_example
+    assert "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true" in backend_example
     assert "NEXT_PUBLIC_GUEST_ACCESS_ENABLED=true" in backend_example
-    assert "ARGUS_VISITOR_KEY_SECRET=replace_with_a_unique_random_secret" in (
+    assert "CUADRAO_VISITOR_KEY_SECRET=replace_with_a_unique_random_secret" in (
         backend_example
     )
     assert "ARGUS_DISCOVERY_GLOBAL_DAILY_CEILING=500" in backend_example
@@ -229,22 +229,22 @@ def test_profile_utility_validates_hashes_and_emits_expected_pairs() -> None:
 
     api_pairs = _profile_utility("env-pairs", "api")
     assert api_pairs.returncode == 0, api_pairs.stderr
-    assert "ARGUS_PERSISTENCE_MODE=supabase" in api_pairs.stdout
-    assert "ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED=true" in api_pairs.stdout
+    assert "CUADRAO_PERSISTENCE_MODE=supabase" in api_pairs.stdout
+    assert "ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED" not in api_pairs.stdout
 
     workflow_pairs = _profile_utility("env-pairs", "workflow")
     assert workflow_pairs.returncode == 0, workflow_pairs.stderr
-    assert "ARGUS_MARKET_DATA_PROVIDER_MODE=live_provider" in workflow_pairs.stdout
+    assert "ARGUS_MARKET_DATA_PROVIDER_MODE" not in workflow_pairs.stdout
 
     workflow_provider_mode = _profile_utility(
         "env-value", "workflow", "ARGUS_MARKET_DATA_PROVIDER_MODE"
     )
-    assert workflow_provider_mode.returncode == 0, workflow_provider_mode.stderr
-    assert workflow_provider_mode.stdout.strip() == "live_provider"
+    assert workflow_provider_mode.returncode == 1
+    assert "does not define" in workflow_provider_mode.stderr
 
     allowed_keys = _profile_utility("allowed-keys", "web")
     assert allowed_keys.returncode == 0, allowed_keys.stderr
-    assert "NEXT_PUBLIC_POSTHOG_KEY" in allowed_keys.stdout
+    assert "NEXT_PUBLIC_POSTHOG_KEY" not in allowed_keys.stdout
 
     workflow_autodeploy = _profile_utility("auto-deploy-trigger", "workflow")
     assert workflow_autodeploy.returncode == 0, workflow_autodeploy.stderr

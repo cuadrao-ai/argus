@@ -64,7 +64,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: '`not_found`: `ARGUS_ACCOUNT_DELETION_ENABLED` is off; answered before
+          description: '`not_found`: `CUADRAO_ACCOUNT_DELETION_ENABLED` is off; answered before
             any session check.'
           content:
             application/json:

@@ -91,9 +91,9 @@ def test_missing_or_short_secret_fails_closed(secret, monkeypatch):
     with pytest.raises(InviteCodesUnavailable):
         CodeHasher.from_secrets(secret)
     if secret is None:
-        monkeypatch.delenv("ARGUS_INVITE_CODE_SECRET", raising=False)
+        monkeypatch.delenv("CUADRAO_INVITE_CODE_SECRET", raising=False)
     else:
-        monkeypatch.setenv("ARGUS_INVITE_CODE_SECRET", secret)
+        monkeypatch.setenv("CUADRAO_INVITE_CODE_SECRET", secret)
     with pytest.raises(InviteCodesUnavailable):
         CodeHasher.from_env()
     # No unkeyed fallback: the repository refuses to make or look up a code.
@@ -133,7 +133,7 @@ def test_placeholder_secrets_are_refused(placeholder, monkeypatch):
         CodeHasher.from_secrets(placeholder)
     with pytest.raises(InviteCodesUnavailable, match="placeholder"):
         CodeHasher.from_secrets(SECRET_A, placeholder)
-    monkeypatch.setenv("ARGUS_INVITE_CODE_SECRET", placeholder)
+    monkeypatch.setenv("CUADRAO_INVITE_CODE_SECRET", placeholder)
     from argus.domain.household.invite_codes import code_secret_problem
 
     assert "placeholder" in (code_secret_problem() or "")
@@ -169,7 +169,7 @@ def test_code_has_sixty_bits_in_a_typeable_shape():
 
 @pytest.fixture
 def secretless_client(surface_env, gateway, monkeypatch) -> Iterator[TestClient]:  # noqa: ANN001
-    monkeypatch.delenv("ARGUS_INVITE_CODE_SECRET", raising=False)
+    monkeypatch.delenv("CUADRAO_INVITE_CODE_SECRET", raising=False)
     with (
         patch.object(api_state, "supabase_gateway", gateway),
         patch("argus.api.dependencies.auth_session_is_active", return_value=True),
@@ -189,24 +189,24 @@ def test_households_stay_off_without_the_secret(secretless_client):
 
 def test_readiness_fails_when_a_code_flag_is_on_without_the_secret(monkeypatch):
     for flag in (
-        "ARGUS_HOUSEHOLDS_ENABLED",
-        "ARGUS_BETA_INVITES_ENABLED",
-        "ARGUS_BETA_INVITE_GATE_ENABLED",
+        "CUADRAO_HOUSEHOLDS_ENABLED",
+        "CUADRAO_BETA_INVITES_ENABLED",
+        "CUADRAO_BETA_INVITE_GATE_ENABLED",
     ):
         monkeypatch.delenv(flag, raising=False)
-    monkeypatch.delenv("ARGUS_INVITE_CODE_SECRET", raising=False)
+    monkeypatch.delenv("CUADRAO_INVITE_CODE_SECRET", raising=False)
     assert _invite_code_check() is None  # every code flag off: no extra check
-    monkeypatch.setenv("ARGUS_BETA_INVITE_GATE_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_BETA_INVITE_GATE_ENABLED", "true")
     check = _invite_code_check()
     assert check["status"] == "degraded"
     assert check["reason"] == "invite_code_secret_unusable"
-    monkeypatch.setenv("ARGUS_INVITE_CODE_SECRET", TEST_CODE_SECRET)
+    monkeypatch.setenv("CUADRAO_INVITE_CODE_SECRET", TEST_CODE_SECRET)
     assert _invite_code_check()["status"] == "ready"
 
 
 def test_beta_invites_start_closed_without_the_secret(monkeypatch):
     """Priya: start_invites (beta, group link, gate) must fail closed too."""
-    monkeypatch.setenv("ARGUS_BETA_INVITES_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_BETA_INVITES_ENABLED", "true")
     monkeypatch.setattr(api_state, "PERSISTENCE_MODE", "supabase")
     monkeypatch.setattr(api_state, "DATABASE_URL", "postgresql://unused/argus")
     pools: list[object] = []
@@ -218,16 +218,16 @@ def test_beta_invites_start_closed_without_the_secret(monkeypatch):
     monkeypatch.setattr("psycopg_pool.ConnectionPool", _pool)
     application = MagicMock()
     try:
-        monkeypatch.delenv("ARGUS_INVITE_CODE_SECRET", raising=False)
+        monkeypatch.delenv("CUADRAO_INVITE_CODE_SECRET", raising=False)
         surface.start_invites(application)
         assert surface.invites_store() is None and pools == []
 
-        monkeypatch.setenv("ARGUS_INVITE_CODE_SECRET", "a" * 40)  # placeholder
+        monkeypatch.setenv("CUADRAO_INVITE_CODE_SECRET", "a" * 40)  # placeholder
         surface.start_invites(application)
         assert surface.invites_store() is None and pools == []
 
         # Control: with a usable secret the same start does open the store.
-        monkeypatch.setenv("ARGUS_INVITE_CODE_SECRET", TEST_CODE_SECRET)
+        monkeypatch.setenv("CUADRAO_INVITE_CODE_SECRET", TEST_CODE_SECRET)
         surface.start_invites(application)
         assert surface.invites_store() is not None and len(pools) == 1
     finally:
@@ -257,9 +257,9 @@ def test_readiness_runs_the_invite_code_check(monkeypatch):
             missing_symbols=(),
         ),
     )
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", "test-ops-token")
-    monkeypatch.setenv("ARGUS_HOUSEHOLDS_ENABLED", "true")
-    monkeypatch.delenv("ARGUS_INVITE_CODE_SECRET", raising=False)
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", "test-ops-token")
+    monkeypatch.setenv("CUADRAO_HOUSEHOLDS_ENABLED", "true")
+    monkeypatch.delenv("CUADRAO_INVITE_CODE_SECRET", raising=False)
     calls: list[object] = []
     real_check = ops._invite_code_check  # noqa: SLF001
 
@@ -284,7 +284,7 @@ def test_readiness_runs_the_invite_code_check(monkeypatch):
         if name != "invite_codes"
     )
 
-    monkeypatch.setenv("ARGUS_INVITE_CODE_SECRET", TEST_CODE_SECRET)
+    monkeypatch.setenv("CUADRAO_INVITE_CODE_SECRET", TEST_CODE_SECRET)
     response = client.get("/internal/readiness", headers=headers)
     assert response.status_code == 200
     assert response.json()["status"] == "ready"
@@ -292,7 +292,7 @@ def test_readiness_runs_the_invite_code_check(monkeypatch):
 
 def test_secret_removed_after_start_answers_503(client, alice, bob, monkeypatch):
     hid = alice.create_household({"name": "Casa"}).json()["household_id"]
-    monkeypatch.delenv("ARGUS_INVITE_CODE_SECRET")
+    monkeypatch.delenv("CUADRAO_INVITE_CODE_SECRET")
     created = alice.invite(hid)
     assert created.status_code == 503
     assert created.json()["code"] == "invite_codes_unavailable"
@@ -420,7 +420,7 @@ class _FakeInviteStore:
 def test_beta_lookups_are_limited_with_no_founder_bypass(
     client, alice, identities, monkeypatch, path
 ):
-    monkeypatch.setenv("ARGUS_BETA_INVITES_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_BETA_INVITES_ENABLED", "true")
     # Alice is the founder; the limit still applies to her.
     store = _FakeInviteStore(founder=identities[ALICE]["id"])
     surface.configure_invites_store(store)

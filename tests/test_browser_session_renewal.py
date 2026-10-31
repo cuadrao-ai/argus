@@ -46,7 +46,7 @@ def app():
 @pytest.fixture
 def gateway(monkeypatch):
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     monkeypatch.setenv("APP_ENV", "staging")
     gateway = Mock()
     gateway.get_auth_user_from_token.return_value = {

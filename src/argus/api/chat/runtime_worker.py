@@ -19,13 +19,13 @@ _RUNTIME_EXECUTOR: ThreadPoolExecutor | None = None
 
 def runtime_worker_enabled() -> bool:
     """Keep production chat streaming off the FastAPI event loop by default."""
-    raw = os.getenv("ARGUS_RUNTIME_STREAM_WORKER", "auto").strip().lower()
+    raw = os.getenv("CUADRAO_RUNTIME_STREAM_WORKER", "auto").strip().lower()
     if raw in {"1", "true", "yes", "on"}:
         return True
     if raw in {"0", "false", "no", "off"}:
         return False
-    checkpointer_mode = os.getenv("ARGUS_CHECKPOINTER_MODE", "").strip().lower()
-    persistence_mode = os.getenv("ARGUS_PERSISTENCE_MODE", "").strip().lower()
+    checkpointer_mode = os.getenv("CUADRAO_CHECKPOINTER_MODE", "").strip().lower()
+    persistence_mode = os.getenv("CUADRAO_PERSISTENCE_MODE", "").strip().lower()
     return checkpointer_mode == "postgres" or persistence_mode == "supabase"
 
 
@@ -147,7 +147,7 @@ def _runtime_executor() -> ThreadPoolExecutor:
 
 
 def _runtime_worker_count() -> int:
-    raw = os.getenv("ARGUS_RUNTIME_STREAM_WORKERS", "2").strip()
+    raw = os.getenv("CUADRAO_RUNTIME_STREAM_WORKERS", "2").strip()
     try:
         value = int(raw)
     except ValueError:

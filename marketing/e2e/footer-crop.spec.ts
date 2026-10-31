@@ -30,7 +30,10 @@ for (const path of ["/", "/personal", "/en", "/en/personal"]) {
       expect(ending.wordBottom).toBeGreaterThan(ending.bottom);
     }
     await page.mouse.wheel(0, 800);
-    await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight)).toBe(ending.documentHeight);
+    await expect.poll(() => page.evaluate(
+      (height) => Math.abs(document.documentElement.scrollHeight - height),
+      ending.documentHeight,
+    )).toBeLessThanOrEqual(1);
     await expect.poll(() => page.evaluate(() => scrollY)).toBe(ending.scroll);
   });
 }

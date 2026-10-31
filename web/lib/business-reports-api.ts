@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ARGUS_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
+import { CUADRAO_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-auth-generation";
 import { getChosenGrant, subscribeChosenGrant } from "./business-grant";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
@@ -116,7 +116,7 @@ async function request<T>(scope: ReportScope, path: string, options: RequestInit
     assertScope();
     const deadline = AbortSignal.timeout(30_000);
     const signal = options.signal ? AbortSignal.any([options.signal, deadline]) : deadline;
-    const response = await fetch(`${ARGUS_API_BASE_URL}${path}`, { ...options, signal, cache: "no-store", credentials: "omit", headers: argusApiRequestHeaders(options.headers, auth, path) });
+    const response = await fetch(`${CUADRAO_API_BASE_URL}${path}`, { ...options, signal, cache: "no-store", credentials: "omit", headers: argusApiRequestHeaders(options.headers, auth, path) });
     assertScope();
     if (!response.ok) {
       const raw: unknown = await response.json().catch(() => ({}));

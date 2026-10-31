@@ -422,7 +422,7 @@ def _posthog_ingestion_host() -> str | None:
 
 
 def _posthog_timeout_seconds() -> float:
-    raw = _clean_env("ARGUS_POSTHOG_TIMEOUT_SECONDS")
+    raw = _clean_env("CUADRAO_POSTHOG_TIMEOUT_SECONDS")
     if raw is None:
         return _POSTHOG_DEFAULT_TIMEOUT_SECONDS
     try:

@@ -155,7 +155,7 @@ def test_api_override_keeps_auth_database_and_sanitized_provider_environment(
     api_launch, monkeypatch, port, households
 ):
     status, launched = api_launch
-    monkeypatch.setenv("ARGUS_HOUSEHOLDS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_HOUSEHOLDS_ENABLED", "true")
     monkeypatch.setenv("ARGUS_UNKNOWN_PROVIDER_TOKEN", "must-not-inherit")
     monkeypatch.setenv("OPENAI_API_KEY", "must-not-inherit")
     monkeypatch.setenv("DATABASE_URL", "postgresql://hosted.invalid/database")
@@ -176,7 +176,7 @@ def test_api_override_keeps_auth_database_and_sanitized_provider_environment(
         environment["DATABASE_URL"]
         == "postgresql://synthetic:synthetic@127.0.0.1:59502/postgres"
     )
-    assert environment["ARGUS_HOUSEHOLDS_ENABLED"] == str(households).lower()
+    assert environment["CUADRAO_HOUSEHOLDS_ENABLED"] == str(households).lower()
     assert environment["ARGUS_FINANCIAL_ACCOUNTS_ENABLED"] == "true"
     assert environment["ARGUS_MARKET_DATA_PROVIDER_MODE"] == "synthetic_unit_fixture"
     assert environment["OPENAI_API_KEY"] == ""

@@ -92,9 +92,9 @@ def test_flag_off_hides_surface(monkeypatch, gateway) -> None:  # noqa: ANN001
     from argus.api.main import app
     from fastapi.testclient import TestClient
 
-    monkeypatch.setenv("ARGUS_HOUSEHOLDS_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_HOUSEHOLDS_ENABLED", "false")
     monkeypatch.setenv("ARGUS_FINANCIAL_ACCOUNTS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
     with (
         patch.object(api_state, "supabase_gateway", gateway),

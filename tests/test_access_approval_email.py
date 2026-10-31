@@ -353,7 +353,7 @@ def test_access_welcome_sender_preserves_smtp_and_multipart_contract(
         instances.append(instance)
         return instance
 
-    monkeypatch.setenv("ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD", "re_test_password")
+    monkeypatch.setenv("CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD", "re_test_password")
     monkeypatch.setattr(
         "argus.domain.resend_email.smtplib.SMTP_SSL",
         _smtp,
@@ -426,7 +426,7 @@ def test_access_welcome_hash_uses_only_stable_namespace_and_claim_token(
         instances.append(instance)
         return instance
 
-    monkeypatch.setenv("ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD", "re_test_password")
+    monkeypatch.setenv("CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD", "re_test_password")
     monkeypatch.setattr(
         "argus.domain.resend_email.smtplib.SMTP_SSL",
         _smtp,
@@ -488,7 +488,7 @@ def test_access_welcome_receipt_is_bounded_to_256_characters(
         instance.data_receipt = b"x" * 300
         return instance
 
-    monkeypatch.setenv("ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD", "re_test_password")
+    monkeypatch.setenv("CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD", "re_test_password")
     monkeypatch.setattr(
         "argus.domain.resend_email.smtplib.SMTP_SSL",
         _smtp,
@@ -523,7 +523,7 @@ def test_internal_approval_two_requests_send_once_and_replay_durable_delivery(
 
     gateway = _StatefulApprovalGateway(language="es-419")
     monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", "ops-token")
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", "ops-token")
     monkeypatch.setenv("ARGUS_APP_ORIGIN", "https://app.example/")
     send_count = 0
 
@@ -571,7 +571,7 @@ def test_internal_approval_crash_window_reuses_claim_and_idempotency_identity(
 
     gateway = _StatefulApprovalGateway()
     monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", "ops-token")
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", "ops-token")
     monkeypatch.setenv("ARGUS_APP_ORIGIN", "https://app.example")
     observed_claim_tokens: list[object] = []
 
@@ -618,7 +618,7 @@ def test_internal_approval_expired_pending_claim_fails_closed_without_smtp(
     gateway = _StatefulApprovalGateway()
     gateway.claim_send_allowed = False
     monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", "ops-token")
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", "ops-token")
     monkeypatch.setenv("ARGUS_APP_ORIGIN", "https://app.example")
     sender = MagicMock()
     monkeypatch.setattr(ops, "send_access_welcome_email", sender)
@@ -652,7 +652,7 @@ def test_internal_approval_claim_revalidation_failure_never_sends(
     else:
         gateway.claim_error = claim_error
     monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", "ops-token")
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", "ops-token")
     monkeypatch.setenv("ARGUS_APP_ORIGIN", "https://app.example")
     sender = MagicMock()
     monkeypatch.setattr(ops, "send_access_welcome_email", sender)
@@ -684,7 +684,7 @@ def test_internal_approval_recorded_replay_never_calls_smtp(
         "sent_at": "2026-08-12T14:27:17Z",
     }
     monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", "ops-token")
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", "ops-token")
     sender = MagicMock()
     monkeypatch.setattr(ops, "send_access_welcome_email", sender)
 
@@ -721,7 +721,7 @@ def test_internal_approval_delivery_cannot_approve_ineligible_allowlist_row(
         "sent_at": "2026-08-12T14:27:17Z",
     }
     monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", "ops-token")
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", "ops-token")
     sender = MagicMock()
     monkeypatch.setattr(ops, "send_access_welcome_email", sender)
 
@@ -741,9 +741,9 @@ def test_internal_approval_missing_smtp_secret_never_transitions(
 ) -> None:
     gateway = _StatefulApprovalGateway()
     monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", "ops-token")
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", "ops-token")
     monkeypatch.setenv("ARGUS_APP_ORIGIN", "https://app.example")
-    monkeypatch.delenv("ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD", raising=False)
+    monkeypatch.delenv("CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD", raising=False)
 
     response = client.post(
         "/internal/access-requests/approve",
@@ -752,7 +752,7 @@ def test_internal_approval_missing_smtp_secret_never_transitions(
     )
 
     assert response.status_code == 503
-    assert "ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD" not in response.text
+    assert "CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD" not in response.text
     assert "complete" not in gateway.events
 
 
@@ -763,9 +763,9 @@ def test_internal_approval_smtp_failure_never_transitions(
 
     gateway = _StatefulApprovalGateway()
     monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", "ops-token")
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", "ops-token")
     monkeypatch.setenv("ARGUS_APP_ORIGIN", "https://app.example")
-    monkeypatch.setenv("ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD", "re_test_password")
+    monkeypatch.setenv("CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD", "re_test_password")
     monkeypatch.setattr(
         ops,
         "send_access_welcome_email",
@@ -790,7 +790,7 @@ def test_internal_approval_missing_app_origin_never_sends_or_transitions(
 
     gateway = _StatefulApprovalGateway()
     monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", "ops-token")
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", "ops-token")
     monkeypatch.delenv("ARGUS_APP_ORIGIN", raising=False)
     sender = MagicMock()
     monkeypatch.setattr(ops, "send_access_welcome_email", sender)
@@ -813,7 +813,7 @@ def test_internal_approval_missing_or_disabled_request_does_not_send(
 
     gateway = _StatefulApprovalGateway(role=None)
     monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", "ops-token")
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", "ops-token")
     sender = MagicMock()
     monkeypatch.setattr(ops, "send_access_welcome_email", sender)
 
@@ -853,7 +853,7 @@ def test_internal_approval_completion_failure_is_generic(
     gateway.complete_result = complete_result
     gateway.complete_error = complete_error
     monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", "ops-token")
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", "ops-token")
     monkeypatch.setenv("ARGUS_APP_ORIGIN", "https://app.example")
     sender = MagicMock(
         return_value=AccessWelcomeSendResult(
@@ -885,7 +885,7 @@ def test_internal_approval_delivery_lookup_failure_is_generic(
     gateway = _StatefulApprovalGateway()
     gateway.delivery_lookup_error = RuntimeError("synthetic database detail")
     monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", "ops-token")
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", "ops-token")
     sender = MagicMock()
     monkeypatch.setattr(ops, "send_access_welcome_email", sender)
 
@@ -906,7 +906,7 @@ def test_internal_approval_invalid_ops_token_is_route_indistinguishable_404(
 ) -> None:
     gateway = MagicMock()
     monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", "ops-token")
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", "ops-token")
 
     response = client.post(
         "/internal/access-requests/approve",
@@ -924,7 +924,7 @@ def test_internal_canary_denial_signal_requires_ops_token(
     gateway = MagicMock()
     gateway.private_alpha_email_allowed.return_value = False
     monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", "ops-token")
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", "ops-token")
 
     missing = client.post(
         "/internal/canary/requested-signup-denial",
@@ -956,9 +956,9 @@ def test_internal_canary_denies_disabled_email_in_public_and_rollback_modes(
     gateway.private_alpha_email_disabled.return_value = True
     gateway.private_alpha_email_allowed.return_value = False
     monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", "ops-token")
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", "ops-token")
     monkeypatch.setenv(
-        "ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED",
+        "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED",
         "true" if public_access_enabled else "false",
     )
 
@@ -1002,7 +1002,7 @@ def test_internal_approval_checks_ops_auth_before_parsing_any_body(
 
     gateway = MagicMock()
     monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", "ops-token")
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", "ops-token")
     sender = MagicMock()
     monkeypatch.setattr(ops, "send_access_welcome_email", sender)
     headers = {"Content-Type": "application/json"}

@@ -60,8 +60,8 @@ def _provider_fixture_mode(monkeypatch: pytest.MonkeyPatch):
 def test_local_openrouter_uses_dev_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("APP_ENV", "development")
     monkeypatch.setenv("OPENROUTER_API_KEY", "dev-key")
-    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "hosted-registered")
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", "hosted-guest")
+    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "hosted-registered")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", "hosted-guest")
 
     assert resolve_openrouter_api_key("registered") == "dev-key"
     assert resolve_openrouter_api_key("guest") == "dev-key"
@@ -72,8 +72,8 @@ def test_hosted_registered_uses_registered_key(
 ) -> None:
     monkeypatch.setenv("APP_ENV", "staging")
     monkeypatch.setenv("OPENROUTER_API_KEY", "dev-only")
-    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "registered-key")
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
+    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "registered-key")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
 
     assert resolve_openrouter_api_key("registered") == "registered-key"
 
@@ -81,8 +81,8 @@ def test_hosted_registered_uses_registered_key(
 def test_hosted_guest_uses_guest_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("APP_ENV", "preview")
     monkeypatch.setenv("OPENROUTER_API_KEY", "dev-only")
-    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "registered-key")
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
+    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "registered-key")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
 
     assert resolve_openrouter_api_key("guest") == "guest-key"
 
@@ -92,9 +92,9 @@ def test_hosted_registered_never_falls_back_to_dev_key(
 ) -> None:
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("OPENROUTER_API_KEY", "dev-only")
-    monkeypatch.delenv("ARGUS_PROD_OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("CUADRAO_PROD_OPENROUTER_API_KEY", raising=False)
 
-    with pytest.raises(RuntimeError, match="ARGUS_PROD_OPENROUTER_API_KEY"):
+    with pytest.raises(RuntimeError, match="CUADRAO_PROD_OPENROUTER_API_KEY"):
         resolve_openrouter_api_key("registered")
 
 
@@ -103,11 +103,11 @@ def test_hosted_guest_never_falls_back_to_dev_key(
 ) -> None:
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("OPENROUTER_API_KEY", "dev-only")
-    monkeypatch.delenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", raising=False)
 
     with pytest.raises(
         RuntimeError,
-        match="ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY",
+        match="CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY",
     ):
         resolve_openrouter_api_key("guest")
 
@@ -120,15 +120,15 @@ def test_hosted_configuration_rejects_shared_traffic_credential(
     )
 
     monkeypatch.setenv("APP_ENV", "production")
-    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "shared-secret")
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", "shared-secret")
+    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "shared-secret")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", "shared-secret")
 
     with pytest.raises(RuntimeError) as exc_info:
         validate_hosted_openrouter_configuration()
 
     message = str(exc_info.value)
-    assert "ARGUS_PROD_OPENROUTER_API_KEY" in message
-    assert "ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY" in message
+    assert "CUADRAO_PROD_OPENROUTER_API_KEY" in message
+    assert "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY" in message
     assert "shared-secret" not in message
 
 
@@ -136,8 +136,8 @@ def test_openrouter_traffic_class_nested_scope_resets(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("APP_ENV", "production")
-    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "registered-key")
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
+    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "registered-key")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
 
     with openrouter_traffic_class("guest"):
         assert resolve_openrouter_api_key() == "guest-key"
@@ -155,9 +155,9 @@ def test_openrouter_factory_uses_hosted_traffic_key(
     FakeChatOpenRouter.calls.clear()
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("OPENROUTER_API_KEY", "dev-only")
-    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "registered-key")
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "test/model")
+    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "registered-key")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "test/model")
     monkeypatch.setattr(openrouter, "ChatOpenRouter", FakeChatOpenRouter)
 
     with openrouter_traffic_class("guest"):
@@ -180,8 +180,8 @@ def test_provider_asset_preflight_uses_hosted_traffic_key(
     invoke_schema.__module__ = "argus.llm.openrouter"
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("OPENROUTER_API_KEY", "")
-    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "registered-key")
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
+    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "registered-key")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
 
     with openrouter_traffic_class("guest"):
         assert _provider_asset_context_preflight_enabled(
@@ -344,7 +344,7 @@ def test_openrouter_factory_applies_task_token_budget(
     FakeChatOpenRouter.calls.clear()
     FakeChatOpenRouter.structured_response = None
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "test/model")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "test/model")
     monkeypatch.setattr(openrouter, "ChatOpenRouter", FakeChatOpenRouter)
 
     model = openrouter.build_openrouter_model("interpretation")
@@ -373,7 +373,7 @@ def test_interpretation_profile_has_bounded_reasoning_for_semantic_repair() -> N
 def test_structured_reasoning_effort_can_be_overridden_for_dev_eval(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("ARGUS_STRUCTURED_REASONING_EFFORT", "low")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_REASONING_EFFORT", "low")
 
     profile = openrouter_profile_for_task("interpretation")
 
@@ -383,7 +383,7 @@ def test_structured_reasoning_effort_can_be_overridden_for_dev_eval(
 def test_capability_reasoning_effort_can_be_overridden_for_dev_eval(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("ARGUS_CAPABILITY_REASONING_EFFORT", "none")
+    monkeypatch.setenv("CUADRAO_CAPABILITY_REASONING_EFFORT", "none")
 
     profile = openrouter_profile_for_task("capability_conflict")
 
@@ -393,7 +393,7 @@ def test_capability_reasoning_effort_can_be_overridden_for_dev_eval(
 def test_invalid_reasoning_effort_override_preserves_profile_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("ARGUS_STRUCTURED_REASONING_EFFORT", "cheap")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_REASONING_EFFORT", "cheap")
 
     profile = openrouter_profile_for_task("interpretation")
 
@@ -403,8 +403,8 @@ def test_invalid_reasoning_effort_override_preserves_profile_default(
 @pytest.mark.parametrize(
     ("task", "env_name", "effort"),
     [
-        ("interpretation", "ARGUS_STRUCTURED_REASONING_EFFORT", "low"),
-        ("capability_conflict", "ARGUS_CAPABILITY_REASONING_EFFORT", "none"),
+        ("interpretation", "CUADRAO_STRUCTURED_REASONING_EFFORT", "low"),
+        ("capability_conflict", "CUADRAO_CAPABILITY_REASONING_EFFORT", "none"),
     ],
 )
 def test_reasoning_effort_override_is_sent_in_json_schema_payload(
@@ -485,7 +485,7 @@ def test_result_summary_timeout_budget_is_safe_for_render_workflows(
     FakeChatOpenRouter.calls.clear()
     FakeChatOpenRouter.structured_response = None
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_READOUT_MODEL", "openai/gpt-5.6-luna")
+    monkeypatch.setenv("CUADRAO_READOUT_MODEL", "openai/gpt-5.6-luna")
     monkeypatch.setattr(openrouter, "ChatOpenRouter", FakeChatOpenRouter)
 
     model = openrouter.build_openrouter_model("result_summary")
@@ -501,8 +501,8 @@ def test_openrouter_task_timeout_budget_can_be_overridden(
     FakeChatOpenRouter.calls.clear()
     FakeChatOpenRouter.structured_response = None
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_READOUT_MODEL", "openai/gpt-5.6-luna")
-    monkeypatch.setenv("ARGUS_OPENROUTER_RESULT_SUMMARY_TIMEOUT_SECONDS", "27")
+    monkeypatch.setenv("CUADRAO_READOUT_MODEL", "openai/gpt-5.6-luna")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_RESULT_SUMMARY_TIMEOUT_SECONDS", "27")
     monkeypatch.setattr(openrouter, "ChatOpenRouter", FakeChatOpenRouter)
 
     model = openrouter.build_openrouter_model("result_summary")
@@ -513,16 +513,16 @@ def test_openrouter_task_timeout_budget_can_be_overridden(
 
 
 def test_openrouter_model_routing_uses_task_specific_tiers(monkeypatch) -> None:
-    monkeypatch.setenv("ARGUS_UTILITY_MODEL", "utility/primary")
-    monkeypatch.setenv("ARGUS_UTILITY_FALLBACK_MODEL", "utility/fallback")
-    monkeypatch.setenv("ARGUS_CHAT_MODEL", "chat/primary")
-    monkeypatch.setenv("ARGUS_CHAT_FALLBACK_MODEL", "chat/fallback")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "structured/primary")
-    monkeypatch.setenv("ARGUS_STRUCTURED_FALLBACK_MODEL", "structured/fallback")
-    monkeypatch.setenv("ARGUS_CONTEXT_MODEL", "context/primary")
-    monkeypatch.setenv("ARGUS_CONTEXT_FALLBACK_MODEL", "context/fallback")
-    monkeypatch.setenv("ARGUS_READOUT_MODEL", "openai/gpt-5.6-luna")
-    monkeypatch.setenv("ARGUS_READOUT_FALLBACK_MODEL", "openai/gpt-5.6-luna")
+    monkeypatch.setenv("CUADRAO_UTILITY_MODEL", "utility/primary")
+    monkeypatch.setenv("CUADRAO_UTILITY_FALLBACK_MODEL", "utility/fallback")
+    monkeypatch.setenv("CUADRAO_CHAT_MODEL", "chat/primary")
+    monkeypatch.setenv("CUADRAO_CHAT_FALLBACK_MODEL", "chat/fallback")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "structured/primary")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_FALLBACK_MODEL", "structured/fallback")
+    monkeypatch.setenv("CUADRAO_CONTEXT_MODEL", "context/primary")
+    monkeypatch.setenv("CUADRAO_CONTEXT_FALLBACK_MODEL", "context/fallback")
+    monkeypatch.setenv("CUADRAO_READOUT_MODEL", "openai/gpt-5.6-luna")
+    monkeypatch.setenv("CUADRAO_READOUT_FALLBACK_MODEL", "openai/gpt-5.6-luna")
 
     assert openrouter.resolve_openrouter_model(task="name_suggestion") == (
         "utility/primary"
@@ -575,10 +575,10 @@ def test_openrouter_model_routing_uses_task_specific_tiers(monkeypatch) -> None:
 
 
 def test_openrouter_structured_candidates_follow_task_tier(monkeypatch) -> None:
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "structured/primary")
-    monkeypatch.setenv("ARGUS_STRUCTURED_FALLBACK_MODEL", "structured/fallback")
-    monkeypatch.setenv("ARGUS_CONTEXT_MODEL", "context/primary")
-    monkeypatch.setenv("ARGUS_CONTEXT_FALLBACK_MODEL", "context/fallback")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "structured/primary")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_FALLBACK_MODEL", "structured/fallback")
+    monkeypatch.setenv("CUADRAO_CONTEXT_MODEL", "context/primary")
+    monkeypatch.setenv("CUADRAO_CONTEXT_FALLBACK_MODEL", "context/fallback")
 
     assert openrouter_structured_model_candidates(task="interpretation") == [
         "structured/primary",
@@ -595,7 +595,7 @@ def test_openrouter_factory_uses_context_model_for_capability_conflict(
 ) -> None:
     FakeChatOpenRouter.calls.clear()
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_CONTEXT_MODEL", "context/primary")
+    monkeypatch.setenv("CUADRAO_CONTEXT_MODEL", "context/primary")
     monkeypatch.setattr(openrouter, "ChatOpenRouter", FakeChatOpenRouter)
 
     model = openrouter.build_openrouter_model("capability_conflict")
@@ -613,12 +613,12 @@ def test_openrouter_factory_returns_none_without_key(monkeypatch) -> None:
 def test_structured_model_uses_argus_tier_models_unless_explicitly_overridden(
     monkeypatch,
 ) -> None:
-    monkeypatch.delenv("ARGUS_STRUCTURED_MODEL", raising=False)
-    monkeypatch.delenv("ARGUS_STRUCTURED_FALLBACK_MODEL", raising=False)
+    monkeypatch.delenv("CUADRAO_STRUCTURED_MODEL", raising=False)
+    monkeypatch.delenv("CUADRAO_STRUCTURED_FALLBACK_MODEL", raising=False)
 
     assert openrouter_structured_model_candidates() == []
 
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "argus/structured")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "argus/structured")
 
     assert openrouter_structured_model_candidates() == ["argus/structured"]
 
@@ -3065,7 +3065,7 @@ def test_direct_json_schema_payload_uses_interpretation_profile_reasoning(
             return FakeResponse()
 
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "qwen/qwen3.5-9b")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "qwen/qwen3.5-9b")
     monkeypatch.setattr(
         openrouter.httpx, "AsyncClient", lambda **_kwargs: FakeAsyncClient()
     )
@@ -3127,7 +3127,7 @@ def test_field_fidelity_json_schema_uses_structured_route_without_reasoning(
             return FakeResponse()
 
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "qwen/qwen3.5-9b")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "qwen/qwen3.5-9b")
     monkeypatch.setattr(
         openrouter.httpx, "AsyncClient", lambda **_kwargs: FakeAsyncClient()
     )
@@ -3190,7 +3190,7 @@ def test_capability_conflict_json_schema_uses_context_route_with_reasoning(
             return FakeResponse()
 
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_CONTEXT_MODEL", "openai/gpt-oss-120b")
+    monkeypatch.setenv("CUADRAO_CONTEXT_MODEL", "openai/gpt-oss-120b")
     monkeypatch.setattr(
         openrouter.httpx, "AsyncClient", lambda **_kwargs: FakeAsyncClient()
     )
@@ -3309,8 +3309,8 @@ def test_non_target_json_schema_payload_does_not_add_prompt_cache_marker() -> No
 def test_direct_json_schema_records_missing_key_route_receipt(monkeypatch) -> None:
     openrouter.clear_openrouter_route_receipts()
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "structured/primary")
-    monkeypatch.setenv("ARGUS_STRUCTURED_FALLBACK_MODEL", "structured/fallback")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "structured/primary")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_FALLBACK_MODEL", "structured/fallback")
 
     result = asyncio.run(
         openrouter.invoke_openrouter_json_schema(
@@ -3408,7 +3408,7 @@ def test_direct_json_schema_route_receipt_preserves_provider_usage_cost(
             return FakeResponse()
 
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "structured/primary")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "structured/primary")
     monkeypatch.setattr(
         openrouter.httpx, "AsyncClient", lambda **_kwargs: FakeAsyncClient()
     )
@@ -3527,7 +3527,7 @@ def test_direct_json_schema_records_openrouter_token_usage(monkeypatch) -> None:
             return FakeResponse()
 
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "structured/primary")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "structured/primary")
     monkeypatch.setattr(
         openrouter.httpx, "AsyncClient", lambda **kwargs: FakeAsyncClient(**kwargs)
     )
@@ -3579,8 +3579,8 @@ def test_direct_json_schema_enforces_wall_clock_task_budget(monkeypatch) -> None
     )
 
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "structured/primary")
-    monkeypatch.setenv("ARGUS_STRUCTURED_FALLBACK_MODEL", "")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "structured/primary")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_FALLBACK_MODEL", "")
     monkeypatch.setattr(openrouter, "openrouter_profile_for_task", lambda _task: profile)
     monkeypatch.setattr(
         openrouter.httpx, "AsyncClient", lambda **kwargs: SlowAsyncClient(**kwargs)
@@ -3651,8 +3651,8 @@ def test_direct_json_schema_sync_tries_configured_fallback_for_utility_titles(
             return FakeResponse()
 
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_UTILITY_MODEL", "utility/primary")
-    monkeypatch.setenv("ARGUS_UTILITY_FALLBACK_MODEL", "utility/fallback")
+    monkeypatch.setenv("CUADRAO_UTILITY_MODEL", "utility/primary")
+    monkeypatch.setenv("CUADRAO_UTILITY_FALLBACK_MODEL", "utility/fallback")
     monkeypatch.setattr(
         openrouter.httpx, "Client", lambda **kwargs: FakeSyncClient(**kwargs)
     )
@@ -3719,8 +3719,8 @@ def test_direct_chat_completion_tries_configured_fallback_and_records_usage(
             return FakeResponse()
 
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_CHAT_MODEL", "chat/primary")
-    monkeypatch.setenv("ARGUS_CHAT_FALLBACK_MODEL", "chat/fallback")
+    monkeypatch.setenv("CUADRAO_CHAT_MODEL", "chat/primary")
+    monkeypatch.setenv("CUADRAO_CHAT_FALLBACK_MODEL", "chat/fallback")
     monkeypatch.setattr(
         openrouter.httpx, "AsyncClient", lambda **kwargs: FakeAsyncClient(**kwargs)
     )
@@ -3941,7 +3941,7 @@ def test_gemini_document_native_wire_keeps_privacy_and_local_validation(
     from pydantic import ValidationError
 
     monkeypatch.setenv("APP_ENV", "production")
-    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "synthetic-document-key")
+    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "synthetic-document-key")
     monkeypatch.setenv("ARGUS_VISION_MODEL", "google/gemini-3.8-flash")
     output = ExtractionResult.model_validate(
         {

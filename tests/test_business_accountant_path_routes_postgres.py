@@ -31,7 +31,7 @@ from tests.test_business_scope_switch_routes_postgres import (
 from tests.test_financial_accounts_api_postgres import ORIGIN
 
 pytestmark = _local_supabase
-ALLOWLIST_ONLY = {**ENV, "ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED": "false"}
+ALLOWLIST_ONLY = {**ENV, "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED": "false"}
 CAPTCHA = "local-captcha-proof"
 GRANT = "X-Business-Grant"
 

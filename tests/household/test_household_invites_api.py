@@ -115,7 +115,7 @@ def test_invites_surface_is_off_by_default_before_auth(client):
 
 
 def test_invites_surface_stays_off_in_memory_mode(client, monkeypatch, alice):
-    monkeypatch.setenv("ARGUS_BETA_INVITES_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_BETA_INVITES_ENABLED", "true")
     response = client.get(
         "/api/v1/invites/access", headers={"Authorization": f"Bearer {ALICE}"}
     )
@@ -127,7 +127,7 @@ def test_invite_routes_over_postgres(client, alice, bob, identities, monkeypatch
     from argus.domain.household.invites import PostgresInviteStore
     from psycopg_pool import ConnectionPool
 
-    monkeypatch.setenv("ARGUS_BETA_INVITES_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_BETA_INVITES_ENABLED", "true")
     ids = [identities[ALICE]["id"], identities[BOB]["id"]]
     pool = ConnectionPool(DSN, min_size=1, max_size=4, open=True)
     with pool.connection() as c:

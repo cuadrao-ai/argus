@@ -24,7 +24,7 @@ hosted probes. See [start here](../START_HERE.md) and the
 | [Personal invitation](../../web/components/sidebar/ProfileMenu.tsx#L152), development + mock; [example URL](../../web/components/sidebar/CuadraoInvitationPreview.tsx#L18) | hidden live | Missing account invitation service/policy; account/product owners | Unique real links, delivery/history/expiry/limits and admission decision. Never expose the example URL or simulated sent state. |
 | [General notices](../../web/components/business-app/foundation/BusinessNotifications.tsx#L119), preview + development + mock | sample notices hidden; live Business membership invitations already connected | Missing durable notices; notification owner; local read/dismiss/count state | Implement recipient-scoped notices/read/dismiss/counts; preserve existing Business invitation acceptance. |
 
-The separately read `CUADRAO_WHATSAPP_DIAGNOSTIC_ENABLED=false` is not a UI
+The separately read `[removed obsolete setting]=false` is not a UI
 cleanup candidate. No matching application consumer was established by the
 targeted source lookup; retain it and require its operational owner to resolve
 that declaration before any removal. No diagnostic/provider tests were run.

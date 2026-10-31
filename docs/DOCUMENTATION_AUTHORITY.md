@@ -1,4 +1,4 @@
-# Argus documentation authority
+# Cuadrao documentation authority
 
 **Updated:** October 13, 2026. WhatsApp receipts-only scope, legal drafts and the server-owned inclusion rule. Earlier: September 29, 2026 private iPhone direction and financial-loop landing.
 **Business assignment reconciled:** October 10, 2026. See the hosted Business
@@ -37,9 +37,8 @@ authorize Apple TestFlight or change public signup or marketing publication.
 - **"Already included" is server-owned.** The API decides whether to ask if a movement
   was already counted in a balance. It asks only when a movement is backdated to a date
   on or before a balance check made after it. A skipped question is recorded with a
-  reason on the revision. The rule is in PR #1056 on the Mobile lane branch
-  (`codex/consumer-free-tier-completion`) and is not on integration yet; until it lands,
-  [API_CONTRACT](API_CONTRACT.md) on integration still describes the earlier same-day rule.
+  reason on the revision. The rule is on integration, and
+  [API_CONTRACT](API_CONTRACT.md) describes it.
   Clients render the server's questions and never decide inclusion.
 
 ## One owner per kind of decision
@@ -53,7 +52,7 @@ authorize Apple TestFlight or change public signup or marketing publication.
 | What visual and interaction conventions apply? | [Argus web guide](../.agent/designs/argus/DESIGN.md) and [Cuadrao native guide](../.agent/designs/cuadrao/DESIGN.md) | Each owns its named platform. Cuadrao rules cover preview and connected native adoption; they do not claim implementation. MVEE owns product behavior, while the execution manifest owns status and remaining work. |
 | What brand and design direction applies to the new business website? | [Cuadrao for business working guide](../.agent/designs/cuadrao-business/DESIGN.md) | Owns the approved Business and Personal marketing presentation, founder note, and illustrative examples. The [website delivery record](reports/2026-10-07-cuadrao-website-integration.md) owns integration evidence; the [launch record](reports/2026-10-07-cuadrao-marketing-launch.md) owns launch status. The independent `marketing/` package's [forms contract](specs/cuadrao-marketing-forms-contract.md) and [launch runbook](runbooks/cuadrao-marketing-launch.md) own its endpoints, data, release settings and rollback. It does not establish Business application or consumer-app availability. |
 | What visual and interaction rules apply to the signed-in Business web app? | [Cuadrao Business web app guide](../.agent/designs/cuadrao-business-app/DESIGN.md) | Founder-locked foundations, edge-case rules and core-path screens (October 18, 2026). The native guide owns the locked colours. Product adds per-screen behavior rules. It claims no built behavior. |
-| What is the Business agent build order, from WhatsApp conversation to accountant package? | [Business agent execution spec](specs/lanes/cuadrao-business-agent-execution-spec.md) | Founder-approved direction (October 10, 2026). Owns the agent contract, the work streams, the gap register and the journey acceptance for Business core flows 1 to 7 (tracker [#942](https://github.com/lagarcess/argus/issues/942)). The connected flow spec keeps its product scope. `API_CONTRACT.md` and `DATA_MODEL.md` keep endpoint and persistence truth. It claims no built behavior. |
+| What is the Business agent build order, from WhatsApp conversation to accountant package? | [Business agent execution spec](specs/lanes/cuadrao-business-agent-execution-spec.md) | Founder-approved direction (October 10, 2026). Owns the agent contract, the work streams, the gap register and the journey acceptance for Business core flows 1 to 7 (tracker [#942](https://github.com/cuadrao-ai/argus/issues/942)). The connected flow spec keeps its product scope. `API_CONTRACT.md` and `DATA_MODEL.md` keep endpoint and persistence truth. It claims no built behavior. |
 | What is the connected Business workflow and first offline fiscal-engine plan? | [Connected Business flow](specs/cuadrao-business-connected-flow-spec.md) and [E0 implementation plan](specs/cuadrao-business-e0-implementation-plan.md) | Founder-approved design and task-by-task review plan. Business owns implementation when Lucas coordinates it. Consumer retains shared migration and release ownership; Marketing retains its separate launch. P0 source verification remains open. Publication proves no runtime capability or live fiscal authorization. |
 | Which core flows exist for both apps, and when was each last walked? | [Core flows](CORE_FLOWS.md) | Owns the flow list, labels and last-walked evidence. It is the founder's test checklist and claims no more than a row's walk date. Other documents link here and do not repeat the list. |
 | What is an agent authorized to build now? | Explicit assignment and its scoped package/spec | MVEE approval does not assign every feature, unlock stages, or authorize provider integrations |
@@ -141,21 +140,21 @@ web work, closed the research/proof PRs and requested the private iPhone plan.
 The current owner is the [execution manifest](specs/argus-execution-board.md).
 It does not dispatch work or carry forward an old merge grant to new PRs.
 
-The prior [#727 coordination handoff](https://github.com/lagarcess/argus/pull/727#issuecomment-5878051744)
+The prior [#727 coordination handoff](https://github.com/cuadrao-ai/argus/pull/727#issuecomment-5878051744)
 assigned the account-backend, iPhone, Android, web and chart owners. Preserve their
 branches and changes for explicit salvage, not automatic resumption. Historical
-batch wording is retained in [integration before this lock](https://github.com/lagarcess/argus/blob/de8729843b726a3fd03210cebcedede5e44227c8/docs/DOCUMENTATION_AUTHORITY.md).
+batch wording is retained in [integration before this lock](https://github.com/cuadrao-ai/argus/blob/de8729843b726a3fd03210cebcedede5e44227c8/docs/DOCUMENTATION_AUTHORITY.md).
 
-[#735](https://github.com/lagarcess/argus/pull/735) landed the default-off account
-backend. [#738](https://github.com/lagarcess/argus/pull/738) and
-[#739](https://github.com/lagarcess/argus/pull/739) landed local native session
+[#735](https://github.com/cuadrao-ai/argus/pull/735) landed the default-off account
+backend. [#738](https://github.com/cuadrao-ai/argus/pull/738) and
+[#739](https://github.com/cuadrao-ai/argus/pull/739) landed local native session
 integration. Those are reusable components, not proof of the private iPhone
 outcome. The manifest records the inspected starting point and incomplete work.
 
-[#723](https://github.com/lagarcess/argus/pull/723),
-[#724](https://github.com/lagarcess/argus/pull/724),
-[#725](https://github.com/lagarcess/argus/pull/725) and
-[#726](https://github.com/lagarcess/argus/pull/726) are closed unmerged as of this
+[#723](https://github.com/cuadrao-ai/argus/pull/723),
+[#724](https://github.com/cuadrao-ai/argus/pull/724),
+[#725](https://github.com/cuadrao-ai/argus/pull/725) and
+[#726](https://github.com/cuadrao-ai/argus/pull/726) are closed unmerged as of this
 publication. Earlier instructions to finish or land them are historical. Reuse
 relevant findings selectively; do not restart their review or implementation loops.
 

@@ -117,7 +117,7 @@ async function preloadMockTargets(): Promise<void> {
  * what the next file starts from, whatever order `--randomize` picks.
  */
 
-// `ARGUS_API_BASE_URL` is computed once, at first import, from whether a
+// `CUADRAO_API_BASE_URL` is computed once, at first import, from whether a
 // `window` exists. Whichever file imported it first decided the answer for
 // every later file, so a happy-dom file reaching it first made the base URL
 // `http://localhost:8000` for the whole run. Importing it here, with no DOM,

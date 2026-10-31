@@ -69,11 +69,11 @@ def test_real_sessions_create_reopen_edit_and_stay_isolated(
 ) -> None:
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("ARGUS_FINANCIAL_ACCOUNTS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     gateway = local_supabase_gateway()
     created_users: list[str] = []
     try:

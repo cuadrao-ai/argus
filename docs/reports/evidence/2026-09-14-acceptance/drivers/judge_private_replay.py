@@ -33,9 +33,9 @@ services=yaml.safe_load((SCRATCH/'source/render.yaml').read_text())['services']
 api=next(x for x in services if x['name']=='argus-api')
 literals={x['key']:x.get('value') for x in api['envVars']}
 # This is the same explicit structured interpretation model in the release contract.
-model=literals['ARGUS_STRUCTURED_MODEL']
+model=literals['CUADRAO_STRUCTURED_MODEL']
 assert model=='x-ai/grok-4.3'
-key=dotenv_values('/Users/garces/Documents/projects/repos/argus-worktrees/private-alpha-next/.env')['ARGUS_PROD_OPENROUTER_API_KEY']
+key=dotenv_values('/Users/garces/Documents/projects/repos/argus-worktrees/private-alpha-next/.env')['CUADRAO_PROD_OPENROUTER_API_KEY']
 schema={'type':'object','properties':{'reason_code':{'type':'string','enum':list(REASONS)},'refusal_violation':{'type':'boolean'},'confidence':{'type':'string','enum':['high','low']}},'required':['reason_code','refusal_violation','confidence'],'additionalProperties':False}
 finish_delivered_only='--finish-delivered-only' in sys.argv
 while True:

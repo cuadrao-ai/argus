@@ -920,10 +920,10 @@ def test_guest_third_direct_run_requires_conversion_before_provider_access(
     mock_gateway,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     _configure_guest_account(mock_gateway)
     # The visitor already spent today's two runs; renewal must not help.
     mock_gateway.client = _FakeVisitorClient({"backtest_runs": 2})
@@ -955,10 +955,10 @@ def test_exhausted_guest_direct_exact_replay_returns_prior_result(
     mock_gateway,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     _configure_guest_account(mock_gateway)
     now = utcnow()
     prior_run = BacktestRun(
@@ -1008,10 +1008,10 @@ def test_exhausted_guest_direct_identity_collision_remains_conflict(
     mock_gateway,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     _configure_guest_account(mock_gateway)
     mock_gateway.get_backtest_job_reservation.return_value = {"id": "guest-job"}
     mock_gateway.admit_backtest_job.return_value = {"decision": "conflict"}

@@ -4,7 +4,7 @@ The ordered Cuadrao staging-to-production checklist is the launch runbook
 section
 [Cuadrao production promotion](../PRIVATE_LAUNCH_RUNBOOK.md#cuadrao-production-promotion).
 
-- On promotion day, confirm `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED` is `true`
+- On promotion day, confirm `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED` is `true`
   on dashboard `cuadrao-api`. The check is the name and on/off only. Never set
   or change it on production without the founder's explicit approval. See
   [Dashboard checks (founder, at promotion)](../PRIVATE_LAUNCH_RUNBOOK.md#dashboard-checks-founder-at-promotion).
@@ -91,7 +91,7 @@ The founder owns these decisions. Record their answers in the candidate manifest
    still applies unless the founder grants another explicit exception. PR #603's
    exception and spending approvals do not carry forward. Name the exact proposed
    main commit, its parents, rollback build, release captain and approver.
-2. **Sharing.** Choose both `ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED` and
+2. **Sharing.** Choose both `CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED` and
    `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED`. Both are `false` in the audited
    release profile and Blueprint. PR #632 landed with sharing still off. Enabling
    it needs an approved contract change and an enabled-surface browser walk.
@@ -165,9 +165,9 @@ eval list in `tests/evals/README.md`, prompt-freeze and the release-doc tests.
 The explicit focused command is useful first so release failures appear early.
 
 ```bash
-export OPENROUTER_API_KEY= ARGUS_PROD_OPENROUTER_API_KEY=
-export ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY= PERPLEXITY_API_KEY=
-export ALPACA_API_KEY= ALPACA_SECRET_KEY= ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD=
+export OPENROUTER_API_KEY= CUADRAO_PROD_OPENROUTER_API_KEY=
+export CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY= PERPLEXITY_API_KEY=
+export ALPACA_API_KEY= ALPACA_SECRET_KEY= CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD=
 export ARGUS_RUN_LIVE_EVALS=0 ARGUS_MARKET_DATA_PROVIDER_MODE=synthetic_unit_fixture
 poetry run python .agent/scripts/ownership/verify_branch_ownership.py
 poetry run ruff check src tests workflows scripts

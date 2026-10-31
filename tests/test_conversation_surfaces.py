@@ -218,7 +218,7 @@ def test_a_business_chat_is_kept_after_the_flag_turns_off(
 def test_artifact_routes_answer_404_for_a_business_conversation(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED", "true")
     _start_space(ALICE)
     business = _create(client, ALICE, "Shop ledger", surface="business")
     personal = _create(client, ALICE, "Household ledger")

@@ -380,8 +380,8 @@ def test_access_request_environment_contract_is_value_free() -> None:
     )
     api_env = {entry["key"]: entry for entry in api["envVars"]}
 
-    assert api_env["ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD"] == {
-        "key": "ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD",
+    assert api_env["CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD"] == {
+        "key": "CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD",
         "sync": False,
     }
     assert api_env["ARGUS_APP_ORIGIN"] == {
@@ -390,7 +390,7 @@ def test_access_request_environment_contract_is_value_free() -> None:
     }
     env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
     assert (
-        "ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD="
+        "CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD="
         "your_resend_smtp_password_here" in env_example
     )
     assert "ARGUS_APP_ORIGIN=http://localhost:3000" in env_example

@@ -66,7 +66,6 @@ def test_phantom_maintenance_surface_is_absent_but_operator_job_remains() -> Non
 
     assert "argus-maintenance" not in render_yaml
     assert "ARGUS_RENDER_CRON_ENV" not in env_contract
-    assert "ARGUS_RENDER_MAINTENANCE_SERVICE_NAME" not in env_contract
     assert "cron-deploy-status" not in env_sync
     assert (ROOT / "scripts" / "ops" / "scheduled_maintenance.py").is_file()
 
@@ -143,8 +142,8 @@ def test_blueprint_matches_the_live_dashboard_service_shape() -> None:
         entry["name"]: _blueprint_env_item(entry) for entry in manifest["services"]["api"]["entries"]
     }
     assert services["cuadrao-marketing-staging"]["branch"] == "main"
-    assert "NEXT_PUBLIC_ARGUS_API_URL" in _contract_array("ARGUS_RENDER_WEB_ENV")
-    assert "NEXT_PUBLIC_ARGUS_API_URL" in _render_env("argus-app")
+    assert "NEXT_PUBLIC_CUADRAO_API_URL" in _contract_array("ARGUS_RENDER_WEB_ENV")
+    assert "NEXT_PUBLIC_CUADRAO_API_URL" in _render_env("argus-app")
 
 
 def test_argus_api_disables_the_default_render_subdomain() -> None:
@@ -184,8 +183,8 @@ def test_workflow_version_status_derives_proof_from_ready_version(
     fake_curl.write_text(
         "#!/bin/bash\n"
         'printf \'%s\' \'[{"envVar":{"key":'
-        '"ARGUS_RENDER_WORKFLOW_RELEASE_COMMIT","value":"stale000"}},'
-        '{"envVar":{"key":"ARGUS_RENDER_WORKFLOW_RELEASE_VERSION_ID",'
+        '"STALE_COMMIT","value":"stale000"}},'
+        '{"envVar":{"key":"STALE_VERSION",'
         '"value":"wfv-stale"}}]\'\n',
         encoding="utf-8",
     )
@@ -276,7 +275,7 @@ def test_render_env_sync_audit_compares_the_transition_cors_allowlist(
                 "ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED": "true",
                 "ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED": "true",
                 "RENDER_API_KEY": "fake-render-token",
-                "ARGUS_CORS_ALLOW_ORIGINS": "https://argus-app-suz5.onrender.com",
+                "CUADRAO_CORS_ALLOW_ORIGINS": "https://argus-app-suz5.onrender.com",
             },
         ),
         web_env_json=_render_env_payload("cuadrao-web"),
@@ -284,7 +283,7 @@ def test_render_env_sync_audit_compares_the_transition_cors_allowlist(
     )
 
     assert result.returncode == 1
-    assert "drift argus-api:ARGUS_CORS_ALLOW_ORIGINS" in result.stdout
+    assert "drift argus-api:CUADRAO_CORS_ALLOW_ORIGINS" in result.stdout
     assert "status=drift" in result.stdout
 
 

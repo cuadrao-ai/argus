@@ -40,7 +40,7 @@ __all__ = ["mock_gateway"]
 def test_spoofed_xff_from_one_session_hits_the_same_cap(
     mock_gateway, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("ARGUS_GUEST_SESSION_DAILY_TURN_CEILING", "50")
+    monkeypatch.setenv("CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING", "50")
     fake = _guest(mock_gateway, monkeypatch, turns_today=299, session_used=0)
 
     first = client.post(
@@ -65,7 +65,7 @@ def test_spoofed_xff_from_one_session_hits_the_same_cap(
 def test_session_cap_applies_when_the_trusted_ip_changes(
     mock_gateway, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("ARGUS_GUEST_SESSION_DAILY_TURN_CEILING", "1")
+    monkeypatch.setenv("CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING", "1")
     fake = _guest(mock_gateway, monkeypatch, turns_today=0, session_used=0)
 
     first = client.post(
@@ -91,7 +91,7 @@ def test_concurrent_claims_at_one_remaining_accept_exactly_one(
 ) -> None:
     monkeypatch.setattr(api_state, "supabase_gateway", None)
     api_state.store.visitor_usage_counters.clear()
-    monkeypatch.setenv("ARGUS_GUEST_SESSION_DAILY_TURN_CEILING", "2")
+    monkeypatch.setenv("CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING", "2")
     visitor_key = visitor_key_for("203.0.113.80")
     session_key = guest_session_compute_key("guest-session-concurrent")
     first = claim_guest_compute_turn(
@@ -129,7 +129,7 @@ def test_concurrent_claims_at_one_remaining_accept_exactly_one(
 def test_concurrent_endpoint_claims_reject_the_overshoot(
     mock_gateway, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("ARGUS_GUEST_SESSION_DAILY_TURN_CEILING", "50")
+    monkeypatch.setenv("CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING", "50")
     fake = _guest(mock_gateway, monkeypatch, turns_today=299, session_used=0)
     barrier = Barrier(6)
 
@@ -168,7 +168,7 @@ def test_client_identity_is_stable_across_spoofed_xff() -> None:
 
 
 def _hosted_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ARGUS_PERSISTENCE_MODE", "supabase")
+    monkeypatch.setenv("CUADRAO_PERSISTENCE_MODE", "supabase")
     monkeypatch.setenv("ARGUS_DEV_MEMORY_FALLBACK", "false")
     reset_trusted_header_fallback_warning_for_tests()
 
