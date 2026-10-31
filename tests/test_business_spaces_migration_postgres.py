@@ -150,13 +150,13 @@ def sender_link(db, owner: str, destination_space: str | None = None) -> str:  #
     )
 
 
-def capture(db, owner: str, connection_id: str) -> None:  # noqa: ANN001
+def capture(db, owner: str, connection_id: str, sender: bytes | None = None) -> None:  # noqa: ANN001
     db.execute(
         "insert into public.whatsapp_inbound_messages"
         " (provider_message_key, sender_hash, destination_owner_id, status,"
         "  connection_id, received_at, updated_at)"
         " values (%s, %s, %s, 'captured', %s, now(), now())",
-        (os.urandom(32), os.urandom(32), owner, connection_id),
+        (os.urandom(32), sender or os.urandom(32), owner, connection_id),
     )
 
 
@@ -226,13 +226,22 @@ def test_a_whatsapp_capture_lands_in_the_linked_business_space(db, users) -> Non
     owner, other = users["owner"], users["other"]
     business = owned_space(db, owner)
     sender_link(db, owner)
+    linked = bytes(
+        _one(
+            db,
+            "select wa_id_hash from public.whatsapp_sender_links where destination_owner_id = %s",
+            (owner,),
+        )
+    )
     others_business = connection(db, other, space(db, other))
 
-    capture(db, owner, connection(db, owner, business))
+    capture(db, owner, connection(db, owner, business), linked)
     with _raises(db, psycopg.errors.RaiseException, "whatsapp_capture_space_mismatch"):
-        capture(db, owner, connection(db, owner))
+        capture(db, owner, connection(db, owner, business))
     with _raises(db, psycopg.errors.RaiseException, "whatsapp_capture_space_mismatch"):
-        capture(db, owner, others_business)
+        capture(db, owner, connection(db, owner), linked)
+    with _raises(db, psycopg.errors.RaiseException, "whatsapp_capture_space_mismatch"):
+        capture(db, owner, others_business, linked)
 
     db.execute(
         "update public.whatsapp_sender_links set status = 'revoked', revoked_at = now()"
@@ -240,7 +249,7 @@ def test_a_whatsapp_capture_lands_in_the_linked_business_space(db, users) -> Non
         (owner,),
     )
     with _raises(db, psycopg.errors.RaiseException, "whatsapp_capture_space_mismatch"):
-        capture(db, owner, connection(db, owner, business))
+        capture(db, owner, connection(db, owner, business), linked)
 
 
 def test_a_business_account_is_never_granted_to_a_household(db, users) -> None:  # noqa: ANN001
