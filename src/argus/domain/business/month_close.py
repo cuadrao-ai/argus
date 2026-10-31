@@ -25,7 +25,7 @@ from argus.domain.business.contracts.facts import (
     is_sin_comprobante,
     personal_mark_admits,
 )
-from argus.domain.business.dgii_validation import credit_note, reportable_607
+from argus.domain.business.dgii_validation import credit_note, declarable, reportable_607
 from argus.domain.business.fiscal_identity import normalized_ncf
 from argus.domain.business.ledger import occurred_on
 from argus.domain.recording.currency import (
@@ -366,6 +366,11 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
                 "pagado": {"count": 0, "before_itbis_minor": 0},
             },
         }
+        # A foreign line has no rate yet, so its currency's net is not final.
+        pending_rate = not declarable(currency) and any(
+            document.currency == currency and not document.sin_comprobante
+            for document in chosen
+        )
         for document in chosen:
             if document.currency != currency:
                 continue
@@ -424,7 +429,7 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
                 "cuentas_por_pagar_minor": shown["cuentas_por_pagar"]["minor"],
                 "cuentas_por_pagar": shown["cuentas_por_pagar"]["amount"],
                 "by_status": status,
-                "net_result_final": pending_count == 0,
+                "net_result_final": pending_count == 0 and not pending_rate,
             }
         )
     in_scope = [document.occurred_on for document in documents if in_close(document)]

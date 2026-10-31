@@ -13,7 +13,7 @@ from argus.domain.business.dgii_export import build_fiscal_packet, fiscal_manife
 from argus.domain.business.month_close import PAYMENT_METHODS, summarize
 from argus.domain.business.month_close_store import foreign_currency, month_close
 
-from tests.business.test_month_close import DAY
+from tests.business.test_month_close import DAY, document
 from tests.dgii.test_packet import practice_records
 
 NOTE = "Moneda extranjera: pendiente de tasa"
@@ -172,3 +172,26 @@ def test_foreign_lines_never_reach_peso_totals_and_both_forms_stay_in_review():
         "606": "needs_review",
         "607": "needs_review",
     }
+
+
+def test_a_paid_dollar_bill_on_the_606_is_never_a_final_net():
+    expense = next(r for r in practice_records() if r.kind == "expense")
+    manifest, _rows = fiscal_manifest((replace(expense, currency="USD"),), **SEPTEMBER)
+    assert foreign_currency(manifest["forms"])["606"] == {
+        "pending_rate_count": 1,
+        "reason": NOTE,
+    }
+    paid = dict(role="receipt", status="pagado", occurred_on=date(2026, 9, 10))
+    bills = [
+        document(activity_id="peso-bill", total_minor=1000, **paid),
+        document(activity_id="usd-bill", currency="USD", total_minor=109000, **paid),
+    ]
+    blocks = {
+        block["currency"]: block
+        for block in summarize(bills, SEPTEMBER["start"], SEPTEMBER["end"])["currencies"]
+    }
+    assert blocks["USD"]["by_status"]["receipts"]["pendiente"]["count"] == 0
+    assert blocks["USD"]["net_result_final"] is False
+    assert blocks["DOP"]["net_result_final"] is True
+    [peso] = summarize(bills[:1], SEPTEMBER["start"], SEPTEMBER["end"])["currencies"]
+    assert peso == blocks["DOP"]
