@@ -613,7 +613,7 @@ def test_docs_only_changes_script_classifies_docs_and_code_lists() -> None:
     assert _classify_changed_files(root_markdown) == {
         "docs_only": "false",
         "run_heavy": "true",
-        "run_marketing": "true",
+        "run_marketing": "false",
     }
     assert _classify_changed_files() == {
         "docs_only": "false",
