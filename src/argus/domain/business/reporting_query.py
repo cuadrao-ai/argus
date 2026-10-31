@@ -23,7 +23,9 @@ from argus.domain.recording.errors import RecordingInputError
 
 CALENDAR = "America/Santo_Domingo"
 Family = Literal["sale", "purchase"]
-Stage = Literal["needs_review", "awaiting_approval", "ready_for_export"]
+Stage = Literal[
+    "needs_review", "awaiting_approval", "needs_fiscal_data", "ready_for_export"
+]
 DocumentKind = Literal["invoice", "receipt", "credit_note", "unknown"]
 Column = Literal[
     "date",
@@ -166,6 +168,8 @@ class ReportRecord(Contract):
     date_basis: Literal["document_issue", "activity_effective"]
     family: Family | None = None
     stage: Stage | None = None
+    export_missing: str | None = None
+    export_line: bool = False
     technical_state: str | None = None
     workflow_blockers: tuple[str, ...] = ()
     currency: str | None = None
@@ -230,6 +234,8 @@ class ReportOverview(Contract):
     needs_review: int = 0
     awaiting_approval: int = 0
     ready_for_export: int = 0
+    needs_fiscal_data: int = 0
+    export_lines: int = 0
 
 
 class ExcludedPersonal(Contract):
@@ -591,8 +597,14 @@ def run_query(
     overview = ReportOverview(
         **{
             stage: sum(row.stage == stage for row in overview_rows)
-            for stage in ("needs_review", "awaiting_approval", "ready_for_export")
-        }
+            for stage in (
+                "needs_review",
+                "awaiting_approval",
+                "needs_fiscal_data",
+                "ready_for_export",
+            )
+        },
+        export_lines=sum(row.export_line for row in overview_rows),
     )
     chosen_sort, reason = effective_sort(rows, request.sort)
     left_out = [row for row in rows if not _admitted(row)]

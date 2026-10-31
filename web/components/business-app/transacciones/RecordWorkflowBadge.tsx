@@ -11,7 +11,9 @@ import styles from "./transacciones-cells.module.css";
 export default function RecordWorkflowBadge({ row }: { row: RecordRow }) {
   const { chosen } = useBusiness();
   const { t } = useTransaccionesWords();
-  const workflow = row.report?.stage ? ({ needs_review: "review", awaiting_approval: "approval", ready_for_export: "ready" } as const)[row.report.stage] : undefined;
+  // Placeholder copy, pending Iris review.
+  if (row.report?.stage === "needs_fiscal_data") return <span data-record-workflow="fiscal" className={`${styles.workflow} ${palette.review}`}>Faltan datos fiscales</span>;
+  const workflow = row.report?.stage ? ({ needs_review: "review", awaiting_approval: "approval", ready_for_export: "ready" } as const)[row.report.stage as "needs_review" | "awaiting_approval" | "ready_for_export"] : undefined;
   const metadata = workflow ? { workflow } : row.report ? null : previewRecordMetadata(row, chosen?.space_id ?? null);
   if (!metadata) return <Unknown meaning={t("business.transactions.layout.workflow.unknown")} />;
   const tone = metadata.workflow === "ready" ? "export" : metadata.workflow;
