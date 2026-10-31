@@ -227,6 +227,32 @@ test("Corregir after such a refusal opens the tax details, since the read names 
   }
 });
 
+test("an RNC of the wrong length keeps its own step, and the flags step follows it before anything is sent", async () => {
+  const dossier = await flaggedReceipt(["ncf_malformed"], accounts);
+  // The server checks the digit only on 9 or 11 digits, so eight digits carry no RNC flag.
+  dossier.facts.fiscal!.rnc = { state: "known", value: READ_VALUES.rnc.clean.slice(0, 8), origin: "extracted", verified: false, source_ids: [] };
+  const approvals = serve(dossier);
+  const page = await render(dossier);
+  try {
+    await page.approve();
+    const confirm = document.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]');
+    assert.ok(confirm, "the RNC step comes first");
+    assert.ok(confirm.closest('[role="alertdialog"]')?.textContent?.includes(es.business.dgii.rnc_check.invalid_length.approval_title));
+    assert.equal(page.step(), null);
+    await page.act(async () => confirm.click());
+    await page.settle();
+    const step = page.step();
+    assert.ok(step, "the flags step follows");
+    assert.deepEqual([...step.querySelectorAll("[data-flag]")].map((item) => item.getAttribute("data-flag")), ["ncf_malformed"]);
+    assert.equal(approvals.length, 0, "nothing is sent between the two steps");
+    await page.approveAnyway();
+    assert.deepEqual(approvals.map((item) => item.body), [{ version: dossier.version, action: dossier.approval_action, approve_anyway: true }]);
+    assert.ok(page.recorded(), "the receipt is recorded");
+  } finally {
+    await page.close();
+  }
+});
+
 test("a high ITBIS shows on the ITBIS row and approval goes straight through", async () => {
   const dossier = await flaggedReceipt(["itbis_high"], accounts);
   const approvals = serve(dossier);

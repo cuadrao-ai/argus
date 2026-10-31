@@ -48,7 +48,7 @@ function rowValues(target: EventTarget): string[] {
 
 type Operation = { kind: "idle" } | { kind: "saving" | "approving" } | { kind: "uncertain"; action: "save" | "approve"; version: number };
 type ApprovalRequest = { next: boolean; anyway: boolean };
-/** The step shown before approving one revision: today's RNC warning, or the dossier's confirm flags. */
+/** The step shown before approving one revision: the missing or wrong-length RNC warning, or the dossier's confirm flags. */
 type ApprovalCheck = { draftId: string; version: number; next: boolean } & ({ kind: "rnc"; status: "missing" | "invalid_length" } | { kind: "flags"; codes: ReviewFlagCode[] });
 
 export function approvalLine(canApprove: boolean, canPrepare: boolean): "prepare_only" | null {
@@ -344,18 +344,19 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const attention = dossierAttention(dossier, [...recordFactRows(dossier), ...fiscalFactRows(dossier.facts)], t);
 
   const flags = dossier.review_flags ?? [];
+  const confirmCodes = flags.filter((flag) => flag.confirm).map((flag) => flag.code);
   const approve = ({ next, anyway }: ApprovalRequest) => {
     if (next) void approveAndNext(anyway);
     else void write("approve", undefined, { next, anyway });
   };
+  // The server flags no check digit on a missing or wrong-length RNC, so that step comes first and the flags step follows it.
   const requestApproval = (next = false) => {
     if (!canApprove || !supportedKind || !approvable) return;
     const at = { draftId: dossier.draft_id, version: dossier.version, next };
-    const codes = flags.filter((flag) => flag.confirm).map((flag) => flag.code);
     const status = rncStatus(dossier.facts.fiscal?.rnc, flags);
     const showsFiscal = Boolean(dossier.facts.fiscal) || dossier.fiscal_known === true && !dossier.fiscal_value;
-    if (codes.length) setApprovalCheck({ ...at, kind: "flags", codes });
-    else if (showsFiscal && (status === "missing" || status === "invalid_length")) setApprovalCheck({ ...at, kind: "rnc", status });
+    if (showsFiscal && (status === "missing" || status === "invalid_length")) setApprovalCheck({ ...at, kind: "rnc", status });
+    else if (confirmCodes.length) setApprovalCheck({ ...at, kind: "flags", codes: confirmCodes });
     else approve({ next, anyway: false });
   };
   /** A step opened for an older revision, or one that can no longer be approved, approves nothing. */
@@ -471,7 +472,9 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
       cancelLabel={t("common.cancel", "Cancel")}
       isBusy={busy}
       onCancel={() => setApprovalCheck(null)}
-      onConfirm={() => confirmApproval(approvalCheck, false)}
+      onConfirm={() => confirmCodes.length
+        ? setApprovalCheck({ draftId: approvalCheck.draftId, version: approvalCheck.version, next: approvalCheck.next, kind: "flags", codes: confirmCodes })
+        : confirmApproval(approvalCheck, false)}
     /> : null}
     {approvalCheck?.kind === "flags" ? <ReviewFlagConfirm
       codes={approvalCheck.codes}
