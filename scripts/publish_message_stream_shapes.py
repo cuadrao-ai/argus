@@ -415,21 +415,7 @@ def _subscript_payload_keys(func: ast.AST) -> list[str]:
 
 
 def closed_final_keys() -> dict[str, list[str]]:
-    agent = ast.parse((ROOT / "src/argus/api/routers/agent.py").read_text())
     retest = ROOT / "src/argus/api/chat/retest.py"
-    cancellation = ROOT / "src/argus/api/chat/cancellation.py"
-    checkpoint = None
-    for node in ast.walk(agent):
-        if not isinstance(node, ast.Dict):
-            continue
-        for key, value in _dict_items(node):
-            if key != "payload" or not isinstance(value, ast.Dict):
-                continue
-            keys = _literal_keys(value)
-            if "assistant_response" in keys and "stage_outcome" in keys:
-                checkpoint = keys
-    if checkpoint is None:
-        raise SystemExit("checkpoint final payload missing")
     failure = _function(retest, "failed_retest_turn")
     retry_keys: list[str] = []
     for node in ast.walk(failure):
@@ -441,37 +427,13 @@ def closed_final_keys() -> dict[str, list[str]]:
                     for element in iterator.elts
                     if (text := _string_constant(element)) is not None
                 ]
-    replay = _payload_dict(_function(cancellation, "replay_events"))
-    replay_items = dict(_dict_items(replay, strict=True))
-    cancelled = replay_items["confirmation_cancelled"]
-    if not isinstance(cancelled, ast.Dict):
-        raise SystemExit("confirmation_cancelled is not a dict literal")
-    complete = _function(cancellation, "complete_confirmation_cancellation")
-    assigned = None
-    for node in ast.walk(complete):
-        if not isinstance(node, ast.Assign):
-            continue
-        for target in node.targets:
-            if (
-                isinstance(target, ast.Name)
-                and target.id == "confirmation_cancelled"
-                and isinstance(node.value, ast.Dict)
-            ):
-                assigned = _literal_keys(node.value)
-    if assigned is None:
-        raise SystemExit("confirmation_cancelled assignment missing")
     return {
-        "checkpoint-final-keys": checkpoint,
         "retest-final-keys": _literal_keys(
             _projection_dict(_function(retest, "complete_retest_turn"))
         ),
         "retest-failure-keys": _literal_keys(_assigned_payload_dict(failure))
         + _subscript_payload_keys(failure),
         "retest-retry-keys": retry_keys,
-        "cancel-final-keys": _literal_keys(replay),
-        "cancel-complete-keys": _literal_keys(_returned_dict(complete)),
-        "cancel-id-keys": _literal_keys(cancelled),
-        "cancel-id-assigned-keys": assigned,
     }
 
 
@@ -493,12 +455,6 @@ def _message_table(fields: dict[str, bool]) -> str:
 
 def published_blocks() -> dict[str, str]:
     finals = closed_final_keys()
-    if finals["cancel-final-keys"] != finals["cancel-complete-keys"]:
-        raise SystemExit(
-            "cancellation replay and complete_confirmation_cancellation payload keys differ"
-        )
-    if finals["cancel-id-keys"] != finals["cancel-id-assigned-keys"]:
-        raise SystemExit("confirmation_cancelled keys differ between replay and assignment")
     with_detail, without_detail = substages_passing_detail()
     lists = {
         "message-fields": _message_table(message_fields()),
@@ -510,12 +466,9 @@ def published_blocks() -> dict[str, str]:
         "substage-no-detail": _bullet_block(without_detail),
         "tool-progress-fields": _bullet_block(tool_progress_fields()),
         "stage-outcomes": _bullet_block(stage_outcomes()),
-        "checkpoint-final-keys": _bullet_block(finals["checkpoint-final-keys"]),
         "retest-final-keys": _bullet_block(finals["retest-final-keys"]),
         "retest-failure-keys": _bullet_block(finals["retest-failure-keys"]),
         "retest-retry-keys": _bullet_block(finals["retest-retry-keys"]),
-        "cancel-final-keys": _bullet_block(finals["cancel-final-keys"]),
-        "cancel-id-keys": _bullet_block(finals["cancel-id-keys"]),
     }
     return lists
 

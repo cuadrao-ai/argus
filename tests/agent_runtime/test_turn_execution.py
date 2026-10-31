@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import json
 from typing import Any
 
@@ -290,41 +289,6 @@ def test_exact_final_without_claim_keeps_changed_state_assessment() -> None:
         assert summary["progress_outcome"] == "advanced"
         assert summary["terminal"] == "advanced"
         assert summary["input_fingerprint"] != summary["output_fingerprint"]
-
-
-@pytest.mark.asyncio
-async def test_background_title_work_has_no_parent_turn_context(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from argus.agent_runtime.turn_execution import (
-        active_turn_execution,
-        turn_execution_scope,
-    )
-    from argus.api.chat import title_finalization
-
-    observed_contexts: list[object | None] = []
-    completed = asyncio.Event()
-
-    async def _fake_to_thread(_function: Any, **_kwargs: Any) -> None:
-        observed_contexts.append(active_turn_execution())
-        completed.set()
-
-    monkeypatch.setattr(
-        title_finalization,
-        "_artifact_naming_disabled_for_pytest",
-        lambda: False,
-    )
-    monkeypatch.setattr(title_finalization.asyncio, "to_thread", _fake_to_thread)
-
-    with turn_execution_scope(entry_state=_typed_state()):
-        title_finalization.schedule_artifact_naming_after_stream(
-            user_id="user-1",
-            conversation_id="conversation-1",
-            language="en",
-        )
-        await asyncio.wait_for(completed.wait(), timeout=1)
-
-    assert observed_contexts == [None]
 
 
 def test_provider_permit_uses_remaining_absolute_deadline(

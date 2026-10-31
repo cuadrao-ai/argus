@@ -16,7 +16,6 @@ from argus.api import state as api_state
 from argus.api.age_confirmation import age_confirmation_response_code
 from argus.api.apple_sign_in import AppleCaptureFlagGateMiddleware
 from argus.api.dependencies import (
-    ChatRequestBoundaryMiddleware,
     request_id_middleware,
     validate_startup_configuration,
     validation_problem_body,
@@ -204,7 +203,6 @@ async def validation_exception_handler(  # type: ignore[no-untyped-def]
 
 
 def add_core_middleware_and_handlers(app: FastAPI) -> None:
-    app.add_middleware(ChatRequestBoundaryMiddleware)
     # Added before request_id_middleware so it sits inside it: a gated 404 still
     # carries X-Request-Id, exactly as a genuine unmatched route does.
     app.add_middleware(EvidenceReceiptFlagGateMiddleware)

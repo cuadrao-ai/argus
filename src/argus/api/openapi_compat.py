@@ -44,8 +44,6 @@ EXCLUDED_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
     }
 )
 
-STREAMING_OPERATION = ("post", "/api/v1/chat/stream")
-SSE_MEDIA_TYPE = "text/event-stream"
 
 # Routes that authenticate the caller themselves (or bootstrap a session) and
 # therefore never fall behind the shared bounded-session-verification
@@ -160,25 +158,6 @@ def customize_openapi_document(document: dict[str, Any]) -> dict[str, Any]:
     )
 
     _rewrite_validation_errors(spec)
-
-    stream_method, stream_path = STREAMING_OPERATION
-    stream_op = spec.get("paths", {}).get(stream_path, {}).get(stream_method)
-    if stream_op is not None:
-        responses = stream_op.setdefault("responses", {})
-        success = responses.setdefault("200", {})
-        success["description"] = (
-            "Canonical data-only SSE stream: stage_start, token, stage_outcome, "
-            "final, then [DONE]."
-        )
-        success["content"] = {SSE_MEDIA_TYPE: {"schema": {"type": "string"}}}
-        responses["409"] = _error_response(
-            "The selected response option is missing, mismatched, foreign to the "
-            "owner or conversation, or no longer attached to the latest active "
-            "assistant message."
-        )
-        responses["413"] = _error_response(
-            "The chat request body exceeded the 65,536-byte ingress limit."
-        )
 
     logout_op = spec.get("paths", {}).get("/api/v1/auth/logout", {}).get("post")
     if logout_op is not None:
@@ -411,11 +390,6 @@ def structural_projection(document: dict[str, Any]) -> dict[str, Any]:
             responses[str(status)] = _resolve_response(
                 response, schemas, response_components, ()
             )
-
-        if (method, path) == STREAMING_OPERATION and "200" in responses:
-            # Approved manual streaming difference: the success body is SSE and
-            # only that success body schema is excluded from comparison.
-            responses["200"] = {SSE_MEDIA_TYPE: {}}
 
         projection[f"{method.upper()} {path}"] = {
             "parameters": parameters,

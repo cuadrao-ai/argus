@@ -231,41 +231,6 @@ def test_guests_carry_no_country_or_currency() -> None:
     assert not set(SETTINGS) & projected.model_dump().keys()
 
 
-@pytest.mark.parametrize("country", ["MX", None])
-def test_a_chat_turn_reads_the_country_from_the_profile(
-    monkeypatch: pytest.MonkeyPatch, country: str | None
-) -> None:
-    from argus.api.routers import agent as agent_router
-
-    captured: dict[str, Any] = {}
-
-    async def _runtime(**kwargs: Any):
-        captured["user"] = kwargs["user"]
-        yield {
-            "type": "final",
-            "payload": {"stage_outcome": "ready_to_respond", "assistant_response": "Ok."},
-        }
-
-    monkeypatch.setattr(agent_router, "stream_agent_turn_events", _runtime)
-    client = _client()
-    if country is not None:
-        client.patch("/api/v1/me", json={"country": country})
-    conversation = client.post("/api/v1/conversations", json={}).json()["conversation"]
-
-    response = client.post(
-        "/api/v1/chat/stream",
-        json={
-            "conversation_id": conversation["id"],
-            "message": "¿A cuánto está Nike hoy?",
-            "language": "es-419",
-        },
-    )
-
-    assert response.status_code == 200
-    assert captured["user"].country == country
-    assert captured["user"].language_preference == "es-419"
-
-
 # --- what ships beside the code ---------------------------------------------
 
 

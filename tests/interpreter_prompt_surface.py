@@ -43,7 +43,6 @@ BUSINESS_ACCEPTANCE_STEP_IDS = {
 READOUT_MESSAGE_OWNERS = frozenset(
     {
         "src/argus/agent_runtime/stages/explain.py",
-        "src/argus/api/chat/breakdown.py",
     }
 )
 READOUT_INSTRUCTION_OWNERS = frozenset(

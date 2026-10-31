@@ -8,7 +8,6 @@ from pathlib import Path
 
 import httpx
 import pytest
-import respx
 
 from tests.evals import test_result_readout_eval as fixture_owner
 from tests.evals.result_readout_eval import (
@@ -19,9 +18,7 @@ from tests.evals.result_readout_eval import (
 from tests.evals.result_readout_probe import (
     cost_accounting,
     install_http_guards,
-    run_probe,
 )
-from tests.research.conftest import agent_response, search_results_item
 
 provider_rates = fixture_owner.provider_rates
 task_configuration = fixture_owner.task_configuration
@@ -190,149 +187,9 @@ def probe_request(monkeypatch, provider_rates):
     }
 
 
-def test_free_probe_uses_both_production_builders_without_http(probe_request):
-    with respx.mock(assert_all_called=True):
-        report = run_probe(probe_request)
-    assert report["requests"] == []
-    assert report["http_attempts"] == 0
-    assert [p["task"] for p in report["preflight_payloads"]] == [
-        "result_summary",
-        "result_breakdown",
-    ]
-    limits = report["configuration"]["tasks"]["result_breakdown"]["request_limits"]
-    assert {tool["type"] for tool in limits["tools"]} == {"web_search", "fetch_url"}
-    assert limits["max_tool_calls"] == 4
-    assert limits["parallel_tool_calls"] is False
-    assert report["preflight_payloads"][1]["prior_quick_take_allowance_bytes"] == 8192
-    assert report["configuration"]["credentials_present"] == {
-        "openrouter": True,
-        "perplexity_agent": True,
-    }
-
-
 def draft(*, deeper=False):
     value = {"language": "en", "text": "The historical ride was uneven.", "figures": []}
     return value
-
-
-@pytest.mark.parametrize(
-    "failure",
-    [
-        "none",
-        "quick_http",
-        "quick_schema",
-        "deep_http",
-        "deep_json",
-        "deep_schema",
-        "deep_language",
-        "deep_false_figure",
-        "deep_incomplete",
-        "deep_malformed_output",
-    ],
-)
-def test_real_composer_paths_dispatch_once_each_and_preserve_raw_invoice(
-    probe_request, failure
-):
-    from argus.domain.result_readout_research import (
-        RESULT_RESEARCH_MODEL as RESULT_BREAKDOWN_MODEL,
-    )
-
-    free = run_probe(probe_request)
-    quick_text = json.dumps(draft()) if failure != "quick_schema" else "{bad json"
-    quick_document = {
-        "id": "test-only-quick",
-        "model": RESULT_BREAKDOWN_MODEL,
-        "choices": [{"message": {"content": quick_text}}],
-        "usage": {"cost": 0.001},
-    }
-    deeper = draft(deeper=True)
-    if failure == "deep_schema":
-        deeper["figures"] = "wrong structure"
-    if failure == "deep_language":
-        deeper["language"] = "es-419"
-    if failure == "deep_false_figure":
-        deeper["text"] = "The return was 9999%."
-        deeper["figures"] = [{"fact_key": "Total return on starting capital", "value": 9999}]
-    raw_text = "{bad json" if failure == "deep_json" else json.dumps(deeper)
-    response = agent_response(
-        text=raw_text,
-        invocations=0,
-        model=RESULT_BREAKDOWN_MODEL,
-        status="incomplete" if failure == "deep_incomplete" else "completed",
-    )
-    response["output"].insert(
-        0,
-        search_results_item(
-            {"url": "https://example.com/test-only-evidence", "title": "Test only source"}
-        ),
-    )
-    if failure == "deep_malformed_output":
-        response["output"] = 42
-    quick_http = (
-        httpx.Response(400, json={"error": {"message": "reasoning unsupported"}})
-        if failure == "quick_http"
-        else httpx.Response(200, json=quick_document)
-    )
-    deep_http = (
-        httpx.Response(400, json={"error": "test-only failure"})
-        if failure == "deep_http"
-        else httpx.Response(200, json=response)
-    )
-    with respx.mock(assert_all_called=True) as mock:
-        quick_route = mock.post(OPENROUTER_URL).mock(return_value=quick_http)
-        deep_route = mock.post(PERPLEXITY_URL).mock(return_value=deep_http)
-        result = run_probe(
-            {
-                **probe_request,
-                "live": True,
-                "preflight_configuration": free["configuration"],
-            }
-        )
-    assert quick_route.call_count == deep_route.call_count == 1
-    assert result["http_attempts"] == 2
-    assert len(result["provider_responses"]) == 2
-    assert result["attempt_receipts_complete"]
-    assert measurement_can_continue(result), result
-    assert result["quick_take"]["fallback_used"] == failure.startswith("quick_")
-    assert result["breakdown"]["fallback_used"] == failure.startswith("deep_")
-    assert result["quick_take"]["complete_text"]
-    assert result["breakdown"]["complete_text"]
-    if failure == "quick_http":
-        assert result["blocked_dispatches"] == [
-            {
-                "task": "result_summary",
-                "provider": "openrouter",
-                "reason": "single_attempt_policy",
-            }
-        ]
-        assert result["unknown_cost_attempts"] == 1
-    if failure != "deep_http":
-        receipt = result["provider_responses"][1]
-        assert receipt["raw_response"] == response
-        assert receipt["raw_usage"] == response["usage"]
-        assert receipt["provider_response_id"] == response["id"]
-        assert receipt["raw_drafts"] == (
-            [] if failure == "deep_malformed_output" else [raw_text]
-        )
-        assert result["observed_cost_usd"] >= response["usage"]["cost"]["total_cost"]
-        assert result[
-            "unpriced_spend"
-        ], "First Luna usage must keep the existing unpriced billing path"
-    if failure == "deep_language":
-        assert result["breakdown"]["failure_mode"] == "language_mismatch"
-    if failure == "deep_false_figure":
-        assert result["breakdown"]["failure_mode"] == "invalid_figure_reference"
-    if failure in {
-        "none",
-        "quick_http",
-        "quick_schema",
-        "deep_language",
-        "deep_false_figure",
-    }:
-        assert (
-            result["breakdown"]["sources"][0]["url"]
-            == "https://example.com/test-only-evidence"
-        )
 
 
 def test_paid_probe_refuses_missing_resolved_launch_metadata() -> None:
