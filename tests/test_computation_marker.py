@@ -186,28 +186,3 @@ def _streamed_turn(monkeypatch, cards: list[dict]) -> dict:
     ]
     return messages[-1]
 
-
-def test_the_chat_turn_stamps_the_marker_derived_from_its_card(monkeypatch) -> None:
-    card = run_calculation("time_value", LOAN).model_copy(
-        update={"artifact_id": fake.uuid4()}
-    )
-    stored = _streamed_turn(monkeypatch, [card.model_dump(mode="json")])
-    assert stored["role"] == "assistant"
-    assert stored["metadata"]["tool_result_cards"][0]["arguments"] == card.arguments
-    assert stored["metadata"]["computation"] == computation_from_tool_card(
-        card
-    ).model_dump(mode="json")
-    assert stored["metadata"]["computation"]["kind"] == "time_value"
-
-
-def test_a_turn_without_a_free_calculation_card_carries_no_marker(monkeypatch) -> None:
-    catalog = get_tool_catalog(include_unavailable=True)
-    research = catalog.get("balanced_lookup")
-    call = ToolCall(tool_name="balanced_lookup", call_id="c1", arguments={"request": "x"})
-    outcome = ToolOutcome(
-        status="unavailable", failure={"code": "research_unavailable", "fields": []}
-    )
-    card = research.result_card(call=call, outcome=outcome, artifact_id=fake.uuid4())
-    stored = _streamed_turn(monkeypatch, [card.model_dump(mode="json")])
-    assert "computation" not in stored["metadata"]
-    assert stored["metadata"]["tool_result_cards"][0]["tool_name"] == "balanced_lookup"

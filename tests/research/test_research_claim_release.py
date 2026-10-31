@@ -446,32 +446,6 @@ def _result_follow_up(monkeypatch: pytest.MonkeyPatch) -> None:
     assert answer.text is None
 
 
-def _result_breakdown(monkeypatch: pytest.MonkeyPatch) -> None:
-    from argus.api.chat import breakdown
-
-    from tests.test_backtest_message_projection import _completed_run
-
-    class _Down:
-        def run_structured(self, *_args, **_kwargs):
-            raise ResearchUnavailableError("timeout")
-
-    monkeypatch.setattr(breakdown, "_client", lambda: _Down())
-    monkeypatch.setattr(
-        api_state,
-        "supabase_gateway",
-        SimpleNamespace(create_cost_ledger_entry=lambda *, entry: None),
-    )
-    run = _completed_run()
-    result = breakdown.result_breakdown_action(
-        run,
-        language="en",
-        user_id="owner",
-        conversation_id=run.conversation_id,
-        request_id="request",
-    )
-    assert result.fallback_used
-
-
 def _discovery_search(monkeypatch: pytest.MonkeyPatch) -> None:
     from argus.agent_runtime.discovery import composer
     from argus.domain.research.search import SearchUnavailableError
@@ -508,7 +482,6 @@ CLAIMED_PROVIDER_PATHS = {
     "thorough_submission": _thorough_submission,
     "thorough_synchronous_run": _thorough_synchronous_run,
     "result_follow_up": _result_follow_up,
-    "result_breakdown": _result_breakdown,
     "discovery_search": _discovery_search,
 }
 

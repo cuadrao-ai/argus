@@ -266,25 +266,6 @@ def test_inline_readout_system_prompt_changes_its_fingerprint(tmp_path: Path) ->
     assert model_facing_surface(tmp_path)[owner] != first[owner]
 
 
-def test_breakdown_prompt_and_schema_are_covered_without_other_api_prose(
-    tmp_path: Path,
-) -> None:
-    owner = "src/argus/api/chat/breakdown.py"
-    source = """
-def messages():
-    return [{"role": "system", "content": "Explain the stored result."}]
-class Draft:
-    text = Field(description="Complete grounded explanation.")
-"""
-    _write(tmp_path, owner, source)
-    _write(tmp_path, "src/argus/api/chat/unrelated.py", source)
-    first = model_facing_surface(tmp_path)
-    assert set(first) == {owner}
-    assert first[owner]["entries"] == 2
-    _write(tmp_path, owner, source.replace("Complete grounded", "Concise grounded"))
-    assert model_facing_surface(tmp_path)[owner] != first[owner]
-
-
 def test_unrelated_inline_runtime_dictionary_does_not_expand_fingerprint(
     tmp_path: Path,
 ) -> None:

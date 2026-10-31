@@ -3,29 +3,25 @@
 The client names a surface and never a space. One person's Personal and
 Business conversations appear only on their own surface in Recents, search and
 History, and delete-all on one surface leaves the other alone. Another person
-sees neither. The artifact routes answer 404 for a Business conversation, and a
-Business turn never recalls memory.
+sees neither. The artifact routes answer 404 for a Business conversation.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterator
 from datetime import datetime, timezone
-from typing import Any, cast
+from typing import Any
 from unittest.mock import patch
 
 import pytest
 from argus.api import state as api_state
 from argus.api.business_spaces import business_spaces, configure_business_spaces
-from argus.api.chat.memory_recall import memory_recalls_for_turn
 from argus.api.dependencies import current_user
 from argus.api.guest_access import registered_account_context, store_account_context
 from argus.api.main import app
 from argus.api.message_store import create_message
-from argus.api.personalization_memory import configure_memory_service
 from argus.api.schemas import EvidenceArtifact, OnboardingState, User
 from argus.domain.business.spaces import InMemorySpaceStore
-from argus.memory.service import MemoryService
 from fastapi import Request
 from fastapi.testclient import TestClient
 
@@ -264,58 +260,6 @@ def test_artifact_routes_answer_404_for_a_business_conversation(
 
     assert answers("business", business) == [(404, "Conversation not found.")] * 7
     assert (404, "Conversation not found.") not in answers("personal", personal)
-
-
-def _user_object(person: str) -> User:
-    return User(
-        id=person,
-        email=None,
-        username=None,
-        display_name=None,
-        language="en",
-        locale="en-US",
-        is_admin=False,
-        onboarding=OnboardingState(),
-        created_at=NOW,
-        updated_at=NOW,
-    )
-
-
-class _CountingMemoryService:
-    def __init__(self) -> None:
-        self.calls = 0
-
-    def retrieve(self, *args: object, **kwargs: object) -> list[object]:
-        self.calls += 1
-        return []
-
-
-def test_a_business_turn_recalls_no_memory(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("ARGUS_ENABLE_PERSONALIZATION_MEMORY", "true")
-    service = _CountingMemoryService()
-    configure_memory_service(cast(MemoryService, service))
-    try:
-        _start_space(ALICE)
-        business = _create(client, ALICE, "Shop ledger", surface="business")
-        personal = _create(client, ALICE, "Household ledger")
-
-        def recall(conversation_id: str) -> object:
-            return memory_recalls_for_turn(
-                user=_user_object(ALICE),
-                account=registered_account_context(ALICE),
-                conversation_id=conversation_id,
-                user_message="what did I decide?",
-                memory_opt_out=False,
-            )
-
-        assert recall(business) is None
-        assert service.calls == 0
-        assert recall(personal) is None
-        assert service.calls == 1
-    finally:
-        configure_memory_service(None)
 
 
 def test_every_conversation_response_names_its_surface(client: TestClient) -> None:

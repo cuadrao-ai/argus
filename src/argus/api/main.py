@@ -11,7 +11,6 @@ from argus.api import app_setup, openapi_compat, pagination, search_utils
 from argus.api import state as api_state
 from argus.api.routers import (
     account,
-    agent,
     auth,
     auth_apple,
     computations,
@@ -79,7 +78,6 @@ for api_router in (
     evidence_receipts.router,
     public_receipts.router,
     receipt_forks.router,
-    agent.router,
     history.router,
     search.router,
     discovery.router,

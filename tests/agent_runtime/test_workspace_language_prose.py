@@ -323,7 +323,6 @@ WORKSPACE_LANGUAGE_MODULES = (
     REPO_ROOT / "src" / "argus" / "agent_runtime" / "stages" / "confirm.py",
     REPO_ROOT / "src" / "argus" / "agent_runtime" / "stages" / "explain.py",
     REPO_ROOT / "src" / "argus" / "agent_runtime" / "clarification_contract.py",
-    REPO_ROOT / "src" / "argus" / "api" / "chat" / "breakdown.py",
     REPO_ROOT / "src" / "argus" / "domain" / "run_dossiers.py",
 )
 
