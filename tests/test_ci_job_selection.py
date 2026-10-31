@@ -127,8 +127,10 @@ def test_migrations_always_reach_the_real_postgres_matrix():
     migration = f"supabase/migrations/20261021120002_{FAKE.word()}.sql"
     assert "database-checks" in jobs_for(migration)
     matrix = WORKFLOW["jobs"]["database-checks"]["strategy"]["matrix"]
-    # A pull request runs both CLI legs; only the probe narrows to latest.
+    # A pull request runs the pinned leg only; a push runs both; the probe runs latest.
+    assert "'[\"pinned\"]'" in matrix["supabase-cli"]
     assert '\'["pinned", "latest"]\'' in matrix["supabase-cli"]
+    assert '\'["latest"]\'' in matrix["supabase-cli"]
 
 
 @pytest.mark.parametrize("event", ["push", "workflow_dispatch", "schedule"])

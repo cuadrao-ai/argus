@@ -725,9 +725,10 @@ def test_real_postgres_matrix_runs_on_pinned_and_latest_supabase_cli() -> None:
     assert "workflow_dispatch" in workflow["on"]
     assert guest_job["strategy"]["fail-fast"] is False
     assert guest_job["strategy"]["matrix"]["supabase-cli"] == (
-        "${{ fromJSON((github.event_name == 'schedule' || "
+        "${{ fromJSON(github.event_name == 'pull_request' && '[\"pinned\"]' || "
+        "((github.event_name == 'schedule' || "
         "(github.event_name == 'workflow_dispatch' && !inputs.full_run)) && "
-        "'[\"latest\"]' || '[\"pinned\", \"latest\"]') }}"
+        "'[\"latest\"]' || '[\"pinned\", \"latest\"]')) }}"
     )
     by_name = {step.get("name"): step for step in guest_job["steps"]}
     always = (

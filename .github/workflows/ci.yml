@@ -311,12 +311,13 @@ jobs:
     runs-on: ubuntu-latest
     needs: docs-change-gate
     if: (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false) || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && needs.docs-change-gate.outputs.run_heavy == 'true'
-    # "pinned" is the CLI every gate runs on; "latest" runs only the
-    # real-Postgres matrix so a newer image's default grants cannot pass unseen.
+    # "pinned" is the CLI every gate runs on, and the only leg a pull request
+    # runs. "latest" runs only the real-Postgres matrix, on the weekly schedule
+    # and on pushes, so a newer image's default grants cannot pass unseen.
     strategy:
       fail-fast: false
       matrix:
-        supabase-cli: ${{ fromJSON((github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.full_run)) && '["latest"]' || '["pinned", "latest"]') }}
+        supabase-cli: ${{ fromJSON(github.event_name == 'pull_request' && '["pinned"]' || ((github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.full_run)) && '["latest"]' || '["pinned", "latest"]')) }}
     env:
       OPENROUTER_API_KEY: ""
       ALPACA_API_KEY: ""
