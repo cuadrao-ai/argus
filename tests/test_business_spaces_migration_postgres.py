@@ -252,6 +252,55 @@ def test_a_whatsapp_capture_lands_in_the_linked_business_space(db, users) -> Non
         capture(db, owner, connection(db, owner, business), linked)
 
 
+def test_moving_a_capture_to_another_connection_rechecks_the_sender(db, users) -> None:  # noqa: ANN001
+    owner = users["owner"]
+    business = owned_space(db, owner)
+    sender_link(db, owner)
+    first = bytes(
+        _one(
+            db,
+            "select wa_id_hash from public.whatsapp_sender_links where destination_owner_id = %s",
+            (owner,),
+        )
+    )
+    original, same_sender = (
+        connection(db, owner, business),
+        connection(db, owner, business),
+    )
+    capture(db, owner, original, first)
+    row = _one(
+        db,
+        "select id from public.whatsapp_inbound_messages where sender_hash = %s",
+        (first,),
+    )
+    move = "update public.whatsapp_inbound_messages set connection_id = %s where id = %s"
+
+    db.execute(move, (same_sender, row))
+
+    db.execute(
+        "update public.whatsapp_sender_links set status = 'revoked', revoked_at = now()"
+        " where wa_id_hash = %s",
+        (first,),
+    )
+    sender_link(db, owner)
+    with _raises(db, psycopg.errors.RaiseException, "whatsapp_capture_space_mismatch"):
+        db.execute(move, (original, row))
+    db.execute(
+        "update public.whatsapp_inbound_messages set updated_at = now() where id = %s",
+        (row,),
+    )
+    assert (
+        str(
+            _one(
+                db,
+                "select connection_id from public.whatsapp_inbound_messages where id = %s",
+                (row,),
+            )
+        )
+        == same_sender
+    )
+
+
 def test_a_business_account_is_never_granted_to_a_household(db, users) -> None:  # noqa: ANN001
     owner, other = users["owner"], users["other"]
     household = _one(
