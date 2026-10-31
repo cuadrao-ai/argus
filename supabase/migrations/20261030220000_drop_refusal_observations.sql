@@ -1,4 +1,5 @@
--- gate-destructive: drops the refusal_log view and the refusal_observations table.
+-- gate-destructive: drops the refusal_log view, the refusal_observations table
+-- and its orphaned validate_refusal_observation_pair() trigger function.
 --
 -- What: removes the private chat refusal evidence store created by
 -- 20260908205041_add_refusal_observations. The API stopped writing to it in
@@ -16,5 +17,6 @@ set local statement_timeout = '60s';
 
 drop view if exists public.refusal_log;
 drop table if exists public.refusal_observations;
+drop function if exists public.validate_refusal_observation_pair();
 
 commit;

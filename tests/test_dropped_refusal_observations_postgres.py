@@ -56,6 +56,13 @@ def test_dropped_relation_is_gone(cursor: Any, name: str) -> None:
     assert not _exists(cursor, name)
 
 
+def test_pair_validation_function_is_gone(cursor: Any) -> None:
+    cursor.execute(
+        "select to_regprocedure('public.validate_refusal_observation_pair()') is null"
+    )
+    assert cursor.fetchone()[0]
+
+
 @pytest.mark.parametrize("name", KEPT)
 def test_kept_relation_still_exists(cursor: Any, name: str) -> None:
     assert _exists(cursor, name)
