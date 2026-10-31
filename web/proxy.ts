@@ -8,8 +8,7 @@ export function proxy(request: NextRequest) {
   const { pathname, search, searchParams, origin } = request.nextUrl;
 
   if (
-    pathname === "/dev/result-card" || pathname.startsWith("/dev/result-card/")
-    || pathname === "/dev/error-screen" || pathname.startsWith("/dev/error-screen/")
+    pathname === "/dev/error-screen" || pathname.startsWith("/dev/error-screen/")
   ) {
     if (process.env.NODE_ENV === "production") {
       return new NextResponse(null, { status: 404 });
@@ -33,7 +32,6 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/dev/result-card/:path*",
     "/((?!_next/static|_next/image|.*\\..*).*)",
   ],
 };
