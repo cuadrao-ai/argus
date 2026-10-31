@@ -107,6 +107,10 @@ class WhatsAppStore(Protocol):
         the attempt; None when another worker got there first."""
         ...
 
+    def inbound(self, provider_message_key: bytes) -> InboundRecord | None:
+        """The row for one message, or None when it was never claimed."""
+        ...
+
     def renew(
         self,
         *,
