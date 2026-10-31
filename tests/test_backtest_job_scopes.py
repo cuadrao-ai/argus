@@ -3,7 +3,7 @@
 The registry only holds if nothing else spells a scope. This walks every
 production Python file (``src``, ``workflows``, ``scripts``) as an AST and
 fails on any string constant equal to a scope value outside
-``argus.domain.backtest_job_scopes``; docstrings are skipped, comments never
+``argus.domain.job_scopes``; docstrings are skipped, comments never
 reach the AST. A consumer that hardcodes a scope stops matching the moment the
 registry and the rendered constraint move, and this is the test that would
 have caught the two sites the review found.
@@ -16,10 +16,10 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from argus.domain.backtest_job_scopes import OPERATION_SCOPES
+from argus.domain.job_scopes import OPERATION_SCOPES
 
 ROOT = Path(__file__).resolve().parents[1]
-REGISTRY = ROOT / "src/argus/domain/backtest_job_scopes.py"
+REGISTRY = ROOT / "src/argus/domain/job_scopes.py"
 PRODUCTION_TREES = ("src", "workflows", "scripts")
 
 
@@ -71,7 +71,7 @@ def test_no_production_code_spells_a_scope_outside_the_registry() -> None:
         if (literals := _scope_literals(path))
     }
     assert offenders == {}, (
-        "Scope values are owned by argus.domain.backtest_job_scopes; import the "
+        "Scope values are owned by argus.domain.job_scopes; import the "
         f"constant instead of spelling it: {offenders}"
     )
 

@@ -37,7 +37,7 @@ def build_worker(
     async def execute(
         *, captured, turn, lease, authorization, begin_reply, history
     ) -> str:
-        from argus.agent_runtime.business.context import AuthorizedBusinessContext
+        from argus.domain.business.context import AuthorizedBusinessContext
 
         def require_access():
             if consent is None or not enabled():

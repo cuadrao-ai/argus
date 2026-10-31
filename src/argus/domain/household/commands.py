@@ -1,6 +1,6 @@
 """Atomic retry receipts for the canonical Household lifecycle."""
 
-from argus.domain.backtest_admission import canonical_hash
+from argus.domain.idempotency import canonical_hash
 from argus.domain.recording.errors import IdempotencyConflict, StaleVersion
 
 from .errors import AdminRequired, HouseholdNotFound

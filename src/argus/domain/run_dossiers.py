@@ -18,9 +18,9 @@ from argus.api.schemas import (
     SearchRetestAction,
     SearchRetestRepair,
 )
+from argus.domain.clock import new_york_today
 from argus.domain.display_figure import display_figure
 from argus.domain.evidence import result_metrics_summary
-from argus.domain.market_data.new_york_clock import new_york_today
 from argus.domain.result_readout_facts import with_result_readout_facts
 from argus.domain.retest_setup import (
     has_finalized_evidence_identity,

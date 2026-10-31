@@ -6,7 +6,6 @@ from datetime import date, datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
 import pytest
-from argus.agent_runtime.business.context import AuthorizedBusinessContext
 from argus.agent_runtime.business.interpretation import (
     BusinessInterpretation,
     BusinessRecordIntent,
@@ -14,6 +13,7 @@ from argus.agent_runtime.business.interpretation import (
 )
 from argus.agent_runtime.business.runner import BusinessTurnRunner
 from argus.domain.business.authority import authorize
+from argus.domain.business.context import AuthorizedBusinessContext
 from argus.domain.business.contracts.actions import (
     ReviewDraft,
     TurnPlan,

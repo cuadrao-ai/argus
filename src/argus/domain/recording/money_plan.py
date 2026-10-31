@@ -6,7 +6,7 @@ from typing import Any, NoReturn
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from argus.domain.backtest_admission import canonical_hash
+from argus.domain.idempotency import canonical_hash
 from argus.domain.recording.currency import (
     currency_exponent,
     format_minor_units,
