@@ -13,7 +13,12 @@ from tests.ingestion.whatsapp_cases import (
     _revoke_while_capturing,
     image,
 )
-from tests.ingestion.whatsapp_support import ALICE_PHONE, STRANGER_PHONE, fixture
+from tests.ingestion.whatsapp_support import (
+    ALICE_PHONE,
+    BOB_PHONE,
+    STRANGER_PHONE,
+    fixture,
+)
 
 
 async def an_unlinked_number_hears_back_once_per_day(world: World) -> None:
@@ -131,10 +136,24 @@ async def a_revoked_photo_counts_as_the_days_unlinked_reply(world: World) -> Non
     assert world.transport.bodies()[1:] == [UNLINKED]
 
 
+async def a_revoked_photo_with_a_new_number_linked_still_gets_the_unlinked_reply(
+    world: World,
+) -> None:
+    await _revoke_while_capturing(
+        world, "es-419", "700000000000143", "wamid.CASE-RELINKED-THEN-TEXT", BOB_PHONE
+    )
+    world.clock.now += timedelta(seconds=1)
+    await world.deliver(
+        fixture("text_message.json", id="wamid.CASE-AFTER-RELINK", sender=ALICE_PHONE)
+    )
+    assert world.transport.bodies()[2:] == [UNLINKED]
+
+
 UNLINKED_CASES = (
     an_unlinked_number_hears_back_once_per_day,
     a_paused_unlinked_message_resumed_later_does_not_reply_again,
     two_unlinked_claims_before_midnight_reply_once_after_it,
     unlinked_claims_straddling_midnight_reply_once_each_day,
     a_revoked_photo_counts_as_the_days_unlinked_reply,
+    a_revoked_photo_with_a_new_number_linked_still_gets_the_unlinked_reply,
 )

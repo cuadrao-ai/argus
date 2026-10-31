@@ -674,7 +674,11 @@ async def a_caption_is_kept_verbatim_as_source_text(world: World) -> None:
 
 
 async def _revoke_while_capturing(
-    world: World, language: str, media_id: str, message_id: str
+    world: World,
+    language: str,
+    media_id: str,
+    message_id: str,
+    relink_phone: str | None = None,
 ) -> None:
     await world.link(world.alice, ALICE_PHONE, language)
     world.graph.media[media_id] = Media(RECEIPT_PNG, "image/png")
@@ -684,6 +688,8 @@ async def _revoke_while_capturing(
     async def capture_then_revoke(**kwargs):  # noqa: ANN003, ANN202
         captured = await capture(**kwargs)
         world.store.revoke(destination_owner_id=world.alice, now=world.clock.now)
+        if relink_phone is not None:
+            await world.link(world.alice, relink_phone)
         return captured
 
     destination.capture = capture_then_revoke  # type: ignore[method-assign]
@@ -720,6 +726,12 @@ async def a_link_revoked_before_settling_answers_in_the_links_language(
         world, "en", "700000000000141", "wamid.CASE-REVOKED-IN-FLIGHT-EN"
     )
     assert world.transport.bodies()[1:] == [UNLINKED_EN]
+
+
+async def a_number_linked_after_the_revoke_keeps_no_capture(world: World) -> None:
+    await _revoke_while_capturing(
+        world, "es-419", "700000000000142", "wamid.CASE-REVOKED-RELINKED", BOB_PHONE
+    )
 
 
 async def a_linked_sender_text_is_never_a_link_attempt(world: World) -> None:
@@ -899,6 +911,7 @@ CASES = (
     a_caption_is_kept_verbatim_as_source_text,
     a_link_revoked_before_settling_keeps_no_capture,
     a_link_revoked_before_settling_answers_in_the_links_language,
+    a_number_linked_after_the_revoke_keeps_no_capture,
     a_linked_sender_text_is_never_a_link_attempt,
     an_unlinked_sender_links_with_a_code_anywhere_in_the_text,
     a_failed_code_from_a_stranger_answers_in_spanish,
