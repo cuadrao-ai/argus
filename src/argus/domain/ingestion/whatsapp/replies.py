@@ -62,10 +62,10 @@ REPLIES: dict[str, tuple[str, str]] = {
         "That code has expired or was already used. Create a new one in Cuadrao.",
     ),
     "whatsapp_sender_not_linked": (
-        "Este número no está conectado a Cuadrao. "
-        "Conéctalo desde Cuadrao en la web y vuelve a enviar el recibo.",
-        "This number isn't connected to Cuadrao. "
-        "Connect it from Cuadrao on the web, then send the receipt again.",
+        "Este número aún no está vinculado a un negocio en Cuadrao. "
+        "Pídele al administrador el código para vincularlo.",
+        "This number isn't linked to a business in Cuadrao yet. "
+        "Ask the administrator for the code to link it.",
     ),
     "whatsapp_receipt_missing": (
         "Aquí solo recibimos recibos. Para todo lo demás usa Cuadrao: {link}",
@@ -102,6 +102,12 @@ REPLIES: dict[str, tuple[str, str]] = {
     "whatsapp_media_expired": _RESEND,
     "whatsapp_media_unavailable": _RESEND,
     "whatsapp_capture_failed": _RESEND,
+    # Approved by Iris, October 30, 2026: a photo lost after its claim lapsed
+    # and every bounded retry failed. Sent once, to the linked sender only.
+    "whatsapp_photo_lost": (
+        "No pude guardar tu foto. ¿Me la envías otra vez?",
+        "I couldn't save your photo. Can you send it again?",
+    ),
 }
 
 

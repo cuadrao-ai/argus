@@ -15,7 +15,6 @@ from pydantic_core import ErrorType
 from argus.api import state as api_state
 from argus.api.age_confirmation import age_confirmation_response_code
 from argus.api.apple_sign_in import AppleCaptureFlagGateMiddleware
-from argus.api.chat.refusal_evidence import record_http_rejection
 from argus.api.dependencies import (
     ChatRequestBoundaryMiddleware,
     request_id_middleware,
@@ -152,7 +151,6 @@ async def http_exception_handler(request: Request, exc: HTTPException):  # type:
             "request_id": request.state.request_id,
         }
 
-    await record_http_rejection(request, body=body, status_code=exc.status_code)
     origin = request.headers.get("origin")
     headers = dict(exc.headers or {})
     if origin in cors_allow_origins():

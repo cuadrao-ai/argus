@@ -15,13 +15,6 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 PROFILE_PATH = ROOT / ".github" / "private-alpha-release-profile.json"
 PROFILE_UTILITY = ROOT / ".github" / "private-alpha-release-profile.py"
-# Founder decision, 2026-09-13 (#614): the canary checks exactly these, in order.
-FOUNDER_CANARY_CHECKS = [
-    "services_same_commit",
-    "signed_in_chat_answer",
-    "backtest_completes",
-    "research_answer_with_sources",
-]
 
 
 def _profile_utility(*args: str) -> subprocess.CompletedProcess[str]:
@@ -56,7 +49,7 @@ def test_invite_code_surfaces_are_declared_off_by_default() -> None:
         assert env[flag] == "false"
 
 
-def test_release_profile_is_non_secret_and_defines_the_fixed_canary() -> None:
+def test_release_profile_is_non_secret_and_has_no_canary() -> None:
     profile = _profile()
     serialized = json.dumps(profile).lower()
 
@@ -83,25 +76,9 @@ def test_release_profile_is_non_secret_and_defines_the_fixed_canary() -> None:
     )
     assert profile["workflow"]["real_task"] == "argus-backtests/run_backtest_job"
     assert profile["locales"]["supported"] == ["en", "es-419"]
-    assert profile["locales"]["required_static_keys"] == [
-        "chat.confirmation.actions.run_backtest"
-    ]
     assert profile["capabilities"]["omnisearch"] is True
 
-    canary = profile["canary"]
-    assert set(canary) == {
-        "language",
-        "chat_prompt",
-        "backtest_prompt",
-        "research_prompt",
-        "required_steps",
-    }
-    assert canary["language"] == "es-419"
-    assert canary["required_steps"] == FOUNDER_CANARY_CHECKS
-    assert canary["required_steps"] == list(_profile_module().CANARY_CHECKS)
-    for field in ("chat_prompt", "backtest_prompt", "research_prompt"):
-        assert canary[field].strip()
-        assert "—" not in canary[field]
+    assert "canary" not in profile
 
     assert "candidate_sha" not in serialized
     assert "eyjhb" not in serialized
@@ -130,23 +107,9 @@ def test_release_profile_is_non_secret_and_defines_the_fixed_canary() -> None:
             ),
             "auto_deploy_trigger must be one of",
         ),
-        (
-            lambda profile: profile["canary"]["required_steps"].append(
-                "decision_note"
-            ),
-            "required_steps must be exactly",
-        ),
-        (
-            lambda profile: profile["canary"]["required_steps"].reverse(),
-            "required_steps must be exactly",
-        ),
-        (
-            lambda profile: profile["canary"].update(research_prompt=" "),
-            "research_prompt must be a non-empty string",
-        ),
     ],
 )
-def test_profile_validation_rejects_split_autodeploy_and_feature_checks(
+def test_profile_validation_rejects_split_autodeploy(
     mutate: Callable[[dict[str, Any]], None], message: str
 ) -> None:
     module = _profile_module()
@@ -249,28 +212,6 @@ def test_profile_utility_validates_hashes_and_emits_expected_pairs() -> None:
     workflow_autodeploy = _profile_utility("auto-deploy-trigger", "workflow")
     assert workflow_autodeploy.returncode == 0, workflow_autodeploy.stderr
     assert workflow_autodeploy.stdout.strip() == "off"
-
-    canary_checks = _profile_utility("canary-checks")
-    assert canary_checks.returncode == 0, canary_checks.stderr
-    assert canary_checks.stdout.splitlines() == FOUNDER_CANARY_CHECKS
-
-
-def test_profile_utility_resolves_the_canary_static_labels() -> None:
-    result = _profile_utility("static-key-values", "es-419")
-
-    assert result.returncode == 0, result.stderr
-    values = json.loads(result.stdout)
-    assert set(values) == {"chat.confirmation.actions.run_backtest"}
-    assert values["chat.confirmation.actions.run_backtest"]
-
-
-def test_profile_utility_exposes_only_the_canary_check_inputs() -> None:
-    for field in ("language", "chat_prompt", "backtest_prompt", "research_prompt"):
-        result = _profile_utility("canary-value", field)
-        assert result.returncode == 0, result.stderr
-        assert result.stdout.strip()
-    for removed in ("prompt", "decision_state", "decision_note", "search_query"):
-        assert _profile_utility("canary-value", removed).returncode != 0
 
 
 def test_render_blueprint_matches_the_authoritative_nonsecret_profile() -> None:

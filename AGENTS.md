@@ -28,7 +28,7 @@ A spec, roadmap or green test does not assign work. Your brief does.
 
 Layout: `src/argus/` API (`api/`, `agent_runtime/` chat runtime, `domain/`, with
 `domain/business/` for Business), `web/` web app, `marketing/` marketing site,
-`ios/` and `mobile/android/` native apps (see their READMEs), `supabase/migrations/`,
+`native/Packages/` Swift packages (no app), `supabase/migrations/`,
 `tests/` (with `tests/evals/`), `scripts/` checks and ops tools, `.github/` CI and setup.
 
 ## Setup and run

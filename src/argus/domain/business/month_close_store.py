@@ -16,7 +16,7 @@ from psycopg.rows import dict_row
 from argus.domain.business import ledger
 from argus.domain.business.authority import ActionContext, ActionError, authorize
 from argus.domain.business.dgii_columns import COLUMNS
-from argus.domain.business.dgii_export import fiscal_manifest
+from argus.domain.business.dgii_export import FOREIGN_CURRENCY_NOTE, fiscal_manifest
 from argus.domain.business.dgii_snapshot import fiscal_snapshot
 from argus.domain.business.month_close import (
     IMPLICIT,
@@ -95,10 +95,25 @@ def read_month(authority, context: ActionContext, month: str) -> dict:
     today = ledger.today()
     with _session(authority, context, "read") as (connection, auth):
         documents, by_id = _collect(authority, connection, auth.context)
-        forms = _form_statuses(
+        forms, foreign = _form_statuses(
             connection, auth.context, tuple(by_id.values()), start, end, today
         )
-    return month_close(month, today, documents, forms)
+    return month_close(month, today, documents, forms, foreign)
+
+
+def foreign_currency(manifest_forms: dict) -> dict:
+    """Per form, how many foreign-currency lines wait for a rate, in words.
+
+    A form missing the count (an older summary) reads as zero."""
+
+    result = {}
+    for form in COLUMNS:
+        count = manifest_forms.get(form, {}).get("foreign_currency_pending_rate_count", 0)
+        result[form] = {
+            "pending_rate_count": count,
+            "reason": FOREIGN_CURRENCY_NOTE if count else None,
+        }
+    return result
 
 
 def empty_month(month: str) -> dict:
@@ -108,21 +123,24 @@ def empty_month(month: str) -> dict:
     return month_close(month, ledger.today(), (), dict.fromkeys(COLUMNS, "no_operations"))
 
 
-def month_close(month: str, today, documents, forms: dict[str, str]) -> dict:  # noqa: ANN001
+def month_close(  # noqa: ANN001
+    month: str, today, documents, forms: dict[str, str], foreign: dict | None = None
+) -> dict:
     start, end = month_period(month)
     return {
         "month": month,
         "today": today,
         "payment_methods": list(PAYMENT_METHODS),
         "dgii_forms": forms,
+        "dgii_foreign_currency": foreign or foreign_currency({}),
         **summarize(documents, start, end),
     }
 
 
 def _form_statuses(
     connection, context: ActionContext, activities, start, end, today
-) -> dict[str, str]:
-    """Each form's status word, read from the summary the export packet writes."""
+) -> tuple[dict[str, str], dict]:
+    """Each form's status word and foreign-currency count, read from the summary the export packet writes."""
 
     with connection.cursor(row_factory=dict_row) as cursor:
         records, rnc, name = fiscal_snapshot(cursor, context, activities)
@@ -140,7 +158,8 @@ def _form_statuses(
             captured_on=today,
             registry=registry_from_config("dgii", postgres_rnc_fetch(lookup)),
         )
-    return {form: shape["status"] for form, shape in manifest["forms"].items()}
+    statuses = {form: shape["status"] for form, shape in manifest["forms"].items()}
+    return statuses, foreign_currency(manifest["forms"])
 
 
 def read_open(authority, context: ActionContext) -> dict:

@@ -14,8 +14,8 @@ const git = (...args) => execFileSync("git", args, { cwd: repository, encoding: 
 const head = git("rev-parse", "HEAD");
 assert.match(process.env.EVIDENCE_EXPECTED_HEAD ?? "", /^[a-f0-9]{40}$/);
 assert.equal(head, process.env.EVIDENCE_EXPECTED_HEAD);
-git("diff", "--exit-code", head, "--", "web", "scripts/qa/invoice_client_wiring_evidence.mjs", ".github/workflows/invoice-client-wiring-evidence.yml");
-assert.equal(git("ls-files", "--others", "--exclude-standard", "--", "web", "scripts/qa/invoice_client_wiring_evidence.mjs", ".github/workflows/invoice-client-wiring-evidence.yml"), "");
+git("diff", "--exit-code", head, "--", "web", "scripts/qa/invoice_client_wiring_evidence.mjs");
+assert.equal(git("ls-files", "--others", "--exclude-standard", "--", "web", "scripts/qa/invoice_client_wiring_evidence.mjs"), "");
 assert.equal(process.env.NEXT_PUBLIC_MOCK_AUTH, "true");
 assert.equal(process.env.NEXT_PUBLIC_CUADRAO_BUSINESS_INVOICING_ENABLED, "true");
 assert.ok(process.env.EVIDENCE_OUTPUT);

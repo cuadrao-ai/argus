@@ -1,5 +1,5 @@
 import { apiFetch } from "./argus-api-transport";
-import type { BusinessDossier } from "./business-dossier";
+import { readBusinessDossier, type BusinessDossier } from "./business-dossier";
 
 export type DgiiDeclaration = Record<string, string | boolean | null> & { form: "606" | "607" };
 export type DgiiReview = {
@@ -21,4 +21,4 @@ export type FiscalProfileInput = {
 export const getDgiiFields = (): Promise<DgiiFields> => apiFetch("/business/fiscal-profile/fields");
 export const getFiscalProfile = (draftId?: string): Promise<FiscalProfile> => apiFetch(`/business/fiscal-profile${draftId ? `?draft_id=${encodeURIComponent(draftId)}` : ""}`);
 export const setFiscalProfile = (input: FiscalProfileInput, key: string): Promise<FiscalProfile> => apiFetch("/business/fiscal-profile", { method: "PATCH", headers: { "Idempotency-Key": key }, body: JSON.stringify(input) });
-export const reviewDgii = (draftId: string, version: number, dgii: DgiiReview, key: string): Promise<BusinessDossier> => apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/review`, { method: "PATCH", headers: { "Idempotency-Key": key }, body: JSON.stringify({ version, dgii }) });
+export const reviewDgii = (draftId: string, version: number, dgii: DgiiReview, key: string): Promise<BusinessDossier> => apiFetch<unknown>(`/business/drafts/${encodeURIComponent(draftId)}/review`, { method: "PATCH", headers: { "Idempotency-Key": key }, body: JSON.stringify({ version, dgii }) }).then(readBusinessDossier);

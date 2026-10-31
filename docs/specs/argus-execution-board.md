@@ -1378,7 +1378,7 @@ new shared-planning app on assigned C930, choose the prepared Household, then
 Plan or Home. The 85-second
 [recording](../reports/evidence/shared-household-planning/shared-plan-demo.mp4)
 shows own correction, authorized bill edit, Search return and Spanish reopen.
-[Restart and click-through instructions](../../ios/HOUSEHOLD_SETUP.md#shared-planning-worker-separate-retained-demonstration)
+Restart and click-through instructions (removed; see tag `archive/ios-personal-2026-10-30`)
 use only 59750–59755, the new bundle/cache and retained synthetic users/data.
 
 **Remaining limits:** no physical-iPhone/internet verification, deployment,
@@ -1698,7 +1698,7 @@ This lane connected Household consent and canonical financial projections to
 landed #763 membership and #760's connected shell under the approved permission
 policy. `CUADRAO_HOUSEHOLDS_ENABLED` stays server-default-off. Durable evidence:
 [connected-household-native](../reports/evidence/connected-household-native/README.md).
-Restart recipe: [ios/HOUSEHOLD_SETUP.md](../../ios/HOUSEHOLD_SETUP.md).
+Restart recipe: ios/HOUSEHOLD_SETUP.md (removed; see tag `archive/ios-personal-2026-10-30`).
 
 **Remaining outside the landed package:** physical iPhone/internet delivery;
 external invitation delivery; Business/Custom lifecycle; hosted
@@ -3680,8 +3680,8 @@ carried into this documentation change without restarting its publication work.
 | --- | --- | --- |
 | Existing Argus | [PRODUCT](../PRODUCT.md), [ARCHITECTURE](../ARCHITECTURE.md), [API_CONTRACT](../API_CONTRACT.md) describe chat, auth, calculations, research, simulations, history, search and settings to inherit | Native feature parity or current hosted acceptance of the pivot |
 | Design lock | [#727](https://github.com/lagarcess/argus/pull/727) merged; [mobile reference](../reports/mobile-design-lock-2026-09-28.md) | Implemented financial flows; newer MVEE tester corrections take precedence |
-| Native shells | [#729](https://github.com/lagarcess/argus/pull/729), [#730](https://github.com/lagarcess/argus/pull/730) merged; [iPhone setup](../../ios/README.md), [Android setup](../../mobile/android/README.md) | Real finances, production app identity or installation on the founder's iPhone |
-| Native auth | [#738](https://github.com/lagarcess/argus/pull/738), [#739](https://github.com/lagarcess/argus/pull/739) and their landing records merged; [iPhone auth](../../ios/AUTH_SETUP.md) | Complete hosted registration, recovery links or private device distribution |
+| Native shells | [#729](https://github.com/lagarcess/argus/pull/729), [#730](https://github.com/lagarcess/argus/pull/730) merged; iPhone setup (removed; see tag `archive/ios-personal-2026-10-30`), Android setup (removed; see tag `archive/ios-personal-2026-10-30`) | Real finances, production app identity or installation on the founder's iPhone |
+| Native auth | [#738](https://github.com/lagarcess/argus/pull/738), [#739](https://github.com/lagarcess/argus/pull/739) and their landing records merged; iPhone auth (removed; see tag `archive/ios-personal-2026-10-30`) | Complete hosted registration, recovery links or private device distribution |
 | Financial accounts | [#735](https://github.com/lagarcess/argus/pull/735) and [#742](https://github.com/lagarcess/argus/pull/742) merged; [scope](lanes/financial-accounts-first-slice.md), [API/Postgres evidence](../reports/evidence/financial-accounts-first-slice/README.md) | Full financial activity, plans, totals or completed client delivery. Feature remains default-off in its contract |
 | Charts | [#733](https://github.com/lagarcess/argus/pull/733) merged as a prototype | Connected financial charts or resolved Android performance/dependency limitations |
 | Web preview | [#732](https://github.com/lagarcess/argus/pull/732) open on visual hold | Adoption. All remake work is frozen |
@@ -3717,11 +3717,11 @@ to the checkpoints above. Read-only source inspection found the following.
 - The Android worktree at `/Users/garces/.codex/worktrees/611c/private-alpha-next`
   exists and is clean at `fb6e4d945`. Its retry/reconciliation implementation and
   synthetic evidence are useful references. Android implementation stays stopped.
-- [iPhone configuration](../../ios/Config/Development.xcconfig) is simulator-only,
+- iPhone configuration (removed; see tag `archive/ios-personal-2026-10-30`) is simulator-only,
   uses a placeholder bundle identity and disables auth. Xcode is installed, but
   local inspection found zero valid signing identities. Apple membership, team
   access and a usable private installation route have not been established.
-- [Existing auth](../../ios/AUTH_SETUP.md) provides reusable registered sessions,
+- Existing auth (removed; see tag `archive/ios-personal-2026-10-30`) provides reusable registered sessions,
   refresh and Keychain storage. Production CAPTCHA bridging and remaining access
   flows need work. Existing browser recovery is reusable. A successful first
   login cannot close the full D01 acceptance list.
@@ -3762,10 +3762,10 @@ The planning update corrects these omissions without changing MVEE scope.
 These sources support the coverage table's reuse claims. They are code/contract
 inspection, not a new hosted verification.
 
-- [Native shell](../../ios/ArgusFoundation/FoundationShell.swift) selects
-  [sample destinations](../../ios/ArgusFoundation/SampleDestinations.swift).
-  [SessionController](../../ios/Packages/ArgusSession/Sources/ArgusSession/SessionController.swift)
-  and [auth setup](../../ios/AUTH_SETUP.md) own the reusable session boundary.
+- Native shell (removed; see tag `archive/ios-personal-2026-10-30`) selects
+  sample destinations (removed; see tag `archive/ios-personal-2026-10-30`).
+  [SessionController](../../native/Packages/ArgusSession/Sources/ArgusSession/SessionController.swift)
+  and auth setup (removed; see tag `archive/ios-personal-2026-10-30`) own the reusable session boundary.
 - [Financial service](../../src/argus/domain/recording/service.py),
   [balance read](../../src/argus/domain/recording/records.py) and
   [account router](../../src/argus/api/routers/financial_accounts.py) implement

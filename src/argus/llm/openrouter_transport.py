@@ -5,11 +5,11 @@ from typing import Literal
 
 import httpx
 
-from argus.agent_runtime.turn_execution import ProviderCallPermit
 from argus.llm import openrouter_model_env as model_policy
 from argus.llm.openrouter_request_policy import guard_openrouter_request as _guard_request
 from argus.llm.openrouter_retention import check_retention_response
 from argus.llm.openrouter_tasks import OpenRouterTask
+from argus.llm.provider_permit import ProviderCallPermit
 
 OpenRouterRetryAttempt = tuple[OpenRouterTask, float, str, Literal["json_schema", "chat_model"], str | None, list[str] | None]
 

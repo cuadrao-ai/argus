@@ -364,21 +364,6 @@ jobs:
           supabase --version
           docker ps --filter "name=supabase_" --format '{{.Names}} {{.Image}}' | sort
 
-      - name: Run provider-free guest backend tests
-        if: matrix.supabase-cli == 'pinned'
-        run: |
-          poetry run pytest \
-            tests/evals/test_chat_runtime_trajectory_harness.py \
-            tests/test_allowance_accounting.py \
-            tests/test_guest_access_policy.py \
-            tests/test_guest_allowance_accounting.py \
-            tests/test_guest_auth.py \
-            tests/test_guest_cleanup.py \
-            tests/test_guest_conversation_policy.py \
-            tests/test_guest_conversion.py \
-            tests/test_guest_observability.py \
-            -q --no-cov
-
       # Glob-level so a new _postgres proof is gated without editing this
       # workflow; a hand-maintained list is how uncovered tables ship green.
       - name: Run required real-PostgreSQL matrix
@@ -399,28 +384,6 @@ jobs:
             -q --no-cov
           poetry run python scripts/qa/assert_pytest_gate.py \
             temp/guest-auth-junit.xml
-
-      - name: Set up Bun
-        if: matrix.supabase-cli == 'pinned'
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.ARGUS_CI_BUN_VERSION }}
-
-      - name: Install frontend dependencies
-        if: matrix.supabase-cli == 'pinned'
-        run: cd web && bun install --frozen-lockfile
-
-      - name: Run guest frontend tests
-        if: matrix.supabase-cli == 'pinned'
-        run: |
-          cd web
-          bun test \
-            __tests__/guest-browser-harness.test.ts \
-            __tests__/guest-capability-gates.test.ts \
-            __tests__/guest-conversion.test.ts \
-            __tests__/guest-modal-viewport-fit.test.ts \
-            __tests__/guest-session.test.ts \
-            __tests__/usage-allowance.test.ts
 
   ci:
     name: ci

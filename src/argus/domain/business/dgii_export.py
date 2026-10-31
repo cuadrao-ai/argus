@@ -40,6 +40,12 @@ from argus.domain.business.fiscal_identity import (
 )
 from argus.domain.business.rnc_registry import RncRegistry, UnknownRncRegistry
 
+FOREIGN_CURRENCY_NOTE = "Moneda extranjera: pendiente de tasa"
+# Plain words a person reads in place of a reason code.
+REASON_TEXT = {"fiscal_conversion_required": FOREIGN_CURRENCY_NOTE}
+# Only these kinds reach a 606 or 607 line; transfers and card payments never do.
+DECLARED_KINDS = frozenset({"expense", "refund", "income"})
+
 
 @dataclass(frozen=True)
 class FiscalPacket:
@@ -145,6 +151,8 @@ def _workbook(manifest: dict, rows: dict[str, list[tuple[str, ...]]]) -> bytes:
         for index, record in enumerate(manifest["reconciliation"], 1):
             for column, name in enumerate(columns):
                 value = record.get(name, "")
+                if name == "reason":
+                    value = REASON_TEXT.get(value, value)
                 bridge.write_string(
                     index,
                     column,
@@ -206,6 +214,7 @@ def fiscal_manifest(
         )
     }
     consumption_count = 0
+    pending_rate = Counter()
 
     def identity(record):
         return document_identity(
@@ -255,6 +264,11 @@ def fiscal_manifest(
                 item.update(disposition="excluded", reason="no_fiscal_number")
                 continue
             item["reason"] = "fiscal_conversion_required"
+            if record.kind in DECLARED_KINDS:
+                item["note"] = FOREIGN_CURRENCY_NOTE
+                targets = (record.declaration.form,) if record.declaration else COLUMNS
+                for form in targets:
+                    pending_rate[form] += 1
             issues.extend(collect(record))
             continue
         if record.kind == "expense":
@@ -377,7 +391,12 @@ def fiscal_manifest(
             "record_count": len(rows[form]),
             "issues": relevant,
             "official_validation": "NOT RUN",
+            "foreign_currency_pending_rate_count": 0
+            if status == "no_aplica"
+            else pending_rate[form],
         }
+        if forms[form]["foreign_currency_pending_rate_count"]:
+            forms[form]["foreign_currency_note"] = FOREIGN_CURRENCY_NOTE
     manifest = {
         "schema_version": 1,
         "business_name": business_name,

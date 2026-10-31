@@ -17,7 +17,7 @@ from datetime import datetime
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
-from argus.domain.backtest_admission import canonical_hash
+from argus.domain.idempotency import canonical_hash
 from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.accounts import signed_to_owner
 from argus.domain.recording.currency import (

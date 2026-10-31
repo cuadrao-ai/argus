@@ -150,16 +150,6 @@ async def test_disconnect_preserves_one_complete_billed_answer(
         assert row["status"] == "succeeded"
         assert row["execution_metadata"]["research_result_message_id"] == written[0].id
         assert row.get("result_run_id") is None
-        from argus.api.main import app
-        from fastapi.testclient import TestClient
-
-        response = TestClient(app).get(f"/api/v1/backtest-jobs/{row['id']}")
-        assert response.status_code == 200
-        settled = response.json()
-        assert settled["run"] is None
-        envelope = settled["result_message"]["metadata"]["result_readout_content"]
-        assert envelope["language"] == language and envelope["text"] == written[0].content
-        assert settled["result_message"]["metadata"]["research"]["sources"]
 
 
 @pytest.mark.asyncio

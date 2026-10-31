@@ -71,6 +71,20 @@ def test_reload_partial_draft_keeps_every_field_and_no_customer_side_effect(edit
     assert customers(editor, lane.owner, lane.grant, Query()).total == 0
 
 
+def test_dollar_draft_saves_reloads_and_shows_the_pending_rate_before_issue(
+    editor, lane, draft
+):
+    dollar = draft.model_copy(update={"currency": "USD"})
+    saved = create(editor, lane, dollar)
+    reloaded = Store(lane.store.pool).invoice(lane.owner, lane.grant, saved.id)
+    assert reloaded == saved
+    assert reloaded.data == dollar
+    assert reloaded.fiscal_blockers == ["foreign_currency_pending_rate"]
+    assert "currency" not in reloaded.field_errors
+    peso = create(editor, lane, draft)
+    assert peso.fiscal_blockers == []
+
+
 @pytest.mark.parametrize(
     "target", ["customer", "invoice", "operation_detail", "operation_list"]
 )

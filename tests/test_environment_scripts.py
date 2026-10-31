@@ -1130,16 +1130,6 @@ def test_warmup_script_runs_remote_workflow_proof_for_real_workflow_mode() -> No
     assert "workflow_runtime_proof=ready" in warmup
 
 
-def test_warmup_script_runs_stale_job_scan_when_supabase_verifier_env_exists() -> None:
-    warmup = _source(".github/warmup-render.sh")
-
-    assert ".github/stale-backtest-jobs.sh" in warmup
-    assert "ARGUS_STALE_JOBS_SUPABASE_URL" in warmup
-    assert "ARGUS_STALE_JOBS_SUPABASE_SERVICE_ROLE_KEY" in warmup
-    assert "Skipping stale backtest job scan" in warmup
-    assert "set -x" not in warmup
-
-
 def test_private_launch_runbook_uses_real_workflow_readiness_gate() -> None:
     runbook = _source("docs/PRIVATE_LAUNCH_RUNBOOK.md")
     before_sessions = runbook.split("## Before Tester Sessions", maxsplit=1)[1].split(
@@ -1169,7 +1159,6 @@ def test_private_launch_runbook_uses_real_workflow_readiness_gate() -> None:
         "canary surfaces, and the release manifest" in normalized_before_sessions
     )
     assert "both scripts pass" not in before_sessions
-    assert ".github/stale-backtest-jobs.sh" in runbook
     assert "api-safe-off` is the default private-alpha tester mode" not in runbook
     assert "NEXT_PUBLIC_POSTHOG_KEY" in runbook
 

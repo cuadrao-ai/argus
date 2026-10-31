@@ -1,6 +1,6 @@
 """An owner grants new consent to an existing original definition."""
 
-from argus.domain.backtest_admission import canonical_hash
+from argus.domain.idempotency import canonical_hash
 from argus.domain.planning import model
 from argus.domain.recording.errors import IdempotencyConflict, StaleVersion
 

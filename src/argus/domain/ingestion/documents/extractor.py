@@ -16,6 +16,7 @@ from pydantic import BaseModel, ValidationError
 
 from argus.domain.business.contracts.checks import DgiiQr
 from argus.domain.business.contracts.facts import FiscalFacts
+from argus.domain.business.fiscal_identity import printed_ncf, printed_rnc
 from argus.domain.ingestion.contract import (
     AccountHint,
     Attachment,
@@ -88,6 +89,9 @@ not substitute a generic tax line for ITBIS. Never invent fiscal defaults.
 """
 
 
+_PRINTED_IDENTIFIER = {"rnc": printed_rnc, "ncf": printed_ncf}
+
+
 def fiscal_facts_from_receipt(receipt: ReceiptDetails, *, source_id: UUID) -> FiscalFacts:
     facts = {}
     for name in FiscalFacts.model_fields:
@@ -95,6 +99,9 @@ def fiscal_facts_from_receipt(receipt: ReceiptDetails, *, source_id: UUID) -> Fi
             # A fact a person answers (the 606 inclusion) is never read from the source.
             continue
         value = getattr(receipt, name)
+        # The receipt keeps the full read as evidence; the fact holds only the identifier.
+        if value is not None and name in _PRINTED_IDENTIFIER:
+            value = _PRINTED_IDENTIFIER[name](value)
         fact = {
             "state": "unknown" if value is None else "known",
             "value": value,
