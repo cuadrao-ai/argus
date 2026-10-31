@@ -113,6 +113,24 @@ class PostgresWhatsAppStore:
             ).fetchone()
         return _record(row) if row else None
 
+    def first_unlinked_today(
+        self, *, sender_hash: bytes, provider_message_key: bytes, since: datetime
+    ) -> bool:
+        with self._pool.connection() as connection:
+            row = connection.execute(
+                "select not exists (select 1 from public.whatsapp_inbound_messages o, "
+                "public.whatsapp_inbound_messages m "
+                "where m.provider_message_key = %s and o.sender_hash = %s "
+                "and o.received_at >= %s and o.destination_owner_id is null "
+                "and o.error_code is distinct from 'whatsapp_link_code_invalid' "
+                "and o.provider_message_key <> m.provider_message_key "
+                "and ((o.received_at, o.provider_message_key) "
+                "< (m.received_at, m.provider_message_key) "
+                "or (o.status <> 'received' and o.updated_at <= m.received_at)))",
+                (provider_message_key, sender_hash, since),
+            ).fetchone()
+        return bool(row[0])
+
     def captured_connections(self, *, destination_owner_id: str) -> frozenset[str]:
         with self._pool.connection() as connection:
             rows = connection.execute(

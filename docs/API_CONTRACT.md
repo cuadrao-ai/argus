@@ -9049,8 +9049,16 @@ answers the not-linked reply.
   committed delivery record with a live claim. A voice note, audio, sticker or
   video from a linked sender is settled `rejected` (`whatsapp_message_unsupported`)
   and gets one short reply saying it is not supported yet; from an unlinked
-  sender it gets the not-linked reply. Other message types and statuses are
-  ignored. The media download, saving and reply run after the answer, in
+  sender it gets the not-linked reply. A text from a linked sender is settled
+  `rejected` (`whatsapp_receipt_missing`), stores nothing beyond the delivery
+  record, and gets one reply: "Mándame la foto o el PDF del comprobante."
+  From an unlinked sender, a text holding a link code still links. Any other
+  message from an unlinked sender, a photo or PDF included, is settled
+  `rejected` (`whatsapp_sender_not_linked`) with nothing fetched or saved, and
+  gets "Este número aún no está vinculado a un negocio en Cuadrao. Pídele al
+  administrador el código para vincularlo." at most once per number per
+  Dominican calendar day, counted from the delivery records. Other message
+  types and statuses are ignored. The media download, saving and reply run after the answer, in
   order, and settle the record. A work failure behind the answer settles the
   record `failed` and the sender gets the "send it again" reply. Shutdown waits
   up to 20 seconds for this work; a process killed sooner leaves the record
@@ -9078,12 +9086,10 @@ answers the not-linked reply.
   only when Postgres cannot be reached; in memory mode without intake nothing
   holds a link and it answers 204. Unauthenticated calls answer 401.
 
-The Business agent over WhatsApp has its own switch,
-`CUADRAO_WHATSAPP_AGENT_ENABLED` (older `ARGUS_WHATSAPP_AGENT_ENABLED`), off by
-default. Off: text from a linked owner never reaches the agent and gets the
-ordinary reply, and the worker does nothing. The receipt reading permission
-(`/api/v1/whatsapp/ai-consent`, below) does not depend on this switch, and
-`DELETE` stays reachable so an owner can always revoke.
+No Business agent answers WhatsApp text. `CUADRAO_WHATSAPP_AGENT_ENABLED`
+(older `ARGUS_WHATSAPP_AGENT_ENABLED`) is still parsed but no longer changes
+anything. The receipt reading permission (`/api/v1/whatsapp/ai-consent`, below)
+is unchanged, and `DELETE` stays reachable so an owner can always revoke.
 
 Replies are sent only when `CUADRAO_WHATSAPP_OUTBOUND_ENABLED` is true, always as
 a free-form answer to the person's own message, in one language: the sender

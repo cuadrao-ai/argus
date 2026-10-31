@@ -54,14 +54,36 @@ def _world() -> cases.World:
     )
 
 
+UNLINKED = (
+    "Este número aún no está vinculado a un negocio en Cuadrao. "
+    "Pídele al administrador el código para vincularlo."
+)
+RECEIPT_MISSING = "Mándame la foto o el PDF del comprobante."
+
+
 @pytest.mark.asyncio
-async def test_unknown_sender_has_no_outbound_reply() -> None:
+async def test_an_unlinked_photo_gets_the_unlinked_line_and_nothing_is_fetched() -> None:
     world = _world()
     await world.deliver(
         cases.image("700000000000991", "wamid.UNKNOWN", cases.STRANGER_PHONE)
     )
-    assert world.record("wamid.UNKNOWN").error_code == "whatsapp_sender_not_linked"
-    assert world.transport.sent == []
+    record = world.record("wamid.UNKNOWN")
+    assert (record.status, record.error_code, record.connection_id) == (
+        "rejected",
+        "whatsapp_sender_not_linked",
+        None,
+    )
+    assert world.graph.requests == []
+    assert world.transport.bodies() == [UNLINKED]
+
+
+@pytest.mark.asyncio
+async def test_a_repeated_unlinked_delivery_is_not_answered_twice() -> None:
+    world = _world()
+    message = fixture("text_message.json", id="wamid.U1", text="hola")
+    await world.deliver(message)
+    await world.deliver(message)
+    assert world.transport.bodies() == [UNLINKED]
 
 
 def test_blocked_file_copy_matches_approved_spanish_and_preserves_english() -> None:
@@ -336,14 +358,17 @@ def test_trusted_download_url_is_https_on_a_meta_cdn_host_only() -> None:
 
 
 def test_a_reply_that_ends_in_a_link_ends_as_a_sentence_without_one() -> None:
-    assert compose_reply("whatsapp_receipt_missing", language="es-419") == (
-        "Aquí solo recibimos recibos. Para todo lo demás usa Cuadrao."
+    assert compose_reply("read_ready", language="es-419") == (
+        "Ya leímos tu recibo. Revísalo y confírmalo en Cuadrao."
     )
-    assert (
-        compose_reply(
-            "whatsapp_receipt_missing", language="en", link="https://app.test/biz"
-        )
-        == "We only take receipts here. For everything else use Cuadrao: https://app.test/biz"
+
+
+def test_text_only_copy_is_the_fixed_line_in_each_language() -> None:
+    assert compose_reply("whatsapp_receipt_missing", language="es-419") == (
+        RECEIPT_MISSING
+    )
+    assert compose_reply("whatsapp_receipt_missing", language="en") == (
+        "Send me the photo or PDF of the receipt."
     )
 
 
@@ -362,7 +387,22 @@ async def test_any_text_from_a_linked_owner_gets_the_same_one_reply(text: str) -
     world = _world()
     await world.link(world.alice, cases.ALICE_PHONE)
     await world.deliver(fixture("text_message.json", id="wamid.ANY", text=text))
-    assert world.record("wamid.ANY").error_code == "whatsapp_receipt_missing"
-    assert world.transport.bodies()[-1] == (
-        f"Aquí solo recibimos recibos. Para todo lo demás usa Cuadrao: {cases.ORIGIN}/biz"
+    record = world.record("wamid.ANY")
+    assert (record.status, record.error_code, record.connection_id) == (
+        "rejected",
+        "whatsapp_receipt_missing",
+        None,
     )
+    assert world.transport.bodies()[-1] == RECEIPT_MISSING
+    assert world.captures(world.alice) == []
+
+
+@pytest.mark.asyncio
+async def test_a_repeated_linked_text_is_answered_once() -> None:
+    world = _world()
+    await world.link(world.alice, cases.ALICE_PHONE)
+    before = len(world.transport.sent)
+    message = fixture("text_message.json", id="wamid.ANY", text="hola")
+    await world.deliver(message)
+    await world.deliver(message)
+    assert world.transport.bodies()[before:] == [RECEIPT_MISSING]

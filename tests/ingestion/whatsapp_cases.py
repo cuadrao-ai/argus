@@ -54,6 +54,16 @@ ORIGIN = "https://app.test"
 _ids = count(1)
 
 
+UNLINKED = (
+    "Este número aún no está vinculado a un negocio en Cuadrao. "
+    "Pídele al administrador el código para vincularlo."
+)
+UNLINKED_EN = (
+    "This number isn't linked to a business in Cuadrao yet. "
+    "Ask the administrator for the code to link it."
+)
+
+
 class Clock:
     def __init__(self) -> None:
         self.now = datetime.now(timezone.utc)
@@ -235,7 +245,7 @@ async def unknown_sender_is_rejected_without_capture(world: World) -> None:
             None,
         )
     assert world.graph.requests == []
-    assert world.transport.sent == []
+    assert world.transport.bodies() == [UNLINKED]
 
 
 async def expired_and_reused_codes_are_refused(world: World) -> None:
@@ -698,7 +708,7 @@ async def a_link_revoked_before_settling_keeps_no_capture(world: World) -> None:
     await _revoke_while_capturing(
         world, "es-419", "700000000000140", "wamid.CASE-REVOKED-IN-FLIGHT"
     )
-    assert len(world.transport.sent) == 1
+    assert world.transport.bodies()[1:] == [UNLINKED]
 
 
 async def a_link_revoked_before_settling_answers_in_the_links_language(
@@ -707,7 +717,7 @@ async def a_link_revoked_before_settling_answers_in_the_links_language(
     await _revoke_while_capturing(
         world, "en", "700000000000141", "wamid.CASE-REVOKED-IN-FLIGHT-EN"
     )
-    assert len(world.transport.sent) == 1
+    assert world.transport.bodies()[1:] == [UNLINKED_EN]
 
 
 async def a_linked_sender_text_is_never_a_link_attempt(world: World) -> None:
@@ -728,9 +738,9 @@ async def a_linked_sender_text_is_never_a_link_attempt(world: World) -> None:
     link = world.store.destination_link(destination_owner_id=world.alice)
     assert link.last4 == "1234"
     assert world.store.destination_link(destination_owner_id=world.bob) is None
-    assert set(world.transport.bodies()[-3:]) == {
-        f"We only take receipts here. For everything else use Cuadrao: {ORIGIN}/biz"
-    }
+    assert (
+        world.transport.bodies()[-3:] == ["Send me the photo or PDF of the receipt."] * 3
+    )
 
 
 async def an_unlinked_sender_links_with_a_code_anywhere_in_the_text(
@@ -863,10 +873,28 @@ async def voice_audio_and_stickers_get_one_unsupported_reply(world: World) -> No
     assert world.record("wamid.CASE-KIND-STRANGER").error_code == (
         "whatsapp_sender_not_linked"
     )
-    assert len(world.transport.sent) == before
+    assert world.transport.bodies()[before:] == [UNLINKED]
+
+
+async def an_unlinked_number_hears_back_once_per_day(world: World) -> None:
+    for message in (
+        fixture("text_message.json", id="wamid.CASE-DAY-1", sender=STRANGER_PHONE),
+        image("700000000000150", "wamid.CASE-DAY-2", STRANGER_PHONE),
+        fixture("text_message.json", id="wamid.CASE-DAY-3", sender=STRANGER_PHONE),
+    ):
+        await world.deliver(message)
+        world.clock.now += timedelta(seconds=1)
+    assert world.transport.bodies() == [UNLINKED]
+    assert world.graph.requests == []
+    world.clock.now += timedelta(days=1)
+    await world.deliver(
+        fixture("text_message.json", id="wamid.CASE-DAY-4", sender=STRANGER_PHONE)
+    )
+    assert world.transport.bodies() == [UNLINKED, UNLINKED]
 
 
 CASES = (
+    an_unlinked_number_hears_back_once_per_day,
     linked_image_is_saved_unqueued_and_replay_converges,
     document_message_is_captured,
     unknown_sender_is_rejected_without_capture,

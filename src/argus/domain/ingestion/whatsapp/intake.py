@@ -15,6 +15,7 @@ from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Any, Protocol
+from zoneinfo import ZoneInfo
 
 from loguru import logger
 
@@ -43,7 +44,6 @@ from argus.domain.ingestion.whatsapp.replies import (
     ReplyFailed,
     ReplyTransport,
     compose_reply,
-    inbox_url,
     reply_key,
     reply_payload,
     review_url,
@@ -67,7 +67,14 @@ CLAIM_SECONDS = 90
 PROCESSING_SECONDS = CLAIM_SECONDS - 15
 CODE_TTL = timedelta(minutes=10)
 SERVICE_WINDOW = timedelta(hours=24)
+# Unlinked numbers hear back at most once per Dominican calendar day.
+_REPLY_DAY = ZoneInfo("America/Santo_Domingo")
 _REPLY_REJECTION = re.compile(r"([1-5][0-9]{2})(?::([0-9]{1,10}))?")
+
+
+def _day_start(now: datetime) -> datetime:
+    local = now.astimezone(_REPLY_DAY)
+    return local.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
 class DeliveryInFlight(Exception):
@@ -153,7 +160,6 @@ class WhatsAppIntake:
         transport: ReplyTransport | None = None,
         app_origin: str | None = None,
         max_bytes: int,
-        capture_text: Callable[[TextMessage], bool] | None = None,
         send_enabled: Callable[[], bool] = lambda: True,
         background: Callable[[Coroutine[Any, Any, None]], None] | None = None,
         reply_codec: ReplyGroupCodec | None = None,
@@ -167,7 +173,6 @@ class WhatsAppIntake:
         # work finishes inside ``handle``.
         self.background = background
         self.processing_seconds: float = PROCESSING_SECONDS
-        self.capture_text = capture_text
         self.send_enabled = send_enabled
         self.reply_codec = reply_codec
         self.reply_group_wait_seconds = reply_group_wait_seconds
@@ -255,9 +260,6 @@ class WhatsAppIntake:
         otherwise ``True`` when it is already settled and ``False`` while
         another claim still holds it unsettled."""
 
-        if isinstance(message, TextMessage) and self.capture_text is not None:
-            if await asyncio.to_thread(self.capture_text, message):
-                return True
         sender = self.keys.sender(message.sender)
         key = self.keys.message(message.id)
         now = self.clock()
@@ -505,9 +507,15 @@ class WhatsAppIntake:
             reading=settlement.reading,
         )
         if resolved_key == "whatsapp_sender_not_linked":
-            suppressed("unknown_sender", self.keys.sender(message.sender))
-            return False
-        if (
+            if not await asyncio.to_thread(
+                self.store.first_unlinked_today,
+                sender_hash=self.keys.sender(message.sender),
+                provider_message_key=self.keys.message(message.id),
+                since=_day_start(self.clock()),
+            ):
+                suppressed("unlinked_daily_limit", self.keys.sender(message.sender))
+                return False
+        elif (
             resolved_key != "whatsapp_link_code_invalid"
             and await asyncio.to_thread(
                 self.store.sender_link, sender_hash=self.keys.sender(message.sender)
@@ -529,8 +537,6 @@ class WhatsAppIntake:
                 log.warning("WhatsApp acknowledgement skipped: no app origin")
                 return False
             url = review_url(self.app_origin, settlement.connection_id or "")
-        elif settlement.error_code == "whatsapp_receipt_missing" and self.app_origin:
-            url = inbox_url(self.app_origin)
         body = compose_reply(
             resolved_key,
             language=settlement.reply_language,
@@ -545,9 +551,7 @@ class WhatsAppIntake:
             return True
         except ReplyFailed as error:
             reason = (
-                error.args[0]
-                if error.args and isinstance(error.args[0], str)
-                else ""
+                error.args[0] if error.args and isinstance(error.args[0], str) else ""
             )
             rejection = _REPLY_REJECTION.fullmatch(reason)
             failure_mode = (
@@ -569,7 +573,5 @@ class WhatsAppIntake:
                         "graph_code", rejection.group(2)
                     )
             rendered = " ".join(f"{name}={value}" for name, value in diagnostics.items())
-            log.warning(
-                f"WhatsApp acknowledgement not sent: {rendered}", **diagnostics
-            )
+            log.warning(f"WhatsApp acknowledgement not sent: {rendered}", **diagnostics)
             return False

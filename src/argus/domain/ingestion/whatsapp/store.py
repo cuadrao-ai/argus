@@ -132,6 +132,14 @@ class WhatsAppStore(Protocol):
         """Documents this destination received through WhatsApp."""
         ...
 
+    def first_unlinked_today(
+        self, *, sender_hash: bytes, provider_message_key: bytes, since: datetime
+    ) -> bool:
+        """Whether no other message since ``since`` from this number, one that
+        reached no business and was not a link code, came first: earlier, or
+        already settled when this one arrived."""
+        ...
+
 
 @dataclass
 class _Code:
@@ -224,6 +232,23 @@ class InMemoryWhatsAppStore:
 
     def inbound(self, provider_message_key: bytes) -> InboundRecord | None:
         return self._inbound.get(provider_message_key)
+
+    def first_unlinked_today(
+        self, *, sender_hash: bytes, provider_message_key: bytes, since: datetime
+    ) -> bool:
+        with self._lock:
+            mine = self._inbound[provider_message_key]
+            return not any(
+                (record.received_at, record.provider_message_key)
+                < (mine.received_at, mine.provider_message_key)
+                or (record.status != "received" and record.updated_at <= mine.received_at)
+                for record in self._inbound.values()
+                if record is not mine
+                and record.sender_hash == sender_hash
+                and record.received_at >= since
+                and record.destination_owner_id is None
+                and record.error_code != "whatsapp_link_code_invalid"
+            )
 
     def captured_connections(self, *, destination_owner_id: str) -> frozenset[str]:
         with self._lock:

@@ -62,14 +62,14 @@ REPLIES: dict[str, tuple[str, str]] = {
         "That code has expired or was already used. Create a new one in Cuadrao.",
     ),
     "whatsapp_sender_not_linked": (
-        "Este número no está conectado a Cuadrao. "
-        "Conéctalo desde Cuadrao en la web y vuelve a enviar el recibo.",
-        "This number isn't connected to Cuadrao. "
-        "Connect it from Cuadrao on the web, then send the receipt again.",
+        "Este número aún no está vinculado a un negocio en Cuadrao. "
+        "Pídele al administrador el código para vincularlo.",
+        "This number isn't linked to a business in Cuadrao yet. "
+        "Ask the administrator for the code to link it.",
     ),
     "whatsapp_receipt_missing": (
-        "Aquí solo recibimos recibos. Para todo lo demás usa Cuadrao: {link}",
-        "We only take receipts here. For everything else use Cuadrao: {link}",
+        "Mándame la foto o el PDF del comprobante.",
+        "Send me the photo or PDF of the receipt.",
     ),
     "whatsapp_message_unsupported": (
         "Por ahora no podemos recibir audios, stickers ni videos. "
