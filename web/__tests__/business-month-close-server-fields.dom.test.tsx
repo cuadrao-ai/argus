@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { createHttpMonthCloseClient, type MonthCloseClient } from "../lib/business-month-close";
+import { createHttpMonthCloseClient, type MonthCloseClient, type MonthCloseFigures, type MonthCloseSnapshot } from "../lib/business-month-close";
 import type { BusinessContextValue } from "../components/business-app/BusinessWorkspace";
 
 beforeAll(() => {
@@ -74,7 +74,7 @@ function serverClient(server: Server): { client: MonthCloseClient; asked: string
   return { client, asked };
 }
 
-async function renderInicio(client: MonthCloseClient, review?: Parameters<typeof import("../components/business-app/BusinessMonthClosePanel").BusinessMonthCloseView>[0]["review"]) {
+async function renderInicio(client: MonthCloseClient, review?: Parameters<typeof import("../components/business-app/BusinessMonthClosePanel").BusinessMonthCloseView>[0]["review"], layout: "inicio" | "finance" = "inicio") {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -86,7 +86,7 @@ async function renderInicio(client: MonthCloseClient, review?: Parameters<typeof
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
-  const render = () => root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView client={client} now={browser} scopeKey="own" businessCurrency="DOP" review={review} /></I18nextProvider>);
+  const render = () => root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView client={client} now={browser} scopeKey="own" businessCurrency="DOP" review={review} layout={layout} /></I18nextProvider>);
   await act(async () => { render(); });
   const setReview = async (next: typeof review) => { review = next; await act(async () => { render(); }); };
   const settle = async () => { for (let i = 0; i < 20; i += 1) await act(async () => { await Promise.resolve(); }); };
@@ -322,6 +322,84 @@ describe("the net result follows net_result_final", () => {
       await view.unmount();
     }
   });
+});
+
+describe("a non-final block with no documents left names the pending rate", () => {
+  const aside = "Estos montos no están incluidos en el resultado.";
+
+  function rateClient(currencies: string[]) {
+    return serverClient({ month: () => ({ currencies: currencies.map((currency) => block(currency, false, 0)) }) }).client;
+  }
+
+  function unreadableClient(): MonthCloseClient {
+    const figure: MonthCloseFigures = {
+      currency: "usd",
+      income_before_itbis: null,
+      expense_before_itbis: null,
+      net_before_itbis: null,
+      itbis_owed: null,
+      itbis_cobrado: null,
+      net_result_final: false,
+      pending_count: 0,
+    };
+    const snapshot: MonthCloseSnapshot = {
+      month: "2026-10",
+      from: "2026-10-01",
+      to: "2026-10-31",
+      closed_at: null,
+      today: null,
+      earliest_month: null,
+      payment_methods: METHODS,
+      dgii_forms: null,
+      documents: [],
+      blockers: [],
+      unreviewed_movements: 0,
+      figures: [figure],
+    };
+    const none = { count: 0, totals: [], overdue: { count: 0, totals: [] }, items: [] };
+    return {
+      mode: "mock",
+      async load() { return snapshot; },
+      async openItems() { return { today: null, cuentas_por_cobrar: none, cuentas_por_pagar: none }; },
+      async markCobrado() { throw new Error("unused"); },
+      async markPagado() { throw new Error("unused"); },
+      async markPendiente() { return undefined; },
+      async closeMonth() { return snapshot; },
+    };
+  }
+
+  async function expectRate(client: MonthCloseClient, headline: string, layout: "inicio" | "finance", plain = false) {
+    const view = await renderInicio(client, undefined, layout);
+    try {
+      const net = view.text("month-close-net");
+      assert.equal(view.find("month-close-net")?.dataset.state, "pending");
+      assert.ok(net.includes(headline), net);
+      assert.ok(net.includes(aside), net);
+      assert.equal(net.includes("pendiente de tasa en"), !plain, net);
+      assert.doesNotMatch(net, /Falta marcar/);
+      assert.doesNotMatch(net, /2,500/);
+    } finally {
+      await view.unmount();
+    }
+  }
+
+  for (const layout of ["inicio", "finance"] as const) {
+    test(`${layout} shows one currency`, async () => {
+      await expectRate(rateClient(["USD"]), "Moneda extranjera: pendiente de tasa en USD", layout);
+    });
+
+    test(`${layout} shows two currencies in alphabetical order`, async () => {
+      await expectRate(rateClient(["USD", "EUR"]), "Moneda extranjera: pendiente de tasa en EUR y USD", layout);
+    });
+
+    test(`${layout} shows three currencies with a final y`, async () => {
+      await expectRate(rateClient(["USD", "DOP", "EUR"]), "Moneda extranjera: pendiente de tasa en DOP, EUR y USD", layout);
+    });
+
+    test(`${layout} drops an unreadable code`, async () => {
+      await expectRate(unreadableClient(), "Moneda extranjera: pendiente de tasa", layout, true);
+    });
+  }
 });
 
 describe("a mark sends the server's day and a method the server lists", () => {

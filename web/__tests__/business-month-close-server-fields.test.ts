@@ -86,6 +86,20 @@ describe("the net follows net_result_final", () => {
     expect(monthCloseNetDisplay(figures)).toEqual({ state: "pending", pending_count: 3, reason: "documents" });
   });
 
+  test("false with a count of zero is a rate still pending, not zero documents", () => {
+    const [figures] = readMonthCloseWire(month("2026-10", {
+      currencies: [block("USD", {
+        net_result_final: false,
+        by_status: {
+          invoices: { pendiente: { count: 0, before_itbis_minor: 0 }, cobrado: { count: 1, before_itbis_minor: 0 } },
+          receipts: { pendiente: { count: 0, before_itbis_minor: 0 }, pagado: { count: 1, before_itbis_minor: 0 } },
+        },
+      })],
+    })).figures;
+    expect(figures.pending_count).toBe(0);
+    expect(monthCloseNetDisplay(figures)).toEqual({ state: "pending", pending_count: 0, reason: "pending_rate" });
+  });
+
   test("true shows the figure, whatever the web holds about the month's documents", () => {
     const [figures] = readMonthCloseWire(month("2026-10", { currencies: [block("DOP", { net_result_final: true })] })).figures;
     expect(monthCloseNetDisplay(figures)).toEqual({ state: "final", net_before_itbis: "2500.00" });
