@@ -4,7 +4,7 @@ import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-a
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { apiFetch, CUADRAO_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
 import type { ArgusLanguage } from "./language-features";
-import type { BusinessApprovalAction, BusinessDossier, BusinessFactPatch, BusinessRecordContext } from "./business-dossier";
+import { readBusinessDossier, type BusinessApprovalAction, type BusinessDossier, type BusinessFactPatch, type BusinessRecordContext } from "./business-dossier";
 import { getChosenGrant } from "./business-grant";
 import { businessSettingsRequest } from "./business-profile-api";
 
@@ -210,12 +210,16 @@ export async function fetchBusinessExport(draftId: string | undefined, start: st
   return blob;
 }
 
+function fetchDossier(path: string, options?: Parameters<typeof apiFetch>[1]): Promise<BusinessDossier> {
+  return apiFetch<unknown>(path, options).then(readBusinessDossier);
+}
+
 export async function getBusinessDossier(draftId: string): Promise<BusinessDossier> {
-  return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/dossier`);
+  return fetchDossier(`/business/drafts/${encodeURIComponent(draftId)}/dossier`);
 }
 
 export async function reviewBusinessDraft(draftId: string, version: number, facts: BusinessFactPatch, idempotencyKey: string): Promise<BusinessDossier> {
-  return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/review`, {
+  return fetchDossier(`/business/drafts/${encodeURIComponent(draftId)}/review`, {
     method: "PATCH",
     headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify({ version, facts }),
@@ -223,7 +227,7 @@ export async function reviewBusinessDraft(draftId: string, version: number, fact
 }
 
 export async function resolveBusinessDuplicate(draftId: string, version: number, otherDraftId: string, otherVersion: number, idempotencyKey: string): Promise<BusinessDossier> {
-  return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/duplicate-resolution`, {
+  return fetchDossier(`/business/drafts/${encodeURIComponent(draftId)}/duplicate-resolution`, {
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify({ version, other_draft_id: otherDraftId, other_version: otherVersion, decision: "different_purchase" }),
@@ -232,7 +236,7 @@ export async function resolveBusinessDuplicate(draftId: string, version: number,
 
 /** Compra or Venta on an open draft. Null clears a picked type so the server detects it again. */
 export async function setBusinessDraftDocumentType(draftId: string, version: number, documentType: "recibo" | "venta" | null, idempotencyKey: string): Promise<BusinessDossier> {
-  return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/review`, {
+  return fetchDossier(`/business/drafts/${encodeURIComponent(draftId)}/review`, {
     method: "PATCH",
     headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify({ version, document_type: documentType }),
@@ -241,7 +245,7 @@ export async function setBusinessDraftDocumentType(draftId: string, version: num
 
 /** `action` is the dossier's `approval_action`: the server names the approve action the draft takes. */
 export async function approveBusinessDraft(draftId: string, version: number, idempotencyKey: string, action: BusinessApprovalAction): Promise<BusinessDossier> {
-  return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/approve`, {
+  return fetchDossier(`/business/drafts/${encodeURIComponent(draftId)}/approve`, {
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify({ version, action }),
@@ -257,7 +261,7 @@ export function duplicateRecordId(error: unknown): string | null {
 
 /** The owner or a prepare-holder marks a receipt as personal (no part of it is the Business's) or takes the mark back. */
 export async function markBusinessPersonal(draftId: string, version: number, personal: boolean, idempotencyKey: string): Promise<BusinessDossier> {
-  return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/personal`, {
+  return fetchDossier(`/business/drafts/${encodeURIComponent(draftId)}/personal`, {
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify({ version, personal }),
@@ -266,7 +270,7 @@ export async function markBusinessPersonal(draftId: string, version: number, per
 
 /** The accountant answers whether a personal receipt with a fiscal number goes into the 606. */
 export async function decideBusinessFiscalInclusion(draftId: string, version: number, include: boolean, idempotencyKey: string): Promise<BusinessDossier> {
-  return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/fiscal-inclusion`, {
+  return fetchDossier(`/business/drafts/${encodeURIComponent(draftId)}/fiscal-inclusion`, {
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify({ version, include }),
@@ -274,7 +278,7 @@ export async function decideBusinessFiscalInclusion(draftId: string, version: nu
 }
 
 export async function settleBusinessRemainder(draftId: string, version: number, idempotencyKey: string): Promise<BusinessDossier> {
-  return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/remainder/settle`, {
+  return fetchDossier(`/business/drafts/${encodeURIComponent(draftId)}/remainder/settle`, {
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify({ version }),
@@ -409,7 +413,7 @@ export async function captureBusinessNote(input: BusinessCaptureInput, key: stri
     const code = typeof problem.code === "string" ? problem.code : "unknown";
     throw Object.assign(new Error("Capture request could not be confirmed"), { status: response.status, code, requestId: serverRequestId(response, body) });
   }
-  return response.json() as Promise<BusinessDossier>;
+  return readBusinessDossier(await response.json());
 }
 
 /** `inbox` asks for the notes the Bandeja lists: drafts awaiting review that no receipt carries. */

@@ -9,7 +9,7 @@ import type { ReceiptDetail } from "@/lib/business-api";
 import { useEffect, useRef, useState } from "react";
 import { Check, CircleAlert, Loader2, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { factsRevision, type BusinessDossier, type BusinessFactField, type BusinessFactPatch } from "@/lib/business-dossier";
+import { factsRevision, readReviewNote, type BusinessDossier, type BusinessFactField, type BusinessFactPatch } from "@/lib/business-dossier";
 import ReceiptEcfChecks from "./ReceiptEcfChecks";
 import FiscalDeclarationEditor from "./FiscalDeclarationEditor";
 import { duplicateRecordId, resolveBusinessDuplicate, type BusinessCaptureInput } from "@/lib/business-api";
@@ -340,6 +340,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
     : t("business.dossier.blocker_fallback", "This record needs further review before approval.");
   // The receipt's own status when there is one; a bare record maps only the review states a status pill can say.
   const pillStatus = receipt?.status ?? (recorded || dossier.review_state === "accepted" ? "confirmed" : dossier.review_state === "open" ? "review_ready" : null);
+  const reviewNote = readReviewNote(dossier.review_note);
   const reasonId = `approve-reason-${dossier.draft_id}`;
   const approvalLabel = dossier.approval_action === "record_income" ? t("business.dgii.approve_income", "Approve income") : dossier.approval_action === "record_refund" ? t("business.dgii.approve_refund", "Approve refund") : t("business.dossier.approve_action", "Approve expense");
 
@@ -373,6 +374,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
       origin={firstSource ? { channel: firstSource.channel, receivedAt: firstSource.received_at, message: firstSource.kind !== "attachment" } : null}
       place={position ? { ...position, previous: moves.previous, next: moves.next } : null}
       footer={<ReceiptReviewFooter
+        reviewNote={reviewNote}
         status={approval ? null
           : !canApprove ? line ? <p>{t("business.dossier.prepare_only", "Your permission allows preparing this record. A person with approval permission must approve it.")}</p> : null
           : reason ? <p id={reasonId} data-testid="approve-reason">{reason}</p>
