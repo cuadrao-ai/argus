@@ -60,15 +60,41 @@ for (const [path, title] of [["/en/privacy", "Privacy policy for the Cuadrao web
   });
 }
 
-for (const [path, title] of [
-  ["/privacidad", "Política de privacidad del sitio web de Cuadrao"],
-  ["/en/privacy", "Privacy policy for the Cuadrao website"],
-  ["/eliminar-datos", "Eliminar tus datos"],
-  ["/en/delete-data", "Delete your data"],
-]) {
-  test(`${path} uses the approved title in the tab and page heading`, async ({ page }) => {
-    await page.goto(path);
-    await expect(page).toHaveTitle(title);
-    await expect(page.locator("main h1")).toHaveText(title);
+for (const [path, tab, heading] of [
+  ["/privacidad", "Privacidad | Cuadrao", "Política de privacidad del sitio web de Cuadrao"],
+  ["/terminos", "Términos | Cuadrao", "Términos de uso del sitio web de Cuadrao"],
+  ["/eliminar-datos", "Eliminar tus datos | Cuadrao", "Eliminar tus datos"],
+  ["/en/privacy", "Privacy | Cuadrao", "Privacy policy for the Cuadrao website"],
+  ["/en/terms", "Terms | Cuadrao", "Cuadrao Website Terms of Use"],
+  ["/en/delete-data", "Delete your data | Cuadrao", "Delete your data"],
+] as const) {
+  test(`${path} puts the short title in the first HTML response and keeps the document heading`, async ({ page }) => {
+    const response = await page.goto(path);
+    const html = await response!.text();
+    expect(html).toContain(`<title>${tab}</title>`);
+    expect(html).toContain('src="/cuadrao-site/cuadrao-lockup-light.svg"');
+    await expect(page).toHaveTitle(tab);
+    await expect(page.locator("main h1")).toHaveText(heading);
+    const logo = page.locator("header img[alt='cuadrao']");
+    await expect(logo).toBeVisible();
+    const box = await logo.boundingBox();
+    expect(box!.width).toBeGreaterThan(40);
+    expect(box!.height).toBeGreaterThan(16);
   });
 }
+
+test("the privacy logo and tab title are in the page when JavaScript is off", async ({ browser }) => {
+  const context = await browser.newContext({
+    javaScriptEnabled: false,
+    viewport: { width: 1280, height: 800 },
+  });
+  try {
+    const page = await context.newPage();
+    const response = await page.goto("/privacidad");
+    expect(await response!.text()).toContain("<title>Privacidad | Cuadrao</title>");
+    await expect(page).toHaveTitle("Privacidad | Cuadrao");
+    await expect(page.locator("header img[alt='cuadrao']")).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
