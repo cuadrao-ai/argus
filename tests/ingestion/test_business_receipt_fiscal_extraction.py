@@ -295,34 +295,95 @@ class TestPrintedIdentifierSplit:
         assert normalized_ncf(projected.ncf.value) == "B0100000987"
 
     @pytest.mark.parametrize(
-        ("name", "read"),
+        ("name", "read", "expected"),
         [
-            pytest.param("rnc", "RNC 1--131000002", id="rnc-prefix-repeated-separators"),
-            pytest.param("rnc", "RNC 131000002--1", id="rnc-suffix-repeated-separators"),
-            pytest.param("rnc", "RNC 1 - 131000002", id="rnc-prefix-mixed-separators"),
-            pytest.param("rnc", "RNC 131000002\uff19", id="rnc-suffix-fullwidth-digit"),
-            pytest.param("rnc", "RNC \uff19131000002", id="rnc-prefix-fullwidth-digit"),
             pytest.param(
-                "rnc", "RNC 131000002-\u0669", id="rnc-suffix-arabic-indic-digit"
+                "rnc", "RNC 1--131000002", None, id="rnc-prefix-repeated-hyphens"
             ),
             pytest.param(
-                "rnc", "RNC \u0669--131000002", id="rnc-prefix-arabic-indic-digit"
+                "rnc", "RNC 131000002--1", None, id="rnc-suffix-repeated-hyphens"
             ),
-            pytest.param("ncf", "NCF B0100000987\uff19", id="ncf-suffix-fullwidth-digit"),
             pytest.param(
-                "ncf", "NCF \uff21B0100000987", id="ncf-prefix-fullwidth-letter"
+                "rnc", "RNC 1 - 131000002", None, id="rnc-prefix-mixed-separators"
             ),
-            pytest.param("ncf", "NCF \uff19B0100000987", id="ncf-prefix-fullwidth-digit"),
-            pytest.param("ncf", "NCF B0100000987\u00e9", id="ncf-suffix-accented-letter"),
-            pytest.param("ncf", "NCF \u00f1B0100000987", id="ncf-prefix-accented-letter"),
+            pytest.param(
+                "rnc", "RNC 1 131000002", None, id="rnc-prefix-digit-after-space"
+            ),
+            pytest.param(
+                "rnc", "RNC 131000002 9", None, id="rnc-suffix-digit-after-space"
+            ),
+            pytest.param(
+                "rnc", "RNC 131000002\uff19", None, id="rnc-suffix-fullwidth-digit"
+            ),
+            pytest.param(
+                "rnc", "RNC \uff19131000002", None, id="rnc-prefix-fullwidth-digit"
+            ),
+            pytest.param(
+                "rnc", "RNC 131000002-\u0669", None, id="rnc-suffix-arabic-indic-digit"
+            ),
+            pytest.param(
+                "rnc", "RNC \u0669--131000002", None, id="rnc-prefix-arabic-indic-digit"
+            ),
+            pytest.param("rnc", "RNC 1\u00a0131000002", None, id="rnc-prefix-nbsp"),
+            pytest.param("rnc", "RNC 131000002\u00a09", None, id="rnc-suffix-nbsp"),
+            pytest.param("rnc", "RNC 1\u2011131000002", None, id="rnc-prefix-nb-hyphen"),
+            pytest.param("rnc", "RNC 131000002\u20119", None, id="rnc-suffix-nb-hyphen"),
+            pytest.param("rnc", "RNC 131000002\u00f1", None, id="rnc-suffix-letter"),
+            pytest.param(
+                "rnc", "RNC 131000002\u0301", None, id="rnc-suffix-combining-mark"
+            ),
+            pytest.param(
+                "ncf", "NCF B0100000987\uff19", None, id="ncf-suffix-fullwidth-digit"
+            ),
+            pytest.param(
+                "ncf", "NCF \uff21B0100000987", None, id="ncf-prefix-fullwidth-letter"
+            ),
+            pytest.param(
+                "ncf", "NCF \uff19B0100000987", None, id="ncf-prefix-fullwidth-digit"
+            ),
+            pytest.param(
+                "ncf", "NCF B0100000987\u00e9", None, id="ncf-suffix-accented-letter"
+            ),
+            pytest.param(
+                "ncf", "NCF \u00f1B0100000987", None, id="ncf-prefix-accented-letter"
+            ),
+            pytest.param(
+                "ncf", "NCF n\u0303B0100000987", None, id="ncf-prefix-decomposed-letter"
+            ),
+            pytest.param(
+                "ncf",
+                "NCF B0100000987\u0301\uff19",
+                None,
+                id="ncf-suffix-mark-then-digit",
+            ),
+            pytest.param(
+                "ncf", "NCF B0100000987\u00a09", None, id="ncf-suffix-nbsp-digit"
+            ),
+            pytest.param(
+                "ncf", "NCF 9\u2011B0100000987", None, id="ncf-prefix-nb-hyphen"
+            ),
+            pytest.param(
+                "rnc",
+                "RNC 1-23-45678-9 (ficticio)",
+                "1-23-45678-9",
+                id="rnc-formatted-note",
+            ),
+            pytest.param("rnc", "RNC 131000002", "131000002", id="rnc-plain"),
+            pytest.param("rnc", "RNC: 1-23-45678-9", "1-23-45678-9", id="rnc-colon"),
+            pytest.param("rnc", "RNC\u00a0131000002", "131000002", id="rnc-nbsp-label"),
+            pytest.param("ncf", "NCF B0100000987", "B0100000987", id="ncf-plain"),
+            pytest.param(
+                "ncf", "ncf b0100000987 (ficticio)", "b0100000987", id="ncf-lowercase"
+            ),
+            pytest.param("ncf", "e-CF E310000000001", "E310000000001", id="ecf"),
         ],
     )
     def test_a_read_that_runs_on_past_the_identifier_stays_whole(
-        self, name: str, read: str
+        self, name: str, read: str, expected: str | None
     ) -> None:
         receipt = ReceiptDetails(**{name: read})
         projected = extractor.fiscal_facts_from_receipt(receipt, source_id=uuid4())
-        assert getattr(projected, name).value == read
+        assert getattr(projected, name).value == (expected or read)
         assert getattr(receipt, name) == read
 
     def test_boundary_reads_kept_whole_stay_rejected_by_strict_cleanup(self) -> None:

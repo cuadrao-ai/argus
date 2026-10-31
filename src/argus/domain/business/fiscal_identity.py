@@ -1,4 +1,5 @@
 import re
+import unicodedata
 
 FILER_TAX_ID_LENGTH = {"rnc": 9, "cedula": 11}
 COUNTERPARTY_ID_LENGTH = {
@@ -13,34 +14,71 @@ _PRINTED_NCF = re.compile(
 )
 
 
-def printed_rnc(value: str) -> str:
-    """The RNC or cédula as printed, without label or note text around it.
-    A read with no 9 or 11 digit number, or one whose number runs on into more
-    digits (any script, any run of separators), is returned unchanged."""
+# Characters that may continue an identifier: letters, numbers, combining
+# marks, spaces, dashes and connectors. Any other punctuation, such as ":" or
+# "(", ends it.
+_CONTINUES = ("L", "N", "M", "Z", "Pd", "Pc")
 
-    match = _PRINTED_RNC.search(value)
-    if match is None:
-        return value
-    before = value[: match.start()].rstrip(" -")
-    after = value[match.end() :].lstrip(" -")
-    if (before and before[-1].isdigit()) or (after and after[0].isdigit()):
+
+def _continues(char: str, *, space_ok: bool) -> bool:
+    category = unicodedata.category(char)
+    if space_ok and category.startswith("Z"):
+        return False
+    return category.startswith(_CONTINUES)
+
+
+def _side_continues(side: str) -> bool:
+    """Whether the text next to a candidate, nearest character first, runs into it.
+    The nearest character must not continue the identifier. If it is a single
+    space, the character after that space must not either, except that a letter
+    is allowed there: a label before or a note after."""
+
+    if not side:
+        return False
+    if _continues(side[0], space_ok=True):
+        return True
+    if not unicodedata.category(side[0]).startswith("Z") or len(side) == 1:
+        return False
+    nxt = side[1]
+    return not unicodedata.category(nxt).startswith("L") and _continues(
+        nxt, space_ok=False
+    )
+
+
+def _isolated(value: str, match: re.Match[str]) -> str:
+    """The matched token when both of its edges are clean, otherwise the read.
+    Each edge is inspected after NFKC, so a combining mark or a compatibility
+    form counts as the letter or number it stands for. The token itself is
+    returned exactly as printed."""
+
+    before = unicodedata.normalize("NFKC", value[: match.start()])[::-1]
+    after = unicodedata.normalize("NFKC", value[match.end() :])
+    if _side_continues(before) or _side_continues(after):
         return value
     return match.group(0)
+
+
+def printed_rnc(value: str) -> str:
+    """The RNC or cédula as printed, without label or note text around it.
+    The token is the first 9 or 11 digit number with its printed dashes or
+    spaces. Each edge must be followed by a character that is not a letter,
+    number, combining mark, space, dash or connector, or by one space and then
+    a character that is not a number, mark, space, dash or connector. So
+    "RNC 1-23-45678-9 (ficticio)" gives "1-23-45678-9", and a read whose number
+    runs on ("1 131000002", "131000002 9", "131000002ñ") or has no such number
+    is returned unchanged."""
+
+    match = _PRINTED_RNC.search(value)
+    return value if match is None else _isolated(value, match)
 
 
 def printed_ncf(value: str) -> str:
     """The NCF or e-CF number as printed, without label or note text around it.
-    Digits are never padded or fixed; a read with no B or E series, or one that
-    runs on into more letters or digits (any script), stays unchanged."""
+    Same edge rule as printed_rnc. Characters are never padded, fixed or
+    recased; a read with no clean B or E series token stays unchanged."""
 
     match = _PRINTED_NCF.search(value)
-    if match is None:
-        return value
-    before = value[: match.start()]
-    after = value[match.end() :]
-    if (before and before[-1].isalnum()) or (after and after[0].isalnum()):
-        return value
-    return match.group(0)
+    return value if match is None else _isolated(value, match)
 
 
 def identity_digits(value: str | None) -> str | None:
