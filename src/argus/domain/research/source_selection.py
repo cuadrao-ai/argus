@@ -13,7 +13,7 @@ from datetime import date, timedelta
 from typing import Iterable
 from urllib.parse import urlparse
 
-from argus.domain.market_data.new_york_clock import new_york_today
+from argus.domain.clock import new_york_today
 from argus.domain.research.contracts import MAX_SOURCES, ResearchPacket, ResearchSource
 
 _CURRENT_SURVEY_KINDS = frozenset({"market_pulse", "screening", "sector_radar"})

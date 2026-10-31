@@ -15,10 +15,10 @@ import httpx
 from loguru import logger
 from pydantic import BaseModel
 
-from argus.agent_runtime import turn_execution
 from argus.env import load_project_dotenv
 from argus.llm import openrouter_model_env as model_policy
 from argus.llm import openrouter_transport as transport
+from argus.llm import provider_permit
 from argus.llm.openrouter_key_policy import resolve_openrouter_api_key
 from argus.llm.openrouter_langchain import ChatOpenRouter
 from argus.llm.openrouter_request_policy import (
@@ -361,10 +361,10 @@ def annotate_latest_openrouter_route_receipt(
     return False
 
 
-def _reserve_openrouter_attempt(task: OpenRouterTask, timeout_seconds: float, model_name: str, mode: Literal["json_schema", "chat_model"], schema_name: str | None, context_packet_ids: list[str] | None) -> turn_execution.ProviderCallPermit | None:
-    if (permit := turn_execution.reserve_provider_call(task, timeout_seconds)) is not None:
+def _reserve_openrouter_attempt(task: OpenRouterTask, timeout_seconds: float, model_name: str, mode: Literal["json_schema", "chat_model"], schema_name: str | None, context_packet_ids: list[str] | None) -> provider_permit.ProviderCallPermit | None:
+    if (permit := provider_permit.reserve_provider_call(task, timeout_seconds)) is not None:
         return permit
-    record_openrouter_route_receipt(task=task, model_name=model_name, mode=mode, schema_name=schema_name, latency_ms=0, outcome="skipped", failure_mode=turn_execution.turn_budget_block_reason(), context_packet_ids=context_packet_ids)
+    record_openrouter_route_receipt(task=task, model_name=model_name, mode=mode, schema_name=schema_name, latency_ms=0, outcome="skipped", failure_mode=provider_permit.turn_budget_block_reason(), context_packet_ids=context_packet_ids)
     return None
 
 
