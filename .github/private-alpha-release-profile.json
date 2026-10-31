@@ -168,21 +168,6 @@
     "supported": [
       "en",
       "es-419"
-    ],
-    "required_static_keys": [
-      "chat.confirmation.actions.run_backtest"
-    ]
-  },
-  "canary": {
-    "language": "es-419",
-    "chat_prompt": "Hola, \u00bfqu\u00e9 puedes hacer por m\u00ed?",
-    "backtest_prompt": "Prueba una estrategia de comprar y mantener AAPL y MSFT con pesos iguales desde el 1 de enero de 2025 hasta el 5 de junio de 2026 con 10000 dolares",
-    "research_prompt": "\u00bfCu\u00e1les fueron los ingresos de Apple en su \u00faltimo trimestre reportado?",
-    "required_steps": [
-      "services_same_commit",
-      "signed_in_chat_answer",
-      "backtest_completes",
-      "research_answer_with_sources"
     ]
   }
 }

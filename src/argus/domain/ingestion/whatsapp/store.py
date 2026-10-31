@@ -9,10 +9,12 @@ redelivery a no-op, so one message never produces two captures or two replies.
 
 from __future__ import annotations
 
+import hashlib
 import threading
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Literal, Protocol
+from zoneinfo import ZoneInfo
 
 if TYPE_CHECKING:
     from argus.domain.ingestion.whatsapp.reply_groups import PendingFailure
@@ -21,6 +23,24 @@ ReplyLanguage = Literal["en", "es-419"]
 InboundStatus = Literal["received", "linked", "rejected", "captured", "failed"]
 SettledStatus = Literal["linked", "rejected", "captured", "failed"]
 RETRYABLE: frozenset[InboundStatus] = frozenset({"received", "failed"})
+# Unlinked numbers hear back at most once per Dominican calendar day.
+REPLY_DAY = ZoneInfo("America/Santo_Domingo")
+UNLINKED_REPLY_RESERVED = "whatsapp_unlinked_reply_reserved"
+
+
+def dominican_day(at: datetime) -> date:
+    return at.astimezone(REPLY_DAY).date()
+
+
+def unlinked_reply_key(sender_hash: bytes, day: date) -> bytes:
+    """The provider_message_key of the one reservation row per sender and day.
+    Its unique key is what makes two reservations for the same day collide."""
+
+    return hashlib.sha256(
+        b"argus.whatsapp.unlinked-reply\0" + sender_hash + day.isoformat().encode()
+    ).digest()
+
+
 # A capture whose sender link ended before it settled keeps no connection.
 SENDER_LINK_REVOKED = "sender_link_revoked"
 
@@ -166,6 +186,13 @@ class WhatsAppStore(Protocol):
 
     def captured_connections(self, *, destination_owner_id: str) -> frozenset[str]:
         """Documents this destination received through WhatsApp."""
+        ...
+
+    def reserve_unlinked_reply(
+        self, *, sender_hash: bytes, provider_message_key: bytes, now: datetime
+    ) -> bool:
+        """Take this number's one unlinked reply for the Dominican day this
+        message arrived; ``False`` when the day's reply is already taken."""
         ...
 
 
@@ -318,6 +345,27 @@ class InMemoryWhatsAppStore:
 
     def inbound(self, provider_message_key: bytes) -> InboundRecord | None:
         return self._inbound.get(provider_message_key)
+
+    def reserve_unlinked_reply(
+        self, *, sender_hash: bytes, provider_message_key: bytes, now: datetime
+    ) -> bool:
+        with self._lock:
+            day = dominican_day(self._inbound[provider_message_key].received_at)
+            key = unlinked_reply_key(sender_hash, day)
+            if key in self._inbound:
+                return False
+            self._inbound[key] = InboundRecord(
+                key,
+                sender_hash,
+                "rejected",
+                None,
+                None,
+                UNLINKED_REPLY_RESERVED,
+                None,
+                now,
+                now,
+            )
+            return True
 
     def captured_connections(self, *, destination_owner_id: str) -> frozenset[str]:
         with self._lock:
