@@ -32,6 +32,25 @@ UNVERIFIED_READABLE = frozenset({"failed", "none"})
 UNVERIFIED_REFUSED = frozenset({"ambiguous", "no_result", "unknown"})
 
 
+def verdict_readable(auth_result, inbox_group, review_note) -> bool:  # noqa: ANN001
+    """Whether a stored delivery may be read or approved by its verdict alone.
+
+    ``aligned`` may. ``failed`` may only as Pendiente: Bandeja with the
+    unverified note, the one row a person sees the warning on. A failed row
+    held in Remitentes nuevos (sender authorized later, a retry after the
+    sender was removed, or a row from before the note) stays refused, as does
+    every other value and NULL.
+    """
+
+    if auth_result == "aligned":
+        return True
+    return (
+        auth_result == "failed"
+        and inbox_group == "bandeja"
+        and review_note == UNVERIFIED_SENDER_NOTE
+    )
+
+
 def stored_auth(verdict: str) -> str:
     """The ``auth_result`` column value for a verdict.
 

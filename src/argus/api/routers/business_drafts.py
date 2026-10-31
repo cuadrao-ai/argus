@@ -102,7 +102,10 @@ def _run(request, response, context, draft_id, command=None, key=None):
                 raise action_problem(request, result)
         dossier = context.service.dossier(actor, draft_id)
         return with_source_channels(
-            dossier, space_id=str(actor.actor.space_id), owner_id=actor.owner_id
+            dossier,
+            space_id=str(actor.actor.space_id),
+            owner_id=actor.owner_id,
+            service=context.service,
         )
     except ActionError as error:
         raise action_problem(request, error.result) from None

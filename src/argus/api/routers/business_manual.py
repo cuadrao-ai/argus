@@ -71,6 +71,7 @@ def capture_note(
             context.service.dossier(actor, result.draft_id),
             space_id=str(actor.actor.space_id),
             owner_id=actor.owner_id,
+            service=context.service,
         )
     except ActionError as error:
         raise action_problem(request, error.result) from None

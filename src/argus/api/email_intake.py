@@ -232,13 +232,15 @@ def email_receipt_flags(
     }
 
 
-def email_review_note(space_id: str, delivery_ids) -> str | None:  # noqa: ANN001
-    """The review note of the first of these deliveries that carries one."""
+def email_review_note(space_id: str, delivery_ids, store=None) -> str | None:  # noqa: ANN001
+    """The review note of the first of these deliveries that carries one, from
+    ``store`` or the running intake's store."""
 
-    if _runtime is None:
+    if store is None and _runtime is None:
         return None
+    store = store or _runtime.store
     for delivery_id in sorted(delivery_ids):
-        delivery = _runtime.store.get(delivery_id, space_id)
+        delivery = store.get(delivery_id, space_id)
         if delivery is not None and delivery.review_note:
             return delivery.review_note
     return None

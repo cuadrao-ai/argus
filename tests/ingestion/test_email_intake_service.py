@@ -857,6 +857,12 @@ def test_every_linked_delivery_must_be_authorized_and_not_held():
     world.store._deliveries[bad.id] = replace(
         world.store.get(bad.id, space), auth_result="failed"
     )
+    assert world.store.email_document_standing(space, draft_id) == "new"
+    world.store._deliveries[bad.id] = replace(
+        world.store.get(bad.id, space),
+        inbox_group="bandeja",
+        review_note="No pudimos verificar este remitente.",
+    )
     assert world.store.email_document_standing(space, draft_id) == "authorized"
     world.store._deliveries[bad.id] = replace(
         world.store.get(bad.id, space), auth_result="unknown"

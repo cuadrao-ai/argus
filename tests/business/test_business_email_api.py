@@ -893,7 +893,7 @@ def test_approve_waits_until_the_sender_is_authorized(alice: Owner, runtime) -> 
     assert store.get(delivery.id, route.space_id).approved is False
 
 
-def test_a_person_approves_unverified_mail_from_an_authorized_sender_only(
+def test_unverified_mail_held_before_its_sender_was_authorized_stays_refused(
     alice: Owner,  # noqa: F811
     runtime,
 ) -> None:
@@ -969,10 +969,11 @@ def test_a_person_approves_unverified_mail_from_an_authorized_sender_only(
         )
         delivery = store.get(claimed.id, route.space_id)
         assert (delivery.auth_result, delivery.approved) == ("failed", False)
+        # Held without the note: authorizing the sender later does not open it.
         pressed = drafts.post(url, json=body, headers={"Idempotency-Key": str(uuid4())})
-        assert pressed.status_code == 422, pressed.text
-        assert pressed.json()["detail"]["code"] == "expense_blocked"
-        assert service.calls == [draft_id]
+        assert pressed.status_code == 403, pressed.text
+        assert pressed.json()["detail"]["code"] == "email_sender_unauthorized"
+        assert service.calls == []
         assert store.get(claimed.id, route.space_id).approved is False
         service.calls.clear()
 
