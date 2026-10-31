@@ -34,6 +34,16 @@ export type BusinessEmailDelivery = {
   saved_receipt_count?: number;
   /** Why it brought no receipt, as a code; null unless `standing` is `no_receipt`. Absent from servers older than #1353. */
   no_receipt_reason?: string | null;
+  /** Copy the server attaches to this delivery. Missing on older answers, and null when there is nothing to say. */
+  review_note?: string | null;
+  /** Copy the inbox adds, such as a first scan. The deliveries list does not send it. */
+  notice?: string | null;
+};
+
+/** One inbox group, in the order the server listed it. */
+export type BusinessEmailInboxGroup = {
+  id: string;
+  items: BusinessEmailDelivery[];
 };
 
 export type BusinessEmailDetail = BusinessEmailDelivery & { text_body: string | null };

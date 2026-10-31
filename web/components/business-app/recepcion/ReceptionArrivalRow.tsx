@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, Eye, ChatCircle } from "@phosphor-icons/react";
+import { Info } from "lucide-react";
 import ReceptionStatus from "./ReceptionStatus";
 import { CHANNEL_ICON } from "../foundation/channel-icons";
 import { useTranslation } from "react-i18next";
@@ -10,7 +11,7 @@ import { resolveLanguage } from "@/lib/language-features";
 import { useBusiness, type BusinessPanelState } from "../BusinessWorkspace";
 import { formatAmount, formatMoney, formatRelativeTime } from "../business-format";
 import { isOpenRecord } from "../record-tray";
-import { receptionAction, receptionSender, receptionDocumentTitle, type ReceptionRow } from "./reception-model";
+import { bandejaReviewNote, receptionAction, receptionSender, receptionDocumentTitle, type ReceptionRow } from "./reception-model";
 import type { ReceptionPreferences } from "./ReceptionControls";
 import ReceptionOriginal from "./ReceptionOriginal";
 import styles from "./reception.module.css";
@@ -25,6 +26,7 @@ export default function ReceptionArrivalRow({ row, panel, openPanel, preferences
   const title = receptionDocumentTitle(row, { untitled: t("business.receipt.untitled"), pending: word("intake_pending"), exception: word("intake_exception"), text: word("text_intake") });
   const money = receipt && preferences.amount ? formatMoney(receipt.amount, receipt.currency, locale) : null;
   const sender = receptionSender(row);
+  const reviewNote = bandejaReviewNote(row);
   const action = receipt?.expense_id ? "action_record" : receptionAction(row, chosen?.capabilities.includes("prepare") === true);
   const SourceIcon = CHANNEL_ICON[row.source];
   const open = (target: BusinessPanelState) => { onSeen(); openPanel(target); };
@@ -36,8 +38,8 @@ export default function ReceptionArrivalRow({ row, panel, openPanel, preferences
       <span className={styles.documentText}>{unseen ? <span className={styles.unseenDot} aria-hidden="true" /> : null}<span className={styles.title}>{unseen ? <span className="sr-only">{word("unseen")}: </span> : null}{row.kind === "note" || row.kind === "message" ? <ChatCircle className={styles.noteIcon} size={15} aria-hidden="true" /> : null}{title}</span>{money ? <span className={`${styles.mobileMoney} cuadrao-amount`}>{money}</span> : null}</span>
     </button>
     <span className={styles.fileCell} data-file={!!receipt || row.kind === "note" || row.kind === "message"}>{receipt ? <ReceptionOriginal receipt={receipt} onOpen={onSeen} /> : row.kind === "note" || row.kind === "message" ? <Unknown meaning={word("without_file")} /> : <Unknown meaning={word("no_file")} />}</span>
-    {preferences.source || preferences.sender || preferences.arrival ? <span className={styles.source} data-info={preferences.source || preferences.sender} data-testid="reception-source">
-      {preferences.source ? <span className={styles.channel} data-testid="reception-channel"><SourceIcon size={15} aria-hidden="true" />{word(`source_${row.source}`)}</span> : null}
+    {preferences.source || preferences.sender || preferences.arrival || reviewNote ? <span className={styles.source} data-info={preferences.source || preferences.sender} data-testid="reception-source">
+      {preferences.source || reviewNote ? <span className={styles.channel} data-testid="reception-channel" data-has-note={reviewNote ? "" : undefined}>{preferences.source ? <><SourceIcon size={15} aria-hidden="true" />{word(`source_${row.source}`)}</> : null}{reviewNote ? <span data-testid="bandeja-review-note" className={styles.reviewNote}><Info size={14} aria-hidden="true" />{reviewNote}</span> : null}</span> : null}
       {preferences.sender ? <span className={styles.sender} data-known={!!sender} data-testid="reception-sender" title={sender || t("business.email.no_sender")} aria-label={sender ? undefined : t("business.email.no_sender")}>{sender || "–"}</span> : null}
       {arrival ? <span className={styles.mobileArrival}>{arrival}</span> : null}
     </span> : null}

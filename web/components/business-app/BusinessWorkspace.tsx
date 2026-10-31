@@ -69,7 +69,8 @@ import { useBusinessSearch } from "./useBusinessSearch";
 import { createReloadWaits } from "./list-reload";
 import type { RefreshOutcome } from "@/components/ui/pull-to-refresh";
 import { useEmailDeliveries } from "./useEmailDeliveries";
-import { emailDeliveriesNeedRefresh, type BusinessEmailDelivery } from "@/lib/business-email";
+import { useEmailInbox } from "./useEmailInbox";
+import { emailDeliveriesNeedRefresh, type BusinessEmailDelivery, type BusinessEmailInboxGroup } from "@/lib/business-email";
 import { canEnterBusiness } from "@/lib/business-privacy-notice";
 import { useBusinessConsent } from "./business-consent-context";
 import { quietButtonClass } from "./business-ui";
@@ -111,6 +112,9 @@ type Records = {
   /** Received emails, newest first; null until loaded. An email outage never hides receipts. */
   emails: BusinessEmailDelivery[] | null;
   emailsFailure?: LoadFailure | null;
+  /** Inbox groups in server order. Null until loaded. A failure here leaves the other lists up. */
+  emailInbox?: BusinessEmailInboxGroup[] | null;
+  emailInboxFailure?: LoadFailure | null;
   error: boolean;
   /** With error: the server refused this Business on purpose, so asking again cannot help. */
   refused?: boolean;
@@ -155,6 +159,8 @@ export type BusinessContextValue = Readonly<{
   openExport: () => void;
   /** Asks the server for the emails again; the Negocio history shows it working. */
   emailRefresh: Readonly<{ refresh: () => void; refreshing: boolean; stalled: boolean }>;
+  /** Asks for the inbox groups again and settles when that ask finishes. */
+  emailInboxRefresh?: Readonly<{ refresh: () => Promise<void> }>;
   /** Asks again for only the lists named; the rest stay as they are. */
   retrySources: (sources: readonly BandejaSource[]) => void;
 }>;
@@ -500,9 +506,10 @@ function BusinessWorkspaceContent({
   }, [onRecord, period.from, period.to, revision, source, reloadWaits]);
 
   const emailDeliveries = useEmailDeliveries({ source, enabled: !onRecord, revision, businessKey: chosenGrant, onAnswered: emailsAnswered });
+  const emailInbox = useEmailInbox({ source, enabled: !onRecord, revision, businessKey: chosenGrant });
   const workspaceRecords = useMemo<Records>(
-    () => ({ ...records, emails: emailDeliveries.items, emailsFailure: emailDeliveries.failure }),
-    [records, emailDeliveries.items, emailDeliveries.failure],
+    () => ({ ...records, emails: emailDeliveries.items, emailsFailure: emailDeliveries.failure, emailInbox: emailInbox.groups, emailInboxFailure: emailInbox.failure }),
+    [records, emailDeliveries.items, emailDeliveries.failure, emailInbox.groups, emailInbox.failure],
   );
   const emailRefresh = useMemo(
     () => ({ refresh: emailDeliveries.refresh, refreshing: emailDeliveries.refreshing, stalled: emailDeliveries.stalled }),
@@ -603,9 +610,10 @@ function BusinessWorkspaceContent({
       clearAttachedReceipt: () => setAttachedReceipt(null),
       openExport,
       emailRefresh,
+      emailInboxRefresh: { refresh: emailInbox.refresh },
       retrySources,
     }),
-    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
+    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, emailInbox.refresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
   );
 
   const directoryValue = useMemo<BusinessContextValue>(() => ({ ...value, directoryStatus }), [value, directoryStatus]);

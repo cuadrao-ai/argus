@@ -3138,7 +3138,12 @@
       "segment_problem_short": "Problemas",
       "email_row_title": "Correo de {{sender}}",
       "email_row_unknown": "Correo sin remitente",
-      "email_subject": "“{{subject}}”"
+      "email_subject": "“{{subject}}”",
+      "remitentes_nuevos": "Remitentes nuevos",
+      "remitente_nuevo": "Remitente nuevo",
+      "authorize_sender": "Autorizar remitente",
+      "block_sender": "Bloquear",
+      "sender_action_failed": "No pudimos actualizar este remitente."
     },
     "email": {
       "no_address": "Este negocio todavía no tiene una dirección para recibir correos.",

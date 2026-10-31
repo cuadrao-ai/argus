@@ -17,8 +17,8 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
   const { t } = useTranslation();
   const [command, setCommand] = useState(false);
   useEffect(() => { setCommand(/Mac|iPhone|iPad|iPod/.test(navigator.userAgent)); }, []);
-  const { panel, openPanel, records } = useBusiness();
-  const inboxCount = countInbox(records);
+  const { panel, openPanel, records, chosen } = useBusiness();
+  const inboxCount = countInbox(records, chosen);
   // Only beside the screen that lists them: with igualar off here, Transacciones shows no Por igualar.
   const igualarCount = useIgualarEnabled() ? porIgualarCount(records) : null;
   const isActive = (kind: BusinessPanelState["kind"]) =>

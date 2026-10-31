@@ -10,8 +10,8 @@ import { recordList } from "./record-tray";
 
 export default function BusinessBottomTabs({ shell }: { shell: ChatShellBridge }) {
   const { t } = useTranslation();
-  const { panel, openPanel, records } = useBusiness();
-  const count = inboxCount(records);
+  const { panel, openPanel, records, chosen } = useBusiness();
+  const count = inboxCount(records, chosen);
   return <nav aria-label={t("business.nav.label", "Business")} data-testid="business-bottom-tabs" className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-black/10 bg-[var(--cuadrao-cream)] pb-[env(safe-area-inset-bottom)] dark:border-white/15 dark:bg-[#141517]">
     {BUSINESS_SECTIONS.map((section) => {
       const Glyph = NAV_GLYPHS[section];

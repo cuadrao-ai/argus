@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "./business-email";
+import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailInboxGroup, BusinessEmailIntake } from "./business-email";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-auth-generation";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { apiFetch, CUADRAO_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
@@ -707,6 +707,22 @@ export async function getBusinessEmailDelivery(id: string): Promise<BusinessEmai
 
 export async function retryBusinessEmailDelivery(id: string): Promise<{ id: string }> {
   return apiFetch(`/business/email/deliveries/${encodeURIComponent(id)}/retry`, { method: "POST" });
+}
+
+/** Groups in the order the server sent them. A missing list is no groups, so the Bandeja still opens. */
+export async function getBusinessEmailInbox(): Promise<BusinessEmailInboxGroup[]> {
+  const page = await apiFetch<{ groups?: BusinessEmailInboxGroup[] | null }>("/business/email/inbox");
+  return Array.isArray(page?.groups) ? page.groups : [];
+}
+
+export type BusinessEmailSenderChange = {
+  kind: "address" | "domain";
+  value: string;
+  status: "authorized" | "blocked";
+};
+
+export async function setBusinessEmailSender(body: BusinessEmailSenderChange): Promise<BusinessEmailSenderChange & { id: string }> {
+  return apiFetch("/business/email/senders", { method: "POST", body: JSON.stringify(body) });
 }
 
 /** Who may act in the owner's Business. The grant is the only authority. */

@@ -22,6 +22,7 @@ import { showToast, dismissToast } from "../foundation/toasts";
 import { primaryButtonClass, quietButtonClass } from "../business-ui";
 import { receptionNoteExample, receptionRows, receptionMatches, receptionSearchText, type ReceptionRow, type ReceptionView } from "./reception-model";
 import { inboxCount, problemCount, readingCount } from "../inbox-count";
+import RemitentesNuevos, { remitentesNuevosItems } from "../remitentes-nuevos";
 import ReceptionArrivalRow from "./ReceptionArrivalRow";
 import ReceptionDossier from "./ReceptionDossier";
 import ReceptionSkeleton from "./ReceptionSkeleton";
@@ -126,7 +127,7 @@ function ReceptionWorkspace({ live }: { live: boolean }) {
   const onlySourcesFailed = !arrivals?.failure && !records.error && !refused && (!!records.notesFailure || !!records.emailsFailure);
   const sourcesLine = records.notesFailure && records.emailsFailure ? "failed_notes_emails" : records.notesFailure ? "failed_notes" : "failed_emails";
   const refusedForGood = !canRetry && (refused || !!records.notesFailure?.refused || !!records.emailsFailure?.refused);
-  const latestRows = refused ? [] : [...(live ? [] : [receptionNoteExample(word("note_example"), noteArrivedAt)]), ...receptionRows(arrivals?.items ?? [], records.notes ?? [], records.emails ?? [])];
+  const latestRows = refused ? [] : [...(live ? [] : [receptionNoteExample(word("note_example"), noteArrivedAt)]), ...receptionRows(arrivals?.items ?? [], records.notes ?? [], records.emails ?? [], records.emailInbox)];
   const latestIds = latestRows.map(row => `${row.kind}:${row.id}`);
   const admissionKey = latestIds.join("|");
   useEffect(() => {
@@ -193,7 +194,7 @@ function ReceptionWorkspace({ live }: { live: boolean }) {
   };
   const activeRows = rows.filter(row => !organization.archived.includes(`${row.kind}:${row.id}`));
   const counts = live
-    ? { all: undefined, review: inboxCount(records), processing: readingCount(records), attention: problemCount(records), archived: undefined, combined: undefined }
+    ? { all: undefined, review: inboxCount(records, chosen), processing: readingCount(records), attention: problemCount(records), archived: undefined, combined: undefined }
     : { all: undefined, review: activeRows.filter(row => receptionMatches(row, "review")).length, processing: activeRows.filter(row => receptionMatches(row, "processing")).length, attention: activeRows.filter(row => receptionMatches(row, "attention")).length, archived: rows.length - activeRows.length, combined: undefined };
   const unseenIds = new Set(live ? rows.filter(row => row.kind === "receipt" && row.receipt.activity?.unread === true && row.receipt.bandeja?.leyendo !== true).map(row => `${row.kind}:${row.id}`) : organization.unseen);
   const markSeenLocally = (row: ReceptionRow) => { if (!live) setOrganization(current => applyOrganizationPreview(current, [`${row.kind}:${row.id}`], "seen")); };
@@ -243,6 +244,7 @@ function ReceptionWorkspace({ live }: { live: boolean }) {
       <ReceiptReadingControl />
       {failed ? <div className={styles.error} role="alert"><p>{refused ? t("auth.business_unavailable.title") : onlySourcesFailed ? t(`business.inbox.${sourcesLine}`) : word("error")}{refusedForGood ? <> {t("auth.business_unavailable.body")}</> : null}{reference ? <span className="ml-2 inline-flex align-middle"><ReferenceCode reference={reference} /></span> : null}</p>{canRetry ? <button className={quietButtonClass} onClick={retry}>{t("common.retry")}</button> : null}</div> : null}
       <div ref={list} id="reception-list" role="tabpanel" aria-labelledby={`reception-tab-${activeTab}`} tabIndex={0} className={styles.list}>
+        <RemitentesNuevos items={remitentesNuevosItems(records.emailInbox)} />
         <div className={styles.columns}>{live ? null : <label className={styles.checkbox}><input type="checkbox" checked={allSelected} disabled={pending || failed || !pageIds.length} aria-label={word("select_page")} ref={node => { if (node) node.indeterminate = selected.length > 0 && !allSelected; }} onChange={() => setSelectedIds(allSelected ? [] : pageIds)} /></label>}<span>{word("document")}</span><span>{word("file")}</span>{preferences.source ? <span className={styles.channelHeading}>{word("source")}</span> : null}{preferences.sender ? <span className={styles.senderHeading}>{word("sender")}</span> : null}{preferences.source || preferences.sender ? <span className={styles.combinedHeading}>{word(preferences.source && preferences.sender ? "sender_source" : preferences.source ? "source" : "sender")}</span> : null}{preferences.amount ? <span className={styles.amountHeading}>{word("amount")}</span> : null}{preferences.currency ? <span className={styles.currencyHeading}>{t("business.transactions.columns.moneda")}</span> : null}<span>{word("status")}</span>{preferences.arrival ? <span>{word("arrival")}</span> : null}<span className="sr-only">{word("next_action")}</span></div>
         {pending && !failed ? <ReceptionSkeleton preferences={preferences} selectable={!live} /> : <ul aria-label={word("list_label")}>
           {shown.map(row => <ReceptionArrivalRow key={`${row.kind}-${row.id}`} row={row} panel={panel} openPanel={next => navigateFrom(row, next)} inspecting={openedId === `${row.kind}:${row.id}`} onInspect={() => { detailTrigger.current = document.activeElement as HTMLElement; markSeenLocally(row); setOpenedId(`${row.kind}:${row.id}`); }} preferences={preferences} selectable={!live} checked={selected.includes(`${row.kind}:${row.id}`)} unseen={unseenIds.has(`${row.kind}:${row.id}`)} onCheck={() => { const id = `${row.kind}:${row.id}`; setSelectedIds(selected.includes(id) ? selected.filter(value => value !== id) : [...selected, id]); }} onSeen={() => markSeenLocally(row)} />)}

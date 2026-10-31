@@ -3815,7 +3815,12 @@
       "segment_problem_short": "Issues",
       "email_row_title": "Email from {{sender}}",
       "email_row_unknown": "Email with no sender",
-      "email_subject": "“{{subject}}”"
+      "email_subject": "“{{subject}}”",
+      "remitentes_nuevos": "New senders",
+      "remitente_nuevo": "New sender",
+      "authorize_sender": "Authorize sender",
+      "block_sender": "Block",
+      "sender_action_failed": "We couldn't update this sender."
     },
     "email": {
       "no_address": "This business has no receiving address yet.",

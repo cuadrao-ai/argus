@@ -20,7 +20,7 @@ export default function BusinessOverviewPanel() {
   const { isBelowTablet } = useResponsiveLayout();
   const { records, openPanel, bridge, reload, chosen, userId } = useBusiness();
   const { t } = useTranslation();
-  const porRevisar = inboxCount(records);
+  const porRevisar = inboxCount(records, chosen);
   const reading = readingCount(records) ?? 0;
   const problem = problemCount(records) ?? 0;
   const monthClose = useMonthCloseSource();

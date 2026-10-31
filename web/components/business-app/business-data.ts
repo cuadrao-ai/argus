@@ -1,6 +1,6 @@
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "@/lib/browser-auth-generation";
 import * as api from "@/lib/business-api";
-import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "@/lib/business-email";
+import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailInboxGroup, BusinessEmailIntake } from "@/lib/business-email";
 import { getChosenGrant } from "@/lib/business-grant";
 import * as searchApi from "@/lib/business-search-api";
 import type { BusinessSearchKind, BusinessSearchRecent, BusinessSearchResult } from "@/lib/business-search-api";
@@ -89,6 +89,9 @@ export type BusinessDataSource = Readonly<{
   emailDeliveries: () => Promise<BusinessEmailDelivery[]>;
   emailDelivery: (id: string) => Promise<BusinessEmailDetail>;
   retryEmailDelivery: (id: string) => Promise<{ id: string }>;
+  /** Inbox groups. Absent on a source that predates the call; the Bandeja then has no remitentes group. */
+  emailInbox?: () => Promise<BusinessEmailInboxGroup[]>;
+  setEmailSender?: typeof api.setBusinessEmailSender;
   access: () => Promise<BusinessAccess>;
   giveAccess: (email: string) => Promise<BusinessAccess>;
   resendAccessInvite: (id: string) => Promise<BusinessAccess>;
@@ -141,6 +144,8 @@ export const liveBusinessDataSource: BusinessDataSource = {
   emailDeliveries: api.listBusinessEmailDeliveries,
   emailDelivery: api.getBusinessEmailDelivery,
   retryEmailDelivery: api.retryBusinessEmailDelivery,
+  emailInbox: api.getBusinessEmailInbox,
+  setEmailSender: api.setBusinessEmailSender,
   access: api.getBusinessAccess,
   giveAccess: api.giveBusinessAccess,
   resendAccessInvite: api.resendBusinessAccessInvite,
@@ -232,6 +237,8 @@ export function withBusinessSpace(
     emailDeliveries: after(source.emailDeliveries),
     emailDelivery: source.emailDelivery,
     retryEmailDelivery: source.retryEmailDelivery,
+    emailInbox: source.emailInbox ? after(source.emailInbox) : undefined,
+    setEmailSender: source.setEmailSender ? after(source.setEmailSender) : undefined,
     access: after(source.access),
     giveAccess: after(source.giveAccess),
     resendAccessInvite: after(source.resendAccessInvite),
