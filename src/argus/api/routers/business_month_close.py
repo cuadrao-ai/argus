@@ -74,11 +74,13 @@ def _unavailable(request: Request):
 
 
 def _unreviewed(business: BusinessContext, month: str) -> int:
-    from argus.api.business_drafts import receipt_summaries
+    from argus.api.business_drafts import receipt_read_dates, receipt_summaries
     from argus.api.business_receipt_activity import unreviewed_days
 
     start, end = month_period(month)
-    days = unreviewed_days(business, receipt_summaries(business, "all"))
+    days = unreviewed_days(
+        business, receipt_summaries(business, "all"), receipt_read_dates(business)
+    )
     return unreviewed_in_month(days, start, end)
 
 

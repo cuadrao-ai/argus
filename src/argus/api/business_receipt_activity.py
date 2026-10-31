@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Sequence
+from typing import Mapping, Sequence
 from uuid import UUID
 
 from argus.domain.business.receipt_activity import (
@@ -155,14 +155,24 @@ def inbox(
     return inbox_counts(views, notes, emails, por_igualar)
 
 
-def unreviewed_days(context, views: list[dict]) -> list:  # noqa: ANN001
+def unreviewed_days(
+    context,  # noqa: ANN001
+    views: list[dict],
+    receipt_dates: Mapping[str, str] | None = None,
+) -> list:
     """The month-close day of every receipt and note draft the Bandeja still
-    lists. Notes count by the day they arrived."""
+    lists. A receipt with no date in its proposal keeps the date its read
+    found (``receipt_dates`` by id) before falling back to arrival. Notes
+    count by the day they arrived."""
 
     from argus.domain.business.month_close import draft_close_day
 
+    retained = receipt_dates or {}
     days = [
-        draft_close_day(view.get("occurred_on"), view["received_at"])
+        draft_close_day(
+            view.get("occurred_on") or retained.get(str(view.get("id"))),
+            view["received_at"],
+        )
         for view in views
         if awaiting_owner(view)
     ]

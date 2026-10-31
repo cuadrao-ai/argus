@@ -4,7 +4,7 @@ otherwise by arrival."""
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 
 from argus.api.business_month_close_schemas import MonthClose
@@ -18,6 +18,7 @@ from argus.domain.business.month_close import (
 )
 from argus.domain.business.month_close_store import empty_month
 
+from tests.business.receipt_stub import DETAILS, PURCHASE, ReceiptStub
 from tests.business.test_business_api import Owner, alice  # noqa: F401
 
 NO_STORE = SimpleNamespace(service=SimpleNamespace(imports=SimpleNamespace(store=None)))
@@ -98,3 +99,36 @@ def test_a_saved_receipt_in_memory_mode_keeps_the_month_open(alice: Owner):  # n
     assert [(r["code"], r["count"]) for r in body["reasons"]] == [
         ("movimientos_sin_revisar", 1)
     ]
+
+
+def test_a_receipt_without_a_proposal_date_counts_by_its_read_date():
+    late = {"id": "r1", "status": "needs_attention", "occurred_on": None}
+    late["received_at"] = "2026-11-02T15:00:00Z"
+    start, end = month_period("2026-10")
+    days = unreviewed_days(NO_STORE, [late], {"r1": "2026-10-31"})
+    assert days == [date(2026, 10, 31)]
+    assert unreviewed_in_month(days, start, end) == 1
+    assert unreviewed_days(NO_STORE, [late]) == [date(2026, 11, 2)]
+
+
+def test_an_ambiguous_receipt_from_last_month_keeps_that_month_open(
+    alice: Owner,  # noqa: F811
+    stub: ReceiptStub,
+):
+    """Its proposal has no fields; the date its read found still decides."""
+
+    this_month = ledger.today().replace(day=1)
+    last_day = this_month - timedelta(days=1)
+    dated = {**PURCHASE, "occurred_on": last_day.isoformat()}
+    stub.rows = [dated, {**dated, "row": 2, "amount": "100.00"}]
+    stub.details = {**DETAILS, "occurred_on": last_day.isoformat()}
+    uploaded = alice.upload()
+    assert uploaded.status_code == 200, uploaded.text
+    detail = alice.detail(uploaded.json()["id"])
+    assert (detail["status"], detail["occurred_on"]) == ("needs_attention", None)
+    assert detail["evidence"]["occurred_on"] == last_day.isoformat()
+
+    previous = alice.get("/month-close", month=last_day.strftime("%Y-%m")).json()
+    assert (previous["closed"], previous["unreviewed_movements_count"]) == (False, 1)
+    current = alice.get("/month-close", month=this_month.strftime("%Y-%m")).json()
+    assert current["unreviewed_movements_count"] == 0
