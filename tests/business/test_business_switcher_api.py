@@ -528,11 +528,6 @@ def test_the_chat_routes_and_the_email_retry_refuse_a_chosen_grant(
                 headers=with_grant,
             ),
             client.post(
-                "/api/v1/backtests/run",
-                json={"conversation_id": own, "symbols": ["SPY"]},
-                headers=with_grant,
-            ),
-            client.post(
                 f"/api/v1/conversations/{own}/messages/{uuid4()}/continue",
                 headers=with_grant,
             ),

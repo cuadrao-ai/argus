@@ -62,11 +62,11 @@ def seed(person):
 
 def test_flag_off_chat_journey(monkeypatch):
     auth_router.reset_auth_attempt_limiter_for_tests()
-    for name in ("NEXT_PUBLIC_MOCK_AUTH", "ARGUS_MOCK_AUTH", "ARGUS_DEV_MEMORY_FALLBACK"):
+    for name in ("NEXT_PUBLIC_MOCK_AUTH", "CUADRAO_MOCK_AUTH", "ARGUS_DEV_MEMORY_FALLBACK"):
         monkeypatch.setenv(name, "false")
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
     monkeypatch.delenv("ARGUS_BUSINESS_PILOT_ENABLED", raising=False)
-    monkeypatch.delenv("ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED", raising=False)
+    monkeypatch.delenv("CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED", raising=False)
     gateway = local_supabase_gateway()
     created = []
     log = []

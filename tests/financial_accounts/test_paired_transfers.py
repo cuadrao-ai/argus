@@ -12,7 +12,7 @@ scene = shared.scene
 
 
 def test_pair_records_independent_actual_amounts(scene, monkeypatch):
-    monkeypatch.setenv("ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
     source, destination = account(scene, currency="USD"), account(scene, currency="DOP")
     money, request = command(
         scene,
@@ -54,7 +54,7 @@ def test_account_precision_owns_each_amount(
 ):
     from argus.domain.recording.errors import RecordingInputError
 
-    monkeypatch.setenv("ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
     source = account(scene, currency=source_currency)
     dest = account(scene, currency=destination_currency)
     values = dict(
@@ -95,7 +95,7 @@ def test_refused_pair_has_no_account_effect(scene, monkeypatch, received, error)
     from argus.domain.recording.errors import RecordingInputError
     from argus.domain.recording.money_service import MoneyService
 
-    monkeypatch.setenv("ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
     source, dest = account(scene, currency="USD"), account(scene, currency="DOP")
     money = MoneyService(scene[0])
     body = MoneyRequest(
@@ -118,7 +118,7 @@ def test_refused_pair_has_no_account_effect(scene, monkeypatch, received, error)
 def test_gate_blocks_new_mixed_pairs_but_not_same_currency(scene, monkeypatch):
     from argus.domain.recording.errors import RecordingInputError
 
-    monkeypatch.delenv("ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED", raising=False)
+    monkeypatch.delenv("CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED", raising=False)
     source, dest = account(scene, currency="USD"), account(scene, currency="DOP")
     with pytest.raises(RecordingInputError, match="cross_currency_transfers_disabled"):
         command(
@@ -186,7 +186,7 @@ def test_hidden_source_denomination_is_absent_in_both_projections(scene, monkeyp
         visible_activity,
     )
 
-    monkeypatch.setenv("ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
     source, dest = account(scene, currency="JPY"), account(scene, currency="USD")
     money, body = command(
         scene,
@@ -256,7 +256,7 @@ def test_changed_destination_conflicts_and_correction_preserves_exact_history(
 ):
     from argus.domain.recording.errors import IdempotencyConflict
 
-    monkeypatch.setenv("ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
     source, dest = account(scene, currency="USD"), account(scene, currency="DOP")
     money, body = command(
         scene,
@@ -318,7 +318,7 @@ def test_plan_matcher_never_credits_source_summary_for_mixed_pair(scene, monkeyp
     from argus.domain.planning.goal_model import transfer_matches
     from argus.domain.planning.shared_claims import credit
 
-    monkeypatch.setenv("ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
     source, dest = account(scene, currency="USD"), account(scene, currency="DOP")
     money, body = command(
         scene,
@@ -364,7 +364,7 @@ def test_existing_personal_and_household_plan_envelopes_keep_frozen_hashes():
 def test_mixed_payment_pairs_remain_refused(scene, monkeypatch, kind):
     from argus.domain.recording.errors import RecordingInputError
 
-    monkeypatch.setenv("ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
     source = account(scene, currency="USD")
     dest = account(
         scene, "credit_card" if kind == "card_payment" else "other_debt", currency="DOP"
@@ -386,7 +386,7 @@ def test_mixed_payment_pairs_remain_refused(scene, monkeypatch, kind):
 def test_replacing_destination_retires_exact_old_leg_and_preserves_replays(
     scene, monkeypatch
 ):
-    monkeypatch.setenv("ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
     source, original = account(scene, currency="USD"), account(scene, currency="DOP")
     replacement = account(scene, currency="USD")
     money, body = command(
@@ -449,7 +449,7 @@ def test_actual_goal_link_refuses_mixed_transfer_without_a_claim(scene, monkeypa
 
     from tests.financial_accounts.test_goals import link, setup_goal
 
-    monkeypatch.setenv("ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED", "true")
     source, dest = (
         account(scene, currency="USD"),
         account(scene, "savings", currency="DOP"),

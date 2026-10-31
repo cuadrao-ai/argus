@@ -134,9 +134,9 @@ def replay_transport(monkeypatch: pytest.MonkeyPatch) -> Callable[[str, str], No
     monkeypatch.setenv("OPENROUTER_API_KEY", "hermetic-test-key")
     monkeypatch.setenv("ARGUS_ASSET_PROVIDER_MODE", "synthetic_unit_fixture")
     monkeypatch.setenv("ARGUS_ENABLE_EXECUTION_REALISM", "true")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "x-ai/grok-4.3")
-    monkeypatch.setenv("ARGUS_STRUCTURED_FALLBACK_MODEL", "anthropic/claude-haiku-4.5")
-    monkeypatch.setenv("ARGUS_TURN_CALL_ALLOWANCE", "7")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "x-ai/grok-4.3")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_FALLBACK_MODEL", "anthropic/claude-haiku-4.5")
+    monkeypatch.setenv("CUADRAO_TURN_CALL_ALLOWANCE", "7")
     monkeypatch.setenv("ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED", "false")
     monkeypatch.setitem(
         assets.SYNTHETIC_UNIT_ASSETS, "DOCN", ("equity", "DigitalOcean", "DOCN")
@@ -156,7 +156,7 @@ def replay_transport(monkeypatch: pytest.MonkeyPatch) -> Callable[[str, str], No
         relation, _, route = continuation.partition(":")
         followup_intent, _, followup_act = route.partition("/")
         if mode == "repair_on_exhausted_corridor":
-            monkeypatch.setenv("ARGUS_TURN_CALL_ALLOWANCE", "4")
+            monkeypatch.setenv("CUADRAO_TURN_CALL_ALLOWANCE", "4")
 
         async def post(
             *,

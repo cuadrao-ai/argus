@@ -869,7 +869,7 @@ October 2 locks; the wording is Iris's founder-locked copy in the
 [lane handoff](lanes/mvee-five-lane-handoff.md#copy-founder-locked-iriss-wording).
 Present only applicable consequences, then verification, confirmed completion and
 sign-out. The deletion command and its web flow are on integration behind the
-default-off `ARGUS_ACCOUNT_DELETION_ENABLED` (#799, #801); while it is off, the web
+default-off `CUADRAO_ACCOUNT_DELETION_ENABLED` (#799, #801); while it is off, the web
 files the earlier support request instead, and no native flow is on integration.
 Deletion locks the account (signed out, every route but deletion refuses it)
 until every outside service has confirmed, and only then deletes the

@@ -246,7 +246,7 @@ which re-keys the one-Business rule on `current_owner_id` and rewrites
 
 - Sandbox calls are approved with the existing local sandbox keys only. Never
   production keys. Never print keys. New setting
-  `CUADRAO_BUSINESS_PLAID_ENABLED`, default off, declared in `.env.example`,
+  `[removed obsolete setting]`, default off, declared in `.env.example`,
   `render.yaml`, the release profile and `scripts/ops/staging_env_manifest.json`.
   Routes answer 404 while it is off.
 - Today the provider is Personal only: `domain/ingestion/plaid/connector.py:44`,

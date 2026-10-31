@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "./business-email";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-auth-generation";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
-import { apiFetch, ARGUS_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
+import { apiFetch, CUADRAO_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
 import type { ArgusLanguage } from "./language-features";
 import type { BusinessApprovalAction, BusinessDossier, BusinessFactPatch, BusinessRecordContext } from "./business-dossier";
 import { getChosenGrant } from "./business-grant";
@@ -193,7 +193,7 @@ export async function fetchBusinessExport(draftId: string | undefined, start: st
   requireScope();
   const query = new URLSearchParams({ start, end });
   if (draftId) query.set("draft_id", draftId);
-  const response = await fetch(`${ARGUS_API_BASE_URL}/business/exports?${query}`, {
+  const response = await fetch(`${CUADRAO_API_BASE_URL}/business/exports?${query}`, {
     headers: argusApiRequestHeaders(undefined, authHeaders), credentials: "include", cache: "no-store", signal,
   });
   if (!response.ok) {
@@ -397,7 +397,7 @@ export type BusinessCapturePage = { items: BusinessCapture[]; has_more?: boolean
 
 export async function captureBusinessNote(input: BusinessCaptureInput, key: string): Promise<BusinessDossier> {
   const authHeaders = await authenticatedRequestHeaders();
-  const response = await fetch(`${ARGUS_API_BASE_URL}/business/captures`, {
+  const response = await fetch(`${CUADRAO_API_BASE_URL}/business/captures`, {
     method: "POST",
     credentials: "include",
     headers: argusApiRequestHeaders({ "Idempotency-Key": key }, authHeaders),
@@ -492,7 +492,7 @@ export async function getBusinessSpaces(): Promise<GrantedSpace[]> {
 /** The person dismissed the one-time access line for one of their grants; remembered server side. */
 export async function markBusinessAccessSeen(grantId: string): Promise<void> {
   const authHeaders = await authenticatedRequestHeaders();
-  const response = await fetch(`${ARGUS_API_BASE_URL}/business/spaces/${encodeURIComponent(grantId)}/seen`, {
+  const response = await fetch(`${CUADRAO_API_BASE_URL}/business/spaces/${encodeURIComponent(grantId)}/seen`, {
     method: "POST",
     credentials: "include",
     headers: argusApiRequestHeaders(undefined, authHeaders),
@@ -611,7 +611,7 @@ export async function uploadBusinessReceipt(
     },
     authHeaders,
   );
-  const url = `${ARGUS_API_BASE_URL}/business/receipts`;
+  const url = `${CUADRAO_API_BASE_URL}/business/receipts`;
   if (onProgress && typeof XMLHttpRequest !== "undefined") {
     return new Promise<ReceiptSummary>((resolve, reject) => {
       const request = new XMLHttpRequest();
@@ -651,7 +651,7 @@ export const RECEIPT_SOURCE_TIMEOUT_MS = 30_000;
 export async function fetchBusinessReceiptSource(id: string, options: { timeoutMs?: number } = {}): Promise<Blob> {
   const authHeaders = await authenticatedRequestHeaders();
   const response = await fetch(
-    `${ARGUS_API_BASE_URL}/business/receipts/${encodeURIComponent(id)}/source`,
+    `${CUADRAO_API_BASE_URL}/business/receipts/${encodeURIComponent(id)}/source`,
     { credentials: "include", headers: argusApiRequestHeaders(undefined, authHeaders), signal: AbortSignal.timeout(options.timeoutMs ?? RECEIPT_SOURCE_TIMEOUT_MS) },
   );
   if (!response.ok) throw new Error(`API error ${response.status}`);

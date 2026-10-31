@@ -586,39 +586,3 @@ def test_a_ten_dollar_run_retests_at_ten_and_its_card_holds_the_floor(
     finally:
         api_state.store.backtest_runs.pop(run.id, None)
         api_state.store.backtest_run_owners.pop(run.id, None)
-
-
-def test_the_backtest_endpoint_holds_the_floor_and_defaults_only_when_unstated() -> None:
-    client = _client()
-    conversation_id = _conversation_id(client, "en")
-    body = {
-        "conversation_id": conversation_id,
-        "template": "buy_and_hold",
-        "asset_class": "equity",
-        "symbols": ["TSLA"],
-    }
-
-    for key, stated in (("floor-refused", UNDER_THE_FLOOR), ("floor-zero", 0)):
-        refused = client.post(
-            "/api/v1/backtests/run",
-            headers={"Idempotency-Key": key},
-            json={**body, "starting_capital": stated},
-        )
-        assert refused.status_code == 422, (stated, refused.text)
-        assert "between 10 and 100,000,000" in refused.text
-
-    unstated = client.post(
-        "/api/v1/backtests/run",
-        headers={"Idempotency-Key": "floor-unstated"},
-        json=body,
-    )
-    assert unstated.status_code == 200, unstated.text
-    assert unstated.json()["run"]["config_snapshot"]["starting_capital"] == 1000
-
-    accepted = client.post(
-        "/api/v1/backtests/run",
-        headers={"Idempotency-Key": "floor-accepted"},
-        json={**body, "starting_capital": 10},
-    )
-    assert accepted.status_code == 200, accepted.text
-    assert accepted.json()["run"]["config_snapshot"]["starting_capital"] == 10

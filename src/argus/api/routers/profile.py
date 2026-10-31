@@ -92,7 +92,7 @@ def _user_response(
 def _apple_identity(request: Request, user_id: str) -> LinkedAppleIdentity | None:
     mock_auth = any(
         os.getenv(name, "").strip().lower() == "true"
-        for name in ("NEXT_PUBLIC_MOCK_AUTH", "ARGUS_MOCK_AUTH")
+        for name in ("NEXT_PUBLIC_MOCK_AUTH", "CUADRAO_MOCK_AUTH")
     )
     if mock_auth and api_state.supabase_gateway is None and not api_state.DATABASE_URL:
         return None

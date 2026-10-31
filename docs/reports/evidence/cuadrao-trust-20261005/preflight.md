@@ -20,7 +20,7 @@ Baseline operator suites `test_resume_account_deletions.py` and `test_force_acco
 
 Apple team/key/private-key/bundle settings and native Google client settings were not found locally. PostHog capture key was found but its dedicated personal deletion credential was not. OpenRouter and Perplexity credentials are present in existing root configuration but prohibited for workers. Supabase hosted credentials are present but are not copied to this stack. Availability means name-level detection only, not credential validity. No values are retained in evidence.
 
-Local workers use `ARGUS_DISPOSABLE_DATABASE_URL`, local `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, generated `ARGUS_INGESTION_SECRET_KEY` and `ARGUS_INVITE_CODE_SECRET`. Activation flags remain off. PostHog adapter names require an explicit reviewed placeholder contract.
+Local workers use `ARGUS_DISPOSABLE_DATABASE_URL`, local `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, generated `ARGUS_INGESTION_SECRET_KEY` and `CUADRAO_INVITE_CODE_SECRET`. Activation flags remain off. PostHog adapter names require an explicit reviewed placeholder contract.
 
 ## Work and gates
 

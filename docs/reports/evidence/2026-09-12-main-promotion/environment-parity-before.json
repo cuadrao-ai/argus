@@ -23,7 +23,6 @@
     ]
   },
   "canonical_env_keys_not_in_examples": [
-    "ARGUS_TURNSTILE_SECRET_KEY",
     "JULES_API_KEY",
     "POSTHOG_API_KEY",
     "POSTHOG_PROJECT_ID",
@@ -43,10 +42,10 @@
     "ARGUS_BACKTEST_REAL_WORKFLOW_TASK": true,
     "ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED": true,
     "ARGUS_BACKTEST_WORKFLOW_TASK": true,
-    "ARGUS_CHECKPOINTER_MODE": true,
+    "CUADRAO_CHECKPOINTER_MODE": true,
     "ARGUS_CONTEXT_PACKETS_ENABLED": true,
     "ARGUS_CONTEXT_PACKET_BUDGET_SECONDS": true,
-    "ARGUS_CORS_ALLOW_ORIGINS": false,
+    "CUADRAO_CORS_ALLOW_ORIGINS": false,
     "ARGUS_DEV_ENDPOINTS_ENABLED": true,
     "ARGUS_DEV_MEMORY_FALLBACK": true,
     "ARGUS_DISCOVERY_GLOBAL_DAILY_CEILING": true,
@@ -56,15 +55,15 @@
     "ARGUS_ENABLE_EXECUTION_REALISM": true,
     "ARGUS_ENABLE_MEMORY_SEMANTIC_RECALL": true,
     "ARGUS_ENABLE_PERSONALIZATION_MEMORY": true,
-    "ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED": true,
+    "CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED": true,
     "ARGUS_FRED_CONTEXT_SERIES": true,
     "ARGUS_IN_PLACE_CARD_EDITS_ENABLED": true,
     "ARGUS_MARKET_DATA_PROVIDER_MODE": true,
     "ARGUS_MEMORY_EMBEDDING_MODEL": true,
     "ARGUS_MEMORY_VECTOR_COLLECTION": true,
-    "ARGUS_MOCK_AUTH": true,
-    "ARGUS_OPS_TOKEN": true,
-    "ARGUS_PERSISTENCE_MODE": true,
+    "CUADRAO_MOCK_AUTH": true,
+    "CUADRAO_OPS_TOKEN": true,
+    "CUADRAO_PERSISTENCE_MODE": true,
     "ARGUS_READINESS_ASSET_TIMEOUT_SECONDS": false,
     "ARGUS_RENDER_WORKFLOW_PROOF_POLL_SECONDS": false,
     "ARGUS_RENDER_WORKFLOW_PROOF_TASK": true,
@@ -72,12 +71,12 @@
     "ARGUS_RESEARCH_BACKGROUND_DEADLINE_SECONDS": true,
     "ARGUS_RESEARCH_GLOBAL_DAILY_CEILING": true,
     "ARGUS_RESEARCH_RAIL_ENABLED": true,
-    "ARGUS_RUNTIME_EVENT_TIMEOUT_SECONDS": true,
-    "ARGUS_RUNTIME_STREAM_WORKER": false,
-    "ARGUS_RUNTIME_STREAM_WORKERS": false,
-    "ARGUS_TURN_CALL_ALLOWANCE": true,
-    "ARGUS_TURN_DEADLINE_SECONDS": false,
-    "ARGUS_VISITOR_KEY_SECRET": true,
+    "CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS": true,
+    "CUADRAO_RUNTIME_STREAM_WORKER": false,
+    "CUADRAO_RUNTIME_STREAM_WORKERS": false,
+    "CUADRAO_TURN_CALL_ALLOWANCE": true,
+    "CUADRAO_TURN_DEADLINE_SECONDS": false,
+    "CUADRAO_VISITOR_KEY_SECRET": true,
     "ARGUS_WORKFLOW_PROOF_PLAN": false,
     "DATABASE_URL": false,
     "ENABLE_MARKET_DATA_CACHE": true,
@@ -127,11 +126,11 @@
   ],
   "status": "blocked_template_parity",
   "reviewed_template_gaps": {
-    "ARGUS_STRUCTURED_REASONING_EFFORT": {
+    "CUADRAO_STRUCTURED_REASONING_EFFORT": {
       "owner": "src/argus/llm/openrouter.py:103",
       "kind": "optional interpretation reasoning override"
     },
-    "ARGUS_CAPABILITY_REASONING_EFFORT": {
+    "CUADRAO_CAPABILITY_REASONING_EFFORT": {
       "owner": "src/argus/llm/openrouter.py:104",
       "kind": "optional capability-conflict reasoning override"
     },
@@ -164,11 +163,11 @@
   "dynamic_key_review": "The initial literal-read inventory is not exhaustive. Task-specific ARGUS_OPENROUTER_<TASK>_TIMEOUT_SECONDS keys are generated dynamically; a resumed full parity pass must cover this family. No runtime or template fix has been made.",
   "canonical_only_key_disposition": "Names only. These tool/operator credentials are not evidence that a hosted variable should be added. The user explicitly requires undeclared production keys to use code defaults.",
   "reviewed_gap_presence": {
-    "ARGUS_STRUCTURED_REASONING_EFFORT": {
+    "CUADRAO_STRUCTURED_REASONING_EFFORT": {
       "canonical_file": false,
       "hosted_release_declaration": false
     },
-    "ARGUS_CAPABILITY_REASONING_EFFORT": {
+    "CUADRAO_CAPABILITY_REASONING_EFFORT": {
       "canonical_file": false,
       "hosted_release_declaration": false
     },

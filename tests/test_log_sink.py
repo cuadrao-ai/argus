@@ -106,7 +106,7 @@ def test_non_ascii_ops_authorization_is_rejected_without_exception_log(
 ) -> None:
     records: list[str] = []
     sink_id = logger.add(lambda message: records.append(str(message)), level="ERROR")
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", fake.uuid4())
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", fake.uuid4())
     try:
         response = TestClient(app, raise_server_exceptions=False).get(
             "/internal/readiness",
@@ -130,7 +130,7 @@ def test_latin1_ops_token_matches_and_wrong_token_is_quiet(
 
     records: list[str] = []
     sink_id = logger.add(lambda message: records.append(str(message)), level="ERROR")
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", token)
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", token)
     monkeypatch.setattr(ops, "run_readiness_checks", _ready_checks)
     TestClient(app, raise_server_exceptions=False)
     try:
@@ -151,7 +151,7 @@ def test_latin1_ops_token_matches_and_wrong_token_is_quiet(
 def test_non_latin1_ops_authorization_is_rejected_without_raising(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", "ascii-token")
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", "ascii-token")
     with pytest.raises(HTTPException) as exc_info:
         ops._require_ops_token("Bearer snowman-\u2603")
     assert exc_info.value.status_code == 404

@@ -30,7 +30,7 @@ All seeding went through the real API with every flag on (`harness/seed.py`). Th
 
 ### Environment per state
 
-Every state also set `ARGUS_FINANCIAL_ACCOUNTS_ENABLED=true`, `ARGUS_ACCOUNT_DELETION_ENABLED=true`, `ARGUS_WHATSAPP_OUTBOUND_ENABLED=false` and `APP_ENV=local`.
+Every state also set `ARGUS_FINANCIAL_ACCOUNTS_ENABLED=true`, `CUADRAO_ACCOUNT_DELETION_ENABLED=true`, `ARGUS_WHATSAPP_OUTBOUND_ENABLED=false` and `APP_ENV=local`.
 
 | Flag | ON | S1 | S2 | S3 | S4 |
 |---|---|---|---|---|---|

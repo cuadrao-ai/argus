@@ -18,7 +18,6 @@ export default defineConfig({
       BANDEJA_FIRST_SCREEN: "1",
       NEXT_PUBLIC_MOCK_AUTH: "true",
       NEXT_PUBLIC_ENABLE_SPANISH: "true",
-      NEXT_PUBLIC_CUADRAO_BUSINESS_PILOT_ENABLED: "true",
       NEXT_PUBLIC_BUSINESS_PILOT_ENABLED: "true",
       NEXT_PUBLIC_ARGUS_API_URL: "http://localhost:3196/api/v1",
       NEXT_PUBLIC_SUPABASE_URL: "http://localhost:3196",

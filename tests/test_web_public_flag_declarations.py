@@ -30,6 +30,13 @@ UNSET_WEB_FLAG_SURFACES = {
         ".env.example",
         "private-alpha-release-profile.json",
     },
+    # Fallback alias read after NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED;
+    # the hosted files declare only the Cuadrao name.
+    "NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED": {
+        "render.yaml",
+        "private-alpha-release-profile.json",
+        "staging_env_manifest.json",
+    },
 }
 HOSTED_FLAG_SURFACES = (
     ".env.example",
@@ -41,7 +48,6 @@ BUSINESS_DEFAULT_OFF_FLAGS = (
     "NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED",
     "NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED",
     "NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED",
-    "NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED",
 )
 
 

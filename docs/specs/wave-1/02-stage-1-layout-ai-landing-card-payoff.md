@@ -200,7 +200,7 @@ The code check 1C-4 is agreed. Every chip must pass it, now and later.
 1. A navigation model with one owner (`web/lib/app-navigation.ts`) listing
    only Chat, Home (reserved, hidden until stage 2), and Account/Settings,
    rendered as a bottom bar under 720 px and in the sidebar at 720 px and up,
-   behind `NEXT_PUBLIC_APP_NAV_ENABLED`.
+   behind `[removed obsolete setting]`.
 2. A not-found route that sends any unknown or hidden path to the AI landing.
 3. The 1B landing content on the empty chat surface: headline, sub line,
    placeholder, two labeled chip rows that prefill, and the trust line.
@@ -322,7 +322,7 @@ confirm each against her reference spreadsheet before 1C-1 merges):
 
 ### 1.5 Flag
 
-`NEXT_PUBLIC_APP_NAV_ENABLED` gates 1A and 1B. Code default: off (`=== "true"`,
+`[removed obsolete setting]` gates 1A and 1B. Code default: off (`=== "true"`,
 like `researchRailEnabled`). Integration and staging environments set it to
 `true`; production stays `false` until rollout. The variable goes into
 `web/.env.example` (true), `render.yaml` for `argus-app` (false, production),

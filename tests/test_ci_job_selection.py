@@ -80,15 +80,39 @@ CASES = {
         EVERY,
     ),
     "supabase-config": (["supabase/config.toml"], HEAVY),
-    "ci-workflow": ([".github/workflows/ci.yml"], EVERY),
-    "other-workflow": ([f".github/workflows/{FAKE.word()}.yml"], EVERY),
-    "ci-helper-script": ([".github/docs-only-changes.sh"], EVERY),
+    "ci-workflow-defines-marketing-job": ([".github/workflows/ci.yml"], EVERY),
+    "other-workflow": ([f".github/workflows/{FAKE.word()}.yml"], HEAVY),
+    "selection-script-selects-marketing": ([".github/docs-only-changes.sh"], EVERY),
     "docs-only": ([f"docs/{FAKE.word()}.md", "docs/api/openapi.yaml"], DOCS),
-    "native-only": ([f"ios/{FAKE.word()}.swift", f"mobile/android/{FAKE.word()}.kt"], HEAVY),
-    "unknown-top-level": ([f"{FAKE.word()}-tool/config.yml"], EVERY),
-    "unknown-root-file": (["Makefile", ".gitattributes"], EVERY),
-    "unknown-beside-backend": ([f"src/argus/{FAKE.word()}.py", "temp/.gitkeep"], EVERY),
+    "native-only": (
+        [f"ios/{FAKE.word()}.swift", f"mobile/android/{FAKE.word()}.kt"],
+        HEAVY,
+    ),
+    "unknown-top-level": ([f"{FAKE.word()}-tool/config.yml"], HEAVY),
+    "unknown-root-file": (["Makefile", ".gitattributes"], HEAVY),
+    "unknown-beside-backend": ([f"src/argus/{FAKE.word()}.py", "temp/.gitkeep"], HEAVY),
     "root-markdown": (["AGENTS.md"], HEAVY),
+    "marketing-beside-backend": (
+        [f"src/argus/{FAKE.word()}.py", f"marketing/lib/{FAKE.word()}.ts"],
+        EVERY,
+    ),
+    "edge-function-beside-workflow": (
+        [".github/workflows/ci.yml", "supabase/functions/waitlist-reminders/index.ts"],
+        EVERY,
+    ),
+    "docs-beside-marketing": (
+        [f"docs/{FAKE.word()}.md", "marketing/app/page.tsx"],
+        EVERY,
+    ),
+    "docs-beside-workflow": (
+        [f"docs/{FAKE.word()}.md", ".github/workflows/ci.yml"],
+        EVERY,
+    ),
+    "other-github-path": ([".github/CODEOWNERS", ".github/workflows/ci.yml.bak"], HEAVY),
+    "marketing-prefix-lookalike": (
+        ["marketing-notes.md", "supabase/functions.md"],
+        HEAVY,
+    ),
 }
 
 
@@ -102,7 +126,7 @@ def test_migrations_always_reach_the_real_postgres_matrix():
     assert "guest-release-gates" in jobs_for(migration)
     matrix = WORKFLOW["jobs"]["guest-release-gates"]["strategy"]["matrix"]
     # A pull request runs both CLI legs; only the probe narrows to latest.
-    assert "'[\"pinned\", \"latest\"]'" in matrix["supabase-cli"]
+    assert '\'["pinned", "latest"]\'' in matrix["supabase-cli"]
 
 
 @pytest.mark.parametrize("event", ["push", "workflow_dispatch", "schedule"])
@@ -181,6 +205,32 @@ def commit_change(repo: Path, *args: str) -> set[str]:
 )
 def test_deleted_and_renamed_paths_count_both_sides(repo, change, expected):
     assert commit_change(repo, *change) == expected
+
+
+@pytest.mark.parametrize(
+    "path,expected",
+    [
+        ("marketing/app/espa\u00f1ol.tsx", EVERY),
+        ("marketing/my page/index.tsx", EVERY),
+        ("supabase/functions/se\u00f1al/index.ts", EVERY),
+        ("web/lib/espa\u00f1ol.ts", HEAVY),
+        ("docs/gu\u00eda r\u00e1pida.md", DOCS),
+    ],
+    ids=[
+        "accented-marketing",
+        "spaced-marketing",
+        "accented-edge-function",
+        "accented-web",
+        "accented-spaced-docs",
+    ],
+)
+def test_paths_git_would_quote_are_classified_by_their_real_name(repo, path, expected):
+    # Real git output: with core.quotePath on (the default), a newline-based
+    # listing prints these quoted and escaped, which matches no prefix.
+    git(repo, "config", "core.quotePath", "true")
+    (repo / path).parent.mkdir(parents=True, exist_ok=True)
+    (repo / path).write_text(FAKE.sentence())
+    assert commit_change(repo, "add", "-A") == expected
 
 
 # Failed classification fails the gate instead of guessing.
@@ -313,7 +363,10 @@ def outside_reads(path: str, text: str) -> set[str]:
         if REPO_WIDE.search(line):
             reads.add(".")
         for literal in RELATIVE.findall(line):
-            reads.update(posixpath.normpath(posixpath.join(base, literal)) for base in (folder, package))
+            reads.update(
+                posixpath.normpath(posixpath.join(base, literal))
+                for base in (folder, package)
+            )
         steps = len(SEGMENT.findall(line))
         if steps:
             base = package if "process.cwd()" in line else folder
@@ -322,7 +375,9 @@ def outside_reads(path: str, text: str) -> set[str]:
         read
         for read in reads
         if not read.startswith("..")
-        and not any(read == root or read.startswith(root + "/") for root in MARKETING_INPUTS)
+        and not any(
+            read == root or read.startswith(root + "/") for root in MARKETING_INPUTS
+        )
     }
 
 
@@ -381,7 +436,7 @@ def test_marketing_reads_only_paths_that_select_marketing_checks():
                 if outputs(classify("--files", path))["run_marketing"] != "true":
                     violations.append(f"{read} -> {path}")
     assert not violations, (
-        "marketing-checks reads paths that skip it; make skips_marketing in "
+        "marketing-checks reads paths that skip it; make selects_marketing in "
         f"{SCRIPT.name} select marketing for them: {violations}"
     )
 
@@ -397,7 +452,13 @@ def test_manual_capture_scripts_stay_unwired():
     assert captures
     for path in tracked("marketing", ".github"):
         # Markdown documents the manual command; only executable wiring counts.
-        if path in captures or Path(path).suffix in {".md", ".png", ".jpg", ".woff2", ".ico"}:
+        if path in captures or Path(path).suffix in {
+            ".md",
+            ".png",
+            ".jpg",
+            ".woff2",
+            ".ico",
+        }:
             continue
         text = (ROOT / path).read_text(encoding="utf-8", errors="ignore")
         assert "scripts/capture-" not in text, path

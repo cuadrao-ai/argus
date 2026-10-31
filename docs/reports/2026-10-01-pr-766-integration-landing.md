@@ -20,7 +20,7 @@ look like lost membership.
 Additive migrations
 `20261001120000_household_consent_recovery.sql` and
 `20261001130000_household_grant_deletion.sql` are not applied to production by
-this landing. `ARGUS_HOUSEHOLDS_ENABLED` remains default-off in tracked
+this landing. `CUADRAO_HOUSEHOLDS_ENABLED` remains default-off in tracked
 templates. Physical iPhone/internet delivery, external invitation delivery,
 shared Plan/budgets/goals/debt, Business/Custom lifecycle, and hosted
 enablement remain outside this land. Design checkpoints `1dcd12a5` and
@@ -44,7 +44,7 @@ enablement remain outside this land. Design checkpoints `1dcd12a5` and
 
 Landing updates the execution manifest, integration ledger, documentation
 authority remainder, and this report. No new production environment variables.
-`ARGUS_HOUSEHOLDS_ENABLED` already present and `false` in `.env.example`,
+`CUADRAO_HOUSEHOLDS_ENABLED` already present and `false` in `.env.example`,
 `render.yaml`, and `.github/argus-env.sh`. No secrets inspected or rewritten.
 No linked issues to close.
 

@@ -21,7 +21,7 @@ cannot change the registered account kind or capabilities.
 
 CI's latest real-PostgreSQL matrix collected 731, passed 730 and skipped one.
 The skipped case was test_real_local_auth_session_only_exposes_its_owner, because
-its extra ARGUS_APPLE_LOCAL_AUTH_PROOF opt-in was absent despite the canonical
+its extra [removed obsolete setting] opt-in was absent despite the canonical
 ARGUS_LOCAL_SUPABASE_* configuration. The case is new to this PR and its file does
 not exist on integration 13a1. Its old candidate implementation reproduced **one
 skip** with the configured local stack and no extra opt-in, including the exact

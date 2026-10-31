@@ -64,122 +64,38 @@ async function setup(page: Page, draftId?: string, workspaceUnavailable = false)
   return { state, source };
 }
 
-/** Agregar is the one door: the owner types the note into its "Escríbelo" panel and it lands in the Bandeja. */
-async function newNote(page: Page) {
-  await page.getByTestId("business-primary-upload").click();
-  await page.getByTestId("intake-write-open").click();
-  return page.getByTestId("intake-write");
-}
 async function screenshot(page: Page, name: string) {
   if (process.env.CUADRAO_MANUAL_EVIDENCE_DIR) await page.screenshot({ path: `${process.env.CUADRAO_MANUAL_EVIDENCE_DIR}/${name}.png`, fullPage: true });
 }
 
-for (const width of [1280, 390]) {
-  test.describe(`Spanish manual notes ${width}px`, () => {
-    test.use({ viewport: { width, height: 900 } });
-    test("original sparse note opens canonical review, appends and returns through note search", async ({ page }) => {
-      const { state } = await setup(page);
-      const write = await newNote(page);
-      const original = "  Ayer compré pintura para el taller.\nNo sé cuánto pagué.  ";
-      await write.getByRole("textbox", { name: "Escríbelo", exact: true }).fill("  ");
-      await write.getByTestId("intake-write-save").click();
-      await expect(write.getByRole("alert")).toContainText("Escribe qué pasó antes de guardar.");
-      expect(state.captures).toHaveLength(0);
-      await write.getByRole("textbox", { name: "Escríbelo", exact: true }).fill(original);
-      const starts = state.starts;
-      await write.getByTestId("intake-write-save").click();
-      await expect(page.getByTestId("receipt-typed-row")).toContainText("Guardado en la Bandeja");
-      expect(state.captures[0].input).toMatchObject({ text: original.trim() });
-      await page.keyboard.press("Escape");
-      await expect(page.getByRole("dialog")).toHaveCount(0);
-      await page.getByRole("button", { name: /Bandeja/ }).first().click();
-      await page.getByTestId("bandeja-note").getByRole("button").click();
-      const record = page.getByTestId("business-record-review");
-      await expect(record).toBeVisible();
-      await expect(record.getByRole("blockquote")).toHaveText(original.trim());
-      await expect(record).toContainText("Necesita una decisión antes de aprobar");
-      await expect(record).not.toContainText("RD$ 0");
-      expect(state.starts).toBe(starts);
-      expect(state.approvals).toBe(0);
-      await screenshot(page, `sparse-original-${width}`);
-      await record.getByRole("button", { name: "Agregar una nota a este registro", exact: true }).click();
-      const append = page.getByRole("dialog", { name: "Agregar una nota a este registro", exact: true });
-      await append.getByRole("textbox", { name: "Nota original", exact: true }).fill("Pagué con mi dinero %_");
-      await append.getByRole("button", { name: "Guardar nota", exact: true }).click();
-      await expect(record).toContainText("Pagué con mi dinero %_");
-      expect(state.captures[1].input.draft?.version).toBe(1);
-      expect(state.captures[1].key).not.toBe(state.captures[0].key);
-      expect(state.approvals).toBe(0);
-      // From the tablet stop up search is the top bar's field; a phone has a Buscar button in its header.
-      if (width < 720) await page.getByRole("button", { name: "Buscar", exact: true }).click();
-      else await page.getByTestId("header-search").click();
-      await page.getByPlaceholder("Busca comercio, monto o nota").fill("pintura");
-      const hit = page.getByTestId("workspace-search-results").getByRole("button", { name: /Ayer compré pintura/ });
-      await expect(hit).toContainText("Nota original guardada");
-      await hit.click();
-      await expect(record).toContainText("Pagué con mi dinero %_");
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    });
-    test("lost append response retains verbatim intent across close and explicit same-key retry without approval", async ({ page }) => {
-      const { state } = await setup(page, dossierFixtureIds.ready);
-      await page.getByRole("button", { name: "Agregar una nota a este registro", exact: true }).click();
-      const dialog = page.getByRole("dialog", { name: "Agregar una nota a este registro", exact: true });
-      const text = "  Falta comprobar esta compra.\n  ";
-      await dialog.getByRole("textbox", { name: "Nota original", exact: true }).fill(text);
-      state.mode = "lost";
-      await dialog.getByRole("button", { name: "Guardar nota", exact: true }).click();
-      await expect(dialog.getByRole("alert")).toContainText("No pudimos confirmar");
-      await expect(dialog.getByRole("textbox", { name: "Nota original", exact: true })).toHaveValue(text);
-      await dialog.getByRole("button", { name: "Cerrar", exact: true }).last().click();
-      await expect(page.getByRole("button", { name: "Aprobar", exact: true })).toBeDisabled();
-      expect(state.captures).toHaveLength(1);
-      await page.getByRole("button", { name: "Volver a abrir la nota sin confirmar", exact: true }).click();
-      await screenshot(page, `uncertain-retained-${width}`);
-      await dialog.getByRole("button", { name: "Reintentar la misma nota", exact: true }).click();
-      await expect(page.getByTestId("business-record-review")).toContainText(text.trim());
-      expect(state.captures[1]).toEqual(state.captures[0]);
-      expect(state.approvals).toBe(0);
-    });
-  });
-}
-
-test("denied and stale append preserve text, and read-only exposes no append", async ({ page }) => {
-  const { state, source } = await setup(page, dossierFixtureIds.ready);
-  await page.getByRole("button", { name: "Agregar una nota a este registro", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Agregar una nota a este registro", exact: true });
-  await dialog.getByRole("textbox", { name: "Nota original", exact: true }).fill("Mi texto sin perder");
-  state.mode = "stale";
-  await dialog.getByRole("button", { name: "Guardar nota", exact: true }).click();
-  await expect(dialog.getByRole("alert")).toContainText("Este registro cambió");
-  await expect(dialog.getByRole("textbox", { name: "Nota original", exact: true })).toHaveValue("Mi texto sin perder");
-  state.mode = "denied";
-  await dialog.getByRole("button", { name: "Editar solicitud", exact: true }).click();
-  await dialog.getByRole("button", { name: "Guardar nota", exact: true }).click();
-  await expect(dialog.getByRole("alert")).toContainText("Tu acceso actual");
-  await expect(dialog.getByRole("textbox", { name: "Nota original", exact: true })).toHaveValue("Mi texto sin perder");
-  await expect(page.getByRole("button", { name: "Aprobar", exact: true })).toHaveCount(0);
-  await expect(dialog.getByRole("button", { name: "Editar solicitud", exact: true })).toHaveCount(0);
-  await dialog.getByRole("button", { name: "Cerrar", exact: true }).last().click();
-  await page.getByRole("button", { name: "Volver a abrir la nota conservada", exact: true }).click();
-  await expect(dialog.getByRole("textbox", { name: "Nota original", exact: true })).toHaveValue("Mi texto sin perder");
-  await expect(dialog.getByRole("button", { name: "Guardar nota", exact: true })).toBeDisabled();
-  expect(state.captures).toHaveLength(2);
-  await page.goto(`/biz?draft=${dossierFixtureIds.readOnly}`);
-  await expect(page.getByTestId("business-record-review")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Agregar una nota a este registro", exact: true })).toHaveCount(0);
-  await source.approveDraft(dossierFixtureIds.ready, 2, "fixture-explicit-approval", "record_expense");
+test("Agregar and a ready record do not offer a note entry", async ({ page }) => {
+  const { state } = await setup(page);
+  await page.getByTestId("business-primary-upload").click();
+  const upload = page.getByRole("dialog", { name: "Agregar", exact: true });
+  await expect(upload).toBeVisible();
+  await expect(upload.getByTestId("intake-choose")).toBeVisible();
+  await expect(upload.getByTestId("intake-write-open")).toHaveCount(0);
+  await expect(upload.getByTestId("intake-write")).toHaveCount(0);
+  await expect(upload.getByRole("textbox", { name: "Escríbelo" })).toHaveCount(0);
+  expect(state.captures).toEqual([]);
+  await page.keyboard.press("Escape");
   await page.goto(`/biz?draft=${dossierFixtureIds.ready}`);
-  await expect(page.getByTestId("business-record-review")).toContainText("Se registró un gasto");
+  const record = page.getByTestId("business-record-review");
+  await expect(record).toBeVisible();
+  await expect(record).toContainText("Ferretería La Esquina");
   await expect(page.getByRole("button", { name: "Agregar una nota a este registro", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Guardar una nota", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Agregar una nota a este registro" })).toHaveCount(0);
+  await expect(record.getByRole("button", { name: "Aprobar", exact: true })).toBeVisible();
 });
 
-test("new-note entry waits for successful own-workspace load", async ({ page }) => {
+test("an unavailable workspace still opens Agregar without a note entry", async ({ page }) => {
   const { state } = await setup(page, undefined, true);
   await expect(page.getByTestId("workspace-panel-region").getByRole("heading", { name: "Cuadrao Business aún no está disponible para tu cuenta." })).toBeVisible();
   await page.getByTestId("business-primary-upload").click();
-  // Agregar opens, but the typed-note door stays closed until the own workspace has loaded.
   await expect(page.getByRole("dialog", { name: "Agregar", exact: true })).toBeVisible();
   await expect(page.getByTestId("intake-write-open")).toHaveCount(0);
+  await expect(page.getByTestId("intake-write")).toHaveCount(0);
   expect(state.captures).toEqual([]);
 });
 
@@ -196,45 +112,3 @@ test("notes unavailable preserves Spanish real record search and displays an hon
 });
 
 
-for (const code of ["business_action_unsettled", "outcome_unknown"] as const) {
-  test(`nested Problem 409 ${code} retains the original command until explicit same-key settlement`, async ({ page }) => {
-    const { state, source } = await setup(page, dossierFixtureIds.ready);
-    const before = await source.dossier(dossierFixtureIds.ready);
-    await page.getByRole("button", { name: "Agregar una nota a este registro", exact: true }).click();
-    const dialog = page.getByRole("dialog", { name: "Agregar una nota a este registro", exact: true });
-    const original = "  Nota que puede haberse guardado.\n  ";
-    await dialog.getByRole("textbox", { name: "Nota original", exact: true }).fill(original);
-    state.mode = code;
-    await dialog.getByRole("button", { name: "Guardar nota", exact: true }).click();
-    await expect(dialog.getByRole("alert")).toContainText("No pudimos confirmar");
-    await expect(dialog.getByRole("textbox", { name: "Nota original", exact: true })).toHaveValue(original);
-    await expect(dialog.getByRole("button", { name: "Editar solicitud", exact: true })).toHaveCount(0);
-    await expect(dialog.getByRole("button", { name: "Reintentar la misma nota", exact: true })).toBeEnabled();
-    await dialog.getByRole("button", { name: "Cerrar", exact: true }).last().click();
-    await expect(page.getByRole("button", { name: "Aprobar", exact: true })).toBeDisabled();
-    await page.getByRole("button", { name: "Consultar registro actual", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Aprobar", exact: true })).toBeDisabled();
-    expect(state.captures).toHaveLength(1);
-    await page.getByRole("button", { name: "Volver a abrir la nota sin confirmar", exact: true }).click();
-    await dialog.getByRole("button", { name: "Reintentar la misma nota", exact: true }).click();
-    await expect(dialog).toHaveCount(0);
-    expect(state.captures[1]).toEqual(state.captures[0]);
-    const settled = await source.dossier(before.draft_id);
-    expect(settled.version).toBe(before.version + 1);
-    expect(settled.sources.filter((item) => "text" in item && item.text === original)).toHaveLength(1);
-    expect(state.approvals).toBe(0);
-  });
-}
-
-test("nested idempotency conflict is a refusal with editable retained text, not uncertain retry", async ({ page }) => {
-  const { state } = await setup(page, dossierFixtureIds.ready);
-  await page.getByRole("button", { name: "Agregar una nota a este registro", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Agregar una nota a este registro", exact: true });
-  await dialog.getByRole("textbox", { name: "Nota original", exact: true }).fill("Texto conservado tras conflicto");
-  state.mode = "conflict";
-  await dialog.getByRole("button", { name: "Guardar nota", exact: true }).click();
-  await expect(dialog.getByRole("alert")).toContainText("No se pudo guardar");
-  await expect(dialog.getByRole("button", { name: "Editar solicitud", exact: true })).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "Reintentar la misma nota", exact: true })).toHaveCount(0);
-  await expect(dialog.getByRole("textbox", { name: "Nota original", exact: true })).toHaveValue("Texto conservado tras conflicto");
-});

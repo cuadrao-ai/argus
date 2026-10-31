@@ -18,9 +18,7 @@
   "housekeeping": "pending protected-branch evidence PR",
   "tree_equal": true,
   "tree": "808125326fb759a0afbaca5d41d1f5b09caf139f",
-  "configuration_names": [
-    "ARGUS_MIXED_CURRENCY_TRANSFER_ENABLED"
-  ],
+  "configuration_names": [],
   "configuration_disposition": "false .env.example declaration; canonical API env membership derives from validated release profile; no hosted activation",
   "integration_checks": {
     "CI": {

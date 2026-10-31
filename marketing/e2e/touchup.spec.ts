@@ -52,19 +52,16 @@ for (const locale of ["es", "en"] as const) {
       await menu.click();
     }
     const navigation = header.locator("nav:visible");
-    const languages = navigation.getByRole("group", { name: locale === "es" ? "Idioma" : "Language" });
-    await expect(languages.getByRole("link", { name: locale.toUpperCase(), exact: true })).toHaveAttribute("aria-current", "true");
-    for (const language of ["es", "en"]) {
-      const link = languages.getByRole("link", { name: language.toUpperCase(), exact: true });
-      await expect(link).toHaveAttribute("href", language === "es" ? "/" : "/en");
-      const bounds = await link.boundingBox();
-      expect(bounds!.width).toBeGreaterThanOrEqual(44);
-      expect(bounds!.height).toBeGreaterThanOrEqual(44);
-    }
+    const link = navigation.locator("[data-language-switch]");
+    await expect(link).toHaveAttribute("href", locale === "es" ? "/en" : "/");
+    await expect(link).toContainText(locale === "es" ? "English" : "Español");
+    const bounds = await link.boundingBox();
+    expect(bounds!.width).toBeGreaterThanOrEqual(44);
+    expect(bounds!.height).toBeGreaterThanOrEqual(44);
     await expect(navigation.getByRole("link", { name: locale === "es" ? "Cómo funciona" : "How it works", exact: true })).toHaveCount(0);
     await expect(navigation.getByRole("link", { name: locale === "es" ? "Nosotros" : "About", exact: true })).toHaveCount(0);
     await expect(navigation.getByRole("link", { name: "Personal", exact: true })).toHaveAttribute("href", locale === "es" ? "/personal" : "/en/personal");
-    await header.locator("nav:visible").getByRole("group").getByRole("link", { name: locale === "es" ? "EN" : "ES", exact: true }).click();
+    await link.click();
     await expect(page).toHaveURL(locale === "es" ? "/en" : "/");
   });
 }

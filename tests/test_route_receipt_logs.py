@@ -22,7 +22,7 @@ def test_route_receipt_is_diagnosable_in_default_rendered_log(
     outcome: Literal["succeeded", "failed", "skipped"],
     failure_mode: str | None,
 ) -> None:
-    monkeypatch.setenv("ARGUS_CHAT_FALLBACK_MODEL", "test/fallback")
+    monkeypatch.setenv("CUADRAO_CHAT_FALLBACK_MODEL", "test/fallback")
     lines: list[str] = []
     sink = logger.add(lambda message: lines.append(str(message)), level="INFO")
     try:

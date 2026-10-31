@@ -144,7 +144,7 @@ test.describe("Business pilot walkthrough on a phone", () => {
     await expect(drawerNav.getByRole("button", { name: /^Inbox/ })).toHaveText("Inbox5");
     await page.keyboard.press("Escape");
     await page.getByTestId("business-create-compact").click();
-    await expect(page.getByRole("menuitem")).toHaveText(["Upload receipt", "Record expense", "Save a note"]);
+    await expect(page.getByRole("menuitem", { name: "Save a note" })).toHaveCount(0);
     await page.getByRole("menuitem", { name: "Upload receipt" }).click();
     await expect(page.getByText("PDF, JPG, PNG, up to 10 MB", { exact: false })).toBeVisible();
   });

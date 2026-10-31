@@ -112,7 +112,7 @@ def deletion_requester(request: Request) -> User:
 
     if any(
         os.getenv(name, "").strip().lower() == "true"
-        for name in ("NEXT_PUBLIC_MOCK_AUTH", "ARGUS_MOCK_AUTH")
+        for name in ("NEXT_PUBLIC_MOCK_AUTH", "CUADRAO_MOCK_AUTH")
     ):
         return current_user(request)
     token = request_access_token(request)

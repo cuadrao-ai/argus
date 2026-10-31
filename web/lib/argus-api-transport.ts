@@ -5,7 +5,7 @@ import { publicApiUrl } from "./public-env";
 
 export type AccountRequestOptions = RequestInit & { expectedUserId?: string };
 
-export const ARGUS_API_BASE_URL = (() => {
+export const CUADRAO_API_BASE_URL = (() => {
   const configured = publicApiUrl();
   if (configured) {
     return configured;
@@ -71,7 +71,7 @@ export async function apiFetch<T>(
   requireBrowserAuthGeneration(generation);
   requestOptions.signal?.throwIfAborted();
 
-  const response = await fetch(`${ARGUS_API_BASE_URL}${path}`, {
+  const response = await fetch(`${CUADRAO_API_BASE_URL}${path}`, {
     ...requestOptions,
     credentials: expectedUserId === undefined && (authHeaders.Authorization || process.env.NEXT_PUBLIC_MOCK_AUTH === "true") ? "include" : "omit",
     headers: argusApiRequestHeaders(requestOptions.headers, authHeaders, path),
@@ -105,7 +105,7 @@ export async function unauthenticatedApiFetch<T>(
   path: string,
   options?: RequestInit,
 ): Promise<T> {
-  const response = await fetch(`${ARGUS_API_BASE_URL}${path}`, {
+  const response = await fetch(`${CUADRAO_API_BASE_URL}${path}`, {
     credentials: "include",
     ...options,
     headers: argusApiRequestHeaders(options?.headers),

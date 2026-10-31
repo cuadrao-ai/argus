@@ -1,5 +1,5 @@
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
-import { ARGUS_API_BASE_URL, argusApiRequestHeaders } from "./argus-api-transport";
+import { CUADRAO_API_BASE_URL, argusApiRequestHeaders } from "./argus-api-transport";
 
 /** The signed-in owner's WhatsApp sender link. The backend owns every fact. */
 
@@ -21,7 +21,7 @@ export type WhatsAppLinkError = Error & { status: number; code: string };
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const authHeaders = await authenticatedRequestHeaders();
-  const response = await fetch(`${ARGUS_API_BASE_URL}${path}`, {
+  const response = await fetch(`${CUADRAO_API_BASE_URL}${path}`, {
     ...options,
     credentials: "include",
     cache: "no-store",

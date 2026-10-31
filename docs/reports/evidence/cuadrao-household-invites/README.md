@@ -10,7 +10,7 @@ files under it.
 | Screenshots | Captured at | Status at `3c7d7f27` |
 | --- | --- | --- |
 | `gate-ready-*`, `gate-invalid-*`, `gate-rate-limited-*`, `link-saved-signed-out-*`, `invitations-hub-*`, `admitted-link-return-es-light` | `031ad3cd` | Still stand. The screens they show did not change, and the tests that produce them passed again at `3c7d7f27`. They were not re-exported. |
-| `personal-invitation-created-*` | `031ad3cd` | Stand only for a server with `ARGUS_INVITE_UNIVERSAL_LINK_ENABLED` on, which returns a link. The default server returns `link: null`; see `personal-invitation-code-only-es-light`. |
+| `personal-invitation-created-*` | `031ad3cd` | Stand only for a server with `CUADRAO_INVITE_UNIVERSAL_LINK_ENABLED` on, which returns a link. The default server returns `link: null`; see `personal-invitation-code-only-es-light`. |
 | `access-unanswered-es-light`, `personal-invitation-code-only-es-light` | `3c7d7f27` | New. |
 
 The older branch history: `031ad3cd018a77e1672366e9cde044d4087dadf9` was the plain merge of

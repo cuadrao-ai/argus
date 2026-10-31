@@ -31,7 +31,7 @@ def test_internal_approval_stale_delivery_falls_through_to_a_fresh_send(
         "sent_at": "2026-08-01T00:00:00Z",
     }
     monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", "ops-token")
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", "ops-token")
     monkeypatch.setenv("ARGUS_APP_ORIGIN", "https://app.example")
     send_count = 0
 
@@ -70,7 +70,7 @@ def test_internal_approval_failures_log_the_stage_and_nothing_identifying(
 
     gateway = _StatefulApprovalGateway()
     monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", "ops-token")
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", "ops-token")
     monkeypatch.setenv("ARGUS_APP_ORIGIN", "https://app.example")
     monkeypatch.setattr(
         ops,

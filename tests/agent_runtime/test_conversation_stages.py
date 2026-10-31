@@ -1281,8 +1281,8 @@ def test_clarifier_system_prompt_keeps_vague_ideas_on_supported_proxies() -> Non
 def test_openrouter_clarifier_uses_structured_response_contract(monkeypatch) -> None:
     observed = {}
     openrouter.clear_openrouter_route_receipts()
-    monkeypatch.setenv("ARGUS_CHAT_MODEL", "chat/primary")
-    monkeypatch.setenv("ARGUS_CHAT_FALLBACK_MODEL", "chat/fallback")
+    monkeypatch.setenv("CUADRAO_CHAT_MODEL", "chat/primary")
+    monkeypatch.setenv("CUADRAO_CHAT_FALLBACK_MODEL", "chat/fallback")
 
     async def fake_json_schema(
         *, task, messages, schema_model, schema_name, model_name=None
@@ -1354,8 +1354,8 @@ def test_openrouter_clarifier_rejects_questions_outside_runtime_needs(
     monkeypatch,
 ) -> None:
     openrouter.clear_openrouter_route_receipts()
-    monkeypatch.setenv("ARGUS_CHAT_MODEL", "chat/primary")
-    monkeypatch.setenv("ARGUS_CHAT_FALLBACK_MODEL", "chat/fallback")
+    monkeypatch.setenv("CUADRAO_CHAT_MODEL", "chat/primary")
+    monkeypatch.setenv("CUADRAO_CHAT_FALLBACK_MODEL", "chat/fallback")
     calls: list[str | None] = []
 
     async def fake_json_schema(
@@ -1424,8 +1424,8 @@ def test_openrouter_clarifier_rejects_vague_dca_detail_response(
     monkeypatch,
 ) -> None:
     openrouter.clear_openrouter_route_receipts()
-    monkeypatch.setenv("ARGUS_CHAT_MODEL", "chat/primary")
-    monkeypatch.setenv("ARGUS_CHAT_FALLBACK_MODEL", "chat/fallback")
+    monkeypatch.setenv("CUADRAO_CHAT_MODEL", "chat/primary")
+    monkeypatch.setenv("CUADRAO_CHAT_FALLBACK_MODEL", "chat/fallback")
     calls: list[str | None] = []
 
     async def fake_json_schema(
@@ -2022,8 +2022,8 @@ def test_openrouter_clarifier_does_not_duplicate_dca_direct_question_when_first(
 def test_openrouter_clarifier_uses_missing_fields_for_dca_amount_and_cadence(
     monkeypatch,
 ) -> None:
-    monkeypatch.setenv("ARGUS_CHAT_MODEL", "chat/primary")
-    monkeypatch.setenv("ARGUS_CHAT_FALLBACK_MODEL", "chat/fallback")
+    monkeypatch.setenv("CUADRAO_CHAT_MODEL", "chat/primary")
+    monkeypatch.setenv("CUADRAO_CHAT_FALLBACK_MODEL", "chat/fallback")
     calls: list[str | None] = []
 
     async def fake_json_schema(
@@ -2091,8 +2091,8 @@ def test_openrouter_clarifier_uses_missing_fields_for_dca_amount_and_cadence(
 def test_openrouter_clarifier_renders_dca_direct_question_when_wrapper_is_vague(
     monkeypatch,
 ) -> None:
-    monkeypatch.setenv("ARGUS_CHAT_MODEL", "chat/primary")
-    monkeypatch.setenv("ARGUS_CHAT_FALLBACK_MODEL", "chat/fallback")
+    monkeypatch.setenv("CUADRAO_CHAT_MODEL", "chat/primary")
+    monkeypatch.setenv("CUADRAO_CHAT_FALLBACK_MODEL", "chat/fallback")
 
     async def fake_json_schema(
         *, task, messages, schema_model, schema_name, model_name=None

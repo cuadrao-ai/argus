@@ -14,14 +14,14 @@ Decisive failure excerpts from the complete local log:
 E   psycopg.OperationalError: connection is bad: connection to server on socket "/tmp/.s.PGSQL.5432" failed: No such file or directory
 E   psycopg.OperationalError: connection is bad: connection to server on socket "/tmp/.s.PGSQL.5432" failed: No such file or directory
 E   psycopg.OperationalError: connection is bad: connection to server on socket "/tmp/.s.PGSQL.5432" failed: No such file or directory
-E     'ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED'
-E     forbidden argus-api:ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED unexpected_live_env
-E     forbidden argus-api:ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED unexpected_live_env
-E     forbidden argus-api:ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED unexpected_live_env
-E     forbidden argus-api:ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED unexpected_live_env
-E     forbidden argus-api:ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED unexpected_live_env
-E     'ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED'
-E     forbidden argus-api:ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED unexpected_live_env
+E     'CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED'
+E     forbidden argus-api:CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED unexpected_live_env
+E     forbidden argus-api:CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED unexpected_live_env
+E     forbidden argus-api:CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED unexpected_live_env
+E     forbidden argus-api:CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED unexpected_live_env
+E     forbidden argus-api:CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED unexpected_live_env
+E     'CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED'
+E     forbidden argus-api:CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED unexpected_live_env
 =========================== short test summary info ============================
 FAILED tests/test_environment_scripts.py::test_render_blueprint_declares_shared_render_env_contract_vars
 FAILED tests/test_environment_scripts.py::test_render_env_sync_audit_uses_large_render_env_page

@@ -21,7 +21,7 @@ def _without_request_ids(body: dict[str, object]) -> dict[str, object]:
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    monkeypatch.setenv("ARGUS_OPS_TOKEN", TOKEN)
+    monkeypatch.setenv("CUADRAO_OPS_TOKEN", TOKEN)
     monkeypatch.delenv(CLIENT_IP_ECHO_ENV, raising=False)
     return TestClient(app)
 

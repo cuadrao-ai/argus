@@ -35,7 +35,7 @@ def validate_startup_configuration() -> None:
         name
         for name in (
             "NEXT_PUBLIC_MOCK_AUTH",
-            "ARGUS_MOCK_AUTH",
+            "CUADRAO_MOCK_AUTH",
             "ARGUS_DEV_ENDPOINTS_ENABLED",
         )
         if os.getenv(name, "").strip().lower() == "true"
@@ -474,7 +474,7 @@ def request_access_token(request: Request) -> str | None:
 def current_user(request: Request) -> User:
     if (
         os.getenv("NEXT_PUBLIC_MOCK_AUTH", "").strip().lower() == "true"
-        or os.getenv("ARGUS_MOCK_AUTH", "").strip().lower() == "true"
+        or os.getenv("CUADRAO_MOCK_AUTH", "").strip().lower() == "true"
     ):
         if api_state.supabase_gateway is not None:
             try:

@@ -128,9 +128,9 @@ pass (workspace `cuadrao`, `tea-d5rdkfk9c44c73e7a1ig`). No secret values.
 `render.yaml` is the service list. This section names only what the file
 cannot settle.
 
-1. **`cuadrao-api-staging` is in the blueprint with the onrender subdomain enabled.** Dashboard service `srv-db4mrrvlk1mc73d733j0`. `render.yaml` records Python, plan `0.5c-512mb`, branch `codex/private-alpha-next`, `autoDeployTrigger: checksPass`, `renderSubdomainPolicy: enabled`, and build `poetry install`, which is the recorded dashboard command. The start command in yaml is the production uvicorn command. That live start is still unconfirmed and is a must-check before any Blueprint sync. The subdomain stays enabled because `cuadrao-web-staging` sets `NEXT_PUBLIC_CUADRAO_API_URL` to `https://cuadrao-api-staging.onrender.com/api/v1`. Its env names come from `services.api.entries` in `scripts/ops/staging_env_manifest.json`. A literal is in yaml only where the manifest records a non-secret value, except `ARGUS_HOUSEHOLDS_ENABLED` and `ARGUS_BETA_INVITES_ENABLED`. Those two stay `"false"` in yaml. The manifest keeps them `"true"` for the live staging dashboard. Do not copy that true value into `render.yaml`. Everything else is `sync: false` with no value. The manifest `remove` names and the hold key `CUADRAO-DEV-KEY-PILOT` are not in yaml. Confirm the `remove` names are gone from the dashboard. Do not copy the staging-true flags onto production.
+1. **`cuadrao-api-staging` is in the blueprint with the onrender subdomain enabled.** Dashboard service `srv-db4mrrvlk1mc73d733j0`. `render.yaml` records Python, plan `0.5c-512mb`, branch `codex/private-alpha-next`, `autoDeployTrigger: checksPass`, `renderSubdomainPolicy: enabled`, and build `poetry install`, which is the recorded dashboard command. The start command in yaml is the production uvicorn command. That live start is still unconfirmed and is a must-check before any Blueprint sync. The subdomain stays enabled because `cuadrao-web-staging` sets `NEXT_PUBLIC_CUADRAO_API_URL` to `https://cuadrao-api-staging.onrender.com/api/v1`. Its env names come from `services.api.entries` in `scripts/ops/staging_env_manifest.json`. A literal is in yaml only where the manifest records a non-secret value, except `CUADRAO_HOUSEHOLDS_ENABLED` and `CUADRAO_BETA_INVITES_ENABLED`. Those two stay `"false"` in yaml. The manifest keeps them `"true"` for the live staging dashboard. Do not copy that true value into `render.yaml`. Everything else is `sync: false` with no value. The API manifest has no `remove` names. The hold key `CUADRAO-DEV-KEY-PILOT` is not in yaml. Do not copy the staging-true flags onto production.
 
-2. **`cuadrao-web-staging` autoDeploy is `checksPass`, matching the dashboard.** Service `srv-db5ihr7lot8c73f3b3h0`. `NEXT_PUBLIC_APP_ENV` = `staging` and `NEXT_PUBLIC_MOCK_AUTH` = `false` are in `render.yaml` and are not managed by the staging manifest. The manifest lists `NEXT_PUBLIC_ARGUS_API_URL`, `NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY`, and `CUADRAO_RESEND_WEBHOOK_SECRET` under `remove`. They are absent from this service's yaml block and may still be on the dashboard. `CUADRAO_AUTH_EMAIL_HOOK_SECRET` and `CUADRAO_AUTH_EMAIL_RESEND_API_KEY` are `sync: false` in yaml and `hold` in the manifest. Inject them only for a reviewed activation.
+2. **`cuadrao-web-staging` autoDeploy is `checksPass`, matching the dashboard.** Service `srv-db5ihr7lot8c73f3b3h0`. `NEXT_PUBLIC_MOCK_AUTH=false` is in `render.yaml` and is not managed by the staging manifest. The manifest preserves the current `NEXT_PUBLIC_CUADRAO_API_URL` and `NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY` values. Its `remove` list contains only `CUADRAO_RESEND_WEBHOOK_SECRET`, which is absent from this service's yaml block and may still be on the dashboard. Runtime compatibility inputs are outside the app-managed hosted declarations. `CUADRAO_AUTH_EMAIL_HOOK_SECRET` and `CUADRAO_AUTH_EMAIL_RESEND_API_KEY` are `sync: false` in yaml and `hold` in the manifest. Inject them only for a reviewed activation.
 
 3. **`cuadrao-marketing-staging` tracks `main`, matching the dashboard.** Service `srv-db8sr6ei0phs738t5eng`, autoDeploy off, plan free. The yaml reaches `marketing/` through `rootDir: marketing`. The dashboard has an empty rootDir and commands that start with `cd marketing &&`. Expect that difference in a sync diff.
 
@@ -163,12 +163,12 @@ Supabase Auth, production project `lgdhvepyrzbnscqssgqq`, same five settings. [A
 
 Render env tab, staging, names and non-secret flags:
 
-- `cuadrao-web-staging`: `CUADRAO_AUTH_EMAIL_HOOK_ENABLED` (yaml and the manifest say `false`); whether `CUADRAO_AUTH_EMAIL_HOOK_SECRET` and `CUADRAO_AUTH_EMAIL_RESEND_API_KEY` are set or unset; whether `NEXT_PUBLIC_ARGUS_API_URL`, `NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY`, and `CUADRAO_RESEND_WEBHOOK_SECRET` are absent; `NEXT_PUBLIC_APP_ENV` and `NEXT_PUBLIC_MOCK_AUTH` (yaml says `staging` and `false`).
-- `cuadrao-api-staging`: the env names against its `render.yaml` block, including whether the manifest `remove` names are gone. The live start command. `renderSubdomainPolicy` stays enabled.
+- `cuadrao-web-staging`: `CUADRAO_AUTH_EMAIL_HOOK_ENABLED` (yaml and the manifest say `false`); whether `CUADRAO_AUTH_EMAIL_HOOK_SECRET` and `CUADRAO_AUTH_EMAIL_RESEND_API_KEY` are set or unset; the canonical `NEXT_PUBLIC_CUADRAO_API_URL` and `NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY` entries; whether `CUADRAO_RESEND_WEBHOOK_SECRET` is absent; `NEXT_PUBLIC_MOCK_AUTH` (yaml says `false`).
+- `cuadrao-api-staging`: the env names against its `render.yaml` block. The API manifest has no `remove` names. The live start command. `renderSubdomainPolicy` stays enabled.
 
 Render env tab, production, names and non-secret flags:
 
-- `cuadrao-api` (audit label `argus-api`): the [section 3](#3-render-environment-on-production) profile keys and their non-secret values; `ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED`; `CUADRAO_VISION_MODEL` present or absent (do not set it until the allow-list change); `SUPABASE_ANON_KEY` present (`sync: false`; do not record the value); `renderSubdomainPolicy` still enabled until the promotion-day apply; the staging-true `CUADRAO_*` names in section 3 absent. On promotion day, confirm `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED` is `true` on dashboard `cuadrao-api`. The check is the name and on/off only. Never set or change it on production without the founder's explicit approval.
+- `cuadrao-api` (audit label `argus-api`): the [section 3](#3-render-environment-on-production) profile keys and their non-secret values; `CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED`; `CUADRAO_VISION_MODEL` present or absent (do not set it until the allow-list change); `SUPABASE_ANON_KEY` present (`sync: false`; do not record the value); `renderSubdomainPolicy` still enabled until the promotion-day apply; the staging-true `CUADRAO_*` names in section 3 absent. On promotion day, confirm `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED` is `true` on dashboard `cuadrao-api`. The check is the name and on/off only. Never set or change it on production without the founder's explicit approval.
 - `cuadrao-web` (marketing site): start command confirmed on 2026-10-18 as `bun run start -- -p $PORT`. `MARKETING_POSTAL_ADDRESS` present or absent (do not record the string). Do not expect the business-web env from the `argus-app` audit contract (`NEXT_PUBLIC_ARGUS_API_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED`, `ARGUS_TRUSTED_CLIENT_IP_HEADER`) on this service.
 
 ### 1. Preflight
@@ -198,7 +198,7 @@ Live requirement from the classifier:
 - `contract-replacing`: an expand/contract plan or a maintenance window.
 - `destructive`: a maintenance window, a backup and readback plan, and Lucas's approval for that file.
 
-`20261003150100_invite_code_digests_private` is destructive. Set `ARGUS_INVITE_CODE_SECRET` on dashboard `cuadrao-api` before the API deploy that follows it, using `openssl rand -base64 48` as in the [household hosted gate](#household-and-beta-invite-hosted-gate). Keep `ARGUS_HOUSEHOLDS_ENABLED`, `ARGUS_BETA_INVITES_ENABLED`, and `ARGUS_BETA_INVITE_GATE_ENABLED` false until that secret is installed and readiness has passed. Do not put the secret in the manifest.
+`20261003150100_invite_code_digests_private` is destructive. Set `CUADRAO_INVITE_CODE_SECRET` on dashboard `cuadrao-api` before the API deploy that follows it, using `openssl rand -base64 48` as in the [household hosted gate](#household-and-beta-invite-hosted-gate). Keep `CUADRAO_HOUSEHOLDS_ENABLED`, `CUADRAO_BETA_INVITES_ENABLED`, and `CUADRAO_BETA_INVITE_GATE_ENABLED` false until that secret is installed and readiness has passed. Do not put the secret in the manifest.
 
 These three files are on `main`. Apply one only when the landed gate lists it as missing, and apply it in version order with the 63:
 
@@ -296,7 +296,7 @@ Do not copy `cuadrao-api-staging` or `cuadrao-web-staging` onto production. The 
 
 | Dashboard service | Audit label | Name | `origin/main` profile and `render.yaml` | Integration profile |
 | --- | --- | --- | --- | --- |
-| `cuadrao-api` | `argus-api` | `ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED` | `true` on `main`, `false` on integration | `false` |
+| `cuadrao-api` | `argus-api` | `CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED` | `true` on `main`, `false` on integration | `false` |
 | none yet | `argus-app` | `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED` | `true` on `main`'s business-web block | `false` |
 
 Dashboard `cuadrao-web` builds `marketing/` and is not the business app. The business-web flag lives in the release profile's `argus-app` contract. Live production was not read for this checklist. Lucas chooses the business-web value before a business web service exists. The candidate audit expects the candidate profile, which says `false`. Choosing `true` means a reviewed profile change, a new landed SHA, and a new gate before the audit. The web value is baked at build time, so the choice is made before that future build. Record the choice in the manifest. Do not set the business-web flag on the marketing site.
@@ -307,23 +307,25 @@ Dashboard `cuadrao-web` builds `marketing/` and is not the business app. The bus
 
 #### Keys the integration profile adds
 
-Set these on the dashboard service before that service's deploy. Code defaults for the three ceilings match these numbers (`src/argus/domain/usage_limits.py`); the profile still requires the names to be present. The trusted-header default in code is `CF-Connecting-IP` when the name is absent; the profile requires it set on the API and on the business-web contract. The business app has no production web service yet ([item 5](#render-services-and-promotion-day-items)). Do not copy the business-web contract onto dashboard `cuadrao-web`.
+Confirm these settings before the service deploys. Code defaults for the three ceilings match these numbers (`src/argus/domain/usage_limits.py`). Only the guest and registered turn ceilings remain profile-managed. The research ceiling and trusted header require separate operator readback. The trusted-header default in code is `CF-Connecting-IP` when the name is absent. The business app has no production web service yet ([item 5](#render-services-and-promotion-day-items)). Do not copy the business-web contract onto dashboard `cuadrao-web`.
 
-On `cuadrao-api` (audit label `argus-api`), before the API deploy:
+On `cuadrao-api` (audit label `argus-api`), before the API deploy, confirm these
+operator requirements. Active controls removed from the profile require a
+separate readback. They are not app-managed hosted declarations.
 
-| Name | Profile value |
+| Name | Required operator readback |
 | --- | --- |
 | `ARGUS_TRUSTED_CLIENT_IP_HEADER` | `CF-Connecting-IP` |
-| `ARGUS_GUEST_SESSION_DAILY_TURN_CEILING` | `100` |
-| `ARGUS_REGISTERED_DAILY_TURN_CEILING` | `200` |
+| `CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING` | `100` |
+| `CUADRAO_REGISTERED_DAILY_TURN_CEILING` | `200` |
 | `ARGUS_REGISTERED_DAILY_RESEARCH_CEILING` | `15` |
-| `ARGUS_ACCOUNT_DELETION_ENABLED` | `false` |
-| `ARGUS_APPLE_REVOCATION_CAPTURE_ENABLED` | `false` |
-| `ARGUS_BETA_INVITES_ENABLED` | `false` |
-| `ARGUS_BETA_INVITE_GATE_ENABLED` | `false` |
-| `ARGUS_CROSS_CURRENCY_TRANSFERS_ENABLED` | `false` |
+| `CUADRAO_ACCOUNT_DELETION_ENABLED` | `false` |
+| `CUADRAO_APPLE_REVOCATION_CAPTURE_ENABLED` | `false` |
+| `CUADRAO_BETA_INVITES_ENABLED` | `false` |
+| `CUADRAO_BETA_INVITE_GATE_ENABLED` | `false` |
+| `CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED` | `false` |
 | `ARGUS_FINANCIAL_ACCOUNTS_ENABLED` | `false` |
-| `ARGUS_HOUSEHOLDS_ENABLED` | `false` |
+| `CUADRAO_HOUSEHOLDS_ENABLED` | `false` |
 | `ARGUS_INGESTION_ENABLED` | `false` |
 | `PLAID_ENV` | `sandbox` |
 | `PLAID_CREDENTIALS_INJECTED` | `false` |
@@ -333,7 +335,7 @@ The business-web contract (audit label `argus-app`) still requires `ARGUS_TRUSTE
 
 `argus-backtests` has no new profile keys in this delta. Leave its env on the existing workflow contract. The business-web env lives in the release profile's `argus-app` contract, not in `render.yaml`. `render.yaml` declares no env for `cuadrao-web`. The audited marketing env is the release profile `marketing` surface, taken from the marketing launch runbook and the keys `marketing/` reads.
 
-These profile `optional` names are secrets. Set one only when Lucas is turning that surface on, and never record the value. Absence is allowed by the audit. `ARGUS_INVITE_CODE_SECRET` is the exception timed above. The others are `ARGUS_INVITE_CODE_SECRET_PREVIOUS`, `ARGUS_INGESTION_SECRET_KEY`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`, `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_WEBHOOK_URL`, `ARGUS_APPLE_TEAM_ID`, `ARGUS_APPLE_SIGN_IN_KEY_ID`, `ARGUS_APPLE_SIGN_IN_PRIVATE_KEY`, and `ARGUS_APPLE_BUNDLE_ID`.
+These profile `optional` names are secrets. Set one only when Lucas is turning that surface on, and never record the value. Absence is allowed by the audit. `CUADRAO_INVITE_CODE_SECRET` is the exception timed above. The others are `CUADRAO_INVITE_CODE_SECRET_PREVIOUS`, `ARGUS_INGESTION_SECRET_KEY`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`, `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_WEBHOOK_URL`, `CUADRAO_APPLE_TEAM_ID`, `CUADRAO_APPLE_SIGN_IN_KEY_ID`, `CUADRAO_APPLE_SIGN_IN_PRIVATE_KEY`, and `CUADRAO_APPLE_BUNDLE_ID`.
 
 Leave these unset on `cuadrao-api`. They are not in the production profile, staging sets several of them true, and a live value would fail the audit as unexpected under the `argus-api` label: `CUADRAO_WHATSAPP_*`, `CUADRAO_BUSINESS_PILOT_ENABLED`, `CUADRAO_DOCUMENT_EXTRACTION_ENABLED`, `CUADRAO_FINANCIAL_ACCOUNTS_ENABLED`, `CUADRAO_INGESTION_ENABLED`, `NEXT_PUBLIC_CUADRAO_API_URL`, `NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY`, and `NEXT_PUBLIC_BUSINESS_PILOT_ENABLED`. The future business web build keeps reading `NEXT_PUBLIC_ARGUS_API_URL` and `NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY` until a reviewed profile change says otherwise. Do not copy the staging-true flags onto `cuadrao-web`.
 
@@ -401,7 +403,7 @@ After promotion, confirm these steps.
 After the landed gate reports `status=pass` and the env readbacks above match the founder choices:
 
 1. Do not Blueprint-sync. Never Blueprint-sync until the `render.yaml` service names match the dashboard and someone has reviewed the sync diff. The `cuadrao-api-staging` start command is still unconfirmed and is a must-check before that sync. This checklist does not sync. `renderSubdomainPolicy: disabled` stays on `cuadrao-api` in the file. Disabling the live subdomain is the promotion-day item in [item 4](#render-services-and-promotion-day-items). `argus-backtests` is not in `render.yaml`. Its contract stays the release profile plus `.github/render-env-sync.sh workflow-runtime`. Autodeploy on the production dashboard services stays off.
-2. Set the env in [section 3](#3-render-environment-on-production) on dashboard `cuadrao-api` before that service deploys. Run `.github/render-env-sync.sh api-real-workflow-on` for the API service the script labels `argus-api`, then restart it if the env change did not already restart it. Do not set the business-web contract on dashboard `cuadrao-web`.
+2. Set the env in [section 3](#3-render-environment-on-production) on dashboard `cuadrao-api` before that service deploys. Confirm the approved workflow controls through a separate operator readback before restarting the service. The retired API mode commands no longer write those controls. Do not set the business-web contract on dashboard `cuadrao-web`.
 3. Run the audit before the deploys:
 
 ```bash
@@ -441,8 +443,8 @@ Warmup dispatches a paid workflow proof. Lucas approves that spend in the window
 
 1. Stop tester exposure. Leave the Send Email Hook off.
 2. Emergency-only env flips, used for the incident they match and then recorded:
-   - `.github/render-env-sync.sh api-safe-off` on `argus-api`. This disables workflow dispatch and execution and removes the Render API key from `argus-api`.
-   - Guest access: set `NEXT_PUBLIC_GUEST_ACCESS_ENABLED=false`, then `ARGUS_GUEST_ACCESS_ENABLED=false`. Leave `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true`.
+   - Workflow dispatch and execution controls require a separately approved operator change and readback. The retired `api-safe-off` command cannot perform emergency rollback.
+   - Guest access: set `NEXT_PUBLIC_GUEST_ACCESS_ENABLED=false`, then `CUADRAO_GUEST_ACCESS_ENABLED=false`. Leave `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true`.
    - `ARGUS_ENABLE_EXECUTION_REALISM=false` is the execution-realism kill switch.
    Sharing flags, the three ceilings, `ARGUS_TRUSTED_CLIENT_IP_HEADER`, and `renderSubdomainPolicy` are not emergency flips.
 3. Revert code, keep migrations. Roll dashboard `cuadrao-api` and `argus-backtests` back to the same previous successful deploy. Leave `cuadrao-web` on its current marketing deploy. Do not roll a business-web service this promotion did not deploy. A Render rollback restores that deploy's env values as well, so read the env back afterward and re-apply any secret that was rotated since that artifact. Do not reverse, edit, or delete applied SQL. Old code has to tolerate the expanded schema, or Lucas approves a forward fix. The [waitlist rollback floor](#waitlist-rollback-floor) still forbids a code rollback below `061ba50e` while active `requested` rows can exist, until that section's maintenance proof is done.
@@ -709,7 +711,7 @@ the landed tree is verified.
    and let the scripts load them:
 
 ```bash
-export ARGUS_OPS_TOKEN="..."
+export CUADRAO_OPS_TOKEN="..."
 export ARGUS_CANARY_EMAIL="..."
 export ARGUS_CANARY_SUPABASE_URL="https://lgdhvepyrzbnscqssgqq.supabase.co"
 export ARGUS_CANARY_SUPABASE_SERVICE_ROLE_KEY="..."
@@ -719,15 +721,14 @@ For local founder/operator runs, `.github/canary-render.sh` also accepts
 `MOCK_USER_EMAIL`, `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY` from the root
 `.env`. The `ARGUS_CANARY_*` names remain the preferred GitHub Actions names.
 
-9. Confirm the API is in real-workflow private-alpha validation mode. This mode
-   keeps the API lean and sends `Run backtest` through the durable Render
-   Workflow job path:
+9. Confirm the approved workflow controls through a separate operator readback.
+   Real-workflow validation still requires `Run backtest` to use the durable
+   Render Workflow job path. The retired API mode commands exit with code 2
+   without hosted writes. The release-profile audit cannot prove controls that
+   are outside its app-managed declarations. Keep the workflow runtime proof
+   and canary gates below, and stop if the intended mode cannot be verified.
 
-```bash
-.github/render-env-sync.sh api-real-workflow-on
-```
-
-Restart `argus-api` after changing Render env values.
+Restart `argus-api` after an approved operator change to Render env values.
 
 10. Deploy production `cuadrao-api`, then **`argus-backtests`**, from the candidate commit.
    Deploy `cuadrao-web` manually from `main`, per [§5](#5-deploy-order).
@@ -1047,8 +1048,7 @@ remains the API/web environment fingerprint; record it as
 `api_web_env_fingerprint` and keep the raw script output for traceability. The
 workflow proof is recorded separately as `workflow_env_fingerprint` and
 `workflow_env_status`. The workflow env proof must show
-`workflow_env_status=ready`, `ARGUS_MARKET_DATA_PROVIDER_MODE=live_provider`,
-redacted-present required workflow secrets,
+`workflow_env_status=ready`, redacted-present required workflow secrets,
 `workflow_runtime_provider_mode=live_provider`, and
 `workflow_runtime_proof=ready` before tester exposure. The manifest must also
 name the candidate SHA, deployed API/web SHAs, `workflow_task`,
@@ -1071,17 +1071,6 @@ DATABASE_URL=… SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… \
   .github/stale-backtest-jobs.sh --json
 ```
 
-For privacy-safe aggregate job health over the existing Supabase
-`backtest_jobs.execution_metadata` records:
-
-```bash
-poetry run python scripts/ops/alpha_readiness_metrics.py --json
-```
-
-This report is operational only. It summarizes job statuses, readout provenance,
-and timings without emitting user ids, conversation ids, prompt text, or product
-analytics events.
-
 ## Backtest Workflow Modes
 
 The permanent Render Workflow service is `argus-backtests`. It owns multiple
@@ -1091,19 +1080,18 @@ tasks:
   -> Supabase lifecycle validation.
 - `argus-backtests/run_backtest_job`: real backtest execution task.
 
-Use explicit API modes instead of editing individual flags by hand:
+The `api-safe-off`, `api-proof-shadow-on`, and `api-real-workflow-on` commands
+are retired. They exit with code 2 without hosted writes because their settings
+are outside the approved app-managed hosted declarations. Compatibility aliases
+have the same behavior. Do not use these commands to activate or roll back a
+workflow mode.
 
-```bash
-.github/render-env-sync.sh api-safe-off
-.github/render-env-sync.sh api-proof-shadow-on
-.github/render-env-sync.sh api-real-workflow-on
-```
-
-`api-real-workflow-on` is the controlled private-alpha validation mode: `Run
-backtest` creates a durable real job and the UI reads queued/running/succeeded/
-failed state from Supabase. `api-proof-shadow-on` is only for proof dispatch
-validation. `api-safe-off` is the emergency rollback mode that disables workflow
-dispatch/execution and removes the Render API key from `argus-api`.
+The runtime controls remain in code with their existing behavior. Any operator
+change needs separate approval and a readback of the intended controls. In
+real-workflow mode, `Run backtest` must create a durable real job, and the UI must
+read its queued, running, succeeded, or failed state from Supabase. Prove that
+behavior with the existing workflow and canary gates before tester exposure.
+The profile audit alone does not establish a runtime mode.
 
 ### Retrieving workflow task logs
 
@@ -1141,9 +1129,12 @@ evidence when a task crashes or its logs have expired.
 
 ## Render Environment Ownership
 
-`render.yaml` is allowed to sync non-secret launch configuration: mode flags,
-public service URLs, public Supabase URL/anon key values, feature flags, paper
-trading mode, CORS origins, and model routing IDs.
+`render.yaml`, `.github/private-alpha-release-profile.json`, and
+`scripts/ops/staging_env_manifest.json` define the app-managed hosted settings.
+Active platform, safety, and test controls remain in code without a hosted
+management contract. Graveyard settings remain local and must never be hosted.
+Removing a declaration does not change a live setting or authorize a hosted
+write. Every hosted change still needs its own approval.
 
 Both `argus-app` and `argus-api` must set the server-only `ARGUS_APP_ORIGIN` to
 the exact HTTPS app origin. The web service uses it for password-recovery
@@ -1190,7 +1181,7 @@ APPROVAL_REQUEST="$(mktemp)"
 APPROVAL_RESPONSE="$(mktemp)"
 trap 'rm -f "$OPS_CURL_CONFIG" "$APPROVAL_REQUEST" "$APPROVAL_RESPONSE"' EXIT
 chmod 600 "$OPS_CURL_CONFIG" "$APPROVAL_REQUEST" "$APPROVAL_RESPONSE"
-printf 'header = "Authorization: Bearer %s"\n' "$ARGUS_OPS_TOKEN" > "$OPS_CURL_CONFIG"
+printf 'header = "Authorization: Bearer %s"\n' "$CUADRAO_OPS_TOKEN" > "$OPS_CURL_CONFIG"
 REQUESTED_EMAIL="$REQUESTED_EMAIL" python3 - "$APPROVAL_REQUEST" <<'PY'
 import json
 import os
@@ -1255,11 +1246,11 @@ Keep true secrets manual in Render:
 - `OPENROUTER_API_KEY`
 - `ALPACA_API_KEY`
 - `ALPACA_SECRET_KEY`
-- `ARGUS_OPS_TOKEN`
-- `ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD`
+- `CUADRAO_OPS_TOKEN`
+- `CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD`
 - `POSTHOG_PROJECT_TOKEN`
 - `PERPLEXITY_API_KEY`
-- `ARGUS_VISITOR_KEY_SECRET`
+- `CUADRAO_VISITOR_KEY_SECRET`
 
 Keep `NEXT_PUBLIC_POSTHOG_KEY` present but empty. Product analytics capture is
 server-side only through the sanitized observability envelope.
@@ -1270,8 +1261,8 @@ compliance-posture choice for the current private alpha, not an accidental
 default. Do not enable frontend PostHog, autocapture, session replay, or person
 profiles.
 
-Set `ARGUS_OPS_TOKEN` manually in Render for `argus-api`; it is intentionally
-`sync: false`. Keep `ARGUS_OPS_TOKEN` out of frontend environment variables.
+Set `CUADRAO_OPS_TOKEN` manually in Render for `argus-api`; it is intentionally
+`sync: false`. Keep `CUADRAO_OPS_TOKEN` out of frontend environment variables.
 
 ## Operator-Run Maintenance
 
@@ -1372,7 +1363,7 @@ What the logs and run record tell you:
 
   A deployment that has ever sent events keeps them at PostHog after its
   token is removed. Turn on the deletion adapter there before removing the
-  token. Don't turn on `ARGUS_ACCOUNT_DELETION_ENABLED` before #805
+  token. Don't turn on `CUADRAO_ACCOUNT_DELETION_ENABLED` before #805
   (decision 17's closed-line balance), nor, on a deployment that sends
   PostHog events, before #806 closes.
 - **The 7-day alert.** A step pending for 7 days logs
@@ -1509,7 +1500,7 @@ private-alpha launch; record any override in the release manifest.
   fees/slippage" assumptions footer. Set the flag explicitly to
   `false|0|off|no` only as a kill switch; that restores the pre-realism path
   byte-for-byte. Record any kill-switch override in the release manifest.
-- `ARGUS_STRUCTURED_REASONING_EFFORT` / `ARGUS_CAPABILITY_REASONING_EFFORT` —
+- `CUADRAO_STRUCTURED_REASONING_EFFORT` / `CUADRAO_CAPABILITY_REASONING_EFFORT` —
   per-tier OpenRouter reasoning-effort overrides for the structured
   interpretation and capability-conflict calls
   (`xhigh|high|medium|low|minimal|none`). Unset uses the profile default. Lower
@@ -1691,14 +1682,14 @@ eval could have caught it, and that ran after the merge.
 Before any hosted activation, generate a separate secret for that environment
 with `openssl rand -base64 48`, as defined in
 [Invite code security](API_CONTRACT.md#invite-code-security). Set
-`ARGUS_INVITE_CODE_SECRET` on the API service in Render before the deploy that
+`CUADRAO_INVITE_CODE_SECRET` on the API service in Render before the deploy that
 applies destructive migration `20261003150100`. Keep the secret out of release
 evidence and logs. That migration discards old unkeyed codes; existing links
 remain valid. Follow the destructive-migration gate above, including the
 maintenance window, backup/readback plan, and explicit founder approval.
 
-Keep `ARGUS_HOUSEHOLDS_ENABLED`, `ARGUS_BETA_INVITES_ENABLED`, and
-`ARGUS_BETA_INVITE_GATE_ENABLED` false until the secret is installed and the
+Keep `CUADRAO_HOUSEHOLDS_ENABLED`, `CUADRAO_BETA_INVITES_ENABLED`, and
+`CUADRAO_BETA_INVITE_GATE_ENABLED` false until the secret is installed and the
 approved migration deployment has passed readiness. Enable a flag only through
 an explicit, reviewed hosted change.
 
@@ -1719,10 +1710,10 @@ implementation into the internal integration branch.
 Product defaults:
 
 ```bash
-ARGUS_GUEST_ACCESS_ENABLED=true
-ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true
+CUADRAO_GUEST_ACCESS_ENABLED=true
+CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true
 NEXT_PUBLIC_GUEST_ACCESS_ENABLED=true
-ARGUS_VISITOR_KEY_SECRET=<unique high-entropy environment secret>
+CUADRAO_VISITOR_KEY_SECRET=<unique high-entropy environment secret>
 ARGUS_DISCOVERY_GLOBAL_DAILY_CEILING=500
 ```
 
@@ -1752,7 +1743,7 @@ anonymous-sign-in limits, Argus origin enforcement and per-IP attempt limits,
 no direct anonymous-role access to product tables, migrations applied through
 `20260727230000_add_visitor_usage_counters.sql`, and a founder-approved
 `ARGUS_DISCOVERY_GLOBAL_DAILY_CEILING`. Generate a unique
-`ARGUS_VISITOR_KEY_SECRET` for each deployed environment so visitor identifiers
+`CUADRAO_VISITOR_KEY_SECRET` for each deployed environment so visitor identifiers
 remain opaque and cannot be correlated across environments. Without the public
 site key, non-loopback production preserves the auth landing rather than
 beginning an unusable Guest bootstrap. Do not mutate hosted Auth configuration
@@ -1811,8 +1802,8 @@ titles/previews, provider/model names, and raw transcripts stay out.
 Rollback order:
 
 1. set `NEXT_PUBLIC_GUEST_ACCESS_ENABLED=false`;
-2. set `ARGUS_GUEST_ACCESS_ENABLED=false`;
-3. leave `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` untouched, because rolling
+2. set `CUADRAO_GUEST_ACCESS_ENABLED=false`;
+3. leave `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` untouched, because rolling
    guest access back does not close public registration;
 4. verify the preserved centered auth landing path;
 5. stop new guest creation while retaining existing rows for safe expiry,
@@ -1832,7 +1823,7 @@ The live `argus-api` plan is `standard`. The live `argus-app` plan is
 `starter`. The requested-role migration and access-request exposure are
 complete after the paid-plan readback and maintenance/private-health probes in
 `docs/release-evidence/public-alpha-readiness.md`. Public account creation is
-open: the founder set `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` live on
+open: the founder set `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` live on
 2026-08-12, recorded in
 `docs/release-manifests/2026-08-12-main-production-promotion-716221f.md`, so
 anyone may register and the allowlist blocks only explicitly disabled rows.

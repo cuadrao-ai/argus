@@ -22,7 +22,7 @@ def _environment_sources(tmp_path: Path) -> Path:
     repository = tmp_path / "repository"
     repository.mkdir()
     subprocess.run(["git", "init", "--quiet"], cwd=repository, check=True)
-    settings = "ARGUS_TURN_CALL_ALLOWANCE=3\n"
+    settings = "CUADRAO_TURN_CALL_ALLOWANCE=3\n"
     outside = tmp_path / "live-eval.env"
     outside.write_text(settings, encoding="utf-8")
     (tmp_path / "outside-link.env").symlink_to(outside)

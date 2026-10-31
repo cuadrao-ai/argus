@@ -7,13 +7,13 @@ from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 qa_language=sys.argv[3] if len(sys.argv)>3 else 'en'
-if os.environ.get('ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED') not in {'true', 'false'}:
-    raise ValueError('Set ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED explicitly for acceptance')
+if os.environ.get('CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED') not in {'true', 'false'}:
+    raise ValueError('Set CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED explicitly for acceptance')
 ROOT=Path(sys.argv[1]).resolve()
 OUT=Path(sys.argv[2]).resolve()
 sys.path[:0]=[str(ROOT/'src'),str(ROOT)]
 os.chdir(ROOT)
-os.environ.update(ARGUS_PERSISTENCE_MODE='memory',ARGUS_DEV_MEMORY_FALLBACK='false', ARGUS_CHECKPOINTER_MODE='memory', ARGUS_MARKET_DATA_PROVIDER_MODE='synthetic_unit_fixture', ARGUS_GUEST_ACCESS_ENABLED='true',  ARGUS_BACKTEST_JOBS_SHADOW_ENABLED='true',ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED='false',ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED='false', ARGUS_CORS_ALLOW_ORIGINS='http://127.0.0.1:55480,http://localhost:55480', ARGUS_DISPOSABLE_DATABASE_URL='postgresql://postgres:postgres@127.0.0.1:55482/postgres', ARGUS_VISITOR_KEY_SECRET='local-docn-investigation', OPENROUTER_API_KEY='', OPENROUTER_GUEST_API_KEY='', ARGUS_MOCK_AUTH='false', ARGUS_POSTHOG_ENABLED='false')
+os.environ.update(CUADRAO_PERSISTENCE_MODE='memory',ARGUS_DEV_MEMORY_FALLBACK='false', CUADRAO_CHECKPOINTER_MODE='memory', ARGUS_MARKET_DATA_PROVIDER_MODE='synthetic_unit_fixture', CUADRAO_GUEST_ACCESS_ENABLED='true',  ARGUS_BACKTEST_JOBS_SHADOW_ENABLED='true',ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED='false',ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED='false', CUADRAO_CORS_ALLOW_ORIGINS='http://127.0.0.1:55480,http://localhost:55480', ARGUS_DISPOSABLE_DATABASE_URL='postgresql://postgres:postgres@127.0.0.1:55482/postgres', CUADRAO_VISITOR_KEY_SECRET='local-docn-investigation', OPENROUTER_API_KEY='', OPENROUTER_GUEST_API_KEY='', CUADRAO_MOCK_AUTH='false')
 from fastapi import Request
 from argus.api.main import app
 from argus.api import state as api_state

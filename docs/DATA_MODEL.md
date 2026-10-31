@@ -126,7 +126,7 @@ financial_record_revisions
 financial_account_idempotency
 ```
 
-Default-off, registered-only (`ARGUS_HOUSEHOLDS_ENABLED`):
+Default-off, registered-only (`CUADRAO_HOUSEHOLDS_ENABLED`):
 ```text
 households
 household_members
@@ -134,7 +134,7 @@ household_invitations
 household_account_grants
 ```
 
-Default-off, registered-only (`ARGUS_BETA_INVITES_ENABLED`; household
+Default-off, registered-only (`CUADRAO_BETA_INVITES_ENABLED`; household
 invitations also write the record):
 ```text
 beta_invitations
@@ -470,7 +470,7 @@ and login; it should not be exposed as a frontend product surface.
   pre-created Auth user, or password-setup flow.
 - Add a new private-alpha user with only an `email`; set `role` only for
   `admin` or `developer` access. Use `disabled_at` to revoke access.
-- `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` decides what this table denies, and
+- `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` decides what this table denies, and
   it has been open in production since 2026-08-12. Only a row with `disabled_at`
   set is denied now; a missing email is admitted. When that flag is off instead,
   a missing email is denied too.
@@ -1410,82 +1410,14 @@ Deferred durable surfaces:
 - Route-receipt to cost/eval/product-event joins beyond existing product
   records.
 
-### refusal_observations and refusal_log
+### refusal_observations and refusal_log (dropped)
 
-`refusal_observations` is private question/outcome evidence for the grounded-finance
-board's Refusal log and rejected artifact actions (#314). It observes every
-terminal chat reply so a boundary stated only in prose is retained too. A row
-does not assert that its answer is a refusal, a bug, or a missing capability.
-Those judgments belong to the reader; the writer adds no semantic taxonomy.
-
-`RefusalObservation` in `src/argus/observability/refusal_log.py` is the frozen
-Python write contract. Stored fields are:
-
-- `id`: generated `uuid`; each rejected request receives an independent identity.
-- `user_id`: verified actor `uuid`, references `profiles.id` ON DELETE CASCADE.
-- `request_id`: supplied/generated request correlation `text`, never a dedupe key.
-- `conversation_id`: nullable `text`. For rejected requests it is only the
-  submitted claim; it may be malformed, nonexistent, or belong to someone else.
-  It is not a foreign key and never authorizes or resolves an artifact.
-- `request_message_id`, `response_message_id`: nullable `uuid` pointers to the
-  exact canonical messages, both ON DELETE CASCADE. A terminal pair requires
-  both pointers; `response_message_id` is unique to prevent repeat persistence
-  from inflating frequency. The insert guard verifies the owner, conversation,
-  user/assistant roles, and existing runtime turn identity when available.
-- `asked`, `action`, `outcome`: nullable `text`, `jsonb` object, and `jsonb` object.
-  Linked turns must leave them null because messages already own those facts.
-  Requests rejected before message storage retain the submitted question,
-  validated action, and original HTTP problem here, without rewriting the shape.
-- `status_code`: actual transport status, `200` for accepted streams and `400`–`599`
-  for rejected requests; this is not a semantic outcome category.
-- `created_at`: insertion `timestamptz`.
-
-`refusal_log` is a service-only view with `security_invoker = true`. It exposes
-the same identity/status columns plus `asked`, `action`, `outcome`, and `response`.
-For linked turns it reads exact user-message content, `metadata.chat_action`,
-the full original assistant metadata, and assistant content. For rejected
-requests it reads the retained question/action/problem and has no response
-message. It never pairs by timestamp or joins rejected target claims.
-
-RLS is enabled with no client policies. `PUBLIC`, `anon`, and `authenticated`
-have no table or view access. The service role has table `INSERT`/`SELECT` and
-view `SELECT` only; there is no update/delete API, frontend surface, model-context
-projection, or PostHog export. Deleting either linked message removes its
-observation; deleting the actor removes both linked and rejected observations.
-Conversation deletion removes linked observations through message cascades.
-Rejected observations follow actor deletion because their conversation id is
-only a claim. A failed write logs only a content-free operational failure and
-does not change the original response or allowance settlement.
-
-Read frequency from existing outcome fields without assigning write-time labels:
-
-```sql
--- Original clarification shapes, including successful-context rows with null codes.
-select outcome #>> '{clarification,reason_code}' as reason_code, count(*)
-from public.refusal_log
-where created_at >= now() - interval '7 days'
-  and response_message_id is not null
-group by outcome #>> '{clarification,reason_code}'
-order by count(*) desc;
-
--- Original rejected-action problems; repeated request ids still count separately.
-select action ->> 'type' as action_type, status_code,
-       outcome ->> 'code' as code, count(*)
-from public.refusal_log
-where created_at >= now() - interval '7 days' and status_code >= 400
-group by action ->> 'type', status_code, outcome ->> 'code'
-order by count(*) desc;
-
--- Read the actual question and response before judging whether Argus could answer.
-select created_at, asked, action, outcome, response
-from public.refusal_log
-where created_at >= now() - interval '7 days'
-order by created_at desc;
-```
-
-The additive migration is `20260908205041_add_refusal_observations.sql`.
-Rollback removes the view, table, and its pair-validation function after removing
-the observation hooks. No model-facing or public request/response contract changes.
+Historical. `refusal_observations`, the service-only `refusal_log` view, and the
+`validate_refusal_observation_pair()` trigger function were created by
+`20260908205041_add_refusal_observations.sql` and dropped by
+`20261030220000_drop_refusal_observations.sql`. The chat API no longer writes
+refusal evidence, and the writer module was deleted. Nothing reads or writes
+these objects; do not query them.
 
 ### cost_ledger_entries
 
@@ -1592,7 +1524,7 @@ Cost model notes:
 A public evidence receipt: an immutable, sanitized snapshot of one or more
 eligible answers selected from one conversation, created by a registered owner
 and revocable by that owner. This extends the existing receipt table behind the
-default-off `ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED` flag.
+default-off `CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED` flag.
 
 The pipeline is `owned assistant messages -> PublicExcerptSnapshot ->
 PublicExcerptView`. Backtest messages resolve their canonical EvidenceArtifact
@@ -2057,7 +1989,7 @@ Archived accounts retain their money in this projection.
 
 The landed `20261001090000_household_membership.sql` is extended by
 `20261001120000_household_consent_recovery.sql`, behind default-off
-`ARGUS_HOUSEHOLDS_ENABLED`. These remain the only Household membership tables.
+`CUADRAO_HOUSEHOLDS_ENABLED`. These remain the only Household membership tables.
 Financial ownership stays `financial_accounts.user_id`; no share changes
 `space_id`, financial ownership, or the Personal owner-only RLS policies.
 
@@ -2079,7 +2011,7 @@ The short typed code is not stored on this table: its keyed digest lives in
 `argus_private.invite_code_digests` (migration
 `20261003150100_invite_code_digests_private.sql`, #789) holds one row per typed
 code: `digest` (primary key, `v2.<key id>.<HMAC-SHA-256 hex>` under
-`ARGUS_INVITE_CODE_SECRET`, enforced by a check), exactly one of
+`CUADRAO_INVITE_CODE_SECRET`, enforced by a check), exactly one of
 `household_invitation_id` or `beta_invitation_id` (unique, cascading), `created_at`
 and `rehashed_at` (set when a code found under the previous secret moves to the
 current one). The schema is unreachable for anon and authenticated; the table has
@@ -2460,7 +2392,7 @@ subject on `research_searches`.
   the visitor digest and one unit against `session:<guest user id>` in the
   same transaction, at turn start. The guest hits whichever daily ceiling
   is lower. The visitor ceiling is 300. The session ceiling defaults to 100
-  (`ARGUS_GUEST_SESSION_DAILY_TURN_CEILING`) so one workspace cannot reset
+  (`CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING`) so one workspace cannot reset
   the cap by changing IP. A claim that is admitted stands if the turn later
   errors; there is no release. A claim RPC error is not treated as
   exhaustion; the guest sees a short retry, not the daily-cap 429.
@@ -2473,7 +2405,7 @@ subject on `research_searches`.
 ### Signed-in compute policy
 - A signed-in account's ordinary chat turns claim one
   `account_compute_turns` unit against `user:<account id>` at turn start.
-  The daily ceiling defaults to 200 (`ARGUS_REGISTERED_DAILY_TURN_CEILING`).
+  The daily ceiling defaults to 200 (`CUADRAO_REGISTERED_DAILY_TURN_CEILING`).
   A claim that is admitted stands if the turn later errors; there is no
   release. A claim RPC error is not treated as exhaustion; the user sees a
   short retry, not the daily-cap 429. Migration
@@ -2567,7 +2499,7 @@ conversation recovery is exposed in the current product.
 Used specifically for **conversations** to hide them from the primary sidebar without deleting the data.
 
 ### Account deletion (Lane 6)
-`POST /account/delete`, behind the default-off `ARGUS_ACCOUNT_DELETION_ENABLED`,
+`POST /account/delete`, behind the default-off `CUADRAO_ACCOUNT_DELETION_ENABLED`,
 runs one deletion command for registered and guest accounts. The
 [account deletion census](specs/lanes/account-deletion-fk-census.md) owns what
 happens to each table. Rows other people still rely on, such as the person's
@@ -3278,7 +3210,7 @@ asset commands until an accepted response or explicit failure resolution.
 `public.apple_sign_in_credentials`
 (`supabase/migrations/20261003150000_apple_sign_in_credentials.sql`) holds one
 row per person who signed in with Apple while
-`ARGUS_APPLE_REVOCATION_CAPTURE_ENABLED` was on: `user_id` (primary key, the
+`CUADRAO_APPLE_REVOCATION_CAPTURE_ENABLED` was on: `user_id` (primary key, the
 verified session's user), `client_id` (the Apple client the token was issued
 to, the bundle id for the native app), `secret_ciphertext` (Apple's refresh
 token sealed with AES-256-GCM under `ARGUS_INGESTION_SECRET_KEY`, bound to
@@ -3827,7 +3759,7 @@ or split proposals. `batch` holds typed observations, receipt itemization,
 projection issues and compatible canonical candidates. It may be null before
 preparation. `preparation_job` names the current preparation attempt (number,
 ID, the draft version it was dispatched for, dispatch time, when its provider
-call started, and a retry request) when `ARGUS_DOCUMENT_JOBS_ENABLED` is on.
+call started, and a retry request) when `CUADRAO_DOCUMENT_JOBS_ENABLED` (older `ARGUS_DOCUMENT_JOBS_ENABLED`) is on.
 Only that attempt may claim the draft. The provider-call time is committed
 under the attempt's live lease before the provider can be reached. The job is
 replaced together with the draft only while no lease is live. Legacy rows can have a batch without retained source; a duplicate
@@ -4203,3 +4135,30 @@ percent of them, added 14,778,368 bytes to the registry. Re-running the swap
 with the same load contents produces the same registry. Proven by
 `tests/test_dgii_rnc_postgres.py`. Migration
 `supabase/migrations/20261018190000_dgii_rnc_registry.sql`.
+
+## Tables without a detailed section
+
+These live tables exist in the migrations but have no section above yet. The migration is the schema.
+
+| Table | Area | Created in `supabase/migrations/` |
+| --- | --- | --- |
+| `checkpoint_migrations` | Chat runtime checkpointer | `20260608041032_secure_checkpoint_rls.sql:6` |
+| `checkpoints` | Chat runtime checkpointer | `20260608041032_secure_checkpoint_rls.sql:10` |
+| `checkpoint_blobs` | Chat runtime checkpointer | `20260608041032_secure_checkpoint_rls.sql:21` |
+| `checkpoint_writes` | Chat runtime checkpointer | `20260608041032_secure_checkpoint_rls.sql:31` |
+| `argus_memory_vectors` | Personalization memory recall index | `20260807120000_add_memory_semantic_recall_index.sql:9` |
+| `cuadrao_early_access_signups` | Marketing early-access signups | `20260920000000_cuadrao_early_access_signups.sql:21` |
+| `financial_expectations` | Connected plan | `20260929150000_connected_plan.sql:1` |
+| `financial_plan_selections` | Connected plan | `20260929150000_connected_plan.sql:9` |
+| `financial_plan_definition_revisions` | Shared household planning | `20261002000000_shared_household_planning.sql:4` |
+| `financial_plan_responsibilities` | Shared household planning | `20261002000000_shared_household_planning.sql:66` |
+| `household_plan_receipts` | Shared household planning | `20261002000000_shared_household_planning.sql:75` |
+| `financial_goal_allocation_revisions` | Shared household planning | `20261002000000_shared_household_planning.sql:158` |
+| `household_plan_archived_claims` | Shared household planning | `20261002000000_shared_household_planning.sql:185` |
+| `household_plan_archived_allocations` | Shared household planning | `20261002000000_shared_household_planning.sql:191` |
+| `household_plan_archived_activities` | Shared household planning | `20261002020000_shared_plan_retained_revision_scope.sql:16` |
+| `household_deletion_events` | Account deletion | `20261004090000_account_deletion.sql:310` |
+| `whatsapp_outbox` | Business WhatsApp worker | `20261011020000_business_whatsapp_worker.sql:75` |
+| `whatsapp_reply_groups` | Business WhatsApp replies | `20261016065035_whatsapp_reply_grouping.sql:4` |
+| `whatsapp_reply_days` | Business WhatsApp replies | `20261016065035_whatsapp_reply_grouping.sql:19` |
+| `whatsapp_reply_attempts` | Business WhatsApp replies | `20261016065035_whatsapp_reply_grouping.sql:30` |

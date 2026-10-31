@@ -154,11 +154,11 @@ def test_real_guest_signup_replays_after_claim_commits_but_response_is_lost(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     gateway = _gateway()
     email = f"guest-signup-{secrets.token_hex(6)}@example.test"
     password = f"Block3-{secrets.token_urlsafe(18)}"
@@ -337,11 +337,11 @@ def test_real_guest_signup_refuses_an_existing_permanent_account_without_merging
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     gateway = _gateway()
     email = f"existing-guest-signup-{secrets.token_hex(6)}@example.test"
     existing_user_id: str | None = None
@@ -440,11 +440,11 @@ def test_real_confirmed_login_repairs_missing_signup_profile_before_claim(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     gateway = _gateway()
     email = f"guest-profile-repair-{secrets.token_hex(6)}@example.test"
     password = f"Profile-repair-{secrets.token_urlsafe(18)}"
@@ -560,11 +560,11 @@ def test_real_guest_signup_emits_signup_mail_and_claims_completed_work(
     import httpx
 
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     monkeypatch.setenv("ARGUS_DEV_MEMORY_FALLBACK", "false")
     monkeypatch.setenv("ARGUS_MARKET_DATA_PROVIDER_MODE", "synthetic_unit_fixture")
     monkeypatch.setenv("ARGUS_BACKTEST_JOBS_SHADOW_ENABLED", "false")
@@ -828,11 +828,11 @@ def test_disabled_public_email_cannot_prepare_real_guest_signup(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     gateway = _gateway()
     email = f"disabled-link-{secrets.token_hex(6)}@example.test"
     user_id: str | None = None

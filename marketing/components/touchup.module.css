@@ -56,7 +56,8 @@
 @keyframes useCaseOut { to { opacity: 0; transform: translateY(-60%); } }
 @keyframes useCaseIn { from { opacity: 0; transform: translateY(60%); } }
 .eyebrow {
-  font-size: 11px;
+  font-size: 14px;
+  line-height: 20px;
   text-transform: uppercase;
   letter-spacing: 0.15em;
   font-weight: 600;
@@ -91,12 +92,13 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 20px;
   min-height: 44px;
 }
 .section .caption {
-  font-size: 12px;
-  line-height: 1.6;
+  font-size: 14px;
+  line-height: 20px;
   margin-top: 20px;
 }
 .scene {
@@ -140,7 +142,8 @@
   padding: 5px 11px;
   background: #e7eddd;
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 14px;
+  line-height: 20px;
 }
 .paperLines {
   margin: 30px 0 24px;
@@ -156,7 +159,8 @@
   width: 60%;
 }
 .heroCard small {
-  font-size: 11px;
+  font-size: 14px;
+  line-height: 20px;
   color: var(--muted);
 }
 .story {
@@ -216,7 +220,8 @@
 }
 .recordDetail small {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
+  line-height: 20px;
 }
 .rail {
   display: flex;

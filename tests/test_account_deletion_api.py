@@ -265,7 +265,7 @@ def test_deletion_does_not_need_the_households_surface(enabled, monkeypatch) -> 
     from argus.api import households as households_api
     from argus.api import state as api_state
 
-    monkeypatch.delenv("ARGUS_HOUSEHOLDS_ENABLED", raising=False)
+    monkeypatch.delenv("CUADRAO_HOUSEHOLDS_ENABLED", raising=False)
     monkeypatch.setattr(households_api, "_service", None)
     monkeypatch.setattr(api_state, "PERSISTENCE_MODE", "supabase")
     monkeypatch.setattr(api_state, "DATABASE_URL", "postgresql://deletion@db/argus")

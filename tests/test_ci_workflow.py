@@ -188,7 +188,9 @@ def test_ci_runs_guest_release_gates_with_disposable_local_supabase() -> None:
     assert "ARGUS_LOCAL_SUPABASE_URL" in joined_steps
     assert "ARGUS_LOCAL_SUPABASE_ANON_KEY" in joined_steps
     assert "ARGUS_LOCAL_SUPABASE_SERVICE_ROLE_KEY" in joined_steps
-    assert "tests/evals/test_chat_runtime_trajectory_harness.py" in joined_steps
+    # The provider-free guest tests run in backend-checks' directory-level
+    # `pytest tests`; repeating them here bought no extra coverage.
+    assert "tests/evals/test_chat_runtime_trajectory_harness.py" not in joined_steps
     # Glob, not a hand-list: a new _postgres proof must be gated without
     # editing the workflow. The hand-list was how uncovered tables shipped.
     assert "tests/test_*_postgres.py" in joined_steps
@@ -357,7 +359,7 @@ def test_private_alpha_canary_workflow_scopes_secrets_to_operational_steps() -> 
     workflow = _canary_workflow()
     secret_names = {
         "RENDER_API_KEY",
-        "ARGUS_OPS_TOKEN",
+        "CUADRAO_OPS_TOKEN",
         "ARGUS_WORKFLOW_DATABASE_URL",
         "ARGUS_CANARY_EMAIL",
         "ARGUS_CANARY_SUPABASE_URL",
@@ -367,7 +369,7 @@ def test_private_alpha_canary_workflow_scopes_secrets_to_operational_steps() -> 
     browser = workflow["jobs"]["authenticated-browser-journey"]
     release_secret_names = {
         "RENDER_API_KEY",
-        "ARGUS_OPS_TOKEN",
+        "CUADRAO_OPS_TOKEN",
         "ARGUS_WORKFLOW_DATABASE_URL",
         "ARGUS_CANARY_SUPABASE_URL",
         "ARGUS_CANARY_SUPABASE_SERVICE_ROLE_KEY",
@@ -403,7 +405,7 @@ def test_private_alpha_canary_workflow_scopes_secrets_to_operational_steps() -> 
         browser_operational_secret_names
     )
     assert browser_steps["Run authenticated browser checks"].isdisjoint(
-        {"ARGUS_OPS_TOKEN", "ARGUS_WORKFLOW_DATABASE_URL"}
+        {"CUADRAO_OPS_TOKEN", "ARGUS_WORKFLOW_DATABASE_URL"}
     )
     for steps in (release_steps, browser_steps):
         for name, secrets in steps.items():
@@ -613,7 +615,7 @@ def test_docs_only_changes_script_classifies_docs_and_code_lists() -> None:
     assert _classify_changed_files(root_markdown) == {
         "docs_only": "false",
         "run_heavy": "true",
-        "run_marketing": "true",
+        "run_marketing": "false",
     }
     assert _classify_changed_files() == {
         "docs_only": "false",
@@ -938,7 +940,6 @@ def test_real_postgres_matrix_runs_on_pinned_and_latest_supabase_cli() -> None:
         if step.get("if") == "matrix.supabase-cli == 'pinned'"
     ]
     assert pinned_only == [
-        "Run provider-free guest backend tests",
         "Run required local anonymous Auth matrix",
     ]
 

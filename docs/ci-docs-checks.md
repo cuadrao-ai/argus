@@ -60,14 +60,15 @@ pull request:
 | --- | --- |
 | Only `docs/` | docs-checks |
 | Anything else | backend-checks, frontend-checks, guest-release-gates |
-| Also `marketing/`, `supabase/functions/`, `.github/` or an unlisted path | plus marketing-checks |
+| Also `marketing/`, `supabase/functions/`, `.github/workflows/ci.yml` or `.github/docs-only-changes.sh` | plus marketing-checks |
 
 Backend and web cannot narrow: backend tests scan `git ls-files`, and a web
 test runs `git grep` over the whole checkout. guest-release-gates holds the
 guest gates and every shared `tests/test_*_postgres.py` proof, replaying all
 migrations on the pinned and latest Supabase CLI; its tests read `docs/`, `web/`,
 `scripts/` and `fixtures/`, so it runs with the backend. Its id and check name stay
-for required-check compatibility. Marketing reads nothing else outside its
+for required-check compatibility. ci.yml defines marketing-checks and the classifier selects it, so
+editing either runs it. Marketing reads nothing else outside its
 package; [the guard](../tests/test_ci_job_selection.py) proves that against the
 tree. Pushes run every code job on both CLIs, and so does a manual run with
 `full_run` checked. Without it, a manual or scheduled run is the latest-CLI

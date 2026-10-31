@@ -103,8 +103,8 @@ def _feedback_route(
         gateway.private_alpha_email_allowed.return_value = True
     else:
         monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-        monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
-        monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+        monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
+        monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
         monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
         profile = _profile(None)
         gateway.get_auth_user_from_token.return_value = {
@@ -200,7 +200,7 @@ def test_notification_goes_to_support_through_the_shared_resend_transport(
         instances.append(instance)
         return instance
 
-    monkeypatch.setenv("ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD", "re_test_password")
+    monkeypatch.setenv("CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD", "re_test_password")
     monkeypatch.setattr("argus.domain.resend_email.smtplib.SMTP_SSL", _smtp)
 
     notify_feedback_submitted(
@@ -235,7 +235,7 @@ def test_a_failed_notification_is_logged_without_the_message_and_never_raised(
     failure: str,
 ) -> None:
     if failure == "smtp_error":
-        monkeypatch.setenv("ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD", "re_test_password")
+        monkeypatch.setenv("CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD", "re_test_password")
         monkeypatch.setattr(
             "argus.domain.resend_email.smtplib.SMTP_SSL",
             MagicMock(side_effect=OSError("connection refused")),
