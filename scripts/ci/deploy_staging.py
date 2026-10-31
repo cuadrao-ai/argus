@@ -444,7 +444,7 @@ def posted_deploy_id(payload: object) -> str:
 
 
 def fetch_render_deploy(
-    service_id: str, deploy_id: str, api_key: str
+    service_id: str, deploy_id: str, api_key: str, name: str
 ) -> dict[str, object]:
     if SERVICE_ID_RE.fullmatch(service_id) is None:
         raise DeployError("Service id is not usable.")
@@ -466,10 +466,10 @@ def fetch_render_deploy(
         with urllib.request.urlopen(request, timeout=30) as response:
             body = response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
-        raise DeployError(f"Deploy status request failed: HTTP {exc.code}.") from None
+        raise DeployError(f"{name} status request failed: HTTP {exc.code}.") from None
     except Exception as exc:
         raise DeployError(
-            f"Deploy status request failed: {type(exc).__name__}."
+            f"{name} status request failed: {type(exc).__name__}."
         ) from None
     payload = read_json(body)
     if not isinstance(payload, dict):
@@ -504,7 +504,7 @@ def command_wait(args: argparse.Namespace) -> int:
         api_key = os.environ.get("RENDER_API_KEY", "")
 
         def fetch():
-            return fetch_render_deploy(args.service_id, deploy_id, api_key)
+            return fetch_render_deploy(args.service_id, deploy_id, api_key, args.name)
 
         now = time.monotonic
         sleep = time.sleep

@@ -590,6 +590,38 @@ def test_pending_deploy_times_out(tmp_path: Path) -> None:
     assert "cuadrao-api-staging" in result.stderr
 
 
+def test_status_request_errors_name_the_service(tmp_path: Path) -> None:
+    (tmp_path / "deploy.json").write_text('{"id": "dep-abc123"}', encoding="utf-8")
+    (tmp_path / "sitecustomize.py").write_text(
+        "import os, urllib.error, urllib.request\n"
+        "def urlopen(request, timeout=None):\n"
+        "    if os.environ['FAKE_ERROR'] == 'timeout':\n"
+        "        raise TimeoutError\n"
+        "    raise urllib.error.HTTPError(request.full_url, 503, 'x', {}, None)\n"
+        "urllib.request.urlopen = urlopen\n",
+        encoding="utf-8",
+    )
+    for error, detail in (("timeout", "TimeoutError"), ("http", "HTTP 503")):
+        result = run(
+            "wait-deploy",
+            "--name",
+            "cuadrao-api-staging",
+            "--sha",
+            SHA,
+            "--service-id",
+            "srv-abc123",
+            "--response",
+            str(tmp_path / "deploy.json"),
+            env={
+                "FAKE_ERROR": error,
+                "PYTHONPATH": str(tmp_path),
+                "RENDER_API_KEY": "synthetic",
+            },
+        )
+        assert result.returncode == 1, result.stderr
+        assert f"cuadrao-api-staging status request failed: {detail}." in result.stderr
+
+
 def git_diff_z(repo: Path, base: str, head: str) -> bytes:
     return subprocess.check_output(
         [
