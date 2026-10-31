@@ -603,6 +603,69 @@ def test_history_can_return_archived_chats_without_deleted_chats() -> None:
     assert active["id"] not in {item["id"] for item in response.json()["items"]}
 
 
+def test_history_filters_runs_by_parent_conversation_lifecycle() -> None:
+    client = _client()
+    user_id = api_state.store.get_or_create_dev_user().id
+
+    active = client.post("/api/v1/conversations", json={"title": "Active idea"}).json()[
+        "conversation"
+    ]
+    archived = client.post(
+        "/api/v1/conversations", json={"title": "Archived idea"}
+    ).json()["conversation"]
+    deleted = client.post("/api/v1/conversations", json={"title": "Deleted idea"}).json()[
+        "conversation"
+    ]
+
+    for symbol, conversation in (
+        ("AAPL", active),
+        ("TSLA", archived),
+        ("MSFT", deleted),
+    ):
+        run = BacktestRun(
+            id=f"{symbol.lower()}-history-lifecycle",
+            conversation_id=conversation["id"],
+            strategy_id=None,
+            status="completed",
+            asset_class="equity",
+            symbols=[symbol],
+            allocation_method="equal_weight",
+            benchmark_symbol="SPY",
+            metrics={},
+            config_snapshot={"template": "rsi_mean_reversion"},
+            conversation_result_card={
+                "title": f"{symbol} mean reversion",
+                "rows": [{"label": "Return", "value": "+1.0%"}],
+            },
+            created_at=utcnow(),
+        )
+        api_state.store.backtest_runs[run.id] = run
+        api_state.store.backtest_run_owners[run.id] = user_id
+
+    assert (
+        client.patch(
+            f"/api/v1/conversations/{archived['id']}",
+            json={"archived": True},
+        ).status_code
+        == 200
+    )
+    assert client.delete(f"/api/v1/conversations/{deleted['id']}").status_code == 200
+
+    default_history = client.get("/api/v1/history").json()["items"]
+    archived_history = client.get("/api/v1/history?archived=true").json()["items"]
+    deleted_history = client.get("/api/v1/history?deleted=true").json()["items"]
+
+    assert {
+        item["conversation_id"] for item in default_history if item["type"] == "run"
+    } == {active["id"]}
+    assert {
+        item["conversation_id"] for item in archived_history if item["type"] == "run"
+    } == {archived["id"]}
+    assert {
+        item["conversation_id"] for item in deleted_history if item["type"] == "run"
+    } == {deleted["id"]}
+
+
 def test_execution_realism_payload_is_ignored_when_feature_flag_off(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
