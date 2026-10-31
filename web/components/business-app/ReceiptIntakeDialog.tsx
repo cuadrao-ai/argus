@@ -21,6 +21,7 @@ import { ReceiptUploadQueue, isUnfinishedUpload, type DocumentType, type IntakeT
 import { CopyButton, WrappingAddress, useCopyLabels } from "./foundation/CopyButton";
 import { EmptyState } from "./foundation/EmptyState";
 import { randomId } from "@/lib/random-id";
+import { NOTES_ENTRY_ENABLED } from "@/lib/business-notes-entry";
 import { captureOutcomeUnknown, validCaptureText } from "./ManualCaptureDialog";
 import { useForwardAddress } from "./useForwardAddress";
 import { useInputCapabilities } from "./useInputCapabilities";
@@ -272,7 +273,8 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
       width="md"
       summary={batchSummary || undefined}
       snaps={["peek", "half", "full"]}
-      initialSnap="half"
+      // Half leaves the reading control 8px past a 844px phone once the note row is gone.
+      initialSnap={isBelowTablet ? "full" : "half"}
       // The X closes; the footer holds only the next step, once there is one.
       footer={saved.length > 0 && !unfinished && !uploading ? (
         <div className="flex justify-end" data-testid="receipt-intake-footer">
@@ -283,7 +285,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
       ) : undefined}
     >
       <div className="space-y-5 px-4 pb-6">
-        {writing ? (
+        {NOTES_ENTRY_ENABLED && writing ? (
           <div data-testid="intake-write" className="rounded-item border border-[#7d8a84] bg-[#FFFEFA] p-4 dark:border-white/30 dark:bg-white/[0.02]">
             <label htmlFor="intake-write-text" className="font-display text-[17px] font-medium text-[#172b26] dark:text-white">{t("business.intake.write_title", "Write it")}</label>
             <textarea
@@ -342,7 +344,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
             ) : null}
           </div>
         )}
-        {many && !writing ? (
+        {NOTES_ENTRY_ENABLED && many && !writing ? (
           <p className={`-mt-2 text-center text-[13px] ${MUTED}`}>
             {t("business.intake.no_paper", "No paper?")}
             <button type="button" data-testid="intake-write-open" className={`${smallAction} ml-1`} onClick={() => setWriting(true)}>

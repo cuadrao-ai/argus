@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Literal
 from uuid import UUID
 
 if TYPE_CHECKING:
-    from argus.agent_runtime.business.context import (
+    from argus.domain.business.context import (
         AuthorizedBusinessContext,
         BusinessActionService,
     )
@@ -218,7 +218,7 @@ def authorized_business_turn_context(
     begin_reply: Callable[[], str | None],
     language: str = "es-419",
 ) -> AuthorizedBusinessContext:
-    from argus.agent_runtime.business.context import AuthorizedBusinessContext
+    from argus.domain.business.context import AuthorizedBusinessContext
     from argus.domain.business.contracts.authority import TrustedActor
 
     actor = TrustedActor(

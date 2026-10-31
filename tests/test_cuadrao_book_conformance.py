@@ -1,8 +1,8 @@
-"""The iPhone device book (ios/Packages/CuadraoBook) agrees with the server on money.
+"""The iPhone device book (native/Packages/CuadraoBook) agrees with the server on money.
 
 The Swift package reads the same vector files, so a change on either side that
 moves an amount, a share, a category or the currency set fails here or in
-`swift test --package-path ios/Packages/CuadraoBook`.
+`swift test --package-path native/Packages/CuadraoBook`.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from argus.domain.recording.loop_reads import personal_share
 from argus.domain.recording.loop_schemas import CATEGORY_IDS
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = ROOT / "ios/Packages/CuadraoBook"
+PACKAGE = ROOT / "native/Packages/CuadraoBook"
 VECTORS = json.loads((PACKAGE / "Vectors/conformance.json").read_text())
 
 INT64_MAX = 2**63 - 1
@@ -74,7 +74,7 @@ def test_currency_vector_is_the_server_set_and_exponents():
 
 def test_generated_currency_files_are_current():
     result = subprocess.run(
-        [sys.executable, str(ROOT / "ios/scripts/generate_book_currencies.py"), "--check"],
+        [sys.executable, str(ROOT / "native/scripts/generate_book_currencies.py"), "--check"],
         capture_output=True,
         text=True,
         check=False,

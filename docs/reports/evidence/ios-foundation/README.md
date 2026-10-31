@@ -54,7 +54,7 @@ The final affected check command adds:
 -only-testing:ArgusFoundationUITests/FoundationUITests/testSearchStateSurvivesTabSwitchAndKeyboard
 ```
 
-See [setup](../../../../ios/README.md). Full result bundles remain local ignored
+See setup (removed; see tag `archive/ios-personal-2026-10-30`). Full result bundles remain local ignored
 build outputs; durable JSON results and exported PNGs are committed here.
 
 ## Observations

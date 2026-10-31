@@ -4,7 +4,7 @@ import base64
 import json
 from typing import Any
 
-from argus.domain.backtest_admission import canonical_hash
+from argus.domain.idempotency import canonical_hash
 from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording import canonical_groups
 from argus.domain.recording.errors import (

@@ -15,7 +15,14 @@ from argus.domain.business.fiscal_sandbox.contracts import Case, digest
 from argus.domain.business.fiscal_sandbox.service import Service
 
 from .store import InvoiceError, Store
-from .validation import amounts, decimal_input, draft_errors, line_amounts, money
+from .validation import (
+    amounts,
+    decimal_input,
+    draft_errors,
+    fiscal_blockers,
+    line_amounts,
+    money,
+)
 
 
 def number(value: str | Decimal) -> int | float:
@@ -30,8 +37,8 @@ def payload(
     data: InvoiceDraft, allocation: Case, issuer: dict[str, Any]
 ) -> dict[str, Any]:
     errors = draft_errors(data)
-    if data.currency != "DOP":
-        errors["currency"] = "fx_basis_required"
+    for blocker in fiscal_blockers(data):
+        errors["currency"] = blocker
     if issuer["country"] != "DO":
         errors["issuer.country"] = "jurisdiction"
     sender = allocation.payload["sender"]

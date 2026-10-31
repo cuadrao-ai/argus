@@ -40,6 +40,8 @@ ENV = {
     "ARGUS_WHATSAPP_DISPLAY_PHONE_NUMBER": "+1 555 000 9999",
     "ARGUS_DOCUMENT_EXTRACTION_ENABLED": "true",
     "ARGUS_BUSINESS_PILOT_ENABLED": "true",
+    # A fixed test key: photos are acknowledged only once sealed with it.
+    "ARGUS_INGESTION_SECRET_KEY": "dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHQ=",
 }
 
 

@@ -44,7 +44,7 @@ def today() -> date:
     clock freezes this day too; the calendar is Santo Domingo's, never the
     host's or the browser's."""
 
-    from argus.domain.market_data.new_york_clock import new_york_now
+    from argus.domain.clock import new_york_now
     from argus.domain.recording.records import DEFAULT_TIME_ZONE
 
     return new_york_now().astimezone(ZoneInfo(DEFAULT_TIME_ZONE)).date()

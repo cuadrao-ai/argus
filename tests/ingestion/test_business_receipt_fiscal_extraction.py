@@ -1,3 +1,4 @@
+import unicodedata
 from datetime import datetime, timezone
 from hashlib import sha256
 from unittest.mock import AsyncMock
@@ -228,3 +229,292 @@ def test_original_receipt_and_fiscal_evidence_survive_replay_unchanged(
     )
     assert store.source(user_id="owner", connection_id="connection") == content
     assert store.get(user_id="owner", connection_id="connection") == batch
+
+
+class TestPrintedIdentifierSplit:
+    @pytest.mark.parametrize(
+        ("name", "read", "identifier"),
+        [
+            pytest.param(
+                "rnc", "RNC 1-23-45678-9 (ficticio)", "1-23-45678-9", id="rnc-tail"
+            ),
+            pytest.param("rnc", "RNC: 101987654", "101987654", id="rnc-label"),
+            pytest.param("rnc", "001-1234567-8 cedula", "001-1234567-8", id="cedula"),
+            pytest.param("rnc", "1-23-45678-9", "1-23-45678-9", id="rnc-clean"),
+            pytest.param("rnc", "SYNTHETIC-RNC-1", "SYNTHETIC-RNC-1", id="rnc-none"),
+            pytest.param(
+                "ncf", "NCF B0100000987 (ficticio)", "B0100000987", id="ncf-tail"
+            ),
+            pytest.param("ncf", "NCF: B0100000987", "B0100000987", id="ncf-label"),
+            pytest.param("ncf", "B0100000987", "B0100000987", id="ncf-clean"),
+            pytest.param("ncf", "B01000008", "B01000008", id="ncf-malformed"),
+            pytest.param(
+                "ncf", "NCF B01000008 (ficticio)", "B01000008", id="ncf-malformed-tail"
+            ),
+            pytest.param("ncf", "sin comprobante", "sin comprobante", id="ncf-none"),
+        ],
+    )
+    def test_fact_holds_identifier_and_receipt_keeps_full_read(
+        self, name: str, read: str, identifier: str
+    ) -> None:
+        receipt = ReceiptDetails(**{name: read})
+        projected = extractor.fiscal_facts_from_receipt(receipt, source_id=uuid4())
+        assert getattr(projected, name).value == identifier
+        assert getattr(receipt, name) == read
+
+    def test_ncf_characters_are_never_added_removed_or_changed(self) -> None:
+        for read in ("B01000008", "b0100000987", "E3100000000012345", "B01-0000098"):
+            receipt = ReceiptDetails(ncf=f"NCF: {read} (ficticio)")
+            value = extractor.fiscal_facts_from_receipt(
+                receipt, source_id=uuid4()
+            ).ncf.value
+            assert value == f"NCF: {read} (ficticio)" or value == read
+
+    def test_split_is_idempotent(self) -> None:
+        source_id = uuid4()
+        first = extractor.fiscal_facts_from_receipt(
+            ReceiptDetails(
+                rnc="RNC 1-23-45678-9 (ficticio)", ncf="NCF B01000008 (ficticio)"
+            ),
+            source_id=source_id,
+        )
+        second = extractor.fiscal_facts_from_receipt(
+            ReceiptDetails(rnc=first.rnc.value, ncf=first.ncf.value), source_id=source_id
+        )
+        assert second == first
+
+    def test_cleanup_on_use_reads_the_split_fact(self) -> None:
+        from argus.domain.business.fiscal_identity import identity_digits, normalized_ncf
+
+        projected = extractor.fiscal_facts_from_receipt(
+            ReceiptDetails(
+                rnc="RNC 1-23-45678-9 (ficticio)", ncf="NCF B0100000987 (ficticio)"
+            ),
+            source_id=uuid4(),
+        )
+        assert identity_digits(projected.rnc.value) == "123456789"
+        assert normalized_ncf(projected.ncf.value) == "B0100000987"
+
+    @pytest.mark.parametrize(
+        ("name", "read", "expected"),
+        [
+            pytest.param(
+                "rnc", "RNC 1--131000002", None, id="rnc-prefix-repeated-hyphens"
+            ),
+            pytest.param(
+                "rnc", "RNC 131000002--1", None, id="rnc-suffix-repeated-hyphens"
+            ),
+            pytest.param(
+                "rnc", "RNC 1 - 131000002", None, id="rnc-prefix-mixed-separators"
+            ),
+            pytest.param(
+                "rnc", "RNC 1 131000002", None, id="rnc-prefix-digit-after-space"
+            ),
+            pytest.param(
+                "rnc", "RNC 131000002 9", None, id="rnc-suffix-digit-after-space"
+            ),
+            pytest.param(
+                "rnc", "RNC 131000002\uff19", None, id="rnc-suffix-fullwidth-digit"
+            ),
+            pytest.param(
+                "rnc", "RNC \uff19131000002", None, id="rnc-prefix-fullwidth-digit"
+            ),
+            pytest.param(
+                "rnc", "RNC 131000002-\u0669", None, id="rnc-suffix-arabic-indic-digit"
+            ),
+            pytest.param(
+                "rnc", "RNC \u0669--131000002", None, id="rnc-prefix-arabic-indic-digit"
+            ),
+            pytest.param("rnc", "RNC 1\u00a0131000002", None, id="rnc-prefix-nbsp"),
+            pytest.param("rnc", "RNC 131000002\u00a09", None, id="rnc-suffix-nbsp"),
+            pytest.param("rnc", "RNC 1\u2011131000002", None, id="rnc-prefix-nb-hyphen"),
+            pytest.param("rnc", "RNC 131000002\u20119", None, id="rnc-suffix-nb-hyphen"),
+            pytest.param("rnc", "RNC 131000002\u00f1", None, id="rnc-suffix-letter"),
+            pytest.param(
+                "rnc", "RNC 131000002\u0301", None, id="rnc-suffix-combining-mark"
+            ),
+            pytest.param(
+                "ncf", "NCF B0100000987\uff19", None, id="ncf-suffix-fullwidth-digit"
+            ),
+            pytest.param(
+                "ncf", "NCF \uff21B0100000987", None, id="ncf-prefix-fullwidth-letter"
+            ),
+            pytest.param(
+                "ncf", "NCF \uff19B0100000987", None, id="ncf-prefix-fullwidth-digit"
+            ),
+            pytest.param(
+                "ncf", "NCF B0100000987\u00e9", None, id="ncf-suffix-accented-letter"
+            ),
+            pytest.param(
+                "ncf", "NCF \u00f1B0100000987", None, id="ncf-prefix-accented-letter"
+            ),
+            pytest.param(
+                "ncf", "NCF n\u0303B0100000987", None, id="ncf-prefix-decomposed-letter"
+            ),
+            pytest.param(
+                "ncf",
+                "NCF B0100000987\u0301\uff19",
+                None,
+                id="ncf-suffix-mark-then-digit",
+            ),
+            pytest.param(
+                "ncf", "NCF B0100000987\u00a09", None, id="ncf-suffix-nbsp-digit"
+            ),
+            pytest.param(
+                "ncf", "NCF 9\u2011B0100000987", None, id="ncf-prefix-nb-hyphen"
+            ),
+            pytest.param("rnc", "RNC 1\u200b131000002", None, id="rnc-prefix-zwsp"),
+            pytest.param("rnc", "RNC 1\t131000002", None, id="rnc-prefix-tab"),
+            pytest.param(
+                "ncf", "NCF B0100000987\u00ad9", None, id="ncf-suffix-soft-hyphen"
+            ),
+            pytest.param("ncf", "NCF B0100000987\u200d9", None, id="ncf-suffix-zwj"),
+            pytest.param(
+                "ncf", "NCF B0100000987 \u200b9", None, id="ncf-suffix-space-zwsp"
+            ),
+            pytest.param("rnc", "RNC 1\u2212131000002", None, id="rnc-prefix-minus"),
+            pytest.param(
+                "ncf",
+                "NCF B0100000987\u200d\uff19",
+                None,
+                id="ncf-suffix-zwj-fullwidth-digit",
+            ),
+            pytest.param(
+                "rnc",
+                "RNC 1-23-45678-9 (ficticio)",
+                "1-23-45678-9",
+                id="rnc-formatted-note",
+            ),
+            pytest.param("rnc", "RNC 131000002", "131000002", id="rnc-plain"),
+            pytest.param("rnc", "RNC: 1-23-45678-9", "1-23-45678-9", id="rnc-colon"),
+            pytest.param("rnc", "RNC\u00a0131000002", "131000002", id="rnc-nbsp-label"),
+            pytest.param("rnc", "131000002\u00a0nota", "131000002", id="rnc-nbsp-note"),
+            pytest.param(
+                "ncf",
+                "NCF\u2009B0100000987\u3000(ficticio)",
+                "B0100000987",
+                id="ncf-thin-and-ideographic-space",
+            ),
+            pytest.param("rnc", "RNC 131000002\u00a0", "131000002", id="rnc-nbsp-end"),
+            pytest.param("rnc", "RNC 131000002\u00a0\u00a0x", None, id="rnc-two-nbsp"),
+            pytest.param("rnc", "RNC 131000002\u00a0-x", None, id="rnc-nbsp-then-dash"),
+            pytest.param("rnc", "RNC 131000002\u2028x", None, id="rnc-line-separator"),
+            pytest.param(
+                "rnc", "RNC 131000002\u2029x", None, id="rnc-paragraph-separator"
+            ),
+            pytest.param("ncf", "NCF B0100000987", "B0100000987", id="ncf-plain"),
+            pytest.param(
+                "ncf", "ncf b0100000987 (ficticio)", "b0100000987", id="ncf-lowercase"
+            ),
+            pytest.param("ncf", "e-CF E310000000001", "E310000000001", id="ecf"),
+        ],
+    )
+    def test_a_read_that_runs_on_past_the_identifier_stays_whole(
+        self, name: str, read: str, expected: str | None
+    ) -> None:
+        receipt = ReceiptDetails(**{name: read})
+        projected = extractor.fiscal_facts_from_receipt(receipt, source_id=uuid4())
+        assert getattr(projected, name).value == (expected or read)
+        assert getattr(receipt, name) == read
+
+    def test_boundary_reads_kept_whole_stay_rejected_by_strict_cleanup(self) -> None:
+        from argus.domain.business.fiscal_identity import identity_digits, normalized_ncf
+
+        assert identity_digits("RNC 1--131000002") is None
+        assert identity_digits("RNC 131000002\uff19") is None
+        assert normalized_ncf("NCF B0100000987\uff19") is None
+
+    @pytest.mark.parametrize(
+        ("name", "read"),
+        [
+            ("rnc", "RNC 131000002 / 101234563"),
+            ("rnc", "131000002, 101234563"),
+            ("rnc", "131000002;101234563"),
+            ("ncf", "NCF B0100000987 / B0100000988"),
+            ("ncf", "NCF B0400000002, B0100000987"),
+            ("ncf", "NCF B0100000987 o B0100000988"),
+        ],
+    )
+    def test_a_second_identifier_in_the_read_keeps_it_whole(
+        self, name: str, read: str
+    ) -> None:
+        receipt = ReceiptDetails(**{name: read})
+        projected = extractor.fiscal_facts_from_receipt(receipt, source_id=uuid4())
+        assert getattr(projected, name).value == read
+        assert getattr(receipt, name) == read
+
+
+_INVISIBLE = [
+    chr(code)
+    for code in range(0x10000)
+    if unicodedata.category(chr(code)) in ("Cf", "Cc")
+]
+
+
+@pytest.mark.parametrize(
+    ("name", "token"), [("rnc", "131000002"), ("ncf", "B0100000987")]
+)
+def test_any_format_or_control_character_at_an_edge_keeps_the_read_whole(
+    name: str, token: str
+) -> None:
+    source_id = uuid4()
+    for char in _INVISIBLE:
+        for read in (
+            f"{char}{token}",
+            f"{token}{char}",
+            f"{char}{token} x",
+            f"{token} {char}",
+            f"x {char}{token}",
+        ):
+            receipt = ReceiptDetails(**{name: read})
+            projected = extractor.fiscal_facts_from_receipt(receipt, source_id=source_id)
+            assert getattr(projected, name).value == read, repr(read)
+            assert getattr(receipt, name) == read
+
+
+_SPACES = frozenset(
+    chr(code) for code in range(0x110000) if unicodedata.category(chr(code)) == "Zs"
+)
+
+
+@pytest.mark.parametrize(
+    ("name", "token"), [("rnc", "131000002"), ("ncf", "B0100000987")]
+)
+def test_only_edge_punctuation_or_one_space_may_touch_an_identifier(
+    name: str, token: str
+) -> None:
+    """Every code point beside the token: the read splits only for the ASCII
+    edge punctuation or a Unicode Zs space; everything else keeps it whole."""
+
+    from argus.domain.business.fiscal_identity import (
+        EDGE_PUNCTUATION,
+        printed_ncf,
+        printed_rnc,
+    )
+
+    printed = printed_rnc if name == "rnc" else printed_ncf
+    permitted = EDGE_PUNCTUATION | _SPACES
+    for code in range(0x110000):
+        char = chr(code)
+        if char.isascii() and char.isalnum():
+            continue
+        clean = char in permitted
+        for read in (f"{char}{token}", f"{token}{char}"):
+            assert printed(read) == (token if clean else read), repr(read)
+        if char in _SPACES:
+            assert printed(f"x{char}{token}{char}nota") == token, repr(char)
+            assert printed(f"{token}{char}9") == f"{token}{char}9", repr(char)
+            assert printed(f"1{char}{token}") == f"1{char}{token}", repr(char)
+
+
+@pytest.mark.parametrize("symbol", ["\u02d7", "\u2053", "\u2796"])
+@pytest.mark.parametrize(
+    ("name", "token"), [("rnc", "131000002"), ("ncf", "B0100000987")]
+)
+def test_dash_like_symbols_at_an_edge_keep_the_read_whole(
+    name: str, token: str, symbol: str
+) -> None:
+    for read in (f"{token}{symbol}9", f"9{symbol}{token}", f"{token}{symbol}"):
+        receipt = ReceiptDetails(**{name: read})
+        projected = extractor.fiscal_facts_from_receipt(receipt, source_id=uuid4())
+        assert getattr(projected, name).value == read, repr(read)

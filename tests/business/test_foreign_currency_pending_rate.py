@@ -1,0 +1,218 @@
+"""Foreign-currency lines wait for a rate, and the user reads it in words."""
+
+from __future__ import annotations
+
+import io
+from dataclasses import replace
+from datetime import date
+from xml.etree import ElementTree
+from zipfile import ZipFile
+
+from argus.api.business_month_close_schemas import MonthClose
+from argus.domain.business.dgii_export import build_fiscal_packet, fiscal_manifest
+from argus.domain.business.month_close import PAYMENT_METHODS, summarize
+from argus.domain.business.month_close_store import foreign_currency, month_close
+
+from tests.business.test_month_close import DAY, document
+from tests.dgii.test_packet import practice_records
+
+NOTE = "Moneda extranjera: pendiente de tasa"
+SEPTEMBER = dict(
+    rnc="131000001",
+    business_name="Práctica",
+    start=date(2026, 9, 1),
+    end=date(2026, 9, 30),
+    captured_on=DAY,
+)
+
+
+def _dollars(*indexes):
+    records = practice_records()
+    return tuple(
+        replace(record, currency="USD") if index in indexes else record
+        for index, record in enumerate(records)
+    )
+
+
+def _conciliacion(packet):
+    ns = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    with ZipFile(io.BytesIO(packet.files["dgii/606-607.xlsx"])) as book:
+        strings = [
+            "".join(item.itertext())
+            for item in ElementTree.fromstring(book.read("xl/sharedStrings.xml")).findall(
+                "m:si", ns
+            )
+        ]
+        sheet = ElementTree.fromstring(book.read("xl/worksheets/sheet4.xml"))
+    return [
+        [strings[int(cell.find("m:v", ns).text)] for cell in row]
+        for row in sheet.findall("m:sheetData/m:row", ns)
+    ]
+
+
+def test_peso_only_month_has_no_pending_rate_and_no_note():
+    manifest, _rows = fiscal_manifest(practice_records(), **SEPTEMBER)
+    for form in ("606", "607"):
+        assert manifest["forms"][form]["foreign_currency_pending_rate_count"] == 0
+        assert "foreign_currency_note" not in manifest["forms"][form]
+    assert foreign_currency(manifest["forms"]) == {
+        "606": {"pending_rate_count": 0, "reason": None},
+        "607": {"pending_rate_count": 0, "reason": None},
+    }
+
+
+def test_each_form_counts_its_own_dollar_lines():
+    one = fiscal_manifest(_dollars(4), **SEPTEMBER)[0]["forms"]
+    assert one["607"]["foreign_currency_pending_rate_count"] == 1
+    assert one["607"]["foreign_currency_note"] == NOTE
+    assert one["606"]["foreign_currency_pending_rate_count"] == 0
+    several = fiscal_manifest(_dollars(0, 1, 2), **SEPTEMBER)[0]["forms"]
+    assert several["606"]["foreign_currency_pending_rate_count"] == 3
+    assert several["607"]["foreign_currency_pending_rate_count"] == 0
+    assert foreign_currency(several)["606"] == {"pending_rate_count": 3, "reason": NOTE}
+
+
+def test_counting_leaves_lines_totals_and_status_alone():
+    records = _dollars(1)
+    manifest, rows = fiscal_manifest(records, **SEPTEMBER)
+    baseline, baseline_rows = fiscal_manifest(
+        tuple(r for i, r in enumerate(records) if i != 1), **SEPTEMBER
+    )
+    assert rows == baseline_rows
+    assert manifest["totals_dop"] == baseline["totals_dop"]
+    assert manifest["forms"]["606"]["status"] == "needs_review"
+    [bridge] = [b for b in manifest["reconciliation"] if b["currency"] == "USD"]
+    assert bridge["reason"] == "fiscal_conversion_required"
+    assert bridge["note"] == NOTE
+
+
+def test_workbook_reads_the_note_and_never_the_raw_code():
+    rows = _conciliacion(build_fiscal_packet(_dollars(0, 4), **SEPTEMBER))
+    reason = rows[0].index("reason")
+    reasons = [row[reason] for row in rows[1:]]
+    assert reasons.count(NOTE) == 2
+    assert "fiscal_conversion_required" not in reasons
+
+
+def test_older_summary_without_the_count_reads_as_zero():
+    assert foreign_currency({"606": {"status": "needs_review"}}) == {
+        "606": {"pending_rate_count": 0, "reason": None},
+        "607": {"pending_rate_count": 0, "reason": None},
+    }
+    wire = {
+        "month": "2026-09",
+        "today": DAY,
+        "payment_methods": list(PAYMENT_METHODS),
+        "dgii_forms": {"606": "no_operations", "607": "no_operations"},
+        **summarize([], date(2026, 9, 1), date(2026, 9, 30)),
+    }
+    parsed = MonthClose.model_validate(wire).model_dump(by_alias=True)
+    assert parsed["dgii_foreign_currency"]["606"] == {
+        "pending_rate_count": 0,
+        "reason": None,
+    }
+
+
+def test_month_close_carries_the_count_beside_the_unchanged_status():
+    manifest, _rows = fiscal_manifest(_dollars(0, 1), **SEPTEMBER)
+    statuses = {form: shape["status"] for form, shape in manifest["forms"].items()}
+    body = month_close("2026-09", DAY, (), statuses, foreign_currency(manifest["forms"]))
+    wire = MonthClose.model_validate(body).model_dump(by_alias=True, mode="json")
+    assert wire["dgii_forms"]["606"] == "needs_review"
+    assert wire["dgii_foreign_currency"] == {
+        "606": {"pending_rate_count": 2, "reason": NOTE},
+        "607": {"pending_rate_count": 0, "reason": None},
+    }
+
+
+def _wire(records):
+    manifest, _rows = fiscal_manifest(records, **SEPTEMBER)
+    statuses = {form: shape["status"] for form, shape in manifest["forms"].items()}
+    body = month_close("2026-09", DAY, (), statuses, foreign_currency(manifest["forms"]))
+    return MonthClose.model_validate(body).model_dump(by_alias=True, mode="json")
+
+
+def test_an_undeclared_dollar_line_counts_on_both_forms_it_puts_in_review():
+    records = practice_records()
+    for kind in ("expense", "refund", "income"):
+        line = next(r for r in records if r.kind == kind)
+        wire = _wire((replace(line, currency="USD", declaration=None),))
+        assert wire["dgii_forms"] == {"606": "needs_review", "607": "needs_review"}
+        assert wire["dgii_foreign_currency"] == {
+            "606": {"pending_rate_count": 1, "reason": NOTE},
+            "607": {"pending_rate_count": 1, "reason": NOTE},
+        }, kind
+
+
+def test_a_dollar_money_movement_is_never_a_pending_rate_line():
+    expense = next(r for r in practice_records() if r.kind == "expense")
+    for kind in ("transfer", "owner_withdrawal"):
+        for declaration in (None, expense.declaration):
+            line = replace(expense, kind=kind, currency="USD", declaration=declaration)
+            manifest, rows = fiscal_manifest((line,), **SEPTEMBER)
+            assert rows == {"606": [], "607": []}
+            for form in ("606", "607"):
+                shape = manifest["forms"][form]
+                assert shape["foreign_currency_pending_rate_count"] == 0, kind
+                assert "foreign_currency_note" not in shape
+            assert "note" not in manifest["reconciliation"][0]
+
+
+def test_foreign_lines_never_reach_peso_totals_and_both_forms_stay_in_review():
+    records = _dollars(1, 4)
+    assert {r.kind for r in records if r.currency == "USD"} == {"expense", "income"}
+    manifest, rows = fiscal_manifest(records, **SEPTEMBER)
+    baseline, baseline_rows = fiscal_manifest(
+        tuple(r for r in records if r.currency != "USD"), **SEPTEMBER
+    )
+    assert rows == baseline_rows
+    assert manifest["totals_dop"] == baseline["totals_dop"]
+    assert manifest["totals_complete"] is False
+    assert {f: s["status"] for f, s in manifest["forms"].items()} == {
+        "606": "needs_review",
+        "607": "needs_review",
+    }
+
+
+def test_a_paid_dollar_bill_on_the_606_is_never_a_final_net():
+    expense = next(r for r in practice_records() if r.kind == "expense")
+    manifest, _rows = fiscal_manifest((replace(expense, currency="USD"),), **SEPTEMBER)
+    assert foreign_currency(manifest["forms"])["606"] == {
+        "pending_rate_count": 1,
+        "reason": NOTE,
+    }
+    paid = dict(role="receipt", status="pagado", occurred_on=date(2026, 9, 10))
+    bills = [
+        document(activity_id="peso-bill", total_minor=1000, **paid),
+        document(activity_id="usd-bill", currency="USD", total_minor=109000, **paid),
+    ]
+    blocks = {
+        block["currency"]: block
+        for block in summarize(bills, SEPTEMBER["start"], SEPTEMBER["end"])["currencies"]
+    }
+    assert blocks["USD"]["by_status"]["receipts"]["pendiente"]["count"] == 0
+    assert blocks["USD"]["net_result_final"] is False
+    assert blocks["DOP"]["net_result_final"] is True
+    [peso] = summarize(bills[:1], SEPTEMBER["start"], SEPTEMBER["end"])["currencies"]
+    assert peso == blocks["DOP"]
+
+
+def test_a_form_that_does_not_apply_counts_no_pending_rate():
+    records = _dollars(0, 4)
+    applies, applies_rows = fiscal_manifest(records, **SEPTEMBER)
+    absent, absent_rows = fiscal_manifest(records, **{**SEPTEMBER, "rnc": None})
+    for form in ("606", "607"):
+        assert absent["forms"][form]["status"] == "no_aplica"
+        assert absent["forms"][form]["foreign_currency_pending_rate_count"] == 0
+        assert "foreign_currency_note" not in absent["forms"][form]
+        assert applies["forms"][form]["foreign_currency_pending_rate_count"] == 1
+        assert applies["forms"][form]["foreign_currency_note"] == NOTE
+        assert applies["forms"][form]["status"] == "needs_review"
+    assert foreign_currency(absent["forms"]) == {
+        "606": {"pending_rate_count": 0, "reason": None},
+        "607": {"pending_rate_count": 0, "reason": None},
+    }
+    assert absent_rows == applies_rows
+    assert absent["totals_dop"] == applies["totals_dop"]
+    usd = [b for b in absent["reconciliation"] if b["currency"] == "USD"]
+    assert usd and all(b["reason"] == "fiscal_conversion_required" for b in usd)

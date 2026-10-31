@@ -161,32 +161,6 @@ def customize_openapi_document(document: dict[str, Any]) -> dict[str, Any]:
 
     _rewrite_validation_errors(spec)
 
-    run_op = spec.get("paths", {}).get(f"{API_PREFIX}/backtests/run", {}).get("post")
-    if run_op is not None:
-        for parameter in run_op.get("parameters", []):
-            if parameter.get("name") == "Idempotency-Key":
-                parameter["required"] = True
-                parameter["schema"] = {"type": "string"}
-        responses = run_op.setdefault("responses", {})
-        responses.setdefault(
-            "400", {"description": "Missing required Idempotency-Key header."}
-        )
-        responses.setdefault(
-            "409",
-            {
-                "description": "The data window changed after approval and must be reviewed again."
-            },
-        )
-        responses["503"] = {
-            "description": (
-                "Problem Details when bounded auth-session verification is "
-                "temporarily unavailable (`auth_session_verification_unavailable`) "
-                "or market data is temporarily unavailable "
-                "(`market_data_unavailable`).\n"
-            ),
-            "content": {"application/json": {"schema": copy.deepcopy(_ERROR_REF)}},
-        }
-
     stream_method, stream_path = STREAMING_OPERATION
     stream_op = spec.get("paths", {}).get(stream_path, {}).get(stream_method)
     if stream_op is not None:
@@ -210,23 +184,6 @@ def customize_openapi_document(document: dict[str, Any]) -> dict[str, Any]:
     if logout_op is not None:
         logout_op.setdefault("responses", {})["403"] = {
             "description": "Untrusted browser origin rejected."
-        }
-
-    by_action_op = (
-        spec.get("paths", {})
-        .get(f"{API_PREFIX}/backtest-jobs/by-action/{{confirmation_id}}", {})
-        .get("get")
-    )
-    if by_action_op is not None:
-        responses = by_action_op.setdefault("responses", {})
-        responses["404"] = {
-            "description": "No owner-scoped reservation exists for this action identity."
-        }
-        responses["409"] = {
-            "description": "The action identity is linked to different immutable inputs."
-        }
-        responses["500"] = {
-            "description": "Durable job or confirmation-artifact state is inconsistent."
         }
 
     guest_bootstrap_op = spec.get("paths", {}).get("/api/v1/auth/guest", {}).get("post")
@@ -266,11 +223,6 @@ def customize_openapi_document(document: dict[str, Any]) -> dict[str, Any]:
             continue
         for method, operation in path_item.items():
             if method not in HTTP_METHODS or not isinstance(operation, dict):
-                continue
-            if (method, path) == ("post", f"{API_PREFIX}/backtests/run"):
-                operation.setdefault("responses", {})["500"] = _error_response(
-                    "An unexpected server error occurred."
-                )
                 continue
             responses = operation.setdefault("responses", {})
             responses["503"] = copy.deepcopy(_AUTH_SESSION_UNAVAILABLE_RESPONSE_REF)

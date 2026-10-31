@@ -6,6 +6,7 @@ import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import type { BusinessCaptureInput } from "@/lib/business-api";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import { randomId } from "@/lib/random-id";
+import { NOTES_ENTRY_ENABLED } from "@/lib/business-notes-entry";
 import { useBusiness } from "./BusinessWorkspace";
 import { primaryButtonClass, secondaryButtonClass } from "./business-ui";
 
@@ -79,7 +80,7 @@ export default function ManualCaptureDialog({ isOpen, target, revision, onClose,
     } finally { inFlight.current = false; }
   };
 
-  if (!isOpen) return null;
+  if (!NOTES_ENTRY_ENABLED || !isOpen) return null;
   const saving = phase === "saving";
   const displayedTarget = submittedTarget ?? target;
   return <AdaptivePanel title={t(target ? "business.capture.append" : "business.capture.write", target ? "Add a note to this record" : "Save a note")} closeLabel={t("common.close", "Close")} onClose={() => { if (!saving) onClose(); }} width="md">
