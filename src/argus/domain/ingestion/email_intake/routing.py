@@ -66,3 +66,25 @@ def decide(standing: str, auth: str, *, first_authorized: bool) -> IntakeDecisio
     if standing != "authorized":
         return IntakeDecision(None, stored, None, False, False, False)
     return IntakeDecision("bandeja", stored, None, False, first_authorized, False)
+
+
+@dataclass(frozen=True)
+class HeldMove:
+    group: str | None
+    note: str | None
+    blocked: bool
+
+
+def held_move(status: str, auth: str | None) -> HeldMove | None:
+    """Where a held email goes once its sender has a rule, or None to stay.
+
+    Blocked leaves the group as rejected. Authorized places a stored verdict
+    as intake would have; ``unknown`` and a legacy NULL were refused at intake
+    and stay held, so a rule never makes an unreadable email readable."""
+
+    if status == "blocked":
+        return HeldMove(None, None, True)
+    if status != "authorized" or auth not in ("aligned", "failed"):
+        return None
+    decision = decide("authorized", auth, first_authorized=False)
+    return HeldMove(decision.group, decision.note, False)

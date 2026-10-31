@@ -12,6 +12,10 @@ from psycopg.rows import dict_row
 
 from argus.domain.ingestion.email_intake.alignment import bare_address
 from argus.domain.ingestion.email_intake.models import RecipientRoute, route_from_row
+from argus.domain.ingestion.email_intake.routing import held_move
+
+#: Delivery states a rule save may re-place: a lease holder owns the others.
+SETTLED_STATES = ("partial", "captured", "rejected")
 
 
 class AliasTaken(RuntimeError):
@@ -304,6 +308,58 @@ class PostgresAddressing:
 
                 raise LeaseLost()
 
+    def regroup_held(self, space_id: str, sender: str, status: str) -> int:
+        """Re-place this sender's emails held in Remitentes nuevos under the
+        rule now saved. Returns how many left the group. Runs against the rule
+        as stored, so of two racing saves only the one that stands moves mail."""
+
+        parsed = _address_value(bare_address(sender))
+        if parsed is None:
+            return 0
+        full = parsed[0]
+        with (
+            self.pool.connection() as connection,
+            connection.transaction(),
+            connection.cursor(row_factory=dict_row) as cursor,
+        ):
+            rule = cursor.execute(
+                "select status from public.business_email_senders "
+                "where space_id=%s and kind='address' and value=%s for share",
+                (space_id, full),
+            ).fetchone()
+            if rule is None or rule["status"] != status:
+                return 0
+            rows = cursor.execute(
+                "select id::text, sender, auth_result from public.business_email_deliveries "
+                "where space_id=%s and inbox_group='remitentes_nuevos' and state = any(%s) "
+                "for update",
+                (space_id, list(SETTLED_STATES)),
+            ).fetchall()
+            moves = []
+            for row in rows:
+                found = _address_value(bare_address(row["sender"]))
+                move = held_move(status, row["auth_result"])
+                if found is not None and found[0] == full and move is not None:
+                    moves.append((row["id"], move))
+            if not moves:
+                return 0
+            cursor.execute(
+                "update public.business_email_deliveries d set inbox_group=m.grp, "
+                "review_note=m.note, "
+                "state=case when m.blocked then 'rejected' else d.state end, "
+                "error_code=case when m.blocked then 'email_sender_blocked' "
+                "else d.error_code end, updated_at=now() "
+                "from unnest(%s::uuid[], %s::text[], %s::text[], %s::boolean[]) "
+                "as m(id, grp, note, blocked) where d.id=m.id",
+                (
+                    [item for item, _ in moves],
+                    [move.group for _, move in moves],
+                    [move.note for _, move in moves],
+                    [move.blocked for _, move in moves],
+                ),
+            )
+            return len(moves)
+
     def stamp_route(self, delivery, **values: object) -> None:  # noqa: ANN001
         allowed = {"inbox_group", "auth_result", "review_note", "first_scan"}
         if set(values) - allowed:
@@ -350,7 +406,10 @@ class MemoryAddressing:
             current = self._routes.get(route_id)
             if current is None or not current.active:
                 raise LookupError("email_route_unavailable")
-            if current.alias_normalized == alias_normalized and current.recipient == recipient:
+            if (
+                current.alias_normalized == alias_normalized
+                and current.recipient == recipient
+            ):
                 return current
             if self.alias_taken(alias_normalized, except_route_id=route_id):
                 raise AliasTaken()
@@ -476,7 +535,11 @@ class MemoryAddressing:
         full = parsed[0]
         with self._lock:
             rule = self._senders.get((space_id, "address", full))
-            if rule is None or rule.status != "authorized" or rule.first_scan_at is not None:
+            if (
+                rule is None
+                or rule.status != "authorized"
+                or rule.first_scan_at is not None
+            ):
                 return False
             self._senders[(space_id, rule.kind, rule.value)] = replace(
                 rule, first_scan_at=self.clock()
@@ -498,3 +561,38 @@ class MemoryAddressing:
         with self._lock:
             current = self._held(delivery)
             self._deliveries[delivery.id] = replace(current, **values)
+
+    def regroup_held(self, space_id: str, sender: str, status: str) -> int:
+        parsed = _address_value(bare_address(sender))
+        if parsed is None:
+            return 0
+        full = parsed[0]
+        with self._lock:
+            rule = self._senders.get((space_id, "address", full))
+            if rule is None or rule.status != status:
+                return 0
+            moved = 0
+            for current in list(self._deliveries.values()):
+                found = _address_value(bare_address(current.sender))
+                move = held_move(status, current.auth_result)
+                if (
+                    current.space_id != space_id
+                    or current.inbox_group != "remitentes_nuevos"
+                    or current.state not in SETTLED_STATES
+                    or found is None
+                    or found[0] != full
+                    or move is None
+                ):
+                    continue
+                self._deliveries[current.id] = replace(
+                    current,
+                    inbox_group=move.group,
+                    review_note=move.note,
+                    state="rejected" if move.blocked else current.state,
+                    error_code="email_sender_blocked"
+                    if move.blocked
+                    else current.error_code,
+                    updated_at=self.clock(),
+                )
+                moved += 1
+            return moved

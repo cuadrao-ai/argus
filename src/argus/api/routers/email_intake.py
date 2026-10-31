@@ -508,6 +508,7 @@ def authorize_sender(
     rule = runtime.store.upsert_sender(
         space_id, body.kind, value, body.status, actor_id=context.scope.acting_person_id
     )
+    runtime.store.regroup_held(space_id, rule.value, rule.status)
     if existed:
         response.status_code = 200
     return {"id": rule.id, "kind": rule.kind, "value": rule.value, "status": rule.status}
