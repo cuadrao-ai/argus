@@ -274,7 +274,7 @@ describe("the Negocio page", () => {
       try {
         await page.settle(() => page.host.querySelector('[data-testid="email-senders"]') !== null);
         assert.ok(page.host.querySelector('[data-testid="email-senders"]'));
-        assert.equal(errors.mock.calls.some(call=>String(call[0]).includes("same key")),false);
+        assert.equal(errors.mock.calls.some((call:unknown[])=>String(call[0]).includes("same key")),false);
         assert.equal(page.host.textContent?.includes("Ver correos recibidos"), false);
         assert.equal(page.host.querySelector('[data-testid="email-history"]'), null);
       }finally{errors.mockRestore();await page.close();}
