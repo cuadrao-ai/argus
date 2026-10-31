@@ -8,7 +8,6 @@ import pandas as pd
 import pytest
 from argus.agent_runtime import knowledge_answer
 from argus.agent_runtime.answer_calculation import latest_market_close
-from argus.agent_runtime.calculation_rows import dollar_rate
 from argus.agent_runtime.stages.interpret_types import StructuredInterpretation
 from argus.domain.market_data import assets, provider
 from faker import Faker
@@ -63,25 +62,6 @@ def test_currency_pair_returns_its_latest_close(market_closes: Mock, symbol: str
     assert market_closes.call_args.args[:2] == ("EURUSD", "currency_pair")
     series = market_closes.side_effect("EURUSD", "currency_pair")
     assert close == (series.iloc[-1], str(series.index[-1].date()))
-
-
-@pytest.mark.parametrize(
-    ("currency", "symbol", "invert"),
-    [("EUR", "EURUSD", False), ("JPY", "USDJPY", True)],
-)
-def test_dollar_rate_resolves_direct_and_inverse_pairs(
-    market_closes: Mock, currency: str, symbol: str, invert: bool
-) -> None:
-    close = latest_market_close(symbol)
-    assert close is not None
-    market_closes.reset_mock()
-
-    rate = dollar_rate(currency)
-
-    assert rate == (1 / close[0] if invert else close[0], close[1])
-    assert [call.args[:2] for call in market_closes.call_args_list] == [
-        (symbol, "currency_pair")
-    ]
 
 
 def test_unknown_symbol_returns_none_without_fetching(market_closes: Mock) -> None:

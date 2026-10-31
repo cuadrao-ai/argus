@@ -439,6 +439,11 @@ async def interpret_stage_async(
     )
     if pending_response_option_interpretation is not None:
         interpretation = pending_response_option_interpretation
+    from argus.agent_runtime.no_conversion import no_conversion_stage_result
+
+    declined = no_conversion_stage_result(interpretation, user=user)
+    if declined is not None:
+        return declined
     pending = pending_calculation_reply(interpretation, selected_metadata)
     if pending is not None:
         completed = await calculated_answer_stage_result(

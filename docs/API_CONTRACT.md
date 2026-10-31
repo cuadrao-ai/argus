@@ -6086,7 +6086,7 @@ scenarios (decision 10).
 
 Routing uses the primary read's existing research query. A question whose
 figure a page must supply (a product's price, a lender's or bank's rate or
-fees, local inflation or exchange rates, an asset's price or earnings) is a
+fees, local inflation, an asset's price or earnings) is a
 research turn, including a scenario with no subject when its kind names a
 published figure. A computed answer on the user's own numbers (the scenario bit,
 no subject, kind `none`, no other owner) is the no-search answer. A concept
@@ -6094,7 +6094,13 @@ question takes the grounded balanced research path
 (`research_answers_concept_question`), and an out-of-scope verdict that typed no
 question, no refusal payload, no pending need and nothing to run is researched as
 a current external question (`research_answers_unsupported_verdict`), so a money
-question is never refused as out of scope. An educational question the primary
+question is never refused as out of scope. Argus never converts between
+currencies: a request to convert an amount sets
+`research_query.currency_conversion`, nothing is researched or looked up, and
+the turn answers `ready_to_respond` with one fixed reply in the reader's
+language that says amounts stay in the currency they were paid or collected in
+and offers stored amounts per currency or a total in one currency at a time
+(`currency_conversion_declined`). An educational question the primary
 read left with no research query, and with no capability focus, pending need or
 anything to run, is researched as a concept question
 (`research_answers_unkinded_question`), where the reader's country and the
@@ -6145,14 +6151,7 @@ stored message carries `tool_result_cards`, the `metadata.computation` derived
 from them and `metadata.answer_text_template = {cards: {<calculation name>:
 <artifact_id>}, text, language}` (a template stored as `{artifact_id, text,
 language}` reads as its one card), the prose with its references, which the
-recompute route re-renders into `content` from the current cards. When the reader stated the starting amount or monthly deposit (a looked-up or assumed amount offers no row) and the inputs give a whole-year horizon,
-`next_experiments` offers one `calculation_market_counterfactual` row that runs
-only when tapped, and `next_steps` lists it. A loan offers no row, and neither
-does a plan with both a starting amount and deposits, stated or solved. The test's asset is the card's own symbol, or the S&P 500 proxy when the card names none. The test runs in dollars: an amount
-in another currency is converted at Argus's own latest close for its pair with
-the dollar, and the label states the amount as asked, the rate and its date. A
-currency with no such close offers no row, and
-`market_counterfactual_no_dollar_rate` is logged.
+recompute route re-renders into `content` from the current cards.
 
 A figure only the user knows answers `await_user_reply` with Argus's own one-line
 lead as `assistant_prompt`, `requested_field` naming the first missing argument,

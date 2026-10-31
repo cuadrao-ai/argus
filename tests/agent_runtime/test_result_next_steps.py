@@ -145,7 +145,7 @@ def test_a_research_answer_lists_its_tests_then_two_to_four_questions() -> None:
     rows = {
         "version": "argus_next_experiments/v1",
         "rows": [
-            {"kind": "calculation_market_counterfactual", "label": "a"},
+            {"kind": "research_test_single", "label": "a"},
             {"kind": "research_test_single", "label": "b"},
             {"kind": "research_test_versus", "label": "c"},
         ],

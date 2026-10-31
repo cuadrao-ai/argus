@@ -28,10 +28,8 @@ from argus.agent_runtime.answer_calculation import (
     latest_market_close,
     publish_calculations,
 )
-from argus.agent_runtime.calculation_rows import market_counterfactual_rows
 from argus.agent_runtime.history import select_thread_history
 from argus.agent_runtime.knowledge_answer import VoicedAnswer
-from argus.agent_runtime.result_next_steps import next_steps_patch, offered_test_steps
 from argus.agent_runtime.stages.interpret_types import (
     InterpretDecision,
     StageResult,
@@ -318,10 +316,6 @@ async def calculated_answer_stage_result(
         patch[ANSWER_TEMPLATE_KEY] = answered.template
     if answered.assumptions:
         patch[ANSWER_ASSUMPTIONS_KEY] = list(answered.assumptions)
-    cards = (answered.patch.get("final_response_payload") or {}).get("tool_result_cards")
-    if cards and cards[0].get("outcome", {}).get("status") == "succeeded":
-        rows = market_counterfactual_rows(cards[0], language=user.language_preference)
-        patch.update(next_steps_patch(rows, offered_test_steps(rows)))
     return StageResult(
         outcome="ready_to_respond",
         decision=research_decision(interpretation, user, code),

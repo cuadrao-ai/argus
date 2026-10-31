@@ -78,6 +78,14 @@ class ResearchQueryExtraction(BaseModel):
             "published inputs. False for a figure or a story that exists on a page."
         ),
     )
+    currency_conversion: bool = Field(
+        default=False,
+        description=(
+            "True when the user asks to convert an amount into another currency "
+            "or what it is worth in another currency, in any language. Argus "
+            "never converts between currencies."
+        ),
+    )
     requires_publisher_sources: bool = Field(
         default=False,
         description="True for narrative, causal or explanatory claims requiring a publisher page; false for a pure market-data number. True can never use live_quote.",

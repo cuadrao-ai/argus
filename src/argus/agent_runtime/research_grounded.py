@@ -686,9 +686,6 @@ def _packet_stage_result(
             }
         if answered.assumptions:
             computed[ANSWER_ASSUMPTIONS_KEY] = list(answered.assumptions)
-        rows = _with_market_counterfactual(
-            computed, rows, subjects=subjects, language=language
-        )
     from argus.agent_runtime.answer_calculation import cards_in, record_unsourced_figures
 
     record_unsourced_figures(
@@ -734,31 +731,6 @@ def _note_declined(interpretation: StructuredInterpretation) -> None:
         interpretation.semantic_turn_act,
         failure_classification=DECLINED_REASON_CODE,
     )
-
-
-def _with_market_counterfactual(
-    computed: dict[str, Any],
-    rows: dict[str, Any] | None,
-    *,
-    subjects: list[dict[str, str]],
-    language: str,
-) -> dict[str, Any] | None:
-    """A computed scenario with the user's amount offers what that amount did
-    in the same asset over the same years, first among the rows; never run."""
-    from argus.agent_runtime.calculation_rows import market_counterfactual_rows
-    from argus.agent_runtime.next_experiments import NEXT_EXPERIMENTS_ROW_CAP
-
-    final = computed.get("final_response_payload") or {}
-    cards = final.get("tool_result_cards") or []
-    if not cards or cards[0]["outcome"]["status"] != "succeeded":
-        return rows
-    counterfactual = market_counterfactual_rows(
-        cards[0], language=language, subjects=subjects
-    )
-    if counterfactual is None:
-        return rows
-    offered = [*counterfactual["rows"], *((rows or {}).get("rows") or [])]
-    return {**(rows or counterfactual), "rows": offered[:NEXT_EXPERIMENTS_ROW_CAP]}
 
 
 def thorough_job_result(
@@ -1062,9 +1034,6 @@ def lookup_failure_result(
             }
         if answered.assumptions:
             computed[ANSWER_ASSUMPTIONS_KEY] = list(answered.assumptions)
-        rows = _with_market_counterfactual(
-            computed, rows, subjects=subjects, language=language
-        )
     result = research_stage_result(
         answer=note,
         interpretation=interpretation,
@@ -1996,9 +1965,6 @@ def compose_completed_research(
             }
         if answered.assumptions:
             computed[ANSWER_ASSUMPTIONS_KEY] = list(answered.assumptions)
-        rows = _with_market_counterfactual(
-            computed, rows, subjects=subjects, language=language
-        )
     from argus.agent_runtime.answer_calculation import cards_in, record_unsourced_figures
     from argus.agent_runtime.result_next_steps import research_next_steps
 

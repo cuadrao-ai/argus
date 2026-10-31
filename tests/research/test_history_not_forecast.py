@@ -14,7 +14,6 @@ import pytest
 from argus.agent_runtime import research_answer as ra
 from argus.agent_runtime import research_calculation
 from argus.agent_runtime import research_grounded as grounded
-from argus.agent_runtime.calculation_rows import MARKET_COUNTERFACTUAL_KIND
 from argus.agent_runtime.stages.interpret_types import StructuredInterpretation
 from argus.agent_runtime.state.models import RunState, StrategySummary, UserState
 from argus.domain.research.config import (
@@ -141,8 +140,6 @@ def test_a_choice_on_a_rate_nobody_can_cite_publishes_the_past_year_argus_comput
     assert "Como historia, no como pronóstico" in answer
     assert "{{" not in answer
     assert "degraded" not in result.stage_patch["research"]
-    rows = (result.stage_patch.get("next_experiments") or {}).get("rows") or []
-    assert MARKET_COUNTERFACTUAL_KIND not in [row["kind"] for row in rows]
 
 
 OUTLOOK_PAGE = "https://www.reuters.com/markets/nvidia-outlook/"

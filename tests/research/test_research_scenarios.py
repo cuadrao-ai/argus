@@ -811,14 +811,15 @@ def test_a_survey_typed_scenario_keeps_a_dated_analyst_page(monkeypatch) -> None
     assert survey.stage_patch["research"]["sources"] == []
 
 
-def test_a_scenario_with_the_users_amount_offers_that_amount_in_the_asset_first(
+def test_a_scenario_with_the_users_amount_offers_no_market_test_and_looks_up_no_rate(
     monkeypatch,
 ) -> None:
-    """The counterfactual goes through the one owner of rows after an answer:
-    what the user's own amount did in the same asset over the same years,
-    offered first and never run."""
-    from argus.agent_runtime.calculation_rows import MARKET_COUNTERFACTUAL_KIND
+    from argus.agent_runtime import answer_calculation
 
+    def no_lookup(symbol: str):
+        raise AssertionError(f"looked up a close for {symbol}")
+
+    monkeypatch.setattr(answer_calculation, "latest_market_close", no_lookup)
     set_research_query(
         monkeypatch,
         globals(),
@@ -827,7 +828,7 @@ def test_a_scenario_with_the_users_amount_offers_that_amount_in_the_asset_first(
         period_of_interest="ten years",
         scenario_question=True,
     )
-    transport = _wire_client(
+    _wire_client(
         monkeypatch,
         [
             agent_response(
@@ -843,22 +844,10 @@ def test_a_scenario_with_the_users_amount_offers_that_amount_in_the_asset_first(
     )
     result = _run("what will $10,000 in NVDA be worth in ten years?")
     assert result is not None
-    assert len(transport.requests) == 1
-    card = _scenario_card(result)
-    assert card["arguments"]["amount"] == 10000
-    rows = result.stage_patch["next_experiments"]["rows"]
-    assert rows[0]["kind"] == MARKET_COUNTERFACTUAL_KIND
-    assert rows[0]["send_text"] == (
-        "Test buying and holding NVDA with 10000 USD over the last 10 years"
-    )
-    assert len(rows) <= 3
-    assert result.stage_patch["next_steps"]["items"][0] == {
-        "type": "test",
-        "kind": MARKET_COUNTERFACTUAL_KIND,
-    }
-    assert [
-        record["tool_name"] for record in result.stage_patch["tool_call_records"]
-    ] == ["valuation_scenarios"]
+    assert _scenario_card(result)["arguments"]["amount"] == 10000
+    rows = (result.stage_patch.get("next_experiments") or {}).get("rows") or []
+    assert not any("10000" in row.get("send_text", "") for row in rows)
+    assert not any("counterfactual" in row["kind"] for row in rows)
 
 
 def test_a_background_answer_that_needs_a_figure_the_kind_requires_offers_the_calculation() -> (
