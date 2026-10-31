@@ -6,6 +6,28 @@ COUNTERPARTY_ID_LENGTH = {
     "2": FILER_TAX_ID_LENGTH["cedula"],
 }
 
+_DIGIT_RUN = r"(?<![0-9])(?<![0-9][ -])[0-9](?:[ -]?[0-9]){{{}}}(?![ -]?[0-9])"
+_PRINTED_RNC = re.compile(f"{_DIGIT_RUN.format(10)}|{_DIGIT_RUN.format(8)}")
+_PRINTED_NCF = re.compile(
+    r"(?<![A-Za-z0-9])[BE][0-9]{8,12}(?![A-Za-z0-9])", re.IGNORECASE
+)
+
+
+def printed_rnc(value: str) -> str:
+    """The RNC or cédula as printed, without label or note text around it.
+    A read with no 9 or 11 digit number is returned unchanged."""
+
+    match = _PRINTED_RNC.search(value)
+    return match.group(0) if match else value
+
+
+def printed_ncf(value: str) -> str:
+    """The NCF or e-CF number as printed, without label or note text around it.
+    Digits are never padded or fixed; a read with no B or E series stays unchanged."""
+
+    match = _PRINTED_NCF.search(value)
+    return match.group(0) if match else value
+
 
 def identity_digits(value: str | None) -> str | None:
     """Digits only. Length is not decided here: a 9-digit RNC and an 11-digit

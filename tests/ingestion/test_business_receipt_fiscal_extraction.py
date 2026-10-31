@@ -228,3 +228,68 @@ def test_original_receipt_and_fiscal_evidence_survive_replay_unchanged(
     )
     assert store.source(user_id="owner", connection_id="connection") == content
     assert store.get(user_id="owner", connection_id="connection") == batch
+
+
+class TestPrintedIdentifierSplit:
+    @pytest.mark.parametrize(
+        ("name", "read", "identifier"),
+        [
+            pytest.param(
+                "rnc", "RNC 1-23-45678-9 (ficticio)", "1-23-45678-9", id="rnc-tail"
+            ),
+            pytest.param("rnc", "RNC: 101987654", "101987654", id="rnc-label"),
+            pytest.param("rnc", "001-1234567-8 cedula", "001-1234567-8", id="cedula"),
+            pytest.param("rnc", "1-23-45678-9", "1-23-45678-9", id="rnc-clean"),
+            pytest.param("rnc", "SYNTHETIC-RNC-1", "SYNTHETIC-RNC-1", id="rnc-none"),
+            pytest.param(
+                "ncf", "NCF B0100000987 (ficticio)", "B0100000987", id="ncf-tail"
+            ),
+            pytest.param("ncf", "NCF: B0100000987", "B0100000987", id="ncf-label"),
+            pytest.param("ncf", "B0100000987", "B0100000987", id="ncf-clean"),
+            pytest.param("ncf", "B01000008", "B01000008", id="ncf-malformed"),
+            pytest.param(
+                "ncf", "NCF B01000008 (ficticio)", "B01000008", id="ncf-malformed-tail"
+            ),
+            pytest.param("ncf", "sin comprobante", "sin comprobante", id="ncf-none"),
+        ],
+    )
+    def test_fact_holds_identifier_and_receipt_keeps_full_read(
+        self, name: str, read: str, identifier: str
+    ) -> None:
+        receipt = ReceiptDetails(**{name: read})
+        projected = extractor.fiscal_facts_from_receipt(receipt, source_id=uuid4())
+        assert getattr(projected, name).value == identifier
+        assert getattr(receipt, name) == read
+
+    def test_ncf_characters_are_never_added_removed_or_changed(self) -> None:
+        for read in ("B01000008", "b0100000987", "E3100000000012345", "B01-0000098"):
+            receipt = ReceiptDetails(ncf=f"NCF: {read} (ficticio)")
+            value = extractor.fiscal_facts_from_receipt(
+                receipt, source_id=uuid4()
+            ).ncf.value
+            assert value == f"NCF: {read} (ficticio)" or value == read
+
+    def test_split_is_idempotent(self) -> None:
+        source_id = uuid4()
+        first = extractor.fiscal_facts_from_receipt(
+            ReceiptDetails(
+                rnc="RNC 1-23-45678-9 (ficticio)", ncf="NCF B01000008 (ficticio)"
+            ),
+            source_id=source_id,
+        )
+        second = extractor.fiscal_facts_from_receipt(
+            ReceiptDetails(rnc=first.rnc.value, ncf=first.ncf.value), source_id=source_id
+        )
+        assert second == first
+
+    def test_cleanup_on_use_reads_the_split_fact(self) -> None:
+        from argus.domain.business.fiscal_identity import identity_digits, normalized_ncf
+
+        projected = extractor.fiscal_facts_from_receipt(
+            ReceiptDetails(
+                rnc="RNC 1-23-45678-9 (ficticio)", ncf="NCF B0100000987 (ficticio)"
+            ),
+            source_id=uuid4(),
+        )
+        assert identity_digits(projected.rnc.value) == "123456789"
+        assert normalized_ncf(projected.ncf.value) == "B0100000987"
