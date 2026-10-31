@@ -391,9 +391,11 @@ def fiscal_manifest(
             "record_count": len(rows[form]),
             "issues": relevant,
             "official_validation": "NOT RUN",
-            "foreign_currency_pending_rate_count": pending_rate[form],
+            "foreign_currency_pending_rate_count": 0
+            if status == "no_aplica"
+            else pending_rate[form],
         }
-        if pending_rate[form]:
+        if forms[form]["foreign_currency_pending_rate_count"]:
             forms[form]["foreign_currency_note"] = FOREIGN_CURRENCY_NOTE
     manifest = {
         "schema_version": 1,

@@ -195,3 +195,24 @@ def test_a_paid_dollar_bill_on_the_606_is_never_a_final_net():
     assert blocks["DOP"]["net_result_final"] is True
     [peso] = summarize(bills[:1], SEPTEMBER["start"], SEPTEMBER["end"])["currencies"]
     assert peso == blocks["DOP"]
+
+
+def test_a_form_that_does_not_apply_counts_no_pending_rate():
+    records = _dollars(0, 4)
+    applies, applies_rows = fiscal_manifest(records, **SEPTEMBER)
+    absent, absent_rows = fiscal_manifest(records, **{**SEPTEMBER, "rnc": None})
+    for form in ("606", "607"):
+        assert absent["forms"][form]["status"] == "no_aplica"
+        assert absent["forms"][form]["foreign_currency_pending_rate_count"] == 0
+        assert "foreign_currency_note" not in absent["forms"][form]
+        assert applies["forms"][form]["foreign_currency_pending_rate_count"] == 1
+        assert applies["forms"][form]["foreign_currency_note"] == NOTE
+        assert applies["forms"][form]["status"] == "needs_review"
+    assert foreign_currency(absent["forms"]) == {
+        "606": {"pending_rate_count": 0, "reason": None},
+        "607": {"pending_rate_count": 0, "reason": None},
+    }
+    assert absent_rows == applies_rows
+    assert absent["totals_dop"] == applies["totals_dop"]
+    usd = [b for b in absent["reconciliation"] if b["currency"] == "USD"]
+    assert usd and all(b["reason"] == "fiscal_conversion_required" for b in usd)

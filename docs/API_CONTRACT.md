@@ -9403,7 +9403,8 @@ currency's block; only the DGII files and `dgii_forms` are DOP-only.
 refund and income lines, not personal and not sin comprobante, that the export
 holds back for a rate. A declared line counts once, on its declared form; a
 line with no form declaration counts on both forms. Transfers and other money
-movements never count. `reason` is `"Moneda extranjera: pendiente de tasa"`
+movements never count. A form whose status is `no_aplica` (no RNC) counts 0.
+`reason` is `"Moneda extranjera: pendiente de tasa"`
 when the count is above 0, else null. The exported `dgii/summary.json` carries
 the same per-form `foreign_currency_pending_rate_count` and, when above 0,
 `foreign_currency_note`; each held-back reconciliation line keeps
