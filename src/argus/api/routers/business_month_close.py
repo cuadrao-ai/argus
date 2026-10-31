@@ -9,7 +9,12 @@ from fastapi import APIRouter, Depends, Request, Response
 from psycopg import Error as PostgresError
 from psycopg_pool import PoolTimeout
 
-from argus.api.business import BusinessPerson, require_business_person
+from argus.api.business import (
+    BusinessContext,
+    BusinessPerson,
+    require_business,
+    require_business_person,
+)
 from argus.api.business_drafts import (
     DraftContext,
     action_problem,
@@ -26,7 +31,12 @@ from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
 from argus.domain.business import ledger
 from argus.domain.business.authority import ActionError
-from argus.domain.business.month_close import Settlement
+from argus.domain.business.month_close import (
+    Settlement,
+    month_period,
+    unreviewed_in_month,
+    with_unreviewed,
+)
 from argus.domain.business.month_close import open_items as open_items_of
 from argus.domain.business.month_close_store import (
     empty_month,
@@ -63,6 +73,15 @@ def _unavailable(request: Request):
     )
 
 
+def _unreviewed(business: BusinessContext, month: str) -> int:
+    from argus.api.business_drafts import receipt_summaries
+    from argus.api.business_receipt_activity import unreviewed_days
+
+    start, end = month_period(month)
+    days = unreviewed_days(business, receipt_summaries(business, "all"))
+    return unreviewed_in_month(days, start, end)
+
+
 @router.get("", response_model=MonthClose)
 def month_summary(
     request: Request,
@@ -70,6 +89,7 @@ def month_summary(
     month: str,
     context: Annotated[DraftContext | None, Depends(stored_drafts)],
     person: Annotated[BusinessPerson, Depends(require_business_person)],
+    business: Annotated[BusinessContext, Depends(require_business)],
 ):
     response.headers.update(NO_STORE)
     if (
@@ -85,11 +105,14 @@ def month_summary(
             headers=NO_STORE,
         )
     try:
-        if context is None:
-            return empty_month(month)
-        return read_month(
-            context.service.authority, _owner(request, context, person), month
+        summary = (
+            empty_month(month)
+            if context is None
+            else read_month(
+                context.service.authority, _owner(request, context, person), month
+            )
         )
+        return with_unreviewed(summary, month, _unreviewed(business, month))
     except ValueError as error:
         if str(error) != "month_invalid":
             raise

@@ -247,3 +247,21 @@ def test_a_second_approval_of_one_sale_ncf_is_refused_by_the_database(
             (web.alice.space_id, PRACTICE["S01"]["fiscal"]["ncf"]),
         ).fetchone()[0]
     assert approved == 1
+
+
+def test_a_note_still_in_the_bandeja_keeps_its_arrival_month_open(web) -> None:  # noqa: ANN001, F811
+    from argus.domain.business.month_close import with_unreviewed
+    from argus.domain.business.month_close_store import empty_month
+
+    month = ledger.today().strftime("%Y-%m")
+    pesos = _account(web, "DOP")
+    _record(web, pesos, "expense", "1180", "DOP", f"{month}-01", "PRÁCTICA P01", "P01")
+    _send(web, "POST", "/business/captures", {"text": "taxi 300"}, web.alice.headers)
+
+    shown = _month(web, month)
+    memory = with_unreviewed(empty_month(month), month, 1)
+    assert shown["closed"] is False
+    assert shown["unreviewed_movements_count"] == 1
+    assert [r for r in shown["reasons"] if r["code"] == "movimientos_sin_revisar"] == (
+        memory["reasons"]
+    )

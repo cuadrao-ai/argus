@@ -1,0 +1,107 @@
+"""Drafts still in the Bandeja keep their month from closing: one
+movimientos_sin_revisar reason and a count, dated by receipt date and
+otherwise by arrival."""
+
+from __future__ import annotations
+
+from datetime import date, datetime, timezone
+from types import SimpleNamespace
+
+from argus.api.business_month_close_schemas import MonthClose
+from argus.api.business_receipt_activity import unreviewed_days
+from argus.domain.business import ledger
+from argus.domain.business.month_close import (
+    draft_close_day,
+    month_period,
+    unreviewed_in_month,
+    with_unreviewed,
+)
+from argus.domain.business.month_close_store import empty_month
+
+from tests.business.test_business_api import Owner, alice  # noqa: F401
+
+NO_STORE = SimpleNamespace(service=SimpleNamespace(imports=SimpleNamespace(store=None)))
+ARRIVED = "2026-10-30T15:00:00Z"
+
+
+def _view(status: str, occurred_on: str | None = None, **extra) -> dict:  # noqa: ANN003
+    return {"status": status, "occurred_on": occurred_on, "received_at": ARRIVED, **extra}
+
+
+def _october(views: list[dict]) -> int:
+    start, end = month_period("2026-10")
+    return unreviewed_in_month(unreviewed_days(NO_STORE, views), start, end)
+
+
+def test_a_month_without_drafts_closes_as_before():
+    plain = empty_month("2026-10")
+    shown = with_unreviewed(plain, "2026-10", 0)
+    assert shown == {**plain, "unreviewed_movements_count": 0}
+    assert shown["closed"] is True
+
+
+def test_an_unapproved_draft_in_the_month_blocks_the_close():
+    count = _october([_view("review_ready", "2026-10-12")])
+    shown = with_unreviewed(empty_month("2026-10"), "2026-10", count)
+    assert shown["closed"] is False
+    assert shown["unreviewed_movements_count"] == 1
+    assert shown["reasons"] == [
+        {
+            "code": "movimientos_sin_revisar",
+            "count": 1,
+            "message": "Tienes 1 movimiento sin revisar en octubre de 2026. "
+            "Revísalo en la Bandeja antes de cerrar el mes.",
+        }
+    ]
+
+
+def test_many_unreviewed_drafts_read_in_the_plural():
+    shown = with_unreviewed(empty_month("2026-09"), "2026-09", 5)
+    assert [reason["message"] for reason in shown["reasons"]] == [
+        "Tienes 5 movimientos sin revisar en septiembre de 2026. "
+        "Revísalos en la Bandeja antes de cerrar el mes."
+    ]
+
+
+def test_approved_or_rejected_drafts_do_not_block():
+    assert (
+        _october([_view("confirmed", "2026-10-12"), _view("dismissed", "2026-10-12")])
+        == 0
+    )
+
+
+def test_the_email_itself_is_not_a_movement():
+    assert _october([_view("review_ready", "2026-10-12", email_original=True)]) == 0
+
+
+def test_a_draft_dated_in_another_month_does_not_block():
+    assert (
+        _october([_view("review_ready", "2026-11-02"), _view("saved", "2026-09-30")]) == 0
+    )
+
+
+def test_a_draft_without_a_receipt_date_counts_by_arrival():
+    assert _october([_view("saved")]) == 1
+    assert draft_close_day(None, "2026-11-01T02:00:00Z") == date(2026, 10, 31)
+    assert draft_close_day("", datetime(2026, 10, 3, 12, tzinfo=timezone.utc)) == date(
+        2026, 10, 3
+    )
+    assert draft_close_day("2026-09-28", ARRIVED) == date(2026, 9, 28)
+
+
+def test_an_old_packet_without_the_count_reads_zero():
+    old = {**empty_month("2026-10"), "starts": "2026-10-01"}
+    del old["from"]
+    assert MonthClose.model_validate(old).unreviewed_movements_count == 0
+
+
+def test_a_saved_receipt_in_memory_mode_keeps_the_month_open(alice: Owner):  # noqa: F811
+    month = ledger.today().strftime("%Y-%m")
+    assert alice.upload().status_code in (200, 201, 202)
+    answer = alice.get("/month-close", month=month)
+    assert answer.status_code == 200, answer.text
+    body = answer.json()
+    assert (body["closed"], body["unreviewed_movements_count"]) == (False, 1)
+    assert [(r["code"], r["count"]) for r in body["reasons"]] == [
+        ("movimientos_sin_revisar", 1)
+    ]

@@ -8,6 +8,7 @@ from uuid import UUID
 
 from argus.domain.business.receipt_activity import (
     aggregate_activity,
+    awaiting_owner,
     bandeja,
     inbox_counts,
     project_activity,
@@ -152,6 +153,26 @@ def inbox(
     if emails is None:
         emails = email_standings(str(context.scope.owner.space_id))
     return inbox_counts(views, notes, emails, por_igualar)
+
+
+def unreviewed_days(context, views: list[dict]) -> list:  # noqa: ANN001
+    """The month-close day of every receipt and note draft the Bandeja still
+    lists. Notes count by the day they arrived."""
+
+    from argus.domain.business.month_close import draft_close_day
+
+    days = [
+        draft_close_day(view.get("occurred_on"), view["received_at"])
+        for view in views
+        if awaiting_owner(view)
+    ]
+    store = context.service.imports.store
+    if isinstance(store, GrantImportStore):
+        from argus.domain.business.actions.captures import awaiting_note_arrivals
+
+        with transaction(store.authority, store.context) as tx:
+            days += [draft_close_day(None, at) for at in awaiting_note_arrivals(tx)]
+    return days
 
 
 def counts(context, views: list[dict]) -> dict:  # noqa: ANN001
