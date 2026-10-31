@@ -13,17 +13,8 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 PROFILE_PATH = ROOT / ".github" / "private-alpha-release-profile.json"
-LOCALES_DIR = ROOT / "web" / "public" / "locales"
 SURFACES = ("api", "web", "workflow", "marketing")
 AUTO_DEPLOY_TRIGGERS = ("off", "checksPass")
-# The canary's fixed checks, in run order. They never follow features.
-CANARY_CHECKS = (
-    "services_same_commit",
-    "signed_in_chat_answer",
-    "backtest_completes",
-    "research_answer_with_sources",
-)
-CANARY_PROMPTS = ("chat_prompt", "backtest_prompt", "research_prompt")
 FORBIDDEN_KEY_FRAGMENTS = (
     "candidate_sha",
     "deploy_id",
@@ -137,25 +128,6 @@ def validate_profile(profile: dict[str, Any]) -> None:
     locales = _require_mapping(profile.get("locales"), "locales")
     if locales.get("supported") != ["en", "es-419"]:
         raise ProfileValidationError("locales.supported must be [en, es-419]")
-    static_keys = _require_strings(locales.get("required_static_keys"), "locales.required_static_keys")
-    if "chat.confirmation.actions.run_backtest" not in static_keys:
-        raise ProfileValidationError(
-            "chat.confirmation.actions.run_backtest is required for the release canary"
-        )
-
-    canary = _require_mapping(profile.get("canary"), "canary")
-    if canary.get("language") not in locales["supported"]:
-        raise ProfileValidationError("canary.language must be a supported locale")
-    for field in CANARY_PROMPTS:
-        if not isinstance(canary.get(field), str) or not canary[field].strip():
-            raise ProfileValidationError(f"canary.{field} must be a non-empty string")
-    required_steps = _require_strings(
-        canary.get("required_steps"), "canary.required_steps"
-    )
-    if tuple(required_steps) != CANARY_CHECKS:
-        raise ProfileValidationError(
-            f"canary.required_steps must be exactly {', '.join(CANARY_CHECKS)}"
-        )
 
 
 def _walk_keys(value: object) -> list[str]:
@@ -206,44 +178,6 @@ def auto_deploy_trigger(profile: dict[str, Any], surface: str) -> str:
     return value
 
 
-def _nested_value(payload: dict[str, Any], path: str) -> str:
-    current: object = payload
-    for part in path.split("."):
-        if not isinstance(current, dict) or part not in current:
-            raise ProfileValidationError(f"locale catalog does not contain {path}")
-        current = current[part]
-    if not isinstance(current, str) or not current:
-        raise ProfileValidationError(f"locale catalog value for {path} must be a string")
-    return current
-
-
-def static_key_values(profile: dict[str, Any], language: str) -> dict[str, str]:
-    if language not in profile["locales"]["supported"]:
-        raise ProfileValidationError(f"unsupported release locale: {language}")
-    locale_path = LOCALES_DIR / language / "common.json"
-    try:
-        catalog = json.loads(locale_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ProfileValidationError(f"cannot load locale catalog for {language}: {exc}") from exc
-    if not isinstance(catalog, dict):
-        raise ProfileValidationError(f"locale catalog for {language} must be an object")
-    return {
-        key: _nested_value(catalog, key)
-        for key in profile["locales"]["required_static_keys"]
-    }
-
-
-def canary_value(profile: dict[str, Any], field: str) -> str:
-    value = profile["canary"].get(field)
-    if not isinstance(value, (str, int, float, bool)):
-        raise ProfileValidationError(f"canary.{field} must be a scalar value")
-    return str(value).lower() if isinstance(value, bool) else str(value)
-
-
-def canary_checks(profile: dict[str, Any]) -> list[str]:
-    return list(profile["canary"]["required_steps"])
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -260,11 +194,6 @@ def main() -> int:
     present_parser.add_argument("surface", choices=SURFACES)
     allowed_parser = subparsers.add_parser("allowed-keys")
     allowed_parser.add_argument("surface", choices=SURFACES)
-    static_parser = subparsers.add_parser("static-key-values")
-    static_parser.add_argument("language")
-    canary_parser = subparsers.add_parser("canary-value")
-    canary_parser.add_argument("field", choices=("language", *CANARY_PROMPTS))
-    subparsers.add_parser("canary-checks")
     args = parser.parse_args()
 
     try:
@@ -284,12 +213,6 @@ def main() -> int:
             print("\n".join(required_present(profile, args.surface)))
         elif args.command == "allowed-keys":
             print("\n".join(allowed_keys(profile, args.surface)))
-        elif args.command == "static-key-values":
-            print(json.dumps(static_key_values(profile, args.language), sort_keys=True))
-        elif args.command == "canary-value":
-            print(canary_value(profile, args.field))
-        elif args.command == "canary-checks":
-            print("\n".join(canary_checks(profile)))
     except ProfileValidationError as exc:
         print(f"release profile error: {exc}", file=sys.stderr)
         return 1

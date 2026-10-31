@@ -1,7 +1,9 @@
 """The WhatsApp replay, linking and isolation cases on real Postgres."""
 
 import asyncio
+import threading
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
 import pytest
@@ -26,6 +28,7 @@ from tests.ingestion.whatsapp_support import (
     RefusingExtractor,
     fixture,
 )
+from tests.ingestion.whatsapp_unlinked_cases import UNLINKED_CASES
 
 users = shared.users
 pytestmark = pytest.mark.skipif(
@@ -60,6 +63,31 @@ def _world(pool: ConnectionPool, users: dict[str, str]) -> cases.World:
 @pytest.mark.parametrize("case", cases.CASES, ids=lambda case: case.__name__)
 async def test_intake_case_on_postgres(case, pool, users) -> None:  # noqa: ANN001
     await case(_world(pool, users))
+
+
+def test_concurrent_unlinked_reservations_for_one_day_take_one_reply(pool, users) -> None:  # noqa: ANN001
+    world = _world(pool, users)
+    store, now = world.store, world.clock.now
+    sender = world.keys.sender(cases.STRANGER_PHONE)
+    keys = [world.keys.message(f"wamid.RACE-{n}") for n in range(4)]
+    for key in keys:
+        store.claim(
+            provider_message_key=key,
+            sender_hash=sender,
+            now=now,
+            claim_until=now + timedelta(seconds=90),
+        )
+    start = threading.Barrier(len(keys))
+
+    def reserve(key: bytes) -> bool:
+        start.wait()
+        return store.reserve_unlinked_reply(
+            sender_hash=sender, provider_message_key=key, now=now
+        )
+
+    with ThreadPoolExecutor(len(keys)) as threads:
+        taken = list(threads.map(reserve, keys))
+    assert sorted(taken) == [False, False, False, True]
 
 
 @pytest.mark.asyncio
@@ -571,3 +599,9 @@ async def test_owner_erasure_cascades_pending_attempt_and_daily_counter(pool, us
                 ).fetchone() == (0,)
     finally:
         release_custodian(space_id)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", UNLINKED_CASES, ids=lambda case: case.__name__)
+async def test_unlinked_case_on_postgres(case, pool, users) -> None:  # noqa: ANN001
+    await case(_world(pool, users))

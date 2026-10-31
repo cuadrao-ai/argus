@@ -38,6 +38,7 @@ from tests.ingestion.whatsapp_support import (
     fixture,
     sign,
 )
+from tests.ingestion.whatsapp_unlinked_cases import UNLINKED_CASES
 
 
 def _world() -> cases.World:
@@ -58,13 +59,35 @@ def _world() -> cases.World:
 
 
 @pytest.mark.asyncio
-async def test_unknown_sender_has_no_outbound_reply() -> None:
+async def test_an_unlinked_photo_gets_the_unlinked_line_and_nothing_is_fetched() -> None:
     world = _world()
     await world.deliver(
         cases.image("700000000000991", "wamid.UNKNOWN", cases.STRANGER_PHONE)
     )
-    assert world.record("wamid.UNKNOWN").error_code == "whatsapp_sender_not_linked"
-    assert world.transport.sent == []
+    record = world.record("wamid.UNKNOWN")
+    assert (record.status, record.error_code, record.connection_id) == (
+        "rejected",
+        "whatsapp_sender_not_linked",
+        None,
+    )
+    assert world.graph.requests == []
+    assert world.transport.bodies() == [cases.UNLINKED]
+
+
+@pytest.mark.asyncio
+async def test_a_repeated_unlinked_delivery_is_not_answered_twice() -> None:
+    world = _world()
+    message = fixture("text_message.json", id="wamid.U1", text="hola")
+    await world.deliver(message)
+    await world.deliver(message)
+    assert world.transport.bodies() == [cases.UNLINKED]
+
+
+def test_the_unlinked_line_is_the_approved_text() -> None:
+    assert compose_reply("whatsapp_sender_not_linked", language="es-419") == (
+        "Este número aún no está vinculado a un negocio en Cuadrao. "
+        "Pídele al administrador el código para vincularlo."
+    )
 
 
 def test_blocked_file_copy_matches_approved_spanish_and_preserves_english() -> None:
@@ -379,3 +402,9 @@ async def test_any_text_from_a_linked_owner_gets_the_same_one_reply(text: str) -
     assert world.transport.bodies()[-1] == (
         f"Aquí solo recibimos recibos. Para todo lo demás usa Cuadrao: {cases.ORIGIN}/biz"
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", UNLINKED_CASES, ids=lambda case: case.__name__)
+async def test_unlinked_case(case) -> None:  # noqa: ANN001
+    await case(_world())

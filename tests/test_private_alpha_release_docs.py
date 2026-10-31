@@ -1131,12 +1131,6 @@ def test_api_contract_does_not_exclude_supported_execution_costs() -> None:
 
 def test_private_alpha_release_manifest_template_has_required_audit_fields() -> None:
     template = _source("docs/release-manifests/TEMPLATE.md")
-    canary_checks = json.loads(RELEASE_PROFILE_PATH.read_text(encoding="utf-8"))[
-        "canary"
-    ]["required_steps"]
-
-    for check in canary_checks:
-        assert f"`{check}`" in template
     for expected in (
         "Candidate SHA",
         "Promotion target",

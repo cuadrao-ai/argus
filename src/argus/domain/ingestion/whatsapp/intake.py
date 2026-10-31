@@ -770,11 +770,9 @@ class WhatsAppIntake:
             duplicate=settlement.duplicate,
             reading=settlement.reading,
         )
-        if resolved_key == "whatsapp_sender_not_linked":
-            suppressed("unknown_sender", self.keys.sender(message.sender))
-            return False
         if (
-            resolved_key != "whatsapp_link_code_invalid"
+            resolved_key
+            not in ("whatsapp_sender_not_linked", "whatsapp_link_code_invalid")
             and await asyncio.to_thread(
                 self.store.sender_link, sender_hash=self.keys.sender(message.sender)
             )
@@ -804,6 +802,14 @@ class WhatsAppIntake:
             limit_mb=self.max_bytes // (1024 * 1024),
             read=read,
         )
+        if resolved_key == "whatsapp_sender_not_linked" and not await asyncio.to_thread(
+            self.store.reserve_unlinked_reply,
+            sender_hash=self.keys.sender(message.sender),
+            provider_message_key=self.keys.message(message.id),
+            now=self.clock(),
+        ):
+            suppressed("unlinked_daily_limit", self.keys.sender(message.sender))
+            return False
         try:
             await self.transport.send(
                 reply_payload(to=message.sender, in_reply_to=message.id, body=body)
