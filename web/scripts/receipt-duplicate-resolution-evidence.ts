@@ -63,6 +63,7 @@ try {
       if (path === "consent") return fulfillAcceptedBusinessConsent(route);
       if (path === "receipt-reading") return route.fulfill({ json: { enabled: false, available: true, can_change: false } });
       if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "receipts@example.test" } });
+      if (path === "email/inbox") return route.fulfill({ json: { groups: [{ id: "remitentes_nuevos", items: [] }, { id: "bandeja", items: [] }] } });
       if (["captures", "email/deliveries", "ownership-transfers", "closed-spaces", "owned-spaces"].includes(path)) return route.fulfill({ json: { items: [], spaces: [], transfers: [] } });
       if (path === "receipts") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, confirmed_count: 0, dismissed_count: 0 } } });
       if (path === "month-close") return route.fulfill({ json: monthCloseWire("2026-10") });

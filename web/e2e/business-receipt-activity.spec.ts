@@ -40,6 +40,7 @@ async function mockInbox(page: Page, language: "en" | "es-419", collapsed: boole
       return route.fulfill({ json: reading() });
     }
     if (path === "email") return route.fulfill({ json: { enabled: false, receiving_address: null } });
+    if (path === "email/inbox" && route.request().method() === "GET") return route.fulfill({ json: { groups: [{ id: "remitentes_nuevos", items: [] }, { id: "bandeja", items: [] }] } });
     if (path === "email/deliveries") return route.fulfill({ json: { items: [] } });
     if (path === "consent") return fulfillAcceptedBusinessConsent(route);
     return route.fulfill({ status: 404, json: { code: "fixture_only" } });

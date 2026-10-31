@@ -35,6 +35,7 @@ const server = Bun.serve({ hostname: "127.0.0.1", port: Number(process.env.EVIDE
     if (path.endsWith("/business/overview")) return json(await fixtureSource.overview(url.searchParams.get("from")!, url.searchParams.get("to")));
     if (path.endsWith("/business/captures")) return json({ items: [], next_cursor: null });
     if (path.endsWith("/business/email/deliveries")) return json({ items: [] });
+    if (path.endsWith("/business/email/inbox") && method === "GET") return json({ groups: [{ id: "remitentes_nuevos", items: [] }, { id: "bandeja", items: [] }] });
     if (path.endsWith("/business/email")) return json(await fixtureSource.emailIntake!());
     const dossier = path.match(/\/business\/drafts\/([^/]+)\/dossier$/);
     if (dossier) {

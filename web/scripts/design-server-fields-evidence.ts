@@ -66,6 +66,7 @@ try {
         if (path === "receipts") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, confirmed_count: 0, dismissed_count: 0 } } });
         if (path === "receipt-reading") return route.fulfill({ json: { enabled: true, available: true, can_change: false } });
         if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "recibos@example.test" } });
+        if (path === "email/inbox" && route.request().method() === "GET") return route.fulfill({ json: { groups: [{ id: "remitentes_nuevos", items: [] }, { id: "bandeja", items: [] }] } });
         if (path === "captures" || path === "email/deliveries") return route.fulfill({ json: { items: [] } });
         if (path === "consent") return fulfillAcceptedBusinessConsent(route);
         if (path === "month-close") {

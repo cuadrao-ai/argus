@@ -71,6 +71,7 @@ async function setup(page: Page, language: Language, options: { languageChosen?:
     if (path === `receipts/${receipt.id}`) return route.fulfill({ json: receipt });
     if (path === "receipt-reading") return route.fulfill({ json: { enabled: true, available: true, can_change: false } });
     if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "recibos@example.test" } });
+    if (path === "email/inbox" && route.request().method() === "GET") return route.fulfill({ json: { groups: [{ id: "remitentes_nuevos", items: [] }, { id: "bandeja", items: [] }] } });
     if (["email/deliveries", "captures"].includes(path)) return route.fulfill({ json: { items: [] } });
     if (path === "consent") return fulfillAcceptedBusinessConsent(route);
     if (path === "month-close") return route.fulfill({ json: monthCloseWire(url.searchParams.get("month") ?? "2026-10") });

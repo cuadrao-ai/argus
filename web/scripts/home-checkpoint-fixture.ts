@@ -88,6 +88,7 @@ Bun.serve({ hostname: '127.0.0.1', port: Number(process.env.EVIDENCE_FIXTURE_POR
   if (path === '/api/v1/business/captures') return json(await source.captures());
   if (path === '/api/v1/business/expenses') return json({ items: await source.expenses('2026-10-01', null) });
   if (path === '/api/v1/business/email/deliveries') return json({ items: await source.emailDeliveries() });
+  if (path === '/api/v1/business/email/inbox' && request.method === 'GET') return json({ groups: [{ id: 'remitentes_nuevos', items: [] }, { id: 'bandeja', items: [] }] });
   if (path === '/api/v1/business/email') return json(await source.emailIntake());
   if (path === '/api/v1/business/receipt-activity') return json((await source.receiptPage!('inbox')).activity);
   if (path === '/api/v1/business/fiscal-profile') return json(await source.fiscalProfile());

@@ -59,6 +59,7 @@ try {
       if (path === "fiscal-profile") return route.fulfill({ json: { ...await source.fiscalProfile(), name: owner.name } });
       if (path === "receipt-reading") return route.fulfill({ json: { enabled: false, available: true, can_change: true } });
       if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "recibos@example.invalid" } });
+      if (path === "email/inbox" && route.request().method() === "GET") return route.fulfill({ json: { groups: [{ id: "remitentes_nuevos", items: [] }, { id: "bandeja", items: [] }] } });
       if (path === "captures" || path === "email/deliveries") return route.fulfill({ json: { items: [] } });
       if (path === "receipts") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, confirmed_count: 0, dismissed_count: 0 } } });
       if (path === "month-close") return route.fulfill({ json: monthCloseWire("2026-10") });

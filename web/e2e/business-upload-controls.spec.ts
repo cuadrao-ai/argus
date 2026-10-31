@@ -29,6 +29,7 @@ async function setup(page: Page, options: { enterable?: boolean; preparable?: bo
     }
     if (path === "receipt-reading") return route.fulfill({ json: { scope_version: 1, enabled: false, available: true, can_change: true, disclosure: "Permiso de prueba", disclosure_token: "a".repeat(64), route: null, consented_at: null, revoked_at: null } });
     if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "recibos@example.test" } });
+    if (path === "email/inbox" && route.request().method() === "GET") return route.fulfill({ json: { groups: [{ id: "remitentes_nuevos", items: [] }, { id: "bandeja", items: [] }] } });
     if (path === "email/deliveries" || path === "captures") return route.fulfill({ json: { items: [] } });
     if (path === "consent") return fulfillAcceptedBusinessConsent(route);
     if (path === "month-close") return route.fulfill({ json: monthCloseWire(new URL(request.url()).searchParams.get("month") ?? "2026-10") });
