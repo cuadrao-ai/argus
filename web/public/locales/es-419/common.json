@@ -3987,6 +3987,7 @@
       "ecf": "e-CF {{value}}",
       "missing_rnc": "Sin RNC",
       "missing_ncf": "Sin NCF ni e-CF",
+      "ncf_malformed": "NCF con error",
       "loading": "Cargando el mes",
       "open_items_beyond_one": "Y {{count}} más que no se muestra aquí.",
       "open_items_beyond_other": "Y {{count}} más que no se muestran aquí.",

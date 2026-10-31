@@ -38,6 +38,14 @@ export async function flaggedReceipt(codes: readonly ReviewFlagCode[], accounts:
   return dossier;
 }
 
+/** A paid receipt as the month close lists it (DocumentLine in docs/api/openapi.yaml). */
+export function receiptLine(activityId: string, counterparty: string, ncf: string | null, occurredOn = "2026-10-09") {
+  const { amount, itbis } = READ_VALUES.totals.clean;
+  const minor = (value: string) => Math.round(Number(value) * 100);
+  const before = (Number(amount) - Number(itbis)).toFixed(2);
+  return { activity_id: activityId, document_kind: "receipt", currency: "DOP", occurred_on: occurredOn, total_minor: minor(amount), total: amount, before_itbis_minor: minor(before), before_itbis: before, itbis_minor: minor(itbis), itbis, counterparty, rnc: READ_VALUES.rnc.clean, ncf, ecf: null, status: "pagado", sin_comprobante: false, due_on: null };
+}
+
 /** The problem body the server refuses an action with: status, a title from the code, and the refusal's context. */
 export function refusal(code: string, context?: { existing_record_id: string } | { flags: string[] }): Response {
   const body = { type: `https://api.argus.app/problems/${code.replaceAll("_", "-")}`, title: code.replaceAll("_", " ").replace(/^./, (first) => first.toUpperCase()), status: 422, detail: code, code, request_id: "req-review-flags", ...(context ? { context } : {}) };

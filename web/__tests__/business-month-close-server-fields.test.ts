@@ -10,6 +10,7 @@ import {
   readOpenItemsWire,
   canStepMonth,
 } from "../lib/business-month-close";
+import { READ_VALUES, receiptLine } from "./fixtures/review-flags";
 
 function block(currency: string, extra: Record<string, unknown> = {}) {
   return {
@@ -79,6 +80,30 @@ describe("month close reads the server's own fields", () => {
       ["DOP", "450.00", 3, false],
       ["USD", "2.16", 3, true],
     ]);
+  });
+});
+
+describe("ncf_malformed marks the documents the server names", () => {
+  const malformed = receiptLine("act-malformed", "Ferretería La Esquina", READ_VALUES.ncf.flagged);
+  const missing = receiptLine("act-missing", "Colmado Don Pedro", null);
+  const reasons = [{ code: "missing_ncf", activity_id: malformed.activity_id }, { code: "missing_ncf", activity_id: missing.activity_id }];
+
+  test("a listed document is malformed and keeps its missing_ncf blocker; the rest are not marked", () => {
+    const snapshot = readMonthCloseWire(month("2026-10", { closed: false, reasons, missing_ncf: [malformed, missing], ncf_malformed: [malformed] }));
+    expect(snapshot.documents.map((document) => [document.id, document.ncf, document.ncf_malformed ?? false])).toEqual([
+      [malformed.activity_id, READ_VALUES.ncf.flagged, true],
+      [missing.activity_id, null, false],
+    ]);
+    expect(snapshot.blockers).toEqual([malformed, missing].map(({ activity_id }) => ({ kind: "missing_ncf", id: `${activity_id}:missing_ncf`, documentId: activity_id })));
+  });
+
+  test("an older server without the list marks nothing", () => {
+    const snapshot = readMonthCloseWire(month("2026-10", { closed: false, reasons, missing_ncf: [malformed, missing] }));
+    expect(snapshot.documents.some((document) => document.ncf_malformed)).toBe(false);
+  });
+
+  test("a list that is not a list is refused, never read as none", () => {
+    expect(() => readMonthCloseWire(month("2026-10", { closed: false, reasons, missing_ncf: [malformed], ncf_malformed: { [malformed.activity_id]: true } }))).toThrow();
   });
 });
 
