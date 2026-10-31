@@ -687,6 +687,9 @@ def test_owner_authorizes_one_sender_and_refuses_a_free_mail_domain(alice, runti
             "kind": "address",
             "value": "caja@tienda.test",
             "status": "authorized",
+            "tag": None,
+            "last_auth_result": None,
+            "last_seen_at": None,
         }
     ]
     taken = runtime.store.create_route(

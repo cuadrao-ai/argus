@@ -10333,6 +10333,24 @@ accept path recorded.
     is 404 `email_sender_not_found`. Stopping or changing the receipt address,
     and authorizing, removing, or blocking a sender, each append one audit row
     with the actor, the time, the old address, and the new address.
+    Each GET item is `{id, kind, value, status, tag, last_auth_result,
+    last_seen_at}` and POST returns the same item. `status` is `pending`,
+    `authorized` or `blocked`; POST accepts only `authorized` (Autorizar) or
+    `blocked` (Bloquear), and `pending` is 422. `tag` is `verified` when
+    `last_auth_result` is `aligned`, `unverified` for any other verdict, and
+    null when no mail was seen. `last_auth_result` is the last message's
+    verdict (below) or null; `last_seen_at` is its UTC arrival time or null.
+    Items are ordered pending, authorized, blocked; within each, newest
+    `last_seen_at` first, never seen last, then creation order. No paging.
+  - Pending senders (`CUADRAO_BUSINESS_EMAIL_PENDING_SENDERS_ENABLED`, default
+    off).
+    Off, everything in this section holds as written. On, after the message
+    is fetched and judged, a sender with no `authorized` row gets a `pending`
+    row (address, verdict, time; an existing row keeps its status) and the
+    delivery ends `rejected` with `email_sender_pending`. Nothing of the
+    message is stored, it is in no inbox group and no Bandeja count. A
+    retried delivery whose original is already stored is not affected. An
+    authorized sender's mail is routed exactly as below, whatever the verdict.
   - Each inbound message gets one verdict from the provider's
     `authentication.{spf,dkim,dmarc}` and the From headers:
     - `ambiguous`: two From headers or addresses, a malformed `From :`

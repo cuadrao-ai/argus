@@ -44,6 +44,10 @@ from argus.domain.ingestion.email_intake.models import (
     route_from_row,
 )
 from argus.domain.ingestion.email_intake.routing import verdict_readable
+from argus.domain.ingestion.email_intake.sender_seen import (
+    MemorySenderSeen,
+    PostgresSenderSeen,
+)
 
 MAX_ATTEMPTS = 8
 LEASE = timedelta(seconds=120)
@@ -146,7 +150,7 @@ _delivery = delivery_from_row
 _route = route_from_row
 
 
-class PostgresEmailStore(PostgresAddressing):
+class PostgresEmailStore(PostgresSenderSeen, PostgresAddressing):
     def __init__(self, pool: ConnectionPool, budget: DailyEmailBudget | None = None):
         self.pool = pool
         self.budget = budget or EmailIntakeSettings().daily_budget
@@ -798,7 +802,7 @@ def _synchronized(method: Callable[..., T]) -> Callable[..., T]:
     return run
 
 
-class InMemoryEmailStore(MemoryAddressing):
+class InMemoryEmailStore(MemorySenderSeen, MemoryAddressing):
     """The same queue rules in memory, for the offline suite and the local app."""
 
     def __init__(
