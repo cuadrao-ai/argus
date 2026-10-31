@@ -2617,7 +2617,18 @@
           "approval": "Awaiting approval",
           "ready": "Ready",
           "review": "To review",
-          "unknown": "Status unavailable"
+          "unknown": "Status unavailable",
+          "missing": {
+            "several": "Fiscal details missing",
+            "expense_type_missing": "Expense type is missing",
+            "rnc_missing": "RNC is missing",
+            "rnc_invalid": "RNC has an error",
+            "ncf_invalid": "NCF has an error",
+            "ncf_missing": "NCF is missing",
+            "date_missing": "Date is missing",
+            "payment_method_missing": "Payment method is missing",
+            "detail_missing": "A detail is missing"
+          }
         }
       },
       "title": "Records",
