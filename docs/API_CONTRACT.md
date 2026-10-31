@@ -10328,8 +10328,10 @@ accept path recorded.
     is 404 `email_sender_not_found`. Stopping or changing the receipt address,
     and authorizing, removing, or blocking a sender, each append one audit row
     with the actor, the time, the old address, and the new address.
-  - Reading an email attachment requires an aligned delivery and the sender's
-    exact address to remain authorized in that Business. This is checked when
+  - Reading an email attachment requires the sender's exact address to
+    remain authorized in that Business. A failed or missing DMARC or DKIM
+    result does not refuse reading or approval for an authorized sender; the
+    item carries the review note below and a person still presses Aprobar. This is checked when
     preparation starts, before extraction, and before the extracted draft is
     saved, including manual preparation, retries and queued jobs. Raw mail and
     attachments remain captured when reading is refused. The existing
@@ -10340,11 +10342,11 @@ accept path recorded.
   - GET `/api/v1/business/email/inbox` groups deliveries as
     `remitentes_nuevos`, then `bandeja`. A first scan from an authorized
     sender sets `notice` to "Prueba recibida". Mail from an authorized sender
-    whose provider DMARC or DKIM result is `fail` lands in `bandeja` with
-    `review_note` set to "No pudimos verificar este remitente." and
-    `approved` false. Every other item has `review_note` null. Mail from a
-    sender not on the list, or an authorized sender whose result is neither
-    pass nor fail, lands in `remitentes_nuevos`.
+    whose DMARC or DKIM check did not pass (`auth_result` `failed` or
+    `unknown`) lands in `bandeja` with `review_note` set to "No pudimos
+    verificar este remitente." and `approved` false. Every other item has
+    `review_note` null. Only mail from a sender not on the list lands in
+    `remitentes_nuevos`. Nothing from email is approved without a person.
   - DELETE `/api/v1/business/email` switches the address off. A route can be
     switched off, never pointed at another Business or person.
   - GET `/api/v1/business/email/deliveries` and `/{id}` list the Business's

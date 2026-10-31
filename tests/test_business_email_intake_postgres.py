@@ -788,10 +788,20 @@ def approve(receipts, draft_id):
 @pytest.mark.owner_acts
 @pytest.mark.parametrize(
     ("authentication", "authorized", "status"),
-    [(FORGED, True, 403), (ALIGNED, False, 403), (ALIGNED, True, 200)],
-    ids=["forged-authorized", "aligned-new-sender", "aligned-authorized"],
+    [
+        (FORGED, True, 200),
+        (FORGED, False, 403),
+        (ALIGNED, False, 403),
+        (ALIGNED, True, 200),
+    ],
+    ids=[
+        "unverified-authorized",
+        "unverified-new-sender",
+        "aligned-new-sender",
+        "aligned-authorized",
+    ],
 )
-def test_an_emailed_attachment_approves_only_from_an_authorized_aligned_sender(
+def test_an_emailed_attachment_approves_only_from_an_authorized_sender(
     receipts, authentication, authorized, status
 ):
     if authorized:

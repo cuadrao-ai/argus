@@ -122,9 +122,9 @@ def _email_read_observed(world, delivery, case):
 CASES = [
     ("new_aligned", "new", {"dmarc": "pass", "dkim": "pass"}, None, 0),
     ("new_unknown", "new", {"dmarc": "unknown", "dkim": "gray"}, None, 0),
-    ("authorized_failed", "authorized", {"dmarc": "fail", "dkim": "fail"}, None, 0),
-    ("authorized_unknown", "authorized", {"dmarc": "unknown", "dkim": "gray"}, None, 0),
-    ("authorized_gray", "authorized", {"dmarc": "gray", "dkim": "gray"}, None, 0),
+    ("authorized_failed", "authorized", {"dmarc": "fail", "dkim": "fail"}, None, 1),
+    ("authorized_unknown", "authorized", {"dmarc": "unknown", "dkim": "gray"}, None, 1),
+    ("authorized_gray", "authorized", {"dmarc": "gray", "dkim": "gray"}, None, 1),
     ("blocked", "blocked", {"dmarc": "pass", "dkim": "pass"}, None, 0),
     (
         "reading_off",
@@ -163,7 +163,7 @@ CASES = [
     "case,standing,auth,change,expected", CASES, ids=[x[0] for x in CASES]
 )
 @pytest.mark.owner_acts
-def test_only_live_authorized_aligned_mail_reaches_automatic_extraction(
+def test_only_live_authorized_mail_reaches_automatic_extraction(
     email_reader_boundary, case, standing, auth, change, expected
 ):
     world = email_reader_boundary

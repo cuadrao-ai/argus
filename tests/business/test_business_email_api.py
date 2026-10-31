@@ -834,7 +834,7 @@ def test_approve_waits_until_the_sender_is_authorized(alice: Owner, runtime) -> 
     assert store.get(delivery.id, route.space_id).approved is False
 
 
-def test_approve_refuses_a_forged_from_and_an_unreachable_email_store(
+def test_a_person_approves_unverified_mail_from_an_authorized_sender_only(
     alice: Owner,  # noqa: F811
     runtime,
 ) -> None:
@@ -873,10 +873,6 @@ def test_approve_refuses_a_forged_from_and_an_unreachable_email_store(
     store.finish(claimed, "captured")
     draft_id = uuid4()
     store.link_draft_documents(route.space_id, draft_id, [document_id])
-    alice.post(
-        "/email/senders",
-        {"kind": "address", "value": "caja@tienda.test", "status": "authorized"},
-    )
 
     class Recording:
         def __init__(self) -> None:
@@ -908,6 +904,18 @@ def test_approve_refuses_a_forged_from_and_an_unreachable_email_store(
         assert forged.status_code == 403, forged.text
         assert forged.json()["detail"]["code"] == "email_sender_unauthorized"
         assert service.calls == []
+        alice.post(
+            "/email/senders",
+            {"kind": "address", "value": "caja@tienda.test", "status": "authorized"},
+        )
+        delivery = store.get(claimed.id, route.space_id)
+        assert (delivery.auth_result, delivery.approved) == ("failed", False)
+        pressed = drafts.post(url, json=body, headers={"Idempotency-Key": str(uuid4())})
+        assert pressed.status_code == 422, pressed.text
+        assert pressed.json()["detail"]["code"] == "expense_blocked"
+        assert service.calls == [draft_id]
+        assert store.get(claimed.id, route.space_id).approved is False
+        service.calls.clear()
 
         def unreachable(*_args, **_kwargs):
             raise RuntimeError("email store unreachable")

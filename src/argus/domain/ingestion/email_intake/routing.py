@@ -26,12 +26,12 @@ class IntakeDecision:
 
 
 def decide(standing: str, auth: str, *, first_authorized: bool) -> IntakeDecision:
-    if standing == "authorized" and auth == "failed":
+    if standing == "authorized" and auth != "aligned":
         return IntakeDecision(
             "bandeja", auth, UNVERIFIED_SENDER_NOTE, False, False, False
         )
     if auth != "aligned" or standing == "new":
-        group = "remitentes_nuevos" if standing in ("new", "authorized") else None
+        group = "remitentes_nuevos" if standing == "new" else None
         return IntakeDecision(group, auth, None, False, False, False)
     if standing != "authorized":
         return IntakeDecision(None, auth, None, False, False, False)

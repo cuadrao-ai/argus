@@ -362,7 +362,7 @@ def test_a_token_address_without_an_alias_still_routes():
     assert route.alias is None
 
 
-def test_routing_never_approves_and_holds_failed_authorized_mail_as_pending():
+def test_routing_never_approves_and_holds_unverified_authorized_mail_as_pending():
     new = decide("new", "unknown", first_authorized=False)
     assert (new.group, new.approved, new.skip) == ("remitentes_nuevos", False, False)
     aligned = decide("authorized", "aligned", first_authorized=True)
@@ -380,10 +380,20 @@ def test_routing_never_approves_and_holds_failed_authorized_mail_as_pending():
         False,
         False,
     )
-    unknown = decide("authorized", "unknown", first_authorized=False)
-    assert (unknown.group, unknown.note, unknown.approved) == ("remitentes_nuevos", None, False)
-    stranger = decide("new", "failed", first_authorized=False)
-    assert (stranger.group, stranger.note, stranger.approved) == ("remitentes_nuevos", None, False)
+    unknown = decide("authorized", "unknown", first_authorized=True)
+    assert (unknown.group, unknown.note, unknown.first_scan, unknown.approved) == (
+        "bandeja",
+        "No pudimos verificar este remitente.",
+        False,
+        False,
+    )
+    for auth in ("aligned", "failed", "unknown"):
+        stranger = decide("new", auth, first_authorized=False)
+        assert (stranger.group, stranger.note, stranger.approved) == (
+            "remitentes_nuevos",
+            None,
+            False,
+        )
     assert FIRST_SCAN_LABEL == "Prueba recibida"
 
 
