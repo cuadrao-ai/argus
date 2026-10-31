@@ -22,6 +22,7 @@ from argus.domain.business.contracts.facts import (
 from argus.domain.business.dgii_columns import COLUMNS, OPTIONAL_AMOUNTS
 from argus.domain.business.dgii_line import (
     confirmed_declaration,
+    first_missing,
     hard_rejects,
     line_review,
 )
@@ -415,6 +416,44 @@ def fiscal_manifest(
         },
     }
     return manifest, rows
+
+
+def line_verdicts(
+    records: tuple[FiscalRecord, ...],
+    *,
+    rnc: str | None,
+    captured_on: date,
+    registry: RncRegistry | None = None,
+) -> dict[str, str | None]:
+    """For each record the export would report, None when its month's 606 or
+    607 carries it as a line, else the first thing missing. Records the export
+    leaves out by rule (Personal, no fiscal number, B02 summary) are absent."""
+
+    by_id = {record.activity_id: record for record in records}
+    verdicts: dict[str, str | None] = {}
+    months = {(record.occurred_on.year, record.occurred_on.month) for record in records}
+    for year, month in months:
+        manifest, _rows = fiscal_manifest(
+            records,
+            rnc=rnc,
+            business_name="",
+            start=date(year, month, 1),
+            end=date(year, month, calendar.monthrange(year, month)[1]),
+            captured_on=captured_on,
+            registry=registry,
+        )
+        for item in manifest["reconciliation"]:
+            identifier = item["activity_id"]
+            if item["disposition"] in COLUMNS:
+                verdicts[identifier] = None
+            elif item["disposition"] == "needs_review":
+                issues = [
+                    issue
+                    for issue in manifest["issues"]
+                    if issue["activity_id"] == identifier
+                ]
+                verdicts[identifier] = first_missing(by_id[identifier], issues)
+    return verdicts
 
 
 def build_fiscal_packet(
