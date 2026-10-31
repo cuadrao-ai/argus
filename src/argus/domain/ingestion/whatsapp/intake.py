@@ -84,6 +84,11 @@ class DeliveryInFlight(Exception):
     """Another worker holds a live claim on an unsettled message; ask Meta to retry."""
 
 
+class ClaimNotSealed(Exception):
+    """A photo whose recovery envelope could not be sealed is not acknowledged:
+    the webhook answers 503 and the provider redelivers it."""
+
+
 class CaptureRejected(Exception):
     def __init__(self, code: str) -> None:
         super().__init__(code)
@@ -274,6 +279,14 @@ class WhatsAppIntake:
                 return True
         sender = self.keys.sender(message.sender)
         key = self.keys.message(message.id)
+        try:
+            envelope = self._seal(message)
+        except ClaimNotSealed:
+            # A replay of a message already settled needs no envelope.
+            record = await asyncio.to_thread(self.store.inbound, key)
+            if record is not None and record.status not in RETRYABLE:
+                return True
+            raise
         now = self.clock()
         claim = await asyncio.to_thread(
             self.store.claim,
@@ -281,7 +294,7 @@ class WhatsAppIntake:
             sender_hash=sender,
             now=now,
             claim_until=now + timedelta(seconds=CLAIM_SECONDS),
-            claim_envelope=self._seal(message),
+            claim_envelope=envelope,
         )
         log = logger.bind(message_ref=ref(key), sender_ref=ref(sender))
         if not claim.claimed:
@@ -290,15 +303,25 @@ class WhatsAppIntake:
         return _Held(message, sender, key, claim.record.claim_until, log)
 
     def _seal(self, message: InboundMessage) -> bytes | None:
+        """A photo is acknowledged only once its envelope is sealed, so a lost
+        worker can always fetch it again. Text stays best effort."""
+
+        required = isinstance(message, MediaMessage)
         if self.claim_codec is None:
+            if required:
+                logger.warning("WhatsApp claim codec missing; photo not acknowledged")
+                raise ClaimNotSealed("whatsapp_claim_codec_unavailable")
             return None
         try:
             return self.claim_codec.seal(message)
         except Exception as error:
             logger.warning(
-                "WhatsApp claim envelope not sealed; this message cannot be recovered",
+                "WhatsApp claim envelope not sealed",
                 failure_mode=type(error).__name__,
+                acknowledged=not required,
             )
+            if required:
+                raise ClaimNotSealed("whatsapp_claim_not_sealed") from error
             return None
 
     def _nudge_recovery(self) -> None:
@@ -322,16 +345,19 @@ class WhatsAppIntake:
         taken = 0
         for record in lapsed:
             try:
-                taken += await self._recover_one(record, now)
+                taken += await self._recover_one(record)
             except Exception as error:
                 logger.warning(
                     "WhatsApp claim recovery failed", failure_mode=type(error).__name__
                 )
         return taken
 
-    async def _recover_one(self, record: Any, now: datetime) -> bool:
+    async def _recover_one(self, record: Any) -> bool:
         assert record.claim_until is not None
         key, sender = record.provider_message_key, record.sender_hash
+        # The clock is read per item: a sweep-start time would hand later items
+        # a lease that has already run out.
+        now = self.clock()
         held = await asyncio.to_thread(
             self.store.retake,
             provider_message_key=key,
@@ -392,6 +418,20 @@ class WhatsAppIntake:
             item.held,
             item.log,
         )
+        if held is not None:
+            # Renew right before the work: an earlier item in this batch may
+            # have used up the lease, and a fetch must never run on a lapsed one.
+            now = self.clock()
+            held = await asyncio.to_thread(
+                self.store.renew,
+                provider_message_key=key,
+                held=held,
+                now=now,
+                claim_until=now + timedelta(seconds=CLAIM_SECONDS),
+            )
+            if held is None:
+                log.info("WhatsApp claim taken by another worker; skipped")
+                return False
         try:
             settlement = await asyncio.wait_for(
                 self._decide(message, sender), timeout=self.processing_seconds
@@ -653,9 +693,7 @@ class WhatsAppIntake:
             return True
         except ReplyFailed as error:
             reason = (
-                error.args[0]
-                if error.args and isinstance(error.args[0], str)
-                else ""
+                error.args[0] if error.args and isinstance(error.args[0], str) else ""
             )
             rejection = _REPLY_REJECTION.fullmatch(reason)
             failure_mode = (
@@ -677,7 +715,5 @@ class WhatsAppIntake:
                         "graph_code", rejection.group(2)
                     )
             rendered = " ".join(f"{name}={value}" for name, value in diagnostics.items())
-            log.warning(
-                f"WhatsApp acknowledgement not sent: {rendered}", **diagnostics
-            )
+            log.warning(f"WhatsApp acknowledgement not sent: {rendered}", **diagnostics)
             return False

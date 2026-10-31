@@ -3443,7 +3443,16 @@ boundary proposal is approved.
   row settles `failed` with `whatsapp_recovery_exhausted` and the linked sender
   gets one `whatsapp_photo_lost` reply. A lapsed row with no envelope settles
   `failed` with `whatsapp_claim_envelope_missing`. Every settlement clears
-  `claim_envelope`; a check allows it only on `received` and `failed`.
+  `claim_envelope`: the trigger `whatsapp_inbound_clear_settled_envelope`
+  nulls it on any write that leaves `received`/`failed` or ends the claim, so
+  code from before this migration (a rollout or a code-only rollback) still
+  settles sealed rows and still drops their bytes. The check
+  `whatsapp_inbound_claim_envelope_shape` then holds by construction: an
+  envelope only on `received` and `failed`, version byte 1. Each item renews
+  its own lease (compare-and-set, fresh clock) right before its work, so no
+  photo is fetched under a lapsed lease. A photo is acknowledged only once its
+  envelope is sealed; with no codec, or when sealing fails, the webhook answers
+  503 and commits nothing, so the provider redelivers. Text stays best effort.
 
 Row level security is enabled with no policies and every client grant revoked.
 Proven by `tests/test_whatsapp_intake_postgres.py`.

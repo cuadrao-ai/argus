@@ -107,6 +107,18 @@ class WhatsAppStore(Protocol):
         the attempt; None when another worker got there first."""
         ...
 
+    def renew(
+        self,
+        *,
+        provider_message_key: bytes,
+        held: datetime,
+        now: datetime,
+        claim_until: datetime,
+    ) -> datetime | None:
+        """Extend this worker's claim right before its work starts, only if it
+        is still the one ``held``; None when it was lost to another worker."""
+        ...
+
     def settle(
         self,
         *,
@@ -278,6 +290,23 @@ class InMemoryWhatsAppStore:
                 claim_until=claim_until,
                 updated_at=now,
                 recovery_attempts=current.recovery_attempts + 1,
+            )
+            return claim_until
+
+    def renew(
+        self,
+        *,
+        provider_message_key: bytes,
+        held: datetime,
+        now: datetime,
+        claim_until: datetime,
+    ) -> datetime | None:
+        with self._lock:
+            current = self._inbound[provider_message_key]
+            if current.status not in RETRYABLE or current.claim_until != held:
+                return None
+            self._inbound[provider_message_key] = replace(
+                current, claim_until=claim_until, updated_at=now
             )
             return claim_until
 

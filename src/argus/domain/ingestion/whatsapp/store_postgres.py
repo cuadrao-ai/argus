@@ -149,6 +149,24 @@ class PostgresWhatsAppStore:
             ).fetchone()
         return None if row is None else row[0]
 
+    def renew(
+        self,
+        *,
+        provider_message_key: bytes,
+        held: datetime,
+        now: datetime,
+        claim_until: datetime,
+    ) -> datetime | None:
+        with self._pool.connection() as connection, connection.transaction():
+            row = connection.execute(
+                "update public.whatsapp_inbound_messages "
+                "set claim_until = %s, updated_at = %s "
+                "where provider_message_key = %s and status in ('received', 'failed') "
+                "and claim_until = %s returning claim_until",
+                (claim_until, now, provider_message_key, held),
+            ).fetchone()
+        return None if row is None else row[0]
+
     def inbound(self, provider_message_key: bytes) -> InboundRecord | None:
         with self._pool.connection() as connection:
             row = connection.execute(
