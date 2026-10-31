@@ -15,9 +15,9 @@ from argus.api.households import (
     require_invites_context,
 )
 from argus.api.routers.financial_accounts import _required_idempotency_key
-from argus.domain.backtest_admission import canonical_hash
 from argus.domain.household import invite_schemas as invites
 from argus.domain.household import schemas as wire
+from argus.domain.idempotency import canonical_hash
 
 router = APIRouter(prefix="/api/v1", tags=["households"])
 Context = Annotated[HouseholdsContext, Depends(require_households_context)]

@@ -226,7 +226,6 @@ def test_registered_context_never_emits_a_guest_event() -> None:
             {"first_useful_assistant_response_completed"},
         ),
         ("src/argus/api/chat/backtest_admission_flow.py", set()),
-        ("src/argus/api/routers/backtest.py", set()),
         ("src/argus/api/routers/feedback.py", set()),
         ("src/argus/domain/guest_cleanup.py", set()),
     ],

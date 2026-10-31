@@ -138,6 +138,7 @@ export function ContactPage({ locale }: { locale: BusinessLocale }) {
       lang={locale === "es" ? "es-DO" : "en"}
       id="top"
       data-page-background="business"
+      data-page="contact"
     >
       <BusinessHeader locale={locale} page="contact" />
       <main id="business-main" tabIndex={-1} className={styles.demoLayout}>

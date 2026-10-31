@@ -5,7 +5,7 @@ from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from argus.domain.backtest_admission import canonical_hash
+from argus.domain.idempotency import canonical_hash
 from argus.domain.planning import claims, model, storage
 from argus.domain.planning.projection import matches, occurrence_response, projection
 from argus.domain.planning.schemas import (

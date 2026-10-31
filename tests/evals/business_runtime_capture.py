@@ -718,7 +718,6 @@ async def capture_case(
     receipt_sink: Callable[[int, list[dict[str, Any]]], None] | None = None,
 ) -> CaseCapture:
     dsn = _local_dsn(dsn)
-    from argus.agent_runtime.business.context import AuthorizedBusinessContext
     from argus.agent_runtime.business.runner import (
         BusinessTurnRunner,
         business_provider_route,
@@ -726,6 +725,7 @@ async def capture_case(
     from argus.api.business_drafts import action_problem
     from argus.domain.business.actions import BusinessActions
     from argus.domain.business.authority import ActionError
+    from argus.domain.business.context import AuthorizedBusinessContext
     from argus.domain.business.contracts.actions import ApproveExpense
     from argus.domain.business.contracts.authority import TrustedActor
     from argus.domain.business.contracts.recovery import DurableTurn, SenderLease

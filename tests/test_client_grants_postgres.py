@@ -262,8 +262,6 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "public.profile_photos",
         "public.profiles",
         "public.public_excerpt_snapshots",
-        "public.refusal_log",
-        "public.refusal_observations",
         "public.route_receipts",
         "public.run_context_packets",
         "public.spaces",

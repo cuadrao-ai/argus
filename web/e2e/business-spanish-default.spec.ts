@@ -111,15 +111,9 @@ test("an en-US browser with nothing stored and a Spanish account opens Business 
   await expect(upload).toBeVisible();
   await expect(upload).not.toContainText("Upload receipt");
   await expect(upload.getByTestId("intake-choose")).toHaveText("Elegir archivos");
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-
-  await page.getByTestId("business-primary-upload").click();
-  await page.getByTestId("intake-write-open").click();
-  const record = page.getByRole("dialog");
-  await expect(record.getByTestId("intake-write")).toBeVisible();
-  await expect(record).toContainText("Escríbelo");
-  await expect(record).not.toContainText("Write it");
+  await expect(upload.getByTestId("intake-write-open")).toHaveCount(0);
+  await expect(upload.getByTestId("intake-write")).toHaveCount(0);
+  await expect(upload).not.toContainText("Escríbelo");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
@@ -156,12 +150,9 @@ test("an English account opens Business in English", async ({ page }) => {
   const upload = page.getByRole("dialog", { name: en("business.intake.add_title") });
   await expect(upload).toBeVisible();
   await expect(upload.getByTestId("intake-choose")).toHaveText(en("business.intake.choose_multiple"));
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-
-  await page.getByTestId("business-primary-upload").click();
-  await page.getByTestId("intake-write-open").click();
-  await expect(page.getByRole("dialog")).toContainText(en("business.intake.write"));
+  await expect(upload.getByTestId("intake-write-open")).toHaveCount(0);
+  await expect(upload.getByTestId("intake-write")).toHaveCount(0);
+  await expect(upload).not.toContainText(en("business.intake.write"));
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 

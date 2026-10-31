@@ -508,6 +508,7 @@ function BusinessMonthCloseContent({
   }, [attempt, client, month, preview, scopeKey, seed]);
 
   const listedBlockers = snapshot ? snapshot.blockers ?? monthCloseBlockers(snapshot.documents) : [];
+  const unreviewed = snapshot?.unreviewed_movements ?? 0;
   const blockers = listedBlockers.filter((blocker) => blocker.kind === "missing_rnc" || blocker.kind === "missing_ncf");
   // The cards show one currency's block at a time; the others stay one choice away, never added in.
   const blocks = snapshot?.figures ?? [];
@@ -523,7 +524,7 @@ function BusinessMonthCloseContent({
   const markMethod = oneTapPaymentMethod(snapshot?.payment_methods ?? null);
   const canMark = canMutate && markMethod !== null && openToday !== null;
   const gate = snapshot ? canCloseMonth(snapshot) : { ok: false as const, reason: "not_calendar_month" as const };
-  const locked = Boolean(snapshot?.closed_at);
+  const locked = Boolean(snapshot?.closed_at) && unreviewed === 0;
   // A closed month locks its own documents; Pendiente hoy still marks what other months left open.
   const lockedHere = (document: Pick<MonthCloseDocument, "occurred_on">) => locked && snapshot !== null && document.occurred_on >= snapshot.from && document.occurred_on <= snapshot.to;
   const statusLabel = (status: MonthCloseStatus) =>
@@ -685,10 +686,11 @@ function BusinessMonthCloseContent({
   const fiscalDocuments = [...new Set(blockers.map((blocker) => blocker.documentId))].flatMap((id) => documents.filter((document) => document.id === id));
   const lockedRows = locked ? sortDocuments(documents, "newest") : [];
   // The server sends a block for each currency that has a document, so no block and no line is an empty month.
-  const noDocuments = blocks.length === 0 && documents.length === 0;
+  const noDocuments = blocks.length === 0 && documents.length === 0 && unreviewed === 0;
   const rowGrid = "tablet:grid tablet:grid-cols-[7.5rem_minmax(0,1.4fr)_6.5rem_7rem_auto] tablet:items-center tablet:gap-3";
   const shownMonth = month ?? currentMonth;
   const monthName = snapshot?.month ? new Intl.DateTimeFormat(locale, { month: "long", timeZone: "UTC" }).format(new Date(Date.UTC(Number(snapshot.month.slice(0, 4)), Number(snapshot.month.slice(5, 7)) - 1, 1))) : "";
+  const unreviewedLine = unreviewed > 0 && monthName ? t("business.month_close.unreviewed_movements", { count: unreviewed, month: monthName }) : "";
   const tasks: { id: string; icon: typeof Inbox; text: string; detail?: string | null; action?: { label: string; run: () => void } }[] = [
     ...(knownReview && knownReview.count > 0 ? [{ id: "review", icon: Inbox, text: t("business.month_close.checklist_review", { count: knownReview.count, defaultValue: "{{count}} to review in the Inbox" }), detail: knownReview.detail, action: { label: t("business.month_close.action_review", "Review"), run: knownReview.open } }] : []),
     ...(knownReview?.attention ? [{ id: "attention", icon: FileWarning, text: t("business.overview.problem", { count: knownReview.attention }), action: { label: t("business.month_close.action_review", "Review"), run: knownReview.open } }] : []),
@@ -1115,16 +1117,17 @@ function BusinessMonthCloseContent({
                 ) : null}
               </div>
               {knownReview?.reading ? <p className="mt-3 flex items-center gap-2 text-[14px] text-[#735c14] dark:text-[#f6e7c1]" data-testid="month-close-reading"><Clock className="h-4 w-4 shrink-0" aria-hidden="true" />{t("business.overview.reading", { count: knownReview.reading })}</p> : null}
-              {tasks.length === 0 && receiptsReviewed ? (
+              {unreviewedLine ? <p data-testid="month-close-unreviewed" className="mt-3 text-[14px] text-[#56635e] dark:text-white/70">{unreviewedLine}</p> : null}
+              {tasks.length === 0 && receiptsReviewed && !unreviewedLine ? (
                 <p className="mt-3 flex items-center gap-2 text-[16px] text-[var(--cuadrao-green)]" data-testid="month-close-checklist-ready">
                   <CircleCheck className="h-5 w-5 shrink-0" aria-hidden="true" />
                   {t("business.month_close.checklist_ready", { month: monthName, defaultValue: "Everything is ready to close {{month}}." })}
                 </p>
-              ) : tasks.length === 0 && !knownReview?.reading ? (
+              ) : tasks.length === 0 && !knownReview?.reading && !unreviewedLine ? (
                 <p data-testid="month-close-checklist-unknown" aria-label={t("business.month_close.figure_unknown", "Can't be calculated yet.")} className="mt-3 text-[16px] text-[#56635e] dark:text-white/70">
                   {UNKNOWN_VALUE}
                 </p>
-              ) : (
+              ) : tasks.length === 0 && unreviewedLine ? null : (
                 finance && !tasksOpen ? (
                   <button type="button" data-testid="month-close-tasks-toggle" aria-expanded={false} className={`${quietButtonClass} mt-2 self-start px-1`} onClick={() => setTasksOpen(true)}>
                     {t("business.month_close.action_which", "Which ones")}<ChevronDown className="h-4 w-4" aria-hidden="true" />

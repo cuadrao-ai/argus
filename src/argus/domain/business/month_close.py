@@ -6,7 +6,7 @@ draft. This module only settles a document and adds those stored parts.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
@@ -442,6 +442,39 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
     }
 
 
+def draft_close_day(receipt_on: object, arrived_at: object) -> date:
+    """The day a draft still in the Bandeja counts toward for month close: its
+    receipt date when known, otherwise the day it arrived in the recording
+    time zone. Notes pass no receipt date."""
+
+    if receipt_on not in (None, ""):
+        return _as_date(receipt_on)
+    from argus.domain.recording.records import DEFAULT_TIME_ZONE
+
+    if isinstance(arrived_at, str):
+        arrived_at = datetime.fromisoformat(arrived_at.replace("Z", "+00:00"))
+    return occurred_on({"occurred_at": arrived_at, "time_zone": DEFAULT_TIME_ZONE})
+
+
+def unreviewed_in_month(days: Iterable[date], start: date, end: date) -> int:
+    return sum(start <= day <= end for day in days)
+
+
+def with_unreviewed(summary: dict, count: int) -> dict:
+    """The month close with drafts still in the Bandeja as one blocking reason.
+    The web words it from the code, the count and the month."""
+
+    reasons = list(summary["reasons"])
+    if count:
+        reasons.append({"code": "movimientos_sin_revisar", "count": count})
+    return {
+        **summary,
+        "closed": summary["closed"] and not count,
+        "reasons": reasons,
+        "unreviewed_movements_count": count,
+    }
+
+
 OPEN_ITEMS_CAP = 100
 
 
@@ -570,7 +603,10 @@ def read_fiscal(resolution: Mapping | None, currency: str) -> FiscalParts:
         ecf = _text(_known(fiscal.ecf))
         itbis_minor = itbis_or_none(_text(_known(fiscal.itbis)), currency)
     declared = None
-    if isinstance(parsed.dgii, SalesDeclaration) and parsed.dgii.billed_amount is not None:
+    if (
+        isinstance(parsed.dgii, SalesDeclaration)
+        and parsed.dgii.billed_amount is not None
+    ):
         declared = itbis_or_none(parsed.dgii.billed_amount, currency)
     return FiscalParts(
         rnc,

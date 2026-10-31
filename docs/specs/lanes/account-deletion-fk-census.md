@@ -272,7 +272,6 @@ Every uuid column whose name marks a person or a membership, or that has a forei
 | `profile_photos.user_id` | no | `auth.users` CASCADE |
 | `profiles.id` | no | `auth.users` CASCADE |
 | `public_excerpt_snapshots.owner_id` | no | `profiles` CASCADE |
-| `refusal_observations.user_id` | no | `profiles` CASCADE |
 | `route_receipts.user_id` | yes | `profiles` SET NULL |
 | `run_context_packets.user_id` | no | `profiles` CASCADE |
 | `spaces.created_by` | no | `auth.users` CASCADE |
@@ -615,9 +614,6 @@ Migration `20261018230000_business_month_close.sql` adds four foreign keys. A se
 | `public_excerpt_snapshots` | `owner_id` | `profiles` | CASCADE | NO ACTION | no | Single-column key to `profiles`, not a composite owner key. The row follows that parent: it goes with the person's own rows, or is re-pointed to a placeholder's parent row. | Catalog only. The probes had no rows here | None. Public links the person published stop working. It's their own content. |
 | `public_excerpt_snapshots` | `source_conversation_id` | `conversations` | SET NULL | NO ACTION | no | No owner column. | Catalog only. The probes had no rows here | None. It sets a link to null between two of the person's own rows that both go at step 7. |
 | `public_excerpt_snapshots` | `source_run_id` | `backtest_runs` | SET NULL | NO ACTION | no | No owner column. | Catalog only. The probes had no rows here | None. It sets a link to null between two of the person's own rows that both go at step 7. |
-| `refusal_observations` | `request_message_id` | `messages` | CASCADE | NO ACTION | no | No owner column. | Catalog only. The probes had no rows here | None. The person's own chat, research or memory data. It goes with `profiles` at step 7 and nothing is shared. |
-| `refusal_observations` | `response_message_id` | `messages` | CASCADE | NO ACTION | no | No owner column. | Catalog only. The probes had no rows here | None. The person's own chat, research or memory data. It goes with `profiles` at step 7 and nothing is shared. |
-| `refusal_observations` | `user_id` | `profiles` | CASCADE | NO ACTION | no | Single-column key to `profiles`, not a composite owner key. The row follows that parent: it goes with the person's own rows, or is re-pointed to a placeholder's parent row. | Catalog only. The probes had no rows here | None. The person's own chat, research or memory data. It goes with `profiles` at step 7 and nothing is shared. |
 | `route_receipts` | `conversation_id` | `conversations` | SET NULL | NO ACTION | no | No owner column. | Guest probe: sets 1 to null | None. It sets a link to null between two of the person's own rows that both go at step 7. |
 | `route_receipts` | `message_id` | `messages` | SET NULL | NO ACTION | no | No owner column. | Guest probe: sets 1 to null | None. It sets a link to null between two of the person's own rows that both go at step 7. |
 | `route_receipts` | `run_id` | `backtest_runs` | SET NULL | NO ACTION | no | No owner column. | Guest probe: sets 1 to null | None. It sets a link to null between two of the person's own rows that both go at step 7. |

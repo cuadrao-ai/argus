@@ -11,7 +11,6 @@ from threading import RLock
 from typing import Protocol
 from uuid import uuid4
 
-from argus.domain.backtest_admission import canonical_hash
 from argus.domain.household.errors import (
     AccountNotOwned,
     AdminRequired,
@@ -47,6 +46,7 @@ from argus.domain.household.schemas import (
     Recipient,
     SharedAccountView,
 )
+from argus.domain.idempotency import canonical_hash
 from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.errors import IdempotencyConflict, StaleVersion
 

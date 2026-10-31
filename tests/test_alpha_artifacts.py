@@ -323,13 +323,11 @@ def test_active_openapi_uses_alpha_contract_names() -> None:
         "/api/v1/me",
         "/api/v1/conversations",
         "/api/v1/chat/stream",
-        "/api/v1/backtests/run",
         "/api/v1/history",
     ):
         assert path in text
     assert "/api/v1/collections" not in text
     assert "/api/v1/strategies" not in text
-    assert "conversation_result_card" in text
     assert "backtest_runs" in text
     assert "portfolios" not in text.lower()
     assert "simulations" not in text.lower()
@@ -413,42 +411,6 @@ def test_guest_identity_policy_contract_is_active_across_canon_and_openapi() -> 
     )
 
 
-def test_backtests_run_openapi_requires_idempotency_key() -> None:
-    openapi = ROOT / "docs" / "api" / "openapi.yaml"
-
-    document = yaml.safe_load(openapi.read_text(encoding="utf-8"))
-    operation = document["paths"]["/api/v1/backtests/run"]["post"]
-    parameters = {
-        parameter["name"]: parameter for parameter in operation.get("parameters", [])
-    }
-    idempotency = parameters["Idempotency-Key"]
-    assert idempotency["in"] == "header"
-    assert idempotency["required"] is True
-    assert idempotency["schema"] == {"type": "string"}
-
-
-def test_by_action_backtest_job_lookup_is_declared_in_openapi() -> None:
-    openapi = ROOT / "docs" / "api" / "openapi.yaml"
-    contract = yaml.safe_load(openapi.read_text(encoding="utf-8"))
-
-    operation = contract["paths"]["/api/v1/backtest-jobs/by-action/{confirmation_id}"][
-        "get"
-    ]
-
-    assert operation["parameters"] == [
-        {
-            "name": "confirmation_id",
-            "in": "path",
-            "required": True,
-            "schema": {"type": "string"},
-        }
-    ]
-    assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
-        "$ref": "#/components/schemas/BacktestJobResponse"
-    }
-    assert {"404", "409", "500"}.issubset(operation["responses"])
-
-
 def test_logout_openapi_declares_browser_origin_rejection() -> None:
     openapi = ROOT / "docs" / "api" / "openapi.yaml"
 
@@ -502,14 +464,6 @@ def test_authenticated_openapi_declares_session_verification_unavailable() -> No
         for method in ("get", "post", "patch", "put", "delete"):
             operation = path_contract.get(method)
             if operation is None:
-                continue
-            if path == "/api/v1/backtests/run":
-                response = operation["responses"]["503"]
-                assert "auth_session_verification_unavailable" in response["description"]
-                assert "market_data_unavailable" in response["description"]
-                assert response["content"]["application/json"]["schema"] == {
-                    "$ref": "#/components/schemas/Error"
-                }
                 continue
             if path == "/api/v1/me":
                 response = operation["responses"]["503"]
