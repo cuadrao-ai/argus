@@ -31,9 +31,30 @@ const sender = (over: Partial<BusinessEmailDelivery> = {}): BusinessEmailDeliver
   ...over,
 });
 
-const delivery = (review_note: string | null): BusinessEmailDelivery => ({
-  ...sender({ id: "mail-1", sender: "ventas@example.test", standing: "no_receipt", notice: null }),
-  review_note,
+const notedReceipt = (reviewNote: string | null) => ({
+  kind: "receipt" as const,
+  id: "rcpt-1",
+  receivedAt: "2026-10-13T17:14:00Z",
+  source: "email" as const,
+  sender: "ventas@example.test",
+  reviewNote,
+  receipt: {
+    id: "rcpt-1",
+    channel: "email" as const,
+    filename: "factura-41.pdf",
+    media_type: "application/pdf",
+    size_bytes: 1200,
+    received_at: "2026-10-13T17:14:00Z",
+    status: "review_ready" as const,
+    error_code: null,
+    attention: null,
+    preparable: false,
+    enterable: true,
+    expense_id: null,
+    merchant: "Ferretería La Esquina",
+    bandeja: { por_revisar: true, con_problema: false, leyendo: false },
+    email_delivery_ids: ["mail-1"],
+  },
 });
 
 async function spanish() {
@@ -85,9 +106,12 @@ test("the remitentes group renders above the Bandeja rows, with actions only for
   assert.match(block.className, /min-h-11/);
   assert.equal(authorize.disabled, false);
   assert.equal(block.disabled, false);
+  assert.equal(group.querySelector('[data-testid="remitente-admin-only"]'), null);
   await paint("accountant", [sender()]);
-  assert.ok(host.querySelector('[data-testid="remitentes-nuevos"]'));
+  const grantee = host.querySelector('[data-testid="remitentes-nuevos"]');
+  assert.ok(grantee);
   assert.equal([...host.querySelectorAll("button")].some((button) => button.textContent === "Autorizar remitente" || button.textContent === "Bloquear"), false);
+  assert.equal(grantee?.querySelector('[data-testid="remitente-admin-only"]')?.textContent, "Solo el administrador puede autorizar este remitente");
   for (const items of [remitentesNuevosItems(null), remitentesNuevosItems(undefined), remitentesNuevosItems([{ id: "remitentes_nuevos", items: [] }]), remitentesNuevosItems([{ id: "bandeja", items: [sender()] }])]) {
     await paint("owner", items);
     assert.equal(host.querySelector('[data-testid="remitentes-nuevos"]'), null);
@@ -149,7 +173,8 @@ test("a sender action calls the API once per click and refreshes the group", asy
   await act(async () => { button("Bloquear").click(); });
   assert.equal(calls.length, before + 1);
   assert.equal(refreshes, 1);
-  assert.match(host.textContent ?? "", /No pudimos actualizar este remitente\./);
+  const alert = host.querySelector('[role="alert"]');
+  assert.equal(alert?.textContent, "No pudimos actualizar este remitente.");
   assert.equal(button("Bloquear").disabled, false);
   assert.equal(button("Autorizar remitente").disabled, false);
 });
@@ -166,8 +191,8 @@ test("a bandeja row renders review_note from the API and leaves the action enabl
   document.body.append(host);
   const root = createRoot(host);
   cleanup = async () => { await act(async () => root.unmount()); host.remove(); };
-  const paint = (review_note: string | null) => act(async () => {
-    const row = { kind: "email" as const, id: "mail-1", receivedAt: "2026-10-13T17:14:00Z", source: "email" as const, email: { delivery: delivery(review_note), standing: "no_receipt" as const } };
+  const paint = (reviewNote: string | null) => act(async () => {
+    const row = notedReceipt(reviewNote);
     root.render(
       <I18nextProvider i18n={i18n}>
         <BusinessContext.Provider value={value}>
@@ -179,8 +204,13 @@ test("a bandeja row renders review_note from the API and leaves the action enabl
   await paint("Texto distinto 41");
   const note = host.querySelector('[data-testid="bandeja-review-note"]');
   const source = host.querySelector('[data-testid="reception-source"]');
+  const pill = host.querySelector('[data-testid="status-pill"]');
+  assert.equal(host.querySelector('[data-testid="reception-row"]')?.getAttribute("data-kind"), "receipt");
   assert.ok(note && source?.contains(note));
   assert.equal(note.textContent, "Texto distinto 41");
+  assert.equal(pill?.textContent, "Listo para revisar");
+  assert.equal(pill?.getAttribute("data-reception-status"), "neutral");
+  assert.equal(host.textContent?.includes("Necesita atención"), false);
   assert.equal(host.textContent?.includes("No pudimos verificar este remitente."), false);
   assert.equal(note.className.includes("9e2f39"), false);
   assert.equal([...host.querySelectorAll("button")].every((button) => button.disabled === false), true);
@@ -285,6 +315,9 @@ test("sender standing chooses the note and the buttons", async () => {
   await paint("accountant", sender({ sender_standing: "authorized", review_note: "Nota de la API 41", notice: null }));
   assert.deepEqual(labels(), []);
   assert.equal(note()?.textContent, "Nota de la API 41");
+  assert.equal(host.querySelector('[data-testid="remitente-admin-only"]')?.textContent, "Solo el administrador puede autorizar este remitente");
+  await paint("owner", sender({ sender_standing: "authorized", review_note: "Nota de la API 41", notice: null }));
+  assert.equal(host.querySelector('[data-testid="remitente-admin-only"]'), null);
 });
 
 test("the sender address wraps at every width and the label stays one line", () => {
@@ -297,6 +330,18 @@ test("the sender address wraps at every width and the label stays one line", () 
   assert.equal(sender.includes("nowrap"), false);
   assert.match(label, /white-space:\s*nowrap/);
   assert.match(blocks.filter((block) => block[1].includes(".remitenteActions > button")).map((block) => block[2]).join(" "), /min-height:\s*44px/);
+  const phone = css.slice(css.indexOf("@media (max-width:640px)"));
+  const actions = phone.match(/\.remitente \.remitenteActions\s*\{([^}]*)\}/)?.[1] ?? "";
+  const phoneButtons = phone.match(/\.remitenteActions > button\s*\{([^}]*)\}/)?.[1] ?? "";
+  assert.match(actions, /flex-direction:\s*column/);
+  assert.match(actions, /gap:\s*8px/);
+  assert.match(actions, /width:\s*100%/);
+  assert.match(phoneButtons, /width:\s*100%/);
+  assert.match(phoneButtons, /white-space:\s*nowrap/);
+  const readOnly = css.match(/\.remitenteReadOnly\s*\{([^}]*)\}/)?.[1] ?? "";
+  assert.match(readOnly, /font-size:\s*13px/);
+  assert.match(readOnly, /var\(--muted\)/);
+  assert.equal(/9e2f39|red/.test(readOnly), false);
   assert.equal(css.includes(".remitentesList") && /border-radius/.test(css.slice(css.indexOf(".remitentesList"), css.indexOf(".remitente {"))), false);
   assert.equal(/\.remitenteDot\s*\{[^}]*border-radius/.test(css), false);
 });

@@ -27,7 +27,8 @@ export function remitentesNuevosItems(groups: readonly BusinessEmailInboxGroup[]
 
 /**
  * Unknown senders, above the Bandeja rows. The owner can authorize or block
- * the address. A grantee sees the same rows with no actions.
+ * the address. Anyone else sees the same rows with a line that only the
+ * administrator can authorize the sender.
  */
 export default function RemitentesNuevos({ items }: { items: readonly BusinessEmailDelivery[] }) {
   const { t } = useTranslation();
@@ -74,7 +75,7 @@ export default function RemitentesNuevos({ items }: { items: readonly BusinessEm
                   {blockOnly(item) ? null : <button type="button" className={primaryButtonClass} disabled={busy || !item.sender} onClick={() => void act(item, "authorized")}>{t("business.inbox.authorize_sender", "Authorize sender")}</button>}
                   <button type="button" className={dangerButtonClass} disabled={busy || !item.sender} onClick={() => void act(item, "blocked")}>{t("business.inbox.block_sender", "Block")}</button>
                 </span>
-              ) : null}
+              ) : <p className={styles.remitenteReadOnly} data-testid="remitente-admin-only">{t("business.inbox.sender_admin_only", "Only the administrator can authorize this sender.")}</p>}
               {failedId === item.id ? <p role="alert" className={styles.remitenteError}>{t("business.inbox.sender_action_failed", "We couldn't update this sender.")}</p> : null}
             </li>
           );

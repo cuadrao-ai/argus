@@ -3143,7 +3143,8 @@
       "remitente_nuevo": "Remitente nuevo",
       "authorize_sender": "Autorizar remitente",
       "block_sender": "Bloquear",
-      "sender_action_failed": "No pudimos actualizar este remitente."
+      "sender_action_failed": "No pudimos actualizar este remitente.",
+      "sender_admin_only": "Solo el administrador puede autorizar este remitente"
     },
     "email": {
       "no_address": "Este negocio todavía no tiene una dirección para recibir correos.",

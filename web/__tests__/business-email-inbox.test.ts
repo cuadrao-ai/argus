@@ -72,15 +72,14 @@ describe("Bandeja badge and review note", () => {
   test("a bandeja item's review note is the API string, and null stays empty", async () => {
     const source = createFixtureBusinessDataSource({ chatAvailable: false });
     const receipt = { ...(await source.receipts("all"))[0], id: "rcpt-1", email_delivery_ids: ["mail-1"] };
-    const email = { ...(await source.emailDeliveries())[0], id: "mail-1", standing: "no_receipt" as const, review_note: "Solo el correo" };
+    const email = { ...(await source.emailDeliveries())[0], id: "mail-1", standing: null, review_note: "Solo el correo" };
     const fromDelivery = receptionRows([receipt], [], [email]);
     const receiptRow = fromDelivery.find((row) => row.kind === "receipt");
     assertNote(receiptRow, "Solo el correo");
+    expect(fromDelivery.some((row) => row.kind === "email")).toBe(false);
     const fromInbox = receptionRows([receipt], [], [{ ...email, review_note: null }], [{ id: "bandeja", items: [{ id: "mail-1", review_note: "Texto distinto 41" }] }]);
     assertNote(fromInbox.find((row) => row.kind === "receipt"), "Texto distinto 41");
-    const emailRow = fromInbox.find((row) => row.kind === "email");
-    expect(emailRow?.kind).toBe("email");
-    if (emailRow?.kind === "email") expect(bandejaReviewNote(emailRow)).toBe("Texto distinto 41");
+    expect(fromInbox.some((row) => row.kind === "email")).toBe(false);
     const silent = receptionRows([receipt], [], [{ ...email, review_note: null }]);
     expect(bandejaReviewNote(silent.find((row) => row.kind === "receipt")!)).toBeNull();
   });
