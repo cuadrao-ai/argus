@@ -2,7 +2,9 @@ import { describe, expect, test } from "bun:test";
 import {
   createHttpMonthCloseClient,
   loadCurrentMonth,
+  joinCurrencyList,
   monthCloseNetDisplay,
+  monthClosePendingRateCurrencies,
   monthPickerMonths,
   readMonthCloseWire,
   readOpenItemsWire,
@@ -98,6 +100,30 @@ describe("the net follows net_result_final", () => {
     })).figures;
     expect(figures.pending_count).toBe(0);
     expect(monthCloseNetDisplay(figures)).toEqual({ state: "pending", pending_count: 0, reason: "pending_rate" });
+  });
+
+  test("pending rate codes are the readable zero-count blocks, in alphabetical order", () => {
+    const block = (currency: string, pending_count: number | null, net_result_final: boolean | null) => ({
+      currency,
+      net_before_itbis: "1.00",
+      net_result_final,
+      pending_count,
+    });
+    const codes = monthClosePendingRateCurrencies([
+      block("USD", 0, false),
+      block("eur", 0, false),
+      block("DOP", 0, false),
+      block("GBP", 2, false),
+      block("JPY", 0, true),
+      block("US", 0, false),
+    ]);
+    expect(codes).toEqual(["DOP", "USD"]);
+    expect(joinCurrencyList(codes, "y")).toBe("DOP y USD");
+    expect(joinCurrencyList(["DOP", "EUR", "USD"], "y")).toBe("DOP, EUR y USD");
+    expect(joinCurrencyList(["EUR", "USD"], "y")).toBe("EUR y USD");
+    expect(joinCurrencyList(["EUR", "USD"], "and")).toBe("EUR and USD");
+    expect(joinCurrencyList(["USD"], "y")).toBe("USD");
+    expect(joinCurrencyList([], "y")).toBe("");
   });
 
   test("true shows the figure, whatever the web holds about the month's documents", () => {

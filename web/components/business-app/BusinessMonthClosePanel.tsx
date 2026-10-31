@@ -20,11 +20,13 @@ import {
   fiscalNumberPresent,
   formatMonthLabel,
   itbisBalanceDisplay,
+  joinCurrencyList,
   loadCurrentMonth,
   monthCloseBlockers,
   monthCloseClient,
   MonthCloseError,
   monthCloseNetDisplay,
+  monthClosePendingRateCurrencies,
   monthPickerMonths,
   oneTapPaymentMethod,
   openItemsHeaderCurrency,
@@ -1211,6 +1213,27 @@ function BusinessMonthCloseContent({
     itbis.state !== "pending" ? itbis.value : null,
   ].filter((value): value is string => Boolean(value));
   const manyCurrencies = currencies.length > 1 && shownCurrency !== null;
+  function netDetail(): ReactNode | undefined {
+    if (net.state !== "pending") return undefined;
+    if (net.reason === "documents") {
+      return manyCurrencies && shownCurrency
+        ? t("business.month_close.net_waits_in", { count: net.pending_count, currency: currencySymbol(shownCurrency), defaultValue: "{{count}} documents in {{currency}} left to mark" })
+        : t("business.month_close.net_waits", { count: net.pending_count, defaultValue: "{{count}} documents left to mark" });
+    }
+    if (net.reason === "pending_rate") {
+      const codes = monthClosePendingRateCurrencies(blocks);
+      const named = codes.length > 0
+        ? t("business.month_close.net_pending_rate", { codes: joinCurrencyList(codes, t("business.month_close.list_and", "and")), defaultValue: "Foreign currency: exchange rate pending in {{codes}}" })
+        : t("business.month_close.net_pending_rate_plain", "Foreign currency: exchange rate pending");
+      return (
+        <>
+          <span className="block">{named}</span>
+          <span className="block">{t("business.month_close.net_pending_rate_aside", "These amounts are not included in the result.")}</span>
+        </>
+      );
+    }
+    return t("business.month_close.figure_unknown", "Can't be calculated yet.");
+  }
 
   if (finance) {
     // Finanzas: the month switcher heads the group it controls (the month's figures and its close steps), once on every
@@ -1233,7 +1256,7 @@ function BusinessMonthCloseContent({
         <div className="grid grid-cols-2 gap-x-4 gap-y-5">
           {figure("month-close-income", t("business.month_close.income_label", "Income"), figures.income.state, figures.income.value, figures.income.state === "pending" ? t("business.month_close.figure_unknown", "Can't be calculated yet.") : undefined)}
           {figure("month-close-expenses", t("business.month_close.expense_label", "Expenses"), figures.expenses.state, figures.expenses.value, figures.expenses.state === "pending" ? t("business.month_close.figure_unknown", "Can't be calculated yet.") : undefined)}
-          {figure("month-close-net", t("business.month_close.net_label", "Net result"), net.state, net.state === "final" ? net.net_before_itbis : "", net.state === "pending" ? net.reason === "documents" ? manyCurrencies ? t("business.month_close.net_waits_in", { count: net.pending_count, currency: currencySymbol(shownCurrency), defaultValue: "{{count}} documents in {{currency}} left to mark" }) : t("business.month_close.net_waits", { count: net.pending_count, defaultValue: "{{count}} documents left to mark" }) : t("business.month_close.figure_unknown", "Can't be calculated yet.") : undefined)}
+          {figure("month-close-net", t("business.month_close.net_label", "Net result"), net.state, net.state === "final" ? net.net_before_itbis : "", netDetail())}
           {figure("month-close-itbis", itbis.credit ? t("business.month_close.itbis_credit_label", "ITBIS balance in your favor") : t("business.month_close.itbis_label", "ITBIS to pay"), itbis.state, itbis.value, itbis.state === "pending" ? t("business.month_close.figure_unknown", "Can't be calculated yet.") : <>{t("business.month_close.itbis_cobrado", "ITBIS collected")} <span data-testid="month-close-itbis-cobrado" className="cuadrao-amount tabular-nums">{shown?.itbis_cobrado && shownCurrency ? formatMoney(shown.itbis_cobrado, shownCurrency, locale) : UNKNOWN_VALUE}</span></>)}
         </div>
       </section>
@@ -1395,13 +1418,7 @@ function BusinessMonthCloseContent({
               t("business.month_close.net_label", "Net result"),
               net.state,
               net.state === "final" ? net.net_before_itbis : "",
-              net.state === "pending"
-                ? net.reason === "documents"
-                  ? manyCurrencies
-                    ? t("business.month_close.net_waits_in", { count: net.pending_count, currency: currencySymbol(shownCurrency), defaultValue: "{{count}} documents in {{currency}} left to mark" })
-                    : t("business.month_close.net_waits", { count: net.pending_count, defaultValue: "{{count}} documents left to mark" })
-                  : t("business.month_close.figure_unknown", "Can't be calculated yet.")
-                : undefined,
+              netDetail(),
             )}
             {figure(
               "month-close-itbis",
