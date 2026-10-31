@@ -14,35 +14,34 @@ _PRINTED_NCF = re.compile(
 )
 
 
-# Characters that may continue an identifier: letters, numbers, combining
-# marks, spaces, dashes and connectors. Any other punctuation, such as ":" or
-# "(", ends it.
-_CONTINUES = ("L", "N", "M", "Z", "Pd", "Pc")
+# Characters that may join an identifier to its neighbor: letters, numbers,
+# combining marks, spaces, dashes, connectors, minus signs, and invisible
+# format or control characters. Any other punctuation, such as ":" or "(",
+# ends it.
+_JOINS = ("L", "N", "M", "Z", "Pd", "Pc", "Cf", "Cc")
 
 
-def _continues(char: str, *, space_ok: bool) -> bool:
+def _joins(char: str) -> bool:
     category = unicodedata.category(char)
-    if space_ok and category.startswith("Z"):
-        return False
-    return category.startswith(_CONTINUES)
+    if category.startswith(_JOINS):
+        return True
+    return category == "Sm" and "MINUS" in unicodedata.name(char, "")
 
 
 def _side_continues(side: str) -> bool:
     """Whether the text next to a candidate, nearest character first, runs into it.
-    The nearest character must not continue the identifier. If it is a single
-    space, the character after that space must not either, except that a letter
-    is allowed there: a label before or a note after."""
+    The nearest character must not join the identifier, except a single space
+    (Zs). After that one space the next character must not join either,
+    except a letter: a label before or a note after."""
 
     if not side:
         return False
-    if _continues(side[0], space_ok=True):
-        return True
-    if not unicodedata.category(side[0]).startswith("Z") or len(side) == 1:
+    if unicodedata.category(side[0]) != "Zs":
+        return _joins(side[0])
+    if len(side) == 1:
         return False
     nxt = side[1]
-    return not unicodedata.category(nxt).startswith("L") and _continues(
-        nxt, space_ok=False
-    )
+    return not unicodedata.category(nxt).startswith("L") and _joins(nxt)
 
 
 def _isolated(value: str, match: re.Match[str]) -> str:
@@ -62,8 +61,9 @@ def printed_rnc(value: str) -> str:
     """The RNC or cédula as printed, without label or note text around it.
     The token is the first 9 or 11 digit number with its printed dashes or
     spaces. Each edge must be followed by a character that is not a letter,
-    number, combining mark, space, dash or connector, or by one space and then
-    a character that is not a number, mark, space, dash or connector. So
+    number, combining mark, space, dash, connector, minus sign or invisible
+    format or control character, or by one space and then a letter or a
+    character that is none of those. So
     "RNC 1-23-45678-9 (ficticio)" gives "1-23-45678-9", and a read whose number
     runs on ("1 131000002", "131000002 9", "131000002ñ") or has no such number
     is returned unchanged."""

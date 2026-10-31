@@ -1,3 +1,4 @@
+import unicodedata
 from datetime import datetime, timezone
 from hashlib import sha256
 from unittest.mock import AsyncMock
@@ -362,6 +363,22 @@ class TestPrintedIdentifierSplit:
             pytest.param(
                 "ncf", "NCF 9\u2011B0100000987", None, id="ncf-prefix-nb-hyphen"
             ),
+            pytest.param("rnc", "RNC 1\u200b131000002", None, id="rnc-prefix-zwsp"),
+            pytest.param("rnc", "RNC 1\t131000002", None, id="rnc-prefix-tab"),
+            pytest.param(
+                "ncf", "NCF B0100000987\u00ad9", None, id="ncf-suffix-soft-hyphen"
+            ),
+            pytest.param("ncf", "NCF B0100000987\u200d9", None, id="ncf-suffix-zwj"),
+            pytest.param(
+                "ncf", "NCF B0100000987 \u200b9", None, id="ncf-suffix-space-zwsp"
+            ),
+            pytest.param("rnc", "RNC 1\u2212131000002", None, id="rnc-prefix-minus"),
+            pytest.param(
+                "ncf",
+                "NCF B0100000987\u200d\uff19",
+                None,
+                id="ncf-suffix-zwj-fullwidth-digit",
+            ),
             pytest.param(
                 "rnc",
                 "RNC 1-23-45678-9 (ficticio)",
@@ -402,3 +419,31 @@ class TestPrintedIdentifierSplit:
         )
         assert projected.rnc.value == "101987654"
         assert projected.ncf.value == "B0100000987"
+
+
+_INVISIBLE = [
+    chr(code)
+    for code in range(0x10000)
+    if unicodedata.category(chr(code)) in ("Cf", "Cc")
+]
+
+
+@pytest.mark.parametrize(
+    ("name", "token"), [("rnc", "131000002"), ("ncf", "B0100000987")]
+)
+def test_any_format_or_control_character_at_an_edge_keeps_the_read_whole(
+    name: str, token: str
+) -> None:
+    source_id = uuid4()
+    for char in _INVISIBLE:
+        for read in (
+            f"{char}{token}",
+            f"{token}{char}",
+            f"{char}{token} x",
+            f"{token} {char}",
+            f"x {char}{token}",
+        ):
+            receipt = ReceiptDetails(**{name: read})
+            projected = extractor.fiscal_facts_from_receipt(receipt, source_id=source_id)
+            assert getattr(projected, name).value == read, repr(read)
+            assert getattr(receipt, name) == read
