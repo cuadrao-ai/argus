@@ -2415,8 +2415,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -2863,8 +2863,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -3818,8 +3818,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -3870,8 +3870,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -3924,8 +3924,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -3969,8 +3969,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -5801,8 +5801,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -5853,8 +5853,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -5916,8 +5916,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -5978,8 +5978,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -6024,8 +6024,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -6038,7 +6038,8 @@ paths:
               $ref: '#/components/schemas/ExportReport'
       responses:
         '200':
-          description: Complete filtered records, CSV, XLSX and scope manifest; originals excluded.
+          description: Complete filtered records, CSV, XLSX and scope manifest; originals
+            excluded.
           content:
             application/zip: {}
         '403':
@@ -6074,8 +6075,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -6791,8 +6792,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -6902,8 +6903,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -7085,8 +7086,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -7141,8 +7142,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for the
-            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
             a live grant on a closed Business answers 403 business_closed.
         description: The caller's own live grant on the Business to work in; absent for the
           own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
@@ -21282,6 +21283,14 @@ components:
       - connection
       - device_token
       - intake_url
+    DgiiForeignCurrency:
+      properties:
+        '606':
+          $ref: '#/components/schemas/ForeignCurrencyForm'
+        '607':
+          $ref: '#/components/schemas/ForeignCurrencyForm'
+      additionalProperties: false
+      type: object
     DgiiForms:
       properties:
         '606':
@@ -21900,18 +21909,6 @@ components:
       required:
       - action
       - disclosure_token
-    ExcludedPersonal:
-      properties:
-        income:
-          type: integer
-          default: 0
-        expense:
-          type: integer
-          default: 0
-      additionalProperties: false
-      type: object
-      description: Matching rows the Personal mark keeps out of every total, counted
-        by the family the cards group on (a sale is income, a purchase expense).
     Error:
       type: object
       description: RFC 9457 Problem Details with code and request_id.
@@ -22032,6 +22029,19 @@ components:
       required:
       - connection
       - created
+    ExcludedPersonal:
+      properties:
+        income:
+          type: integer
+          default: 0
+        expense:
+          type: integer
+          default: 0
+      additionalProperties: false
+      type: object
+      description: 'Matching rows the Personal mark keeps out of every total, counted by
+
+        the family the cards group on (a sale is income, a purchase expense).'
     ExistingDefinition:
       properties:
         ref:
@@ -23104,6 +23114,18 @@ components:
       - as_of
       - points
       - order
+    ForeignCurrencyForm:
+      properties:
+        pending_rate_count:
+          type: integer
+          default: 0
+        reason:
+          anyOf:
+          - type: string
+            const: 'Moneda extranjera: pendiente de tasa'
+          - type: 'null'
+      additionalProperties: false
+      type: object
     Fulfillment:
       properties:
         expected_version:
@@ -24804,6 +24826,12 @@ components:
           additionalProperties:
             type: string
           type: object
+        fiscal_blockers:
+          items:
+            type: string
+            const: foreign_currency_pending_rate
+          type: array
+          default: []
         amounts:
           anyOf:
           - $ref: '#/components/schemas/InvoiceAmounts'
@@ -27038,6 +27066,8 @@ components:
           type: array
         dgii_forms:
           $ref: '#/components/schemas/DgiiForms'
+        dgii_foreign_currency:
+          $ref: '#/components/schemas/DgiiForeignCurrency'
         currencies:
           items:
             $ref: '#/components/schemas/CurrencyBlock'
@@ -31351,6 +31381,100 @@ components:
           default: []
       additionalProperties: false
       type: object
+    ReportFiltersV2:
+      properties:
+        q:
+          type: string
+          maxLength: 200
+          default: ''
+        period:
+          $ref: '#/components/schemas/Period'
+          default:
+            kind: all
+        record_families:
+          items:
+            type: string
+            enum:
+            - sale
+            - purchase
+          type: array
+          default: []
+        review_stages:
+          items:
+            type: string
+            enum:
+            - needs_review
+            - awaiting_approval
+            - ready_for_export
+          type: array
+          default: []
+        has_document:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+        currencies:
+          items:
+            type: string
+          type: array
+          maxItems: 200
+          default: []
+        amount_min:
+          anyOf:
+          - type: string
+          - type: 'null'
+        amount_max:
+          anyOf:
+          - type: string
+          - type: 'null'
+        counterparties:
+          items:
+            type: string
+          type: array
+          maxItems: 200
+          default: []
+        categories:
+          items:
+            type: string
+          type: array
+          maxItems: 200
+          default: []
+        funding_sources:
+          items:
+            type: string
+          type: array
+          maxItems: 200
+          default: []
+        document_kinds:
+          items:
+            type: string
+            enum:
+            - invoice
+            - receipt
+            - credit_note
+            - unknown
+          type: array
+          default: []
+        fiscal_classifications:
+          items:
+            type: string
+          type: array
+          maxItems: 100
+          default: []
+      additionalProperties: false
+      type: object
+    ReportOverview:
+      properties:
+        needs_review:
+          type: integer
+          default: 0
+        awaiting_approval:
+          type: integer
+          default: 0
+        ready_for_export:
+          type: integer
+          default: 0
+      additionalProperties: false
+      type: object
     ReportRecipe-Input:
       properties:
         schema_version:
@@ -31451,100 +31575,6 @@ components:
           type: string
           const: date_desc
           default: date_desc
-      additionalProperties: false
-      type: object
-    ReportFiltersV2:
-      properties:
-        q:
-          type: string
-          maxLength: 200
-          default: ''
-        period:
-          $ref: '#/components/schemas/Period'
-          default:
-            kind: all
-        record_families:
-          items:
-            type: string
-            enum:
-            - sale
-            - purchase
-          type: array
-          default: []
-        review_stages:
-          items:
-            type: string
-            enum:
-            - needs_review
-            - awaiting_approval
-            - ready_for_export
-          type: array
-          default: []
-        has_document:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-        currencies:
-          items:
-            type: string
-          type: array
-          maxItems: 200
-          default: []
-        amount_min:
-          anyOf:
-          - type: string
-          - type: 'null'
-        amount_max:
-          anyOf:
-          - type: string
-          - type: 'null'
-        counterparties:
-          items:
-            type: string
-          type: array
-          maxItems: 200
-          default: []
-        categories:
-          items:
-            type: string
-          type: array
-          maxItems: 200
-          default: []
-        funding_sources:
-          items:
-            type: string
-          type: array
-          maxItems: 200
-          default: []
-        document_kinds:
-          items:
-            type: string
-            enum:
-            - invoice
-            - receipt
-            - credit_note
-            - unknown
-          type: array
-          default: []
-        fiscal_classifications:
-          items:
-            type: string
-          type: array
-          maxItems: 100
-          default: []
-      additionalProperties: false
-      type: object
-    ReportOverview:
-      properties:
-        needs_review:
-          type: integer
-          default: 0
-        awaiting_approval:
-          type: integer
-          default: 0
-        ready_for_export:
-          type: integer
-          default: 0
       additionalProperties: false
       type: object
     ReportRecipeV2-Input:

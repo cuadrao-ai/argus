@@ -123,3 +123,20 @@ def test_month_close_carries_the_count_beside_the_unchanged_status():
         "606": {"pending_rate_count": 2, "reason": NOTE},
         "607": {"pending_rate_count": 0, "reason": None},
     }
+
+
+def test_undeclared_dollar_lines_count_once_on_their_own_form():
+    records = practice_records()
+    expense = next(r for r in records if r.kind == "expense")
+    income = next(r for r in records if r.kind == "income")
+    undeclared = tuple(
+        replace(r, currency="USD", declaration=None) for r in (expense, income)
+    )
+    manifest, _rows = fiscal_manifest(undeclared, **SEPTEMBER)
+    statuses = {form: shape["status"] for form, shape in manifest["forms"].items()}
+    body = month_close("2026-09", DAY, (), statuses, foreign_currency(manifest["forms"]))
+    wire = MonthClose.model_validate(body).model_dump(by_alias=True, mode="json")
+    assert wire["dgii_foreign_currency"] == {
+        "606": {"pending_rate_count": 1, "reason": NOTE},
+        "607": {"pending_rate_count": 1, "reason": NOTE},
+    }

@@ -262,9 +262,10 @@ def fiscal_manifest(
                 item.update(disposition="excluded", reason="no_fiscal_number")
                 continue
             item.update(reason="fiscal_conversion_required", note=FOREIGN_CURRENCY_NOTE)
-            pending_rate.update(
-                (record.declaration.form,) if record.declaration else COLUMNS
-            )
+            if record.declaration:
+                pending_rate[record.declaration.form] += 1
+            else:
+                pending_rate["607" if record.kind == "income" else "606"] += 1
             issues.extend(collect(record))
             continue
         if record.kind == "expense":
