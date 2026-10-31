@@ -85,7 +85,7 @@ bilingual captures revalidate the later touch-target/placeholder changes.
 Recovery's web source hashes remain byte-identical. Formatting the proof helper
 after capture did not change web source or recovery behavior.
 
-Run commands are in [AUTH_SETUP](../../../../ios/AUTH_SETUP.md). Raw `.xcresult`,
+Run commands are in AUTH_SETUP (removed; see tag `archive/ios-personal-2026-10-30`). Raw `.xcresult`,
 private fixtures, session material and browser logs remain ignored. Only named
 screenshots, safe test summaries and source/hash receipts are promoted here.
 Final source hashes, reconciliation and cleanup are recorded with the completed

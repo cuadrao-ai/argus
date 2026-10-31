@@ -19,6 +19,9 @@ from psycopg_pool import ConnectionPool
 from tests import test_financial_accounts_postgres as shared
 from tests.document_sources_support import source_objects
 from tests.ingestion import whatsapp_cases as cases
+from tests.ingestion import whatsapp_heartbeat_cases as heartbeat
+from tests.ingestion import whatsapp_lease_cases as lease
+from tests.ingestion import whatsapp_recovery_cases as recovery
 from tests.ingestion.whatsapp_support import (
     RECEIPT_PNG,
     Media,
@@ -85,6 +88,82 @@ def test_concurrent_unlinked_reservations_for_one_day_take_one_reply(pool, users
     with ThreadPoolExecutor(len(keys)) as threads:
         taken = list(threads.map(reserve, keys))
     assert sorted(taken) == [False, False, False, True]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "case",
+    recovery.RECOVERY_CASES + lease.LEASE_CASES + heartbeat.HEARTBEAT_CASES,
+    ids=lambda case: case.__name__,
+)
+async def test_recovery_case_on_postgres(case, pool, users) -> None:  # noqa: ANN001
+    await case(_world(pool, users))
+
+
+# The settlement statement of the code before 20261031010000, verbatim: it
+# never names claim_envelope, so a rollout or a code-only rollback runs it
+# against sealed rows.
+_PRE_ENVELOPE_SETTLE = (
+    "update public.whatsapp_inbound_messages set status = %s, "
+    "destination_owner_id = %s, connection_id = %s, error_code = %s, "
+    "claim_until = null, updated_at = %s "
+    "where provider_message_key = %s and status in ('received', 'failed') "
+    "and claim_until is not distinct from %s"
+)
+_SEALED = b"\x01" + b"x" * 40
+
+
+@pytest.mark.parametrize("status", ["received", "rejected", "failed"])
+def test_pre_envelope_code_settles_a_sealed_claim_and_clears_it(pool, status) -> None:  # noqa: ANN001
+    import os
+
+    key, now = os.urandom(32), cases.Clock()()
+    held = now + timedelta(seconds=90)
+    with pool.connection() as connection:
+        connection.execute(
+            "insert into public.whatsapp_inbound_messages "
+            "(provider_message_key, sender_hash, status, claim_until, received_at, "
+            "updated_at, claim_envelope) values (%s, %s, 'received', %s, %s, %s, %s)",
+            (key, b"s" * 32, held, now, now, _SEALED),
+        )
+        settled = connection.execute(
+            _PRE_ENVELOPE_SETTLE, (status, None, None, None, now, key, held)
+        )
+        row = connection.execute(
+            "select status, claim_envelope from public.whatsapp_inbound_messages "
+            "where provider_message_key = %s",
+            (key,),
+        ).fetchone()
+    assert settled.rowcount == 1
+    assert row == (status, None)
+
+
+def test_a_settled_row_never_keeps_a_claim_envelope(pool) -> None:  # noqa: ANN001
+    import os
+
+    import psycopg
+
+    key = os.urandom(32)
+    with pool.connection() as connection:
+        connection.execute(
+            "insert into public.whatsapp_inbound_messages "
+            "(provider_message_key, sender_hash, status, received_at, updated_at, "
+            "claim_envelope) values (%s, %s, 'rejected', now(), now(), %s)",
+            (key, b"s" * 32, _SEALED),
+        )
+        assert connection.execute(
+            "select claim_envelope from public.whatsapp_inbound_messages "
+            "where provider_message_key = %s",
+            (key,),
+        ).fetchone() == (None,)
+    with pool.connection() as connection, pytest.raises(psycopg.errors.CheckViolation):
+        connection.execute(
+            "insert into public.whatsapp_inbound_messages "
+            "(provider_message_key, sender_hash, status, claim_until, received_at, "
+            "updated_at, claim_envelope) values (%s, %s, 'received', now(), now(), "
+            "now(), %s)",
+            (os.urandom(32), b"s" * 32, b"\x02" + b"x" * 40),
+        )
 
 
 @pytest.mark.asyncio

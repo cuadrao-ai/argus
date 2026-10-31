@@ -18,7 +18,7 @@ COPY = {
         "en": "An RNC has 9 digits and a cédula has 11.",
     },
     "fiscal_identity_check_digit": {
-        "es": "El RNC debe tener 9 dígitos (empresa) u 11 (cédula). Revisa que esté bien escrito.",
+        "es": "No se puede exportar hasta corregir el RNC.",
         "en": "The check digit does not match.",
     },
     "fiscal_identity_type_mismatch": {

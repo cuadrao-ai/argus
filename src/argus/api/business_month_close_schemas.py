@@ -93,6 +93,11 @@ class CloseReason(_Wire):
     document_kind: Literal["invoice", "receipt"]
 
 
+class UnreviewedReason(_Wire):
+    code: Literal["movimientos_sin_revisar"]
+    count: int
+
+
 class DocumentLine(_Wire):
     activity_id: str
     document_kind: Literal["invoice", "receipt"]
@@ -116,6 +121,24 @@ class DocumentLine(_Wire):
     due_on: date | None
 
 
+class ForeignCurrencyForm(_Wire):
+    # Foreign-currency lines left out of this form until a rate exists.
+    pending_rate_count: int = 0
+    # "Moneda extranjera: pendiente de tasa" when the count is above zero.
+    reason: Literal["Moneda extranjera: pendiente de tasa"] | None = None
+
+
+class DgiiForeignCurrency(_Wire):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    form_606: ForeignCurrencyForm = Field(
+        alias="606", default_factory=ForeignCurrencyForm
+    )
+    form_607: ForeignCurrencyForm = Field(
+        alias="607", default_factory=ForeignCurrencyForm
+    )
+
+
 class MonthClose(_Wire):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
@@ -125,16 +148,21 @@ class MonthClose(_Wire):
     starts: date = Field(alias="from")
     to: date
     closed: bool
-    reasons: list[CloseReason]
+    reasons: list[CloseReason | UnreviewedReason]
     # The first month with a document this close would show; null while none.
     earliest_month: str | None
     payment_methods: list[str]
     dgii_forms: DgiiForms
+    dgii_foreign_currency: DgiiForeignCurrency = Field(
+        default_factory=DgiiForeignCurrency
+    )
     currencies: list[CurrencyBlock]
     missing_rnc: list[DocumentLine]
     missing_ncf: list[DocumentLine]
     cuentas_por_cobrar: list[DocumentLine]
     cuentas_por_pagar: list[DocumentLine]
+    # Receipt and note drafts the Bandeja still lists in this month.
+    unreviewed_movements_count: int = 0
 
 
 class OpenTotal(_Wire):

@@ -151,6 +151,21 @@ def page(
     return {"items": rows[:limit], "has_more": len(rows) > limit}
 
 
+def awaiting_note_arrivals(tx) -> list:  # noqa: ANN001
+    """When each note draft the Bandeja still lists first arrived, one per draft."""
+
+    return [
+        row["arrived_at"]
+        for row in tx.rows(
+            "select min(s.received_at) as arrived_at"
+            + _NOTES
+            + _AWAITING_WITHOUT_RECEIPT
+            + " group by e.id",
+            (tx.context.actor.space_id, tx.context.owner_id),
+        )
+    ]
+
+
 def awaiting_notes(tx) -> int:  # noqa: ANN001
     """How many drafts the Bandeja's notes stand for, uncapped: the same rows
     ``entries(view="inbox")`` lists, one per draft."""

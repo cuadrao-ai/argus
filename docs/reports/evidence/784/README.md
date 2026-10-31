@@ -41,7 +41,7 @@ SIMULATOR_ID=<UDID> ios/scripts/cuadrao-design-mac-pass.sh all
 
 The steps can also run separately as `checks`, `tests` or `screens`. Output goes to
 `ios/.build/mac-pass/<UTC stamp>/`, which git ignores. The
-[script](../../../../ios/scripts/cuadrao-design-mac-pass.sh) only builds, runs tests and
+script (removed; see tag `archive/ios-personal-2026-10-30`) only builds, runs tests and
 takes screenshots. It doesn't sign, upload or call a backend. A failing step doesn't stop the
 later ones: `all` always runs `checks`, `tests` and `screens`, prints `FAILED <runner>` or
 `<step>: FAILED` for each failure, and exits non-zero at the end if anything failed.

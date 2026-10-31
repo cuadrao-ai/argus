@@ -6,13 +6,13 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
-from argus.agent_runtime.business.context import AuthorizedBusinessContext
 from argus.agent_runtime.business.interpretation import (
     BusinessInterpretation,
     BusinessRecordIntent,
 )
 from argus.agent_runtime.business.runner import BusinessTurnRunner
 from argus.domain.business.actions.facts import patched_facts
+from argus.domain.business.context import AuthorizedBusinessContext
 from argus.domain.business.contracts.actions import (
     Applied,
     Ask,

@@ -20,6 +20,8 @@ from argus.agent_runtime.turn_progress import (
     semantic_progress_fingerprint,
     semantic_progress_snapshot,
 )
+from argus.llm.provider_permit import ProviderCallPermit as ProviderCallPermit
+from argus.llm.provider_permit import install_turn_budget
 
 if TYPE_CHECKING:
     from argus.llm.openrouter import OpenRouterRouteReceipt, OpenRouterTask
@@ -53,12 +55,6 @@ class RuntimeEventTimeoutError(asyncio.TimeoutError):
     def __init__(self, diagnostics: dict[str, Any]) -> None:
         super().__init__("agent_runtime_event_timeout")
         self.diagnostics = diagnostics
-
-
-@dataclass(frozen=True)
-class ProviderCallPermit:
-    task: str
-    timeout_seconds: float
 
 
 @dataclass
@@ -597,3 +593,6 @@ def _turn_call_allowance() -> int:
     if value <= 0:
         return DEFAULT_TURN_CALL_ALLOWANCE
     return min(value, DEFAULT_TURN_CALL_ALLOWANCE)
+
+
+install_turn_budget(reserve_provider_call, turn_budget_block_reason)

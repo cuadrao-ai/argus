@@ -13,7 +13,7 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from uuid import UUID
 
-from argus.domain.backtest_admission import canonical_hash
+from argus.domain.idempotency import canonical_hash
 from argus.domain.owner_scope import OwnerScope, Personal
 from argus.domain.recording.accounts import (
     OPTIONAL_ASSET_TYPES,

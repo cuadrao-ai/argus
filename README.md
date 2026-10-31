@@ -1,5 +1,9 @@
 # Argus
 
+Cuadrao helps small businesses in the Dominican Republic and their accountants turn receipts and invoices into reviewed records and the 606/607 reports.
+
+The personal iOS app is archived at tag `archive/ios-personal-2026-10-30` and branch `archive/ios-personal`.
+
 Argus helps people understand their finances, organize their money, and see
 how their choices affect what comes next.
 

@@ -54,7 +54,7 @@ class InProcessDispatcher:
 
 
 def render_dispatcher(task_id: str) -> Dispatch:
-    from argus.api.chat.backtest_jobs import RenderWorkflowDispatcher
+    from argus.api.render_workflows import RenderWorkflowDispatcher
 
     dispatcher = RenderWorkflowDispatcher(task_id=task_id)
 

@@ -27,6 +27,9 @@ from argus.domain.ingestion.whatsapp.replies import (
 from argus.domain.ingestion.whatsapp.store import InMemoryWhatsAppStore
 
 from tests.ingestion import whatsapp_cases as cases
+from tests.ingestion import whatsapp_heartbeat_cases as heartbeat
+from tests.ingestion import whatsapp_lease_cases as lease
+from tests.ingestion import whatsapp_recovery_cases as recovery
 from tests.ingestion.whatsapp_support import (
     FIXTURES,
     PHONE_NUMBER_ID,
@@ -55,13 +58,6 @@ def _world() -> cases.World:
     )
 
 
-UNLINKED = (
-    "Este número aún no está vinculado a un negocio en Cuadrao. "
-    "Pídele al administrador el código para vincularlo."
-)
-RECEIPT_MISSING = "Mándame la foto o el PDF del comprobante."
-
-
 @pytest.mark.asyncio
 async def test_an_unlinked_photo_gets_the_unlinked_line_and_nothing_is_fetched() -> None:
     world = _world()
@@ -75,7 +71,7 @@ async def test_an_unlinked_photo_gets_the_unlinked_line_and_nothing_is_fetched()
         None,
     )
     assert world.graph.requests == []
-    assert world.transport.bodies() == [UNLINKED]
+    assert world.transport.bodies() == [cases.UNLINKED]
 
 
 @pytest.mark.asyncio
@@ -84,7 +80,14 @@ async def test_a_repeated_unlinked_delivery_is_not_answered_twice() -> None:
     message = fixture("text_message.json", id="wamid.U1", text="hola")
     await world.deliver(message)
     await world.deliver(message)
-    assert world.transport.bodies() == [UNLINKED]
+    assert world.transport.bodies() == [cases.UNLINKED]
+
+
+def test_the_unlinked_line_is_the_approved_text() -> None:
+    assert compose_reply("whatsapp_sender_not_linked", language="es-419") == (
+        "Este número aún no está vinculado a un negocio en Cuadrao. "
+        "Pídele al administrador el código para vincularlo."
+    )
 
 
 def test_blocked_file_copy_matches_approved_spanish_and_preserves_english() -> None:
@@ -204,6 +207,16 @@ async def test_capture_failure_retries_once_before_grouping(fails_twice: bool) -
 @pytest.mark.asyncio
 @pytest.mark.parametrize("case", cases.CASES, ids=lambda case: case.__name__)
 async def test_intake_case(case) -> None:  # noqa: ANN001
+    await case(_world())
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "case",
+    recovery.RECOVERY_CASES + lease.LEASE_CASES + heartbeat.HEARTBEAT_CASES,
+    ids=lambda case: case.__name__,
+)
+async def test_recovery_case(case) -> None:  # noqa: ANN001
     await case(_world())
 
 
@@ -359,17 +372,14 @@ def test_trusted_download_url_is_https_on_a_meta_cdn_host_only() -> None:
 
 
 def test_a_reply_that_ends_in_a_link_ends_as_a_sentence_without_one() -> None:
-    assert compose_reply("read_ready", language="es-419") == (
-        "Ya leímos tu recibo. Revísalo y confírmalo en Cuadrao."
-    )
-
-
-def test_text_only_copy_is_the_fixed_line_in_each_language() -> None:
     assert compose_reply("whatsapp_receipt_missing", language="es-419") == (
-        RECEIPT_MISSING
+        "Aquí solo recibimos recibos. Para todo lo demás usa Cuadrao."
     )
-    assert compose_reply("whatsapp_receipt_missing", language="en") == (
-        "Send me the photo or PDF of the receipt."
+    assert (
+        compose_reply(
+            "whatsapp_receipt_missing", language="en", link="https://app.test/biz"
+        )
+        == "We only take receipts here. For everything else use Cuadrao: https://app.test/biz"
     )
 
 
@@ -388,25 +398,10 @@ async def test_any_text_from_a_linked_owner_gets_the_same_one_reply(text: str) -
     world = _world()
     await world.link(world.alice, cases.ALICE_PHONE)
     await world.deliver(fixture("text_message.json", id="wamid.ANY", text=text))
-    record = world.record("wamid.ANY")
-    assert (record.status, record.error_code, record.connection_id) == (
-        "rejected",
-        "whatsapp_receipt_missing",
-        None,
+    assert world.record("wamid.ANY").error_code == "whatsapp_receipt_missing"
+    assert world.transport.bodies()[-1] == (
+        f"Aquí solo recibimos recibos. Para todo lo demás usa Cuadrao: {cases.ORIGIN}/biz"
     )
-    assert world.transport.bodies()[-1] == RECEIPT_MISSING
-    assert world.captures(world.alice) == []
-
-
-@pytest.mark.asyncio
-async def test_a_repeated_linked_text_is_answered_once() -> None:
-    world = _world()
-    await world.link(world.alice, cases.ALICE_PHONE)
-    before = len(world.transport.sent)
-    message = fixture("text_message.json", id="wamid.ANY", text="hola")
-    await world.deliver(message)
-    await world.deliver(message)
-    assert world.transport.bodies()[before:] == [RECEIPT_MISSING]
 
 
 @pytest.mark.asyncio

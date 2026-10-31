@@ -198,3 +198,13 @@ def test_editor_flag_is_default_off_and_only_declared_for_staging(monkeypatch):
     assert {e["name"]: e.get("value") for e in manifest["services"]["api"]["entries"]}[
         name
     ] == "false"
+
+
+@pytest.mark.parametrize("currency", ["USD", "EUR"])
+def test_non_dop_invoice_issue_is_refused_until_exchange_rate_exists(
+    draft, case_factory, currency
+):
+    case = case_factory()
+    with pytest.raises(InvoiceError) as caught:
+        payload(draft.model_copy(update={"currency": currency}), case, issuer(case))
+    assert caught.value.field_errors["currency"] == "foreign_currency_pending_rate"

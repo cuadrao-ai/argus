@@ -139,10 +139,10 @@ describe("month close blockers and the close gate", () => {
       "blank:missing_ncf",
       "zeros:missing_rnc",
     ]);
-    expect(canCloseMonth({ month: "2026-10", closed_at: null, documents })).toEqual({ ok: false, reason: "blockers" });
+    expect(canCloseMonth({ month: "2026-10", closed_at: null, unreviewed_movements: 0, documents })).toEqual({ ok: false, reason: "blockers" });
     const pendingOnly = [document({ id: "pending", kind: "receipt", amount: "10.00", itbis: "0.00", status: "pendiente" })];
     expect(monthCloseBlockers(pendingOnly)).toEqual([]);
-    expect(canCloseMonth({ month: "2026-10", closed_at: null, documents: pendingOnly })).toEqual({ ok: true, month: "2026-10" });
+    expect(canCloseMonth({ month: "2026-10", closed_at: null, unreviewed_movements: 0, documents: pendingOnly })).toEqual({ ok: true, month: "2026-10" });
   });
 
   test("the sample month lists the documents missing an RNC or a comprobante, and not the pending ones that have both", () => {
@@ -159,17 +159,17 @@ describe("month close blockers and the close gate", () => {
   test("close stays shut until the window is one calendar month with no fiscal blockers", () => {
     const open = monthCloseSampleDocuments(now).filter((item) => item.occurred_on.startsWith("2026-10"));
     const previous = monthCloseSampleDocuments(now).filter((item) => item.occurred_on.startsWith("2026-09"));
-    expect(canCloseMonth({ month: "2026-10", closed_at: null, documents: open })).toEqual({ ok: false, reason: "blockers" });
-    expect(canCloseMonth({ month: "2026-09", closed_at: null, documents: previous })).toEqual({ ok: true, month: "2026-09" });
-    expect(canCloseMonth({ month: null, closed_at: null, documents: [] })).toEqual({ ok: false, reason: "not_calendar_month" });
-    expect(canCloseMonth({ month: "2026-09", closed_at: "2026-10-01T12:00:00.000Z", documents: [] })).toEqual({ ok: false, reason: "closed" });
+    expect(canCloseMonth({ month: "2026-10", closed_at: null, unreviewed_movements: 0, documents: open })).toEqual({ ok: false, reason: "blockers" });
+    expect(canCloseMonth({ month: "2026-09", closed_at: null, unreviewed_movements: 0, documents: previous })).toEqual({ ok: true, month: "2026-09" });
+    expect(canCloseMonth({ month: null, closed_at: null, unreviewed_movements: 0, documents: [] })).toEqual({ ok: false, reason: "not_calendar_month" });
+    expect(canCloseMonth({ month: "2026-09", closed_at: "2026-10-01T12:00:00.000Z", unreviewed_movements: 0, documents: [] })).toEqual({ ok: false, reason: "closed" });
     expect(closeGate).toBe(canCloseMonth);
     expect(calendarMonthOf("2026-10-01", null, "2026-10-18")).toBe("2026-10");
     expect(calendarMonthOf("2026-09-01", "2026-09-30", "2026-10-18")).toBe("2026-09");
     expect(calendarMonthOf("2026-09-19", null, "2026-10-18")).toBeNull();
     expect(calendarMonthOf("2000-01-01", null, "2026-10-18")).toBeNull();
     expect(calendarMonthOf("2026-08-01", "2026-08-15", "2026-10-18")).toBeNull();
-    expect(canCloseMonth({ month: "2026-09", closed_at: null, documents: [] })).toEqual({ ok: true, month: "2026-09" });
+    expect(canCloseMonth({ month: "2026-09", closed_at: null, unreviewed_movements: 0, documents: [] })).toEqual({ ok: true, month: "2026-09" });
   });
 
   test("an early month day still parses, and a mismatched status does not", () => {
@@ -271,7 +271,7 @@ describe("future statement blockers stay in the gate and out of the lock", () =>
   test("a missing statement does not lock the month, and an unknown net is never a zero", () => {
     const documents = [document({ id: "ready", kind: "invoice", amount: "100.00", itbis: "18.00", status: "cobrado" })];
     expect(statementMissingBlocker.kind).toBe("statement_missing");
-    expect(canCloseMonth({ month: "2026-10", closed_at: null, documents, blockers: [statementMissingBlocker] })).toEqual({ ok: true, month: "2026-10" });
+    expect(canCloseMonth({ month: "2026-10", closed_at: null, unreviewed_movements: 0, documents, blockers: [statementMissingBlocker] })).toEqual({ ok: true, month: "2026-10" });
     expect(unmatchedCharges(3)).toEqual({ kind: "unmatched_charges", count: 3 });
     expect(() => unmatchedCharges(0)).toThrow(MonthCloseError);
     expect(monthCloseNetDisplay({ net_before_itbis: null, net_result_final: true, pending_count: 0 })).toEqual({ state: "pending", pending_count: 0, reason: "unknown" });
@@ -604,6 +604,70 @@ describe("Pendiente hoy order and the sample books' overdue", () => {
   });
 });
 
+
+function closePacket(extra: Record<string, unknown> = {}) {
+  return {
+    month: "2026-10",
+    from: "2026-10-01",
+    to: "2026-10-31",
+    closed: false,
+    reasons: [] as unknown[],
+    currencies: [],
+    missing_rnc: [],
+    missing_ncf: [],
+    cuentas_por_cobrar: [],
+    cuentas_por_pagar: [],
+    ...extra,
+  };
+}
+
+describe("unreviewed drafts in the Bandeja", () => {
+  test("a month with five unreviewed drafts loads, keeps document blockers, and carries the count", () => {
+    const snapshot = readMonthCloseWire(closePacket({
+      closed: false,
+      reasons: [
+        { code: "missing_rnc", activity_id: "act-1", document_kind: "invoice" },
+        { code: "movimientos_sin_revisar", count: 5 },
+      ],
+      unreviewed_movements_count: 5,
+      missing_rnc: [{ activity_id: "act-1", document_kind: "invoice", currency: "DOP", occurred_on: "2026-10-02", total_minor: 640000, before_itbis_minor: 640000, itbis_minor: null, status: "pendiente" }],
+    }));
+    expect(snapshot.closed).toBe(false);
+    expect(snapshot.unreviewed_movements).toBe(5);
+    expect(snapshot.blockers).toEqual([{ kind: "missing_rnc", id: "act-1:missing_rnc", documentId: "act-1" }]);
+    expect(canCloseMonth(snapshot)).toEqual({ ok: false, reason: "blockers" });
+  });
+
+  test("an older packet with neither the reason nor the count is zero unreviewed", () => {
+    expect(readMonthCloseWire(closePacket()).unreviewed_movements).toBe(0);
+  });
+
+  test("the count on the packet is used when the reason is absent, and a mismatch or a bad count is unavailable", () => {
+    expect(readMonthCloseWire(closePacket({ unreviewed_movements_count: 2 })).unreviewed_movements).toBe(2);
+    expect(readMonthCloseWire(closePacket({ reasons: [{ code: "movimientos_sin_revisar", count: 3 }] })).unreviewed_movements).toBe(3);
+    expect(() => readMonthCloseWire(closePacket({
+      reasons: [{ code: "movimientos_sin_revisar", count: 5 }],
+      unreviewed_movements_count: 4,
+    }))).toThrow(MonthCloseError);
+    expect(() => readMonthCloseWire(closePacket({ reasons: [{ code: "movimientos_sin_revisar", count: 1.5 }] }))).toThrow(MonthCloseError);
+    expect(() => readMonthCloseWire(closePacket({ reasons: [{ code: "not_a_reason", activity_id: "act-9" }] }))).toThrow(MonthCloseError);
+    try {
+      readMonthCloseWire(closePacket({ reasons: [{ code: "not_a_reason", activity_id: "act-9" }] }));
+    } catch (error) {
+      expect(error).toBeInstanceOf(MonthCloseError);
+      expect((error as MonthCloseError).code).toBe("unavailable");
+    }
+  });
+
+  test("a closed flag does not win over unreviewed drafts", () => {
+    const snapshot = readMonthCloseWire(closePacket({
+      closed: true,
+      reasons: [{ code: "movimientos_sin_revisar", count: 1 }],
+      unreviewed_movements_count: 1,
+    }));
+    expect(canCloseMonth({ ...snapshot, closed_at: "2026-10-18T15:00:00.000Z" })).toEqual({ ok: false, reason: "blockers" });
+  });
+});
 
 test("a new local business has no seeded month figures or outstanding invoices", async () => {
   const client = createMockMonthCloseClient({ empty: true, now: new Date("2026-10-25T12:00:00Z") });

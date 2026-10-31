@@ -2700,7 +2700,7 @@ mock-auth development path has no provider identity. Native clients hold this
 projection only in the current session snapshot and use it for Apple credential
 validation on launch and foreground return. This is linked-account identity,
 not evidence of the current sign-in method. The native session journal records
-the successful grant method; its [validation contract](../ios/Packages/ArgusSession/README.md)
+the successful grant method; its [validation contract](../native/Packages/ArgusSession/README.md)
 keeps known email and Google sessions independent of a linked Apple identity.
 It is not a profile preference.
 Public account creation is absent unless that last value is true.
@@ -6685,27 +6685,13 @@ symbol lineage. This protects the bounded per-keystroke read contract.
 
 # 17.1 Private Alpha Observability Envelope
 
-### Internal question/outcome evidence
+### Internal question/outcome evidence (retired)
 
-The Refusal log observes terminal chat replies and validated artifact-action
-requests rejected before message storage. This adds no public endpoint, request
-field, response metadata, SSE frame, visible copy, or model-facing text.
-The service-only `refusal_log` SQL view is documented in
-`docs/DATA_MODEL.md` under `refusal_observations and refusal_log`.
-
-Accepted turns link the exact persisted user/assistant messages and read their
-question, action, original outcome metadata, and response from those owners.
-Rejected actions retain the submitted question, validated action, actual HTTP
-status, and unchanged problem response. Caller-supplied artifact/conversation
-ids remain claims; the evidence writer neither resolves them nor treats them
-as proof of ownership. Repeated rejected requests count independently even when
-they reuse `X-Request-ID`.
-
-The writer observes all terminal replies without identifying which ones are
-refusals or deciding whether a boundary is correct. Observation failure leaves
-the public response and allowance behavior unchanged and emits only a
-content-free operational failure. This evidence remains internal to Supabase,
-outside frontend reads, PostHog, model context, and the live-eval fingerprint.
+Historical. The Refusal log evidence writes for terminal chat replies and
+rejected artifact actions were removed, and the backing `refusal_log` view and
+`refusal_observations` table were dropped by
+`20261030220000_drop_refusal_observations.sql`. No public endpoint, request
+field, response metadata, SSE frame, or model-facing text changed.
 
 ### Product event envelope
 
@@ -9049,21 +9035,8 @@ answers the not-linked reply.
   committed delivery record with a live claim. A voice note, audio, sticker or
   video from a linked sender is settled `rejected` (`whatsapp_message_unsupported`)
   and gets one short reply saying it is not supported yet; from an unlinked
-  sender it gets the not-linked reply. A text from a linked sender is settled
-  `rejected` (`whatsapp_receipt_missing`), stores nothing beyond the delivery
-  record, and gets one reply: "Mándame la foto o el PDF del comprobante."
-  From an unlinked sender, a text holding a link code still links. Any other
-  message from an unlinked sender, a photo or PDF included, is settled
-  `rejected` (`whatsapp_sender_not_linked`) with nothing fetched or saved, and
-  gets "Este número aún no está vinculado a un negocio en Cuadrao. Pídele al
-  administrador el código para vincularlo." at most once per number per
-  Dominican calendar day of the message's arrival. Just before sending, the
-  reply takes a reservation row in `whatsapp_inbound_messages` whose
-  `provider_message_key` is derived from the number and that day, settled
-  `rejected` (`whatsapp_unlinked_reply_reserved`); a second reservation for
-  the same day conflicts on that unique key and sends nothing. A revoked
-  photo's not-linked reply takes the same reservation. Other message
-  types and statuses are ignored. The media download, saving and reply run after the answer, in
+  sender it gets the not-linked reply. Other message types and statuses are
+  ignored. The media download, saving and reply run after the answer, in
   order, and settle the record. A work failure behind the answer settles the
   record `failed` and the sender gets the "send it again" reply. Shutdown waits
   up to 20 seconds for this work; a process killed sooner leaves the record
@@ -9091,10 +9064,12 @@ answers the not-linked reply.
   only when Postgres cannot be reached; in memory mode without intake nothing
   holds a link and it answers 204. Unauthenticated calls answer 401.
 
-No Business agent answers WhatsApp text. `CUADRAO_WHATSAPP_AGENT_ENABLED`
-(older `ARGUS_WHATSAPP_AGENT_ENABLED`) is still parsed but no longer changes
-anything. The receipt reading permission (`/api/v1/whatsapp/ai-consent`, below)
-is unchanged, and `DELETE` stays reachable so an owner can always revoke.
+The Business agent over WhatsApp has its own switch,
+`CUADRAO_WHATSAPP_AGENT_ENABLED` (older `ARGUS_WHATSAPP_AGENT_ENABLED`), off by
+default. Off: text from a linked owner never reaches the agent and gets the
+ordinary reply, and the worker does nothing. The receipt reading permission
+(`/api/v1/whatsapp/ai-consent`, below) does not depend on this switch, and
+`DELETE` stays reachable so an owner can always revoke.
 
 Replies are sent only when `CUADRAO_WHATSAPP_OUTBOUND_ENABLED` is true, always as
 a free-form answer to the person's own message, in one language: the sender
@@ -9416,11 +9391,30 @@ own status words for that calendar month: `no_aplica`, `needs_review`,
 the ZIP carries the TXT). Each currency block adds `itbis_cobrado_minor` and
 `itbis_cobrado` (ITBIS charged on the sales marked `cobrado`) and
 `net_result_final` (true while no document of that currency in the month is
-`pendiente`). Each open-items list adds `overdue: {count, totals}` over every
+`pendiente` and, for a currency other than DOP, while that currency has no
+document waiting for an exchange rate; a non-DOP block with any document that
+is not sin comprobante is never final, because no rate exists yet). Each open-items list adds `overdue: {count, totals}` over every
 pending document in it, not only the page: pending with `due_on` before
 `today`; no due date is never overdue. Every document counts in its own
-currency's block; only the DGII files and `dgii_forms` are DOP-only. All
-additive; nothing renamed.
+currency's block; only the DGII files and `dgii_forms` are DOP-only.
+`dgii_foreign_currency` sits beside `dgii_forms`:
+`{"606": {pending_rate_count, reason}, "607": {pending_rate_count, reason}}`.
+`pending_rate_count` (int, default 0) counts the month's non-DOP expense,
+refund and income lines, not personal and not sin comprobante, that the export
+holds back for a rate. A declared line counts once, on its declared form; a
+line with no form declaration counts on both forms. Transfers and other money
+movements never count. A form whose status is `no_aplica` (no RNC) counts 0.
+`reason` is `"Moneda extranjera: pendiente de tasa"`
+when the count is above 0, else null. The exported `dgii/summary.json` carries
+the same per-form `foreign_currency_pending_rate_count` and, when above 0,
+`foreign_currency_note`; each held-back reconciliation line keeps
+`reason: "fiscal_conversion_required"` and adds `note` with the same words.
+
+The invoice response (editor save, read and list item) adds
+`fiscal_blockers`: `["foreign_currency_pending_rate"]` for a non-DOP draft,
+`[]` for DOP. The draft stays saved and valid. Renamed: the issue-time refusal
+of a non-DOP invoice now returns `field_errors.currency =
+"foreign_currency_pending_rate"`, formerly `fx_basis_required`.
 
 The same existing
 `POST /business/drafts/{draft_id}/approve` takes the action-discriminated union

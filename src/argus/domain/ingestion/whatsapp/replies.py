@@ -68,8 +68,8 @@ REPLIES: dict[str, tuple[str, str]] = {
         "Ask the administrator for the code to link it.",
     ),
     "whatsapp_receipt_missing": (
-        "Mándame la foto o el PDF del comprobante.",
-        "Send me the photo or PDF of the receipt.",
+        "Aquí solo recibimos recibos. Para todo lo demás usa Cuadrao: {link}",
+        "We only take receipts here. For everything else use Cuadrao: {link}",
     ),
     "whatsapp_message_unsupported": (
         "Por ahora no podemos recibir audios, stickers ni videos. "
@@ -102,6 +102,12 @@ REPLIES: dict[str, tuple[str, str]] = {
     "whatsapp_media_expired": _RESEND,
     "whatsapp_media_unavailable": _RESEND,
     "whatsapp_capture_failed": _RESEND,
+    # Approved by Iris, October 30, 2026: a photo lost after its claim lapsed
+    # and every bounded retry failed. Sent once, to the linked sender only.
+    "whatsapp_photo_lost": (
+        "No pude guardar tu foto. ¿Me la envías otra vez?",
+        "I couldn't save your photo. Can you send it again?",
+    ),
 }
 
 

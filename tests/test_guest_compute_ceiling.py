@@ -14,7 +14,6 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from argus.api.chat import refusal_evidence
 from argus.api.chat.guest_compute_ceiling import guest_compute_settlement
 from argus.api.guest_access import (
     AccountContext,
@@ -118,16 +117,6 @@ def _guest(
     )
     mock_gateway.client = fake
     return fake
-
-
-def _terminal_message_ids(mock_gateway) -> set[str]:
-    ids: set[str] = set()
-    for call in mock_gateway.finalize_chat_turn.call_args_list:
-        ids.add(call.kwargs["message"].id)
-    for call in mock_gateway.create_message.call_args_list:
-        if call.kwargs.get("role") == "assistant":
-            ids.add("msg-1")
-    return ids
 
 
 def test_session_ceiling_reads_env_or_the_code_owned_default(
@@ -243,15 +232,9 @@ def test_registered_accounts_and_run_actions_settle_nothing_against_the_ceiling(
     )
 
 
-def test_refusal_observer_fires_after_the_entry_claim(
+def test_guest_turn_claims_entry_once_without_assistant_settlement(
     mock_gateway, monkeypatch: pytest.MonkeyPatch
 ):
-    observed: list[Any] = []
-    monkeypatch.setattr(
-        refusal_evidence,
-        "persist_refusal_observation",
-        lambda *, gateway, observation: observed.append(observation),
-    )
     fake = _guest(mock_gateway, monkeypatch, turns_today=0)
 
     response = client.post("/api/v1/chat/stream", json=TURN, headers=GUEST_HEADERS)
@@ -259,9 +242,6 @@ def test_refusal_observer_fires_after_the_entry_claim(
     assert response.status_code == 200, response.text
     assert fake.claims == 1
     assert _assistant_settlements(mock_gateway) == []
-    assert len(observed) == 1
-    assert observed[0].response_message_id in _terminal_message_ids(mock_gateway)
-    assert observed[0].request_message_id != observed[0].response_message_id
 
 
 SPENT_CONFIRMATION_REPLAY = {

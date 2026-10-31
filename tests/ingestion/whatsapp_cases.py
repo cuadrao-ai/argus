@@ -19,6 +19,7 @@ from argus.domain.business.scope import resolve_business_scope
 from argus.domain.business.spaces import SpaceStore
 from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.secrets import SecretBox
+from argus.domain.ingestion.whatsapp.business_envelope import ClaimCodec
 from argus.domain.ingestion.whatsapp.identity import WhatsAppKeys
 from argus.domain.ingestion.whatsapp.intake import (
     CLAIM_SECONDS,
@@ -154,6 +155,7 @@ def build_world(
         app_origin=ORIGIN,
         max_bytes=MAX_BYTES,
         reply_codec=ReplyGroupCodec(SecretBox(b"w" * 32), keys),
+        claim_codec=ClaimCodec(SecretBox(b"w" * 32), keys),
     )
     return World(
         intake, documents, store, graph, transport, clock, alice, bob, keys, spaces
@@ -738,9 +740,9 @@ async def a_linked_sender_text_is_never_a_link_attempt(world: World) -> None:
     link = world.store.destination_link(destination_owner_id=world.alice)
     assert link.last4 == "1234"
     assert world.store.destination_link(destination_owner_id=world.bob) is None
-    assert (
-        world.transport.bodies()[-3:] == ["Send me the photo or PDF of the receipt."] * 3
-    )
+    assert set(world.transport.bodies()[-3:]) == {
+        f"We only take receipts here. For everything else use Cuadrao: {ORIGIN}/biz"
+    }
 
 
 async def an_unlinked_sender_links_with_a_code_anywhere_in_the_text(

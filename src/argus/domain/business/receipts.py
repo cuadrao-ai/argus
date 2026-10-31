@@ -302,6 +302,14 @@ def compose(
     )
 
 
+def read_date(review: ReceiptReview) -> str | None:
+    """The date the receipt's own read found, kept even when the proposal
+    has no fields (an ambiguous purchase)."""
+
+    read = (review.evidence or {}).get("receipt")
+    return None if read is None else read.get("occurred_on")
+
+
 def evidence(review: ReceiptReview) -> dict[str, Any] | None:
     """What the receipt itself says. Review corrections never change it."""
 

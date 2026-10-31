@@ -770,8 +770,13 @@ async def test_a_newer_reply_never_overtakes_an_older_saved_one(world):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("link", ["https://app.test/biz", None])
-async def test_the_fixed_reply_asks_for_the_photo_or_pdf(world, link):
+@pytest.mark.parametrize(
+    ("link", "ending"),
+    [("https://app.test/biz", ": https://app.test/biz"), (None, ".")],
+)
+async def test_the_receipts_only_reply_carries_the_inbox_link_when_there_is_one(
+    world, link, ending
+):
     worker = world.worker(synthetic_consent=True)
     worker.execute_turn = None
     worker.inbox_link = link
@@ -779,7 +784,7 @@ async def test_the_fixed_reply_asks_for_the_photo_or_pdf(world, link):
     world.captures.capture(message)
     assert await worker.run_once()
     assert [m["text"]["body"] for m in world.transport.messages] == [
-        "Mándame la foto o el PDF del comprobante."
+        "Aquí solo recibimos recibos. Para todo lo demás usa Cuadrao" + ending
     ]
 
 

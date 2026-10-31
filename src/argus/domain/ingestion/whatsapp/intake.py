@@ -12,12 +12,14 @@ from __future__ import annotations
 import asyncio
 import re
 from collections.abc import Callable, Coroutine
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from typing import Any, Protocol
 
 from loguru import logger
 
+from argus.domain.ingestion.secrets import SecretUnreadable
+from argus.domain.ingestion.whatsapp.business_envelope import ClaimCodec
 from argus.domain.ingestion.whatsapp.identity import (
     WhatsAppKeys,
     code_candidates,
@@ -43,6 +45,7 @@ from argus.domain.ingestion.whatsapp.replies import (
     ReplyFailed,
     ReplyTransport,
     compose_reply,
+    inbox_url,
     reply_key,
     reply_payload,
     review_url,
@@ -64,6 +67,17 @@ from argus.domain.ingestion.whatsapp.store import (
 CLAIM_SECONDS = 90
 # Processing must end, and settle, while its claim is still held.
 PROCESSING_SECONDS = CLAIM_SECONDS - 15
+# While work runs, including a capture thread that outlives its cancellation,
+# the claim is renewed this often, so it never lapses under a live worker.
+RENEW_SECONDS = CLAIM_SECONDS / 3
+# A lapsed claim is run again at most this many times before it settles
+# failed and the sender is asked to send the photo again.
+RECOVERY_ATTEMPTS = 3
+# Webhook traffic also runs the sweep, at most once per this many seconds per
+# process, so recovery does not wait on any background job switch.
+RECOVERY_NUDGE_SECONDS = 60
+RECOVERY_NUDGE_LIMIT = 5
+PHOTO_LOST = "whatsapp_photo_lost"
 CODE_TTL = timedelta(minutes=10)
 SERVICE_WINDOW = timedelta(hours=24)
 _REPLY_REJECTION = re.compile(r"([1-5][0-9]{2})(?::([0-9]{1,10}))?")
@@ -71,6 +85,11 @@ _REPLY_REJECTION = re.compile(r"([1-5][0-9]{2})(?::([0-9]{1,10}))?")
 
 class DeliveryInFlight(Exception):
     """Another worker holds a live claim on an unsettled message; ask Meta to retry."""
+
+
+class ClaimNotSealed(Exception):
+    """A photo whose recovery envelope could not be sealed is not acknowledged:
+    the webhook answers 503 and the provider redelivers it."""
 
 
 class CaptureRejected(Exception):
@@ -129,6 +148,59 @@ class IssuedCode:
     expires_at: datetime
 
 
+@dataclass
+class _Lease:
+    """The current fenced claim token; the heartbeat moves it forward."""
+
+    held: datetime | None
+    done: asyncio.Event = field(default_factory=asyncio.Event)
+
+
+async def _bounded(task: asyncio.Task, timeout: float) -> Any:
+    """``task``'s result within ``timeout`` seconds. On timeout or on the
+    caller's cancellation the task is cancelled and awaited to its end, its
+    cleanup included, before ``TimeoutError`` or the cancellation is raised.
+    ``asyncio.wait_for`` cannot promise that: on Python 3.10 a second
+    cancellation escapes it while the cancelled work is still running."""
+
+    cancelled = False
+    try:
+        await asyncio.wait({task}, timeout=timeout)
+    except asyncio.CancelledError:
+        cancelled = True
+    timed_out = not cancelled and not task.done()
+    if not task.done():
+        task.cancel()
+    while not task.done():
+        try:
+            await asyncio.wait({task})
+        except asyncio.CancelledError:
+            cancelled = True
+            task.cancel()
+    if cancelled:
+        raise asyncio.CancelledError
+    if timed_out:
+        raise asyncio.TimeoutError
+    return task.result()
+
+
+async def _stop(lease: _Lease, task: asyncio.Task | None) -> None:
+    """Stop the heartbeat between renewals, never inside one: a renewal cut
+    off mid-write would move the claim without moving ``lease.held``. The
+    heartbeat itself is never cancelled, so a renewal in flight always hands
+    its token to ``lease.held``."""
+
+    lease.done.set()
+    cancelled = False
+    while task is not None and not task.done():
+        try:
+            await asyncio.wait({task})
+        except asyncio.CancelledError:
+            cancelled = True
+    if cancelled:
+        raise asyncio.CancelledError
+
+
 @dataclass(frozen=True)
 class _Held:
     """One message whose claim this worker holds."""
@@ -152,10 +224,12 @@ class WhatsAppIntake:
         transport: ReplyTransport | None = None,
         app_origin: str | None = None,
         max_bytes: int,
+        capture_text: Callable[[TextMessage], bool] | None = None,
         send_enabled: Callable[[], bool] = lambda: True,
         background: Callable[[Coroutine[Any, Any, None]], None] | None = None,
         reply_codec: ReplyGroupCodec | None = None,
         reply_group_wait_seconds: int = 120,
+        claim_codec: ClaimCodec | None = None,
     ) -> None:
         self.store, self.keys, self.media = store, keys, media
         self.destination, self.clock = destination, clock
@@ -165,9 +239,13 @@ class WhatsAppIntake:
         # work finishes inside ``handle``.
         self.background = background
         self.processing_seconds: float = PROCESSING_SECONDS
+        self.renew_seconds: float = RENEW_SECONDS
+        self.capture_text = capture_text
         self.send_enabled = send_enabled
         self.reply_codec = reply_codec
         self.reply_group_wait_seconds = reply_group_wait_seconds
+        self.claim_codec = claim_codec
+        self._last_nudge: datetime | None = None
 
     def issue_code(
         self, *, destination_owner_id: str, reply_language: ReplyLanguage
@@ -222,6 +300,7 @@ class WhatsAppIntake:
         if self.background is not None:
             if held:
                 self.background(self._run(held))
+            self._nudge_recovery()
         else:
             for item in held:
                 try:
@@ -239,12 +318,12 @@ class WhatsAppIntake:
 
         for item in held:
             try:
-                await self._process(item)
-            except Exception:
-                await self._reply(
-                    item.message,
-                    Settlement("failed", error_code="whatsapp_processing_failed"),
-                    item.log,
+                await self._process(item, background=True)
+            except Exception as error:
+                # Only a fenced failure settlement may tell the sender; an
+                # unsettled claim lapses and the sweep runs it again.
+                item.log.warning(
+                    "WhatsApp message left unsettled", failure_mode=type(error).__name__
                 )
 
     async def _claim(self, message: InboundMessage) -> _Held | bool:
@@ -252,8 +331,19 @@ class WhatsAppIntake:
         otherwise ``True`` when it is already settled and ``False`` while
         another claim still holds it unsettled."""
 
+        if isinstance(message, TextMessage) and self.capture_text is not None:
+            if await asyncio.to_thread(self.capture_text, message):
+                return True
         sender = self.keys.sender(message.sender)
         key = self.keys.message(message.id)
+        try:
+            envelope = self._seal(message)
+        except ClaimNotSealed:
+            # A replay of a message already settled needs no envelope.
+            record = await asyncio.to_thread(self.store.inbound, key)
+            if record is not None and record.status not in RETRYABLE:
+                return True
+            raise
         now = self.clock()
         claim = await asyncio.to_thread(
             self.store.claim,
@@ -261,6 +351,7 @@ class WhatsAppIntake:
             sender_hash=sender,
             now=now,
             claim_until=now + timedelta(seconds=CLAIM_SECONDS),
+            claim_envelope=envelope,
         )
         log = logger.bind(message_ref=ref(key), sender_ref=ref(sender))
         if not claim.claimed:
@@ -268,7 +359,113 @@ class WhatsAppIntake:
             return claim.record.status not in RETRYABLE
         return _Held(message, sender, key, claim.record.claim_until, log)
 
-    async def _process(self, item: _Held) -> bool:
+    def _seal(self, message: InboundMessage) -> bytes | None:
+        """A photo is acknowledged only once its envelope is sealed, so a lost
+        worker can always fetch it again. Text stays best effort."""
+
+        required = isinstance(message, MediaMessage)
+        if self.claim_codec is None:
+            if required:
+                logger.warning("WhatsApp claim codec missing; photo not acknowledged")
+                raise ClaimNotSealed("whatsapp_claim_codec_unavailable")
+            return None
+        try:
+            return self.claim_codec.seal(message)
+        except Exception as error:
+            logger.warning(
+                "WhatsApp claim envelope not sealed",
+                failure_mode=type(error).__name__,
+                acknowledged=not required,
+            )
+            if required:
+                raise ClaimNotSealed("whatsapp_claim_not_sealed") from error
+            return None
+
+    def _nudge_recovery(self) -> None:
+        now = self.clock()
+        if self._last_nudge is not None and now - self._last_nudge < timedelta(
+            seconds=RECOVERY_NUDGE_SECONDS
+        ):
+            return
+        self._last_nudge = now
+        assert self.background is not None
+        self.background(self.recover(limit=RECOVERY_NUDGE_LIMIT))
+
+    async def recover(self, *, limit: int = 20) -> int:
+        """Run again every message whose claim lapsed unsettled, through the
+        same path as the original task. A retake is a compare-and-set on the
+        lapsed claim, so a concurrent sweep or a live original task never runs
+        the same message twice. Returns how many claims this call took."""
+
+        now = self.clock()
+        lapsed = await asyncio.to_thread(self.store.lapsed_claims, now=now, limit=limit)
+        taken = 0
+        for record in lapsed:
+            try:
+                taken += await self._recover_one(record)
+            except Exception as error:
+                logger.warning(
+                    "WhatsApp claim recovery failed", failure_mode=type(error).__name__
+                )
+        return taken
+
+    async def _recover_one(self, record: Any) -> bool:
+        assert record.claim_until is not None
+        key, sender = record.provider_message_key, record.sender_hash
+        # The clock is read per item: a sweep-start time would hand later items
+        # a lease that has already run out.
+        now = self.clock()
+        held = await asyncio.to_thread(
+            self.store.retake,
+            provider_message_key=key,
+            held=record.claim_until,
+            now=now,
+            claim_until=now + timedelta(seconds=CLAIM_SECONDS),
+        )
+        if held is None:
+            return False
+        log = logger.bind(message_ref=ref(key), sender_ref=ref(sender))
+        message = self._open(record)
+        if message is None:
+            await self._settle(
+                key,
+                held,
+                Settlement("failed", error_code="whatsapp_claim_envelope_missing"),
+            )
+            log.warning("WhatsApp lapsed claim had no envelope; settled failed")
+            return True
+        if record.recovery_attempts >= RECOVERY_ATTEMPTS:
+            settled = await self._settle(
+                key, held, Settlement("failed", error_code="whatsapp_recovery_exhausted")
+            )
+            log.warning("WhatsApp lapsed claim gave up after bounded retries")
+            if settled is not None and isinstance(message, MediaMessage):
+                link = await asyncio.to_thread(self.store.sender_link, sender_hash=sender)
+                if link is not None:
+                    await self._reply(
+                        message,
+                        replace(settled, reply_language=link.reply_language),
+                        log,
+                        key=PHOTO_LOST,
+                    )
+            return True
+        log.info("WhatsApp lapsed claim recovered", attempt=record.recovery_attempts + 1)
+        await self._run([_Held(message, sender, key, held, log)])
+        return True
+
+    def _open(self, record: Any) -> InboundMessage | None:
+        if record.claim_envelope is None or self.claim_codec is None:
+            return None
+        try:
+            return self.claim_codec.open(
+                record.claim_envelope,
+                message_key=record.provider_message_key,
+                sender_hash=record.sender_hash,
+            )
+        except (SecretUnreadable, ValueError):
+            return None
+
+    async def _process(self, item: _Held, *, background: bool = False) -> bool:
         """Finish one claimed message; ``False`` when the claim was lost first."""
 
         message, sender, key, held, log = (
@@ -278,19 +475,61 @@ class WhatsAppIntake:
             item.held,
             item.log,
         )
+        lease = _Lease(held)
+        if held is not None:
+            # Renew right before the work: an earlier item in this batch may
+            # have used up the lease, and a fetch must never run on a lapsed one.
+            try:
+                renewed = await self._renew(key, lease)
+            except Exception as error:
+                # An unproven lease stays silent; the sweep retries the claim.
+                log.warning(
+                    "WhatsApp claim renewal failed before work",
+                    failure_mode=type(error).__name__,
+                )
+                return False
+            if not renewed:
+                log.info("WhatsApp claim taken by another worker; skipped")
+                return False
+        # The work is a retained task: the documents service ends it only
+        # once a cancelled capture thread has ended, and the heartbeat is
+        # stopped only after that, even when this coroutine is cancelled, so
+        # the claim is renewed for as long as the thread lives.
+        heartbeat = (
+            asyncio.create_task(self._heartbeat(key, lease)) if held is not None else None
+        )
+        work = asyncio.create_task(self._decide(message, sender))
         try:
-            settlement = await asyncio.wait_for(
-                self._decide(message, sender), timeout=self.processing_seconds
-            )
+            settlement = await _bounded(work, self.processing_seconds)
         except Exception as error:
             code = (
                 "whatsapp_processing_timeout"
                 if isinstance(error, asyncio.TimeoutError)
                 else "whatsapp_processing_failed"
             )
-            await self._settle(key, held, Settlement("failed", error_code=code))
+            await _stop(lease, heartbeat)
+            settled = await self._settle(
+                key, lease.held, Settlement("failed", error_code=code)
+            )
             log.warning("WhatsApp message failed", failure_mode=type(error).__name__)
+            if settled is None:
+                # Another worker owns the claim now; its outcome is the one
+                # the sender hears, so this worker stays silent.
+                log.warning("WhatsApp message claim lost before settling")
+                return False
+            if background:
+                await self._reply(
+                    message,
+                    Settlement("failed", error_code="whatsapp_processing_failed"),
+                    log,
+                )
+                return True
             raise
+        except BaseException:
+            await _stop(lease, heartbeat)
+            raise
+        await _stop(lease, heartbeat)
+        held = lease.held
         failure = None
         if isinstance(message, MediaMessage) and settlement.error_code in FAILURE_REASONS:
             if self.reply_codec is None:
@@ -381,6 +620,39 @@ class WhatsAppIntake:
                 "WhatsApp capture could not be discarded after the link ended",
                 failure_mode=type(error).__name__,
             )
+
+    async def _renew(self, key: bytes, lease: _Lease) -> bool:
+        assert lease.held is not None
+        now = self.clock()
+        renewed = await asyncio.to_thread(
+            self.store.renew,
+            provider_message_key=key,
+            held=lease.held,
+            now=now,
+            claim_until=now + timedelta(seconds=CLAIM_SECONDS),
+        )
+        if renewed is None:
+            return False
+        lease.held = renewed
+        return True
+
+    async def _heartbeat(self, key: bytes, lease: _Lease) -> None:
+        """Keep the fenced claim alive until cancelled. Once a renewal loses,
+        the stale token makes settlement fail its compare-and-set."""
+
+        while True:
+            try:
+                await asyncio.wait_for(lease.done.wait(), self.renew_seconds)
+                return
+            except asyncio.TimeoutError:
+                pass
+            try:
+                if not await self._renew(key, lease):
+                    return
+            except Exception as error:
+                logger.warning(
+                    "WhatsApp claim renewal failed", failure_mode=type(error).__name__
+                )
 
     async def _settle(
         self,
@@ -521,6 +793,8 @@ class WhatsAppIntake:
                 log.warning("WhatsApp acknowledgement skipped: no app origin")
                 return False
             url = review_url(self.app_origin, settlement.connection_id or "")
+        elif settlement.error_code == "whatsapp_receipt_missing" and self.app_origin:
+            url = inbox_url(self.app_origin)
         body = compose_reply(
             resolved_key,
             language=settlement.reply_language,
