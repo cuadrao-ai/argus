@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { createBusinessReportHttpFixture } from "./fixtures/business-report-http-fixture";
 import { getChosenGrant, setChosenGrant } from "@/lib/business-grant";
-import { appendBusinessReportSupportingFile, exportBusinessReport, listBusinessReportViews, mutateBusinessReportView, queryBusinessReport, reportRequestSchema, reportTotalSchema, setBusinessReportCurrentNote, type ReportScope } from "@/lib/business-reports-api";
+import { appendBusinessReportSupportingFile, exportBusinessReport, listBusinessReportViews, mutateBusinessReportView, queryBusinessReport, reportRecordSchema, reportRequestSchema, reportTotalSchema, setBusinessReportCurrentNote, type ReportScope } from "@/lib/business-reports-api";
 
 const scope: ReportScope = { userId: "synthetic-person", businessId: "synthetic-business", grantId: "00000000-0000-4000-8000-000000000001" };
 const answer = () => ({ items: [], matching_count: 102, page: 1, page_size: 25, page_count: 5, totals: [{ currency: "DOP", kind: "expense", basis: "recorded_activity_amount", matching_count: 102, known_amount_minor: 123456789, unknown_count: 1, unsupported_count: 0, complete: false, amount_minor: null, known_amount: "1234567.89", amount: null }], fingerprint: "a".repeat(64), captured_at: "2026-10-26T00:00:00Z", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable"] });
@@ -29,6 +30,13 @@ describe("Business report transport", () => {
     expect(new Headers(calls[0].options.headers).get("X-Business-Grant")).toBe(scope.grantId);
     expect(JSON.parse(String(calls[0].options.body))).toEqual(report);
     expect(calls[0].options.body).not.toContain("synthetic-business");
+  });
+  test("a needs_fiscal_data row with its export fields parses instead of breaking Registros", () => {
+    const row = { ...createBusinessReportHttpFixture().records[0], stage: "needs_fiscal_data", export_missing: "ncf_missing", export_line: false };
+    const parsed = reportRecordSchema.parse(row);
+    expect(parsed.stage).toBe("needs_fiscal_data");
+    expect(parsed.export_missing).toBe("ncf_missing");
+    expect(parsed.export_line).toBe(false);
   });
   test("large decimal response money stays exact while fractional or infinite minor metadata is rejected", () => {
     const total = { ...answer().totals[0], known_amount_minor: 900719925474099300, known_amount: "9007199254740993.00", amount_minor: -2000, amount: "-20.00" };
