@@ -273,7 +273,8 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
       width="md"
       summary={batchSummary || undefined}
       snaps={["peek", "half", "full"]}
-      initialSnap="half"
+      // Half leaves the reading control 8px past a 844px phone once the note row is gone.
+      initialSnap={isBelowTablet ? "full" : "half"}
       // The X closes; the footer holds only the next step, once there is one.
       footer={saved.length > 0 && !unfinished && !uploading ? (
         <div className="flex justify-end" data-testid="receipt-intake-footer">
