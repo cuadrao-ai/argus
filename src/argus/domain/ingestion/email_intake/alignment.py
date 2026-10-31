@@ -69,9 +69,11 @@ def provider_verdict(
 ) -> str:
     """Map provider authentication and the stored From to one verdict.
 
-    - ``ambiguous``: ``raw`` has more than one From header or address, a
-      malformed ``From :`` header, or a provider From that is missing or not
-      the stored From. Checked first, whatever the authentication says.
+    - ``ambiguous``: ``raw`` has more than one From header or address, or a
+      provider From that is missing or not the stored From. Checked first,
+      whatever the authentication says. A lone ``From :`` header the provider
+      agrees with is read as the From, not ambiguous; a second ``From :``
+      header is refused whole as ``invalid_document``.
     - ``no_result``: the provider gave no authentication result at all. The
       block is null or absent, or every one of ``spf``, ``dkim`` and ``dmarc``
       is missing, null or ``processing_failed``.

@@ -456,3 +456,24 @@ def test_email_attachment_link_rolls_back_with_failed_capture(rig):
             "select draft->>'source_available' from public.financial_document_extractions where user_id=%s",
             (rig["users"]["owner"],),
         ).fetchone() == ("false",)
+
+
+@pytest.mark.owner_acts
+def test_an_authorized_delivery_with_no_stored_verdict_is_refused(receipts):
+    from argus.domain.business.authority import ActionError
+
+    from tests.test_business_email_intake_postgres import ALIGNED, deliver
+
+    receipts["store"].upsert_sender(
+        receipts["space"], "address", receipts["provider"].sender, "authorized"
+    )
+    attachment = deliver(receipts, ALIGNED)
+    with receipts["pool"].connection() as db:
+        db.execute(
+            "update public.business_email_deliveries set auth_result=null"
+            " where space_id=%s",
+            (receipts["space"],),
+        )
+    with pytest.raises(ActionError, match="email_sender_unauthorized"):
+        prepare(receipts, attachment)
+    assert receipts["documents"].extractor.calls == 0

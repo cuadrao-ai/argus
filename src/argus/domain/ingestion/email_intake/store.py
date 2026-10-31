@@ -758,9 +758,10 @@ def email_connection_standing(
         if not deliveries:
             return "new" if source is not None and source["origin"] == "email" else None
         for delivery in deliveries:
-            # Stored ``unknown`` is an ambiguous From or no provider result
-            # (see routing.stored_auth): never read or approved.
-            if delivery["auth_result"] == "unknown":
+            # Only a stored verdict is read or approved. ``unknown`` is an
+            # ambiguous From or no provider result (see routing.stored_auth);
+            # NULL is a delivery from before the column existed.
+            if delivery["auth_result"] not in ("aligned", "failed"):
                 return "new"
             sender = cursor.execute(
                 "select status from public.business_email_senders where space_id=%s"
@@ -903,7 +904,7 @@ class InMemoryEmailStore(MemoryAddressing):
         if not linked:
             return "new" if ids else None
         for delivery in linked:
-            if delivery.auth_result == "unknown":
+            if delivery.auth_result not in ("aligned", "failed"):
                 return "new"
             standing = self.sender_standing(space_id, delivery.sender)
             if standing != "authorized":
