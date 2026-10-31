@@ -48,8 +48,6 @@ done
 APP_URL="${ARGUS_WARMUP_APP_URL:-$ARGUS_PRIVATE_LAUNCH_APP_URL}"
 API_URL="${ARGUS_WARMUP_API_URL:-$ARGUS_PRIVATE_LAUNCH_API_URL}"
 OPS_TOKEN="${CUADRAO_OPS_TOKEN:-}"
-STALE_JOBS_SUPABASE_URL="${ARGUS_STALE_JOBS_SUPABASE_URL:-${ARGUS_CANARY_SUPABASE_URL:-${SUPABASE_URL:-${SUPABASE_PROJECT_URL:-}}}}"
-STALE_JOBS_SERVICE_ROLE_KEY="${ARGUS_STALE_JOBS_SUPABASE_SERVICE_ROLE_KEY:-${ARGUS_CANARY_SUPABASE_SERVICE_ROLE_KEY:-${SUPABASE_SERVICE_ROLE_KEY:-}}}"
 TIMEOUT_SECONDS="${ARGUS_WARMUP_TIMEOUT_SECONDS:-180}"
 SLEEP_SECONDS="${ARGUS_WARMUP_SLEEP_SECONDS:-5}"
 
@@ -197,25 +195,12 @@ run_workflow_runtime_proof() {
   echo "workflow_runtime_proof=ready"
 }
 
-run_stale_job_scan() {
-  if [ -z "$STALE_JOBS_SUPABASE_URL" ] || [ -z "$STALE_JOBS_SERVICE_ROLE_KEY" ]; then
-    echo "Skipping stale backtest job scan; set ARGUS_STALE_JOBS_SUPABASE_URL and ARGUS_STALE_JOBS_SUPABASE_SERVICE_ROLE_KEY."
-    return 0
-  fi
-
-  echo "Checking for stale queued/running backtest jobs"
-  ARGUS_STALE_JOBS_SUPABASE_URL="$STALE_JOBS_SUPABASE_URL" \
-    ARGUS_STALE_JOBS_SUPABASE_SERVICE_ROLE_KEY="$STALE_JOBS_SERVICE_ROLE_KEY" \
-    .github/stale-backtest-jobs.sh --json
-}
-
 echo "Argus private-launch warmup"
 echo "Timeout: ${TIMEOUT_SECONDS}s"
 echo ""
 
 wait_for_url "API health" "${API_URL}/health"
 wait_for_readiness
-run_stale_job_scan
 wait_for_url "frontend" "$APP_URL"
 assert_api_mode "$EXPECTED_MODE"
 
