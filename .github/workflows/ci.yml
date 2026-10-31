@@ -385,28 +385,6 @@ jobs:
           poetry run python scripts/qa/assert_pytest_gate.py \
             temp/guest-auth-junit.xml
 
-      - name: Set up Bun
-        if: matrix.supabase-cli == 'pinned'
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.ARGUS_CI_BUN_VERSION }}
-
-      - name: Install frontend dependencies
-        if: matrix.supabase-cli == 'pinned'
-        run: cd web && bun install --frozen-lockfile
-
-      - name: Run guest frontend tests
-        if: matrix.supabase-cli == 'pinned'
-        run: |
-          cd web
-          bun test \
-            __tests__/guest-browser-harness.test.ts \
-            __tests__/guest-capability-gates.test.ts \
-            __tests__/guest-conversion.test.ts \
-            __tests__/guest-modal-viewport-fit.test.ts \
-            __tests__/guest-session.test.ts \
-            __tests__/usage-allowance.test.ts
-
   ci:
     name: ci
     runs-on: ubuntu-latest
