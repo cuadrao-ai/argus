@@ -64,7 +64,9 @@ def test_an_expense_approved_from_a_draft_names_its_receipt(actions):  # noqa: A
     approved = service.approve(
         context,
         result.draft_id,
-        ApproveExpense(version=filled.version, action="record_expense"),
+        ApproveExpense(
+            version=filled.version, action="record_expense", approve_anyway=True
+        ),
         "approve",
     )
     assert approved.outcome == "applied", approved

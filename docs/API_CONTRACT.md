@@ -9474,6 +9474,23 @@ sales use the Business plus NCF regardless of buyer identity and keep
 `fiscal_duplicate_document`. Printed identifier spaces
 or hyphens and NCF letter case normalize for identity without changing sources.
 
+The draft dossier carries `review_flags`, a list of `{code, field, confirm}`
+computed on every read from the stored facts; nothing is written. `rnc_check_digit`
+(field `rnc`) is a 9-digit RNC or 11-digit cédula whose check digit does not
+match and that the DGII register does not list. `ncf_malformed` (field `ncf`) is
+a present NCF or e-CF that is not B plus 10 digits or E plus 12. Both have
+`confirm: true`. `itbis_high` (field `itbis`, `confirm: false`) is an ITBIS above
+18% of the total minus the ITBIS plus 1.00 in the receipt's own currency, in
+decimal math; a lower ITBIS is never flagged. The RNC and NCF stay exactly as
+read. While a `confirm` flag stands, the approve request without
+`approve_anyway: true` is refused with 422 `approval_confirmation_required` and
+`context.flags` lists those codes. Send `approve_anyway: true` with a new
+idempotency key to approve; the stored approve command keeps it in the action
+receipt. A warn-only flag never refuses. The 606 export still refuses the
+same check digit and NCF format. Month close lists a present but malformed NCF
+in `ncf_malformed` as well as in `missing_ncf`; the reason codes are unchanged.
+Spanish copy for these codes is `dgii_line.COPY`.
+
 ### Business activity feed
 
 `GET /business/activity?limit=25|50|100&cursor=<opaque>` lists who changed what

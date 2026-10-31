@@ -318,6 +318,7 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
     reasons = []
     missing_rnc = []
     missing_ncf = []
+    ncf_malformed = []
     for document in sorted(chosen, key=lambda item: (item.occurred_on, item.activity_id)):
         if document.sin_comprobante:
             continue
@@ -342,6 +343,8 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
                 }
             )
             missing_ncf.append(_line(document))
+            if _fiscal(document):
+                ncf_malformed.append(_line(document))
     receivables = [
         _line(document)
         for document in chosen
@@ -436,6 +439,7 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
         "earliest_month": min(in_scope).strftime("%Y-%m") if in_scope else None,
         "currencies": blocks,
         "missing_rnc": missing_rnc,
+        "ncf_malformed": ncf_malformed,
         "missing_ncf": missing_ncf,
         "cuentas_por_cobrar": receivables,
         "cuentas_por_pagar": payables,

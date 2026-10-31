@@ -19,10 +19,17 @@ from argus.domain.owner_scope import BusinessSpace
 
 class ActionError(Exception):
     def __init__(
-        self, outcome: str, code: str, existing_record_id: UUID | None = None
+        self,
+        outcome: str,
+        code: str,
+        existing_record_id: UUID | None = None,
+        flags: tuple[str, ...] = (),
     ) -> None:
         self.result = Refused(
-            outcome=outcome, code=code, existing_record_id=existing_record_id
+            outcome=outcome,
+            code=code,
+            existing_record_id=existing_record_id,
+            flags=flags,
         )
         self.code = code
         super().__init__(code)

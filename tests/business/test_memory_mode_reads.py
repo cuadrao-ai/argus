@@ -75,6 +75,7 @@ def test_each_read_answers_its_empty_shape_once_the_business_exists(alice: Owner
             "dgii_forms": {"606": "no_operations", "607": "no_operations"},
             "currencies": [],
             "missing_rnc": [],
+            "ncf_malformed": [],
             "missing_ncf": [],
             "cuentas_por_cobrar": [],
             "cuentas_por_pagar": [],
