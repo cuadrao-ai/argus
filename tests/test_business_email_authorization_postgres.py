@@ -125,7 +125,7 @@ CASES = [
     ("authorized_failed", "authorized", {"dmarc": "fail", "dkim": "fail"}, None, 1),
     ("authorized_unknown", "authorized", {"dmarc": "unknown", "dkim": "gray"}, None, 1),
     ("authorized_gray", "authorized", {"dmarc": "gray", "dkim": "gray"}, None, 1),
-    ("authorized_no_result", "authorized", {}, None, 0),
+    ("authorized_no_result", "authorized", {}, None, 1),
     ("blocked", "blocked", {"dmarc": "pass", "dkim": "pass"}, None, 0),
     (
         "reading_off",

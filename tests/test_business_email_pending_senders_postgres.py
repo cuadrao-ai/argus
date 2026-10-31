@@ -91,8 +91,12 @@ def test_an_authorized_failed_sender_keeps_the_note(rig):
         "bandeja",
         NOTE,
     )
-    unknown = _send(rig, None)
-    assert (unknown.inbox_group, unknown.review_note) == ("remitentes_nuevos", NOTE)
+    no_result = _send(rig, None)
+    assert (no_result.state, no_result.inbox_group, no_result.review_note) == (
+        "captured",
+        "bandeja",
+        None,
+    )
 
 
 def test_a_blocked_sender_is_dropped_and_its_row_untouched(rig):

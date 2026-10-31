@@ -128,8 +128,8 @@ def test_a_retry_of_a_stored_original_still_captures_an_authorized_sender(
     )
 
 
-def test_a_retry_with_no_stored_verdict_is_read_as_unknown_not_aligned(rig, monkeypatch):
-    # service.py: ``auth = delivery.auth_result or "unknown"``. Pinned as today.
+def test_a_retry_with_no_stored_verdict_lands_in_bandeja_with_no_note(rig, monkeypatch):
+    # An authorized sender with no check result stays accepted (Lucas, Oct 31).
     saved = _partial_with_stored_original(rig, monkeypatch)
     with rig["pool"].connection() as db:
         db.execute(
@@ -137,9 +137,27 @@ def test_a_retry_with_no_stored_verdict_is_read_as_unknown_not_aligned(rig, monk
             (saved.id,),
         )
     retried = _retry(rig, saved.id)
-    assert (retried.inbox_group, retried.auth_result, retried.review_note) == (
-        "remitentes_nuevos",
-        "unknown",
-        UNVERIFIED_SENDER_NOTE,
-    )
+    assert (
+        retried.state,
+        retried.inbox_group,
+        retried.auth_result,
+        retried.review_note,
+    ) == ("captured", "bandeja", "no_result", None)
     assert retried.first_scan is False
+
+
+def test_a_retry_with_a_failed_verdict_stays_pending_with_the_note(rig, monkeypatch):
+    # Oct 18 lock: a failed check is Pendiente, never accepted like no result.
+    saved = _partial_with_stored_original(rig, monkeypatch)
+    with rig["pool"].connection() as db:
+        db.execute(
+            "update public.business_email_deliveries set auth_result='failed' where id=%s",
+            (saved.id,),
+        )
+    retried = _retry(rig, saved.id)
+    assert (
+        retried.inbox_group,
+        retried.auth_result,
+        retried.review_note,
+        retried.approved,
+    ) == ("bandeja", "failed", UNVERIFIED_SENDER_NOTE, False)

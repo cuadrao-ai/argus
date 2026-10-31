@@ -106,8 +106,8 @@ async def test_an_authorized_sender_keeps_todays_routing_whatever_the_verdict():
     unknown = await _send(world)
     assert (unknown.state, unknown.inbox_group, unknown.review_note) == (
         "captured",
-        "remitentes_nuevos",
-        NOTE,
+        "bandeja",
+        None,
     )
     rule = _rule(world)
     assert (rule.status, rule.last_auth_result) == ("authorized", "no_result")

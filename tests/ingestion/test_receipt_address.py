@@ -136,7 +136,14 @@ def test_no_inbound_domain_is_hardcoded_outside_config():
     hits = []
     for folder in ("src", "tests", "docs", "supabase", "scripts"):
         for path in (_ROOT / folder).rglob("*"):
-            if path.suffix.lower() not in {".py", ".md", ".yaml", ".yml", ".sql", ".json"}:
+            if path.suffix.lower() not in {
+                ".py",
+                ".md",
+                ".yaml",
+                ".yml",
+                ".sql",
+                ".json",
+            }:
                 continue
             text = path.read_text(encoding="utf-8", errors="ignore")
             if _DOMAIN.search(text):
@@ -214,7 +221,9 @@ def test_an_accented_role_name_is_the_same_refusal():
     assert inspect_alias("segurança", lambda _alias: False)["status"] == "refused"
 
 
-@pytest.mark.parametrize("alias", ["kuadrao", "cuadrau", "cuadra-o", "mi-cuadra-o", "xkuadraoy"])
+@pytest.mark.parametrize(
+    "alias", ["kuadrao", "cuadrau", "cuadra-o", "mi-cuadra-o", "xkuadraoy"]
+)
 def test_listed_product_lookalikes_are_refused_anywhere(alias: str):
     report = _open(alias)
     assert report["status"] == "refused"
@@ -244,7 +253,11 @@ def test_a_random_code_is_used_only_when_every_name_is_taken():
     names = set(name_candidates(base))
     codes = iter(("q7kmn1", "q7kmn2", "q7kmn3"))
     found = free_suggestions(base, lambda alias: alias in names, code=lambda: next(codes))
-    assert found == ["ferreteriagomezq7kmn1", "ferreteriagomezq7kmn2", "ferreteriagomezq7kmn3"]
+    assert found == [
+        "ferreteriagomezq7kmn1",
+        "ferreteriagomezq7kmn2",
+        "ferreteriagomezq7kmn3",
+    ]
     assert set(found).isdisjoint(names)
 
 
@@ -381,9 +394,17 @@ def test_routing_never_approves_and_splits_unverified_authorized_mail():
             note,
             False,
         )
-    # Never read: the From is in doubt or the provider said nothing. Both are
-    # stored as ``unknown``, which the standing check refuses.
-    for verdict in ("ambiguous", "no_result", "unknown"):
+    # No check result: read as usual, no note (Lucas, Oct 31).
+    no_result = decide("authorized", "no_result", first_authorized=True)
+    assert (no_result.group, no_result.auth, no_result.note, no_result.first_scan) == (
+        "bandeja",
+        "no_result",
+        None,
+        False,
+    )
+    # Never read: the From is in doubt, stored as ``unknown``, which the
+    # standing check refuses.
+    for verdict in ("ambiguous", "unknown"):
         held = decide("authorized", verdict, first_authorized=True)
         assert (held.group, held.auth, held.note, held.first_scan) == (
             "remitentes_nuevos",
@@ -431,9 +452,7 @@ def test_alignment_is_in_app_and_ignores_a_header_that_claims_a_pass():
     )
     assert assess(other, keys) == "failed"
     assert assess(_letter(), keys) == "unknown"
-    claimed = (
-        b"Authentication-Results: example.test; dkim=pass\r\n" + _letter()
-    )
+    claimed = b"Authentication-Results: example.test; dkim=pass\r\n" + _letter()
     assert assess(claimed, keys) == "unknown"
     assert assess(signed, lambda _domain, _selector: None) == "failed"
 
