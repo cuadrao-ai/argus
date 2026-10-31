@@ -27,6 +27,7 @@ from argus.domain.ingestion.whatsapp.replies import (
 from argus.domain.ingestion.whatsapp.store import InMemoryWhatsAppStore
 
 from tests.ingestion import whatsapp_cases as cases
+from tests.ingestion import whatsapp_recovery_cases as recovery
 from tests.ingestion.whatsapp_support import (
     FIXTURES,
     PHONE_NUMBER_ID,
@@ -185,7 +186,7 @@ async def test_intake_case(case) -> None:  # noqa: ANN001
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("case", cases.RECOVERY_CASES, ids=lambda case: case.__name__)
+@pytest.mark.parametrize("case", recovery.RECOVERY_CASES, ids=lambda case: case.__name__)
 async def test_recovery_case(case) -> None:  # noqa: ANN001
     await case(_world())
 

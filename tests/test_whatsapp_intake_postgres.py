@@ -17,6 +17,7 @@ from psycopg_pool import ConnectionPool
 from tests import test_financial_accounts_postgres as shared
 from tests.document_sources_support import source_objects
 from tests.ingestion import whatsapp_cases as cases
+from tests.ingestion import whatsapp_recovery_cases as recovery
 from tests.ingestion.whatsapp_support import (
     RECEIPT_PNG,
     Media,
@@ -60,7 +61,7 @@ async def test_intake_case_on_postgres(case, pool, users) -> None:  # noqa: ANN0
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("case", cases.RECOVERY_CASES, ids=lambda case: case.__name__)
+@pytest.mark.parametrize("case", recovery.RECOVERY_CASES, ids=lambda case: case.__name__)
 async def test_recovery_case_on_postgres(case, pool, users) -> None:  # noqa: ANN001
     await case(_world(pool, users))
 
