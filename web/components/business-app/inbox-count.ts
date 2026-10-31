@@ -32,7 +32,7 @@ export function bandejaEmails(deliveries: readonly BusinessEmailDelivery[]): Ban
 export type CountRecords = {
   receiptActivity?: ReceiptActivityCounts | null;
   /** Inbox groups in server order. The Bandeja badge adds `remitentes_nuevos` for the owner. */
-  emailInbox?: readonly { id: string; items: readonly unknown[] }[] | null;
+  emailInbox?: readonly { id: string; items?: readonly unknown[] | null }[] | null;
 };
 
 // The Bandeja's numbers are the server's: it counts every receipt, note and
@@ -44,7 +44,7 @@ export function inboxCount(records: CountRecords, viewer?: { role?: string } | n
   const base = records.receiptActivity?.ready_to_review_count ?? null;
   if (base === null) return null;
   if (viewer?.role !== "owner") return base;
-  const extra = records.emailInbox?.find((group) => group.id === "remitentes_nuevos")?.items.length ?? 0;
+  const extra = records.emailInbox?.find((group) => group.id === "remitentes_nuevos")?.items?.length ?? 0;
   return base + extra;
 }
 

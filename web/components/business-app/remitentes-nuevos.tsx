@@ -26,14 +26,14 @@ export function remitentesNuevosItems(groups: readonly BusinessEmailInboxGroup[]
 }
 
 /**
- * Unknown senders, above the Bandeja rows. The owner can authorize or block
- * the address. Anyone else sees the same rows with a line that only the
- * administrator can authorize the sender.
+ * Unknown senders, above the Bandeja rows. Someone who may manage the Business
+ * can authorize or block the address. Anyone else sees the same rows with a
+ * line that only the administrator can authorize the sender.
  */
 export default function RemitentesNuevos({ items }: { items: readonly BusinessEmailDelivery[] }) {
   const { t } = useTranslation();
   const { chosen, source, emailInboxRefresh } = useBusiness();
-  const owner = chosen?.role === "owner";
+  const canManage = chosen?.permissions?.includes("manage") === true;
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [failedId, setFailedId] = useState<string | null>(null);
   const pending = useRef<string | null>(null);
@@ -70,7 +70,7 @@ export default function RemitentesNuevos({ items }: { items: readonly BusinessEm
               </span>
               {note ? <span data-testid="bandeja-review-note" className={styles.reviewNote}><Info size={14} aria-hidden="true" />{note}</span> : null}
               {item.notice ? <span className={styles.remitenteNotice}>{item.notice}</span> : null}
-              {owner ? (
+              {canManage ? (
                 <span className={styles.remitenteActions}>
                   {blockOnly(item) ? null : <button type="button" className={primaryButtonClass} disabled={busy || !item.sender} onClick={() => void act(item, "authorized")}>{t("business.inbox.authorize_sender", "Authorize sender")}</button>}
                   <button type="button" className={dangerButtonClass} disabled={busy || !item.sender} onClick={() => void act(item, "blocked")}>{t("business.inbox.block_sender", "Block")}</button>

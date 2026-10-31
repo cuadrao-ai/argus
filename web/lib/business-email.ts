@@ -30,6 +30,8 @@ export type BusinessEmailDelivery = {
   parts: BusinessEmailPart[];
   /** Where the server says the email stands: being read, brought no receipt, or no Bandeja row of its own (null). */
   standing: EmailStanding | null;
+  /** The server's check of the sender. The Bandeja never prints this code. */
+  auth_result?: string | null;
   /** Whether this sender is already on the Business list. Absent on older inbox answers. */
   sender_standing?: "authorized" | "blocked" | "new";
   /** Files this email saved as receipts, repeats included. Absent from servers older than #1353. */

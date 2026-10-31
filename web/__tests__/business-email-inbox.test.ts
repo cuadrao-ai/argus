@@ -69,6 +69,12 @@ describe("Bandeja badge and review note", () => {
     expect(inboxCount({ receiptActivity: null, emailInbox }, { role: "owner" })).toBeNull();
   });
 
+  test("a remitentes group with no items list adds nothing", () => {
+    const base = { receiptActivity: activity };
+    expect(inboxCount({ ...base, emailInbox: [{ id: "remitentes_nuevos", items: null }] }, { role: "owner" })).toBe(2);
+    expect(inboxCount({ ...base, emailInbox: [{ id: "remitentes_nuevos" }] }, { role: "owner" })).toBe(2);
+  });
+
   test("a bandeja item's review note is the API string, and null stays empty", async () => {
     const source = createFixtureBusinessDataSource({ chatAvailable: false });
     const receipt = { ...(await source.receipts("all"))[0], id: "rcpt-1", email_delivery_ids: ["mail-1"] };

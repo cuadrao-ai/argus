@@ -77,8 +77,8 @@ test("the remitentes group renders above the Bandeja rows, with actions only for
   document.body.append(host);
   const root = createRoot(host);
   cleanup = async () => { await act(async () => root.unmount()); host.remove(); };
-  const paint = (role: "owner" | "accountant", items: BusinessEmailDelivery[]) => act(async () => {
-    const value = { chosen: { role, capabilities: ["read"] }, source: {}, panel: { kind: "inbox" }, openPanel: () => undefined, records: {} } as unknown as BusinessContextValue;
+  const paint = (role: "owner" | "accountant", items: BusinessEmailDelivery[], manage = false) => act(async () => {
+    const value = { chosen: { role, capabilities: ["read"], permissions: manage ? ["manage"] : ["read"] }, source: {}, panel: { kind: "inbox" }, openPanel: () => undefined, records: {} } as unknown as BusinessContextValue;
     root.render(
       <I18nextProvider i18n={i18n}>
         <BusinessContext.Provider value={value}>
@@ -90,7 +90,7 @@ test("the remitentes group renders above the Bandeja rows, with actions only for
       </I18nextProvider>,
     );
   });
-  await paint("owner", [sender()]);
+  await paint("owner", [sender()], true);
   const group = host.querySelector<HTMLElement>('[data-testid="remitentes-nuevos"]')!;
   const row = host.querySelector<HTMLElement>('[data-testid="bandeja-rows"]')!;
   assert.ok(group);
@@ -107,6 +107,10 @@ test("the remitentes group renders above the Bandeja rows, with actions only for
   assert.equal(authorize.disabled, false);
   assert.equal(block.disabled, false);
   assert.equal(group.querySelector('[data-testid="remitente-admin-only"]'), null);
+  await paint("accountant", [sender()], true);
+  assert.ok(host.querySelector('[data-testid="remitentes-nuevos"]'));
+  assert.equal([...host.querySelectorAll("button")].some((button) => button.textContent === "Autorizar remitente"), true);
+  assert.equal(host.querySelector('[data-testid="remitente-admin-only"]'), null);
   await paint("accountant", [sender()]);
   const grantee = host.querySelector('[data-testid="remitentes-nuevos"]');
   assert.ok(grantee);
@@ -137,7 +141,7 @@ test("a sender action calls the API once per click and refreshes the group", asy
   function Harness() {
     const [items, setItems] = useState([sender()]);
     const value = {
-      chosen: { role: "owner", capabilities: ["read", "prepare", "approve"] },
+      chosen: { role: "owner", capabilities: ["read", "prepare", "approve"], permissions: ["manage"] },
       source: { setEmailSender: async (body: BusinessEmailSenderChange) => { calls.push(body); await gate; return { ...body, id: "rule-1" }; } },
       emailInboxRefresh: { refresh: async () => { refreshes += 1; setItems([]); } },
       panel: { kind: "inbox" },
@@ -159,7 +163,7 @@ test("a sender action calls the API once per click and refreshes the group", asy
   gate = new Promise<void>((resolve) => { release = resolve; });
   await act(async () => { root.render(<Harness />); });
   const failing = {
-    chosen: { role: "owner", capabilities: ["read"] },
+    chosen: { role: "owner", capabilities: ["read"], permissions: ["manage"] },
     source: { setEmailSender: async () => { calls.push({ kind: "address", value: "nuevo@proveedor.example", status: "blocked" }); throw new Error("no"); } },
     emailInboxRefresh: { refresh: async () => { refreshes += 1; } },
     panel: { kind: "inbox" },
@@ -177,6 +181,17 @@ test("a sender action calls the API once per click and refreshes the group", asy
   assert.equal(alert?.textContent, "No pudimos actualizar este remitente.");
   assert.equal(button("Bloquear").disabled, false);
   assert.equal(button("Autorizar remitente").disabled, false);
+  const failingAuthorize = {
+    ...failing,
+    source: { setEmailSender: async () => { throw new Error("no"); } },
+  } as unknown as BusinessContextValue;
+  await act(async () => {
+    root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={failingAuthorize}><RemitentesNuevos items={[sender()]} /></BusinessContext.Provider></I18nextProvider>);
+  });
+  await act(async () => { button("Autorizar remitente").click(); });
+  assert.equal(host.querySelector('[role="alert"]')?.textContent, "No pudimos actualizar este remitente.");
+  assert.equal(button("Autorizar remitente").disabled, false);
+  assert.equal(button("Bloquear").disabled, false);
 });
 
 test("a bandeja row renders review_note from the API and leaves the action enabled", async () => {
@@ -281,6 +296,30 @@ test("an inbox failure does not replace the Bandeja rows", async () => {
   assert.equal(host.querySelector('[data-testid="bandeja-rows"]')?.textContent, "Recibo");
 });
 
+test("a raw auth result is never shown next to the sender", async () => {
+  const { act } = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
+  const RemitentesNuevos = (await import("@/components/business-app/remitentes-nuevos")).default;
+  const { i18n, I18nextProvider } = await spanish();
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  cleanup = async () => { await act(async () => root.unmount()); host.remove(); };
+  const value = { chosen: { role: "owner", capabilities: ["read"], permissions: ["manage"] }, source: {}, panel: { kind: "inbox" }, openPanel: () => undefined, records: {} } as unknown as BusinessContextValue;
+  for (const auth_result of ["failed", "unknown", "no_result", null] as const) {
+    await act(async () => {
+      root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={value}><RemitentesNuevos items={[sender({ auth_result, notice: null })]} /></BusinessContext.Provider></I18nextProvider>);
+    });
+    const row = host.querySelector('[data-testid="remitente-nuevo-row"]')?.textContent ?? "";
+    assert.equal(host.querySelector('[data-testid="remitente-sender"]')?.textContent, "nuevo@proveedor.example");
+    assert.equal(row.includes("failed"), false);
+    assert.equal(row.includes("unknown"), false);
+    assert.equal(row.includes("no_result"), false);
+    assert.equal(row.includes("null"), false);
+  }
+});
+
 test("sender standing chooses the note and the buttons", async () => {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
@@ -291,8 +330,8 @@ test("sender standing chooses the note and the buttons", async () => {
   document.body.append(host);
   const root = createRoot(host);
   cleanup = async () => { await act(async () => root.unmount()); host.remove(); };
-  const paint = (role: "owner" | "accountant", item: BusinessEmailDelivery) => act(async () => {
-    const value = { chosen: { role, capabilities: ["read"] }, source: {}, panel: { kind: "inbox" }, openPanel: () => undefined, records: {} } as unknown as BusinessContextValue;
+  const paint = (role: "owner" | "accountant", item: BusinessEmailDelivery, manage = role === "owner") => act(async () => {
+    const value = { chosen: { role, capabilities: ["read"], permissions: manage ? ["manage"] : ["read"] }, source: {}, panel: { kind: "inbox" }, openPanel: () => undefined, records: {} } as unknown as BusinessContextValue;
     root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={value}><RemitentesNuevos items={[item]} /></BusinessContext.Provider></I18nextProvider>);
   });
   const labels = () => [...host.querySelectorAll("button")].map((button) => button.textContent);
