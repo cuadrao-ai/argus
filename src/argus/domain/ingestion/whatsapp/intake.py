@@ -15,7 +15,6 @@ from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Any, Protocol
-from zoneinfo import ZoneInfo
 
 from loguru import logger
 
@@ -67,14 +66,7 @@ CLAIM_SECONDS = 90
 PROCESSING_SECONDS = CLAIM_SECONDS - 15
 CODE_TTL = timedelta(minutes=10)
 SERVICE_WINDOW = timedelta(hours=24)
-# Unlinked numbers hear back at most once per Dominican calendar day.
-_REPLY_DAY = ZoneInfo("America/Santo_Domingo")
 _REPLY_REJECTION = re.compile(r"([1-5][0-9]{2})(?::([0-9]{1,10}))?")
-
-
-def _day_start(now: datetime) -> datetime:
-    local = now.astimezone(_REPLY_DAY)
-    return local.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
 class DeliveryInFlight(Exception):
@@ -506,17 +498,9 @@ class WhatsAppIntake:
             duplicate=settlement.duplicate,
             reading=settlement.reading,
         )
-        if resolved_key == "whatsapp_sender_not_linked":
-            if not await asyncio.to_thread(
-                self.store.first_unlinked_today,
-                sender_hash=self.keys.sender(message.sender),
-                provider_message_key=self.keys.message(message.id),
-                since=_day_start(self.clock()),
-            ):
-                suppressed("unlinked_daily_limit", self.keys.sender(message.sender))
-                return False
-        elif (
-            resolved_key != "whatsapp_link_code_invalid"
+        if (
+            resolved_key
+            not in ("whatsapp_sender_not_linked", "whatsapp_link_code_invalid")
             and await asyncio.to_thread(
                 self.store.sender_link, sender_hash=self.keys.sender(message.sender)
             )
@@ -544,6 +528,14 @@ class WhatsAppIntake:
             limit_mb=self.max_bytes // (1024 * 1024),
             read=read,
         )
+        if resolved_key == "whatsapp_sender_not_linked" and not await asyncio.to_thread(
+            self.store.reserve_unlinked_reply,
+            sender_hash=self.keys.sender(message.sender),
+            provider_message_key=self.keys.message(message.id),
+            now=self.clock(),
+        ):
+            suppressed("unlinked_daily_limit", self.keys.sender(message.sender))
+            return False
         try:
             await self.transport.send(
                 reply_payload(to=message.sender, in_reply_to=message.id, body=body)

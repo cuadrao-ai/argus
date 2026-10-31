@@ -9057,7 +9057,12 @@ answers the not-linked reply.
   `rejected` (`whatsapp_sender_not_linked`) with nothing fetched or saved, and
   gets "Este número aún no está vinculado a un negocio en Cuadrao. Pídele al
   administrador el código para vincularlo." at most once per number per
-  Dominican calendar day, counted from the delivery records. Other message
+  Dominican calendar day of the message's arrival. Just before sending, the
+  reply takes a reservation row in `whatsapp_inbound_messages` whose
+  `provider_message_key` is derived from the number and that day, settled
+  `rejected` (`whatsapp_unlinked_reply_reserved`); a second reservation for
+  the same day conflicts on that unique key and sends nothing. A revoked
+  photo's not-linked reply takes the same reservation. Other message
   types and statuses are ignored. The media download, saving and reply run after the answer, in
   order, and settle the record. A work failure behind the answer settles the
   record `failed` and the sender gets the "send it again" reply. Shutdown waits
