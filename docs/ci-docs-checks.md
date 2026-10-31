@@ -63,17 +63,33 @@ pull request:
 | Also `marketing/`, `supabase/functions/`, `.github/workflows/ci.yml` or `.github/docs-only-changes.sh` | plus marketing-checks |
 
 Backend and web cannot narrow: backend tests scan `git ls-files`, and a web
-test runs `git grep` over the whole checkout. database-checks holds the
-guest gates and every shared `tests/test_*_postgres.py` proof, replaying all
-migrations on the pinned Supabase CLI for a pull request, and on the pinned and latest CLI for a push; its tests read `docs/`, `web/`,
-`scripts/` and `fixtures/`, so it runs with the backend. It was named guest-release-gates before; no branch setting requires either name. ci.yml defines marketing-checks and the classifier selects it, so
-editing either runs it. Marketing reads nothing else outside its
-package; [the guard](../tests/test_ci_job_selection.py) proves that against the
-tree. A pull request runs the Postgres tests on the pinned CLI only. Pushes run every code job on both CLIs, and so does a manual run with
-`full_run` checked. Without it, a manual run, and the weekly schedule, is the latest-CLI
-Postgres probe. A git failure fails the classifier and so the `ci` check. The
-docs-only lane still skips web and Postgres tests that read `docs/` (for example
-`docs/api/openapi.yaml`), as it did before.
+test runs `git grep` over the whole checkout. database-checks holds the guest
+gates and the real-Postgres `tests/test_*_postgres.py` proofs. Its tests read
+`docs/`, `web/`, `scripts/` and `fixtures/`, so it runs with the backend. It was
+named guest-release-gates before; no branch setting requires either name.
+ci.yml defines marketing-checks and the classifier selects it, so editing either
+runs it. Marketing reads nothing else outside its package;
+[the guard](../tests/test_ci_job_selection.py) proves that against the tree.
+
+database-checks starts a local Supabase once. The start applies every migration
+and the seed, and nothing replays them. It skips the containers no test in the
+job reads: Studio, postgres-meta, Realtime, imgproxy, Edge Runtime and Mailpit.
+Auth, REST and Storage stay.
+
+Which Postgres tests run depends on the event:
+
+| Event | Supabase CLI | Postgres tests |
+| --- | --- | --- |
+| Pull request | pinned | The pilot set: `test_business*`, `test_whatsapp*`, `test_ingestion*`, `test_fiscal*`, `test_registros*`, `test_document*`, `test_rls*` and `test_access*` (each as `*_postgres.py`), plus `test_client_grants_postgres.py` and `test_account_deletion_fk_census_postgres.py` |
+| Push, or a manual run with `full_run` checked | pinned and latest | Every `tests/test_*_postgres.py` |
+| Weekly schedule, or a manual run without `full_run` | latest | Every `tests/test_*_postgres.py` |
+
+A pilot glob that matches no file fails the step. A Postgres proof outside the
+pilot set is not gated on its pull request. It is gated by the push run after
+merge, so a new proof file is covered without editing the workflow. The anonymous
+Auth matrix runs on the pinned CLI only. A git failure fails the
+classifier and so the `ci` check. The docs-only lane still skips web and Postgres
+tests that read `docs/` (for example `docs/api/openapi.yaml`), as it did before.
 
 ## Aggregation and regression proof
 
