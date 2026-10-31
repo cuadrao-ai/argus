@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterAll, afterEach, beforeAll, describe, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, mock, spyOn, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { GrantedSpace, ReceiptReading } from "@/lib/business-api";
 import type { BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
@@ -269,13 +269,15 @@ describe("the Negocio page", () => {
       } finally { await page.close(); }
     });
     test("reception shows the sender list and leaves received-mail history closed", async () => {
+      const errors=spyOn(console,"error");
       const page=await mount("view=business&tab=correo",OWN);
       try {
         await page.settle(() => page.host.querySelector('[data-testid="email-senders"]') !== null);
         assert.ok(page.host.querySelector('[data-testid="email-senders"]'));
+        assert.equal(errors.mock.calls.some(call=>String(call[0]).includes("same key")),false);
         assert.equal(page.host.textContent?.includes("Ver correos recibidos"), false);
         assert.equal(page.host.querySelector('[data-testid="email-history"]'), null);
-      }finally{await page.close();}
+      }finally{errors.mockRestore();await page.close();}
     });
   });});
 
