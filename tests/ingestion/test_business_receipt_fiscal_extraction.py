@@ -424,15 +424,24 @@ class TestPrintedIdentifierSplit:
         assert identity_digits("RNC 131000002\uff19") is None
         assert normalized_ncf("NCF B0100000987\uff19") is None
 
-    def test_first_cleanly_bounded_candidate_still_wins(self) -> None:
-        projected = extractor.fiscal_facts_from_receipt(
-            ReceiptDetails(
-                rnc="RNC 101987654 / 131000002", ncf="NCF B0100000987 o B0100000988"
-            ),
-            source_id=uuid4(),
-        )
-        assert projected.rnc.value == "101987654"
-        assert projected.ncf.value == "B0100000987"
+    @pytest.mark.parametrize(
+        ("name", "read"),
+        [
+            ("rnc", "RNC 131000002 / 101234563"),
+            ("rnc", "131000002, 101234563"),
+            ("rnc", "131000002;101234563"),
+            ("ncf", "NCF B0100000987 / B0100000988"),
+            ("ncf", "NCF B0400000002, B0100000987"),
+            ("ncf", "NCF B0100000987 o B0100000988"),
+        ],
+    )
+    def test_a_second_identifier_in_the_read_keeps_it_whole(
+        self, name: str, read: str
+    ) -> None:
+        receipt = ReceiptDetails(**{name: read})
+        projected = extractor.fiscal_facts_from_receipt(receipt, source_id=uuid4())
+        assert getattr(projected, name).value == read
+        assert getattr(receipt, name) == read
 
 
 _INVISIBLE = [

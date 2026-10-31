@@ -42,9 +42,13 @@ def _edge_clean(side: str) -> bool:
 
 
 def _isolated(value: str, match: re.Match[str]) -> str:
-    """The matched token when both of its edges are clean, otherwise the read.
+    """The matched token when both of its edges are clean and the pattern does
+    not match again later in the read, otherwise the read. A second identifier
+    anywhere after the first, whatever separates them, keeps the read whole.
     The token itself is returned exactly as printed."""
 
+    if match.re.search(value, match.end()) is not None:
+        return value
     before = value[: match.start()][::-1]
     after = value[match.end() :]
     if _edge_clean(before) and _edge_clean(after):
