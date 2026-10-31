@@ -331,12 +331,23 @@ export function monthCloseNetDisplay(figures: Pick<MonthCloseFigures, "net_befor
   return { state: "pending", pending_count: 0, reason: "unknown" };
 }
 
+type RateBlock = Pick<MonthCloseFigures, "currency" | "net_before_itbis" | "net_result_final" | "pending_count">;
+
+function blockWaitsOnRate(block: Omit<RateBlock, "currency">): boolean {
+  const net = monthCloseNetDisplay(block);
+  return net.state === "pending" && net.reason === "pending_rate";
+}
+
+/** True when any currency block is waiting on a rate, even if its code cannot be read. */
+export function monthCloseHasPendingRate(figures: readonly Omit<RateBlock, "currency">[]): boolean {
+  return figures.some(blockWaitsOnRate);
+}
+
 /** Readable codes for blocks whose net is waiting on a rate, A to Z. An unreadable code is left out. */
-export function monthClosePendingRateCurrencies(figures: readonly Pick<MonthCloseFigures, "currency" | "net_before_itbis" | "net_result_final" | "pending_count">[]): string[] {
+export function monthClosePendingRateCurrencies(figures: readonly RateBlock[]): string[] {
   const codes = new Set<string>();
   for (const block of figures) {
-    const net = monthCloseNetDisplay(block);
-    if (net.state === "pending" && net.reason === "pending_rate" && CURRENCY_CODE.test(block.currency)) codes.add(block.currency);
+    if (blockWaitsOnRate(block) && CURRENCY_CODE.test(block.currency)) codes.add(block.currency);
   }
   return [...codes].sort();
 }

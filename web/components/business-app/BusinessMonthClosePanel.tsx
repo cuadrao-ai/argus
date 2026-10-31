@@ -25,6 +25,7 @@ import {
   monthCloseBlockers,
   monthCloseClient,
   MonthCloseError,
+  monthCloseHasPendingRate,
   monthCloseNetDisplay,
   monthClosePendingRateCurrencies,
   monthPickerMonths,
@@ -1108,6 +1109,11 @@ function BusinessMonthCloseContent({
 
   /** "Para cerrar <mes>": the steps left before the month can close, and the close itself. */
   function checklistCard() {
+    const ratePending = monthCloseHasPendingRate(blocks);
+    const rateCodes = monthClosePendingRateCurrencies(blocks);
+    const rateLine = rateCodes.length > 0
+      ? t("business.month_close.checklist_rate", { codes: joinCurrencyList(rateCodes, t("business.month_close.list_and", "and")), defaultValue: "Amounts in {{codes}} pending a rate are not included in the 606/607." })
+      : t("business.month_close.checklist_rate_plain", "Foreign-currency amounts pending a rate are not included in the 606/607.");
     return (
             <section aria-labelledby="month-close-checklist-title" data-testid="month-close-checklist" className={`${cardClass} flex flex-col ${finance ? "h-full" : WIDE.left}`}>
               <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -1121,10 +1127,15 @@ function BusinessMonthCloseContent({
               {knownReview?.reading ? <p className="mt-3 flex items-center gap-2 text-[14px] text-[#735c14] dark:text-[#f6e7c1]" data-testid="month-close-reading"><Clock className="h-4 w-4 shrink-0" aria-hidden="true" />{t("business.overview.reading", { count: knownReview.reading })}</p> : null}
               {unreviewedLine ? <p data-testid="month-close-unreviewed" className="mt-3 text-[14px] text-[#56635e] dark:text-white/70">{unreviewedLine}</p> : null}
               {tasks.length === 0 && receiptsReviewed && !unreviewedLine ? (
-                <p className="mt-3 flex items-center gap-2 text-[16px] text-[var(--cuadrao-green)]" data-testid="month-close-checklist-ready">
-                  <CircleCheck className="h-5 w-5 shrink-0" aria-hidden="true" />
-                  {t("business.month_close.checklist_ready", { month: monthName, defaultValue: "Everything is ready to close {{month}}." })}
-                </p>
+                <>
+                  <p className="mt-3 flex items-center gap-2 text-[16px] text-[var(--cuadrao-green)]" data-testid="month-close-checklist-ready">
+                    <CircleCheck className="h-5 w-5 shrink-0" aria-hidden="true" />
+                    {ratePending
+                      ? t("business.month_close.checklist_can_close", { month: monthName, defaultValue: "You can close {{month}}." })
+                      : t("business.month_close.checklist_ready", { month: monthName, defaultValue: "Everything is ready to close {{month}}." })}
+                  </p>
+                  {ratePending ? <p data-testid="month-close-checklist-rate" className="mt-1 text-[14px] text-[#56635e] dark:text-white/70">{rateLine}</p> : null}
+                </>
               ) : tasks.length === 0 && !knownReview?.reading && !unreviewedLine ? (
                 <p data-testid="month-close-checklist-unknown" aria-label={t("business.month_close.figure_unknown", "Can't be calculated yet.")} className="mt-3 text-[16px] text-[#56635e] dark:text-white/70">
                   {UNKNOWN_VALUE}

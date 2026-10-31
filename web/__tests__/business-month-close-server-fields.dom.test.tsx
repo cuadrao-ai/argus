@@ -74,15 +74,16 @@ function serverClient(server: Server): { client: MonthCloseClient; asked: string
   return { client, asked };
 }
 
-async function renderInicio(client: MonthCloseClient, review?: Parameters<typeof import("../components/business-app/BusinessMonthClosePanel").BusinessMonthCloseView>[0]["review"], layout: "inicio" | "finance" = "inicio") {
+async function renderInicio(client: MonthCloseClient, review?: Parameters<typeof import("../components/business-app/BusinessMonthClosePanel").BusinessMonthCloseView>[0]["review"], layout: "inicio" | "finance" = "inicio", language: "es-419" | "en" = "es-419") {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
   const { I18nextProvider } = await import("react-i18next");
   const spanish = (await import("../public/locales/es-419/common.json")).default;
+  const english = (await import("../public/locales/en/common.json")).default;
   const { BusinessMonthCloseView } = await import("../components/business-app/BusinessMonthClosePanel");
   const i18n = i18next.createInstance();
-  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+  await i18n.init({ lng: language, resources: { "es-419": { translation: spanish }, en: { translation: english } }, interpolation: { escapeValue: false } });
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
@@ -398,6 +399,74 @@ describe("a non-final block with no documents left names the pending rate", () =
 
     test(`${layout} drops an unreadable code`, async () => {
       await expectRate(unreadableClient(), "Moneda extranjera: pendiente de tasa", layout, true);
+    });
+  }
+});
+
+describe("the close card names a pending rate only when the month has one", () => {
+  const readyReview = { count: 0, detail: null, open() {} };
+
+  function paid(currency: string, final: boolean): MonthCloseFigures {
+    return {
+      currency,
+      income_before_itbis: "1200.00",
+      expense_before_itbis: "240.00",
+      net_before_itbis: "960.00",
+      itbis_owed: "180.00",
+      itbis_cobrado: "180.00",
+      net_result_final: final,
+      pending_count: 0,
+    };
+  }
+
+  function octoberClient(figures: MonthCloseFigures[]): MonthCloseClient {
+    const snapshot: MonthCloseSnapshot = {
+      month: "2026-10",
+      from: "2026-10-01",
+      to: "2026-10-31",
+      closed_at: null,
+      today: "2026-10-18",
+      earliest_month: "2026-10",
+      payment_methods: METHODS,
+      dgii_forms: null,
+      documents: [],
+      blockers: [],
+      unreviewed_movements: 0,
+      figures,
+    };
+    const none = { count: 0, totals: [], overdue: { count: 0, totals: [] }, items: [] };
+    return {
+      mode: "mock",
+      async load() { return snapshot; },
+      async openItems() { return { today: "2026-10-18", cuentas_por_cobrar: none, cuentas_por_pagar: none }; },
+      async markCobrado() { throw new Error("unused"); },
+      async markPagado() { throw new Error("unused"); },
+      async markPendiente() { return undefined; },
+      async closeMonth() { return snapshot; },
+    };
+  }
+
+  const cases = [
+    ["es-419", "one code", [paid("USD", false)], "Puedes cerrar octubre.", "Los montos en USD pendientes de tasa no se incluyen en el 606/607."],
+    ["es-419", "two codes", [paid("USD", false), paid("EUR", false)], "Puedes cerrar octubre.", "Los montos en EUR y USD pendientes de tasa no se incluyen en el 606/607."],
+    ["es-419", "no code", [paid("usd", false)], "Puedes cerrar octubre.", "Los montos en moneda extranjera pendientes de tasa no se incluyen en el 606/607."],
+    ["es-419", "no pending rate", [paid("DOP", true)], "Todo listo para cerrar octubre.", null],
+    ["en", "one code", [paid("USD", false)], "You can close October.", "Amounts in USD pending a rate are not included in the 606/607."],
+    ["en", "two codes", [paid("USD", false), paid("EUR", false)], "You can close October.", "Amounts in EUR and USD pending a rate are not included in the 606/607."],
+    ["en", "no code", [paid("usd", false)], "You can close October.", "Foreign-currency amounts pending a rate are not included in the 606/607."],
+    ["en", "no pending rate", [paid("DOP", true)], "Everything is ready to close October.", null],
+  ] as const;
+
+  for (const [language, name, figures, ready, rate] of cases) {
+    test(`${language} close card, ${name}`, async () => {
+      const view = await renderInicio(octoberClient([...figures]), readyReview, "inicio", language);
+      try {
+        assert.equal(view.text("month-close-checklist-ready").replace(/\s+/g, " ").trim(), ready);
+        assert.equal(view.text("month-close-checklist-rate"), rate ?? "");
+        if (rate === null) assert.equal(view.find("month-close-checklist-rate"), null);
+      } finally {
+        await view.unmount();
+      }
     });
   }
 });
