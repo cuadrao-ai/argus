@@ -16266,6 +16266,11 @@ components:
         version:
           type: integer
           minimum: 1.0
+        approve_anyway:
+          anyOf:
+          - type: boolean
+            const: true
+          - type: 'null'
         action:
           type: string
           const: record_expense
@@ -16279,6 +16284,11 @@ components:
         version:
           type: integer
           minimum: 1.0
+        approve_anyway:
+          anyOf:
+          - type: boolean
+            const: true
+          - type: 'null'
         action:
           type: string
           const: record_income
@@ -16292,6 +16302,11 @@ components:
         version:
           type: integer
           minimum: 1.0
+        approve_anyway:
+          anyOf:
+          - type: boolean
+            const: true
+          - type: 'null'
         action:
           type: string
           const: record_refund
@@ -17742,6 +17757,11 @@ components:
           items:
             $ref: '#/components/schemas/Blocker'
           type: array
+        review_flags:
+          items:
+            $ref: '#/components/schemas/ReviewFlag'
+          type: array
+          default: []
         approval_available:
           type: boolean
         duplicate_candidates:
@@ -26663,6 +26683,10 @@ components:
           items:
             $ref: '#/components/schemas/DocumentLine'
           type: array
+        ncf_malformed:
+          items:
+            $ref: '#/components/schemas/DocumentLine'
+          type: array
         missing_ncf:
           items:
             $ref: '#/components/schemas/DocumentLine'
@@ -31880,6 +31904,31 @@ components:
       type: object
       required:
       - version
+    ReviewFlag:
+      properties:
+        code:
+          type: string
+          enum:
+          - rnc_check_digit
+          - ncf_malformed
+          - itbis_high
+        field:
+          type: string
+          enum:
+          - rnc
+          - ncf
+          - itbis
+        confirm:
+          type: boolean
+      additionalProperties: false
+      type: object
+      required:
+      - code
+      - field
+      - confirm
+      description: 'A read value to check again. ``confirm`` flags need ``approve_anyway``
+
+        on the approve request; the rest only warn.'
     ReviewQuestion:
       properties:
         id:
