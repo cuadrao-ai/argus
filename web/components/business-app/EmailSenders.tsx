@@ -145,7 +145,7 @@ export default function EmailSenders({ client }: { client?: EmailSenderClient })
         <>
           {refused ? <p role="alert" data-testid="email-senders-forbidden" className="mt-3 text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">{t(copy("forbidden"))}</p> : null}
           <details open data-testid="email-senders-pending" className={`mt-3 ${sectionClass}`}>
-            <summary className={`min-h-11 cursor-pointer content-center rounded-md px-2 text-[14px] text-[#56635e] dark:text-white/70 ${FOCUS_RING}`}>
+            <summary className={`min-h-11 cursor-pointer content-center rounded-mark px-2 text-[14px] text-[#56635e] dark:text-white/70 ${FOCUS_RING}`}>
               <span>{t(copy("pending_heading"))}</span>
               {pending.length ? <span data-testid="email-senders-pending-count" className="ml-2">{t(copy("pending_count"), { count: pending.length })}</span> : null}
             </summary>
