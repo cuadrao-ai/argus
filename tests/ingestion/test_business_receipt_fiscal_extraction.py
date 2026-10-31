@@ -388,20 +388,16 @@ class TestPrintedIdentifierSplit:
             pytest.param("rnc", "RNC 131000002", "131000002", id="rnc-plain"),
             pytest.param("rnc", "RNC: 1-23-45678-9", "1-23-45678-9", id="rnc-colon"),
             pytest.param("rnc", "RNC\u00a0131000002", "131000002", id="rnc-nbsp-label"),
+            pytest.param("rnc", "131000002\u00a0nota", "131000002", id="rnc-nbsp-note"),
             pytest.param(
-                "rnc", "131000002\u00a0nota", "131000002", id="rnc-nbsp-note"
-            ),
-            pytest.param(
-                "ncf", "NCF\u2009B0100000987\u3000(ficticio)", "B0100000987",
+                "ncf",
+                "NCF\u2009B0100000987\u3000(ficticio)",
+                "B0100000987",
                 id="ncf-thin-and-ideographic-space",
             ),
             pytest.param("rnc", "RNC 131000002\u00a0", "131000002", id="rnc-nbsp-end"),
-            pytest.param(
-                "rnc", "RNC 131000002\u00a0\u00a0x", None, id="rnc-two-nbsp"
-            ),
-            pytest.param(
-                "rnc", "RNC 131000002\u00a0-x", None, id="rnc-nbsp-then-dash"
-            ),
+            pytest.param("rnc", "RNC 131000002\u00a0\u00a0x", None, id="rnc-two-nbsp"),
+            pytest.param("rnc", "RNC 131000002\u00a0-x", None, id="rnc-nbsp-then-dash"),
             pytest.param("rnc", "RNC 131000002\u2028x", None, id="rnc-line-separator"),
             pytest.param(
                 "rnc", "RNC 131000002\u2029x", None, id="rnc-paragraph-separator"
@@ -468,9 +464,7 @@ def test_any_format_or_control_character_at_an_edge_keeps_the_read_whole(
 
 
 _SPACES = frozenset(
-    chr(code)
-    for code in range(0x110000)
-    if unicodedata.category(chr(code)) == "Zs"
+    chr(code) for code in range(0x110000) if unicodedata.category(chr(code)) == "Zs"
 )
 
 
@@ -502,3 +496,16 @@ def test_only_edge_punctuation_or_one_space_may_touch_an_identifier(
             assert printed(f"x{char}{token}{char}nota") == token, repr(char)
             assert printed(f"{token}{char}9") == f"{token}{char}9", repr(char)
             assert printed(f"1{char}{token}") == f"1{char}{token}", repr(char)
+
+
+@pytest.mark.parametrize("symbol", ["\u02d7", "\u2053", "\u2796"])
+@pytest.mark.parametrize(
+    ("name", "token"), [("rnc", "131000002"), ("ncf", "B0100000987")]
+)
+def test_dash_like_symbols_at_an_edge_keep_the_read_whole(
+    name: str, token: str, symbol: str
+) -> None:
+    for read in (f"{token}{symbol}9", f"9{symbol}{token}", f"{token}{symbol}"):
+        receipt = ReceiptDetails(**{name: read})
+        projected = extractor.fiscal_facts_from_receipt(receipt, source_id=uuid4())
+        assert getattr(projected, name).value == read, repr(read)
