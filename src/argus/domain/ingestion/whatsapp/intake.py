@@ -156,13 +156,32 @@ class _Lease:
     done: asyncio.Event = field(default_factory=asyncio.Event)
 
 
+async def _drain(task: asyncio.Task, on_cancel: Callable[[], Any]) -> Any:
+    """Await ``task`` to its end even if the caller is cancelled, any number of
+    times. Each cancellation runs ``on_cancel``; the first is re-raised only
+    once the task has finished."""
+
+    cancelled = False
+    while not task.done():
+        try:
+            await asyncio.wait({task})
+        except asyncio.CancelledError:
+            cancelled = True
+            on_cancel()
+    if cancelled:
+        raise asyncio.CancelledError
+    return task.result()
+
+
 async def _stop(lease: _Lease, task: asyncio.Task | None) -> None:
     """Stop the heartbeat between renewals, never inside one: a renewal cut
-    off mid-write would move the claim without moving ``lease.held``."""
+    off mid-write would move the claim without moving ``lease.held``. The
+    heartbeat itself is never cancelled, so a renewal in flight always hands
+    its token to ``lease.held``."""
 
     lease.done.set()
     if task is not None:
-        await task
+        await _drain(task, lambda: None)
 
 
 @dataclass(frozen=True)
@@ -282,12 +301,12 @@ class WhatsAppIntake:
 
         for item in held:
             try:
-                await self._process(item)
-            except Exception:
-                await self._reply(
-                    item.message,
-                    Settlement("failed", error_code="whatsapp_processing_failed"),
-                    item.log,
+                await self._process(item, background=True)
+            except Exception as error:
+                # Only a fenced failure settlement may tell the sender; an
+                # unsettled claim lapses and the sweep runs it again.
+                item.log.warning(
+                    "WhatsApp message left unsettled", failure_mode=type(error).__name__
                 )
 
     async def _claim(self, message: InboundMessage) -> _Held | bool:
@@ -429,7 +448,7 @@ class WhatsAppIntake:
         except (SecretUnreadable, ValueError):
             return None
 
-    async def _process(self, item: _Held) -> bool:
+    async def _process(self, item: _Held, *, background: bool = False) -> bool:
         """Finish one claimed message; ``False`` when the claim was lost first."""
 
         message, sender, key, held, log = (
@@ -443,18 +462,32 @@ class WhatsAppIntake:
         if held is not None:
             # Renew right before the work: an earlier item in this batch may
             # have used up the lease, and a fetch must never run on a lapsed one.
-            if not await self._renew(key, lease):
+            try:
+                renewed = await self._renew(key, lease)
+            except Exception as error:
+                # An unproven lease stays silent; the sweep retries the claim.
+                log.warning(
+                    "WhatsApp claim renewal failed before work",
+                    failure_mode=type(error).__name__,
+                )
+                return False
+            if not renewed:
                 log.info("WhatsApp claim taken by another worker; skipped")
                 return False
-        # ``wait_for`` returns only once a cancelled capture thread has ended,
-        # so the heartbeat covers the work and its cancellation cleanup.
+        # The work is a retained task: ``wait_for`` and the documents service
+        # end it only once a cancelled capture thread has ended, and the
+        # heartbeat is stopped only after that, even when this coroutine is
+        # cancelled, so the claim is renewed for as long as the thread lives.
         heartbeat = (
             asyncio.create_task(self._heartbeat(key, lease)) if held is not None else None
         )
-        try:
-            settlement = await asyncio.wait_for(
+        work = asyncio.create_task(
+            asyncio.wait_for(
                 self._decide(message, sender), timeout=self.processing_seconds
             )
+        )
+        try:
+            settlement = await _drain(work, work.cancel)
         except Exception as error:
             code = (
                 "whatsapp_processing_timeout"
@@ -471,9 +504,16 @@ class WhatsAppIntake:
                 # the sender hears, so this worker stays silent.
                 log.warning("WhatsApp message claim lost before settling")
                 return False
+            if background:
+                await self._reply(
+                    message,
+                    Settlement("failed", error_code="whatsapp_processing_failed"),
+                    log,
+                )
+                return True
             raise
         except BaseException:
-            lease.done.set()
+            await _stop(lease, heartbeat)
             raise
         await _stop(lease, heartbeat)
         held = lease.held
