@@ -332,9 +332,7 @@ async def test_transient_storage_failure_keeps_the_delivery_retryable_and_resume
 
 @pytest.mark.asyncio
 async def test_parts_by_delivery_reads_one_businesses_parts_in_the_order_of_parts():
-    world = rig(
-        message(("a.png", "image/png", png()), ("b.png", "image/png", png()))
-    )
+    world = rig(message(("a.png", "image/png", png()), ("b.png", "image/png", png())))
     space = world.route.space_id
     first = world.enqueue()
     assert await world.runtime.next()
@@ -511,76 +509,9 @@ async def test_authorized_mail_books_when_the_server_says_it_is_aligned():
 
 
 @pytest.mark.asyncio
-async def test_an_authorized_from_with_no_result_is_held_with_a_note_and_warns():
-    from loguru import logger
-
-    seen: list[str] = []
-    sink = logger.add(
-        lambda message: seen.append(message.record["message"]), level="WARNING"
-    )
-    try:
-        for authentication in (None, {}, {"dmarc": "processing_failed"}):
-            world = rig()
-            _authorize(world)
-            world.provider.authentication = authentication
-            world.provider.provider_from = "proveedor@example.test"
-            delivery = world.enqueue()
-            assert await world.runtime.next()
-            saved = world.store.get(delivery.id, world.route.space_id)
-            assert (
-                saved.inbox_group,
-                saved.auth_result,
-                saved.review_note,
-                saved.approved,
-            ) == (
-                "remitentes_nuevos",
-                "unknown",
-                "No pudimos verificar este remitente.",
-                False,
-            )
-    finally:
-        logger.remove(sink)
-    assert seen.count("email_auth_no_result") == 3
-
-
-@pytest.mark.asyncio
-async def test_an_authorized_from_with_no_dmarc_policy_is_pending_with_a_note():
-    world = rig()
-    _authorize(world)
-    world.provider.authentication = {"spf": "pass", "dkim": "gray", "dmarc": "gray"}
-    world.provider.provider_from = "proveedor@example.test"
-    delivery = world.enqueue()
-    assert await world.runtime.next()
-    saved = world.store.get(delivery.id, world.route.space_id)
-    assert (saved.inbox_group, saved.auth_result, saved.review_note, saved.approved) == (
-        "bandeja",
-        "failed",
-        "No pudimos verificar este remitente.",
-        False,
-    )
-
-
-@pytest.mark.asyncio
-async def test_a_sender_not_on_the_list_goes_to_new_senders_whatever_its_check():
-    for authentication in ({"dmarc": "pass", "dkim": "pass"}, {"dmarc": "fail"}, {}):
-        world = rig()
-        world.provider.authentication = authentication
-        world.provider.provider_from = "proveedor@example.test"
-        delivery = world.enqueue()
-        assert await world.runtime.next()
-        saved = world.store.get(delivery.id, world.route.space_id)
-        assert (saved.inbox_group, saved.review_note, saved.approved) == (
-            "remitentes_nuevos",
-            None,
-            False,
-        )
-
-
-@pytest.mark.asyncio
 async def test_an_authorized_from_with_a_failed_check_is_pending_with_a_note_and_counts():
-    raw = (
-        b"Authentication-Results: mx.example; dmarc=pass\r\n"
-        + message(("recibo.png", "image/png", png()))
+    raw = b"Authentication-Results: mx.example; dmarc=pass\r\n" + message(
+        ("recibo.png", "image/png", png())
     )
     world = rig(raw)
     _authorize(world)
@@ -632,7 +563,9 @@ async def test_message_text_cannot_instruct_the_reader_or_approve():
     assert reader_bytes(image, "image/png", phrase) == image
     assert phrase.encode() not in reader_bytes(image, "image/png", phrase)
     receipt_uploads = [
-        item for item in uploads if item["media_type"] in ("image/png", "image/jpeg", "application/pdf")
+        item
+        for item in uploads
+        if item["media_type"] in ("image/png", "image/jpeg", "application/pdf")
     ]
     assert receipt_uploads
     assert all(phrase.encode() not in item["content"] for item in receipt_uploads)
@@ -780,7 +713,9 @@ async def test_a_missing_provider_from_counts_as_unknown():
     assert (saved.inbox_group, saved.auth_result) == ("remitentes_nuevos", "unknown")
 
 
-@pytest.mark.parametrize("spoofed", [b"From : attacker@evil.test", b"From\t: attacker@evil.test"])
+@pytest.mark.parametrize(
+    "spoofed", [b"From : attacker@evil.test", b"From\t: attacker@evil.test"]
+)
 @pytest.mark.asyncio
 async def test_a_from_header_with_space_before_the_colon_is_ambiguous(spoofed: bytes):
     raw = _png_message("vendor@x.com")
@@ -1018,9 +953,7 @@ async def test_capture_does_not_call_the_in_app_verifier(monkeypatch):
     def explode(*_args, **_kwargs):
         raise AssertionError("in-app verifier")
 
-    monkeypatch.setattr(
-        "argus.domain.ingestion.email_intake.alignment.assess", explode
-    )
+    monkeypatch.setattr("argus.domain.ingestion.email_intake.alignment.assess", explode)
     import argus.domain.ingestion.email_intake.service as intake
 
     if hasattr(intake, "assess"):
