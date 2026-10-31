@@ -19,6 +19,7 @@ import { CHANNEL_ICON } from "../foundation/channel-icons";
 import { FOCUS_RING } from "../foundation/presentation";
 import { canManageBusiness, cardClass, quietButtonClass } from "../business-ui";
 import { SCREEN_ICON } from "../nav-glyphs";
+import { useReceiptStateWord } from "../receipt-state-word";
 import { RECENT_WORK, SETUP_STATE, type RecentWork, type SetupStep, type SetupStepKey } from "./home-draft-data";
 import { useHomeCounts, useSampleBusiness, type ReviewCount } from "./useHomeCounts";
 
@@ -47,7 +48,6 @@ const COPY = {
     review: "Revisar",
     resolve: "Resolver",
     open: "Abrir",
-    readyToReview: "Listo para revisar",
     untitled: "Documento sin nombre",
     allClearTitle: "Todo al día",
     allClearBody: "No hay documentos esperando por ti.",
@@ -93,7 +93,6 @@ const COPY = {
     review: "Review",
     resolve: "Resolve",
     open: "Open",
-    readyToReview: "Ready to review",
     untitled: "Untitled document",
     allClearTitle: "All caught up",
     allClearBody: "No documents are waiting for you.",
@@ -240,6 +239,7 @@ const PREVIEW_ROWS = { needs: 4, recent: 3 } as const;
 function NeedsAttention({ c, toReview: liveToReview, retryCount }: { c: Copy; toReview: ReviewCount; retryCount: () => void }) {
   const { records, openPanel, source, reload } = useBusiness();
   const { t, i18n } = useTranslation();
+  const stateWord = useReceiptStateWord();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const forceEmpty = sampleParam("attention") === "empty";
   const inbox = forceEmpty ? [] : records.inbox ?? [];
@@ -298,7 +298,7 @@ function NeedsAttention({ c, toReview: liveToReview, retryCount }: { c: Copy; to
           const verb = problem ? c.resolve : receipt.bandeja?.por_revisar ? c.review : c.open;
           const tag = problem
             ? <span className={`${TAG} inline-flex items-center gap-1 bg-[#f6dfe0] text-[#9e2f39] dark:bg-[#4a2a2f] dark:text-[#ec9aa0]`}><span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />{t(`business.attention_short.${receipt.attention ?? "other"}`)}</span>
-            : <span className={`${TAG} bg-black/5 text-[#56635e] dark:bg-white/10 dark:text-white/70`}>{c.readyToReview}</span>;
+            : <span className={`${TAG} bg-black/5 text-[#56635e] dark:bg-white/10 dark:text-white/70`}>{stateWord(receipt)}</span>;
           return <li key={receipt.id}><RowCard Icon={Channel} title={receipt.merchant || receipt.filename || c.untitled} tag={tag} date={formatRelativeTime(receipt.received_at, locale)} verb={verb} onOpen={() => openPanel({ kind: "receipt", receiptId: receipt.id, list: "inbox" })} /></li>;
         })}
       </ul>
