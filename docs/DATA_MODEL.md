@@ -3432,6 +3432,18 @@ boundary proposal is approved.
   a redelivery of the same message. Settling requires the claim the worker
   took, so a worker whose claim lapsed cannot overwrite a newer one. A captured row's draft is owned by
   `financial_document_extractions`.
+- Loss recovery (migration `20261031010000_whatsapp_claim_envelope.sql`):
+  `claim_envelope` holds the message (media id, type, caption, sender number)
+  sealed with the ingestion secret box, written with the claim, so a claim that
+  lapsed because the process died after the 200 can be run again.
+  `recovery_attempts` counts sweep retakes. A sweep (every 60 seconds in the
+  API process, and at most once a minute on webhook traffic, independent of
+  `CUADRAO_DOCUMENT_JOBS_ENABLED`) retakes a lapsed claim by compare-and-set on
+  `claim_until` and runs the original processing path. After three retakes the
+  row settles `failed` with `whatsapp_recovery_exhausted` and the linked sender
+  gets one `whatsapp_photo_lost` reply. A lapsed row with no envelope settles
+  `failed` with `whatsapp_claim_envelope_missing`. Every settlement clears
+  `claim_envelope`; a check allows it only on `received` and `failed`.
 
 Row level security is enabled with no policies and every client grant revoked.
 Proven by `tests/test_whatsapp_intake_postgres.py`.

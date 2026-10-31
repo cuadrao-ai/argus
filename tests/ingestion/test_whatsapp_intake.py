@@ -185,6 +185,12 @@ async def test_intake_case(case) -> None:  # noqa: ANN001
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("case", cases.RECOVERY_CASES, ids=lambda case: case.__name__)
+async def test_recovery_case(case) -> None:  # noqa: ANN001
+    await case(_world())
+
+
+@pytest.mark.asyncio
 async def test_english_link_gets_english_only() -> None:
     await cases.english_owner_gets_english_only(_world())
 

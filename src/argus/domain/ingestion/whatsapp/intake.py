@@ -18,6 +18,8 @@ from typing import Any, Protocol
 
 from loguru import logger
 
+from argus.domain.ingestion.secrets import SecretUnreadable
+from argus.domain.ingestion.whatsapp.business_envelope import ClaimCodec
 from argus.domain.ingestion.whatsapp.identity import (
     WhatsAppKeys,
     code_candidates,
@@ -65,6 +67,14 @@ from argus.domain.ingestion.whatsapp.store import (
 CLAIM_SECONDS = 90
 # Processing must end, and settle, while its claim is still held.
 PROCESSING_SECONDS = CLAIM_SECONDS - 15
+# A lapsed claim is run again at most this many times before it settles
+# failed and the sender is asked to send the photo again.
+RECOVERY_ATTEMPTS = 3
+# Webhook traffic also runs the sweep, at most once per this many seconds per
+# process, so recovery does not wait on any background job switch.
+RECOVERY_NUDGE_SECONDS = 60
+RECOVERY_NUDGE_LIMIT = 5
+PHOTO_LOST = "whatsapp_photo_lost"
 CODE_TTL = timedelta(minutes=10)
 SERVICE_WINDOW = timedelta(hours=24)
 _REPLY_REJECTION = re.compile(r"([1-5][0-9]{2})(?::([0-9]{1,10}))?")
@@ -158,6 +168,7 @@ class WhatsAppIntake:
         background: Callable[[Coroutine[Any, Any, None]], None] | None = None,
         reply_codec: ReplyGroupCodec | None = None,
         reply_group_wait_seconds: int = 120,
+        claim_codec: ClaimCodec | None = None,
     ) -> None:
         self.store, self.keys, self.media = store, keys, media
         self.destination, self.clock = destination, clock
@@ -171,6 +182,8 @@ class WhatsAppIntake:
         self.send_enabled = send_enabled
         self.reply_codec = reply_codec
         self.reply_group_wait_seconds = reply_group_wait_seconds
+        self.claim_codec = claim_codec
+        self._last_nudge: datetime | None = None
 
     def issue_code(
         self, *, destination_owner_id: str, reply_language: ReplyLanguage
@@ -225,6 +238,7 @@ class WhatsAppIntake:
         if self.background is not None:
             if held:
                 self.background(self._run(held))
+            self._nudge_recovery()
         else:
             for item in held:
                 try:
@@ -267,12 +281,106 @@ class WhatsAppIntake:
             sender_hash=sender,
             now=now,
             claim_until=now + timedelta(seconds=CLAIM_SECONDS),
+            claim_envelope=self._seal(message),
         )
         log = logger.bind(message_ref=ref(key), sender_ref=ref(sender))
         if not claim.claimed:
             log.info("WhatsApp message replayed", status=claim.record.status)
             return claim.record.status not in RETRYABLE
         return _Held(message, sender, key, claim.record.claim_until, log)
+
+    def _seal(self, message: InboundMessage) -> bytes | None:
+        if self.claim_codec is None:
+            return None
+        try:
+            return self.claim_codec.seal(message)
+        except Exception as error:
+            logger.warning(
+                "WhatsApp claim envelope not sealed; this message cannot be recovered",
+                failure_mode=type(error).__name__,
+            )
+            return None
+
+    def _nudge_recovery(self) -> None:
+        now = self.clock()
+        if self._last_nudge is not None and now - self._last_nudge < timedelta(
+            seconds=RECOVERY_NUDGE_SECONDS
+        ):
+            return
+        self._last_nudge = now
+        assert self.background is not None
+        self.background(self.recover(limit=RECOVERY_NUDGE_LIMIT))
+
+    async def recover(self, *, limit: int = 20) -> int:
+        """Run again every message whose claim lapsed unsettled, through the
+        same path as the original task. A retake is a compare-and-set on the
+        lapsed claim, so a concurrent sweep or a live original task never runs
+        the same message twice. Returns how many claims this call took."""
+
+        now = self.clock()
+        lapsed = await asyncio.to_thread(self.store.lapsed_claims, now=now, limit=limit)
+        taken = 0
+        for record in lapsed:
+            try:
+                taken += await self._recover_one(record, now)
+            except Exception as error:
+                logger.warning(
+                    "WhatsApp claim recovery failed", failure_mode=type(error).__name__
+                )
+        return taken
+
+    async def _recover_one(self, record: Any, now: datetime) -> bool:
+        assert record.claim_until is not None
+        key, sender = record.provider_message_key, record.sender_hash
+        held = await asyncio.to_thread(
+            self.store.retake,
+            provider_message_key=key,
+            held=record.claim_until,
+            now=now,
+            claim_until=now + timedelta(seconds=CLAIM_SECONDS),
+        )
+        if held is None:
+            return False
+        log = logger.bind(message_ref=ref(key), sender_ref=ref(sender))
+        message = self._open(record)
+        if message is None:
+            await self._settle(
+                key,
+                held,
+                Settlement("failed", error_code="whatsapp_claim_envelope_missing"),
+            )
+            log.warning("WhatsApp lapsed claim had no envelope; settled failed")
+            return True
+        if record.recovery_attempts >= RECOVERY_ATTEMPTS:
+            settled = await self._settle(
+                key, held, Settlement("failed", error_code="whatsapp_recovery_exhausted")
+            )
+            log.warning("WhatsApp lapsed claim gave up after bounded retries")
+            if settled is not None and isinstance(message, MediaMessage):
+                link = await asyncio.to_thread(self.store.sender_link, sender_hash=sender)
+                if link is not None:
+                    await self._reply(
+                        message,
+                        replace(settled, reply_language=link.reply_language),
+                        log,
+                        key=PHOTO_LOST,
+                    )
+            return True
+        log.info("WhatsApp lapsed claim recovered", attempt=record.recovery_attempts + 1)
+        await self._run([_Held(message, sender, key, held, log)])
+        return True
+
+    def _open(self, record: Any) -> InboundMessage | None:
+        if record.claim_envelope is None or self.claim_codec is None:
+            return None
+        try:
+            return self.claim_codec.open(
+                record.claim_envelope,
+                message_key=record.provider_message_key,
+                sender_hash=record.sender_hash,
+            )
+        except (SecretUnreadable, ValueError):
+            return None
 
     async def _process(self, item: _Held) -> bool:
         """Finish one claimed message; ``False`` when the claim was lost first."""

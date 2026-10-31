@@ -18,13 +18,20 @@ from argus.domain.ingestion.whatsapp.store import (
 
 _INBOUND_COLUMNS = (
     "provider_message_key, sender_hash, status, destination_owner_id::text, "
-    "connection_id::text, error_code, claim_until, received_at, updated_at"
+    "connection_id::text, error_code, claim_until, received_at, updated_at, "
+    "claim_envelope, recovery_attempts"
 )
 
 
 def _record(row: tuple) -> InboundRecord:
-    key, sender, *rest = row
-    return InboundRecord(bytes(key), bytes(sender), *rest)
+    key, sender, *rest, envelope, attempts = row
+    return InboundRecord(
+        bytes(key),
+        bytes(sender),
+        *rest,
+        claim_envelope=None if envelope is None else bytes(envelope),
+        recovery_attempts=attempts,
+    )
 
 
 class PostgresWhatsAppStore:
@@ -39,18 +46,27 @@ class PostgresWhatsAppStore:
         sender_hash: bytes,
         now: datetime,
         claim_until: datetime,
+        claim_envelope: bytes | None = None,
     ) -> Claim:
         with self._pool.connection() as connection, connection.transaction():
             row = connection.execute(
                 "insert into public.whatsapp_inbound_messages as m "
                 "(provider_message_key, sender_hash, status, claim_until, received_at, "
-                "updated_at) values (%s, %s, 'received', %s, %s, %s) "
+                "updated_at, claim_envelope) values (%s, %s, 'received', %s, %s, %s, %s) "
                 "on conflict (provider_message_key) do update "
-                "set claim_until = excluded.claim_until, updated_at = excluded.updated_at "
+                "set claim_until = excluded.claim_until, updated_at = excluded.updated_at, "
+                "claim_envelope = coalesce(excluded.claim_envelope, m.claim_envelope) "
                 "where m.status in ('received', 'failed') "
                 "and (m.claim_until is null or m.claim_until <= excluded.updated_at) "
                 f"returning {_INBOUND_COLUMNS}",
-                (provider_message_key, sender_hash, claim_until, now, now),
+                (
+                    provider_message_key,
+                    sender_hash,
+                    claim_until,
+                    now,
+                    now,
+                    claim_envelope,
+                ),
             ).fetchone()
             if row is not None:
                 return Claim(_record(row), True)
@@ -85,7 +101,7 @@ class PostgresWhatsAppStore:
             cursor = connection.execute(
                 "update public.whatsapp_inbound_messages set status = %s, "
                 "destination_owner_id = %s, connection_id = %s, error_code = %s, "
-                "claim_until = null, updated_at = %s "
+                "claim_until = null, claim_envelope = null, updated_at = %s "
                 "where provider_message_key = %s and status in ('received', 'failed') "
                 "and claim_until is not distinct from %s",
                 (
@@ -103,6 +119,35 @@ class PostgresWhatsAppStore:
             if reply_failure is not None:
                 self.reply_groups.enqueue_on(connection, reply_failure)
             return settlement
+
+    def lapsed_claims(self, *, now: datetime, limit: int) -> list[InboundRecord]:
+        with self._pool.connection() as connection:
+            rows = connection.execute(
+                f"select {_INBOUND_COLUMNS} from public.whatsapp_inbound_messages "
+                "where status in ('received', 'failed') and claim_until is not null "
+                "and claim_until <= %s order by claim_until limit %s",
+                (now, limit),
+            ).fetchall()
+        return [_record(row) for row in rows]
+
+    def retake(
+        self,
+        *,
+        provider_message_key: bytes,
+        held: datetime,
+        now: datetime,
+        claim_until: datetime,
+    ) -> datetime | None:
+        with self._pool.connection() as connection, connection.transaction():
+            row = connection.execute(
+                "update public.whatsapp_inbound_messages "
+                "set claim_until = %s, updated_at = %s, "
+                "recovery_attempts = recovery_attempts + 1 "
+                "where provider_message_key = %s and status in ('received', 'failed') "
+                "and claim_until = %s returning claim_until",
+                (claim_until, now, provider_message_key, held),
+            ).fetchone()
+        return None if row is None else row[0]
 
     def inbound(self, provider_message_key: bytes) -> InboundRecord | None:
         with self._pool.connection() as connection:

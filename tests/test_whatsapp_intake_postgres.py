@@ -60,6 +60,24 @@ async def test_intake_case_on_postgres(case, pool, users) -> None:  # noqa: ANN0
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("case", cases.RECOVERY_CASES, ids=lambda case: case.__name__)
+async def test_recovery_case_on_postgres(case, pool, users) -> None:  # noqa: ANN001
+    await case(_world(pool, users))
+
+
+def test_a_settled_row_cannot_keep_a_claim_envelope(pool) -> None:  # noqa: ANN001
+    import psycopg
+
+    with pool.connection() as connection, pytest.raises(psycopg.errors.CheckViolation):
+        connection.execute(
+            "insert into public.whatsapp_inbound_messages "
+            "(provider_message_key, sender_hash, status, received_at, updated_at, "
+            "claim_envelope) values (%s, %s, 'rejected', now(), now(), %s)",
+            (b"k" * 32, b"s" * 32, b"\x01" + b"x" * 40),
+        )
+
+
+@pytest.mark.asyncio
 async def test_english_link_gets_english_only(pool, users) -> None:  # noqa: ANN001
     await cases.english_owner_gets_english_only(_world(pool, users))
 
