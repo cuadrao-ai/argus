@@ -25,14 +25,44 @@ class IntakeDecision:
     approved: bool
 
 
+#: Verdicts an authorized sender's mail is read with, in Bandeja with the note.
+UNVERIFIED_READABLE = frozenset({"failed", "none"})
+#: Verdicts never read: the From is in doubt or the provider said nothing.
+#: ``unknown`` is how both are stored until the follow-up migration.
+UNVERIFIED_REFUSED = frozenset({"ambiguous", "no_result", "unknown"})
+
+
+def stored_auth(verdict: str) -> str:
+    """The ``auth_result`` column value for a verdict.
+
+    The column's check (20261019040000) allows only aligned, failed and
+    unknown until a follow-up migration widens it. Until then ``ambiguous``
+    and ``no_result`` are stored as ``unknown`` and ``none`` as ``failed``.
+    Routing decides from the verdict in memory at intake; the standing check
+    at read and approve time reads the column, where ``unknown`` is refused
+    and ``failed`` is readable. Both mappings keep that split.
+    """
+
+    if verdict in UNVERIFIED_REFUSED:
+        return "unknown"
+    if verdict == "none":
+        return "failed"
+    return verdict
+
+
 def decide(standing: str, auth: str, *, first_authorized: bool) -> IntakeDecision:
-    if standing == "authorized" and auth != "aligned":
+    stored = stored_auth(auth)
+    if standing == "authorized" and auth in UNVERIFIED_READABLE:
         return IntakeDecision(
-            "bandeja", auth, UNVERIFIED_SENDER_NOTE, False, False, False
+            "bandeja", stored, UNVERIFIED_SENDER_NOTE, False, False, False
+        )
+    if standing == "authorized" and auth in UNVERIFIED_REFUSED:
+        return IntakeDecision(
+            "remitentes_nuevos", stored, UNVERIFIED_SENDER_NOTE, False, False, False
         )
     if auth != "aligned" or standing == "new":
         group = "remitentes_nuevos" if standing == "new" else None
-        return IntakeDecision(group, auth, None, False, False, False)
+        return IntakeDecision(group, stored, None, False, False, False)
     if standing != "authorized":
-        return IntakeDecision(None, auth, None, False, False, False)
-    return IntakeDecision("bandeja", auth, None, False, first_authorized, False)
+        return IntakeDecision(None, stored, None, False, False, False)
+    return IntakeDecision("bandeja", stored, None, False, first_authorized, False)

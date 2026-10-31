@@ -743,7 +743,7 @@ def email_connection_standing(
             (space_id, connection_id, connection_id),
         ).fetchone()
         deliveries = cursor.execute(
-            "select distinct d.sender from public.business_email_deliveries d"
+            "select distinct d.sender,d.auth_result from public.business_email_deliveries d"
             " left join public.business_email_parts p on p.delivery_id=d.id"
             " where d.space_id=%s and (p.document_id in (%s,%s)"
             " or d.original_document_id in (%s,%s))",
@@ -758,6 +758,10 @@ def email_connection_standing(
         if not deliveries:
             return "new" if source is not None and source["origin"] == "email" else None
         for delivery in deliveries:
+            # Stored ``unknown`` is an ambiguous From or no provider result
+            # (see routing.stored_auth): never read or approved.
+            if delivery["auth_result"] == "unknown":
+                return "new"
             sender = cursor.execute(
                 "select status from public.business_email_senders where space_id=%s"
                 " and kind='address' and value=%s for share",
@@ -899,6 +903,8 @@ class InMemoryEmailStore(MemoryAddressing):
         if not linked:
             return "new" if ids else None
         for delivery in linked:
+            if delivery.auth_result == "unknown":
+                return "new"
             standing = self.sender_standing(space_id, delivery.sender)
             if standing != "authorized":
                 return standing

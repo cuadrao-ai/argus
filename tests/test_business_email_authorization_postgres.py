@@ -125,6 +125,7 @@ CASES = [
     ("authorized_failed", "authorized", {"dmarc": "fail", "dkim": "fail"}, None, 1),
     ("authorized_unknown", "authorized", {"dmarc": "unknown", "dkim": "gray"}, None, 1),
     ("authorized_gray", "authorized", {"dmarc": "gray", "dkim": "gray"}, None, 1),
+    ("authorized_no_result", "authorized", {}, None, 0),
     ("blocked", "blocked", {"dmarc": "pass", "dkim": "pass"}, None, 0),
     (
         "reading_off",
@@ -218,8 +219,10 @@ def test_only_live_authorized_mail_reaches_automatic_extraction(
 @pytest.mark.parametrize(
     "auth,expected",
     [
-        ({"dmarc": "gray", "dkim": "gray"}, "unknown"),
-        ({"dmarc": "unknown", "dkim": "gray"}, "unknown"),
+        ({"dmarc": "gray", "dkim": "gray"}, "none"),
+        ({"dmarc": "unknown", "dkim": "gray"}, "none"),
+        ({"dmarc": "processing_failed", "dkim": "processing_failed"}, "no_result"),
+        (None, "no_result"),
         ({"dmarc": "gray", "dkim": "pass"}, "aligned"),
         ({"dmarc": "fail", "dkim": "pass"}, "failed"),
     ],

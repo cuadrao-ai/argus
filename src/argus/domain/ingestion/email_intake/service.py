@@ -334,6 +334,14 @@ class EmailCapture:
                     raw=raw,
                     provider_from=received.provider_from,
                 )
+                if auth == "no_result":
+                    # Before the pilot: if this fires for every intake, the
+                    # provider stopped sending results and nothing is read.
+                    logger.warning(
+                        "email_auth_no_result",
+                        delivery_id=delivery.id,
+                        route_id=route.id,
+                    )
                 if not await self._keep_after_alignment(delivery, route, raw, auth):
                     return
             await asyncio.to_thread(self.check_route, route)

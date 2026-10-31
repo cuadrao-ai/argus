@@ -69,20 +69,33 @@ def provider_verdict(
 ) -> str:
     """Map provider authentication and the stored From to one verdict.
 
-    ``dmarc`` pass is aligned and ``dmarc`` fail is failed. When ``dmarc`` is
-    neither, ``dkim`` pass is aligned and ``dkim`` fail is failed. Anything else
-    is unknown. SPF is not read. Gray, processing_failed, unknown, null, and
-    missing values are not pass or fail. When ``raw`` is present, more than one
-    From header or address, a preview From that is not the stored From, or a
-    missing preview From is unknown. The in-app verifier is not consulted.
+    - ``ambiguous``: ``raw`` has more than one From header or address, a
+      malformed ``From :`` header, or a provider From that is missing or not
+      the stored From. Checked first, whatever the authentication says.
+    - ``no_result``: the provider gave no authentication result at all. The
+      block is null or absent, or every one of ``spf``, ``dkim`` and ``dmarc``
+      is missing, null or ``processing_failed``.
+    - ``aligned``: ``dmarc`` pass, or ``dmarc`` neither pass nor fail and
+      ``dkim`` pass.
+    - ``failed``: ``dmarc`` fail, or ``dmarc`` neither pass nor fail and
+      ``dkim`` fail.
+    - ``none``: a result came back but neither DMARC nor DKIM passed or failed
+      (``gray``, ``unknown``, ``processing_failed`` or missing on both, with
+      at least one field holding a real value). Typically the sender's domain
+      has no DMARC policy and the mail has no DKIM signature of its own.
+
+    SPF is never a pass, only evidence that a result came back.
     """
 
     if raw is not None and (
         ambiguous_from(raw) or _preview_from_differs(provider_from, raw)
     ):
-        return "unknown"
-    if not isinstance(authentication, dict):
-        return "unknown"
+        return "ambiguous"
+    if not isinstance(authentication, dict) or all(
+        authentication.get(field) in (None, "processing_failed")
+        for field in ("spf", "dkim", "dmarc")
+    ):
+        return "no_result"
     dmarc = authentication.get("dmarc")
     dkim = authentication.get("dkim")
     if dmarc == "pass":
@@ -93,7 +106,7 @@ def provider_verdict(
         return "aligned"
     if dkim == "fail":
         return "failed"
-    return "unknown"
+    return "none"
 
 
 def _preview_from_differs(provider_from: str | None, raw: bytes) -> bool:

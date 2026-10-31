@@ -18095,6 +18095,10 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        review_note:
+          anyOf:
+          - type: string
+          - type: 'null'
         note_edit_available:
           type: boolean
           default: false

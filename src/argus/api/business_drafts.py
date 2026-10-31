@@ -767,11 +767,21 @@ def with_email_sources(dossier, space_id: str):  # noqa: ANN001, ANN201
     deliveries, from the email queue; the stored source row says web for every
     attachment, so this is decided here and never written back."""
 
-    from argus.api.email_intake import arrived_by_email, email_receipt_flags
+    from argus.api.email_intake import (
+        arrived_by_email,
+        email_receipt_flags,
+        email_review_note,
+    )
 
     flags = email_receipt_flags(space_id)
     if not flags:
         return dossier
+    delivery_ids = {
+        delivery_id
+        for source in dossier.sources
+        if source.kind == "attachment" and str(source.connection_id) in flags
+        for delivery_id in flags[str(source.connection_id)][0]
+    }
     sources = tuple(
         source.model_copy(
             update={
@@ -787,7 +797,12 @@ def with_email_sources(dossier, space_id: str):  # noqa: ANN001, ANN201
         else source
         for source in dossier.sources
     )
-    return dossier.model_copy(update={"sources": sources})
+    return dossier.model_copy(
+        update={
+            "sources": sources,
+            "review_note": email_review_note(space_id, delivery_ids),
+        }
+    )
 
 
 def unread_backlog(context: BusinessContext) -> list[str]:

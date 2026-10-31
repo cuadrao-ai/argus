@@ -232,6 +232,18 @@ def email_receipt_flags(
     }
 
 
+def email_review_note(space_id: str, delivery_ids) -> str | None:  # noqa: ANN001
+    """The review note of the first of these deliveries that carries one."""
+
+    if _runtime is None:
+        return None
+    for delivery_id in sorted(delivery_ids):
+        delivery = _runtime.store.get(delivery_id, space_id)
+        if delivery is not None and delivery.review_note:
+            return delivery.review_note
+    return None
+
+
 def part_repeat(
     runtime: EmailCapture,
     delivery: EmailDelivery,

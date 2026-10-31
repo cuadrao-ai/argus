@@ -10328,10 +10328,27 @@ accept path recorded.
     is 404 `email_sender_not_found`. Stopping or changing the receipt address,
     and authorizing, removing, or blocking a sender, each append one audit row
     with the actor, the time, the old address, and the new address.
+  - Each inbound message gets one verdict from the provider's
+    `authentication.{spf,dkim,dmarc}` and the From headers:
+    - `ambiguous`: two From headers or addresses, a malformed `From :`
+      header, or a provider From that is missing or differs from the raw
+      From. Checked first.
+    - `no_result`: no authentication result at all (the block is null or
+      absent, or every field is missing, null or `processing_failed`).
+      Logged at warning as `email_auth_no_result` on every intake.
+    - `aligned`: DMARC pass, or DMARC neither pass nor fail and DKIM pass.
+    - `failed`: DMARC fail, or DMARC neither pass nor fail and DKIM fail.
+    - `none`: a result came back but neither DMARC nor DKIM passed or failed
+      (`gray`, `unknown`, `processing_failed` or missing), typically a sender
+      domain with no DMARC policy.
+    Until a follow-up migration widens the `auth_result` column check, the
+    stored `auth_result` is `unknown` for `ambiguous` and `no_result`, and
+    `failed` for `none`. Routing uses the verdict at intake; the reading and
+    approval check reads the stored value.
   - Reading an email attachment requires the sender's exact address to
-    remain authorized in that Business. A failed or missing DMARC or DKIM
-    result does not refuse reading or approval for an authorized sender; the
-    item carries the review note below and a person still presses Aprobar. This is checked when
+    remain authorized in that Business, and a stored `auth_result` other
+    than `unknown`. An authorized sender's `failed` or `none` mail is read
+    and approvable; a person still presses Aprobar. This is checked when
     preparation starts, before extraction, and before the extracted draft is
     saved, including manual preparation, retries and queued jobs. Raw mail and
     attachments remain captured when reading is refused. The existing
@@ -10341,12 +10358,22 @@ accept path recorded.
     remain enabled, and final Business approval stays with the owner.
   - GET `/api/v1/business/email/inbox` groups deliveries as
     `remitentes_nuevos`, then `bandeja`. A first scan from an authorized
-    sender sets `notice` to "Prueba recibida". Mail from an authorized sender
-    whose DMARC or DKIM check did not pass (`auth_result` `failed` or
-    `unknown`) lands in `bandeja` with `review_note` set to "No pudimos
-    verificar este remitente." and `approved` false. Every other item has
-    `review_note` null. Only mail from a sender not on the list lands in
-    `remitentes_nuevos`. Nothing from email is approved without a person.
+    sender sets `notice` to "Prueba recibida". Every item carries
+    `sender_standing`: `authorized`, `blocked` or `new`, the sender's current
+    standing on the list (the same field is on `/deliveries` and `/{id}`).
+    - Authorized sender, `aligned`: `bandeja`, `review_note` null.
+    - Authorized sender, `failed` or `none`: `bandeja` (Pendiente) with
+      `review_note` "No pudimos verificar este remitente.", readable and
+      approvable by a person.
+    - Authorized sender, `ambiguous` or `no_result`: `remitentes_nuevos`
+      with the same `review_note`, not readable or approvable. Its
+      `sender_standing` is `authorized`, so Autorizar remitente does nothing.
+    - Sender not on the list: `remitentes_nuevos`, `review_note` null. A
+      blocked sender's mail is rejected and lands in no group.
+    `approved` is always false. Nothing from email is approved without a
+    person. The draft dossier (`/business/drafts/{id}/dossier` and every
+    drafts response) carries the same `review_note` at the top level when a
+    delivery the draft came from has one, null otherwise.
   - DELETE `/api/v1/business/email` switches the address off. A route can be
     switched off, never pointed at another Business or person.
   - GET `/api/v1/business/email/deliveries` and `/{id}` list the Business's

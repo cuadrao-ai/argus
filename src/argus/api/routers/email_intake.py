@@ -621,6 +621,9 @@ def _group(
         )
     row = email_row(delivery, parts, lambda part: repeats[part.id])
     result["standing"] = row.standing
+    result["sender_standing"] = runtime.store.sender_standing(
+        delivery.space_id, delivery.sender
+    )
     result["saved_receipt_count"] = row.saved_receipt_count
     result["no_receipt_reason"] = row.no_receipt_reason
     return result

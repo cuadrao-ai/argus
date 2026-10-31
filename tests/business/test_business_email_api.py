@@ -589,6 +589,65 @@ def test_the_tray_carries_the_unverified_sender_note(alice, runtime):  # noqa: F
     )
 
 
+def test_inbox_items_carry_the_sender_standing_and_only_authorized_ones_the_note(
+    alice,  # noqa: F811
+    runtime,
+):
+    from dataclasses import replace
+
+    store = runtime.store
+    route = _route_for(store, alice, "remitentes@recibos.example.test")
+    space_id = alice.scope().owner.space_id
+    note = "No pudimos verificar este remitente."
+    store.upsert_sender(space_id, "address", "caja@tienda.test", "authorized")
+    store.upsert_sender(space_id, "address", "spam@otro.test", "blocked")
+    rows = {
+        "held": ("caja@tienda.test", "remitentes_nuevos", "unknown", note),
+        "pending": ("caja@tienda.test", "bandeja", "failed", note),
+        "blocked": ("spam@otro.test", "remitentes_nuevos", "aligned", None),
+        "new": ("x@nuevo.test", "remitentes_nuevos", "failed", None),
+    }
+    ids = {}
+    for name, (sender, group, auth, review_note) in rows.items():
+        pending = store.enqueue(
+            "resend",
+            str(uuid4()),
+            (route.recipient,),
+            route_id=route.id,
+            space_id=space_id,
+            principal_id=route.principal_id,
+        )
+        store._deliveries[pending.id] = replace(
+            store.get(pending.id, space_id),
+            state="captured",
+            sender=sender,
+            inbox_group=group,
+            auth_result=auth,
+            review_note=review_note,
+        )
+        ids[pending.id] = name
+    items = [
+        item
+        for group in alice.get("/email/inbox").json()["groups"]
+        for item in group["items"]
+    ]
+    seen = {
+        ids[item["id"]]: (item["sender_standing"], item["review_note"])
+        for item in items
+        if item["id"] in ids
+    }
+    assert seen == {
+        "held": ("authorized", note),
+        "pending": ("authorized", note),
+        "blocked": ("blocked", None),
+        "new": ("new", None),
+    }
+    listed = alice.get("/email/deliveries").json()["items"]
+    assert {ids[i["id"]]: i["sender_standing"] for i in listed if i["id"] in ids} == {
+        name: standing for name, (standing, _note) in seen.items()
+    }
+
+
 def test_owner_authorizes_one_sender_and_refuses_a_free_mail_domain(alice, runtime):  # noqa: F811
     body = {"kind": "address", "value": "Caja@Tienda.test", "status": "authorized"}
     created = alice.post("/email/senders", body)
