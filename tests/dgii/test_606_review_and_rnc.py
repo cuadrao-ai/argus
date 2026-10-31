@@ -120,10 +120,7 @@ class TestHardRejects:
             for issue in result.manifest["issues"]
             if issue["code"] == "fiscal_identity_check_digit"
         )
-        assert matched["reason"] == (
-            "El RNC debe tener 9 dígitos (empresa) u 11 (cédula). "
-            "Revisa que esté bien escrito."
-        )
+        assert matched["reason"] == "No se puede exportar hasta corregir el RNC."
         assert matched["reason_en"] == "The check digit does not match."
         assert matched["activity_id"] == record.activity_id
         assert matched["field"] == "rnc"
@@ -481,3 +478,11 @@ class TestRncRegistry:
 
         assert postgres_rnc_fetch(execute)(VALID) is None
         assert seen == [(DGII_RNC_LOOKUP, (VALID,))]
+
+
+def test_check_digit_export_reason_is_not_the_length_rule():
+    spanish = reason("fiscal_identity_check_digit", "es")
+    assert spanish == "No se puede exportar hasta corregir el RNC."
+    assert spanish != reason("fiscal_identity_length", "es")
+    assert "9 dígitos" not in spanish
+    assert reason("fiscal_identity_check_digit", "en") == "The check digit does not match."
