@@ -332,9 +332,7 @@ async def test_transient_storage_failure_keeps_the_delivery_retryable_and_resume
 
 @pytest.mark.asyncio
 async def test_parts_by_delivery_reads_one_businesses_parts_in_the_order_of_parts():
-    world = rig(
-        message(("a.png", "image/png", png()), ("b.png", "image/png", png()))
-    )
+    world = rig(message(("a.png", "image/png", png()), ("b.png", "image/png", png())))
     space = world.route.space_id
     first = world.enqueue()
     assert await world.runtime.next()
@@ -511,10 +509,9 @@ async def test_authorized_mail_books_when_the_server_says_it_is_aligned():
 
 
 @pytest.mark.asyncio
-async def test_a_forged_from_with_a_failed_check_goes_to_new_senders_and_counts():
-    raw = (
-        b"Authentication-Results: mx.example; dmarc=pass\r\n"
-        + message(("recibo.png", "image/png", png()))
+async def test_an_authorized_from_with_a_failed_check_is_pending_with_a_note_and_counts():
+    raw = b"Authentication-Results: mx.example; dmarc=pass\r\n" + message(
+        ("recibo.png", "image/png", png())
     )
     world = rig(raw)
     _authorize(world)
@@ -524,10 +521,10 @@ async def test_a_forged_from_with_a_failed_check_goes_to_new_senders_and_counts(
     assert await world.runtime.next()
     saved = world.store.get(delivery.id, world.route.space_id)
     assert saved.auth_result == "failed"
-    assert saved.review_note is None
+    assert saved.review_note == "No pudimos verificar este remitente."
     assert saved.approved is False
     assert saved.cap_exempt is False
-    assert saved.inbox_group == "remitentes_nuevos"
+    assert saved.inbox_group == "bandeja"
     assert saved.state == "captured"
     day = business_day(world.clock())
     assert world.store._usage[(world.route.id, day)][0] == 1
@@ -566,7 +563,9 @@ async def test_message_text_cannot_instruct_the_reader_or_approve():
     assert reader_bytes(image, "image/png", phrase) == image
     assert phrase.encode() not in reader_bytes(image, "image/png", phrase)
     receipt_uploads = [
-        item for item in uploads if item["media_type"] in ("image/png", "image/jpeg", "application/pdf")
+        item
+        for item in uploads
+        if item["media_type"] in ("image/png", "image/jpeg", "application/pdf")
     ]
     assert receipt_uploads
     assert all(phrase.encode() not in item["content"] for item in receipt_uploads)
@@ -606,11 +605,12 @@ async def _captured(world: Rig):
 
 
 @pytest.mark.asyncio
-async def test_two_from_headers_stay_with_new_senders():
+async def test_two_from_headers_are_held_with_a_note():
     raw = _insert_from(_png_message("vendor@x.com"), "attacker@own-domain.test")
     world = rig(raw)
     _aligned(world, "vendor@x.com")
     saved = await _captured(world)
+    assert saved.review_note == "No pudimos verificar este remitente."
     assert (saved.inbox_group, saved.auth_result, saved.state, saved.cap_exempt) == (
         "remitentes_nuevos",
         "unknown",
@@ -633,11 +633,12 @@ async def test_two_from_addresses_in_one_header_stay_with_new_senders():
 
 
 @pytest.mark.asyncio
-async def test_a_provider_from_that_differs_from_the_message_stays_with_new_senders():
+async def test_a_provider_from_that_differs_from_the_message_is_held_with_a_note():
     world = rig(_png_message("vendor@x.com"))
     _aligned(world, "vendor@x.com")
     world.provider.provider_from = "attacker@own-domain.test"
     saved = await _captured(world)
+    assert saved.review_note == "No pudimos verificar este remitente."
     assert (saved.inbox_group, saved.auth_result, saved.state, saved.cap_exempt) == (
         "remitentes_nuevos",
         "unknown",
@@ -687,13 +688,14 @@ async def test_a_full_message_cap_does_not_fetch_spoofed_authorized_mail():
 
 
 @pytest.mark.asyncio
-async def test_an_empty_second_from_header_stays_with_new_senders():
+async def test_an_empty_second_from_header_is_held_with_a_note():
     raw = _png_message("vendor@x.com")
     start = raw.lower().find(b"from:")
     end = raw.find(b"\n", start)
     world = rig(raw[:end] + b"\nFrom:" + raw[end:])
     _aligned(world, "vendor@x.com")
     saved = await _captured(world)
+    assert saved.review_note == "No pudimos verificar este remitente."
     assert (saved.inbox_group, saved.auth_result, saved.cap_exempt) == (
         "remitentes_nuevos",
         "unknown",
@@ -707,10 +709,13 @@ async def test_a_missing_provider_from_counts_as_unknown():
     _aligned(world, "vendor@x.com")
     world.provider.provider_from = None
     saved = await _captured(world)
+    assert saved.review_note == "No pudimos verificar este remitente."
     assert (saved.inbox_group, saved.auth_result) == ("remitentes_nuevos", "unknown")
 
 
-@pytest.mark.parametrize("spoofed", [b"From : attacker@evil.test", b"From\t: attacker@evil.test"])
+@pytest.mark.parametrize(
+    "spoofed", [b"From : attacker@evil.test", b"From\t: attacker@evil.test"]
+)
 @pytest.mark.asyncio
 async def test_a_from_header_with_space_before_the_colon_is_ambiguous(spoofed: bytes):
     raw = _png_message("vendor@x.com")
@@ -719,6 +724,7 @@ async def test_a_from_header_with_space_before_the_colon_is_ambiguous(spoofed: b
     world = rig(raw[:end] + b"\n" + spoofed + raw[end:])
     _aligned(world, "vendor@x.com")
     saved = await _captured(world)
+    assert saved.review_note == "No pudimos verificar este remitente."
     assert (saved.inbox_group, saved.auth_result, saved.cap_exempt) == (
         "remitentes_nuevos",
         "unknown",
@@ -822,7 +828,7 @@ async def test_aligned_mail_with_a_display_name_can_be_approved():
     assert (saved.inbox_group, saved.auth_result) == ("bandeja", "aligned")
 
 
-def test_every_linked_delivery_must_be_authorized_and_aligned():
+def test_every_linked_delivery_must_be_authorized_and_not_held():
     world = rig()
     space = world.route.space_id
     draft_id = str(uuid4())
@@ -850,6 +856,16 @@ def test_every_linked_delivery_must_be_authorized_and_aligned():
     assert world.store.email_document_standing(space, draft_id) == "authorized"
     world.store._deliveries[bad.id] = replace(
         world.store.get(bad.id, space), auth_result="failed"
+    )
+    assert world.store.email_document_standing(space, draft_id) == "new"
+    world.store._deliveries[bad.id] = replace(
+        world.store.get(bad.id, space),
+        inbox_group="bandeja",
+        review_note="No pudimos verificar este remitente.",
+    )
+    assert world.store.email_document_standing(space, draft_id) == "authorized"
+    world.store._deliveries[bad.id] = replace(
+        world.store.get(bad.id, space), auth_result="unknown"
     )
     assert world.store.email_document_standing(space, draft_id) == "new"
     world.store._deliveries[bad.id] = replace(
@@ -943,9 +959,7 @@ async def test_capture_does_not_call_the_in_app_verifier(monkeypatch):
     def explode(*_args, **_kwargs):
         raise AssertionError("in-app verifier")
 
-    monkeypatch.setattr(
-        "argus.domain.ingestion.email_intake.alignment.assess", explode
-    )
+    monkeypatch.setattr("argus.domain.ingestion.email_intake.alignment.assess", explode)
     import argus.domain.ingestion.email_intake.service as intake
 
     if hasattr(intake, "assess"):

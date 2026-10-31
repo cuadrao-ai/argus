@@ -20,6 +20,12 @@ class EmailIntakeSettings(BaseSettings):
     receiving_enabled: Annotated[bool, BeforeValidator(enabled_flag)] = Field(
         default=False, validation_alias=setting_aliases("BUSINESS_EMAIL_INTAKE_ENABLED")
     )
+    # Off: mail from a sender not on the list is stored in Remitentes nuevos.
+    # On: it is not stored; the sender is listed as pending in Recepcion.
+    pending_senders_enabled: Annotated[bool, BeforeValidator(enabled_flag)] = Field(
+        default=False,
+        validation_alias=setting_aliases("BUSINESS_EMAIL_PENDING_SENDERS_ENABLED"),
+    )
     api_key: SecretStr = Field(
         default=SecretStr(""), validation_alias="RESEND_BUSINESS_API_KEY"
     )

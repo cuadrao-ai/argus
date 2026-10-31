@@ -15,6 +15,8 @@ EmailStanding = Literal["reading", "no_receipt"]
 NO_ATTACHMENT = "email_no_attachment"
 #: The email's own code for "some parts were refused", which names no cause.
 PARTS_REJECTED = "email_parts_rejected"
+#: Mail from a pending sender was never stored; it is no Bandeja row.
+SENDER_PENDING = "email_sender_pending"
 
 
 @dataclass(frozen=True)
@@ -57,6 +59,8 @@ def _standing(
     captured: Sequence[EmailDeliveryPart],
     is_repeat: Callable[[EmailDeliveryPart], bool],
 ) -> EmailStanding | None:
+    if delivery.error_code == SENDER_PENDING:
+        return None
     if delivery.original_document_id and not captured:
         # The saved original is this email's own Bandeja receipt row; counting
         # the email too would count it twice.

@@ -161,6 +161,10 @@ class DuplicateCandidate(Contract):
 
 class BusinessDossier(RecordContext):
     current_note: str | None = None
+    #: "No pudimos verificar este remitente." when the draft came from email
+    #: whose sender is authorized but did not verify; null otherwise. The same
+    #: string the email inbox row carries, shown beside Aprobar.
+    review_note: str | None = None
     note_edit_available: bool = False
     supporting_append_available: bool = False
     annotation_unavailable_reason: str | None = None
