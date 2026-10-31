@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterAll, beforeAll, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -9,15 +9,41 @@ import { primaryButtonClass, quietButtonClass, secondaryButtonClass } from "@/co
 import EmailSenders from "@/components/business-app/EmailSenders";
 import { fieldHintClass } from "@/components/ui/form-field";
 import { TOOLTIP_DELAY_MS } from "@/components/ui/Tooltip";
-import { EmailSenderRequestError, parseEmailSenderList, type EmailSender, type EmailSenderClient, type EmailSenderUpdate } from "@/lib/business-email";
+import { EmailSenderRequestError, liveEmailSenderClient, parseEmailSenderList, type EmailSender, type EmailSenderClient, type EmailSenderUpdate } from "@/lib/business-email";
 import english from "@/public/locales/en/common.json";
 import spanish from "@/public/locales/es-419/common.json";
+
+const previousMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
+let pageFetch: typeof fetch;
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz", width: 1280, height: 900 });
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  pageFetch = globalThis.fetch;
+});
+afterEach(() => {
+  globalThis.fetch = pageFetch;
+  if (previousMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH;
+  else process.env.NEXT_PUBLIC_MOCK_AUTH = previousMock;
 });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
+
+type WireCall = { method: string; body: unknown };
+
+function serve(respond: (call: WireCall) => unknown): WireCall[] {
+  const calls: WireCall[] = [];
+  process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
+  globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+    const call = { method: init?.method ?? "GET", body: init?.body ? JSON.parse(String(init.body)) : null };
+    calls.push(call);
+    return Response.json(respond(call));
+  }) as typeof fetch;
+  return calls;
+}
+
+const wireRow = (id: string, value: string, status: string) => ({
+  id, kind: "address", value, status, tag: "verified", default_approved: false, last_auth_result: "aligned", last_seen_at: "2026-10-30T15:00:00Z",
+});
 
 const sender = (overrides: Partial<EmailSender> & Pick<EmailSender, "id" | "value" | "status">): EmailSender => ({
   kind: "address",
@@ -148,6 +174,30 @@ test("loading and a failed load with retry", async () => {
     assert.equal(lists, 2);
   } finally { await failed.close(); }
 });
+
+const NEW_SERVER_VALUES = [
+  [{ status: "quarantined" }, ["facturas@ferreteria.example", "spam@lista.example"]],
+  [{ tag: "spoofed" }, ["facturas@ferreteria.example", "nuevo@correo.example", "spam@lista.example"]],
+  [{ last_auth_result: "temperror" }, ["facturas@ferreteria.example", "nuevo@correo.example", "spam@lista.example"]],
+] as const;
+
+for (const [change, shown] of NEW_SERVER_VALUES) {
+  test(`one row with ${JSON.stringify(change)} never turns the list into the load error`, async () => {
+    serve(() => ({
+      items: [
+        wireRow("p1", "facturas@ferreteria.example", "pending"),
+        { ...wireRow("n1", "nuevo@correo.example", "pending"), ...change },
+        wireRow("b1", "spam@lista.example", "blocked"),
+      ],
+    }));
+    const page = await mount(liveEmailSenderClient);
+    try {
+      await page.settle(() => rows(page.host).length > 0 || page.host.querySelector("[data-testid='email-senders-error']") !== null);
+      assert.equal(page.host.querySelector("[data-testid='email-senders-error']")?.textContent, undefined);
+      assert.deepEqual(rows(page.host).map((row) => row.querySelector("span")?.textContent), shown);
+    } finally { await page.close(); }
+  });
+}
 
 test("authorize and block replace the row from the returned item, including a new id", async () => {
   const calls: EmailSenderUpdate[] = [];
