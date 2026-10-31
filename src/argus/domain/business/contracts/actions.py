@@ -164,16 +164,31 @@ class ReviewDraft(Contract):
 
 class ApproveExpense(Contract):
     version: int = Field(ge=1)
+    #: The person saw the review flags and approves anyway. Kept on the
+    #: stored approve command, so the decision is in the action receipt.
+    approve_anyway: Literal[True] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     action: Literal["record_expense"]
 
 
 class ApproveIncome(Contract):
     version: int = Field(ge=1, strict=True)
+    #: The person saw the review flags and approves anyway. Kept on the
+    #: stored approve command, so the decision is in the action receipt.
+    approve_anyway: Literal[True] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     action: Literal["record_income"]
 
 
 class ApproveRefund(Contract):
     version: int = Field(ge=1, strict=True)
+    #: The person saw the review flags and approves anyway. Kept on the
+    #: stored approve command, so the decision is in the action receipt.
+    approve_anyway: Literal[True] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     action: Literal["record_refund"]
 
 
@@ -393,6 +408,8 @@ class Refused(Contract):
     code: str
     # The approved record a duplicate_comprobante refusal points at.
     existing_record_id: UUID | None = None
+    # The review flags an approval_confirmation_required refusal names.
+    flags: tuple[str, ...] = ()
 
     @model_serializer(mode="wrap")
     def omit_absent_record(
@@ -401,6 +418,8 @@ class Refused(Contract):
         payload = handler(self)
         if self.existing_record_id is None:
             payload.pop("existing_record_id", None)
+        if not self.flags:
+            payload.pop("flags", None)
         return payload
 
 

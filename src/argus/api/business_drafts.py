@@ -76,6 +76,8 @@ def action_problem(request: Request, refusal: Refused) -> HTTPException:
         detail=refusal.code,
         context={"existing_record_id": str(refusal.existing_record_id)}
         if refusal.existing_record_id
+        else {"flags": list(refusal.flags)}
+        if refusal.flags
         else None,
         headers=NO_STORE,
     )

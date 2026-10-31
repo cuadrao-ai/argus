@@ -79,6 +79,7 @@ def test_each_read_answers_its_empty_shape_once_the_business_exists(alice: Owner
             },
             "currencies": [],
             "missing_rnc": [],
+            "ncf_malformed": [],
             "missing_ncf": [],
             "cuentas_por_cobrar": [],
             "cuentas_por_pagar": [],

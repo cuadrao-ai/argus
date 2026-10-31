@@ -353,8 +353,10 @@ def test_a_record_with_a_comprobante_and_no_number_still_holds_the_month_open(
     [
         # 4676.47 ITBIS without a comprobante cannot be credited: the whole
         # 33254.91 is cost. With the e-CF it is creditable ITBIS paid.
+        # The e-CF case uses an RNC whose check digit passes, so approve
+        # needs no review-flag confirmation.
         ({"rnc": None, "ecf": None}, True, 3325491, 0),
-        ({}, False, 2857844, 467647),
+        ({"rnc": "131111221"}, False, 2857844, 467647),
     ],
     ids=["read-without-a-fiscal-number", "read-with-an-e-cf"],
 )
