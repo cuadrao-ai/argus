@@ -5,6 +5,8 @@ from collections.abc import Callable
 from contextlib import suppress
 from uuid import UUID
 
+from loguru import logger
+
 from argus.domain.ingestion.secrets import SecretBox
 from argus.domain.ingestion.whatsapp.business_capture import BusinessCaptureStore
 from argus.domain.ingestion.whatsapp.business_delivery import BusinessDeliveryStore
@@ -37,7 +39,7 @@ def build_worker(
     async def execute(
         *, captured, turn, lease, authorization, begin_reply, history
     ) -> str:
-        from argus.agent_runtime.business.context import AuthorizedBusinessContext
+        from argus.domain.business.context import AuthorizedBusinessContext
 
         def require_access():
             if consent is None or not enabled():
@@ -84,6 +86,23 @@ def build_worker(
     )
 
 
+CLAIM_SWEEP_SECONDS = 60
+
+
+async def sweep_lapsed_claims(intake, interval: float = CLAIM_SWEEP_SECONDS) -> None:  # noqa: ANN001
+    """Runs whatever the document jobs switch says: a lost photo is recovered
+    with background jobs on or off."""
+
+    while True:
+        try:
+            await intake.recover()
+        except Exception as error:
+            logger.warning(
+                "WhatsApp claim sweep failed", failure_mode=type(error).__name__
+            )
+        await asyncio.sleep(interval)
+
+
 def start_worker(app) -> None:
     from argus.api.whatsapp import whatsapp_runtime
 
@@ -97,10 +116,19 @@ def start_worker(app) -> None:
         existing = getattr(app.state, name, None)
         if worker is not None and (existing is None or existing.done()):
             setattr(app.state, name, asyncio.create_task(worker.run()))
+    existing = getattr(app.state, "whatsapp_claim_sweeper", None)
+    if runtime.intake is not None and (existing is None or existing.done()):
+        app.state.whatsapp_claim_sweeper = asyncio.create_task(
+            sweep_lapsed_claims(runtime.intake)
+        )
 
 
 async def stop_worker(app) -> None:
-    for name in ("business_whatsapp_worker", "whatsapp_failure_reply_worker"):
+    for name in (
+        "business_whatsapp_worker",
+        "whatsapp_failure_reply_worker",
+        "whatsapp_claim_sweeper",
+    ):
         task = getattr(app.state, name, None)
         if task is not None:
             task.cancel()

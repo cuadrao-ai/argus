@@ -221,7 +221,7 @@ async def test_intake_defers_durable_text_reply_to_worker():
     assert len(world.transport.sent) == before
 
 
-@pytest.mark.parametrize("kind", ["business", "failure"])
+@pytest.mark.parametrize("kind", ["business", "failure", "claims"])
 @pytest.mark.asyncio
 async def test_worker_lifecycle_has_one_owned_task_and_awaits_shutdown(monkeypatch, kind):
     started, stopped = asyncio.Event(), asyncio.Event()
@@ -234,20 +234,24 @@ async def test_worker_lifecycle_has_one_owned_task_and_awaits_shutdown(monkeypat
             finally:
                 stopped.set()
 
+        async def recover(self):
+            await self.run()
+
     monkeypatch.setattr(
         "argus.api.whatsapp.whatsapp_runtime",
         lambda: SimpleNamespace(
             worker=Worker() if kind == "business" else None,
             failure_replies=Worker() if kind == "failure" else None,
+            intake=Worker() if kind == "claims" else None,
         ),
     )
     app = SimpleNamespace(state=SimpleNamespace())
     start_worker(app)
-    name = (
-        "business_whatsapp_worker"
-        if kind == "business"
-        else "whatsapp_failure_reply_worker"
-    )
+    name = {
+        "business": "business_whatsapp_worker",
+        "failure": "whatsapp_failure_reply_worker",
+        "claims": "whatsapp_claim_sweeper",
+    }[kind]
     original = getattr(app.state, name)
     start_worker(app)
     assert getattr(app.state, name) is original

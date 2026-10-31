@@ -35,6 +35,7 @@ from argus.domain.ingestion.documents.service import (
     DocumentsService,
 )
 from argus.domain.ingestion.whatsapp.ai_consent import AIConsentStore
+from argus.domain.ingestion.whatsapp.business_envelope import ClaimCodec
 from argus.domain.ingestion.whatsapp.business_worker import BusinessWhatsAppWorker
 from argus.domain.ingestion.whatsapp.config import (
     WhatsAppSettings,
@@ -444,6 +445,9 @@ def build_whatsapp(
         send_enabled=lambda: load_whatsapp_settings().outbound_enabled,
         reply_codec=reply_codec,
         reply_group_wait_seconds=settings.reply_group_wait_seconds,
+        claim_codec=ClaimCodec(documents.hub.box, keys)
+        if documents.hub.box is not None
+        else None,
     )
     return WhatsAppRuntime(
         intake, settings, worker, consent, work, receipts, failure_replies

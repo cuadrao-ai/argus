@@ -402,17 +402,6 @@ def test_run_replay_after_message_persistence_404_keeps_one_action_and_job(
         assert api_state.store.backtest_job_reservations == {}
         assert all(key[1] != "backtest_runs" for key in api_state.store.usage_counters)
 
-        with monkeypatch.context() as lookup_patch:
-            lookup_patch.setattr(
-                api_state,
-                "supabase_gateway",
-                runtime._backtest_gateway,
-            )
-            lookup = runtime._http.get(
-                f"/api/v1/backtest-jobs/by-action/{raw_confirmation_id}"
-            )
-        assert lookup.status_code == 404
-
         admission_calls: list[dict[str, Any]] = []
         original_admit = runtime._backtest_gateway.admit_backtest_job
 
@@ -928,7 +917,6 @@ def test_alpha_trajectory_fixtures_are_complete_sanitized_and_issue_tagged() -> 
         "effective_window.durable",
         "effective_window.completed_result_durable",
         "effective_window.reload_matches_approval",
-        "effective_window.completed_result_reloads",
     }
 
     orphan_reconciliation = _trajectory_for_issue("#240")
@@ -1014,28 +1002,6 @@ def test_run_actions_use_confirmation_id_as_the_exact_idempotency_identity() -> 
 
         if step.operation == "disconnect":
             assert step.request["submission"]["identity"] == confirmation_id
-
-
-def test_ambiguous_run_reconciles_by_action_without_replay() -> None:
-    trajectory = _trajectory_for_issue("#242")
-    confirmation_id = "alpha_session_05:confirmation:1"
-    lookup_path = f"/api/v1/backtest-jobs/by-action/{confirmation_id}"
-    lookup_step = trajectory.steps[2]
-
-    assert lookup_step.operation == "reload"
-    assert lookup_step.request == {
-        "method": "GET",
-        "path": lookup_path,
-    }
-    assert lookup_step.expectation.reload_state == "found"
-    assert lookup_step.expectation.artifact_identity == "alpha_session_05:job:1"
-    assert lookup_step.expectation.action_identity == confirmation_id
-    assert lookup_step.expectation.checkpoints == {
-        "by_action.lookup_status": 200,
-        "by_action.replay_allowed": False,
-        "admission.execution_count": 1,
-    }
-    assert all(step.operation != "retry" for step in trajectory.steps)
 
 
 def test_abandoned_turn_projects_terminal_recovery_and_keyed_retry() -> None:

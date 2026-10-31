@@ -51,7 +51,7 @@ def reset_usage_counters():
 @pytest.fixture
 def freeze_new_york_clock(monkeypatch):
     """Freeze the one clock every "today" reads at an aware instant."""
-    from argus.domain.market_data import new_york_clock
+    from argus.domain import clock as new_york_clock
 
     def freeze(at: datetime) -> None:
         assert at.tzinfo is not None, "freeze the clock at an aware instant"

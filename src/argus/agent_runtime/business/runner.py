@@ -5,7 +5,6 @@ from contextlib import nullcontext
 from typing import Any
 from uuid import UUID, uuid4
 
-from argus.agent_runtime.business.context import AuthorizedBusinessContext
 from argus.agent_runtime.business.interpretation import (
     BUSINESS_MODEL_CANDIDATES,
     BusinessInterpretation,
@@ -15,6 +14,7 @@ from argus.agent_runtime.business.stages import BusinessStages
 from argus.agent_runtime.graph.workflow import build_workflow
 from argus.agent_runtime.runtime import build_workflow_input
 from argus.agent_runtime.state.models import ConversationMessage, UserState
+from argus.domain.business.context import AuthorizedBusinessContext
 from argus.domain.business.contracts.facts import Contract
 from argus.domain.business.contracts.recovery import DurableTurn
 from argus.llm.openrouter import (

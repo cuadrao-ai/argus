@@ -80,7 +80,7 @@ def require_bank_surface(request: Request) -> None:
 
 
 def required_key(request: Request, raw: str | None) -> str:
-    from argus.domain.backtest_admission import validate_idempotency_key
+    from argus.domain.idempotency import validate_idempotency_key
 
     state, key = validate_idempotency_key(raw)
     if state == "ok" and key is not None:

@@ -8,10 +8,10 @@ from argus.agent_runtime.business.binding import (
     compile_business_plan,
     model_business_context,
 )
-from argus.agent_runtime.business.context import AuthorizedBusinessContext
 from argus.agent_runtime.business.interpretation import BusinessInterpretation
 from argus.agent_runtime.stages.tool_execution import execute_tool_calls_async
 from argus.agent_runtime.state.models import RunState
+from argus.domain.business.context import AuthorizedBusinessContext
 from argus.domain.business.contracts.dossier import MessageSource
 from argus.domain.business.tools.declarations import BusinessToolBinding
 from argus.domain.capability_registry import get_tool_catalog

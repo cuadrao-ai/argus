@@ -2,7 +2,7 @@
 
 This packet belongs to [PR #766](https://github.com/lagarcess/argus/pull/766), the
 [existing execution manifest](../../../specs/argus-execution-board.md#connected-spaces-and-household-lane)
-and [native restart instructions](../../../../ios/HOUSEHOLD_SETUP.md).
+and native restart instructions (removed; see tag `archive/ios-personal-2026-10-30`).
 It extends landed #763 membership and #760 connected native presentation.
 
 ## Usable native demo

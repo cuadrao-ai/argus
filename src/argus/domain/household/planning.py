@@ -3,7 +3,7 @@
 from contextlib import contextmanager
 from uuid import uuid4
 
-from argus.domain.backtest_admission import canonical_hash
+from argus.domain.idempotency import canonical_hash
 from argus.domain.owner_scope import PERSONAL
 from argus.domain.planning import model, storage
 from argus.domain.recording import canonical_groups

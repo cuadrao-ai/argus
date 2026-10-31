@@ -36,6 +36,9 @@ class InboundRecord:
     claim_until: datetime | None
     received_at: datetime
     updated_at: datetime
+    # The sealed message while its claim is unsettled; cleared on settling.
+    claim_envelope: bytes | None = None
+    recovery_attempts: int = 0
 
 
 @dataclass(frozen=True)
@@ -85,7 +88,40 @@ class WhatsAppStore(Protocol):
         sender_hash: bytes,
         now: datetime,
         claim_until: datetime,
+        claim_envelope: bytes | None = None,
     ) -> Claim: ...
+
+    def lapsed_claims(self, *, now: datetime, limit: int) -> list[InboundRecord]:
+        """Unsettled messages whose claim ran out: the worker holding it died."""
+        ...
+
+    def retake(
+        self,
+        *,
+        provider_message_key: bytes,
+        held: datetime,
+        now: datetime,
+        claim_until: datetime,
+    ) -> datetime | None:
+        """Take a lapsed claim only if it is still the one ``held``, counting
+        the attempt; None when another worker got there first."""
+        ...
+
+    def inbound(self, provider_message_key: bytes) -> InboundRecord | None:
+        """The row for one message, or None when it was never claimed."""
+        ...
+
+    def renew(
+        self,
+        *,
+        provider_message_key: bytes,
+        held: datetime,
+        now: datetime,
+        claim_until: datetime,
+    ) -> datetime | None:
+        """Extend this worker's claim right before its work starts, only if it
+        is still the one ``held``; None when it was lost to another worker."""
+        ...
 
     def settle(
         self,
@@ -166,6 +202,7 @@ class InMemoryWhatsAppStore:
         sender_hash: bytes,
         now: datetime,
         claim_until: datetime,
+        claim_envelope: bytes | None = None,
     ) -> Claim:
         with self._lock:
             current = self._inbound.get(provider_message_key)
@@ -180,13 +217,19 @@ class InMemoryWhatsAppStore:
                     claim_until,
                     now,
                     now,
+                    claim_envelope,
                 )
                 self._inbound[provider_message_key] = record
                 return Claim(record, True)
             if current.status in RETRYABLE and (
                 current.claim_until is None or current.claim_until <= now
             ):
-                record = replace(current, claim_until=claim_until, updated_at=now)
+                record = replace(
+                    current,
+                    claim_until=claim_until,
+                    updated_at=now,
+                    claim_envelope=claim_envelope or current.claim_envelope,
+                )
                 self._inbound[provider_message_key] = record
                 return Claim(record, True)
             return Claim(current, False)
@@ -217,10 +260,59 @@ class InMemoryWhatsAppStore:
                 error_code=settlement.error_code,
                 claim_until=None,
                 updated_at=now,
+                claim_envelope=None,
             )
             if reply_failure is not None:
                 self.reply_failures.append(reply_failure)
             return settlement
+
+    def lapsed_claims(self, *, now: datetime, limit: int) -> list[InboundRecord]:
+        with self._lock:
+            lapsed = [
+                record
+                for record in self._inbound.values()
+                if record.status in RETRYABLE
+                and record.claim_until is not None
+                and record.claim_until <= now
+            ]
+        return sorted(lapsed, key=lambda record: record.claim_until)[:limit]  # type: ignore[arg-type, return-value]
+
+    def retake(
+        self,
+        *,
+        provider_message_key: bytes,
+        held: datetime,
+        now: datetime,
+        claim_until: datetime,
+    ) -> datetime | None:
+        with self._lock:
+            current = self._inbound[provider_message_key]
+            if current.status not in RETRYABLE or current.claim_until != held:
+                return None
+            self._inbound[provider_message_key] = replace(
+                current,
+                claim_until=claim_until,
+                updated_at=now,
+                recovery_attempts=current.recovery_attempts + 1,
+            )
+            return claim_until
+
+    def renew(
+        self,
+        *,
+        provider_message_key: bytes,
+        held: datetime,
+        now: datetime,
+        claim_until: datetime,
+    ) -> datetime | None:
+        with self._lock:
+            current = self._inbound[provider_message_key]
+            if current.status not in RETRYABLE or current.claim_until != held:
+                return None
+            self._inbound[provider_message_key] = replace(
+                current, claim_until=claim_until, updated_at=now
+            )
+            return claim_until
 
     def inbound(self, provider_message_key: bytes) -> InboundRecord | None:
         return self._inbound.get(provider_message_key)

@@ -19,6 +19,7 @@ from argus.domain.business.scope import resolve_business_scope
 from argus.domain.business.spaces import SpaceStore
 from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.secrets import SecretBox
+from argus.domain.ingestion.whatsapp.business_envelope import ClaimCodec
 from argus.domain.ingestion.whatsapp.identity import WhatsAppKeys
 from argus.domain.ingestion.whatsapp.intake import (
     CLAIM_SECONDS,
@@ -144,6 +145,7 @@ def build_world(
         app_origin=ORIGIN,
         max_bytes=MAX_BYTES,
         reply_codec=ReplyGroupCodec(SecretBox(b"w" * 32), keys),
+        claim_codec=ClaimCodec(SecretBox(b"w" * 32), keys),
     )
     return World(
         intake, documents, store, graph, transport, clock, alice, bob, keys, spaces

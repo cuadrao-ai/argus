@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, Ellipsis } from "lucide-react";
+import { ChevronDown, Ellipsis, Info } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { secondaryButtonClass } from "./business-ui";
 
@@ -66,10 +66,16 @@ export function usePrimaryKeys(): string {
 /** Shows `data-keys` after the label; drawn by CSS, so the button's name stays its words. */
 export const KEY_HINT_CLASS = "tablet:after:ml-1 tablet:after:rounded-mark tablet:after:border tablet:after:border-white/25 tablet:after:bg-white/10 tablet:after:px-1.5 tablet:after:py-0.5 tablet:after:text-[12px] tablet:after:leading-4 tablet:after:content-[attr(data-keys)]";
 
+/** Inside the sticky bar, so the bar cannot cover the sentence. */
+function DossierReviewNote({ note }: { note: string }) {
+  return <p data-testid="dossier-review-note" className="flex min-w-0 basis-full items-start gap-1.5 break-words text-[12px] leading-4 text-[#56635e] dark:text-white/70"><Info size={14} className="mt-px shrink-0" aria-hidden="true" />{note}</p>;
+}
+
 /** The footer's one shape: what is left in plain words on the left, the actions on the right. */
-export default function ReceiptReviewFooter({ status, actions }: { status?: ReactNode; actions: ReactNode }) {
+export default function ReceiptReviewFooter({ status, actions, reviewNote }: { status?: ReactNode; actions: ReactNode; reviewNote?: string | null }) {
   return (
     <div className="relative flex flex-wrap items-center justify-end gap-x-4 gap-y-2 tablet:static">
+      {reviewNote ? <DossierReviewNote note={reviewNote} /> : null}
       <div className="min-w-0 flex-1 basis-56 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{status}</div>
       <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>
     </div>

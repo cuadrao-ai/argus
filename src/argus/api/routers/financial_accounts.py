@@ -47,7 +47,7 @@ from argus.api.routers.ingestion_shortcuts import (
 )
 from argus.api.routers.whatsapp import link_router as whatsapp_link_router
 from argus.api.routers.whatsapp import webhook_router as whatsapp_webhook_router
-from argus.domain import backtest_admission
+from argus.domain.idempotency import validate_idempotency_key
 from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.loop_schemas import LoopOpeningRequest
 from argus.domain.recording.schemas import (
@@ -162,7 +162,7 @@ def write_financial_opening(
 
 
 def _required_idempotency_key(request: Request, raw: str | None) -> str:
-    state, key = backtest_admission.validate_idempotency_key(raw)
+    state, key = validate_idempotency_key(raw)
     if state == "ok" and key is not None:
         return key
     if state == "invalid":
@@ -178,7 +178,7 @@ def _required_idempotency_key(request: Request, raw: str | None) -> str:
         status_code=400,
         code="idempotency_key_required",
         title="Idempotency Key Required",
-        detail="POST /financial-accounts requires an Idempotency-Key header.",
+        detail="This request requires an Idempotency-Key header.",
     )
 
 

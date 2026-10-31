@@ -206,11 +206,6 @@ def test_private_prose_has_only_explicit_storage_and_model_context_readers() -> 
     allowed = Counter(
         {
             (
-                "src/argus/api/routers/backtest.py",
-                "_result_readout_from_job",
-                "result_readout",
-            ): 1,
-            (
                 "src/argus/domain/backtest_message_projection.py",
                 "_result_readout",
                 "result_readout",

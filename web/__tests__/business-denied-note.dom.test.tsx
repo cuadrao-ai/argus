@@ -20,7 +20,7 @@ afterEach(async () => {
   await GlobalRegistrator.unregister();
 });
 
-test("a denied note keeps the typed text and says the current access does not allow it", async () => {
+test("a record review keeps the merchant and approval and does not offer a note", async () => {
   const dossier = await createDossierFixtures(accounts).dossier(dossierFixtureIds.ready);
   const captures: string[] = [];
   globalThis.fetch = async (url, init) => {
@@ -58,25 +58,13 @@ test("a denied note keeps the typed text and says the current access does not al
   try {
     await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Review draftId={dossier.draft_id} /></BusinessContext.Provider></I18nextProvider>); });
     await settle();
-    const append = button("Agregar una nota a este registro");
-    assert.ok(append, "the member can add a note");
-    await act(async () => append.click());
-    const typed = "Compré pintura para el taller";
-    const field = document.body.querySelector("textarea");
-    assert.ok(field, "the note dialog is open");
-    await act(async () => {
-      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(field, typed);
-      field.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    const save = button("Guardar nota");
-    assert.ok(save, "the note can be saved");
-    await act(async () => save.click());
-    await settle();
-
-    assert.equal(captures.length, 1, "the append reached the server once");
-    assert.equal(document.body.querySelector("textarea")?.value, typed, "the typed text survives the denial");
-    const alerts = [...document.body.querySelectorAll('[role="alert"]')].map((item) => item.textContent ?? "");
-    assert.ok(alerts.some((text) => text.includes("Tu acceso actual no permite guardar esta nota. Conservamos tu texto.")), `the access alert shows: ${JSON.stringify(alerts)}`);
+    assert.match(document.body.textContent ?? "", /Ferretería La Esquina/);
+    assert.equal(button("Aprobar")?.textContent, "Aprobar");
+    assert.equal(button("Agregar una nota a este registro"), undefined);
+    assert.equal(button("Guardar una nota"), undefined);
+    assert.equal(button("Guardar nota"), undefined);
+    assert.equal(document.body.querySelector("textarea"), null);
+    assert.equal(captures.length, 0);
   } finally {
     await act(async () => root.unmount());
     host.remove();

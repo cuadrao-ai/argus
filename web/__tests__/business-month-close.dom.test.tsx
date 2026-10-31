@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { createHttpMonthCloseClient, createMockMonthCloseClient, MonthCloseError, monthCloseFiguresFrom, openItemsFrom, statementMissingBlocker, unmatchedCharges, type MonthCloseClient, type MonthCloseDocument, type MonthCloseSnapshot } from "../lib/business-month-close";
+import { createHttpMonthCloseClient, createMockMonthCloseClient, MonthCloseError, monthCloseFiguresFrom, openItemsFrom, readMonthCloseWire, statementMissingBlocker, unmatchedCharges, type MonthCloseClient, type MonthCloseDocument, type MonthCloseSnapshot } from "../lib/business-month-close";
 import { renderMonthCloseView } from "./helpers/month-close-view";
 
 beforeAll(() => {
@@ -281,7 +281,7 @@ describe("month close layouts", () => {
     const client: MonthCloseClient = {
       mode: "mock",
       async load(month) {
-        return { month, from: `${month}-01`, to: `${month}-31`, closed_at: null, earliest_month: null, today: "2026-10-18", payment_methods: ["otro"], dgii_forms: null, documents: [], figures: [] };
+        return { month, from: `${month}-01`, to: `${month}-31`, closed_at: null, unreviewed_movements: 0, earliest_month: null, today: "2026-10-18", payment_methods: ["otro"], dgii_forms: null, documents: [], figures: [] };
       },
       openItems: noOpenItems,
       markCobrado: () => Promise.reject(new MonthCloseError("unavailable", "mark failed")),
@@ -359,7 +359,7 @@ describe("month close layouts", () => {
       payment_methods: ["efectivo", "otro"],
       from: "2026-10-01",
       to: "2026-10-31",
-      closed_at: null,
+      closed_at: null, unreviewed_movements: 0,
       earliest_month: null, today: "2026-10-18", payment_methods: ["otro"], dgii_forms: null,
       documents: [invoice("a", 20), invoice("b", 21), invoice("c", 22), invoice("d", 23), invoice("e", 24)],
       figures: [],
@@ -401,7 +401,7 @@ describe("month close layouts", () => {
       payment_methods: ["efectivo", "otro"],
       from: "2026-10-01",
       to: "2026-10-31",
-      closed_at: null,
+      closed_at: null, unreviewed_movements: 0,
       earliest_month: null, today: "2026-10-18", payment_methods: ["otro"], dgii_forms: null,
       documents: [],
       figures: [{ currency: "DOP", income_before_itbis: null, expense_before_itbis: null, net_before_itbis: null, itbis_owed: null }],
@@ -613,7 +613,7 @@ describe("fiscal complete months stay editable", () => {
       payment_methods: ["efectivo", "otro"],
       from: "2026-10-01",
       to: "2026-10-31",
-      closed_at: "2026-10-18T15:00:00",
+      closed_at: "2026-10-18T15:00:00", unreviewed_movements: 0,
       closed: true,
       earliest_month: null, today: "2026-10-18", payment_methods: ["otro"], dgii_forms: null,
       documents: [invoice, receipt],
@@ -661,7 +661,7 @@ describe("fiscal complete months stay editable", () => {
       payment_methods: ["efectivo", "otro"],
       from: "2026-10-01",
       to: "2026-10-31",
-      closed_at: "2026-10-18T15:00:00",
+      closed_at: "2026-10-18T15:00:00", unreviewed_movements: 0,
       closed: true,
       earliest_month: null, today: "2026-10-18", payment_methods: ["otro"], dgii_forms: null,
       documents: [{ ...september, id: "inv-october", occurred_on: "2026-10-04", status: "cobrado" }],
@@ -704,7 +704,7 @@ describe("Inicio ITBIS balance", () => {
       payment_methods: ["efectivo", "otro"],
       from: "2026-10-01",
       to: "2026-10-31",
-      closed_at: null,
+      closed_at: null, unreviewed_movements: 0,
       earliest_month: null, today: "2026-10-18", payment_methods: ["otro"], dgii_forms: null,
       documents: [],
       figures: [{
@@ -819,5 +819,80 @@ describe("a fully settled month", () => {
   });
 });
 
+describe("unreviewed drafts on the month-close panel", () => {
+  const sentences = [
+    ["es-419", 1, "Tienes 1 movimiento sin revisar en octubre. Revísalo en la Bandeja antes de cerrar el mes."],
+    ["es-419", 5, "Tienes 5 movimientos sin revisar en octubre. Revísalos en la Bandeja antes de cerrar el mes."],
+    ["en", 1, "You have 1 unreviewed item in October. Review it in the Bandeja before closing the month."],
+    ["en", 5, "You have 5 unreviewed items in October. Review them in the Bandeja before closing the month."],
+  ] as const;
 
+  async function renderUnreviewed(language: "es-419" | "en", count: number) {
+    const { act } = await import("react");
+    const { createRoot } = await import("react-dom/client");
+    const i18next = (await import("i18next")).default;
+    const { I18nextProvider } = await import("react-i18next");
+    const spanish = (await import("../public/locales/es-419/common.json")).default;
+    const english = (await import("../public/locales/en/common.json")).default;
+    const { BusinessMonthCloseView } = await import("../components/business-app/BusinessMonthClosePanel");
+    const catalog = language === "en" ? english : spanish;
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: language, resources: { "es-419": { translation: spanish }, en: { translation: english } }, interpolation: { escapeValue: false } });
+    const parsed = readMonthCloseWire({
+      month: "2026-10",
+      today: "2026-10-18",
+      from: "2026-10-01",
+      to: "2026-10-31",
+      closed: false,
+      reasons: [{ code: "movimientos_sin_revisar", count }],
+      unreviewed_movements_count: count,
+      currencies: [{ currency: "DOP", income_before_itbis_minor: 100, expense_before_itbis_minor: 0, net_result_minor: 100, itbis_owed_minor: 0, net_result_final: true }],
+      missing_rnc: [],
+      missing_ncf: [],
+      cuentas_por_cobrar: [],
+      cuentas_por_pagar: [],
+    });
+    const client: MonthCloseClient = {
+      mode: "mock",
+      async load() { return { ...parsed, closed: true, closed_at: "2026-10-18T15:00:00.000Z" }; },
+      async openItems() { return openItemsFrom([], "2026-10-18"); },
+      async markCobrado() { throw new Error("no mark"); },
+      async markPagado() { throw new Error("no mark"); },
+      async markPendiente() { throw new Error("no undo"); },
+      async closeMonth() { throw new Error("no close"); },
+    };
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <BusinessMonthCloseView client={client} now={now} layout="finance" review={{ count: 0, detail: null, open() {} }} />
+        </I18nextProvider>,
+      );
+    });
+    await act(async () => { await Promise.resolve(); });
+    const key = count === 1 ? "unreviewed_movements_one" : "unreviewed_movements_other";
+    const fromLocale = catalog.business.month_close[key].replaceAll("{{month}}", language === "en" ? "October" : "octubre").replaceAll("{{count}}", String(count));
+    return { act, host, root, fromLocale };
+  }
+
+  for (const [language, count, sentence] of sentences) {
+    test(`${language} shows the ${count === 1 ? "singular" : "plural"} sentence and does not treat the month as closed`, async () => {
+      const { act, host, root, fromLocale } = await renderUnreviewed(language, count);
+      const line = host.querySelector('[data-testid="month-close-unreviewed"]');
+      assert.equal(fromLocale, sentence);
+      assert.equal(line?.textContent, sentence);
+      assert.equal(line?.textContent?.includes("2026"), false);
+      assert.equal(line?.textContent?.includes("octubre de"), false);
+      assert.equal(host.querySelector('[data-testid="month-close"]')?.getAttribute("data-closed"), "false");
+      assert.equal(host.querySelector('[data-testid="month-close-closed"]'), null);
+      assert.equal(host.querySelector('[data-testid="month-close-checklist-ready"]'), null);
+      assert.equal(host.querySelector('[data-testid="month-close-close"]'), null);
+      assert.equal(host.querySelector('[data-testid="month-close-filing"]'), null);
+      await act(async () => root.unmount());
+      host.remove();
+    });
+  }
+});
 });

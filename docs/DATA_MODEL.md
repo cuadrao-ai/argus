@@ -1410,82 +1410,14 @@ Deferred durable surfaces:
 - Route-receipt to cost/eval/product-event joins beyond existing product
   records.
 
-### refusal_observations and refusal_log
+### refusal_observations and refusal_log (dropped)
 
-`refusal_observations` is private question/outcome evidence for the grounded-finance
-board's Refusal log and rejected artifact actions (#314). It observes every
-terminal chat reply so a boundary stated only in prose is retained too. A row
-does not assert that its answer is a refusal, a bug, or a missing capability.
-Those judgments belong to the reader; the writer adds no semantic taxonomy.
-
-`RefusalObservation` in `src/argus/observability/refusal_log.py` is the frozen
-Python write contract. Stored fields are:
-
-- `id`: generated `uuid`; each rejected request receives an independent identity.
-- `user_id`: verified actor `uuid`, references `profiles.id` ON DELETE CASCADE.
-- `request_id`: supplied/generated request correlation `text`, never a dedupe key.
-- `conversation_id`: nullable `text`. For rejected requests it is only the
-  submitted claim; it may be malformed, nonexistent, or belong to someone else.
-  It is not a foreign key and never authorizes or resolves an artifact.
-- `request_message_id`, `response_message_id`: nullable `uuid` pointers to the
-  exact canonical messages, both ON DELETE CASCADE. A terminal pair requires
-  both pointers; `response_message_id` is unique to prevent repeat persistence
-  from inflating frequency. The insert guard verifies the owner, conversation,
-  user/assistant roles, and existing runtime turn identity when available.
-- `asked`, `action`, `outcome`: nullable `text`, `jsonb` object, and `jsonb` object.
-  Linked turns must leave them null because messages already own those facts.
-  Requests rejected before message storage retain the submitted question,
-  validated action, and original HTTP problem here, without rewriting the shape.
-- `status_code`: actual transport status, `200` for accepted streams and `400`–`599`
-  for rejected requests; this is not a semantic outcome category.
-- `created_at`: insertion `timestamptz`.
-
-`refusal_log` is a service-only view with `security_invoker = true`. It exposes
-the same identity/status columns plus `asked`, `action`, `outcome`, and `response`.
-For linked turns it reads exact user-message content, `metadata.chat_action`,
-the full original assistant metadata, and assistant content. For rejected
-requests it reads the retained question/action/problem and has no response
-message. It never pairs by timestamp or joins rejected target claims.
-
-RLS is enabled with no client policies. `PUBLIC`, `anon`, and `authenticated`
-have no table or view access. The service role has table `INSERT`/`SELECT` and
-view `SELECT` only; there is no update/delete API, frontend surface, model-context
-projection, or PostHog export. Deleting either linked message removes its
-observation; deleting the actor removes both linked and rejected observations.
-Conversation deletion removes linked observations through message cascades.
-Rejected observations follow actor deletion because their conversation id is
-only a claim. A failed write logs only a content-free operational failure and
-does not change the original response or allowance settlement.
-
-Read frequency from existing outcome fields without assigning write-time labels:
-
-```sql
--- Original clarification shapes, including successful-context rows with null codes.
-select outcome #>> '{clarification,reason_code}' as reason_code, count(*)
-from public.refusal_log
-where created_at >= now() - interval '7 days'
-  and response_message_id is not null
-group by outcome #>> '{clarification,reason_code}'
-order by count(*) desc;
-
--- Original rejected-action problems; repeated request ids still count separately.
-select action ->> 'type' as action_type, status_code,
-       outcome ->> 'code' as code, count(*)
-from public.refusal_log
-where created_at >= now() - interval '7 days' and status_code >= 400
-group by action ->> 'type', status_code, outcome ->> 'code'
-order by count(*) desc;
-
--- Read the actual question and response before judging whether Argus could answer.
-select created_at, asked, action, outcome, response
-from public.refusal_log
-where created_at >= now() - interval '7 days'
-order by created_at desc;
-```
-
-The additive migration is `20260908205041_add_refusal_observations.sql`.
-Rollback removes the view, table, and its pair-validation function after removing
-the observation hooks. No model-facing or public request/response contract changes.
+Historical. `refusal_observations`, the service-only `refusal_log` view, and the
+`validate_refusal_observation_pair()` trigger function were created by
+`20260908205041_add_refusal_observations.sql` and dropped by
+`20261030220000_drop_refusal_observations.sql`. The chat API no longer writes
+refusal evidence, and the writer module was deleted. Nothing reads or writes
+these objects; do not query them.
 
 ### cost_ledger_entries
 
@@ -3432,6 +3364,27 @@ boundary proposal is approved.
   a redelivery of the same message. Settling requires the claim the worker
   took, so a worker whose claim lapsed cannot overwrite a newer one. A captured row's draft is owned by
   `financial_document_extractions`.
+- Loss recovery (migration `20261031010000_whatsapp_claim_envelope.sql`):
+  `claim_envelope` holds the message (media id, type, caption, sender number)
+  sealed with the ingestion secret box, written with the claim, so a claim that
+  lapsed because the process died after the 200 can be run again.
+  `recovery_attempts` counts sweep retakes. A sweep (every 60 seconds in the
+  API process, and at most once a minute on webhook traffic, independent of
+  `CUADRAO_DOCUMENT_JOBS_ENABLED`) retakes a lapsed claim by compare-and-set on
+  `claim_until` and runs the original processing path. After three retakes the
+  row settles `failed` with `whatsapp_recovery_exhausted` and the linked sender
+  gets one `whatsapp_photo_lost` reply. A lapsed row with no envelope settles
+  `failed` with `whatsapp_claim_envelope_missing`. Every settlement clears
+  `claim_envelope`: the trigger `whatsapp_inbound_clear_settled_envelope`
+  nulls it on any write that leaves `received`/`failed` or ends the claim, so
+  code from before this migration (a rollout or a code-only rollback) still
+  settles sealed rows and still drops their bytes. The check
+  `whatsapp_inbound_claim_envelope_shape` then holds by construction: an
+  envelope only on `received` and `failed`, version byte 1. Each item renews
+  its own lease (compare-and-set, fresh clock) right before its work, so no
+  photo is fetched under a lapsed lease. A photo is acknowledged only once its
+  envelope is sealed; with no codec, or when sealing fails, the webhook answers
+  503 and commits nothing, so the provider redelivers. Text stays best effort.
 
 Row level security is enabled with no policies and every client grant revoked.
 Proven by `tests/test_whatsapp_intake_postgres.py`.
