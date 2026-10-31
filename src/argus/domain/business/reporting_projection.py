@@ -288,3 +288,24 @@ def project(
         else None,
         dependency_fingerprint=dependency,
     )
+
+
+def with_export_verdicts(
+    rows: tuple[ReportRecord, ...], verdicts: dict[str, str | None]
+) -> tuple[ReportRecord, ...]:
+    """A recorded row is ready only when the export carries it as a line."""
+
+    def judged(row: ReportRecord) -> ReportRecord:
+        if row.stage != "ready_for_export" or not row.linked_activity_ids:
+            return row
+        identifier = row.linked_activity_ids[0]
+        if identifier not in verdicts:
+            return row
+        missing = verdicts[identifier]
+        if missing is None:
+            return row.model_copy(update={"export_line": True})
+        return row.model_copy(
+            update={"stage": "needs_fiscal_data", "export_missing": missing}
+        )
+
+    return tuple(judged(row) for row in rows)

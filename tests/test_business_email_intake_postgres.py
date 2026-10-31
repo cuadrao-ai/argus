@@ -671,15 +671,24 @@ def receipts(actions, users, monkeypatch):
         )
 
 
-def deliver(receipts, authentication) -> str:
-    """One email through the signed webhook and the worker; its receipt part."""
+def deliver(
+    receipts, authentication, *, provider_from=..., extra_from=None, rejected=False
+) -> str | None:
+    """One email through the signed webhook and the worker; its receipt part.
+    ``extra_from`` is a header line added after the message's own From."""
 
     import json
 
     from tests.business.test_business_email_api import signed
 
     receipts["provider"].authentication = authentication
-    receipts["provider"].provider_from = receipts["provider"].sender
+    receipts["provider"].provider_from = (
+        receipts["provider"].sender if provider_from is ... else provider_from
+    )
+    if extra_from is not None:
+        raw = message()
+        end = raw.index(b"\n", raw.lower().index(b"from:"))
+        receipts["provider"].raw = raw[:end] + b"\n" + extra_from + raw[end:]
     email_id = str(uuid4())
     body = json.dumps(
         {
@@ -695,12 +704,16 @@ def deliver(receipts, authentication) -> str:
     assert accepted.status_code == 202, accepted.text
     assert asyncio.run(receipts["runtime"].next())
     with receipts["pool"].connection() as db:
-        delivery_id, state = db.execute(
-            "select id::text, state from public.business_email_deliveries"
+        delivery_id, state, error = db.execute(
+            "select id::text, state, error_code from public.business_email_deliveries"
             " where external_id=%s",
             (email_id,),
         ).fetchone()
-    assert state == "captured"
+    if rejected:
+        # Refused whole before anything is captured: nothing to read.
+        assert (state, error) == ("rejected", "invalid_document")
+        return None
+    assert state == "captured", error
     [part] = receipts["store"].parts(delivery_id)
     assert part.state == "captured"
     return part.document_id
@@ -785,33 +798,91 @@ def approve(receipts, draft_id):
         configure_email_intake(previous)
 
 
+NOTE = "No pudimos verificar este remitente."
+NO_POLICY = {"spf": "pass", "dkim": "gray", "dmarc": "gray"}
+EMAIL_CASES = [
+    # id, authentication, authorized, delivery overrides, approved status, note
+    ("aligned-authorized", ALIGNED, True, {}, 200, None),
+    ("failed-authorized", FORGED, True, {}, 200, NOTE),
+    ("no-dmarc-policy-authorized", NO_POLICY, True, {}, 200, NOTE),
+    ("no-result-authorized", None, True, {}, 403, None),
+    (
+        "two-from-authorized",
+        ALIGNED,
+        True,
+        {"extra_from": b"From: otro@evil.test"},
+        403,
+        None,
+    ),
+    (
+        "from-space-colon-authorized",
+        ALIGNED,
+        True,
+        {"extra_from": b"From : otro@evil.test", "rejected": True},
+        403,
+        None,
+    ),
+    (
+        "provider-from-differs-authorized",
+        ALIGNED,
+        True,
+        {"provider_from": "atacante@evil.test"},
+        403,
+        None,
+    ),
+    (
+        "provider-from-missing-authorized",
+        ALIGNED,
+        True,
+        {"provider_from": None},
+        403,
+        None,
+    ),
+    ("aligned-new-sender", ALIGNED, False, {}, 403, None),
+    ("failed-new-sender", FORGED, False, {}, 403, None),
+]
+
+
 @pytest.mark.owner_acts
 @pytest.mark.parametrize(
-    ("authentication", "authorized", "status"),
-    [(FORGED, True, 403), (ALIGNED, False, 403), (ALIGNED, True, 200)],
-    ids=["forged-authorized", "aligned-new-sender", "aligned-authorized"],
+    ("authentication", "authorized", "overrides", "status", "note"),
+    [case[1:] for case in EMAIL_CASES],
+    ids=[case[0] for case in EMAIL_CASES],
 )
-def test_an_emailed_attachment_approves_only_from_an_authorized_aligned_sender(
-    receipts, authentication, authorized, status
+def test_an_emailed_attachment_is_read_and_approved_by_a_person_only_when_allowed(
+    receipts, authentication, authorized, overrides, status, note
 ):
     if authorized:
         receipts["store"].upsert_sender(
             receipts["space"], "address", receipts["provider"].sender, "authorized"
         )
-    attachment = deliver(receipts, authentication)
+    attachment = deliver(receipts, authentication, **overrides)
+    if attachment is None:
+        assert status == 403
+        assert receipts["documents"].extractor.calls == 0
+        return
+    with receipts["pool"].connection() as db:
+        approved, group, stored_note = db.execute(
+            "select approved, inbox_group, review_note from public.business_email_deliveries"
+            " where space_id=%s order by received_at desc limit 1",
+            (receipts["space"],),
+        ).fetchone()
+    assert approved is False
     if status == 403:
+        assert group == "remitentes_nuevos"
+        assert stored_note == (NOTE if authorized else None)
         from argus.domain.business.authority import ActionError
 
         with pytest.raises(ActionError, match="email_sender_unauthorized"):
             prepare(receipts, attachment)
         assert receipts["documents"].extractor.calls == 0
         return
+    assert (group, stored_note) == ("bandeja", note)
     draft_id, origin = prepare(receipts, attachment)
     assert origin == "email"
     response = approve(receipts, draft_id)
     assert response.status_code == status, response.text
-    if status == 403:
-        assert response.json()["detail"]["code"] == "email_sender_unauthorized"
+    assert response.json()["review_note"] == note
 
 
 def direct_upload(world):

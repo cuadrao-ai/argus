@@ -553,3 +553,20 @@ def record_personal_expense(service, context):
     )
     assert outcome.outcome == "applied", outcome
     return draft, str(outcome.activity_id)
+
+
+def test_a_recorded_expense_without_an_ncf_needs_fiscal_data(actions):
+    from argus.domain.business.reporting_query import ReportRequest
+    from argus.domain.business.reporting_store import read_report
+
+    service, context, _ = actions
+    record_expense(service, context)
+    result = read_report(service.authority, context, ReportRequest())
+    [row] = result.items
+    assert (row.stage, row.export_missing, row.export_line) == (
+        "needs_fiscal_data",
+        "ncf_missing",
+        False,
+    )
+    assert (result.overview.ready_for_export, result.overview.export_lines) == (0, 0)
+    assert result.overview.needs_fiscal_data == 1

@@ -43,6 +43,11 @@ from argus.domain.ingestion.email_intake.models import (
     delivery_from_row,
     route_from_row,
 )
+from argus.domain.ingestion.email_intake.routing import verdict_readable
+from argus.domain.ingestion.email_intake.sender_seen import (
+    MemorySenderSeen,
+    PostgresSenderSeen,
+)
 
 MAX_ATTEMPTS = 8
 LEASE = timedelta(seconds=120)
@@ -145,7 +150,7 @@ _delivery = delivery_from_row
 _route = route_from_row
 
 
-class PostgresEmailStore(PostgresAddressing):
+class PostgresEmailStore(PostgresSenderSeen, PostgresAddressing):
     def __init__(self, pool: ConnectionPool, budget: DailyEmailBudget | None = None):
         self.pool = pool
         self.budget = budget or EmailIntakeSettings().daily_budget
@@ -743,7 +748,8 @@ def email_connection_standing(
             (space_id, connection_id, connection_id),
         ).fetchone()
         deliveries = cursor.execute(
-            "select distinct d.sender,d.auth_result from public.business_email_deliveries d"
+            "select distinct d.sender,d.auth_result,d.inbox_group,d.review_note"
+            " from public.business_email_deliveries d"
             " left join public.business_email_parts p on p.delivery_id=d.id"
             " where d.space_id=%s and (p.document_id in (%s,%s)"
             " or d.original_document_id in (%s,%s))",
@@ -758,7 +764,9 @@ def email_connection_standing(
         if not deliveries:
             return "new" if source is not None and source["origin"] == "email" else None
         for delivery in deliveries:
-            if delivery["auth_result"] != "aligned":
+            if not verdict_readable(
+                delivery["auth_result"], delivery["inbox_group"], delivery["review_note"]
+            ):
                 return "new"
             sender = cursor.execute(
                 "select status from public.business_email_senders where space_id=%s"
@@ -794,7 +802,7 @@ def _synchronized(method: Callable[..., T]) -> Callable[..., T]:
     return run
 
 
-class InMemoryEmailStore(MemoryAddressing):
+class InMemoryEmailStore(MemorySenderSeen, MemoryAddressing):
     """The same queue rules in memory, for the offline suite and the local app."""
 
     def __init__(
@@ -901,7 +909,9 @@ class InMemoryEmailStore(MemoryAddressing):
         if not linked:
             return "new" if ids else None
         for delivery in linked:
-            if delivery.auth_result != "aligned":
+            if not verdict_readable(
+                delivery.auth_result, delivery.inbox_group, delivery.review_note
+            ):
                 return "new"
             standing = self.sender_standing(space_id, delivery.sender)
             if standing != "authorized":

@@ -26,6 +26,8 @@ class SenderRule:
     value: str
     status: str
     first_scan_at: datetime | None = None
+    last_auth_result: str | None = None
+    last_seen_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -187,8 +189,9 @@ class PostgresAddressing:
             connection.cursor(row_factory=dict_row) as cursor,
         ):
             rows = cursor.execute(
-                "select id::text, space_id::text, kind, value, status, first_scan_at "
-                "from public.business_email_senders where space_id=%s order by created_at, id",
+                "select id::text, space_id::text, kind, value, status, first_scan_at, "
+                "last_auth_result, last_seen_at from public.business_email_senders "
+                "where space_id=%s order by created_at, id",
                 (space_id,),
             ).fetchall()
         return [SenderRule(**row) for row in rows]
@@ -211,7 +214,7 @@ class PostgresAddressing:
                 "insert into public.business_email_senders(space_id, kind, value, status) "
                 "values (%s,%s,%s,%s) on conflict(space_id, kind, value) do update "
                 "set status=excluded.status returning id::text, space_id::text, kind, value, "
-                "status, first_scan_at",
+                "status, first_scan_at, last_auth_result, last_seen_at",
                 (space_id, kind, value, status),
             ).fetchone()
             self._write_event(
@@ -234,7 +237,8 @@ class PostgresAddressing:
         ):
             row = cursor.execute(
                 "delete from public.business_email_senders where id=%s and space_id=%s "
-                "returning id::text, space_id::text, kind, value, status, first_scan_at",
+                "returning id::text, space_id::text, kind, value, status, first_scan_at, "
+                "last_auth_result, last_seen_at",
                 (sender_id, space_id),
             ).fetchone()
             if row is None:
@@ -420,13 +424,10 @@ class MemoryAddressing:
         with self._lock:
             key = (space_id, kind, value)
             current = self._senders.get(key)
-            rule = SenderRule(
-                current.id if current else str(uuid4()),
-                space_id,
-                kind,
-                value,
-                status,
-                current.first_scan_at if current else None,
+            rule = (
+                replace(current, status=status)
+                if current
+                else SenderRule(str(uuid4()), space_id, kind, value, status)
             )
             self._senders[key] = rule
             self._remember(
