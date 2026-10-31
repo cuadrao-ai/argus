@@ -3764,6 +3764,11 @@
           "title": "Make it your Business",
           "body": "Personalize the logo, description, and details for {{business}}.",
           "action": "View profile"
+        },
+        "sender": {
+          "title": "New sender",
+          "body": "[PENDIENTE COPY] A sender is waiting",
+          "action": "[PENDIENTE COPY] View list"
         }
       },
       "times": {
@@ -3927,11 +3932,30 @@
       "alias_once": "You can customize this address once.",
       "alias_save": "Save address",
       "email_title": "Receiving email",
-      "history_link": "View received emails",
       "history_title": "Received emails",
       "reading_body": "Extracts receipt details and prepares records for review. It does not approve them automatically.",
       "reading_off": "When turned off, receipts are saved unread.",
       "reading_title": "AI receipt reading",
+      "senders": {
+        "action_error": "[PENDIENTE COPY] This sender could not be saved.",
+        "authorize": "Authorize",
+        "authorized_heading": "[PENDIENTE COPY] Authorized",
+        "block": "Block",
+        "blocked_heading": "[PENDIENTE COPY] Blocked",
+        "empty": "[PENDIENTE COPY] There are no senders",
+        "error": "[PENDIENTE COPY] The list could not be loaded",
+        "forbidden": "[PENDIENTE COPY] Only an administrator can change senders",
+        "list_title": "[PENDIENTE COPY] Senders",
+        "loading": "[PENDIENTE COPY] Loading senders",
+        "pending_count": "[PENDIENTE COPY] {{count}}",
+        "pending_empty": "[PENDIENTE COPY] No one is waiting",
+        "pending_heading": "[PENDIENTE COPY] Pending",
+        "retry": "[PENDIENTE COPY] Try again",
+        "tag_unverified": "Unverified",
+        "tag_unverified_tip": "We could not confirm this message is from who it says. Authorize it only if you know the sender.",
+        "tag_verified": "Verified",
+        "tag_verified_tip": "The message passed the sender check."
+      },
       "whatsapp_connect": "Connect WhatsApp to send documents to {{business}}.",
       "whatsapp_connected": "Number ending in {{last4}} connected to {{business}}."
     },

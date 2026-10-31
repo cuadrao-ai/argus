@@ -3078,6 +3078,11 @@
           "title": "Dale tu toque al negocio",
           "body": "Personaliza el logo, la descripción y los datos de {{business}}.",
           "action": "Ver perfil"
+        },
+        "sender": {
+          "title": "Nuevo remitente",
+          "body": "[PENDIENTE COPY] Hay un remitente en espera",
+          "action": "[PENDIENTE COPY] Ver lista"
         }
       },
       "times": {
@@ -4027,11 +4032,30 @@
       "alias_once": "Puedes personalizar esta dirección una sola vez.",
       "alias_save": "Guardar dirección",
       "email_title": "Correo de recepción",
-      "history_link": "Ver correos recibidos",
       "history_title": "Correos recibidos",
       "reading_body": "Extrae los datos de tus recibos y prepara los registros para revisión. No los aprueba automáticamente.",
       "reading_off": "Si la desactivas, los recibos se guardan sin leer.",
       "reading_title": "Lectura de recibos con IA",
+      "senders": {
+        "action_error": "[PENDIENTE COPY] No se pudo guardar este remitente.",
+        "authorize": "Autorizar",
+        "authorized_heading": "[PENDIENTE COPY] Autorizados",
+        "block": "Bloquear",
+        "blocked_heading": "[PENDIENTE COPY] Bloqueados",
+        "empty": "[PENDIENTE COPY] No hay remitentes",
+        "error": "[PENDIENTE COPY] No se pudo cargar la lista",
+        "forbidden": "[PENDIENTE COPY] Solo un administrador puede cambiar remitentes",
+        "list_title": "[PENDIENTE COPY] Remitentes",
+        "loading": "[PENDIENTE COPY] Cargando remitentes",
+        "pending_count": "[PENDIENTE COPY] {{count}}",
+        "pending_empty": "[PENDIENTE COPY] Nadie en espera",
+        "pending_heading": "[PENDIENTE COPY] Pendientes",
+        "retry": "[PENDIENTE COPY] Reintentar",
+        "tag_unverified": "Sin verificar",
+        "tag_unverified_tip": "No pudimos confirmar que este correo viene de quien dice. Autoriza solo si conoces al remitente.",
+        "tag_verified": "Verificado",
+        "tag_verified_tip": "El correo pasó la verificación del remitente."
+      },
       "whatsapp_connect": "Conecta WhatsApp para enviar documentos a {{business}}.",
       "whatsapp_connected": "Número terminado en {{last4}} conectado a {{business}}."
     },

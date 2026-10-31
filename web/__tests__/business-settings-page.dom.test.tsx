@@ -268,20 +268,13 @@ describe("the Negocio page", () => {
         assert.equal(toggle(page)?.disabled,true);
       } finally { await page.close(); }
     });
-    test("received emails stay behind a quiet link and detail returns to the same dossier list", async () => {
+    test("reception shows the sender list and leaves received-mail history closed", async () => {
       const page=await mount("view=business&tab=correo",OWN);
       try {
-        assert.equal(page.host.querySelector('[data-testid="email-history"]'),null);
-        const link=[...page.host.querySelectorAll('button')].find(button=>button.textContent?.includes("Ver correos recibidos"));
-        assert.ok(link);await page.click(link);
-        await page.settle(()=>document.querySelector('[data-testid="email-delivery-row"]') != null);
-        assert.equal(document.querySelectorAll('[data-testid="side-drawer"]').length,1);
-        await page.click(document.querySelector('[data-testid="email-delivery-row"]')!);
-        assert.ok(document.querySelector('[data-testid="email-detail"]'));
-        assert.equal(document.querySelectorAll('[data-testid="side-drawer"]').length,1);
-        const back=[...document.querySelectorAll('button')].find(button=>button.textContent?.trim()==="Correos recibidos");
-        assert.ok(back);await page.click(back);
-        assert.ok(document.querySelector('[data-testid="email-history"]'));
+        await page.settle(() => page.host.querySelector('[data-testid="email-senders"]') !== null);
+        assert.ok(page.host.querySelector('[data-testid="email-senders"]'));
+        assert.equal(page.host.textContent?.includes("Ver correos recibidos"), false);
+        assert.equal(page.host.querySelector('[data-testid="email-history"]'), null);
       }finally{await page.close();}
     });
   });});
