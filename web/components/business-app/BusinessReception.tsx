@@ -26,7 +26,7 @@ export default function BusinessReception() {
     <div className={SURFACE_CARD}>
       <div className="mb-4 flex items-center gap-3"><EmailIcon size={20} className="shrink-0 text-[#56635e] dark:text-white/70" aria-hidden="true"/><h2 className="text-[16px] font-medium text-[#172b26] dark:text-white">{t("business.reception.email_title")}</h2></div>
       <Fragment key={chosen?.space_id}><BusinessEmailAddress/><EmailSenders/></Fragment>
-      {localPreview ? <button type="button" onClick={()=>setSection("whatsapp")} aria-expanded={section === "whatsapp"} className="mt-4 flex min-h-16 w-full items-center gap-3 border-t border-[#DCE0DA] pt-4 text-left text-[#172b26] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:border-white/10 dark:text-white">
+      {localPreview && chosen ? <button type="button" onClick={()=>setSection("whatsapp")} aria-expanded={section === "whatsapp"} className="mt-4 flex min-h-16 w-full items-center gap-3 border-t border-[#DCE0DA] pt-4 text-left text-[#172b26] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:border-white/10 dark:text-white">
         <WhatsAppIcon size={20} className="shrink-0 text-[#56635e] dark:text-white/70" aria-hidden="true"/>
         <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">WhatsApp</span><span className="mt-1 block text-[14px] text-[#56635e] dark:text-white/70">{connection.linked ? t("business.reception.whatsapp_connected",{last4:connection.last4 ?? "",business:chosen?.name}) : t("business.reception.whatsapp_connect",{business:chosen?.name})}</span></span><ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true"/>
       </button> : null}
