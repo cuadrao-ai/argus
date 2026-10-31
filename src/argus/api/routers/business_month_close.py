@@ -112,7 +112,7 @@ def month_summary(
                 context.service.authority, _owner(request, context, person), month
             )
         )
-        return with_unreviewed(summary, month, _unreviewed(business, month))
+        return with_unreviewed(summary, _unreviewed(business, month))
     except ValueError as error:
         if str(error) != "month_invalid":
             raise

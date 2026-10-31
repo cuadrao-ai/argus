@@ -35,32 +35,25 @@ def _october(views: list[dict]) -> int:
 
 def test_a_month_without_drafts_closes_as_before():
     plain = empty_month("2026-10")
-    shown = with_unreviewed(plain, "2026-10", 0)
+    shown = with_unreviewed(plain, 0)
     assert shown == {**plain, "unreviewed_movements_count": 0}
     assert shown["closed"] is True
 
 
 def test_an_unapproved_draft_in_the_month_blocks_the_close():
     count = _october([_view("review_ready", "2026-10-12")])
-    shown = with_unreviewed(empty_month("2026-10"), "2026-10", count)
+    shown = with_unreviewed(empty_month("2026-10"), count)
     assert shown["closed"] is False
     assert shown["unreviewed_movements_count"] == 1
-    assert shown["reasons"] == [
-        {
-            "code": "movimientos_sin_revisar",
-            "count": 1,
-            "message": "Tienes 1 movimiento sin revisar en octubre de 2026. "
-            "Revísalo en la Bandeja antes de cerrar el mes.",
-        }
-    ]
+    assert shown["reasons"] == [{"code": "movimientos_sin_revisar", "count": 1}]
 
 
-def test_many_unreviewed_drafts_read_in_the_plural():
-    shown = with_unreviewed(empty_month("2026-09"), "2026-09", 5)
-    assert [reason["message"] for reason in shown["reasons"]] == [
-        "Tienes 5 movimientos sin revisar en septiembre de 2026. "
-        "Revísalos en la Bandeja antes de cerrar el mes."
-    ]
+def test_the_reason_carries_every_unreviewed_draft_and_keeps_earlier_reasons():
+    earlier = {"code": "missing_rnc", "activity_id": "a1", "document_kind": "receipt"}
+    month = {**empty_month("2026-09"), "closed": False, "reasons": [earlier]}
+    shown = with_unreviewed(month, 5)
+    assert (shown["closed"], shown["unreviewed_movements_count"]) == (False, 5)
+    assert shown["reasons"] == [earlier, {"code": "movimientos_sin_revisar", "count": 5}]
 
 
 def test_approved_or_rejected_drafts_do_not_block():

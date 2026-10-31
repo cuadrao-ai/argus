@@ -259,7 +259,7 @@ def test_a_note_still_in_the_bandeja_keeps_its_arrival_month_open(web) -> None: 
     _send(web, "POST", "/business/captures", {"text": "taxi 300"}, web.alice.headers)
 
     shown = _month(web, month)
-    memory = with_unreviewed(empty_month(month), month, 1)
+    memory = with_unreviewed(empty_month(month), 1)
     assert shown["closed"] is False
     assert shown["unreviewed_movements_count"] == 1
     assert [r for r in shown["reasons"] if r["code"] == "movimientos_sin_revisar"] == (

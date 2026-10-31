@@ -96,7 +96,6 @@ class CloseReason(_Wire):
 class UnreviewedReason(_Wire):
     code: Literal["movimientos_sin_revisar"]
     count: int
-    message: str
 
 
 class DocumentLine(_Wire):

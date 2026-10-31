@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Literal
-from zoneinfo import ZoneInfo
 
 from loguru import logger
 from pydantic import ValidationError
@@ -443,70 +442,31 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
     }
 
 
-UNREVIEWED = "movimientos_sin_revisar"
-
-_MONTHS = (
-    "enero",
-    "febrero",
-    "marzo",
-    "abril",
-    "mayo",
-    "junio",
-    "julio",
-    "agosto",
-    "septiembre",
-    "octubre",
-    "noviembre",
-    "diciembre",
-)
-
-
-def draft_close_day(occurred_on: object, arrived_at: object) -> date:
+def draft_close_day(receipt_on: object, arrived_at: object) -> date:
     """The day a draft still in the Bandeja counts toward for month close: its
     receipt date when known, otherwise the day it arrived in the recording
     time zone. Notes pass no receipt date."""
 
-    if occurred_on not in (None, ""):
-        return _as_date(occurred_on)
+    if receipt_on not in (None, ""):
+        return _as_date(receipt_on)
+    from argus.domain.recording.records import DEFAULT_TIME_ZONE
+
     if isinstance(arrived_at, str):
         arrived_at = datetime.fromisoformat(arrived_at.replace("Z", "+00:00"))
-    if isinstance(arrived_at, datetime) and arrived_at.tzinfo is not None:
-        from argus.domain.recording.records import DEFAULT_TIME_ZONE
-
-        return arrived_at.astimezone(ZoneInfo(DEFAULT_TIME_ZONE)).date()
-    return _as_date(arrived_at)
+    return occurred_on({"occurred_at": arrived_at, "time_zone": DEFAULT_TIME_ZONE})
 
 
 def unreviewed_in_month(days: Iterable[date], start: date, end: date) -> int:
     return sum(start <= day <= end for day in days)
 
 
-def unreviewed_message(count: int, month: str) -> str:
-    start, _end = month_period(month)
-    mes = f"{_MONTHS[start.month - 1]} de {start.year}"
-    if count == 1:
-        return (
-            f"Tienes 1 movimiento sin revisar en {mes}. "
-            "Revísalo en la Bandeja antes de cerrar el mes."
-        )
-    return (
-        f"Tienes {count} movimientos sin revisar en {mes}. "
-        "Revísalos en la Bandeja antes de cerrar el mes."
-    )
-
-
-def with_unreviewed(summary: dict, month: str, count: int) -> dict:
-    """The month close with drafts still in the Bandeja as one blocking reason."""
+def with_unreviewed(summary: dict, count: int) -> dict:
+    """The month close with drafts still in the Bandeja as one blocking reason.
+    The web words it from the code, the count and the month."""
 
     reasons = list(summary["reasons"])
     if count:
-        reasons.append(
-            {
-                "code": UNREVIEWED,
-                "count": count,
-                "message": unreviewed_message(count, month),
-            }
-        )
+        reasons.append({"code": "movimientos_sin_revisar", "count": count})
     return {
         **summary,
         "closed": summary["closed"] and not count,
