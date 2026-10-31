@@ -10333,12 +10333,16 @@ accept path recorded.
     is 404 `email_sender_not_found`. Stopping or changing the receipt address,
     and authorizing, removing, or blocking a sender, each append one audit row
     with the actor, the time, the old address, and the new address.
-    Each GET item is `{id, kind, value, status, tag, last_auth_result,
-    last_seen_at}` and POST returns the same item. `status` is `pending`,
+    Each GET item is `{id, kind, value, status, tag, default_approved,
+    last_auth_result, last_seen_at}` and POST returns the same item. `status` is `pending`,
     `authorized` or `blocked`; POST accepts only `authorized` (Autorizar) or
     `blocked` (Bloquear), and `pending` is 422. `tag` is `verified` when
     `last_auth_result` is `aligned`, `unverified` for any other verdict, and
-    null when no mail was seen. `last_auth_result` is the last message's
+    null when no mail was seen. `default_approved` (boolean) is true when the
+    address belongs to an owner or team member with a live grant, whatever
+    the row's status and the `DEFAULT_APPROVAL_REQUIRES_ALIGNED` switch, and
+    false for domain rows, non-members and removed members; it is read at
+    request time and not stored. `last_auth_result` is the last message's
     verdict (below) or null; `last_seen_at` is its UTC arrival time or null.
     Items are ordered pending, authorized, blocked; within each, newest
     `last_seen_at` first, never seen last, then creation order. No paging.
