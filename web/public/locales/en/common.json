@@ -3953,7 +3953,6 @@
         "retry": "Try again",
         "tag_unverified": "Unverified",
         "tag_unverified_tip": "We could not confirm this message is from who it says. Authorize it only if you know the sender.",
-        "tag_verified": "Verified",
         "tag_verified_tip": "The message passed the sender check."
       },
       "whatsapp_connect": "Connect WhatsApp to send documents to {{business}}.",

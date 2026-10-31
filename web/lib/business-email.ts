@@ -78,8 +78,6 @@ export type EmailSenderUpdate = {
   status: Exclude<EmailSender["status"], "pending">;
 };
 
-export type SenderTagView = "verified" | "unverified" | "none";
-
 export class EmailSenderRequestError extends Error {
   readonly status: number;
   readonly code: string;
@@ -100,14 +98,16 @@ export type EmailSenderClient = {
 const SENDER_PREVIEWS = ["mixed", "settled", "empty", "error", "loading", "fail"] as const;
 export type EmailSenderPreview = (typeof SENDER_PREVIEWS)[number];
 
-/**
- * Missing `tag` is an older server and reads as unverified.
- * `null` is a hand-added row that never received mail and shows no tag.
- */
-export function senderTagView(tag: EmailSender["tag"]): SenderTagView {
-  if (tag === "verified") return "verified";
-  if (tag === null) return "none";
-  return "unverified";
+/** Only a failed check is shown. A passed check, a hand-added row (`null`) and an older server without `tag` show nothing. */
+export function senderCheckFailed(tag: EmailSender["tag"]): boolean {
+  return tag === "unverified";
+}
+
+const SETTLED_STATUSES = ["authorized", "blocked"] as const satisfies readonly EmailSenderUpdate["status"][];
+
+/** Where a sender can go from where it stands: a pending one either way, a settled one only to the other side. */
+export function senderMoves(status: EmailSender["status"]): EmailSenderUpdate["status"][] {
+  return SETTLED_STATUSES.filter((next) => next !== status);
 }
 
 export function senderForView(sender: EmailSender): EmailSenderView {

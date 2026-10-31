@@ -4053,7 +4053,6 @@
         "retry": "Reintentar",
         "tag_unverified": "Sin verificar",
         "tag_unverified_tip": "No pudimos confirmar que este correo viene de quien dice. Autoriza solo si conoces al remitente.",
-        "tag_verified": "Verificado",
         "tag_verified_tip": "El correo pasó la verificación del remitente."
       },
       "whatsapp_connect": "Conecta WhatsApp para enviar documentos a {{business}}.",

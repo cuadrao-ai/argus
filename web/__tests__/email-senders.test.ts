@@ -10,8 +10,9 @@ import {
   liveEmailSenderClient,
   parseEmailSenderList,
   pendingSenderCount,
+  senderCheckFailed,
   senderForView,
-  senderTagView,
+  senderMoves,
 } from "@/lib/business-email";
 
 const previousMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
@@ -30,14 +31,19 @@ afterEach(() => {
 const oldServer = { id: "old", kind: "address", value: "old@negocio.example", status: "authorized", last_auth_result: "aligned" };
 const handAdded = { id: "hand", kind: "domain", value: "proveedor.example", status: "pending", tag: null, last_auth_result: null, last_seen_at: null };
 
-test("a missing tag reads as unverified and a null tag reads as no tag, without using the auth result", () => {
-  const [older, hand] = parseEmailSenderList({ items: [oldServer, handAdded, { id: "yes", kind: "address", value: "ok@negocio.example", status: "authorized", tag: "verified", last_auth_result: "failed" }] });
-  assert.equal(senderTagView(senderForView(older).tag), "unverified");
-  assert.equal("last_auth_result" in senderForView(older), false);
-  assert.equal(older.last_auth_result, "aligned");
-  assert.equal(senderTagView(hand.tag), "none");
-  assert.equal(senderTagView("unverified"), "unverified");
-  assert.equal(senderTagView("verified"), "verified");
+test("only a failed check is flagged, whatever the auth result says", () => {
+  const passed = { id: "yes", kind: "address", value: "ok@negocio.example", status: "authorized", tag: "verified", last_auth_result: "failed" };
+  const failed = { id: "no", kind: "address", value: "avisos@correo.example", status: "pending", tag: "unverified", last_auth_result: "aligned" };
+  const [older, hand, yes, no] = parseEmailSenderList({ items: [oldServer, handAdded, passed, failed] });
+  assert.deepEqual([older, hand, yes, no].map((item) => senderCheckFailed(senderForView(item!).tag)), [false, false, false, true]);
+  assert.equal("last_auth_result" in senderForView(older!), false);
+  assert.equal(older!.last_auth_result, "aligned");
+});
+
+test("a pending sender can go either way and a settled one only to the other side", () => {
+  assert.deepEqual(senderMoves("pending"), ["authorized", "blocked"]);
+  assert.deepEqual(senderMoves("authorized"), ["blocked"]);
+  assert.deepEqual(senderMoves("blocked"), ["authorized"]);
 });
 
 test("senders group by status and keep the order they arrived in", () => {

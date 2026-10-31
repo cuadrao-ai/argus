@@ -5,7 +5,9 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
+import { primaryButtonClass, quietButtonClass, secondaryButtonClass } from "@/components/business-app/business-ui";
 import EmailSenders from "@/components/business-app/EmailSenders";
+import { fieldHintClass } from "@/components/ui/form-field";
 import { TOOLTIP_DELAY_MS } from "@/components/ui/Tooltip";
 import { EmailSenderRequestError, type EmailSender, type EmailSenderClient, type EmailSenderUpdate } from "@/lib/business-email";
 import english from "@/public/locales/en/common.json";
@@ -51,8 +53,11 @@ async function mount(client: EmailSenderClient) {
 const rows = (host: HTMLElement) => [...host.querySelectorAll<HTMLElement>("[data-testid='email-sender-row']")];
 const text = (row: HTMLElement) => row.textContent ?? "";
 const button = (row: HTMLElement, label: string) => [...row.querySelectorAll("button")].find((item) => item.textContent === label);
+const note = (row: HTMLElement) => row.querySelector<HTMLButtonElement>("[data-testid='email-sender-unverified']");
+const actions = (row: HTMLElement) => [...row.querySelectorAll("button")].filter((item) => item !== note(row)).map((item) => [item.textContent, item.className]);
+const senderCopy = spanish.business.reception.senders;
 
-test("pending senders stay first, the count shows, and tags follow tag only", async () => {
+test("pending senders stay first, each group offers its own actions, and only a failed check is flagged", async () => {
   const scrambled = [mixed[5]!, mixed[1]!, mixed[4]!, mixed[0]!, mixed[2]!, mixed[3]!];
   const page = await mount({ list: async () => scrambled, update: async (body) => ({ ...scrambled[0]!, ...body }) });
   try {
@@ -64,11 +69,11 @@ test("pending senders stay first, the count shows, and tags follow tag only", as
     assert.deepEqual(rows(page.host).map((row) => row.querySelector("span")?.textContent), [
       "avisos@correo.example", "facturas@ferreteria.example", "manual@dueno.example", "viejo@negocio.example", "proveedor.example", "spam@lista.example",
     ]);
-    const tags = [...page.host.querySelectorAll("[data-testid='email-sender-tag']")].map((tag) => tag.getAttribute("data-verification"));
-    assert.deepEqual(tags, ["unverified", "verified", "unverified", "unverified"]);
+    const both = [[senderCopy.authorize, primaryButtonClass], [senderCopy.block, quietButtonClass]];
+    assert.deepEqual(rows(page.host).map(actions), [both, both, both, both, [[senderCopy.block, quietButtonClass]], [[senderCopy.authorize, secondaryButtonClass]]]);
+    assert.deepEqual(rows(page.host).map((row) => note(row) !== null), [true, false, false, false, false, true]);
+    assert.equal(page.host.textContent?.includes("Verificado"), false);
     assert.equal(page.host.textContent?.includes("aligned"), false);
-    assert.equal(rows(page.host)[2]?.querySelector("[data-testid='email-sender-tag']"), null);
-    assert.equal(rows(page.host)[4]?.querySelector("[data-testid='email-sender-tag']"), null);
     for (const control of page.host.querySelectorAll("button, summary")) assert.match(control.className, /min-h-11/);
   } finally { await page.close(); }
 });
@@ -136,11 +141,13 @@ test("authorize and block replace the row from the returned item, including a ne
     await page.settle(() => rows(page.host)[0]?.getAttribute("data-status") === "authorized");
     assert.deepEqual(calls[0], { kind: "address", value: "facturas@ferreteria.example", status: "authorized" });
     assert.equal(page.host.querySelector("[data-testid='email-senders-pending-count']"), null);
+    assert.equal(button(rows(page.host)[0]!, "Autorizar"), undefined);
     created = true;
     const block = button(rows(page.host)[0]!, "Bloquear")!;
     await act(async () => block.click());
     await page.settle(() => text(rows(page.host)[0]!).includes("nueva@negocio.example"));
     assert.equal(rows(page.host)[0]?.getAttribute("data-status"), "blocked");
+    assert.equal(button(rows(page.host)[0]!, "Bloquear"), undefined);
     assert.deepEqual(calls[1], { kind: "address", value: "facturas@ferreteria.example", status: "blocked" });
   } finally { await page.close(); }
 });
@@ -173,31 +180,36 @@ test("a 422 keeps the buttons enabled and a 403 disables them", async () => {
     await forbidden.settle(() => forbidden.host.querySelector("[data-testid='email-senders-forbidden']") !== null);
     assert.match(forbidden.host.textContent ?? "", /No tienes permiso para administrar los remitentes\./);
     for (const control of rows(forbidden.host)[0]!.querySelectorAll("button")) {
-      if (control.getAttribute("data-testid") !== "email-sender-tag") assert.equal(control.disabled, true);
+      if (control !== note(rows(forbidden.host)[0]!)) assert.equal(control.disabled, true);
     }
     await act(async () => button(rows(forbidden.host)[0]!, "Bloquear")!.click());
     assert.equal(forbiddenCalls, 1);
   } finally { await forbidden.close(); }
 });
 
-test("the verification tag exposes its tooltip to pointer and keyboard", async () => {
-  const page = await mount({ list: async () => [mixed[0]!], update: async (body) => ({ ...mixed[0]!, ...body }) });
+test("a failed check is a plain muted line that opens the locked tooltip by pointer and keyboard", async () => {
+  const page = await mount({ list: async () => [mixed[1]!], update: async (body) => ({ ...mixed[1]!, ...body }) });
   try {
-    await page.settle(() => page.host.querySelector("[data-testid='email-sender-tag']") !== null);
-    const tag = page.host.querySelector<HTMLButtonElement>("[data-testid='email-sender-tag']")!;
-    assert.equal(tag.textContent, "Verificado");
-    assert.match(tag.className, /min-h-11/);
-    await act(async () => { tag.dispatchEvent(new MouseEvent("mouseover", { bubbles: true })); });
+    await page.settle(() => rows(page.host).length === 1);
+    const line = note(rows(page.host)[0]!)!;
+    assert.equal(line.textContent, senderCopy.tag_unverified);
+    assert.ok(line.className.includes(fieldHintClass));
+    assert.doesNotMatch(line.className, /(^|\s)(border|bg-|rounded-full)/);
+    assert.match(line.className, /min-h-11/);
+    const dot = line.querySelector<HTMLElement>("[aria-hidden='true']")!;
+    assert.equal(dot.textContent, "");
+    assert.ok(dot.style.backgroundColor);
+    await act(async () => { line.dispatchEvent(new MouseEvent("mouseover", { bubbles: true })); });
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, TOOLTIP_DELAY_MS + 30)); });
     const tip = document.querySelector("[role='tooltip']");
-    assert.equal(tip?.textContent, "El correo pasó la verificación del remitente.");
-    assert.equal(tag.getAttribute("aria-describedby"), tip?.id);
-    await act(async () => { tag.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
+    assert.equal(tip?.textContent, senderCopy.tag_unverified_tip);
+    assert.equal(line.getAttribute("aria-describedby"), tip?.id);
+    await act(async () => { line.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
     assert.equal(document.querySelector("[role='tooltip']"), null);
-    tag.focus();
-    assert.equal(document.activeElement, tag);
-    assert.equal(tag.matches(":focus-visible"), true);
+    line.focus();
+    assert.equal(document.activeElement, line);
+    assert.equal(line.matches(":focus-visible"), true);
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, TOOLTIP_DELAY_MS + 30)); });
-    assert.equal(document.querySelector("[role='tooltip']")?.textContent, "El correo pasó la verificación del remitente.");
+    assert.equal(document.querySelector("[role='tooltip']")?.textContent, senderCopy.tag_unverified_tip);
   } finally { await page.close(); }
 });

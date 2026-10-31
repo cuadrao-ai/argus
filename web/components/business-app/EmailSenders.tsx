@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { fieldHintClass } from "@/components/ui/form-field";
 import { Tooltip } from "@/components/ui/Tooltip";
 import {
   createEmailSenderStub,
@@ -9,17 +10,17 @@ import {
   emailSendersUseStub,
   groupSenders,
   liveEmailSenderClient,
+  senderCheckFailed,
   senderForView,
-  senderTagView,
+  senderMoves,
   type EmailSender,
   type EmailSenderClient,
   type EmailSenderUpdate,
   type EmailSenderView,
-  type SenderTagView,
   EmailSenderRequestError,
 } from "@/lib/business-email";
-import { quietButtonClass, secondaryButtonClass } from "./business-ui";
-import { FOCUS_RING } from "./foundation/presentation";
+import { primaryButtonClass, quietButtonClass, secondaryButtonClass } from "./business-ui";
+import { BUSINESS_STATUS, FOCUS_RING } from "./foundation/presentation";
 
 const copy = (key: string) => `business.reception.senders.${key}`;
 
@@ -27,15 +28,19 @@ function requestStatus(error: unknown): number {
   return error instanceof EmailSenderRequestError ? error.status : 0;
 }
 
-function SenderTag({ view }: { view: SenderTagView }) {
+/** Bloquear is always the quiet action; Autorizar is the main one while the sender waits. */
+function moveClass(status: EmailSender["status"], move: EmailSenderUpdate["status"]): string {
+  if (move === "blocked") return quietButtonClass;
+  return status === "pending" ? primaryButtonClass : secondaryButtonClass;
+}
+
+function UnverifiedNote() {
   const { t } = useTranslation();
-  if (view === "none") return null;
-  const name = view === "verified" ? "tag_verified" : "tag_unverified";
-  const tip = view === "verified" ? "tag_verified_tip" : "tag_unverified_tip";
   return (
-    <Tooltip content={t(copy(tip))} side="top">
-      <button type="button" data-testid="email-sender-tag" data-verification={view} className={`inline-flex min-h-11 w-fit items-center self-start rounded-full border border-[color:var(--surface-divider)] px-3 text-[13px] ${FOCUS_RING} ${view === "verified" ? "text-[var(--cuadrao-green)]" : "text-[#56635e]"}`}>
-        {t(copy(name))}
+    <Tooltip content={t(copy("tag_unverified_tip"))} side="top">
+      <button type="button" data-testid="email-sender-unverified" className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-mark ${fieldHintClass} ${FOCUS_RING}`}>
+        <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: BUSINESS_STATUS.needs_attention.ink }} />
+        {t(copy("tag_unverified"))}
       </button>
     </Tooltip>
   );
@@ -58,13 +63,16 @@ function SenderRow({
   const disabled = busy || refused;
   return (
     <li data-testid="email-sender-row" data-status={sender.status} className="border-t border-[#EEF0EC] py-3 dark:border-white/[0.06]">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <span className="min-w-0 flex-1 break-all text-[16px] text-[#172b26] dark:text-white">{sender.value}</span>
-        <SenderTag view={senderTagView(sender.tag)} />
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className={secondaryButtonClass} disabled={disabled} onClick={() => onChange("authorized")}>{t(copy("authorize"))}</button>
-          <button type="button" className={secondaryButtonClass} disabled={disabled} onClick={() => onChange("blocked")}>{t(copy("block"))}</button>
-        </div>
+      <div className="flex items-center gap-3">
+        <span className="min-w-0 break-all text-[16px] text-[#172b26] dark:text-white">{sender.value}</span>
+        {senderCheckFailed(sender.tag) ? <UnverifiedNote /> : null}
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {senderMoves(sender.status).map((move) => (
+          <button key={move} type="button" className={moveClass(sender.status, move)} disabled={disabled} onClick={() => onChange(move)}>
+            {t(copy(move === "authorized" ? "authorize" : "block"))}
+          </button>
+        ))}
       </div>
       {failed ? <p role="alert" data-testid="email-sender-error" className="mt-2 text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">{t(copy("action_error"))}</p> : null}
     </li>
