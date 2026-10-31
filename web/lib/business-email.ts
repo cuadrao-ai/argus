@@ -61,13 +61,13 @@ const emailSenderSchema = z.object({
   kind: z.enum(["address", "domain"]),
   value: z.string().min(1),
   status: z.enum(["pending", "authorized", "blocked"]),
-  tag: z.enum(["verified", "unverified"]).nullable().optional(),
+  tag: z.enum(["verified", "unverified"]).nullable().optional().catch(null),
   default_approved: z.boolean().default(false),
-  last_auth_result: senderAuthResult.nullable().optional(),
+  last_auth_result: senderAuthResult.nullable().optional().catch(null),
   last_seen_at: z.string().nullable().optional(),
 });
 
-/** One sender row from GET /business/email/senders. An older server may omit `tag` and `default_approved`; a missing `default_approved` reads as false. */
+/** One sender row from GET /business/email/senders. An older server may omit `tag` and `default_approved`; a missing `default_approved` reads as false. A `tag` or `last_auth_result` this client does not know reads as null. */
 export type EmailSender = z.infer<typeof emailSenderSchema>;
 
 /** The row the screen may render. `last_auth_result` stays on the wire type and never crosses into the view. */
@@ -150,10 +150,14 @@ function parseSender(body: unknown): EmailSender {
   return parsed.data;
 }
 
+/** A row the screen cannot show (a status it does not know, no id or value) is left out, so one new server value never fails the whole list. */
 export function parseEmailSenderList(body: unknown): EmailSender[] {
-  const parsed = z.object({ items: z.array(emailSenderSchema) }).safeParse(body);
+  const parsed = z.object({ items: z.array(z.unknown()) }).safeParse(body);
   if (!parsed.success) throw new EmailSenderRequestError(0, "email_sender_invalid_response");
-  return parsed.data.items;
+  return parsed.data.items.flatMap((item) => {
+    const sender = emailSenderSchema.safeParse(item);
+    return sender.success ? [sender.data] : [];
+  });
 }
 
 function asSenderError(error: unknown): EmailSenderRequestError {
