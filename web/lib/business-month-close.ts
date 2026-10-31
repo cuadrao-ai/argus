@@ -171,7 +171,7 @@ export type MonthCloseGate =
 
 /** A pending or unknown month has no money string. A final month has the net and nothing else that could be read as a second total. */
 export type MonthCloseNetDisplay =
-  | { state: "pending"; pending_count: number; reason: "documents" | "unknown" }
+  | { state: "pending"; pending_count: number; reason: "documents" | "pending_rate" | "unknown" }
   | { state: "final"; net_before_itbis: string };
 
 /** `matched`: the document is igualada with a bank movement, so the match owns its cobrado or pagado. */
@@ -321,11 +321,42 @@ function sampleForms(documents: readonly MonthCloseDocument[], to: string, today
 /** The methods the sample books accept, as the server lists them. */
 const SAMPLE_PAYMENT_METHODS = ["efectivo", "transferencia", "tarjeta", "credito", "otro"] as const;
 
-/** Net result for one currency's card: the figure once the block says it is final, the documents left while it is not, unknown otherwise. */
+/** Net result for one currency's card: the figure when the block is final, the documents still to mark when some remain, a pending rate when the count is zero, unknown otherwise. */
 export function monthCloseNetDisplay(figures: Pick<MonthCloseFigures, "net_before_itbis" | "net_result_final" | "pending_count">): MonthCloseNetDisplay {
   if (figures.net_result_final === true && figures.net_before_itbis !== null) return { state: "final", net_before_itbis: figures.net_before_itbis };
-  if (figures.net_result_final === false && figures.pending_count !== null) return { state: "pending", pending_count: figures.pending_count, reason: "documents" };
+  if (figures.net_result_final === false && figures.pending_count !== null) {
+    if (figures.pending_count === 0) return { state: "pending", pending_count: 0, reason: "pending_rate" };
+    return { state: "pending", pending_count: figures.pending_count, reason: "documents" };
+  }
   return { state: "pending", pending_count: 0, reason: "unknown" };
+}
+
+type RateBlock = Pick<MonthCloseFigures, "currency" | "net_before_itbis" | "net_result_final" | "pending_count">;
+
+function blockWaitsOnRate(block: Omit<RateBlock, "currency">): boolean {
+  const net = monthCloseNetDisplay(block);
+  return net.state === "pending" && net.reason === "pending_rate";
+}
+
+/** True when any currency block is waiting on a rate, even if its code cannot be read. */
+export function monthCloseHasPendingRate(figures: readonly Omit<RateBlock, "currency">[]): boolean {
+  return figures.some(blockWaitsOnRate);
+}
+
+/** Readable codes for blocks whose net is waiting on a rate, A to Z. An unreadable code is left out. */
+export function monthClosePendingRateCurrencies(figures: readonly RateBlock[]): string[] {
+  const codes = new Set<string>();
+  for (const block of figures) {
+    if (blockWaitsOnRate(block) && CURRENCY_CODE.test(block.currency)) codes.add(block.currency);
+  }
+  return [...codes].sort();
+}
+
+/** Joins codes the way the pending-rate line reads them. `and` is the locale's word. */
+export function joinCurrencyList(codes: readonly string[], and: string): string {
+  if (codes.length < 2) return codes[0] ?? "";
+  if (codes.length === 2) return `${codes[0]} ${and} ${codes[1]}`;
+  return `${codes.slice(0, -1).join(", ")} ${and} ${codes[codes.length - 1]}`;
 }
 
 /**

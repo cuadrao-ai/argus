@@ -1,7 +1,7 @@
 # Android phone foundation acceptance
 
 Development-only Kotlin/Compose shell; no production-auth or financial-runtime
-readiness claim. See [setup](../../mobile/android/README.md) and the
+readiness claim. See setup (removed; see tag `archive/ios-personal-2026-10-30`) and the
 [bounded lane spec](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-09-28-android-phone-foundation.md).
 
 ## Provenance and ownership

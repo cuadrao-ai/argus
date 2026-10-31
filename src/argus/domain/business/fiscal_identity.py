@@ -1,10 +1,82 @@
 import re
+import unicodedata
 
 FILER_TAX_ID_LENGTH = {"rnc": 9, "cedula": 11}
 COUNTERPARTY_ID_LENGTH = {
     "1": FILER_TAX_ID_LENGTH["rnc"],
     "2": FILER_TAX_ID_LENGTH["cedula"],
 }
+
+_DIGIT_RUN = r"(?<![0-9])(?<![0-9][ -])[0-9](?:[ -]?[0-9]){{{}}}(?![ -]?[0-9])"
+_PRINTED_RNC = re.compile(f"{_DIGIT_RUN.format(10)}|{_DIGIT_RUN.format(8)}")
+_PRINTED_NCF = re.compile(
+    r"(?<![A-Za-z0-9])[BE][0-9]{8,12}(?![A-Za-z0-9])", re.IGNORECASE
+)
+
+
+# The only characters that may sit right next to an identifier, besides one
+# space. Anything else adjacent keeps the whole read.
+EDGE_PUNCTUATION = frozenset(":,.;()[]/")
+
+
+def _note_letter(char: str) -> bool:
+    """A letter that may start a label or note after one space: any Unicode
+    letter whose compatibility form holds no digit."""
+
+    return unicodedata.category(char).startswith("L") and not any(
+        part.isdigit() for part in unicodedata.normalize("NFKC", char)
+    )
+
+
+def _edge_clean(side: str) -> bool:
+    """Whether the text next to a candidate, nearest character first, ends it.
+    Clean is the string boundary, an EDGE_PUNCTUATION character, or one space
+    of any kind (Unicode Zs, so a PDF's no-break space counts) followed by the string boundary, an EDGE_PUNCTUATION character or a
+    letter. Every other neighbor keeps the read whole."""
+
+    if not side or side[0] in EDGE_PUNCTUATION:
+        return True
+    if unicodedata.category(side[0]) != "Zs":
+        return False
+    return len(side) == 1 or side[1] in EDGE_PUNCTUATION or _note_letter(side[1])
+
+
+def _isolated(value: str, match: re.Match[str]) -> str:
+    """The matched token when both of its edges are clean and the pattern does
+    not match again later in the read, otherwise the read. A second identifier
+    anywhere after the first, whatever separates them, keeps the read whole.
+    The token itself is returned exactly as printed."""
+
+    if match.re.search(value, match.end()) is not None:
+        return value
+    before = value[: match.start()][::-1]
+    after = value[match.end() :]
+    if _edge_clean(before) and _edge_clean(after):
+        return match.group(0)
+    return value
+
+
+def printed_rnc(value: str) -> str:
+    """The RNC or cédula as printed, without label or note text around it.
+    The token is the first 9 or 11 digit number with its printed dashes or
+    spaces. Each edge must be the string boundary, one of ": , . ; ( ) [ ] /",
+    or one space (any Unicode Zs, such as a no-break space) followed by the boundary, one of those characters or a
+    letter. So
+    "RNC 1-23-45678-9 (ficticio)" gives "1-23-45678-9", and a read whose number
+    runs on ("1 131000002", "131000002 9", "131000002ñ") or has no such number
+    is returned unchanged."""
+
+    match = _PRINTED_RNC.search(value)
+    return value if match is None else _isolated(value, match)
+
+
+def printed_ncf(value: str) -> str:
+    """The NCF or e-CF number as printed, without label or note text around it.
+    Same edge rule as printed_rnc. Characters are never padded, fixed or
+    recased; a read with no clean B or E series token stays unchanged."""
+
+    match = _PRINTED_NCF.search(value)
+    return value if match is None else _isolated(value, match)
 
 
 def identity_digits(value: str | None) -> str | None:

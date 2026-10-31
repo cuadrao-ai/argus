@@ -20,11 +20,14 @@ import {
   fiscalNumberPresent,
   formatMonthLabel,
   itbisBalanceDisplay,
+  joinCurrencyList,
   loadCurrentMonth,
   monthCloseBlockers,
   monthCloseClient,
   MonthCloseError,
+  monthCloseHasPendingRate,
   monthCloseNetDisplay,
+  monthClosePendingRateCurrencies,
   monthPickerMonths,
   oneTapPaymentMethod,
   openItemsHeaderCurrency,
@@ -1106,6 +1109,11 @@ function BusinessMonthCloseContent({
 
   /** "Para cerrar <mes>": the steps left before the month can close, and the close itself. */
   function checklistCard() {
+    const ratePending = monthCloseHasPendingRate(blocks);
+    const rateCodes = monthClosePendingRateCurrencies(blocks);
+    const rateLine = rateCodes.length > 0
+      ? t("business.month_close.checklist_rate", { codes: joinCurrencyList(rateCodes, t("business.month_close.list_and", "and")), defaultValue: "Amounts in {{codes}} pending a rate are not included in the 606/607." })
+      : t("business.month_close.checklist_rate_plain", "Foreign-currency amounts pending a rate are not included in the 606/607.");
     return (
             <section aria-labelledby="month-close-checklist-title" data-testid="month-close-checklist" className={`${cardClass} flex flex-col ${finance ? "h-full" : WIDE.left}`}>
               <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -1119,10 +1127,15 @@ function BusinessMonthCloseContent({
               {knownReview?.reading ? <p className="mt-3 flex items-center gap-2 text-[14px] text-[#735c14] dark:text-[#f6e7c1]" data-testid="month-close-reading"><Clock className="h-4 w-4 shrink-0" aria-hidden="true" />{t("business.overview.reading", { count: knownReview.reading })}</p> : null}
               {unreviewedLine ? <p data-testid="month-close-unreviewed" className="mt-3 text-[14px] text-[#56635e] dark:text-white/70">{unreviewedLine}</p> : null}
               {tasks.length === 0 && receiptsReviewed && !unreviewedLine ? (
-                <p className="mt-3 flex items-center gap-2 text-[16px] text-[var(--cuadrao-green)]" data-testid="month-close-checklist-ready">
-                  <CircleCheck className="h-5 w-5 shrink-0" aria-hidden="true" />
-                  {t("business.month_close.checklist_ready", { month: monthName, defaultValue: "Everything is ready to close {{month}}." })}
-                </p>
+                <>
+                  <p className="mt-3 flex items-center gap-2 text-[16px] text-[var(--cuadrao-green)]" data-testid="month-close-checklist-ready">
+                    <CircleCheck className="h-5 w-5 shrink-0" aria-hidden="true" />
+                    {ratePending
+                      ? t("business.month_close.checklist_can_close", { month: monthName, defaultValue: "You can close {{month}}." })
+                      : t("business.month_close.checklist_ready", { month: monthName, defaultValue: "Everything is ready to close {{month}}." })}
+                  </p>
+                  {ratePending ? <p data-testid="month-close-checklist-rate" className="mt-1 text-[14px] text-[#56635e] dark:text-white/70">{rateLine}</p> : null}
+                </>
               ) : tasks.length === 0 && !knownReview?.reading && !unreviewedLine ? (
                 <p data-testid="month-close-checklist-unknown" aria-label={t("business.month_close.figure_unknown", "Can't be calculated yet.")} className="mt-3 text-[16px] text-[#56635e] dark:text-white/70">
                   {UNKNOWN_VALUE}
@@ -1211,6 +1224,27 @@ function BusinessMonthCloseContent({
     itbis.state !== "pending" ? itbis.value : null,
   ].filter((value): value is string => Boolean(value));
   const manyCurrencies = currencies.length > 1 && shownCurrency !== null;
+  function netDetail(): ReactNode | undefined {
+    if (net.state !== "pending") return undefined;
+    if (net.reason === "documents") {
+      return manyCurrencies && shownCurrency
+        ? t("business.month_close.net_waits_in", { count: net.pending_count, currency: currencySymbol(shownCurrency), defaultValue: "{{count}} documents in {{currency}} left to mark" })
+        : t("business.month_close.net_waits", { count: net.pending_count, defaultValue: "{{count}} documents left to mark" });
+    }
+    if (net.reason === "pending_rate") {
+      const codes = monthClosePendingRateCurrencies(blocks);
+      const named = codes.length > 0
+        ? t("business.month_close.net_pending_rate", { codes: joinCurrencyList(codes, t("business.month_close.list_and", "and")), defaultValue: "Foreign currency: exchange rate pending in {{codes}}" })
+        : t("business.month_close.net_pending_rate_plain", "Foreign currency: exchange rate pending");
+      return (
+        <>
+          <span className="block">{named}</span>
+          <span className="block">{t("business.month_close.net_pending_rate_aside", "These amounts are not included in the result.")}</span>
+        </>
+      );
+    }
+    return t("business.month_close.figure_unknown", "Can't be calculated yet.");
+  }
 
   if (finance) {
     // Finanzas: the month switcher heads the group it controls (the month's figures and its close steps), once on every
@@ -1233,7 +1267,7 @@ function BusinessMonthCloseContent({
         <div className="grid grid-cols-2 gap-x-4 gap-y-5">
           {figure("month-close-income", t("business.month_close.income_label", "Income"), figures.income.state, figures.income.value, figures.income.state === "pending" ? t("business.month_close.figure_unknown", "Can't be calculated yet.") : undefined)}
           {figure("month-close-expenses", t("business.month_close.expense_label", "Expenses"), figures.expenses.state, figures.expenses.value, figures.expenses.state === "pending" ? t("business.month_close.figure_unknown", "Can't be calculated yet.") : undefined)}
-          {figure("month-close-net", t("business.month_close.net_label", "Net result"), net.state, net.state === "final" ? net.net_before_itbis : "", net.state === "pending" ? net.reason === "documents" ? manyCurrencies ? t("business.month_close.net_waits_in", { count: net.pending_count, currency: currencySymbol(shownCurrency), defaultValue: "{{count}} documents in {{currency}} left to mark" }) : t("business.month_close.net_waits", { count: net.pending_count, defaultValue: "{{count}} documents left to mark" }) : t("business.month_close.figure_unknown", "Can't be calculated yet.") : undefined)}
+          {figure("month-close-net", t("business.month_close.net_label", "Net result"), net.state, net.state === "final" ? net.net_before_itbis : "", netDetail())}
           {figure("month-close-itbis", itbis.credit ? t("business.month_close.itbis_credit_label", "ITBIS balance in your favor") : t("business.month_close.itbis_label", "ITBIS to pay"), itbis.state, itbis.value, itbis.state === "pending" ? t("business.month_close.figure_unknown", "Can't be calculated yet.") : <>{t("business.month_close.itbis_cobrado", "ITBIS collected")} <span data-testid="month-close-itbis-cobrado" className="cuadrao-amount tabular-nums">{shown?.itbis_cobrado && shownCurrency ? formatMoney(shown.itbis_cobrado, shownCurrency, locale) : UNKNOWN_VALUE}</span></>)}
         </div>
       </section>
@@ -1395,13 +1429,7 @@ function BusinessMonthCloseContent({
               t("business.month_close.net_label", "Net result"),
               net.state,
               net.state === "final" ? net.net_before_itbis : "",
-              net.state === "pending"
-                ? net.reason === "documents"
-                  ? manyCurrencies
-                    ? t("business.month_close.net_waits_in", { count: net.pending_count, currency: currencySymbol(shownCurrency), defaultValue: "{{count}} documents in {{currency}} left to mark" })
-                    : t("business.month_close.net_waits", { count: net.pending_count, defaultValue: "{{count}} documents left to mark" })
-                  : t("business.month_close.figure_unknown", "Can't be calculated yet.")
-                : undefined,
+              netDetail(),
             )}
             {figure(
               "month-close-itbis",
