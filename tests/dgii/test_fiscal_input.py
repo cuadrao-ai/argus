@@ -1,6 +1,8 @@
 """The fiscal form sends identifiers as a person keys them or a read kept them.
-The server normalizes once, at the contract boundary: spaces and dashes go,
-letters become upper case, and only then does the identifier shape apply."""
+The server normalizes once, at the contract boundary: the dashes and spaces
+printed between digit groups go, a to z become upper case, and only then does
+the identifier shape apply. Nothing else is folded: a letter that upper-cases
+to two, and words typed into the field, are refused as they always were."""
 
 import pytest
 from argus.domain.business.contracts.dgii import FiscalInput, PurchaseDeclaration
@@ -23,7 +25,11 @@ def test_rnc_keeps_its_digits_without_dashes_or_spaces(printed, stored):
 
 @pytest.mark.parametrize(
     ("printed", "stored"),
-    [("b0100000001", "B0100000001"), (" e310000000001 ", "E310000000001")],
+    [
+        ("b0100000001", "B0100000001"),
+        (" e310000000001 ", "E310000000001"),
+        ("B01 00000001", "B0100000001"),
+    ],
 )
 def test_ncf_is_trimmed_and_upper_cased(printed, stored):
     assert FiscalInput(rnc=None, ncf=printed, itbis=None).ncf == stored
@@ -39,7 +45,24 @@ def test_ncf_is_trimmed_and_upper_cased(printed, stored):
     assert declared.modified_ncf == stored
 
 
-@pytest.mark.parametrize("value", ["1.23.456", "RNC: 123456789", "", "-"])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "1.23.456",
+        "RNC: 123456789",
+        "",
+        "-",
+        # Words a person types in place of a number stay refused: the space
+        # sits between letters, not digits.
+        "no tiene",
+        "rnc 1-23-45678-9",
+        "ab-123",
+        # Letters that str.upper() would fold into other letters.
+        "ß1",
+        "ﬁ1",
+        "ı1",
+    ],
+)
 def test_anything_else_is_still_refused(value):
     with pytest.raises(ValidationError):
         FiscalInput(rnc=value, ncf=None, itbis=None)
