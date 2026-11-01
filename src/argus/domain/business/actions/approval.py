@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 from loguru import logger
 from psycopg.errors import UniqueViolation
 from psycopg.types.json import Jsonb
+from pydantic import TypeAdapter
 
 from argus.domain.business.actions import dossier, mutations, plans
 from argus.domain.business.actions.facts import facts_of, validate_facts
@@ -34,7 +35,7 @@ from argus.domain.business.contracts.actions import (
     RefundApprovalCommand,
     Refused,
 )
-from argus.domain.business.contracts.dgii import PurchaseDeclaration
+from argus.domain.business.contracts.dgii import DgiiDeclaration, PurchaseDeclaration
 from argus.domain.business.contracts.facts import (
     BusinessAccountFunding,
     BusinessFacts,
@@ -115,16 +116,19 @@ def _money_request(
 
 
 def _approval_declaration(
-    tx: ActionTransaction, event: ImportEvent, facts: BusinessFacts, stale: bool
+    tx: ActionTransaction,
+    event: ImportEvent,
+    facts: BusinessFacts,
+    failed: dict | None,
 ) -> PurchaseDeclaration | None:
     """The 606 declaration an expense approval writes from its stored facts.
 
-    None when the draft holds a declaration a person saved: theirs wins. A
-    ``stale`` one, left by an approval whose money write failed, is rebuilt.
+    A declaration a person saved stays theirs: only the Tipo Id and Forma de
+    Pago it left unknown are filled in. None when there is nothing to write.
+    After a ``failed`` approval whose revision was never undone, the person's
+    declaration is the one before that revision, and it is written back.
     """
 
-    if (event.resolution.get("business") or {}).get("dgii") and not stale:
-        return None
     if not isinstance(facts.kind, Known) or facts.kind.value != "expense":
         return None
     funding = facts.funding.value
@@ -137,44 +141,73 @@ def _approval_declaration(
             if account.id == funding.account_id
         )
     )
-    return declaration_from_facts(facts, paid_from)
+    built = declaration_from_facts(facts, paid_from)
+    saved = (
+        failed["before_dgii"]
+        if failed is not None
+        else (event.resolution.get("business") or {}).get("dgii")
+    )
+    if not saved:
+        return built
+    current = _declaration(saved)
+    if built is None or not isinstance(current, PurchaseDeclaration):
+        return current if failed is not None else None
+    filled = current.model_copy(
+        update={
+            name: getattr(built, name)
+            for name in ("id_type", "payment_method")
+            if getattr(current, name) is None
+        }
+    )
+    if failed is None and filled == current:
+        return None
+    return filled
 
 
-def _failed_approval_declaration(tx: ActionTransaction, event: ImportEvent) -> bool:
-    """Whether an open draft's declaration is the one its last approval built.
+def _declaration(stored: dict) -> DgiiDeclaration:
+    return TypeAdapter(DgiiDeclaration).validate_python(stored)
 
-    That approval wrote it as the revision at the version its claim took
-    (request version + 1); a person's saved declaration is never there.
+
+def _failed_approval_revision(tx: ActionTransaction, event: ImportEvent) -> dict | None:
+    """The revision the last approval wrote on this open draft, while it is
+    still the draft's declaration: that approval's money write failed and
+    its revision was never undone. None otherwise.
+
+    The approval writes its revision at the version its claim took (request
+    version + 1); a person's saved declaration is never there.
     """
 
     dgii = (event.resolution.get("business") or {}).get("dgii")
     pointer = event.resolution.get("approval_receipt")
     if event.state != "open" or not dgii or not pointer:
-        return False
+        return None
     built = tx.rows(
-        "select r.after_dgii from public.business_action_receipts a"
+        "select r.before_dgii,r.after_dgii from public.business_action_receipts a"
         " join public.business_draft_revisions r on r.space_id=a.space_id"
         " and r.draft_id=%s and r.version=(a.command->'request'->>'version')::integer+1"
         " where a.space_id=%s and a.actor_id::text=%s and a.idempotency_key=%s",
         (event.id, tx.context.actor.space_id, pointer["actor_id"], pointer["key"]),
     )
-    return bool(built) and built[0]["after_dgii"] == dgii
+    return built[0] if built and built[0]["after_dgii"] == dgii else None
 
 
 def _clear_approval_declaration(
     service: BusinessActions, context: ActionContext, draft_id: UUID
 ) -> None:
-    """Clear, on the reopened draft, the declaration a failed approval built.
+    """Undo, on the reopened draft, the revision a failed approval wrote: the
+    declaration goes back to the one the person had saved, or to none.
 
-    A failure here leaves it for the next approval to rebuild and never stops
+    A failure here leaves it for the next approval to undo and never stops
     the refusal from being stored.
     """
 
     try:
         with transaction(service.authority, context, "approve") as tx:
             event = tx.imports.event(str(draft_id))
-            if not _failed_approval_declaration(tx, event):
+            failed = _failed_approval_revision(tx, event)
+            if failed is None:
                 return
+            before = failed["before_dgii"]
             facts = facts_of(event)
             mutations.save_revision(
                 tx,
@@ -188,7 +221,8 @@ def _clear_approval_declaration(
                 (),
                 tx.authorization.provenance,
                 None,
-                clear_dgii=True,
+                dgii=_declaration(before) if before else None,
+                clear_dgii=not before,
             )
     except ActionError as error:
         logger.warning("business.approval_declaration_not_cleared code={}", error.code)
@@ -304,7 +338,7 @@ def approve(
                         )
                     except ActionError as error:
                         return plans.finish_receipt(tx, key, error.result)
-                    stale = _failed_approval_declaration(tx, event)
+                    failed = _failed_approval_revision(tx, event)
                     claim_key = hashlib.sha256(
                         f"{context.actor.actor_id}:{key}".encode()
                     ).hexdigest()
@@ -323,8 +357,8 @@ def approve(
                             },
                         },
                     )
-                    declared = _approval_declaration(tx, event, facts, stale)
-                    if declared is None and not stale:
+                    declared = _approval_declaration(tx, event, facts, failed)
+                    if declared is None and failed is None:
                         tx.imports.put_event(event)
                     else:
                         # Revisions are immutable, so the declaration is the
