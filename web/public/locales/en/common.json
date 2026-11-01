@@ -2934,6 +2934,8 @@
         "doubtful_read": "check this",
         "zoom_in": "Zoom in",
         "zoom_out": "Zoom out",
+        "done_title": "No receipts left to review",
+        "done_back": "Back to Inbox",
         "save_first": "Save or cancel {{fields}} to approve.",
         "group_identity": "Identification",
         "group_amounts": "Amounts",

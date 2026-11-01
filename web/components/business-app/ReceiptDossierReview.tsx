@@ -28,6 +28,7 @@ import ReceiptFactEditor from "./ReceiptFactEditor";
 import ReceiptOwnerChoices from "./ReceiptOwnerChoices";
 import ReceiptRowSave from "./ReceiptRowSave";
 import ReceiptEditRow, { type RowShown } from "./ReceiptEditRow";
+import ReceiptReviewDone from "./ReceiptReviewDone";
 import { READ_FACT_ROWS, type ReviewRow } from "./receipt-fact-rows";
 import { useReviewAutosave, useReviewRows, type SaveRow } from "./receipt-review-save";
 import { dossierAttention } from "./dossier-attention";
@@ -41,7 +42,7 @@ import ReceiptReviewFooter, { KEY_HINT_CLASS, ReceiptMoreMenu, usePrimaryKeys } 
 import { formatMoney, UNKNOWN_VALUE } from "./business-format";
 import { receiptCurrencyOptions } from "./receipt-currencies";
 import { useReceiptStateWord } from "./receipt-state-word";
-import { handTitleFocus, nextBandejaReceipt } from "./bandeja-order";
+import { bandejaReceipts, handTitleFocus, nextBandejaReceipt } from "./bandeja-order";
 import { primaryButtonClass, secondaryButtonClass, StatusPill } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { ContentFade, Settle } from "./business-skeletons";
@@ -177,6 +178,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const [settling, setSettling] = useState(false);
   const [duplicateBusy, setDuplicateBusy] = useState(false);
   const [advancing, setAdvancing] = useState(false);
+  const [finished, setFinished] = useState(false);
   const [fiscalBusy, setFiscalBusy] = useState(false);
   const [fiscalDirty, setFiscalDirty] = useState(false);
   const [duplicate, setDuplicate] = useState<{ recordId: string | null } | null>(null);
@@ -346,7 +348,9 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
       if (!pageOpen.current) return;
       const next = fresh ? nextBandejaReceipt(receipt.id, seen, fresh) : null;
       if (next) handTitleFocus(next);
-      openPanel(next ? { kind: "receipt", receiptId: next } : { kind: "inbox" });
+      // Past the last row the Bandeja lists anything skipped; with nothing left, the run is finished.
+      if (!next && fresh && !bandejaReceipts(fresh).some((item) => item.id !== receipt.id)) setFinished(true);
+      else openPanel(next ? { kind: "receipt", receiptId: next } : { kind: "inbox" });
     } finally {
       setAdvancing(false);
     }
@@ -363,6 +367,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
     </section>{captureDialog}</>
   );
   if (!dossier) return <>{captureRecovery}<Settle pending layout="detail" />{captureDialog}</>;
+  if (finished) return <ReceiptReviewDone onBack={() => openPanel({ kind: "inbox" })} />;
 
   const accounts = dossier.accounts;
   const amount = dossier.facts.amount.state === "known" ? dossier.facts.amount.value : null;

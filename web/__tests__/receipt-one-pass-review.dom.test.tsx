@@ -423,6 +423,18 @@ describe("the receipt dossier on an open draft", () => {
     } finally { await page.close(); }
   });
 
+  test("Tab walks the six facts in reading order, and a saved row hands Tab on from itself", async () => {
+    const page = await setup();
+    try {
+      const stops = [...page.host.querySelectorAll<HTMLElement>('[data-testid="receipt-facts-activity"] button, [data-testid="receipt-facts-fiscal"] button')].filter((item) => item.closest("[data-fact]") && item.tabIndex === 0).map((item) => item.closest<HTMLElement>("[data-fact]")!.dataset.fact);
+      assert.deepEqual(stops.filter((fact) => fact !== "document_type"), ["counterparty", "occurred_on", "amount", "rnc", "fiscal_number", "itbis"]);
+      await page.openRow("counterparty");
+      await fill(page, '[data-testid="edit-counterparty"] input', "Ferretería Norte");
+      await page.press('[data-testid="edit-counterparty"] input', "Enter");
+      await page.wait(() => document.activeElement === page.row("counterparty").querySelector("button"));
+    } finally { await page.close(); }
+  });
+
   test("Corregir on a flagged value opens that value's row", async () => {
     const page = await setup("fiscal", (dossier) => { dossier.review_flags = [{ code: "ncf_malformed", field: "ncf", confirm: true }]; });
     try {

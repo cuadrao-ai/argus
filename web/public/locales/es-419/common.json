@@ -2934,6 +2934,8 @@
         "doubtful_read": "revisar",
         "zoom_in": "Acercar",
         "zoom_out": "Alejar",
+        "done_title": "No quedan recibos por revisar",
+        "done_back": "Volver a la Bandeja",
         "save_first": "Guarda o cancela {{fields}} para aprobar.",
         "group_identity": "Identificación",
         "group_amounts": "Montos",

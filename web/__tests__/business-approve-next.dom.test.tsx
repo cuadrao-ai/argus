@@ -289,14 +289,17 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     await page.act(async () => page.root.unmount());
   });
 
-  test("approving the last receipt waiting returns to the Bandeja and its empty state", async () => {
+  test("approving the last receipt waiting shows the done state, with a way back to the Bandeja", async () => {
     const page = await mount();
     await page.open("rcpt-uno");
     await page.click("Aprobar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-dos");
     await page.settle(() => page.button("Aprobar y siguiente") !== null);
     await page.click("Aprobar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-tres");
     await page.settle(() => page.button("Aprobar y siguiente") !== null);
-    await page.click("Aprobar y siguiente", () => page.panel().kind === "inbox" && page.host.querySelector("#reception-tab-review")?.textContent === "Por revisar0");
+    await page.click("Aprobar y siguiente", () => page.host.querySelector('[data-testid="receipt-review-done"]') !== null);
+    assert.ok(page.host.querySelector('[data-testid="receipt-review-done"]')?.textContent?.includes("No quedan recibos por revisar"));
+    assert.ok(document.activeElement?.contains(page.host.querySelector('[data-testid="receipt-review-done"]')), "focus lands on the done state");
+    await page.click("Volver a la Bandeja", () => page.panel().kind === "inbox" && page.host.querySelector("#reception-tab-review")?.textContent === "Por revisar0");
     assert.deepEqual(page.panel(), { kind: "inbox" });
     assert.deepEqual(receptionRows(page.host).map(rowState), ["Aprobado", "Aprobado", "Aprobado"], "every receipt is recorded once the server confirms it");
     assert.equal(page.badge(), null, "the badge shows no number once the server counts nothing waiting");
