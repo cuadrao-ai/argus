@@ -91,6 +91,7 @@ The error body is the usual problem document. `code` is the field above.
   ],
   "missing_rnc": [],
   "missing_ncf": [],
+  "missing_payment_form": [],
   "cuentas_por_cobrar": [],
   "cuentas_por_pagar": []
 }
@@ -106,6 +107,7 @@ The sample minors are illustrative. Each currency the month actually contains is
 | `dgii_forms` | One status word per form, `606` and `607`, from the same summary the export packet writes for this calendar month, with today as the capture day. The words are the packet's own: `no_aplica` (the Business has no RNC), `needs_review` (an issue blocks the form, including a month that has not ended), `summary_only` (607 with only consumption sales under the detail threshold), `no_operations` (nothing to report), `prepared_candidate` (the packet writes the TXT file). Only `prepared_candidate` means the ZIP carries that form. A document in a currency other than DOP is a `needs_review` issue, never a line. |
 | `closed` | True when every business document in the month has an RNC and a fiscal number that normalizes, or is sin comprobante. A blank number and a number that is not a B-series or E-series value both use `missing_ncf`. |
 | `reasons` | Why `closed` is false. `missing_rnc` or `missing_ncf`, with the activity. |
+| `missing_payment_form` | Purchases the 606 holds until a person sets Forma de Pago, marked paid or not, each with `payment_form` null. Forma de Pago is never defaulted. This list adds no `reasons` code, so it does not read into `closed`; `dgii_forms` carries the 606 status. |
 | `income_before_itbis_minor` | Sales lines that would go on the 607, plus sin comprobante sales. Every document counts in its own currency's block. Only the 606 and 607 files and `dgii_forms` are DOP-only (`argus.domain.business.dgii_validation.declarable`, the one gate the export and month close share). The line is the 607 Monto Facturado when the draft declares it, and the activity total minus ITBIS when it does not. A credit note subtracts. An e-CF sale is not a 607 line. |
 | `expense_before_itbis_minor` | Purchase lines that would go on the 606, total minus ITBIS, plus sin comprobante purchases at their whole total. |
 | `itbis_cobrado_minor` | The part of `itbis_charged_minor` that belongs to sales already marked `cobrado`. A credit note marked cobrado subtracts. |

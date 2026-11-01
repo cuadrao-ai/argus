@@ -3739,6 +3739,18 @@ a claim of one cross-service SQL transaction. Owner funds creates one expense
 without a Business bank debit and leaves capital/debt classification unresolved.
 Post-recording correction is unsupported in this slice.
 
+Migration `20261101020000_business_records_with_no_funding.sql` replaces
+`financial_records_funding_shape`. A row with no account still needs
+`owner_space_id` and `currency`. It is now an expense with `funding` `owner_funds`
+or null, or an income with `funding` null. Null means nobody stated how it was
+paid, and no word stands for it. Every other kind keeps its account. Every row the
+old check admits passes this one. The migration uses five-second lock and 60-second
+statement timeouts, and it scans the table under the lock. `owner_funds_postgres.load`
+is the one reader of `account_id is null` rows, and the canonical group loader
+skips them. An API from before this change loads no null-funding row: the row
+stays stored and leaves every read until the API rolls forward, so the loader
+ships with or before the first such approval.
+
 Migration `20261011110000_business_income_command.sql` extends the current
 `business_action_receipts_unplanned_command` constraint supplied by manual
 capture migration `20261011070000_business_manual_capture_command.sql`. It keeps
