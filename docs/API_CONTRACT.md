@@ -9186,6 +9186,7 @@ A receipt is `listo` only when the server confirms all of these, in this order:
 | A valid NCF or e-CF | `missing_ncf`; `invalid_ncf`; `ecf_check_failed` for a failed check on the e-CF or its QR, or a file that names an e-CF the record does not hold |
 | ITBIS | `missing_itbis` |
 | DOP | `foreign_currency` |
+| Not marked Personal | `personal` |
 | No review flag | `review_flag`, for a warning such as `itbis_high` |
 | Nothing else blocks approval | `blocked`, such as an open question |
 | A verified sender, if it came by email | `unverified_sender` |
