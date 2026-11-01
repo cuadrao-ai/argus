@@ -28,6 +28,7 @@ from argus.domain.business.contracts.dgii import (
     FiscalReview,
     PurchaseDeclaration,
     PurchaseReview,
+    SalePaymentSplit,
 )
 from argus.domain.business.contracts.facts import (
     BusinessFactPatch,
@@ -191,13 +192,14 @@ def revise(
     answer_id: UUID | None = None,
     fiscal_review: FiscalReview | None = None,
     purchase: PurchaseReview | None = None,
+    payment_split: SalePaymentSplit | None = None,
     document_type: DocumentType | None = None,
     due_on: DueOnInput | None = None,
 ) -> Applied:
     sources.require_sources(tx, source_ids)
     now = datetime.now(timezone.utc)
     declaration_only = (
-        purchase is not None
+        (purchase is not None or payment_split is not None)
         and patch is None
         and fiscal_review is None
         and document_type is None
@@ -265,10 +267,7 @@ def revise(
             takes_purchase_declaration,
         )
 
-        current = declared
-        if current is None and not retyped:
-            raw = (event.resolution.get("business") or {}).get("dgii")
-            current = TypeAdapter(DgiiDeclaration).validate_python(raw) if raw else None
+        current = declared or _stored_declaration(event, retyped)
         if not takes_purchase_declaration(after, current):
             raise ActionError("invalid_input", "fiscal_direction_unsupported")
         amount = after.amount.value if isinstance(after.amount, Known) else None
@@ -290,6 +289,16 @@ def revise(
             )
         ):
             raise ActionError("invalid_input", "recorded_correction_unsupported")
+    if payment_split is not None:
+        from argus.domain.business.purchase_review import (
+            apply_payment_split,
+            takes_payment_split,
+        )
+
+        current = declared or _stored_declaration(event, retyped)
+        if not takes_payment_split(after, current):
+            raise ActionError("invalid_input", "fiscal_direction_unsupported")
+        declared = apply_payment_split(current, payment_split)
     return save_revision(
         tx,
         event,
@@ -304,6 +313,15 @@ def revise(
         document_type=document_type,
         due_on=due_on,
     )
+
+
+def _stored_declaration(event: ImportEvent, retyped: bool) -> DgiiDeclaration | None:
+    """The draft's saved declaration. One filled under another type is gone."""
+
+    raw = (event.resolution.get("business") or {}).get("dgii")
+    if retyped or not raw:
+        return None
+    return TypeAdapter(DgiiDeclaration).validate_python(raw)
 
 
 def _open_for_type(tx: ActionTransaction, ref: ExistingDraft) -> ImportEvent:

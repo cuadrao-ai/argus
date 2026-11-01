@@ -3,7 +3,11 @@ from __future__ import annotations
 from uuid import UUID
 
 from argus.domain.business.authority import ActionError
-from argus.domain.business.contracts.dgii import FiscalReview, PurchaseDeclaration
+from argus.domain.business.contracts.dgii import (
+    ExpenseType,
+    FiscalReview,
+    PurchaseDeclaration,
+)
 from argus.domain.business.contracts.facts import (
     BusinessFacts,
     BusinessResolution,
@@ -51,6 +55,32 @@ def require_unexported(tx, event) -> None:
 
     if exported_line(tx, event):
         raise ActionError("invalid_input", "fiscal_declaration_exported")
+
+
+def remembered_expense_type(tx, draft_id) -> ExpenseType | None:
+    """The tipo de gasto a person last chose for this draft's RNC in this
+    Business. The only reader of that memory. Nothing stores it: it reaches the
+    606 only when a person writes it on the draft."""
+
+    rows = tx.rows(
+        "select other.resolution->'business'->'dgii'->>'category' as category"
+        " from public.financial_import_events me"
+        " join public.financial_import_events other"
+        " on other.owner_space_id=me.owner_space_id and other.business_rnc=me.business_rnc"
+        " join lateral ("
+        "   select max(r.created_at) as chosen_at from public.business_draft_revisions r"
+        "   where r.space_id=other.owner_space_id and r.draft_id=other.id"
+        "   and (r.after_dgii->>'category') is distinct from (r.before_dgii->>'category')"
+        " ) choice on true"
+        " where me.id=%s and me.owner_space_id=%s and other.id<>me.id"
+        " and other.state in ('open','accepting','accepted')"
+        " and other.resolution->'business'->'dgii'->>'form'='606'"
+        " and other.resolution->'business'->'dgii'->>'category' is not null"
+        " and other.resolution->'business'->'dgii'->>'category_suggested' is distinct from 'true'"
+        " order by choice.chosen_at desc nulls last,other.id limit 1",
+        (draft_id, tx.context.actor.space_id),
+    )
+    return rows[0]["category"] if rows else None
 
 
 # The database's copy of the rules below: one accepting or accepted sale per

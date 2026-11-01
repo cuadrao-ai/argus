@@ -18,7 +18,7 @@ from pydantic import (
 from argus.domain.business.document_type import DocumentType
 
 from .authority import ActorProvenance
-from .dgii import FiscalReview, PurchaseReview
+from .dgii import FiscalReview, Money, PurchaseReview, SalePaymentSplit
 from .facts import (
     BusinessFactPatch,
     BusinessShare,
@@ -147,6 +147,8 @@ class ReviewDraft(Contract):
     #: The 606 fields a person confirms; absent ones stay as they were. Here
     #: and not on the facts patch, which the interpreter fills.
     purchase: PurchaseReview | None = None
+    #: The 607 payment split a person writes on a sale; absent buckets stay.
+    payment_split: SalePaymentSplit | None = None
     #: Sets the uploaded document's type while the draft is open.
     document_type: DocumentType | None = None
     #: Sets the due date, or takes it back to unknown, while the draft is open.
@@ -158,12 +160,13 @@ class ReviewDraft(Contract):
             self.facts is None
             and self.dgii is None
             and self.purchase is None
+            and self.payment_split is None
             and self.document_type is None
             and self.due_on is None
         ):
             raise ValueError(
-                "supply review facts, a fiscal declaration, 606 fields,"
-                " a document type or a due date"
+                "supply review facts, a fiscal declaration, 606 fields, a 607"
+                " payment split, a document type or a due date"
             )
         return self
 

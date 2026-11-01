@@ -16748,6 +16748,7 @@ components:
             - ecf_check_failed
             - missing_itbis
             - foreign_currency
+            - personal
             - review_flag
             - blocked
             - unverified_sender
@@ -17922,6 +17923,25 @@ components:
         declaration_editable:
           type: boolean
           default: false
+        expense_type_suggestion:
+          anyOf:
+          - type: string
+            enum:
+            - '01'
+            - '02'
+            - '03'
+            - '04'
+            - '05'
+            - '06'
+            - '07'
+            - 08
+            - 09
+            - '10'
+            - '11'
+          - type: 'null'
+        payment_split_editable:
+          type: boolean
+          default: false
         due_on:
           anyOf:
           - type: string
@@ -18638,6 +18658,10 @@ components:
             enum:
             - recibo
             - venta
+          - type: 'null'
+        purchase:
+          anyOf:
+          - $ref: '#/components/schemas/TypedPurchase'
           - type: 'null'
       additionalProperties: false
       type: object
@@ -31951,6 +31975,10 @@ components:
           anyOf:
           - $ref: '#/components/schemas/PurchaseReview'
           - type: 'null'
+        payment_split:
+          anyOf:
+          - $ref: '#/components/schemas/SalePaymentSplit'
+          - type: 'null'
         document_type:
           anyOf:
           - type: string
@@ -32144,6 +32172,48 @@ components:
             format: date
           - type: 'null'
       type: object
+    SalePaymentSplit:
+      properties:
+        cash:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        bank:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        card:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        credit:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        gift:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        barter:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        other_payment:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      description: 'The 607 payment split a person writes on a sale, before or after
+
+        approval. Absent fields stay as they were.'
     SalesDeclaration:
       properties:
         id_type:
@@ -33883,6 +33953,23 @@ components:
       - id
       - space_id
       - status
+    TypedPurchase:
+      properties:
+        amount:
+          type: string
+          pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+        occurred_on:
+          type: string
+          format: date
+      additionalProperties: false
+      type: object
+      required:
+      - amount
+      - occurred_on
+      description: 'What a person types for a purchase with no paper. The note''s text is
+        its
+
+        supplier or description.'
     UnboundedAllowance:
       properties:
         hour:

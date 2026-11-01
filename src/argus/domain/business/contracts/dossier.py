@@ -12,7 +12,7 @@ from argus.domain.business.document_type import DocumentType
 from .actions import ApprovalAction
 from .authority import ActorProvenance, Capability
 from .checks import DgiiQr, EcfVerification
-from .dgii import DgiiDeclaration
+from .dgii import DgiiDeclaration, ExpenseType
 from .facts import BusinessFacts, Contract, FactField, ReadPurchase
 
 
@@ -227,6 +227,13 @@ class BusinessDossier(RecordContext):
     #: The caller may write the 606 declaration now: open, or approved and
     #: not yet carried by a downloaded DGII TXT, and the caller holds prepare.
     declaration_editable: bool = False
+    #: The tipo de gasto a person last chose for this RNC in this Business,
+    #: while this draft has no choice of its own and takes one. A suggestion:
+    #: it is stored only when a person writes it.
+    expense_type_suggestion: ExpenseType | None = None
+    #: The caller may write the 607 payment split now, on the same terms as
+    #: declaration_editable, on a sale.
+    payment_split_editable: bool = False
     #: The due date a person set in review; null while unknown. Never read
     #: from the document or defaulted. Locked with the other facts once approved.
     due_on: date | None = None
@@ -254,6 +261,8 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "annotation_unavailable_reason": True,
     "due_on": True,
     "declaration_editable": True,
+    "expense_type_suggestion": True,
+    "payment_split_editable": True,
     "approval_action": True,
     "fiscal_inclusion_available": True,
     "refund_candidates": True,
@@ -270,9 +279,15 @@ _UNMEASURED_DOSSIER_FIELDS = {
 }
 
 
+_UNMEASURED_REVIEW_INPUT = ("due_on", "payment_split")
+
+
 def _unmeasured_removed(source: dict[str, Any]) -> dict[str, Any]:
-    if source["kind"] != "web_action" or '"due_on"' not in source["text"]:
+    if source["kind"] != "web_action" or not any(
+        f'"{name}"' in source["text"] for name in _UNMEASURED_REVIEW_INPUT
+    ):
         return source
     command = json.loads(source["text"])
-    command.get("request", {}).pop("due_on", None)
+    for name in _UNMEASURED_REVIEW_INPUT:
+        command.get("request", {}).pop(name, None)
     return {**source, "text": web_action_text(command)}

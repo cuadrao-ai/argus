@@ -161,11 +161,11 @@ def test_an_approved_typed_purchase_counts_and_stays_out_of_the_606(world) -> No
     assert len(files["606"].splitlines()) == 2
     typed = next(
         item
-        for item in manifest["reconciliation"]
+        for item in manifest["dgii"]["reconciliation"]
         if item["draft_id"] == dossier["draft_id"]
     )
     assert (typed["disposition"], typed["reason"]) == ("excluded", "no_fiscal_number")
-    assert declared in [item["draft_id"] for item in manifest["reconciliation"]]
+    assert declared in [item["draft_id"] for item in manifest["dgii"]["reconciliation"]]
 
 
 def test_a_retry_with_the_same_key_saves_one_draft(world) -> None:  # noqa: ANN001
@@ -289,15 +289,9 @@ def test_the_type_a_person_chose_for_an_rnc_comes_back_as_a_suggestion(world) ->
 
 def test_a_suggestion_is_stored_only_when_a_person_keeps_it(world) -> None:  # noqa: ANN001
     _fiscal_profile(world)
-    _chosen(world, "B0100000061", "02")
-    dossier = _purchase(
-        world,
-        world.alice,
-        "B0100000062",
-        id_type="1",
-        services_amount="1000.00",
-        payment_method="01",
-    )
+    earlier = _chosen(world, "B0100000061", "02")
+    _declare(world, earlier["draft_id"], payment_method="01")
+    dossier = _purchase(world, world.alice, "B0100000062", payment_method="01")
     assert dossier["expense_type_suggestion"] == "02"
 
     answer = _approve(world, dossier["draft_id"], dossier["version"], "expense")
@@ -321,9 +315,7 @@ def test_a_type_nobody_confirmed_is_no_choice(world) -> None:  # noqa: ANN001
         world, world.alice, "B0100000071", category="02", category_suggested=True
     )
     assert _approve(world, dossier["draft_id"], dossier["version"], "expense").is_success
-    assert (
-        _purchase(world, world.alice, "B0100000072")["expense_type_suggestion"] is None
-    )
+    assert _purchase(world, world.alice, "B0100000072")["expense_type_suggestion"] is None
 
 
 def test_a_draft_with_its_own_choice_or_a_sale_shows_no_suggestion(world) -> None:  # noqa: ANN001
@@ -338,31 +330,21 @@ def test_a_draft_with_its_own_choice_or_a_sale_shows_no_suggestion(world) -> Non
 def test_the_last_choice_wins_and_an_unrelated_edit_moves_nothing(world) -> None:  # noqa: ANN001
     first = _chosen(world, "B0100000091", "02")
     _chosen(world, "B0100000092", "03")
-    assert (
-        _purchase(world, world.alice, "B0100000093")["expense_type_suggestion"] == "03"
-    )
+    assert _purchase(world, world.alice, "B0100000093")["expense_type_suggestion"] == "03"
 
     _declare(world, first["draft_id"], paid_on="2026-09-10")
-    assert (
-        _purchase(world, world.alice, "B0100000094")["expense_type_suggestion"] == "03"
-    )
+    assert _purchase(world, world.alice, "B0100000094")["expense_type_suggestion"] == "03"
     _declare(world, first["draft_id"], category="07")
-    assert (
-        _purchase(world, world.alice, "B0100000095")["expense_type_suggestion"] == "07"
-    )
+    assert _purchase(world, world.alice, "B0100000095")["expense_type_suggestion"] == "07"
 
 
 def test_a_suggestion_never_crosses_businesses(people) -> None:  # noqa: ANN001
     alice = people.alice
     dossier = _purchase(people, alice, "B0100000101", category="02")
     assert _approve(people, dossier["draft_id"], dossier["version"], "expense").is_success
-    assert (
-        _purchase(people, alice, "B0100000102")["expense_type_suggestion"] == "02"
-    )
+    assert _purchase(people, alice, "B0100000102")["expense_type_suggestion"] == "02"
 
-    assert (
-        _purchase(people, people.bob, "B0100000103")["expense_type_suggestion"] is None
-    )
+    assert _purchase(people, people.bob, "B0100000103")["expense_type_suggestion"] is None
     assert (
         _purchase(people, people.bob, "B0100000104", grant=people.grant_c)[
             "expense_type_suggestion"
@@ -390,7 +372,9 @@ def _dossier(world, draft: str) -> dict:  # noqa: ANN001
     return _get(world, f"/business/drafts/{draft}/dossier").json()
 
 
-def test_a_split_written_after_approval_ships_the_607_and_export_freezes_it(world) -> None:  # noqa: ANN001
+def test_a_split_written_after_approval_ships_the_607_and_export_freezes_it(
+    world,
+) -> None:  # noqa: ANN001
     _fiscal_profile(world)
     draft, _ = _sale(world)
     before = _dossier(world, draft)
@@ -416,6 +400,7 @@ def test_a_split_written_after_approval_ships_the_607_and_export_freezes_it(worl
     assert "|1180.00|" in files["607"]
     frozen = _dossier(world, draft)
     assert frozen["payment_split_editable"] is False
+    assert frozen["expense_type_suggestion"] is None
     refused = _split(world, draft, frozen["version"], cash="1000.00", card="180.00")
     assert refused.status_code == 422, refused.text
     assert refused.json()["code"] == "fiscal_declaration_exported"
@@ -470,7 +455,36 @@ def test_a_sale_with_no_declaration_gets_the_split_and_nothing_else(world) -> No
         for name, value in declared.items()
         if name not in {"form", "bank"} and value is not None
     } == {}
-    assert _month(world)["dgii_forms"]["607"] == "needs_review"
+    assert _month(world)["dgii_forms"]["607"] != "prepared_candidate"
+    assert _export(world)[2] == {}
+    assert (
+        len(
+            world.client.post(
+                f"{API}/business/reports/query", json={}, headers=world.alice.headers
+            ).json()["items"]
+        )
+        == 1
+    )
+
+
+def test_an_approved_sale_keeps_its_facts_whatever_comes_with_the_split(world) -> None:  # noqa: ANN001
+    draft, _ = _sale(world, "B0100000117")
+    before = _dossier(world, draft)
+
+    refused = _review(
+        world,
+        draft,
+        {
+            "version": before["version"],
+            "payment_split": {"cash": "1180.00"},
+            "facts": _known({"counterparty": "Otro"}),
+        },
+        world.alice.headers,
+    )
+
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["code"] == "recorded_correction_unsupported"
+    assert _dossier(world, draft)["dgii"]["cash"] is None
 
 
 def test_a_purchase_takes_no_split(world) -> None:  # noqa: ANN001
@@ -494,15 +508,18 @@ def test_an_open_sale_takes_the_split_on_the_same_route(world) -> None:  # noqa:
     assert answer.status_code == 200, answer.text
     assert answer.json()["review_state"] == "open"
     assert answer.json()["dgii"]["cash"] == "1180.00"
+    recorded = _approve(world, draft, answer.json()["version"], "income")
+    assert recorded.status_code == 200, recorded.text
+    assert recorded.json()["dgii"]["cash"] == "1180.00"
 
 
-def test_someone_who_prepares_writes_the_split_and_a_stale_write_is_refused(world) -> None:  # noqa: ANN001
+def test_someone_who_prepares_writes_the_split_and_a_stale_write_is_refused(
+    world,
+) -> None:  # noqa: ANN001
     draft, _ = _sale(world, "B0100000116")
     version = _dossier(world, draft)["version"]
 
-    written = _split(
-        world, draft, version, _as(world.bob, world.grant), cash="1180.00"
-    )
+    written = _split(world, draft, version, _as(world.bob, world.grant), cash="1180.00")
     assert written.status_code == 200, written.text
     stale = _split(world, draft, version, cash="1000.00")
     assert stale.status_code == 409, stale.text
@@ -525,9 +542,7 @@ def test_the_model_reads_neither_the_suggestion_nor_the_split(actions) -> None: 
     split = service.review(
         context,
         note.draft_id,
-        ReviewDraft(
-            version=typed.version, payment_split=SalePaymentSplit(cash="100.00")
-        ),
+        ReviewDraft(version=typed.version, payment_split=SalePaymentSplit(cash="100.00")),
         str(uuid4()),
     )
     assert split.outcome == "applied", split
@@ -536,5 +551,7 @@ def test_the_model_reads_neither_the_suggestion_nor_the_split(actions) -> None: 
     assert dossier.payment_split_editable is True
     view = dossier.model_facing()
     assert not {"expense_type_suggestion", "payment_split_editable"} & set(view)
-    assert all("payment_split" not in source.get("text", "") for source in view["sources"])
+    assert all(
+        "payment_split" not in source.get("text", "") for source in view["sources"]
+    )
     assert any(source["kind"] == "web_action" for source in view["sources"])

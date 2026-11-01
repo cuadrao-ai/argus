@@ -1,5 +1,7 @@
 """NG 07-2018 annex order, shared by TXT and the review workbook."""
 
+from argus.domain.business.contracts.dgii import SalePaymentSplit
+
 PURCHASE_COLUMNS = (
     ("rnc", "RNC o Cédula"),
     ("id_type", "Tipo Id"),
@@ -53,7 +55,7 @@ SALES_COLUMNS = (
 )
 
 COLUMNS = {"606": PURCHASE_COLUMNS, "607": SALES_COLUMNS}
-PAYMENT_BUCKETS = ("cash", "bank", "card", "credit", "gift", "barter", "other_payment")
+PAYMENT_BUCKETS = tuple(SalePaymentSplit.model_fields)
 # A blank and a zero both leave the cell empty. Required and calculated amounts
 # stay numeric, including 0.00.
 OPTIONAL_AMOUNTS = frozenset(

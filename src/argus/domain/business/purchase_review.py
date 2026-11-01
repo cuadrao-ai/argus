@@ -7,6 +7,7 @@ from argus.domain.business.contracts.dgii import (
     DgiiDeclaration,
     PurchaseDeclaration,
     PurchaseReview,
+    SalePaymentSplit,
     SalesDeclaration,
     amount_or_zero,
     money_text,
@@ -27,6 +28,29 @@ def takes_purchase_declaration(
         return False
     kind = facts.kind.value if isinstance(facts.kind, Known) else None
     return declaration is not None or kind != "income"
+
+
+def takes_payment_split(
+    facts: BusinessFacts, declaration: DgiiDeclaration | None
+) -> bool:
+    """Whether a 607 payment split belongs on this record: a sale with no 606
+    declaration. The one rule behind the dossier's payment_split_editable and
+    the review's write."""
+
+    kind = facts.kind.value if isinstance(facts.kind, Known) else None
+    return kind == "income" and not isinstance(declaration, PurchaseDeclaration)
+
+
+def apply_payment_split(
+    current: SalesDeclaration | None, split: SalePaymentSplit
+) -> SalesDeclaration:
+    data = (
+        current.model_dump()
+        if current is not None
+        else {**dict.fromkeys(SalesDeclaration.model_fields), "form": "607"}
+    )
+    data.update({name: getattr(split, name) for name in split.model_fields_set})
+    return SalesDeclaration.model_validate(data)
 
 
 def apply_purchase(
