@@ -23,7 +23,8 @@ create index business_dgii_export_lines_activity_idx
     on public.business_dgii_export_lines (space_id, activity_id);
 
 alter table public.business_dgii_export_lines enable row level security;
-revoke all on public.business_dgii_export_lines from public, anon, authenticated;
+revoke all on public.business_dgii_export_lines
+    from public, anon, authenticated, service_role;
 grant select, insert on public.business_dgii_export_lines to service_role;
 
 commit;
