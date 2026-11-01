@@ -1,0 +1,243 @@
+"""Over the actions service on Postgres: approval needs no 606 data, a saved
+declaration keeps a person's values and takes only the Tipo Id and Forma de
+Pago it left unknown from the account that paid, a person adds 606 data on
+the approved record and the export carries it, a line in a downloaded TXT
+freezes that declaration with a clear code, and the export-line table is
+server-only."""
+
+from __future__ import annotations
+
+import io
+import json
+from datetime import date
+from uuid import uuid4
+from zipfile import ZipFile
+
+import psycopg
+import pytest
+from argus.domain.business.contracts.actions import (
+    ApproveExpense,
+    CaptureNote,
+    ReviewDraft,
+)
+from argus.domain.business.contracts.dgii import (
+    FiscalReview,
+    PurchaseDeclaration,
+    PurchaseReview,
+)
+from argus.domain.business.contracts.facts import BusinessFactPatch
+from argus.domain.business.export import ExportPeriod, export_package
+from argus.domain.business.fiscal_profile import set_profile
+from argus.domain.ingestion.documents.objects import InMemorySourceObjects
+
+from tests import test_business_actions_postgres as shared
+from tests import test_business_dgii_postgres as dgii
+from tests import test_financial_accounts_postgres as accounts
+from tests.test_business_dgii_postgres import cash_account, filer_change
+
+users = shared.users
+shared_actions = shared.actions
+actions = dgii.actions
+pytestmark = [shared.pytestmark, pytest.mark.owner_acts]
+PERIOD = ExportPeriod(date(2026, 9, 1), date(2026, 9, 30))
+FILER = "199990013"
+SUPPLIER = "199990021"
+TXT_606 = f"dgii/DGII_F_606_{FILER}_202609.TXT"
+
+
+def blank_declaration(**chosen) -> dict:
+    return {
+        **{name: None for name in PurchaseDeclaration.model_fields},
+        "form": "606",
+        "actual_refund": False,
+        "category_suggested": False,
+        **chosen,
+    }
+
+
+def captured(service, context, ncf, funding, declaration=None):  # noqa: ANN001, ANN201
+    """One reviewed expense: 1180.00 DOP on 2026-09-03, ITBIS 180.00, with a
+    supplier RNC and the given NCF, and the declaration as saved."""
+
+    capture = service.capture(
+        context, CaptureNote(text=f"PRÁCTICA compra {ncf}"), str(uuid4())
+    )
+    facts = BusinessFactPatch.model_validate(
+        {
+            name: {"state": "known", "value": value}
+            for name, value in {
+                "kind": "expense",
+                "amount": "1180.00",
+                "currency": "DOP",
+                "occurred_on": "2026-09-03",
+                "counterparty": f"PRÁCTICA {ncf}",
+                "funding": funding,
+                "business_share": {"kind": "all"},
+                "receipt_state": "fiscal_receipt",
+            }.items()
+        }
+    )
+    reviewed = service.review(
+        context,
+        capture.draft_id,
+        ReviewDraft(
+            version=capture.version,
+            facts=facts,
+            dgii=FiscalReview.model_validate(
+                {
+                    "fiscal": {"rnc": SUPPLIER, "ncf": ncf, "itbis": "180.00"},
+                    "declaration": declaration or blank_declaration(),
+                }
+            ),
+        ),
+        str(uuid4()),
+    )
+    assert reviewed.outcome == "applied", reviewed
+    return reviewed.draft_id, reviewed.version
+
+
+def approved(service, context, draft_id, version):  # noqa: ANN001, ANN201
+    outcome = service.approve(
+        context,
+        draft_id,
+        ApproveExpense(version=version, action="record_expense"),
+        str(uuid4()),
+    )
+    assert outcome.outcome == "applied", outcome
+    return service.dossier(context, draft_id)
+
+
+def declared(service, context, draft_id, version, **review):  # noqa: ANN001, ANN201
+    return service.review(
+        context,
+        draft_id,
+        ReviewDraft(
+            version=version, facts=BusinessFactPatch(purchase=PurchaseReview(**review))
+        ),
+        str(uuid4()),
+    )
+
+
+def export_lines(service, context):  # noqa: ANN001, ANN201
+    with service.authority.pool.connection() as connection:
+        return connection.execute(
+            "select activity_id::text,form,period from public.business_dgii_export_lines"
+            " where space_id=%s order by exported_at,id",
+            (context.actor.space_id,),
+        ).fetchall()
+
+
+def account_funding(account) -> dict:  # noqa: ANN001
+    return {"kind": "business_account", "account_id": str(account)}
+
+
+def test_approval_fills_only_what_a_saved_declaration_left_unknown(actions):  # noqa: ANN001
+    service, context, _ = actions
+    cash = account_funding(cash_account(service, context))
+
+    blank = approved(service, context, *captured(service, context, "B0100000021", cash))
+    assert blank.review_state == "accepted"
+    assert (blank.dgii.id_type, blank.dgii.payment_method) == ("1", "01")
+    assert blank.dgii.category is None
+    assert blank.history[-1].after_dgii.payment_method == "01"
+    assert blank.approval_result.approved_revision < blank.history[-1].version
+
+    chosen = approved(
+        service,
+        context,
+        *captured(
+            service,
+            context,
+            "B0100000022",
+            cash,
+            blank_declaration(payment_method="04"),
+        ),
+    )
+    assert (chosen.dgii.id_type, chosen.dgii.payment_method) == ("1", "04")
+
+    # Owner funds imply no payment form; the approval still goes through.
+    owner = approved(
+        service,
+        context,
+        *captured(service, context, "B0100000023", {"kind": "owner_funds"}),
+    )
+    assert owner.review_state == "accepted"
+    assert (owner.dgii.id_type, owner.dgii.payment_method) == ("1", None)
+    assert owner.dgii.category is None
+
+
+def test_606_data_is_added_after_approval_until_the_line_is_exported(actions):  # noqa: ANN001
+    service, context, _ = actions
+    set_profile(service.authority, context, filer_change(FILER), "rnc")
+    cash = account_funding(cash_account(service, context))
+    draft_id, version = captured(service, context, "B0100000031", cash)
+    view = approved(service, context, draft_id, version)
+    assert view.declaration_editable is True
+    assert view.dgii.category is None
+    revisions = len(view.history)
+
+    added = declared(service, context, draft_id, view.version, category="02")
+    assert added.outcome == "applied", added
+    view = service.dossier(context, draft_id)
+    assert view.review_state == "accepted"
+    assert (view.dgii.category, view.dgii.services_amount) == ("02", "1000.00")
+    assert view.dgii.payment_method == "01"
+    assert len(view.history) == revisions + 1
+    assert view.history[-1].after_dgii.category == "02"
+    assert view.history[-1].actor.actor_id == context.actor.actor_id
+    assert view.approval_result.approved_revision < view.history[-1].version
+
+    # The recorded facts stay locked; only the declaration moved.
+    facts = service.review(
+        context,
+        draft_id,
+        ReviewDraft(
+            version=view.version,
+            facts=BusinessFactPatch.model_validate(
+                {"counterparty": {"state": "known", "value": "Otro"}}
+            ),
+        ),
+        str(uuid4()),
+    )
+    assert facts.code == "recorded_correction_unsupported"
+    assert export_lines(service, context) == []
+
+    blob = export_package(service.authority, context, PERIOD, InMemorySourceObjects())
+    with ZipFile(io.BytesIO(blob)) as archive:
+        manifest = json.loads(archive.read("manifest.json"))["dgii"]
+        assert TXT_606 in archive.namelist()
+        line = archive.read(TXT_606).split(b"\r\n")[1].decode()
+    assert line.split("|")[2] == "02"
+    [placed] = [
+        item for item in manifest["reconciliation"] if item["draft_id"] == str(draft_id)
+    ]
+    assert placed["disposition"] == "606"
+    assert export_lines(service, context) == [(placed["activity_id"], "606", "202609")]
+
+    view = service.dossier(context, draft_id)
+    assert view.declaration_editable is False
+    frozen = declared(service, context, draft_id, view.version, payment_method="04")
+    assert frozen.code == "fiscal_declaration_exported"
+    after = service.dossier(context, draft_id)
+    assert after.dgii.payment_method == "01"
+    assert len(after.history) == len(view.history)
+
+
+def test_export_lines_are_server_only(actions):  # noqa: ANN001
+    service, context, _ = actions
+    with psycopg.connect(accounts.DSN) as connection, connection.cursor() as cursor:
+        cursor.execute("set local role authenticated")
+        cursor.execute(
+            "select set_config('request.jwt.claims', %s, true)",
+            (
+                json.dumps(
+                    {
+                        "sub": str(context.actor.actor_id),
+                        "role": "authenticated",
+                        "is_anonymous": False,
+                    }
+                ),
+            ),
+        )
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            cursor.execute("select 1 from public.business_dgii_export_lines limit 1")

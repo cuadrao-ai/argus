@@ -1,18 +1,26 @@
 """Over HTTP, on the real app, Auth and Postgres: once a draft is approved and
 someone other than the owner marks it Personal, every route that carries the
 record's marks answers 200 with the same marks (the expense list and detail,
-search, the receipt list and the dossier), and a read-only grant is refused."""
+search, the receipt list and the dossier), and a read-only grant is refused.
+
+The review write path, end to end: a read's RNC printed with dashes saves, the
+owner approves with no 606 data, adds the 606 data on the approved record,
+exports the ready line, and the next 606 write is refused with a clear code."""
 
 from __future__ import annotations
 
+import io
+import json
 from types import SimpleNamespace
 from unittest.mock import patch
 from uuid import uuid4
+from zipfile import ZipFile
 
 import pytest
 from argus.api import state as api_state
 from argus.api.main import app
 from argus.api.routers import auth as auth_router
+from argus.domain.business.contracts.dgii import PurchaseDeclaration
 from fastapi.testclient import TestClient
 from psycopg import Connection
 
@@ -93,6 +101,156 @@ def world(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
 def _post(world, path: str, body: dict, headers: dict):  # noqa: ANN001, ANN202
     return world.client.post(
         f"{API}{path}", json=body, headers={**headers, "Idempotency-Key": str(uuid4())}
+    )
+
+
+def _review(world, draft: str, body: dict, headers: dict):  # noqa: ANN001, ANN202
+    return world.client.patch(
+        f"{API}/business/drafts/{draft}/review",
+        json=body,
+        headers={**headers, "Idempotency-Key": str(uuid4())},
+    )
+
+
+def _known(values: dict) -> dict:
+    return {name: {"state": "known", "value": value} for name, value in values.items()}
+
+
+def test_review_write_path_from_capture_to_frozen_606_line(world) -> None:  # noqa: ANN001
+    client, alice = world.client, world.alice
+    note = _note(world, alice, "Pagué 1180 en Ferretería Prueba")
+    assert note.status_code == 200, note.text
+    draft = note.json()["draft_id"]
+    version = client.get(
+        f"{API}/business/drafts/{draft}/dossier", headers=alice.headers
+    ).json()["version"]
+
+    # The read's RNC and NCF as printed; the server keeps the digits.
+    reviewed = _review(
+        world,
+        draft,
+        {
+            "version": version,
+            "facts": _known(
+                {
+                    "kind": "expense",
+                    "amount": "1180.00",
+                    "currency": "DOP",
+                    "occurred_on": "2026-09-03",
+                    "counterparty": "Ferretería Prueba",
+                    "funding": {"kind": "owner_funds"},
+                    "business_share": {"kind": "all"},
+                }
+            ),
+            "dgii": {
+                "fiscal": {
+                    "rnc": "1-99-99002-1",
+                    "ncf": "b0100000011",
+                    "itbis": "180.00",
+                },
+                # The fiscal form's shape: every 606 field present, unknown ones null.
+                "declaration": {
+                    **{name: None for name in PurchaseDeclaration.model_fields},
+                    "form": "606",
+                    "actual_refund": False,
+                    "category_suggested": False,
+                },
+            },
+        },
+        alice.headers,
+    )
+    assert reviewed.status_code == 200, reviewed.text
+    body = reviewed.json()
+    assert body["facts"]["fiscal"]["rnc"]["value"] == "199990021"
+    assert body["facts"]["fiscal"]["ncf"]["value"] == "B0100000011"
+    assert body["approval_available"] is True
+    assert body["dgii"]["category"] is None and body["dgii"]["payment_method"] is None
+
+    # Approval needs no 606 data: Tipo Id is filled from the RNC, nothing else.
+    approved = _post(
+        world,
+        f"/business/drafts/{draft}/approve",
+        {"version": body["version"], "action": "record_expense"},
+        alice.headers,
+    )
+    assert approved.status_code == 200, approved.text
+    recorded = approved.json()
+    assert recorded["review_state"] == "accepted"
+    assert recorded["dgii"]["id_type"] == "1"
+    assert recorded["dgii"]["category"] is None
+    assert recorded["dgii"]["payment_method"] is None
+    assert recorded["declaration_editable"] is True
+
+    added = _review(
+        world,
+        draft,
+        {
+            "version": recorded["version"],
+            "facts": {"purchase": {"category": "02", "payment_method": "01"}},
+        },
+        alice.headers,
+    )
+    assert added.status_code == 200, added.text
+    declared = added.json()
+    assert declared["dgii"]["category"] == "02"
+    assert declared["dgii"]["payment_method"] == "01"
+    assert declared["dgii"]["services_amount"] == "1000.00"
+    assert len(declared["history"]) == len(recorded["history"]) + 1
+    assert declared["approval_result"] == recorded["approval_result"]
+
+    locked = _review(
+        world,
+        draft,
+        {
+            "version": declared["version"],
+            "facts": _known({"counterparty": "Otro comercio"}),
+        },
+        alice.headers,
+    )
+    assert locked.status_code == 422, locked.text
+    assert locked.json()["code"] == "recorded_correction_unsupported"
+
+    profile = client.patch(
+        f"{API}/business/fiscal-profile",
+        json={
+            "name": "Ferretería Prueba",
+            "previous_name": "Ferretería Prueba",
+            "tax_id": {"type": "rnc", "value": "199990013"},
+            "previous_tax_id": None,
+        },
+        headers={**alice.headers, "Idempotency-Key": str(uuid4())},
+    )
+    assert profile.status_code == 200, profile.text
+    exported = client.get(
+        f"{API}/business/exports",
+        params={"start": "2026-09-01", "end": "2026-09-30"},
+        headers=alice.headers,
+    )
+    assert exported.status_code == 200, exported.text
+    with ZipFile(io.BytesIO(exported.content)) as archive:
+        assert "dgii/DGII_F_606_199990013_202609.TXT" in archive.namelist()
+        manifest = json.loads(archive.read("manifest.json"))["dgii"]
+    [placed] = [item for item in manifest["reconciliation"] if item["draft_id"] == draft]
+    assert placed["disposition"] == "606"
+
+    frozen = client.get(f"{API}/business/drafts/{draft}/dossier", headers=alice.headers)
+    assert frozen.json()["declaration_editable"] is False
+    refused = _review(
+        world,
+        draft,
+        {
+            "version": frozen.json()["version"],
+            "facts": {"purchase": {"payment_method": "04"}},
+        },
+        alice.headers,
+    )
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["code"] == "fiscal_declaration_exported"
+    assert (
+        client.get(
+            f"{API}/business/drafts/{draft}/dossier", headers=alice.headers
+        ).json()["dgii"]["payment_method"]
+        == "01"
     )
 
 
