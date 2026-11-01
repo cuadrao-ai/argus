@@ -63,6 +63,19 @@ def apply_purchase(
     return PurchaseDeclaration.model_validate(data)
 
 
+def changes_recorded_refund(
+    current: PurchaseDeclaration | None, declared: PurchaseDeclaration
+) -> bool:
+    """Whether a 606 write moves what an approval recorded in the money: the
+    actual refund and the purchase it is linked to. Neither is a 606 column."""
+
+    before = current or PurchaseReview()
+    return (before.actual_refund, before.purchase_activity_id) != (
+        declared.actual_refund,
+        declared.purchase_activity_id,
+    )
+
+
 def declaration_from_facts(
     facts: BusinessFacts, paid_from: str
 ) -> PurchaseDeclaration | None:

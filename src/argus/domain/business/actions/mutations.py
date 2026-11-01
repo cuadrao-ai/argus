@@ -261,6 +261,7 @@ def revise(
     if purchase is not None:
         from argus.domain.business.purchase_review import (
             apply_purchase,
+            changes_recorded_refund,
             takes_purchase_declaration,
         )
 
@@ -277,12 +278,10 @@ def revise(
             if fiscal is not None and isinstance(fiscal.itbis, Known)
             else None
         )
-        declared = apply_purchase(
-            current if isinstance(current, PurchaseDeclaration) else None,
-            purchase,
-            amount,
-            itbis,
-        )
+        previous = current if isinstance(current, PurchaseDeclaration) else None
+        declared = apply_purchase(previous, purchase, amount, itbis)
+        if event.state == "accepted" and changes_recorded_refund(previous, declared):
+            raise ActionError("invalid_input", "recorded_correction_unsupported")
     return save_revision(
         tx,
         event,

@@ -89,7 +89,8 @@ class PurchaseDeclaration(Declaration):
 
 class PurchaseReview(BaseModel):
     """The 606 fields a person confirms, before or after approval: every field
-    of PurchaseDeclaration but its form. Absent fields stay as they were."""
+    of PurchaseDeclaration but its form. Absent fields stay as they were. After
+    approval actual_refund and purchase_activity_id keep their recorded values."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
