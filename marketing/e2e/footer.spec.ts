@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { SITE_ROUTES } from "../lib/site-routes";
 
-for (const path of ["/", "/en", "/personal", "/en/personal"]) {
+for (const path of ["/", "/en"]) {
   test(`${path} ends at the wordmark without a photo reveal`, async ({ page }) => {
     await page.goto(path);
     await page.evaluate(() => document.fonts.ready);
@@ -10,7 +10,7 @@ for (const path of ["/", "/en", "/personal", "/en/personal"]) {
     await expect(footer.locator("[data-footer-credits]")).toHaveCount(1);
     const brand = footer.getByRole("img", { name: "cuadrao", exact: true });
     await expect(footer.locator("img")).toHaveCount(1);
-    await expect(brand).toHaveAttribute("src", `/cuadrao-site/cuadrao-lockup-${path.includes("personal") ? "light" : "dark"}.svg`);
+    await expect(brand).toHaveAttribute("src", "/cuadrao-site/cuadrao-lockup-dark.svg");
     await brand.scrollIntoViewIfNeeded();
     await expect.poll(() => brand.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
     await expect(page.locator("[data-footer-peek]")).toHaveCount(0);
@@ -30,7 +30,7 @@ for (const path of ["/", "/en", "/personal", "/en/personal"]) {
   });
 }
 
-for (const path of ["/", "/personal", "/contacto", "/privacidad", "/terminos", "/eliminar-datos", "/en", "/en/personal", "/en/contact", "/en/privacy", "/en/terms", "/en/delete-data"]) {
+for (const path of ["/", "/contacto", "/privacidad", "/terminos", "/eliminar-datos", "/en", "/en/contact", "/en/privacy", "/en/terms", "/en/delete-data"]) {
   test(`${path} reveals the local credit beside the copyright`, async ({ page }, info) => {
     await page.goto(path);
     await page.emulateMedia({ reducedMotion: "no-preference" });

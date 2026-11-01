@@ -136,32 +136,6 @@
 .backLink svg {
   flex-shrink: 0;
 }
-.languages {
-  display: inline-flex;
-  flex-shrink: 0;
-  width: fit-content;
-  gap: 2px;
-  padding: 2px;
-  border: 1px solid var(--line);
-  border-radius: 28px;
-  font-size: 12px;
-  line-height: 1;
-}
-.languages a {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 44px;
-  min-height: 44px;
-  border-radius: 24px;
-}
-.languages a:not([aria-current]) {
-  color: #606862;
-}
-.languages a[aria-current] {
-  background: #e8ede3;
-  font-weight: 600;
-}
 .button,
 .buttonSmall {
   display: inline-flex;
@@ -259,10 +233,6 @@
 }
 .mobileNav .loginLink {
   justify-self: start;
-}
-.mobileNav .languages {
-  min-height: 44px;
-  align-items: center;
 }
 .skip {
   position: fixed;
@@ -1183,30 +1153,6 @@
   font-size: 15px;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
-}
-.personalSite {
-  --paper: #f7f5ef;
-  --accent: #e5ebe0;
-}
-.personal {
-  min-height: 70svh;
-  padding: 100px 24px;
-  max-width: 850px;
-  margin: auto;
-  text-align: center;
-}
-.personal h1 {
-  font-size: clamp(44px, 6vw, 80px);
-  margin: 22px 0;
-}
-.personal > p:not(.sectionIndex) {
-  max-width: 480px;
-  margin: auto;
-}
-.personal > span {
-  display: block;
-  margin: 30px 0 20px;
-  font-size: 14px;
 }
 .srOnly {
   position: absolute;

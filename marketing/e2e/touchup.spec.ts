@@ -39,7 +39,7 @@ test("header blends at the top and becomes a pill after scrolling", async ({
 });
 
 for (const locale of ["es", "en"] as const) {
-  test(`${locale} header separates language controls and keeps Business and Personal links`, async ({ page }) => {
+  test(`${locale} header separates language controls and keeps the Business link`, async ({ page }) => {
     const home = locale === "es" ? "/" : "/en";
     await page.goto(home);
     const header = page.locator("header");
@@ -60,7 +60,7 @@ for (const locale of ["es", "en"] as const) {
     expect(bounds!.height).toBeGreaterThanOrEqual(44);
     await expect(navigation.getByRole("link", { name: locale === "es" ? "Cómo funciona" : "How it works", exact: true })).toHaveCount(0);
     await expect(navigation.getByRole("link", { name: locale === "es" ? "Nosotros" : "About", exact: true })).toHaveCount(0);
-    await expect(navigation.getByRole("link", { name: "Personal", exact: true })).toHaveAttribute("href", locale === "es" ? "/personal" : "/en/personal");
+    await expect(navigation.getByRole("link", { name: "Personal", exact: true })).toHaveCount(0);
     await link.click();
     await expect(page).toHaveURL(locale === "es" ? "/en" : "/");
   });
@@ -74,8 +74,6 @@ test("reduced motion is static and small screens do not overflow", async ({
   for (const path of [
     "/",
     "/en",
-    "/personal",
-    "/en/personal",
     "/contacto",
     "/en/contact",
     "/privacidad",

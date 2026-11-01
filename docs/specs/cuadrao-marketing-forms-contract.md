@@ -57,19 +57,11 @@ WhatsApp number may be shared.
 
 **Failure keeps the text.** On any non-202 the form shows the visitor's text unchanged, a retry control and the direct email address.
 
-## `POST /api/signups`
+## Signups
 
-```json
-{ "email": "valid address, at most 254", "locale": "es | en", "website": "" }
-```
+Personal is archived, so the `/personal` page and the signup endpoints (`/api/signups`, `/api/signups/config`, `/api/waitlist/signups`) are removed, and `/personal` redirects to the home page. Nobody can join the list from the site.
 
-| Status | Body | Meaning |
-| --- | --- | --- |
-| 200 | `{"status":"registered"}` | The database accepted the request. A new, a repeated and a removed address all get exactly this answer. |
-| 400 / 403 / 413 / 415 / 429 | as above | |
-| 503 | `{"error":"unavailable"}` | Not configured or the database did not accept it. |
-
-The route sends `INSERT ... ON CONFLICT (email_digest) DO NOTHING` through PostgREST (`Prefer: resolution=ignore-duplicates,return=minimal`) with the service-role key. It never reads the table, so it cannot tell, and cannot reveal, whether an address already existed or was removed.
+Existing rows and their rights stay. `/api/waitlist/leave` and `/api/waitlist/confirm` keep working because sent emails link to them, and the leave route erases a person's data. The operator tools in `marketing/scripts/` and the `waitlist-reminders` function also remain until the founder decides what happens to the list.
 
 ## Table `public.cuadrao_early_access_signups`
 

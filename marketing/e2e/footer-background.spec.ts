@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-for (const [path, background] of [...["/", "/en", "/contacto", "/en/contact", "/privacidad", "/terminos", "/eliminar-datos", "/en/privacy", "/en/terms", "/en/delete-data"].map((path) => [path, "rgb(23, 43, 38)"]), ["/personal", "rgb(247, 245, 239)"], ["/en/personal", "rgb(247, 245, 239)"]]) {
+for (const [path, background] of [...["/", "/en", "/contacto", "/en/contact", "/privacidad", "/terminos", "/eliminar-datos", "/en/privacy", "/en/terms", "/en/delete-data"].map((path) => [path, "rgb(23, 43, 38)"])]) {
   test(`${path} uses its footer color for the root canvas`, async ({ page }) => {
     await page.goto(path);
     await expect(page.locator("html")).toHaveCSS("background-color", background);

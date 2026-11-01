@@ -1,6 +1,6 @@
 # Cuadrao marketing website
 
-The public Cuadrao website: Business, Personal, contact and privacy, in Spanish and English. It is an independent Next.js package. It shares nothing at runtime with the Argus API or the legacy `web/` app, needs no Argus environment group, and has its own lockfile.
+The public Cuadrao website: Business, contact and legal pages, in Spanish and English. It is an independent Next.js package. It shares nothing at runtime with the Argus API or the legacy `web/` app, needs no Argus environment group, and has its own lockfile.
 
 Forms, limits and data: [forms contract](../docs/specs/cuadrao-marketing-forms-contract.md). Release settings, cutover and rollback: [launch runbook](../docs/runbooks/cuadrao-marketing-launch.md). Design: [website design guide](../.agent/designs/cuadrao-business/DESIGN.md).
 
@@ -33,7 +33,7 @@ Provider settings are optional locally. Without them each form shows its unavail
 | `app/icon.svg`, `scripts/make-icons.mjs` | Cuadrao mark ("Lean, calm") and the PNG/ICO files rendered from it |
 | `brand/` | The mark without its tile (light and dark), the outlined wordmark and the two lockups, with the wordmark specification, colours and lockup geometry in `brand/README.md`. Tests keep every file's shapes identical to `app/icon.svg` and the wordmark's styling equal to the site's `.wordmark` rule |
 
-Spanish is unprefixed (`/`, `/personal`, `/contacto`, `/privacidad`); English is under `/en`. The App Router tree is `/[locale]/[[...slug]]`; a rewrite serves Spanish from the unprefixed path and the internal `/es` tree redirects to it.
+Spanish is unprefixed (`/`, `/contacto`, `/privacidad`); English is under `/en`. The App Router tree is `/[locale]/[[...slug]]`; a rewrite serves Spanish from the unprefixed path and the internal `/es` tree redirects to it.
 
 ## Environment
 

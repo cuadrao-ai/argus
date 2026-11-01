@@ -182,22 +182,6 @@ test("English privacy offers Español on the Spanish privacy page", async ({ pag
   await expect(page).toHaveURL(/\/privacidad$/);
 });
 
-test("Personal keeps its original language group and early access action", async ({ page }) => {
-  await page.goto("/personal");
-  const menu = page.locator("header").getByRole("button", { name: "Abrir menú" });
-  if (await menu.isVisible()) await menu.click();
-  const nav = page.locator("header nav:visible");
-  await expect(nav.getByRole("group", { name: "Idioma" })).toHaveClass(/languages/);
-  await expect(nav.getByRole("link", { name: "Acceso anticipado" })).toHaveAttribute("href", "#early-access");
-  await expect(nav.getByRole("button", { name: "Iniciar sesión" })).toHaveCount(0);
-  if (test.info().project.name === "desktop") {
-    const access = nav.getByRole("link", { name: "Acceso anticipado" });
-    await expect(access).toHaveCSS("background-color", "rgb(232, 237, 227)");
-    await access.hover();
-    await expect(access).toHaveCSS("background-color", "rgb(232, 237, 227)");
-  }
-});
-
 const stagingHost = "cuadrao-marketing-staging.onrender.com";
 const stagingSignIn = "https://cuadrao-web-staging.onrender.com/?auth=login";
 
@@ -356,14 +340,14 @@ for (const { home, cta, contactPath } of cases) {
 
 test("short phone menu scrolls its links without scrolling the page and restores it on close", async ({ page }) => {
   test.skip(test.info().project.name !== "mobile", "short phone menu coverage");
-  await page.setViewportSize({ width: 390, height: 420 });
+  await page.setViewportSize({ width: 390, height: 340 });
   await page.goto("/en"); await page.evaluate(() => window.scrollTo(0, 600));
   const trigger = page.locator('header button[aria-controls="business-mobile-menu"]');
   const scroll = await page.evaluate(() => window.scrollY);
   await trigger.click();
   const nav = page.locator("#business-mobile-menu");
   const box = (await nav.boundingBox())!;
-  expect(Math.abs(box.y + box.height - 420)).toBeLessThanOrEqual(1);
+  expect(Math.abs(box.y + box.height - 340)).toBeLessThanOrEqual(1);
   const last = nav.locator("[data-language-switch]");
   await trigger.focus(); await page.keyboard.press("Shift+Tab");
   await expect(last).toBeFocused(); await expect(last).toBeInViewport({ ratio: 1 });

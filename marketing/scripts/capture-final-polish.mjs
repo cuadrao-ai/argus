@@ -13,7 +13,7 @@ for (const browserType of [chromium, webkit]) {
   const browser = await browserType.launch();
   try {
     for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
-      for (const [route, name] of [['/', 'business-es'], ['/en', 'business-en'], ['/personal', 'personal-es'], ['/en/personal', 'personal-en']]) {
+      for (const [route, name] of [['/', 'business-es'], ['/en', 'business-en']]) {
         const context = await browser.newContext({ viewport, reducedMotion: 'reduce' });
         const page = await context.newPage();
         page.on('pageerror', error => errors.push(error.message));
