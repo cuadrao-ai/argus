@@ -5,7 +5,13 @@ import styles from "./touchup.module.css";
 
 const INTERVAL_MS = 3400;
 
-export function RotatingUseCase({ phrases }: { phrases: readonly string[] }) {
+export function RotatingUseCase({
+  phrases,
+  className = "",
+}: {
+  phrases: readonly string[];
+  className?: string;
+}) {
   const [state, setState] = useState({ current: 0, previous: -1 });
 
   useEffect(() => {
@@ -18,7 +24,7 @@ export function RotatingUseCase({ phrases }: { phrases: readonly string[] }) {
   }, [phrases.length]);
 
   return (
-    <p className={styles.useCase}>
+    <p className={`${styles.useCase} ${className}`.trim()}>
       {state.previous >= 0 && (
         <span key={`out-${state.previous}`} className={styles.useCaseOut} aria-hidden="true">
           {phrases[state.previous]}
