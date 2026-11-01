@@ -52,10 +52,21 @@ class OwnerFunds(BaseModel):
     currency: str = Field(pattern=r"^[A-Z]{3}$")
 
 
+class UnstatedFunding(BaseModel):
+    """A Business purchase or sale with no stated funding: no account moves."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    owner_space_id: UUID
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+
+
 class MoneyRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     kind: ActivityKind
     owner_funding: OwnerFunds | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    unstated_funding: UnstatedFunding | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
     account_id: str | None = None
@@ -83,9 +94,15 @@ class MoneyRequest(BaseModel):
     # Echoed from the preview for older clients; the server ignores it and uses its own day.
     entered_on: date | None = Field(default=None, exclude_if=lambda value: value is None)
 
+    @property
+    def no_account(self) -> OwnerFunds | UnstatedFunding | None:
+        """The Business this request records in with no account, if it does."""
+
+        return self.owner_funding or self.unstated_funding
+
     @model_validator(mode="after")
-    def owner_funded_expense(self) -> "MoneyRequest":
-        if self.owner_funding is not None:
+    def no_account_record(self) -> "MoneyRequest":
+        if self.no_account is not None:
             excluded = (
                 self.account_id,
                 self.source_account_id,
@@ -102,11 +119,18 @@ class MoneyRequest(BaseModel):
                 self.expected_versions,
                 self.coverage,
             )
-            if self.kind != "expense" or any(
-                value is not None and value != {} and value != [] for value in excluded
+            kinds = ("expense",) if self.owner_funding else ("expense", "income")
+            if (
+                self.kind not in kinds
+                or (self.owner_funding and self.unstated_funding)
+                or any(
+                    value is not None and value != {} and value != []
+                    for value in excluded
+                )
             ):
                 raise ValueError(
-                    "Owner funds records a new expense without an account movement."
+                    "A record with no account is a new expense or, with no stated"
+                    " funding, a new income."
                 )
         return self
 

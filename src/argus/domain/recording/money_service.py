@@ -35,7 +35,7 @@ class MoneyService:
         activity_id: str | None = None,
     ) -> dict[str, Any]:
         activity_id = self._id(activity_id)
-        if request.owner_funding is not None:
+        if request.no_account is not None:
             from .owner_funds import preview
 
             return preview(request, scope, self.accounts._clock(), activity_id)
@@ -59,7 +59,7 @@ class MoneyService:
     ) -> dict[str, Any]:
         from argus.domain.recording.money_storage import transact
 
-        if request.owner_funding is not None:
+        if request.no_account is not None:
             from .owner_funds import write
 
             return write(
@@ -110,7 +110,7 @@ class MoneyService:
         even though that write moved the account versions a preview would name.
         """
 
-        if request.owner_funding is not None:
+        if request.no_account is not None:
             from .owner_funds import write
 
             return write(

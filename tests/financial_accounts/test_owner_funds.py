@@ -9,8 +9,8 @@ from argus.domain.recording.errors import (
     IdempotencyConflict,
     RecordingInputError,
 )
-from argus.domain.recording.money_reads import current_activities
 from argus.domain.recording.money_plan import request_identity
+from argus.domain.recording.money_reads import current_activities
 from argus.domain.recording.money_schemas import (
     MoneyRequest,
     OwnerFunds,

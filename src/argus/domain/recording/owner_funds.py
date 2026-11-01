@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Mapping
+from typing import TYPE_CHECKING, Any, Literal, Mapping
 from uuid import uuid4
 
 from argus.domain.owner_scope import BusinessSpace, OwnerScope
@@ -33,11 +33,11 @@ if TYPE_CHECKING:
 OWNER_FUNDS = "owner_funds"
 
 
-def owner_funded(activity: Mapping[str, Any]) -> bool:
-    """Whether a rendered activity is an ``NoAccountRecord`` row: the rows
+def no_account(activity: Mapping[str, Any]) -> bool:
+    """Whether a rendered activity is a ``NoAccountRecord`` row: the rows
     ``MoneyService.require_personal`` refuses to correct or refund."""
 
-    return activity.get("funding") == OWNER_FUNDS
+    return not activity["legs"]
 
 
 @dataclass(frozen=True)
@@ -53,12 +53,15 @@ class NoAccountRecord:
     note: str | None
     category_id: str | None
     recorded_at: datetime
+    kind: Literal["expense", "income"]
+    #: None when nobody has stated how it was paid.
+    funding: Literal["owner_funds"] | None
 
     def response(self) -> dict[str, Any]:
         return {
             "activity_id": self.activity_id,
             "revision": 1,
-            "kind": "expense",
+            "kind": self.kind,
             "amount_minor": self.amount_minor,
             "amount": format_minor_units(self.amount_minor, self.currency),
             "currency": self.currency,
@@ -75,7 +78,7 @@ class NoAccountRecord:
             "reason": None,
             "recorded_at": self.recorded_at,
             "recorded_by": self.user_id,
-            "funding": OWNER_FUNDS,
+            "funding": self.funding,
             "legs": [],
         }
 
@@ -95,7 +98,7 @@ def validate(
     activity_id: str | None = None,
 ) -> tuple[str, int, datetime]:
     request = MoneyRequest.model_validate(request.model_dump())
-    funding = request.owner_funding
+    funding = request.no_account
     if (
         not isinstance(scope, BusinessSpace)
         or funding is None
@@ -110,6 +113,10 @@ def validate(
     amount = parse_minor_units(request.amount, currency)
     if amount <= 0:
         raise RecordingInputError("amount_positive_required", "Enter a positive amount.")
+    if request.category_id is not None and request.kind != "expense":
+        raise RecordingInputError(
+            "field_not_applicable", "This field does not apply to the selected activity."
+        )
     if request.category_id is not None and request.category_id not in CATEGORY_IDS:
         raise RecordingInputError("category_unknown", "Choose an available category.")
     return currency, amount, _stamp(request.occurred_at, request.time_zone, now)
@@ -158,6 +165,8 @@ def write(
         request.note,
         request.category_id,
         now,
+        request.kind,
+        OWNER_FUNDS if request.owner_funding else None,
     )
     if not isinstance(repository, InMemoryFinancialAccountRepository):
         from argus.domain.recording.owner_funds_postgres import transact
