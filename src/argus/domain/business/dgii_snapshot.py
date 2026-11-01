@@ -20,9 +20,10 @@ def fiscal_snapshot(cursor, context, activities):
         (context.actor.space_id,),
     )
     profile = cursor.fetchone()
-    # Facts and evidence come from the approved revision. The declaration may
-    # be the approval's own revision, written at the version after it. The
-    # Personal mark and the 606 answer come from the draft as it stands now.
+    # Facts and evidence come from the approved revision. The declaration is
+    # the latest revision's: the approval's own, or 606 data a person added
+    # after approval. The Personal mark and the 606 answer come from the
+    # draft as it stands now.
     cursor.execute(
         "select e.id,e.activity_id,e.resolution,v.version,v.after_facts,d.after_dgii,v.source_ids"
         " from public.financial_import_events e"
@@ -35,7 +36,7 @@ def fiscal_snapshot(cursor, context, activities):
         " and version<=(a.command->'request'->>'version')::integer order by version desc limit 1) v on true"
         " join lateral (select after_dgii from public.business_draft_revisions"
         " where draft_id=e.id and space_id=e.owner_space_id"
-        " and version<=(a.command->'request'->>'version')::integer+1 order by version desc limit 1) d on true"
+        " order by version desc limit 1) d on true"
         " where e.user_id=%s and e.owner_space_id=%s and e.state='accepted'"
         " and e.activity_id is not null and e.accept_key is not null",
         (context.owner_id, context.actor.space_id),

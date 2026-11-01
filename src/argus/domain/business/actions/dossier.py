@@ -9,6 +9,7 @@ from psycopg.rows import dict_row
 from pydantic import TypeAdapter
 
 from argus.domain.business.actions.facts import facts_of
+from argus.domain.business.actions.fiscal import exported_line
 from argus.domain.business.actions.marks import draft_marks, fiscal_inclusion_available
 from argus.domain.business.actions.refunds import refund_candidates
 from argus.domain.business.annotations import annotation_available, current_note
@@ -296,6 +297,7 @@ def dossier(
     )
     resolution = BusinessResolution.model_validate(event.resolution["business"])
     approvable = not blocked and "approve" in tx.authorization.capabilities
+    can_prepare = "prepare" in tx.authorization.capabilities
     can_annotate = annotation_available(tx.authorization, event)
     return BusinessDossier(
         **context.model_dump(),
@@ -339,8 +341,13 @@ def dossier(
         dgii=resolution.dgii.model_dump(mode="json") if resolution.dgii else None,
         document_type=resolution.document_type,
         document_type_detected=resolution.document_type_detected,
-        document_type_editable=event.state == "open"
-        and "prepare" in tx.authorization.capabilities,
+        document_type_editable=event.state == "open" and can_prepare,
+        declaration_editable=can_prepare
+        and (
+            event.state == "open"
+            or event.state == "accepted"
+            and not exported_line(tx, event)
+        ),
         due_on=resolution.due_on,
         **draft_marks(tx, draft_id, facts),
     )

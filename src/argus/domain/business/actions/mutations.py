@@ -53,16 +53,21 @@ from argus.domain.ingestion.documents.models import (
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
 
 
-def event_at(tx: ActionTransaction, ref: ExistingDraft) -> ImportEvent:
+def event_at(
+    tx: ActionTransaction, ref: ExistingDraft, recorded_ok: bool = False
+) -> ImportEvent:
+    """The draft at the version the caller saw. Open, or also approved when
+    the caller changes only what stays open after approval."""
+
     try:
         event = tx.imports.event(str(ref.draft_id))
     except EventNotFound:
         raise ActionError("not_found", "business_record_not_found") from None
     if event.version != ref.version:
         raise ActionError("stale_version", "stale_version")
-    if event.state == "accepted":
+    if event.state == "accepted" and not recorded_ok:
         raise ActionError("invalid_input", "recorded_correction_unsupported")
-    if event.state != "open":
+    if event.state not in ("open", "accepted"):
         raise ActionError("invalid_input", "business_draft_not_open")
     return event
 
@@ -190,13 +195,27 @@ def revise(
 ) -> Applied:
     sources.require_sources(tx, source_ids)
     now = datetime.now(timezone.utc)
+    declaration_only = (
+        patch is not None
+        and patch.model_fields_set == {"purchase"}
+        and fiscal_review is None
+        and document_type is None
+        and due_on is None
+        and answer_id is None
+    )
     if ref is None:
         event = new_candidate(tx.context.owner_id, now)
         before = None
     else:
         event = (
-            _open_for_type(tx, ref) if document_type is not None else event_at(tx, ref)
+            _open_for_type(tx, ref)
+            if document_type is not None
+            else event_at(tx, ref, declaration_only)
         )
+        if event.state == "accepted":
+            from argus.domain.business.actions.fiscal import require_unexported
+
+            require_unexported(tx, event)
         before = facts_of(event)
         event = replace(event, version=event.version + 1, updated_at=now)
     origin = {
