@@ -283,9 +283,9 @@ services:
       - key: NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED
         value: "true"
       - key: NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED
-        value: "true"
-      - key: NEXT_PUBLIC_CUADRAO_BUSINESS_INVOICING_ENABLED
         value: "false"
+      - key: NEXT_PUBLIC_CUADRAO_BUSINESS_INVOICING_ENABLED
+        value: "true"
       - key: NEXT_PUBLIC_CUADRAO_API_URL
         value: https://cuadrao-api-staging.onrender.com/api/v1
       - key: NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY

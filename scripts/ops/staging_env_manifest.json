@@ -342,12 +342,12 @@
         {
           "name": "NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED",
           "kind": "plain",
-          "value": "true"
+          "value": "false"
         },
         {
           "name": "NEXT_PUBLIC_CUADRAO_BUSINESS_INVOICING_ENABLED",
           "kind": "plain",
-          "value": "false"
+          "value": "true"
         },
         {
           "name": "NEXT_PUBLIC_CUADRAO_API_URL",
