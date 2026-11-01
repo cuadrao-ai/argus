@@ -222,7 +222,9 @@ test.describe("how it works", () => {
     await page.goto(PATH);
     await seekTo(page, TRACK, 0.5);
     await expect(step(page)).toHaveText("Cuadrar");
-    await expect(page.locator('[data-step-panel="1"] > div').last()).toHaveCSS("opacity", "1");
+    const panel = page.locator('[data-step-panel="1"]');
+    await expect(panel.locator("> div").last()).toHaveCSS("opacity", "1");
+    await expect(panel.getByText("Listo").nth(1)).toHaveCSS("opacity", "1");
     const { violations } = await new AxeBuilder({ page }).include("#como").analyze();
     expect(violations.map((violation) => violation.id)).toEqual([]);
   });
