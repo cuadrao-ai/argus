@@ -41,6 +41,31 @@
 .header nav > div:last-child > [data-header-cta] {
   border-radius: 28px;
 }
+.header .plainNav > div:last-child {
+  gap: 6px;
+}
+.header .plainNav > div:last-child > :not([data-header-cta]) {
+  font-size: 15px;
+}
+.header .plainNav > div:last-child > :not([data-header-cta]):is(a, button),
+.header .plainNav > div:last-child > span > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: 22px;
+  color: var(--ink);
+  text-decoration: none;
+  transition: background-color 160ms ease;
+}
+.header .plainNav > div:last-child > :not([data-header-cta]):is(a, button):is(:hover, :focus-visible),
+.header .plainNav > div:last-child > span > a:is(:hover, :focus-visible) {
+  background: #e8ede3;
+}
+.header .plainNav > div:last-child > [data-header-cta] {
+  margin-left: 12px;
+  font-size: 15px;
+}
 .footerBrand {
   display: block;
   padding-block: 5px;
