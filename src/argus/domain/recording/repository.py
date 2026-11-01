@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from argus.domain.recording.assets import AssetDetailsResult
     from argus.domain.recording.loop_storage import OperationResult, Planner
-    from argus.domain.recording.owner_funds import OwnerFundedExpense
+    from argus.domain.recording.owner_funds import NoAccountRecord
 
 import threading
 from collections.abc import Callable
@@ -150,7 +150,7 @@ class InMemoryFinancialAccountRepository:
         self._money_receipts: dict[
             tuple[str, str | None, str], tuple[str, str, int, tuple[str, ...]]
         ] = {}
-        self._owner_funded: dict[str, OwnerFundedExpense] = {}
+        self._no_account: dict[str, NoAccountRecord] = {}
         self._operations: dict[tuple[str, str, str], tuple[str, str, int, str]] = {}
         self._reservations: dict[tuple[str, str, str], tuple[str, str]] = {}
 
@@ -216,7 +216,7 @@ class InMemoryFinancialAccountRepository:
             owned = self.held(user_id, scope)
             funded = [
                 row
-                for row in self._owner_funded.values()
+                for row in self._no_account.values()
                 if row.user_id == user_id and holds(scope, row.owner_space_id)
             ]
         from .owner_funds import FundedAccounts

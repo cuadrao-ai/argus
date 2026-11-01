@@ -35,7 +35,7 @@ def groups(
 def activity(
     accounts: list[StoredAccount], activity_id: str, revision: int | None = None
 ) -> dict[str, Any]:
-    for row in getattr(accounts, "owner_funded", ()):
+    for row in getattr(accounts, "no_account", ()):
         if row.activity_id == activity_id:
             if revision not in (None, 1):
                 raise AccountNotFound()
@@ -142,7 +142,7 @@ def render_activity(
 
 
 def current_activities(accounts: list[StoredAccount]) -> list[dict[str, Any]]:
-    funded = [row.response() for row in getattr(accounts, "owner_funded", ())]
+    funded = [row.response() for row in getattr(accounts, "no_account", ())]
     canonical = getattr(accounts, "canonical", None)
     if canonical is not None:
         return funded + [

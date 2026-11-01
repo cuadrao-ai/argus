@@ -34,14 +34,14 @@ OWNER_FUNDS = "owner_funds"
 
 
 def owner_funded(activity: Mapping[str, Any]) -> bool:
-    """Whether a rendered activity is an ``OwnerFundedExpense`` row: the rows
+    """Whether a rendered activity is an ``NoAccountRecord`` row: the rows
     ``MoneyService.require_personal`` refuses to correct or refund."""
 
     return activity.get("funding") == OWNER_FUNDS
 
 
 @dataclass(frozen=True)
-class OwnerFundedExpense:
+class NoAccountRecord:
     activity_id: str
     record_id: str
     user_id: str
@@ -82,10 +82,10 @@ class OwnerFundedExpense:
 
 class FundedAccounts(list["StoredAccount"]):
     def __init__(
-        self, accounts: list[StoredAccount], owner_funded: list[OwnerFundedExpense]
+        self, accounts: list[StoredAccount], no_account: list[NoAccountRecord]
     ) -> None:
         super().__init__(accounts)
-        self.owner_funded = owner_funded
+        self.no_account = no_account
 
 
 def validate(
@@ -146,7 +146,7 @@ def write(
     currency, amount, stamp = validate(request, scope, now, activity_id)
     identity = request_identity(request, None)
     preview_valid = entered or request.preview_token == identity
-    row = OwnerFundedExpense(
+    row = NoAccountRecord(
         str(uuid4()),
         str(uuid4()),
         user_id,
@@ -169,7 +169,7 @@ def write(
             old_hash, aid, revision, affected = receipt
             if old_hash != identity:
                 raise IdempotencyConflict()
-            existing = repository._owner_funded.get(aid)
+            existing = repository._no_account.get(aid)
             if existing is None or existing.owner_space_id != scope.space_id:
                 raise IdempotencyConflict()
             return {"activity": existing.response(), "accounts": [], "replayed": True}
@@ -177,7 +177,7 @@ def write(
             raise RecordingInputError(
                 "preview_required", "Review the proposed change before saving it."
             )
-        repository._owner_funded[row.activity_id] = row
+        repository._no_account[row.activity_id] = row
         repository._money_receipts[(user_id, None, key)] = (
             identity,
             row.activity_id,

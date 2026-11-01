@@ -177,7 +177,7 @@ class MoneyService:
         records = self.accounts.list_accounts(user_id=user_id, scope=scope)
         aid = self._id(activity_id)
         assert aid is not None
-        for row in getattr(records, "owner_funded", ()):
+        for row in getattr(records, "no_account", ()):
             if row.activity_id == aid:
                 return {"items": [row.response()], "next_cursor": None}
         revisions = groups(records).get(aid)
@@ -227,7 +227,7 @@ class MoneyService:
             request.reversal_of_activity_id,
         }
         if any(
-            row.activity_id in referenced for row in getattr(records, "owner_funded", ())
+            row.activity_id in referenced for row in getattr(records, "no_account", ())
         ):
             raise RecordingInputError(
                 "recorded_correction_unsupported",

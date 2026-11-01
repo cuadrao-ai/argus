@@ -14,7 +14,7 @@ from argus.domain.recording.errors import (
     RegisteredAccountRequired,
 )
 from argus.domain.recording.money_postgres import owner_lock
-from argus.domain.recording.owner_funds import OwnerFundedExpense
+from argus.domain.recording.owner_funds import NoAccountRecord
 
 if TYPE_CHECKING:
     from argus.domain.recording.postgres_repository import (
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 def load(
     connection: Connection, user_ids: Collection[str], scope: OwnerScope
-) -> list[OwnerFundedExpense]:
+) -> list[NoAccountRecord]:
     if not isinstance(scope, BusinessSpace):
         return []
     rows = connection.execute(
@@ -42,7 +42,7 @@ def load(
         (list(user_ids), scope.space_id),
     ).fetchall()
     return [
-        OwnerFundedExpense(
+        NoAccountRecord(
             *(str(value) if i < 4 else value for i, value in enumerate(row))
         )
         for row in rows
@@ -51,7 +51,7 @@ def load(
 
 def transact(
     repository: PostgresFinancialAccountRepository,
-    row: OwnerFundedExpense,
+    row: NoAccountRecord,
     key: str,
     identity: str,
     preview_valid: bool,
