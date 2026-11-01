@@ -383,7 +383,6 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const saveHolds = autosave.busy || autosave.failed || dirty;
   const approvable = mutable && dossier.approval_available && !saveHolds;
   const reviewing = dossier.review_state === "open" && !recorded;
-  const missingFields = [...new Set(dossier.blockers.flatMap((blocker) => blocker.code === "fact_required" && blocker.field ? [blocker.field] : []))];
   const attention = dossierAttention(dossier, t);
 
   const flags = dossier.review_flags ?? [];
@@ -410,10 +409,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   };
   const unsavedNames = [...rows.unsaved.map(rowName), ...(fiscalDirty ? [t("business.dossier.placeholder.more_fiscal", "More tax details")] : [])];
   const reason = unsavedNames.length ? t("business.dossier.placeholder.save_first", { fields: unsavedNames.join(", "), defaultValue: "Save or cancel {{fields}} to approve." })
-    : busy || saveHolds || supportedKind && approvable ? null
-    : dossier.facts.occurred_on.state !== "known" && dossier.blockers.some((blocker) => blocker.field === "occurred_on") ? t("business.dossier.approve_reason.date", "Add the date to approve")
-    : missingFields.length ? t("business.dossier.missing_list", "Missing: {{fields}}", { fields: missingFields.map((field) => t(`business.dossier.field.${field}`, field)).join(", ") })
-    : dossier.blockers.length ? t(`business.dossier.blocker.${dossier.blockers[0].code}`, "") || t("business.dossier.blocker_fallback", "This record needs further review before approval.")
+    // The top box already names what blocks; the footer says only what the box cannot.
+    : busy || saveHolds || supportedKind && approvable || attention.length ? null
     : t("business.dossier.blocker_fallback", "This record needs further review before approval.");
   // The receipt's own status when there is one; a bare record maps only the review states a status pill can say.
   const pillStatus = receipt?.status ?? (recorded || dossier.review_state === "accepted" ? "confirmed" : dossier.review_state === "open" ? "review_ready" : null);
@@ -483,6 +480,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
       recordId={receipt?.id ?? draftId}
       back={recorded ? "transactions" : "inbox"}
       title={title}
+      business={dossier.space_name}
       history={<ReceiptHistory history={dossier.history} accounts={accounts} sources={dossier.sources} approval={dossier.approval_result} />}
       // The list's own words for the status, so Bandeja and its dossier say the same thing.
       badge={pillStatus ? <StatusPill status={pillStatus} label={(receipt ? stateWord(receipt) : pillStatus === "review_ready" ? t("business.inbox.row_ready", "Ready to review") : "") || undefined} /> : <span className="text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{t(`business.dossier.state.${dossier.review_state}`, dossier.review_state)}</span>}
@@ -502,8 +500,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
             {NOTES_ENTRY_ENABLED && canPrepare && mutable && !Object.keys(rows.rows).length ? <button type="button" className={`${secondaryButtonClass} w-full`} onClick={() => { setCaptureTarget({ draft_id: dossier.draft_id, version: dossier.version }); setCaptureRevision(factsRevision(dossier)); setCaptureOpen(true); }}>{t("business.capture.append", "Add a note to this record")}</button> : null}
           </ReceiptMoreMenu>
           {!approval && canApprove ? <>
-            <button type="button" aria-busy={operation.kind === "approving" && !advancing} className={`${receipt ? secondaryButtonClass : primaryButtonClass} whitespace-nowrap`} aria-describedby={reason ? reasonId : undefined} disabled={!supportedKind || !approvable} onClick={() => requestApproval()}>{operation.kind === "approving" && !advancing ? <><Loader2 className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none" aria-hidden="true" />{t("business.dossier.approving", "Approving…")}</> : approvalLabel}</button>
-            {receipt ? <button type="button" aria-busy={operation.kind === "approving" && advancing} className={`${primaryButtonClass} ${KEY_HINT_CLASS} whitespace-nowrap`} data-keys={primaryKeys} aria-describedby={reason ? reasonId : undefined} aria-keyshortcuts="Meta+Enter Control+Enter" disabled={!supportedKind || !approvable} onClick={() => requestApproval(true)}>{operation.kind === "approving" && advancing ? <><Loader2 className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none" aria-hidden="true" />{t("business.dossier.approving", "Approving…")}</> : t("business.dossier.approve_next", "Approve and next")}</button> : null}
+            <button type="button" aria-busy={operation.kind === "approving" && !advancing} className={`${receipt ? secondaryButtonClass : primaryButtonClass} whitespace-nowrap`} aria-describedby={reason ? reasonId : attention.length ? "dossier-attention-title" : undefined} disabled={!supportedKind || !approvable} onClick={() => requestApproval()}>{operation.kind === "approving" && !advancing ? <><Loader2 className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none" aria-hidden="true" />{t("business.dossier.approving", "Approving…")}</> : approvalLabel}</button>
+            {receipt ? <button type="button" aria-busy={operation.kind === "approving" && advancing} className={`${primaryButtonClass} ${KEY_HINT_CLASS} whitespace-nowrap`} data-keys={primaryKeys} aria-describedby={reason ? reasonId : attention.length ? "dossier-attention-title" : undefined} aria-keyshortcuts="Meta+Enter Control+Enter" disabled={!supportedKind || !approvable} onClick={() => requestApproval(true)}>{operation.kind === "approving" && advancing ? <><Loader2 className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none" aria-hidden="true" />{t("business.dossier.approving", "Approving…")}</> : t("business.dossier.approve_next", "Approve and next")}</button> : null}
           </> : null}
         </>}
       />}

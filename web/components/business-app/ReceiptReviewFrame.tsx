@@ -57,10 +57,12 @@ function PlaceNav({ place }: { place: ReceiptPlace }) {
  * the form scrolls. On a full page the header sticks to the top, and below the
  * tablet stop the form and the original are two tabs.
  */
-export default function ReceiptReviewFrame({ recordId, back, title, badge, amount, mark, origin, place, source, children, history, footer }: {
+export default function ReceiptReviewFrame({ recordId, back, title, business, badge, amount, mark, origin, place, source, children, history, footer }: {
   recordId: string;
   back: "inbox" | "transactions";
   title: string;
+  /** The Business this record belongs to. */
+  business?: string;
   badge?: ReactNode;
   /** The formatted total; absent while it is unknown, never a zero. */
   amount?: string | null;
@@ -98,6 +100,7 @@ export default function ReceiptReviewFrame({ recordId, back, title, badge, amoun
   }, [settleList, back]);
   const meta = (
     <div data-testid="receipt-top-block">
+      {business ? <p data-testid="receipt-business" className="mb-0.5 break-words text-[13px] font-medium leading-[18px] text-[#56635e] dark:text-white/70">{business}</p> : null}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         {amount ? <span data-testid="receipt-total" className="cuadrao-amount text-[20px] font-medium leading-7 tabular-nums text-[#172b26] dark:text-white">{amount}</span> : null}
         {badge}

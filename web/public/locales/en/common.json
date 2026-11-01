@@ -2883,7 +2883,6 @@
         "approve_anyway": "Approve anyway"
       },
       "missing_draft": "The prepared record isn't available yet. Check the current receipt before continuing.",
-      "missing_list": "Missing: {{fields}}",
       "refused": "This action could not be completed. Check the current record before trying again.",
       "blocker_fallback": "This record needs further review before approval.",
       "kind": {

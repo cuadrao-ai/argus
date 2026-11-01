@@ -138,6 +138,7 @@ describe("the receipt dossier on an open draft", () => {
       assert.deepEqual([...page.host.querySelectorAll('[data-testid="receipt-current-facts"] [data-fact]')].map((row) => row.getAttribute("data-fact")), ["document_type", "counterparty", "occurred_on", "amount", "rnc", "fiscal_number", "itbis", "category", "payment_method"]);
       for (const gone of ["Confirmar", "Comprobante", "Actividad", "Parte del negocio", "Categoría", "Cómo se pagó", "Consultar registro actual", "por revisar"]) assert.ok(!page.host.querySelector('[data-testid="business-record-review"]')?.textContent?.includes(gone), gone);
       assert.ok(page.host.querySelector('[data-testid="receipt-more"] [data-testid="receipt-mark-personal"]'), "Personal stays in Más");
+      assert.equal(page.host.querySelector('[data-testid="receipt-business"]')?.textContent, "Taller Lucía · negocio de muestra");
       assert.ok(button(page.host, "Aprobar"), "nothing blocks this record");
       assert.equal(page.host.querySelector('[data-testid="approve-reason"]'), null);
       assert.equal(page.host.querySelector('[data-testid="dossier-attention"]'), null, "no blocker, no top box");
@@ -158,7 +159,9 @@ describe("the receipt dossier on an open draft", () => {
       const box = page.host.querySelector('[data-testid="dossier-attention"]');
       assert.deepEqual([...box!.querySelectorAll("li")].map((item) => item.textContent), ["Fecha de actividad"]);
       assert.ok(box?.textContent?.startsWith("Falta para aprobar"));
-      assert.equal(page.host.querySelector('[data-testid="approve-reason"]')?.textContent, "Agrega la fecha para aprobar");
+      assert.equal(page.host.querySelector('[data-testid="approve-reason"]'), null, "the box says it, so the footer does not");
+      assert.equal(page.host.querySelector('[data-testid="business-record-review"]')?.textContent?.includes("Agrega la fecha para aprobar"), false, "nor does the row");
+      assert.ok(page.row("occurred_on").querySelector('[data-testid="attention-marker"]'), "the row keeps its marker");
       assert.equal(button(page.host, "Aprobar").disabled, true);
       await page.openRow("occurred_on");
       await fill(page, '[placeholder="dd/mm/aaaa"]', "31/02/2026");

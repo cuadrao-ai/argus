@@ -108,7 +108,8 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
         {key === "amount" || key === "itbis" ? <span className="cuadrao-amount">{content}</span> : content}
         {tag}
         {review?.note(key as ReviewRow)}
-        {row?.blocked || row?.asked ? (
+        {/* On an open draft the row's marker and the top box already say this. */}
+        {(row?.blocked || row?.asked) && !(review && flagged(key)) ? (
           <span className="mt-1 flex items-center gap-1 text-[13px] leading-[18px] text-[#9e2f39] dark:text-[#ec9aa0]">
             <CircleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             {key === "occurred_on" && row?.standing === "empty" ? t("business.dossier.approve_reason.date", "Add the date to approve") : t("business.dossier.needs_resolution", "Needs a decision before approval")}

@@ -2883,7 +2883,6 @@
         "approve_anyway": "Aprobar de todos modos"
       },
       "missing_draft": "El movimiento preparado todavía no está disponible. Revisa el recibo actual antes de continuar.",
-      "missing_list": "Falta: {{fields}}",
       "refused": "No se pudo completar esta acción. Consulta el registro actual antes de intentarlo de nuevo.",
       "blocker_fallback": "Este registro necesita más revisión antes de aprobarse.",
       "kind": {
