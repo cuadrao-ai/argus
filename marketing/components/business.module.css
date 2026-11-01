@@ -2059,7 +2059,5 @@
     grid-template-columns: 1.4fr repeat(3, 1fr);
     gap: 0 32px;
   }
-  .plainFooter .businessFooterGrid nav { gap: 0; }
-  .plainFooter .businessFooterGrid nav > a { min-height: 32px; }
   .plainFooter .footerBar { margin-top: 32px; }
 }
