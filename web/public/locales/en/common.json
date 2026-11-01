@@ -2932,6 +2932,8 @@
         "save_refused": "{{field}} wasn't saved. Check the value.",
         "save_stale": "This record changed while you edited. You're seeing the current version and your change is still here.",
         "doubtful_read": "check this",
+        "zoom_in": "Zoom in",
+        "zoom_out": "Zoom out",
         "save_first": "Save or cancel {{fields}} to approve.",
         "group_identity": "Identification",
         "group_amounts": "Amounts",

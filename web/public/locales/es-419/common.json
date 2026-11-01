@@ -2932,6 +2932,8 @@
         "save_refused": "No se guardó {{field}}. Revisa el valor.",
         "save_stale": "Este registro cambió mientras editabas. Ya ves la versión actual y tu cambio sigue aquí.",
         "doubtful_read": "revisar",
+        "zoom_in": "Acercar",
+        "zoom_out": "Alejar",
         "save_first": "Guarda o cancela {{fields}} para aprobar.",
         "group_identity": "Identificación",
         "group_amounts": "Montos",
