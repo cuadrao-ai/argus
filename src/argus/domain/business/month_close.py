@@ -6,7 +6,7 @@ draft. This module only settles a document and adds those stored parts.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
@@ -312,7 +312,15 @@ def _pair(minor: int, currency: str) -> dict[str, int | str]:
     return {"minor": minor, "amount": format_minor_units(minor, currency)}
 
 
-def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dict:
+def summarize(
+    documents: Sequence[MonthDocument],
+    start: date,
+    end: date,
+    no_payment_form: Collection[str] = (),
+) -> dict:
+    """The month's money and lists. ``no_payment_form`` names the activities the
+    606 holds for a missing Forma de Pago; the 606 owns that rule."""
+
     chosen = [
         document
         for document in documents
@@ -323,9 +331,16 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
     missing_rnc = []
     missing_ncf = []
     ncf_malformed = []
+    missing_payment_form = []
     for document in sorted(chosen, key=lambda item: (item.occurred_on, item.activity_id)):
         if document.sin_comprobante:
             continue
+        if (
+            document.activity_id in no_payment_form
+            and document.role == "receipt"
+            and document.payment_form is None
+        ):
+            missing_payment_form.append(_line(document))
         if not document.rnc:
             reasons.append(
                 {
@@ -447,6 +462,7 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
         "missing_rnc": missing_rnc,
         "ncf_malformed": ncf_malformed,
         "missing_ncf": missing_ncf,
+        "missing_payment_form": missing_payment_form,
         "cuentas_por_cobrar": receivables,
         "cuentas_por_pagar": payables,
     }
