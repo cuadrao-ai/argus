@@ -5,10 +5,33 @@ from decimal import Decimal
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+)
 
 Money = Annotated[str, StringConstraints(pattern=r"^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$")]
-Identifier = Annotated[str, StringConstraints(pattern=r"^[A-Z0-9]{1,19}$")]
+
+
+def _printed_identifier(value: object) -> object:
+    """An RNC, cédula or NCF as a person keys it or a read kept it: the
+    dashes and spaces it was printed with go, letters become upper case. The
+    one place that cleans fiscal input; every reader after it sees digits."""
+
+    if not isinstance(value, str):
+        return value
+    return "".join(char for char in value if char != "-" and not char.isspace()).upper()
+
+
+Identifier = Annotated[
+    str,
+    StringConstraints(pattern=r"^[A-Z0-9]{1,19}$"),
+    BeforeValidator(_printed_identifier),
+]
 
 
 class FiscalInput(BaseModel):
@@ -131,6 +154,9 @@ class FiscalField(BaseModel):
     label: str
     kind: Literal["select", "date", "text", "money"]
     options: tuple[str, ...]
+    #: The label of each option that has one, by code; empty for a field
+    #: whose codes carry no label.
+    labels: dict[str, str] = Field(default_factory=dict)
 
 
 def decimal_money(value: str) -> Decimal:
