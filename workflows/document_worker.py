@@ -46,7 +46,7 @@ class DocumentWorker:
     async def run(self, stop: asyncio.Event) -> None:
         jobs = PreparationJobs(self.service, None)
         sweeper = asyncio.create_task(sweep_forever(jobs, self.settings.sweep_seconds))
-        logger.info("Document worker started", max_reads=self.settings.max_reads)
+        logger.info("Document worker started max_reads={}", self.settings.max_reads)
         try:
             while not stop.is_set():
                 await self._pull(stop)
@@ -68,7 +68,7 @@ class DocumentWorker:
                 )
             except Exception as error:
                 logger.warning(
-                    "Document read pull failed", failure_mode=type(error).__name__
+                    "Document read pull failed failure_mode={}", type(error).__name__
                 )
                 return
             if pulled is None:
@@ -80,7 +80,7 @@ class DocumentWorker:
     async def _read(self, connection_id: str, attempt_id: str) -> None:
         outcome = await run_attempt(self.service, connection_id, attempt_id)
         logger.info(
-            "Document read finished", connection_id=connection_id, outcome=outcome
+            "Document read finished connection_id={} outcome={}", connection_id, outcome
         )
 
     async def _drain(self) -> None:
@@ -88,7 +88,7 @@ class DocumentWorker:
             return
         _, late = await asyncio.wait(set(self.reads), timeout=self.settings.drain_seconds)
         if late:
-            logger.warning("Document reads outlived the drain", count=len(late))
+            logger.warning("Document reads outlived the drain count={}", len(late))
             for read in late:
                 read.cancel()
             await asyncio.wait(late, timeout=CANCEL_SECONDS)
