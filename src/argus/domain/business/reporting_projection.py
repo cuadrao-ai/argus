@@ -192,10 +192,8 @@ def project(
         else None
     )
     if not has_draft and activity:
-        funding_key = (
-            "owner_funds"
-            if approved.owner_funded
-            else "account:" + str(activity["legs"][0]["account_id"])
+        funding_key = activity.get("funding") or (
+            "account:" + str(activity["legs"][0]["account_id"])
             if activity.get("legs")
             else None
         )

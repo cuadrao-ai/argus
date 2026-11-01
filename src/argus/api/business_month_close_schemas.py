@@ -165,6 +165,8 @@ class MonthClose(_Wire):
     # The missing_ncf lines whose NCF is present but malformed, as read.
     ncf_malformed: list[DocumentLine] = Field(default_factory=list)
     missing_ncf: list[DocumentLine]
+    # Purchases the 606 holds until a person sets Forma de Pago, paid or not.
+    missing_payment_form: list[DocumentLine] = Field(default_factory=list)
     cuentas_por_cobrar: list[DocumentLine]
     cuentas_por_pagar: list[DocumentLine]
     # Receipt and note drafts the Bandeja still lists in this month.

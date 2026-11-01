@@ -14,7 +14,7 @@ from .money_postgres import load_owner
 from .repository import StoredAccount
 
 if TYPE_CHECKING:
-    from .owner_funds import OwnerFundedExpense
+    from .owner_funds import NoAccountRecord
 
 Leg = tuple[StoredAccount, ExpenseRecord, ExpenseRevision]
 History = dict[str, dict[int, list[Leg]]]
@@ -44,7 +44,7 @@ class ResolvedGroups:
     current: dict[str, int]
     history: History
     owners: dict[str, str]
-    owner_funded: list["OwnerFundedExpense"] = field(default_factory=list)
+    no_account: list["NoAccountRecord"] = field(default_factory=list)
 
     def current_visible(self, account_ids: Collection[str]) -> dict[str, int]:
         return {
@@ -63,7 +63,7 @@ class VisibleAccounts(list):
     def __init__(self, records: list[StoredAccount], canonical: ResolvedGroups):
         super().__init__(records)
         self.canonical = canonical
-        self.owner_funded = canonical.owner_funded
+        self.no_account = canonical.no_account
 
 
 def resolve(
@@ -178,7 +178,7 @@ def projected(canonical: ResolvedGroups, money: Any, now: Any) -> ResolvedGroups
     )
     return replace(
         resolve(records, headers.values(), memberships),
-        owner_funded=canonical.owner_funded,
+        no_account=canonical.no_account,
     )
 
 
@@ -261,9 +261,9 @@ def load(
             )
     from dataclasses import replace
 
-    from .owner_funds_postgres import load as load_funded
+    from .owner_funds_postgres import load as load_no_account
 
     return replace(
         resolve(records, headers.values(), memberships),
-        owner_funded=load_funded(connection, owner_ids, scope),
+        no_account=load_no_account(connection, owner_ids, scope),
     )

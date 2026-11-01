@@ -9225,11 +9225,13 @@ Income is never coerced to expense. Other kinds remain draft proposals.
 
 Income approval uses the current canonical facts, original sources and exact
 reviewed revision, with the same live named `approve` grant and human provenance.
-Readiness requires known income kind, positive amount, currency, activity date,
-and an explicit eligible receiving Business account belonging to that client.
-Unknown account or other material facts remain blockers; no account, category,
-income source, receipt or allocation is invented. Existing Business allocation
-and unresolved-question checks still apply. `owner_funds` cannot fund income.
+Readiness requires known income kind, positive amount, currency and activity
+date. A receiving account is optional: one a person states must be an eligible
+Business account belonging to that client, and with none the income records with
+no account and no funding (see below). Other unknown material facts remain
+blockers; no account, category, income source, receipt or allocation is invented.
+Existing Business allocation and unresolved-question checks still apply.
+`owner_funds` cannot fund income.
 An expense category is not silently relabeled as an income source; the sole
 MoneyService validates applicable fields and receiving-account eligibility.
 The command contains no replacement facts, account or caller authority.
@@ -9242,6 +9244,20 @@ recovery uses the persisted request/key, with no second ledger or blind retry
 of an unknown effect. Recorded-income amendment remains unsupported.
 `funding={kind: owner_funds}` records one expense only after human approval. It
 must not debit a Business bank account or decide whether capital or debt is owed.
+
+Approval needs no account and no payment answer. `funding` is a `fact_required`
+blocker only for a refund and for a document with a credit note number (B04 or
+E34), and `business_share` for nothing; a `partial` share stays refused with
+`business_allocation_unsupported`. Any other expense or income whose
+`funding` is `unknown` or `owner_does_not_know` records one row with a null
+`account_id` and a null `funding`. It moves no account and states nothing about
+who paid. It is `pendiente` until a person marks it through
+`PATCH /business/month-close/documents/{activity_id}`, which needs a method and
+no account. A record with no account is never a refund candidate, and a refund
+that names one answers 422
+`recorded_correction_unsupported`. An open funding question still blocks with
+`business_questions_unresolved`, as every open question does.
+
 Post-recording corrections to the recorded facts are refused with
 `recorded_correction_unsupported`; the 606 declaration alone stays writable
 through the review route until the record's line is exported (see the review
@@ -9333,9 +9349,11 @@ declaration leaves the Tipo Id or the Forma de Pago unknown: it adds one
 revision at the next version with the declaration built from the reviewed
 facts, or the saved one with only those two filled in. A value a person saved
 is never replaced. The built declaration leaves the expense type unknown, and
-the payment form unknown unless a cash (01), bank (02) or credit card (03)
-Business account paid, so the 606 reports `fiscal_fact_required` until a
-person answers; neither blocks approval. No declaration is built without a
+the payment form unknown unless a person stated a cash (01), bank (02) or credit
+card (03) Business account. Forma de Pago is never defaulted: with no stated
+account it stays blank until a person sets it, marking the record paid does not
+set it, and the 606 reports `fiscal_fact_required` until a person answers.
+Neither blocks approval. No declaration is built without a
 supplier RNC or for a consumer B02 or E32 number. When the money write then
 fails, the reopened draft gets one more revision that puts the declaration
 back as it was before the approval: the one a person saved, or none. If that
@@ -9397,11 +9415,16 @@ owner's approved record, and the revision names the accountant; `approve`
 stays the owner's and is not needed for the declaration; a read-only grant is
 403 `business_permission_denied`. Any other review input on an
 approved draft is still 422 `recorded_correction_unsupported`. So is a `purchase`
-that changes `purchase_activity_id` or `actual_refund`: the approval checked the
-refund and its purchase against the money and the money keeps them, so an
-approved credit note cannot move to another purchase. The same values answer
-200, and `modified_ncf` stays writable, with a number that disagrees with the
-linked purchase held by the export as `fiscal_credit_reference_conflict`.
+that changes `purchase_activity_id` or `actual_refund` on an approved refund, or
+that changes either one and leaves `actual_refund` true on any record: the
+approval checked a refund and its purchase against the money and the money keeps
+them, so an approved credit note cannot move to another purchase, and no record
+gains a refund claim the money does not hold. An approved expense holds no refund
+in the money, so a `purchase` may clear a wrong `actual_refund` or
+`purchase_activity_id`. A link with `actual_refund` false also writes on one, and
+the export holds it as `fiscal_credit_reference_not_applicable`. The same values
+answer 200, and `modified_ncf` stays writable, with a number that disagrees with
+the linked purchase held by the export as `fiscal_credit_reference_conflict`.
 It may also carry `document_type` (`recibo` or `venta`),
 alone or with facts and `dgii`, for an open draft from an upload, a note or a
 chat. A change
@@ -9436,7 +9459,10 @@ Business exists; the settlement write stays 404 `business_unavailable`. Month cl
 order) and `dgii_forms` (`{"606": status, "607": status}`, the export packet's
 own status words for that calendar month: `no_aplica`, `needs_review`,
 `summary_only`, `no_operations` or `prepared_candidate`; only the last means
-the ZIP carries the TXT). Each currency block adds `itbis_cobrado_minor` and
+the ZIP carries the TXT) and `missing_payment_form` (the document lines of the
+purchases the 606 holds until a person sets Forma de Pago, marked paid or not,
+each with `payment_form` null; it adds no `reasons` code and does not read into
+`closed`). Each currency block adds `itbis_cobrado_minor` and
 `itbis_cobrado` (ITBIS charged on the sales marked `cobrado`) and
 `net_result_final` (true while no document of that currency in the month is
 `pendiente` and, for a currency other than DOP, while that currency has no

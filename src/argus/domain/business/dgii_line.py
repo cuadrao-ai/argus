@@ -111,6 +111,16 @@ _MISSING = {
 }
 
 
+#: The issues that hold a purchase's 606 line with no Forma de Pago: the field
+#: is blank, or the record has no declaration to hold it.
+PAYMENT_FORM_ISSUES = frozenset(
+    {
+        ("fiscal_fact_required", "payment_method"),
+        ("fiscal_declaration_missing", "declaration"),
+    }
+)
+
+
 def missing_items(record: FiscalRecord, issues: list[dict]) -> tuple[str, ...]:
     """Every named fix the record needs, in MISSING_ORDER, or DETAIL_MISSING."""
     absent = identity_digits(fact_value(record, "rnc")) is None

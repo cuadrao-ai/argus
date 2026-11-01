@@ -35,7 +35,7 @@ class MoneyService:
         activity_id: str | None = None,
     ) -> dict[str, Any]:
         activity_id = self._id(activity_id)
-        if request.owner_funding is not None:
+        if request.no_account is not None:
             from .owner_funds import preview
 
             return preview(request, scope, self.accounts._clock(), activity_id)
@@ -59,7 +59,7 @@ class MoneyService:
     ) -> dict[str, Any]:
         from argus.domain.recording.money_storage import transact
 
-        if request.owner_funding is not None:
+        if request.no_account is not None:
             from .owner_funds import write
 
             return write(
@@ -110,7 +110,7 @@ class MoneyService:
         even though that write moved the account versions a preview would name.
         """
 
-        if request.owner_funding is not None:
+        if request.no_account is not None:
             from .owner_funds import write
 
             return write(
@@ -177,7 +177,7 @@ class MoneyService:
         records = self.accounts.list_accounts(user_id=user_id, scope=scope)
         aid = self._id(activity_id)
         assert aid is not None
-        for row in getattr(records, "owner_funded", ()):
+        for row in getattr(records, "no_account", ()):
             if row.activity_id == aid:
                 return {"items": [row.response()], "next_cursor": None}
         revisions = groups(records).get(aid)
@@ -227,7 +227,7 @@ class MoneyService:
             request.reversal_of_activity_id,
         }
         if any(
-            row.activity_id in referenced for row in getattr(records, "owner_funded", ())
+            row.activity_id in referenced for row in getattr(records, "no_account", ())
         ):
             raise RecordingInputError(
                 "recorded_correction_unsupported",

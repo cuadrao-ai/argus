@@ -77,21 +77,21 @@ def changes_recorded_refund(
 
 
 def declaration_from_facts(
-    facts: BusinessFacts, paid_from: str
+    facts: BusinessFacts, account_type: str | None
 ) -> PurchaseDeclaration | None:
     """The 606 declaration of a local expense receipt, from its stored facts.
 
     None when the 606 does not report it: no RNC, no fiscal number, or a
     consumer one (B02, E32). The expense type stays unknown for a person, so
-    neither amount side is filled. ``paid_from`` is ``owner_funds`` or the
-    account type.
+    neither amount side is filled. ``account_type`` is the account a person
+    stated paid it; with none, Forma de Pago stays blank for a person to set.
     """
 
     rnc = _fiscal(facts, "rnc")
     number = normalized_ncf(_fiscal(facts, "ecf") or _fiscal(facts, "ncf"))
     if rnc is None or number is None or number[1:3] in {"02", "32"}:
         return None
-    review = PurchaseReview(payment_method=PAYMENT_FORM_BY_ACCOUNT_TYPE.get(paid_from))
+    review = PurchaseReview(payment_method=PAYMENT_FORM_BY_ACCOUNT_TYPE.get(account_type))
     digits = identity_digits(rnc)
     return apply_purchase(None, review, None).model_copy(
         update={"id_type": {9: "1", 11: "2"}.get(len(digits or ""))}

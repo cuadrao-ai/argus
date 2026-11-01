@@ -26331,6 +26331,10 @@ components:
           anyOf:
           - $ref: '#/components/schemas/OwnerFunds'
           - type: 'null'
+        unstated_funding:
+          anyOf:
+          - $ref: '#/components/schemas/UnstatedFunding'
+          - type: 'null'
         account_id:
           anyOf:
           - type: string
@@ -26475,6 +26479,10 @@ components:
             $ref: '#/components/schemas/DocumentLine'
           type: array
         missing_ncf:
+          items:
+            $ref: '#/components/schemas/DocumentLine'
+          type: array
+        missing_payment_form:
           items:
             $ref: '#/components/schemas/DocumentLine'
           type: array
@@ -33789,6 +33797,20 @@ components:
       - status
       - code
       - reviewed_version
+    UnstatedFunding:
+      properties:
+        owner_space_id:
+          type: string
+          format: uuid
+        currency:
+          type: string
+          pattern: ^[A-Z]{3}$
+      additionalProperties: false
+      type: object
+      required:
+      - owner_space_id
+      - currency
+      description: 'A Business purchase or sale with no stated funding: no account moves.'
     UpdateAccountGrantRequest:
       properties:
         expected_version:

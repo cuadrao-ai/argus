@@ -47,7 +47,11 @@ from argus.domain.business.review_flags import unconfirmed
 from argus.domain.business.transactions import ActionTransaction, transaction
 from argus.domain.ingestion.reconcile.model import ImportEvent
 from argus.domain.ingestion.reconcile.recording import _NOT_WRITTEN
-from argus.domain.recording.money_schemas import MoneyRequest, OwnerFunds
+from argus.domain.recording.money_schemas import (
+    MoneyRequest,
+    OwnerFunds,
+    UnstatedFunding,
+)
 
 if TYPE_CHECKING:
     from argus.domain.business.actions.service import BusinessActions
@@ -92,10 +96,10 @@ def _money_request(
 ) -> MoneyRequest:
     if not isinstance(facts.kind, Known) or facts.kind.value != kind:
         raise ActionError("invalid_input", "activity_kind_unsupported")
-    if not isinstance(facts.funding, Known):
+    funding = facts.funding.value if isinstance(facts.funding, Known) else None
+    if funding is None and kind == "refund":
         raise ActionError("invalid_input", "fact_required")
-    funding = facts.funding.value
-    if kind in {"income", "refund"} and not isinstance(funding, BusinessAccountFunding):
+    if kind != "expense" and isinstance(funding, OwnerFunding):
         raise ActionError("invalid_input", "business_funding_unsupported")
     return MoneyRequest(
         kind=kind,
@@ -103,7 +107,14 @@ def _money_request(
         owner_funding=OwnerFunds(owner_space_id=space_id, currency=facts.currency.value)
         if isinstance(funding, OwnerFunding)
         else None,
-        account_id=None if isinstance(funding, OwnerFunding) else str(funding.account_id),
+        unstated_funding=UnstatedFunding(
+            owner_space_id=space_id, currency=facts.currency.value
+        )
+        if funding is None
+        else None,
+        account_id=str(funding.account_id)
+        if isinstance(funding, BusinessAccountFunding)
+        else None,
         amount=facts.amount.value,
         occurred_at=datetime.combine(
             facts.occurred_on.value, time(0), tzinfo=ZoneInfo("America/Santo_Domingo")
@@ -124,24 +135,26 @@ def _approval_declaration(
     """The 606 declaration an expense approval writes from its stored facts.
 
     A declaration a person saved stays theirs: only the Tipo Id and Forma de
-    Pago it left unknown are filled in. None when there is nothing to write.
-    After a ``failed`` approval whose revision was never undone, the person's
-    declaration is the one before that revision, and it is written back.
+    Pago it left unknown are filled in. Forma de Pago comes only from an
+    account a person stated, so with no stated funding it stays blank. None
+    when there is nothing to write. After a ``failed`` approval whose revision
+    was never undone, the person's declaration is the one before that
+    revision, and it is written back.
     """
 
     if not isinstance(facts.kind, Known) or facts.kind.value != "expense":
         return None
-    funding = facts.funding.value
-    paid_from = (
-        "owner_funds"
-        if isinstance(funding, OwnerFunding)
-        else next(
+    funding = facts.funding.value if isinstance(facts.funding, Known) else None
+    built = declaration_from_facts(
+        facts,
+        next(
             account.type
             for account in dossier.record_context(tx).accounts
             if account.id == funding.account_id
         )
+        if isinstance(funding, BusinessAccountFunding)
+        else None,
     )
-    built = declaration_from_facts(facts, paid_from)
     saved = (
         failed["before_dgii"]
         if failed is not None

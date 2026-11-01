@@ -13,7 +13,7 @@ from argus.domain.recording.service import FinancialAccountService
 
 from tests import test_financial_accounts_postgres as shared
 from tests.financial_accounts.test_loop_commands import NOW
-from tests.financial_accounts.test_owner_funds import entered, reviewed
+from tests.financial_accounts.test_owner_funds import entered, reviewed, unstated
 
 users = shared.users
 repository = shared.repository
@@ -143,7 +143,6 @@ def test_sql_scope_shape_rejects_personal_and_foreign_owner(
     with repository._pool.connection() as connection:
         for space, funding, currency, owner in [
             (None, "owner_funds", "DOP", user),
-            (scope.space_id, None, "DOP", user),
             (scope.space_id, "owner_funds", None, user),
             (scope.space_id, "owner_funds", "DOP", users["other"]),
         ]:
@@ -160,6 +159,87 @@ def test_sql_scope_shape_rejects_personal_and_foreign_owner(
             request=request,
             idempotency_key="foreign",
         )
+
+
+def test_sql_shape_admits_only_the_records_with_no_account(funded_scene, repository):
+    _, user, scope = funded_scene
+
+    def insert(connection, kind, funding, space=scope.space_id, currency="DOP"):
+        connection.execute(
+            "insert into public.financial_records(id,user_id,record_kind,owner_space_id,funding,currency)"
+            " values(%s,%s,%s,%s,%s,%s)",
+            (str(uuid4()), user, kind, space, funding, currency),
+        )
+
+    with repository._pool.connection() as connection:
+        for kind, funding in [
+            ("expense", "owner_funds"),
+            ("expense", None),
+            ("income", None),
+        ]:
+            with connection.transaction(force_rollback=True):
+                insert(connection, kind, funding)
+        for kind, funding, space, currency in [
+            ("expense", "unstated", scope.space_id, "DOP"),
+            ("income", "owner_funds", scope.space_id, "DOP"),
+            ("refund", None, scope.space_id, "DOP"),
+            ("transfer", None, scope.space_id, "DOP"),
+            ("expense", None, None, "DOP"),
+            ("income", None, None, "DOP"),
+            ("expense", None, scope.space_id, None),
+            ("income", None, scope.space_id, "dop"),
+        ]:
+            with pytest.raises(shared.psycopg.IntegrityError), connection.transaction():
+                insert(connection, kind, funding, space, currency)
+
+
+def test_no_account_rows_are_not_browser_readable(funded_scene, repository):
+    money, user, scope = funded_scene
+    for kind in ("expense", "income"):
+        request = reviewed(money, user, scope, unstated(scope, kind=kind))
+        money.write(user_id=user, scope=scope, request=request, idempotency_key=kind)
+    with repository._pool.connection() as connection:
+        with connection.transaction():
+            connection.execute("set local role authenticated")
+            connection.execute(
+                "select set_config('request.jwt.claims', %s, true)",
+                (
+                    json.dumps(
+                        {"sub": user, "role": "authenticated", "is_anonymous": False}
+                    ),
+                ),
+            )
+            for table in [
+                "financial_records",
+                "financial_record_revisions",
+                "financial_activity_groups",
+                "financial_activity_memberships",
+                "financial_activity_revisions",
+            ]:
+                assert (
+                    connection.execute(
+                        f"select count(*) from public.{table} where user_id=%s", (user,)
+                    ).fetchone()[0]
+                    == 0
+                )
+
+
+@pytest.mark.parametrize("kind", ["expense", "income"])
+def test_a_row_with_no_account_is_read_exactly_once(funded_scene, repository, kind):
+    money, user, scope = funded_scene
+    request = reviewed(money, user, scope, unstated(scope, kind=kind))
+    written = money.write(user_id=user, scope=scope, request=request, idempotency_key="k")
+    records = money.accounts.list_accounts(user_id=user, scope=scope)
+    assert current_activities(records) == [written["activity"]]
+    assert money.history(
+        user_id=user, scope=scope, activity_id=written["activity"]["activity_id"]
+    )["items"] == [written["activity"]]
+    assert (
+        money.write(user_id=user, scope=scope, request=request, idempotency_key="k")[
+            "replayed"
+        ]
+        is True
+    )
 
 
 def test_failure_before_receipt_rolls_back_effect_then_recovers(

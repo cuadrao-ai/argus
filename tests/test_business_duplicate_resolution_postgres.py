@@ -48,8 +48,7 @@ def test_explicit_decision_clears_duplicate_only_and_is_durable(actions):
     assert "possible_duplicate" not in {b.code for b in after.blockers}
     assert after.version == before.version + 1
     assert len(after.history) == len(before.history) + 1
-    assert "fact_required" in {b.code for b in after.blockers}
-    assert after.approval_available is False
+    assert after.approval_available is True
     assert service.resolve_duplicate(context, second, request, key) == decided
     with service.authority.pool.connection() as db:
         assert db.execute(

@@ -4,6 +4,12 @@ from datetime import timedelta
 from uuid import uuid4
 
 import pytest
+from argus.domain.business.contracts.actions import (
+    ApproveExpense,
+    ApproveIncome,
+    ProposeActivity,
+)
+from argus.domain.business.contracts.facts import BusinessFactPatch
 from argus.domain.business.custody_graph import PostgresBusinessCustodyGraph
 from argus.domain.business.purge import (
     MONEY_TABLES,
@@ -46,6 +52,73 @@ def remover(w, monkeypatch):
 
     monkeypatch.setattr(w["objects"], "remove", remove, raising=False)
     return remove
+
+
+def _no_account_record(w, kind):
+    """One approved record with no account and no funding, its activity id."""
+
+    service, context = w["service"], w["context"]
+    evidence = graph.actions_fixture.source(service, context, f"Documento {kind}")
+    key, lease = graph.actions_fixture.prepare(
+        service,
+        context,
+        [
+            ProposeActivity(
+                facts=BusinessFactPatch.model_validate(
+                    {
+                        name: {"state": "known", "value": value}
+                        for name, value in {
+                            "kind": kind,
+                            "amount": "500",
+                            "currency": "DOP",
+                            "occurred_on": "2026-10-09",
+                        }.items()
+                    }
+                ),
+                source_ids=(evidence,),
+            )
+        ],
+    )
+    draft = service.execute(context, key, 0, lease=lease)
+    approve, request = (
+        (service.approve, ApproveExpense(version=draft.version, action="record_expense"))
+        if kind == "expense"
+        else (
+            service.approve_income,
+            ApproveIncome(version=draft.version, action="record_income"),
+        )
+    )
+    return str(approve(context, draft.draft_id, request, str(uuid4())).activity_id)
+
+
+@pytest.mark.parametrize("owner_deleted", [False, True])
+def test_sweep_purges_records_with_no_account(custody, monkeypatch, owner_deleted):
+    w = custody
+    remover(w, monkeypatch)
+    activities = [_no_account_record(w, kind) for kind in ("expense", "income")]
+    deletion.close(w)
+    if owner_deleted:
+        assert deletion.command(w).delete_account(user_id=w["old"]).status == "done"
+    with w["pool"].connection() as db:
+        scope = PostgresBusinessCustodyGraph._scope(db, w["space"], w["old"], lock=False)
+    assert set(activities) <= set(scope["activities"])
+    expiry(w)
+    assert deletion.command(w).resume_pending(idle_seconds=0)["done"] == 1
+    with w["pool"].connection() as db:
+        assert (
+            db.execute(
+                "select count(*) from public.financial_activity_groups where id=any(%s::uuid[])",
+                (activities,),
+            ).fetchone()[0]
+            == 0
+        )
+        assert (
+            db.execute(
+                "select count(*) from public.financial_records where owner_space_id=%s",
+                (w["space"],),
+            ).fetchone()[0]
+            == 0
+        )
 
 
 @pytest.mark.parametrize("owner_deleted", [False, True])

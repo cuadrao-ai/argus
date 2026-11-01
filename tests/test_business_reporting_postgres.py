@@ -148,9 +148,31 @@ def test_actual_refund_and_owner_funded_record_are_not_dropped_or_duplicated(act
         by_id[str(refund.activity_id)].approved.declaration.purchase_activity_id
         == purchase.activity_id
     )
-    assert by_id[funded].approved.owner_funded is True
+    assert by_id[funded].approved.no_account is True
     assert report(snapshot).matching_count == 3
     assert read_recorded(service.authority, context).rows == snapshot.rows
+
+
+def test_a_record_with_no_draft_names_only_its_stated_funding(actions):
+    from argus.domain.business.reporting_query import ReportRequest
+    from argus.domain.business.reporting_store import read_report
+
+    from tests.financial_accounts.test_owner_funds import entered, reviewed, unstated
+
+    service, context, _ = actions
+    money, owner, scope = service.imports.money, context.owner_id, context.scope
+    written = {
+        key: money.write(
+            user_id=owner,
+            scope=scope,
+            request=reviewed(money, owner, scope, request),
+            idempotency_key=str(uuid4()),
+        )["activity"]["activity_id"]
+        for key, request in (("owner_funds", entered(scope)), (None, unstated(scope)))
+    }
+    result = read_report(service.authority, context, ReportRequest())
+    keys = {row.linked_activity_ids[0]: row.funding_key for row in result.items}
+    assert keys == {activity: key for key, activity in written.items()}
 
 
 def test_settlement_annotation_changes_fingerprint_without_new_money(actions):

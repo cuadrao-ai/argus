@@ -14,7 +14,7 @@ from argus.domain.recording.errors import (
     RegisteredAccountRequired,
 )
 from argus.domain.recording.money_postgres import owner_lock
-from argus.domain.recording.owner_funds import OwnerFundedExpense
+from argus.domain.recording.owner_funds import NoAccountRecord
 
 if TYPE_CHECKING:
     from argus.domain.recording.postgres_repository import (
@@ -24,12 +24,13 @@ if TYPE_CHECKING:
 
 def load(
     connection: Connection, user_ids: Collection[str], scope: OwnerScope
-) -> list[OwnerFundedExpense]:
+) -> list[NoAccountRecord]:
     if not isinstance(scope, BusinessSpace):
         return []
     rows = connection.execute(
         """select g.id,r.id,r.user_id,r.owner_space_id,r.currency,v.amount_minor,
-        v.as_of,v.as_of_zone,v.details->>'note',v.details->>'category_id',v.recorded_at
+        v.as_of,v.as_of_zone,v.details->>'note',v.details->>'category_id',v.recorded_at,
+        r.record_kind,r.funding
         from public.financial_records r
         join public.financial_record_revisions v on v.record_id=r.id and v.user_id=r.user_id
         and v.revision=r.current_revision
@@ -37,21 +38,19 @@ def load(
         and m.record_owner_id=r.user_id and m.record_revision=v.revision
         join public.financial_activity_groups g on g.id=m.activity_id and g.user_id=m.user_id
         and g.current_revision=m.activity_revision
-        where r.account_id is null and r.funding='owner_funds'
+        where r.account_id is null
         and r.user_id=any(%s::uuid[]) and r.owner_space_id=%s""",
         (list(user_ids), scope.space_id),
     ).fetchall()
     return [
-        OwnerFundedExpense(
-            *(str(value) if i < 4 else value for i, value in enumerate(row))
-        )
+        NoAccountRecord(*(str(value) if i < 4 else value for i, value in enumerate(row)))
         for row in rows
     ]
 
 
 def transact(
     repository: PostgresFinancialAccountRepository,
-    row: OwnerFundedExpense,
+    row: NoAccountRecord,
     key: str,
     identity: str,
     preview_valid: bool,
@@ -94,8 +93,8 @@ def transact(
                     "preview_required", "Review the proposed change before saving it."
                 )
             connection.execute(
-                "insert into public.financial_activity_groups(id,user_id,kind,current_revision) values(%s,%s,'expense',1)",
-                (row.activity_id, row.user_id),
+                "insert into public.financial_activity_groups(id,user_id,kind,current_revision) values(%s,%s,%s,1)",
+                (row.activity_id, row.user_id, row.kind),
             )
             connection.execute(
                 "insert into public.financial_activity_revisions(activity_id,revision,user_id) values(%s,1,%s)",
@@ -103,12 +102,14 @@ def transact(
             )
             connection.execute(
                 """insert into public.financial_records(id,account_id,user_id,record_kind,current_revision,created_at,owner_space_id,funding,currency)
-                values(%s,null,%s,'expense',1,%s,%s,'owner_funds',%s)""",
+                values(%s,null,%s,%s,1,%s,%s,%s,%s)""",
                 (
                     row.record_id,
                     row.user_id,
+                    row.kind,
                     row.recorded_at,
                     row.owner_space_id,
+                    row.funding,
                     row.currency,
                 ),
             )

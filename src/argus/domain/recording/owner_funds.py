@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Mapping
+from typing import TYPE_CHECKING, Any, Literal, Mapping
 from uuid import uuid4
 
 from argus.domain.owner_scope import BusinessSpace, OwnerScope
@@ -33,15 +33,15 @@ if TYPE_CHECKING:
 OWNER_FUNDS = "owner_funds"
 
 
-def owner_funded(activity: Mapping[str, Any]) -> bool:
-    """Whether a rendered activity is an ``OwnerFundedExpense`` row: the rows
+def no_account(activity: Mapping[str, Any]) -> bool:
+    """Whether a rendered activity is a ``NoAccountRecord`` row: the rows
     ``MoneyService.require_personal`` refuses to correct or refund."""
 
-    return activity.get("funding") == OWNER_FUNDS
+    return not activity["legs"]
 
 
 @dataclass(frozen=True)
-class OwnerFundedExpense:
+class NoAccountRecord:
     activity_id: str
     record_id: str
     user_id: str
@@ -53,12 +53,15 @@ class OwnerFundedExpense:
     note: str | None
     category_id: str | None
     recorded_at: datetime
+    kind: Literal["expense", "income"]
+    #: None when nobody has stated how it was paid.
+    funding: Literal["owner_funds"] | None
 
     def response(self) -> dict[str, Any]:
         return {
             "activity_id": self.activity_id,
             "revision": 1,
-            "kind": "expense",
+            "kind": self.kind,
             "amount_minor": self.amount_minor,
             "amount": format_minor_units(self.amount_minor, self.currency),
             "currency": self.currency,
@@ -75,17 +78,17 @@ class OwnerFundedExpense:
             "reason": None,
             "recorded_at": self.recorded_at,
             "recorded_by": self.user_id,
-            "funding": OWNER_FUNDS,
+            "funding": self.funding,
             "legs": [],
         }
 
 
 class FundedAccounts(list["StoredAccount"]):
     def __init__(
-        self, accounts: list[StoredAccount], owner_funded: list[OwnerFundedExpense]
+        self, accounts: list[StoredAccount], no_account: list[NoAccountRecord]
     ) -> None:
         super().__init__(accounts)
-        self.owner_funded = owner_funded
+        self.no_account = no_account
 
 
 def validate(
@@ -95,7 +98,7 @@ def validate(
     activity_id: str | None = None,
 ) -> tuple[str, int, datetime]:
     request = MoneyRequest.model_validate(request.model_dump())
-    funding = request.owner_funding
+    funding = request.no_account
     if (
         not isinstance(scope, BusinessSpace)
         or funding is None
@@ -110,6 +113,10 @@ def validate(
     amount = parse_minor_units(request.amount, currency)
     if amount <= 0:
         raise RecordingInputError("amount_positive_required", "Enter a positive amount.")
+    if request.category_id is not None and request.kind != "expense":
+        raise RecordingInputError(
+            "field_not_applicable", "This field does not apply to the selected activity."
+        )
     if request.category_id is not None and request.category_id not in CATEGORY_IDS:
         raise RecordingInputError("category_unknown", "Choose an available category.")
     return currency, amount, _stamp(request.occurred_at, request.time_zone, now)
@@ -146,7 +153,7 @@ def write(
     currency, amount, stamp = validate(request, scope, now, activity_id)
     identity = request_identity(request, None)
     preview_valid = entered or request.preview_token == identity
-    row = OwnerFundedExpense(
+    row = NoAccountRecord(
         str(uuid4()),
         str(uuid4()),
         user_id,
@@ -158,6 +165,8 @@ def write(
         request.note,
         request.category_id,
         now,
+        request.kind,
+        OWNER_FUNDS if request.owner_funding else None,
     )
     if not isinstance(repository, InMemoryFinancialAccountRepository):
         from argus.domain.recording.owner_funds_postgres import transact
@@ -169,7 +178,7 @@ def write(
             old_hash, aid, revision, affected = receipt
             if old_hash != identity:
                 raise IdempotencyConflict()
-            existing = repository._owner_funded.get(aid)
+            existing = repository._no_account.get(aid)
             if existing is None or existing.owner_space_id != scope.space_id:
                 raise IdempotencyConflict()
             return {"activity": existing.response(), "accounts": [], "replayed": True}
@@ -177,7 +186,7 @@ def write(
             raise RecordingInputError(
                 "preview_required", "Review the proposed change before saving it."
             )
-        repository._owner_funded[row.activity_id] = row
+        repository._no_account[row.activity_id] = row
         repository._money_receipts[(user_id, None, key)] = (
             identity,
             row.activity_id,

@@ -892,3 +892,23 @@ def test_a_settlement_conflict_that_survives_the_retry_is_409(monkeypatch):
         settle_document(None, context, str(activity_id), command)
     assert refused.value.result.outcome == "idempotency_conflict"
     assert refused.value.code == "business_document_settlement_conflict"
+
+
+def test_missing_payment_form_lists_only_purchases_the_606_holds() -> None:
+    receipt = {"role": "receipt", "status": "pendiente"}
+    documents = [
+        document(activity_id="held", **receipt),
+        document(activity_id="paid", role="receipt", status="pagado"),
+        document(activity_id="set", payment_form="01", **receipt),
+        document(activity_id="sale", role="invoice"),
+        document(activity_id="not-held", **receipt),
+        document(activity_id="personal", personal=True, **receipt),
+        document(activity_id="informal", sin_comprobante=True, **receipt),
+    ]
+    held = {"held", "paid", "set", "sale", "personal", "informal"}
+    summary = summarize(documents, DAY, DAY, held)
+    assert sorted(item["activity_id"] for item in summary["missing_payment_form"]) == [
+        "held",
+        "paid",
+    ]
+    assert summarize(documents, DAY, DAY)["missing_payment_form"] == []

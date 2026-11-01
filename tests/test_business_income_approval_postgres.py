@@ -140,7 +140,6 @@ def test_income_requires_current_kind_and_complete_sourced_facts(actions):
     service, context, _ = actions
     request = ApproveIncome(version=1, action="record_income")
     for omitted, unknown in (
-        (("funding",), ()),
         (("occurred_on",), ()),
         (("amount",), ()),
         ((), ("currency",)),
