@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { afterAll, afterEach, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { activeFilterGroups, emptyPreviewFilters, validPreviewAmount } from "@/components/business-app/transacciones/records-filter-preview-model";
+import { keepOwnListSearch } from "./fixtures/own-list-search";
+
+await keepOwnListSearch();
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 1000 });

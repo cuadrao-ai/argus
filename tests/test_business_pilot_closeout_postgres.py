@@ -99,6 +99,13 @@ def test_a_typed_purchase_holds_what_the_person_typed_and_nothing_else(world) ->
     assert _money_rows(world) == 0
 
 
+def test_the_note_keeps_the_text_as_typed_and_the_supplier_line_is_clean(world) -> None:  # noqa: ANN001
+    dossier = _typed(world, text=f"  {TEXT}\n").json()
+
+    assert dossier["facts"]["counterparty"]["value"] == TEXT
+    assert [source["text"] for source in dossier["sources"]] == [f"  {TEXT}\n"]
+
+
 def test_a_person_reviews_it_alone_and_the_bandeja_holds_it_until_then(world) -> None:  # noqa: ANN001
     dossier = _typed(world).json()
     draft = dossier["draft_id"]
@@ -389,6 +396,10 @@ def test_a_split_written_after_approval_ships_the_607_and_export_freezes_it(
     assert answer.status_code == 200, answer.text
     after = answer.json()
     assert after["dgii"]["cash"] == "1180.00"
+    assert [
+        after["dgii"][name]
+        for name in ("bank", "card", "credit", "gift", "barter", "other_payment")
+    ] == [None] * 6
     assert after["dgii"]["income_type"] == "1"
     assert after["dgii"]["billed_amount"] == "1000.00"
     assert after["version"] == before["version"] + 1
@@ -497,6 +508,17 @@ def test_a_purchase_takes_no_split(world) -> None:  # noqa: ANN001
     assert refused.status_code == 422, refused.text
     assert refused.json()["code"] == "fiscal_direction_unsupported"
     assert _dossier(world, draft)["version"] == before["version"]
+
+
+def test_a_purchase_with_no_declaration_takes_no_split_either(world) -> None:  # noqa: ANN001
+    dossier = _typed(world).json()
+    assert dossier["payment_split_editable"] is False
+
+    refused = _split(world, dossier["draft_id"], dossier["version"], cash="500.00")
+
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["code"] == "fiscal_direction_unsupported"
+    assert _dossier(world, dossier["draft_id"])["dgii"] is None
 
 
 def test_an_open_sale_takes_the_split_on_the_same_route(world) -> None:  # noqa: ANN001

@@ -3,6 +3,9 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, mock, test } from
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
 import type { TransaccionesSource } from "@/components/business-app/transacciones/transacciones-model";
+import { keepOwnListSearch } from "./fixtures/own-list-search";
+
+await keepOwnListSearch();
 
 // The real workspace over the sample source: the rail, the top bar and the
 // panel router, with Transacciones' igualar parts behind their gate.

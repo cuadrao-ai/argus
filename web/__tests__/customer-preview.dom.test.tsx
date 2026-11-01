@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { afterAll, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
+import { keepOwnListSearch } from "./fixtures/own-list-search";
+
+await keepOwnListSearch();
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz?view=invoicing" });

@@ -13,6 +13,9 @@ import { restoreReportLocation } from "@/lib/business-reporting-wire";
 import { setChosenGrant } from "@/lib/business-grant";
 import { createBusinessReportHttpFixture, fixtureId } from "./fixtures/business-report-http-fixture";
 import spanish from "@/public/locales/es-419/common.json";
+import { keepOwnListSearch } from "./fixtures/own-list-search";
+
+await keepOwnListSearch();
 
 let cleanup = async () => {};
 const originalMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
