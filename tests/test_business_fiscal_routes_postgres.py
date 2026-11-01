@@ -254,6 +254,105 @@ def test_review_write_path_from_capture_to_frozen_606_line(world) -> None:  # no
     )
 
 
+def _recorded(world) -> tuple[str, dict]:  # noqa: ANN001
+    """One purchase Alice captured, reviewed and approved: its draft id and
+    the approved dossier."""
+
+    note = _note(world, world.alice, "Pagué 1180 en Ferretería Prueba")
+    assert note.status_code == 200, note.text
+    draft = note.json()["draft_id"]
+    version = world.client.get(
+        f"{API}/business/drafts/{draft}/dossier", headers=world.alice.headers
+    ).json()["version"]
+    reviewed = _review(
+        world,
+        draft,
+        {
+            "version": version,
+            "facts": _known(
+                {
+                    "kind": "expense",
+                    "amount": "1180.00",
+                    "currency": "DOP",
+                    "occurred_on": "2026-09-03",
+                    "counterparty": "Ferretería Prueba",
+                    "funding": {"kind": "owner_funds"},
+                    "business_share": {"kind": "all"},
+                }
+            ),
+            "dgii": {
+                "fiscal": {"rnc": "199990021", "ncf": "B0100000012", "itbis": "180.00"},
+                "declaration": {
+                    **{name: None for name in PurchaseDeclaration.model_fields},
+                    "form": "606",
+                    "actual_refund": False,
+                    "category_suggested": False,
+                },
+            },
+        },
+        world.alice.headers,
+    )
+    assert reviewed.status_code == 200, reviewed.text
+    approved = _post(
+        world,
+        f"/business/drafts/{draft}/approve",
+        {"version": reviewed.json()["version"], "action": "record_expense"},
+        world.alice.headers,
+    )
+    assert approved.status_code == 200, approved.text
+    return draft, approved.json()
+
+
+def test_an_accountant_holding_prepare_adds_606_data_after_approval(world) -> None:  # noqa: ANN001
+    """The 606 declaration is prepare's to write, before and after approval:
+    an accountant adds it on the owner's approved record, and the revision
+    names the accountant. Approval stays the owner's. A read-only grant is
+    refused."""
+
+    client, bob = world.client, world.bob
+    draft, recorded = _recorded(world)
+    as_bob = _as(bob, world.grant)
+    dossier = f"{API}/business/drafts/{draft}/dossier"
+    assert client.get(dossier, headers=as_bob).json()["declaration_editable"] is True
+
+    added = _review(
+        world,
+        draft,
+        {
+            "version": recorded["version"],
+            "purchase": {"category": "02", "payment_method": "03"},
+        },
+        as_bob,
+    )
+    assert added.status_code == 200, added.text
+    declared = added.json()
+    assert (declared["dgii"]["category"], declared["dgii"]["payment_method"]) == (
+        "02",
+        "03",
+    )
+    assert declared["history"][-1]["actor"]["actor_id"] == bob.id
+    assert declared["approval_result"] == recorded["approval_result"]
+
+    with Connection.connect(shared.DSN) as db:
+        db.execute(
+            "update public.business_client_grants set business_role='viewer',"
+            " capabilities=%s where id=%s",
+            (["read"], world.grant),
+        )
+        db.commit()
+    assert client.get(dossier, headers=as_bob).json()["declaration_editable"] is False
+    refused = _review(
+        world,
+        draft,
+        {"version": declared["version"], "purchase": {"category": "03"}},
+        as_bob,
+    )
+    assert (refused.status_code, refused.json().get("code")) == (
+        403,
+        "business_permission_denied",
+    ), refused.text[:200]
+
+
 def test_every_route_carrying_marks_answers_200_with_the_same_marks(world) -> None:  # noqa: ANN001
     client, alice, bob = world.client, world.alice, world.bob
     note = _note(world, alice, "Pagué 850 en Ferretería Prueba")

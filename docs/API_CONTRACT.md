@@ -9391,7 +9391,11 @@ declarations, builds the TXT and records the lines it carries under the
 Business's owner lock, the lock every review write takes, so a 606 write that
 runs at the same time either lands before the build, and the TXT carries it,
 or waits for the build and is refused with that code; the TXT never freezes a
-record on a value it does not carry. Any other review input on an
+record on a value it does not carry. The declaration is `prepare`'s to write,
+before and after approval: an accountant holding `prepare` adds 606 data on the
+owner's approved record, and the revision names the accountant; `approve`
+stays the owner's and is not needed for the declaration; a read-only grant is
+403 `business_permission_denied`. Any other review input on an
 approved draft is still 422 `recorded_correction_unsupported`.
 It may also carry `document_type` (`recibo` or `venta`),
 alone or with facts and `dgii`, for an open draft from an upload, a note or a
