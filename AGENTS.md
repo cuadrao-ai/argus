@@ -2,8 +2,7 @@
 
 Cuadrao is a Spanish-first web app for small businesses in the Dominican Republic
 and their accountants. It turns receipts and invoices into reviewed records and
-the 606/607 reports. The personal iOS and Android apps are archived. Chat is being
-removed. Guest mode is gone from the Business app. Legacy code remains under
+the 606/607 reports. The personal iOS and Android apps are archived. The old investing chat is being removed. Guest mode is gone from the Business app. Legacy code remains under
 `src/argus/`, and many settings keep an `ARGUS_` prefix.
 
 This file holds codebase facts. Team process lives outside the repo and arrives in
@@ -33,10 +32,13 @@ Services: `docs/ARCHITECTURE.md`. Endpoints: `docs/API_CONTRACT.md` and
 A spec, roadmap or green test does not assign work. Your brief does.
 
 Layout: `src/argus/api/` API, `src/argus/domain/business/` Business domain,
-`src/argus/agent_runtime/` remaining interpreter and legacy runtime code,
+`src/argus/agent_runtime/` interpreter and runtime code,
 `web/` web app, `marketing/` marketing site, `native/Packages/` legacy Swift
 packages with no personal app, `supabase/migrations/`,
 `tests/` (with `tests/evals/`), `scripts/` checks and ops tools, `.github/` CI and setup.
+
+`src/argus/agent_runtime/business/` is live. WhatsApp uses its `BusinessTurnRunner`.
+The interpreter and model-facing text rules below apply to it.
 
 ## Setup and run
 
@@ -47,6 +49,7 @@ packages with no personal app, `supabase/migrations/`,
   `missing` or `conflicting-link` means stop and fix first.
 - Fast mode: `.github/dev.sh` (memory store, synthetic fixtures, mock auth), then
   `cd web && bun run dev` with `NEXT_PUBLIC_MOCK_AUTH=true`. Parity: `.github/qa.sh`.
+- The `web/` framework breaks older APIs: read `web/node_modules/next/dist/docs/` first.
 
 ## Checks (CI runs these)
 
@@ -60,7 +63,7 @@ cd web && bun run lint && bun test && bun run build
 cd marketing && bun run lint && bun run typecheck && bun test && bun run build
 ```
 
-- When changing the remaining legacy runtime, use the hermetic chat sweep.
+- When changing the remaining runtime, use the hermetic chat sweep.
   If it takes minutes rather than seconds, stop and check for a leaked live path:
   `OPENROUTER_API_KEY= ARGUS_MARKET_DATA_PROVIDER_MODE=synthetic_unit_fixture poetry run pytest tests/agent_runtime tests/test_spine_guardrails.py -q --no-cov`
 - Postgres tests need `ARGUS_DISPOSABLE_DATABASE_URL` on a throwaway local DB, never staging/prod.
@@ -77,7 +80,7 @@ cd marketing && bun run lint && bun run typecheck && bun test && bun run build
 - While `src/argus/agent_runtime/llm_interpreter.py` remains, preserve its
   interpretation boundary. Do not add regex, phrase lists or language gates in
   front of it. Code checks facts after interpretation. Any layer that patches a
-  weak model read logs when it fires. This rule does not make chat current product scope.
+  weak model read logs when it fires. This rule does not restore the old investing chat to product scope.
 - Model-facing text rules still apply while the interpreter code exists.
   Prompt builders and `Field(description=...)` are fingerprinted by `tests/test_interpreter_prompt_freeze.py`. Changing them needs a
   live scorecard under `docs/reports/evidence/`, no regression against the one named

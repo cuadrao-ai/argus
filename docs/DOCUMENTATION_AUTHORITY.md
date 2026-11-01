@@ -33,7 +33,7 @@ The current brief bounds the work. A spec, roadmap, old assignment or green test
 
 Only the owner role can approve records. The pilot accountant holds the Dueño seat. Nothing is approved automatically.
 
-The personal iOS and Android apps are archived. Chat is being removed. Guest mode is gone from the Business app. Remaining interpreter code keeps the model-facing text safeguards in [AGENTS.md](../AGENTS.md).
+The personal iOS and Android apps are archived. The old investing chat is being removed. Guest mode is gone from the Business app. Remaining interpreter code keeps the model-facing text safeguards in [AGENTS.md](../AGENTS.md).
 
 The pilot spec excludes archive, the invoice cascade, USD rate handling, and email and WhatsApp changes. Do not infer new decisions for them.
 
@@ -43,6 +43,7 @@ The pilot spec excludes archive, the invoice cascade, USD rate handling, and ema
 
 | Document | Status | How to use it |
 | --- | --- | --- |
+| [Old web design guide](../.agent/designs/argus/DESIGN.md) | Historical investing-chat design | Use the Business web app guide and pilot spec for current product work. |
 | [Minimum viable ecosystem experience](specs/argus-minimum-viable-ecosystem-experience.md) | Historical personal and household direction | Preserve the rationale. Its mobile, chat and guest plans do not govern the Business pilot. |
 | [Business agent execution spec](specs/lanes/cuadrao-business-agent-execution-spec.md) | Historical agent and chat build plan | Reuse only relevant technical context under an explicit brief. It does not restore chat or assign its former work streams. |
 | [Connected Business flow](specs/cuadrao-business-connected-flow-spec.md) and [E0 plan](specs/cuadrao-business-e0-implementation-plan.md) | Earlier Business design and implementation plans | Read their technical context alongside the current pilot spec and contracts. Their old ownership and build order are not a new assignment. |

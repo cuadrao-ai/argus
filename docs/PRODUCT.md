@@ -16,6 +16,6 @@ Payment and collection are separate from approval. Approved records produce the 
 
 ## Archived product direction
 
-The personal iOS and Android apps are archived. Personal and household finance, chat and guest entry are no longer current product direction. Chat is being removed, and the Business app has no guest mode. Remaining legacy code does not restore those features to the product scope.
+The personal iOS and Android apps are archived. Personal and household finance, chat and guest entry are no longer current product direction. The old investing chat is being removed, and the Business app has no guest mode. Remaining legacy code does not restore those features to the product scope.
 
 The [documentation authority map](DOCUMENTATION_AUTHORITY.md) separates current contracts from historical specs and reports. Keep those records as history. Their former launch plans, feature flags and chat behavior do not assign new work.
