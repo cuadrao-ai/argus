@@ -195,6 +195,8 @@ test.describe("how it works", () => {
     await page.goto(PATH);
     const soon = page.getByRole("img", { name: "Facturar · En preparación" });
     await expect(soon).toHaveCount(1);
+    await soon.focus();
+    await expect(soon).toBeFocused();
     await expect(page.getByRole("link", { name: "Facturar · En preparación" })).toHaveCount(0);
   });
 
