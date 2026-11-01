@@ -3649,7 +3649,7 @@ open items read the date from the resolution, not from the revision.
 | `business_sender_leases` | One durable holder, monotonic fence and expiry per `(space_id, sender_hash)`. Runtime acquisition/renewal/release must lock this row and check the fence before committing. |
 | `business_turns` | Globally deduplicated provider turn key, scoped actual actor/sender, arrival order, phase, model state, immutable typed normalized plan, active lease fence and reply text. A completed model interpretation requires its plan and server-derived `plan_actor: ActorProvenance` snapshot, present together and immutable together, with matching actual actor ID; completion/reply phases require the plan. |
 | `business_action_receipts` | Unique `(space_id, actor_id, idempotency_key)` and `(turn_key, action_index)`, canonical input hash, normalized command, immutable actual `actor: ActorProvenance` snapshot (including human commands without a turn), and typed result. Snapshot actor ID must match the receipt actor. Human `review_draft`, `approve_expense`, `approve_income` and `capture_note` commands, and trusted `prepare_attachment` commands bound to the stored preparation binding, may omit a turn; agent commands require a persisted plan. Agent receipts require the matching action in an already persisted plan of the same client and actor, with identical plan-actor provenance. Identity/command/hash cannot mutate. A settled result cannot change; unknown results allow explicit reconciliation. This is action execution recovery, not another financial ledger. |
-| `business_document_settlements` | One row per recorded activity in one Business (`space_id`, `activity_id`). Status, settlement date, and payment method only. Amounts, ITBIS, RNC, and the fiscal number stay on the activity and its draft. A pending row has no date and no method. A settled row has both, and the status has to match invoice or receipt. Deleting the space or the activity cascades the row. Both owner keys are custody-deferred: account deletion moves `owner_id` to the record custodian with the Business, and the day-30 purge removes the row. |
+| `business_document_settlements` | One row per recorded activity in one Business (`space_id`, `activity_id`). Status, settlement date, and payment method only. Amounts, ITBIS, RNC, and the fiscal number stay on the activity and its draft. A pending row has no date and no method. A settled row has both, and the status has to match invoice or receipt. Deleting the activity cascades the row; deleting the space is refused while the row exists (`20261101000100`). Both owner keys are custody-deferred: account deletion moves `owner_id` to the record custodian with the Business, and the day-30 purge deletes the row itself before the space. |
 | `business_document_settlement_revisions` | Append-only previous status, date, and method, plus the actor and the time. A repeated identical settlement writes no row. Updates and direct deletes fail. Deleting the settlement cascades these rows. The actor reference clears when that person is deleted. The month summary is computed, not stored. Shapes and the closed rule are in the [month-close contract](contracts/business-month-close.md). |
 
 Migration `20261011070000_business_manual_capture_command.sql` extends only
@@ -3881,7 +3881,25 @@ None of these rows is a financial record or affects balances.
   (`financial_import_events_sale_ncf_idx`, migration
   `20261021050000_business_sale_ncf_once.sql`) allows one accepting or accepted
   sale (`facts.kind` income) per `owner_space_id` and normalized NCF or e-CF, so
-  two approvals of the same sale comprobante cannot both land.
+  two approvals of the same sale comprobante cannot both land. Three stored
+  generated columns (`20261101000200_business_purchase_comprobante_once.sql`)
+  project the Business facts the way the code normalizes them: `business_kind`
+  (`facts.kind`), `business_rnc` (`facts.fiscal.rnc` as its 9 or 11 digits,
+  spaces and dashes removed, null when every digit is zero) and
+  `business_fiscal_number` (e-CF before NCF, trimmed, upper case, null unless B
+  plus ten digits or E plus twelve). A second partial unique index
+  (`financial_import_events_purchase_comprobante_idx`) allows one accepting or
+  accepted purchase (`business_kind` not income) per `owner_space_id`,
+  `business_rnc` and `business_fiscal_number`, so two approvals of one
+  supplier's comprobante cannot both land in one Business; two Businesses may
+  hold the same pair. Receipts with no RNC or no comprobante keep the code
+  check on merchant, date, amount and currency. The approval maps the index
+  refusal to the `duplicate_comprobante` refusal with the record it collides
+  with. The migration stops with
+  `business_purchase_comprobante_duplicates_present` and changes nothing while
+  duplicates exist. The `(owner_space_id, user_id)` key to `spaces` is
+  `on delete restrict` (`20261101000100`): a Business event never goes with a
+  space delete; the day-30 purge deletes it itself before the space.
 - `financial_import_account_links`: person-confirmed mapping from
   `(connection_id, account_key)` to an owned `financial_accounts` row
   (owner-qualified foreign key); deleted on disconnect.
@@ -4085,6 +4103,45 @@ no space FK so graph deletion cannot discard a retry plan. Object plans have
 a run FK with CASCADE. Run and due-date indexes bound sweep discovery. No new
 client policy, Data API endpoint, hosted activation or longer retention grant
 is introduced. The original `spaces.closed_at` owns the thirty-day deadline.
+
+### Business money rows never cascade, November 1, 2026
+
+Forward migration `20261101000100_business_money_rows_restrict.sql` answers
+#1446 Q1: money rows and their evidence never cascade from a Business. The
+eight keys from those tables to `spaces` become `on delete restrict`, each
+keeping its name, columns, `on update no action` and deferrability, so the
+custody move's deferred-key list still names them:
+`business_action_receipts.space_id`, `business_turns.space_id`,
+`business_sources.space_id`, `business_document_settlements (space_id,
+owner_id)`, `financial_import_events (owner_space_id, user_id)`,
+`financial_source_connections (owner_space_id, user_id)`,
+`financial_records (owner_space_id, user_id)` and
+`financial_accounts (owner_space_id, user_id)`. A space delete is refused
+while any of those rows names it. Operational rows (grants, invites, leases,
+outboxes, read states, consents, bank matching, fiscal sandbox, workspace,
+saved views, invoice editor) keep cascading.
+
+Removal runs only through the day-30 purge: `delete_money_rows` in
+`argus.domain.business.purge` deletes those eight tables for the space, child
+before parent, after the activities and before the space row, inside the
+purge transaction. Revisions, sources, questions, observations and
+extractions still cascade from their event, source or connection. Sources,
+draft revisions and settlements refuse a direct delete
+(`business_evidence_immutable`) and until now went only with the space
+cascade, so the same migration redefines
+`argus_private.business_immutable_evidence` and
+`argus_private.business_settlement_delete_guard` to also accept a delete when
+`argus_private.business_purge_marked(space_id)` holds: the connection is
+`postgres` and the transaction-local setting `argus.business_purge_space`
+names that space, which `delete_money_rows` sets first. Synthetic teardown in
+tests goes through the same deleter (`tests/business_cleanup.py`).
+
+A person who leaves never reaches these rows: every Business money row's
+`user_id` is the space custodian, and `business_auth_retention_guard`
+(`20261021140000`) refuses a plain `auth.users` delete of a custodian until
+custody moves to a placeholder. The `user_id` keys to `auth.users` on the
+shared `financial_*` tables stay `cascade` because Personal rows and the
+Personal deletion writer (`deletion_finish`) rely on them.
 
 ### Business close notification transport, held October 18, 2026
 

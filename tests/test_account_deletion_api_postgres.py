@@ -26,6 +26,7 @@ from argus.domain.profile_images import business, person
 from argus.observability.posthog_deletion import EventDeletionResult
 from fastapi.testclient import TestClient
 
+from tests.business_cleanup import delete_spaces
 from tests.document_sources_support import LOCAL_STORAGE, source_objects, stored_paths
 from tests.household.financial_fixtures import DSN, NOW
 from tests.household.financial_fixtures import lane as lane  # - fixture
@@ -369,10 +370,7 @@ def test_storage_failure_answers_202_until_a_retry_erases_the_sources(
             photos.remove(business(spaces[who]))
         release_custodian(spaces[a])
         with psycopg.connect(DSN) as c:
-            c.execute(
-                "delete from public.spaces where id = any(%s::uuid[])",
-                (list(spaces.values()),),
-            )
+            delete_spaces(c, "id = any(%s::uuid[])", (list(spaces.values()),))
 
 
 def _deployed(monkeypatch, *, posthog_token: str | None) -> None:
@@ -794,4 +792,4 @@ def test_open_business_owner_is_refused_before_run_or_external_effects(
             )
     finally:
         with pool.connection() as db:
-            db.execute("delete from public.spaces where id=%s", (space.id,))
+            delete_spaces(db, "id=%s", (space.id,))

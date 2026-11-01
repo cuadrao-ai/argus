@@ -23,6 +23,7 @@ from psycopg import Connection
 
 from tests import test_financial_accounts_postgres as shared
 from tests.business.test_business_api import RECEIPT
+from tests.business_cleanup import delete_spaces
 from tests.local_supabase_support import local_supabase_gateway
 from tests.test_financial_accounts_api_postgres import ORIGIN
 
@@ -127,16 +128,16 @@ def web(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
                 )
             # A Business that still names its owner refuses the bare Auth
             # delete, so the test Businesses go first, with their history,
-            # as the day-30 purge removes them: activities, then spaces, with
-            # the keys checked at commit.
+            # as the day-30 purge removes them: activities, then money rows,
+            # then spaces, with the keys checked at commit.
             db.execute("set constraints all deferred")
             db.execute(
                 "delete from public.financial_activity_groups where user_id = any(%s::uuid[])",
                 (created,),
             )
-            db.execute(
-                "delete from public.spaces where created_by = any(%s::uuid[])"
-                " or current_owner_id = any(%s::uuid[])",
+            delete_spaces(
+                db,
+                "created_by = any(%s::uuid[]) or current_owner_id = any(%s::uuid[])",
                 (created, created),
             )
         # Try every user, then fail loudly: a refused delete leaks a test user

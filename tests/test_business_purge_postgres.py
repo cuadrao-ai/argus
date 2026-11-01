@@ -5,10 +5,15 @@ from uuid import uuid4
 
 import pytest
 from argus.domain.business.custody_graph import PostgresBusinessCustodyGraph
-from argus.domain.business.purge import BusinessPurgePending, PostgresBusinessPurge
+from argus.domain.business.purge import (
+    MONEY_TABLES,
+    BusinessPurgePending,
+    PostgresBusinessPurge,
+)
 
 from tests import test_business_account_deletion_postgres as deletion
 from tests import test_business_custody_graph_postgres as graph
+from tests.business_cleanup import delete_spaces
 
 users = graph.users
 actions = graph.actions
@@ -79,6 +84,15 @@ def test_existing_sweep_purges_complete_expired_graph_and_originals(
             ).fetchone()
             is None
         )
+        # The restrict rule holds these rows back from the space cascade; the
+        # purge deletes every one of them itself.
+        for table, column in MONEY_TABLES:
+            assert (
+                db.execute(
+                    f"select 1 from public.{table} where {column}=%s", (w["space"],)
+                ).fetchone()
+                is None
+            ), table
         assert (
             db.execute(
                 "select 1 from public.financial_document_extractions where connection_id=%s",
@@ -413,7 +427,7 @@ def logos(custody):
 
     yield make
     with w["pool"].connection() as db:
-        db.execute("delete from public.spaces where id=any(%s::uuid[])", (made,))
+        delete_spaces(db, "id=any(%s::uuid[])", (made,))
 
 
 def test_logo_object_goes_before_its_space_row_and_other_logos_stay(

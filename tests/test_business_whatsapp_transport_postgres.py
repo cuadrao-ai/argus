@@ -7,6 +7,7 @@ from faker import Faker
 from psycopg_pool import ConnectionPool
 
 from tests import test_financial_accounts_postgres as shared
+from tests.business_cleanup import delete_spaces
 from tests.ingestion.business_whatsapp_support import build_world
 
 fake = Faker()
@@ -203,7 +204,7 @@ async def test_parent_deletion_purges_transport_but_link_deletion_keeps_canonica
                 "delete from public.whatsapp_sender_links where id=%s", (world.link,)
             )
         elif parent == "space":
-            connection.execute("delete from public.spaces where id=%s", (world.space,))
+            delete_spaces(connection, "id=%s", (world.space,))
         else:
             from tests.test_business_account_deletion_postgres import (
                 erase_open_owner,

@@ -18,6 +18,7 @@ from argus.domain.business.transfer import PostgresBusinessTransfer
 from argus.observability.analytics_deletion import RecordingAnalyticsDeletion
 
 from tests import test_business_custody_graph_postgres as graph
+from tests.business_cleanup import delete_spaces
 
 users = graph.users
 actions = graph.actions
@@ -99,7 +100,7 @@ def release_custodian(space_id: str) -> None:
             "delete from argus_private.business_custody_reservations where space_id=%s",
             (space_id,),
         )
-        db.execute("delete from public.spaces where id=%s", (space_id,))
+        delete_spaces(db, "id=%s", (space_id,))
         if custodian is not None:
             db.execute("delete from auth.users where id=%s", (custodian[0],))
 
@@ -452,7 +453,7 @@ def test_every_closed_business_moves_before_shared_old_prefix_is_erased(custody)
                 db.execute(
                     f"delete from argus_private.{table} where space_id=%s", (second,)
                 )
-            db.execute("delete from public.spaces where id=%s", (second,))
+            delete_spaces(db, "id=%s", (second,))
             if placeholder:
                 db.execute("delete from auth.users where id=%s", placeholder)
                 db.execute(

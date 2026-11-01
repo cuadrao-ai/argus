@@ -22,6 +22,35 @@ class BusinessPurgeBusy(RuntimeError):
     pass
 
 
+# Money rows and their evidence, with the column that names the Business. Their
+# keys to spaces are ON DELETE RESTRICT (20261101000100), so the space row
+# cannot take them with it: this purge removes them first, child before parent.
+MONEY_TABLES = (
+    ("business_action_receipts", "space_id"),
+    ("business_turns", "space_id"),
+    ("business_document_settlements", "space_id"),
+    ("financial_import_events", "owner_space_id"),
+    ("business_sources", "space_id"),
+    ("financial_source_connections", "owner_space_id"),
+    ("financial_records", "owner_space_id"),
+    ("financial_accounts", "owner_space_id"),
+)
+
+
+def delete_money_rows(db: Any, space: str) -> None:
+    """Delete the money rows and evidence of one Business inside the caller's
+    transaction. The mark lets the evidence guards accept these deletes."""
+
+    db.execute("select set_config('argus.business_purge_space',%s,true)", (space,))
+    for table, column in MONEY_TABLES:
+        db.execute(
+            sql.SQL("delete from public.{} where {}=%s").format(
+                sql.Identifier(table), sql.Identifier(column)
+            ),
+            (space,),
+        )
+
+
 class PostgresBusinessPurge:
     def __init__(
         self,
@@ -201,6 +230,7 @@ class PostgresBusinessPurge:
                 "delete from public.financial_activity_groups where id=any(%s::uuid[])",
                 (scope["activities"],),
             )
+            delete_money_rows(db, space)
             for table in (
                 "business_custody_changes",
                 "business_custody_moves",

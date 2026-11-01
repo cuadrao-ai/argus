@@ -19,6 +19,7 @@ from argus.domain.business.spaces import PostgresSpaceStore
 from psycopg_pool import ConnectionPool
 
 from tests import test_financial_accounts_postgres as shared
+from tests.business_cleanup import delete_spaces
 
 users = shared.users
 pytestmark = pytest.mark.skipif(not shared.DSN, reason="Disposable database required")
@@ -445,9 +446,7 @@ def test_close_preview_counts_members_and_says_who_may_take_ownership(world):  #
                 "delete from argus_private.account_deletion_runs where user_id = any(%s::uuid[])",
                 (extra,),
             )
-            db.execute(
-                "delete from public.spaces where created_by = any(%s::uuid[])", (extra,)
-            )
+            delete_spaces(db, "created_by = any(%s::uuid[])", (extra,))
             db.execute(
                 "delete from public.business_client_grants where grantee_id = any(%s::uuid[])",
                 (extra,),

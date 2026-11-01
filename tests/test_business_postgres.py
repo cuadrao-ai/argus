@@ -45,6 +45,7 @@ from psycopg_pool import ConnectionPool
 
 from tests import test_financial_accounts_postgres as shared
 from tests.business.receipt_stub import PURCHASE, ReceiptStub
+from tests.business_cleanup import delete_spaces
 from tests.business_reading_support import reading_setting, turn_reading
 from tests.document_sources_support import LOCAL_STORAGE, source_objects, stored_paths
 
@@ -87,10 +88,7 @@ def rig() -> Iterator[dict]:
         for user in (owner, other):
             objects.delete(owner_prefix(user))
         with pool.connection() as connection:
-            connection.execute(
-                "delete from public.spaces where created_by = any(%s) or current_owner_id = any(%s)",
-                ([owner, other], [owner, other]),
-            )
+            delete_spaces(connection, "created_by = any(%s) or current_owner_id = any(%s)", ([owner, other], [owner, other]))
             connection.execute(
                 "delete from auth.users where id = any(%s)", ([owner, other],)
             )

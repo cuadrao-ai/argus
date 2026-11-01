@@ -30,6 +30,7 @@ from psycopg_pool import ConnectionPool
 from tests import test_business_actions_postgres as actions_fixture
 from tests import test_business_attachment_preparation_postgres as bridge
 from tests import test_financial_accounts_postgres as shared
+from tests.business_cleanup import delete_spaces
 
 users = shared.users
 actions = actions_fixture.actions
@@ -168,7 +169,7 @@ def custody(prepared, users, request):
             "delete from argus_private.business_custody_reservations where space_id=%s",
             (space,),
         )
-        db.execute("delete from public.spaces where id=%s", (space,))
+        delete_spaces(db, "id=%s", (space,))
         db.execute(
             "delete from argus_private.account_deletion_runs where user_id=%s", (old,)
         )
@@ -959,7 +960,7 @@ def test_shared_original_in_another_business_blocks_erase_until_both_move(custod
                 "delete from argus_private.business_custody_reservations where space_id=%s",
                 (other,),
             )
-            db.execute("delete from public.spaces where id=%s", (other,))
+            delete_spaces(db, "id=%s", (other,))
             if p2:
                 db.execute("delete from auth.users where id=%s", (p2,))
                 db.execute(
