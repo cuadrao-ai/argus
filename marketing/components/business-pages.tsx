@@ -10,7 +10,7 @@ import touchup from "./touchup.module.css";
 import { TouchupLanding } from "./touchup-landing";
 import { touchupCopy } from "./touchup-copy";
 
-function FounderIdentity({ locale }: { locale: BusinessLocale }) {
+export function FounderIdentity({ locale }: { locale: BusinessLocale }) {
   return (
     <div className={styles.founderIdentity}>
       <Image

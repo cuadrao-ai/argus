@@ -2037,3 +2037,27 @@
 .founderLetter .founderIdentity { margin-top: 22px; }
 .founderLetter .founderPortrait { width: 64px; height: 64px; }
 @media (max-width: 800px) { .founder.founderLetter { padding: 42px 24px 48px; } .founderLetter .founderStory { padding-top: 26px; } .founderLetter .founderStory > p { font-size: 16px; } }
+
+.plainFooter .closing .button { border-radius: 28px; }
+.plainFooter .backTop { margin-top: 0; }
+@media (min-width: 901px) {
+  .plainFooter .closing {
+    grid-template-columns: 1.2fr 1fr;
+    gap: 40px;
+    align-items: center;
+    padding: 72px max(24px, calc((100vw - 1160px) / 2));
+  }
+  .plainFooter .closing h2 { margin-top: 0; font-size: clamp(36px, 4.6vw, 56px); }
+  .plainFooter .closing > div:last-child { padding-top: 0; }
+  .plainFooter .closing p { max-width: none; color: var(--muted); font-size: 18px; }
+  .plainFooter .closing .button { margin-top: 18px; }
+  .plainFooter .businessFooterGrid {
+    width: min(1160px, 100% - 48px);
+    max-width: none;
+    margin-inline: auto;
+    padding: 56px 0 18px;
+    grid-template-columns: 1.4fr repeat(3, 1fr);
+    gap: 0 32px;
+  }
+  .plainFooter .footerBar { margin-top: 32px; }
+}
