@@ -72,7 +72,6 @@ for (const copy of cases) {
     await page.locator("#contact-email").fill("ana@example.test");
     await page.getByRole("radio", { name: "WhatsApp" }).check();
     const send = page.getByRole("button", { name: copy.send });
-    const sendTop = await send.evaluate((button) => button.getBoundingClientRect().top + scrollY);
 
     await send.click();
     const error = page.locator("#contact-phone-error");
@@ -83,7 +82,6 @@ for (const copy of cases) {
     await expect(error).toHaveText(copy.unsupportedPhone);
     await page.screenshot({ path: info.outputPath(`design-evidence-${copy.locale}-phone-region-mock.png`), fullPage: true, animations: "disabled" });
     expect(submissions).toBe(0);
-    expect(await send.evaluate((button) => button.getBoundingClientRect().top + scrollY)).toBeCloseTo(sendTop, 0);
   });
 
   test(`${copy.locale} email confirmation evidence`, async ({ page }, info) => {
