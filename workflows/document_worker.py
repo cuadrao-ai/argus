@@ -14,13 +14,16 @@ import asyncio
 import contextlib
 import signal
 
-from argus.api.document_jobs import sweep_forever
 from argus.domain.ingestion.documents.config import (
     DocumentJobSettings,
     load_document_extraction_settings,
     load_document_job_settings,
 )
-from argus.domain.ingestion.documents.jobs import PreparationJobs, run_attempt
+from argus.domain.ingestion.documents.jobs import (
+    PreparationJobs,
+    run_attempt,
+    sweep_forever,
+)
 from argus.domain.ingestion.documents.service import DocumentsService
 from argus.llm.openrouter_key_policy import validate_hosted_openrouter_configuration
 from argus.log_sink import configure_logging

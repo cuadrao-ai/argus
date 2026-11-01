@@ -290,6 +290,7 @@ def test_the_worker_command_starts_and_stops_on_sigterm() -> None:
         **os.environ,
         "CUADRAO_DOCUMENT_JOBS_ENABLED": "true",
         "CUADRAO_DOCUMENT_JOBS_PULL_ENABLED": "true",
+        "CUADRAO_DOCUMENT_EXTRACTION_ENABLED": "false",
         "ARGUS_WORKFLOW_DATABASE_URL": shared.DSN,
         "SUPABASE_URL": os.environ.get("ARGUS_LOCAL_SUPABASE_URL", "http://127.0.0.1:9"),
         "SUPABASE_SERVICE_ROLE_KEY": "not-a-key",

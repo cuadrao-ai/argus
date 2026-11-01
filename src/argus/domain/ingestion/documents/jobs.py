@@ -13,6 +13,7 @@ the draft, and its late result is refused by the connection lease.
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -25,6 +26,7 @@ from argus.domain.ingestion.connections import (
     ConnectionNotFound,
     SourceConnection,
 )
+from argus.domain.ingestion.documents.config import load_document_extraction_settings
 from argus.domain.ingestion.documents.models import (
     DocumentDraft,
     DocumentExtractionError,
@@ -166,7 +168,7 @@ class PreparationJobs:
                     reason=reason,
                 )
             return
-        # Past the window, an attempt no process took is lost only with pull off.
+        # A waiting attempt reaches here only with pull off. It never ran.
         fresh = job is None or (
             draft.status == "queued"
             and (not dispatched(draft, job) or job.dispatched_at is None)
@@ -287,10 +289,27 @@ class PreparationJobs:
         return True
 
 
+async def sweep_forever(jobs: PreparationJobs, interval: float) -> None:
+    """Waits while extraction is off: a queued draft is then neither sent to
+    the model nor failed, and resumes when extraction is back."""
+
+    while True:
+        try:
+            if load_document_extraction_settings().enabled:
+                await asyncio.to_thread(jobs.sweep)
+        except Exception as error:
+            logger.warning(
+                "Document preparation sweep failed",
+                failure_mode=type(error).__name__,
+            )
+        await asyncio.sleep(interval)
+
+
 async def run_attempt(
     service: DocumentsService, connection_id: str, attempt_id: str
 ) -> str:
-    """Worker entry point, in process or in a Render Workflow task."""
+    """Worker entry point, in process, in a Render Workflow task or in the pull
+    worker."""
     user_id = service.store.owner(connection_id=connection_id)
     if user_id is None:
         return "gone"
