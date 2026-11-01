@@ -436,20 +436,21 @@ def test_a_sale_stays_out_of_the_faster_way(rig) -> None:  # noqa: ANN001
     assert _group(rig, sale) == ("attention", "sale")
 
 
-def test_a_person_setting_the_amount_does_not_settle_several_purchases(rig) -> None:  # noqa: ANN001
-    index = next(rig.reads)
-    _set_read(rig, index, {})
-    rig.stub.rows = [
-        {**PURCHASE, "amount": "100.00"},
-        {**PURCHASE, "amount": "200.00"},
-    ]
-    many = _upload(rig, RECEIPT + b"\xa9").json()["id"]
-    item = _review(rig, _named(rig, many), {"facts": _known({"amount": "100.00"})})
-    assert item["blockers"] == []
-    named = {"draft_id": item["draft_id"], "version": item["version"]}
+def test_a_read_of_several_purchases_is_not_settled_by_an_amount(rig) -> None:  # noqa: ANN001
+    receipt = _read(rig)
+    item = _named(rig, receipt)
+    purchases = [{"index": 1, "amount": "100.00"}, {"index": 2, "amount": "200.00"}]
+    with Connection.connect(shared.DSN) as db:
+        db.execute(
+            "update public.financial_import_events"
+            " set resolution=jsonb_set(resolution,'{business,read_purchases}',%s)"
+            " where id=%s",
+            (Jsonb(purchases), item["draft_id"]),
+        )
+    assert _get(rig, f"/business/drafts/{item['draft_id']}/dossier")["blockers"] == []
 
-    assert _group(rig, many) == ("attention", "several_purchases")
-    assert _results(_approve_many(rig, [named])) == [("refused", "not_listo")]
+    assert _group(rig, receipt) == ("attention", "several_purchases")
+    assert _results(_approve_many(rig, [item])) == [("refused", "not_listo")]
     assert _money(rig) == 0
 
 
