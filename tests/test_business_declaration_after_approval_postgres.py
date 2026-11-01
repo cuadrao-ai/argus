@@ -423,9 +423,31 @@ def test_a_record_that_takes_no_606_refuses_the_606_write(actions):  # noqa: ANN
     assert service.dossier(context, draft_id).dgii.form == "607"
 
 
-def test_export_lines_are_server_only(actions):  # noqa: ANN001
+def test_export_lines_are_server_only_and_append_only(actions):  # noqa: ANN001
+    """A signed-in person cannot read the table. The service role reads and
+    inserts and can neither update nor delete: a downloaded line stays."""
+
     service, context, _ = actions
     with psycopg.connect(accounts.DSN) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "select has_table_privilege('service_role',"
+            " 'public.business_dgii_export_lines', 'SELECT'),"
+            " has_table_privilege('service_role',"
+            " 'public.business_dgii_export_lines', 'INSERT'),"
+            " has_table_privilege('service_role',"
+            " 'public.business_dgii_export_lines', 'UPDATE'),"
+            " has_table_privilege('service_role',"
+            " 'public.business_dgii_export_lines', 'DELETE')"
+        )
+        assert cursor.fetchone() == (True, True, False, False)
+        for statement in (
+            "update public.business_dgii_export_lines set form = form",
+            "delete from public.business_dgii_export_lines",
+        ):
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                with connection.transaction():
+                    cursor.execute("set local role service_role")
+                    cursor.execute(statement)
         cursor.execute("set local role authenticated")
         cursor.execute(
             "select set_config('request.jwt.claims', %s, true)",
