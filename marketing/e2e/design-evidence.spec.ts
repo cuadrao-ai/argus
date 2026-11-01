@@ -48,7 +48,7 @@ for (const copy of cases) {
     const contact = nav.getByRole("link", { name: copy.contactAction, exact: true });
     const login = nav.getByRole("button", { name: copy.login, exact: true });
     await expect(language).toContainText(copy.language);
-    await expect(contact).toHaveAttribute("href", "/contacto");
+    await expect(contact).toHaveAttribute("href", copy.contact);
     await expect(login).toHaveAttribute("data-preview-unwired", "true");
     const boxes = await Promise.all([contact, login, language].map((item) => item.boundingBox()));
     if (info.project.name === "mobile") {

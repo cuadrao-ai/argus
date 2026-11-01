@@ -4,11 +4,11 @@ import { chromium, expect, test, type Page } from "@playwright/test";
 import { SITE_PORT } from "./ports";
 
 const cases = [
-  { home: "/", other: "/en", label: "English", phoneLabel: "Cambiar idioma", lang: "en", cta: "Hablemos de tu negocio", login: "Iniciar sesión" },
-  { home: "/en", other: "/", label: "Español", phoneLabel: "Change language", lang: "es", cta: "Let’s talk about your business", login: "Log in" },
+  { home: "/", other: "/en", label: "English", phoneLabel: "Cambiar idioma", lang: "en", cta: "Hablemos de tu negocio", contactPath: "/contacto", login: "Iniciar sesión" },
+  { home: "/en", other: "/", label: "Español", phoneLabel: "Change language", lang: "es", cta: "Let’s talk about your business", contactPath: "/en/contact", login: "Log in" },
 ] as const;
 
-for (const { home, other, label, phoneLabel, lang, cta, login } of cases) {
+for (const { home, other, label, phoneLabel, lang, cta, contactPath, login } of cases) {
   test(`${home} Business header keeps contact, login, and the language link in order`, async ({ page }) => {
     await page.goto(home);
     const header = page.locator("header");
@@ -29,7 +29,7 @@ for (const { home, other, label, phoneLabel, lang, cta, login } of cases) {
     expect(box.width).toBeGreaterThanOrEqual(44);
     expect(box.height).toBeGreaterThanOrEqual(44);
     if (mobile) await expect(link).toHaveAccessibleName(new RegExp(phoneLabel));
-    await expect(contact).toHaveAttribute("href", "/contacto");
+    await expect(contact).toHaveAttribute("href", contactPath);
     await expect(loginButton).toBeEnabled();
     await expect(loginButton).toHaveAttribute("data-preview-unwired", "true");
     await expect(nav.getByRole("link", { name: /Cómo funciona|How it works|Nosotros|About/, exact: true })).toHaveCount(0);
@@ -326,7 +326,7 @@ async function attachMenuEvidence(page: Page, name: string) {
   });
 }
 
-for (const { home, cta } of cases) {
+for (const { home, cta, contactPath } of cases) {
   test(`${home} phone menu covers the hero and keeps keyboard focus inside`, async ({ page }) => {
     test.skip(test.info().project.name !== "mobile", "phone menu coverage");
     await page.goto(home);
@@ -341,7 +341,7 @@ for (const { home, cta } of cases) {
     const point = { x: hero.x + hero.width / 2, y: hero.y + hero.height / 2 };
     expect(point.y).toBeLessThan(page.viewportSize()!.height);
     expect(await page.evaluate(({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest("#business-mobile-menu")), point)).toBe(true);
-    await expect(nav.getByRole("link", { name: cta, exact: true })).toHaveAttribute("href", "/contacto");
+    await expect(nav.getByRole("link", { name: cta, exact: true })).toHaveAttribute("href", contactPath);
     await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
     await attachMenuEvidence(page, "phone-menu-coverage");
     const last = nav.locator("[data-language-switch]");
