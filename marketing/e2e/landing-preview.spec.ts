@@ -38,7 +38,26 @@ test.describe("hidden preview", () => {
   });
 });
 
+test("the whole page passes an accessibility scan with motion off", async ({ browser }) => {
+  const context = await browser.newContext({ reducedMotion: "reduce", viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
+  await page.goto(new URL(PATH, test.info().project.use.baseURL).href);
+  const { violations } = await new AxeBuilder({ page }).analyze();
+  expect(violations.map((violation) => violation.id)).toEqual([]);
+  await context.close();
+});
+
 test.describe("hero", () => {
+  test("every in-page link has a target", async ({ page }) => {
+    await page.goto(PATH);
+    const missing = await page.evaluate(() =>
+      [...document.querySelectorAll<HTMLAnchorElement>('main a[href^="#"]')]
+        .map((link) => link.hash.slice(1))
+        .filter((id) => !document.getElementById(id)),
+    );
+    expect(missing).toEqual([]);
+  });
+
   test("keeps both actions clickable above the scene", async ({ page }) => {
     await page.goto(PATH);
     const cta = page.getByRole("main").getByRole("link", { name: "Hablemos de tu negocio" });
@@ -48,6 +67,7 @@ test.describe("hero", () => {
 
   test("passes an accessibility scan", async ({ page }) => {
     await page.goto(PATH);
+    await expect(page.locator("[data-chat-photo]")).toHaveCSS("opacity", "0");
     const { violations } = await new AxeBuilder({ page }).analyze();
     expect(violations.map((violation) => violation.id)).toEqual([]);
   });
@@ -103,6 +123,119 @@ test.describe("product scene", () => {
     expect(widths[0]).toBe(widths[1]);
     const frameWidth = await frame(page).evaluate((node) => node.getBoundingClientRect().width);
     expect(frameWidth).toBe(widths[1] - 24);
+  });
+});
+
+async function seekTo(page: Page, selector: string, p: number): Promise<void> {
+  await page.evaluate(
+    ([target, progress]) => {
+      const box = document.querySelector(target as string) as HTMLElement;
+      const top = box.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({ top: top + (box.offsetHeight - window.innerHeight) * (progress as number), behavior: "instant" });
+    },
+    [selector, p],
+  );
+}
+
+const TRACK = "[data-steps-track]";
+const step = (page: Page) => page.locator('[aria-current="step"]');
+
+test.describe("problem cards", () => {
+  test("swap the title once the cards line up", async ({ page, isMobile }) => {
+    test.skip(isMobile, "phones skip this section");
+    await page.goto(PATH);
+    const before = page.getByRole("heading", { name: "Tus facturas están en todas partes." }).locator("..");
+    const after = page.getByRole("heading", { name: "Ahora todo cuadra." }).locator("..");
+    await seekTo(page, "#problema", 0.05);
+    await expect(before).toHaveCSS("opacity", "1");
+    await expect(after).toHaveCSS("opacity", "0");
+    await seekTo(page, "#problema", 1);
+    await expect(before).toHaveCSS("opacity", "0");
+    await expect(after).toHaveCSS("opacity", "1");
+  });
+
+  test("stay out of the phone view", async ({ page, isMobile }) => {
+    test.skip(!isMobile, "phone layout");
+    await page.goto(PATH);
+    await expect(page.locator("#problema")).toBeHidden();
+  });
+});
+
+test.describe("how it works", () => {
+  test("follows the scroll through all four steps", async ({ page, isMobile }) => {
+    test.skip(isMobile, "phones list the steps");
+    await page.goto(PATH);
+    for (const [share, name] of [
+      [0.1, "Recibir"],
+      [0.5, "Cuadrar"],
+      [0.7, "Exportar"],
+      [0.9, "Facturar"],
+    ] as const) {
+      await seekTo(page, TRACK, share);
+      await expect(step(page)).toHaveText(name);
+    }
+  });
+
+  test("plays the chat in order and rewinds it", async ({ page, isMobile }) => {
+    test.skip(isMobile, "phones play the chat by position");
+    await page.goto(PATH);
+    await seekTo(page, TRACK, 0);
+    await expect(page.locator("[data-chat-reply]")).toHaveCount(0);
+    await seekTo(page, TRACK, 0.2);
+    await expect(page.locator("[data-chat-status]")).toHaveText("escribiendo...");
+    await seekTo(page, TRACK, 0.36);
+    await expect(page.locator("[data-chat-reply]")).toContainText("Factura recibida");
+    await expect(page.locator("[data-chat-date]")).toHaveText("15-11-2026");
+    await seekTo(page, TRACK, 0);
+    await expect(page.locator("[data-chat-reply]")).toHaveCount(0);
+  });
+
+  test("the dock keeps the unfinished step out of the links", async ({ page, isMobile }) => {
+    test.skip(isMobile, "phones hide the dock");
+    await page.goto(PATH);
+    const soon = page.getByRole("img", { name: "Facturar · En preparación" });
+    await expect(soon).toHaveCount(1);
+    await expect(page.getByRole("link", { name: "Facturar · En preparación" })).toHaveCount(0);
+  });
+
+  test("a step title and a dock button jump to their step", async ({ page, isMobile }) => {
+    test.skip(isMobile, "phones have no jumps");
+    await page.goto(PATH);
+    await seekTo(page, TRACK, 0.1);
+    await page.getByRole("button", { name: "Exportar" }).click();
+    await expect(step(page)).toHaveText("Exportar");
+    await seekTo(page, "section:has([data-scene-frame])", 0.5);
+    await page.getByRole("link", { name: "Cuadrar" }).click();
+    await expect(step(page)).toHaveText("Cuadrar");
+  });
+
+  test("shows the finished chat with motion off", async ({ browser }) => {
+    const context = await browser.newContext({ reducedMotion: "reduce", viewport: { width: 1280, height: 800 } });
+    const page = await context.newPage();
+    await page.goto(new URL(PATH, test.info().project.use.baseURL).href);
+    await expect(page.locator("[data-chat-reply]")).toContainText("Factura recibida");
+    await context.close();
+  });
+
+  test("the phone shows the chat and all four steps", async ({ page, isMobile }) => {
+    test.skip(!isMobile, "phone layout");
+    await page.goto(PATH);
+    await page.locator("#como").scrollIntoViewIfNeeded();
+    await page.locator("[data-phone]").scrollIntoViewIfNeeded();
+    await expect(page.locator("[data-chat-photo]")).toBeVisible();
+    await expect(page.getByText("Lo aprobado sale en el 606 y el 607, listo para tu contable.")).toBeVisible();
+  });
+
+  test("passes an accessibility scan on a data panel", async ({ page, isMobile }) => {
+    test.skip(isMobile, "phones show the chat panel only");
+    await page.goto(PATH);
+    await seekTo(page, TRACK, 0.5);
+    await expect(step(page)).toHaveText("Cuadrar");
+    const panel = page.locator('[data-step-panel="1"]');
+    await expect(panel.locator("> div").last()).toHaveCSS("opacity", "1");
+    await expect(panel.getByText("Listo").nth(1)).toHaveCSS("opacity", "1");
+    const { violations } = await new AxeBuilder({ page }).include("#como").analyze();
+    expect(violations.map((violation) => violation.id)).toEqual([]);
   });
 });
 

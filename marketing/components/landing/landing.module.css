@@ -1,3 +1,11 @@
+.landing {
+  --cream: #f7f5ee;
+}
+@media (prefers-reduced-motion: no-preference) {
+  :global(html):has(.landing) {
+    scroll-behavior: smooth;
+  }
+}
 .hero {
   position: relative;
   z-index: 1;

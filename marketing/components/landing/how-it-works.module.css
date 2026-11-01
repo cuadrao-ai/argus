@@ -1,0 +1,365 @@
+.how {
+  padding: 112px 0 40px;
+}
+.wrap {
+  width: min(1160px, 100% - 48px);
+  margin-inline: auto;
+}
+.wrap h2 {
+  font-size: clamp(36px, 4.6vw, 56px);
+  text-align: center;
+}
+.track {
+  position: relative;
+  height: 460vh;
+  margin-top: 16px;
+}
+.pin {
+  position: sticky;
+  top: 100px;
+  display: grid;
+  grid-template-columns: 0.72fr 1.28fr;
+  gap: 56px;
+  align-items: center;
+  height: calc(100vh - 116px);
+}
+.steps {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding-left: 22px;
+}
+.steps::before,
+.steps::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  height: 100%;
+  background: var(--line);
+}
+.steps::after {
+  height: calc(var(--t, 0) * 100%);
+  background: var(--cta-rest);
+}
+.step {
+  position: relative;
+  padding: 14px 0;
+  color: #7c877f;
+}
+.step h3 {
+  font-size: clamp(30px, 3vw, 40px);
+}
+.step h3 button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+}
+.step p {
+  max-height: 0;
+  overflow: hidden;
+  color: var(--muted);
+  transition:
+    max-height 320ms ease,
+    margin 320ms ease;
+}
+.stepOn {
+  color: var(--ink);
+}
+.step.stepOn p {
+  max-height: 130px;
+  margin-top: 8px;
+}
+.stage {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 24px;
+  background: radial-gradient(120% 100% at 15% 0%, #3b6d59 0%, #1d4236 50%, #122a24 100%);
+}
+.panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 40px;
+  font-size: 14px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(12px);
+  transition:
+    opacity 320ms ease,
+    transform 320ms ease;
+}
+.panel.on {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+.reveal {
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity 360ms ease,
+    transform 360ms ease;
+  transition-delay: calc(var(--i, 0) * 260ms + 120ms);
+}
+.panel.on .reveal {
+  opacity: 1;
+  transform: none;
+}
+.phonePanel {
+  align-items: center;
+  padding: 0;
+}
+.phoneFit {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
+.sheet {
+  padding: 22px;
+  border-radius: 16px;
+  background: var(--paper);
+  box-shadow: 0 24px 50px rgb(0 0 0 / 0.28);
+  font-size: 15px;
+}
+.sheet table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.sheet th {
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-weight: 500;
+  text-align: left;
+}
+.sheet td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #eceee9;
+}
+.sheet .num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #ece9df;
+  color: #4d5a53;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.chipDone {
+  background: #e3ebe1;
+  color: #2f5a49;
+}
+.chipWait {
+  background: #f2e8c9;
+  color: #735c14;
+}
+.chipAlert {
+  background: #f6dfe0;
+  color: #9e2f39;
+}
+.flip {
+  display: inline-grid;
+}
+.flip > * {
+  grid-area: 1 / 1;
+  justify-self: start;
+}
+.flipIn {
+  opacity: 0;
+}
+.panel.on .flipOut {
+  animation: flipOut 240ms ease 1.5s forwards;
+}
+.panel.on .flipIn {
+  animation: flipIn 240ms ease 1.5s forwards;
+}
+@keyframes flipOut {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes flipIn {
+  to {
+    opacity: 1;
+  }
+}
+.spin {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: turn 800ms linear infinite;
+}
+@keyframes turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.pay {
+  margin-top: 14px;
+  padding: 18px 22px;
+  border-radius: 16px;
+  background: var(--cream);
+  box-shadow: 0 24px 50px rgb(0 0 0 / 0.22);
+  font-size: 15px;
+}
+.payRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.payNote {
+  margin-top: 8px;
+  color: var(--muted);
+}
+.payBar {
+  height: 10px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--line);
+}
+.payBar i {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: 6px;
+  background: var(--cta-rest);
+  transition: width 900ms cubic-bezier(0.2, 0.8, 0.2, 1) 200ms;
+}
+.panel.on .payBar i {
+  width: 37.5%;
+}
+.exportRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  margin-top: 14px;
+  color: var(--muted);
+}
+.sheet .exportButton {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px 20px;
+  border-radius: 28px;
+  background: var(--cta-rest);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+}
+.later {
+  margin-bottom: 10px;
+}
+.sheet .billingNote {
+  margin-top: 12px;
+  color: var(--muted);
+}
+@media (prefers-reduced-motion: reduce) {
+  .step p,
+  .panel,
+  .reveal,
+  .payBar i {
+    transition: none;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
+  .flipOut {
+    display: none;
+  }
+  .flipIn,
+  .panel.on .flipIn {
+    opacity: 1;
+    animation: none;
+  }
+  .spin {
+    animation: none;
+  }
+}
+@media (max-width: 900px) {
+  .how {
+    padding: 56px 0 8px;
+  }
+  .wrap h2 {
+    font-size: 34px;
+  }
+  .track {
+    height: auto;
+    margin-top: 18px;
+  }
+  .pin {
+    position: static;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 20px;
+    height: auto;
+  }
+  .steps {
+    gap: 12px;
+    padding-left: 0;
+  }
+  .steps::before,
+  .steps::after {
+    display: none;
+  }
+  .step {
+    padding: 0;
+    color: var(--ink);
+  }
+  .step h3 {
+    font-size: 22px;
+  }
+  .step h3 button {
+    pointer-events: none;
+  }
+  .step p,
+  .step.stepOn p {
+    max-height: none;
+    margin-top: 2px;
+    font-size: 15px;
+  }
+  .stage {
+    width: 100%;
+    height: auto;
+    overflow: hidden;
+    border-radius: 22px;
+  }
+  .panel {
+    display: none;
+  }
+  .phonePanel {
+    position: static;
+    display: flex;
+    padding: 20px 0 0;
+    opacity: 1;
+    transform: none;
+  }
+  .phoneFit {
+    height: var(--ph, 640px);
+    overflow: hidden;
+    align-items: start;
+  }
+}

@@ -11,9 +11,100 @@ export const landingCopy = {
     ],
     lead: "Envía tus facturas por WhatsApp o correo. Cuadrao las organiza y tu contable recibe todo en orden.",
     howLink: "Ver cómo funciona",
+    problem: {
+      before: {
+        title: "Tus facturas están en todas partes.",
+        body: "Fotos en WhatsApp, facturas en el correo y recibos en la gaveta.",
+      },
+      after: {
+        title: "Ahora todo cuadra.",
+        body: "Un solo lugar, y cada documento sabe en qué etapa está.",
+      },
+      documents: [
+        { name: "Foto en WhatsApp", detail: "Ferretería, RD$ 1,250", state: "Aprobado", tone: "done" },
+        { name: "Factura en el correo", detail: "Suplidor, RD$ 18,400", state: "Por revisar", tone: "wait" },
+        { name: "Recibo en la gaveta", detail: "Gasto en efectivo, RD$ 640", state: "Aprobado", tone: "done" },
+        { name: "Factura sin cobrar", detail: "Cliente, RD$ 48,000", state: "Faltan RD$ 30,000", tone: "plain" },
+        { name: "¿Este gasto de quién es?", detail: "Sin NCF", state: "Necesita atención", tone: "alert" },
+      ],
+    },
+    how: {
+      title: "Cómo funciona",
+      steps: [
+        { title: "Recibir", body: "Mándalo como ya lo haces. Por WhatsApp, por correo o un archivo." },
+        { title: "Cuadrar", body: "Cuadrao lee el NCF, el RNC y los montos. Tú revisas y apruebas. Lo pendiente queda a la vista." },
+        { title: "Exportar", body: "Lo aprobado sale en el 606 y el 607, listo para tu contable." },
+        { title: "Facturar", body: "Queremos que emitas tus e-CF aquí mismo. Estamos preparando esta parte." },
+      ],
+      chat: {
+        time: "10:24",
+        contact: "Cuadrao",
+        online: "en línea",
+        typing: "escribiendo...",
+        today: "Hoy",
+        paper: {
+          store: "FERRETERÍA LA ESQUINA",
+          rnc: "RNC 101-00000-0",
+          lines: [
+            ["Materiales", "1,059.32"],
+            ["ITBIS", "190.68"],
+          ],
+          total: ["TOTAL RD$", "1,250.00"],
+          ncf: "NCF B0100000123",
+        },
+        sent: "10:23 a. m.",
+        sentMark: "✓",
+        deliveredMark: "✓✓",
+        reply: {
+          title: "Factura recibida",
+          fields: [
+            ["Comercio", "Ferretería La Esquina"],
+            ["Monto", "RD$ 1,250.00"],
+            ["NCF", "B0100000123"],
+            ["Estado", "Por revisar"],
+          ],
+          dateLabel: "Fecha",
+          time: "10:24 a. m.",
+          open: "Abrir en Cuadrao",
+        },
+      },
+      square: {
+        columns: ["Documento", "Canal", "Estado"],
+        materials: ["Compra de materiales", "WhatsApp"],
+        supplier: ["Factura de suplidor", "Correo"],
+        fuel: ["Combustible", "WhatsApp"],
+        ready: "Listo",
+        reading: "Leyendo",
+        duplicate: "Posible duplicado",
+        invoice: "Factura a Cliente Ejemplo",
+        invoiceTotal: "RD$ 48,000",
+        collected: "Cobrado RD$ 18,000",
+        pending: "Faltan RD$ 30,000",
+      },
+      exporting: {
+        columns: ["RNC", "NCF", "Monto"],
+        rows: [
+          ["101000000", "B0100000123", "1,250.00"],
+          ["130000000", "B0100000456", "18,400.00"],
+          ["131000000", "B0100000789", "640.00"],
+        ],
+        form: "606",
+        action: "Exportar",
+      },
+      billing: {
+        status: "En preparación",
+        rows: [
+          ["Tipo", "e-CF 31"],
+          ["Cliente", "Cliente Ejemplo"],
+          ["Total", "RD$ 48,000.00"],
+        ],
+        note: "Vista prevista.",
+      },
+    },
     scene: {
       label:
         "Una factura llega por WhatsApp a la Bandeja de Cuadrao, Ana la aprueba y el 606 y el 607 quedan listos para su contable.",
+      brand: "cuadrao",
       time: "10:24 a. m.",
       lockTime: "10:24",
       island: {
@@ -26,6 +117,7 @@ export const landingCopy = {
       } satisfies Record<IslandStep, string>,
       nav: { business: "Mi negocio", home: "Inicio", inbox: "Bandeja", records: "Registros", billing: "Facturación", activity: "Actividad" },
       search: "Buscar",
+      searchKey: "⌘K",
       add: "Agregar",
       greeting: "Buen día, Ana",
       summary: "Resumen del negocio",
@@ -65,6 +157,7 @@ export const landingCopy = {
         ],
       },
       accountant: {
+        checkMark: "✓",
         title: "Tu contable",
         client: "Taller Rodríguez",
         checks: ["47 registros aprobados", "Cada línea con su documento", "606 listo", "607 listo"],
