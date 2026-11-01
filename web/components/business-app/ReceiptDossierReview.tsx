@@ -39,7 +39,7 @@ import ReceiptDocumentType from "./ReceiptDocumentType";
 import ReceiptMarksCard from "./ReceiptMarksCard";
 import ReceiptReviewFrame from "./ReceiptReviewFrame";
 import ReceiptReviewFooter, { KEY_HINT_CLASS, ReceiptMoreMenu, usePrimaryKeys } from "./ReceiptReviewFooter";
-import { formatMoney, UNKNOWN_VALUE } from "./business-format";
+import { formatBusinessName, formatMoney, UNKNOWN_VALUE } from "./business-format";
 import { receiptCurrencyOptions } from "./receipt-currencies";
 import { useReceiptStateWord } from "./receipt-state-word";
 import { bandejaReceipts, handTitleFocus, nextBandejaReceipt } from "./bandeja-order";
@@ -485,7 +485,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
       recordId={receipt?.id ?? draftId}
       back={recorded ? "transactions" : "inbox"}
       title={title}
-      business={dossier.space_name}
+      business={formatBusinessName(dossier.space_name, t("business.overview.title", "My business"))}
       history={<ReceiptHistory history={dossier.history} accounts={accounts} sources={dossier.sources} approval={dossier.approval_result} />}
       // The list's own words for the status, so Bandeja and its dossier say the same thing.
       badge={pillStatus ? <StatusPill status={pillStatus} label={(receipt ? stateWord(receipt) : pillStatus === "review_ready" ? t("business.inbox.row_ready", "Ready to review") : "") || undefined} /> : <span className="text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{t(`business.dossier.state.${dossier.review_state}`, dossier.review_state)}</span>}
