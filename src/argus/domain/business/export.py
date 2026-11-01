@@ -305,7 +305,9 @@ def _csv(rows: Sequence[Mapping[str, Any]], columns: Sequence[str]) -> bytes:
     output = io.StringIO(newline="")
     writer = csv.writer(output)
     writer.writerow(columns)
-    writer.writerows([spreadsheet_cell(row.get(column)) for column in columns] for row in rows)
+    writer.writerows(
+        [spreadsheet_cell(row.get(column)) for column in columns] for row in rows
+    )
     return output.getvalue().encode("utf-8-sig")
 
 
@@ -342,11 +344,45 @@ def _xlsx(
     return output.getvalue()
 
 
+@dataclass(frozen=True)
+class ExportArchive:
+    content: bytes
+    #: The DGII period the packet names, YYYYMM.
+    period: str
+    #: ``(activity_id, form)`` for each line a TXT in the archive carries.
+    lines: tuple[tuple[str, str], ...]
+
+
+def exported_lines(manifest: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
+    """The lines the packet's TXT files carry: each reconciliation line placed
+    on a form whose TXT was prepared. A form held back for review ships no
+    TXT, so none of its lines count as exported."""
+
+    prepared = {
+        form
+        for form, shape in manifest["forms"].items()
+        if shape["status"] == "prepared_candidate"
+    }
+    return tuple(
+        (item["activity_id"], item["disposition"])
+        for item in manifest["reconciliation"]
+        if item["disposition"] in prepared
+    )
+
+
 def build_archive(
     snapshot: ExportSnapshot,
     read_original: Callable[[ExportSource], bytes | None],
     registry: RncRegistry | None = None,
 ) -> bytes:
+    return build_export(snapshot, read_original, registry).content
+
+
+def build_export(
+    snapshot: ExportSnapshot,
+    read_original: Callable[[ExportSource], bytes | None],
+    registry: RncRegistry | None = None,
+) -> ExportArchive:
     rows = record_rows(snapshot)
     included = {UUID(row["activity_id"]) for row in rows}
     pending = {UUID(str(row["draft_id"])) for row in snapshot.unresolved}
@@ -490,7 +526,11 @@ def build_archive(
         )
     if len(output.getvalue()) > MAX_TOTAL_BYTES + 5 * 1024 * 1024:
         raise ExportLimit("export_archive_limit")
-    return output.getvalue()
+    return ExportArchive(
+        output.getvalue(),
+        fiscal.manifest["period"],
+        exported_lines(fiscal.manifest),
+    )
 
 
 def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
@@ -774,10 +814,24 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                 cursor.execute(sql, params)
                 return cursor.fetchone()
 
-            result = build_archive(
+            result = build_export(
                 snapshot,
                 original,
                 registry_from_config("dgii", postgres_rnc_fetch(lookup)),
             )
+            # Each line the TXT carries is now in the DGII's hands: its
+            # declaration is frozen from here (fiscal_declaration_exported).
+            for activity_id, form in result.lines:
+                cursor.execute(
+                    "insert into public.business_dgii_export_lines"
+                    " (space_id,activity_id,form,period,actor_id) values (%s,%s,%s,%s,%s)",
+                    (
+                        context.actor.space_id,
+                        activity_id,
+                        form,
+                        result.period,
+                        context.actor.actor_id,
+                    ),
+                )
             authorize(connection, context.actor, context.grant_id).require("export")
-            return result
+            return result.content

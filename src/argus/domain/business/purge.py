@@ -29,6 +29,7 @@ MONEY_TABLES = (
     ("business_action_receipts", "space_id"),
     ("business_turns", "space_id"),
     ("business_document_settlements", "space_id"),
+    ("business_dgii_export_lines", "space_id"),
     ("financial_import_events", "owner_space_id"),
     ("business_sources", "space_id"),
     ("financial_source_connections", "owner_space_id"),

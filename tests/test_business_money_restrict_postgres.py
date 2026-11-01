@@ -55,13 +55,19 @@ def counts(db, space: str) -> dict[str, int]:  # noqa: ANN001
 
 
 def seed_settlement(db, w) -> None:  # noqa: ANN001
-    """The custody fixture records money but settles nothing; settle one receipt."""
+    """The custody fixture records money but settles and exports nothing;
+    settle one receipt and record its 606 line as exported."""
 
     scope = PostgresBusinessCustodyGraph._scope(db, w["space"], w["old"], lock=False)
     db.execute(
         "insert into public.business_document_settlements(space_id,owner_id,activity_id,document_kind,status)"
         " values(%s,%s,%s,'receipt','pendiente') on conflict do nothing",
         (w["space"], w["old"], scope["activities"][0]),
+    )
+    db.execute(
+        "insert into public.business_dgii_export_lines(space_id,activity_id,form,period,actor_id)"
+        " values(%s,%s,'606','202610',%s)",
+        (w["space"], scope["activities"][0], w["old"]),
     )
 
 
