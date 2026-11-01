@@ -183,7 +183,7 @@ const en: typeof es = {
     { question: "Who is it for, and how will it help?", answer: "Small and medium businesses in the Dominican Republic. We want to help you understand your accounts, plan payments and goals, separate personal money and follow customers and collections. Quotes, non-tax drafts and period reports are also planned. Fees will stay separate from money received. Payment, sales and tax issuance statuses will remain distinct." },
     { question: "How much will it cost?", answer: "We have not set prices yet. We will agree on scope and cost with you before starting." },
     { question: "What limits should I know about?", answer: "Cuadrao helps your accountant. It does not replace them. We do not issue tax invoices: that needs a certified provider. We do not connect to banks, make payments, run payroll, track stock or file taxes. We plan to add transfers, refunds, corrections and bank matching. What the pilot covers, we decide with you." },
-    { question: "What happens when we talk?", answer: `You speak with me, Lucas, Cuadrao's founder. Tell me how you work, see what I am preparing and decide whether exploring a pilot makes sense. You do not need to share documents or private financial information. You can email me at ${businessContactEmail}.` },
+    { question: "What happens when we talk?", answer: `You speak with me, Lucas, Cuadrao’s founder. Tell me how you work, see what I am preparing and decide whether exploring a pilot makes sense. You do not need to share documents or private financial information. You can email me at ${businessContactEmail}.` },
   ],
   faqLink: "Common questions",
   footerExplore: "EXPLORE THE PRODUCT",

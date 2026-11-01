@@ -1,7 +1,14 @@
 import { readdirSync, readFileSync, realpathSync } from "node:fs";
-import { afterEach, mock } from "bun:test";
+import { afterEach, beforeEach, mock } from "bun:test";
 import { plugin } from "bun";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import { pinTestClock } from "./test-clock";
+
+// Pin the clock before the first import, because sample modules date their
+// records when they load, and around every test, because a test that resets
+// the clock would hand the next one the real date.
+pinTestClock();
+beforeEach(pinTestClock);
 
 // Bun's test runner does not compile CSS modules, so an import would be {}.
 plugin({
@@ -157,6 +164,7 @@ function loadedExports(specifier: string): Resettable | null {
 // grant stays selected. A file that sets one without clearing it leaves it for
 // the next file.
 afterEach(() => {
+  pinTestClock();
   const reset = (specifier: string, name: string) => {
     const seam = loadedExports(specifier)?.[name];
     if (typeof seam === "function") seam();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check, LoaderCircle } from "lucide-react";
 import { businessPath } from "@/lib/site-routes";
 import { businessContent, type BusinessLocale } from "./content";
 import { newSubmissionId } from "./submission-id";
@@ -290,21 +290,21 @@ export function ContactForm({ locale }: { locale: BusinessLocale }) {
                     const result = checkPhone(profile.phone);
                     if (result.status === "valid") {
                       setProfile({ ...profile, phone: result.display });
-                    } else {
-                      setPhoneError(result.status === "empty" ? "empty" : result.reason);
+                    } else if (result.status !== "empty") {
+                      setPhoneError(result.reason);
                     }
                   }}
                 />
               )}
             </ChoiceGroup>
-            {profile.channel === "whatsapp" && (
-              <div className={styles.phoneErrorSlot}>
+            <div className={styles.phoneErrorSlot} data-open={phoneError !== null}>
+              <div className={styles.phoneErrorMessages}>
                 {PHONE_ERROR_REASONS.map((reason) => {
                   const active = phoneError === reason;
                   return (
                     <p
                       key={reason}
-                      id={active || (!phoneError && reason === "empty") ? "contact-phone-error" : undefined}
+                      id={active ? "contact-phone-error" : undefined}
                       className={styles.phoneError}
                       role={active ? "alert" : undefined}
                       aria-hidden={!active}
@@ -315,7 +315,7 @@ export function ContactForm({ locale }: { locale: BusinessLocale }) {
                   );
                 })}
               </div>
-            )}
+            </div>
             <div className={styles.field}>
               <label htmlFor="contact-source">
                 {copy.sourceLabel} <span>{copy.optional}</span>
@@ -374,10 +374,15 @@ export function ContactForm({ locale }: { locale: BusinessLocale }) {
               type="submit"
               disabled={!hydrated}
               aria-disabled={sending}
+              aria-busy={sending}
               className={`${styles.button} ${styles.submit}`}
             >
               {sending ? copy.sending : copy.submit}
-              <ArrowRight size={18} aria-hidden="true" />
+              {sending ? (
+                <LoaderCircle className={styles.submitSpinner} size={18} aria-hidden="true" />
+              ) : (
+                <ArrowRight size={18} aria-hidden="true" />
+              )}
             </button>
             <p className={styles.nextStep}>{copy.nextStep}</p>
           </fieldset>

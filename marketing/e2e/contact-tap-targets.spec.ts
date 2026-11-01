@@ -4,10 +4,10 @@ const SENTENCE = "Me interesa una demostración de Cuadrao.";
 
 const DESKTOP = {
   h1: { dx: -668, dy: -63.39, w: 545, h: 136.94 },
-  pilot: { dx: 0, dy: 630.22, w: 479, h: 44 },
-  send: { dx: 0, dy: 694.22, w: 479, h: 55.59 },
-  mailto: { dx: -668, dy: 312.11, w: 144, h: 44 },
-  footer: { dx: -716, dy: 963.98, w: 1280, h: 737.39 },
+  pilot: { dx: 0, dy: 634.72, w: 479, h: 44 },
+  send: { dx: 0, dy: 698.72, w: 479, h: 55.59 },
+  mailto: { dx: -668, dy: 315.3, w: 144, h: 44 },
+  footer: { dx: -716, dy: 998.88, w: 1280, h: 737.39 },
 };
 
 async function box(page: Page, selector: string) {
@@ -42,7 +42,7 @@ test.describe("contact form tap targets", () => {
       expect(linkBox.h).toBeGreaterThanOrEqual(44);
       expect(checkBox.w).toBeCloseTo(18, 0);
       expect(checkBox.h).toBeCloseTo(18, 0);
-      await expect(link).toHaveCSS("font-size", "12px");
+      await expect(link).toHaveCSS("font-size", "14px");
 
       const short = await page.evaluate(() => {
         const nodes = [...document.querySelectorAll("main a[href], main button, main input, main textarea")];

@@ -36,7 +36,7 @@ export const PAGE_METADATA: Record<
       description: touchupCopy.en.description,
     },
     contact: {
-      title: "Let's talk about your business | Cuadrao",
+      title: "Let’s talk about your business | Cuadrao",
       description:
         "Tell Lucas how you run your business and explore what we are preparing at Cuadrao.",
     },

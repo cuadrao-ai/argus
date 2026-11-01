@@ -232,7 +232,7 @@
   border: 0;
   background: transparent;
   color: inherit;
-  width: 44px;
+  flex: 0 0 44px;
   height: 44px;
   align-items: center;
   justify-content: center;
@@ -986,7 +986,7 @@
   margin-top: 6px;
 }
 .demoIntro .contactPrivacy {
-  font-size: 13px;
+  font-size: 14px;
   max-width: 370px;
 }
 .formArea {
@@ -1072,9 +1072,18 @@
 .choice input:checked + span { background: #e8ede3; border-color: var(--ink); }
 .choice input:focus-visible + span { outline: 2px solid var(--ink); outline-offset: 2px; }
 .choice input:disabled + span { opacity: 0.6; }
-.choices input[type="tel"] { flex: 1 1 190px; min-width: 0; min-height: 44px; padding: 8px 14px; background: #fafbf8; border: 1px solid #a9b5a7; border-radius: 28px; color: var(--ink); font-size: 14px; }
-.phoneErrorSlot { display: grid; margin: -10px 0 18px; }
+.choices input[type="tel"] { flex: 1 1 190px; box-sizing: border-box; min-width: 0; height: 44px; padding: 8px 14px; background: #fafbf8; border: 1px solid #a9b5a7; border-radius: 28px; color: var(--ink); font-size: 14px; }
+.phoneErrorSlot { display: grid; grid-template-rows: 0fr; }
+.phoneErrorSlot[data-open="true"] { grid-template-rows: 1fr; margin: -10px 0 18px; }
+.phoneErrorMessages { display: grid; min-height: 0; overflow: hidden; }
 .formFields .phoneError { grid-area: 1 / 1; margin: 0; font-size: 13px; color: #973b2d; }
+@media (prefers-reduced-motion: no-preference) {
+  .phoneErrorSlot { transition: grid-template-rows 180ms ease, margin 180ms ease; }
+  .choices input[type="tel"] { transition: height 180ms ease, margin 180ms ease, padding 180ms ease, border-width 180ms ease, opacity 180ms ease; }
+  @starting-style {
+    .choices input[type="tel"] { height: 0; margin-top: -8px; padding-block: 0; border-width: 0; opacity: 0; }
+  }
+}
 .choices input[aria-invalid="true"] { border-color: #a44030; }
 .pilotRow {
   position: relative;
@@ -1103,14 +1112,14 @@
   accent-color: var(--ink);
 }
 .fieldRow { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); column-gap: 16px; }
-.field .fieldHint { font-size: 13px; line-height: 1.5; color: #5a685b; font-style: italic; margin: -2px 0 8px; }
+.field .fieldHint { font-size: 14px; text-wrap: pretty; line-height: 1.5; color: #5a685b; font-style: italic; margin: -2px 0 8px; }
 .field textarea + .fieldHint { margin: 6px 0 0; }
-.formFields .nextStep, .review .nextStep { margin-top: 14px; font-size: 13px; color: #526057; }
+.formFields .nextStep, .review .nextStep { margin-top: 14px; font-size: 14px; text-wrap: pretty; color: #526057; }
 .formFields > button {
   width: 100%;
 }
 .formPrivacy {
-  font-size: 12px;
+  font-size: 14px;
   color: #526057;
   margin-top: 20px !important;
 }
@@ -1219,6 +1228,31 @@
 }
 .submit:hover {
   background: var(--cta-deep);
+}
+.site .submit:disabled {
+  border-color: #c3ccbf;
+  background: #dfe4da;
+  color: #4f5d50 !important;
+  cursor: not-allowed;
+  opacity: 1;
+}
+.submit[aria-disabled="true"],
+.submit[aria-disabled="true"]:hover {
+  background: var(--cta-rest);
+  cursor: not-allowed;
+}
+.submit:is(:disabled, [aria-disabled="true"]):hover svg {
+  transform: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .submit .submitSpinner {
+    animation: submitSpin 900ms linear infinite;
+  }
+}
+@keyframes submitSpin {
+  to {
+    rotate: 360deg;
+  }
 }
 .button:hover svg {
   transform: translate(2px, -2px);
@@ -1607,6 +1641,8 @@
 @media (max-width: 800px) {
   .mobileAudience {
     display: block;
+    min-width: 0;
+    overflow: hidden;
     border-left: 1px solid var(--line);
     padding-left: 16px;
     font-size: 12px;
@@ -1625,7 +1661,7 @@
   border-block: 1px solid var(--line);
 }
 .directContact .textAction { margin: 12px 0; }
-.directContact small { display: block; font-size: 13px; color: var(--muted); }
+.directContact small { display: block; font-size: 14px; color: var(--muted); }
 .overviewHeading {
   display: grid;
   grid-template-columns: 1.3fr 1fr;
@@ -1919,7 +1955,7 @@
   grid-template-columns: 1.1fr 1fr 1fr 0.9fr;
   gap: 0 40px;
 }
-.footerIdentity > span { display: block; margin-top: 10px; font-size: 12px; color: var(--fmute); }
+.footerIdentity > span { display: block; margin-top: 10px; font-size: 14px; color: var(--fmute); }
 .footerIdentity p { margin: 24px 0 12px; font-size: 15px; white-space: pre-line; }
 .businessFooterGrid small { font-size: 12px; color: var(--fmute); }
 .businessFooterGrid nav { display: flex; align-items: start; flex-direction: column; gap: 8px; border-left: 1px solid var(--fline); padding-left: 32px; }
@@ -1933,6 +1969,7 @@
 .lightFooterGrid { --fline: var(--line); --fhead: #2f5a49; --fmute: var(--muted); }
 .businessFooterGrid nav > a {
   font-size: 13px;
+  min-width: 44px;
   min-height: 44px;
   padding-block: 4px;
   display: inline-flex;

@@ -68,7 +68,7 @@ export function BusinessHeader({
   const secondary = page === "contact" || page === "privacy" || spanishOnly;
   const primaryHref = personal
     ? "#early-access"
-    : businessPath("es", "contact");
+    : businessPath(locale, "contact");
   const primaryLabel = personal
     ? locale === "es"
       ? "Acceso anticipado"
