@@ -2919,20 +2919,8 @@
         "missing": "Falta"
       },
       "confirm_value": "Confirmar",
-      "origin": {
-        "extracted": "Leído de la fuente · sin verificar",
-        "qr_decoded": "Del código QR · sin verificar",
-        "owner_stated": "Indicado por el dueño · sin verificar",
-        "member_set": "Indicado por el revisor · sin verificar",
-        "matched": "Vinculado a la fuente · sin verificar"
-      },
       "origin_tag": {
-        "from_message": "del mensaje",
-        "from_receipt": "del recibo",
-        "matched": "vinculada a la fuente",
         "member_set": "del revisor",
-        "owner_stated": "del dueño",
-        "qr_decoded": "del código QR",
         "suggested": "sugerida"
       },
       "placeholder": {
@@ -2943,6 +2931,7 @@
         "save_lost": "No pudimos confirmar si {{field}} se guardó. Aprobar queda en pausa.",
         "save_refused": "No se guardó {{field}}. Revisa el valor.",
         "save_stale": "Este registro cambió mientras editabas. Ya ves la versión actual y tu cambio sigue aquí.",
+        "doubtful_read": "revisar",
         "save_first": "Guarda o cancela {{fields}} para aprobar.",
         "group_identity": "Identificación",
         "group_amounts": "Montos",

@@ -152,7 +152,7 @@ describe("the form marks the fields the server's blockers name; the attention st
 
 describe("the record facts on the review page", () => {
   // My mock overrides the old no-origin-tags rule: each known, unverified value says where it came from.
-  test("Spanish: AI-read, QR and linked values each carry an origin tag beside the value", async () => {
+  test("a read value stays quiet: no tag for the receipt, the message, the QR or a link", async () => {
     const base = await fixture();
     const dossier = {
       ...base,
@@ -164,10 +164,8 @@ describe("the record facts on the review page", () => {
     } as unknown as BusinessDossier;
     const { html } = await render(dossier);
     assert.ok(html.includes('data-fact="counterparty" data-standing="suggestion"'));
-    assert.equal((html.match(/data-origin="extracted"/g) ?? []).length, 2, "the read merchant and the read e-CF each carry a tag");
-    assert.equal((html.match(/data-origin="qr_decoded"/g) ?? []).length, 2, "the QR date and the QR RNC each carry a tag");
-    assert.ok(html.includes("· del código QR") && html.includes("· vinculada a la fuente"));
-    assert.ok(/· (del recibo|del mensaje|sugerida)/.test(html));
+    assert.equal((html.match(/data-origin="qr_decoded"/g) ?? []).length, 0, "a QR value carries no tag");
+    assert.ok(!/· (del recibo|del mensaje|del código QR|vinculada a la fuente|del dueño)/.test(html));
     assert.ok(!html.includes('data-testid="receipt-read-banner"'));
     assert.ok(!html.includes("Leído de la fuente · sugerencia sin verificar"));
     assert.ok(!html.includes("confirm-counterparty") && !html.includes("lucide-sparkles"));
@@ -228,12 +226,20 @@ describe("the record facts on the review page", () => {
     assert.ok(html.includes("Necesita una decisión antes de aprobar"));
   });
 
+  test("a row is marked only when a reviewer changed it or the read is in doubt", async () => {
+    const base = await fixture();
+    const reviewed = { ...known("member_set"), value: "Ferretería Norte" };
+    const { html } = await render({ ...base, facts: { ...base.facts, counterparty: reviewed, fiscal: { rnc: unknown, ncf: { ...known("extracted"), value: "B01" }, ecf: unknown, itbis: { ...known("extracted"), value: "10.00" } } }, fiscal_value: "ncf", review_flags: [{ code: "ncf_malformed", field: "ncf", confirm: true }], ecf_checks: { encf: null, tipo_ecf: null, checked_at: "2026-10-10T14:25:00Z", checks: [{ name: "read_matches_xml", state: "failed", code: null, detail: { itbis: "read=10 xml=11" } }] } } as unknown as BusinessDossier, "es-419", true, [], true);
+    assert.ok(html.includes("· del revisor"));
+    assert.equal((html.match(/data-doubtful="true"/g) ?? []).length, 2, "the flagged NCF and the ITBIS the file disputes");
+    assert.ok(html.includes("· revisar"));
+  });
+
   test("a reader who cannot prepare sees the standing without a Confirmar button; English words follow", async () => {
     const base = await fixture();
     const dossier = { ...base, facts: { ...base.facts, counterparty: known("extracted") } } as BusinessDossier;
     const { html } = await render(dossier, "en", false);
-    assert.equal((html.match(/data-origin="extracted"/g) ?? []).length, 1);
-    assert.ok(/· (from the receipt|from the message|suggested)/.test(html));
+    assert.ok(!/· (from the receipt|from the message)/.test(html));
     assert.ok(!html.includes("Read from the source · suggestion, not verified"));
     assert.ok(!html.includes("confirm-counterparty"));
     assert.ok(html.includes('data-fact="counterparty" data-standing="suggestion"'));

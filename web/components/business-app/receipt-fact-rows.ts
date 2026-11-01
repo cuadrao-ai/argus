@@ -69,6 +69,12 @@ export function factRows<K extends BusinessFactField | BusinessFiscalField>(
     .map(({ key, standing, blocked: isBlocked, asked: isAsked }) => ({ key, standing, blocked: isBlocked, asked: isAsked }));
 }
 
+/** The read values the server doubts: a review flag names them, or the e-CF file says otherwise. */
+export function doubtfulFields(dossier: Pick<BusinessDossier, "review_flags" | "ecf_checks">): Set<string> {
+  const read = dossier.ecf_checks?.checks.find((check) => check.name === "read_matches_xml" && check.state === "failed");
+  return new Set([...(dossier.review_flags ?? []).map((flag) => flag.field), ...Object.keys(read?.detail ?? {}).map((field) => field === "total" ? "amount" : field)]);
+}
+
 export const RECORD_FIELDS: readonly BusinessFactField[] = ["kind", "counterparty", "occurred_on", "amount", "currency", "category_id", "funding", "business_share", "receipt_state"];
 
 /** Where the form shows each field: the activity section, the fiscal section (which opens with the receipt state), then how it was paid. */

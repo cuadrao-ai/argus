@@ -11,7 +11,7 @@ import type { RowShown } from "./ReceiptEditRow";
 import { useCategoryLabel } from "./business-ui";
 import { UNKNOWN_VALUE } from "./business-format";
 import { presentBusinessFact, presentFiscalFact } from "./receipt-fact-presentation";
-import { KIND_FIELDS, PAYMENT_FIELDS, fiscalFactRows, recordFactRows, type FactRow, type ReviewRow } from "./receipt-fact-rows";
+import { KIND_FIELDS, PAYMENT_FIELDS, doubtfulFields, fiscalFactRows, recordFactRows, type FactRow, type ReviewRow } from "./receipt-fact-rows";
 import type { AttentionItem } from "./dossier-attention";
 import { resolveLanguage } from "@/lib/language-features";
 
@@ -27,8 +27,8 @@ function matchAttribute(values: readonly (string | null | undefined)[]): string 
   return kept.length ? JSON.stringify(kept) : undefined;
 }
 
-/** What the tag says about who stated an unverified value. */
-const ORIGIN_TAG: Partial<Record<string, string>> = { qr_decoded: "qr_decoded", owner_stated: "owner_stated", member_set: "member_set", matched: "matched" };
+/** The rows that hold digits, which line up. */
+const DIGIT_ROWS: ReadonlySet<string> = new Set(["amount", "itbis", "rnc", "ncf", "ecf", "fiscal_number"]);
 
 /** An open draft's form: what each row edits, and what the page says under it. */
 export type FactsReview = {
@@ -86,16 +86,17 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
   const noFiscal = dossier.fiscal_known === true && !dossier.fiscal_value;
   const flagged = (key: string) => attention.some((item) => item.field === key || (review && key === "amount" && item.field === "currency"));
 
-  const origin = (fact: BusinessFact<unknown> | undefined): ReactNode => {
-    if (!fact || fact.state !== "known" || fact.verified || !fact.origin) return null;
-    let tag = ORIGIN_TAG[fact.origin];
-    if (fact.origin === "extracted") {
-      const named = dossier.sources.filter((source) => fact.source_ids.includes(source.id));
-      const kinds = new Set((named.length ? named : dossier.sources).map((source) => source.kind));
-      tag = kinds.has("attachment") ? "from_receipt" : kinds.has("message") ? "from_message" : "suggested";
-    }
-    if (!tag) return null;
-    return <span data-origin={fact.origin} title={t(`business.dossier.origin.${fact.origin}`, "")} className="ml-1.5 text-[13px] leading-[18px] text-[#56635e] dark:text-white/65">· {t(`business.dossier.origin_tag.${tag}`, tag)}</span>;
+  const doubtful = doubtfulFields(dossier);
+  /** A row stays quiet unless a reviewer changed its value or the read is in doubt. */
+  const origin = (key: string, fact: BusinessFact<unknown> | undefined): ReactNode => {
+    const mark = (text: string, kind?: string | null) => <span data-origin={kind ?? undefined} data-doubtful={kind ? undefined : "true"} className="ml-1.5 text-[13px] leading-[18px] text-[#56635e] dark:text-white/65">· {text}</span>;
+    if (doubtful.has(key)) return mark(t("business.dossier.placeholder.doubtful_read", "check this"));
+    if (!fact || fact.state !== "known" || fact.verified) return null;
+    if (fact.origin === "member_set") return mark(t("business.dossier.origin_tag.member_set", "by the reviewer"), fact.origin);
+    // A proposal with no document or message behind it is only a suggestion.
+    const named = dossier.sources.filter((source) => fact.source_ids.includes(source.id));
+    const kinds = new Set((named.length ? named : dossier.sources).map((source) => source.kind));
+    return fact.origin === "extracted" && !kinds.has("attachment") && !kinds.has("message") ? mark(t("business.dossier.origin_tag.suggested", "suggested"), fact.origin) : null;
   };
 
   const field = (key: string, label: string, content: ReactNode, row?: FactRow<string>, tag?: ReactNode, match: readonly (string | null | undefined)[] = []) => (
@@ -104,7 +105,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
         {flagged(key) ? <span aria-hidden="true" data-testid="attention-marker" className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#c27a1e] dark:bg-[#e8b26f]" /> : null}
         {label}
       </dt>
-      <dd className={`min-w-0 break-words py-[7px] text-[15px] leading-[22px] text-[#172b26] dark:text-white ${key === "amount" || key === "itbis" ? "[font-variant-numeric:tabular-nums]" : ""}`}>
+      <dd className={`min-w-0 break-words py-[7px] text-[15px] leading-[22px] text-[#172b26] dark:text-white ${DIGIT_ROWS.has(key) ? "[font-variant-numeric:tabular-nums]" : ""}`}>
         {key === "amount" || key === "itbis" ? <span className="cuadrao-amount">{content}</span> : content}
         {tag}
         {review?.note(key as ReviewRow)}
@@ -126,7 +127,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     const currency = review && key === "amount" ? rows.get("currency") : undefined;
     const own = rows.get(key);
     const row = own && currency ? { ...own, blocked: own.blocked || currency.blocked, asked: own.asked || currency.asked } : own;
-    const tag = origin(dossier.facts[key]);
+    const tag = origin(key, dossier.facts[key]);
     const fact = dossier.facts[key];
     const match = [value, fact.state === "known" && typeof fact.value === "string" ? fact.value : null];
     if (review) return field(key, label, review.row(key, { label, value: value ? <>{value}{tag}</> : "" }), row, undefined, match);
@@ -150,9 +151,9 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     ) : null;
     const itbisLabel = t("business.dossier.field.itbis", "ITBIS");
     return <>
-      {field("rnc", rncLabel, form.row("rnc", { label: rncLabel, compound: true, pencil: !rncMissing, value: <><RncStatusBlock fact={fiscal?.rnc} flags={flags} onEditRnc={rncEdit} />{origin(fiscal?.rnc)}</> }), fiscalRows.get("rnc"), undefined, [fiscal?.rnc.value])}
-      {field("fiscal_number", numberLabel, form.row("fiscal_number", { label: numberLabel, value: numberValue ? <>{numberValue}{origin(fiscal?.[number])}</> : "" }), fiscalRows.get(number), undefined, [numberValue])}
-      {field("itbis", itbisLabel, form.row("itbis", { label: itbisLabel, value: itbisValue ? <>{itbisValue}{origin(fiscal?.itbis)}</> : "" }), fiscalRows.get("itbis"), itbisHigh, [itbisValue, fiscal?.itbis.value])}
+      {field("rnc", rncLabel, form.row("rnc", { label: rncLabel, compound: true, pencil: !rncMissing, value: <><RncStatusBlock fact={fiscal?.rnc} flags={flags} onEditRnc={rncEdit} />{origin("rnc", fiscal?.rnc)}</> }), fiscalRows.get("rnc"), undefined, [fiscal?.rnc.value])}
+      {field("fiscal_number", numberLabel, form.row("fiscal_number", { label: numberLabel, value: numberValue ? <>{numberValue}{origin(number, fiscal?.[number])}</> : "" }), fiscalRows.get(number), undefined, [numberValue])}
+      {field("itbis", itbisLabel, form.row("itbis", { label: itbisLabel, value: itbisValue ? <>{itbisValue}{origin("itbis", fiscal?.itbis)}</> : "" }), fiscalRows.get("itbis"), itbisHigh, [itbisValue, fiscal?.itbis.value])}
     </>;
   };
 
@@ -188,7 +189,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
   }
 
   const fiscalFields = (fiscal || noFiscal ? FISCAL.filter((key) => !noFiscal || (key !== "ncf" && key !== "ecf")) : []).flatMap((key) => {
-    if (key === "rnc") return [field("rnc", t("business.dossier.field.rnc", "RNC"), <RncStatusBlock fact={fiscal?.rnc} flags={flags} />, undefined, origin(fiscal?.rnc), [fiscal?.rnc.value])];
+    if (key === "rnc") return [field("rnc", t("business.dossier.field.rnc", "RNC"), <RncStatusBlock fact={fiscal?.rnc} flags={flags} />, undefined, origin("rnc", fiscal?.rnc), [fiscal?.rnc.value])];
     const shownValue = presentFiscalFact(key, dossier.facts, locale, labels);
     const itbisHigh = key === "itbis" && flags.some((flag) => flag.code === "itbis_high") ? (
       <span data-testid="itbis-high" className="mt-1 flex items-center gap-1 text-[13px] leading-[18px] text-[#735c14] dark:text-[#e8b26f]">
@@ -196,7 +197,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
         {t("business.dossier.review_flag.itbis_high.text")}
       </span>
     ) : null;
-    const shown = field(key, t(`business.dossier.field.${key}`, key), shownValue, fiscalRows.get(key), <>{origin(fiscal?.[key])}{itbisHigh}</>, [shownValue, fiscal?.[key].value]);
+    const shown = field(key, t(`business.dossier.field.${key}`, key), shownValue, fiscalRows.get(key), <>{origin(key, fiscal?.[key])}{itbisHigh}</>, [shownValue, fiscal?.[key].value]);
     return key === "itbis" && noFiscal
       ? [field("fiscal_number", `${t("business.dossier.field.ncf", "NCF")} / ${t("business.dossier.field.ecf", "e-CF")}`, t("business.marks.no_fiscal_chip", "No fiscal receipt number")), shown]
       : [shown];

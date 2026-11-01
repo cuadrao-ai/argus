@@ -2919,20 +2919,8 @@
         "missing": "Missing"
       },
       "confirm_value": "Confirm",
-      "origin": {
-        "extracted": "Read from source · not verified",
-        "qr_decoded": "From the QR code · not verified",
-        "owner_stated": "Stated by owner · not verified",
-        "member_set": "Set by reviewer · not verified",
-        "matched": "Matched to source · not verified"
-      },
       "origin_tag": {
-        "from_message": "from the message",
-        "from_receipt": "from the receipt",
-        "matched": "linked to the source",
         "member_set": "from the reviewer",
-        "owner_stated": "from the owner",
-        "qr_decoded": "from the QR code",
         "suggested": "suggested"
       },
       "placeholder": {
@@ -2943,6 +2931,7 @@
         "save_lost": "We couldn't confirm that {{field}} was saved. Approval is paused.",
         "save_refused": "{{field}} wasn't saved. Check the value.",
         "save_stale": "This record changed while you edited. You're seeing the current version and your change is still here.",
+        "doubtful_read": "check this",
         "save_first": "Save or cancel {{fields}} to approve.",
         "group_identity": "Identification",
         "group_amounts": "Amounts",
