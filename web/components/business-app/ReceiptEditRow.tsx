@@ -77,12 +77,12 @@ export default function ReceiptEditRow({ label, value, compound, pencil = true, 
     return (
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">{value}</div>
-        {pencil ? <button type="button" onClick={onOpen} aria-label={edit} className={`group -mr-2 -mt-[7px] flex h-9 w-9 shrink-0 items-center justify-end rounded-item px-2 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] ${FOCUS_RING}`}><Pencil className={PENCIL_CLASS} aria-hidden="true" /></button> : null}
+        {pencil ? <button type="button" onClick={onOpen} aria-label={edit} className={`group -mr-2 -my-[11px] flex h-11 w-11 shrink-0 items-center justify-end rounded-item px-2 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] ${FOCUS_RING}`}><Pencil className={PENCIL_CLASS} aria-hidden="true" /></button> : null}
       </div>
     );
   }
   return (
-    <button type="button" onClick={onOpen} aria-label={edit} className={`group -mx-2 -my-[7px] flex min-h-9 w-[calc(100%+1rem)] items-center gap-2 rounded-item px-2 text-left hover:bg-black/[0.04] dark:hover:bg-white/[0.06] ${FOCUS_RING}`}>
+    <button type="button" onClick={onOpen} aria-label={edit} className={`group -mx-2 -my-[11px] flex min-h-11 w-[calc(100%+1rem)] items-center gap-2 rounded-item px-2 text-left hover:bg-black/[0.04] dark:hover:bg-white/[0.06] ${FOCUS_RING}`}>
       <span className="min-w-0 flex-1">{value || UNKNOWN_VALUE}</span>
       <Pencil className={PENCIL_CLASS} aria-hidden="true" />
     </button>
