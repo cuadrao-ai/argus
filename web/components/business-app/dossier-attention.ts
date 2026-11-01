@@ -18,7 +18,6 @@ export function dossierAttention(dossier: Pick<BusinessDossier, "blockers" | "re
   if (dossier.review_state === "accepted" && dossier.approval_result?.status === "recorded") return [];
   return dossier.blockers.map((blocker, index) => {
     const label = blocker.field ? t(`business.dossier.field.${blocker.field}`, blocker.field) : null;
-    // A missing fact needs no sentence: the box's title says it is missing and the label says which.
     const reason = blocker.code === "fact_required" && label ? null
       : t(blocker.code === "possible_duplicate" ? "business.attention.duplicate" : `business.dossier.blocker.${blocker.code}`, "") || t("business.dossier.blocker_fallback", "This record needs further review before approval.");
     return { key: `blocker-${blocker.code}-${index}`, field: blocker.field, text: [reason, label].filter(Boolean).join(" · ") };

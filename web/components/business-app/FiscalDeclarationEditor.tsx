@@ -20,23 +20,19 @@ import { fiscalFieldGroups, type FiscalGroup } from "./fiscal-field-groups";
 const EDITOR_ID = "fiscal-declaration";
 const GROUP_TITLE_CLASS = "text-[12px] font-medium uppercase leading-4 tracking-[0.06em] text-[#56635e] dark:text-white/60";
 const FIELD_LABEL_CLASS = "mb-1 block text-[13px] leading-[18px] text-[#56635e] dark:text-white/70";
-/** The line under a field, held open so a message moves nothing. MoneyInput writes its own there. */
 const FIELD_NOTE_CLASS = "mt-1 block min-h-5 text-[13px] leading-5 text-[#9e2f39] dark:text-[#ec9aa0]";
 const MONEY_NOTE_CLASS = "[&_p[aria-live]]:mt-1 [&_p[aria-live]]:min-h-5 [&_p[aria-live]]:text-[13px] [&_p[aria-live]]:leading-5";
-/** These have their own rows above the form, each with one write. */
 const OWN_ROWS: ReadonlySet<string> = new Set(["rnc", "ncf", "itbis", "category", "payment_method"]);
 
 export default function FiscalDeclarationEditor({ dossier, fields, disabled, open, onOpenChange, reviewFiscal, onChanged, onBusy, onDirty }: { dossier: BusinessDossier; fields: DgiiFields | null; disabled: boolean; /** Held by the page, because a saved row gives this form a fresh revision. */ open?: boolean; onOpenChange?: (open: boolean) => void; reviewFiscal: (id: string, version: number, review: DgiiReview, key: string) => Promise<BusinessDossier>; onChanged: (value: BusinessDossier) => void; onBusy: (value: boolean) => void; onDirty: (value: boolean) => void }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const recordForm = dossier.facts.kind.value === "income" ? "607" : "606";
-  // A known kind says the form. The choice stays only when the record cannot say, or a saved declaration disagrees.
   const formFollows = dossier.facts.kind.state === "known" && (dossier.dgii?.form ?? recordForm) === recordForm;
   const [form, setForm] = useState<"606" | "607">(dossier.dgii?.form ?? recordForm);
   const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(dossier.dgii ?? {}).map(([name, value]) => [name, String(value ?? "")])));
   const fiscal = { rnc: dossier.facts.fiscal?.rnc.value ?? "", ncf: dossier.facts.fiscal?.ecf.value ?? dossier.facts.fiscal?.ncf.value ?? "", itbis: dossier.facts.fiscal?.itbis.value ?? "" };
   const [actualRefund, setActualRefund] = useState(dossier.dgii?.actual_refund === true);
-  // Fields holding text that cannot be sent; `checked` says Save was pressed with one of them.
   const [broken, setBroken] = useState<ReadonlySet<string>>(new Set());
   const [checked, setChecked] = useState(false);
   const [resets, setResets] = useState(0);

@@ -27,7 +27,6 @@ function matchAttribute(values: readonly (string | null | undefined)[]): string 
   return kept.length ? JSON.stringify(kept) : undefined;
 }
 
-/** The rows that hold digits, which line up. */
 const DIGIT_ROWS: ReadonlySet<string> = new Set(["amount", "itbis", "rnc", "ncf", "ecf", "fiscal_number"]);
 
 /** An open draft's form: what each row edits, and what the page says under it. */
@@ -89,13 +88,11 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
   const flagged = (key: string) => attention.some((item) => item.field === key || (review && key === "amount" && item.field === "currency"));
 
   const doubtful = doubtfulFields(dossier);
-  /** A row stays quiet unless a reviewer changed its value or the read is in doubt. */
   const origin = (key: string, fact: BusinessFact<unknown> | undefined): ReactNode => {
     const mark = (text: string, kind?: string | null) => <span data-origin={kind ?? undefined} data-doubtful={kind ? undefined : "true"} className="ml-1.5 text-[13px] leading-[18px] text-[#56635e] dark:text-white/65">· {text}</span>;
     if (doubtful.has(key)) return mark(t("business.dossier.placeholder.doubtful_read", "check this"));
     if (!fact || fact.state !== "known" || fact.verified) return null;
     if (fact.origin === "member_set") return mark(t("business.dossier.origin_tag.member_set", "by the reviewer"), fact.origin);
-    // A proposal with no document or message behind it is only a suggestion.
     const named = dossier.sources.filter((source) => fact.source_ids.includes(source.id));
     const kinds = new Set((named.length ? named : dossier.sources).map((source) => source.kind));
     return fact.origin === "extracted" && !kinds.has("attachment") && !kinds.has("message") ? mark(t("business.dossier.origin_tag.suggested", "suggested"), fact.origin) : null;
@@ -111,7 +108,6 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
         {key === "amount" || key === "itbis" ? <span className="cuadrao-amount">{content}</span> : content}
         {tag}
         {review?.note(key as ReviewRow)}
-        {/* On an open draft the row's marker and the top box already say this. */}
         {(row?.blocked || row?.asked) && !(review && flagged(key)) ? (
           <span className="mt-1 flex items-center gap-1 text-[13px] leading-[18px] text-[#9e2f39] dark:text-[#ec9aa0]">
             <CircleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -129,7 +125,6 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
   const recordField = (key: BusinessFactField) => {
     const label = t(`business.dossier.field.${key}`, key);
     const value = presentBusinessFact(key, dossier.facts, accounts, locale, labels);
-    // On an open draft the total and its currency are one row.
     const currency = review && key === "amount" ? rows.get("currency") : undefined;
     const own = rows.get(key);
     const row = own && currency ? { ...own, blocked: own.blocked || currency.blocked, asked: own.asked || currency.asked } : own;
@@ -140,7 +135,6 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     return field(key, label, key === "occurred_on" && !value ? UNKNOWN_VALUE : value, row, tag, match);
   };
 
-  /** The number row of a record with none: what the server says it is, and the way to say it has no receipt. */
   const noNumber = (form: FactsReview) => {
     const state = dossier.facts.receipt_state;
     const marked = state.state === "known" && state.value === "no_receipt";
@@ -151,11 +145,9 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     </>;
   };
 
-  /** The fiscal rows of an open draft: always all three, each with its edit control. */
   const reviewFiscalFields = (form: FactsReview) => {
     const rncLabel = t("business.dossier.field.rnc", "RNC");
     const rncMissing = ["missing", "invalid_length"].includes(rncStatus(fiscal?.rnc, flags));
-    // Sin comprobante stays out of the 606, so a missing RNC is only a blank row.
     const rncAsked = dossier.sin_comprobante === true && rncMissing;
     const rncEdit = form.onEdit ? () => form.onEdit?.("rnc") : undefined;
     const number = fiscal?.ecf.state === "known" ? "ecf" : "ncf";
@@ -188,7 +180,6 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
   // A Compra/Venta control already says the kind; the kind row returns while it needs a person.
   const kindShown = !typeRow || kind.state !== "known" || kindRow?.blocked || kindRow?.asked || flagged("kind");
   if (review) {
-    // These rows stay out of an open draft until the server waits on them, so a blocker always has a way forward.
     const waiting = (keys: readonly BusinessFactField[]) => keys.filter((key) => rows.get(key)?.blocked || rows.get(key)?.asked);
     const payment = waiting(PAYMENT_FIELDS);
     return (

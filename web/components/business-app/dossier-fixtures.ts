@@ -32,7 +32,6 @@ export const dossierFixtureIds = {
   noNumber: "10000000-0000-4000-8000-000000000021",
 } as const;
 
-/** The server's code tables (`dgii_codes.py`) and form columns (`dgii_form.py`), for the preview. */
 const EXPENSE_TYPES: Record<string, string> = { "01": "Gastos de personal", "02": "Gastos por trabajos, suministros y servicios", "03": "Arrendamientos", "04": "Gastos de activos fijo", "05": "Gastos de representación", "06": "Otras deducciones admitidas", "07": "Gastos financieros", "08": "Gastos extraordinarios", "09": "Compras y gastos que formarán parte del costo de venta", "10": "Adquisiciones de activos", "11": "Gastos de seguros" };
 const PAYMENT_FORMS: Record<string, string> = { "01": "Efectivo", "02": "Cheques/transferencias/depósito", "03": "Tarjeta crédito/débito", "04": "Compra a crédito", "05": "Permuta", "06": "Nota de crédito", "07": "Mixto" };
 const SERVICE_EXPENSE_TYPES = new Set(["02", "03", "07", "11"]);
@@ -56,7 +55,6 @@ const SAMPLE_DGII_FIELDS: DgiiFields = {
     sampleField("cash", "Efectivo"), sampleField("bank", "Cheque/ Transferencia/ Depósito"), sampleField("card", "Tarjeta Débito/Crédito"), sampleField("credit", "Venta a Crédito"), sampleField("gift", "Bonos o Certificados de Regalo"), sampleField("barter", "Permuta"), sampleField("other_payment", "Otras Formas de Ventas"),
   ],
 };
-/** As the server cleans a typed RNC or NCF: dashes and spaces between digits go, letters go upper case. */
 const printedIdentifier = (value: string | null) => value === null ? null : value.trim().replace(/(?<=[0-9])[-\s]+(?=[0-9])/g, "").toUpperCase();
 
 const sourceId = "20000000-0000-4000-8000-000000000001";
@@ -167,7 +165,6 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   const declarationEditable = (draft: BusinessDossier) => draft.capabilities.includes("prepare") && (draft.review_state === "open" || draft.review_state === "accepted") && draft.facts.kind.value !== "income";
   const served = (draft: BusinessDossier): Pick<BusinessDossier, "approval_action" | "fiscal_inclusion_available" | "refund_candidates" | "declaration_editable" | "expense_type_suggestion"> => ({
     declaration_editable: declarationEditable(draft),
-    // The sample has no earlier receipt from this RNC, so its fiscal records stand in for one.
     expense_type_suggestion: declarationEditable(draft) && !draft.dgii?.category && draft.facts.fiscal?.rnc.value === "131999888" ? "02" : null,
     approval_action: draft.approval_available && draft.facts.kind.state === "known" ? approvalActions[draft.facts.kind.value] ?? null : null,
     fiscal_inclusion_available: draft.capabilities.includes("prepare") && !draft.capabilities.includes("approve") && (draft.review_state === "open" || draft.review_state === "accepted") && draft.personal === true && Boolean(draft.fiscal_value),
@@ -186,7 +183,6 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   let captureCount = 0;
   const captures: BusinessCapture[] = [];
   const captureReceipts = new Map<string, { input: string; draftId: string }>();
-  /** One 606 or fiscal write, by the review route's rules: a replay answers once, and an open draft at its version takes it. */
   const writeDeclaration = (id: string, version: number, key: string, body: unknown, change: (current: BusinessDossier, stated: <T>(value: T | null) => BusinessFact<T>) => { facts?: BusinessFacts; dgii: DgiiDeclaration }) => {
     if (!key) fail(422, "idempotency_key_required");
     const input = JSON.stringify({ id, version, body });
@@ -208,7 +204,6 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   return {
     dgiiFields: async () => structuredClone(SAMPLE_DGII_FIELDS),
     reviewFiscal: async (id: string, version: number, review: DgiiReview, key: string) => writeDeclaration(id, version, key, review, (current, stated) => {
-      // As the server does: a value that matches the record stays as it is.
       const number = printedIdentifier(review.fiscal.ncf);
       const rnc = printedIdentifier(review.fiscal.rnc);
       const fiscal = { ...(current.facts.fiscal ?? { rnc: unknown<string>(), ncf: unknown<string>(), ecf: unknown<string>(), itbis: unknown<string>() }) };
@@ -225,7 +220,6 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     reviewPurchase: async (id: string, version: number, purchase: PurchaseChoice, key: string) => writeDeclaration(id, version, key, purchase, (current) => {
       const blank = Object.fromEntries(SAMPLE_DGII_FIELDS["606"].filter(({ name }) => !["rnc", "ncf", "itbis"].includes(name)).map(({ name }) => [name, null]));
       const dgii: DgiiDeclaration = { ...blank, actual_refund: false, purchase_activity_id: null, ...current.dgii, ...purchase, form: "606" };
-      // As the server fills it: a chosen type puts the amount before ITBIS on its side.
       if (typeof dgii.category === "string" && !dgii.services_amount && !dgii.goods_amount && current.facts.amount.state === "known") {
         const cents = Math.round(Number(current.facts.amount.value) * 100) - Math.round(Number(current.facts.fiscal?.itbis.value ?? 0) * 100);
         dgii[SERVICE_EXPENSE_TYPES.has(dgii.category) ? "services_amount" : "goods_amount"] = (cents / 100).toFixed(2);

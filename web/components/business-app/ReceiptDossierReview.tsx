@@ -48,7 +48,6 @@ import { SURFACE_CARD } from "./foundation/surfaces";
 import { ContentFade, Settle } from "./business-skeletons";
 import { resolveLanguage } from "@/lib/language-features";
 
-/** The row that edits the value a review flag is about. */
 const FLAGGED_ROW: Record<ReviewFlagCode, ReviewRow> = { rnc_check_digit: "rnc", ncf_malformed: "fiscal_number", itbis_high: "itbis" };
 
 /** The values a form row offers the original message to mark: its own data-match list. */
@@ -58,7 +57,6 @@ function rowValues(target: EventTarget): string[] {
 }
 
 type Operation = { kind: "idle" | "approving" } | { kind: "uncertain"; version: number };
-/** The refusal the page shows, with the reference when a request made it. */
 type Problem = { text: string; reference?: string };
 type ApprovalRequest = { next: boolean; anyway: boolean };
 /** The step shown before approving one revision: the missing or wrong-length RNC warning, or the dossier's confirm flags. */
@@ -185,7 +183,6 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const [highlight, setHighlight] = useState<string[]>([]);
   const [approvalCheck, setApprovalCheck] = useState<ApprovalCheck | null>(null);
   const [fixing, setFixing] = useState<ReviewFlagCode | null>(null);
-  // Where a person was going when the leave warning stopped them.
   const [leaving, setLeaving] = useState<{ proceed: () => void } | null>(null);
   const releaseGuard = useRef<(() => void) | null>(null);
   const inFlight = useRef(false);
@@ -232,14 +229,12 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const dirty = rows.unsaved.length > 0;
   const openRow = rows.open;
 
-  // After the confirm step has closed and handed focus back, so the field keeps it.
   useEffect(() => {
     if (!fixing) return;
     setFixing(null);
     openRow(FLAGGED_ROW[fixing]);
   }, [fixing, openRow]);
 
-  // Anything typed and not saved warns before the page goes, by any way out.
   const holdsEdits = dirty || fiscalDirty;
   const receiptId = receipt?.id;
   useEffect(() => {
@@ -349,7 +344,6 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
       if (!pageOpen.current) return;
       const next = fresh ? nextBandejaReceipt(receipt.id, seen, fresh) : null;
       if (next) handTitleFocus(next);
-      // Past the last row the Bandeja lists anything skipped; with nothing left, the run is finished.
       if (!next && fresh && !bandejaReceipts(fresh).some((item) => item.id !== receipt.id)) setFinished(true);
       else openPanel(next ? { kind: "receipt", receiptId: next } : { kind: "inbox" });
     } finally {
@@ -385,7 +379,6 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const title = dossier.facts.counterparty.state === "known" ? dossier.facts.counterparty.value : t("business.dossier.title", "Review record");
   const attachments = dossier.sources.filter((item) => item.kind === "attachment");
   const busy = duplicateBusy || autosave.busy || operation.kind === "approving";
-  // Nothing is approved while the screen shows a value the record does not hold.
   const saveHolds = autosave.busy || autosave.failed || dirty;
   const approvable = mutable && dossier.approval_available && !saveHolds;
   const reviewing = dossier.review_state === "open" && !recorded;
@@ -402,7 +395,6 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
     if (!canApprove || !supportedKind || !approvable) return;
     const at = { draftId: dossier.draft_id, version: dossier.version, next };
     const status = rncStatus(dossier.facts.fiscal?.rnc, flags);
-    // A record the owner says has no comprobante stays out of the 606, so its RNC is not asked for.
     const showsFiscal = !dossier.sin_comprobante && (Boolean(dossier.facts.fiscal) || dossier.fiscal_known === true && !dossier.fiscal_value);
     if (showsFiscal && (status === "missing" || status === "invalid_length")) setApprovalCheck({ ...at, kind: "rnc", status });
     else if (confirmCodes.length) setApprovalCheck({ ...at, kind: "flags", codes: confirmCodes });
@@ -416,7 +408,6 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   };
   const unsavedNames = [...rows.unsaved.map(rowName), ...(fiscalDirty ? [t("business.dossier.placeholder.more_fiscal", "More tax details")] : [])];
   const reason = unsavedNames.length ? t("business.dossier.placeholder.save_first", { fields: unsavedNames.join(", "), defaultValue: "Save or cancel {{fields}} to approve." })
-    // The top box already names what blocks; the footer says only what the box cannot.
     : busy || saveHolds || supportedKind && approvable || attention.length ? null
     : t("business.dossier.blocker_fallback", "This record needs further review before approval.");
   // The receipt's own status when there is one; a bare record maps only the review states a status pill can say.
@@ -425,7 +416,6 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const reasonId = `approve-reason-${dossier.draft_id}`;
   const approvalLabel = dossier.approval_action === "record_income" ? t("business.dgii.approve_income", "Approve income") : dossier.approval_action === "record_refund" ? t("business.dgii.approve_refund", "Approve refund") : t("business.dossier.approve_action", "Approve expense");
 
-  // An unsaved row does not stop the move: the leave warning does.
   const canMove = settled && !autosave.busy && !advancing && !settling;
   const moves = canMove && receipt ? receiptNavigationActions(receipt.id, records.inbox, (id) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id }); }) : {};
   const position = receipt ? receiptPlace(receipt.id, records.inbox) : null;
@@ -536,7 +526,6 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
             <ReceiptRecordFacts dossier={dossier} accounts={accounts} attention={attention} typeRow={dossier.document_type ? <ReceiptDocumentType dossier={dossier} row={reviewing ? (shown) => rowControl("document_type", shown) : undefined} note={reviewing ? rowNote("document_type") : undefined} /> : undefined} review={reviewing ? {
               onEdit: canPrepare && mutable ? rows.open : undefined,
               row: rowControl,
-              // An open row's check shows it working, and its X is the way out.
               note: rowNote,
               noReceipt: {
                 onMark: canPrepare && mutable ? (marked) => void autosave.save("receipt_state", { write: "facts", facts: { receipt_state: marked ? { state: "known", value: "no_receipt" } : { state: "unknown", value: null } } }) : undefined,

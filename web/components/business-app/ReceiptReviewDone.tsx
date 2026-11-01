@@ -8,7 +8,6 @@ import { EmptyState } from "./foundation/EmptyState";
 export default function ReceiptReviewDone({ onBack }: { onBack: () => void }) {
   const { t } = useTranslation();
   const box = useRef<HTMLDivElement>(null);
-  // The button that brought the person here is gone, so focus lands on what replaced it.
   useEffect(() => { box.current?.focus(); }, []);
   return (
     <div ref={box} tabIndex={-1} role="status" className="outline-none">

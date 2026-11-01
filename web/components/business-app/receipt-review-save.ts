@@ -25,7 +25,6 @@ export type RowSave =
 
 /** What a person has typed into an open row. */
 export type RowEdit = { change: ReviewChange; invalid: boolean };
-/** An open row. `tried` says a save was refused here because the value cannot be sent. */
 type OpenRow = { edit: RowEdit | null; tried: boolean };
 
 type Attempt = { change: ReviewChange; base?: BusinessDossier; key?: string };
@@ -36,7 +35,6 @@ function currentFiscal(dossier: BusinessDossier): DgiiReview["fiscal"] {
   return { rnc: fiscal?.rnc.value ?? null, ncf: fiscal?.ecf.value ?? fiscal?.ncf.value ?? null, itbis: fiscal?.itbis.value ?? null };
 }
 
-/** The declaration a fiscal write carries unchanged. The server has no fiscal write without one. */
 function keptDeclaration(dossier: BusinessDossier, fields: DgiiFields | null): DgiiDeclaration | null {
   if (dossier.dgii) return dossier.dgii;
   if (!fields) return null;
@@ -96,7 +94,6 @@ export function useReviewAutosave({ source, draftId, dossier, fields, label, onS
   useEffect(() => { latest.current = dossier; }, [dossier]);
 
   const mark = useCallback((row: SaveRow, save: RowSave | null) => setSaves((current) => {
-    // One row says "saved" at a time: the last one.
     const others = Object.entries(current).filter(([name, other]) => name !== row && (save?.state !== "saved" || other.state !== "saved"));
     return Object.fromEntries(save ? [...others, [row, save]] : others);
   }), []);
@@ -142,7 +139,6 @@ export function useReviewAutosave({ source, draftId, dossier, fields, label, onS
     return task;
   };
 
-  // The same edit sent again keeps its key and revision, so a lost answer is answered once.
   const save = (row: SaveRow, change: ReviewChange) => {
     const kept = attempts.current[row];
     return run(row, kept && JSON.stringify(kept.change) === JSON.stringify(change) ? kept : { change });
@@ -177,7 +173,6 @@ export function useReviewRows({ dossier, autosave }: { dossier: BusinessDossier 
   const hold = (row: ReviewRow, edit: RowEdit) => setRows((current) => ({ ...current, [row]: { edit, tried: false } }));
   const finish = (row: ReviewRow, saved: Promise<boolean>) => void saved.then((done) => { if (done) close(row); else focusRow(row, "input, select"); });
 
-  /** An unchanged row just closes. A value that cannot be sent stays open and says so. */
   const save = (row: ReviewRow) => {
     const edit = rows[row]?.edit;
     if (autosave.saves[row]?.state === "saving") return;

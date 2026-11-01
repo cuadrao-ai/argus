@@ -11,7 +11,6 @@ export default function FiscalRevision({ declaration }: { declaration: DgiiDecla
   const { openPanel, source } = useBusiness();
   const [fields, setFields] = useState<DgiiFields | null>(null);
   useEffect(() => { let live = true; void source.dgiiFields().then((value) => { if (live) setFields(value); }).catch(() => {}); return () => { live = false; }; }, [source]);
-  // A code reads as the server's label for it; a field with none shows its value.
   const shown = (field: DgiiField) => {
     const value = declaration[field.name];
     return value === null ? t("business.dossier.unknown", "Unknown") : field.labels?.[String(value)] ?? String(value);

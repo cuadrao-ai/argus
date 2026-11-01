@@ -4,7 +4,6 @@ import { CircleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { AttentionItem } from "./dossier-attention";
 
-/** The row an item's field points at; the total and its currency share one. */
 export function attentionSelector(field: NonNullable<AttentionItem["field"]>): string {
   return `[data-fact="${field === "currency" ? "amount" : field}"]`;
 }
@@ -23,7 +22,6 @@ export function goToField(from: HTMLElement | null, field: NonNullable<Attention
   }
 }
 
-/** What stops approval, at the top of the form: each item goes to its field. Nothing blocking renders nothing. */
 export default function DossierAttentionStrip({ items }: { items: readonly AttentionItem[] }) {
   const { t } = useTranslation();
   if (!items.length) return null;
