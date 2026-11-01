@@ -83,12 +83,10 @@ export function BusinessFooter({
   locale,
   showClosing = true,
   business = false,
-  personal = false,
 }: {
   locale: BusinessLocale;
   showClosing?: boolean;
   business?: boolean;
-  personal?: boolean;
 }) {
   const c = siteCopy[locale];
   return (
@@ -120,7 +118,6 @@ export function BusinessFooter({
             <a href={`${businessPath(locale)}#el-producto`}>{c.business}</a>
             <a href={`${businessPath(locale)}#${locale === "es" ? "el-producto" : "la-idea"}`}>{c.explore}</a>
             <a href={`${businessPath(locale)}#preguntas`}>{c.faqLink}</a>
-            <a href={businessPath(locale, "personal")}>{c.personal}</a>
           </nav>
           <nav aria-label={c.footerTalk}>
             <span>{c.footerTalk}</span>
@@ -141,42 +138,20 @@ export function BusinessFooter({
       ) : (
         <div className={`${styles.businessFooterGrid} ${styles.lightFooterGrid}`}>
           <div className={styles.footerIdentity}>
-            <a
-              href={businessPath(locale, personal ? "personal" : "home")}
-              className={shell.footerBrand}
-            >
+            <a href={businessPath(locale)} className={shell.footerBrand}>
               <Image src="/cuadrao-site/cuadrao-lockup-light.svg" width={268} height={56} alt="cuadrao" />
             </a>
-            <span>{personal ? c.personal : c.business}</span>
-            <p>
-              {personal
-                ? locale === "es"
-                  ? "Tus finanzas, en orden."
-                  : "Your finances, in order."
-                : c.footerTag}
-            </p>
-            <small>
-              {personal
-                ? locale === "es"
-                  ? "Cuadrao Personal · acceso anticipado"
-                  : "Cuadrao Personal · early access"
-                : c.footerLocal}
-            </small>
+            <span>{c.business}</span>
+            <p>{c.footerTag}</p>
+            <small>{c.footerLocal}</small>
           </div>
           <nav aria-label={businessContent[locale].closing.footerLabel}>
             <span>{c.footerExplore}</span>
             <a href={businessPath(locale)}>{c.business}</a>
-            <a href={businessPath(locale, "personal")}>{c.personal}</a>
           </nav>
           <nav aria-label={c.footerTalk}>
             <span>{c.footerTalk}</span>
-            {personal ? (
-              <a href={`${businessPath(locale, "personal")}#early-access`}>
-                {locale === "es" ? "Acceso anticipado" : "Early access"}
-              </a>
-            ) : (
-              <a href={businessPath(locale, "contact")}>{c.contact}</a>
-            )}
+            <a href={businessPath(locale, "contact")}>{c.contact}</a>
             <a href={`mailto:${businessContactEmail}`}>{businessContactEmail}</a>
           </nav>
           <LegalNav locale={locale} c={c} />

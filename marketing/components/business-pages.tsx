@@ -4,7 +4,6 @@ import type { BusinessLocale } from "./content";
 import { businessContactEmail, siteCopy } from "./site-copy";
 import { BusinessHeader } from "./business-header";
 import { ContactForm } from "./contact-form";
-import { PersonalEarlyAccess } from "./personal-early-access";
 import { BusinessFooter } from "./business-footer";
 import styles from "./business.module.css";
 import touchup from "./touchup.module.css";
@@ -167,23 +166,6 @@ export function ContactPage({ locale }: { locale: BusinessLocale }) {
         </aside>
       </main>
       <BusinessFooter locale={locale} showClosing={false} business />
-    </div>
-  );
-}
-
-export function PersonalPage({ locale }: { locale: BusinessLocale }) {
-  return (
-    <div
-      className={`${styles.site} ${styles.personalSite} ${touchup.site}`}
-      lang={locale === "es" ? "es-DO" : "en"}
-      id="top"
-      data-page-background="personal"
-    >
-      <BusinessHeader locale={locale} page="personal" />
-      <main id="business-main" tabIndex={-1}>
-        <PersonalEarlyAccess locale={locale} />
-      </main>
-      <BusinessFooter locale={locale} showClosing={false} personal />
     </div>
   );
 }

@@ -63,17 +63,10 @@ export function BusinessHeader({
   const menu = useRef<HTMLElement>(null);
   const copy = businessContent[locale].navigation;
   const home = businessPath(locale);
-  const personal = page === "personal";
   const spanishOnly = page === "terms" || page === "deletion";
   const secondary = page === "contact" || page === "privacy" || spanishOnly;
-  const primaryHref = personal
-    ? "#early-access"
-    : businessPath(locale, "contact");
-  const primaryLabel = personal
-    ? locale === "es"
-      ? "Acceso anticipado"
-      : "Early access"
-    : copy.demo;
+  const primaryHref = businessPath(locale, "contact");
+  const primaryLabel = copy.demo;
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -151,26 +144,8 @@ export function BusinessHeader({
     };
   }, []);
 
-  const languageLinks = spanishOnly ? null : personal ? (
-    <span className={styles.languages} role="group" aria-label={copy.language}>
-      {(["es", "en"] as const).map((language) => (
-        <a
-          key={language}
-          href={businessPath(language, page)}
-          hrefLang={language}
-          lang={language}
-          aria-current={locale === language ? "true" : undefined}
-        >
-          {language.toUpperCase()}
-        </a>
-      ))}
-    </span>
-  ) : (
-    <LanguageSwitch locale={locale} page={page} />
-  );
-  const phoneLanguage = spanishOnly || personal ? languageLinks : (
-    <LanguageSwitch locale={locale} page={page} phone />
-  );
+  const languageLinks = spanishOnly ? null : <LanguageSwitch locale={locale} page={page} />;
+  const phoneLanguage = spanishOnly ? null : <LanguageSwitch locale={locale} page={page} phone />;
   const signIn = signInHref ? (
     <a className={styles.loginLink} href={signInHref}>
       {copy.login}
@@ -199,10 +174,8 @@ export function BusinessHeader({
       >
         <a
           className={styles.wordmark}
-          href={personal ? businessPath(locale, "personal") : home}
-          aria-label={
-            page === "personal" ? "Cuadrao Personal" : "Cuadrao Business"
-          }
+          href={home}
+          aria-label="Cuadrao Business"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -213,23 +186,16 @@ export function BusinessHeader({
           />
         </a>
         <span className={styles.mobileAudience}>
-          {page === "personal" ? copy.personal : copy.business}
+          {copy.business}
         </span>
         <nav className={styles.desktopNav} aria-label={copy.label}>
           <div className={styles.audienceNav}>
             <a
-              className={page !== "personal" ? styles.activeNav : undefined}
+              className={styles.activeNav}
               href={home}
               aria-current={page === "home" ? "page" : undefined}
             >
               {copy.business}
-            </a>
-            <a
-              className={page === "personal" ? styles.activeNav : undefined}
-              href={businessPath(locale, "personal")}
-              aria-current={page === "personal" ? "page" : undefined}
-            >
-              {copy.personal}
             </a>
           </div>
           <div className={styles.utilityNav}>
@@ -237,11 +203,11 @@ export function BusinessHeader({
               backLink
             ) : null}
             {!secondary && (
-              <a className={styles.buttonSmall} data-header-cta data-business-cta={!personal ? true : undefined} href={primaryHref}>
+              <a className={styles.buttonSmall} data-header-cta data-business-cta href={primaryHref}>
                 {primaryLabel}
               </a>
             )}
-            {!personal && !secondary && signIn}
+            {!secondary && signIn}
             {languageLinks}
           </div>
         </nav>
@@ -273,15 +239,7 @@ export function BusinessHeader({
             <a href={home} aria-current={page === "home" ? "page" : undefined}>
               {copy.business}
             </a>
-            <a
-              href={businessPath(locale, "personal")}
-              aria-current={page === "personal" ? "page" : undefined}
-            >
-              {copy.personal}
-            </a>
-            {page !== "personal" && (
-              <a href={`${home}#preguntas`}>{siteCopy[locale].faqLink}</a>
-            )}
+            <a href={`${home}#preguntas`}>{siteCopy[locale].faqLink}</a>
             {secondary ? (
               backLink
             ) : (
@@ -289,7 +247,7 @@ export function BusinessHeader({
                 {primaryLabel}
               </a>
             )}
-            {!personal && !secondary && signIn}
+            {!secondary && signIn}
             {phoneLanguage}
           </nav>
         )}

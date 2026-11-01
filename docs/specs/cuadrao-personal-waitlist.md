@@ -1,5 +1,7 @@
 # Personal app waitlist
 
+**Status:** Personal is archived. The public page and signup routes are removed. See the [forms contract](cuadrao-marketing-forms-contract.md#signups) for what remains.
+
 Owner: the personal waitlist lane. The root coordinator owns integration and
 staging deployment. The English form draft uses the same fields, CAPTCHA and
 handler as Spanish. English copy must pass Iris review before go-live.
