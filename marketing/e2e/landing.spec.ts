@@ -258,9 +258,11 @@ test.describe("faq", () => {
     });
     await next.click();
     await expect(page.getByText("Aún no hemos definido los precios.")).toBeVisible();
-    await page.waitForTimeout(500);
-    const top = await next.evaluate((node) => node.getBoundingClientRect().top);
-    expect(top).toBeGreaterThanOrEqual(80);
+    const closing = page.locator('[id="preguntas"] [role="region"]').nth(1);
+    await expect.poll(() => closing.evaluate((node) => node.getBoundingClientRect().height)).toBe(0);
+    await expect
+      .poll(() => next.evaluate((node) => node.getBoundingClientRect().top))
+      .toBeGreaterThanOrEqual(80);
   });
 });
 
