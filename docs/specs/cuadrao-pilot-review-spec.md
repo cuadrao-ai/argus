@@ -34,7 +34,7 @@ A receipt is Listos only when the server confirms all of these:
 - It has no duplicate and no review flag.
 - Its sender is verified, if it came by email.
 
-Every other open receipt is in Necesitan atención, with one plain reason.
+Every other open receipt is in Necesitan atención, with one plain reason. The owner opens it and approves it from the dossier. Listos only adds a faster way. A USD receipt or a receipt with no NCF reaches Registros through this single approval.
 
 **Aprobar todos:** the owner selects rows or takes all of them, sees the count, and confirms. Only the owner sees this action. Nothing is approved without the owner. If some fail, the screen says which, and those stay in Listos. Selection does not change when a new receipt arrives.
 
