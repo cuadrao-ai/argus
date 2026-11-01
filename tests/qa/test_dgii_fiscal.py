@@ -287,6 +287,8 @@ def test_review_cannot_store_the_practice_declaration_columns() -> None:
     from argus.domain.business.contracts.facts import BusinessFactPatch
     from argus.domain.recording.payments import PAYMENT_KINDS
 
+    # The facts the interpreter may fill, and nothing of the 606: the review's
+    # `purchase` rides the review body, not this patch.
     assert set(BusinessFactPatch.model_fields) == {
         "amount",
         "business_share",
@@ -296,7 +298,6 @@ def test_review_cannot_store_the_practice_declaration_columns() -> None:
         "funding",
         "kind",
         "occurred_on",
-        "purchase",
         "receipt_state",
     }
     for name in fiscal.UNSUPPORTED_DECLARATION_FIELDS:
