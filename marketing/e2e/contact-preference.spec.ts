@@ -46,13 +46,16 @@ for (const locale of ["es", "en"] as const) {
       await page.locator("#contact-email").fill("ana@example.test");
     });
 
-    test("phone errors explain each failure without moving Send", async ({ page, isMobile }) => {
-      await page.getByRole("radio", { name: "WhatsApp" }).check();
+    test("phone errors explain each failure and hold no space until one shows", async ({ page, isMobile }) => {
       const phone = page.locator("#contact-phone");
       const error = page.locator("#contact-phone-error");
       const send = page.getByRole("button", { name: copy.send });
       const sendTop = async () => send.evaluate((button) => button.getBoundingClientRect().top + window.scrollY);
+      const emailTop = await sendTop();
+      await page.getByRole("radio", { name: "WhatsApp" }).check();
+      await phone.evaluate((input) => Promise.all(input.getAnimations().map((animation) => animation.finished)));
       const originalTop = await sendTop();
+      if (!isMobile) expect(originalTop).toBeCloseTo(emailTop, 0);
       await expect(phone).toHaveAttribute("placeholder", "+1 809 555 0123");
       await expect(error).toBeHidden();
       await expect(phone).toHaveAttribute("aria-invalid", "false");
@@ -62,17 +65,15 @@ for (const locale of ["es", "en"] as const) {
       await expect(error).toBeVisible();
       await expect(phone).toBeFocused();
       expect(submissions).toHaveLength(0);
-      expect(await sendTop()).toBeCloseTo(originalTop, 0);
+      await expect.poll(sendTop).toBeGreaterThan(originalTop);
       await phone.fill("8095550123");
       await phone.fill("");
       await expect(error).toBeHidden();
+      await expect.poll(sendTop).toBeCloseTo(originalTop, 0);
       await phone.focus();
       await page.locator("#contact-name").click();
-      await expect(error).toHaveText(copy.phoneErrors.empty);
-      await expect(error).toBeVisible();
-      await expect(phone).toHaveAttribute("aria-invalid", "true");
-      await expect(phone).toHaveAttribute("aria-describedby", "contact-phone-error");
-      expect(await sendTop()).toBeCloseTo(originalTop, 0);
+      await expect(error).toBeHidden();
+      await expect(phone).toHaveAttribute("aria-invalid", "false");
       await expect(phone).toHaveAttribute("required", "");
       if (isMobile) await send.tap();
       else await send.click();
@@ -93,7 +94,7 @@ for (const locale of ["es", "en"] as const) {
         await phone.fill(value);
         await expect(error).toBeHidden();
         await expect(phone).toHaveAttribute("aria-invalid", "false");
-        expect(await sendTop()).toBeCloseTo(originalTop, 0);
+        await expect.poll(sendTop).toBeCloseTo(originalTop, 0);
         if (isMobile) await send.tap();
         else await send.click();
         await expect(phone).toBeFocused();
@@ -101,7 +102,6 @@ for (const locale of ["es", "en"] as const) {
         await expect(error).toBeVisible();
         await expect(phone).toHaveAttribute("aria-invalid", "true");
         await expect(phone).toHaveAttribute("aria-describedby", "contact-phone-error");
-        expect(await sendTop()).toBeCloseTo(originalTop, 0);
         expect(submissions).toHaveLength(0);
       }
     });

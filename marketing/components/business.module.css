@@ -1072,9 +1072,18 @@
 .choice input:checked + span { background: #e8ede3; border-color: var(--ink); }
 .choice input:focus-visible + span { outline: 2px solid var(--ink); outline-offset: 2px; }
 .choice input:disabled + span { opacity: 0.6; }
-.choices input[type="tel"] { flex: 1 1 190px; min-width: 0; min-height: 44px; padding: 8px 14px; background: #fafbf8; border: 1px solid #a9b5a7; border-radius: 28px; color: var(--ink); font-size: 14px; }
-.phoneErrorSlot { display: grid; margin: -10px 0 18px; }
+.choices input[type="tel"] { flex: 1 1 190px; box-sizing: border-box; min-width: 0; height: 44px; padding: 8px 14px; background: #fafbf8; border: 1px solid #a9b5a7; border-radius: 28px; color: var(--ink); font-size: 14px; }
+.phoneErrorSlot { display: grid; grid-template-rows: 0fr; }
+.phoneErrorSlot[data-open="true"] { grid-template-rows: 1fr; margin: -10px 0 18px; }
+.phoneErrorMessages { display: grid; min-height: 0; overflow: hidden; }
 .formFields .phoneError { grid-area: 1 / 1; margin: 0; font-size: 13px; color: #973b2d; }
+@media (prefers-reduced-motion: no-preference) {
+  .phoneErrorSlot { transition: grid-template-rows 180ms ease, margin 180ms ease; }
+  .choices input[type="tel"] { transition: height 180ms ease, margin 180ms ease, padding 180ms ease, border-width 180ms ease, opacity 180ms ease; }
+  @starting-style {
+    .choices input[type="tel"] { height: 0; margin-top: -8px; padding-block: 0; border-width: 0; opacity: 0; }
+  }
+}
 .choices input[aria-invalid="true"] { border-color: #a44030; }
 .pilotRow {
   position: relative;

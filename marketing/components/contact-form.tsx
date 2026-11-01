@@ -290,21 +290,21 @@ export function ContactForm({ locale }: { locale: BusinessLocale }) {
                     const result = checkPhone(profile.phone);
                     if (result.status === "valid") {
                       setProfile({ ...profile, phone: result.display });
-                    } else {
-                      setPhoneError(result.status === "empty" ? "empty" : result.reason);
+                    } else if (result.status !== "empty") {
+                      setPhoneError(result.reason);
                     }
                   }}
                 />
               )}
             </ChoiceGroup>
-            {profile.channel === "whatsapp" && (
-              <div className={styles.phoneErrorSlot}>
+            <div className={styles.phoneErrorSlot} data-open={phoneError !== null}>
+              <div className={styles.phoneErrorMessages}>
                 {PHONE_ERROR_REASONS.map((reason) => {
                   const active = phoneError === reason;
                   return (
                     <p
                       key={reason}
-                      id={active || (!phoneError && reason === "empty") ? "contact-phone-error" : undefined}
+                      id={active ? "contact-phone-error" : undefined}
                       className={styles.phoneError}
                       role={active ? "alert" : undefined}
                       aria-hidden={!active}
@@ -315,7 +315,7 @@ export function ContactForm({ locale }: { locale: BusinessLocale }) {
                   );
                 })}
               </div>
-            )}
+            </div>
             <div className={styles.field}>
               <label htmlFor="contact-source">
                 {copy.sourceLabel} <span>{copy.optional}</span>
