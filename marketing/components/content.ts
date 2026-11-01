@@ -35,7 +35,7 @@ const es = {
     channelOptions: { email: "Correo", whatsapp: "WhatsApp" },
     sourceLabel: "¿Cómo supiste de Cuadrao?",
     sourceHint: "Nos ayuda a llegar a más negocios como el tuyo.",
-    sourcePlaceholder: "Un amigo, mi contador, redes sociales…",
+    sourcePlaceholder: "Un amigo, mi contable, redes sociales…",
     charsLeft: (count: number) => `Quedan ${count} caracteres.`,
     phone: "Número de WhatsApp",
     phonePlaceholder: "+1 809 555 0123",
