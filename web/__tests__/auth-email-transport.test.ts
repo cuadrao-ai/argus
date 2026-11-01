@@ -2,6 +2,7 @@ import { installEmailFixture } from "./helpers/email-fixture";
 installEmailFixture();
 import assert from "node:assert/strict";
 import { describe, test, setSystemTime } from "bun:test";
+import { pinTestClock } from "./test-clock";
 import { Webhook } from "standardwebhooks";
 import { resendAuthEmailSender } from "../server/emails/resend";
 import { authEmailHookConfig, handleAuthEmailHook, STAGING_AUTH_EMAIL } from "../server/emails/auth-hook";
@@ -124,7 +125,7 @@ for (const action of ["password_changed_notification", "email_changed_notificati
         assert.equal(accepted.size, 1);
         assert.equal(requests.length, 2);
         assert.ok(requests[0] === requests[1], "provider payload changed on retry");
-      } finally { setSystemTime(); }
+      } finally { pinTestClock(); }
     });
   }
 }
