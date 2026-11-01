@@ -3,10 +3,10 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from argus.domain.business.actions import mutations, plans, sources
-from argus.domain.business.actions.facts import facts_of
+from argus.domain.business.actions.facts import facts_of, patched_facts
 from argus.domain.business.authority import ActionContext, ActionError
 from argus.domain.business.contracts.actions import (
     ActionOutcome,
@@ -14,12 +14,35 @@ from argus.domain.business.contracts.actions import (
     CaptureNote,
 )
 from argus.domain.business.contracts.dossier import MessageSource
-from argus.domain.business.contracts.facts import BusinessFacts, Known
+from argus.domain.business.contracts.facts import (
+    BusinessFactPatch,
+    BusinessFacts,
+    Known,
+)
 from argus.domain.business.document_type import typed_facts
 from argus.domain.business.transactions import transaction
 
 if TYPE_CHECKING:
     from argus.domain.business.actions.service import BusinessActions
+
+
+def _typed_purchase_facts(request: CaptureNote, source_id: UUID) -> BusinessFacts:
+    """What the person typed, with no paper to read. Everything else stays
+    unknown for a person: no account, no fiscal number, no type of expense."""
+
+    patch = BusinessFactPatch.model_validate(
+        {
+            name: {"state": "known", "value": value}
+            for name, value in {
+                "kind": "expense",
+                "amount": request.purchase.amount,
+                "occurred_on": request.purchase.occurred_on,
+                "counterparty": request.text.strip(),
+                "receipt_state": "no_receipt",
+            }.items()
+        }
+    )
+    return patched_facts(None, patch, (source_id,), origin="member_set")
 
 
 def capture(
@@ -57,6 +80,8 @@ def capture(
                         # A typed note prints no issuer RNC, so the read's rule
                         # finds no Business number in it: a receipt.
                         document_type = request.document_type or "recibo"
+                        if request.purchase is not None:
+                            after = _typed_purchase_facts(request, source_id)
                         if document_type == "venta":
                             after = typed_facts(
                                 after, "venta", (source_id,), "owner_stated", None

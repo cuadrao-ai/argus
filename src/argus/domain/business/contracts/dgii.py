@@ -116,6 +116,21 @@ class PurchaseReview(BaseModel):
     purchase_activity_id: UUID | None = None
 
 
+class SalePaymentSplit(BaseModel):
+    """The 607 payment split a person writes on a sale, before or after
+    approval. Absent fields stay as they were."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    cash: Money | None = None
+    bank: Money | None = None
+    card: Money | None = None
+    credit: Money | None = None
+    gift: Money | None = None
+    barter: Money | None = None
+    other_payment: Money | None = None
+
+
 class SalesDeclaration(Declaration):
     form: Literal["607"]
     income_type: Literal["1", "2", "3", "4", "5", "6"] | None

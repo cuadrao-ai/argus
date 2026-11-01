@@ -9960,6 +9960,21 @@ new evidence, and returns the current dossier of that same draft; it does not
 claim the current version equals the original capture version. Input drift,
 stale targets, foreign targets and missing capabilities use the errors above.
 
+**Typed purchase.** The same `POST /business/captures` saves a purchase with no
+paper. The body adds `purchase: {amount, occurred_on}`; `text` is the supplier
+or description, at most 200 characters. `amount` is positive, with at most two
+decimals. `purchase` with `draft` or with `document_type` `venta` is `422`. The
+draft starts with the facts the person typed: `kind` `expense`, `amount`,
+`occurred_on`, `counterparty` (the text without its outer spaces) and
+`receipt_state` `no_receipt`, each `member_set`, plus the DOP default. Nothing
+else is filled: no account, funding, business share, category, fiscal number or
+declaration. So the dossier reads `sin_comprobante` true and needs no account.
+The draft stays open, is listed as a note in the Bandeja and is never Listos, so
+`approve-listos` refuses it with `not_listo`. A person reviews it and the owner
+approves it alone. Once approved it counts in the books at its whole total, and
+the DGII packet leaves it out with disposition `excluded`, reason
+`no_fiscal_number`, and no month-close `missing_*` line.
+
 `GET /business/captures?q=&limit=&view=` returns `{items: [...]}` under the owner's
 existing Business and live read grant; it does not infer an accountant's client.
 The in-memory app keeps no notes: the read answers 200 `{items: [], has_more:
