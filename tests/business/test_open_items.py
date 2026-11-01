@@ -151,4 +151,5 @@ def test_an_open_line_keeps_its_currency_parts_and_unknown_itbis_stays_null():
         "status": "pendiente",
         "sin_comprobante": False,
         "due_on": None,
+        "payment_form": None,
     }
