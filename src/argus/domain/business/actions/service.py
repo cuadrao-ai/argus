@@ -335,6 +335,7 @@ class BusinessActions:
                             tx.authorization.provenance,
                             fiscal_review=request.dgii,
                             purchase=request.purchase,
+                            payment_split=request.payment_split,
                             document_type=request.document_type,
                             due_on=request.due_on,
                         )

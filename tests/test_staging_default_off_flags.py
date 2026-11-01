@@ -26,10 +26,6 @@ APPROVED_STAGING_OVERRIDES: dict[str, str] = {
         "controls for a reviewed manual release. Activation remains behind "
         "founder approval, CI, Eval, and manual release gates. Prod stays false."
     ),
-    "NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED": (
-        "Lucas set it on the staging dashboard 2026-10-28 for the demo loop; "
-        "the declaration keeps a blueprint sync from resetting it. Prod stays false."
-    ),
     "NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED": (
         "Lucas approved bank matching on staging 2026-10-28 (demo loop approval "
         "3). Prod stays false."

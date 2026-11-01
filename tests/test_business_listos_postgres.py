@@ -471,6 +471,30 @@ def test_an_open_question_needs_a_person(rig) -> None:  # noqa: ANN001
     ]
 
 
+def _mark_personal(rig, item: dict, personal: bool) -> dict:  # noqa: ANN001
+    answer = rig.client.post(
+        f"{API}/business/drafts/{item['draft_id']}/personal",
+        json={"version": item["version"], "personal": personal},
+        headers={**rig.alice.headers, "Idempotency-Key": str(uuid4())},
+    )
+    assert answer.status_code == 200, answer.text
+    return answer.json()
+
+
+def test_a_personal_mark_keeps_a_receipt_out_of_listos(rig) -> None:  # noqa: ANN001
+    receipt = _read(rig)
+    item = _named(rig, receipt)
+    marked = _mark_personal(rig, item, True)
+
+    assert _group(rig, receipt) == ("attention", "personal")
+    listed = {"draft_id": item["draft_id"], "version": marked["version"]}
+    assert _results(_approve_many(rig, [listed])) == [("refused", "not_listo")]
+    assert _money(rig) == 0
+
+    _mark_personal(rig, listed, False)
+    assert _group(rig, receipt) == ("listo", None)
+
+
 def test_a_repeat_needs_a_person_until_a_person_settles_it(rig) -> None:  # noqa: ANN001
     first = _read(rig)
     original = rig.stub.details

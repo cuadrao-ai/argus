@@ -20,6 +20,7 @@ from argus.domain.business.contracts.facts import (
     FiscalFacts,
     Known,
     Unknown,
+    WholeBusinessShare,
 )
 from argus.domain.business.receipt_activity import inbox_counts
 
@@ -115,6 +116,16 @@ def test_a_draft_with_nothing_missing_is_listo() -> None:
                 flags=(ReviewFlag(code="itbis_high", field="itbis", confirm=False),),
             ),
             "review_flag",
+        ),
+        (
+            with_facts(
+                business_share=Known(
+                    value=WholeBusinessShare(kind="none"),
+                    origin="owner_stated",
+                    source_ids=SOURCES,
+                )
+            ),
+            "personal",
         ),
         (replace(LISTO, blockers=("business_questions_unresolved",)), "blocked"),
         (replace(LISTO, sender="new"), "unverified_sender"),

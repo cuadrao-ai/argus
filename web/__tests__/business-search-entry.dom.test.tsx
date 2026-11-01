@@ -9,7 +9,6 @@ import { useBusinessKeyboardShortcuts } from "@/components/business-app/business
 import type { BusinessActions } from "@/components/business-app/business-actions";
 import { useChatKeyboardShortcuts } from "@/components/keyboard/useChatKeyboardShortcuts";
 import { useChatShellCapabilities } from "@/components/chat/useChatShellCapabilities";
-import { businessSearchEnabledFromEnv, businessSearchEntryEnabled } from "@/lib/private-alpha-flags";
 import spanish from "@/public/locales/es-419/common.json";
 import type { UserResponse } from "@/lib/guest-account";
 
@@ -65,10 +64,9 @@ function SearchSurface({ business, children }: { business: boolean; children: Re
 
 function SearchKeys({ business }: { business: boolean }) {
   const [open, setOpen] = useState(false);
-  const entry = businessSearchEntryEnabled(business ? "business" : undefined);
   useChatKeyboardShortcuts({
     enabled: true,
-    requestSearch: business && entry ? () => setOpen(true) : undefined,
+    requestSearch: business ? () => setOpen(true) : undefined,
     isChatView: true,
     canManageConversation: true,
     conversationId: "conversation-1",
@@ -146,9 +144,7 @@ async function mount(business: boolean) {
 
 const buscarButton = () => [...document.querySelectorAll("button")].find((button) => button.textContent?.includes("Buscar"));
 
-async function shown(business: boolean, flag: string | undefined) {
-  if (flag === undefined) delete process.env.NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED;
-  else process.env.NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED = flag;
+async function shown(business: boolean) {
   const act = await mount(business);
   const before = document.querySelector("[role=dialog]");
   let thrown: unknown = null;
@@ -168,59 +164,20 @@ async function shown(business: boolean, flag: string | undefined) {
   };
 }
 
-test("the Business search flag defaults off and Personal does not read it", () => {
-  assert.equal(businessSearchEnabledFromEnv(undefined), false);
-  assert.equal(businessSearchEnabledFromEnv(""), false);
-  assert.equal(businessSearchEnabledFromEnv("true"), true);
-  assert.equal(businessSearchEntryEnabled("business"), process.env.NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED === "true");
-  assert.equal(businessSearchEntryEnabled(undefined), true);
-  assert.equal(businessSearchEntryEnabled("personal"), true);
+test("Business shows Buscar and Ctrl+K opens search", async () => {
+  const result = await shown(true);
+  assert.equal(result.button?.includes("Buscar"), true);
+  assert.equal(result.button?.includes("Ctrl+K"), true);
+  assert.equal(result.shortcut, "Buscar");
+  assert.equal(result.dialogBefore, false);
+  assert.equal(result.dialog, true);
+  assert.equal(result.thrown, null);
 });
 
-test("Business hides Buscar and Ctrl+K when its search flag is off", async () => {
-  const previous = process.env.NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED;
-  try {
-    const result = await shown(true, undefined);
-    assert.equal(result.button, null);
-    assert.equal(result.shortcut, null);
-    assert.equal(result.dialogBefore, false);
-    assert.equal(result.dialog, false);
-    assert.equal(result.thrown, null);
-  } finally {
-    if (previous === undefined) delete process.env.NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED;
-    else process.env.NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED = previous;
-  }
-});
-
-test("Business shows Buscar and Ctrl+K opens search when its search flag is on", async () => {
-  const previous = process.env.NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED;
-  try {
-    const result = await shown(true, "true");
-    assert.equal(result.button?.includes("Buscar"), true);
-    assert.equal(result.button?.includes("Ctrl+K"), true);
-    assert.equal(result.shortcut, "Buscar");
-    assert.equal(result.dialog, true);
-    assert.equal(result.thrown, null);
-  } finally {
-    if (previous === undefined) delete process.env.NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED;
-    else process.env.NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED = previous;
-  }
-});
-
-test("Personal keeps Buscar and Ctrl+K whether the Business search flag is on or off", async () => {
-  const previous = process.env.NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED;
-  try {
-    for (const flag of [undefined, "true"] as const) {
-      for (const cleanup of cleanups.splice(0)) await cleanup();
-      document.body.innerHTML = "";
-      const result = await shown(false, flag);
-      assert.equal(result.button?.startsWith("Buscar"), true);
-      assert.equal(result.shortcut, null);
-      assert.equal(result.dialog, true);
-      assert.equal(result.thrown, null);
-    }
-  } finally {
-    if (previous === undefined) delete process.env.NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED;
-    else process.env.NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED = previous;
-  }
+test("Personal keeps Buscar and Ctrl+K", async () => {
+  const result = await shown(false);
+  assert.equal(result.button?.startsWith("Buscar"), true);
+  assert.equal(result.shortcut, null);
+  assert.equal(result.dialog, true);
+  assert.equal(result.thrown, null);
 });

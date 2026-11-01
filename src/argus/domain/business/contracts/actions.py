@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import date
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -17,7 +18,7 @@ from pydantic import (
 from argus.domain.business.document_type import DocumentType
 
 from .authority import ActorProvenance
-from .dgii import FiscalReview, PurchaseReview
+from .dgii import FiscalReview, Money, PurchaseReview, SalePaymentSplit
 from .facts import (
     BusinessFactPatch,
     BusinessShare,
@@ -146,6 +147,8 @@ class ReviewDraft(Contract):
     #: The 606 fields a person confirms; absent ones stay as they were. Here
     #: and not on the facts patch, which the interpreter fills.
     purchase: PurchaseReview | None = None
+    #: The 607 payment split a person writes on a sale; absent buckets stay.
+    payment_split: SalePaymentSplit | None = None
     #: Sets the uploaded document's type while the draft is open.
     document_type: DocumentType | None = None
     #: Sets the due date, or takes it back to unknown, while the draft is open.
@@ -157,12 +160,13 @@ class ReviewDraft(Contract):
             self.facts is None
             and self.dgii is None
             and self.purchase is None
+            and self.payment_split is None
             and self.document_type is None
             and self.due_on is None
         ):
             raise ValueError(
-                "supply review facts, a fiscal declaration, 606 fields,"
-                " a document type or a due date"
+                "supply review facts, a fiscal declaration, 606 fields, a 607"
+                " payment split, a document type or a due date"
             )
         return self
 
@@ -273,11 +277,28 @@ class ApprovalCommand(Contract):
     request: ApproveExpense
 
 
+#: The most of a typed purchase's text a record's supplier line holds.
+TYPED_PURCHASE_TEXT_LIMIT = 200
+
+
+class TypedPurchase(Contract):
+    """What a person types for a purchase with no paper. The note's text is its
+    supplier or description."""
+
+    amount: Money
+    occurred_on: date
+
+
 class CaptureNote(Contract):
     text: str = Field(min_length=1, max_length=20000)
     draft: ExistingDraft | None = None
     #: The type of the new draft this note starts; a review changes it later.
     document_type: DocumentType | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    #: Starts the draft as this purchase, saved sin comprobante, for a person
+    #: to review. Nothing else is filled.
+    purchase: TypedPurchase | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
 
@@ -298,6 +319,12 @@ class CaptureNote(Contract):
             raise ValueError("capture text must not contain NUL")
         if self.draft is not None and self.document_type is not None:
             raise ValueError("a document type names a new capture only")
+        if self.purchase is not None and (
+            self.draft is not None
+            or self.document_type == "venta"
+            or len(self.text) > TYPED_PURCHASE_TEXT_LIMIT
+        ):
+            raise ValueError("a typed purchase is a new, short, non-sale capture")
         return self
 
 

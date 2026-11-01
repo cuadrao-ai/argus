@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useSyncExternalStore } from "react";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
-import { businessSearchEntryEnabled, omnisearchEnabled } from "@/lib/private-alpha-flags";
+import { omnisearchEnabled } from "@/lib/private-alpha-flags";
 
 /**
  * A list keeps owning its text query: Registros' lives in its report request and URL, Bandeja's in its return
@@ -25,10 +25,10 @@ export const SEARCHABLE_LISTS: Readonly<Record<SearchableList, { screen: string;
 };
 
 /**
- * Whether the top bar can search a Business at all: the shell's own rule (omnisearch and Business Buscar). When it
+ * Whether the top bar can search a Business at all: the shell's own rule (omnisearch). When it
  * cannot, a list keeps its own search field instead of lending its query to a bar that has no search.
  */
-export const barSearchAvailable = omnisearchEnabled && businessSearchEntryEnabled("business");
+export const barSearchAvailable = omnisearchEnabled;
 
 /** Whether a list's search lives in the top bar now: a wide screen with bar search. A phone keeps the list's field. */
 export function useSearchInBar(): boolean {

@@ -2839,14 +2839,13 @@ describe("Argus Alpha frontend contract", () => {
     expect(flags).toContain(
       'process.env.NEXT_PUBLIC_OMNISEARCH_ENABLED !== "false"',
     );
-    expect(chat).toContain("businessSearchEntryEnabled(workspace?.id)");
+    expect(chat).toContain("const searchEntryEnabled = omnisearchEnabled;");
     expect(chat).toMatch(
       /searchEntryEnabled &&\s*\(!isGuest \|\| canUseOmnisearch\) &&\s*searchOverlayOpen/,
     );
     expect(sidebar).not.toContain("strategiesEnabled");
     expect(sidebar).toContain("omnisearchEnabled");
-    expect(sidebar).toContain("businessSearchEntryEnabled(workspace?.id)");
-    expect(sidebar).toContain("{searchVisible && (");
+    expect(sidebar).toContain("{omnisearchEnabled && (");
     expect(sidebar).not.toContain('onNavigate("strategies")');
     expect(sidebar).toContain("common.recents");
   });

@@ -54,20 +54,6 @@ export function businessWhatsappPreferencesEnabledFromEnv(
 export const businessWhatsappPreferencesEnabled =
   businessWhatsappPreferencesEnabledFromEnv();
 
-// Business Buscar and its Ctrl/Cmd+K shortcut. Default off, and separate from
-// the WhatsApp preferences flag so search can return on its own.
-export function businessSearchEnabledFromEnv(
-  value: string | undefined = process.env.NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED,
-): boolean {
-  return value === "true";
-}
-
-export const businessSearchEnabled = businessSearchEnabledFromEnv();
-
-export function businessSearchEntryEnabled(workspaceId: string | undefined): boolean {
-  return workspaceId !== "business" || businessSearchEnabledFromEnv();
-}
-
 // Statement match cards. Default off, and nested under the Business pilot.
 // CUADRAO wins when both names are set.
 export const businessBankMatchingEnabled = (() => {

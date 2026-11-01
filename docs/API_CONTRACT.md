@@ -9186,6 +9186,7 @@ A receipt is `listo` only when the server confirms all of these, in this order:
 | A valid NCF or e-CF | `missing_ncf`; `invalid_ncf`; `ecf_check_failed` for a failed check on the e-CF or its QR, or a file that names an e-CF the record does not hold |
 | ITBIS | `missing_itbis` |
 | DOP | `foreign_currency` |
+| Not marked Personal | `personal` |
 | No review flag | `review_flag`, for a warning such as `itbis_high` |
 | Nothing else blocks approval | `blocked`, such as an open question |
 | A verified sender, if it came by email | `unverified_sender` |
@@ -9365,6 +9366,14 @@ discriminates on), and null while `approval_available` is false.
 declaration: the caller holds `prepare`, the record takes a 606 (an income,
 whether it holds a 607 or nothing, reads false), and the draft is open, or
 approved and not yet carried by a downloaded DGII TXT.
+`payment_split_editable` is true on the same terms for a sale: an income with
+no 606 declaration. `expense_type_suggestion` is the tipo de gasto (`01` to
+`11`) a person last chose for this draft's supplier RNC in this Business, on
+another open, accepting or accepted purchase, or null. It is read fresh and
+stored nowhere: it is null while `declaration_editable` is false or the draft
+has a choice of its own, a suggested type on a declaration is no choice, and it
+never reads another Business. It reaches the 606 only when a person writes it
+as `purchase.category`, so an approval leaves the type blank.
 `fiscal_inclusion_available` is true when the caller may answer
 `POST /business/drafts/{id}/fiscal-inclusion` now, by the gate that action
 enforces: a member holding `prepare` who is not the owner, on an `open` or
@@ -9445,7 +9454,15 @@ confirms (`PurchaseReview`: every field of the 606 declaration but `form`, so
 less ITBIS, selective tax, other taxes and tip, the tip and taxes of the same
 write included. `purchase` on a record that takes no 606 (an income, with a
 607 or with nothing), open or approved, is 422 `fiscal_direction_unsupported`
-and writes nothing. `purchase` sits beside `facts`, not inside
+and writes nothing. The body's `payment_split` carries the 607 payment split
+(`SalePaymentSplit`: `cash`, `bank`, `card`, `credit`, `gift`, `barter`,
+`other_payment`), on the same terms: absent buckets stay as they were, a null
+clears a bucket, and a sale with no declaration starts one holding only
+the split. The server fills no bucket and does not check the sum when it writes;
+the export holds a split that does not equal the total with
+`fiscal_payment_total_conflict`. `payment_split` on anything but an income, or
+on an income that holds a 606 declaration, is 422
+`fiscal_direction_unsupported`. `purchase` sits beside `facts`, not inside
 it: `BusinessFactPatch` is the patch the interpreter fills, and a tax field is
 never the model's to fill. The
 identifiers in `dgii.fiscal` (`rnc`, `ncf`) and `modified_ncf` are normalized on
@@ -9455,7 +9472,7 @@ digit groups are removed and `a` to `z` upper-cased, so an RNC printed
 Nothing else is folded: a word typed in the field (`no tiene`), a separator
 beside a letter (`ab-123`) and a letter that upper-cases to two (`ß`) are still
 a 422 `validation_error`. On an approved (`accepted`) draft the same route accepts a
-review that carries only `purchase`: it writes the declaration as one more
+review that carries only `purchase` or only `payment_split`: it writes the declaration as one more
 revision with the same web source and action receipt, the recorded facts
 unchanged, until the record's line is carried by a downloaded DGII TXT, after
 which it answers 422 `fiscal_declaration_exported`. The export reads the
@@ -9595,8 +9612,9 @@ manifest keeps blocking problems in `issues` and lists warn-only gaps in
 `warnings`, including an unverified or inactive supplier RNC. An RNC registry
 state never blocks approval or the export file. On an accepted record `dgii` is
 422 `recorded_correction_unsupported` and this operation never reposts money;
-`purchase` alone still writes the 606 declaration, until the record's line is
-exported, as the review route above states.
+`purchase` alone still writes the 606 declaration, and `payment_split` alone
+the 607 payment split, until the record's line is exported, as the review route
+above states.
 The existing approval endpoint also accepts human `record_refund`, requiring an
 explicit actual refund linked to an original purchase. Other credit-note
 settlements remain unsupported. The owner alone approves income, expense or
@@ -9958,6 +9976,21 @@ draft/version result. Replay requires the same input and authority, creates no
 new evidence, and returns the current dossier of that same draft; it does not
 claim the current version equals the original capture version. Input drift,
 stale targets, foreign targets and missing capabilities use the errors above.
+
+**Typed purchase.** The same `POST /business/captures` saves a purchase with no
+paper. The body adds `purchase: {amount, occurred_on}`; `text` is the supplier
+or description, at most 200 characters. `amount` is positive, with at most two
+decimals. `purchase` with `draft` or with `document_type` `venta` is `422`. The
+draft starts with the facts the person typed: `kind` `expense`, `amount`,
+`occurred_on`, `counterparty` (the text without its outer spaces) and
+`receipt_state` `no_receipt`, each `member_set`, plus the DOP default. Nothing
+else is filled: no account, funding, business share, category, fiscal number or
+declaration. So the dossier reads `sin_comprobante` true and needs no account.
+The draft stays open, is listed as a note in the Bandeja and is never Listos, so
+`approve-listos` refuses it with `not_listo`. A person reviews it and the owner
+approves it alone. Once approved it counts in the books at its whole total, and
+the DGII packet leaves it out with disposition `excluded`, reason
+`no_fiscal_number`, and no month-close `missing_*` line.
 
 `GET /business/captures?q=&limit=&view=` returns `{items: [...]}` under the owner's
 existing Business and live read grant; it does not infer an accountant's client.

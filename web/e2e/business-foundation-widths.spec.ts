@@ -18,7 +18,6 @@ const SHOTS = [
 ] as const;
 
 const phase = process.env.FOUNDATION_SHOT === "before" ? "before" : "after";
-const searchEnabled = process.env.NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED === "true";
 
 test.skip(process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED !== "true", "/biz needs the Business pilot server");
 
@@ -111,7 +110,7 @@ for (const band of WIDTHS) {
         if (band.width < 720) {
           await expect(page.getByTestId("chat-shell-menu-trigger")).toHaveCount(0);
           await expect(page.getByTestId("business-bottom-tabs")).toBeVisible();
-          await expect(page.getByRole("button", { name: "Buscar" })).toHaveCount(searchEnabled ? 1 : 0);
+          await expect(page.getByRole("button", { name: "Buscar" })).toHaveCount(1);
           await expect(page.getByTestId("business-phone-account").getByRole("button", { name: "Ajustes" })).toBeVisible();
         }
       });

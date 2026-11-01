@@ -6,6 +6,9 @@ import type { FiscalOperation, InvoiceDraft, SavedInvoice, SavedCustomer } from 
 import { invoiceId, invoiceScope, incompleteInvoice, savedInvoice, savedCustomer } from "./fixtures/business-invoice-fixture";
 import { getChosenGrant, setChosenGrant } from "@/lib/business-grant";
 import { removeSessionStored } from "@/lib/browser-storage";
+import { keepOwnListSearch } from "./fixtures/own-list-search";
+
+await keepOwnListSearch();
 
 const realFlags = { ...await import("@/lib/private-alpha-flags") };
 mock.module("@/lib/private-alpha-flags", () => ({ ...realFlags, businessInvoicingEnabled: true }));

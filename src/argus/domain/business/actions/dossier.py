@@ -9,12 +9,16 @@ from psycopg.rows import dict_row
 from pydantic import TypeAdapter
 
 from argus.domain.business.actions.facts import facts_of
-from argus.domain.business.actions.fiscal import exported_line
+from argus.domain.business.actions.fiscal import (
+    exported_line,
+    remembered_expense_type,
+)
 from argus.domain.business.actions.marks import draft_marks, fiscal_inclusion_available
 from argus.domain.business.actions.refunds import refund_candidates, refund_shaped
 from argus.domain.business.annotations import annotation_available, current_note
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import APPROVAL_ACTION
+from argus.domain.business.contracts.dgii import DgiiDeclaration, PurchaseDeclaration
 from argus.domain.business.contracts.dossier import (
     AccountChoice,
     ApprovalResult,
@@ -35,7 +39,10 @@ from argus.domain.business.contracts.facts import (
     Known,
 )
 from argus.domain.business.duplicates import pending_duplicates
-from argus.domain.business.purchase_review import takes_purchase_declaration
+from argus.domain.business.purchase_review import (
+    takes_payment_split,
+    takes_purchase_declaration,
+)
 from argus.domain.business.review_flags import review_flags
 from argus.domain.business.rnc_registry import (
     RncRegistry,
@@ -253,6 +260,14 @@ def workflow_blockers(
     return blocked, tuple(duplicate_ids)
 
 
+def _chose_expense_type(declaration: DgiiDeclaration | None) -> bool:
+    return (
+        isinstance(declaration, PurchaseDeclaration)
+        and declaration.category is not None
+        and not declaration.category_suggested
+    )
+
+
 def dossier(
     tx: ActionTransaction,
     draft_id: UUID,
@@ -323,6 +338,14 @@ def dossier(
     approvable = not blocked and "approve" in tx.authorization.capabilities
     can_prepare = "prepare" in tx.authorization.capabilities
     can_annotate = annotation_available(tx.authorization, event)
+    fiscal_writable = can_prepare and (
+        event.state == "open"
+        or event.state == "accepted"
+        and not exported_line(tx, event)
+    )
+    declaration_editable = fiscal_writable and takes_purchase_declaration(
+        facts, resolution.dgii
+    )
     return BusinessDossier(
         **context.model_dump(),
         current_note=current_note(event),
@@ -358,13 +381,12 @@ def dossier(
         document_type=resolution.document_type,
         document_type_detected=resolution.document_type_detected,
         document_type_editable=event.state == "open" and can_prepare,
-        declaration_editable=can_prepare
-        and takes_purchase_declaration(facts, resolution.dgii)
-        and (
-            event.state == "open"
-            or event.state == "accepted"
-            and not exported_line(tx, event)
-        ),
+        declaration_editable=declaration_editable,
+        expense_type_suggestion=remembered_expense_type(tx, draft_id)
+        if declaration_editable and not _chose_expense_type(resolution.dgii)
+        else None,
+        payment_split_editable=fiscal_writable
+        and takes_payment_split(facts, resolution.dgii),
         due_on=resolution.due_on,
         **draft_marks(tx, draft_id, facts),
     )

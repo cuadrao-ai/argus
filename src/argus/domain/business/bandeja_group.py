@@ -4,10 +4,10 @@ approval of a list all read it here. A group decides what the Bandeja shows and
 what the faster approval admits. It never approves anything, and any open
 receipt can still be approved alone.
 
-Listos is a purchase receipt the server has confirmed in full. A sale or a
-credit note stays out: a sale's 607 split cannot be set after approval, and a
-credit note is not a purchase to record. ``RULE`` runs in order, so a receipt
-with several gaps names the first.
+Listos is a business purchase the server has confirmed in full. A sale, a
+credit note and a receipt marked Personal stay out: the faster approval records
+business purchases only. ``RULE`` runs in order, so a receipt with several gaps
+names the first.
 """
 
 from __future__ import annotations
@@ -17,7 +17,12 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from argus.domain.business.contracts.dossier import ReviewFlag
-from argus.domain.business.contracts.facts import BusinessFacts, FiscalFacts, Known
+from argus.domain.business.contracts.facts import (
+    BusinessFacts,
+    FiscalFacts,
+    Known,
+    is_personal,
+)
 from argus.domain.business.fiscal_identity import identity_digits
 from argus.domain.business.receipt_activity import awaiting_owner
 from argus.domain.business.receipts import Attention
@@ -41,6 +46,7 @@ ListoGap = Literal[
     "ecf_check_failed",
     "missing_itbis",
     "foreign_currency",
+    "personal",
     "review_flag",
     "blocked",
     "unverified_sender",
@@ -119,6 +125,7 @@ RULE: tuple[tuple[BandejaReason, Callable[[DraftStanding], bool]], ...] = (
     ("ecf_check_failed", lambda draft: draft.ecf_failed),
     ("missing_itbis", lambda draft: _blank(_fiscal(draft).itbis)),
     ("foreign_currency", _foreign),
+    ("personal", lambda draft: is_personal(draft.facts)),
     ("review_flag", lambda draft: bool(draft.flags)),
     ("blocked", lambda draft: bool(draft.blockers)),
     ("unverified_sender", lambda draft: draft.sender not in (None, "authorized")),
