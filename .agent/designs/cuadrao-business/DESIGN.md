@@ -28,7 +28,6 @@ planned experiences. They do not establish shipped capabilities or integrations.
 - Preserve the cream canvas, deep green business examples and dark green footer.
 - Preserve the Cuadrao wordmark.
 - Headings use Georgia on every page, with Noto Serif as the named backup. Body text uses Inter. The logo and the large footer word use Space Grotesk. `--font-heading` in `marketing/app/globals.css` owns the heading font.
-- Keep the readable cream note seated in the green folio in the Business opening.
 - Keep the founder portrait beside the handwritten Lucas Garcés signature.
 - Keep the large footer wordmark hollow with a one-pixel outline and lowered, partly cropped at the bottom.
 - Remove the extra footer line "Pensado para los negocios de aquí" and its English equivalent.
@@ -41,17 +40,28 @@ authorize copying another product's claims, integrations or customer proof.
 
 ## Content and navigation
 
-Spanish leads and every page has an English version. Keep the Business contact action and the link to its interactive
-examples. The page covers the full web workspace and the planned mobile companion.
+Spanish leads and every page has an English version. The landing order is hero,
+product scene, cards section, "Cómo funciona", "Tu contable", founder letter, FAQ,
+closing band and footer.
+
+The header holds the logo, language, sign in and the contact button. It has no
+audience link, and no features menu until feature pages exist. The phone menu keeps
+its Escape key, focus trap and scroll lock.
+
+Say "contable", not "contador", and "factura" unless the object is a receipt in a
+drawer.
 
 Use direct benefit-led headings. The founder letter is four short paragraphs.
 Keep five FAQ questions covering availability, audience, price, boundaries and
-the founder conversation. Short readiness labels should remain near demonstrations.
+the founder conversation. One answer is open at a time and the first starts open.
+Clicking the open question closes it. The open answer sits on a soft 16px card, and
+the list has no divider lines. Short readiness labels should remain near
+demonstrations.
 Keep specific limitations at forms and fiscal/export boundaries.
 
-The Business footer links to Contact and Lucas's LinkedIn. The direct email is
-on Contact. Do not repeat it in the Business footer. Do not add social account
-placeholders while those accounts have no content.
+The Business footer links to the page sections, Contact, the direct email, Lucas's
+LinkedIn and the legal pages. Do not add social account placeholders while those
+accounts have no content.
 
 On mobile, Contact presents the introduction,
 form and then direct contact/founder details. DOM order and visual order agree.
@@ -65,9 +75,17 @@ invoice and RD$18,000 payment. Keep currencies separate.
 The founder approved a scroll-led product scene on November 1, 2026. It may show
 scripted status changes, a sample cursor and a dock that links to the stages.
 Scrolling stays native: never intercept the scroll. Every animation has a
-reduced-motion state, and phones show one still end picture. The founder chose
+reduced-motion state. Phones show the scene as one still end picture, skip the
+cards section, and play the WhatsApp chat as it enters the screen. The founder chose
 not to add an illustrative label to the scene. The FAQ states that the examples
 are planned and use fictional data, so keep that sentence.
+
+The scene shows 15 November 2026 until that day passes, then the visitor's own date.
+It closes the month before the date it shows. It shows no year, and the time stays
+at 10:24.
+
+Facturar stays "En preparación" and is not a link until e-CF issuing works in
+production.
 
 Examples create no real records, notifications or customer messages. Do not add
 autoplay or fake progress outside the scene.
