@@ -111,9 +111,7 @@ def declared(service, context, draft_id, version, **review):  # noqa: ANN001, AN
     return service.review(
         context,
         draft_id,
-        ReviewDraft(
-            version=version, facts=BusinessFactPatch(purchase=PurchaseReview(**review))
-        ),
+        ReviewDraft(version=version, purchase=PurchaseReview(**review)),
         str(uuid4()),
     )
 

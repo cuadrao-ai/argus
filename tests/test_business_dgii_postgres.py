@@ -583,15 +583,13 @@ def test_purchase_review_save_applies_payment_withholding_and_the_base(actions):
         capture.draft_id,
         ReviewDraft(
             version=stored.version,
-            facts=BusinessFactPatch(
-                purchase=PurchaseReview(
-                    category="09",
-                    payment_method="04",
-                    paid_on=date(2026, 9, 3),
-                    itbis_withheld="18.40",
-                    income_withholding_type="02",
-                    income_withheld="10.15",
-                )
+            purchase=PurchaseReview(
+                category="09",
+                payment_method="04",
+                paid_on=date(2026, 9, 3),
+                itbis_withheld="18.40",
+                income_withholding_type="02",
+                income_withheld="10.15",
             ),
         ),
         str(uuid4()),
@@ -660,9 +658,9 @@ def test_an_income_draft_without_a_declaration_does_not_gain_a_606(actions):
                 {
                     "kind": {"state": "known", "value": "income"},
                     "amount": {"state": "known", "value": "100.50"},
-                    "purchase": {"category": "09", "payment_method": "04"},
                 }
             ),
+            purchase=PurchaseReview(category="09", payment_method="04"),
         ),
         str(uuid4()),
     )

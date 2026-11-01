@@ -31669,6 +31669,10 @@ components:
           anyOf:
           - $ref: '#/components/schemas/FiscalReview'
           - type: 'null'
+        purchase:
+          anyOf:
+          - $ref: '#/components/schemas/PurchaseReview'
+          - type: 'null'
         document_type:
           anyOf:
           - type: string

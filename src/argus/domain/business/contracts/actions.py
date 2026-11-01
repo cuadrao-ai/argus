@@ -17,7 +17,7 @@ from pydantic import (
 from argus.domain.business.document_type import DocumentType
 
 from .authority import ActorProvenance
-from .dgii import FiscalReview
+from .dgii import FiscalReview, PurchaseReview
 from .facts import (
     BusinessFactPatch,
     BusinessShare,
@@ -143,6 +143,9 @@ class ReviewDraft(Contract):
     version: int = Field(ge=1)
     facts: BusinessFactPatch | None = None
     dgii: FiscalReview | None = None
+    #: The 606 fields a person confirms; absent ones stay as they were. Here
+    #: and not on the facts patch, which the interpreter fills.
+    purchase: PurchaseReview | None = None
     #: Sets the uploaded document's type while the draft is open.
     document_type: DocumentType | None = None
     #: Sets the due date, or takes it back to unknown, while the draft is open.
@@ -153,11 +156,13 @@ class ReviewDraft(Contract):
         if (
             self.facts is None
             and self.dgii is None
+            and self.purchase is None
             and self.document_type is None
             and self.due_on is None
         ):
             raise ValueError(
-                "supply review facts, fiscal declaration, document type or due date"
+                "supply review facts, a fiscal declaration, 606 fields,"
+                " a document type or a due date"
             )
         return self
 

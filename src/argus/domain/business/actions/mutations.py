@@ -27,6 +27,7 @@ from argus.domain.business.contracts.dgii import (
     DgiiDeclaration,
     FiscalReview,
     PurchaseDeclaration,
+    PurchaseReview,
     SalesDeclaration,
 )
 from argus.domain.business.contracts.facts import (
@@ -190,14 +191,15 @@ def revise(
     turn_key: str | None = None,
     answer_id: UUID | None = None,
     fiscal_review: FiscalReview | None = None,
+    purchase: PurchaseReview | None = None,
     document_type: DocumentType | None = None,
     due_on: DueOnInput | None = None,
 ) -> Applied:
     sources.require_sources(tx, source_ids)
     now = datetime.now(timezone.utc)
     declaration_only = (
-        patch is not None
-        and patch.model_fields_set == {"purchase"}
+        purchase is not None
+        and patch is None
         and fiscal_review is None
         and document_type is None
         and due_on is None
@@ -257,7 +259,7 @@ def revise(
             if value is not None and value.state in {"known", "owner_does_not_know"}:
                 answer_question(tx, event.id, question["id"], patch, source_ids[-1])
     declared = fiscal_review.declaration if fiscal_review else None
-    if patch is not None and patch.purchase is not None:
+    if purchase is not None:
         current = declared
         if current is None and not retyped:
             raw = (event.resolution.get("business") or {}).get("dgii")
@@ -277,7 +279,7 @@ def revise(
             )
             declared = apply_purchase(
                 current if isinstance(current, PurchaseDeclaration) else None,
-                patch.purchase,
+                purchase,
                 amount,
                 itbis,
             )

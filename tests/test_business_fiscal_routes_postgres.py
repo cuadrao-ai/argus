@@ -186,7 +186,7 @@ def test_review_write_path_from_capture_to_frozen_606_line(world) -> None:  # no
         draft,
         {
             "version": recorded["version"],
-            "facts": {"purchase": {"category": "02", "payment_method": "01"}},
+            "purchase": {"category": "02", "payment_method": "01"},
         },
         alice.headers,
     )
@@ -240,7 +240,7 @@ def test_review_write_path_from_capture_to_frozen_606_line(world) -> None:  # no
         draft,
         {
             "version": frozen.json()["version"],
-            "facts": {"purchase": {"payment_method": "04"}},
+            "purchase": {"payment_method": "04"},
         },
         alice.headers,
     )

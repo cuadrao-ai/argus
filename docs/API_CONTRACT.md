@@ -9363,20 +9363,20 @@ and the still-valid pair decision; changed input under the same key answers 409.
 Every other review and owner-approval condition remains in force.
 
 `PATCH /business/drafts/{draft_id}/review` takes `{version, facts: BusinessFactPatch}`
-and `Idempotency-Key`. `facts.purchase` carries the 606 fields a person confirms
-(`PurchaseReview`: `category`, `payment_method`, `paid_on`, `services_amount`,
-`goods_amount`, `itbis_withheld`, `income_withholding_type`, `income_withheld`);
-absent fields stay as they were, and a confirmed `category` with neither amount
-fills the services or goods side from the total less ITBIS, selective tax,
-other taxes and tip. The OpenAPI artifact leaves `purchase` out of
-`BusinessFactPatch` because the same patch type is what the interpreter fills
-and a tax field is never the model's to fill; the route accepts it. The
+and `Idempotency-Key`. The body's `purchase` carries the 606 fields a person
+confirms (`PurchaseReview`: `category`, `payment_method`, `paid_on`,
+`services_amount`, `goods_amount`, `itbis_withheld`, `income_withholding_type`,
+`income_withheld`); absent fields stay as they were, and a confirmed `category`
+with neither amount fills the services or goods side from the total less ITBIS,
+selective tax, other taxes and tip. `purchase` sits beside `facts`, not inside
+it: `BusinessFactPatch` is the patch the interpreter fills, and a tax field is
+never the model's to fill. The
 identifiers in `dgii.fiscal` (`rnc`, `ncf`) and `modified_ncf` are normalized on
 the server before their shape applies: spaces and dashes are removed and letters
 upper-cased, so an RNC printed `1-23-45678-9` saves as `123456789` and
 `b0100000001` as `B0100000001`; any other character is still a 422
 `validation_error`. On an approved (`accepted`) draft the same route accepts a
-review that carries only `facts.purchase`: it writes the declaration as one more
+review that carries only `purchase`: it writes the declaration as one more
 revision with the same web source and action receipt, the recorded facts
 unchanged, until the record's line is carried by a downloaded DGII TXT, after
 which it answers 422 `fiscal_declaration_exported`. Any other review input on an
