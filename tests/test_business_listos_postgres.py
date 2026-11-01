@@ -29,6 +29,7 @@ from tests.business.test_business_api import RECEIPT
 from tests.business.test_business_email_api import WEBHOOK, signed
 from tests.business_reading_support import ROUTE
 from tests.test_business_approve_unpaid_postgres import _declaration
+from tests.test_business_fiscal_routes_postgres import _known
 from tests.test_business_reading_setting_postgres import (
     _email,
     _email_runtime,
@@ -499,6 +500,16 @@ def test_one_comprobante_on_two_receipts_needs_a_person_on_both(rig) -> None:  #
     assert result["existing_record_id"] == _named_draft(rig, first)
 
 
+def test_a_sale_with_the_same_comprobante_is_no_repeat_of_a_purchase(rig) -> None:  # noqa: ANN001
+    purchase = _read(rig, {"ncf": "B0100000095"})
+    sale = _read(rig, {"ncf": "B0100000095"})
+    assert _group(rig, purchase) == ("attention", "duplicate")
+
+    _review(rig, _named(rig, sale), {"document_type": "venta"})
+    assert _group(rig, sale) == ("attention", "sale")
+    assert _group(rig, purchase) == ("listo", None)
+
+
 def test_a_number_the_register_lists_is_valid_as_the_606_reads_it(rig) -> None:  # noqa: ANN001
     with Connection.connect(shared.DSN) as db:
         db.execute(
@@ -714,6 +725,59 @@ def test_a_concurrent_single_approve_records_each_receipt_once(rig) -> None:  # 
         if result["outcome"] == "applied"
     }
     assert len(set(activities.values())) == len(activities)
+
+
+def test_a_note_with_every_fact_is_no_receipt_to_approve_in_a_list(rig) -> None:  # noqa: ANN001
+    note = _note(rig, rig.alice, "Pagué 1180 en Ferretería Prueba").json()
+    item = {"draft_id": note["draft_id"], "version": note["version"]}
+    dossier = _get(rig, f"/business/drafts/{item['draft_id']}/dossier")
+    item["version"] = dossier["version"]
+    reviewed = _review(
+        rig,
+        item,
+        {
+            "facts": _known(
+                {
+                    "kind": "expense",
+                    "amount": "1180.00",
+                    "currency": "DOP",
+                    "occurred_on": "2026-10-06",
+                    "counterparty": "Ferretería Prueba",
+                }
+            ),
+            "dgii": {
+                "fiscal": {"rnc": SUPPLIER, "ncf": "B0100000096", "itbis": "18.00"},
+                "declaration": _declaration("expense"),
+            },
+        },
+    )
+    assert reviewed["approval_available"] is True
+
+    named = {**item, "version": reviewed["version"]}
+    assert _results(_approve_many(rig, [named])) == [("refused", "not_listo")]
+    assert _money(rig) == 0
+    assert _approve_alone(rig, named).status_code == 200
+    assert _money(rig) == 1
+
+
+def test_a_receipt_on_two_drafts_is_not_listo(rig) -> None:  # noqa: ANN001
+    first, second = _read(rig), _read(rig)
+    one, other = _named(rig, first), _named(rig, second)
+    with Connection.connect(shared.DSN) as db:
+        db.execute(
+            "insert into public.business_draft_sources (space_id,draft_id,source_id)"
+            " select space_id,%s,source_id from public.business_draft_sources"
+            " where draft_id=%s",
+            (one["draft_id"], other["draft_id"]),
+        )
+
+    assert _group(rig, first) == ("attention", "check_details")
+    assert _group(rig, second) == ("attention", "check_details")
+    assert _results(_approve_many(rig, [one, other])) == [
+        ("refused", "not_listo"),
+        ("refused", "not_listo"),
+    ]
+    assert _money(rig) == 0
 
 
 def test_a_receipt_edited_after_listing_is_refused_and_the_rest_go(rig) -> None:  # noqa: ANN001

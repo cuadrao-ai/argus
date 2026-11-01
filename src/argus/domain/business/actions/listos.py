@@ -60,8 +60,6 @@ def _read_state(attachments: list[dict[str, Any]]) -> ReadState:
     if len(attachments) > 1 or attachments[0]["shared"]:
         return "unclear"
     read = attachments[0]
-    if read["status"] in ("queued", "preparing"):
-        return "reading"
     return (
         "finished"
         if read["status"] == "review_ready" and read["error_code"] is None
@@ -92,6 +90,7 @@ def _repeated(tx: ActionTransaction, draft_ids: Sequence[UUID]) -> set[UUID]:
         " and other.business_fiscal_number=me.business_fiscal_number"
         " where me.owner_space_id=%s and me.id=any(%s) and other.id<>me.id"
         " and other.state in ('open','accepting','accepted')"
+        " and me.business_kind is distinct from 'income'"
         " and other.business_kind is distinct from 'income'",
         (tx.context.actor.space_id, list(draft_ids)),
     )

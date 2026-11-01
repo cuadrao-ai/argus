@@ -77,7 +77,6 @@ def test_a_draft_with_nothing_missing_is_listo() -> None:
 @pytest.mark.parametrize(
     ("draft", "reason"),
     [
-        (replace(LISTO, read="reading"), "reading"),
         (replace(LISTO, read="none"), "not_read"),
         (replace(LISTO, read="unclear"), "check_details"),
         (replace(LISTO, read_attention="several_purchases"), "several_purchases"),
@@ -135,7 +134,7 @@ def test_an_authorized_sender_is_no_gap() -> None:
 
 def test_a_receipt_with_several_gaps_names_the_first_in_rule_order() -> None:
     draft = with_fiscal(ncf=Unknown(), itbis=Unknown())
-    assert listo_reason(replace(draft, read="reading")) == "reading"
+    assert listo_reason(replace(draft, read="unclear")) == "check_details"
     assert listo_reason(draft) == "missing_ncf"
     order = [reason for reason, _ in RULE]
     assert order.index("missing_ncf") < order.index("missing_itbis")

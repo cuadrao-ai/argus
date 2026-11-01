@@ -47,7 +47,7 @@ ListoGap = Literal[
     "unverified_sender",
 ]
 BandejaReason = Literal[Attention, ListoGap]
-ReadState = Literal["finished", "reading", "none", "unclear"]
+ReadState = Literal["finished", "none", "unclear"]
 
 
 @dataclass(frozen=True)
@@ -104,7 +104,6 @@ def _sale(draft: DraftStanding) -> bool:
 
 
 RULE: tuple[tuple[BandejaReason, Callable[[DraftStanding], bool]], ...] = (
-    ("reading", lambda draft: draft.read == "reading"),
     ("not_read", lambda draft: draft.read == "none"),
     ("check_details", lambda draft: draft.read == "unclear"),
     ("several_purchases", lambda draft: draft.read_attention == "several_purchases"),
