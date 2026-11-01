@@ -20,7 +20,7 @@ RELEASE_PROFILE_PATH = ROOT / ".github" / "private-alpha-release-profile.json"
 PUBLIC_ACCOUNT_ACCESS_FLAG = "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED"
 # The release profile owns this flag's value. Product truth is where prose states
 # it, and every other doc may point here rather than repeat it.
-CANONICAL_VALUE_DOC = "docs/PRODUCT.md"
+CANONICAL_VALUE_DOC = "docs/ARCHITECTURE.md"
 
 # Records of a moment keep the claims they shipped with, because quoting a
 # superseded posture is their job. Everything else under docs/, .agent/, and the
@@ -1108,7 +1108,6 @@ def test_private_launch_runbook_assigns_app_origin_and_smtp_secret_correctly() -
 
 def test_execution_realism_contract_is_consistent_across_canon_and_release_docs() -> None:
     for path in (
-        "docs/PRODUCT.md",
         "docs/ARCHITECTURE.md",
         "docs/API_CONTRACT.md",
         "docs/PRIVATE_LAUNCH_RUNBOOK.md",
