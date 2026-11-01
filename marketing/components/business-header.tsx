@@ -48,9 +48,11 @@ const getServerSignInSnapshot = () => null;
 export function BusinessHeader({
   locale,
   page = "home",
+  plain = false,
 }: {
   locale: BusinessLocale;
   page?: BusinessPage;
+  plain?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const signInHref = useSyncExternalStore(
@@ -185,30 +187,39 @@ export function BusinessHeader({
             alt="cuadrao"
           />
         </a>
-        <span className={styles.mobileAudience}>
-          {copy.business}
-        </span>
-        <nav className={styles.desktopNav} aria-label={copy.label}>
+        {!plain && (
+          <span className={styles.mobileAudience}>
+            {copy.business}
+          </span>
+        )}
+        <nav
+          className={`${styles.desktopNav} ${plain ? shell.plainNav : ""}`.trim()}
+          aria-label={copy.label}
+        >
           <div className={styles.audienceNav}>
-            <a
-              className={styles.activeNav}
-              href={home}
-              aria-current={page === "home" ? "page" : undefined}
-            >
-              {copy.business}
-            </a>
+            {!plain && (
+              <a
+                className={styles.activeNav}
+                href={home}
+                aria-current={page === "home" ? "page" : undefined}
+              >
+                {copy.business}
+              </a>
+            )}
           </div>
           <div className={styles.utilityNav}>
             {secondary ? (
               backLink
             ) : null}
+            {plain && languageLinks}
+            {plain && signIn}
             {!secondary && (
               <a className={styles.buttonSmall} data-header-cta data-business-cta href={primaryHref}>
                 {primaryLabel}
               </a>
             )}
-            {!secondary && signIn}
-            {languageLinks}
+            {!plain && !secondary && signIn}
+            {!plain && languageLinks}
           </div>
         </nav>
         <button
@@ -236,9 +247,11 @@ export function BusinessHeader({
               if (!event.defaultPrevented && (event.target as HTMLElement).closest("a")) setOpen(false);
             }}
           >
-            <a href={home} aria-current={page === "home" ? "page" : undefined}>
-              {copy.business}
-            </a>
+            {!plain && (
+              <a href={home} aria-current={page === "home" ? "page" : undefined}>
+                {copy.business}
+              </a>
+            )}
             <a href={`${home}#preguntas`}>{siteCopy[locale].faqLink}</a>
             {secondary ? (
               backLink
