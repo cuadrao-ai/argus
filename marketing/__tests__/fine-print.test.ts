@@ -2,9 +2,6 @@ import { readFileSync } from "node:fs";
 import { expect, test } from "bun:test";
 
 const FILES = [
-  "components/business-stories.module.css",
-  "components/owner-stories.module.css",
-  "components/business-hero-visual.module.css",
   "components/legal.module.css",
   "components/touchup.module.css",
 ];

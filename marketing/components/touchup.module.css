@@ -1,12 +1,6 @@
 .site {
   --touchup-soft: #eef1e8;
 }
-.site h1,
-.site h2 {
-  font-family: Georgia, "Times New Roman", serif;
-  font-weight: 400;
-  letter-spacing: -0.045em;
-}
 .section {
   max-width: 1140px;
   margin-inline: auto;
@@ -20,9 +14,7 @@
   margin: 18px 0 25px;
 }
 .section h3 {
-  font-family: Georgia, "Times New Roman", serif;
   font-size: 27px;
-  font-weight: 400;
   letter-spacing: -0.035em;
 }
 .hero {
@@ -43,7 +35,7 @@
   height: 1.35em;
   margin: -6px 0 26px;
   overflow: hidden;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-heading);
   font-size: clamp(26px, 2.8vw, 38px);
   font-weight: 400;
   letter-spacing: -0.045em;

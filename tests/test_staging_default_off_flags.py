@@ -26,9 +26,9 @@ APPROVED_STAGING_OVERRIDES: dict[str, str] = {
         "controls for a reviewed manual release. Activation remains behind "
         "founder approval, CI, Eval, and manual release gates. Prod stays false."
     ),
-    "NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED": (
-        "Lucas approved bank matching on staging 2026-10-28 (demo loop approval "
-        "3). Prod stays false."
+    "NEXT_PUBLIC_CUADRAO_BUSINESS_INVOICING_ENABLED": (
+        "The founder approved invoicing on cuadrao-web-staging on 2026-10-29. "
+        "Prod stays false."
     ),
     "CUADRAO_BUSINESS_BANK_MATCHING_ENABLED": (
         "Lucas approved bank matching on staging 2026-10-28 (demo loop approval "
@@ -262,7 +262,7 @@ def test_staging_exception_cannot_hide_other_true_values(surface: str) -> None:
 def test_another_staging_flag_still_needs_its_own_approval() -> None:
     profile = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-    name = "NEXT_PUBLIC_CUADRAO_BUSINESS_INVOICING_ENABLED"
+    name = "NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED"
     entry = next(
         entry for entry in manifest["services"]["web"]["entries"] if entry["name"] == name
     )
@@ -270,3 +270,31 @@ def test_another_staging_flag_still_needs_its_own_approval() -> None:
     assert turned_on_default_off_flags(profile, manifest, APPROVED_STAGING_OVERRIDES) == [
         name
     ]
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED", "false"),
+        ("NEXT_PUBLIC_CUADRAO_BUSINESS_INVOICING_ENABLED", "true"),
+    ],
+)
+def test_staging_web_flags_match_the_20261029_decision(
+    name: str,
+    expected: str,
+) -> None:
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    render_config = yaml.safe_load(RENDER_PATH.read_text(encoding="utf-8"))
+    stage = next(
+        service
+        for service in render_config["services"]
+        if service["name"] == "cuadrao-web-staging"
+    )
+    assert next(entry for entry in stage["envVars"] if entry["key"] == name)[
+        "value"
+    ] == expected
+    assert next(
+        entry
+        for entry in manifest["services"]["web"]["entries"]
+        if entry["name"] == name
+    )["value"] == expected

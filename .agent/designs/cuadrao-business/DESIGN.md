@@ -26,10 +26,11 @@ planned experiences. They do not establish shipped capabilities or integrations.
 ## Approved appearance
 
 - Preserve the cream canvas, deep green business examples and dark green footer.
-- Preserve the sans-serif typography and Cuadrao wordmark.
+- Preserve the Cuadrao wordmark.
+- Headings use Georgia on every page, with Noto Serif as the named backup. Body text uses Inter. The logo and the large footer word use Space Grotesk. `--font-heading` in `marketing/app/globals.css` owns the heading font.
 - Keep the readable cream note seated in the green folio in the Business opening.
 - Keep the founder portrait beside the handwritten Lucas Garcés signature.
-- Keep the large footer wordmark hollow with a one-pixel outline and lowered, partly cropped at the bottom. Keep Space Grotesk for headings and Inter for body text.
+- Keep the large footer wordmark hollow with a one-pixel outline and lowered, partly cropped at the bottom.
 - Remove the extra footer line "Pensado para los negocios de aquí" and its English equivalent.
 - Keep "Las cuentas claras. El negocio, adelante." as the Business footer message.
 
@@ -58,18 +59,18 @@ Header return links keep icon and text on one line and offer a 44px target.
 
 ## Example truth and interaction
 
-`owner-example.ts` owns the money and planning records. `sample-data.ts` owns the
-invoice example. Derive the RD$30,000 remainder from its RD$48,000 invoice and
-RD$18,000 payment. Keep currencies separate. Owner contributions are not sales;
-a personally paid business expense does not reduce business cash.
+Examples use sample records. Derive the RD$30,000 remainder from the RD$48,000
+invoice and RD$18,000 payment. Keep currencies separate.
 
-A delayed-payment scenario changes only the estimate. Capture and reminder
-confirmation affect examples only. They create no real financial records,
-notifications or customer messages. Receipt linking does not create a second expense.
+The founder approved a scroll-led product scene on November 1, 2026. It may show
+scripted status changes, a sample cursor and a dock that links to the stages.
+Scrolling stays native: never intercept the scroll. Every animation has a
+reduced-motion state, and phones show one still end picture. The founder chose
+not to add an illustrative label to the scene. The FAQ states that the examples
+are planned and use fictional data, so keep that sentence.
 
-Keep keyboard-operated tabs, query preservation on search return, relevant update
-links, expandable receipt/preparation anchors and reduced-motion behavior. Do not
-add autoplay, scroll interception, fake progress or decorative working controls.
+Examples create no real records, notifications or customer messages. Do not add
+autoplay or fake progress outside the scene.
 
 ## Contact
 
