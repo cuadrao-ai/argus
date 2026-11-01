@@ -20,9 +20,9 @@ describe("the receipt source fetch", () => {
       new Promise<Response>((_resolve, reject) => {
         init?.signal?.addEventListener("abort", () => reject(init.signal?.reason ?? new Error("aborted")));
       })) as typeof fetch;
-    const started = Date.now();
+    const started = performance.now();
     await assert.rejects(fetchBusinessReceiptSource("rcpt-1", { timeoutMs: 40 }), (error: unknown) => error instanceof Error && error.name === "TimeoutError");
-    assert.ok(Date.now() - started < 2000);
+    assert.ok(performance.now() - started < 2000);
     assert.equal(RECEIPT_SOURCE_TIMEOUT_MS, 30_000);
   });
 
