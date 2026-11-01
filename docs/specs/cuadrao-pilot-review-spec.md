@@ -54,7 +54,9 @@ Removed: Confirmar datos leídos, the Comprobante row, Consultar registro actual
 
 ## Approval and the 606
 
-Approval confirms that the read is right. It does not need 606 data. The server accepts 606 data after approval, until the record is exported. The RNC status and list date are saved on the record at approval.
+Approval confirms that the read is right and that the record counts. It needs no 606 data, no account and no payment answer. Parte del negocio does not block. The server accepts 606 data after approval, until the record is exported. The RNC status and list date are saved on the record at approval.
+
+Payment is a separate, optional step. An approved purchase or sale is pendiente until a person marks it paid or collected, with a method. No account is needed. Forma de pago stays blank until a person or the receipt sets it, and month close lists it as missing. Cuadrao never fills it with a default.
 
 ## Month close
 
@@ -62,7 +64,17 @@ It lives in Registros, as a monthly step. It lists what is missing for the 606, 
 
 ## DGII list
 
-One current row per RNC, replaced by the daily load. There is no history table. Keep the useful fields the download holds: name, trade name, status, and activity and e-invoice status if the file has them. The review shows the DGII name and status in place of "RNC sin verificar".
+One current row per RNC or cédula, replaced by the daily load, with no history table. Load every row, not only active ones, so a suspended or cancelled supplier is flagged. The CSV is the source. Keep razón social, actividad económica, fecha de inicio, estado and régimen. The file has no trade name and no e-invoice field. There is no per-record lookup in the pilot.
+
+The review shows the DGII legal name and status in place of "RNC sin verificar", and raises Suspendido and Dado de baja. Business setup takes an RNC or cédula, fills the legal name, status and activity, and the person confirms and types the trade name.
+
+## Typed entry
+
+Agregar has a small typed entry for a purchase with no paper: amount, date, and supplier or description. It is saved as sin comprobante, counts in the books, stays out of the 606, and a person reviews it. The Registros note editor stays off.
+
+## Pilot setup
+
+José is an accountant who runs client Businesses. For the one pilot client, José holds the Dueño seat and approves. This is a setup choice, not a rule about who owns a business. The client agrees, need not log in, and can be invited as Lector. There are no role or permission changes.
 
 ## States
 
