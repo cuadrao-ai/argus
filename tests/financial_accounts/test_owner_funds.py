@@ -1,12 +1,21 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
 from argus.domain.business import ledger
 from argus.domain.owner_scope import PERSONAL, BusinessSpace
-from argus.domain.recording.errors import AccountNotFound, IdempotencyConflict
+from argus.domain.recording.errors import (
+    AccountNotFound,
+    IdempotencyConflict,
+    RecordingInputError,
+)
 from argus.domain.recording.money_reads import current_activities
-from argus.domain.recording.money_schemas import MoneyRequest, OwnerFunds
+from argus.domain.recording.money_plan import request_identity
+from argus.domain.recording.money_schemas import (
+    MoneyRequest,
+    OwnerFunds,
+    UnstatedFunding,
+)
 from argus.domain.recording.money_service import MoneyService
 from argus.domain.recording.repository import InMemoryFinancialAccountRepository
 from argus.domain.recording.service import FinancialAccountService
@@ -98,9 +107,120 @@ def test_owner_funds_forbids_account_or_other_kind(changes, funded_scene):
         entered(funded_scene[2], **changes)
 
 
-def test_recorded_owner_funds_cannot_be_corrected_into_bank_debit(funded_scene):
-    from argus.domain.recording.errors import RecordingInputError
+def unstated(scope, **changes):
+    return MoneyRequest(
+        **{
+            "kind": "expense",
+            "amount": "850",
+            "occurred_at": NOW - timedelta(days=1),
+            "note": "Materials",
+            "unstated_funding": UnstatedFunding(
+                owner_space_id=scope.space_id, currency="DOP"
+            ),
+            **changes,
+        }
+    )
 
+
+@pytest.mark.parametrize("kind", ["expense", "income"])
+def test_a_record_with_no_stated_funding_is_canonical_and_replays(funded_scene, kind):
+    money, user, scope = funded_scene
+    request = reviewed(money, user, scope, unstated(scope, kind=kind))
+    first = money.write(user_id=user, scope=scope, request=request, idempotency_key="one")
+    again = money.write(user_id=user, scope=scope, request=request, idempotency_key="one")
+    assert again["replayed"] and again["activity"] == first["activity"]
+    assert first["activity"]["kind"] == kind
+    assert first["activity"]["funding"] is None
+    assert first["activity"]["legs"] == []
+    assert first["accounts"] == []
+    rows = current_activities(money.accounts.list_accounts(user_id=user, scope=scope))
+    assert rows == [first["activity"]]
+    assert (
+        money.detail(
+            user_id=user, scope=scope, activity_id=first["activity"]["activity_id"]
+        )
+        == first["activity"]
+    )
+    with pytest.raises(IdempotencyConflict):
+        money.write(
+            user_id=user,
+            scope=scope,
+            request=request.model_copy(update={"amount": "851"}),
+            idempotency_key="one",
+        )
+
+
+@pytest.mark.parametrize("scope", [PERSONAL, BusinessSpace(str(uuid4()))])
+def test_unstated_funding_cannot_cross_scope(funded_scene, scope):
+    money, user, own_scope = funded_scene
+    with pytest.raises(AccountNotFound):
+        money.preview(user_id=user, scope=scope, request=unstated(own_scope))
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"kind": "refund"},
+        {"kind": "transfer"},
+        {"account_id": str(uuid4())},
+        {"source_id": "salary"},
+        {"expected_revision": 1},
+        {"purchase_activity_id": str(uuid4())},
+    ],
+)
+def test_unstated_funding_forbids_an_account_or_another_kind(changes, funded_scene):
+    with pytest.raises(ValidationError):
+        unstated(funded_scene[2], **changes)
+
+
+def test_a_request_names_one_funding(funded_scene):
+    scope = funded_scene[2]
+    with pytest.raises(ValidationError):
+        unstated(
+            scope,
+            owner_funding=OwnerFunds(owner_space_id=scope.space_id, currency="DOP"),
+        )
+
+
+def test_a_sale_with_no_account_refuses_an_expense_category(funded_scene):
+    money, user, scope = funded_scene
+    with pytest.raises(RecordingInputError, match="field_not_applicable"):
+        money.preview(
+            user_id=user,
+            scope=scope,
+            request=unstated(scope, kind="income", category_id="other"),
+        )
+
+
+def test_the_new_field_stays_out_of_the_identity_of_existing_requests():
+    """The hashes the base wrote, so an approval in flight at deploy replays."""
+
+    day = datetime(2026, 9, 3, tzinfo=timezone.utc)
+    owner = MoneyRequest(
+        kind="expense",
+        owner_funding=OwnerFunds(
+            owner_space_id="00000000-0000-4000-8000-000000000001", currency="DOP"
+        ),
+        amount="850.00",
+        occurred_at=day,
+        note="Materials",
+    )
+    account = MoneyRequest(
+        kind="expense",
+        account_id="00000000-0000-4000-8000-000000000002",
+        amount="850.00",
+        occurred_at=day,
+        note="Materials",
+    )
+    assert request_identity(owner, None) == (
+        "sha256:bf626de24d7d4a885be48b1d0cf946f20a20f26e4d5c90fb23cc46f7089d51d1"
+    )
+    assert request_identity(account, None) == (
+        "sha256:d58581057e3e90681222e19b701f94b39b70eedc54216128276528aacea94fc4"
+    )
+
+
+def test_recorded_owner_funds_cannot_be_corrected_into_bank_debit(funded_scene):
     money, user, scope = funded_scene
     request = reviewed(money, user, scope, entered(scope))
     saved = money.write(

@@ -535,6 +535,61 @@ def test_an_approved_credit_note_keeps_the_refund_its_approval_recorded(actions)
     assert str(service.dossier(context, credit).dgii.purchase_activity_id) == first
 
 
+def test_a_wrong_refund_flag_on_an_approved_expense_can_be_cleared(actions):  # noqa: ANN001
+    """The money holds no refund for an expense, so a flag saved by mistake and
+    its link can be cleared; setting either refund claim stays refused."""
+
+    service, context, _ = actions
+    set_profile(service.authority, context, filer_change(FILER), "rnc")
+    draft_id, version = captured(
+        service,
+        context,
+        "B0100002401",
+        {"kind": "owner_funds"},
+        blank_declaration(
+            id_type="1",
+            category="09",
+            goods_amount="1000.00",
+            services_amount="0.00",
+            payment_method="01",
+            actual_refund=True,
+        ),
+    )
+    view = approved(service, context, draft_id, version)
+    assert txt_606(service, context)[1] is None
+    assert declared(
+        service, context, draft_id, view.version, actual_refund=False
+    ).outcome == ("applied")
+    manifest, line = txt_606(service, context)
+    assert manifest["forms"]["606"]["status"] == "prepared_candidate"
+    assert line["ncf"] == "B0100002401"
+
+    view = service.dossier(context, draft_id)
+    refused = declared(service, context, draft_id, view.version, actual_refund=True)
+    assert (refused.outcome, refused.code) == (
+        "invalid_input",
+        "recorded_correction_unsupported",
+    )
+    assert service.dossier(context, draft_id).dgii["actual_refund"] is False
+
+
+def test_a_credit_number_approved_as_an_expense_refuses_a_refund_claim(actions):  # noqa: ANN001
+    """A rule on the kind alone would let a B04 approved as an expense claim a
+    refund the money does not hold."""
+
+    service, context, _ = actions
+    set_profile(service.authority, context, filer_change(FILER), "rnc")
+    draft_id, version = captured(
+        service, context, "B0400000021", {"kind": "owner_funds"}
+    )
+    view = approved(service, context, draft_id, version)
+    refused = declared(service, context, draft_id, view.version, actual_refund=True)
+    assert (refused.outcome, refused.code) == (
+        "invalid_input",
+        "recorded_correction_unsupported",
+    )
+
+
 def test_a_record_that_takes_no_606_refuses_the_606_write(actions):  # noqa: ANN001
     """An income carries a 607 or nothing. It reads declaration_editable false,
     open or approved, and a 606 write on it is refused with a clear code
