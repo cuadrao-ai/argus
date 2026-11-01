@@ -2,11 +2,12 @@ import io
 import json
 from dataclasses import replace
 from datetime import date, datetime, timezone
+from uuid import uuid4
 from zipfile import ZipFile
 
 import pytest
 from argus.domain.business.contracts.actions import ReviewDraft
-from argus.domain.business.contracts.dgii import PurchaseReview
+from argus.domain.business.contracts.dgii import PurchaseDeclaration, PurchaseReview
 from argus.domain.business.contracts.facts import BusinessFactPatch, Unknown
 from argus.domain.business.dgii_line import reason
 from argus.domain.business.purchase_review import apply_purchase
@@ -421,6 +422,49 @@ class TestReviewChecklist:
         assert declared.itbis_withheld == "18.40"
         assert declared.income_withholding_type == "02"
         assert declared.income_withheld == "10.15"
+
+    def test_the_review_names_every_606_field_the_declaration_has(self):
+        """One list of 606 fields: a field added to the declaration without its
+        review twin, or typed differently, fails here."""
+
+        declared = {
+            name: field
+            for name, field in PurchaseDeclaration.model_fields.items()
+            if name != "form"
+        }
+        assert set(PurchaseReview.model_fields) == set(declared)
+        for name, field in declared.items():
+            assert PurchaseReview.model_fields[name].annotation == field.annotation, name
+
+    def test_every_written_606_field_lands(self):
+        """A restaurant receipt: 1280.00 with 180.00 ITBIS and a 100.00 tip.
+        Every annex field a person writes lands, and the base derived for the
+        confirmed expense type is the total less ITBIS, taxes and tip."""
+
+        written = {
+            "id_type": "1",
+            "category": "02",
+            "payment_method": "01",
+            "paid_on": date(2026, 9, 3),
+            "modified_ncf": "B0100000001",
+            "legal_tip": "100.00",
+            "selective_tax": "10.00",
+            "other_taxes": "10.00",
+            "itbis_withheld": "18.00",
+            "itbis_proportionality": "30.00",
+            "itbis_cost": "20.00",
+            "itbis_perceived": "1.00",
+            "income_withholding_type": "02",
+            "income_withheld": "10.00",
+            "income_perceived": "2.00",
+            "actual_refund": True,
+            "purchase_activity_id": uuid4(),
+        }
+        declared = apply_purchase(None, PurchaseReview(**written), "1280.00", "180.00")
+        assert {name: getattr(declared, name) for name in written} == written
+        assert declared.services_amount == "980.00"
+        assert declared.goods_amount is None
+        assert declared.category_suggested is False
 
 
 def test_the_archive_keeps_the_606_for_a_listed_bad_check_digit():
