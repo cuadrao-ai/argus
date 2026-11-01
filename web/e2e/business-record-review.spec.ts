@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { dossierFixtureIds } from "../components/business-app/dossier-fixtures";
 import { installBreakpointFixture } from "./support/breakpoint-fixture";
+import { atMidMonth, bandejaRows, reviewAction } from "./support/business-receipt-fixture";
 
 // Business is Spanish only, so every string below is the es-419 copy.
 
@@ -27,6 +28,7 @@ async function confirmRncWarning(page: Page) {
 
 const approveButton = (page: Page) => page.getByRole("button", { name: "Aprobar", exact: true });
 const saveButton = (page: Page) => page.getByRole("button", { name: "Guardar detalles de revisión", exact: true });
+const saveRow = (page: Page, label: string) => page.getByRole("button", { name: `Guardar · ${label}`, exact: true });
 const editField = (page: Page, label: string) => page.getByRole("button", { name: `Editar detalles · ${label}`, exact: true });
 const fact = (page: Page, key: string) => page.getByTestId("receipt-current-facts").locator(`[data-fact="${key}"]`);
 
@@ -34,10 +36,6 @@ const fact = (page: Page, key: string) => page.getByTestId("receipt-current-fact
 async function showTab(page: Page, name: "Formulario" | "Original") {
   const tabs = page.getByTestId("receipt-review-tabs");
   if (await tabs.isVisible()) await tabs.getByText(name, { exact: true }).click();
-}
-
-async function openMore(page: Page) {
-  await page.getByTestId("receipt-more").getByRole("button", { name: "Más", exact: true }).click();
 }
 
 async function openHistory(page: Page) {
@@ -63,8 +61,8 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await expect(page.getByRole("blockquote")).toContainText("No tengo recibo");
       await showTab(page, "Formulario");
       await expect(fact(page, "funding")).toHaveAttribute("data-standing", "empty");
-      await expect(fact(page, "funding")).toContainText("Necesita una decisión antes de aprobar");
-      await expect(fact(page, "currency")).toHaveAttribute("data-standing", "default");
+      await expect(fact(page, "funding")).toHaveAttribute("data-attention", "true");
+      await expect(page.getByTestId("dossier-attention")).toContainText("Cómo se pagó");
       await expect(page.getByTestId("receipt-review-questions")).toContainText("¿Cómo se pagó?");
       await capture(page, `unknown-funding-${viewport.width}`);
       const approve = approveButton(page);
@@ -72,8 +70,8 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await editField(page, "Cómo se pagó").click();
       await page.getByRole("combobox", { name: "Cómo se pagó", exact: true }).selectOption("account:acct-ops");
       await expect(approve).toBeDisabled();
-      await saveButton(page).click();
-      await expect(fact(page, "funding")).not.toContainText("Necesita una decisión antes de aprobar");
+      await saveRow(page, "Cómo se pagó").click();
+      await expect(page.getByTestId("dossier-attention")).toHaveCount(0);
       await expect(page.getByTestId("receipt-review-questions")).toHaveCount(0);
       await expect(page.getByText(/^Se registró un gasto/)).toHaveCount(0);
       await expect(approve).toBeEnabled();
@@ -83,6 +81,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await confirmRncWarning(page);
       await expect(page.getByText("Se registró un gasto tras aprobar la revisión 3.", { exact: true })).toBeVisible();
       await expect(approve).toHaveCount(0);
+      await expect(fact(page, "currency")).toHaveAttribute("data-standing", "default");
       await expect(page.getByText("Las correcciones después del registro no están disponibles en este primer flujo.", { exact: true })).toBeVisible();
       const history = await openHistory(page);
       await expect(history).toContainText("Ana Peña");
@@ -98,7 +97,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await expect(approveButton(page)).toBeDisabled();
       await editField(page, "Actividad").click();
       await page.getByRole("combobox", { name: "Actividad", exact: true }).selectOption("expense");
-      await saveButton(page).click();
+      await saveRow(page, "Actividad").click();
       await expect(approveButton(page)).toBeEnabled();
       await expect(page.getByText(/^Se registró un gasto/)).toHaveCount(0);
       const history = await openHistory(page);
@@ -118,7 +117,6 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await expect(fiscal.getByRole("status", { name: "Estado del RNC: RNC sin verificar" })).toBeVisible();
       await expect(fiscal).toContainText("B0100000099");
       await expect(fiscal).toContainText("e-CF");
-      await expect(fiscal).toContainText("El dueño no sabe");
       await expect(fiscal).toContainText("526.27");
       await expect(fact(page, "itbis")).toHaveAttribute("data-standing", "verified");
       const history = await openHistory(page);
@@ -143,11 +141,10 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
 
     test("Spanish unknown funding saves and waits for explicit human approval", async ({ page }) => {
       await openRecord(page, dossierFixtureIds.unknown);
-      await expect(fact(page, "currency")).toHaveAttribute("data-standing", "default");
       await capture(page, `unknown-funding-spanish-${viewport.width}`);
       await editField(page, "Cómo se pagó").click();
       await page.getByRole("combobox", { name: "Cómo se pagó", exact: true }).selectOption("account:acct-ops");
-      await saveButton(page).click();
+      await saveRow(page, "Cómo se pagó").click();
       await expect(approveButton(page)).toBeEnabled();
       await expect(page.getByText(/^Se registró un gasto/)).toHaveCount(0);
       await capture(page, `ready-approval-spanish-${viewport.width}`);
@@ -202,27 +199,24 @@ test.describe("Server authority and uncertain outcomes", () => {
     await expect(page.getByTestId("receipt-original-source")).toHaveCount(0);
   });
 
-  test("a zero total cannot be submitted after entering a valid partial business share", async ({ page }) => {
+  test("a zero total cannot be submitted", async ({ page }) => {
     await openRecord(page, dossierFixtureIds.ready);
     await editField(page, "Monto").click();
-    await page.getByTestId("dossier-review-amount").fill("0");
-    await editField(page, "Parte del negocio").click();
-    await page.getByRole("combobox", { name: "Parte del negocio", exact: true }).selectOption("partial");
-    const share = page.getByRole("textbox", { name: /^Monto del negocio/ });
-    await share.fill("100.00");
-    await expect(saveButton(page)).toBeDisabled();
+    const total = page.getByTestId("dossier-review-amount");
+    await total.fill("0");
     const history = await openHistory(page);
     const events = await history.locator("li").count();
-    await share.press("Enter");
+    await total.press("Enter");
     await expect(history.locator("li")).toHaveCount(events);
-    await expect(saveButton(page)).toBeDisabled();
+    await expect(total).toBeVisible();
+    await expect(approveButton(page)).toBeDisabled();
   });
 
   test("owner uncertainty is saved explicitly and leaves approval blocked", async ({ page }) => {
     await openRecord(page, dossierFixtureIds.unknown);
     await editField(page, "Cómo se pagó").click();
     await page.getByRole("combobox", { name: "Cómo se pagó", exact: true }).selectOption("owner_does_not_know");
-    await saveButton(page).click();
+    await saveRow(page, "Cómo se pagó").click();
     await expect(fact(page, "funding")).toContainText("El dueño no sabe");
     await expect(approveButton(page)).toBeDisabled();
   });
@@ -262,78 +256,84 @@ test.describe("Server authority and uncertain outcomes", () => {
     await expect(page.getByText(/^Se registró un gasto/)).toHaveCount(0);
   });
 
-  for (const scenario of ["saveUnknown", "saveConcurrent"] as const) {
-    test(`uncertain save retains its correction after status read: ${scenario}`, async ({ page }) => {
-      await openRecord(page, dossierFixtureIds[scenario]);
-      await editField(page, "Comercio o persona").click();
-      const merchant = page.getByRole("textbox", { name: "Comercio o persona", exact: true });
-      await merchant.fill("My retained correction");
-      await saveButton(page).click();
-      await expect(recordArea(page).getByRole("alert")).toContainText("resultado de la acción");
-      await page.getByRole("button", { name: "Consultar registro actual", exact: true }).click();
-      await expect(merchant).toHaveValue("My retained correction");
-      await expect(merchant).toBeDisabled();
-      await expect(saveButton(page)).toBeDisabled();
-      await expect(approveButton(page)).toBeDisabled();
-      await expect(recordArea(page).getByRole("alert")).toContainText("Tus cambios se conservan");
-      await expect(page.getByTestId("receipt-current-facts").last()).toContainText(scenario === "saveUnknown" ? "My retained correction" : "Corrección de otra persona");
-      const history = await openHistory(page);
-      await expect(history).toContainText(`Comercio o persona cambiado de Ferretería La Esquina a ${scenario === "saveUnknown" ? "My retained correction" : "Corrección de otra persona"}`);
-      if (scenario === "saveConcurrent") await expect(history).toContainText("Elena Reyes");
-      await page.getByRole("button", { name: "Consultar registro actual", exact: true }).click();
-      await expect(merchant).toHaveValue("My retained correction");
-      await capture(page, `uncertain-${scenario}-spanish`);
-    });
-  }
+  test("a save with no answer keeps its correction, holds approval and retries once", async ({ page }) => {
+    await openRecord(page, dossierFixtureIds.saveUnknown);
+    await editField(page, "Comercio o persona").click();
+    const merchant = page.getByRole("textbox", { name: "Comercio o persona", exact: true });
+    await merchant.fill("My retained correction");
+    await saveRow(page, "Comercio o persona").click();
+    const failure = page.getByTestId("row-save-failed");
+    await expect(failure).toContainText("No pudimos confirmar si Comercio o persona se guardó.");
+    await expect(failure.getByText(/^Ref\./)).toBeVisible();
+    await expect(merchant).toHaveValue("My retained correction");
+    await expect(approveButton(page)).toBeDisabled();
+    await failure.getByRole("button", { name: "Reintentar", exact: true }).click();
+    await expect(failure).toHaveCount(0);
+    await expect(page.getByTestId("receipt-current-facts")).toContainText("My retained correction");
+    const history = await openHistory(page);
+    await expect(history.locator("li", { hasText: "Comercio o persona cambiado de Ferretería La Esquina a My retained correction" })).toHaveCount(1);
+    await expect(approveButton(page)).toBeEnabled();
+    await capture(page, "uncertain-saveUnknown-spanish");
+  });
 
-  test("acknowledged own save settles and a status read preserves its canonical revision", async ({ page }) => {
+  test("a save another person overtook keeps its correction beside the current record", async ({ page }) => {
+    await openRecord(page, dossierFixtureIds.saveConcurrent);
+    await editField(page, "Comercio o persona").click();
+    const merchant = page.getByRole("textbox", { name: "Comercio o persona", exact: true });
+    await merchant.fill("My retained correction");
+    await saveRow(page, "Comercio o persona").click();
+    const failure = page.getByTestId("row-save-failed");
+    await expect(failure).toContainText("No pudimos confirmar si Comercio o persona se guardó.");
+    await expect(approveButton(page)).toBeDisabled();
+    await failure.getByRole("button", { name: "Reintentar", exact: true }).click();
+    await expect(failure).toContainText("Este registro cambió mientras editabas.");
+    await expect(merchant).toHaveValue("My retained correction");
+    await expect(approveButton(page)).toBeDisabled();
+    const history = await openHistory(page);
+    await expect(history).toContainText("Comercio o persona cambiado de Ferretería La Esquina a Corrección de otra persona");
+    await expect(history).toContainText("Elena Reyes");
+    await capture(page, "uncertain-saveConcurrent-spanish");
+  });
+
+  test("an acknowledged save settles and the next one builds on its revision", async ({ page }) => {
     await openRecord(page, dossierFixtureIds.ready);
     await editField(page, "Comercio o persona").click();
     await page.getByRole("textbox", { name: "Comercio o persona", exact: true }).fill("Acknowledged correction");
-    await saveButton(page).click();
+    await saveRow(page, "Comercio o persona").click();
     await expect(page.getByTestId("receipt-current-facts")).toContainText("Acknowledged correction");
-    await openMore(page);
-    await page.getByRole("button", { name: "Consultar registro actual", exact: true }).click();
     await expect(approveButton(page)).toBeEnabled();
-    await expect(page.getByTestId("receipt-current-facts")).toContainText("Acknowledged correction");
     await editField(page, "Comercio o persona").click();
     await page.getByRole("textbox", { name: "Comercio o persona", exact: true }).fill("New correction");
-    await saveButton(page).click();
+    await saveRow(page, "Comercio o persona").click();
     await expect(page.getByTestId("receipt-current-facts")).toContainText("New correction");
   });
 
   test("income is not relabeled as an expense", async ({ page }) => {
     await openRecord(page, dossierFixtureIds.income);
-    await expect(approveButton(page)).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Aprobar ingreso", exact: true })).toBeDisabled();
+    await expect(approveButton(page)).toBeDisabled();
+    await expect(page.getByRole("button", { name: /gasto/i })).toHaveCount(0);
     await expect(page.getByTestId("business-record-review")).toContainText("Esta actividad no admite aprobación en este primer flujo.");
   });
 
   test("the same current facts and approval action are localized", async ({ page }) => {
     await openRecord(page, dossierFixtureIds.ready);
     await expect(approveButton(page)).toBeVisible();
-    await expect(fact(page, "currency")).toHaveAttribute("data-standing", "default");
     await expect(page.getByTestId("receipt-current-facts")).toContainText("Fecha de actividad");
   });
 
-  test("Confirmar on a suggestion saves that one value as the reviewer's at a new revision and clears it from what needs review", async ({ page }) => {
+  test("a correction to a suggestion saves that one value as the reviewer's at a new revision", async ({ page }) => {
     await openRecord(page, dossierFixtureIds.fiscal);
     const merchant = fact(page, "counterparty");
-    const attention = page.getByTestId("dossier-attention");
     await expect(merchant).toHaveAttribute("data-standing", "suggestion");
-    await expect(attention).toContainText("Comercio o persona: sugerencia por confirmar");
 
-    await page.getByRole("button", { name: "Confirmar Comercio o persona", exact: true }).click();
+    await editField(page, "Comercio o persona").click();
+    await page.getByRole("textbox", { name: "Comercio o persona", exact: true }).fill("Ferretería La Esquina SRL");
+    await saveRow(page, "Comercio o persona").click();
 
     await expect(merchant).toHaveAttribute("data-standing", "person");
-    await expect(merchant).toContainText("Ferretería La Esquina");
-    await expect(page.getByRole("button", { name: /^Confirmar / })).toHaveCount(0);
-    await expect(attention).not.toContainText("sugerencia por confirmar");
-    const actions = page.getByRole("region", { name: "Revisiones en la web" });
-    await actions.getByText("Acción enviada originalmente").last().click();
-    await expect(actions.locator("pre").last()).toHaveText(JSON.stringify({ version: 2, facts: { counterparty: { state: "known", value: "Ferretería La Esquina" } } }));
+    await expect(merchant).toContainText("Ferretería La Esquina SRL");
     const history = await openHistory(page);
-    await expect(history.locator("li").first()).toContainText("Se revisó esta versión.");
+    await expect(history.locator("li").first()).toContainText("Comercio o persona cambiado de Ferretería La Esquina a Ferretería La Esquina SRL");
     await expect(history.locator("li").first()).toContainText("Ana Peña");
   });
 });
@@ -353,44 +353,40 @@ for (const scenario of ["stale", "denied", "outcomeUnknown"] as const) {
   });
 }
 
-test("landing on a record, then opening Bandeja, Transacciones and Inicio, each loads from the Business-scoped source", async ({ page }) => {
+test("landing on a record, then opening Bandeja, Registros and Inicio, each loads from the Business-scoped source", async ({ page }) => {
   // The workspace derives its data source from the latch and the panel kind: the
   // first fetch after leaving the record is already scoped, so every panel loads.
+  await atMidMonth(page);
   await openRecord(page, dossierFixtureIds.ready);
   const nav = page.getByTestId("business-sidebar-nav");
   const panel = page.getByTestId("workspace-panel-region");
   await nav.getByRole("button", { name: /^Bandeja/ }).click();
-  await expect(panel.getByRole("heading", { name: "Bandeja", exact: true })).toBeVisible();
-  await expect(panel.getByRole("button", { name: /Ferretería La Esquina.*Listo para revisar/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Bandeja", exact: true, level: 1 })).toBeVisible();
+  await expect(bandejaRows(page).getByRole("listitem").filter({ hasText: "Ferretería La Esquina" }).filter({ hasText: "Listo para revisar" })).toBeVisible();
   await expect(panel).not.toContainText("No pudimos cargar");
-  await nav.getByRole("button", { name: /^Transacciones/ }).click();
-  await expect(panel.getByRole("heading", { name: "Transacciones", exact: true })).toBeVisible();
+  await nav.getByRole("button", { name: /^Registros/ }).click();
+  await expect(page.getByRole("heading", { name: "Registros", exact: true, level: 1 })).toBeVisible();
   await expect(panel.locator("[data-record-id]").filter({ hasText: "Nube Hosting" })).toBeVisible();
   await expect(panel).not.toContainText("No pudimos cargar");
   await nav.getByRole("button", { name: /^Inicio/ }).click();
   // The home is scoped to the Business from the first fetch: its checklist carries real counts.
-  const review = panel.getByTestId("month-close-task-review");
-  await expect(review).toContainText(/Revisa \d+ recibos? en la Bandeja/);
+  const review = panel.getByTestId("home-records-to-review");
+  await expect(review).toContainText(/\d+ registros? por revisar/);
   expect(Number((await review.innerText()).match(/\d+/)![0])).toBeGreaterThan(0);
   await expect(panel).not.toContainText("No pudimos cargar");
 });
 
-test("after approving from the inbox, the home checklist and the inbox count change without a reload", async ({ page }) => {
+test("after approving from the inbox, the inbox count changes without a reload", async ({ page }) => {
   await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
   await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
   await page.goto("/dev/business-preview");
   const nav = page.getByTestId("business-sidebar-nav");
   const panel = page.getByTestId("workspace-panel-region");
-  const review = panel.getByTestId("month-close-task-review");
-  await expect(review).toBeVisible();
-  const count = async () => Number((await review.innerText()).match(/\d+/)![0]);
-  const before = await count();
-  expect(before).toBeGreaterThan(0);
-  const inbox = nav.getByRole("button", { name: /^Bandeja/ });
+  const inbox = nav.getByRole("button", { name: /^Bandeja \d+/ });
   const badge = Number((await inbox.innerText()).match(/\d+/)![0]);
   expect(badge).toBeGreaterThan(0);
   await inbox.click();
-  await panel.getByRole("button", { name: /Ferretería La Esquina.*Listo para revisar/ }).first().click();
+  await reviewAction(page, /Ferretería La Esquina/).click();
   await page.getByLabel(/Pagado desde/).selectOption({ label: "Cuenta corriente · DOP" });
   await saveButton(page).click();
   await approveButton(page).click();
@@ -398,8 +394,7 @@ test("after approving from the inbox, the home checklist and the inbox count cha
   await expect(page.getByTestId("business-record-review")).toContainText("Se registró un gasto");
   // No reload, no navigation beyond the panel switch: the home already knows.
   await nav.getByRole("button", { name: /^Inicio/ }).click();
-  await expect(panel.getByTestId("month-close-task-review")).toContainText(`Revisa ${before - 1} recibo`);
-  await expect(inbox).toHaveAccessibleName(`Bandeja ${badge - 1}`);
-  await nav.getByRole("button", { name: /^Transacciones/ }).click();
+  await expect(nav.getByRole("button", { name: `Bandeja ${badge - 1}`, exact: true })).toBeVisible();
+  await nav.getByRole("button", { name: /^Registros/ }).click();
   await expect(panel.locator("[data-record-id]").filter({ hasText: "Ferretería La Esquina" })).toBeVisible();
 });

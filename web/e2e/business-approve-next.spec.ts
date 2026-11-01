@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { installBreakpointFixture } from "./support/breakpoint-fixture";
+import { reviewAction } from "./support/business-receipt-fixture";
 
 async function capture(page: Page, name: string) {
   const directory = process.env.CUADRAO_RECORD_EVIDENCE_DIR;
@@ -22,13 +23,11 @@ for (const theme of ["light", "dark"] as const) {
         waiting = Number(await badge.textContent());
         expect(waiting).toBeGreaterThan(1);
       }
-      const rows = page.getByTestId("business-inbox-receipts");
-      await expect(rows.getByRole("button", { name: /Ferretería La Esquina/ })).toBeVisible();
-      await rows.getByRole("button", { name: /Ferretería La Esquina/ }).click();
+      await reviewAction(page, /Ferretería La Esquina/).click();
 
       await page.getByLabel("Pagado desde").selectOption({ index: 1 });
       await page.getByRole("button", { name: "Guardar detalles de revisión", exact: true }).click();
-      const next = page.getByRole("button", { name: "Aprobar y siguiente", exact: true });
+      const next = page.getByRole("button", { name: /^Aprobar y siguiente/ });
       await expect(next).toBeEnabled();
       await expect(page.getByRole("button", { name: "Aprobar", exact: true })).toBeEnabled();
       await next.scrollIntoViewIfNeeded();
@@ -37,7 +36,7 @@ for (const theme of ["light", "dark"] as const) {
       await next.click();
       await expect(page).toHaveURL(/receipt=rcpt-papeleria/);
       await expect(page.getByRole("heading", { name: "Papelería Central" })).toBeVisible();
-      await expect(page.getByRole("textbox", { name: "Comercio" })).toHaveValue("Papelería Central");
+      await expect(page.getByLabel("Comercio o persona", { exact: true })).toHaveValue("Papelería Central");
       if (viewport.name === "desktop") await expect(badge).toHaveText(String(waiting - 1));
       await capture(page, `next-receipt-${theme}-${viewport.name}`);
     });
