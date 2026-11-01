@@ -7,6 +7,11 @@ for (const path of ["/", "/personal", "/en", "/en/personal"]) {
     const crop = page.locator('footer > div[aria-hidden="true"]');
     await crop.scrollIntoViewIfNeeded();
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    // On a fractional page height, scripted and wheel scrolling end 1px apart.
+    for (let settle = 0; settle < 2; settle += 1) {
+      await page.mouse.wheel(0, 800);
+      await page.waitForTimeout(250);
+    }
     const width = page.viewportSize()!.width;
     const mobile = width <= 800;
     const borderVisible = await crop.evaluate((node) => {

@@ -9,7 +9,7 @@ const PAGES = [
   { path: "/privacidad", lang: "es-DO", title: "Privacidad | Cuadrao", canonical: "https://cuadrao.ai/privacidad", alternate: "https://cuadrao.ai/en/privacy" },
   { path: "/en", lang: "en", title: "Every record. In its place. | Cuadrao", canonical: "https://cuadrao.ai/en", alternate: "https://cuadrao.ai" },
   { path: "/en/personal", lang: "en", title: "Your finances, in order. | Cuadrao Personal", canonical: "https://cuadrao.ai/en/personal", alternate: "https://cuadrao.ai/personal" },
-  { path: "/en/contact", lang: "en", title: "Let's talk about your business | Cuadrao", canonical: "https://cuadrao.ai/en/contact", alternate: "https://cuadrao.ai/contacto" },
+  { path: "/en/contact", lang: "en", title: "Let’s talk about your business | Cuadrao", canonical: "https://cuadrao.ai/en/contact", alternate: "https://cuadrao.ai/contacto" },
   { path: "/en/privacy", lang: "en", title: "Privacy | Cuadrao", canonical: "https://cuadrao.ai/en/privacy", alternate: "https://cuadrao.ai/privacidad" },
 ];
 

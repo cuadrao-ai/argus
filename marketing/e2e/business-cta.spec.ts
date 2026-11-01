@@ -1,27 +1,29 @@
 import { expect, test } from "@playwright/test";
 
-for (const { path, cta, contact, earlyAccess } of [
-  { path: "/", cta: "Hablemos de tu negocio", contact: "Contacto", earlyAccess: "Acceso anticipado" },
-  { path: "/en", cta: "Let’s talk about your business", contact: "Contact", earlyAccess: "Early access" },
+import { businessPath, SITE_ROUTES } from "../lib/site-routes";
+
+for (const { path, cta, contact, contactPath, contactHeading, earlyAccess } of [
+  { path: "/", cta: "Hablemos de tu negocio", contact: "Contacto", contactPath: "/contacto", contactHeading: /Empecemos por\s+tu negocio\./, earlyAccess: "Acceso anticipado" },
+  { path: "/en", cta: "Let’s talk about your business", contact: "Contact", contactPath: "/en/contact", contactHeading: /Let’s start with\s+your business\./, earlyAccess: "Early access" },
 ]) {
-  test(`${path} Business contact actions lead to /contacto`, async ({ page }) => {
+  test(`${path} Business contact actions lead to ${contactPath}`, async ({ page }) => {
     await page.goto(path);
     const actions = page.getByRole("link", { name: cta, exact: true, includeHidden: true });
     await expect(actions).toHaveCount(3);
     for (const action of await actions.all()) {
-      await expect(action).toHaveAttribute("href", "/contacto");
+      await expect(action).toHaveAttribute("href", contactPath);
     }
-    await expect(page.locator("footer").getByRole("link", { name: contact, exact: true })).toHaveAttribute("href", "/contacto");
+    await expect(page.locator("footer").getByRole("link", { name: contact, exact: true })).toHaveAttribute("href", contactPath);
 
     const menu = page.getByRole("button", { name: /Abrir menú|Open menu/ });
     if (await menu.isVisible()) {
       await menu.click();
-      await expect(page.locator("#business-mobile-menu").getByRole("link", { name: cta, exact: true })).toHaveAttribute("href", "/contacto");
+      await expect(page.locator("#business-mobile-menu").getByRole("link", { name: cta, exact: true })).toHaveAttribute("href", contactPath);
       await page.getByRole("button", { name: /Cerrar menú|Close menu/ }).click();
     }
     await page.locator("main").getByRole("link", { name: cta, exact: true }).click();
-    await expect(page).toHaveURL(/\/contacto$/);
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Empecemos por\s+tu negocio\./);
+    await expect(page).toHaveURL(new RegExp(`${contactPath}$`));
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(contactHeading);
   });
 
   test(`${path} Personal waitlist actions keep their destinations`, async ({ page }) => {
@@ -34,6 +36,14 @@ for (const { path, cta, contact, earlyAccess } of [
       await menu.click();
       await expect(page.locator("#business-mobile-menu").getByRole("link", { name: earlyAccess, exact: true })).toHaveAttribute("href", "#early-access");
     }
+  });
+}
+
+for (const { locale, path } of SITE_ROUTES) {
+  test(`${path} never links to the contact page of the other language`, async ({ page }) => {
+    const otherContact = businessPath(locale === "es" ? "en" : "es", "contact");
+    await page.goto(path);
+    await expect(page.locator(`a[href="${otherContact}"]:not([data-language-switch])`)).toHaveCount(0);
   });
 }
 

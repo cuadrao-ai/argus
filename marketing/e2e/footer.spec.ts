@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { SITE_ROUTES } from "../lib/site-routes";
+
 for (const path of ["/", "/en", "/personal", "/en/personal"]) {
   test(`${path} ends at the wordmark without a photo reveal`, async ({ page }) => {
     await page.goto(path);
@@ -83,3 +85,19 @@ test("the Business footer opens the same product section as the hero", async ({ 
   await expect(page).toHaveURL(/\/#el-producto$/);
   await expect(page.locator("#el-producto")).toBeInViewport();
 });
+
+for (const { path } of SITE_ROUTES) {
+  test(`${path} menu button and footer links are at least 44px on a phone`, async ({ page }) => {
+    test.skip(test.info().project.name !== "mobile", "phone tap targets");
+    await page.setViewportSize({ width: 320, height: 800 });
+    await page.goto(path);
+    const targets = page.locator('header button[aria-controls="business-mobile-menu"], footer nav a');
+    const short = await targets.evaluateAll((nodes) =>
+      nodes.flatMap((node) => {
+        const { width, height } = node.getBoundingClientRect();
+        return width >= 44 && height >= 44 ? [] : [`${node.textContent} ${width}x${height}`];
+      }),
+    );
+    expect(short).toEqual([]);
+  });
+}
