@@ -6,7 +6,12 @@ Bandeja lists, opened or not, emails that are a row of their own included;
 ``ready_to_review`` is the "por revisar" number, the rows a person can review
 now. The Bandeja and the Resumen all read them. Each receipt row also carries
 ``bandeja``, its membership in those buckets, from the same predicates the
-counts sum, so a count always equals the number of rows flagged."""
+counts sum, so a count always equals the number of rows flagged.
+
+``bandeja_listo_count`` and ``bandeja_attention_count`` are the Bandeja's two
+tabs, split by each row's ``bandeja_group``: every row it lists is in exactly
+one, so they sum to ``pending_review_count``. Bandeja, Inicio and the sidebar
+read this one pair."""
 
 from __future__ import annotations
 
@@ -135,6 +140,12 @@ def bandeja(view: Mapping[str, Any]) -> dict[str, bool]:
     return {name: predicate(view) for name, predicate in BANDEJA.items()}
 
 
+def is_listo(view: Mapping[str, Any]) -> bool:
+    """A receipt row in the Bandeja's Listos tab, by its ``bandeja_group``."""
+
+    return (view.get("bandeja_group") or {}).get("group") == "listo"
+
+
 def closed_as(view: Mapping[str, Any], status: str) -> bool:
     """A receipt the Bandeja no longer lists because it ended as ``status``; the
     email itself never counts as a receipt."""
@@ -154,6 +165,8 @@ def inbox_counts(
     still being read waits like a receipt being read; one that brought no
     receipt also needs attention. ``ready_to_review_count`` is the receipts
     ready for review plus those notes; an email is never ready to review.
+    ``bandeja_listo_count`` is the receipts in Listos. A note and an email are
+    never Listos, so every other row is in ``bandeja_attention_count``.
     ``por_igualar_count`` is the Transacciones movements and documents still
     to igualar, or None while bank matching is off. ``confirmed_count`` and
     ``dismissed_count`` are the receipts that left the Bandeja each way, so a
@@ -161,11 +174,15 @@ def inbox_counts(
 
     rows = list(views)
     pending = [view for view in rows if awaiting_owner(view)]
+    every_row = len(pending) + notes + len(emails)
+    listos = sum(map(is_listo, pending))
     return {
-        "pending_review_count": len(pending) + notes + len(emails),
+        "pending_review_count": every_row,
         "ready_to_review_count": sum(map(BANDEJA["por_revisar"], pending)) + notes,
         "needs_attention_count": emails.count("no_receipt")
         + sum(map(BANDEJA["con_problema"], pending)),
+        "bandeja_listo_count": listos,
+        "bandeja_attention_count": every_row - listos,
         "por_igualar_count": por_igualar,
         "confirmed_count": sum(closed_as(view, "confirmed") for view in rows),
         "dismissed_count": sum(closed_as(view, "dismissed") for view in rows),

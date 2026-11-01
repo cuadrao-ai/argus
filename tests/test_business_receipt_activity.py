@@ -111,6 +111,8 @@ def test_emails_that_are_a_row_of_their_own_add_to_the_bandeja_counts():
         "pending_review_count": 2,
         "needs_attention_count": 1,
         "ready_to_review_count": 2,
+        "bandeja_listo_count": 0,
+        "bandeja_attention_count": 2,
         "por_igualar_count": None,
         **closed,
     }
@@ -118,6 +120,8 @@ def test_emails_that_are_a_row_of_their_own_add_to_the_bandeja_counts():
         "pending_review_count": 5,
         "needs_attention_count": 3,
         "ready_to_review_count": 3,
+        "bandeja_listo_count": 0,
+        "bandeja_attention_count": 5,
         "por_igualar_count": None,
         **closed,
     }
@@ -125,6 +129,8 @@ def test_emails_that_are_a_row_of_their_own_add_to_the_bandeja_counts():
         "pending_review_count": 5,
         "needs_attention_count": 2,
         "ready_to_review_count": 2,
+        "bandeja_listo_count": 0,
+        "bandeja_attention_count": 5,
         "por_igualar_count": None,
         **closed,
     }

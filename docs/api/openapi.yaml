@@ -2166,6 +2166,68 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/drafts/approve-listos:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      description: 'The owner approves a named list of Listos receipts. Each one runs alone
+
+        on the approval path, and the answer holds one result per item in the order
+
+        named. Replaying the key repeats each item''s answer.'
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveListos'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListosApproved'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/drafts/{draft_id}/approve:
     post:
       tags:
@@ -16225,6 +16287,19 @@ components:
       required:
       - version
       - action
+    ApproveListos:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/ListoItem'
+          type: array
+          maxItems: 50
+          minItems: 1
+      additionalProperties: false
+      type: object
+      required:
+      - items
+      description: The Listos receipts a person chose, each at the version they saw.
     ApproveRefund:
       properties:
         version:
@@ -16634,6 +16709,65 @@ components:
       type: object
       required:
       - state
+    BandejaGroup:
+      properties:
+        group:
+          anyOf:
+          - type: string
+            enum:
+            - listo
+            - attention
+          - type: 'null'
+        reason:
+          anyOf:
+          - type: string
+            enum:
+            - unreadable
+            - ai_unavailable
+            - interrupted
+            - outcome_unknown
+            - no_purchase_found
+            - not_a_receipt
+            - several_purchases
+            - source_unavailable
+            - check_details
+            - duplicate
+            - other
+            - reading
+            - not_read
+            - sale
+            - credit_note
+            - missing_merchant
+            - missing_date
+            - missing_amount
+            - missing_currency
+            - missing_rnc
+            - invalid_rnc
+            - missing_ncf
+            - invalid_ncf
+            - ecf_check_failed
+            - missing_itbis
+            - foreign_currency
+            - review_flag
+            - blocked
+            - unverified_sender
+          - type: 'null'
+        draft_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - group
+      - reason
+      - draft_id
+      - version
     BandejaMembership:
       properties:
         por_revisar:
@@ -18162,6 +18296,10 @@ components:
           type: integer
         ready_to_review_count:
           type: integer
+        bandeja_listo_count:
+          type: integer
+        bandeja_attention_count:
+          type: integer
         por_igualar_count:
           anyOf:
           - type: integer
@@ -18196,6 +18334,8 @@ components:
       - awaiting_review
       - needs_attention
       - ready_to_review_count
+      - bandeja_listo_count
+      - bandeja_attention_count
       - last_received_at
       - last_confirmed_at
     BusinessProfile:
@@ -25145,6 +25285,63 @@ components:
       - expected_version
       - activity_id
       - activity_revision
+    ListoApproval:
+      properties:
+        draft_id:
+          type: string
+          format: uuid
+        outcome:
+          type: string
+          enum:
+          - applied
+          - refused
+          - outcome_unknown
+        code:
+          anyOf:
+          - type: string
+          - type: 'null'
+        activity_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        existing_record_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - draft_id
+      - outcome
+      description: 'What happened to one named receipt. ``outcome_unknown`` means a replay
+
+        with the same key settles it; ``code`` says why it was refused or unsettled.'
+    ListoItem:
+      properties:
+        draft_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 1.0
+      additionalProperties: false
+      type: object
+      required:
+      - draft_id
+      - version
+    ListosApproved:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/ListoApproval'
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - results
+      description: One result per named receipt, in the order named.
     LocalizedText:
       properties:
         locale_key:
@@ -29415,6 +29612,10 @@ components:
           type: integer
         ready_to_review_count:
           type: integer
+        bandeja_listo_count:
+          type: integer
+        bandeja_attention_count:
+          type: integer
         por_igualar_count:
           anyOf:
           - type: integer
@@ -29434,6 +29635,8 @@ components:
       - pending_review_count
       - needs_attention_count
       - ready_to_review_count
+      - bandeja_listo_count
+      - bandeja_attention_count
       - por_igualar_count
     ReceiptCardFacts:
       properties:
@@ -29526,6 +29729,10 @@ components:
         bandeja:
           anyOf:
           - $ref: '#/components/schemas/BandejaMembership'
+          - type: 'null'
+        bandeja_group:
+          anyOf:
+          - $ref: '#/components/schemas/BandejaGroup'
           - type: 'null'
         channel:
           type: string
@@ -30186,6 +30393,10 @@ components:
         bandeja:
           anyOf:
           - $ref: '#/components/schemas/BandejaMembership'
+          - type: 'null'
+        bandeja_group:
+          anyOf:
+          - $ref: '#/components/schemas/BandejaGroup'
           - type: 'null'
         channel:
           type: string

@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from typing import Mapping, Sequence
 from uuid import UUID
 
+from argus.domain.business.actions.listos import linked_standings
+from argus.domain.business.bandeja_group import group_of
 from argus.domain.business.receipt_activity import (
     aggregate_activity,
     awaiting_owner,
@@ -54,7 +56,9 @@ def project(
             baseline = tx.rows(
                 "select established_at from public.business_receipt_activity_baseline where singleton=true"
             )[0]["established_at"]
-            result = _project(views, states, baseline, drafts)
+            result = _project(
+                views, states, baseline, drafts, linked_standings(tx, drafts)
+            )
             if acknowledge_id:
                 chosen = next(view for view in result if view["id"] == acknowledge_id)
                 activity = chosen["activity"]
@@ -93,7 +97,7 @@ def project(
     return result
 
 
-def _project(views, states, baseline, drafts=None):
+def _project(views, states, baseline, drafts=None, standings=None):
     output = []
     for view in views:
         row = states.get(view["id"], {})
@@ -120,7 +124,14 @@ def _project(views, states, baseline, drafts=None):
             completed_at=completed,
         )
         row = {**view, "activity": activity.wire()}
-        output.append({**row, "bandeja": bandeja(row)})
+        standing = (
+            (standings or {}).get(str(canonical[0]["id"]))
+            if len(canonical) == 1
+            else None
+        )
+        output.append(
+            {**row, "bandeja": bandeja(row), "bandeja_group": group_of(row, standing)}
+        )
     return output
 
 

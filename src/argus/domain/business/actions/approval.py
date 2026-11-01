@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime, time, timezone
 from typing import TYPE_CHECKING, Literal
@@ -21,7 +22,9 @@ from argus.domain.business.actions.fiscal import (
     refund_reference,
     require_distinct_fiscal_document,
 )
+from argus.domain.business.actions.listos import draft_standings
 from argus.domain.business.authority import ActionContext, ActionError
+from argus.domain.business.bandeja_group import listo_reason
 from argus.domain.business.contracts.actions import (
     ActionOutcome,
     Applied,
@@ -41,6 +44,12 @@ from argus.domain.business.contracts.facts import (
     BusinessFacts,
     Known,
     OwnerFunding,
+)
+from argus.domain.business.contracts.listos import (
+    ApproveListos,
+    ListoApproval,
+    ListoItem,
+    ListosApproved,
 )
 from argus.domain.business.purchase_review import declaration_from_facts
 from argus.domain.business.review_flags import unconfirmed
@@ -63,6 +72,7 @@ def _reviewed_facts(
     version: int,
     kind: Literal["expense", "income", "refund"],
     approve_anyway: bool = False,
+    listo: bool = False,
 ) -> tuple[ImportEvent, BusinessFacts]:
     event = mutations.event_at(tx, ExistingDraft(draft_id=draft_id, version=version))
     view = dossier.dossier(tx, draft_id)
@@ -85,6 +95,8 @@ def _reviewed_facts(
         raise ActionError(
             "invalid_input", "approval_confirmation_required", flags=flagged
         )
+    if listo and listo_reason(draft_standings(tx, [event])[event.id]) is not None:
+        raise ActionError("invalid_input", "not_listo")
     return event, view.facts
 
 
@@ -269,7 +281,11 @@ def approve(
     draft_id: UUID,
     request: ApproveExpense | ApproveIncome | ApproveRefund,
     key: str,
+    listo: bool = False,
 ) -> ActionOutcome:
+    """``listo`` admits the draft only while the Listos rule still holds, read
+    in the transaction that claims it."""
+
     kind: Literal["expense", "income", "refund"] = (
         "refund"
         if isinstance(request, ApproveRefund)
@@ -348,6 +364,7 @@ def approve(
                             request.version,
                             kind,
                             bool(request.approve_anyway),
+                            listo,
                         )
                     except ActionError as error:
                         return plans.finish_receipt(tx, key, error.result)
@@ -447,3 +464,52 @@ def approve(
         return result
     except ActionError as error:
         return error.result
+
+
+def _approve_listo(
+    service: BusinessActions,
+    resolve: Callable[[UUID], ActionContext],
+    item: ListoItem,
+    request_key: str,
+) -> ListoApproval:
+    """One receipt of a list, on the approval path, under a key of its own, so
+    a replay of the request settles or repeats each item alone. Whatever goes
+    wrong here stays with this item."""
+
+    key = hashlib.sha256(f"listos:{request_key}:{item.draft_id}".encode()).hexdigest()
+    try:
+        outcome = approve(
+            service,
+            resolve(item.draft_id),
+            item.draft_id,
+            ApproveExpense(version=item.version, action="record_expense"),
+            key,
+            listo=True,
+        )
+    except ActionError as error:
+        outcome = error.result
+    except Exception:
+        logger.exception("business.approve_listos_item_failed")
+        outcome = OutcomeUnknown(code="business_recording_unsettled")
+    return ListoApproval.of(item.draft_id, outcome)
+
+
+def approve_listos(
+    service: BusinessActions,
+    context: ActionContext,
+    resolve: Callable[[UUID], ActionContext],
+    request: ApproveListos,
+    key: str,
+) -> ListosApproved:
+    """Each named receipt in turn. ``context`` is the working Business, which
+    only someone holding approve may act on; ``resolve`` finds the context of a
+    named draft, as the single approval does, so a draft of another Business
+    is missing and leaves no ledger row."""
+
+    with transaction(service.authority, context, "approve"):
+        pass
+    return ListosApproved(
+        results=tuple(
+            _approve_listo(service, resolve, item, key) for item in request.items
+        )
+    )

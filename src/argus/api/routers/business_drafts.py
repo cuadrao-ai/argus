@@ -26,6 +26,7 @@ from argus.domain.business.contracts.actions import (
     SettleRemainder,
 )
 from argus.domain.business.contracts.dossier import BusinessDossier
+from argus.domain.business.contracts.listos import ApproveListos, ListosApproved
 
 router = APIRouter(
     prefix="/business/drafts",
@@ -195,6 +196,28 @@ def approve_draft(
     return _run(
         request, response, context, draft_id, body, _key(request, idempotency_key)
     )
+
+
+@router.post("/approve-listos", response_model=ListosApproved)
+def approve_listos(
+    request: Request,
+    response: Response,
+    body: ApproveListos,
+    context: Annotated[DraftContext, Depends(require_drafts)],
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+):
+    """The owner approves a named list of Listos receipts. Each one runs alone
+    on the approval path, and the answer holds one result per item in the order
+    named. Replaying the key repeats each item's answer."""
+
+    response.headers.update(NO_STORE)
+    key = _key(request, idempotency_key)
+    try:
+        return context.service.approve_listos(
+            context.for_space(request), context.for_draft, body, key
+        )
+    except ActionError as error:
+        raise action_problem(request, error.result) from None
 
 
 @router.post(

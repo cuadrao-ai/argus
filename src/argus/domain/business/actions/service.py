@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
@@ -49,6 +50,7 @@ from argus.domain.business.contracts.dossier import (
     WebActionSource,
     web_action_text,
 )
+from argus.domain.business.contracts.listos import ApproveListos, ListosApproved
 from argus.domain.business.contracts.recovery import SenderLease
 from argus.domain.business.duplicates import flag_receipt_duplicates
 from argus.domain.business.transactions import (
@@ -612,6 +614,17 @@ class BusinessActions:
         from argus.domain.business.actions.approval import approve
 
         return approve(self, context, draft_id, request, key)
+
+    def approve_listos(
+        self,
+        context: ActionContext,
+        resolve: Callable[[UUID], ActionContext],
+        request: ApproveListos,
+        key: str,
+    ) -> ListosApproved:
+        from argus.domain.business.actions.approval import approve_listos
+
+        return approve_listos(self, context, resolve, request, key)
 
     def capture_attachment_preparation(
         self,

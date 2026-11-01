@@ -42,6 +42,7 @@ from argus.domain.business.contracts.facts import (
     Known,
     personal_mark_admits,
 )
+from argus.domain.business.receipts import read_attention
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.search import SearchQuery
 from argus.domain.business.service import BusinessService
@@ -361,37 +362,6 @@ def require_legacy_receipt_write(context: BusinessContext, receipt_id: str) -> N
                 raise ActionError("invalid_input", "business_action_required")
 
 
-def read_attention(event) -> dict:  # noqa: ANN001
-    """Why a prepared receipt still needs a person, from what the read left on
-    the draft: several purchases, none it could settle, or purchases the
-    recorded expense does not cover (until a person records or settles them)."""
-
-    business = event.resolution.get("business")
-    if business is None:
-        return {}
-    resolution = BusinessResolution.model_validate(business)
-    read = resolution.read_purchases
-    if event.state == "open" and read:
-        return {
-            "status": "needs_attention",
-            "attention": "several_purchases",
-            "error_code": "several_purchases_found",
-        }
-    if (
-        event.state == "open"
-        and resolution.read_total is not None
-        and not isinstance(resolution.facts.amount, Known)
-    ):
-        return {
-            "status": "needs_attention",
-            "attention": "no_purchase_found",
-            "error_code": "no_purchase_found",
-        }
-    if event.state == "accepted" and resolution.unrecorded_purchases():
-        return {"attention": "several_purchases", "error_code": "purchases_unrecorded"}
-    return {}
-
-
 _BRIDGE_STATUS = {
     "open": "review_ready",
     "accepting": "review_ready",
@@ -583,6 +553,8 @@ def overview_with_drafts(context: BusinessContext, start, end) -> dict:  # noqa:
     data["needs_attention"] = counts["needs_attention_count"]
     data["awaiting_review"] = counts["pending_review_count"] - data["needs_attention"]
     data["ready_to_review_count"] = counts["ready_to_review_count"]
+    data["bandeja_listo_count"] = counts["bandeja_listo_count"]
+    data["bandeja_attention_count"] = counts["bandeja_attention_count"]
     data["por_igualar_count"] = counts["por_igualar_count"]
     # Gastos reales are the receipts the Personal mark admits, by the rule
     # month close and Registros share; con valor fiscal are the real ones that
