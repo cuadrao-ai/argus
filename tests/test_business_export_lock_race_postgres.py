@@ -95,7 +95,9 @@ def recorded(world, ncf):  # noqa: ANN001, ANN201, F811
         alice.headers,
     )
     assert approved.status_code == 200, approved.text
-    done = write(world, draft, approved.json()["version"], category="02", payment_method="01")
+    done = write(
+        world, draft, approved.json()["version"], category="02", payment_method="01"
+    )
     assert done.status_code == 200, done.text
     return draft, done.json()["version"]
 
@@ -230,7 +232,7 @@ def test_a_write_arriving_during_the_build_is_refused(world):  # noqa: ANN001, F
     assert (refused.status_code, refused.json().get("code")) == (
         422,
         "fiscal_declaration_exported",
-    ), refused.text
+    ), refused.text[:200]
     assert shipped_payment_form(outcome["export"]) == "01"
     view = dossier(world, draft)
     assert (view["dgii"]["payment_method"], view["declaration_editable"]) == ("01", False)

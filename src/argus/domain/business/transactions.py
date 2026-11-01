@@ -55,6 +55,17 @@ def check_lease(
         raise ActionError("permission_denied", "business_sender_lease_lost")
 
 
+def lock_owner(connection: Connection, owner_id: str) -> None:
+    """Hold the Business's one owner lock until the transaction ends. Every
+    write of the owner's records takes it, and so does the export that
+    freezes them, so a write and a freeze never interleave."""
+
+    connection.execute(
+        "select pg_advisory_xact_lock(hashtextextended(%s, 0))",
+        (f"financial_import:{owner_id}",),
+    )
+
+
 @contextmanager
 def transaction(
     authority: BusinessAuthority,
@@ -63,10 +74,7 @@ def transaction(
     lease: SenderLease | None = None,
 ) -> Iterator[ActionTransaction]:
     with authority.pool.connection() as connection, connection.transaction():
-        connection.execute(
-            "select pg_advisory_xact_lock(hashtextextended(%s, 0))",
-            (f"financial_import:{context.owner_id}",),
-        )
+        lock_owner(connection, context.owner_id)
         live = authorize(connection, context.actor, context.grant_id)
         if live.context.owner_id != context.owner_id:
             raise ActionError("not_found", "business_record_not_found")

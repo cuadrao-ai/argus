@@ -121,8 +121,8 @@ class ExportSnapshot:
     fiscal_records: tuple[FiscalRecord, ...] = ()
     business_rnc: str | None = None
     business_name: str = ""
-    # Stored settlement rows by activity id, read on the same snapshot as the
-    # activities. Month close and bank matching write them.
+    # Stored settlement rows by activity id, read with the declarations under
+    # the owner lock. Month close and bank matching write them.
     settlements: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
 
 
@@ -539,6 +539,9 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
 
     from argus.domain.business.authority import ActionError, authorize
     from argus.domain.business.contracts.facts import BusinessResolution, Known
+    from argus.domain.business.dgii_snapshot import fiscal_snapshot
+    from argus.domain.business.month_close_store import read_settlements
+    from argus.domain.business.transactions import lock_owner
     from argus.domain.ingestion.documents.models import DocumentExtractionError
     from argus.domain.ingestion.documents.objects import (
         IMAGE_MEDIA_TYPES,
@@ -678,29 +681,10 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                 )
                 for a in activities
             )
-            from argus.domain.business.dgii_snapshot import fiscal_snapshot
-            from argus.domain.business.month_close_store import read_settlements
-
-            fiscal_records, business_rnc, business_name = fiscal_snapshot(
-                cursor, context, activities
-            )
-            snapshot = ExportSnapshot(
-                period,
-                activities,
-                sources,
-                tuple(unresolved),
-                utcnow(),
-                fiscal_records,
-                business_rnc,
-                business_name,
-                settlements=read_settlements(
-                    cursor, context.owner_id, str(context.actor.space_id)
-                ),
-            )
 
     store = PostgresDocumentStore(authority.pool, objects)
     downloads = []
-    for source in snapshot.sources:
+    for source in sources:
         if source.text is None and source.media_type in IMAGE_MEDIA_TYPES:
             # Rebuilding writes through another connection. Release snapshot
             # locks before the capped producer; recheck access before and after.
@@ -737,10 +721,13 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                         expected_sha256=hashlib.sha256(rebuilt[1]).hexdigest(),
                     )
         downloads.append(source)
-    snapshot = replace(snapshot, sources=tuple(downloads))
 
+    # The declarations are read, the TXT built and its lines frozen under the
+    # Business's one owner lock, the lock every 606 write takes: a write lands
+    # before this read and the TXT carries it, or it waits and meets the freeze.
+    # Read committed, so the reads after the lock see what committed before it.
     with authority.pool.connection() as connection, connection.transaction():
-        connection.execute("set transaction isolation level repeatable read")
+        lock_owner(connection, context.owner_id)
         current = authorize(connection, context.actor, context.grant_id)
         current.require("export")
         if current.context.owner_id != context.owner_id:
@@ -814,6 +801,22 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                 cursor.execute(sql, params)
                 return cursor.fetchone()
 
+            fiscal_records, business_rnc, business_name = fiscal_snapshot(
+                cursor, context, activities
+            )
+            snapshot = ExportSnapshot(
+                period,
+                activities,
+                tuple(downloads),
+                tuple(unresolved),
+                utcnow(),
+                fiscal_records,
+                business_rnc,
+                business_name,
+                settlements=read_settlements(
+                    cursor, context.owner_id, str(context.actor.space_id)
+                ),
+            )
             result = build_export(
                 snapshot,
                 original,
