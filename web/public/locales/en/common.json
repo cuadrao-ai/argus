@@ -2746,7 +2746,6 @@
       "type_detected_venta": "We read it as a sale from your business's RNC. Add the client's RNC.",
       "type_detected_recibo": "We read it as a purchase. Change it if it is a sale.",
       "type_locked": "This record is approved. Its type no longer changes.",
-      "type_failed": "We couldn't change the type. Try again.",
       "title": "Review record",
       "unknown": "Unknown",
       "rnc_unknown": "No RNC",
@@ -2943,7 +2942,8 @@
         "group_retentions": "Withholdings",
         "group_other": "Other",
         "section_choices": "For the 606",
-        "use_suggestion": "Use"
+        "use_suggestion": "Use",
+        "mark_no_receipt": "Mark as no receipt"
       },
       "place": "{{index}} of {{total}}",
       "receipt": {

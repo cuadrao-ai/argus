@@ -8,7 +8,7 @@ import type { BusinessDossier, BusinessFact, BusinessFactField } from "@/lib/bus
 import { rncStatus } from "@/lib/rnc-status";
 import RncStatusBlock from "./RncStatusBlock";
 import type { RowShown } from "./ReceiptEditRow";
-import { useCategoryLabel } from "./business-ui";
+import { quietButtonClass, useCategoryLabel } from "./business-ui";
 import { formatMoney, UNKNOWN_VALUE } from "./business-format";
 import { presentBusinessFact, presentFiscalFact } from "./receipt-fact-presentation";
 import { KIND_FIELDS, PAYMENT_FIELDS, doubtfulFields, fiscalFactRows, recordFactRows, totalMismatch, type FactRow, type ReviewRow } from "./receipt-fact-rows";
@@ -40,6 +40,8 @@ export type FactsReview = {
   note: (row: ReviewRow) => ReactNode;
   /** The owner's choices, as rows. */
   choices?: ReactNode;
+  /** Marking a record that has no fiscal number as Sin recibo. `onMark` is absent for someone who cannot edit it now. */
+  noReceipt: { onMark?: (marked: boolean) => void; busy: boolean; note: ReactNode };
 };
 
 /**
@@ -138,10 +140,23 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     return field(key, label, key === "occurred_on" && !value ? UNKNOWN_VALUE : value, row, tag, match);
   };
 
+  /** The number row of a record with none: what the server says it is, and the way to say it has no receipt. */
+  const noNumber = (form: FactsReview) => {
+    const state = dossier.facts.receipt_state;
+    const marked = state.state === "known" && state.value === "no_receipt";
+    const onMark = form.noReceipt.onMark;
+    return <>
+      <p>{dossier.sin_comprobante && state.state === "known" ? <>{t(`business.dossier.receipt.${state.value}`, state.value)}{origin("receipt_state", state)}</> : t("business.marks.no_fiscal_chip", "No fiscal receipt number")}</p>
+      {onMark ? <button type="button" data-testid="mark-no-receipt" disabled={form.noReceipt.busy} className={`${quietButtonClass} mt-1`} onClick={() => onMark(!marked)}>{marked ? t("business.marks.undo", "Undo") : t("business.dossier.placeholder.mark_no_receipt", "Mark as no receipt")}</button> : null}
+    </>;
+  };
+
   /** The fiscal rows of an open draft: always all three, each with its edit control. */
   const reviewFiscalFields = (form: FactsReview) => {
     const rncLabel = t("business.dossier.field.rnc", "RNC");
     const rncMissing = ["missing", "invalid_length"].includes(rncStatus(fiscal?.rnc, flags));
+    // Sin comprobante stays out of the 606, so a missing RNC is only a blank row.
+    const rncAsked = dossier.sin_comprobante === true && rncMissing;
     const rncEdit = form.onEdit ? () => form.onEdit?.("rnc") : undefined;
     const number = fiscal?.ecf.state === "known" ? "ecf" : "ncf";
     const numberLabel = `${t("business.dossier.field.ncf", "NCF")} / ${t("business.dossier.field.ecf", "e-CF")}`;
@@ -155,8 +170,8 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     ) : null;
     const itbisLabel = t("business.dossier.field.itbis", "ITBIS");
     return <>
-      {field("rnc", rncLabel, form.row("rnc", { label: rncLabel, compound: true, pencil: !rncMissing, value: <><RncStatusBlock fact={fiscal?.rnc} flags={flags} onEditRnc={rncEdit} />{origin("rnc", fiscal?.rnc)}</> }), fiscalRows.get("rnc"), undefined, [fiscal?.rnc.value])}
-      {field("fiscal_number", numberLabel, form.row("fiscal_number", { label: numberLabel, value: numberValue ? <>{numberValue}{origin(number, fiscal?.[number])}</> : "" }), fiscalRows.get(number), undefined, [numberValue])}
+      {field("rnc", rncLabel, form.row("rnc", rncAsked ? { label: rncLabel, value: "" } : { label: rncLabel, compound: true, pencil: !rncMissing, value: <><RncStatusBlock fact={fiscal?.rnc} flags={flags} onEditRnc={rncEdit} />{origin("rnc", fiscal?.rnc)}</> }), fiscalRows.get("rnc"), undefined, [fiscal?.rnc.value])}
+      {field("fiscal_number", numberLabel, form.row("fiscal_number", noFiscal ? { label: numberLabel, compound: true, value: noNumber(form) } : { label: numberLabel, value: numberValue ? <>{numberValue}{origin(number, fiscal?.[number])}</> : "" }), fiscalRows.get(number), form.noReceipt.note, [numberValue])}
       {field("itbis", itbisLabel, form.row("itbis", { label: itbisLabel, value: itbisValue ? <>{itbisValue}{origin("itbis", fiscal?.itbis)}</> : "" }), fiscalRows.get("itbis"), itbisHigh, [itbisValue, fiscal?.itbis.value])}
     </>;
   };

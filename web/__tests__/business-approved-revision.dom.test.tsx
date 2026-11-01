@@ -85,7 +85,7 @@ describe("a recorded receipt names the revision that was approved", () => {
   test("approving revision 2 then marking it Personal keeps revisión 2 and the approval date", async () => {
     const page = await mount();
     const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
-    await page.open(dossierFixtureIds.ready);
+    await page.open(dossierFixtureIds.noNumber);
     await page.wait(() => [...page.host.querySelectorAll("button")].some((item) => item.textContent === "Aprobar"));
     const approve = [...page.host.querySelectorAll<HTMLButtonElement>("button")].find((item) => item.textContent === "Aprobar")!;
     await page.act(async () => approve.click());

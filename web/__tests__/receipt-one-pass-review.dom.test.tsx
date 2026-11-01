@@ -410,6 +410,140 @@ describe("the receipt dossier on an open draft", () => {
     } finally { await held.close(); }
   });
 
+  test("Tipo is a fact row: the pencil opens its two options, the check saves through the type write, the X cancels", async () => {
+    const typed: { version: number; documentType: string }[] = [];
+    const page = await setup("fiscal", () => undefined, (fixture) => ({ setDocumentType: async (draft, version, documentType, key) => { typed.push({ version, documentType }); return fixture.setDocumentType(draft, version, documentType, key); } }));
+    try {
+      assert.equal(page.host.querySelector('[role="radiogroup"], [data-segment]'), null);
+      assert.match(page.row("document_type").textContent ?? "", /Tipo\s*Compra/);
+      await page.openRow("document_type");
+      const select = () => page.row("document_type").querySelector("select")!;
+      assert.deepEqual([...select().options].map((option) => option.textContent), ["Compra", "Venta"]);
+      await fill(page, '[data-fact="document_type"] select', "venta", HTMLSelectElement);
+      assert.equal(typed.length, 0, "picking saves nothing");
+      await page.dismiss("document_type");
+      assert.equal(page.row("document_type").querySelector("select"), null);
+      assert.match(page.row("document_type").textContent ?? "", /Compra/);
+      assert.equal(typed.length, 0, "the X sends nothing");
+
+      await page.openRow("document_type");
+      await fill(page, '[data-fact="document_type"] select', "venta", HTMLSelectElement);
+      await page.check("document_type");
+      await page.wait(() => /Venta/.test(page.row("document_type").textContent ?? ""));
+      assert.deepEqual(typed.map(({ version, documentType }) => [version, documentType]), [[2, "venta"]]);
+      assert.ok(page.row("document_type").querySelector('[data-testid="row-saved"]'));
+      assert.equal(page.row("document_type").getAttribute("data-type"), "venta");
+    } finally { await page.close(); }
+  });
+
+  test("an unchanged Tipo closes without a write, and a held choice stops approval by name", async () => {
+    const typed: { version: number; documentType: string }[] = [];
+    const page = await setup("fiscal", () => undefined, (fixture) => ({ setDocumentType: async (draft, version, documentType, key) => { typed.push({ version, documentType }); return fixture.setDocumentType(draft, version, documentType, key); } }));
+    try {
+      await page.openRow("document_type");
+      await page.check("document_type");
+      assert.equal(page.row("document_type").querySelector("select"), null);
+      assert.equal(typed.length, 0);
+      await page.openRow("document_type");
+      await fill(page, '[data-fact="document_type"] select', "venta", HTMLSelectElement);
+      assert.match(page.host.querySelector('[data-testid="approve-reason"]')?.textContent ?? "", /Tipo/);
+    } finally { await page.close(); }
+  });
+
+  test("a refused Tipo says the record is fixed, with its reference, and keeps the shown type", async () => {
+    const page = await setup("fiscal", () => undefined, () => ({ setDocumentType: async () => { throw Object.assign(new Error("locked"), { status: 422, code: "document_type_locked", requestId: "req-type-locked" }); } }));
+    try {
+      await page.openRow("document_type");
+      await fill(page, '[data-fact="document_type"] select', "venta", HTMLSelectElement);
+      await page.check("document_type");
+      await page.wait(() => Boolean(page.row("document_type").querySelector('[data-testid="row-save-failed"]')));
+      assert.match(page.row("document_type").textContent ?? "", /ya está aprobado/);
+      assert.match(page.row("document_type").textContent ?? "", /Ref\./);
+      assert.equal(page.row("document_type").getAttribute("data-type"), "recibo");
+      await page.dismiss("document_type");
+      assert.equal(page.row("document_type").querySelector('[data-testid="row-save-failed"]'), null);
+    } finally { await page.close(); }
+  });
+
+  test("a row opened with nothing changed warns nobody; only an unsaved change holds the way out", async () => {
+    const page = await setup();
+    try {
+      await page.openRow("itbis");
+      const event = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(event);
+      assert.equal(event.defaultPrevented, false);
+      await fill(page, '[data-testid="dossier-review-itbis"]', "600.00");
+      const held = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(held);
+      assert.equal(held.defaultPrevented, true);
+    } finally { await page.close(); }
+  });
+
+  test("a record with no fiscal number marks Sin recibo through the review's facts, and takes it back", async () => {
+    const page = await setup("noNumber");
+    try {
+      const mark = () => page.host.querySelector<HTMLButtonElement>('[data-testid="mark-no-receipt"]')!;
+      assert.match(page.row("fiscal_number").textContent ?? "", /Sin comprobante fiscal/);
+      assert.equal(mark().textContent, "Marcar sin recibo");
+      await page.act(async () => mark().click());
+      await page.wait(() => /Sin recibo/.test(page.row("fiscal_number").textContent ?? ""));
+      assert.deepEqual(page.writes.map(({ kind, version, body }) => [kind, version, body]), [["facts", 2, { receipt_state: { state: "known", value: "no_receipt" } }]]);
+      assert.match(page.row("fiscal_number").textContent ?? "", /del revisor/);
+      assert.ok(page.row("fiscal_number").querySelector('[data-testid="row-saved"]'));
+      assert.equal(mark().textContent, "Deshacer");
+
+      await page.act(async () => mark().click());
+      await page.wait(() => /Marcar sin recibo/.test(page.row("fiscal_number").textContent ?? ""));
+      assert.deepEqual(page.writes[1].body, { receipt_state: { state: "unknown", value: null } });
+      assert.match(page.row("fiscal_number").textContent ?? "", /Sin comprobante fiscal/);
+    } finally { await page.close(); }
+  });
+
+  test("Sin recibo never asks for an RNC: the row is blank and approval goes straight through", async () => {
+    const page = await setup("noNumber");
+    try {
+      assert.ok(page.row("rnc").querySelector('[data-testid="rnc-status"]'));
+      await page.act(async () => page.host.querySelector<HTMLButtonElement>('[data-testid="mark-no-receipt"]')!.click());
+      await page.wait(() => !page.row("rnc").querySelector('[data-testid="rnc-status"]'));
+      await page.act(async () => button(page.host, "Aprobar").click());
+      assert.equal(document.querySelector('[role="alertdialog"]'), null);
+      assert.equal(page.approvals(), 1);
+    } finally { await page.close(); }
+  });
+
+  test("a record with a fiscal number offers no Sin recibo mark", async () => {
+    const page = await setup();
+    try {
+      assert.equal(page.host.querySelector('[data-testid="mark-no-receipt"]'), null);
+    } finally { await page.close(); }
+  });
+
+  test("a refused Sin recibo holds approval, shows its reference under the row, and cancels", async () => {
+    const page = await setup("noNumber", () => undefined, () => ({ reviewDraft: async () => { throw Object.assign(new Error("refused"), { status: 422, code: "validation_error", requestId: "req-no-receipt" }); } }));
+    try {
+      await page.act(async () => page.host.querySelector<HTMLButtonElement>('[data-testid="mark-no-receipt"]')!.click());
+      await page.wait(() => Boolean(page.row("fiscal_number").querySelector('[data-testid="row-save-failed"]')));
+      assert.match(page.row("fiscal_number").textContent ?? "", /Ref\./);
+      assert.equal(button(page.host, "Aprobar").disabled, true);
+      await page.act(async () => button(page.row("fiscal_number"), "Cancelar").click());
+      assert.equal(button(page.host, "Aprobar").disabled, false);
+    } finally { await page.close(); }
+  });
+
+  test("Historial shows the owner choices by the server's labels", async () => {
+    const page = await setup("fiscalDeclared");
+    try {
+      const fold = page.host.querySelector('[data-testid="receipt-history"]');
+      await page.wait(() => Boolean(fold?.querySelector("details dd")));
+      const shown = fold?.querySelector("details")?.textContent ?? "";
+      assert.match(shown, /Gastos por trabajos, suministros y servicios/);
+      assert.match(shown, /Tarjeta crédito\/débito/);
+      const values = [...fold!.querySelectorAll("details dd")].map((item) => item.textContent);
+      assert.equal(values.includes("02"), false);
+      assert.equal(values.includes("03"), false);
+    } finally { await page.close(); }
+  });
+
   test("Historial owns what changed: the raw web actions are gone and the correction is there", async () => {
     const page = await setup();
     try {

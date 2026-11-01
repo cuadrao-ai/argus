@@ -32,7 +32,7 @@ async function render(dossier: BusinessDossier, lng: "es-419" | "en" = "es-419",
   const confirmed: string[] = [];
   const html = renderToStaticMarkup(
     <I18nextProvider i18n={instance}>
-      <ReceiptRecordFacts dossier={dossier} accounts={[]} attention={attention} review={review ? { onEdit: confirmable ? (key) => { confirmed.push(key); } : undefined, row: (key, shown) => <ReceiptEditRow {...shown} open={false} saving={false} locked={false} onOpen={confirmable ? () => confirmed.push(key) : undefined} onSave={() => undefined} onCancel={() => undefined}>{null}</ReceiptEditRow>, note: () => null } : undefined} />
+      <ReceiptRecordFacts dossier={dossier} accounts={[]} attention={attention} review={review ? { noReceipt: { busy: false, note: null }, onEdit: confirmable ? (key) => { confirmed.push(key); } : undefined, row: (key, shown) => <ReceiptEditRow {...shown} open={false} saving={false} locked={false} onOpen={confirmable ? () => confirmed.push(key) : undefined} onSave={() => undefined} onCancel={() => undefined}>{null}</ReceiptEditRow>, note: () => null } : undefined} />
     </I18nextProvider>,
   );
   return { html, confirmed };

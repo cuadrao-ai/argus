@@ -7,9 +7,9 @@ import type { BusinessAccount } from "@/lib/business-api";
 import type { BusinessFacts, BusinessFactField, BusinessFactInput, BusinessFactPatch } from "@/lib/business-dossier";
 import { DatePicker } from "./foundation/DatePicker";
 import { REVIEW_INPUT_CLASS, ReviewSelect } from "./ReceiptFieldControls";
-import type { ReviewRow } from "./receipt-fact-rows";
+import { DOCUMENT_TYPE_LABELS, type DocumentType, type ReviewRow } from "./receipt-fact-rows";
 
-export default function ReceiptFactEditor({ facts, accounts, currencies, disabled, field, patch, fiscal = "", tried, onChange, onFiscalChange }: {
+export default function ReceiptFactEditor({ facts, accounts, currencies, disabled, field, patch, fiscal = "", documentType, tried, onChange, onFiscalChange, onDocumentTypeChange }: {
   facts: BusinessFacts;
   accounts: BusinessAccount[];
   currencies: string[];
@@ -20,8 +20,11 @@ export default function ReceiptFactEditor({ facts, accounts, currencies, disable
   patch: BusinessFactPatch;
   /** The typed value of a fiscal row. */
   fiscal?: string;
+  /** The chosen type of the type row. */
+  documentType?: DocumentType;
   onChange: (patch: BusinessFactPatch, invalid: boolean) => void;
   onFiscalChange?: (value: string, invalid: boolean) => void;
+  onDocumentTypeChange?: (value: DocumentType) => void;
 }) {
   const { t } = useTranslation();
   const controls = useRef<HTMLDivElement>(null);
@@ -43,6 +46,7 @@ export default function ReceiptFactEditor({ facts, accounts, currencies, disable
 
   return (
     <div ref={controls} className="space-y-3" data-testid={`edit-${field}`}>
+      {field === "document_type" ? <label className="block text-[13px] text-black/65 dark:text-white/65"><span className="sr-only">{t("business.dossier.type_label", "Type")}</span><ReviewSelect value={documentType} disabled={disabled} onChange={(event) => onDocumentTypeChange?.(event.target.value as DocumentType)}>{(Object.keys(DOCUMENT_TYPE_LABELS) as DocumentType[]).map((type) => <option key={type} value={type}>{t(DOCUMENT_TYPE_LABELS[type])}</option>)}</ReviewSelect></label> : null}
       {field === "kind" ? <label className="block text-[13px] text-black/65 dark:text-white/65"><span className="sr-only">{label("kind")}</span><ReviewSelect value={kind.value ?? ""} disabled={disabled} onChange={(event) => {
         if (event.target.value === "expense" || event.target.value === "income" || event.target.value === "refund") set("kind", { state: "known", value: event.target.value });
         else if (!event.target.value) set("kind", { state: "unknown", value: null });

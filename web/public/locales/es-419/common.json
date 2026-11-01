@@ -2746,7 +2746,6 @@
       "type_detected_venta": "La detectamos por el RNC de tu negocio. Completa el RNC del cliente.",
       "type_detected_recibo": "Lo detectamos como compra. Cámbialo si es una venta.",
       "type_locked": "Este registro ya está aprobado. Su tipo no cambia.",
-      "type_failed": "No pudimos cambiar el tipo. Inténtalo de nuevo.",
       "title": "Revisar registro",
       "unknown": "Desconocido",
       "rnc_unknown": "Sin RNC",
@@ -2943,7 +2942,8 @@
         "group_retentions": "Retenciones",
         "group_other": "Otros",
         "section_choices": "Para el 606",
-        "use_suggestion": "Usar"
+        "use_suggestion": "Usar",
+        "mark_no_receipt": "Marcar sin recibo"
       },
       "place": "{{index}} de {{total}}",
       "receipt": {

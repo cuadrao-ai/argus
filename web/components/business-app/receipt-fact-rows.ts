@@ -89,7 +89,10 @@ export const PAYMENT_FIELDS: readonly BusinessFactField[] = ["funding", "busines
 /** The fiscal rows of an open draft: the NCF and the e-CF are one number there. */
 export type FiscalRow = "rnc" | "fiscal_number" | "itbis";
 /** The rows a person edits in place on an open draft. `amount` holds the total and its currency. */
-export type ReviewRow = BusinessFactField | FiscalRow;
+export type ReviewRow = BusinessFactField | FiscalRow | "document_type";
+export type DocumentType = NonNullable<BusinessDossier["document_type"]>;
+/** Compra then Venta, each by its intake word. */
+export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = { recibo: "business.intake.type_recibo", venta: "business.intake.type_venta" };
 /** The six read facts, in the order they are read off a receipt. */
 export const READ_FACT_ROWS: readonly ReviewRow[] = ["counterparty", "occurred_on", "amount", "rnc", "fiscal_number", "itbis"];
 

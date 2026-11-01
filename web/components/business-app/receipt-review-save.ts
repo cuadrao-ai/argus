@@ -5,7 +5,7 @@ import type { DgiiDeclaration, DgiiFields, DgiiReview, PurchaseChoice } from "@/
 import { referenceCode } from "@/lib/failure-screen";
 import { randomId } from "@/lib/random-id";
 import type { BusinessDataSource } from "./business-data";
-import type { ReviewRow } from "./receipt-fact-rows";
+import type { DocumentType, ReviewRow } from "./receipt-fact-rows";
 
 /** A row on the open draft that saves on its own: a fact, or one of the owner's two 606 choices. */
 export type SaveRow = ReviewRow | keyof PurchaseChoice;
@@ -14,7 +14,8 @@ export type SaveRow = ReviewRow | keyof PurchaseChoice;
 export type ReviewChange =
   | { write: "facts"; facts: BusinessFactPatch }
   | { write: "fiscal"; fiscal: Partial<DgiiReview["fiscal"]> }
-  | { write: "purchase"; purchase: PurchaseChoice };
+  | { write: "purchase"; purchase: PurchaseChoice }
+  | { write: "type"; documentType: DocumentType };
 
 /** Where a row's last save stands. `unknown` is a save whose outcome never came back, so its edit cannot be dropped. */
 export type RowSave =
@@ -56,6 +57,7 @@ export function changesRecord(dossier: BusinessDossier, change: ReviewChange): b
     const current = currentFiscal(dossier);
     return Object.entries(change.fiscal).some(([name, next]) => (current[name as keyof typeof current] ?? "") !== (next ?? ""));
   }
+  if (change.write === "type") return change.documentType !== dossier.document_type;
   return true;
 }
 
@@ -63,6 +65,7 @@ function send(source: BusinessDataSource, dossier: BusinessDossier, change: Revi
   const { draft_id: id, version } = dossier;
   if (change.write === "facts") return source.reviewDraft(id, version, change.facts, key);
   if (change.write === "purchase") return source.reviewPurchase(id, version, change.purchase, key);
+  if (change.write === "type") return source.setDocumentType(id, version, change.documentType, key);
   const declaration = keptDeclaration(dossier, fields);
   if (!declaration) throw Object.assign(new Error("tax fields unavailable"), { code: "fields_unavailable" });
   return source.reviewFiscal(id, version, { fiscal: { ...currentFiscal(dossier), ...change.fiscal }, declaration }, key);
@@ -98,7 +101,7 @@ export function useReviewAutosave({ source, draftId, dossier, fields, label, onS
     return Object.fromEntries(save ? [...others, [row, save]] : others);
   }), []);
 
-  const refused = (row: SaveRow, code?: string) => t(`business.dgii.error.${code}`, "") || t(`business.dossier.blocker.${code}`, "") || t("business.dossier.placeholder.save_refused", { field: label(row), defaultValue: "{{field}} wasn't saved. Check the value." });
+  const refused = (row: SaveRow, code?: string) => code === "document_type_locked" ? t("business.dossier.type_locked", "This record is approved. Its type no longer changes.") : t(`business.dgii.error.${code}`, "") || t(`business.dossier.blocker.${code}`, "") || t("business.dossier.placeholder.save_refused", { field: label(row), defaultValue: "{{field}} wasn't saved. Check the value." });
 
   const failure = async (row: SaveRow, attempt: Attempt, base: BusinessDossier, key: string, error: unknown): Promise<Failure | null> => {
     const { code, status } = error as { code?: string; status?: number };

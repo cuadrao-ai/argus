@@ -26,6 +26,10 @@ export const dossierFixtureIds = {
   fiscalAttached: "10000000-0000-4000-8000-000000000018",
   /** The fiscal record whose e-CF file does not add up to its total. */
   totalsOff: "10000000-0000-4000-8000-000000000019",
+  /** The fiscal record with both owner choices saved, so Historial shows their labels. */
+  fiscalDeclared: "10000000-0000-4000-8000-000000000020",
+  /** A record with no NCF or e-CF and no answer yet: it can be marked Sin recibo. */
+  noNumber: "10000000-0000-4000-8000-000000000021",
 } as const;
 
 /** The server's code tables (`dgii_codes.py`) and form columns (`dgii_form.py`), for the preview. */
@@ -128,6 +132,12 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   dossiers.set(dossierFixtureIds.fiscalBlocked, { ...fiscalSample, draft_id: dossierFixtureIds.fiscalBlocked, facts: { ...fiscalAfter, occurred_on: unknown() }, blockers: [{ code: "fact_required", field: "occurred_on" }], approval_available: false });
   dossiers.set(dossierFixtureIds.fiscalAttached, { ...fiscalSample, draft_id: dossierFixtureIds.fiscalAttached, sources: [{ id: sourceId, kind: "attachment", channel: "whatsapp", received_at: "2026-10-10T14:20:00Z", connection_id: "rcpt-ferreteria", filename: "recibo-ferreteria.jpg", media_type: "image/jpeg" }] });
   dossiers.set(dossierFixtureIds.totalsOff, { ...fiscalSample, draft_id: dossierFixtureIds.totalsOff, ecf_checks: { ...fiscalChecks, checks: fiscalChecks.checks.map((check) => check.name === "totals_arithmetic" ? { ...check, state: "failed" as const, code: "totals_mismatch", detail: { monto_total: "3450.00", sum_of_parts: "3449.00" } } : check) } });
+  const declaredSourceId = "20000000-0000-4000-8000-000000000020";
+  const declaration: DgiiDeclaration = { form: "606", category: "02", payment_method: "03", id_type: "1", goods_amount: null, services_amount: "2923.73", paid_on: null };
+  dossiers.set(dossierFixtureIds.fiscalDeclared, { ...fiscalSample, draft_id: dossierFixtureIds.fiscalDeclared, version: 3, dgii: declaration, history: [...fiscalSample.history, { draft_id: dossierFixtureIds.fiscalDeclared, version: 3, actor, before: fiscalAfter, after: fiscalAfter, before_dgii: null, after_dgii: declaration, source_ids: [declaredSourceId], turn_key: null, created_at: "2026-10-10T14:28:00Z" }] });
+  const noNumberSample = dossiers.get(dossierFixtureIds.noNumber)!;
+  const unanswered = (side: BusinessFacts): BusinessFacts => ({ ...side, receipt_state: unknown() });
+  dossiers.set(noNumberSample.draft_id, { ...noNumberSample, facts: unanswered(noNumberSample.facts), history: noNumberSample.history.map((revision) => ({ ...revision, before: revision.before && unanswered(revision.before), after: unanswered(revision.after) })) });
   const proposalDossier = dossiers.get(dossierFixtureIds.proposal)!;
   dossiers.set(proposalDossier.draft_id, { ...proposalDossier, facts: { ...proposalDossier.facts, funding: { ...known({ kind: "business_account", account_id: accounts[0].id }), origin: "extracted" }, category_id: { ...known("other"), origin: "extracted" } }, sources: [{ id: sourceId, kind: "agent_proposal", channel: "web", received_at: "2026-10-10T14:20:00Z", text: "Propuesta: gasto de 3,450 DOP en Ferretería La Esquina para pintura del taller. Revisar antes de aprobar." }], history: [{ ...proposalDossier.history[0], after: { ...proposalDossier.facts, funding: { ...known({ kind: "business_account", account_id: accounts[0].id }), origin: "extracted" }, category_id: { ...known("other"), origin: "extracted" } } }] });
   // Revision 2 approved (the approval took version 3), then Elena marked it Personal: revision 4.
@@ -198,15 +208,18 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   return {
     dgiiFields: async () => structuredClone(SAMPLE_DGII_FIELDS),
     reviewFiscal: async (id: string, version: number, review: DgiiReview, key: string) => writeDeclaration(id, version, key, review, (current, stated) => {
+      // As the server does: a value that matches the record stays as it is.
       const number = printedIdentifier(review.fiscal.ncf);
-      const electronic = number?.startsWith("E");
-      const fiscal = {
-        ...(current.facts.fiscal ?? { rnc: unknown<string>(), ncf: unknown<string>(), ecf: unknown<string>(), itbis: unknown<string>() }),
-        rnc: stated(printedIdentifier(review.fiscal.rnc)),
-        itbis: stated(review.fiscal.itbis),
-      };
-      if (electronic) { fiscal.ecf = stated(number); fiscal.ncf = stated<string>(null); }
-      else { fiscal.ncf = stated(number); if (number) fiscal.ecf = stated<string>(null); }
+      const rnc = printedIdentifier(review.fiscal.rnc);
+      const fiscal = { ...(current.facts.fiscal ?? { rnc: unknown<string>(), ncf: unknown<string>(), ecf: unknown<string>(), itbis: unknown<string>() }) };
+      const held = (fact: BusinessFact<string>) => fact.state === "known" ? fact.value : null;
+      if (printedIdentifier(held(fiscal.rnc)) !== rnc) fiscal.rnc = stated(rnc);
+      if (printedIdentifier(held(fiscal.ecf) ?? held(fiscal.ncf)) !== number) {
+        fiscal.ecf = stated(number?.startsWith("E") ? number : null);
+        fiscal.ncf = stated(number?.startsWith("E") ? null : number);
+      }
+      const itbis = held(fiscal.itbis);
+      if (itbis === null || review.fiscal.itbis === null ? itbis !== review.fiscal.itbis : Number(itbis) !== Number(review.fiscal.itbis)) fiscal.itbis = stated(review.fiscal.itbis);
       return { facts: { ...current.facts, fiscal }, dgii: review.declaration };
     }),
     reviewPurchase: async (id: string, version: number, purchase: PurchaseChoice, key: string) => writeDeclaration(id, version, key, purchase, (current) => {
@@ -319,6 +332,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       const current = get(id);
       if (current.version !== version) fail(409, "stale_version");
       if (!current.document_type_editable) fail(422, "document_type_locked");
+      if (id === dossierFixtureIds.saveRefused) fail(422, "validation_error");
       dossiers.set(id, { ...current, version: current.version + 1, document_type: documentType, document_type_detected: undefined });
       return get(id);
     },

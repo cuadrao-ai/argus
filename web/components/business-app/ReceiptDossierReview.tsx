@@ -213,7 +213,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
     return () => { live = false; };
   }, [fieldsAttempt, source]);
 
-  const rowName = (row: SaveRow) => row === "category" ? t("business.dossier.placeholder.expense_type", "Expense type")
+  const rowName = (row: SaveRow) => row === "document_type" ? t("business.dossier.type_label", "Type")
+    : row === "category" ? t("business.dossier.placeholder.expense_type", "Expense type")
     : row === "payment_method" ? t("business.dossier.placeholder.payment_form", "Payment method")
     : row === "fiscal_number" ? `${t("business.dossier.field.ncf", "NCF")} / ${t("business.dossier.field.ecf", "e-CF")}`
     : t(`business.dossier.field.${row}`, row);
@@ -401,7 +402,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
     if (!canApprove || !supportedKind || !approvable) return;
     const at = { draftId: dossier.draft_id, version: dossier.version, next };
     const status = rncStatus(dossier.facts.fiscal?.rnc, flags);
-    const showsFiscal = Boolean(dossier.facts.fiscal) || dossier.fiscal_known === true && !dossier.fiscal_value;
+    // A record the owner says has no comprobante stays out of the 606, so its RNC is not asked for.
+    const showsFiscal = !dossier.sin_comprobante && (Boolean(dossier.facts.fiscal) || dossier.fiscal_known === true && !dossier.fiscal_value);
     if (showsFiscal && (status === "missing" || status === "invalid_length")) setApprovalCheck({ ...at, kind: "rnc", status });
     else if (confirmCodes.length) setApprovalCheck({ ...at, kind: "flags", codes: confirmCodes });
     else approve({ next, anyway: false });
@@ -442,13 +444,14 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
     const typed = edit?.change.write === "fiscal" && fiscal ? edit.change.fiscal[fiscal.name] ?? "" : fiscal?.value;
     const save = autosave.saves[row];
     const saving = save?.state === "saving";
+    const retypes = row !== "document_type" || dossier.document_type_editable === true;
     return (
       <ReceiptEditRow
         {...shown}
         open={Boolean(open)}
         saving={saving}
         locked={save?.state === "failed" && save.unknown}
-        onOpen={canPrepare && mutable ? () => rows.open(row) : undefined}
+        onOpen={canPrepare && mutable && retypes ? () => rows.open(row) : undefined}
         onSave={() => rows.save(row)}
         onCancel={() => rows.cancel(row)}
       >
@@ -458,16 +461,19 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
           facts={dossier.facts}
           patch={facts}
           fiscal={typed}
+          documentType={edit?.change.write === "type" ? edit.change.documentType : dossier.document_type}
           accounts={accounts}
           currencies={receiptCurrencyOptions(records.workspace, accounts, currency)}
           disabled={!mutable || saving}
           onChange={(patch, invalid) => rows.hold(row, { change: { write: "facts", facts: { ...facts, ...patch } }, invalid: row === "amount" && !patch.amount ? edit?.invalid ?? false : invalid })}
           onFiscalChange={(value, invalid) => { if (fiscal) rows.hold(row, { change: { write: "fiscal", fiscal: { [fiscal.name]: value || null } }, invalid }); }}
+          onDocumentTypeChange={(documentType) => rows.hold(row, { change: { write: "type", documentType }, invalid: false })}
         />
       </ReceiptEditRow>
     );
   };
   const showsChoices = dossier.declaration_editable === true || dossier.dgii?.form === "606";
+  const rowNote = (row: ReviewRow) => <ReceiptRowSave save={autosave.saves[row]?.state === "saving" ? undefined : autosave.saves[row]} onRetry={() => rows.retry(row)} />;
   return (<><ContentFade><>
     <ReceiptShortcutRegistration actions={{
       ...(canApprove && supportedKind && approvable && !Object.keys(rows.rows).length ? { approve: () => requestApproval(), ...(receipt ? { approve_next: () => requestApproval(true) } : {}) } : {}),
@@ -527,11 +533,16 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
             onMouseLeave={() => setHighlight([])}
             onBlur={() => setHighlight([])}
           >
-            <ReceiptRecordFacts dossier={dossier} accounts={accounts} attention={attention} typeRow={dossier.document_type ? <ReceiptDocumentType dossier={dossier} busy={busy || dirty} onChanged={setDossier} /> : undefined} review={reviewing ? {
+            <ReceiptRecordFacts dossier={dossier} accounts={accounts} attention={attention} typeRow={dossier.document_type ? <ReceiptDocumentType dossier={dossier} row={reviewing ? (shown) => rowControl("document_type", shown) : undefined} note={reviewing ? rowNote("document_type") : undefined} /> : undefined} review={reviewing ? {
               onEdit: canPrepare && mutable ? rows.open : undefined,
               row: rowControl,
               // An open row's check shows it working, and its X is the way out.
-              note: (row) => <ReceiptRowSave save={autosave.saves[row]?.state === "saving" ? undefined : autosave.saves[row]} onRetry={() => rows.retry(row)} />,
+              note: rowNote,
+              noReceipt: {
+                onMark: canPrepare && mutable ? (marked) => void autosave.save("receipt_state", { write: "facts", facts: { receipt_state: marked ? { state: "known", value: "no_receipt" } : { state: "unknown", value: null } } }) : undefined,
+                busy: autosave.busy,
+                note: <ReceiptRowSave save={autosave.saves.receipt_state} onRetry={() => void autosave.retry("receipt_state")} onCancel={() => autosave.clear("receipt_state")} />,
+              },
               choices: showsChoices ? <ReceiptOwnerChoices dossier={dossier} fields={fields} failed={fieldsFailed} disabled={!dossier.declaration_editable || !mutable} saves={autosave.saves} onChoose={(choice, value) => void autosave.save(choice, { write: "purchase", purchase: { [choice]: value } })} onRetry={(choice) => void autosave.retry(choice)} onCancel={autosave.clear} onReload={() => setFieldsAttempt((value) => value + 1)} /> : undefined,
             } : undefined} />
           </div>
