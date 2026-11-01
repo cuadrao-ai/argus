@@ -1,18 +1,16 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { CAMPAIGN_DAY, demoDates, demoDayKey, localDayKey } from "@/lib/demo-date";
+import { useCallback, useRef, useState, type MouseEvent } from "react";
 import { NARROW_WIDTH, beatAt, beatPoint, sceneVars, scrollProgress } from "@/lib/scene-timeline";
 import { Icon } from "./icon";
 import { landingCopy, type LandingLocale } from "./landing-copy";
 import styles from "./scene.module.css";
+import { scrollToStep } from "./scroll-to-step";
+import { useDemoDates } from "./use-demo-dates";
+import { useScrollFrame, type ScrollFrame } from "./use-scroll-frame";
 
 const MARK = "/cuadrao-site/cuadrao-mark-light.svg";
 const FINAL_POINT = 1;
-
-const subscribeToNothing = () => () => {};
-const visitorDay = () => demoDayKey(localDayKey(new Date()));
-const campaignDay = () => CAMPAIGN_DAY;
 
 const TONE = {
   new: styles.tagNew,
@@ -36,51 +34,32 @@ export function ProductScene({ locale }: { locale: LandingLocale }) {
   const section = useRef<HTMLElement>(null);
   const frame = useRef<HTMLDivElement>(null);
   const [point, setPoint] = useState(FINAL_POINT);
-  const dayKey = useSyncExternalStore(subscribeToNothing, visitorDay, campaignDay);
-  const dates = useMemo(() => demoDates(dayKey, locale), [dayKey, locale]);
+  const dates = useDemoDates(locale);
   const beat = beatAt(point);
 
-  useLayoutEffect(() => {
-    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    let request = 0;
-    const paint = () => {
-      request = 0;
-      const box = section.current?.getBoundingClientRect();
-      const stage = frame.current;
-      if (!box || !stage) return;
-      const { innerWidth: width, innerHeight: height } = window;
-      const still = motion.matches || width <= NARROW_WIDTH;
-      const p = still ? FINAL_POINT : scrollProgress(box.top, box.height, height);
-      for (const [name, value] of Object.entries(sceneVars(p, width, height))) {
-        stage.style.setProperty(name, value);
-      }
-      setPoint(beatPoint(p));
-    };
-    const schedule = () => {
-      if (!request) request = window.requestAnimationFrame(paint);
-    };
-    paint();
-    window.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", schedule);
-    motion.addEventListener("change", schedule);
-    return () => {
-      window.removeEventListener("scroll", schedule);
-      window.removeEventListener("resize", schedule);
-      motion.removeEventListener("change", schedule);
-      window.cancelAnimationFrame(request);
-    };
+  const paint = useCallback(({ width, height, reduced }: ScrollFrame) => {
+    const box = section.current?.getBoundingClientRect();
+    const stage = frame.current;
+    if (!box || !stage) return;
+    const still = reduced || width <= NARROW_WIDTH;
+    const p = still ? FINAL_POINT : scrollProgress(box.top, box.height, height);
+    for (const [name, value] of Object.entries(sceneVars(p, width, height))) {
+      stage.style.setProperty(name, value);
+    }
+    setPoint(beatPoint(p));
   }, []);
+  useScrollFrame(paint);
 
   const dock = [
-    { icon: "whatsapp", label: copy.dock.receive, stage: 0 },
-    { icon: "check", label: copy.dock.square, stage: 1 },
-    { icon: null, label: copy.dock.how, stage: -1 },
-    { icon: "fileText", label: copy.dock.exportLabel, stage: 2 },
-    { icon: "receipt", label: copy.dock.bill, stage: -1 },
+    { icon: "whatsapp", label: copy.dock.receive, stage: 0, step: 0 },
+    { icon: "check", label: copy.dock.square, stage: 1, step: 1 },
+    { icon: null, label: copy.dock.how, stage: -1, step: 0 },
+    { icon: "fileText", label: copy.dock.exportLabel, stage: 2, step: 2 },
+    { icon: "receipt", label: copy.dock.bill, stage: -1, step: null },
   ] as const;
 
   return (
-    <section ref={section} className={styles.scene} aria-label={copy.dock.how}>
+    <section ref={section} className={styles.scene}>
       <div className={styles.pin}>
         <div ref={frame} className={styles.frame} data-scene-frame>
           <div className={styles.glow} />
@@ -88,7 +67,7 @@ export function ProductScene({ locale }: { locale: LandingLocale }) {
             <div className={styles.menubar}>
               <span className={styles.menuBrand}>
                 <Mark />
-                cuadrao
+                {copy.brand}
               </span>
               <span>
                 {dates.bar} {copy.time}
@@ -126,7 +105,7 @@ export function ProductScene({ locale }: { locale: LandingLocale }) {
                   <span className={styles.search}>
                     <Icon name="search" />
                     {copy.search}
-                    <kbd>⌘K</kbd>
+                    <kbd>{copy.searchKey}</kbd>
                   </span>
                   <span className={styles.add}>
                     <span>
@@ -299,7 +278,7 @@ export function ProductScene({ locale }: { locale: LandingLocale }) {
                     key={check}
                     className={`${styles.check} ${index < beat.checks ? styles.checkOn : ""}`}
                   >
-                    <em>✓</em> {check}
+                    <em>{copy.accountant.checkMark}</em> {check}
                   </p>
                 ))}
                 <span
@@ -327,23 +306,42 @@ export function ProductScene({ locale }: { locale: LandingLocale }) {
 
           <div className={styles.dockBoard}>
             <div className={styles.dock}>
-              {dock.map(({ icon, label, stage }) => (
-                <a
-                  key={label}
-                  href="#como"
-                  aria-label={label}
-                  data-tip={label}
-                  className={[
-                    styles.dockItem,
-                    icon ? "" : styles.dockBrand,
-                    icon === "receipt" ? styles.dockSoon : "",
-                    stage === beat.dock ? styles.dockOn : "",
-                  ].join(" ")}
-                >
-                  {icon ? <Icon name={icon} /> : <Mark />}
-                  {icon ? <i className={styles.dockRun} /> : null}
-                </a>
-              ))}
+              {dock.map(({ icon, label, stage, step }) => {
+                const className = [
+                  styles.dockItem,
+                  icon ? "" : styles.dockBrand,
+                  stage === beat.dock ? styles.dockOn : "",
+                ].join(" ");
+                if (step === null) {
+                  return (
+                    <span
+                      key={label}
+                      role="img"
+                      aria-label={label}
+                      data-tip={label}
+                      className={`${className} ${styles.dockSoon}`}
+                    >
+                      {icon ? <Icon name={icon} /> : null}
+                    </span>
+                  );
+                }
+                return (
+                  <a
+                    key={label}
+                    href="#como"
+                    aria-label={label}
+                    data-tip={label}
+                    className={className}
+                    onClick={(event: MouseEvent) => {
+                      event.preventDefault();
+                      scrollToStep(step);
+                    }}
+                  >
+                    {icon ? <Icon name={icon} /> : <Mark />}
+                    {icon ? <i className={styles.dockRun} /> : null}
+                  </a>
+                );
+              })}
             </div>
           </div>
         </div>
