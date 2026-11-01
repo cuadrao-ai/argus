@@ -1,8 +1,10 @@
 # Cuadrao: repository guide for coding agents
 
-Cuadrao is a Spanish-first personal and Business finance app for people in the
-Dominican Republic. Code still lives under `src/argus/` and many settings keep an
-`ARGUS_` prefix. Those are code names, not the product name.
+Cuadrao is a Spanish-first web app for small businesses in the Dominican Republic
+and their accountants. It turns receipts and invoices into reviewed records and
+the 606/607 reports. The personal iOS and Android apps are archived. Chat is being
+removed. Guest mode is gone from the Business app. Legacy code remains under
+`src/argus/`, and many settings keep an `ARGUS_` prefix.
 
 This file holds codebase facts. Team process lives outside the repo and arrives in
 your launch prompt. On process, follow the prompt; on codebase facts, this file wins.
@@ -19,28 +21,32 @@ your launch prompt. On process, follow the prompt; on codebase facts, this file 
 
 ## Where truth lives
 
-Product today: `docs/PRODUCT.md`. Which doc owns what: `docs/DOCUMENTATION_AUTHORITY.md`.
+Read `README.md` and `docs/specs/cuadrao-pilot-review-spec.md` first for current
+product and pilot behavior. `docs/PRODUCT.md` is the short overview.
+`docs/DOCUMENTATION_AUTHORITY.md` maps current contracts and historical context.
 Services: `docs/ARCHITECTURE.md`. Endpoints: `docs/API_CONTRACT.md` and
 `docs/api/openapi.yaml`. Tables and row security: `docs/DATA_MODEL.md`. Core flows:
-`docs/CORE_FLOWS.md`. Design: `.agent/designs/cuadrao/DESIGN.md` (native) and
-`.agent/designs/cuadrao-business/DESIGN.md`. Status: `docs/specs/argus-execution-board.md`.
+`docs/CORE_FLOWS.md` retains dated walk evidence. Business web design lives in
+`.agent/designs/cuadrao-business-app/DESIGN.md`. Marketing design lives in
+`.agent/designs/cuadrao-business/DESIGN.md`. The execution history is in
+`docs/specs/argus-execution-board.md`; its older mobile assignments are historical.
 A spec, roadmap or green test does not assign work. Your brief does.
 
-Layout: `src/argus/` API (`api/`, `agent_runtime/` chat runtime, `domain/`, with
-`domain/business/` for Business), `web/` web app, `marketing/` marketing site,
-`native/Packages/` Swift packages (no app), `supabase/migrations/`,
+Layout: `src/argus/api/` API, `src/argus/domain/business/` Business domain,
+`src/argus/agent_runtime/` remaining interpreter and legacy runtime code,
+`web/` web app, `marketing/` marketing site, `native/Packages/` legacy Swift
+packages with no personal app, `supabase/migrations/`,
 `tests/` (with `tests/evals/`), `scripts/` checks and ops tools, `.github/` CI and setup.
 
 ## Setup and run
 
-- Python is pinned by `.python-version` (3.10); run it through `poetry run`. Frontend
+- Python is pinned by `.python-version` (3.10.20); run it through `poetry run`. Frontend
   packages use bun, not npm. Docs-only work skips setup and every env write.
 - Run `.github/setup.sh` once per runtime worktree; it links missing `.env` files to the
   integration worktree. Check (prints no values): `bash .github/setup-worktree-env.sh --check "$PWD"`.
   `missing` or `conflicting-link` means stop and fix first.
 - Fast mode: `.github/dev.sh` (memory store, synthetic fixtures, mock auth), then
   `cd web && bun run dev` with `NEXT_PUBLIC_MOCK_AUTH=true`. Parity: `.github/qa.sh`.
-- The `web/` framework breaks older APIs: read `web/node_modules/next/dist/docs/` first.
 
 ## Checks (CI runs these)
 
@@ -54,11 +60,13 @@ cd web && bun run lint && bun test && bun run build
 cd marketing && bun run lint && bun run typecheck && bun test && bun run build
 ```
 
-- Hermetic chat sweep (seconds; minutes means a live path leaked, so stop):
+- When changing the remaining legacy runtime, use the hermetic chat sweep.
+  If it takes minutes rather than seconds, stop and check for a leaked live path:
   `OPENROUTER_API_KEY= ARGUS_MARKET_DATA_PROVIDER_MODE=synthetic_unit_fixture poetry run pytest tests/agent_runtime tests/test_spine_guardrails.py -q --no-cov`
 - Postgres tests need `ARGUS_DISPOSABLE_DATABASE_URL` on a throwaway local DB, never staging/prod.
 - Evals: read the Test Tiers in `tests/evals/README.md`. Use the mocked harness for
-  every change. A live eval runs only at its documented gates with spend approved in
+  runtime changes. Docs-only PRs use No Eval under `.github/pull_request_template.md`.
+  A live eval runs only at its documented gates with spend approved in
   your brief. Browser QA is real-API work and spends tokens.
 - Modularity budgets (`.agent/modularity_budget.json`) are shared: check the merged tree.
 
@@ -66,11 +74,12 @@ cd marketing && bun run lint && bun run typecheck && bun test && bun run build
 
 - One owner per fact. Ask of every change who else holds this fact and what forces
   them to agree. Derive from one source; never keep two copies in sync.
-- One chat runtime. User language reaches the structured interpreter before any
-  routing: no regex, phrase lists or language gates in front of it. Code checks facts
-  after interpretation, and any layer that patches a weak model read logs when it fires.
-- Model-facing text is measured. Prompt builders and `Field(description=...)` are
-  fingerprinted by `tests/test_interpreter_prompt_freeze.py`. Changing them needs a
+- While `src/argus/agent_runtime/llm_interpreter.py` remains, preserve its
+  interpretation boundary. Do not add regex, phrase lists or language gates in
+  front of it. Code checks facts after interpretation. Any layer that patches a
+  weak model read logs when it fires. This rule does not make chat current product scope.
+- Model-facing text rules still apply while the interpreter code exists.
+  Prompt builders and `Field(description=...)` are fingerprinted by `tests/test_interpreter_prompt_freeze.py`. Changing them needs a
   live scorecard under `docs/reports/evidence/`, no regression against the one named
   in `.agent/interpreter_prompt_fingerprint.json`, and a regenerated fingerprint.
 - The backend owns truth; the frontend renders its state and never invents progress,

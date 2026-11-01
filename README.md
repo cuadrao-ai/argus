@@ -11,7 +11,7 @@ The personal iOS app is archived at tag `archive/ios-personal-2026-10-30` and br
    - Forward them by email to the business's own receipts address.
    - Send them by WhatsApp.
 2. **Read.** Cuadrao extracts the merchant, date, amounts, NCF and RNC from each document.
-3. **Review and approve.** The owner or the accountant checks each record, fixes what is wrong, and approves it. A possible duplicate blocks approval until someone resolves it.
+3. **Review and approve.** The owner or the accountant checks each record and fixes what is wrong. Only the owner role can approve it. A possible duplicate blocks approval until someone resolves it.
 4. **Follow up.** Each record keeps a status, so the owner can see what is still open:
    - A purchase is *pendiente* or *pagado*.
    - A sale is *pendiente* or *cobrado*.
