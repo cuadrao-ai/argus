@@ -47,6 +47,17 @@ test("the whole page passes an accessibility scan with motion off", async ({ bro
   await context.close();
 });
 
+for (const path of [PATH, "/contacto"]) {
+  test(`${path} says contable, never contador`, async ({ page }) => {
+    await page.goto(path);
+    const text = await page.locator("body").evaluate((node) => node.textContent ?? "");
+    const hints = await page.locator("[placeholder]").evaluateAll((nodes) =>
+      nodes.map((node) => node.getAttribute("placeholder") ?? ""),
+    );
+    expect(`${text} ${hints.join(" ")}`).not.toMatch(/contador/i);
+  });
+}
+
 test.describe("hero", () => {
   test("every in-page link has a target", async ({ page }) => {
     await page.goto(PATH);
