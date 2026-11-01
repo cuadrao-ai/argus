@@ -58,7 +58,7 @@ import {
 import { endSessionKeepingSurface, type LogoutOptions } from "@/lib/account-deletion-api";
 import type { KeyboardDeleteRequest } from "@/lib/keyboard-shortcuts";
 import { commitShellLanguage } from "@/lib/language-features";
-import { businessPilotEnabled, businessSearchEntryEnabled, omnisearchEnabled, researchRailEnabled } from "@/lib/private-alpha-flags";
+import { businessPilotEnabled, omnisearchEnabled, researchRailEnabled } from "@/lib/private-alpha-flags";
 import { leaveSession } from "@/lib/logout-flow";
 import {
   useTranscriptTurnAnchor,
@@ -572,7 +572,7 @@ export default function ChatInterface() {
   const online = useOnline();
   const bannerSpace = workspace && !online ? BANNER_HEIGHT_PX : 0;
   const surfaceFade = `${layout.businessShell ? "bg-[#F7F5EE]/80" : "bg-[#f9f9f9]/80"} dark:bg-[#141517]/80`;
-  const searchEntryEnabled = omnisearchEnabled && businessSearchEntryEnabled(workspace?.id);
+  const searchEntryEnabled = omnisearchEnabled;
   // A click handler may pass its event: only a string seeds the search.
   const [searchSeed, setSearchSeed] = useState("");
   const openSearch = useCallback((query?: unknown) => { if (!searchEntryEnabled) return; setSearchSeed(typeof query === "string" ? query : ""); setSearchOverlayOpen(true); }, [searchEntryEnabled]);

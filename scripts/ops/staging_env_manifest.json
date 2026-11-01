@@ -340,11 +340,6 @@
           "value": "true"
         },
         {
-          "name": "NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED",
-          "kind": "plain",
-          "value": "true"
-        },
-        {
           "name": "NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED",
           "kind": "plain",
           "value": "true"

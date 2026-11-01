@@ -2,7 +2,7 @@
 
 import { useTranslation } from "react-i18next";
 import type { WorkspaceKeyboardShortcut } from "@/lib/keyboard-shortcuts";
-import { businessSearchEnabledFromEnv } from "@/lib/private-alpha-flags";
+import { omnisearchEnabled } from "@/lib/private-alpha-flags";
 import type { GrantedSpace } from "@/lib/business-api";
 import type { BusinessActions } from "./business-actions";
 import type { BusinessPanelState } from "./BusinessWorkspace";
@@ -23,7 +23,7 @@ export function useBusinessKeyboardShortcuts({ openPanel, actions, chosen }: { o
     { id: "edit", label: t("business.shortcuts.edit_detail", "Edit a detail"), code: "KeyE", keyLabel: "E", shift: true, run: () => review("edit") },
     { id: "upload", label: t("business.actions.add", "Add"), code: "Period", keyLabel: ".", shift: true, run: () => { const action = canAddRecords(chosen) ? actions.create.find((action) => action.id === "upload_receipt") : undefined; action?.run(); return Boolean(action); } },
     ...BUSINESS_SECTIONS.map((section, index) => ({ id: section, label: t("business.shortcuts.go_to", { section: t(`business.nav.${section}`), defaultValue: "Go to {{section}}" }), code: `Digit${index + 1}`, keyLabel: String(index + 1), jumpIndex: index, run: () => { openPanel({ kind: section }); return true; } })),
-    ...(businessSearchEnabledFromEnv() ? [{ id: "search", label: t("common.search", "Search"), code: "KeyK", keyLabel: "K" }] : []),
+    ...(omnisearchEnabled ? [{ id: "search", label: t("common.search", "Search"), code: "KeyK", keyLabel: "K" }] : []),
     { id: "keyboard_shortcuts", label: t("keyboard_shortcuts.title", "Keyboard shortcuts"), code: "Slash", keyLabel: "/" },
     { id: "sidebar", label: t("business.shortcuts.sidebar", "Show or hide the sidebar"), code: "Backslash", keyLabel: "\\", shift: true },
     { id: "settings", label: t("common.settings", "Settings"), code: "Semicolon", keyLabel: ";", shift: true },
