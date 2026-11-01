@@ -171,6 +171,14 @@ services:
         value: "false"
       - key: CUADRAO_DOCUMENT_EXTRACTION_ENABLED
         value: "true"
+      - key: CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS
+        value: "120"
+      - key: CUADRAO_DOCUMENT_JOBS_ENABLED
+        value: "false"
+      - key: CUADRAO_DOCUMENT_JOBS_MAX_READS
+        value: "3"
+      - key: CUADRAO_DOCUMENT_JOBS_PULL_ENABLED
+        value: "false"
       - key: CUADRAO_FISCAL_SANDBOX_API_TOKEN
         sync: false
       - key: CUADRAO_FISCAL_SANDBOX_BUSINESS_ID
