@@ -17785,6 +17785,9 @@ components:
         document_type_editable:
           type: boolean
           default: false
+        declaration_editable:
+          type: boolean
+          default: false
         due_on:
           anyOf:
           - type: string
@@ -20887,6 +20890,10 @@ components:
           - type: string
             format: date
           - type: 'null'
+        payment_form:
+          anyOf:
+          - type: string
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -22210,6 +22217,10 @@ components:
           items:
             type: string
           type: array
+        labels:
+          additionalProperties:
+            type: string
+          type: object
       additionalProperties: false
       type: object
       required:

@@ -3649,6 +3649,7 @@ open items read the date from the resolution, not from the revision.
 | `business_sender_leases` | One durable holder, monotonic fence and expiry per `(space_id, sender_hash)`. Runtime acquisition/renewal/release must lock this row and check the fence before committing. |
 | `business_turns` | Globally deduplicated provider turn key, scoped actual actor/sender, arrival order, phase, model state, immutable typed normalized plan, active lease fence and reply text. A completed model interpretation requires its plan and server-derived `plan_actor: ActorProvenance` snapshot, present together and immutable together, with matching actual actor ID; completion/reply phases require the plan. |
 | `business_action_receipts` | Unique `(space_id, actor_id, idempotency_key)` and `(turn_key, action_index)`, canonical input hash, normalized command, immutable actual `actor: ActorProvenance` snapshot (including human commands without a turn), and typed result. Snapshot actor ID must match the receipt actor. Human `review_draft`, `approve_expense`, `approve_income` and `capture_note` commands, and trusted `prepare_attachment` commands bound to the stored preparation binding, may omit a turn; agent commands require a persisted plan. Agent receipts require the matching action in an already persisted plan of the same client and actor, with identical plan-actor provenance. Identity/command/hash cannot mutate. A settled result cannot change; unknown results allow explicit reconciliation. This is action execution recovery, not another financial ledger. |
+| `business_dgii_export_lines` | One row per 606 or 607 line a person downloaded in a DGII TXT: `space_id`, `activity_id`, `form`, `period` (`YYYYMM`), `actor_id`, `exported_at`. Written by the export in the same transaction that builds the packet, only for a form whose TXT shipped (`prepared_candidate`). Read by the review route and the dossier: a record with a row refuses a 606 write (`fiscal_declaration_exported`) and reads `declaration_editable` false. Append-only, service role only. The key to spaces restricts and the purge deletes these rows with the other money rows; deleting the activity cascades them; the actor reference clears when that person is deleted. Migration `20261101010000_business_dgii_export_lines.sql`. |
 | `business_document_settlements` | One row per recorded activity in one Business (`space_id`, `activity_id`). Status, settlement date, and payment method only. Amounts, ITBIS, RNC, and the fiscal number stay on the activity and its draft. A pending row has no date and no method. A settled row has both, and the status has to match invoice or receipt. Deleting the activity cascades the row; deleting the space is refused while the row exists (`20261101000100`). Both owner keys are custody-deferred: account deletion moves `owner_id` to the record custodian with the Business, and the day-30 purge deletes the row itself before the space. |
 | `business_document_settlement_revisions` | Append-only previous status, date, and method, plus the actor and the time. A repeated identical settlement writes no row. Updates and direct deletes fail. Deleting the settlement cascades these rows. The actor reference clears when that person is deleted. The month summary is computed, not stored. Shapes and the closed rule are in the [month-close contract](contracts/business-month-close.md). |
 
@@ -3696,17 +3697,21 @@ person's profile `home_country` never decides a Business. See the
 [Business country plan](specs/business-country.md).
 
 The existing human `ReviewCommand` carries the tax input. It updates the current
-open resolution and appends one source-linked revision atomically. Every later
+resolution and appends one source-linked revision atomically. Every later
 revision preserves the declaration. Owner approval binds the reviewed revision.
-When the draft holds no declaration, an expense approval appends one revision at
-the next version, with a 606 declaration built from the reviewed facts; its
-expense type stays unknown and its payment form is known only from the Business
-account that paid. If the money write then fails, the reopened draft appends one
-revision that clears that declaration and leaves a person's saved one alone;
-if it cannot, the next approval rebuilds it. The export
-reads the reviewed revision's facts and the declaration from it or from that
-approval revision, then checks current money amount, date and currency. Accepted-record tax edits remain refused. No second
-tax ledger or fiscal approval bypass is added. New human-only action receipt
+When the draft holds no declaration, or one whose Tipo Id or Forma de Pago is
+unknown, an expense approval appends one revision at the next version with the
+606 declaration built from the reviewed facts, or the saved one with only those
+two filled in; its expense type stays unknown and its payment form is known
+only from the Business account that paid. If the money write then fails, the
+reopened draft appends one revision that puts the declaration back as it was
+before the approval; if it cannot, the next approval writes from that earlier
+declaration. The export reads the reviewed revision's facts and the declaration
+from the latest revision, then checks current money amount, date and currency.
+On an accepted record the same `ReviewCommand`, carrying only the 606 fields,
+appends one more revision until a downloaded DGII TXT carries the record's line
+(`business_dgii_export_lines`, migration `20261101010000`); the recorded facts
+stay refused. No second tax ledger or fiscal approval bypass is added. New human-only action receipt
 types `approve_refund` and `set_business_rnc` retain the existing immutable actor,
 command hash and idempotency rules. The migration uses five-second lock and
 60-second statement timeouts. It creates no table, role, policy, client grant or

@@ -118,7 +118,7 @@ The sample minors are illustrative. Each currency the month actually contains is
 | `cuentas_por_cobrar` | Invoices still `pendiente`. The list amount is the document total, the amount still to collect. |
 | `cuentas_por_pagar` | Receipts still `pendiente`. The list amount is the document total, the amount still to pay. |
 
-A list item is `activity_id`, `document_kind` (`invoice` or `receipt`), `currency`, `occurred_on`, `total_minor`, `total`, `before_itbis_minor`, `before_itbis`, `itbis_minor`, `itbis`, `counterparty`, `rnc`, `ncf`, `ecf`, `status`, `sin_comprobante`, and `due_on`. Each `_minor` field has a display string with the same name and no suffix, in the line's own currency. `before_itbis_minor` is the total minus ITBIS, and the whole total for a sin comprobante receipt, the same amount `by_status` and the expense total count. `itbis_minor` and `itbis` are null when the document does not state ITBIS. `counterparty`, `rnc`, `ncf`, and `ecf` come from the latest draft and are null when the draft does not know them. `sin_comprobante` is true when the document is sin comprobante, and false otherwise. `due_on` is the due date a person set in review, as `YYYY-MM-DD`, and null while it is unknown. Nothing reads it from the document or defaults it. The same item shape is used in every list in this contract.
+A list item is `activity_id`, `document_kind` (`invoice` or `receipt`), `currency`, `occurred_on`, `total_minor`, `total`, `before_itbis_minor`, `before_itbis`, `itbis_minor`, `itbis`, `counterparty`, `rnc`, `ncf`, `ecf`, `status`, `sin_comprobante`, `due_on`, and `payment_form`. Each `_minor` field has a display string with the same name and no suffix, in the line's own currency. `before_itbis_minor` is the total minus ITBIS, and the whole total for a sin comprobante receipt, the same amount `by_status` and the expense total count. `itbis_minor` and `itbis` are null when the document does not state ITBIS. `counterparty`, `rnc`, `ncf`, and `ecf` come from the latest draft and are null when the draft does not know them. `sin_comprobante` is true when the document is sin comprobante, and false otherwise. `due_on` is the due date a person set in review, as `YYYY-MM-DD`, and null while it is unknown. Nothing reads it from the document or defaults it. `payment_form` is a receipt's 606 Forma de Pago code (`01` to `07`) from its declaration: the one value the review shows, the approval fills from the account that paid, and the export prints. It is null for an invoice and while no one has chosen it. The settlement's `payment_method` stays what the PATCH recorded about how the document was settled; it is not the 606 code. The same item shape is used in every list in this contract.
 
 An invoice is a recorded income activity. A receipt is a recorded expense activity. The printed total on that activity already includes ITBIS when ITBIS is known. Before-ITBIS is that total minus the stored ITBIS, except on a sin comprobante receipt, where it is the whole total. Unknown ITBIS is treated as zero for the subtraction and does not by itself open the month. That assumption is an open question.
 
@@ -195,7 +195,8 @@ The month lists show only what was issued in that month. Inicio shows what is st
         "ecf": null,
         "status": "pendiente",
         "sin_comprobante": false,
-        "due_on": "2026-10-12"
+        "due_on": "2026-10-12",
+        "payment_form": null
       }
     ]
   },
