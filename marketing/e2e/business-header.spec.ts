@@ -89,7 +89,7 @@ test("Business contact and login show pointer and keyboard states without changi
   await expect(login).toHaveCSS("cursor", "pointer");
   await page.mouse.move(0, 200);
   await contact.focus();
-  await page.keyboard.press("Tab");
+  await page.keyboard.press("Shift+Tab");
   await expect(login).toBeFocused();
   await expect(login).toHaveCSS("background-color", "rgb(232, 237, 227)");
   await expect(login).toHaveCSS("outline-style", "solid");
@@ -217,7 +217,8 @@ for (const { home, login } of cases) {
         const signIn = nav.getByRole("link", { name: login, exact: true });
         await expect(signIn).toHaveAttribute("href", stagingSignIn);
         await expect(nav.getByRole("button", { name: login, exact: true })).toHaveCount(0);
-        await expect(signIn).toHaveCSS("color", "rgb(23, 43, 38)");
+        const phone = test.info().project.name === "mobile";
+        await expect(signIn).toHaveCSS("color", phone ? "rgb(47, 90, 73)" : "rgb(23, 43, 38)");
         const geometry = await signIn.evaluate((link) => {
           const measure = (node: Element) => {
             const css = getComputedStyle(node);
@@ -249,7 +250,8 @@ for (const { home, login } of cases) {
           });
         }
         await signIn.hover();
-        await expect(signIn).toHaveCSS("text-decoration-line", "underline");
+        if (phone) await expect(signIn).toHaveCSS("text-decoration-line", "underline");
+        else await expect(signIn).toHaveCSS("background-color", "rgb(232, 237, 227)");
         if (method === "keyboard") {
           await signIn.focus();
           await page.keyboard.press("Shift+Tab");
@@ -340,7 +342,7 @@ for (const { home, cta, contactPath } of cases) {
 test("short phone menu scrolls its links without scrolling the page and restores it on close", async ({ page }) => {
   test.skip(test.info().project.name !== "mobile", "short phone menu coverage");
   await page.setViewportSize({ width: 390, height: 280 });
-  await page.goto("/en"); await page.evaluate(() => window.scrollTo(0, 600));
+  await page.goto("/en"); await page.evaluate(() => window.scrollTo({ top: 600, behavior: "instant" }));
   const trigger = page.locator('header button[aria-controls="business-mobile-menu"]');
   const scroll = await page.evaluate(() => window.scrollY);
   await trigger.click();
