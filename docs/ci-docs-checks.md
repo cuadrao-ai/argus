@@ -80,7 +80,7 @@ Which Postgres tests run depends on the event:
 
 | Event | Supabase CLI | Postgres tests |
 | --- | --- | --- |
-| Pull request | pinned | The pilot set: `test_business*`, `test_whatsapp*`, `test_ingestion*`, `test_fiscal*`, `test_registros*`, `test_document*`, `test_rls*` and `test_access*` (each as `*_postgres.py`), plus `test_client_grants_postgres.py` and `test_account_deletion_fk_census_postgres.py` |
+| Pull request | pinned | The pilot set: `test_business*`, `test_whatsapp*`, `test_ingestion*`, `test_fiscal*`, `test_registros*`, `test_document*`, `test_rls*` and `test_access*` (each as `*_postgres.py`), plus `test_client_grants_postgres.py`, `test_account_deletion_fk_census_postgres.py`, `test_email_daily_budget_postgres.py`, `test_dgii_rnc_postgres.py`, `test_supplier_fast_path_postgres.py` and `test_flags_off_removal_postgres.py` |
 | Push, or a manual run with `full_run` checked | pinned and latest | Every `tests/test_*_postgres.py` |
 | Weekly schedule, or a manual run without `full_run` | latest | Every `tests/test_*_postgres.py` |
 

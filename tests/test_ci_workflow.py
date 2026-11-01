@@ -215,7 +215,15 @@ _PILOT_POSTGRES_GLOBS = (
     "tests/test_access*_postgres.py",
     "tests/test_client_grants_postgres.py",
     "tests/test_account_deletion_fk_census_postgres.py",
+    "tests/test_email_daily_budget_postgres.py",
+    "tests/test_dgii_rnc_postgres.py",
+    "tests/test_supplier_fast_path_postgres.py",
+    "tests/test_flags_off_removal_postgres.py",
 )
+
+
+def _test_files(args: list[str]) -> list[str]:
+    return [arg for arg in args if arg.startswith("tests/")]
 
 
 def _run_postgres_matrix_step(
@@ -246,7 +254,7 @@ def _run_postgres_matrix_step(
         text=True,
     )
     args = log.read_text(encoding="utf-8").splitlines() if log.exists() else []
-    return result, [arg for arg in args if arg.startswith("tests/")]
+    return result, args
 
 
 def test_pull_requests_run_the_pilot_postgres_set_and_other_events_run_every_proof(
@@ -269,12 +277,16 @@ def test_pull_requests_run_the_pilot_postgres_set_and_other_events_run_every_pro
 
     result, files = _run_postgres_matrix_step(tmp_path, ROOT, "pull_request")
     assert result.returncode == 0, result.stderr
-    assert sorted(files) == pilot
+    assert sorted(_test_files(files)) == pilot
+    assert files[-2:] == [
+        "scripts/qa/assert_pytest_gate.py",
+        "temp/guest-postgres-junit.xml",
+    ]
 
     for event in ("push", "schedule", "workflow_dispatch"):
         result, files = _run_postgres_matrix_step(tmp_path, ROOT, event)
         assert result.returncode == 0, result.stderr
-        assert sorted(files) == everything, event
+        assert sorted(_test_files(files)) == everything, event
 
 
 def test_a_pilot_postgres_glob_that_matches_no_file_fails_the_step(
@@ -294,7 +306,7 @@ def test_a_pilot_postgres_glob_that_matches_no_file_fails_the_step(
     (repo / "tests/test_whatsapp_postgres.py").touch()
     found, files = _run_postgres_matrix_step(tmp_path, repo, "pull_request")
     assert found.returncode == 0, found.stderr
-    assert "tests/test_whatsapp_postgres.py" in files
+    assert "tests/test_whatsapp_postgres.py" in _test_files(files)
 
     # A literal pilot file that has gone missing fails too.
     (repo / "tests/test_client_grants_postgres.py").unlink()

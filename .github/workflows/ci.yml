@@ -372,10 +372,11 @@ jobs:
           supabase --version
           docker ps --filter "name=supabase_" --format '{{.Names}} {{.Image}}' | sort
 
-      # Glob-level so a new _postgres proof is gated without editing this
-      # workflow; a hand-maintained list is how uncovered tables ship green.
-      # A pull request runs the pilot set. Every other event runs the full
-      # tests/test_*_postgres.py glob. A glob that matches no file fails the step.
+      # Every event except a pull request runs the full tests/test_*_postgres.py
+      # glob, so a new _postgres proof is gated without editing this workflow.
+      # A pull request runs the hand-kept pilot set below, so a proof with a
+      # name outside it is first gated on the push after merge. A pattern that
+      # matches no file fails the step.
       - name: Run required real-PostgreSQL matrix
         run: |
           set -euo pipefail
@@ -392,6 +393,10 @@ jobs:
               'tests/test_access*_postgres.py'
               'tests/test_client_grants_postgres.py'
               'tests/test_account_deletion_fk_census_postgres.py'
+              'tests/test_email_daily_budget_postgres.py'
+              'tests/test_dgii_rnc_postgres.py'
+              'tests/test_supplier_fast_path_postgres.py'
+              'tests/test_flags_off_removal_postgres.py'
             )
           else
             patterns=('tests/test_*_postgres.py')
