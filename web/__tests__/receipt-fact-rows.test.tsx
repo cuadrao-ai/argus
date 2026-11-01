@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { I18nextProvider } from "react-i18next";
 import english from "@/public/locales/en/common.json";
 import spanish from "@/public/locales/es-419/common.json";
+import ReceiptEditRow from "@/components/business-app/ReceiptEditRow";
 import ReceiptRecordFacts from "@/components/business-app/ReceiptRecordFacts";
 import { createDossierFixtures, dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
 import { blockedFields, factStanding, fiscalFactRows, recordFactRows } from "@/components/business-app/receipt-fact-rows";
@@ -31,7 +32,7 @@ async function render(dossier: BusinessDossier, lng: "es-419" | "en" = "es-419",
   const confirmed: string[] = [];
   const html = renderToStaticMarkup(
     <I18nextProvider i18n={instance}>
-      <ReceiptRecordFacts dossier={dossier} accounts={[]} attention={attention} review={review ? { onEdit: confirmable ? (key) => { confirmed.push(key); } : undefined, editor: () => null, note: () => null } : undefined} />
+      <ReceiptRecordFacts dossier={dossier} accounts={[]} attention={attention} review={review ? { onEdit: confirmable ? (key) => { confirmed.push(key); } : undefined, row: (key, shown) => <ReceiptEditRow {...shown} open={false} saving={false} locked={false} onOpen={confirmable ? () => confirmed.push(key) : undefined} onSave={() => undefined} onCancel={() => undefined}>{null}</ReceiptEditRow>, note: () => null } : undefined} />
     </I18nextProvider>,
   );
   return { html, confirmed };

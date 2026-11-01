@@ -1,12 +1,13 @@
 "use client";
 
-import { CircleAlert, Pencil } from "lucide-react";
+import { CircleAlert } from "lucide-react";
 import { useId, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { BusinessAccount } from "@/lib/business-api";
 import type { BusinessDossier, BusinessFact, BusinessFactField } from "@/lib/business-dossier";
 import { rncStatus } from "@/lib/rnc-status";
 import RncStatusBlock from "./RncStatusBlock";
+import type { RowShown } from "./ReceiptEditRow";
 import { useCategoryLabel } from "./business-ui";
 import { UNKNOWN_VALUE } from "./business-format";
 import { presentBusinessFact, presentFiscalFact } from "./receipt-fact-presentation";
@@ -17,7 +18,7 @@ import { resolveLanguage } from "@/lib/language-features";
 const FISCAL = ["rnc", "ncf", "ecf", "itbis"] as const;
 
 /** One label/value row; the document type control uses it too, so the form reads as one list. */
-export const FACT_ROW_CLASS = "grid grid-cols-[minmax(7.5rem,34%)_minmax(0,1fr)] items-start gap-x-4 border-t border-[#E8EBE6] py-1.5 first:border-t-0 dark:border-white/[0.07]";
+export const FACT_ROW_CLASS = "grid grid-cols-[minmax(7.5rem,34%)_minmax(0,1fr)] items-start gap-x-4 border-t border-[#E8EBE6] py-1.5 first:border-t-0 max-tablet:[&:has([data-row-open])]:grid-cols-1 tablet:[&:has([data-row-open])>dt]:min-h-11 dark:border-white/[0.07]";
 export const FACT_LABEL_CLASS = "flex min-h-9 items-center gap-1.5 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70";
 
 /** The texts a row's value may appear as in the original message: what it shows and what it stores. */
@@ -33,8 +34,8 @@ const ORIGIN_TAG: Partial<Record<string, string>> = { qr_decoded: "qr_decoded", 
 export type FactsReview = {
   /** Absent for someone who cannot edit the record now. */
   onEdit?: (row: ReviewRow) => void;
-  /** The row's open editor, or null while it shows its value. */
-  editor: (row: ReviewRow) => ReactNode;
+  /** The row's control: its value with a pencil, or its open field. */
+  row: (row: ReviewRow, shown: RowShown) => ReactNode;
   /** The row's save state. */
   note: (row: ReviewRow) => ReactNode;
   /** The owner's choices, as rows. */
@@ -117,22 +118,6 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     </div>
   );
 
-  /** The value as a button that opens the row, with its pencil always in view. */
-  const editButton = (key: ReviewRow, label: string, value: ReactNode, tag: ReactNode, onEdit: (row: ReviewRow) => void) => (
-    <button
-      type="button"
-      onClick={() => onEdit(key)}
-      aria-label={`${t("business.dossier.edit", "Edit details")} · ${label}`}
-      className="group -mx-2 -my-[7px] flex min-h-9 w-[calc(100%+1rem)] items-center gap-2 rounded-item px-2 text-left hover:bg-black/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.06]"
-    >
-      <span className="min-w-0 flex-1">
-        {value || UNKNOWN_VALUE}
-        {value ? tag : null}
-      </span>
-      <Pencil className="h-3.5 w-3.5 shrink-0 text-[#56635e] opacity-70 group-hover:opacity-100 group-focus-visible:opacity-100 dark:text-white/60" aria-hidden="true" />
-    </button>
-  );
-
   const recordField = (key: BusinessFactField) => {
     const label = t(`business.dossier.field.${key}`, key);
     const value = presentBusinessFact(key, dossier.facts, accounts, locale, labels);
@@ -140,13 +125,11 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     const currency = review && key === "amount" ? rows.get("currency") : undefined;
     const own = rows.get(key);
     const row = own && currency ? { ...own, blocked: own.blocked || currency.blocked, asked: own.asked || currency.asked } : own;
-    const opened = review?.editor(key);
-    const tag = opened ? null : origin(dossier.facts[key]);
-    const control = opened ?? (review?.onEdit ? editButton(key, label, value, tag, review.onEdit) : key === "occurred_on" && !value ? (
-      <input disabled readOnly aria-label={label} placeholder={t("business.date_picker.placeholder", "dd/mm/aaaa")} value="" className="block min-h-11 w-full rounded-item border border-[#7d8a84] bg-transparent px-3 text-[16px] disabled:opacity-50" />
-    ) : value);
+    const tag = origin(dossier.facts[key]);
     const fact = dossier.facts[key];
-    return field(key, label, control, row, opened || review?.onEdit ? null : tag, [value, fact.state === "known" && typeof fact.value === "string" ? fact.value : null]);
+    const match = [value, fact.state === "known" && typeof fact.value === "string" ? fact.value : null];
+    if (review) return field(key, label, review.row(key, { label, value: value ? <>{value}{tag}</> : "" }), row, undefined, match);
+    return field(key, label, key === "occurred_on" && !value ? UNKNOWN_VALUE : value, row, tag, match);
   };
 
   /** The fiscal rows of an open draft: always all three, each with its edit control. */
@@ -164,16 +147,11 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
         {t("business.dossier.review_flag.itbis_high.text")}
       </span>
     ) : null;
-    const editable = (row: "fiscal_number" | "itbis", label: string, value: string, tag: ReactNode) => form.editor(row) ?? (form.onEdit ? editButton(row, label, value, tag, form.onEdit) : <>{value || UNKNOWN_VALUE}{tag}</>);
+    const itbisLabel = t("business.dossier.field.itbis", "ITBIS");
     return <>
-      {field("rnc", rncLabel, form.editor("rnc") ?? (
-        <div className="flex items-start gap-2">
-          <div className="min-w-0 flex-1"><RncStatusBlock fact={fiscal?.rnc} flags={flags} onEditRnc={rncEdit} />{origin(fiscal?.rnc)}</div>
-          {form.onEdit && !rncMissing ? <button type="button" onClick={rncEdit} aria-label={`${t("business.dossier.edit", "Edit details")} · ${rncLabel}`} className="group -mr-2 -mt-[7px] flex h-9 w-9 shrink-0 items-center justify-end rounded-item px-2 text-[#56635e] hover:bg-black/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white/60 dark:hover:bg-white/[0.06]"><Pencil className="h-3.5 w-3.5 opacity-70 group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden="true" /></button> : null}
-        </div>
-      ), fiscalRows.get("rnc"), undefined, [fiscal?.rnc.value])}
-      {field("fiscal_number", numberLabel, editable("fiscal_number", numberLabel, numberValue, origin(fiscal?.[number])), fiscalRows.get(number), undefined, [numberValue])}
-      {field("itbis", t("business.dossier.field.itbis", "ITBIS"), editable("itbis", t("business.dossier.field.itbis", "ITBIS"), itbisValue, origin(fiscal?.itbis)), fiscalRows.get("itbis"), itbisHigh, [itbisValue, fiscal?.itbis.value])}
+      {field("rnc", rncLabel, form.row("rnc", { label: rncLabel, compound: true, pencil: !rncMissing, value: <><RncStatusBlock fact={fiscal?.rnc} flags={flags} onEditRnc={rncEdit} />{origin(fiscal?.rnc)}</> }), fiscalRows.get("rnc"), undefined, [fiscal?.rnc.value])}
+      {field("fiscal_number", numberLabel, form.row("fiscal_number", { label: numberLabel, value: numberValue ? <>{numberValue}{origin(fiscal?.[number])}</> : "" }), fiscalRows.get(number), undefined, [numberValue])}
+      {field("itbis", itbisLabel, form.row("itbis", { label: itbisLabel, value: itbisValue ? <>{itbisValue}{origin(fiscal?.itbis)}</> : "" }), fiscalRows.get("itbis"), itbisHigh, [itbisValue, fiscal?.itbis.value])}
     </>;
   };
 

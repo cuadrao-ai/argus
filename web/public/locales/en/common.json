@@ -2944,6 +2944,11 @@
         "save_lost": "We couldn't confirm that {{field}} was saved. Approval is paused.",
         "save_refused": "{{field}} wasn't saved. Check the value.",
         "save_stale": "This record changed while you edited. You're seeing the current version and your change is still here.",
+        "save_first": "Save or cancel {{fields}} to approve.",
+        "group_identity": "Identification",
+        "group_amounts": "Amounts",
+        "group_retentions": "Withholdings",
+        "group_other": "Other",
         "section_choices": "For the 606",
         "use_suggestion": "Use"
       },

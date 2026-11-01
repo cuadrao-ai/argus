@@ -114,7 +114,11 @@ async function setup(id: keyof typeof import("@/components/business-app/dossier-
   const row = (name: string) => page.host.querySelector<HTMLElement>(`[data-fact="${name}"]`)!;
   const open = async (name: string) => page.act(async () => row(name).querySelector<HTMLButtonElement>("button")!.click());
   const leave = (selector: string) => page.act(async () => { page.host.querySelector<HTMLElement>(selector)!.blur(); await new Promise((resolve) => setTimeout(resolve, 10)); });
-  return { ...page, writes, approvals: () => approvals, row, openRow: open, leave, close: () => page.act(async () => page.root.unmount()) };
+  const action = (name: string, label: "Guardar" | "Cancelar") => row(name).querySelector<HTMLButtonElement>(`button[aria-label^="${label} · "]`)!;
+  const check = (name: string) => page.act(async () => action(name, "Guardar").click());
+  const dismiss = (name: string) => page.act(async () => action(name, "Cancelar").click());
+  const press = (selector: string, key: string) => page.act(async () => { page.host.querySelector(selector)!.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true })); });
+  return { ...page, writes, approvals: () => approvals, row, openRow: open, leave, action, check, dismiss, press, close: () => page.act(async () => page.root.unmount()) };
 }
 
 async function fill(page: { host: Element; act: (run: () => Promise<void>) => Promise<void> }, selector: string, value: string, element: typeof HTMLInputElement | typeof HTMLSelectElement = HTMLInputElement) {
@@ -156,9 +160,13 @@ describe("the receipt dossier on an open draft", () => {
       assert.ok(box?.textContent?.startsWith("Falta para aprobar"));
       assert.equal(page.host.querySelector('[data-testid="approve-reason"]')?.textContent, "Agrega la fecha para aprobar");
       assert.equal(button(page.host, "Aprobar").disabled, true);
+      await page.openRow("occurred_on");
       await fill(page, '[placeholder="dd/mm/aaaa"]', "31/02/2026");
+      await page.check("occurred_on");
       assert.equal(page.writes.length, 0, "a day that does not exist is not sent");
+      assert.ok(page.row("occurred_on").querySelector('[role="alert"]')?.textContent?.includes("dd/mm/aaaa"), "and the row says why it stayed open");
       await fill(page, '[placeholder="dd/mm/aaaa"]', "16/10/2026");
+      await page.check("occurred_on");
       await page.wait(() => page.writes.length === 1 && !page.host.querySelector('[data-testid="dossier-attention"]'));
       assert.deepEqual(page.writes[0].body, { occurred_on: { state: "known", value: "2026-10-16" } });
       assert.equal(button(page.host, "Aprobar").disabled, false);
@@ -166,13 +174,13 @@ describe("the receipt dossier on an open draft", () => {
     } finally { await page.close(); }
   });
 
-  test("ITBIS edits in place and saves on its own, carrying the other fiscal facts and the declaration unchanged", async () => {
+  test("ITBIS edits in place and saves on the check, carrying the other fiscal facts and the declaration unchanged", async () => {
     const page = await setup();
     try {
       await page.openRow("itbis");
       assert.equal(document.activeElement, page.host.querySelector('[data-testid="dossier-review-itbis"]'));
       await fill(page, '[data-testid="dossier-review-itbis"]', "500.00");
-      await page.leave('[data-testid="dossier-review-itbis"]');
+      await page.check("itbis");
       await page.wait(() => Boolean(page.row("itbis").querySelector('[data-testid="row-saved"]')));
       assert.deepEqual(page.writes.map(({ kind, version }) => [kind, version]), [["fiscal", 2]]);
       const { fiscal, declaration } = page.writes[0].body as { fiscal: unknown; declaration: Record<string, unknown> };
@@ -185,16 +193,16 @@ describe("the receipt dossier on an open draft", () => {
     } finally { await page.close(); }
   });
 
-  test("the total and its currency are one row and one write; leaving a row unchanged writes nothing", async () => {
+  test("the total and its currency are one row and one write; saving a row unchanged writes nothing", async () => {
     const page = await setup();
     try {
       await page.openRow("counterparty");
-      await page.leave('[data-testid="edit-counterparty"] input');
+      await page.check("counterparty");
       assert.equal(page.host.querySelector('[data-testid="edit-counterparty"]'), null);
       await page.openRow("amount");
       await fill(page, '[data-testid="dossier-review-amount"]', "3600");
       await fill(page, '[data-testid="edit-amount"] select', "USD", HTMLSelectElement);
-      await page.leave('[data-testid="edit-amount"] select');
+      await page.check("amount");
       await page.wait(() => Boolean(page.row("amount").querySelector('[data-testid="row-saved"]')));
       assert.deepEqual(page.writes.map(({ body }) => body), [{ amount: { state: "known", value: "3600.00" }, currency: { state: "known", value: "USD" } }]);
       assert.ok(page.row("amount").textContent?.includes("US$ 3,600.00"));
@@ -234,10 +242,11 @@ describe("the receipt dossier on an open draft", () => {
       await page.openRow("counterparty");
       await fill(page, '[data-testid="edit-counterparty"] input', "Ferretería Norte");
       await page.openRow("fiscal_number");
-      assert.ok(page.row("counterparty").querySelector('[data-testid="row-saving"]'), "focus left the first row, so it is saving");
       await fill(page, '[data-testid="edit-fiscal_number"] input', "e310000000777");
-      await page.leave('[data-testid="edit-fiscal_number"] input');
-      await page.wait(() => order.length === 2 && !page.host.querySelector('[data-testid="row-saving"]'));
+      await page.check("counterparty");
+      assert.equal(page.action("counterparty", "Guardar").getAttribute("aria-busy"), "true", "the check shows the row working");
+      await page.check("fiscal_number");
+      await page.wait(() => order.length === 2 && !page.host.querySelector('[data-row-open]'));
       assert.deepEqual(order, [["facts", 2], ["fiscal", 3]]);
       assert.ok(page.row("fiscal_number").textContent?.includes("E310000000777"), "the server's clean value shows");
     } finally { await page.close(); }
@@ -248,7 +257,7 @@ describe("the receipt dossier on an open draft", () => {
     try {
       await page.openRow("itbis");
       await fill(page, '[data-testid="dossier-review-itbis"]', "1.00");
-      await page.leave('[data-testid="dossier-review-itbis"]');
+      await page.check("itbis");
       await page.wait(() => Boolean(page.host.querySelector('[data-testid="row-save-failed"]')));
       const failure = page.row("itbis").querySelector('[data-testid="row-save-failed"]');
       assert.equal(failure?.getAttribute("role"), "alert");
@@ -257,7 +266,7 @@ describe("the receipt dossier on an open draft", () => {
       assert.ok(failure?.querySelector('[data-testid="error-reference"]')?.textContent?.includes("Ref. sample-v"));
       assert.equal(page.host.querySelector<HTMLInputElement>('[data-testid="dossier-review-itbis"]')?.value, "1.00");
       assert.equal(button(page.host, "Aprobar").disabled, true, "nothing is approved while the row shows a value the record does not hold");
-      await page.act(async () => button(failure!, "Cancelar").click());
+      await page.dismiss("itbis");
       assert.equal(page.host.querySelector('[data-testid="row-save-failed"]'), null);
       assert.equal(button(page.host, "Aprobar").disabled, false);
       assert.ok(page.row("itbis").textContent?.includes("RD$ 526.27"));
@@ -282,13 +291,15 @@ describe("the receipt dossier on an open draft", () => {
     try {
       await page.openRow("counterparty");
       await fill(page, '[data-testid="edit-counterparty"] input', "Ferretería Norte");
-      await page.leave('[data-testid="edit-counterparty"] input');
+      await page.press('[data-testid="edit-counterparty"] input', "Enter");
       await page.wait(() => Boolean(page.host.querySelector('[data-testid="row-save-failed"]')));
       const failure = page.row("counterparty").querySelector('[data-testid="row-save-failed"]')!;
       assert.ok(failure.textContent?.includes("No pudimos confirmar si Comercio o persona se guardó."));
       assert.ok(failure.querySelector('[data-testid="error-reference"]'), "a lost answer still shows a reference");
       assert.equal(button(page.host, "Aprobar").disabled, true);
-      assert.ok(![...failure.querySelectorAll("button")].some((item) => item.textContent === "Cancelar"), "nothing may be dropped while its outcome is unknown");
+      assert.equal(page.action("counterparty", "Cancelar").disabled, true, "nothing may be dropped while its outcome is unknown");
+      await page.press('[data-testid="edit-counterparty"] input', "Escape");
+      assert.ok(page.host.querySelector('[data-testid="edit-counterparty"]'), "Escape drops nothing either");
       await page.act(async () => button(failure, "Reintentar").click());
       await page.wait(() => Boolean(page.row("counterparty").querySelector('[data-testid="row-saved"]')));
       assert.deepEqual(keys[1], keys[0], "the server answers one save once");
@@ -308,12 +319,104 @@ describe("the receipt dossier on an open draft", () => {
       await page.openRow("amount");
       await fill(page, '[data-testid="dossier-review-amount"]', "950");
       await page.leave('[data-testid="dossier-review-amount"]');
+      await page.check("amount");
       await page.wait(() => Boolean(page.host.querySelector('[data-testid="row-save-failed"]')));
       assert.ok(page.row("counterparty").textContent?.includes("Corrección de otra persona"), "the other person's change is on screen");
       assert.equal(page.host.querySelector<HTMLInputElement>('[data-testid="dossier-review-amount"]')?.value, "950.00");
       await page.act(async () => button(page.row("amount"), "Reintentar").click());
       await page.wait(() => Boolean(page.row("amount").querySelector('[data-testid="row-saved"]')));
       assert.ok(page.row("amount").textContent?.includes("RD$ 950.00"));
+    } finally { await page.close(); }
+  });
+
+  test("a row saves only when asked: leaving the field writes nothing, and the check or Enter saves", async () => {
+    const page = await setup();
+    try {
+      await page.openRow("counterparty");
+      await fill(page, '[data-testid="edit-counterparty"] input', "Ferretería Norte");
+      await page.leave('[data-testid="edit-counterparty"] input');
+      assert.equal(page.writes.length, 0);
+      assert.ok(page.host.querySelector('[data-testid="edit-counterparty"]'), "the row stays open");
+      await page.press('[data-testid="edit-counterparty"] input', "Enter");
+      await page.wait(() => Boolean(page.row("counterparty").querySelector('[data-testid="row-saved"]')));
+      assert.equal(page.writes.length, 1);
+      assert.equal(page.host.querySelector('[data-row-open]'), null);
+      assert.ok(page.row("counterparty").textContent?.includes("Ferretería Norte"));
+    } finally { await page.close(); }
+  });
+
+  test("the X and Escape cancel: the value comes back, nothing is sent, and focus returns to the row", async () => {
+    const page = await setup();
+    try {
+      for (const leave of [() => page.dismiss("counterparty"), () => page.press('[data-testid="edit-counterparty"] input', "Escape")]) {
+        await page.openRow("counterparty");
+        assert.equal(document.activeElement, page.host.querySelector('[data-testid="edit-counterparty"] input'));
+        await fill(page, '[data-testid="edit-counterparty"] input', "Otro nombre");
+        await leave();
+        await page.act(async () => { await new Promise((resolve) => requestAnimationFrame(resolve)); });
+        assert.equal(page.host.querySelector('[data-row-open]'), null);
+        assert.ok(page.row("counterparty").textContent?.includes("Ferretería La Esquina"));
+        assert.equal(document.activeElement, page.row("counterparty").querySelector("button"));
+      }
+      assert.equal(page.writes.length, 0);
+    } finally { await page.close(); }
+  });
+
+  test("an unsaved row holds approval and names itself beside Aprobar; an unchanged one holds nothing", async () => {
+    const page = await setup();
+    try {
+      await page.openRow("itbis");
+      assert.equal(button(page.host, "Aprobar").disabled, false, "nothing typed, nothing held");
+      await fill(page, '[data-testid="dossier-review-itbis"]', "500.00");
+      assert.equal(button(page.host, "Aprobar").disabled, true);
+      assert.equal(page.host.querySelector('[data-testid="approve-reason"]')?.textContent, "Guarda o cancela ITBIS para aprobar.");
+      await page.dismiss("itbis");
+      assert.equal(button(page.host, "Aprobar").disabled, false);
+      assert.equal(page.host.querySelector('[data-testid="approve-reason"]'), null);
+    } finally { await page.close(); }
+  });
+
+  test("leaving with an unsaved row warns first, by any way out; keeping stays, discarding goes", async () => {
+    const page = await setup();
+    const dialog = () => document.querySelector('[role="alertdialog"]');
+    try {
+      await page.openRow("counterparty");
+      await page.act(async () => page.api().openPanel({ kind: "inbox" }));
+      assert.equal(dialog(), null, "an open row with nothing typed loses nothing");
+      await page.wait(() => !page.host.querySelector('[data-testid="business-record-review"]'));
+    } finally { await page.close(); }
+    const held = await setup();
+    try {
+      await held.openRow("counterparty");
+      await fill(held, '[data-testid="edit-counterparty"] input', "Otro nombre");
+      const unload = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(unload);
+      assert.equal(unload.defaultPrevented, true, "a reload or a closed tab warns too");
+      await held.act(async () => held.api().openPanel({ kind: "inbox" }));
+      assert.ok(dialog()?.textContent?.includes("¿Descartar los cambios?"));
+      await held.act(async () => button(dialog()!, "Seguir editando").click());
+      assert.equal(dialog(), null);
+      assert.equal(held.host.querySelector<HTMLInputElement>('[data-testid="edit-counterparty"] input')?.value, "Otro nombre", "the typed value stays");
+      await held.act(async () => held.api().chooseBusiness("another-grant"));
+      assert.ok(dialog(), "switching Business warns too");
+      await held.act(async () => button(dialog()!, "Seguir editando").click());
+      await held.act(async () => held.api().openPanel({ kind: "inbox" }));
+      await held.act(async () => button(dialog()!, "Descartar cambios").click());
+      await held.wait(() => !held.host.querySelector('[data-testid="business-record-review"]'));
+      assert.equal(held.writes.length, 0);
+    } finally { await held.close(); }
+  });
+
+  test("Historial owns what changed: the raw web actions are gone and the correction is there", async () => {
+    const page = await setup();
+    try {
+      await page.openRow("counterparty");
+      await fill(page, '[data-testid="edit-counterparty"] input', "Ferretería Norte");
+      await page.check("counterparty");
+      await page.wait(() => Boolean(page.row("counterparty").querySelector('[data-testid="row-saved"]')));
+      const shown = page.host.querySelector('[data-testid="business-record-review"]')!;
+      for (const gone of ["Revisiones en la web", "Acción enviada originalmente"]) assert.ok(!shown.textContent?.includes(gone), gone);
+      assert.ok(page.host.querySelector('[data-testid="receipt-history"]')?.textContent?.includes("Ferretería Norte"));
     } finally { await page.close(); }
   });
 

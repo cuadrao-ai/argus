@@ -4,12 +4,12 @@ import { useTranslation } from "react-i18next";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import type { DgiiField, DgiiFields, PurchaseChoice } from "@/lib/business-dgii";
 import { quietButtonClass } from "./business-ui";
+import { ReviewSelect } from "./ReceiptFieldControls";
 import { FACT_LABEL_CLASS, FACT_ROW_CLASS } from "./ReceiptRecordFacts";
 import ReceiptRowSave from "./ReceiptRowSave";
 import type { RowSave, SaveRow } from "./receipt-review-save";
 
 type Choice = keyof PurchaseChoice;
-const inputClass = "block min-h-11 w-full rounded-item border border-[#7d8a84] bg-[#FFFEFA] px-3 text-[16px] text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] disabled:opacity-50 dark:bg-[#141517] dark:text-white";
 
 /**
  * Tipo de gasto and forma de pago, from the server's codes and labels. Neither
@@ -39,10 +39,10 @@ export default function ReceiptOwnerChoices({ dossier, fields, failed, disabled,
         <dt className={FACT_LABEL_CLASS}>{label}</dt>
         <dd className="min-w-0 py-1">
           {field ? <label className="block"><span className="sr-only">{label}</span>
-            <select className={inputClass} value={value} disabled={disabled} onChange={(event) => onChoose(choice, event.target.value || null)}>
+            <ReviewSelect value={value} disabled={disabled} onChange={(event) => onChoose(choice, event.target.value || null)}>
               <option value="">{t("business.review.choose", "Choose")}</option>
               {field.options.map((code) => <option key={code} value={code}>{name(code)}</option>)}
-            </select>
+            </ReviewSelect>
           </label> : null}
           {suggestion && field ? <p data-testid="expense-type-suggestion" className="mt-1 flex flex-wrap items-center gap-x-2 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{t("business.dgii.suggested", "Suggested")}: {name(suggestion)}{disabled ? null : <button type="button" className={quietButtonClass} onClick={() => onChoose(choice, suggestion)}>{t("business.dossier.placeholder.use_suggestion", "Use")}</button>}</p> : null}
           <ReceiptRowSave save={saves[choice]} onRetry={() => onRetry(choice)} onCancel={() => onCancel(choice)} />

@@ -22,6 +22,11 @@ export type RowSave =
   | { state: "saved" }
   | { state: "failed"; message: string; reference: string; retry: boolean; unknown: boolean };
 
+/** What a person has typed into an open row. */
+export type RowEdit = { change: ReviewChange; invalid: boolean };
+/** An open row. `tried` says a save was refused here because the value cannot be sent. */
+type OpenRow = { edit: RowEdit | null; tried: boolean };
+
 type Attempt = { change: ReviewChange; base?: BusinessDossier; key?: string };
 type Failure = Omit<Extract<RowSave, { state: "failed" }>, "state">;
 
@@ -134,7 +139,11 @@ export function useReviewAutosave({ source, draftId, dossier, fields, label, onS
     return task;
   };
 
-  const save = (row: SaveRow, change: ReviewChange) => run(row, { change });
+  // The same edit sent again keeps its key and revision, so a lost answer is answered once.
+  const save = (row: SaveRow, change: ReviewChange) => {
+    const kept = attempts.current[row];
+    return run(row, kept && JSON.stringify(kept.change) === JSON.stringify(change) ? kept : { change });
+  };
   const retry = (row: SaveRow) => { const attempt = attempts.current[row]; return attempt ? run(row, attempt) : Promise.resolve(false); };
   const clear = (row: SaveRow) => { delete attempts.current[row]; mark(row, null); };
   const states = Object.values(saves);
@@ -147,4 +156,38 @@ export function useReviewAutosave({ source, draftId, dossier, fields, label, onS
     /** A row whose edit did not land: nothing is approved while the screen shows a value the record does not hold. */
     failed: states.some((item) => item.state === "failed"),
   };
+}
+
+/**
+ * The rows a person has open. A row saves only when asked; leaving it saves
+ * nothing, so `unsaved` names what would be lost.
+ */
+export function useReviewRows({ dossier, autosave }: { dossier: BusinessDossier | null; autosave: ReturnType<typeof useReviewAutosave> }) {
+  const [rows, setRows] = useState<Partial<Record<ReviewRow, OpenRow>>>({});
+
+  const focusRow = (row: ReviewRow, control: string) => requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-fact="${row}"] ${control}`)?.focus());
+  const close = (row: ReviewRow) => {
+    setRows((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key !== row)));
+    focusRow(row, "button");
+  };
+  const open = (row: ReviewRow) => setRows((current) => current[row] ? current : { ...current, [row]: { edit: null, tried: false } });
+  const hold = (row: ReviewRow, edit: RowEdit) => setRows((current) => ({ ...current, [row]: { edit, tried: false } }));
+  const finish = (row: ReviewRow, saved: Promise<boolean>) => void saved.then((done) => { if (done) close(row); else focusRow(row, "input, select"); });
+
+  /** An unchanged row just closes. A value that cannot be sent stays open and says so. */
+  const save = (row: ReviewRow) => {
+    const edit = rows[row]?.edit;
+    if (autosave.saves[row]?.state === "saving") return;
+    if (edit?.invalid) { setRows((current) => ({ ...current, [row]: { edit, tried: true } })); return; }
+    if (!edit || !dossier || !changesRecord(dossier, edit.change)) { autosave.clear(row); close(row); return; }
+    finish(row, autosave.save(row, edit.change));
+  };
+  const retry = (row: ReviewRow) => finish(row, autosave.retry(row));
+  const cancel = (row: ReviewRow) => { autosave.clear(row); close(row); };
+
+  const unsaved = (Object.keys(rows) as ReviewRow[]).filter((row) => {
+    const edit = rows[row]?.edit;
+    return Boolean(edit && (edit.invalid || !dossier || changesRecord(dossier, edit.change)));
+  });
+  return { rows, open, hold, save, retry, cancel, clear: () => setRows({}), unsaved };
 }

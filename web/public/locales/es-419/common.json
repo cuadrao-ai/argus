@@ -2944,6 +2944,11 @@
         "save_lost": "No pudimos confirmar si {{field}} se guardó. Aprobar queda en pausa.",
         "save_refused": "No se guardó {{field}}. Revisa el valor.",
         "save_stale": "Este registro cambió mientras editabas. Ya ves la versión actual y tu cambio sigue aquí.",
+        "save_first": "Guarda o cancela {{fields}} para aprobar.",
+        "group_identity": "Identificación",
+        "group_amounts": "Montos",
+        "group_retentions": "Retenciones",
+        "group_other": "Otros",
         "section_choices": "Para el 606",
         "use_suggestion": "Usar"
       },
