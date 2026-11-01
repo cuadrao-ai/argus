@@ -194,7 +194,7 @@ test.describe("contact form tap targets", () => {
       console.log(measured.join("\n"));
       const anchors = page.locator("footer a");
       const count = await anchors.count();
-      expect(count).toBeGreaterThanOrEqual(13);
+      expect(count).toBeGreaterThanOrEqual(12);
       for (let index = 0; index < count; index += 1) {
         const link = anchors.nth(index);
         await link.evaluate((node: HTMLElement) => node.focus({ focusVisible: true }));

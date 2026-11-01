@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-for (const path of ["/", "/personal", "/en", "/en/personal"]) {
+for (const path of ["/", "/en"]) {
   test(`${path} shows a full mobile wordmark and keeps the desktop crop without a divider`, async ({ page }) => {
     await page.goto(path);
     await page.evaluate(() => document.fonts.ready);

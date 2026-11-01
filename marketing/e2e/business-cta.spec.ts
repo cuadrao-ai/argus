@@ -2,9 +2,9 @@ import { expect, test } from "@playwright/test";
 
 import { businessPath, SITE_ROUTES } from "../lib/site-routes";
 
-for (const { path, cta, contact, contactPath, contactHeading, earlyAccess } of [
-  { path: "/", cta: "Hablemos de tu negocio", contact: "Contacto", contactPath: "/contacto", contactHeading: /Empecemos por\s+tu negocio\./, earlyAccess: "Acceso anticipado" },
-  { path: "/en", cta: "Let’s talk about your business", contact: "Contact", contactPath: "/en/contact", contactHeading: /Let’s start with\s+your business\./, earlyAccess: "Early access" },
+for (const { path, cta, contact, contactPath, contactHeading } of [
+  { path: "/", cta: "Hablemos de tu negocio", contact: "Contacto", contactPath: "/contacto", contactHeading: /Empecemos por\s+tu negocio\./ },
+  { path: "/en", cta: "Let’s talk about your business", contact: "Contact", contactPath: "/en/contact", contactHeading: /Let’s start with\s+your business\./ },
 ]) {
   test(`${path} Business contact actions lead to ${contactPath}`, async ({ page }) => {
     await page.goto(path);
@@ -24,18 +24,6 @@ for (const { path, cta, contact, contactPath, contactHeading, earlyAccess } of [
     await page.locator("main").getByRole("link", { name: cta, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`${contactPath}$`));
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(contactHeading);
-  });
-
-  test(`${path} Personal waitlist actions keep their destinations`, async ({ page }) => {
-    const personal = path === "/" ? "/personal" : "/en/personal";
-    await page.goto(personal);
-    await expect(page.locator("header").getByRole("link", { name: earlyAccess, exact: true, includeHidden: true })).toHaveAttribute("href", "#early-access");
-    await expect(page.locator("footer").getByRole("link", { name: earlyAccess, exact: true })).toHaveAttribute("href", `${personal}#early-access`);
-    const menu = page.getByRole("button", { name: /Abrir menú|Open menu/ });
-    if (await menu.isVisible()) {
-      await menu.click();
-      await expect(page.locator("#business-mobile-menu").getByRole("link", { name: earlyAccess, exact: true })).toHaveAttribute("href", "#early-access");
-    }
   });
 }
 
@@ -79,13 +67,3 @@ for (const { path, cta } of [
     await expect.poll(() => background(header)).toBe(DEEP);
   });
 }
-
-test("/personal header button rests on the green once the header floats", async ({ page }) => {
-  test.skip(test.info().project.name === "mobile", "the header button is in the mobile menu on phones");
-  await page.goto("/personal");
-  const button = page.locator("header").getByRole("link", { name: "Acceso anticipado", exact: true });
-  await page.evaluate(() => window.scrollTo(0, 800));
-  await expect(page.locator("header")).toHaveAttribute("data-condensed", "true");
-  await page.mouse.move(2, 2);
-  await expect.poll(() => button.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(GREEN);
-});

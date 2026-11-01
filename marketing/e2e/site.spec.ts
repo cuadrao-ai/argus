@@ -4,11 +4,9 @@ import { PUBLIC_URL, asNewClient } from "./support";
 
 const PAGES = [
   { path: "/", lang: "es-DO", title: "Cada cuenta. En su sitio. | Cuadrao", canonical: "https://cuadrao.ai", alternate: "https://cuadrao.ai/en" },
-  { path: "/personal", lang: "es-DO", title: "Tus finanzas, en orden. | Cuadrao Personal", canonical: "https://cuadrao.ai/personal", alternate: "https://cuadrao.ai/en/personal" },
   { path: "/contacto", lang: "es-DO", title: "Hablemos de tu negocio | Cuadrao", canonical: "https://cuadrao.ai/contacto", alternate: "https://cuadrao.ai/en/contact" },
   { path: "/privacidad", lang: "es-DO", title: "Privacidad | Cuadrao", canonical: "https://cuadrao.ai/privacidad", alternate: "https://cuadrao.ai/en/privacy" },
   { path: "/en", lang: "en", title: "Every record. In its place. | Cuadrao", canonical: "https://cuadrao.ai/en", alternate: "https://cuadrao.ai" },
-  { path: "/en/personal", lang: "en", title: "Your finances, in order. | Cuadrao Personal", canonical: "https://cuadrao.ai/en/personal", alternate: "https://cuadrao.ai/personal" },
   { path: "/en/contact", lang: "en", title: "Let’s talk about your business | Cuadrao", canonical: "https://cuadrao.ai/en/contact", alternate: "https://cuadrao.ai/contacto" },
   { path: "/en/privacy", lang: "en", title: "Privacy | Cuadrao", canonical: "https://cuadrao.ai/en/privacy", alternate: "https://cuadrao.ai/privacidad" },
 ];
@@ -72,10 +70,12 @@ test.describe("page identity", () => {
 test.describe("routes", () => {
   for (const [from, to] of [
     ["/business", "/"],
-    ["/business/personal", "/personal"],
+    ["/business/personal", "/"],
     ["/business/demo", "/contacto"],
     ["/business/en", "/en"],
-    ["/business/en/personal", "/en/personal"],
+    ["/business/en/personal", "/en"],
+    ["/personal", "/"],
+    ["/en/personal", "/en"],
     ["/business/en/demo", "/en/contact"],
     ["/es", "/"],
     ["/es/contacto", "/contacto"],
@@ -102,7 +102,7 @@ test.describe("routes", () => {
     await expect(page.getByRole("link", { name: "Go to the home page" })).toHaveAttribute("href", "/en");
   });
 
-  for (const [from, to] of [["/EN", "/en"], ["/en/Personal", "/en/personal"], ["/En/PRIVACY", "/en/privacy"], ["/Contacto", "/contacto"]]) {
+  for (const [from, to] of [["/EN", "/en"], ["/En/Contact", "/en/contact"], ["/En/PRIVACY", "/en/privacy"], ["/Contacto", "/contacto"]]) {
     test(`${from} redirects to ${to} and does not poison the lowercase page`, async ({ request }) => {
       const response = await request.get(`${from}?x=1`, { maxRedirects: 0 });
       expect(response.status()).toBe(308);
@@ -118,14 +118,25 @@ test.describe("routes", () => {
   });
 
   test("images on a candidate host are also excluded from search", async ({ request }) => {
-    const response = await request.get("/_next/image?url=%2Fcuadrao-site%2Fpersonal-home-preview.png&w=640&q=75");
+    const response = await request.get("/_next/image?url=%2Fcuadrao-site%2Fshare-business-es.png&w=640&q=75");
     expect(response.status()).toBe(200);
     expect(response.headers()["x-robots-tag"]).toBe("noindex, nofollow");
   });
 
   test("form endpoints reject GET", async ({ request }) => {
     expect((await request.get("/api/inquiries")).status()).toBe(405);
-    expect((await request.get("/api/signups")).status()).toBe(405);
+  });
+
+  test("the removed signup endpoints no longer answer", async ({ request }) => {
+    for (const path of ["/api/signups", "/api/signups/config", "/api/waitlist/signups"]) {
+      expect((await request.get(path)).status()).toBe(404);
+      expect((await request.post(path, { data: {} })).status()).toBe(404);
+    }
+  });
+
+  test("sent email links can still leave the list", async ({ request }) => {
+    expect((await request.get("/api/waitlist/leave?token=x")).status()).toBe(200);
+    expect((await request.get("/api/waitlist/confirm?token=x")).status()).toBe(200);
   });
 });
 

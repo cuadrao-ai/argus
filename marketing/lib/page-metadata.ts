@@ -17,11 +17,6 @@ export const PAGE_METADATA: Record<
       description:
         "Cuéntale a Lucas cómo llevas tu negocio y conoce lo que estamos preparando en Cuadrao.",
     },
-    personal: {
-      title: "Tus finanzas, en orden. | Cuadrao Personal",
-      description:
-        "Conoce Cuadrao Personal y deja tu correo para recibir noticias sobre el acceso anticipado.",
-    },
     terms: { title: "Términos | Cuadrao", description: "Términos de uso del sitio web de Cuadrao." },
     deletion: { title: "Eliminar tus datos | Cuadrao", description: "Cómo pedir que borremos tus datos en Cuadrao." },
     privacy: {
@@ -40,11 +35,6 @@ export const PAGE_METADATA: Record<
       description:
         "Tell Lucas how you run your business and explore what we are preparing at Cuadrao.",
     },
-    personal: {
-      title: "Your finances, in order. | Cuadrao Personal",
-      description:
-        "Meet Cuadrao Personal and leave your email to hear about early access.",
-    },
     terms: { title: "Terms | Cuadrao", description: "Cuadrao Website Terms of Use" },
     deletion: { title: "Delete your data | Cuadrao", description: "How to ask us to delete your data" },
     privacy: {
@@ -57,21 +47,13 @@ export const PAGE_METADATA: Record<
 
 type ShareImage = { url: string; width: number; height: number; alt: string };
 
-export function shareImage(
-  locale: BusinessLocale,
-  page: BusinessPage,
-): ShareImage {
-  const personal = page === "personal";
+export function shareImage(locale: BusinessLocale): ShareImage {
   return {
-    url: `/cuadrao-site/share-${personal ? "personal" : "business"}-${locale}.png`,
+    url: `/cuadrao-site/share-business-${locale}.png`,
     width: 1200,
     height: 630,
-    alt: personal
-      ? locale === "es"
-        ? "Cuadrao Personal. Tus finanzas, en orden."
-        : "Cuadrao Personal. Your finances, in order."
-      : locale === "es"
-        ? "Cuadrao para negocios. Cada cuenta. En su sitio."
-        : "Cuadrao Business. Every record. In its place.",
+    alt: locale === "es"
+      ? "Cuadrao para negocios. Cada cuenta. En su sitio."
+      : "Cuadrao Business. Every record. In its place.",
   };
 }

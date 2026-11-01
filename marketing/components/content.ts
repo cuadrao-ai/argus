@@ -4,7 +4,6 @@ export type { BusinessLocale } from "@/lib/site-routes";
 const es = {
   navigation: {
     business: "Para negocios",
-    personal: "Personal",
     approach: "La idea",
     howItWorks: "Cómo funciona",
     about: "Nosotros",
@@ -63,18 +62,10 @@ const es = {
     rateLimited: "Hiciste varios intentos seguidos. Espera unos minutos e inténtalo de nuevo.",
     rejected: "Revisa los campos marcados e inténtalo de nuevo.",
   },
-  personal: {
-    eyebrow: "CUADRAO PERSONAL",
-    title: "Tu dinero también merece estar cuadrao.",
-    body: "Estamos preparando Cuadrao para tus finanzas personales. Pronto compartiremos más.",
-    status: "En preparación",
-    return: "Conoce Cuadrao para negocios",
-  },
 };
 const en: typeof es = {
   navigation: {
     business: "Business",
-    personal: "Personal",
     approach: "The idea",
     howItWorks: "How it works",
     about: "About",
@@ -132,13 +123,6 @@ const en: typeof es = {
     unavailable: `We couldn’t send your message. What you wrote is still here. Try again or email us at ${businessContactEmail}.`,
     rateLimited: "You made several attempts in a row. Wait a few minutes and try again.",
     rejected: "Check the marked fields and try again.",
-  },
-  personal: {
-    eyebrow: "CUADRAO PERSONAL",
-    title: "Your money deserves to be squared away, too.",
-    body: "We’re preparing Cuadrao for your personal finances. More to come soon.",
-    status: "In preparation",
-    return: "Explore Cuadrao for business",
   },
 };
 export const businessContent = { es, en };
