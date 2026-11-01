@@ -15,6 +15,7 @@ from pydantic import (
 )
 
 from argus.api.schemas import Language
+from argus.domain.business.bandeja_group import BandejaGroupName, BandejaReason
 from argus.domain.business.contracts.dossier import RecordContext
 from argus.domain.business.country import CountryCode
 from argus.domain.business.document_type import DocumentType
@@ -228,6 +229,19 @@ class BandejaMembership(_Wire):
     leyendo: bool
 
 
+class BandejaGroup(_Wire):
+    # The spec's one group of an open receipt, from ``bandeja_group.group_of``:
+    # null for a closed receipt and the email itself.
+    group: BandejaGroupName | None
+    # Why an ``attention`` receipt is not Listos: one plain word, null for
+    # ``listo``. Any open receipt can still be approved alone.
+    reason: BandejaReason | None
+    # What an approval of this row names: its open draft and the version this
+    # list saw. Null while the receipt has no open draft.
+    draft_id: UUID | None
+    version: int | None
+
+
 class ReceiptActivityCounts(_Wire):
     # Receipts being read, plus emails still being read with nothing saved yet.
     reading_count: int
@@ -244,6 +258,12 @@ class ReceiptActivityCounts(_Wire):
     # "Por revisar": the receipts a person can review now (not being read,
     # not unreadable) plus those notes. An email never counts here.
     ready_to_review_count: int
+    # The Bandeja's Listos tab: the rows whose ``bandeja_group`` is ``listo``.
+    bandeja_listo_count: int
+    # The Bandeja's Necesitan atención tab: every other row it lists, notes and
+    # emails included, so the two sum to ``pending_review_count``. Wider than
+    # ``needs_attention_count``, which keeps its own meaning.
+    bandeja_attention_count: int
     # Transacciones "Por igualar": every movement and document still to
     # igualar, from any period. Null while bank matching is off.
     por_igualar_count: int | None
@@ -268,6 +288,7 @@ class ReceiptSummary(_Wire):
     id: str
     activity: ReceiptActivity | None = None
     bandeja: BandejaMembership | None = None
+    bandeja_group: BandejaGroup | None = None
     # ``email`` is decided at the API boundary from the email queue.
     channel: Literal["web", "whatsapp", "email"]
     filename: str | None
@@ -459,6 +480,10 @@ class BusinessOverview(_Wire):
     needs_attention: int
     #: "Por revisar": the Bandeja's ``ready_to_review_count``.
     ready_to_review_count: int
+    #: The same ``bandeja_listo_count`` and ``bandeja_attention_count`` the
+    #: Bandeja's counts carry.
+    bandeja_listo_count: int
+    bandeja_attention_count: int
     #: "Por igualar": the same ``por_igualar_count`` the Bandeja counts carry.
     por_igualar_count: int | None = None
     last_received_at: datetime | None

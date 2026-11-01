@@ -553,6 +553,8 @@ def overview_with_drafts(context: BusinessContext, start, end) -> dict:  # noqa:
     data["needs_attention"] = counts["needs_attention_count"]
     data["awaiting_review"] = counts["pending_review_count"] - data["needs_attention"]
     data["ready_to_review_count"] = counts["ready_to_review_count"]
+    data["bandeja_listo_count"] = counts["bandeja_listo_count"]
+    data["bandeja_attention_count"] = counts["bandeja_attention_count"]
     data["por_igualar_count"] = counts["por_igualar_count"]
     # Gastos reales are the receipts the Personal mark admits, by the rule
     # month close and Registros share; con valor fiscal are the real ones that
