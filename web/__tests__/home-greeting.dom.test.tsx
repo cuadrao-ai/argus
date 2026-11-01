@@ -10,6 +10,7 @@ import HomeGreeting from "@/components/business-app/foundation/HomeGreeting";
 import BusinessHeader from "@/components/business-app/foundation/BusinessHeader";
 import { greetingPeriod, nextGreetingBoundary, useHomeClock, type GreetingPeriod } from "@/components/business-app/foundation/home-greeting";
 import { readSessionStored, removeSessionStored } from "@/lib/browser-storage";
+import { pinTestClock } from "./test-clock";
 import en from "@/public/locales/en/common.json";
 import es from "@/public/locales/es-419/common.json";
 
@@ -48,7 +49,7 @@ beforeEach(() => {
     Object.assign(window, { setInterval: original.interval, clearInterval: original.clearInterval, setTimeout: original.timeout, clearTimeout: original.clearTimeout, matchMedia: original.media });
     if (original.visibility) Object.defineProperty(document, "visibilityState", original.visibility);
     else delete (document as unknown as Record<string, unknown>).visibilityState;
-    setSystemTime();
+    pinTestClock();
   };
 });
 afterEach(async () => { await act(async () => root.unmount()); restore(); host.remove(); });

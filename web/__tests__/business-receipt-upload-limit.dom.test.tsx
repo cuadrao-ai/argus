@@ -79,7 +79,7 @@ test("nine files under the upload limit wait out Retry-After, retry the same fil
     assert.ok(new URL(request.url).pathname.endsWith("/business/receipts"), request.url);
     assert.equal(request.method, "POST");
     const filename = decodeURIComponent(request.headers.get("X-Document-Filename") ?? "");
-    requests.push({ filename, key: request.headers.get("Idempotency-Key"), at: Date.now() });
+    requests.push({ filename, key: request.headers.get("Idempotency-Key"), at: performance.now() });
     if (filename === "recibo-6.jpg" && !limitedOnce) {
       limitedOnce = true;
       limited();
