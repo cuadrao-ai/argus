@@ -53,7 +53,7 @@ export function LegalPage({ page, locale = "es" }: { page: LegalPageName; locale
           })}
         </article>
       </main>
-      <BusinessFooter locale={locale} showClosing={false} business />
+      <BusinessFooter locale={locale} showClosing={false} />
     </div>
   );
 }

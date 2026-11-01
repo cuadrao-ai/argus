@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUpRight } from "lucide-react";
-import { businessPath } from "@/lib/site-routes";
+import { businessPath, htmlLang } from "@/lib/site-routes";
 import { BusinessFooter } from "../business-footer";
 import { BusinessHeader } from "../business-header";
 import { FounderIdentity } from "../business-pages";
@@ -15,22 +15,17 @@ import styles from "./landing.module.css";
 import { ProblemCards } from "./problem-cards";
 import { ProductScene } from "./product-scene";
 
-const FAQ_LIMITS = 3;
-
 export function Landing({ locale }: { locale: LandingLocale }) {
   const copy = landingCopy[locale];
   const site = siteCopy[locale];
-  const faq = site.faq.map((item, index) =>
-    index === FAQ_LIMITS ? { ...item, answer: copy.faqLimits } : item,
-  );
   return (
     <div
       className={`${business.site} ${touchup.site} ${styles.landing}`}
-      lang="es-DO"
+      lang={htmlLang(locale)}
       id="top"
       data-page-background="business"
     >
-      <BusinessHeader locale={locale} plain />
+      <BusinessHeader locale={locale} />
       <main id="business-main" tabIndex={-1}>
         <section className={styles.hero} aria-labelledby="landing-title">
           <h1 id="landing-title">
@@ -46,7 +41,7 @@ export function Landing({ locale }: { locale: LandingLocale }) {
               <ArrowUpRight size={18} aria-hidden="true" />
             </a>
             <a className={touchup.textLink} href="#como">
-              {copy.howLink}
+              {site.explore}
               <ArrowDown size={16} aria-hidden="true" />
             </a>
           </div>
@@ -57,11 +52,11 @@ export function Landing({ locale }: { locale: LandingLocale }) {
         <AccountantSection locale={locale} />
         <section className={styles.letter} id="nosotros" aria-labelledby="landing-founder-title">
           <h2 id="landing-founder-title">{site.founderTitle}</h2>
-          <p className={styles.hello}>Hola,</p>
+          <p className={styles.hello}>{copy.letter.hello}</p>
           {site.founderParagraphs.map((paragraph) => (
             <p key={paragraph}>{paragraph}</p>
           ))}
-          <p>Gracias por leer,</p>
+          <p>{copy.letter.thanks}</p>
           <FounderIdentity locale={locale} />
         </section>
         <section className={styles.faq} id="preguntas" aria-labelledby="landing-faq-title">
@@ -69,10 +64,10 @@ export function Landing({ locale }: { locale: LandingLocale }) {
             <h2 id="landing-faq-title">{site.faqTitle}</h2>
             <p>{site.faqBody}</p>
           </div>
-          <FaqList items={faq} />
+          <FaqList items={site.faq} />
         </section>
       </main>
-      <BusinessFooter locale={locale} business plain />
+      <BusinessFooter locale={locale} />
     </div>
   );
 }

@@ -1,9 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
-import { PUBLIC_URL } from "./ports";
-
-const PATH = "/es/vista-previa";
+const PATH = "/";
 
 const frame = (page: Page) => page.locator("[data-scene-frame]");
 
@@ -15,28 +13,6 @@ async function seek(page: Page, p: number): Promise<void> {
     window.scrollTo({ top: top + (scene.offsetHeight - window.innerHeight) * progress, behavior: "instant" });
   }, p);
 }
-
-test.describe("hidden preview", () => {
-  test("is noindexed and unlisted on a private host", async ({ request }) => {
-    const response = await request.get(PATH);
-    expect(response.status()).toBe(200);
-    expect(response.headers()["x-robots-tag"]).toContain("noindex");
-    expect(await (await request.get("/sitemap.xml")).text()).not.toContain(PATH);
-  });
-
-  test("does not exist on the public host", async ({ request }) => {
-    expect((await request.get(`${PUBLIC_URL}${PATH}`)).status()).toBe(404);
-  });
-
-  test("does not exist under the public domain name", async ({ request }) => {
-    const response = await request.get(PATH, { headers: { "x-forwarded-host": "cuadrao.ai" } });
-    expect(response.status()).toBe(404);
-  });
-
-  test("has no English page yet", async ({ request }) => {
-    expect((await request.get("/en/vista-previa")).status()).toBe(404);
-  });
-});
 
 test.describe("hero", () => {
   test("keeps both actions clickable above the scene", async ({ page }) => {
@@ -290,7 +266,35 @@ test.describe("closing sections", () => {
   });
 });
 
-test.describe("preview header", () => {
+test.describe("english page", () => {
+  test("renders every section in English", async ({ page }) => {
+    await page.goto("/en");
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Every record.");
+    await expect(page.locator("[data-scene-date]")).toContainText("Sunday, November 15");
+    await expect(page.getByRole("heading", { name: "How it works" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your accountant gets everything in order." })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Can I use Cuadrao for my business yet?" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+  });
+
+  test("names no fiscal limit that e-CF work will replace", async ({ page }) => {
+    await page.goto("/en");
+    await page.getByRole("button", { name: "What limits should I know about?" }).click();
+    await expect(page.getByText("We are preparing e-CF issuing with a certified provider.")).toBeVisible();
+  });
+
+  test("passes an accessibility scan", async ({ page }) => {
+    await page.goto("/en");
+    await expect(page.locator("[data-chat-photo]")).toHaveCSS("opacity", "0");
+    const { violations } = await new AxeBuilder({ page }).analyze();
+    expect(violations.map((violation) => violation.id)).toEqual([]);
+  });
+});
+
+test.describe("page header", () => {
   test("reads language, sign in, then the button", async ({ page, isMobile }) => {
     test.skip(isMobile, "phones use the menu");
     await page.goto(PATH);
