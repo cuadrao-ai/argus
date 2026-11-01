@@ -74,6 +74,8 @@ const es = {
         ncf: "NCF B0100000123",
       },
       sent: "10:23 a. m.",
+      sentMark: "✓",
+      deliveredMark: "✓✓",
       reply: {
         title: "Factura recibida",
         fields: [
@@ -123,6 +125,7 @@ const es = {
   scene: {
     label:
       "Una factura llega por WhatsApp a la Bandeja de Cuadrao, Ana la aprueba y el 606 y el 607 quedan listos para su contable.",
+    brand: "cuadrao",
     time: "10:24 a. m.",
     lockTime: "10:24",
     island: {
@@ -135,6 +138,7 @@ const es = {
     } satisfies Record<IslandStep, string>,
     nav: { business: "Mi negocio", home: "Inicio", inbox: "Bandeja", records: "Registros", billing: "Facturación", activity: "Actividad" },
     search: "Buscar",
+    searchKey: "⌘K",
     add: "Agregar",
     greeting: "Buen día, Ana",
     summary: "Resumen del negocio",
@@ -174,6 +178,7 @@ const es = {
       ],
     },
     accountant: {
+      checkMark: "✓",
       title: "Tu contable",
       client: "Taller Rodríguez",
       checks: ["47 registros aprobados", "Cada línea con su documento", "606 listo", "607 listo"],
@@ -259,6 +264,8 @@ const en = {
         ncf: "NCF B0100000123",
       },
       sent: "10:23 AM",
+      sentMark: "✓",
+      deliveredMark: "✓✓",
       reply: {
         title: "Invoice received",
         fields: [
@@ -307,6 +314,7 @@ const en = {
   },
   scene: {
     label: "An invoice reaches the Cuadrao Inbox by WhatsApp, Ana approves it, and the 606 and 607 are ready for the accountant.",
+    brand: "cuadrao",
     time: "10:24 AM",
     lockTime: "10:24",
     island: {
@@ -319,6 +327,7 @@ const en = {
     } satisfies Record<IslandStep, string>,
     nav: { business: "My business", home: "Home", inbox: "Inbox", records: "Records", billing: "Invoicing", activity: "Activity" },
     search: "Search",
+    searchKey: "⌘K",
     add: "Add",
     greeting: "Good morning, Ana",
     summary: "Business summary",
@@ -358,6 +367,7 @@ const en = {
       ],
     },
     accountant: {
+      checkMark: "✓",
       title: "Your accountant",
       client: "Taller Rodríguez",
       checks: ["47 records approved", "Every line with its document", "606 ready", "607 ready"],

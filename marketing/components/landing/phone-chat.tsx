@@ -84,7 +84,7 @@ export function PhoneChat({ chat, copy, dates }: Props) {
                 <span>{copy.paper.ncf}</span>
               </div>
               <span className={styles.stamp}>
-                {copy.sent} <em className={chat.read ? styles.read : ""}>{chat.delivered ? "✓✓" : "✓"}</em>
+                {copy.sent} <em className={chat.read ? styles.read : ""}>{chat.delivered ? copy.deliveredMark : copy.sentMark}</em>
               </span>
             </div>
           </div>

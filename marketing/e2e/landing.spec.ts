@@ -15,6 +15,16 @@ async function seek(page: Page, p: number): Promise<void> {
 }
 
 test.describe("hero", () => {
+  test("every in-page link has a target", async ({ page }) => {
+    await page.goto(PATH);
+    const missing = await page.evaluate(() =>
+      [...document.querySelectorAll<HTMLAnchorElement>('main a[href^="#"]')]
+        .map((link) => link.hash.slice(1))
+        .filter((id) => !document.getElementById(id)),
+    );
+    expect(missing).toEqual([]);
+  });
+
   test("keeps both actions clickable above the scene", async ({ page }) => {
     await page.goto(PATH);
     const cta = page.getByRole("main").getByRole("link", { name: "Hablemos de tu negocio" });
@@ -145,6 +155,14 @@ test.describe("how it works", () => {
     await expect(page.locator("[data-chat-date]")).toHaveText("15-11-2026");
     await seekTo(page, TRACK, 0);
     await expect(page.locator("[data-chat-reply]")).toHaveCount(0);
+  });
+
+  test("the dock keeps the unfinished step out of the links", async ({ page, isMobile }) => {
+    test.skip(isMobile, "phones hide the dock");
+    await page.goto(PATH);
+    const soon = page.getByRole("img", { name: "Facturar · En preparación" });
+    await expect(soon).toHaveCount(1);
+    await expect(page.getByRole("link", { name: "Facturar · En preparación" })).toHaveCount(0);
   });
 
   test("a step title and a dock button jump to their step", async ({ page, isMobile }) => {

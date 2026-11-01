@@ -55,7 +55,7 @@ export function ProductScene({ locale }: { locale: LandingLocale }) {
     { icon: "check", label: copy.dock.square, stage: 1, step: 1 },
     { icon: null, label: copy.dock.how, stage: -1, step: 0 },
     { icon: "fileText", label: copy.dock.exportLabel, stage: 2, step: 2 },
-    { icon: "receipt", label: copy.dock.bill, stage: -1, step: 3 },
+    { icon: "receipt", label: copy.dock.bill, stage: -1, step: null },
   ] as const;
 
   return (
@@ -67,7 +67,7 @@ export function ProductScene({ locale }: { locale: LandingLocale }) {
             <div className={styles.menubar}>
               <span className={styles.menuBrand}>
                 <Mark />
-                cuadrao
+                {copy.brand}
               </span>
               <span>
                 {dates.bar} {copy.time}
@@ -105,7 +105,7 @@ export function ProductScene({ locale }: { locale: LandingLocale }) {
                   <span className={styles.search}>
                     <Icon name="search" />
                     {copy.search}
-                    <kbd>⌘K</kbd>
+                    <kbd>{copy.searchKey}</kbd>
                   </span>
                   <span className={styles.add}>
                     <span>
@@ -278,7 +278,7 @@ export function ProductScene({ locale }: { locale: LandingLocale }) {
                     key={check}
                     className={`${styles.check} ${index < beat.checks ? styles.checkOn : ""}`}
                   >
-                    <em>✓</em> {check}
+                    <em>{copy.accountant.checkMark}</em> {check}
                   </p>
                 ))}
                 <span
@@ -306,27 +306,42 @@ export function ProductScene({ locale }: { locale: LandingLocale }) {
 
           <div className={styles.dockBoard}>
             <div className={styles.dock}>
-              {dock.map(({ icon, label, stage, step }) => (
-                <a
-                  key={label}
-                  href="#como"
-                  aria-label={label}
-                  data-tip={label}
-                  onClick={(event: MouseEvent) => {
-                    event.preventDefault();
-                    scrollToStep(step);
-                  }}
-                  className={[
-                    styles.dockItem,
-                    icon ? "" : styles.dockBrand,
-                    icon === "receipt" ? styles.dockSoon : "",
-                    stage === beat.dock ? styles.dockOn : "",
-                  ].join(" ")}
-                >
-                  {icon ? <Icon name={icon} /> : <Mark />}
-                  {icon ? <i className={styles.dockRun} /> : null}
-                </a>
-              ))}
+              {dock.map(({ icon, label, stage, step }) => {
+                const className = [
+                  styles.dockItem,
+                  icon ? "" : styles.dockBrand,
+                  stage === beat.dock ? styles.dockOn : "",
+                ].join(" ");
+                if (step === null) {
+                  return (
+                    <span
+                      key={label}
+                      role="img"
+                      aria-label={label}
+                      data-tip={label}
+                      className={`${className} ${styles.dockSoon}`}
+                    >
+                      {icon ? <Icon name={icon} /> : null}
+                    </span>
+                  );
+                }
+                return (
+                  <a
+                    key={label}
+                    href="#como"
+                    aria-label={label}
+                    data-tip={label}
+                    className={className}
+                    onClick={(event: MouseEvent) => {
+                      event.preventDefault();
+                      scrollToStep(step);
+                    }}
+                  >
+                    {icon ? <Icon name={icon} /> : <Mark />}
+                    {icon ? <i className={styles.dockRun} /> : null}
+                  </a>
+                );
+              })}
             </div>
           </div>
         </div>
