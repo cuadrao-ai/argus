@@ -11,7 +11,7 @@ from pydantic import TypeAdapter
 from argus.domain.business.actions.facts import facts_of
 from argus.domain.business.actions.fiscal import exported_line
 from argus.domain.business.actions.marks import draft_marks, fiscal_inclusion_available
-from argus.domain.business.actions.refunds import refund_candidates
+from argus.domain.business.actions.refunds import refund_candidates, refund_shaped
 from argus.domain.business.annotations import annotation_available, current_note
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import APPROVAL_ACTION
@@ -63,16 +63,13 @@ def record_context(tx: ActionTransaction) -> RecordContext:
 def blockers(facts: BusinessFacts, accounts: tuple[AccountChoice, ...]) -> list[Blocker]:
     result = [
         Blocker(code="fact_required", field=name)
-        for name in (
-            "kind",
-            "amount",
-            "currency",
-            "occurred_on",
-            "funding",
-            "business_share",
-        )
+        for name in ("kind", "amount", "currency", "occurred_on")
         if not isinstance(getattr(facts, name), Known)
     ]
+    if refund_shaped(facts) and not isinstance(facts.funding, Known):
+        # A purchase or a sale records with no payment answer. A credit note
+        # stays with the account it returns money to.
+        result.append(Blocker(code="fact_required", field="funding"))
     if isinstance(facts.kind, Known) and facts.kind.value not in {
         "expense",
         "income",

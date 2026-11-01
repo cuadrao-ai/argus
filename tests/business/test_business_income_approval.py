@@ -56,7 +56,7 @@ def _blockers(facts: BusinessFacts, account_type: str = "cash", currency: str = 
     return blockers(facts, account)
 
 
-def test_income_draft_requires_receiving_account_and_exact_business_share() -> None:
+def test_income_draft_refuses_owner_funds_and_a_partial_share() -> None:
     ready = _facts()
     assert _blockers(ready) == []
     assert _blockers(_facts("expense")) == []
@@ -120,6 +120,40 @@ def test_income_money_request_uses_receiving_business_account_only() -> None:
         _money_request(facts, uuid4(), "expense")
     with pytest.raises(ActionError, match="business_funding_unsupported"):
         _money_request(_facts("income", {"kind": "owner_funds"}), uuid4(), "income")
+
+
+def _unstated(kind: str, state: str) -> BusinessFacts:
+    facts = _facts(kind).model_dump(mode="json")
+    facts["funding"] = (
+        {"state": state}
+        if state == "unknown"
+        else {"state": state, "origin": "owner_stated", "source_ids": [uuid4()]}
+    )
+    facts["business_share"] = {"state": "unknown"}
+    return BusinessFacts.model_validate(facts)
+
+
+@pytest.mark.parametrize("state", ["unknown", "owner_does_not_know"])
+@pytest.mark.parametrize("kind", ["expense", "income"])
+def test_a_purchase_or_a_sale_needs_no_funding_and_no_share(kind, state) -> None:
+    facts = _unstated(kind, state)
+    assert blockers(facts, ()) == []
+    space = uuid4()
+    request = _money_request(facts, space, kind)
+    assert request.unstated_funding.owner_space_id == space
+    assert request.unstated_funding.currency == "DOP"
+    assert request.owner_funding is None
+    assert request.account_id is None
+
+
+@pytest.mark.parametrize("state", ["unknown", "owner_does_not_know"])
+def test_a_refund_needs_funding(state) -> None:
+    facts = _unstated("refund", state)
+    assert [(item.code, item.field) for item in blockers(facts, ())] == [
+        ("fact_required", "funding")
+    ]
+    with pytest.raises(ActionError, match="fact_required"):
+        _money_request(facts, uuid4(), "refund")
 
 
 def test_expense_money_request_keeps_owner_funds_path() -> None:

@@ -27,13 +27,19 @@ def fiscal_number(facts: BusinessFacts) -> str | None:
     return None
 
 
-def could_refund(facts: BusinessFacts) -> bool:
-    """A draft that may name an original purchase: a refund, or a document
-    whose fiscal number is a credit note, dated and in a known currency."""
+def refund_shaped(facts: BusinessFacts) -> bool:
+    """A refund, or a document whose fiscal number is a credit note."""
 
     kind = facts.kind.value if isinstance(facts.kind, Known) else None
+    return kind == "refund" or credit_note(fiscal_number(facts))
+
+
+def could_refund(facts: BusinessFacts) -> bool:
+    """A draft that may name an original purchase: refund shaped, dated and in
+    a known currency."""
+
     return (
-        (kind == "refund" or credit_note(fiscal_number(facts)))
+        refund_shaped(facts)
         and isinstance(facts.occurred_on, Known)
         and isinstance(facts.currency, Known)
     )
@@ -43,8 +49,8 @@ def refund_candidates(
     facts: BusinessFacts, records: Callable[[], Iterable[FiscalRecord]]
 ) -> tuple[RefundCandidate, ...]:
     """Approved expenses in the draft's currency, within the 30 days up to its
-    date, from the draft's supplier when its RNC is known, and not paid from
-    the owner's own money (the money write refuses to refund those); newest
+    date, from the draft's supplier when its RNC is known, and paid from an
+    account (the money write refuses to refund a record with none); newest
     first, at most ``LIMIT``. Empty when the draft could not refund anything,
     and then ``records`` is never read."""
 
@@ -61,7 +67,7 @@ def refund_candidates(
         record
         for record in records()
         if record.kind == "expense"
-        and not record.owner_funded
+        and not record.no_account
         and record.currency == currency
         and 0 <= (day - record.occurred_on).days <= WINDOW_DAYS
         and (supplier is None or normalized_taxpayer_id(_rnc(record.facts)) == supplier)

@@ -415,13 +415,11 @@ def test_usd_receipt_on_a_dop_account_is_refused_without_money(actions):
     funding = {"kind": "business_account", "account_id": str(account)}
 
     refused = review(service, context, draft, version, funding=funding)
-    outcome = approve(service, context, draft, version)
 
     assert (refused.outcome, refused.code) == (
         "invalid_input",
         "import_currency_mismatch",
     )
-    assert outcome.outcome == "invalid_input", outcome
     assert booked(service, context) == []
     assert [row["version"] for row in revisions(service, draft)] == [version]
 

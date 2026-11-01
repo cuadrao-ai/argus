@@ -148,7 +148,7 @@ def test_actual_refund_and_owner_funded_record_are_not_dropped_or_duplicated(act
         by_id[str(refund.activity_id)].approved.declaration.purchase_activity_id
         == purchase.activity_id
     )
-    assert by_id[funded].approved.owner_funded is True
+    assert by_id[funded].approved.no_account is True
     assert report(snapshot).matching_count == 3
     assert read_recorded(service.authority, context).rows == snapshot.rows
 

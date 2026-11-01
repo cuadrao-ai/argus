@@ -34,7 +34,7 @@ class FiscalRecord:
     declaration: DgiiDeclaration | None
     source_ids: tuple[str, ...]
     # Paid from the owner's own money: the money write refuses to refund it.
-    owner_funded: bool = False
+    no_account: bool = False
     # The owner's Personal mark and the accountant's 606 answer as the draft
     # stands now, not at approval: both change afterwards, and month close,
     # Registros and the export handoff read them from the same place.

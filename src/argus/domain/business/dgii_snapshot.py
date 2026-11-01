@@ -11,7 +11,7 @@ from argus.domain.business.contracts.facts import (
 )
 from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.ledger import occurred_on
-from argus.domain.recording.owner_funds import owner_funded
+from argus.domain.recording.owner_funds import no_account
 
 
 def fiscal_snapshot(cursor, context, activities):
@@ -77,7 +77,7 @@ def fiscal_snapshot(cursor, context, activities):
                 source_ids=tuple(str(value) for value in row["source_ids"])
                 if row
                 else (),
-                owner_funded=owner_funded(activity),
+                no_account=no_account(activity),
                 personal=is_personal(current),
                 include_606=fiscal_inclusion(current),
             )

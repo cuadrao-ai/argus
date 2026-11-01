@@ -25,12 +25,9 @@ from argus.domain.business.dgii_columns import PURCHASE_COLUMNS
 from psycopg import Connection
 
 from tests import test_business_actions_postgres as business
+from tests import test_business_fiscal_routes_postgres as routes
 from tests import test_financial_accounts_postgres as shared
-from tests.test_business_fiscal_routes_postgres import (  # noqa: F401
-    _known,
-    _review,
-    world,
-)
+from tests.test_business_fiscal_routes_postgres import _known, _review
 from tests.test_business_scope_switch_routes_postgres import API, _note
 from tests.test_business_scope_switch_routes_postgres import (
     pytestmark as _local_supabase,
@@ -38,6 +35,7 @@ from tests.test_business_scope_switch_routes_postgres import (
 
 actions = business.actions
 users = business.users
+world = routes.world
 pytestmark = _local_supabase
 FILER = "199990013"
 BUYER_OR_SUPPLIER = "199990021"
@@ -50,9 +48,7 @@ KINDS = sorted(ACTION)
 
 
 def _get(world, path: str, **params):  # noqa: ANN001, ANN202
-    answer = world.client.get(
-        f"{API}{path}", params=params, headers=world.alice.headers
-    )
+    answer = world.client.get(f"{API}{path}", params=params, headers=world.alice.headers)
     assert answer.status_code == 200, (path, answer.text)
     return answer
 
@@ -177,8 +173,8 @@ def _month(world) -> dict:  # noqa: ANN001
     return _get(world, "/business/month-close", month=MONTH).json()
 
 
-def _block(month: dict) -> dict:
-    return next(item for item in month["currencies"] if item["currency"] == "DOP")
+def _block(month: dict, currency: str = "DOP") -> dict:
+    return next(item for item in month["currencies"] if item["currency"] == currency)
 
 
 def _ids(lines: list[dict]) -> list[str]:
@@ -197,11 +193,11 @@ def _report(world) -> dict:  # noqa: ANN001
 def _export(world) -> tuple[dict, list[dict], dict[str, str]]:  # noqa: ANN001
     """The package's manifest, records.csv rows and DGII TXT files by form."""
 
-    with ZipFile(io.BytesIO(_get(world, "/business/exports", **EXPORT).content)) as zipped:
+    with ZipFile(
+        io.BytesIO(_get(world, "/business/exports", **EXPORT).content)
+    ) as zipped:
         rows = list(
-            csv.DictReader(
-                io.StringIO(zipped.read("records.csv").decode("utf-8-sig"))
-            )
+            csv.DictReader(io.StringIO(zipped.read("records.csv").decode("utf-8-sig")))
         )
         files = {
             form: zipped.read(name).decode()
@@ -231,7 +227,7 @@ def _declare(world, draft: str, **purchase) -> dict:  # noqa: ANN001
 
 
 @pytest.mark.parametrize("kind", KINDS)
-def test_approval_needs_no_account_and_no_payment_answer(world, kind: str) -> None:  # noqa: ANN001, F811
+def test_approval_needs_no_account_and_no_payment_answer(world, kind: str) -> None:  # noqa: ANN001
     assert _get(world, "/business/workspace").json()["accounts"] == []
     draft, dossier = _reviewed(world, kind, "B0100000011")
     assert dossier["facts"]["funding"]["state"] == "unknown"
@@ -250,7 +246,7 @@ def test_approval_needs_no_account_and_no_payment_answer(world, kind: str) -> No
 
 @pytest.mark.parametrize("kind", KINDS)
 def test_a_person_who_does_not_know_how_it_was_paid_approves_the_same_way(
-    world,  # noqa: ANN001, F811
+    world,  # noqa: ANN001
     kind: str,
 ) -> None:
     draft, dossier = _reviewed(
@@ -268,7 +264,7 @@ def test_a_person_who_does_not_know_how_it_was_paid_approves_the_same_way(
 
 
 @pytest.mark.parametrize("kind", KINDS)
-def test_replay_and_concurrent_approvals_record_one_row(world, kind: str) -> None:  # noqa: ANN001, F811
+def test_replay_and_concurrent_approvals_record_one_row(world, kind: str) -> None:  # noqa: ANN001
     draft, dossier = _reviewed(world, kind, "B0100000013")
     version = dossier["version"]
     keys = ["one-key", "one-key", str(uuid4()), str(uuid4())]
@@ -337,9 +333,7 @@ def test_a_lost_acknowledgement_reuses_the_one_row(
     recovered = run(context, draft, command, "lost")
     assert recovered.outcome == "applied"
     assert run(context, draft, command, "lost") == recovered
-    assert _ledger(str(recovered.activity_id)) == [
-        (None, None, kind, kind, "DOP", 50000)
-    ]
+    assert _ledger(str(recovered.activity_id)) == [(None, None, kind, kind, "DOP", 50000)]
     with service.authority.pool.connection() as db:
         assert (
             db.execute(
@@ -350,7 +344,7 @@ def test_a_lost_acknowledgement_reuses_the_one_row(
         )
 
 
-def test_an_unpaid_purchase_reads_everywhere_and_forma_de_pago_stays_blank(world) -> None:  # noqa: ANN001, F811
+def test_an_unpaid_purchase_reads_everywhere_and_forma_de_pago_stays_blank(world) -> None:  # noqa: ANN001
     _fiscal_profile(world)
     draft, recorded = _recorded(world, "expense", "B0100000021")
     activity = recorded["approval_result"]["activity_id"]
@@ -388,7 +382,7 @@ def test_an_unpaid_purchase_reads_everywhere_and_forma_de_pago_stays_blank(world
     row = _report(world)
     assert row["stage"] == "needs_fiscal_data"
     assert row["funding_key"] is None
-    assert row["gross_amount"] == "1180.00"
+    assert row["gross_amount"] == "1180"
     assert row["export_missing"] == "expense_type_missing"
     assert row["export_missing_several"] is True
 
@@ -414,9 +408,10 @@ def test_an_unpaid_purchase_reads_everywhere_and_forma_de_pago_stays_blank(world
     assert _block(month)["cuentas_por_pagar_minor"] == 0
     assert _block(month)["net_result_final"] is True
     assert _get(world, "/business/open-items").json()["cuentas_por_pagar"]["count"] == 0
-    assert _get(world, f"/business/drafts/{draft}/dossier").json()["dgii"][
-        "payment_method"
-    ] is None
+    assert (
+        _get(world, f"/business/drafts/{draft}/dossier").json()["dgii"]["payment_method"]
+        is None
+    )
     assert _ids(month["missing_payment_form"]) == [activity]
     assert [item["Pago"] for item in _export(world)[1]] == ["pagado"]
 
@@ -427,13 +422,15 @@ def test_an_unpaid_purchase_reads_everywhere_and_forma_de_pago_stays_blank(world
     _, rows, files = _export(world)
     assert [item["Forma de pago"] for item in rows] == ["01"]
     header, line = files["606"].strip().split("\r\n")
-    columns = dict(zip((name for name, _ in PURCHASE_COLUMNS), line.split("|"), strict=True))
+    columns = dict(
+        zip((name for name, _ in PURCHASE_COLUMNS), line.split("|"), strict=True)
+    )
     assert header.startswith("606|")
     assert columns["payment_method"] == "01"
     assert columns["ncf"] == "B0100000021"
 
 
-def test_month_close_lists_no_form_for_a_purchase_the_606_leaves_out(world) -> None:  # noqa: ANN001, F811
+def test_month_close_lists_no_form_for_a_purchase_the_606_leaves_out(world) -> None:  # noqa: ANN001
     _fiscal_profile(world)
     _recorded(world, "expense", "B0200000022")
     month = _month(world)
@@ -441,7 +438,7 @@ def test_month_close_lists_no_form_for_a_purchase_the_606_leaves_out(world) -> N
     assert month["missing_payment_form"] == []
 
 
-def test_an_unpaid_sale_reads_everywhere_and_is_collected(world) -> None:  # noqa: ANN001, F811
+def test_an_unpaid_sale_reads_everywhere_and_is_collected(world) -> None:  # noqa: ANN001
     _fiscal_profile(world)
     _, recorded = _recorded(
         world,
@@ -490,7 +487,7 @@ def test_an_unpaid_sale_reads_everywhere_and_is_collected(world) -> None:  # noq
     assert block["net_result_final"] is True
 
 
-def test_a_sale_with_no_payment_split_holds_the_607_with_nothing_invented(world) -> None:  # noqa: ANN001, F811
+def test_a_sale_with_no_payment_split_holds_the_607_with_nothing_invented(world) -> None:  # noqa: ANN001
     _fiscal_profile(world)
     draft, _ = _recorded(
         world,
@@ -509,7 +506,20 @@ def test_a_sale_with_no_payment_split_holds_the_607_with_nothing_invented(world)
     assert _export(world)[2] == {}
 
 
-def test_a_personal_mark_with_no_funding_stays_out_of_the_totals(world) -> None:  # noqa: ANN001, F811
+def test_a_purchase_in_dollars_keeps_its_currency_with_no_account(world) -> None:  # noqa: ANN001
+    draft, dossier = _reviewed(
+        world, "expense", "B0100000023", _known({"currency": "USD"})
+    )
+    assert dossier["blockers"] == []
+    answer = _approve(world, draft, dossier["version"], "expense")
+    assert answer.status_code == 200, answer.text
+    assert _ledger(answer.json()["approval_result"]["activity_id"]) == [
+        (None, None, "expense", "expense", "USD", 118000)
+    ]
+    assert _block(_month(world), "USD")["net_result_final"] is False
+
+
+def test_a_personal_mark_with_no_funding_stays_out_of_the_totals(world) -> None:  # noqa: ANN001
     draft, dossier = _reviewed(
         world,
         "expense",
@@ -527,7 +537,7 @@ def test_a_personal_mark_with_no_funding_stays_out_of_the_totals(world) -> None:
     assert month["missing_payment_form"] == []
 
 
-def test_a_refund_stays_account_only_and_refunds_no_record_without_one(world) -> None:  # noqa: ANN001, F811
+def test_a_refund_stays_account_only_and_refunds_no_record_without_one(world) -> None:  # noqa: ANN001
     _recorded(world, "expense", "B0100000051")
     note = _note(world, world.alice, "Nota de crédito")
     assert note.status_code == 200, note.text
@@ -557,7 +567,22 @@ def test_a_refund_stays_account_only_and_refunds_no_record_without_one(world) ->
     assert body["refund_candidates"] == []
 
 
-def test_income_stays_refused_on_the_owners_money(world) -> None:  # noqa: ANN001, F811
+@pytest.mark.parametrize("ncf", ["B0400000052", "E340000000053"])
+@pytest.mark.parametrize("kind", KINDS)
+def test_a_credit_number_read_as_a_purchase_or_a_sale_stays_account_only(
+    world,  # noqa: ANN001
+    kind: str,
+    ncf: str,
+) -> None:
+    draft, dossier = _reviewed(world, kind, ncf)
+    assert dossier["blockers"] == [{"code": "fact_required", "field": "funding"}]
+    refused = _approve(world, draft, dossier["version"], kind)
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["code"] == "fact_required"
+    assert _counts(world) == (0, 0, 0)
+
+
+def test_income_stays_refused_on_the_owners_money(world) -> None:  # noqa: ANN001
     draft, dossier = _reviewed(
         world,
         "income",
