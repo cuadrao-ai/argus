@@ -1,6 +1,8 @@
 """Durable document preparation: bounded attempts that recover a dead worker.
 
-The API dispatches one attempt per accepted preparation. A reconciler sweep
+The API records one attempt per accepted preparation and hands it to a worker,
+or in pull mode leaves it on its row for a worker to pull. An attempt no process
+has taken is waiting, however old, and costs nothing. A reconciler sweep
 re-dispatches an attempt whose worker died only when the attempt provably never
 reached the provider (no ``provider_call_started_at``), up to ``MAX_ATTEMPTS``.
 An attempt that may have reached the provider is never billed again
@@ -48,16 +50,21 @@ def in_flight(
     job: PreparationJob | None,
     connection: SourceConnection,
     now: datetime,
+    *,
+    pull: bool,
 ) -> bool:
     """The one liveness oracle: a held lease, or a queued draft whose dispatch
-    (or, before any dispatch, whose queueing) is younger than the window. An
-    attempt dispatched for an older draft version can never claim, so it is
-    not in flight."""
+    (or, before any attempt, whose queueing) is younger than the window. In pull
+    mode an attempt no process has taken is in flight too, however old. An
+    attempt dispatched for an older draft version can never claim, so it is not
+    in flight."""
     if lease_live(connection, now):
         return True
     if draft.status != "queued" or (job is not None and not dispatched(draft, job)):
         return False
     anchor = job.dispatched_at if job is not None else draft.updated_at
+    if anchor is None:
+        return pull
     return anchor + DISPATCH_WINDOW > now
 
 
@@ -74,7 +81,9 @@ class SweepReport:
 
 
 class PreparationJobs:
-    def __init__(self, service: DocumentsService, dispatch: Dispatch) -> None:
+    def __init__(self, service: DocumentsService, dispatch: Dispatch | None) -> None:
+        """``dispatch`` None is pull mode: the row is the queue and a worker
+        pulls from it, so every waiting attempt keeps its draft ``queued``."""
         self.service, self.dispatch = service, dispatch
 
     def start(self, *, user_id: str, connection_id: str) -> None:
@@ -87,8 +96,9 @@ class PreparationJobs:
             user_id=user_id, connection_id=connection_id
         )
         job = store.job(user_id=user_id, connection_id=connection_id)
+        pull = self.dispatch is None
         if lease_live(connection, now) or (
-            dispatched(draft, job) and in_flight(draft, job, connection, now)
+            dispatched(draft, job) and in_flight(draft, job, connection, now, pull=pull)
         ):
             return
         if (
@@ -96,7 +106,9 @@ class PreparationJobs:
             and store.get(user_id=user_id, connection_id=connection_id) is None
         ):
             return
-        self._advance(user_id, connection_id, now, job, draft, attempt=1, requeue=False)
+        # A saved read with no source is never pulled, so it keeps its status.
+        requeue = pull and draft.source_available
+        self._advance(user_id, connection_id, now, job, draft, attempt=1, requeue=requeue)
 
     def sweep(self, *, limit: int = 50) -> SweepReport:
         report, now = SweepReport(), self.service.hub.clock()
@@ -126,7 +138,7 @@ class PreparationJobs:
         if draft is None:
             return
         if draft.status in {"queued", "preparing"}:
-            if in_flight(draft, job, connection, now):
+            if in_flight(draft, job, connection, now, pull=self.dispatch is None):
                 return
             reason = "unclaimed" if draft.status == "queued" else "interrupted"
         elif draft.status == "needs_attention" and job is not None and job.retry:
@@ -154,7 +166,11 @@ class PreparationJobs:
                     reason=reason,
                 )
             return
-        fresh = job is None or (draft.status == "queued" and not dispatched(draft, job))
+        # Past the window, an attempt no process took is lost only with pull off.
+        fresh = job is None or (
+            draft.status == "queued"
+            and (not dispatched(draft, job) or job.dispatched_at is None)
+        )
         attempt = 1 if fresh or job is None else job.attempt + 1
         if attempt <= MAX_ATTEMPTS:
             if self._advance(
@@ -244,7 +260,7 @@ class PreparationJobs:
             attempt=attempt,
             attempt_id=str(uuid.uuid4()),
             draft_version=(requeued or draft).version,
-            dispatched_at=now,
+            dispatched_at=None if self.dispatch is None else now,
         )
         if not self.service.store.advance(
             user_id=user_id,
@@ -256,6 +272,8 @@ class PreparationJobs:
             unmarked=unmarked,
         ):
             return False
+        if self.dispatch is None:
+            return True
         try:
             self.dispatch(connection_id, nxt.attempt_id)
         except Exception as error:
