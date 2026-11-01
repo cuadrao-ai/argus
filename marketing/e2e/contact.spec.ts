@@ -162,6 +162,22 @@ for (const locale of ["es", "en"] as const) {
   });
 }
 
+test("fine print on the page and in the footer stays at 14px", async ({ page }) => {
+  await page.goto("/contacto");
+  for (const selector of [
+    '[class*="contactPrivacy"]',
+    '[class*="directContact"] small',
+    '[class*="fieldHint"]',
+    '[class*="nextStep"]',
+    '[class*="formPrivacy"]',
+    '[class*="footerIdentity"] > span',
+    '[class*="footerCredits"] p',
+    '[class*="footerCreditText"]',
+  ]) {
+    await expect(page.locator(selector).first()).toHaveCSS("font-size", "14px");
+  }
+});
+
 test("without JavaScript the form cannot be submitted natively", async ({ browser }, info) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   await asNewClient(context, info);
