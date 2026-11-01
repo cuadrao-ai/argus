@@ -77,6 +77,8 @@ export const landingCopy = {
           ncf: "NCF B0100000123",
         },
         sent: "10:23 a. m.",
+        sentMark: "✓",
+        deliveredMark: "✓✓",
         reply: {
           title: "Factura recibida",
           fields: [
@@ -126,6 +128,7 @@ export const landingCopy = {
     scene: {
       label:
         "Una factura llega por WhatsApp a la Bandeja de Cuadrao, Ana la aprueba y el 606 y el 607 quedan listos para su contable.",
+      brand: "cuadrao",
       time: "10:24 a. m.",
       lockTime: "10:24",
       island: {
@@ -138,6 +141,7 @@ export const landingCopy = {
       } satisfies Record<IslandStep, string>,
       nav: { business: "Mi negocio", home: "Inicio", inbox: "Bandeja", records: "Registros", billing: "Facturación", activity: "Actividad" },
       search: "Buscar",
+      searchKey: "⌘K",
       add: "Agregar",
       greeting: "Buen día, Ana",
       summary: "Resumen del negocio",
@@ -177,6 +181,7 @@ export const landingCopy = {
         ],
       },
       accountant: {
+        checkMark: "✓",
         title: "Tu contable",
         client: "Taller Rodríguez",
         checks: ["47 registros aprobados", "Cada línea con su documento", "606 listo", "607 listo"],
