@@ -2,6 +2,7 @@ import type { InvoiceState, IslandStep } from "@/lib/scene-timeline";
 
 export const landingCopy = {
   es: {
+    letter: { hello: "Hola,", thanks: "Gracias por leer," },
     useCases: [
       "Hasta el gasto en efectivo.",
       "Hasta la compra sin factura.",

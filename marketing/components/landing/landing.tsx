@@ -57,11 +57,11 @@ export function Landing({ locale }: { locale: LandingLocale }) {
         <AccountantSection locale={locale} />
         <section className={styles.letter} id="nosotros" aria-labelledby="landing-founder-title">
           <h2 id="landing-founder-title">{site.founderTitle}</h2>
-          <p className={styles.hello}>Hola,</p>
+          <p className={styles.hello}>{copy.letter.hello}</p>
           {site.founderParagraphs.map((paragraph) => (
             <p key={paragraph}>{paragraph}</p>
           ))}
-          <p>Gracias por leer,</p>
+          <p>{copy.letter.thanks}</p>
           <FounderIdentity locale={locale} />
         </section>
         <section className={styles.faq} id="preguntas" aria-labelledby="landing-faq-title">
