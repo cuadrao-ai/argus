@@ -14,6 +14,15 @@ async function seek(page: Page, p: number): Promise<void> {
   }, p);
 }
 
+test("the whole page passes an accessibility scan with motion off", async ({ browser }) => {
+  const context = await browser.newContext({ reducedMotion: "reduce", viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
+  await page.goto(new URL(PATH, test.info().project.use.baseURL).href);
+  const { violations } = await new AxeBuilder({ page }).analyze();
+  expect(violations.map((violation) => violation.id)).toEqual([]);
+  await context.close();
+});
+
 test.describe("hero", () => {
   test("every in-page link has a target", async ({ page }) => {
     await page.goto(PATH);
