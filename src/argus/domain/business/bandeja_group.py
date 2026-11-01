@@ -18,7 +18,6 @@ from typing import Any, Literal
 
 from argus.domain.business.contracts.dossier import ReviewFlag
 from argus.domain.business.contracts.facts import BusinessFacts, FiscalFacts, Known
-from argus.domain.business.document_type import DocumentType
 from argus.domain.business.fiscal_identity import identity_digits
 from argus.domain.business.receipt_activity import awaiting_owner
 from argus.domain.business.receipts import Attention
@@ -60,7 +59,6 @@ class DraftStanding:
     facts: BusinessFacts
     read: ReadState
     read_attention: Attention | None
-    document_type: DocumentType
     credit_note: bool
     ecf_failed: bool
     repeated: bool
@@ -99,10 +97,6 @@ def _foreign(draft: DraftStanding) -> bool:
     return draft.facts.currency.value != "DOP"
 
 
-def _sale(draft: DraftStanding) -> bool:
-    return draft.document_type == "venta" or draft.facts.kind.value == "income"
-
-
 RULE: tuple[tuple[BandejaReason, Callable[[DraftStanding], bool]], ...] = (
     ("not_read", lambda draft: draft.read == "none"),
     ("check_details", lambda draft: draft.read == "unclear"),
@@ -112,7 +106,7 @@ RULE: tuple[tuple[BandejaReason, Callable[[DraftStanding], bool]], ...] = (
         "duplicate",
         lambda draft: draft.repeated or "possible_duplicate" in draft.blockers,
     ),
-    ("sale", _sale),
+    ("sale", lambda draft: draft.facts.kind.value == "income"),
     ("credit_note", lambda draft: draft.credit_note),
     ("missing_merchant", lambda draft: _lacks(draft, "counterparty")),
     ("missing_date", lambda draft: _lacks(draft, "occurred_on")),

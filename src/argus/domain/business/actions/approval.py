@@ -260,10 +260,9 @@ def reviewed_request(
     version: int,
     kind: Literal["expense", "income", "refund"],
     approve_anyway: bool = False,
-    listo: bool = False,
 ) -> MoneyRequest:
     with transaction(service.authority, context, "approve") as tx:
-        event, facts = _reviewed_facts(tx, draft_id, version, kind, approve_anyway, listo)
+        event, facts = _reviewed_facts(tx, draft_id, version, kind, approve_anyway)
         purchase = refund_reference(event) if kind == "refund" else None
     draft = _money_request(facts, context.actor.space_id, kind, purchase)
     preview = service.imports.money.preview(
@@ -333,7 +332,6 @@ def approve(
                     request.version,
                     kind,
                     bool(request.approve_anyway),
-                    listo,
                 )
             )
         except (ActionError, *_NOT_WRITTEN) as error:

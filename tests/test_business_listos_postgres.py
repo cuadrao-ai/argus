@@ -432,9 +432,25 @@ def test_an_edit_moves_a_receipt_between_the_groups(rig) -> None:  # noqa: ANN00
 
 def test_a_sale_stays_out_of_the_faster_way(rig) -> None:  # noqa: ANN001
     sale = _read(rig)
-    item = _named(rig, sale)
-    _review(rig, item, {"document_type": "venta"})
+    _review(rig, _named(rig, sale), {"document_type": "venta"})
     assert _group(rig, sale) == ("attention", "sale")
+
+
+def test_a_person_setting_the_amount_does_not_settle_several_purchases(rig) -> None:  # noqa: ANN001
+    index = next(rig.reads)
+    _set_read(rig, index, {})
+    rig.stub.rows = [
+        {**PURCHASE, "amount": "100.00"},
+        {**PURCHASE, "amount": "200.00"},
+    ]
+    many = _upload(rig, RECEIPT + b"\xa9").json()["id"]
+    item = _review(rig, _named(rig, many), {"facts": _known({"amount": "100.00"})})
+    assert item["blockers"] == []
+    named = {"draft_id": item["draft_id"], "version": item["version"]}
+
+    assert _group(rig, many) == ("attention", "several_purchases")
+    assert _results(_approve_many(rig, [named])) == [("refused", "not_listo")]
+    assert _money(rig) == 0
 
 
 def test_an_open_question_needs_a_person(rig) -> None:  # noqa: ANN001
@@ -909,7 +925,8 @@ def test_the_list_limit_is_stated_and_held(rig) -> None:  # noqa: ANN001
     unknown = [{"draft_id": str(uuid4()), "version": 1} for _ in range(LIMIT + 1)]
 
     assert len(_results(_approve_many(rig, unknown[:LIMIT]))) == LIMIT
-    for body in (unknown, [], [unknown[0], unknown[0]]):
+    confirmed = {**unknown[0], "approve_anyway": True}
+    for body in (unknown, [], [unknown[0], unknown[0]], [confirmed]):
         refused = _approve_many(rig, body)
         assert (refused.status_code, refused.json()["code"]) == (422, "validation_error")
     assert _ledger(rig) == []

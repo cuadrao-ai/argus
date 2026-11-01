@@ -36,7 +36,7 @@ def _attachments(
     another draft shares them."""
 
     rows = tx.rows(
-        "select l.draft_id,d.draft->>'status' as status,d.draft->>'error_code' as error_code,"
+        "select l.draft_id,d.draft->>'status' as status,"
         " exists (select 1 from public.business_draft_sources o"
         "   where o.space_id=l.space_id and o.source_id=l.source_id"
         "   and o.draft_id<>l.draft_id) as shared"
@@ -59,12 +59,7 @@ def _read_state(attachments: list[dict[str, Any]]) -> ReadState:
         return "none"
     if len(attachments) > 1 or attachments[0]["shared"]:
         return "unclear"
-    read = attachments[0]
-    return (
-        "finished"
-        if read["status"] == "review_ready" and read["error_code"] is None
-        else "unclear"
-    )
+    return "finished" if attachments[0]["status"] == "review_ready" else "unclear"
 
 
 def _ecf_failed(resolution: BusinessResolution) -> bool:
@@ -125,7 +120,6 @@ def draft_standings(
             facts=facts,
             read=_read_state(attachments.get(draft_id, [])),
             read_attention=read_attention(event).get("attention"),
-            document_type=resolution.document_type,
             credit_note=refund_shaped(facts),
             ecf_failed=_ecf_failed(resolution),
             repeated=draft_id in repeated,
