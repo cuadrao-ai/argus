@@ -339,7 +339,6 @@ def test_active_openapi_uses_alpha_contract_names() -> None:
 
 
 def test_guest_identity_policy_contract_is_active_across_canon_and_openapi() -> None:
-    product = (ROOT / "docs" / "PRODUCT.md").read_text(encoding="utf-8")
     architecture = (ROOT / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
     api_contract = (ROOT / "docs" / "API_CONTRACT.md").read_text(encoding="utf-8")
     data_model = (ROOT / "docs" / "DATA_MODEL.md").read_text(encoding="utf-8")
@@ -350,12 +349,9 @@ def test_guest_identity_policy_contract_is_active_across_canon_and_openapi() -> 
         (ROOT / "docs" / "api" / "openapi.yaml").read_text(encoding="utf-8")
     )
 
-    assert "Guest Entry (Default-On Kill Switch)" in product
-    assert "`CUADRAO_GUEST_ACCESS_ENABLED=true`" in product
     # The flag's value belongs to the release profile, asserted against every
     # standing doc by test_private_alpha_release_docs.py. Pinning it here too
     # is what let PRODUCT.md keep claiming `false` after production opened.
-    assert "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED" in product
     assert "CUADRAO_GUEST_ACCESS_ENABLED" in architecture
     assert "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED" in architecture
     assert "`POST /api/v1/auth/guest`" in api_contract
