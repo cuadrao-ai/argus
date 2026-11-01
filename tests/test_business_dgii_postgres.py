@@ -73,15 +73,15 @@ def filer_change(
     )
 
 
-def cash_account(service, context):
+def business_account(service, context, kind="cash", nickname="PRÁCTICA caja"):
     return service.imports.money.repository.create(
         user_id=context.owner_id,
         idempotency_key=str(uuid4()),
         identity_hash=uuid4().hex,
         account=NewAccount(
-            type="cash",
+            type=kind,
             currency="DOP",
-            nickname="PRÁCTICA caja",
+            nickname=nickname,
             ownership_share_bps=10000,
         ),
         opening=shared.shared._opening(
@@ -89,6 +89,10 @@ def cash_account(service, context):
         ),
         scope=context.scope,
     ).stored.account.id
+
+
+def cash_account(service, context):
+    return business_account(service, context)
 
 
 def reviewed(service, context, account, index=0, purchase=None, override=None):

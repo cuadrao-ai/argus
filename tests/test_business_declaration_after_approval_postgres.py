@@ -18,6 +18,7 @@ import psycopg
 import pytest
 from argus.domain.business.contracts.actions import (
     ApproveExpense,
+    ApproveIncome,
     CaptureNote,
     ReviewDraft,
 )
@@ -25,6 +26,7 @@ from argus.domain.business.contracts.dgii import (
     FiscalReview,
     PurchaseDeclaration,
     PurchaseReview,
+    SalesDeclaration,
 )
 from argus.domain.business.contracts.facts import BusinessFactPatch
 from argus.domain.business.dgii_columns import PURCHASE_COLUMNS
@@ -35,7 +37,11 @@ from argus.domain.ingestion.documents.objects import InMemorySourceObjects
 from tests import test_business_actions_postgres as shared
 from tests import test_business_dgii_postgres as dgii
 from tests import test_financial_accounts_postgres as accounts
-from tests.test_business_dgii_postgres import cash_account, filer_change
+from tests.test_business_dgii_postgres import (
+    business_account,
+    cash_account,
+    filer_change,
+)
 
 users = shared.users
 shared_actions = shared.actions
@@ -107,6 +113,45 @@ def approved(service, context, draft_id, version):  # noqa: ANN001, ANN201
     )
     assert outcome.outcome == "applied", outcome
     return service.dossier(context, draft_id)
+
+
+def captured_income(service, context, checking, declaration=None):  # noqa: ANN001, ANN201
+    """One reviewed sale: 2000.00 DOP on 2026-09-03 into the checking account,
+    with the 607 declaration as saved, or with no declaration at all."""
+
+    capture = service.capture(context, CaptureNote(text="PRÁCTICA venta"), str(uuid4()))
+    facts = BusinessFactPatch.model_validate(
+        {
+            name: {"state": "known", "value": value}
+            for name, value in {
+                "kind": "income",
+                "amount": "2000.00",
+                "currency": "DOP",
+                "occurred_on": "2026-09-03",
+                "counterparty": "PRÁCTICA cliente",
+                "funding": account_funding(checking),
+                "business_share": {"kind": "all"},
+            }.items()
+        }
+    )
+    dgii = (
+        FiscalReview.model_validate(
+            {
+                "fiscal": {"rnc": SUPPLIER, "ncf": "B0100000901", "itbis": "180.00"},
+                "declaration": declaration,
+            }
+        )
+        if declaration
+        else None
+    )
+    reviewed = service.review(
+        context,
+        capture.draft_id,
+        ReviewDraft(version=capture.version, facts=facts, dgii=dgii),
+        str(uuid4()),
+    )
+    assert reviewed.outcome == "applied", reviewed
+    return reviewed.draft_id, reviewed.version
 
 
 def declared(service, context, draft_id, version, **review):  # noqa: ANN001, ANN201
@@ -335,6 +380,49 @@ def test_a_debit_note_names_the_comprobante_it_modifies_after_approval(actions):
     manifest, row = txt_606(service, context)
     assert manifest["forms"]["606"]["status"] == "prepared_candidate", manifest["issues"]
     assert (row["ncf"], row["modified_ncf"]) == ("B0300000011", "B0100000001")
+
+
+def test_a_record_that_takes_no_606_refuses_the_606_write(actions):  # noqa: ANN001
+    """An income carries a 607 or nothing. It reads declaration_editable false,
+    open or approved, and a 606 write on it is refused with a clear code
+    instead of answering applied and saving nothing."""
+
+    service, context, _ = actions
+    checking = business_account(service, context, "checking", "PRÁCTICA banco")
+    draft_id, version = captured_income(service, context, checking)
+    assert service.dossier(context, draft_id).declaration_editable is False
+    refused = declared(service, context, draft_id, version, category="02")
+    assert refused.code == "fiscal_direction_unsupported", refused
+    view = service.dossier(context, draft_id)
+    assert (view.version, view.dgii) == (version, None)
+
+    recorded = service.approve_income(
+        context,
+        draft_id,
+        ApproveIncome(version=version, action="record_income"),
+        str(uuid4()),
+    )
+    assert recorded.outcome == "applied", recorded
+    view = service.dossier(context, draft_id)
+    assert (view.review_state, view.declaration_editable) == ("accepted", False)
+    refused = declared(
+        service, context, draft_id, view.version, category="02", payment_method="01"
+    )
+    assert refused.code == "fiscal_direction_unsupported", refused
+    after = service.dossier(context, draft_id)
+    assert (after.version, after.dgii, len(after.history)) == (
+        view.version,
+        None,
+        len(view.history),
+    )
+
+    # A sale with its 607 saved: that declaration is not a 606 either.
+    sale = {**{name: None for name in SalesDeclaration.model_fields}, "form": "607"}
+    draft_id, version = captured_income(service, context, checking, declaration=sale)
+    assert service.dossier(context, draft_id).declaration_editable is False
+    refused = declared(service, context, draft_id, version, category="02")
+    assert refused.code == "fiscal_direction_unsupported", refused
+    assert service.dossier(context, draft_id).dgii.form == "607"
 
 
 def test_export_lines_are_server_only(actions):  # noqa: ANN001
