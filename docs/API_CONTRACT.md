@@ -9396,7 +9396,12 @@ before and after approval: an accountant holding `prepare` adds 606 data on the
 owner's approved record, and the revision names the accountant; `approve`
 stays the owner's and is not needed for the declaration; a read-only grant is
 403 `business_permission_denied`. Any other review input on an
-approved draft is still 422 `recorded_correction_unsupported`.
+approved draft is still 422 `recorded_correction_unsupported`. So is a `purchase`
+that changes `purchase_activity_id` or `actual_refund`: the approval checked the
+refund and its purchase against the money and the money keeps them, so an
+approved credit note cannot move to another purchase. The same values answer
+200, and `modified_ncf` stays writable, with a number that disagrees with the
+linked purchase held by the export as `fiscal_credit_reference_conflict`.
 It may also carry `document_type` (`recibo` or `venta`),
 alone or with facts and `dgii`, for an open draft from an upload, a note or a
 chat. A change
@@ -9501,14 +9506,17 @@ a typed `606` purchase or `607` sale declaration. Blank required facts remain
 unknown. The existing live prepare grant, expected version, immutable web-action
 source and review receipt govern this operation. Tax fields never enter the
 model-facing `BusinessFactPatch` or `TurnPlan` schema. A person may send an
-optional `facts.purchase` review for the 606 expense type, payment form, payment
-date, goods and services split, and withholdings. That object is stored on the
-purchase declaration, which remains the only 606 column owner. A suggested
+optional top-level `purchase` review, any field of the purchase declaration but
+`form`: the 606 expense type, payment form, payment date, goods and services
+split, withholdings and the rest. That object is stored on the purchase
+declaration, which remains the only 606 column owner. A suggested
 expense type is not confirmed and stays out of the export column. The 606
 manifest keeps blocking problems in `issues` and lists warn-only gaps in
 `warnings`, including an unverified or inactive supplier RNC. An RNC registry
-state never blocks approval or the export file. Accepted records remain immutable;
-this operation cannot change an approved tax declaration or repost money.
+state never blocks approval or the export file. On an accepted record `dgii` is
+422 `recorded_correction_unsupported` and this operation never reposts money;
+`purchase` alone still writes the 606 declaration, until the record's line is
+exported, as the review route above states.
 The existing approval endpoint also accepts human `record_refund`, requiring an
 explicit actual refund linked to an original purchase. Other credit-note
 settlements remain unsupported. The owner alone approves income, expense or
