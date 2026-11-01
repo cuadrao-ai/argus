@@ -34,9 +34,30 @@ def reviewed_fiscal_facts(
     return facts.model_copy(update={"fiscal": FiscalFacts.model_validate(values)})
 
 
-# The database's copy of the sale rule below: one accepting or accepted sale
-# per Business and comprobante. It refuses what two approvals read past.
+# The database's copy of the rules below: one accepting or accepted sale per
+# Business and comprobante, and one accepting or accepted purchase per
+# Business, supplier RNC and comprobante. They refuse what two approvals read
+# past.
 SALE_NCF_INDEX = "financial_import_events_sale_ncf_idx"
+PURCHASE_COMPROBANTE_INDEX = "financial_import_events_purchase_comprobante_idx"
+
+
+def colliding_purchase_record(db, space_id, draft_id) -> str | None:
+    """The accepting or accepted purchase that holds this draft's supplier RNC
+    and comprobante, read from the generated columns the index is built on."""
+
+    row = db.execute(
+        "select other.id::text from public.financial_import_events me"
+        " join public.financial_import_events other on other.owner_space_id=me.owner_space_id"
+        " and other.business_rnc=me.business_rnc"
+        " and other.business_fiscal_number=me.business_fiscal_number"
+        " where me.id=%s and me.owner_space_id=%s and other.id<>me.id"
+        " and other.state in ('accepting','accepted')"
+        " and other.business_kind is distinct from 'income'"
+        " order by other.created_at,other.id limit 1",
+        (str(draft_id), str(space_id)),
+    ).fetchone()
+    return row[0] if row else None
 
 
 def require_distinct_fiscal_document(tx, event, facts: BusinessFacts) -> None:

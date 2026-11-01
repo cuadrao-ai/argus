@@ -24,6 +24,7 @@ from argus.domain.owner_scope import BusinessSpace
 from PIL import Image
 
 from tests import test_business_actions_postgres as shared
+from tests.business_cleanup import delete_spaces
 from tests.document_sources_support import source_objects
 from tests.ingestion.whatsapp_support import RefusingExtractor
 
@@ -586,7 +587,7 @@ def test_deleting_the_space_keeps_the_alias_taken(rig):
         review_required=False,
     )
     with rig["pool"].connection() as db:
-        db.execute("delete from public.spaces where id=%s", (rig["route"].space_id,))
+        delete_spaces(db, "id=%s", (rig["route"].space_id,))
     assert store.alias_taken(alias) is True
 
 

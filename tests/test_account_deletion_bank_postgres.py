@@ -32,6 +32,7 @@ from argus.domain.business.purge import PostgresBusinessPurge
 from fastapi.testclient import TestClient
 from psycopg_pool import ConnectionPool
 
+from tests.business_cleanup import delete_spaces
 from tests.household.financial_fixtures import DSN, NOW
 from tests.household.financial_fixtures import lane as lane  # noqa: F401 - fixture
 from tests.test_account_deletion_api_postgres import (
@@ -178,7 +179,7 @@ def owner(lane):  # noqa: ANN001, ANN201, F811
     finally:
         release_custodian(space_id)
         with psycopg.connect(DSN) as db, db.transaction():
-            db.execute("delete from public.spaces where id = %s", (space_id,))
+            delete_spaces(db, "id = %s", (space_id,))
             db.execute(
                 "delete from argus_private.account_deletion_runs where user_id = %s",
                 (user_id,),
@@ -203,15 +204,16 @@ def test_a_bare_auth_delete_of_an_owner_with_bank_rows_is_refused(
         assert _bank_counts(db, space_id) == [1] * len(BANK_TABLES)
 
 
-def test_the_space_cascade_takes_the_account_and_every_bank_row_at_commit(
+def test_the_purge_delete_takes_the_account_and_every_bank_row_at_commit(
     lane,  # noqa: ANN001, F811
 ) -> None:
     user_id = lane[2][0]
     with psycopg.connect(DSN) as db, db.transaction(force_rollback=True):
         space_id, account_id = _bank_rows(db, user_id)
 
-        # The day-30 purge removes the Business with one space delete.
-        db.execute("delete from public.spaces where id = %s", (space_id,))
+        # The day-30 purge deletes the account itself, then the space, whose
+        # cascade still takes the bank rows.
+        delete_spaces(db, "id = %s", (space_id,))
         db.execute("set constraints all immediate")
 
         _assert_gone(db, space_id, account_id)
