@@ -4,22 +4,29 @@ from decimal import Decimal
 
 from argus.domain.business.contracts.dgii import (
     SERVICE_EXPENSE_TYPES,
+    DgiiDeclaration,
     PurchaseDeclaration,
     PurchaseReview,
+    SalesDeclaration,
     amount_or_zero,
     money_text,
 )
 from argus.domain.business.contracts.facts import BusinessFacts, Known
+from argus.domain.business.dgii_codes import PAYMENT_FORM_BY_ACCOUNT_TYPE
 from argus.domain.business.fiscal_identity import identity_digits, normalized_ncf
 
-# 606 payment form by the business account that paid: 01 cash, 02 bank, 03 card.
-# Owner funds and other accounts leave it unknown for a person.
-_PAYMENT_FORM = {
-    "cash": "01",
-    "checking": "02",
-    "savings": "02",
-    "credit_card": "03",
-}
+
+def takes_purchase_declaration(
+    facts: BusinessFacts, declaration: DgiiDeclaration | None
+) -> bool:
+    """Whether a 606 declaration belongs on this record. A sale's 607 and an
+    income with no declaration take none. The one rule behind the dossier's
+    declaration_editable and the review's 606 write."""
+
+    if isinstance(declaration, SalesDeclaration):
+        return False
+    kind = facts.kind.value if isinstance(facts.kind, Known) else None
+    return declaration is not None or kind != "income"
 
 
 def apply_purchase(
@@ -34,22 +41,9 @@ def apply_purchase(
     else:
         data = current.model_dump()
     written = review.model_fields_set
-    for name in (
-        "category",
-        "payment_method",
-        "paid_on",
-        "services_amount",
-        "goods_amount",
-        "itbis_withheld",
-        "income_withholding_type",
-        "income_withheld",
-    ):
-        if name in written:
-            data[name] = getattr(review, name)
+    data.update({name: getattr(review, name) for name in written})
     if "category" in written and "category_suggested" not in written:
         data["category_suggested"] = False
-    if "category_suggested" in written:
-        data["category_suggested"] = review.category_suggested
     category = data.get("category")
     if (
         category
@@ -69,6 +63,19 @@ def apply_purchase(
     return PurchaseDeclaration.model_validate(data)
 
 
+def changes_recorded_refund(
+    current: PurchaseDeclaration | None, declared: PurchaseDeclaration
+) -> bool:
+    """Whether a 606 write moves what an approval recorded in the money: the
+    actual refund and the purchase it is linked to. Neither is a 606 column."""
+
+    before = current or PurchaseReview()
+    return (before.actual_refund, before.purchase_activity_id) != (
+        declared.actual_refund,
+        declared.purchase_activity_id,
+    )
+
+
 def declaration_from_facts(
     facts: BusinessFacts, paid_from: str
 ) -> PurchaseDeclaration | None:
@@ -84,7 +91,7 @@ def declaration_from_facts(
     number = normalized_ncf(_fiscal(facts, "ecf") or _fiscal(facts, "ncf"))
     if rnc is None or number is None or number[1:3] in {"02", "32"}:
         return None
-    review = PurchaseReview(payment_method=_PAYMENT_FORM.get(paid_from))
+    review = PurchaseReview(payment_method=PAYMENT_FORM_BY_ACCOUNT_TYPE.get(paid_from))
     digits = identity_digits(rnc)
     return apply_purchase(None, review, None).model_copy(
         update={"id_type": {9: "1", 11: "2"}.get(len(digits or ""))}

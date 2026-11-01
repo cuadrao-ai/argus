@@ -16,7 +16,7 @@ from loguru import logger
 from pydantic import ValidationError
 
 from argus.domain.business.authority import ActionError
-from argus.domain.business.contracts.dgii import SalesDeclaration
+from argus.domain.business.contracts.dgii import PurchaseDeclaration, SalesDeclaration
 from argus.domain.business.contracts.facts import (
     BusinessResolution,
     Known,
@@ -64,6 +64,9 @@ class MonthDocument:
     counterparty: str | None = None
     sin_comprobante: bool = False
     due_on: date | None = None
+    #: A receipt's 606 Forma de Pago code, from its declaration; the one
+    #: value the review, the approval and the export read.
+    payment_form: str | None = None
 
 
 @dataclass(frozen=True)
@@ -301,6 +304,7 @@ def _line(document: MonthDocument) -> dict:
         "status": document.status,
         "sin_comprobante": document.sin_comprobante,
         "due_on": None if document.due_on is None else document.due_on.isoformat(),
+        "payment_form": document.payment_form,
     }
 
 
@@ -331,10 +335,7 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
                 }
             )
             missing_rnc.append(_line(document))
-        if (
-            not _fiscal(document)
-            or normalized_ncf(document.ecf or document.ncf) is None
-        ):
+        if not _fiscal(document) or normalized_ncf(document.ecf or document.ncf) is None:
             reasons.append(
                 {
                     "code": "missing_ncf",
@@ -578,6 +579,7 @@ class FiscalParts:
     counterparty: str | None = None
     sin_comprobante: bool = False
     due_on: date | None = None
+    payment_form: str | None = None
 
 
 _NO_FISCAL = FiscalParts(None, None, None, None, False, None)
@@ -628,6 +630,9 @@ def read_fiscal(resolution: Mapping | None, currency: str) -> FiscalParts:
         _text(_known(facts.counterparty)),
         is_sin_comprobante(facts),
         parsed.due_on,
+        parsed.dgii.payment_method
+        if isinstance(parsed.dgii, PurchaseDeclaration)
+        else None,
     )
 
 
@@ -707,6 +712,7 @@ def project_documents(
                 counterparty=parts.counterparty,
                 sin_comprobante=parts.sin_comprobante,
                 due_on=parts.due_on,
+                payment_form=parts.payment_form,
                 status=settlement.status,
                 settled_on=settlement.settled_on,
                 payment_method=settlement.payment_method,

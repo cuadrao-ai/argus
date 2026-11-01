@@ -119,6 +119,10 @@ class DocumentLine(_Wire):
     sin_comprobante: bool = False
     # The due date set in review; null while unknown. Open items sort on it.
     due_on: date | None
+    # A receipt's 606 Forma de Pago code from its declaration, the same value
+    # the review shows and the export prints; null for an invoice or while
+    # no one has chosen it.
+    payment_form: str | None = None
 
 
 class ForeignCurrencyForm(_Wire):

@@ -730,6 +730,42 @@ def test_records_sheet_has_the_accountant_columns(actions):
     assert "note" not in ids[0]
 
 
+def test_failed_money_write_puts_back_the_declaration_the_approval_filled(
+    actions, monkeypatch
+):
+    from argus.domain.recording.errors import RecordingInputError
+
+    service, context = actions
+    checking = dop_account(service, context, "checking")
+    draft, version = receipt_draft(service, context, colmado(), "DOP")
+    blank = saved_declaration(id_type=None, payment_method=None)
+    approved = reviewed(
+        service,
+        context,
+        draft,
+        version,
+        funding={"kind": "business_account", "account_id": str(checking)},
+        dgii={
+            "fiscal": {"rnc": SUPPLIER, "ncf": NCF, "itbis": "180.00"},
+            "declaration": blank,
+        },
+    )
+
+    def refuse(**kwargs):
+        raise RecordingInputError("activity_invalid", "synthetic refusal")
+
+    monkeypatch.setattr(service.imports.money, "write", refuse)
+
+    failed = approve(service, context, draft, approved)
+
+    assert failed.outcome == "invalid_input", failed
+    reopened = service.dossier(context, draft)
+    assert reopened.dgii.model_dump(mode="json") == blank
+    filled, undone = revisions(service, draft)[-2:]
+    assert (filled["dgii"]["id_type"], filled["dgii"]["payment_method"]) == ("1", "02")
+    assert (undone["version"], undone["dgii"]) == (reopened.version, blank)
+
+
 def test_reapproval_rebuilds_a_declaration_the_clear_missed(actions, monkeypatch):
     from argus.domain.business.actions import approval
     from argus.domain.recording.errors import RecordingInputError

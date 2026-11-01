@@ -9242,8 +9242,10 @@ recovery uses the persisted request/key, with no second ledger or blind retry
 of an unknown effect. Recorded-income amendment remains unsupported.
 `funding={kind: owner_funds}` records one expense only after human approval. It
 must not debit a Business bank account or decide whether capital or debt is owed.
-Post-recording corrections are refused with `recorded_correction_unsupported`;
-this slice defines no reversal or supersession policy.
+Post-recording corrections to the recorded facts are refused with
+`recorded_correction_unsupported`; the 606 declaration alone stays writable
+through the review route until the record's line is exported (see the review
+route). This slice defines no reversal or supersession policy.
 
 The seven Business tool action names remain `business_read_context`,
 `business_propose_activity`, `business_attach_source`,
@@ -9289,6 +9291,10 @@ immutable before/after `history`, live `capabilities`, `blockers`,
 approve action this draft takes, by its kind (`record_expense`,
 `record_income`, `record_refund`, the `action` the approve route's body
 discriminates on), and null while `approval_available` is false.
+`declaration_editable` is true while the caller may write the 606
+declaration: the caller holds `prepare`, the record takes a 606 (an income,
+whether it holds a 607 or nothing, reads false), and the draft is open, or
+approved and not yet carried by a downloaded DGII TXT.
 `fiscal_inclusion_available` is true when the caller may answer
 `POST /business/drafts/{id}/fiscal-inclusion` now, by the gate that action
 enforces: a member holding `prepare` who is not the owner, on an `open` or
@@ -9322,15 +9328,19 @@ approvals and settlements), `approved_revision` (the latest `history` version
 at or below `reviewed_version`: the facts revision the person approved) and
 `approved_at` (when the approval receipt was written). Marks and 606 answers
 after approval add `history` revisions without changing either field. So does
-an expense approval whose draft holds no 606 declaration: it adds one revision
-at the next version with the declaration built from the reviewed facts. That
-declaration leaves the expense type unknown, and the payment form unknown unless
-a cash (01), bank (02) or credit card (03) Business account paid, so the 606
-reports `fiscal_fact_required` until a person answers. No declaration is built
-without a supplier RNC or for a consumer B02 or E32 number. When the money write
-then fails, the reopened draft gets one more revision that clears the
-approval's declaration; a declaration a person saved stays. If that clear cannot
-run, the next approval rebuilds the declaration instead of keeping it.
+an expense approval whose draft holds no 606 declaration, or whose saved
+declaration leaves the Tipo Id or the Forma de Pago unknown: it adds one
+revision at the next version with the declaration built from the reviewed
+facts, or the saved one with only those two filled in. A value a person saved
+is never replaced. The built declaration leaves the expense type unknown, and
+the payment form unknown unless a cash (01), bank (02) or credit card (03)
+Business account paid, so the 606 reports `fiscal_fact_required` until a
+person answers; neither blocks approval. No declaration is built without a
+supplier RNC or for a consumer B02 or E32 number. When the money write then
+fails, the reopened draft gets one more revision that puts the declaration
+back as it was before the approval: the one a person saved, or none. If that
+undo cannot run, the next approval writes from that earlier declaration
+instead of keeping the failed approval's.
 
 `POST /business/drafts/{draft_id}/duplicate-resolution` takes
 `{version, other_draft_id, other_version, decision: "different_purchase"}` and
@@ -9354,7 +9364,45 @@ and the still-valid pair decision; changed input under the same key answers 409.
 Every other review and owner-approval condition remains in force.
 
 `PATCH /business/drafts/{draft_id}/review` takes `{version, facts: BusinessFactPatch}`
-and `Idempotency-Key`. It may also carry `document_type` (`recibo` or `venta`),
+and `Idempotency-Key`. The body's `purchase` carries the 606 fields a person
+confirms (`PurchaseReview`: every field of the 606 declaration but `form`, so
+`id_type`, `modified_ncf`, the amounts, the taxes, the withholdings, the tip,
+`category`, `payment_method`, `paid_on`, `actual_refund` and
+`purchase_activity_id`); absent fields stay as they were, and a confirmed
+`category` with neither amount fills the services or goods side from the total
+less ITBIS, selective tax, other taxes and tip, the tip and taxes of the same
+write included. `purchase` on a record that takes no 606 (an income, with a
+607 or with nothing), open or approved, is 422 `fiscal_direction_unsupported`
+and writes nothing. `purchase` sits beside `facts`, not inside
+it: `BusinessFactPatch` is the patch the interpreter fills, and a tax field is
+never the model's to fill. The
+identifiers in `dgii.fiscal` (`rnc`, `ncf`) and `modified_ncf` are normalized on
+the server before their shape applies: the dashes and spaces printed between
+digit groups are removed and `a` to `z` upper-cased, so an RNC printed
+`1-23-45678-9` saves as `123456789` and `b0100000001` as `B0100000001`.
+Nothing else is folded: a word typed in the field (`no tiene`), a separator
+beside a letter (`ab-123`) and a letter that upper-cases to two (`ß`) are still
+a 422 `validation_error`. On an approved (`accepted`) draft the same route accepts a
+review that carries only `purchase`: it writes the declaration as one more
+revision with the same web source and action receipt, the recorded facts
+unchanged, until the record's line is carried by a downloaded DGII TXT, after
+which it answers 422 `fiscal_declaration_exported`. The export reads the
+declarations, builds the TXT and records the lines it carries under the
+Business's owner lock, the lock every review write takes, so a 606 write that
+runs at the same time either lands before the build, and the TXT carries it,
+or waits for the build and is refused with that code; the TXT never freezes a
+record on a value it does not carry. The declaration is `prepare`'s to write,
+before and after approval: an accountant holding `prepare` adds 606 data on the
+owner's approved record, and the revision names the accountant; `approve`
+stays the owner's and is not needed for the declaration; a read-only grant is
+403 `business_permission_denied`. Any other review input on an
+approved draft is still 422 `recorded_correction_unsupported`. So is a `purchase`
+that changes `purchase_activity_id` or `actual_refund`: the approval checked the
+refund and its purchase against the money and the money keeps them, so an
+approved credit note cannot move to another purchase. The same values answer
+200, and `modified_ncf` stays writable, with a number that disagrees with the
+linked purchase held by the export as `fiscal_credit_reference_conflict`.
+It may also carry `document_type` (`recibo` or `venta`),
 alone or with facts and `dgii`, for an open draft from an upload, a note or a
 chat. A change
 is one revision: a `venta` becomes income and loses a payable bill mark, a
@@ -9458,14 +9506,17 @@ a typed `606` purchase or `607` sale declaration. Blank required facts remain
 unknown. The existing live prepare grant, expected version, immutable web-action
 source and review receipt govern this operation. Tax fields never enter the
 model-facing `BusinessFactPatch` or `TurnPlan` schema. A person may send an
-optional `facts.purchase` review for the 606 expense type, payment form, payment
-date, goods and services split, and withholdings. That object is stored on the
-purchase declaration, which remains the only 606 column owner. A suggested
+optional top-level `purchase` review, any field of the purchase declaration but
+`form`: the 606 expense type, payment form, payment date, goods and services
+split, withholdings and the rest. That object is stored on the purchase
+declaration, which remains the only 606 column owner. A suggested
 expense type is not confirmed and stays out of the export column. The 606
 manifest keeps blocking problems in `issues` and lists warn-only gaps in
 `warnings`, including an unverified or inactive supplier RNC. An RNC registry
-state never blocks approval or the export file. Accepted records remain immutable;
-this operation cannot change an approved tax declaration or repost money.
+state never blocks approval or the export file. On an accepted record `dgii` is
+422 `recorded_correction_unsupported` and this operation never reposts money;
+`purchase` alone still writes the 606 declaration, until the record's line is
+exported, as the review route above states.
 The existing approval endpoint also accepts human `record_refund`, requiring an
 explicit actual refund linked to an original purchase. Other credit-note
 settlements remain unsupported. The owner alone approves income, expense or
@@ -9770,7 +9821,11 @@ is an immutable action receipt with the actor and the time. Replaying the same k
 the saved profile and does not write again.
 
 `GET /business/fiscal-profile/fields` supplies the form controls from the same
-typed declaration and annex column definitions used by the exporter.
+typed declaration and annex column definitions used by the exporter. Each field
+adds `labels`, the label of each option that has one, by code, from the one
+code table (`argus.domain.business.dgii_codes`): the 606 `category` (Tipo de
+Bienes y Servicios Comprados, 01 to 11) and `payment_method` (Forma de Pago,
+01 to 07). Every other field's `labels` is empty. Codes are unchanged.
 
 The summary keeps positive TXT credit-note magnitudes separate from signed
 economic reductions. B02 purchases stay in recorded money and are excluded from

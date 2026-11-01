@@ -170,6 +170,7 @@ def test_what_is_still_owed_stays_listed_across_months_until_it_is_marked_paid(
         "status": "pendiente",
         "sin_comprobante": False,
         "due_on": None,
+        "payment_form": None,
     }
     dollar_line = cobrar["items"][1]
     assert (

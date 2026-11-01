@@ -224,6 +224,9 @@ class BusinessDossier(RecordContext):
     document_type: DocumentType = "recibo"
     document_type_detected: bool = False
     document_type_editable: bool = False
+    #: The caller may write the 606 declaration now: open, or approved and
+    #: not yet carried by a downloaded DGII TXT, and the caller holds prepare.
+    declaration_editable: bool = False
     #: The due date a person set in review; null while unknown. Never read
     #: from the document or defaulted. Locked with the other facts once approved.
     due_on: date | None = None
@@ -250,6 +253,7 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "supporting_append_available": True,
     "annotation_unavailable_reason": True,
     "due_on": True,
+    "declaration_editable": True,
     "approval_action": True,
     "fiscal_inclusion_available": True,
     "refund_candidates": True,

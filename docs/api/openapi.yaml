@@ -17785,6 +17785,9 @@ components:
         document_type_editable:
           type: boolean
           default: false
+        declaration_editable:
+          type: boolean
+          default: false
         due_on:
           anyOf:
           - type: string
@@ -20887,6 +20890,10 @@ components:
           - type: string
             format: date
           - type: 'null'
+        payment_form:
+          anyOf:
+          - type: string
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -22210,6 +22217,10 @@ components:
           items:
             type: string
           type: array
+        labels:
+          additionalProperties:
+            type: string
+          type: object
       additionalProperties: false
       type: object
       required:
@@ -29145,6 +29156,33 @@ components:
       - refundable_minor
     PurchaseReview:
       properties:
+        id_type:
+          anyOf:
+          - type: string
+            enum:
+            - '1'
+            - '2'
+          - type: 'null'
+        modified_ncf:
+          anyOf:
+          - type: string
+            pattern: ^[A-Z0-9]{1,19}$
+          - type: 'null'
+        selective_tax:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        other_taxes:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        legal_tip:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
         category:
           anyOf:
           - type: string
@@ -29164,18 +29202,6 @@ components:
         category_suggested:
           type: boolean
           default: false
-        payment_method:
-          anyOf:
-          - type: string
-            enum:
-            - '01'
-            - '02'
-            - '03'
-            - '04'
-            - '05'
-            - '06'
-            - '07'
-          - type: 'null'
         paid_on:
           anyOf:
           - type: string
@@ -29192,6 +29218,21 @@ components:
             pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
           - type: 'null'
         itbis_withheld:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        itbis_proportionality:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        itbis_cost:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        itbis_perceived:
           anyOf:
           - type: string
             pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
@@ -29215,9 +29256,38 @@ components:
           - type: string
             pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
           - type: 'null'
+        income_perceived:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        payment_method:
+          anyOf:
+          - type: string
+            enum:
+            - '01'
+            - '02'
+            - '03'
+            - '04'
+            - '05'
+            - '06'
+            - '07'
+          - type: 'null'
+        actual_refund:
+          type: boolean
+          default: false
+        purchase_activity_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
       additionalProperties: false
       type: object
-      description: 606 fields a person confirms on a draft. Absent fields stay as they were.
+      description: 'The 606 fields a person confirms, before or after approval: every field
+
+        of PurchaseDeclaration but its form. Absent fields stay as they were. After
+
+        approval actual_refund and purchase_activity_id keep their recorded values.'
     QuotaGrantRequest:
       properties:
         user_id:
@@ -31657,6 +31727,10 @@ components:
         dgii:
           anyOf:
           - $ref: '#/components/schemas/FiscalReview'
+          - type: 'null'
+        purchase:
+          anyOf:
+          - $ref: '#/components/schemas/PurchaseReview'
           - type: 'null'
         document_type:
           anyOf:

@@ -1,14 +1,44 @@
 from __future__ import annotations
 
+import re
+import string
 from datetime import date
 from decimal import Decimal
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+)
 
 Money = Annotated[str, StringConstraints(pattern=r"^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$")]
-Identifier = Annotated[str, StringConstraints(pattern=r"^[A-Z0-9]{1,19}$")]
+
+_ASCII_UPPER = str.maketrans(string.ascii_lowercase, string.ascii_uppercase)
+_PRINTED_SEPARATOR = re.compile(r"(?<=[0-9])[-\s]+(?=[0-9])")
+
+
+def _printed_identifier(value: object) -> object:
+    """An RNC, cédula or NCF as a person keys it or a read kept it: the
+    dashes and spaces printed between its digit groups go, and a to z become
+    upper case. Nothing else is folded, so a letter that upper-cases to two
+    and a word typed into the field still fail the shape. The one place that
+    cleans fiscal input; every reader after it sees digits."""
+
+    if not isinstance(value, str):
+        return value
+    return _PRINTED_SEPARATOR.sub("", value.strip()).translate(_ASCII_UPPER)
+
+
+Identifier = Annotated[
+    str,
+    StringConstraints(pattern=r"^[A-Z0-9]{1,19}$"),
+    BeforeValidator(_printed_identifier),
+]
 
 
 class FiscalInput(BaseModel):
@@ -58,19 +88,32 @@ class PurchaseDeclaration(Declaration):
 
 
 class PurchaseReview(BaseModel):
-    """606 fields a person confirms on a draft. Absent fields stay as they were."""
+    """The 606 fields a person confirms, before or after approval: every field
+    of PurchaseDeclaration but its form. Absent fields stay as they were. After
+    approval actual_refund and purchase_activity_id keep their recorded values."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    id_type: Literal["1", "2"] | None = None
+    modified_ncf: Identifier | None = None
+    selective_tax: Money | None = None
+    other_taxes: Money | None = None
+    legal_tip: Money | None = None
     category: ExpenseType | None = None
     category_suggested: bool = False
-    payment_method: PaymentForm | None = None
     paid_on: date | None = None
     services_amount: Money | None = None
     goods_amount: Money | None = None
     itbis_withheld: Money | None = None
+    itbis_proportionality: Money | None = None
+    itbis_cost: Money | None = None
+    itbis_perceived: Money | None = None
     income_withholding_type: IsrWithholding | None = None
     income_withheld: Money | None = None
+    income_perceived: Money | None = None
+    payment_method: PaymentForm | None = None
+    actual_refund: bool = False
+    purchase_activity_id: UUID | None = None
 
 
 class SalesDeclaration(Declaration):
@@ -131,6 +174,9 @@ class FiscalField(BaseModel):
     label: str
     kind: Literal["select", "date", "text", "money"]
     options: tuple[str, ...]
+    #: The label of each option that has one, by code; empty for a field
+    #: whose codes carry no label.
+    labels: dict[str, str] = Field(default_factory=dict)
 
 
 def decimal_money(value: str) -> Decimal:

@@ -73,15 +73,15 @@ def filer_change(
     )
 
 
-def cash_account(service, context):
+def business_account(service, context, kind="cash", nickname="PRÁCTICA caja"):
     return service.imports.money.repository.create(
         user_id=context.owner_id,
         idempotency_key=str(uuid4()),
         identity_hash=uuid4().hex,
         account=NewAccount(
-            type="cash",
+            type=kind,
             currency="DOP",
-            nickname="PRÁCTICA caja",
+            nickname=nickname,
             ownership_share_bps=10000,
         ),
         opening=shared.shared._opening(
@@ -89,6 +89,10 @@ def cash_account(service, context):
         ),
         scope=context.scope,
     ).stored.account.id
+
+
+def cash_account(service, context):
+    return business_account(service, context)
 
 
 def reviewed(service, context, account, index=0, purchase=None, override=None):
@@ -583,15 +587,13 @@ def test_purchase_review_save_applies_payment_withholding_and_the_base(actions):
         capture.draft_id,
         ReviewDraft(
             version=stored.version,
-            facts=BusinessFactPatch(
-                purchase=PurchaseReview(
-                    category="09",
-                    payment_method="04",
-                    paid_on=date(2026, 9, 3),
-                    itbis_withheld="18.40",
-                    income_withholding_type="02",
-                    income_withheld="10.15",
-                )
+            purchase=PurchaseReview(
+                category="09",
+                payment_method="04",
+                paid_on=date(2026, 9, 3),
+                itbis_withheld="18.40",
+                income_withholding_type="02",
+                income_withheld="10.15",
             ),
         ),
         str(uuid4()),
@@ -660,15 +662,15 @@ def test_an_income_draft_without_a_declaration_does_not_gain_a_606(actions):
                 {
                     "kind": {"state": "known", "value": "income"},
                     "amount": {"state": "known", "value": "100.50"},
-                    "purchase": {"category": "09", "payment_method": "04"},
                 }
             ),
+            purchase=PurchaseReview(category="09", payment_method="04"),
         ),
         str(uuid4()),
     )
-    assert saved.outcome == "applied", saved
+    assert saved.code == "fiscal_direction_unsupported", saved
     dossier = service.dossier(context, capture.draft_id)
-    assert dossier.dgii is None
+    assert dossier.dgii is None and dossier.version == capture.version
 
 
 def test_typed_profile_feeds_the_export_header_and_a_non_owner_cannot_edit(

@@ -27,7 +27,7 @@ from argus.domain.business.contracts.dgii import (
     DgiiDeclaration,
     FiscalReview,
     PurchaseDeclaration,
-    SalesDeclaration,
+    PurchaseReview,
 )
 from argus.domain.business.contracts.facts import (
     BusinessFactPatch,
@@ -53,16 +53,21 @@ from argus.domain.ingestion.documents.models import (
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
 
 
-def event_at(tx: ActionTransaction, ref: ExistingDraft) -> ImportEvent:
+def event_at(
+    tx: ActionTransaction, ref: ExistingDraft, recorded_ok: bool = False
+) -> ImportEvent:
+    """The draft at the version the caller saw. Open, or also approved when
+    the caller changes only what stays open after approval."""
+
     try:
         event = tx.imports.event(str(ref.draft_id))
     except EventNotFound:
         raise ActionError("not_found", "business_record_not_found") from None
     if event.version != ref.version:
         raise ActionError("stale_version", "stale_version")
-    if event.state == "accepted":
+    if event.state == "accepted" and not recorded_ok:
         raise ActionError("invalid_input", "recorded_correction_unsupported")
-    if event.state != "open":
+    if event.state not in ("open", "accepted"):
         raise ActionError("invalid_input", "business_draft_not_open")
     return event
 
@@ -185,18 +190,33 @@ def revise(
     turn_key: str | None = None,
     answer_id: UUID | None = None,
     fiscal_review: FiscalReview | None = None,
+    purchase: PurchaseReview | None = None,
     document_type: DocumentType | None = None,
     due_on: DueOnInput | None = None,
 ) -> Applied:
     sources.require_sources(tx, source_ids)
     now = datetime.now(timezone.utc)
+    declaration_only = (
+        purchase is not None
+        and patch is None
+        and fiscal_review is None
+        and document_type is None
+        and due_on is None
+        and answer_id is None
+    )
     if ref is None:
         event = new_candidate(tx.context.owner_id, now)
         before = None
     else:
         event = (
-            _open_for_type(tx, ref) if document_type is not None else event_at(tx, ref)
+            _open_for_type(tx, ref)
+            if document_type is not None
+            else event_at(tx, ref, declaration_only)
         )
+        if event.state == "accepted":
+            from argus.domain.business.actions.fiscal import require_unexported
+
+            require_unexported(tx, event)
         before = facts_of(event)
         event = replace(event, version=event.version + 1, updated_at=now)
     origin = {
@@ -238,30 +258,30 @@ def revise(
             if value is not None and value.state in {"known", "owner_does_not_know"}:
                 answer_question(tx, event.id, question["id"], patch, source_ids[-1])
     declared = fiscal_review.declaration if fiscal_review else None
-    if patch is not None and patch.purchase is not None:
+    if purchase is not None:
+        from argus.domain.business.purchase_review import (
+            apply_purchase,
+            changes_recorded_refund,
+            takes_purchase_declaration,
+        )
+
         current = declared
         if current is None and not retyped:
             raw = (event.resolution.get("business") or {}).get("dgii")
             current = TypeAdapter(DgiiDeclaration).validate_python(raw) if raw else None
-        kind = after.kind.value if isinstance(after.kind, Known) else None
-        if not isinstance(current, SalesDeclaration) and not (
-            current is None and kind == "income"
-        ):
-            from argus.domain.business.purchase_review import apply_purchase
-
-            amount = after.amount.value if isinstance(after.amount, Known) else None
-            fiscal = after.fiscal
-            itbis = (
-                fiscal.itbis.value
-                if fiscal is not None and isinstance(fiscal.itbis, Known)
-                else None
-            )
-            declared = apply_purchase(
-                current if isinstance(current, PurchaseDeclaration) else None,
-                patch.purchase,
-                amount,
-                itbis,
-            )
+        if not takes_purchase_declaration(after, current):
+            raise ActionError("invalid_input", "fiscal_direction_unsupported")
+        amount = after.amount.value if isinstance(after.amount, Known) else None
+        fiscal = after.fiscal
+        itbis = (
+            fiscal.itbis.value
+            if fiscal is not None and isinstance(fiscal.itbis, Known)
+            else None
+        )
+        previous = current if isinstance(current, PurchaseDeclaration) else None
+        declared = apply_purchase(previous, purchase, amount, itbis)
+        if event.state == "accepted" and changes_recorded_refund(previous, declared):
+            raise ActionError("invalid_input", "recorded_correction_unsupported")
     return save_revision(
         tx,
         event,

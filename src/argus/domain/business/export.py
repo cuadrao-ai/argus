@@ -121,8 +121,8 @@ class ExportSnapshot:
     fiscal_records: tuple[FiscalRecord, ...] = ()
     business_rnc: str | None = None
     business_name: str = ""
-    # Stored settlement rows by activity id, read on the same snapshot as the
-    # activities. Month close and bank matching write them.
+    # Stored settlement rows by activity id, read with the declarations under
+    # the owner lock. Month close and bank matching write them.
     settlements: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
 
 
@@ -305,7 +305,9 @@ def _csv(rows: Sequence[Mapping[str, Any]], columns: Sequence[str]) -> bytes:
     output = io.StringIO(newline="")
     writer = csv.writer(output)
     writer.writerow(columns)
-    writer.writerows([spreadsheet_cell(row.get(column)) for column in columns] for row in rows)
+    writer.writerows(
+        [spreadsheet_cell(row.get(column)) for column in columns] for row in rows
+    )
     return output.getvalue().encode("utf-8-sig")
 
 
@@ -342,11 +344,45 @@ def _xlsx(
     return output.getvalue()
 
 
+@dataclass(frozen=True)
+class ExportArchive:
+    content: bytes
+    #: The DGII period the packet names, YYYYMM.
+    period: str
+    #: ``(activity_id, form)`` for each line a TXT in the archive carries.
+    lines: tuple[tuple[str, str], ...]
+
+
+def exported_lines(manifest: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
+    """The lines the packet's TXT files carry: each reconciliation line placed
+    on a form whose TXT was prepared. A form held back for review ships no
+    TXT, so none of its lines count as exported."""
+
+    prepared = {
+        form
+        for form, shape in manifest["forms"].items()
+        if shape["status"] == "prepared_candidate"
+    }
+    return tuple(
+        (item["activity_id"], item["disposition"])
+        for item in manifest["reconciliation"]
+        if item["disposition"] in prepared
+    )
+
+
 def build_archive(
     snapshot: ExportSnapshot,
     read_original: Callable[[ExportSource], bytes | None],
     registry: RncRegistry | None = None,
 ) -> bytes:
+    return build_export(snapshot, read_original, registry).content
+
+
+def build_export(
+    snapshot: ExportSnapshot,
+    read_original: Callable[[ExportSource], bytes | None],
+    registry: RncRegistry | None = None,
+) -> ExportArchive:
     rows = record_rows(snapshot)
     included = {UUID(row["activity_id"]) for row in rows}
     pending = {UUID(str(row["draft_id"])) for row in snapshot.unresolved}
@@ -490,7 +526,11 @@ def build_archive(
         )
     if len(output.getvalue()) > MAX_TOTAL_BYTES + 5 * 1024 * 1024:
         raise ExportLimit("export_archive_limit")
-    return output.getvalue()
+    return ExportArchive(
+        output.getvalue(),
+        fiscal.manifest["period"],
+        exported_lines(fiscal.manifest),
+    )
 
 
 def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
@@ -499,6 +539,9 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
 
     from argus.domain.business.authority import ActionError, authorize
     from argus.domain.business.contracts.facts import BusinessResolution, Known
+    from argus.domain.business.dgii_snapshot import fiscal_snapshot
+    from argus.domain.business.month_close_store import read_settlements
+    from argus.domain.business.transactions import lock_owner
     from argus.domain.ingestion.documents.models import DocumentExtractionError
     from argus.domain.ingestion.documents.objects import (
         IMAGE_MEDIA_TYPES,
@@ -638,29 +681,10 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                 )
                 for a in activities
             )
-            from argus.domain.business.dgii_snapshot import fiscal_snapshot
-            from argus.domain.business.month_close_store import read_settlements
-
-            fiscal_records, business_rnc, business_name = fiscal_snapshot(
-                cursor, context, activities
-            )
-            snapshot = ExportSnapshot(
-                period,
-                activities,
-                sources,
-                tuple(unresolved),
-                utcnow(),
-                fiscal_records,
-                business_rnc,
-                business_name,
-                settlements=read_settlements(
-                    cursor, context.owner_id, str(context.actor.space_id)
-                ),
-            )
 
     store = PostgresDocumentStore(authority.pool, objects)
     downloads = []
-    for source in snapshot.sources:
+    for source in sources:
         if source.text is None and source.media_type in IMAGE_MEDIA_TYPES:
             # Rebuilding writes through another connection. Release snapshot
             # locks before the capped producer; recheck access before and after.
@@ -697,10 +721,13 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                         expected_sha256=hashlib.sha256(rebuilt[1]).hexdigest(),
                     )
         downloads.append(source)
-    snapshot = replace(snapshot, sources=tuple(downloads))
 
+    # The declarations are read, the TXT built and its lines frozen under the
+    # Business's one owner lock, the lock every 606 write takes: a write lands
+    # before this read and the TXT carries it, or it waits and meets the freeze.
+    # Read committed, so the reads after the lock see what committed before it.
     with authority.pool.connection() as connection, connection.transaction():
-        connection.execute("set transaction isolation level repeatable read")
+        lock_owner(connection, context.owner_id)
         current = authorize(connection, context.actor, context.grant_id)
         current.require("export")
         if current.context.owner_id != context.owner_id:
@@ -774,10 +801,40 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                 cursor.execute(sql, params)
                 return cursor.fetchone()
 
-            result = build_archive(
+            fiscal_records, business_rnc, business_name = fiscal_snapshot(
+                cursor, context, activities
+            )
+            snapshot = ExportSnapshot(
+                period,
+                activities,
+                tuple(downloads),
+                tuple(unresolved),
+                utcnow(),
+                fiscal_records,
+                business_rnc,
+                business_name,
+                settlements=read_settlements(
+                    cursor, context.owner_id, str(context.actor.space_id)
+                ),
+            )
+            result = build_export(
                 snapshot,
                 original,
                 registry_from_config("dgii", postgres_rnc_fetch(lookup)),
             )
+            # Each line the TXT carries is now in the DGII's hands: its
+            # declaration is frozen from here (fiscal_declaration_exported).
+            for activity_id, form in result.lines:
+                cursor.execute(
+                    "insert into public.business_dgii_export_lines"
+                    " (space_id,activity_id,form,period,actor_id) values (%s,%s,%s,%s,%s)",
+                    (
+                        context.actor.space_id,
+                        activity_id,
+                        form,
+                        result.period,
+                        context.actor.actor_id,
+                    ),
+                )
             authorize(connection, context.actor, context.grant_id).require("export")
-            return result
+            return result.content
