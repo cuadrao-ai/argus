@@ -404,10 +404,11 @@ def test_a_debit_note_names_the_comprobante_it_modifies_after_approval(actions):
 
 def test_an_approved_credit_note_keeps_the_refund_its_approval_recorded(actions):  # noqa: ANN001
     """The approval checks a refund against its purchase and the money keeps
-    the link, so an approved record keeps it too: the note cannot move to a
-    purchase the approval would refuse, and neither the link nor the refund
-    flag changes. The comprobante it modifies stays 606 data, and the export
-    holds a number that disagrees with the linked purchase."""
+    the link, so an approved record keeps it too: an open note moves freely,
+    an approved one cannot move to a purchase the approval would refuse, and
+    neither the link nor the refund flag changes. The comprobante it modifies
+    stays 606 data, and the export holds a number that disagrees with the
+    linked purchase."""
 
     service, context, _ = actions
     set_profile(service.authority, context, filer_change(FILER), "rnc")
@@ -466,8 +467,17 @@ def test_an_approved_credit_note_keeps_the_refund_its_approval_recorded(actions)
     refused = approve_refund(*credit_note("B0400000012", "B0100002303", owner))
     assert answer(refused) == unsupported
 
-    credit, version = credit_note("B0400000013", "B0100002301", first)
-    recorded = approve_refund(credit, version)
+    credit, version = credit_note("B0400000013", "B0100002302", small)
+    relinked = declared(
+        service,
+        context,
+        credit,
+        version,
+        modified_ncf="B0100002301",
+        purchase_activity_id=first,
+    )
+    assert relinked.outcome == "applied", relinked
+    recorded = approve_refund(credit, relinked.version)
     assert recorded.outcome == "applied", recorded
 
     view = service.dossier(context, credit)
