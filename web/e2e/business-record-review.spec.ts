@@ -88,7 +88,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await expect(history).toContainText("Ana Peña");
       await expect(page.getByTestId("business-record-review")).toContainText("permiso otorgado por Lucía Mateo");
       await showTab(page, "Original");
-      await expect(page.getByRole("region", { name: "Revisiones en la web" })).toBeVisible();
+      await expect(page.getByRole("region", { name: "Revisiones en la web" })).toHaveCount(0);
       await capture(page, `approved-history-${viewport.width}`);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     });
@@ -106,7 +106,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await expect(change).toContainText("Actividad: Gasto");
       await expect(change).toContainText("Ana Peña");
       await showTab(page, "Original");
-      await expect(page.getByRole("region", { name: "Revisiones en la web" })).toBeVisible();
+      await expect(page.getByRole("region", { name: "Revisiones en la web" })).toHaveCount(0);
     });
 
     test("fiscal facts and before-after changes stay readable in Spanish", async ({ page }) => {
