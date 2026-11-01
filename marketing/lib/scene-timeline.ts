@@ -40,13 +40,12 @@ const BEAT_POINTS = [
   ...new Set([...ISLAND.map(([at]) => at), ARRIVED, READY, APPROVED, ...CHECKS, EXPORTED, ...DOCK]),
 ].sort((a, b) => a - b);
 
-const clamp = (value: number) => Math.min(1, Math.max(0, value));
+export const clamp = (value: number) => Math.min(1, Math.max(0, value));
 const lerp = (from: number, to: number, t: number) => from + (to - from) * t;
 
-function seg(p: number, from: number, to: number): number {
-  const t = clamp((p - from) / (to - from));
-  return t * t * (3 - 2 * t);
-}
+export const smooth = (t: number) => t * t * (3 - 2 * t);
+
+const seg = (p: number, from: number, to: number) => smooth(clamp((p - from) / (to - from)));
 
 export function scrollProgress(top: number, height: number, viewport: number): number {
   const travel = height - viewport;

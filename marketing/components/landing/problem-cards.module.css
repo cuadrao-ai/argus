@@ -1,0 +1,124 @@
+.cards {
+  height: 280vh;
+  background: #f7f5ee;
+}
+.pin {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding-top: clamp(106px, 14vh, 150px);
+  overflow: hidden;
+}
+.field {
+  --p: 0;
+  --spread: 1;
+  --spread-y: 1;
+  --title-out: 0;
+  --title-in: 0;
+  width: min(1160px, 100% - 48px);
+  margin-inline: auto;
+}
+.titles {
+  position: relative;
+  min-height: clamp(96px, 15vh, 130px);
+  text-align: center;
+}
+.titles > div {
+  position: absolute;
+  inset: 0;
+  will-change: opacity, transform;
+}
+.titles div h2 {
+  font-size: clamp(32px, min(4.6vw, 7.4vh), 56px);
+}
+.titles div p {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: clamp(15px, 2.2vh, 18px);
+}
+.before {
+  opacity: calc(1 - var(--title-out));
+  transform: translateY(calc(var(--title-out) * -10px));
+}
+.after {
+  opacity: var(--title-in);
+  transform: translateY(calc((1 - var(--title-in)) * 10px));
+}
+.list {
+  position: relative;
+  display: grid;
+  gap: clamp(5px, 1vh, 8px);
+  width: min(560px, 100%);
+  margin: clamp(14px, 3.4vh, 40px) auto 0;
+}
+.document {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: clamp(6px, 1.2vh, 11px) 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  box-shadow: 0 10px 26px rgb(23 43 38 / calc((1 - var(--p)) * 0.1));
+  font-size: 14px;
+  transform: translate(
+      calc(var(--dx) * (1 - var(--p)) * var(--spread)),
+      calc(var(--dy) * (1 - var(--p)) * var(--spread-y))
+    )
+    rotate(calc(var(--turn) * (1 - var(--p))));
+  will-change: transform;
+}
+.document b {
+  display: block;
+  font-weight: 600;
+}
+.document span {
+  color: var(--muted);
+}
+.document .chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #ece9df;
+  color: #4d5a53;
+  font-size: 13px;
+  white-space: nowrap;
+  opacity: clamp(0, calc((var(--p) - 0.7) * 4), 1);
+}
+.document .chipDone {
+  background: #e3ebe1;
+  color: #2f5a49;
+}
+.document .chipWait {
+  background: #f2e8c9;
+  color: #735c14;
+}
+.document .chipAlert {
+  background: #f6dfe0;
+  color: #9e2f39;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cards {
+    height: auto;
+    padding: 72px 0;
+  }
+  .pin {
+    position: static;
+    height: auto;
+    padding-top: 0;
+  }
+  .field {
+    --p: 1;
+    --title-out: 1;
+    --title-in: 1;
+  }
+}
+@media (max-width: 900px) {
+  .cards {
+    display: none;
+  }
+}

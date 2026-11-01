@@ -1,0 +1,345 @@
+.iphone {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  flex: none;
+  width: 412px;
+  height: 866px;
+  margin: -433px 0 0 -206px;
+  padding: 11px;
+  border-radius: 68px;
+  background: #0d100f;
+  box-shadow:
+    0 0 0 2px #4b5551,
+    0 0 0 4px #1b201e,
+    0 50px 90px rgb(0 0 0 / 0.5);
+  transform: scale(var(--pk, 0.78));
+  transform-origin: center;
+}
+.side,
+.power {
+  position: absolute;
+  width: 4px;
+  border-radius: 2px;
+  background: #2f3734;
+}
+.side {
+  left: -6px;
+}
+.sideOne {
+  top: 158px;
+  height: 36px;
+}
+.sideTwo {
+  top: 218px;
+  height: 70px;
+}
+.sideThree {
+  top: 304px;
+  height: 70px;
+}
+.power {
+  top: 244px;
+  right: -6px;
+  height: 104px;
+}
+.screen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 390px;
+  height: 844px;
+  overflow: hidden;
+  border-radius: 58px;
+  background: #f6f5f3;
+  color: #111b21;
+  font: 400 17px/1.3 -apple-system, BlinkMacSystemFont, var(--font-inter), sans-serif;
+}
+.island {
+  position: absolute;
+  top: 11px;
+  left: 50%;
+  z-index: 3;
+  width: 124px;
+  height: 36px;
+  margin-left: -62px;
+  border-radius: 20px;
+  background: #000;
+}
+.status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 54px;
+  padding: 12px 34px 0;
+}
+.status b {
+  font-weight: 600;
+}
+.statusIcons {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #000;
+  fill: currentColor;
+}
+.head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 62px;
+  padding: 0 18px;
+  border-bottom: 1px solid #e3e1dc;
+  background: #f6f5f3;
+}
+.avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-left: 2px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e6e4df;
+}
+.avatar img {
+  width: 24px;
+}
+.who {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.2;
+}
+.who b {
+  display: block;
+  font-weight: 600;
+}
+.who span {
+  color: #54656f;
+  font-size: 13px;
+}
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 12px 10px;
+  overflow: hidden;
+  background-color: #efeae2;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' fill='none' stroke='%23a79e8c' stroke-opacity='.2' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 18h16v22l-3-2-2.5 2-2.5-2-2.5 2-2.5-2-3 2zM18 24h8M18 29h8'/%3E%3Ccircle cx='86' cy='28' r='9'/%3E%3Cpath d='M86 23v5l3 2'/%3E%3Cpath d='M70 84l16-8 8 16-16 8zM76 86l8-4'/%3E%3Cpath d='M20 86h22v14H20zM20 90h22'/%3E%3C/svg%3E");
+}
+.day {
+  align-self: center;
+  padding: 3px 13px;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.06);
+  color: #54656f;
+  font-size: 13px;
+  font-weight: 600;
+}
+.message {
+  position: relative;
+  max-width: 84%;
+  border-radius: 12px;
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.1);
+  font-size: 16px;
+  line-height: 1.32;
+  opacity: 0;
+  transform: translateY(14px) scale(0.98);
+  transition:
+    opacity 260ms ease,
+    transform 260ms cubic-bezier(0.2, 0.9, 0.3, 1.1);
+  will-change: transform, opacity;
+}
+.message.shown {
+  opacity: 1;
+  transform: none;
+}
+.mine {
+  align-self: flex-end;
+  padding: 4px;
+  border-top-right-radius: 3px;
+  background: #d9fdd3;
+}
+.theirs {
+  align-self: flex-start;
+  border-top-left-radius: 3px;
+  background: #fff;
+}
+.mine::after,
+.theirs::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 10px;
+  height: 13px;
+}
+.mine::after {
+  right: -8px;
+  background: #d9fdd3;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+.theirs::after {
+  left: -8px;
+  background: #fff;
+  clip-path: polygon(100% 0, 0 0, 100% 100%);
+}
+.shot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 258px;
+  height: 236px;
+  overflow: hidden;
+  border-radius: 9px;
+  background:
+    radial-gradient(90% 70% at 30% 20%, #8d7355, transparent),
+    linear-gradient(135deg, #6f5840, #4a3a2b);
+}
+.paper {
+  display: grid;
+  gap: 3px;
+  width: 172px;
+  padding: 12px 12px 16px;
+  background: #fdfbf5;
+  box-shadow: 0 8px 18px rgb(0 0 0 / 0.4);
+  clip-path: polygon(0 0, 100% 0, 100% 96%, 92% 100%, 84% 96%, 76% 100%, 68% 96%, 60% 100%, 52% 96%, 44% 100%, 36% 96%, 28% 100%, 20% 96%, 12% 100%, 4% 96%, 0 100%);
+  color: #3a3833;
+  font: 10.5px/1.3 "Courier New", monospace;
+  transform: rotate(-3.5deg);
+}
+.line {
+  display: flex;
+  justify-content: space-between;
+}
+.line i {
+  font-style: normal;
+}
+.total {
+  margin-top: 3px;
+  padding-top: 3px;
+  border-top: 1px dashed #9b968a;
+  font-weight: 700;
+}
+.stamp {
+  position: absolute;
+  right: 7px;
+  bottom: 6px;
+  color: #fff;
+  font-size: 11.5px;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.6);
+}
+.stamp em {
+  margin-left: 2px;
+  font-style: normal;
+  letter-spacing: -3px;
+}
+.stamp .read {
+  color: #53bdeb;
+}
+.typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 40px;
+  padding: 0 15px;
+}
+.typing i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #9aa5ab;
+  animation: typing 1.2s infinite;
+}
+.typing i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.typing i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes typing {
+  30% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+  0%,
+  60%,
+  100% {
+    opacity: 0.5;
+    transform: none;
+  }
+}
+.card {
+  width: 306px;
+  padding: 9px 11px 0;
+}
+.card p {
+  padding: 1.5px 0;
+}
+.card .cardTitle {
+  margin-bottom: 3px;
+}
+.card b {
+  font-weight: 600;
+}
+.cardTime {
+  display: block;
+  margin-top: -2px;
+  color: #667781;
+  font-size: 11.5px;
+  text-align: right;
+}
+.quick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px -11px 0;
+  padding: 11px;
+  border-top: 1px solid #ececec;
+  color: #00a884;
+  font-size: 16px;
+  font-weight: 500;
+}
+.input {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 58px;
+  padding: 0 16px;
+  background: #f6f5f3;
+}
+.field {
+  flex: 1;
+  height: 36px;
+  border: 1px solid #dedcd6;
+  border-radius: 19px;
+  background: #fff;
+}
+.home {
+  flex: none;
+  width: 138px;
+  height: 5px;
+  margin: 8px auto 9px;
+  border-radius: 3px;
+  background: #000;
+}
+@media (prefers-reduced-motion: reduce) {
+  .message {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .typing i {
+    animation: none;
+  }
+}
+@media (max-width: 900px) {
+  .iphone {
+    top: 0;
+    margin: 8px 0 0 -206px;
+    transform-origin: top center;
+  }
+}

@@ -6,8 +6,10 @@ import business from "../business.module.css";
 import { RotatingUseCase } from "../rotating-use-case";
 import { siteCopy } from "../site-copy";
 import touchup from "../touchup.module.css";
+import { HowItWorks } from "./how-it-works";
 import { landingCopy, type LandingLocale } from "./landing-copy";
 import styles from "./landing.module.css";
+import { ProblemCards } from "./problem-cards";
 import { ProductScene } from "./product-scene";
 
 export function Landing({ locale }: { locale: LandingLocale }) {
@@ -15,7 +17,7 @@ export function Landing({ locale }: { locale: LandingLocale }) {
   const site = siteCopy[locale];
   return (
     <div
-      className={`${business.site} ${touchup.site}`}
+      className={`${business.site} ${touchup.site} ${styles.landing}`}
       lang="es-DO"
       id="top"
       data-page-background="business"
@@ -42,6 +44,8 @@ export function Landing({ locale }: { locale: LandingLocale }) {
           </div>
         </section>
         <ProductScene locale={locale} />
+        <ProblemCards locale={locale} />
+        <HowItWorks locale={locale} />
       </main>
       <BusinessFooter locale={locale} />
     </div>
