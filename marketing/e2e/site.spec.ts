@@ -182,3 +182,19 @@ test.describe("accessibility", () => {
     });
   }
 });
+
+test.describe("typography", () => {
+  for (const path of ["/", "/en", "/contacto", "/en/contact", "/privacidad", "/en/privacy", "/terminos", "/en/terms", "/eliminar-datos", "/en/delete-data"]) {
+    test(`${path} uses the one heading font`, async ({ page }) => {
+      await page.goto(path);
+      for (const heading of await page.locator("main h1, main h2, footer h2").all()) {
+        await expect(heading).toHaveCSS("font-family", /^Georgia, "Noto Serif"/);
+      }
+    });
+  }
+
+  test("the footer word keeps the logo font", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator('footer > div[aria-hidden="true"] > span')).toHaveCSS("font-family", /spaceGrotesk/i);
+  });
+});
