@@ -15,7 +15,9 @@ from uuid import uuid4
 
 import pytest
 from argus.api.documents import documents_service
+from argus.domain.business.actions import approval
 from argus.domain.ingestion.documents.jobs import PreparationJobs
+from argus.domain.ingestion.reconcile.service import ReconciliationService
 from psycopg import Connection
 
 from tests import test_business_scope_switch_routes_postgres as scope
@@ -24,6 +26,7 @@ from tests.business.receipt_stub import DETAILS, PURCHASE, ReceiptStub
 from tests.business.test_business_api import RECEIPT
 from tests.business.test_business_email_api import WEBHOOK, signed
 from tests.business_reading_support import ROUTE
+from tests.test_business_approve_unpaid_postgres import _declaration
 from tests.test_business_reading_setting_postgres import (
     _email,
     _email_runtime,
@@ -205,34 +208,7 @@ def _fiscal(rig, item: dict, **fiscal) -> dict:  # noqa: ANN001
     return _review(
         rig,
         item,
-        {
-            "dgii": {
-                "fiscal": values,
-                "declaration": {
-                    "id_type": None,
-                    "modified_ncf": None,
-                    "selective_tax": None,
-                    "other_taxes": None,
-                    "legal_tip": None,
-                    "form": "606",
-                    "category": None,
-                    "category_suggested": False,
-                    "paid_on": None,
-                    "services_amount": None,
-                    "goods_amount": None,
-                    "itbis_withheld": None,
-                    "itbis_proportionality": None,
-                    "itbis_cost": None,
-                    "itbis_forwarded": None,
-                    "income_withholding_type": None,
-                    "income_withheld": None,
-                    "isr_percent": None,
-                    "payment_method": None,
-                    "actual_refund": False,
-                    "purchase_activity_id": None,
-                },
-            }
-        },
+        {"dgii": {"fiscal": values, "declaration": _declaration("expense")}},
     )
 
 
@@ -276,6 +252,7 @@ def _state(item: dict) -> tuple:
         pytest.param({"rnc": CEDULA}, None, id="a good cedula"),
         pytest.param({"itbis": "0.00"}, None, id="ITBIS of zero"),
         pytest.param({"merchant": None}, "missing_merchant", id="no supplier"),
+        pytest.param({"merchant": "   "}, "missing_merchant", id="a blank supplier"),
         pytest.param({"occurred_on": None}, "missing_date", id="no date"),
         pytest.param({"currency": None}, "missing_currency", id="no currency"),
         pytest.param({"rnc": None}, "missing_rnc", id="no RNC"),
@@ -284,6 +261,10 @@ def _state(item: dict) -> tuple:
         pytest.param({"rnc": "12345"}, "invalid_rnc", id="an RNC of the wrong length"),
         pytest.param({"ncf": None}, "missing_ncf", id="no NCF"),
         pytest.param({"ncf": "B01000008"}, "invalid_ncf", id="a malformed NCF"),
+        pytest.param(
+            {"ncf": None, "ecf": "E3100000"}, "invalid_ncf", id="a malformed e-CF"
+        ),
+        pytest.param({"ncf": "", "ecf": ""}, "missing_ncf", id="a blank number"),
         pytest.param({"itbis": None}, "missing_itbis", id="no ITBIS"),
         pytest.param({"currency": "USD"}, "foreign_currency", id="USD"),
         pytest.param({"itbis": "900.00"}, "review_flag", id="ITBIS above the rate"),
@@ -340,15 +321,38 @@ def test_an_unfinished_read_never_reaches_listos(rig) -> None:  # noqa: ANN001
     failed = _upload(rig, RECEIPT + b"\xa4").json()["id"]
     assert _group(rig, failed) == ("attention", "ai_unavailable")
 
-    several = _read(rig)
+    clean = _read(rig)
+    rig.stub.details = {**rig.stub.details, "ncf": "B0100000094"}
     rig.stub.rows = [
         {**PURCHASE, "amount": "100.00"},
         {**PURCHASE, "amount": "200.00"},
     ]
     many = _upload(rig, RECEIPT + b"\xa5").json()["id"]
     assert _group(rig, many) == ("attention", "several_purchases")
-    assert _group(rig, several) == ("listo", None)
+    assert _group(rig, clean) == ("listo", None)
     assert _counts(rig) == (1, 3)
+
+
+def test_a_receipt_with_no_amount_needs_a_person(rig) -> None:  # noqa: ANN001
+    receipt = _read(rig, {"total": None, "amount": None})
+    assert _group(rig, receipt)[0] == "attention"
+    assert _counts(rig) == (0, 1)
+
+
+def test_an_approval_in_flight_is_not_listo(rig) -> None:  # noqa: ANN001
+    receipt = _read(rig)
+    item = _named(rig, receipt)
+    with Connection.connect(shared.DSN) as db:
+        db.execute(
+            "update public.financial_import_events set state='accepting',"
+            " accept_key='in-flight' where id=%s",
+            (item["draft_id"],),
+        )
+    assert _group(rig, receipt) == ("attention", "check_details")
+    assert _results(_approve_many(rig, [item])) == [
+        ("refused", "business_draft_not_open")
+    ]
+    assert _money(rig) == 0
 
 
 def test_a_read_with_an_issue_needs_a_person(rig) -> None:  # noqa: ANN001
@@ -376,7 +380,7 @@ def test_an_edit_moves_a_receipt_between_the_groups(rig) -> None:  # noqa: ANN00
     assert _counts(rig) == (0, 1)
 
 
-def test_a_personal_mark_or_a_sale_stays_out_of_the_faster_way(rig) -> None:  # noqa: ANN001
+def test_a_sale_stays_out_of_the_faster_way(rig) -> None:  # noqa: ANN001
     sale = _read(rig)
     item = _named(rig, sale)
     _review(rig, item, {"document_type": "venta"})
@@ -593,8 +597,11 @@ def test_a_replay_answers_the_same_and_never_doubles_money(rig) -> None:  # noqa
     assert _money(rig) == 2
     assert _ledger(rig) == ledger
 
-    # A new key on a recorded draft is a new request, refused and not recorded twice.
-    assert _results(_approve_many(rig, [items[0]])) == [
+    # A new key is a new request: the version it names is gone, and at the
+    # current version the record is already recorded. Neither posts money.
+    assert _results(_approve_many(rig, [items[0]])) == [("refused", "stale_version")]
+    current = _state(items[0])[1]
+    assert _results(_approve_many(rig, [{**items[0], "version": current}])) == [
         ("refused", "recorded_correction_unsupported")
     ]
     assert _money(rig) == 2
@@ -681,6 +688,58 @@ def test_one_failure_among_many_leaves_the_rest(rig) -> None:  # noqa: ANN001
     assert _group(rig, usd) == ("attention", "foreign_currency")
 
 
+def test_a_money_write_that_fails_settles_on_replay_and_the_rest_go(
+    rig,  # noqa: ANN001
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    items = [_named(rig, _read(rig)) for _ in range(3)]
+    write = ReconciliationService._write
+    failed: list[str] = []
+
+    def lost_on_the_second(self, user_id, event, *rest, **options):  # noqa: ANN001, ANN002, ANN003, ANN202
+        if event.id == items[1]["draft_id"] and not failed:
+            failed.append(event.id)
+            raise ConnectionError("the write's answer was lost")
+        return write(self, user_id, event, *rest, **options)
+
+    monkeypatch.setattr(ReconciliationService, "_write", lost_on_the_second)
+    key = str(uuid4())
+
+    assert _results(_approve_many(rig, items, key)) == [
+        ("applied", None),
+        ("outcome_unknown", "business_recording_unsettled"),
+        ("applied", None),
+    ]
+    assert _state(items[1])[0] == "accepting"
+    assert _money(rig) == 2
+
+    assert _results(_approve_many(rig, items, key)) == [("applied", None)] * 3
+    assert _state(items[1])[0] == "accepted"
+    assert _money(rig) == 3
+
+
+def test_an_item_that_crashes_stays_with_that_item(
+    rig,  # noqa: ANN001
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    items = [_named(rig, _read(rig)) for _ in range(2)]
+    approve = approval.approve
+
+    def crash_on_the_first(service, context, draft_id, *rest, **options):  # noqa: ANN001, ANN002, ANN003, ANN202
+        if str(draft_id) == items[0]["draft_id"]:
+            raise RuntimeError("synthetic crash")
+        return approve(service, context, draft_id, *rest, **options)
+
+    monkeypatch.setattr(approval, "approve", crash_on_the_first)
+
+    assert _results(_approve_many(rig, items)) == [
+        ("outcome_unknown", "business_recording_unsettled"),
+        ("applied", None),
+    ]
+    assert _state(items[0])[0] == "open"
+    assert _money(rig) == 1
+
+
 def test_only_the_owner_may_approve_a_list(rig) -> None:  # noqa: ANN001
     item = _named(rig, _read(rig))
 
@@ -716,11 +775,10 @@ def test_the_list_limit_is_stated_and_held(rig) -> None:  # noqa: ANN001
     unknown = [{"draft_id": str(uuid4()), "version": 1} for _ in range(LIMIT + 1)]
 
     assert len(_results(_approve_many(rig, unknown[:LIMIT]))) == LIMIT
-    over = _approve_many(rig, unknown)
-    assert over.status_code == 422, over.text
-    assert _approve_many(rig, []).status_code == 422
-    repeated = _approve_many(rig, [unknown[0], unknown[0]])
-    assert repeated.status_code == 422, repeated.text
+    for body in (unknown, [], [unknown[0], unknown[0]]):
+        refused = _approve_many(rig, body)
+        assert (refused.status_code, refused.json()["code"]) == (422, "validation_error")
+    assert _ledger(rig) == []
 
     schema = rig.client.get("/openapi.json").json()["components"]["schemas"]
     assert schema["ApproveListos"]["properties"]["items"]["maxItems"] == LIMIT
