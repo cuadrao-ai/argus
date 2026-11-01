@@ -328,9 +328,7 @@ def test_a_restaurant_receipt_ships_its_base_itbis_and_tip(actions):  # noqa: AN
     service, context, _ = actions
     set_profile(service.authority, context, filer_change(FILER), "rnc")
     cash = account_funding(cash_account(service, context))
-    draft_id, version = captured(
-        service, context, "B0100000042", cash, amount="1280.00"
-    )
+    draft_id, version = captured(service, context, "B0100000042", cash, amount="1280.00")
     view = approved(service, context, draft_id, version)
     added = declared(
         service,

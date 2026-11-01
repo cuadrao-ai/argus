@@ -28,7 +28,6 @@ from argus.domain.business.contracts.dgii import (
     FiscalReview,
     PurchaseDeclaration,
     PurchaseReview,
-    SalesDeclaration,
 )
 from argus.domain.business.contracts.facts import (
     BusinessFactPatch,
@@ -260,29 +259,30 @@ def revise(
                 answer_question(tx, event.id, question["id"], patch, source_ids[-1])
     declared = fiscal_review.declaration if fiscal_review else None
     if purchase is not None:
+        from argus.domain.business.purchase_review import (
+            apply_purchase,
+            takes_purchase_declaration,
+        )
+
         current = declared
         if current is None and not retyped:
             raw = (event.resolution.get("business") or {}).get("dgii")
             current = TypeAdapter(DgiiDeclaration).validate_python(raw) if raw else None
-        kind = after.kind.value if isinstance(after.kind, Known) else None
-        if not isinstance(current, SalesDeclaration) and not (
-            current is None and kind == "income"
-        ):
-            from argus.domain.business.purchase_review import apply_purchase
-
-            amount = after.amount.value if isinstance(after.amount, Known) else None
-            fiscal = after.fiscal
-            itbis = (
-                fiscal.itbis.value
-                if fiscal is not None and isinstance(fiscal.itbis, Known)
-                else None
-            )
-            declared = apply_purchase(
-                current if isinstance(current, PurchaseDeclaration) else None,
-                purchase,
-                amount,
-                itbis,
-            )
+        if not takes_purchase_declaration(after, current):
+            raise ActionError("invalid_input", "fiscal_direction_unsupported")
+        amount = after.amount.value if isinstance(after.amount, Known) else None
+        fiscal = after.fiscal
+        itbis = (
+            fiscal.itbis.value
+            if fiscal is not None and isinstance(fiscal.itbis, Known)
+            else None
+        )
+        declared = apply_purchase(
+            current if isinstance(current, PurchaseDeclaration) else None,
+            purchase,
+            amount,
+            itbis,
+        )
     return save_revision(
         tx,
         event,

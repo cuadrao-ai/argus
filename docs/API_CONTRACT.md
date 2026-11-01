@@ -9292,8 +9292,9 @@ approve action this draft takes, by its kind (`record_expense`,
 `record_income`, `record_refund`, the `action` the approve route's body
 discriminates on), and null while `approval_available` is false.
 `declaration_editable` is true while the caller may write the 606
-declaration: the caller holds `prepare` and the draft is open, or approved
-and not yet carried by a downloaded DGII TXT.
+declaration: the caller holds `prepare`, the record takes a 606 (an income,
+whether it holds a 607 or nothing, reads false), and the draft is open, or
+approved and not yet carried by a downloaded DGII TXT.
 `fiscal_inclusion_available` is true when the caller may answer
 `POST /business/drafts/{id}/fiscal-inclusion` now, by the gate that action
 enforces: a member holding `prepare` who is not the owner, on an `open` or
@@ -9370,7 +9371,9 @@ confirms (`PurchaseReview`: every field of the 606 declaration but `form`, so
 `purchase_activity_id`); absent fields stay as they were, and a confirmed
 `category` with neither amount fills the services or goods side from the total
 less ITBIS, selective tax, other taxes and tip, the tip and taxes of the same
-write included. `purchase` sits beside `facts`, not inside
+write included. `purchase` on a record that takes no 606 (an income, with a
+607 or with nothing), open or approved, is 422 `fiscal_direction_unsupported`
+and writes nothing. `purchase` sits beside `facts`, not inside
 it: `BusinessFactPatch` is the patch the interpreter fills, and a tax field is
 never the model's to fill. The
 identifiers in `dgii.fiscal` (`rnc`, `ncf`) and `modified_ncf` are normalized on

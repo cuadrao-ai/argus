@@ -35,6 +35,7 @@ from argus.domain.business.contracts.facts import (
     Known,
 )
 from argus.domain.business.duplicates import pending_duplicates
+from argus.domain.business.purchase_review import takes_purchase_declaration
 from argus.domain.business.review_flags import review_flags
 from argus.domain.business.rnc_registry import postgres_rnc_fetch, registry_from_config
 from argus.domain.business.transactions import ActionTransaction
@@ -343,6 +344,7 @@ def dossier(
         document_type_detected=resolution.document_type_detected,
         document_type_editable=event.state == "open" and can_prepare,
         declaration_editable=can_prepare
+        and takes_purchase_declaration(facts, resolution.dgii)
         and (
             event.state == "open"
             or event.state == "accepted"

@@ -668,9 +668,9 @@ def test_an_income_draft_without_a_declaration_does_not_gain_a_606(actions):
         ),
         str(uuid4()),
     )
-    assert saved.outcome == "applied", saved
+    assert saved.code == "fiscal_direction_unsupported", saved
     dossier = service.dossier(context, capture.draft_id)
-    assert dossier.dgii is None
+    assert dossier.dgii is None and dossier.version == capture.version
 
 
 def test_typed_profile_feeds_the_export_header_and_a_non_owner_cannot_edit(
