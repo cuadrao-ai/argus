@@ -26,9 +26,9 @@
   margin: 0;
 }
 .site :is(h1, h2, h3) {
-  font-family: var(--font-space-grotesk), Arial, sans-serif;
-  font-weight: 500;
-  letter-spacing: -0.055em;
+  font-family: var(--font-heading);
+  font-weight: 400;
+  letter-spacing: -0.045em;
   line-height: 1.07;
   text-wrap: balance;
 }
