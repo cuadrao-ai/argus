@@ -2,19 +2,27 @@ import { ArrowDown, ArrowUpRight } from "lucide-react";
 import { businessPath } from "@/lib/site-routes";
 import { BusinessFooter } from "../business-footer";
 import { BusinessHeader } from "../business-header";
+import { FounderIdentity } from "../business-pages";
 import business from "../business.module.css";
 import { RotatingUseCase } from "../rotating-use-case";
 import { siteCopy } from "../site-copy";
 import touchup from "../touchup.module.css";
+import { AccountantSection } from "./accountant-section";
+import { FaqList } from "./faq-list";
 import { HowItWorks } from "./how-it-works";
 import { landingCopy, type LandingLocale } from "./landing-copy";
 import styles from "./landing.module.css";
 import { ProblemCards } from "./problem-cards";
 import { ProductScene } from "./product-scene";
 
+const FAQ_LIMITS = 3;
+
 export function Landing({ locale }: { locale: LandingLocale }) {
   const copy = landingCopy[locale];
   const site = siteCopy[locale];
+  const faq = site.faq.map((item, index) =>
+    index === FAQ_LIMITS ? { ...item, answer: copy.faqLimits } : item,
+  );
   return (
     <div
       className={`${business.site} ${touchup.site} ${styles.landing}`}
@@ -46,8 +54,25 @@ export function Landing({ locale }: { locale: LandingLocale }) {
         <ProductScene locale={locale} />
         <ProblemCards locale={locale} />
         <HowItWorks locale={locale} />
+        <AccountantSection locale={locale} />
+        <section className={styles.letter} id="nosotros" aria-labelledby="landing-founder-title">
+          <h2 id="landing-founder-title">{site.founderTitle}</h2>
+          <p className={styles.hello}>Hola,</p>
+          {site.founderParagraphs.map((paragraph) => (
+            <p key={paragraph}>{paragraph}</p>
+          ))}
+          <p>Gracias por leer,</p>
+          <FounderIdentity locale={locale} />
+        </section>
+        <section className={styles.faq} id="preguntas" aria-labelledby="landing-faq-title">
+          <div className={styles.faqHeading}>
+            <h2 id="landing-faq-title">{site.faqTitle}</h2>
+            <p>{site.faqBody}</p>
+          </div>
+          <FaqList items={faq} />
+        </section>
       </main>
-      <BusinessFooter locale={locale} />
+      <BusinessFooter locale={locale} business plain />
     </div>
   );
 }

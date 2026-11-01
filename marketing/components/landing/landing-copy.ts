@@ -28,6 +28,30 @@ export const landingCopy = {
         { name: "¿Este gasto de quién es?", detail: "Sin NCF", state: "Necesita atención", tone: "alert" },
       ],
     },
+    accountant: {
+      title: "Tu contable recibe todo en orden.",
+      body: "Cuadrao hace el trabajo de antes de la contabilidad. No reemplaza a tu contable. Le llega todo listo.",
+      checks: [
+        "606 y 607 salen de registros revisados",
+        "Un posible duplicado no pasa sin revisión",
+        "Tu contable trabaja desde su propio acceso",
+      ],
+      ledger: {
+        form: "606",
+        status: "Listo",
+        columns: ["RNC", "NCF", "Monto"],
+        rows: [
+          ["101000000", "B0100000123", "1,250.00"],
+          ["130000000", "B0100000456", "18,400.00"],
+          ["131000000", "B0100000789", "640.00"],
+          ["101000000", "B0100000131", "2,300.00"],
+        ],
+        count: "47 registros",
+        action: "Exportar 606",
+      },
+    },
+    faqLimits:
+      "Cuadrao ayuda a tu contable, no reemplaza su trabajo. Estamos preparando la emisión de e-CF con un proveedor certificado. Tampoco conectamos con bancos ni hacemos pagos, nómina, inventario o declaraciones de impuestos. Queremos sumar transferencias, devoluciones, correcciones y conciliación bancaria. Qué cubre el piloto, lo decidimos contigo.",
     how: {
       title: "Cómo funciona",
       steps: [
