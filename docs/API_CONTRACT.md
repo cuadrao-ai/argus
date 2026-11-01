@@ -9600,8 +9600,13 @@ prevalidation is `NOT RUN` and no tax return has been submitted.
 Human `PATCH /business/drafts/{id}/review` accepts `dgii: FiscalReview` alongside
 or instead of `facts`. It holds explicitly entered fiscal identity and ITBIS plus
 a typed `606` purchase or `607` sale declaration. Blank required facts remain
-unknown. The existing live prepare grant, expected version, immutable web-action
-source and review receipt govern this operation. Tax fields never enter the
+unknown. The review always carries the RNC, the fiscal number and the ITBIS, and
+only a value that differs from the record is written, as `member_set`. A value
+that matches keeps its origin, `verified` and sources; printed dashes, letter
+case and trailing zeros do not make it differ. A changed fiscal number replaces
+both the NCF and the e-CF, and a null one clears both. The existing live
+prepare grant, expected version, immutable web-action source and review receipt
+govern this operation. Tax fields never enter the
 model-facing `BusinessFactPatch` or `TurnPlan` schema. A person may send an
 optional top-level `purchase` review, any field of the purchase declaration but
 `form`: the 606 expense type, payment form, payment date, goods and services
