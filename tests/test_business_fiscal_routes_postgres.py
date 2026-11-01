@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 from psycopg import Connection
 
 from tests import test_financial_accounts_postgres as shared
+from tests.business_cleanup import delete_spaces
 from tests.local_supabase_support import local_supabase_gateway
 from tests.test_business_scope_switch_routes_postgres import (
     API,
@@ -81,7 +82,7 @@ def world(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
                 "delete from public.financial_activity_groups where user_id=any(%s::uuid[])",
                 (created,),
             )
-            db.execute("delete from public.spaces where created_by=any(%s::uuid[])", (created,))
+            delete_spaces(db, "created_by=any(%s::uuid[])", (created,))
         for user_id in created:
             try:
                 gateway.delete_auth_user(user_id)

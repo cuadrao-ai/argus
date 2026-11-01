@@ -9,6 +9,8 @@ from argus.domain.business.memberships import MembershipError
 from argus.domain.business.spaces import PostgresSpaceStore
 from psycopg_pool import ConnectionPool
 
+from tests.business_cleanup import delete_spaces
+
 DSN = os.getenv("ARGUS_DISPOSABLE_DATABASE_URL", "")
 pytestmark = pytest.mark.skipif(not DSN, reason="Disposable Postgres is not configured")
 
@@ -34,9 +36,7 @@ def naming():
         yield PostgresSpaceStore(pool), owners, spaces
     with psycopg.connect(DSN) as connection:
         # A Business still naming its creator refuses the bare Auth delete.
-        connection.execute(
-            "delete from public.spaces where created_by = any(%s::uuid[])", (owners,)
-        )
+        delete_spaces(connection, "created_by = any(%s::uuid[])", (owners,))
         connection.execute("delete from auth.users where id = any(%s::uuid[])", (owners,))
 
 

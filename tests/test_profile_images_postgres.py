@@ -24,6 +24,7 @@ from argus.domain.profile_images.store import PostgresProfileImageStore
 from psycopg_pool import ConnectionPool
 
 from tests import test_financial_accounts_postgres as shared
+from tests.business_cleanup import delete_spaces
 from tests.profile_images.pictures import jpeg_with_gps, png
 
 users = shared.users
@@ -102,7 +103,7 @@ def test_rows_are_replaced_in_place_and_go_with_their_user_or_space(pool, users)
 
     with psycopg.connect(DSN) as db:
         with db.transaction(force_rollback=True):
-            db.execute("delete from public.spaces where id = %s", (space.id,))
+            delete_spaces(db, "id = %s", (space.id,))
             assert db.execute("select count(*) from public.business_logos where space_id = %s", (space.id,)).fetchone() == (0,)
         with db.transaction(force_rollback=True):
             # A Business still naming its owner refuses the bare Auth delete;
@@ -112,7 +113,7 @@ def test_rows_are_replaced_in_place_and_go_with_their_user_or_space(pool, users)
                 match="business_custody_identity_detachment_required",
             ), db.transaction():
                 db.execute("delete from auth.users where id = %s", (owner,))
-            db.execute("delete from public.spaces where id = %s", (space.id,))
+            delete_spaces(db, "id = %s", (space.id,))
             db.execute("delete from auth.users where id = %s", (owner,))
             assert db.execute("select count(*) from public.profile_photos where user_id = %s", (owner,)).fetchone() == (0,)
             assert db.execute("select count(*) from public.business_logos where space_id = %s", (space.id,)).fetchone() == (0,)

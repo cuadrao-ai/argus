@@ -12,6 +12,7 @@ from psycopg import Connection, errors
 from psycopg.types.json import Jsonb
 
 from tests import test_financial_accounts_postgres as shared
+from tests.business_cleanup import delete_spaces
 from tests.test_business_spaces_migration_postgres import (
     connection,
     event,
@@ -291,7 +292,7 @@ def test_revision_before_after_cannot_be_rewritten_and_client_deletion_cascades(
         (client["draft"],),
     ).fetchone()
     assert saved == (revision["before"], revision["after"])
-    db.execute("delete from public.spaces where id=%s", (client["id"],))
+    delete_spaces(db, "id=%s", (client["id"],))
     assert (
         db.execute(
             "select count(*) from public.business_draft_revisions" " where draft_id=%s",
@@ -584,7 +585,9 @@ def test_direct_source_erasure_preserves_history_but_parent_deletion_cascades(
         "select source_ids from public.business_draft_revisions where draft_id=%s",
         (client["draft"],),
     ).fetchone()[0] == [UUID(source_id)]
-    db.execute("delete from public.spaces where id=%s", (client["id"],))
+    # Only the purge, on the postgres connection, removes a Business's evidence.
+    db.execute("reset role")
+    delete_spaces(db, "id=%s", (client["id"],))
     assert (
         db.execute(
             "select count(*) from public.business_sources where id=%s", (source_id,)

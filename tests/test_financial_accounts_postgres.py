@@ -27,6 +27,8 @@ from argus.domain.recording.errors import (
 from argus.domain.recording.records import OpeningWrite
 from argus.domain.recording.repository import NewAccount
 
+from tests.business_cleanup import delete_spaces
+
 DSN = os.getenv("ARGUS_DISPOSABLE_DATABASE_URL", "").strip()
 
 pytestmark = pytest.mark.skipif(
@@ -88,10 +90,7 @@ def _delete_users(connection, ids: dict[str, str]) -> None:  # noqa: ANN001
             "delete from public.business_transfer_mail_outbox where recipient_id = any(%s) or owner_id = any(%s) or target_id = any(%s)",
         ):
             cursor.execute(statement, (user_ids,) * statement.count("%s"))
-        cursor.execute(
-            "delete from public.spaces where created_by = any(%s) or current_owner_id = any(%s)",
-            (user_ids, user_ids),
-        )
+        delete_spaces(cursor, "created_by = any(%s) or current_owner_id = any(%s)", (user_ids, user_ids))
         cursor.execute("delete from auth.users where id = any(%s)", (user_ids,))
     connection.commit()
 

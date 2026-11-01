@@ -14,6 +14,7 @@ from argus.domain.ingestion.whatsapp.ai_consent import (
 from psycopg import errors
 
 from tests import test_business_whatsapp_transport_postgres as shared
+from tests.business_cleanup import delete_spaces
 
 users, world, pytestmark = shared.users, shared.world, shared.pytestmark
 
@@ -283,8 +284,8 @@ def test_business_or_account_parent_purges_consent_and_transport(world, consent,
             )
             release_custodian(world.space)
             return
-        target = world.space
-        db.execute(f"delete from {parent} where id=%s", (target,))
+        # The Business parent goes the way the day-30 purge removes it.
+        delete_spaces(db, "id=%s", (world.space,))
         assert (
             db.execute(
                 "select count(*) from business_whatsapp_ai_consents where owner_id=%s",

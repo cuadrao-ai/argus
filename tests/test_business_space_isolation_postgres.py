@@ -56,6 +56,7 @@ from psycopg_pool import ConnectionPool
 
 from tests import test_financial_accounts_postgres as shared
 from tests.business.receipt_stub import ReceiptStub
+from tests.business_cleanup import delete_spaces
 from tests.business_reading_support import reading_setting, turn_reading
 from tests.document_sources_support import LOCAL_STORAGE, source_objects
 
@@ -176,10 +177,7 @@ def world() -> Iterator[World]:
             world.objects.delete(owner_prefix(person))
         with pool.connection() as connection:
             people = list(world.people.values())
-            connection.execute(
-                "delete from public.spaces where created_by = any(%s) or current_owner_id = any(%s)",
-                (people, people),
-            )
+            delete_spaces(connection, "created_by = any(%s) or current_owner_id = any(%s)", (people, people))
             connection.execute(
                 "delete from auth.users where id = any(%s)",
                 (people,),
@@ -642,8 +640,5 @@ def test_starting_a_space_is_idempotent_under_concurrency_and_owned_by_one_perso
         assert resolve_business_scope(world.spaces, str(uuid4())) is None
     finally:
         with world.pool.connection() as connection:
-            connection.execute(
-                "delete from public.spaces where created_by = %s or current_owner_id = %s",
-                (person, person),
-            )
+            delete_spaces(connection, "created_by = %s or current_owner_id = %s", (person, person))
             connection.execute("delete from auth.users where id = %s", (person,))
