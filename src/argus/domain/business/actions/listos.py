@@ -21,7 +21,7 @@ from argus.domain.business.bandeja_group import (
     ReadState,
     listo_reason,
 )
-from argus.domain.business.contracts.facts import BusinessResolution
+from argus.domain.business.contracts.facts import BusinessResolution, fiscal_value
 from argus.domain.business.receipts import read_attention
 from argus.domain.business.review_flags import review_flags
 from argus.domain.business.transactions import ActionTransaction
@@ -69,6 +69,18 @@ def _read_state(attachments: list[dict[str, Any]]) -> ReadState:
     )
 
 
+def _ecf_failed(resolution: BusinessResolution) -> bool:
+    """A check on the e-CF or its QR failed, or the file names an e-CF and the
+    record holds another kind of number."""
+
+    verification = resolution.ecf_checks
+    if verification is None:
+        return False
+    return any(check.state == "failed" for check in verification.checks) or (
+        verification.encf is not None and fiscal_value(resolution.facts) != "ecf"
+    )
+
+
 def _repeated(tx: ActionTransaction, draft_ids: Sequence[UUID]) -> set[UUID]:
     """Drafts that share a supplier RNC and comprobante with another purchase,
     open or recorded, read from the columns the database's own index is built on."""
@@ -92,9 +104,7 @@ def draft_standings(
     """The standing of each open Business draft, by id. The sender is read last
     and only for a draft nothing else keeps out, since it costs the most."""
 
-    drafts = {
-        UUID(event.id): event for event in events if "business" in event.resolution
-    }
+    drafts = {UUID(event.id): event for event in events if "business" in event.resolution}
     if not drafts:
         return {}
     ids = list(drafts)
@@ -118,6 +128,7 @@ def draft_standings(
             read_attention=read_attention(event).get("attention"),
             document_type=resolution.document_type,
             credit_note=refund_shaped(facts),
+            ecf_failed=_ecf_failed(resolution),
             repeated=draft_id in repeated,
             blockers=tuple(blocker.code for blocker in blocked),
             flags=review_flags(facts, registry),

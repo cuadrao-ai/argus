@@ -2211,7 +2211,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListosApproved'
         '403':
-          description: '`business_permission_denied` without approve permission.'
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
         '422':
           description: Validation Error
           content:
@@ -16743,6 +16745,7 @@ components:
             - invalid_rnc
             - missing_ncf
             - invalid_ncf
+            - ecf_check_failed
             - missing_itbis
             - foreign_currency
             - review_flag

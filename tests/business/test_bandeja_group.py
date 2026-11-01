@@ -48,6 +48,7 @@ LISTO = DraftStanding(
     read_attention=None,
     document_type="recibo",
     credit_note=False,
+    ecf_failed=False,
     repeated=False,
     blockers=(),
     flags=(),
@@ -108,6 +109,7 @@ def test_a_draft_with_nothing_missing_is_listo() -> None:
             ),
             "invalid_ncf",
         ),
+        (replace(LISTO, ecf_failed=True), "ecf_check_failed"),
         (with_fiscal(itbis=Unknown()), "missing_itbis"),
         (with_facts(currency=known("USD")), "foreign_currency"),
         (
@@ -144,7 +146,10 @@ def test_a_receipt_with_several_gaps_names_the_first_in_rule_order() -> None:
     ("view", "reason"),
     [
         ({**OPEN_VIEW, "read_pending": True}, "reading"),
-        ({**OPEN_VIEW, "status": "needs_attention", "attention": "unreadable"}, "unreadable"),
+        (
+            {**OPEN_VIEW, "status": "needs_attention", "attention": "unreadable"},
+            "unreadable",
+        ),
         ({**OPEN_VIEW, "status": "saved"}, "not_read"),
         ({**OPEN_VIEW, "status": "queued"}, "not_read"),
         (OPEN_VIEW, "check_details"),

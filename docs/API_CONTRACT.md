@@ -9183,7 +9183,7 @@ A receipt is `listo` only when the server confirms all of these, in this order:
 | A purchase receipt | `sale` for a Venta or an income; `credit_note` for a refund or a B04 or E34 number |
 | The six facts | `missing_merchant`, `missing_date`, `missing_amount`, `missing_currency`, `missing_rnc`, `missing_ncf`, `missing_itbis` |
 | A valid RNC or cédula | `invalid_rnc`: not 9 or 11 digits, or a check digit that fails on a number the DGII register does not list, the rule the 606 export applies |
-| A valid NCF or e-CF | `invalid_ncf` |
+| A valid NCF or e-CF | `invalid_ncf`; `ecf_check_failed` for a failed check on the e-CF or its QR, or a file that names an e-CF the record does not hold |
 | DOP | `foreign_currency` |
 | No review flag | `review_flag`, for a warning such as `itbis_high` |
 | Nothing else blocks approval | `blocked`, such as an open question |

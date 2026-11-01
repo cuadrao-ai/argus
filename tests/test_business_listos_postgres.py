@@ -8,7 +8,7 @@ from __future__ import annotations
 import asyncio
 import json
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date
+from datetime import date, datetime, timezone
 from email.message import EmailMessage
 from types import SimpleNamespace
 from uuid import uuid4
@@ -16,9 +16,11 @@ from uuid import uuid4
 import pytest
 from argus.api.documents import documents_service
 from argus.domain.business.actions import approval
+from argus.domain.business.contracts.checks import EcfCheck, EcfVerification
 from argus.domain.ingestion.documents.jobs import PreparationJobs
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 from psycopg import Connection
+from psycopg.types.json import Jsonb
 
 from tests import test_business_scope_switch_routes_postgres as scope
 from tests import test_financial_accounts_postgres as shared
@@ -43,6 +45,7 @@ BAD_CHECK_DIGIT = "199990022"
 CEDULA = "00100000009"
 BAD_CEDULA = "00100000008"
 LISTED_BAD_DIGIT = "138888003"
+ECF = "E310000000011"
 SENDER = "proveedor@example.test"
 ROUTE_PATH = "/business/drafts/approve-listos"
 LIMIT = 50
@@ -142,6 +145,10 @@ def _group(rig, receipt_id: str) -> tuple[str | None, str | None]:  # noqa: ANN0
 def _named(rig, receipt_id: str) -> dict:  # noqa: ANN001
     found = _row(rig, receipt_id)["bandeja_group"]
     return {"draft_id": found["draft_id"], "version": found["version"]}
+
+
+def _named_draft(rig, receipt_id: str) -> str:  # noqa: ANN001
+    return _get(rig, f"/business/receipts/{receipt_id}")["draft_id"]
 
 
 def _counts(rig, headers: dict | None = None) -> tuple[int, int]:  # noqa: ANN001
@@ -247,7 +254,7 @@ def _state(item: dict) -> tuple:
     ("read", "reason"),
     [
         pytest.param({}, None, id="a clean read"),
-        pytest.param({"ncf": None, "ecf": "E310000000011"}, None, id="an e-CF"),
+        pytest.param({"ncf": None, "ecf": ECF}, None, id="an e-CF"),
         pytest.param({"rnc": "1-99-99002-1"}, None, id="an RNC printed with dashes"),
         pytest.param({"rnc": CEDULA}, None, id="a good cedula"),
         pytest.param({"itbis": "0.00"}, None, id="ITBIS of zero"),
@@ -367,6 +374,48 @@ def test_a_read_with_an_issue_needs_a_person(rig) -> None:  # noqa: ANN001
     assert _group(rig, receipt) == ("attention", "check_details")
 
 
+def _checked(rig, item: dict, state: str, encf: str | None) -> None:  # noqa: ANN001
+    verification = EcfVerification(
+        encf=encf,
+        tipo_ecf="31",
+        checked_at=datetime.now(timezone.utc),
+        checks=(EcfCheck(name="totals_arithmetic", state=state),),
+    )
+    with Connection.connect(shared.DSN) as db:
+        db.execute(
+            "update public.financial_import_events"
+            " set resolution=jsonb_set(resolution,'{business,ecf_checks}',%s)"
+            " where id=%s",
+            (Jsonb(verification.model_dump(mode="json")), item["draft_id"]),
+        )
+
+
+@pytest.mark.parametrize(
+    ("read", "state", "encf", "reason"),
+    [
+        pytest.param({"ncf": None, "ecf": ECF}, "verified", ECF, None, id="verified"),
+        pytest.param(
+            {"ncf": None, "ecf": ECF},
+            "failed",
+            ECF,
+            "ecf_check_failed",
+            id="a failed check",
+        ),
+        pytest.param({}, "verified", ECF, "ecf_check_failed", id="the file says e-CF"),
+    ],
+)
+def test_a_failed_check_on_the_e_cf_needs_a_person(
+    rig,  # noqa: ANN001
+    read: dict,
+    state: str,
+    encf: str,
+    reason: str | None,
+) -> None:
+    receipt = _read(rig, read)
+    _checked(rig, _named(rig, receipt), state, encf)
+    assert _group(rig, receipt) == ("attention" if reason else "listo", reason)
+
+
 def test_an_edit_moves_a_receipt_between_the_groups(rig) -> None:  # noqa: ANN001
     receipt = _read(rig, {"ncf": None})
     assert _group(rig, receipt) == ("attention", "missing_ncf")
@@ -445,6 +494,9 @@ def test_one_comprobante_on_two_receipts_needs_a_person_on_both(rig) -> None:  #
         422,
         "duplicate_comprobante",
     )
+    [result] = _approve_many(rig, [_named(rig, second)]).json()["results"]
+    assert (result["outcome"], result["code"]) == ("refused", "duplicate_comprobante")
+    assert result["existing_record_id"] == _named_draft(rig, first)
 
 
 def test_a_number_the_register_lists_is_valid_as_the_606_reads_it(rig) -> None:  # noqa: ANN001
@@ -506,6 +558,24 @@ def test_an_email_is_listo_only_from_a_verified_sender(rig, monkeypatch) -> None
     assert _group(rig, receipt) == ("listo", None)
     assert _results(_approve_many(rig, [item])) == [("applied", None)]
     assert _money(rig) == 1
+
+
+def test_the_claim_reads_the_rule_again(rig, monkeypatch) -> None:  # noqa: ANN001
+    runtime, receipt, _ = _delivered(rig, monkeypatch, RECEIPT + b"\xa8")
+    item = _named(rig, receipt)
+    reviewed = approval.reviewed_request
+
+    def sender_removed_after_the_first_read(*args, **options):  # noqa: ANN002, ANN003, ANN202
+        request = reviewed(*args, **options)
+        [rule] = runtime.store.list_senders(rig.alice.space_id)
+        runtime.store.remove_sender(rig.alice.space_id, rule.id)
+        return request
+
+    monkeypatch.setattr(approval, "reviewed_request", sender_removed_after_the_first_read)
+
+    assert _results(_approve_many(rig, [item])) == [("refused", "not_listo")]
+    assert _state(item)[0] == "open"
+    assert _money(rig) == 0
 
 
 def test_the_three_reads_agree_for_every_row_the_bandeja_lists(rig, monkeypatch) -> None:  # noqa: ANN001

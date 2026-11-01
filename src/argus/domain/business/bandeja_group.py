@@ -39,6 +39,7 @@ ListoGap = Literal[
     "invalid_rnc",
     "missing_ncf",
     "invalid_ncf",
+    "ecf_check_failed",
     "missing_itbis",
     "foreign_currency",
     "review_flag",
@@ -61,6 +62,7 @@ class DraftStanding:
     read_attention: Attention | None
     document_type: DocumentType
     credit_note: bool
+    ecf_failed: bool
     repeated: bool
     blockers: tuple[str, ...]
     flags: tuple[ReviewFlag, ...]
@@ -121,6 +123,7 @@ RULE: tuple[tuple[BandejaReason, Callable[[DraftStanding], bool]], ...] = (
     ("invalid_rnc", _invalid_rnc),
     ("missing_ncf", _no_number),
     ("invalid_ncf", lambda draft: _flagged(draft, "ncf_malformed")),
+    ("ecf_check_failed", lambda draft: draft.ecf_failed),
     ("missing_itbis", lambda draft: _blank(_fiscal(draft).itbis)),
     ("foreign_currency", _foreign),
     ("review_flag", lambda draft: bool(draft.flags)),

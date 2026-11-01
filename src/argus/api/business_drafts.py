@@ -42,8 +42,8 @@ from argus.domain.business.contracts.facts import (
     Known,
     personal_mark_admits,
 )
-from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.receipts import read_attention
+from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.search import SearchQuery
 from argus.domain.business.service import BusinessService
 from argus.domain.business.transactions import (

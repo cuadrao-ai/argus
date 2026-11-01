@@ -263,9 +263,7 @@ def reviewed_request(
     listo: bool = False,
 ) -> MoneyRequest:
     with transaction(service.authority, context, "approve") as tx:
-        event, facts = _reviewed_facts(
-            tx, draft_id, version, kind, approve_anyway, listo
-        )
+        event, facts = _reviewed_facts(tx, draft_id, version, kind, approve_anyway, listo)
         purchase = refund_reference(event) if kind == "refund" else None
     draft = _money_request(facts, context.actor.space_id, kind, purchase)
     preview = service.imports.money.preview(
