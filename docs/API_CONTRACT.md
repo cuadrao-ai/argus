@@ -9364,11 +9364,13 @@ Every other review and owner-approval condition remains in force.
 
 `PATCH /business/drafts/{draft_id}/review` takes `{version, facts: BusinessFactPatch}`
 and `Idempotency-Key`. The body's `purchase` carries the 606 fields a person
-confirms (`PurchaseReview`: `category`, `payment_method`, `paid_on`,
-`services_amount`, `goods_amount`, `itbis_withheld`, `income_withholding_type`,
-`income_withheld`); absent fields stay as they were, and a confirmed `category`
-with neither amount fills the services or goods side from the total less ITBIS,
-selective tax, other taxes and tip. `purchase` sits beside `facts`, not inside
+confirms (`PurchaseReview`: every field of the 606 declaration but `form`, so
+`id_type`, `modified_ncf`, the amounts, the taxes, the withholdings, the tip,
+`category`, `payment_method`, `paid_on`, `actual_refund` and
+`purchase_activity_id`); absent fields stay as they were, and a confirmed
+`category` with neither amount fills the services or goods side from the total
+less ITBIS, selective tax, other taxes and tip, the tip and taxes of the same
+write included. `purchase` sits beside `facts`, not inside
 it: `BusinessFactPatch` is the patch the interpreter fills, and a tax field is
 never the model's to fill. The
 identifiers in `dgii.fiscal` (`rnc`, `ncf`) and `modified_ncf` are normalized on

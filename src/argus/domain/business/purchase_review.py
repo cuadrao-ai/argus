@@ -26,22 +26,9 @@ def apply_purchase(
     else:
         data = current.model_dump()
     written = review.model_fields_set
-    for name in (
-        "category",
-        "payment_method",
-        "paid_on",
-        "services_amount",
-        "goods_amount",
-        "itbis_withheld",
-        "income_withholding_type",
-        "income_withheld",
-    ):
-        if name in written:
-            data[name] = getattr(review, name)
+    data.update({name: getattr(review, name) for name in written})
     if "category" in written and "category_suggested" not in written:
         data["category_suggested"] = False
-    if "category_suggested" in written:
-        data["category_suggested"] = review.category_suggested
     category = data.get("category")
     if (
         category

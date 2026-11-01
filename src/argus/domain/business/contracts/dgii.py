@@ -81,19 +81,31 @@ class PurchaseDeclaration(Declaration):
 
 
 class PurchaseReview(BaseModel):
-    """606 fields a person confirms on a draft. Absent fields stay as they were."""
+    """The 606 fields a person confirms, before or after approval: every field
+    of PurchaseDeclaration but its form. Absent fields stay as they were."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    id_type: Literal["1", "2"] | None = None
+    modified_ncf: Identifier | None = None
+    selective_tax: Money | None = None
+    other_taxes: Money | None = None
+    legal_tip: Money | None = None
     category: ExpenseType | None = None
     category_suggested: bool = False
-    payment_method: PaymentForm | None = None
     paid_on: date | None = None
     services_amount: Money | None = None
     goods_amount: Money | None = None
     itbis_withheld: Money | None = None
+    itbis_proportionality: Money | None = None
+    itbis_cost: Money | None = None
+    itbis_perceived: Money | None = None
     income_withholding_type: IsrWithholding | None = None
     income_withheld: Money | None = None
+    income_perceived: Money | None = None
+    payment_method: PaymentForm | None = None
+    actual_refund: bool = False
+    purchase_activity_id: UUID | None = None
 
 
 class SalesDeclaration(Declaration):
