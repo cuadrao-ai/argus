@@ -10,16 +10,8 @@ from argus.domain.business.contracts.dgii import (
     money_text,
 )
 from argus.domain.business.contracts.facts import BusinessFacts, Known
+from argus.domain.business.dgii_codes import PAYMENT_FORM_BY_ACCOUNT_TYPE
 from argus.domain.business.fiscal_identity import identity_digits, normalized_ncf
-
-# 606 payment form by the business account that paid: 01 cash, 02 bank, 03 card.
-# Owner funds and other accounts leave it unknown for a person.
-_PAYMENT_FORM = {
-    "cash": "01",
-    "checking": "02",
-    "savings": "02",
-    "credit_card": "03",
-}
 
 
 def apply_purchase(
@@ -84,7 +76,7 @@ def declaration_from_facts(
     number = normalized_ncf(_fiscal(facts, "ecf") or _fiscal(facts, "ncf"))
     if rnc is None or number is None or number[1:3] in {"02", "32"}:
         return None
-    review = PurchaseReview(payment_method=_PAYMENT_FORM.get(paid_from))
+    review = PurchaseReview(payment_method=PAYMENT_FORM_BY_ACCOUNT_TYPE.get(paid_from))
     digits = identity_digits(rnc)
     return apply_purchase(None, review, None).model_copy(
         update={"id_type": {9: "1", 11: "2"}.get(len(digits or ""))}

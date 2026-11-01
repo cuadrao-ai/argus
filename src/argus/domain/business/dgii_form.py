@@ -1,4 +1,5 @@
 from argus.domain.business.contracts.dgii import PurchaseDeclaration, SalesDeclaration
+from argus.domain.business.dgii_codes import LABELS
 from argus.domain.business.dgii_columns import COLUMNS
 
 
@@ -30,6 +31,7 @@ def input_fields(form: str) -> list[dict]:
                 if name in {"rnc", "ncf", "modified_ncf"}
                 else "money",
                 "options": nonnull.get("enum", ["1", "2"] if name == "id_type" else []),
+                "labels": LABELS.get(name, {}),
             }
         )
     return result
