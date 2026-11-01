@@ -14,7 +14,9 @@ from psycopg.types.json import Jsonb
 from argus.domain.business.actions import dossier, mutations, plans
 from argus.domain.business.actions.facts import facts_of, validate_facts
 from argus.domain.business.actions.fiscal import (
+    PURCHASE_COMPROBANTE_INDEX,
     SALE_NCF_INDEX,
+    colliding_purchase_record,
     refund_reference,
     require_distinct_fiscal_document,
 )
@@ -344,10 +346,22 @@ def approve(
                         tx, key, OutcomeUnknown(code="business_recording_unsettled")
                     )
         except UniqueViolation as error:
-            if error.diag.constraint_name != SALE_NCF_INDEX:
+            if error.diag.constraint_name == SALE_NCF_INDEX:
+                return refuse(
+                    ActionError("invalid_input", "fiscal_duplicate_document").result
+                )
+            if error.diag.constraint_name != PURCHASE_COMPROBANTE_INDEX:
                 raise
+            with service.authority.pool.connection() as connection:
+                existing = colliding_purchase_record(
+                    connection, context.actor.space_id, draft_id
+                )
             return refuse(
-                ActionError("invalid_input", "fiscal_duplicate_document").result
+                ActionError(
+                    "invalid_input",
+                    "duplicate_comprobante",
+                    existing_record_id=UUID(existing) if existing else None,
+                ).result
             )
         try:
             recorded = service.imports._write(

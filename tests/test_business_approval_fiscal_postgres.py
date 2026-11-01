@@ -567,6 +567,40 @@ def test_short_of_an_rnc_and_ncf_match_approval_goes_through(
     assert len(booked(service, context)) == 2
 
 
+def test_a_second_approval_of_one_purchase_comprobante_is_refused_by_the_database(
+    actions, monkeypatch
+):
+    from argus.domain.business.actions import approval as approval_module
+
+    # With the approval's own read switched off, only the index stands between
+    # two approvals of one supplier's comprobante.
+    monkeypatch.setattr(
+        approval_module, "require_distinct_fiscal_document", lambda *_: None
+    )
+    service, context = actions
+    first, version = receipt_draft(service, context, colmado(), "DOP")
+    assert approve(
+        service, context, first, reviewed(service, context, first, version)
+    ).outcome == ("applied")
+    second, version = receipt_draft(service, context, colmado(), "DOP")
+
+    refused = approve(
+        service, context, second, reviewed(service, context, second, version)
+    )
+
+    assert (refused.outcome, refused.code) == ("invalid_input", "duplicate_comprobante")
+    assert str(refused.existing_record_id) == str(first)
+    assert booked(service, context) == [("owner_funds", "DOP")]
+    with service.authority.pool.connection() as db:
+        accepted = db.execute(
+            "select count(*) from public.financial_import_events"
+            " where owner_space_id=%s and state in ('accepting','accepted')"
+            " and business_rnc=%s and business_fiscal_number=%s",
+            (context.actor.space_id, SUPPLIER, NCF),
+        ).fetchone()[0]
+    assert accepted == 1
+
+
 def test_failed_money_write_clears_the_approval_declaration(actions, monkeypatch):
     from argus.domain.recording.errors import RecordingInputError
 
