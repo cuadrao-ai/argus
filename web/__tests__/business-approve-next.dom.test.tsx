@@ -309,7 +309,8 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     await page.click("Aprobar y siguiente", () => page.host.querySelector('[data-testid="panel"] [role="alert"]') !== null);
     await page.settle(() => false);
     assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-uno" });
-    assert.equal(page.host.querySelector('[data-testid="panel"] [role="alert"]')?.textContent, "Resuelve los datos pendientes antes de aprobar.");
+    assert.equal(page.host.querySelector('[data-testid="panel"] [role="alert"] p')?.textContent, "Resuelve los datos pendientes antes de aprobar.");
+    assert.ok(page.host.querySelector('[data-testid="panel"] [role="alert"] [data-testid="error-reference"]'), "a refusal shows its reference");
     assert.equal(page.badge(), "3");
     await page.act(async () => page.root.unmount());
   });
@@ -320,7 +321,7 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     await page.click("Aprobar y siguiente", () => page.host.querySelector('[data-testid="panel"] [role="alert"]') !== null);
     await page.settle(() => false);
     assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-uno" });
-    assert.equal(page.host.querySelector('[data-testid="panel"] [role="alert"]')?.textContent, "Todavía no se conoce el resultado de la acción. Consulta el estado guardado antes de realizar otra acción.");
+    assert.equal(page.host.querySelector('[data-testid="panel"] [role="alert"] p')?.textContent, "Todavía no se conoce el resultado de la acción. Consulta el estado guardado antes de realizar otra acción.");
     await page.act(async () => page.root.unmount());
   });
 

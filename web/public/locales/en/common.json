@@ -2756,13 +2756,9 @@
       "amount_unknown": "Amount unknown",
       "currency_unknown": "Currency unknown",
       "revision": "Revision {{version}}",
-      "save_unconfirmed": "The current revision does not confirm that your save completed. Your edits are retained; saving and approval remain paused.",
-      "saved_details": "Current saved details",
-      "pending_details": "Your unconfirmed edits",
       "current_details": "Current details",
       "edit": "Edit details",
       "save": "Save review details",
-      "edit_note": "Saving updates the review details. Approval is a separate action.",
       "business_amount": "Business amount",
       "default": "Default · not verified",
       "verified": "Verified",
@@ -2806,14 +2802,6 @@
       "approved_by": "Approved by {{name}} · permission granted by {{issuer}}",
       "approving": "Approving…",
       "approval_effect": "Approval records this revision as one expense. Saving review details does not record it.",
-      "attention": {
-        "fiscal_disagree": "The record and its file disagree on the fiscal number: the file carries e-CF {{encf}}.",
-        "footer_one": "{{count}} thing to review before approving",
-        "footer_other": "{{count}} things to review before approving",
-        "suggestion": "{{field}}: suggestion to confirm",
-        "title_one": "{{count}} to review",
-        "title_other": "{{count}} to review"
-      },
       "prepare_only": "Your permission allows preparing this record. A person with approval permission must approve it.",
       "read_only": "Your permission allows viewing this record.",
       "recorded": "One expense was recorded after approval of revision {{version}}.",
@@ -2934,8 +2922,6 @@
         "missing": "Missing"
       },
       "confirm_value": "Confirm",
-      "confirm_read_one": "Confirm {{field}}",
-      "confirm_read_other": "Confirm {{count}} read details",
       "origin": {
         "extracted": "Read from source · not verified",
         "qr_decoded": "From the QR code · not verified",
@@ -2952,13 +2938,23 @@
         "qr_decoded": "from the QR code",
         "suggested": "suggested"
       },
+      "placeholder": {
+        "blocks_title": "Needed to approve",
+        "expense_type": "Expense type",
+        "more_fiscal": "More tax details",
+        "payment_form": "Payment method",
+        "save_lost": "We couldn't confirm that {{field}} was saved. Approval is paused.",
+        "save_refused": "{{field}} wasn't saved. Check the value.",
+        "save_stale": "This record changed while you edited. You're seeing the current version and your change is still here.",
+        "section_choices": "For the 606",
+        "use_suggestion": "Use"
+      },
       "place": "{{index}} of {{total}}",
       "receipt": {
         "fiscal_receipt": "With NCF or e-CF",
         "informal_receipt": "Receipt without NCF",
         "no_receipt": "No receipt"
       },
-      "receipt_hint": "The last two stay out of the 606 and 607.",
       "section": {
         "fiscal": "Fiscal",
         "payment": "Payment"

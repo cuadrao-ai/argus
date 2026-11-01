@@ -5,10 +5,12 @@ import { useId, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { BusinessAccount } from "@/lib/business-api";
 import type { BusinessDossier, BusinessFact, BusinessFactField } from "@/lib/business-dossier";
+import { rncStatus } from "@/lib/rnc-status";
 import RncStatusBlock from "./RncStatusBlock";
 import { useCategoryLabel } from "./business-ui";
+import { UNKNOWN_VALUE } from "./business-format";
 import { presentBusinessFact, presentFiscalFact } from "./receipt-fact-presentation";
-import { KIND_FIELDS, PAYMENT_FIELDS, fiscalFactRows, recordFactRows, type FactRow } from "./receipt-fact-rows";
+import { KIND_FIELDS, PAYMENT_FIELDS, fiscalFactRows, recordFactRows, type FactRow, type ReviewRow } from "./receipt-fact-rows";
 import type { AttentionItem } from "./dossier-attention";
 import { resolveLanguage } from "@/lib/language-features";
 
@@ -27,23 +29,35 @@ function matchAttribute(values: readonly (string | null | undefined)[]): string 
 /** What the tag says about who stated an unverified value. */
 const ORIGIN_TAG: Partial<Record<string, string>> = { qr_decoded: "qr_decoded", owner_stated: "owner_stated", member_set: "member_set", matched: "matched" };
 
+/** An open draft's form: what each row edits, and what the page says under it. */
+export type FactsReview = {
+  /** Absent for someone who cannot edit the record now. */
+  onEdit?: (row: ReviewRow) => void;
+  /** The row's open editor, or null while it shows its value. */
+  editor: (row: ReviewRow) => ReactNode;
+  /** The row's save state. */
+  note: (row: ReviewRow) => ReactNode;
+  /** The owner's choices, as rows. */
+  choices?: ReactNode;
+};
+
 /**
  * The record's facts as one form in three short sections: the activity
  * (headed by its kind), its fiscal facts and how it was paid. A row shows its
- * value as text that a preparer opens for editing with a click or Enter; an
- * unverified value says where it came from, and a row the attention list
- * names carries a marker.
+ * value as text; an unverified value says where it came from, and a row the
+ * attention list names carries a marker.
+ *
+ * With `review`, the form of an open draft: the six read facts with an edit
+ * control each, then the owner's choices. A row a person opens edits in place.
  */
-export default function ReceiptRecordFacts({ dossier, accounts, attention = [], typeRow, onEdit, onEditRnc, editor }: {
+export default function ReceiptRecordFacts({ dossier, accounts, attention = [], typeRow, review }: {
   dossier: BusinessDossier;
   accounts: BusinessAccount[];
   /** What needs the person; each row an item points at carries a marker. */
   attention?: readonly AttentionItem[];
   /** Compra or Venta, which says the kind: the kind row then shows only while it needs a person. */
   typeRow?: ReactNode;
-  onEdit?: (key: BusinessFactField) => void;
-  onEditRnc?: () => void;
-  editor?: (key: BusinessFactField) => ReactNode;
+  review?: FactsReview;
 }) {
   const { t, i18n } = useTranslation();
   const ids = useId();
@@ -69,7 +83,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
   const fiscalRows = new Map(fiscalFactRows(dossier.facts).map((row) => [row.key, row]));
   // Without an NCF and an e-CF the record has no fiscal receipt number: one field says so in place of two empty ones.
   const noFiscal = dossier.fiscal_known === true && !dossier.fiscal_value;
-  const flagged = (key: string) => attention.some((item) => item.field === key || (item.field === "fiscal" && (key === "ncf" || key === "ecf" || key === "fiscal_number")));
+  const flagged = (key: string) => attention.some((item) => item.field === key || (review && key === "amount" && item.field === "currency"));
 
   const origin = (fact: BusinessFact<unknown> | undefined): ReactNode => {
     if (!fact || fact.state !== "known" || fact.verified || !fact.origin) return null;
@@ -92,6 +106,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
       <dd className={`min-w-0 break-words py-[7px] text-[15px] leading-[22px] text-[#172b26] dark:text-white ${key === "amount" || key === "itbis" ? "[font-variant-numeric:tabular-nums]" : ""}`}>
         {key === "amount" || key === "itbis" ? <span className="cuadrao-amount">{content}</span> : content}
         {tag}
+        {review?.note(key as ReviewRow)}
         {row?.blocked || row?.asked ? (
           <span className="mt-1 flex items-center gap-1 text-[13px] leading-[18px] text-[#9e2f39] dark:text-[#ec9aa0]">
             <CircleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -102,30 +117,64 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     </div>
   );
 
+  /** The value as a button that opens the row, with its pencil always in view. */
+  const editButton = (key: ReviewRow, label: string, value: ReactNode, tag: ReactNode, onEdit: (row: ReviewRow) => void) => (
+    <button
+      type="button"
+      onClick={() => onEdit(key)}
+      aria-label={`${t("business.dossier.edit", "Edit details")} · ${label}`}
+      className="group -mx-2 -my-[7px] flex min-h-9 w-[calc(100%+1rem)] items-center gap-2 rounded-item px-2 text-left hover:bg-black/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.06]"
+    >
+      <span className="min-w-0 flex-1">
+        {value || UNKNOWN_VALUE}
+        {value ? tag : null}
+      </span>
+      <Pencil className="h-3.5 w-3.5 shrink-0 text-[#56635e] opacity-70 group-hover:opacity-100 group-focus-visible:opacity-100 dark:text-white/60" aria-hidden="true" />
+    </button>
+  );
+
   const recordField = (key: BusinessFactField) => {
     const label = t(`business.dossier.field.${key}`, key);
     const value = presentBusinessFact(key, dossier.facts, accounts, locale, labels);
-    const row = rows.get(key);
-    const opened = editor?.(key);
+    // On an open draft the total and its currency are one row.
+    const currency = review && key === "amount" ? rows.get("currency") : undefined;
+    const own = rows.get(key);
+    const row = own && currency ? { ...own, blocked: own.blocked || currency.blocked, asked: own.asked || currency.asked } : own;
+    const opened = review?.editor(key);
     const tag = opened ? null : origin(dossier.facts[key]);
-    const control = opened ?? (onEdit ? (
-      <button
-        type="button"
-        onClick={() => onEdit(key)}
-        aria-label={`${t("business.dossier.edit", "Edit details")} · ${label}`}
-        className="group -mx-2 -my-[7px] flex min-h-9 w-[calc(100%+1rem)] items-center gap-2 rounded-item px-2 text-left hover:bg-black/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.06]"
-      >
-        <span className="min-w-0 flex-1">
-          {value}
-          {value ? tag : null}
-        </span>
-        <Pencil className={`h-3.5 w-3.5 shrink-0 text-[#56635e] group-hover:opacity-100 group-focus-visible:opacity-100 dark:text-white/60 ${value ? "opacity-0" : "opacity-70"}`} aria-hidden="true" />
-      </button>
-    ) : key === "occurred_on" && !value ? (
+    const control = opened ?? (review?.onEdit ? editButton(key, label, value, tag, review.onEdit) : key === "occurred_on" && !value ? (
       <input disabled readOnly aria-label={label} placeholder={t("business.date_picker.placeholder", "dd/mm/aaaa")} value="" className="block min-h-11 w-full rounded-item border border-[#7d8a84] bg-transparent px-3 text-[16px] disabled:opacity-50" />
     ) : value);
     const fact = dossier.facts[key];
-    return field(key, label, control, row, opened || onEdit ? null : tag, [value, fact.state === "known" && typeof fact.value === "string" ? fact.value : null]);
+    return field(key, label, control, row, opened || review?.onEdit ? null : tag, [value, fact.state === "known" && typeof fact.value === "string" ? fact.value : null]);
+  };
+
+  /** The fiscal rows of an open draft: always all three, each with its edit control. */
+  const reviewFiscalFields = (form: FactsReview) => {
+    const rncLabel = t("business.dossier.field.rnc", "RNC");
+    const rncMissing = ["missing", "invalid_length"].includes(rncStatus(fiscal?.rnc, flags));
+    const rncEdit = form.onEdit ? () => form.onEdit?.("rnc") : undefined;
+    const number = fiscal?.ecf.state === "known" ? "ecf" : "ncf";
+    const numberLabel = `${t("business.dossier.field.ncf", "NCF")} / ${t("business.dossier.field.ecf", "e-CF")}`;
+    const numberValue = fiscal?.[number].value ?? (noFiscal ? t("business.marks.no_fiscal_chip", "No fiscal receipt number") : "");
+    const itbisValue = presentFiscalFact("itbis", dossier.facts, locale, labels);
+    const itbisHigh = flags.some((flag) => flag.code === "itbis_high") ? (
+      <span data-testid="itbis-high" className="mt-1 flex items-center gap-1 text-[13px] leading-[18px] text-[#735c14] dark:text-[#e8b26f]">
+        <CircleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        {t("business.dossier.review_flag.itbis_high.text")}
+      </span>
+    ) : null;
+    const editable = (row: "fiscal_number" | "itbis", label: string, value: string, tag: ReactNode) => form.editor(row) ?? (form.onEdit ? editButton(row, label, value, tag, form.onEdit) : <>{value || UNKNOWN_VALUE}{tag}</>);
+    return <>
+      {field("rnc", rncLabel, form.editor("rnc") ?? (
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1"><RncStatusBlock fact={fiscal?.rnc} flags={flags} onEditRnc={rncEdit} />{origin(fiscal?.rnc)}</div>
+          {form.onEdit && !rncMissing ? <button type="button" onClick={rncEdit} aria-label={`${t("business.dossier.edit", "Edit details")} · ${rncLabel}`} className="group -mr-2 -mt-[7px] flex h-9 w-9 shrink-0 items-center justify-end rounded-item px-2 text-[#56635e] hover:bg-black/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white/60 dark:hover:bg-white/[0.06]"><Pencil className="h-3.5 w-3.5 opacity-70 group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden="true" /></button> : null}
+        </div>
+      ), fiscalRows.get("rnc"), undefined, [fiscal?.rnc.value])}
+      {field("fiscal_number", numberLabel, editable("fiscal_number", numberLabel, numberValue, origin(fiscal?.[number])), fiscalRows.get(number), undefined, [numberValue])}
+      {field("itbis", t("business.dossier.field.itbis", "ITBIS"), editable("itbis", t("business.dossier.field.itbis", "ITBIS"), itbisValue, origin(fiscal?.itbis)), fiscalRows.get("itbis"), itbisHigh, [itbisValue, fiscal?.itbis.value])}
+    </>;
   };
 
   const section = (id: string, title: string, fields: ReactNode) => (
@@ -139,8 +188,28 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
   const kindRow = rows.get("kind");
   // A Compra/Venta control already says the kind; the kind row returns while it needs a person.
   const kindShown = !typeRow || kind.state !== "known" || kindRow?.blocked || kindRow?.asked || flagged("kind");
+  if (review) {
+    // These rows stay out of an open draft until the server waits on them, so a blocker always has a way forward.
+    const waiting = (keys: readonly BusinessFactField[]) => keys.filter((key) => rows.get(key)?.blocked || rows.get(key)?.asked);
+    const payment = waiting(PAYMENT_FIELDS);
+    return (
+      <div data-testid="receipt-current-facts" className="space-y-5">
+        {section("activity", kind.state === "known" ? t(`business.dossier.kind.${kind.value}`, kind.value) : t("business.dossier.field.kind", "Activity"), <>
+          {typeRow}
+          {waiting(["kind"]).map(recordField)}
+          {recordField("counterparty")}
+          {recordField("occurred_on")}
+          {recordField("amount")}
+        </>)}
+        {section("fiscal", t("business.dossier.section.fiscal", "Fiscal"), reviewFiscalFields(review))}
+        {review.choices ? section("choices", t("business.dossier.placeholder.section_choices", "For the 606"), review.choices) : null}
+        {payment.length ? section("payment", t("business.dossier.section.payment", "Payment"), payment.map(recordField)) : null}
+      </div>
+    );
+  }
+
   const fiscalFields = (fiscal || noFiscal ? FISCAL.filter((key) => !noFiscal || (key !== "ncf" && key !== "ecf")) : []).flatMap((key) => {
-    if (key === "rnc") return [field("rnc", t("business.dossier.field.rnc", "RNC"), <RncStatusBlock fact={fiscal?.rnc} flags={flags} onEditRnc={onEditRnc} />, undefined, origin(fiscal?.rnc), [fiscal?.rnc.value])];
+    if (key === "rnc") return [field("rnc", t("business.dossier.field.rnc", "RNC"), <RncStatusBlock fact={fiscal?.rnc} flags={flags} />, undefined, origin(fiscal?.rnc), [fiscal?.rnc.value])];
     const shownValue = presentFiscalFact(key, dossier.facts, locale, labels);
     const itbisHigh = key === "itbis" && flags.some((flag) => flag.code === "itbis_high") ? (
       <span data-testid="itbis-high" className="mt-1 flex items-center gap-1 text-[13px] leading-[18px] text-[#735c14] dark:text-[#e8b26f]">

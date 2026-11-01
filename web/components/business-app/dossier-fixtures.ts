@@ -1,5 +1,6 @@
 import type { BusinessAccount, BusinessCapture, BusinessCaptureInput, ReceiptDetail } from "@/lib/business-api";
 import { factsRevision, type BusinessActor, type BusinessApprovalAction, type BusinessDossier, type BusinessFact, type BusinessFactPatch, type BusinessFacts, type RefundCandidate } from "@/lib/business-dossier";
+import type { DgiiDeclaration, DgiiField, DgiiFields, DgiiReview, PurchaseChoice } from "@/lib/business-dgii";
 
 export const dossierFixtureIds = {
   unknown: "10000000-0000-4000-8000-000000000001",
@@ -17,7 +18,38 @@ export const dossierFixtureIds = {
   saveUnknown: "10000000-0000-4000-8000-000000000013",
   saveConcurrent: "10000000-0000-4000-8000-000000000014",
   recordedThenMarked: "10000000-0000-4000-8000-000000000015",
+  /** The fiscal record with its date missing: something blocks approval. */
+  fiscalBlocked: "10000000-0000-4000-8000-000000000016",
+  /** The fiscal record with every save refused, so the failed state can be seen. */
+  saveRefused: "10000000-0000-4000-8000-000000000017",
 } as const;
+
+/** The server's code tables (`dgii_codes.py`) and form columns (`dgii_form.py`), for the preview. */
+const EXPENSE_TYPES: Record<string, string> = { "01": "Gastos de personal", "02": "Gastos por trabajos, suministros y servicios", "03": "Arrendamientos", "04": "Gastos de activos fijo", "05": "Gastos de representación", "06": "Otras deducciones admitidas", "07": "Gastos financieros", "08": "Gastos extraordinarios", "09": "Compras y gastos que formarán parte del costo de venta", "10": "Adquisiciones de activos", "11": "Gastos de seguros" };
+const PAYMENT_FORMS: Record<string, string> = { "01": "Efectivo", "02": "Cheques/transferencias/depósito", "03": "Tarjeta crédito/débito", "04": "Compra a crédito", "05": "Permuta", "06": "Nota de crédito", "07": "Mixto" };
+const SERVICE_EXPENSE_TYPES = new Set(["02", "03", "07", "11"]);
+const sampleField = (name: string, label: string, kind: DgiiField["kind"] = "money", options: string[] = [], labels: Record<string, string> = {}): DgiiField => ({ name, label, kind, options, labels });
+const SAMPLE_DGII_FIELDS: DgiiFields = {
+  "606": [
+    sampleField("rnc", "RNC o Cédula", "text"), sampleField("id_type", "Tipo Id", "select", ["1", "2"]),
+    sampleField("category", "Tipo Bienes y Servicios Comprados", "select", Object.keys(EXPENSE_TYPES).sort(), EXPENSE_TYPES),
+    sampleField("ncf", "NCF", "text"), sampleField("modified_ncf", "NCF ó Documento Modificado", "text"), sampleField("paid_on", "Fecha Pago", "date"),
+    sampleField("services_amount", "Monto Facturado en Servicios"), sampleField("goods_amount", "Monto Facturado en Bienes"), sampleField("itbis", "ITBIS Facturado"),
+    sampleField("itbis_withheld", "ITBIS Retenido"), sampleField("itbis_proportionality", "ITBIS sujeto a Proporcionalidad (Art. 349)"), sampleField("itbis_cost", "ITBIS llevado al Costo"), sampleField("itbis_perceived", "ITBIS percibido en compras"),
+    sampleField("income_withholding_type", "Tipo de Retención en ISR", "select", ["01", "02", "03", "04", "05", "06", "07", "08", "09"]), sampleField("income_withheld", "Monto Retención Renta"), sampleField("income_perceived", "ISR Percibido en compras"),
+    sampleField("selective_tax", "Impuesto Selectivo al Consumo"), sampleField("other_taxes", "Otros Impuesto/Tasas"), sampleField("legal_tip", "Monto Propina Legal"),
+    sampleField("payment_method", "Forma de Pago", "select", Object.keys(PAYMENT_FORMS).sort(), PAYMENT_FORMS),
+  ],
+  "607": [
+    sampleField("rnc", "RNC/Cédula o Pasaporte", "text"), sampleField("id_type", "Tipo Identificación", "select", ["1", "2", "3"]), sampleField("ncf", "Número Comprobante Fiscal", "text"), sampleField("modified_ncf", "Número Comprobante Fiscal Modificado", "text"),
+    sampleField("income_type", "Tipo de Ingreso", "select", ["1", "2", "3", "4", "5", "6"]), sampleField("withheld_on", "Fecha de Retención", "date"), sampleField("billed_amount", "Monto Facturado"), sampleField("itbis", "ITBIS Facturado"),
+    sampleField("itbis_withheld_by_third_parties", "ITBIS Retenido por Terceros"), sampleField("itbis_perceived", "ITBIS Percibido"), sampleField("income_withheld_by_third_parties", "Retención Renta por Terceros"), sampleField("income_perceived", "ISR Percibido"),
+    sampleField("selective_tax", "Impuesto Selectivo al Consumo"), sampleField("other_taxes", "Otros Impuestos/Tasas"), sampleField("legal_tip", "Monto Propina Legal"),
+    sampleField("cash", "Efectivo"), sampleField("bank", "Cheque/ Transferencia/ Depósito"), sampleField("card", "Tarjeta Débito/Crédito"), sampleField("credit", "Venta a Crédito"), sampleField("gift", "Bonos o Certificados de Regalo"), sampleField("barter", "Permuta"), sampleField("other_payment", "Otras Formas de Ventas"),
+  ],
+};
+/** As the server cleans a typed RNC or NCF: dashes and spaces between digits go, letters go upper case. */
+const printedIdentifier = (value: string | null) => value === null ? null : value.trim().replace(/(?<=[0-9])[-\s]+(?=[0-9])/g, "").toUpperCase();
 
 const sourceId = "20000000-0000-4000-8000-000000000001";
 const reviewSourceId = "20000000-0000-4000-8000-000000000002";
@@ -87,6 +119,9 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   ] };
   const fiscalQr: BusinessDossier["dgii_qr"] = { url: "https://ecf.dgii.gov.do/ecf/consultatimbre?RncEmisor=131999888&ENCF=E310000000777&MontoTotal=3450.00&CodigoSeguridad=AbC123", host: "ecf.dgii.gov.do", rnc_emisor: "131999888", encf: "E310000000777", monto_total: "3450.00", codigo_seguridad: "AbC123", fecha_emision: "2026-10-09", fecha_firma: null, rnc_comprador: null };
   dossiers.set(fiscalDossier.draft_id, { ...fiscalDossier, fiscal_value: "ncf", ecf_checks: fiscalChecks, dgii_qr: fiscalQr, facts: fiscalAfter, sources: [{ id: sourceId, kind: "message", channel: "whatsapp", received_at: "2026-10-10T14:20:00Z", text: "El RNC es 131999888, el NCF es B0100000099 y el ITBIS es 526.27. No sé el e-CF." }], history: [{ draft_id: fiscalDossier.draft_id, version: 2, actor: { ...actor, actor_kind: "owner_via_agent", display_name: "Lucía Mateo vía Cuadrao" }, before: fiscalBefore, after: fiscalAfter, source_ids: [sourceId], turn_key: null, created_at: "2026-10-10T14:25:00Z" }] });
+  const fiscalSample = dossiers.get(fiscalDossier.draft_id)!;
+  dossiers.set(dossierFixtureIds.saveRefused, { ...fiscalSample, draft_id: dossierFixtureIds.saveRefused });
+  dossiers.set(dossierFixtureIds.fiscalBlocked, { ...fiscalSample, draft_id: dossierFixtureIds.fiscalBlocked, facts: { ...fiscalAfter, occurred_on: unknown() }, blockers: [{ code: "fact_required", field: "occurred_on" }], approval_available: false });
   const proposalDossier = dossiers.get(dossierFixtureIds.proposal)!;
   dossiers.set(proposalDossier.draft_id, { ...proposalDossier, facts: { ...proposalDossier.facts, funding: { ...known({ kind: "business_account", account_id: accounts[0].id }), origin: "extracted" }, category_id: { ...known("other"), origin: "extracted" } }, sources: [{ id: sourceId, kind: "agent_proposal", channel: "web", received_at: "2026-10-10T14:20:00Z", text: "Propuesta: gasto de 3,450 DOP en Ferretería La Esquina para pintura del taller. Revisar antes de aprobar." }], history: [{ ...proposalDossier.history[0], after: { ...proposalDossier.facts, funding: { ...known({ kind: "business_account", account_id: accounts[0].id }), origin: "extracted" }, category_id: { ...known("other"), origin: "extracted" } } }] });
   // Revision 2 approved (the approval took version 3), then Elena marked it Personal: revision 4.
@@ -113,13 +148,17 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       .slice(0, 20)
       .map((other) => ({ id: other.approval_result?.status === "recorded" ? other.approval_result.activity_id : other.draft_id, merchant: other.facts.counterparty.value, occurred_on: other.facts.occurred_on.value ?? "", amount: other.facts.amount.value ?? "", currency: money.value }));
   };
-  const served = (draft: BusinessDossier): Pick<BusinessDossier, "approval_action" | "fiscal_inclusion_available" | "refund_candidates"> => ({
+  const declarationEditable = (draft: BusinessDossier) => draft.capabilities.includes("prepare") && (draft.review_state === "open" || draft.review_state === "accepted") && draft.facts.kind.value !== "income";
+  const served = (draft: BusinessDossier): Pick<BusinessDossier, "approval_action" | "fiscal_inclusion_available" | "refund_candidates" | "declaration_editable" | "expense_type_suggestion"> => ({
+    declaration_editable: declarationEditable(draft),
+    // The sample has no earlier receipt from this RNC, so its fiscal records stand in for one.
+    expense_type_suggestion: declarationEditable(draft) && !draft.dgii?.category && draft.facts.fiscal?.rnc.value === "131999888" ? "02" : null,
     approval_action: draft.approval_available && draft.facts.kind.state === "known" ? approvalActions[draft.facts.kind.value] ?? null : null,
     fiscal_inclusion_available: draft.capabilities.includes("prepare") && !draft.capabilities.includes("approve") && (draft.review_state === "open" || draft.review_state === "accepted") && draft.personal === true && Boolean(draft.fiscal_value),
     refund_candidates: refundCandidates(draft),
   });
   const reviewReceipts = new Map<string, { input: string; result: BusinessDossier }>();
-  const fail = (status: number, code: string): never => { throw Object.assign(new Error(code), { status, code }); };
+  const fail = (status: number, code: string): never => { throw Object.assign(new Error(code), { status, code, requestId: `sample-${code}` }); };
   const get = (id: string) => {
     const found = dossiers.get(id);
     if (!found) return fail(404, "draft_not_found");
@@ -131,7 +170,49 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   let captureCount = 0;
   const captures: BusinessCapture[] = [];
   const captureReceipts = new Map<string, { input: string; draftId: string }>();
+  /** One 606 or fiscal write, by the review route's rules: a replay answers once, and an open draft at its version takes it. */
+  const writeDeclaration = (id: string, version: number, key: string, body: unknown, change: (current: BusinessDossier, stated: <T>(value: T | null) => BusinessFact<T>) => { facts?: BusinessFacts; dgii: DgiiDeclaration }) => {
+    if (!key) fail(422, "idempotency_key_required");
+    const input = JSON.stringify({ id, version, body });
+    const prior = reviewReceipts.get(key);
+    if (prior) return prior.input === input ? structuredClone(prior.result) : fail(409, "idempotency_conflict");
+    const current = get(id);
+    if (!current.capabilities.includes("prepare")) fail(403, "permission_denied");
+    if (current.version !== version) fail(409, "stale_version");
+    if (id === dossierFixtureIds.saveRefused) fail(422, "validation_error");
+    const actionSourceId = `20000000-0000-4000-8000-${String(current.version + 1).padStart(12, "0")}`;
+    const stated = <T>(value: T | null): BusinessFact<T> => value === null ? { state: "unknown", value: null, origin: "member_set", verified: false, source_ids: [actionSourceId] } : { state: "known", value, origin: "member_set", verified: false, source_ids: [actionSourceId] };
+    const { facts: nextFacts = current.facts, dgii } = change(current, stated);
+    const fiscalValue = nextFacts.fiscal?.ecf.state === "known" ? "ecf" : nextFacts.fiscal?.ncf.state === "known" ? "ncf" : null;
+    const next: BusinessDossier = { ...current, version: current.version + 1, facts: nextFacts, fiscal_value: fiscalValue, dgii, sources: [...current.sources, { id: actionSourceId, kind: "web_action", channel: "web", text: JSON.stringify({ version, body }), received_at: "2026-10-10T14:30:00Z" }], history: [...current.history, { draft_id: id, version: current.version + 1, actor, before: current.facts, after: nextFacts, before_dgii: current.dgii ?? null, after_dgii: dgii, source_ids: [actionSourceId], turn_key: null, created_at: "2026-10-10T14:30:00Z" }] };
+    dossiers.set(id, next);
+    reviewReceipts.set(key, { input, result: get(id) });
+    return get(id);
+  };
   return {
+    dgiiFields: async () => structuredClone(SAMPLE_DGII_FIELDS),
+    reviewFiscal: async (id: string, version: number, review: DgiiReview, key: string) => writeDeclaration(id, version, key, review, (current, stated) => {
+      const number = printedIdentifier(review.fiscal.ncf);
+      const electronic = number?.startsWith("E");
+      const fiscal = {
+        ...(current.facts.fiscal ?? { rnc: unknown<string>(), ncf: unknown<string>(), ecf: unknown<string>(), itbis: unknown<string>() }),
+        rnc: stated(printedIdentifier(review.fiscal.rnc)),
+        itbis: stated(review.fiscal.itbis),
+      };
+      if (electronic) { fiscal.ecf = stated(number); fiscal.ncf = stated<string>(null); }
+      else { fiscal.ncf = stated(number); if (number) fiscal.ecf = stated<string>(null); }
+      return { facts: { ...current.facts, fiscal }, dgii: review.declaration };
+    }),
+    reviewPurchase: async (id: string, version: number, purchase: PurchaseChoice, key: string) => writeDeclaration(id, version, key, purchase, (current) => {
+      const blank = Object.fromEntries(SAMPLE_DGII_FIELDS["606"].filter(({ name }) => !["rnc", "ncf", "itbis"].includes(name)).map(({ name }) => [name, null]));
+      const dgii: DgiiDeclaration = { ...blank, actual_refund: false, purchase_activity_id: null, ...current.dgii, ...purchase, form: "606" };
+      // As the server fills it: a chosen type puts the amount before ITBIS on its side.
+      if (typeof dgii.category === "string" && !dgii.services_amount && !dgii.goods_amount && current.facts.amount.state === "known") {
+        const cents = Math.round(Number(current.facts.amount.value) * 100) - Math.round(Number(current.facts.fiscal?.itbis.value ?? 0) * 100);
+        dgii[SERVICE_EXPENSE_TYPES.has(dgii.category) ? "services_amount" : "goods_amount"] = (cents / 100).toFixed(2);
+      }
+      return { dgii };
+    }),
     captureNote: async (request: BusinessCaptureInput, key: string) => {
       const input = JSON.stringify(request);
       const receipt = captureReceipts.get(key);
@@ -206,6 +287,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       const current = get(id);
       if (!current.capabilities.includes("prepare")) fail(403, "permission_denied");
       if (current.version !== version) fail(409, "stale_version");
+      if (id === dossierFixtureIds.saveRefused) fail(422, "validation_error");
       if (id === dossierFixtureIds.saveConcurrent && version === 2) {
         const otherSourceId = "20000000-0000-4000-8000-000000000014";
         const otherFacts: BusinessFacts = { ...current.facts, counterparty: { state: "known", value: "Corrección de otra persona", origin: "member_set", verified: false, source_ids: [otherSourceId] } };
@@ -220,6 +302,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
         next.blockers = next.blockers.filter((blocker) => blocker.field !== "funding");
       }
       if (next.facts.kind.state === "known" && next.facts.kind.value === "expense") next.blockers = next.blockers.filter((blocker) => blocker.field !== "kind");
+      next.blockers = next.blockers.filter((blocker) => !(blocker.code === "fact_required" && blocker.field && next.facts[blocker.field].state === "known"));
       next.approval_available = next.blockers.length === 0 && next.capabilities.includes("approve") && next.facts.kind.state === "known" && next.facts.kind.value === "expense";
       dossiers.set(id, next);
       reviewReceipts.set(key, { input, result: get(id) });

@@ -1,4 +1,4 @@
-import type { BusinessDossier, BusinessFact, BusinessFactField, BusinessFacts, BusinessFiscalField, BusinessFactPatch } from "@/lib/business-dossier";
+import type { BusinessDossier, BusinessFact, BusinessFactField, BusinessFacts, BusinessFiscalField } from "@/lib/business-dossier";
 
 /**
  * How a fact stands, from its backend state and origin alone. A person reads
@@ -74,8 +74,12 @@ export const RECORD_FIELDS: readonly BusinessFactField[] = ["kind", "counterpart
 /** Where the form shows each field: the activity section, the fiscal section (which opens with the receipt state), then how it was paid. */
 export const KIND_FIELDS: readonly BusinessFactField[] = ["occurred_on", "amount", "currency", "counterparty", "category_id", "kind"];
 export const PAYMENT_FIELDS: readonly BusinessFactField[] = ["funding", "business_share"];
-/** Every record field in the form's reading order. */
-export const FORM_FIELDS: readonly BusinessFactField[] = [...KIND_FIELDS, "receipt_state", ...PAYMENT_FIELDS];
+/** The fiscal rows of an open draft: the NCF and the e-CF are one number there. */
+export type FiscalRow = "rnc" | "fiscal_number" | "itbis";
+/** The rows a person edits in place on an open draft. `amount` holds the total and its currency. */
+export type ReviewRow = BusinessFactField | FiscalRow;
+/** The six read facts, in the order they are read off a receipt. */
+export const READ_FACT_ROWS: readonly ReviewRow[] = ["counterparty", "occurred_on", "amount", "rnc", "fiscal_number", "itbis"];
 
 export function recordFactRows(dossier: Pick<BusinessDossier, "facts" | "blockers" | "questions">): FactRow<BusinessFactField>[] {
   return factRows(RECORD_FIELDS, (key) => dossier.facts[key], blockedFields(dossier), askedFields(dossier))
@@ -86,12 +90,4 @@ export function fiscalFactRows(facts: BusinessFacts): FactRow<BusinessFiscalFiel
   const fiscal = facts.fiscal;
   if (!fiscal) return [];
   return factRows(["rnc", "ncf", "ecf", "itbis"] as const, (key) => fiscal[key]);
-}
-
-export function extractedConfirmationPatch(dossier: Pick<BusinessDossier, "facts" | "blockers" | "questions">, edits: BusinessFactPatch): BusinessFactPatch {
-  return Object.fromEntries(recordFactRows(dossier).flatMap(({ key, standing, blocked, asked }) => {
-    const fact = dossier.facts[key];
-    return standing === "suggestion" && !blocked && !asked && !Object.hasOwn(edits, key) && fact.state === "known"
-      ? [[key, { state: "known", value: fact.value }]] : [];
-  })) as BusinessFactPatch;
 }

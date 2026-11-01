@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
 import FiscalDeclarationEditor from "@/components/business-app/FiscalDeclarationEditor";
+import { reviewDgii, reviewPurchase } from "@/lib/business-dgii";
 import BusinessFiscalProfile from "@/components/business-app/BusinessFiscalProfile";
 import { createDossierFixtures, dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
 import type { BusinessDossier } from "@/lib/business-dossier";
@@ -16,8 +17,9 @@ const fields = { "606": [
   { name: "ncf", label: "NCF", kind: "text", options: [] },
   { name: "itbis", label: "ITBIS Facturado", kind: "money", options: [] },
   { name: "category", label: "Tipo Bienes y Servicios Comprados", kind: "select", options: ["01", "09"] },
+  { name: "payment_method", label: "Forma de Pago", kind: "select", options: ["01", "02"] },
   { name: "itbis_cost", label: "ITBIS llevado al Costo", kind: "money", options: [] },
-], "607": [] };
+], "607": [] } as const satisfies Record<"606" | "607", readonly unknown[]>;
 
 function registerDom() {
   const original = { fetch: globalThis.fetch, mock: process.env.NEXT_PUBLIC_MOCK_AUTH };
@@ -34,13 +36,12 @@ function registerDom() {
 
 async function mountEditor() {
   const release = registerDom();
-  const dossier = await createDossierFixtures([{ id: "cash", type: "cash", currency: "DOP", nickname: "PRÁCTICA caja" }]).dossier(dossierFixtureIds.ready);
+  const dossier = await createDossierFixtures([{ id: "cash", type: "cash", currency: "DOP", nickname: "PRÁCTICA caja" }]).dossier(dossierFixtureIds.fiscal);
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
   const writes: { key: string | null; input: Record<string, unknown> }[] = [];
   let fail = false;
   globalThis.fetch = async (url, init) => {
-    if (String(url).endsWith("/fields")) return Response.json(fields);
     writes.push({ key: new Headers(init?.headers).get("Idempotency-Key"), input: JSON.parse(String(init?.body)) });
     if (fail) throw new Error("lost response");
     return Response.json({ ...dossier, version: dossier.version + 1 });
@@ -49,7 +50,7 @@ async function mountEditor() {
   const root = createRoot(host);
   const changes: BusinessDossier[] = [];
   const dirty: boolean[] = [];
-  await act(async () => { root.render(<I18nextProvider i18n={i18n}><FiscalDeclarationEditor dossier={dossier} disabled={false} onChanged={(value) => changes.push(value)} onBusy={() => {}} onDirty={(value) => dirty.push(value)} /></I18nextProvider>); });
+  await act(async () => { root.render(<I18nextProvider i18n={i18n}><FiscalDeclarationEditor dossier={dossier} fields={fields as never} reviewFiscal={reviewDgii} disabled={false} onChanged={(value) => changes.push(value)} onBusy={() => {}} onDirty={(value) => dirty.push(value)} /></I18nextProvider>); });
   const input = async (label: string, value: string) => {
     const control = [...host.querySelectorAll("label")].find((node) => node.firstChild?.textContent === label)?.querySelector("input");
     assert.ok(control);
@@ -63,17 +64,18 @@ async function mountEditor() {
   return { host, dossier, writes, dirty, changes, input, save, fail: () => { fail = true; }, dispose: async () => { await act(async () => root.unmount()); host.remove(); await release(); } };
 }
 
-test("human fiscal review keeps unknown tax values blank and sends one reviewed version", async () => {
+test("the form holds the rest of the 606: the facts with their own row are not fields here, and it sends them unchanged", async () => {
   const view = await mountEditor();
   try {
-    await view.input("RNC o Cédula", "199990021");
-    await view.input("NCF", "B0100000001");
-    await view.input("ITBIS Facturado", "180.00");
+    assert.equal(view.host.querySelector("details")?.open, false, "closed by default");
+    assert.equal(view.host.querySelector("summary")?.textContent, "Más datos fiscales");
+    assert.deepEqual([...view.host.querySelectorAll("label")].map((node) => node.textContent).slice(0, 2), ["Formato606607", "ITBIS llevado al Costo"]);
+    await view.input("ITBIS llevado al Costo", "12.00");
     assert.equal(view.dirty.at(-1), true);
     await view.save();
     const request = view.writes[0];
     assert.ok(request.key);
-    assert.deepEqual(request.input, { version: view.dossier.version, dgii: { fiscal: { rnc: "199990021", ncf: "B0100000001", itbis: "180.00" }, declaration: { form: "606", category: null, itbis_cost: null, actual_refund: false, purchase_activity_id: null } } });
+    assert.deepEqual(request.input, { version: view.dossier.version, dgii: { fiscal: { rnc: "131999888", ncf: "B0100000099", itbis: "526.27" }, declaration: { form: "606", category: null, itbis_cost: "12.00", payment_method: null, actual_refund: false, purchase_activity_id: null } } });
     assert.equal(view.changes.length, 1);
     assert.equal(view.dirty.at(-1), false);
   } finally { await view.dispose(); }
@@ -82,15 +84,28 @@ test("human fiscal review keeps unknown tax values blank and sends one reviewed 
 test("a lost fiscal review response retains the exact request key and blocks edits", async () => {
   const view = await mountEditor();
   try {
-    await view.input("NCF", "B0100000001");
+    await view.input("ITBIS llevado al Costo", "12.00");
     view.fail(); await view.save();
-    assert.ok(view.host.querySelector('[role="alert"]'));
+    assert.ok(view.host.querySelector('[role="alert"] [data-testid="error-reference"]'), "the failure shows its reference");
     assert.ok([...view.host.querySelectorAll("input")].every((input) => input.disabled));
     await view.save();
     assert.deepEqual(view.writes[1], view.writes[0]);
     assert.equal(view.changes.length, 0);
     assert.equal(view.dirty.at(-1), true);
   } finally { await view.dispose(); }
+});
+
+test("an owner's 606 choice is one purchase write with its key, not a declaration", async () => {
+  const sent: { url: string; key: string | null; body: unknown }[] = [];
+  const original = globalThis.fetch;
+  process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
+  globalThis.fetch = async (url, init) => { sent.push({ url: String(url), key: new Headers(init?.headers).get("Idempotency-Key"), body: JSON.parse(String(init?.body)) }); return Response.json({}); };
+  try {
+    await reviewPurchase("draft-1", 4, { category: "02" }, "key-1");
+    assert.ok(sent[0].url.endsWith("/business/drafts/draft-1/review"));
+    assert.equal(sent[0].key, "key-1");
+    assert.deepEqual(sent[0].body, { version: 4, purchase: { category: "02" } });
+  } finally { globalThis.fetch = original; }
 });
 
 test("an absent Business RNC shows No aplica and a read-only accountant cannot edit it", async () => {
