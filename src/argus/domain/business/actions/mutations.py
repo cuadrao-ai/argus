@@ -280,7 +280,15 @@ def revise(
         )
         previous = current if isinstance(current, PurchaseDeclaration) else None
         declared = apply_purchase(previous, purchase, amount, itbis)
-        if event.state == "accepted" and changes_recorded_refund(previous, declared):
+        if (
+            event.state == "accepted"
+            and changes_recorded_refund(previous, declared)
+            and (
+                isinstance(after.kind, Known)
+                and after.kind.value == "refund"
+                or declared.actual_refund
+            )
+        ):
             raise ActionError("invalid_input", "recorded_correction_unsupported")
     return save_revision(
         tx,

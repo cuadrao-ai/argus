@@ -556,21 +556,22 @@ def test_a_wrong_refund_flag_on_an_approved_expense_can_be_cleared(actions):  # 
         ),
     )
     view = approved(service, context, draft_id, version)
-    assert txt_606(service, context)[1] is None
-    assert declared(
-        service, context, draft_id, view.version, actual_refund=False
-    ).outcome == ("applied")
     manifest, line = txt_606(service, context)
-    assert manifest["forms"]["606"]["status"] == "prepared_candidate"
-    assert line["ncf"] == "B0100002401"
+    assert manifest["forms"]["606"]["status"] == "needs_review"
+    assert line is None
 
+    cleared = declared(service, context, draft_id, view.version, actual_refund=False)
+    assert cleared.outcome == "applied", cleared
     view = service.dossier(context, draft_id)
     refused = declared(service, context, draft_id, view.version, actual_refund=True)
     assert (refused.outcome, refused.code) == (
         "invalid_input",
         "recorded_correction_unsupported",
     )
-    assert service.dossier(context, draft_id).dgii["actual_refund"] is False
+    assert service.dossier(context, draft_id).dgii.actual_refund is False
+    manifest, line = txt_606(service, context)
+    assert manifest["forms"]["606"]["status"] == "prepared_candidate"
+    assert line["ncf"] == "B0100002401"
 
 
 def test_a_credit_number_approved_as_an_expense_refuses_a_refund_claim(actions):  # noqa: ANN001
@@ -579,9 +580,7 @@ def test_a_credit_number_approved_as_an_expense_refuses_a_refund_claim(actions):
 
     service, context, _ = actions
     set_profile(service.authority, context, filer_change(FILER), "rnc")
-    draft_id, version = captured(
-        service, context, "B0400000021", {"kind": "owner_funds"}
-    )
+    draft_id, version = captured(service, context, "B0400000021", {"kind": "owner_funds"})
     view = approved(service, context, draft_id, version)
     refused = declared(service, context, draft_id, view.version, actual_refund=True)
     assert (refused.outcome, refused.code) == (
