@@ -43,6 +43,7 @@ from argus.domain.business.contracts.facts import (
     personal_mark_admits,
 )
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
+from argus.domain.business.receipts import read_attention
 from argus.domain.business.search import SearchQuery
 from argus.domain.business.service import BusinessService
 from argus.domain.business.transactions import (
@@ -359,37 +360,6 @@ def require_legacy_receipt_write(context: BusinessContext, receipt_id: str) -> N
             draft_id, ambiguous = draft_for_receipt(tx, UUID(receipt_id), None)
             if draft_id is not None or ambiguous:
                 raise ActionError("invalid_input", "business_action_required")
-
-
-def read_attention(event) -> dict:  # noqa: ANN001
-    """Why a prepared receipt still needs a person, from what the read left on
-    the draft: several purchases, none it could settle, or purchases the
-    recorded expense does not cover (until a person records or settles them)."""
-
-    business = event.resolution.get("business")
-    if business is None:
-        return {}
-    resolution = BusinessResolution.model_validate(business)
-    read = resolution.read_purchases
-    if event.state == "open" and read:
-        return {
-            "status": "needs_attention",
-            "attention": "several_purchases",
-            "error_code": "several_purchases_found",
-        }
-    if (
-        event.state == "open"
-        and resolution.read_total is not None
-        and not isinstance(resolution.facts.amount, Known)
-    ):
-        return {
-            "status": "needs_attention",
-            "attention": "no_purchase_found",
-            "error_code": "no_purchase_found",
-        }
-    if event.state == "accepted" and resolution.unrecorded_purchases():
-        return {"attention": "several_purchases", "error_code": "purchases_unrecorded"}
-    return {}
 
 
 _BRIDGE_STATUS = {

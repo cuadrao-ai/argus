@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
@@ -37,7 +37,11 @@ from argus.domain.business.contracts.facts import (
 from argus.domain.business.duplicates import pending_duplicates
 from argus.domain.business.purchase_review import takes_purchase_declaration
 from argus.domain.business.review_flags import review_flags
-from argus.domain.business.rnc_registry import postgres_rnc_fetch, registry_from_config
+from argus.domain.business.rnc_registry import (
+    RncRegistry,
+    postgres_rnc_fetch,
+    registry_from_config,
+)
 from argus.domain.business.transactions import ActionTransaction
 from argus.domain.ingestion.receipt_review import DUPLICATE_WARNINGS
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
@@ -58,6 +62,34 @@ def record_context(tx: ActionTransaction) -> RecordContext:
         accounts=tuple(AccountChoice.model_validate(row) for row in rows),
         capabilities=tx.authorization.capabilities,
     )
+
+
+def rnc_registry(tx: ActionTransaction) -> RncRegistry:
+    return registry_from_config(
+        "dgii",
+        postgres_rnc_fetch(
+            lambda query, params: next(iter(tx.rows(query, params)), None)
+        ),
+    )
+
+
+def review_questions(
+    tx: ActionTransaction, draft_ids: Sequence[UUID]
+) -> dict[str, tuple[ReviewQuestion, ...]]:
+    """The questions of each draft by id, oldest first. A draft with none has
+    no entry."""
+
+    rows = tx.rows(
+        "select id,draft_id,field,asked_of,channel,state,prompt,allowed_answers,"
+        " answer_source_id,created_at from public.business_questions"
+        " where space_id=%s and draft_id=any(%s) order by created_at,id",
+        (tx.context.actor.space_id, list(draft_ids)),
+    )
+    found: dict[str, list[ReviewQuestion]] = {}
+    for row in rows:
+        question = ReviewQuestion.model_validate(row)
+        found.setdefault(str(question.draft_id), []).append(question)
+    return {draft_id: tuple(questions) for draft_id, questions in found.items()}
 
 
 def blockers(facts: BusinessFacts, accounts: tuple[AccountChoice, ...]) -> list[Blocker]:
@@ -235,13 +267,7 @@ def dossier(
     except EventNotFound:
         raise ActionError("not_found", "business_record_not_found") from None
     facts = facts_of(event)
-    question_rows = tx.rows(
-        "select id,draft_id,field,asked_of,channel,state,prompt,allowed_answers,"
-        " answer_source_id,created_at from public.business_questions"
-        " where space_id=%s and draft_id=%s order by created_at,id",
-        (tx.context.actor.space_id, draft_id),
-    )
-    questions = tuple(ReviewQuestion.model_validate(row) for row in question_rows)
+    questions = review_questions(tx, [draft_id]).get(str(draft_id), ())
     history = tx.rows(
         "select draft_id,version,actor,before_facts as before,after_facts as after,"
         " source_ids,turn_key,created_at,before_dgii,after_dgii,before_due_on,after_due_on,before_current_note,after_current_note"
@@ -313,15 +339,7 @@ def dossier(
         questions=questions,
         history=revisions,
         blockers=tuple(blocked),
-        review_flags=review_flags(
-            facts,
-            registry_from_config(
-                "dgii",
-                postgres_rnc_fetch(
-                    lambda query, params: next(iter(tx.rows(query, params)), None)
-                ),
-            ),
-        ),
+        review_flags=review_flags(facts, rnc_registry(tx)),
         approval_available=approvable,
         duplicate_candidates=duplicate_candidates(tx, event, duplicate_ids),
         approval_action=APPROVAL_ACTION[facts.kind.value] if approvable else None,

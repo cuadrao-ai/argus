@@ -236,24 +236,8 @@ class PostgresEmailStore(PostgresSenderSeen, PostgresAddressing):
             return len(rows)
 
     def email_document_standing(self, space_id: str, document_id: str) -> str | None:
-        with (
-            self.pool.connection() as connection,
-            connection.cursor(row_factory=dict_row) as cursor,
-        ):
-            sources = cursor.execute(
-                "select distinct coalesce(s.connection_id,s.id)::text as connection_id from public.business_draft_sources l"
-                " join public.business_sources s on s.id=l.source_id and s.space_id=l.space_id"
-                " where l.draft_id=%s and l.space_id=%s",
-                (document_id, space_id),
-            ).fetchall()
-            standings = [
-                email_connection_standing(connection, space_id, source["connection_id"])
-                for source in sources
-            ]
-        for standing in standings:
-            if standing is not None and standing != "authorized":
-                return standing
-        return "authorized" if "authorized" in standings else None
+        with self.pool.connection() as connection:
+            return email_draft_standing(connection, space_id, document_id)
 
     def routes(self, recipients: tuple[str, ...]) -> list[RecipientRoute]:
         with (
@@ -776,6 +760,29 @@ def email_connection_standing(
             if sender is None or sender["status"] != "authorized":
                 return sender["status"] if sender else "new"
     return "authorized"
+
+
+def email_draft_standing(
+    connection: Connection, space_id: str, draft_id: str
+) -> str | None:
+    """The sender standing of everything a draft was built from: the first
+    that is not authorized, else authorized, else None when no email brought it."""
+
+    with connection.cursor(row_factory=dict_row) as cursor:
+        sources = cursor.execute(
+            "select distinct coalesce(s.connection_id,s.id)::text as connection_id from public.business_draft_sources l"
+            " join public.business_sources s on s.id=l.source_id and s.space_id=l.space_id"
+            " where l.draft_id=%s and l.space_id=%s",
+            (draft_id, space_id),
+        ).fetchall()
+    standings = [
+        email_connection_standing(connection, space_id, source["connection_id"])
+        for source in sources
+    ]
+    for standing in standings:
+        if standing is not None and standing != "authorized":
+            return standing
+    return "authorized" if "authorized" in standings else None
 
 
 def _remember_email_origin(connection, space_id, document_id) -> None:

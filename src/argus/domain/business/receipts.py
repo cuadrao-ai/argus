@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Literal
 
+from argus.domain.business.contracts.facts import BusinessResolution, Known
 from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionBatch
 from argus.domain.ingestion.documents.service import entered_by_owner
 from argus.domain.ingestion.receipt_review import (
@@ -265,6 +266,37 @@ class Receipt:
             "missing_fields": self.missing_fields,
             "due_on": None,
         }
+
+
+def read_attention(event) -> dict:  # noqa: ANN001
+    """Why a prepared receipt still needs a person, from what the read left on
+    the draft: several purchases, none it could settle, or purchases the
+    recorded expense does not cover (until a person records or settles them)."""
+
+    business = event.resolution.get("business")
+    if business is None:
+        return {}
+    resolution = BusinessResolution.model_validate(business)
+    read = resolution.read_purchases
+    if event.state == "open" and read:
+        return {
+            "status": "needs_attention",
+            "attention": "several_purchases",
+            "error_code": "several_purchases_found",
+        }
+    if (
+        event.state == "open"
+        and resolution.read_total is not None
+        and not isinstance(resolution.facts.amount, Known)
+    ):
+        return {
+            "status": "needs_attention",
+            "attention": "no_purchase_found",
+            "error_code": "no_purchase_found",
+        }
+    if event.state == "accepted" and resolution.unrecorded_purchases():
+        return {"attention": "several_purchases", "error_code": "purchases_unrecorded"}
+    return {}
 
 
 def review_fields(review: ReceiptReview) -> dict[str, str | None]:
