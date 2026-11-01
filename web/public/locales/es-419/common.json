@@ -2936,6 +2936,7 @@
         "zoom_out": "Alejar",
         "done_title": "No quedan recibos por revisar",
         "done_back": "Volver a la Bandeja",
+        "total_mismatch": "Subtotal + ITBIS = {{sum}}, no {{total}}",
         "save_first": "Guarda o cancela {{fields}} para aprobar.",
         "group_identity": "Identificación",
         "group_amounts": "Montos",

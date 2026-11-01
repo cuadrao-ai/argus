@@ -75,6 +75,12 @@ export function doubtfulFields(dossier: Pick<BusinessDossier, "review_flags" | "
   return new Set([...(dossier.review_flags ?? []).map((flag) => flag.field), ...Object.keys(read?.detail ?? {}).map((field) => field === "total" ? "amount" : field)]);
 }
 
+/** The server's two figures when the e-CF's parts do not add up to its total. The web never adds them itself. */
+export function totalMismatch(dossier: Pick<BusinessDossier, "ecf_checks">): { sum: string; total: string } | null {
+  const check = dossier.ecf_checks?.checks.find((item) => item.name === "totals_arithmetic" && item.state === "failed" && item.code === "totals_mismatch");
+  return check?.detail.sum_of_parts && check.detail.monto_total ? { sum: check.detail.sum_of_parts, total: check.detail.monto_total } : null;
+}
+
 export const RECORD_FIELDS: readonly BusinessFactField[] = ["kind", "counterparty", "occurred_on", "amount", "currency", "category_id", "funding", "business_share", "receipt_state"];
 
 /** Where the form shows each field: the activity section, the fiscal section (which opens with the receipt state), then how it was paid. */

@@ -24,6 +24,8 @@ export const dossierFixtureIds = {
   saveRefused: "10000000-0000-4000-8000-000000000017",
   /** The fiscal record with a receipt image as its original. */
   fiscalAttached: "10000000-0000-4000-8000-000000000018",
+  /** The fiscal record whose e-CF file does not add up to its total. */
+  totalsOff: "10000000-0000-4000-8000-000000000019",
 } as const;
 
 /** The server's code tables (`dgii_codes.py`) and form columns (`dgii_form.py`), for the preview. */
@@ -125,6 +127,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   dossiers.set(dossierFixtureIds.saveRefused, { ...fiscalSample, draft_id: dossierFixtureIds.saveRefused });
   dossiers.set(dossierFixtureIds.fiscalBlocked, { ...fiscalSample, draft_id: dossierFixtureIds.fiscalBlocked, facts: { ...fiscalAfter, occurred_on: unknown() }, blockers: [{ code: "fact_required", field: "occurred_on" }], approval_available: false });
   dossiers.set(dossierFixtureIds.fiscalAttached, { ...fiscalSample, draft_id: dossierFixtureIds.fiscalAttached, sources: [{ id: sourceId, kind: "attachment", channel: "whatsapp", received_at: "2026-10-10T14:20:00Z", connection_id: "rcpt-ferreteria", filename: "recibo-ferreteria.jpg", media_type: "image/jpeg" }] });
+  dossiers.set(dossierFixtureIds.totalsOff, { ...fiscalSample, draft_id: dossierFixtureIds.totalsOff, ecf_checks: { ...fiscalChecks, checks: fiscalChecks.checks.map((check) => check.name === "totals_arithmetic" ? { ...check, state: "failed" as const, code: "totals_mismatch", detail: { monto_total: "3450.00", sum_of_parts: "3449.00" } } : check) } });
   const proposalDossier = dossiers.get(dossierFixtureIds.proposal)!;
   dossiers.set(proposalDossier.draft_id, { ...proposalDossier, facts: { ...proposalDossier.facts, funding: { ...known({ kind: "business_account", account_id: accounts[0].id }), origin: "extracted" }, category_id: { ...known("other"), origin: "extracted" } }, sources: [{ id: sourceId, kind: "agent_proposal", channel: "web", received_at: "2026-10-10T14:20:00Z", text: "Propuesta: gasto de 3,450 DOP en Ferretería La Esquina para pintura del taller. Revisar antes de aprobar." }], history: [{ ...proposalDossier.history[0], after: { ...proposalDossier.facts, funding: { ...known({ kind: "business_account", account_id: accounts[0].id }), origin: "extracted" }, category_id: { ...known("other"), origin: "extracted" } } }] });
   // Revision 2 approved (the approval took version 3), then Elena marked it Personal: revision 4.

@@ -9,9 +9,9 @@ import { rncStatus } from "@/lib/rnc-status";
 import RncStatusBlock from "./RncStatusBlock";
 import type { RowShown } from "./ReceiptEditRow";
 import { useCategoryLabel } from "./business-ui";
-import { UNKNOWN_VALUE } from "./business-format";
+import { formatMoney, UNKNOWN_VALUE } from "./business-format";
 import { presentBusinessFact, presentFiscalFact } from "./receipt-fact-presentation";
-import { KIND_FIELDS, PAYMENT_FIELDS, doubtfulFields, fiscalFactRows, recordFactRows, type FactRow, type ReviewRow } from "./receipt-fact-rows";
+import { KIND_FIELDS, PAYMENT_FIELDS, doubtfulFields, fiscalFactRows, recordFactRows, totalMismatch, type FactRow, type ReviewRow } from "./receipt-fact-rows";
 import type { AttentionItem } from "./dossier-attention";
 import { resolveLanguage } from "@/lib/language-features";
 
@@ -120,6 +120,10 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     </div>
   );
 
+  const mismatch = totalMismatch(dossier);
+  const inCurrency = (amount: string) => formatMoney(amount, dossier.facts.currency.value, locale) || amount;
+  const mismatchLine = mismatch ? <span data-testid="total-mismatch" className="cuadrao-amount mt-1 block text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{t("business.dossier.placeholder.total_mismatch", { sum: inCurrency(mismatch.sum), total: inCurrency(mismatch.total), defaultValue: "Subtotal + ITBIS = {{sum}}, not {{total}}" })}</span> : null;
+
   const recordField = (key: BusinessFactField) => {
     const label = t(`business.dossier.field.${key}`, key);
     const value = presentBusinessFact(key, dossier.facts, accounts, locale, labels);
@@ -130,7 +134,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     const tag = origin(key, dossier.facts[key]);
     const fact = dossier.facts[key];
     const match = [value, fact.state === "known" && typeof fact.value === "string" ? fact.value : null];
-    if (review) return field(key, label, review.row(key, { label, value: value ? <>{value}{tag}</> : "" }), row, undefined, match);
+    if (review) return field(key, label, review.row(key, { label, value: value ? <>{value}{tag}</> : "" }), row, key === "amount" ? mismatchLine : undefined, match);
     return field(key, label, key === "occurred_on" && !value ? UNKNOWN_VALUE : value, row, tag, match);
   };
 

@@ -435,6 +435,15 @@ describe("the receipt dossier on an open draft", () => {
     } finally { await page.close(); }
   });
 
+  test("the total line shows only when the server says the parts do not add up, with the server's figures", async () => {
+    const quiet = await setup();
+    try { assert.equal(quiet.host.querySelector('[data-testid="total-mismatch"]'), null); } finally { await quiet.close(); }
+    const page = await setup("totalsOff");
+    try {
+      assert.equal(page.row("amount").querySelector('[data-testid="total-mismatch"]')?.textContent, "Subtotal + ITBIS = RD$ 3,449.00, no RD$ 3,450.00");
+    } finally { await page.close(); }
+  });
+
   test("Corregir on a flagged value opens that value's row", async () => {
     const page = await setup("fiscal", (dossier) => { dossier.review_flags = [{ code: "ncf_malformed", field: "ncf", confirm: true }]; });
     try {

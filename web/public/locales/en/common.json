@@ -2936,6 +2936,7 @@
         "zoom_out": "Zoom out",
         "done_title": "No receipts left to review",
         "done_back": "Back to Inbox",
+        "total_mismatch": "Subtotal + ITBIS = {{sum}}, not {{total}}",
         "save_first": "Save or cancel {{fields}} to approve.",
         "group_identity": "Identification",
         "group_amounts": "Amounts",
