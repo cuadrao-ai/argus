@@ -9377,10 +9377,12 @@ and writes nothing. `purchase` sits beside `facts`, not inside
 it: `BusinessFactPatch` is the patch the interpreter fills, and a tax field is
 never the model's to fill. The
 identifiers in `dgii.fiscal` (`rnc`, `ncf`) and `modified_ncf` are normalized on
-the server before their shape applies: spaces and dashes are removed and letters
-upper-cased, so an RNC printed `1-23-45678-9` saves as `123456789` and
-`b0100000001` as `B0100000001`; any other character is still a 422
-`validation_error`. On an approved (`accepted`) draft the same route accepts a
+the server before their shape applies: the dashes and spaces printed between
+digit groups are removed and `a` to `z` upper-cased, so an RNC printed
+`1-23-45678-9` saves as `123456789` and `b0100000001` as `B0100000001`.
+Nothing else is folded: a word typed in the field (`no tiene`), a separator
+beside a letter (`ab-123`) and a letter that upper-cases to two (`ß`) are still
+a 422 `validation_error`. On an approved (`accepted`) draft the same route accepts a
 review that carries only `purchase`: it writes the declaration as one more
 revision with the same web source and action receipt, the recorded facts
 unchanged, until the record's line is carried by a downloaded DGII TXT, after

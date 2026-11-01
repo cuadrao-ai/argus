@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+import string
 from datetime import date
 from decimal import Decimal
 from typing import Annotated, Literal
@@ -16,15 +18,20 @@ from pydantic import (
 
 Money = Annotated[str, StringConstraints(pattern=r"^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$")]
 
+_ASCII_UPPER = str.maketrans(string.ascii_lowercase, string.ascii_uppercase)
+_PRINTED_SEPARATOR = re.compile(r"(?<=[0-9])[-\s]+(?=[0-9])")
+
 
 def _printed_identifier(value: object) -> object:
     """An RNC, cédula or NCF as a person keys it or a read kept it: the
-    dashes and spaces it was printed with go, letters become upper case. The
-    one place that cleans fiscal input; every reader after it sees digits."""
+    dashes and spaces printed between its digit groups go, and a to z become
+    upper case. Nothing else is folded, so a letter that upper-cases to two
+    and a word typed into the field still fail the shape. The one place that
+    cleans fiscal input; every reader after it sees digits."""
 
     if not isinstance(value, str):
         return value
-    return "".join(char for char in value if char != "-" and not char.isspace()).upper()
+    return _PRINTED_SEPARATOR.sub("", value.strip()).translate(_ASCII_UPPER)
 
 
 Identifier = Annotated[
