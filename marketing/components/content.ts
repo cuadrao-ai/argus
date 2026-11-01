@@ -30,7 +30,7 @@ const es = {
     descriptionHint: "Cuéntanos con tus palabras. Por ejemplo: gastos en efectivo o compras sin factura.",
     descriptionPlaceholder: "Ej.: Cada mes pierdo horas juntando facturas.",
     roleLabel: "Soy",
-    roleOptions: { owner: "Dueño/a de un negocio", accountant: "Contador/a", other: "Otro" },
+    roleOptions: { owner: "Dueño/a de un negocio", accountant: "Contable", other: "Otro" },
     channelLabel: "¿Cómo prefieres que te escribamos?",
     channelOptions: { email: "Correo", whatsapp: "WhatsApp" },
     sourceLabel: "¿Cómo supiste de Cuadrao?",
