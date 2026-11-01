@@ -49,7 +49,10 @@ def reviewed_fiscal_facts(
     typed = review.fiscal
     if printed_identifier(_held(current.rnc)) != typed.rnc:
         stated("rnc", typed.rnc)
-    if printed_identifier(_held(current.ecf) or _held(current.ncf)) != typed.ncf:
+    # Readers trim and upper-case a fiscal number but keep its separators, so a
+    # stored separator is malformed and a typed clean number is a real change.
+    number = _held(current.ecf) or _held(current.ncf)
+    if (number and number.strip().upper()) != typed.ncf:
         electronic = typed.ncf is not None and typed.ncf.startswith("E")
         stated("ecf", typed.ncf if electronic else None)
         stated("ncf", None if electronic else typed.ncf)
