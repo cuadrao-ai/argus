@@ -5,6 +5,7 @@ from datetime import date, datetime, timezone
 from zipfile import ZipFile
 
 import pytest
+from argus.domain.business.contracts.actions import ReviewDraft
 from argus.domain.business.contracts.dgii import PurchaseReview
 from argus.domain.business.contracts.facts import BusinessFactPatch, Unknown
 from argus.domain.business.dgii_line import reason
@@ -354,21 +355,25 @@ class TestReviewChecklist:
         detail = one(record).files[FORM].decode("ascii").split("\r\n")[1].split("|")
         assert detail[2] == "11"
 
-    def test_purchase_review_accepts_the_606_codes_and_stays_off_the_model_schema(self):
-        schema = BusinessFactPatch.model_json_schema()
-        assert "purchase" not in schema["properties"]
-        patch = BusinessFactPatch.model_validate(
+    def test_purchase_review_rides_the_review_body_and_stays_off_the_model_schema(self):
+        """The interpreter fills BusinessFactPatch, so a tax field is never there.
+        The review route's body carries it, and the published schema says so."""
+
+        assert "purchase" not in BusinessFactPatch.model_json_schema()["properties"]
+        assert "purchase" in ReviewDraft.model_json_schema()["properties"]
+        body = ReviewDraft.model_validate(
             {
+                "version": 1,
                 "purchase": {
                     "category": "03",
                     "category_suggested": True,
                     "payment_method": "04",
-                }
+                },
             }
         )
-        assert patch.purchase.category == "03"
+        assert body.purchase.category == "03"
         with pytest.raises(ValidationError):
-            BusinessFactPatch.model_validate({"purchase": {"category": "99"}})
+            ReviewDraft.model_validate({"version": 1, "purchase": {"category": "99"}})
 
     def test_a_confirmed_service_type_fills_the_services_amount(self):
         declared = apply_purchase(None, PurchaseReview(category="02"), "1000.00")
