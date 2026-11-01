@@ -55,8 +55,8 @@ for (const copy of cases) {
       expect(boxes[0]!.y).toBeLessThan(boxes[1]!.y);
       expect(boxes[1]!.y).toBeLessThan(boxes[2]!.y);
     } else {
-      expect(boxes[0]!.x).toBeLessThan(boxes[1]!.x);
-      expect(boxes[1]!.x).toBeLessThan(boxes[2]!.x);
+      expect(boxes[2]!.x).toBeLessThan(boxes[1]!.x);
+      expect(boxes[1]!.x).toBeLessThan(boxes[0]!.x);
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
   });

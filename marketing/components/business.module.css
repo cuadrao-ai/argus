@@ -808,7 +808,5 @@
     grid-template-columns: 1.4fr repeat(3, 1fr);
     gap: 0 32px;
   }
-  .businessFooter .businessFooterGrid nav { gap: 0; }
-  .businessFooter .businessFooterGrid nav > a { min-height: 32px; }
   .businessFooter .footerBar { margin-top: 32px; }
 }

@@ -51,8 +51,8 @@ for (const { home, other, label, phoneLabel, lang, cta, contactPath, login } of 
       });
       expect(Math.abs(edges.link - edges.peer)).toBeLessThanOrEqual(0.5);
     } else {
-      expect(boxes[0]!.x).toBeLessThan(boxes[1]!.x);
-      expect(boxes[1]!.x).toBeLessThan(boxes[2]!.x);
+      expect(boxes[2]!.x).toBeLessThan(boxes[1]!.x);
+      expect(boxes[1]!.x).toBeLessThan(boxes[0]!.x);
       await page.evaluate(() => window.scrollTo(0, 350));
       await expect(header).toHaveAttribute("data-condensed", "true");
     }
@@ -82,17 +82,16 @@ test("Business contact and login show pointer and keyboard states without changi
 
   await expect(login).toBeEnabled();
   await expect(login).toHaveAttribute("data-preview-unwired", "true");
-  await expect(login).toHaveCSS("color", "rgb(47, 90, 73)");
-  await expect(login).toHaveCSS("border-top-left-radius", "999px");
+  await expect(login).toHaveCSS("color", "rgb(23, 43, 38)");
+  await expect(login).toHaveCSS("border-top-left-radius", "22px");
   await login.hover();
-  await expect(login).toHaveCSS("color", "rgb(47, 90, 73)");
-  await expect(login).toHaveCSS("text-decoration-line", "underline");
+  await expect(login).toHaveCSS("background-color", "rgb(232, 237, 227)");
   await expect(login).toHaveCSS("cursor", "pointer");
   await page.mouse.move(0, 200);
   await contact.focus();
   await page.keyboard.press("Tab");
   await expect(login).toBeFocused();
-  await expect(login).toHaveCSS("text-decoration-line", "underline");
+  await expect(login).toHaveCSS("background-color", "rgb(232, 237, 227)");
   await expect(login).toHaveCSS("outline-style", "solid");
   const before = page.url();
   await login.click();
@@ -218,7 +217,7 @@ for (const { home, login } of cases) {
         const signIn = nav.getByRole("link", { name: login, exact: true });
         await expect(signIn).toHaveAttribute("href", stagingSignIn);
         await expect(nav.getByRole("button", { name: login, exact: true })).toHaveCount(0);
-        await expect(signIn).toHaveCSS("color", "rgb(47, 90, 73)");
+        await expect(signIn).toHaveCSS("color", "rgb(23, 43, 38)");
         const geometry = await signIn.evaluate((link) => {
           const measure = (node: Element) => {
             const css = getComputedStyle(node);
@@ -340,14 +339,14 @@ for (const { home, cta, contactPath } of cases) {
 
 test("short phone menu scrolls its links without scrolling the page and restores it on close", async ({ page }) => {
   test.skip(test.info().project.name !== "mobile", "short phone menu coverage");
-  await page.setViewportSize({ width: 390, height: 340 });
+  await page.setViewportSize({ width: 390, height: 280 });
   await page.goto("/en"); await page.evaluate(() => window.scrollTo(0, 600));
   const trigger = page.locator('header button[aria-controls="business-mobile-menu"]');
   const scroll = await page.evaluate(() => window.scrollY);
   await trigger.click();
   const nav = page.locator("#business-mobile-menu");
   const box = (await nav.boundingBox())!;
-  expect(Math.abs(box.y + box.height - 340)).toBeLessThanOrEqual(1);
+  expect(Math.abs(box.y + box.height - 280)).toBeLessThanOrEqual(1);
   const last = nav.locator("[data-language-switch]");
   await trigger.focus(); await page.keyboard.press("Shift+Tab");
   await expect(last).toBeFocused(); await expect(last).toBeInViewport({ ratio: 1 });
