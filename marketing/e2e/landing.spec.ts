@@ -23,7 +23,7 @@ test("the whole page passes an accessibility scan with motion off", async ({ bro
   await context.close();
 });
 
-for (const path of [PATH, "/contacto"]) {
+for (const path of [PATH, "/contacto", "/privacidad"]) {
   test(`${path} says contable, never contador`, async ({ page }) => {
     await page.goto(path);
     const text = await page.locator("body").evaluate((node) => node.textContent ?? "");
