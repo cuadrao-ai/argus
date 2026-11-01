@@ -1,6 +1,6 @@
 # Cuadrao receipt intake architecture
 
-**Status:** proposal for the pilot, November 1, 2026. Option B below is recommended and not yet approved. Nothing here is built.
+**Status:** approved for the pilot, November 1, 2026. The founder picked Option B. Step 1 of the order of work is built and default off, and no hosted service runs it.
 **Evidence:** measured at `3be901133` on a local copy of the staging shape (0.5 CPU, 512 MiB, real Postgres, Auth and Storage, fake 30 second read). These are not hosted numbers.
 
 ## The rule
@@ -52,7 +52,7 @@ Each limit guards one thing. The numbers are proposals, and the pilot will teach
 | Uploads in flight | API memory | Process | 3 |
 | Upload rate | API | Person | 120 per minute |
 | Daily uploads | Abuse | Person | 1,000 |
-| Reads at once | Provider and worker memory | Worker | 3 |
+| Reads at once | Provider and worker memory | All workers | 3 |
 | Reads per day | Spend | Business | 300, about $7.50 |
 | Reads per month | Spend | Business | 2,000, about $50 |
 
@@ -80,4 +80,4 @@ Bridge until then: raise the upload day limit to 150, and keep 5 per minute.
 - Real phone photos.
 - Render plan and worker price.
 
-`docs/ARCHITECTURE.md` names Render Workflows for receipt jobs. If Option B is approved, that line changes in the same work.
+`docs/ARCHITECTURE.md` records why receipt reads use the plain worker and not Render Workflows: the need is a concurrency cap.

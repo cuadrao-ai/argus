@@ -106,7 +106,7 @@ bounded runtime contract and its migration plan.
 
 | Foundation | Direction | What remains to deliver |
 | --- | --- | --- |
-| Render Workflows | Extend the existing backtest execution foundation to assigned receipt, import and export jobs. | Separate task families, persisted product state, duplicate-safe effects, bounded retries and recovery after interruption. Document preparation currently uses FastAPI background tasks; this extension is not already delivered. |
+| Render Workflows | Extend the existing backtest execution foundation to assigned import and export jobs. Receipt reads run in a plain background worker instead, as recorded below. | Separate task families, persisted product state, duplicate-safe effects, bounded retries and recovery after interruption. This extension is not already delivered. |
 | LangGraph | Start from the existing orchestration and checkpointing foundation. | Define Cuadrao's state and action contract. Preserve the active Argus runtime until its authorized transition; do not start a second chat brain per client. |
 | Mem0 and pgvector | Reuse the existing semantic-recall integration; retain Supabase/Postgres as the storage foundation rather than adding a second memory database. | Define Cuadrao recall scope, consent, correction, revocation, deletion and first-release availability in #826. The current adapter configures pgvector and returns canonical record IDs; this is code evidence, not hosted enablement evidence. |
 | On-demand context injection | Retrieve the permitted records and memories needed for the current request. | Resolve retrieved IDs through current authorization and canonical records before model dispatch. Define bounded context selection and stale/deleted/revoked-result handling; similarity is not authority or financial truth. |
@@ -130,6 +130,14 @@ This lock supersedes the earlier blanket pgvector deferral for Cuadrao memory;
 it does not authorize a general vector-search rewrite, provider activation or a
 new runtime. No library license or copied application-code rights are established
 by this reuse map.
+
+Founder decision, November 1, 2026: receipt reads leave the API for a plain
+background worker, `python -m workflows.document_worker`, which pulls from
+Postgres. The unmet requirement is a concurrency cap: a Render Workflow starts
+every run it is given and has no cap setting, so a burst of reads would need a
+gate in the API. The worker holds one setting for reads at once. It is built and
+default off, and no hosted service runs it yet. The measurements and the order of
+work live in [the receipt intake architecture](specs/cuadrao-receipt-intake-architecture.md).
 
 Retirement inventories describe old tasks and configuration, not blanket deletion
 of these foundations. Before removal, name current callers, the replacement
