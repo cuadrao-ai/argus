@@ -91,6 +91,17 @@ def test_a_draft_with_nothing_missing_is_listo() -> None:
         (with_facts(currency=Unknown()), "missing_currency"),
         (with_facts(fiscal=None), "missing_rnc"),
         (with_fiscal(rnc=Unknown()), "missing_rnc"),
+        (
+            with_facts(receipt_state=known("no_receipt"), fiscal=None),
+            "sin_comprobante",
+        ),
+        (
+            with_facts(
+                receipt_state=known("informal_receipt"),
+                fiscal=FACTS.fiscal.model_copy(update={"ncf": Unknown()}),
+            ),
+            "sin_comprobante",
+        ),
         (with_fiscal(rnc=known("12345")), "invalid_rnc"),
         (
             replace(
@@ -135,6 +146,10 @@ def test_each_gap_has_its_reason(draft: DraftStanding, reason: str) -> None:
     assert listo_reason(draft) == reason
     found = group_of(OPEN_VIEW, draft)
     assert (found["group"], found["reason"]) == ("attention", reason)
+
+
+def test_a_stated_no_comprobante_on_a_record_with_a_number_is_no_gap() -> None:
+    assert listo_reason(with_facts(receipt_state=known("no_receipt"))) is None
 
 
 def test_an_authorized_sender_is_no_gap() -> None:

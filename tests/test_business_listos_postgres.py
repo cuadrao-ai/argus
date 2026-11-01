@@ -430,6 +430,33 @@ def test_an_edit_moves_a_receipt_between_the_groups(rig) -> None:  # noqa: ANN00
     assert _counts(rig) == (0, 1)
 
 
+@pytest.mark.parametrize("read", [{"ncf": None}, {"ncf": None, "rnc": None}])
+def test_a_record_with_no_comprobante_says_so_and_takes_no_606(  # noqa: ANN201
+    rig,  # noqa: ANN001
+    read: dict,
+):
+    receipt = _read(rig, read)
+    item = _named(rig, receipt)
+    no_comprobante = {"state": "known", "value": "no_receipt"}
+    dossier = _review(rig, item, {"facts": {"receipt_state": no_comprobante}})
+
+    assert dossier["sin_comprobante"] is True
+    assert _group(rig, receipt) == ("attention", "sin_comprobante")
+    assert _counts(rig) == (0, 1)
+    assert dossier["declaration_editable"] is False
+    assert dossier["expense_type_suggestion"] is None
+    listed = _named(rig, receipt)
+    assert _results(_approve_many(rig, [listed])) == [("refused", "not_listo")]
+
+    refused = rig.client.patch(
+        f"{API}/business/drafts/{listed['draft_id']}/review",
+        json={"version": listed["version"], "purchase": {"category": "02"}},
+        headers={**rig.alice.headers, "Idempotency-Key": str(uuid4())},
+    )
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["code"] == "fiscal_direction_unsupported"
+
+
 def test_a_sale_stays_out_of_the_faster_way(rig) -> None:  # noqa: ANN001
     sale = _read(rig)
     _review(rig, _named(rig, sale), {"document_type": "venta"})

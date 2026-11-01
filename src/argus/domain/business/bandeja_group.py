@@ -22,6 +22,7 @@ from argus.domain.business.contracts.facts import (
     FiscalFacts,
     Known,
     is_personal,
+    is_sin_comprobante,
 )
 from argus.domain.business.fiscal_identity import identity_digits
 from argus.domain.business.receipt_activity import awaiting_owner
@@ -39,6 +40,7 @@ ListoGap = Literal[
     "missing_date",
     "missing_amount",
     "missing_currency",
+    "sin_comprobante",
     "missing_rnc",
     "invalid_rnc",
     "missing_ncf",
@@ -118,6 +120,7 @@ RULE: tuple[tuple[BandejaReason, Callable[[DraftStanding], bool]], ...] = (
     ("missing_date", lambda draft: _lacks(draft, "occurred_on")),
     ("missing_amount", lambda draft: _lacks(draft, "amount")),
     ("missing_currency", lambda draft: _lacks(draft, "currency")),
+    ("sin_comprobante", lambda draft: is_sin_comprobante(draft.facts)),
     ("missing_rnc", lambda draft: _blank(_fiscal(draft).rnc)),
     ("invalid_rnc", _invalid_rnc),
     ("missing_ncf", _no_number),

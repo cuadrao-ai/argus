@@ -9182,6 +9182,7 @@ A receipt is `listo` only when the server confirms all of these, in this order:
 | No duplicate | `duplicate`, for a possible repeat no person settled, or another open, accepting or accepted purchase with the same supplier RNC and comprobante |
 | A purchase receipt | `sale` for a Venta, whose kind is income; `credit_note` for a refund or a B04 or E34 number |
 | Supplier, date, total and currency | `missing_merchant`, `missing_date`, `missing_amount`, `missing_currency` |
+| A comprobante, unless a person said there is none | `sin_comprobante`, for a record a person stated has no comprobante fiscal (`sin_comprobante` true), in place of the `missing_rnc` and `missing_ncf` a read gap gives. Such a record stays in `attention` and is approved alone |
 | An RNC or cédula with a valid check digit | `missing_rnc`; `invalid_rnc` when it is not 9 or 11 digits, or its check digit fails and the DGII register does not list it, the rule the 606 export applies |
 | A valid NCF or e-CF | `missing_ncf`; `invalid_ncf`; `ecf_check_failed` for a failed check on the e-CF or its QR, or a file that names an e-CF the record does not hold |
 | ITBIS | `missing_itbis` |
@@ -9364,8 +9365,9 @@ approve action this draft takes, by its kind (`record_expense`,
 discriminates on), and null while `approval_available` is false.
 `declaration_editable` is true while the caller may write the 606
 declaration: the caller holds `prepare`, the record takes a 606 (an income,
-whether it holds a 607 or nothing, reads false), and the draft is open, or
-approved and not yet carried by a downloaded DGII TXT.
+whether it holds a 607 or nothing, and a record with `sin_comprobante` true read
+false, and a 606 write on either answers 422 `fiscal_direction_unsupported`),
+and the draft is open, or approved and not yet carried by a downloaded DGII TXT.
 `payment_split_editable` is true on the same terms for a sale: an income with
 no 606 declaration. `expense_type_suggestion` is the tipo de gasto (`01` to
 `11`) a person last chose for this draft's supplier RNC in this Business, on
