@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check, LoaderCircle } from "lucide-react";
 import { businessPath } from "@/lib/site-routes";
 import { businessContent, type BusinessLocale } from "./content";
 import { newSubmissionId } from "./submission-id";
@@ -374,10 +374,15 @@ export function ContactForm({ locale }: { locale: BusinessLocale }) {
               type="submit"
               disabled={!hydrated}
               aria-disabled={sending}
+              aria-busy={sending}
               className={`${styles.button} ${styles.submit}`}
             >
               {sending ? copy.sending : copy.submit}
-              <ArrowRight size={18} aria-hidden="true" />
+              {sending ? (
+                <LoaderCircle className={styles.submitSpinner} size={18} aria-hidden="true" />
+              ) : (
+                <ArrowRight size={18} aria-hidden="true" />
+              )}
             </button>
             <p className={styles.nextStep}>{copy.nextStep}</p>
           </fieldset>

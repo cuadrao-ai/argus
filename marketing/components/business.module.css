@@ -1229,6 +1229,31 @@
 .submit:hover {
   background: var(--cta-deep);
 }
+.site .submit:disabled {
+  border-color: #c3ccbf;
+  background: #dfe4da;
+  color: #4f5d50 !important;
+  cursor: not-allowed;
+  opacity: 1;
+}
+.submit[aria-disabled="true"],
+.submit[aria-disabled="true"]:hover {
+  background: var(--cta-rest);
+  cursor: not-allowed;
+}
+.submit:is(:disabled, [aria-disabled="true"]):hover svg {
+  transform: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .submit .submitSpinner {
+    animation: submitSpin 900ms linear infinite;
+  }
+}
+@keyframes submitSpin {
+  to {
+    rotate: 360deg;
+  }
+}
 .button:hover svg {
   transform: translate(2px, -2px);
 }

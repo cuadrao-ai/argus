@@ -9,8 +9,8 @@ import {
 } from "./support";
 
 const COPY = {
-  es: { path: "/contacto", send: "Enviar mensaje", sent: "Recibimos tu mensaje.", unavailable: /No pudimos enviar tu mensaje/ },
-  en: { path: "/en/contact", send: "Send message", sent: "We received your message.", unavailable: /We couldn.t send your message/ },
+  es: { path: "/contacto", send: "Enviar mensaje", sending: "Enviando…", sent: "Recibimos tu mensaje.", unavailable: /No pudimos enviar tu mensaje/ },
+  en: { path: "/en/contact", send: "Send message", sending: "Sending…", sent: "We received your message.", unavailable: /We couldn.t send your message/ },
 } as const;
 
 test.beforeEach(async ({ request, context }, info) => {
@@ -70,6 +70,22 @@ for (const locale of ["es", "en"] as const) {
       await expect.poll(background).toBe("rgb(47, 90, 73)");
       await button.hover();
       await expect.poll(background).toBe("rgb(29, 66, 54)");
+    });
+
+    test("while sending, the button stays green and shows it is busy", async ({ page, request }, info) => {
+      await page.goto(copy.path);
+      await page.locator("#contact-name").fill("Ana");
+      await page.locator("#contact-email").fill(uniqueAddress(info));
+      await setMode(request, { resendDelayMs: 600 });
+      await page.getByRole("button", { name: copy.send }).click();
+      const button = page.locator('main button[type="submit"]');
+      await expect(button).toHaveText(copy.sending);
+      await expect(button).toHaveAttribute("aria-disabled", "true");
+      await expect(button).toHaveAttribute("aria-busy", "true");
+      await expect(button.locator("svg.lucide-loader-circle")).toBeVisible();
+      await expect(button).toHaveCSS("background-color", "rgb(47, 90, 73)");
+      await expect(button).toHaveCSS("cursor", "not-allowed");
+      await expect(page.getByRole("heading", { name: copy.sent })).toBeVisible();
     });
 
     test("a double click sends one request and one message", async ({ page, request }, info) => {
@@ -152,7 +168,12 @@ test("without JavaScript the form cannot be submitted natively", async ({ browse
   const page = await context.newPage();
   await page.goto("/contacto");
   await expect(page.locator("#contact-email")).toBeDisabled();
-  await expect(page.locator('main button[type="submit"]')).toBeDisabled();
+  const button = page.locator('main button[type="submit"]');
+  await expect(button).toBeDisabled();
+  await expect(button).toHaveCSS("background-color", "rgb(223, 228, 218)");
+  await expect(button).toHaveCSS("color", "rgb(79, 93, 80)");
+  await expect(button).toHaveCSS("opacity", "1");
+  await expect(button).toHaveCSS("cursor", "not-allowed");
   await expect(page.locator("main")).toContainText("JavaScript", { useInnerText: true });
   expect(new URL(page.url()).search).toBe("");
   await context.close();
