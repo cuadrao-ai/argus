@@ -8,7 +8,7 @@ import { BusinessContext, type BusinessContextValue } from "@/components/busines
 import { ConnectedBusinessReports, reportFiltersForUi, reportFiltersFromUi } from "@/components/business-app/transacciones/BusinessReportsPanel";
 import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
 import { emptyPreviewFilters, validPreviewAmount } from "@/components/business-app/transacciones/records-filter-preview-model";
-import { reportRequestSchema, type ReportRequest } from "@/lib/business-reports-api";
+import { reportRequestSchema, type ReportRecord, type ReportRequest } from "@/lib/business-reports-api";
 import { restoreReportLocation } from "@/lib/business-reporting-wire";
 import { setChosenGrant } from "@/lib/business-grant";
 import { createBusinessReportHttpFixture, fixtureId } from "./fixtures/business-report-http-fixture";
@@ -22,10 +22,10 @@ const originalMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
 beforeAll(() => { process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 900 }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
 afterEach(async () => { await cleanup(); (await import("@/components/layout/overlayStack")).resetOverlayStack(); document.body.innerHTML = ""; (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL("http://localhost/biz"); });
 afterAll(async () => { await GlobalRegistrator.unregister(); if (originalMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMock; });
-async function mount(options: { readOnly?: boolean; large?: boolean; legacy?: boolean; initial?: ReportRequest; width?: number; role?: string } = {}) {
+async function mount(options: { readOnly?: boolean; large?: boolean; legacy?: boolean; initial?: ReportRequest; width?: number; role?: string; edit?: (records: ReportRecord[]) => void } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width: options.width ?? 1440, height: 900 });
   const { createRoot } = await import("react-dom/client");
-  const fixture = createBusinessReportHttpFixture(); if (options.large) { fixture.records[0].gross_amount = "9007199254740993.01"; fixture.records[0].recorded_amount = "9007199254740993.01"; fixture.records[3].document_kind = "credit_note"; fixture.records[3].gross_amount = "20.00"; fixture.records[3].adjustment_effect = "known"; fixture.records[4].gross_amount = "-20.00"; fixture.records[4].document_kind = "credit_note"; fixture.records[4].adjustment_effect = "known"; } fixture.controls.readOnly = options.readOnly ?? false; fixture.controls.legacy = options.legacy ?? false;
+  const fixture = createBusinessReportHttpFixture(); options.edit?.(fixture.records); if (options.large) { fixture.records[0].gross_amount = "9007199254740993.01"; fixture.records[0].recorded_amount = "9007199254740993.01"; fixture.records[3].document_kind = "credit_note"; fixture.records[3].gross_amount = "20.00"; fixture.records[3].adjustment_effect = "known"; fixture.records[4].gross_amount = "-20.00"; fixture.records[4].document_kind = "credit_note"; fixture.records[4].adjustment_effect = "known"; } fixture.controls.readOnly = options.readOnly ?? false; fixture.controls.legacy = options.legacy ?? false;
   const computedStyle = globalThis.getComputedStyle;
   if (options.width && options.width < 1024) globalThis.getComputedStyle = ((element: Element) => {
     const style = computedStyle(element);
@@ -39,7 +39,7 @@ async function mount(options: { readOnly?: boolean; large?: boolean; legacy?: bo
   const context = { chosen: { space_id: fixtureId(3000), grant_id: fixtureId(3001), role: options.role ?? "owner", name: "Colmado sintético", capabilities: options.readOnly ? ["read"] : ["read", "prepare", "approve"], permissions: options.readOnly ? ["read"] : ["read", "prepare", "approve", "download", "export"] }, source, revision: 0, actions: { create: [] }, panel: { kind: "transactions" }, openPanel: () => undefined, records: { workspace: await source.workspace(), inbox: [] } } as unknown as BusinessContextValue;
   const i18n = i18next.createInstance(); await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const host = document.createElement("div"); document.body.appendChild(host); const root = createRoot(host);
-  await act(async () => root.render(<StrictMode><I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><ConnectedBusinessReports initial={options.initial} scope={{ userId: "synthetic-person", businessId: fixtureId(3000), grantId: null }} period={{ key: "all", from: "", to: null }} /></BusinessContext.Provider></I18nextProvider></StrictMode>));
+  await act(async () => root.render(<StrictMode><I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><ConnectedBusinessReports initial={options.initial} scope={{ userId: "synthetic-person", businessId: fixtureId(3000), grantId: null }} /></BusinessContext.Provider></I18nextProvider></StrictMode>));
   cleanup = async () => { await act(async () => root.unmount()); globalThis.fetch = originalFetch; globalThis.getComputedStyle = computedStyle; URL.createObjectURL = originalCreate; URL.revokeObjectURL = originalRevoke; };
   const settle = async (predicate: () => boolean) => { for (let i = 0; i < 80; i++) { await act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); }); if (predicate()) return; } throw new Error(`Missing state ${document.body.textContent?.slice(-600)}`); };
   const click = async (element: Element | undefined | null) => { assert.ok(element); await act(async () => (element as HTMLElement).click()); };
@@ -422,6 +422,33 @@ test("a phone Filtros choice holds after its sheet closes, and back still undoes
   await act(async () => window.history.back());
   await page.settle(() => document.querySelector('[data-testid="records-preview-filter-chips"]') === null);
   assert.deepEqual(sentFilters(page).at(-1)!.record_families, []);
+});
+
+test("Registros opens on the server's latest month and names it", async () => {
+  const page = await mount({ edit: (records) => { for (const row of records) if (row.report_date) row.report_date = "2026-08-14"; } });
+  assert.ok(sentFilters(page).length > 0);
+  assert.ok(sentFilters(page).every((filters) => filters.period.kind === "latest_month"));
+  assert.ok(page.button("Agosto de 2026"), "the period control names the month the server answered with");
+});
+
+test("a period the person chose stays chosen when Registros opens again", async () => {
+  const first = await mount({ width: 390 });
+  await first.click(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]'));
+  await first.click(first.button("Mes pasado"));
+  await first.settle(() => addressFilters().period.kind === "last_month");
+  const address = window.location.href;
+  await cleanup();
+  (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL(address);
+  const again = await mount({ width: 390 });
+  assert.ok(sentFilters(again).every((filters) => filters.period.kind === "last_month"));
+  assert.equal(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]')?.textContent, "Mes pasado");
+});
+
+test("the Estado chip names the one missing fact on the live panel", async () => {
+  await mount({ edit: (records) => { Object.assign(records[0], { stage: "needs_fiscal_data", export_missing: "payment_method_missing", export_missing_several: false }); Object.assign(records[1], { stage: "needs_fiscal_data", export_missing: "ncf_missing", export_missing_several: true }); } });
+  const chip = (id: number) => document.querySelector(`[data-record-key="draft:${fixtureId(id)}"] td[data-col="estado"] [data-record-workflow="fiscal"]`)?.textContent;
+  assert.equal(chip(1), "Falta la forma de pago");
+  assert.equal(chip(2), "Faltan datos fiscales");
 });
 
 test("a phone period preset holds after its sheet closes", async () => {
