@@ -91,6 +91,26 @@
           "value": "true"
         },
         {
+          "name": "CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS",
+          "kind": "plain",
+          "value": "120"
+        },
+        {
+          "name": "CUADRAO_DOCUMENT_JOBS_ENABLED",
+          "kind": "plain",
+          "value": "false"
+        },
+        {
+          "name": "CUADRAO_DOCUMENT_JOBS_MAX_READS",
+          "kind": "plain",
+          "value": "3"
+        },
+        {
+          "name": "CUADRAO_DOCUMENT_JOBS_PULL_ENABLED",
+          "kind": "plain",
+          "value": "false"
+        },
+        {
           "name": "CUADRAO_BUSINESS_INVOICING_ENABLED",
           "kind": "plain",
           "value": "false"

@@ -31,6 +31,13 @@ from argus.domain.ingestion.documents.objects import (
 )
 from argus.domain.ingestion.documents.store import CaptureHook, download_source
 
+_LIVE_DOCUMENTS = (
+    "public.financial_document_extractions d "
+    "join public.financial_source_connections c on c.id=d.connection_id "
+    "and c.user_id=d.user_id where c.source='statement' "
+    "and c.status <> 'disconnected'"
+)
+
 
 class PostgresDocumentStore:
     def __init__(self, pool: ConnectionPool, objects: SourceObjects) -> None:
@@ -401,6 +408,40 @@ class PostgresDocumentStore:
                 (limit,),
             ).fetchall()
         return [(row[0], row[1]) for row in rows]
+
+    def pull(self, *, now: datetime, cap: int) -> tuple[str, str] | None:
+        with self._pool.connection() as connection, connection.transaction():
+            # One puller at a time, so the count still holds when the row is taken.
+            connection.execute(
+                "select pg_advisory_xact_lock(hashtextextended('document_read_pull',0))"
+            )
+            reading = connection.execute(
+                f"select count(*) from {_LIVE_DOCUMENTS} "
+                "and d.draft->>'status' in ('queued','preparing') "
+                "and (c.lease_until > %s or (d.draft->>'status'='queued' "
+                "and (d.preparation_job->>'dispatched_at')::timestamptz > %s))",
+                (now, now - DEFAULT_LEASE),
+            ).fetchone()[0]
+            if reading >= cap:
+                return None
+            row = connection.execute(
+                "update public.financial_document_extractions pulled set preparation_job="
+                "pulled.preparation_job || jsonb_build_object('dispatched_at', "
+                "%s::timestamptz) where pulled.connection_id=("
+                f"select d.connection_id from {_LIVE_DOCUMENTS} "
+                "and (c.lease_until is null or c.lease_until <= %s) "
+                "and (d.draft->>'source_available')::boolean "
+                "and d.draft->>'status'='queued' "
+                "and d.preparation_job->>'dispatched_at' is null "
+                "and (d.preparation_job->>'draft_version')::integer="
+                "(d.draft->>'version')::integer "
+                "order by d.created_at, d.connection_id limit 1 "
+                "for update of d skip locked) "
+                "returning pulled.connection_id::text, "
+                "pulled.preparation_job->>'attempt_id'",
+                (now, now),
+            ).fetchone()
+        return (row[0], row[1]) if row else None
 
     def advance(
         self,

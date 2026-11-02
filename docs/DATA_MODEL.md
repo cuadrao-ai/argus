@@ -3806,6 +3806,8 @@ projection issues and compatible canonical candidates. It may be null before
 preparation. `preparation_job` names the current preparation attempt (number,
 ID, the draft version it was dispatched for, dispatch time, when its provider
 call started, and a retry request) when `CUADRAO_DOCUMENT_JOBS_ENABLED` (older `ARGUS_DOCUMENT_JOBS_ENABLED`) is on.
+With `CUADRAO_DOCUMENT_JOBS_PULL_ENABLED` on, the dispatch time stays null until
+a worker pulls the attempt, so a null means it waits in the queue.
 Only that attempt may claim the draft. The provider-call time is committed
 under the attempt's live lease before the provider can be reached. The job is
 replaced together with the draft only while no lease is live. Legacy rows can have a batch without retained source; a duplicate

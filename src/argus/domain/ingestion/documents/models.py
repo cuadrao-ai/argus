@@ -194,7 +194,9 @@ class DocumentDraft(_Frozen):
 class PreparationJob(_Frozen):
     """One dispatched preparation attempt. Only the attempt named here may claim
     the draft, and only the draft version it was dispatched for is waiting on
-    it. ``claimed`` is set in the same write that moves the draft to
+    it. ``dispatched_at`` is when a process took the attempt: the hand-off, or
+    in pull mode the pull. Until then it is ``None`` and the attempt waits in
+    the queue. ``claimed`` is set in the same write that moves the draft to
     ``preparing`` for this attempt, so a claim by any other writer leaves it
     false. ``provider_call_started_at`` is committed before the provider can be
     reached; ``retry`` records a retryable failure that happened before it."""
@@ -202,7 +204,7 @@ class PreparationJob(_Frozen):
     attempt: int = Field(ge=1)
     attempt_id: str = Field(min_length=1, max_length=64)
     draft_version: int = Field(ge=1)
-    dispatched_at: datetime
+    dispatched_at: datetime | None = None
     claimed: bool = False
     provider_call_started_at: datetime | None = None
     retry: bool = False

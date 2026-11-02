@@ -87,6 +87,15 @@ class DocumentStore(Protocol):
         """Owner and connection of drafts awaiting preparation or a retry."""
         ...
 
+    def pull(self, *, now: datetime, cap: int) -> tuple[str, str] | None:
+        """Dispatch the oldest waiting attempt to the caller and return its
+        connection and attempt ids, or ``None`` when nothing waits or ``cap``
+        reads already run. A read is any live lease on a queued or preparing
+        draft, and any attempt dispatched for a queued draft within one lease
+        window, so the cap holds across workers and every other path to a read.
+        Two callers never take the same attempt."""
+        ...
+
     def mark_provider_call(
         self,
         *,
@@ -394,6 +403,39 @@ class InMemoryDocumentStore:
                 ):
                     rows.append((draft.created_at, key))
             return [key for _, key in sorted(rows)[:limit]]
+
+    def pull(self, *, now: datetime, cap: int) -> tuple[str, str] | None:
+        with self.connections._lock, self._lock:
+            reading, waiting = 0, []
+            for key, raw in self._drafts.items():
+                draft = DocumentDraft.model_validate_json(raw)
+                if draft.status not in {"queued", "preparing"} or not self._live(*key):
+                    continue
+                stored = self._jobs.get(key)
+                job = PreparationJob.model_validate_json(stored) if stored else None
+                taken = job.dispatched_at if job else None
+                lease = self.connections._rows[key[1]].lease_until
+                if (lease is not None and lease > now) or (
+                    draft.status == "queued"
+                    and taken is not None
+                    and taken > now - DEFAULT_LEASE
+                ):
+                    reading += 1
+                elif (
+                    draft.status == "queued"
+                    and draft.source_available
+                    and job is not None
+                    and taken is None
+                    and job.draft_version == draft.version
+                ):
+                    waiting.append((draft.created_at, key, job))
+            if reading >= cap or not waiting:
+                return None
+            _, key, job = min(waiting, key=lambda row: row[:2])
+            self._jobs[key] = job.model_copy(
+                update={"dispatched_at": now}
+            ).model_dump_json()
+            return key[1], job.attempt_id
 
     def advance(
         self,

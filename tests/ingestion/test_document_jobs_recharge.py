@@ -10,6 +10,7 @@ from argus.domain.ingestion.connections import InMemoryConnectionRepository
 from argus.domain.ingestion.contract import ImportCandidate, SourceRef
 from argus.domain.ingestion.documents.jobs import (
     DISPATCH_WINDOW,
+    MAX_ATTEMPTS,
     OUTCOME_UNKNOWN,
     PreparationJobs,
     run_attempt,
@@ -233,6 +234,30 @@ async def test_foreign_claim_after_a_superseding_redispatch_waits_for_the_owner(
     assert report.outcome_unknown == [connection]
     assert draft.error_code == OUTCOME_UNKNOWN
     assert len(dispatched) == 2
+    assert extractor.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_a_hand_off_that_never_starts_stops_at_the_bound(rig):
+    service, jobs, clock, extractor, dispatched = rig
+    connection = await queued(service)
+    jobs.start(user_id="owner", connection_id=connection)
+
+    for attempt in range(2, MAX_ATTEMPTS + 1):
+        clock.now += DISPATCH_WINDOW + timedelta(seconds=1)
+        assert jobs.sweep().redispatched == [connection]
+        job = service.store.job(user_id="owner", connection_id=connection)
+        assert job.attempt == attempt
+    clock.now += DISPATCH_WINDOW + timedelta(seconds=1)
+    report = jobs.sweep()
+
+    draft = service.get(user_id="owner", connection_id=connection, scope=PERSONAL)
+    assert report.exhausted == [connection]
+    assert (draft.status, draft.error_code) == (
+        "needs_attention",
+        "document_preparation_interrupted",
+    )
+    assert len(dispatched) == MAX_ATTEMPTS
     assert extractor.calls == 0
 
 

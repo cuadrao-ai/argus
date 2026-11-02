@@ -121,6 +121,24 @@ class DocumentJobSettings(BaseSettings):
         le=3600,
         validation_alias=setting_aliases("DOCUMENT_JOBS_SWEEP_SECONDS"),
     )
+    # Pull mode: the API only records attempts. ``python -m
+    # workflows.document_worker`` reads them and owns the sweep.
+    pull: Annotated[bool, BeforeValidator(enabled_flag)] = Field(
+        default=False, validation_alias=setting_aliases("DOCUMENT_JOBS_PULL_ENABLED")
+    )
+    max_reads: int = Field(
+        default=3,
+        ge=1,
+        le=32,
+        validation_alias=setting_aliases("DOCUMENT_JOBS_MAX_READS"),
+    )
+    # Covers one read from the pull: the 90 s provider timeout, its local work.
+    drain_seconds: float = Field(
+        default=120.0,
+        gt=0,
+        le=300,
+        validation_alias=setting_aliases("DOCUMENT_JOBS_DRAIN_SECONDS"),
+    )
 
 
 def load_document_job_settings() -> DocumentJobSettings:

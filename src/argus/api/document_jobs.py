@@ -6,7 +6,8 @@ accepted preparation becomes a recorded attempt: a Render Workflow task when
 ``workflow_task`` is set in durable mode (the local Render dev server under
 ``RENDER_USE_LOCAL_DEV``), otherwise a task on this process's event loop. A
 sweep in this process settles or re-dispatches attempts whose worker died, once
-at startup and every ``sweep_seconds``.
+at startup and every ``sweep_seconds``. With ``pull`` on, this process only
+records attempts: ``workflows/document_worker.py`` reads them and runs the sweep.
 """
 
 from __future__ import annotations
@@ -16,14 +17,12 @@ import asyncio
 from loguru import logger
 
 from argus.api import state as api_state
-from argus.domain.ingestion.documents.config import (
-    DocumentJobSettings,
-    load_document_extraction_settings,
-)
+from argus.domain.ingestion.documents.config import DocumentJobSettings
 from argus.domain.ingestion.documents.jobs import (
     Dispatch,
     PreparationJobs,
     run_attempt,
+    sweep_forever,
 )
 from argus.domain.ingestion.documents.service import DocumentsService
 
@@ -69,25 +68,12 @@ def render_dispatcher(task_id: str) -> Dispatch:
     return dispatch
 
 
-async def sweep_forever(jobs: PreparationJobs, interval: float) -> None:
-    """Waits while extraction is off: a queued draft is then neither sent to
-    the model nor failed, and resumes when extraction is back."""
-
-    while True:
-        try:
-            if load_document_extraction_settings().enabled:
-                await asyncio.to_thread(jobs.sweep)
-        except Exception as error:
-            logger.warning(
-                "Document preparation sweep failed",
-                failure_mode=type(error).__name__,
-            )
-        await asyncio.sleep(interval)
-
-
 def start_document_jobs(service: DocumentsService, settings: DocumentJobSettings) -> None:
     global _jobs, _sweeper
     stop_document_jobs()
+    if settings.pull:
+        _jobs = PreparationJobs(service, None)
+        return
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
