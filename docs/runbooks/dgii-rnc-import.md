@@ -1,30 +1,49 @@
 # Import the DGII RNC registry
 
-The scheduled workflow downloads the public RNC zip, parses it, and loads the rows into staging only when the approval checks pass.
+The scheduled workflow downloads the two public RNC zips, parses them, and loads the rows into staging only when the approval checks pass.
 
 ## What the job does
 
 `.github/workflows/dgii-rnc-import.yml` runs at 07:00 UTC every day. You can also start it with `workflow_dispatch`.
 
-The job checks out this repository and downloads `DGII_RNC.zip`. The canonical source is `RNC_Contribuyentes_Actualizado_<date>.csv`, found by that name pattern in any folder of the zip. The job reads it as comma separated, double quoted Latin-1 with a quote-aware parser, and finds each column by its header. A zip without that entry fails the job, prints the entries it found, and loads nothing.
+The publisher has one zip for each button on its page, and each zip holds one file. The job checks out this repository and downloads both.
 
-On 2026-11-02 the job's download held only `TMP/DGII_RNC.TXT`, so the job failed at this step. No real CSV has been parsed. Loading stays blocked until the job downloads a zip that holds the CSV.
+| Saved as | URL | Holds | When the download fails |
+| --- | --- | --- | --- |
+| `rnc-csv.zip` | `https://dgii.gov.do/app/WebApps/Consultas/RNC/RNC_CONTRIBUYENTES.zip` | `RNC_Contribuyentes_Actualizado_<date>.csv`, the canonical source | The job stops and loads nothing. |
+| `rnc-txt.zip` | `https://dgii.gov.do/app/WebApps/Consultas/RNC/DGII_RNC.zip` | `DGII_RNC.TXT`, read only for the trade name | The load goes on, and every `trade_name` is NULL. |
 
-`file_date` is that entry's modification date, read as the America/Santo_Domingo calendar date.
+A download fails on a curl error or on any HTTP status other than 200.
+
+The job finds the CSV by that name pattern in any folder of `rnc-csv.zip`. It reads the CSV as comma separated, double quoted Latin-1 with a quote-aware parser, and finds each column by its header. A file that is not a zip, or a zip without that entry, fails the job, prints the entries it found, and loads nothing.
+
+`file_date` is the CSV entry's modification date, read as the America/Santo_Domingo calendar date.
 
 ```bash
-python3 scripts/ops/dgii_rnc_import.py parse rnc.zip
+python3 scripts/ops/dgii_rnc_import.py parse rnc-csv.zip rnc-txt.zip
 ```
 
 The gate then decides whether to load. A load copies `rnc`, `name`, `trade_name`, `status`, `file_date`, `activity`, `start_date`, and `regime` into `public.dgii_rnc_load` and finishes that session. A later session calls `public.dgii_rnc_swap(min_rows integer)`, which returns the integer row count now in `public.dgii_rnc`. `min_rows` is 700000. The job prints that integer as `swap_rows` and fails if it is below 700000. The job does not call `public.dgii_rnc_lookup`.
 
 `name` is the razón social, `activity` the actividad económica, `start_date` the fecha de inicio, and `regime` the régimen. A blank value is NULL. A `fecha` that is not a real dd/mm/yyyy date is NULL. Status is copied as written, and the load keeps every estado.
 
-`trade_name` is the only value that does not come from the CSV. It is column 3 of the `DGII_RNC.TXT` entry, joined by RNC. The TXT adds no rows and changes no other field. A row with no match, or a zip with no TXT, stores NULL. A blank column 3 is NULL. Whether column 3 is a trade name is not proven yet. If the first real parse shows it is not, set `trade_names = {}` in `parse_zip` and the column stays NULL.
+`trade_name` is the only value that does not come from the CSV. It is column 3 of the `DGII_RNC.TXT` entry in `rnc-txt.zip`, joined by RNC. The TXT adds no rows and changes no other field. A row with no match stores NULL, and a blank column 3 is NULL.
 
-The loader keeps a row only when the RNC normalizes to 9 or 11 digits and the trimmed name is not blank. The file has one eight-digit RNC. It is quarantined, which means it is counted in `dropped`, printed in a `dropped_sample` line, not padded, and not loaded. Repeated RNCs keep the last row. A row with the wrong number of fields counts as an anomaly, and more than 25 anomalies fail the job. A header without one RNC, razón social, actividad, fecha, estado, and régimen column fails the job and prints the header it found.
+Any failure in the TXT zip leaves every `trade_name` NULL for that run and does not stop the load. A missing file, a file that is not a zip, a torn zip, and a zip without exactly one `DGII_RNC.TXT` all count. The summary then prints `trade_names=unavailable reason=<why>: names stay null`. A load in that state replaces the names already on staging with NULL, and the next good run fills them again.
 
-The summary prints `dropped`, `duplicates`, a `dropped_sample` line for each of the first few drops, and one count for each optional column: `trade_name_filled`, `activity_filled`, `start_date_filled`, and `regime_filled`. Read those counts on the first real parse. A `start_date_filled` near zero means the date format is not dd/mm/yyyy.
+The loader keeps a row only when the RNC normalizes to 9 or 11 digits and the trimmed name is not blank. The file has one eight-digit RNC. It is quarantined, which means it is counted in `dropped`, reported in a `dropped_sample` line with its reason and digit count, not padded, and not loaded. Repeated RNCs keep the last row. A row with the wrong number of fields counts as an anomaly, and more than 25 anomalies fail the job. A header without one RNC, razón social, actividad, fecha, estado, and régimen column fails the job and prints the header it found.
+
+The `parse` step prints the summary before it applies the checks, so a failed check still leaves the file facts in the log. The summary never prints a name, an RNC, or a row.
+
+| Line | What it tells you |
+| --- | --- |
+| `rows`, `anomalies`, `dropped`, `duplicates`, `parsed_bytes` | The counts the checks use and the size of the load. |
+| `trade_name_filled`, `activity_filled`, `start_date_filled`, `regime_filled` | The rows with a value in each optional column. |
+| `activity_avg_length` | The average characters in a filled actividad. |
+| `csv_header` | The header cells as written, so a renamed column shows here. |
+| `date_shape` | The most common shapes of the date cell, with digits as `d` and letters as `a`. A `start_date_filled` far below the `dd/dd/dddd` count means the date format is not dd/mm/yyyy. |
+| `trade_names`, `trade_name_txt_*`, `trade_name_same_as_name` | Whether the TXT loaded, and counts that describe column 3. |
+| `status`, `rnc_length` | One count for each estado and each RNC length. |
 
 ## Turn loading on
 

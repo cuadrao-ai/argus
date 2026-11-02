@@ -5,10 +5,12 @@ import os
 import subprocess
 import sys
 import zipfile
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
 import pytest
+import yaml
 from faker import Faker
 
 from scripts.ops.dgii_rnc_import import (
@@ -41,11 +43,14 @@ from scripts.ops.dgii_rnc_import import (
 from tests.dgii_rnc_zip import (
     CSV_ENTRY,
     HEADER,
+    TXT_ENTRY,
     csv_file,
     csv_record,
     registry_zip,
+    trade_name_zip,
     txt_file,
     txt_record,
+    txt_zip,
 )
 
 fake = Faker("es")
@@ -74,8 +79,8 @@ def company() -> str:
 
 
 def parsed(*records: str, txt: tuple[str, ...] | None = None) -> ParseResult:
-    trade = None if txt is None else txt_file(*txt)
-    return parse_zip(registry_zip(csv_file(*records), txt=trade))
+    names = None if txt is None else txt_zip(*txt)
+    return parse_zip(registry_zip(csv_file(*records)), trade_name_zip=names)
 
 
 def test_latin1_byte_90_survives_in_the_name() -> None:
@@ -131,7 +136,7 @@ def test_keeps_nine_and_eleven_and_drops_the_rest() -> None:
         "rnc_length",
         "blank_name",
     ]
-    assert result.dropped_sample[0].raw == short
+    assert result.dropped_sample[0].digits == 8
     assert result.anomaly_count == 0
 
 
@@ -141,11 +146,24 @@ def test_eight_digit_rnc_is_quarantined_without_padding() -> None:
     result = parsed(csv_record(short, name), txt=(txt_record(short, company()),))
     assert result.rows == ()
     assert result.dropped_count == 1
-    assert result.dropped_sample == (DroppedRecord(short, short, "rnc_length", name),)
+    assert result.dropped_sample == (DroppedRecord("rnc_length", 8),)
     lines = summary_lines(result)
     assert "rows=0" in lines
     assert "dropped=1" in lines
-    assert f"dropped_sample raw={short} rnc={short} reason=rnc_length name={name}" in lines
+    assert "dropped_sample reason=rnc_length digits=8" in lines
+
+
+def test_the_summary_prints_no_name_rnc_or_raw_value() -> None:
+    short, kept, trade = "90000001", rnc9(), company()
+    legal, activity = company(), fake.bs()
+    result = parsed(
+        csv_record(short, company()),
+        csv_record(kept, legal, activity=activity, started="07/03/2019", regime="RST"),
+        txt=(txt_record(kept, trade),),
+    )
+    summary = "\n".join(summary_lines(result))
+    for secret in (short, kept, legal, trade, activity, "07/03/2019"):
+        assert secret not in summary
 
 
 def test_trims_surrounding_spaces_on_rnc_and_name() -> None:
@@ -270,20 +288,76 @@ def test_a_malformed_txt_record_costs_only_its_trade_name() -> None:
     assert result.anomaly_count == 0
 
 
-def test_a_zip_without_the_txt_loads_with_no_trade_names() -> None:
-    result = parsed(csv_record(rnc9(), company()))
-    assert result.rows[0].trade_name is None
-    assert "trade_name_filled=0" in summary_lines(result)
+def _torn_txt_zip() -> bytes:
+    payload = bytearray(txt_zip(txt_record(rnc9(), company())))
+    payload[len(TXT_ENTRY) + 35] ^= 0xFF
+    return bytes(payload)
 
 
-def test_a_zip_with_two_txt_entries_refuses_the_file() -> None:
-    archive = io.BytesIO(
-        registry_zip(csv_file(csv_record(rnc9(), company())), txt=b"")
+@pytest.mark.parametrize(
+    ("source", "reason"),
+    [
+        (None, "no file given"),
+        ("/nonexistent/rnc-txt.zip", "FileNotFoundError"),
+        (b"<html>not a zip</html>", "BadZipFile"),
+        (_torn_txt_zip(), "BadZipFile"),
+        (trade_name_zip(("OTHER.TXT", b"")), "zip holds 0 DGII_RNC.TXT entries"),
+        (
+            trade_name_zip((TXT_ENTRY, b""), ("OTHER/DGII_RNC.TXT", b"")),
+            "zip holds 2 DGII_RNC.TXT entries",
+        ),
+    ],
+)
+def test_a_failed_txt_zip_loads_every_row_and_the_summary_says_so(
+    source: bytes | str | None, reason: str
+) -> None:
+    rnc = rnc9()
+    legal = company()
+    result = parse_zip(
+        registry_zip(csv_file(csv_record(rnc, legal))), trade_name_zip=source
     )
+    assert [(row.rnc, row.name, row.trade_name) for row in result.rows] == [
+        (rnc, legal, None)
+    ]
+    lines = summary_lines(result)
+    assert "trade_name_filled=0" in lines
+    assert f"trade_names=unavailable reason={reason}: names stay null" in lines
+
+
+def test_a_txt_inside_the_csv_zip_is_not_read() -> None:
+    rnc = rnc9()
+    archive = io.BytesIO(registry_zip(csv_file(csv_record(rnc, company()))))
     with zipfile.ZipFile(archive, "a") as extra:
-        extra.writestr("OTHER/DGII_RNC.TXT", b"")
-    with pytest.raises(RncImportError, match="zip holds 2 DGII_RNC.TXT entries"):
-        parse_zip(archive.getvalue())
+        extra.writestr(TXT_ENTRY, txt_file(txt_record(rnc, company())))
+    result = parse_zip(archive.getvalue())
+    assert result.rows[0].trade_name is None
+
+
+def test_the_summary_describes_the_trade_name_column() -> None:
+    same, other = rnc9(), rnc9()
+    result = parsed(
+        csv_record(same, "LEGAL SRL"),
+        csv_record(other, "OTRA SRL"),
+        txt=(
+            txt_record(same, "legal srl"),
+            txt_record(other, "COLMADO"),
+            txt_record(rnc9(), "2024"),
+        ),
+    )
+    lines = summary_lines(result)
+    assert "trade_names=loaded" in lines
+    assert "trade_name_filled=2" in lines
+    assert "trade_name_txt_values=3" in lines
+    assert "trade_name_txt_distinct=3" in lines
+    assert "trade_name_txt_avg_length=6" in lines
+    assert "trade_name_txt_no_letters=1" in lines
+    assert "trade_name_same_as_name=1" in lines
+
+
+@pytest.mark.parametrize("payload", [b"<html>busy</html>", b""])
+def test_a_csv_source_that_is_not_a_zip_refuses_the_file(payload: bytes) -> None:
+    with pytest.raises(RncImportError, match="csv is unreadable"):
+        parse_zip(payload)
 
 
 @pytest.mark.parametrize(
@@ -394,8 +468,18 @@ def test_summary_lines_list_each_fact() -> None:
         "activity_filled=1",
         "start_date_filled=1",
         "regime_filled=2",
-        f"dropped_sample raw={short} rnc={short} reason=rnc_length name=A",
-        "dropped_sample raw=NOPE rnc= reason=rnc_length name=D",
+        "activity_avg_length=6.0",
+        "trade_names=loaded",
+        "trade_name_txt_values=1",
+        "trade_name_txt_distinct=1",
+        "trade_name_txt_avg_length=9",
+        "trade_name_txt_no_letters=0",
+        "trade_name_same_as_name=0",
+        f"csv_header={ascii(list(HEADER))}",
+        "date_shape blank=1",
+        "date_shape dd/dd/dddd=1",
+        "dropped_sample reason=rnc_length digits=8",
+        "dropped_sample reason=rnc_length digits=0",
         "status ACTIVO=1",
         "status SUSPENDIDO=1",
         "rnc_length 9=1",
@@ -751,13 +835,113 @@ def test_validate_rejects_a_kept_short_rnc() -> None:
         validate(result, LoadConfig(min_rows=1, anomaly_limit=25))
 
 
-def test_parse_cli_uses_production_minimum(tmp_path, capsys) -> None:
-    path = tmp_path / "rnc.zip"
+def test_parse_cli_prints_the_file_facts_and_then_applies_the_minimum(
+    tmp_path, capsys
+) -> None:
+    path = tmp_path / "rnc-csv.zip"
     path.write_bytes(registry_zip(csv_file(csv_record(rnc9(), company()))))
-    assert main(["parse", str(path)]) == 1
+    assert main(["parse", str(path), str(tmp_path / "rnc-txt.zip")]) == 1
     captured = capsys.readouterr()
     assert captured.err == "rows 1 below minimum 700000\n"
-    assert captured.out == ""
+    assert "rows=1\n" in captured.out
+    assert (
+        "trade_names=unavailable reason=FileNotFoundError: names stay null\n"
+        in captured.out
+    )
+
+
+def test_parse_cli_joins_the_names_from_the_second_zip(
+    tmp_path, capsys, monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        "scripts.ops.dgii_rnc_import.LOAD", replace(LOAD, min_rows=1)
+    )
+    rnc = rnc9()
+    csv_path = tmp_path / "rnc-csv.zip"
+    txt_path = tmp_path / "rnc-txt.zip"
+    csv_path.write_bytes(registry_zip(csv_file(csv_record(rnc, company()))))
+    txt_path.write_bytes(txt_zip(txt_record(rnc, company())))
+    assert main(["parse", str(csv_path), str(txt_path)]) == 0
+    assert "trade_name_filled=1\n" in capsys.readouterr().out
+
+
+def test_load_cli_keeps_going_when_the_txt_zip_is_missing(
+    tmp_path, capsys, monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        "scripts.ops.dgii_rnc_import.LOAD", replace(LOAD, min_rows=1)
+    )
+    monkeypatch.delenv("SUPABASE_STAGING_DB_URL", raising=False)
+    path = tmp_path / "rnc-csv.zip"
+    path.write_bytes(registry_zip(csv_file(csv_record(rnc9(), company()))))
+    assert main(["load", str(path), str(tmp_path / "rnc-txt.zip")]) == 0
+    assert capsys.readouterr().out == "load skipped: SUPABASE_STAGING_DB_URL is absent\n"
+
+
+FAKE_CURL = """#!/bin/bash
+while [ $# -gt 1 ]; do
+  [ "$1" = "-o" ] && out="$2"
+  shift
+done
+case "$1" in
+  */RNC_CONTRIBUYENTES.zip) code="$CSV_RESPONSE" ;;
+  */DGII_RNC.zip) code="$TXT_RESPONSE" ;;
+  *) exit 99 ;;
+esac
+printf 'partial' > "$out"
+[ "$code" = "dead" ] && exit 28
+printf 'http_code=%s\\n' "$code"
+"""
+
+
+def _run_download_step(tmp_path: Path, csv_response: str, txt_response: str):
+    workflow = Path(__file__).resolve().parents[1] / ".github/workflows/dgii-rnc-import.yml"
+    steps = yaml.safe_load(workflow.read_text(encoding="utf-8"))["jobs"]["import"]["steps"]
+    script = tmp_path / "step.sh"
+    script.write_text(
+        next(step["run"] for step in steps if step["name"].startswith("Download"))
+    )
+    curl = tmp_path / "bin" / "curl"
+    curl.parent.mkdir()
+    curl.write_text(FAKE_CURL)
+    curl.chmod(0o755)
+    return subprocess.run(
+        ["bash", "--noprofile", "--norc", "-eo", "pipefail", str(script)],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+        env={
+            "PATH": f"{curl.parent}:{os.environ['PATH']}",
+            "CSV_RESPONSE": csv_response,
+            "TXT_RESPONSE": txt_response,
+        },
+    )
+
+
+@pytest.mark.parametrize("failure", ["503", "dead"])
+def test_a_failed_csv_download_stops_the_job(tmp_path: Path, failure: str) -> None:
+    completed = _run_download_step(tmp_path, failure, "200")
+    assert completed.returncode != 0
+    assert "download failed: rnc-csv.zip" in completed.stdout
+
+
+@pytest.mark.parametrize("failure", ["503", "dead"])
+def test_a_failed_txt_download_leaves_no_file_and_the_job_goes_on(
+    tmp_path: Path, failure: str
+) -> None:
+    completed = _run_download_step(tmp_path, "200", failure)
+    assert completed.returncode == 0
+    assert (tmp_path / "rnc-csv.zip").exists()
+    assert not (tmp_path / "rnc-txt.zip").exists()
+    assert "names stay null" in completed.stdout
+
+
+def test_both_downloads_keep_their_files(tmp_path: Path) -> None:
+    completed = _run_download_step(tmp_path, "200", "200")
+    assert completed.returncode == 0
+    assert (tmp_path / "rnc-csv.zip").exists()
+    assert (tmp_path / "rnc-txt.zip").exists()
 
 
 def test_gate_cli_reads_env_when_flags_are_omitted(monkeypatch, capsys) -> None:
@@ -809,9 +993,9 @@ def test_unretained_parse_reports_the_same_summary() -> None:
             csv_record(other, "C", "ACTIVO"),
             csv_record("NOPE", "D", "ACTIVO"),
         ),
-        txt=txt_file(txt_record(other, "COMERCIAL")),
     )
-    result = parse_zip(payload, keep_rows=False)
+    names = txt_zip(txt_record(other, "COMERCIAL"))
+    result = parse_zip(payload, trade_name_zip=names, keep_rows=False)
     assert result.spill_path is not None
     try:
         expected_copy = (
@@ -831,8 +1015,18 @@ def test_unretained_parse_reports_the_same_summary() -> None:
             "activity_filled=0",
             "start_date_filled=1",
             "regime_filled=0",
-            f"dropped_sample raw={short} rnc={short} reason=rnc_length name=A",
-            "dropped_sample raw=NOPE rnc= reason=rnc_length name=D",
+            "activity_avg_length=0.0",
+            "trade_names=loaded",
+            "trade_name_txt_values=1",
+            "trade_name_txt_distinct=1",
+            "trade_name_txt_avg_length=9",
+            "trade_name_txt_no_letters=0",
+            "trade_name_same_as_name=0",
+            f"csv_header={ascii(list(HEADER))}",
+            "date_shape blank=2",
+            "date_shape dd/dd/dddd=1",
+            "dropped_sample reason=rnc_length digits=8",
+            "dropped_sample reason=rnc_length digits=0",
             "status ACTIVO=2",
             "rnc_length 9=1",
             "rnc_length 11=1",
@@ -894,11 +1088,12 @@ def test_parse_of_a_large_registry_stays_under_80_mib(tmp_path: Path) -> None:
         )
         for i in range(count)
     ]
-    trade_names = [txt_record(f"{i:09d}", "TRADE") for i in range(count)]
-    path.write_bytes(registry_zip(csv_file(*records), txt=txt_file(*trade_names)))
+    names = tmp_path / "rnc-txt.zip"
+    names.write_bytes(txt_zip(*[txt_record(f"{i:09d}", "TRADE") for i in range(count)]))
+    path.write_bytes(registry_zip(csv_file(*records)))
     script = (
         "import re, runpy, sys\n"
-        "sys.argv = ['dgii_rnc_import', 'parse', sys.argv[1]]\n"
+        "sys.argv = ['dgii_rnc_import', 'parse', sys.argv[1], sys.argv[2]]\n"
         "try:\n"
         "    runpy.run_path('scripts/ops/dgii_rnc_import.py', run_name='__main__')\n"
         "except SystemExit:\n"
@@ -912,7 +1107,7 @@ def test_parse_of_a_large_registry_stays_under_80_mib(tmp_path: Path) -> None:
         if not key.startswith("COVERAGE_")
     }
     completed = subprocess.run(
-        [sys.executable, "-S", "-c", script, str(path)],
+        [sys.executable, "-S", "-c", script, str(path), str(names)],
         cwd=Path(__file__).resolve().parents[1],
         capture_output=True,
         text=True,
@@ -921,5 +1116,5 @@ def test_parse_of_a_large_registry_stays_under_80_mib(tmp_path: Path) -> None:
     )
     assert completed.returncode == 0
     assert completed.stderr == f"rows {count} below minimum 700000\n"
-    rss_kb = int(completed.stdout.strip())
+    rss_kb = int(completed.stdout.strip().splitlines()[-1])
     assert rss_kb < 80 * 1024

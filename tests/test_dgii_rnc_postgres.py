@@ -13,7 +13,7 @@ from faker import Faker
 
 from scripts.ops.dgii_rnc_import import LOAD as IMPORT_CONFIG
 from scripts.ops.dgii_rnc_import import _apply_load, parse_zip, validate
-from tests.dgii_rnc_zip import csv_file, csv_record, registry_zip, txt_file, txt_record
+from tests.dgii_rnc_zip import csv_file, csv_record, registry_zip, txt_record, txt_zip
 
 DSN = os.getenv("ARGUS_DISPOSABLE_DATABASE_URL", "").strip()
 pytestmark = pytest.mark.skipif(
@@ -527,10 +527,10 @@ def test_the_importer_loads_a_zip_through_copy_and_swap(connection):
             ),
             csv_record(short, _name()),
         ),
-        txt=txt_file(txt_record(active, trade_name), txt_record(short, _name())),
     )
+    names = txt_zip(txt_record(active, trade_name), txt_record(short, _name()))
     config = replace(IMPORT_CONFIG, min_rows=2, size_limit_bytes=1 << 40)
-    result = parse_zip(payload, config, keep_rows=False)
+    result = parse_zip(payload, config, trade_name_zip=names, keep_rows=False)
     try:
         validate(result, config)
         _apply_load(DSN, result, config)

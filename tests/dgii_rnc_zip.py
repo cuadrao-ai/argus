@@ -1,4 +1,4 @@
-"""A synthetic registry zip. The CSV header is assumed: no real one has been read."""
+"""Synthetic copies of the two published zips, one for the CSV and one for the TXT."""
 
 from __future__ import annotations
 
@@ -47,16 +47,26 @@ def txt_file(*records: str) -> bytes:
     return ("\r\n".join(records) + "\r\n").encode("latin-1")
 
 
+def _zip(*entries: tuple[str, bytes], date_time: tuple[int, ...] = FILE_TIME) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        for entry, payload in entries:
+            archive.writestr(zipfile.ZipInfo(entry, date_time=date_time), payload)
+    return buffer.getvalue()
+
+
 def registry_zip(
     csv_payload: bytes,
     *,
-    txt: bytes | None = None,
     csv_entry: str = CSV_ENTRY,
     date_time: tuple[int, int, int, int, int, int] = FILE_TIME,
 ) -> bytes:
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w") as archive:
-        archive.writestr(zipfile.ZipInfo(csv_entry, date_time=date_time), csv_payload)
-        if txt is not None:
-            archive.writestr(zipfile.ZipInfo(TXT_ENTRY, date_time=date_time), txt)
-    return buffer.getvalue()
+    return _zip((csv_entry, csv_payload), date_time=date_time)
+
+
+def trade_name_zip(*entries: tuple[str, bytes]) -> bytes:
+    return _zip(*entries)
+
+
+def txt_zip(*records: str) -> bytes:
+    return trade_name_zip((TXT_ENTRY, txt_file(*records)))
