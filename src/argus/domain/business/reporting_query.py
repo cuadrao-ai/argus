@@ -293,8 +293,12 @@ def resolve_period(
     elif period.kind == "last_month":
         start, end = _whole_month(today.replace(day=1) - timedelta(days=1))
     elif period.kind == "latest_month":
-        dated = (row.report_date for row in records if row.report_date is not None)
-        start, end = _whole_month(max(dated, default=today))
+        passed = (
+            row.report_date
+            for row in records
+            if row.report_date is not None and row.report_date <= today
+        )
+        start, end = _whole_month(max(passed, default=today))
     elif period.kind == "this_year":
         start, end = date(today.year, 1, 1), date(today.year, 12, 31)
     return ResolvedPeriod(from_date=start, to_date=end)
