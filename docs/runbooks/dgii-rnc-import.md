@@ -6,7 +6,7 @@ The daily job downloads the two public RNC zips, parses them, and loads the rows
 
 Two jobs share `scripts/ops/dgii_rnc_daily.sh`, which owns the URLs and the download.
 
-- The Render cron `cuadrao-dgii-rnc-staging` in `render.yaml` runs the script at 07:00 UTC every day. See [Run the daily job on Render](#run-the-daily-job-on-render).
+- The hosted cron `cuadrao-dgii-rnc-staging` in `render.yaml` runs the script at 07:00 UTC every day. See [Run the hosted cron](#run-the-hosted-cron).
 - `.github/workflows/dgii-rnc-import.yml` runs `dgii_rnc_daily.sh download` and then the parse. It runs at 07:00 UTC from the default branch, on a pull request that touches the job, and on `workflow_dispatch`.
 
 The publisher has one zip for each button on its page, and each zip holds one file.
@@ -52,7 +52,7 @@ More than 25 lost rows fail the job and load nothing. A lost row is a dropped ro
 | `trade_names`, `trade_name_txt_*`, `trade_name_same_as_name` | Whether the TXT loaded, and counts that describe column 3. The `trade_name_txt_*` counts are 0 when the TXT failed. |
 | `status`, `rnc_length` | One count for each estado and each RNC length. |
 
-## Run the daily job on Render
+## Run the hosted cron
 
 `render.yaml` declares the cron `cuadrao-dgii-rnc-staging` on `codex/private-alpha-next`. It is staging only, its deploy trigger is `off`, and its build installs nothing, because the importer uses only the standard library. Each value is set on the service, and `render.yaml` holds none.
 
