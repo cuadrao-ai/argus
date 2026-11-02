@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, CircleAlert, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { ReferenceCode } from "@/components/status/ReferenceCode";
+import { referenceCode } from "@/lib/failure-screen";
 import { ReceiptShortcutRegistration, receiptNavigationActions, receiptPlace } from "./BusinessReviewShortcuts";
 import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
 import ReceiptReadingControl from "./ReceiptReadingControl";
@@ -21,7 +23,7 @@ import type { ReceiptDetail } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { useBusinessConsent } from "./business-consent-context";
 import { formatDay, formatMoney, UNKNOWN_VALUE } from "./business-format";
-import { canAddRecords, primaryButtonClass, secondaryButtonClass, StatusPill, useTerminalRead } from "./business-ui";
+import { canAddRecords, primaryButtonClass, quietButtonClass, secondaryButtonClass, StatusPill, useTerminalRead } from "./business-ui";
 import { ContentFade, Settle } from "./business-skeletons";
 import { resolveLanguage } from "@/lib/language-features";
 
@@ -34,7 +36,8 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const { source, reload, openPanel, revision, records, actions, chosen } = useBusiness();
   const consent = useBusinessConsent();
   const [detail, setDetail] = useState<ReceiptDetail | null>(null);
-  const [failed, setFailed] = useState(false);
+  // The reference of the last load that failed.
+  const [failure, setFailure] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [busy, setBusy] = useState<"prepare" | "rebind" | "refresh" | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -48,8 +51,9 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       .then((next) => {
         if (cancelled) return;
         setDetail(next);
+        setFailure(null);
       })
-      .catch(() => !cancelled && setFailed(true));
+      .catch((error: unknown) => !cancelled && setFailure(referenceCode(error)));
     return () => {
       cancelled = true;
       controller.abort();
@@ -75,14 +79,17 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     onStalled: () => setReadStalled(true),
   });
 
-  if (failed) {
+  const retry = () => { setFailure(null); setAttempt((value) => value + 1); };
+  const openDraft = unprepared ? null : detail?.draft_id ?? null;
+  // An open dossier stays mounted through a failed refetch: its rows hold what the person typed.
+  if (failure !== null && !openDraft) {
     return (
       <section className={SURFACE_CARD} data-testid="receipt-load-error">
         <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]">
           <CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />
           {t("business.review.error", "This receipt isn't available. It may have been removed.")}
         </p>
-        <button type="button" className={`${secondaryButtonClass} mt-4`} onClick={() => { setFailed(false); setAttempt((value) => value + 1); }}>
+        <button type="button" className={`${secondaryButtonClass} mt-4`} onClick={retry}>
           {t("common.retry", "Retry")}
         </button>
       </section>
@@ -91,7 +98,18 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   if (!detail) return <Settle pending layout="detail" />;
   const terminal = terminalRead(detail.attention, detail.error_code);
   const uploadAnother = canAddRecords(chosen) ? actions.create.find((action) => action.id === "upload_receipt") : null;
-  if (detail.draft_id && !unprepared) return <ReceiptDossierReview draftId={detail.draft_id} onUnprepared={retainReceipt} receipt={detail} />;
+  if (openDraft) {
+    const notice = failure === null ? null : (
+      <div role="alert" data-testid="receipt-refetch-failed" className="text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]">
+        <p className="flex items-start gap-2"><CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />{t("common.refresh_failed", "We couldn't update.")}</p>
+        <div className="flex flex-wrap items-center gap-x-3">
+          <ReferenceCode reference={failure} />
+          <button type="button" className={quietButtonClass} onClick={retry}>{t("common.retry", "Retry")}</button>
+        </div>
+      </div>
+    );
+    return <ReceiptDossierReview draftId={openDraft} onUnprepared={retainReceipt} receipt={detail} notice={notice} />;
+  }
   const openReceipt = (id: string) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id }); };
   const position = receiptPlace(receiptId, records.inbox);
   const moves = busy ? {} : receiptNavigationActions(receiptId, records.inbox, openReceipt);
@@ -159,8 +177,8 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     try {
       setDetail(await source.receipt(detail.id));
       setUnprepared(false);
-    } catch {
-      setFailed(true);
+    } catch (error) {
+      setFailure(referenceCode(error));
     } finally {
       setBusy(null);
     }
@@ -237,7 +255,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                   </p>
                   <button type="button" disabled={busy !== null} onClick={() => void prepare()} className={`${secondaryButtonClass} mt-3`}>
                     <RotateCcw className="h-4 w-4" aria-hidden="true" />
-                    {t("business.review.retry", "Try again with AI")}
+                    {t("business.review.retry", "Read again")}
                   </button>
                 </>
               ) : null}

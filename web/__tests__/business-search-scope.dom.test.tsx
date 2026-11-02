@@ -30,7 +30,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 const actions: BusinessActions = { create: [], composer: [], starterEntries: [] };
 const NONE: BusinessSearchResult = { expenses: [], ventas: [], receipts: [], accounts: [], email_deliveries: [], email_senders: [], next_cursors: {} };
 
-async function mount(list: SearchableList | null, search: () => Promise<BusinessSearchResult>) {
+async function mount(list: SearchableList | null, search: () => Promise<BusinessSearchResult>, chatPalette = false) {
   const queries: string[] = [];
   const applied: string[] = [];
   const source = { ...createFixtureBusinessDataSource(), search: async (query: string) => { queries.push(query); return search(); } };
@@ -42,7 +42,7 @@ async function mount(list: SearchableList | null, search: () => Promise<Business
       listScope: list ? { list, apply: (query) => applied.push(query) } : null,
     });
     const [open, setOpen] = useState(false);
-    const workspace = { id: "business", conversationSurface: "business", chatAvailable: false, search: workspaceSearch } as unknown as ChatWorkspace;
+    const workspace = { id: "business", conversationSurface: "business", chatAvailable: false, search: chatPalette ? null : workspaceSearch } as unknown as ChatWorkspace;
     return (
       <ChatWorkspaceProvider value={workspace}>
         <button type="button" data-testid="opener" onClick={() => setOpen(true)}>Buscar</button>
@@ -126,5 +126,41 @@ test("a Bandeja window whose search fails shows the failure alert", async () => 
     await wait(500);
     assert.deepEqual(view.queries, ["Brisa"]);
     assert.equal(window_().failed, true);
+  } finally { await view.unmount(); }
+});
+
+const panel = () => document.querySelector('[data-testid="workspace-search-panel"]');
+const headerButton = (name: string) => [...document.querySelectorAll<HTMLButtonElement>(`button[aria-label="${name}"]`)].find((button) => button.tabIndex !== -1);
+
+test("the X closes the Business search window, with text in the box or without", async () => {
+  for (const text of ["Brisa", ""]) {
+    const view = await mount("inbox", async () => NONE);
+    try {
+      if (text) await type(text);
+      assert.ok(panel());
+      assert.equal(headerButton("Borrar búsqueda"), undefined, "nothing here only clears the text");
+      await act(async () => headerButton("Cerrar búsqueda")!.click());
+      assert.equal(panel(), null, `closed with ${text ? "text" : "an empty box"}`);
+    } finally { await view.unmount(); }
+  }
+});
+
+test("Esc still closes the Business search window", async () => {
+  const view = await mount("inbox", async () => NONE);
+  try {
+    await type("Brisa");
+    await act(async () => { document.querySelector("input")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); });
+    assert.equal(panel(), null);
+  } finally { await view.unmount(); }
+});
+
+test("the chat palette's X still only clears the text", async () => {
+  const view = await mount(null, async () => NONE, true);
+  try {
+    await type("Brisa");
+    await act(async () => headerButton("Borrar búsqueda")!.click());
+    assert.equal(document.querySelector("input")?.value, "", "the text is gone");
+    assert.ok(document.querySelector("input"), "the window stays");
+    assert.equal(headerButton("Borrar búsqueda"), undefined, "an empty box has no X");
   } finally { await view.unmount(); }
 });

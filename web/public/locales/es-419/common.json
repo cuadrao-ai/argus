@@ -2746,6 +2746,7 @@
       "type_detected_venta": "La detectamos por el RNC de tu negocio. Completa el RNC del cliente.",
       "type_detected_recibo": "Lo detectamos como compra. Cámbialo si es una venta.",
       "type_locked": "Este registro ya está aprobado. Su tipo no cambia.",
+      "type_clears_choices": "Cambiar el tipo borra el tipo de gasto y la forma de pago.",
       "title": "Revisar registro",
       "unknown": "Desconocido",
       "rnc_unknown": "Sin RNC",
@@ -2883,6 +2884,7 @@
       "missing_draft": "El movimiento preparado todavía no está disponible. Revisa el recibo actual antes de continuar.",
       "refused": "No se pudo completar esta acción. Consulta el registro actual antes de intentarlo de nuevo.",
       "blocker_fallback": "Este registro necesita más revisión antes de aprobarse.",
+      "blocker_unsaved": "Un cambio no se guardó. Guárdalo de nuevo para aprobar.",
       "kind": {
         "expense": "Gasto",
         "income": "Ingreso",
@@ -3115,7 +3117,7 @@
     },
     "attention_short": {
       "unreadable": "No se pudo leer",
-      "ai_unavailable": "Lectura no disponible",
+      "ai_unavailable": "No se pudo leer",
       "interrupted": "La lectura se detuvo",
       "outcome_unknown": "No recuperamos la lectura",
       "no_purchase_found": "No encontramos una compra",
@@ -4185,7 +4187,7 @@
       "poll_stopped": "La lectura sigue en curso. Consulta el registro actual para ver el estado más reciente.",
       "saved_prepare_only": "Guardado, sin leer. Pulsa «Preparar con IA» para que Cuadrao lo lea.",
       "saved_waiting": "Guardado, sin leer.",
-      "retry": "Reintentar con IA",
+      "retry": "Leer de nuevo",
       "retry_consent": "Si reintentas, el recibo se envía a nuestro proveedor de IA.",
       "saved_body": "Guardado como un gasto de {{amount}}.",
       "saved_title": "Gasto guardado",

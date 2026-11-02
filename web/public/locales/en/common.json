@@ -2746,6 +2746,7 @@
       "type_detected_venta": "We read it as a sale from your business's RNC. Add the client's RNC.",
       "type_detected_recibo": "We read it as a purchase. Change it if it is a sale.",
       "type_locked": "This record is approved. Its type no longer changes.",
+      "type_clears_choices": "Changing the type clears the expense type and payment form.",
       "title": "Review record",
       "unknown": "Unknown",
       "rnc_unknown": "No RNC",
@@ -2883,6 +2884,7 @@
       "missing_draft": "The prepared record isn't available yet. Check the current receipt before continuing.",
       "refused": "This action could not be completed. Check the current record before trying again.",
       "blocker_fallback": "This record needs further review before approval.",
+      "blocker_unsaved": "A change didn't save. Save it again to approve.",
       "kind": {
         "expense": "Expense",
         "income": "Income",
@@ -3802,7 +3804,7 @@
     },
     "attention_short": {
       "unreadable": "Couldn't read it",
-      "ai_unavailable": "Reading unavailable",
+      "ai_unavailable": "Couldn't read",
       "interrupted": "Reading stopped",
       "outcome_unknown": "Reading result lost",
       "no_purchase_found": "No purchase found",
@@ -4071,7 +4073,7 @@
       "source": "Original receipt",
       "download": "Download",
       "error": "This receipt isn't available. It may have been removed.",
-      "retry": "Try again with AI",
+      "retry": "Read again",
       "retry_consent": "Trying again sends this receipt to our AI provider.",
       "prepare_failed": "We couldn't start preparation. Your receipt is saved. Try again.",
       "reading_off": "Turn on Read my receipts with AI in your WhatsApp settings, then try again.",

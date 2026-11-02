@@ -77,7 +77,7 @@ for (const width of [1280, 390]) {
     await expect(row.getByRole("button")).toHaveCount(1);
     await row.getByRole("button").click();
     await expect(page).toHaveURL(/receipt=rcpt-unknown/);
-    const retry = page.getByRole("button", { name: "Reintentar con IA", exact: true });
+    const retry = page.getByRole("button", { name: "Leer de nuevo", exact: true });
     await expect(retry).toBeVisible();
     expect((await retry.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     state.failed = true;
@@ -90,7 +90,7 @@ for (const width of [1280, 390]) {
 }
 
 for (const preparable of [false, true]) {
-  test(`the record offers Reintentar con IA only when the server says it can prepare (${preparable})`, async ({ page }) => {
+  test(`the record offers Leer de nuevo only when the server says it can prepare (${preparable})`, async ({ page }) => {
     await setup(page, { preparable });
     await page.goto("/biz?view=inbox");
     const row = page.getByTestId("bandeja-row").first();
@@ -98,7 +98,7 @@ for (const preparable of [false, true]) {
     await row.getByRole("button").click();
     await expect(page).toHaveURL(/receipt=rcpt-unknown/);
     await expect(page.getByTestId("receipt-attention")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Reintentar con IA", exact: true })).toHaveCount(preparable ? 1 : 0);
+    await expect(page.getByRole("button", { name: "Leer de nuevo", exact: true })).toHaveCount(preparable ? 1 : 0);
   });
 }
 
@@ -113,5 +113,5 @@ test("English keeps existing canonical labels and accountant has no upload hero"
   await expect(row.getByRole("button")).toHaveCount(1);
   await expect(page.getByTestId("business-primary-upload")).toHaveCount(0);
   await row.getByRole("button").click();
-  await expect(page.getByRole("button", { name: "Try again with AI", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Read again", exact: true })).toBeVisible();
 });

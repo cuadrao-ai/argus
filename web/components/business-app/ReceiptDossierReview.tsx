@@ -8,7 +8,7 @@ import { ReceiptShortcutRegistration, receiptNavigationActions, receiptPlace } f
 import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
 import type { ReceiptDetail } from "@/lib/business-api";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, CircleAlert, Loader2, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { factsRevision, readReviewNote, type BusinessDossier, type ReviewFlagCode } from "@/lib/business-dossier";
@@ -30,7 +30,7 @@ import ReceiptRowSave from "./ReceiptRowSave";
 import ReceiptEditRow, { type RowShown } from "./ReceiptEditRow";
 import ReceiptReviewDone from "./ReceiptReviewDone";
 import { READ_FACT_ROWS, type ReviewRow } from "./receipt-fact-rows";
-import { useReviewAutosave, useReviewRows, type SaveRow } from "./receipt-review-save";
+import { changesRecord, useReviewAutosave, useReviewRows, type SaveRow } from "./receipt-review-save";
 import { dossierAttention } from "./dossier-attention";
 import DossierAttentionStrip from "./DossierAttentionStrip";
 import ReceiptReviewQuestions from "./ReceiptReviewQuestions";
@@ -154,7 +154,7 @@ export function ReceiptReadPurchases({ dossier, busy, onSettle }: { dossier: Bus
   );
 }
 
-export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }: { draftId: string; onUnprepared?: () => void; receipt?: ReceiptDetail }) {
+export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, notice }: { draftId: string; onUnprepared?: () => void; receipt?: ReceiptDetail; notice?: ReactNode }) {
   const { t, i18n } = useTranslation();
   const stateWord = useReceiptStateWord();
   const primaryKeys = usePrimaryKeys();
@@ -184,6 +184,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const [approvalCheck, setApprovalCheck] = useState<ApprovalCheck | null>(null);
   const [fixing, setFixing] = useState<ReviewFlagCode | null>(null);
   const [leaving, setLeaving] = useState<{ proceed: () => void } | null>(null);
+  const [retyping, setRetyping] = useState(false);
   const releaseGuard = useRef<(() => void) | null>(null);
   const inFlight = useRef(false);
   // One key per request body: a retry repeats it, and approving anyway is a different request with its own key.
@@ -408,6 +409,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   };
   const unsavedNames = [...rows.unsaved.map(rowName), ...(fiscalDirty ? [t("business.dossier.placeholder.more_fiscal", "More tax details")] : [])];
   const reason = unsavedNames.length ? t("business.dossier.placeholder.save_first", { fields: unsavedNames.join(", "), defaultValue: "Save or cancel {{fields}} to approve." })
+    : autosave.failed && !busy ? t("business.dossier.blocker_unsaved", "A change didn't save. Save it again to approve.")
     : busy || saveHolds || supportedKind && approvable || attention.length ? null
     : t("business.dossier.blocker_fallback", "This record needs further review before approval.");
   // The receipt's own status when there is one; a bare record maps only the review states a status pill can say.
@@ -426,6 +428,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
     fiscal_number: { name: "ncf", value: fiscalFacts?.ecf.value ?? fiscalFacts?.ncf.value ?? "" },
     itbis: { name: "itbis", value: fiscalFacts?.itbis.value ?? "" },
   };
+  // The server drops the whole declaration on a new type.
+  const retypeClears = Boolean(dossier.dgii?.category || dossier.dgii?.payment_method);
   const rowControl = (row: ReviewRow, shown: RowShown) => {
     const open = rows.rows[row];
     const edit = open?.edit;
@@ -442,7 +446,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
         saving={saving}
         locked={save?.state === "failed" && save.unknown}
         onOpen={canPrepare && mutable && retypes ? () => rows.open(row) : undefined}
-        onSave={() => rows.save(row)}
+        onSave={() => { if (edit?.change.write === "type" && retypeClears && !saving && changesRecord(dossier, edit.change)) setRetyping(true); else rows.save(row); }}
         onCancel={() => rows.cancel(row)}
       >
         <ReceiptFactEditor
@@ -515,6 +519,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
           <ReceiptEcfChecks verification={dossier.ecf_checks ?? null} qr={dossier.dgii_qr ?? null} />
       </>}
     >
+          {notice}
           <DossierAttentionStrip items={attention} />
           {/* The row in focus or under the pointer marks its value where the message says it verbatim. */}
           <div
@@ -578,6 +583,16 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
       cancelLabel={t("business.settings.profile_keep_editing", "Keep editing")}
       onCancel={() => { setLeaving(null); requestAnimationFrame(() => document.querySelector<HTMLElement>("[data-row-open] input, [data-row-open] select")?.focus()); }}
       onConfirm={() => { releaseGuard.current?.(); setLeaving(null); leaving.proceed(); }}
+    /> : null}
+    {retyping ? <ConfirmDialog
+      isOpen
+      tone="primary"
+      title={t("business.dossier.type_label", "Type")}
+      description={t("business.dossier.type_clears_choices", "Changing the type clears the expense type and payment form.")}
+      confirmLabel={t("common.save", "Save")}
+      cancelLabel={t("common.cancel", "Cancel")}
+      onCancel={() => setRetyping(false)}
+      onConfirm={() => { setRetyping(false); rows.save("document_type"); }}
     /> : null}
     {receipt ? <ReceiptSeenBoundary receipt={receipt} hydrated={dossier.draft_id === receipt.draft_id && dossier.version === receipt.version} /> : null}
   </></ContentFade>

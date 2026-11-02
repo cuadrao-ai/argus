@@ -482,6 +482,109 @@ describe("the receipt dossier on an open draft", () => {
     } finally { await page.close(); }
   });
 
+  test("changing Tipo warns first while a tipo de gasto or forma de pago is set, and cancelling saves nothing", async () => {
+    const warning = "Cambiar el tipo borra el tipo de gasto y la forma de pago.";
+    const dialog = () => document.querySelector('[role="alertdialog"]');
+    for (const choice of [{ category: "05", payment_method: null }, { category: null, payment_method: "01" }]) {
+      const typed: string[] = [];
+      const page = await setup("fiscal", (dossier) => { dossier.dgii = { form: "606", ...choice }; }, (fixture) => ({ setDocumentType: async (draft, version, documentType, key) => { typed.push(documentType); return fixture.setDocumentType(draft, version, documentType, key); } }));
+      try {
+        await page.openRow("document_type");
+        await page.check("document_type");
+        assert.equal(dialog(), null, "an unchanged Tipo clears nothing, so it warns nobody");
+        await page.openRow("document_type");
+        await fill(page, '[data-fact="document_type"] select', "venta", HTMLSelectElement);
+        await page.check("document_type");
+        assert.ok(dialog()?.textContent?.includes(warning), "the warning comes before the save");
+        assert.deepEqual(typed, []);
+        await page.act(async () => button(dialog()!, "Cancelar").click());
+        assert.equal(dialog(), null);
+        assert.deepEqual(typed, [], "cancelling sends nothing");
+        assert.equal(page.row("document_type").querySelector("select")?.value, "venta", "the choice stays in the open row");
+        await page.check("document_type");
+        await page.act(async () => button(dialog()!, "Guardar").click());
+        await page.wait(() => /Venta/.test(page.row("document_type").textContent ?? ""));
+        assert.deepEqual(typed, ["venta"]);
+        assert.equal(dialog(), null);
+      } finally { await page.close(); }
+    }
+  });
+
+  test("changing Tipo with neither tipo de gasto nor forma de pago set saves with no warning", async () => {
+    const typed: string[] = [];
+    const page = await setup("fiscal", (dossier) => { dossier.dgii = { form: "606", category: null, payment_method: null }; }, (fixture) => ({ setDocumentType: async (draft, version, documentType, key) => { typed.push(documentType); return fixture.setDocumentType(draft, version, documentType, key); } }));
+    try {
+      await page.openRow("document_type");
+      await fill(page, '[data-fact="document_type"] select', "venta", HTMLSelectElement);
+      await page.check("document_type");
+      await page.wait(() => /Venta/.test(page.row("document_type").textContent ?? ""));
+      assert.equal(document.querySelector('[role="alertdialog"]'), null);
+      assert.deepEqual(typed, ["venta"]);
+    } finally { await page.close(); }
+  });
+
+  test("a save that failed with no row open says why Aprobar is off, beside the button", async () => {
+    const page = await setup("saveRefused");
+    const reason = () => page.host.querySelector('[data-testid="approve-reason"]');
+    try {
+      await fill(page, '[data-fact="category"] select', "05", HTMLSelectElement);
+      await page.wait(() => Boolean(page.row("category").querySelector('[data-testid="row-save-failed"]')));
+      assert.equal(button(page.host, "Aprobar").disabled, true);
+      assert.equal(reason()?.textContent, "Un cambio no se guardó. Guárdalo de nuevo para aprobar.");
+      assert.equal(button(page.host, "Aprobar").getAttribute("aria-describedby"), reason()?.id, "the button names its reason");
+      await page.act(async () => { await page.i18n.changeLanguage("en"); });
+      assert.equal(reason()?.textContent, "A change didn't save. Save it again to approve.");
+      await page.act(async () => button(page.row("category"), "Cancel").click());
+      assert.equal(reason(), null);
+      assert.equal(button(page.host, "Approve expense").disabled, false);
+    } finally { await page.close(); }
+  });
+
+  test("a receipt refetch that fails after a save keeps the dossier and what another open row holds", async () => {
+    let down = false;
+    let refetches = 0;
+    const page = await mount((fixture) => ({
+      receipt: async (id, signal) => {
+        refetches += 1;
+        if (down) throw Object.assign(new Error("unavailable"), { status: 503, requestId: "req-refetch-down" });
+        return fixture.receipt(id, signal);
+      },
+    }));
+    const row = (name: string) => page.host.querySelector<HTMLElement>(`[data-fact="${name}"]`)!;
+    const open = (name: string) => page.act(async () => row(name).querySelector<HTMLButtonElement>("button")!.click());
+    const notice = () => page.host.querySelector('[data-testid="receipt-refetch-failed"]');
+    const typed = '[data-fact="counterparty"] input';
+    try {
+      await page.open({ kind: "receipt", receiptId: "rcpt-listo-suplidora" }, () => Boolean(page.host.querySelector('[data-testid="receipt-current-facts"]')));
+      await open("counterparty");
+      await fill(page, typed, "Suplidora sin guardar");
+      await open("itbis");
+      await fill(page, '[data-testid="dossier-review-itbis"]', "100.00");
+      down = true;
+      const before = refetches;
+      await page.act(async () => row("itbis").querySelector<HTMLButtonElement>('button[aria-label^="Guardar · "]')!.click());
+      await page.wait(() => refetches > before && Boolean(notice() || page.host.querySelector('[data-testid="receipt-load-error"]')));
+      assert.equal(page.host.querySelector('[data-testid="receipt-load-error"]'), null, "the error card does not replace the dossier");
+      assert.ok(page.host.querySelector('[data-testid="receipt-current-facts"]'));
+      assert.equal(page.host.querySelector<HTMLInputElement>(typed)?.value, "Suplidora sin guardar");
+      assert.equal(notice()?.getAttribute("role"), "alert");
+      assert.ok(notice()?.textContent?.includes("No pudimos actualizar."));
+      assert.ok(notice()?.querySelector('[data-testid="error-reference"]')?.textContent?.includes("Ref."));
+      down = false;
+      await page.act(async () => button(notice()!, "Reintentar").click());
+      await page.wait(() => !notice());
+      assert.equal(page.host.querySelector<HTMLInputElement>(typed)?.value, "Suplidora sin guardar", "a retry keeps the open row too");
+    } finally { await page.act(async () => page.root.unmount()); }
+  });
+
+  test("a receipt that never loaded still shows the error card", async () => {
+    const page = await mount(() => ({ receipt: async () => { throw Object.assign(new Error("gone"), { status: 404 }); } }));
+    try {
+      await page.open({ kind: "receipt", receiptId: "rcpt-listo-suplidora" }, () => Boolean(page.host.querySelector('[data-testid="receipt-load-error"]')));
+      assert.equal(page.host.querySelector('[data-testid="receipt-refetch-failed"]'), null);
+    } finally { await page.act(async () => page.root.unmount()); }
+  });
+
   test("a refused Tipo says the record is fixed, with its reference, and keeps the shown type", async () => {
     const page = await setup("fiscal", () => undefined, () => ({ setDocumentType: async () => { throw Object.assign(new Error("locked"), { status: 422, code: "document_type_locked", requestId: "req-type-locked" }); } }));
     try {
