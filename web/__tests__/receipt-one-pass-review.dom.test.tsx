@@ -245,6 +245,11 @@ describe("a receipt with no currency", () => {
       await page.act(async () => button(page.host.querySelector('[data-testid="dossier-attention"]')!, "Fecha de actividad").click());
       assert.equal(document.activeElement, page.row("occurred_on").querySelector('[data-testid="edit-occurred_on"] input'));
     } finally { await page.close(); }
+    const unpaid = await setup("fiscalBlocked", (dossier) => { dossier.facts.funding = unknownFact; dossier.blockers = [{ code: "unknown_funding", field: "funding" }]; });
+    try {
+      await unpaid.act(async () => unpaid.host.querySelector<HTMLButtonElement>('[data-testid="dossier-attention"] [data-field="funding"] button')!.click());
+      assert.equal(document.activeElement, unpaid.row("funding").querySelector('[data-testid="edit-funding"] select'));
+    } finally { await unpaid.close(); }
   });
 });
 
