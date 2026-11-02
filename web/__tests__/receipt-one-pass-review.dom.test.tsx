@@ -260,6 +260,33 @@ describe("the receipt dossier on an open draft", () => {
     } finally { await page.close(); }
   });
 
+  test("a save that lands while the person types in another row leaves their focus in that row", async () => {
+    let answerFirst = () => undefined as void;
+    const firstAnswered = new Promise<void>((resolve) => { answerFirst = resolve; });
+    const page = await setup("fiscal", undefined, (fixture) => ({
+      reviewDraft: async (draft, version, facts, key) => { await firstAnswered; return fixture.reviewDraft(draft, version, facts, key); },
+    }));
+    const frames: FrameRequestCallback[] = [];
+    const nextFrame = globalThis.requestAnimationFrame;
+    try {
+      await page.openRow("counterparty");
+      await fill(page, '[data-testid="edit-counterparty"] input', "Ferretería Norte");
+      await page.check("counterparty");
+      await page.openRow("fiscal_number");
+      await fill(page, '[data-testid="edit-fiscal_number"] input', "e310000000777");
+      const typing = page.host.querySelector<HTMLInputElement>('[data-testid="edit-fiscal_number"] input');
+      globalThis.requestAnimationFrame = (run) => frames.push(run);
+      await page.act(async () => answerFirst());
+      await page.wait(() => !page.host.querySelector('[data-testid="edit-counterparty"]'));
+      frames.splice(0).forEach((run) => run(0));
+      assert.equal(document.activeElement, typing, "the next key still lands in the row being typed in");
+      assert.equal(typing?.value, "e310000000777");
+    } finally {
+      globalThis.requestAnimationFrame = nextFrame;
+      await page.close();
+    }
+  });
+
   test("a refused save says what failed with its reference and the way out, and keeps what was typed", async () => {
     const page = await setup("saveRefused");
     try {
