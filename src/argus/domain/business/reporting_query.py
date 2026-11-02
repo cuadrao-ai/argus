@@ -57,7 +57,9 @@ class Contract(BaseModel):
 
 
 class Period(Contract):
-    kind: Literal["all", "custom", "this_month", "last_month", "this_year"] = "all"
+    kind: Literal[
+        "all", "custom", "this_month", "last_month", "this_year", "latest_month"
+    ] = "all"
     from_date: date | None = None
     to_date: date | None = None
 
@@ -273,18 +275,26 @@ class ReportAnswer(Contract):
     )
 
 
-def resolve_period(period: Period, observed_at: datetime) -> ResolvedPeriod:
+def _whole_month(day: date) -> tuple[date, date]:
+    start = day.replace(day=1)
+    next_month = (start.replace(day=28) + timedelta(days=4)).replace(day=1)
+    return start, next_month - timedelta(days=1)
+
+
+def resolve_period(
+    period: Period,
+    records: tuple[ReportRecord, ...] | list[ReportRecord],
+    observed_at: datetime,
+) -> ResolvedPeriod:
     today = observed_at.astimezone(ZoneInfo(CALENDAR)).date()
     start, end = period.from_date, period.to_date
-    if period.kind in ("this_month", "last_month"):
-        start = today.replace(day=1)
-        if period.kind == "last_month":
-            end = start - timedelta(days=1)
-            start = end.replace(day=1)
-        else:
-            end = (start.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(
-                days=1
-            )
+    if period.kind == "this_month":
+        start, end = _whole_month(today)
+    elif period.kind == "last_month":
+        start, end = _whole_month(today.replace(day=1) - timedelta(days=1))
+    elif period.kind == "latest_month":
+        dated = (row.report_date for row in records if row.report_date is not None)
+        start, end = _whole_month(max(dated, default=today))
     elif period.kind == "this_year":
         start, end = date(today.year, 1, 1), date(today.year, 12, 31)
     return ResolvedPeriod(from_date=start, to_date=end)
@@ -487,7 +497,7 @@ def matching_records(
     request: ReportRequest,
     observed_at: datetime,
 ) -> tuple[ReportRecord, ...]:
-    period = resolve_period(request.filters.period, observed_at)
+    period = resolve_period(request.filters.period, records, observed_at)
     rows = [row for row in records if _matches(row, request.filters, period)]
     sort, _ = effective_sort(rows, request.sort)
     field, direction = sort.split("_")
@@ -529,7 +539,7 @@ def run_query(
     effects = [effect for row in records for effect in row.linked_activity_ids]
     if len(ids) != len(set(ids)) or len(effects) != len(set(effects)):
         raise ValueError("duplicate canonical report record or activity")
-    period = resolve_period(request.filters.period, observed_at)
+    period = resolve_period(request.filters.period, records, observed_at)
     rows = matching_records(records, request, observed_at)
     semantic = request.model_dump(
         mode="json", exclude={"page", "page_size", "columns", "presentation"}

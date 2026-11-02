@@ -12,6 +12,7 @@ from decimal import Decimal
 from typing import get_args
 from uuid import UUID
 
+from loguru import logger
 from pydantic import BaseModel, ValidationError
 
 from argus.domain.business.contracts.checks import DgiiQr
@@ -609,6 +610,15 @@ class DocumentExtractor:
             detached = _detach_http_response(exc)
             if detached is not None:
                 failure.response = detached
+            http_status = detached.status_code if detached is not None else None
+            if isinstance(http_status, bool):
+                http_status = None
+            failure_class = type(exc).__name__
+            logger.bind(failure_class=failure_class, http_status=http_status).warning(
+                "Document extraction provider failed: failure_class={} http_status={}",
+                failure_class,
+                http_status,
+            )
         finally:
             receipts = end_openrouter_route_receipt_capture(token)
         metadata: dict[str, object] = {
