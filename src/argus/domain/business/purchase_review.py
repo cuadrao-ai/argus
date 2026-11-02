@@ -3,6 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from argus.domain.business.contracts.dgii import (
+    MONEY_LIMIT,
     SERVICE_EXPENSE_TYPES,
     DgiiDeclaration,
     PurchaseDeclaration,
@@ -15,6 +16,8 @@ from argus.domain.business.contracts.dgii import (
 from argus.domain.business.contracts.facts import BusinessFacts, Known
 from argus.domain.business.dgii_codes import PAYMENT_FORM_BY_ACCOUNT_TYPE
 from argus.domain.business.fiscal_identity import identity_digits, normalized_ncf
+
+AMOUNT_SIDES = ("services_amount", "goods_amount")
 
 
 def takes_purchase_declaration(
@@ -54,10 +57,7 @@ def apply_payment_split(
 
 
 def apply_purchase(
-    current: PurchaseDeclaration | None,
-    review: PurchaseReview,
-    amount: str | None,
-    itbis: str | None = None,
+    current: PurchaseDeclaration | None, review: PurchaseReview
 ) -> PurchaseDeclaration:
     if current is None:
         data = {name: None for name in PurchaseDeclaration.model_fields}
@@ -68,23 +68,87 @@ def apply_purchase(
     data.update({name: getattr(review, name) for name in written})
     if "category" in written and "category_suggested" not in written:
         data["category_suggested"] = False
-    category = data.get("category")
-    if (
-        category
-        and not data.get("category_suggested")
-        and data.get("services_amount") is None
-        and data.get("goods_amount") is None
-        and amount is not None
-    ):
-        side = "services_amount" if category in SERVICE_EXPENSE_TYPES else "goods_amount"
-        data[side] = money_text(
-            Decimal(amount)
-            - amount_or_zero(itbis)
-            - amount_or_zero(data.get("selective_tax"))
-            - amount_or_zero(data.get("other_taxes"))
-            - amount_or_zero(data.get("legal_tip"))
-        )
     return PurchaseDeclaration.model_validate(data)
+
+
+def amount_is_derived(
+    declared: DgiiDeclaration | None,
+    stored: DgiiDeclaration | None,
+    derived: bool,
+    review: PurchaseReview | None,
+) -> bool:
+    """Whether the services or goods amount is the server's after a write:
+    ``declared`` is what the write sets, ``stored`` what the draft held, and
+    ``derived`` whether the server worked that out. A confirmed Tipo de gasto
+    with neither amount starts it. An amount a person types ends it, on
+    ``review`` or as a change to the declaration, and a typed amount that
+    equals the rule's stays typed."""
+
+    current = declared or stored
+    if not isinstance(current, PurchaseDeclaration):
+        return False
+    if review is not None:
+        if any(getattr(review, side) is not None for side in AMOUNT_SIDES):
+            return False
+        if _confirmed_type(current) and _amounts(current) == (None, None):
+            return True
+    return (
+        derived
+        and isinstance(stored, PurchaseDeclaration)
+        and _amounts(current) == _amounts(stored)
+    )
+
+
+def derived_amount(
+    declaration: PurchaseDeclaration, amount: str | None, itbis: str | None
+) -> PurchaseDeclaration:
+    """The declaration with its services or goods amount worked out from the
+    total: less ITBIS, selective tax, other taxes and tip, on the side the
+    confirmed Tipo de gasto names. The one owner of that rule. Empty while the
+    total or the type is unknown, or the taxes leave no amount a 606 can hold,
+    so one edit of several in a row never refuses the write."""
+
+    category = _confirmed_type(declaration)
+    base = (
+        None
+        if amount is None or category is None
+        else Decimal(amount)
+        - amount_or_zero(itbis)
+        - amount_or_zero(declaration.selective_tax)
+        - amount_or_zero(declaration.other_taxes)
+        - amount_or_zero(declaration.legal_tip)
+    )
+    value = money_text(base) if base is not None and base >= 0 else None
+    if value is not None and Decimal(value) >= MONEY_LIMIT:
+        value = None
+    services = category in SERVICE_EXPENSE_TYPES
+    return declaration.model_copy(
+        update={
+            "services_amount": value if services else None,
+            "goods_amount": None if services else value,
+        }
+    )
+
+
+def total_and_itbis(facts: BusinessFacts) -> tuple[str | None, str | None]:
+    fiscal = facts.fiscal
+    return (
+        facts.amount.value if isinstance(facts.amount, Known) else None,
+        fiscal.itbis.value
+        if fiscal is not None and isinstance(fiscal.itbis, Known)
+        else None,
+    )
+
+
+def _confirmed_type(declaration: PurchaseDeclaration) -> str | None:
+    return None if declaration.category_suggested else declaration.category
+
+
+def _amounts(declaration: PurchaseDeclaration) -> tuple[Decimal | None, ...]:
+    return tuple(
+        None if value is None else Decimal(value)
+        for value in (getattr(declaration, side) for side in AMOUNT_SIDES)
+    )
 
 
 def changes_recorded_refund(
@@ -117,7 +181,7 @@ def declaration_from_facts(
         return None
     review = PurchaseReview(payment_method=PAYMENT_FORM_BY_ACCOUNT_TYPE.get(account_type))
     digits = identity_digits(rnc)
-    return apply_purchase(None, review, None).model_copy(
+    return apply_purchase(None, review).model_copy(
         update={"id_type": {9: "1", 11: "2"}.get(len(digits or ""))}
     )
 

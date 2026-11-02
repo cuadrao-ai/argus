@@ -9465,7 +9465,15 @@ confirms (`PurchaseReview`: every field of the 606 declaration but `form`, so
 `purchase_activity_id`); absent fields stay as they were, and a confirmed
 `category` with neither amount fills the services or goods side from the total
 less ITBIS, selective tax, other taxes and tip, the tip and taxes of the same
-write included. `purchase` on a record that takes no 606 (an income, with a
+write included. An amount filled this way stays the server's: every later
+revision works it out again from the current total, ITBIS, taxes, tip and
+`category`, on the side the `category` names, whichever write moved them, and it
+reads null while the total or the `category` is unknown or the result does not
+fit a 606 amount. A person's amount ends that, on `purchase` or as a change to the amounts in
+`dgii.declaration`: it is not rewritten, and on `purchase` that holds even when it
+equals the rule's result. An unchanged amount sent in `dgii.declaration` stays
+derived. The export holds a split that does not add up to the total with
+`fiscal_invoice_total_conflict`. `purchase` on a record that takes no 606 (an income, with a
 607 or with nothing), open or approved, is 422 `fiscal_direction_unsupported`
 and writes nothing. The body's `payment_split` carries the 607 payment split
 (`SalePaymentSplit`: `cash`, `bank`, `card`, `credit`, `gift`, `barter`,

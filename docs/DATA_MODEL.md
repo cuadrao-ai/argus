@@ -3614,6 +3614,13 @@ as `document_type`, null when the upload named none. A person's change is a
 normal revision on an open draft; the type is not stored on the revision row,
 whose web source holds the request that named it. No migration.
 
+The resolution's `amount_derived` is true while the declaration's services or
+goods amount is the one the server works out from the confirmed Tipo de gasto,
+and absent otherwise. Every revision works that amount out again from its facts,
+so it follows the total and the ITBIS. A person's amount, or a change of type
+that drops the declaration, ends it. It stays on the resolution, off the
+declaration and the API, so no client reads or sets it. No migration.
+
 The resolution's `due_on` is the due date a person set in review: a date, or
 absent while it is unknown. No read, default or issue date fills it. A change
 is a normal revision on an open draft, and the draft locks it with the other
