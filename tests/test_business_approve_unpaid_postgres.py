@@ -430,6 +430,30 @@ def test_an_unpaid_purchase_reads_everywhere_and_forma_de_pago_stays_blank(world
     assert columns["ncf"] == "B0100000021"
 
 
+def test_the_606_txt_waits_for_the_last_missing_fact_of_the_month(world) -> None:  # noqa: ANN001
+    """Two approved purchases with no 606 data: a finished one does not release
+    the month. The TXT ships when the last missing fact lands, with both lines."""
+
+    _fiscal_profile(world)
+    first, _ = _recorded(world, "expense", "B0100000031")
+    second, _ = _recorded(world, "expense", "B0100000032")
+
+    _declare(world, first, category="02", payment_method="01")
+    assert _month(world)["dgii_forms"]["606"] == "needs_review"
+    assert _export(world)[2] == {}
+
+    _declare(world, second, category="02")
+    assert _month(world)["dgii_forms"]["606"] == "needs_review"
+    assert _export(world)[2] == {}
+
+    _declare(world, second, payment_method="03")
+    assert _month(world)["dgii_forms"]["606"] == "prepared_candidate"
+    names = [name for name, _ in PURCHASE_COLUMNS]
+    lines = _export(world)[2]["606"].strip().split("\r\n")[1:]
+    written = [dict(zip(names, line.split("|"), strict=True))["ncf"] for line in lines]
+    assert sorted(written) == ["B0100000031", "B0100000032"]
+
+
 def test_month_close_lists_no_form_for_a_purchase_the_606_leaves_out(world) -> None:  # noqa: ANN001
     _fiscal_profile(world)
     _recorded(world, "expense", "B0200000022")

@@ -3,6 +3,7 @@
 import { useTranslation } from "react-i18next";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import type { DgiiField, DgiiFields, PurchaseChoice } from "@/lib/business-dgii";
+import { UNKNOWN_VALUE } from "./business-format";
 import { quietButtonClass } from "./business-ui";
 import { ReviewSelect } from "./ReceiptFieldControls";
 import { FACT_LABEL_CLASS, FACT_ROW_CLASS } from "./ReceiptRecordFacts";
@@ -16,12 +17,14 @@ type Choice = keyof PurchaseChoice;
  * blocks approval. A suggested tipo de gasto stays a suggestion until a person
  * takes it, because only a person's write reaches the 606.
  */
-export default function ReceiptOwnerChoices({ dossier, fields, failed, disabled, saves, onChoose, onRetry, onCancel, onReload }: {
+export default function ReceiptOwnerChoices({ dossier, fields, failed, disabled, readOnly = false, saves, onChoose, onRetry, onCancel, onReload }: {
   dossier: BusinessDossier;
   fields: DgiiFields | null;
   /** The labels could not be loaded. */
   failed: boolean;
   disabled: boolean;
+  /** The values as text, with no control. */
+  readOnly?: boolean;
   saves: Partial<Record<SaveRow, RowSave>>;
   onChoose: (choice: Choice, value: string | null) => void;
   onRetry: (choice: Choice) => void;
@@ -34,6 +37,12 @@ export default function ReceiptOwnerChoices({ dossier, fields, failed, disabled,
     const value = String(dossier.dgii?.[choice] ?? "");
     const name = (code: string) => field?.labels?.[code] ?? code;
     const suggestion = choice === "category" && !value ? dossier.expense_type_suggestion : null;
+    if (readOnly) return (
+      <div key={choice} data-fact={choice} className={FACT_ROW_CLASS}>
+        <dt className={FACT_LABEL_CLASS}>{label}</dt>
+        <dd className="min-w-0 break-words py-[7px] text-[15px] leading-[22px] text-[#172b26] dark:text-white">{value ? name(value) : UNKNOWN_VALUE}</dd>
+      </div>
+    );
     return (
       <div key={choice} data-fact={choice} className={FACT_ROW_CLASS}>
         <dt className={FACT_LABEL_CLASS}>{label}</dt>

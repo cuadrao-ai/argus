@@ -37,8 +37,6 @@ export type FactsReview = {
   row: (row: ReviewRow, shown: RowShown) => ReactNode;
   /** The row's save state. */
   note: (row: ReviewRow) => ReactNode;
-  /** The owner's choices, as rows. */
-  choices?: ReactNode;
   /** Marking a record that has no fiscal number as Sin recibo. `onMark` is absent for someone who cannot edit it now. */
   noReceipt: { onMark?: (marked: boolean) => void; busy: boolean; note: ReactNode };
 };
@@ -50,9 +48,10 @@ export type FactsReview = {
  * attention list names carries a marker.
  *
  * With `review`, the form of an open draft: the six read facts with an edit
- * control each, then the owner's choices. A row a person opens edits in place.
+ * control each. A row a person opens edits in place. `choices` follow the
+ * fiscal facts on an open draft and on a recorded one alike.
  */
-export default function ReceiptRecordFacts({ dossier, accounts, attention = [], typeRow, review }: {
+export default function ReceiptRecordFacts({ dossier, accounts, attention = [], typeRow, review, choices }: {
   dossier: BusinessDossier;
   accounts: BusinessAccount[];
   /** What needs the person; each row an item points at carries a marker. */
@@ -60,6 +59,8 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
   /** Compra or Venta, which says the kind: the kind row then shows only while it needs a person. */
   typeRow?: ReactNode;
   review?: FactsReview;
+  /** The owner's choices, as rows. */
+  choices?: ReactNode;
 }) {
   const { t, i18n } = useTranslation();
   const ids = useId();
@@ -180,6 +181,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
   const kindRow = rows.get("kind");
   // A Compra/Venta control already says the kind; the kind row returns while it needs a person.
   const kindShown = !typeRow || kind.state !== "known" || kindRow?.blocked || kindRow?.asked || flagged("kind");
+  const choicesSection = choices ? section("choices", t("business.dossier.placeholder.section_choices", "For the 606"), choices) : null;
   if (review) {
     const waiting = (keys: readonly BusinessFactField[]) => keys.filter((key) => rows.get(key)?.blocked || rows.get(key)?.asked);
     const payment = waiting(PAYMENT_FIELDS);
@@ -193,7 +195,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
           {recordField("amount")}
         </>)}
         {section("fiscal", t("business.dossier.section.fiscal", "Fiscal"), reviewFiscalFields(review))}
-        {review.choices ? section("choices", t("business.dossier.placeholder.section_choices", "For the 606"), review.choices) : null}
+        {choicesSection}
         {payment.length ? section("payment", t("business.dossier.section.payment", "Payment"), payment.map(recordField)) : null}
       </div>
     );
@@ -224,6 +226,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
         {recordField("receipt_state")}
         {fiscalFields}
       </>)}
+      {choicesSection}
       {section("payment", t("business.dossier.section.payment", "Payment"), PAYMENT_FIELDS.map(recordField))}
     </div>
   );

@@ -310,6 +310,127 @@ async def test_single_private_provider_attempt_preserves_usage(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "case,status",
+    [
+        ("timeout", None),
+        ("rate_limit", 429),
+        ("server_error", 503),
+        ("invalid_json", 502),
+        ("unknown", None),
+        ("malformed_status", "synthetic-private-status"),
+        ("boolean_status", True),
+    ],
+)
+async def test_provider_failure_logs_safe_diagnostics_without_changing_error(
+    monkeypatch, case, status
+):
+    import base64
+    import hashlib
+    import json
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    import httpx
+    from argus.domain.ingestion.documents import extractor as module
+    from argus.domain.ingestion.documents.config import DocumentExtractionSettings
+    from argus.domain.ingestion.documents.preparation import PreparedDocument
+    from loguru import logger
+
+    private = "synthetic-private-document-key-prompt"
+    content = private.encode()
+    request = httpx.Request(
+        "POST", "https://provider.invalid/read", headers={"authorization": private}
+    )
+    payload = {"error": {"message": private}}
+    if case == "timeout":
+        provider_error = httpx.ReadTimeout(private, request=request)
+    elif case in {"rate_limit", "server_error", "invalid_json"}:
+        response = httpx.Response(
+            status,
+            request=request,
+            **({"text": private} if case == "invalid_json" else {"json": payload}),
+        )
+        provider_error = httpx.HTTPStatusError(
+            private, request=request, response=response
+        )
+    else:
+        provider_error = RuntimeError(private)
+        if status is not None:
+            provider_error.response = SimpleNamespace(
+                status_code=status, json=lambda: payload
+            )
+    invoke = AsyncMock(side_effect=provider_error)
+    monkeypatch.setattr(module, "invoke_openrouter_json_schema", invoke)
+    monkeypatch.setattr(
+        module, "resolve_openrouter_model", lambda **kwargs: "test/vision"
+    )
+    monkeypatch.setattr(module, "resolve_openrouter_api_key", lambda *args: private)
+    messages = []
+    sink = logger.add(
+        messages.append,
+        serialize=True,
+        filter=lambda record: record["name"] == module.__name__,
+    )
+    try:
+        with pytest.raises(DocumentExtractionError) as error:
+            await module.DocumentExtractor(
+                DocumentExtractionSettings(enabled=True)
+            ).extract(
+                content,
+                private,
+                "image/png",
+                "owned",
+                datetime.now(timezone.utc),
+                prepared=PreparedDocument(pages=1, images=(content,), text=private),
+            )
+    finally:
+        logger.remove(sink)
+
+    invoke.assert_awaited_once()
+    assert error.value.code == "extraction_provider_failed"
+    assert str(error.value) == "extraction_provider_failed"
+    assert error.value.retryable is True
+    assert error.value.__context__ is None
+    assert error.value.__cause__ is None
+    assert error.value.metadata == {
+        "pages": 1,
+        "media_type": "image/png",
+        "document_currency": None,
+        "sha256": hashlib.sha256(content).hexdigest(),
+        "model": "test/vision",
+        "route_receipts": [],
+    }
+    if isinstance(status, int):
+        assert error.value.response.status_code == status
+        if case == "invalid_json":
+            with pytest.raises(json.JSONDecodeError):
+                error.value.response.json()
+        else:
+            assert error.value.response.json() == payload
+    else:
+        assert not hasattr(error.value, "response")
+
+    [message] = messages
+    record = json.loads(message)["record"]
+    expected_status = (
+        status if isinstance(status, int) and not isinstance(status, bool) else None
+    )
+    assert record["extra"] == {
+        "failure_class": type(provider_error).__name__,
+        "http_status": expected_status,
+    }
+    assert record["exception"] is None
+    assert record["level"]["name"] == "WARNING"
+    assert f"failure_class={type(provider_error).__name__}" in record["message"]
+    assert f"http_status={expected_status}" in record["message"]
+    assert private not in message
+    assert "synthetic-private-status" not in message
+    assert base64.b64encode(content).decode() not in message
+    assert module._PROMPT not in message
+
+
+@pytest.mark.asyncio
 async def test_missing_vision_config_does_not_call_provider(monkeypatch, respx_mock):
     from argus.domain.ingestion.documents.config import DocumentExtractionSettings
     from argus.domain.ingestion.documents.extractor import DocumentExtractor
