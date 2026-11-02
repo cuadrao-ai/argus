@@ -6,7 +6,11 @@ The scheduled workflow downloads the public RNC zip, parses it, and loads the ro
 
 `.github/workflows/dgii-rnc-import.yml` runs at 07:00 UTC every day. You can also start it with `workflow_dispatch`.
 
-The job checks out this repository and downloads `DGII_RNC.zip`. The zip holds two entries. The canonical source is `RNC_Contribuyentes_Actualizado_<date>.csv`, found by that name pattern in any folder of the zip. The job reads it as comma separated, double quoted Latin-1 with a quote-aware parser, and finds each column by its header. `file_date` is that entry's modification date, read as the America/Santo_Domingo calendar date.
+The job checks out this repository and downloads `DGII_RNC.zip`. The canonical source is `RNC_Contribuyentes_Actualizado_<date>.csv`, found by that name pattern in any folder of the zip. The job reads it as comma separated, double quoted Latin-1 with a quote-aware parser, and finds each column by its header. A zip without that entry fails the job, prints the entries it found, and loads nothing.
+
+On 2026-11-02 the job's download held only `TMP/DGII_RNC.TXT`, so the job failed at this step. No real CSV has been parsed. Loading stays blocked until the job downloads a zip that holds the CSV.
+
+`file_date` is that entry's modification date, read as the America/Santo_Domingo calendar date.
 
 ```bash
 python3 scripts/ops/dgii_rnc_import.py parse rnc.zip
@@ -55,7 +59,17 @@ Replace the quoted argument with the RNC you want to read. Run that lookup as th
 
 ## Watch the database size
 
-The commercial names add 10825191 bytes to the COPY payload, about 10.3 MB. The 2026-10-18 file kept 795000 rows, with `trade_name_filled=446798` and `parsed_bytes=57805193`. The table plus its primary key is about 105 MB. A reload peaks around 223 MB on staging. The free database limit is 500 MB.
+The 2026-10-18 TXT kept 795000 rows, with `trade_name_filled=446798` and `parsed_bytes=57805193`. The free database limit is 500 MB.
+
+The numbers below are estimates. They come from 795000 synthetic rows on a local database, one run for each length. The average activity length is the unknown, because no real CSV has been parsed. A reload holds three copies at its peak: the old table, the load table, and the new table. Write-ahead log is not counted.
+
+| Average activity | `parsed_bytes` | Table plus key | Reload growth over the current size |
+| --- | --- | --- | --- |
+| 30 characters | 95574854 | 133 MiB | 236 MiB |
+| 50 characters | 111259061 | 149 MiB | 271 MiB |
+| 80 characters | 134770969 | 178 MiB | 323 MiB |
+
+That growth is more than the 200 MB floor below, so the size check can pass a load that peaks above its threshold. On the first real parse, read `parsed_bytes` and set `DGII_RNC_LOAD_HEADROOM_FLOOR` from this table before the second load.
 
 Before the truncate or the copy, the load reads `pg_database_size(current_database())` and `pg_total_relation_size` of `public.dgii_rnc`. The required headroom is the larger of that live size and a floor of 200 MB, which is 209715200 bytes. A missing table counts as zero, so the floor applies. The load fails without loading when the current database size plus that headroom exceeds the threshold. The default threshold is 450 MB, which is 471859200 bytes. A database near 350 MB fails that default, because 350 MB plus the 200 MB floor is 550 MB.
 

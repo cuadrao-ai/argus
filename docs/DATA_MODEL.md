@@ -4250,7 +4250,10 @@ identifiers published in the source file. Access stays service-role only.
 
 A full file is about 800,000 rows. `trade_name` adds about 10 to 15 MB at that
 scale. One local swap of 800,000 synthetic rows, with a commercial name on 56
-percent of them, added 14,778,368 bytes to the registry. Re-running the swap
+percent of them, added 14,778,368 bytes to the registry. With the three CSV
+columns, one local load of 795,000 synthetic rows measured 133 to 178 MiB for
+the table and its key, at an average activity of 30 to 80 characters. No real
+CSV has been measured. Re-running the swap
 with the same load contents produces the same registry. Proven by
 `tests/test_dgii_rnc_postgres.py`. Migrations
 `supabase/migrations/20261018190000_dgii_rnc_registry.sql` and

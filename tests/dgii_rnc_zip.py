@@ -1,4 +1,4 @@
-"""A synthetic registry zip in the shape the publisher ships."""
+"""A synthetic registry zip. The CSV header is assumed: no real one has been read."""
 
 from __future__ import annotations
 
