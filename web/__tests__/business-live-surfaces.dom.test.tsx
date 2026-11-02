@@ -25,8 +25,11 @@ const reports = await import("@/lib/business-reports-api");
 let report: () => Promise<unknown> = async () => ({ overview: { needs_review: 0, awaiting_approval: 0, ready_for_export: 0 } });
 mock.module("@/lib/business-reports-api", () => ({ ...reports, queryBusinessReport: () => report() }));
 
+let registeredFetch: typeof globalThis.fetch;
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz" });
+  registeredFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error("Unavailable"); };
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 afterEach(() => {
@@ -34,6 +37,7 @@ afterEach(() => {
   requested.length = 0;
 });
 afterAll(async () => {
+  globalThis.fetch = registeredFetch;
   await GlobalRegistrator.unregister();
 });
 
