@@ -93,20 +93,22 @@ test.each(["profile-action","profile-refresh","fiscal-action","fiscal-read"] as 
 
 
 test.each(["action","refresh"] as const)("an invitation %s refusal clears the parent access list and its open recipient draft",async failure=>{
- let reads=0;
+ let posted=false;
  globalThis.fetch=async(_url,init)=>{
   if(init?.method==="POST"){
+   posted=true;
    if(failure==="action")return denied(404);
    const recipient=JSON.parse(String(init.body)).recipients[0];
    return Response.json({results:[{command_key:recipient.command_key,email:recipient.email,invite_id:"new-invite",state:"pending",delivery:"uncertain",code:null}]});
   }
-  return ++reads===1?Response.json(access):denied();
+  return posted?denied():Response.json(access);
  };
  const page=await mount("access");
  try{
-  await page.click(page.button(messages.workspace_setup_preview.invite));await page.type('input[type="email"]',"draft@example.test");await page.click(document.querySelector<HTMLButtonElement>('button[type="submit"]'));
+  await page.click(page.button(messages.workspace_setup_preview.batch_title));await page.type('input[type="email"]',"draft@example.test");await page.click(document.querySelector<HTMLButtonElement>('button[type="submit"]'));
   await page.settle(()=>page.host.textContent?.includes(messages.business.lifecycle.errors.business_unavailable)===true);
-  expect(document.body.textContent).not.toContain(member.email);expect(document.querySelector('input')).toBeNull();expect(document.querySelector('[data-testid="side-drawer"]')).toBeNull();
+  expect(document.body.textContent).not.toContain(member.email);expect(document.querySelector('input')).toBeNull();expect(document.querySelector('[data-invitation-modal]')).toBeNull();
+  expect(page.host.textContent).toContain(messages.auth.business_unavailable.body);expect(page.host.querySelector('[data-testid="error-reference"]')).not.toBeNull();
  }finally{await page.close();}
 });
 

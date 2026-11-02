@@ -1,5 +1,16 @@
+import type { TFunction } from "i18next";
+import type { AccessRoleOption } from "./AccessRolePicker";
+
 export const accessRoles = ["owner", "admin", "editor", "viewer"] as const;
 export type AccessRole = typeof accessRoles[number];
+export const defaultInvitationRole: AccessRole = "viewer";
+const offeredRoles: readonly AccessRole[] = ["owner", "viewer"];
+/** Every role stays visible; only the ones the pilot offers can be picked. */
+export function accessRoleOptions(t: TFunction, canAssignOwner: boolean): AccessRoleOption[] {
+  return accessRoles.map(role => ({value:role,label:t(`workspace_setup_preview.permission_${role}`),description:t(`workspace_setup_preview.permission_${role}_detail`),disabled:!offeredRoles.includes(role)||(role === "owner"&&!canAssignOwner)}));
+}
+/** Who has access changed: the open Acceso list reads it again, live or in the sample. */
+export const businessAccessChangedEvent = "business-access-changed";
 export type PreviewPerson = { email: string; permission: AccessRole; status: "granted" | "pending"; current?: boolean; resendCount?: number };
 export type PreviewActor = { email: string; permission: AccessRole };
 type HistoryPerson = Omit<PreviewPerson, "status"> & { status: PreviewPerson["status"] | "cancelled" | "revoked" };
@@ -52,6 +63,14 @@ export function seedAccessPreview(storage: StorageLike, businessId: string) {
   draft.invitationBatch = { ...batch, accessFixtureVersion: 1, history: [...history, ...fixtures.filter(person => !history.some(existing => emailKey(existing.email) === person.email))] };
   storage.setItem(key, JSON.stringify(draft));
   return true;
+}
+/** A sample invitation sent: the person joins the pending list, as a live invitation would. */
+export function recordInvitationPreview(storage: StorageLike, businessId: string, people: Pick<PreviewPerson, "email" | "permission">[]) {
+  const key = invitationStorageKeys(businessId).draft;
+  const draft = read(storage, key);
+  const batch: Batch = draft.invitationBatch ?? {recipients: [], nextId: 1, phase: "draft"};
+  draft.invitationBatch = { ...batch, history: [...(batch.history ?? []), ...people.map(person => ({...person,email:emailKey(person.email),status:"pending" as const}))] };
+  storage.setItem(key, JSON.stringify(draft));
 }
 export function accessActionGuard(snapshot: ReturnType<typeof readAccessPreview>, actor: PreviewActor | null, action: AccessAction): AccessGuard {
   if (!actor || !["owner", "admin"].includes(actor.permission)) return "owner_only";

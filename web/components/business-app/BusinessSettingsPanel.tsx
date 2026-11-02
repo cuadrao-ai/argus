@@ -9,6 +9,7 @@ import BusinessProfilePreview from "@/app/design-workspace/BusinessProfilePrevie
 import BusinessAccessPreview from "@/app/design-workspace/BusinessAccessPreview";
 import BusinessReception from "./BusinessReception";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
+import { businessLifecycleControlsEnabled } from "@/lib/private-alpha-flags";
 import { PageHeading } from "./foundation/PageHeading";
 import { SettingsColumns, SettingsLayout } from "./foundation/SettingsLayout";
 
@@ -32,7 +33,7 @@ export default function BusinessSettingsPanel({ tab = "datos" }: { tab?: Busines
         {shown === "datos" ? (
           <div className="space-y-6">
             <BusinessProfilePreview key={chosen?.space_id} />
-            {owner && source.mode === "live" ? <SettingsColumns main={<BusinessLifecycleControls spaceId={chosen?.space_id} />} /> : null}
+            {owner && source.mode === "live" && businessLifecycleControlsEnabled() ? <SettingsColumns main={<BusinessLifecycleControls spaceId={chosen?.space_id} />} /> : null}
           </div>
         ) : null}
         {shown === "equipo" ? <SettingsColumns main={<BusinessAccessPreview key={chosen?.space_id} />} /> : null}

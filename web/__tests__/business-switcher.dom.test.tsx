@@ -52,14 +52,14 @@ async function mountSwitcher(spaces: GrantedSpace[] | null, chosen: GrantedSpace
 const key = (target: Element, key: string) => target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
 
 describe("the Business mark menu", () => {
-  test("owner invite reuses access navigation and member identity is separate from the Business", async () => {
+  test("owner invite opens the one invitation form and member identity is separate from the Business", async () => {
     const page = await mountSwitcher([OWN, CLIENT], OWN, false, [], true);
     await page.act(async () => (page.host.querySelector("button[aria-haspopup=menu]") as HTMLButtonElement).click());
     assert.equal(document.querySelector('[data-testid="business-member-email"]')?.textContent, "member@example.test");
     assert.equal(document.querySelector('[data-testid="business-member-access"]')?.textContent, "Tu acceso · Dueño");
     assert.equal(document.querySelector('[data-testid="business-member-access"]')?.parentElement, document.querySelector('[data-testid="business-member-email"]')?.parentElement);
     const items = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')];
-    assert.deepEqual(items.map(item => item.textContent?.trim()), ["Invitar colaborador", "Configurar", "Añadir negocio", "Cambiar de negocio"]);
+    assert.deepEqual(items.map(item => item.textContent?.trim()), ["Invita a colaboradores", "Configurar", "Añadir negocio", "Cambiar de negocio"]);
     assert.equal(items[2].disabled, true, "creation is not connected by this design preview");
     await page.act(async () => items[0].click());
     assert.deepEqual(page.opened, ["access"]);
@@ -67,7 +67,7 @@ describe("the Business mark menu", () => {
     await page.act(async () => page.root.unmount());
     const client = await mountSwitcher([CLIENT], CLIENT, false, [], true);
     await client.act(async () => (client.host.querySelector("button[aria-haspopup=menu]") as HTMLButtonElement).click());
-    assert.ok(!document.querySelector('[role="menu"]')?.textContent?.includes("Invitar colaborador"));
+    assert.ok(!document.querySelector('[role="menu"]')?.textContent?.includes("Invita a colaboradores"));
     await client.act(async () => client.root.unmount());
   });
 

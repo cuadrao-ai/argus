@@ -74,6 +74,18 @@ export function readBusinessProfilePreview(storage: StorageLike, businessId: str
   return {...identity,providedDetails,checklist:profileChecklist(identity,providedDetails),invoice:{status,path,action:status === "active" || status === "awaiting-verification" ? "view" : path ? "continue" : "configure"}};
 }
 
+/** Only the named synthetic review business starts with saved values, so a row shows both states. */
+export function seedProfilePreview(storage: StorageLike, businessId: string) {
+  if(businessId !== "fixture-space") return false;
+  const saved = read(storage, businessId);
+  if(saved.profileFixtureVersion === 1) return false;
+  saved.profileFixtureVersion = 1;
+  saved.businessDetails = {...object(saved.businessDetails),enteredRnc:"131245678"};
+  saved.businessProvidedDetails = normalizeBusinessProvidedDetails({address:"Calle El Conde 101",province:"Distrito Nacional",municipality:"Santo Domingo",phone:"809-555-0142"});
+  storage.setItem(invitationStorageKeys(businessId).guide, JSON.stringify(saved));
+  return true;
+}
+
 export function saveBusinessProfilePreview(storage: StorageLike, businessId: string, input: FiscalProfileInput) {
   const saved = read(storage, businessId), details = object(saved.businessDetails);
   const rnc = input.tax_id?.type === "rnc" ? digits(input.tax_id.value) : "";
