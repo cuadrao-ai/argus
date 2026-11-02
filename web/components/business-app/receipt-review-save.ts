@@ -157,11 +157,17 @@ export function useReviewAutosave({ source, draftId, dossier, fields, label, onS
   };
 }
 
+/** What a row holds as it opens: a receipt with no currency starts on the only one the picker offers, for the check to confirm. */
+function startingEdit(row: ReviewRow, dossier: BusinessDossier | null, currencies: readonly string[]): RowEdit | null {
+  if (row !== "amount" || !dossier || dossier.facts.currency.state === "known" || currencies.length !== 1) return null;
+  return { change: { write: "facts", facts: { currency: { state: "known", value: currencies[0] } } }, invalid: false };
+}
+
 /**
  * The rows a person has open. A row saves only when asked; leaving it saves
  * nothing, so `unsaved` names what would be lost.
  */
-export function useReviewRows({ dossier, autosave }: { dossier: BusinessDossier | null; autosave: ReturnType<typeof useReviewAutosave> }) {
+export function useReviewRows({ dossier, autosave, currencies }: { dossier: BusinessDossier | null; autosave: ReturnType<typeof useReviewAutosave>; currencies: readonly string[] }) {
   const [rows, setRows] = useState<Partial<Record<ReviewRow, OpenRow>>>({});
 
   const focusRow = (row: ReviewRow, control: string) => requestAnimationFrame(() => {
@@ -175,7 +181,7 @@ export function useReviewRows({ dossier, autosave }: { dossier: BusinessDossier 
     setRows((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key !== row)));
     focusRow(row, "button");
   };
-  const open = (row: ReviewRow) => setRows((current) => current[row] ? current : { ...current, [row]: { edit: null, tried: false } });
+  const open = (row: ReviewRow) => setRows((current) => current[row] ? current : { ...current, [row]: { edit: startingEdit(row, dossier, currencies), tried: false } });
   const hold = (row: ReviewRow, edit: RowEdit) => setRows((current) => ({ ...current, [row]: { edit, tried: false } }));
   const finish = (row: ReviewRow, saved: Promise<boolean>) => void saved.then((done) => { if (done) close(row); else focusRow(row, "input, select"); });
 

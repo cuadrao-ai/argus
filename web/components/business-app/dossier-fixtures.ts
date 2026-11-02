@@ -30,6 +30,8 @@ export const dossierFixtureIds = {
   fiscalDeclared: "10000000-0000-4000-8000-000000000020",
   /** A record with no NCF or e-CF and no answer yet: it can be marked Sin recibo. */
   noNumber: "10000000-0000-4000-8000-000000000021",
+  /** The fiscal record with no currency: its amount cannot be shown as money and approval waits for it. */
+  noCurrency: "10000000-0000-4000-8000-000000000022",
 } as const;
 
 const EXPENSE_TYPES: Record<string, string> = { "01": "Gastos de personal", "02": "Gastos por trabajos, suministros y servicios", "03": "Arrendamientos", "04": "Gastos de activos fijo", "05": "Gastos de representación", "06": "Otras deducciones admitidas", "07": "Gastos financieros", "08": "Gastos extraordinarios", "09": "Compras y gastos que formarán parte del costo de venta", "10": "Adquisiciones de activos", "11": "Gastos de seguros" };
@@ -128,6 +130,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   const fiscalSample = dossiers.get(fiscalDossier.draft_id)!;
   dossiers.set(dossierFixtureIds.saveRefused, { ...fiscalSample, draft_id: dossierFixtureIds.saveRefused });
   dossiers.set(dossierFixtureIds.fiscalBlocked, { ...fiscalSample, draft_id: dossierFixtureIds.fiscalBlocked, facts: { ...fiscalAfter, occurred_on: unknown() }, blockers: [{ code: "fact_required", field: "occurred_on" }], approval_available: false });
+  dossiers.set(dossierFixtureIds.noCurrency, { ...fiscalSample, draft_id: dossierFixtureIds.noCurrency, facts: { ...fiscalAfter, currency: unknown() }, blockers: [{ code: "fact_required", field: "currency" }], approval_available: false });
   dossiers.set(dossierFixtureIds.fiscalAttached, { ...fiscalSample, draft_id: dossierFixtureIds.fiscalAttached, sources: [{ id: sourceId, kind: "attachment", channel: "whatsapp", received_at: "2026-10-10T14:20:00Z", connection_id: "rcpt-ferreteria", filename: "recibo-ferreteria.jpg", media_type: "image/jpeg" }] });
   dossiers.set(dossierFixtureIds.totalsOff, { ...fiscalSample, draft_id: dossierFixtureIds.totalsOff, ecf_checks: { ...fiscalChecks, checks: fiscalChecks.checks.map((check) => check.name === "totals_arithmetic" ? { ...check, state: "failed" as const, code: "totals_mismatch", detail: { monto_total: "3450.00", sum_of_parts: "3449.00" } } : check) } });
   const declaredSourceId = "20000000-0000-4000-8000-000000000020";

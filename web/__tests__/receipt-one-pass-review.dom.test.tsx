@@ -131,6 +131,128 @@ async function fill(page: { host: Element; act: (run: () => Promise<void>) => Pr
   });
 }
 
+describe("a receipt with no currency", () => {
+  const unknownFact = { state: "unknown" as const, value: null, origin: null, verified: false, source_ids: [] };
+  const worksIn = (currencies: string[]) => (fixture: BusinessDataSource): Partial<BusinessDataSource> => ({ workspace: async () => ({ ...await fixture.workspace(), currencies }) });
+  async function noCurrency(currencies = ["DOP", "USD"], change: (dossier: Dossier) => void = () => undefined) {
+    const page = await setup("noCurrency", change, worksIn(currencies));
+    await page.wait(() => Boolean(page.api().records.workspace));
+    const select = () => page.row("amount").querySelector<HTMLSelectElement>('[data-testid="edit-amount"] select')!;
+    const press = (text: string) => page.act(async () => button(page.host.querySelector('[data-testid="dossier-attention"]')!, text).click());
+    return { ...page, select, press };
+  }
+
+  test("a Business with one currency starts the open row on it, and only the check saves it", async () => {
+    const page = await noCurrency(["DOP"]);
+    try {
+      await page.openRow("amount");
+      assert.equal(page.select().value, "DOP");
+      assert.ok(page.row("amount").querySelector('[aria-label="Monto en DOP (RD$)"]'), "the amount reads in that currency");
+      assert.equal(page.writes.length, 0, "opening saves nothing");
+      await page.dismiss("amount");
+      assert.equal(page.writes.length, 0, "the X drops it");
+      await page.openRow("amount");
+      await page.check("amount");
+      await page.wait(() => Boolean(page.row("amount").querySelector('[data-testid="row-saved"]')));
+      assert.deepEqual(page.writes.map(({ body }) => body), [{ currency: { state: "known", value: "DOP" } }]);
+      assert.ok(page.row("amount").textContent?.includes("RD$ 3,450.00"));
+      assert.equal(page.host.querySelector('[data-testid="dossier-attention"]'), null, "nothing blocks now");
+    } finally { await page.close(); }
+  });
+
+  test("a Business with no account yet offers its own currency, so the row can still be cleared", async () => {
+    const page = await noCurrency([]);
+    try {
+      await page.openRow("amount");
+      assert.deepEqual([...page.select().options].map((option) => option.value), ["", "DOP"]);
+      assert.equal(page.select().value, "DOP");
+    } finally { await page.close(); }
+  });
+
+  test("several currencies keep the empty choice in a control wide enough for it, and the check alone saves nothing", async () => {
+    const page = await noCurrency();
+    try {
+      await page.openRow("amount");
+      assert.equal(page.select().value, "");
+      assert.deepEqual([...page.select().options].map((option) => option.text), ["Elegir", "DOP", "USD"]);
+      const width = Number(/\bw-\[([\d.]+)rem\]/.exec(page.select().closest('[class*="w-["]')?.className ?? "")?.[1]);
+      assert.ok(width >= 7, `"Choose" and its chevron need 7rem, got ${width}`);
+      await page.check("amount");
+      assert.equal(page.writes.length, 0);
+    } finally { await page.close(); }
+  });
+
+  test("the currency select says what it is, on screen and to a screen reader", async () => {
+    const page = await noCurrency();
+    try {
+      await page.openRow("amount");
+      const label = page.select().closest("label")!;
+      const name = [...label.querySelectorAll("span")].find((span) => span.textContent === "Moneda");
+      assert.ok(name, "the label names it");
+      assert.ok(!name.classList.contains("sr-only"), "and it shows");
+    } finally { await page.close(); }
+  });
+
+  test("pressing Moneda opens the row on the currency, also when the row is already open", async () => {
+    const page = await noCurrency();
+    try {
+      await page.press("Moneda");
+      assert.equal(document.activeElement, page.select());
+      await page.act(async () => page.host.querySelector<HTMLElement>('[data-testid="dossier-review-amount"]')!.focus());
+      await page.press("Moneda");
+      assert.equal(document.activeElement, page.select());
+      assert.equal(page.writes.length, 0);
+    } finally { await page.close(); }
+  });
+
+  test("pressing Monto opens the row on the amount", async () => {
+    const page = await noCurrency(undefined, (dossier) => { dossier.facts.amount = unknownFact; dossier.blockers = [{ code: "fact_required", field: "amount" }, { code: "fact_required", field: "currency" }]; });
+    try {
+      await page.press("Monto");
+      assert.equal(document.activeElement, page.host.querySelector('[data-testid="dossier-review-amount"]'));
+    } finally { await page.close(); }
+  });
+
+  test("someone who cannot edit gets the row, and no field opens", async () => {
+    const page = await noCurrency(undefined, (dossier) => { dossier.capabilities = ["read"]; });
+    try {
+      await page.press("Moneda");
+      assert.equal(page.host.querySelector('[data-testid="edit-amount"]'), null);
+      assert.equal(document.activeElement, page.row("amount"));
+    } finally { await page.close(); }
+  });
+
+  test("an amount saved without a currency stays on its row beside what it lacks, never as bare money", async () => {
+    const page = await noCurrency();
+    try {
+      const shown = page.row("amount").querySelector("button")?.textContent;
+      assert.equal(shown, "3,450.00 · Falta la moneda");
+      await page.openRow("amount");
+      await fill(page, '[data-testid="dossier-review-amount"]', "950");
+      await page.check("amount");
+      await page.wait(() => Boolean(page.row("amount").querySelector('[data-testid="row-saved"]')));
+      assert.deepEqual(page.writes.map(({ body }) => body), [{ amount: { state: "known", value: "950" } }]);
+      assert.ok(page.row("amount").textContent?.includes("950.00 · Falta la moneda"));
+      await page.act(async () => { await page.i18n.changeLanguage("en"); });
+      assert.ok(page.row("amount").textContent?.includes("950.00 · Currency missing"));
+      await page.act(async () => { await page.i18n.changeLanguage("es-419"); });
+    } finally { await page.close(); }
+  });
+
+  test("the rows the box points at open the same way", async () => {
+    const page = await setup("fiscalBlocked");
+    try {
+      await page.act(async () => button(page.host.querySelector('[data-testid="dossier-attention"]')!, "Fecha de actividad").click());
+      assert.equal(document.activeElement, page.row("occurred_on").querySelector('[data-testid="edit-occurred_on"] input'));
+    } finally { await page.close(); }
+    const unpaid = await setup("fiscalBlocked", (dossier) => { dossier.facts.funding = unknownFact; dossier.blockers = [{ code: "unknown_funding", field: "funding" }]; });
+    try {
+      await unpaid.act(async () => unpaid.host.querySelector<HTMLButtonElement>('[data-testid="dossier-attention"] [data-field="funding"] button')!.click());
+      assert.equal(document.activeElement, unpaid.row("funding").querySelector('[data-testid="edit-funding"] select'));
+    } finally { await unpaid.close(); }
+  });
+});
+
 describe("the receipt dossier on an open draft", () => {
   test("the six facts lead, then the two choices; what was removed is gone, in both languages", async () => {
     const page = await setup();

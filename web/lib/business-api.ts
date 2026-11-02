@@ -329,7 +329,7 @@ export type BusinessWorkspaceInfo = {
 };
 
 /** The Business's own currency, the one reader of the workspace `currency`. A workspace still loading, or an older server without the field, is unknown, never pesos. */
-export function businessWorkspaceCurrency(workspace: BusinessWorkspaceInfo | null | undefined): CurrencyCode | null {
+export function businessWorkspaceCurrency(workspace: Pick<BusinessWorkspaceInfo, "currency"> | null | undefined): CurrencyCode | null {
   return workspace?.currency || null;
 }
 

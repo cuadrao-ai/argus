@@ -147,6 +147,10 @@ test("an amount whose currency is unknown reads as a dash, never a bare number o
   assert.equal(presentBusinessFact("amount", noCurrency, [], "en", labels), "-");
   const partial = { ...noCurrency, business_share: { state: "known", value: { kind: "partial", amount: "100.00" }, origin: "owner_stated", verified: false, source_ids: [] } } as typeof dossier.facts;
   assert.equal(presentBusinessFact("business_share", partial, [], "en", labels), "-");
+  const named = { ...labels, noCurrency: "Currency missing" };
+  assert.equal(presentBusinessFact("amount", noCurrency, [], "en", named), "3,450.00 · Currency missing");
+  assert.equal(presentFiscalFact("itbis", noCurrency, "en", { ...named, notRecorded: "" }), "526.27 · Currency missing");
+  assert.equal(presentBusinessFact("amount", dossier.facts, [], "en", named), presentBusinessFact("amount", dossier.facts, [], "en", labels));
 });
 
 test("owner-funded expense projection preserves its null account and funding kind", async () => {
