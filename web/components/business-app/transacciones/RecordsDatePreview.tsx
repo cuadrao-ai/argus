@@ -6,13 +6,13 @@ import { useTranslation } from "react-i18next";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import type { ReportPeriod } from "@/lib/business-reports-api";
-import { periodRange, todayIso, type Period } from "../business-format";
+import { formatMonthYear, periodRange, todayIso, type Period } from "../business-format";
 import { usePeriodLabel } from "../BusinessPeriodControl";
 import RangePicker, { RangePickerConfirm, useRangePickerDraft } from "../foundation/RangePicker";
 import RecordsPreviewPopover from "./RecordsPreviewPopover";
 import styles from "./records-filter-preview.module.css";
 
-const initialRange = (period: Period) => ({ from: period.key === "all" ? todayIso() : period.from, to: period.to ?? todayIso() });
+const initialRange = (period: Period) => ({ from: period.from && period.key !== "all" ? period.from : todayIso(), to: period.to ?? todayIso() });
 
 type DateLabels = { title?: string; allDatesLabel?: string };
 
@@ -43,6 +43,7 @@ export default function RecordsDatePreview({ period, value, onChange, onPreset, 
   const [sessionId, setSessionId] = useState(0);
   const [wide, setWide] = useState(false);
   const { isBelowDesktop: phone } = useResponsiveLayout();
+  const { t, i18n } = useTranslation();
   useEffect(() => {
     const update = () => setWide(window.innerWidth >= 1600);
     update(); window.addEventListener("resize", update);
@@ -51,7 +52,8 @@ export default function RecordsDatePreview({ period, value, onChange, onPreset, 
   const selected = value ?? localPeriod;
   const apply = (next: Period) => { if (onChange) onChange(next); else setLocalPeriod(next); };
   const name = usePeriodLabel();
-  const label = reportPeriod?.kind === "this_year" ? new Intl.DateTimeFormat(undefined, { year: "numeric", timeZone: "America/Santo_Domingo" }).format(new Date()) : selected.key === "all" && allDatesLabel ? allDatesLabel : name(selected);
+  const latestMonth = selected.from ? formatMonthYear(selected.from, i18n.language) : t("business.period.label");
+  const label = reportPeriod?.kind === "this_year" ? new Intl.DateTimeFormat(undefined, { year: "numeric", timeZone: "America/Santo_Domingo" }).format(new Date()) : reportPeriod?.kind === "latest_month" ? latestMonth : selected.key === "all" && allDatesLabel ? allDatesLabel : name(selected);
   if (phone) return <>
     <button type="button" className={styles.trigger} aria-haspopup="dialog" aria-expanded={open} onClick={() => { setSessionId((id) => id + 1); setOpen(true); }}><CalendarDays size={17} aria-hidden="true" /><span>{label}</span><ChevronDown size={16} aria-hidden="true" className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} /></button>
     <PhoneDateSession title={title} allDatesLabel={allDatesLabel} key={sessionId} period={selected} onPreset={onPreset} apply={apply} open={open} close={() => setOpen(false)} />

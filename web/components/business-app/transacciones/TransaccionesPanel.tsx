@@ -12,7 +12,7 @@ import { RecordsExportButton } from "./RecordsExportButton";
 import { MonthCurrencyMenu } from "../MonthCurrencyMenu";
 import BusinessPeriodControl, { usePeriodLabel } from "../BusinessPeriodControl";
 import OutsidePeriodNote from "../OutsidePeriodNote";
-import { formatShortDay } from "../business-format";
+import { formatShortDay, formatMonthYear } from "../business-format";
 import { cardClass, primaryButtonClass, quietButtonClass, secondaryButtonClass } from "../business-ui";
 import { EmptyState } from "../foundation/EmptyState";
 import { DENSITIES, DENSITY_ROW_PX, setTableDensity, useTableDensity, type Density, type DensityState } from "./table-density";
@@ -81,7 +81,7 @@ function LegacyTransaccionesPanel() {
   const stepSegment = (step: 1 | -1) => controller.choose(SEGMENTS[(SEGMENTS.indexOf(segment) + step + SEGMENTS.length) % SEGMENTS.length]);
 
   const monthly = period.key === "this_month" || period.key === "last_month";
-  const when = monthly ? capitalize(new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(new Date(`${period.from}T12:00:00`))) : periodLabel(period);
+  const when = monthly ? formatMonthYear(period.from, locale) : periodLabel(period);
   const subtitle = [when, bank?.coverageThrough ? t("business.transactions.coverage", { day: formatShortDay(bank.coverageThrough, locale) }) : null].filter(Boolean).join(". ");
   const porIgualar = counts?.porIgualar ?? null;
   const header = bank ? bank.currency ?? headerCurrency(movements, bank.accountCurrency) : null;
@@ -191,10 +191,6 @@ function LegacyTransaccionesPanel() {
       </section>
     </PullToRefresh>
   );
-}
-
-function capitalize(text: string): string {
-  return text.charAt(0).toLocaleUpperCase() + text.slice(1);
 }
 
 /**

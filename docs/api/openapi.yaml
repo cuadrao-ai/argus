@@ -27759,6 +27759,7 @@ components:
           - this_month
           - last_month
           - this_year
+          - latest_month
           default: all
         from_date:
           anyOf:
