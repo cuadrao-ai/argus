@@ -5,10 +5,15 @@ from __future__ import annotations
 import os
 import threading
 import time
+from dataclasses import replace
 from datetime import date
 
 import pytest
 from faker import Faker
+
+from scripts.ops.dgii_rnc_import import LOAD as IMPORT_CONFIG
+from scripts.ops.dgii_rnc_import import _apply_load, parse_zip, validate
+from tests.dgii_rnc_zip import csv_file, csv_record, registry_zip, txt_record, txt_zip
 
 DSN = os.getenv("ARGUS_DISPOSABLE_DATABASE_URL", "").strip()
 pytestmark = pytest.mark.skipif(
@@ -23,6 +28,8 @@ Faker.seed(18190000)
 REGISTRY = "public.dgii_rnc"
 LOAD = "public.dgii_rnc_load"
 FILE_DATE = date(2026, 10, 18)
+START_DATE = date(2019, 3, 7)
+COLUMNS = "rnc, name, trade_name, status, file_date, activity, start_date, regime"
 DENIED_ROLES = ("anon", "authenticated")
 STATUS_ROWS = (
     ("101234567", "ACTIVO", "verificado"),
@@ -61,21 +68,20 @@ def _insert(
     trade_name: str | None,
     status: str,
     file_date: date,
+    activity: str | None = None,
+    start_date: date | None = None,
+    regime: str | None = None,
 ) -> None:
     with connection.cursor() as cursor:
         cursor.execute(
-            f"insert into {table} (rnc, name, trade_name, status, file_date) "
-            "values (%s, %s, %s, %s, %s)",
-            (rnc, name, trade_name, status, file_date),
+            f"insert into {table} ({COLUMNS}) values (%s, %s, %s, %s, %s, %s, %s, %s)",
+            (rnc, name, trade_name, status, file_date, activity, start_date, regime),
         )
 
 
 def _contents(connection, table: str) -> list[tuple]:
     with connection.cursor() as cursor:
-        cursor.execute(
-            "select rnc, name, trade_name, status, file_date "
-            f"from {table} order by rnc, name"
-        )
+        cursor.execute(f"select {COLUMNS} from {table} order by rnc, name")
         return cursor.fetchall()
 
 
@@ -113,6 +119,19 @@ def test_check_accepts_nine_and_eleven_digit_ids_and_rejects_bad_values(connecti
         assert set(stored) == set(accepted)
         assert stored[accepted[0]]
         assert stored[accepted[1]] is None
+
+
+@pytest.mark.parametrize("column", ["activity", "regime"])
+def test_check_rejects_a_blank_activity_or_regime(connection, column):
+    for table in (REGISTRY, LOAD):
+        with connection.cursor() as cursor:
+            for value in ("", "   "):
+                with pytest.raises(psycopg.errors.CheckViolation):
+                    cursor.execute(
+                        f"insert into {table} (rnc, name, status, file_date, {column}) "
+                        "values ('101234567', %s, 'ACTIVO', %s, %s)",
+                        (_name(), FILE_DATE, value),
+                    )
 
 
 def test_swap_with_too_few_rows_leaves_the_registry_intact(connection):
@@ -179,8 +198,8 @@ def test_swap_replaces_the_registry_and_empties_the_load_table(connection):
         connection, REGISTRY, "101234567", _name(), _name(), "ANULADO", date(2026, 1, 1)
     )
     replacement = (
-        ("00123456789", _name(), _name(), "ACTIVO", FILE_DATE),
-        ("101234568", _name(), None, "SUSPENDIDO", FILE_DATE),
+        ("00123456789", _name(), _name(), "ACTIVO", FILE_DATE, fake.bs(), START_DATE, "RST"),
+        ("101234568", _name(), None, "SUSPENDIDO", FILE_DATE, None, None, None),
     )
     for row in replacement:
         _insert(connection, LOAD, *row)
@@ -229,6 +248,9 @@ def test_lookup_normalizes_digits_and_maps_status(connection):
             "ACTIVO",
             FILE_DATE,
             "verificado",
+            None,
+            None,
+            None,
         )
         for rnc, status, verification in STATUS_ROWS:
             cursor.execute("select * from public.dgii_rnc_lookup(%s)", (rnc,))
@@ -239,7 +261,39 @@ def test_lookup_normalizes_digits_and_maps_status(connection):
                 status,
                 FILE_DATE,
                 verification,
+                None,
+                None,
+                None,
             )
+
+
+def test_lookup_returns_activity_start_date_and_regime(connection):
+    activity = fake.bs()
+    _insert(
+        connection,
+        REGISTRY,
+        "101234567",
+        _name(),
+        None,
+        "SUSPENDIDO",
+        FILE_DATE,
+        activity,
+        START_DATE,
+        "RST",
+    )
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "select status, verification, activity, start_date, regime "
+            "from public.dgii_rnc_lookup(%s)",
+            ("101234567",),
+        )
+        assert cursor.fetchone() == (
+            "SUSPENDIDO",
+            "no_activo",
+            activity,
+            START_DATE,
+            "RST",
+        )
 
 
 def test_lookup_of_an_unknown_or_empty_rnc_returns_no_row(connection):
@@ -303,6 +357,9 @@ def test_service_role_can_select_and_execute(connection):
                 "ACTIVO",
                 FILE_DATE,
                 "verificado",
+                None,
+                None,
+                None,
             )
         finally:
             cursor.execute("reset role")
@@ -347,8 +404,8 @@ def _run_query(
 
 def test_swap_blocks_a_concurrent_load_delete_and_publishes_the_loaded_rows(connection):
     loaded = (
-        ("00123456789", _name(), _name(), "ACTIVO", FILE_DATE),
-        ("101234568", _name(), None, "SUSPENDIDO", FILE_DATE),
+        ("00123456789", _name(), _name(), "ACTIVO", FILE_DATE, fake.bs(), START_DATE, "RST"),
+        ("101234568", _name(), None, "SUSPENDIDO", FILE_DATE, None, None, None),
     )
     _insert(connection, REGISTRY, "101234567", _name(), None, "ANULADO", date(2026, 1, 1))
     for row in loaded:
@@ -401,7 +458,16 @@ def test_swap_rejects_null_and_zero_minimum_and_leaves_the_registry_intact(conne
 
 
 def test_lookup_waiting_on_a_swap_returns_the_published_row(connection):
-    published = ("101234567", _name(), _name(), "ACTIVO", FILE_DATE)
+    published = (
+        "101234567",
+        _name(),
+        _name(),
+        "ACTIVO",
+        FILE_DATE,
+        fake.bs(),
+        START_DATE,
+        "NORMAL",
+    )
     _insert(connection, REGISTRY, *published)
     _insert(connection, LOAD, *published)
     outcome = {"errors": []}
@@ -438,13 +504,46 @@ def test_lookup_waiting_on_a_swap_returns_the_published_row(connection):
     assert not lookup_thread.is_alive()
     assert outcome["errors"] == []
     assert outcome["swap"] == [(1,)]
-    assert outcome["lookup"] == [
-        (
-            published[0],
-            published[1],
-            published[2],
-            published[3],
-            published[4],
-            "verificado",
-        )
+    assert outcome["lookup"] == [(*published[:5], "verificado", *published[5:])]
+
+
+def test_the_importer_loads_a_zip_through_copy_and_swap(connection):
+    active, suspended, short = "901234567", "90123456789", "90123456"
+    active_name = _name()
+    suspended_name = _name()
+    trade_name = _name()
+    activity = fake.bs()
+    payload = registry_zip(
+        csv_file(
+            csv_record(
+                active,
+                active_name,
+                activity=activity,
+                started="07/03/2019",
+                regime="NORMAL",
+            ),
+            csv_record(
+                suspended, suspended_name, "SUSPENDIDO", started="31/02/2020", regime="RST"
+            ),
+            csv_record(short, _name()),
+        ),
+    )
+    names = txt_zip(txt_record(active, trade_name), txt_record(short, _name()))
+    config = replace(IMPORT_CONFIG, min_rows=2, size_limit_bytes=1 << 40)
+    result = parse_zip(payload, config, trade_name_zip=names, keep_rows=False)
+    try:
+        validate(result, config)
+        _apply_load(DSN, result, config)
+    finally:
+        os.unlink(result.spill_path)
+
+    assert _contents(connection, LOAD) == []
+    assert _contents(connection, REGISTRY) == [
+        (active, active_name, trade_name, "ACTIVO", FILE_DATE, activity, START_DATE, "NORMAL"),
+        (suspended, suspended_name, None, "SUSPENDIDO", FILE_DATE, None, None, "RST"),
     ]
+    with connection.cursor() as cursor:
+        cursor.execute("select verification from public.dgii_rnc_lookup(%s)", (suspended,))
+        assert cursor.fetchone() == ("no_activo",)
+        cursor.execute("select verification from public.dgii_rnc_lookup(%s)", (active,))
+        assert cursor.fetchone() == ("verificado",)

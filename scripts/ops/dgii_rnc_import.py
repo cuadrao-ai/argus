@@ -2,16 +2,21 @@ from __future__ import annotations
 
 import argparse
 import array
+import csv
 import io
 import os
 import re
 import subprocess
 import sys
 import tempfile
+import unicodedata
 import zipfile
+import zlib
+from collections import Counter
 from dataclasses import dataclass, replace
-from datetime import date
-from pathlib import Path
+from datetime import date, datetime
+from pathlib import Path, PurePosixPath
+from typing import NamedTuple
 
 _IDENT_CHARS = frozenset("abcdefghijklmnopqrstuvwxyz0123456789_.")
 _TIMEOUT = re.compile(r"^[0-9]+(ms|s|min|h)$")
@@ -20,6 +25,18 @@ _SIZE_UNIT = {"B": 1, "KB": 1024, "MB": 1024 * 1024, "GB": 1024**3}
 _KEPT_LENGTHS = frozenset({9, 11})
 _ELEVEN_KEY_BASE = 10**10
 _COPY_CHUNK = 1 << 20
+_CSV_ENTRY = re.compile(r"RNC_Contribuyentes_Actualizado_.*\.csv", re.IGNORECASE)
+_TXT_ENTRY = "DGII_RNC.TXT"
+_TXT_PIPES = 10
+_HEADER_WORDS = ("RNC", "RAZON", "ACTIVIDAD", "FECHA", "ESTADO", "REGIMEN")
+_OPTIONAL_FIELDS = ("trade_name", "activity", "start_date", "regime")
+_LINE_BREAKS = re.compile(r"\s*[\r\n]+\s*")
+_NON_DIGITS = re.compile(r"[^0-9]")
+_LETTER = re.compile(r"[^\W\d_]")
+_DIGIT = re.compile(r"\d")
+_SHAPE_CHARS = 24
+_SHAPE_LINES = 5
+_ZIP_ERRORS = (OSError, EOFError, RuntimeError, zipfile.BadZipFile, zlib.error)
 
 
 class RncImportError(Exception):
@@ -33,14 +50,29 @@ class RncRow:
     trade_name: str | None
     status: str
     file_date: date
+    activity: str | None = None
+    start_date: date | None = None
+    regime: str | None = None
+
+
+class _Columns(NamedTuple):
+    rnc: int
+    name: int
+    activity: int
+    start_date: int
+    status: int
+    regime: int
 
 
 @dataclass(frozen=True)
 class DroppedRecord:
-    raw: str
-    rnc: str
     reason: str
-    name: str
+    digits: int
+
+
+class _TradeNames(NamedTuple):
+    names: dict[str, str]
+    failure: str | None
 
 
 @dataclass(frozen=True)
@@ -54,10 +86,15 @@ class ParseResult:
     duplicate_count: int = 0
     row_count: int | None = None
     parsed_bytes: int | None = None
-    trade_name_filled: int | None = None
+    filled_counts: tuple[tuple[str, int], ...] | None = None
     status_counts: tuple[tuple[str, int], ...] | None = None
     length_counts: tuple[tuple[int, int], ...] | None = None
     spill_path: str | None = None
+    header: tuple[str, ...] = ()
+    date_shapes: tuple[tuple[str, int], ...] = ()
+    activity_chars: int = 0
+    trade_name_failure: str | None = None
+    trade_name_facts: tuple[tuple[str, int], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -91,22 +128,26 @@ def parse_zip(
     source: bytes | str | Path,
     config: LoadConfig = LOAD,
     *,
+    trade_name_zip: bytes | str | Path | None = None,
     keep_rows: bool = True,
 ) -> ParseResult:
-    handle: io.BytesIO | str | Path
-    if isinstance(source, bytes):
-        handle = io.BytesIO(source)
-    else:
-        handle = source
-    with zipfile.ZipFile(handle) as archive:
-        info = _registry_entry(archive)
-        result = _scan_registry(
-            _physical_lines(_text_chunks(archive, info)),
-            file_date=_file_date(info),
-            entry_name=info.filename,
-            sample_limit=config.drop_sample_limit,
-            keep_rows=keep_rows,
-        )
+    try:
+        with zipfile.ZipFile(_zip_source(source)) as archive:
+            info = _registry_entry(archive)
+            trade_names = _read_trade_names(trade_name_zip)
+            with io.TextIOWrapper(
+                archive.open(info, "r"), encoding="latin-1", newline=""
+            ) as text:
+                result = _scan_registry(
+                    csv.reader(text),
+                    trade_names=trade_names,
+                    file_date=_file_date(info),
+                    entry_name=info.filename,
+                    sample_limit=config.drop_sample_limit,
+                    keep_rows=keep_rows,
+                )
+    except (csv.Error, *_ZIP_ERRORS) as exc:
+        raise RncImportError(f"csv is unreadable: {exc}") from None
     if keep_rows:
         _discard_spill(result.spill_path)
         return replace(result, spill_path=None)
@@ -141,14 +182,21 @@ def summary_lines(result: ParseResult) -> list[str]:
         f"dropped={result.dropped_count}",
         f"duplicates={result.duplicate_count}",
         f"parsed_bytes={_parsed_bytes(result)}",
-        f"trade_name_filled={_trade_name_filled(result)}",
     ]
+    filled = _filled_counts(result)
+    for field, count in filled:
+        lines.append(f"{field}_filled={count}")
+    activity_rows = dict(filled)["activity"]
+    average = result.activity_chars / activity_rows if activity_rows else 0
+    lines.append(f"activity_avg_length={average:.1f}")
+    lines.append(_trade_names_line(result))
+    for fact, count in result.trade_name_facts:
+        lines.append(f"trade_name_{fact}={count}")
+    lines.append(f"csv_header={ascii(list(result.header))}")
+    for shape, count in result.date_shapes:
+        lines.append(f"date_shape {shape}={count}")
     for drop in result.dropped_sample:
-        name = drop.name.replace("\r", " ").replace("\n", " ")
-        lines.append(
-            f"dropped_sample raw={drop.raw} rnc={drop.rnc} "
-            f"reason={drop.reason} name={name}"
-        )
+        lines.append(f"dropped_sample reason={drop.reason} digits={drop.digits}")
     for status, count in _status_counts(result):
         lines.append(f"status {status}={count}")
     for length, count in _length_counts(result):
@@ -243,7 +291,8 @@ def main(argv: list[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
 
     parse_command = commands.add_parser("parse")
-    parse_command.add_argument("zip_path")
+    parse_command.add_argument("csv_zip")
+    parse_command.add_argument("txt_zip")
 
     gate_command = commands.add_parser("gate")
     gate_command.add_argument("--enabled", default=None)
@@ -251,7 +300,8 @@ def main(argv: list[str] | None = None) -> int:
     gate_command.add_argument("--secret-present", default=None)
 
     load_command = commands.add_parser("load")
-    load_command.add_argument("zip_path")
+    load_command.add_argument("csv_zip")
+    load_command.add_argument("txt_zip")
 
     args = parser.parse_args(argv)
     try:
@@ -265,12 +315,15 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 0
         config = _config_from_env()
-        result = parse_zip(args.zip_path, config, keep_rows=False)
+        result = parse_zip(
+            args.csv_zip, config, trade_name_zip=args.txt_zip, keep_rows=False
+        )
         try:
-            validate(result, config)
             if args.command == "parse":
                 for line in summary_lines(result):
                     print(line)
+            validate(result, config)
+            if args.command == "parse":
                 return 0
             database_url = os.environ.get("SUPABASE_STAGING_DB_URL", "")
             if database_url == "":
@@ -321,12 +374,22 @@ def _size_bytes(value: str) -> int:
     return int(value[: -len(unit)]) * _SIZE_UNIT[unit]
 
 
+def _zip_source(source: bytes | str | Path) -> io.BytesIO | str | Path:
+    return io.BytesIO(source) if isinstance(source, bytes) else source
+
+
 def _registry_entry(archive: zipfile.ZipFile) -> zipfile.ZipInfo:
+    entries = archive.infolist()
     matches = [
-        info for info in archive.infolist() if info.filename.endswith("DGII_RNC.TXT")
+        info
+        for info in entries
+        if _CSV_ENTRY.fullmatch(PurePosixPath(info.filename).name)
     ]
     if len(matches) != 1:
-        raise RncImportError("zip must contain one DGII_RNC.TXT entry")
+        names = [info.filename for info in entries]
+        raise RncImportError(
+            f"zip must contain one RNC_Contribuyentes_Actualizado_<date>.csv: {names}"
+        )
     return matches[0]
 
 
@@ -358,9 +421,64 @@ def _physical_lines(chunks):
         yield pending
 
 
+def _read_trade_names(source: bytes | str | Path | None) -> _TradeNames:
+    """The TXT adds only trade names, so no failure here may stop the load."""
+    if source is None:
+        return _TradeNames({}, "no file given")
+    try:
+        with zipfile.ZipFile(_zip_source(source)) as archive:
+            return _TradeNames(_trade_names(archive), None)
+    except RncImportError as exc:
+        return _TradeNames({}, str(exc))
+    except _ZIP_ERRORS as exc:
+        return _TradeNames({}, type(exc).__name__)
+
+
+def _trade_names(archive: zipfile.ZipFile) -> dict[str, str]:
+    """Column 3 of the TXT by RNC. The CSV has no trade name. Blank stays out."""
+    matches = [
+        info for info in archive.infolist() if info.filename.endswith(_TXT_ENTRY)
+    ]
+    if len(matches) != 1:
+        raise RncImportError(f"zip holds {len(matches)} {_TXT_ENTRY} entries")
+    names: dict[str, str] = {}
+    buffer: str | None = None
+    for line in _physical_lines(_text_chunks(archive, matches[0])):
+        if buffer is None:
+            if line.strip() == "":
+                continue
+            buffer = line
+        else:
+            buffer = f"{buffer} {line}"
+        pipes = buffer.count("|")
+        if pipes < _TXT_PIPES:
+            continue
+        if pipes == _TXT_PIPES:
+            raw, _name, trade_name = buffer.split("|", 3)[:3]
+            if trade_name.strip() != "":
+                names[_digits(raw)] = trade_name.strip()
+        buffer = None
+    return names
+
+
+def _columns(header: list[str]) -> _Columns:
+    folded = [
+        unicodedata.normalize("NFKD", cell).encode("ascii", "ignore").decode().upper()
+        for cell in header
+    ]
+    picks = []
+    for word in _HEADER_WORDS:
+        hits = [index for index, cell in enumerate(folded) if word in cell]
+        if len(hits) != 1:
+            raise RncImportError(f"csv header needs one {word} column: {header}")
+        picks.append(hits[0])
+    return _Columns(*picks)
+
+
 def _scan_registry(
-    lines,
+    records,
     *,
+    trade_names: _TradeNames,
     file_date: date,
     entry_name: str,
     sample_limit: int,
@@ -371,20 +489,22 @@ def _scan_registry(
     offsets = array.array("I")
     lengths = array.array("I")
     status_ids = array.array("H")
-    trade_flags = array.array("B")
+    filled_bits = array.array("B")
     widths = array.array("B")
+    activity_sizes = array.array("I")
+    date_shapes: Counter[str] = Counter()
+    same_as_name = 0
     kept: list[RncRow] | None = [] if keep_rows else None
     status_names: list[str] = []
     status_lookup: dict[str, int] = {}
     status_counts: dict[str, int] = {}
     length_counts = {9: 0, 11: 0}
+    filled = [0] * len(_OPTIONAL_FIELDS)
     anomalies = 0
     dropped_count = 0
     sample: list[DroppedRecord] = []
     duplicates = 0
     parsed_bytes = 0
-    trade_filled = 0
-    buffer: str | None = None
     spill_path = spill.name
     closed = False
 
@@ -395,30 +515,27 @@ def _scan_registry(
             closed = True
 
     try:
-        for line in lines:
-            if buffer is None:
-                if line.strip() == "":
-                    continue
-                buffer = line
-            else:
-                buffer = f"{buffer} {line}"
-            pipes = buffer.count("|")
-            if pipes < 10:
+        header = next(records, [])
+        columns = _columns(header)
+        for fields in records:
+            if not any(field.strip() for field in fields):
                 continue
-            if pipes > 10:
+            if len(fields) != len(header):
                 anomalies += 1
-                buffer = None
                 continue
-            outcome = _row_from_record(buffer, file_date)
-            buffer = None
+            outcome = _row_from_fields(fields, columns, trade_names.names, file_date)
             if isinstance(outcome, DroppedRecord):
                 dropped_count += 1
                 if len(sample) < sample_limit:
                     sample.append(outcome)
                 continue
+            date_shapes[_value_shape(_clean(fields[columns.start_date]))] += 1
+            if _same_text(outcome.trade_name, outcome.name):
+                same_as_name += 1
             payload = _copy_line(outcome).encode("utf-8")
             width = len(outcome.rnc)
-            filled = 0 if outcome.trade_name is None else 1
+            activity_size = len(outcome.activity or "")
+            bits = _optional_bits(outcome)
             status_id = status_lookup.get(outcome.status)
             if status_id is None:
                 status_id = len(status_names)
@@ -435,29 +552,29 @@ def _scan_registry(
                 offsets.append(offset)
                 lengths.append(nbytes)
                 status_ids.append(status_id)
-                trade_flags.append(filled)
+                filled_bits.append(bits)
                 widths.append(width)
+                activity_sizes.append(activity_size)
                 if kept is not None:
                     kept.append(outcome)
             else:
                 duplicates += 1
                 parsed_bytes -= lengths[seq]
-                trade_filled -= trade_flags[seq]
+                _tally(filled, filled_bits[seq], -1)
                 status_counts[status_names[status_ids[seq]]] -= 1
                 length_counts[widths[seq]] -= 1
                 offsets[seq] = offset
                 lengths[seq] = nbytes
                 status_ids[seq] = status_id
-                trade_flags[seq] = filled
+                filled_bits[seq] = bits
                 widths[seq] = width
+                activity_sizes[seq] = activity_size
                 if kept is not None:
                     kept[seq] = outcome
             parsed_bytes += nbytes
-            trade_filled += filled
+            _tally(filled, bits, 1)
             status_counts[outcome.status] += 1
             length_counts[width] += 1
-        if buffer is not None:
-            anomalies += 1
         close_spill()
         if duplicates:
             compacted = _compact_spill(spill_path, offsets, lengths)
@@ -473,7 +590,7 @@ def _scan_registry(
             duplicate_count=duplicates,
             row_count=len(offsets),
             parsed_bytes=parsed_bytes,
-            trade_name_filled=trade_filled,
+            filled_counts=tuple(zip(_OPTIONAL_FIELDS, filled, strict=True)),
             status_counts=tuple(
                 (name, status_counts[name])
                 for name in sorted(status_counts)
@@ -485,6 +602,11 @@ def _scan_registry(
                 if length_counts[length]
             ),
             spill_path=spill_path,
+            header=tuple(header),
+            date_shapes=tuple(date_shapes.most_common(_SHAPE_LINES)),
+            activity_chars=sum(activity_sizes),
+            trade_name_failure=trade_names.failure,
+            trade_name_facts=_trade_name_facts(trade_names.names, same_as_name),
         )
     except Exception:
         close_spill()
@@ -538,31 +660,102 @@ class _RncIndex:
                 self.put_new(key, old_seqs[index] - 1, growing=True)
 
 
-def _row_from_record(record: str, file_date: date) -> RncRow | DroppedRecord:
-    fields = [field.strip() for field in record.split("|")]
-    raw = fields[0]
-    name = fields[1]
-    trade_name = fields[2] if fields[2] != "" else None
-    digits = "".join(char for char in raw if char.isdigit())
+def _row_from_fields(
+    fields: list[str],
+    columns: _Columns,
+    trade_names: dict[str, str],
+    file_date: date,
+) -> RncRow | DroppedRecord:
+    raw = _clean(fields[columns.rnc])
+    name = _clean(fields[columns.name])
+    digits = _digits(raw)
     if len(digits) not in _KEPT_LENGTHS:
-        return DroppedRecord(raw=raw, rnc=digits, reason="rnc_length", name=name)
+        return DroppedRecord(reason="rnc_length", digits=len(digits))
     if name == "":
-        return DroppedRecord(raw=raw, rnc=digits, reason="blank_name", name=name)
+        return DroppedRecord(reason="blank_name", digits=len(digits))
     return RncRow(
         rnc=digits,
         name=name,
-        trade_name=trade_name,
-        status=fields[9],
+        trade_name=trade_names.get(digits),
+        status=_clean(fields[columns.status]),
         file_date=file_date,
+        activity=_clean(fields[columns.activity]) or None,
+        start_date=_start_date(_clean(fields[columns.start_date])),
+        regime=_clean(fields[columns.regime]) or None,
     )
+
+
+def _clean(value: str) -> str:
+    return _LINE_BREAKS.sub(" ", value).strip()
+
+
+def _digits(value: str) -> str:
+    return _NON_DIGITS.sub("", value)
+
+
+def _start_date(value: str) -> date | None:
+    try:
+        return datetime.strptime(value, "%d/%m/%Y").date()
+    except ValueError:
+        return None
+
+
+def _value_shape(value: str) -> str:
+    """A value with its letters and digits masked, safe to log from a real file."""
+    if value == "":
+        return "blank"
+    return _DIGIT.sub("d", _LETTER.sub("a", value[:_SHAPE_CHARS]))
+
+
+def _same_text(trade_name: str | None, name: str) -> bool:
+    return trade_name is not None and trade_name.casefold() == name.casefold()
+
+
+def _trade_name_facts(
+    names: dict[str, str], same_as_name: int
+) -> tuple[tuple[str, int], ...]:
+    values = names.values()
+    return (
+        ("txt_values", len(names)),
+        ("txt_distinct", len(set(values))),
+        ("txt_avg_length", sum(map(len, values)) // max(len(names), 1)),
+        ("txt_no_letters", sum(_LETTER.search(value) is None for value in values)),
+        ("same_as_name", same_as_name),
+    )
+
+
+def _trade_names_line(result: ParseResult) -> str:
+    if result.trade_name_failure is None:
+        return "trade_names=loaded"
+    return f"trade_names=unavailable reason={result.trade_name_failure}: names stay null"
+
+
+def _optional_bits(row: RncRow) -> int:
+    bits = 0
+    for position, field in enumerate(_OPTIONAL_FIELDS):
+        if getattr(row, field) is not None:
+            bits |= 1 << position
+    return bits
+
+
+def _tally(filled: list[int], bits: int, step: int) -> None:
+    for position in range(len(filled)):
+        if bits >> position & 1:
+            filled[position] += step
 
 
 def _copy_line(row: RncRow) -> str:
-    trade = "\\N" if row.trade_name is None else _escape_copy(row.trade_name)
+    start_date = "\\N" if row.start_date is None else row.start_date.isoformat()
     return (
-        f"{_escape_copy(row.rnc)}\t{_escape_copy(row.name)}\t{trade}\t"
-        f"{_escape_copy(row.status)}\t{row.file_date.isoformat()}\n"
+        f"{_escape_copy(row.rnc)}\t{_escape_copy(row.name)}\t"
+        f"{_copy_optional(row.trade_name)}\t{_escape_copy(row.status)}\t"
+        f"{row.file_date.isoformat()}\t{_copy_optional(row.activity)}\t"
+        f"{start_date}\t{_copy_optional(row.regime)}\n"
     )
+
+
+def _copy_optional(value: str | None) -> str:
+    return "\\N" if value is None else _escape_copy(value)
 
 
 def _copy_header(config: LoadConfig) -> str:
@@ -572,8 +765,8 @@ def _copy_header(config: LoadConfig) -> str:
         f"SET statement_timeout = '{timeout}';\n"
         "SET client_encoding = 'UTF8';\n"
         f"TRUNCATE {table};\n"
-        f"COPY {table} (rnc, name, trade_name, status, file_date) "
-        "FROM STDIN WITH (FORMAT text);\n"
+        f"COPY {table} (rnc, name, trade_name, status, file_date, "
+        "activity, start_date, regime) FROM STDIN WITH (FORMAT text);\n"
     )
 
 
@@ -627,10 +820,13 @@ def _parsed_bytes(result: ParseResult) -> int:
     return result.parsed_bytes
 
 
-def _trade_name_filled(result: ParseResult) -> int:
-    if result.trade_name_filled is None:
-        return sum(row.trade_name is not None for row in result.rows)
-    return result.trade_name_filled
+def _filled_counts(result: ParseResult) -> tuple[tuple[str, int], ...]:
+    if result.filled_counts is not None:
+        return result.filled_counts
+    return tuple(
+        (field, sum(getattr(row, field) is not None for row in result.rows))
+        for field in _OPTIONAL_FIELDS
+    )
 
 
 def _status_counts(result: ParseResult) -> tuple[tuple[str, int], ...]:
