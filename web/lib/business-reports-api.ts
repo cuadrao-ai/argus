@@ -26,7 +26,7 @@ const pageSize = z.union([z.literal(25), z.literal(50), z.literal(100)]);
 const column = z.enum(["date", "family", "stage", "counterparty", "currency", "gross_amount", "recorded_amount", "proposed_amount", "category", "funding", "document_kind", "fiscal_classification", "note"]);
 export const reportPeriodSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("custom"), from_date: day, to_date: day }).refine((value) => value.from_date <= value.to_date),
-  z.strictObject({ kind: z.enum(["all", "this_month", "last_month", "this_year"]), from_date: z.null().optional(), to_date: z.null().optional() }),
+  z.strictObject({ kind: z.enum(["all", "this_month", "last_month", "this_year", "latest_month"]), from_date: z.null().optional(), to_date: z.null().optional() }),
 ]);
 export const reportFiltersSchema = z.strictObject({
   q: z.string().refine((value) => Array.from(value).length <= 200).default(""), period: reportPeriodSchema.default({ kind: "all" }),

@@ -240,7 +240,9 @@ def project(
         money_kind=recorded.row.kind if recorded else value(facts, "kind") or "unknown",
         money_effect=effect,
         adjustment_effect=adjustment,
-        counterparty=value(facts, "counterparty"),
+        # With no draft, the activity's note is its merchant.
+        counterparty=value(facts, "counterparty")
+        or (activity.get("note") if activity and not draft else None),
         counterparty_key=identity,
         category_key=(
             activity.get("category_id") if activity else value(facts, "category_id")
@@ -276,11 +278,8 @@ def project(
             and source.filename
             and source.connection_status not in (None, "disconnected")
         ),
-        note=draft.event.resolution["current_note"]
-        if draft and "current_note" in draft.event.resolution
-        else activity.get("note")
-        if activity
-        else draft.event.resolution.get("note"),
+        # Only a saved note: the draft's and the activity's `note` hold the merchant.
+        note=draft.event.resolution.get("current_note") if draft else None,
         settlement_status=recorded.settlement.status
         if recorded and recorded.settlement
         else None,
