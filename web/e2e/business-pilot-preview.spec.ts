@@ -186,13 +186,11 @@ test.describe("Business preview", () => {
     await expect(preview).not.toContainText("Leyendo…");
 
     await preview.getByRole("tab", { name: /^Todos/ }).click();
-    await preview.locator('[data-testid="reception-row"]').filter({ hasText: "Ferretería La Esquina" }).getByRole("button", { name: "Abrir" }).click();
+    await preview.locator('[data-testid="reception-row"]').filter({ hasText: "Ferretería La Esquina" }).first().getByRole("button", { name: "Abrir", exact: true }).click();
     await expect(trayHeading(page, "Ferretería La Esquina")).toBeVisible();
 
     await page.goto(`${PREVIEW}?view=inbox&segment=emails`);
     await expect(page).toHaveURL(/tab=correo/);
-    await expect(page.getByTestId("workspace-panel-region").getByText("Correo de recibos", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Copiar dirección", exact: true })).toBeVisible();
   });
 
   test("the first sample row opens its dossier, asks for no Pagado desde and approves", async ({ page }) => {

@@ -54,8 +54,8 @@ export async function installReceiptBusiness(page: Page, override?: BusinessOver
 /** The Bandeja's rows on any view. */
 export const bandejaRows = (page: Page) => page.getByRole("list", { name: "Contenido recibido", exact: true });
 
-/** The receipt's own row action, which opens its review. The row's name opens the arrival detail. */
-export const reviewAction = (page: Page, merchant: RegExp) => bandejaRows(page).getByTestId("reception-row").filter({ hasText: merchant }).getByRole("button", { name: "Revisar", exact: true });
+/** The receipt's own row action, which opens its review. */
+export const reviewAction = (page: Page, merchant: RegExp) => bandejaRows(page).getByTestId("reception-row").filter({ hasText: merchant }).first().getByRole("button", { name: "Abrir", exact: true });
 
 /** Registros opens on this month, and the sample records are dated days ago. */
 export const atMidMonth = (page: Page) => page.clock.setFixedTime(new Date("2026-10-20T15:00:00Z"));
