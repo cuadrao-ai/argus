@@ -77,6 +77,29 @@ for (const path of ["/", "/contacto", "/privacidad", "/terminos", "/eliminar-dat
   });
 }
 
+for (const path of ["/", "/en"]) {
+  test(`${path} footer links are at least 14px`, async ({ page }) => {
+    await page.goto(path);
+    const small = await page.locator('footer nav a, footer a[href="#top"]').evaluateAll((nodes) =>
+      nodes.flatMap((node) => {
+        const size = getComputedStyle(node).fontSize;
+        return Number.parseFloat(size) >= 14 ? [] : [`${node.textContent} ${size}`];
+      }),
+    );
+    expect(small).toEqual([]);
+  });
+
+  test(`${path} footer links stay on one line on a 375px phone`, async ({ page }) => {
+    test.skip(test.info().project.name !== "mobile", "phone layout");
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto(path);
+    const wrapped = await page.locator("footer nav a").evaluateAll((nodes) =>
+      nodes.flatMap((node) => (node.getBoundingClientRect().height > 44 ? [node.textContent] : [])),
+    );
+    expect(wrapped).toEqual([]);
+  });
+}
+
 test("the Business footer opens the same product section as the hero", async ({ page }) => {
   await page.goto("/");
   const link = page.locator("footer").getByRole("link", { name: "Ver cómo funciona", exact: true });
