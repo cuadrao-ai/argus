@@ -125,8 +125,8 @@ def _published_cookie_disclosure(policy_file: str) -> str:
         ),
         (
             "legal-en.json",
-            "we use only the cookies needed for the site's security and operation",
-            "We don't use analytics or advertising cookies",
+            "we use only the cookies needed for the site’s security and operation",
+            "We don’t use analytics or advertising cookies",
         ),
     ],
 )
