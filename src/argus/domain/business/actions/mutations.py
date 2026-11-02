@@ -237,10 +237,6 @@ def revise(
             if document_type is not None
             else event_at(tx, ref, declaration_only)
         )
-        if event.state == "accepted":
-            from argus.domain.business.actions.fiscal import require_unexported
-
-            require_unexported(tx, event)
         before = facts_of(event)
         event = replace(event, version=event.version + 1, updated_at=now)
     origin = {

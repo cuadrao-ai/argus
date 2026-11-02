@@ -2,7 +2,7 @@
 is saved sin comprobante, a person approves it and it counts, and it never
 reaches the 606; the tipo de gasto a person chose for an RNC comes back as a
 suggestion in that Business only and is stored only when a person keeps it; a
-sale's payment split is written after approval until the line is exported."""
+sale's payment split is written after approval and after an export."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from uuid import uuid4
 import pytest
 from argus.domain.business.contracts.actions import CaptureNote, ReviewDraft
 from argus.domain.business.contracts.facts import BusinessFactPatch
+from argus.domain.business.dgii_columns import SALES_COLUMNS
 from psycopg import Connection
 
 from tests import test_business_actions_postgres as business
@@ -379,7 +380,7 @@ def _dossier(world, draft: str) -> dict:  # noqa: ANN001
     return _get(world, f"/business/drafts/{draft}/dossier").json()
 
 
-def test_a_split_written_after_approval_ships_the_607_and_export_freezes_it(
+def test_a_split_written_after_approval_ships_the_607_and_stays_open_after_export(
     world,
 ) -> None:  # noqa: ANN001
     _fiscal_profile(world)
@@ -409,13 +410,19 @@ def test_a_split_written_after_approval_ships_the_607_and_export_freezes_it(
 
     files = _export(world)[2]
     assert "|1180.00|" in files["607"]
-    frozen = _dossier(world, draft)
-    assert frozen["payment_split_editable"] is False
-    assert frozen["expense_type_suggestion"] is None
-    refused = _split(world, draft, frozen["version"], cash="1000.00", card="180.00")
-    assert refused.status_code == 422, refused.text
-    assert refused.json()["code"] == "fiscal_declaration_exported"
-    assert _dossier(world, draft)["dgii"]["card"] is None
+    exported = _dossier(world, draft)
+    assert exported["payment_split_editable"] is True
+    assert exported["expense_type_suggestion"] is None
+    edited = _split(world, draft, exported["version"], cash="1000.00", card="180.00")
+    assert edited.status_code == 200, edited.text
+    line = dict(
+        zip(
+            [name for name, _ in SALES_COLUMNS],
+            _export(world)[2]["607"].split("\r\n")[1].split("|"),
+            strict=True,
+        )
+    )
+    assert (line["cash"], line["card"]) == ("1000.00", "180.00")
 
 
 def test_each_write_changes_only_the_buckets_it_names(world) -> None:  # noqa: ANN001

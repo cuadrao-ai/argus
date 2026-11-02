@@ -117,7 +117,7 @@ def _known(values: dict) -> dict:
     return {name: {"state": "known", "value": value} for name, value in values.items()}
 
 
-def test_review_write_path_from_capture_to_frozen_606_line(world) -> None:  # noqa: ANN001
+def test_review_write_path_from_capture_to_the_606_line(world) -> None:  # noqa: ANN001
     client, alice = world.client, world.alice
     note = _note(world, alice, "Pagué 1180 en Ferretería Prueba")
     assert note.status_code == 200, note.text
@@ -234,25 +234,21 @@ def test_review_write_path_from_capture_to_frozen_606_line(world) -> None:  # no
     [placed] = [item for item in manifest["reconciliation"] if item["draft_id"] == draft]
     assert placed["disposition"] == "606"
 
-    frozen = client.get(f"{API}/business/drafts/{draft}/dossier", headers=alice.headers)
-    assert frozen.json()["declaration_editable"] is False
-    refused = _review(
+    exported_view = client.get(
+        f"{API}/business/drafts/{draft}/dossier", headers=alice.headers
+    )
+    assert exported_view.json()["declaration_editable"] is True
+    edited = _review(
         world,
         draft,
         {
-            "version": frozen.json()["version"],
+            "version": exported_view.json()["version"],
             "purchase": {"payment_method": "04"},
         },
         alice.headers,
     )
-    assert refused.status_code == 422, refused.text
-    assert refused.json()["code"] == "fiscal_declaration_exported"
-    assert (
-        client.get(
-            f"{API}/business/drafts/{draft}/dossier", headers=alice.headers
-        ).json()["dgii"]["payment_method"]
-        == "01"
-    )
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["dgii"]["payment_method"] == "04"
 
 
 def test_an_edit_after_the_tipo_de_gasto_reaches_the_606_line(world) -> None:  # noqa: ANN001

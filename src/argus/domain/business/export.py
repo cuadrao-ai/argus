@@ -722,9 +722,10 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                     )
         downloads.append(source)
 
-    # The declarations are read, the TXT built and its lines frozen under the
-    # Business's one owner lock, the lock every 606 write takes: a write lands
-    # before this read and the TXT carries it, or it waits and meets the freeze.
+    # The declarations are read, the TXT built and its lines recorded under the
+    # Business's one owner lock, the lock every 606 write takes, so one file
+    # reads one state: a write lands before this read and the TXT carries it, or
+    # it waits and the next export carries it.
     # Read committed, so the reads after the lock see what committed before it.
     with authority.pool.connection() as connection, connection.transaction():
         lock_owner(connection, context.owner_id)
@@ -822,8 +823,7 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                 original,
                 registry_from_config("dgii", postgres_rnc_fetch(lookup)),
             )
-            # Each line the TXT carries is now in the DGII's hands: its
-            # declaration is frozen from here (fiscal_declaration_exported).
+            # What this file contained. A record stays open after a download.
             for activity_id, form in result.lines:
                 cursor.execute(
                     "insert into public.business_dgii_export_lines"
