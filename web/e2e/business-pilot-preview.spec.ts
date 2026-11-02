@@ -46,7 +46,6 @@ const panelHeading = (page: Page, name: string) =>
   page.getByTestId("workspace-panel-region").getByRole("heading", { name, exact: true });
 const tray = (page: Page) => page.getByTestId("side-drawer");
 const trayHeading = (page: Page, name: string) => tray(page).getByRole("heading", { name, level: 2 });
-const reviewField = (page: Page, label: string) => page.getByTestId("receipt-review-fields").getByLabel(label);
 
 test.describe("Business preview", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
@@ -172,29 +171,23 @@ test.describe("Business preview", () => {
     await expect(panelHeading(page, "Bandeja")).toBeVisible();
   });
 
-  test("an email is how a receipt arrived: emails with no receipt are problem rows, one being read waits in Todo, and the old Correos link lands on Negocio", async ({ page }) => {
+  test("an email is how a receipt arrived: emails with no receipt need attention, one being read shows only on Todos, and the old Correos link lands on Negocio", async ({ page }) => {
     await openPreview(page, `${PREVIEW}?view=inbox`);
-    const segments = page.getByTestId("bandeja-segments");
-    await expect(segments.locator("[data-segment]")).toHaveText([/^Por revisar/, /^Con problema/, /^Todo/]);
-    await expect(segments.locator('[data-segment="emails"]')).toHaveCount(0);
-    await expect(segments.locator('[data-segment="problem"]')).toContainText("5");
+    const preview = page.getByTestId("reception-preview");
+    const emailRows = preview.locator('[data-testid="reception-row"][data-kind="email"]');
+    await expect(preview.getByRole("tab")).toHaveText([/^Todos/, /^Necesitan atención/, /^Listos/]);
 
-    await segments.locator('[data-segment="problem"]').click();
-    const rows = page.getByTestId("business-inbox-receipts");
-    await expect(rows.getByTestId("bandeja-row")).toHaveCount(3);
-    await expect(rows.getByTestId("bandeja-email")).toHaveCount(2);
-    await expect(rows.getByTestId("bandeja-email").first()).toContainText("Correo de noticias@proveedor.example");
-    await expect(rows).not.toContainText("Leyendo…");
+    await expect(emailRows).toHaveCount(3);
+    await expect(emailRows.filter({ hasText: "Leyendo…" })).toHaveCount(1);
 
-    await segments.locator('[data-segment="all"]').click();
-    await expect(rows.getByTestId("bandeja-email").filter({ hasText: "Leyendo…" })).toHaveCount(1);
-    await expect(rows.getByTestId("bandeja-email")).toHaveCount(3);
+    await preview.getByRole("tab", { name: /^Necesitan atención/ }).click();
+    await expect(emailRows).toHaveCount(2);
+    await expect(emailRows.first()).toContainText("Boletín semanal");
+    await expect(preview).not.toContainText("Leyendo…");
 
-    await rows.getByTestId("bandeja-row").filter({ has: page.getByTestId("inbox-channel-email") }).getByRole("button").first().click();
-    await expect(tray(page).getByTestId("receipt-source-channel")).toContainText("Llegó por correo");
-    await tray(page).getByRole("button", { name: "Ver correo" }).click();
-    await expect(tray(page).getByRole("heading", { name: /^Correo de / })).toBeVisible();
-    await expect(page).toHaveURL(/email=/);
+    await preview.getByRole("tab", { name: /^Todos/ }).click();
+    await preview.locator('[data-testid="reception-row"]').filter({ hasText: "Ferretería La Esquina" }).getByRole("button", { name: "Abrir" }).click();
+    await expect(trayHeading(page, "Ferretería La Esquina")).toBeVisible();
 
     await page.goto(`${PREVIEW}?view=inbox&segment=emails`);
     await expect(page).toHaveURL(/tab=correo/);
@@ -202,181 +195,47 @@ test.describe("Business preview", () => {
     await expect(page.getByRole("button", { name: "Copiar dirección", exact: true })).toBeVisible();
   });
 
-  test("receipt entry marks missing fields and requires separate canonical approval", async ({ page }) => {
+  test("the first sample row opens its dossier, asks for no Pagado desde and approves", async ({ page }) => {
     await openPreview(page, `${PREVIEW}?receipt=rcpt-ferreteria`);
     await expect(trayHeading(page, "Ferretería La Esquina")).toBeVisible();
+    await expect(tray(page)).not.toContainText("Pagado desde");
+    await expect(page.getByTestId("receipt-attention")).toHaveCount(0);
 
-    const needed = tray(page).getByText("Falta", { exact: true });
-    await expect(needed).toHaveCount(1);
-    const paidFrom = page.locator("label", { hasText: "Pagado desde" });
-    await expect(paidFrom.getByText("Falta", { exact: true })).toBeVisible();
-    const save = page.getByRole("button", { name: "Guardar detalles de revisión" });
-    await expect(save).toBeDisabled();
-
-    await paidFrom.locator("select").selectOption("acct-ops");
-    await expect(needed).toHaveCount(0);
-    await save.click();
-
-    await expect(trayHeading(page, "Ferretería La Esquina")).toBeVisible();
-    await expect(page.getByText("Se registró un gasto", { exact: false })).toHaveCount(0);
     await tray(page).getByRole("button", { name: "Aprobar", exact: true }).click();
     await expect(tray(page).getByRole("status").filter({ hasText: "Se registró un gasto" })).toBeVisible();
-    await expect(page.getByTestId("transacciones-records")).toBeVisible();
-    await expect(page.getByTestId("workspace-panel-region")).toContainText("Ferretería La Esquina");
   });
 
-  test("an unknown AI outcome offers a consented retry beside entry by hand", async ({ page }) => {
+  test("an unknown AI outcome offers a consented retry and no form", async ({ page }) => {
     await openPreview(page, `${PREVIEW}?receipt=rcpt-unknown`);
     const attention = page.getByTestId("receipt-attention");
-    await expect(attention).toContainText("No pudimos recuperar el resultado de la lectura con IA");
+    await expect(attention).toContainText("No recuperamos la lectura");
     await expect(attention).toContainText("Si reintentas, el recibo se envía a nuestro proveedor de IA.");
     await expect(page.getByRole("button", { name: "Preparar con IA" })).toHaveCount(0);
-    await expect(reviewField(page, "Comercio o persona")).toBeEnabled();
+    await expect(tray(page).getByTestId("receipt-review-source")).toBeVisible();
+    await expect(tray(page).locator('[data-testid="receipt-review-fields"] input, [data-testid="receipt-review-fields"] select')).toHaveCount(0);
 
     await attention.getByRole("button", { name: "Reintentar con IA" }).click();
     await expect(tray(page)).toContainText("Leyendo tu recibo");
     await expect(page.getByRole("button", { name: "Reintentar con IA" })).toHaveCount(0);
-    await expect(reviewField(page, "Comercio o persona")).toHaveCount(0);
   });
 
-  test("a read with no single purchase is entered by hand and keeps what was read", async ({ page }) => {
+  test("a read with no single purchase keeps what was read and asks for nothing by hand", async ({ page }) => {
     await openPreview(page, `${PREVIEW}?receipt=rcpt-ambiguous`);
     const attention = page.getByTestId("receipt-attention");
-    await expect(attention).toContainText("Cuadrao no pudo asociar este recibo a una sola compra. Escribe los detalles tú mismo");
+    await expect(attention).toContainText("Varias compras en un recibo");
     await expect(page.getByRole("button", { name: /con IA/ })).toHaveCount(0);
     await expect(page.getByText("Lo que dice el recibo")).toBeVisible();
-
-    await reviewField(page, "Comercio o persona").fill("Colmado Don Pedro");
-    await reviewField(page, "Fecha de actividad").fill("05/10/2026");
-    await page.locator("label", { hasText: "Moneda" }).locator("select").selectOption("DOP");
-    await page.getByTestId("receipt-review-amount").fill("706.10");
-    await page.locator("label", { hasText: "Pagado desde" }).locator("select").selectOption("acct-ops");
-    await page.getByRole("button", { name: "Guardar detalles de revisión" }).click();
-
-    await expect(trayHeading(page, "Colmado Don Pedro")).toBeVisible();
-    await expect(page.getByTestId("receipt-attention")).toHaveCount(0);
-    await expect(page.getByTestId("receipt-original-source")).toBeVisible();
-    await tray(page).getByRole("button", { name: "Aprobar", exact: true }).click();
-    await expect(tray(page).getByRole("status").filter({ hasText: "Se registró un gasto" })).toBeVisible();
+    await expect(tray(page)).not.toContainText("Pagado desde");
+    await expect(page.getByRole("button", { name: "Guardar detalles de revisión" })).toHaveCount(0);
   });
 
-  test("an unreadable receipt offers entry by hand and no AI retry", async ({ page }) => {
+  test("an unreadable receipt offers another upload, no AI retry and no form", async ({ page }) => {
     await openPreview(page, `${PREVIEW}?receipt=rcpt-blurry`);
     await expect(page.getByTestId("receipt-attention")).toContainText("No pudimos leer este archivo");
     await expect(page.getByRole("button", { name: "Subir otro archivo" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Escribir datos" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Escribir datos" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /con IA/ })).toHaveCount(0);
-    await expect(reviewField(page, "Comercio o persona")).toBeEnabled();
-  });
-
-  test("the review Total refuses letters, pads on blur and refuses a decimal comma paste", async ({ page, context }) => {
-    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-    await openPreview(page, `${PREVIEW}?receipt=rcpt-ferreteria`);
-    await expect(trayHeading(page, "Ferretería La Esquina")).toBeVisible();
-
-    const total = page.getByTestId("receipt-review-amount");
-    await expect(total).toHaveValue("3,450.00");
-    await expect(total).toHaveAccessibleName("Monto en DOP (RD$)");
-    const message = await amountMessage(page, total);
-
-    await total.click();
-    await page.keyboard.press("End");
-    await page.keyboard.type("wfr");
-    await expect(total).toHaveValue("3,450.00");
-    await expect(message).toHaveText("Usa solo números y un punto decimal.");
-
-    await page.keyboard.press("ControlOrMeta+a");
-    await page.keyboard.type("1250.5");
-    await expect(message).toHaveText("");
-    await expect(total).toHaveValue("1,250.5");
-    await page.keyboard.press("Tab");
-    await expect(total).toHaveValue("1,250.50");
-
-    await page.evaluate(() => navigator.clipboard.writeText("1.250,50"));
-    await total.click();
-    await page.keyboard.press("ControlOrMeta+a");
-    await page.keyboard.press("ControlOrMeta+v");
-    await expect(total).toHaveValue("1,250.50");
-    await expect(message).toContainText("Usa un punto para los decimales");
-  });
-
-  test("a bare $ pasted into a DOP field is refused as ambiguous", async ({ page, context }) => {
-    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-    await openPreview(page, `${PREVIEW}?receipt=rcpt-ferreteria`);
-    const total = page.getByTestId("receipt-review-amount");
-    await expect(total).toHaveValue("3,450.00");
-    const message = await amountMessage(page, total);
-
-    await page.evaluate(() => navigator.clipboard.writeText("$1,250.00"));
-    await total.click();
-    await page.keyboard.press("ControlOrMeta+a");
-    await page.keyboard.press("ControlOrMeta+v");
-    await expect(total).toHaveValue("3,450.00");
-    await expect(message).toHaveText("$ puede ser RD$ o US$. Escribe el monto sin símbolo o con RD$ o US$.");
-  });
-
-  test("a currency change keeps the digits and says there is no conversion", async ({ page }) => {
-    await openPreview(page, `${PREVIEW}?receipt=rcpt-ferreteria`);
-    const total = page.getByTestId("receipt-review-amount");
-    await expect(total).toHaveValue("3,450.00");
-    const message = await amountMessage(page, total);
-
-    await page.locator("label", { hasText: "Moneda" }).locator("select").selectOption("USD");
-    await expect(total).toHaveAccessibleName("Monto en USD (US$)");
-    await expect(total).toHaveValue("3,450.00");
-    await expect(message).toHaveText("Mismo monto, sin conversión.");
-
-    await total.click();
-    await page.keyboard.press("End");
-    await page.keyboard.press("Backspace");
-    await expect(message).toHaveText("");
-  });
-
-  test("Total announces Needed when the backend lists the amount as missing", async ({ page }) => {
-    await openPreview(page, `${PREVIEW}?receipt=rcpt-saved`);
-    const total = page.getByTestId("receipt-review-amount");
-    await expect(total).toHaveAccessibleDescription(/Falta/);
-    await total.click();
-    await page.keyboard.type("80");
-    await expect(total).not.toHaveAccessibleDescription(/Falta/);
-  });
-
-  test("an edit the browser does not let us cancel is read past the field's grouping", async ({ page }) => {
-    await openPreview(page, `${PREVIEW}?receipt=rcpt-ferreteria`);
-    const total = page.getByTestId("receipt-review-amount");
-    await expect(total).toHaveValue("3,450.00");
-    const message = await amountMessage(page, total);
-
-    const replaceWithoutBeforeInput = (next: string) =>
-      total.evaluate((input: HTMLInputElement, value) => {
-        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
-        setter.call(input, value);
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-      }, next);
-
-    await replaceWithoutBeforeInput("1,500,000");
-    await expect(total).toHaveValue("1,500,000");
-    await expect(message).toHaveText("");
-
-    await replaceWithoutBeforeInput("1,5,00,000");
-    await expect(total).toHaveValue("1,500,000");
-    await expect(message).toHaveText("Revisa las comas de miles, como en 1,250.50.");
-  });
-
-  test("the review maps the backend's amount_out_of_range onto its Total", async ({ page }) => {
-    await openPreview(page, `${PREVIEW}?receipt=rcpt-ferreteria`);
-    const total = page.getByTestId("receipt-review-amount");
-    await expect(total).toHaveValue("3,450.00");
-    await page.locator("label", { hasText: "Pagado desde" }).locator("select").selectOption("acct-ops");
-
-    await page.evaluate(() => {
-      (globalThis as { __businessFixtureFailNextWrite?: string }).__businessFixtureFailNextWrite = "amount_out_of_range";
-    });
-    await page.getByRole("button", { name: "Guardar detalles de revisión" }).click();
-
-    await expect(await amountMessage(page, total)).toHaveText("Este monto es demasiado grande para registrarlo.");
-    await expect(total).toHaveAttribute("aria-invalid", "true");
-    await expect(trayHeading(page, "Ferretería La Esquina")).toBeVisible();
+    await expect(tray(page)).not.toContainText("Pagado desde");
   });
 
   test("Record expense guards the length and maps the backend's amount codes onto its Total", async ({ page }) => {

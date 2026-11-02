@@ -177,13 +177,14 @@ test("each tab has its own empty state and a way to the rest of the list", async
   } finally { await page.close(); }
 });
 
-test("a contador gets Revisar recibos as the green primary and no upload", async () => {
+test("a contador gets a quiet Revisar recibos and no upload", async () => {
   const page = await mount({}, "fixture-grant-client");
   try {
     await page.settle(() => page.host.querySelector('[data-testid="business-primary-review"]') !== null);
     const review = page.host.querySelector('[data-testid="business-primary-review"]') as HTMLButtonElement;
     assert.equal(review.textContent, "Revisar recibos");
-    assert.equal(review.className.includes("bg-[var(--cuadrao-green)]"), true);
+    assert.equal(review.className.includes("bg-[var(--cuadrao-green)]"), false);
+    assert.equal(review.hasAttribute("data-primary"), false);
     assert.equal(page.host.querySelector('[data-testid="business-primary-upload"]'), null);
     assert.equal([...page.host.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Subir recibo"), false);
     await page.act(async () => { review.click(); });

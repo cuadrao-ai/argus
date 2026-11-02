@@ -9,7 +9,7 @@ async function setup(page: Page) {
   await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
   const source = createFixtureBusinessDataSource({ chatAvailable: false });
   const receipt = await source.receipt("rcpt-ferreteria");
-  const activity = { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 1, needs_attention_count: 0 };
+  const activity = { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 1, needs_attention_count: 0, ready_to_review_count: 1, bandeja_listo_count: 0, bandeja_attention_count: 1 };
   await page.route("**/api/v1/business/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.split("/business/")[1];
@@ -32,20 +32,16 @@ for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height });
     await setup(page);
     await page.goto("/biz?view=inbox");
-    const receipts = page.getByTestId("business-inbox-receipts");
+    const receipts = page.getByTestId("reception-row").first();
     // A desktop's Agregar sits in the top bar; a phone's at the top of the screen.
-    const upload = page.getByTestId(width === 390 ? "add-menu-page" : "add-menu-header").getByTestId("business-primary-upload");
-    const segments = page.getByTestId("bandeja-segments");
+    const upload = page.getByTestId(width === 390 ? "reception-add" : "add-menu-header").getByTestId("business-primary-upload");
     await expect(receipts).toBeVisible();
     await expect(upload).toHaveText("Agregar");
     await expect(page.getByTestId("business-primary-upload")).toHaveCount(1);
-    await expect(page.getByTestId(width === 390 ? "add-menu-header" : "add-menu-page")).toHaveCount(0);
-    await expect(page.getByTestId("bandeja-emails-line")).toHaveCount(0);
-    await expect(page.getByTestId("bandeja-segments").locator('[data-segment="review"]')).toHaveText(width === 390 ? "Revisar1" : "Por revisar1");
+    await expect(page.getByTestId(width === 390 ? "add-menu-header" : "reception-add")).toHaveCount(0);
+    await expect(page.getByRole("tab")).toHaveText([/^Todos$/, /^Necesitan atención1$/, /^Listos0$/]);
     await expect(page.getByText("necesita tu atención")).toHaveCount(0);
     await expect(page.getByText(/Revisar \d+ recibo/)).toHaveCount(0);
-    await expect(receipts).toContainText("RD$");
-    await expect(receipts).not.toContainText("DOP");
     await expect(page.getByTestId("receipt-reading-control")).toHaveCount(0);
     await expect(page.getByText("Nada aquí es un gasto hasta que lo confirmes.")).toHaveCount(0);
     await expect(page.getByTestId("email-address")).toHaveCount(0);
@@ -57,13 +53,10 @@ for (const width of [1280, 390]) {
     expect(uploadBox!.y).toBeLessThan(receiptBox!.y);
     expect(receiptBox!.y).toBeLessThan(height);
     await page.screenshot({ path: test.info().outputPath(`after-inbox-${width}.png`) });
-    // Emails are not a segment: an email without a receipt is a row of Con problema and Todo.
-    await expect(segments.locator("[data-segment]")).toHaveCount(3);
-    await expect(segments.locator('[data-segment="emails"]')).toHaveCount(0);
-    await segments.locator('[data-segment="problem"]').click();
-    await expect(page.getByTestId("bandeja-segment-empty")).toBeVisible();
-    await expect(receipts).toHaveCount(0);
-    await segments.locator('[data-segment="all"]').click();
+    // Emails are not a tab: an email without a receipt is a row of Necesitan atención and Todos.
+    await page.getByRole("tab", { name: /^Listos/ }).click();
+    await expect(page.getByTestId("reception-row")).toHaveCount(0);
+    await page.getByRole("tab", { name: /^Todos/ }).click();
     await expect(receipts).toBeVisible();
   });
 }

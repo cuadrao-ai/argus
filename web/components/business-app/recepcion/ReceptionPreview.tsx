@@ -21,7 +21,7 @@ import { barSearchAvailable, useLendListSearch } from "../foundation/list-search
 import ReceptionFilters, { ReceptionFilterChips } from "./ReceptionFilters";
 import { emptyReceptionFilters, receptionFilterMatches, receptionArrivedInPeriod, receptionSenderIdentity, type SenderIdentity, type ReceptionFiltersValue } from "./reception-filters";
 import ReceptionEmptyState from "./ReceptionEmptyState";
-import { primaryButtonClass, quietButtonClass } from "../business-ui";
+import { quietButtonClass } from "../business-ui";
 import { listoItem, receptionDocumentTitle, receptionMatches, receptionRows, receptionSearchText, type ReceptionRow, type ReceptionView } from "./reception-model";
 import { bandejaAttentionCount, bandejaListoCount } from "../inbox-count";
 import ReceptionArrivalRow from "./ReceptionArrivalRow";
@@ -195,7 +195,7 @@ function ReceptionWorkspace() {
         <ReceptionFilters key={scope} senders={senders} value={filters} onChange={applyFilters} />
         <div className={styles.bulkSlot}>{selected.length ? <ReceptionBulkBar count={selected.length} approve={() => approval.ask(selected)} clear={() => setSelectedIds([])} /> : null}</div>
         {(query && !searchInBar) || period.key !== "all" ? <button className={quietButtonClass} onClick={clear}>{word("clear")}</button> : null}
-        <div className={styles.tools}>{reviewNext ? <button type="button" data-testid="business-primary-review" data-primary="true" className={primaryButtonClass} onClick={() => navigateFrom({ kind: "receipt", receiptId: reviewNext.id, list: "inbox" })}>{t("business.inbox.review_receipts")}</button> : null}{allListos.length && !selected.length ? <button type="button" data-testid="reception-approve-all" className={`${styles.quietAction} rounded-full`} onClick={() => approval.ask(allListos)}><Check size={16} aria-hidden="true" />{word("placeholder.approve_all")}</button> : null}<ReceptionAddMenu key={scope} addInBar={barTools} /><ReceptionSettings value={preferences} onChange={setPreferences} /></div>
+        <div className={styles.tools}>{reviewNext ? <button type="button" data-testid="business-primary-review" className={`${styles.quietAction} rounded-full`} onClick={() => navigateFrom({ kind: "receipt", receiptId: reviewNext.id, list: "inbox" })}>{t("business.inbox.review_receipts")}</button> : null}{allListos.length && !selected.length ? <button type="button" data-testid="reception-approve-all" className={`${styles.quietAction} rounded-full`} onClick={() => approval.ask(allListos)}><Check size={16} aria-hidden="true" />{word("placeholder.approve_all")}</button> : null}<ReceptionAddMenu key={scope} addInBar={barTools} /><ReceptionSettings value={preferences} onChange={setPreferences} /></div>
       </div>
       {newCount > 0 ? <div className={styles.updateNotice} role="status"><span>{t("business.reception_preview.new_arrivals", { count: newCount })}</span><button type="button" className={quietButtonClass} onClick={() => { setAdmittedIds(latestIds); setPage(1); }}>{word("update_list")}</button></div> : null}
       <ReceptionFilterChips value={filters} senders={senders} onChange={applyFilters} />

@@ -1213,24 +1213,38 @@ Two columns once the canvas is 56rem or wider (Lucas, October 21, 2026): 38fr an
 
 Bandeja is the one place receipts wait. Novedades folded into it on October 20,
 2026: its rows were the same receipts, and its one extra fact (what is new)
-is now the top group.
+is now an unread dot.
 
-- A segmented control splits the same rows: **Por revisar** (the shared count
-  Inicio and the sidebar show), **Con problema** and **Todo**, everything
-  that arrived. Phones use the short names Revisar and Problemas.
+- Three tabs show the same rows: **Todos**, **Necesitan atención** and **Listos**.
+  Bandeja opens on Todos, which has no count. The other two show one server count.
+  Inicio's Necesita atención reads the same number, and the sidebar counts every
+  waiting row. Tabs own status: Filtros has only Canal and Remitente, and picking
+  a tab adds no chip.
+- A receipt still being read shows only on Todos, as Leyendo, and no tab counts it.
+  A failed read stays in Necesitan atención.
+- Estado follows the tab. Todos shows the soft tag. Necesitan atención shows only
+  the reason, as plain text. Listos has no Estado column.
+- Tags are soft and fully rounded: Necesita atención `#9e2f39` on `#f6dfe0`, Leyendo
+  `#735c14` on `#f2e8c9`, Aprobado `#2f5a49` on `#e3ebe1`, and Listo para aprobar
+  stays neutral. Each pair meets 4.5:1 in light and dark. These replace the
+  Registros tag colors for Bandeja.
+- Every row has one quiet pill, **Abrir**, with the same label and width in every
+  state. Abrir and the row click open the record. A receipt with no draft opens
+  its original and its reason, with no form.
+- Checkboxes are only on Listos, for owners. Aprobar, Aprobar todos and the
+  accountant's Revisar recibos are quiet. The confirm step keeps its emphasis.
 - An email is only how a receipt arrived (Lucas, October 20, 2026). Once it
   saves a receipt, that receipt is the row. An email is a row of its own only
-  while it is read (in Por revisar, like a receipt being read) or when it
-  brought no receipt (in Con problema and Todo, counted there): "Correo de"
-  the sender, the subject in quotes, and why. A repeat of a saved file is no
-  row. Reintentar sits on that row when the server allows a retry.
+  while it is read (on Todos, like a receipt being read) or when it brought no
+  receipt (in Necesitan atención and Todos, counted there): the sender, the
+  subject and why. A repeat of a saved file is no row. Reintentar sits on the
+  email's record when the server allows a retry.
 - The full email history lives in Negocio > Correo de recibos, under the
   receiving address, as a quiet Historial with its refresh.
-- What arrived since the last visit sits on top under "Nuevo desde tu última
-  visita". The server's unread flag decides it.
-- A row is one quiet line: name and total, then the state, the time and the
-  marks. A problem says itself in red, in a few words. Fixes (Reintentar,
-  Subir otro archivo, Escribir datos) live in the record, not in the row.
+- What arrived since the last visit carries an unread dot on the row's left edge.
+  The server's unread flag decides it.
+- A row is one line. Contenido, Remitente and the reason cut with "…", with the full
+  text in a tooltip on hover and keyboard focus. Phone cards wrap instead.
 - Typed notes are rows like receipts.
 - An email opens like a record: beside the list on a desktop, a full page
   with a way back on a phone. A receipt that came by email says "Llegó por
