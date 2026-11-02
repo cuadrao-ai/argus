@@ -85,7 +85,7 @@ async function mount({ width = 800, overrides = () => ({}), panel }: { width?: n
   };
   const segment = receptionTab.bind(null, host);
   const names = (within: ParentNode = host) => rowTitles(within);
-  const choose = async (key: "all" | "review" | "processing" | "attention") => {
+  const choose = async (key: "all" | "attention" | "listos") => {
     await act(async () => segment(key)!.click());
     assert.equal(segment(key)?.getAttribute("aria-selected"), "true");
   };
@@ -107,7 +107,7 @@ describe("the Bandeja views", () => {
       overrides: (fixture) => ({
         receiptPage: async () => ({
           items: [await fixture.receipt("rcpt-confirmed")],
-          activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, confirmed_count: 1, dismissed_count: 0 },
+          activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, bandeja_attention_count: 0, bandeja_listo_count: 0, confirmed_count: 1, dismissed_count: 0 },
         }),
         emailDeliveries: async () => [],
       }),
@@ -115,28 +115,27 @@ describe("the Bandeja views", () => {
     await inboxReady(page);
     const reception = page.host.querySelector(receptionEvidence.root);
     assert.ok(reception, "the live Reception is mounted");
-    assert.equal(reception.getAttribute("data-mode"), "live");
     const views = reception.querySelector(receptionEvidence.views);
     assert.ok(views, "the evidence script can find the Bandeja views");
     assert.equal(views.getAttribute("role"), "tablist");
     assert.equal(views.getAttribute("aria-label"), "Vistas de Bandeja");
     const tab = (key: keyof typeof receptionEvidence.tabs) => views.querySelector<HTMLButtonElement>(receptionEvidence.tabs[key]);
     assert.equal(tab("all")?.getAttribute("aria-selected"), "true");
-    for (const [key, label] of [["review", "Por revisar"], ["processing", "En proceso"], ["attention", "Necesitan atención"]] as const) {
+    for (const [key, label] of [["attention", "Necesitan atención"], ["listos", "Listos"]] as const) {
       assert.equal(tab(key)?.textContent, `${label}0`);
     }
     assert.equal(reception.querySelectorAll(receptionEvidence.alert).length, 0);
     assert.equal(reception.querySelectorAll(receptionEvidence.empty).length, 0);
     assert.equal(reception.querySelectorAll(receptionEvidence.row).length, 1);
     assert.ok(reception.querySelector(receptionEvidence.row)?.textContent?.includes("Nube Hosting"));
-    await page.act(async () => tab("review")!.click());
-    assert.equal(tab("review")?.getAttribute("aria-selected"), "true");
+    await page.act(async () => tab("listos")!.click());
+    assert.equal(tab("listos")?.getAttribute("aria-selected"), "true");
     const empty = reception.querySelector(receptionEvidence.empty);
-    assert.equal(empty?.getAttribute("data-empty-kind"), "filtered");
-    assert.equal(empty?.querySelector("h3")?.textContent, "No hay contenido en esta vista");
+    assert.equal(empty?.getAttribute("data-empty-kind"), "done");
+    assert.equal(empty?.querySelector("h3")?.textContent, "No hay recibos listos");
     assert.equal(reception.querySelectorAll(receptionEvidence.row).length, 0);
-    const clear = [...(empty?.querySelectorAll("button") ?? [])].find(button => button.textContent === "Limpiar filtros");
-    assert.ok(clear, "Limpiar filtros returns to Todos");
+    const clear = [...(empty?.querySelectorAll("button") ?? [])].find(button => button.textContent === "Ver todo");
+    assert.ok(clear, "Ver todo returns to Todos");
     await page.act(async () => clear.click());
     assert.equal(tab("all")?.getAttribute("aria-selected"), "true");
     assert.equal(reception.querySelectorAll(receptionEvidence.empty).length, 0);
@@ -148,33 +147,36 @@ describe("the Bandeja views", () => {
     const page = await mount({ panel: { kind: "inbox" } });
     await inboxReady(page);
     assert.equal(page.segment("all")?.getAttribute("aria-selected"), "true", "Todos is the first view");
-    assert.deepEqual(["review", "processing", "attention"].map((key) => tabCount(page.host, key as "review")), ["4", "1", "5"], "the server counts the two emails that brought no receipt");
-    await page.choose("review");
-    assert.deepEqual(page.names(), ["Ferretería La Esquina", "Papelería Central", "IMG_2215.jpg", "colmado-oct.jpg"]);
+    assert.deepEqual(["attention", "listos"].map((key) => tabCount(page.host, key as "attention")), ["12", "5"], "a row still being read is in neither");
+    await page.choose("listos");
+    assert.deepEqual(page.names(), ["Imprenta Caribe", "Gasolinera Ruta 3", "Suplidora Duarte", "Repuestos El Cibao", "Limpieza Total"]);
     await page.choose("attention");
-    assert.deepEqual(page.names().sort(), ["Boletín semanal", "Factura Farmacia Carol", "IMG_2209.jpg", "IMG_2215.jpg", "colmado-oct.jpg"]);
+    assert.equal(page.names().length, 11, "the note the server counts comes from the notes list, which this mount leaves empty");
+    assert.ok(page.names().includes("Boletín semanal"), "an email that brought no receipt");
+    assert.ok(page.names().includes("Colmado La Bendición"), "a receipt the server has not confirmed");
+    assert.equal(page.names().includes("Imprenta Caribe"), false);
     await page.choose("all");
-    assert.equal(page.names().length, 9, "every receipt, plus the three emails that are rows of their own");
+    assert.equal(page.names().length, 19, "every receipt, plus the three emails that are rows of their own");
   });
 
-  test("a view with nothing in it says so and Limpiar filtros returns to Todos", async () => {
+  test("a tab with nothing in it says so and Ver todo returns to Todos", async () => {
     const page = await mount({
       panel: { kind: "inbox" },
       overrides: (fixture) => ({
         receiptPage: async (view) => {
           const shown = await fixture.receiptPage!(view);
-          return { ...shown, items: shown.items.filter((item) => item.status !== "needs_attention") };
+          return { ...shown, items: shown.items.filter((item) => item.bandeja_group?.group !== "listo") };
         },
         emailDeliveries: async () => [],
       }),
     });
     await inboxReady(page);
-    await page.choose("attention");
+    await page.choose("listos");
     const empty = page.host.querySelector('[data-testid="reception-empty"]');
-    assert.equal(empty?.getAttribute("data-empty-kind"), "filtered");
-    assert.equal(empty?.querySelector("h3")?.textContent, "No hay contenido en esta vista");
-    const clear = [...(empty?.querySelectorAll("button") ?? [])].find((button) => button.textContent === "Limpiar filtros");
-    assert.ok(clear, "Limpiar filtros");
+    assert.equal(empty?.getAttribute("data-empty-kind"), "done");
+    assert.equal(empty?.querySelector("h3")?.textContent, "No hay recibos listos");
+    const clear = [...(empty?.querySelectorAll("button") ?? [])].find((button) => button.textContent === "Ver todo");
+    assert.ok(clear, "Ver todo");
     assert.ok(!clear.className.includes("bg-[var(--cuadrao-green)]"), "changing the view is a quiet action, not a second primary");
     await page.act(async () => clear.click());
     assert.equal(page.segment("all")?.getAttribute("aria-selected"), "true");
@@ -183,7 +185,7 @@ describe("the Bandeja views", () => {
 });
 
 describe("a list that did not load", () => {
-  const NOTHING = { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 0, needs_attention_count: 0, ready_to_review_count: 0 } };
+  const NOTHING = { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 0, needs_attention_count: 0, ready_to_review_count: 0, bandeja_attention_count: 0, bandeja_listo_count: 0 } };
   const failing = () => {
     const calls = { receipts: 0, notes: 0, emails: 0 };
     let fail = true;
@@ -201,7 +203,7 @@ describe("a list that did not load", () => {
     await page.settle(() => failureOf(page)?.textContent?.includes(FAILED) === true, "the failure");
     assert.equal(page.host.querySelectorAll('[role="alert"]').length, 1, "one line, not one per list");
     assert.ok([...failureOf(page)!.querySelectorAll("button")].some((button) => button.textContent === "Reintentar"));
-    for (const key of ["all", "review", "processing", "attention"] as const) {
+    for (const key of ["all", "attention", "listos"] as const) {
       await page.choose(key);
       assert.equal(page.host.querySelector('[data-testid="reception-empty"]'), null, `${key} claims no empty view`);
     }
@@ -209,21 +211,21 @@ describe("a list that did not load", () => {
 
   test("the server's counts read - while a list is down, and come back once every list loaded", async () => {
     const { overrides, recover } = failing();
-    const page = await mount({ panel: { kind: "inbox" }, overrides: () => ({ ...overrides(), receiptPage: async () => ({ ...NOTHING, activity: { ...NOTHING.activity, ready_to_review_count: 3, needs_attention_count: 2 } }) }) });
+    const page = await mount({ panel: { kind: "inbox" }, overrides: () => ({ ...overrides(), receiptPage: async () => ({ ...NOTHING, activity: { ...NOTHING.activity, bandeja_attention_count: 3, bandeja_listo_count: 2 } }) }) });
     await page.settle(() => failureOf(page) !== null, "the failure");
-    assert.equal(tabCount(page.host, "review"), "-", "a 3 beside a list that failed would contradict it");
-    assert.equal(tabCount(page.host, "attention"), "-");
+    assert.equal(tabCount(page.host, "attention"), "-", "a 3 beside a list that failed would contradict it");
+    assert.equal(tabCount(page.host, "listos"), "-");
     recover();
     await page.act(async () => [...failureOf(page)!.querySelectorAll("button")].find((button) => button.textContent === "Reintentar")!.click());
-    await page.settle(() => tabCount(page.host, "review") === "3", "the recovery");
-    assert.equal(tabCount(page.host, "attention"), "2");
+    await page.settle(() => tabCount(page.host, "attention") === "3", "the recovery");
+    assert.equal(tabCount(page.host, "listos"), "2");
   });
 
   test("a count the server does not send reads -, never 0", async () => {
     const page = await mount({ panel: { kind: "inbox" }, overrides: () => ({ receiptPage: async () => ({ items: [], activity: null }), emailDeliveries: async () => [] }) });
     await page.settle(() => page.host.querySelector('[data-testid="reception-empty"]') !== null, "the settled list");
-    assert.equal(tabCount(page.host, "review"), "-");
     assert.equal(tabCount(page.host, "attention"), "-");
+    assert.equal(tabCount(page.host, "listos"), "-");
   });
 
   describe("a server reference", () => {
@@ -310,7 +312,7 @@ describe("a list that did not load", () => {
 describe("a list the server refused for good", () => {
   // The Business routes answer 404 business_unavailable and email receiving answers
   // 503 email_capture_unavailable. Asking again gets the same answer.
-  const NOTHING = { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 0, needs_attention_count: 0, ready_to_review_count: 0 } };
+  const NOTHING = { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 0, needs_attention_count: 0, ready_to_review_count: 0, bandeja_attention_count: 0, bandeja_listo_count: 0 } };
   const BUSINESS_OFF = () => Object.assign(new Error("Business is not available."), { status: 404, code: "business_unavailable" });
   const EMAIL_OFF = () => Object.assign(new Error("Email receiving is unavailable."), { status: 503, code: "email_capture_unavailable" });
   const actions = (page: { host: HTMLElement }) => [...(failureOf(page)?.querySelectorAll("button") ?? [])].filter((button) => button.dataset.testid !== "error-reference").map((button) => button.textContent);
@@ -318,7 +320,7 @@ describe("a list the server refused for good", () => {
   test("offers no Reintentar, claims no empty state and no count", async () => {
     const calls = { notes: 0, emails: 0 };
     const page = await mount({ panel: { kind: "inbox" }, overrides: () => ({
-      receiptPage: async () => ({ ...NOTHING, activity: { ...NOTHING.activity, ready_to_review_count: 3 } }),
+      receiptPage: async () => ({ ...NOTHING, activity: { ...NOTHING.activity, bandeja_attention_count: 3 } }),
       captures: async () => { calls.notes += 1; throw BUSINESS_OFF(); },
       emailDeliveries: async () => { calls.emails += 1; throw EMAIL_OFF(); },
     }) });
@@ -326,7 +328,7 @@ describe("a list the server refused for good", () => {
     assert.deepEqual(actions(page), [], "asking again gets the same refusal");
     assert.match(failureOf(page)!.textContent ?? "", /No pudimos cargar tus notas ni tus correos\./, "the line names what was refused");
     assert.match(failureOf(page)!.textContent ?? "", /escríbenos a hola@cuadrao\.ai/, "a refusal always has a way out");
-    assert.equal(tabCount(page.host, "review"), "-", "a 3 beside a list that failed would contradict it");
+    assert.equal(tabCount(page.host, "attention"), "-", "a 3 beside a list that failed would contradict it");
     assert.equal(page.host.querySelector('[data-testid="reception-empty"]'), null);
     const before = { ...calls };
     window.dispatchEvent(new Event("offline"));
@@ -395,34 +397,30 @@ describe("typed notes in the list", () => {
   ];
   const noteRows = (page: { host: HTMLElement }) => receptionRows(page.host).filter((row) => row.dataset.kind === "note");
 
-  test("an open note is a Por revisar row with its latest words, never a problem, and its dossier opens the draft", async () => {
+  test("an open note needs attention with its latest words, and its row opens the draft", async () => {
     const page = await mount({
       panel: { kind: "inbox" },
       overrides: (fixture) => ({
         captures: async () => ({ items: NOTES }),
         receiptPage: async (view) => {
           const shown = await fixture.receiptPage!(view);
-          return { ...shown, activity: shown.activity && { ...shown.activity, ready_to_review_count: shown.activity.ready_to_review_count + 1 } };
+          return { ...shown, activity: shown.activity && { ...shown.activity, bandeja_attention_count: 15 } };
         },
       }),
     });
     await page.settle(() => noteRows(page).length === 1, "the note row");
-    assert.equal(tabCount(page.host, "review"), "5");
+    assert.equal(tabCount(page.host, "attention"), "15");
     const row = noteRows(page)[0];
     assert.ok(row.textContent?.includes("Pagué con mi dinero."));
     assert.ok(!row.textContent?.includes("Ayer compré pintura"), "one row per draft, its latest note");
-    assert.equal(rowState(row), "Lista para revisar");
-    await page.choose("review");
-    assert.equal(noteRows(page).length, 1);
+    assert.equal(rowState(row), "Necesita atención");
     await page.choose("attention");
+    assert.equal(noteRows(page).length, 1);
+    assert.equal(noteRows(page)[0].querySelector('[data-testid="reception-reason"]')?.textContent, "Nota escrita");
+    await page.choose("listos");
     assert.equal(noteRows(page).length, 0);
     await page.choose("all");
     await page.act(async () => noteRows(page)[0].querySelector<HTMLButtonElement>("button")!.click());
-    const dossier = page.host.ownerDocument.querySelector('[data-testid="reception-dossier"]')!;
-    assert.ok(dossier.textContent?.includes("Pagué con mi dinero."), "the dossier shows the verbatim note");
-    const review = document.querySelector<HTMLButtonElement>('[class~="detailFooter"] button')!;
-    assert.equal(review.textContent, "Revisar");
-    await page.act(async () => review.click());
     assert.deepEqual(page.api().panel, { kind: "draft", draftId: "draft-a", list: "inbox" });
   });
 
@@ -458,80 +456,43 @@ describe("emails in the Bandeja", () => {
     const page = await mount({ panel: { kind: "inbox" } });
     await inboxReady(page);
     await page.choose("attention");
-    assert.equal(emailRows(page).length, 2);
+    assert.equal(emailRows(page).length, 2, "the two that brought none");
     const boletin = emailRow(page, "Boletín semanal")!;
-    assert.match(boletin.textContent ?? "", /noticias@proveedor\.example/);
-    assert.match(rowState(boletin), /Necesita atención/);
     assert.match(boletin.textContent ?? "", /Este tipo de archivo no se puede guardar como recibo/);
     const farmacia = emailRow(page, "Factura Farmacia Carol")!;
-    assert.match(farmacia.textContent ?? "", /facturas@farmaciacarol\.example/);
     assert.match(farmacia.textContent ?? "", /Esta dirección no está activa/);
-    assert.equal(boletin.querySelector('[data-testid="reception-sender"]')?.getAttribute("data-known"), "true");
   });
 
   test("Todos lists every email that brought no receipt beside the receipts, and an email whose file became a receipt is no row of its own", async () => {
     const page = await mount({ panel: { kind: "inbox" } });
     await inboxReady(page);
     await page.settle(() => emailRows(page).length === 3, "the three email rows");
-    assert.equal(emailRow(page, "ventas@ferreterialaesquina.example"), undefined, "the ferretería's email is its receipt");
-    assert.equal(emailRow(page, "ventas@colmadoelprimo.example"), undefined, "the colmado's email is its receipt");
-    assert.ok(emailRow(page, "facturas@estacion.example"), "the email still being read");
+    assert.equal(emailRow(page, "Factura Ferretería La Esquina"), undefined, "the ferretería's email is its receipt");
+    assert.ok(emailRow(page, "Recibo de combustible"), "the email still being read");
   });
 
-  test("an email still being read waits under En proceso, not Por revisar", async () => {
+  test("an email still being read says Leyendo on Todos, and is on neither other tab", async () => {
     const page = await mount({ panel: { kind: "inbox" } });
     await inboxReady(page);
-    await page.choose("review");
-    assert.equal(emailRows(page).length, 0, "Por revisar holds no reading email");
-    await page.choose("processing");
-    await page.settle(() => emailRows(page).length === 1, "the reading email row");
-    assert.match(emailRows(page)[0].textContent ?? "", /Recibo de combustible/);
-    assert.equal(tabCount(page.host, "review"), "4");
+    await page.choose("listos");
+    assert.equal(emailRows(page).length, 0, "Listos holds no email");
+    await page.choose("attention");
+    assert.equal(emailRows(page).some((row) => row.textContent?.includes("Recibo de combustible")), false, "Necesitan atención holds no read still running");
+    await page.choose("all");
+    const reading = emailRows(page).find((row) => row.textContent?.includes("Recibo de combustible"));
+    assert.ok(reading);
+    assert.match(reading.textContent ?? "", /Leyendo…/);
   });
 
-  test("on a desktop an email row opens the email in the dossier beside the list", async () => {
+  test("on a desktop an email row opens the email in the tray beside the list", async () => {
     const page = await mount({ width: 1280, panel: { kind: "inbox" } });
     await inboxReady(page);
     await page.choose("attention");
-    await page.act(async () => emailRow(page, "noticias@proveedor.example")!.querySelector("button")!.click());
+    await page.act(async () => emailRow(page, "Boletín semanal")!.querySelector("button")!.click());
     await page.settle(() => emailDetail() !== null, "the email detail");
     assert.ok(page.host.querySelector('[role="tablist"]'), "the list stays beside it");
+    assert.ok(emailDetail()!.closest('[data-testid="side-drawer"]'), "the record's tray");
     assert.ok(emailDetail()!.textContent?.includes("boletin.zip"));
-  });
-
-  test("on a desktop the dossier takes the covered list out of the Tab order, and closing puts it back", async () => {
-    const page = await mount({ width: 1280, panel: { kind: "inbox" } });
-    await inboxReady(page);
-    await page.choose("attention");
-    const trigger = emailRow(page, "noticias@proveedor.example")!.querySelector("button")!;
-    const inertHost = () => page.host.querySelector('[data-testid="reception-preview"] > [inert]');
-    assert.equal(inertHost(), null);
-    await page.act(async () => trigger.click());
-    await page.settle(() => emailDetail() !== null, "the email detail");
-    assert.ok(inertHost()?.querySelector('[role="tablist"]'), "the tabs and rows are inert");
-    assert.equal(document.querySelector('[data-testid="reception-dossier"]')?.closest("[inert]"), null);
-    await page.act(async () => { document.querySelector('[data-testid="side-drawer"] button[aria-label="Cerrar"]')!.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
-    await page.settle(() => emailDetail() === null, "the dossier to close");
-    assert.equal(inertHost(), null);
-  });
-
-  test("Escape closes the dossier and puts focus on the row with no animation frame to wait for", async () => {
-    const page = await mount({ width: 1280, panel: { kind: "inbox" } });
-    await inboxReady(page);
-    await page.choose("attention");
-    const trigger = emailRow(page, "noticias@proveedor.example")!.querySelector("button")!;
-    trigger.focus();
-    await page.act(async () => trigger.click());
-    await page.settle(() => emailDetail() !== null, "the email detail");
-    const frames = window.requestAnimationFrame;
-    window.requestAnimationFrame = () => 0;
-    try {
-      await page.act(async () => { document.querySelector('[data-testid="side-drawer"] h2')!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
-      assert.equal(emailDetail(), null, "the dossier is gone");
-      assert.equal(document.activeElement, trigger, "focus is on the row, never on the body");
-    } finally {
-      window.requestAnimationFrame = frames;
-    }
   });
 
   test("on a phone an email is the whole page with a way back to the Bandeja", async () => {
@@ -550,7 +511,7 @@ describe("emails in the Bandeja", () => {
     const page = await mount({ width: 1280, panel: { kind: "inbox" }, overrides: () => ({ retryEmailDelivery: async (id: string) => { retried.push(id); return { id }; } }) });
     await inboxReady(page);
     await page.choose("attention");
-    await page.act(async () => emailRow(page, "facturas@farmaciacarol.example")!.querySelector("button")!.click());
+    await page.act(async () => emailRow(page, "Factura Farmacia Carol")!.querySelector("button")!.click());
     await page.settle(() => [...document.querySelectorAll("button")].some((button) => button.textContent === "Reintentar"), "the dossier's Reintentar");
     await page.act(async () => [...document.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Reintentar")!.click());
     await page.settle(() => retried.length === 1, "the retry request");
@@ -562,8 +523,8 @@ describe("emails in the Bandeja", () => {
     const page = await mount({ width: 1280, panel: { kind: "inbox" }, overrides: () => ({ retryEmailDelivery: async (id: string) => { attempts += 1; if (attempts === 1) throw new Error("refused"); return { id }; } }) });
     await inboxReady(page);
     await page.choose("attention");
-    await page.act(async () => emailRow(page, "facturas@farmaciacarol.example")!.querySelector("button")!.click());
-    const dossier = () => document.querySelector('[data-testid="reception-dossier"]')!;
+    await page.act(async () => emailRow(page, "Factura Farmacia Carol")!.querySelector("button")!.click());
+    const dossier = () => document.querySelector('[data-testid="side-drawer"]')!;
     const retry = () => [...dossier().querySelectorAll("button")].find((button) => button.textContent === "Reintentar")!;
     await page.settle(() => dossier().querySelector("button") !== null && [...dossier().querySelectorAll("button")].some((button) => button.textContent === "Reintentar"), "the dossier's Reintentar");
     await page.act(async () => retry().click());

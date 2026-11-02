@@ -25,7 +25,7 @@ describe("the Bandeja counts are the server's", () => {
   const activity = { reading_count: 3, unread_count: 0, presentation: "working" as const, pending_review_count: 40, needs_attention_count: 7, ready_to_review_count: 30 };
 
   test("past one page of rows, every number is the server's, emails and notes included", () => {
-    assert.equal(inboxCount({ receiptActivity: activity }), 30);
+    assert.equal(inboxCount({ receiptActivity: activity }), 40);
     assert.equal(problemCount({ receiptActivity: activity }), 7);
     assert.equal(readingCount({ receiptActivity: activity }), 3);
   });

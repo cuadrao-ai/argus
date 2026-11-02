@@ -16717,6 +16717,7 @@ components:
             enum:
             - listo
             - attention
+            - reading
           - type: 'null'
         reason:
           anyOf:
@@ -16741,6 +16742,7 @@ components:
             - missing_date
             - missing_amount
             - missing_currency
+            - sin_comprobante
             - missing_rnc
             - invalid_rnc
             - missing_ncf

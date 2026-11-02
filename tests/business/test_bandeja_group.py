@@ -91,6 +91,17 @@ def test_a_draft_with_nothing_missing_is_listo() -> None:
         (with_facts(currency=Unknown()), "missing_currency"),
         (with_facts(fiscal=None), "missing_rnc"),
         (with_fiscal(rnc=Unknown()), "missing_rnc"),
+        (
+            with_facts(receipt_state=known("no_receipt"), fiscal=None),
+            "sin_comprobante",
+        ),
+        (
+            with_facts(
+                receipt_state=known("informal_receipt"),
+                fiscal=FACTS.fiscal.model_copy(update={"ncf": Unknown()}),
+            ),
+            "sin_comprobante",
+        ),
         (with_fiscal(rnc=known("12345")), "invalid_rnc"),
         (
             replace(
@@ -137,6 +148,10 @@ def test_each_gap_has_its_reason(draft: DraftStanding, reason: str) -> None:
     assert (found["group"], found["reason"]) == ("attention", reason)
 
 
+def test_a_stated_no_comprobante_on_a_record_with_a_number_is_no_gap() -> None:
+    assert listo_reason(with_facts(receipt_state=known("no_receipt"))) is None
+
+
 def test_an_authorized_sender_is_no_gap() -> None:
     assert listo_reason(replace(LISTO, sender="authorized")) is None
 
@@ -153,7 +168,6 @@ def test_a_receipt_with_several_gaps_names_the_first_in_rule_order() -> None:
 @pytest.mark.parametrize(
     ("view", "reason"),
     [
-        ({**OPEN_VIEW, "read_pending": True}, "reading"),
         (
             {**OPEN_VIEW, "status": "needs_attention", "attention": "unreadable"},
             "unreadable",
@@ -172,6 +186,13 @@ def test_a_row_with_no_open_draft_says_why(view: dict, reason: str) -> None:
     }
 
 
+def test_a_receipt_still_being_read_waits_in_its_own_group() -> None:
+    view = {**OPEN_VIEW, "read_pending": True}
+    assert group_of(view, None)["group"] == "reading"
+    assert group_of(view, LISTO)["group"] == "reading"
+    assert group_of(view, None)["reason"] == "reading"
+
+
 @pytest.mark.parametrize(
     "view",
     [
@@ -185,18 +206,17 @@ def test_a_closed_receipt_and_the_email_itself_have_no_group(view: dict) -> None
 
 
 def test_every_row_the_bandeja_lists_is_in_one_count() -> None:
+    reading = {**OPEN_VIEW, "read_pending": True}
     views = [
         {**OPEN_VIEW, "bandeja_group": group_of(OPEN_VIEW, LISTO)},
         {
             **OPEN_VIEW,
             "bandeja_group": group_of(OPEN_VIEW, with_fiscal(ncf=Unknown())),
         },
+        {**reading, "bandeja_group": group_of(reading, None)},
         {**OPEN_VIEW, "status": "confirmed"},
     ]
     counts = inbox_counts(views, notes=2, emails=["reading", "no_receipt"])
     assert counts["bandeja_listo_count"] == 1
-    assert counts["bandeja_attention_count"] == 5
-    assert (
-        counts["bandeja_listo_count"] + counts["bandeja_attention_count"]
-        == counts["pending_review_count"]
-    )
+    assert counts["bandeja_attention_count"] == 4
+    assert counts["pending_review_count"] == 7

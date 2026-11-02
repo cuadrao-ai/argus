@@ -214,16 +214,6 @@ export function periodRange(key: PeriodKey, now = new Date()): Period {
   return { key, from: isoDay(new Date(now.getFullYear(), now.getMonth(), 1)), to: null };
 }
 
-export const RECEIPT_CATEGORY_IDS = [
-  "other",
-  "groceries",
-  "dining",
-  "transport",
-  "housing",
-  "health",
-  "shopping",
-  "interest_fees",
-] as const;
 
 /** A range the person typed; both days are required and in order. */
 export function customPeriod(from: string, to: string): Period | null {

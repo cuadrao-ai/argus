@@ -144,7 +144,7 @@ test("Bandeja shows one Agregar, no subhead or page duplicate, and Reception's v
     await page.settle(() => page.host.querySelector('[data-testid="reception-row"]') !== null);
     assert.equal([...page.host.querySelectorAll("p")].some((node) => ownText(node).includes(PHRASE)), false, "the counts live on the views, not in a subhead");
     const views = [...page.host.querySelectorAll<HTMLButtonElement>('[role="tablist"] [role="tab"]')];
-    assert.deepEqual(views.map((view) => view.id), ["reception-tab-all", "reception-tab-review", "reception-tab-processing", "reception-tab-attention"], "live has no Archivados view");
+    assert.deepEqual(views.map((view) => view.id), ["reception-tab-all", "reception-tab-attention", "reception-tab-listos"]);
     assert.equal(document.querySelector('[data-testid="email-address"]'), null, "the receiving address lives in Negocio");
     assert.equal(page.host.querySelectorAll('[data-testid="top-bar"] [data-testid="add-menu-header"] [data-testid="business-primary-upload"]').length, 1, "the top bar owns Agregar");
     assert.equal(page.host.querySelectorAll('[data-testid="reception-add"] [data-testid="business-primary-upload"]').length, 0, "the toolbar does not repeat it");

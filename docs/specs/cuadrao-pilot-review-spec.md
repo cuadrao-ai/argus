@@ -15,11 +15,21 @@ A receipt lives in one place. It is in Bandeja until it is approved. After that 
 
 ## Bandeja
 
-Tabs: **Todos · Necesitan atención · Listos**. Bandeja opens on Todos. Todos has no count. The other tabs show one server count, and the sidebar and Inicio use the same count.
+Tabs: **Todos · Necesitan atención · Listos**. Bandeja opens on Todos. Todos has no count. The other tabs show one server count, and the sidebar and Inicio use the same count. The tabs own status, so Filtros has only Canal and Remitente, and picking a tab adds no chip.
 
-Columns: Contenido, Adjunto, Canal, Remitente, Estado, Llegada, action. Monto and Moneda stay off by default. The row stays a table on normal laptops. Cards are for phone size only.
+Columns: Contenido, Adjunto, Canal, Estado, Llegada, action. Remitente, Monto and Moneda stay off by default and are available in Información visible. The row stays a table on normal laptops. Cards are for phone size only.
 
-Row tags: Leyendo, Necesita atención with its reason, Listo para aprobar, Aprobado.
+Estado by tab:
+
+| Tab | Estado |
+| --- | --- |
+| Todos | The tag: Leyendo, Necesita atención, Listo para aprobar or Aprobado |
+| Necesitan atención | Only the reason, as plain text |
+| Listos | No column |
+
+Checkboxes are only on Listos, for owners.
+
+Every row has one action, **Abrir**. It opens the receipt, and a row click does the same, in every state. A receipt with no draft opens its original and its reason, with no form.
 
 Removed from live: En proceso, Más acciones.
 
@@ -34,7 +44,7 @@ A receipt is Listos only when the server confirms all of these:
 - It has no duplicate and no review flag.
 - Its sender is verified, if it came by email.
 
-Every other open receipt is in Necesitan atención, with one plain reason. The owner opens it and approves it from the dossier. Listos only adds a faster way. A USD receipt or a receipt with no NCF reaches Registros through this single approval.
+Every other open receipt that has finished reading is in Necesitan atención, with one plain reason. A failed read stays there. A receipt still reading is in no tab count and shows only on Todos, as Leyendo. The sidebar still counts it, because it is a waiting row. The owner opens a receipt and approves it from the dossier. Listos only adds a faster way. A USD receipt or a receipt with no NCF reaches Registros through this single approval.
 
 **Aprobar todos:** the owner selects rows or takes all of them, sees the count, and confirms. Only the owner sees this action. Nothing is approved without the owner. If some fail, the screen says which, and those stay in Listos. Selection does not change when a new receipt arrives.
 

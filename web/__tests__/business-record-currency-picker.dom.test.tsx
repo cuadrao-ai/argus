@@ -63,19 +63,6 @@ async function mount(target: { kind: "receipt"; id: string }, overrides: (fixtur
 const optionTexts = (select: Element | null | undefined) => [...(select?.querySelectorAll("option") ?? [])].map((option) => option.textContent ?? "");
 
 describe("the currency picker on a receipt", () => {
-  test("offers the workspace currencies plus the receipt's own, on a receipt with no record yet", async () => {
-    const view = await mount({ kind: "receipt", id: "rcpt-unknown" }, (fixture) => ({
-      receipt: async (id, signal) => ({ ...await fixture.receipt(id, signal), currency: "EUR" }),
-    }));
-    try {
-      await view.settle(() => [...view.host.querySelectorAll("select")].some((select) => optionTexts(select).includes("DOP")));
-      await view.idle();
-      const picker = [...view.host.querySelectorAll("select")].find((select) => optionTexts(select).includes("DOP"));
-      assert.ok(picker, "the page has a currency picker");
-      assert.deepEqual(optionTexts(picker).filter(Boolean).filter((text) => text !== "Elegir"), ["DOP", "CAD", "EUR"]);
-    } finally { await view.close(); }
-  });
-
   test("offers the same options when editing the currency of a prepared record", async () => {
     const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
     const view = await mount({ kind: "receipt", id: "rcpt-ferreteria" }, (fixture) => ({

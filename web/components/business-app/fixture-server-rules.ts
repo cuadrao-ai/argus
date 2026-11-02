@@ -1,4 +1,4 @@
-import type { BandejaMembership, ReceiptActivity, ReceiptActivityCounts, ReceiptSummary } from "@/lib/business-api";
+import type { BandejaGroup, BandejaMembership, ReceiptActivity, ReceiptActivityCounts, ReceiptSummary } from "@/lib/business-api";
 import type { BusinessEmailDelivery, BusinessEmailPart, EmailStanding } from "@/lib/business-email";
 
 /**
@@ -30,25 +30,40 @@ function membership(view: ReceiptSummary, activity: ReceiptActivity): BandejaMem
   };
 }
 
+type ListedReceipt = ReceiptSummary & { draft_id?: string | null; version?: number };
+
+/** `bandeja_group.py` in short: the row's own read first, then the gap the sample seeds, with Listos seeded by name. */
+function bandejaGroup(view: ListedReceipt): BandejaGroup {
+  if (!awaitingOwner(view)) return { group: null, reason: null, draft_id: null, version: null };
+  const seeded = view.bandeja_group;
+  const unread = view.status === "saved" || view.status === "queued";
+  const reason = view.read_pending ? "reading" : view.attention ?? (unread ? "not_read" : view.sin_comprobante ? "sin_comprobante" : view.personal ? "personal" : seeded?.reason ?? (seeded?.group === "listo" ? null : "check_details"));
+  return { group: reason === "reading" ? "reading" : reason ? "attention" : "listo", reason, draft_id: view.draft_id ?? null, version: view.draft_id ? view.version ?? null : null };
+}
+
 /** A receipt as the server lists it: its projected activity and its Bandeja flags. */
-export function served<T extends ReceiptSummary>(view: T): T {
+export function served<T extends ListedReceipt>(view: T): T {
   const activity = projectActivity(view);
-  return { ...view, activity, bandeja: membership(view, activity) };
+  return { ...view, activity, bandeja: membership(view, activity), bandeja_group: bandejaGroup(view) };
 }
 
 /** The counts as the server sums them over every receipt, the notes no receipt carries and each email's standing. */
-export function servedCounts(views: readonly ReceiptSummary[], notes: number, standings: readonly (EmailStanding | null)[]): ReceiptActivityCounts {
+export function servedCounts(views: readonly ListedReceipt[], notes: number, standings: readonly (EmailStanding | null)[]): ReceiptActivityCounts {
   const rows = views.map(served);
   const emails = standings.filter((standing) => standing !== null);
   const flagged = (bucket: keyof BandejaMembership) => rows.filter((row) => row.bandeja?.[bucket]).length;
+  const pending = rows.filter(awaitingOwner).length + notes + emails.length;
+  const listos = rows.filter((row) => row.bandeja_group?.group === "listo").length;
   const reading = flagged("leyendo") + emails.filter((standing) => standing === "reading").length;
   const unread = rows.filter((row) => row.activity?.unread).length;
   return {
     reading_count: reading,
     unread_count: unread,
     presentation: reading ? "working" : unread ? "unread" : "none",
-    pending_review_count: rows.filter(awaitingOwner).length + notes + emails.length,
+    pending_review_count: pending,
     ready_to_review_count: flagged("por_revisar") + notes,
+    bandeja_listo_count: listos,
+    bandeja_attention_count: pending - listos - reading,
     needs_attention_count: flagged("con_problema") + emails.filter((standing) => standing === "no_receipt").length,
     confirmed_count: rows.filter((row) => !row.email_original && row.status === "confirmed").length,
     dismissed_count: rows.filter((row) => !row.email_original && row.status === "dismissed").length,

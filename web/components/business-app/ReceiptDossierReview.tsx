@@ -462,7 +462,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
       </ReceiptEditRow>
     );
   };
-  const showsChoices = dossier.declaration_editable === true || dossier.dgii?.form === "606";
+  const showsChoices = !dossier.sin_comprobante && (dossier.declaration_editable === true || dossier.dgii?.form === "606");
   const rowNote = (row: ReviewRow) => <ReceiptRowSave save={autosave.saves[row]?.state === "saving" ? undefined : autosave.saves[row]} onRetry={() => rows.retry(row)} />;
   return (<><ContentFade><>
     <ReceiptShortcutRegistration actions={{

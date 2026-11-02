@@ -56,6 +56,7 @@ export type BusinessDataSource = Readonly<{
   setDocumentType: (id: string, version: number, documentType: "recibo" | "venta", key: string) => Promise<BusinessDossier>;
   approveDraft: (id: string, version: number, key: string, action: BusinessApprovalAction, approveAnyway?: boolean) => Promise<BusinessDossier>;
   settleRemainder: (id: string, version: number, key: string) => Promise<BusinessDossier>;
+  approveListos: typeof api.approveBusinessListos;
   /** The owner marks the receipt as personal or takes the mark back. */
   markPersonal: (id: string, version: number, personal: boolean, key: string) => Promise<BusinessDossier>;
   /** The accountant answers whether a personal receipt with a fiscal number goes into the 606. */
@@ -121,6 +122,7 @@ export const liveBusinessDataSource: BusinessDataSource = {
   setDocumentType: api.setBusinessDraftDocumentType,
   approveDraft: api.approveBusinessDraft,
   settleRemainder: api.settleBusinessRemainder,
+  approveListos: api.approveBusinessListos,
   markPersonal: api.markBusinessPersonal,
   decideFiscalInclusion: api.decideBusinessFiscalInclusion,
   receiptSource: api.fetchBusinessReceiptSource,
@@ -216,6 +218,7 @@ export function withBusinessSpace(
     setDocumentType: source.setDocumentType,
     approveDraft: source.approveDraft,
     settleRemainder: source.settleRemainder,
+    approveListos: source.approveListos,
     markPersonal: source.markPersonal,
     decideFiscalInclusion: source.decideFiscalInclusion,
     receiptSource: source.receiptSource,

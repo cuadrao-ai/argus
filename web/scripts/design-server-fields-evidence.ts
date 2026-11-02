@@ -62,11 +62,11 @@ try {
         if (path === "space") return route.fulfill({ json: { id: "fixture-space", name: "Colmado de prueba" } });
         if (path === "spaces") return route.fulfill({ json: { spaces } });
         if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });
-        if (state === "bandeja-al-dia" && path === "receipts") return route.fulfill({ json: { items: [await source.receipt("rcpt-confirmed")], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, confirmed_count: 1, dismissed_count: 0 } } });
-        if (path === "receipts") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, confirmed_count: 0, dismissed_count: 0 } } });
+        if (state === "bandeja-al-dia" && path === "receipts") return route.fulfill({ json: { items: [await source.receipt("rcpt-confirmed")], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, confirmed_count: 1, dismissed_count: 0, bandeja_listo_count: 0, bandeja_attention_count: 0 } } });
+        if (path === "receipts") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, confirmed_count: 0, dismissed_count: 0, bandeja_listo_count: 0, bandeja_attention_count: 0 } } });
         if (path === "receipt-reading") return route.fulfill({ json: { enabled: true, available: true, can_change: false } });
         if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "recibos@example.test" } });
-        if (path === "captures" || path === "email/deliveries") return route.fulfill({ json: { items: [] } });
+        if (path === "captures" || path === "email/deliveries" || path === "email/senders") return route.fulfill({ json: { items: [] } });
         if (path === "consent") return fulfillAcceptedBusinessConsent(route);
         if (path === "month-close") {
           const wire = monthCloseWire(url.searchParams.get("month") ?? "2026-10");
@@ -94,7 +94,6 @@ try {
       const receptionAlert = reception.locator(designServerFieldsReception.alert);
       if (state.startsWith("bandeja")) {
         await expect(reception).toBeVisible();
-        await expect(reception).toHaveAttribute("data-mode", "live");
         await expect(receptionViews).toBeVisible();
       } else {
         await expect(page.getByTestId("month-close")).toBeVisible();
@@ -104,7 +103,7 @@ try {
       if (state === "inicio-open-items-refused") await expect(page.getByTestId("month-close-money-error")).toBeVisible();
       if (state === "bandeja-al-dia") {
         const all = receptionViews.locator(designServerFieldsReception.tabs.all);
-        const review = receptionViews.locator(designServerFieldsReception.tabs.review);
+        const listos = receptionViews.locator(designServerFieldsReception.tabs.listos);
         const rows = reception.locator(designServerFieldsReception.row);
         const empty = reception.locator(designServerFieldsReception.empty);
         await expect(all).toHaveAttribute("aria-selected", "true");
@@ -113,17 +112,17 @@ try {
         await expect(rows).toContainText("Nube Hosting");
         await expect(rows).toBeVisible();
         await expect(empty).toHaveCount(0);
-        for (const [key, label] of [["review", "Por revisar"], ["processing", "En proceso"], ["attention", "Necesitan atención"]] as const) {
+        for (const [key, label] of [["attention", "Necesitan atención"], ["listos", "Listos"]] as const) {
           await expect(receptionViews.locator(designServerFieldsReception.tabs[key])).toHaveText(new RegExp(`^${label}\\s*0$`));
         }
-        await review.click();
-        await expect(review).toHaveAttribute("aria-selected", "true");
+        await listos.click();
+        await expect(listos).toHaveAttribute("aria-selected", "true");
         await expect(empty).toBeVisible();
-        await expect(empty).toHaveAttribute("data-empty-kind", "filtered");
-        await expect(empty.getByRole("heading")).toHaveText("No hay contenido en esta vista");
-        await expect(empty).toContainText("Prueba otra vista o cambia los filtros.");
+        await expect(empty).toHaveAttribute("data-empty-kind", "done");
+        await expect(empty.getByRole("heading")).toHaveText("No hay recibos listos");
+        await expect(empty).toContainText("Cuando un recibo tenga todo confirmado, aparece aquí para aprobarlo.");
         await expect(rows).toHaveCount(0);
-        await empty.getByRole("button", { name: "Limpiar filtros", exact: true }).click();
+        await empty.getByRole("button", { name: "Ver todo", exact: true }).click();
         await expect(all).toHaveAttribute("aria-selected", "true");
         await expect(empty).toHaveCount(0);
         await expect(rows).toHaveCount(1);
@@ -186,7 +185,7 @@ try {
       }
       if (state === "inicio-month-500") await expect(page.getByTestId("month-close-error").getByRole("button", { name: "Reintentar", exact: true })).toBeVisible();
       if (state === "bandeja-refused" || state === "bandeja-mixed") {
-        for (const [key, label] of [["review", "Por revisar"], ["processing", "En proceso"], ["attention", "Necesitan atención"]] as const) {
+        for (const [key, label] of [["attention", "Necesitan atención"], ["listos", "Listos"]] as const) {
           await expect(receptionViews.locator(designServerFieldsReception.tabs[key])).toHaveText(new RegExp(`^${label}\\s*-$`));
         }
         await expect(reception.locator(designServerFieldsReception.empty)).toHaveCount(0);

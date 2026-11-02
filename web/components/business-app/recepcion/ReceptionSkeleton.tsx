@@ -9,7 +9,7 @@ import styles from "./reception.module.css";
 function Bar({ width, height = 12, pill = false }: { width: number | string; height?: number; pill?: boolean }) {
   return <span className={`${motion.block} ${motion.shimmer} ${styles.skeletonBar} ${pill ? "rounded-full" : "rounded-mark"}`} style={{ width, height }} />;
 }
-export default function ReceptionSkeleton({ preferences, selectable = true }: { preferences: ReceptionPreferences; selectable?: boolean }) {
+export default function ReceptionSkeleton({ preferences, selectable, status }: { preferences: ReceptionPreferences; selectable: boolean; status: boolean }) {
   const { t } = useTranslation();
   const visible = useDelayedPending(true);
   return <ul role="status" aria-label={t("business.reception_preview.loading")} aria-busy="true" data-testid="reception-skeleton" style={{ visibility: visible ? "visible" : "hidden" }}>
@@ -24,9 +24,9 @@ export default function ReceptionSkeleton({ preferences, selectable = true }: { 
       </span> : null}
       {preferences.amount ? <span className={styles.amountCell}><Bar width={64} /></span> : null}
       {preferences.currency ? <span className={styles.currencyCell}><Bar width={30} /></span> : null}
-      <span className={styles.state}><Bar width={112} height={21} pill /></span>
+      {status ? <span className={styles.state}><Bar width={112} height={21} pill /></span> : null}
       {preferences.arrival ? <span className={styles.arrival}><Bar width={72} /></span> : null}
-      <div className={styles.rowAction}><div><Bar width={86} height={28} pill /></div></div>
+      <div className={styles.rowAction}><div><Bar width={56} height={28} pill /></div></div>
     </li>)}
   </ul>;
 }

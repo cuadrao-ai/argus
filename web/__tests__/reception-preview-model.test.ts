@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "bun:test";
 import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
-import { receptionAction, receptionMatches, receptionRows, receptionSearchText, receptionDocumentTitle, receptionNoteExample, receptionSender } from "@/components/business-app/recepcion/reception-model";
+import { receptionMatches, receptionRows, receptionSearchText, receptionDocumentTitle, receptionTarget, listoItem } from "@/components/business-app/recepcion/reception-model";
 
 async function sample() {
   const source = createFixtureBusinessDataSource({ chatAvailable: true });
@@ -10,36 +10,38 @@ async function sample() {
   return { receipts, emails, rows: receptionRows(receipts, [], emails) };
 }
 
-test("Todos keeps processed arrivals without inventing review or processing state", async () => {
+test("Todos keeps approved arrivals, which sit in neither group", async () => {
   const { rows } = await sample();
   const approved = rows.find(row => row.kind === "receipt" && row.receipt.status === "confirmed");
   assert.ok(approved);
   assert.equal(receptionMatches(approved, "all"), true);
-  assert.equal(receptionMatches(approved, "review"), false);
-  assert.equal(receptionMatches(approved, "processing"), false);
-  assert.equal(receptionAction(approved, true), "action_detail");
+  assert.equal(receptionMatches(approved, "attention"), false);
+  assert.equal(receptionMatches(approved, "listos"), false);
 });
 
-test("reading email remains in processing, captured email does not duplicate its attachment", async () => {
+test("an email still being read shows only on Todos, as the counts have it, and a captured email does not duplicate its attachment", async () => {
   const { rows, emails } = await sample();
   const reading = rows.find(row => row.kind === "email" && row.email.standing === "reading");
   assert.ok(reading);
-  assert.equal(receptionMatches(reading, "processing"), true);
-  assert.equal(receptionMatches(reading, "review"), false);
+  assert.equal(receptionMatches(reading, "all"), true);
+  assert.equal(receptionMatches(reading, "attention"), false);
+  assert.equal(receptionMatches(reading, "listos"), false);
   for (const email of emails.filter(item => item.standing === null)) {
     assert.equal(rows.some(row => row.kind === "email" && row.id === email.id), false);
   }
 });
 
-test("Resolver needs a supported repair and the caller's prepare capability", async () => {
+test("every row opens its own record, whatever state it is in", async () => {
   const { rows } = await sample();
-  const issue = rows.find(row => row.kind === "receipt" && row.receipt.enterable && receptionMatches(row, "attention"));
-  assert.ok(issue);
-  assert.equal(receptionAction(issue, true), "action_resolve");
-  assert.equal(receptionAction(issue, false), "action_detail");
-  const noRetry = rows.find(row => row.kind === "email" && row.email.standing === "no_receipt" && !row.email.delivery.retryable);
-  assert.ok(noRetry);
-  assert.equal(receptionAction(noRetry, true), "action_detail");
+  const reading = rows.find(row => row.kind === "receipt" && row.receipt.read_pending);
+  assert.ok(reading);
+  assert.deepEqual(receptionTarget(reading), { kind: "receipt", receiptId: reading.id, list: "inbox" });
+  const email = rows.find(row => row.kind === "email");
+  assert.ok(email);
+  assert.deepEqual(receptionTarget(email), { kind: "email", emailId: email.id });
+  const recorded = rows.find(row => row.kind === "receipt" && row.receipt.expense_id);
+  assert.ok(recorded?.kind === "receipt");
+  assert.deepEqual(receptionTarget(recorded), { kind: "expense", expenseId: recorded.receipt.expense_id });
 });
 
 test("an arrival keeps source identity searchable without making its amount primary", async () => {
@@ -72,20 +74,25 @@ test("document identity uses captured facts and delivery exceptions retain their
 });
 
 
-test("standalone note preserves text and origin without claiming a file, expense or issue", () => {
+test("a typed note keeps its text, needs attention, and claims no file or sender", () => {
   const text = "Pagué 800 en efectivo por transporte.\nFue el viaje para recoger materiales.";
-  const note = receptionNoteExample(text, "2026-10-27T12:00:00Z");
+  const [note] = receptionRows([], [{ draft_id: "note-1", version: 1, revision: 1, source_id: "source-1", text, received_at: "2026-10-27T12:00:00Z", review_state: "open" }], []);
   const labels = { untitled: "Contenido", pending: "En proceso", exception: "Sin documento", text: "Nota" };
   assert.equal(receptionDocumentTitle(note, labels), text.split("\n")[0]);
-  assert.equal(note.text, text);
-  assert.equal(note.source, "whatsapp");
-  assert.equal(receptionSender(note), "+1 809 555 0147");
-  assert.equal(receptionAction(note, true), "action_note");
-  assert.equal(receptionAction(note, false), "action_note");
-  for (const view of ["review", "processing", "attention"] as const) assert.equal(receptionMatches(note, view), false);
+  assert.deepEqual(receptionTarget(note), { kind: "draft", draftId: note.id, list: "inbox" });
+  assert.equal(receptionMatches(note, "attention"), true);
+  assert.equal(receptionMatches(note, "listos"), false);
   assert.equal(receptionMatches(note, "all"), true);
+  assert.equal(listoItem(note), null);
   assert.equal("receipt" in note, false);
-  assert.equal("draftId" in note, false);
+});
+
+test("only a Listos row names what an approval sends", async () => {
+  const { rows } = await sample();
+  const named = rows.flatMap(row => { const item = listoItem(row); return item ? [row] : []; });
+  assert.ok(named.length > 0);
+  assert.ok(named.every(row => receptionMatches(row, "listos")));
+  assert.ok(rows.filter(row => receptionMatches(row, "attention")).every(row => listoItem(row) === null));
 });
 
 test("a document caption remains context and does not create another inbox item", async () => {

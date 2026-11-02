@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, CircleAlert, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ReceiptShortcutRegistration, receiptNavigationActions, receiptPlace } from "./BusinessReviewShortcuts";
@@ -13,63 +13,31 @@ import { rebindAndPrepare } from "./receipt-rebind";
 import { useReceiptReadPoll } from "./receipt-read-poll";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
 import ReceiptReviewFrame from "./ReceiptReviewFrame";
-import ReceiptReviewFooter from "./ReceiptReviewFooter";
-import { DatePicker } from "./foundation/DatePicker";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { handTitleFocus } from "./bandeja-order";
-import { receiptCurrencyOptions } from "./receipt-currencies";
 import { receiptReviewAccess } from "./receipt-review-access";
 import { useReceiptStateWord } from "./receipt-state-word";
-import MoneyInput from "@/components/money/MoneyInput";
-import { moneyProblemFromServer } from "@/lib/money-entry";
-import type { ReceiptDetail, ReceiptReviewFields } from "@/lib/business-api";
+import type { ReceiptDetail } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { useBusinessConsent } from "./business-consent-context";
-import { formatDay, formatMoney, RECEIPT_CATEGORY_IDS, UNKNOWN_VALUE } from "./business-format";
-import { canAddRecords, primaryButtonClass, secondaryButtonClass, StatusPill, useAttentionLabel, useCategoryLabel, useTerminalRead } from "./business-ui";
+import { formatDay, formatMoney, UNKNOWN_VALUE } from "./business-format";
+import { canAddRecords, primaryButtonClass, secondaryButtonClass, StatusPill, useTerminalRead } from "./business-ui";
 import { ContentFade, Settle } from "./business-skeletons";
 import { resolveLanguage } from "@/lib/language-features";
-
-type Draft = Record<keyof ReceiptReviewFields, string>;
-
-const FIELDS: (keyof ReceiptReviewFields)[] = [
-  "merchant",
-  "occurred_on",
-  "amount",
-  "currency",
-  "category_id",
-  "account_id",
-];
-
-function draftFrom(detail: ReceiptDetail): Draft {
-  return Object.fromEntries(FIELDS.map((key) => [key, detail[key] ?? ""])) as Draft;
-}
-
-const inputClass =
-  "block min-h-11 w-full rounded-item border border-[#7d8a84] bg-[#FFFEFA] px-3 text-[16px] text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] disabled:opacity-50 dark:bg-[#141517] dark:text-white";
 
 function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const { t, i18n } = useTranslation();
   const stateWord = useReceiptStateWord();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const money = (amount: string | null, currency: string | null) => formatMoney(amount, currency, locale) || UNKNOWN_VALUE;
-  const categoryLabel = useCategoryLabel();
-  const attentionLabel = useAttentionLabel();
   const terminalRead = useTerminalRead();
   const { source, reload, openPanel, revision, records, actions, chosen } = useBusiness();
   const consent = useBusinessConsent();
   const [detail, setDetail] = useState<ReceiptDetail | null>(null);
-  const [draft, setDraft] = useState<Draft | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const [busy, setBusy] = useState<"prepare" | "rebind" | "save" | "refresh" | null>(null);
-  const [uncertainVersion, setUncertainVersion] = useState<number | null>(null);
-  const inFlight = useRef(false);
+  const [busy, setBusy] = useState<"prepare" | "rebind" | "refresh" | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
-  const [amountInvalid, setAmountInvalid] = useState(false);
-  const [dateInvalid, setDateInvalid] = useState(false);
-  const dateId = useId();
-  const [amountError, setAmountError] = useState<string | null>(null);
   const [unprepared, setUnprepared] = useState(false);
   const retainReceipt = useCallback(() => setUnprepared(true), []);
   useEffect(() => {
@@ -80,7 +48,6 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       .then((next) => {
         if (cancelled) return;
         setDetail(next);
-        setDraft(draftFrom(next));
       })
       .catch(() => !cancelled && setFailed(true));
     return () => {
@@ -89,33 +56,18 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     };
   }, [receiptId, source, revision, attempt]);
 
-  const { accounts, canPrepare, canApprove } = detail ? receiptReviewAccess(detail) : { accounts: [], canPrepare: false, canApprove: false };
-  const currencies = receiptCurrencyOptions(records.workspace, accounts, detail?.currency ?? null);
-  const missing = useMemo(
-    () => (detail && draft ? detail.missing_fields.filter((key) => !draft[key]?.trim()) : []),
-    [detail, draft],
-  );
+  const { canPrepare, canApprove } = detail ? receiptReviewAccess(detail) : { canPrepare: false, canApprove: false };
   const confirmed = detail?.status === "confirmed";
   // Backend state only: the receipt is being read when the server's Bandeja flag says so, never from the status.
   const waitingForAi = detail?.bandeja?.leyendo === true;
   const [readStalled, setReadStalled] = useState(false);
-  // The read settles on the server; this page asks again until it has, so the
-  // same page fills in. Fields the person typed meanwhile keep their text.
+  // The read settles on the server; this page asks again until it has, so the same page moves on.
   useReceiptReadPoll({
     source,
     receiptId,
     pending: waitingForAi,
     onSettled: (next) => {
-      const before = detail ? draftFrom(detail) : null;
-      const fresh = draftFrom(next);
       setDetail(next);
-      setDraft((current) =>
-        current && before
-          ? (Object.fromEntries(FIELDS.map((key) => [key, current[key] !== before[key] ? current[key] : fresh[key]])) as Draft)
-          : fresh,
-      );
-      setAmountInvalid(false);
-      if (!draft || !before || draft.occurred_on === before.occurred_on) setDateInvalid(false);
       setUnprepared(false);
       setReadStalled(false);
       reload();
@@ -136,17 +88,15 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       </section>
     );
   }
-  if (!detail || !draft) return <Settle pending layout="detail" />;
+  if (!detail) return <Settle pending layout="detail" />;
   const terminal = terminalRead(detail.attention, detail.error_code);
   const uploadAnother = canAddRecords(chosen) ? actions.create.find((action) => action.id === "upload_receipt") : null;
   if (detail.draft_id && !unprepared) return <ReceiptDossierReview draftId={detail.draft_id} onUnprepared={retainReceipt} receipt={detail} />;
   const openReceipt = (id: string) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id }); };
   const position = receiptPlace(receiptId, records.inbox);
-  const moves = !busy && uncertainVersion === null && !FIELDS.some((key) => (detail[key] ?? "") !== draft[key]) ? receiptNavigationActions(receiptId, records.inbox, openReceipt) : {};
+  const moves = busy ? {} : receiptNavigationActions(receiptId, records.inbox, openReceipt);
   const place = position ? { ...position, previous: moves.previous, next: moves.next } : null;
-  // Guardar y siguiente moves on the way the keyboard's next does, from the list as it stood before the save.
-  const nextAfterSave = receiptNavigationActions(receiptId, records.inbox, openReceipt).next;
-  const frame = (children: React.ReactNode, source: React.ReactNode = <ReceiptSourcePreview detail={detail} />, reading = false, footer?: React.ReactNode) => (
+  const frame = (children: React.ReactNode, source: React.ReactNode = <ReceiptSourcePreview detail={detail} />, reading = false) => (
     <ContentFade><ReceiptReviewFrame
       recordId={receiptId}
       back={confirmed ? "transactions" : "inbox"}
@@ -156,44 +106,12 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       origin={{ channel: detail.channel, receivedAt: detail.received_at }}
       place={place}
       source={source}
-      footer={footer}
     >
       {children}
     </ReceiptReviewFrame></ContentFade>
   );
-  if (!waitingForAi && (detail.activity?.state === "saved_unread" || detail.activity?.state === "reading")) return frame(<><ReceiptReadingControl /><ReceiptReadNotice receipt={detail} enterable={false} preparable={false} /></>);
+  if (!waitingForAi && (detail.activity?.state === "saved_unread" || detail.activity?.state === "reading")) return frame(<><ReceiptReadingControl /><ReceiptReadNotice receipt={detail} preparable={false} /></>);
   const incompleteBridge = unprepared || (detail.status === "review_ready" && !detail.enterable);
-  const locked = confirmed || uncertainVersion !== null || !canPrepare || (detail.version === 0 && !detail.enterable);
-  const canEnter = detail.enterable && canPrepare && !locked;
-
-  const changedFields = (): Partial<ReceiptReviewFields> =>
-    Object.fromEntries(
-      FIELDS.filter((key) => (detail[key] ?? "") !== draft[key]).map((key) => [key, draft[key] || null]),
-    );
-
-  const show = (next: ReceiptDetail) => {
-    setDetail(next);
-    setDraft(draftFrom(next));
-    setAmountInvalid(false);
-    setDateInvalid(false);
-  };
-
-  const saveProblem = (code: string | undefined, current: Draft) => {
-    if (code === "stale_version") {
-      return t("business.dossier.stale", "This record changed. Open the current revision and review it before taking another action.");
-    }
-    const account = accounts.find((item) => item.id === current.account_id);
-    if (code === "currency_mismatch" && account) {
-      return t("business.review.currency_mismatch", "This account uses {{account}}. Choose an account in {{receipt}} or correct the currency.", {
-        account: account.currency,
-        receipt: current.currency,
-      });
-    }
-    if (code === "missing_fields") {
-      return t("business.review.missing", "Fill in the details marked Needed to save this expense.");
-    }
-    return t("business.dossier.refused", "This action could not be completed. Check the current record before trying again.");
-  };
 
   const prepare = async () => {
     if (!consent.accepted) {
@@ -204,7 +122,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     setProblem(null);
     try {
       await source.prepareReceipt(detail.id);
-      show(await source.receipt(detail.id));
+      setDetail(await source.receipt(detail.id));
       setUnprepared(false);
       reload();
     } catch (error) {
@@ -226,7 +144,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     setBusy("rebind");
     setProblem(null);
     try {
-      await rebindAndPrepare(source, detail.id, show);
+      await rebindAndPrepare(source, detail.id, setDetail);
       setUnprepared(false);
       reload();
     } catch {
@@ -236,75 +154,17 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     }
   };
 
-  const save = async (): Promise<boolean> => {
-    if (inFlight.current || busy || uncertainVersion !== null) return false;
-    inFlight.current = true;
-    setBusy("save");
-    setProblem(null);
-    const submitted = draft;
-    try {
-      const changes = changedFields();
-      const reviewed = await source.saveReview(detail.id, detail.version, changes);
-      show(reviewed);
-      setUnprepared(false);
-      reload();
-      return true;
-    } catch (error) {
-      const { code, status } = error as { code?: string; status?: number };
-      if (moneyProblemFromServer(code, submitted.currency)) setAmountError(code ?? null);
-      else if (!status || status >= 500) {
-        setUncertainVersion(detail.version);
-        setProblem(t("business.dossier.outcome_unknown", "The action's outcome isn't known yet. Check the saved status before taking another action."));
-      } else if (status === 401 || status === 403 || status === 404) {
-        setFailed(true);
-      } else setProblem(saveProblem(code, submitted));
-      if (code === "stale_version") {
-        const fresh = await source.receipt(detail.id).catch(() => null);
-        if (fresh) show(fresh);
-      }
-      return false;
-    } finally {
-      inFlight.current = false;
-      setBusy(null);
-    }
-  };
-
   const refresh = async () => {
     setBusy("refresh");
     try {
-      const next = await source.receipt(detail.id);
-      show(next);
+      setDetail(await source.receipt(detail.id));
       setUnprepared(false);
-      if (uncertainVersion !== null && next.version > uncertainVersion) {
-        setUncertainVersion(null);
-        setProblem(null);
-      }
     } catch {
       setFailed(true);
     } finally {
       setBusy(null);
     }
   };
-
-  const field = (key: keyof ReceiptReviewFields, label: string, control: React.ReactNode, htmlFor?: string) => {
-    const heading = (
-      <span className="mb-2 flex items-center justify-between text-[13px] font-medium leading-[18px] text-[#172b26] dark:text-white">
-        {label}
-        {!confirmed && missing.includes(key) ? (
-          <span className="font-normal text-[#9e2f39] dark:text-[#ec9aa0]">
-            {t("business.review.needed", "Needed")}
-          </span>
-        ) : null}
-      </span>
-    );
-    return htmlFor ? (
-      <div><label htmlFor={htmlFor} className="block">{heading}</label>{control}</div>
-    ) : (
-      <label className="block">{heading}{control}</label>
-    );
-  };
-  const set = (key: keyof ReceiptReviewFields) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setDraft((current) => (current ? { ...current, [key]: event.target.value } : current));
 
   // A read the backend says is running shows the reading state until it settles; the poll then swaps in the filled fields at once.
   if (waitingForAi) {
@@ -327,14 +187,11 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   }
   return (
     <>
-      <ReceiptShortcutRegistration actions={{
-        ...moves,
-        ...(!locked && !busy ? { edit: () => document.querySelector<HTMLElement>('[data-testid="receipt-review-fields"] input:not(:disabled), [data-testid="receipt-review-fields"] select:not(:disabled)')?.focus() } : {}),
-      }} />
+      <ReceiptShortcutRegistration actions={moves} />
       {frame(
         <>
           {detail.email_original ? <div role="note" data-testid="receipt-email-original" className={`${SURFACE_CARD} text-[14px] text-black/70 dark:text-white/70`}><p>{t("business.review.email_original", "This is the email itself. Its attachment is the receipt to review.")}</p></div> : null}
-          {incompleteBridge ? <div className={`${SURFACE_CARD} text-[14px] text-black/70 dark:text-white/70`}><p role="alert">{t("business.dossier.missing_draft", "The prepared record isn't available yet. Check the current receipt before continuing.")}</p>{uncertainVersion === null ? <button type="button" disabled={busy !== null} className={`${secondaryButtonClass} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button> : null}</div> : null}
+          {incompleteBridge ? <div className={`${SURFACE_CARD} text-[14px] text-black/70 dark:text-white/70`}><p role="alert">{t("business.dossier.missing_draft", "The prepared record isn't available yet. Check the current receipt before continuing.")}</p><button type="button" disabled={busy !== null} className={`${secondaryButtonClass} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button></div> : null}
           {detail.status === "needs_attention" ? (
             <div role="alert" data-testid="receipt-attention" className={`${SURFACE_CARD} text-[14px] text-black/75 dark:text-white/75`}>
               {terminal ? (
@@ -352,21 +209,12 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                         {terminal.uploadLabel}
                       </button>
                     ) : null}
-                    {canEnter ? (
-                      <button
-                        type="button"
-                        className={secondaryButtonClass}
-                        onClick={() => document.querySelector<HTMLElement>('[data-testid="receipt-review-fields"] input:not(:disabled), [data-testid="receipt-review-fields"] select:not(:disabled)')?.focus()}
-                      >
-                        {terminal.enterLabel}
-                      </button>
-                    ) : null}
                   </div>
                 </>
               ) : (
                 <p className="flex gap-2.5">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#d66d75]" aria-hidden="true" />
-                  <span>{attentionLabel(detail.attention)}</span>
+                  <span>{t(`business.attention_short.${detail.attention}`)}</span>
                 </p>
               )}
               {detail.duplicate_of ? (
@@ -395,87 +243,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
               ) : null}
             </div>
           ) : null}
-          <ReceiptReadNotice receipt={detail} enterable={canEnter} preparable={detail.preparable && canPrepare} />
-
-          <section data-testid="receipt-facts-activity" className={`${SURFACE_CARD} space-y-4`}>
-            {field(
-              "occurred_on",
-              t("business.dossier.field.occurred_on", "Activity date"),
-              <DatePicker
-                id={dateId}
-                label={t("business.dossier.field.occurred_on", "Activity date")}
-                value={draft.occurred_on}
-                disabled={locked}
-                onChange={(iso, invalid) => {
-                  setDraft((current) => (current ? { ...current, occurred_on: iso ?? "" } : current));
-                  setDateInvalid(invalid);
-                }}
-              />,
-              dateId,
-            )}
-            {field(
-              "amount",
-              t("business.dossier.field.amount", "Amount"),
-              <MoneyInput
-                label={t("business.dossier.field.amount", "Amount")}
-                currency={draft.currency}
-                value={draft.amount || null}
-                onValueChange={({ value, invalid }) => {
-                  setDraft((current) => (current ? { ...current, amount: value ?? "" } : current));
-                  setAmountInvalid(invalid);
-                  setAmountError(null);
-                }}
-                serverError={amountError}
-                description={!confirmed && missing.includes("amount") ? t("business.review.needed", "Needed") : null}
-                disabled={locked}
-                testId="receipt-review-amount"
-              />,
-            )}
-            {field(
-              "currency",
-              t("business.dossier.field.currency", "Currency"),
-              <select className={inputClass} value={draft.currency} onChange={set("currency")} disabled={locked}>
-                <option value="">{t("business.review.choose", "Choose")}</option>
-                {currencies.map((code) => (
-                  <option key={code} value={code}>
-                    {code}
-                  </option>
-                ))}
-              </select>,
-            )}
-          </section>
-          <section data-testid="receipt-facts-more" className={`${SURFACE_CARD} space-y-4`}>
-            {field(
-              "category_id",
-              t("business.dossier.field.category_id", "Category"),
-              <select className={inputClass} value={draft.category_id} onChange={set("category_id")} disabled={locked}>
-                <option value="">{categoryLabel(null)}</option>
-                {RECEIPT_CATEGORY_IDS.map((id) => (
-                  <option key={id} value={id}>
-                    {categoryLabel(id)}
-                  </option>
-                ))}
-              </select>,
-            )}
-            {field(
-              "merchant",
-              t("business.dossier.field.counterparty", "Merchant or person"),
-              <input className={inputClass} value={draft.merchant} onChange={set("merchant")} disabled={locked} autoComplete="off" />,
-            )}
-            {field(
-              "account_id",
-              t("business.review.account", "Paid from"),
-              <select className={inputClass} value={draft.account_id} onChange={set("account_id")} disabled={locked}>
-                <option value="">{t("business.review.choose_account", "Choose an account")}</option>
-                {accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {`${account.nickname ?? account.type} · ${account.currency}`}
-                  </option>
-                ))}
-              </select>,
-            )}
-          </section>
-
+          <ReceiptReadNotice receipt={detail} preparable={detail.preparable && canPrepare} />
           {problem ? (
             <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]"><CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />{problem}</p>
           ) : null}
@@ -513,23 +281,6 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
             </details>
           ) : null}
         </>,
-        false,
-        // Save is the receipt's one action, pinned at the drawer's foot like the record's Aprobar.
-        !confirmed && canPrepare ? (() => {
-          const unsaveable = busy !== null || missing.length > 0 || amountInvalid || dateInvalid || waitingForAi || locked || !Object.keys(changedFields()).length;
-          return <ReceiptReviewFooter
-            status={missing.length > 0 ? <span>{t("business.review.missing", "Fill in the details marked Needed to save this expense.")}</span> : null}
-            actions={<>
-              {uncertainVersion !== null ? <button type="button" className={secondaryButtonClass} disabled={busy !== null} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button> : null}
-              <button type="button" className={nextAfterSave ? secondaryButtonClass : primaryButtonClass} disabled={unsaveable} onClick={() => void save()}>
-                {busy === "save" ? t("business.review.confirming", "Saving…") : t("business.dossier.save", "Save review details")}
-              </button>
-              {nextAfterSave ? <button type="button" className={primaryButtonClass} disabled={unsaveable} onClick={() => void save().then((saved) => { if (saved) nextAfterSave(); })}>
-                {t("business.review.save_next", "Save and next")}
-              </button> : null}
-            </>}
-          />;
-        })() : undefined,
       )}
       <ReceiptSeenBoundary receipt={detail} hydrated={detail.activity?.state === "ready" && !incompleteBridge} />
     </>

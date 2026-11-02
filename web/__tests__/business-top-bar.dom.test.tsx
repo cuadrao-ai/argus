@@ -106,11 +106,7 @@ async function mount({ width = 1280, grant = null, overrides = {}, renderPanel =
     await act(async () => within.querySelector<HTMLButtonElement>('[data-testid="add-menu-more"]')!.click());
     return menuItems();
   };
-  const openReceptionMenu = async () => {
-    await act(async () => document.querySelector<HTMLButtonElement>('[data-testid="reception-add"] button[aria-haspopup="menu"]')!.click());
-    return menuItems();
-  };
-  return { act, wait, ready, host, bar, screen, settle, open, openMenu, openReceptionMenu, menuItems, searches, invitationTriggers, unmount, api: () => api! };
+  return { act, wait, ready, host, bar, screen, settle, open, openMenu, menuItems, searches, invitationTriggers, unmount, api: () => api! };
 }
 
 describe("the Business top bar on a desktop", () => {
@@ -206,7 +202,7 @@ describe("the Business top bar on a desktop", () => {
     await page.ready();
     await page.open({ kind });
     assert.equal(document.querySelector('[data-testid="export-records-panel"]'), null);
-    const items = kind === "inbox" ? await page.openReceptionMenu() : await page.openMenu(page.bar());
+    const items = await page.openMenu(page.bar());
     const exportItem = items.find((item) => item.textContent === "Exportar registros")!;
     await page.act(async () => exportItem.click());
     await page.settle(() => document.querySelector('[data-testid="export-records-panel"]') !== null, "the export sheet");

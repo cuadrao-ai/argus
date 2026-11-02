@@ -543,6 +543,19 @@ describe("the receipt dossier on an open draft", () => {
     } finally { await page.close(); }
   });
 
+  test("Sin recibo has no Para el 606, whether the server closes the declaration or one is already stored", async () => {
+    const choices = (page: { host: Element }) => page.host.querySelector('[data-testid="receipt-facts-choices"]');
+    for (const change of [() => undefined, (dossier: Dossier) => { if (dossier.sin_comprobante) Object.assign(dossier, { declaration_editable: false, dgii: { form: "606", category: "02" } }); }]) {
+      const page = await setup("noNumber", change);
+      try {
+        assert.ok(choices(page));
+        await page.act(async () => page.host.querySelector<HTMLButtonElement>('[data-testid="mark-no-receipt"]')!.click());
+        await page.wait(() => /Sin recibo/.test(page.row("fiscal_number").textContent ?? ""));
+        assert.equal(choices(page), null);
+      } finally { await page.close(); }
+    }
+  });
+
   test("a record with a fiscal number offers no Sin recibo mark", async () => {
     const page = await setup();
     try {

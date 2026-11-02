@@ -230,46 +230,6 @@ describe("the single-date picker", () => {
 });
 
 describe("receipt detail uses the picker for its date", () => {
-  test("the receipt review form has no native date input and keeps the read day", async () => {
-    const { BusinessWorkspaceProvider } = await import("@/components/business-app/BusinessWorkspace");
-    const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
-    const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
-    const { setChosenGrant } = await import("@/lib/business-grant");
-    const { formatDay } = await import("@/components/business-app/business-format");
-    const ReceiptReviewPanel = (await import("@/components/business-app/ReceiptReviewPanel")).default;
-    setChosenGrant(null);
-    const source = createFixtureBusinessDataSource({ chatAvailable: false });
-    const receipt = await source.receipt("rcpt-ferreteria");
-    const page = await render(
-      <BusinessConsentTestProvider accepted>
-        <BusinessWorkspaceProvider source={source}>
-          <ReceiptReviewPanel target={{ kind: "receipt", id: "rcpt-ferreteria" }} />
-        </BusinessWorkspaceProvider>
-      </BusinessConsentTestProvider>,
-    );
-    await page.settle(() => Boolean(page.host.querySelector('[data-testid="receipt-review-fields"] button[aria-haspopup="dialog"]')));
-    assert.equal(page.host.querySelector('input[type="date"]'), null);
-    const fields = page.host.querySelector('[data-testid="receipt-review-fields"]')!;
-    const input = fields.querySelector<HTMLInputElement>('input[placeholder="dd/mm/aaaa"]')!;
-    assert.equal(fields.querySelector(`label[for="${CSS.escape(input.id)}"]`)?.textContent, "Fecha de actividad");
-    assert.equal(input.value, formatDay(receipt.occurred_on, "es-419"));
-    const save = [...page.host.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Guardar detalles de revisión")!;
-    const merchant = [...fields.querySelectorAll("label")].find((label) => label.textContent?.startsWith("Comercio"))!.querySelector("input")!;
-    await page.type(merchant, "Ferretería La Esquina SRL");
-    const account = [...fields.querySelectorAll("label")].find((label) => label.textContent?.startsWith("Pagado desde"))!.querySelector("select")!;
-    await page.act(async () => {
-      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(account, account.options[1].value);
-      account.dispatchEvent(new Event("change", { bubbles: true }));
-    });
-    assert.equal(save.disabled, false, "a changed merchant can be saved");
-    await page.act(async () => { input.focus(); });
-    await page.type(input, "12/1");
-    assert.equal(save.disabled, true, "a half-typed date blocks the save");
-    await page.type(input, "12/10/2026");
-    assert.equal(save.disabled, false, "a whole day unblocks it");
-    await page.close();
-  });
-
   test("the prepared record's date editor is the picker", async () => {
     const ReceiptFactEditor = (await import("@/components/business-app/ReceiptFactEditor")).default;
     const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");

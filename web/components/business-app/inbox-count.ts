@@ -35,9 +35,19 @@ export type CountRecords = { receiptActivity?: ReceiptActivityCounts | null };
 // email past any page the browser loaded. Without its answer a number is
 // unknown, never 0 and never a count of the rows that happened to load.
 
-/** The one "por revisar" number Inicio, the sidebar badge, the phone tab and the Bandeja's segment show. */
+/** The one number Inicio, the sidebar badge and the phone tab show: every row waiting in the Bandeja, which the server keeps equal to its two tabs together. */
 export function inboxCount(records: CountRecords): number | null {
-  return records.receiptActivity?.ready_to_review_count ?? null;
+  return records.receiptActivity?.pending_review_count ?? null;
+}
+
+/** The Bandeja's Necesitan atención tab. */
+export function bandejaAttentionCount(records: CountRecords): number | null {
+  return records.receiptActivity?.bandeja_attention_count ?? null;
+}
+
+/** The Bandeja's Listos tab. */
+export function bandejaListoCount(records: CountRecords): number | null {
+  return records.receiptActivity?.bandeja_listo_count ?? null;
 }
 
 /** The one "con problema" number: receipts that need a fix plus emails that brought no receipt. */

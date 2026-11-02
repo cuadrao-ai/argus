@@ -166,7 +166,7 @@ def _counts(rig, headers: dict | None = None) -> tuple[int, int]:  # noqa: ANN00
     ) == numbers
     listed = [row["bandeja_group"]["group"] for row in page["items"]]
     assert listed.count("listo") == numbers[0]
-    assert sum(numbers) == activity["pending_review_count"]
+    assert sum(numbers) + activity["reading_count"] == activity["pending_review_count"]
     return numbers
 
 
@@ -316,7 +316,7 @@ def test_a_receipt_not_yet_read_has_no_draft_to_approve(rig, monkeypatch) -> Non
         lambda: PreparationJobs(rig.documents, lambda *attempt: attempts.append(attempt)),
     )
     reading = _upload(rig, RECEIPT + b"\xa2").json()["id"]
-    assert _group(rig, reading) == ("attention", "reading")
+    assert _group(rig, reading) == ("reading", "reading")
     assert _counts(rig)[0] == 0
 
 
@@ -428,6 +428,33 @@ def test_an_edit_moves_a_receipt_between_the_groups(rig) -> None:  # noqa: ANN00
     _fiscal(rig, _named(rig, receipt), rnc=BAD_CHECK_DIGIT)
     assert _group(rig, receipt) == ("attention", "invalid_rnc")
     assert _counts(rig) == (0, 1)
+
+
+@pytest.mark.parametrize("read", [{"ncf": None}, {"ncf": None, "rnc": None}])
+def test_a_record_with_no_comprobante_says_so_and_takes_no_606(  # noqa: ANN201
+    rig,  # noqa: ANN001
+    read: dict,
+):
+    receipt = _read(rig, read)
+    item = _named(rig, receipt)
+    no_comprobante = {"state": "known", "value": "no_receipt"}
+    dossier = _review(rig, item, {"facts": {"receipt_state": no_comprobante}})
+
+    assert dossier["sin_comprobante"] is True
+    assert _group(rig, receipt) == ("attention", "sin_comprobante")
+    assert _counts(rig) == (0, 1)
+    assert dossier["declaration_editable"] is False
+    assert dossier["expense_type_suggestion"] is None
+    listed = _named(rig, receipt)
+    assert _results(_approve_many(rig, [listed])) == [("refused", "not_listo")]
+
+    refused = rig.client.patch(
+        f"{API}/business/drafts/{listed['draft_id']}/review",
+        json={"version": listed["version"], "purchase": {"category": "02"}},
+        headers={**rig.alice.headers, "Idempotency-Key": str(uuid4())},
+    )
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["code"] == "fiscal_direction_unsupported"
 
 
 def test_a_sale_stays_out_of_the_faster_way(rig) -> None:  # noqa: ANN001

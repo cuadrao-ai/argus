@@ -4,7 +4,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import type { ReceiptSummary } from "@/lib/business-api";
 import type { BusinessEmailDelivery } from "@/lib/business-email";
-import { receptionRows, rowState } from "./support/reception";
+import { receptionRows, receptionTab, rowState } from "./support/reception";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost" });
@@ -14,7 +14,7 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-const HINT = "Guardado, sin leer. Pulsa «Preparar con IA» para que Cuadrao lo lea, o complétalo tú.";
+const HINT = "Guardado, sin leer. Pulsa «Preparar con IA» para que Cuadrao lo lea.";
 
 const receipt = (over: Partial<ReceiptSummary>): ReceiptSummary =>
   ({ id: "rcpt-1", channel: "web", filename: "recibo-prueba-ferreteria.pdf", source_text: null, media_type: "application/pdf", size_bytes: 70, received_at: "2026-10-13T17:14:00Z", status: "saved", error_code: null, attention: null, duplicate_of: null, replayed: false, preparable: true, enterable: true, activity: { state: "saved_unread", unread: true, completion_cursor: null }, bandeja: { por_revisar: true, con_problema: false, leyendo: false }, expense_id: null, merchant: null, occurred_on: null, amount: null, currency: null, category_id: null, account_id: null, email_delivery_ids: ["d1"], email_original: false, missing_fields: [], version: 0, draft_id: null, ...over } as unknown as ReceiptSummary);
@@ -55,10 +55,11 @@ async function mount(node: (React: typeof import("react")) => import("react").Re
 describe("a receipt saved without a read never looks stuck", () => {
   test("the Bandeja row reads Guardado, sin leer; the full sentence waits in the record", async () => {
     const { default: BusinessInboxPanel } = await import("@/components/business-app/BusinessInboxPanel");
-    const page = await mount((React) => React.createElement(BusinessInboxPanel), [receipt({})]);
+    const page = await mount((React) => React.createElement(BusinessInboxPanel), [receipt({ bandeja_group: { group: "attention", reason: "not_read", draft_id: null, version: null } })]);
     await page.act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
-    const state = rowState(receptionRows(page.host)[0]);
-    assert.match(state, /^Guardado, sin leer/);
+    assert.equal(rowState(receptionRows(page.host)[0]), "Necesita atención");
+    await page.act(async () => receptionTab(page.host, "attention")!.click());
+    assert.equal(receptionRows(page.host)[0].querySelector('[data-testid="reception-reason"]')?.textContent, "Guardado, sin leer");
     assert.ok(!page.host.textContent?.includes(HINT));
     assert.ok(!page.host.textContent?.includes("sin preparar"));
     await page.act(async () => page.root.unmount());
@@ -66,7 +67,7 @@ describe("a receipt saved without a read never looks stuck", () => {
 
   test("a receipt being read keeps its own words on the row", async () => {
     const { default: BusinessInboxPanel } = await import("@/components/business-app/BusinessInboxPanel");
-    const reading = await mount((React) => React.createElement(BusinessInboxPanel), [receipt({ status: "queued", activity: { state: "reading", unread: false, completion_cursor: null }, bandeja: { por_revisar: false, con_problema: false, leyendo: true } })]);
+    const reading = await mount((React) => React.createElement(BusinessInboxPanel), [receipt({ status: "queued", activity: { state: "reading", unread: false, completion_cursor: null }, bandeja: { por_revisar: false, con_problema: false, leyendo: true }, bandeja_group: { group: "attention", reason: "reading", draft_id: null, version: null } })]);
     await reading.act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
     assert.match(rowState(receptionRows(reading.host)[0]), /^Leyendo…/);
     assert.ok(!reading.host.textContent?.includes("Guardado, sin leer"));

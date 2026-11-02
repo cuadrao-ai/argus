@@ -212,7 +212,7 @@ export function EmailDeliveryDetail({ delivery, loadDetail, openReceipt, retryDe
                     <StateWord tone={PART_TONE[part.state]}>{t(`business.email.part_state.${part.state}`, part.state)}</StateWord>
                     {part.state === "rejected" && part.error_code ? <span>{t(`business.email.part_error.${part.error_code}`, t("business.email.part_error.other", "It isn't a file we can save as a receipt."))}</span> : null}
                     {part.repeat_of_delivery_id || part.repeat_of_upload ? <span data-testid="email-part-repeat">{part.repeat_of_delivery_id ? t("business.email.repeat", "You already received this file") : t("business.email.repeat_upload", "You already saved this file")}</span> : null}
-                    {saved ? <span data-testid="email-part-saved-unread">{savedUnreadLine(t, { enterable: saved.enterable, preparable: saved.preparable })}</span> : null}
+                    {saved ? <span data-testid="email-part-saved-unread">{savedUnreadLine(t, saved.preparable)}</span> : null}
                   </span>
                 </span>
                 {part.state === "captured" && part.document_id ? (

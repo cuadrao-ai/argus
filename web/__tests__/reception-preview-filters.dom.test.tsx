@@ -39,6 +39,6 @@ test("Bandeja filter parents share mixed/all/none behavior and restrict bulk sel
     assert.equal(checkbox("Anaana@example.test").checked, true);
     assert.equal(host.querySelector("output")?.textContent, JSON.stringify(emptyReceptionFilters()), "edits remain draft");
     await click(button("Aplicar"));
-    assert.deepEqual(JSON.parse(host.querySelector("output")!.textContent!), { channels: [], senders: ["a"], states: [] });
+    assert.deepEqual(JSON.parse(host.querySelector("output")!.textContent!), { channels: [], senders: ["a"] });
   } finally { await act(async () => { root.unmount(); host.remove(); }); }
 });

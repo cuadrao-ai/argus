@@ -71,6 +71,10 @@ export type ReceiptActivityCounts = {
   needs_attention_count: number;
   /** Rows a person can review now: the Bandeja's Por revisar. */
   ready_to_review_count: number;
+  /** The Bandeja's Listos tab. Absent in older payloads. */
+  bandeja_listo_count?: number;
+  /** The Bandeja's Necesitan atención tab: every other row it lists. Absent in older payloads. */
+  bandeja_attention_count?: number;
   /** Transacciones' Por igualar over every period. Null while bank matching is off, which is not 0. Absent in older payloads. */
   por_igualar_count?: number | null;
   /** Receipts that left the Bandeja saved as a record, or dismissed, over every receipt whichever view was read. Absent from servers older than #1353. */
@@ -79,6 +83,8 @@ export type ReceiptActivityCounts = {
 };
 /** Which Bandeja buckets a receipt sits in, by the predicates the counts sum. A closed receipt and an email original sit in none. */
 export type BandejaMembership = { por_revisar: boolean; con_problema: boolean; leyendo: boolean };
+/** The server's one Bandeja group of an open receipt: `reason` is its one plain word, null when Listos. A closed receipt has no group. `draft_id` and `version` are what an approval of this row names. */
+export type BandejaGroup = { group: "listo" | "attention" | "reading" | null; reason: string | null; draft_id: string | null; version: number | null };
 export type ReceiptReading = { scope_version: number; enabled: boolean; available: boolean; can_change: boolean; disclosure: string; disclosure_token: string | null; route: { gateway: string; interpretation: { model: string }[]; reply: unknown[] } | null; consented_at: string | null; revoked_at: string | null };
 
 export function getReceiptActivity(signal?: AbortSignal): Promise<ReceiptActivityCounts> {
@@ -99,6 +105,7 @@ export type ReceiptSummary = ReceiptReviewFields & {
   activity?: ReceiptActivity | null;
   /** The server's Bandeja membership; absent from servers older than #1353, which reads as in no bucket. */
   bandeja?: BandejaMembership | null;
+  bandeja_group?: BandejaGroup | null;
   channel: ReceiptChannel;
   /** Marked by a person as no part of the Business: left out of the totals, kept visible. */
   personal?: boolean;
@@ -539,6 +546,13 @@ export async function getBusinessOverview(
 ): Promise<BusinessOverview> {
   const query = new URLSearchParams(to === null ? { from } : { from, to });
   return apiFetch(`/business/overview?${query}`);
+}
+
+export type ListoItem = { draft_id: string; version: number };
+export type ListoApproval = { draft_id: string; outcome: "applied" | "refused" | "outcome_unknown"; code?: string | null; activity_id?: string | null; existing_record_id?: string | null };
+/** The owner approves a named list of Listos receipts: one result per item, in the order named. Replaying the key repeats each item's answer. */
+export function approveBusinessListos(items: readonly ListoItem[], idempotencyKey: string): Promise<{ results: ListoApproval[] }> {
+  return apiFetch("/business/drafts/approve-listos", { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: JSON.stringify({ items }) });
 }
 
 export function getBusinessReceiptPage(view: "inbox" | "all", signal?: AbortSignal): Promise<{ items: ReceiptSummary[]; activity: ReceiptActivityCounts }> {

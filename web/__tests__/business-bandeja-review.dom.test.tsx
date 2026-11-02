@@ -107,56 +107,84 @@ test("a Bandeja whose receipts were all approved, dismissed, or counted by an ol
   }
 });
 
-test("still-reading and unreadable receipts stay off the por revisar number", async () => {
+test("the tabs show the server's pair, never a count of the rows that loaded", async () => {
   const fixture = (await import("@/components/business-app/fixture-data")).createFixtureBusinessDataSource();
   const ready = await fixture.receipt("rcpt-ferreteria");
   const blurry = await fixture.receipt("rcpt-blurry");
-  const reading: ReceiptSummary = { ...ready, id: "rcpt-reading", status: "queued", merchant: "En lectura", activity: { state: "reading", unread: true, completion_cursor: null }, bandeja: { por_revisar: false, con_problema: false, leyendo: true } };
-  const items = [ready, reading, blurry];
   const page = await mount({
-    receiptPage: async () => ({ items, activity: { ...none, pending_review_count: 3, reading_count: 1, needs_attention_count: 1, ready_to_review_count: 1 } }),
+    receiptPage: async () => ({ items: [ready, blurry], activity: { ...none, pending_review_count: 12, bandeja_listo_count: 3, bandeja_attention_count: 9 } }),
   });
   try {
-    await page.settle(() => /\d/.test(tabCount(page.host, "review") ?? ""));
-    assert.deepEqual([tabCount(page.host, "review"), tabCount(page.host, "processing"), tabCount(page.host, "attention")], ["1", "1", "1"]);
+    await page.settle(() => /\d/.test(tabCount(page.host, "attention") ?? ""));
+    assert.deepEqual([tabCount(page.host, "attention"), tabCount(page.host, "listos")], ["9", "3"]);
+    assert.equal(receptionTab(page.host, "all")?.querySelector("span"), null, "Todos has no count");
     assert.equal(page.host.textContent?.includes("necesita tu atención"), false);
     assert.match(page.host.textContent ?? "", /Ferretería/);
     assert.equal((page.host.textContent ?? "").includes("DOP"), false);
   } finally { await page.close(); }
 });
 
-test("each view lists what the server flags, and a queued receipt the server is not reading never says Leyendo", async () => {
+test("each tab lists the server's group, and a row says only what the server said", async () => {
   const fixture = (await import("@/components/business-app/fixture-data")).createFixtureBusinessDataSource();
   const ready = await fixture.receipt("rcpt-ferreteria");
-  const flags = (por_revisar: boolean, con_problema: boolean, leyendo: boolean) => ({ por_revisar, con_problema, leyendo });
-  const queued: ReceiptSummary = { ...ready, id: "rcpt-queued", status: "queued", merchant: "En cola", activity: { state: "saved_unread", unread: false, completion_cursor: null }, bandeja: flags(false, false, false) };
-  const flaggedProblem: ReceiptSummary = { ...ready, id: "rcpt-flagged", merchant: "Marcado", activity: { state: "ready", unread: false, completion_cursor: null }, bandeja: flags(false, true, false) };
-  const page = await mount({
-    receiptPage: async () => ({ items: [queued, flaggedProblem], activity: { ...none, pending_review_count: 2, needs_attention_count: 1 } }),
-  });
-  const choose = (key: "all" | "review" | "processing" | "attention") => page.act(async () => receptionTab(page.host, key)!.click());
+  const group = (kind: "listo" | "attention", reason: string | null) => ({ group: kind, reason, draft_id: "draft", version: 1 });
+  const listed = (id: string, merchant: string, bandeja_group: ReceiptSummary["bandeja_group"], status: ReceiptSummary["status"] = "review_ready"): ReceiptSummary => ({ ...ready, id, merchant, status, sin_comprobante: false, bandeja_group, activity: { state: "ready", unread: false, completion_cursor: null } });
+  const items = [
+    listed("r-listo", "Lista", group("listo", null)),
+    listed("r-rnc", "Sin RNC", group("attention", "missing_rnc")),
+    listed("r-sin", "Sin papel", group("attention", "sin_comprobante")),
+    listed("r-new", "Código nuevo", group("attention", "a_reason_this_web_has_no_word_for")),
+    listed("r-reading", "Leyéndose", group("attention", "reading"), "preparing"),
+    listed("r-done", "Hecha", { group: null, reason: null, draft_id: null, version: null }, "confirmed"),
+  ];
+  const page = await mount({ receiptPage: async () => ({ items, activity: none }) });
+  const choose = (key: "all" | "attention" | "listos") => page.act(async () => receptionTab(page.host, key)!.click());
+  const row = (name: string) => receptionRows(page.host).find((item) => item.textContent?.includes(name))!;
+  const reason = (name: string) => row(name).querySelector('[data-testid="reception-reason"]')?.textContent ?? null;
   try {
-    await page.settle(() => receptionRows(page.host).length === 2);
-    await choose("review");
-    assert.deepEqual(rowTitles(page.host), [], "neither row is flagged por revisar");
-    assert.equal(page.host.querySelector('[data-testid="reception-empty"]')?.getAttribute("data-empty-kind"), "filtered");
+    await page.settle(() => receptionRows(page.host).length === 6);
+    assert.equal(rowState(row("Lista")), "Listo para aprobar");
+    assert.equal(rowState(row("Sin RNC")), "Necesita atención");
+    assert.equal(rowState(row("Código nuevo")), "Necesita atención");
+    assert.equal(rowState(row("Leyéndose")), "Leyendo…");
+    assert.equal(rowState(row("Hecha")), "Aprobado");
+    await choose("listos");
+    assert.deepEqual(rowTitles(page.host), ["Lista"]);
     await choose("attention");
-    assert.deepEqual(rowTitles(page.host), ["Marcado"]);
-    await choose("all");
-    assert.deepEqual(rowTitles(page.host).sort(), ["En cola", "Marcado"]);
-    const row = receptionRows(page.host).find((item) => item.textContent?.includes("En cola"))!;
-    assert.match(rowState(row), /^Guardado, sin leer/);
-    assert.equal(row.textContent?.includes("Leyendo"), false);
+    assert.deepEqual(rowTitles(page.host).sort(), ["Código nuevo", "Leyéndose", "Sin RNC", "Sin papel"]);
+    assert.equal(reason("Sin RNC"), "Falta el RNC");
+    assert.equal(reason("Sin papel"), "Sin comprobante");
+    assert.equal(reason("Código nuevo"), null, "a code with no word shows no reason, never a guess");
+    assert.match(row("Código nuevo").textContent ?? "", /Necesita atención/);
   } finally { await page.close(); }
 });
 
-test("a contador gets Revisar recibos as the green primary and no upload", async () => {
+test("each tab has its own empty state and a way to the rest of the list", async () => {
+  const fixture = (await import("@/components/business-app/fixture-data")).createFixtureBusinessDataSource();
+  const done = { ...(await fixture.receipt("rcpt-confirmed")) };
+  const page = await mount({ receiptPage: async () => ({ items: [done], activity: none }) });
+  const empty = () => page.host.querySelector('[data-testid="reception-empty"]');
+  try {
+    await page.settle(() => receptionRows(page.host).length === 1);
+    await page.act(async () => receptionTab(page.host, "listos")!.click());
+    assert.equal(empty()?.getAttribute("data-empty-kind"), "done");
+    assert.equal(empty()?.querySelector("h3")?.textContent, "No hay recibos listos");
+    await page.act(async () => receptionTab(page.host, "attention")!.click());
+    assert.equal(empty()?.querySelector("h3")?.textContent, "Nada necesita atención");
+    await page.act(async () => empty()!.querySelector("button")!.click());
+    assert.equal(receptionTab(page.host, "all")?.getAttribute("aria-selected"), "true");
+    assert.equal(empty(), null);
+  } finally { await page.close(); }
+});
+
+test("a contador gets a quiet Revisar recibos and no upload", async () => {
   const page = await mount({}, "fixture-grant-client");
   try {
     await page.settle(() => page.host.querySelector('[data-testid="business-primary-review"]') !== null);
     const review = page.host.querySelector('[data-testid="business-primary-review"]') as HTMLButtonElement;
     assert.equal(review.textContent, "Revisar recibos");
-    assert.equal(review.className.includes("bg-[var(--cuadrao-green)]"), true);
+    assert.equal(review.className.includes("bg-[var(--cuadrao-green)]"), false);
+    assert.equal(review.hasAttribute("data-primary"), false);
     assert.equal(page.host.querySelector('[data-testid="business-primary-upload"]'), null);
     assert.equal([...page.host.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Subir recibo"), false);
     await page.act(async () => { review.click(); });
@@ -169,7 +197,8 @@ test("the views stay while the list loads, with no count until one is known", as
   try {
     await page.settle(() => page.host.querySelector('[role="tablist"]') !== null);
     const bar = page.host.querySelector('[role="tablist"]')?.textContent ?? "";
-    assert.match(bar, /Por revisar/);
+    assert.match(bar, /Necesitan atención/);
+    assert.match(bar, /Listos/);
     assert.equal(/\d/.test(bar), false, "an unknown count is never shown as 0");
   } finally { await page.close(); }
 });

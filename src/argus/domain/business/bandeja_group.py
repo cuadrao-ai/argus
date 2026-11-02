@@ -7,7 +7,8 @@ receipt can still be approved alone.
 Listos is a business purchase the server has confirmed in full. A sale, a
 credit note and a receipt marked Personal stay out: the faster approval records
 business purchases only. ``RULE`` runs in order, so a receipt with several gaps
-names the first.
+names the first. A receipt still being read is in neither tab until its read
+ends: a failed read needs attention, a read still running does not yet.
 """
 
 from __future__ import annotations
@@ -22,13 +23,14 @@ from argus.domain.business.contracts.facts import (
     FiscalFacts,
     Known,
     is_personal,
+    is_sin_comprobante,
 )
 from argus.domain.business.fiscal_identity import identity_digits
 from argus.domain.business.receipt_activity import awaiting_owner
 from argus.domain.business.receipts import Attention
 from argus.domain.business.review_flags import CHECK_DIGIT
 
-BandejaGroupName = Literal["listo", "attention"]
+BandejaGroupName = Literal["listo", "attention", "reading"]
 ListoGap = Literal[
     "reading",
     "not_read",
@@ -39,6 +41,7 @@ ListoGap = Literal[
     "missing_date",
     "missing_amount",
     "missing_currency",
+    "sin_comprobante",
     "missing_rnc",
     "invalid_rnc",
     "missing_ncf",
@@ -118,6 +121,7 @@ RULE: tuple[tuple[BandejaReason, Callable[[DraftStanding], bool]], ...] = (
     ("missing_date", lambda draft: _lacks(draft, "occurred_on")),
     ("missing_amount", lambda draft: _lacks(draft, "amount")),
     ("missing_currency", lambda draft: _lacks(draft, "currency")),
+    ("sin_comprobante", lambda draft: is_sin_comprobante(draft.facts)),
     ("missing_rnc", lambda draft: _blank(_fiscal(draft).rnc)),
     ("invalid_rnc", _invalid_rnc),
     ("missing_ncf", _no_number),
@@ -150,6 +154,12 @@ def _row_reason(
     return listo_reason(draft)
 
 
+_ROW_GROUP: Mapping[BandejaReason | None, BandejaGroupName] = {
+    None: "listo",
+    "reading": "reading",
+}
+
+
 def group_of(view: Mapping[str, Any], draft: DraftStanding | None) -> dict[str, Any]:
     """The group of a receipt row. A closed receipt and the email itself have
     none. ``draft_id`` and ``version`` are what an approval of this row names."""
@@ -158,7 +168,7 @@ def group_of(view: Mapping[str, Any], draft: DraftStanding | None) -> dict[str, 
         return {"group": None, "reason": None, "draft_id": None, "version": None}
     reason = _row_reason(view, draft)
     return {
-        "group": "attention" if reason else "listo",
+        "group": _ROW_GROUP.get(reason, "attention"),
         "reason": reason,
         "draft_id": draft.draft_id if draft else None,
         "version": draft.version if draft else None,

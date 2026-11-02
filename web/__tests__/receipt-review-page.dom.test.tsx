@@ -154,11 +154,11 @@ describe("one receipt review page", () => {
     await page.act(async () => page.root.unmount());
   });
 
-  test("enter details is offered on every terminal read only when the viewer can prepare", async () => {
+  test("a terminal read offers only another upload, whatever the viewer can prepare", async () => {
     for (const [attention, errorCode, withPrepare, labels] of [
-      ["unreadable", "unreadable_document", true, ["Subir otro archivo", "Escribir datos"]],
+      ["unreadable", "unreadable_document", true, ["Subir otro archivo"]],
       ["unreadable", "unreadable_document", false, ["Subir otro archivo"]],
-      ["not_a_receipt", "not_a_receipt", true, ["Escribir datos"]],
+      ["not_a_receipt", "not_a_receipt", true, []],
       ["not_a_receipt", "not_a_receipt", false, []],
     ] as const) {
       const page = await mount((fixture) => ({
@@ -203,10 +203,10 @@ describe("one receipt review page", () => {
     assert.equal(unreadable?.querySelector(".font-medium")?.textContent, "No pudimos leer este archivo");
     assert.equal(
       unreadable?.querySelector(".mt-1")?.textContent,
-      "La imagen o el PDF salió borroso, cortado o dañado. Sube una foto más clara del recibo completo, con buena luz, o escribe los datos a mano.",
+      "La imagen o el PDF salió borroso, cortado o dañado. Sube una foto más clara del recibo completo, con buena luz.",
     );
     const unreadableLabels = [...unreadable!.querySelectorAll("button")].map((button) => button.textContent);
-    assert.deepEqual(unreadableLabels, ["Subir otro archivo", "Escribir datos"]);
+    assert.deepEqual(unreadableLabels, ["Subir otro archivo"]);
 
     await page.open(
       { kind: "receipt", receiptId: "rcpt-unknown" },
@@ -218,7 +218,7 @@ describe("one receipt review page", () => {
     assert.equal(notice?.textContent?.includes("No pudimos leer este archivo"), false);
     assert.equal(notice?.textContent?.includes("borroso, cortado o dañado"), false);
     const noticeLabels = [...notice!.querySelectorAll("button")].map((button) => button.textContent);
-    assert.deepEqual(noticeLabels, ["Subir otro archivo", "Escribir datos"]);
+    assert.deepEqual(noticeLabels, ["Subir otro archivo"]);
     await page.act(async () => page.root.unmount());
   });
 

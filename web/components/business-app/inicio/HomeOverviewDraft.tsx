@@ -13,6 +13,7 @@ import { readStored, writeStored } from "@/lib/browser-storage";
 import type { ReceiptSummary } from "@/lib/business-api";
 import { useBusiness, type BusinessPanelState } from "../BusinessWorkspace";
 import { formatRelativeTime } from "../business-format";
+import { bandejaAttentionCount } from "../inbox-count";
 import { EmptyState } from "../foundation/EmptyState";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { CHANNEL_ICON } from "../foundation/channel-icons";
@@ -231,23 +232,20 @@ function CountFailed({ c, reference, retry }: { c: Copy; reference: string; retr
 const PREVIEW_ROWS = { needs: 4, recent: 3 } as const;
 
 /**
- * Scope: every Bandeja document waiting on a person, problems first, then ready to review. The two server
- * buckets overlap (a duplicate can be both), so their counts are never added: the total needs one union
- * count from the server (MISSING: `waiting_on_person_count`). The local preview loads every fixture row, so
- * there the union of loaded rows is exact; elsewhere the count stays hidden until the server sends it.
+ * Scope: every Bandeja document waiting on a person, problems first, then ready to review. The count is the
+ * server's Necesitan atención number, the one the Bandeja's tab shows.
  */
 function NeedsAttention({ c, toReview: liveToReview, retryCount }: { c: Copy; toReview: ReviewCount; retryCount: () => void }) {
-  const { records, openPanel, source, reload } = useBusiness();
+  const { records, openPanel, reload } = useBusiness();
   const { t, i18n } = useTranslation();
   const stateWord = useReceiptStateWord();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const forceEmpty = sampleParam("attention") === "empty";
   const inbox = forceEmpty ? [] : records.inbox ?? [];
-  const problems = inbox.filter((r) => r.bandeja?.con_problema);
-  const review = inbox.filter((r) => r.bandeja?.por_revisar && !r.bandeja?.con_problema);
-  const all: ReceiptSummary[] = [...problems, ...review];
+  const attention = inbox.filter((r) => r.bandeja_group?.group === "attention");
+  const all: ReceiptSummary[] = [...attention.filter((r) => r.bandeja?.con_problema), ...attention.filter((r) => !r.bandeja?.con_problema)];
   const rows = all.slice(0, PREVIEW_ROWS.needs);
-  const total = source.mode === "fixture" && records.inbox ? all.length : (records.receiptActivity as { waiting_on_person_count?: number } | null | undefined)?.waiting_on_person_count ?? null;
+  const total = bandejaAttentionCount(records);
   const ready = records.inbox !== null || forceEmpty;
   // Registros keeps its own review queue (GET /business/reports overview, this month). It is a different queue from
   // Bandeja's, so it is a summary row under the list, never added to the count. MISSING: Registros opened on that filter.

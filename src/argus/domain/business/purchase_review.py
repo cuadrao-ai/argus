@@ -13,7 +13,11 @@ from argus.domain.business.contracts.dgii import (
     amount_or_zero,
     money_text,
 )
-from argus.domain.business.contracts.facts import BusinessFacts, Known
+from argus.domain.business.contracts.facts import (
+    BusinessFacts,
+    Known,
+    is_sin_comprobante,
+)
 from argus.domain.business.dgii_codes import PAYMENT_FORM_BY_ACCOUNT_TYPE
 from argus.domain.business.fiscal_identity import identity_digits, normalized_ncf
 
@@ -23,11 +27,12 @@ AMOUNT_SIDES = ("services_amount", "goods_amount")
 def takes_purchase_declaration(
     facts: BusinessFacts, declaration: DgiiDeclaration | None
 ) -> bool:
-    """Whether a 606 declaration belongs on this record. A sale's 607 and an
-    income with no declaration take none. The one rule behind the dossier's
-    declaration_editable and the review's 606 write."""
+    """Whether a 606 declaration belongs on this record. A sale's 607, an
+    income with no declaration and a record with no comprobante take none. The
+    one rule behind the dossier's declaration_editable and the review's 606
+    write."""
 
-    if isinstance(declaration, SalesDeclaration):
+    if isinstance(declaration, SalesDeclaration) or is_sin_comprobante(facts):
         return False
     kind = facts.kind.value if isinstance(facts.kind, Known) else None
     return declaration is not None or kind != "income"

@@ -57,10 +57,11 @@ export default function BusinessHeader({ home, name, business, title, screen, on
         {/* Inicio's sentence takes its own row under the greeting and search, so the search never narrows it. */}
         {intro ? <div className={`${styles.intro} ${styles.introRow}`}><PageDescription text={intro.description} icon={intro.icon} /></div> : null}
       </> : intro ? <><div className={styles.welcome}>
-        {/* Title and its sentence read as one group; the sentence takes the line Inicio gives its date. */}
         <h1 className={`${styles.greeting} ${styles.titleLine} font-display`}>{intro.title}</h1>
-        <div className={styles.intro}><PageDescription text={intro.description} icon={intro.icon} /></div>
-      </div>{tools}</> : title ? <><div className={styles.welcome}>
+      </div>{tools}
+        {/* The sentence takes its own row here too, so the search field beside the title never wraps it or moves the page. */}
+        <div className={`${styles.intro} ${styles.introRow}`}><PageDescription text={intro.description} icon={intro.icon} /></div>
+      </> : title ? <><div className={styles.welcome}>
         <span aria-hidden="true" className={styles.date} style={{ height: "1.5em" }} />
         <h1 className={`${styles.greeting} ${styles.titleLine} font-display`}>{title}</h1>
       </div>{tools}</> : tools}

@@ -6,9 +6,9 @@ export const rowTitle = (row: Element) => (row.querySelector("button")?.textCont
 
 export const rowTitles = (host: ParentNode) => receptionRows(host).map(rowTitle);
 
-export const receptionTab = (host: ParentNode, key: "all" | "review" | "processing" | "attention") => host.querySelector<HTMLButtonElement>(`#reception-tab-${key}`);
+export const receptionTab = (host: ParentNode, key: "all" | "attention" | "listos") => host.querySelector<HTMLButtonElement>(`#reception-tab-${key}`);
 
 /** The number beside a view's name; null where the view shows none. */
-export const tabCount = (host: ParentNode, key: "review" | "processing" | "attention") => receptionTab(host, key)?.querySelector("span")?.textContent ?? null;
+export const tabCount = (host: ParentNode, key: "attention" | "listos") => receptionTab(host, key)?.querySelector("span")?.textContent ?? null;
 
 export const rowState = (row: Element) => row.querySelector('[data-testid="status-pill"]')?.textContent ?? "";

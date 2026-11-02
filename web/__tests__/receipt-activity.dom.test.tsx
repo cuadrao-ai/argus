@@ -109,7 +109,7 @@ test("switching Business aborts discovery and ignores the old response", async (
 
 test("the badge uses the server count and an unknown count is never 0", () => {
   assert.equal(inboxCount({ receiptActivity: null }), null);
-  assert.equal(inboxCount({ receiptActivity: { ...counts, ready_to_review_count: 1 } }), 1);
+  assert.equal(inboxCount({ receiptActivity: { ...counts, pending_review_count: 1 } }), 1);
 });
 
 test("opening or old hydration does not mark seen; focused visible hydrated content does", async () => {
