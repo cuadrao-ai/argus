@@ -81,8 +81,9 @@ not to add an illustrative label to the scene. The FAQ states that the examples
 are planned and use fictional data, so keep that sentence.
 
 The scene shows 15 November 2026 until that day passes, then the visitor's own date.
-It closes the month before the date it shows. It shows no year, and the time stays
-at 10:24.
+It closes the month before the date it shows. The scene and the closing month show
+no year, and the time stays at 10:24. The WhatsApp card prints the full date, as the
+real message does, and it follows the same rule.
 
 Facturar stays "En preparación" and is not a link until e-CF issuing works in
 production.
