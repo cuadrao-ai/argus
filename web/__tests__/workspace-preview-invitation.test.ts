@@ -106,7 +106,7 @@ test(`${role} access survives email edits and remains pending after invite creat
   editEmail(email.value);
   assert.equal(state.invitation!.permission, role);
   await form.onsubmit({ preventDefault() {} });
-  assert.deepEqual(state.invitation, { email: email.value, permission: role, status: "pending" });
+  assert.deepEqual({ ...state.invitation }, { email: email.value, permission: role, status: "pending" });
 });
 
 }

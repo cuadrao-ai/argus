@@ -6,8 +6,8 @@ export type RecordsColumnKey = ColumnKey | "estado" | "moneda" | "notas";
 type RecordsColumn = { key: RecordsColumnKey; width: number | null; align: "left" | "right"; pin?: "left" | "right" };
 export const RECORDS_PREVIEW_COLUMNS: readonly RecordsColumn[] = COLUMNS.flatMap<RecordsColumn>((column) => {
   if (column.key === "monto") return [{ ...column, width: 104 }, { key: "moneda", width: 80, align: "left" }];
-  if (column.key === "categoria") return [{ ...column, width: 120 }, { key: "estado", width: 136, align: "left" }, { key: "notas", width: 160, align: "left" }];
-  const widths: Partial<Record<ColumnKey, number>> = { contraparte: 200, fecha: 126, detalle: 80, comprobante: 88 };
+  if (column.key === "categoria") return [{ ...column, width: 120 }, { key: "estado", width: 200, align: "left" }, { key: "notas", width: 120, align: "left" }];
+  const widths: Partial<Record<ColumnKey, number>> = { contraparte: 200, fecha: 116, detalle: 80, comprobante: 88 };
   const width = widths[column.key];
   return [{ ...column, width: width ?? column.width }];
 });

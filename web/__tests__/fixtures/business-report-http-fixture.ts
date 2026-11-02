@@ -20,6 +20,13 @@ export function documentFamilyTotals(rows: readonly ReportRecord[]): ReportTotal
   });
 }
 
+/** Mirrors the server's `latest_month`: the month of the newest dated row. */
+function latestMonth(rows: readonly ReportRecord[]) {
+  const newest = rows.flatMap((row) => row.report_date ?? []).sort().at(-1) ?? "2026-10-26";
+  const [year, month] = newest.split("-").map(Number);
+  return { from_date: `${newest.slice(0, 7)}-01`, to_date: new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10), calendar: "America/Santo_Domingo" };
+}
+
 export function createBusinessReportHttpFixture() {
   const records: ReportRecord[] = Array.from({ length: 126 }, (_, index) => ({
     row_id: `draft:${fixtureId(index + 1)}`, draft_id: fixtureId(index + 1), linked_activity_ids: [fixtureId(1000 + index)], revision: 3,
@@ -58,7 +65,7 @@ export function createBusinessReportHttpFixture() {
       const items = matching.slice((report.page - 1) * report.page_size, report.page * report.page_size).map((row) => ({ ...row, can_edit_note: !controls.readOnly, can_append_supporting: !controls.readOnly, attachment_sources: row.attachment_sources?.map((source) => ({ ...source, source_available: source.receipt_id === fixtureId(700) ? controls.originalAvailable : source.source_available, download_available: !controls.readOnly && (source.receipt_id !== fixtureId(700) || controls.originalAvailable) })) }));
       return Response.json(reportAnswerSchema.parse({ items, matching_count: matching.length, page: report.page, page_size: report.page_size, page_count: Math.ceil(matching.length / report.page_size),
         totals: documentFamilyTotals(matching),
-        fingerprint: "a".repeat(64), captured_at: "2026-10-26T12:00:00Z", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0,
+        fingerprint: "a".repeat(64), captured_at: "2026-10-26T12:00:00Z", resolved_period: report.filters.period.kind === "latest_month" ? latestMonth(records) : { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0,
         counterparties: [{ key: "101001577", labels: ["Proveedor autorizado"] }], categories: ["uncategorized"], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable", "records_only_evidence_separate"],
         ...controls.legacy ? {} : { overview: controls.overview, effective_sort, sort_unavailable_reason: blocked ? "amount_sort_requires_single_known_currency" : null } }));
     }

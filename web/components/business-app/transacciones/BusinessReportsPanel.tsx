@@ -41,6 +41,7 @@ function periodForUi(period: ReportPeriod, answer?: ReportAnswer): Period {
   if (period.kind === "all") return { key: "all", from: "", to: null };
   if (period.kind === "custom") return { key: "custom", from: period.from_date, to: period.to_date };
   if (period.kind === "this_year") return { key: "custom", from: answer?.resolved_period.from_date ?? `${new Date().getFullYear()}-01-01`, to: answer?.resolved_period.to_date ?? `${new Date().getFullYear()}-12-31` };
+  if (period.kind === "latest_month") return { key: "custom", from: answer?.resolved_period.from_date ?? "", to: answer?.resolved_period.to_date ?? null };
   const fallback = periodRange(period.kind);
   return { key: period.kind, from: answer?.resolved_period.from_date ?? fallback.from, to: answer?.resolved_period.to_date ?? fallback.to };
 }
@@ -61,7 +62,7 @@ export function reportFiltersFromUi(current: ReportFilters, filters: PreviewFilt
 }
 
 export default function BusinessReportsPanel() {
-  const { chosen, period } = useBusiness();
+  const { chosen } = useBusiness();
   const [person, setPerson] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -75,10 +76,10 @@ export default function BusinessReportsPanel() {
   if (failed) return <div className={cardClass}><EmptyState kind="error" compact title={t(`${REPORTING}access_unavailable`)} action={{ label: t("common.retry"), run: () => { setFailed(false); setAttempt((value) => value + 1); } }} /></div>;
   if (!person || !chosen) return <RecordsLoadingPreview preferences={defaultRecordsPreferences()} density="normal" />;
   const scope = { userId: person, businessId: chosen.space_id, grantId: getChosenGrant() };
-  return <ConnectedBusinessReports key={`${person}:${chosen.space_id}:${scope.grantId}`} scope={scope} period={period} />;
+  return <ConnectedBusinessReports key={`${person}:${chosen.space_id}:${scope.grantId}`} scope={scope} />;
 }
 
-export function ConnectedBusinessReports({ scope, period, transport, initial }: { scope: ReportScope; period: Period; transport?: ReportingTransport; initial?: ReportRequest }) {
+export function ConnectedBusinessReports({ scope, transport, initial }: { scope: ReportScope; transport?: ReportingTransport; initial?: ReportRequest }) {
   const { t } = useTransaccionesWords();
   const { panel, openPanel, actions, revision } = useBusiness();
   const { isBelowTablet: phone, isBelowDesktop } = useResponsiveLayout();
@@ -87,7 +88,7 @@ export function ConnectedBusinessReports({ scope, period, transport, initial }: 
     const params = typeof window === "undefined" ? new URLSearchParams() : new URLSearchParams(window.location.search);
     const other = params.has("report_scope") && params.get("report_scope") !== scopeKey;
     const saved = restoreReportLocation(other ? new URLSearchParams() : params);
-    return { ...saved, invalid: saved.invalid || other, request: initial ?? (params.has("report") && !other ? saved.request : reportRequestSchema.parse({ filters: { period: reportPeriodFromUi(period) } })) };
+    return { ...saved, invalid: saved.invalid || other, request: initial ?? (params.has("report") && !other ? saved.request : reportRequestSchema.parse({ filters: { period: { kind: "latest_month" } } })) };
   });
   const { controller, state } = useBusinessReport(scope, restored.request, transport);
   const answer = state.load.kind === "ready" || state.load.kind === "invalid-page" ? state.load.answer : undefined;
@@ -97,7 +98,8 @@ export function ConnectedBusinessReports({ scope, period, transport, initial }: 
   const [scopeData, setScopeData] = useState<{ periodKey: string; answer: ReportAnswer } | null>(null);
   useEffect(() => { if (answer) setScopeData({ periodKey, answer }); }, [answer, periodKey]);
   const accessDenied = state.load.kind === "failed" && state.load.problem.kind === "access";
-  const overview = !accessDenied ? answer?.overview ?? (scopeData?.periodKey === periodKey ? scopeData.answer.overview : undefined) : undefined;
+  const periodAnswer = answer ?? (scopeData?.periodKey === periodKey ? scopeData.answer : undefined);
+  const overview = !accessDenied ? periodAnswer?.overview : undefined;
   const catalogues = !accessDenied ? answer ?? scopeData?.answer : undefined;
   const rows = useMemo(() => answer?.items.map(businessReportRow) ?? [], [answer]);
   const rowNodes = useRef(new Map<string, HTMLElement>());
@@ -107,7 +109,7 @@ export function ConnectedBusinessReports({ scope, period, transport, initial }: 
   const [urlInvalid, setUrlInvalid] = useState(restored.invalid);
   const filter: RecordsFilter = { query: state.request.filters.q, kind: state.request.filters.record_families.length === 1 ? state.request.filters.record_families[0] === "sale" ? "venta" : "gasto" : "all" };
   const filters = reportFiltersForUi(state.request.filters);
-  const selectedPeriod = periodForUi(state.request.filters.period, answer);
+  const selectedPeriod = periodForUi(state.request.filters.period, periodAnswer);
   const updateUrl = (request: ReportRequest, anchor = state.anchor, push = false) => writeReportLocation(request, anchor, scopeKey, push);
   useEffect(() => { updateUrl(state.request); }, [state.request, state.anchor]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {

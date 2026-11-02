@@ -8,6 +8,7 @@ from argus.domain.business.reporting_query import (
     ReportFilters,
     ReportRecord,
     ReportRequest,
+    matching_records,
     run_query,
 )
 from pydantic import ValidationError
@@ -53,6 +54,57 @@ def test_all_matches_are_counted_before_page_and_unknown_dates_are_honest():
     )
     assert bounded.matching_count == 30
     assert bounded.excluded_unknown_dates == 1
+
+
+def latest_month(**changes):
+    return ReportFilters(period={"kind": "latest_month"}, **changes)
+
+
+def test_latest_month_is_the_month_of_the_newest_dated_record():
+    rows = [
+        record("may", report_date=date(2026, 5, 30)),
+        record("august", report_date=date(2026, 8, 2)),
+        record("undated").model_copy(update={"report_date": None}),
+    ]
+    result = run(rows, latest_month())
+    assert result.resolved_period.from_date == date(2026, 8, 1)
+    assert result.resolved_period.to_date == date(2026, 8, 31)
+    assert [row.row_id for row in result.items] == ["august"]
+    assert result.excluded_unknown_dates == 1
+
+
+def test_latest_month_is_the_current_month_when_no_record_has_a_date():
+    undated = record("undated").model_copy(update={"report_date": None})
+    for rows in ([], [undated]):
+        period = run(rows, latest_month()).resolved_period
+        assert (period.from_date, period.to_date) == (
+            date(2026, 10, 1),
+            date(2026, 10, 31),
+        )
+
+
+def test_the_other_filters_do_not_move_the_latest_month():
+    rows = [
+        record("may", report_date=date(2026, 5, 30), counterparty="Colmado"),
+        record("august", report_date=date(2026, 8, 2), counterparty="Ferretería"),
+    ]
+    result = run(rows, latest_month(q="colmado"))
+    assert result.resolved_period.from_date == date(2026, 8, 1)
+    assert result.matching_count == 0
+
+
+def test_the_records_and_the_answer_share_the_latest_month():
+    rows = [
+        record("may", report_date=date(2026, 5, 30)),
+        record("august", report_date=date(2026, 8, 2)),
+    ]
+    request = ReportRequest(filters=latest_month())
+    assert [row.row_id for row in matching_records(rows, request, NOW)] == ["august"]
+
+
+def test_latest_month_takes_no_dates():
+    with pytest.raises(ValidationError):
+        ReportFilters(period={"kind": "latest_month", "from_date": "2026-08-01"})
 
 
 def test_amount_uses_original_gross_and_exact_currency():
