@@ -180,11 +180,11 @@ test.describe("how it works", () => {
   test("the dock keeps the unfinished step out of the links", async ({ page, isMobile }) => {
     test.skip(isMobile, "phones hide the dock");
     await page.goto(PATH);
-    const soon = page.getByRole("img", { name: "Facturar · En preparación" });
+    const soon = page.getByRole("img", { name: "Facturar · pronto" });
     await expect(soon).toHaveCount(1);
     await soon.focus();
     await expect(soon).toBeFocused();
-    await expect(page.getByRole("link", { name: "Facturar · En preparación" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Facturar · pronto" })).toHaveCount(0);
   });
 
   test("a step title and a dock button jump to their step", async ({ page, isMobile }) => {
