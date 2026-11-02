@@ -2,6 +2,10 @@
 // to 1. Moving parts become CSS variables, and text changes become beats.
 
 export const NARROW_WIDTH = 900;
+const SHORT_HEIGHT = 520;
+
+// A phone held sideways has no room for a pinned section.
+export const tooShort = (width: number, height: number) => width <= NARROW_WIDTH && height < SHORT_HEIGHT;
 
 const BOARD_WIDTH = 1290;
 const BOARD_HEIGHT = 760;

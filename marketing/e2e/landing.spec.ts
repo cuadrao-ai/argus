@@ -111,6 +111,18 @@ test.describe("product scene", () => {
     const frameWidth = await frame(page).evaluate((node) => node.getBoundingClientRect().width);
     expect(frameWidth).toBe(widths[1] - 24);
   });
+
+  test("a phone shows one finished picture that does not pin", async ({ page, isMobile }) => {
+    test.skip(!isMobile, "phone layout");
+    await page.goto(PATH);
+    await expect(page.locator("[data-scene-invoice]")).toBeVisible();
+    await expect(page.locator("[data-scene-invoice]")).toHaveText("Aprobado");
+    await expect(page.locator("[data-scene-export]")).toBeVisible();
+    await expect(page.locator("[data-scene-export]")).toHaveText("Exportado");
+    await expect(page.locator("[data-scene-island]")).toBeHidden();
+    const position = await frame(page).evaluate((node) => getComputedStyle(node.parentElement!).position);
+    expect(position).toBe("static");
+  });
 });
 
 async function seekTo(page: Page, selector: string, p: number): Promise<void> {
@@ -128,8 +140,7 @@ const TRACK = "[data-steps-track]";
 const step = (page: Page) => page.locator('[aria-current="step"]');
 
 test.describe("problem cards", () => {
-  test("swap the title once the cards line up", async ({ page, isMobile }) => {
-    test.skip(isMobile, "phones skip this section");
+  test("swap the title once the cards line up", async ({ page }) => {
     await page.goto(PATH);
     const before = page.getByRole("heading", { name: "Tus facturas están en todas partes." }).locator("..");
     const after = page.getByRole("heading", { name: "Ahora todo cuadra." }).locator("..");
@@ -141,16 +152,10 @@ test.describe("problem cards", () => {
     await expect(after).toHaveCSS("opacity", "1");
   });
 
-  test("stay out of the phone view", async ({ page, isMobile }) => {
-    test.skip(!isMobile, "phone layout");
-    await page.goto(PATH);
-    await expect(page.locator("#problema")).toBeHidden();
-  });
 });
 
 test.describe("how it works", () => {
-  test("follows the scroll through all four steps", async ({ page, isMobile }) => {
-    test.skip(isMobile, "phones list the steps");
+  test("follows the scroll through all four steps", async ({ page }) => {
     await page.goto(PATH);
     for (const [share, name] of [
       [0.1, "Recibir"],
@@ -163,8 +168,7 @@ test.describe("how it works", () => {
     }
   });
 
-  test("plays the chat in order and rewinds it", async ({ page, isMobile }) => {
-    test.skip(isMobile, "phones play the chat by position");
+  test("plays the chat in order and rewinds it", async ({ page }) => {
     await page.goto(PATH);
     await seekTo(page, TRACK, 0);
     await expect(page.locator("[data-chat-reply]")).toHaveCount(0);
@@ -187,12 +191,19 @@ test.describe("how it works", () => {
     await expect(page.getByRole("link", { name: "Facturar · pronto" })).toHaveCount(0);
   });
 
-  test("a step title and a dock button jump to their step", async ({ page, isMobile }) => {
-    test.skip(isMobile, "phones have no jumps");
+  test("a step title jumps to its step", async ({ page }) => {
     await page.goto(PATH);
     await seekTo(page, TRACK, 0.1);
     await page.getByRole("button", { name: "Exportar" }).click();
     await expect(step(page)).toHaveText("Exportar");
+    await page.getByRole("button", { name: "Recibir" }).click();
+    await expect(step(page)).toHaveText("Recibir");
+    await expect(page.locator("[data-chat-photo]")).toBeVisible();
+  });
+
+  test("a dock button jumps to its step", async ({ page, isMobile }) => {
+    test.skip(isMobile, "phones hide the dock");
+    await page.goto(PATH);
     await seekTo(page, "section:has([data-scene-frame])", 0.5);
     await page.getByRole("link", { name: "Cuadrar" }).click();
     await expect(step(page)).toHaveText("Cuadrar");
@@ -206,17 +217,43 @@ test.describe("how it works", () => {
     await context.close();
   });
 
-  test("the phone shows the chat and all four steps", async ({ page, isMobile }) => {
+  test("a phone keeps the steps in one row and the money on one line", async ({ page, isMobile }) => {
     test.skip(!isMobile, "phone layout");
     await page.goto(PATH);
-    await page.locator("#como").scrollIntoViewIfNeeded();
-    await page.locator("[data-phone]").scrollIntoViewIfNeeded();
-    await expect(page.locator("[data-chat-photo]")).toBeVisible();
-    await expect(page.getByText("Lo aprobado sale en el 606 y el 607, listo para tu contable.")).toBeVisible();
+    await seekTo(page, TRACK, 0.5);
+    await expect(step(page)).toHaveText("Cuadrar");
+    const tops = await page.locator("#como h3").evaluateAll((titles) => titles.map((title) => title.getBoundingClientRect().top));
+    expect(new Set(tops).size).toBe(1);
+    await expect(page.getByText("Cuadrao lee el NCF, el RNC y los montos.")).toBeVisible();
+    const heights = await page
+      .locator('[data-step-panel="1"] span', { hasText: "RD$" })
+      .evaluateAll((amounts) => amounts.map((amount) => amount.getBoundingClientRect().height / parseFloat(getComputedStyle(amount).lineHeight)));
+    expect(heights.length).toBeGreaterThan(0);
+    for (const lines of heights) expect(lines).toBeLessThan(1.5);
   });
 
-  test("passes an accessibility scan on a data panel", async ({ page, isMobile }) => {
-    test.skip(isMobile, "phones show the chat panel only");
+  for (const [name, options] of [
+    ["held sideways", { viewport: { width: 844, height: 390 } }],
+    ["with motion off", { viewport: { width: 390, height: 844 }, reducedMotion: "reduce" as const }],
+  ] as const) {
+    test(`a phone ${name} lists every step and stops pinning`, async ({ browser }) => {
+      const context = await browser.newContext(options);
+      const page = await context.newPage();
+      await page.goto(new URL(PATH, test.info().project.use.baseURL).href);
+      await expect(page.locator("[data-chat-reply]")).toContainText("Factura recibida");
+      await expect(page.getByText("Lo aprobado sale en el 606 y el 607, listo para tu contable.")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Ahora todo cuadra." })).toBeVisible();
+      const positions = await page.evaluate(() =>
+        ["[data-steps-track] > div", "#problema > div"].map((selector) => getComputedStyle(document.querySelector(selector)!).position),
+      );
+      expect(positions).toEqual(["static", "static"]);
+      const widths = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+      expect(widths[0]).toBe(widths[1]);
+      await context.close();
+    });
+  }
+
+  test("passes an accessibility scan on a data panel", async ({ page }) => {
     await page.goto(PATH);
     await seekTo(page, TRACK, 0.5);
     await expect(step(page)).toHaveText("Cuadrar");

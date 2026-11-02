@@ -170,6 +170,7 @@ test.describe("contact form tap targets", () => {
               name: (link.textContent || "").replace(/\s+/g, " ").trim(),
               width: rect.width,
               height: rect.height,
+              x: rect.x,
               y: rect.y,
               fontSize: getComputedStyle(link).fontSize,
             };
@@ -186,7 +187,9 @@ test.describe("contact form tap targets", () => {
           expect(link.fontSize).toBe("14px");
         }
         for (let index = 0; index < links.length - 1; index += 1) {
-          expect(links[index + 1].y - (links[index].y + links[index].height)).toBeGreaterThan(0);
+          const [link, next] = [links[index], links[index + 1]];
+          const sameRow = next.y < link.y + link.height;
+          expect(sameRow ? next.x - (link.x + link.width) : next.y - (link.y + link.height)).toBeGreaterThan(0);
         }
       }
       expect(measured.length).toBeGreaterThan(0);

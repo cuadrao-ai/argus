@@ -67,5 +67,6 @@ describe("cards", () => {
   test("the scatter tightens on narrow and short screens", () => {
     expect(Number(cardsVars(0, 960, 600)["--spread"])).toBe(0.5);
     expect(Number(cardsVars(0, 960, 600)["--spread-y"])).toBe(0.375);
+    expect(Number(cardsVars(0, 390, 844)["--spread"])).toBe(0.12);
   });
 });

@@ -75,8 +75,12 @@ invoice and RD$18,000 payment. Keep currencies separate.
 The founder approved a scroll-led product scene on November 1, 2026. It may show
 scripted status changes, a sample cursor and a dock that links to the stages.
 Scrolling stays native: never intercept the scroll. Every animation has a
-reduced-motion state. Phones show the scene as one still end picture, skip the
-cards section, and play the WhatsApp chat as it enters the screen. The founder chose
+reduced-motion state. Phones show the scene as one still portrait picture built
+from the same pieces: the Bandeja list, the iPhone with its notification and the
+contable card. It never pins, and only a short rise plays on load. Phones keep the
+cards section and "Cómo funciona" as scroll stories, with the four steps in one
+tappable row. With motion off, or on a phone held sideways, those two sections stop
+pinning and the chat shows finished. The founder chose
 not to add an illustrative label to the scene. The FAQ states that the examples
 are planned and use fictional data, so keep that sentence.
 

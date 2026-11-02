@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState, type CSSProperties } from "react";
 import { CHAT_DONE, CHAT_SHARE, activeStep, chatAt, chatStage } from "@/lib/landing-timeline";
-import { NARROW_WIDTH, clamp } from "@/lib/scene-timeline";
+import { NARROW_WIDTH, clamp, tooShort } from "@/lib/scene-timeline";
 import styles from "./how-it-works.module.css";
 import { landingCopy, type LandingLocale } from "./landing-copy";
 import { PhoneChat } from "./phone-chat";
@@ -37,9 +37,8 @@ export function HowItWorks({ locale }: { locale: LandingLocale }) {
     fit.style.setProperty("--pk", String(scale));
     fit.style.setProperty("--ph", `${Math.round(PHONE_HEIGHT * scale)}px`);
 
-    if (narrow) {
-      const phone = fit.getBoundingClientRect();
-      setChat(chatStage(reduced ? 1 : clamp((height * 0.92 - phone.top) / (phone.height * 0.9))));
+    if ((narrow && reduced) || tooShort(width, height)) {
+      setChat(chatStage(1));
       return;
     }
     const travel = box.height - height;

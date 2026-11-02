@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { beatAt, beatPoint, sceneVars, scrollProgress } from "../lib/scene-timeline";
+import { beatAt, beatPoint, sceneVars, scrollProgress, tooShort } from "../lib/scene-timeline";
 
 const DESKTOP = { width: 1440, height: 900 };
 
@@ -66,5 +66,16 @@ describe("scene frame", () => {
     const vars = sceneVars(1, 390, 844);
     expect(Number(vars["--k"])).toBeCloseTo(366 / 1290);
     expect(vars["--fw"]).toBeUndefined();
+  });
+});
+
+describe("short screens", () => {
+  test.each([
+    [844, 390, true],
+    [390, 844, false],
+    [320, 568, false],
+    [1280, 400, false],
+  ])("%dx%d too short: %s", (width, height, short) => {
+    expect(tooShort(width, height)).toBe(short);
   });
 });
