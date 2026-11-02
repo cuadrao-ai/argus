@@ -145,8 +145,8 @@ describe("Business stays in Spanish for an en-US browser", () => {
     const visible = await renderShown("en", [greeting, "Needs attention", "Income", "Merchant", "Saved as"]);
     assert.ok(visible.includes(greeting), greeting);
     for (const englishText of englishCopy) assert.ok(visible.includes(englishText), englishText);
-    // The record names the sample Business, and that name is not a translated word.
-    for (const spanishText of [...spanishCopy.filter((text) => text !== "Mi negocio"), "Escríbelo"]) assert.equal(visible.includes(spanishText), false, spanishText);
+    // The record names the sample Business and shows DGII's own field names; neither is translated.
+    for (const spanishText of [...spanishCopy.filter((text) => text !== "Mi negocio" && text !== "Fecha"), "Escríbelo"]) assert.equal(visible.includes(spanishText), false, spanishText);
     assert.equal(visible.includes("Write it"), false);
   });
 });

@@ -14,7 +14,7 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-const HINT = "Guardado, sin leer. Pulsa «Preparar con IA» para que Cuadrao lo lea, o complétalo tú.";
+const HINT = "Guardado, sin leer. Pulsa «Preparar con IA» para que Cuadrao lo lea.";
 
 const receipt = (over: Partial<ReceiptSummary>): ReceiptSummary =>
   ({ id: "rcpt-1", channel: "web", filename: "recibo-prueba-ferreteria.pdf", source_text: null, media_type: "application/pdf", size_bytes: 70, received_at: "2026-10-13T17:14:00Z", status: "saved", error_code: null, attention: null, duplicate_of: null, replayed: false, preparable: true, enterable: true, activity: { state: "saved_unread", unread: true, completion_cursor: null }, bandeja: { por_revisar: true, con_problema: false, leyendo: false }, expense_id: null, merchant: null, occurred_on: null, amount: null, currency: null, category_id: null, account_id: null, email_delivery_ids: ["d1"], email_original: false, missing_fields: [], version: 0, draft_id: null, ...over } as unknown as ReceiptSummary);
