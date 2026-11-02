@@ -18,7 +18,7 @@ test("the sample's Bandeja counts equal the receipts it flags plus the emails th
   assert.equal(page.activity?.confirmed_count, all.filter((item) => item.status === "confirmed" && !item.email_original).length);
   assert.equal(page.activity?.dismissed_count, 0);
   assert.equal(page.activity?.bandeja_listo_count, page.items.filter((item) => item.bandeja_group?.group === "listo").length);
-  assert.equal((page.activity?.bandeja_listo_count ?? 0) + (page.activity?.bandeja_attention_count ?? 0), page.activity?.pending_review_count, "the two tabs sum to every row");
+  assert.equal((page.activity?.bandeja_listo_count ?? 0) + (page.activity?.bandeja_attention_count ?? 0) + (page.activity?.reading_count ?? 0), page.activity?.pending_review_count, "the two tabs and what is still being read sum to every row");
   assert.ok(all.filter((item) => item.email_original || item.status === "confirmed").every((item) => !item.bandeja?.por_revisar && !item.bandeja?.con_problema && !item.bandeja?.leyendo), "a closed receipt and an email original sit in no bucket");
 });
 

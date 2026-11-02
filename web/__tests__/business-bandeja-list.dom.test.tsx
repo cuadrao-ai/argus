@@ -147,11 +147,11 @@ describe("the Bandeja views", () => {
     const page = await mount({ panel: { kind: "inbox" } });
     await inboxReady(page);
     assert.equal(page.segment("all")?.getAttribute("aria-selected"), "true", "Todos is the first view");
-    assert.deepEqual(["attention", "listos"].map((key) => tabCount(page.host, key as "attention")), ["14", "5"], "the server counts every open row in one of the two");
+    assert.deepEqual(["attention", "listos"].map((key) => tabCount(page.host, key as "attention")), ["12", "5"], "a row still being read is in neither");
     await page.choose("listos");
     assert.deepEqual(page.names(), ["Imprenta Caribe", "Gasolinera Ruta 3", "Suplidora Duarte", "Repuestos El Cibao", "Limpieza Total"]);
     await page.choose("attention");
-    assert.equal(page.names().length, 13, "the note the server counts comes from the notes list, which this mount leaves empty");
+    assert.equal(page.names().length, 11, "the note the server counts comes from the notes list, which this mount leaves empty");
     assert.ok(page.names().includes("Boletín semanal"), "an email that brought no receipt");
     assert.ok(page.names().includes("Colmado La Bendición"), "a receipt the server has not confirmed");
     assert.equal(page.names().includes("Imprenta Caribe"), false);
@@ -456,7 +456,7 @@ describe("emails in the Bandeja", () => {
     const page = await mount({ panel: { kind: "inbox" } });
     await inboxReady(page);
     await page.choose("attention");
-    assert.equal(emailRows(page).length, 3, "the two that brought none, and the one still being read");
+    assert.equal(emailRows(page).length, 2, "the two that brought none");
     const boletin = emailRow(page, "Boletín semanal")!;
     assert.match(boletin.textContent ?? "", /Este tipo de archivo no se puede guardar como recibo/);
     const farmacia = emailRow(page, "Factura Farmacia Carol")!;
@@ -471,12 +471,14 @@ describe("emails in the Bandeja", () => {
     assert.ok(emailRow(page, "Recibo de combustible"), "the email still being read");
   });
 
-  test("an email still being read says Leyendo under Necesitan atención, never in Listos", async () => {
+  test("an email still being read says Leyendo on Todos, and is on neither other tab", async () => {
     const page = await mount({ panel: { kind: "inbox" } });
     await inboxReady(page);
     await page.choose("listos");
     assert.equal(emailRows(page).length, 0, "Listos holds no email");
     await page.choose("attention");
+    assert.equal(emailRows(page).some((row) => row.textContent?.includes("Recibo de combustible")), false, "Necesitan atención holds no read still running");
+    await page.choose("all");
     const reading = emailRows(page).find((row) => row.textContent?.includes("Recibo de combustible"));
     assert.ok(reading);
     assert.match(reading.textContent ?? "", /Leyendo…/);

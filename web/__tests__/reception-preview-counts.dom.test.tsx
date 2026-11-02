@@ -33,7 +33,7 @@ async function mount({ width = 1440, role = "owner", prepare = true, permissions
   const seed = (await source.receipts("all"))[0];
   let receipts: ReceiptSummary[] = tweak([
     { ...seed, id: "review-receipt", merchant: "Recibo admitido", bandeja: { por_revisar: true, leyendo: false, con_problema: false }, bandeja_group: { group: "attention", reason: "missing_ncf", draft_id: "draft-review", version: 2 } },
-    { ...seed, id: "reading-receipt", merchant: "Recibo en lectura", status: "queued", bandeja: { por_revisar: false, leyendo: true, con_problema: false }, bandeja_group: { group: "attention", reason: "reading", draft_id: null, version: null } },
+    { ...seed, id: "reading-receipt", merchant: "Recibo en lectura", status: "queued", bandeja: { por_revisar: false, leyendo: true, con_problema: false }, bandeja_group: { group: "reading", reason: "reading", draft_id: null, version: null } },
     { ...seed, id: "problem-receipt", merchant: "Recibo con problema", status: "needs_attention", bandeja: { por_revisar: false, leyendo: false, con_problema: true }, bandeja_group: { group: "attention", reason: "unreadable", draft_id: null, version: null } },
     ...["uno", "dos", "tres"].map((name, index) => ({ ...seed, id: `listo-${name}`, merchant: `Listo ${name}`, bandeja: { por_revisar: true, leyendo: false, con_problema: false }, bandeja_group: { group: "listo" as const, reason: null, draft_id: `draft-${name}`, version: index + 1 } })),
   ]);
@@ -219,8 +219,7 @@ test("Estado is the tag on Todos, the plain reason on Necesitan atención, and g
   assert.equal(estado(), true);
   assert.equal(row().querySelector('[data-testid="status-pill"]'), null, "no tag where the tab already says it");
   assert.equal(row().querySelector('[data-testid="reception-reason"]')?.textContent, "No se pudo leer");
-  assert.equal(page.row("Recibo en lectura")?.querySelector('[data-testid="status-pill"]'), null);
-  assert.match(page.row("Recibo en lectura")?.textContent ?? "", /Leyendo/);
+  assert.equal(page.row("Recibo en lectura"), undefined, "a read still running shows only on Todos");
   await page.click(page.tab("listos"));
   assert.equal(estado(), false);
   assert.equal(page.row("Listo uno")?.querySelector('[data-testid="status-pill"]'), null);

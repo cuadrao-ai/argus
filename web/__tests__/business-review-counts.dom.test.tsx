@@ -6,7 +6,7 @@ import type { ReceiptActivityCounts } from "@/lib/business-api";
 
 // The real workspace provider over the sample source, with the Resumen, the
 // sidebar badge and the Bandeja side by side on the same saved state.
-const SAMPLE = { listos: 5, attention: 14, total: 19, problems: 5, reading: 2 };
+const SAMPLE = { listos: 5, attention: 12, total: 19, problems: 5, reading: 2 };
 mock.module("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(""),
   useRouter: () => ({ push: () => undefined, replace: () => undefined }),

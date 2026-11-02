@@ -23,10 +23,10 @@ export function receptionRows(receipts: readonly ReceiptSummary[], captures: rea
   return rows.sort((a, b) => b.receivedAt.localeCompare(a.receivedAt) || a.id.localeCompare(b.id));
 }
 
-/** The server's two groups. A note and an email a row of its own are never Listos, so they sit with what needs attention, as the counts do. */
+/** The server's groups. A note is never Listos, and an email waits with what needs attention until it is read, as the counts do. A row still being read shows only on Todos. */
 export function receptionMatches(row: ReceptionRow, view: ReceptionView): boolean {
   if (view === "all") return true;
-  const group = row.kind === "receipt" ? row.receipt.bandeja_group?.group : "attention";
+  const group = row.kind === "receipt" ? row.receipt.bandeja_group?.group : row.kind === "email" && row.email.standing === "reading" ? "reading" : "attention";
   return group === (view === "listos" ? "listo" : "attention");
 }
 

@@ -19,11 +19,12 @@ test("Todos keeps approved arrivals, which sit in neither group", async () => {
   assert.equal(receptionMatches(approved, "listos"), false);
 });
 
-test("a reading email needs attention, as the counts have it, and a captured email does not duplicate its attachment", async () => {
+test("an email still being read shows only on Todos, as the counts have it, and a captured email does not duplicate its attachment", async () => {
   const { rows, emails } = await sample();
   const reading = rows.find(row => row.kind === "email" && row.email.standing === "reading");
   assert.ok(reading);
-  assert.equal(receptionMatches(reading, "attention"), true);
+  assert.equal(receptionMatches(reading, "all"), true);
+  assert.equal(receptionMatches(reading, "attention"), false);
   assert.equal(receptionMatches(reading, "listos"), false);
   for (const email of emails.filter(item => item.standing === null)) {
     assert.equal(rows.some(row => row.kind === "email" && row.id === email.id), false);

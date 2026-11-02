@@ -233,8 +233,9 @@ class BandejaGroup(_Wire):
     # The spec's one group of an open receipt, from ``bandeja_group.group_of``:
     # null for a closed receipt and the email itself.
     group: BandejaGroupName | None
-    # Why an ``attention`` receipt is not Listos: one plain word, null for
-    # ``listo``. Any open receipt can still be approved alone.
+    # Why a receipt is not Listos: one plain word, null for ``listo``, and
+    # ``reading`` for a ``reading`` row. Any open receipt can still be approved
+    # alone.
     reason: BandejaReason | None
     # What an approval of this row names: its open draft and the version this
     # list saw. Null while the receipt has no open draft.
@@ -260,8 +261,9 @@ class ReceiptActivityCounts(_Wire):
     ready_to_review_count: int
     # The Bandeja's Listos tab: the rows whose ``bandeja_group`` is ``listo``.
     bandeja_listo_count: int
-    # The Bandeja's Necesitan atención tab: every other row it lists, notes and
-    # emails included, so the two sum to ``pending_review_count``. Wider than
+    # The Bandeja's Necesitan atención tab: every other row it lists that is
+    # not still being read, notes and emails included, so the two plus
+    # ``reading_count`` sum to ``pending_review_count``. Wider than
     # ``needs_attention_count``, which keeps its own meaning.
     bandeja_attention_count: int
     # Transacciones "Por igualar": every movement and document still to

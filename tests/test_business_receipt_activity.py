@@ -130,7 +130,7 @@ def test_emails_that_are_a_row_of_their_own_add_to_the_bandeja_counts():
         "needs_attention_count": 2,
         "ready_to_review_count": 2,
         "bandeja_listo_count": 0,
-        "bandeja_attention_count": 5,
+        "bandeja_attention_count": 3,
         "por_igualar_count": None,
         **closed,
     }

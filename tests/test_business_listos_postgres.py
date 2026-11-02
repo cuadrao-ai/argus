@@ -166,7 +166,7 @@ def _counts(rig, headers: dict | None = None) -> tuple[int, int]:  # noqa: ANN00
     ) == numbers
     listed = [row["bandeja_group"]["group"] for row in page["items"]]
     assert listed.count("listo") == numbers[0]
-    assert sum(numbers) == activity["pending_review_count"]
+    assert sum(numbers) + activity["reading_count"] == activity["pending_review_count"]
     return numbers
 
 
@@ -316,8 +316,27 @@ def test_a_receipt_not_yet_read_has_no_draft_to_approve(rig, monkeypatch) -> Non
         lambda: PreparationJobs(rig.documents, lambda *attempt: attempts.append(attempt)),
     )
     reading = _upload(rig, RECEIPT + b"\xa2").json()["id"]
-    assert _group(rig, reading) == ("attention", "reading")
+    assert _group(rig, reading) == ("reading", "reading")
     assert _counts(rig)[0] == 0
+
+
+def test_a_receipt_still_reading_is_in_no_tab_and_a_failed_read_stays(
+    rig,  # noqa: ANN001
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    rig.stub.failure = "encrypted_document"
+    failed = _upload(rig, RECEIPT + b"\xa5").json()["id"]
+    monkeypatch.setattr(
+        "argus.api.documents.document_jobs",
+        lambda: PreparationJobs(rig.documents, lambda *attempt: None),
+    )
+    reading = _upload(rig, RECEIPT + b"\xa6").json()["id"]
+
+    assert _group(rig, reading) == ("reading", "reading")
+    assert _group(rig, failed) == ("attention", "unreadable")
+    assert _row(rig, reading)["bandeja"]["leyendo"] is True
+    assert _counts(rig) == (0, 1)
+    assert _get(rig, "/business/receipt-activity")["pending_review_count"] == 2
 
 
 def test_an_unfinished_read_never_reaches_listos(rig) -> None:  # noqa: ANN001

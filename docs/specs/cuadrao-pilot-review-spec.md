@@ -29,7 +29,7 @@ Estado by tab:
 
 Checkboxes are only on Listos, for owners.
 
-Every row has one action, **Abrir**. It opens the receipt, and a row click does the same, in every state.
+Every row has one action, **Abrir**. It opens the receipt, and a row click does the same, in every state. A receipt with no draft opens its original and its reason, with no form.
 
 Removed from live: En proceso, Más acciones.
 
@@ -44,7 +44,7 @@ A receipt is Listos only when the server confirms all of these:
 - It has no duplicate and no review flag.
 - Its sender is verified, if it came by email.
 
-Every other open receipt is in Necesitan atención, with one plain reason. The owner opens it and approves it from the dossier. Listos only adds a faster way. A USD receipt or a receipt with no NCF reaches Registros through this single approval.
+Every other open receipt that has finished reading is in Necesitan atención, with one plain reason. A failed read stays there. A receipt still reading is in no tab count and shows only on Todos, as Leyendo. The sidebar still counts it, because it is a waiting row. The owner opens a receipt and approves it from the dossier. Listos only adds a faster way. A USD receipt or a receipt with no NCF reaches Registros through this single approval.
 
 **Aprobar todos:** the owner selects rows or takes all of them, sees the count, and confirms. Only the owner sees this action. Nothing is approved without the owner. If some fail, the screen says which, and those stay in Listos. Selection does not change when a new receipt arrives.
 

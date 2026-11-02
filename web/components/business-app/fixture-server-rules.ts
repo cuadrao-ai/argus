@@ -38,7 +38,7 @@ function bandejaGroup(view: ListedReceipt): BandejaGroup {
   const seeded = view.bandeja_group;
   const unread = view.status === "saved" || view.status === "queued";
   const reason = view.read_pending ? "reading" : view.attention ?? (unread ? "not_read" : view.sin_comprobante ? "sin_comprobante" : view.personal ? "personal" : seeded?.reason ?? (seeded?.group === "listo" ? null : "check_details"));
-  return { group: reason ? "attention" : "listo", reason, draft_id: view.draft_id ?? null, version: view.draft_id ? view.version ?? null : null };
+  return { group: reason === "reading" ? "reading" : reason ? "attention" : "listo", reason, draft_id: view.draft_id ?? null, version: view.draft_id ? view.version ?? null : null };
 }
 
 /** A receipt as the server lists it: its projected activity and its Bandeja flags. */
@@ -63,7 +63,7 @@ export function servedCounts(views: readonly ListedReceipt[], notes: number, sta
     pending_review_count: pending,
     ready_to_review_count: flagged("por_revisar") + notes,
     bandeja_listo_count: listos,
-    bandeja_attention_count: pending - listos,
+    bandeja_attention_count: pending - listos - reading,
     needs_attention_count: flagged("con_problema") + emails.filter((standing) => standing === "no_receipt").length,
     confirmed_count: rows.filter((row) => !row.email_original && row.status === "confirmed").length,
     dismissed_count: rows.filter((row) => !row.email_original && row.status === "dismissed").length,

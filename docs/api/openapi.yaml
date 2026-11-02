@@ -16717,6 +16717,7 @@ components:
             enum:
             - listo
             - attention
+            - reading
           - type: 'null'
         reason:
           anyOf:
