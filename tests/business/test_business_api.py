@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from urllib.parse import quote
 from uuid import uuid4
@@ -9,8 +10,11 @@ from uuid import uuid4
 import pytest
 from argus.api.business_spaces import business_spaces
 from argus.api.documents import documents_service
+from argus.api.ingestion import ingestion_hub
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
+from argus.domain.business.service import BusinessService
 from fastapi.testclient import TestClient
+from httpx import Response
 
 from tests.business.conftest import ALICE, BOB
 from tests.business.receipt_stub import PURCHASE, ReceiptStub
@@ -117,12 +121,17 @@ class Owner:
             headers["X-Extraction-Consent"] = "true"
         return self.client.post(BASE + "/receipts", content=content, headers=headers)
 
-    def review(self, receipt_id: str, version: int, **fields):
-        return self.client.patch(
-            f"{BASE}/receipts/{receipt_id}/review",
-            json={"version": version, "fields": fields},
-            headers=self.auth,
+    def resolve_receipt(
+        self, receipt_id: str, version: int, **fields: str | None
+    ) -> Response:
+        """Seed the import resolution before exercising a surviving endpoint."""
+        service = BusinessService(documents_service(), ingestion_hub().sink, frozenset)
+        scope = self.scope()
+        version = asyncio.run(
+            service.start_entry(scope, receipt_id, version, fields.get("account_id"))
         )
+        service.review(scope, receipt_id, version, fields)
+        return self.get(f"/receipts/{receipt_id}")
 
     def confirm(self, receipt_id: str, version: int, key: str):
         return self.post(f"/receipts/{receipt_id}/confirm", {"version": version}, key=key)
@@ -166,7 +175,7 @@ def test_flag_off_every_route_is_404_before_auth(client: TestClient, monkeypatch
         client.get(receipt),
         client.get(f"{receipt}/source"),
         client.post(f"{receipt}/prepare"),
-        client.patch(f"{receipt}/review", json={}),
+        client.post(f"{receipt}/read", json={"completion_cursor": "0" * 64}),
         client.post(f"{receipt}/confirm", json={}),
         client.get(f"{BASE}/expenses"),
         client.post(f"{BASE}/expenses", json={}),
@@ -204,7 +213,7 @@ def test_document_intake_off_keeps_saved_receipts_and_owner_actions(
     ]
     assert [r.status_code for r in refused] == [404, 404]
 
-    version = alice.review(
+    version = alice.resolve_receipt(
         receipt_id, alice.detail(receipt_id)["version"], account_id=account
     ).json()["version"]
     confirmed = alice.confirm(receipt_id, version, str(uuid4()))
@@ -474,43 +483,20 @@ def test_saved_receipt_prepares_only_with_consent(
     assert stub.calls == [uploaded["id"]]
 
 
-def test_review_corrects_fields_and_never_the_evidence(alice: Owner) -> None:
+def test_removed_receipt_review_cannot_change_an_unreadable_receipt(
+    alice: Owner, stub: ReceiptStub
+) -> None:
+    stub.readable = False
     receipt_id = prepared(alice)
-    account = alice.account()
     before = alice.detail(receipt_id)
-    reviewed = alice.review(
-        receipt_id,
-        before["version"],
-        merchant="Ferretería La Esquina",
-        amount="3400.00",
-        account_id=account,
-        category_id="housing",
+    assert before["error_code"] == "unreadable_document"
+    refused = alice.client.patch(
+        f"{BASE}/receipts/{receipt_id}/review",
+        json={"version": before["version"], "fields": {"merchant": "Colmado"}},
+        headers=alice.auth,
     )
-    assert reviewed.status_code == 200, reviewed.text
-    after = reviewed.json()
-    assert {
-        key: after[key]
-        for key in (
-            "merchant",
-            "amount",
-            "account_id",
-            "category_id",
-            "missing_fields",
-            "evidence",
-        )
-    } == {
-        "merchant": "Ferretería La Esquina",
-        "amount": "3400",
-        "account_id": account,
-        "category_id": "housing",
-        "missing_fields": [],
-        "evidence": EVIDENCE,
-    }
-    assert after["version"] == before["version"] + 1
-    stale = alice.review(receipt_id, before["version"], merchant="Otra")
-    assert (stale.status_code, stale.json()["code"]) == (409, "stale_version")
-    cleared = alice.review(receipt_id, after["version"], merchant=None).json()
-    assert cleared["merchant"] == "FERRETERIA LA ESQUINA SRL"
+    assert refused.status_code == 404
+    assert alice.detail(receipt_id) == before
 
 
 def test_confirm_refuses_missing_fields_and_currency_mismatch(alice: Owner) -> None:
@@ -519,11 +505,11 @@ def test_confirm_refuses_missing_fields_and_currency_mismatch(alice: Owner) -> N
     missing = alice.confirm(receipt_id, version, "c-1")
     assert (missing.status_code, missing.json()["code"]) == (422, "missing_fields")
     usd = alice.account("USD", "Card")
-    version = alice.review(receipt_id, version, account_id=usd).json()["version"]
+    version = alice.resolve_receipt(receipt_id, version, account_id=usd).json()["version"]
     mismatch = alice.confirm(receipt_id, version, "c-2")
     assert (mismatch.status_code, mismatch.json()["code"]) == (422, "currency_mismatch")
     dop = alice.account("DOP")
-    version = alice.review(receipt_id, version, account_id=dop, amount="10.001").json()[
+    version = alice.resolve_receipt(receipt_id, version, account_id=dop, amount="10.001").json()[
         "version"
     ]
     precision = alice.confirm(receipt_id, version, "c-3")
@@ -536,7 +522,7 @@ def test_confirm_refuses_missing_fields_and_currency_mismatch(alice: Owner) -> N
 def test_confirm_saves_one_expense_across_replays(alice: Owner) -> None:
     receipt_id = prepared(alice)
     account = alice.account()
-    version = alice.review(
+    version = alice.resolve_receipt(
         receipt_id,
         alice.detail(receipt_id)["version"],
         account_id=account,
@@ -669,7 +655,7 @@ def test_updates_follow_receipt_states(alice: Owner) -> None:
     assert [
         (u["kind"], u["receipt_id"]) for u in alice.get("/updates").json()["items"]
     ] == [("receipt_ready", receipt_id)]
-    version = alice.review(
+    version = alice.resolve_receipt(
         receipt_id, alice.detail(receipt_id)["version"], account_id=account
     )
     expense_id = alice.confirm(receipt_id, version.json()["version"], "k").json()[
@@ -715,7 +701,7 @@ def test_source_returns_only_rebuilt_bytes_to_the_owner(alice: Owner, bob: Owner
     assert unavailable.json()["code"] == "document_storage_unavailable"
 
     account = alice.account()
-    version = alice.review(
+    version = alice.resolve_receipt(
         receipt_id, alice.detail(receipt_id)["version"], account_id=account
     )
     expense_id = alice.confirm(receipt_id, version.json()["version"], "k").json()[
@@ -724,7 +710,7 @@ def test_source_returns_only_rebuilt_bytes_to_the_owner(alice: Owner, bob: Owner
     calls = [
         bob.get(f"/receipts/{receipt_id}"),
         bob.get(f"/receipts/{receipt_id}/source"),
-        bob.review(receipt_id, 1, merchant="mine"),
+        bob.post(f"/receipts/{receipt_id}/read", {"completion_cursor": "0" * 64}),
         bob.confirm(receipt_id, 1, "bob"),
         bob.post(f"/receipts/{receipt_id}/prepare", **{"X-Extraction-Consent": "true"}),
     ]

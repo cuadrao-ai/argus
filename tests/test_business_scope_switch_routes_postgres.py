@@ -541,10 +541,10 @@ def test_revoked_and_expired_memberships_stop_routes_while_inviter_loss_does_not
             )
             assert _code(answer) == (403, "business_grant_not_live"), (path, answer.text)
         assert _code(
-            client.patch(
-                f"{API}/business/receipts/{receipt}/review",
-                json={"version": 1, "fields": {}},
-                headers=_as(bob, grant),
+            client.post(
+                f"{API}/business/receipts/{receipt}/confirm",
+                json={"version": 1},
+                headers={**_as(bob, grant), "Idempotency-Key": str(uuid4())},
             )
         ) == (403, "business_grant_not_live")
 

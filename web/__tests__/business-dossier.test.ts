@@ -75,7 +75,8 @@ test("grant-scoped receipt and draft calls never create the current person's Bus
   const record = await source.dossier(dossierFixtureIds.ready);
   const receipt = await source.receipt("rcpt-ferreteria");
   await source.receiptSource(receipt.id);
-  const reviewed = await source.saveReview(receipt.id, receipt.version, { account_id: receipt.record_context!.accounts[0].id });
+  const receiptDraft = await source.dossier(receipt.draft_id!);
+  const reviewed = await source.reviewDraft(receiptDraft.draft_id, receiptDraft.version, { funding: { state: "known", value: { kind: "business_account", account_id: receipt.record_context!.accounts[0].id } } }, "scope-review");
   assert.ok(reviewed.draft_id);
   await source.dossier(reviewed.draft_id);
   assert.equal(starts, 0);

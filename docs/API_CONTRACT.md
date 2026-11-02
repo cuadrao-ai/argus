@@ -10881,29 +10881,6 @@ accept path recorded.
   queued. A receipt entered by hand is 409
   `document_entered_by_owner`, here and on `/financial-documents`. It queues preparation through the
   #823 job dispatch when jobs are on, and through a background task otherwise.
-- PATCH `/api/v1/business/receipts/{id}/review` takes `{version, fields}`. Each
-  field maps onto the import's resolution. `merchant` is the recorded note, and
-  `null` falls back to the evidence merchant. A stale `version` is 409
-  `stale_version`. A receipt nobody has read, saved without consent or after
-  preparation failed, is entered by hand from `version: 0`. The document
-  records one purchase observation, marked entered by the owner and with
-  nothing read, through the same intake as extracted candidates. The fields
-  become its resolution, its `evidence` stays null, and no model is called.
-  Unknown fields stay unknown until the owner supplies them. Confirm then uses
-  the same accept path, and `receipt_ids` links the expense to the receipt.
-  A receipt that was read but has no single purchase (`no_purchase_found`,
-  `several_purchases_found`, `receipt_purchase_ambiguous`) is entered by hand
-  the same way. The read stays stored and its `evidence` stays visible. The
-  owner's one purchase is delivered beside the read, then every open purchase
-  the read created is dismissed and kept as history, so only the owner's can
-  become the expense. A document read as several rows that are not a receipt,
-  such as a photographed statement, counts as no purchase: entering its one
-  expense dismisses all of those rows, each kept as history. Each later review
-  and confirm repeats that dismissal, so
-  an interrupted entry finishes. A replay, a second tab or a restart enters one
-  purchase and confirm records one expense. An account outside the Business
-  space, Personal or another person's, is 404 `financial_account_not_found`,
-  as on POST `/expenses`, and is refused before anything is entered.
 - POST `/api/v1/business/receipts/{id}/confirm` (`Idempotency-Key` required)
   takes `{version}` and records the receipt as one expense through the import
   accept path. Confirm changes nothing before it claims the import. A

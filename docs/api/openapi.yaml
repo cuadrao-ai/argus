@@ -5595,62 +5595,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v1/business/receipts/{receipt_id}/review:
-    patch:
-      tags:
-      - financial-accounts
-      - business
-      description: A receipt nobody has read is entered by hand here, from version 0.
-      parameters:
-      - name: receipt_id
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: X-Business-Grant
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for
-            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
-            a live grant on a closed Business answers 403 business_closed.
-        description: The caller's own live grant on the Business to work in; absent for the
-          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
-          a live grant on a closed Business answers 403 business_closed.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ReceiptReviewBody'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ReceiptDetail'
-        '403':
-          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
-            missing, someone else''s, revoked or expired; `business_permission_denied`: the
-            live grant does not allow this.'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   /api/v1/business/receipts/{receipt_id}/source:
     get:
       tags:
@@ -30216,30 +30160,6 @@ components:
       required:
       - enabled
       - scope_version
-    ReceiptReviewBody:
-      properties:
-        version:
-          type: integer
-          minimum: 0.0
-        fields:
-          additionalProperties:
-            anyOf:
-            - type: string
-            - type: 'null'
-          propertyNames:
-            enum:
-            - merchant
-            - occurred_on
-            - amount
-            - currency
-            - category_id
-            - account_id
-          type: object
-      additionalProperties: false
-      type: object
-      required:
-      - version
-      - fields
     ReceiptRuleCondition:
       properties:
         left:
