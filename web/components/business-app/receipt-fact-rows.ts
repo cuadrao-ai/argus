@@ -1,4 +1,4 @@
-import type { BusinessDossier, BusinessFact, BusinessFactField, BusinessFacts, BusinessFiscalField, BusinessFactPatch } from "@/lib/business-dossier";
+import type { BusinessDossier, BusinessFact, BusinessFactField, BusinessFacts, BusinessFiscalField } from "@/lib/business-dossier";
 
 /**
  * How a fact stands, from its backend state and origin alone. A person reads
@@ -69,13 +69,32 @@ export function factRows<K extends BusinessFactField | BusinessFiscalField>(
     .map(({ key, standing, blocked: isBlocked, asked: isAsked }) => ({ key, standing, blocked: isBlocked, asked: isAsked }));
 }
 
+/** The read values the server doubts: a review flag names them, or the e-CF file says otherwise. */
+export function doubtfulFields(dossier: Pick<BusinessDossier, "review_flags" | "ecf_checks">): Set<string> {
+  const read = dossier.ecf_checks?.checks.find((check) => check.name === "read_matches_xml" && check.state === "failed");
+  return new Set([...(dossier.review_flags ?? []).map((flag) => flag.field), ...Object.keys(read?.detail ?? {}).map((field) => field === "total" ? "amount" : field)]);
+}
+
+/** The server's two figures when the e-CF's parts do not add up to its total. The web never adds them itself. */
+export function totalMismatch(dossier: Pick<BusinessDossier, "ecf_checks">): { sum: string; total: string } | null {
+  const check = dossier.ecf_checks?.checks.find((item) => item.name === "totals_arithmetic" && item.state === "failed" && item.code === "totals_mismatch");
+  return check?.detail.sum_of_parts && check.detail.monto_total ? { sum: check.detail.sum_of_parts, total: check.detail.monto_total } : null;
+}
+
 export const RECORD_FIELDS: readonly BusinessFactField[] = ["kind", "counterparty", "occurred_on", "amount", "currency", "category_id", "funding", "business_share", "receipt_state"];
 
 /** Where the form shows each field: the activity section, the fiscal section (which opens with the receipt state), then how it was paid. */
 export const KIND_FIELDS: readonly BusinessFactField[] = ["occurred_on", "amount", "currency", "counterparty", "category_id", "kind"];
 export const PAYMENT_FIELDS: readonly BusinessFactField[] = ["funding", "business_share"];
-/** Every record field in the form's reading order. */
-export const FORM_FIELDS: readonly BusinessFactField[] = [...KIND_FIELDS, "receipt_state", ...PAYMENT_FIELDS];
+/** The fiscal rows of an open draft: the NCF and the e-CF are one number there. */
+export type FiscalRow = "rnc" | "fiscal_number" | "itbis";
+/** The rows a person edits in place on an open draft. `amount` holds the total and its currency. */
+export type ReviewRow = BusinessFactField | FiscalRow | "document_type";
+export type DocumentType = NonNullable<BusinessDossier["document_type"]>;
+/** Compra then Venta, each by its intake word. */
+export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = { recibo: "business.intake.type_recibo", venta: "business.intake.type_venta" };
+/** The six read facts, in the order they are read off a receipt. */
+export const READ_FACT_ROWS: readonly ReviewRow[] = ["counterparty", "occurred_on", "amount", "rnc", "fiscal_number", "itbis"];
 
 export function recordFactRows(dossier: Pick<BusinessDossier, "facts" | "blockers" | "questions">): FactRow<BusinessFactField>[] {
   return factRows(RECORD_FIELDS, (key) => dossier.facts[key], blockedFields(dossier), askedFields(dossier))
@@ -86,12 +105,4 @@ export function fiscalFactRows(facts: BusinessFacts): FactRow<BusinessFiscalFiel
   const fiscal = facts.fiscal;
   if (!fiscal) return [];
   return factRows(["rnc", "ncf", "ecf", "itbis"] as const, (key) => fiscal[key]);
-}
-
-export function extractedConfirmationPatch(dossier: Pick<BusinessDossier, "facts" | "blockers" | "questions">, edits: BusinessFactPatch): BusinessFactPatch {
-  return Object.fromEntries(recordFactRows(dossier).flatMap(({ key, standing, blocked, asked }) => {
-    const fact = dossier.facts[key];
-    return standing === "suggestion" && !blocked && !asked && !Object.hasOwn(edits, key) && fact.state === "known"
-      ? [[key, { state: "known", value: fact.value }]] : [];
-  })) as BusinessFactPatch;
 }

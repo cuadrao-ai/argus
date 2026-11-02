@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
+import { reviewAction } from "./support/business-receipt-fixture";
 
 test("production approve-next keeps the next receipt title focused", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -35,10 +36,10 @@ test("production approve-next keeps the next receipt title focused", async ({ pa
     }
   });
   await page.goto("/biz?view=inbox");
-  await page.getByTestId("business-inbox-receipts").getByRole("button", { name: /Ferretería La Esquina/ }).click();
+  await reviewAction(page, /Ferretería La Esquina/).click();
   await page.getByLabel("Pagado desde").selectOption({ index: 1 });
   await page.getByRole("button", { name: "Guardar detalles de revisión", exact: true }).click();
-  await page.getByRole("button", { name: "Aprobar y siguiente", exact: true }).click();
+  await page.getByRole("button", { name: /^Aprobar y siguiente/ }).click();
   await expect(page).toHaveURL(/receipt=rcpt-papeleria/);
   await expect(page.getByRole("heading", { name: "Papelería Central", level: 2 })).toBeFocused();
 });

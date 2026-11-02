@@ -137,10 +137,8 @@ test("Corregir closes the step, approves nothing and puts the cursor on the RNC 
     await page.tap(flagCopy.fix, page.step()!);
     assert.equal(page.step(), null);
     assert.equal(approvals.length, 0);
-    const editor = page.host.querySelector<HTMLDetailsElement>('[data-testid="fiscal-declaration"]');
-    assert.equal(editor?.open, true, "the tax details open");
-    const rnc = editor.querySelector<HTMLInputElement>('input[name="rnc"]');
-    assert.equal(document.activeElement, rnc);
+    const rnc = page.host.querySelector<HTMLInputElement>('[data-testid="edit-rnc"] input');
+    assert.equal(document.activeElement, rnc, "the RNC's own row opens");
     assert.equal(rnc?.value, READ_VALUES.rnc.flagged);
   } finally {
     await page.close();
@@ -210,7 +208,7 @@ test("a refusal naming flags the read did not carry opens the step from its cont
   }
 });
 
-test("Corregir after such a refusal opens the tax details, since the read names no field", async () => {
+test("Corregir after such a refusal opens the row the refusal's code is about", async () => {
   const dossier = await flaggedReceipt(["ncf_malformed"], accounts);
   delete dossier.review_flags;
   const approvals = serve(dossier, refusal("approval_confirmation_required", { flags: ["ncf_malformed"] }));
@@ -218,9 +216,7 @@ test("Corregir after such a refusal opens the tax details, since the read names 
   try {
     await page.approve();
     await page.tap(flagCopy.fix, page.step()!);
-    const editor = page.host.querySelector<HTMLDetailsElement>('[data-testid="fiscal-declaration"]');
-    assert.equal(editor?.open, true);
-    assert.equal(document.activeElement, editor.querySelector("summary"));
+    assert.equal(document.activeElement, page.host.querySelector('[data-testid="edit-fiscal_number"] input'));
     assert.equal(approvals.length, 1);
   } finally {
     await page.close();

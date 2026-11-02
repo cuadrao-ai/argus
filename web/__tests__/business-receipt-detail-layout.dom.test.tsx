@@ -154,27 +154,26 @@ describe("the footer", () => {
     await page.close();
   });
 
-  test("a missing date disables Aprobar with Agrega la fecha para aprobar beside it", async () => {
+  test("a missing date disables Aprobar, and the top box alone says why", async () => {
     const page = await mount({ change: noDate });
     assert.equal(page.button("Aprobar")?.disabled, true);
     assert.equal(page.button("Aprobar y siguiente")?.disabled, true);
-    const reason = page.footer()!.querySelector('[data-testid="approve-reason"]')!;
-    assert.equal(reason.textContent, "Agrega la fecha para aprobar");
-    assert.equal(page.button("Aprobar")?.getAttribute("aria-describedby"), reason.id, "the reason describes the disabled button");
-    assert.ok(page.host.querySelector('[data-fact="occurred_on"]')?.textContent?.includes("Agrega la fecha para aprobar"), "the empty date says the same beside the field");
+    assert.equal(page.footer()!.querySelector('[data-testid="approve-reason"]'), null, "the footer repeats nothing");
+    assert.ok(page.host.querySelector('[data-testid="dossier-attention"]')?.textContent?.includes("Fecha de actividad"));
+    assert.equal(page.button("Aprobar")?.getAttribute("aria-describedby"), "dossier-attention-title", "the box describes the disabled button");
+    assert.equal(page.host.querySelector('[data-fact="occurred_on"]')?.textContent?.includes("Agrega la fecha para aprobar"), false, "nor does the row");
     await page.close();
   });
 
-  test("any other blocker keeps today's reason, and a record with no blocker still says why", async () => {
-    for (const [blockers, reason] of [
-      [[{ code: "unknown_funding", field: "funding" }], "Confirma cómo se pagó."],
-      [[], "Este registro necesita más revisión antes de aprobarse."],
-    ] as const) {
-      const page = await mount({ change: (dossier) => { dossier.blockers = [...blockers]; dossier.approval_available = false; } });
-      assert.equal(page.button("Aprobar")?.disabled, true);
-      assert.equal(page.footer()!.querySelector('[data-testid="approve-reason"]')?.textContent, reason);
-      await page.close();
-    }
+  test("a blocker is the top box's to say; a hold with no blocker has no box, so the footer says why", async () => {
+    const blocked = await mount({ change: (dossier) => { dossier.blockers = [{ code: "unknown_funding", field: "funding" }]; dossier.approval_available = false; } });
+    assert.equal(blocked.button("Aprobar")?.disabled, true);
+    assert.ok(blocked.host.querySelector('[data-testid="dossier-attention"]')?.textContent?.includes("Confirma cómo se pagó."));
+    assert.equal(blocked.footer()!.querySelector('[data-testid="approve-reason"]'), null);
+    await blocked.close();
+    const held = await mount({ change: (dossier) => { dossier.blockers = []; dossier.approval_available = false; } });
+    assert.equal(held.footer()!.querySelector('[data-testid="approve-reason"]')?.textContent, "Este registro necesita más revisión antes de aprobarse.");
+    await held.close();
   });
 
   test("approving shows a spinner on Aprobar and a second press sends nothing", async () => {

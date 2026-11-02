@@ -116,8 +116,6 @@ describe("the electronic invoice verification card", () => {
     assert.equal(noRead[5].caption, "Código QR leído; no hay datos leídos del recibo para comparar");
     const missing = await rows({ ...BASE, checks: [{ name: "qr_present", state: "not_checked", code: "no_qr", detail: {} }] });
     assert.equal(missing[5].caption, "Sin código QR legible");
-    const instance = await i18n("es-419");
-    assert.equal(instance.t("business.dossier.origin.qr_decoded"), "Del código QR · sin verificar");
   });
 
   test("English follows the same words", async () => {

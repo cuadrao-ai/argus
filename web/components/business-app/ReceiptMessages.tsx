@@ -34,8 +34,7 @@ export default function ReceiptMessages({ sources, highlight = [] }: { sources: 
   const { t, i18n } = useTranslation();
   const messages = sources.filter((source): source is Extract<BusinessSourceEvidence, { text: string }> => source.kind === "message");
   const proposals = sources.filter((source): source is Extract<BusinessSourceEvidence, { text: string }> => source.kind === "agent_proposal");
-  const actions = sources.filter((source): source is Extract<BusinessSourceEvidence, { text: string }> => source.kind === "web_action");
-  if (!messages.length && !proposals.length && !actions.length) return null;
+  if (!messages.length && !proposals.length) return null;
   return (
     <div className="space-y-4">
     {messages.length ? <section className={SURFACE_CARD} aria-label={t("business.dossier.messages_title", { count: messages.length, defaultValue: "Original message" })} data-testid="receipt-messages">
@@ -55,18 +54,6 @@ export default function ReceiptMessages({ sources, highlight = [] }: { sources: 
         <p className="text-[12px] text-black/55 dark:text-white/55">{source.channel === "whatsapp" ? "WhatsApp" : t("business.dossier.web_message", "Web message")} · {formatTimestamp(source.received_at, i18n.resolvedLanguage ?? resolveLanguage({}))}</p>
         <blockquote className="mt-2 whitespace-pre-wrap break-words border-l-2 border-black/10 pl-3 text-[15px] leading-relaxed text-black/80 dark:border-white/15 dark:text-white/80">{source.text}</blockquote>
       </li>)}</ol>
-    </section> : null}
-    {actions.length ? <section className={SURFACE_CARD} aria-label={t("business.dossier.web_actions", "Web review actions")}>
-      <h3 className="text-[14px] font-medium text-black dark:text-white">{t("business.dossier.web_actions", "Web review actions")}</h3>
-      <ol className="mt-4 space-y-4">
-        {actions.map((source) => <li key={source.id}>
-          <p className="text-[12px] text-black/55 dark:text-white/55">{formatTimestamp(source.received_at, i18n.resolvedLanguage ?? resolveLanguage({}))}</p>
-          <details className="mt-2">
-            <summary className="min-h-11 cursor-pointer rounded-item text-[13px] text-black/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:text-white/70">{t("business.dossier.submitted_action", "Original submitted action")}</summary>
-            <pre className="mt-2 whitespace-pre-wrap break-words text-[12px] leading-relaxed text-black/65 dark:text-white/65">{source.text}</pre>
-          </details>
-        </li>)}
-      </ol>
     </section> : null}
     </div>
   );

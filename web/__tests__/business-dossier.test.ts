@@ -24,16 +24,16 @@ test("the attention strip leaves out a recorded dossier's blockers and keeps the
   const accepted = await fixture.approveDraft(ready.draft_id, ready.version);
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
-  const render = (dossier: BusinessDossier) => renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(DossierAttentionStrip, { items: dossierAttention(dossier, [], i18n.t.bind(i18n)) })));
+  const render = (dossier: BusinessDossier) => renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(DossierAttentionStrip, { items: dossierAttention(dossier, i18n.t.bind(i18n)) })));
   const closed = { ...accepted, blockers: [{ code: "business_draft_not_open", field: null }] };
   assert.equal(render(closed), "");
   const open = await fixture.dossier(dossierFixtureIds.unknown);
-  assert.match(render(open), /por revisar/);
+  assert.match(render(open), /Falta para aprobar/);
   assert.match(render(open), /Cómo se pagó/);
   const uncertain = { ...open, review_state: "accepting" as const, approval_result: { status: "outcome_unknown" as const, code: "recording_unknown", reviewed_version: open.version } };
-  assert.match(render(uncertain), /por revisar/);
-  assert.match(render({ ...closed, approval_result: uncertain.approval_result }), /por revisar/);
-  assert.match(render({ ...closed, review_state: "open" }), /por revisar/);
+  assert.match(render(uncertain), /Falta para aprobar/);
+  assert.match(render({ ...closed, approval_result: uncertain.approval_result }), /Falta para aprobar/);
+  assert.match(render({ ...closed, review_state: "open" }), /Falta para aprobar/);
 });
 
 test("canonical draft transport binds explicit ID, version, human effect and idempotency", async () => {

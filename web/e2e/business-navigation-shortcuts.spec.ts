@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { installBreakpointFixture } from "./support/breakpoint-fixture";
+import { reviewAction } from "./support/business-receipt-fixture";
 import { dossierFixtureIds } from "../components/business-app/dossier-fixtures";
 async function setup(page: Page, width = 1280, language: "en" | "es-419" = "es-419") {
   await page.setViewportSize({ width, height: 900 });
@@ -20,7 +21,7 @@ test("desktop navigation, searchable platform sheet, strict input and overlay bl
   await setup(page);
   await page.goto("/dev/business-preview?chat=off");
   await expect(page.getByTestId("business-sidebar-nav")).toBeVisible();
-  await expect(page.getByTestId("business-sidebar-nav").getByRole("button")).toHaveCount(3);
+  await expect(page.getByTestId("business-sidebar-nav").getByRole("button")).toHaveCount(5);
   await expect(page.getByRole("button", { name: "Recientes", exact: true })).toHaveCount(0);
   await expect(page.locator("#business-overview-title")).toBeVisible();
   await expect(page.getByTestId("month-close-cards")).toBeVisible();
@@ -35,7 +36,7 @@ test("desktop navigation, searchable platform sheet, strict input and overlay bl
   await sheet.getByRole("searchbox").fill("Aprobar");
   await expect(sheet.locator("[data-workspace-shortcut]")).toHaveCount(2);
   await sheet.getByRole("searchbox").fill("Enter");
-  await expect(sheet.locator("[data-workspace-shortcut]")).toHaveCount(1);
+  await expect(sheet.locator("[data-workspace-shortcut]")).toHaveCount(2);
   await chord(page, "Shift+KeyS");
   await expect(sheet).toBeVisible();
   await chord(page, "KeyK");
@@ -60,8 +61,8 @@ test("desktop navigation, searchable platform sheet, strict input and overlay bl
   await expect(page).toHaveURL(/view=transactions/);
   await page.keyboard.press("Escape");
   await chord(page, "Shift+Backslash");
-  await page.getByTestId("business-sidebar-nav").getByRole("button", { name: "Transacciones", exact: true }).focus();
-  await expect(page.getByRole("tooltip", { name: /^Transacciones ·/ })).toBeVisible();
+  await page.getByTestId("business-sidebar-nav").getByRole("button", { name: "Registros", exact: true }).focus();
+  await expect(page.getByRole("tooltip", { name: /^Registros ·/ })).toBeVisible();
   await screenshot(page, "after-collapsed-focus-1280");
   await page.keyboard.press("?");
   await expect(sheet).toHaveCount(0);
@@ -71,17 +72,15 @@ test("phone tabs have 44px targets and the approval footer stays above them", as
   await page.goto("/dev/business-preview?chat=off&receipt=rcpt-ferreteria");
   await page.getByLabel("Pagado desde").selectOption({ index: 1 });
   await page.getByRole("button", { name: "Guardar detalles de revisión", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Aprobar y siguiente", exact: true })).toBeEnabled();
-  const original = page.getByTestId("receipt-original-source");
-  await original.getByRole("button", { name: "Recibo original", exact: true }).click();
-  await expect(original.getByRole("img", { name: "Recibo original", exact: true })).toBeVisible();
-  await expect(page.getByTestId("receipt-current-facts")).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Aprobar y siguiente/ })).toBeEnabled();
+  const views = page.getByTestId("receipt-review-tabs");
+  await views.getByText("Original", { exact: true }).click();
+  await expect(page.getByTestId("receipt-review-source")).toBeVisible();
   await expect(page.getByText("Mi negocio", { exact: true }).first()).toBeVisible();
   const tabs = page.getByTestId("business-bottom-tabs");
   await expect(tabs).toBeVisible();
   const footer = page.getByTestId("receipt-review-footer");
   await expect(footer).toBeVisible();
-  await original.scrollIntoViewIfNeeded();
   const tabBox = (await tabs.boundingBox())!;
   const footerBox = (await footer.boundingBox())!;
   expect(footerBox.y + footerBox.height).toBeLessThanOrEqual(tabBox.y + 1);
@@ -91,6 +90,7 @@ test("phone tabs have 44px targets and the approval footer stays above them", as
     expect(box.height).toBeGreaterThanOrEqual(44);
   }
   await screenshot(page, "after-review-390");
+  await views.getByText("Formulario", { exact: true }).click();
   await page.getByTestId("receipt-current-facts").scrollIntoViewIfNeeded();
   const fieldsFooterBox = (await footer.boundingBox())!;
   expect(fieldsFooterBox.y + fieldsFooterBox.height).toBeLessThanOrEqual(tabBox.y + 1);
@@ -111,8 +111,6 @@ test("review keys approve through existing revision action; edit keys focus fiel
   await expect(page.getByRole("button", { name: "Aprobar", exact: true })).toBeVisible();
   await page.locator("#receipt-review-title").focus();
   await chord(page, "Shift+Enter");
-  // A receipt without an RNC asks once before it is approved.
-  await page.getByRole("alertdialog").getByRole("button", { name: "Aprobar", exact: true }).click();
   await expect(page.getByText(/Se registró un gasto/)).toBeVisible();
   await page.goto(`/dev/business-preview?chat=off&draft=${dossierFixtureIds.readOnly}`);
   await expect(page.getByTestId("receipt-current-facts")).toBeVisible();
@@ -124,19 +122,19 @@ test("review keys approve through existing revision action; edit keys focus fiel
 test("previous/next preserve inbox order and approve-next records before moving", async ({ page }) => {
   await setup(page);
   await page.goto("/dev/business-preview?chat=off&view=inbox");
-  await page.getByTestId("business-inbox-receipts").getByRole("button", { name: /Ferretería La Esquina/ }).click();
+  await reviewAction(page, /Ferretería La Esquina/).click();
   await expect(page.getByLabel("Pagado desde")).toBeVisible();
   await page.locator("#receipt-review-title").focus();
   await chord(page, "Shift+ArrowDown");
   await expect(page).toHaveURL(/receipt=rcpt-papeleria/);
-  await page.locator("#receipt-review-title").focus();
+  await expect(page.getByRole("heading", { name: "Papelería Central", level: 2 })).toBeFocused();
   await chord(page, "Shift+ArrowUp");
   await expect(page).toHaveURL(/receipt=rcpt-ferreteria/);
   await page.getByLabel("Pagado desde").selectOption({ index: 1 });
   await page.getByRole("button", { name: "Guardar detalles de revisión", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Aprobar y siguiente", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: /^Aprobar y siguiente/ })).toBeEnabled();
   await page.locator("#receipt-review-title").focus();
-  await chord(page, "Shift+KeyS");
+  await chord(page, "Enter");
   await expect(page).toHaveURL(/receipt=rcpt-papeleria/);
   await expect(page.getByRole("heading", { name: "Papelería Central", level: 2 })).toBeFocused();
 });
@@ -183,7 +181,7 @@ test("English Business uses existing labels without chat-only actions", async ({
   await expect(sheet).toBeVisible();
   await expect(sheet).not.toContainText("Recents");
   await expect(sheet).not.toContainText("Argus");
-  await expect(sheet.locator('[data-workspace-shortcut="sidebar"]')).toContainText("Sidebar");
+  await expect(sheet.locator('[data-workspace-shortcut="sidebar"]')).toContainText("sidebar");
   await sheet.getByRole("searchbox").fill("Approve");
   await expect(sheet.locator("[data-workspace-shortcut]")).toHaveCount(2);
 });
