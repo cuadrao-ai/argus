@@ -39,7 +39,7 @@ type Options = {
   serve?: (dossier: Dossier) => void;
   reviewPurchase?: BusinessDataSource["reviewPurchase"];
 };
-const NO_RECEIPT = "Las correcciones después del registro no están disponibles en este primer flujo.";
+const CORRECTIONS_LINE = "Las correcciones después del registro no están disponibles en este primer flujo.";
 
 async function mount({ width = 1280, record = "fiscal", serve = () => undefined, reviewPurchase }: Options = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
@@ -121,6 +121,7 @@ async function mount({ width = 1280, record = "fiscal", serve = () => undefined,
     throw new Error(`timed out waiting for ${what}: ${document.body.textContent?.slice(0, 400)}`);
   };
   const facts = () => document.querySelector<HTMLElement>('[data-testid="receipt-current-facts"]');
+  const section = () => document.querySelector<HTMLElement>('[data-testid="receipt-facts-choices"]');
   const choice = (name: "category" | "payment_method") => document.querySelector<HTMLSelectElement>(`[data-fact="${name}"] select`);
   const chip = () => document.querySelector(`[data-record-key="${row.row_id}"] [data-record-workflow]`)?.textContent ?? null;
   const pick = async (name: "category" | "payment_method", value: string) => {
@@ -133,18 +134,18 @@ async function mount({ width = 1280, record = "fiscal", serve = () => undefined,
   };
   const queries = () => report.calls.filter((call) => call.path.endsWith("/reports/query")).length;
   await act(async () => api!.openPanel({ kind: "transactions" }));
+  const fieldsLoaded = () => !section() || Boolean(section()!.querySelector("option")) || !section()!.querySelector("select");
   const openRecord = async () => {
     await wait(() => chip() !== null, "the recorded row");
     await act(async () => document.querySelector<HTMLElement>(`[data-record-key="${row.row_id}"]`)!.click());
     await wait(() => facts() !== null, "the record's dossier");
-    await wait(() => !document.querySelector('[data-testid="receipt-facts-choices"]') || Boolean(document.querySelector('[data-fact="category"] option, [data-fact="category"] dd span')), "the tax fields");
+    await wait(fieldsLoaded, "the tax fields");
   };
   const openDirectly = async () => {
     await act(async () => api!.openPanel({ kind: "draft", draftId, list: "transactions" }));
     await wait(() => facts() !== null, "the record's dossier");
-    await wait(() => !document.querySelector('[data-testid="receipt-facts-choices"]') || Boolean(document.querySelector('[data-fact="category"] option, [data-fact="category"] dd span')), "the tax fields");
+    await wait(fieldsLoaded, "the tax fields");
   };
-  const section = () => document.querySelector<HTMLElement>('[data-testid="receipt-facts-choices"]');
   return { act, wait, writes, chip, choice, pick, facts, queries, section, openRecord, openDirectly };
 }
 
@@ -161,7 +162,7 @@ describe("a recorded purchase with 606 data still missing", () => {
     assert.equal(page.choice("category")?.querySelectorAll("option").length, 12, "the same 11 types and Elegir as before approval");
     assert.equal(page.choice("payment_method")?.querySelectorAll("option").length, 8, "the same 7 forms and Elegir as before approval");
     assert.equal(page.facts()?.querySelector('[data-fact="amount"] button'), null, "the recorded facts stay locked");
-    assert.equal(document.body.textContent?.includes(NO_RECEIPT), false, "the screen does not deny what it offers");
+    assert.equal(document.body.textContent?.includes(CORRECTIONS_LINE), false, "the screen does not deny what it offers");
 
     const dossier = page.facts();
     const list = document.querySelector("[data-report-connected]");
@@ -190,7 +191,7 @@ describe("a recorded purchase with 606 data still missing", () => {
   test("a save refused because an export froze the line locks the fields from the current record", async () => {
     let frozen = false;
     const page = await mount({
-      serve: (dossier) => { if (frozen) dossier.declaration_editable = false; },
+      serve: (dossier) => { Object.assign(dossier, { dgii: { form: "606", category: "02", payment_method: "01" } }); if (frozen) dossier.declaration_editable = false; },
       reviewPurchase: async () => {
         frozen = true;
         throw Object.assign(new Error("refused"), { status: 422, code: "fiscal_declaration_exported", requestId: "req-frozen-606" });
@@ -198,10 +199,10 @@ describe("a recorded purchase with 606 data still missing", () => {
     });
     await page.openDirectly();
     assert.equal(page.choice("category")?.disabled, false);
-    await page.pick("category", "02");
+    await page.pick("category", "05");
     await page.wait(() => page.choice("category")?.disabled === true, "the locked field");
     assert.equal(page.choice("payment_method")?.disabled, true);
-    assert.equal(page.choice("category")?.value, "", "the field shows what the record holds");
+    assert.equal(page.choice("category")?.value, "02", "the field shows what the record holds");
     assert.ok(document.querySelector('[data-fact="category"] [data-testid="row-save-failed"]')?.textContent?.includes("Ref."), "the refusal keeps its reference");
   });
 });
@@ -215,7 +216,7 @@ describe("a recorded purchase that cannot take a change", () => {
     assert.equal(page.choice("category")?.value, "02");
     assert.equal(page.choice("category")?.disabled, true);
     assert.equal(page.choice("payment_method")?.disabled, true);
-    assert.equal(document.body.textContent?.includes(NO_RECEIPT), true);
+    assert.equal(document.body.textContent?.includes(CORRECTIONS_LINE), true);
     assert.equal(document.querySelector('[data-testid="expense-type-suggestion"]'), null);
   });
 
@@ -224,8 +225,8 @@ describe("a recorded purchase that cannot take a change", () => {
     await page.openDirectly();
     const section = page.section();
     assert.ok(section);
+    await page.wait(() => /Gastos por trabajos, suministros y servicios/.test(section.querySelector('[data-fact="category"]')?.textContent ?? ""), "the type's label");
     assert.equal(section.querySelector("select, button, input"), null);
-    assert.match(section.querySelector('[data-fact="category"]')?.textContent ?? "", /Gastos por trabajos, suministros y servicios/);
     assert.match(section.querySelector('[data-fact="payment_method"]')?.textContent ?? "", /Forma de pago\s*-/);
   });
 
