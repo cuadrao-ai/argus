@@ -35,13 +35,12 @@ type Dossier = Awaited<ReturnType<BusinessDataSource["dossier"]>>;
 type Options = {
   width?: number;
   record?: "fiscal" | "income";
-  /** What the server would answer on this dossier: frozen, read-only, and so on. */
+  /** What the server would answer on this dossier: read-only, and so on. */
   serve?: (dossier: Dossier) => void;
-  reviewPurchase?: BusinessDataSource["reviewPurchase"];
 };
 const CORRECTIONS_LINE = "Las correcciones después del registro no están disponibles en este primer flujo.";
 
-async function mount({ width = 1280, record = "fiscal", serve = () => undefined, reviewPurchase }: Options = {}) {
+async function mount({ width = 1280, record = "fiscal", serve = () => undefined }: Options = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
@@ -80,12 +79,12 @@ async function mount({ width = 1280, record = "fiscal", serve = () => undefined,
     ...fixture,
     mode: "live" as const,
     dossier: (id: string) => served(fixture.dossier(id)),
-    reviewPurchase: reviewPurchase ?? (async (id: string, version: number, purchase: PurchaseChoice, key: string) => {
+    reviewPurchase: async (id: string, version: number, purchase: PurchaseChoice, key: string) => {
       writes.push({ version, purchase });
       const next = await served(fixture.reviewPurchase(id, version, purchase, key));
       verdict(next);
       return next;
-    }),
+    },
   };
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -187,38 +186,10 @@ describe("a recorded purchase with 606 data still missing", () => {
     await page.wait(() => page.writes.length === 1, "the save");
     assert.deepEqual(page.writes[0].purchase, { category: "02" });
   });
-
-  test("a save refused because an export froze the line locks the fields from the current record", async () => {
-    let frozen = false;
-    const page = await mount({
-      serve: (dossier) => { Object.assign(dossier, { dgii: { form: "606", category: "02", payment_method: "01" } }); if (frozen) dossier.declaration_editable = false; },
-      reviewPurchase: async () => {
-        frozen = true;
-        throw Object.assign(new Error("refused"), { status: 422, code: "fiscal_declaration_exported", requestId: "req-frozen-606" });
-      },
-    });
-    await page.openDirectly();
-    assert.equal(page.choice("category")?.disabled, false);
-    await page.pick("category", "05");
-    await page.wait(() => page.choice("category")?.disabled === true, "the locked field");
-    assert.equal(page.choice("payment_method")?.disabled, true);
-    assert.equal(page.choice("category")?.value, "02", "the field shows what the record holds");
-    assert.ok(document.querySelector('[data-fact="category"] [data-testid="row-save-failed"]')?.textContent?.includes("Ref."), "the refusal keeps its reference");
-  });
 });
 
 describe("a recorded purchase that cannot take a change", () => {
   const held = (dossier: Dossier) => Object.assign(dossier, { dgii: { form: "606", category: "02", payment_method: null } });
-
-  test("after an export the choices read as locked with their values", async () => {
-    const page = await mount({ serve: (dossier) => { held(dossier); dossier.declaration_editable = false; } });
-    await page.openDirectly();
-    assert.equal(page.choice("category")?.value, "02");
-    assert.equal(page.choice("category")?.disabled, true);
-    assert.equal(page.choice("payment_method")?.disabled, true);
-    assert.equal(document.body.textContent?.includes(CORRECTIONS_LINE), true);
-    assert.equal(document.querySelector('[data-testid="expense-type-suggestion"]'), null);
-  });
 
   test("someone who cannot edit reads the values with no control", async () => {
     const page = await mount({ serve: (dossier) => { held(dossier); dossier.declaration_editable = false; dossier.capabilities = ["read"]; } });
@@ -228,12 +199,14 @@ describe("a recorded purchase that cannot take a change", () => {
     await page.wait(() => /Gastos por trabajos, suministros y servicios/.test(section.querySelector('[data-fact="category"]')?.textContent ?? ""), "the type's label");
     assert.equal(section.querySelector("select, button, input"), null);
     assert.match(section.querySelector('[data-fact="payment_method"]')?.textContent ?? "", /Forma de pago\s*-/);
+    assert.equal(document.body.textContent?.includes(CORRECTIONS_LINE), true);
   });
 
   test("an income and a record with no comprobante have no Para el 606", async () => {
     const income = await mount({ record: "income", serve: (dossier) => Object.assign(dossier, { review_state: "accepted", approval_result: { status: "recorded", activity_id: "70000000-0000-4000-8000-000000000009", reviewed_version: 2, approved_revision: 2, approved_at: "2026-10-10T14:40:00Z", actor: dossier.history[0].actor } }) });
     await income.openDirectly();
     assert.equal(income.section(), null);
+    assert.equal(document.body.textContent?.includes(CORRECTIONS_LINE), true);
     await cleanups.pop()!();
     document.body.innerHTML = "";
     const none = await mount({ serve: (dossier) => { dossier.sin_comprobante = true; dossier.declaration_editable = false; } });

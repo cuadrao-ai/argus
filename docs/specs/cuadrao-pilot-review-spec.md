@@ -64,7 +64,7 @@ Removed: Confirmar datos leídos, the Comprobante row, Consultar registro actual
 
 ## Approval and the 606
 
-Approval confirms that the read is right and that the record counts. It needs no 606 data, no account and no payment answer. Parte del negocio does not block. The server accepts 606 data after approval, until the record is exported. The RNC status and list date are saved on the record at approval.
+Approval confirms that the read is right and that the record counts. It needs no 606 data, no account and no payment answer. Parte del negocio does not block. The server accepts 606 data after approval, and an export freezes nothing: 606 data, the Personal mark and the 606 answer stay editable, and the next export carries the change. The founder accepts that the app and a filed TXT can differ (2026-11-02). The RNC status and list date are saved on the record at approval.
 
 Payment is a separate, optional step. An approved purchase or sale is pendiente until a person marks it paid or collected, with a method. No account is needed. Forma de pago stays blank until a person or the receipt sets it, and month close lists it as missing. Cuadrao never fills it with a default.
 

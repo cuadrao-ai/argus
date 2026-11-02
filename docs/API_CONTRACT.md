@@ -9329,8 +9329,7 @@ request reaches it.
 
 Post-recording corrections to the recorded facts are refused with
 `recorded_correction_unsupported`; the 606 declaration alone stays writable
-through the review route until the record's line is exported (see the review
-route). This slice defines no reversal or supersession policy.
+through the review route, before and after an export (see the review route). This slice defines no reversal or supersession policy.
 
 The seven Business tool action names remain `business_read_context`,
 `business_propose_activity`, `business_attach_source`,
@@ -9380,7 +9379,7 @@ discriminates on), and null while `approval_available` is false.
 declaration: the caller holds `prepare`, the record takes a 606 (an income,
 whether it holds a 607 or nothing, and a record with `sin_comprobante` true read
 false, and a 606 write on either answers 422 `fiscal_direction_unsupported`),
-and the draft is open, or approved and not yet carried by a downloaded DGII TXT.
+and the draft is open or approved. A downloaded DGII TXT changes nothing here.
 `payment_split_editable` is true on the same terms for a sale: an income with
 no 606 declaration. `expense_type_suggestion` is the tipo de gasto (`01` to
 `11`) a person last chose for this draft's supplier RNC in this Business, on
@@ -9497,13 +9496,14 @@ beside a letter (`ab-123`) and a letter that upper-cases to two (`ß`) are still
 a 422 `validation_error`. On an approved (`accepted`) draft the same route accepts a
 review that carries only `purchase` or only `payment_split`: it writes the declaration as one more
 revision with the same web source and action receipt, the recorded facts
-unchanged, until the record's line is carried by a downloaded DGII TXT, after
-which it answers 422 `fiscal_declaration_exported`. The export reads the
-declarations, builds the TXT and records the lines it carries under the
-Business's owner lock, the lock every review write takes, so a 606 write that
-runs at the same time either lands before the build, and the TXT carries it,
-or waits for the build and is refused with that code; the TXT never freezes a
-record on a value it does not carry. The declaration is `prepare`'s to write,
+unchanged. An export is not final: this route, `POST /business/drafts/{id}/personal`
+and `POST /business/drafts/{id}/fiscal-inclusion` stay open on a record a
+downloaded DGII TXT carries, the next export carries the change, and the app
+and a TXT already filed can differ. The export reads the declarations, builds
+the TXT and records the lines it carries under the Business's owner lock, the
+lock every review write takes, so a 606 write that runs at the same time either
+lands before the build, and the TXT carries it, or waits for the build, lands
+after it, and the next export carries it. The declaration is `prepare`'s to write,
 before and after approval: an accountant holding `prepare` adds 606 data on the
 owner's approved record, and the revision names the accountant; `approve`
 stays the owner's and is not needed for the declaration; a read-only grant is
@@ -9643,8 +9643,8 @@ manifest keeps blocking problems in `issues` and lists warn-only gaps in
 state never blocks approval or the export file. On an accepted record `dgii` is
 422 `recorded_correction_unsupported` and this operation never reposts money;
 `purchase` alone still writes the 606 declaration, and `payment_split` alone
-the 607 payment split, until the record's line is exported, as the review route
-above states.
+the 607 payment split, before and after an export, as the review route above
+states.
 The existing approval endpoint also accepts human `record_refund`, requiring an
 explicit actual refund linked to an original purchase. Other credit-note
 settlements remain unsupported. The owner alone approves income, expense or
