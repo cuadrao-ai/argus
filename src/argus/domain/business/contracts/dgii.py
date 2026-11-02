@@ -17,6 +17,8 @@ from pydantic import (
 )
 
 Money = Annotated[str, StringConstraints(pattern=r"^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$")]
+#: The first amount the Money shape cannot hold.
+MONEY_LIMIT = Decimal("1000000000")
 
 _ASCII_UPPER = str.maketrans(string.ascii_lowercase, string.ascii_uppercase)
 _PRINTED_SEPARATOR = re.compile(r"(?<=[0-9])[-\s]+(?=[0-9])")

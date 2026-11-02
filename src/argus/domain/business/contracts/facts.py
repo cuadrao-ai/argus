@@ -246,6 +246,9 @@ class BusinessResolution(Contract):
     )
     facts: BusinessFacts
     dgii: DgiiDeclaration | None = None
+    #: The server worked out the 606 services or goods amount from the Tipo de
+    #: gasto, so it follows the total. False once a person types one.
+    amount_derived: bool = Field(default=False, exclude_if=lambda value: value is False)
     #: Empty for a single clean read. Several entries mean the read showed
     #: several purchases; the facts above hold only what they all share.
     read_purchases: tuple[ReadPurchase, ...] = ()

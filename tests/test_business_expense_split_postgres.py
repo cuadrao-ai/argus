@@ -7,21 +7,27 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
-from argus.domain.business.contracts.actions import ReviewDraft
+from argus.domain.business.contracts.actions import (
+    CaptureNote,
+    ExistingDraft,
+    ReviewDraft,
+)
 from argus.domain.business.contracts.dgii import FiscalReview, PurchaseReview
 from argus.domain.business.contracts.facts import BusinessFactPatch
 from argus.domain.business.fiscal_profile import set_profile
 
 from tests import test_business_actions_postgres as shared
+from tests import test_business_attachment_preparation_postgres as reading
 from tests import test_business_declaration_after_approval_postgres as records
 from tests import test_business_dgii_postgres as dgii
 
 users = shared.users
 shared_actions = shared.actions
 actions = dgii.actions
+prepared = reading.prepared
 pytestmark = [shared.pytestmark, pytest.mark.owner_acts]
 FILER = "199990013"
 CONFLICT = ("fiscal_invoice_total_conflict", "amount")
@@ -191,12 +197,24 @@ CASES = {
         (step("pick", "09"), step("itbis", "700.00"), step("total", "800.00")),
         ("", "100.00", "700.00"),
     ),
+    "itbis_above_the_total_then_pick": Case(
+        (step("itbis", "700.00"), step("pick", "09"), step("total", "800.00")),
+        ("", "100.00", "700.00"),
+    ),
+    "itbis_left_above_the_total_stays_held": Case(
+        (step("pick", "09"), step("itbis", "700.00")),
+        None,
+        (("fiscal_billed_amount_must_be_positive", "billed_amount"), CONFLICT),
+    ),
     "tip_written_after_the_pick": Case(
         (step("pick", "02"), step("settled", legal_tip="30.00")),
         ("270.00", "", "0.00"),
     ),
     "mixed_split_a_person_typed_agrees": Case(
-        (step("typed", services_amount="100.00", goods_amount="200.00"), step("pick", "09")),
+        (
+            step("typed", services_amount="100.00", goods_amount="200.00"),
+            step("pick", "09"),
+        ),
         ("100.00", "200.00", "0.00"),
     ),
     "mixed_split_a_person_typed_stays": Case(
@@ -209,7 +227,11 @@ CASES = {
         (CONFLICT,),
     ),
     "a_typed_amount_the_rule_would_also_give_stays": Case(
-        (step("typed", goods_amount="300.00"), step("pick", "09"), step("total", "700.00")),
+        (
+            step("typed", goods_amount="300.00"),
+            step("pick", "09"),
+            step("total", "700.00"),
+        ),
         None,
         (CONFLICT,),
     ),
@@ -246,3 +268,143 @@ def test_the_606_line_after_each_order_of_edits(actions, name):  # noqa: ANN001
         if row is None
         else (row["services_amount"], row["goods_amount"], row["itbis"])
     ) == case.line
+
+
+def test_an_edit_on_an_approved_record_is_refused_and_the_line_stays(actions):  # noqa: ANN001
+    service, context, _ = actions
+    draft = drafted(service, context)
+    draft.pick("09")
+    draft.settled(payment_method="01")
+    view = records.approved(service, context, draft.id, draft.view.version)
+    assert draft.split == (None, "300.00")
+
+    refused = service.review(
+        context,
+        draft.id,
+        ReviewDraft(
+            version=view.version,
+            facts=BusinessFactPatch.model_validate(
+                {"amount": {"state": "known", "value": "700.00"}}
+            ),
+        ),
+        str(uuid4()),
+    )
+
+    assert refused.code == "recorded_correction_unsupported"
+    assert len(draft.view.history) == len(view.history)
+    manifest, [row] = records.txt_606_rows(service, context)
+    assert manifest["issues"] == []
+    assert (row["goods_amount"], row["itbis"]) == ("300.00", "0.00")
+
+
+def test_a_606_write_on_an_approved_record_still_moves_the_amount(actions):  # noqa: ANN001
+    service, context, _ = actions
+    draft = drafted(service, context)
+    draft.pick("02")
+    draft.settled(payment_method="01")
+    records.approved(service, context, draft.id, draft.view.version)
+
+    draft.settled(legal_tip="30.00")
+
+    assert draft.split == ("270.00", None)
+    manifest, [row] = records.txt_606_rows(service, context)
+    assert manifest["issues"] == []
+    assert (row["services_amount"], row["legal_tip"]) == ("270.00", "30.00")
+
+
+def test_a_replay_of_the_same_key_moves_nothing(actions):  # noqa: ANN001
+    service, context, _ = actions
+    draft = drafted(service, context)
+    draft.pick("09")
+    version = draft.view.version
+    body = ReviewDraft(
+        version=version,
+        facts=BusinessFactPatch.model_validate(
+            {"amount": {"state": "known", "value": "700.00"}}
+        ),
+    )
+    key = str(uuid4())
+    first = service.review(context, draft.id, body, key)
+    assert first.outcome == "applied", first
+    draft.itbis("100.00")
+    moved = draft.view
+
+    replay = service.review(context, draft.id, body, key)
+
+    assert replay == first
+    assert draft.view.version == moved.version
+    assert len(draft.view.history) == len(moved.history)
+    assert draft.split == (None, "600.00")
+
+
+def test_a_pick_before_the_total_fills_when_a_person_gives_it(actions):  # noqa: ANN001
+    service, context, _ = actions
+    set_profile(service.authority, context, dgii.filer_change(FILER), "rnc")
+    capture = service.capture(context, CaptureNote(text="PRÁCTICA compra"), str(uuid4()))
+    draft = Draft(service, context, capture.draft_id)
+    draft.pick("09")
+    assert draft.split == (None, None)
+
+    draft.total("700.00")
+    assert draft.split == (None, "700.00")
+
+    draft.fact("amount", state="owner_does_not_know")
+    assert draft.split == (None, None)
+
+
+def test_a_pick_before_the_read_fills_when_the_read_gives_the_total(prepared):  # noqa: ANN001
+    service, context, *_ = prepared
+    capture = service.capture(context, CaptureNote(text="PRÁCTICA compra"), str(uuid4()))
+    draft = Draft(service, context, capture.draft_id)
+    draft.pick("09")
+    target = ExistingDraft(draft_id=UUID(str(draft.id)), version=draft.view.version)
+    reading.bind(prepared, target=target)
+
+    read = reading.finish(prepared)
+
+    assert read.outcome == "applied", read
+    assert draft.split == (None, "250.50")
+
+
+def test_a_pick_taken_back_empties_the_amount_and_a_new_pick_refills_it(actions):  # noqa: ANN001
+    service, context, _ = actions
+    draft = drafted(service, context)
+    draft.pick("09")
+
+    draft.pick(None)
+    assert draft.split == (None, None)
+
+    draft.pick("02")
+    assert draft.split == ("300.00", None)
+
+
+def test_a_person_clears_the_amount_and_it_stays_clear_until_a_pick(actions):  # noqa: ANN001
+    service, context, _ = actions
+    draft = drafted(service, context)
+    draft.pick("09")
+    draft.typed(goods_amount=None)
+
+    draft.total("700.00")
+    assert draft.split == (None, None)
+
+    draft.pick("09")
+    assert draft.split == (None, "700.00")
+
+
+def test_a_retyped_draft_forgets_the_amount_was_worked_out(actions):  # noqa: ANN001
+    """The declaration goes with the type, and whose amount it was goes with
+    it: a person's amount on the next declaration stays theirs."""
+
+    service, context, _ = actions
+    draft = drafted(service, context)
+    draft.pick("09")
+    draft.fact("kind", value="income")
+    draft.write(document_type="venta")
+    assert draft.view.dgii is None
+    draft.write(document_type="recibo")
+    draft.fact("kind", value="expense")
+
+    draft.settled(category="09", goods_amount="300.00")
+    draft.total("700.00")
+
+    assert draft.split == (None, "300.00")
