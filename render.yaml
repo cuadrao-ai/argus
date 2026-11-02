@@ -86,6 +86,12 @@ services:
         sync: false
       - key: SUPABASE_JWT_SECRET
         sync: false
+      - key: CUADRAO_OPENROUTER_API_KEY_DEV
+        sync: false
+      - key: CUADRAO_OPENROUTER_API_KEY_STG
+        sync: false
+      - key: CUADRAO_OPENROUTER_API_KEY_PROD
+        sync: false
       - key: CUADRAO_PROD_OPENROUTER_API_KEY
         sync: false
       - key: CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY
@@ -146,6 +152,12 @@ services:
       - key: CUADRAO_MOCK_AUTH
         sync: false
       - key: CUADRAO_PERSISTENCE_MODE
+        sync: false
+      - key: CUADRAO_OPENROUTER_API_KEY_DEV
+        sync: false
+      - key: CUADRAO_OPENROUTER_API_KEY_STG
+        sync: false
+      - key: CUADRAO_OPENROUTER_API_KEY_PROD
         sync: false
       - key: CUADRAO_PROD_OPENROUTER_API_KEY
         sync: false

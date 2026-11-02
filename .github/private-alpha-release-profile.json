@@ -76,6 +76,9 @@
         "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"
       ],
       "optional": [
+        "CUADRAO_OPENROUTER_API_KEY_DEV",
+        "CUADRAO_OPENROUTER_API_KEY_STG",
+        "CUADRAO_OPENROUTER_API_KEY_PROD",
         "CUADRAO_INVITE_CODE_SECRET",
         "CUADRAO_INVITE_CODE_SECRET_PREVIOUS",
         "CUADRAO_APPLE_TEAM_ID",
@@ -146,7 +149,11 @@
         "CUADRAO_PROD_OPENROUTER_API_KEY",
         "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"
       ],
-      "optional": []
+      "optional": [
+        "CUADRAO_OPENROUTER_API_KEY_DEV",
+        "CUADRAO_OPENROUTER_API_KEY_STG",
+        "CUADRAO_OPENROUTER_API_KEY_PROD"
+      ]
     }
   },
   "workflow": {

@@ -769,7 +769,9 @@ def test_workflow_sync_preflights_secrets_and_writes_only_managed_settings(
         "services"
     ]["workflow"]
     written = {request.split("/env-vars/", 1)[1].split(" ", 1)[0] for request in requests}
-    assert written == set(profile["env"]) | set(profile["required_present"])
+    assert written == (
+        set(profile["env"]) | set(profile["required_present"]) | set(profile["optional"])
+    )
     assert len(requests) == len(written)
     assert all("unused-" not in request for request in requests)
     assert "fake-prod" not in result.stdout
