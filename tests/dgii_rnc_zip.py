@@ -5,7 +5,7 @@ from __future__ import annotations
 import io
 import zipfile
 
-CSV_ENTRY = "TMP/RNC_Contribuyentes_Actualizado_02_Nov_2026.csv"
+CSV_ENTRY = "RNC_Contribuyentes_Actualizado_31_Oct_2026.csv"
 TXT_ENTRY = "TMP/DGII_RNC.TXT"
 FILE_TIME = (2026, 10, 18, 0, 30, 0)
 HEADER = (
@@ -14,7 +14,7 @@ HEADER = (
     "ACTIVIDAD ECONÓMICA",
     "FECHA DE INICIO OPERACIONES",
     "ESTADO",
-    "RÉGIMEN DE PAGOS",
+    "RÉGIMEN DE PAGO",
 )
 
 

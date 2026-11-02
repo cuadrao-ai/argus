@@ -4222,8 +4222,9 @@ Neither table keeps history. Each daily file replaces the registry.
 The publisher's CSV is the source of every column except `trade_name`. The
 registry holds every estado, not only active rows, so a suspended or cancelled
 supplier can be flagged. `trade_name` comes from column 3 of the publisher's
-TXT, joined by RNC. About 56 percent of rows have a value. Whether that column
-is a trade name is not proven yet. Null means no value. A blank or
+TXT, joined by RNC, from a second zip that the load does not require. About 56
+percent of rows have a value, and most of those differ from the legal name. Null
+means no value, or that the TXT zip failed that day. A blank or
 whitespace-only value in `trade_name`, `activity` or `regime` fails its check,
 so the loader stores null. `start_date` is null when the file's date is not a
 real dd/mm/yyyy date. `status` stays the raw estado value, including new values,
