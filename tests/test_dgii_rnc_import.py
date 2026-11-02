@@ -9,6 +9,7 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+from faker import Faker
 
 from scripts.ops.dgii_rnc_import import (
     LOAD,
@@ -37,182 +38,363 @@ from scripts.ops.dgii_rnc_import import (
     swap_script,
     validate,
 )
+from tests.dgii_rnc_zip import (
+    CSV_ENTRY,
+    HEADER,
+    csv_file,
+    csv_record,
+    registry_zip,
+    txt_file,
+    txt_record,
+)
+
+fake = Faker("es")
+Faker.seed(20261102)
+
+ESTADOS = (
+    "ACTIVO",
+    "SUSPENDIDO",
+    "DADO DE BAJA",
+    "CESE TEMPORAL",
+    "ANULADO",
+    "RECHAZADO",
+)
 
 
-def record(rnc: str, name: str, status: str = "ACTIVO", trade_name: str = "") -> str:
-    return "|".join([rnc, name, trade_name, "4", "5", "6", "7", "8", "9", status, "11"])
+def rnc9() -> str:
+    return fake.numerify("9########")
 
 
-def zip_bytes(
-    payload: bytes,
-    *,
-    date_time: tuple[int, int, int, int, int, int] = (2026, 10, 18, 0, 30, 0),
-    entry_name: str = "DGII_RNC.TXT",
-) -> bytes:
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w") as archive:
-        info = zipfile.ZipInfo(filename=entry_name, date_time=date_time)
-        archive.writestr(info, payload)
-    return buffer.getvalue()
+def rnc11() -> str:
+    return fake.numerify("99#########")
 
 
-def parsed(payload: str) -> ParseResult:
-    return parse_zip(zip_bytes((payload + "\r\n").encode("latin-1")))
+def company() -> str:
+    return fake.company().replace("’", "'")
+
+
+def parsed(*records: str, txt: tuple[str, ...] | None = None) -> ParseResult:
+    trade = None if txt is None else txt_file(*txt)
+    return parse_zip(registry_zip(csv_file(*records), txt=trade))
 
 
 def test_latin1_byte_90_survives_in_the_name() -> None:
     name = "EMPRESA" + bytes([0x90]).decode("latin-1") + "SA"
-    payload = (record("123456789", name) + "\r\n").encode("latin-1")
+    payload = csv_file(csv_record(rnc9(), name))
     assert b"\x90" in payload
-    result = parse_zip(zip_bytes(payload))
+    result = parse_zip(registry_zip(payload))
     assert result.rows[0].name == "EMPRESA\u0090SA"
-    assert "\u0090" in result.rows[0].name
 
 
-def test_wrapped_name_rejoins_with_one_space_and_trims() -> None:
-    payload = ("123456789|  ACME\r\nDOMINICANA  |3|4|5|6|7|8|9|ACTIVO|11\r\n").encode(
-        "latin-1"
-    )
-    result = parse_zip(zip_bytes(payload))
+def test_accented_names_decode_as_latin1() -> None:
+    result = parsed(csv_record(rnc9(), "PANADERÍA PEÑA"))
+    assert result.rows[0].name == "PANADERÍA PEÑA"
+
+
+def test_a_name_broken_across_lines_rejoins_with_one_space_and_trims() -> None:
+    result = parsed(csv_record(rnc9(), "  ACME\r\nDOMINICANA  "))
     assert len(result.rows) == 1
-    assert result.rows[0].rnc == "123456789"
     assert result.rows[0].name == "ACME DOMINICANA"
     assert result.anomaly_count == 0
 
 
-def test_literal_double_quote_stays_in_the_name() -> None:
-    result = parsed(record("123456789", 'FIRMA "ABC" SRL'))
-    assert result.rows[0].name == 'FIRMA "ABC" SRL'
-
-
-def test_keeps_nine_and_eleven_and_drops_the_rest() -> None:
-    payload = "\r\n".join(
-        [
-            record("40212345678", "CEDULA"),
-            record("12345678", "EIGHT"),
-            record("12A456789", "LETTERS"),
-            record("123456789", "NINE"),
-            record("123-456-78901", "DASHED"),
-            record("123456789", "   "),
-        ]
-    )
-    result = parsed(payload)
-    assert [(row.rnc, row.name) for row in result.rows] == [
-        ("40212345678", "CEDULA"),
-        ("123456789", "NINE"),
-        ("12345678901", "DASHED"),
+def test_quote_aware_parser_keeps_commas_and_doubled_quotes_in_a_name() -> None:
+    comma = csv_record(rnc9(), "FIRMA, ABC Y ASOCIADOS, SRL")
+    quote = csv_record(rnc9(), 'FIRMA "ABC" SRL')
+    result = parsed(comma, quote)
+    assert [row.name for row in result.rows] == [
+        "FIRMA, ABC Y ASOCIADOS, SRL",
+        'FIRMA "ABC" SRL',
     ]
-    assert result.dropped_count == 3
-    assert result.dropped_sample == (
-        DroppedRecord("12345678", "12345678", "rnc_length", "EIGHT"),
-        DroppedRecord("12A456789", "12456789", "rnc_length", "LETTERS"),
-        DroppedRecord("123456789", "123456789", "blank_name", ""),
-    )
-    assert "012345678" not in {row.rnc for row in result.rows}
     assert result.anomaly_count == 0
 
 
-def test_eight_digit_rnc_is_dropped_without_padding() -> None:
-    result = parsed(record("12345678", "SOLO"))
+def test_keeps_nine_and_eleven_and_drops_the_rest() -> None:
+    nine, eleven = rnc9(), rnc11()
+    short = fake.numerify("9#######")
+    result = parsed(
+        csv_record(eleven, "CEDULA"),
+        csv_record(short, "EIGHT"),
+        csv_record("9A1234567", "LETTERS"),
+        csv_record(nine, "NINE"),
+        csv_record("991-234-56789", "DASHED"),
+        csv_record(rnc9(), "   "),
+    )
+    assert [(row.rnc, row.name) for row in result.rows] == [
+        (eleven, "CEDULA"),
+        (nine, "NINE"),
+        ("99123456789", "DASHED"),
+    ]
+    assert result.dropped_count == 3
+    assert [drop.reason for drop in result.dropped_sample] == [
+        "rnc_length",
+        "rnc_length",
+        "blank_name",
+    ]
+    assert result.dropped_sample[0].raw == short
+    assert result.anomaly_count == 0
+
+
+def test_eight_digit_rnc_is_quarantined_without_padding() -> None:
+    short = fake.numerify("9#######")
+    name = company()
+    result = parsed(csv_record(short, name), txt=(txt_record(short, company()),))
     assert result.rows == ()
     assert result.dropped_count == 1
-    assert result.dropped_sample == (
-        DroppedRecord("12345678", "12345678", "rnc_length", "SOLO"),
-    )
+    assert result.dropped_sample == (DroppedRecord(short, short, "rnc_length", name),)
+    lines = summary_lines(result)
+    assert "rows=0" in lines
+    assert "dropped=1" in lines
+    assert f"dropped_sample raw={short} rnc={short} reason=rnc_length name={name}" in lines
 
 
 def test_trims_surrounding_spaces_on_rnc_and_name() -> None:
-    result = parsed(record("  123456789  ", "  Nombre Comercial  "))
-    assert result.rows[0].rnc == "123456789"
-    assert result.rows[0].name == "Nombre Comercial"
+    rnc = rnc9()
+    result = parsed(csv_record(f"  {rnc}  ", "  Nombre Fiscal  "))
+    assert result.rows[0].rnc == rnc
+    assert result.rows[0].name == "Nombre Fiscal"
 
 
-def test_column_3_parses_as_the_commercial_name() -> None:
-    result = parsed(record("123456789", "LEGAL", trade_name="COMERCIAL"))
+def test_keeps_activity_start_date_and_regime() -> None:
+    activity = fake.bs()
+    result = parsed(
+        csv_record(
+            rnc9(),
+            company(),
+            activity=f"  {activity}  ",
+            started="07/03/2019",
+            regime=" RST ",
+        )
+    )
+    row = result.rows[0]
+    assert row.activity == activity
+    assert row.start_date == date(2019, 3, 7)
+    assert row.regime == "RST"
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["", "   ", "31/02/2020", "2020-01-02", "13/13/2020", "00/00/0000", "sin fecha"],
+)
+def test_a_bad_start_date_loads_as_null(value: str) -> None:
+    result = parsed(csv_record(rnc9(), company(), started=value))
+    assert len(result.rows) == 1
+    assert result.rows[0].start_date is None
+    assert result.anomaly_count == 0
+
+
+def test_blank_activity_and_regime_copy_as_null() -> None:
+    rnc = rnc9()
+    result = parsed(csv_record(rnc, "LEGAL", activity="   ", regime=""))
+    assert result.rows[0].activity is None
+    assert result.rows[0].regime is None
+    assert copy_text(result.rows) == (
+        f"{rnc}\tLEGAL\t\\N\tACTIVO\t2026-10-18\t\\N\t\\N\t\\N\n"
+    )
+
+
+def test_column_order_comes_from_the_header() -> None:
+    rnc = rnc9()
+    moved = ",".join(reversed(HEADER))
+    body = ",".join(["NORMAL", "ANULADO", "01/02/2003", "VENTAS", "LEGAL", rnc])
+    result = parse_zip(
+        registry_zip(f"{moved}\r\n{body}\r\n".encode("latin-1")),
+    )
+    row = result.rows[0]
+    assert (row.rnc, row.name, row.activity, row.status, row.regime) == (
+        rnc,
+        "LEGAL",
+        "VENTAS",
+        "ANULADO",
+        "NORMAL",
+    )
+    assert row.start_date == date(2003, 2, 1)
+
+
+@pytest.mark.parametrize("missing", HEADER)
+def test_a_header_without_a_kept_column_refuses_the_file(missing: str) -> None:
+    header = ",".join(cell for cell in HEADER if cell != missing)
+    with pytest.raises(RncImportError, match="csv header needs one") as caught:
+        parse_zip(registry_zip(f"{header}\r\n".encode("latin-1")))
+    assert header.split(",")[0] in str(caught.value)
+
+
+def test_trade_name_comes_from_txt_column_3_joined_by_rnc() -> None:
+    filled, blank, absent = rnc9(), rnc11(), rnc9()
+    trade = company()
+    result = parsed(
+        csv_record(filled, "LEGAL"),
+        csv_record(blank, "LEGAL"),
+        csv_record(absent, "LEGAL"),
+        txt=(
+            txt_record(rnc9(), company()),
+            txt_record(blank, "   "),
+            txt_record(filled, f"  {trade}  "),
+        ),
+    )
+    assert [row.trade_name for row in result.rows] == [trade, None, None]
+    assert "trade_name_filled=1" in summary_lines(result)
+
+
+def test_the_txt_never_adds_a_row_or_changes_a_csv_field() -> None:
+    rnc = rnc9()
+    only_in_txt = rnc9()
+    legal = company()
+    result = parsed(
+        csv_record(rnc, legal, "SUSPENDIDO"),
+        txt=(
+            txt_record(only_in_txt, company()),
+            txt_record(rnc, company(), name=company()),
+        ),
+    )
+    assert [row.rnc for row in result.rows] == [rnc]
+    assert result.rows[0].name == legal
+    assert result.rows[0].status == "SUSPENDIDO"
+
+
+def test_a_wrapped_txt_record_still_yields_its_trade_name() -> None:
+    rnc = rnc9()
+    trade = company()
+    wrapped = f"{rnc}|PRIMERA\r\nLINEA|{trade}|4|5|6|7|8|9|ACTIVO|11"
+    result = parsed(csv_record(rnc, company()), txt=(wrapped,))
+    assert result.rows[0].trade_name == trade
+
+
+def test_a_malformed_txt_record_costs_only_its_trade_name() -> None:
+    rnc = rnc9()
+    result = parsed(
+        csv_record(rnc, company()),
+        txt=("1|2|3|4|5|6|7|8|9|10|11|12", txt_record(rnc, "COMERCIAL")),
+    )
     assert result.rows[0].trade_name == "COMERCIAL"
+    assert result.anomaly_count == 0
 
 
-def test_blank_commercial_name_copies_as_null() -> None:
-    spaces = parsed(record("123456789", "LEGAL", trade_name="   "))
-    empty = parsed(record("40212345678", "LEGAL", trade_name=""))
-    assert spaces.rows[0].trade_name is None
-    assert empty.rows[0].trade_name is None
-    assert copy_text(spaces.rows) == "123456789\tLEGAL\t\\N\tACTIVO\t2026-10-18\n"
-    assert copy_text(empty.rows) == "40212345678\tLEGAL\t\\N\tACTIVO\t2026-10-18\n"
+def test_a_zip_without_the_txt_loads_with_no_trade_names() -> None:
+    result = parsed(csv_record(rnc9(), company()))
+    assert result.rows[0].trade_name is None
+    assert "trade_name_filled=0" in summary_lines(result)
 
 
-def test_status_is_stored_as_written() -> None:
-    baja = parsed(record("123456789", "ONE", "DADO DE BAJA"))
-    cese = parsed(record("40212345678", "TWO", "CESE TEMPORAL"))
-    assert baja.rows[0].status == "DADO DE BAJA"
-    assert cese.rows[0].status == "CESE TEMPORAL"
+def test_a_zip_with_two_txt_entries_refuses_the_file() -> None:
+    archive = io.BytesIO(
+        registry_zip(csv_file(csv_record(rnc9(), company())), txt=b"")
+    )
+    with zipfile.ZipFile(archive, "a") as extra:
+        extra.writestr("OTHER/DGII_RNC.TXT", b"")
+    with pytest.raises(RncImportError, match="zip holds 2 DGII_RNC.TXT entries"):
+        parse_zip(archive.getvalue())
 
 
-def test_zip_date_time_stays_on_the_santo_domingo_calendar_date() -> None:
-    payload = (record("123456789", "ACME") + "\r\n").encode("latin-1")
-    result = parse_zip(zip_bytes(payload, date_time=(2026, 10, 18, 0, 30, 0)))
+@pytest.mark.parametrize(
+    "entry",
+    [
+        "RNC_Contribuyentes_Actualizado_02_Nov_2026.csv",
+        "TMP/RNC_Contribuyentes_Actualizado_20261102.csv",
+        "TMP/rnc_contribuyentes_actualizado_2026-11-02.CSV",
+    ],
+)
+def test_finds_the_csv_by_pattern_whatever_its_date(entry: str) -> None:
+    result = parse_zip(
+        registry_zip(csv_file(csv_record(rnc9(), company())), csv_entry=entry)
+    )
+    assert result.entry_name == entry
+    assert len(result.rows) == 1
+
+
+@pytest.mark.parametrize("entry", ["DGII_RNC.csv", "TMP/._RNC_Contribuyentes_Actualizado_1.csv"])
+def test_a_zip_without_the_csv_refuses_the_file_and_names_its_entries(entry: str) -> None:
+    payload = registry_zip(csv_file(), csv_entry=entry)
+    with pytest.raises(RncImportError, match="must contain one") as caught:
+        parse_zip(payload)
+    assert entry in str(caught.value)
+
+
+def test_unterminated_quote_refuses_the_file_and_leaves_no_spill(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setattr("tempfile.tempdir", str(tmp_path))
+    runaway = f'"{rnc9()}' + "\r\n123456789" * 20_000
+    with pytest.raises(RncImportError, match="csv is unreadable"):
+        parse_zip(registry_zip(csv_file(runaway)))
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("status", ESTADOS)
+def test_every_estado_loads_as_written(status: str) -> None:
+    result = parsed(csv_record(rnc9(), company(), status))
+    assert [row.status for row in result.rows] == [status]
+
+
+def test_the_rows_keep_the_csv_entry_date_and_name() -> None:
+    payload = csv_file(csv_record(rnc9(), company()))
+    result = parse_zip(registry_zip(payload, date_time=(2026, 10, 18, 0, 30, 0)))
     assert result.file_date == date(2026, 10, 18)
     assert result.rows[0].file_date == date(2026, 10, 18)
-    assert result.entry_name == "DGII_RNC.TXT"
+    assert result.entry_name == CSV_ENTRY
 
 
 def test_duplicate_rnc_keeps_the_last_row() -> None:
-    payload = "\r\n".join(
-        [
-            record("123456789", "ONE", "ACTIVO"),
-            record("40212345678", "OTHER"),
-            record("123456789", "TWO", "SUSPENDIDO"),
-            record("123456789", "THREE", "ANULADO"),
-        ]
+    repeated, other = rnc9(), rnc11()
+    result = parsed(
+        csv_record(repeated, "ONE", "ACTIVO"),
+        csv_record(other, "OTHER"),
+        csv_record(repeated, "TWO", "SUSPENDIDO"),
+        csv_record(repeated, "THREE", "ANULADO"),
     )
-    result = parsed(payload)
     assert [(row.rnc, row.name, row.status) for row in result.rows] == [
-        ("123456789", "THREE", "ANULADO"),
-        ("40212345678", "OTHER", "ACTIVO"),
+        (repeated, "THREE", "ANULADO"),
+        (other, "OTHER", "ACTIVO"),
     ]
     assert result.duplicate_count == 2
     validate(result, LoadConfig(min_rows=1, anomaly_limit=25))
 
 
 def test_anomaly_count_above_the_limit_fails_and_the_limit_passes() -> None:
-    payload = (record("123456789", "ONE") + "\r\n12345679|ONLY\r\n").encode("latin-1")
-    result = parse_zip(zip_bytes(payload))
+    rnc = rnc9()
+    result = parsed(csv_record(rnc, company()), f'"{rnc9()}","ONLY"')
     assert result.anomaly_count == 1
-    assert [row.rnc for row in result.rows] == ["123456789"]
+    assert [row.rnc for row in result.rows] == [rnc]
     validate(result, LoadConfig(min_rows=1, anomaly_limit=1))
     with pytest.raises(RncImportError):
         validate(result, LoadConfig(min_rows=1, anomaly_limit=0))
 
 
-def test_overlong_line_is_one_anomaly_and_the_buffer_resets() -> None:
-    payload = (
-        "1|2|3|4|5|6|7|8|9|10|11|12\r\n" + record("123456789", "OK") + "\r\n"
-    ).encode("latin-1")
-    result = parse_zip(zip_bytes(payload))
+def test_overlong_row_is_one_anomaly() -> None:
+    rnc = rnc9()
+    result = parsed(",".join("1234567"), csv_record(rnc, "OK"))
     assert result.anomaly_count == 1
-    assert [row.rnc for row in result.rows] == ["123456789"]
+    assert [row.rnc for row in result.rows] == [rnc]
+
+
+def test_blank_lines_are_not_anomalies() -> None:
+    result = parsed("", csv_record(rnc9(), "OK"), "   ")
+    assert len(result.rows) == 1
+    assert result.anomaly_count == 0
 
 
 def test_summary_lines_list_each_fact() -> None:
-    payload = "\r\n".join(
-        [
-            record("12345678", "A", "ACTIVO"),
-            record("123456789", "B", "SUSPENDIDO"),
-            record("40212345678", "C", "ACTIVO"),
-            record("NOPE", "D", "ACTIVO"),
-        ]
+    short, nine, eleven = "90000001", rnc9(), rnc11()
+    result = parsed(
+        csv_record(short, "A", "ACTIVO"),
+        csv_record(nine, "B", "SUSPENDIDO", activity="VENTAS", regime="NORMAL"),
+        csv_record(eleven, "C", "ACTIVO", started="01/02/2003", regime="RST"),
+        csv_record("NOPE", "D", "ACTIVO"),
+        txt=(txt_record(eleven, "COMERCIAL"),),
     )
-    result = parse_zip(zip_bytes((payload + "\r\n").encode("latin-1")))
     assert summary_lines(result) == [
         "rows=2",
         "file_date=2026-10-18",
-        "entry=DGII_RNC.TXT",
+        f"entry={CSV_ENTRY}",
         "anomalies=0",
         "dropped=2",
         "duplicates=0",
-        "parsed_bytes=72",
-        "trade_name_filled=0",
-        "dropped_sample raw=12345678 rnc=12345678 reason=rnc_length name=A",
+        f"parsed_bytes={parsed_byte_estimate(result.rows)}",
+        "trade_name_filled=1",
+        "activity_filled=1",
+        "start_date_filled=1",
+        "regime_filled=2",
+        f"dropped_sample raw={short} rnc={short} reason=rnc_length name=A",
         "dropped_sample raw=NOPE rnc= reason=rnc_length name=D",
         "status ACTIVO=1",
         "status SUSPENDIDO=1",
@@ -228,9 +410,13 @@ def test_copy_text_escapes_backslash_tab_cr_and_lf() -> None:
         trade_name=None,
         status="ACTIVO",
         file_date=date(2026, 10, 18),
+        activity="X\tY",
+        start_date=date(2019, 3, 7),
+        regime="RST",
     )
     assert copy_text((row,)) == (
-        "123456789\tA\\\\B\\tC\\rD\\nE\t\\N\tACTIVO\t2026-10-18\n"
+        "123456789\tA\\\\B\\tC\\rD\\nE\t\\N\tACTIVO\t2026-10-18\t"
+        "X\\tY\t2019-03-07\tRST\n"
     )
 
 
@@ -252,10 +438,10 @@ def test_load_script_sets_the_session_timeout_and_calls_swap() -> None:
     assert sql.startswith("SET statement_timeout = '5min';\n")
     assert "TRUNCATE public.dgii_rnc_load;\n" in sql
     assert (
-        "COPY public.dgii_rnc_load (rnc, name, trade_name, status, file_date) "
-        "FROM STDIN WITH (FORMAT text);\n"
+        "COPY public.dgii_rnc_load (rnc, name, trade_name, status, file_date, "
+        "activity, start_date, regime) FROM STDIN WITH (FORMAT text);\n"
     ) in sql
-    assert "123456789\tACME\t\\N\tACTIVO\t2026-10-18\n" in sql
+    assert "123456789\tACME\t\\N\tACTIVO\t2026-10-18\t\\N\t\\N\t\\N\n" in sql
     assert "dgii_rnc_swap" not in sql
     assert "dgii_rnc_lookup" not in sql
     assert sql.endswith("\\.\n")
@@ -567,7 +753,7 @@ def test_validate_rejects_a_kept_short_rnc() -> None:
 
 def test_parse_cli_uses_production_minimum(tmp_path, capsys) -> None:
     path = tmp_path / "rnc.zip"
-    path.write_bytes(zip_bytes((record("123456789", "A") + "\r\n").encode("latin-1")))
+    path.write_bytes(registry_zip(csv_file(csv_record(rnc9(), company()))))
     assert main(["parse", str(path)]) == 1
     captured = capsys.readouterr()
     assert captured.err == "rows 1 below minimum 700000\n"
@@ -602,13 +788,9 @@ def test_gate_cli_prints_the_decision(capsys) -> None:
 
 def test_leading_zeros_keep_nine_and_eleven_apart() -> None:
     result = parsed(
-        "\r\n".join(
-            [
-                record("000000001", "NINE"),
-                record("00000000001", "ELEVEN"),
-                record("000000001", "NINE2"),
-            ]
-        )
+        csv_record("000000001", "NINE"),
+        csv_record("00000000001", "ELEVEN"),
+        csv_record("000000001", "NINE2"),
     )
     assert [(row.rnc, row.name) for row in result.rows] == [
         ("000000001", "NINE2"),
@@ -618,41 +800,44 @@ def test_leading_zeros_keep_nine_and_eleven_apart() -> None:
 
 
 def test_unretained_parse_reports_the_same_summary() -> None:
-    payload = "\r\n".join(
-        [
-            record("12345678", "A", "ACTIVO"),
-            record("123456789", "B", "SUSPENDIDO"),
-            record("123456789", "B2", "ACTIVO"),
-            record("40212345678", "C", "ACTIVO"),
-            record("NOPE", "D", "ACTIVO"),
-        ]
+    repeated, other, short = rnc9(), rnc11(), "90000001"
+    payload = registry_zip(
+        csv_file(
+            csv_record(short, "A", "ACTIVO"),
+            csv_record(repeated, "B", "SUSPENDIDO", activity="VENTAS", regime="RST"),
+            csv_record(repeated, "B2", "ACTIVO", started="01/02/2003"),
+            csv_record(other, "C", "ACTIVO"),
+            csv_record("NOPE", "D", "ACTIVO"),
+        ),
+        txt=txt_file(txt_record(other, "COMERCIAL")),
     )
-    result = parse_zip(
-        zip_bytes((payload + "\r\n").encode("latin-1")),
-        keep_rows=False,
-    )
+    result = parse_zip(payload, keep_rows=False)
     assert result.spill_path is not None
     try:
+        expected_copy = (
+            f"{repeated}\tB2\t\\N\tACTIVO\t2026-10-18\t\\N\t2003-02-01\t\\N\n"
+            f"{other}\tC\tCOMERCIAL\tACTIVO\t2026-10-18\t\\N\t\\N\t\\N\n"
+        )
         assert result.rows == ()
         assert summary_lines(result) == [
             "rows=2",
             "file_date=2026-10-18",
-            "entry=DGII_RNC.TXT",
+            f"entry={CSV_ENTRY}",
             "anomalies=0",
             "dropped=2",
             "duplicates=1",
-            "parsed_bytes=69",
-            "trade_name_filled=0",
-            "dropped_sample raw=12345678 rnc=12345678 reason=rnc_length name=A",
+            f"parsed_bytes={len(expected_copy.encode('utf-8'))}",
+            "trade_name_filled=1",
+            "activity_filled=0",
+            "start_date_filled=1",
+            "regime_filled=0",
+            f"dropped_sample raw={short} rnc={short} reason=rnc_length name=A",
             "dropped_sample raw=NOPE rnc= reason=rnc_length name=D",
             "status ACTIVO=2",
             "rnc_length 9=1",
             "rnc_length 11=1",
         ]
-        assert Path(result.spill_path).read_text(encoding="utf-8") == (
-            "123456789\tB2\t\\N\tACTIVO\t2026-10-18\n"
-            "40212345678\tC\t\\N\tACTIVO\t2026-10-18\n"
-        )
+        assert Path(result.spill_path).read_text(encoding="utf-8") == expected_copy
     finally:
         os.unlink(result.spill_path)
 
@@ -689,8 +874,8 @@ def test_copy_stream_writes_header_rows_and_terminator(tmp_path: Path) -> None:
         b"SET statement_timeout = '5min';\n"
         b"SET client_encoding = 'UTF8';\n"
         b"TRUNCATE public.dgii_rnc_load;\n"
-        b"COPY public.dgii_rnc_load (rnc, name, trade_name, status, file_date) "
-        b"FROM STDIN WITH (FORMAT text);\n"
+        b"COPY public.dgii_rnc_load (rnc, name, trade_name, status, file_date, "
+        b"activity, start_date, regime) FROM STDIN WITH (FORMAT text);\n"
         + body
         + b"\\.\n"
     )
@@ -699,10 +884,18 @@ def test_copy_stream_writes_header_rows_and_terminator(tmp_path: Path) -> None:
 def test_parse_of_a_large_registry_stays_under_80_mib(tmp_path: Path) -> None:
     path = tmp_path / "rnc.zip"
     count = 150_000
-    payload = "".join(
-        f"{i:09d}|NAME|TRADE|4|5|6|7|8|9|ACTIVO|11\r\n" for i in range(count)
-    )
-    path.write_bytes(zip_bytes(payload.encode("latin-1")))
+    records = [
+        csv_record(
+            f"{i:09d}",
+            "NAME",
+            activity="VENTA AL POR MENOR",
+            started="01/02/2003",
+            regime="NORMAL",
+        )
+        for i in range(count)
+    ]
+    trade_names = [txt_record(f"{i:09d}", "TRADE") for i in range(count)]
+    path.write_bytes(registry_zip(csv_file(*records), txt=txt_file(*trade_names)))
     script = (
         "import re, runpy, sys\n"
         "sys.argv = ['dgii_rnc_import', 'parse', sys.argv[1]]\n"

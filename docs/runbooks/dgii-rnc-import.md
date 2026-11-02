@@ -6,17 +6,21 @@ The scheduled workflow downloads the public RNC zip, parses it, and loads the ro
 
 `.github/workflows/dgii-rnc-import.yml` runs at 07:00 UTC every day. You can also start it with `workflow_dispatch`.
 
-The job checks out this repository and downloads `DGII_RNC.zip`. It parses the `DGII_RNC.TXT` entry. `file_date` is that entry's modification date, read as the America/Santo_Domingo calendar date.
+The job checks out this repository and downloads `DGII_RNC.zip`. The zip holds two entries. The canonical source is `RNC_Contribuyentes_Actualizado_<date>.csv`, found by that name pattern in any folder of the zip. The job reads it as comma separated, double quoted Latin-1 with a quote-aware parser, and finds each column by its header. `file_date` is that entry's modification date, read as the America/Santo_Domingo calendar date.
 
 ```bash
 python3 scripts/ops/dgii_rnc_import.py parse rnc.zip
 ```
 
-The gate then decides whether to load. A load copies `rnc`, `name`, `trade_name`, `status`, and `file_date` into `public.dgii_rnc_load` and finishes that session. A later session calls `public.dgii_rnc_swap(min_rows integer)`, which returns the integer row count now in `public.dgii_rnc`. `min_rows` is 700000. The job prints that integer as `swap_rows` and fails if it is below 700000. The job does not call `public.dgii_rnc_lookup`.
+The gate then decides whether to load. A load copies `rnc`, `name`, `trade_name`, `status`, `file_date`, `activity`, `start_date`, and `regime` into `public.dgii_rnc_load` and finishes that session. A later session calls `public.dgii_rnc_swap(min_rows integer)`, which returns the integer row count now in `public.dgii_rnc`. `min_rows` is 700000. The job prints that integer as `swap_rows` and fails if it is below 700000. The job does not call `public.dgii_rnc_lookup`.
 
-`trade_name` is column 3. A blank commercial name is NULL. Status is copied as written.
+`name` is the razón social, `activity` the actividad económica, `start_date` the fecha de inicio, and `regime` the régimen. A blank value is NULL. A `fecha` that is not a real dd/mm/yyyy date is NULL. Status is copied as written, and the load keeps every estado.
 
-The loader keeps a row only when the RNC normalizes to 9 or 11 digits and the trimmed name is not blank. An eight-digit RNC is dropped and is not padded. Repeated RNCs keep the last row. The summary prints `dropped`, `duplicates`, `trade_name_filled`, and a `dropped_sample` line for each of the first few drops.
+`trade_name` is the only value that does not come from the CSV. It is column 3 of the `DGII_RNC.TXT` entry, joined by RNC. The TXT adds no rows and changes no other field. A row with no match, or a zip with no TXT, stores NULL. A blank column 3 is NULL. Whether column 3 is a trade name is not proven yet. If the first real parse shows it is not, set `trade_names = {}` in `parse_zip` and the column stays NULL.
+
+The loader keeps a row only when the RNC normalizes to 9 or 11 digits and the trimmed name is not blank. The file has one eight-digit RNC. It is quarantined, which means it is counted in `dropped`, printed in a `dropped_sample` line, not padded, and not loaded. Repeated RNCs keep the last row. A row with the wrong number of fields counts as an anomaly, and more than 25 anomalies fail the job. A header without one RNC, razón social, actividad, fecha, estado, and régimen column fails the job and prints the header it found.
+
+The summary prints `dropped`, `duplicates`, a `dropped_sample` line for each of the first few drops, and one count for each optional column: `trade_name_filled`, `activity_filled`, `start_date_filled`, and `regime_filled`. Read those counts on the first real parse. A `start_date_filled` near zero means the date format is not dd/mm/yyyy.
 
 ## Turn loading on
 
@@ -59,16 +63,16 @@ Set the repository variables `DGII_RNC_LOAD_HEADROOM_FLOOR` and `DGII_RNC_SIZE_L
 
 The dry run prints `parsed_bytes`. After the swap, the log prints `database_bytes_after` and `relation_bytes` for `public.dgii_rnc` and `public.dgii_rnc_load`.
 
-Migration `20261018190000_dgii_rnc_registry.sql` sets no function timeout.
+Migrations `20261018190000_dgii_rnc_registry.sql` and `20261102204200_dgii_rnc_csv_columns.sql` set no function timeout.
 
 ## Set the swap timeout
 
 The load step runs `psql` against `SUPABASE_STAGING_DB_URL`, the database owner. It does not call the swap through an HTTP API, and it does not `SET ROLE authenticated`. The copy session ends before the swap session starts. Each session starts with `SET statement_timeout = '5min'`.
 
-Loading waits on migration slot `20261018190000`.
+Loading waits on migration slots `20261018190000` and `20261102204200`.
 
 Set the repository variable `DGII_RNC_STATEMENT_TIMEOUT` to another interval, such as `10min`, when the swap of about 800000 rows needs longer. An empty value keeps 5 minutes. The value must be a number followed by `ms`, `s`, `min`, or `h`.
 
 ## Wait for the migration
 
-Loading waits on migration `20261018190000_dgii_rnc_registry.sql` and a separate staging approval. `public.dgii_rnc_swap(min_rows integer)` is security definer with an empty search path. A null or non-positive `min_rows` raises before the swap locks `public.dgii_rnc_load`. `public.dgii_rnc_lookup(p_rnc text)` is volatile and is not security definer. `anon` and `authenticated` cannot execute it. The load job does not call lookup. This runbook does not record a completed load.
+Loading waits on migrations `20261018190000_dgii_rnc_registry.sql` and `20261102204200_dgii_rnc_csv_columns.sql`, and on a separate staging approval. The importer copies the three new columns, so it fails on a database without the second migration. `public.dgii_rnc_swap(min_rows integer)` is security definer with an empty search path. A null or non-positive `min_rows` raises before the swap locks `public.dgii_rnc_load`. `public.dgii_rnc_lookup(p_rnc text)` is volatile and is not security definer. `anon` and `authenticated` cannot execute it. The load job does not call lookup. This runbook does not record a completed load.
