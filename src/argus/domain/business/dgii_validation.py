@@ -6,6 +6,7 @@ from datetime import date
 from decimal import Decimal
 
 from argus.domain.business.contracts.dgii import (
+    MONEY_LIMIT,
     DgiiDeclaration,
     PurchaseDeclaration,
     SalesDeclaration,
@@ -344,6 +345,6 @@ def record_issues(
             issue("fiscal_billed_amount_must_be_positive", "billed_amount")
         if gross != Decimal(record.amount):
             issue("fiscal_invoice_total_conflict", "amount")
-        if base >= Decimal("1000000000"):
+        if base >= MONEY_LIMIT:
             issue("fiscal_amount_precision_or_limit", "billed_amount")
     return issues

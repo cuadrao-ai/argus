@@ -10,7 +10,7 @@ from argus.domain.business.contracts.actions import ReviewDraft
 from argus.domain.business.contracts.dgii import PurchaseDeclaration, PurchaseReview
 from argus.domain.business.contracts.facts import BusinessFactPatch, Unknown
 from argus.domain.business.dgii_line import reason
-from argus.domain.business.purchase_review import apply_purchase
+from argus.domain.business.purchase_review import apply_purchase, derived_amount
 from argus.domain.business.rnc_registry import (
     DGII_RNC_LOOKUP,
     RncRecord,
@@ -377,14 +377,18 @@ class TestReviewChecklist:
             ReviewDraft.model_validate({"version": 1, "purchase": {"category": "99"}})
 
     def test_a_confirmed_service_type_fills_the_services_amount(self):
-        declared = apply_purchase(None, PurchaseReview(category="02"), "1000.00")
+        declared = derived_amount(
+            apply_purchase(None, PurchaseReview(category="02")), "1000.00", None
+        )
         assert declared.services_amount == "1000.00"
         assert declared.goods_amount is None
         assert declared.category_suggested is False
 
     def test_a_suggested_type_does_not_fill_the_split(self):
-        declared = apply_purchase(
-            None, PurchaseReview(category="09", category_suggested=True), "1000.00"
+        declared = derived_amount(
+            apply_purchase(None, PurchaseReview(category="09", category_suggested=True)),
+            "1000.00",
+            None,
         )
         assert declared.category == "09"
         assert declared.category_suggested is True
@@ -402,15 +406,17 @@ class TestReviewChecklist:
                 "legal_tip": "0.25",
             }
         )
-        declared = apply_purchase(
-            current,
-            PurchaseReview(
-                category="09",
-                payment_method="04",
-                paid_on=date(2026, 9, 3),
-                itbis_withheld="18.40",
-                income_withholding_type="02",
-                income_withheld="10.15",
+        declared = derived_amount(
+            apply_purchase(
+                current,
+                PurchaseReview(
+                    category="09",
+                    payment_method="04",
+                    paid_on=date(2026, 9, 3),
+                    itbis_withheld="18.40",
+                    income_withholding_type="02",
+                    income_withheld="10.15",
+                ),
             ),
             "1180.55",
             "180.10",
@@ -422,6 +428,25 @@ class TestReviewChecklist:
         assert declared.itbis_withheld == "18.40"
         assert declared.income_withholding_type == "02"
         assert declared.income_withheld == "10.15"
+
+    @pytest.mark.parametrize(
+        ("category", "amount", "itbis", "split"),
+        [
+            ("02", "100.00", "180.00", (None, None)),
+            ("09", "180.00", "180.00", (None, "0.00")),
+            ("09", None, "180.00", (None, None)),
+            (None, "100.00", None, (None, None)),
+            ("02", "1000000180.00", "180.00", (None, None)),
+            ("09", "999999999.995", None, (None, None)),
+        ],
+    )
+    def test_an_amount_a_606_cannot_hold_stays_empty(
+        self, category, amount, itbis, split
+    ):
+        declared = derived_amount(
+            apply_purchase(None, PurchaseReview(category=category)), amount, itbis
+        )
+        assert (declared.services_amount, declared.goods_amount) == split
 
     def test_the_review_names_every_606_field_the_declaration_has(self):
         """One list of 606 fields: a field added to the declaration without its
@@ -460,7 +485,9 @@ class TestReviewChecklist:
             "actual_refund": True,
             "purchase_activity_id": uuid4(),
         }
-        declared = apply_purchase(None, PurchaseReview(**written), "1280.00", "180.00")
+        declared = derived_amount(
+            apply_purchase(None, PurchaseReview(**written)), "1280.00", "180.00"
+        )
         assert {name: getattr(declared, name) for name in written} == written
         assert declared.services_amount == "980.00"
         assert declared.goods_amount is None

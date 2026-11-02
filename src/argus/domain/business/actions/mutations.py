@@ -44,6 +44,16 @@ from argus.domain.business.document_type import (
     require_venta_kind,
     typed_facts,
 )
+from argus.domain.business.purchase_review import (
+    amount_is_derived,
+    apply_payment_split,
+    apply_purchase,
+    changes_recorded_refund,
+    derived_amount,
+    takes_payment_split,
+    takes_purchase_declaration,
+    total_and_itbis,
+)
 from argus.domain.business.transactions import ActionTransaction
 from argus.domain.ingestion.documents.dgii_qr import fill_from_qr
 from argus.domain.ingestion.documents.models import (
@@ -107,6 +117,7 @@ def save_revision(
     bill_mark: str | None = None,
     dgii: DgiiDeclaration | None = None,
     clear_dgii: bool = False,
+    amount_derived: bool | None = None,
     document_type: DocumentType | None = None,
     document_type_detected: bool = False,
     due_on: DueOnInput | None = None,
@@ -140,6 +151,16 @@ def save_revision(
     kept_due_on = previous.get("due_on")
     before_due_on = date.fromisoformat(kept_due_on) if kept_due_on else None
     after_due_on = before_due_on if due_on is None else due_on.value
+    declaration = (
+        None if clear_dgii else dgii if dgii is not None else previous.get("dgii")
+    )
+    # Every path that moves a fact lands here, so the amount follows all of them.
+    if amount_derived is None:
+        amount_derived = not clear_dgii and previous.get("amount_derived", False)
+    if amount_derived:
+        declaration = derived_amount(
+            PurchaseDeclaration.model_validate(declaration), *total_and_itbis(after)
+        )
     resolution["business"] = BusinessResolution(
         facts=after,
         read_purchases=read_purchases,
@@ -148,7 +169,8 @@ def save_revision(
         dgii_qr=dgii_qr,
         bill_mark=bill_mark,
         remainder_settled=bool(previous.get("remainder_settled", False)),
-        dgii=None if clear_dgii else dgii if dgii is not None else previous.get("dgii"),
+        dgii=declaration,
+        amount_derived=amount_derived,
         document_type=document_type,
         document_type_detected=document_type_detected,
         due_on=after_due_on,
@@ -260,25 +282,13 @@ def revise(
             if value is not None and value.state in {"known", "owner_does_not_know"}:
                 answer_question(tx, event.id, question["id"], patch, source_ids[-1])
     declared = fiscal_review.declaration if fiscal_review else None
+    stored = _stored_declaration(event, retyped)
     if purchase is not None:
-        from argus.domain.business.purchase_review import (
-            apply_purchase,
-            changes_recorded_refund,
-            takes_purchase_declaration,
-        )
-
-        current = declared or _stored_declaration(event, retyped)
+        current = declared or stored
         if not takes_purchase_declaration(after, current):
             raise ActionError("invalid_input", "fiscal_direction_unsupported")
-        amount = after.amount.value if isinstance(after.amount, Known) else None
-        fiscal = after.fiscal
-        itbis = (
-            fiscal.itbis.value
-            if fiscal is not None and isinstance(fiscal.itbis, Known)
-            else None
-        )
         previous = current if isinstance(current, PurchaseDeclaration) else None
-        declared = apply_purchase(previous, purchase, amount, itbis)
+        declared = apply_purchase(previous, purchase)
         if (
             event.state == "accepted"
             and changes_recorded_refund(previous, declared)
@@ -290,12 +300,7 @@ def revise(
         ):
             raise ActionError("invalid_input", "recorded_correction_unsupported")
     if payment_split is not None:
-        from argus.domain.business.purchase_review import (
-            apply_payment_split,
-            takes_payment_split,
-        )
-
-        current = declared or _stored_declaration(event, retyped)
+        current = declared or stored
         if not takes_payment_split(after, current):
             raise ActionError("invalid_input", "fiscal_direction_unsupported")
         declared = apply_payment_split(current, payment_split)
@@ -310,6 +315,12 @@ def revise(
         dgii=declared,
         # A declaration filled under the other type no longer applies.
         clear_dgii=retyped and declared is None,
+        amount_derived=amount_is_derived(
+            declared,
+            stored,
+            bool((event.resolution.get("business") or {}).get("amount_derived")),
+            purchase,
+        ),
         document_type=document_type,
         due_on=due_on,
     )

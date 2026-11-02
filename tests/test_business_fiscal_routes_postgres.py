@@ -21,6 +21,7 @@ from argus.api import state as api_state
 from argus.api.main import app
 from argus.api.routers import auth as auth_router
 from argus.domain.business.contracts.dgii import PurchaseDeclaration
+from argus.domain.business.dgii_columns import PURCHASE_COLUMNS
 from fastapi.testclient import TestClient
 from psycopg import Connection
 
@@ -251,6 +252,104 @@ def test_review_write_path_from_capture_to_frozen_606_line(world) -> None:  # no
             f"{API}/business/drafts/{draft}/dossier", headers=alice.headers
         ).json()["dgii"]["payment_method"]
         == "01"
+    )
+
+
+def test_an_edit_after_the_tipo_de_gasto_reaches_the_606_line(world) -> None:  # noqa: ANN001
+    """Each edit as the dossier sends it, the ITBIS row with the declaration the
+    last answer carried. The total and the ITBIS change after the pick, and the
+    606 line agrees with no word from the owner."""
+
+    client, alice = world.client, world.alice
+    profile = client.patch(
+        f"{API}/business/fiscal-profile",
+        json={
+            "name": "Ferretería Prueba",
+            "previous_name": "Ferretería Prueba",
+            "tax_id": {"type": "rnc", "value": "199990013"},
+            "previous_tax_id": None,
+        },
+        headers={**alice.headers, "Idempotency-Key": str(uuid4())},
+    )
+    assert profile.status_code == 200, profile.text
+    note = _note(world, alice, "Pagué 300 en Ferretería Prueba")
+    assert note.status_code == 200, note.text
+    draft = note.json()["draft_id"]
+    current = client.get(
+        f"{API}/business/drafts/{draft}/dossier", headers=alice.headers
+    ).json()
+
+    def reviewed(**body: object) -> dict:
+        answer = _review(
+            world, draft, {"version": current["version"], **body}, alice.headers
+        )
+        assert answer.status_code == 200, answer.text
+        return answer.json()
+
+    current = reviewed(
+        facts=_known(
+            {
+                "kind": "expense",
+                "amount": "300.00",
+                "currency": "DOP",
+                "occurred_on": "2026-09-03",
+                "counterparty": "Ferretería Prueba",
+                "funding": {"kind": "owner_funds"},
+                "business_share": {"kind": "all"},
+            }
+        ),
+        dgii={
+            "fiscal": {"rnc": "199990021", "ncf": "B0100000091", "itbis": "0.00"},
+            "declaration": {
+                **{name: None for name in PurchaseDeclaration.model_fields},
+                "form": "606",
+                "actual_refund": False,
+                "category_suggested": False,
+            },
+        },
+    )
+    current = reviewed(purchase={"category": "09"})
+    assert current["dgii"]["goods_amount"] == "300.00"
+    current = reviewed(facts=_known({"amount": "700.00"}))
+    assert current["dgii"]["goods_amount"] == "700.00"
+    current = reviewed(
+        dgii={
+            "fiscal": {"rnc": "199990021", "ncf": "B0100000091", "itbis": "100.00"},
+            "declaration": current["dgii"],
+        }
+    )
+    assert current["dgii"]["goods_amount"] == "600.00"
+    current = reviewed(purchase={"payment_method": "01"})
+    assert set(current["dgii"]) == set(PurchaseDeclaration.model_fields)
+
+    approved = _post(
+        world,
+        f"/business/drafts/{draft}/approve",
+        {"version": current["version"], "action": "record_expense"},
+        alice.headers,
+    )
+    assert approved.status_code == 200, approved.text
+    exported = client.get(
+        f"{API}/business/exports",
+        params={"start": "2026-09-01", "end": "2026-09-30"},
+        headers=alice.headers,
+    )
+    assert exported.status_code == 200, exported.text
+    with ZipFile(io.BytesIO(exported.content)) as archive:
+        manifest = json.loads(archive.read("manifest.json"))["dgii"]
+        line = archive.read("dgii/DGII_F_606_199990013_202609.TXT").decode()
+    assert manifest["issues"] == []
+    row = dict(
+        zip(
+            (name for name, _ in PURCHASE_COLUMNS),
+            line.split("\r\n")[1].split("|"),
+            strict=True,
+        )
+    )
+    assert (row["goods_amount"], row["services_amount"], row["itbis"]) == (
+        "600.00",
+        "",
+        "100.00",
     )
 
 
