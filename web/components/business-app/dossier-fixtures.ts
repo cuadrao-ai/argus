@@ -277,7 +277,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
         counterparty: scalar(receipt.merchant),
         funding: receipt.account_id ? reviewed({ kind: "business_account", account_id: receipt.account_id }) : unknown(),
         business_share: reviewed({ kind: "all" }),
-        receipt_state: reviewed(fiscal?.ncf ? "fiscal_receipt" : "informal_receipt"),
+        receipt_state: reviewed(fiscal ? "fiscal_receipt" : "informal_receipt"),
         category_id: scalar(receipt.category_id),
         fiscal: fiscal ? { rnc: scalar(fiscal.rnc), ncf: scalar(fiscal.ncf), ecf: unknown(), itbis: scalar(fiscal.itbis) } : null,
       };
