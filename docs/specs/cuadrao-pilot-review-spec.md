@@ -15,11 +15,21 @@ A receipt lives in one place. It is in Bandeja until it is approved. After that 
 
 ## Bandeja
 
-Tabs: **Todos · Necesitan atención · Listos**. Bandeja opens on Todos. Todos has no count. The other tabs show one server count, and the sidebar and Inicio use the same count.
+Tabs: **Todos · Necesitan atención · Listos**. Bandeja opens on Todos. Todos has no count. The other tabs show one server count, and the sidebar and Inicio use the same count. The tabs own status, so Filtros has only Canal and Remitente, and picking a tab adds no chip.
 
-Columns: Contenido, Adjunto, Canal, Remitente, Estado, Llegada, action. Monto and Moneda stay off by default. The row stays a table on normal laptops. Cards are for phone size only.
+Columns: Contenido, Adjunto, Canal, Estado, Llegada, action. Remitente, Monto and Moneda stay off by default and are available in Información visible. The row stays a table on normal laptops. Cards are for phone size only.
 
-Row tags: Leyendo, Necesita atención with its reason, Listo para aprobar, Aprobado.
+Estado by tab:
+
+| Tab | Estado |
+| --- | --- |
+| Todos | The tag: Leyendo, Necesita atención, Listo para aprobar or Aprobado |
+| Necesitan atención | Only the reason, as plain text |
+| Listos | No column |
+
+Checkboxes are only on Listos, for owners.
+
+Every row has one action, **Abrir**. It opens the receipt, and a row click does the same, in every state.
 
 Removed from live: En proceso, Más acciones.
 
