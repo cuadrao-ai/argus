@@ -22,7 +22,7 @@ _ASCII_UPPER = str.maketrans(string.ascii_lowercase, string.ascii_uppercase)
 _PRINTED_SEPARATOR = re.compile(r"(?<=[0-9])[-\s]+(?=[0-9])")
 
 
-def _printed_identifier(value: object) -> object:
+def printed_identifier(value: object) -> object:
     """An RNC, cédula or NCF as a person keys it or a read kept it: the
     dashes and spaces printed between its digit groups go, and a to z become
     upper case. Nothing else is folded, so a letter that upper-cases to two
@@ -37,7 +37,7 @@ def _printed_identifier(value: object) -> object:
 Identifier = Annotated[
     str,
     StringConstraints(pattern=r"^[A-Z0-9]{1,19}$"),
-    BeforeValidator(_printed_identifier),
+    BeforeValidator(printed_identifier),
 ]
 
 
