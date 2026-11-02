@@ -2,7 +2,7 @@ import { clamp, smooth } from "./scene-timeline";
 
 // Where each step of "Cómo funciona" sits along the scroll track.
 const STEP_ENDS = [0.42, 0.62, 0.82];
-export const STEP_JUMPS = [0.02, 0.44, 0.64, 0.84];
+export const STEP_JUMPS = [0.05, 0.44, 0.64, 0.84];
 
 // The chat plays while the first step is on screen.
 export const CHAT_SHARE = STEP_ENDS[0];
@@ -43,7 +43,7 @@ export function cardsVars(progress: number, width: number, height: number): Reco
   const swap = clamp(1 - (1 - eased) * 5);
   return {
     "--p": String(eased),
-    "--spread": String(Math.min(1, (width - 600) / 720)),
+    "--spread": String(Math.max(0.12, Math.min(1, (width - 600) / 720))),
     "--spread-y": String(Math.min(1, (height - 420) / 480)),
     "--title-out": String(clamp(swap * 2)),
     "--title-in": String(clamp(swap * 2 - 1)),

@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, type CSSProperties } from "react";
 import { cardsVars } from "@/lib/landing-timeline";
-import { scrollProgress } from "@/lib/scene-timeline";
+import { scrollProgress, tooShort } from "@/lib/scene-timeline";
 import { landingCopy, type LandingLocale } from "./landing-copy";
 import styles from "./problem-cards.module.css";
 import { useScrollFrame, type ScrollFrame } from "./use-scroll-frame";
@@ -31,7 +31,7 @@ export function ProblemCards({ locale }: { locale: LandingLocale }) {
   const paint = useCallback(({ width, height, reduced }: ScrollFrame) => {
     const box = section.current?.getBoundingClientRect();
     if (!box || !field.current) return;
-    const progress = reduced ? 1 : scrollProgress(box.top, box.height, height);
+    const progress = reduced || tooShort(width, height) ? 1 : scrollProgress(box.top, box.height, height);
     for (const [name, value] of Object.entries(cardsVars(progress, width, height))) {
       field.current.style.setProperty(name, value);
     }
