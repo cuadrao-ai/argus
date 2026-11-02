@@ -1,20 +1,30 @@
 "use client";
 
 import { CircleAlert } from "lucide-react";
+import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { AttentionItem } from "./dossier-attention";
 
-export function attentionSelector(field: NonNullable<AttentionItem["field"]>): string {
-  return `[data-fact="${field === "currency" ? "amount" : field}"]`;
+type AttentionField = NonNullable<AttentionItem["field"]>;
+
+/** The currency has no row of its own: it is edited on Monto. */
+function rowOf(field: AttentionField): AttentionField {
+  return field === "currency" ? "amount" : field;
 }
 
-/** Scrolls the field's row into view and puts focus on its control, or on the row when it has none. */
-export function goToField(from: HTMLElement | null, field: NonNullable<AttentionItem["field"]>) {
+/**
+ * Opens the field's row for someone who can edit it, scrolls to it and puts
+ * focus on what is missing. A row that stays closed takes focus on its control,
+ * or on itself when it has none.
+ */
+function goToField(from: HTMLElement | null, field: AttentionField, onOpen?: (row: AttentionField) => void) {
   const scope = from?.closest('[data-testid="business-record-review"]') ?? document;
-  const row = scope.querySelector<HTMLElement>(attentionSelector(field));
+  const row = scope.querySelector<HTMLElement>(`[data-fact="${rowOf(field)}"]`);
   if (!row) return;
+  // The field has to be on the page before focus can land on it.
+  if (onOpen) flushSync(() => onOpen(rowOf(field)));
   row.scrollIntoView?.({ block: "center", behavior: "smooth" });
-  const control = row.querySelector<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href]");
+  const control = row.querySelector<HTMLElement>(field === "currency" ? "select:not(:disabled)" : "input:not(:disabled), select:not(:disabled)") ?? row.querySelector<HTMLElement>("button:not(:disabled), a[href]");
   if (control) control.focus({ preventScroll: true });
   else {
     row.tabIndex = -1;
@@ -22,7 +32,11 @@ export function goToField(from: HTMLElement | null, field: NonNullable<Attention
   }
 }
 
-export default function DossierAttentionStrip({ items }: { items: readonly AttentionItem[] }) {
+export default function DossierAttentionStrip({ items, onOpen }: {
+  items: readonly AttentionItem[];
+  /** Absent for someone who cannot edit the record now. */
+  onOpen?: (row: AttentionField) => void;
+}) {
   const { t } = useTranslation();
   if (!items.length) return null;
   return (
@@ -35,7 +49,7 @@ export default function DossierAttentionStrip({ items }: { items: readonly Atten
         {items.map((item) => (
           <li key={item.key} data-field={item.field ?? undefined}>
             {item.field ? (
-              <button type="button" onClick={(event) => goToField(event.currentTarget, item.field!)} className="min-h-8 w-full rounded-item px-2 py-1 text-left text-[14px] leading-5 text-[#172b26] underline-offset-2 hover:bg-black/[0.04] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white dark:hover:bg-white/[0.06]">
+              <button type="button" onClick={(event) => goToField(event.currentTarget, item.field!, onOpen)} className="min-h-8 w-full rounded-item px-2 py-1 text-left text-[14px] leading-5 text-[#172b26] underline-offset-2 hover:bg-black/[0.04] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white dark:hover:bg-white/[0.06]">
                 {item.text}
               </button>
             ) : (

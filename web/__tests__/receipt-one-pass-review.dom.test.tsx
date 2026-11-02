@@ -231,7 +231,7 @@ describe("a receipt with no currency", () => {
       await fill(page, '[data-testid="dossier-review-amount"]', "950");
       await page.check("amount");
       await page.wait(() => Boolean(page.row("amount").querySelector('[data-testid="row-saved"]')));
-      assert.deepEqual(page.writes.map(({ body }) => body), [{ amount: { state: "known", value: "950.00" } }]);
+      assert.deepEqual(page.writes.map(({ body }) => body), [{ amount: { state: "known", value: "950" } }]);
       assert.ok(page.row("amount").textContent?.includes("950.00 · Falta la moneda"));
       await page.act(async () => { await page.i18n.changeLanguage("en"); });
       assert.ok(page.row("amount").textContent?.includes("950.00 · Currency missing"));

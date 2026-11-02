@@ -226,7 +226,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
     },
   });
 
-  const rows = useReviewRows({ dossier, autosave });
+  const rows = useReviewRows({ dossier, autosave, currencies: receiptCurrencyOptions(records.workspace, dossier?.accounts ?? [], null) });
   const dirty = rows.unsaved.length > 0;
   const openRow = rows.open;
 
@@ -520,7 +520,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
       </>}
     >
           {notice}
-          <DossierAttentionStrip items={attention} />
+          <DossierAttentionStrip items={attention} onOpen={canPrepare && mutable ? rows.open : undefined} />
           {/* The row in focus or under the pointer marks its value where the message says it verbatim. */}
           <div
             onFocus={(event) => setHighlight(rowValues(event.target))}
