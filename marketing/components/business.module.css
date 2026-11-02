@@ -781,7 +781,7 @@
 }
 @media (max-width: 480px) {
   .businessFooterGrid { margin-inline: 20px; column-gap: 16px; }
-  .businessFooterGrid { grid-template-columns: 1fr 1fr; }
+  .businessFooterGrid { grid-template-columns: minmax(0, max-content) minmax(min-content, 1fr); }
   .footerIdentity { grid-column: 1 / -1; padding-bottom: 24px; border-bottom: 1px solid var(--fline); margin-bottom: 24px; }
   .businessFooterGrid nav { margin-bottom: 24px; padding-left: 16px; }
   .footerBar > .backTop { margin-left: 0; }
