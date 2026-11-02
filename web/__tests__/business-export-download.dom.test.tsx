@@ -17,6 +17,7 @@ import { currentMonthKey, shiftMonthKey, windowForMonth } from "@/lib/business-m
 
 const own: GrantedSpace = { space_id: "own-space", grant_id: "own-grant", name: "Taller Luna", role: "owner", capabilities: ["read", "prepare", "approve"], permissions: ["read", "prepare", "approve", "download", "export"], access_seen: true };
 const client: GrantedSpace = { ...own, space_id: "client-space", grant_id: "client-grant", name: "Colmado Sol", role: "accountant", capabilities: ["read"], permissions: ["read", "download", "export"] };
+const secondOwned: GrantedSpace = { ...own, space_id: "second-space", grant_id: "second-grant", name: "Ferreteria Mar" };
 const bytes = new Uint8Array([80, 75, 3, 4, 0, 255]);
 const original = { fetch: globalThis.fetch, create: URL.createObjectURL, revoke: URL.revokeObjectURL, auth: process.env.NEXT_PUBLIC_MOCK_AUTH };
 let calls: { url: URL; init?: RequestInit }[] = [];
@@ -46,10 +47,10 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-async function mount(chosen = own) {
+async function mount(chosen = own, storedGrant = chosen.role === "owner" ? null : chosen.grant_id) {
   calls = []; downloads = [];
   respond = async () => new Response(bytes, { headers: { "Content-Type": "application/zip" } });
-  setChosenGrant(chosen.role === "owner" ? null : chosen.grant_id);
+  setChosenGrant(storedGrant);
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
   const source = { ...createFixtureBusinessDataSource(), mode: "live" as const, expenses: async () => [], dossier: async () => { throw new Error("Exports must not fetch a dossier"); } };
@@ -72,7 +73,7 @@ async function mount(chosen = own) {
   const root = createRoot(host);
   const render = async (patch: Partial<BusinessContextValue> = {}) => {
     context = { ...context, ...patch };
-    setChosenGrant(context.chosen?.role === "accountant" ? context.chosen.grant_id : null);
+    if (patch.chosen) setChosenGrant(patch.chosen.role === "accountant" ? patch.chosen.grant_id : null);
     await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Sheet /></BusinessContext.Provider></I18nextProvider>));
   };
   await render();
@@ -103,6 +104,19 @@ for (const chosen of [own, client]) test(`Exportar registros downloads this mont
     assert.deepEqual(new Uint8Array(await downloads[0].blob.arrayBuffer()), bytes);
     assert.equal(downloads[0].filename, `business-export-${thisMonth.from}-${thisMonth.to}.zip`);
     assert.equal(view.button(), undefined, "a finished download closes the panel");
+  } finally { await view.close(); }
+});
+
+for (const [label, chosen] of [["a Business they switched to", secondOwned], ["the Business the workspace chose for them", own]] as const) test(`an owner on ${label} exports it under its stored grant`, async () => {
+  const view = await mount(chosen, chosen.grant_id);
+  try {
+    await view.submit();
+    assert.equal(exports().length, 1);
+    assert.equal(new Headers(exports()[0].init?.headers).get("X-Business-Grant"), chosen.grant_id);
+    assert.equal(downloads.length, 1);
+    assert.deepEqual(new Uint8Array(await downloads[0].blob.arrayBuffer()), bytes);
+    assert.equal(downloads[0].filename, `business-export-${thisMonth.from}-${thisMonth.to}.zip`);
+    assert.equal(document.querySelector('[role="alert"]') === null, true, "no error shows after the download");
   } finally { await view.close(); }
 });
 
@@ -157,6 +171,20 @@ for (const change of ["business", "month", "permission", "session"] as const) te
   } finally { await view.close(); }
 });
 
+test("a stored grant that changes during an owner's download saves nothing", async () => {
+  const view = await mount(secondOwned, secondOwned.grant_id);
+  let finish!: (response: Response) => void;
+  try {
+    respond = async () => new Promise((resolve) => { finish = resolve; });
+    await view.submit();
+    assert.equal(exports().length, 1);
+    setChosenGrant(own.grant_id);
+    await act(async () => finish(new Response(bytes, { headers: { "Content-Type": "application/zip" } })));
+    assert.equal(downloads.length, 0);
+    assert.ok(document.querySelector('[role="alert"]'));
+  } finally { await view.close(); }
+});
+
 test("a read-only member never gets Exportar, even with read", async () => {
   const view = await mount({ ...client, capabilities: ["read"], permissions: ["read"] });
   try {
@@ -170,6 +198,17 @@ test("a changed grant before a click never exports a different Business", async 
   const view = await mount(client);
   try {
     setChosenGrant("different-grant");
+    await view.submit();
+    assert.equal(exports().length, 0);
+    assert.equal(downloads.length, 0);
+    assert.ok(document.querySelector('[role="alert"]'));
+  } finally { await view.close(); }
+});
+
+test("a changed grant before an owner's click never exports a different Business", async () => {
+  const view = await mount(secondOwned, secondOwned.grant_id);
+  try {
+    setChosenGrant(own.grant_id);
     await view.submit();
     assert.equal(exports().length, 0);
     assert.equal(downloads.length, 0);

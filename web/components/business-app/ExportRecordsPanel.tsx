@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { currentMonthKey, loadCurrentMonth, shiftMonthKey, windowForMonth, type DgiiForms, type DgiiFormStatus, type MonthCloseSnapshot } from "@/lib/business-month-close";
 import { businessExportPeriodValid, fetchBusinessExport } from "@/lib/business-api";
+import { getChosenGrant } from "@/lib/business-grant";
 import { useBusiness } from "./BusinessWorkspace";
 import { useBusinessNaming } from "./BusinessNamingProvider";
 import BusinessFiscalProfile from "./BusinessFiscalProfile";
@@ -153,7 +154,6 @@ export default function ExportRecordsPanel({ month: startMonth, monthClose, onCl
   const valid = range !== null && businessExportPeriodValid(range.from, range.to);
   const fiscal = useFiscalLine(range, monthClose, current?.snapshot ?? null);
   const available = source.mode === "live";
-  const scope = chosen ? { name: chosen.name, grantId: chosen.role === "owner" ? null : chosen.grant_id } : null;
   const canExport = chosen?.permissions?.includes("export") === true;
 
   // A change of Business, access or period drops the download in flight: it would save what the owner no longer asked for.
@@ -167,14 +167,16 @@ export default function ExportRecordsPanel({ month: startMonth, monthClose, onCl
   const choose = (next: ExportChoice) => { setProblem(null); setChoice(next); };
 
   const download = async () => {
-    if (!scope || !range || request.current || !available || !valid) return;
+    if (!chosen || !range || request.current || !available || !valid) return;
     const controller = startPeriodExportRequest(request, setBusy);
     if (!controller) return;
     setProblem(null);
     try {
       if (naming && !await naming.requireName()) return;
       controller.signal.throwIfAborted();
-      const blob = await fetchBusinessExport(undefined, range.from, range.to, controller.signal, scope.grantId);
+      // No stored grant selects the person's own Business, the workspace's rule for `chosen`.
+      const expectedGrant = chosen.role === "owner" && getChosenGrant() === null ? null : chosen.grant_id;
+      const blob = await fetchBusinessExport(undefined, range.from, range.to, controller.signal, expectedGrant);
       controller.signal.throwIfAborted();
       saveBlobDownload(blob, `business-export-${range.from}-${range.to}.zip`);
       showToast({ kind: "success", text: t("business.export.done", "Downloaded. Find the ZIP in your downloads.") });
