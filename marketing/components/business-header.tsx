@@ -150,11 +150,7 @@ export function BusinessHeader({
     <a className={styles.loginLink} href={signInHref}>
       {copy.login}
     </a>
-  ) : (
-    <button className={styles.loginLink} type="button" data-preview-unwired="true">
-      {copy.login}
-    </button>
-  );
+  ) : null;
   const backLink = (
     <a href={home} className={styles.backLink}>
       <ArrowLeft size={16} aria-hidden="true" />

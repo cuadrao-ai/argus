@@ -7,7 +7,6 @@ const cases = [
     contact: "/contacto",
     language: "English",
     contactAction: "Hablemos de tu negocio",
-    login: "Iniciar sesión",
     menu: "Abrir menú",
     send: "Enviar mensaje",
     email: "Correo",
@@ -22,7 +21,6 @@ const cases = [
     contact: "/en/contact",
     language: "Español",
     contactAction: "Let’s talk about your business",
-    login: "Log in",
     menu: "Open menu",
     send: "Send message",
     email: "Email",
@@ -46,16 +44,12 @@ for (const copy of cases) {
 
     const language = nav.locator("[data-language-switch]");
     const contact = nav.getByRole("link", { name: copy.contactAction, exact: true });
-    const login = nav.getByRole("button", { name: copy.login, exact: true });
     await expect(language).toContainText(copy.language);
     await expect(contact).toHaveAttribute("href", copy.contact);
-    await expect(login).toHaveAttribute("data-preview-unwired", "true");
-    const boxes = await Promise.all([contact, login, language].map((item) => item.boundingBox()));
+    const boxes = await Promise.all([contact, language].map((item) => item.boundingBox()));
     if (info.project.name === "mobile") {
       expect(boxes[0]!.y).toBeLessThan(boxes[1]!.y);
-      expect(boxes[1]!.y).toBeLessThan(boxes[2]!.y);
     } else {
-      expect(boxes[2]!.x).toBeLessThan(boxes[1]!.x);
       expect(boxes[1]!.x).toBeLessThan(boxes[0]!.x);
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
