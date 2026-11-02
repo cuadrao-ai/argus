@@ -56,9 +56,9 @@ export async function installBusinessRouteFixture(page: Page) {
       expect(report.page_size).toBe(25);
       const seeded = await fixture.expenses("", null);
       const expenses = [...approved.values(), ...seeded.filter((item) => ![...approved.values()].some((saved) => saved.id === item.id))];
-      const today = now.toISOString().slice(0, 10);
+      const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santo_Domingo", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
       const periodDate = report.filters.period.kind === "latest_month"
-        ? expenses.map((item) => item.occurred_on).sort().at(-1) ?? today
+        ? expenses.map((item) => item.occurred_on).filter((date) => date <= today).sort().at(-1) ?? today
         : today;
       const [year, month] = periodDate.split("-").map(Number);
       const from = report.filters.period.kind === "all" ? null : `${periodDate.slice(0, 7)}-01`;
