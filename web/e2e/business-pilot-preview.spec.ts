@@ -212,9 +212,9 @@ test.describe("Business preview", () => {
     await expect(tray(page).getByTestId("receipt-review-source")).toBeVisible();
     await expect(tray(page).locator('[data-testid="receipt-review-fields"] input, [data-testid="receipt-review-fields"] select')).toHaveCount(0);
 
-    await attention.getByRole("button", { name: "Reintentar con IA" }).click();
+    await attention.getByRole("button", { name: "Leer de nuevo" }).click();
     await expect(tray(page)).toContainText("Leyendo tu recibo");
-    await expect(page.getByRole("button", { name: "Reintentar con IA" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Leer de nuevo" })).toHaveCount(0);
   });
 
   test("a read with no single purchase keeps what was read and asks for nothing by hand", async ({ page }) => {

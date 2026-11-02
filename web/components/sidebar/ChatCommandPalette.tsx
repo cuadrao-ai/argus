@@ -1426,12 +1426,12 @@ function ChatCommandPaletteSurface({
             )}
             className="min-h-11 w-full bg-transparent font-display text-[16px] font-medium text-black outline-none placeholder:text-black/35 dark:text-white dark:placeholder:text-white/35"
           />
-          {(query || isLedgerMode) && (
+          {(query || isLedgerMode || (workspaceSearch && !isBelowTablet)) && (
             <button
               type="button"
-              onClick={clearSearchAndLedger}
+              onClick={workspaceSearch ? onClose : clearSearchAndLedger}
               className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10"
-              aria-label={t("command_palette.clear_search", "Clear search")}
+              aria-label={workspaceSearch ? t("command_palette.close", "Close search") : t("command_palette.clear_search", "Clear search")}
             >
               <X className="h-3.5 w-3.5 text-black/40 dark:text-white/40" />
             </button>
