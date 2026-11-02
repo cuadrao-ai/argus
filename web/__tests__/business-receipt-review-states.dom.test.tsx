@@ -122,7 +122,7 @@ test("a duplicate refusal without an id still says so, with no dead button", asy
   }
 });
 
-test("a disabled Aprobar names the missing facts beside it", async () => {
+test("a disabled Aprobar is described by the top box, which names the missing facts", async () => {
   const dossier = await createDossierFixtures(accounts).dossier(dossierFixtureIds.ready);
   dossier.approval_available = false;
   dossier.blockers = [{ code: "fact_required", field: "funding" }, { code: "fact_required", field: "business_share" }];
@@ -133,11 +133,9 @@ test("a disabled Aprobar names the missing facts beside it", async () => {
     const approve = page.button("Aprobar");
     assert.ok(approve);
     assert.equal(approve.disabled, true);
-    const reason = page.host.querySelector('[data-testid="approve-reason"]');
-    assert.equal(reason?.textContent, "Falta: Cómo se pagó, Parte del negocio");
-    // The footer says what is left on its left and holds the actions on its right.
-    assert.ok(reason?.closest('[data-testid="receipt-review-footer"]') && reason.closest('[data-testid="receipt-review-footer"]') === approve.closest('[data-testid="receipt-review-footer"]'), "the reason sits in the footer with the button");
-    assert.equal(approve.getAttribute("aria-describedby"), reason?.id);
+    assert.equal(page.host.querySelector('[data-testid="approve-reason"]'), null, "the footer holds the action; the top box says what is missing");
+    assert.deepEqual([...page.host.querySelectorAll('[data-testid="dossier-attention"] li')].map((item) => item.textContent), ["Cómo se pagó", "Parte del negocio"]);
+    assert.equal(approve.getAttribute("aria-describedby"), "dossier-attention-title");
   } finally {
     await page.close();
   }

@@ -1,0 +1,119 @@
+.section {
+  padding: 96px 0;
+  background: var(--cta-deep);
+  color: var(--cream);
+}
+.split {
+  display: grid;
+  grid-template-columns: 0.92fr 1.08fr;
+  gap: 56px;
+  align-items: center;
+  width: min(1160px, 100% - 48px);
+  margin-inline: auto;
+}
+.split h2 {
+  font-size: clamp(36px, 4.6vw, 56px);
+}
+.split .body {
+  margin-top: 16px;
+  color: #c1cbc4;
+  font-size: 18px;
+}
+.split .checks {
+  margin-top: 24px;
+  padding: 0;
+  list-style: none;
+}
+.checks li {
+  display: flex;
+  gap: 12px;
+  padding: 9px 0;
+  color: #e8ede3;
+  font-size: 15px;
+}
+.checks li::before {
+  content: "✓";
+  color: #d7ddc0;
+}
+.ledger {
+  min-width: 0;
+  padding: 20px;
+  overflow-x: auto;
+  border-radius: 16px;
+  background: var(--cream);
+  box-shadow: 0 24px 50px rgb(0 0 0 / 0.28);
+  color: var(--ink);
+  font-size: 15px;
+}
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.head b {
+  font: 500 18px var(--font-space-grotesk), sans-serif;
+}
+.status {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #e3ebe1;
+  color: #2f5a49;
+  font-size: 12.5px;
+}
+.ledger table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.ledger th {
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-weight: 500;
+  text-align: left;
+}
+.ledger td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #eceee9;
+}
+.ledger .num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  color: var(--muted);
+}
+.action {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px 16px;
+  border-radius: 22px;
+  background: var(--cta-rest);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+}
+@media (max-width: 900px) {
+  .section {
+    padding: 56px 0;
+  }
+  .split {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+  .split .checks {
+    display: none;
+  }
+  .ledger {
+    width: 100%;
+    padding: 14px;
+    font-size: 13.5px;
+  }
+}

@@ -2553,7 +2553,6 @@
         ".agent/ownership/branch_ownership.json",
         "marketing/components/business-header.tsx",
         "marketing/components/business-footer.tsx",
-        "marketing/components/touchup-landing.tsx",
         "marketing/e2e/business-cta.spec.ts"
       ],
       "deny": [
@@ -2619,7 +2618,6 @@
         "ios/**",
         "render.yaml",
         "marketing/components/business-header.tsx",
-        "marketing/components/touchup-landing.tsx",
         "marketing/lib/email/**"
       ]
     },

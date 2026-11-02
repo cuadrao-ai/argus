@@ -22,7 +22,7 @@ async function mountReview(dossier: BusinessDossier, mode: "live" | "fixture") {
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: es } }, interpolation: { escapeValue: false } });
   const sent: (BusinessApprovalAction | undefined)[] = [];
   const context = {
-    source: { mode, dossier: async () => dossier, approveDraft: async (_id: string, _version: number, _key: string, action?: BusinessApprovalAction) => { sent.push(action); return dossier; } },
+    source: { mode, dossier: async () => dossier, dgiiFields: async () => ({ "606": [], "607": [] }), approveDraft: async (_id: string, _version: number, _key: string, action?: BusinessApprovalAction) => { sent.push(action); return dossier; } },
     reload: () => undefined,
     records: { inbox: [] },
     openPanel: () => undefined,

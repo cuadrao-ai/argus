@@ -9,10 +9,11 @@ import { useBusiness } from "./BusinessWorkspace";
 import { formatTimestamp } from "./business-format";
 import { quietButtonClass, secondaryButtonClass, useChannelLabel } from "./business-ui";
 import { DelayedSourceWell } from "./business-skeletons";
+import ReceiptImageZoom from "./ReceiptImageZoom";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { resolveLanguage } from "@/lib/language-features";
 
-export default function ReceiptSourcePreview({ detail, initialExpanded = false, showArrivalContext = true }: { initialExpanded?: boolean; showArrivalContext?: boolean; detail: Pick<ReceiptSummary, "id" | "media_type" | "filename" | "received_at" | "channel" | "email_delivery_ids"> }) {
+export default function ReceiptSourcePreview({ detail, initialExpanded = false, showArrivalContext = true, zoomable = false }: { initialExpanded?: boolean; showArrivalContext?: boolean; /** An image offers zoom, for reading the original beside the facts. */ zoomable?: boolean; detail: Pick<ReceiptSummary, "id" | "media_type" | "filename" | "received_at" | "channel" | "email_delivery_ids"> }) {
   const { t, i18n } = useTranslation();
   const { source, openPanel } = useBusiness();
   const channelLabel = useChannelLabel();
@@ -55,6 +56,8 @@ export default function ReceiptSourcePreview({ detail, initialExpanded = false, 
           <DelayedSourceWell />
         ) : detail.media_type === "application/pdf" && source.mode === "live" ? (
           <iframe title={t("business.review.source", "Original receipt")} src={state.url} className="h-[480px] w-full" />
+        ) : (detail.media_type.startsWith("image/") || source.mode === "fixture") && zoomable ? (
+          <ReceiptImageZoom src={state.url} alt={t("business.review.source", "Original receipt")} />
         ) : detail.media_type.startsWith("image/") || source.mode === "fixture" ? (
           <Image unoptimized src={state.url} width={640} height={900} alt={t("business.review.source", "Original receipt")} className="max-h-[300px] w-auto object-contain desktop:max-h-[520px]" />
         ) : (

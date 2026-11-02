@@ -1,7 +1,7 @@
 {
   "privacidad": {
-    "source_sha256": "f27c082e586ae28af06c3c1b7f6eec161c3cda4f72b355c7e46d41eb3ce3af05",
-    "spanish_text_sha256": "2d0a467f0b827e3342b46d4c45b90b5acb73e9031bee25367a9767b6b68bead0",
+    "source_sha256": "2c42f5197f1654057e762cfd0d00857da637b6e055eaaf2d14ba730b7ebe0cff",
+    "spanish_text_sha256": "07ff51b5e5b95cfb08d9481cd9e959fe86424dfe2c0734c4a2684b1d43e6b4d5",
     "english_text_sha256": "423f3fff8d9b293216438e44b86d50c9334d85fbc9484f6fafc1a223a02be17b"
   },
   "eliminar-datos": {

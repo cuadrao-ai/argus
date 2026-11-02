@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import {
-  BusinessLanding,
-  ContactPage,
-} from "@/components/business-pages";
+import { ContactPage } from "@/components/business-pages";
+import { Landing } from "@/components/landing/landing";
 import { LegalPage } from "@/components/legal-page";
 import { PAGE_METADATA, shareImage } from "@/lib/page-metadata";
 import {
@@ -76,7 +74,7 @@ export default async function SitePage({ params }: Props) {
   const { locale, page } = await resolveRoute(params);
   switch (page) {
     case "home":
-      return <BusinessLanding locale={locale} />;
+      return <Landing locale={locale} />;
     case "contact":
       return <ContactPage locale={locale} />;
     case "privacy":

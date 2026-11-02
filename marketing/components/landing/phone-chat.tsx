@@ -1,13 +1,13 @@
 import type { ChatState } from "@/lib/landing-timeline";
 import type { DemoDates } from "@/lib/demo-date";
-import { landingCopy } from "./landing-copy";
+import { landingCopy, type LandingLocale } from "./landing-copy";
 import styles from "./phone-chat.module.css";
 
 const MARK = "/cuadrao-site/cuadrao-mark-light.svg";
 
 type Props = {
   chat: ChatState;
-  copy: (typeof landingCopy)["es"]["how"]["chat"];
+  copy: (typeof landingCopy)[LandingLocale]["how"]["chat"];
   dates: DemoDates;
 };
 

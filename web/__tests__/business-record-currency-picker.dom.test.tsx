@@ -87,12 +87,12 @@ describe("the currency picker on a receipt", () => {
       },
     }));
     try {
-      await view.settle(() => Boolean(view.host.querySelector('[data-fact="currency"] button')));
-      const edit = view.host.querySelector<HTMLButtonElement>('[data-fact="currency"] button');
+      await view.settle(() => Boolean(view.host.querySelector('[data-fact="amount"] button')));
+      const edit = view.host.querySelector<HTMLButtonElement>('[data-fact="amount"] button');
       assert.ok(edit);
       await view.idle();
       await view.act(async () => edit.click());
-      const picker = view.host.querySelector('[data-testid="edit-currency"] select');
+      const picker = view.host.querySelector('[data-testid="edit-amount"] select');
       assert.deepEqual(optionTexts(picker).filter(Boolean).filter((text) => text !== "Elegir"), ["DOP", "CAD", "EUR"]);
     } finally { await view.close(); }
   });

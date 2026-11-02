@@ -2746,7 +2746,6 @@
       "type_detected_venta": "We read it as a sale from your business's RNC. Add the client's RNC.",
       "type_detected_recibo": "We read it as a purchase. Change it if it is a sale.",
       "type_locked": "This record is approved. Its type no longer changes.",
-      "type_failed": "We couldn't change the type. Try again.",
       "title": "Review record",
       "unknown": "Unknown",
       "rnc_unknown": "No RNC",
@@ -2756,13 +2755,9 @@
       "amount_unknown": "Amount unknown",
       "currency_unknown": "Currency unknown",
       "revision": "Revision {{version}}",
-      "save_unconfirmed": "The current revision does not confirm that your save completed. Your edits are retained; saving and approval remain paused.",
-      "saved_details": "Current saved details",
-      "pending_details": "Your unconfirmed edits",
       "current_details": "Current details",
       "edit": "Edit details",
       "save": "Save review details",
-      "edit_note": "Saving updates the review details. Approval is a separate action.",
       "business_amount": "Business amount",
       "default": "Default · not verified",
       "verified": "Verified",
@@ -2772,8 +2767,6 @@
       "messages_title_other": "Original messages",
       "proposals": "Agent proposals",
       "fiscal_details": "Fiscal details",
-      "web_actions": "Web review actions",
-      "submitted_action": "Original submitted action",
       "web_message": "Web message",
       "email": "Email",
       "arrived_by_email": "Arrived by email",
@@ -2806,14 +2799,6 @@
       "approved_by": "Approved by {{name}} · permission granted by {{issuer}}",
       "approving": "Approving…",
       "approval_effect": "Approval records this revision as one expense. Saving review details does not record it.",
-      "attention": {
-        "fiscal_disagree": "The record and its file disagree on the fiscal number: the file carries e-CF {{encf}}.",
-        "footer_one": "{{count}} thing to review before approving",
-        "footer_other": "{{count}} things to review before approving",
-        "suggestion": "{{field}}: suggestion to confirm",
-        "title_one": "{{count}} to review",
-        "title_other": "{{count}} to review"
-      },
       "prepare_only": "Your permission allows preparing this record. A person with approval permission must approve it.",
       "read_only": "Your permission allows viewing this record.",
       "recorded": "One expense was recorded after approval of revision {{version}}.",
@@ -2897,7 +2882,6 @@
         "approve_anyway": "Approve anyway"
       },
       "missing_draft": "The prepared record isn't available yet. Check the current receipt before continuing.",
-      "missing_list": "Missing: {{fields}}",
       "refused": "This action could not be completed. Check the current record before trying again.",
       "blocker_fallback": "This record needs further review before approval.",
       "kind": {
@@ -2934,23 +2918,32 @@
         "missing": "Missing"
       },
       "confirm_value": "Confirm",
-      "confirm_read_one": "Confirm {{field}}",
-      "confirm_read_other": "Confirm {{count}} read details",
-      "origin": {
-        "extracted": "Read from source · not verified",
-        "qr_decoded": "From the QR code · not verified",
-        "owner_stated": "Stated by owner · not verified",
-        "member_set": "Set by reviewer · not verified",
-        "matched": "Matched to source · not verified"
-      },
       "origin_tag": {
-        "from_message": "from the message",
-        "from_receipt": "from the receipt",
-        "matched": "linked to the source",
         "member_set": "from the reviewer",
-        "owner_stated": "from the owner",
-        "qr_decoded": "from the QR code",
         "suggested": "suggested"
+      },
+      "placeholder": {
+        "blocks_title": "Needed to approve",
+        "expense_type": "Expense type",
+        "more_fiscal": "More tax details",
+        "payment_form": "Payment method",
+        "save_lost": "We couldn't confirm that {{field}} was saved. Approval is paused.",
+        "save_refused": "{{field}} wasn't saved. Check the value.",
+        "save_stale": "This record changed while you edited. You're seeing the current version and your change is still here.",
+        "doubtful_read": "check this",
+        "zoom_in": "Zoom in",
+        "zoom_out": "Zoom out",
+        "done_title": "No receipts left to review",
+        "done_back": "Back to Inbox",
+        "total_mismatch": "Subtotal + ITBIS = {{sum}}, not {{total}}",
+        "save_first": "Save or cancel {{fields}} to approve.",
+        "group_identity": "Identification",
+        "group_amounts": "Amounts",
+        "group_retentions": "Withholdings",
+        "group_other": "Other",
+        "section_choices": "For the 606",
+        "use_suggestion": "Use",
+        "mark_no_receipt": "Mark as no receipt"
       },
       "place": "{{index}} of {{total}}",
       "receipt": {
@@ -2958,7 +2951,6 @@
         "informal_receipt": "Receipt without NCF",
         "no_receipt": "No receipt"
       },
-      "receipt_hint": "The last two stay out of the 606 and 607.",
       "section": {
         "fiscal": "Fiscal",
         "payment": "Payment"

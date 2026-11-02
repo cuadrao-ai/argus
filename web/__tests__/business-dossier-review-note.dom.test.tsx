@@ -24,7 +24,7 @@ async function mount(reviewNote: string | null | undefined) {
   const dossier = await createDossierFixtures(accounts).dossier(dossierFixtureIds.ready);
   const shown: BusinessDossier = { ...dossier, fiscal_known: false, ...(reviewNote === undefined ? {} : { review_note: reviewNote }) };
   const context = {
-    source: { mode: "fixture", dossier: async () => shown },
+    source: { mode: "fixture", dossier: async () => shown, dgiiFields: async () => ({ "606": [], "607": [] }) },
     reload: () => undefined,
     records: { inbox: [] },
     openPanel: () => undefined,

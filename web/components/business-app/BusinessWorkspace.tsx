@@ -147,6 +147,8 @@ export type BusinessContextValue = Readonly<{
   setPeriod: (next: PeriodKey | Period) => void;
   panel: BusinessPanelState;
   openPanel: (panel: BusinessPanelState) => void;
+  /** Asks `guard` before the open panel changes, until the returned function runs. */
+  guardPanel: (guard: PanelGuard) => () => void;
   actions: BusinessActions;
   bridge: ChatShellBridge | null;
   attachedReceipt: ReceiptSummary | null;
@@ -158,6 +160,9 @@ export type BusinessContextValue = Readonly<{
   /** Asks again for only the lists named; the rest stay as they are. */
   retrySources: (sources: readonly BandejaSource[]) => void;
 }>;
+
+/** Decides whether the open panel may change; `proceed` makes the change. */
+export type PanelGuard = (next: BusinessPanelState, proceed: () => void) => void;
 
 /** Exported for DOM tests that mount one panel with a hand-made context; the app provides it through BusinessWorkspaceProvider. */
 export const BusinessContext = createContext<BusinessContextValue | null>(null);
@@ -383,6 +388,11 @@ function BusinessWorkspaceContent({
   // one loads: the open record and its address, the dialogs and their typed
   // text, the attached receipt, and every list. Nothing of A shows under B.
   const consent = useBusinessConsent();
+  const panelGuard = useRef<PanelGuard | null>(null);
+  const guardPanel = useCallback((guard: PanelGuard) => {
+    panelGuard.current = guard;
+    return () => { if (panelGuard.current === guard) panelGuard.current = null; };
+  }, []);
   const chooseBusiness = useCallback((grantId: string | null) => {
     setInvitationBusiness(null);
     setCreatingBusiness(false);
@@ -391,18 +401,22 @@ function BusinessWorkspaceContent({
       return;
     }
     if (grantId === getChosenGrant()) return;
-    clearTitleFocusUnless();
-    setLostAccess(false);
-    setClosedAccess(false);
-    setChosenGrant(grantId);
-    setPanel({ kind: "overview" });
-    writePanelToUrl("workspace", { kind: "overview" });
-    setDirectRecord(false);
-    setIntakeTarget(null);
-    clearToasts();
-    setAttachedReceipt(null);
-    setRecords(EMPTY_RECORDS);
-    setRevision((value) => value + 1);
+    const choose = () => {
+      clearTitleFocusUnless();
+      setLostAccess(false);
+      setClosedAccess(false);
+      setChosenGrant(grantId);
+      setPanel({ kind: "overview" });
+      writePanelToUrl("workspace", { kind: "overview" });
+      setDirectRecord(false);
+      setIntakeTarget(null);
+      clearToasts();
+      setAttachedReceipt(null);
+      setRecords(EMPTY_RECORDS);
+      setRevision((value) => value + 1);
+    };
+    if (panelGuard.current) panelGuard.current({ kind: "overview" }, choose);
+    else choose();
   }, [consent]);
   const drafts = useRef(new Map<string, string>());
   const [draftRevision, setDraftRevision] = useState(0);
@@ -560,9 +574,13 @@ function BusinessWorkspaceContent({
 
   const openPanel = useCallback(
     (next: BusinessPanelState) => {
-      clearTitleFocusUnless(next.kind === "receipt" ? next.receiptId : undefined);
-      setPanel(next);
-      bridge?.showWorkspace();
+      const go = () => {
+        clearTitleFocusUnless(next.kind === "receipt" ? next.receiptId : undefined);
+        setPanel(next);
+        bridge?.showWorkspace();
+      };
+      if (panelGuard.current) panelGuard.current(next, go);
+      else go();
     },
     [bridge],
   );
@@ -597,6 +615,7 @@ function BusinessWorkspaceContent({
       setPeriod,
       panel,
       openPanel,
+      guardPanel,
       actions,
       bridge,
       attachedReceipt,
@@ -605,7 +624,7 @@ function BusinessWorkspaceContent({
       emailRefresh,
       retrySources,
     }),
-    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
+    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, guardPanel, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
   );
 
   const directoryValue = useMemo<BusinessContextValue>(() => ({ ...value, directoryStatus }), [value, directoryStatus]);

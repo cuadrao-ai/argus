@@ -317,6 +317,7 @@ export function ProductScene({ locale }: { locale: LandingLocale }) {
                     <span
                       key={label}
                       role="img"
+                      tabIndex={0}
                       aria-label={label}
                       data-tip={label}
                       className={`${className} ${styles.dockSoon}`}

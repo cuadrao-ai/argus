@@ -53,7 +53,7 @@ async function mount(mode: Mode = "success", options: { readOnly?: boolean; clos
     const [dossier, setDossier] = useState(initial);
     const [busy, setBusy] = useState(false);
     return <I18nextProvider i18n={i18n}>
-      <DossierAttentionStrip items={dossierAttention(dossier, [], i18n.t.bind(i18n))} />
+      <DossierAttentionStrip items={dossierAttention(dossier, i18n.t.bind(i18n))} />
       <ReceiptDuplicateResolution dossier={dossier} busy={busy || options.externalBusy} onBusyChange={setBusy} onChanged={setDossier} onOpenOriginal={(id) => opened.push(id)} />
     </I18nextProvider>;
   }

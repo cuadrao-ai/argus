@@ -2746,7 +2746,6 @@
       "type_detected_venta": "La detectamos por el RNC de tu negocio. Completa el RNC del cliente.",
       "type_detected_recibo": "Lo detectamos como compra. Cámbialo si es una venta.",
       "type_locked": "Este registro ya está aprobado. Su tipo no cambia.",
-      "type_failed": "No pudimos cambiar el tipo. Inténtalo de nuevo.",
       "title": "Revisar registro",
       "unknown": "Desconocido",
       "rnc_unknown": "Sin RNC",
@@ -2756,13 +2755,9 @@
       "amount_unknown": "Monto desconocido",
       "currency_unknown": "Moneda desconocida",
       "revision": "Revisión {{version}}",
-      "save_unconfirmed": "La revisión actual no confirma que se completó tu guardado. Tus cambios se conservan; el guardado y la aprobación siguen en pausa.",
-      "saved_details": "Detalles guardados actuales",
-      "pending_details": "Tus cambios sin confirmar",
       "current_details": "Detalles actuales",
       "edit": "Editar detalles",
       "save": "Guardar detalles de revisión",
-      "edit_note": "Guardar actualiza los detalles de revisión. Aprobar es una acción aparte.",
       "business_amount": "Monto del negocio",
       "default": "Predeterminada · sin verificar",
       "verified": "Verificado",
@@ -2772,8 +2767,6 @@
       "messages_title_other": "Mensajes originales",
       "proposals": "Propuestas del agente",
       "fiscal_details": "Datos fiscales",
-      "web_actions": "Revisiones en la web",
-      "submitted_action": "Acción enviada originalmente",
       "web_message": "Mensaje web",
       "email": "Correo",
       "arrived_by_email": "Llegó por correo",
@@ -2806,14 +2799,6 @@
       "approved_by": "Aprobado por {{name}} · permiso otorgado por {{issuer}}",
       "approving": "Aprobando…",
       "approval_effect": "Aprobar registra esta revisión como un gasto. Guardar los detalles de revisión no lo registra.",
-      "attention": {
-        "fiscal_disagree": "El registro y su archivo no coinciden en el comprobante: el archivo trae el e-CF {{encf}}.",
-        "footer_one": "{{count}} cosa por revisar antes de aprobar",
-        "footer_other": "{{count}} cosas por revisar antes de aprobar",
-        "suggestion": "{{field}}: sugerencia por confirmar",
-        "title_one": "{{count}} por revisar",
-        "title_other": "{{count}} por revisar"
-      },
       "prepare_only": "Puedes revisar y preparar este recibo. El dueño lo aprueba.",
       "read_only": "Tu permiso permite ver este registro.",
       "recorded": "Se registró un gasto tras aprobar la revisión {{version}}.",
@@ -2897,7 +2882,6 @@
         "approve_anyway": "Aprobar de todos modos"
       },
       "missing_draft": "El movimiento preparado todavía no está disponible. Revisa el recibo actual antes de continuar.",
-      "missing_list": "Falta: {{fields}}",
       "refused": "No se pudo completar esta acción. Consulta el registro actual antes de intentarlo de nuevo.",
       "blocker_fallback": "Este registro necesita más revisión antes de aprobarse.",
       "kind": {
@@ -2934,23 +2918,32 @@
         "missing": "Falta"
       },
       "confirm_value": "Confirmar",
-      "confirm_read_one": "Confirmar {{field}}",
-      "confirm_read_other": "Confirmar {{count}} datos leídos",
-      "origin": {
-        "extracted": "Leído de la fuente · sin verificar",
-        "qr_decoded": "Del código QR · sin verificar",
-        "owner_stated": "Indicado por el dueño · sin verificar",
-        "member_set": "Indicado por el revisor · sin verificar",
-        "matched": "Vinculado a la fuente · sin verificar"
-      },
       "origin_tag": {
-        "from_message": "del mensaje",
-        "from_receipt": "del recibo",
-        "matched": "vinculada a la fuente",
         "member_set": "del revisor",
-        "owner_stated": "del dueño",
-        "qr_decoded": "del código QR",
         "suggested": "sugerida"
+      },
+      "placeholder": {
+        "blocks_title": "Falta para aprobar",
+        "expense_type": "Tipo de gasto",
+        "more_fiscal": "Más datos fiscales",
+        "payment_form": "Forma de pago",
+        "save_lost": "No pudimos confirmar si {{field}} se guardó. Aprobar queda en pausa.",
+        "save_refused": "No se guardó {{field}}. Revisa el valor.",
+        "save_stale": "Este registro cambió mientras editabas. Ya ves la versión actual y tu cambio sigue aquí.",
+        "doubtful_read": "revisar",
+        "zoom_in": "Acercar",
+        "zoom_out": "Alejar",
+        "done_title": "No quedan recibos por revisar",
+        "done_back": "Volver a la Bandeja",
+        "total_mismatch": "Subtotal + ITBIS = {{sum}}, no {{total}}",
+        "save_first": "Guarda o cancela {{fields}} para aprobar.",
+        "group_identity": "Identificación",
+        "group_amounts": "Montos",
+        "group_retentions": "Retenciones",
+        "group_other": "Otros",
+        "section_choices": "Para el 606",
+        "use_suggestion": "Usar",
+        "mark_no_receipt": "Marcar sin recibo"
       },
       "place": "{{index}} de {{total}}",
       "receipt": {
@@ -2958,7 +2951,6 @@
         "informal_receipt": "Recibo sin NCF",
         "no_receipt": "Sin recibo"
       },
-      "receipt_hint": "Los dos últimos quedan fuera del 606 y 607.",
       "section": {
         "fiscal": "Fiscal",
         "payment": "Pago"

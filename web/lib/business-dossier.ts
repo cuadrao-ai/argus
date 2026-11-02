@@ -116,6 +116,10 @@ export type BusinessDossier = BusinessRecordContext & {
   supporting_append_available?: boolean;
   annotation_unavailable_reason?: string | null;
   dgii?: DgiiDeclaration | null;
+  /** The caller may write the 606 declaration now: it holds prepare, the record takes a 606, and no downloaded TXT carries it. */
+  declaration_editable?: boolean;
+  /** The tipo de gasto a person last chose for this supplier's RNC in this Business. A suggestion: it reaches the 606 only when a person writes it. */
+  expense_type_suggestion?: string | null;
   /** What the e-CF XML proved by itself; null for any other source. */
   ecf_checks?: EcfVerification | null;
   /** The DGII QR the receipt carried; null when there was none. */

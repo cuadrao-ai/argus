@@ -19,16 +19,16 @@ describe("inquiry message", () => {
         role: "accountant",
         channel: "whatsapp",
         phone: " +1 809 555 0123 ",
-        source: "mi contador",
+        source: "mi contable",
         pilot: true,
       },
       "Tengo 12 clientes.",
     );
     expect(message).toBe(
       [
-        "Soy: contador/a",
+        "Soy: contable",
         "Prefiere: WhatsApp +1 809 555 0123",
-        "Nos conoció por: mi contador",
+        "Nos conoció por: mi contable",
         "Demostración: le interesa una demostración de Cuadrao",
         "",
         "Tengo 12 clientes.",

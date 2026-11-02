@@ -1,26 +1,5 @@
 import { expect, test } from "@playwright/test";
 
-for (const path of ["/", "/en"]) {
-  test(`${path} preserves the capture story and accessible progress rail`, async ({
-    page,
-  }) => {
-    await page.goto(path);
-    const tabs = page.getByRole("tab");
-    await expect(tabs).toHaveCount(3);
-    await tabs.first().focus();
-    await page.keyboard.press("ArrowRight");
-    await expect(tabs.nth(1)).toBeFocused();
-    await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByRole("tabpanel")).toContainText("RD$ 1,250");
-    await page.keyboard.press("End");
-    await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByRole("tabpanel")).toContainText(
-      path === "/" ? "Aprobado" : "Approved",
-    );
-    await expect(page.locator("iframe")).toHaveCount(0);
-  });
-}
-
 test("header blends at the top and becomes a pill after scrolling", async ({
   page,
 }) => {

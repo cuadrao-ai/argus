@@ -33,6 +33,9 @@ NAMES = (
     "DOCUMENT_JOBS_ENABLED",
     "DOCUMENT_JOBS_WORKFLOW_TASK",
     "DOCUMENT_JOBS_SWEEP_SECONDS",
+    "DOCUMENT_JOBS_PULL_ENABLED",
+    "DOCUMENT_JOBS_MAX_READS",
+    "DOCUMENT_JOBS_DRAIN_SECONDS",
     "VISION_MODEL",
     "FINANCIAL_ACCOUNTS_ENABLED",
     "BUSINESS_EMAIL_CAPTURE_ENABLED",
@@ -79,6 +82,7 @@ def test_the_shared_reader_prefers_the_cuadrao_name(
             lambda: load_document_extraction_settings().enabled,
         ),
         ("DOCUMENT_JOBS_ENABLED", lambda: load_document_job_settings().enabled),
+        ("DOCUMENT_JOBS_PULL_ENABLED", lambda: load_document_job_settings().pull),
         ("BUSINESS_EMAIL_CAPTURE_ENABLED", lambda: EmailIntakeSettings().capture_enabled),
         (
             "BUSINESS_EMAIL_INTAKE_ENABLED",

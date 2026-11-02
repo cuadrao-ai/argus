@@ -1,9 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
-import { PUBLIC_URL } from "./ports";
-
-const PATH = "/es/vista-previa";
+const PATH = "/";
 
 const frame = (page: Page) => page.locator("[data-scene-frame]");
 
@@ -16,28 +14,6 @@ async function seek(page: Page, p: number): Promise<void> {
   }, p);
 }
 
-test.describe("hidden preview", () => {
-  test("is noindexed and unlisted on a private host", async ({ request }) => {
-    const response = await request.get(PATH);
-    expect(response.status()).toBe(200);
-    expect(response.headers()["x-robots-tag"]).toContain("noindex");
-    expect(await (await request.get("/sitemap.xml")).text()).not.toContain(PATH);
-  });
-
-  test("does not exist on the public host", async ({ request }) => {
-    expect((await request.get(`${PUBLIC_URL}${PATH}`)).status()).toBe(404);
-  });
-
-  test("does not exist under the public domain name", async ({ request }) => {
-    const response = await request.get(PATH, { headers: { "x-forwarded-host": "cuadrao.ai" } });
-    expect(response.status()).toBe(404);
-  });
-
-  test("has no English page yet", async ({ request }) => {
-    expect((await request.get("/en/vista-previa")).status()).toBe(404);
-  });
-});
-
 test("the whole page passes an accessibility scan with motion off", async ({ browser }) => {
   const context = await browser.newContext({ reducedMotion: "reduce", viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
@@ -46,6 +22,17 @@ test("the whole page passes an accessibility scan with motion off", async ({ bro
   expect(violations.map((violation) => violation.id)).toEqual([]);
   await context.close();
 });
+
+for (const path of [PATH, "/contacto", "/privacidad"]) {
+  test(`${path} says contable, never contador`, async ({ page }) => {
+    await page.goto(path);
+    const text = await page.locator("body").evaluate((node) => node.textContent ?? "");
+    const hints = await page.locator("[placeholder]").evaluateAll((nodes) =>
+      nodes.map((node) => node.getAttribute("placeholder") ?? ""),
+    );
+    expect(`${text} ${hints.join(" ")}`).not.toMatch(/contador/i);
+  });
+}
 
 test.describe("hero", () => {
   test("every in-page link has a target", async ({ page }) => {
@@ -195,6 +182,8 @@ test.describe("how it works", () => {
     await page.goto(PATH);
     const soon = page.getByRole("img", { name: "Facturar · En preparación" });
     await expect(soon).toHaveCount(1);
+    await soon.focus();
+    await expect(soon).toBeFocused();
     await expect(page.getByRole("link", { name: "Facturar · En preparación" })).toHaveCount(0);
   });
 
@@ -239,7 +228,117 @@ test.describe("how it works", () => {
   });
 });
 
-test.describe("preview header", () => {
+const question = (page: Page, name: string) => page.getByRole("button", { name });
+
+test.describe("faq", () => {
+  test("opens the first answer on load, so the examples note shows", async ({ page }) => {
+    await page.goto(PATH);
+    await expect(question(page, "¿Ya puedo usar Cuadrao para mi negocio?")).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByText("funciones previstas con datos ficticios")).toBeVisible();
+  });
+
+  test("keeps one answer open at a time", async ({ page }) => {
+    await page.goto(PATH);
+    await question(page, "¿Cuánto va a costar?").click();
+    await expect(page.getByText("Aún no hemos definido los precios.")).toBeVisible();
+    await expect(page.getByText("funciones previstas con datos ficticios")).toBeHidden();
+    await expect(page.locator('[id="preguntas"] [aria-expanded="true"]')).toHaveCount(1);
+  });
+
+  test("closes the open answer when its question is clicked again", async ({ page }) => {
+    await page.goto(PATH);
+    await question(page, "¿Ya puedo usar Cuadrao para mi negocio?").click();
+    await expect(page.locator('[id="preguntas"] [aria-expanded="true"]')).toHaveCount(0);
+  });
+
+  test("works from the keyboard", async ({ page }) => {
+    await page.goto(PATH);
+    await question(page, "¿Qué límites debo conocer?").focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("Estamos preparando la emisión de e-CF")).toBeVisible();
+  });
+
+  test("keeps a clicked question out from under the header", async ({ page, isMobile }) => {
+    test.skip(!isMobile, "long answers push hardest on a phone");
+    await page.goto(PATH);
+    await question(page, "¿Para quién es y en qué ayudará?").click();
+    await expect(page.getByText("Para pequeños y medianos negocios")).toBeVisible();
+    const next = question(page, "¿Cuánto va a costar?");
+    await next.evaluate((node) => {
+      window.scrollBy({ top: node.getBoundingClientRect().top - 90, behavior: "instant" });
+    });
+    await next.click();
+    await expect(page.getByText("Aún no hemos definido los precios.")).toBeVisible();
+    const closing = page.locator('[id="preguntas"] [role="region"]').nth(1);
+    await expect.poll(() => closing.evaluate((node) => node.getBoundingClientRect().height)).toBe(0);
+    await expect
+      .poll(() => next.evaluate((node) => node.getBoundingClientRect().top))
+      .toBeGreaterThanOrEqual(80);
+  });
+});
+
+test.describe("closing sections", () => {
+  test("the ledger closes the month before the scene date", async ({ page }) => {
+    await page.clock.setFixedTime(new Date(2026, 11, 3, 9));
+    await page.goto(PATH);
+    await expect(page.locator("[data-ledger-month]")).toHaveText("606 · Noviembre");
+  });
+
+  test("the footer links reach sections on this page", async ({ page }) => {
+    await page.goto(PATH);
+    for (const name of ["Ver cómo funciona", "Preguntas frecuentes", "Nosotros"]) {
+      const href = await page.getByRole("contentinfo").getByRole("link", { name }).getAttribute("href");
+      const id = href?.split("#")[1];
+      await expect(page.locator(`[id="${id}"]`)).toHaveCount(1);
+    }
+  });
+
+  test("the footer credit stays reachable by the pointer", async ({ page, isMobile }) => {
+    test.skip(isMobile, "phones hide the credit reveal");
+    await page.goto(PATH);
+    const credits = page.locator("[data-footer-credits]");
+    await credits.scrollIntoViewIfNeeded();
+    await credits.hover();
+    await expect(credits.getByText("Hecho con ♥ para la República Dominicana")).toBeVisible();
+  });
+
+  test("a phone drops the check list and keeps the ledger", async ({ page, isMobile }) => {
+    test.skip(!isMobile, "phone layout");
+    await page.goto(PATH);
+    await expect(page.getByText("606 y 607 salen de registros revisados")).toBeHidden();
+    await expect(page.locator("[data-ledger-month]")).toBeVisible();
+  });
+});
+
+test.describe("english page", () => {
+  test("renders every section in English", async ({ page }) => {
+    await page.goto("/en");
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Every record.");
+    await expect(page.locator("[data-scene-date]")).toContainText("Sunday, November 15");
+    await expect(page.getByRole("heading", { name: "How it works" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your accountant gets everything in order." })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Can I use Cuadrao for my business yet?" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+  });
+
+  test("names no fiscal limit that e-CF work will replace", async ({ page }) => {
+    await page.goto("/en");
+    await page.getByRole("button", { name: "What limits should I know about?" }).click();
+    await expect(page.getByText("We are preparing e-CF issuing with a certified provider.")).toBeVisible();
+  });
+
+  test("passes an accessibility scan", async ({ page }) => {
+    await page.goto("/en");
+    await expect(page.locator("[data-chat-photo]")).toHaveCSS("opacity", "0");
+    const { violations } = await new AxeBuilder({ page }).analyze();
+    expect(violations.map((violation) => violation.id)).toEqual([]);
+  });
+});
+
+test.describe("page header", () => {
   test("reads language, sign in, then the button", async ({ page, isMobile }) => {
     test.skip(isMobile, "phones use the menu");
     await page.goto(PATH);

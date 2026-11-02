@@ -221,7 +221,7 @@ test.describe("Business preview", () => {
     await expect(page.getByText("Se registró un gasto", { exact: false })).toHaveCount(0);
     await tray(page).getByRole("button", { name: "Aprobar", exact: true }).click();
     await expect(tray(page).getByRole("status").filter({ hasText: "Se registró un gasto" })).toBeVisible();
-    await expect(panelHeading(page, "Transacciones")).toBeVisible();
+    await expect(page.getByTestId("transacciones-records")).toBeVisible();
     await expect(page.getByTestId("workspace-panel-region")).toContainText("Ferretería La Esquina");
   });
 

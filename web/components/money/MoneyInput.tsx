@@ -38,6 +38,8 @@ type MoneyInputProps = {
   /** Read after the label, such as "Needed"; the visible label cannot reach the input. */
   description?: string | null;
   testId?: string;
+  /** No room kept above it, for a field its parent already spaces. */
+  flush?: boolean;
 };
 
 const INSERTS = new Set(["insertText", "insertReplacementText", "insertFromPaste", "insertFromDrop", "insertFromYank"]);
@@ -60,6 +62,7 @@ export default function MoneyInput({
   serverError = null,
   description = null,
   testId,
+  flush = false,
 }: MoneyInputProps) {
   const { t } = useTranslation();
   const id = useId();
@@ -184,7 +187,7 @@ export default function MoneyInput({
   return (
     <div>
       <div
-        className={`mt-1.5 flex min-h-11 w-full items-center gap-2 rounded-[12px] border bg-white px-3 transition-colors focus-within:ring-[0.125rem] dark:bg-[#141517] ${
+        className={`${flush ? "" : "mt-1.5 "}flex min-h-11 w-full items-center gap-2 rounded-item border bg-white px-3 transition-colors focus-within:ring-[0.125rem] dark:bg-[#141517] ${
           shown
             ? "border-[#9e2f39]/60 focus-within:ring-[#9e2f39]/15 dark:border-[#ec9aa0]/60"
             : "border-[#7d8a84] focus-within:ring-black/10"

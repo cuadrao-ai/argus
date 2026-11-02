@@ -5,9 +5,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { I18nextProvider } from "react-i18next";
 import english from "@/public/locales/en/common.json";
 import spanish from "@/public/locales/es-419/common.json";
+import ReceiptEditRow from "@/components/business-app/ReceiptEditRow";
 import ReceiptRecordFacts from "@/components/business-app/ReceiptRecordFacts";
 import { createDossierFixtures, dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
-import { blockedFields, factStanding, fiscalFactRows, recordFactRows, extractedConfirmationPatch } from "@/components/business-app/receipt-fact-rows";
+import { blockedFields, factStanding, fiscalFactRows, recordFactRows } from "@/components/business-app/receipt-fact-rows";
 import type { BusinessDossier, BusinessFact } from "@/lib/business-dossier";
 import { dossierAttention, type AttentionItem } from "@/components/business-app/dossier-attention";
 
@@ -26,12 +27,12 @@ async function fixture() {
   return fixtures.dossier(dossierFixtureIds.unknownAmount);
 }
 
-async function render(dossier: BusinessDossier, lng: "es-419" | "en" = "es-419", confirmable = true, attention: AttentionItem[] = []) {
+async function render(dossier: BusinessDossier, lng: "es-419" | "en" = "es-419", confirmable = true, attention: AttentionItem[] = [], review = false) {
   const instance = await i18n(lng);
   const confirmed: string[] = [];
   const html = renderToStaticMarkup(
     <I18nextProvider i18n={instance}>
-      <ReceiptRecordFacts dossier={dossier} accounts={[]} attention={attention} onEdit={confirmable ? (key) => { confirmed.push(key); } : undefined} />
+      <ReceiptRecordFacts dossier={dossier} accounts={[]} attention={attention} review={review ? { noReceipt: { busy: false, note: null }, onEdit: confirmable ? (key) => { confirmed.push(key); } : undefined, row: (key, shown) => <ReceiptEditRow {...shown} open={false} saving={false} locked={false} onOpen={confirmable ? () => confirmed.push(key) : undefined} onSave={() => undefined} onCancel={() => undefined}>{null}</ReceiptEditRow>, note: () => null } : undefined} />
     </I18nextProvider>,
   );
   return { html, confirmed };
@@ -137,22 +138,21 @@ describe("the form marks the fields the server's blockers name; the attention st
     assert.equal((html.match(/Necesita una decisión antes de aprobar/g) ?? []).length, 3);
   });
 
-  test("one suggestion and one missing field: both are on the attention list and both rows carry its marker", async () => {
+  test("a blocker marks its row and a read value nobody confirmed does not", async () => {
     const base = await fixture();
     const dossier = { ...base, facts: { ...base.facts, counterparty: known("extracted"), amount: unknown }, blockers: [{ code: "missing_fields", field: "amount" }], questions: [] } as BusinessDossier;
-    const t = (await i18n("es-419")).t;
-    const attention = dossierAttention(dossier, [...recordFactRows(dossier), ...fiscalFactRows(dossier.facts)], t);
-    assert.deepEqual(attention.map((item) => `${item.kind}:${item.field}`), ["blocker:amount", "suggestion:counterparty"]);
-    const { html } = await render(dossier, "es-419", true, attention);
+    const attention = dossierAttention(dossier, (await i18n("es-419")).t);
+    assert.deepEqual(attention.map((item) => item.field), ["amount"]);
+    const { html } = await render(dossier, "es-419", true, attention, true);
     assert.ok(html.includes('data-fact="amount" data-standing="empty" data-blocked="true" data-attention="true"'));
-    assert.ok(html.includes('data-fact="counterparty" data-standing="suggestion" data-attention="true"'));
+    assert.ok(html.includes('data-fact="counterparty" data-standing="suggestion" class'));
     assert.ok(!html.includes('data-testid="receipt-review-counts"'));
   });
 });
 
 describe("the record facts on the review page", () => {
   // My mock overrides the old no-origin-tags rule: each known, unverified value says where it came from.
-  test("Spanish: AI-read, QR and linked values each carry an origin tag beside the value, and a preparer edits each in one tap", async () => {
+  test("a read value stays quiet: no tag for the receipt, the message, the QR or a link", async () => {
     const base = await fixture();
     const dossier = {
       ...base,
@@ -164,13 +164,10 @@ describe("the record facts on the review page", () => {
     } as unknown as BusinessDossier;
     const { html } = await render(dossier);
     assert.ok(html.includes('data-fact="counterparty" data-standing="suggestion"'));
-    assert.equal((html.match(/data-origin="extracted"/g) ?? []).length, 2, "the read merchant and the read e-CF each carry a tag");
-    assert.equal((html.match(/data-origin="qr_decoded"/g) ?? []).length, 2, "the QR date and the QR RNC each carry a tag");
-    assert.ok(html.includes("· del código QR") && html.includes("· vinculada a la fuente"));
-    assert.ok(/· (del recibo|del mensaje|sugerida)/.test(html));
+    assert.equal((html.match(/data-origin="qr_decoded"/g) ?? []).length, 0, "a QR value carries no tag");
+    assert.ok(!/· (del recibo|del mensaje|del código QR|vinculada a la fuente|del dueño)/.test(html));
     assert.ok(!html.includes('data-testid="receipt-read-banner"'));
     assert.ok(!html.includes("Leído de la fuente · sugerencia sin verificar"));
-    assert.ok(html.includes("Editar detalles · Comercio"));
     assert.ok(!html.includes("confirm-counterparty") && !html.includes("lucide-sparkles"));
     assert.ok(html.includes('data-fact="occurred_on" data-standing="qr"') && html.includes('data-fact="category_id" data-standing="linked"'));
     for (const chip of ["Sin verificar", "lucide-circle-dashed"]) assert.ok(!html.includes(chip), chip);
@@ -179,6 +176,30 @@ describe("the record facts on the review page", () => {
     assert.ok(html.indexOf('data-fact="amount"') < html.indexOf('data-fact="counterparty"'));
     assert.ok(!html.includes("Desconocido"), "the unknown amount is an empty field");
     assert.ok(!html.includes("verificada") && !html.includes("—"));
+  });
+
+  test("an open draft: six read facts, each with an edit control, ITBIS included, and nothing the owner no longer answers", async () => {
+    const base = await fixture();
+    const dossier = { ...base, facts: { ...base.facts, fiscal: { rnc: { ...known("qr_decoded"), value: "131999888" }, ncf: known("extracted"), ecf: unknown, itbis: known("extracted") } }, fiscal_value: "ncf", blockers: [], questions: [] } as unknown as BusinessDossier;
+    const { html } = await render(dossier, "es-419", true, [], true);
+    assert.deepEqual([...html.matchAll(/data-fact="([a-z_0-9]+)"/g)].map((match) => match[1]), ["counterparty", "occurred_on", "amount", "rnc", "fiscal_number", "itbis"]);
+    for (const row of ["Comercio", "Fecha", "Monto", "RNC", "NCF", "ITBIS"]) assert.ok(html.includes(`Editar detalles · ${row}`), row);
+  });
+
+  test("an open draft brings a row back only while the server waits on it, so a blocker always has a way forward", async () => {
+    const base = await fixture();
+    const blocked = { ...base, facts: { ...base.facts, kind: unknown, funding: unknown }, blockers: [{ code: "fact_required", field: "kind" }, { code: "fact_required", field: "funding" }], questions: [] } as unknown as BusinessDossier;
+    const { html } = await render(blocked, "es-419", true, [], true);
+    assert.ok(html.includes('data-fact="kind"') && html.includes('data-fact="funding"'));
+    assert.ok(!html.includes('data-fact="business_share"'));
+    const asked = { ...blocked, blockers: [], questions: [{ id: "q", draft_id: base.draft_id, field: "business_share", asked_of: "owner", channel: "web", state: "open", prompt: "¿Qué parte?", allowed_answers: ["known"], answer_source_id: null }] } as unknown as BusinessDossier;
+    assert.ok((await render(asked, "es-419", true, [], true)).html.includes('data-fact="business_share"'));
+  });
+
+  test("a read-only reader of an open draft sees the six facts with no edit control", async () => {
+    const { html } = await render(await fixture(), "es-419", false, [], true);
+    assert.ok(html.includes('data-fact="itbis"'));
+    assert.ok(!html.includes("Editar detalles"));
   });
 
   test("an RNC nobody knows reads Sin RNC, never a number", async () => {
@@ -205,21 +226,22 @@ describe("the record facts on the review page", () => {
     assert.ok(html.includes("Necesita una decisión antes de aprobar"));
   });
 
+  test("a row is marked only when a reviewer changed it or the read is in doubt", async () => {
+    const base = await fixture();
+    const reviewed = { ...known("member_set"), value: "Ferretería Norte" };
+    const { html } = await render({ ...base, facts: { ...base.facts, counterparty: reviewed, fiscal: { rnc: unknown, ncf: { ...known("extracted"), value: "B01" }, ecf: unknown, itbis: { ...known("extracted"), value: "10.00" } } }, fiscal_value: "ncf", review_flags: [{ code: "ncf_malformed", field: "ncf", confirm: true }], ecf_checks: { encf: null, tipo_ecf: null, checked_at: "2026-10-10T14:25:00Z", checks: [{ name: "read_matches_xml", state: "failed", code: null, detail: { itbis: "read=10 xml=11" } }] } } as unknown as BusinessDossier, "es-419", true, [], true);
+    assert.ok(html.includes("· del revisor"));
+    assert.equal((html.match(/data-doubtful="true"/g) ?? []).length, 2, "the flagged NCF and the ITBIS the file disputes");
+    assert.ok(html.includes("· revisar"));
+  });
+
   test("a reader who cannot prepare sees the standing without a Confirmar button; English words follow", async () => {
     const base = await fixture();
     const dossier = { ...base, facts: { ...base.facts, counterparty: known("extracted") } } as BusinessDossier;
     const { html } = await render(dossier, "en", false);
-    assert.equal((html.match(/data-origin="extracted"/g) ?? []).length, 1);
-    assert.ok(/· (from the receipt|from the message|suggested)/.test(html));
+    assert.ok(!/· (from the receipt|from the message)/.test(html));
     assert.ok(!html.includes("Read from the source · suggestion, not verified"));
     assert.ok(!html.includes("confirm-counterparty"));
     assert.ok(html.includes('data-fact="counterparty" data-standing="suggestion"'));
   });
-});
-
-test("bulk confirmation excludes edits, gaps, defaults, verified facts and unresolved questions", async () => {
-  const base = await fixture();
-  const dossier = { ...base, facts: { ...base.facts, amount: known("extracted"), counterparty: known("extracted"), occurred_on: unknown, currency: known("default"), category_id: known("extracted", true), kind: known("extracted"), receipt_state: known("extracted") }, blockers: [{ code: "invalid_amount", field: "amount" }], questions: [{ field: "receipt_state", state: "open" }] } as unknown as BusinessDossier;
-  const patch = extractedConfirmationPatch(dossier, { counterparty: { state: "unknown", value: null } });
-  assert.deepEqual(patch, { kind: { state: "known", value: "x" } });
 });

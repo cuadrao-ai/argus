@@ -8808,8 +8808,8 @@ exactly. On, capture and `/prepare` or `/resume` record one attempt before
 responding and hand it to a worker (a Render Workflow task, or a task in the
 API process). Before an attempt can reach the provider it durably records that
 its provider call started. The expired-attempt rule above still holds: an
-attempt is never billed again automatically. A sweep in the API settles an
-attempt whose worker died as follows:
+attempt is never billed again automatically. A sweep settles an attempt whose
+worker died as follows:
 
 - No provider-call record, and the draft's claim names the current attempt
   (or nothing claimed it yet): the provider was never reached, so the sweep
@@ -8830,6 +8830,19 @@ result is refused. Instances coordinate through the database, so one attempt is
 dispatched once. Settings are `CUADRAO_DOCUMENT_JOBS_ENABLED`,
 `CUADRAO_DOCUMENT_JOBS_WORKFLOW_TASK` and `CUADRAO_DOCUMENT_JOBS_SWEEP_SECONDS` (older `ARGUS_` names). Design:
 `docs/specs/lanes/cuadrao-document-preparation-jobs.md`.
+
+`CUADRAO_DOCUMENT_JOBS_PULL_ENABLED` (default off, and only with the jobs setting
+on) moves reads and the sweep out of the API. Routes and bodies stay the same.
+The API records the attempt and leaves the draft `queued`, and
+`python -m workflows.document_worker` pulls the oldest waiting attempt from
+Postgres. Two workers never take one attempt. At most
+`CUADRAO_DOCUMENT_JOBS_MAX_READS` (default 3) reads run at once across all
+workers. A waiting attempt costs nothing and never expires: it counts as lost
+only after a worker took it. `/prepare` or `/resume` of a saved preparation
+returns the draft to `queued` until a worker replays it. A stopping worker takes
+no new read and gives reads in flight `CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS`
+(default 120) to finish. A read still running then is cancelled, and the sweep
+treats it as a dead worker.
 
 Preparation preserves extracted observations and receipt itemization separately
 from canonical candidate projection. Receipt payment evidence is `paid|pending|unknown`,
@@ -9602,8 +9615,15 @@ prevalidation is `NOT RUN` and no tax return has been submitted.
 Human `PATCH /business/drafts/{id}/review` accepts `dgii: FiscalReview` alongside
 or instead of `facts`. It holds explicitly entered fiscal identity and ITBIS plus
 a typed `606` purchase or `607` sale declaration. Blank required facts remain
-unknown. The existing live prepare grant, expected version, immutable web-action
-source and review receipt govern this operation. Tax fields never enter the
+unknown. The review always carries the RNC, the fiscal number and the ITBIS, and
+only a value that differs from the record is written, as `member_set`. A value
+that matches keeps its origin, `verified` and sources. Printed dashes and spaces
+do not make an RNC differ, letter case and surrounding spaces do not make a
+fiscal number differ, and trailing zeros do not make the ITBIS differ. A changed
+fiscal number replaces both the NCF and the e-CF, and a null one clears both.
+The existing live
+prepare grant, expected version, immutable web-action source and review receipt
+govern this operation. Tax fields never enter the
 model-facing `BusinessFactPatch` or `TurnPlan` schema. A person may send an
 optional top-level `purchase` review, any field of the purchase declaration but
 `form`: the 606 expense type, payment form, payment date, goods and services

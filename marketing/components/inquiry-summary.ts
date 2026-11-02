@@ -23,7 +23,7 @@ export const NOTE_MAX = 700;
 
 const ROLE: Record<InquiryRole, string> = {
   owner: "dueño/a de un negocio",
-  accountant: "contador/a",
+  accountant: "contable",
   other: "otro",
 };
 const CHANNEL: Record<InquiryChannel, string> = {

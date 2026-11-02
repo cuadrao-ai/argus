@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { dossierFixtureIds } from "../components/business-app/dossier-fixtures";
-import { SHOT_DIR, expectTargets, installReceiptBusiness, noHorizontalScroll, openReceipt, type BusinessOverride } from "./support/business-receipt-fixture";
+import { SHOT_DIR, bandejaRows, expectTargets, installReceiptBusiness, noHorizontalScroll, openReceipt, type BusinessOverride } from "./support/business-receipt-fixture";
 
 test.skip(process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED !== "true", "/biz needs the Business pilot server");
 
@@ -43,34 +43,35 @@ for (const width of [1440, 390] as const) {
       await openReceipt(page, /Ferretería La Esquina/);
       const review = page.getByTestId("business-record-review");
       const top = page.getByTestId("receipt-top-block");
-      await expect(top.getByRole("heading", { level: 2 })).toHaveText(/\S/);
+      await expect(page.locator("#receipt-review-title")).toHaveText(/\S/);
       await expect(top.getByTestId("receipt-total")).toHaveText(/^RD\$ \d{1,3}(,\d{3})*\.\d{2}$/);
       await expect(top.getByTestId("status-pill")).toBeVisible();
       const topBox = await box(page, '[data-testid="receipt-top-block"]');
       const fieldsBox = await box(page, '[data-testid="receipt-review-fields"]');
-      const sourceBox = await box(page, '[data-testid="receipt-review-source"]');
       expect(topBox.y + topBox.height).toBeLessThanOrEqual(fieldsBox.y);
       if (width >= 1024) {
-        // A desktop opens the record in a tray beside the Bandeja: one column, the source on top.
-        await expect(page.getByTestId("business-inbox-receipts")).toBeVisible();
-        expect(sourceBox.y + sourceBox.height).toBeLessThanOrEqual(fieldsBox.y + 0.5);
+        const sourceBox = await box(page, '[data-testid="receipt-review-source"]');
+        // A desktop lays the record over the Bandeja: the fields, the source beside them.
+        await expect(bandejaRows(page)).toBeVisible();
+        expect(sourceBox.x).toBeGreaterThanOrEqual(fieldsBox.x + fieldsBox.width);
         const trayBox = await box(page, '[data-testid="side-drawer"]');
-        expect(Math.round(trayBox.width), "the tray prefers 640px").toBe(640);
+        expect(Math.round(trayBox.width), "the tray prefers 1040px").toBe(1040);
         expect(Math.round(trayBox.x + trayBox.width)).toBe(width);
       } else {
-        expect(fieldsBox.y + fieldsBox.height).toBeLessThanOrEqual(sourceBox.y);
+        await expect(page.getByTestId("receipt-review-tabs")).toBeVisible();
+        await expect(page.getByTestId("receipt-review-source")).toBeHidden();
       }
 
       const facts = page.getByTestId("receipt-current-facts");
-      for (const label of ["Fecha de actividad", "Monto", "Moneda", "Datos fiscales", "RNC", "NCF", "ITBIS", "e-CF", "Categoría"]) {
+      for (const label of ["Fecha de actividad", "Monto", "Fiscal", "RNC", "NCF / e-CF", "ITBIS"]) {
         await expect(facts.getByText(label, { exact: true }).first()).toBeVisible();
       }
-      const labelsAbove = await facts.locator("[data-fact]").evaluateAll((rows) => rows.every((row) => {
+      const labelsBeside = await facts.locator("[data-fact]").evaluateAll((rows) => rows.every((row) => {
         const label = row.querySelector("dt")!.getBoundingClientRect();
         const value = row.querySelector("dd")!.getBoundingClientRect();
-        return label.bottom <= value.top + 0.5;
+        return label.right <= value.left + 0.5;
       }));
-      expect(labelsAbove, "every label sits above its field").toBe(true);
+      expect(labelsBeside, "every label sits beside its field").toBe(true);
       for (const shown of [facts, top]) {
         await expect(shown).not.toContainText("Desconocido");
         await expect(shown).not.toContainText("Sin dato");
@@ -139,9 +140,11 @@ for (const width of [1440, 390] as const) {
       await installReceiptBusiness(page, prepared(withoutDate));
       await openReceipt(page, /Ferretería La Esquina/);
       const footer = page.getByTestId("receipt-review-footer");
-      await expect(footer.getByRole("button", { name: "Aprobar", exact: true })).toBeDisabled();
-      await expect(footer.getByTestId("approve-reason")).toHaveText("Agrega la fecha para aprobar");
-      await expect(footer.getByTestId("approve-reason")).toHaveCSS("color", "rgb(86, 99, 94)");
+      const approve = footer.getByRole("button", { name: "Aprobar", exact: true });
+      await expect(approve).toBeDisabled();
+      await expect(approve).toHaveAttribute("aria-describedby", "dossier-attention-title");
+      await expect(page.locator("#dossier-attention-title")).toBeVisible();
+      await expect(page.getByTestId("dossier-attention")).toContainText("Fecha de actividad");
       await noHorizontalScroll(page);
       await page.screenshot({ path: `${SHOT_DIR}/disabled-aprobar-${width}.png` });
     });
@@ -170,13 +173,11 @@ for (const width of [1440, 390] as const) {
 
 test.describe("receipt detail at a narrow desktop", () => {
   test.use({ viewport: { width: 1100, height: 900 } });
-  test("the tray takes at most half the screen and the Bandeja stays beside it", async ({ page }) => {
+  test("the tray takes at most 80% of the screen", async ({ page }) => {
     await installReceiptBusiness(page, prepared());
     await openReceipt(page, /Ferretería La Esquina/);
     const tray = (await page.getByTestId("side-drawer").boundingBox())!;
-    expect(Math.round(tray.width)).toBe(550);
-    const list = (await page.getByTestId("business-inbox-receipts").boundingBox())!;
-    expect(list.x + list.width).toBeLessThanOrEqual(tray.x + 0.5);
+    expect(Math.round(tray.width)).toBe(880);
     await noHorizontalScroll(page);
   });
 });

@@ -1,5 +1,5 @@
 import type { BusinessLocale, BusinessPage } from "./site-routes";
-import { touchupCopy } from "../components/touchup-copy";
+import { landingCopy } from "../components/landing/landing-copy";
 
 type PageMetadata = { title: string; description: string };
 
@@ -10,7 +10,7 @@ export const PAGE_METADATA: Record<
   es: {
     home: {
       title: "Cada cuenta. En su sitio. | Cuadrao",
-      description: touchupCopy.es.description,
+      description: landingCopy.es.lead,
     },
     contact: {
       title: "Hablemos de tu negocio | Cuadrao",
@@ -28,7 +28,7 @@ export const PAGE_METADATA: Record<
   en: {
     home: {
       title: "Every record. In its place. | Cuadrao",
-      description: touchupCopy.en.description,
+      description: landingCopy.en.lead,
     },
     contact: {
       title: "Let’s talk about your business | Cuadrao",

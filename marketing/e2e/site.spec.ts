@@ -171,6 +171,14 @@ test.describe("indexing", () => {
   });
 });
 
+test.describe("founder images", () => {
+  test("no page depends on the image resizer", async ({ request }) => {
+    for (const path of ["/", "/en", "/contacto", "/en/contact"]) {
+      expect(await (await request.get(path)).text(), path).not.toContain("/_next/image");
+    }
+  });
+});
+
 test.describe("accessibility", () => {
   for (const entry of PAGES) {
     test(`${entry.path} has no automated WCAG 2.1 AA violations`, async ({ page }) => {

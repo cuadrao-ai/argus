@@ -63,14 +63,12 @@ test("optional actions use 44px targets, valid values have none", async () => {
 async function mountReview(dossier: BusinessDossier, language = "es-419") {
   const env = await setup(language); const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace"); const { default: Review } = await import("@/components/business-app/ReceiptDossierReview"); let approvals = 0;
   let current = dossier;
-  const context = { source: { mode: "fixture", dossier: async () => current, approveDraft: async () => { approvals += 1; return dossier; } }, reload: () => undefined, records: { inbox: [] }, openPanel: () => undefined } as unknown as BusinessContextValue;
+  const context = { source: { mode: "fixture", dossier: async () => current, dgiiFields: async () => ({ "606": [], "607": [] }), approveDraft: async () => { approvals += 1; return dossier; } }, reload: () => undefined, records: { inbox: [] }, openPanel: () => undefined } as unknown as BusinessContextValue;
   await env.act(async () => env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={context}><Review draftId={dossier.draft_id} /></BusinessContext.Provider></env.I18nextProvider>));
   const clickApprove = async () => { const button = [...env.host.querySelectorAll("button")].find((b) => b.textContent === (language === "es-419" ? "Aprobar" : "Approve expense")); assert.ok(button); await env.act(async () => button.click()); };
   return { ...env, clickApprove, approvals: () => approvals, refreshDossier: async (next: BusinessDossier) => {
     current = next;
-    const button = [...env.host.querySelectorAll("button")].find((item) => item.textContent === "Consultar registro actual");
-    assert.ok(button);
-    await env.act(async () => button.click());
+    await env.act(async () => env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={{ ...context, source: { ...context.source } }}><Review draftId={dossier.draft_id} /></BusinessContext.Provider></env.I18nextProvider>));
   } };
 }
 for (const [value, title, body] of [

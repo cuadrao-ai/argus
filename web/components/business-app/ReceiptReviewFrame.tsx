@@ -57,10 +57,12 @@ function PlaceNav({ place }: { place: ReceiptPlace }) {
  * the form scrolls. On a full page the header sticks to the top, and below the
  * tablet stop the form and the original are two tabs.
  */
-export default function ReceiptReviewFrame({ recordId, back, title, badge, amount, mark, origin, place, source, children, history, footer }: {
+export default function ReceiptReviewFrame({ recordId, back, title, business, badge, amount, mark, origin, place, source, children, history, footer }: {
   recordId: string;
   back: "inbox" | "transactions";
   title: string;
+  /** The Business this record belongs to. */
+  business?: string;
   badge?: ReactNode;
   /** The formatted total; absent while it is unknown, never a zero. */
   amount?: string | null;
@@ -98,6 +100,7 @@ export default function ReceiptReviewFrame({ recordId, back, title, badge, amoun
   }, [settleList, back]);
   const meta = (
     <div data-testid="receipt-top-block">
+      {business ? <p data-testid="receipt-business" className="mb-0.5 break-words text-[13px] font-medium leading-[18px] text-[#56635e] dark:text-white/70">{business}</p> : null}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         {amount ? <span data-testid="receipt-total" className="cuadrao-amount text-[20px] font-medium leading-7 tabular-nums text-[#172b26] dark:text-white">{amount}</span> : null}
         {badge}
@@ -111,10 +114,10 @@ export default function ReceiptReviewFrame({ recordId, back, title, badge, amoun
       <section aria-labelledby="receipt-review-title" data-testid="business-record-review" data-presentation="tray" className="@container">
         <TraySlot slot="summary">{meta}</TraySlot>
         {place ? <TraySlot slot="headerActions"><PlaceNav place={place} /></TraySlot> : null}
-        <div className="grid gap-6 @[52rem]:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] @[52rem]:items-start">
-          <div className="min-w-0 space-y-4 @[52rem]:sticky @[52rem]:top-0 @[52rem]:col-start-2 @[52rem]:row-span-2 @[52rem]:row-start-1 @[52rem]:max-h-[calc(100dvh-13rem)] @[52rem]:overflow-y-auto" data-testid="receipt-review-source">{source}</div>
-          <div className="min-w-0 space-y-5 @[52rem]:col-start-1 @[52rem]:row-start-1" data-testid="receipt-review-fields">{children}</div>
-          {history ? <div className="min-w-0 empty:hidden @[52rem]:col-start-1 @[52rem]:row-start-2" data-testid="receipt-review-history">{history}</div> : null}
+        <div className="grid gap-6 @[44rem]:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] @[44rem]:items-start">
+          <div className="min-w-0 space-y-4 @[44rem]:sticky @[44rem]:top-0 @[44rem]:col-start-2 @[44rem]:row-span-2 @[44rem]:row-start-1 @[44rem]:max-h-[calc(100dvh-13rem)] @[44rem]:overflow-y-auto" data-testid="receipt-review-source">{source}</div>
+          <div className="min-w-0 space-y-5 @[44rem]:col-start-1 @[44rem]:row-start-1" data-testid="receipt-review-fields">{children}</div>
+          {history ? <div className="min-w-0 empty:hidden @[44rem]:col-start-1 @[44rem]:row-start-2" data-testid="receipt-review-history">{history}</div> : null}
         </div>
         {footer ? <TrayFooter><div data-testid="receipt-review-footer">{footer}</div></TrayFooter> : null}
       </section>
@@ -146,10 +149,10 @@ export default function ReceiptReviewFrame({ recordId, back, title, badge, amoun
           </div>
         ) : null}
       </header>
-      <div className="grid items-start gap-4 desktop:grid-cols-[minmax(280px,1fr)_minmax(0,640px)] desktop:grid-rows-[auto_1fr] desktop:gap-6">
-        <div hidden={tabs && tab !== "form"} className="min-w-0 space-y-5 desktop:col-start-2 desktop:row-start-1" data-testid="receipt-review-fields">{children}</div>
-        <div hidden={tabs && tab !== "original"} className="min-w-0 space-y-4 desktop:col-start-1 desktop:row-span-2 desktop:row-start-1 desktop:space-y-6" data-testid="receipt-review-source">{source}</div>
-        {history ? <div hidden={tabs && tab !== "form"} className="min-w-0 empty:hidden desktop:col-start-2 desktop:row-start-2" data-testid="receipt-review-history">{history}</div> : null}
+      <div className="grid items-start gap-4 tablet:grid-cols-[minmax(280px,1fr)_minmax(0,640px)] tablet:grid-rows-[auto_1fr] desktop:gap-6">
+        <div hidden={tabs && tab !== "form"} className="min-w-0 space-y-5 tablet:col-start-2 tablet:row-start-1" data-testid="receipt-review-fields">{children}</div>
+        <div hidden={tabs && tab !== "original"} className="min-w-0 space-y-4 tablet:sticky tablet:top-64 tablet:col-start-1 tablet:row-span-2 tablet:row-start-1 tablet:max-h-[calc(100dvh-22rem)] tablet:overflow-y-auto desktop:space-y-6" data-testid="receipt-review-source">{source}</div>
+        {history ? <div hidden={tabs && tab !== "form"} className="min-w-0 empty:hidden tablet:col-start-2 tablet:row-start-2" data-testid="receipt-review-history">{history}</div> : null}
       </div>
       {footer ? (
         // The workspace region pads its bottom by 48px and sticky offsets count from inside that padding; -48px on both puts the footer on the pane's edge.

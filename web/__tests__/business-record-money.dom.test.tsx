@@ -8,6 +8,7 @@ import { I18nextProvider } from "react-i18next";
 import { BankMatchSuggestionCard, type BankMatchSuggestionCardProps } from "@/components/business-app/BankMatchSuggestion";
 import { ReceiptReadPurchases } from "@/components/business-app/ReceiptDossierReview";
 import FiscalDeclarationEditor from "@/components/business-app/FiscalDeclarationEditor";
+import { reviewDgii } from "@/lib/business-dgii";
 import { createDossierFixtures, dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import spanish from "@/public/locales/es-419/common.json";
@@ -120,12 +121,11 @@ describe("the original purchase picker in the tax details", () => {
     const sent: Record<string, unknown>[] = [];
     globalThis.fetch = async (url, init) => {
       asked.push(String(url));
-      if (String(url).includes("/fields")) return Response.json({ "606": [], "607": [] });
       const body = JSON.parse(String(init?.body ?? "{}"));
       sent.push(body);
       return answer(body);
     };
-    const view = await render(<FiscalDeclarationEditor dossier={dossier} disabled={false} onChanged={() => undefined} onBusy={() => undefined} onDirty={() => undefined} />);
+    const view = await render(<FiscalDeclarationEditor dossier={dossier} fields={{ "606": [], "607": [] }} reviewFiscal={reviewDgii} disabled={false} onChanged={() => undefined} onBusy={() => undefined} onDirty={() => undefined} />);
     const refund = view.host.querySelector<HTMLInputElement>('input[type="checkbox"]');
     assert.ok(refund);
     await act(async () => refund.click());
@@ -149,7 +149,7 @@ describe("the original purchase picker in the tax details", () => {
       assert.doesNotMatch(rows()[0].textContent ?? "", /1234\.5 USD/);
       assert.match(rows()[1].textContent ?? "", /^-/, "a candidate with no merchant names none");
       assert.match(rows()[1].textContent ?? "", /RD\$ 980\.00/);
-      assert.deepEqual(asked.filter((url) => !url.includes("/fields")), [], "no expenses request picks purchases in the browser");
+      assert.deepEqual(asked, [], "no expenses request picks purchases in the browser");
     } finally { await view.dispose(); }
   });
 
