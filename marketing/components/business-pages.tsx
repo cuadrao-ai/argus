@@ -8,12 +8,14 @@ import { BusinessFooter } from "./business-footer";
 import styles from "./business.module.css";
 import touchup from "./touchup.module.css";
 
+// Served as small static files: the image resizer can hang for every visitor if
+// the first visitor to request an image leaves before it finishes.
 export function FounderIdentity({ locale }: { locale: BusinessLocale }) {
   return (
     <div className={styles.founderIdentity}>
       <Image
         className={styles.founderPortrait}
-        src="/cuadrao-site/lucas-garces.png"
+        src="/cuadrao-site/lucas-garces-192.webp"
         alt={
           locale === "es"
             ? "Retrato de Lucas Garcés"
@@ -21,15 +23,15 @@ export function FounderIdentity({ locale }: { locale: BusinessLocale }) {
         }
         width={96}
         height={96}
-        sizes="96px"
+        unoptimized
       />
       <Image
         className={styles.founderSignature}
-        src="/cuadrao-site/lucas-garces-signature.png"
+        src="/cuadrao-site/lucas-garces-signature-400.webp"
         alt="Lucas Garcés"
-        width={1942}
-        height={809}
-        sizes="200px"
+        width={400}
+        height={167}
+        unoptimized
       />
     </div>
   );
