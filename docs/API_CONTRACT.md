@@ -10984,8 +10984,9 @@ accept path recorded.
   `latest_month`. Custom uses inclusive `from_date` and `to_date`. Relative presets
   resolve each run in `America/Santo_Domingo`; `resolved_period` states the bounds
   and calendar. `latest_month` is the whole month of the Business's newest dated
-  record, whatever the other filters match, and the current month when no record
-  has a date.
+  record dated on or before today, whatever the other filters match, and the current
+  month when no record qualifies. A later-dated record shows only when its period is
+  chosen.
   Documents use the approved/current document issue date, standalone activity its
   effective date. A draft/default label alone is not a document: attachment history,
   explicit receipt facts or a fiscal number establish document provenance. Losing
