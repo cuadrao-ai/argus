@@ -11,7 +11,7 @@ async function capture(page: Page, name: string) {
   if (!directory) return;
   await page.screenshot({ path: `${directory}/${name}.png`, fullPage: true });
   const facts = page.getByTestId("receipt-current-facts").getByText("Cómo se pagó", { exact: true });
-  if (await facts.count()) {
+  if (await facts.isVisible()) {
     await facts.scrollIntoViewIfNeeded();
     await page.screenshot({ path: `${directory}/${name}-current-facts.png`, fullPage: true });
   }
