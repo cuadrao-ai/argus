@@ -69,6 +69,34 @@ function receipt(
 /** What the backend lists for a receipt nobody has read. */
 const UNREAD: ReceiptDetail["missing_fields"] = ["account_id", "amount", "currency", "occurred_on"];
 
+function hoursAgo(hours: number): string {
+  return new Date(Date.now() - hours * 3_600_000).toISOString();
+}
+
+/** A receipt the sample read in full, a draft of its own included; `reason` is what keeps it from Listos, null for one that is Listos. */
+function read(id: string, reason: string | null, merchant: string, amount: string, partial: Partial<ReceiptDetail>): ReceiptDetail {
+  return receipt({
+    id,
+    status: "review_ready",
+    enterable: false,
+    fiscal_known: true,
+    fiscal_value: reason === "missing_ncf" ? null : "ncf",
+    merchant,
+    amount,
+    currency: "DOP",
+    occurred_on: dayOnly(daysAgo(1)),
+    bandeja_group: { group: reason ? "attention" : "listo", reason, draft_id: null, version: null },
+    ...partial,
+  });
+}
+const listo = (id: string, merchant: string, amount: string, itbis: string, partial: Partial<ReceiptDetail>) => read(id, null, merchant, amount, { ...partial, evidence: { merchant, occurred_on: dayOnly(daysAgo(1)), total: amount, currency: "DOP", tax: itbis, tip: null, service: null, lines: [] } });
+const gap = read;
+
+/** Approving this sample row is refused: the partial failure of an approval of many. */
+const SAMPLE_REFUSED = "rcpt-listo-suplidora";
+/** This one comes back unsettled once; replaying the key settles it, as on the server. */
+const SAMPLE_UNSETTLED = "rcpt-listo-repuestos";
+
 function seedReceipts(): ReceiptDetail[] {
   return [
     receipt({
@@ -201,6 +229,24 @@ function seedReceipts(): ReceiptDetail[] {
       missing_fields: UNREAD,
     }),
     receipt({
+      id: "rcpt-reading",
+      status: "queued",
+      channel: "whatsapp",
+      filename: "IMG_2231.jpg",
+      received_at: hoursAgo(1),
+      version: 0,
+      missing_fields: UNREAD,
+    }),
+    listo("rcpt-listo-imprenta", "Imprenta Caribe", "4720.00", "720.00", { channel: "email", email_delivery_ids: ["email-imprenta"], filename: "factura-1182.pdf", media_type: "application/pdf", received_at: hoursAgo(3) }),
+    listo("rcpt-listo-gasolinera", "Gasolinera Ruta 3", "2100.00", "320.34", { channel: "whatsapp", filename: "IMG_2228.jpg", received_at: hoursAgo(5) }),
+    listo(SAMPLE_REFUSED, "Suplidora Duarte", "8850.00", "1350.00", { filename: "suplidora-oct.pdf", media_type: "application/pdf", received_at: hoursAgo(7) }),
+    listo(SAMPLE_UNSETTLED, "Repuestos El Cibao", "3186.00", "486.00", { channel: "email", email_delivery_ids: ["email-repuestos"], filename: "repuestos-0931.pdf", media_type: "application/pdf", received_at: hoursAgo(9) }),
+    listo("rcpt-listo-limpieza", "Limpieza Total", "1416.00", "216.00", { filename: "limpieza-oct.jpg", received_at: hoursAgo(26) }),
+    gap("rcpt-falta-rnc", "missing_rnc", "Colmado La Bendición", "1250.00", { channel: "whatsapp", filename: "IMG_2219.jpg", received_at: hoursAgo(28) }),
+    gap("rcpt-falta-ncf", "missing_ncf", "Taller Peña", "5900.00", { filename: "taller-oct.pdf", media_type: "application/pdf", received_at: hoursAgo(30) }),
+    gap("rcpt-usd", "foreign_currency", "Servicios en la Nube SRL", "59.00", { channel: "email", email_delivery_ids: ["email-nube"], currency: "USD", filename: "nube-oct.pdf", media_type: "application/pdf", received_at: hoursAgo(32) }),
+    gap("rcpt-remitente", "unverified_sender", "Papelería Nueva", "767.00", { channel: "email", email_delivery_ids: ["email-nueva"], filename: "papeleria-nueva.pdf", media_type: "application/pdf", received_at: hoursAgo(34) }),
+    receipt({
       id: "rcpt-confirmed",
       fiscal_known: true,
       status: "confirmed",
@@ -314,7 +360,7 @@ function matches(query: string, text: string): boolean {
 const delay = (ms = 240) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** `accounts: "none"` starts a Business that has no account yet, as a new one does. */
-export type FixtureOptions = Readonly<{ chatAvailable: boolean; accounts?: "none" }>;
+export type FixtureOptions = Readonly<{ chatAvailable: boolean; accounts?: "none"; inbox?: "empty" | "loading" | "failed" }>;
 
 /** Sample access: the owner and one accountant with read and prepare. */
 const access: { grants: BusinessAccessGrant[]; invites: BusinessAccessInvite[] } = {
@@ -329,10 +375,14 @@ const access: { grants: BusinessAccessGrant[]; invites: BusinessAccessInvite[] }
 const seenGrants = new Set<string>();
 
 export function createFixtureBusinessDataSource(
-  { chatAvailable, accounts: start }: FixtureOptions = { chatAvailable: true },
+  { chatAvailable, accounts: start, inbox }: FixtureOptions = { chatAvailable: true },
 ): BusinessDataSource {
   const accounts: BusinessAccount[] = start === "none" ? [] : [...ACCOUNTS];
-  let receipts = seedReceipts();
+  const sampleEmails = inbox === "empty" ? [] : SAMPLE_EMAILS;
+  const { createReceiptDraft, ...dossierSource } = createDossierFixtures(ACCOUNTS);
+  // Each read sample row has a draft of its own, so its review opens.
+  let receipts = inbox === "empty" ? [] : seedReceipts().map((item) => item.bandeja_group ? { ...item, draft_id: createReceiptDraft(item, { rnc: item.bandeja_group.reason === "missing_rnc" ? null : "199990021", ncf: item.fiscal_value ? `B01${item.id.length.toString().padStart(8, "0")}` : null, itbis: item.evidence?.tax ?? null }) } : item);
+  if (inbox !== "empty") void dossierSource.captureNote({ text: "Pagué 800 en efectivo por transporte.\nFue el viaje para recoger los materiales del negocio." }, "sample-note");
   let expenses = seedExpenses();
   let counter = 0;
   // A synthetic name and RNC for the sample; the RNC is a made-up number.
@@ -350,14 +400,14 @@ export function createFixtureBusinessDataSource(
   };
   const required: (keyof ReceiptReviewFields)[] = ["merchant", "occurred_on", "amount", "currency", "account_id"];
   const missing = (fields: ReceiptReviewFields) => required.filter((key) => !fields[key]);
-  const { createReceiptDraft, ...dossierSource } = createDossierFixtures(ACCOUNTS);
+  const unsettled = new Set<string>();
   /** A sample file named with "falla" loses its connection once at 90%, so the retry can be seen. */
   const failedOnce = new Set<string>();
   const search = createFixtureSearch({
     expenses: () => expenses,
     receipts: () => receipts,
     accounts: () => accounts,
-    emails: () => SAMPLE_EMAILS.map(({ id, sender, subject, received_at, state }) => ({ id, sender, subject, received_at, state, inbox_group: "bandeja" as const })),
+    emails: () => sampleEmails.map(({ id, sender, subject, received_at, state }) => ({ id, sender, subject, received_at, state, inbox_group: "bandeja" as const })),
     matches,
     delay,
     injected: injectedWriteError,
@@ -378,6 +428,26 @@ export function createFixtureBusinessDataSource(
       }
       void key;
       return dossier;
+    },
+    approveListos: async (items, key) => {
+      await delay(600);
+      const injected = injectedWriteError();
+      if (injected) throw injected;
+      return {
+        results: items.map(({ draft_id }) => {
+          const found = receipts.find((item) => item.draft_id === draft_id);
+          if (!found) return { draft_id, outcome: "refused" as const, code: "business_record_not_found" };
+          if (found.id === SAMPLE_REFUSED) return { draft_id, outcome: "refused" as const, code: "duplicate_comprobante", existing_record_id: "exp-gas" };
+          if (found.id === SAMPLE_UNSETTLED && !unsettled.has(key)) {
+            unsettled.add(key);
+            return { draft_id, outcome: "outcome_unknown" as const, code: "business_recording_unsettled" };
+          }
+          const expenseId = `exp-${found.id}`;
+          expenses = [{ id: expenseId, fiscal_known: true, merchant: found.merchant, amount: found.amount ?? "0", currency: found.currency ?? "DOP", category_id: found.category_id, account_id: found.account_id, occurred_on: found.occurred_on ?? dayOnly(daysAgo(0)), receipt_id: found.id, draft_id, fiscal_value: found.fiscal_value }, ...expenses];
+          replace({ ...found, status: "confirmed", expense_id: expenseId });
+          return { draft_id, outcome: "applied" as const, activity_id: expenseId };
+        }),
+      };
     },
     ensureSpace: async () => {
       await delay();
@@ -460,9 +530,12 @@ export function createFixtureBusinessDataSource(
     // and each email that is a row of its own.
     receiptPage: async (view) => {
       await delay();
+      // The full list alone, so the Bandeja's own states show inside a working Business.
+      if (view === "all" && inbox === "loading") await new Promise(() => {});
+      if (view === "all" && inbox === "failed") throw Object.assign(new Error("Sample server failure"), { status: 503, code: "business_unavailable", requestId: "sample-ref-7f3a9c21" });
       const items = view === "all" ? receipts : receipts.filter((item) => item.status !== "confirmed" && item.status !== "dismissed");
       const notes = new Set((await dossierSource.captures("", 50, "inbox")).items.map((note) => note.draft_id)).size;
-      return { items: items.map(served), activity: servedCounts(receipts, notes, SAMPLE_EMAILS.map((email) => servedEmail(email).standing)) };
+      return { items: items.map(served), activity: servedCounts(receipts, notes, sampleEmails.map((email) => servedEmail(email).standing)) };
     },
     receipt: async (id) => {
       await delay();
@@ -625,7 +698,7 @@ export function createFixtureBusinessDataSource(
     },
     emailDeliveries: async () => {
       await delay();
-      return SAMPLE_EMAILS.map((item) => {
+      return sampleEmails.map((item) => {
         const { text_body, ...delivery } = item;
         void text_body;
         return servedEmail(delivery);
@@ -684,7 +757,26 @@ export function createFixtureBusinessDataSource(
  * saved a receipt, the gas station's is still being read, the boletín's zip
  * could not be saved, and the farmacia's hit an inactive address and can be retried.
  */
+const sampleSaved = (id: string, subject: string, sender: string, filename: string, documentId: string, minutes: number) => ({
+  id,
+  state: "captured" as const,
+  received_at: new Date(Date.now() - minutes * 60_000).toISOString(),
+  updated_at: new Date(Date.now() - minutes * 60_000).toISOString(),
+  original_document_id: null,
+  retryable: false,
+  subject,
+  sender,
+  sent_at: null,
+  error_code: null,
+  text_body: "Adjuntamos la factura.",
+  parts: [{ id: "1.2", filename, media_type: "application/pdf", state: "captured" as const, document_id: documentId, error_code: null, repeat_of_delivery_id: null }],
+});
+
 const SAMPLE_EMAILS = [
+  sampleSaved("email-imprenta", "Factura 1182", "facturas@imprentacaribe.example", "factura-1182.pdf", "rcpt-listo-imprenta", 180),
+  sampleSaved("email-repuestos", "Factura 0931", "ventas@repuestoselcibao.example", "repuestos-0931.pdf", "rcpt-listo-repuestos", 540),
+  sampleSaved("email-nube", "Invoice October", "billing@serviciosnube.example", "nube-oct.pdf", "rcpt-usd", 1920),
+  sampleSaved("email-nueva", "Su factura", "ventas@papelerianueva.example", "papeleria-nueva.pdf", "rcpt-remitente", 2040),
   {
     id: "email-ferreteria",
     state: "captured" as const,

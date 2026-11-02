@@ -98,7 +98,7 @@ async function mount({ strict = false, role = "owner", refuse = null, unrecorded
       const rows = view === "all" ? receipts : pending();
       const waiting = pending().filter((item) => !item.email_original).length;
       const confirmed = receipts.filter((item) => item.status === "confirmed" && !item.email_original).length;
-      return { items: rows as ReceiptSummary[], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: waiting, needs_attention_count: 0, ready_to_review_count: waiting, confirmed_count: confirmed, dismissed_count: 0 } };
+      return { items: rows as ReceiptSummary[], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: waiting, needs_attention_count: 0, ready_to_review_count: waiting, bandeja_attention_count: waiting, bandeja_listo_count: 0, confirmed_count: confirmed, dismissed_count: 0 } };
     },
     receipt: async (id: string) => {
       if (id === "rcpt-dos") {
@@ -250,7 +250,7 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     await page.settle(() => false);
     assert.deepEqual(page.panel(), { kind: "inbox" }, "no jump back to an earlier row");
     const stateOf = (name: string) => rowState(receptionRows(page.host).find((row) => row.textContent?.includes(name))!);
-    assert.deepEqual([stateOf("Uno"), stateOf("Dos"), stateOf("Tres")], ["Listo para revisar", "Listo para revisar", "Aprobado"], "the skipped rows still wait; the approved one is recorded");
+    assert.deepEqual([stateOf("Uno"), stateOf("Dos"), stateOf("Tres")], ["Necesita atención", "Necesita atención", "Aprobado"], "the skipped rows still wait; the approved one is recorded");
     await page.act(async () => page.root.unmount());
   });
 
@@ -296,9 +296,9 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     await page.settle(() => page.button("Aprobar y siguiente") !== null);
     await page.click("Aprobar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-tres");
     await page.settle(() => page.button("Aprobar y siguiente") !== null);
-    await page.click("Aprobar y siguiente", () => page.panel().kind === "inbox" && page.host.querySelector("#reception-tab-review")?.textContent === "Por revisar0");
+    await page.click("Aprobar y siguiente", () => page.panel().kind === "inbox" && page.host.querySelector("#reception-tab-attention")?.textContent === "Necesitan atención0");
     assert.deepEqual(page.panel(), { kind: "inbox" });
-    assert.deepEqual(receptionRows(page.host).map(rowState), ["Aprobado", "Aprobado", "Aprobado"], "every receipt is recorded once the server confirms it");
+    assert.deepEqual(receptionRows(page.host).filter((row) => row.dataset.kind === "receipt").map(rowState), ["Aprobado", "Aprobado", "Aprobado"], "every receipt is recorded once the server confirms it");
     assert.equal(page.badge(), null, "the badge shows no number once the server counts nothing waiting");
     await page.act(async () => page.root.unmount());
   });

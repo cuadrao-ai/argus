@@ -2,6 +2,8 @@ import { todayIso, type Period } from "../business-format";
 import { receptionMatches, receptionSender, type ReceptionRow, type ReceptionSource, type ReceptionView } from "./reception-model";
 
 export type ReceptionState = Exclude<ReceptionView, "all">;
+/** Each view's word, under `business.reception_preview`. */
+export const RECEPTION_VIEW_WORD: Record<ReceptionView | "combined", string> = { all: "all", attention: "attention", listos: "placeholder.listos", combined: "combined" };
 export type ReceptionFiltersValue = { channels: ReceptionSource[]; senders: string[]; states: ReceptionState[] };
 export type SenderIdentity = { id: string; name: string | null; address: string };
 export const emptyReceptionFilters = (): ReceptionFiltersValue => ({ channels: [], senders: [], states: [] });

@@ -5,11 +5,8 @@ import { receptionRows, receptionTab } from "./support/reception";
 import type { ReceiptActivityCounts } from "@/lib/business-api";
 
 // The real workspace provider over the sample source, with the Resumen, the
-// sidebar badge and the Bandeja side by side on the same saved state. The
-// sample lists five receipts (Ferretería La Esquina, Papelería Central,
-// IMG_2209, IMG_2215, colmado-oct) and five emails; three of the receipts
-// need attention and IMG_2209 is unreadable, so four are to review. Two emails
-// brought no receipt (problems) and one is still being read.
+// sidebar badge and the Bandeja side by side on the same saved state.
+const SAMPLE = { listos: 5, attention: 14, total: 19, problems: 5, reading: 2 };
 mock.module("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(""),
   useRouter: () => ({ push: () => undefined, replace: () => undefined }),
@@ -94,8 +91,8 @@ async function mount(overrides: { activity?: (counts: ReceiptActivityCounts) => 
   const attentionTask = () => host.querySelector('[data-testid="resumen"] [data-testid="month-close-task-attention"]');
   const readingStatus = () => host.querySelector('[data-testid="resumen"] [data-testid="month-close-reading"]');
   const rows = () => receptionRows(host).length;
-  const segment = (key: "review" | "attention" | "all") => receptionTab(host, key === "all" ? "all" : key);
-  const choose = (key: "review" | "attention" | "all") => act(async () => segment(key)!.click());
+  const segment = (key: "attention" | "listos" | "all") => receptionTab(host, key);
+  const choose = (key: "attention" | "listos" | "all") => act(async () => segment(key)!.click());
   await settle(() => rows() > 0 && api?.records.notes !== null && api?.records.overview !== null && tasksToggle() !== null);
   if (tasksToggle()?.getAttribute("aria-expanded") === "false") await act(async () => tasksToggle()!.click());
   await settle(() => reviewCount() !== null);
@@ -103,15 +100,18 @@ async function mount(overrides: { activity?: (counts: ReceiptActivityCounts) => 
 }
 
 describe("the Bandeja and the Resumen on one saved state", () => {
-  test("the Resumen card, the sidebar badge and the Por revisar segment agree; attention is its own count", async () => {
+  test("the Resumen, the sidebar badge and the two tabs read one server pair, and each tab lists what it counts", async () => {
     const page = await mount();
-    await page.choose("review");
-    assert.equal(page.rows(), 4, "Por revisar lists the four receipts to review");
-    assert.equal(page.reviewCount(), "4");
-    assert.equal(page.text('[data-testid="business-inbox-count"]'), "4");
-    assert.equal(page.segment("review")?.textContent, "Por revisar4");
+    assert.equal(page.reviewCount(), String(SAMPLE.total));
+    assert.equal(page.text('[data-testid="business-inbox-count"]'), String(SAMPLE.total));
+    await page.settle(() => page.segment("attention")?.textContent === `Necesitan atención${SAMPLE.attention}`);
+    assert.equal(page.segment("listos")?.textContent, `Listos${SAMPLE.listos}`);
+    assert.equal(page.segment("all")?.textContent, "Todos", "Todos has no count");
+    await page.choose("attention");
+    assert.equal(page.rows(), SAMPLE.attention);
+    await page.choose("listos");
+    assert.equal(page.rows(), SAMPLE.listos);
     await page.choose("all");
-    assert.equal(receptionRows(page.host).filter((row) => row.dataset.kind === "receipt").length, 6, "Todos lists the receipts; an email whose file became a receipt is not a row");
     assert.equal(page.host.querySelector('[data-testid="inicio-por-revisar"]'), null, "the old card is gone");
     assert.equal(page.host.querySelector('[data-testid="overview-inbox-count"]'), null);
     assert.equal(page.host.querySelector('[data-testid="overview-real-expenses"]'), null);
@@ -121,59 +121,36 @@ describe("the Bandeja and the Resumen on one saved state", () => {
     await page.act(async () => page.root.unmount());
   });
 
-  test("a saved note is a Por revisar row and the segment counts it", async () => {
+  test("a saved note needs attention and counts alike on the Resumen, the badge and the tab", async () => {
     const page = await mount();
     await page.act(async () => {
       await page.source.captureNote({ text: "Pagué 850 en la ferretería" }, "note-1113");
       page.api().reload();
     });
     // The note row comes from the notes list, the number from the server's next count.
-    await page.settle(() => page.segment("review")?.textContent === "Por revisar5" && page.updateButton() !== null);
+    await page.settle(() => page.segment("attention")?.textContent === `Necesitan atención${SAMPLE.attention + 1}` && page.updateButton() !== null);
+    assert.equal(page.reviewCount(), String(SAMPLE.total + 1));
+    assert.equal(page.text('[data-testid="business-inbox-count"]'), String(SAMPLE.total + 1));
     await page.act(async () => page.updateButton()!.click());
-    await page.choose("review");
-    assert.equal(page.noteRows(), 1);
-    assert.equal(page.rows(), 5);
-    assert.equal(page.segment("review")?.textContent, "Por revisar5");
+    await page.choose("attention");
+    assert.equal(page.noteRows(), 2, "the sample's own note and this one");
+    assert.equal(page.rows(), SAMPLE.attention + 1);
     await page.act(async () => page.root.unmount());
   });
 
-  test("a saved note counts alike on the Resumen, the badge and the Por revisar segment", async () => {
-    const page = await mount();
-    await page.act(async () => {
-      await page.source.captureNote({ text: "Pagué 850 en la ferretería" }, "note-1113");
-      page.api().reload();
-    });
-    // The note row comes from the notes list, the number from the server's next count.
-    await page.settle(() => page.segment("review")?.textContent === "Por revisar5");
-    assert.equal(page.segment("review")?.textContent, "Por revisar5");
-    assert.equal(page.reviewCount(), "5");
-    assert.equal(page.text('[data-testid="business-inbox-count"]'), "5");
-    await page.act(async () => page.root.unmount());
-  });
-
-  test("the Con problema segment counts the receipts with a problem and the emails that brought none, and lists what it counts", async () => {
+  test("the Resumen keeps its own con problema and reading lines", async () => {
     const page = await mount();
     const { problemCount } = await import("@/components/business-app/inbox-count");
-    await page.settle(() => page.segment("attention")?.textContent === "Necesitan atención5");
-    assert.equal(page.segment("attention")?.textContent, "Necesitan atención5");
-    assert.equal(problemCount(page.api().records), 5, "the one owner gives the same number");
-    await page.choose("attention");
-    assert.equal(page.rows(), 5, "the view lists the five it counts");
-    await page.act(async () => page.root.unmount());
-  });
-
-  test("the Resumen's con problema and the Con problema segment give one number", async () => {
-    const page = await mount();
-    await page.settle(() => page.segment("attention")?.textContent === "Necesitan atención5");
     try {
-      assert.match(page.attentionTask()?.textContent ?? "", /5 con problema/);
-      assert.match(page.readingStatus()?.textContent ?? "", /1 todavía leyendo/);
+      assert.equal(problemCount(page.api().records), SAMPLE.problems);
+      assert.match(page.attentionTask()?.textContent ?? "", new RegExp(`${SAMPLE.problems} con problema`));
+      assert.match(page.readingStatus()?.textContent ?? "", new RegExp(`${SAMPLE.reading} todavía leyendo`));
     } finally { await page.act(async () => page.root.unmount()); }
   });
 
   test("an approval leaves the Bandeja and the Resumen together", async () => {
     const page = await mount();
-    assert.equal(page.reviewCount(), "4");
+    assert.equal(page.reviewCount(), String(SAMPLE.total));
     await page.act(async () => {
       const receipt = await page.source.receipt("rcpt-ferreteria");
       const saved = await page.source.saveReview(receipt.id, receipt.version, { account_id: "acct-ops" });
@@ -181,15 +158,16 @@ describe("the Bandeja and the Resumen on one saved state", () => {
       await page.source.approveDraft(record.draft_id, record.version, "approve-1113", "record_expense");
       page.api().reload();
     });
-    await page.settle(() => page.reviewCount() === "3");
-    assert.equal(page.reviewCount(), "3");
-    assert.equal(page.text('[data-testid="business-inbox-count"]'), "3");
-    assert.equal(page.segment("review")?.textContent, "Por revisar3");
-    await page.choose("review");
-    assert.equal(page.rows(), 3);
+    const left = String(SAMPLE.total - 1);
+    await page.settle(() => page.reviewCount() === left);
+    assert.equal(page.reviewCount(), left);
+    assert.equal(page.text('[data-testid="business-inbox-count"]'), left);
+    assert.equal(page.segment("attention")?.textContent, `Necesitan atención${SAMPLE.attention - 1}`);
+    await page.choose("attention");
+    assert.equal(page.rows(), SAMPLE.attention - 1);
     await page.act(async () => page.api().reload());
     await page.settle(() => false);
-    assert.equal(page.reviewCount(), "3");
+    assert.equal(page.reviewCount(), left);
     await page.act(async () => page.root.unmount());
   });
 
@@ -220,9 +198,10 @@ describe("the Bandeja and the Resumen on one saved state", () => {
   test("a missing activity object does not invent a zero, nor a count of the rows that loaded", async () => {
     const page = await mount({ activity: () => null });
     assert.notEqual(page.reviewCount(), "0");
-    assert.notEqual(page.reviewCount(), "4");
+    assert.notEqual(page.reviewCount(), String(SAMPLE.total));
     assert.equal(page.text('[data-testid="business-inbox-count"]'), null);
-    assert.equal(page.segment("review")?.textContent, "Por revisar-");
+    assert.equal(page.segment("attention")?.textContent, "Necesitan atención-");
+    assert.equal(page.segment("listos")?.textContent, "Listos-");
     await page.act(async () => page.root.unmount());
   });
 });

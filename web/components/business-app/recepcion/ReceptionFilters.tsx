@@ -9,7 +9,7 @@ import RecordsPreviewPopover from "../transacciones/RecordsPreviewPopover";
 import RecordsFilterSelection from "../transacciones/RecordsFilterSelection";
 import styles from "../transacciones/records-filter-preview.module.css";
 import { CHANNEL_ICON, CHANNELS } from "../foundation/channel-icons";
-import { emptyReceptionFilters, type ReceptionFiltersValue, type SenderIdentity } from "./reception-filters";
+import { emptyReceptionFilters, RECEPTION_VIEW_WORD, type ReceptionFiltersValue, type ReceptionState, type SenderIdentity } from "./reception-filters";
 
 type Props = { senders: SenderIdentity[]; value: ReceptionFiltersValue; onChange: (value: ReceptionFiltersValue) => void };
 const GROUPS = ["source", "sender", "status"] as const;
@@ -44,7 +44,7 @@ function FilterEditor({ senders, value, onChange, close, phone = false }: Props 
     {!phone || !choosing ? <section className={styles.editor} role={phone ? undefined : "tabpanel"} aria-label={word(group)}>
       {phone ? <button ref={back} type="button" className={styles.clear} onClick={() => setChoosing(true)}><ArrowLeft size={18} aria-hidden="true" />{shared("back")}</button> : null}
       <div className="flex items-center justify-between gap-3"><h3 className={styles.heading}>{word(group)}</h3><button type="button" className={styles.clear} onClick={() => setDraft({ ...draft, [group === "source" ? "channels" : group === "sender" ? "senders" : "states"]: [] })}>{word("clear_group")}</button></div>
-      {group === "source" ? <RecordsFilterSelection options={CHANNELS.map((value) => { const Icon = CHANNEL_ICON[value]; return { value, label: word(`source_${value}`), icon: <Icon size={17} aria-hidden="true" /> }; })} selected={draft.channels} onChange={channels => setDraft({ ...draft, channels })} /> : group === "status" ? <RecordsFilterSelection options={(["review", "processing", "attention"] as const).map(value => ({ value, label: word(value) }))} selected={draft.states} onChange={states => setDraft({ ...draft, states })} /> : <>
+      {group === "source" ? <RecordsFilterSelection options={CHANNELS.map((value) => { const Icon = CHANNEL_ICON[value]; return { value, label: word(`source_${value}`), icon: <Icon size={17} aria-hidden="true" /> }; })} selected={draft.channels} onChange={channels => setDraft({ ...draft, channels })} /> : group === "status" ? <RecordsFilterSelection options={(["attention", "listos"] as const).map(value => ({ value, label: word(RECEPTION_VIEW_WORD[value]) }))} selected={draft.states} onChange={states => setDraft({ ...draft, states })} /> : <>
         <input type="search" className={`${styles.input} ${styles.search}`} aria-label={word("sender_search")} placeholder={word("sender_search")} value={query} onChange={event => setQuery(event.target.value)} />
         <RecordsFilterSelection options={senders.map(sender => ({ value: sender.id, label: sender.name || sender.address, description: sender.name ? sender.address : undefined }))} selected={draft.senders} query={query} keepSelectedVisible onChange={senders => setDraft({ ...draft, senders })} />
       </>}
@@ -73,7 +73,7 @@ export function ReceptionFilterChips({ value, senders, onChange }: Props) {
   const groups = ["channels", "senders", "states"] as const;
   return <div className={styles.chips} data-testid="reception-filter-chips">{groups.flatMap(group => value[group].map(id => {
     const sender = senders.find(sender => sender.id === id);
-    const label = group === "channels" ? word(`source_${id}`) : group === "states" ? word(id) : sender?.name || sender?.address || word("sender");
+    const label = group === "channels" ? word(`source_${id}`) : group === "states" ? word(RECEPTION_VIEW_WORD[id as ReceptionState]) : sender?.name || sender?.address || word("sender");
     return <button type="button" key={`${group}:${id}`} className={styles.chip} aria-label={t("business.reception_preview.remove_filter", { label })} onClick={() => onChange({ ...value, [group]: value[group].filter(item => item !== id) })}><span>{label}</span><X size={14} aria-hidden="true" /></button>;
   }))}{groups.some(group => value[group].length) ? <button type="button" className={styles.clear} onClick={() => onChange(emptyReceptionFilters())}>{word("clear")}</button> : null}</div>;
 }

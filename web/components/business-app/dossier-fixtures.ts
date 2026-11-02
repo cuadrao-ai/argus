@@ -171,7 +171,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       const items = found.slice(0, limit).map((note) => { const current = get(note.draft_id); return { ...note, version: current.version, review_state: current.review_state, earlier_count: earlier(note) }; });
       return { items, has_more: found.length > limit };
     },
-    createReceiptDraft: (receipt: ReceiptDetail) => {
+    createReceiptDraft: (receipt: ReceiptDetail, fiscal?: { rnc: string | null; ncf: string | null; itbis: string | null }) => {
       const id = `80000000-0000-4000-8000-${String(++receiptDraftCount).padStart(12, "0")}`;
       const reviewed = <T>(value: T): BusinessFact<T> => ({ state: "known", value, origin: "member_set", verified: false, source_ids: [reviewSourceId] });
       const scalar = (value: string | null): BusinessFact<string> => value ? reviewed(value) : unknown();
@@ -183,9 +183,9 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
         counterparty: scalar(receipt.merchant),
         funding: receipt.account_id ? reviewed({ kind: "business_account", account_id: receipt.account_id }) : unknown(),
         business_share: reviewed({ kind: "all" }),
-        receipt_state: reviewed("informal_receipt"),
+        receipt_state: reviewed(fiscal?.ncf ? "fiscal_receipt" : "informal_receipt"),
         category_id: scalar(receipt.category_id),
-        fiscal: null,
+        fiscal: fiscal ? { rnc: scalar(fiscal.rnc), ncf: scalar(fiscal.ncf), ecf: unknown(), itbis: scalar(fiscal.itbis) } : null,
       };
       const source = { id: sourceId, kind: "attachment" as const, channel: receipt.channel, received_at: receipt.received_at, connection_id: receipt.id, filename: receipt.filename, media_type: receipt.media_type };
       const action = { id: reviewSourceId, kind: "web_action" as const, channel: "web" as const, received_at: receipt.received_at, text: JSON.stringify({ version: receipt.version - 1, fields: { merchant: receipt.merchant, amount: receipt.amount, currency: receipt.currency, occurred_on: receipt.occurred_on, account_id: receipt.account_id, category_id: receipt.category_id } }) };

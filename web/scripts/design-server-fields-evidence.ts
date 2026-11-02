@@ -104,7 +104,7 @@ try {
       if (state === "inicio-open-items-refused") await expect(page.getByTestId("month-close-money-error")).toBeVisible();
       if (state === "bandeja-al-dia") {
         const all = receptionViews.locator(designServerFieldsReception.tabs.all);
-        const review = receptionViews.locator(designServerFieldsReception.tabs.review);
+        const listos = receptionViews.locator(designServerFieldsReception.tabs.listos);
         const rows = reception.locator(designServerFieldsReception.row);
         const empty = reception.locator(designServerFieldsReception.empty);
         await expect(all).toHaveAttribute("aria-selected", "true");
@@ -113,13 +113,13 @@ try {
         await expect(rows).toContainText("Nube Hosting");
         await expect(rows).toBeVisible();
         await expect(empty).toHaveCount(0);
-        for (const [key, label] of [["review", "Por revisar"], ["processing", "En proceso"], ["attention", "Necesitan atención"]] as const) {
+        for (const [key, label] of [["attention", "Necesitan atención"], ["listos", "Listos"]] as const) {
           await expect(receptionViews.locator(designServerFieldsReception.tabs[key])).toHaveText(new RegExp(`^${label}\\s*0$`));
         }
-        await review.click();
-        await expect(review).toHaveAttribute("aria-selected", "true");
+        await listos.click();
+        await expect(listos).toHaveAttribute("aria-selected", "true");
         await expect(empty).toBeVisible();
-        await expect(empty).toHaveAttribute("data-empty-kind", "filtered");
+        await expect(empty).toHaveAttribute("data-empty-kind", "done");
         await expect(empty.getByRole("heading")).toHaveText("No hay contenido en esta vista");
         await expect(empty).toContainText("Prueba otra vista o cambia los filtros.");
         await expect(rows).toHaveCount(0);
@@ -186,7 +186,7 @@ try {
       }
       if (state === "inicio-month-500") await expect(page.getByTestId("month-close-error").getByRole("button", { name: "Reintentar", exact: true })).toBeVisible();
       if (state === "bandeja-refused" || state === "bandeja-mixed") {
-        for (const [key, label] of [["review", "Por revisar"], ["processing", "En proceso"], ["attention", "Necesitan atención"]] as const) {
+        for (const [key, label] of [["attention", "Necesitan atención"], ["listos", "Listos"]] as const) {
           await expect(receptionViews.locator(designServerFieldsReception.tabs[key])).toHaveText(new RegExp(`^${label}\\s*-$`));
         }
         await expect(reception.locator(designServerFieldsReception.empty)).toHaveCount(0);
