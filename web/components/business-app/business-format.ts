@@ -215,6 +215,12 @@ export function periodRange(key: PeriodKey, now = new Date()): Period {
 }
 
 
+/** The month a day falls in, as a title: "Octubre de 2026". */
+export function formatMonthYear(day: string, locale: string): string {
+  const month = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(new Date(`${day}T12:00:00`));
+  return month.charAt(0).toLocaleUpperCase() + month.slice(1);
+}
+
 /** A range the person typed; both days are required and in order. */
 export function customPeriod(from: string, to: string): Period | null {
   const day = /^\d{4}-\d{2}-\d{2}$/;

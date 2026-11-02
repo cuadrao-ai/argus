@@ -11003,9 +11003,12 @@ accept path recorded.
   kind only, not its original link or cash effect. Fiscal class is the normalized
   number prefix or explicit `no_comprobante`/`unknown`, not legal acceptance.
 
-  `period.kind` is `all`, `custom`, `this_month`, `last_month` or `this_year`.
-  Custom uses inclusive `from_date` and `to_date`. Relative presets resolve each
-  run in `America/Santo_Domingo`; `resolved_period` states the bounds and calendar.
+  `period.kind` is `all`, `custom`, `this_month`, `last_month`, `this_year` or
+  `latest_month`. Custom uses inclusive `from_date` and `to_date`. Relative presets
+  resolve each run in `America/Santo_Domingo`; `resolved_period` states the bounds
+  and calendar. `latest_month` is the whole month of the Business's newest dated
+  record, whatever the other filters match, and the current month when no record
+  has a date.
   Documents use the approved/current document issue date, standalone activity its
   effective date. A draft/default label alone is not a document: attachment history,
   explicit receipt facts or a fiscal number establish document provenance. Losing
@@ -11118,8 +11121,11 @@ accept path recorded.
   `{expected_version, note}` and `Idempotency-Key` (1..80 characters). A current
   human prepare grant and an open or accepted draft are required. `note` accepts
   up to 500 Unicode code points, including empty text to clear; null characters
-  are refused. The command increments the draft version and appends one Activity
-  revision with actor/time and before/after note, leaving financial facts,
+  are refused. A report row's `note` is only this saved note. A draft's and an
+  Activity's own `note` hold the merchant, so a row with no draft reads it as
+  `counterparty` and never as `note`. The command increments the draft version and
+  appends one Activity revision with actor/time and before/after note, leaving
+  financial facts,
   approval, original evidence, Money and settlement unchanged. Same-key replay
   returns the saved `{result: {draft_id, version, note}, dossier}`; the result's
   version is the original command version and the dossier is a fresh read.
