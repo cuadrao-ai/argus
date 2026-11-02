@@ -1,15 +1,19 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { installBreakpointFixture } from "./support/breakpoint-fixture";
+import { dossierFixtureIds } from "../components/business-app/dossier-fixtures";
 
 const PREVIEW = "/dev/business-preview";
 /** The Business build: the local recipe exports NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true for the dev server and for this runner alike. */
 const BUSINESS_BUILD = process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED === "true";
+
+test.use({ timezoneId: "UTC" });
 
 async function openPreview(
   page: Page,
   url = PREVIEW,
   options: { sidebarMode?: "expanded" | "collapsed"; emptyChat?: boolean } = {},
 ) {
+  await page.clock.setFixedTime(new Date("2026-10-20T15:00:00Z"));
   await page.route("**/*", (route) => {
     const { hostname } = new URL(route.request().url());
     return ["127.0.0.1", "localhost"].includes(hostname)
@@ -41,9 +45,17 @@ async function openRecordExpense(page: Page) {
   return page.getByTestId("record-expense-amount");
 }
 
+async function openAmountEditor(page: Page) {
+  await openPreview(page, `${PREVIEW}?draft=${dossierFixtureIds.ready}`);
+  await page.getByRole("button", { name: "Editar detalles · Monto", exact: true }).click();
+  const total = page.getByTestId("dossier-review-amount");
+  await total.fill("");
+  return total;
+}
+
 const nav = (page: Page) => page.getByTestId("business-sidebar-nav");
 const panelHeading = (page: Page, name: string) =>
-  page.getByTestId("workspace-panel-region").getByRole("heading", { name, exact: true });
+  page.getByRole("heading", { name, exact: true });
 const tray = (page: Page) => page.getByTestId("side-drawer");
 const trayHeading = (page: Page, name: string) => tray(page).getByRole("heading", { name, level: 2 });
 
@@ -76,7 +88,7 @@ test.describe("Business preview", () => {
 
   test("an Overview draft survives a visit to the Inbox", async ({ page }) => {
     await openPreview(page, `${PREVIEW}?chat=on`);
-    await expect(panelHeading(page, "Hola")).toBeVisible();
+    await expect(panelHeading(page, "Buenas tardes")).toBeVisible();
 
     const composer = page.getByTestId("chat-input");
     await composer.click();
@@ -87,13 +99,13 @@ test.describe("Business preview", () => {
     await expect(page.getByTestId("chat-input")).toHaveCount(0);
 
     await nav(page).getByRole("button", { name: /^Inicio/ }).click();
-    await expect(panelHeading(page, "Hola")).toBeVisible();
+    await expect(panelHeading(page, "Buenas tardes")).toBeVisible();
     await expect(page.getByTestId("chat-input")).toHaveText("¿Cuánto gasté en pintura?");
   });
 
   test("the Agregar menu opens from the collapsed rail inside the viewport", async ({ page }) => {
     await openPreview(page, PREVIEW, { sidebarMode: "collapsed" });
-    await expect(panelHeading(page, "Hola")).toBeVisible();
+    await expect(panelHeading(page, "Buenas tardes")).toBeVisible();
 
     const trigger = page.getByTestId("add-menu-more");
     await expect(trigger).toHaveAccessibleName("Más acciones");
@@ -131,30 +143,34 @@ test.describe("Business preview", () => {
     await expect(trigger).toBeFocused();
   });
 
-  test("New chat has one entry point and Create sits on the nav row grid", async ({ page }) => {
-    await openPreview(page, PREVIEW);
-    await expect(page.getByRole("button", { name: /^New chat/ })).toHaveCount(1);
+  test("Agregar has one entry point and its header actions share the same size", async ({ page }) => {
+    await openPreview(page);
+    await expect(page.getByTestId("business-primary-upload")).toHaveCount(1);
+    await expect(page.getByRole("button", { name: /^Nuevo chat/ })).toHaveCount(0);
 
-    const create = page.getByTestId("business-create");
-    const overview = page.getByRole("button", { name: /^Overview/ }).first();
-    const [createBox, overviewBox] = await Promise.all([create.boundingBox(), overview.boundingBox()]);
-    expect(createBox!.height).toBe(overviewBox!.height);
-    const [createIcon, overviewIcon] = await Promise.all([
-      create.locator("svg").boundingBox(),
-      overview.locator("svg").first().boundingBox(),
+    const add = page.getByTestId("business-primary-upload");
+    const more = page.getByTestId("add-menu-more");
+    const [addBox, moreBox] = await Promise.all([add.boundingBox(), more.boundingBox()]);
+    expect(addBox!.height).toBe(moreBox!.height);
+    expect(addBox!.height).toBeGreaterThanOrEqual(44);
+    const [addIcon, moreIcon] = await Promise.all([
+      add.locator("svg").boundingBox(),
+      more.locator("svg").boundingBox(),
     ]);
-    expect(createIcon!.width).toBe(overviewIcon!.width);
+    expect(addIcon!.width).toBe(moreIcon!.width);
   });
 
-  test("New chat from the Inbox shows the chat surface", async ({ page }) => {
+  test("Agregar from Bandeja opens intake and returns to the same list", async ({ page }) => {
     await openPreview(page, `${PREVIEW}?view=inbox`);
-    await expect(panelHeading(page, "Inbox")).toBeVisible();
-
-    await page.getByRole("button", { name: /^New chat/ }).first().click();
-
-    await expect(page.locator('[data-business-home="new_chat"]')).toBeVisible();
-    await expect(page.getByTestId("workspace-panel-region")).toHaveCount(0);
-    await expect(page).toHaveURL(/view=chat/);
+    await expect(panelHeading(page, "Bandeja")).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Nuevo chat/ })).toHaveCount(0);
+    await page.getByTestId("business-primary-upload").click();
+    await expect(page.getByRole("dialog", { name: "Agregar", exact: true })).toBeVisible();
+    await expect(page.getByTestId("chat-input")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(panelHeading(page, "Bandeja")).toBeVisible();
+    await expect(page).toHaveURL(/view=inbox/);
   });
 
   test("leaving a conversation for a panel keeps the panel in the address bar", async ({ page }) => {
@@ -228,7 +244,17 @@ test.describe("Business preview", () => {
   });
 
   test("an unreadable receipt offers another upload, no AI retry and no form", async ({ page }) => {
-    await openPreview(page, `${PREVIEW}?receipt=rcpt-blurry`);
+    await openPreview(page, `${PREVIEW}?view=inbox`);
+    const inbox = page.getByTestId("reception-preview");
+    const row = inbox.getByTestId("reception-row").filter({ hasText: "IMG_2209.jpg" });
+    await expect(row).toBeVisible();
+    const attentionTab = inbox.getByRole("tab", { name: /^Necesitan atención/ });
+    await attentionTab.click();
+    await expect(attentionTab).toHaveAttribute("aria-selected", "true");
+    await expect(row.getByTestId("reception-reason")).toHaveText("No se pudo leer");
+    await expect(row.getByRole("button", { name: "Abrir", exact: true })).toHaveCount(1);
+    await row.getByRole("button", { name: "Abrir", exact: true }).click();
+    await expect(page).toHaveURL(/receipt=rcpt-blurry/);
     await expect(page.getByTestId("receipt-attention")).toContainText("No pudimos leer este archivo");
     await expect(page.getByRole("button", { name: "Subir otro archivo" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Escribir datos" })).toHaveCount(0);
@@ -237,6 +263,7 @@ test.describe("Business preview", () => {
   });
 
   test("Record expense guards the length and maps the backend's amount codes onto its Total", async ({ page }) => {
+    test.info().annotations.push({ type: "issue", description: "The old expense form is removed. Its server amount-error contract has no equivalent in the current dossier editor." });
     await openPreview(page);
     const total = await openRecordExpense(page);
     const message = await amountMessage(page, total);
@@ -258,12 +285,8 @@ test.describe("Business preview", () => {
     }
   });
 
-  test("Record expense ignores a typed comma on a dot-decimal device", async ({ page }) => {
-    await openPreview(page);
-    await page.getByTestId("business-create").click();
-    await page.getByRole("menuitem", { name: "Record expense" }).click();
-
-    const total = page.getByTestId("record-expense-amount");
+  test("the dossier amount ignores a typed comma on a dot-decimal device", async ({ page }) => {
+    const total = await openAmountEditor(page);
     await total.click();
     await page.keyboard.type("12,50");
     await expect(total).toHaveValue("1,250");
@@ -284,28 +307,23 @@ test.describe("Business preview", () => {
 test.describe("Business preview on a comma-decimal device", () => {
   test.use({ viewport: { width: 1280, height: 800 }, locale: "de-DE" });
 
-  test("Record expense reads a typed comma as the decimal point", async ({ page }) => {
-    await openPreview(page);
-    await page.getByTestId("business-create").click();
-    await page.getByRole("menuitem", { name: "Record expense" }).click();
-
-    const total = page.getByTestId("record-expense-amount");
+  test("the dossier amount reads a typed comma as the decimal point", async ({ page }) => {
+    const total = await openAmountEditor(page);
     await total.click();
     await page.keyboard.type("12,50");
     await expect(total).toHaveValue("12.50");
-    await expect(page.getByRole("button", { name: "Save expense" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Guardar · Monto", exact: true })).toBeEnabled();
   });
 
   test("a pasted 1,250 is refused rather than read two ways", async ({ page, context }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-    await openPreview(page);
-    const total = await openRecordExpense(page);
+    const total = await openAmountEditor(page);
 
     await page.evaluate(() => navigator.clipboard.writeText("1,250"));
     await total.click();
     await page.keyboard.press("ControlOrMeta+v");
     await expect(total).toHaveValue("");
-    await expect(await amountMessage(page, total)).toHaveText("Use a point for decimals, as in 1,250.50.");
+    await expect(await amountMessage(page, total)).toHaveText("Usa un punto para los decimales, como en 1,250.50.");
   });
 });
 
@@ -314,14 +332,14 @@ test.describe("Business preview on a phone", () => {
 
   test("the bottom tabs show the Business destinations with labels, and Agregar sits at the top of the screen", async ({ page }) => {
     await openPreview(page);
-    await expect(panelHeading(page, "Hola")).toBeVisible();
+    await expect(panelHeading(page, "Buenas tardes")).toBeVisible();
 
     await expect(nav(page)).toHaveCount(0);
     const tabs = page.getByTestId("business-bottom-tabs");
-    for (const label of ["Inicio", "Bandeja", "Transacciones"]) {
+    for (const label of ["Inicio", "Bandeja", "Registros"]) {
       await expect(tabs.getByText(label, { exact: true })).toBeVisible();
     }
-    await expect(tabs.getByRole("button", { name: /Bandeja$/ })).toContainText("4");
+    await expect(tabs.getByRole("button", { name: /Bandeja$/ })).toContainText("19");
     await expect(page.getByTestId("add-menu-page").getByRole("button", { name: "Agregar" })).toBeVisible();
   });
 });
@@ -462,11 +480,8 @@ test.describe("Business preview while its chat is off", () => {
 
   async function openLoaded(page: Page, url = CHAT_OFF) {
     await openPreview(page, url, { emptyChat: false });
-    await expect(panelHeading(page, "Hola")).toBeVisible();
-    // The month-close step comes with the workspace payload, so chat_available has been read.
-    await expect(
-      page.getByTestId("workspace-panel-region").getByRole("button", { name: "Revisar", exact: true }),
-    ).toBeVisible();
+    await expect(panelHeading(page, "Buenas tardes")).toBeVisible();
+    await expect(page.getByTestId("home-records-to-review")).toBeVisible();
   }
 
   test("the shell keeps its records and offers no way into a chat", async ({ page }) => {
@@ -483,7 +498,7 @@ test.describe("Business preview while its chat is off", () => {
     await page.keyboard.press("ControlOrMeta+Shift+Comma");
     await expect(page.getByTestId("chat-input")).toHaveCount(0);
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await expect(panelHeading(page, "Hola")).toBeVisible();
+    await expect(panelHeading(page, "Buenas tardes")).toBeVisible();
 
     await page.getByTestId("business-primary-upload").click();
     await expect(page.getByRole("dialog", { name: "Agregar" })).toBeVisible();
@@ -492,8 +507,8 @@ test.describe("Business preview while its chat is off", () => {
 
     for (const [label, heading] of [
       ["Bandeja", "Bandeja"],
-      ["Transacciones", "Transacciones"],
-      ["Inicio", "Hola"],
+      ["Registros", "Registros"],
+      ["Inicio", "Buenas tardes"],
     ]) {
       await nav(page).getByRole("button", { name: new RegExp(`^${label}`) }).click();
       await expect(panelHeading(page, heading)).toBeVisible();
@@ -554,9 +569,9 @@ test.describe("Business preview on a phone while its chat is off", () => {
 
   test("the bottom tabs keep the destinations and Agregar, with no New chat or Recents", async ({ page }) => {
     await openPreview(page, `${PREVIEW}?chat=off`);
-    await expect(panelHeading(page, "Hola")).toBeVisible();
+    await expect(panelHeading(page, "Buenas tardes")).toBeVisible();
     const tabs = page.getByTestId("business-bottom-tabs");
-    for (const label of ["Inicio", "Bandeja", "Transacciones"]) {
+    for (const label of ["Inicio", "Bandeja", "Registros"]) {
       await expect(tabs.getByText(label, { exact: true })).toBeVisible();
     }
     await expect(page.getByTestId("add-menu-page").getByRole("button", { name: "Agregar" })).toBeVisible();
