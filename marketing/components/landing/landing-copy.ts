@@ -186,7 +186,7 @@ const es = {
       exported: "Exportado",
     },
     cursor: "Ana",
-    dock: { receive: "Recibir", square: "Cuadrar", how: "Cómo funciona", exportLabel: "Exportar", bill: "Facturar · En preparación" },
+    dock: { receive: "Recibir", square: "Cuadrar", how: "Cómo funciona", exportLabel: "Exportar", bill: "Facturar · pronto" },
   },
 } as const;
 
@@ -375,7 +375,7 @@ const en = {
       exported: "Exported",
     },
     cursor: "Ana",
-    dock: { receive: "Receive", square: "Review", how: "How it works", exportLabel: "Export", bill: "Invoice · In preparation" },
+    dock: { receive: "Receive", square: "Review", how: "How it works", exportLabel: "Export", bill: "Invoice · soon" },
   },
 } as const;
 

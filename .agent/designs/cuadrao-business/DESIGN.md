@@ -85,7 +85,7 @@ It closes the month before the date it shows. The scene and the closing month sh
 no year, and the time stays at 10:24. The WhatsApp card prints the full date, as the
 real message does, and it follows the same rule.
 
-Facturar stays "En preparación" and is not a link until e-CF issuing works in
+Facturar stays "pronto" ("soon" in English) and is not a link until e-CF issuing works in
 production.
 
 Examples create no real records, notifications or customer messages. Do not add
