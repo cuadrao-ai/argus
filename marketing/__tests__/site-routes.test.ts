@@ -20,13 +20,11 @@ describe("public URL map", () => {
   test("Spanish is unprefixed and English lives under /en", () => {
     expect(SITE_ROUTES.map((route) => route.path)).toEqual([
       "/",
-      "/personal",
       "/contacto",
       "/privacidad",
       "/terminos",
       "/eliminar-datos",
       "/en",
-      "/en/personal",
       "/en/contact",
       "/en/privacy",
       "/en/terms",
@@ -62,7 +60,7 @@ describe("public URL map", () => {
 describe("case handling", () => {
   test.each([
     ["/EN", "/en"],
-    ["/en/Personal", "/en/personal"],
+    ["/en/Contact", "/en/contact"],
     ["/En/PRIVACY", "/en/privacy"],
     ["/Contacto", "/contacto"],
   ])("%s redirects to %s", (path, expected) => {
@@ -89,10 +87,13 @@ describe("redirects and rewrites", () => {
 
   test.each([
     ["/business", "/"],
-    ["/business/personal", "/personal"],
+    ["/business/personal", "/"],
     ["/business/demo", "/contacto"],
     ["/business/en", "/en"],
-    ["/business/en/personal", "/en/personal"],
+    ["/business/en/personal", "/en"],
+    ["/personal", "/"],
+    ["/es/personal", "/"],
+    ["/en/personal", "/en"],
     ["/business/en/demo", "/en/contact"],
   ])("old marketing path %s permanently redirects to %s", (source, destination) => {
     expect(redirects).toContainEqual({ source, destination, permanent: true });

@@ -1,0 +1,376 @@
+import { execFileSync } from "node:child_process";
+import { chromium, expect, test, type Page } from "@playwright/test";
+
+import { SITE_PORT } from "./ports";
+
+const cases = [
+  { home: "/", other: "/en", label: "English", phoneLabel: "Cambiar idioma", lang: "en", cta: "Hablemos de tu negocio", contactPath: "/contacto", login: "Iniciar sesión" },
+  { home: "/en", other: "/", label: "Español", phoneLabel: "Change language", lang: "es", cta: "Let’s talk about your business", contactPath: "/en/contact", login: "Log in" },
+] as const;
+
+for (const { home, other, label, phoneLabel, lang, cta, contactPath } of cases) {
+  test(`${home} Business header keeps contact and the language link in order`, async ({ page }) => {
+    await page.goto(home);
+    const header = page.locator("header");
+    const menu = header.getByRole("button", { name: /Abrir menú|Open menu/ });
+    const mobile = await menu.isVisible();
+    if (mobile) await menu.click();
+    const nav = header.locator("nav:visible");
+    const link = nav.locator("[data-language-switch]");
+    const contact = nav.getByRole("link", { name: cta, exact: true });
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAttribute("href", other);
+    await expect(link).toHaveAttribute("lang", lang);
+    await expect(link).toHaveAttribute("hreflang", lang);
+    await expect(link).toContainText(label);
+    await expect(link.locator("img, svg")).toHaveCount(0);
+    const box = (await link.boundingBox())!;
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    if (mobile) await expect(link).toHaveAccessibleName(new RegExp(phoneLabel));
+    await expect(contact).toHaveAttribute("href", contactPath);
+    await expect(nav.getByRole("link", { name: /Cómo funciona|How it works|Nosotros|About/, exact: true })).toHaveCount(0);
+    const boxes = await Promise.all([contact, link].map((node) => node.boundingBox()));
+    if (mobile) {
+      expect(boxes[0]!.y).toBeLessThan(boxes[1]!.y);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
+      const edges = await nav.evaluate((panel) => {
+        const textLeft = (node: Element) => {
+          const range = document.createRange();
+          const text = [...node.childNodes].find((child) => child.nodeType === Node.TEXT_NODE && child.textContent?.trim());
+          range.selectNodeContents(text ?? node);
+          return range.getBoundingClientRect().left;
+        };
+        const link = panel.querySelector("[data-language-switch]")!;
+        const peer = panel.querySelector("a")!;
+        return { link: textLeft(link), peer: textLeft(peer) };
+      });
+      expect(Math.abs(edges.link - edges.peer)).toBeLessThanOrEqual(0.5);
+    } else {
+      expect(boxes[1]!.x).toBeLessThan(boxes[0]!.x);
+      await page.evaluate(() => window.scrollTo(0, 350));
+      await expect(header).toHaveAttribute("data-condensed", "true");
+    }
+    await link.click();
+    await expect(page).toHaveURL(other);
+  });
+}
+
+test("Business contact shows pointer and keyboard states without changing scroll treatment", async ({ page }) => {
+  test.skip(test.info().project.name === "mobile", "desktop header states");
+  await page.goto("/");
+  const header = page.locator("header");
+  const contact = header.getByRole("link", { name: "Hablemos de tu negocio" });
+  await expect(header).toHaveAttribute("data-condensed", "false");
+  await expect(contact).toHaveCSS("background-color", "rgb(232, 237, 227)");
+  await contact.hover();
+  await expect(contact).toHaveCSS("background-color", "rgb(47, 90, 73)");
+  await expect(contact).toHaveCSS("color", "rgb(255, 255, 255)");
+  await page.mouse.move(0, 200);
+  await contact.focus();
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Tab");
+  await expect(contact).toBeFocused();
+  await expect(contact).toHaveCSS("background-color", "rgb(47, 90, 73)");
+  await expect(contact).toHaveCSS("outline-style", "solid");
+
+  await page.evaluate(() => window.scrollTo(0, 350));
+  await expect(header).toHaveAttribute("data-condensed", "true");
+  await contact.blur();
+  await expect(contact).toHaveCSS("background-color", "rgb(47, 90, 73)");
+  await contact.hover();
+  await expect(contact).toHaveCSS("background-color", "rgb(29, 66, 54)");
+});
+
+test("the language link is the hit target and shows the focus ring", async ({ page }) => {
+  test.skip(test.info().project.name === "mobile", "desktop pointer check");
+  await page.goto("/");
+  const link = page.locator("header").locator("[data-language-switch]");
+  const box = (await link.boundingBox())!;
+  const hit = await page.evaluate(([x, y]) => {
+    const node = document.elementFromPoint(x, y);
+    return { href: node?.closest("a")?.getAttribute("href"), cursor: node ? getComputedStyle(node).cursor : "none" };
+  }, [box.x + box.width / 2, box.y + box.height / 2]);
+  expect(hit.href).toBe("/en");
+  expect(hit.cursor).toBe("pointer");
+  await link.focus();
+  const ring = await link.evaluate((node) => {
+    const css = getComputedStyle(node);
+    return { style: css.outlineStyle, width: css.outlineWidth, color: css.outlineColor };
+  });
+  expect(ring.style).toBe("solid");
+  expect(ring.width).toBe("2px");
+  expect(ring.color).toBe("rgb(47, 90, 73)");
+});
+
+test("Business language links keep native modifier, keyboard, and no-script navigation", async ({ page, browser }) => {
+  await page.goto("/");
+  const menu = page.locator("header").getByRole("button", { name: "Abrir menú" });
+  if (await menu.isVisible()) await menu.click();
+  const target = page.locator("header nav:visible").locator("[data-language-switch]");
+  if (test.info().project.name === "desktop") {
+    const opened = page.context().waitForEvent("page");
+    await target.click({ modifiers: [process.platform === "darwin" ? "Meta" : "Control"] });
+    const translated = await opened;
+    await expect(translated).toHaveURL("/en");
+    await translated.close();
+    await expect(page).toHaveURL("/");
+  }
+  await target.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL("/en");
+
+  const noScript = await browser.newContext({
+    baseURL: new URL(page.url()).origin,
+    javaScriptEnabled: false,
+    viewport: { width: 1440, height: 900 },
+  });
+  try {
+    const noScriptPage = await noScript.newPage();
+    await noScriptPage.goto("/");
+    const link = noScriptPage.locator("header nav:visible").locator("[data-language-switch]");
+    await expect(link).toHaveAttribute("href", "/en");
+    await link.click();
+    await expect(noScriptPage).toHaveURL("/en");
+  } finally {
+    await noScript.close();
+  }
+});
+
+test("reduced motion uses direct language navigation", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  const menu = page.locator("header").getByRole("button", { name: "Abrir menú" });
+  if (await menu.isVisible()) await menu.click();
+  await page.locator("header nav:visible").locator("[data-language-switch]").click();
+  await expect(page).toHaveURL("/en");
+});
+
+test("English privacy offers Español on the Spanish privacy page", async ({ page }) => {
+  const menu = page.locator("header").getByRole("button", { name: /Abrir menú|Open menu/ });
+  await page.goto("/en/privacy");
+  if (await menu.isVisible()) await menu.click();
+  const link = page.locator("header nav:visible").locator("[data-language-switch]");
+  await expect(link).toContainText("Español");
+  await expect(link).toHaveAttribute("href", "/privacidad");
+  await link.click();
+  await expect(page).toHaveURL(/\/privacidad$/);
+});
+
+const stagingHost = "cuadrao-marketing-staging.onrender.com";
+const stagingSignIn = "https://cuadrao-web-staging.onrender.com/?auth=login";
+
+for (const { home, login, cta } of cases) {
+  for (const method of ["mouse", "keyboard"] as const) {
+    test(`${home} staging sign-in navigates with ${method}`, async () => {
+      const mobile = test.info().project.name === "mobile";
+      const browser = await chromium.launch({
+        args: [`--host-resolver-rules=MAP ${stagingHost} 127.0.0.1`, "--no-proxy-server"],
+      });
+      const context = await browser.newContext({
+        viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 900 },
+        isMobile: mobile,
+        hasTouch: mobile,
+        serviceWorkers: "block",
+      });
+      const errors: string[] = [];
+      try {
+        await context.route("**/*", async (route) => {
+          const url = new URL(route.request().url());
+          if (url.hostname === stagingHost && url.port === String(SITE_PORT)) return route.continue();
+          if (url.href === stagingSignIn && route.request().isNavigationRequest()) {
+            return route.fulfill({ contentType: "text/html", body: "<!doctype html><title>Synthetic sign-in destination</title>" });
+          }
+          throw new Error(`Unexpected request to ${url.origin}`);
+        });
+        const page = await context.newPage();
+        page.on("pageerror", (error) => errors.push(error.message));
+        page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+        await page.goto(`http://${stagingHost}:${SITE_PORT}${home}`);
+        const menu = page.locator("header").getByRole("button", { name: /Abrir menú|Open menu/ });
+        if (mobile) await menu.click();
+        const nav = page.locator("header nav:visible");
+        const signIn = nav.getByRole("link", { name: login, exact: true });
+        await expect(signIn).toHaveAttribute("href", stagingSignIn);
+        await expect(nav.getByRole("button", { name: login, exact: true })).toHaveCount(0);
+        const phone = test.info().project.name === "mobile";
+        const boxes = await Promise.all(
+          [nav.getByRole("link", { name: cta, exact: true }), signIn, nav.locator("[data-language-switch]")].map((node) => node.boundingBox()),
+        );
+        if (phone) {
+          expect(boxes[0]!.y).toBeLessThan(boxes[1]!.y);
+          expect(boxes[1]!.y).toBeLessThan(boxes[2]!.y);
+        } else {
+          expect(boxes[2]!.x).toBeLessThan(boxes[1]!.x);
+          expect(boxes[1]!.x).toBeLessThan(boxes[0]!.x);
+        }
+        await expect(signIn).toHaveCSS("color", phone ? "rgb(47, 90, 73)" : "rgb(23, 43, 38)");
+        const geometry = await signIn.evaluate((link) => {
+          const measure = (node: Element) => {
+            const css = getComputedStyle(node);
+            const box = node.getBoundingClientRect();
+            return { width: box.width, height: box.height, font: css.font, padding: css.padding, color: css.color, radius: css.borderRadius };
+          };
+          const button = document.createElement("button");
+          button.className = link.className;
+          button.textContent = link.textContent;
+          link.replaceWith(button);
+          const approvedButton = measure(button);
+          button.replaceWith(link);
+          return { approvedButton, signInLink: measure(link) };
+        });
+        expect(geometry.signInLink).toEqual(geometry.approvedButton);
+        if (method === "mouse") {
+          await test.info().attach("staging-signin.png", { body: await page.screenshot(), contentType: "image/png" });
+          await test.info().attach("source-identity.json", {
+            body: Buffer.from(JSON.stringify({
+              commit: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+              tree: execFileSync("git", ["rev-parse", "HEAD^{tree}"], { encoding: "utf8" }).trim(),
+              viewport: page.viewportSize(),
+              home,
+              geometry,
+              destination: stagingSignIn,
+              destinationMode: "synthetic document, no hosted request",
+            }, null, 2)),
+            contentType: "application/json",
+          });
+        }
+        await signIn.hover();
+        if (phone) await expect(signIn).toHaveCSS("text-decoration-line", "underline");
+        else {
+          await expect(signIn).toHaveCSS("background-color", "rgb(232, 237, 227)");
+          await expect(signIn).toHaveCSS("border-top-left-radius", "22px");
+          await expect(signIn).toHaveCSS("cursor", "pointer");
+        }
+        if (method === "keyboard") {
+          await signIn.focus();
+          await page.keyboard.press("Shift+Tab");
+          await page.keyboard.press("Tab");
+          await expect(signIn).toBeFocused();
+          await expect(signIn).toHaveCSS("outline-style", "solid");
+          await page.keyboard.press("Enter");
+        } else {
+          await signIn.click();
+        }
+        await expect(page).toHaveURL(stagingSignIn);
+        expect(errors).toEqual([]);
+      } finally {
+        await context.close();
+        await browser.close();
+      }
+    });
+  }
+}
+
+for (const { home, login } of cases) {
+  test(`${home} public Marketing shows no sign-in`, async () => {
+    const browser = await chromium.launch({
+      args: ["--host-resolver-rules=MAP cuadrao.ai 127.0.0.1", "--no-proxy-server"],
+    });
+    try {
+      const mobile = test.info().project.name === "mobile";
+      const page = await browser.newPage({
+        locale: home === "/" ? "es" : "en",
+        viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 900 },
+      });
+      const response = await page.goto(`http://cuadrao.ai:${SITE_PORT}${home}`);
+      expect(await response!.text()).not.toContain(login);
+      const header = page.locator("header");
+      await page.evaluate(() => window.scrollTo(0, 350));
+      await expect(header).toHaveAttribute("data-condensed", "true");
+      if (mobile) await header.getByRole("button", { name: /Abrir menú|Open menu/ }).click();
+      const nav = header.locator("nav:visible");
+      await expect(nav.locator("[data-language-switch]")).toBeVisible();
+      await expect(nav.getByText(login, { exact: true })).toHaveCount(0);
+    } finally {
+      await browser.close();
+    }
+  });
+}
+
+async function attachMenuEvidence(page: Page, name: string) {
+  execFileSync("git", ["diff", "--exit-code", "HEAD", "--", "marketing"]);
+  await test.info().attach(`${name}.png`, { body: await page.screenshot(), contentType: "image/png" });
+  await test.info().attach(`${name}-source.json`, {
+    body: Buffer.from(JSON.stringify({
+      commit: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+      tree: execFileSync("git", ["rev-parse", "HEAD^{tree}"], { encoding: "utf8" }).trim(),
+      viewport: page.viewportSize(),
+      menu: await page.locator("#business-mobile-menu").boundingBox(),
+      scroll: await page.evaluate(() => window.scrollY),
+      menuScroll: await page.locator("#business-mobile-menu").evaluate(node => node.scrollTop),
+      route: new URL(page.url()).pathname,
+    }, null, 2)),
+    contentType: "application/json",
+  });
+}
+
+for (const { home, cta, contactPath } of cases) {
+  test(`${home} phone menu covers the hero and keeps keyboard focus inside`, async ({ page }) => {
+    test.skip(test.info().project.name !== "mobile", "phone menu coverage");
+    await page.goto(home);
+    const trigger = page.locator('header button[aria-controls="business-mobile-menu"]');
+    const scroll = await page.evaluate(() => window.scrollY);
+    const previousOverflow = await page.locator("body").evaluate(node => node.style.overflow);
+    await trigger.click();
+    const nav = page.locator("#business-mobile-menu");
+    const box = (await nav.boundingBox())!;
+    expect(Math.abs(box.y + box.height - page.viewportSize()!.height)).toBeLessThanOrEqual(1);
+    const hero = (await page.locator("main").getByRole("link", { name: cta, exact: true }).first().boundingBox())!;
+    const point = { x: hero.x + hero.width / 2, y: hero.y + hero.height / 2 };
+    expect(point.y).toBeLessThan(page.viewportSize()!.height);
+    expect(await page.evaluate(({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest("#business-mobile-menu")), point)).toBe(true);
+    await expect(nav.getByRole("link", { name: cta, exact: true })).toHaveAttribute("href", contactPath);
+    await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+    await attachMenuEvidence(page, "phone-menu-coverage");
+    const last = nav.locator("[data-language-switch]");
+    await last.focus(); await page.keyboard.press("Tab"); await expect(trigger).toBeFocused();
+    await page.keyboard.press("Shift+Tab"); await expect(last).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(nav).toHaveCount(0); await expect(trigger).toBeFocused();
+    expect(await page.locator("body").evaluate(node => node.style.overflow)).toBe(previousOverflow);
+    expect(await page.evaluate(() => window.scrollY)).toBe(scroll);
+  });
+}
+
+test("short phone menu scrolls its links without scrolling the page and restores it on close", async ({ page }) => {
+  test.skip(test.info().project.name !== "mobile", "short phone menu coverage");
+  await page.setViewportSize({ width: 390, height: 280 });
+  await page.goto("/en"); await page.evaluate(() => window.scrollTo({ top: 600, behavior: "instant" }));
+  const trigger = page.locator('header button[aria-controls="business-mobile-menu"]');
+  const scroll = await page.evaluate(() => window.scrollY);
+  await trigger.click();
+  const nav = page.locator("#business-mobile-menu");
+  const box = (await nav.boundingBox())!;
+  expect(Math.abs(box.y + box.height - 280)).toBeLessThanOrEqual(1);
+  const last = nav.locator("[data-language-switch]");
+  await trigger.focus(); await page.keyboard.press("Shift+Tab");
+  await expect(last).toBeFocused(); await expect(last).toBeInViewport({ ratio: 1 });
+  const focus = await last.evaluate(node => {
+    const css = getComputedStyle(node), bounds = node.getBoundingClientRect();
+    return { bottom: bounds.bottom + parseFloat(css.outlineWidth) + parseFloat(css.outlineOffset), panel: node.closest("nav")!.getBoundingClientRect().bottom };
+  });
+  expect(focus.bottom).toBeLessThanOrEqual(focus.panel);
+  expect(await nav.evaluate(node => node.scrollTop)).toBeGreaterThan(0);
+  expect(await page.evaluate(() => window.scrollY)).toBe(scroll);
+  await attachMenuEvidence(page, "short-phone-menu-scrolled");
+  await page.keyboard.press("Escape"); await expect(nav).toHaveCount(0); await expect(trigger).toBeFocused();
+  expect(await page.evaluate(() => window.scrollY)).toBe(scroll);
+});
+
+test("menu follows the existing CSS tablet boundary and restores background scroll", async ({ page }) => {
+  test.skip(test.info().project.name !== "mobile", "responsive menu boundary");
+  await page.goto("/");
+  for (const width of [799, 800]) {
+    await page.setViewportSize({ width, height: 900 });
+    const trigger = page.getByRole("button", { name: "Abrir menú" }); await trigger.click();
+    const nav = page.locator("#business-mobile-menu");
+    const box = (await nav.boundingBox())!;
+    expect(Math.abs(box.y + box.height - 900)).toBeLessThanOrEqual(1);
+    await attachMenuEvidence(page, `tablet-menu-${width}`);
+    await page.setViewportSize({ width: 801, height: 900 });
+    await expect(nav).toHaveCount(0);
+    await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
+    await expect(page.locator("header nav:visible")).toHaveCount(1);
+  }
+});

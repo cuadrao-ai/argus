@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import {
-  BusinessLanding,
-  ContactPage,
-  PersonalPage,
-} from "@/components/business-pages";
+import { ContactPage } from "@/components/business-pages";
+import { Landing } from "@/components/landing/landing";
 import { LegalPage } from "@/components/legal-page";
 import { PAGE_METADATA, shareImage } from "@/lib/page-metadata";
 import {
@@ -44,7 +41,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, page } = await resolveRoute(params);
   const copy = PAGE_METADATA[locale][page];
   if (!copy) notFound();
-  const image = shareImage(locale, page);
+  const image = shareImage(locale);
   return {
     metadataBase: new URL(SITE_ORIGIN),
     title: { absolute: copy.title },
@@ -77,11 +74,9 @@ export default async function SitePage({ params }: Props) {
   const { locale, page } = await resolveRoute(params);
   switch (page) {
     case "home":
-      return <BusinessLanding locale={locale} />;
+      return <Landing locale={locale} />;
     case "contact":
       return <ContactPage locale={locale} />;
-    case "personal":
-      return <PersonalPage locale={locale} />;
     case "privacy":
     case "terms":
     case "deletion":

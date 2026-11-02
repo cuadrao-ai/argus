@@ -23,7 +23,7 @@ export const NOTE_MAX = 700;
 
 const ROLE: Record<InquiryRole, string> = {
   owner: "dueño/a de un negocio",
-  accountant: "contador/a",
+  accountant: "contable",
   other: "otro",
 };
 const CHANNEL: Record<InquiryChannel, string> = {
@@ -41,7 +41,7 @@ export function buildInquiryMessage(profile: InquiryProfile, note: string): stri
   }
   const source = profile.source.trim();
   if (source) lines.push(`Nos conoció por: ${source}`);
-  if (profile.pilot) lines.push("Piloto: quiere ver el prototipo y probarlo");
+  if (profile.pilot) lines.push("Demostración: le interesa una demostración de Cuadrao");
   const text = note.trim();
   return [lines.join("\n"), text].filter(Boolean).join("\n\n");
 }

@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+:root {
+  --font-heading: Georgia, "Noto Serif", "Times New Roman", serif;
+}
+
 @theme inline {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
@@ -16,11 +20,6 @@ body {
 html:has([data-page-background="business"]),
 body:has([data-page-background="business"]) {
   background: #172b26;
-}
-
-html:has([data-page-background="personal"]),
-body:has([data-page-background="personal"]) {
-  background: #f7f5ef;
 }
 
 :where(

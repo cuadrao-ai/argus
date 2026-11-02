@@ -1,13 +1,13 @@
 # Términos de uso del sitio web de Cuadrao
 
 Vigente desde: 15 de octubre de 2026
-Última actualización: 16 de octubre de 2026
+Última actualización: 1 de noviembre de 2026
 
 ## 1. Quiénes somos
 Este sitio es de **Cuadrao LLC** · 1209 Mountain Road Pl NE Ste N, Albuquerque, NM 87110, EE. UU. · hola@cuadrao.ai
 
 ## 2. Qué es este sitio
-Este sitio es informativo. Usarlo, unirte a la lista de espera de la app personal de Cuadrao o enviarnos una consulta no crea ningún contrato ni implica ningún pago.
+Este sitio es informativo. Usarlo o enviarnos una consulta no crea ningún contrato ni implica ningún pago.
 
 ## 3. Pilotos
 Cualquier piloto, pagado o gratuito, se rige solo por un acuerdo escrito aparte que ambas partes firman, con sus propias condiciones, fechas y monto. Ese acuerdo prevalece sobre estos Términos.
@@ -44,22 +44,22 @@ En caso de diferencia, prevalece la versión en español. Preguntas: hola@cuadra
 # Cuadrao Website Terms of Use
 
 Effective: October 15, 2026
-Last updated: October 16, 2026
+Last updated: November 1, 2026
 
 ## 1. Who we are
 This site is run by **Cuadrao LLC** · 1209 Mountain Road Pl NE Ste N, Albuquerque, NM 87110, USA · hola@cuadrao.ai
 
 ## 2. What this site is
-This site is informational. Using it, joining the Cuadrao personal app waitlist or sending us an inquiry creates no contract and involves no payment.
+This site is informational. Using it or sending us an inquiry creates no contract and involves no payment.
 
 ## 3. Pilots
 Any pilot, paid or free, is governed only by a separate written agreement that both parties sign, with its own conditions, dates and amount. That agreement prevails over these Terms.
 
 ## 4. Acceptable use
-Do not use the site for anything illegal or to harm it. In particular, do not: try to attack, disrupt or access it without permission; extract its content by automated means (scraping); or submit false information or someone else's information.
+Do not use the site for anything illegal or to harm it. In particular, do not: try to attack, disrupt or access it without permission; extract its content by automated means (scraping); or submit false information or someone else’s information.
 
 ## 5. Content and name
-The site's content and the Cuadrao name belong to Cuadrao LLC. Do not copy or use them without our written permission.
+The site’s content and the Cuadrao name belong to Cuadrao LLC. Do not copy or use them without our written permission.
 
 ## 6. Not advice
 Nothing on this site is financial, accounting, tax or legal advice.

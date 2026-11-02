@@ -1,12 +1,49 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ArrowLeft, Menu, X } from "lucide-react";
-import { businessPath, type BusinessPage } from "@/lib/site-routes";
-import { businessContent, type BusinessLocale } from "./content";
+import { businessSignInHref } from "@/lib/business-signin";
+import { languageSwitch } from "@/lib/language-link";
+import { businessPath, type BusinessLocale, type BusinessPage } from "@/lib/site-routes";
+import { businessContent } from "./content";
 import styles from "./business.module.css";
+import languageStyles from "./business-language-link.module.css";
 import shell from "./touchup-shell.module.css";
 import { siteCopy } from "./site-copy";
+
+function LanguageSwitch({
+  locale,
+  page,
+  phone = false,
+}: {
+  locale: BusinessLocale;
+  page: BusinessPage;
+  phone?: boolean;
+}) {
+  const link = languageSwitch(locale, page);
+  return (
+    <span className={languageStyles.slot}>
+      <a
+        className={phone ? `${languageStyles.link} ${languageStyles.phone}` : languageStyles.link}
+        href={link.href}
+        hrefLang={link.lang}
+        lang={link.lang}
+        data-language-switch=""
+      >
+        {phone ? (
+          <span className={languageStyles.srOnly} lang={locale}>
+            {link.phoneLabel}
+          </span>
+        ) : null}
+        {link.label}
+      </a>
+    </span>
+  );
+}
+
+const subscribeToHostname = () => () => {};
+const getSignInSnapshot = () => businessSignInHref(window.location.hostname);
+const getServerSignInSnapshot = () => null;
 
 export function BusinessHeader({
   locale,
@@ -16,34 +53,71 @@ export function BusinessHeader({
   page?: BusinessPage;
 }) {
   const [open, setOpen] = useState(false);
+  const signInHref = useSyncExternalStore(
+    subscribeToHostname,
+    getSignInSnapshot,
+    getServerSignInSnapshot,
+  );
   const header = useRef<HTMLElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLElement>(null);
   const copy = businessContent[locale].navigation;
   const home = businessPath(locale);
-  const personal = page === "personal";
   const spanishOnly = page === "terms" || page === "deletion";
   const secondary = page === "contact" || page === "privacy" || spanishOnly;
-  const primaryHref = personal
-    ? "#early-access"
-    : businessPath(locale, "contact");
-  const primaryLabel = personal
-    ? locale === "es"
-      ? "Acceso anticipado"
-      : "Early access"
-    : copy.demo;
+  const primaryHref = businessPath(locale, "contact");
+  const primaryLabel = copy.demo;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
-    menu.current?.querySelector<HTMLAnchorElement>("a")?.focus();
-    const closeOnEscape = (event: KeyboardEvent): void => {
+    const panel = menu.current;
+    const control = trigger.current;
+    if (!panel || !control) return;
+    const viewport = window.visualViewport;
+    const update = () => {
+      if (getComputedStyle(control).display === "none") {
+        if (panel.contains(document.activeElement) || document.activeElement === control) {
+          header.current?.querySelector<HTMLAnchorElement>("a")?.focus({ preventScroll: true });
+        }
+        setOpen(false);
+        return false;
+      }
+      const bottom = (viewport?.offsetTop ?? 0) + (viewport?.height ?? window.innerHeight);
+      panel.style.setProperty("--mobile-nav-height", `${Math.max(0, bottom - panel.getBoundingClientRect().top)}px`);
+      return true;
+    };
+    if (!update()) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    update();
+    panel.querySelector<HTMLAnchorElement>("a")?.focus({ preventScroll: true });
+    const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === "Escape") {
         setOpen(false);
-        trigger.current?.focus();
+        control.focus({ preventScroll: true });
+      } else if (event.key === "Tab") {
+        const last = Array.from(panel.querySelectorAll<HTMLElement>("a[href],button:not([disabled])")).at(-1);
+        if (!last) return;
+        if (event.shiftKey && document.activeElement === control) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          control.focus({ preventScroll: true });
+        }
       }
     };
-    document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", update);
+    viewport?.addEventListener("resize", update);
+    viewport?.addEventListener("scroll", update);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", update);
+      viewport?.removeEventListener("resize", update);
+      viewport?.removeEventListener("scroll", update);
+    };
   }, [open]);
 
   useEffect(() => {
@@ -70,21 +144,13 @@ export function BusinessHeader({
     };
   }, []);
 
-  const languageLinks = spanishOnly ? null : (
-    <span className={styles.languages} role="group" aria-label={copy.language}>
-      {(["es", "en"] as const).map((language) => (
-        <a
-          key={language}
-          href={businessPath(language, page)}
-          hrefLang={language}
-          lang={language}
-          aria-current={locale === language ? "true" : undefined}
-        >
-          {language.toUpperCase()}
-        </a>
-      ))}
-    </span>
-  );
+  const languageLinks = spanishOnly ? null : <LanguageSwitch locale={locale} page={page} />;
+  const phoneLanguage = spanishOnly ? null : <LanguageSwitch locale={locale} page={page} phone />;
+  const signIn = signInHref ? (
+    <a className={styles.loginLink} href={signInHref}>
+      {copy.login}
+    </a>
+  ) : null;
   const backLink = (
     <a href={home} className={styles.backLink}>
       <ArrowLeft size={16} aria-hidden="true" />
@@ -104,10 +170,8 @@ export function BusinessHeader({
       >
         <a
           className={styles.wordmark}
-          href={personal ? businessPath(locale, "personal") : home}
-          aria-label={
-            page === "personal" ? "Cuadrao Personal" : "Cuadrao Business"
-          }
+          href={home}
+          aria-label="Cuadrao Business"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -117,40 +181,16 @@ export function BusinessHeader({
             alt="cuadrao"
           />
         </a>
-        <span className={styles.mobileAudience}>
-          {page === "personal" ? copy.personal : copy.business}
-        </span>
-        <nav className={styles.desktopNav} aria-label={copy.label}>
-          <div className={styles.audienceNav}>
-            <a
-              className={page !== "personal" ? styles.activeNav : undefined}
-              href={home}
-              aria-current={page === "home" ? "page" : undefined}
-            >
-              {copy.business}
-            </a>
-            <a
-              className={page === "personal" ? styles.activeNav : undefined}
-              href={businessPath(locale, "personal")}
-              aria-current={page === "personal" ? "page" : undefined}
-            >
-              {copy.personal}
-            </a>
-          </div>
+        <nav className={`${styles.desktopNav} ${shell.plainNav}`} aria-label={copy.label}>
+          <div className={styles.audienceNav} />
           <div className={styles.utilityNav}>
             {secondary ? (
               backLink
-            ) : !personal ? (
-              <>
-                <a href={`${home}#el-producto`}>
-                  {copy.howItWorks}
-                </a>
-                <a href={`${home}#nosotros`}>{copy.about}</a>
-              </>
             ) : null}
             {languageLinks}
+            {!secondary && signIn}
             {!secondary && (
-              <a className={styles.buttonSmall} href={primaryHref}>
+              <a className={styles.buttonSmall} data-header-cta data-business-cta href={primaryHref}>
                 {primaryLabel}
               </a>
             )}
@@ -178,26 +218,10 @@ export function BusinessHeader({
             className={styles.mobileNav}
             aria-label={copy.label}
             onClick={(event) => {
-              if ((event.target as HTMLElement).closest("a")) setOpen(false);
+              if (!event.defaultPrevented && (event.target as HTMLElement).closest("a")) setOpen(false);
             }}
           >
-            <a href={home} aria-current={page === "home" ? "page" : undefined}>
-              {copy.business}
-            </a>
-            <a
-              href={businessPath(locale, "personal")}
-              aria-current={page === "personal" ? "page" : undefined}
-            >
-              {copy.personal}
-            </a>
-            {!personal && (
-              <a href={`${home}#el-producto`}>{copy.howItWorks}</a>
-            )}
-            {!personal && <a href={`${home}#nosotros`}>{copy.about}</a>}
-            {page !== "personal" && (
-              <a href={`${home}#preguntas`}>{siteCopy[locale].faqLink}</a>
-            )}
-            {languageLinks}
+            <a href={`${home}#preguntas`}>{siteCopy[locale].faqLink}</a>
             {secondary ? (
               backLink
             ) : (
@@ -205,6 +229,8 @@ export function BusinessHeader({
                 {primaryLabel}
               </a>
             )}
+            {!secondary && signIn}
+            {phoneLanguage}
           </nav>
         )}
       </header>

@@ -1,8 +1,8 @@
 # Cuadrao marketing website
 
-The public Cuadrao website: Business, Personal, contact and privacy, in Spanish and English. It is an independent Next.js package. It shares nothing at runtime with the Argus API or the legacy `web/` app, needs no Argus environment group, and has its own lockfile.
+The public Cuadrao website: Business, contact and legal pages, in Spanish and English. It is an independent Next.js package. It shares nothing at runtime with the Argus API or the legacy `web/` app, needs no Argus environment group, and has its own lockfile.
 
-Forms, limits and data: [forms contract](https://github.com/lagarcess/argus/blob/02502122aae107bc71ff123c7fb8060dc88f93ab/docs/specs/cuadrao-marketing-forms-contract.md). Release settings, cutover and rollback: [launch runbook](https://github.com/lagarcess/argus/blob/02502122aae107bc71ff123c7fb8060dc88f93ab/docs/runbooks/cuadrao-marketing-launch.md). Design: [website design guide](https://github.com/lagarcess/argus/blob/02502122aae107bc71ff123c7fb8060dc88f93ab/.agent/designs/cuadrao-business/DESIGN.md).
+Forms, limits and data: [forms contract](../docs/specs/cuadrao-marketing-forms-contract.md). Release settings, cutover and rollback: [launch runbook](../docs/runbooks/cuadrao-marketing-launch.md). Design: [website design guide](../.agent/designs/cuadrao-business/DESIGN.md).
 
 ## Run
 
@@ -14,7 +14,7 @@ bun run build && bun run start -- -p 3000
 bunx playwright install chromium && bun run test:e2e   # needs a build
 ```
 
-The touch-up review and exact ES/EN draft copy live in [the delivery record](https://github.com/lagarcess/argus/blob/02502122aae107bc71ff123c7fb8060dc88f93ab/docs/reports/evidence/cuadrao-marketing-touchup/README.md). Dev and build derive the served header lockup from `brand/`; edit the canonical source, not its public copy.
+The touch-up review and exact ES/EN draft copy live in [the delivery record](../docs/reports/evidence/cuadrao-marketing-touchup/README.md). Dev and build derive the served header lockup from `brand/`; edit the canonical source, not its public copy.
 
 For parallel local lanes, override `MARKETING_E2E_SITE_PORT`, `MARKETING_E2E_PUBLIC_PORT` and `MARKETING_E2E_MOCK_PORT` together. The browser suite reads the existing production build, so rebuild after every product change. `MARKETING_CAPTURE_URL=http://127.0.0.1:4512 node scripts/capture-touchup.mjs` captures all routes in an isolated headless browser; run it only against the committed build named in its manifest.
 
@@ -28,12 +28,11 @@ Provider settings are optional locally. Without them each form shows its unavail
 | `lib/page-metadata.ts` | Titles, descriptions, share images |
 | `lib/indexing.ts`, `proxy.ts`, `app/robots.ts`, `app/sitemap.ts` | Runtime indexing switch (`CUADRAO_SITE_INDEXING=public`); every other host sends `noindex` |
 | `lib/forms/` | Inquiry and signup handlers, validation, limits, configuration |
-| `lib/ops/`, `scripts/signups.ts` | Operator removal and availability notice |
 | `components/` | Pages, copy and styles moved from `web/components/business` |
 | `app/icon.svg`, `scripts/make-icons.mjs` | Cuadrao mark ("Lean, calm") and the PNG/ICO files rendered from it |
 | `brand/` | The mark without its tile (light and dark), the outlined wordmark and the two lockups, with the wordmark specification, colours and lockup geometry in `brand/README.md`. Tests keep every file's shapes identical to `app/icon.svg` and the wordmark's styling equal to the site's `.wordmark` rule |
 
-Spanish is unprefixed (`/`, `/personal`, `/contacto`, `/privacidad`); English is under `/en`. The App Router tree is `/[locale]/[[...slug]]`; a rewrite serves Spanish from the unprefixed path and the internal `/es` tree redirects to it.
+Spanish is unprefixed (`/`, `/contacto`, `/privacidad`); English is under `/en`. The App Router tree is `/[locale]/[[...slug]]`; a rewrite serves Spanish from the unprefixed path and the internal `/es` tree redirects to it.
 
 ## Environment
 

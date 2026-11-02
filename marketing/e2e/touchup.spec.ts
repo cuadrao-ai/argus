@@ -1,26 +1,5 @@
 import { expect, test } from "@playwright/test";
 
-for (const path of ["/", "/en"]) {
-  test(`${path} preserves the capture story and accessible progress rail`, async ({
-    page,
-  }) => {
-    await page.goto(path);
-    const tabs = page.getByRole("tab");
-    await expect(tabs).toHaveCount(3);
-    await tabs.first().focus();
-    await page.keyboard.press("ArrowRight");
-    await expect(tabs.nth(1)).toBeFocused();
-    await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByRole("tabpanel")).toContainText("RD$ 1,250");
-    await page.keyboard.press("End");
-    await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByRole("tabpanel")).toContainText(
-      path === "/" ? "Aprobado" : "Approved",
-    );
-    await expect(page.locator("iframe")).toHaveCount(0);
-  });
-}
-
 test("header blends at the top and becomes a pill after scrolling", async ({
   page,
 }) => {
@@ -39,7 +18,7 @@ test("header blends at the top and becomes a pill after scrolling", async ({
 });
 
 for (const locale of ["es", "en"] as const) {
-  test(`${locale} header separates language controls and links to how it works`, async ({ page }) => {
+  test(`${locale} header separates language controls and keeps the Business link`, async ({ page }) => {
     const home = locale === "es" ? "/" : "/en";
     await page.goto(home);
     const header = page.locator("header");
@@ -52,19 +31,16 @@ for (const locale of ["es", "en"] as const) {
       await menu.click();
     }
     const navigation = header.locator("nav:visible");
-    const languages = navigation.getByRole("group", { name: locale === "es" ? "Idioma" : "Language" });
-    await expect(languages.getByRole("link", { name: locale.toUpperCase(), exact: true })).toHaveAttribute("aria-current", "true");
-    for (const language of ["es", "en"]) {
-      const link = languages.getByRole("link", { name: language.toUpperCase(), exact: true });
-      await expect(link).toHaveAttribute("href", language === "es" ? "/" : "/en");
-      const bounds = await link.boundingBox();
-      expect(bounds!.width).toBeGreaterThanOrEqual(44);
-      expect(bounds!.height).toBeGreaterThanOrEqual(44);
-    }
-    await navigation.getByRole("link", { name: locale === "es" ? "Cómo funciona" : "How it works", exact: true }).click();
-    await expect(page).toHaveURL(`${home}#el-producto`);
-    if (mobile) await menu.click();
-    await header.locator("nav:visible").getByRole("group").getByRole("link", { name: locale === "es" ? "EN" : "ES", exact: true }).click();
+    const link = navigation.locator("[data-language-switch]");
+    await expect(link).toHaveAttribute("href", locale === "es" ? "/en" : "/");
+    await expect(link).toContainText(locale === "es" ? "English" : "Español");
+    const bounds = await link.boundingBox();
+    expect(bounds!.width).toBeGreaterThanOrEqual(44);
+    expect(bounds!.height).toBeGreaterThanOrEqual(44);
+    await expect(navigation.getByRole("link", { name: locale === "es" ? "Cómo funciona" : "How it works", exact: true })).toHaveCount(0);
+    await expect(navigation.getByRole("link", { name: locale === "es" ? "Nosotros" : "About", exact: true })).toHaveCount(0);
+    await expect(navigation.getByRole("link", { name: "Personal", exact: true })).toHaveCount(0);
+    await link.click();
     await expect(page).toHaveURL(locale === "es" ? "/en" : "/");
   });
 }
@@ -77,8 +53,6 @@ test("reduced motion is static and small screens do not overflow", async ({
   for (const path of [
     "/",
     "/en",
-    "/personal",
-    "/en/personal",
     "/contacto",
     "/en/contact",
     "/privacidad",

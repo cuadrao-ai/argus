@@ -46,12 +46,6 @@ export function parseMailbox(value: string | undefined): string | null {
   return validEmail(address) ? address : null;
 }
 
-export function parseWaitlistSender(value: string | undefined): string | null {
-  const from = value?.trim() ?? "";
-  const mailbox = parseMailbox(/^(?:Cuadrao|"Cuadrao") <([^<>\r\n]+)>$/.exec(from)?.[1]);
-  return mailbox?.endsWith("@cuadrao.ai") || mailbox === "no-responder@mail.cuadrao.ai" ? from : null;
-}
-
 function validEmail(value: string): boolean {
   return value.length <= LIMITS.email && EMAIL.test(value) && !LINE_BREAK.test(value);
 }

@@ -56,8 +56,9 @@
 .cardTitle {
   padding: 0 12px 8px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
+  line-height: 20px;
 }
 .card a {
   display: flex;
@@ -99,7 +100,8 @@
   padding: 8px 24px;
   border-bottom: 1px solid var(--line);
   background: var(--paper);
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 20px;
 }
 .jump label {
   flex: none;
