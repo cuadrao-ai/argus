@@ -14,13 +14,7 @@ export type LegalPageName = "privacy" | "terms" | "deletion";
 const slugs = { privacy: "privacidad", terms: "terminos", deletion: "eliminar-datos" } as const;
 
 function shown(text: string): string {
-  if (text === "Vigente desde: 15 de octubre de 2026 Última actualización: 16 de octubre de 2026") {
-    return "Última actualización: 16 de octubre de 2026";
-  }
-  if (text === "Effective: October 15, 2026 Last updated: October 16, 2026") {
-    return "Last updated: October 16, 2026";
-  }
-  return text;
+  return text.replace(/^(?:Vigente desde|Effective): .+? (?=(?:Última actualización|Last updated): )/, "");
 }
 
 function inline(text: string): ReactNode[] {

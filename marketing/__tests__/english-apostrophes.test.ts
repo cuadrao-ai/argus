@@ -4,6 +4,7 @@ import { businessContent } from "../components/content";
 import { siteCopy } from "../components/site-copy";
 import { landingCopy } from "../components/landing/landing-copy";
 import { PAGE_METADATA } from "../lib/page-metadata";
+import legalEnglish from "../content/legal-en.json";
 
 function strings(value: unknown): string[] {
   if (typeof value === "string") return [value];
@@ -18,6 +19,7 @@ describe("English copy", () => {
     ["landing copy", landingCopy.en],
     ["page content", businessContent.en],
     ["page metadata", PAGE_METADATA.en],
+    ["legal pages", legalEnglish],
   ])("%s uses the typographic apostrophe", (_name, copy) => {
     expect(strings(copy).filter((text) => /[A-Za-z]'[A-Za-z]/.test(text))).toEqual([]);
   });
