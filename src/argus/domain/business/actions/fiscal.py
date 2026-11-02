@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from uuid import UUID
 
 from argus.domain.business.authority import ActionError
@@ -7,34 +8,56 @@ from argus.domain.business.contracts.dgii import (
     ExpenseType,
     FiscalReview,
     PurchaseDeclaration,
+    printed_identifier,
 )
 from argus.domain.business.contracts.facts import (
     BusinessFacts,
     BusinessResolution,
     FiscalFacts,
     Known,
+    OwnerDoesNotKnow,
     Unknown,
 )
 from argus.domain.business.fiscal_identity import document_identity
 
 
+def _held(fact: Known | Unknown | OwnerDoesNotKnow) -> str | None:
+    return fact.value if isinstance(fact, Known) else None
+
+
+def _money(value: str | None) -> Decimal | None:
+    return None if value is None else Decimal(value)
+
+
 def reviewed_fiscal_facts(
     facts: BusinessFacts, review: FiscalReview, source_ids: tuple[UUID, ...], origin: str
 ) -> BusinessFacts:
-    values = facts.fiscal.model_dump() if facts.fiscal else FiscalFacts().model_dump()
-    for name, value in review.fiscal.model_dump().items():
-        name = "ecf" if name == "ncf" and value and value.startswith("E") else name
+    """The fiscal facts after a person's review. A review always carries the
+    RNC, the fiscal number and the ITBIS, so only a value that differs from the
+    record is written. The others keep their origin, check and sources."""
+
+    current = facts.fiscal or FiscalFacts()
+    values = current.model_dump()
+
+    def stated(name: str, value: str | None) -> None:
         values[name] = (
-            Known(
-                value=value, origin=origin, verified=False, source_ids=source_ids
-            ).model_dump()
+            Known(value=value, origin=origin, verified=False, source_ids=source_ids)
             if value is not None
-            else Unknown(origin=origin, source_ids=source_ids).model_dump()
-        )
-    if review.fiscal.ncf:
-        values["ncf" if review.fiscal.ncf.startswith("E") else "ecf"] = Unknown(
-            origin=origin, source_ids=source_ids
+            else Unknown(origin=origin, source_ids=source_ids)
         ).model_dump()
+
+    typed = review.fiscal
+    if printed_identifier(_held(current.rnc)) != typed.rnc:
+        stated("rnc", typed.rnc)
+    # Readers trim and upper-case a fiscal number but keep its separators, so a
+    # stored separator is malformed and a typed clean number is a real change.
+    number = _held(current.ecf) or _held(current.ncf)
+    if (number and number.strip().upper()) != typed.ncf:
+        electronic = typed.ncf is not None and typed.ncf.startswith("E")
+        stated("ecf", typed.ncf if electronic else None)
+        stated("ncf", None if electronic else typed.ncf)
+    if _money(_held(current.itbis)) != _money(typed.itbis):
+        stated("itbis", typed.itbis)
     return facts.model_copy(update={"fiscal": FiscalFacts.model_validate(values)})
 
 
