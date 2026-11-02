@@ -49,15 +49,20 @@ export async function installBusinessRouteFixture(page: Page) {
     if (path === "reports/query") return (async () => {
       expect(request.method()).toBe("POST");
       const report = reportRequestSchema.parse(request.postDataJSON());
-      expect(["all", "this_month"]).toContain(report.filters.period.kind);
+      expect(["all", "this_month", "latest_month"]).toContain(report.filters.period.kind);
       expect(report.filters).toEqual(reportFiltersSchema.parse({ period: report.filters.period }));
       expect(report.sort).toBe("date_desc");
       expect(report.page).toBe(1);
       expect(report.page_size).toBe(25);
-      const from = report.filters.period.kind === "all" ? null : `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
-      const to = from ? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).toISOString().slice(0, 10) : null;
       const seeded = await fixture.expenses("", null);
       const expenses = [...approved.values(), ...seeded.filter((item) => ![...approved.values()].some((saved) => saved.id === item.id))];
+      const today = now.toISOString().slice(0, 10);
+      const periodDate = report.filters.period.kind === "latest_month"
+        ? expenses.map((item) => item.occurred_on).sort().at(-1) ?? today
+        : today;
+      const [year, month] = periodDate.split("-").map(Number);
+      const from = report.filters.period.kind === "all" ? null : `${periodDate.slice(0, 7)}-01`;
+      const to = from ? new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10) : null;
       const matching = expenses.filter((item) => (!from || item.occurred_on >= from) && (!to || item.occurred_on <= to)).sort((a, b) => b.occurred_on.localeCompare(a.occurred_on));
       const items: ReportRecord[] = matching.map((item) => ({
         row_id: item.id, draft_id: item.draft_id ?? null, linked_activity_ids: [item.id], revision: 1,
@@ -84,7 +89,7 @@ export async function installBusinessRouteFixture(page: Page) {
 }
 
 export async function showAllRecords(page: Page) {
-  await page.getByTestId("records-toolbar").getByRole("button", { name: "Este mes", exact: true }).click();
+  await page.getByTestId("records-toolbar").getByRole("button", { name: /^\p{L}+ de \d{4}$/u }).click();
   await page.getByRole("button", { name: "Todo", exact: true }).click();
   await expect(page.getByTestId("records-toolbar").getByRole("button", { name: "Todo", exact: true })).toBeVisible();
 }

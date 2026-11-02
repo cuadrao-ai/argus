@@ -39,12 +39,6 @@ async function amountMessage(page: Page, input: Locator) {
   return page.locator(`[id="${ids[ids.length - 1]}"]`);
 }
 
-async function openRecordExpense(page: Page) {
-  await page.getByTestId("business-create").click();
-  await page.getByRole("menuitem", { name: "Record expense" }).click();
-  return page.getByTestId("record-expense-amount");
-}
-
 async function openAmountEditor(page: Page) {
   await openPreview(page, `${PREVIEW}?draft=${dossierFixtureIds.ready}`);
   await page.getByRole("button", { name: "Editar detalles · Monto", exact: true }).click();
@@ -260,29 +254,6 @@ test.describe("Business preview", () => {
     await expect(page.getByRole("button", { name: "Escribir datos" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /con IA/ })).toHaveCount(0);
     await expect(tray(page)).not.toContainText("Pagado desde");
-  });
-
-  test("Record expense guards the length and maps the backend's amount codes onto its Total", async ({ page }) => {
-    test.info().annotations.push({ type: "issue", description: "The old expense form is removed. Its server amount-error contract has no equivalent in the current dossier editor." });
-    await openPreview(page);
-    const total = await openRecordExpense(page);
-    const message = await amountMessage(page, total);
-    await total.click();
-    await page.keyboard.type("9999999999999999");
-    await expect(total).toHaveValue("999,999,999,999,999");
-    await expect(message).toHaveText("Use at most 15 digits before the decimal point.");
-
-    for (const [code, text] of [
-      ["amount_out_of_range", "This amount is too large to record."],
-      ["amount_precision", "DOP allows up to 2 decimals."],
-    ]) {
-      await page.evaluate((next) => {
-        (globalThis as { __businessFixtureFailNextWrite?: string }).__businessFixtureFailNextWrite = next;
-      }, code);
-      await page.getByRole("button", { name: "Save expense" }).click();
-      await expect(message).toHaveText(text);
-      await expect(page.getByRole("dialog", { name: "Record expense" })).toBeVisible();
-    }
   });
 
   test("the dossier amount ignores a typed comma on a dot-decimal device", async ({ page }) => {

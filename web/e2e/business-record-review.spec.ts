@@ -324,6 +324,7 @@ test.describe("Server authority and uncertain outcomes", () => {
   test("income is not relabeled as an expense", async ({ page }) => {
     await openRecord(page, dossierFixtureIds.income);
     test.info().annotations.push({ type: "issue", description: "Blocked income loses its income-specific approval label when the dossier has no approval action." });
+    await expect(page.getByRole("button", { name: /gasto/i })).toHaveCount(0);
     await expect(approveButton(page)).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Aprobar ingreso", exact: true })).toBeDisabled();
     await expect(page.getByTestId("business-record-review")).toContainText("Esta actividad no admite aprobación en este primer flujo.");
