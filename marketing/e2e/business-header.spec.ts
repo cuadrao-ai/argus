@@ -8,8 +8,8 @@ const cases = [
   { home: "/en", other: "/", label: "Español", phoneLabel: "Change language", lang: "es", cta: "Let’s talk about your business", contactPath: "/en/contact", login: "Log in" },
 ] as const;
 
-for (const { home, other, label, phoneLabel, lang, cta, contactPath, login } of cases) {
-  test(`${home} Business header keeps contact, login, and the language link in order`, async ({ page }) => {
+for (const { home, other, label, phoneLabel, lang, cta, contactPath } of cases) {
+  test(`${home} Business header keeps contact and the language link in order`, async ({ page }) => {
     await page.goto(home);
     const header = page.locator("header");
     const menu = header.getByRole("button", { name: /Abrir menú|Open menu/ });
@@ -18,7 +18,6 @@ for (const { home, other, label, phoneLabel, lang, cta, contactPath, login } of 
     const nav = header.locator("nav:visible");
     const link = nav.locator("[data-language-switch]");
     const contact = nav.getByRole("link", { name: cta, exact: true });
-    const loginButton = nav.getByRole("button", { name: login, exact: true });
     await expect(link).toBeVisible();
     await expect(link).toHaveAttribute("href", other);
     await expect(link).toHaveAttribute("lang", lang);
@@ -30,13 +29,10 @@ for (const { home, other, label, phoneLabel, lang, cta, contactPath, login } of 
     expect(box.height).toBeGreaterThanOrEqual(44);
     if (mobile) await expect(link).toHaveAccessibleName(new RegExp(phoneLabel));
     await expect(contact).toHaveAttribute("href", contactPath);
-    await expect(loginButton).toBeEnabled();
-    await expect(loginButton).toHaveAttribute("data-preview-unwired", "true");
     await expect(nav.getByRole("link", { name: /Cómo funciona|How it works|Nosotros|About/, exact: true })).toHaveCount(0);
-    const boxes = await Promise.all([contact, loginButton, link].map((node) => node.boundingBox()));
+    const boxes = await Promise.all([contact, link].map((node) => node.boundingBox()));
     if (mobile) {
       expect(boxes[0]!.y).toBeLessThan(boxes[1]!.y);
-      expect(boxes[1]!.y).toBeLessThan(boxes[2]!.y);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
       const edges = await nav.evaluate((panel) => {
         const textLeft = (node: Element) => {
@@ -51,7 +47,6 @@ for (const { home, other, label, phoneLabel, lang, cta, contactPath, login } of 
       });
       expect(Math.abs(edges.link - edges.peer)).toBeLessThanOrEqual(0.5);
     } else {
-      expect(boxes[2]!.x).toBeLessThan(boxes[1]!.x);
       expect(boxes[1]!.x).toBeLessThan(boxes[0]!.x);
       await page.evaluate(() => window.scrollTo(0, 350));
       await expect(header).toHaveAttribute("data-condensed", "true");
@@ -61,12 +56,11 @@ for (const { home, other, label, phoneLabel, lang, cta, contactPath, login } of 
   });
 }
 
-test("Business contact and login show pointer and keyboard states without changing scroll treatment", async ({ page }) => {
+test("Business contact shows pointer and keyboard states without changing scroll treatment", async ({ page }) => {
   test.skip(test.info().project.name === "mobile", "desktop header states");
   await page.goto("/");
   const header = page.locator("header");
   const contact = header.getByRole("link", { name: "Hablemos de tu negocio" });
-  const login = header.getByRole("button", { name: "Iniciar sesión" });
   await expect(header).toHaveAttribute("data-condensed", "false");
   await expect(contact).toHaveCSS("background-color", "rgb(232, 237, 227)");
   await contact.hover();
@@ -80,27 +74,9 @@ test("Business contact and login show pointer and keyboard states without changi
   await expect(contact).toHaveCSS("background-color", "rgb(47, 90, 73)");
   await expect(contact).toHaveCSS("outline-style", "solid");
 
-  await expect(login).toBeEnabled();
-  await expect(login).toHaveAttribute("data-preview-unwired", "true");
-  await expect(login).toHaveCSS("color", "rgb(23, 43, 38)");
-  await expect(login).toHaveCSS("border-top-left-radius", "22px");
-  await login.hover();
-  await expect(login).toHaveCSS("background-color", "rgb(232, 237, 227)");
-  await expect(login).toHaveCSS("cursor", "pointer");
-  await page.mouse.move(0, 200);
-  await contact.focus();
-  await page.keyboard.press("Shift+Tab");
-  await expect(login).toBeFocused();
-  await expect(login).toHaveCSS("background-color", "rgb(232, 237, 227)");
-  await expect(login).toHaveCSS("outline-style", "solid");
-  const before = page.url();
-  await login.click();
-  await expect(page).toHaveURL(before);
-
   await page.evaluate(() => window.scrollTo(0, 350));
   await expect(header).toHaveAttribute("data-condensed", "true");
   await contact.blur();
-  await login.blur();
   await expect(contact).toHaveCSS("background-color", "rgb(47, 90, 73)");
   await contact.hover();
   await expect(contact).toHaveCSS("background-color", "rgb(29, 66, 54)");
@@ -184,7 +160,7 @@ test("English privacy offers Español on the Spanish privacy page", async ({ pag
 const stagingHost = "cuadrao-marketing-staging.onrender.com";
 const stagingSignIn = "https://cuadrao-web-staging.onrender.com/?auth=login";
 
-for (const { home, login } of cases) {
+for (const { home, login, cta } of cases) {
   for (const method of ["mouse", "keyboard"] as const) {
     test(`${home} staging sign-in navigates with ${method}`, async () => {
       const mobile = test.info().project.name === "mobile";
@@ -218,6 +194,16 @@ for (const { home, login } of cases) {
         await expect(signIn).toHaveAttribute("href", stagingSignIn);
         await expect(nav.getByRole("button", { name: login, exact: true })).toHaveCount(0);
         const phone = test.info().project.name === "mobile";
+        const boxes = await Promise.all(
+          [nav.getByRole("link", { name: cta, exact: true }), signIn, nav.locator("[data-language-switch]")].map((node) => node.boundingBox()),
+        );
+        if (phone) {
+          expect(boxes[0]!.y).toBeLessThan(boxes[1]!.y);
+          expect(boxes[1]!.y).toBeLessThan(boxes[2]!.y);
+        } else {
+          expect(boxes[2]!.x).toBeLessThan(boxes[1]!.x);
+          expect(boxes[1]!.x).toBeLessThan(boxes[0]!.x);
+        }
         await expect(signIn).toHaveCSS("color", phone ? "rgb(47, 90, 73)" : "rgb(23, 43, 38)");
         const geometry = await signIn.evaluate((link) => {
           const measure = (node: Element) => {
@@ -251,7 +237,11 @@ for (const { home, login } of cases) {
         }
         await signIn.hover();
         if (phone) await expect(signIn).toHaveCSS("text-decoration-line", "underline");
-        else await expect(signIn).toHaveCSS("background-color", "rgb(232, 237, 227)");
+        else {
+          await expect(signIn).toHaveCSS("background-color", "rgb(232, 237, 227)");
+          await expect(signIn).toHaveCSS("border-top-left-radius", "22px");
+          await expect(signIn).toHaveCSS("cursor", "pointer");
+        }
         if (method === "keyboard") {
           await signIn.focus();
           await page.keyboard.press("Shift+Tab");
@@ -272,27 +262,31 @@ for (const { home, login } of cases) {
   }
 }
 
-test("public Marketing never exposes the staging sign-in link", async () => {
-  const browser = await chromium.launch({
-    args: ["--host-resolver-rules=MAP cuadrao.ai 127.0.0.1", "--no-proxy-server"],
-  });
-  try {
-    const mobile = test.info().project.name === "mobile";
-    const page = await browser.newPage({
-      viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 900 },
+for (const { home, login } of cases) {
+  test(`${home} public Marketing shows no sign-in`, async () => {
+    const browser = await chromium.launch({
+      args: ["--host-resolver-rules=MAP cuadrao.ai 127.0.0.1", "--no-proxy-server"],
     });
-    await page.goto(`http://cuadrao.ai:${SITE_PORT}/`);
-    if (mobile) await page.getByRole("button", { name: "Abrir menú" }).click();
-    const nav = page.locator("header nav:visible");
-    await expect(nav.getByRole("link", { name: "Iniciar sesión", exact: true })).toHaveCount(0);
-    const signIn = nav.getByRole("button", { name: "Iniciar sesión", exact: true });
-    await expect(signIn).toHaveAttribute("data-preview-unwired", "true");
-    await signIn.click();
-    await expect(page).toHaveURL(`http://cuadrao.ai:${SITE_PORT}/`);
-  } finally {
-    await browser.close();
-  }
-});
+    try {
+      const mobile = test.info().project.name === "mobile";
+      const page = await browser.newPage({
+        locale: home === "/" ? "es" : "en",
+        viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 900 },
+      });
+      const response = await page.goto(`http://cuadrao.ai:${SITE_PORT}${home}`);
+      expect(await response!.text()).not.toContain(login);
+      const header = page.locator("header");
+      await page.evaluate(() => window.scrollTo(0, 350));
+      await expect(header).toHaveAttribute("data-condensed", "true");
+      if (mobile) await header.getByRole("button", { name: /Abrir menú|Open menu/ }).click();
+      const nav = header.locator("nav:visible");
+      await expect(nav.locator("[data-language-switch]")).toBeVisible();
+      await expect(nav.getByText(login, { exact: true })).toHaveCount(0);
+    } finally {
+      await browser.close();
+    }
+  });
+}
 
 async function attachMenuEvidence(page: Page, name: string) {
   execFileSync("git", ["diff", "--exit-code", "HEAD", "--", "marketing"]);

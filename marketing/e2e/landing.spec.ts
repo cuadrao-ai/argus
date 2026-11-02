@@ -376,11 +376,11 @@ test.describe("english page", () => {
 });
 
 test.describe("page header", () => {
-  test("reads language, sign in, then the button", async ({ page, isMobile }) => {
+  test("reads language, then the button", async ({ page, isMobile }) => {
     test.skip(isMobile, "phones use the menu");
     await page.goto(PATH);
     const nav = page.getByRole("navigation").first();
     await expect(nav.getByRole("link", { name: "Business" })).toHaveCount(0);
-    await expect(nav.locator("a, button")).toHaveText(["English", "Iniciar sesión", "Hablemos de tu negocio"]);
+    await expect(nav.locator("a, button")).toHaveText(["English", "Hablemos de tu negocio"]);
   });
 });

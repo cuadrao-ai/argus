@@ -44,9 +44,10 @@ Spanish leads and every page has an English version. The landing order is hero,
 product scene, cards section, "Cómo funciona", "Tu contable", founder letter, FAQ,
 closing band and footer.
 
-The header holds the logo, language, sign in and the contact button. It has no
-audience link, and no features menu until feature pages exist. The phone menu keeps
-its Escape key, focus trap and scroll lock.
+The header holds the logo, language and the contact button. Sign in shows only on a
+host with a sign-in link, which today is marketing staging; `lib/business-signin.ts`
+owns that. The header has no audience link, and no features menu until feature pages
+exist. The phone menu keeps its Escape key, focus trap and scroll lock.
 
 Say "contable", not "contador", and "factura" unless the object is a receipt in a
 drawer.
