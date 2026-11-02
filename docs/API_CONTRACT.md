@@ -9468,8 +9468,8 @@ less ITBIS, selective tax, other taxes and tip, the tip and taxes of the same
 write included. An amount filled this way stays the server's: every later
 revision works it out again from the current total, ITBIS, taxes, tip and
 `category`, on the side the `category` names, whichever write moved them, and it
-reads null while the total or the `category` is unknown or the result is below
-zero. A person's amount ends that, on `purchase` or as a change to the amounts in
+reads null while the total or the `category` is unknown or the result does not
+fit a 606 amount. A person's amount ends that, on `purchase` or as a change to the amounts in
 `dgii.declaration`: it is never rewritten, even when it equals the rule's result,
 and the export holds a split that does not add up to the total with
 `fiscal_invoice_total_conflict`. `purchase` on a record that takes no 606 (an income, with a
