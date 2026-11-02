@@ -17,8 +17,8 @@ for (const slug of Object.keys(documents) as (keyof typeof documents)[]) {
         "items" in block && block.items ? block.items : block.text,
       )].join(" ").replaceAll("**", "").replace(/\s+/g, " ").trim()
         .replace(
-          "Vigente desde: 15 de octubre de 2026 Última actualización: 16 de octubre de 2026",
-          "Última actualización: 16 de octubre de 2026",
+          "Vigente desde: 15 de octubre de 2026 Última actualización: 1 de noviembre de 2026",
+          "Última actualización: 1 de noviembre de 2026",
         );
       expect((await page.locator("article").innerText()).replace(/\s+/g, " ").trim()).toBe(expected);
       await expect(page.locator("main h1")).toHaveCount(1);
@@ -57,7 +57,7 @@ for (const [path, title] of [["/en/privacy", "Privacy policy for the Cuadrao web
   test(`English source renders at ${path}`, async ({ page }) => {
     await page.goto(path);
     await expect(page.locator("main h1")).toContainText(title);
-    await expect(page.locator("article")).toContainText("October 16, 2026");
+    await expect(page.locator("article")).toContainText("November 1, 2026");
     await expect(page.locator("footer")).toContainText("© Cuadrao LLC 2026");
     await expect(page.locator("footer")).not.toContainText("Mountain Road");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
