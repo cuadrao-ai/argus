@@ -183,7 +183,7 @@ test.describe("contact form tap targets", () => {
           measured.push(`${width} ${link.name} ${link.width.toFixed(2)}x${link.height.toFixed(2)}`);
           expect(link.width).toBeGreaterThanOrEqual(44);
           expect(link.height).toBeGreaterThanOrEqual(44);
-          expect(link.fontSize).toBe("13px");
+          expect(link.fontSize).toBe("14px");
         }
         for (let index = 0; index < links.length - 1; index += 1) {
           expect(links[index + 1].y - (links[index].y + links[index].height)).toBeGreaterThan(0);
