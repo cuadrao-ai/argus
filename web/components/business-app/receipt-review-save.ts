@@ -103,10 +103,14 @@ export function useReviewAutosave({ source, draftId, dossier, fields, label, onS
   const failure = async (row: SaveRow, attempt: Attempt, base: BusinessDossier, key: string, error: unknown): Promise<Failure | null> => {
     const { code, status } = error as { code?: string; status?: number };
     const reference = referenceCode(error);
-    if (code === "fields_unavailable") return { message: t("business.dgii.load_failed", "We couldn't load the tax fields."), reference, retry: false, unknown: false };
-    if (code === "stale_version") {
+    const reread = async () => {
       const fresh = await source.dossier(draftId).catch(() => null);
       if (fresh) { latest.current = fresh; onSaved(fresh); }
+    };
+    if (code === "fields_unavailable") return { message: t("business.dgii.load_failed", "We couldn't load the tax fields."), reference, retry: false, unknown: false };
+    if (code === "fiscal_declaration_exported") await reread();
+    if (code === "stale_version") {
+      await reread();
       attempts.current[row] = { change: attempt.change };
       return { message: t("business.dossier.placeholder.save_stale", "This record changed while you edited. You're seeing the current version; your change is still here."), reference, retry: true, unknown: false };
     }
