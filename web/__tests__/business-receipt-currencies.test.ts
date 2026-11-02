@@ -18,6 +18,12 @@ describe("the currencies a receipt can be in", () => {
     expect(receiptCurrencyOptions(null, [account("DOP"), account("USD"), account("DOP")], null)).toEqual(["DOP", "USD"]);
   });
 
+  test("a Business with no account yet works in its own currency", () => {
+    expect(receiptCurrencyOptions({ currencies: [], currency: "DOP" }, [], null)).toEqual(["DOP"]);
+    expect(receiptCurrencyOptions({ currencies: ["USD"], currency: "DOP" }, [], null)).toEqual(["USD"]);
+    expect(receiptCurrencyOptions({ currencies: [] }, [], null)).toEqual([]);
+  });
+
   test("a receipt with no known currency adds nothing", () => {
     expect(receiptCurrencyOptions({ currencies: ["DOP"] }, [], null)).toEqual(["DOP"]);
     expect(receiptCurrencyOptions({ currencies: ["DOP"] }, [], "")).toEqual(["DOP"]);
