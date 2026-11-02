@@ -22,7 +22,7 @@ export const PAGE_METADATA: Record<
     privacy: {
       title: "Privacidad | Cuadrao",
       description:
-        "Qué datos recibe Cuadrao cuando escribes o te registras, para qué los usamos y cómo pedir que los eliminemos.",
+        "Qué datos recibe Cuadrao cuando nos escribes, para qué los usamos y cómo pedir que los eliminemos.",
     },
   },
   en: {
@@ -40,7 +40,7 @@ export const PAGE_METADATA: Record<
     privacy: {
       title: "Privacy | Cuadrao",
       description:
-        "What data Cuadrao receives when you write to us or sign up, what we use it for and how to ask us to delete it.",
+        "What data Cuadrao receives when you write to us, what we use it for and how to ask us to delete it.",
     },
   },
 };

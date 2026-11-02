@@ -86,8 +86,7 @@ branch directly. Required marketing-server configuration:
 
 Supabase Cron owns scheduled retention and reminders on staging. The SQL job
 calls the existing bounded purge RPC; a separate job invokes the authenticated
-Edge Function for reminders. The CLI is manual recovery only. See the
-[scheduler deployment and verification guide](../../supabase/functions/waitlist-reminders/README.md).
+Edge Function for reminders. The CLI is manual recovery only. The reminders function has since been removed from the repository.
 Root owns activation and actual scheduled-run proof after integration merge.
 
 Run `bun test __tests__`, lint, typecheck, a production build, the marketing

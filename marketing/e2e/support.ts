@@ -17,11 +17,6 @@ export type MockState = {
     text: string;
     idempotencyKey: string;
   }[];
-  signups: {
-    email: string | null;
-    language: string;
-    consent_version: string;
-  }[];
 };
 
 export async function resetMock(request: APIRequestContext): Promise<void> {
@@ -32,7 +27,6 @@ export async function setMode(
   request: APIRequestContext,
   mode: Partial<{
     resend: "up" | "down";
-    supabase: "up" | "down";
     resendDelayMs: number;
   }>,
 ): Promise<void> {

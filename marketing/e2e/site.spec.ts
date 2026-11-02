@@ -128,16 +128,12 @@ test.describe("routes", () => {
   });
 
   test("the removed signup endpoints no longer answer", async ({ request }) => {
-    for (const path of ["/api/signups", "/api/signups/config", "/api/waitlist/signups"]) {
+    for (const path of ["/api/signups", "/api/signups/config", "/api/waitlist/signups", "/api/waitlist/leave", "/api/waitlist/confirm"]) {
       expect((await request.get(path)).status()).toBe(404);
       expect((await request.post(path, { data: {} })).status()).toBe(404);
     }
   });
 
-  test("sent email links can still leave the list", async ({ request }) => {
-    expect((await request.get("/api/waitlist/leave?token=x")).status()).toBe(200);
-    expect((await request.get("/api/waitlist/confirm?token=x")).status()).toBe(200);
-  });
 });
 
 test.describe("indexing", () => {

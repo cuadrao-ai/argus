@@ -61,7 +61,7 @@ WhatsApp number may be shared.
 
 Personal is archived, so the `/personal` page and the signup endpoints (`/api/signups`, `/api/signups/config`, `/api/waitlist/signups`) are removed, and `/personal` redirects to the home page. Nobody can join the list from the site.
 
-Existing rows and their rights stay. `/api/waitlist/leave` and `/api/waitlist/confirm` keep working because sent emails link to them, and the leave route erases a person's data. The operator tools in `marketing/scripts/` and the `waitlist-reminders` function also remain until the founder decides what happens to the list.
+`/api/waitlist/leave` and `/api/waitlist/confirm` are removed too, along with the reminders function. Production holds no signups. The table below stays until the database cleanup removes it.
 
 ## Table `public.cuadrao_early_access_signups`
 
