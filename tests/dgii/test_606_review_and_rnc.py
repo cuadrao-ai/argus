@@ -437,6 +437,7 @@ class TestReviewChecklist:
             ("09", None, "180.00", (None, None)),
             (None, "100.00", None, (None, None)),
             ("02", "1000000180.00", "180.00", (None, None)),
+            ("09", "999999999.995", None, (None, None)),
         ],
     )
     def test_an_amount_a_606_cannot_hold_stays_empty(

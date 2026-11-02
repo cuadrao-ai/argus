@@ -118,7 +118,9 @@ def derived_amount(
         - amount_or_zero(declaration.other_taxes)
         - amount_or_zero(declaration.legal_tip)
     )
-    value = money_text(base) if base is not None and 0 <= base < MONEY_LIMIT else None
+    value = money_text(base) if base is not None and base >= 0 else None
+    if value is not None and Decimal(value) >= MONEY_LIMIT:
+        value = None
     services = category in SERVICE_EXPENSE_TYPES
     return declaration.model_copy(
         update={
