@@ -16,10 +16,7 @@ for (const slug of Object.keys(documents) as (keyof typeof documents)[]) {
       const expected = [document.title, ...document.blocks.flatMap((block) =>
         "items" in block && block.items ? block.items : block.text,
       )].join(" ").replaceAll("**", "").replace(/\s+/g, " ").trim()
-        .replace(
-          "Vigente desde: 15 de octubre de 2026 Última actualización: 1 de noviembre de 2026",
-          "Última actualización: 1 de noviembre de 2026",
-        );
+        .replace(/Vigente desde: .+? (?=Última actualización: )/, "");
       expect((await page.locator("article").innerText()).replace(/\s+/g, " ").trim()).toBe(expected);
       await expect(page.locator("main h1")).toHaveCount(1);
       expect(await page.locator("main h3, main h4, main h5, main h6").count()).toBe(0);
@@ -57,7 +54,8 @@ for (const [path, title] of [["/en/privacy", "Privacy policy for the Cuadrao web
   test(`English source renders at ${path}`, async ({ page }) => {
     await page.goto(path);
     await expect(page.locator("main h1")).toContainText(title);
-    await expect(page.locator("article")).toContainText("November 1, 2026");
+    await expect(page.locator("article")).toContainText("Last updated: ");
+    await expect(page.locator("article")).not.toContainText("Effective: ");
     await expect(page.locator("footer")).toContainText("© Cuadrao LLC 2026");
     await expect(page.locator("footer")).not.toContainText("Mountain Road");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
