@@ -19,19 +19,14 @@ import {
   type EmailSenderView,
   EmailSenderRequestError,
 } from "@/lib/business-email";
-import { primaryButtonClass, quietButtonClass, secondaryButtonClass } from "./business-ui";
+import { quietButtonClass } from "./business-ui";
+import { RowAction, RowTextAction } from "./foundation/RowAction";
 import { BUSINESS_STATUS, FOCUS_RING } from "./foundation/presentation";
 
 const copy = (key: string) => `business.reception.senders.${key}`;
 
 function requestStatus(error: unknown): number {
   return error instanceof EmailSenderRequestError ? error.status : 0;
-}
-
-/** Bloquear is always the quiet action; Autorizar is the main one while the sender waits. */
-function moveClass(status: EmailSender["status"], move: EmailSenderUpdate["status"]): string {
-  if (move === "blocked") return quietButtonClass;
-  return status === "pending" ? primaryButtonClass : secondaryButtonClass;
 }
 
 function UnverifiedNote() {
@@ -63,20 +58,20 @@ function SenderRow({
   const disabled = busy || refused;
   const moves = senderMoves(sender);
   return (
-    <li data-testid="email-sender-row" data-status={sender.status} className="border-t border-[#EEF0EC] py-3 dark:border-white/[0.06]">
-      <div className="flex items-center gap-3">
-        <span className="min-w-0 break-all text-[16px] text-[#172b26] dark:text-white">{sender.value}</span>
-        {senderCheckFailed(sender.tag) ? <UnverifiedNote /> : null}
-      </div>
-      {moves.length ? (
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          {moves.map((move) => (
-            <button key={move} type="button" className={moveClass(sender.status, move)} disabled={disabled} onClick={() => onChange(move)}>
-              {t(copy(move === "authorized" ? "authorize" : "block"))}
-            </button>
-          ))}
+    <li data-testid="email-sender-row" data-status={sender.status} className="border-t border-[#EEF0EC] py-1 dark:border-white/[0.06]">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
+        <div className="flex min-h-11 min-w-0 flex-1 items-center gap-3">
+          <span className="min-w-0 break-all text-[16px] text-[#172b26] dark:text-white">{sender.value}</span>
+          {senderCheckFailed(sender.tag) ? <UnverifiedNote /> : null}
         </div>
-      ) : null}
+        {moves.length ? (
+          <div className="flex shrink-0 items-center justify-end gap-2">
+            {moves.map((move) => move === "authorized"
+              ? <RowAction key={move} disabled={disabled} onClick={() => onChange(move)}>{t(copy("authorize"))}</RowAction>
+              : <RowTextAction key={move} disabled={disabled} onClick={() => onChange(move)}>{t(copy("block"))}</RowTextAction>)}
+          </div>
+        ) : null}
+      </div>
       {failed ? <p role="alert" data-testid="email-sender-error" className="mt-2 text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">{t(copy("action_error"))}</p> : null}
     </li>
   );
@@ -126,12 +121,18 @@ export default function EmailSenders({ client }: { client?: EmailSenderClient })
 
   const grouped = items ? groupSenders(items.map(senderForView)) : null;
   const pending = grouped?.pending ?? [];
-  const sectionClass = "border-t border-[color:var(--surface-divider)] pt-1";
-  const headingClass = "px-2 text-[14px] text-[#56635e] dark:text-white/70";
+  const summaryClass = `min-h-11 cursor-pointer content-center rounded-mark text-[14px] text-[#56635e] dark:text-white/70 ${FOCUS_RING}`;
+  const rowsOf = (senders: EmailSenderView[]) => <ul>{senders.map((sender) => <SenderRow key={sender.id} sender={sender} busy={busyId === sender.id} refused={refused} failed={rowError === sender.id} onChange={(status) => void change(sender, status)} />)}</ul>;
+  const settledGroup = (testId: string, heading: string, senders: EmailSenderView[]) => senders.length ? (
+    <details data-testid={testId} className="mt-3">
+      <summary className={summaryClass}>{t(copy(heading))} · {senders.length}</summary>
+      {rowsOf(senders)}
+    </details>
+  ) : null;
 
   return (
-    <section data-testid="email-senders" aria-labelledby="email-senders-title" className="mt-4">
-      <h3 id="email-senders-title" className="text-[16px] font-medium text-[#172b26] dark:text-white">{t(copy("list_title"))}</h3>
+    <section data-testid="email-senders" aria-labelledby="email-senders-title">
+      <h2 id="email-senders-title" className="font-display text-[21px] font-medium text-[#172b26] dark:text-white">{t(copy("list_title"))}</h2>
       {failure ? (
         <div className="mt-3" role="alert" data-testid="email-senders-error">
           <p className="text-[14px] text-[#56635e] dark:text-white/70">{t(copy("error"))}</p>
@@ -147,29 +148,14 @@ export default function EmailSenders({ client }: { client?: EmailSenderClient })
       {grouped && items && items.length > 0 ? (
         <>
           {refused ? <p role="alert" data-testid="email-senders-forbidden" className="mt-3 text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">{t(copy("forbidden"))}</p> : null}
-          <details open data-testid="email-senders-pending" className={`mt-3 ${sectionClass}`}>
-            <summary className={`min-h-11 cursor-pointer content-center rounded-mark px-2 text-[14px] text-[#56635e] dark:text-white/70 ${FOCUS_RING}`}>
-              <span>{t(copy("pending_heading"))}</span>
-              {pending.length ? <span data-testid="email-senders-pending-count" className="ml-2">{t(copy("pending_count"), { count: pending.length })}</span> : null}
-            </summary>
-            {pending.length ? (
-              <ul>{pending.map((sender) => <SenderRow key={sender.id} sender={sender} busy={busyId === sender.id} refused={refused} failed={rowError === sender.id} onChange={(status) => void change(sender, status)} />)}</ul>
-            ) : (
-              <p className="px-2 py-2 text-[14px] text-[#56635e] dark:text-white/70">{t(copy("pending_empty"))}</p>
-            )}
-          </details>
-          {grouped.authorized.length ? (
-            <section aria-labelledby="email-senders-authorized" className={`mt-3 ${sectionClass}`}>
-              <h4 id="email-senders-authorized" className={`flex min-h-11 items-center ${headingClass}`}>{t(copy("authorized_heading"))}</h4>
-              <ul>{grouped.authorized.map((sender) => <SenderRow key={sender.id} sender={sender} busy={busyId === sender.id} refused={refused} failed={rowError === sender.id} onChange={(status) => void change(sender, status)} />)}</ul>
+          {pending.length ? (
+            <section data-testid="email-senders-pending" aria-labelledby="email-senders-pending-title" className="mt-3">
+              <h3 id="email-senders-pending-title" className="flex min-h-11 items-center gap-1 text-[14px] text-[#56635e] dark:text-white/70">{t(copy("pending_heading"))} · <span data-testid="email-senders-pending-count">{t(copy("pending_count"), { count: pending.length })}</span></h3>
+              {rowsOf(pending)}
             </section>
           ) : null}
-          {grouped.blocked.length ? (
-            <section aria-labelledby="email-senders-blocked" className={`mt-3 ${sectionClass}`}>
-              <h4 id="email-senders-blocked" className={`flex min-h-11 items-center ${headingClass}`}>{t(copy("blocked_heading"))}</h4>
-              <ul>{grouped.blocked.map((sender) => <SenderRow key={sender.id} sender={sender} busy={busyId === sender.id} refused={refused} failed={rowError === sender.id} onChange={(status) => void change(sender, status)} />)}</ul>
-            </section>
-          ) : null}
+          {settledGroup("email-senders-authorized", "authorized_heading", grouped.authorized)}
+          {settledGroup("email-senders-blocked", "blocked_heading", grouped.blocked)}
         </>
       ) : null}
     </section>

@@ -5,7 +5,6 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
-import { primaryButtonClass, quietButtonClass, secondaryButtonClass } from "@/components/business-app/business-ui";
 import EmailSenders from "@/components/business-app/EmailSenders";
 import { fieldHintClass } from "@/components/ui/form-field";
 import { TOOLTIP_DELAY_MS } from "@/components/ui/Tooltip";
@@ -81,7 +80,8 @@ const rows = (host: HTMLElement) => [...host.querySelectorAll<HTMLElement>("[dat
 const text = (row: HTMLElement) => row.textContent ?? "";
 const button = (row: HTMLElement, label: string) => [...row.querySelectorAll("button")].find((item) => item.textContent === label);
 const note = (row: HTMLElement) => row.querySelector<HTMLButtonElement>("[data-testid='email-sender-unverified']");
-const actions = (row: HTMLElement) => [...row.querySelectorAll("button")].filter((item) => item !== note(row)).map((item) => [item.textContent, item.className]);
+const look = (item: HTMLElement) => /(^|\s)border(\s|$)/.test(item.querySelector("span")?.className ?? "") ? "pill" : "text";
+const actions = (row: HTMLElement) => [...row.querySelectorAll("button")].filter((item) => item !== note(row)).map((item) => [item.textContent, look(item)]);
 const senderCopy = spanish.business.reception.senders;
 
 test("pending senders stay first, each group offers its own actions, and only a failed check is flagged", async () => {
@@ -89,15 +89,16 @@ test("pending senders stay first, each group offers its own actions, and only a 
   const page = await mount({ list: async () => scrambled, update: async (body) => ({ ...scrambled[0]!, ...body }) });
   try {
     await page.settle(() => rows(page.host).length === 6);
-    const pending = page.host.querySelector("details")!;
-    assert.equal(pending.open, true);
+    assert.ok(page.host.querySelector("[data-testid='email-senders-pending']"));
     assert.equal(page.host.querySelector("[data-testid='email-senders-pending-count']")?.textContent, "4");
+    assert.deepEqual([...page.host.querySelectorAll("details")].map((group) => [group.getAttribute("data-testid"), group.open]), [["email-senders-authorized", false], ["email-senders-blocked", false]]);
+    assert.match(page.host.querySelector("[data-testid='email-senders-authorized'] summary")?.textContent ?? "", /· 1$/);
     assert.deepEqual(rows(page.host).map((row) => row.getAttribute("data-status")), ["pending", "pending", "pending", "pending", "authorized", "blocked"]);
     assert.deepEqual(rows(page.host).map((row) => row.querySelector("span")?.textContent), [
       "avisos@correo.example", "facturas@ferreteria.example", "manual@dueno.example", "viejo@negocio.example", "proveedor.example", "spam@lista.example",
     ]);
-    const both = [[senderCopy.authorize, primaryButtonClass], [senderCopy.block, quietButtonClass]];
-    assert.deepEqual(rows(page.host).map(actions), [both, both, both, both, [[senderCopy.block, quietButtonClass]], [[senderCopy.authorize, secondaryButtonClass]]]);
+    const both = [[senderCopy.authorize, "pill"], [senderCopy.block, "text"]];
+    assert.deepEqual(rows(page.host).map(actions), [both, both, both, both, [[senderCopy.block, "text"]], [[senderCopy.authorize, "pill"]]]);
     assert.deepEqual(rows(page.host).map((row) => note(row) !== null), [true, false, false, false, false, true]);
     assert.equal(page.host.textContent?.includes("Verificado"), false);
     assert.equal(page.host.textContent?.includes("aligned"), false);
@@ -121,24 +122,23 @@ test("a default-approved sender is never offered Bloquear, and a sender without 
       "ana@negocio.example", "dueno@negocio.example", "proveedor@negocio.example", "luis@negocio.example",
     ]);
     assert.deepEqual(rows(page.host).map(actions), [
-      [[senderCopy.authorize, primaryButtonClass]],
+      [[senderCopy.authorize, "pill"]],
       [],
-      [[senderCopy.block, quietButtonClass]],
-      [[senderCopy.authorize, secondaryButtonClass]],
+      [[senderCopy.block, "text"]],
+      [[senderCopy.authorize, "pill"]],
     ]);
     assert.equal(rows(page.host)[1]!.querySelectorAll("button").length, 0);
   } finally { await page.close(); }
 });
 
-test("an empty pending group stays open without a count, and no senders is its own empty state", async () => {
+test("an empty pending group hides, settled groups keep their counts, and no senders is its own empty state", async () => {
   const settled = mixed.filter((item) => item.status !== "pending");
   const page = await mount({ list: async () => settled, update: async (body) => ({ ...settled[0]!, ...body }) });
   try {
     await page.settle(() => rows(page.host).length === 2);
-    const pending = page.host.querySelector("details")!;
-    assert.equal(pending.open, true);
+    assert.equal(page.host.querySelector("[data-testid='email-senders-pending']"), null);
     assert.equal(page.host.querySelector("[data-testid='email-senders-pending-count']"), null);
-    assert.match(pending.textContent ?? "", /No hay remitentes pendientes\./);
+    assert.doesNotMatch(page.host.textContent ?? "", /No hay remitentes pendientes\./);
     assert.match(page.host.textContent ?? "", /proveedor\.example/);
     assert.match(page.host.textContent ?? "", /spam@lista\.example/);
   } finally { await page.close(); }
@@ -236,7 +236,7 @@ test("Autorizar on a blocked sender posts authorized and the row takes the retur
   const page = await mount(liveEmailSenderClient);
   try {
     await page.settle(() => rows(page.host).length === 1);
-    assert.deepEqual(actions(rows(page.host)[0]!), [[senderCopy.authorize, secondaryButtonClass]]);
+    assert.deepEqual(actions(rows(page.host)[0]!), [[senderCopy.authorize, "pill"]]);
     assert.equal(note(rows(page.host)[0]!)?.textContent, senderCopy.tag_unverified);
     await act(async () => button(rows(page.host)[0]!, senderCopy.authorize)!.click());
     await page.settle(() => rows(page.host)[0]?.getAttribute("data-status") === "authorized");
@@ -246,8 +246,8 @@ test("Autorizar on a blocked sender posts authorized and the row takes the retur
     ]);
     const row = rows(page.host)[0]!;
     assert.equal(row.getAttribute("data-status"), "authorized");
-    assert.equal(row.closest("section")?.getAttribute("aria-labelledby"), "email-senders-authorized");
-    assert.deepEqual(actions(row), [[senderCopy.block, quietButtonClass]]);
+    assert.ok(row.closest("[data-testid='email-senders-authorized']"));
+    assert.deepEqual(actions(row), [[senderCopy.block, "text"]]);
     assert.equal(note(row)?.textContent, undefined);
   } finally { await page.close(); }
 });

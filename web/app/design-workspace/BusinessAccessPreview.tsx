@@ -5,22 +5,24 @@ import { Trash2, UserPlus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useBusiness } from "@/components/business-app/BusinessWorkspace";
-import { primaryButtonClass } from "@/components/business-app/business-ui";
+import { primaryButtonClass, trashButtonClass } from "@/components/business-app/business-ui";
+import { RowAction } from "@/components/business-app/foundation/RowAction";
 import { SURFACE_CARD } from "@/components/business-app/foundation/surfaces";
 import { Avatar } from "@/components/ui/Avatar";
 import { Tooltip } from "@/components/ui/Tooltip";
 import AccessRolePicker from "./AccessRolePicker";
-import WorkspaceSetupPreview from "./WorkspaceSetupPreview";
-import { accessActionGuard, accessRoles, changeAccessPreview, invitationStorageKeys, readAccessPreview, seedAccessPreview, type AccessAction, type AccessRole, type PreviewActor, type PreviewPerson } from "./businessAccessPreviewState";
+import { accessActionGuard, accessRoleOptions, businessAccessChangedEvent, changeAccessPreview, invitationStorageKeys, readAccessPreview, seedAccessPreview, type AccessAction, type AccessRole, type PreviewActor, type PreviewPerson } from "./businessAccessPreviewState";
 import { changeBusinessRole, getBusinessAccess, resendBusinessAccessInvite, revokeBusinessAccessGrant, revokeBusinessAccessInvite, type BusinessAccess } from "@/lib/business-api";
+import { referenceCode } from "@/lib/failure-screen";
 import BusinessInvitationForm from "@/components/business-app/BusinessInvitationForm";
+import { ReferenceCode } from "@/components/status/ReferenceCode";
 
-const changedEvent = "workspace-preview-access-changed";
 const emptyStorage = { getItem: () => null, setItem: () => {} };
 // eslint-disable-next-line no-restricted-syntax -- Development-only bridge to the existing invitation sketch keys; production uses the live access component.
 const storage = () => typeof window === "undefined" ? emptyStorage : window.localStorage;
-const announceChange = () => window.dispatchEvent(new Event(changedEvent));
-const trashClass = "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-black/55 hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-40 dark:text-white/65 dark:hover:bg-white/5";
+const announceChange = () => window.dispatchEvent(new Event(businessAccessChangedEvent));
+/** Roles line up across rows because every row gives the picker the same width. */
+const roleColumn = "w-36 shrink-0";
 
 export default function BusinessAccessPreview() {
   const {source}=useBusiness();
@@ -32,6 +34,7 @@ function BusinessAccessLive(){
   const {chosen,reload}=useBusiness();
   const [access,setAccess]=useState<BusinessAccess|null>(null);
   const [failed,setFailed]=useState(false);
+  const [reference,setReference]=useState<string|null>(null);
   const [actionFailed,setActionFailed]=useState(false);
   const [refused,setRefused]=useState(false);
   const [busy,setBusy]=useState(false);
@@ -41,7 +44,7 @@ function BusinessAccessLive(){
   const [attempt,setAttempt]=useState(0);
   const mounted=useRef(true);
   const failure=useCallback((error:unknown)=>{
-    setFailed(true);
+    setFailed(true);setReference(referenceCode(error));
     const status=error&&typeof error==="object"&&"status" in error?error.status:null;
     if(status===403||status===404){setRefused(true);setAccess(null);setInviting(false);setConfirmation(null);setNotice(null);}
   },[]);
@@ -50,6 +53,11 @@ function BusinessAccessLive(){
     getBusinessAccess().then(value=>{if(mounted.current){setAccess(value);setFailed(false);}},error=>{if(mounted.current){setActionFailed(false);failure(error);}});
     return()=>{mounted.current=false;};
   },[attempt,failure]);
+  useEffect(()=>{
+    const reread=()=>setAttempt(value=>value+1);
+    window.addEventListener(businessAccessChangedEvent,reread);
+    return()=>window.removeEventListener(businessAccessChangedEvent,reread);
+  },[]);
   const act=async(work:()=>Promise<unknown>)=>{
     if(busy||refused)return;
     setBusy(true);setFailed(false);setNotice(null);
@@ -62,24 +70,24 @@ function BusinessAccessLive(){
     catch(error){if(mounted.current)failure(error);}
     finally{if(mounted.current)setBusy(false);}
   };
-  if(refused||!access)return <section className={SURFACE_CARD}>{failed?<><p role="alert">{t(refused?"business.lifecycle.errors.business_unavailable":"business_access.error")}</p>{!refused?<button className={primaryButtonClass} onClick={()=>setAttempt(value=>value+1)}>{t("common.retry")}</button>:null}</>:<div className="h-40 animate-pulse rounded-item bg-black/5 dark:bg-white/10" aria-busy="true"/>}</section>;
+  if(refused||!access)return <section className={SURFACE_CARD}>{failed?<div role="alert" className="space-y-2"><p>{t(refused?"business.lifecycle.errors.business_unavailable":"business_access.error")}</p>{refused?<p className="text-[14px] text-[#56635e] dark:text-white/70">{t("auth.business_unavailable.body")}</p>:null}{reference?<p><ReferenceCode reference={reference}/></p>:null}{!refused?<button className={primaryButtonClass} onClick={()=>setAttempt(value=>value+1)}>{t("common.retry")}</button>:null}</div>:<div className="h-40 animate-pulse rounded-item bg-black/5 dark:bg-white/10" aria-busy="true"/>}</section>;
   const personRow=(person:{id:string;email:string|null;role:AccessRole|undefined;pending:boolean;expired?:boolean})=>{
     const self=!person.pending&&person.id===chosen?.grant_id;
     const restricted=self||refused||!chosen?.permissions?.includes("manage")||(person.role==="owner"&&!chosen.permissions.includes("assign_owner"));
     const email=person.email??"-";
     return <li key={person.id} className="flex min-h-16 flex-col gap-1 rounded-lg px-2 py-2 hover:bg-black/[0.025] focus-within:bg-black/[0.025] sm:flex-row sm:items-center sm:gap-4 dark:hover:bg-white/[0.035] dark:focus-within:bg-white/[0.035]">
-      <div className="flex min-w-0 flex-1 items-center gap-3"><Avatar size={32} status={person.pending?"pending":null}/><div className="min-w-0 flex-1"><p className="break-all text-[16px]">{email}{self?<span className="ml-2 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.access_you")}</span>:null}</p>{person.pending?<div className="flex flex-wrap items-center gap-x-3 text-[14px] text-[#56635e] dark:text-white/70"><span>{t(person.expired?"business_access.invitation_expired":"workspace_setup_preview.invite_pending")}</span>{!person.expired?<button type="button" className="min-h-11 rounded-md hover:underline" disabled={busy||restricted} onClick={()=>void act(()=>resendBusinessAccessInvite(person.id))}>{t("workspace_setup_preview.access_resend")}</button>:null}</div>:null}</div></div>
-      <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto"><AccessRolePicker variant="quiet" compact value={person.role??""} disabled={busy||restricted||person.pending||!person.role} label={t("workspace_setup_preview.access_role_for",{email})} options={accessRoles.filter(role=>role!=="owner"||chosen?.permissions?.includes("assign_owner")).map(value=>({value,label:t(`workspace_setup_preview.permission_${value}`),description:t(`workspace_setup_preview.permission_${value}_detail`)}))} onChange={role=>void act(async()=>{const result=await changeBusinessRole(person.id,role as AccessRole);if(mounted.current&&result.invites.some(invite=>invite.email===person.email&&invite.requested_role===role))setNotice("workspace_setup_preview.invite_pending_detail");})}/><button type="button" className={trashClass} disabled={busy||restricted} aria-label={t(person.pending?"workspace_setup_preview.access_cancel_for":"workspace_setup_preview.access_remove_for",{email})} onClick={()=>setConfirmation({id:person.id,email,pending:person.pending})}><Trash2 className="h-4 w-4"/></button></div>
+      <div className="flex min-w-0 flex-1 items-center gap-3"><Avatar size={32} status={person.pending?"pending":null}/><div className="min-w-0 flex-1"><p className="break-all text-[16px]">{email}{self?<span className="ml-2 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.access_you")}</span>:null}</p>{person.pending?<div className="flex flex-wrap items-center gap-x-3 text-[14px] text-[#56635e] dark:text-white/70"><span>{t(person.expired?"business_access.invitation_expired":"workspace_setup_preview.invite_pending")}</span></div>:null}</div></div>
+      <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">{person.pending&&!person.expired?<RowAction className="mr-2" disabled={busy||restricted} onClick={()=>void act(()=>resendBusinessAccessInvite(person.id))}>{t("workspace_setup_preview.access_resend")}</RowAction>:null}<div className={roleColumn}><AccessRolePicker variant="quiet" compact value={person.role??""} disabled={busy||restricted||person.pending||!person.role} label={t("workspace_setup_preview.access_role_for",{email})} options={accessRoleOptions(t,Boolean(chosen?.permissions?.includes("assign_owner")))} onChange={role=>void act(async()=>{const result=await changeBusinessRole(person.id,role as AccessRole);if(mounted.current&&result.invites.some(invite=>invite.email===person.email&&invite.requested_role===role))setNotice("workspace_setup_preview.invite_pending_detail");})}/></div><button type="button" className={trashButtonClass} disabled={busy||restricted} aria-label={t(person.pending?"workspace_setup_preview.access_cancel_for":"workspace_setup_preview.access_remove_for",{email})} onClick={()=>setConfirmation({id:person.id,email,pending:person.pending})}><Trash2 className="h-4 w-4"/></button></div>
     </li>;
   };
-  return <section data-testid="business-access-preview" style={{maxWidth:896}} className={`${SURFACE_CARD} space-y-4`}>
-    <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-display text-[21px] font-medium">{t("workspace_setup_preview.access_members_title")}</h2><button type="button" className={primaryButtonClass} disabled={busy||refused||!chosen?.permissions?.includes("manage")} onClick={()=>setInviting(true)}><UserPlus className="h-4 w-4"/>{t("workspace_setup_preview.invite")}</button></div>
+  return <section data-testid="business-access-preview" className={`${SURFACE_CARD} space-y-4`}>
+    <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-display text-[21px] font-medium">{t("workspace_setup_preview.access_members_title")}</h2><button type="button" className={primaryButtonClass} disabled={busy||refused||!chosen?.permissions?.includes("manage")} onClick={()=>setInviting(true)}><UserPlus className="h-4 w-4"/>{t("workspace_setup_preview.batch_title")}</button></div>
     <ul>{access.grants.map(person=>personRow({...person,role:person.business_role,pending:false}))}</ul>
-    <details className="border-t border-black/10 pt-1 dark:border-white/10"><summary className="min-h-11 cursor-pointer content-center rounded-md px-2 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.access_pending_title")}</summary>{access.invites.length?<ul>{access.invites.map(person=>personRow({...person,role:person.requested_role,pending:true,expired:person.state==="expired"}))}</ul>:<p className="px-2 py-2 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.access_no_pending")}</p>}</details>
-    {failed?<p role="alert" className="text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">{t(actionFailed?"business_access.remove_error":"business_access.error")}</p>:null}
+    {access.invites.length?<details className="border-t border-black/10 pt-1 dark:border-white/10"><summary className="min-h-11 cursor-pointer content-center rounded-md px-2 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.access_pending_title")} · {access.invites.length}</summary><ul>{access.invites.map(person=>personRow({...person,role:person.requested_role,pending:true,expired:person.state==="expired"}))}</ul></details>:null}
+    {failed?<div role="alert" className="text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]"><p>{t(actionFailed?"business_access.remove_error":"business_access.error")}</p>{reference?<ReferenceCode reference={reference}/>:null}</div>:null}
     {notice?<p role="status" className="text-[14px] text-[#56635e] dark:text-white/70">{t(notice)}</p>:null}
     <ConfirmDialog isOpen={confirmation!==null} title={t(confirmation?.pending?"workspace_setup_preview.access_cancel_title":"workspace_setup_preview.access_remove_title",{email:confirmation?.email})} description={t(confirmation?.pending?"workspace_setup_preview.access_cancel_detail":"workspace_setup_preview.access_remove_detail")} confirmLabel={t(confirmation?.pending?"workspace_setup_preview.access_cancel":"workspace_setup_preview.access_remove")} cancelLabel={t("common.cancel")} onCancel={()=>setConfirmation(null)} onConfirm={()=>{if(confirmation){const target=confirmation;setConfirmation(null);void act(()=>target.pending?revokeBusinessAccessInvite(target.id):revokeBusinessAccessGrant(target.id));}}}/>
-    {inviting?<BusinessInvitationForm onRefused={failure} onClose={()=>setInviting(false)} onAccepted={()=>setAttempt(value=>value+1)}/>:null}
+    {inviting?<BusinessInvitationForm onRefused={failure} onClose={()=>setInviting(false)}/>:null}
   </section>;
 }
 
@@ -92,8 +100,8 @@ function BusinessAccessSketch() {
   const actor = useMemo<PreviewActor | null>(() => memberEmail && memberRole === "owner" ? {email: memberEmail, permission: "owner"} : null, [memberEmail, memberRole]);
   const keys = useMemo(() => invitationStorageKeys(businessId), [businessId]);
   const subscribe = useCallback((listener: () => void) => {
-    window.addEventListener("storage", listener);window.addEventListener(changedEvent, listener);
-    return () => {window.removeEventListener("storage", listener);window.removeEventListener(changedEvent, listener);};
+    window.addEventListener("storage", listener);window.addEventListener(businessAccessChangedEvent, listener);
+    return () => {window.removeEventListener("storage", listener);window.removeEventListener(businessAccessChangedEvent, listener);};
   }, []);
   const readSnapshot = useCallback(() => `${storage().getItem(keys.draft) ?? ""}\n${storage().getItem(keys.guide) ?? ""}`, [keys]);
   const raw = useSyncExternalStore(subscribe, readSnapshot, () => "");
@@ -113,16 +121,17 @@ function BusinessAccessSketch() {
     const pending = person.status === "pending";
     const protectedReason = accessActionGuard(snapshot, actor, {kind:pending ? "cancel" : "remove",email:person.email});
     const controls = <div className="flex shrink-0 items-center gap-1" aria-describedby={protectedReason ? `${id}-guard-${person.email}` : undefined}>
-      <AccessRolePicker variant="quiet" compact value={person.permission} disabled={Boolean(protectedReason)} label={t("workspace_setup_preview.access_role_for",{email:person.email})} options={accessRoles.filter(role => role !== "owner" || actor?.permission === "owner").map(role => ({value:role,label:t(`workspace_setup_preview.permission_${role}`),description:t(`workspace_setup_preview.permission_${role}_detail`)}))} onChange={value => act({kind:"role",email:person.email,permission:value as AccessRole})} />
+      {pending ? <RowAction className="mr-2" onClick={() => act({kind:"resend",email:person.email})}>{t("workspace_setup_preview.access_resend")}</RowAction> : null}
+      <div className={roleColumn}><AccessRolePicker variant="quiet" compact value={person.permission} disabled={Boolean(protectedReason)} label={t("workspace_setup_preview.access_role_for",{email:person.email})} options={accessRoleOptions(t,actor?.permission === "owner")} onChange={value => act({kind:"role",email:person.email,permission:value as AccessRole})} /></div>
       <span id={`${id}-role-${person.email}`} className="sr-only">{t(`workspace_setup_preview.permission_${person.permission}_detail`)}</span>
-      <button type="button" className={trashClass} disabled={Boolean(protectedReason)} aria-label={t(pending ? "workspace_setup_preview.access_cancel_for" : "workspace_setup_preview.access_remove_for",{email:person.email})} onClick={() => setConfirmation({kind:pending ? "cancel" : "remove",email:person.email})}><Trash2 className="h-4 w-4" aria-hidden="true" /></button>
+      <button type="button" className={trashButtonClass} disabled={Boolean(protectedReason)} aria-label={t(pending ? "workspace_setup_preview.access_cancel_for" : "workspace_setup_preview.access_remove_for",{email:person.email})} onClick={() => setConfirmation({kind:pending ? "cancel" : "remove",email:person.email})}><Trash2 className="h-4 w-4" aria-hidden="true" /></button>
     </div>;
     return <li key={person.email} className="flex min-h-16 flex-col gap-1 rounded-lg px-2 py-2 hover:bg-black/[0.025] focus-within:bg-black/[0.025] sm:flex-row sm:items-center sm:gap-4 dark:hover:bg-white/[0.035] dark:focus-within:bg-white/[0.035]">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <Avatar size={32} status={pending ? "pending" : null} />
         <div className="min-w-0 flex-1">
           <p className="break-all text-[16px] text-[#172b26] dark:text-white">{person.email}{person.current ? <span className="ml-2 text-[14px] text-black/55 dark:text-white/65">{t("workspace_setup_preview.access_you")}</span> : null}</p>
-          {pending ? <div className="flex flex-wrap items-center gap-x-3 text-[14px] text-[#56635e] dark:text-white/70"><span>{t("workspace_setup_preview.invite_pending")}</span><button type="button" className="min-h-11 rounded-md underline-offset-4 hover:underline focus-visible:outline-2" onClick={() => act({kind:"resend",email:person.email})}>{t("workspace_setup_preview.access_resend")}</button></div> : null}
+          {pending ? <p className="text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.invite_pending")}</p> : null}
           {protectedReason ? <span id={`${id}-guard-${person.email}`} className="sr-only">{t(`workspace_setup_preview.access_guard_${protectedReason}`)}</span> : null}
         </div>
       </div>
@@ -131,18 +140,18 @@ function BusinessAccessSketch() {
       </div>
     </li>;
   }
-  return <section data-testid="business-access-preview" style={{maxWidth:896}} className={`${SURFACE_CARD} space-y-4`}>
+  return <section data-testid="business-access-preview" className={`${SURFACE_CARD} space-y-4`}>
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h2 className="font-display text-[21px] font-medium text-[#172b26] dark:text-white">{t("workspace_setup_preview.access_members_title")}</h2>
-      <button type="button" className={primaryButtonClass} disabled={!actor} onClick={() => setInviting(true)}><UserPlus className="h-4 w-4" aria-hidden="true" />{t("workspace_setup_preview.invite")}</button>
+      <button type="button" className={primaryButtonClass} disabled={!actor} onClick={() => setInviting(true)}><UserPlus className="h-4 w-4" aria-hidden="true" />{t("workspace_setup_preview.batch_title")}</button>
     </div>
     <ul>{snapshot.members.map(personRow)}</ul>
-    <details className="border-t border-black/10 pt-1 dark:border-white/10">
+    {snapshot.pending.length ? <details className="border-t border-black/10 pt-1 dark:border-white/10">
       <summary className="min-h-11 cursor-pointer content-center rounded-md px-2 text-[14px] text-[#56635e] focus-visible:outline-2 dark:text-white/70">{t("workspace_setup_preview.access_pending_title")} · {snapshot.pending.length}</summary>
-      {snapshot.pending.length ? <ul>{snapshot.pending.map(personRow)}</ul> : <p className="px-2 py-2 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.access_no_pending")}</p>}
-    </details>
-    <p role="status" className="text-[14px] text-[#56635e] dark:text-white/70">{notice ? t(notice.key,{email:notice.email}) : ""}</p>
+      <ul>{snapshot.pending.map(personRow)}</ul>
+    </details> : null}
+    <p role="status" className="text-[14px] text-[#56635e] empty:hidden dark:text-white/70">{notice ? t(notice.key,{email:notice.email}) : ""}</p>
     <ConfirmDialog isOpen={confirmation !== null} title={t(confirmation?.kind === "cancel" ? "workspace_setup_preview.access_cancel_title" : "workspace_setup_preview.access_remove_title", {email:confirmation?.email})} description={t(confirmation?.kind === "cancel" ? "workspace_setup_preview.access_cancel_detail" : "workspace_setup_preview.access_remove_detail")} confirmLabel={t(confirmation?.kind === "cancel" ? "workspace_setup_preview.access_cancel" : "workspace_setup_preview.access_remove")} cancelLabel={t("common.cancel")} onCancel={() => setConfirmation(null)} onConfirm={() => {if(confirmation)act(confirmation);setConfirmation(null);}} />
-    {inviting ? <WorkspaceSetupPreview invitation onClose={() => {setInviting(false);announceChange();}} /> : null}
+    {inviting ? <BusinessInvitationForm onClose={() => setInviting(false)} /> : null}
   </section>;
 }

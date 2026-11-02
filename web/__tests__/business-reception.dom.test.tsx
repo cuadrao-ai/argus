@@ -27,7 +27,37 @@ afterAll(async () => {
 
 const OWN: GrantedSpace = { space_id: "s-own", name: "Ferretería Luna", grant_id: "g-own", role: "owner", business_role: "owner", permissions: ["read", "prepare", "approve", "manage"], capabilities: ["read", "prepare", "approve"], access_seen: true };
 
-test("the WhatsApp row waits for the Business it names", async () => {
+test("the reading card says plainly what turning it on means", async () => {
+  const { act } = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const i18next = (await import("i18next")).default;
+  const { I18nextProvider } = await import("react-i18next");
+  const spanish = (await import("@/public/locales/es-419/common.json")).default;
+  const english = (await import("@/public/locales/en/common.json")).default;
+  const { InlineReading } = await import("@/components/business-app/ReceiptReadingControl");
+  const reading = { enabled: false, can_change: true, available: true, disclosure: "" };
+  for (const [language, words, title, body, off] of [
+    ["es-419", spanish, "Leer mis recibos automáticamente", "Un servicio de inteligencia artificial lee cada recibo y saca el comercio, la fecha y los montos. Tú revisas todo antes de aprobar.", "Si lo apagas, tus recibos se guardan sin leer."],
+    ["en", english, "Read my receipts automatically", "An artificial intelligence service reads each receipt and pulls out the merchant, date and amounts. You review everything before approving.", "If you turn it off, your receipts are saved unread."],
+  ] as const) {
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: language, resources: { [language]: { translation: words } }, interpolation: { escapeValue: false } });
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => { root.render(<I18nextProvider i18n={i18n}><InlineReading reading={reading} onChange={async () => undefined} /></I18nextProvider>); });
+    try {
+      assert.equal(host.querySelector("h2")?.textContent, title);
+      assert.equal(host.querySelector("[role='switch']")?.getAttribute("aria-label"), title);
+      assert.deepEqual([...host.querySelectorAll("p")].map((line) => line.textContent), [body, off]);
+    } finally {
+      await act(async () => root.unmount());
+      host.remove();
+    }
+  }
+});
+
+test("Recepción opens on Correo then Remitentes and names no channel it cannot open", async () => {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -55,6 +85,7 @@ test("the WhatsApp row waits for the Business it names", async () => {
   });
   const settle = async () => { for (let turn = 0; turn < 5; turn += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); }); };
   const connect = (name: string) => spanish.business.reception.whatsapp_connect.replace("{{business}}", name);
+  const headings = () => [...host.querySelectorAll("h2")].map((heading) => heading.textContent);
   try {
     await render(null);
     await settle();
@@ -62,7 +93,9 @@ test("the WhatsApp row waits for the Business it names", async () => {
     assert.equal(host.textContent?.includes(connect("")), false);
     await render(OWN);
     await settle();
-    assert.equal(host.textContent?.includes(connect(OWN.name)), true);
+    assert.equal(host.textContent?.includes(connect(OWN.name)), false);
+    assert.equal(host.textContent?.includes("WhatsApp"), false);
+    assert.deepEqual(headings().slice(0, 2), [spanish.business.reception.email_title, spanish.business.reception.senders.list_title]);
   } finally {
     await act(async () => root.unmount());
     host.remove();
