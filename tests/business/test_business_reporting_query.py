@@ -11,6 +11,7 @@ from argus.domain.business.reporting_query import (
     matching_records,
     run_query,
 )
+from faker import Faker
 from pydantic import ValidationError
 
 IDENTITY = ReportIdentity("business", "actor", "owner", "grant", "")
@@ -100,6 +101,43 @@ def test_the_records_and_the_answer_share_the_latest_month():
     ]
     request = ReportRequest(filters=latest_month())
     assert [row.row_id for row in matching_records(rows, request, NOW)] == ["august"]
+
+
+def test_latest_month_ignores_records_dated_after_today():
+    future = Faker().date_between(date(2027, 1, 1), date(2099, 12, 31))
+    rows = [
+        record("october", report_date=date(2026, 10, 15)),
+        record("mistyped", report_date=future),
+        record("december_9999", report_date=date(9999, 12, 9)),
+    ]
+    result = run(rows, latest_month())
+    assert result.resolved_period.from_date == date(2026, 10, 1)
+    assert result.resolved_period.to_date == date(2026, 10, 31)
+    assert [row.row_id for row in result.items] == ["october"]
+
+
+def test_latest_month_is_the_current_month_when_every_record_is_in_the_future():
+    rows = [
+        record(
+            "future", report_date=Faker().date_between(date(2027, 1, 1), date(2099, 1, 1))
+        ),
+        record("december_9999", report_date=date(9999, 12, 9)),
+    ]
+    result = run(rows, latest_month())
+    assert result.resolved_period.from_date == date(2026, 10, 1)
+    assert result.resolved_period.to_date == date(2026, 10, 31)
+    assert not result.items
+
+
+def test_a_future_record_is_reachable_by_choosing_its_period():
+    rows = [record("december_9999", report_date=date(9999, 12, 9))]
+    result = run(
+        rows,
+        ReportFilters(
+            period={"kind": "custom", "from_date": "9999-12-01", "to_date": "9999-12-31"}
+        ),
+    )
+    assert [row.row_id for row in result.items] == ["december_9999"]
 
 
 def test_latest_month_takes_no_dates():
