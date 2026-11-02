@@ -7,15 +7,15 @@ import { ContactForm } from "./contact-form";
 import { BusinessFooter } from "./business-footer";
 import styles from "./business.module.css";
 import touchup from "./touchup.module.css";
-import { TouchupLanding } from "./touchup-landing";
-import { touchupCopy } from "./touchup-copy";
 
+// Served as small static files: the image resizer can hang for every visitor if
+// the first visitor to request an image leaves before it finishes.
 export function FounderIdentity({ locale }: { locale: BusinessLocale }) {
   return (
     <div className={styles.founderIdentity}>
       <Image
         className={styles.founderPortrait}
-        src="/cuadrao-site/lucas-garces.png"
+        src="/cuadrao-site/lucas-garces-192.webp"
         alt={
           locale === "es"
             ? "Retrato de Lucas Garcés"
@@ -23,108 +23,16 @@ export function FounderIdentity({ locale }: { locale: BusinessLocale }) {
         }
         width={96}
         height={96}
-        sizes="96px"
+        unoptimized
       />
       <Image
         className={styles.founderSignature}
-        src="/cuadrao-site/lucas-garces-signature.png"
+        src="/cuadrao-site/lucas-garces-signature-400.webp"
         alt="Lucas Garcés"
-        width={1942}
-        height={809}
-        sizes="200px"
+        width={400}
+        height={167}
+        unoptimized
       />
-    </div>
-  );
-}
-
-export function BusinessLanding({ locale }: { locale: BusinessLocale }) {
-  const c = siteCopy[locale];
-  return (
-    <div
-      className={`${styles.site} ${touchup.site}`}
-      lang={locale === "es" ? "es-DO" : "en"}
-      id="top"
-      data-page-background="business"
-    >
-      <BusinessHeader locale={locale} />
-      <main id="business-main" tabIndex={-1}>
-        <TouchupLanding locale={locale} />
-        <section
-          className={styles.approach}
-          id="como-funciona"
-          aria-labelledby="approach-title"
-        >
-          <div className={styles.approachHeading}>
-            <div>
-              <h2 id="approach-title">{c.approachTitle}</h2>
-            </div>
-            <p>{c.approachBody}</p>
-          </div>
-          <ol className={`${styles.steps} ${touchup.pilotRail}`}>
-            {c.steps.map((item) => (
-              <li key={item.title}>
-                <span aria-hidden="true" className={touchup.railDot} />
-                <h3>{item.title}</h3>
-                <p>{item.body}</p>
-              </li>
-            ))}
-          </ol>
-        </section>
-        <section
-          className={`${styles.founder} ${styles.founderLetter}`}
-          id="nosotros"
-          aria-labelledby="founder-title"
-        >
-          <div>
-            <h2 id="founder-title">{c.founderTitle}</h2>
-          </div>
-          <div className={styles.founderStory}>
-            <p className={styles.salutation}>
-              {locale === "es" ? "Hola," : "Hello,"}
-            </p>
-            {c.founderParagraphs.map((paragraph) => (
-              <p key={paragraph}>{paragraph}</p>
-            ))}
-            <p className={styles.letterSignoff}>
-              {locale === "es" ? "Gracias por leer," : "Thank you for reading,"}
-            </p>
-            <FounderIdentity locale={locale} />
-          </div>
-        </section>
-        <section
-          className={styles.faq}
-          id="preguntas"
-          aria-labelledby="faq-title"
-        >
-          <div className={styles.faqHeading}>
-            <p className={styles.sectionIndex}>{c.faqLink}</p>
-            <h2 id="faq-title">{c.faqTitle}</h2>
-            <p>{c.faqBody}</p>
-          </div>
-          <div className={styles.faqItems}>
-            {[
-              {
-                question: touchupCopy[locale].limitsQuestion,
-                answer: touchupCopy[locale].limitsAnswer,
-              },
-              {
-                question: touchupCopy[locale].fitQuestion,
-                answer: touchupCopy[locale].fitAnswer,
-              },
-              ...c.faq.slice(2),
-            ].map((item) => (
-              <details key={item.question}>
-                <summary>
-                  {item.question}
-                  <span aria-hidden="true">+</span>
-                </summary>
-                <p>{item.answer}</p>
-              </details>
-            ))}
-          </div>
-        </section>
-      </main>
-      <BusinessFooter locale={locale} business />
     </div>
   );
 }
@@ -165,7 +73,7 @@ export function ContactPage({ locale }: { locale: BusinessLocale }) {
           </div>
         </aside>
       </main>
-      <BusinessFooter locale={locale} showClosing={false} business />
+      <BusinessFooter locale={locale} showClosing={false} />
     </div>
   );
 }

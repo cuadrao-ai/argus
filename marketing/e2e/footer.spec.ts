@@ -80,10 +80,10 @@ for (const path of ["/", "/contacto", "/privacidad", "/terminos", "/eliminar-dat
 test("the Business footer opens the same product section as the hero", async ({ page }) => {
   await page.goto("/");
   const link = page.locator("footer").getByRole("link", { name: "Ver cómo funciona", exact: true });
-  await expect(link).toHaveAttribute("href", "/#el-producto");
+  await expect(link).toHaveAttribute("href", "/#como");
   await link.click();
-  await expect(page).toHaveURL(/\/#el-producto$/);
-  await expect(page.locator("#el-producto")).toBeInViewport();
+  await expect(page).toHaveURL(/\/#como$/);
+  await expect(page.locator("#como")).toBeInViewport();
 });
 
 for (const { path } of SITE_ROUTES) {

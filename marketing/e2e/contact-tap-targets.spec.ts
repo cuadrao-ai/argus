@@ -131,7 +131,6 @@ test.describe("contact form tap targets", () => {
         expect(Math.abs(current[key][field] - DESKTOP[key][field])).toBeLessThanOrEqual(1);
       }
     }
-    expect(current.footer.h).toBeGreaterThan(DESKTOP.footer.h);
     expect(name.w).toBeGreaterThan(44);
 
     const link = await box(page, "#contact-privacy a");
@@ -194,7 +193,7 @@ test.describe("contact form tap targets", () => {
       console.log(measured.join("\n"));
       const anchors = page.locator("footer a");
       const count = await anchors.count();
-      expect(count).toBeGreaterThanOrEqual(12);
+      expect(count).toBeGreaterThanOrEqual(11);
       for (let index = 0; index < count; index += 1) {
         const link = anchors.nth(index);
         await link.evaluate((node: HTMLElement) => node.focus({ focusVisible: true }));

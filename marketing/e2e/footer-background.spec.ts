@@ -11,7 +11,7 @@ for (const [path, background] of [...["/", "/en", "/contacto", "/en/contact", "/
     const bounds = (await footer.boundingBox())!;
     expect(bounds.x).toBe(0);
     expect(bounds.width).toBe(page.viewportSize()!.width);
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }));
     expect(await footer.evaluate((node) => Math.abs(node.getBoundingClientRect().bottom - innerHeight))).toBeLessThanOrEqual(1);
   });
 }
