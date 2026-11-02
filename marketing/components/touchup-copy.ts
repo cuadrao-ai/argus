@@ -6,7 +6,7 @@ const es = {
     "Hasta la compra sin factura.",
     "Hasta lo que te deben.",
     "Hasta lo personal, aparte.",
-    "Hasta lo que ve tu contador.",
+    "Hasta lo que ve tu contable.",
   ],
   eyebrow: "PARA NEGOCIOS EN REPÚBLICA DOMINICANA",
   description:

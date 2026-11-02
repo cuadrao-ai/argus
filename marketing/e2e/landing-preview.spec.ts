@@ -47,6 +47,17 @@ test("the whole page passes an accessibility scan with motion off", async ({ bro
   await context.close();
 });
 
+for (const path of [PATH, "/contacto"]) {
+  test(`${path} says contable, never contador`, async ({ page }) => {
+    await page.goto(path);
+    const text = await page.locator("body").evaluate((node) => node.textContent ?? "");
+    const hints = await page.locator("[placeholder]").evaluateAll((nodes) =>
+      nodes.map((node) => node.getAttribute("placeholder") ?? ""),
+    );
+    expect(`${text} ${hints.join(" ")}`).not.toMatch(/contador/i);
+  });
+}
+
 test.describe("hero", () => {
   test("every in-page link has a target", async ({ page }) => {
     await page.goto(PATH);
@@ -195,6 +206,8 @@ test.describe("how it works", () => {
     await page.goto(PATH);
     const soon = page.getByRole("img", { name: "Facturar · En preparación" });
     await expect(soon).toHaveCount(1);
+    await soon.focus();
+    await expect(soon).toBeFocused();
     await expect(page.getByRole("link", { name: "Facturar · En preparación" })).toHaveCount(0);
   });
 
@@ -236,6 +249,88 @@ test.describe("how it works", () => {
     await expect(panel.getByText("Listo").nth(1)).toHaveCSS("opacity", "1");
     const { violations } = await new AxeBuilder({ page }).include("#como").analyze();
     expect(violations.map((violation) => violation.id)).toEqual([]);
+  });
+});
+
+const question = (page: Page, name: string) => page.getByRole("button", { name });
+
+test.describe("faq", () => {
+  test("opens the first answer on load, so the examples note shows", async ({ page }) => {
+    await page.goto(PATH);
+    await expect(question(page, "¿Ya puedo usar Cuadrao para mi negocio?")).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByText("funciones previstas con datos ficticios")).toBeVisible();
+  });
+
+  test("keeps one answer open at a time", async ({ page }) => {
+    await page.goto(PATH);
+    await question(page, "¿Cuánto va a costar?").click();
+    await expect(page.getByText("Aún no hemos definido los precios.")).toBeVisible();
+    await expect(page.getByText("funciones previstas con datos ficticios")).toBeHidden();
+    await expect(page.locator('[id="preguntas"] [aria-expanded="true"]')).toHaveCount(1);
+  });
+
+  test("closes the open answer when its question is clicked again", async ({ page }) => {
+    await page.goto(PATH);
+    await question(page, "¿Ya puedo usar Cuadrao para mi negocio?").click();
+    await expect(page.locator('[id="preguntas"] [aria-expanded="true"]')).toHaveCount(0);
+  });
+
+  test("works from the keyboard", async ({ page }) => {
+    await page.goto(PATH);
+    await question(page, "¿Qué límites debo conocer?").focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("Estamos preparando la emisión de e-CF")).toBeVisible();
+  });
+
+  test("keeps a clicked question out from under the header", async ({ page, isMobile }) => {
+    test.skip(!isMobile, "long answers push hardest on a phone");
+    await page.goto(PATH);
+    await question(page, "¿Para quién es y en qué ayudará?").click();
+    await expect(page.getByText("Para pequeños y medianos negocios")).toBeVisible();
+    const next = question(page, "¿Cuánto va a costar?");
+    await next.evaluate((node) => {
+      window.scrollBy({ top: node.getBoundingClientRect().top - 90, behavior: "instant" });
+    });
+    await next.click();
+    await expect(page.getByText("Aún no hemos definido los precios.")).toBeVisible();
+    const closing = page.locator('[id="preguntas"] [role="region"]').nth(1);
+    await expect.poll(() => closing.evaluate((node) => node.getBoundingClientRect().height)).toBe(0);
+    await expect
+      .poll(() => next.evaluate((node) => node.getBoundingClientRect().top))
+      .toBeGreaterThanOrEqual(80);
+  });
+});
+
+test.describe("closing sections", () => {
+  test("the ledger closes the month before the scene date", async ({ page }) => {
+    await page.clock.setFixedTime(new Date(2026, 11, 3, 9));
+    await page.goto(PATH);
+    await expect(page.locator("[data-ledger-month]")).toHaveText("606 · Noviembre");
+  });
+
+  test("the footer links reach sections on this page", async ({ page }) => {
+    await page.goto(PATH);
+    for (const name of ["Ver cómo funciona", "Preguntas frecuentes", "Nosotros"]) {
+      const href = await page.getByRole("contentinfo").getByRole("link", { name }).getAttribute("href");
+      const id = href?.split("#")[1];
+      await expect(page.locator(`[id="${id}"]`)).toHaveCount(1);
+    }
+  });
+
+  test("the footer credit stays reachable by the pointer", async ({ page, isMobile }) => {
+    test.skip(isMobile, "phones hide the credit reveal");
+    await page.goto(PATH);
+    const credits = page.locator("[data-footer-credits]");
+    await credits.scrollIntoViewIfNeeded();
+    await credits.hover();
+    await expect(credits.getByText("Hecho con ♥ para la República Dominicana")).toBeVisible();
+  });
+
+  test("a phone drops the check list and keeps the ledger", async ({ page, isMobile }) => {
+    test.skip(!isMobile, "phone layout");
+    await page.goto(PATH);
+    await expect(page.getByText("606 y 607 salen de registros revisados")).toBeHidden();
+    await expect(page.locator("[data-ledger-month]")).toBeVisible();
   });
 });
 

@@ -16,9 +16,12 @@ from tests.test_business_approval_fiscal_postgres import (
     NCF,
     SUPPLIER,
     actions,  # noqa: F401
+    approve,
     colmado,
+    lines_606,
     pytestmark,  # noqa: F401
     receipt_draft,
+    reviewed,
     saved_declaration,
     shared_actions,  # noqa: F401
     users,  # noqa: F401
@@ -126,6 +129,56 @@ def test_the_same_value_keyed_another_way_is_not_an_edit(actions):  # noqa: F811
 
     names = ("rnc", "ncf", "ecf", "itbis")
     assert facts_of(fiscal, *names) == facts_of(read, *names)
+
+
+@pytest.mark.parametrize("stored", [NCF.lower(), f"  {NCF} "])
+def test_a_clean_number_over_its_own_read_writes_nothing(actions, stored):  # noqa: F811
+    service, context = actions
+    draft, version = receipt_draft(service, context, colmado(ncf=stored), "DOP")
+    read = service.dossier(context, draft).facts.fiscal
+    assert read.ncf.value == stored
+
+    fiscal = fiscal_edit(service, context, draft, version, ncf=NCF)
+
+    assert facts_of(fiscal, "ncf", "ecf") == facts_of(read, "ncf", "ecf")
+
+
+@pytest.mark.parametrize(
+    ("stored", "number"),
+    [("B01-00000031", "B0100000031"), ("B01 00000032", "B0100000032")],
+)
+def test_a_clean_number_over_a_read_with_a_separator_reaches_the_606(
+    actions,  # noqa: F811
+    stored,
+    number,
+):
+    service, context = actions
+    draft, version = receipt_draft(service, context, colmado(ncf=stored), "DOP")
+    read = service.dossier(context, draft)
+    assert read.facts.fiscal.ncf.value == stored
+    assert [flag.code for flag in read.review_flags] == ["ncf_malformed"]
+
+    fiscal = fiscal_edit(service, context, draft, version, ncf=number)
+
+    assert (fiscal.ncf.value, fiscal.ncf.origin) == (number, "member_set")
+    edited = service.dossier(context, draft)
+    assert edited.review_flags == ()
+    approved = approve(
+        service, context, draft, reviewed(service, context, draft, edited.version)
+    )
+    assert approved.outcome == "applied", approved
+    lines, issues = lines_606(service, context)
+    assert [line.split("|")[3] for line in lines] == [number]
+    assert issues == []
+
+
+def test_clearing_a_read_of_only_spaces_leaves_no_fiscal_number(actions):  # noqa: F811
+    service, context = actions
+    draft, version = receipt_draft(service, context, colmado(ncf="   "), "DOP")
+
+    fiscal = fiscal_edit(service, context, draft, version, ncf=None)
+
+    assert fiscal.ncf.state == "unknown"
 
 
 def test_clearing_one_fact_leaves_the_other_two(actions):  # noqa: F811

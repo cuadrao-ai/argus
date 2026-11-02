@@ -83,15 +83,17 @@ export function BusinessFooter({
   locale,
   showClosing = true,
   business = false,
+  plain = false,
 }: {
   locale: BusinessLocale;
   showClosing?: boolean;
   business?: boolean;
+  plain?: boolean;
 }) {
   const c = siteCopy[locale];
   return (
     <footer
-      className={`${styles.footer} ${business ? styles.businessFooter : ""} ${shell.footer}`}
+      className={`${styles.footer} ${business ? styles.businessFooter : ""} ${plain ? styles.plainFooter : ""} ${shell.footer}`}
     >
       {showClosing && (
         <section className={styles.closing} aria-labelledby="closing-title">
@@ -115,8 +117,8 @@ export function BusinessFooter({
           </div>
           <nav aria-label={c.footerExplore}>
             <span>{c.footerExplore}</span>
-            <a href={`${businessPath(locale)}#el-producto`}>{c.business}</a>
-            <a href={`${businessPath(locale)}#${locale === "es" ? "el-producto" : "la-idea"}`}>{c.explore}</a>
+            {!plain && <a href={`${businessPath(locale)}#el-producto`}>{c.business}</a>}
+            <a href={plain ? "#como" : `${businessPath(locale)}#${locale === "es" ? "el-producto" : "la-idea"}`}>{c.explore}</a>
             <a href={`${businessPath(locale)}#preguntas`}>{c.faqLink}</a>
           </nav>
           <nav aria-label={c.footerTalk}>

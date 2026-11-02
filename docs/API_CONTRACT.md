@@ -9602,9 +9602,11 @@ or instead of `facts`. It holds explicitly entered fiscal identity and ITBIS plu
 a typed `606` purchase or `607` sale declaration. Blank required facts remain
 unknown. The review always carries the RNC, the fiscal number and the ITBIS, and
 only a value that differs from the record is written, as `member_set`. A value
-that matches keeps its origin, `verified` and sources; printed dashes, letter
-case and trailing zeros do not make it differ. A changed fiscal number replaces
-both the NCF and the e-CF, and a null one clears both. The existing live
+that matches keeps its origin, `verified` and sources. Printed dashes and spaces
+do not make an RNC differ, letter case and surrounding spaces do not make a
+fiscal number differ, and trailing zeros do not make the ITBIS differ. A changed
+fiscal number replaces both the NCF and the e-CF, and a null one clears both.
+The existing live
 prepare grant, expected version, immutable web-action source and review receipt
 govern this operation. Tax fields never enter the
 model-facing `BusinessFactPatch` or `TurnPlan` schema. A person may send an
