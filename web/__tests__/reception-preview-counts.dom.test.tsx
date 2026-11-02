@@ -64,7 +64,8 @@ async function mount({ width = 1440, role = "owner", prepare = true, permissions
   const tab = (key: string) => host.querySelector<HTMLButtonElement>(`#reception-tab-${key}`);
   const badge = (key: string) => tab(key)?.querySelector("span")?.textContent;
   const row = (name: string) => [...host.querySelectorAll<HTMLElement>('[data-testid="reception-row"]')].find(element => element.textContent?.includes(name));
-  return { host, context, opened, uploads: () => uploads, exports: () => exports, reloads: () => reloads, click, tab, badge, row, act, settle, async changeArrivals() { receipts = [...receipts.filter(receipt => receipt.id !== "review-receipt"), { ...receipts[0], id: "new-receipt", merchant: "Recibo sin admitir" }]; context = { ...context, revision: context.revision + 1 }; await render(); await settle(() => host.textContent?.includes("Actualizar lista") === true); }, async demote(id: string) { receipts = receipts.map(receipt => receipt.id === id ? { ...receipt, bandeja_group: { group: "attention" as const, reason: "missing_ncf", draft_id: receipt.bandeja_group?.draft_id ?? null, version: 9 } } : receipt); context = { ...context, revision: context.revision + 1 }; await render(); } };
+  const remount = async () => { await act(async () => root.unmount()); const again = createRoot(host); await act(async () => { again.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Inbox /></BusinessContext.Provider></I18nextProvider>); }); cleanup = async () => { await act(async () => again.unmount()); host.remove(); }; await settle(() => host.querySelector('[data-testid="reception-row"]') !== null); };
+  return { host, context, opened, remount, uploads: () => uploads, exports: () => exports, reloads: () => reloads, click, tab, badge, row, act, settle, async changeArrivals() { receipts = [...receipts.filter(receipt => receipt.id !== "review-receipt"), { ...receipts[0], id: "new-receipt", merchant: "Recibo sin admitir" }]; context = { ...context, revision: context.revision + 1 }; await render(); await settle(() => host.textContent?.includes("Actualizar lista") === true); }, async demote(id: string) { receipts = receipts.map(receipt => receipt.id === id ? { ...receipt, bandeja_group: { group: "attention" as const, reason: "missing_ncf", draft_id: receipt.bandeja_group?.draft_id ?? null, version: 9 } } : receipt); context = { ...context, revision: context.revision + 1 }; await render(); } };
 }
 
 const rows = (page: Awaited<ReturnType<typeof mount>>) => [...page.host.querySelectorAll<HTMLElement>('[data-testid="reception-row"]')];
@@ -121,7 +122,7 @@ test("the Bandeja opens on Todos with its three tabs, and nothing else from the 
   for (const word of ["En proceso", "Archivados", "Más acciones", "Vista previa"]) assert.equal(page.host.textContent?.includes(word), false, word);
   assert.equal(rows(page).length, 9, "six receipts, one note and two emails");
   assert.equal(rows(page).filter(row => row.getAttribute("data-unseen") === "true").length, 0, "nothing is seeded as unseen");
-  assert.deepEqual([...page.host.querySelectorAll("#reception-list > div:first-child > span:not(.sr-only)")].map(cell => cell.textContent).filter(Boolean), ["Contenido", "Adjunto", "Canal", "Remitente", "Canal y remitente", "Estado", "Llegada"], "Monto and Moneda stay off; the merged heading is the one the width swaps in");
+  assert.deepEqual([...page.host.querySelectorAll("#reception-list > div:first-child > span:not(.sr-only)")].map(cell => cell.textContent).filter(Boolean), ["Contenido", "Adjunto", "Canal", "Canal", "Estado", "Llegada"], "Monto, Moneda and Remitente stay off; the second Canal is the heading the width swaps in");
 });
 
 test("the tab numbers are the server's, not a count of the rows loaded", async () => {
@@ -155,37 +156,105 @@ test("a receipt still being read never carries the dot, and each channel keeps i
   assert.equal(row("Recibo con problema").querySelector('[data-testid="reception-channel"]')?.textContent, "Carga manual");
 });
 
-test("opening a ready, unread receipt acknowledges it once through the read route and reloads", async () => {
-  const calls: [string, string][] = [];
-  const page = await mount({
-    production: true,
-    tweak: receipts => receipts.map(receipt => receipt.id === "review-receipt" ? { ...receipt, activity: { state: "ready" as const, unread: true, completion_cursor: "cursor-7" } } : { ...receipt, activity: { state: "reading" as const, unread: false, completion_cursor: null } }),
-    markRead: async (id, cursor) => { calls.push([id, cursor]); return { state: "ready", unread: false, completion_cursor: cursor }; },
-  });
-  const row = rows(page).find(item => item.textContent?.includes("Recibo admitido"))!;
-  await page.click(row.querySelector<HTMLElement>("button"));
-  await page.settle(() => page.reloads() > 0);
-  assert.deepEqual(calls, [["review-receipt", "cursor-7"]]);
-  const other = rows(page).find(item => item.textContent?.includes("Recibo en lectura"))!;
-  await page.click(other.querySelector<HTMLElement>("button"));
-  assert.equal(calls.length, 1, "a receipt nobody finished reading has nothing to acknowledge");
+test("every row has one quiet Abrir, the row click does the same, and nothing else differs by state", async () => {
+  const page = await mount();
+  const buttons = () => rows(page).map(row => [...row.querySelectorAll("button")].at(-1)!);
+  assert.deepEqual([...new Set(buttons().map(button => button.textContent))], ["Abrir"]);
+  assert.equal(buttons().length, 9);
+  const opened = async (name: string, press: (row: HTMLElement) => HTMLElement) => { page.opened.length = 0; await page.click(press(page.row(name)!)); return page.opened.at(-1); };
+  const abrir = (row: HTMLElement) => [...row.querySelectorAll<HTMLElement>("button")].at(-1)!;
+  const cell = (row: HTMLElement) => row.querySelector<HTMLElement>('[data-testid="reception-channel"]')!;
+  for (const [name, target] of [
+    ["Recibo admitido", { kind: "receipt", receiptId: "review-receipt", list: "inbox" }],
+    ["Recibo en lectura", { kind: "receipt", receiptId: "reading-receipt", list: "inbox" }],
+    ["Recibo con problema", { kind: "receipt", receiptId: "problem-receipt", list: "inbox" }],
+    ["Nota admitida", { kind: "draft", draftId: "admitted-note", list: "inbox" }],
+  ] as const) {
+    assert.deepEqual(await opened(name, abrir), target, `Abrir on ${name}`);
+    assert.deepEqual(await opened(name, cell), target, `the row click on ${name}`);
+  }
 });
 
-test("a failed acknowledgement changes nothing on screen", async () => {
-  const page = await mount({
-    production: true,
-    tweak: receipts => receipts.map(receipt => receipt.id === "review-receipt" ? { ...receipt, activity: { state: "ready" as const, unread: true, completion_cursor: "cursor-9" } } : receipt),
-    markRead: async () => { throw new Error("offline"); },
-  });
-  const row = rows(page).find(item => item.textContent?.includes("Recibo admitido"))!;
-  await page.click(row.querySelector<HTMLElement>("button"));
-  await page.act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
-  assert.equal(page.reloads(), 0);
-  assert.equal(rows(page).find(item => item.textContent?.includes("Recibo admitido"))?.getAttribute("data-unseen"), "true");
+const settings = (page: Awaited<ReturnType<typeof mount>>) => page.click(page.host.querySelector<HTMLElement>('button[aria-label="Opciones de vista"]'));
+const toggleSender = (page: Awaited<ReturnType<typeof mount>>) => page.click([...document.querySelectorAll("label")].find(label => label.textContent === "Remitente")!.querySelector("input"));
+const senderCells = (page: Awaited<ReturnType<typeof mount>>) => page.host.querySelectorAll('[data-testid="reception-sender"]').length;
+const filterSender = async (page: Awaited<ReturnType<typeof mount>>, name: string) => {
+  await page.click([...page.host.querySelectorAll<HTMLElement>("button")].find(button => button.textContent === "Filtros"));
+  await page.click([...document.querySelectorAll<HTMLElement>('[role="tablist"][aria-orientation="vertical"] button')].find(button => button.textContent === "Remitente"));
+  await page.click([...document.querySelectorAll("label")].find(label => label.textContent?.includes(name))!.querySelector("input"));
+  await page.click([...document.querySelectorAll<HTMLElement>("button")].find(button => button.textContent === "Aplicar"));
+};
+
+test("Remitente is off by default, still offered, and filtering by it works either way", async () => {
+  const page = await mount();
+  assert.equal(senderCells(page), 0, "off for a person with no saved choice");
+  await filterSender(page, "noticias@proveedor.example");
+  assert.deepEqual(rows(page).map(row => row.textContent?.includes("Boletín semanal")), [true], "the filter works with the column off");
+  await settings(page);
+  await toggleSender(page);
+  assert.equal(senderCells(page), 1);
+  assert.equal(page.host.querySelector('[data-testid="reception-sender"]')?.textContent, "noticias@proveedor.example");
+});
+
+test("the tabs own status: Filtros adds nothing for a tab and no fourth tab can appear", async () => {
+  const page = await mount();
+  for (const key of ["attention", "listos", "all"]) {
+    await page.click(page.tab(key));
+    assert.equal(page.host.querySelector('[data-testid="reception-filter-chips"]')?.textContent, "", "a tab adds no chip");
+    assert.equal([...page.host.querySelectorAll("button")].find(button => button.textContent?.includes("Filtros"))?.textContent, "Filtros", "a tab adds no count");
+  }
+  await page.click([...page.host.querySelectorAll<HTMLElement>("button")].find(button => button.textContent === "Filtros"));
+  assert.deepEqual([...document.querySelectorAll('[role="tablist"][aria-orientation="vertical"] button')].map(button => button.textContent), ["Canal", "Remitente"]);
+  assert.equal(page.host.querySelectorAll('[role="tab"][id^="reception-tab-"]').length, 3);
+});
+
+test("Estado is the tag on Todos, the plain reason on Necesitan atención, and gone on Listos", async () => {
+  const page = await mount();
+  const estado = () => [...page.host.querySelectorAll("#reception-list > div:first-child > span")].some(cell => cell.textContent === "Estado");
+  const row = () => page.row("Recibo con problema")!;
+  assert.equal(estado(), true);
+  assert.equal(row().querySelector('[data-testid="status-pill"]')?.textContent, "Necesita atención");
+  assert.equal(row().querySelector('[data-testid="reception-reason"]'), null, "the tag alone on Todos");
+  await page.click(page.tab("attention"));
+  assert.equal(estado(), true);
+  assert.equal(row().querySelector('[data-testid="status-pill"]'), null, "no tag where the tab already says it");
+  assert.equal(row().querySelector('[data-testid="reception-reason"]')?.textContent, "No se pudo leer");
+  assert.equal(page.row("Recibo en lectura")?.querySelector('[data-testid="status-pill"]'), null);
+  assert.match(page.row("Recibo en lectura")?.textContent ?? "", /Leyendo/);
+  await page.click(page.tab("listos"));
+  assert.equal(estado(), false);
+  assert.equal(page.row("Listo uno")?.querySelector('[data-testid="status-pill"]'), null);
+  assert.equal(page.row("Listo uno")?.querySelector('[data-testid="reception-reason"]'), null);
+});
+
+test("the boxes live only on Listos, for the owner", async () => {
+  const page = await mount();
+  const boxes = () => page.host.querySelectorAll("#reception-list input[type=checkbox]").length;
+  const slots = () => page.host.querySelectorAll('[class~="checkbox"]').length;
+  assert.equal(page.host.querySelector('[data-testid="reception-preview"]')?.getAttribute("data-selectable"), "false");
+  assert.equal(boxes(), 0);
+  assert.equal(slots(), 0, "no empty box column either");
+  await page.click(page.tab("attention"));
+  assert.equal(boxes() + slots(), 0);
+  await page.click(page.tab("listos"));
+  assert.equal(boxes(), 4, "three rows and the page box");
+});
+
+test("the row returns to the tab it was opened from", async () => {
+  const page = await mount();
+  await page.click(page.tab("listos"));
+  await page.click(box(page, "Listo uno"));
+  await page.click([...page.row("Listo dos")!.querySelectorAll<HTMLElement>("button")].at(-1));
+  assert.equal(page.opened.at(-1)?.kind, "receipt");
+  await page.remount();
+  assert.equal(page.tab("listos")?.getAttribute("aria-selected"), "true");
+  assert.equal(box(page, "Listo uno")?.checked, true);
 });
 
 test("a WhatsApp receipt shows no sender instead of one inferred from its merchant", async () => {
   const page = await mount({ tweak: receipts => receipts.map(receipt => receipt.id === "review-receipt" ? { ...receipt, channel: "whatsapp" as const, email_delivery_ids: [] } : receipt) });
+  await settings(page);
+  await toggleSender(page);
   const row = rows(page).find(item => item.textContent?.includes("Recibo admitido"))!;
   const sender = row.querySelector('[data-testid="reception-sender"]');
   assert.equal(sender?.getAttribute("data-known"), "false");
@@ -202,11 +271,9 @@ const answering = (outcome: (item: ListoItem) => Partial<ListoApproval> = () => 
   return { calls, approveListos };
 };
 
-test("only a Listos row can be selected, and the page box takes only those", async () => {
+test("the page box takes the Listos rows", async () => {
   const page = await mount();
-  assert.equal(box(page, "Recibo admitido"), null);
-  assert.equal(box(page, "Recibo con problema"), null);
-  assert.equal(box(page, "Nota admitida"), null);
+  await page.click(page.tab("listos"));
   assert.ok(box(page, "Listo uno"));
   await page.click(header(page));
   assert.deepEqual(["uno", "dos", "tres"].map(name => box(page, `Listo ${name}`)?.checked), [true, true, true]);
@@ -227,6 +294,7 @@ for (const [who, options] of [["an accountant", { role: "accountant" as const }]
 test("nothing is approved until the owner confirms the count", async () => {
   const { calls, approveListos } = answering();
   const page = await mount({ approveListos });
+  await page.click(page.tab("listos"));
   await page.click(box(page, "Listo uno"));
   await page.click(box(page, "Listo tres"));
   await page.click(approveSelected(page));
@@ -246,6 +314,7 @@ test("nothing is approved until the owner confirms the count", async () => {
 test("a second press of the confirm sends nothing more", async () => {
   const { calls, approveListos } = answering();
   const page = await mount({ approveListos });
+  await page.click(page.tab("listos"));
   await page.click(box(page, "Listo uno"));
   await page.click(approveSelected(page));
   const button = confirmButton()!;
@@ -269,6 +338,7 @@ test("Aprobar todos sits on Listos and takes every Listos row in view, past the 
 test("a new receipt or a poll leaves the selection alone, and a row that stops being Listos cannot be sent", async () => {
   const { calls, approveListos } = answering();
   const page = await mount({ approveListos });
+  await page.click(page.tab("listos"));
   await page.click(box(page, "Listo uno"));
   await page.click(box(page, "Listo dos"));
   await page.changeArrivals();
@@ -277,7 +347,7 @@ test("a new receipt or a poll leaves the selection alone, and a row that stops b
   await page.click([...page.host.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "Actualizar lista"));
   assert.equal(box(page, "Listo dos")?.checked, true, "bringing the new row in keeps it too");
   await page.demote("listo-dos");
-  await page.settle(() => box(page, "Listo dos") === null);
+  await page.settle(() => !page.row("Listo dos"));
   assert.match(page.host.querySelector('[role="region"]')?.textContent ?? "", /1 seleccionado/);
   await page.click(approveSelected(page));
   await page.click(confirmButton());
@@ -309,6 +379,7 @@ test("a partial failure says which, and those stay selected in Listos; only the 
 test("a request that fails shows what was refused, its Ref. and a way out", async () => {
   const approveListos: BusinessDataSource["approveListos"] = async () => { throw Object.assign(new Error("server"), { status: 500, code: "internal_error", requestId: "request-7f3a9c21" }); };
   const page = await mount({ approveListos });
+  await page.click(page.tab("listos"));
   await page.click(box(page, "Listo uno"));
   await page.click(approveSelected(page));
   await page.click(confirmButton());

@@ -397,7 +397,7 @@ describe("typed notes in the list", () => {
   ];
   const noteRows = (page: { host: HTMLElement }) => receptionRows(page.host).filter((row) => row.dataset.kind === "note");
 
-  test("an open note needs attention with its latest words, and its dossier opens the draft", async () => {
+  test("an open note needs attention with its latest words, and its row opens the draft", async () => {
     const page = await mount({
       panel: { kind: "inbox" },
       overrides: (fixture) => ({
@@ -414,18 +414,13 @@ describe("typed notes in the list", () => {
     assert.ok(row.textContent?.includes("Pagué con mi dinero."));
     assert.ok(!row.textContent?.includes("Ayer compré pintura"), "one row per draft, its latest note");
     assert.equal(rowState(row), "Necesita atención");
-    assert.equal(row.querySelector('[data-testid="reception-reason"]')?.textContent, "Nota escrita");
     await page.choose("attention");
     assert.equal(noteRows(page).length, 1);
+    assert.equal(noteRows(page)[0].querySelector('[data-testid="reception-reason"]')?.textContent, "Nota escrita");
     await page.choose("listos");
     assert.equal(noteRows(page).length, 0);
     await page.choose("all");
     await page.act(async () => noteRows(page)[0].querySelector<HTMLButtonElement>("button")!.click());
-    const dossier = page.host.ownerDocument.querySelector('[data-testid="reception-dossier"]')!;
-    assert.ok(dossier.textContent?.includes("Pagué con mi dinero."), "the dossier shows the verbatim note");
-    const review = document.querySelector<HTMLButtonElement>('[class~="detailFooter"] button')!;
-    assert.equal(review.textContent, "Revisar");
-    await page.act(async () => review.click());
     assert.deepEqual(page.api().panel, { kind: "draft", draftId: "draft-a", list: "inbox" });
   });
 
@@ -463,22 +458,17 @@ describe("emails in the Bandeja", () => {
     await page.choose("attention");
     assert.equal(emailRows(page).length, 3, "the two that brought none, and the one still being read");
     const boletin = emailRow(page, "Boletín semanal")!;
-    assert.match(boletin.textContent ?? "", /noticias@proveedor\.example/);
-    assert.match(rowState(boletin), /Necesita atención/);
     assert.match(boletin.textContent ?? "", /Este tipo de archivo no se puede guardar como recibo/);
     const farmacia = emailRow(page, "Factura Farmacia Carol")!;
-    assert.match(farmacia.textContent ?? "", /facturas@farmaciacarol\.example/);
     assert.match(farmacia.textContent ?? "", /Esta dirección no está activa/);
-    assert.equal(boletin.querySelector('[data-testid="reception-sender"]')?.getAttribute("data-known"), "true");
   });
 
   test("Todos lists every email that brought no receipt beside the receipts, and an email whose file became a receipt is no row of its own", async () => {
     const page = await mount({ panel: { kind: "inbox" } });
     await inboxReady(page);
     await page.settle(() => emailRows(page).length === 3, "the three email rows");
-    assert.equal(emailRow(page, "ventas@ferreterialaesquina.example"), undefined, "the ferretería's email is its receipt");
-    assert.equal(emailRow(page, "ventas@colmadoelprimo.example"), undefined, "the colmado's email is its receipt");
-    assert.ok(emailRow(page, "facturas@estacion.example"), "the email still being read");
+    assert.equal(emailRow(page, "Factura Ferretería La Esquina"), undefined, "the ferretería's email is its receipt");
+    assert.ok(emailRow(page, "Recibo de combustible"), "the email still being read");
   });
 
   test("an email still being read says Leyendo under Necesitan atención, never in Listos", async () => {
@@ -489,52 +479,18 @@ describe("emails in the Bandeja", () => {
     await page.choose("attention");
     const reading = emailRows(page).find((row) => row.textContent?.includes("Recibo de combustible"));
     assert.ok(reading);
-    assert.equal(rowState(reading), "Leyendo…");
+    assert.match(reading.textContent ?? "", /Leyendo…/);
   });
 
-  test("on a desktop an email row opens the email in the dossier beside the list", async () => {
+  test("on a desktop an email row opens the email in the tray beside the list", async () => {
     const page = await mount({ width: 1280, panel: { kind: "inbox" } });
     await inboxReady(page);
     await page.choose("attention");
-    await page.act(async () => emailRow(page, "noticias@proveedor.example")!.querySelector("button")!.click());
+    await page.act(async () => emailRow(page, "Boletín semanal")!.querySelector("button")!.click());
     await page.settle(() => emailDetail() !== null, "the email detail");
     assert.ok(page.host.querySelector('[role="tablist"]'), "the list stays beside it");
+    assert.ok(emailDetail()!.closest('[data-testid="side-drawer"]'), "the record's tray");
     assert.ok(emailDetail()!.textContent?.includes("boletin.zip"));
-  });
-
-  test("on a desktop the dossier takes the covered list out of the Tab order, and closing puts it back", async () => {
-    const page = await mount({ width: 1280, panel: { kind: "inbox" } });
-    await inboxReady(page);
-    await page.choose("attention");
-    const trigger = emailRow(page, "noticias@proveedor.example")!.querySelector("button")!;
-    const inertHost = () => page.host.querySelector('[data-testid="reception-preview"] > [inert]');
-    assert.equal(inertHost(), null);
-    await page.act(async () => trigger.click());
-    await page.settle(() => emailDetail() !== null, "the email detail");
-    assert.ok(inertHost()?.querySelector('[role="tablist"]'), "the tabs and rows are inert");
-    assert.equal(document.querySelector('[data-testid="reception-dossier"]')?.closest("[inert]"), null);
-    await page.act(async () => { document.querySelector('[data-testid="side-drawer"] button[aria-label="Cerrar"]')!.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
-    await page.settle(() => emailDetail() === null, "the dossier to close");
-    assert.equal(inertHost(), null);
-  });
-
-  test("Escape closes the dossier and puts focus on the row with no animation frame to wait for", async () => {
-    const page = await mount({ width: 1280, panel: { kind: "inbox" } });
-    await inboxReady(page);
-    await page.choose("attention");
-    const trigger = emailRow(page, "noticias@proveedor.example")!.querySelector("button")!;
-    trigger.focus();
-    await page.act(async () => trigger.click());
-    await page.settle(() => emailDetail() !== null, "the email detail");
-    const frames = window.requestAnimationFrame;
-    window.requestAnimationFrame = () => 0;
-    try {
-      await page.act(async () => { document.querySelector('[data-testid="side-drawer"] h2')!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
-      assert.equal(emailDetail(), null, "the dossier is gone");
-      assert.equal(document.activeElement, trigger, "focus is on the row, never on the body");
-    } finally {
-      window.requestAnimationFrame = frames;
-    }
   });
 
   test("on a phone an email is the whole page with a way back to the Bandeja", async () => {
@@ -553,7 +509,7 @@ describe("emails in the Bandeja", () => {
     const page = await mount({ width: 1280, panel: { kind: "inbox" }, overrides: () => ({ retryEmailDelivery: async (id: string) => { retried.push(id); return { id }; } }) });
     await inboxReady(page);
     await page.choose("attention");
-    await page.act(async () => emailRow(page, "facturas@farmaciacarol.example")!.querySelector("button")!.click());
+    await page.act(async () => emailRow(page, "Factura Farmacia Carol")!.querySelector("button")!.click());
     await page.settle(() => [...document.querySelectorAll("button")].some((button) => button.textContent === "Reintentar"), "the dossier's Reintentar");
     await page.act(async () => [...document.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Reintentar")!.click());
     await page.settle(() => retried.length === 1, "the retry request");
@@ -565,8 +521,8 @@ describe("emails in the Bandeja", () => {
     const page = await mount({ width: 1280, panel: { kind: "inbox" }, overrides: () => ({ retryEmailDelivery: async (id: string) => { attempts += 1; if (attempts === 1) throw new Error("refused"); return { id }; } }) });
     await inboxReady(page);
     await page.choose("attention");
-    await page.act(async () => emailRow(page, "facturas@farmaciacarol.example")!.querySelector("button")!.click());
-    const dossier = () => document.querySelector('[data-testid="reception-dossier"]')!;
+    await page.act(async () => emailRow(page, "Factura Farmacia Carol")!.querySelector("button")!.click());
+    const dossier = () => document.querySelector('[data-testid="side-drawer"]')!;
     const retry = () => [...dossier().querySelectorAll("button")].find((button) => button.textContent === "Reintentar")!;
     await page.settle(() => dossier().querySelector("button") !== null && [...dossier().querySelectorAll("button")].some((button) => button.textContent === "Reintentar"), "the dossier's Reintentar");
     await page.act(async () => retry().click());

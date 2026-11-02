@@ -4,7 +4,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import type { ReceiptSummary } from "@/lib/business-api";
 import type { BusinessEmailDelivery } from "@/lib/business-email";
-import { receptionRows, rowState } from "./support/reception";
+import { receptionRows, receptionTab, rowState } from "./support/reception";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost" });
@@ -57,9 +57,9 @@ describe("a receipt saved without a read never looks stuck", () => {
     const { default: BusinessInboxPanel } = await import("@/components/business-app/BusinessInboxPanel");
     const page = await mount((React) => React.createElement(BusinessInboxPanel), [receipt({ bandeja_group: { group: "attention", reason: "not_read", draft_id: null, version: null } })]);
     await page.act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
-    const row = receptionRows(page.host)[0];
-    assert.equal(rowState(row), "Necesita atención");
-    assert.equal(row.querySelector('[data-testid="reception-reason"]')?.textContent, "Guardado, sin leer");
+    assert.equal(rowState(receptionRows(page.host)[0]), "Necesita atención");
+    await page.act(async () => receptionTab(page.host, "attention")!.click());
+    assert.equal(receptionRows(page.host)[0].querySelector('[data-testid="reception-reason"]')?.textContent, "Guardado, sin leer");
     assert.ok(!page.host.textContent?.includes(HINT));
     assert.ok(!page.host.textContent?.includes("sin preparar"));
     await page.act(async () => page.root.unmount());

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, CheckCheck, ChevronDown, ChevronRight, Inbox, ListFilter, Users, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, Inbox, ListFilter, Users, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
@@ -9,10 +9,11 @@ import RecordsPreviewPopover from "../transacciones/RecordsPreviewPopover";
 import RecordsFilterSelection from "../transacciones/RecordsFilterSelection";
 import styles from "../transacciones/records-filter-preview.module.css";
 import { CHANNEL_ICON, CHANNELS } from "../foundation/channel-icons";
-import { emptyReceptionFilters, RECEPTION_VIEW_WORD, type ReceptionFiltersValue, type ReceptionState, type SenderIdentity } from "./reception-filters";
+import { emptyReceptionFilters, type ReceptionFiltersValue, type SenderIdentity } from "./reception-filters";
+import receptionStyles from "./reception.module.css";
 
 type Props = { senders: SenderIdentity[]; value: ReceptionFiltersValue; onChange: (value: ReceptionFiltersValue) => void };
-const GROUPS = ["source", "sender", "status"] as const;
+const GROUPS = ["source", "sender"] as const;
 
 function FilterEditor({ senders, value, onChange, close, phone = false }: Props & { close: () => void; phone?: boolean }) {
   const { t } = useTranslation();
@@ -39,12 +40,12 @@ function FilterEditor({ senders, value, onChange, close, phone = false }: Props 
       setGroup(GROUPS[index]);
       event.currentTarget.querySelectorAll<HTMLButtonElement>("button")[index]?.focus();
     }}>
-      {GROUPS.map(key => { const Icon = key === "source" ? Inbox : key === "sender" ? Users : CheckCheck; const active = key === "source" ? draft.channels.length > 0 : key === "sender" ? draft.senders.length > 0 : draft.states.length > 0; return <button key={key} type="button" data-group={key} role={phone ? undefined : "tab"} tabIndex={phone || group === key ? 0 : -1} aria-selected={phone ? undefined : group === key} className={styles.group} onClick={() => { navigated.current = true; setGroup(key); setChoosing(false); }}><Icon size={17} aria-hidden="true" /><span>{word(key)}</span>{active ? <span className={styles.count} aria-hidden="true">•</span> : null}{phone ? <ChevronRight size={16} aria-hidden="true" /> : null}</button>; })}
+      {GROUPS.map(key => { const Icon = key === "source" ? Inbox : Users; const active = key === "source" ? draft.channels.length > 0 : draft.senders.length > 0; return <button key={key} type="button" data-group={key} role={phone ? undefined : "tab"} tabIndex={phone || group === key ? 0 : -1} aria-selected={phone ? undefined : group === key} className={styles.group} onClick={() => { navigated.current = true; setGroup(key); setChoosing(false); }}><Icon size={17} aria-hidden="true" /><span>{word(key)}</span>{active ? <span className={styles.count} aria-hidden="true">•</span> : null}{phone ? <ChevronRight size={16} aria-hidden="true" /> : null}</button>; })}
     </div> : null}
     {!phone || !choosing ? <section className={styles.editor} role={phone ? undefined : "tabpanel"} aria-label={word(group)}>
       {phone ? <button ref={back} type="button" className={styles.clear} onClick={() => setChoosing(true)}><ArrowLeft size={18} aria-hidden="true" />{shared("back")}</button> : null}
-      <div className="flex items-center justify-between gap-3"><h3 className={styles.heading}>{word(group)}</h3><button type="button" className={styles.clear} onClick={() => setDraft({ ...draft, [group === "source" ? "channels" : group === "sender" ? "senders" : "states"]: [] })}>{word("clear_group")}</button></div>
-      {group === "source" ? <RecordsFilterSelection options={CHANNELS.map((value) => { const Icon = CHANNEL_ICON[value]; return { value, label: word(`source_${value}`), icon: <Icon size={17} aria-hidden="true" /> }; })} selected={draft.channels} onChange={channels => setDraft({ ...draft, channels })} /> : group === "status" ? <RecordsFilterSelection options={(["attention", "listos"] as const).map(value => ({ value, label: word(RECEPTION_VIEW_WORD[value]) }))} selected={draft.states} onChange={states => setDraft({ ...draft, states })} /> : <>
+      <div className="flex items-center justify-between gap-3"><h3 className={styles.heading}>{word(group)}</h3><button type="button" className={styles.clear} onClick={() => setDraft({ ...draft, [group === "source" ? "channels" : "senders"]: [] })}>{word("clear_group")}</button></div>
+      {group === "source" ? <RecordsFilterSelection options={CHANNELS.map((value) => { const Icon = CHANNEL_ICON[value]; return { value, label: word(`source_${value}`), icon: <Icon size={17} aria-hidden="true" /> }; })} selected={draft.channels} onChange={channels => setDraft({ ...draft, channels })} /> : <>
         <input type="search" className={`${styles.input} ${styles.search}`} aria-label={word("sender_search")} placeholder={word("sender_search")} value={query} onChange={event => setQuery(event.target.value)} />
         <RecordsFilterSelection options={senders.map(sender => ({ value: sender.id, label: sender.name || sender.address, description: sender.name ? sender.address : undefined }))} selected={draft.senders} query={query} keepSelectedVisible onChange={senders => setDraft({ ...draft, senders })} />
       </>}
@@ -63,17 +64,17 @@ export default function ReceptionFilters(props: Props) {
   const wasOpen = useRef(false);
   useEffect(() => { if (wasOpen.current && !open) trigger.current?.focus(); wasOpen.current = open; }, [open]);
   const label = t("business.transactions.layout.filters.title");
-  const count = Number(props.value.channels.length > 0) + Number(props.value.senders.length > 0) + Number(props.value.states.length > 0);
+  const count = Number(props.value.channels.length > 0) + Number(props.value.senders.length > 0);
   return phone ? <><button ref={trigger} type="button" className={styles.trigger} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}><ListFilter size={17} aria-hidden="true" /><span>{label}</span>{count ? <span className={styles.count}>{count}</span> : null}<ChevronDown size={16} aria-hidden="true" className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} /></button>{open ? <FilterEditor {...props} phone close={() => setOpen(false)} /> : null}</> : <RecordsPreviewPopover label={label} icon={<ListFilter size={17} aria-hidden="true" />} count={count} preferredHeight={405}>{close => <FilterEditor {...props} close={close} />}</RecordsPreviewPopover>;
 }
 
 export function ReceptionFilterChips({ value, senders, onChange }: Props) {
   const { t } = useTranslation();
   const word = (key: string) => t(`business.reception_preview.${key}`);
-  const groups = ["channels", "senders", "states"] as const;
-  return <div className={styles.chips} data-testid="reception-filter-chips">{groups.flatMap(group => value[group].map(id => {
+  const groups = ["channels", "senders"] as const;
+  return <div className={`${styles.chips} ${receptionStyles.filterChips}`} data-testid="reception-filter-chips">{groups.flatMap(group => value[group].map(id => {
     const sender = senders.find(sender => sender.id === id);
-    const label = group === "channels" ? word(`source_${id}`) : group === "states" ? word(RECEPTION_VIEW_WORD[id as ReceptionState]) : sender?.name || sender?.address || word("sender");
+    const label = group === "channels" ? word(`source_${id}`) : sender?.name || sender?.address || word("sender");
     return <button type="button" key={`${group}:${id}`} className={styles.chip} aria-label={t("business.reception_preview.remove_filter", { label })} onClick={() => onChange({ ...value, [group]: value[group].filter(item => item !== id) })}><span>{label}</span><X size={14} aria-hidden="true" /></button>;
   }))}{groups.some(group => value[group].length) ? <button type="button" className={styles.clear} onClick={() => onChange(emptyReceptionFilters())}>{word("clear")}</button> : null}</div>;
 }

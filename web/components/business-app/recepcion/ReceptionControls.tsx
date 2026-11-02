@@ -10,7 +10,7 @@ import controlStyles from "../transacciones/records-filter-preview.module.css";
 import styles from "./reception.module.css";
 
 export type ReceptionPreferences = { density: Density; source: boolean; sender: boolean; arrival: boolean; amount: boolean; currency: boolean };
-export const defaultReceptionPreferences = (): ReceptionPreferences => ({ density: "amplio", source: true, sender: true, arrival: true, amount: false, currency: false });
+export const defaultReceptionPreferences = (): ReceptionPreferences => ({ density: "amplio", source: true, sender: false, arrival: true, amount: false, currency: false });
 
 export function ReceptionSearch({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const { t } = useTranslation();

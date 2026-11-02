@@ -1,5 +1,6 @@
 import type { BusinessCapture, ListoItem, ReceiptChannel, ReceiptSummary } from "@/lib/business-api";
 import type { BusinessEmailDelivery } from "@/lib/business-email";
+import type { BusinessPanelState } from "../BusinessWorkspace";
 import { bandejaReceipts } from "../bandeja-order";
 import { bandejaEmails, openNotesByDraft, type BandejaEmail, type OpenNote } from "../inbox-count";
 
@@ -46,16 +47,12 @@ export function listoItem(row: ReceptionRow): ListoItem | null {
   return group === "listo" && draft_id && version != null ? { draft_id, version } : null;
 }
 
-/** Actions name only a next step the existing dossier supports. */
-export function receptionAction(row: ReceptionRow, canPrepare: boolean): "action_resolve" | "action_review" | "action_detail" | "action_note" {
-  if (row.kind === "note") return "action_note";
-  if (!canPrepare) return "action_detail";
-  if (row.kind === "email") return row.email.standing === "no_receipt" && row.email.delivery.retryable && !row.email.delivery.waiting ? "action_resolve" : "action_detail";
-  const { con_problema, por_revisar } = row.receipt.bandeja ?? {};
-  if (con_problema) return row.receipt.enterable || row.receipt.preparable ? "action_resolve" : "action_detail";
-  return por_revisar ? "action_review" : "action_detail";
+/** The one thing every row does: it opens its own record. */
+export function receptionTarget(row: ReceptionRow): BusinessPanelState {
+  if (row.kind === "receipt") return row.receipt.expense_id ? { kind: "expense", expenseId: row.receipt.expense_id } : { kind: "receipt", receiptId: row.id, list: "inbox" };
+  if (row.kind === "note") return { kind: "draft", draftId: row.id, list: "inbox" };
+  return { kind: "email", emailId: row.id };
 }
-
 
 /** Documents use their captured identity; delivery exceptions use their own subject or filename. */
 export function receptionDocumentTitle(row: ReceptionRow, labels: { untitled: string; pending: string; exception: string; text: string }): string {

@@ -30,7 +30,7 @@ test("a problem row's state follows a language change without losing the receipt
   const row = { kind: "receipt" as const, id: receipt.id, receivedAt: receipt.received_at, source: receipt.channel, receipt, sender: null };
   const context = { chosen: null, source: createFixtureBusinessDataSource() } as unknown as BusinessContextValue;
   try {
-    await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><ul><ReceptionArrivalRow row={row} panel={{ kind: "inbox" }} openPanel={() => undefined} preferences={defaultReceptionPreferences()} selectable={false} checked={false} unseen={false} inspecting={false} onCheck={() => undefined} onSeen={() => undefined} onInspect={() => { opened++; }} /></ul></BusinessContext.Provider></I18nextProvider>));
+    await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><ul><ReceptionArrivalRow row={row} view="all" panel={{ kind: "inbox" }} openPanel={() => { opened++; }} preferences={defaultReceptionPreferences()} selectable={false} checkable={false} checked={false} unseen={false} onCheck={() => undefined} /><ReceptionArrivalRow row={row} view="attention" panel={{ kind: "inbox" }} openPanel={() => { opened++; }} preferences={defaultReceptionPreferences()} selectable={false} checkable={false} checked={false} unseen={false} onCheck={() => undefined} /></ul></BusinessContext.Provider></I18nextProvider>));
     assert.match(state(), /^Necesita atención$/);
     assert.ok(host.textContent?.includes("No recuperamos la lectura"));
     await act(async () => { await i18n.changeLanguage("en"); });

@@ -1,12 +1,10 @@
 import { todayIso, type Period } from "../business-format";
-import { receptionMatches, receptionSender, type ReceptionRow, type ReceptionSource, type ReceptionView } from "./reception-model";
+import { receptionSender, type ReceptionRow, type ReceptionSource } from "./reception-model";
 
-export type ReceptionState = Exclude<ReceptionView, "all">;
-/** Each view's word, under `business.reception_preview`. */
-export const RECEPTION_VIEW_WORD: Record<ReceptionView | "combined", string> = { all: "all", attention: "attention", listos: "placeholder.listos", combined: "combined" };
-export type ReceptionFiltersValue = { channels: ReceptionSource[]; senders: string[]; states: ReceptionState[] };
+/** Canal and Remitente only: the tabs own status. */
+export type ReceptionFiltersValue = { channels: ReceptionSource[]; senders: string[] };
 export type SenderIdentity = { id: string; name: string | null; address: string };
-export const emptyReceptionFilters = (): ReceptionFiltersValue => ({ channels: [], senders: [], states: [] });
+export const emptyReceptionFilters = (): ReceptionFiltersValue => ({ channels: [], senders: [] });
 
 /** A known sender address is the current contract's identity, never the search input or merchant. */
 export function receptionSenderIdentity(row: ReceptionRow): SenderIdentity | null {
@@ -21,8 +19,7 @@ export function receptionSenderIdentity(row: ReceptionRow): SenderIdentity | nul
 export function receptionFilterMatches(row: ReceptionRow, filters: ReceptionFiltersValue): boolean {
   const sender = receptionSenderIdentity(row);
   return (!filters.channels.length || filters.channels.includes(row.source))
-    && (!filters.senders.length || !!sender && filters.senders.includes(sender.id))
-    && (!filters.states.length || filters.states.some(state => receptionMatches(row, state)));
+    && (!filters.senders.length || !!sender && filters.senders.includes(sender.id));
 }
 
 /** Arrival timestamp in the same local calendar used by the existing date control. */

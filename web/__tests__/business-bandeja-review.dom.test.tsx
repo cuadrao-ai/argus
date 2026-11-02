@@ -145,16 +145,17 @@ test("each tab lists the server's group, and a row says only what the server sai
     await page.settle(() => receptionRows(page.host).length === 6);
     assert.equal(rowState(row("Lista")), "Listo para aprobar");
     assert.equal(rowState(row("Sin RNC")), "Necesita atención");
-    assert.equal(reason("Sin RNC"), "Falta el RNC");
-    assert.equal(reason("Sin papel"), "Sin comprobante");
     assert.equal(rowState(row("Código nuevo")), "Necesita atención");
-    assert.equal(reason("Código nuevo"), null, "a code with no word shows no reason, never a guess");
     assert.equal(rowState(row("Leyéndose")), "Leyendo…");
     assert.equal(rowState(row("Hecha")), "Aprobado");
     await choose("listos");
     assert.deepEqual(rowTitles(page.host), ["Lista"]);
     await choose("attention");
     assert.deepEqual(rowTitles(page.host).sort(), ["Código nuevo", "Leyéndose", "Sin RNC", "Sin papel"]);
+    assert.equal(reason("Sin RNC"), "Falta el RNC");
+    assert.equal(reason("Sin papel"), "Sin comprobante");
+    assert.equal(reason("Código nuevo"), null, "a code with no word shows no reason, never a guess");
+    assert.match(row("Código nuevo").textContent ?? "", /Necesita atención/);
   } finally { await page.close(); }
 });
 
