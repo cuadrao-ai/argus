@@ -6,8 +6,6 @@ export const CONFIG: FormsConfig = {
   resendApiUrl: "https://resend.test",
   inquiryFrom: "Cuadrao <website@notify.example.test>",
   inquiryTo: "inbox@example.test",
-  supabaseUrl: "https://project.supabase.test",
-  supabaseServiceKey: "service-role-test-key",
   trustedClientIpHeader: null,
 };
 

@@ -445,12 +445,6 @@ def test_marketing_reads_only_paths_that_select_marketing_checks():
     )
 
 
-def test_marketing_tests_really_read_the_edge_function():
-    importer = ROOT / "marketing/__tests__/waitlist-scheduler.test.ts"
-    assert "../../supabase/functions/waitlist-reminders/handler" in importer.read_text()
-    assert jobs_for("supabase/functions/waitlist-reminders/handler.ts") == EVERY
-
-
 def test_manual_capture_scripts_stay_unwired():
     captures = [path for path in tracked("marketing") if MANUAL_CAPTURE.fullmatch(path)]
     assert captures

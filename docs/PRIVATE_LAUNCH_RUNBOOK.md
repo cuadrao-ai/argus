@@ -349,7 +349,7 @@ Neither name is in the `argus-api` allowed set. Setting either one makes `releas
 
 This is a hard gate. The Supabase Send Email Hook stays off until `MARKETING_POSTAL_ADDRESS` is set on every production process that sends mail required to carry a postal address, and a readback confirms the value is present, non-empty, and equal to the string Lucas approved. Do not write the string into git, chat, logs, or the manifest.
 
-The waitlist sender refuses to start without it (`marketing/lib/waitlist/runtime.ts`, `supabase/functions/waitlist-reminders/handler.ts`). Auth and account templates refuse a postal address in the body (`Postal addresses are only for waitlist mail`). The address is still required before the hook is turned on. Dashboard `cuadrao-web` builds `marketing/`. The approved string, and whether the live service already holds the name, were not read. That remains [open question 1](#open-questions-for-the-founder). The name is not an `argus-api`, business-web, or `argus-backtests` profile key, so it is not set on those services, and it is not invented into `render.yaml`.
+Auth and account templates refuse a postal address in the body (`Postal addresses are only for waitlist mail`). The address is still required before the hook is turned on. Dashboard `cuadrao-web` builds `marketing/`. The approved string, and whether the live service already holds the name, were not read. That remains [open question 1](#open-questions-for-the-founder). The name is not an `argus-api`, business-web, or `argus-backtests` profile key, so it is not set on those services, and it is not invented into `render.yaml`.
 
 ### 4. Auth email hook
 

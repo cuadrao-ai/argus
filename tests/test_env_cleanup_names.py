@@ -73,12 +73,14 @@ def test_graveyard_settings_are_grouped_and_not_hosted():
         assert not any(name in json.dumps(json.loads((root / filename).read_text())) for name in names)
 
 
-def test_waitlist_captcha_is_marketing_only_and_not_a_blueprint_declaration():
+def test_the_removed_waitlist_settings_are_not_declared():
     root = Path(__file__).resolve().parents[1]
-    names = {"CUADRAO_WAITLIST_TURNSTILE_SECRET", "CUADRAO_WAITLIST_TURNSTILE_SITE_KEY"}
-    profile = json.loads((root / ".github/private-alpha-release-profile.json").read_text())
-    for surface, service in profile["services"].items():
-        declared = set(service["env"]) | set(service["required_present"]) | set(service["optional"])
-        assert names <= declared if surface == "marketing" else not names.intersection(declared)
-    blueprint = (root / "render.yaml").read_text()
-    assert not any(name in blueprint for name in names)
+    names = (
+        "MARKETING_WAITLIST_FROM",
+        "CUADRAO_WAITLIST_ORIGIN",
+        "CUADRAO_WAITLIST_TURNSTILE_SECRET",
+        "CUADRAO_WAITLIST_TURNSTILE_SITE_KEY",
+    )
+    for filename in (".github/private-alpha-release-profile.json", "render.yaml"):
+        text = (root / filename).read_text()
+        assert not any(name in text for name in names)

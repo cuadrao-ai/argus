@@ -97,8 +97,6 @@ Set at creation. One owner each; nothing is inherited from an Argus group.
 | `RESEND_API_KEY` | key restricted to sending from `notify.cuadrao.ai` | yes | Resend |
 | `CUADRAO_INQUIRY_FROM` | `Cuadrao <website@notify.cuadrao.ai>` | no | #889 |
 | `CUADRAO_INQUIRY_TO` | `hola@cuadrao.ai` (the founder's choice, 2026-10-08) | no | the founder |
-| `SUPABASE_URL` | existing project URL | no | Supabase |
-| `SUPABASE_SERVICE_ROLE_KEY` | service-role key of the existing project | yes | Supabase |
 | `CUADRAO_SITE_INDEXING` | unset on the `onrender.com` address; `public` only at cutover | no | #891 |
 
 Secrets are typed by the founder into Render; they are never pasted into chat, commits, logs or evidence. After creation, readback lists key names and non-secret values only. PostHog and any other analytics stay unset.
@@ -181,7 +179,7 @@ After hosted acceptance and the founder's publication approval, coordinating wit
 - **Retention.** Render keeps artifacts according to the workspace plan, so only recent deploys are eligible. The first deploy cannot be rolled back to anything earlier.
 - **Data.** Rollback does not undo DNS or database writes. Registrations and suppression records are preserved. Dropping the signup table is a separate migration that must first preserve registrations.
 - **Extraction.** On integration, reverting the extraction commits restores the pre-extraction `web/` routes; on `main`, which never had them, reverting the promotion commit removes `marketing/` and its migration file and nothing else. Neither touches data.
-- **Forms.** To stop collecting without a rollback, remove `RESEND_API_KEY` or `SUPABASE_SERVICE_ROLE_KEY` in Render and restart. The affected form then shows its unavailable state and the direct email address.
+- **Forms.** To stop collecting without a rollback, remove `RESEND_API_KEY` in Render and restart. The affected form then shows its unavailable state and the direct email address.
 
 ## 9. Open founder inputs
 

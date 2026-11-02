@@ -1,21 +1,11 @@
 import { expect, test } from "bun:test";
 import { renderAccountEmail } from "../server/emails/account-layout.generated";
-import { WAITLIST_EMAILS } from "../../marketing/lib/waitlist/email-content";
 import { renderBusinessClosedEmail } from "../../marketing/lib/email/business-closed";
 import { EMAIL_TEMPLATE_SLOTS, renderTemplateSlot } from "../../marketing/lib/email/template-slots";
 import { assertEmailPresentation } from "./helpers/email-presentation";
 import { installEmailFixture } from "./helpers/email-fixture";
 installEmailFixture();
 
-for (const [name, copy] of Object.entries(WAITLIST_EMAILS)) {
-  test(`waitlist ${name} HTML/plain snapshot and light/dark AA`, () => {
-    const rendered = renderAccountEmail({title: copy.subject, paragraphs: copy.paragraphs,
-      ...("button" in copy ? {action: {label: copy.button, url: "https://cuadrao.example.test/confirm"}, expiryNote: copy.expiryNote, afterAction: copy.afterAction} : {}),
-      unsubscribeUrl: "https://cuadrao.example.test/leave"});
-    expect(rendered).toMatchSnapshot();
-    assertEmailPresentation(rendered.html, rendered.text);
-  });
-}
 for (const slot of Object.keys(EMAIL_TEMPLATE_SLOTS) as Array<keyof typeof EMAIL_TEMPLATE_SLOTS>) {
   test(`disabled slot ${slot} HTML/plain snapshot and light/dark AA`, () => {
     const rendered = renderTemplateSlot(slot, {preview: true});

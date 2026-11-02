@@ -12,7 +12,7 @@ export function brandingViolations(value) {
 }
 export function checkEmailBranding() {
   const candidates = [
-    ...files("marketing/lib/email"), ...files("marketing/lib/waitlist").filter(path => path.endsWith("email-content.ts")),
+    ...files("marketing/lib/email"),
     ...files("web/server/emails").filter(path => /renderAccountEmail|<!doctype|<html/i.test(readFileSync(resolve(root, path), "utf8")) && !path.endsWith("auth-hook.ts")),
     ...files("src/argus/domain").filter(path => /email[^/]*\.(?:py|json)$/.test(path) && /<html|<!doctype/i.test(readFileSync(resolve(root, path), "utf8"))),
     ...files("web/__tests__/__snapshots__").filter(path => /email.*\.snap$/.test(path)),
