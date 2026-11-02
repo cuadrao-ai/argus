@@ -618,7 +618,7 @@ export default function ProfileMenu({
       : "bg-[#191c1f] text-white dark:bg-white/10";
   const avatarStyle =
     accountKind === "registered"
-      ? avatarThemeStyle(profile?.avatar_theme, "ambient")
+      ? avatarThemeStyle(profile?.avatar_theme)
       : undefined;
   const handleLanguageSelect = useCallback(
     async (code: string) => {
