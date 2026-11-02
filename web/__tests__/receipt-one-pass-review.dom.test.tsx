@@ -237,8 +237,10 @@ describe("the receipt dossier on an open draft", () => {
 
   test("edits made in a row keep their order: a second save waits for the first and takes its version", async () => {
     const order: [string, number][] = [];
+    let answerFirst = () => undefined as void;
+    const firstAnswered = new Promise<void>((resolve) => { answerFirst = resolve; });
     const page = await setup("fiscal", undefined, (fixture) => ({
-      reviewDraft: async (draft, version, facts, key) => { order.push(["facts", version]); await new Promise((resolve) => setTimeout(resolve, 40)); return fixture.reviewDraft(draft, version, facts, key); },
+      reviewDraft: async (draft, version, facts, key) => { order.push(["facts", version]); await firstAnswered; return fixture.reviewDraft(draft, version, facts, key); },
       reviewFiscal: async (draft, version, review, key) => { order.push(["fiscal", version]); return fixture.reviewFiscal(draft, version, review, key); },
     }));
     try {
@@ -249,6 +251,9 @@ describe("the receipt dossier on an open draft", () => {
       await page.check("counterparty");
       assert.equal(page.action("counterparty", "Guardar").getAttribute("aria-busy"), "true", "the check shows the row working");
       await page.check("fiscal_number");
+      assert.equal(page.action("fiscal_number", "Guardar").getAttribute("aria-busy"), "true", "the second row shows it is working too");
+      assert.deepEqual(order, [["facts", 2]], "the second save has not gone out");
+      await page.act(async () => answerFirst());
       await page.wait(() => order.length === 2 && !page.host.querySelector('[data-row-open]'));
       assert.deepEqual(order, [["facts", 2], ["fiscal", 3]]);
       assert.ok(page.row("fiscal_number").textContent?.includes("E310000000777"), "the server's clean value shows");
