@@ -30,6 +30,7 @@ const receipt = (over: Partial<ReceiptSummary> & Pick<ReceiptSummary, "id" | "me
     enterable: false,
     activity: { state: "ready", unread: false, completion_cursor: null },
     bandeja: { por_revisar: true, con_problema: false, leyendo: false },
+    bandeja_group: { group: "attention", reason: "missing_ncf", draft_id: null, version: null },
     expense_id: null,
     occurred_on: null,
     amount: null,
@@ -119,6 +120,21 @@ describe("Inicio names a receipt with the Bandeja's word", () => {
         assert.match(tag(page.host, item.merchant).className, /bg-black\/5/);
         assert.equal(tag(page.host, item.merchant).className.includes("bg-[#f6dfe0]"), false);
       }
+    } finally {
+      await page.unmount();
+    }
+  });
+
+  test("the list holds the server's attention group: a Listos row is never under a count that excludes it", async () => {
+    const listo = receipt({ id: "listo", merchant: "Suplidora Lista", bandeja_group: { group: "listo", reason: null, draft_id: "draft", version: 1 } });
+    const waiting = receipt({ id: "waiting", merchant: "Taller Sin NCF" });
+    const reading = receipt({ id: "reading", merchant: "Colmado Leyendo", status: "queued", bandeja: { por_revisar: false, con_problema: false, leyendo: true }, bandeja_group: { group: "attention", reason: "reading", draft_id: null, version: null } });
+    const page = await mount([listo, waiting, reading]);
+    try {
+      const section = page.host.querySelector('[data-testid="home-needs-attention"]')!;
+      assert.equal(section.textContent?.includes("Suplidora Lista"), false);
+      assert.equal(section.textContent?.includes("Taller Sin NCF"), true);
+      assert.equal(section.textContent?.includes("Colmado Leyendo"), true, "the count includes what is still being read");
     } finally {
       await page.unmount();
     }

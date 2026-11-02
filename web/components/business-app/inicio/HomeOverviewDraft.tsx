@@ -242,9 +242,8 @@ function NeedsAttention({ c, toReview: liveToReview, retryCount }: { c: Copy; to
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const forceEmpty = sampleParam("attention") === "empty";
   const inbox = forceEmpty ? [] : records.inbox ?? [];
-  const problems = inbox.filter((r) => r.bandeja?.con_problema);
-  const review = inbox.filter((r) => r.bandeja?.por_revisar && !r.bandeja?.con_problema);
-  const all: ReceiptSummary[] = [...problems, ...review];
+  const attention = inbox.filter((r) => r.bandeja_group?.group === "attention");
+  const all: ReceiptSummary[] = [...attention.filter((r) => r.bandeja?.con_problema), ...attention.filter((r) => !r.bandeja?.con_problema)];
   const rows = all.slice(0, PREVIEW_ROWS.needs);
   const total = bandejaAttentionCount(records);
   const ready = records.inbox !== null || forceEmpty;
