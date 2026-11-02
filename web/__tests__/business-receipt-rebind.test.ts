@@ -64,7 +64,7 @@ test("the review panel's bind button calls a handler the panel defines", () => {
   // bun tests have no DOM to click in; the frontend build (tsc) is the type gate.
   // This pins the wiring so a renamed or removed handler fails here as well.
   const panel = readFileSync(join(import.meta.dir, "../components/business-app/ReceiptReviewPanel.tsx"), "utf8");
-  assert.match(panel, /const rebind = async \(\) => \{[\s\S]*await rebindAndPrepare\(source, detail\.id, show\);/);
+  assert.match(panel, /const rebind = async \(\) => \{[\s\S]*await rebindAndPrepare\(source, detail\.id, setDetail\);/);
   assert.match(panel, /data-testid="receipt-rebind"[^>]*onClick=\{\(\) => void rebind\(\)\}/);
   assert.match(panel, /t\("business\.review\.rebind_failed"/);
 });

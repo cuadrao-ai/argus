@@ -277,7 +277,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
         counterparty: scalar(receipt.merchant),
         funding: receipt.account_id ? reviewed({ kind: "business_account", account_id: receipt.account_id }) : unknown(),
         business_share: reviewed({ kind: "all" }),
-        receipt_state: reviewed(fiscal ? "fiscal_receipt" : "informal_receipt"),
+        receipt_state: reviewed(receipt.sin_comprobante ? "no_receipt" : fiscal ? "fiscal_receipt" : "informal_receipt"),
         category_id: scalar(receipt.category_id),
         fiscal: fiscal ? { rnc: scalar(fiscal.rnc), ncf: scalar(fiscal.ncf), ecf: unknown(), itbis: scalar(fiscal.itbis) } : null,
       };
@@ -288,6 +288,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
         capabilities: receipt.record_context?.capabilities ?? [], version: 1, review_state: "open", facts: current, sources: [source, action], questions: [],
         history: [{ draft_id: id, version: 1, actor, before: null, after: current, source_ids: [reviewSourceId], turn_key: null, created_at: receipt.received_at }],
         blockers: [], approval_available: true, approval_result: null,
+        sin_comprobante: receipt.sin_comprobante, personal: receipt.personal, personal_marked_by: receipt.personal_marked_by,
       });
       return id;
     },

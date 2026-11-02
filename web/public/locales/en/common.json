@@ -2757,7 +2757,6 @@
       "revision": "Revision {{version}}",
       "current_details": "Current details",
       "edit": "Edit details",
-      "save": "Save review details",
       "business_amount": "Business amount",
       "default": "Default · not verified",
       "verified": "Verified",
@@ -3053,25 +3052,16 @@
       "interest_fees": "Interest and fees"
     },
     "attention": {
-      "unreadable": "We couldn't read this receipt. Enter the details yourself or send a clearer photo.",
-      "ai_unavailable": "AI preparation isn't available right now. Your receipt is saved. Try again later or enter the details yourself.",
-      "interrupted": "Preparation stopped before it finished. Your receipt is saved. Try again or enter the details yourself.",
-      "outcome_unknown": "We couldn't recover the AI reading result. Your receipt is still saved. Try again or enter the details yourself.",
-      "no_purchase_found": "Cuadrao read this receipt but didn't find a purchase to save. Enter the details yourself.",
-      "not_a_receipt": "This doesn't look like a receipt",
-      "several_purchases": "Cuadrao couldn't match this receipt to one purchase. Enter the details yourself to save one expense.",
-      "source_unavailable": "The original file is no longer available. Enter the details yourself.",
-      "check_details": "Cuadrao couldn't read every part of this receipt. Check the details against the original before you confirm.",
-      "duplicate": "This looks like a receipt you already saved: same merchant, date and total. It won't be saved as a second expense.",
-      "other": "Something went wrong with this receipt. It is still saved. Enter the details yourself."
+      "duplicate": "This looks like a receipt you already saved: same merchant, date and total. It won't be saved as a second expense."
     },
     "file_read": {
       "unreadable_title": "We couldn't read this file",
-      "unreadable_body": "The image or PDF came out blurry, cropped, or damaged. Upload a clearer photo of the whole receipt, in good light, or enter the details yourself.",
       "not_a_receipt_title": "This doesn't look like a receipt.",
       "not_a_receipt_body": "Upload the photo or the PDF of a receipt.",
-      "upload_another": "Upload another file",
-      "enter_details": "Enter details"
+      "placeholder": {
+        "unreadable_body": "The image or PDF came out blurry, cropped, or damaged. Upload a clearer photo of the whole receipt, in good light."
+      },
+      "upload_another": "Upload another file"
     },
     "actions": {
       "add": "Add",
@@ -4083,17 +4073,13 @@
       "error": "This receipt isn't available. It may have been removed.",
       "retry": "Try again with AI",
       "retry_consent": "Trying again sends this receipt to our AI provider.",
-      "save_next": "Save and next",
       "prepare_failed": "We couldn't start preparation. Your receipt is saved. Try again.",
       "reading_off": "Turn on Read my receipts with AI in your WhatsApp settings, then try again.",
-      "needed": "Needed",
       "saved_title": "Saved expense",
       "title": "Review receipt",
       "prepare": "Prepare with AI",
       "preparing": "Reading your receipt. You can leave this page; the result will wait in your inbox.",
       "poll_stopped": "Still reading. Check the current record to see the latest state.",
-      "saved_by_hand": "Saved, unread. Press “Prepare with AI” so Cuadrao reads it, or fill it in yourself.",
-      "saved_by_hand_only": "Saved, unread. Fill it in yourself.",
       "saved_prepare_only": "Saved, unread. Press “Prepare with AI” so Cuadrao reads it.",
       "saved_waiting": "Saved, unread.",
       "merchant": "Merchant",
@@ -4103,16 +4089,12 @@
       "currency": "Currency",
       "choose": "Choose",
       "account": "Paid from",
-      "choose_account": "Choose an account",
-      "currency_mismatch": "This account uses {{account}}. Choose an account in {{receipt}} or correct the currency.",
       "evidence": "What the receipt says",
       "tax": "Tax",
       "evidence_note": "Your corrections don't change what was read from the receipt. One receipt saves one expense for its total.",
       "saved_body": "Saved as one expense of {{amount}}.",
       "view_expenses": "View expenses",
-      "confirming": "Saving…",
-      "confirm": "Confirm expense",
-      "missing": "Fill in the details marked Needed to save this expense."
+      "confirm": "Confirm expense"
     },
     "create": {
       "label": "Create"

@@ -6,7 +6,7 @@ import type {
   BusinessAccessGrant,
   BusinessAccessInvite,
 } from "@/lib/business-api";
-import { createDossierFixtures, dossierFixtureIds } from "./dossier-fixtures";
+import { createDossierFixtures } from "./dossier-fixtures";
 import type { FiscalProfile } from "@/lib/business-dgii";
 import { normalizeSearchText } from "@/lib/search-text";
 import { projectActivity, served, servedCounts, servedEmail } from "./fixture-server-rules";
@@ -103,6 +103,7 @@ function seedReceipts(): ReceiptDetail[] {
       id: "rcpt-ferreteria",
       // The owner said there is no comprobante: it counts, and stays out of the 606 and 607.
       sin_comprobante: true,
+      bandeja_group: { group: "attention", reason: "sin_comprobante", draft_id: null, version: null },
       // New since the last visit until it is opened, as the server marks it.
       activity: { state: "ready", unread: true, completion_cursor: "sample-ferreteria" },
       fiscal_known: true,
@@ -135,14 +136,13 @@ function seedReceipts(): ReceiptDetail[] {
       id: "rcpt-papeleria",
       // The owner said there is no comprobante: it counts, and stays out of the 606 and 607.
       sin_comprobante: true,
+      bandeja_group: { group: "attention", reason: "sin_comprobante", draft_id: null, version: null },
       fiscal_known: true,
       status: "review_ready",
-      draft_id: dossierFixtureIds.unprepared,
       // The accountant marked it Personal; the owner sees who and can take it back.
       personal: true,
       personal_marked_by: "Marta",
       personal_editable: true,
-      enterable: false,
       filename: "papeleria-oct.pdf",
       media_type: "application/pdf",
       received_at: daysAgo(1),
@@ -381,7 +381,7 @@ export function createFixtureBusinessDataSource(
   const sampleEmails = inbox === "empty" ? [] : SAMPLE_EMAILS;
   const { createReceiptDraft, ...dossierSource } = createDossierFixtures(ACCOUNTS);
   // Each read sample row has a draft of its own, so its review opens.
-  let receipts = inbox === "empty" ? [] : seedReceipts().map((item) => item.bandeja_group ? { ...item, draft_id: createReceiptDraft(item, { rnc: item.bandeja_group.reason === "missing_rnc" ? null : "199990021", ncf: item.fiscal_value ? `B01${item.id.length.toString().padStart(8, "0")}` : null, itbis: item.evidence?.tax ?? null }) } : item);
+  let receipts = inbox === "empty" ? [] : seedReceipts().map((item) => item.bandeja_group ? { ...item, draft_id: createReceiptDraft(item, item.sin_comprobante ? undefined : { rnc: item.bandeja_group.reason === "missing_rnc" ? null : "199990021", ncf: item.fiscal_value ? `B01${item.id.length.toString().padStart(8, "0")}` : null, itbis: item.evidence?.tax ?? null }) } : item);
   if (inbox !== "empty") void dossierSource.captureNote({ text: "Pagué 800 en efectivo por transporte.\nFue el viaje para recoger los materiales del negocio." }, "sample-note");
   let expenses = seedExpenses();
   let counter = 0;
@@ -554,9 +554,7 @@ export function createFixtureBusinessDataSource(
       for (const item of receipts) if (item.id === id || item.draft_id === id) replace({ ...item, personal, personal_marked_by: null });
       for (const item of expenses) if (item.receipt_id === id || item.draft_id === id) Object.assign(item, { personal, personal_marked_by: null });
       void version;
-      // The sample receipt behind an unprepared draft has no record to answer with; a ready one stands in.
-      const record = await dossierSource.dossier(id).catch(() => dossierSource.dossier(dossierFixtureIds.ready));
-      return { ...record, personal, personal_marked_by: null };
+      return { ...await dossierSource.dossier(id), personal, personal_marked_by: null };
     },
     decideFiscalInclusion: async (id, version, include) => {
       await delay();
@@ -646,7 +644,7 @@ export function createFixtureBusinessDataSource(
         version: current.version + 1,
         missing_fields: missing(merged),
       };
-      return served(replace({ ...reviewed, draft_id: current.draft_id === dossierFixtureIds.unprepared ? current.draft_id : createReceiptDraft(reviewed) }));
+      return served(replace({ ...reviewed, draft_id: createReceiptDraft(reviewed) }));
     },
     confirmReceipt: async (id, version) => {
       await delay(400);

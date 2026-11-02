@@ -74,33 +74,11 @@ export function useCategoryLabel() {
       : t("business.category.none", "No category");
 }
 
-/** Each message names the cause and the next step the backend allows. */
-export function useAttentionLabel() {
-  const { t } = useTranslation();
-  return (attention: ReceiptAttention | null) =>
-    attention
-      ? ({
-          unreadable: t("business.attention.unreadable", "We couldn't read this receipt. Enter the details yourself or send a clearer photo."),
-          ai_unavailable: t("business.attention.ai_unavailable", "AI preparation isn't available right now. Your receipt is saved. Try again later or enter the details yourself."),
-          interrupted: t("business.attention.interrupted", "Preparation stopped before it finished. Your receipt is saved. Try again or enter the details yourself."),
-          outcome_unknown: t("business.attention.outcome_unknown", "We couldn't recover the AI reading result. Your receipt is still saved. Try again or enter the details yourself."),
-          no_purchase_found: t("business.attention.no_purchase_found", "Cuadrao read this receipt but didn't find a purchase to save. Enter the details yourself."),
-          not_a_receipt: t("business.attention.not_a_receipt", "This doesn't look like a receipt"),
-          several_purchases: t("business.attention.several_purchases", "Cuadrao couldn't match this receipt to one purchase. Enter the details yourself to save one expense."),
-          source_unavailable: t("business.attention.source_unavailable", "The original file is no longer available. Enter the details yourself."),
-          check_details: t("business.attention.check_details", "Cuadrao couldn't read every part of this receipt. Check the details against the original before you confirm."),
-          duplicate: t("business.attention.duplicate", "This looks like a receipt you already saved: same merchant, date and total. It won't be saved as a second expense."),
-          other: t("business.attention.other", "Something went wrong with this receipt. It is still saved. Enter the details yourself."),
-        } satisfies Record<ReceiptAttention, string>)[attention]
-      : "";
-}
-
-/** Title and body for a terminal read. Other attention values keep the one-line label. */
+/** Title and body for a terminal read. Other attention values keep their short word. */
 export function useTerminalRead() {
   const { t } = useTranslation();
   return (attention: ReceiptAttention | null, errorCode: string | null) => {
     const uploadLabel = t("business.file_read.upload_another", "Upload another file");
-    const enterLabel = t("business.file_read.enter_details", "Enter details");
     if (
       attention === "unreadable" &&
       (errorCode === "unreadable_document" || errorCode === "receipt_requires_review")
@@ -108,12 +86,11 @@ export function useTerminalRead() {
       return {
         title: t("business.file_read.unreadable_title", "We couldn't read this file"),
         body: t(
-          "business.file_read.unreadable_body",
-          "The image or PDF came out blurry, cropped, or damaged. Upload a clearer photo of the whole receipt, in good light, or enter the details yourself.",
+          "business.file_read.placeholder.unreadable_body",
+          "The image or PDF came out blurry, cropped, or damaged. Upload a clearer photo of the whole receipt, in good light.",
         ),
         upload: true,
         uploadLabel,
-        enterLabel,
       };
     }
     if (attention === "not_a_receipt") {
@@ -125,7 +102,6 @@ export function useTerminalRead() {
         ),
         upload: true,
         uploadLabel,
-        enterLabel,
       };
     }
     return null;

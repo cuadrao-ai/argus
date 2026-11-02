@@ -150,7 +150,7 @@ function notReceipt(): ReceiptSummary {
   };
 }
 
-test("a client's record for a file that is not a receipt says so and offers Subir otro archivo first, then Escribir datos", async () => {
+test("a client's record for a file that is not a receipt says so and offers Subir otro archivo", async () => {
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { liveBusinessDataSource } = await import("@/components/business-app/business-data");
   const { default: ReceiptReviewPanel } = await import("@/components/business-app/ReceiptReviewPanel");
@@ -164,10 +164,66 @@ test("a client's record for a file that is not a receipt says so and offers Subi
     assert.equal(notice?.querySelector(".font-medium")?.textContent, "Esto no parece un recibo.");
     assert.equal(notice?.textContent?.includes("borroso"), false);
     const labels = [...notice!.querySelectorAll("button")].map((button) => button.textContent);
-    assert.deepEqual(labels, ["Subir otro archivo", "Escribir datos"], "a prepare grant can upload another file, and upload comes first");
+    assert.deepEqual(labels, ["Subir otro archivo"], "a prepare grant can upload another file");
     await page.act(async () => page.button("Subir otro archivo")!.click());
     assert.deepEqual(page.uploads, ["upload"]);
   } finally {
     await page.close();
+  }
+});
+
+const UNREAD_NEEDS = ["account_id", "amount", "currency", "occurred_on"];
+const failedRead = { attention: "unreadable", error_code: "encrypted_document", preparable: false, enterable: true, version: 0, draft_id: null, missing_fields: UNREAD_NEEDS, activity: { state: "read_failed", unread: false, completion_cursor: null } };
+const NO_DRAFT = [
+  ["a failed read", failedRead],
+  ["a read that can be retried", { ...failedRead, attention: "ai_unavailable", error_code: "extraction_provider_failed", preparable: true }],
+  ["a hand-off that stopped", { ...failedRead, attention: "interrupted", error_code: "business_preparation_binding_missing", preparable: true }],
+] as const;
+
+for (const [name, state] of NO_DRAFT) {
+  test(`${name} with no draft shows the original and its reason, and asks for no Categoría or Pagado desde`, async () => {
+    const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+    const { liveBusinessDataSource } = await import("@/components/business-app/business-data");
+    const { default: ReceiptReviewPanel } = await import("@/components/business-app/ReceiptReviewPanel");
+    const base = await createFixtureBusinessDataSource().receipt("rcpt-blurry");
+    const detail = { ...base, ...notReceipt(), ...state } as ReceiptDetail;
+    const page = await render(() => <ReceiptReviewPanel target={{ kind: "receipt", id: detail.id }} />, { source: { ...liveBusinessDataSource, receipt: async () => detail } });
+    try {
+      assert.ok(page.host.querySelector('[data-testid="receipt-attention"]'), "the reason");
+      assert.ok(page.host.querySelector('[data-testid="receipt-review-source"]'), "the original");
+      assert.equal(page.host.querySelector('[data-testid="receipt-review-fields"] input, [data-testid="receipt-review-fields"] select'), null);
+      assert.equal(/Pagado desde|Categoría|Guardar/.test(page.host.textContent ?? ""), false);
+    } finally {
+      await page.close();
+    }
+  });
+}
+
+test("a record the server has not prepared falls back to the same plain state", async () => {
+  const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+  const { liveBusinessDataSource } = await import("@/components/business-app/business-data");
+  const { default: ReceiptReviewPanel } = await import("@/components/business-app/ReceiptReviewPanel");
+  const base = await createFixtureBusinessDataSource().receipt("rcpt-blurry");
+  const detail = { ...base, ...notReceipt(), status: "review_ready", attention: null, error_code: null, enterable: false, draft_id: dossierFixtureIds.unprepared } as ReceiptDetail;
+  const fixtures = createDossierFixtures(accounts);
+  const page = await render(() => <ReceiptReviewPanel target={{ kind: "receipt", id: detail.id }} />, { source: { ...liveBusinessDataSource, receipt: async () => detail, dossier: fixtures.dossier } });
+  try {
+    assert.ok(page.button("Consultar registro actual"), "a way to check again");
+    assert.equal(page.host.querySelector('[data-testid="receipt-review-fields"] input, [data-testid="receipt-review-fields"] select'), null);
+    assert.equal(/Pagado desde|Categoría/.test(page.host.textContent ?? ""), false);
+  } finally {
+    await page.close();
+  }
+});
+
+test("the sample's first row and Papelería Central open their dossier", async () => {
+  const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+  const source = createFixtureBusinessDataSource({ chatAvailable: false });
+  for (const [id, name] of [["rcpt-ferreteria", "Ferretería La Esquina"], ["rcpt-papeleria", "Papelería Central"]]) {
+    const receipt = await source.receipt(id);
+    assert.ok(receipt.draft_id, id);
+    const dossier = await source.dossier(receipt.draft_id);
+    assert.equal(dossier.sin_comprobante, true, id);
+    assert.equal(dossier.facts.counterparty.value, name);
   }
 });

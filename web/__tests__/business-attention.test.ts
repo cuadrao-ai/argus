@@ -28,7 +28,7 @@ describe("Business receipt attention", () => {
 
   test("every category has owner copy in es-419 and English, without em dashes", () => {
     for (const locale of [es419, en]) {
-      const copy = locale.business.attention as Record<string, string>;
+      const copy = locale.business.attention_short as Record<string, string>;
       expect(Object.keys(copy).sort()).toEqual([...RECEIPT_ATTENTIONS].sort());
       for (const text of Object.values(copy)) expect(text).not.toContain("—");
     }
