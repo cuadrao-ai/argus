@@ -85,7 +85,7 @@ async function main(): Promise<void> {
     const target = new URL(location, origin);
     record(`redirect ${redirect.source}`, response.status === 308 && target.host === originHost && target.pathname === redirect.destination, `got ${response.status} to ${location}`);
   }
-  for (const [from, to] of [["/EN", "/en"], ["/en/Personal", "/en/personal"]]) {
+  for (const [from, to] of [["/EN", "/en"], ["/en/Contact", "/en/contact"]]) {
     const response = await get(from);
     const target = new URL(response.headers.get("location") ?? "", origin);
     record(`case redirect ${from}`, response.status === 308 && target.host === originHost && target.pathname === to, `got ${response.status}`);

@@ -1,15 +1,15 @@
 export const SITE_ORIGIN = "https://cuadrao.ai";
 
 export const LOCALES = ["es", "en"] as const;
-export const PAGES = ["home", "personal", "contact", "privacy", "terms", "deletion"] as const;
+export const PAGES = ["home", "contact", "privacy", "terms", "deletion"] as const;
 
 export type BusinessLocale = (typeof LOCALES)[number];
 export type BusinessPage = (typeof PAGES)[number];
 
 // A null slug keeps an untranslated page out of that locale.
 const SLUGS: Record<BusinessLocale, Record<BusinessPage, string | null>> = {
-  es: { home: "", personal: "personal", contact: "contacto", privacy: "privacidad", terms: "terminos", deletion: "eliminar-datos" },
-  en: { home: "", personal: "personal", contact: "contact", privacy: "privacy", terms: "terms", deletion: "delete-data" },
+  es: { home: "", contact: "contacto", privacy: "privacidad", terms: "terminos", deletion: "eliminar-datos" },
+  en: { home: "", contact: "contact", privacy: "privacy", terms: "terms", deletion: "delete-data" },
 };
 
 const HTML_LANG: Record<BusinessLocale, string> = { es: "es-DO", en: "en" };
@@ -99,11 +99,14 @@ type Redirect = { source: string; destination: string; permanent: true };
 // Marketing lived under /business while it shared the legacy web package.
 const LEGACY_PAGE: Record<string, { locale: BusinessLocale; page: BusinessPage }> = {
   "/business": { locale: "es", page: "home" },
-  "/business/personal": { locale: "es", page: "personal" },
+  "/business/personal": { locale: "es", page: "home" },
   "/business/demo": { locale: "es", page: "contact" },
   "/business/en": { locale: "en", page: "home" },
-  "/business/en/personal": { locale: "en", page: "personal" },
+  "/business/en/personal": { locale: "en", page: "home" },
   "/business/en/demo": { locale: "en", page: "contact" },
+  "/personal": { locale: "es", page: "home" },
+  "/es/personal": { locale: "es", page: "home" },
+  "/en/personal": { locale: "en", page: "home" },
 };
 
 export function nextRedirects(): Redirect[] {

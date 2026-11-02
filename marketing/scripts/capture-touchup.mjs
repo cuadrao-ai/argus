@@ -31,8 +31,6 @@ try {
   for (const [route, name] of [
     ["/", "business-es"],
     ["/en", "business-en"],
-    ["/personal", "personal-es"],
-    ["/en/personal", "personal-en"],
     ["/contacto", "contact-es"],
     ["/en/contact", "contact-en"],
     ["/privacidad", "privacy-es"],

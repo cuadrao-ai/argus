@@ -13,6 +13,10 @@ import legal from "./legal.module.css";
 export type LegalPageName = "privacy" | "terms" | "deletion";
 const slugs = { privacy: "privacidad", terms: "terminos", deletion: "eliminar-datos" } as const;
 
+function shown(text: string): string {
+  return text.replace(/^(?:Vigente desde|Effective): .+? (?=(?:Última actualización|Last updated): )/, "");
+}
+
 function inline(text: string): ReactNode[] {
   return text.split(/(\*\*.*?\*\*|hola@cuadrao\.ai|\/eliminar-datos)/g).map((part, index) => {
     if (part.startsWith("**")) return <strong key={index}>{part.slice(2, -2)}</strong>;
@@ -39,11 +43,11 @@ export function LegalPage({ page, locale = "es" }: { page: LegalPageName; locale
               const List = block.kind === "ordered" ? "ol" : "ul";
               return <List key={index}>{block.items.map((item) => <li key={item}>{inline(item)}</li>)}</List>;
             }
-            return <p key={index}>{inline(block.text ?? "")}</p>;
+            return <p key={index}>{inline(shown(block.text ?? ""))}</p>;
           })}
         </article>
       </main>
-      <BusinessFooter locale={locale} showClosing={false} business />
+      <BusinessFooter locale={locale} showClosing={false} />
     </div>
   );
 }
