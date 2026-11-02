@@ -164,7 +164,13 @@ export function useReviewAutosave({ source, draftId, dossier, fields, label, onS
 export function useReviewRows({ dossier, autosave }: { dossier: BusinessDossier | null; autosave: ReturnType<typeof useReviewAutosave> }) {
   const [rows, setRows] = useState<Partial<Record<ReviewRow, OpenRow>>>({});
 
-  const focusRow = (row: ReviewRow, control: string) => requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-fact="${row}"] ${control}`)?.focus());
+  const focusRow = (row: ReviewRow, control: string) => requestAnimationFrame(() => {
+    const target = document.querySelector<HTMLElement>(`[data-fact="${row}"]`);
+    const active = document.activeElement;
+    // Saves land late, so the person may already be typing somewhere else.
+    if (active && active !== document.body && !target?.contains(active)) return;
+    target?.querySelector<HTMLElement>(control)?.focus();
+  });
   const close = (row: ReviewRow) => {
     setRows((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key !== row)));
     focusRow(row, "button");
