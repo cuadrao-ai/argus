@@ -2,8 +2,7 @@
 declaration keeps a person's values and takes only the Tipo Id and Forma de
 Pago it left unknown from the account that paid, a person adds any 606 data on
 the approved record and the export carries it, a line in a downloaded TXT
-freezes that declaration with a clear code, and the export-line table is
-server-only."""
+stays editable, and the export-line table is server-only."""
 
 from __future__ import annotations
 
@@ -247,7 +246,7 @@ def test_approval_fills_only_what_a_saved_declaration_left_unknown(actions):  # 
     assert owner.dgii.category is None
 
 
-def test_606_data_is_added_after_approval_until_the_line_is_exported(actions):  # noqa: ANN001
+def test_606_data_is_added_after_approval_and_after_an_export(actions):  # noqa: ANN001
     service, context, _ = actions
     set_profile(service.authority, context, filer_change(FILER), "rnc")
     cash = account_funding(cash_account(service, context))
@@ -296,12 +295,12 @@ def test_606_data_is_added_after_approval_until_the_line_is_exported(actions):  
     assert export_lines(service, context) == [(placed["activity_id"], "606", "202609")]
 
     view = service.dossier(context, draft_id)
-    assert view.declaration_editable is False
-    frozen = declared(service, context, draft_id, view.version, payment_method="04")
-    assert frozen.code == "fiscal_declaration_exported"
+    assert view.declaration_editable is True
+    edited = declared(service, context, draft_id, view.version, payment_method="04")
+    assert edited.outcome == "applied", edited
     after = service.dossier(context, draft_id)
-    assert after.dgii.payment_method == "01"
-    assert len(after.history) == len(view.history)
+    assert after.dgii.payment_method == "04"
+    assert len(after.history) == len(view.history) + 1
 
 
 def test_a_record_the_old_approval_left_blank_takes_the_whole_606(actions):  # noqa: ANN001
