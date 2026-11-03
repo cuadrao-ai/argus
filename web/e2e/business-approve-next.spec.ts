@@ -25,8 +25,7 @@ for (const theme of ["light", "dark"] as const) {
       }
       await reviewAction(page, /Ferretería La Esquina/).click();
 
-      await page.getByLabel("Pagado desde").selectOption({ index: 1 });
-      await page.getByRole("button", { name: "Guardar detalles de revisión", exact: true }).click();
+      await expect(page.getByLabel("Pagado desde")).toHaveCount(0);
       const next = page.getByRole("button", { name: /^Aprobar y siguiente/ });
       await expect(next).toBeEnabled();
       await expect(page.getByRole("button", { name: "Aprobar", exact: true })).toBeEnabled();
@@ -36,8 +35,11 @@ for (const theme of ["light", "dark"] as const) {
       await next.click();
       await expect(page).toHaveURL(/receipt=rcpt-papeleria/);
       await expect(page.getByRole("heading", { name: "Papelería Central" })).toBeVisible();
-      await expect(page.getByLabel("Comercio o persona", { exact: true })).toHaveValue("Papelería Central");
-      if (viewport.name === "desktop") await expect(badge).toHaveText(String(waiting - 1));
+      await expect(page.getByTestId("receipt-current-facts")).toContainText("Papelería Central");
+      if (viewport.name === "desktop") {
+        test.info().annotations.push({ type: "issue", description: "The preview keeps the approved receipt in Bandeja when no funding account is set." });
+        await expect(badge).toHaveText(String(waiting - 1));
+      }
       await capture(page, `next-receipt-${theme}-${viewport.name}`);
     });
   }
