@@ -136,10 +136,19 @@ def _upload(
     *,
     occurred_on: str = "2026-09-03",
     total: str = "1180.00",
+    unsure: bool = False,
 ) -> dict:
-    """One read receipt: the stub prints ``rnc`` as the RNC the read found."""
+    """One read receipt: the stub prints ``rnc`` as the RNC the read found.
+    ``unsure`` reads it without knowing whether money went out or came in."""
 
-    world.stub.rows = [{**PURCHASE, "amount": total, "occurred_on": occurred_on}]
+    world.stub.rows = [
+        {
+            **PURCHASE,
+            "amount": total,
+            "occurred_on": occurred_on,
+            **({"direction": "unknown", "kind_hint": "unknown"} if unsure else {}),
+        }
+    ]
     world.stub.details = {
         **DETAILS,
         "occurred_on": occurred_on,
@@ -517,3 +526,146 @@ def test_a_read_only_grant_sees_the_type_and_cannot_change_it(web) -> None:  # n
         headers={**reader, "Idempotency-Key": str(uuid4())},
     )
     assert refused.status_code == 403, refused.text
+
+
+def _report(world, **filters) -> list:  # noqa: ANN001
+    found = world.client.post(
+        f"{API}/business/reports/query",
+        json={"filters": filters, "page_size": 100},
+        headers=world.alice.headers,
+    )
+    assert found.status_code == 200, found.text
+    return found.json()["items"]
+
+
+def _family(world, draft_id: str) -> tuple:  # noqa: ANN001
+    """The draft's Registros family, and the family filters that list it."""
+
+    [row] = [row for row in _report(world) if row["draft_id"] == draft_id]
+    listed = tuple(
+        family
+        for family in ("purchase", "sale")
+        if draft_id
+        in [row["draft_id"] for row in _report(world, record_families=[family])]
+    )
+    return row["family"], listed
+
+
+def _dgii(world) -> tuple:  # noqa: ANN001
+    exported = world.client.get(
+        f"{API}/business/exports",
+        params={"start": "2026-09-01", "end": "2026-09-30"},
+        headers=world.alice.headers,
+    )
+    assert exported.status_code == 200, exported.text
+    with ZipFile(io.BytesIO(exported.content)) as archive:
+        dgii = json.loads(archive.read("manifest.json"))["dgii"]
+    return (
+        {
+            item["draft_id"]: (item["kind"], item["disposition"])
+            for item in dgii["reconciliation"]
+        },
+        dgii["forms"]["606"]["record_count"],
+        dgii["forms"]["607"]["record_count"],
+    )
+
+
+def test_the_kind_a_person_picks_sets_the_type_and_the_record_files_as_a_sale(
+    web,  # noqa: ANN001
+) -> None:
+    """A receipt read unsure of its direction, which the owner says is income:
+    one answer, a Venta, in Registros' sales and on the 607 only."""
+
+    _own_rnc(web)
+    account = _account(web)
+    draft = _upload(
+        web, CLIENT_RNC, occurred_on="2026-09-16", total="2360.00", unsure=True
+    )["draft_id"]
+    before = _dossier(web, draft)
+    assert _typed(before) == ("recibo", True, True)
+    assert before["facts"]["kind"]["state"] == "unknown"
+    assert {"code": "fact_required", "field": "kind"} in before["blockers"]
+
+    picked = _review(
+        web, draft, {"facts": {"kind": {"state": "known", "value": "income"}}}
+    )
+    assert picked.status_code == 200, picked.text
+    assert _typed(picked.json()) == ("venta", False, True)
+    assert picked.json()["facts"]["kind"]["value"] == "income"
+    assert _family(web, draft) == ("sale", ("sale",))
+
+    reviewed = _review(
+        web,
+        draft,
+        {"facts": _facts("income", "2360.00", "2026-09-16", account), "dgii": SALE_607},
+    )
+    assert reviewed.status_code == 200, reviewed.text
+    _approve(web, draft, "record_income")
+    assert _family(web, draft) == ("sale", ("sale",))
+    assert _dgii(web) == ({draft: ("income", "607")}, 0, 1)
+
+
+def test_a_kind_and_a_type_that_disagree_are_refused(web) -> None:  # noqa: ANN001
+    draft = _upload(web, SUPPLIER_RNC, unsure=True)["draft_id"]
+    for body in (
+        {
+            "facts": {"kind": {"state": "known", "value": "income"}},
+            "document_type": "recibo",
+        },
+        {
+            "facts": {"kind": {"state": "known", "value": "expense"}},
+            "document_type": "venta",
+        },
+        {"facts": {"kind": {"state": "known", "value": "transfer"}}},
+    ):
+        refused = _review(web, draft, body)
+        assert (refused.status_code, refused.json()["code"]) == (
+            422,
+            "activity_kind_unsupported",
+        ), body
+    assert _typed(_dossier(web, draft)) == ("recibo", True, True)
+
+
+def test_a_draft_saved_with_two_answers_is_held_until_one_is_chosen(
+    web,  # noqa: ANN001
+) -> None:
+    """A receipt saved as income before the type owned the kind: never approved
+    as it stands, and the owner's kind choice settles it."""
+
+    _own_rnc(web)
+    account = _account(web)
+    draft = _upload(web, CLIENT_RNC, occurred_on="2026-09-16", total="2360.00")[
+        "draft_id"
+    ]
+    reviewed = _review(
+        web,
+        draft,
+        {"facts": _facts("expense", "2360.00", "2026-09-16", account)},
+    )
+    assert reviewed.status_code == 200, reviewed.text
+    with Connection.connect(shared.DSN) as db:
+        db.execute(
+            "update public.financial_import_events set resolution=jsonb_set("
+            "resolution,'{business,facts,kind,value}','\"income\"') where id=%s",
+            (draft,),
+        )
+    held = _dossier(web, draft)
+    assert (held["document_type"], held["facts"]["kind"]["value"]) == ("recibo", "income")
+    assert {"code": "activity_kind_unsupported", "field": "kind"} in held["blockers"]
+    assert held["approval_available"] is False
+    refused = web.client.post(
+        f"{API}/business/drafts/{draft}/approve",
+        json={"version": held["version"], "action": "record_income"},
+        headers=_headers(web),
+    )
+    assert (refused.status_code, refused.json()["code"]) == (
+        422,
+        "activity_kind_unsupported",
+    )
+
+    chosen = _review(
+        web, draft, {"facts": {"kind": {"state": "known", "value": "income"}}}
+    )
+    assert chosen.status_code == 200, chosen.text
+    assert _typed(chosen.json()) == ("venta", False, True)
+    assert chosen.json()["approval_available"] is True, chosen.json()["blockers"]
