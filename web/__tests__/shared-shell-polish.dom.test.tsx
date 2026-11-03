@@ -75,7 +75,7 @@ describe("sidebar header toggle label", () => {
   }
 });
 
-describe("Controles de datos danger group", () => {
+describe("Controles de datos in Ajustes", () => {
   async function mountOpenDataMenu(calls: string[]) {
     const { act } = await import("react");
     const { createRoot } = await import("react-dom/client");
@@ -99,7 +99,7 @@ describe("Controles de datos danger group", () => {
       );
     });
     const trigger = Array.from(document.body.querySelectorAll("button")).find((b) =>
-      b.textContent?.includes("Controles de datos"),
+      b.textContent?.trim() === "Ajustes",
     )!;
     await act(async () => {
       trigger.click();
@@ -108,32 +108,25 @@ describe("Controles de datos danger group", () => {
     return { act, host };
   }
 
-  test("Usage, a separator, then delete account, with no delete-all row", async () => {
+  test("Usage, Security, then delete account last, with no delete-all row", async () => {
     const calls: string[] = [];
     await mountOpenDataMenu(calls);
-    const usageButton = Array.from(document.body.querySelectorAll("button")).find(
-      (b) => b.textContent?.trim().startsWith("Uso"),
-    )!;
-    const rows = Array.from(usageButton.parentElement!.querySelectorAll(":scope > button, :scope > [role=separator]"));
-    const index = (text: string) =>
-      rows.findIndex((n) => n.textContent?.trim().startsWith(text));
-    const usage = index("Uso");
-    const deleteAccount = index("Eliminar cuenta");
-    const separator = rows.findIndex((n) => n.getAttribute("role") === "separator" && rows.indexOf(n) > usage);
-    assert.equal(index("Eliminar todas las conversaciones"), -1);
-    assert.ok(usage > -1 && deleteAccount > -1, "rows present");
-    assert.ok(separator > usage, "a separator follows Usage");
-    assert.ok(separator < deleteAccount, "the separator sits above delete account");
-    assert.equal(rows.length - 1, deleteAccount, "nothing follows delete account");
-    assert.deepEqual(calls, []);
+    const rows = Array.from(document.body.querySelectorAll("[data-settings-row]")).map((row) => row.textContent?.trim());
+    const usage = rows.indexOf("Uso");
+    const security = rows.indexOf("Seguridad");
+    const deleteAccount = rows.indexOf("Eliminar cuenta");
+    assert.equal(rows.indexOf("Eliminar todas las conversaciones"), -1);
+    assert.ok(usage > -1 && security > usage, "Security follows Usage");
+    assert.equal(deleteAccount, rows.length - 1, "nothing follows delete account");
+    assert.deepEqual(calls, ["close"], "the menu closes under Ajustes");
   });
 
   test("Eliminar cuenta opens its confirm dialog and requests nothing", async () => {
     const calls: string[] = [];
     const originalFetch = globalThis.fetch;
     const fetched: string[] = [];
-    globalThis.fetch = (async (input: unknown) => {
-      fetched.push(String(input));
+    globalThis.fetch = (async (input: unknown, init?: RequestInit) => {
+      fetched.push(`${init?.method ?? "GET"} ${String(input)}`);
       return new Response("{}");
     }) as typeof fetch;
     const { act } = await mountOpenDataMenu(calls);
@@ -144,7 +137,7 @@ describe("Controles de datos danger group", () => {
     try {
       await act(async () => account.click());
       assert.ok(document.querySelector("[role=dialog],[aria-modal=true]"), "confirm dialog is open");
-      assert.equal(fetched.length, before, "opening the dialog sends no deletion request");
+      assert.deepEqual(fetched.slice(before).filter((call) => !call.startsWith("GET ")), [], "opening the dialog only reads; it sends no deletion request");
     } finally {
       globalThis.fetch = originalFetch;
     }

@@ -1,9 +1,9 @@
 "use client";
 
-import { Layout, LayoutPanelLeft, MousePointer2 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useTranslation } from "react-i18next";
-import AdaptivePanel from "@/components/ui/AdaptivePanel";
-import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { AppMiniature, PreviewChoice } from "@/components/settings/PreviewChoice";
+import SettingsSurface from "@/components/settings/SettingsSurface";
 
 export type SidebarMode = "expanded" | "collapsed" | "hover";
 
@@ -28,10 +28,11 @@ export default function SidebarPreferenceModal({
   backLabel,
 }: SidebarPreferenceModalProps) {
   const { t } = useTranslation();
+  const tone = useTheme().resolvedTheme === "light" ? "light" : "dark";
 
   // The rail changes beside the sheet as it is picked, so the sheet stays open.
   return (
-    <AdaptivePanel
+    <SettingsSurface
       title={t("settings.sidebar.title")}
       closeLabel={t("settings.sidebar.close")}
       onClose={onClose}
@@ -39,24 +40,22 @@ export default function SidebarPreferenceModal({
       backLabel={backLabel}
       width="sm"
     >
-      <p className="px-5 pt-3 text-[13px] text-[#56635e] dark:text-white/70">
+      <p className="px-5 pt-3 text-[14px] text-[#56635e] dark:text-white/70">
         {t("settings.sidebar.description")}
       </p>
       <div className="p-4">
-        <SegmentedControl
-          fill
-          stacked
+        <PreviewChoice<SidebarMode>
           testId="sidebar-mode-options"
           label={t("settings.sidebar.title")}
           value={mode}
           onChange={onSelect}
-          segments={[
-            { key: "expanded", label: t("settings.sidebar.expanded"), icon: Layout },
-            { key: "collapsed", label: t("settings.sidebar.collapsed"), icon: LayoutPanelLeft },
-            ...(!business ? [{ key: "hover" as const, label: t("settings.sidebar.hover"), icon: MousePointer2 }] : []),
+          options={[
+            { key: "expanded", label: t("settings.sidebar.expanded"), preview: <AppMiniature tone={tone} /> },
+            { key: "collapsed", label: t("settings.sidebar.collapsed"), preview: <AppMiniature tone={tone} rail="icons" /> },
+            ...(!business ? [{ key: "hover" as const, label: t("settings.sidebar.hover"), preview: <AppMiniature tone={tone} rail="icons" /> }] : []),
           ]}
         />
       </div>
-    </AdaptivePanel>
+    </SettingsSurface>
   );
 }

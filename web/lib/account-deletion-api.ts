@@ -19,6 +19,58 @@ export async function deleteAccount() {
   });
 }
 
+/** Why the server refuses to delete this account right now. An open Business
+ * the person owns is named, one entry each; any other reason is not_allowed. */
+export type AccountDeletionBlocker =
+  | { kind: "business_owner"; business_id: string; business_name: string }
+  | { kind: "not_allowed" };
+
+/** Something the person should know before deleting, which never blocks it:
+ * a closed Business still inside its reopen window, purged at purge_at. */
+export type AccountDeletionNotice = { kind: "closed_business"; business_id: string; business_name: string; purge_at: string };
+
+/** The server's delete rule, read before the alert offers Eliminar. off: the
+ * read is switched off here (404), so the alert keeps the support-ticket path. */
+export type AccountDeletionEligibility =
+  | { allowed: true; blockers: []; notices: AccountDeletionNotice[] }
+  | { allowed: false; blockers: AccountDeletionBlocker[]; notices: AccountDeletionNotice[] }
+  | { off: true };
+
+function blockerFrom(raw: unknown): AccountDeletionBlocker {
+  const value = raw as { kind?: unknown; business_id?: unknown; business_name?: unknown } | null;
+  if (value?.kind === "business_owner" && typeof value.business_id === "string" && typeof value.business_name === "string") {
+    return { kind: "business_owner", business_id: value.business_id, business_name: value.business_name };
+  }
+  // An unknown reason still refuses; the alert never offers what the server did not allow.
+  return { kind: "not_allowed" };
+}
+
+function noticesFrom(raw: unknown): AccountDeletionNotice[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((value: { kind?: unknown; business_id?: unknown; business_name?: unknown; purge_at?: unknown } | null) =>
+    value?.kind === "closed_business" && typeof value.business_id === "string" && typeof value.business_name === "string" && typeof value.purge_at === "string"
+      ? [{ kind: "closed_business" as const, business_id: value.business_id, business_name: value.business_name, purge_at: value.purge_at }]
+      : [],
+  );
+}
+
+/** Reads `GET /account/deletion`. Throws on anything but an answer, a 404 or the 503 that means the check could not run. */
+export async function getAccountDeletionEligibility(): Promise<AccountDeletionEligibility> {
+  try {
+    const raw = await apiFetch<{ allowed?: unknown; blockers?: unknown; notices?: unknown }>("/account/deletion");
+    const blockers = Array.isArray(raw.blockers) ? raw.blockers.map(blockerFrom) : [];
+    const notices = noticesFrom(raw.notices);
+    if (raw.allowed === true && blockers.length === 0) return { allowed: true, blockers: [], notices };
+    return { allowed: false, blockers: blockers.length ? blockers : [{ kind: "not_allowed" }], notices };
+  } catch (err) {
+    const { status, code } = err as { status?: number; code?: string };
+    if (status === 404) return { off: true };
+    // The server could not run the check: it never says yes then, so neither does the alert.
+    if (status === 503 && code === "account_deletion_unavailable") return { allowed: false, blockers: [{ kind: "not_allowed" }], notices: [] };
+    throw err;
+  }
+}
+
 /** success: deleted. in_progress: locked and signed out, finishing later.
  * requested: the in-app command is off here, so support got a ticket.
  * unavailable: off here and the ticket failed too, so only email is left. */
