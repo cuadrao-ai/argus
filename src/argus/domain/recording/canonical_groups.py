@@ -225,6 +225,7 @@ def load(
         left join public.financial_activity_memberships m
         on m.activity_id=g.id and m.user_id=g.user_id
         where g.user_id=any(%s::uuid[])
+        and g.reversed_at is null
         and not exists (
             select 1 from public.financial_activity_memberships f
             join public.financial_records r on r.id=f.record_id and r.user_id=f.record_owner_id

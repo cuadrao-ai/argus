@@ -40,7 +40,11 @@ def hydrate(connection: Connection, stored: StoredAccount) -> StoredAccount:
     rows = connection.execute(
         "select r.id,r.record_kind,v.revision,v.amount_minor,v.as_of,v.as_of_zone,v.reason,v.recorded_by,v.recorded_at,v.details "
         "from public.financial_records r join public.financial_record_revisions v on v.record_id=r.id "
-        "where r.user_id=%s and r.account_id=%s and r.record_kind <> 'opening_balance' order by r.id,v.revision",
+        "where r.user_id=%s and r.account_id=%s and r.record_kind <> 'opening_balance' "
+        "and not exists (select 1 from public.financial_activity_memberships m "
+        "join public.financial_activity_groups g on g.id=m.activity_id and g.user_id=m.user_id "
+        "where m.record_id=r.id and coalesce(m.record_owner_id,m.user_id)=r.user_id and g.reversed_at is not null) "
+        "order by r.id,v.revision",
         (account.user_id, account.id),
     ).fetchall()
     expenses: dict[str, list[ExpenseRevision]] = {}

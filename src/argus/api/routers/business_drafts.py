@@ -21,6 +21,7 @@ from argus.domain.business.contracts.actions import (
     DecideFiscalInclusion,
     MarkPersonal,
     Refused,
+    ReopenDraft,
     ResolveDuplicate,
     ReviewDraft,
     SettleRemainder,
@@ -88,6 +89,8 @@ def _run(request, response, context, draft_id, command=None, key=None):
                 method = context.service.resolve_duplicate
             elif isinstance(command, SettleRemainder):
                 method = context.service.settle_remainder
+            elif isinstance(command, ReopenDraft):
+                method = context.service.reopen
             elif isinstance(command, MarkPersonal):
                 method = context.service.mark_personal
             elif isinstance(command, DecideFiscalInclusion):
@@ -245,6 +248,40 @@ def settle_remainder(
 ):
     """A person with approval permission settles the read purchases a recorded
     draft does not cover. The dossier then reports 0 unrecorded purchases."""
+
+    return _run(
+        request, response, context, draft_id, body, _key(request, idempotency_key)
+    )
+
+
+@router.post(
+    "/{draft_id}/reopen",
+    response_model=BusinessDossier,
+    responses={
+        403: {
+            "description": "`business_permission_denied` without approve permission;"
+            " `business_human_command_required` for a non-person actor."
+        },
+        409: {"description": "`stale_version` or `idempotency_conflict`."},
+        422: {
+            "description": "`business_draft_not_recorded` on a draft that is not approved;"
+            " `business_record_matched` while a bank line is matched to the record;"
+            " `business_refund_linked` while a credit note or refund names it."
+        },
+    },
+)
+def reopen_draft(
+    request: Request,
+    response: Response,
+    draft_id: UUID,
+    body: ReopenDraft,
+    context: Annotated[DraftContext, Depends(require_drafts)],
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+):
+    """The owner returns an approved record to the Bandeja to correct it. The
+    draft is open again at a new version with everything it holds; the money
+    row it recorded stops counting everywhere and stays as history. Replaying
+    the key answers the same; a second reopen of the open draft is refused."""
 
     return _run(
         request, response, context, draft_id, body, _key(request, idempotency_key)

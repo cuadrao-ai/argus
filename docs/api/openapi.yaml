@@ -2672,6 +2672,75 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/drafts/{draft_id}/reopen:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      description: 'The owner returns an approved record to the Bandeja to correct it. The
+
+        draft is open again at a new version with everything it holds; the money
+
+        row it recorded stops counting everywhere and stays as history. Replaying
+
+        the key answers the same; a second reopen of the open draft is refused.'
+      parameters:
+      - name: draft_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReopenDraft'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessDossier'
+        '403':
+          description: '`business_permission_denied` without approve permission; `business_human_command_required`
+            for a non-person actor.'
+        '409':
+          description: '`stale_version` or `idempotency_conflict`.'
+        '422':
+          description: '`business_draft_not_recorded` on a draft that is not approved; `business_record_matched`
+            while a bank line is matched to the record; `business_refund_linked` while a credit
+            note or refund names it.'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/drafts/{draft_id}/review:
     patch:
       tags:
@@ -15769,6 +15838,7 @@ components:
           - approve_expense
           - approve_income
           - approve_refund
+          - reopen_draft
           - capture_note
           - prepare_attachment
           - rebind_attachment
@@ -17942,6 +18012,9 @@ components:
             - '11'
           - type: 'null'
         payment_split_editable:
+          type: boolean
+          default: false
+        reopen_available:
           type: boolean
           default: false
         due_on:
@@ -30844,6 +30917,18 @@ components:
       type: object
       required:
       - name
+    ReopenDraft:
+      properties:
+        version:
+          type: integer
+          minimum: 1.0
+      additionalProperties: false
+      type: object
+      required:
+      - version
+      description: 'The owner returns an approved record to the Bandeja to correct it. The
+
+        money row it recorded stops counting; a later approval records it again.'
     ReplaceAccountGrantsRequest:
       properties:
         expected_version:

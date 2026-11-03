@@ -12,6 +12,7 @@ from argus.domain.business.actions.facts import facts_of
 from argus.domain.business.actions.fiscal import remembered_expense_type
 from argus.domain.business.actions.marks import draft_marks, fiscal_inclusion_available
 from argus.domain.business.actions.refunds import refund_candidates, refund_shaped
+from argus.domain.business.actions.reopen import linked_reason
 from argus.domain.business.annotations import annotation_available, current_note
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import APPROVAL_ACTION
@@ -339,6 +340,11 @@ def dossier(
     declaration_editable = fiscal_writable and takes_purchase_declaration(
         facts, resolution.dgii
     )
+    reopen_available = (
+        event.state == "accepted"
+        and "approve" in tx.authorization.capabilities
+        and linked_reason(tx, event.activity_id) is None
+    )
     return BusinessDossier(
         **context.model_dump(),
         current_note=current_note(event),
@@ -380,6 +386,7 @@ def dossier(
         else None,
         payment_split_editable=fiscal_writable
         and takes_payment_split(facts, resolution.dgii),
+        reopen_available=reopen_available,
         due_on=resolution.due_on,
         **draft_marks(tx, draft_id, facts),
     )
