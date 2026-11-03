@@ -123,17 +123,13 @@ def test_with_the_chosen_grant_the_accountant_reads_and_prepares_the_clients_bus
     detail = get_as(bob, f"/receipts/{receipt_id}", grant)
     assert detail.status_code == 200, detail.text
     assert set(detail.json()["record_context"]["capabilities"]) == {"read", "prepare"}
-    # Review by hand is preparing; confirming is approving, which never leaves the owner.
-    version = detail.json()["version"]
-    reviewed = bob.client.patch(
-        f"/api/v1/business/receipts/{receipt_id}/review",
-        json={"version": version, "fields": {"merchant": "Ferretería Luna"}},
-        headers={**bob.auth, **headers},
-    )
+    alice.resolve_receipt(receipt_id, detail.json()["version"], merchant="Ferretería Luna")
+    # An upload needs prepare permission; approval stays with the owner.
+    reviewed = _grantee_upload(bob, grant, OTHER_RECEIPT)
     assert reviewed.status_code == 200, reviewed.text
     refused = bob.post(
         f"/receipts/{receipt_id}/confirm",
-        {"version": reviewed.json()["version"]},
+        {"version": detail.json()["version"]},
         key=str(uuid4()),
         **headers,
     )

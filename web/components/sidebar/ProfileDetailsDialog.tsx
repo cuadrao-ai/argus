@@ -16,6 +16,7 @@ import { useModalSurface } from "@/components/layout/useModalSurface";
 import type { ApiUser } from "@/lib/argus-api";
 import {
   AVATAR_THEMES,
+  avatarThemeClassName,
   avatarThemeStyle,
   type AvatarTheme,
 } from "@/lib/avatar-theme";
@@ -407,16 +408,12 @@ function ProfileDetailsDialogSurface({
                               }`}
                             >
                               <span
-                                className={`flex h-9 w-9 items-center justify-center rounded-full border text-[12px] font-bold ${theme.className} ${
-                                  theme.token === "ocean"
-                                    ? "border-black/20 dark:border-white/20"
-                                    : "border-transparent"
-                                } ${
+                                className={`flex h-9 w-9 items-center justify-center rounded-full border border-[var(--segment-thumb-border)] text-[12px] font-bold ${avatarThemeClassName(theme.token)} ${
                                   selected
                                     ? "ring-2 ring-black/70 dark:ring-white/80"
                                     : ""
                                 }`}
-                                style={avatarThemeStyle(theme.token, "picker")}
+                                style={avatarThemeStyle(theme.token)}
                                 aria-hidden="true"
                               >
                                 {profileInitial(profile)}

@@ -17,6 +17,7 @@ export type IdentityAppearance =
       crop: IdentityCrop;
       rendered: string;
     };
+export type IdentityImage = Extract<IdentityAppearance, { kind: "image" }>;
 export const DEFAULT_APPEARANCE: IdentityAppearance = { kind: "default" };
 export const IDENTITY_EVENT = "cuadrao-local-identity-changed";
 export const identityPreviewEnabled = () =>
@@ -165,7 +166,7 @@ export async function renderIdentityImage(image: {
   width: number;
   height: number;
   crop: IdentityCrop;
-}): Promise<IdentityAppearance> {
+}): Promise<IdentityImage> {
   const decoded = await decode(image.source),
     canvas = document.createElement("canvas");
   canvas.width = 512;

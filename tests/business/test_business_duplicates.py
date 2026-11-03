@@ -3,7 +3,7 @@
 Same bytes: the upload comes back as the receipt already saved, and says so.
 Different bytes, same read facts: the second draft is set aside as a possible
 duplicate of the first, with what was read kept, and it cannot be confirmed
-or entered by hand while that stands."""
+under a different request key while that stands."""
 
 from __future__ import annotations
 
@@ -54,7 +54,7 @@ def test_a_second_receipt_with_the_same_read_facts_is_a_duplicate_not_a_second_e
     refused = alice.confirm(second_id, repeat["version"], "dup-confirm")
     assert refused.status_code in (409, 422), refused.text
     assert refused.json()["code"] in ("import_possible_duplicate", "possible_duplicate")
-    entered = alice.review(second_id, 0, merchant="Otra", amount="1.00")
+    entered = alice.confirm(second_id, repeat["version"], "dup-other-key")
     assert entered.status_code in (409, 422), entered.text
     # The first receipt is untouched and still the one to confirm.
     assert alice.detail(original)["status"] == "review_ready"

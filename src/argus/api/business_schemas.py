@@ -398,11 +398,6 @@ class ReceiptPage(_Wire):
     activity: ReceiptActivityCounts | None = None
 
 
-class ReceiptReviewBody(_Wire):
-    version: int = Field(ge=0)
-    fields: dict[ReviewField, str | None]
-
-
 class ConfirmBody(_Wire):
     version: int = Field(ge=0)
 

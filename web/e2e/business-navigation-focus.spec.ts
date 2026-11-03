@@ -20,7 +20,6 @@ test("production approve-next keeps the next receipt title focused", async ({ pa
     else if (parts[0] === "overview") json = await source.overview("2026-10-01", "2026-10-31");
     else if (parts[0] === "receipt-reading") json = { enabled: true, available: true, can_change: false };
     else if (parts[0] === "receipts" && parts.length === 1) json = await source.receiptPage!(url.searchParams.get("view") === "all" ? "all" : "inbox");
-    else if (parts[0] === "receipts" && parts[2] === "review") json = await source.saveReview(parts[1], body.version, body.fields);
     else if (parts[0] === "receipts" && parts[2] === "read") json = { ok: true };
     else if (parts[0] === "receipts" && parts.length === 2) json = await source.receipt(parts[1]);
     else if (parts[0] === "drafts" && parts[2] === "dossier") json = await source.dossier(parts[1]);

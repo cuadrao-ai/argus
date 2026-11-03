@@ -113,9 +113,12 @@ def test_whatsapp_is_off_while_business_is_off(wa_biz, monkeypatch) -> None:  # 
     ] * 2
 
 
-def test_whatsapp_receipt_is_reviewed_and_confirmed_like_an_upload(wa_biz) -> None:  # noqa: ANN001
+def test_whatsapp_receipt_is_reviewed_and_confirmed_like_an_upload(
+    wa_biz, identities
+) -> None:  # noqa: ANN001
     client, stub = wa_biz
-    alice, bob = started(Owner(client, ALICE)), started(Owner(client, BOB))
+    alice = started(Owner(client, ALICE, identities[ALICE]["id"]))
+    bob = started(Owner(client, BOB))
     link_alice(client)
     assert post(client, fixture("image_message.json")).status_code == 200
     [captured] = alice.get("/receipts", view="inbox").json()["items"]
@@ -138,7 +141,7 @@ def test_whatsapp_receipt_is_reviewed_and_confirmed_like_an_upload(wa_biz) -> No
     detail = alice.detail(receipt_id)
     assert (detail["channel"], detail["status"]) == ("whatsapp", "review_ready")
     account = alice.account()
-    version = alice.review(receipt_id, detail["version"], account_id=account).json()[
+    version = alice.resolve_receipt(receipt_id, detail["version"], account_id=account).json()[
         "version"
     ]
     first = alice.confirm(receipt_id, version, "wa-confirm").json()
