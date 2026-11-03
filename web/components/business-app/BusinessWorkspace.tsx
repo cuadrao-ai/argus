@@ -609,6 +609,8 @@ function BusinessWorkspaceContent({
   );
 
   const invoicing: InvoicingState = sampleInvoicing ? "sample" : records.workspace ? (businessInvoicingAvailable(records.workspace) ? "available" : "unavailable") : null;
+  // The top bar's heading follows the screen, except Facturación's waits for the server's answer like its screen does.
+  const headerScreen = panel.kind === "invoicing" && !invoicingShown(invoicing) ? undefined : panel.kind;
   // A deep link to Facturación the server does not offer lands on Inicio, never on a refusal.
   useEffect(() => {
     if (panel.kind !== "invoicing" || invoicing !== "unavailable") return;
@@ -712,7 +714,7 @@ function BusinessWorkspaceContent({
         <AmountsToggle />
         <BusinessNotifications key={chosen?.space_id} businessId={chosen?.space_id} businessName={chosen?.name} preview={localPreview} onInvitationAccepted={grantId=>{chooseBusiness(grantId);reload();showToast({kind:"success",text:t("business_access.invitation_accepted")});}} onAction={(tab) => openPanel({ kind: "business", tab })} />
       </>,
-      headerSearch: (shell) => <BusinessHeader home={shell.currentView === "workspace" && panel.kind === "overview" && !closedAccessName} name={shell.greetingName} business={formatBusinessName(chosen?.name, t("business.overview.title", "My business"))} title={shell.currentView === "workspace" && !closedAccessName ? panel.kind === "transactions" ? t("business.transactions.title") : panel.kind === "inbox" ? t("business.inbox.title") : panel.kind === "invoicing" && invoicingShown(invoicing) ? t("business.invoicing_preview.title") : undefined : undefined} screen={shell.currentView === "workspace" && !closedAccessName ? panel.kind : undefined} onSearch={shell.openSearch} />,
+      headerSearch: (shell) => <BusinessHeader home={shell.currentView === "workspace" && panel.kind === "overview" && !closedAccessName} name={shell.greetingName} business={formatBusinessName(chosen?.name, t("business.overview.title", "My business"))} title={shell.currentView === "workspace" && !closedAccessName ? headerScreen === "transactions" ? t("business.transactions.title") : headerScreen === "inbox" ? t("business.inbox.title") : headerScreen === "invoicing" ? t("business.invoicing_preview.title") : undefined : undefined} screen={shell.currentView === "workspace" && !closedAccessName ? headerScreen : undefined} onSearch={shell.openSearch} />,
       panel: () => closedAccessName ? <BusinessClosedAccess returnHome={!spaces?.length} businessName={closedAccessName} onReturn={() => { setClosedAccess(false); if (!spaces?.length) window.location.assign("/"); else chooseBusiness(spaces.find(space => space.role === "owner") ? null : spaces[0].grant_id); }} /> : <><BusinessClosedOwnerBanner businesses={closedSpaces} /><BusinessPanel /></>,
       starterEntries: () => actions.starterEntries,
       emptyChatLead: () => <BusinessHome variant="new_chat" />,
@@ -736,7 +738,7 @@ function BusinessWorkspaceContent({
       },
       onShellChange: (shell) => setBridge(shell),
     };
-  }, [keyboardShortcuts, actions.starterEntries, chatAvailable, invoicing, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, closedSpaces, closedAccessName, chosen, chooseBusiness, openPanel, localPreview,reload,source.mode,userId]);
+  }, [keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, closedSpaces, closedAccessName, chosen, chooseBusiness, openPanel, localPreview,reload,source.mode,userId]);
 
   return (
     <BusinessContext.Provider value={directoryValue}>

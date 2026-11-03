@@ -4,7 +4,7 @@ invoice page tells clients whether issuance is wired before any click."""
 from __future__ import annotations
 
 from types import SimpleNamespace
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from argus.api.business_drafts import require_drafts
@@ -13,17 +13,20 @@ from argus.domain.business.contracts.invoicing import InvoicePage
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+# Route templates, so the parametrize ids stay the same in every process (CI
+# proves the shards collected one union, so an id must not carry a fresh UUID).
 INVOICING_ROUTES = (
     ("GET", "/business/customers"),
     ("POST", "/business/customers"),
-    ("GET", f"/business/customers/{uuid4()}"),
-    ("PUT", f"/business/customers/{uuid4()}"),
+    ("GET", "/business/customers/{customer_id}"),
+    ("PUT", "/business/customers/{customer_id}"),
     ("GET", "/business/invoices"),
     ("POST", "/business/invoices"),
-    ("GET", f"/business/invoices/{uuid4()}"),
-    ("PUT", f"/business/invoices/{uuid4()}"),
-    ("POST", f"/business/invoices/{uuid4()}/prepare"),
+    ("GET", "/business/invoices/{invoice_id}"),
+    ("PUT", "/business/invoices/{invoice_id}"),
+    ("POST", "/business/invoices/{invoice_id}/prepare"),
 )
+ROUTE_IDS = {"customer_id": UUID(int=1), "invoice_id": UUID(int=2)}
 
 
 @pytest.fixture
@@ -69,15 +72,7 @@ def test_every_invoicing_route_is_listed():
         for route in router.routes
         for method in route.methods
     }
-    listed = {
-        (method, path.replace(path.rsplit("/", 1)[-1], "{customer_id}") if "/customers/" in path else path)
-        for method, path in INVOICING_ROUTES
-    }
-    listed = {
-        (method, path.replace(path.split("/")[3], "{invoice_id}") if path.startswith("/business/invoices/") else path)
-        for method, path in listed
-    }
-    assert listed == mounted
+    assert set(INVOICING_ROUTES) == mounted
 
 
 @pytest.mark.parametrize(
@@ -90,7 +85,7 @@ def test_every_invoicing_route_refuses_while_off(client, monkeypatch, off, metho
         client.app.state.fiscal_sandbox = object()
     else:
         client.app.state.fiscal_sandbox = None
-    response = client.request(method, path, json={})
+    response = client.request(method, path.format(**ROUTE_IDS), json={})
     assert response.status_code == 404, response.text
     assert response.json()["detail"] == "business_invoicing_unavailable"
     assert response.headers["cache-control"] == "no-store"

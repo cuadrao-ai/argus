@@ -4,13 +4,9 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
 
+from argus.api.business_invoicing import require_invoicing
 from argus.api.fiscal_operations import fiscal_service, require_fiscal
-from argus.api.routers.business_customers import (
-    Context,
-    Key,
-    invoice_problem,
-    require_invoicing,
-)
+from argus.api.routers.business_customers import Context, Key, invoice_problem
 from argus.api.routers.business_drafts import _key
 from argus.api.routers.business_fiscal_operations import _actor
 from argus.domain.business.authority import ActionError

@@ -31,8 +31,13 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 
 const shell: ChatShellBridge = { currentView: "workspace", conversationId: null, isBelowTablet: false, sidebarCollapsed: false, greetingName: null, showWorkspace: () => undefined, newChat: () => undefined, prepareQuestion: () => undefined };
 
-/** Mounts the real provider over the fixture source, with the server's workspace answer under this test's control. */
-async function mount(answer: { available: boolean } | "hold", url = "/biz") {
+type Source = ReturnType<typeof import("@/components/business-app/fixture-data").createFixtureBusinessDataSource>;
+
+/**
+ * Mounts the real provider over the fixture source, with the server's workspace answer under this test's control,
+ * and the desktop top bar the shell would draw from `headerSearch`.
+ */
+async function mount(answer: { available: boolean } | "hold", url = "/biz", overrides: Partial<Source> = {}) {
   search = url.includes("?") ? url.slice(url.indexOf("?")) : "";
   window.history.replaceState(null, "", url);
   const { act } = await import("react");
@@ -47,6 +52,7 @@ async function mount(answer: { available: boolean } | "hold", url = "/biz") {
   const { default: BusinessPanel } = await import("@/components/business-app/BusinessPanel");
   const { HomeWork } = await import("@/components/business-app/inicio/HomeOverviewDraft");
   const { setChosenGrant } = await import("@/lib/business-grant");
+  const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
   setChosenGrant(null);
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
@@ -59,11 +65,16 @@ async function mount(answer: { available: boolean } | "hold", url = "/biz") {
       if (answer === "hold") return new Promise((resolve) => { release = resolve; });
       return { ...workspace, invoicing_available: answer.available };
     },
+    ...overrides,
   };
   let api: ReturnType<typeof useBusiness> | null = null;
   function Probe() {
     api = useBusiness();
     return <p data-testid="probe-panel">{api.panel.kind}</p>;
+  }
+  function Bar() {
+    const workspace = useChatWorkspace();
+    return <header data-testid="top-bar">{workspace?.headerSearch?.(shell)}</header>;
   }
   const host = document.createElement("div");
   document.body.appendChild(host);
@@ -74,6 +85,7 @@ async function mount(answer: { available: boolean } | "hold", url = "/biz") {
         <BusinessConsentTestProvider accepted>
           <BusinessWorkspaceProvider source={source as never} userId="user-1">
             <Probe />
+            <Bar />
             <BusinessSidebarNav shell={shell} />
             <HomeWork />
             <BusinessPanel />
@@ -86,15 +98,22 @@ async function mount(answer: { available: boolean } | "hold", url = "/biz") {
     for (let i = 0; i < 40 && !done(); i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
     assert.ok(done(), "the provider never settled");
   };
-  // A held workspace answer holds the whole first load, so that case waits on the directory alone.
-  await settle(() => api !== null && (answer === "hold" ? api.spaces !== null : api.records.inbox !== null));
+  // A held workspace answer holds the whole first load, so that case waits on the directory alone; a failed read settles on its error.
+  await settle(() => api !== null && (answer === "hold" ? api.spaces !== null : api.records.inbox !== null || api.records.error));
   cleanups.push(async () => { await act(async () => root.unmount()); host.remove(); });
   const navItems = () => [...host.querySelectorAll('[data-testid="business-sidebar-nav"] button')].map((node) => node.textContent?.trim() ?? "");
   const text = () => host.textContent ?? "";
+  const heading = () => host.querySelector('[data-testid="top-bar"] h1')?.textContent?.trim() ?? null;
   return {
-    act, host, settle, navItems, text,
+    act, host, settle, navItems, text, heading,
     api: () => api!,
-    release: (workspace: Partial<BusinessWorkspaceInfo>) => act(async () => { release?.({ ...(await fixture.workspace()), ...workspace }); }),
+    // Waits for the read in flight to hold before answering it, so a reload's fresh read is the one released.
+    release: async (workspace: Partial<BusinessWorkspaceInfo>) => {
+      await settle(() => release !== null);
+      const answer = release!;
+      release = null;
+      await act(async () => { answer({ ...(await fixture.workspace()), ...workspace }); });
+    },
   };
 }
 
@@ -128,6 +147,31 @@ test("while the server has not answered nothing shows for Facturación, and its 
   await page.release({ invoicing_available: false });
   await page.settle(() => page.api().panel.kind === "overview");
   assert.ok(!page.navItems().includes("Facturación"));
+});
+
+test("the top bar names Facturación only once the server says available: not while held, not when unavailable", async () => {
+  const page = await mount("hold", "/biz?view=invoicing");
+  assert.equal(page.api().panel.kind, "invoicing");
+  assert.equal(page.heading(), null, "no Facturación heading before the answer");
+  assert.ok(!page.text().includes("Facturación"), "nothing on screen names Facturación before the answer");
+  await page.release({ invoicing_available: false });
+  await page.settle(() => page.api().panel.kind === "overview");
+  assert.ok(!page.text().includes("Facturación"), "nothing names Facturación once the server said no");
+  // The next answer says yes: the same screen now carries its heading.
+  await page.act(async () => page.api().reload());
+  await page.release({ invoicing_available: true });
+  await page.settle(() => page.api().invoicing === "available");
+  await page.act(async () => page.api().openPanel({ kind: "invoicing" }));
+  await page.settle(() => page.heading() === "Facturación");
+  assert.ok(page.navItems().includes("Facturación"));
+});
+
+test("a failed overview read leaves no Facturación heading on a deep link", async () => {
+  const page = await mount({ available: true }, "/biz?view=invoicing", { overview: async () => { throw new Error("synthetic overview failure"); } });
+  assert.equal(page.api().records.error, true);
+  assert.equal(page.api().invoicing, null, "no workspace answer was kept, so Facturación is unanswered");
+  assert.equal(page.heading(), null);
+  assert.ok(!page.text().includes("Facturación"), page.text().slice(0, 200));
 });
 
 test("the design sample answers ?invoicePreview in development with mock auth, whatever the server says", async () => {

@@ -58,7 +58,7 @@ Approved designs carry no flag. What remains, why, and what removes it:
 | Setup hidden live | `HomeWork`, `HomeSetupLead` | no `GET /business/setup` | that endpoint; then delete `SETUP_STATE` |
 | Registrar cobro / pago hidden | `settlementAction` (`openSettlement`) | no payment workflow for open items | a server workflow passed as `openSettlement` |
 | Actividad filters, Registro column, links hidden live | `ActivityDraft` (`live`) | #1407 sends no labels or link targets | #1410 and ACT-2a fields |
-| Facturas en borrador row | `useHomeCounts` (`businessInvoicingEnabled`) | Facturación's own feature flag, not this design | Facturación's release |
+| Facturas en borrador row | `useHomeCounts` (the server's `invoicing_available` on `GET /business/workspace`) | Facturación's own server gate, not this design | Facturación's release |
 | Business search (bar search, scoped search) | `NEXT_PUBLIC_OMNISEARCH_ENABLED` (on unless "false") and `NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED` (off unless "true"), read once as `barSearchAvailable` in `list-search.ts` | the shell's existing search gate, not this design; staging's hosted value is unverified | set `NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED=true` on staging for the demo. Off: the bar shows no search and Bandeja and Registros keep their own field, so nothing is lost |
 | Sample states (`?money=`, `?attention=`, `?setup=`, `?activity=`, `?monthClose=`) | `money-preview.ts`, `HomeOverviewDraft`, `ActivityDraft`, `BusinessMonthClosePanel` | a local design tool, development with mock sign-in only | never needed live; delete with the samples |
 

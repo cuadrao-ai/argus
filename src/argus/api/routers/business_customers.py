@@ -1,10 +1,10 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 
 from argus.api.business_drafts import DraftContext, action_problem, require_drafts
-from argus.api.business_invoicing import invoicing_available
+from argus.api.business_invoicing import require_invoicing
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
 from argus.api.routers.business_drafts import _key
@@ -17,14 +17,6 @@ from argus.domain.business.contracts.invoicing import (
 )
 from argus.domain.business.invoicing.queries import CustomerQuery, customers
 from argus.domain.business.invoicing.store import InvoiceError, Store
-
-
-def require_invoicing(request: Request, response: Response) -> None:
-    response.headers.update(NO_STORE)
-    if not invoicing_available(request):
-        raise HTTPException(
-            404, detail="business_invoicing_unavailable", headers=NO_STORE
-        )
 
 
 def invoice_problem(request: Request, error: ActionError) -> HTTPException:

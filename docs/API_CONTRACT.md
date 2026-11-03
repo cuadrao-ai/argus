@@ -10024,6 +10024,11 @@ false. It names no provider, configuration or credential.
 All paths below use `/api/v1`. The default-off fiscal surface also requires the
 existing Business surface and durable store. Member routes use the live selected
 Business grant (`X-Business-Grant`) and return `Cache-Control: no-store`.
+An operation that belongs to an invoice (`invoice_id` set) is Facturación's:
+its read, submit and artifact routes answer 404 `business_invoicing_unavailable`
+while `invoicing_available` is false, from the same gate as `/business/invoices`.
+The manifest lane (`POST /business/fiscal-operations` with `case_id`, and the
+operations it creates) and the emission webhook stay on the fiscal gate alone.
 
 | Method and path | Request | Result |
 | --- | --- | --- |
@@ -10592,10 +10597,13 @@ accept path recorded.
   `CUADRAO_BUSINESS_INVOICING_ENABLED` is on (default off) and the fiscal
   provider is wired in this process (`CUADRAO_FISCAL_SANDBOX_*` complete), so
   a missing credential offers nothing rather than a broken screen. The same
-  function refuses every `/business/customers` and `/business/invoices` route
-  with 404 `business_invoicing_unavailable`. While it is false the web shows
-  no Facturación entry point (sidebar, Inicio, search, Negocio) and a
-  `?view=invoicing` link lands on Inicio. The web keeps no switch of its own.
+  function refuses every `/business/customers` and `/business/invoices` route,
+  and the `/business/fiscal-operations/{operation_id}` read, submit and
+  artifact routes of an operation that belongs to an invoice, with 404
+  `business_invoicing_unavailable`. While it is false the web shows
+  no Facturación entry point (sidebar, Inicio, search, Negocio, the top bar's
+  heading) and a `?view=invoicing` link lands on Inicio. The web keeps no
+  switch of its own.
 - Logo. `logo_url` on `/space`, `/space/name`, `/space/name-prompt`, `/spaces`
   and `/workspace` is a signed URL to the Business's 256 px logo, valid for
   about an hour, or null. PUT `/api/v1/business/logo` replaces it with the
