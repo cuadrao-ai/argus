@@ -390,13 +390,15 @@ Staging currently sends interim templates that use `{{ .ConfirmationURL }}`. Aft
 
 ### DGII RNC schedule
 
-The daily RNC load is `.github/workflows/dgii-rnc-import.yml` in PR #1257. GitHub runs that schedule only from the default branch, `main`. Merging the file onto `codex/private-alpha-next` does not start it. Once the file is on `main`, the schedule runs at 07:00 UTC. The load stays off until the repository variable `DGII_RNC_LOAD_ENABLED` is the string `true` and the repository secret `SUPABASE_STAGING_DB_URL` is set. This promotion sets neither. The job writes the staging registry. Do not point it at the production database.
+The hosted staging cron `cuadrao-dgii-rnc-staging` in `render.yaml` is the only scheduled loader. It runs `scripts/ops/dgii_rnc_daily.sh` daily at 07:00 UTC from `codex/private-alpha-next`, with automatic deploys off. The workflow `.github/workflows/dgii-rnc-import.yml` only downloads and parses on matching pull requests or manual dispatch. It has no schedule or database credential and never loads.
 
-After promotion, confirm these steps.
+This promotion does not enable loading. Keep `DGII_RNC_LOAD_ENABLED` and `SUPABASE_STAGING_DB_URL` unset on the cron until Lucas explicitly approves the first staging load. Set those values on the cron service only, never as repository variables or secrets. Do not point the cron at the production database.
 
-1. Confirm `.github/workflows/dgii-rnc-import.yml` is on `main`. The daily schedule does not run until that file is on `main`.
-2. The first load needs Lucas's explicit yes at promotion time, and the size-gate check. PR #1257's job loads the staging registry only. That yes is enforced only by leaving `DGII_RNC_LOAD_ENABLED` unset and leaving the `SUPABASE_STAGING_DB_URL` secret unset until Lucas approves. The size gate reads `pg_database_size` before truncate. It refuses the load when that size plus the required headroom exceeds the limit. Headroom is the larger of the live `public.dgii_rnc` size and a 200 MB floor. The default limit is 450 MB.
-3. Confirm the first scheduled run of `.github/workflows/dgii-rnc-import.yml` on `main` succeeds.
+Before the separately approved first load, confirm these steps.
+
+1. Confirm the staging cron uses `codex/private-alpha-next` and the start command declared in `render.yaml`. Promotion to `main` does not start this schedule.
+2. Confirm the required migrations and size gate in [Import the DGII RNC registry](runbooks/dgii-rnc-import.md#wait-for-the-migration) and [Watch the database size](runbooks/dgii-rnc-import.md#watch-the-database-size). Keep the load disabled until Lucas approves.
+3. After approval, confirm the first scheduled cron run succeeds using [Verify a load](runbooks/dgii-rnc-import.md#verify-a-load). A successful workflow parse is not evidence of a database load.
 
 ### 5. Deploy order
 

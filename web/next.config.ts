@@ -11,6 +11,7 @@ const devOrigins = (process.env.NEXT_DEV_ALLOWED_ORIGINS ?? "")
   .filter(Boolean);
 
 const nextConfig: NextConfig = {
+  agentRules: false,
   experimental: { useTypeScriptCli: false },
   env: { CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS: String(CHAT_RUNTIME_EVENT_TIMEOUT_MS / 1_000) },
   async headers() {
