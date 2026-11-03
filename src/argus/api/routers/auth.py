@@ -11,6 +11,7 @@ from loguru import logger
 
 from argus.api import state as api_state
 from argus.api.browser_cookies import delete_browser_cookie, set_browser_cookie
+from argus.api.business_spaces import business_access
 from argus.api.dependencies import (
     _apply_auth_session_cookies,
     auth_response,
@@ -348,8 +349,7 @@ def create_guest_handoff(
         email=body.destination_email,
     )
     if not permanent_account_access_allowed(
-        api_state.supabase_gateway,
-        body.destination_email,
+        api_state.supabase_gateway, body.destination_email, business_access()
     ):
         raise _login_auth_problem(request)
     try:
@@ -621,7 +621,9 @@ def signup_guest_account(
             detail="This session already belongs to a permanent account.",
         )
     _enforce_auth_attempt_limit(request, action="signup", email=body.email)
-    if not permanent_account_access_allowed(api_state.supabase_gateway, body.email):
+    if not permanent_account_access_allowed(
+        api_state.supabase_gateway, body.email, business_access()
+    ):
         raise _signup_auth_problem(
             request, reason="access_denied", surface="guest_conversion"
         )
@@ -791,7 +793,9 @@ def signup(
             detail="Supabase persistence is required for authentication.",
         )
     _enforce_auth_attempt_limit(request, action="signup", email=body.email)
-    if not permanent_account_access_allowed(api_state.supabase_gateway, body.email):
+    if not permanent_account_access_allowed(
+        api_state.supabase_gateway, body.email, business_access()
+    ):
         raise _signup_auth_problem(
             request, reason="access_denied", surface="direct_signup"
         )
@@ -902,7 +906,9 @@ def login(request: Request, body: LoginRequest) -> JSONResponse:
             detail="Supabase persistence is required for authentication.",
         )
     _enforce_auth_attempt_limit(request, action="login", email=body.email)
-    if not permanent_account_access_allowed(api_state.supabase_gateway, body.email):
+    if not permanent_account_access_allowed(
+        api_state.supabase_gateway, body.email, business_access()
+    ):
         raise _login_auth_problem(request)
     try:
         result = api_state.supabase_gateway.login(

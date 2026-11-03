@@ -183,6 +183,11 @@ class AccessStore(Protocol):
 
     def accept_invite(self, user_id: str, space_id: str, invite_id: str) -> str: ...
 
+    def admits_email(self, email: str) -> bool:
+        """Whether a live invitation on an open Business, or a live grant,
+        names exactly this email: the Business side of sign-in admission."""
+        ...
+
     def change_role(
         self, space_id: str, actor_id: str, grant_id: str, role: BusinessRole
     ) -> AccessList: ...
@@ -556,8 +561,8 @@ class PostgresAccessStore(PostgresMembershipCommands):
 class InMemoryAccessStore:
     """The same rules without Postgres: the local app and the offline suite.
 
-    Accounts are the emails the test registers through ``confirm``; no email
-    is ever confirmed on its own.
+    Accounts are the emails the test registers through ``confirm``, and closed
+    Businesses the ids it closes through ``close``; neither happens on its own.
     """
 
     def __init__(self) -> None:
@@ -565,6 +570,7 @@ class InMemoryAccessStore:
         self._grants: list[dict] = []
         self._invites: list[dict] = []
         self._accounts: dict[str, str] = {}
+        self._closed: set[str] = set()
         self.ledger: list[AccessCommand] = []
         self._commands: dict[tuple[str, str, str], tuple[str, BusinessRole]] = {}
         self._command_invites: dict[tuple[str, str, str], str | None] = {}
@@ -572,6 +578,10 @@ class InMemoryAccessStore:
     def confirm(self, user_id: str, email: str) -> None:
         with self._lock:
             self._accounts[normalize_email(email)] = user_id
+
+    def close(self, space_id: str) -> None:
+        with self._lock:
+            self._closed.add(space_id)
 
     def _now(self) -> datetime:
         return datetime.now(timezone.utc)
@@ -1058,6 +1068,30 @@ class InMemoryAccessStore:
                 )
             )
             return grant["id"]
+
+    def admits_email(self, email: str) -> bool:
+        try:
+            email = normalize_email(email)
+        except InvalidEmail:
+            return False
+        with self._lock:
+            now = self._now()
+            if any(
+                i["email"] == email
+                and i["space_id"] not in self._closed
+                and i["revoked_at"] is None
+                and i["accepted_at"] is None
+                and i["expires_at"] > now
+                for i in self._invites
+            ):
+                return True
+            person = self._accounts.get(email)
+            return person is not None and any(
+                g["grantee_id"] == person
+                and g["space_id"] not in self._closed
+                and g["revoked_at"] is None
+                for g in self._grants
+            )
 
     def invitations_for(self, user_id: str) -> tuple[RecipientInvitation, ...]:
         with self._lock:

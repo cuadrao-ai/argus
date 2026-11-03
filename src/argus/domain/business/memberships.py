@@ -443,6 +443,27 @@ class PostgresMembershipCommands:
             )
             return grant
 
+    def admits_email(self, email: str) -> bool:
+        from argus.domain.business.access import InvalidEmail, normalize_email
+
+        try:
+            email = normalize_email(email)
+        except InvalidEmail:
+            return False
+        with self.pool.connection() as db:
+            return db.execute(
+                "select exists(select 1 from public.business_access_invites i"
+                " join public.spaces s on s.id=i.space_id where i.email=%s"
+                " and i.accepted_at is null and i.revoked_at is null and i.expires_at>clock_timestamp()"
+                " and s.kind='business' and s.closed_at is null)"
+                " or exists(select 1 from public.business_client_grants g"
+                " join public.spaces s on s.id=g.space_id"
+                " join auth.users u on u.id=g.grantee_id where lower(u.email)=%s"
+                " and g.revoked_at is null and (g.expires_at is null or g.expires_at>clock_timestamp())"
+                " and s.kind='business' and s.closed_at is null)",
+                (email, email),
+            ).fetchone()[0]
+
     def invitations_for(self, user_id: str) -> tuple[RecipientInvitation, ...]:
         with self.pool.connection() as db:
             return tuple(
