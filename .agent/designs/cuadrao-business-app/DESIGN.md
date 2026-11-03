@@ -653,14 +653,18 @@ setting. Owner: `components/settings/SettingsWindow.tsx`.
   repeats Ajustes.
 
 The account deletion alert asks the server first (`GET /account/deletion`)
-and renders only its answer. Ajustes reads that answer as it opens, so the alert
-opens with it in place and opening it refreshes the answer behind the old one;
-the Eliminar cuenta row stays a plain row and never lists Businesses (Lucas,
-November 3, 2026). A quiet check shows only if no answer is back yet, a check
-that could not run shows its reference and Reintentar, Eliminar shows only when
-allowed, each owned Business named when it blocks deletion (with Transferir and
-Cerrar when those controls exist, the support contact when they do not), and a
-closed Business's purge date as a warning that never blocks.
+and renders only its answer (Lucas, November 3, 2026). Ajustes reads that
+answer as it opens and reuses it for a minute; opening the alert reads again
+only behind an answer over a minute old, and the server checks again on delete.
+The alert opens only once the answer is in, already filled in: it never shows a
+loading line, a skeleton or an empty alert. Pressed before the answer is back,
+the Eliminar cuenta row shows a small spinner in its trailing slot and is busy,
+with its name unchanged, and the alert opens the moment the answer lands. A
+read that failed opens the alert in its failure state, with its reference and
+Reintentar. The row stays a plain row and never lists Businesses. Eliminar
+shows only when allowed, each owned Business is named when it blocks deletion
+(with Transferir and Cerrar when those controls exist, the support contact when
+they do not), and a closed Business's purge date is a warning that never blocks.
 
 ### Dossier gradient, approved October 24, 2026
 

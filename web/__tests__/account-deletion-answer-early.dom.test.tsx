@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterAll, afterEach, beforeAll, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, setSystemTime, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { createInstance } from "i18next";
 import { I18nextProvider } from "react-i18next";
@@ -78,7 +78,21 @@ test("Ajustes reads the deletion answer as it opens, so the alert opens with it 
   assert.ok(document.querySelector('[data-testid="delete-account-business-owner"]')?.textContent?.includes("Colmado Peña"));
   assert.equal(document.querySelector('[data-testid="delete-account-confirm"]'), null);
   await settle(act);
-  assert.equal(deletionReads, 2, "opening the alert refreshes the answer behind it");
+  assert.equal(deletionReads, 1, "an answer under a minute old is reused by the alert");
+
+  // Close the alert and Ajustes, and come back within the minute: still no second read.
+  await act(async () => button(spanish.common.cancel)!.click());
+  await act(async () => document.querySelector<HTMLButtonElement>('[data-testid="settings-window-close"]')!.click());
+  await act(async () => button("Ajustes")!.click());
+  await settle(act);
+  assert.equal(deletionReads, 1, "reopening Ajustes within a minute reads nothing");
+
+  // Over a minute later, opening the alert reads again behind the answer it shows.
+  setSystemTime(new Date(Date.now() + 61_000));
+  await act(async () => button("Eliminar cuenta")!.click());
+  assert.ok(document.querySelector('[data-testid="delete-account-business-owner"]'), "it still opens at once, on the answer it has");
+  await settle(act);
+  assert.equal(deletionReads, 2, "an answer over a minute old is read again");
 });
 
 test("a check that could not run shows its reference and Reintentar, never Eliminar", async () => {
