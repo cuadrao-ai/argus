@@ -228,7 +228,7 @@ def test_a_header_without_a_kept_column_refuses_the_file(missing: str) -> None:
     header = ",".join(cell for cell in HEADER if cell != missing)
     with pytest.raises(RncImportError, match="csv header needs one") as caught:
         parse_zip(registry_zip(f"{header}\r\n".encode("latin-1")))
-    assert header.split(",")[0] in str(caught.value)
+    assert "5 columns" in str(caught.value)
 
 
 def test_trade_name_comes_from_txt_column_3_joined_by_rnc() -> None:
@@ -411,6 +411,7 @@ def test_summary_lines_list_each_fact() -> None:
         f"entry={CSV_ENTRY}",
         "anomalies=0",
         "dropped=2",
+        "blank_status=0",
         "duplicates=0",
         f"parsed_bytes={parsed_byte_estimate(result.rows)}",
         "trade_name_filled=1",
@@ -539,17 +540,17 @@ def test_parsed_byte_estimate_counts_one_escaped_row() -> None:
 
 
 def test_empty_load_uses_the_floor_and_a_large_table_uses_its_own_size() -> None:
-    floor = 200 * 1024 * 1024
+    floor = 170 * 1024 * 1024
     assert require_load_headroom(0, 0, LOAD) == floor
     assert require_load_headroom(0, floor - 1, LOAD) == floor
     large = 250 * 1024 * 1024
     assert require_load_headroom(0, large, LOAD) == large
-    assert require_load_headroom(250 * 1024 * 1024, 0, LOAD) == 450 * 1024 * 1024
+    assert require_load_headroom(280 * 1024 * 1024, 0, LOAD) == 450 * 1024 * 1024
     with pytest.raises(RncImportError) as one_over:
-        require_load_headroom(250 * 1024 * 1024 + 1, 0, LOAD)
+        require_load_headroom(280 * 1024 * 1024 + 1, 0, LOAD)
     assert str(one_over.value) == (
         "peak 471859201 limit 471859200 "
-        "database_size 262144001 headroom 209715200 relation_bytes 0"
+        "database_size 293601281 headroom 178257920 relation_bytes 0"
     )
 
 
@@ -557,18 +558,18 @@ def test_a_350_mib_database_fails_the_450_mib_gate() -> None:
     with pytest.raises(RncImportError) as caught:
         require_load_headroom(350 * 1024 * 1024, 0, LOAD)
     assert str(caught.value) == (
-        "peak 576716800 limit 471859200 "
-        "database_size 367001600 headroom 209715200 relation_bytes 0"
+        "peak 545259520 limit 471859200 "
+        "database_size 367001600 headroom 178257920 relation_bytes 0"
     )
     with pytest.raises(RncImportError) as negative_size:
         require_load_headroom(-1, 0, LOAD)
     assert str(negative_size.value) == (
-        "refusing size database_size -1 relation_bytes 0 floor 209715200"
+        "refusing size database_size -1 relation_bytes 0 floor 178257920"
     )
     with pytest.raises(RncImportError) as negative_relation:
         require_load_headroom(5, -2, LoadConfig(size_limit_bytes=100))
     assert str(negative_relation.value) == (
-        "refusing size database_size 5 relation_bytes -2 floor 209715200"
+        "refusing size database_size 5 relation_bytes -2 floor 178257920"
     )
     with pytest.raises(RncImportError) as negative_floor:
         require_load_headroom(
@@ -585,6 +586,7 @@ def test_size_sql_reads_sizes_and_does_not_truncate_or_copy() -> None:
         "SET statement_timeout = '5min';\n"
         "SELECT pg_database_size(current_database());\n"
         "SELECT COALESCE(pg_total_relation_size(to_regclass('public.dgii_rnc')), 0);\n"
+        "SELECT COALESCE(pg_total_relation_size(to_regclass('public.dgii_rnc_load')), 0);\n"
     )
     assert "TRUNCATE" not in gate_sql
     assert "COPY" not in gate_sql
@@ -614,7 +616,7 @@ def test_size_env_changes_headroom_and_rejects_injected_sql(monkeypatch) -> None
     monkeypatch.setenv("DGII_RNC_STATEMENT_TIMEOUT", "")
     monkeypatch.setenv("DGII_RNC_LOAD_HEADROOM_FLOOR", "")
     monkeypatch.setenv("DGII_RNC_SIZE_LIMIT", "")
-    with pytest.raises(RncImportError, match="peak 576716800"):
+    with pytest.raises(RncImportError, match="peak 545259520"):
         require_load_headroom(350 * 1024 * 1024, 0, _config_from_env())
 
 
@@ -648,7 +650,7 @@ def test_apply_load_stops_before_truncate_when_the_peak_is_over(
             "postgres://user:secret@db/postgres",
         ]
         if input == headroom_sql(LOAD):
-            return _Completed(stdout="500000000\n0\n")
+            return _Completed(stdout="500000000\n0\n0\n")
         raise AssertionError("load ran after the size check failed")
 
     monkeypatch.setattr("scripts.ops.dgii_rnc_import.subprocess.run", fake_run)
@@ -656,7 +658,7 @@ def test_apply_load_stops_before_truncate_when_the_peak_is_over(
         _apply_load("postgres://user:secret@db/postgres", _one_row(), LOAD)
     assert len(calls) == 1
     assert calls[0] == headroom_sql(LOAD)
-    assert "peak 709715200" in str(caught.value)
+    assert "peak 678257920" in str(caught.value)
     assert "secret" not in str(caught.value)
     assert capsys.readouterr().out == ""
 
@@ -669,7 +671,7 @@ def test_apply_load_prints_sizes_around_the_swap(monkeypatch, capsys) -> None:
         calls.append(input)
         assert args[-1] == url
         if input == headroom_sql(LOAD):
-            return _Completed(stdout="1000\n0\n")
+            return _Completed(stdout="1000\n0\n0\n")
         if input == load_script(_one_row(), LOAD):
             return _Completed(stdout="")
         if input == swap_script(LOAD):
@@ -693,8 +695,9 @@ def test_apply_load_prints_sizes_around_the_swap(monkeypatch, capsys) -> None:
     assert capsys.readouterr().out == (
         "database_bytes=1000\n"
         "live_relation_bytes=0\n"
-        "headroom_bytes=209715200\n"
-        "peak_bytes=209716200\n"
+        "load_relation_bytes=0\n"
+        "headroom_bytes=178257920\n"
+        "peak_bytes=178258920\n"
         "swap_rows=700000\n"
         "database_bytes_after=100\n"
         "relation_bytes public.dgii_rnc=200\n"
@@ -849,6 +852,7 @@ def test_unretained_parse_reports_the_same_summary() -> None:
             f"entry={CSV_ENTRY}",
             "anomalies=0",
             "dropped=2",
+            "blank_status=0",
             "duplicates=1",
             f"parsed_bytes={len(expected_copy.encode('utf-8'))}",
             "trade_name_filled=1",

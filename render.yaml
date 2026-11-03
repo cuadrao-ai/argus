@@ -303,6 +303,30 @@ services:
       - key: NEXT_PUBLIC_ENABLE_SPANISH
         value: "true"
 
+  # Staging only. It stays off until DGII_RNC_LOAD_ENABLED is true.
+  - type: cron
+    name: cuadrao-dgii-rnc-staging
+    runtime: python
+    repo: https://github.com/lagarcess/argus
+    branch: codex/private-alpha-next
+    rootDir: .
+    plan: starter
+    schedule: "0 7 * * *"
+    autoDeployTrigger: "off"
+    buildCommand: "true"
+    startCommand: bash scripts/ops/dgii_rnc_daily.sh
+    envVars:
+      - key: DGII_RNC_LOAD_ENABLED
+        sync: false
+      - key: SUPABASE_STAGING_DB_URL
+        sync: false
+      - key: DGII_RNC_STATEMENT_TIMEOUT
+        sync: false
+      - key: DGII_RNC_LOAD_HEADROOM_FLOOR
+        sync: false
+      - key: DGII_RNC_SIZE_LIMIT
+        sync: false
+
   - type: web
     name: cuadrao-marketing-staging
     runtime: node

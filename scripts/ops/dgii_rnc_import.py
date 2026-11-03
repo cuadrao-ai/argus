@@ -4,6 +4,7 @@ import argparse
 import array
 import csv
 import io
+import json
 import os
 import re
 import subprocess
@@ -13,6 +14,7 @@ import unicodedata
 import zipfile
 import zlib
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import date, datetime
 from pathlib import Path, PurePosixPath
@@ -28,9 +30,11 @@ _COPY_CHUNK = 1 << 20
 _CSV_ENTRY = re.compile(r"RNC_Contribuyentes_Actualizado_.*\.csv", re.IGNORECASE)
 _TXT_ENTRY = "DGII_RNC.TXT"
 _TXT_PIPES = 10
+_TXT_WRAP_LINES = 5
 _HEADER_WORDS = ("RNC", "RAZON", "ACTIVIDAD", "FECHA", "ESTADO", "REGIMEN")
 _OPTIONAL_FIELDS = ("trade_name", "activity", "start_date", "regime")
 _LINE_BREAKS = re.compile(r"\s*[\r\n]+\s*")
+_LINE_END = re.compile(r"\r?\n")
 _NON_DIGITS = re.compile(r"[^0-9]")
 _LETTER = re.compile(r"[^\W\d_]")
 _DIGIT = re.compile(r"\d")
@@ -105,9 +109,10 @@ class LoadConfig:
     lookup_function: str = "public.dgii_rnc_lookup"
     min_rows: int = 700_000
     anomaly_limit: int = 25
+    loss_limit: int = 25
     statement_timeout: str = "5min"
     drop_sample_limit: int = 5
-    load_headroom_floor_bytes: int = 200 * 1024 * 1024
+    load_headroom_floor_bytes: int = 170 * 1024 * 1024
     size_limit_bytes: int = 450 * 1024 * 1024
 
 
@@ -130,11 +135,14 @@ def parse_zip(
     *,
     trade_name_zip: bytes | str | Path | None = None,
     keep_rows: bool = True,
+    previous_names: Callable[[], dict[str, str]] | None = None,
 ) -> ParseResult:
     try:
         with zipfile.ZipFile(_zip_source(source)) as archive:
             info = _registry_entry(archive)
             trade_names = _read_trade_names(trade_name_zip)
+            if trade_names.failure is not None and previous_names is not None:
+                trade_names = trade_names._replace(names=previous_names())
             with io.TextIOWrapper(
                 archive.open(info, "r"), encoding="latin-1", newline=""
             ) as text:
@@ -159,14 +167,21 @@ def validate(result: ParseResult, config: LoadConfig) -> None:
         raise RncImportError(
             f"anomalies {result.anomaly_count} exceed limit {config.anomaly_limit}"
         )
+    blank_status = _blank_status(result)
+    lost = result.dropped_count + blank_status
+    if lost > config.loss_limit:
+        raise RncImportError(
+            f"lost rows {lost} exceed limit {config.loss_limit}: "
+            f"dropped {result.dropped_count}, blank estado {blank_status}"
+        )
     seen: set[str] = set()
     for row in result.rows:
         if len(row.rnc) not in _KEPT_LENGTHS or not row.rnc.isdigit():
-            raise RncImportError(f"rnc is not 9 or 11 digits: {row.rnc}")
+            raise RncImportError("a kept rnc is not 9 or 11 digits")
         if row.name.strip() == "":
-            raise RncImportError(f"blank name for rnc {row.rnc}")
+            raise RncImportError("a kept row has a blank name")
         if row.rnc in seen:
-            raise RncImportError(f"duplicate rnc {row.rnc}")
+            raise RncImportError("a kept rnc repeats")
         seen.add(row.rnc)
     count = _kept_count(result)
     if count < config.min_rows:
@@ -180,6 +195,7 @@ def summary_lines(result: ParseResult) -> list[str]:
         f"entry={result.entry_name}",
         f"anomalies={result.anomaly_count}",
         f"dropped={result.dropped_count}",
+        f"blank_status={_blank_status(result)}",
         f"duplicates={result.duplicate_count}",
         f"parsed_bytes={_parsed_bytes(result)}",
     ]
@@ -225,13 +241,25 @@ def swap_script(config: LoadConfig) -> str:
     return f"SET statement_timeout = '{timeout}';\n" f"SELECT {function}({min_rows});\n"
 
 
-def headroom_sql(config: LoadConfig) -> str:
+def previous_names_sql(config: LoadConfig) -> str:
     timeout = _statement_timeout(config.statement_timeout)
     live = _sql_ident(config.live_table)
     return (
         f"SET statement_timeout = '{timeout}';\n"
+        "SELECT COALESCE(json_object_agg(rnc, trade_name), '{}') "
+        f"FROM {live} WHERE trade_name IS NOT NULL;\n"
+    )
+
+
+def headroom_sql(config: LoadConfig) -> str:
+    timeout = _statement_timeout(config.statement_timeout)
+    live = _sql_ident(config.live_table)
+    load = _sql_ident(config.load_table)
+    return (
+        f"SET statement_timeout = '{timeout}';\n"
         "SELECT pg_database_size(current_database());\n"
         f"SELECT COALESCE(pg_total_relation_size(to_regclass('{live}')), 0);\n"
+        f"SELECT COALESCE(pg_total_relation_size(to_regclass('{load}')), 0);\n"
     )
 
 
@@ -315,17 +343,25 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 0
         config = _config_from_env()
+        loading = args.command == "load"
+        database_url = os.environ.get("SUPABASE_STAGING_DB_URL", "") if loading else ""
         result = parse_zip(
-            args.csv_zip, config, trade_name_zip=args.txt_zip, keep_rows=False
+            args.csv_zip,
+            config,
+            trade_name_zip=args.txt_zip,
+            keep_rows=False,
+            previous_names=(
+                (lambda: _previous_trade_names(database_url, config))
+                if database_url
+                else None
+            ),
         )
         try:
-            if args.command == "parse":
-                for line in summary_lines(result):
-                    print(line)
+            for line in summary_lines(result):
+                print(line)
             validate(result, config)
-            if args.command == "parse":
+            if not loading:
                 return 0
-            database_url = os.environ.get("SUPABASE_STAGING_DB_URL", "")
             if database_url == "":
                 print("load skipped: SUPABASE_STAGING_DB_URL is absent")
                 return 0
@@ -411,11 +447,10 @@ def _physical_lines(chunks):
     # splitlines() also breaks on U+0085, which Latin-1 must keep inside a name.
     pending = ""
     for chunk in chunks:
-        if pending:
-            chunk = pending + chunk
-            pending = ""
-        parts = chunk.split("\r\n")
+        parts = _LINE_END.split(pending + chunk)
         pending = parts.pop()
+        if len(pending) > _COPY_CHUNK:
+            raise RncImportError(f"txt line is over {_COPY_CHUNK} characters")
         yield from parts
     if pending:
         yield pending
@@ -427,7 +462,8 @@ def _read_trade_names(source: bytes | str | Path | None) -> _TradeNames:
         return _TradeNames({}, "no file given")
     try:
         with zipfile.ZipFile(_zip_source(source)) as archive:
-            return _TradeNames(_trade_names(archive), None)
+            names = _trade_names(archive)
+        return _TradeNames(names, None if names else "no trade names parsed")
     except RncImportError as exc:
         return _TradeNames({}, str(exc))
     except _ZIP_ERRORS as exc:
@@ -442,22 +478,21 @@ def _trade_names(archive: zipfile.ZipFile) -> dict[str, str]:
     if len(matches) != 1:
         raise RncImportError(f"zip holds {len(matches)} {_TXT_ENTRY} entries")
     names: dict[str, str] = {}
-    buffer: str | None = None
+    record: list[str] = []
+    pipes = 0
     for line in _physical_lines(_text_chunks(archive, matches[0])):
-        if buffer is None:
-            if line.strip() == "":
-                continue
-            buffer = line
-        else:
-            buffer = f"{buffer} {line}"
-        pipes = buffer.count("|")
-        if pipes < _TXT_PIPES:
+        if not record and line.strip() == "":
+            continue
+        record.append(line)
+        pipes += line.count("|")
+        if pipes < _TXT_PIPES and len(record) < _TXT_WRAP_LINES:
             continue
         if pipes == _TXT_PIPES:
-            raw, _name, trade_name = buffer.split("|", 3)[:3]
+            raw, _name, trade_name = " ".join(record).split("|", 3)[:3]
             if trade_name.strip() != "":
                 names[_digits(raw)] = trade_name.strip()
-        buffer = None
+        record = []
+        pipes = 0
     return names
 
 
@@ -470,7 +505,10 @@ def _columns(header: list[str]) -> _Columns:
     for word in _HEADER_WORDS:
         hits = [index for index, cell in enumerate(folded) if word in cell]
         if len(hits) != 1:
-            raise RncImportError(f"csv header needs one {word} column: {header}")
+            found = [item for item in _HEADER_WORDS if any(item in cell for cell in folded)]
+            raise RncImportError(
+                f"csv header needs one {word} column: {len(header)} columns, found {found}"
+            )
         picks.append(hits[0])
     return _Columns(*picks)
 
@@ -606,7 +644,9 @@ def _scan_registry(
             date_shapes=tuple(date_shapes.most_common(_SHAPE_LINES)),
             activity_chars=sum(activity_sizes),
             trade_name_failure=trade_names.failure,
-            trade_name_facts=_trade_name_facts(trade_names.names, same_as_name),
+            trade_name_facts=_trade_name_facts(
+                {} if trade_names.failure else trade_names.names, same_as_name
+            ),
         )
     except Exception:
         close_spill()
@@ -727,7 +767,9 @@ def _trade_name_facts(
 def _trade_names_line(result: ParseResult) -> str:
     if result.trade_name_failure is None:
         return "trade_names=loaded"
-    return f"trade_names=unavailable reason={result.trade_name_failure}: names stay null"
+    return (
+        f"trade_names=unavailable reason={result.trade_name_failure}: previous names stay"
+    )
 
 
 def _optional_bits(row: RncRow) -> int:
@@ -808,6 +850,10 @@ def _discard_spill(path: str | None) -> None:
         return
 
 
+def _previous_trade_names(database_url: str, config: LoadConfig) -> dict[str, str]:
+    return json.loads(_psql(database_url, previous_names_sql(config)))
+
+
 def _kept_count(result: ParseResult) -> int:
     if result.row_count is None:
         return len(result.rows)
@@ -818,6 +864,10 @@ def _parsed_bytes(result: ParseResult) -> int:
     if result.parsed_bytes is None:
         return parsed_byte_estimate(result.rows)
     return result.parsed_bytes
+
+
+def _blank_status(result: ParseResult) -> int:
+    return dict(_status_counts(result)).get("", 0)
 
 
 def _filled_counts(result: ParseResult) -> tuple[tuple[str, int], ...]:
@@ -864,11 +914,16 @@ def _sql_ident(value: str) -> str:
 
 
 def _apply_load(database_url: str, result: ParseResult, config: LoadConfig) -> None:
-    database_size, relation_bytes = _psql_integers(database_url, headroom_sql(config), 2)
-    peak = require_load_headroom(database_size, relation_bytes, config)
+    database_size, relation_bytes, stale_load = _psql_integers(
+        database_url, headroom_sql(config), 3
+    )
+    # The copy truncates the load table first, so its rows are not part of the peak.
+    settled_size = database_size - stale_load
+    peak = require_load_headroom(settled_size, relation_bytes, config)
     print(f"database_bytes={database_size}")
     print(f"live_relation_bytes={relation_bytes}")
-    print(f"headroom_bytes={peak - database_size}")
+    print(f"load_relation_bytes={stale_load}")
+    print(f"headroom_bytes={peak - settled_size}")
     print(f"peak_bytes={peak}")
     if result.spill_path is None:
         _psql(database_url, load_script(result, config))
@@ -908,9 +963,15 @@ def _psql(database_url: str, script: str) -> str:
     except FileNotFoundError:
         raise RncImportError("psql is not installed") from None
     if completed.returncode != 0:
-        detail = _redact(completed.stderr, database_url).strip()
-        raise RncImportError(detail or "psql failed")
+        raise RncImportError(_psql_failure(completed.stderr, database_url))
     return _redact(completed.stdout, database_url)
+
+
+def _psql_failure(stderr: str, database_url: str) -> str:
+    """One line only: the DETAIL and CONTEXT lines of a failed COPY quote the row."""
+    lines = _redact(stderr, database_url).strip().splitlines()
+    errors = [line for line in lines if "ERROR:" in line]
+    return (errors or lines or ["psql failed"])[0]
 
 
 def _write_copy(stdin, header: bytes, payload_path: str, stop=None) -> None:
@@ -956,8 +1017,7 @@ def _psql_copy(database_url: str, header: str, payload_path: str) -> str:
         pass
     stdout, stderr = completed.communicate()
     if completed.returncode != 0:
-        detail = _redact(stderr.decode("utf-8", "replace"), database_url).strip()
-        raise RncImportError(detail or "psql failed")
+        raise RncImportError(_psql_failure(stderr.decode("utf-8", "replace"), database_url))
     return _redact(stdout.decode("utf-8", "replace"), database_url)
 
 

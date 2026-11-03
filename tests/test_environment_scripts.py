@@ -418,7 +418,7 @@ def test_render_blueprint_declares_shared_render_env_contract_vars() -> None:
     services = {service["name"]: service for service in render_config["services"]}
     assert set(services) == set(
         "cuadrao-api cuadrao-web cuadrao-api-staging "
-        "cuadrao-web-staging cuadrao-marketing-staging".split()
+        "cuadrao-web-staging cuadrao-marketing-staging cuadrao-dgii-rnc-staging".split()
     )
     manifest = json.loads(_source("scripts/ops/staging_env_manifest.json"))
     stage = _render_env("cuadrao-web-staging")
