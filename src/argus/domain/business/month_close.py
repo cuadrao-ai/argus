@@ -317,9 +317,12 @@ def summarize(
     start: date,
     end: date,
     no_payment_form: Collection[str] = (),
+    missing: Mapping[str, Sequence[str]] | None = None,
 ) -> dict:
     """The month's money and lists. ``no_payment_form`` names the activities the
-    606 holds for a missing Forma de Pago; the 606 owns that rule."""
+    606 holds for a missing Forma de Pago, and ``missing`` what the 606 or 607
+    still needs from each activity it holds, in the export's own words; the
+    export owns both rules. ``closed`` is month completion alone."""
 
     chosen = [
         document
@@ -332,7 +335,12 @@ def summarize(
     missing_ncf = []
     ncf_malformed = []
     missing_payment_form = []
+    missing_fiscal_data = []
     for document in sorted(chosen, key=lambda item: (item.occurred_on, item.activity_id)):
+        if missing and document.activity_id in missing:
+            missing_fiscal_data.append(
+                {**_line(document), "missing": list(missing[document.activity_id])}
+            )
         if document.sin_comprobante:
             continue
         if (
@@ -463,6 +471,7 @@ def summarize(
         "ncf_malformed": ncf_malformed,
         "missing_ncf": missing_ncf,
         "missing_payment_form": missing_payment_form,
+        "missing_fiscal_data": missing_fiscal_data,
         "cuentas_por_cobrar": receivables,
         "cuentas_por_pagar": payables,
     }
@@ -486,18 +495,35 @@ def unreviewed_in_month(days: Iterable[date], start: date, end: date) -> int:
     return sum(start <= day <= end for day in days)
 
 
-def with_unreviewed(summary: dict, count: int) -> dict:
-    """The month close with drafts still in the Bandeja as one blocking reason.
-    The web words it from the code, the count and the month."""
+#: The export's status words under which a form stands as it is.
+FORM_STANDS = frozenset({"prepared_candidate", "no_operations", "summary_only"})
+
+
+def with_unreviewed(summary: dict, count: int, month_unknown: bool = False) -> dict:
+    """The month close with drafts still in the Bandeja as one blocking reason,
+    and ``filing_ready``: the one fact "ready for the 606 and 607", true only
+    when both forms stand by the export's verdict and no step of this month
+    remains: nothing still in the Bandeja (reading, waiting or unreadable),
+    nothing the forms hold, nothing left to mark cobrado or pagado. While a
+    read in flight has no date, ``month_unknown`` holds every month: nobody yet
+    knows which one it belongs to. It adds no count and no reason. The web
+    words the reason from the code, the count and the month."""
 
     reasons = list(summary["reasons"])
     if count:
         reasons.append({"code": "movimientos_sin_revisar", "count": count})
+    forms_stand = all(status in FORM_STANDS for status in summary["dgii_forms"].values())
     return {
         **summary,
         "closed": summary["closed"] and not count,
         "reasons": reasons,
         "unreviewed_movements_count": count,
+        "filing_ready": forms_stand
+        and not count
+        and not month_unknown
+        and not summary["missing_fiscal_data"]
+        and not summary["cuentas_por_cobrar"]
+        and not summary["cuentas_por_pagar"],
     }
 
 

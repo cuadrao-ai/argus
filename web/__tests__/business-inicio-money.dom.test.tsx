@@ -578,26 +578,22 @@ describe("Inicio in two columns", () => {
     } finally { await view.close(); }
   });
 
-  test("while steps remain, Cerrar hides and one quiet line says how many and which month", async () => {
-    const view = await renderView(clientOf([document_({ id: "inv-1", status: "pendiente" }), document_({ id: "inv-2", rnc: null, ncf: null })]), { count: 0, detail: null, open: () => {} });
+  test("while steps remain, nothing promises that finishing them closes the month", async () => {
+    const view = await renderView(clientOf([document_({ id: "inv-1", status: "pendiente" }), document_({ id: "inv-2", rnc: null, ncf: null, missing: ["rnc_missing", "ncf_missing"] })]), { count: 0, detail: null, open: () => {} });
     try {
+      assert.equal(view.host.querySelector('[data-testid="month-close-checklist-left"]')?.textContent, "faltan 2");
       assert.equal(view.host.querySelector('[data-testid="month-close-close"]'), null);
-      assert.equal(view.host.querySelector('[data-testid="month-close-steps-note"]')?.textContent, "Cuando termines los 2 pasos, podrás cerrar octubre.");
+      assert.equal(view.host.querySelector('[data-testid="month-close-steps-note"]'), null);
+      assert.doesNotMatch(view.host.textContent ?? "", /podrás cerrar/);
     } finally { await view.close(); }
-    const one = await renderView(clientOf([document_({ id: "inv-1", status: "pendiente" })]), { count: 0, detail: null, open: () => {} });
-    try {
-      assert.equal(one.host.querySelector('[data-testid="month-close-steps-note"]')?.textContent, "Cuando termines el paso que falta, podrás cerrar octubre.");
-    } finally { await one.close(); }
   });
 
-  test("when the month can close, the green Cerrar appears in the line's place", async () => {
+  test("when nothing remains and the export has not spoken, the card says all is settled and offers no close", async () => {
     const view = await renderView(clientOf([document_({ id: "inv-1" }), document_({ id: "rcpt-1", kind: "receipt", counterparty: "Edenorte", status: "pagado" })]), { count: 0, detail: null, open: () => {} });
     try {
-      assert.equal(view.host.querySelector('[data-testid="month-close-steps-note"]'), null);
-      const close = view.host.querySelector<HTMLButtonElement>('[data-testid="month-close-close"]')!;
-      assert.equal(close.textContent, "Cerrar octubre");
-      assert.equal(close.disabled, false);
-      assert.match(close.className, /bg-\[var\(--cuadrao-green\)\]/);
+      assert.equal(view.host.querySelector('[data-testid="month-close-checklist-ready"]')?.textContent, "Todo al día");
+      assert.equal(view.host.querySelector('[data-testid="month-close-filing"]'), null, "no verdict from the export, no claim about the 606");
+      assert.equal(view.host.querySelector('[data-testid="month-close-close"]'), null);
     } finally { await view.close(); }
   });
 });

@@ -73,15 +73,18 @@ def _unavailable(request: Request):
     )
 
 
-def _unreviewed(business: BusinessContext, month: str) -> int:
+def _bandeja(business: BusinessContext, month: str) -> tuple[int, bool]:
+    """What the Bandeja holds against this month: the drafts dated in it, and
+    whether a read in flight could still land in any month."""
+
     from argus.api.business_drafts import receipt_read_dates, receipt_summaries
-    from argus.api.business_receipt_activity import unreviewed_days
+    from argus.api.business_receipt_activity import month_unknown, unreviewed_days
 
     start, end = month_period(month)
-    days = unreviewed_days(
-        business, receipt_summaries(business, "all"), receipt_read_dates(business)
-    )
-    return unreviewed_in_month(days, start, end)
+    views = receipt_summaries(business, "all")
+    dates = receipt_read_dates(business)
+    days = unreviewed_days(business, views, dates)
+    return unreviewed_in_month(days, start, end), month_unknown(business, views, dates)
 
 
 @router.get("", response_model=MonthClose)
@@ -114,7 +117,7 @@ def month_summary(
                 context.service.authority, _owner(request, context, person), month
             )
         )
-        return with_unreviewed(summary, _unreviewed(business, month))
+        return with_unreviewed(summary, *_bandeja(business, month))
     except ValueError as error:
         if str(error) != "month_invalid":
             raise

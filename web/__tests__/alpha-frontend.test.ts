@@ -2443,7 +2443,7 @@ describe("Argus Alpha frontend contract", () => {
     expect(sidebar).toContain("if (isProfileMenuOpen) return");
   });
 
-  test("profile modal uses gated language shortcuts and the in-app deletion command", () => {
+  test("profile modal leaves the language to Ajustes and keeps the in-app deletion command", () => {
     const profileMenu = readFileSync(
       join(root, "components/sidebar/ProfileMenu.tsx"),
       "utf-8",
@@ -2472,10 +2472,10 @@ describe("Argus Alpha frontend contract", () => {
 
     expect(languageFeatures).toContain("languageDisplayAbbreviation");
     expect(languageFeatures).toContain("localeForLanguage");
-    // The dialog's markup lives in ProfileDetailsDialog; the menu keeps the
-    // state and the requests behind it.
-    expect(detailsDialog).toContain("ENABLED_LANGUAGES");
-    expect(detailsDialog).toContain("languageDisplayAbbreviation");
+    // Perfil no longer repeats the language shortcut; Idioma de la app lives
+    // in Ajustes. The menu still keeps the deletion command's language.
+    expect(detailsDialog).not.toContain("ENABLED_LANGUAGES");
+    expect(detailsDialog).not.toContain("argus-profile-language-trigger");
     expect(profileMenu).toContain("localeForLanguage");
     // Lane 6: the delete button runs the deletion command; with the command
     // off (404) it falls back to the support ticket. Success or in_progress
@@ -2485,15 +2485,13 @@ describe("Argus Alpha frontend contract", () => {
     expect(deleteRequestDialog).toContain(
       "settings.profile.request_deletion.in_progress",
     );
-    expect(detailsDialog).toContain("argus-profile-language-trigger");
-    expect(detailsDialog).toContain("absolute right-0 top-full");
     // Both dialogs live in their own components, because a body-portaled
     // aria-modal surface has to register its own back, Escape, and focus.
     expect(deleteRequestDialog).toContain(
       "settings.profile.request_deletion.title",
     );
     expect(detailsDialog).toContain("useModalSurface");
-    expect(profileMenu).toContain("settings.profile.language_save_error");
+    expect(profileMenu).not.toContain("settings.profile.language_save_error");
     expect(detailsDialog).not.toContain(
       "overflow-hidden rounded-[10px] border border-black/5 bg-black/[0.015]",
     );
@@ -2523,7 +2521,7 @@ describe("Argus Alpha frontend contract", () => {
     expect(en).toContain('"body": "We delete your account and your personal data. This can\'t be undone."');
     expect(en).toContain("Your account is deleted. You're signed out.");
     expect(en).toContain("Your account is being deleted. You're signed out now");
-    expect(en).toContain('show as \\"Former member.\\"');
+    expect(en).not.toContain('"shared_plans"');
     expect(en).not.toContain("Support will follow up by email.");
     expect(es).toContain('"title": "¿Eliminar tu cuenta?"');
     expect(es).toContain(

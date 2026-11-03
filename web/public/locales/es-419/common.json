@@ -965,6 +965,9 @@
       "preferred_name": "¿Cómo quieres que te llamemos?",
       "preferred_name_placeholder": "Déjalo vacío para no usar nombre",
       "preferred_name_unset": "Sin definir",
+      "name": "Nombre",
+      "name_team_hint": "Lo ve tu equipo en accesos y en el historial de cada registro.",
+      "preferred_name_hint": "Así te saludamos en Inicio.",
       "preferred_name_save_error": "No se pudo guardar ese nombre todavía.",
       "preferred_name_too_long": "Usa {{count}} caracteres o menos.",
       "language_save_error": "No pudimos actualizar el idioma todavía.",
@@ -992,7 +995,7 @@
         "title": "¿Eliminar tu cuenta?",
         "body": "Borramos tu cuenta y tus datos personales, y no se puede deshacer.",
         "business_owner": "Antes de eliminar tu cuenta, cada negocio tuyo necesita otro dueño o cerrarse.",
-        "shared_plans": "En los planes que compartes, tus montos se quedan para que las cuentas de los demás sigan cuadrando, pero sin tu nombre: aparecerás como «Exmiembro». Tus recibos y notas se borran. Lo que debes o te deben queda cerrado en la app, no marcado como pagado. Los planes que creaste pasan a la persona que lleva más tiempo en cada uno, salvo los planes de deuda compartidos, que se cierran y quedan solo para consulta.",
+        "check_failed": "No pudimos revisar tu cuenta. Intenta otra vez.",
         "confirm": "Eliminar cuenta",
         "submitting": "Eliminando...",
         "success": "Tu cuenta está eliminada. Ya cerraste sesión.",
@@ -3791,7 +3794,6 @@
       "deadline": "Puedes reabrirlo antes del {{purgeDate}} a las {{purgeTime}} (hora de RD).",
       "deletion": {
         "blocked": "Primero transfiere o cierra tus negocios.",
-        "checking": "Revisando tus negocios…",
         "closed_warning": "{{businessName}} está cerrado. Si borras tu cuenta, nadie podrá reabrirlo y sus datos y comprobantes se borrarán el {{purgeDate}} a las {{purgeTime}} (hora de RD).",
         "failed": "No pudimos revisar tus negocios. Intenta otra vez.",
         "warning": "Eres el único dueño de {{businessName}}. Transfiérelo o ciérralo antes de borrar tu cuenta."
@@ -3867,6 +3869,10 @@
       "checklist_review_other": "{{count}} por revisar en la Bandeja",
       "checklist_fiscal_one": "Completa el RNC o NCF de {{count}} documento",
       "checklist_fiscal_other": "Completa el RNC o NCF de {{count}} documentos",
+      "placeholder": {
+        "checklist_fiscal_data_one": "Completa los datos del 606 o 607 de {{count}} documento",
+        "checklist_fiscal_data_other": "Completa los datos del 606 o 607 de {{count}} documentos"
+      },
       "checklist_settle_one": "Marca {{count}} documento como cobrado o pagado",
       "checklist_settle_other": "Marca {{count}} documentos como cobrados o pagados",
       "checklist_overdue_one": "{{count}} vencido",
@@ -3880,7 +3886,7 @@
       "record_collection": "Registrar cobro",
       "record_payment": "Registrar pago",
       "checklist_required": "Necesario para cerrar el mes",
-      "filing_ready": "Ya tienes todo para el 606 y el 607. Cierra el mes cuando termines de marcar lo cobrado y lo pagado.",
+      "filing_ready": "Ya tienes todo para el 606 y el 607.",
       "nothing_open": "Todo al día",
       "nothing_open_body": "Nadie te debe y no le debes a nadie.",
       "checklist_ready": "Todo listo para cerrar {{month}}.",

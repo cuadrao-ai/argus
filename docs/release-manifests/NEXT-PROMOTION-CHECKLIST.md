@@ -56,25 +56,18 @@ section
   After PR #1267 is deployed to `cuadrao-web-staging`, replace the recovery,
   email_change, and invite staging templates with the token-hash versions.
   Rerun the same password-reset smoke test on staging.
-- The DGII RNC schedule starts only on `main`. PR #1257 adds
-  `.github/workflows/dgii-rnc-import.yml`. GitHub runs that schedule from the
-  default branch. A merge to `codex/private-alpha-next` does not start it.
-  Leave `DGII_RNC_LOAD_ENABLED` unset. Do not set `SUPABASE_STAGING_DB_URL`
-  from this promotion. The job writes staging, not production. See
-  [DGII RNC schedule](../PRIVATE_LAUNCH_RUNBOOK.md#dgii-rnc-schedule).
-
-  1. Confirm `.github/workflows/dgii-rnc-import.yml` is on `main` after
-     promotion. The daily schedule does not run until that file is on `main`.
-  2. The first load needs Lucas's explicit yes at promotion time, and the
-     size-gate check. PR #1257's job loads the staging registry only. That yes
-     is enforced only by leaving `DGII_RNC_LOAD_ENABLED` unset and leaving the
-     `SUPABASE_STAGING_DB_URL` secret unset until Lucas approves. The size gate
-     reads `pg_database_size` before truncate. It refuses the load when that
-     size plus the required headroom exceeds the limit. Headroom is the larger
-     of the live `public.dgii_rnc` size and a 200 MB floor. The default limit
-     is 450 MB.
-  3. Confirm the first scheduled run of `.github/workflows/dgii-rnc-import.yml`
-     on `main` succeeds.
+- The hosted staging cron `cuadrao-dgii-rnc-staging` in `render.yaml` is the
+  only scheduled DGII RNC loader. It runs daily at 07:00 UTC from
+  `codex/private-alpha-next`, with automatic deploys off. Promotion to `main`
+  does not start the schedule. The workflow `.github/workflows/dgii-rnc-import.yml`
+  only downloads and parses on matching pull requests or manual dispatch.
+  It has no schedule or database credential and never loads.
+  Follow [DGII RNC schedule](../PRIVATE_LAUNCH_RUNBOOK.md#dgii-rnc-schedule)
+  for the separate staging approval, migration and size checks, and first-load
+  verification. This promotion does not enable loading. Keep
+  `DGII_RNC_LOAD_ENABLED` and `SUPABASE_STAGING_DB_URL` unset on the cron until
+  Lucas explicitly approves the first staging load. Set those values on the
+  cron service only, never as repository variables or secrets.
 
 This file remains the historical preparation checklist for eval identity,
 local rehearsal, and spending records.

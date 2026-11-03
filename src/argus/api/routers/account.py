@@ -2,9 +2,10 @@
 
 ``GET /api/v1/account/deletion`` says, before the person presses delete, what
 would refuse the command and which closed Businesses are still inside their
-reopen window. It reads and starts nothing, under the same flag, session and
-per-account limit as the command (a limit of its own, so a screen that checks
-often can't starve the delete).
+reopen window. It reads and starts nothing, under the same flag and session as
+the command. Its per-account limit is its own and larger (30 a minute, since
+Ajustes reads it on open and again when the delete alert opens), so a screen
+that checks often can't starve the delete.
 
 ``POST /api/v1/account/delete`` runs the whole deletion command for the signed-in
 person. It is off unless ``CUADRAO_ACCOUNT_DELETION_ENABLED`` is on, and while off
@@ -47,6 +48,9 @@ router = APIRouter(prefix="/api/v1", tags=["account"])
 _per_account = SlidingWindowLimiter()
 _per_account_check = SlidingWindowLimiter()
 _PER_ACCOUNT = (6, 60)
+# The check is a read the web makes when Ajustes opens and again when the
+# delete alert opens, so it needs room the command doesn't.
+_PER_ACCOUNT_CHECK = (30, 60)
 _INCOMPLETE_RETRY_SECONDS = 5
 
 
@@ -100,14 +104,18 @@ def account_deletion_service() -> AccountDeletionService | None:
     )
 
 
-def _requester_within(limiter: SlidingWindowLimiter):  # noqa: ANN202
+def _requester_within(  # noqa: ANN202
+    limiter: SlidingWindowLimiter, budget: tuple[int, int]
+):
     def requester(request: Request) -> User:
-        return _limited_requester(request, limiter)
+        return _limited_requester(request, limiter, budget)
 
     return requester
 
 
-def _limited_requester(request: Request, limiter: SlidingWindowLimiter) -> User:
+def _limited_requester(
+    request: Request, limiter: SlidingWindowLimiter, budget: tuple[int, int]
+) -> User:
     # The flag is checked before any session check, so a disabled route says
     # nothing about sessions.
     if not account_deletion_enabled():
@@ -119,7 +127,7 @@ def _limited_requester(request: Request, limiter: SlidingWindowLimiter) -> User:
             detail="Not found.",
         )
     user = deletion_requester(request)
-    limit, seconds = _PER_ACCOUNT
+    limit, seconds = budget
     retry = limiter.record_or_retry_after(
         keys=(user.id,), limit=limit, window_seconds=seconds
     )
@@ -135,8 +143,8 @@ def _limited_requester(request: Request, limiter: SlidingWindowLimiter) -> User:
     return user
 
 
-_deleting_user = _requester_within(_per_account)
-_checking_user = _requester_within(_per_account_check)
+_deleting_user = _requester_within(_per_account, _PER_ACCOUNT)
+_checking_user = _requester_within(_per_account_check, _PER_ACCOUNT_CHECK)
 
 
 def _problem(description: str) -> dict:  # type: ignore[type-arg]
@@ -226,7 +234,7 @@ class AccountDeletionEligibilityResponse(BaseModel):
             "any session check."
         ),
         429: _problem(
-            "`too_many_requests`: six requests per account per minute; see Retry-After."
+            "`too_many_requests`: 30 requests per account per minute; see Retry-After."
         ),
         # 503 is declared in openapi_compat, like the command's.
     },

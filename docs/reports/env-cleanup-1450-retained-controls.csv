@@ -413,7 +413,7 @@ D10_WEB_PORT,active_control,Direct reader in a checked-in executable QA/evidence
 DAILY_BYTE_LIMIT,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/email_intake/config.py:40
 DAILY_MESSAGE_LIMIT,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/email_intake/config.py:35
 DEVELOPER_DIR,active_control,Toolchain selection consumed by native build tools.,.github/workflows/cuadrao-ios-age-confirmation.yml:20
-DGII_RNC_LOAD_ENABLED,active_control,Workflow activation gate mapped to ENABLED for import CLI.,.github/workflows/dgii-rnc-import.yml:62
+DGII_RNC_LOAD_ENABLED,active_control,Staging cron activation gate passed to the import CLI.,scripts/ops/dgii_rnc_daily.sh:48; render.yaml:331
 DGII_RNC_LOAD_HEADROOM_FLOOR,active_control,"test/CI only, not a hosted setting",scripts/ops/dgii_rnc_import.py:299
 DGII_RNC_SIZE_LIMIT,active_control,"test/CI only, not a hosted setting",scripts/ops/dgii_rnc_import.py:302
 DGII_RNC_STATEMENT_TIMEOUT,active_control,"test/CI only, not a hosted setting",scripts/ops/dgii_rnc_import.py:296
@@ -596,7 +596,7 @@ ROUTE_CHECK_SPENT_BEFORE_USD,active_control,Direct reader in a checked-in execut
 RUN_HEAVY,active_control,"test/CI only, not a hosted setting",tests/test_ci_workflow.py:269
 RUN_MARKETING,active_control,"test/CI only, not a hosted setting",tests/test_ci_job_selection.py:225; tests/test_ci_workflow.py:272
 SCORECARD,active_control,Executable documented verification control or preserved test reader,docs/release-manifests/NEXT-PROMOTION-CHECKLIST.md:134
-SECRET_PRESENT,test_fixture,test/CI only (synthetic fixture),.github/workflows/dgii-rnc-import.yml:64; scripts/ops/dgii_rnc_import.py:263
+SECRET_PRESENT,active_control,Import CLI gate derived from staging cron credential presence.,scripts/ops/dgii_rnc_daily.sh:50; scripts/ops/dgii_rnc_import.py:341
 SENDER_KEY,alias_in_use,Pydantic populate_by_name=True accepts this case-insensitive bare field environment name.,src/argus/domain/ingestion/whatsapp/config.py:57
 SIDEBAR_FIX_SHOTS,active_control,"test/CI only, not a hosted setting",web/e2e/business-sidebar-desktop.spec.ts:8
 SUPABASE_ACCESS_TOKEN,active_control,Connector authorization and project-selector configuration expanded from process environment.,.mcp.json:7

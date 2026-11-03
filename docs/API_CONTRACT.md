@@ -1074,7 +1074,12 @@ Application-facing user object.
   welcome. Null or absent means surfaces use no name, which needs no special
   handling.
   - Stated, never inferred. It is a setting; nothing derives it from
-    conversation, and no runtime writes it.
+    conversation. The one runtime write is at first profile creation: when the
+    person typed a name at sign-up, `preferred_name` starts as the first word of
+    it (whitespace separated, at most 40 characters, otherwise left empty). That
+    write happens once and never touches an existing row, so a name the person
+    chose, changed or cleared is never overwritten. Guests, and sign-ins that
+    carry no typed name such as Apple, start with it empty.
   - Bounded at 40 characters. Blank or whitespace clears it, which is how a user
     opts out after opting in.
   - A registered-account preference. Guest responses omit it entirely, and the
@@ -2395,6 +2400,29 @@ Supabase Auth handles identity/session heavy lifting. Alpha should keep auth low
   row whose `disabled_at` is set. When that flag is off instead, the same table
   becomes an admission list: only an email whose active row carries `admin`,
   `developer`, or `user` may enter, so a `requested` row does not admit it.
+- While that flag is off and `CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED=true`
+  (default false; with it off, this rule and the next do not run and the
+  allowlist alone admits), a Business invitation also admits exactly the
+  invited email, normalized the way `business_access_invites.email` is stored:
+  a pending invitation on an open Business admits it until the invitation
+  expires or is revoked, and the accepted grant keeps admitting it until that
+  grant is revoked or its Business is closed. Expired, revoked and
+  accepted-then-revoked invitations admit no one, a closed Business admits no
+  one, and a different address, however close, is a different email.
+  A `private_alpha_allowlist` row with `disabled_at` set refuses the email even
+  while a Business admits it; an active allowlist row keeps admitting it after
+  the last invitation or grant is gone. Deleting an allowlist row does not end
+  the access a live Business grant gives, so an owner is offboarded by setting
+  `disabled_at`, never by deleting the row. No allowlist row is written: the
+  invitation and grant tables own the fact. With the flag on, nothing changes.
+- Admission does not chain, under the same switch. Starting a Business
+  (`POST /business/space`, `POST /business/spaces`), inviting people to one
+  (`POST /business/access`, `POST /business/access/invitations`, an invite
+  resend) and accepting an ownership transfer need an account the allowlist
+  or open sign-up admits on its own; an account admitted only by a Business
+  invitation or grant gets `403 private_alpha_access_required` there and works
+  inside the Businesses that admitted it. With the switch off, no account is
+  admitted only by a Business, and these routes add no check.
 - `POST /auth/signup` must apply that gate before calling Supabase Auth signup, so denied emails do not create auth users or profiles.
 - `POST /auth/login` must also apply it before creating a browser session, so denied emails cannot enter the app.
 - Authenticated API requests must also reject users the gate denies, so an existing session cannot keep using access the gate would no longer grant.
@@ -2732,7 +2760,9 @@ null through their existing foreign-key behavior.
 `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` has been live in production since
 2026-08-12, so unlisted ordinary accounts may authenticate without role
 elevation while explicitly disabled rows stay blocked. When that flag is off
-instead, permanent signup and login admit active allowlist roles only.
+instead, permanent signup and login admit active allowlist roles and, while
+`CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED=true`, the emails a live Business
+invitation or grant names, as the private-alpha access rules above describe.
 Before that flag may be enabled, founder-approved production-parity evidence
 must prove that every enabled permanent Auth provider supplies a verified email
 compatible with profile and allowlist-role rules. Phone, OAuth, or other
@@ -2941,8 +2971,10 @@ Supabase Auth without logging or persistence.
 **Private-alpha blocked response:** login intentionally returns the same generic
 `401 unauthorized` shape used for invalid credentials, so a caller cannot tell a
 denied email from a listed email with a wrong password. Denial means an
-explicitly disabled row while the public gate is open, and an unlisted email as
-well when it is closed.
+explicitly disabled row while the public gate is open, and, when it is closed,
+an email that is not listed and, while
+`CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED=true`, not named by a live Business
+invitation or grant either.
 
 ```json
 {
@@ -3577,12 +3609,13 @@ was verified, so the person existed a moment ago.
 Says, before the person presses delete, whether `POST /account/delete` would
 refuse and which closed Businesses are still inside their reopen window. The
 delete command and this check read one rule (`eligibility.py`), so they agree.
-It reads only: it starts no run, locks nothing and sends nothing. Same flag,
-session and limit as the command (`404 not_found` while
+It reads only: it starts no run, locks nothing and sends nothing. Same flag
+and session as the command (`404 not_found` while
 `CUADRAO_ACCOUNT_DELETION_ENABLED` is off, answered before any session check;
-`401` without a session; six requests per account per minute per API worker,
-`429 too_many_requests` with `Retry-After`). The limit is counted apart from the
-command's, so a screen that checks often cannot use up the delete's requests.
+`401` without a session; 30 requests per account per minute per API worker,
+`429 too_many_requests` with `Retry-After`). Ajustes reads it on open and again
+when the delete alert opens. The limit is counted apart from the command's (which
+stays at six), so a screen that checks often cannot use up the delete's requests.
 A guest session is checked the same way.
 
 **Response `200`:**
@@ -9605,6 +9638,24 @@ approval the change is `422` `document_type_locked`. `BusinessDossier` carries
 and the caller holds `prepare`). A stale `version` is still `409`
 `stale_version` first.
 
+The type is the one answer to purchase or sale; a known `facts.kind` is always
+a kind the type admits. A `venta` admits `income`. A `recibo` admits `expense`
+and `refund`. A known `facts.kind` in a review, a chat or an agent proposal
+states the type: `income` sets `venta`, with the same effects as
+`document_type`, and `expense` or `refund` keeps a `recibo`. A `venta` is an
+issued invoice, so only a named `document_type` moves it: a stated `expense`
+or `refund` on a `venta` is `422` `activity_kind_unsupported` and changes
+nothing. Any other kind, and a kind and a `document_type` that disagree in one
+request, are also `422` `activity_kind_unsupported`. Setting the type answers an unknown kind with the
+type's own kind: `income` for a `venta`, `expense` for a `recibo`. A read
+follows its type: a read kind the type does not admit becomes the type's own
+kind, and a read unsure of the direction leaves the kind unknown for a person.
+An open draft saved with a kind its type does not admit carries the blocker
+`activity_kind_unsupported` on `kind`, and its approval is `422`
+`activity_kind_unsupported`. A review that states neither a kind nor a
+`document_type` leaves it as it was, blocked; a stated kind or a named type
+settles it.
+
 The same review may carry `due_on`, alone or with other review input.
 `{"state": "known", "value": "YYYY-MM-DD"}` sets the due date and
 `{"state": "unknown"}` clears it. Absent, the due date stays as it is. Only a
@@ -9630,7 +9681,20 @@ own status words for that calendar month: `no_aplica`, `needs_review`,
 the ZIP carries the TXT) and `missing_payment_form` (the document lines of the
 purchases the 606 holds until a person sets Forma de Pago, marked paid or not,
 each with `payment_form` null; it adds no `reasons` code and does not read into
-`closed`). Each currency block adds `itbis_cobrado_minor` and
+`closed`) and `missing_fiscal_data` (every document the 606 or 607 holds this
+month, as a document line plus `missing`, the export's own words for what it
+still needs, first fix first: `expense_type_missing`, `rnc_missing`,
+`rnc_invalid`, `ncf_invalid`, `date_missing`, `ncf_missing`,
+`payment_method_missing` or `detail_missing`, the same words Registros shows as
+`export_missing`) and `filing_ready` (bool: the one fact "ready for the 606 and
+607", true only when both `dgii_forms` stand by the export's verdict
+(`prepared_candidate`, `no_operations` or `summary_only`) and no step of the
+month remains: `unreviewed_movements_count` zero, no read in flight with no
+date (a receipt being read for the first time, or an email being read, holds
+every month until it lands), `missing_fiscal_data` empty, `cuentas_por_cobrar`
+and `cuentas_por_pagar` empty; the web shows that sentence
+from this field alone, never from `closed`, which stays month completion). Each
+currency block adds `itbis_cobrado_minor` and
 `itbis_cobrado` (ITBIS charged on the sales marked `cobrado`) and
 `net_result_final` (true while no document of that currency in the month is
 `pendiente` and, for a currency other than DOP, while that currency has no

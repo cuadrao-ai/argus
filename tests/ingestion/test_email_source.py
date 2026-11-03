@@ -73,13 +73,18 @@ def test_email_without_text_body_still_counts_the_body_page():
 @pytest.mark.parametrize(
     "content,code",
     [
-        (
+        pytest.param(
             message(
                 (b"MZevil", "application", "octet-stream", "receipt.pdf.exe"), body=" "
             ),
             "unsupported_email_attachment",
+            id="unsupported-attachment",
         ),
-        (message((b"not an image", "image", "png", "broken.png")), "invalid_document"),
+        pytest.param(
+            message((b"not an image", "image", "png", "broken.png")),
+            "invalid_document",
+            id="broken-image",
+        ),
         (b"", "document_empty"),
         (b"no headers at all", "invalid_document"),
     ],

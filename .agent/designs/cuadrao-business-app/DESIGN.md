@@ -652,11 +652,27 @@ setting. Owner: `components/settings/SettingsWindow.tsx`.
 - The account sheet on a phone is titled with the person's name, so it never
   repeats Ajustes.
 
+**Perfil** (Lucas, November 3, 2026) is its own centered dialog from the
+account menu. It shows the avatar, the name and the email, then two names, each
+edited in place with a pencil, a check and a cross: Nombre, which the team sees
+on access and record history, and ¿Cómo quieres que te llamemos?, which the
+Home greeting uses. Each has a one-line hint under it. Escape cancels an open
+edit before it closes Perfil. Perfil shows no handle and no language shortcut;
+Idioma de la app lives in Ajustes.
+
 The account deletion alert asks the server first (`GET /account/deletion`)
-and renders only its answer: a quiet check while it reads, Eliminar only when
-allowed, each owned Business named when it blocks deletion (with Transferir and
-Cerrar when those controls exist, the support contact when they do not), and a
-closed Business's purge date as a warning that never blocks.
+and renders only its answer (Lucas, November 3, 2026). Ajustes reads that
+answer as it opens and reuses it for a minute; opening the alert reads again
+only behind an answer over a minute old, and the server checks again on delete.
+The alert opens only once the answer is in, already filled in: it never shows a
+loading line, a skeleton or an empty alert. Pressed before the answer is back,
+the Eliminar cuenta row shows a small spinner in its trailing slot and is busy,
+with its name unchanged, and the alert opens the moment the answer lands. A
+read that failed opens the alert in its failure state, with its reference and
+Reintentar. The row stays a plain row and never lists Businesses. Eliminar
+shows only when allowed, each owned Business is named when it blocks deletion
+(with Transferir and Cerrar when those controls exist, the support contact when
+they do not), and a closed Business's purge date is a warning that never blocks.
 
 ### Dossier gradient, approved October 24, 2026
 

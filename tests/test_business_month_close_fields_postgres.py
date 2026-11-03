@@ -265,3 +265,31 @@ def test_a_note_still_in_the_bandeja_keeps_its_arrival_month_open(web) -> None: 
     assert [r for r in shown["reasons"] if r["code"] == "movimientos_sin_revisar"] == (
         memory["reasons"]
     )
+
+
+def test_ready_for_the_606_follows_the_export_verdict(web) -> None:  # noqa: ANN001, F811
+    """A paid purchase with its RNC and B01 NCF completes the month, and the
+    606 still holds it for a Tipo de gasto and a Forma de Pago. The month
+    carries the export's verdict and its own words for what is missing, so
+    no screen reads month completion as "ready for the 606"."""
+
+    from tests import test_business_approve_unpaid_postgres as unpaid
+
+    _set_own_rnc(web)
+    draft, recorded = unpaid._recorded(web, "expense", "B0100000031")
+    activity = recorded["approval_result"]["activity_id"]
+    unpaid._settle(web, activity, "pagado", "efectivo")
+
+    month = _month(web, "2026-09")
+    assert (month["closed"], month["reasons"]) == (True, [])
+    assert month["dgii_forms"]["606"] == "needs_review"
+    [held] = month["missing_fiscal_data"]
+    assert (held["activity_id"], held["status"]) == (activity, "pagado")
+    assert held["missing"] == ["expense_type_missing", "payment_method_missing"]
+    assert month["filing_ready"] is False
+
+    unpaid._declare(web, draft, category="02", payment_method="01")
+    month = _month(web, "2026-09")
+    assert month["dgii_forms"]["606"] == "prepared_candidate"
+    assert month["missing_fiscal_data"] == []
+    assert month["filing_ready"] is True

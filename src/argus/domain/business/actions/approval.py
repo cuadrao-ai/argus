@@ -51,6 +51,7 @@ from argus.domain.business.contracts.listos import (
     ListoItem,
     ListosApproved,
 )
+from argus.domain.business.document_type import require_type_kind
 from argus.domain.business.purchase_review import declaration_from_facts
 from argus.domain.business.review_flags import unconfirmed
 from argus.domain.business.transactions import ActionTransaction, transaction
@@ -84,10 +85,10 @@ def _reviewed_facts(
         )
     if not isinstance(view.facts.kind, Known) or view.facts.kind.value != kind:
         raise ActionError("invalid_input", "activity_kind_unsupported")
-    if (event.resolution.get("business") or {}).get(
-        "document_type"
-    ) == "venta" and kind != "income":
-        raise ActionError("invalid_input", "activity_kind_unsupported")
+    require_type_kind(
+        (event.resolution.get("business") or {}).get("document_type", "recibo"),
+        view.facts,
+    )
     validate_facts(tx, view.facts)
     require_distinct_fiscal_document(tx, event, view.facts)
     flagged = unconfirmed(view.review_flags)
