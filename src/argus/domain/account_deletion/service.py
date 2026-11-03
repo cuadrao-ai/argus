@@ -74,6 +74,11 @@ from argus.domain.account_deletion.apple import (
     require_admission,
 )
 from argus.domain.account_deletion.auth_admin import AuthAdmin, placeholder_email
+from argus.domain.account_deletion.eligibility import (
+    DeletionEligibility,
+    blockers_on,
+    notices_on,
+)
 from argus.domain.account_deletion.key_check import KeyCheck, check_current_key
 from argus.domain.apple_sign_in.client import AppleError
 from argus.domain.apple_sign_in.credentials import (
@@ -280,6 +285,31 @@ class AccountDeletionService:
         finally:
             if run is not None:
                 self._release(run["id"], run["claim"])
+
+    def deletion_eligibility(self, user_id: str) -> DeletionEligibility:
+        """What ``delete_account`` would refuse for, without starting anything.
+
+        A run already open is resumed, never refused, and a person the database
+        no longer knows is done (both as ``_claim`` treats them)."""
+
+        user_id = _uuid(user_id)
+        with self._households.connection() as connection:
+            if connection.execute(
+                "select 1 from argus_private.account_deletion_runs"
+                " where subject_hash = %s",
+                (subject_hash(user_id),),
+            ).fetchone():
+                return DeletionEligibility(notices=notices_on(connection, user_id))
+            user = connection.execute(
+                "select raw_app_meta_data from auth.users where id = %s::uuid",
+                (user_id,),
+            ).fetchone()
+            if user is None:
+                return DeletionEligibility()
+            return DeletionEligibility(
+                blockers=blockers_on(connection, user_id, user),
+                notices=notices_on(connection, user_id),
+            )
 
     def _claim_classified(
         self,
@@ -584,12 +614,8 @@ class AccountDeletionService:
             user, apple_state = lock_apple_state(connection, user_id)
             row = connection.execute(select, (subject,)).fetchone()
             if row is None:
-                if connection.execute(
-                    "select 1 from public.spaces where kind='business'"
-                    " and closed_at is null and (current_owner_id=%s or exists(select 1 from public.business_client_grants g"
-                    " where g.space_id=spaces.id and g.grantee_id=%s and g.business_role='owner' and g.revoked_at is null))",
-                    (user_id, user_id),
-                ).fetchone():
+                blockers = blockers_on(connection, user_id, user)
+                if any(b.kind == "business_owner" for b in blockers):
                     raise AccountDeletionRejected("business_owner_must_exit")
                 if existing_only:
                     return None
@@ -599,11 +625,7 @@ class AccountDeletionService:
                     raise AccountDeletionRejected("unknown_user")
                 # A guest is deleted by this same command (Lane 6 acceptance);
                 # it simply has no household, plan or provider rows to move.
-                placeholder = connection.execute(
-                    "select argus_private.is_account_placeholder(%s, %s::jsonb)",
-                    (user_id, json.dumps(user[0] or {})),
-                ).fetchone()[0]
-                if placeholder:
+                if blockers:
                     raise AccountDeletionRejected("placeholder")
                 require_admission(apple_state, self._apple)
                 # A concurrent first request waits here on the unique keys,
