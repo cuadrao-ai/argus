@@ -23,7 +23,7 @@ WORKFLOW = yaml.safe_load((ROOT / ".github" / "workflows" / "ci.yml").read_text(
 FAKE = Faker()
 
 ALWAYS = {"docs-change-gate", "ownership-gate", "ci"}
-HEAVY = ALWAYS | {"backend-checks", "frontend-checks", "database-checks"}
+HEAVY = ALWAYS | {"backend-checks", "backend-shards", "frontend-checks", "database-checks", "database-shards"}
 EVERY = HEAVY | {"marketing-checks"}
 DOCS = ALWAYS | {"docs-checks"}
 
@@ -153,7 +153,7 @@ def test_manual_full_run_reaches_every_job():
         "default": False,
     }
     for name, job in WORKFLOW["jobs"].items():
-        if name in {"docs-change-gate", "database-checks"}:
+        if name in {"docs-change-gate", "database-checks", "database-shards"}:
             assert "github.event_name == 'workflow_dispatch'" in job["if"], name
         elif name != "docs-checks":
             assert full_run in job["if"], name
