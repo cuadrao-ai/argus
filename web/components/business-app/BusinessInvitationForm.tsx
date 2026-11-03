@@ -26,12 +26,14 @@ const MAX_ROWS = 50;
 /** The trash column stays reserved with one row, so the email column never changes width. */
 const columns = "grid-cols-[minmax(0,1fr)_170px_44px]";
 const footerButtonShape = "rounded-item!";
-const SENT_STATES: BusinessInvitationResult["state"][] = ["pending", "accepted", "already_member"];
+const DONE_STATES: BusinessInvitationResult["state"][] = ["pending", "accepted", "already_member"];
 const NOBODY: KnownPeople = { members: [], pending: [] };
 const copy = (key: string) => `workspace_setup_preview.${key}`;
 const emptyRow = (): Row => ({ id: crypto.randomUUID(), email: "", role: defaultInvitationRole, command_key: crypto.randomUUID(), touched: false });
 const clean = (email: string) => email.trim().toLowerCase();
-const isSent = (row: Row) => row.result !== undefined && SENT_STATES.includes(row.result.state);
+const isDone = (row: Row) => row.result !== undefined && DONE_STATES.includes(row.result.state);
+const isCreated = (row: Row) => row.result?.state === "pending" || row.result?.state === "accepted";
+const wentOut = (row: Row) => isCreated(row) && row.result?.delivery === "accepted";
 const isRefusal = (error: unknown) => {
   const status = error && typeof error === "object" && "status" in error ? error.status : null;
   return status === 403 || status === 404;
@@ -132,9 +134,15 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
 
   const refused = failure?.refused === true;
   const known = live ? serverKnown : sampleKnownPeople(businessId, bridge?.memberEmail);
-  const sentCount = rows.filter(isSent).length;
-  const finished = sentCount > 0 && sentCount === rows.length;
-  const partial = sentCount > 0 && !finished;
+  const doneCount = rows.filter(isDone).length;
+  const createdCount = rows.filter(isCreated).length;
+  const sentCount = rows.filter(wentOut).length;
+  const finished = doneCount > 0 && doneCount === rows.length;
+  const partial = doneCount > 0 && !finished;
+  const headline = partial ? t(copy("batch_partial"), { sent: sentCount, failed: rows.length - sentCount })
+    : createdCount === 0 ? t(copy("batch_member"))
+    : sentCount < createdCount ? t(copy("invite_pending_detail"))
+    : sentCount === 1 ? t(copy("batch_success_one")) : t(copy("batch_success"), { count: sentCount });
   const removable = rows.length > 1;
   const roleOptions = accessRoleOptions(t, Boolean(chosen?.permissions?.includes("assign_owner")));
   const changeRow = (id: string, patch: Partial<Row>) => setRows(current => current.map(row => row.id === id ? { ...row, ...patch } : row));
@@ -150,9 +158,9 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
   const submit = async () => {
     if (busy || refused) return;
     const filled = rows.some(row => row.email.trim()) ? rows.filter(row => row.email.trim()) : rows.slice(0, 1);
-    const marked = filled.map(row => isSent(row) ? row : { ...row, touched: true });
+    const marked = filled.map(row => isDone(row) ? row : { ...row, touched: true });
     setRows(marked);
-    const unsent = marked.filter(row => !isSent(row));
+    const unsent = marked.filter(row => !isDone(row));
     if (unsent.some(row => emailProblem(row, marked, known))) {
       requestAnimationFrame(() => form.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
       return;
@@ -181,7 +189,7 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
     const result = row.result;
     return <>
       <div className="flex flex-wrap items-baseline justify-between gap-x-2"><p className="min-w-0 break-all text-[16px] font-medium">{row.email}</p><span className="text-[14px] text-[#56635e] dark:text-white/70">{t(copy(`permission_${row.role}`))}</span></div>
-      <p role="status" className="mt-1.5 flex items-center gap-1.5 text-[14px] text-[#56635e] dark:text-white/70"><Check aria-hidden="true" className="h-4 w-4 shrink-0 text-[#2f5a49] dark:text-[#8fcbb0]" />{t(result?.state === "accepted" ? "business_access.invitation_accepted" : result?.state === "already_member" ? copy("batch_member") : copy("batch_sent_pending"))}</p>
+      <p role="status" className="mt-1.5 flex items-center gap-1.5 text-[14px] text-[#56635e] dark:text-white/70"><Check aria-hidden="true" className="h-4 w-4 shrink-0 text-[#2f5a49] dark:text-[#8fcbb0]" />{t(result?.state === "accepted" ? "business_access.invitation_accepted" : result?.state === "already_member" ? copy("batch_member") : wentOut(row) ? copy("batch_sent_pending") : copy("invite_pending_detail"))}</p>
       {result?.delivery && result.delivery !== "pending" ? <p className="text-[14px]">{t(`business_access.delivery_${result.delivery}`)}</p> : null}
     </>;
   };
@@ -206,17 +214,17 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
     return <><div className={`grid items-center gap-2 ${columns}`}>{email}{access}{remove}</div>{note}</>;
   };
 
-  const sendable = rows.filter(row => !isSent(row) && row.email.trim()).length;
+  const sendable = rows.filter(row => !isDone(row) && row.email.trim()).length;
   const sendLabel = busy ? t(copy("invite_sending")) : partial || failure ? t(copy("batch_retry")) : sendable > 1 ? t(copy("batch_send_count"), { count: sendable }) : t(copy(sendable === 1 ? "batch_send_one" : "batch_send"));
   const content = <form ref={form} noValidate aria-busy={busy} onSubmit={event => { event.preventDefault(); void submit(); }} className={isBelowDesktop ? "pb-5 pt-1 text-[#172b26] dark:text-white" : "flex min-h-0 flex-col"}>
     <p className="mb-3 break-words text-[14px] leading-[21px] text-[#56635e] dark:text-white/70"><Trans i18nKey={copy("batch_subtitle")} values={{ business: chosen?.name ?? "" }} components={{ strong: <strong className="text-[16px] font-semibold text-[#172b26] dark:text-white" /> }} /></p>
     {finished || partial ? <div ref={summary} tabIndex={-1} role="status" className="mb-4 outline-none">
-      <p className="text-[21px] font-semibold">{partial ? t(copy("batch_partial"), { sent: sentCount, failed: rows.length - sentCount }) : sentCount === 1 ? t(copy("batch_success_one")) : t(copy("batch_success"), { count: sentCount })}</p>
-      <p className="mt-1.5 text-[14px] text-[#56635e] dark:text-white/70">{t(copy("batch_no_access"))}</p>
+      <p className="text-[21px] font-semibold">{headline}</p>
+      {sentCount > 0 ? <p className="mt-1.5 text-[14px] text-[#56635e] dark:text-white/70">{t(copy("batch_no_access"))}</p> : null}
     </div> : null}
     {!finished && !isBelowDesktop ? <div className={`grid items-center gap-2 text-[16px] font-medium ${columns}`}><span>{t(copy("invite_email_label"))}</span><span>{t(copy("permission_label"))}</span></div> : null}
     <ul aria-label={t(copy("batch_recipients"))} className={isBelowDesktop ? undefined : "-mx-1 min-h-0 overflow-y-auto overscroll-contain px-1"}>
-      {rows.map((row, index) => <li key={row.id} className={isBelowDesktop ? "py-2.5" : "py-1.5"}>{isSent(row) ? sentRow(row) : draftRow(row, index)}</li>)}
+      {rows.map((row, index) => <li key={row.id} className={isBelowDesktop ? "py-2.5" : "py-1.5"}>{isDone(row) ? sentRow(row) : draftRow(row, index)}</li>)}
     </ul>
     {!finished ? <div className={isBelowDesktop ? "flex justify-end" : `grid gap-2 ${columns}`}><button type="button" className={`${quietButtonClass} -mr-1 justify-self-end`} disabled={busy || refused || rows.length >= MAX_ROWS} onClick={() => { setRows(current => [...current, emptyRow()]); focusLastEmail(); }}><Plus className="h-4 w-4" aria-hidden="true" />{t(copy("batch_add_short"))}</button></div> : null}
     {failure ? <div role="alert" className={`mt-3 space-y-1 ${fieldErrorClass}`}>
