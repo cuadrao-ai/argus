@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import SettingsSurface from "@/components/settings/SettingsSurface";
 import CopyCodeButton from "@/components/settings/CopyCodeButton";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
 import {
@@ -177,7 +177,7 @@ export default function WhatsAppLinkModal({
   }
 
   return (
-    <AdaptivePanel
+    <SettingsSurface
       title={t("settings.whatsapp.title", "WhatsApp")}
       closeLabel={t("common.close", "Close")}
       onClose={onClose}
@@ -192,6 +192,6 @@ export default function WhatsAppLinkModal({
         onUnlink={() => void unlink()}
         onRefresh={() => void refresh()}
       />
-    </AdaptivePanel>
+    </SettingsSurface>
   );
 }

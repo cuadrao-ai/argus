@@ -14,7 +14,6 @@ import { KeyboardShortcutSurfaces } from "@/components/keyboard/KeyboardShortcut
 import { useChatKeyboardShortcuts } from "@/components/keyboard/useChatKeyboardShortcuts";
 import ChatSidebar from "@/components/sidebar/ChatSidebar";
 import type { InvitationOpenRequest } from "@/components/sidebar/ProfileMenu";
-import SidebarPreferenceModal from "@/components/settings/SidebarPreferenceModal";
 import ConversationActivityAnnouncement from "@/components/chat/ConversationActivityAnnouncement";
 import ConversationActivityRail from "@/components/chat/ConversationActivityRail";
 import { ConversationActivityPresentationProvider } from "@/components/chat/ConversationActivityIndicator";
@@ -319,8 +318,6 @@ export default function ChatInterface() {
   const { toast, showToast, hideToast } = useChatToast();
   const [isRecentsExpanded, setIsRecentsExpanded] = useState(true);
   const [feedbackState, setFeedbackState] = useState<ChatFeedbackDialogState>({ isOpen: false, type: "general" });
-  const [isSidebarPreferenceModalOpen, setIsSidebarPreferenceModalOpen] =
-    useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const latestActivitySentinelRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -2013,7 +2010,6 @@ export default function ChatInterface() {
     // Recents Quick Peek opened at z-65 behind a z-68 drawer: a real modal
     // nobody could see, reachable only by keyboard or switch control.
     modalOpen:
-      isSidebarPreferenceModalOpen ||
       feedbackState.isOpen ||
       showChatOptions ||
       mobileShell.isDrawerOpen,
@@ -2113,7 +2109,7 @@ export default function ChatInterface() {
             context: { surface: "sidebar", conversation_id: conversationId },
           });
         }}
-        onOpenSidebarPreference={() => setIsSidebarPreferenceModalOpen(true)}
+        sidebarPreference={{ mode: sidebarMode, business: layout.businessShell, onSelect: chooseSidebarMode }}
         onOpenKeyboardShortcuts={() =>
           keyboardShortcuts.setKeyboardShortcutsOpen(true)
         }
@@ -2247,7 +2243,7 @@ export default function ChatInterface() {
                   memoryChrome={memoryChrome}
                 />
               ) : null}
-              {layout.businessPhone && !isGuest ? <BusinessPhoneAccount avatar={<SavedIdentityMark scope={account?.user.id?`person:${account.user.id}`:""} name={greetingName??undefined} size={32} fallback={<Avatar name={greetingName} size={32}/>}/>} onLogout={(options) => { void handleLogout(options); }} onFeedback={(type) => setFeedbackState({ isOpen: true, type, context: { surface: "sidebar", conversation_id: conversationId } })} onHistoryMutated={refreshHistory} onProfileUpdated={onProfileUpdated} onOpenSidebarPreference={() => setIsSidebarPreferenceModalOpen(true)} onOpenKeyboardShortcuts={() => keyboardShortcuts.setKeyboardShortcutsOpen(true)} settingsOpenRequest={keyboardShortcuts.settingsOpenRequest} /> : null}
+              {layout.businessPhone && !isGuest ? <BusinessPhoneAccount avatar={<SavedIdentityMark scope={account?.user.id?`person:${account.user.id}`:""} name={greetingName??undefined} size={32} fallback={<Avatar name={greetingName} size={32}/>}/>} onLogout={(options) => { void handleLogout(options); }} onFeedback={(type) => setFeedbackState({ isOpen: true, type, context: { surface: "sidebar", conversation_id: conversationId } })} onHistoryMutated={refreshHistory} onProfileUpdated={onProfileUpdated} onOpenKeyboardShortcuts={() => keyboardShortcuts.setKeyboardShortcutsOpen(true)} settingsOpenRequest={keyboardShortcuts.settingsOpenRequest} /> : null}
               {workspace?.profileInHeader && !mobileShell.isBelowTablet ? <div ref={setProfileSlot} className="relative" /> : null}
             </div>
           </header>
@@ -2419,14 +2415,6 @@ export default function ChatInterface() {
       {workspace?.bottomNavigation?.(shellBridge)}
       {receiptFollowup}
       {evidenceReceiptSharingEnabled && receiptSharing.target && <ShareReceiptPanel key={receiptSharing.target.conversationId} {...receiptSharing.target} onClose={receiptSharing.close} />}
-      {isSidebarPreferenceModalOpen && (
-        <SidebarPreferenceModal
-          mode={sidebarMode}
-          business={layout.businessShell}
-          onSelect={chooseSidebarMode}
-          onClose={() => setIsSidebarPreferenceModalOpen(false)}
-        />
-      )}
       </div>
     </ConversationActivityPresentationProvider></ReceiptConversationProvider>
   );

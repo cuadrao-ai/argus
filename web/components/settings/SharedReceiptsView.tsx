@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, type RefObject } from "react";
 import { Check, Copy, ExternalLink, Link2, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import SettingsSurface from "@/components/settings/SettingsSurface";
 import {
   copyReceiptLink,
   listEvidenceReceipts,
@@ -131,7 +131,7 @@ export default function SharedReceiptsView({
   };
 
   return (
-    <AdaptivePanel
+    <SettingsSurface
       title={t("receipt.list.title", "Shared links")}
       closeLabel={t("receipt.list.close", "Close shared links")}
       onClose={onClose}
@@ -295,6 +295,6 @@ export default function SharedReceiptsView({
             )}
           </p>
         </div>
-    </AdaptivePanel>
+    </SettingsSurface>
   );
 }

@@ -163,9 +163,9 @@ for (const role of ["owner", "accountant"] as const) {
     try {
       await view.render("settings-space", role);
       const button = (text: string) => [...document.querySelectorAll("button")].find(item => item.textContent?.trim() === text);
-      await act(async () => { button("Preferencias")!.click(); });
+      await act(async () => { button("Ajustes")!.click(); });
       assert.equal(button("País y moneda"), undefined);
-      assert.ok([...document.querySelectorAll("button")].some(item => item.textContent?.includes(spanish.settings.app.language)), "Preferencias opened");
+      assert.ok([...document.querySelectorAll("button")].some(item => item.textContent?.includes(spanish.settings.app.language)), "Ajustes opened");
       assert.equal(button("¿Cómo se llama tu negocio?"), undefined, "the name lives in Negocio > Datos");
     } finally {
       await view.close();

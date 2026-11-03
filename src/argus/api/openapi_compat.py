@@ -236,6 +236,16 @@ def customize_openapi_document(document: dict[str, Any]) -> dict[str, Any]:
             "could not be verified; retry."
         )
 
+    check_op = (
+        spec.get("paths", {}).get(f"{API_PREFIX}/account/deletion", {}).get("get")
+    )
+    if check_op is not None:
+        check_op.setdefault("responses", {})["503"] = _error_response(
+            "`account_deletion_unavailable`: the check could not be made; retry. "
+            "`auth_session_verification_unavailable`: the session could not be "
+            "verified; retry."
+        )
+
     search_op = spec.get("paths", {}).get(f"{API_PREFIX}/search", {}).get("get")
     if search_op is not None:
         search_op.setdefault("responses", {})["503"] = _error_response(

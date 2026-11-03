@@ -17,7 +17,7 @@ import {
   Trash2,
   } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import SettingsSurface from "@/components/settings/SettingsSurface";
 import {
   ALL_MEMORY_CATEGORIES,
   deleteMemoryRecord,
@@ -424,7 +424,7 @@ export default function MemoryControlsModal({
   }, [isMutating, t]);
 
   return (
-    <AdaptivePanel
+    <SettingsSurface
       title={t("settings.data.personalization.title", "Memory")}
       closeLabel={t("settings.data.personalization.close", "Close memory")}
       onClose={onClose}
@@ -574,6 +574,6 @@ export default function MemoryControlsModal({
             </div>
           )}
         </div>
-    </AdaptivePanel>
+    </SettingsSurface>
   );
 }
