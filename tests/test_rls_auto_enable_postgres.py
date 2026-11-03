@@ -11,6 +11,11 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "supabase/migrations/20261016154607_adopt_staging_rls_auto_enable.sql"
 HARDENING = ROOT / "supabase/migrations/20261018030016_security_extensions_waitlist.sql"
+REVOKE_HARDENING = next(
+    statement
+    for statement in HARDENING.read_text().split(";")
+    if "rls_auto_enable" in statement
+)
 OBSERVED = (
     ROOT
     / "docs/reports/evidence/cuadrao-business/lane08-rls-forward/staging-artifact.json"
@@ -69,7 +74,7 @@ def test_reapply_preserves_existing_artifact_and_identity(db):
     assert identity is not None
     for _ in range(2):
         db.execute(MIGRATION.read_text())
-        db.execute(HARDENING.read_text())
+        db.execute(REVOKE_HARDENING)
         assert artifact(db) == before
         assert (
             db.execute(
