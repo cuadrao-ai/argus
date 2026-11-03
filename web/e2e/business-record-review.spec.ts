@@ -1,7 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import { dossierFixtureIds } from "../components/business-app/dossier-fixtures";
 import { installBreakpointFixture } from "./support/breakpoint-fixture";
-import { atMidMonth, bandejaRows, reviewAction } from "./support/business-receipt-fixture";
+import { atMidMonth, bandejaRows, installReceiptBusiness, reviewAction } from "./support/business-receipt-fixture";
+import { installBusinessRouteFixture, showAllRecords } from "./support/job2-business-route-fixture";
 
 // Business is Spanish only, so every string below is the es-419 copy.
 
@@ -10,7 +11,7 @@ async function capture(page: Page, name: string) {
   if (!directory) return;
   await page.screenshot({ path: `${directory}/${name}.png`, fullPage: true });
   const facts = page.getByTestId("receipt-current-facts").getByText("Cómo se pagó", { exact: true });
-  if (await facts.count()) {
+  if (await facts.isVisible()) {
     await facts.scrollIntoViewIfNeeded();
     await page.screenshot({ path: `${directory}/${name}-current-facts.png`, fullPage: true });
   }
@@ -27,7 +28,6 @@ async function confirmRncWarning(page: Page) {
 }
 
 const approveButton = (page: Page) => page.getByRole("button", { name: "Aprobar", exact: true });
-const saveButton = (page: Page) => page.getByRole("button", { name: "Guardar detalles de revisión", exact: true });
 const saveRow = (page: Page, label: string) => page.getByRole("button", { name: `Guardar · ${label}`, exact: true });
 const editField = (page: Page, label: string) => page.getByRole("button", { name: `Editar detalles · ${label}`, exact: true });
 const fact = (page: Page, key: string) => page.getByTestId("receipt-current-facts").locator(`[data-fact="${key}"]`);
@@ -39,9 +39,11 @@ async function showTab(page: Page, name: "Formulario" | "Original") {
 }
 
 async function openHistory(page: Page) {
-  const all = page.getByTestId("receipt-history").getByRole("button", { name: "Ver todo", exact: true });
-  if (await all.isVisible()) await all.click();
-  return page.getByTestId("receipt-history");
+  const history = page.getByTestId("receipt-history");
+  const toggle = history.getByRole("button", { name: /^Historial/ });
+  if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
+  await expect(history.locator("ol")).toBeVisible();
+  return history;
 }
 
 async function openRecord(page: Page, id: string) {
@@ -174,19 +176,30 @@ test.describe("Server authority and uncertain outcomes", () => {
     await expect(page.getByRole("button", { name: "Agregar una nota a este registro" })).toHaveCount(0);
   });
 
-  test("an untyped legacy candidate retains corrected receipt details and its source", async ({ page }) => {
-    await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
-    await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
-    await page.goto("/dev/business-preview?receipt=rcpt-papeleria");
-    await expect(page.getByLabel("Comercio o persona", { exact: true })).toHaveValue("Papelería Central");
-    await expect(page.getByTestId("receipt-review-amount")).toHaveValue("980.50");
+  test("an untyped receipt retains saved details and its original without offering a form", async ({ page }) => {
+    let amount = "980.50";
+    await installReceiptBusiness(page, (parts, _route, source) => {
+      if (parts[0] === "receipts" && parts[1] === "rcpt-papeleria" && parts.length === 2) {
+        return source.receipt("rcpt-papeleria").then((receipt) => ({ ...receipt, amount, draft_id: null, enterable: false }));
+      }
+      return undefined;
+    });
+    await page.goto("/biz?receipt=rcpt-papeleria");
+    await expect(page.getByRole("heading", { name: "Papelería Central", exact: true })).toBeVisible();
+    await expect(page.getByTestId("receipt-total")).toHaveText("RD$ 980.50");
     await expect(page.getByTestId("receipt-original-source")).toBeVisible();
     await expect(recordArea(page).getByRole("alert")).toContainText("El movimiento preparado todavía no está disponible");
+    await expect(page.getByTestId("receipt-review-fields").locator("input, select")).toHaveCount(0);
     await expect(approveButton(page)).toHaveCount(0);
-    await page.getByTestId("receipt-review-amount").fill("1020.75");
-    await saveButton(page).click();
-    await expect(page.getByTestId("receipt-review-amount")).toHaveValue("1,020.75");
+
+    amount = "1020.75";
+    await page.getByRole("button", { name: "Consultar registro actual", exact: true }).click();
+    await expect(page.getByTestId("receipt-total")).toHaveText("RD$ 1,020.75");
+    await expect(page.getByTestId("receipt-original-source")).toBeVisible();
+    await page.getByText("Lo que dice el recibo", { exact: true }).click();
+    await expect(page.getByTestId("receipt-review-source").locator("details")).toContainText("RD$ 980.50");
     await expect(recordArea(page).getByRole("alert")).toContainText("El movimiento preparado todavía no está disponible");
+    await expect(page.getByTestId("receipt-review-fields").locator("input, select")).toHaveCount(0);
     await expect(approveButton(page)).toHaveCount(0);
   });
 
@@ -310,8 +323,10 @@ test.describe("Server authority and uncertain outcomes", () => {
 
   test("income is not relabeled as an expense", async ({ page }) => {
     await openRecord(page, dossierFixtureIds.income);
-    await expect(approveButton(page)).toBeDisabled();
+    test.info().annotations.push({ type: "issue", description: "Blocked income loses its income-specific approval label when the dossier has no approval action." });
     await expect(page.getByRole("button", { name: /gasto/i })).toHaveCount(0);
+    await expect(approveButton(page)).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Aprobar ingreso", exact: true })).toBeDisabled();
     await expect(page.getByTestId("business-record-review")).toContainText("Esta actividad no admite aprobación en este primer flujo.");
   });
 
@@ -357,15 +372,20 @@ test("landing on a record, then opening Bandeja, Registros and Inicio, each load
   // The workspace derives its data source from the latch and the panel kind: the
   // first fetch after leaving the record is already scoped, so every panel loads.
   await atMidMonth(page);
-  await openRecord(page, dossierFixtureIds.ready);
+  await installBusinessRouteFixture(page);
+  await page.goto(`/biz?draft=${dossierFixtureIds.ready}`);
+  await expect(page.getByTestId("business-record-review")).toBeVisible();
   const nav = page.getByTestId("business-sidebar-nav");
   const panel = page.getByTestId("workspace-panel-region");
   await nav.getByRole("button", { name: /^Bandeja/ }).click();
   await expect(page.getByRole("heading", { name: "Bandeja", exact: true, level: 1 })).toBeVisible();
-  await expect(bandejaRows(page).getByRole("listitem").filter({ hasText: "Ferretería La Esquina" }).filter({ hasText: "Listo para revisar" })).toBeVisible();
+  const receipt = bandejaRows(page).getByTestId("reception-row").filter({ hasText: "Ferretería La Esquina" }).first();
+  await expect(receipt.getByRole("button", { name: "Abrir", exact: true })).toBeVisible();
+  await expect(receipt.getByTestId("status-pill")).toHaveText("Necesita atención");
   await expect(panel).not.toContainText("No pudimos cargar");
   await nav.getByRole("button", { name: /^Registros/ }).click();
   await expect(page.getByRole("heading", { name: "Registros", exact: true, level: 1 })).toBeVisible();
+  await showAllRecords(page);
   await expect(panel.locator("[data-record-id]").filter({ hasText: "Nube Hosting" })).toBeVisible();
   await expect(panel).not.toContainText("No pudimos cargar");
   await nav.getByRole("button", { name: /^Inicio/ }).click();
@@ -377,9 +397,9 @@ test("landing on a record, then opening Bandeja, Registros and Inicio, each load
 });
 
 test("after approving from the inbox, the inbox count changes without a reload", async ({ page }) => {
-  await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
-  await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
-  await page.goto("/dev/business-preview");
+  await atMidMonth(page);
+  await installBusinessRouteFixture(page);
+  await page.goto("/biz");
   const nav = page.getByTestId("business-sidebar-nav");
   const panel = page.getByTestId("workspace-panel-region");
   const inbox = nav.getByRole("button", { name: /^Bandeja \d+/ });
@@ -387,8 +407,7 @@ test("after approving from the inbox, the inbox count changes without a reload",
   expect(badge).toBeGreaterThan(0);
   await inbox.click();
   await reviewAction(page, /Ferretería La Esquina/).click();
-  await page.getByLabel(/Pagado desde/).selectOption({ label: "Cuenta corriente · DOP" });
-  await saveButton(page).click();
+  await expect(page.getByLabel(/Pagado desde/)).toHaveCount(0);
   await approveButton(page).click();
   await confirmRncWarning(page);
   await expect(page.getByTestId("business-record-review")).toContainText("Se registró un gasto");

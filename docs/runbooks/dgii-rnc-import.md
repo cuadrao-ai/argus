@@ -1,13 +1,13 @@
 # Import the DGII RNC registry
 
-The daily job downloads the two public RNC zips, parses them, and loads the rows into staging only when the approval checks pass.
+The hosted staging cron downloads the two public RNC zips, parses them, and loads the rows into staging only when the approval checks pass. The GitHub workflow only downloads and parses.
 
 ## What the job does
 
-Two jobs share `scripts/ops/dgii_rnc_daily.sh`, which owns the URLs and the download.
+Two jobs share `scripts/ops/dgii_rnc_daily.sh`, which owns the URLs and the download. Only the cron loads.
 
 - The hosted cron `cuadrao-dgii-rnc-staging` in `render.yaml` runs the script at 07:00 UTC every day. See [Run the hosted cron](#run-the-hosted-cron).
-- `.github/workflows/dgii-rnc-import.yml` runs `dgii_rnc_daily.sh download` and then the parse. It runs at 07:00 UTC from the default branch, on a pull request that touches the job, and on `workflow_dispatch`.
+- `.github/workflows/dgii-rnc-import.yml` runs `dgii_rnc_daily.sh download` and then the parse, so CI checks the real published files. It runs on a pull request that touches the job and on `workflow_dispatch`. It has no schedule, because the cron already downloads and parses the files every day. It has no database credential and never loads.
 
 The publisher has one zip for each button on its page, and each zip holds one file.
 
@@ -26,7 +26,7 @@ The job finds the CSV by that name pattern in any folder of `rnc-csv.zip`. It re
 python3 scripts/ops/dgii_rnc_import.py parse rnc-csv.zip rnc-txt.zip
 ```
 
-The gate then decides whether to load. A load copies `rnc`, `name`, `trade_name`, `status`, `file_date`, `activity`, `start_date`, and `regime` into `public.dgii_rnc_load` and finishes that session. A later session calls `public.dgii_rnc_swap(min_rows integer)`, which returns the integer row count now in `public.dgii_rnc`. `min_rows` is 700000. The job prints that integer as `swap_rows` and fails if it is below 700000. The job does not call `public.dgii_rnc_lookup`.
+In the cron, the gate then decides whether to load. A load copies `rnc`, `name`, `trade_name`, `status`, `file_date`, `activity`, `start_date`, and `regime` into `public.dgii_rnc_load` and finishes that session. A later session calls `public.dgii_rnc_swap(min_rows integer)`, which returns the integer row count now in `public.dgii_rnc`. `min_rows` is 700000. The job prints that integer as `swap_rows` and fails if it is below 700000. The job does not call `public.dgii_rnc_lookup`.
 
 `name` is the razón social, `activity` the actividad económica, `start_date` the fecha de inicio, and `regime` the régimen. A blank value is NULL. A `fecha` that is not a real dd/mm/yyyy date is NULL. On the first real parse, 729443 rows held a date of that shape and 729442 of them parsed. Status is copied as written, and the load keeps every estado.
 
@@ -64,27 +64,19 @@ More than 25 lost rows fail the job and load nothing. A lost row is a dropped ro
 
 The image must hold `psql`. A missing `psql` fails the job with `psql is not installed`.
 
-Only one job may load. Turn loading on for the cron or for the workflow, never both, because both start at 07:00 UTC and share one load table.
+The cron is the only loader. Never set `SUPABASE_STAGING_DB_URL` or `DGII_RNC_LOAD_ENABLED` as a secret or variable on GitHub. The workflow reads neither.
 
 ## Turn loading on
 
-For the workflow, set the repository variable `DGII_RNC_LOAD_ENABLED` to the string `true`.
-
-Any other value skips the load, including an empty value. The gate prints `load skipped: DGII_RNC_LOAD_ENABLED is not true`.
+Set `DGII_RNC_LOAD_ENABLED` to `true` on the cron service. Any other value, including an empty one, skips the load. The gate prints `load skipped: DGII_RNC_LOAD_ENABLED is not true`.
 
 ## Set the staging database secret
 
-Set the repository secret `SUPABASE_STAGING_DB_URL` to the staging database URL.
+Set `SUPABASE_STAGING_DB_URL` on the cron service only. An empty value skips the load. The gate prints `load skipped: SUPABASE_STAGING_DB_URL is absent`. The job does not print the URL.
 
-An empty secret skips the load. The gate prints `load skipped: SUPABASE_STAGING_DB_URL is absent`. The workflow does not print the URL.
+## Check the files without loading
 
-## Choose a dry run
-
-The `workflow_dispatch` input `dry_run` defaults to true. A manual run with that default prints `load skipped: dry run` and does not load.
-
-A pull request that touches this job also prints `load skipped: dry run`. Manual dispatch is listed once this workflow file is on the repository default branch. Until then, the pull request run is the dry run you can open from the branch.
-
-The schedule sets dry run to false. It still does not load until `DGII_RNC_LOAD_ENABLED` is `true` and `SUPABASE_STAGING_DB_URL` is set. The schedule itself starts once this workflow file is on the repository default branch.
+A pull request that touches the job, or a manual run of the workflow, downloads the real zips and parses them. Neither run loads, because the workflow has no database credential. Manual dispatch is listed once this workflow file is on the repository default branch.
 
 ## Verify a load
 
@@ -124,19 +116,19 @@ Before the truncate or the copy, the load reads `pg_database_size(current_databa
 
 The floor is a fixed number, so it follows the table only through the live table size. A file much larger than the last load can pass the check and peak above its prediction.
 
-Set the variables `DGII_RNC_LOAD_HEADROOM_FLOOR` and `DGII_RNC_SIZE_LIMIT` to change the floor and the threshold. An empty value keeps the default. The value is a number plus `B`, `KB`, `MB`, or `GB`.
+Set the cron variables `DGII_RNC_LOAD_HEADROOM_FLOOR` and `DGII_RNC_SIZE_LIMIT` to change the floor and the threshold. An empty value keeps the default. The value is a number plus `B`, `KB`, `MB`, or `GB`.
 
-The dry run prints `parsed_bytes`. After the swap, the log prints `database_bytes_after` and `relation_bytes` for `public.dgii_rnc` and `public.dgii_rnc_load`. The load table ends empty after a good swap, and a failed swap leaves its rows until the next copy.
+The workflow parse prints `parsed_bytes`. After the swap, the log prints `database_bytes_after` and `relation_bytes` for `public.dgii_rnc` and `public.dgii_rnc_load`. The load table ends empty after a good swap, and a failed swap leaves its rows until the next copy.
 
 The three DGII migrations set no function timeout.
 
 ## Set the swap timeout
 
-The load step runs `psql` against `SUPABASE_STAGING_DB_URL`, the database owner. It does not call the swap through an HTTP API, and it does not `SET ROLE authenticated`. The copy session ends before the swap session starts. Each session starts with `SET statement_timeout = '5min'`.
+The cron load runs `psql` against `SUPABASE_STAGING_DB_URL`, the database owner. It does not call the swap through an HTTP API, and it does not `SET ROLE authenticated`. The copy session ends before the swap session starts. Each session starts with `SET statement_timeout = '5min'`.
 
 Loading waits on migration slots `20261018190000`, `20261102204200`, and `20261102225200`.
 
-Set the repository variable `DGII_RNC_STATEMENT_TIMEOUT` to another interval, such as `10min`, when the swap of about 800000 rows needs longer. An empty value keeps 5 minutes. The value must be a number followed by `ms`, `s`, `min`, or `h`.
+Set the cron variable `DGII_RNC_STATEMENT_TIMEOUT` to another interval, such as `10min`, when the swap of about 800000 rows needs longer. An empty value keeps 5 minutes. The value must be a number followed by `ms`, `s`, `min`, or `h`.
 
 ## Wait for the migration
 
