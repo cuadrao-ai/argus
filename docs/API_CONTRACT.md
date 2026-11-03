@@ -3577,12 +3577,13 @@ was verified, so the person existed a moment ago.
 Says, before the person presses delete, whether `POST /account/delete` would
 refuse and which closed Businesses are still inside their reopen window. The
 delete command and this check read one rule (`eligibility.py`), so they agree.
-It reads only: it starts no run, locks nothing and sends nothing. Same flag,
-session and limit as the command (`404 not_found` while
+It reads only: it starts no run, locks nothing and sends nothing. Same flag
+and session as the command (`404 not_found` while
 `CUADRAO_ACCOUNT_DELETION_ENABLED` is off, answered before any session check;
-`401` without a session; six requests per account per minute per API worker,
-`429 too_many_requests` with `Retry-After`). The limit is counted apart from the
-command's, so a screen that checks often cannot use up the delete's requests.
+`401` without a session; 30 requests per account per minute per API worker,
+`429 too_many_requests` with `Retry-After`). Ajustes reads it on open and again
+when the delete alert opens. The limit is counted apart from the command's (which
+stays at six), so a screen that checks often cannot use up the delete's requests.
 A guest session is checked the same way.
 
 **Response `200`:**
