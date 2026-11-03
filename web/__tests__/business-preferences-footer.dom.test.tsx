@@ -56,20 +56,19 @@ async function openMenu(language: "es-419" | "en") {
 }
 
 for (const [language, copy] of [
-  ["es-419", { preferences: "Preferencias", language: "Idioma de la app", words: "Interruptores con palabras", yes: "Sí", no: "No", terms: "Términos", privacy: "Privacidad" }],
-  ["en", { preferences: "Preferences", language: "App language", words: "Words on switches", yes: "Yes", no: "No", terms: "Terms", privacy: "Privacy" }],
+  ["es-419", { settings: "Ajustes", language: "Idioma de la app", words: "Interruptores con palabras", yes: "Sí", no: "No", terms: "Términos", privacy: "Privacidad" }],
+  ["en", { settings: "Settings", language: "App language", words: "Words on switches", yes: "Yes", no: "No", terms: "Terms", privacy: "Privacy" }],
 ] as const) {
-  test(`${language}: Preferencias holds the switch-words setting beside the language, and flipping it takes the words off and puts them back`, async () => {
+  test(`${language}: Ajustes holds the switch-words setting in Apariencia, and flipping it takes the words off and puts them back`, async () => {
     const act = await openMenu(language);
-    await act(async () => button(copy.preferences)!.click());
+    await act(async () => button(copy.settings)!.click());
     const setting = document.body.querySelector<HTMLButtonElement>('[data-testid="settings-switch-labels"]');
-    assert.ok(setting, "the setting is in Preferencias");
+    assert.ok(setting, "the setting is in Ajustes");
     assert.equal(setting.getAttribute("aria-label"), copy.words);
     assert.equal(setting.getAttribute("aria-checked"), "true", "words are on by default");
-    const preferences = document.body.querySelector(`[aria-label="${copy.preferences}"]`)!;
-    assert.ok(preferences.contains(setting));
-    assert.ok(button(copy.language)!.nextElementSibling!.contains(setting), "it sits right after Idioma de la app");
-    assert.ok(button(copy.language)!.nextElementSibling!.textContent!.startsWith(copy.words), "its row names it");
+    assert.ok(document.body.querySelector('[data-testid="settings-pane-appearance"]')!.contains(setting), "it sits in Apariencia, the section Ajustes opens on");
+    assert.ok(button(copy.language), "Idioma de la app is its own section beside it");
+    assert.ok(setting.parentElement!.textContent!.startsWith(copy.words), "its row names it");
     assert.equal(setting.textContent, `${copy.yes}${copy.no}`);
 
     await act(async () => setting.click());

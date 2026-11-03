@@ -3599,6 +3599,55 @@ was verified, so the person existed a moment ago.
   `429 too_many_requests` carries `Retry-After`. The shared
   `503 auth_session_verification_unavailable` remains unchanged.
 
+## `GET /account/deletion`
+
+Says, before the person presses delete, whether `POST /account/delete` would
+refuse and which closed Businesses are still inside their reopen window. The
+delete command and this check read one rule (`eligibility.py`), so they agree.
+It reads only: it starts no run, locks nothing and sends nothing. Same flag,
+session and limit as the command (`404 not_found` while
+`CUADRAO_ACCOUNT_DELETION_ENABLED` is off, answered before any session check;
+`401` without a session; six requests per account per minute per API worker,
+`429 too_many_requests` with `Retry-After`). The limit is counted apart from the
+command's, so a screen that checks often cannot use up the delete's requests.
+A guest session is checked the same way.
+
+**Response `200`:**
+
+```json
+{
+  "allowed": false,
+  "blockers": [
+    { "kind": "business_owner", "business_id": "<uuid>", "business_name": "Colmado Uno" }
+  ],
+  "notices": [
+    {
+      "kind": "closed_business",
+      "business_id": "<uuid>",
+      "business_name": "Colmado Viejo",
+      "purge_at": "2026-12-03T15:30:00Z"
+    }
+  ]
+}
+```
+
+- `allowed` is `true` exactly when `blockers` is empty. Notices never change it.
+- `blockers` has one `business_owner` entry for each open Business the person
+  currently owns (current owner, or a live owner grant), ordered by name. Any
+  other refusal (an account placeholder) is one `{ "kind": "not_allowed" }` entry
+  with no Business fields. An open Business owned takes precedence, as in the
+  command. A person whose deletion run is already open is resumed, so nothing
+  blocks them; neither does a person the database no longer knows.
+- `notices` has one `closed_business` entry for each closed Business the person
+  owns (same ownership as above) whose reopen window has not ended, ordered by
+  name. `purge_at` is when the window ends and the Business and its records are
+  purged, the reopen deadline `closed_at` plus `REOPEN_WINDOW`
+  (`domain/business/lifecycle.py`, which the Business purge reads too), in ISO 8601 UTC. A Business past its window
+  is not listed. `[]` when none.
+- `503 account_deletion_unavailable` when the check cannot be made; it never
+  answers `allowed: true` in that case. The shared
+  `503 auth_session_verification_unavailable` is unchanged.
+
 
 ## Supported Values
 - **language:** `en`, `es-419`
@@ -9582,6 +9631,23 @@ approval the change is `422` `document_type_locked`. `BusinessDossier` carries
 `document_type`, `document_type_detected` and `document_type_editable` (open,
 and the caller holds `prepare`). A stale `version` is still `409`
 `stale_version` first.
+
+The type is the one answer to purchase or sale; a known `facts.kind` is always
+a kind the type admits. A `venta` admits `income`. A `recibo` admits `expense`
+and `refund`. A known `facts.kind` in a review, a chat or an agent proposal
+states the type: `income` sets `venta`, with the same effects as
+`document_type`, and `expense` or `refund` keeps a `recibo`. A `venta` is an
+issued invoice, so only a named `document_type` moves it: a stated `expense`
+or `refund` on a `venta` is `422` `activity_kind_unsupported` and changes
+nothing. Any other kind, and a kind and a `document_type` that disagree in one
+request, are also `422` `activity_kind_unsupported`. Setting the type answers an unknown kind with the
+type's own kind: `income` for a `venta`, `expense` for a `recibo`. A read
+follows its type: a read kind the type does not admit becomes the type's own
+kind, and a read unsure of the direction leaves the kind unknown for a person.
+An open draft saved with a kind its type does not admit carries the blocker
+`activity_kind_unsupported` on `kind`, and its approval is `422`
+`activity_kind_unsupported`; its next review that states no kind gives it the
+type's own kind.
 
 The same review may carry `due_on`, alone or with other review input.
 `{"state": "known", "value": "YYYY-MM-DD"}` sets the due date and

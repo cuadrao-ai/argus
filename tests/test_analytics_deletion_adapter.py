@@ -214,8 +214,8 @@ def test_enabled_factory_requires_dedicated_configuration(monkeypatch):
 @pytest.mark.parametrize(
     "field,value",
     [
-        ("id", str(uuid4())),
-        ("submission_id", str(uuid4())),
+        pytest.param("id", str(uuid4()), id="mismatched-request"),
+        pytest.param("submission_id", str(uuid4()), id="mismatched-submission"),
         ("count", True),
         ("count", -1),
         ("count", "7"),

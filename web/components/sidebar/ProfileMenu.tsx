@@ -18,8 +18,11 @@ import ProfileDeleteRequestDialog, {
 import ProfileDetailsDialog from "./ProfileDetailsDialog";
 import CuadraoInvitationPreview, { type LocalInvitation } from "./CuadraoInvitationPreview";
 import ProfileSettingsPanels, {
+  SETTINGS_WINDOW_ORDER,
   type SettingsPanel,
+  type SidebarPreference,
 } from "./ProfileSettingsPanels";
+import SettingsWindow from "@/components/settings/SettingsWindow";
 import {
   SHEET_SUBMENU_CLASS,
   profileMenuClass,
@@ -28,29 +31,16 @@ import {
   type ProfileMenuPlacement,
 } from "./profileMenuPlacement";
 import {
-  Activity,
-  Archive,
-  Brain,
   ChevronRight,
-  Database,
   HelpCircle,
   HandHeart,
   Keyboard,
-  Link2,
   LogOut,
   MessageSquareText,
-  Palette,
-  Globe,
-  MapPin,
-  PanelLeft,
   Shield,
-  ToggleRight,
-  Trash2,
   User,
   FileText,
-  Bug,
-  Lightbulb,
-  MessageCircle,
+  Settings,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useConversationSurface } from "@/components/chat/ChatWorkspace";
@@ -65,7 +55,6 @@ import { type ApiUser } from "@/lib/argus-api";
 import {
   readProfile,
   saveProfile,
-  saveProfileLanguage,
 } from "@/lib/profile-writes";
 import {
   DISPLAY_NAME_MAX_LENGTH,
@@ -80,14 +69,11 @@ import {
   type AvatarTheme,
 } from "@/lib/avatar-theme";
 import {
-  languageDisplayAbbreviation,
   localeForLanguage,
   normalizeEnabledLanguage,
 } from "@/lib/language-features";
 import { memoryAvailable as fetchMemoryAvailable } from "@/lib/memory-privacy";
 import { cuadraoLegalLinks } from "@/lib/cuadrao-legal-links";
-import { setSwitchLabelsShown, useSwitchLabelsShown } from "@/lib/switch-labels";
-import { Switch } from "@/components/ui/Switch";
 import { businessPilotEnabledFromEnv, businessWhatsappPreferencesEnabledFromEnv, evidenceReceiptSharingEnabled } from "@/lib/private-alpha-flags";
 import { supportEmail } from "@/lib/support-email";
 import { navigateFromOverlay } from "@/lib/overlay-history";
@@ -107,7 +93,8 @@ type ProfileMenuProps = {
   onHistoryMutated?: () => void;
   /** Every successful patch reports upward, not just the fields a surface reads. */
   onProfileUpdated?: (user: ApiUser) => void;
-  onOpenSidebarPreference?: () => void;
+  /** The rail's mode and setter, so Ajustes can hold the sidebar choice in place. */
+  sidebarPreference?: SidebarPreference;
   onOpenKeyboardShortcuts?: () => void;
   /** Anchor position */
   anchorRef: React.RefObject<HTMLElement | null>;
@@ -120,10 +107,10 @@ type ProfileMenuProps = {
   placement?: ProfileMenuPlacement;
 };
 
-// Derived from the panel registry, so a new settings panel needs no edit here.
-type ActiveModal = null | SettingsPanel | "profile" | "invite-cuadrao";
+// Settings panels open inside the Ajustes window, never one by one from the menu.
+type ActiveModal = null | "profile" | "invite-cuadrao" | "settings-window";
 
-type SubMenu = null | "data" | "settings" | "help" | "feedback";
+type SubMenu = null | "help";
 
 
 type ProfileQuickJumpItem = {
@@ -141,7 +128,7 @@ export default function ProfileMenu({
   onFeedback,
   onHistoryMutated,
   onProfileUpdated,
-  onOpenSidebarPreference,
+  sidebarPreference,
   onOpenKeyboardShortcuts,
   anchorRef,
   sidebarCollapsed = false,
@@ -154,7 +141,6 @@ export default function ProfileMenu({
   const previousInvitationRequest = useRef(invitationOpenRequest?.id);
   const invitationReturnFocusRef = useRef<HTMLElement | null>(null);
   const legalHref = cuadraoLegalLinks();
-  const switchLabelsShown = useSwitchLabelsShown();
   const { isBelowDesktop } = useResponsiveLayout();
   const asSheet = isBelowDesktop;
   const isDrawerPlacement = placement === "drawer";
@@ -172,8 +158,8 @@ export default function ProfileMenu({
   }, [isOpen, placement, anchorRef]);
   const menuOverlayId = useId();
   const menuRef = useRef<HTMLDivElement>(null);
-  const languagePickerRef = useRef<HTMLDivElement>(null);
   const avatarTriggerRef = useRef<HTMLButtonElement>(null);
+  const deleteAccountRef = useRef<HTMLButtonElement>(null);
   const avatarThemeDrawerRef = useRef<HTMLDivElement>(null);
   const [activeSubmenu, setActiveSubmenu] = useState<SubMenu>(null);
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
@@ -194,6 +180,21 @@ export default function ProfileMenu({
     (isBusiness
       ? businessWhatsappPreferencesEnabledFromEnv()
       : businessPilotEnabledFromEnv());
+  // What Ajustes lists for this account, in its order.
+  const windowSections = SETTINGS_WINDOW_ORDER.filter((panel) => ({
+    appearance: true,
+    language: true,
+    country: homeCountryAvailable,
+    sidebar: Boolean(sidebarPreference),
+    whatsapp: whatsappLinkAvailable,
+    memory: memoryControlsAvailable,
+    receipts: receiptsAvailable,
+    archived: !isBusiness,
+    // Business keeps no deleted chats, so it never asks for that list.
+    deleted: !isBusiness,
+    usage: !isBusiness,
+    business_name: false,
+  } satisfies Record<SettingsPanel, boolean>)[panel]);
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
@@ -204,9 +205,6 @@ export default function ProfileMenu({
   const [preferredNameError, setPreferredNameError] = useState<string | null>(
     null,
   );
-  const [isLanguagePickerOpen, setIsLanguagePickerOpen] = useState(false);
-  const [isSavingLanguage, setIsSavingLanguage] = useState(false);
-  const [languageError, setLanguageError] = useState<string | null>(null);
   const [isSavingAvatarTheme, setIsSavingAvatarTheme] = useState(false);
   const [avatarThemeError, setAvatarThemeError] = useState<string | null>(null);
   const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
@@ -292,7 +290,6 @@ export default function ProfileMenu({
     if (isOpen) {
       setNameError(null);
       setPreferredNameError(null);
-      setLanguageError(null);
       // Queued too, so it cannot snapshot a row before a pending write and
       // answer after it.
       readProfile()
@@ -374,13 +371,17 @@ export default function ProfileMenu({
   /*
    * Escape inside the Profile dialog, which registers its own layer.
    *
-   * The pickers inside it are nested state rather than layers of their own, so
-   * the registry cannot see them. Defaulting Escape to onDismiss threw the
-   * whole dialog away while a picker was open.
+   * A name edit and the avatar picker inside it are nested state rather than
+   * layers of their own, so the registry cannot see them. Defaulting Escape to
+   * onDismiss threw the whole dialog away while one was open.
    */
   const handleProfileModalEscape = useCallback(() => {
-    if (isLanguagePickerOpen) {
-      setIsLanguagePickerOpen(false);
+    if (editingName) {
+      stopEditingName();
+      return;
+    }
+    if (editingPreferredName) {
+      stopEditingPreferredName();
       return;
     }
     if (isAvatarPickerOpen) {
@@ -401,22 +402,14 @@ export default function ProfileMenu({
     closeAvatarPicker,
     closeProfileModal,
     deleteRequestState,
+    editingName,
+    editingPreferredName,
     isAvatarPickerOpen,
     isDeleteRequestOpen,
-    isLanguagePickerOpen,
     onLogout,
+    stopEditingName,
+    stopEditingPreferredName,
   ]);
-
-
-  useEffect(() => {
-    if (!isLanguagePickerOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (languagePickerRef.current?.contains(e.target as Node)) return;
-      setIsLanguagePickerOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [isLanguagePickerOpen]);
 
   // Submenu hover with delay and guard
   const [canOpenSubmenu, setCanOpenSubmenu] = useState(false);
@@ -480,7 +473,8 @@ export default function ProfileMenu({
     (modal: ActiveModal) => {
       if (modal === "invite-cuadrao") invitationReturnFocusRef.current = anchorRef.current;
       setActiveModal(modal);
-      if (asSheet) return;
+      // Ajustes has its own way back, so on a phone the menu sheet closes under it too.
+      if (asSheet && modal !== "settings-window") return;
       // The popover has nowhere to sit behind a dialog, so it closes. A sheet
       // stays open underneath, which is what the child's back row returns to.
       setActiveSubmenu(null);
@@ -610,8 +604,6 @@ export default function ProfileMenu({
   const currentLanguage = normalizeEnabledLanguage(
     profile?.language ?? i18n.language,
   );
-  const currentLanguageAbbreviation =
-    languageDisplayAbbreviation(currentLanguage);
   const avatarClassName =
     accountKind === "registered"
       ? avatarThemeClassName(profile?.avatar_theme)
@@ -620,35 +612,6 @@ export default function ProfileMenu({
     accountKind === "registered"
       ? avatarThemeStyle(profile?.avatar_theme)
       : undefined;
-  const handleLanguageSelect = useCallback(
-    async (code: string) => {
-      if (isSavingLanguage) return;
-
-      const session = editSessionRef.current;
-      setIsSavingLanguage(true);
-      setLanguageError(null);
-      const saved = await saveProfileLanguage(i18n, code, {
-        onShown: (language) =>
-          setProfile((current) =>
-            current
-              ? { ...current, language, locale: localeForLanguage(language) }
-              : current,
-          ),
-        onSaved: applyPatchedProfile,
-      });
-      setIsSavingLanguage(false);
-      if (!isCurrentEditSession(session)) return;
-      if (saved) {
-        setIsLanguagePickerOpen(false);
-        return;
-      }
-      setLanguageError(
-        t("settings.profile.language_save_error", "Could not update language yet."),
-      );
-    },
-    [applyPatchedProfile, i18n, isCurrentEditSession, isSavingLanguage, t],
-  );
-
   const handleAvatarThemeSelect = useCallback(
     async (avatarTheme: AvatarTheme) => {
       if (!profile || accountKind !== "registered" || isSavingAvatarTheme) return;
@@ -730,49 +693,16 @@ export default function ProfileMenu({
     setIsDeleteRequestOpen(true);
   }, []);
 
+  const closeSettingsWindow = useCallback(() => setActiveModal(null), []);
+
+  // The row leaves with the menu, so the dialog's way back is the account button.
+  const openFeedback = useCallback(() => {
+    onClose();
+    anchorRef.current?.focus();
+    onFeedback?.("general");
+  }, [anchorRef, onClose, onFeedback]);
+
   const quickJumpItems = useMemo<ProfileQuickJumpItem[]>(() => {
-    if (activeSubmenu === "data") {
-      return [
-        ...(memoryControlsAvailable
-          ? [{ id: "memory", onSelect: () => openModal("memory") }]
-          : []),
-        ...(receiptsAvailable
-          ? [{ id: "receipts", onSelect: () => openModal("receipts") }]
-          : []),
-        ...(!isBusiness ? [{ id: "archived", onSelect: () => openModal("archived") }] : []),
-        { id: "deleted", onSelect: () => openModal("deleted") },
-        {
-          id: "security",
-          onSelect: () =>
-            navigateFromOverlay("/account/security", onClose),
-        },
-        ...(!isBusiness ? [{ id: "usage", onSelect: () => openModal("usage") }] : []),
-        { id: "delete-account", onSelect: handleOpenDeleteRequest },
-      ];
-    }
-    if (activeSubmenu === "settings") {
-      return [
-        { id: "appearance", onSelect: () => openModal("appearance") },
-        { id: "language", onSelect: () => openModal("language") },
-        ...(homeCountryAvailable
-          ? [{ id: "country", onSelect: () => openModal("country") }]
-          : []),
-        ...(whatsappLinkAvailable
-          ? [{ id: "whatsapp", onSelect: () => openModal("whatsapp") }]
-          : []),
-        ...(onOpenSidebarPreference
-          ? [
-              {
-                id: "sidebar",
-                onSelect: () => {
-                  onOpenSidebarPreference();
-                  onClose();
-                },
-              },
-            ]
-          : []),
-      ];
-    }
     if (activeSubmenu === "help") {
       return [
         {
@@ -788,52 +718,19 @@ export default function ProfileMenu({
         })),
       ];
     }
-    if (activeSubmenu === "feedback") {
-      return [
-        {
-          id: "feedback-bug",
-          onSelect: () => {
-            onFeedback?.("bug");
-            onClose();
-          },
-        },
-        {
-          id: "feedback-feature",
-          onSelect: () => {
-            onFeedback?.("feature");
-            onClose();
-          },
-        },
-        {
-          id: "feedback-general",
-          onSelect: () => {
-            onFeedback?.("general");
-            onClose();
-          },
-        },
-      ];
-    }
     return [
       { id: "profile", onSelect: () => openModal("profile") },
-      { id: "data", onSelect: () => handleSubmenuToggle("data") },
-      { id: "settings", onSelect: () => handleSubmenuToggle("settings") },
+      { id: "settings", onSelect: () => openModal("settings-window") },
       { id: "help", onSelect: () => handleSubmenuToggle("help") },
-      { id: "feedback", onSelect: () => handleSubmenuToggle("feedback") },
+      { id: "feedback", onSelect: openFeedback },
     ];
   }, [
     activeSubmenu,
-    isBusiness,
     legalHref,
-    handleOpenDeleteRequest,
     handleOpenKeyboardShortcuts,
     handleSubmenuToggle,
-    homeCountryAvailable,
-    whatsappLinkAvailable,
-    memoryControlsAvailable,
-    receiptsAvailable,
     onClose,
-    onFeedback,
-    onOpenSidebarPreference,
+    openFeedback,
     openModal,
   ]);
   const handleQuickJump = useCallback(
@@ -915,11 +812,49 @@ export default function ProfileMenu({
       supportMailto={supportMailto}
       onClose={handleCloseDeleteRequest}
       onSubmit={handleSubmitDeleteRequest}
-      returnFocusRef={anchorRef}
+      returnFocusRef={activeModal === "settings-window" ? deleteAccountRef : anchorRef}
     />
   ) : null;
 
   if (!isOpen && !activeModal && !isDeleteRequestOpen) return null;
+
+  const locale = localeForLanguage(normalizeEnabledLanguage(i18n.resolvedLanguage));
+
+  // The alert for deleting the account stands above the window rather than replacing it.
+  if (activeModal === "settings-window") {
+    return (
+      <>
+        <SettingsWindow
+          sections={windowSections}
+          renderSection={(panel) => (
+            <ProfileSettingsPanels
+              panel={panel}
+              asSheet={false}
+              locale={locale}
+              anchorRef={anchorRef}
+              onClose={closeSettingsWindow}
+              onBack={closeSettingsWindow}
+              onHistoryMutated={onHistoryMutated}
+              onProfileSaved={applyPatchedProfile}
+              profile={profile}
+              sidebar={sidebarPreference}
+            />
+          )}
+          onSecurity={() => navigateFromOverlay("/account/security", closeSettingsWindow)}
+          onDeleteAccount={handleOpenDeleteRequest}
+          deleteAccountRef={deleteAccountRef}
+          legalLinks={LEGAL_LINK_IDS.map((id) => ({
+            id,
+            href: legalHref[id],
+            label: id === "terms" ? t("settings.help.terms", "Terms") : t("settings.help.privacy", "Privacy"),
+          }))}
+          returnFocusRef={anchorRef}
+          onClose={closeSettingsWindow}
+        />
+        {deleteRequestDialog}
+      </>
+    );
+  }
 
   // A child dialog replaces the settings surface, just like the other panels.
   // Keeping both mounted puts the centered request beneath the tablet sheet.
@@ -930,26 +865,6 @@ export default function ProfileMenu({
   // ── Active modal rendering ──────────────────────────────────────────────
   if (activeModal === "invite-cuadrao" && invitationPreviewAvailable) {
     return <CuadraoInvitationPreview invitations={localInvitations} onSent={(invitation) => setLocalInvitations((rows) => [...rows, invitation])} returnFocusRef={invitationReturnFocusRef} onClose={() => { setActiveModal(null); onClose(); }} />;
-  }
-  if (activeModal !== null && activeModal !== "profile" && activeModal !== "invite-cuadrao") {
-    return (
-      <ProfileSettingsPanels
-        panel={activeModal}
-        asSheet={asSheet}
-        locale={localeForLanguage(
-          normalizeEnabledLanguage(i18n.resolvedLanguage),
-        )}
-        anchorRef={anchorRef}
-        onClose={() => setActiveModal(null)}
-        onBack={(parent) => {
-          setActiveModal(null);
-          setActiveSubmenu(parent);
-        }}
-        onHistoryMutated={onHistoryMutated}
-        onProfileSaved={applyPatchedProfile}
-        profile={profile}
-      />
-    );
   }
   if (activeModal === "profile") {
     return (
@@ -986,14 +901,6 @@ export default function ProfileMenu({
         handleSavePreferredName={handleSavePreferredName}
         isSavingPreferredName={isSavingPreferredName}
         preferredNameError={preferredNameError}
-        languagePickerRef={languagePickerRef}
-        isLanguagePickerOpen={isLanguagePickerOpen}
-        setIsLanguagePickerOpen={setIsLanguagePickerOpen}
-        currentLanguage={currentLanguage}
-        currentLanguageAbbreviation={currentLanguageAbbreviation}
-        handleLanguageSelect={handleLanguageSelect}
-        isSavingLanguage={isSavingLanguage}
-        languageError={languageError}
       />
     );
   }
@@ -1021,10 +928,7 @@ export default function ProfileMenu({
   const showRootRows = !asSheet || !activeSubmenu;
   const rootRow = showRootRows ? "" : " hidden";
   const sheetTitles: Record<string, string> = {
-    data: t("settings.data.title", "Data Controls"),
-    settings: t("settings.app.title", "Preferences"),
     help: t("settings.help.title", "Help & Legal"),
-    feedback: t("feedback.title", "Feedback"),
   };
 
   const menu = (
@@ -1050,226 +954,17 @@ export default function ProfileMenu({
 
       {invitationPreviewAvailable ? <button type="button" onClick={() => openModal("invite-cuadrao")} className={`font-display flex min-h-11 w-full items-center gap-2.5 px-3.5 py-2 text-[13px] font-medium text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5${rootRow}`}><HandHeart className="h-4 w-4 text-black/50 dark:text-white/50" aria-hidden="true" />{t("cuadrao_invitation.title")}</button> : null}
 
-      {/* Data */}
-      <div
-        className={submenuAnchorClass}
-        onMouseEnter={() => handleSubmenuEnter("data")}
-        onMouseLeave={handleSubmenuLeave}
+      {/* Ajustes: every account setting, in one window */}
+      <button
+        type="button"
+        data-testid="profile-menu-settings"
+        onClick={() => openModal("settings-window")}
+        className={`font-display flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] font-medium text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5${rootRow}`}
       >
-        <button
-          onClick={() => handleSubmenuToggle("data")}
-          className={`font-display flex min-h-[38px] w-full items-center justify-between gap-2.5 px-3.5 py-2 text-[13px] font-medium text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5${rootRow}`}
-        >
-          <div className="flex items-center gap-2.5">
-            <Database className="h-4 w-4 text-black/50 dark:text-white/50" />
-            {t("settings.data.title", "Data Controls")}
-          </div>
-          <span className="ml-auto flex shrink-0">{quickJumpBadge("data")}</span>
-          {!isQuickJumpActive && (
-            <ChevronRight className="h-3.5 w-3.5 text-black/30 dark:text-white/30" />
-          )}
-        </button>
-        {activeSubmenu === "data" && (
-          <div
-            className={submenuSurfaceClass("min-h-[294px] min-w-[304px]")}
-            style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.1)" }}
-            onMouseEnter={handleSubmenuKeepAlive}
-            onMouseLeave={handleSubmenuLeave}
-          >
-            {memoryControlsAvailable ? (
-              <button
-                onClick={() => openModal("memory")}
-                className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
-              >
-                <Brain className="h-3.5 w-3.5 text-black/60 dark:text-white/60" />
-                <span className="whitespace-nowrap">
-                  {t("settings.data.personalization.menu", "Personalization")}
-                </span>
-                <span className="ml-auto flex shrink-0">{quickJumpBadge("memory")}</span>
-              </button>
-            ) : null}
-            {receiptsAvailable ? (
-              <button
-                onClick={() => openModal("receipts")}
-                className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
-              >
-                <Link2 className="h-3.5 w-3.5 text-black/60 dark:text-white/60" />
-                <span className="whitespace-nowrap">
-                  {t("settings.data.shared_links", "Shared links")}
-                </span>
-                <span className="ml-auto flex shrink-0">
-                  {quickJumpBadge("receipts")}
-                </span>
-              </button>
-            ) : null}
-            {!isBusiness && (
-            <button
-              onClick={() => openModal("archived")}
-              className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
-            >
-              <Archive className="h-3.5 w-3.5 text-black/60 dark:text-white/60" />
-              <span className="whitespace-nowrap">
-                {t("settings.data.archived_chats", "Archived chats")}
-              </span>
-              <span className="ml-auto flex shrink-0">{quickJumpBadge("archived")}</span>
-            </button>
-            )}
-            <button
-              onClick={() => openModal("deleted")}
-              className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
-            >
-              <Trash2 className="h-3.5 w-3.5 text-black/60 dark:text-white/60" />
-              <span className="whitespace-nowrap">
-                {t("settings.data.recently_deleted", "Recently Deleted")}
-              </span>
-              <span className="ml-auto flex shrink-0">{quickJumpBadge("deleted")}</span>
-            </button>
-            <button
-              onClick={() =>
-                navigateFromOverlay("/account/security", onClose)
-              }
-              className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
-            >
-              <Shield className="h-3.5 w-3.5 text-black/60 dark:text-white/60" />
-              <span className="whitespace-nowrap">
-                {t("settings.data.security", "Security")}
-              </span>
-              <span className="ml-auto flex shrink-0">{quickJumpBadge("security")}</span>
-            </button>
-            {!isBusiness && (
-            <button
-              onClick={() => openModal("usage")}
-              className="flex min-h-11 w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
-            >
-              <Activity className="h-3.5 w-3.5 text-black/60 dark:text-white/60" />
-              <span className="whitespace-nowrap">
-                {t("settings.data.usage", "Usage")}
-              </span>
-              <span className="ml-auto flex shrink-0">{quickJumpBadge("usage")}</span>
-            </button>
-            )}
-            <div role="separator" className="my-1 border-t border-black/5 dark:border-white/5" />
-            <button
-              type="button"
-              onClick={handleOpenDeleteRequest}
-              className="flex min-h-[88px] w-full flex-col items-start gap-1 px-3.5 py-2 text-left text-[#d66d75] transition-colors hover:bg-[#d66d75]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d66d75]/25 dark:hover:bg-[#d66d75]/10"
-            >
-              <span className="flex h-[22px] w-full items-center gap-2.5 text-[13px] font-medium">
-                <Trash2 className="h-3.5 w-3.5" />
-                <span className="whitespace-nowrap">
-                  {t("settings.profile.delete_account", "Delete account")}
-                </span>
-                <span className="ml-auto flex shrink-0">{quickJumpBadge("delete-account")}</span>
-              </span>
-              <span className="pl-6 text-[11px] leading-snug text-black/35 dark:text-white/35">
-                {t(
-                  "settings.profile.delete_account_note",
-                  "Permanently delete your Cuadrao account and your data.",
-                )}
-              </span>
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Preferences */}
-      <div
-        className={submenuAnchorClass}
-        onMouseEnter={() => handleSubmenuEnter("settings")}
-        onMouseLeave={handleSubmenuLeave}
-      >
-        <button
-          onClick={() => handleSubmenuToggle("settings")}
-          className={`font-display flex min-h-[38px] w-full items-center justify-between gap-2.5 px-3.5 py-2 text-[13px] font-medium text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5${rootRow}`}
-        >
-          <div className="flex items-center gap-2.5">
-            <Palette className="h-4 w-4 text-black/50 dark:text-white/50" />
-            {t("settings.preferences.title", "Preferences")}
-          </div>
-          <span className="ml-auto flex shrink-0">{quickJumpBadge("settings")}</span>
-          {!isQuickJumpActive && (
-            <ChevronRight className="h-3.5 w-3.5 text-black/30 dark:text-white/30" />
-          )}
-        </button>
-        {activeSubmenu === "settings" && (
-          <div
-            aria-label={t("settings.preferences.title", "Preferences")}
-            className={submenuSurfaceClass("min-w-[248px]")}
-            style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.1)" }}
-            onMouseEnter={handleSubmenuKeepAlive}
-            onMouseLeave={handleSubmenuLeave}
-          >
-            <button
-              onClick={() => openModal("appearance")}
-              className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
-            >
-              <Palette className="h-3.5 w-3.5 text-black/60 dark:text-white/60" />
-              <span className="whitespace-nowrap">
-                {t("settings.app.appearance", "Appearance")}
-              </span>
-              <span className="ml-auto flex shrink-0">{quickJumpBadge("appearance")}</span>
-            </button>
-            <button
-              onClick={() => openModal("language")}
-              className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
-            >
-              <Globe className="h-3.5 w-3.5 text-black/60 dark:text-white/60" />
-              <span className="whitespace-nowrap">
-                {t("settings.app.language", "Language")}
-              </span>
-              <span className="ml-auto flex shrink-0">{quickJumpBadge("language")}</span>
-            </button>
-            {isBusiness && (
-              <div className="flex min-h-[38px] w-full items-center gap-2.5 py-0.5 pl-3.5 pr-1.5 text-[13px] text-black dark:text-white">
-                <ToggleRight className="h-3.5 w-3.5 text-black/60 dark:text-white/60" aria-hidden="true" />
-                <span className="whitespace-nowrap">{t("settings.app.switch_labels", "Words on switches")}</span>
-                <span className="ml-auto flex shrink-0">
-                  <Switch testId="settings-switch-labels" label={t("settings.app.switch_labels", "Words on switches")} checked={switchLabelsShown} onChange={setSwitchLabelsShown} />
-                </span>
-              </div>
-            )}
-            {homeCountryAvailable && (
-              <button
-                onClick={() => openModal("country")}
-                className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
-              >
-                <MapPin className="h-3.5 w-3.5 text-black/60 dark:text-white/60" />
-                <span className="whitespace-nowrap">
-                  {t("settings.app.home_country", "Country and currency")}
-                </span>
-                <span className="ml-auto flex shrink-0">{quickJumpBadge("country")}</span>
-              </button>
-            )}
-            {whatsappLinkAvailable && (
-              <button
-                onClick={() => openModal("whatsapp")}
-                className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
-              >
-                <MessageCircle className="h-3.5 w-3.5 text-black/60 dark:text-white/60" />
-                <span className="whitespace-nowrap">
-                  {t("settings.whatsapp.title", "WhatsApp")}
-                </span>
-                <span className="ml-auto flex shrink-0">{quickJumpBadge("whatsapp")}</span>
-              </button>
-            )}
-            {onOpenSidebarPreference && (
-              <button
-                onClick={() => {
-                  onOpenSidebarPreference();
-                  onClose();
-                }}
-                className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
-              >
-                <PanelLeft className="h-3.5 w-3.5 text-black/60 dark:text-white/60" />
-                <span className="whitespace-nowrap">
-                  {t("settings.app.sidebar", "Sidebar")}
-                </span>
-                <span className="ml-auto flex shrink-0">{quickJumpBadge("sidebar")}</span>
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+        <Settings className="h-4 w-4 text-black/50 dark:text-white/50" aria-hidden="true" />
+        {t("common.settings", "Settings")}
+        <span className="ml-auto flex shrink-0">{quickJumpBadge("settings")}</span>
+      </button>
 
       {/* Help */}
       <div
@@ -1330,74 +1025,17 @@ export default function ProfileMenu({
         )}
       </div>
 
-      {/* Feedback */}
-      <div
-        className={submenuAnchorClass}
-        onMouseEnter={() => handleSubmenuEnter("feedback")}
-        onMouseLeave={handleSubmenuLeave}
+      {/* Feedback: the form picks its own type */}
+      <button
+        type="button"
+        data-testid="profile-menu-feedback"
+        onClick={openFeedback}
+        className={`font-display flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] font-medium text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5${rootRow}`}
       >
-        <button
-          onClick={() => handleSubmenuToggle("feedback")}
-          className={`font-display flex min-h-[38px] w-full items-center justify-between gap-2.5 px-3.5 py-2 text-[13px] font-medium text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5${rootRow}`}
-        >
-          <div className="flex items-center gap-2.5">
-            <MessageSquareText className="h-4 w-4 text-black/50 dark:text-white/50" />
-            {t("feedback.eyebrow", "Feedback")}
-          </div>
-          <span className="ml-auto flex shrink-0">{quickJumpBadge("feedback")}</span>
-          {!isQuickJumpActive && (
-            <ChevronRight className="h-3.5 w-3.5 text-black/30 dark:text-white/30" />
-          )}
-        </button>
-        {activeSubmenu === "feedback" && (
-          <div
-            className={submenuSurfaceClass("min-w-[248px]")}
-            style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.1)" }}
-            onMouseEnter={handleSubmenuKeepAlive}
-            onMouseLeave={handleSubmenuLeave}
-          >
-            <button
-              onClick={() => {
-                onFeedback?.("bug");
-                onClose();
-              }}
-              className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
-            >
-              <Bug className="h-3.5 w-3.5" />
-              <span className="whitespace-nowrap">
-                {t("feedback.type.bug", "Report a bug")}
-              </span>
-              <span className="ml-auto flex shrink-0">{quickJumpBadge("feedback-bug")}</span>
-            </button>
-            <button
-              onClick={() => {
-                onFeedback?.("feature");
-                onClose();
-              }}
-              className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
-            >
-              <Lightbulb className="h-3.5 w-3.5" />
-              <span className="whitespace-nowrap">
-                {t("feedback.type.feature", "Request a feature")}
-              </span>
-              <span className="ml-auto flex shrink-0">{quickJumpBadge("feedback-feature")}</span>
-            </button>
-            <button
-              onClick={() => {
-                onFeedback?.("general");
-                onClose();
-              }}
-              className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
-            >
-              <MessageCircle className="h-3.5 w-3.5" />
-              <span className="whitespace-nowrap">
-                {t("feedback.type.general", "General feedback")}
-              </span>
-              <span className="ml-auto flex shrink-0">{quickJumpBadge("feedback-general")}</span>
-            </button>
-          </div>
-        )}
-      </div>
+        <MessageSquareText className="h-4 w-4 text-black/50 dark:text-white/50" aria-hidden="true" />
+        {t("feedback.eyebrow", "Feedback")}
+        <span className="ml-auto flex shrink-0">{quickJumpBadge("feedback")}</span>
+      </button>
 
       {/* Divider */}
       <div className={`my-1 border-t border-black/5 dark:border-white/5${rootRow}`} />
@@ -1444,7 +1082,8 @@ export default function ProfileMenu({
         title={
           activeSubmenu
             ? sheetTitles[activeSubmenu]
-            : t("common.settings", "Settings")
+            : // The sheet is the account; Ajustes is one of its rows, so it does not take that name.
+              profile?.preferred_name || profile?.display_name || profile?.email || t("common.settings", "Settings")
         }
         closeLabel={t("common.close", "Close")}
         onClose={onClose}

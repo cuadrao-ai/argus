@@ -8,7 +8,6 @@ import spanish from "@/public/locales/es-419/common.json";
 import { createRoot } from "react-dom/client";
 import BusinessLifecycleEntry from "@/components/business-app/BusinessLifecycleEntry";
 import BusinessLifecycleControls from "@/components/business-app/BusinessLifecycleControls";
-import { getBusinessSpaces } from "@/lib/business-api";
 import ProfileDeleteRequestDialog from "@/components/sidebar/ProfileDeleteRequestDialog";
 import { invalidateBrowserAuth } from "@/lib/browser-auth-generation";
 import { getChosenGrant, setChosenGrant } from "@/lib/business-grant";
@@ -49,16 +48,29 @@ async function mount(element: React.ReactNode, failCommand = false, deny = false
 function button(label: string) { const found = [...document.querySelectorAll("button")].find(item => item.textContent === label); assert.ok(found); return found; }
 async function enter(value: string) { const input = document.querySelector('input:not([type="date"])'); assert.ok(input); await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value); input.dispatchEvent(new Event("input", { bubbles: true })); }); }
 
-test("actual deletion dialog discovers each owned Business and blocks deletion with distinct action links", async () => {
-  let submitted = 0;
-  const view = await mount(<ProfileDeleteRequestDialog discoverBusinesses={getBusinessSpaces} state="idle" supportMailto="mailto:support@example.test" onClose={() => undefined} onSubmit={() => { submitted++; }} />);
+test("the deletion alert names each Business the server says blocks it, never offers Eliminar, and links the controls only when they exist", async () => {
+  const blockers = businesses.map(business => ({ kind: "business_owner" as const, business_id: business.space_id, business_name: business.name }));
+  const readEligibility = async () => ({ allowed: false as const, blockers, notices: [] });
+  for (const lifecycleControls of [true, false]) {
+    let submitted = 0;
+    const view = await mount(<ProfileDeleteRequestDialog readEligibility={readEligibility} lifecycleControls={lifecycleControls} state="idle" supportMailto="mailto:support@example.test" onClose={() => undefined} onSubmit={() => { submitted++; }} />);
+    try {
+      for (const business of businesses) {
+        assert.ok(document.body.textContent?.includes(business.name));
+        for (const action of ["transfer", "close"]) assert.equal(Boolean(document.querySelector(`a[href="/biz?lifecycle=${action}&business=${business.space_id}"]`)), lifecycleControls);
+      }
+      assert.equal(Boolean(document.querySelector('a[href="mailto:support@example.test"]')), !lifecycleControls, "the pilot offers the support contact instead");
+      assert.equal([...document.querySelectorAll("button")].find(item => item.textContent === spanish.settings.profile.request_deletion.confirm), undefined);
+      assert.equal(submitted, 0);
+    } finally { await view.close(); }
+  }
+});
+
+test("the deletion alert shows no Eliminar while the server is still answering", async () => {
+  const view = await mount(<ProfileDeleteRequestDialog readEligibility={() => new Promise(() => undefined)} state="idle" supportMailto="mailto:support@example.test" onClose={() => undefined} onSubmit={() => undefined} />);
   try {
-    for (const business of businesses) {
-      assert.ok(document.body.textContent?.includes(`Eres el único dueño de ${business.name}. Transfiérelo o ciérralo antes de borrar tu cuenta.`));
-      for (const action of ["transfer", "close"]) assert.ok(document.querySelector(`a[href="/biz?lifecycle=${action}&business=${business.space_id}"]`));
-    }
-    const submit = [...document.querySelectorAll("button")].find(item => item.textContent === spanish.settings.profile.request_deletion.confirm); assert.ok(submit?.disabled);
-    await act(async () => submit.click()); assert.equal(submitted, 0);
+    assert.ok(document.body.textContent?.includes(spanish.business.lifecycle.deletion.checking));
+    assert.equal([...document.querySelectorAll("button")].find(item => item.textContent === spanish.settings.profile.request_deletion.confirm), undefined);
   } finally { await view.close(); }
 });
 

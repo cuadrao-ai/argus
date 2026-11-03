@@ -9,7 +9,7 @@ import {
   } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useConversationSurface } from "@/components/chat/ChatWorkspace";
-import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import SettingsSurface from "@/components/settings/SettingsSurface";
 import { Tooltip } from "@/components/ui/Tooltip";
 import {
   listHistory,
@@ -52,7 +52,7 @@ export default function DeletedItemsView({ onClose, onBack, backLabel, onRestore
   };
 
   return (
-    <AdaptivePanel
+    <SettingsSurface
       title={t("settings.data.recently_deleted")}
       closeLabel={t("settings.data.close_deleted", "Close recently deleted")}
       onClose={onClose}
@@ -60,7 +60,7 @@ export default function DeletedItemsView({ onClose, onBack, backLabel, onRestore
       backLabel={backLabel}
       width="md"
     >
-      <p className="px-5 pt-3 text-[12px] text-black/40 dark:text-white/40">
+      <p className="px-5 pt-3 text-[14px] text-[#56635e] dark:text-white/70">
         {t(
           "settings.data.deleted_retention_note",
           "Items in this list can currently be restored.",
@@ -118,6 +118,6 @@ export default function DeletedItemsView({ onClose, onBack, backLabel, onRestore
             </div>
           )}
         </div>
-    </AdaptivePanel>
+    </SettingsSurface>
   );
 }
