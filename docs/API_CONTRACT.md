@@ -9647,7 +9647,18 @@ own status words for that calendar month: `no_aplica`, `needs_review`,
 the ZIP carries the TXT) and `missing_payment_form` (the document lines of the
 purchases the 606 holds until a person sets Forma de Pago, marked paid or not,
 each with `payment_form` null; it adds no `reasons` code and does not read into
-`closed`). Each currency block adds `itbis_cobrado_minor` and
+`closed`) and `missing_fiscal_data` (every document the 606 or 607 holds this
+month, as a document line plus `missing`, the export's own words for what it
+still needs, first fix first: `expense_type_missing`, `rnc_missing`,
+`rnc_invalid`, `ncf_invalid`, `date_missing`, `ncf_missing`,
+`payment_method_missing` or `detail_missing`, the same words Registros shows as
+`export_missing`) and `filing_ready` (bool: the one fact "ready for the 606 and
+607", true only when both `dgii_forms` stand by the export's verdict
+(`prepared_candidate`, `no_operations` or `summary_only`) and no step of the
+month remains: `unreviewed_movements_count` zero, `missing_fiscal_data` empty,
+`cuentas_por_cobrar` and `cuentas_por_pagar` empty; the web shows that sentence
+from this field alone, never from `closed`, which stays month completion). Each
+currency block adds `itbis_cobrado_minor` and
 `itbis_cobrado` (ITBIS charged on the sales marked `cobrado`) and
 `net_result_final` (true while no document of that currency in the month is
 `pendiente` and, for a currency other than DOP, while that currency has no

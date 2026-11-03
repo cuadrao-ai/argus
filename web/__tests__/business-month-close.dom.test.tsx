@@ -219,7 +219,7 @@ describe("month close optimistic marks", () => {
     assert.equal(future, null);
     assert.deepEqual(
       [...picker!.querySelectorAll<HTMLElement>('[role="option"]')].map((option) => option.dataset.month),
-      ["2026-09", "2026-10"],
+      ["2026-08", "2026-09", "2026-10"],
     );
     assert.equal(current?.getAttribute("aria-selected"), "true");
     assert.equal(loads.includes("2026-11"), false);
@@ -526,6 +526,7 @@ describe("fiscal complete months stay editable", () => {
         to: "2026-10-31",
         closed: true,
         reasons: [],
+        dgii_forms: { "606": "prepared_candidate", "607": "prepared_candidate" },
         currencies: [{
           currency: "DOP",
           income_before_itbis_minor: 400000, income_before_itbis: "4000.00",
@@ -541,6 +542,7 @@ describe("fiscal complete months stay editable", () => {
         }],
         missing_rnc: [],
         missing_ncf: [],
+        missing_fiscal_data: [],
         cuentas_por_cobrar: [wireLine("act-invoice", "invoice", 118000, 18000)],
         cuentas_por_pagar: [wireLine("act-receipt", "receipt", 59000, 9000)],
       };
@@ -561,7 +563,8 @@ describe("fiscal complete months stay editable", () => {
     assert.equal(host.querySelector('[data-testid="month-close-checklist-ready"]'), null);
     assert.equal(host.querySelector('[data-testid="month-close-reason"]'), null);
     assert.equal(host.querySelector('[data-testid="month-close-close-note"]'), null);
-    assert.match(host.querySelector('[data-testid="month-close-filing"]')?.textContent ?? "", /Ya tienes todo para el 606 y el 607/);
+    assert.equal(host.querySelector('[data-testid="month-close-filing"]'), null, "marks still to make are a step, so the month is not ready");
+    assert.equal(host.textContent?.includes("Cierra el mes"), false, "no close promise");
     assert.equal(host.textContent?.includes("Listo"), false);
     assert.equal(host.textContent?.includes("Mes cerrado"), false);
     await act(async () => {
@@ -771,7 +774,7 @@ describe("Inicio ITBIS balance", () => {
 });
 
 describe("a fully settled month", () => {
-  test("a month with everything collected and paid is not empty, is ready to close, and has nothing left in the money columns", async () => {
+  test("a month with everything collected and paid is not empty, is ready for the 606 and 607, and has nothing left in the money columns", async () => {
     const client = createHttpMonthCloseClient(async (path) => path === "/business/open-items" ? ({
       today: "2026-10-18",
       cuentas_por_cobrar: { count: 0, totals: [], items: [] },
@@ -784,6 +787,7 @@ describe("a fully settled month", () => {
       to: "2026-10-31",
       closed: true,
       reasons: [],
+      dgii_forms: { "606": "prepared_candidate", "607": "prepared_candidate" },
       currencies: [{
         currency: "DOP",
         income_before_itbis_minor: 400000, income_before_itbis: "4000.00",
@@ -799,12 +803,16 @@ describe("a fully settled month", () => {
       }],
       missing_rnc: [],
       missing_ncf: [],
+      missing_fiscal_data: [],
+      filing_ready: true,
       cuentas_por_cobrar: [],
       cuentas_por_pagar: [],
     }));
     const { act, host, root } = await renderMonthCloseView(client, now, null, { count: 0, detail: null, open: () => {} });
     assert.match(host.querySelector('[data-testid="month-close-net"]')?.textContent ?? "", /RD\$ 3,000\.00/);
-    assert.match(host.querySelector('[data-testid="month-close-checklist-ready"]')?.textContent ?? "", /Todo listo para cerrar octubre\./);
+    assert.equal(host.querySelector('[data-testid="month-close-filing"]')?.textContent, "Ya tienes todo para el 606 y el 607.");
+    assert.equal(host.querySelector('[data-testid="month-close-checklist-ready"]'), null);
+    assert.equal(host.querySelector('[data-testid="month-close-close"]'), null, "there is no close action");
     assert.equal(host.querySelector('[data-testid="month-close-checklist-left"]'), null);
     assert.match(host.querySelector('[data-testid="month-close-nothing-open"]')?.textContent ?? "", /Todo al día/);
     assert.equal(host.querySelector('[data-testid="month-close-receivable"]'), null);

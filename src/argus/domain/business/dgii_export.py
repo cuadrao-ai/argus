@@ -461,17 +461,29 @@ def line_verdicts(
             captured_on=captured_on,
             registry=registry,
         )
-        for item in manifest["reconciliation"]:
-            identifier = item["activity_id"]
-            if item["disposition"] in COLUMNS:
-                verdicts[identifier] = None
-            elif item["disposition"] == "needs_review":
-                issues = [
-                    issue
-                    for issue in manifest["issues"]
-                    if issue["activity_id"] == identifier
-                ]
-                verdicts[identifier] = missing_items(by_id[identifier], issues)
+        verdicts.update(manifest_verdicts(manifest, by_id))
+    return verdicts
+
+
+def manifest_verdicts(
+    manifest: dict, by_id: dict[str, FiscalRecord]
+) -> dict[str, tuple[str, ...] | None]:
+    """One manifest's verdict per record it reconciles: None for a line on its
+    form, else what is missing, first fix first. The one reading of the
+    manifest that Registros and the month close share."""
+
+    verdicts: dict[str, tuple[str, ...] | None] = {}
+    for item in manifest["reconciliation"]:
+        identifier = item["activity_id"]
+        if item["disposition"] in COLUMNS:
+            verdicts[identifier] = None
+        elif item["disposition"] == "needs_review":
+            issues = [
+                issue
+                for issue in manifest["issues"]
+                if issue["activity_id"] == identifier
+            ]
+            verdicts[identifier] = missing_items(by_id[identifier], issues)
     return verdicts
 
 

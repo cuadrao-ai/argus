@@ -37,12 +37,13 @@ import { currencyDigits, minorToDecimal } from "./money-entry";
  * An e-CF is `E` plus 12 digits and satisfies the comprobante requirement on
  * its own.
  *
- * `canCloseMonth` and `monthCloseBlockers` are the pure fiscal gate. A month
- * closes when the window is one calendar month, it is not already closed,
- * every document has an RNC and either an NCF or an e-CF, and no draft for
- * that month is still unreviewed. A pending document does not block the close.
- * The Exportar "Listo para 606/607" checklist imports this same pair; do not
- * fork a second check.
+ * `canCloseMonth` and `monthCloseBlockers` are the pure month-completion gate
+ * the sample books use: one calendar month, not already closed, every document
+ * with an RNC and either an NCF or an e-CF, no draft still unreviewed. They
+ * never say the 606 or 607 is ready. That verdict is the export's own:
+ * `dgii_forms` (`dgiiFormsReady`) and each document's `missing`, the server's
+ * `missing_fiscal_data`, which Inicio and Exportar both read. No screen
+ * derives it from `closed`.
  *
  * A currency's net shows only when its block says `net_result_final`.
  * Overdue counts and totals are the server's; a row's lateness chip reads its
@@ -84,7 +85,13 @@ export type MonthCloseDocument = {
   sin_comprobante?: boolean;
   /** The server's `ncf_malformed` list names this document: it has an NCF or e-CF, not in the B or E series format. */
   ncf_malformed?: boolean;
+  /** What the 606 or 607 still needs before it carries this document, first fix first, in the export's words. Absent when the server did not say; empty never occurs. */
+  missing?: readonly FiscalMissingCode[];
 };
+
+/** The export's own words for what a held document needs, first fix first: the same words Registros shows. */
+export const FISCAL_MISSING_CODES = ["expense_type_missing", "rnc_missing", "rnc_invalid", "ncf_invalid", "date_missing", "ncf_missing", "payment_method_missing", "detail_missing"] as const;
+export type FiscalMissingCode = (typeof FISCAL_MISSING_CODES)[number];
 
 export type MonthCloseWindow = {
   from: string;
@@ -113,6 +120,8 @@ export type MonthCloseSnapshot = {
   blockers?: MonthCloseBlocker[];
   /** Drafts still in the Bandeja for this month. Zero when the server omits the count. */
   unreviewed_movements: number;
+  /** The server's one fact "ready for the 606 and 607": both forms stand and no step of the month remains. Null or absent (an older server) is never ready. */
+  filing_ready?: boolean | null;
   /** One block per currency the month holds, in the server's order. A month with no documents has none. */
   figures: MonthCloseFigures[];
 };
@@ -141,6 +150,12 @@ export const DGII_FORM_STATUSES = ["no_aplica", "needs_review", "summary_only", 
 export type DgiiFormStatus = (typeof DGII_FORM_STATUSES)[number];
 /** A word this web does not know yet is null for that form: unknown. */
 export type DgiiForms = { "606": DgiiFormStatus | null; "607": DgiiFormStatus | null };
+
+/** The export says both forms stand: nothing to review on either, and the Business files (`no_aplica` means it has no RNC). Unknown is never ready. */
+export function dgiiFormsReady(forms: DgiiForms | null): boolean {
+  if (!forms) return false;
+  return ([forms["606"], forms["607"]] as const).every((status) => status !== null && status !== "needs_review" && status !== "no_aplica");
+}
 
 /**
  * Close blockers. Fiscal gaps lock the month. The two statement kinds are
@@ -308,16 +323,26 @@ export function monthCloseFiguresFrom(documents: readonly MonthCloseDocument[]):
 
 /**
  * The sample books' stand-in for the packet's status per form: a month that
- * has not ended, or a document without its RNC or comprobante or not in pesos,
+ * has not ended, a document the form holds (`missing`), or one not in pesos,
  * needs review; a form with nothing to report has no operations.
  */
 function sampleForms(documents: readonly MonthCloseDocument[], to: string, today: string): DgiiForms {
   const form = (kind: MonthCloseKind): DgiiFormStatus => {
     const declared = documents.filter((document) => document.kind === kind && !document.sin_comprobante);
-    if (to >= today || declared.some((document) => document.currency !== "DOP" || !rncPresent(document.rnc) || !fiscalNumberPresent(document))) return "needs_review";
+    if (to >= today || declared.some((document) => document.currency !== "DOP" || document.missing)) return "needs_review";
     return declared.length === 0 ? "no_operations" : "prepared_candidate";
   };
   return { "606": form("receipt"), "607": form("invoice") };
+}
+
+/** The sample books' stand-in for the export's verdict on one document: its RNC and comprobante as the export reads them, plus what the fixture names (a Tipo de gasto left blank). A B02 sale under the detail threshold needs no RNC. */
+function sampleMissing(document: MonthCloseDocument, named: readonly FiscalMissingCode[] = []): readonly FiscalMissingCode[] | undefined {
+  if (document.sin_comprobante) return undefined;
+  const consumption = document.kind === "invoice" && document.ncf?.startsWith("B02");
+  const codes = new Set<FiscalMissingCode>(named);
+  if (!rncPresent(document.rnc) && !consumption) codes.add("rnc_missing");
+  if (!fiscalNumberPresent(document)) codes.add("ncf_missing");
+  return codes.size > 0 ? FISCAL_MISSING_CODES.filter((code) => codes.has(code)) : undefined;
 }
 
 /** The methods the sample books accept, as the server lists them. */
@@ -592,29 +617,32 @@ function dayInMonth(monthStart: Date, day: number): string {
 type SampleInput = Omit<MonthCloseDocument, "occurred_on" | "due_on" | "currency"> & { day: number; dueDay: number | null; currency?: string };
 
 function sample(monthStart: Date, input: SampleInput, now: Date): MonthCloseDocument {
-  const { day, dueDay, currency = "DOP", ...document } = input;
+  const { day, dueDay, currency = "DOP", missing: named, ...document } = input;
   const currentMonth = monthStart.getFullYear() === now.getFullYear() && monthStart.getMonth() === now.getMonth();
   // The open month runs through today, so a fixture day after today moves onto today.
   const used = currentMonth ? Math.min(day, now.getDate()) : day;
-  return {
+  const built: MonthCloseDocument = {
     ...document,
     currency,
     occurred_on: dayInMonth(monthStart, used),
     due_on: dueDay === null ? null : dayInMonth(monthStart, dueDay),
   };
+  const missing = sampleMissing(built, named);
+  return missing ? { ...built, missing } : built;
 }
 
-/** Realistic Dominican fixtures for the open month and the month before it. With `dollars`, the open month also holds a settled dollar sale and dollar expense. */
+/** Realistic Dominican fixtures for the open month, the month before it, and a finished month two back with every step done. With `dollars`, the open month also holds a settled dollar sale and dollar expense. */
 export function monthCloseSampleDocuments(now = new Date(), dollars = false): MonthCloseDocument[] {
   const current = shiftMonth(now, 0);
   const previous = shiftMonth(now, -1);
+  const finished = shiftMonth(now, -2);
   const row = (monthStart: Date, input: SampleInput) => sample(monthStart, input, now);
   return [
     row(current, { id: "inv-colmado", kind: "invoice", day: 3, dueDay: 10, counterparty: "Colmado Don Luis", amount: "29500.00", itbis: "4500.00", rnc: "101-23456-7", ncf: "B0100000042", ecf: null, status: "cobrado" }),
     row(current, { id: "inv-taller", kind: "invoice", day: 8, dueDay: 28, counterparty: "Taller Hermanos Peña", amount: "21240.00", itbis: "3240.00", rnc: "131-55544-3", ncf: null, ecf: "E310000000012", status: "pendiente" }),
     row(current, { id: "inv-farmacia", kind: "invoice", day: 1, dueDay: 2, counterparty: "Farmacia Central", amount: "6400.00", itbis: "0.00", rnc: null, ncf: "B0200000108", ecf: null, status: "pendiente" }),
     row(current, { id: "inv-caribe", kind: "invoice", day: 15, dueDay: 20, counterparty: "Suplidores del Caribe", amount: "10620.00", itbis: "1620.00", rnc: "101-00011-2", ncf: null, ecf: null, status: "cobrado" }),
-    row(current, { id: "rcpt-ferreteria", kind: "receipt", day: 4, dueDay: 4, counterparty: "Ferretería La Esquina", amount: "4956.00", itbis: "756.00", rnc: "131-99988-8", ncf: "B0100000099", ecf: null, status: "pagado" }),
+    row(current, { id: "rcpt-ferreteria", kind: "receipt", day: 4, dueDay: 4, counterparty: "Ferretería La Esquina", amount: "4956.00", itbis: "756.00", rnc: "131-99988-8", ncf: "B0100000099", ecf: null, status: "pagado", missing: ["expense_type_missing"] }),
     row(current, { id: "rcpt-edenorte", kind: "receipt", day: 10, dueDay: 25, counterparty: "Edenorte", amount: "3658.00", itbis: "558.00", rnc: "101-01010-1", ncf: null, ecf: "E430000000077", status: "pendiente" }),
     row(current, { id: "rcpt-transporte", kind: "receipt", day: 14, dueDay: 5, counterparty: "Transporte Díaz", amount: "1500.00", itbis: null, rnc: null, ncf: null, ecf: null, status: "pendiente" }),
     row(current, { id: "rcpt-papeleria", kind: "receipt", day: 6, dueDay: 6, counterparty: "Papelería El Sol", amount: "944.00", itbis: "144.00", rnc: "131-24680-5", ncf: "B1400000033", ecf: null, status: "pagado" }),
@@ -622,6 +650,8 @@ export function monthCloseSampleDocuments(now = new Date(), dollars = false): Mo
     row(previous, { id: "inv-luna", kind: "invoice", day: 11, dueDay: 20, counterparty: "Panadería Luna", amount: "5900.00", itbis: "900.00", rnc: "131-22233-4", ncf: "B0100000202", ecf: null, status: "pendiente" }),
     row(previous, { id: "rcpt-isla", kind: "receipt", day: 7, dueDay: 7, counterparty: "Combustible Isla", amount: "2360.00", itbis: "360.00", rnc: "101-33322-1", ncf: "B1500000044", ecf: null, status: "pagado" }),
     row(previous, { id: "rcpt-rosa", kind: "receipt", day: 13, dueDay: 25, counterparty: "Limpieza Rosa", amount: "944.00", itbis: "144.00", rnc: "131-44455-6", ncf: "B0100000203", ecf: null, status: "pendiente" }),
+    row(finished, { id: "inv-marina", kind: "invoice", day: 4, dueDay: 18, counterparty: "Restaurante Marina", amount: "11800.00", itbis: "1800.00", rnc: "101-55566-7", ncf: "B0100000190", ecf: null, status: "cobrado" }),
+    row(finished, { id: "rcpt-internet", kind: "receipt", day: 9, dueDay: 9, counterparty: "Servicio de internet", amount: "2360.00", itbis: "360.00", rnc: "101-61718-9", ncf: "B0100000188", ecf: null, status: "pagado" }),
     ...(dollars ? [
       row(current, { id: "inv-playa", kind: "invoice", currency: "USD", day: 9, dueDay: 16, counterparty: "Hotel Playa Norte", amount: "1416.00", itbis: "216.00", rnc: "130-55667-2", ncf: "B0100000043", ecf: null, status: "cobrado" }),
       row(current, { id: "rcpt-dominio", kind: "receipt", currency: "USD", day: 12, dueDay: 12, counterparty: "Dominio y correo", amount: "24.00", itbis: null, rnc: "131-77001-9", ncf: "B1100000051", ecf: null, status: "pagado" }),
@@ -665,6 +695,7 @@ function snapshotFor(documents: readonly MonthCloseDocument[], window: MonthClos
     documents: inWindow,
     figures: monthCloseFiguresFrom(inWindow),
     unreviewed_movements: 0,
+    filing_ready: dgiiFormsReady(sampleForms(inWindow, to, today)) && inWindow.every((document) => document.status !== "pendiente" && !document.missing),
   };
 }
 
@@ -843,6 +874,8 @@ type WireLine = {
   due_on: string | null;
   /** Present when the server sends the document's fiscal facts; older servers omit them. */
   fiscal?: { rnc: string | null; ncf: string | null; ecf: string | null; sin_comprobante: boolean };
+  /** Present on a `missing_fiscal_data` line. */
+  missing?: FiscalMissingCode[];
 };
 
 const CURRENCY_CODE = /^[A-Z]{3}$/;
@@ -874,7 +907,14 @@ function readWireLine(value: unknown): WireLine {
     fiscal: "rnc" in value || "ncf" in value || "ecf" in value
       ? { rnc: readNullableText(value.rnc), ncf: readNullableText(value.ncf), ecf: readNullableText(value.ecf), sin_comprobante: value.sin_comprobante === true }
       : undefined,
+    ...(value.missing === undefined ? {} : { missing: readMissing(value.missing) }),
   };
+}
+
+/** The export's words for one held line. A word this web does not know still names a fix, so it reads as `detail_missing`. */
+function readMissing(value: unknown): FiscalMissingCode[] {
+  if (!Array.isArray(value) || value.length === 0 || !value.every((code) => typeof code === "string")) throw new MonthCloseError("unavailable", "month close missing data is unknown");
+  return [...new Set(value.map((code) => ((FISCAL_MISSING_CODES as readonly string[]).includes(code) ? code : "detail_missing") as FiscalMissingCode))];
 }
 
 function wireDocument(line: WireLine, ncfMalformed = false): MonthCloseDocument {
@@ -894,6 +934,7 @@ function wireDocument(line: WireLine, ncfMalformed = false): MonthCloseDocument 
     fiscal_known: Boolean(line.fiscal),
     ...(line.fiscal ? { sin_comprobante: line.fiscal.sin_comprobante } : {}),
     ...(ncfMalformed ? { ncf_malformed: true } : {}),
+    ...(line.missing ? { missing: line.missing } : {}),
   };
 }
 
@@ -968,6 +1009,16 @@ export function readMonthCloseWire(value: unknown): MonthCloseSnapshot {
       lines.push(line);
     }
   }
+  // The export's held lines: servers older than this field send none, and then no document carries `missing`.
+  const heldLines = value.missing_fiscal_data ?? [];
+  if (!Array.isArray(heldLines)) throw new MonthCloseError("unavailable", "month close documents are missing");
+  for (const item of heldLines) {
+    const held = readWireLine(item);
+    if (!held.missing) throw new MonthCloseError("unavailable", "month close missing data is unknown");
+    const known = lines.find((line) => line.activity_id === held.activity_id);
+    if (known) known.missing = held.missing;
+    else lines.push(held);
+  }
   // A subset of missing_ncf; servers older than #1590 do not send it.
   const malformedLines = value.ncf_malformed ?? [];
   if (!Array.isArray(malformedLines)) throw new MonthCloseError("unavailable", "month close documents are missing");
@@ -1008,6 +1059,7 @@ export function readMonthCloseWire(value: unknown): MonthCloseSnapshot {
     blockers,
     figures: readFigures(value.currencies),
     unreviewed_movements,
+    filing_ready: typeof value.filing_ready === "boolean" ? value.filing_ready : null,
   };
 }
 

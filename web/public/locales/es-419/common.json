@@ -3870,6 +3870,10 @@
       "checklist_review_other": "{{count}} por revisar en la Bandeja",
       "checklist_fiscal_one": "Completa el RNC o NCF de {{count}} documento",
       "checklist_fiscal_other": "Completa el RNC o NCF de {{count}} documentos",
+      "placeholder": {
+        "checklist_fiscal_data_one": "Completa los datos del 606 o 607 de {{count}} documento",
+        "checklist_fiscal_data_other": "Completa los datos del 606 o 607 de {{count}} documentos"
+      },
       "checklist_settle_one": "Marca {{count}} documento como cobrado o pagado",
       "checklist_settle_other": "Marca {{count}} documentos como cobrados o pagados",
       "checklist_overdue_one": "{{count}} vencido",
@@ -3883,7 +3887,7 @@
       "record_collection": "Registrar cobro",
       "record_payment": "Registrar pago",
       "checklist_required": "Necesario para cerrar el mes",
-      "filing_ready": "Ya tienes todo para el 606 y el 607. Cierra el mes cuando termines de marcar lo cobrado y lo pagado.",
+      "filing_ready": "Ya tienes todo para el 606 y el 607.",
       "nothing_open": "Todo al día",
       "nothing_open_body": "Nadie te debe y no le debes a nadie.",
       "checklist_ready": "Todo listo para cerrar {{month}}.",
