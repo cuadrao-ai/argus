@@ -29260,7 +29260,7 @@ components:
       required:
       - expense_type
       - payment_form
-      description: The two 606 answers a purchase carries. A None answer is still missing.
+      description: The two 606 answers a purchase carries. A null answer is still missing.
     PurchaseDeclaration:
       properties:
         id_type:
