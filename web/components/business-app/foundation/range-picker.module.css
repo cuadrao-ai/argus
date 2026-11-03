@@ -1,7 +1,9 @@
 .picker { --range-border:color-mix(in srgb,var(--fg) 14%,transparent); color:var(--fg); }
-.layout { display:grid; grid-template-columns:166px minmax(0,1fr); }
+.layout { display:grid; grid-template-columns:max-content minmax(0,1fr); }
 .presets { padding:12px 8px; border-right:1px solid var(--range-border); background:color-mix(in srgb,var(--fg) 2%,var(--cuadrao-menu-surface)); }
-.preset { display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; min-height:44px; padding:8px 12px; border-radius:8px; text-align:left; font-size:14px; }
+.preset { display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; white-space:nowrap; min-height:44px; padding:8px 12px; border-radius:8px; text-align:left; font-size:14px; }
+.presetName { white-space:nowrap; }
+.check { display:inline-flex; flex:none; align-items:center; justify-content:center; width:15px; height:15px; }
 .preset:hover,.preset[aria-pressed=true] { background:color-mix(in srgb,var(--fg) 6%,transparent); }
 .body { min-width:0; padding:16px 20px; }
 .fields { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
