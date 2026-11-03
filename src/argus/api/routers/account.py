@@ -234,7 +234,7 @@ class AccountDeletionEligibilityResponse(BaseModel):
             "any session check."
         ),
         429: _problem(
-            "`too_many_requests`: six requests per account per minute; see Retry-After."
+            "`too_many_requests`: 30 requests per account per minute; see Retry-After."
         ),
         # 503 is declared in openapi_compat, like the command's.
     },
