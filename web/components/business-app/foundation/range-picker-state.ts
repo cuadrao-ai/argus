@@ -2,8 +2,16 @@ import { wholePeriod, wholePeriodKeyOf } from "../business-format";
 import { isoOf, monthOf, shiftDay } from "./DatePicker";
 
 export type DateRange = { from: string; to: string };
-export type RangePreset = "today" | "yesterday" | "last_7" | "last_30" | "this_month" | "last_month" | "last_quarter" | "this_year" | "all" | "custom";
-const MATCH_ORDER: readonly Exclude<RangePreset, "all" | "custom">[] = ["this_month", "last_month", "this_year", "today", "yesterday", "last_7", "last_30", "last_quarter"];
+export type RangePreset = "today" | "this_month" | "last_month" | "this_year" | "all" | "custom";
+/** The one list, in order, and the locale key that names each preset. */
+export const PRESET_KEYS: Record<RangePreset, string> = {
+  today: "business.date_range.preset.today",
+  this_month: "business.period.this_month",
+  last_month: "business.period.last_month",
+  this_year: "business.period.this_year",
+  all: "business.reception_preview.all_dates",
+  custom: "business.date_range.preset.custom",
+};
 export type RangeEdge = keyof DateRange;
 export type RangeDraft = {
   range: DateRange;
@@ -46,7 +54,7 @@ const EMPTY_RANGE: DateRange = { from: "", to: "" };
 function presetOf(range: DateRange, today: string): RangePreset {
   const whole = wholePeriodKeyOf(range, today);
   if (whole) return whole;
-  return MATCH_ORDER.find((preset) => { const days = presetRange(preset, today); return days.from === range.from && days.to === range.to; }) ?? "custom";
+  return range.from === today && range.to === today ? "today" : "custom";
 }
 /** Given today, the draft opens on the preset its range matches; a range with no dates is Todo. */
 export function createRangeDraft(range: DateRange, locale: string, today = ""): RangeDraft {
@@ -59,13 +67,7 @@ export function validDraftRange(state: RangeDraft, locale: string, maxDays = 366
   return from && to && from <= to && to <= shiftDay(from, maxDays - 1) ? { from, to } : null;
 }
 export function presetRange(preset: Exclude<RangePreset, "custom" | "all">, today: string): DateRange {
-  if (preset === "today") return { from: today, to: today };
-  if (preset === "yesterday") return { from: shiftDay(today, -1), to: shiftDay(today, -1) };
-  if (preset === "last_7" || preset === "last_30") return { from: shiftDay(today, preset === "last_7" ? -6 : -29), to: today };
-  if (preset === "this_month" || preset === "last_month" || preset === "this_year") return wholePeriod(preset, today);
-  const month = monthOf(today);
-  const quarterStart = Math.floor(month.month / 3) * 3;
-  return { from: isoOf(month.year, quarterStart - 3, 1), to: isoOf(month.year, quarterStart, 0) };
+  return preset === "today" ? { from: today, to: today } : wholePeriod(preset, today);
 }
 export function shiftMonth(day: string, delta: number): string {
   const current = monthOf(day);

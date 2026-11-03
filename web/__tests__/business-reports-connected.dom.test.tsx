@@ -456,7 +456,7 @@ test("a phone period preset holds after its sheet closes", async () => {
   const page = await mount({ width: 390, initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "this_month" } } }) });
   const before = sentFilters(page).length;
   await page.click(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]'));
-  await page.click(page.button("Todo"));
+  await page.click(page.button("Todas las fechas"));
   await page.click(page.button("Confirmar período"));
   await page.settle(() => document.querySelector('[role="dialog"]') === null && document.querySelector('[data-testid="records-count"]') !== null);
   await pause(200);
@@ -494,7 +494,7 @@ test("Registros opens its picker on the current period, on Personalizado only wh
   await cleanup(); resetAddress();
   const all = await mount({ width: 390, initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "all" } } }) });
   await all.click(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]'));
-  assert.deepEqual(pressed(), ["Todo"]);
+  assert.deepEqual(pressed(), ["Todas las fechas"]);
   assert.deepEqual(fields(), ["", ""]);
 });
 

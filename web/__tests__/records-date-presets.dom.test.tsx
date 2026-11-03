@@ -55,10 +55,31 @@ const custom: Period = { key: "custom", from: "2026-10-01", to: "2026-10-25" };
 for (const width of [1440, 390]) {
   test(`one list of presets is the only preset control at ${width}px`, async () => {
     const page = await mount(width, custom);
-    const expected = ["Hoy", "Ayer", "Últimos 7 días", "Últimos 30 días", "Este mes", "Mes pasado", "Trimestre anterior", "Este año", "Todo", "Personalizado"];
+    const expected = ["Hoy", "Este mes", "Mes pasado", "Este año", "Todas las fechas", "Personalizado"];
     assert.deepEqual(page.list(), width === 390 ? expected.filter((name) => name !== "Hoy") : expected);
-    for (const name of ["Todo", "Este mes", "Mes pasado"]) assert.equal([...document.querySelectorAll("button")].filter((node) => node.textContent === name).length, 1, `${name} appears once`);
+    for (const name of ["Todas las fechas", "Este mes", "Mes pasado"]) assert.equal([...document.querySelectorAll("button")].filter((node) => node.textContent === name).length, 1, `${name} appears once`);
     assert.equal(page.button(year), undefined, "the year chip is gone");
+  });
+
+  test(`every preset reserves the check's room, so selecting one moves nothing at ${width}px`, async () => {
+    const page = await mount(width, custom);
+    const rows = () => [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Períodos rápidos"] button')];
+    assert.ok(rows().every((row) => row.querySelectorAll("[data-preset-check]").length === 1), "one check slot on every row");
+    const shape = () => rows().map((row) => `${row.textContent}|${row.children.length}|${row.querySelector("[data-preset-check]")?.children.length ?? 0}`);
+    const before = shape();
+    await page.click(page.button("Este año"));
+    const after = shape();
+    assert.deepEqual(after.map((row) => row.split("|").slice(0, 2).join("|")), before.map((row) => row.split("|").slice(0, 2).join("|")));
+    assert.equal(rows().filter((row) => row.querySelector("[data-preset-check] svg")).length, 1, "only the selected row shows the check");
+  });
+
+  test(`Hoy confirms as a custom range and reopens highlighted at ${width}px`, async () => {
+    const page = await mount(width, custom);
+    await page.click(page.button("Hoy"));
+    await page.click([...document.querySelectorAll<HTMLButtonElement>("button")].find((node) => node.textContent === "Confirmar período"));
+    assert.equal(page.changes.at(-1)?.key, "custom");
+    await page.click(page.host.querySelector("button"));
+    assert.deepEqual(page.pressed(), width === 390 ? [] : ["Hoy"], "the phone keeps its one Hoy in the calendar bar, not in the list");
   });
 
   for (const name of Object.keys(WHOLE) as (keyof typeof WHOLE)[]) {
@@ -85,17 +106,17 @@ for (const width of [1440, 390]) {
     assert.deepEqual(page.fields(), [typed(WHOLE["Este mes"].from), typed(WHOLE["Este mes"].to)]);
   });
 
-  test(`Todo is the current period when nothing is limited, and clears the range at ${width}px`, async () => {
+  test(`Todas las fechas is the current period when nothing is limited, and clears the range at ${width}px`, async () => {
     const page = await mount(width, periodRange("all"));
-    assert.deepEqual(page.pressed(), ["Todo"]);
+    assert.deepEqual(page.pressed(), ["Todas las fechas"]);
     assert.deepEqual(page.fields(), ["", ""]);
     await page.click(page.button("Mes pasado"));
-    await page.click(page.button("Todo"));
+    await page.click(page.button("Todas las fechas"));
     assert.deepEqual(page.fields(), ["", ""]);
     assert.equal(document.querySelectorAll('[data-testid="range-picker"] td[aria-selected="true"]').length, 0);
     await page.click([...document.querySelectorAll<HTMLButtonElement>("button")].find((node) => node.textContent === "Confirmar período"));
     assert.deepEqual(page.changes.map((change) => change.key), ["all"]);
-    assert.equal(page.trigger(), "Todo");
+    assert.equal(page.trigger(), "Todas las fechas");
   });
 
   test(`Personalizado is highlighted only for a range that matches no preset at ${width}px`, async () => {
@@ -106,7 +127,7 @@ for (const width of [1440, 390]) {
 
   test(`a range that is not a whole period stays custom and is named by its dates at ${width}px`, async () => {
     const page = await mount(width, periodRange("all"));
-    await page.click(page.button("Últimos 7 días"));
+    await page.click(page.button("Hoy"));
     await page.click([...document.querySelectorAll<HTMLButtonElement>("button")].find((node) => node.textContent === "Confirmar período"));
     assert.equal(page.changes.length, 1);
     assert.equal(page.changes[0].key, "custom");

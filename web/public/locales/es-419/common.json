@@ -2228,11 +2228,7 @@
       "pick_start": "Elige la fecha inicial",
       "preset": {
         "custom": "Personalizado",
-        "last_30": "Últimos 30 días",
-        "last_7": "Últimos 7 días",
-        "last_quarter": "Trimestre anterior",
-        "today": "Hoy",
-        "yesterday": "Ayer"
+        "today": "Hoy"
       },
       "presets": "Períodos rápidos",
       "title": "Elige el período",

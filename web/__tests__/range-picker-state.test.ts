@@ -31,10 +31,8 @@ test("hover previews without committing and endpoint drag can cross the other en
   assert.deepEqual(moved.range, { from: "2026-09-29", to: "2026-10-01" });
   assert.deepEqual(reduceRangeDraft(moved, { type: "drag-cancel" }, "es-419").range, initial().range);
 });
-test("quick periods use complete prior quarter and inclusive day windows", () => {
-  assert.deepEqual(presetRange("last_quarter", "2026-01-10"), { from: "2025-10-01", to: "2025-12-31" });
-  assert.deepEqual(presetRange("last_quarter", "2026-10-25"), { from: "2026-07-01", to: "2026-09-30" });
-  assert.deepEqual(presetRange("last_7", "2026-10-25"), { from: "2026-10-19", to: "2026-10-25" });
+test("the only day preset is today, and month steps clamp to the shorter month", () => {
+  assert.deepEqual(presetRange("today", "2026-10-25"), { from: "2026-10-25", to: "2026-10-25" });
   assert.equal(shiftMonth("2024-02-29", 12), "2025-02-28");
 });
 test("typed draft rejects reversed and over-366-day ranges", () => {
@@ -50,7 +48,7 @@ test("a draft opens on the preset its range matches, and on custom only when non
   assert.equal(open("2026-11-01", "2026-11-30"), "this_month");
   assert.equal(open("2026-10-01", "2026-10-31"), "last_month");
   assert.equal(open("2026-01-01", "2026-12-31"), "this_year");
-  assert.equal(open("2026-10-28", "2026-11-03"), "last_7");
+  assert.equal(open("2026-10-28", "2026-11-03"), "custom");
   assert.equal(open("2026-11-03", "2026-11-03"), "today");
   assert.equal(open("2026-11-01", "2026-11-03"), "custom");
   assert.equal(createRangeDraft({ from: "2026-11-01", to: "2026-11-30" }, "es-419").preset, "custom");
