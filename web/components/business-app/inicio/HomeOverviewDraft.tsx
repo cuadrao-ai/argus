@@ -11,7 +11,7 @@ import { ArrowDown, ArrowUp, ChevronRight, CircleAlert, FilePenLine, FileSearch,
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { readStored, writeStored } from "@/lib/browser-storage";
 import type { ReceiptSummary } from "@/lib/business-api";
-import { useBusiness, type BusinessPanelState } from "../BusinessWorkspace";
+import { invoicingShown, useBusiness, type BusinessPanelState } from "../BusinessWorkspace";
 import { formatRelativeTime } from "../business-format";
 import { bandejaAttentionCount } from "../inbox-count";
 import { EmptyState } from "../foundation/EmptyState";
@@ -348,9 +348,9 @@ function StepRow({ step, c, onOpen }: { step: SetupStep; c: Copy; onOpen: (step:
 
 /** Setup lives apart from the work: a compact entry on Inicio, the steps in a side panel (a full sheet on a phone). */
 function GuidedSetup({ c, stage }: { c: Copy; stage: "active" | "new" }) {
-  const { openPanel, chosen, source } = useBusiness();
+  const { openPanel, chosen, source, invoicing } = useBusiness();
   const [open, setOpen] = useState(false);
-  const steps = SETUP_STATE[stage];
+  const steps = SETUP_STATE[stage].filter((s) => s.key !== "invoicing" || invoicingShown(invoicing));
   const required = steps.filter((s) => s.required);
   const done = required.filter((s) => s.done).length;
   // Every step is a configuration action (details, reception, access, invoicing), so setup shows only to people
@@ -475,8 +475,9 @@ export function HomeWork() {
   // Recent work and setup progress have no endpoint yet (MISSING: GET /business/recents, GET /business/setup): the
   // local preview shows their samples, a live Business does not show them at all rather than invent them.
   const samples = useSampleBusiness();
+  const { invoicing } = useBusiness();
   const setup = samples && sampleParam("setup") !== "new";
-  const recents = samples ? RECENT_WORK : [];
+  const recents = samples ? RECENT_WORK.filter((item) => item.target.kind !== "invoicing" || invoicingShown(invoicing)) : [];
   const drafts = counts.drafts ?? 0;
   const keepWorking = recents.length > 0 || drafts > 0;
   // Two columns only when each has room (the content box, not the window, decides) and the right one has something.

@@ -19,6 +19,7 @@ const payload: BusinessWorkspaceInfo = {
   currencies: ["DOP"],
   assistant_available: true,
   chat_available: true,
+  invoicing_available: false,
   receipt_limits: { max_bytes: 1, media_types: ["image/png"] },
 };
 

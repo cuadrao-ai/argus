@@ -25,6 +25,7 @@ import {
 } from "@/components/chat/ChatWorkspace";
 import {
   businessChatAvailable,
+  businessInvoicingAvailable,
   type BusinessCapture,
   type BusinessOverview,
   type BusinessWorkspaceInfo,
@@ -32,7 +33,6 @@ import {
   type ReceiptSummary,
   type ReceiptActivityCounts,
 } from "@/lib/business-api";
-import { businessInvoicingEnabled } from "@/lib/private-alpha-flags";
 import { getChosenGrant, setChosenGrant, soleClientGrantId, subscribeChosenGrant } from "@/lib/business-grant";
 import { classifyFailure, referenceCode, refusedForGood, runQuietRetries, sessionEndedLoginPath } from "@/lib/failure-screen";
 import { normalizeEnabledLanguage } from "@/lib/language-features";
@@ -122,10 +122,24 @@ type Records = {
 
 export type BusinessDirectoryStatus = "loading" | "ready" | "failed";
 
+/**
+ * What Facturación is here. The server's workspace answer decides (`available` or `unavailable`); `null` until it
+ * answers, when no entry point shows. `sample` is the design sample, asked for with `?invoicePreview` in development
+ * with mock auth only.
+ */
+export type InvoicingState = "available" | "unavailable" | "sample" | null;
+
+/** Whether any Facturación entry point shows: the screen, its sidebar item, Inicio's links and the rest. */
+export function invoicingShown(state: InvoicingState | undefined): boolean {
+  return state === "available" || state === "sample";
+}
+
 export type BusinessContextValue = Readonly<{
   userId?: string|null;
   source: BusinessDataSource;
   records: Records;
+  /** Absent means the server has not answered, so nothing shows. */
+  invoicing?: InvoicingState;
   directoryStatus?: BusinessDirectoryStatus;
   /** Every Business the person may enter, the server's list; null until read. */
   spaces: GrantedSpace[] | null;
@@ -191,7 +205,8 @@ function panelFromSearch(params: URLSearchParams): BusinessPanelState {
   if (expenseId) return { kind: "expense", expenseId };
   const view = params.get("view");
   if (view === "activity") return { kind: "activity" };
-  if (view === "invoicing" && (businessInvoicingEnabled || process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true")) return { kind: "invoicing" };
+  // Kept until the server answers; an unavailable Facturación sends the link to Inicio instead.
+  if (view === "invoicing") return { kind: "invoicing" };
   // Correos left the Bandeja; its history lives in Negocio > Correo de recibos.
   if (view === "inbox" && params.get("segment") === "emails") return { kind: "business", tab: "correo" };
   if (view && PANEL_KINDS.has(view)) {
@@ -224,6 +239,12 @@ const EMPTY_RECORDS: Records = {
   closed: false,
   serverReference: null,
 };
+
+const subscribeLocation = (notify: () => void) => {
+  window.addEventListener("popstate", notify);
+  return () => window.removeEventListener("popstate", notify);
+};
+const invoicePreviewRequested = () => new URLSearchParams(window.location.search).has("invoicePreview");
 
 function shellViewFromSearch(params: URLSearchParams): ChatShellView {
   return params.has("conversation") || params.get("view") === "chat" ? "chat" : "workspace";
@@ -269,8 +290,10 @@ function BusinessWorkspaceContent({
 }) {
   const { t, i18n } = useTranslation();
   const searchParams = useSearchParams();
-  const localPreview = apiSource.mode !== "live" && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
+  const previewEnabled = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
+  const localPreview = apiSource.mode !== "live" && previewEnabled;
   const localBusinesses = useLocalBusinessDirectory(localPreview);
+  const sampleInvoicing = useSyncExternalStore(subscribeLocation, invoicePreviewRequested, () => false) && previewEnabled;
   const chosenGrant = useSyncExternalStore(subscribeChosenGrant, getChosenGrant, () => null);
   const [creatingBusiness,setCreatingBusiness] = useState(false);
   // A landing on a record URL (the sign-in return path) skips the space
@@ -585,6 +608,16 @@ function BusinessWorkspaceContent({
     [bridge],
   );
 
+  const invoicing: InvoicingState = sampleInvoicing ? "sample" : records.workspace ? (businessInvoicingAvailable(records.workspace) ? "available" : "unavailable") : null;
+  // The top bar's heading follows the screen, except Facturación's waits for the server's answer like its screen does.
+  const headerScreen = panel.kind === "invoicing" && !invoicingShown(invoicing) ? undefined : panel.kind;
+  // A deep link to Facturación the server does not offer lands on Inicio, never on a refusal.
+  useEffect(() => {
+    if (panel.kind !== "invoicing" || invoicing !== "unavailable") return;
+    setPanel({ kind: "overview" });
+    writePanelToUrl("workspace", { kind: "overview" });
+  }, [invoicing, panel.kind]);
+
   const actions = useBusinessActions({
     records,
     bridge,
@@ -600,6 +633,7 @@ function BusinessWorkspaceContent({
       userId,
       source,
       records: workspaceRecords,
+      invoicing,
       spaces,
       closedSpaces,
       chosen,
@@ -624,7 +658,7 @@ function BusinessWorkspaceContent({
       emailRefresh,
       retrySources,
     }),
-    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, guardPanel, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
+    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, guardPanel, invoicing, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
   );
 
   const directoryValue = useMemo<BusinessContextValue>(() => ({ ...value, directoryStatus }), [value, directoryStatus]);
@@ -680,7 +714,7 @@ function BusinessWorkspaceContent({
         <AmountsToggle />
         <BusinessNotifications key={chosen?.space_id} businessId={chosen?.space_id} businessName={chosen?.name} preview={localPreview} onInvitationAccepted={grantId=>{chooseBusiness(grantId);reload();showToast({kind:"success",text:t("business_access.invitation_accepted")});}} onAction={(tab) => openPanel({ kind: "business", tab })} />
       </>,
-      headerSearch: (shell) => <BusinessHeader home={shell.currentView === "workspace" && panel.kind === "overview" && !closedAccessName} name={shell.greetingName} business={formatBusinessName(chosen?.name, t("business.overview.title", "My business"))} title={shell.currentView === "workspace" && !closedAccessName ? panel.kind === "transactions" ? t("business.transactions.title") : panel.kind === "inbox" ? t("business.inbox.title") : panel.kind === "invoicing" ? t("business.invoicing_preview.title") : undefined : undefined} screen={shell.currentView === "workspace" && !closedAccessName ? panel.kind : undefined} onSearch={shell.openSearch} />,
+      headerSearch: (shell) => <BusinessHeader home={shell.currentView === "workspace" && panel.kind === "overview" && !closedAccessName} name={shell.greetingName} business={formatBusinessName(chosen?.name, t("business.overview.title", "My business"))} title={shell.currentView === "workspace" && !closedAccessName ? headerScreen === "transactions" ? t("business.transactions.title") : headerScreen === "inbox" ? t("business.inbox.title") : headerScreen === "invoicing" ? t("business.invoicing_preview.title") : undefined : undefined} screen={shell.currentView === "workspace" && !closedAccessName ? headerScreen : undefined} onSearch={shell.openSearch} />,
       panel: () => closedAccessName ? <BusinessClosedAccess returnHome={!spaces?.length} businessName={closedAccessName} onReturn={() => { setClosedAccess(false); if (!spaces?.length) window.location.assign("/"); else chooseBusiness(spaces.find(space => space.role === "owner") ? null : spaces[0].grant_id); }} /> : <><BusinessClosedOwnerBanner businesses={closedSpaces} /><BusinessPanel /></>,
       starterEntries: () => actions.starterEntries,
       emptyChatLead: () => <BusinessHome variant="new_chat" />,
@@ -704,7 +738,7 @@ function BusinessWorkspaceContent({
       },
       onShellChange: (shell) => setBridge(shell),
     };
-  }, [keyboardShortcuts, actions.starterEntries, chatAvailable, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, closedSpaces, closedAccessName, chosen, chooseBusiness, openPanel, localPreview,reload,source.mode,userId]);
+  }, [keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, closedSpaces, closedAccessName, chosen, chooseBusiness, openPanel, localPreview,reload,source.mode,userId]);
 
   return (
     <BusinessContext.Provider value={directoryValue}>

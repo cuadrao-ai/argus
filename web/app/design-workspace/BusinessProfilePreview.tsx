@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { BusinessContext, useBusiness } from "@/components/business-app/BusinessWorkspace";
+import { BusinessContext, invoicingShown, useBusiness } from "@/components/business-app/BusinessWorkspace";
 import BusinessFiscalProfile, {type FiscalProfileDraft} from "@/components/business-app/BusinessFiscalProfile";
 import { RowActionLabel } from "@/components/business-app/foundation/RowAction";
 import { SURFACE_CARD } from "@/components/business-app/foundation/surfaces";
@@ -129,7 +129,7 @@ function BusinessProfileContent() {
     {key:"contact",title:t("business.settings.profile_contact_title"),summary:[details.address,details.email || details.phone].filter(Boolean).join(" · ") || t("business.settings.profile_contact_empty")},
     {key:"presence",title:t("business.settings.profile_presence_title"),summary:[details.description,details.website].filter(Boolean).join(" · ") || t("business.settings.profile_presence_empty")},
   ];
-  if(!live)sections.push({key:"invoicing",title:t("workspace_setup_preview.invoice_title"),summary:t(`workspace_setup_preview.invoice_${profile.invoice.status.replaceAll("-","_")}`)});
+  if(!live && invoicingShown(workspace.invoicing))sections.push({key:"invoicing",title:t("workspace_setup_preview.invoice_title"),summary:t(`workspace_setup_preview.invoice_${profile.invoice.status.replaceAll("-","_")}`)});
   const applySelection = ({section,trigger}:Selection)=>{
     if(trigger) opener.current = trigger;
     setFiscalDraft(null);setProvidedDraft(null);setDirty(false);setSelected(section);setPending(null);

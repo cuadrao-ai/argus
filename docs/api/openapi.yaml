@@ -18677,6 +18677,8 @@ components:
           type: boolean
         chat_available:
           type: boolean
+        invoicing_available:
+          type: boolean
         receipt_limits:
           $ref: '#/components/schemas/ReceiptLimits'
         logo_url:
@@ -18692,6 +18694,7 @@ components:
       - currencies
       - assistant_available
       - chat_available
+      - invoicing_available
       - receipt_limits
     CallbackRequest:
       properties:

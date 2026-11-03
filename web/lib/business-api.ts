@@ -333,6 +333,8 @@ export type BusinessWorkspaceInfo = {
   assistant_available: boolean;
   /** Whether Business conversations can be started or continued at all. */
   chat_available: boolean;
+  /** Whether the server offers Facturación to this person; the one switch. */
+  invoicing_available: boolean;
   /** What a receipt upload accepts. The backend's document settings own it. */
   receipt_limits: ReceiptLimits;
 };
@@ -348,6 +350,11 @@ export function businessWorkspaceCurrency(workspace: Pick<BusinessWorkspaceInfo,
  */
 export function businessChatAvailable(workspace: BusinessWorkspaceInfo | null): boolean {
   return workspace?.chat_available === true;
+}
+
+/** The one reader of `invoicing_available`: an older payload without the field offers no Facturación. */
+export function businessInvoicingAvailable(workspace: BusinessWorkspaceInfo): boolean {
+  return workspace.invoicing_available === true;
 }
 
 export type ReceiptLimits = {

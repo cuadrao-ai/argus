@@ -56,6 +56,7 @@ from argus.api.business_drafts import (
     updates_with_drafts,
     upload_recorder,
 )
+from argus.api.business_invoicing import invoicing_available
 from argus.api.business_naming import require_business_name
 from argus.api.business_reports import router as business_reports_router
 from argus.api.business_schemas import (
@@ -811,11 +812,13 @@ def rename_space(
 
 @router.get("/workspace", response_model=BusinessWorkspace)
 def get_workspace(
+    request: Request,
     context: Annotated[BusinessContext, Depends(require_business_workspace)],
 ) -> dict[str, Any]:
     space_id = context.scope.owner.space_id
     workspace = {
         **context.service.workspace(context.scope),
+        "invoicing_available": invoicing_available(request),
         "logo_url": picture_urls("business", [space_id])[space_id],
     }
     if not context.scope.acting_as_owner:

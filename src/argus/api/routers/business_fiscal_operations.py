@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 
 from argus.api.business_drafts import DraftContext, action_problem, require_drafts
+from argus.api.business_invoicing import require_invoicing
 from argus.api.documents import NO_STORE
 from argus.api.fiscal_operations import require_fiscal
 from argus.domain.business.authority import ActionError
@@ -24,6 +25,22 @@ def _actor(context: DraftContext) -> TrustedActor:
     return TrustedActor(
         actor_id=context.actor_id, space_id=UUID(context.space_id), actor_kind="member"
     )
+
+
+async def _operation(
+    request: Request,
+    response: Response,
+    service: Service,
+    context: DraftContext,
+    operation_id: UUID,
+) -> FiscalOperation:
+    """The scoped operation. One that belongs to an invoice is Facturación's,
+    so it answers Facturación's refusal while invoicing is off; a manifest
+    case stays on the fiscal gate alone."""
+    operation = await service.get(_actor(context), context.grant_id, operation_id)
+    if operation.invoice_id is not None:
+        require_invoicing(request, response)
+    return operation
 
 
 @router.post(
@@ -53,7 +70,7 @@ async def get(
 ):
     response.headers.update(NO_STORE)
     try:
-        return await service.get(_actor(context), context.grant_id, operation_id)
+        return await _operation(request, response, service, context, operation_id)
     except ActionError as error:
         raise action_problem(request, error.result) from None
 
@@ -73,6 +90,7 @@ async def submit(
 ):
     response.headers.update(NO_STORE)
     try:
+        await _operation(request, response, service, context, operation_id)
         return await service.submit(
             _actor(context), context.grant_id, operation_id, body.payload_digest
         )
@@ -83,12 +101,14 @@ async def submit(
 @router.get("/business/fiscal-operations/{operation_id}/artifacts/{kind}")
 async def artifact(
     request: Request,
+    response: Response,
     operation_id: UUID,
     kind: Literal["xml", "pdf"],
     context: Annotated[DraftContext, Depends(require_drafts)],
     service: Annotated[Service, Depends(require_fiscal)],
 ):
     try:
+        await _operation(request, response, service, context, operation_id)
         content = await service.artifact(
             _actor(context), context.grant_id, operation_id, kind
         )
