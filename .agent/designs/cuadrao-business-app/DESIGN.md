@@ -652,6 +652,14 @@ setting. Owner: `components/settings/SettingsWindow.tsx`.
 - The account sheet on a phone is titled with the person's name, so it never
   repeats Ajustes.
 
+**Perfil** (Lucas, November 3, 2026) is its own centered dialog from the
+account menu. It shows the avatar, the name and the email, then two names, each
+edited in place with a pencil, a check and a cross: Nombre, which the team sees
+on access and record history, and ¿Cómo quieres que te llamemos?, which the
+Home greeting uses. Each has a one-line hint under it. Escape cancels an open
+edit before it closes Perfil. Perfil shows no handle and no language shortcut;
+Idioma de la app lives in Ajustes.
+
 The account deletion alert asks the server first (`GET /account/deletion`)
 and renders only its answer (Lucas, November 3, 2026). Ajustes reads that
 answer as it opens and reuses it for a minute; opening the alert reads again
