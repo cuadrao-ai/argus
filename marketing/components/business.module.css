@@ -745,11 +745,11 @@
 }
 .footerIdentity > span { display: block; margin-top: 10px; font-size: 14px; color: var(--fmute); }
 .footerIdentity p { margin: 24px 0 12px; font-size: 15px; white-space: pre-line; }
-.businessFooterGrid small { font-size: 12px; color: var(--fmute); }
+.businessFooterGrid small { font-size: 14px; color: var(--fmute); }
 .businessFooterGrid nav { display: flex; align-items: start; flex-direction: column; gap: 8px; border-left: 1px solid var(--fline); padding-left: 32px; }
-.businessFooterGrid nav > span:first-child { color: var(--fhead); font-size: 11px; letter-spacing: 0.04em; padding-bottom: 14px; }
+.businessFooterGrid nav > span:first-child { color: var(--fhead); font-size: 14px; padding-bottom: 14px; }
 .footerBar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 32px; margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--fline); }
-.footerBar > p { margin: 0; font-size: 13px; color: var(--fmute); }
+.footerBar > p { margin: 0; font-size: 14px; color: var(--fmute); }
 .footerBar > .backTop { margin-left: auto; }
 .footerSocial { display: flex; gap: 10px; }
 .footerSocial > :is(span, a) { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--fline); border-radius: 50%; color: var(--fhead); }
@@ -772,7 +772,6 @@
 }
 @media (max-width: 800px) {
   .businessFooterGrid { margin-inline: 24px; grid-template-columns: 1fr 1fr; gap: 36px 24px; padding: 48px 0; }
-  .businessFooterGrid nav > span { font-size: 12px; }
   .businessFooterGrid nav > a { min-height: 44px; }
   .site .wordmarkCrop { border-top: 0; padding-block: 10px env(safe-area-inset-bottom); height: auto; overflow: visible; }
   .wordmarkCrop > span { transform: none; }

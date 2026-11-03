@@ -497,6 +497,9 @@
   }
 }
 @media (max-width: 340px) and (prefers-reduced-motion: no-preference) {
+  .step h3 {
+    font-size: 14px;
+  }
   .sheet {
     padding: 8px;
     font-size: 11.5px;
