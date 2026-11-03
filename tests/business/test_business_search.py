@@ -64,7 +64,7 @@ def personal_expense(owner: Owner, merchant: str) -> str:
 
 def confirmed(owner: Owner, account: str, merchant: str) -> tuple[str, str]:
     receipt_id = prepared(owner)
-    version = owner.review(
+    version = owner.resolve_receipt(
         receipt_id,
         owner.detail(receipt_id)["version"],
         account_id=account,
@@ -189,7 +189,7 @@ def manual(owner: Owner, account: str, day: str, amount: str = "100.00") -> str:
 def test_load_more_pages_one_kind_until_its_cursor_is_null(alice: Owner) -> None:  # noqa: F811
     account = alice.account()
     receipt_id = prepared(alice)
-    version = alice.review(
+    version = alice.resolve_receipt(
         receipt_id,
         alice.detail(receipt_id)["version"],
         account_id=account,

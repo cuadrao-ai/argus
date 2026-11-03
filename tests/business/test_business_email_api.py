@@ -157,7 +157,7 @@ def test_a_grouped_email_original_is_context_not_a_second_receipt(
     runtime,  # noqa: ANN001
 ) -> None:
     """The .eml of an email whose attachment is saved can be seen and downloaded,
-    never prepared, entered by hand or confirmed."""
+    never prepared or confirmed, regardless of the submitted version."""
 
     space_id = alice.scope().owner.space_id
     store = runtime.store
@@ -222,7 +222,7 @@ def test_a_grouped_email_original_is_context_not_a_second_receipt(
         alice.post(
             f"/receipts/{original_id}/prepare", **{"X-Extraction-Consent": "true"}
         ),
-        alice.review(original_id, 0, merchant="Nadie"),
+        alice.confirm(original_id, 1, str(uuid4())),
         alice.confirm(original_id, 0, str(uuid4())),
     ]
     assert [(r.status_code, r.json()["code"]) for r in refused] == [

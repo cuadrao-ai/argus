@@ -88,7 +88,6 @@ from argus.api.business_schemas import (
     ReceiptPage,
     ReceiptReadBody,
     ReceiptReadingBody,
-    ReceiptReviewBody,
     ReceiptSummary,
     RenameBusinessSpace,
     SaveBusinessName,
@@ -1155,30 +1154,6 @@ def rebind_receipt(
     except ValueError:
         raise _problem(request, BusinessError("business_record_not_found")) from None
     return receipt_detail(context, context.service.receipt(context.scope, receipt_id))
-
-
-@router.patch("/receipts/{receipt_id}/review", response_model=ReceiptDetail)
-async def review_receipt(
-    request: Request,
-    receipt_id: str,
-    body: ReceiptReviewBody,
-    context: BusinessContext = Depends(require_business),  # noqa: B008
-) -> dict[str, Any]:
-    """A receipt nobody has read is entered by hand here, from version 0."""
-
-    service, scope = context.service, context.scope
-    try:
-        _refuse_email_original(request, context, receipt_id)
-        require_legacy_receipt_write(context, receipt_id)
-        version = await service.start_entry(
-            scope, receipt_id, body.version, body.fields.get("account_id")
-        )
-        reviewed = await run_in_threadpool(
-            service.review, scope, receipt_id, version, body.fields
-        )
-        return receipt_detail(context, reviewed)
-    except Exception as error:
-        raise _problem(request, error) from None
 
 
 @router.post("/receipts/{receipt_id}/confirm", response_model=ReceiptDetail)

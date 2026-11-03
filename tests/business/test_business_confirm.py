@@ -17,7 +17,7 @@ WINDOW = {"from": "2026-10-01", "to": "2026-10-31"}
 
 def _reviewed(alice: Owner) -> tuple[str, int]:  # noqa: F811
     receipt_id = prepared(alice)
-    version = alice.review(
+    version = alice.resolve_receipt(
         receipt_id, alice.detail(receipt_id)["version"], account_id=alice.account()
     ).json()["version"]
     return receipt_id, version
@@ -56,11 +56,11 @@ def test_an_interrupted_claim_is_finished_by_the_next_confirm(
 def test_a_stale_confirm_is_409_even_with_fields_missing(alice: Owner) -> None:  # noqa: F811
     receipt_id = prepared(alice)
     seen = alice.detail(receipt_id)["version"]
-    alice.review(receipt_id, seen, merchant="Ferretería La Esquina")
+    alice.resolve_receipt(receipt_id, seen, merchant="Ferretería La Esquina")
     stale = alice.confirm(receipt_id, seen, "k-1")
     assert (stale.status_code, stale.json()["code"]) == (409, "stale_version")
     current = alice.detail(receipt_id)["version"]
-    version = alice.review(receipt_id, current, account_id=alice.account()).json()[
+    version = alice.resolve_receipt(receipt_id, current, account_id=alice.account()).json()[
         "version"
     ]
     stale = alice.confirm(receipt_id, current, "k-2")

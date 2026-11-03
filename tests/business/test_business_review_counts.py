@@ -150,7 +150,7 @@ def test_counts_follow_a_review_action_and_a_reload(
     ids = _named_set(alice, stub, runtime)
     account = alice.account()
     detail = alice.detail(ids["ferreteria"])
-    reviewed = alice.review(ids["ferreteria"], detail["version"], account_id=account)
+    reviewed = alice.resolve_receipt(ids["ferreteria"], detail["version"], account_id=account)
     assert reviewed.status_code == 200, reviewed.text
     # Saving review details records nothing and every count stays put.
     assert _bandeja(alice)[1]["pending_review_count"] == 5

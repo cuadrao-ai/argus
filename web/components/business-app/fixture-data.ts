@@ -376,7 +376,13 @@ const seenGrants = new Set<string>();
 
 export function createFixtureBusinessDataSource(
   { chatAvailable, accounts: start, inbox }: FixtureOptions = { chatAvailable: true },
-): BusinessDataSource {
+): BusinessDataSource & {
+  saveReview: (
+    id: string,
+    version: number,
+    fields: Partial<ReceiptReviewFields>,
+  ) => Promise<ReceiptDetail>;
+} {
   const accounts: BusinessAccount[] = start === "none" ? [] : [...ACCOUNTS];
   const sampleEmails = inbox === "empty" ? [] : SAMPLE_EMAILS;
   const { createReceiptDraft, ...dossierSource } = createDossierFixtures(ACCOUNTS);

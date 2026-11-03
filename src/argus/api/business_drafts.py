@@ -163,8 +163,6 @@ def legacy_action(request) -> LegacyAction | None:  # noqa: ANN001
     """The name a legacy receipt write leaves in the ledger, from the route."""
 
     path = request.url.path
-    if request.method == "PATCH" and path.endswith("/review"):
-        return "receipt_review"
     if request.method == "POST" and path.endswith("/confirm"):
         return "receipt_confirm"
     return None
