@@ -1,7 +1,9 @@
 import { isoOf, monthOf, shiftDay } from "./DatePicker";
 
 export type DateRange = { from: string; to: string };
-export type RangePreset = "today" | "yesterday" | "last_7" | "last_30" | "last_quarter" | "custom";
+export type RangePreset = "today" | "yesterday" | "last_7" | "last_30" | "this_month" | "last_month" | "last_quarter" | "this_year" | "all" | "custom";
+export type ReportPresetKind = "this_month" | "last_month" | "this_year";
+const REPORT_PRESET_KINDS: readonly ReportPresetKind[] = ["this_month", "last_month", "this_year"];
 export type RangeEdge = keyof DateRange;
 export type RangeDraft = {
   range: DateRange;
@@ -46,13 +48,22 @@ export function validDraftRange(state: RangeDraft, locale: string, maxDays = 366
   const to = parseRangeInput(state.text.to, locale);
   return from && to && from <= to && to <= shiftDay(from, maxDays - 1) ? { from, to } : null;
 }
-export function presetRange(preset: Exclude<RangePreset, "custom">, today: string): DateRange {
+export function presetRange(preset: Exclude<RangePreset, "custom" | "all">, today: string): DateRange {
   if (preset === "today") return { from: today, to: today };
   if (preset === "yesterday") return { from: shiftDay(today, -1), to: shiftDay(today, -1) };
   if (preset === "last_7" || preset === "last_30") return { from: shiftDay(today, preset === "last_7" ? -6 : -29), to: today };
   const month = monthOf(today);
+  if (preset === "this_month" || preset === "last_month") {
+    const offset = preset === "this_month" ? 0 : -1;
+    return { from: isoOf(month.year, month.month + offset, 1), to: isoOf(month.year, month.month + offset + 1, 0) };
+  }
+  if (preset === "this_year") return { from: isoOf(month.year, 0, 1), to: isoOf(month.year, 12, 0) };
   const quarterStart = Math.floor(month.month / 3) * 3;
   return { from: isoOf(month.year, quarterStart - 3, 1), to: isoOf(month.year, quarterStart, 0) };
+}
+/** The report kind the server answers for a range that is exactly one of its whole periods. */
+export function reportKindOf(range: DateRange, today: string): ReportPresetKind | null {
+  return REPORT_PRESET_KINDS.find((kind) => { const whole = presetRange(kind, today); return whole.from === range.from && whole.to === range.to; }) ?? null;
 }
 export function shiftMonth(day: string, delta: number): string {
   const current = monthOf(day);
@@ -75,7 +86,9 @@ export function reduceRangeDraft(state: RangeDraft, action: RangeAction, locale:
       const parsed = parseRangeInput(action.text, locale);
       return { ...state, text: { ...state.text, [action.edge]: action.text }, range: parsed ? { ...state.range, [action.edge]: parsed } : state.range, cursor: parsed ?? state.cursor, phase: "start", hover: null, preset: "custom" };
     }
-    case "preset": return action.preset === "custom" ? { ...state, preset: "custom" } : replace(presetRange(action.preset, action.today), { phase: "start", preset: action.preset, cursor: presetRange(action.preset, action.today).from });
+    case "preset":
+      if (action.preset === "all") return { ...state, range: { from: "", to: "" }, text: { from: "", to: "" }, phase: "start", hover: null, preset: "all", drag: null };
+      return action.preset === "custom" ? { ...state, preset: "custom" } : replace(presetRange(action.preset, action.today), { phase: "start", preset: action.preset, cursor: presetRange(action.preset, action.today).from });
     case "drag-start": return { ...state, drag: { edge: action.edge, anchor: state.range[action.edge === "from" ? "to" : "from"], before: state.range, moved: false }, hover: null };
     case "drag-move": return state.drag ? replace(orderedRange(state.drag.anchor, action.day), { phase: "start", cursor: action.day, drag: { ...state.drag, moved: state.drag.moved || action.day !== state.drag.before[state.drag.edge] } }) : state;
     case "drag-end": return { ...state, drag: null };

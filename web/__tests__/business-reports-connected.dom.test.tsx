@@ -435,6 +435,7 @@ test("a period the person chose stays chosen when Registros opens again", async 
   const first = await mount({ width: 390 });
   await first.click(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]'));
   await first.click(first.button("Mes pasado"));
+  await first.click(first.button("Confirmar período"));
   await first.settle(() => addressFilters().period.kind === "last_month");
   const address = window.location.href;
   await cleanup();
@@ -456,10 +457,24 @@ test("a phone period preset holds after its sheet closes", async () => {
   const before = sentFilters(page).length;
   await page.click(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]'));
   await page.click(page.button("Todo"));
+  await page.click(page.button("Confirmar período"));
   await page.settle(() => document.querySelector('[role="dialog"]') === null && document.querySelector('[data-testid="records-count"]') !== null);
   await pause(200);
   assert.deepEqual(sentFilters(page).slice(before).map((filters) => filters.period), [{ kind: "all" }]);
   assert.deepEqual(addressFilters().period, { kind: "all" });
+});
+
+for (const [preset, kind] of [["Este mes", "this_month"], ["Este año", "this_year"], ["Mes pasado", "last_month"]] as const) test(`${preset} in the one preset list asks the server for ${kind}`, async () => {
+  const page = await mount({ width: 390 });
+  const before = sentFilters(page).length;
+  await page.click(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]'));
+  await page.click(page.button(preset));
+  assert.equal(sentFilters(page).length, before, "choosing a preset only selects dates");
+  await page.click(page.button("Confirmar período"));
+  await page.settle(() => addressFilters().period.kind === kind && document.querySelector('[role="dialog"]') === null && document.querySelector('[data-testid="records-count"]') !== null);
+  await pause(200);
+  assert.deepEqual(sentFilters(page).slice(before).map((filters) => filters.period), [{ kind }]);
+  if (kind === "this_year") assert.equal(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]')?.textContent, String(new Date().getFullYear()));
 });
 
 test("closing the phone Filtros sheet without a choice sends no query", async () => {

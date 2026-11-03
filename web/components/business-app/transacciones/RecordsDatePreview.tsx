@@ -9,6 +9,7 @@ import type { ReportPeriod } from "@/lib/business-reports-api";
 import { formatMonthYear, periodRange, todayIso, type Period } from "../business-format";
 import { usePeriodLabel } from "../BusinessPeriodControl";
 import RangePicker, { RangePickerConfirm, useRangePickerDraft } from "../foundation/RangePicker";
+import { reportKindOf } from "../foundation/range-picker-state";
 import RecordsPreviewPopover from "./RecordsPreviewPopover";
 import styles from "./records-filter-preview.module.css";
 
@@ -21,23 +22,31 @@ function DateOptions({ title, allDatesLabel, onAll }: DateLabels & { onAll: () =
   return <div className={styles.footer}>{title ? <span className="text-[14px] font-medium">{title}</span> : null}{allDatesLabel ? <button type="button" className={styles.clear} onClick={onAll}>{allDatesLabel}</button> : null}</div>;
 }
 
-function ReportPresets({ choose }: { choose: (kind: Exclude<ReportPeriod["kind"], "custom">) => void }) {
+type PresetKind = Exclude<ReportPeriod["kind"], "custom">;
+type DateSessionProps = DateLabels & { onPreset?: (kind: PresetKind) => void; period: Period; apply: (period: Period) => void; close: () => void };
+
+function useDateChoice({ period, apply, close, onPreset }: Pick<DateSessionProps, "period" | "apply" | "close" | "onPreset">) {
+  const finish = (kind: PresetKind | null, next: Period) => { if (onPreset && kind) onPreset(kind); else apply(next); close(); };
+  return useRangePickerDraft(
+    initialRange(period),
+    (range) => finish(reportKindOf(range, todayIso()), { key: "custom", ...range }),
+    undefined,
+    () => finish("all", periodRange("all")),
+  );
+}
+
+function DesktopDateSession({ title, allDatesLabel, ...choice }: DateSessionProps) {
+  const session = useDateChoice(choice);
+  return <><DateOptions title={title} allDatesLabel={allDatesLabel} onAll={() => { choice.apply(periodRange("all")); choice.close(); }} /><RangePicker session={session} /><RangePickerConfirm session={session} /></>;
+}
+
+function PhoneDateSession({ open, title, allDatesLabel, ...choice }: DateSessionProps & { open: boolean }) {
   const { t } = useTranslation();
-  return <div className={styles.currencies}>{(["all", "this_month", "last_month", "this_year"] as const).map((kind) => <button key={kind} type="button" className={styles.currency} onClick={() => choose(kind)}>{kind === "this_year" ? new Intl.DateTimeFormat(undefined, { year: "numeric", timeZone: "America/Santo_Domingo" }).format(new Date()) : t(`business.period.${kind}`)}</button>)}</div>;
+  const session = useDateChoice(choice);
+  return <BottomSheet isOpen={open} onClose={choice.close} title={title ?? t("business.date_range.title")} closeLabel={t("common.close")} snaps={["full"]} initialSnap="full" fullScreen footer={<RangePickerConfirm session={session} phone />}><DateOptions allDatesLabel={allDatesLabel} onAll={() => { choice.apply(periodRange("all")); choice.close(); }} /><RangePicker session={session} phone /></BottomSheet>;
 }
 
-function DesktopDateSession({ period, apply, close, onPreset, title, allDatesLabel }: DateLabels & { onPreset?: (kind: Exclude<ReportPeriod["kind"], "custom">) => void; period: Period; apply: (period: Period) => void; close: () => void }) {
-  const session = useRangePickerDraft(initialRange(period), (range) => { apply({ key: "custom", ...range }); close(); });
-  return <><DateOptions title={title} allDatesLabel={allDatesLabel} onAll={() => { apply(periodRange("all")); close(); }} />{onPreset ? <ReportPresets choose={(kind) => { onPreset(kind); close(); }} /> : null}<RangePicker session={session} /><RangePickerConfirm session={session} /></>;
-}
-
-function PhoneDateSession({ period, apply, open, close, onPreset, title, allDatesLabel }: DateLabels & { onPreset?: (kind: Exclude<ReportPeriod["kind"], "custom">) => void; period: Period; apply: (period: Period) => void; open: boolean; close: () => void }) {
-  const { t } = useTranslation();
-  const session = useRangePickerDraft(initialRange(period), (range) => { apply({ key: "custom", ...range }); close(); });
-  return <BottomSheet isOpen={open} onClose={close} title={title ?? t("business.date_range.title")} closeLabel={t("common.close")} snaps={["full"]} initialSnap="full" fullScreen footer={<RangePickerConfirm session={session} phone />}><DateOptions allDatesLabel={allDatesLabel} onAll={() => { apply(periodRange("all")); close(); }} />{onPreset ? <ReportPresets choose={(kind) => { onPreset(kind); close(); }} /> : null}<RangePicker session={session} phone /></BottomSheet>;
-}
-
-export default function RecordsDatePreview({ period, value, onChange, onPreset, reportPeriod, title, allDatesLabel }: DateLabels & { reportPeriod?: ReportPeriod; onPreset?: (kind: Exclude<ReportPeriod["kind"], "custom">) => void; period: Period; value?: Period; onChange?: (next: Period) => void }) {
+export default function RecordsDatePreview({ period, value, onChange, onPreset, reportPeriod, title, allDatesLabel }: DateLabels & { reportPeriod?: ReportPeriod; onPreset?: (kind: PresetKind) => void; period: Period; value?: Period; onChange?: (next: Period) => void }) {
   const [localPeriod, setLocalPeriod] = useState(period);
   const [open, setOpen] = useState(false);
   const [sessionId, setSessionId] = useState(0);

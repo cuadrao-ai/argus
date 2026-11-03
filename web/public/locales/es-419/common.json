@@ -4022,7 +4022,8 @@
       "label": "Período",
       "last_30_days": "Últimos 30 días",
       "last_month": "Mes pasado",
-      "this_month": "Este mes"
+      "this_month": "Este mes",
+      "this_year": "Este año"
     },
     "reading": {
       "line": "Leyendo tu recibo…",

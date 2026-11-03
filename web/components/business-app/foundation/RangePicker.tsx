@@ -10,10 +10,11 @@ import { isoOf, monthOf, shiftDay, weeks } from "./DatePicker";
 import { createRangeDraft, dateInputFormat, parseRangeInput, presetRange, previewRange, reduceRangeDraft, shiftMonth, validDraftRange, type DateRange, type RangePreset } from "./range-picker-state";
 import styles from "./range-picker.module.css";
 
-const PRESETS: RangePreset[] = ["today", "yesterday", "last_7", "last_30", "last_quarter", "custom"];
+const PRESETS: RangePreset[] = ["today", "yesterday", "last_7", "last_30", "this_month", "last_month", "last_quarter", "this_year", "all", "custom"];
+const PERIOD_WORDS: readonly RangePreset[] = ["this_month", "last_month", "this_year", "all"];
 const STEPS: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
 
-export function useRangePickerDraft(initial: DateRange, onConfirm: (range: DateRange) => void, maxDays = 366) {
+export function useRangePickerDraft(initial: DateRange, onConfirm: (range: DateRange) => void, maxDays = 366, onAll?: () => void) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const [state, dispatch] = useReducer((draft: ReturnType<typeof createRangeDraft>, action: Parameters<typeof reduceRangeDraft>[1]) => reduceRangeDraft(draft, action, locale), initial, (range) => createRangeDraft(range, locale));
@@ -29,15 +30,20 @@ export function useRangePickerDraft(initial: DateRange, onConfirm: (range: DateR
     },
   }, state.text);
   const range = validDraftRange(state, locale, maxDays);
-  const confirm = () => { if (checks.submit() && range) onConfirm(range); };
-  return { state, dispatch, locale, checks, range, confirm, word, invalid, maxDays };
+  const all = state.preset === "all";
+  const confirm = () => {
+    if (all) onAll?.();
+    else if (checks.submit() && range) onConfirm(range);
+  };
+  return { state, dispatch, locale, checks, range, all, confirm, word, invalid, maxDays };
 }
 export type RangePickerSession = ReturnType<typeof useRangePickerDraft>;
 
 export function RangePickerConfirm({ session, phone = false }: { session: RangePickerSession; phone?: boolean }) {
-  const { range, locale, word, confirm } = session;
+  const { range, all, locale, word, confirm } = session;
+  const { t } = useTranslation();
   return <div className={phone ? styles.mobileConfirm : styles.footer}>
-    <span className={styles.selection}>{range ? `${formatDay(range.from, locale)} · ${formatDay(range.to, locale)}` : word("complete_dates")}</span>
+    <span className={styles.selection}>{all ? t("business.period.all") : range ? `${formatDay(range.from, locale)} · ${formatDay(range.to, locale)}` : word("complete_dates")}</span>
     <button type="button" className={styles.confirm} onClick={confirm}>{word("confirm")}</button>
   </div>;
 }
@@ -80,7 +86,7 @@ export default function RangePicker({ session, phone = false, embedded = false }
   const choosePreset = (preset: RangePreset) => {
     dispatch({ type: "preset", preset, today });
     checks.reset();
-    if (preset !== "custom") {
+    if (preset !== "custom" && preset !== "all") {
       setView(monthOf(presetRange(preset, today).from));
       if (phone) window.requestAnimationFrame(() => grids.current?.scrollIntoView({ block: "start" }));
     }
@@ -110,7 +116,7 @@ export default function RangePicker({ session, phone = false, embedded = false }
   };
   const navigateMonth = (step: number) => { const day = shiftMonth(state.cursor, step); setView(monthOf(day)); dispatch({ type: "cursor", day }); };
   const monthViews = Array.from({ length: monthCount }, (_, index) => monthOf(isoOf(view.year, view.month + index, 1)));
-  const presets = <div className={styles.presets} aria-label={word("presets")}>{PRESETS.filter((preset) => !phone || preset !== "today").map((preset) => <button key={preset} type="button" className={styles.preset} aria-pressed={state.preset === preset} onClick={() => choosePreset(preset)}>{word(`preset.${preset}`)}{state.preset === preset ? <Check size={15} aria-hidden="true" /> : null}</button>)}</div>;
+  const presets = <div className={styles.presets} aria-label={word("presets")}>{PRESETS.filter((preset) => !phone || preset !== "today").map((preset) => <button key={preset} type="button" className={styles.preset} aria-pressed={state.preset === preset} onClick={() => choosePreset(preset)}>{PERIOD_WORDS.includes(preset) ? t(`business.period.${preset}`) : word(`preset.${preset}`)}{state.preset === preset ? <Check size={15} aria-hidden="true" /> : null}</button>)}</div>;
   return <div ref={root} data-testid="range-picker" data-month-columns={columns} className={`${styles.picker} ${embedded ? styles.embedded : ""} ${phone ? styles.mobile : columns === 1 ? styles.narrow : ""}`}>
     <div className={styles.layout}>
       {embedded ? null : presets}

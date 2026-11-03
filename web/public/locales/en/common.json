@@ -4172,6 +4172,7 @@
       "range": "{{from}} – {{to}}",
       "show_all": "Show all",
       "this_month": "This month",
+      "this_year": "This year",
       "last_month": "Last month",
       "last_30_days": "Last 30 days",
       "label": "Period"
