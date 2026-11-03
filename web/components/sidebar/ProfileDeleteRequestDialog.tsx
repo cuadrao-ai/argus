@@ -10,7 +10,6 @@ import { useAccountDeletionEligibility, type AccountDeletionCheck } from "@/lib/
 import { businessDeadlineParts, businessLifecycleHref } from "@/lib/business-lifecycle-api";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { businessLifecycleControlsEnabled } from "@/lib/private-alpha-flags";
-import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useConversationSurface } from "@/components/chat/ChatWorkspace";
 import { useModalSurface } from "../layout/useModalSurface";
