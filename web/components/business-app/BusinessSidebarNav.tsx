@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { businessInvoicingEnabled } from "@/lib/private-alpha-flags";
 import { quickJumpHintDisplay } from "@/lib/keyboard-shortcuts";
 import { NAV_GLYPHS, navGlyph } from "./nav-glyphs";
 import { useTranslation } from "react-i18next";
 import SidebarNavButton from "@/components/sidebar/SidebarNavButton";
 import { CuadraoMark } from "@/components/CuadraoMark";
 import type { ChatShellBridge } from "@/components/chat/ChatWorkspace";
-import { useBusiness, type BusinessPanelState } from "./BusinessWorkspace";
+import { invoicingShown, useBusiness, type BusinessPanelState } from "./BusinessWorkspace";
 import { inboxCount as countInbox, porIgualarCount } from "./inbox-count";
 import { useIgualarEnabled } from "./transacciones/transacciones-gate";
 import { recordList } from "./record-tray";
@@ -17,7 +16,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
   const { t } = useTranslation();
   const [command, setCommand] = useState(false);
   useEffect(() => { setCommand(/Mac|iPhone|iPad|iPod/.test(navigator.userAgent)); }, []);
-  const { panel, openPanel, records } = useBusiness();
+  const { panel, openPanel, records, invoicing } = useBusiness();
   const inboxCount = countInbox(records);
   // Only beside the screen that lists them: with igualar off here, Transacciones shows no Por igualar.
   const igualarCount = useIgualarEnabled() ? porIgualarCount(records) : null;
@@ -73,7 +72,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         iconSize={20}
         variant="business"
       />
-      {businessInvoicingEnabled || process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <SidebarNavButton
+      {invoicingShown(invoicing) ? <SidebarNavButton
         glyph={navGlyph(NAV_GLYPHS.invoicing)} label={t("business.invoicing_preview.title")}
         active={isActive("invoicing")} collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "invoicing" })} iconSize={20} variant="business"

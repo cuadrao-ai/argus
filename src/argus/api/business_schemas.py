@@ -133,6 +133,8 @@ class BusinessWorkspace(_Wire):
     currencies: list[str]
     assistant_available: bool
     chat_available: bool
+    #: The server's one answer on Facturación; the client shows no entry point while false.
+    invoicing_available: bool
     receipt_limits: ReceiptLimits
     logo_url: str | None = None
 

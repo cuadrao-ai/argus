@@ -3,11 +3,10 @@
 import { useEffect, useState } from "react";
 import { getChosenGrant, LOCAL_BUSINESS_PREFIX } from "@/lib/business-grant";
 import { listInvoices } from "@/lib/business-invoices-api";
-import { businessInvoicingEnabled } from "@/lib/private-alpha-flags";
 import { defaultReportRequest } from "@/lib/business-reporting-wire";
 import { queryBusinessReport } from "@/lib/business-reports-api";
 import { referenceCode } from "@/lib/failure-screen";
-import { useBusiness } from "../BusinessWorkspace";
+import { invoicingShown, useBusiness } from "../BusinessWorkspace";
 import { INVOICE_STAGE_COUNTS, REPORT_OVERVIEW } from "./home-draft-data";
 
 /** Registros waiting for review, as the server answered it: still loading, unreadable (with its reference), or a number. `none` is a Business with no server to ask. */
@@ -29,10 +28,10 @@ export function useSampleBusiness() {
  * preview reads the samples.
  */
 export function useHomeCounts(): { toReview: ReviewCount; drafts: number | null; retry: () => void } {
-  const { source, chosen, userId } = useBusiness();
+  const { source, chosen, userId, invoicing: invoicingState } = useBusiness();
   const live = source.mode === "live";
   const samples = useSampleBusiness();
-  const invoicing = businessInvoicingEnabled || (!live && process.env.NODE_ENV === "development");
+  const invoicing = invoicingShown(invoicingState);
   const [attempt, setAttempt] = useState(0);
   const key = `${userId ?? "none"}:${chosen?.space_id ?? "none"}:${attempt}`;
   const [counts, setCounts] = useState<Counts | null>(null);

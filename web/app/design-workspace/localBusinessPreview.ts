@@ -166,6 +166,7 @@ export function withLocalBusinessPreview(
       currencies: [],
       assistant_available: false,
       chat_available: false,
+      invoicing_available: false,
       receipt_limits: {
         max_bytes: 10 * 1024 * 1024,
         media_types: ["application/pdf", "image/jpeg", "image/png"],

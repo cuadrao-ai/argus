@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterAll, beforeAll, mock, test } from "bun:test";
+import { afterAll, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import type { FiscalOperation, InvoiceDraft, SavedInvoice, SavedCustomer } from "@/lib/business-invoices-api";
@@ -9,9 +9,6 @@ import { removeSessionStored } from "@/lib/browser-storage";
 import { keepOwnListSearch } from "./fixtures/own-list-search";
 
 await keepOwnListSearch();
-
-const realFlags = { ...await import("@/lib/private-alpha-flags") };
-mock.module("@/lib/private-alpha-flags", () => ({ ...realFlags, businessInvoicingEnabled: true }));
 
 const originalZone = process.env.TZ;
 beforeAll(() => { process.env.TZ = "America/Santo_Domingo"; GlobalRegistrator.register({ url: "http://localhost/biz?view=invoicing" }); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); });
@@ -74,7 +71,7 @@ async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; los
     return new Response(null, { status: 404 });
   };
   const source = createFixtureBusinessDataSource();
-  const context: BusinessContextValue = { userId: options.missingActor ? null : invoiceScope.userId, source, records: { workspace: null, overview: null, inbox: [], notes: [], notesTruncated: false, emails: [], error: false }, spaces: [], chosen: { space_id: invoiceScope.businessId, grant_id: invoiceScope.grantId!, name: "Synthetic Business", role: "owner", capabilities: ["read", "prepare", "approve"], permissions: options.missingPermissions ? undefined : ["read", "prepare", "approve", "download"], access_seen: true }, chooseBusiness: () => undefined, markAccessSeen: async () => undefined, lostAccess: false, clearLostAccess: () => undefined, revision: 0, reload: () => undefined, refresh: async () => "updated", period: periodRange("all"), setPeriod: () => undefined, panel: { kind: "invoicing" }, openPanel: () => undefined, guardPanel: () => () => undefined, actions: { create: [], composer: [], starterEntries: [] }, bridge: null, attachedReceipt: null, clearAttachedReceipt: () => undefined, openExport: () => undefined, emailRefresh: { refresh: () => undefined, refreshing: false, stalled: false }, retrySources: () => undefined };
+  const context: BusinessContextValue = { invoicing: "available", userId: options.missingActor ? null : invoiceScope.userId, source, records: { workspace: null, overview: null, inbox: [], notes: [], notesTruncated: false, emails: [], error: false }, spaces: [], chosen: { space_id: invoiceScope.businessId, grant_id: invoiceScope.grantId!, name: "Synthetic Business", role: "owner", capabilities: ["read", "prepare", "approve"], permissions: options.missingPermissions ? undefined : ["read", "prepare", "approve", "download"], access_seen: true }, chooseBusiness: () => undefined, markAccessSeen: async () => undefined, lostAccess: false, clearLostAccess: () => undefined, revision: 0, reload: () => undefined, refresh: async () => "updated", period: periodRange("all"), setPeriod: () => undefined, panel: { kind: "invoicing" }, openPanel: () => undefined, guardPanel: () => () => undefined, actions: { create: [], composer: [], starterEntries: [] }, bridge: null, attachedReceipt: null, clearAttachedReceipt: () => undefined, openExport: () => undefined, emailRefresh: { refresh: () => undefined, refreshing: false, stalled: false }, retrySources: () => undefined };
   let currentContext: BusinessContextValue = options.directory ? { ...context, chosen: null, directoryStatus: options.directory } : context;
   const host = document.createElement("div"); document.body.append(host); let root = createRoot(host);
   const render = async () => { await act(async () => { root.render(<StrictMode><I18nextProvider i18n={i18n}><BusinessContext.Provider value={currentContext}>{options.entry ? <BusinessPanel /> : <ConnectedInvoicingWorkspace scope={invoiceScope} business="Synthetic Business" capabilities={{ prepare: !options.noPrepare, issue: Boolean(options.issue), download: true }} />}</BusinessContext.Provider></I18nextProvider></StrictMode>); }); };

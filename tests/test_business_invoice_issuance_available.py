@@ -1,4 +1,5 @@
-"""The invoice page tells clients whether issuance is wired before any click."""
+"""Every invoicing route answers one refusal while Facturación is off, and the
+invoice page tells clients whether issuance is wired before any click."""
 
 from __future__ import annotations
 
@@ -7,10 +8,22 @@ from uuid import uuid4
 
 import pytest
 from argus.api.business_drafts import require_drafts
-from argus.api.routers import business_invoices
+from argus.api.routers import business_customers, business_invoices
 from argus.domain.business.contracts.invoicing import InvoicePage
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
+INVOICING_ROUTES = (
+    ("GET", "/business/customers"),
+    ("POST", "/business/customers"),
+    ("GET", f"/business/customers/{uuid4()}"),
+    ("PUT", f"/business/customers/{uuid4()}"),
+    ("GET", "/business/invoices"),
+    ("POST", "/business/invoices"),
+    ("GET", f"/business/invoices/{uuid4()}"),
+    ("PUT", f"/business/invoices/{uuid4()}"),
+    ("POST", f"/business/invoices/{uuid4()}/prepare"),
+)
 
 
 @pytest.fixture
@@ -31,6 +44,7 @@ def client(monkeypatch):
 
     monkeypatch.setattr(business_invoices, "invoices", page)
     app = FastAPI()
+    app.include_router(business_customers.router)
     app.include_router(business_invoices.router)
 
     @app.middleware("http")
@@ -48,15 +62,38 @@ def client(monkeypatch):
         yield result
 
 
-def test_page_says_unavailable_when_no_fiscal_service_is_wired(client):
-    response = client.get("/business/invoices")
-    assert response.status_code == 200, response.text
-    assert response.json()["issuance_available"] is False
-    prepared = client.post(
-        f"/business/invoices/{uuid4()}/prepare", json={"expected_version": 1}
-    )
-    assert prepared.status_code == 404
-    assert prepared.json()["detail"] == "fiscal_sandbox_unavailable"
+def test_every_invoicing_route_is_listed():
+    mounted = {
+        (method, route.path)
+        for router in (business_customers.router, business_invoices.router)
+        for route in router.routes
+        for method in route.methods
+    }
+    listed = {
+        (method, path.replace(path.rsplit("/", 1)[-1], "{customer_id}") if "/customers/" in path else path)
+        for method, path in INVOICING_ROUTES
+    }
+    listed = {
+        (method, path.replace(path.split("/")[3], "{invoice_id}") if path.startswith("/business/invoices/") else path)
+        for method, path in listed
+    }
+    assert listed == mounted
+
+
+@pytest.mark.parametrize(
+    "off", ["switch_off", "provider_missing"], ids=["switch off", "provider missing"]
+)
+@pytest.mark.parametrize(("method", "path"), INVOICING_ROUTES)
+def test_every_invoicing_route_refuses_while_off(client, monkeypatch, off, method, path):
+    if off == "switch_off":
+        monkeypatch.setenv("CUADRAO_BUSINESS_INVOICING_ENABLED", "false")
+        client.app.state.fiscal_sandbox = object()
+    else:
+        client.app.state.fiscal_sandbox = None
+    response = client.request(method, path, json={})
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == "business_invoicing_unavailable"
+    assert response.headers["cache-control"] == "no-store"
 
 
 def test_page_says_available_when_the_fiscal_service_is_wired(client):

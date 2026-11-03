@@ -353,6 +353,7 @@ def test_workspace_lists_expense_accounts_and_document_limits(alice: Owner) -> N
         "currencies": ["DOP", "USD"],
         "assistant_available": False,
         "chat_available": False,
+        "invoicing_available": False,
         "logo_url": None,
         "receipt_limits": {
             "max_bytes": 10485760,
@@ -376,6 +377,29 @@ def test_workspace_says_whether_business_chat_is_on(alice: Owner, monkeypatch) -
     assert alice.get("/workspace").json()["chat_available"] is True
     monkeypatch.setenv("ARGUS_BUSINESS_CHAT_ENABLED", "false")
     assert alice.get("/workspace").json()["chat_available"] is False
+
+
+def test_workspace_says_whether_invoicing_is_on(alice: Owner, monkeypatch) -> None:  # noqa: ANN001
+    """One answer feeds the workspace read and gates the invoicing routes: the
+    switch on and the fiscal provider wired, else nothing is offered."""
+    state = alice.client.app.state
+
+    def refused() -> bool:
+        response = alice.get("/customers")
+        return response.status_code == 404 and response.json()["detail"] == "business_invoicing_unavailable"
+
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVOICING_ENABLED", "false")
+    state.fiscal_sandbox = object()
+    assert alice.get("/workspace").json()["invoicing_available"] is False
+    assert refused()
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVOICING_ENABLED", "true")
+    state.fiscal_sandbox = None
+    assert alice.get("/workspace").json()["invoicing_available"] is False
+    assert refused()
+    state.fiscal_sandbox = object()
+    assert alice.get("/workspace").json()["invoicing_available"] is True
+    assert not refused()
+    state.fiscal_sandbox = None
 
 
 def test_create_account_needs_a_key_and_replays(alice: Owner) -> None:

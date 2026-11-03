@@ -9942,7 +9942,10 @@ cannot be read answers 503 `business_activity_unavailable`. Every answer is
 ### Business customers and invoice editor
 
 The default-off `CUADRAO_BUSINESS_INVOICING_ENABLED` gate requires the existing
-Business surface and durable store. Every request rechecks the selected live
+Business surface, durable store and a wired fiscal provider; every route below
+answers 404 `business_invoicing_unavailable` otherwise, and
+`GET /business/workspace` reports the same gate as `invoicing_available`.
+Every request rechecks the selected live
 Business membership and closure. All responses use `Cache-Control: no-store`.
 Read requires read permission; create, save and prepare require prepare permission.
 Only an Owner can submit the existing fiscal operation.
@@ -10578,13 +10581,21 @@ by `receipt_review`. Its expense is the canonical activity that the import
 accept path recorded.
 
 - GET `/api/v1/business/workspace` returns `{country, currency, accounts,
-  currencies, assistant_available: false, chat_available, receipt_limits:
-  {max_bytes, media_types}, logo_url}`. `country` and `currency` are the Business's own,
+  currencies, assistant_available: false, chat_available, invoicing_available,
+  receipt_limits: {max_bytes, media_types}, logo_url}`. `country` and `currency` are the Business's own,
   the same values `GET /business/space` returns. `accounts` lists unarchived cash, checking, savings and credit
   card accounts. `currencies` lists their currencies. The limits come from the
   document settings. `chat_available` is true only while
   `ARGUS_BUSINESS_CHAT_ENABLED` is on; while it is false `/biz` shows no
-  composer, no New chat and no Business Recents.
+  composer, no New chat and no Business Recents. `invoicing_available` is the
+  server's one answer on Facturación: true only while
+  `CUADRAO_BUSINESS_INVOICING_ENABLED` is on (default off) and the fiscal
+  provider is wired in this process (`CUADRAO_FISCAL_SANDBOX_*` complete), so
+  a missing credential offers nothing rather than a broken screen. The same
+  function refuses every `/business/customers` and `/business/invoices` route
+  with 404 `business_invoicing_unavailable`. While it is false the web shows
+  no Facturación entry point (sidebar, Inicio, search, Negocio) and a
+  `?view=invoicing` link lands on Inicio. The web keeps no switch of its own.
 - Logo. `logo_url` on `/space`, `/space/name`, `/space/name-prompt`, `/spaces`
   and `/workspace` is a signed URL to the Business's 256 px logo, valid for
   about an hour, or null. PUT `/api/v1/business/logo` replaces it with the

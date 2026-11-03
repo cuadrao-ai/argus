@@ -482,6 +482,7 @@ export function createFixtureBusinessDataSource(
         currencies: [...new Set(accounts.map((item) => item.currency))].sort(),
         assistant_available: true,
         chat_available: chatAvailable,
+        invoicing_available: false,
         receipt_limits: {
           max_bytes: 10 * 1024 * 1024,
           media_types: ["application/pdf", "image/jpeg", "image/png"],

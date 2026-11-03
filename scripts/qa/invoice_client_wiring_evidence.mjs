@@ -17,7 +17,6 @@ assert.equal(head, process.env.EVIDENCE_EXPECTED_HEAD);
 git("diff", "--exit-code", head, "--", "web", "scripts/qa/invoice_client_wiring_evidence.mjs");
 assert.equal(git("ls-files", "--others", "--exclude-standard", "--", "web", "scripts/qa/invoice_client_wiring_evidence.mjs"), "");
 assert.equal(process.env.NEXT_PUBLIC_MOCK_AUTH, "true");
-assert.equal(process.env.NEXT_PUBLIC_CUADRAO_BUSINESS_INVOICING_ENABLED, "true");
 assert.ok(process.env.EVIDENCE_OUTPUT);
 const output = resolve(process.env.EVIDENCE_OUTPUT);
 const web = process.env.EVIDENCE_WEB_BASE_URL ?? "http://127.0.0.1:4415";
@@ -31,7 +30,8 @@ const safeUrl = value => { try { const url = new URL(value); return { origin: ur
 mkdirSync(output, { recursive: true });
 writeFileSync(join(output, "source-sha.txt"), `${head}\n`);
 const source = createFixtureBusinessDataSource({ chatAvailable: false });
-const workspace = await source.workspace();
+// The fixture API offers Facturación; the web shows it only because this answer says so.
+const workspace = { ...await source.workspace(), invoicing_available: true };
 const browser = await chromium.launch({ headless: true });
 let completed = false, originalFailure;
 try {
