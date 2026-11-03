@@ -9652,8 +9652,9 @@ follows its type: a read kind the type does not admit becomes the type's own
 kind, and a read unsure of the direction leaves the kind unknown for a person.
 An open draft saved with a kind its type does not admit carries the blocker
 `activity_kind_unsupported` on `kind`, and its approval is `422`
-`activity_kind_unsupported`; its next review that states no kind gives it the
-type's own kind.
+`activity_kind_unsupported`. A review that states neither a kind nor a
+`document_type` leaves it as it was, blocked; a stated kind or a named type
+settles it.
 
 The same review may carry `due_on`, alone or with other review input.
 `{"state": "known", "value": "YYYY-MM-DD"}` sets the due date and

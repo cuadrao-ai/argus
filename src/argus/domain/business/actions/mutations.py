@@ -43,6 +43,7 @@ from argus.domain.business.document_type import (
     TYPE_OF_KIND,
     DocumentType,
     detected_document_type,
+    kind_disagrees,
     kind_follows_type,
     require_type_kind,
     typed_facts,
@@ -279,12 +280,10 @@ def revise(
             after = reviewed_fiscal_facts(after, fiscal_review, source_ids, origin)
     except ValidationError:
         raise ActionError("invalid_input", "business_fact_provenance_invalid") from None
-    if not isinstance(stated, KnownInput):
-        # A kind saved before the type owned it takes the type's own kind.
-        after = kind_follows_type(
-            after, document_type or previous_type, source_ids, origin
-        )
-    require_type_kind(document_type or previous_type, after)
+    if document_type is not None or not kind_disagrees(previous_type, after):
+        # A kind saved before the type owned it stays blocked until a person
+        # states the kind or the type; an edit that states neither leaves it.
+        require_type_kind(document_type or previous_type, after)
     if answer_id is not None:
         answer_question(tx, event.id, answer_id, patch, source_ids[-1])
     elif actor.actor_kind == "member" and patch is not None:
