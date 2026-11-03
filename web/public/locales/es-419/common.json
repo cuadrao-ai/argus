@@ -977,13 +977,13 @@
         "hide": "Ocultar",
         "save_error": "No pudimos actualizar el color de tu avatar todavía.",
         "themes": {
-          "ember": "Siena",
-          "gold": "Liquen",
-          "slate": "Enebro",
-          "teal": "Laguna",
+          "ember": "Noche",
+          "gold": "Bosque",
+          "slate": "Pino",
+          "teal": "Esmeralda",
           "ocean": "Predeterminado",
-          "indigo": "Iris",
-          "plum": "Morera"
+          "indigo": "Salvia",
+          "plum": "Menta"
         }
       },
       "close": "Cerrar perfil",

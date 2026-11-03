@@ -977,13 +977,13 @@
         "hide": "Hide",
         "save_error": "Could not update your avatar color yet.",
         "themes": {
-          "ember": "Sienna",
-          "gold": "Lichen",
-          "slate": "Juniper",
-          "teal": "Lagoon",
+          "ember": "Night",
+          "gold": "Forest",
+          "slate": "Pine",
+          "teal": "Emerald",
           "ocean": "Default",
-          "indigo": "Iris",
-          "plum": "Mulberry"
+          "indigo": "Sage",
+          "plum": "Mint"
         }
       },
       "close": "Close profile",
