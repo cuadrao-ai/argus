@@ -157,3 +157,24 @@ def test_open_signup_ignores_invitations(
 
     assert permanent_account_access_allowed(gateway, fake.email(), access)
     assert not permanent_account_access_allowed(gateway, disabled, access)
+
+
+def test_a_closed_business_admits_no_grantee_and_a_hand_listed_owner_stays(
+    pool, users, gateway, closed_signup, allowlist
+) -> None:  # noqa: ANN001
+    spaces, access = PostgresSpaceStore(pool), PostgresAccessStore(pool)
+    space, _ = spaces.create(users["owner"], "Colmado")
+    owner, member = _confirmed_email(users["owner"]), _confirmed_email(users["other"])
+    allowlist(owner, disabled=False)
+    _, listed = access.give(space.id, users["owner"], member)
+    access.accept_invite(users["other"], space.id, listed.invites[0].id)
+    assert permanent_account_access_allowed(gateway, member, access)
+
+    with psycopg.connect(shared.DSN) as db:
+        db.execute("update public.spaces set closed_at=now() where id=%s", (space.id,))
+    assert not permanent_account_access_allowed(gateway, member, access)
+    assert permanent_account_access_allowed(gateway, owner, access)
+
+    with psycopg.connect(shared.DSN) as db:
+        db.execute("update public.spaces set closed_at=null where id=%s", (space.id,))
+    assert permanent_account_access_allowed(gateway, member, access)

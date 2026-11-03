@@ -425,3 +425,129 @@ def test_profile_and_listing_reads_leave_invitation_pending(world) -> None:  # n
         (s["space_id"], s["role"], s["capabilities"]) for s in listed.json()["spaces"]
     ] == []
     assert _grants_and_accepts(world.space_id, accountant.id) == (0, 0)
+
+
+def test_an_invited_person_cannot_start_a_business_or_admit_anyone(world) -> None:  # noqa: ANN001
+    """Admission does not chain. A person the gate admits only through a
+    Business invitation or grant works in that Business and nowhere else: no
+    Business of their own, no invitation issued, no ownership accepted. The
+    hand-listed owner keeps every one of those powers."""
+
+    client, owner = world.client, world.owner
+    refused = (403, "private_alpha_access_required")
+    invitee = _credentials(world, "invitada")
+    outsider = _credentials(world, "ajena")
+    _invite(world, invitee.email)
+    signed_up = _signup(world, invitee)
+    assert signed_up.status_code == 200, signed_up.text
+    invitee.id = str(signed_up.json()["user"]["id"])
+    world.created.append(invitee.id)
+    _signed_in(world, invitee)
+
+    def start(account: Account):  # noqa: ANN202
+        return client.post(
+            f"{API}/business/space", json={"name": "Mi Negocio"}, headers=account.headers
+        )
+
+    def start_additional(account: Account):  # noqa: ANN202
+        return _post(
+            world, "/business/spaces", {"name": "Otro", "country": "DO"}, account.headers
+        )
+
+    # Pending only: nothing can be started.
+    assert _code(start(invitee)) == refused
+    assert _code(start_additional(invitee)) == refused
+
+    # Accepted as an editor, then promoted to admin by the owner: still nothing.
+    [invitation] = client.get(
+        f"{API}/business/invitations", headers=invitee.headers
+    ).json()
+    accepted = client.post(
+        f"{API}/business/invitations/{invitation['id']}/accept",
+        headers=invitee.headers,
+        json={"space_id": world.space_id},
+    )
+    assert accepted.status_code == 200, accepted.text
+    assert _code(start(invitee)) == refused
+    assert _code(start_additional(invitee)) == refused
+    [membership] = client.get(f"{API}/business/spaces", headers=invitee.headers).json()[
+        "spaces"
+    ]
+    promoted = client.patch(
+        f"{API}/business/access/grants/{membership['grant_id']}",
+        json={"role": "admin"},
+        headers=owner.headers,
+    )
+    assert promoted.status_code == 200, promoted.text
+    [upgrade] = client.get(f"{API}/business/invitations", headers=invitee.headers).json()
+    assert (
+        client.post(
+            f"{API}/business/invitations/{upgrade['id']}/accept",
+            headers=invitee.headers,
+            json={"space_id": world.space_id},
+        ).status_code
+        == 200
+    )
+    acting = {**invitee.headers, GRANT: membership["grant_id"]}
+    assert client.get(f"{API}/business/access", headers=acting).status_code == 200
+
+    # An admin admitted only by the Business issues no invitation of any kind.
+    invite_one = client.post(
+        f"{API}/business/access", json={"email": outsider.email}, headers=acting
+    )
+    assert _code(invite_one) == refused
+    invite_many = client.post(
+        f"{API}/business/access/invitations",
+        json={
+            "recipients": [
+                {"email": outsider.email, "role": "editor", "command_key": "k1"}
+            ]
+        },
+        headers=acting,
+    )
+    assert _code(invite_many) == refused
+    pending = _credentials(world, "pendiente")
+    _invite(world, pending.email)
+    pending_id = next(
+        i["id"]
+        for i in client.get(f"{API}/business/access", headers=owner.headers).json()[
+            "invites"
+        ]
+        if i["email"] == pending.email
+    )
+    resent = client.post(
+        f"{API}/business/access/invites/{pending_id}/resend", headers=acting
+    )
+    assert _code(resent) == refused
+    assert _code(_signup(world, outsider)) == (400, "auth_signup_failed")
+    assert [
+        i["email"]
+        for i in client.get(f"{API}/business/access", headers=owner.headers).json()[
+            "invites"
+        ]
+    ] == [pending.email]
+
+    # Nor can such a person take a Business over.
+    transfer = _post(
+        world,
+        f"/business/spaces/{world.space_id}/ownership-transfers",
+        {"target_grant_id": membership["grant_id"], "confirmation": "Ferretería Prueba"},
+        owner.headers,
+    )
+    assert transfer.status_code == 200, transfer.text
+    taken = client.post(
+        f"{API}/business/ownership-transfers/{transfer.json()['id']}/accept",
+        headers=invitee.headers,
+    )
+    assert _code(taken) == refused
+    [still_pending] = client.get(
+        f"{API}/business/ownership-transfers", headers=owner.headers
+    ).json()["transfers"]
+    assert (still_pending["id"], still_pending["status"]) == (
+        transfer.json()["id"],
+        "pending",
+    )
+
+    # The hand-listed owner keeps every power.
+    assert start(owner).status_code == 200
+    assert start_additional(owner).status_code == 201

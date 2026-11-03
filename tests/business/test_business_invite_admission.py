@@ -158,3 +158,78 @@ def test_an_invited_person_signs_in_accepts_and_loses_access_on_revoke(
     assert gone.status_code == 204, gone.text
     assert bob.get("/invitations").status_code == 403
     assert biz.post("/api/v1/auth/login", json=login).status_code == 401
+
+
+def test_a_closed_business_admits_no_invitee_and_no_grantee(closed_signup) -> None:  # noqa: ANN001
+    store, space = _business()
+    gateway = _allowlist()
+    person, member, invited = str(uuid4()), fake.email().lower(), fake.email().lower()
+    store.confirm(person, member)
+    _, listed = store.give(space, OWNER, member)
+    store.accept_invite(person, space, listed.invites[0].id)
+    store.give(space, OWNER, invited)
+    assert permanent_account_access_allowed(gateway, member, store)
+    assert permanent_account_access_allowed(gateway, invited, store)
+
+    store.close(space)
+    assert not permanent_account_access_allowed(gateway, member, store)
+    assert not permanent_account_access_allowed(gateway, invited, store)
+
+
+def test_an_invited_person_cannot_start_a_business_or_admit_anyone(
+    biz: TestClient,
+    identities,
+    gateway,
+    closed_signup,  # noqa: ANN001
+) -> None:
+    alice = Owner(biz, ALICE, identities[ALICE]["id"])
+    bob = Owner(biz, BOB, identities[BOB]["id"])
+    gateway.private_alpha_email_allowed.side_effect = (
+        lambda email: email == identities[ALICE]["email"]
+    )
+    assert alice.start({"name": "Colmado La Esquina"}).status_code == 201
+    assert alice.post("/access", {"email": identities[BOB]["email"]}).status_code == 201
+    business_access().confirm(bob.person, identities[BOB]["email"])
+
+    def refused(response) -> None:  # noqa: ANN001
+        assert response.status_code == 403, response.text
+        assert response.json()["code"] == "private_alpha_access_required"
+
+    refused(bob.start({"name": "Mi Negocio"}))
+    [invitation] = bob.get("/invitations").json()
+    accepted = bob.post(
+        f"/invitations/{invitation['id']}/accept",
+        {"space_id": alice.scope().owner.space_id},
+    )
+    assert accepted.status_code == 200, accepted.text
+    refused(bob.start({"name": "Mi Negocio"}))
+    refused(bob.post("/spaces", {"name": "Otro", "country": "DO"}, key=str(uuid4())))
+
+    [membership] = bob.get("/spaces").json()["spaces"]
+    promoted = biz.patch(
+        f"{BASE}/access/grants/{membership['grant_id']}",
+        json={"role": "admin"},
+        headers=alice.auth,
+    )
+    assert promoted.status_code == 200, promoted.text
+    [upgrade] = bob.get("/invitations").json()
+    assert (
+        bob.post(
+            f"/invitations/{upgrade['id']}/accept",
+            {"space_id": alice.scope().owner.space_id},
+        ).status_code
+        == 200
+    )
+    acting = {"X-Business-Grant": membership["grant_id"]}
+    assert biz.get(f"{BASE}/access", headers={**bob.auth, **acting}).status_code == 200
+    stranger = fake.email().lower()
+    refused(bob.post("/access", {"email": stranger}, **acting))
+    refused(
+        bob.post(
+            "/access/invitations",
+            {"recipients": [{"email": stranger, "role": "editor", "command_key": "k1"}]},
+            **acting,
+        )
+    )
+    assert not permanent_account_access_allowed(gateway, stranger, business_access())
+    assert alice.start().status_code == 200
