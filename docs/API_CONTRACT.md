@@ -9559,10 +9559,12 @@ and the caller holds `prepare`). A stale `version` is still `409`
 The type is the one answer to purchase or sale; a known `facts.kind` is always
 a kind the type admits. A `venta` admits `income`. A `recibo` admits `expense`
 and `refund`. A known `facts.kind` in a review, a chat or an agent proposal
-states the type: `income` sets `venta`, and `expense` or `refund` sets
-`recibo`, with the same effects as `document_type`. Any other kind, and a kind
-and a `document_type` that disagree in one request, are `422`
-`activity_kind_unsupported`. Setting the type answers an unknown kind with the
+states the type: `income` sets `venta`, with the same effects as
+`document_type`, and `expense` or `refund` keeps a `recibo`. A `venta` is an
+issued invoice, so only a named `document_type` moves it: a stated `expense`
+or `refund` on a `venta` is `422` `activity_kind_unsupported` and changes
+nothing. Any other kind, and a kind and a `document_type` that disagree in one
+request, are also `422` `activity_kind_unsupported`. Setting the type answers an unknown kind with the
 type's own kind: `income` for a `venta`, `expense` for a `recibo`. A read
 follows its type: a read kind the type does not admit becomes the type's own
 kind, and a read unsure of the direction leaves the kind unknown for a person.

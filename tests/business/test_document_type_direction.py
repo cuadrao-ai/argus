@@ -129,9 +129,8 @@ def _event(document_type: str, facts: BusinessFacts) -> ImportEvent:
     )
 
 
-def _review(monkeypatch, event: ImportEvent | None, kind: str | None, **inputs) -> dict:  # noqa: ANN001
-    actor = _actor().model_copy(update={"actor_kind": inputs.pop("actor", "member")})
-    tx = SimpleNamespace(
+def _tx() -> SimpleNamespace:
+    return SimpleNamespace(
         context=SimpleNamespace(
             owner_id=str(uuid4()), actor=SimpleNamespace(space_id=uuid4())
         ),
@@ -142,6 +141,11 @@ def _review(monkeypatch, event: ImportEvent | None, kind: str | None, **inputs) 
             else []
         ),
     )
+
+
+def _review(monkeypatch, event: ImportEvent | None, kind: str | None, **inputs) -> dict:  # noqa: ANN001
+    actor = _actor().model_copy(update={"actor_kind": inputs.pop("actor", "member")})
+    tx = inputs.pop("tx", None) or _tx()
     monkeypatch.setattr(sources, "require_sources", lambda *args: None)
     monkeypatch.setattr(sources, "attach", lambda *args: None)
     monkeypatch.setattr(mutations, "validate_facts", lambda *args: None)
@@ -173,7 +177,6 @@ def _typed(saved: dict) -> tuple:
     "document_type,stated,expected",
     [
         ("recibo", "income", "venta"),
-        ("venta", "expense", "recibo"),
         ("recibo", "expense", "recibo"),
     ],
 )
@@ -216,9 +219,34 @@ def test_a_kind_the_type_does_not_admit_is_refused(monkeypatch, stated, inputs):
 
 @pytest.mark.parametrize("ncf", [CREDIT_NCF, PURCHASE_NCF, None])
 def test_a_refund_is_a_receipt(monkeypatch, ncf):
-    event = _event("venta", _facts(ncf, kind="income"))
+    event = _event("recibo", _facts(ncf, kind="expense"))
     saved = _review(monkeypatch, event, "refund")
     assert _typed(saved) == ("recibo", False, "refund")
+
+
+@pytest.mark.parametrize("actor", ["member", "owner_via_agent"])
+@pytest.mark.parametrize("stated", ["expense", "refund"])
+def test_a_venta_stated_as_a_purchase_stays_a_venta(monkeypatch, actor, stated):
+    """A Venta is an issued invoice. Only a named type change moves it: the
+    kind editor or a chat that says expense changes nothing."""
+
+    event = _event("venta", _facts(PURCHASE_NCF, kind="income"))
+    tx = _tx()
+    with pytest.raises(ActionError) as refused:
+        _review(monkeypatch, event, stated, actor=actor, tx=tx)
+    assert refused.value.code == "activity_kind_unsupported"
+    tx.imports.put_event.assert_not_called()
+    business = event.resolution["business"]
+    assert (business["document_type"], business["facts"]["kind"]["value"]) == (
+        "venta",
+        "income",
+    )
+
+
+def test_a_named_receipt_type_still_moves_a_venta(monkeypatch):
+    event = _event("venta", _facts(PURCHASE_NCF, kind="income"))
+    saved = _review(monkeypatch, event, "expense", document_type="recibo")
+    assert _typed(saved) == ("recibo", False, "expense")
 
 
 def test_confirming_a_receipt_answers_an_unknown_kind(monkeypatch):

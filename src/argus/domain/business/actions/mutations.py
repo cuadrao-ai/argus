@@ -224,13 +224,11 @@ def revise(
     sources.require_sources(tx, source_ids)
     named_type = document_type is not None
     stated = patch.kind if patch is not None else None
+    stated_type = None
     if isinstance(stated, KnownInput):
-        # A stated kind is a statement of the type: income is a Venta, an
-        # expense or a refund a receipt.
-        named = TYPE_OF_KIND.get(stated.value)
-        if named is None or document_type not in (None, named):
+        stated_type = TYPE_OF_KIND.get(stated.value)
+        if stated_type is None or document_type not in (None, stated_type):
             raise ActionError("invalid_input", "activity_kind_unsupported")
-        document_type = named
     now = datetime.now(timezone.utc)
     declaration_only = (
         (purchase is not None or payment_split is not None)
@@ -257,6 +255,12 @@ def revise(
     previous_type = (event.resolution.get("business") or {}).get(
         "document_type", "recibo"
     )
+    if stated_type is not None and document_type is None:
+        # A stated kind states the type: income makes a receipt a Venta. A
+        # Venta is an issued invoice; only a named type change moves it.
+        if previous_type == "venta" and stated_type != "venta":
+            raise ActionError("invalid_input", "activity_kind_unsupported")
+        document_type = stated_type
     retyped = document_type is not None and document_type != previous_type
     base = (
         typed_facts(before, document_type, source_ids, origin, _business_tax_id(tx))

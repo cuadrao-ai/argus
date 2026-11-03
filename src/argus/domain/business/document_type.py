@@ -135,14 +135,25 @@ def typed_facts(
     return BusinessFacts.model_validate(data)
 
 
-def require_type_kind(document_type: DocumentType, facts: BusinessFacts) -> None:
-    """A known kind is one the type admits, and a Venta's kind is known."""
+def require_venta_kind(document_type: str | None, facts: BusinessFacts) -> None:
+    """A Venta stays an income document. The capture type owns that kind."""
 
     from argus.domain.business.contracts.facts import Known
 
-    if kind_disagrees(document_type, facts) or (
-        document_type == "venta" and not isinstance(facts.kind, Known)
-    ):
+    if document_type != "venta":
+        return
+    kind = facts.kind
+    if not isinstance(kind, Known) or kind.value != "income":
         from argus.domain.business.authority import ActionError
 
         raise ActionError("invalid_input", "activity_kind_unsupported")
+
+
+def require_type_kind(document_type: DocumentType, facts: BusinessFacts) -> None:
+    """A known kind is one the type admits, and a Venta's kind is known."""
+
+    if kind_disagrees(document_type, facts):
+        from argus.domain.business.authority import ActionError
+
+        raise ActionError("invalid_input", "activity_kind_unsupported")
+    require_venta_kind(document_type, facts)
