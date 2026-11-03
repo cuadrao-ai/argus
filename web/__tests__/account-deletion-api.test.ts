@@ -243,8 +243,8 @@ describe("the server's delete rule, read before the alert offers Eliminar", () =
     await expect(getAccountDeletionEligibility()).rejects.toBeDefined();
   });
 
-  test("a check the server could not run (503) shows as not allowed, never as Eliminar", async () => {
+  test("a check the server could not run (503) is for a retry, not an answer", async () => {
     respond([{ status: 503, body: { code: "account_deletion_unavailable", detail: "unavailable" } }]);
-    expect(await getAccountDeletionEligibility()).toEqual({ allowed: false, blockers: [{ kind: "not_allowed" }], notices: [] });
+    await expect(getAccountDeletionEligibility()).rejects.toMatchObject({ status: 503, code: "account_deletion_unavailable" });
   });
 });

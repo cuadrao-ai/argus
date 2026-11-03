@@ -2,13 +2,12 @@
 
 import { withViewportPortal } from "@/components/ui/withViewportPortal";
 
-import { useCallback, useEffect, useId, useRef, useState, type RefObject } from "react";
+import { useCallback, useId, useRef, type RefObject } from "react";
 import { dangerConfirmButtonClass, quietButtonClass, secondaryButtonClass } from "@/components/business-app/business-ui";
-import { getAccountDeletionEligibility, type AccountDeletionEligibility } from "@/lib/account-deletion-api";
-import { previewDeletionEligibility, previewLifecycleControls } from "@/lib/account-deletion-preview";
+import type { AccountDeletionEligibility } from "@/lib/account-deletion-api";
+import { previewLifecycleControls } from "@/lib/account-deletion-preview";
+import { useAccountDeletionEligibility, type AccountDeletionCheck } from "@/lib/use-account-deletion-eligibility";
 import { businessDeadlineParts, businessLifecycleHref } from "@/lib/business-lifecycle-api";
-import { browserAuthGeneration } from "@/lib/browser-auth-generation";
-import { serverRequestReference } from "@/lib/failure-screen";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { businessLifecycleControlsEnabled } from "@/lib/private-alpha-flags";
 import { X } from "lucide-react";
@@ -52,6 +51,7 @@ function ProfileDeleteRequestDialogSurface({
   onClose,
   onSubmit,
   returnFocusRef,
+  check,
   readEligibility,
   lifecycleControls = previewLifecycleControls() ?? businessLifecycleControlsEnabled(),
 }: {
@@ -60,27 +60,17 @@ function ProfileDeleteRequestDialogSurface({
   onClose: () => void;
   onSubmit: () => void | Promise<void>;
   returnFocusRef?: RefObject<HTMLElement | null>;
-  /** The server's delete rule; a test or the sample preview passes its own. */
+  /** The answer the opener already holds, so the alert opens with it in place. */
+  check?: AccountDeletionCheck;
+  /** Without a check, the alert reads the server's delete rule itself; a test passes its own. */
   readEligibility?: () => Promise<AccountDeletionEligibility>;
   /** Whether Transferir and Cerrar exist to link to. */
   lifecycleControls?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const isBusiness = useConversationSurface() === "business";
-  const [eligibility, setEligibility] = useState<AccountDeletionEligibility | null>(null);
-  const [readError, setReadError] = useState<{ reference: string | null } | null>(null);
-  const [readAttempt, setReadAttempt] = useState(0);
-  // Chosen once per open, so a new function each render never restarts the read.
-  const [read] = useState(() => readEligibility ?? previewDeletionEligibility() ?? getAccountDeletionEligibility);
-  useEffect(() => {
-    let active = true;
-    const generation = browserAuthGeneration();
-    setEligibility(null); setReadError(null);
-    void read().then(answer => {
-      if (active && browserAuthGeneration() === generation) setEligibility(answer);
-    }).catch(error => { if (active && browserAuthGeneration() === generation) setReadError({ reference: serverRequestReference(error) }); });
-    return () => { active = false; };
-  }, [read, readAttempt]);
+  const ownCheck = useAccountDeletionEligibility(!check, readEligibility);
+  const { answer: eligibility, error: readError, refresh } = check ?? ownCheck;
   // Off here (404) keeps the old path: the button files a support request.
   const allowed = eligibility !== null && ("off" in eligibility || eligibility.allowed);
   const blockers = eligibility && "blockers" in eligibility && !eligibility.allowed ? eligibility.blockers : [];
@@ -184,10 +174,13 @@ function ProfileDeleteRequestDialogSurface({
             {eligibility === null ? (
               <div className="space-y-2" data-testid="delete-account-checking">
                 <p role={readError ? "alert" : "status"} className={bodyText}>
-                  {t(readError ? "business.lifecycle.deletion.failed" : "business.lifecycle.deletion.checking")}
+                  {/* Business names its businesses; Personal stays neutral. */}
+                  {isBusiness
+                    ? t(readError ? "business.lifecycle.deletion.failed" : "business.lifecycle.deletion.checking")
+                    : t(readError ? "settings.profile.request_deletion.check_failed" : "settings.profile.request_deletion.checking")}
                 </p>
                 {readError?.reference ? <ReferenceCode reference={readError.reference} /> : null}
-                {readError ? <button type="button" className={quietButtonClass} onClick={() => setReadAttempt(value => value + 1)}>{t("common.retry")}</button> : null}
+                {readError ? <button type="button" className={quietButtonClass} onClick={refresh}>{t("common.retry")}</button> : null}
               </div>
             ) : ownedBusinesses.length ? (
               <div data-testid="delete-account-business-owner">
@@ -220,10 +213,9 @@ function ProfileDeleteRequestDialogSurface({
             ) : (
               <>
                 <p className={bodyText} data-testid="delete-account-allowed">
-                  {t(
-                    "settings.profile.request_deletion.body",
-                    "We delete your account and your personal data. This can't be undone.",
-                  )}
+                  {isBusiness
+                    ? t("settings.profile.request_deletion.body", "We delete your account and your personal data. This can't be undone.")
+                    : t("settings.profile.request_deletion.body_personal", "Your account and your data will be deleted, and this can't be undone. Households you run pass to the longest-standing member, or close if you're the only one.")}
                 </p>
                 {/* The personal app's shared plans; Business has none. */}
                 {isBusiness ? null : <p

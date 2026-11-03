@@ -7,6 +7,7 @@ import { useModalSurface } from "@/components/layout/useModalSurface";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { withViewportPortal } from "@/components/ui/withViewportPortal";
 import { SettingsWindowSection } from "@/components/settings/SettingsSurface";
+import type { AccountDeletionEligibility } from "@/lib/account-deletion-api";
 import {
   SETTINGS_GROUP_TITLE,
   settingsPanelNav,
@@ -26,7 +27,7 @@ import styles from "./settings-window.module.css";
 
 type SettingsRow =
   | { kind: "section"; id: SettingsPanel; label: string; icon: LucideIcon }
-  | { kind: "action"; id: "security" | "delete-account"; label: string; icon: LucideIcon; onSelect: () => void; leaves?: boolean; danger?: boolean };
+  | { kind: "action"; id: "security" | "delete-account"; label: string; icon: LucideIcon; onSelect: () => void; leaves?: boolean; danger?: boolean; note?: string };
 
 type SettingsGroup = { id: SettingsPanelParent; title: string; rows: SettingsRow[] };
 
@@ -38,6 +39,8 @@ type SettingsWindowProps = {
   renderSection: (panel: SettingsPanel) => ReactNode;
   onSecurity: () => void;
   onDeleteAccount: () => void;
+  /** The server's answer on deleting this account, read as Ajustes opened; null until it lands. */
+  deletionAnswer?: AccountDeletionEligibility | null;
   /** Where the delete alert returns focus when it closes over the window. */
   deleteAccountRef: RefObject<HTMLButtonElement | null>;
   legalLinks: readonly LegalLink[];
@@ -50,8 +53,13 @@ const rowBase =
 const muted = "text-[#56635e] dark:text-white/70";
 const hairline = "border-[#DCE0DA] dark:border-white/10";
 
-function useGroups(sections: readonly SettingsPanel[], onSecurity: () => void, onDeleteAccount: () => void): SettingsGroup[] {
-  const { t } = useTranslation();
+function useGroups(sections: readonly SettingsPanel[], onSecurity: () => void, onDeleteAccount: () => void, deletionAnswer: AccountDeletionEligibility | null | undefined): SettingsGroup[] {
+  const { t, i18n } = useTranslation();
+  // The row says before anyone presses it which Businesses stand in the way, as the server named them.
+  const owned = deletionAnswer && "blockers" in deletionAnswer ? deletionAnswer.blockers.flatMap(blocker => blocker.kind === "business_owner" ? [blocker.business_name] : []) : [];
+  const deleteNote = owned.length
+    ? t("settings.profile.delete_account_owner_note", { names: new Intl.ListFormat(i18n.resolvedLanguage ?? "es-419", { type: "conjunction" }).format(owned) })
+    : undefined;
   const groups: SettingsGroup[] = (["settings", "data"] as const).map((id) => ({
     id,
     title: t(...SETTINGS_GROUP_TITLE[id]),
@@ -62,7 +70,7 @@ function useGroups(sections: readonly SettingsPanel[], onSecurity: () => void, o
   }));
   groups[1].rows.push(
     { kind: "action", id: "security", label: t("settings.data.security", "Security"), icon: Shield, onSelect: onSecurity, leaves: true },
-    { kind: "action", id: "delete-account", label: t("settings.profile.delete_account", "Delete account"), icon: Trash2, onSelect: onDeleteAccount, danger: true },
+    { kind: "action", id: "delete-account", label: t("settings.profile.delete_account", "Delete account"), icon: Trash2, onSelect: onDeleteAccount, danger: true, note: deleteNote },
   );
   return groups.filter((group) => group.rows.length > 0);
 }
@@ -108,7 +116,7 @@ function CloseButton({ label, onClick, buttonRef }: { label: string; onClick: ()
   );
 }
 
-function DesktopWindow({ sections, renderSection, onSecurity, onDeleteAccount, deleteAccountRef, legalLinks, returnFocusRef, onClose }: SettingsWindowProps) {
+function DesktopWindow({ sections, renderSection, onSecurity, onDeleteAccount, deletionAnswer, deleteAccountRef, legalLinks, returnFocusRef, onClose }: SettingsWindowProps) {
   const { t } = useTranslation();
   const overlayId = useId();
   const titleId = useId();
@@ -117,7 +125,7 @@ function DesktopWindow({ sections, renderSection, onSecurity, onDeleteAccount, d
   const activeRowRef = useRef<HTMLButtonElement>(null);
   const navRef = useRef<HTMLElement>(null);
   const [active, setActive] = useState<SettingsPanel | undefined>(sections[0]);
-  const groups = useGroups(sections, onSecurity, onDeleteAccount);
+  const groups = useGroups(sections, onSecurity, onDeleteAccount, deletionAnswer);
   useModalSurface({ isOpen: true, overlayId, containerRef: panelRef, onDismiss: onClose, initialFocusRef: activeRowRef, returnFocusRef });
 
   // Up and Down walk the list; landing on a section shows it, as a settings list does.
@@ -171,7 +179,10 @@ function DesktopWindow({ sections, renderSection, onSecurity, onDeleteAccount, d
                           className={`${rowBase} ${rowTone(row, isActive)}`}
                         >
                           <Icon className={`h-[18px] w-[18px] shrink-0 ${row.kind === "action" && row.danger ? "" : isActive ? "text-black dark:text-white" : muted}`} aria-hidden="true" />
-                          <span className="min-w-0 flex-1">{row.label}</span>
+                          <span className="min-w-0 flex-1">
+                            {row.label}
+                            {row.kind === "action" && row.note ? <span data-testid="delete-account-note" className={`block text-[14px] ${muted}`}>{row.note}</span> : null}
+                          </span>
                           {row.kind === "action" && row.leaves ? <ArrowUpRight className={`h-4 w-4 shrink-0 ${muted}`} aria-hidden="true" /> : null}
                         </button>
                       </li>
@@ -245,7 +256,7 @@ function PhoneHeader({ titleId, title, backLabel, onBack, backRef }: { titleId: 
   );
 }
 
-function PhoneScreen({ sections, renderSection, onSecurity, onDeleteAccount, deleteAccountRef, legalLinks, returnFocusRef, onClose }: SettingsWindowProps) {
+function PhoneScreen({ sections, renderSection, onSecurity, onDeleteAccount, deletionAnswer, deleteAccountRef, legalLinks, returnFocusRef, onClose }: SettingsWindowProps) {
   const { t } = useTranslation();
   const overlayId = useId();
   const titleId = useId();
@@ -253,7 +264,7 @@ function PhoneScreen({ sections, renderSection, onSecurity, onDeleteAccount, del
   const backRef = useRef<HTMLButtonElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const [section, setSection] = useState<SettingsPanel | null>(null);
-  const groups = useGroups(sections, onSecurity, onDeleteAccount);
+  const groups = useGroups(sections, onSecurity, onDeleteAccount, deletionAnswer);
   useModalSurface({ isOpen: true, overlayId, containerRef: ref, onDismiss: onClose, initialFocusRef: backRef, returnFocusRef });
 
   return (
@@ -290,7 +301,10 @@ function PhoneScreen({ sections, renderSection, onSecurity, onDeleteAccount, del
                         }`}
                       >
                         <Icon className={`h-5 w-5 shrink-0 ${row.kind === "action" && row.danger ? "" : muted}`} aria-hidden="true" />
-                        <span className="min-w-0 flex-1">{row.label}</span>
+                        <span className="min-w-0 flex-1 py-2">
+                          {row.label}
+                          {row.kind === "action" && row.note ? <span data-testid="delete-account-note" className={`block text-[14px] ${muted}`}>{row.note}</span> : null}
+                        </span>
                         {row.kind === "section" ? <ChevronRight className={`h-4 w-4 shrink-0 ${muted}`} aria-hidden="true" /> : row.leaves ? <ArrowUpRight className={`h-4 w-4 shrink-0 ${muted}`} aria-hidden="true" /> : null}
                       </button>
                     </li>

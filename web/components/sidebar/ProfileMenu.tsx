@@ -23,6 +23,7 @@ import ProfileSettingsPanels, {
   type SidebarPreference,
 } from "./ProfileSettingsPanels";
 import SettingsWindow from "@/components/settings/SettingsWindow";
+import { useAccountDeletionEligibility } from "@/lib/use-account-deletion-eligibility";
 import {
   SHEET_SUBMENU_CLASS,
   profileMenuClass,
@@ -730,10 +731,15 @@ export default function ProfileMenu({
     [handleAvatarThemeSelect, isSavingAvatarTheme],
   );
 
+  // Read as Ajustes opens, so the Eliminar cuenta row and its alert already
+  // hold the server's answer; opening the alert refreshes it behind the old one.
+  const deletionCheck = useAccountDeletionEligibility(activeModal === "settings-window");
+  const refreshDeletionCheck = deletionCheck.refresh;
   const handleOpenDeleteRequest = useCallback(() => {
     setDeleteRequestState("idle");
     setIsDeleteRequestOpen(true);
-  }, []);
+    refreshDeletionCheck();
+  }, [refreshDeletionCheck]);
 
   const closeSettingsWindow = useCallback(() => setActiveModal(null), []);
 
@@ -855,6 +861,7 @@ export default function ProfileMenu({
       onClose={handleCloseDeleteRequest}
       onSubmit={handleSubmitDeleteRequest}
       returnFocusRef={activeModal === "settings-window" ? deleteAccountRef : anchorRef}
+      check={deletionCheck}
     />
   ) : null;
 
@@ -884,6 +891,7 @@ export default function ProfileMenu({
           )}
           onSecurity={() => navigateFromOverlay("/account/security", closeSettingsWindow)}
           onDeleteAccount={handleOpenDeleteRequest}
+          deletionAnswer={deletionCheck.answer}
           deleteAccountRef={deleteAccountRef}
           legalLinks={LEGAL_LINK_IDS.map((id) => ({
             id,
