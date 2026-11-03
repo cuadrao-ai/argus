@@ -379,9 +379,9 @@ test("empty invoice reset clears real filters and period while preserving stage 
     assert.ok(draft); await page.act(async () => draft.click());
     assert.equal([...document.querySelectorAll("button")].some(button => button.textContent?.trim() === "Clear filters"), false);
     await page.click("25 per page"); await page.click("50 per page");
-    const date = [...document.querySelectorAll<HTMLButtonElement>('button[aria-haspopup="dialog"]')].find(button => button.textContent?.trim() === "All");
+    const date = [...document.querySelectorAll<HTMLButtonElement>('button[aria-haspopup="dialog"]')].find(button => button.textContent?.trim() === "All dates");
     assert.ok(date); await page.act(async () => date.click());
-    await page.click("Last 7 days"); await page.click("Confirm period");
+    await page.click("This month"); await page.click("Confirm period");
     await page.click("All currencies"); await page.click("USD");
     await page.fill('input[aria-label="Search customer, invoice or note…"]', "unmatched");
     const before = new URLSearchParams(page.calls.filter(call => call.path.endsWith("/business/invoices") && call.method === "GET").at(-1)!.query);
@@ -390,7 +390,7 @@ test("empty invoice reset clears real filters and period while preserving stage 
     const after = new URLSearchParams(page.calls.filter(call => call.path.endsWith("/business/invoices") && call.method === "GET").at(-1)!.query);
     assert.equal(after.get("search"), ""); assert.equal(after.get("currency"), null); assert.equal(after.get("date_from"), null); assert.equal(after.get("date_to"), null);
     assert.equal(after.get("page"), "1"); assert.equal(after.get("page_size"), "50"); assert.equal(after.get("stage"), "draft"); assert.equal(after.get("sort"), before.get("sort"));
-    assert.ok([...document.querySelectorAll("button")].some(button => button.textContent?.trim() === "All" && button.hasAttribute("aria-haspopup")));
+    assert.ok([...document.querySelectorAll("button")].some(button => button.textContent?.trim() === "All dates" && button.hasAttribute("aria-haspopup")));
     assert.equal([...document.querySelectorAll("button")].some(button => button.textContent?.trim() === "Clear filters"), false);
   } finally { await page.close(); }
 });

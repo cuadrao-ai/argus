@@ -149,12 +149,13 @@ test("keyboard cursor selects a range and Shift PageUp moves a year", async () =
   assert.equal((document.activeElement as HTMLElement).dataset.day, "2025-10-11");
 });
 
-test("phone uses the full viewport, vertical months, one Today and safe opening focus", async () => {
+test("phone uses the full viewport, vertical months, one Hoy in the list and safe opening focus", async () => {
   const page = await mount("date", 390); await page.click(page.host.querySelector("button"));
   const sheet = document.querySelector<HTMLElement>('[role="dialog"]')!;
   assert.equal(sheet.dataset.fullScreen, "true"); assert.equal(sheet.style.height, "844px");
   assert.equal(document.querySelectorAll('table[role="grid"]').length, 12);
   assert.equal([...document.querySelectorAll("button")].filter((button) => button.textContent === "Hoy").length, 1);
+  assert.ok(document.querySelector('[aria-label="Períodos rápidos"] button') && [...document.querySelectorAll('[aria-label="Períodos rápidos"] button')].some((button) => button.textContent === "Hoy"), "the one Hoy is in the list");
   assert.notEqual(document.activeElement?.tagName, "INPUT"); assert.ok(page.button("Confirmar período"));
   await page.escape(); assert.equal(document.querySelector('[role="dialog"]'), null);
 });
