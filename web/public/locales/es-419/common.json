@@ -2803,6 +2803,15 @@
       "read_only": "Tu permiso permite ver este registro.",
       "recorded": "Se registró un gasto tras aprobar la revisión {{version}}.",
       "correction_unsupported": "Las correcciones después del registro no están disponibles en este primer flujo.",
+      "reopen": "Reabrir",
+      "reopen_title": "¿Reabrir este recibo?",
+      "reopen_body": "Vuelve a la Bandeja para corregirlo. Sale de tus registros hasta que lo apruebes de nuevo.",
+      "reopening": "Reabriendo…",
+      "reopen_failed": "No se pudo reabrir este recibo. Revisa el registro actual antes de intentarlo de nuevo.",
+      "reopen_refused": {
+        "business_record_matched": "Este recibo está conciliado con un movimiento del banco. Deshaz esa conciliación para reabrirlo.",
+        "business_refund_linked": "Una nota de crédito o un reembolso apunta a este recibo. Atiende ese registro primero."
+      },
       "ecf_title": "Factura electrónica",
       "ecf_note": "Lo que el archivo demuestra por sí mismo. Nada aquí confirma que la DGII aceptó la factura; una fila con «Revisar» no impide aprobar.",
       "ecf_see_all_one": "Ver la {{count}} comprobación",

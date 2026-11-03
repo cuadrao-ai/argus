@@ -27,7 +27,7 @@ import { dossierFixtureIds } from "../dossier-fixtures";
 
 type ActorKind = "member" | "owner_via_agent" | "extractor";
 type LedgerAction =
-  | "review_draft" | "approve_expense" | "approve_income" | "approve_refund" | "capture_note" | "prepare_attachment"
+  | "review_draft" | "approve_expense" | "approve_income" | "approve_refund" | "reopen_draft" | "capture_note" | "prepare_attachment"
   | "rebind_attachment" | "settle_remainder" | "mark_personal" | "decide_606" | "resolve_duplicate" | "edit_current_note"
   | "append_supporting_file" | "receipt_upload" | "receipt_review" | "receipt_confirm" | "business_ask"
   | "set_business_rnc" | "business_propose_activity" | "business_attach_source" | "business_propose_allocation"
@@ -72,6 +72,7 @@ const ACTION_META: Record<DraftItem["action"], { area: Area; group: Group }> = {
   approve_expense: { area: "records", group: "approvals" },
   approve_income: { area: "records", group: "approvals" },
   approve_refund: { area: "records", group: "approvals" },
+  reopen_draft: { area: "records", group: "approvals" },
   capture_note: { area: "records", group: "edits" },
   edit_current_note: { area: "records", group: "edits" },
   settle_remainder: { area: "records", group: "edits" },
@@ -109,7 +110,7 @@ const COPY = {
       receipt_review: "revisó un documento", receipt_confirm: "confirmó un documento", resolve_duplicate: "resolvió un duplicado",
       append_supporting_file: "adjuntó un archivo de soporte", prepare_attachment: "preparó un adjunto", rebind_attachment: "movió un adjunto a otro registro",
       business_attach_source: "vinculó un documento", review_draft: "revisó un registro", approve_expense: "aprobó un gasto",
-      approve_income: "aprobó un ingreso", approve_refund: "aprobó un reembolso", capture_note: "creó un registro desde una nota",
+      approve_income: "aprobó un ingreso", approve_refund: "aprobó un reembolso", reopen_draft: "reabrió un registro aprobado", capture_note: "creó un registro desde una nota",
       edit_current_note: "editó una nota", settle_remainder: "saldó el resto de un registro", mark_personal: "marcó un gasto como personal",
       decide_606: "decidió si un gasto va al 606", business_propose_activity: "propuso un registro", business_propose_allocation: "propuso cómo repartir un pago",
       invoice_draft_created: "creó un borrador de factura", invoice_revision_saved: "guardó cambios en una factura",
@@ -145,7 +146,7 @@ const COPY = {
       receipt_review: "reviewed a document", receipt_confirm: "confirmed a document", resolve_duplicate: "resolved a duplicate",
       append_supporting_file: "attached a supporting file", prepare_attachment: "prepared an attachment", rebind_attachment: "moved an attachment to another record",
       business_attach_source: "linked a document", review_draft: "reviewed a record", approve_expense: "approved an expense",
-      approve_income: "approved an income", approve_refund: "approved a refund", capture_note: "created a record from a note",
+      approve_income: "approved an income", approve_refund: "approved a refund", reopen_draft: "reopened an approved record", capture_note: "created a record from a note",
       edit_current_note: "edited a note", settle_remainder: "settled a record's remainder", mark_personal: "marked an expense as personal",
       decide_606: "decided whether an expense goes in the 606", business_propose_activity: "proposed a record", business_propose_allocation: "proposed how to split a payment",
       invoice_draft_created: "created an invoice draft", invoice_revision_saved: "saved changes to an invoice",

@@ -174,6 +174,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   const [captureRetained, setCaptureRetained] = useState(false);
   const [capturePending, setCapturePending] = useState(false);
   const [settling, setSettling] = useState(false);
+  const [reopening, setReopening] = useState<"asking" | "sending" | null>(null);
   const [duplicateBusy, setDuplicateBusy] = useState(false);
   const [advancing, setAdvancing] = useState(false);
   const [finished, setFinished] = useState(false);
@@ -262,6 +263,24 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
       setProblem({ text: t("business.dossier.settle_failed", "The rest could not be marked as handled. Check the current record before trying again."), reference: referenceCode(error) });
     } finally {
       setSettling(false);
+    }
+  };
+
+  /** The confirmed reopen. The server reverses the money row and answers the open draft, so this screen becomes its review. */
+  const reopen = async () => {
+    if (!dossier || reopening !== "asking" || inFlight.current) return;
+    setReopening("sending");
+    setProblem(null);
+    try {
+      const next = await source.reopenDraft(draftId, dossier.version, randomId());
+      setReopening(null);
+      setDossier(next);
+      reload();
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      const refused = code === "business_record_matched" || code === "business_refund_linked" ? t(`business.dossier.reopen_refused.${code}`) : null;
+      setReopening(null);
+      setProblem({ text: refused ?? t("business.dossier.reopen_failed", "This receipt could not be reopened. Check the current record before trying again."), reference: referenceCode(error) });
     }
   };
 
@@ -505,6 +524,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
             <ReceiptMarksCard dossier={dossier} busy={busy || fiscalBusy || fiscalDirty} onChanged={setDossier} bare />
             {NOTES_ENTRY_ENABLED && canPrepare && mutable && !Object.keys(rows.rows).length ? <button type="button" className={`${secondaryButtonClass} w-full`} onClick={() => { setCaptureTarget({ draft_id: dossier.draft_id, version: dossier.version }); setCaptureRevision(factsRevision(dossier)); setCaptureOpen(true); }}>{t("business.capture.append", "Add a note to this record")}</button> : null}
           </ReceiptMoreMenu>
+          {approval && dossier.reopen_available === true ? <button type="button" data-testid="reopen-record" aria-busy={reopening === "sending"} className={`${secondaryButtonClass} whitespace-nowrap`} disabled={reopening !== null || busy || fiscalBusy || fiscalDirty} onClick={() => { setProblem(null); setReopening("asking"); }}>{reopening === "sending" ? <><Loader2 className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none" aria-hidden="true" />{t("business.dossier.reopening", "Reopening…")}</> : t("business.dossier.reopen", "Reopen")}</button> : null}
           {!approval && canApprove ? <>
             <button type="button" aria-busy={operation.kind === "approving" && !advancing} className={`${receipt ? secondaryButtonClass : primaryButtonClass} whitespace-nowrap`} aria-describedby={reason ? reasonId : attention.length ? "dossier-attention-title" : undefined} disabled={!supportedKind || !approvable} onClick={() => requestApproval()}>{operation.kind === "approving" && !advancing ? <><Loader2 className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none" aria-hidden="true" />{t("business.dossier.approving", "Approving…")}</> : approvalLabel}</button>
             {receipt ? <button type="button" aria-busy={operation.kind === "approving" && advancing} className={`${primaryButtonClass} ${KEY_HINT_CLASS} whitespace-nowrap`} data-keys={primaryKeys} aria-describedby={reason ? reasonId : attention.length ? "dossier-attention-title" : undefined} aria-keyshortcuts="Meta+Enter Control+Enter" disabled={!supportedKind || !approvable} onClick={() => requestApproval(true)}>{operation.kind === "approving" && advancing ? <><Loader2 className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none" aria-hidden="true" />{t("business.dossier.approving", "Approving…")}</> : t("business.dossier.approve_next", "Approve and next")}</button> : null}
@@ -553,6 +573,17 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
             <button type="button" disabled={busy || checking} onClick={() => void refresh()} className={`${secondaryButtonClass} mt-4`}><RotateCcw className="h-4 w-4" aria-hidden="true" />{t("business.dossier.refresh", "Check current record")}</button>
           </div> : null}
     </ReceiptReviewFrame>
+    {reopening ? <ConfirmDialog
+      isOpen
+      tone="primary"
+      title={t("business.dossier.reopen_title", "Reopen this receipt?")}
+      description={t("business.dossier.reopen_body", "It goes back to the Inbox so you can correct it. It leaves your records until you approve it again.")}
+      confirmLabel={t("business.dossier.reopen", "Reopen")}
+      cancelLabel={t("common.cancel", "Cancel")}
+      isBusy={reopening === "sending"}
+      onCancel={() => { if (reopening === "asking") setReopening(null); }}
+      onConfirm={() => void reopen()}
+    /> : null}
     {approvalCheck?.kind === "rnc" ? <ConfirmDialog
       isOpen
       title={t(`business.dgii.rnc_check.${approvalCheck.status}.approval_title`)}

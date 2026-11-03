@@ -302,6 +302,15 @@ export async function settleBusinessRemainder(draftId: string, version: number, 
   });
 }
 
+/** The owner returns an approved record to the Bandeja to correct it; the server reverses the money row it recorded. */
+export async function reopenBusinessDraft(draftId: string, version: number, idempotencyKey: string): Promise<BusinessDossier> {
+  return fetchDossier(`/business/drafts/${encodeURIComponent(draftId)}/reopen`, {
+    method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({ version }),
+  });
+}
+
 /** The account types POST /business/accounts accepts; the server's ExpenseAccountType. */
 export const EXPENSE_ACCOUNT_TYPES = ["cash", "checking", "savings", "credit_card"] as const;
 export type ExpenseAccountType = (typeof EXPENSE_ACCOUNT_TYPES)[number];

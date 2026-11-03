@@ -118,6 +118,8 @@ export type BusinessDossier = BusinessRecordContext & {
   dgii?: DgiiDeclaration | null;
   /** The caller may write the 606 declaration now: it holds prepare, the record takes a 606, and no downloaded TXT carries it. */
   declaration_editable?: boolean;
+  /** The caller may return this approved record to the Bandeja now: it holds approve and no bank match, credit note or refund is linked to it. */
+  reopen_available?: boolean;
   /** The tipo de gasto a person last chose for this supplier's RNC in this Business. A suggestion: it reaches the 606 only when a person writes it. */
   expense_type_suggestion?: string | null;
   /** What the e-CF XML proved by itself; null for any other source. */

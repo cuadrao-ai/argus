@@ -146,7 +146,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   const elena: BusinessActor = { ...actor, actor_id: "30000000-0000-4000-8000-000000000003", grant_id: "40000000-0000-4000-8000-000000000003", display_name: "Elena Reyes" };
   const personalSourceId = "20000000-0000-4000-8000-000000000016";
   const personalFacts: BusinessFacts = { ...marked.facts, business_share: { state: "known", value: { kind: "none" }, origin: "member_set", verified: true, source_ids: [personalSourceId] } };
-  dossiers.set(marked.draft_id, { ...marked, version: 4, review_state: "accepted", approval_available: false, personal: true, personal_marked_by: elena.display_name, facts: personalFacts, sources: [...marked.sources, { id: personalSourceId, kind: "web_action", channel: "web", received_at: "2026-10-10T15:05:00Z", text: JSON.stringify({ version: 3, personal: true }) }], history: [...marked.history, { draft_id: marked.draft_id, version: 4, actor: elena, before: marked.facts, after: personalFacts, source_ids: [personalSourceId], turn_key: null, created_at: "2026-10-10T15:05:00Z" }], approval_result: { status: "recorded", activity_id: "70000000-0000-4000-8000-000000000002", reviewed_version: 2, approved_revision: 2, approved_at: "2026-10-10T14:40:00Z", actor } });
+  dossiers.set(marked.draft_id, { ...marked, version: 4, review_state: "accepted", approval_available: false, reopen_available: true, personal: true, personal_marked_by: elena.display_name, facts: personalFacts, sources: [...marked.sources, { id: personalSourceId, kind: "web_action", channel: "web", received_at: "2026-10-10T15:05:00Z", text: JSON.stringify({ version: 3, personal: true }) }], history: [...marked.history, { draft_id: marked.draft_id, version: 4, actor: elena, before: marked.facts, after: personalFacts, source_ids: [personalSourceId], turn_key: null, created_at: "2026-10-10T15:05:00Z" }], approval_result: { status: "recorded", activity_id: "70000000-0000-4000-8000-000000000002", reviewed_version: 2, approved_revision: 2, approved_at: "2026-10-10T14:40:00Z", actor } });
   // The three gates the server serves on a dossier, by the rules its actions enforce. The sample's
   // owner holds approve, so a prepare-holder without it stands in for the accountant.
   const approvalActions: Record<string, BusinessApprovalAction> = { expense: "record_expense", income: "record_income", refund: "record_refund" };
@@ -343,6 +343,15 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       dossiers.set(id, { ...current, version: current.version + 1, unrecorded_purchases: 0 });
       return get(id);
     },
+    reopenDraft: async (id: string, version: number) => {
+      const current = get(id);
+      if (!current.capabilities.includes("approve")) fail(403, "business_permission_denied");
+      if (current.version !== version) fail(409, "stale_version");
+      if (current.review_state !== "accepted") fail(422, "business_draft_not_recorded");
+      if (!current.reopen_available) fail(422, "business_record_matched");
+      dossiers.set(id, { ...current, version: current.version + 1, review_state: "open", approval_available: true, approval_result: null, reopen_available: false });
+      return get(id);
+    },
     approveDraft: async (id: string, version: number, action: BusinessApprovalAction = "record_expense") => {
       const current = get(id);
       if (current.approval_action && action !== current.approval_action) fail(422, "invalid_request");
@@ -362,7 +371,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
         dossiers.set(id, next);
         throw new TypeError("Synthetic connection interrupted");
       }
-      const next: BusinessDossier = { ...current, version: current.version + 1, review_state: "accepted", approval_available: false, approval_result: { status: "recorded", activity_id: "70000000-0000-4000-8000-000000000001", reviewed_version: version, approved_revision: factsRevision(current), approved_at: "2026-10-10T14:40:00Z", actor } };
+      const next: BusinessDossier = { ...current, version: current.version + 1, review_state: "accepted", approval_available: false, reopen_available: current.capabilities.includes("approve"), approval_result: { status: "recorded", activity_id: "70000000-0000-4000-8000-000000000001", reviewed_version: version, approved_revision: factsRevision(current), approved_at: "2026-10-10T14:40:00Z", actor } };
       dossiers.set(id, next);
       return get(id);
     },
