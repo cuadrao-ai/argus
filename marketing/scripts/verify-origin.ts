@@ -97,7 +97,8 @@ async function main(): Promise<void> {
     record(`icon ${path}`, response.status === 200 && (response.headers.get("content-type") ?? "").startsWith("image/"), `got ${response.status}`);
   }
   record("no manifest", (await get("/manifest.json")).status === 404);
-  record("form endpoints reject GET", (await get("/api/inquiries")).status === 405 && (await get("/api/signups")).status === 405);
+  record("contact endpoint rejects GET", (await get("/api/inquiries")).status === 405);
+  record("old signup endpoint is gone", (await get("/api/signups")).status === 404);
 
   const robotsResponse = await get("/robots.txt");
   const sitemapResponse = await get("/sitemap.xml");

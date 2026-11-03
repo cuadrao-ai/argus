@@ -27,7 +27,7 @@ Provider settings are optional locally. Without them each form shows its unavail
 | `lib/site-routes.ts` | The one URL map: paths, canonical and alternate URLs, sitemap entries, rewrites, old-path redirects |
 | `lib/page-metadata.ts` | Titles, descriptions, share images |
 | `lib/indexing.ts`, `proxy.ts`, `app/robots.ts`, `app/sitemap.ts` | Runtime indexing switch (`CUADRAO_SITE_INDEXING=public`); every other host sends `noindex` |
-| `lib/forms/` | Inquiry and signup handlers, validation, limits, configuration |
+| `lib/forms/` | Inquiry handler, validation, limits, configuration |
 | `components/` | Pages, copy and styles moved from `web/components/business` |
 | `app/icon.svg`, `scripts/make-icons.mjs` | Cuadrao mark ("Lean, calm") and the PNG/ICO files rendered from it |
 | `brand/` | The mark without its tile (light and dark), the outlined wordmark and the two lockups, with the wordmark specification, colours and lockup geometry in `brand/README.md`. Tests keep every file's shapes identical to `app/icon.svg` and the wordmark's styling equal to the site's `.wordmark` rule |

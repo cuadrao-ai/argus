@@ -27,6 +27,13 @@ test("secondary text on the cream background clears 4.5 to 1", () => {
   expect(contrast("#56635e", "#f1f1e6")).toBe(5.53);
 });
 
+test("footer fine print stays at 14px", () => {
+  const css = readFileSync(new URL("../components/business.module.css", import.meta.url), "utf8");
+  const footer = css.split("\n").filter((line) => /businessFooterGrid (small|nav > span)|footerBar > p/.test(line));
+  expect(footer.length).toBeGreaterThan(0);
+  for (const line of footer) expect(line).not.toMatch(/font-size:\s*1[0-3]px/);
+});
+
 test("landing and legal fine print stays at 14px in the secondary color", () => {
   for (const file of FILES) {
     const css = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");

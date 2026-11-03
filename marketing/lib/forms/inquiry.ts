@@ -19,7 +19,6 @@ export function inquiryText(input: InquiryInput): string {
     `Correo: ${input.email}`,
     `Idioma del sitio: ${input.locale}`,
     "",
-    "Mensaje:",
     input.description || "(sin comentario)",
     "",
   ].join("\n");

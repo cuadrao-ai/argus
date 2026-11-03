@@ -5,7 +5,6 @@ import {
   normalizeEmail,
   parseMailbox,
   validateInquiry,
-  validateSignup,
 } from "../lib/forms/validation";
 import { SUBMISSION_ID, inquiryBody } from "./forms-support";
 
@@ -50,23 +49,6 @@ describe("inquiry validation", () => {
   test("keeps newlines in the description but drops other control characters", () => {
     const result = validateInquiry(inquiryBody({ description: "uno\ndos\u0000\u0007" }));
     expect(result.ok && result.value.description).toBe("uno\ndos");
-  });
-});
-
-describe("signup validation", () => {
-  test("accepts an address and a language", () => {
-    expect(validateSignup({ email: " Ana@Example.INVALID", locale: "en" })).toEqual({
-      ok: true,
-      value: { email: "ana@example.invalid", locale: "en" },
-    });
-  });
-
-  test.each([
-    [{ email: "", locale: "es" }, ["email"]],
-    [{ email: "ana@example.invalid", locale: "xx" }, ["locale"]],
-    [{ email: "ana", locale: "xx" }, ["email", "locale"]],
-  ])("rejects %j", (body, fields) => {
-    expect(validateSignup(body)).toEqual({ ok: false, fields });
   });
 });
 

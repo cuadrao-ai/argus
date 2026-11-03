@@ -112,6 +112,15 @@ test.describe("product scene", () => {
     expect(frameWidth).toBe(widths[1] - 24);
   });
 
+  test("the smallest phones have no sideways scroll", async ({ page, isMobile }) => {
+    test.skip(isMobile, "the mobile project hides sideways scroll");
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto(PATH);
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth))
+      .toBe(0);
+  });
+
   test("a phone shows one finished picture that does not pin", async ({ page, isMobile }) => {
     test.skip(!isMobile, "phone layout");
     await page.goto(PATH);
