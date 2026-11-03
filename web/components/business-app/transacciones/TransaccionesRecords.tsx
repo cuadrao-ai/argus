@@ -18,6 +18,7 @@ import { AccountLabel, amountColumnSize, PlainAmount, SignedAmount, Truncated, U
 import { recordsColumnLabelKey, visibleRecordsColumns, recordsMinimumWidth, type RecordsViewPreferences } from "./records-view-preferences";
 import { formatRecordActivityDate, previewAmountColumnSize, recordRowKey } from "./records-row-preview";
 import RecordWorkflowBadge from "./RecordWorkflowBadge";
+import RecordDgiiCell from "./RecordDgiiCell";
 import { RecordAnnotationActions, RecordAttachmentPreview, RecordNotePreview } from "./RecordsAnnotationsPreview";
 import type { RecordsSort } from "./records-pagination";
 import { CELL, COLUMNS, PIN_CLASS } from "./TransaccionesTable";
@@ -122,6 +123,9 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
                   </Tooltip>}
                 </td>),
               estado: (<td data-col="estado" className={`${CELL} text-left`}><RecordWorkflowBadge row={row} /></td>),
+              tipo_gasto: (<td data-col="tipo_gasto" className={`${CELL} text-left`}><RecordDgiiCell row={row} field="expense_type" /></td>),
+              forma_pago: (<td data-col="forma_pago" className={`${CELL} text-left`}><RecordDgiiCell row={row} field="payment_form" /></td>),
+              // The ledger's own columns, for the records table bank matching mounts beside its movements.
               categoria: (<td data-col="categoria" className={`${CELL} text-left`}>{row.categoryId ? <Truncated text={t(`business.category.${row.categoryId}`, { defaultValue: row.categoryId })} /> : <Unknown />}</td>),
               cuenta: (<td data-col="cuenta" className={`${CELL} text-left`}><AccountLabel account={row.account} /></td>),
               comprobante: (<td data-col="comprobante" data-pinned={proofPinned ? "right" : undefined} className={`${CELL} ${proofPinned ? PIN_CLASS.right : ""} text-right`}>{preferences ? <RecordAttachmentPreview row={row} /> : <Proof row={row} />}</td>),

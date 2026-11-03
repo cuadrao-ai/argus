@@ -19,7 +19,8 @@ TableColumn = Literal[
     "gross_amount",
     "currency",
     "family",
-    "category",
+    "expense_type",
+    "payment_form",
     "stage",
     "note",
     "attachment",
@@ -31,21 +32,46 @@ TABLE_COLUMNS: tuple[TableColumn, ...] = (
     "gross_amount",
     "currency",
     "family",
-    "category",
+    "expense_type",
+    "payment_form",
     "stage",
     "note",
     "attachment",
     "funding",
 )
+HIDDEN_COLUMNS: tuple[TableColumn, ...] = ("funding", "payment_form")
 Sort = Literal[
     "date_desc", "date_asc", "name_asc", "name_desc", "amount_asc", "amount_desc"
 ]
 
 
+def _current_columns(value: Any) -> Any:
+    """A saved presentation from before the 606 columns: Categoría's slot is
+    now Tipo de gasto, and Forma de pago joins the order as a hidden column."""
+
+    if not isinstance(value, dict) or not isinstance(value.get("order"), list):
+        return value
+    order = ["expense_type" if key == "category" else key for key in value["order"]]
+    hidden = [
+        "expense_type" if key == "category" else key
+        for key in value.get("hidden", list(HIDDEN_COLUMNS))
+    ]
+    if "payment_form" not in order and "expense_type" in order:
+        order.insert(order.index("expense_type") + 1, "payment_form")
+        if "payment_form" not in hidden:
+            hidden.append("payment_form")
+    return {**value, "order": order, "hidden": hidden}
+
+
 class Presentation(Contract):
     order: tuple[TableColumn, ...] = TABLE_COLUMNS
-    hidden: tuple[TableColumn, ...] = ("funding",)
+    hidden: tuple[TableColumn, ...] = HIDDEN_COLUMNS
     density: Literal[40, 48, 56] = 48
+
+    @model_validator(mode="before")
+    @classmethod
+    def legacy_columns(cls, value: Any) -> Any:
+        return _current_columns(value)
 
     @model_validator(mode="after")
     def canonical_columns(self) -> Presentation:

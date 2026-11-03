@@ -31,6 +31,7 @@ export async function fulfillSyntheticBusinessFallback(route: SyntheticBusinessR
     excluded_personal: { income: 0, expense: 0 },
     counterparties: [],
     categories: [],
+    expense_types: [],
     funding_sources: [],
     coverage_notes: [
       "records_only_evidence_separate",

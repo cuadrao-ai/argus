@@ -35,6 +35,8 @@ export function createBusinessReportHttpFixture() {
     money_kind: index % 2 ? "income" : "expense", money_effect: index === 2 ? "unknown" : "known", adjustment_effect: null,
     counterparty: index === 125 ? "José Peña" : `Proveedor ${index + 1}`, counterparty_key: null, category_key: "uncategorized", funding_key: null, funding_label: null, funding_kind: null,
     has_document: index === 0 || index === 125, document_kind: "unknown", fiscal_classification: "unknown", fiscal_number: null,
+    // Sales carry no 606 answers; every third purchase still needs its tipo de gasto, every fifth its forma de pago.
+    dgii_606: index % 2 ? null : { expense_type: index % 3 ? { code: "02", label: "Gastos por trabajos, suministros y servicios" } : null, payment_form: index % 5 ? { code: "01", label: "Efectivo" } : null },
     note: `Nota ${index + 1}`, settlement_status: "paid", dependency_fingerprint: `dependency-${index}`, can_edit_note: true, can_append_supporting: true, annotation_unavailable_reason: null,
     attachment_sources: index === 0 ? [{ source_id: fixtureId(500), receipt_id: fixtureId(700), filename: "Original sintético.pdf", media_type: "application/pdf", source_available: true, download_available: true }] : index === 125 ? [{ source_id: fixtureId(501), receipt_id: fixtureId(701), filename: "José Peña.pdf", media_type: "application/pdf", source_available: true, download_available: true }] : [],
   }));
@@ -58,6 +60,8 @@ export function createBusinessReportHttpFixture() {
       if (report.filters.record_families.length) matching = matching.filter((row) => row.family && report.filters.record_families.includes(row.family));
       if (report.filters.review_stages.length) matching = matching.filter((row) => row.stage && report.filters.review_stages.includes(row.stage));
       if (report.filters.currencies.length) matching = matching.filter((row) => row.currency && report.filters.currencies.includes(row.currency));
+      if (report.filters.expense_types.length) matching = matching.filter((row) => row.dgii_606 && report.filters.expense_types.includes(row.dgii_606.expense_type?.code ?? "missing"));
+      if (report.filters.document_kinds.length) matching = matching.filter((row) => report.filters.document_kinds.includes(row.document_kind));
       const currencies = new Set(matching.map((row) => row.currency));
       const blocked = report.sort.startsWith("amount_") && (currencies.size !== 1 || currencies.has(null));
       const effective_sort = blocked ? "date_desc" : report.sort;
@@ -66,7 +70,7 @@ export function createBusinessReportHttpFixture() {
       return Response.json(reportAnswerSchema.parse({ items, matching_count: matching.length, page: report.page, page_size: report.page_size, page_count: Math.ceil(matching.length / report.page_size),
         totals: documentFamilyTotals(matching),
         fingerprint: "a".repeat(64), captured_at: "2026-10-26T12:00:00Z", resolved_period: report.filters.period.kind === "latest_month" ? latestMonth(records) : { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0,
-        counterparties: [{ key: "101001577", labels: ["Proveedor autorizado"] }], categories: ["uncategorized"], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable", "records_only_evidence_separate"],
+        counterparties: [{ key: "101001577", labels: ["Proveedor autorizado"] }], categories: ["uncategorized"], expense_types: [{ code: "02", label: "Gastos por trabajos, suministros y servicios" }], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable", "records_only_evidence_separate"],
         ...controls.legacy ? {} : { overview: controls.overview, effective_sort, sort_unavailable_reason: blocked ? "amount_sort_requires_single_known_currency" : null } }));
     }
     if (path.endsWith("/reports/export")) return controls.exportChanged ? problem(409, "business_report_changed") : new Response(new Uint8Array([80, 75, 3, 4]), { headers: { "Content-Type": "application/zip" } });

@@ -98,7 +98,7 @@ describe("the form marks the fields the server's blockers name; the attention st
     assert.ok(html.includes('data-fact="funding" data-standing="empty" data-blocked="true"'));
     assert.ok(!html.includes(">Falta<"), "a missing value is an empty field, not a chip");
     assert.equal((html.match(/Necesita una decisión antes de aprobar/g) ?? []).length, 2);
-    assert.ok(html.includes('data-fact="category_id" data-standing="empty" class'));
+    assert.ok(!html.includes('data-fact="category_id"'), "a Business record shows no ledger category row; its 606 tipo de gasto is the one classification");
     assert.ok(!html.includes("Sin dato") && !html.includes("Desconocido"));
   });
 
@@ -169,7 +169,7 @@ describe("the record facts on the review page", () => {
     assert.ok(!html.includes('data-testid="receipt-read-banner"'));
     assert.ok(!html.includes("Leído de la fuente · sugerencia sin verificar"));
     assert.ok(!html.includes("confirm-counterparty") && !html.includes("lucide-sparkles"));
-    assert.ok(html.includes('data-fact="occurred_on" data-standing="qr"') && html.includes('data-fact="category_id" data-standing="linked"'));
+    assert.ok(html.includes('data-fact="occurred_on" data-standing="qr"') && !html.includes('data-fact="category_id"'));
     for (const chip of ["Sin verificar", "lucide-circle-dashed"]) assert.ok(!html.includes(chip), chip);
     assert.ok(html.includes('data-fact="ecf" data-standing="suggestion"') && !html.includes("confirm-ecf"));
     assert.ok(html.indexOf('data-fact="occurred_on"') < html.indexOf('data-fact="counterparty"'));

@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from argus.domain.business.contracts.dgii import ExpenseType
 from argus.domain.business.contracts.facts import personal_mark_admits
 from argus.domain.business.reporting import ReportIdentity, ReportRow, summarize
 from argus.domain.recording.currency import (
@@ -94,6 +95,8 @@ class ReportFilters(Contract):
     amount_max: str | None = None
     counterparties: tuple[str, ...] = Field(default=(), max_length=200)
     categories: tuple[str, ...] = Field(default=(), max_length=200)
+    #: 606 tipo de gasto codes, or `missing` for a purchase that still needs one.
+    expense_types: tuple[ExpenseType | Literal["missing"], ...] = ()
     funding_sources: tuple[str, ...] = Field(default=(), max_length=200)
     document_kinds: tuple[DocumentKind, ...] = ()
     fiscal_classifications: tuple[str, ...] = Field(default=(), max_length=100)
@@ -157,6 +160,20 @@ class ReportAttachment(Contract):
     download_available: bool = False
 
 
+class DgiiChoice(Contract):
+    """One 606 answer: its code and the name the DGII list gives it."""
+
+    code: str
+    label: str
+
+
+class Purchase606(Contract):
+    """The two 606 answers a purchase carries. A null answer is still missing."""
+
+    expense_type: DgiiChoice | None
+    payment_form: DgiiChoice | None
+
+
 class ReportRecord(Contract):
     can_edit_note: bool = False
     can_append_supporting: bool = False
@@ -192,6 +209,9 @@ class ReportRecord(Contract):
     has_document: bool = False
     personal: bool = False
     include_606: bool | None = None
+    #: None for a record the 606 never lists: a sale, a Personal record the
+    #: accountant did not admit, or a purchase the owner said has no comprobante.
+    dgii_606: Purchase606 | None = None
     document_kind: DocumentKind = "unknown"
     fiscal_classification: str = "unknown"
     fiscal_number: str | None = None
@@ -266,6 +286,9 @@ class ReportAnswer(Contract):
     excluded_personal: ExcludedPersonal = ExcludedPersonal()
     counterparties: tuple[FilterOption, ...]
     categories: tuple[str, ...]
+    #: The tipos de gasto the records carry, by code. `missing` is always a
+    #: valid filter value and never listed here.
+    expense_types: tuple[DgiiChoice, ...] = ()
     funding_sources: tuple[FundingOption, ...]
     coverage_notes: tuple[str, ...] = (
         "records_only_evidence_separate",
@@ -312,6 +335,12 @@ def _text(value: str) -> str:
     ).strip()
 
 
+def _expense_type_key(row: ReportRecord) -> str | None:
+    if row.dgii_606 is None:
+        return None
+    return row.dgii_606.expense_type.code if row.dgii_606.expense_type else "missing"
+
+
 def _matches(row: ReportRecord, filters: ReportFilters, period: ResolvedPeriod) -> bool:
     if period.from_date is not None and (
         row.report_date is None
@@ -336,6 +365,7 @@ def _matches(row: ReportRecord, filters: ReportFilters, period: ResolvedPeriod) 
         (filters.currencies, row.currency),
         (filters.counterparties, row.counterparty_key),
         (filters.categories, row.category_key),
+        (filters.expense_types, _expense_type_key(row)),
         (filters.funding_sources, row.funding_key),
         (filters.document_kinds, row.document_kind),
         (filters.fiscal_classifications, row.fiscal_classification),
@@ -571,6 +601,11 @@ def run_query(
         for row in records
         if row.funding_key
     }
+    expense_types = {
+        row.dgii_606.expense_type.code: row.dgii_606.expense_type
+        for row in records
+        if row.dgii_606 and row.dgii_606.expense_type
+    }
     options = {
         "counterparties": sorted(
             (row.counterparty_key, row.counterparty or "")
@@ -578,6 +613,9 @@ def run_query(
             if row.counterparty_key
         ),
         "categories": sorted({row.category_key for row in records}),
+        "expense_types": [
+            expense_types[code].model_dump(mode="json") for code in sorted(expense_types)
+        ],
         "funding_sources": [
             funding_options[key].model_dump(mode="json")
             for key in sorted(funding_options)
@@ -646,5 +684,6 @@ def run_query(
             for key, labels in sorted(parties.items())
         ),
         categories=tuple(sorted({row.category_key for row in records})),
+        expense_types=tuple(expense_types[code] for code in sorted(expense_types)),
         funding_sources=tuple(funding_options[key] for key in sorted(funding_options)),
     )
