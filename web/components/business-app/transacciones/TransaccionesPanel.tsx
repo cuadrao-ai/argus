@@ -25,10 +25,10 @@ import RecordsSettingsPreview from "./RecordsSettingsPreview";
 import { defaultRecordsPreferences } from "./records-view-preferences";
 import RecordsPagePreview from "./RecordsPagePreview";
 import RecordsLoadingPreview from "./RecordsLoadingPreview";
-import { emptyPreviewFilters, matchesPreviewAmount, matchesPreviewAttachment } from "./records-filter-preview-model";
+import { activeFilterGroups, emptyPreviewFilters, matchesPreviewAmount, matchesPreviewAttachment } from "./records-filter-preview-model";
 import RecordsResultsSummary from "./RecordsResultsSummary";
 import { useRecordPreviewSearch } from "./RecordsAnnotationsPreview";
-import { matchesPreviewPeriod, matchesPreviewWorkflow, overviewPreviewCounts } from "./records-results-preview";
+import { matchesPreviewExpenseType, matchesPreviewPeriod, matchesPreviewWorkflow, overviewPreviewCounts } from "./records-results-preview";
 import RecordsOverviewPreview from "./RecordsOverviewPreview";
 import { TransaccionesList } from "./TransaccionesList";
 import { TransaccionesTable } from "./TransaccionesTable";
@@ -91,11 +91,11 @@ function LegacyTransaccionesPanel() {
   const [previewPeriod, setPreviewPeriod] = useState(period);
   const [previewRevision, setPreviewRevision] = useState(0);
   const localPaging = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
-  const pageResetKey = JSON.stringify([filter, period, previewPeriod, previewRevision, previewFilters.amount, previewFilters.review, previewFilters.attachment]);
+  const pageResetKey = JSON.stringify([filter, period, previewPeriod, previewRevision, previewFilters.amount, previewFilters.review, previewFilters.attachment, previewFilters.expense_type]);
   const query = filter.query.trim().toLocaleLowerCase(locale);
   const matchesPreviewSearch = useRecordPreviewSearch();
   const periodRecords = localPaging ? saved?.filter((row) => matchesPreviewPeriod(row, previewPeriod)) ?? null : saved;
-  const visibleRecords = periodRecords?.filter((row) => (filter.kind === "all" || row.kind === filter.kind) && (localPaging ? matchesPreviewSearch(row, query) : !query || (row.counterparty ?? "").toLocaleLowerCase(locale).includes(query)) && (!localPaging || matchesPreviewAttachment(row.hasProof, previewFilters.attachment) && matchesPreviewAmount(row.money, previewFilters.amount) && matchesPreviewWorkflow(row, chosen?.space_id ?? null, previewFilters.review))) ?? null;
+  const visibleRecords = periodRecords?.filter((row) => (filter.kind === "all" || row.kind === filter.kind) && (localPaging ? matchesPreviewSearch(row, query) : !query || (row.counterparty ?? "").toLocaleLowerCase(locale).includes(query)) && (!localPaging || matchesPreviewAttachment(row.hasProof, previewFilters.attachment) && matchesPreviewAmount(row.money, previewFilters.amount) && matchesPreviewWorkflow(row, chosen?.space_id ?? null, previewFilters.review) && matchesPreviewExpenseType(row, chosen?.space_id ?? null, previewFilters.expense_type))) ?? null;
   // Back from a record's own page, its row takes focus once the list is in, or the screen does when the period leaves it out.
   // Once per arrival: a background reload never takes focus back from wherever the person moved it.
   const cameFrom = panel.kind === "transactions" ? panel.expenseId : undefined;
@@ -110,11 +110,11 @@ function LegacyTransaccionesPanel() {
   }, [cameFrom, saved]);
   const add = actions.create.find((action) => action.id === "upload_receipt");
 
-  const recordsEmptyContent = saved?.length === 0 ? <div className={cardClass} data-testid="transacciones-records-empty">
-    {period.key === "this_month" || period.key === "all"
-      ? <EmptyState kind="first_run" mark="receipt" compact title={t("business.transactions.records.empty_title")} body={t("business.transactions.records.empty_body")} action={add ? { label: add.label, run: add.run } : undefined} />
-      : <EmptyState kind="filtered" compact title={t("business.transactions.records.filtered_title")} body={t("business.transactions.records.filtered_body")} action={{ label: t("business.empty.see_all_periods"), run: () => setPeriod("all") }} />}
-  </div> : localPaging && periodRecords?.length === 0 ? <div className={cardClass}><EmptyState kind="filtered" compact title={t("business.transactions.layout.no_period_records")} action={{ label: t("business.transactions.layout.reset_period"), run: () => setPreviewPeriod(period) }} /></div> : <div className={cardClass}><EmptyState kind="filtered" compact title={t("business.transactions.layout.no_results")} action={{ label: t("business.transactions.layout.clear"), run: () => { setFilter(EMPTY_RECORDS_FILTER); if (localPaging) setPreviewFilters(emptyPreviewFilters()); } }} /></div>;
+  // Three states, one message each: the pill row's Limpiar filtros is the only clear action; a filtered empty table says only that; a truly empty Registros keeps its first-run line.
+  const filtersActive = filter.kind !== "all" || Boolean(query) || activeFilterGroups(previewFilters).length > 0;
+  const recordsEmptyContent = filtersActive
+    ? <div className={cardClass}><EmptyState kind="filtered" compact title={t("business.transactions.layout.no_results")} /></div>
+    : <div className={cardClass} data-testid="transacciones-records-empty"><EmptyState kind="first_run" mark="receipt" compact title={t("business.transactions.records.empty_title")} body={t("business.transactions.records.empty_body")} action={add ? { label: add.label, run: add.run } : undefined} /></div>;
 
   const run = showRun ? (
     <button type="button" data-testid="transacciones-run" data-primary="true" disabled={list.kind !== "ready"} onClick={controller.startRun} className={`${primaryButtonClass} ${phone ? "shrink-0" : ""}`}>

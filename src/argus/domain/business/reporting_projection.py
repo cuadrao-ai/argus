@@ -16,7 +16,11 @@ from argus.domain.business.contracts.facts import (
     Known,
     fiscal_inclusion,
     is_personal,
+    is_sin_comprobante,
+    personal_mark_admits,
 )
+from argus.domain.business.dgii_codes import EXPENSE_TYPES, PAYMENT_FORMS
+from argus.domain.business.dgii_line import confirmed_declaration
 from argus.domain.business.dgii_validation import (
     FiscalRecord,
     fact_value,
@@ -24,7 +28,7 @@ from argus.domain.business.dgii_validation import (
     record_issues,
 )
 from argus.domain.business.fiscal_identity import normalized_ncf, normalized_taxpayer_id
-from argus.domain.business.reporting_query import ReportRecord
+from argus.domain.business.reporting_query import DgiiChoice, Purchase606, ReportRecord
 from argus.domain.ingestion.reconcile.model import ImportEvent
 
 if TYPE_CHECKING:
@@ -45,6 +49,32 @@ class DraftState:
 def value(facts: BusinessFacts, name: str) -> Any:
     fact = getattr(facts, name)
     return fact.value if isinstance(fact, Known) else None
+
+
+def _choice(names: dict[str, str], code: str | None) -> DgiiChoice | None:
+    return DgiiChoice(code=code, label=names[code]) if code else None
+
+
+def purchase_606(
+    approved: FiscalRecord, family: str | None, marks: BusinessFacts
+) -> Purchase606 | None:
+    """The 606 answers the export would carry for this record, from the same
+    declaration and admission rules, so Registros and the TXT never disagree.
+    A suggested tipo de gasto nobody confirmed counts as missing, as in the export."""
+
+    admitted = personal_mark_admits(
+        is_personal(marks), fiscal_inclusion(marks), sale=False
+    )
+    if family != "purchase" or not admitted or is_sin_comprobante(approved.facts):
+        return None
+    declaration = confirmed_declaration(approved)
+    purchase = declaration if isinstance(declaration, PurchaseDeclaration) else None
+    return Purchase606(
+        expense_type=_choice(EXPENSE_TYPES, purchase.category if purchase else None),
+        payment_form=_choice(
+            PAYMENT_FORMS, purchase.payment_method if purchase else None
+        ),
+    )
 
 
 def _credit(
@@ -263,6 +293,7 @@ def project(
         ),
         personal=is_personal(marks),
         include_606=fiscal_inclusion(marks),
+        dgii_606=purchase_606(approved, family, marks),
         document_kind=document_kind,
         fiscal_classification=fiscal_number[:3]
         if fiscal_number

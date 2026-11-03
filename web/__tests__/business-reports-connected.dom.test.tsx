@@ -101,7 +101,7 @@ test("supporting files freeze the uncertain file before advancing and download b
 test("saved canonical filters preserve multiple currencies and both known families until explicit changes", () => {
   const filters = reportRequestSchema.parse({ filters: { currencies: ["CAD", "USD"], record_families: ["sale", "purchase"] } }).filters;
   const draft = reportFiltersForUi(filters);
-  assert.deepEqual(reportFiltersFromUi(filters, { ...draft, category: ["transport"] }, "all").record_families, ["sale", "purchase"]);
+  assert.deepEqual(reportFiltersFromUi(filters, { ...draft, expense_type: ["02"] }, "all").record_families, ["sale", "purchase"]);
   assert.deepEqual(reportFiltersFromUi(filters, draft, "all").currencies, ["CAD", "USD"]);
   assert.deepEqual(reportFiltersFromUi(filters, { ...draft, recordFamilies: undefined }, "gasto").record_families, ["purchase"]);
   assert.equal(validPreviewAmount({ currency: "", min: "1", max: "" }, ["CAD", "USD"]), false);
@@ -450,6 +450,121 @@ test("the Estado chip names the one missing fact on the live panel", async () =>
   const chip = (id: number) => document.querySelector(`[data-record-key="draft:${fixtureId(id)}"] td[data-col="estado"] [data-record-workflow="fiscal"]`)?.textContent;
   assert.equal(chip(1), "Falta la forma de pago");
   assert.equal(chip(2), "Faltan datos fiscales");
+});
+
+test("Tipo de gasto takes Categoría's slot with the server's name, Bandeja's missing word and a dash for a sale", async () => {
+  const page = await mount();
+  const cell = (id: number, column: string) => document.querySelector(`[data-record-key="draft:${fixtureId(id)}"] td[data-col="${column}"]`);
+  const headings = [...document.querySelectorAll("thead th")].map((node) => node.getAttribute("data-col"));
+  assert.ok(!headings.includes("categoria") && headings.indexOf("tipo_gasto") === headings.indexOf("detalle") + 1, "Tipo de gasto sits where Categoría sat");
+  assert.equal(document.querySelector('th[data-col="tipo_gasto"]')?.textContent, "Tipo de gasto");
+  assert.equal(document.querySelector('th[data-col="forma_pago"]'), null, "Forma de pago starts hidden");
+  assert.equal(cell(1, "tipo_gasto")?.textContent, "Falta");
+  assert.equal(cell(3, "tipo_gasto")?.textContent, "Gastos por trabajos, suministros y servicios");
+  assert.equal(cell(2, "tipo_gasto")?.querySelector(".sr-only")?.textContent, "No aplica");
+  await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
+  await page.click([...document.querySelectorAll('button[role="radio"]')].find((node) => node.textContent === "Columnas"));
+  await page.click(document.querySelector('[data-column-setting="forma_pago"] label'));
+  await page.settle(() => document.querySelector('th[data-col="forma_pago"]') !== null);
+  assert.equal(document.querySelector('th[data-col="forma_pago"]')?.textContent, "Forma de pago");
+  assert.equal(cell(1, "forma_pago")?.textContent, "Falta");
+  assert.equal(cell(3, "forma_pago")?.textContent, "Efectivo");
+  const request = restoreReportLocation(new URL(window.location.href).searchParams).request;
+  assert.deepEqual(request.schema_version === 2 ? request.presentation.hidden : null, ["funding"], "the chosen columns travel with the saved presentation");
+});
+
+test("Filtros offers Tipo de gasto from the server's catalogue plus Falta, and sends expense_types", async () => {
+  const page = await mount();
+  const before = sentFilters(page).length;
+  await page.click(page.button("Filtros"));
+  await page.click(document.querySelector('[data-group="expense_type"]'));
+  const labels = [...document.querySelectorAll('[role="dialog"] label')].map((label) => label.textContent).filter((label) => label !== "Seleccionar todo");
+  assert.deepEqual(labels, ["Gastos por trabajos, suministros y servicios", "Falta"]);
+  await page.click([...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="checkbox"]')].find((box) => box.parentElement?.textContent === "Falta"));
+  await page.click(page.button("Aplicar"));
+  await page.settle(() => sentFilters(page).length > before);
+  assert.deepEqual(sentFilters(page).at(-1)!.expense_types, ["missing"]);
+  assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent ?? "", /Tipo de gasto · Falta/);
+  // 21 of the 126 fixture rows are purchases still missing their tipo de gasto.
+  await page.settle(() => document.querySelectorAll("tbody tr").length === 21);
+  assert.ok([...document.querySelectorAll('tbody tr td[data-col="tipo_gasto"]')].every((node) => node.textContent === "Falta"));
+});
+
+test("Filtros offers only the document kinds a row can carry, and each one finds its records", async () => {
+  const { REPORT_DOCUMENT_KINDS, reportRecordSchema } = await import("@/lib/business-reports-api");
+  assert.deepEqual([...REPORT_DOCUMENT_KINDS], ["credit_note", "unknown"]);
+  const page = await mount({ edit: (records) => { records[4].document_kind = "credit_note"; records[6].document_kind = "credit_note"; } });
+  for (const kind of REPORT_DOCUMENT_KINDS) assert.ok(reportRecordSchema.shape.document_kind.options.includes(kind), `${kind} is a contract kind`);
+  const before = sentFilters(page).length;
+  await page.click(page.button("Filtros"));
+  await page.click(document.querySelector('[data-group="document"]'));
+  const labels = [...document.querySelectorAll('[role="dialog"] label')].map((label) => label.textContent).filter((label) => label !== "Seleccionar todo");
+  assert.deepEqual(labels, ["Nota de crédito", "sin dato"]);
+  await page.click([...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="checkbox"]')].find((box) => box.parentElement?.textContent === "Nota de crédito"));
+  await page.click(page.button("Aplicar"));
+  await page.settle(() => sentFilters(page).length > before);
+  assert.deepEqual(sentFilters(page).at(-1)!.document_kinds, ["credit_note"]);
+  await page.settle(() => document.querySelectorAll("tbody tr").length === 2);
+  assert.deepEqual([...document.querySelectorAll("tbody tr")].map((row) => row.getAttribute("data-record-key")), [`draft:${fixtureId(5)}`, `draft:${fixtureId(7)}`]);
+});
+
+const aboveTable = () => { const section = document.querySelector('[data-testid="transacciones"]')!; const nodes = [...section.children]; const end = nodes.findIndex((node) => node.querySelector('[data-testid="transacciones-records"], [data-empty-kind]')); return nodes.slice(0, end).map((node) => `${node.tagName}:${node.getAttribute("data-testid") ?? node.getAttribute("role") ?? ""}`); };
+
+test("a filter with no rows shows one title, keeps the pill row as the only clear action, and moves nothing above the table", async () => {
+  const page = await mount({ edit: (records) => { for (const row of records) row.dgii_606 = null; } });
+  const before = aboveTable();
+  await page.click(page.button("Filtros"));
+  await page.click(document.querySelector('[data-group="expense_type"]'));
+  await page.click([...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="checkbox"]')].find((box) => box.parentElement?.textContent === "Falta"));
+  await page.click(page.button("Aplicar"));
+  await page.settle(() => document.querySelector('[data-empty-kind]') !== null);
+  const empty = document.querySelector('[data-empty-kind="filtered"]')!;
+  assert.equal(empty.querySelector("h3")?.textContent, "No hay registros con estos filtros");
+  assert.equal(empty.querySelector("p"), null, "no body line");
+  assert.equal(empty.querySelector("button"), null, "no second clear action");
+  assert.doesNotMatch(document.body.textContent ?? "", /Cada gasto y cada venta que apruebas/);
+  const clears = [...document.querySelectorAll("button")].filter((node) => node.textContent === "Limpiar filtros");
+  assert.equal(clears.length, 1); assert.ok(document.querySelector('[data-testid="records-preview-filter-chips"]')!.contains(clears[0]), "the pill row's Limpiar filtros is the one");
+  assert.deepEqual(aboveTable(), before, "nothing above the table moved");
+  await page.click(clears[0]);
+  await page.settle(() => document.querySelectorAll("tbody tr").length === 25);
+  assert.deepEqual(aboveTable(), before);
+});
+
+test("a Registros with nothing in the period keeps its first-run message and the Bandeja line, with no clear action", async () => {
+  await mount({ edit: (records) => { records.splice(0); } });
+  const empty = document.querySelector('[data-empty-kind="first_run"]')!;
+  assert.equal(empty.querySelector("h3")?.textContent, "Aquí verás tus gastos y ventas");
+  assert.equal(empty.querySelector("p")?.textContent, "Cada gasto y cada venta que apruebas en la Bandeja aparece aquí en su fecha.");
+  assert.equal([...document.querySelectorAll("button")].filter((node) => node.textContent === "Limpiar filtros").length, 0);
+  assert.equal(document.querySelector('[data-empty-kind="filtered"]'), null);
+});
+
+test("a record that left the view says so in a toast, never in a line above the table", async () => {
+  const { useToasts, clearToasts } = await import("@/components/business-app/foundation/toasts");
+  clearToasts();
+  (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL(`http://localhost/biz?report_row=draft:${fixtureId(999)}&report_scope=synthetic-person:${fixtureId(3000)}`);
+  const page = await mount();
+  function Probe() { return <output data-testid="toast-probe">{useToasts().map((toast) => `${toast.kind}:${toast.text}:${toast.action ? "action" : "no-action"}`).join("|")}</output>; }
+  const { createRoot } = await import("react-dom/client");
+  const host = document.createElement("div"); document.body.appendChild(host); const root = createRoot(host);
+  await act(async () => root.render(<Probe />));
+  await page.settle(() => (document.querySelector('[data-testid="toast-probe"]')?.textContent ?? "").includes("Este registro no está disponible."));
+  assert.equal(document.querySelector('[data-testid="toast-probe"]')!.textContent, "info:Este registro no está disponible.:no-action");
+  assert.equal([...document.querySelectorAll('[data-testid="transacciones"] [role="status"]')].filter((node) => /no está disponible/.test(node.textContent ?? "")).length, 0);
+  assert.doesNotMatch(document.querySelector('[data-testid="transacciones"]')!.textContent ?? "", /no está disponible/);
+  await act(async () => root.unmount());
+});
+
+test("an old categories filter from a saved view or URL is dropped, never sent, and never hides rows without a pill", async () => {
+  const stale = reportRequestSchema.parse({});
+  assert.deepEqual(reportFiltersFromUi({ ...stale.filters, categories: ["transport"] }, reportFiltersForUi(stale.filters), "all").categories, []);
+  (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL(`http://localhost/biz?report=${encodeURIComponent(JSON.stringify({ filters: { categories: ["transport"] } }))}&report_scope=synthetic-person:${fixtureId(3000)}`);
+  const page = await mount();
+  assert.ok(sentFilters(page).every((filters) => filters.categories.length === 0), "no request carries the stale filter");
+  assert.equal(document.querySelectorAll("tbody tr").length, 25);
+  assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]'), null);
+  assert.equal(document.querySelector("[data-empty-kind]"), null);
 });
 
 test("a phone period preset holds after its sheet closes", async () => {

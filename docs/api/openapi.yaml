@@ -19934,6 +19934,7 @@ components:
               counterparties: []
               currencies: []
               document_kinds: []
+              expense_types: []
               fiscal_classifications: []
               funding_sources: []
               period:
@@ -20948,6 +20949,18 @@ components:
       - connection
       - device_token
       - intake_url
+    DgiiChoice:
+      properties:
+        code:
+          type: string
+        label:
+          type: string
+      additionalProperties: false
+      type: object
+      required:
+      - code
+      - label
+      description: 'One 606 answer: its code and the name the DGII list gives it.'
     DgiiForeignCurrency:
       properties:
         '606':
@@ -22013,6 +22026,7 @@ components:
               counterparties: []
               currencies: []
               document_kinds: []
+              expense_types: []
               fiscal_classifications: []
               funding_sources: []
               period:
@@ -28254,7 +28268,8 @@ components:
             - gross_amount
             - currency
             - family
-            - category
+            - expense_type
+            - payment_form
             - stage
             - note
             - attachment
@@ -28266,7 +28281,8 @@ components:
           - gross_amount
           - currency
           - family
-          - category
+          - expense_type
+          - payment_form
           - stage
           - note
           - attachment
@@ -28280,7 +28296,8 @@ components:
             - gross_amount
             - currency
             - family
-            - category
+            - expense_type
+            - payment_form
             - stage
             - note
             - attachment
@@ -28288,6 +28305,7 @@ components:
           type: array
           default:
           - funding
+          - payment_form
         density:
           type: integer
           enum:
@@ -29318,6 +29336,22 @@ components:
       required:
       - time
       - value
+    Purchase606:
+      properties:
+        expense_type:
+          anyOf:
+          - $ref: '#/components/schemas/DgiiChoice'
+          - type: 'null'
+        payment_form:
+          anyOf:
+          - $ref: '#/components/schemas/DgiiChoice'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - expense_type
+      - payment_form
+      description: The two 606 answers a purchase carries. A null answer is still missing.
     PurchaseDeclaration:
       properties:
         id_type:
@@ -31151,6 +31185,11 @@ components:
           items:
             type: string
           type: array
+        expense_types:
+          items:
+            $ref: '#/components/schemas/DgiiChoice'
+          type: array
+          default: []
         funding_sources:
           items:
             $ref: '#/components/schemas/FundingOption'
@@ -31269,6 +31308,26 @@ components:
           type: array
           maxItems: 200
           default: []
+        expense_types:
+          items:
+            anyOf:
+            - type: string
+              enum:
+              - '01'
+              - '02'
+              - '03'
+              - '04'
+              - '05'
+              - '06'
+              - '07'
+              - 08
+              - 09
+              - '10'
+              - '11'
+            - type: string
+              const: missing
+          type: array
+          default: []
         funding_sources:
           items:
             type: string
@@ -31351,6 +31410,26 @@ components:
           type: array
           maxItems: 200
           default: []
+        expense_types:
+          items:
+            anyOf:
+            - type: string
+              enum:
+              - '01'
+              - '02'
+              - '03'
+              - '04'
+              - '05'
+              - '06'
+              - '07'
+              - 08
+              - 09
+              - '10'
+              - '11'
+            - type: string
+              const: missing
+          type: array
+          default: []
         funding_sources:
           items:
             type: string
@@ -31411,6 +31490,7 @@ components:
             currencies: []
             counterparties: []
             categories: []
+            expense_types: []
             funding_sources: []
             document_kinds: []
             fiscal_classifications: []
@@ -31462,6 +31542,7 @@ components:
             currencies: []
             counterparties: []
             categories: []
+            expense_types: []
             funding_sources: []
             document_kinds: []
             fiscal_classifications: []
@@ -31513,6 +31594,7 @@ components:
             currencies: []
             counterparties: []
             categories: []
+            expense_types: []
             funding_sources: []
             document_kinds: []
             fiscal_classifications: []
@@ -31560,13 +31642,15 @@ components:
             - gross_amount
             - currency
             - family
-            - category
+            - expense_type
+            - payment_form
             - stage
             - note
             - attachment
             - funding
             hidden:
             - funding
+            - payment_form
             density: 48
         page_size:
           type: integer
@@ -31594,6 +31678,7 @@ components:
             currencies: []
             counterparties: []
             categories: []
+            expense_types: []
             funding_sources: []
             document_kinds: []
             fiscal_classifications: []
@@ -31641,13 +31726,15 @@ components:
             - gross_amount
             - currency
             - family
-            - category
+            - expense_type
+            - payment_form
             - stage
             - note
             - attachment
             - funding
             hidden:
             - funding
+            - payment_form
             density: 48
         page_size:
           type: integer
@@ -31805,6 +31892,10 @@ components:
           anyOf:
           - type: boolean
           - type: 'null'
+        dgii_606:
+          anyOf:
+          - $ref: '#/components/schemas/Purchase606'
+          - type: 'null'
         document_kind:
           type: string
           enum:
@@ -31865,6 +31956,7 @@ components:
             currencies: []
             counterparties: []
             categories: []
+            expense_types: []
             funding_sources: []
             document_kinds: []
             fiscal_classifications: []
@@ -31927,6 +32019,7 @@ components:
             currencies: []
             counterparties: []
             categories: []
+            expense_types: []
             funding_sources: []
             document_kinds: []
             fiscal_classifications: []
@@ -31974,13 +32067,15 @@ components:
             - gross_amount
             - currency
             - family
-            - category
+            - expense_type
+            - payment_form
             - stage
             - note
             - attachment
             - funding
             hidden:
             - funding
+            - payment_form
             density: 48
         page_size:
           type: integer
@@ -32615,6 +32710,7 @@ components:
               counterparties: []
               currencies: []
               document_kinds: []
+              expense_types: []
               fiscal_classifications: []
               funding_sources: []
               period:
@@ -34357,6 +34453,7 @@ components:
               counterparties: []
               currencies: []
               document_kinds: []
+              expense_types: []
               fiscal_classifications: []
               funding_sources: []
               period:

@@ -45,7 +45,7 @@ test("amount and currency move independently and rendered columns keep their cho
       const moved = moveRecordsColumn(initial, key, target);
       assert.equal(moved.order[target], key);
       assert.deepEqual(moved.order.filter((item) => item !== key), initial.order.filter((item) => item !== key));
-      assert.deepEqual(visibleRecordsColumns(moved).map(({ key: item }) => item), moved.order.filter((item) => item !== "cuenta"));
+      assert.deepEqual(visibleRecordsColumns(moved).map(({ key: item }) => item), moved.order.filter((item) => !initial.hidden.includes(item)));
     }
     assert.deepEqual(moveRecordsColumn(initial, key, initial.order.indexOf(key)), initial);
   }

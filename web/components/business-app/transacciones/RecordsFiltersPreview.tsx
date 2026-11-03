@@ -1,25 +1,28 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, ChevronDown, ChevronRight, Banknote, Building2, CheckCheck, FileText, Folder, ListFilter, Paperclip, ReceiptText, Users, X, type LucideIcon } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, Banknote, Building2, CheckCheck, FileText, ListFilter, Paperclip, ReceiptText, Tag, Users, X, type LucideIcon } from "lucide-react";
 import BottomSheet from "@/components/ui/BottomSheet";
 import MoneyInput from "@/components/money/MoneyInput";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import RecordsFilterSelection from "./RecordsFilterSelection";
 import RecordsPreviewPopover from "./RecordsPreviewPopover";
 import { activeFilterGroups, emptyPreviewFilters, FILTER_GROUPS, validPreviewAmount, type FilterGroup, type PreviewFilters } from "./records-filter-preview-model";
+import { SAMPLE_EXPENSE_TYPES } from "./records-results-preview";
 import { useTransaccionesWords } from "./transacciones-words";
 import type { RecordKind } from "./transacciones-model";
+import { REPORT_DOCUMENT_KINDS, type DgiiChoice } from "@/lib/business-reports-api";
 import styles from "./records-filter-preview.module.css";
 
-export type ReportFilterCatalogues = { counterparties: { key: string; labels: string[] }[]; categories: string[]; funding_sources: { key: string; label: string | null; kind: string | null }[] };
+export type ReportFilterCatalogues = { counterparties: { key: string; labels: string[] }[]; expense_types: DgiiChoice[]; funding_sources: { key: string; label: string | null; kind: string | null }[] };
 type Kind = RecordKind | "all";
 type EditorGroup = FilterGroup | "record";
 const EDITOR_GROUPS: readonly EditorGroup[] = ["record", ...FILTER_GROUPS];
-const ICONS: Record<EditorGroup, LucideIcon> = { record: FileText, review: CheckCheck, attachment: Paperclip, amount: Banknote, counterparty: Users, category: Folder, account: Building2, document: FileText, fiscal: ReceiptText };
+const ICONS: Record<EditorGroup, LucideIcon> = { record: FileText, review: CheckCheck, attachment: Paperclip, amount: Banknote, counterparty: Users, expense_type: Tag, account: Building2, document: FileText, fiscal: ReceiptText };
 const COUNTERPARTIES = ["Estación Ruta 3", "Nube Hosting", "Comedor Doña Ana"];
-const CATEGORIES = ["none", "transport", "other", "dining"];
 const ACCOUNTS = ["checking", "card", "owner"];
+/** The tipo de gasto choices: every type the records carry, then `missing` for a purchase that still needs one. */
+const expenseTypeValues = (types: readonly DgiiChoice[]) => [...types.map((choice) => choice.code), "missing"];
 const toggle = (values: string[], value: string): string[] => values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
 
 function FilterEditor({ initial, initialKind, apply, close, phone = false, catalogues }: { catalogues?: ReportFilterCatalogues; phone?: boolean; initial: PreviewFilters; initialKind: Kind; apply: (next: PreviewFilters, kind: Kind) => void; close: () => void }) {
@@ -40,10 +43,11 @@ function FilterEditor({ initial, initialKind, apply, close, phone = false, catal
     else back.current?.focus();
   }, [phone, choosingGroup, group]);
   const word = (key: string) => t(`business.transactions.layout.filters.${key}`);
-  const groupLabel = (key: EditorGroup) => key === "record" ? word("record") : word(`groups.${key}`);
-  const labelFor = (kind: FilterGroup, value: string): string => value === "unknown" ? t("business.transactions.unknown") : value === "no_comprobante" ? t("business.marks.sin_comprobante_chip") : value === "owner_funds" ? t("business.dossier.owner_funds") : kind === "counterparty" ? catalogues?.counterparties.find((option) => option.key === value)?.labels.join(" / ") ?? value : kind === "account" && catalogues ? catalogues.funding_sources.find((option) => option.key === value)?.label ?? value : kind === "category" && catalogues ? value === "uncategorized" ? word("category.none") : t(`business.category.${value}`, { defaultValue: value }) : kind === "review" ? t(`business.transactions.layout.overview.${value}.title`) : t(`business.transactions.layout.filters.${kind}.${value}`, { defaultValue: value.toUpperCase() });
-  const selection = (kind: "review" | "counterparty" | "category" | "account" | "document" | "fiscal", values: string[]) => <RecordsFilterSelection options={values.map((value) => ({ value, label: labelFor(kind, value) }))} selected={draft[kind]} query={query} onChange={(selected) => setDraft({ ...draft, [kind]: selected })} />;
-  const searchable = group === "counterparty" || group === "category" || group === "account";
+  const groupLabel = (key: EditorGroup) => key === "record" ? word("record") : key === "expense_type" ? t("business.dossier.placeholder.expense_type") : word(`groups.${key}`);
+  const expenseTypes = catalogues?.expense_types ?? SAMPLE_EXPENSE_TYPES;
+  const labelFor = (kind: FilterGroup, value: string): string => value === "unknown" ? t("business.transactions.unknown") : value === "no_comprobante" ? t("business.marks.sin_comprobante_chip") : value === "owner_funds" ? t("business.dossier.owner_funds") : kind === "counterparty" ? catalogues?.counterparties.find((option) => option.key === value)?.labels.join(" / ") ?? value : kind === "account" && catalogues ? catalogues.funding_sources.find((option) => option.key === value)?.label ?? value : kind === "expense_type" ? value === "missing" ? t("business.dossier.standing.missing") : expenseTypes.find((choice) => choice.code === value)?.label ?? value : kind === "review" ? t(`business.transactions.layout.overview.${value}.title`) : t(`business.transactions.layout.filters.${kind}.${value}`, { defaultValue: value.toUpperCase() });
+  const selection = (kind: "review" | "counterparty" | "expense_type" | "account" | "document" | "fiscal", values: string[]) => <RecordsFilterSelection options={values.map((value) => ({ value, label: labelFor(kind, value) }))} selected={draft[kind]} query={query} onChange={(selected) => setDraft({ ...draft, [kind]: selected })} />;
+  const searchable = group === "counterparty" || group === "expense_type" || group === "account";
   const body = <div className={phone ? styles.phonePanel : styles.panel}>
       {!phone || choosingGroup ? <div ref={rail} className={styles.rail} role={phone ? undefined : "tablist"} aria-label={word("title")} aria-orientation={phone ? undefined : "vertical"} onKeyDown={(event) => {
         if (phone) return;
@@ -71,9 +75,9 @@ function FilterEditor({ initial, initialKind, apply, close, phone = false, catal
           {!validPreviewAmount(draft.amount, draft.currencies) ? <p role="alert" className={styles.error}>{word("amount.invalid")}</p> : null}
         </> : null}
         {group === "counterparty" ? selection("counterparty", catalogues ? catalogues.counterparties.map((option) => option.key) : COUNTERPARTIES) : null}
-        {group === "category" ? selection("category", catalogues?.categories ?? CATEGORIES) : null}
+        {group === "expense_type" ? selection("expense_type", expenseTypeValues(expenseTypes)) : null}
         {group === "account" ? selection("account", catalogues ? catalogues.funding_sources.map((option) => option.key) : ACCOUNTS) : null}
-        {group === "document" ? selection("document", ["invoice", "receipt", "credit_note"]) : null}
+        {group === "document" ? selection("document", [...REPORT_DOCUMENT_KINDS]) : null}
         {group === "fiscal" ? selection("fiscal", ["b01", "b02", "e31", "e32"]) : null}
       </section> : null}
     </div>;
@@ -93,11 +97,12 @@ export default function RecordsFiltersPreview({ options, value: filters, kind, o
   const active = activeFilterGroups(filters);
   const recordActive = kind !== "all" || Boolean(filters.recordFamilies?.length);
   const recordLabel = filters.recordFamilies?.length === 2 ? filters.recordFamilies.map((family) => t(`business.transactions.records.detail.${family === "sale" ? "venta" : "gasto"}`)).join(" · ") : t(`business.transactions.records.detail.${kind}`);
-  const chipLabel = (group: FilterGroup) => group === "amount" && !filters.amount.min && !filters.amount.max ? word("currency") : word(`groups.${group}`);
+  const chipLabel = (group: FilterGroup) => group === "amount" && !filters.amount.min && !filters.amount.max ? word("currency") : group === "expense_type" ? t("business.dossier.placeholder.expense_type") : word(`groups.${group}`);
+  const expenseTypes = catalogues?.expense_types ?? SAMPLE_EXPENSE_TYPES;
   const valueLabel = (group: FilterGroup) => {
     if (group === "attachment") return word(`attachment.${filters.attachment}`);
     if (group === "amount") return [(filters.currencies ?? [filters.amount.currency]).join(", "), filters.amount.min ? `${word("amount.min")} ${filters.amount.min}` : "", filters.amount.max ? `${word("amount.max")} ${filters.amount.max}` : ""].filter(Boolean).join(" · ");
-    return filters[group].map((value) => value === "unknown" ? t("business.transactions.unknown") : value === "no_comprobante" ? t("business.marks.sin_comprobante_chip") : value === "owner_funds" ? t("business.dossier.owner_funds") : group === "counterparty" ? catalogues?.counterparties.find((option) => option.key === value)?.labels.join(" / ") ?? value : group === "account" && catalogues ? catalogues.funding_sources.find((option) => option.key === value)?.label ?? value : group === "category" && catalogues ? value === "uncategorized" ? word("category.none") : t(`business.category.${value}`, { defaultValue: value }) : group === "review" ? t(`business.transactions.layout.overview.${value}.title`) : t(`business.transactions.layout.filters.${group}.${value}`, { defaultValue: value.toUpperCase() })).join(", ");
+    return filters[group].map((value) => value === "unknown" ? t("business.transactions.unknown") : value === "no_comprobante" ? t("business.marks.sin_comprobante_chip") : value === "owner_funds" ? t("business.dossier.owner_funds") : group === "counterparty" ? catalogues?.counterparties.find((option) => option.key === value)?.labels.join(" / ") ?? value : group === "account" && catalogues ? catalogues.funding_sources.find((option) => option.key === value)?.label ?? value : group === "expense_type" ? value === "missing" ? t("business.dossier.standing.missing") : expenseTypes.find((choice) => choice.code === value)?.label ?? value : group === "review" ? t(`business.transactions.layout.overview.${value}.title`) : t(`business.transactions.layout.filters.${group}.${value}`, { defaultValue: value.toUpperCase() })).join(", ");
   };
   return <>
     {phone ? <><button ref={trigger} type="button" className={styles.trigger} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}><ListFilter size={17} aria-hidden="true" /><span>{word("title")}</span>{active.length || recordActive ? <span className={styles.count}>{active.length + (recordActive ? 1 : 0)}</span> : null}<ChevronDown size={16} aria-hidden="true" className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} /></button>{open ? <FilterEditor catalogues={catalogues} phone initial={filters} initialKind={kind} apply={setFilters} close={() => setOpen(false)} /> : null}</> : <RecordsPreviewPopover label={word("title")} icon={<ListFilter size={17} aria-hidden="true" />} count={active.length + (recordActive ? 1 : 0)}>

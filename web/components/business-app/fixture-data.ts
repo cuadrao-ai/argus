@@ -294,6 +294,18 @@ function seedExpenses(): BusinessExpense[] {
       draft_id: null,
     },
     {
+      id: "exp-imprenta",
+      fiscal_known: true,
+      merchant: "Imprenta Caribe",
+      amount: "4800.00",
+      currency: "DOP",
+      category_id: "other",
+      account_id: "acct-ops",
+      occurred_on: dayOnly(daysAgo(5)),
+      receipt_id: null,
+      draft_id: null,
+    },
+    {
       id: "exp-lunch",
       fiscal_known: true,
       merchant: "Comedor Doña Ana",
