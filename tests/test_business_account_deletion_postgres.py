@@ -626,7 +626,7 @@ def test_owner_admission_query_failure_never_reports_progress(custody, monkeypat
             return getattr(self.db, name)
 
         def execute(self, query, *args, **kwargs):
-            if "select 1 from public.spaces" in query:
+            if "from public.spaces" in query:
                 raise RuntimeError("synthetic ownership query unavailable")
             return self.db.execute(query, *args, **kwargs)
 

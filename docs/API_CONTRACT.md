@@ -3572,6 +3572,55 @@ was verified, so the person existed a moment ago.
   `429 too_many_requests` carries `Retry-After`. The shared
   `503 auth_session_verification_unavailable` remains unchanged.
 
+## `GET /account/deletion`
+
+Says, before the person presses delete, whether `POST /account/delete` would
+refuse and which closed Businesses are still inside their reopen window. The
+delete command and this check read one rule (`eligibility.py`), so they agree.
+It reads only: it starts no run, locks nothing and sends nothing. Same flag,
+session and limit as the command (`404 not_found` while
+`CUADRAO_ACCOUNT_DELETION_ENABLED` is off, answered before any session check;
+`401` without a session; six requests per account per minute per API worker,
+`429 too_many_requests` with `Retry-After`). The limit is counted apart from the
+command's, so a screen that checks often cannot use up the delete's requests.
+A guest session is checked the same way.
+
+**Response `200`:**
+
+```json
+{
+  "allowed": false,
+  "blockers": [
+    { "kind": "business_owner", "business_id": "<uuid>", "business_name": "Colmado Uno" }
+  ],
+  "notices": [
+    {
+      "kind": "closed_business",
+      "business_id": "<uuid>",
+      "business_name": "Colmado Viejo",
+      "purge_at": "2026-12-03T15:30:00Z"
+    }
+  ]
+}
+```
+
+- `allowed` is `true` exactly when `blockers` is empty. Notices never change it.
+- `blockers` has one `business_owner` entry for each open Business the person
+  currently owns (current owner, or a live owner grant), ordered by name. Any
+  other refusal (an account placeholder) is one `{ "kind": "not_allowed" }` entry
+  with no Business fields. An open Business owned takes precedence, as in the
+  command. A person whose deletion run is already open is resumed, so nothing
+  blocks them; neither does a person the database no longer knows.
+- `notices` has one `closed_business` entry for each closed Business the person
+  owns (same ownership as above) whose reopen window has not ended, ordered by
+  name. `purge_at` is when the window ends and the Business and its records are
+  purged, the reopen deadline `closed_at` plus `REOPEN_WINDOW`
+  (`domain/business/lifecycle.py`), in ISO 8601 UTC. A Business past its window
+  is not listed. `[]` when none.
+- `503 account_deletion_unavailable` when the check cannot be made; it never
+  answers `allowed: true` in that case. The shared
+  `503 auth_session_verification_unavailable` is unchanged.
+
 
 ## Supported Values
 - **language:** `en`, `es-419`
