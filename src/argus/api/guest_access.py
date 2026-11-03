@@ -45,13 +45,28 @@ class PermanentAccessGateway(Protocol):
     def private_alpha_email_allowed(self, email: str) -> bool: ...
 
 
+class BusinessAdmission(Protocol):
+    def admits_email(self, email: str) -> bool: ...
+
+
 def permanent_account_access_allowed(
     gateway: PermanentAccessGateway,
     email: str,
+    business: BusinessAdmission | None,
 ) -> bool:
+    """Whether this email may sign up, sign in and keep a session.
+
+    Open public access refuses only a disabled allowlist row. Closed, the
+    allowlist admits its active rows, then a Business admits an email it
+    holds a live invitation or grant for, unless a disabled row refuses it.
+    """
     if public_account_access_enabled():
         return not gateway.private_alpha_email_disabled(email)
-    return gateway.private_alpha_email_allowed(email)
+    if gateway.private_alpha_email_allowed(email):
+        return True
+    if business is None or gateway.private_alpha_email_disabled(email):
+        return False
+    return business.admits_email(email)
 
 
 @dataclass(frozen=True)

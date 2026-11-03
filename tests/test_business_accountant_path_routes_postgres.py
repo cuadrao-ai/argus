@@ -227,29 +227,32 @@ def world(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
                 pass
 
 
-def test_an_invited_accountant_is_admitted_only_by_the_allowlist_and_works_from_the_first_listing(
-    world,  # noqa: ANN001
-) -> None:
-    client, owner = world.client, world.owner
-    accountant = _credentials(world, "contadora")
-    _invite(world, accountant.email)
-
-    # Off the allowlist the invite admits nobody: signup, login and requests are refused.
-    signup = client.post(
+def _signup(world, account: Account):  # noqa: ANN001, ANN202
+    return world.client.post(
         f"{API}/auth/signup",
         json={
             "age_confirmed_at": "2026-01-01T00:00:00Z",
-            "email": accountant.email,
-            "password": accountant.password,
+            "email": account.email,
+            "password": account.password,
             "captcha_token": CAPTCHA,
         },
         headers=ORIGIN,
     )
-    assert _code(signup) == (400, "auth_signup_failed")
-    _create(world, accountant)
-    assert _code(_login(world, accountant)) == (401, "unauthorized")
+
+
+def test_an_invited_accountant_is_admitted_by_the_invite_and_works_from_the_first_listing(
+    world,  # noqa: ANN001
+) -> None:
+    client, owner = world.client, world.owner
+    accountant = _credentials(world, "contadora")
+    stranger = _credentials(world, "extrana")
+
+    # Off the allowlist and uninvited, signup, login and requests are refused.
+    assert _code(_signup(world, accountant)) == (400, "auth_signup_failed")
+    _create(world, stranger)
+    assert _code(_login(world, stranger)) == (401, "unauthorized")
     session = world.gateway.login(
-        email=accountant.email, password=accountant.password, captcha_token=CAPTCHA
+        email=stranger.email, password=stranger.password, captcha_token=CAPTCHA
     )
     bearer = {"Authorization": f"Bearer {session['session']['access_token']}", **ORIGIN}
     for path in ("/business/spaces", "/me"):
@@ -257,11 +260,17 @@ def test_an_invited_accountant_is_admitted_only_by_the_allowlist_and_works_from_
             403,
             "private_alpha_access_required",
         ), path
+
+    # The invite admits exactly the invited email to signup and login; the
+    # stranger stays refused; the recipient must still accept explicitly.
+    _invite(world, accountant.email)
+    assert _code(_login(world, stranger)) == (401, "unauthorized")
+    signed_up = _signup(world, accountant)
+    assert signed_up.status_code == 200, signed_up.text
+    accountant.id = str(signed_up.json()["user"]["id"])
+    world.created.append(accountant.id)
     assert _invite_state(accountant.email) == [False]
     assert _grants_and_accepts(world.space_id, accountant.id) == (0, 0)
-
-    # Allowlisting permits sign-in; the recipient must still accept explicitly.
-    _allow(accountant.email)
     _signed_in(world, accountant)
     first = client.get(f"{API}/business/spaces", headers=accountant.headers)
     assert first.status_code == 200, first.text

@@ -183,6 +183,11 @@ class AccessStore(Protocol):
 
     def accept_invite(self, user_id: str, space_id: str, invite_id: str) -> str: ...
 
+    def admits_email(self, email: str) -> bool:
+        """Whether a live invitation on an open Business, or a live grant,
+        names exactly this email: the Business side of sign-in admission."""
+        ...
+
     def change_role(
         self, space_id: str, actor_id: str, grant_id: str, role: BusinessRole
     ) -> AccessList: ...
@@ -1058,6 +1063,27 @@ class InMemoryAccessStore:
                 )
             )
             return grant["id"]
+
+    def admits_email(self, email: str) -> bool:
+        try:
+            email = normalize_email(email)
+        except InvalidEmail:
+            return False
+        with self._lock:
+            now = self._now()
+            if any(
+                i["email"] == email
+                and i["revoked_at"] is None
+                and i["accepted_at"] is None
+                and i["expires_at"] > now
+                for i in self._invites
+            ):
+                return True
+            person = self._accounts.get(email)
+            return person is not None and any(
+                g["grantee_id"] == person and g["revoked_at"] is None
+                for g in self._grants
+            )
 
     def invitations_for(self, user_id: str) -> tuple[RecipientInvitation, ...]:
         with self._lock:

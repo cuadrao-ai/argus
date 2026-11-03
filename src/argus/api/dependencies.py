@@ -431,8 +431,12 @@ def current_user(request: Request) -> User:
         )
         return user
 
+    from argus.api.business_spaces import business_access
+
     auth_email = str(auth_user.get("email") or "")
-    if not permanent_account_access_allowed(api_state.supabase_gateway, auth_email):
+    if not permanent_account_access_allowed(
+        api_state.supabase_gateway, auth_email, business_access()
+    ):
         raise private_alpha_access_problem(request)
 
     user = api_state.supabase_gateway.get_or_create_profile_for_auth_user(auth_user)
