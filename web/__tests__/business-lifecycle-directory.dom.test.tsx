@@ -52,6 +52,7 @@ test("a closed-only member sees the server reason without mounting or creating a
 
 test("account deletion retries a failed read and warns about a closed Business without blocking", async () => {
   const { default: DeleteDialog } = await import("@/components/sidebar/ProfileDeleteRequestDialog");
+  const { useAccountDeletionEligibility } = await import("@/lib/use-account-deletion-eligibility");
   const i18n = i18next.createInstance(); await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   let reads = 0; let deleted = 0;
   const readEligibility = async () => {
@@ -61,7 +62,12 @@ test("account deletion retries a failed read and warns about a closed Business w
   };
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
   try {
-    await act(async () => root.render(<I18nextProvider i18n={i18n}><DeleteDialog state="idle" supportMailto="mailto:test@example.invalid" onClose={() => undefined} onSubmit={() => { deleted += 1; }} readEligibility={readEligibility} /></I18nextProvider>));
+    // The opener holds the read, as Ajustes does, and hands the alert its check.
+    function Opener() {
+      const check = useAccountDeletionEligibility(true, readEligibility);
+      return <DeleteDialog state="idle" supportMailto="mailto:test@example.invalid" onClose={() => undefined} onSubmit={() => { deleted += 1; }} check={check} />;
+    }
+    await act(async () => root.render(<I18nextProvider i18n={i18n}><Opener /></I18nextProvider>));
     const submit = () => [...document.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === spanish.settings.profile.request_deletion.confirm);
     assert.equal(submit(), undefined, "a failed read cannot offer deletion");
     // Rendered outside a Business, so the failure line is the neutral one.

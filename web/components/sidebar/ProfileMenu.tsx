@@ -735,13 +735,28 @@ export default function ProfileMenu({
   // already in place; opening it refreshes that answer behind the old one.
   const deletionCheck = useAccountDeletionEligibility(activeModal === "settings-window");
   const refreshDeletionCheck = deletionCheck.refresh;
+  const deletionReady = Boolean(deletionCheck.answer || deletionCheck.error);
+  // A press before the answer is in waits on its row, never in an empty alert.
+  const [waitingToDelete, setWaitingToDelete] = useState(false);
   const handleOpenDeleteRequest = useCallback(() => {
     setDeleteRequestState("idle");
+    if (!deletionReady) {
+      setWaitingToDelete(true);
+      return;
+    }
     setIsDeleteRequestOpen(true);
     refreshDeletionCheck();
-  }, [refreshDeletionCheck]);
+  }, [deletionReady, refreshDeletionCheck]);
+  // The alert opens the moment the answer, or the failure, lands: already filled in.
+  if (waitingToDelete && deletionReady) {
+    setWaitingToDelete(false);
+    setIsDeleteRequestOpen(true);
+  }
 
-  const closeSettingsWindow = useCallback(() => setActiveModal(null), []);
+  const closeSettingsWindow = useCallback(() => {
+    setWaitingToDelete(false);
+    setActiveModal(null);
+  }, []);
 
   // The row leaves with the menu, so the dialog's way back is the account button.
   const openFeedback = useCallback(() => {
@@ -891,6 +906,7 @@ export default function ProfileMenu({
           )}
           onSecurity={() => navigateFromOverlay("/account/security", closeSettingsWindow)}
           onDeleteAccount={handleOpenDeleteRequest}
+          deleteAccountBusy={waitingToDelete}
           deleteAccountRef={deleteAccountRef}
           legalLinks={LEGAL_LINK_IDS.map((id) => ({
             id,

@@ -992,8 +992,7 @@
         "title": "Delete your account?",
         "body": "We delete your account and your personal data. This can't be undone.",
         "business_owner": "Before you delete your account, each Business you own needs a new owner or must be closed.",
-        "checking": "[placeholder] Checking your account…",
-        "check_failed": "[placeholder] We couldn't check your account. Try again.",
+        "check_failed": "We couldn't check your account. Try again.",
         "confirm": "Delete account",
         "submitting": "Deleting...",
         "success": "Your account is deleted. You're signed out.",
@@ -3549,7 +3548,6 @@
       "deadline": "You can reopen it before {{purgeDate}} at {{purgeTime}} (Dominican Republic time).",
       "deletion": {
         "blocked": "Transfer or close your businesses first.",
-        "checking": "Checking your businesses…",
         "closed_warning": "{{businessName}} is closed. If you delete your account, nobody can reopen it, and its data and receipts will be deleted on {{purgeDate}} at {{purgeTime}} (Dominican Republic time).",
         "failed": "We couldn't check your businesses. Try again.",
         "warning": "You are the sole owner of {{businessName}}. Transfer it or close it before deleting your account."

@@ -1,7 +1,7 @@
 import type { AccountDeletionEligibility } from "./account-deletion-api";
 
 /* The sample preview has no deletion rule behind it, so it fakes the server's
- * answer from the address: /dev/business-preview?deletion=allowed|owner|closed|not_allowed|unavailable|loading,
+ * answer from the address: /dev/business-preview?deletion=allowed|owner|closed|not_allowed|unavailable|slow|loading,
  * with &lifecycle=on to show the Transferir and Cerrar links. Only in a
  * development build with mock auth, and only on that page. */
 
@@ -26,6 +26,7 @@ export function previewDeletionEligibility(): (() => Promise<AccountDeletionElig
   if (state === "closed") return async () => ({ allowed: true, blockers: [], notices: [CLOSED_SAMPLE] });
   if (state === "not_allowed") return async () => ({ allowed: false, blockers: [{ kind: "not_allowed" }], notices: [] });
   if (state === "unavailable") return async () => { throw Object.assign(new Error("account_deletion_unavailable"), { status: 503, code: "account_deletion_unavailable", requestId: "preview-ref-503" }); };
+  if (state === "slow") return () => new Promise<AccountDeletionEligibility>((resolve) => setTimeout(() => resolve({ allowed: false, blockers: SAMPLE_BUSINESSES, notices: [] }), 4000));
   if (state === "loading") return () => new Promise<AccountDeletionEligibility>(() => undefined);
   return null;
 }

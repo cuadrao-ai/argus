@@ -4,9 +4,8 @@ import { withViewportPortal } from "@/components/ui/withViewportPortal";
 
 import { useCallback, useId, useRef, type RefObject } from "react";
 import { dangerConfirmButtonClass, quietButtonClass, secondaryButtonClass } from "@/components/business-app/business-ui";
-import type { AccountDeletionEligibility } from "@/lib/account-deletion-api";
 import { previewLifecycleControls } from "@/lib/account-deletion-preview";
-import { useAccountDeletionEligibility, type AccountDeletionCheck } from "@/lib/use-account-deletion-eligibility";
+import type { AccountDeletionCheck } from "@/lib/use-account-deletion-eligibility";
 import { businessDeadlineParts, businessLifecycleHref } from "@/lib/business-lifecycle-api";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { businessLifecycleControlsEnabled } from "@/lib/private-alpha-flags";
@@ -51,7 +50,6 @@ function ProfileDeleteRequestDialogSurface({
   onSubmit,
   returnFocusRef,
   check,
-  readEligibility,
   lifecycleControls = previewLifecycleControls() ?? businessLifecycleControlsEnabled(),
 }: {
   state: DeleteRequestState;
@@ -59,17 +57,14 @@ function ProfileDeleteRequestDialogSurface({
   onClose: () => void;
   onSubmit: () => void | Promise<void>;
   returnFocusRef?: RefObject<HTMLElement | null>;
-  /** The answer the opener already holds, so the alert opens with it in place. */
-  check?: AccountDeletionCheck;
-  /** Without a check, the alert reads the server's delete rule itself; a test passes its own. */
-  readEligibility?: () => Promise<AccountDeletionEligibility>;
+  /** The server's answer, or why it could not be read. The opener holds it, and opens the alert only once one of the two is in. */
+  check: AccountDeletionCheck;
   /** Whether Transferir and Cerrar exist to link to. */
   lifecycleControls?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const isBusiness = useConversationSurface() === "business";
-  const ownCheck = useAccountDeletionEligibility(!check, readEligibility);
-  const { answer: eligibility, error: readError, refresh } = check ?? ownCheck;
+  const { answer: eligibility, error: readError, refresh } = check;
   // Off here (404) keeps the old path: the button files a support request.
   const allowed = eligibility !== null && ("off" in eligibility || eligibility.allowed);
   const blockers = eligibility && "blockers" in eligibility && !eligibility.allowed ? eligibility.blockers : [];
@@ -85,7 +80,7 @@ function ProfileDeleteRequestDialogSurface({
   const canDismiss = useCallback(() => state !== "submitting", [state]);
 
   useModalSurface({
-    isOpen: true,
+    isOpen: Boolean(eligibility || readError),
     overlayId,
     // The panel, not the full-screen wrapper. The wrapper's first focusable
     // child is the transparent backdrop, so trapping there opened keyboard
@@ -100,6 +95,9 @@ function ProfileDeleteRequestDialogSurface({
       if (canDismiss()) onClose();
     },
   });
+
+  // Never an empty alert: the opener waits on its row until the answer or the failure is in.
+  if (!eligibility && !readError) return null;
 
   const bodyText = "text-[14px] leading-relaxed text-[#56635e] dark:text-white/70";
   const supportLink = (
@@ -170,16 +168,14 @@ function ProfileDeleteRequestDialogSurface({
           </>
         ) : (
           <>
-            {eligibility === null ? (
-              <div className="space-y-2" data-testid="delete-account-checking">
-                <p role={readError ? "alert" : "status"} className={bodyText}>
-                  {/* Business names its businesses; Personal stays neutral. */}
-                  {isBusiness
-                    ? t(readError ? "business.lifecycle.deletion.failed" : "business.lifecycle.deletion.checking")
-                    : t(readError ? "settings.profile.request_deletion.check_failed" : "settings.profile.request_deletion.checking")}
+            {readError ? (
+              <div className="space-y-2" data-testid="delete-account-check-failed">
+                <p role="alert" className={bodyText}>
+                  {/* Business names its businesses; outside one the line stays neutral. */}
+                  {isBusiness ? t("business.lifecycle.deletion.failed") : t("settings.profile.request_deletion.check_failed")}
                 </p>
-                {readError?.reference ? <ReferenceCode reference={readError.reference} /> : null}
-                {readError ? <button type="button" className={quietButtonClass} onClick={refresh}>{t("common.retry")}</button> : null}
+                {readError.reference ? <ReferenceCode reference={readError.reference} /> : null}
+                <button type="button" className={quietButtonClass} onClick={refresh}>{t("common.retry")}</button>
               </div>
             ) : ownedBusinesses.length ? (
               <div data-testid="delete-account-business-owner">
