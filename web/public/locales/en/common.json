@@ -990,7 +990,8 @@
       "title": "Profile",
       "request_deletion": {
         "title": "Delete your account?",
-        "body": "Your account and your data will be deleted, and this can't be undone. Households you run pass to the longest-standing member, or close if you're the only one.",
+        "body": "We delete your account and your personal data. This can't be undone.",
+        "business_owner": "Before you delete your account, each Business you own needs a new owner or must be closed.",
         "shared_plans": "In plans you share, your amounts stay so everyone else's numbers still add up, but without your name: you'll show as \"Former member.\" Your receipts and notes are deleted. Anything you owe or are owed is closed in the app, not marked as paid. Plans you created pass to whoever has been in each one longest, except shared debt plans, which are closed and stay view-only.",
         "confirm": "Delete account",
         "submitting": "Deleting...",
@@ -2228,11 +2229,7 @@
       "pick_start": "Choose the start date",
       "preset": {
         "custom": "Custom",
-        "last_30": "Last 30 days",
-        "last_7": "Last 7 days",
-        "last_quarter": "Previous quarter",
-        "today": "Today",
-        "yesterday": "Yesterday"
+        "today": "Today"
       },
       "presets": "Quick periods",
       "title": "Choose a period",
@@ -4170,6 +4167,7 @@
       "range": "{{from}} – {{to}}",
       "show_all": "Show all",
       "this_month": "This month",
+      "this_year": "This year",
       "last_month": "Last month",
       "last_30_days": "Last 30 days",
       "label": "Period"

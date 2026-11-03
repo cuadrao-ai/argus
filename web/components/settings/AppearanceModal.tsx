@@ -1,10 +1,12 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { Sun, Moon, Monitor } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import AdaptivePanel from "@/components/ui/AdaptivePanel";
-import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { useConversationSurface } from "@/components/chat/ChatWorkspace";
+import { AppMiniature, PreviewChoice } from "@/components/settings/PreviewChoice";
+import SettingsSurface from "@/components/settings/SettingsSurface";
+import { Switch } from "@/components/ui/Switch";
+import { setSwitchLabelsShown, useSwitchLabelsShown } from "@/lib/switch-labels";
 
 type AppearanceModalProps = {
   onClose: () => void;
@@ -13,9 +15,12 @@ type AppearanceModalProps = {
   backLabel?: string;
 };
 
+type Theme = "light" | "dark" | "system";
+
 /**
- * Segmented Light / Dark / System. The choice stays in this browser; the
- * account holds no theme. The shell decides sheet or dialog.
+ * Light, Dark or System, each shown as the app in miniature. The choice stays
+ * in this browser; the account holds no theme. Business also keeps its
+ * switch-words choice here, beside the look it changes.
  */
 export default function AppearanceModal({
   onClose,
@@ -24,12 +29,13 @@ export default function AppearanceModal({
 }: AppearanceModalProps) {
   const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
+  const isBusiness = useConversationSurface() === "business";
+  const switchLabelsShown = useSwitchLabelsShown();
 
-  const current = theme === "light" || theme === "dark" || theme === "system" ? theme : "system";
+  const current: Theme = theme === "light" || theme === "dark" || theme === "system" ? theme : "system";
 
-  // The theme changes behind the sheet as it is picked, so the sheet stays open to compare.
   return (
-    <AdaptivePanel
+    <SettingsSurface
       title={t("settings.app.appearance", "Appearance")}
       closeLabel={t("settings.app.close_appearance", "Close appearance")}
       onClose={onClose}
@@ -37,20 +43,36 @@ export default function AppearanceModal({
       backLabel={backLabel}
       width="sm"
     >
-      <div className="p-4">
-        <SegmentedControl
-          fill
+      <div className="p-5">
+        <PreviewChoice<Theme>
           testId="appearance-options"
           label={t("settings.app.appearance", "Appearance")}
           value={current}
           onChange={setTheme}
-          segments={[
-            { key: "light", label: t("settings.app.appearance_options.light"), icon: Sun },
-            { key: "dark", label: t("settings.app.appearance_options.dark"), icon: Moon },
-            { key: "system", label: t("settings.app.appearance_options.system"), icon: Monitor },
+          options={[
+            { key: "light", label: t("settings.app.appearance_options.light"), preview: <AppMiniature tone="light" /> },
+            { key: "dark", label: t("settings.app.appearance_options.dark"), preview: <AppMiniature tone="dark" /> },
+            {
+              key: "system",
+              label: t("settings.app.appearance_options.system"),
+              preview: (
+                <>
+                  <AppMiniature tone="light" />
+                  <span className="absolute inset-0 [clip-path:polygon(55%_0,100%_0,100%_100%,45%_100%)]">
+                    <AppMiniature tone="dark" />
+                  </span>
+                </>
+              ),
+            },
           ]}
         />
+        {isBusiness ? (
+          <div className="mt-[21px] flex min-h-11 items-center justify-between gap-3 border-t border-[#DCE0DA] pt-[13px] text-[16px] text-black dark:border-white/10 dark:text-white">
+            <span>{t("settings.app.switch_labels", "Words on switches")}</span>
+            <Switch testId="settings-switch-labels" label={t("settings.app.switch_labels", "Words on switches")} checked={switchLabelsShown} onChange={setSwitchLabelsShown} />
+          </div>
+        ) : null}
       </div>
-    </AdaptivePanel>
+    </SettingsSurface>
   );
 }

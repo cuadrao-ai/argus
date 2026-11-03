@@ -13,7 +13,6 @@ export default function BusinessPhoneAccount({
   onFeedback,
   onHistoryMutated,
   onProfileUpdated,
-  onOpenSidebarPreference,
   onOpenKeyboardShortcuts,
   settingsOpenRequest = 0,
 }: {
@@ -22,7 +21,6 @@ export default function BusinessPhoneAccount({
   onFeedback?: (type: "bug" | "feature" | "general") => void;
   onHistoryMutated?: () => void;
   onProfileUpdated?: (user: ApiUser) => void;
-  onOpenSidebarPreference?: () => void;
   onOpenKeyboardShortcuts?: () => void;
   settingsOpenRequest?: number;
 }) {
@@ -46,7 +44,6 @@ export default function BusinessPhoneAccount({
         onFeedback={onFeedback}
         onHistoryMutated={onHistoryMutated}
         onProfileUpdated={onProfileUpdated}
-        onOpenSidebarPreference={onOpenSidebarPreference}
         onOpenKeyboardShortcuts={onOpenKeyboardShortcuts}
         anchorRef={buttonRef}
         placement="header"

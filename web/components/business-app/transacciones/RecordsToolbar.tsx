@@ -79,7 +79,7 @@ function PeriodChoices({ period, setPeriod, close }: { period: Period; setPeriod
   </>;
 }
 
-export type ConnectedRecordsToolbar = { reportPeriod: ReportPeriod; onPreset: (kind: Exclude<ReportPeriod["kind"], "custom">) => void; catalogues?: ReportFilterCatalogues; applyFilters: (filters: PreviewFilters, kind: RecordsFilter["kind"]) => void; views: ConnectedReportViews };
+export type ConnectedRecordsToolbar = { reportPeriod: ReportPeriod; catalogues?: ReportFilterCatalogues; applyFilters: (filters: PreviewFilters, kind: RecordsFilter["kind"]) => void; views: ConnectedReportViews };
 
 export function RecordsToolbar({ connected, filter, onChange, period, setPeriod, options, onPreviewChange, preferences, onPreferencesChange, appliedFilters, onFiltersChange, appliedPeriod, onPeriodChange }: { connected?: ConnectedRecordsToolbar; appliedPeriod?: Period; onPeriodChange?: (value: Period) => void; appliedFilters?: PreviewFilters; onFiltersChange?: (value: PreviewFilters) => void; preferences?: RecordsViewPreferences; onPreferencesChange?: (value: RecordsViewPreferences) => void; onPreviewChange?: () => void; filter: RecordsFilter; onChange: (filter: RecordsFilter) => void; period: Period; setPeriod: (period: PeriodKey | Period) => void; options: ReactNode }) {
   const { t } = useTransaccionesWords();
@@ -117,7 +117,7 @@ export function RecordsToolbar({ connected, filter, onChange, period, setPeriod,
         <input ref={searchInput} type="search" maxLength={connected ? 200 : undefined} value={filter.query} onChange={(event) => onChange({ ...filter, query: event.target.value })} aria-label={t("business.transactions.layout.search")} placeholder={t("business.transactions.layout.search")} className="h-11 w-full rounded-full border border-[#DCE0DA] bg-white pl-10 pr-3 text-[16px] text-[#172b26] placeholder:text-[#7d8a84] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)] dark:border-white/15 dark:bg-[#1f2225] dark:text-white dark:placeholder:text-white/45" />
       </div>
     )}
-    {datePreview ? <RecordsDatePreview reportPeriod={connected?.reportPeriod} onPreset={connected?.onPreset} period={period} value={previewPeriod} onChange={(next) => { setPreviewPeriod(next); onPreviewChange?.(); }} /> : <ToolbarPicker label={t("business.period.label")} value={periodName(period)} icon={<CalendarDays className="h-4 w-4 shrink-0" aria-hidden="true" />} wide>
+    {datePreview ? <RecordsDatePreview reportPeriod={connected?.reportPeriod} period={period} value={previewPeriod} onChange={(next) => { setPreviewPeriod(next); onPreviewChange?.(); }} /> : <ToolbarPicker label={t("business.period.label")} value={periodName(period)} icon={<CalendarDays className="h-4 w-4 shrink-0" aria-hidden="true" />} wide>
       {(close) => <PeriodChoices period={period} setPeriod={setPeriod} close={close} />}
     </ToolbarPicker>}
     {!datePreview ? <ToolbarPicker label={t("business.transactions.layout.type")} value={filter.kind === "all" ? t("business.transactions.layout.type") : kindName(filter.kind)}>

@@ -26,6 +26,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import SidebarNavButton from "./SidebarNavButton";
 import SidebarHeader, { type SidebarVariant } from "./SidebarHeader";
 import ProfileMenu, { type InvitationOpenRequest } from "./ProfileMenu";
+import type { SidebarPreference } from "./ProfileSettingsPanels";
 import RecentChatActions from "./RecentChatActions";
 import {
   patchConversation,
@@ -116,7 +117,8 @@ export type ChatSidebarProps = {
   onLogout: (options?: LogoutOptions) => void;
   onFeedback?: (type: "bug" | "feature" | "general") => void;
   /** Sidebar preference handler */
-  onOpenSidebarPreference?: () => void;
+  /** The rail's mode and setter, which Ajustes shows as Barra lateral. */
+  sidebarPreference?: SidebarPreference;
   onOpenKeyboardShortcuts?: () => void;
   settingsOpenRequest?: number;
   invitationOpenRequest?: InvitationOpenRequest | null;
@@ -182,7 +184,7 @@ export default function ChatSidebar({
   onConversationRemoved,
   onLogout,
   onFeedback,
-  onOpenSidebarPreference,
+  sidebarPreference,
   onOpenKeyboardShortcuts,
   settingsOpenRequest = 0,
   invitationOpenRequest,
@@ -460,7 +462,7 @@ export default function ChatSidebar({
 
   const isDrawer = variant === "drawer";
   // No rail exists in drawer mode, so its preference entry is absent, not greyed.
-  const sidebarPreferenceHandler = isDrawer ? undefined : onOpenSidebarPreference;
+  const railPreference = isDrawer ? undefined : sidebarPreference;
   const businessRail = business && !isDrawer;
   // Business keeps one inset open or closed, so icons never shift sideways as the rail moves.
   const railInset = businessRail || !isOpen ? "px-[10px]" : "px-3";
@@ -901,7 +903,7 @@ export default function ChatSidebar({
                 onFeedback={onFeedback}
                 onHistoryMutated={onHistoryMutated}
                 onProfileUpdated={onProfileUpdated}
-                onOpenSidebarPreference={sidebarPreferenceHandler}
+                sidebarPreference={railPreference}
                 onOpenKeyboardShortcuts={onOpenKeyboardShortcuts}
                 anchorRef={profileButtonRef}
                 sidebarCollapsed={!isOpen}
@@ -937,7 +939,7 @@ export default function ChatSidebar({
             onFeedback={onFeedback}
             onHistoryMutated={onHistoryMutated}
             onProfileUpdated={onProfileUpdated}
-            onOpenSidebarPreference={sidebarPreferenceHandler}
+            sidebarPreference={railPreference}
             onOpenKeyboardShortcuts={onOpenKeyboardShortcuts}
             anchorRef={profileButtonRef}
             sidebarCollapsed={!isOpen}

@@ -12,7 +12,7 @@ import { useTranslation } from "react-i18next";
 import { useConversationSurface } from "@/components/chat/ChatWorkspace";
 import { primaryButtonClass, quietButtonClass } from "@/components/business-app/business-ui";
 import { showToast } from "@/components/business-app/foundation/toasts";
-import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import CenteredDialog from "@/components/ui/CenteredDialog";
 import { fieldClass, fieldErrorClass, fieldHintClass, fieldLabelClass } from "@/components/ui/form-field";
 import {
   AlertCircle,
@@ -225,11 +225,11 @@ export default function FeedbackDialog({
           : t("feedback.subheading.general", "Share feedback about your Cuadrao experience.");
 
   return (
-    <AdaptivePanel
+    <CenteredDialog
       title={displayTitle}
       closeLabel={t("feedback.close", "Close feedback")}
       onClose={onClose}
-      width="lg"
+      testId="feedback-dialog"
       initialFocusRef={isRating ? undefined : messageRef}
       footer={
         isSuccess ? null : (
@@ -249,7 +249,7 @@ export default function FeedbackDialog({
         )
       }
     >
-      <p className={`px-5 pt-4 ${fieldHintClass}`}>
+      <p className={`px-5 pt-4 sm:px-6 sm:pt-1 ${fieldHintClass}`}>
         {subheading}
       </p>
         <div className="argus-thin-scrollbar flex-1 overflow-y-auto p-5 sm:p-6">
@@ -485,7 +485,8 @@ export default function FeedbackDialog({
                 </div>
               )}
 
-              <p className={fieldHintClass}>
+              {/* The note is about attaching a conversation; Business without one has nothing to say here. */}
+              {!isBusiness || hasConversationContext ? <p className={fieldHintClass}>
                 {hasConversationContext && includeConversationContext
                   ? t(
                       "feedback.footer_note_conversation",
@@ -503,7 +504,7 @@ export default function FeedbackDialog({
                   {t("common.learn_more", "Learn more")}
                 </button>
                 )}
-              </p>
+              </p> : null}
 
             </form>
           )}
@@ -514,6 +515,6 @@ export default function FeedbackDialog({
           push Submit past the bottom of a phone, and nothing about the cut-off
           content said there was an action down there to scroll to.
         */}
-    </AdaptivePanel>
+    </CenteredDialog>
   );
 }

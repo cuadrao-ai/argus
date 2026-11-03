@@ -94,15 +94,6 @@
 body {
   background: var(--color-background);
   color: var(--color-foreground);
-  /* An open side drawer takes this much room, so the page re-centres beside it instead of under it. */
-  padding-right: var(--cuadrao-drawer-space, 0px);
-  transition: padding-right 220ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  body {
-    transition: none;
-  }
 }
 
 /* A screen may bound the workspace (body[data-workspace-bounded] with --workspace-canvas-max): the canvas caps and
@@ -375,7 +366,7 @@ body[data-workspace-bounded] [data-workspace-canvas] {
   }
 }
 
-/* A desktop sheet slides in from the right edge; the page stays in view beside it. */
+/* A desktop sheet slides in from the right edge and lies over the page. */
 .cuadrao-side-drawer-enter {
   animation: cuadrao_side_drawer_enter 220ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }

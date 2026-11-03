@@ -990,7 +990,8 @@
       "title": "Perfil",
       "request_deletion": {
         "title": "¿Eliminar tu cuenta?",
-        "body": "Tu cuenta y tus datos se eliminarán, y no se puede deshacer. Los hogares que administras pasan al miembro con más antigüedad, o se cierran si eres el único.",
+        "body": "Borramos tu cuenta y tus datos personales, y no se puede deshacer.",
+        "business_owner": "Antes de eliminar tu cuenta, cada negocio tuyo necesita otro dueño o cerrarse.",
         "shared_plans": "En los planes que compartes, tus montos se quedan para que las cuentas de los demás sigan cuadrando, pero sin tu nombre: aparecerás como «Exmiembro». Tus recibos y notas se borran. Lo que debes o te deben queda cerrado en la app, no marcado como pagado. Los planes que creaste pasan a la persona que lleva más tiempo en cada uno, salvo los planes de deuda compartidos, que se cierran y quedan solo para consulta.",
         "confirm": "Eliminar cuenta",
         "submitting": "Eliminando...",
@@ -2228,11 +2229,7 @@
       "pick_start": "Elige la fecha inicial",
       "preset": {
         "custom": "Personalizado",
-        "last_30": "Últimos 30 días",
-        "last_7": "Últimos 7 días",
-        "last_quarter": "Trimestre anterior",
-        "today": "Hoy",
-        "yesterday": "Ayer"
+        "today": "Hoy"
       },
       "presets": "Períodos rápidos",
       "title": "Elige el período",
@@ -4022,7 +4019,8 @@
       "label": "Período",
       "last_30_days": "Últimos 30 días",
       "last_month": "Mes pasado",
-      "this_month": "Este mes"
+      "this_month": "Este mes",
+      "this_year": "Este año"
     },
     "reading": {
       "line": "Leyendo tu recibo…",
