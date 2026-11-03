@@ -43,5 +43,10 @@ export function buildInquiryMessage(profile: InquiryProfile, note: string): stri
   if (source) lines.push(`Nos conoció por: ${source}`);
   if (profile.pilot) lines.push("Demostración: le interesa una demostración de Cuadrao");
   const text = note.trim();
-  return [lines.join("\n"), text].filter(Boolean).join("\n\n");
+  return [
+    lines.length ? ["Detalles:", ...lines].join("\n") : "",
+    text ? `Mensaje:\n${text}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
