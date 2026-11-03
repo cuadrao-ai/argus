@@ -600,7 +600,8 @@ Sheet rules:
    below half of its lowest snap.
 3. **Side drawer on desktop.** From 1024px a sheet is a drawer on the right,
    at least 320px and at most 40% of the screen wide. No blur and no dimming:
-   the page stays readable beside it, and a click beside it closes it.
+   the drawer lies over the page without moving it, and a click beside it
+   closes it.
 4. **One sheet at a time.** Opening something from inside a sheet replaces it
    and shows a back arrow that returns to it. One sheet, one swipe to leave.
 5. **Flat.** No blur, no shadow. Edges are hairlines and corners are
