@@ -12,7 +12,10 @@ from argus.domain.business.lifecycle import (
     BusinessLifecycleError,
     PostgresBusinessLifecycle,
 )
-from argus.domain.business.receipt_consent import BusinessReceiptConsentStore
+from argus.domain.business.receipt_consent import (
+    SCOPE_VERSION,
+    BusinessReceiptConsentStore,
+)
 from argus.domain.business.scope import resolve_business_scope
 from argus.domain.business.spaces import PostgresSpaceStore
 from argus.domain.business.transfer import PostgresBusinessTransfer
@@ -181,7 +184,7 @@ def test_new_owner_must_supply_own_receipt_consent(world):
         people["owner"],
         actor_id=people["owner"],
         enabled=True,
-        version=1,
+        version=SCOPE_VERSION,
         disclosure_token=shown["disclosure_token"],
     )
     command = _request(world)
@@ -197,7 +200,7 @@ def test_new_owner_must_supply_own_receipt_consent(world):
             people["owner"],
             actor_id=people["owner"],
             enabled=True,
-            version=1,
+            version=SCOPE_VERSION,
             disclosure_token=shown["disclosure_token"],
         )
     new = permissions.set(
@@ -205,7 +208,7 @@ def test_new_owner_must_supply_own_receipt_consent(world):
         people["owner"],
         actor_id=people["other"],
         enabled=True,
-        version=1,
+        version=SCOPE_VERSION,
         disclosure_token=shown["disclosure_token"],
     )
     assert new["enabled"] and new["consent_id"] != old["consent_id"]
