@@ -176,9 +176,9 @@ function DesktopWindow({ sections, renderSection, onSecurity, onDeleteAccount, d
                           data-testid={`settings-nav-${row.id}`}
                           aria-current={isActive ? "page" : undefined}
                           onClick={row.kind === "section" ? () => setActive(row.id) : row.onSelect}
-                          className={`${rowBase} ${rowTone(row, isActive)}`}
+                          className={`${rowBase} ${rowTone(row, isActive)} ${row.kind === "action" && row.note ? "items-start" : ""}`}
                         >
-                          <Icon className={`h-[18px] w-[18px] shrink-0 ${row.kind === "action" && row.danger ? "" : isActive ? "text-black dark:text-white" : muted}`} aria-hidden="true" />
+                          <Icon className={`h-[18px] w-[18px] shrink-0 ${row.kind === "action" && row.note ? "mt-[3px]" : ""} ${row.kind === "action" && row.danger ? "" : isActive ? "text-black dark:text-white" : muted}`} aria-hidden="true" />
                           <span className="min-w-0 flex-1">
                             {row.label}
                             {row.kind === "action" && row.note ? <span data-testid="delete-account-note" className={`block text-[14px] ${muted}`}>{row.note}</span> : null}
@@ -300,7 +300,7 @@ function PhoneScreen({ sections, renderSection, onSecurity, onDeleteAccount, del
                           row.kind === "action" && row.danger ? "text-[#9e2f39] dark:text-[#ec9aa0]" : ""
                         }`}
                       >
-                        <Icon className={`h-5 w-5 shrink-0 ${row.kind === "action" && row.danger ? "" : muted}`} aria-hidden="true" />
+                        <Icon className={`h-5 w-5 shrink-0 ${row.kind === "action" && row.note ? "mt-[10px] self-start" : ""} ${row.kind === "action" && row.danger ? "" : muted}`} aria-hidden="true" />
                         <span className="min-w-0 flex-1 py-2">
                           {row.label}
                           {row.kind === "action" && row.note ? <span data-testid="delete-account-note" className={`block text-[14px] ${muted}`}>{row.note}</span> : null}
