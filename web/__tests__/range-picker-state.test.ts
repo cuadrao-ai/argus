@@ -31,10 +31,8 @@ test("hover previews without committing and endpoint drag can cross the other en
   assert.deepEqual(moved.range, { from: "2026-09-29", to: "2026-10-01" });
   assert.deepEqual(reduceRangeDraft(moved, { type: "drag-cancel" }, "es-419").range, initial().range);
 });
-test("quick periods use complete prior quarter and inclusive day windows", () => {
-  assert.deepEqual(presetRange("last_quarter", "2026-01-10"), { from: "2025-10-01", to: "2025-12-31" });
-  assert.deepEqual(presetRange("last_quarter", "2026-10-25"), { from: "2026-07-01", to: "2026-09-30" });
-  assert.deepEqual(presetRange("last_7", "2026-10-25"), { from: "2026-10-19", to: "2026-10-25" });
+test("the only day preset is today, and month steps clamp to the shorter month", () => {
+  assert.deepEqual(presetRange("today", "2026-10-25"), { from: "2026-10-25", to: "2026-10-25" });
   assert.equal(shiftMonth("2024-02-29", 12), "2025-02-28");
 });
 test("typed draft rejects reversed and over-366-day ranges", () => {
@@ -42,4 +40,32 @@ test("typed draft rejects reversed and over-366-day ranges", () => {
   assert.equal(validDraftRange(draft, "es-419"), null);
   draft = reduceRangeDraft(initial(), { type: "type", edge: "to", text: "02/10/2027" }, "es-419");
   assert.equal(validDraftRange(draft, "es-419"), null);
+});
+
+test("a draft opens on the preset its range matches, and on custom only when none does", () => {
+  const today = "2026-11-03";
+  const open = (from: string, to: string) => createRangeDraft({ from, to }, "es-419", today).preset;
+  assert.equal(open("2026-11-01", "2026-11-30"), "this_month");
+  assert.equal(open("2026-10-01", "2026-10-31"), "last_month");
+  assert.equal(open("2026-01-01", "2026-12-31"), "this_year");
+  assert.equal(open("2026-10-28", "2026-11-03"), "custom");
+  assert.equal(open("2026-11-03", "2026-11-03"), "today");
+  assert.equal(open("2026-11-01", "2026-11-03"), "custom");
+  assert.equal(createRangeDraft({ from: "2026-11-01", to: "2026-11-30" }, "es-419").preset, "custom");
+});
+test("a draft opened with no dates is Todo: empty fields and no selected day", () => {
+  const draft = createRangeDraft({ from: "", to: "" }, "es-419", "2026-11-03");
+  assert.equal(draft.preset, "all");
+  assert.deepEqual(draft.text, { from: "", to: "" });
+  assert.equal(draft.cursor, "2026-11-03");
+});
+test("Todo clears the range, and picking a day afterwards starts a custom range", () => {
+  const cleared = reduceRangeDraft(initial(), { type: "preset", preset: "all", today: "2026-11-03" }, "es-419");
+  assert.equal(cleared.preset, "all");
+  assert.deepEqual(cleared.range, { from: "", to: "" });
+  assert.deepEqual(cleared.text, { from: "", to: "" });
+  assert.equal(validDraftRange(cleared, "es-419"), null);
+  const picked = reduceRangeDraft(cleared, { type: "pick", day: "2026-11-02" }, "es-419");
+  assert.equal(picked.preset, "custom");
+  assert.deepEqual(picked.range, { from: "2026-11-02", to: "2026-11-02" });
 });
