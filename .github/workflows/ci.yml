@@ -200,7 +200,19 @@ jobs:
 
       # Directory-level so new test files are gated without editing this workflow.
       - name: Run backend regression suite
-        run: poetry run pytest tests -q --no-cov
+        run: >-
+          poetry run pytest tests -q --no-cov
+          -p scripts.ci.pytest_inventory
+          --ci-inventory=temp/ci-inventory/backend.json
+
+      - name: Retain backend test inventory and timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-inventory-backend-${{ github.run_id }}-${{ github.run_attempt }}
+          path: temp/ci-inventory/*.json
+          if-no-files-found: error
+          retention-days: 14
 
   frontend-checks:
     runs-on: ubuntu-24.04
@@ -414,6 +426,8 @@ jobs:
           poetry run pytest \
             "${files[@]}" \
             --junitxml=temp/guest-postgres-junit.xml \
+            -p scripts.ci.pytest_inventory \
+            --ci-inventory=temp/ci-inventory/postgres.json \
             -q --no-cov
           poetry run python scripts/qa/assert_pytest_gate.py \
             temp/guest-postgres-junit.xml
@@ -424,9 +438,20 @@ jobs:
           poetry run pytest \
             tests/test_guest_auth_local_supabase.py \
             --junitxml=temp/guest-auth-junit.xml \
+            -p scripts.ci.pytest_inventory \
+            --ci-inventory=temp/ci-inventory/auth.json \
             -q --no-cov
           poetry run python scripts/qa/assert_pytest_gate.py \
             temp/guest-auth-junit.xml
+
+      - name: Retain database test inventory and timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-inventory-database-${{ matrix.supabase-cli }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: temp/ci-inventory/*.json
+          if-no-files-found: error
+          retention-days: 14
 
   ci:
     name: ci
