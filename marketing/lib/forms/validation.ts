@@ -16,11 +16,6 @@ export type InquiryInput = {
   submissionId: string;
 };
 
-export type SignupInput = {
-  email: string;
-  locale: BusinessLocale;
-};
-
 export type Validated<T> =
   | { ok: true; value: T }
   | { ok: false; fields: string[] };
@@ -89,16 +84,4 @@ export function validateInquiry(body: unknown): Validated<InquiryInput> {
     ok: true,
     value: { name: name.replace(CONTROL, ""), email, description, locale: language, submissionId },
   };
-}
-
-export function validateSignup(body: unknown): Validated<SignupInput> {
-  const record = asRecord(body);
-  if (!record) return { ok: false, fields: ["body"] };
-  const email = typeof record.email === "string" ? normalizeEmail(record.email) : "";
-  const language = locale(record.locale);
-  const fields: string[] = [];
-  if (!validEmail(email)) fields.push("email");
-  if (!language) fields.push("locale");
-  if (fields.length || !language) return { ok: false, fields };
-  return { ok: true, value: { email, locale: language } };
 }
