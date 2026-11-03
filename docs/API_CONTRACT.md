@@ -9586,9 +9586,13 @@ month, as a document line plus `missing`, the export's own words for what it
 still needs, first fix first: `expense_type_missing`, `rnc_missing`,
 `rnc_invalid`, `ncf_invalid`, `date_missing`, `ncf_missing`,
 `payment_method_missing` or `detail_missing`, the same words Registros shows as
-`export_missing`; "ready for the 606 and 607" and what is missing for them read
-from `dgii_forms` and this list, never from `closed`, which stays month
-completion). Each currency block adds `itbis_cobrado_minor` and
+`export_missing`) and `filing_ready` (bool: the one fact "ready for the 606 and
+607", true only when both `dgii_forms` stand by the export's verdict
+(`prepared_candidate`, `no_operations` or `summary_only`) and no step of the
+month remains: `unreviewed_movements_count` zero, `missing_fiscal_data` empty,
+`cuentas_por_cobrar` and `cuentas_por_pagar` empty; the web shows that sentence
+from this field alone, never from `closed`, which stays month completion). Each
+currency block adds `itbis_cobrado_minor` and
 `itbis_cobrado` (ITBIS charged on the sales marked `cobrado`) and
 `net_result_final` (true while no document of that currency in the month is
 `pendiente` and, for a currency other than DOP, while that currency has no

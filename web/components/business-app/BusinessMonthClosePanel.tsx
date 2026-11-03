@@ -13,7 +13,6 @@ import {
   currenciesInOrder,
   currencyShown,
   currentMonthKey,
-  dgiiFormsReady,
   documentOverdue,
   electronicNcf,
   fiscalNumberPresent,
@@ -696,12 +695,10 @@ function BusinessMonthCloseContent({
   );
   const receiptStatusInLead = finance && Boolean(arrange) && receiptStatusPlacement === "lead";
   const embeddedReceiptStatus = receiptStatusInLead ? null : receiptStatus;
-  // Ready for the 606 and 607 is the server's verdict alone: the export's status words, no draft of this month still in the Bandeja, no document held.
-  const fiscalReady = dgiiFormsReady(snapshot?.dgii_forms ?? null) && unreviewed === 0 && held.length === 0 && !locked;
   const allDone = tasks.length === 0 && receiptsReviewed && !unreviewedLine;
-  // The all-done line already says it; otherwise it sits in the footer beside what remains.
-  const showFilingReady = fiscalReady && !allDone;
-  const showChecklistFooter = Boolean(embeddedReceiptStatus || reason || showFilingReady);
+  // "Ready for the 606 and 607" is the server's one fact, said only when the card has no step left to show.
+  const fiscalReady = snapshot?.filing_ready === true && allDone && !locked;
+  const showChecklistFooter = Boolean(embeddedReceiptStatus || reason);
   const checklistShown = phase !== "error" && snapshot !== null && !noDocuments && !locked;
 
   function renderRow(document: MonthCloseDocument, layout: "pending" | "overdue" | "closed" = "pending") {
@@ -1172,8 +1169,6 @@ function BusinessMonthCloseContent({
                 {embeddedReceiptStatus ? <div className="basis-full">{embeddedReceiptStatus}</div> : null}
                 {reason ? (
                   <p id="month-close-reason" data-testid="month-close-reason" className="min-w-0 flex-1 text-[14px] text-[#56635e] dark:text-white/70">{reason}</p>
-                ) : showFilingReady ? (
-                  <p data-testid="month-close-filing" className="min-w-0 flex-1 text-[14px] text-[#56635e] dark:text-white/70">{t("business.month_close.filing_ready", "You already have everything for the 606 and the 607.")}</p>
                 ) : null}
               </div> : null}
             </section>

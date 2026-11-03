@@ -120,6 +120,8 @@ export type MonthCloseSnapshot = {
   blockers?: MonthCloseBlocker[];
   /** Drafts still in the Bandeja for this month. Zero when the server omits the count. */
   unreviewed_movements: number;
+  /** The server's one fact "ready for the 606 and 607": both forms stand and no step of the month remains. Null or absent (an older server) is never ready. */
+  filing_ready?: boolean | null;
   /** One block per currency the month holds, in the server's order. A month with no documents has none. */
   figures: MonthCloseFigures[];
 };
@@ -629,10 +631,11 @@ function sample(monthStart: Date, input: SampleInput, now: Date): MonthCloseDocu
   return missing ? { ...built, missing } : built;
 }
 
-/** Realistic Dominican fixtures for the open month and the month before it. With `dollars`, the open month also holds a settled dollar sale and dollar expense. */
+/** Realistic Dominican fixtures for the open month, the month before it, and a finished month two back with every step done. With `dollars`, the open month also holds a settled dollar sale and dollar expense. */
 export function monthCloseSampleDocuments(now = new Date(), dollars = false): MonthCloseDocument[] {
   const current = shiftMonth(now, 0);
   const previous = shiftMonth(now, -1);
+  const finished = shiftMonth(now, -2);
   const row = (monthStart: Date, input: SampleInput) => sample(monthStart, input, now);
   return [
     row(current, { id: "inv-colmado", kind: "invoice", day: 3, dueDay: 10, counterparty: "Colmado Don Luis", amount: "29500.00", itbis: "4500.00", rnc: "101-23456-7", ncf: "B0100000042", ecf: null, status: "cobrado" }),
@@ -647,6 +650,8 @@ export function monthCloseSampleDocuments(now = new Date(), dollars = false): Mo
     row(previous, { id: "inv-luna", kind: "invoice", day: 11, dueDay: 20, counterparty: "Panadería Luna", amount: "5900.00", itbis: "900.00", rnc: "131-22233-4", ncf: "B0100000202", ecf: null, status: "pendiente" }),
     row(previous, { id: "rcpt-isla", kind: "receipt", day: 7, dueDay: 7, counterparty: "Combustible Isla", amount: "2360.00", itbis: "360.00", rnc: "101-33322-1", ncf: "B1500000044", ecf: null, status: "pagado" }),
     row(previous, { id: "rcpt-rosa", kind: "receipt", day: 13, dueDay: 25, counterparty: "Limpieza Rosa", amount: "944.00", itbis: "144.00", rnc: "131-44455-6", ncf: "B0100000203", ecf: null, status: "pendiente" }),
+    row(finished, { id: "inv-marina", kind: "invoice", day: 4, dueDay: 18, counterparty: "Restaurante Marina", amount: "11800.00", itbis: "1800.00", rnc: "101-55566-7", ncf: "B0100000190", ecf: null, status: "cobrado" }),
+    row(finished, { id: "rcpt-internet", kind: "receipt", day: 9, dueDay: 9, counterparty: "Servicio de internet", amount: "2360.00", itbis: "360.00", rnc: "101-61718-9", ncf: "B0100000188", ecf: null, status: "pagado" }),
     ...(dollars ? [
       row(current, { id: "inv-playa", kind: "invoice", currency: "USD", day: 9, dueDay: 16, counterparty: "Hotel Playa Norte", amount: "1416.00", itbis: "216.00", rnc: "130-55667-2", ncf: "B0100000043", ecf: null, status: "cobrado" }),
       row(current, { id: "rcpt-dominio", kind: "receipt", currency: "USD", day: 12, dueDay: 12, counterparty: "Dominio y correo", amount: "24.00", itbis: null, rnc: "131-77001-9", ncf: "B1100000051", ecf: null, status: "pagado" }),
@@ -690,6 +695,7 @@ function snapshotFor(documents: readonly MonthCloseDocument[], window: MonthClos
     documents: inWindow,
     figures: monthCloseFiguresFrom(inWindow),
     unreviewed_movements: 0,
+    filing_ready: dgiiFormsReady(sampleForms(inWindow, to, today)) && inWindow.every((document) => document.status !== "pendiente" && !document.missing),
   };
 }
 
@@ -1053,6 +1059,7 @@ export function readMonthCloseWire(value: unknown): MonthCloseSnapshot {
     blockers,
     figures: readFigures(value.currencies),
     unreviewed_movements,
+    filing_ready: typeof value.filing_ready === "boolean" ? value.filing_ready : null,
   };
 }
 

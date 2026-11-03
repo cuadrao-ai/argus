@@ -219,7 +219,7 @@ describe("month close optimistic marks", () => {
     assert.equal(future, null);
     assert.deepEqual(
       [...picker!.querySelectorAll<HTMLElement>('[role="option"]')].map((option) => option.dataset.month),
-      ["2026-09", "2026-10"],
+      ["2026-08", "2026-09", "2026-10"],
     );
     assert.equal(current?.getAttribute("aria-selected"), "true");
     assert.equal(loads.includes("2026-11"), false);
@@ -563,7 +563,7 @@ describe("fiscal complete months stay editable", () => {
     assert.equal(host.querySelector('[data-testid="month-close-checklist-ready"]'), null);
     assert.equal(host.querySelector('[data-testid="month-close-reason"]'), null);
     assert.equal(host.querySelector('[data-testid="month-close-close-note"]'), null);
-    assert.equal(host.querySelector('[data-testid="month-close-filing"]')?.textContent, "Ya tienes todo para el 606 y el 607.", "the export's verdict, beside the marks still to make");
+    assert.equal(host.querySelector('[data-testid="month-close-filing"]'), null, "marks still to make are a step, so the month is not ready");
     assert.equal(host.textContent?.includes("Cierra el mes"), false, "no close promise");
     assert.equal(host.textContent?.includes("Listo"), false);
     assert.equal(host.textContent?.includes("Mes cerrado"), false);
@@ -804,6 +804,7 @@ describe("a fully settled month", () => {
       missing_rnc: [],
       missing_ncf: [],
       missing_fiscal_data: [],
+      filing_ready: true,
       cuentas_por_cobrar: [],
       cuentas_por_pagar: [],
     }));

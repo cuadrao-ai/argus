@@ -37,7 +37,7 @@ def _october(views: list[dict]) -> int:
 def test_a_month_without_drafts_closes_as_before():
     plain = empty_month("2026-10")
     shown = with_unreviewed(plain, 0)
-    assert shown == {**plain, "unreviewed_movements_count": 0}
+    assert shown == {**plain, "unreviewed_movements_count": 0, "filing_ready": True}
     assert shown["closed"] is True
 
 
@@ -47,6 +47,7 @@ def test_an_unapproved_draft_in_the_month_blocks_the_close():
     assert shown["closed"] is False
     assert shown["unreviewed_movements_count"] == 1
     assert shown["reasons"] == [{"code": "movimientos_sin_revisar", "count": 1}]
+    assert shown["filing_ready"] is False
 
 
 def test_the_reason_carries_every_unreviewed_draft_and_keeps_earlier_reasons():

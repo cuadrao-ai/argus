@@ -495,18 +495,32 @@ def unreviewed_in_month(days: Iterable[date], start: date, end: date) -> int:
     return sum(start <= day <= end for day in days)
 
 
+#: The export's status words under which a form stands as it is.
+FORM_STANDS = frozenset({"prepared_candidate", "no_operations", "summary_only"})
+
+
 def with_unreviewed(summary: dict, count: int) -> dict:
-    """The month close with drafts still in the Bandeja as one blocking reason.
-    The web words it from the code, the count and the month."""
+    """The month close with drafts still in the Bandeja as one blocking reason,
+    and ``filing_ready``: the one fact "ready for the 606 and 607", true only
+    when both forms stand by the export's verdict and no step of this month
+    remains: nothing still in the Bandeja (reading, waiting or unreadable),
+    nothing the forms hold, nothing left to mark cobrado or pagado. The web
+    words the reason from the code, the count and the month."""
 
     reasons = list(summary["reasons"])
     if count:
         reasons.append({"code": "movimientos_sin_revisar", "count": count})
+    forms_stand = all(status in FORM_STANDS for status in summary["dgii_forms"].values())
     return {
         **summary,
         "closed": summary["closed"] and not count,
         "reasons": reasons,
         "unreviewed_movements_count": count,
+        "filing_ready": forms_stand
+        and not count
+        and not summary["missing_fiscal_data"]
+        and not summary["cuentas_por_cobrar"]
+        and not summary["cuentas_por_pagar"],
     }
 
 

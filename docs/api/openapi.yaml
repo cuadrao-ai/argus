@@ -26825,6 +26825,9 @@ components:
         unreviewed_movements_count:
           type: integer
           default: 0
+        filing_ready:
+          type: boolean
+          default: false
       additionalProperties: false
       type: object
       required:

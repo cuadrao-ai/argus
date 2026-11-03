@@ -181,6 +181,10 @@ class MonthClose(_Wire):
     cuentas_por_pagar: list[DocumentLine]
     # Receipt and note drafts the Bandeja still lists in this month.
     unreviewed_movements_count: int = 0
+    # "Ready for the 606 and 607": both forms stand by the export's verdict and
+    # no step of this month remains (nothing in the Bandeja, nothing held,
+    # nothing left to mark). The one fact the web shows that sentence from.
+    filing_ready: bool = False
 
 
 class OpenTotal(_Wire):

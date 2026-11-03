@@ -632,7 +632,7 @@ describe("ready for the 606 and 607 follows the export verdict, not month comple
   });
 
   test("the export's own verdict says the 606 and 607 are ready, with no close action", async () => {
-    const { client } = serverClient({ month: () => ({ closed: true, dgii_forms: { "606": "prepared_candidate", "607": "no_operations" }, missing_fiscal_data: [] }) });
+    const { client } = serverClient({ month: () => ({ closed: true, dgii_forms: { "606": "prepared_candidate", "607": "no_operations" }, missing_fiscal_data: [], filing_ready: true }) });
     const view = await renderInicio(client, reviewed);
     try {
       assert.equal(view.text("month-close-filing").trim(), "Ya tienes todo para el 606 y el 607.");
@@ -658,6 +658,56 @@ describe("ready for the 606 and 607 follows the export verdict, not month comple
     try {
       assert.equal(view.find("month-close-filing"), null);
       assert.equal(view.find("month-close-close"), null);
+    } finally { await view.unmount(); }
+  });
+});
+
+describe("the ready line is the server's one fact, and never shows while a step remains", () => {
+  const reviewed = { count: 0, detail: null, open() {} };
+  const prepared = { "606": "prepared_candidate", "607": "no_operations" } as const;
+
+  test("prepared forms alone do not make the month ready", async () => {
+    const { client } = serverClient({ month: () => ({ closed: true, dgii_forms: prepared, missing_fiscal_data: [], filing_ready: false }) });
+    const view = await renderInicio(client, reviewed);
+    try {
+      assert.equal(view.find("month-close-filing"), null);
+      assert.equal(view.text("month-close-checklist-ready").trim(), "Todo al día");
+    } finally { await view.unmount(); }
+  });
+
+  test("the server's ready fact shows the line once nothing remains", async () => {
+    const { client } = serverClient({ month: () => ({ closed: true, dgii_forms: prepared, missing_fiscal_data: [], filing_ready: true }) });
+    const view = await renderInicio(client, reviewed);
+    try {
+      assert.equal(view.text("month-close-filing").trim(), "Ya tienes todo para el 606 y el 607.");
+      assert.equal(view.find("month-close-checklist-ready"), null);
+    } finally { await view.unmount(); }
+  });
+
+  test("receipts still being read hide the line even when the server says ready", async () => {
+    const { client } = serverClient({ month: () => ({ closed: true, dgii_forms: prepared, missing_fiscal_data: [], filing_ready: true }) });
+    const view = await renderInicio(client, { count: 0, detail: null, reading: 2, attention: 0, open() {} });
+    try {
+      assert.match(view.text("month-close-reading"), /2/);
+      assert.equal(view.find("month-close-filing"), null, "a receipt still being read is not in the export yet");
+      assert.equal(view.find("month-close-checklist-ready"), null);
+    } finally { await view.unmount(); }
+  });
+
+  test("a document still to mark hides the line and shows the step", async () => {
+    const { client } = serverClient({ month: () => ({ closed: true, dgii_forms: prepared, missing_fiscal_data: [], filing_ready: true, cuentas_por_cobrar: [line("pending", null)] }) });
+    const view = await renderInicio(client, reviewed);
+    try {
+      assert.ok(view.find("month-close-task-settle"));
+      assert.equal(view.find("month-close-filing"), null);
+    } finally { await view.unmount(); }
+  });
+
+  test("an older server without the fact never shows the line", async () => {
+    const { client } = serverClient({ month: () => ({ closed: true, dgii_forms: prepared, missing_fiscal_data: [] }) });
+    const view = await renderInicio(client, reviewed);
+    try {
+      assert.equal(view.find("month-close-filing"), null);
     } finally { await view.unmount(); }
   });
 });

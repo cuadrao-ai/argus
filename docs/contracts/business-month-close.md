@@ -93,6 +93,7 @@ The error body is the usual problem document. `code` is the field above.
   "missing_ncf": [],
   "missing_payment_form": [],
   "missing_fiscal_data": [],
+  "filing_ready": false,
   "cuentas_por_cobrar": [],
   "cuentas_por_pagar": []
 }
@@ -109,7 +110,8 @@ The sample minors are illustrative. Each currency the month actually contains is
 | `closed` | True when every business document in the month has an RNC and a fiscal number that normalizes, or is sin comprobante. A blank number and a number that is not a B-series or E-series value both use `missing_ncf`. |
 | `reasons` | Why `closed` is false. `missing_rnc` or `missing_ncf`, with the activity. |
 | `missing_payment_form` | Purchases the 606 holds until a person sets Forma de Pago, marked paid or not, each with `payment_form` null. Forma de Pago is never defaulted. This list adds no `reasons` code, so it does not read into `closed`; `dgii_forms` carries the 606 status. |
-| `missing_fiscal_data` | Every document the 606 or 607 holds this month, as a document line plus `missing`: what the export still needs from it, first fix first, in the export's own words (`expense_type_missing`, `rnc_missing`, `rnc_invalid`, `ncf_invalid`, `date_missing`, `ncf_missing`, `payment_method_missing`, else `detail_missing`), the same words Registros shows as `export_missing`. Empty when both forms carry every document, when nothing is reportable, and when the Business has no RNC. The ready state for the 606 and 607 and the list of what is missing for them read from `dgii_forms` and this list; `closed` is month completion and never says the forms are ready. |
+| `missing_fiscal_data` | Every document the 606 or 607 holds this month, as a document line plus `missing`: what the export still needs from it, first fix first, in the export's own words (`expense_type_missing`, `rnc_missing`, `rnc_invalid`, `ncf_invalid`, `date_missing`, `ncf_missing`, `payment_method_missing`, else `detail_missing`), the same words Registros shows as `export_missing`. Empty when both forms carry every document, when nothing is reportable, and when the Business has no RNC. `closed` is month completion and never says the forms are ready. |
+| `filing_ready` | The one fact "ready for the 606 and 607". True only when both `dgii_forms` stand by the export's verdict (`prepared_candidate`, `no_operations` or `summary_only`) and no step of this month remains: `unreviewed_movements_count` is zero (a receipt still being read, waiting for review or unreadable is not in the export yet), `missing_fiscal_data` is empty, and `cuentas_por_cobrar` and `cuentas_por_pagar` are empty. The web shows "Ya tienes todo para el 606 y el 607" from this field alone. |
 | `income_before_itbis_minor` | Sales lines that would go on the 607, plus sin comprobante sales. Every document counts in its own currency's block. Only the 606 and 607 files and `dgii_forms` are DOP-only (`argus.domain.business.dgii_validation.declarable`, the one gate the export and month close share). The line is the 607 Monto Facturado when the draft declares it, and the activity total minus ITBIS when it does not. A credit note subtracts. An e-CF sale is not a 607 line. |
 | `expense_before_itbis_minor` | Purchase lines that would go on the 606, total minus ITBIS, plus sin comprobante purchases at their whole total. |
 | `itbis_cobrado_minor` | The part of `itbis_charged_minor` that belongs to sales already marked `cobrado`. A credit note marked cobrado subtracts. |

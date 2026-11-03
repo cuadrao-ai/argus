@@ -286,8 +286,10 @@ def test_ready_for_the_606_follows_the_export_verdict(web) -> None:  # noqa: ANN
     [held] = month["missing_fiscal_data"]
     assert (held["activity_id"], held["status"]) == (activity, "pagado")
     assert held["missing"] == ["expense_type_missing", "payment_method_missing"]
+    assert month["filing_ready"] is False
 
     unpaid._declare(web, draft, category="02", payment_method="01")
     month = _month(web, "2026-09")
     assert month["dgii_forms"]["606"] == "prepared_candidate"
     assert month["missing_fiscal_data"] == []
+    assert month["filing_ready"] is True
