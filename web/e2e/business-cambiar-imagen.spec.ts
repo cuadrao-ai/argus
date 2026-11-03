@@ -6,7 +6,7 @@ test.skip(process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED !== "true", "/biz needs
 
 const SPACE = "6038d05e-0000-4000-8000-000000000001";
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAAEUlEQVR4nGNkYPjPwMDAAAAECAEBT2vd0wAAAABJRU5ErkJggg==", "base64");
-const FILLS: [string, string][] = [["Siena", "rgb(5, 31, 32)"], ["Liquen", "rgb(11, 43, 38)"], ["Enebro", "rgb(22, 56, 50)"], ["Laguna", "rgb(35, 83, 71)"], ["Iris", "rgb(142, 182, 155)"], ["Morera", "rgb(218, 241, 222)"]];
+const FILLS: [string, string][] = [["Noche", "rgb(5, 31, 32)"], ["Bosque", "rgb(11, 43, 38)"], ["Pino", "rgb(22, 56, 50)"], ["Esmeralda", "rgb(35, 83, 71)"], ["Salvia", "rgb(142, 182, 155)"], ["Menta", "rgb(218, 241, 222)"]];
 
 async function liveProfile(page: Page, theme: "light" | "dark") {
   await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
@@ -99,12 +99,12 @@ for (const theme of ["light", "dark"] as const) {
         await expect(editor.getByRole("alert")).toHaveText("Elige una imagen JPG, PNG o WebP.");
         await capture(page, `wrong-file-${width}-${theme}`);
 
-        await editor.locator("label", { has: page.getByRole("radio", { name: "Morera", exact: true }) }).click();
+        await editor.locator("label", { has: page.getByRole("radio", { name: "Menta", exact: true }) }).click();
         await save(editor);
         expect(state.patches).toEqual([{ kind: "avatar", token: "plum", mark: "initials" }]);
 
         const reopenedColor = await openEditor(page);
-        await expect(reopenedColor.getByRole("radio", { name: "Morera", exact: true })).toBeChecked();
+        await expect(reopenedColor.getByRole("radio", { name: "Menta", exact: true })).toBeChecked();
         await expect(reopenedColor.getByRole("button", { name: "Guardar imagen", exact: true })).toBeDisabled();
 
         await reopenedColor.locator('input[type="file"]').setInputFiles({ name: "logo.png", mimeType: "image/png", buffer: PNG });
@@ -143,7 +143,7 @@ for (const theme of ["light", "dark"] as const) {
         const editor = page.getByTestId("identity-editor");
         await expect(tiles(editor)).toHaveCount(8);
         await capture(page, `add-business-${width}-${theme}`);
-        await editor.locator("label", { has: page.getByRole("radio", { name: "Laguna", exact: true }) }).click();
+        await editor.locator("label", { has: page.getByRole("radio", { name: "Esmeralda", exact: true }) }).click();
         await save(editor);
         expect(state.patches).toEqual([]);
         await expect(page.getByRole("button", { name: "Cambiar imagen", exact: true }).last()).toBeVisible();
@@ -157,7 +157,7 @@ for (const theme of ["light", "dark"] as const) {
         const editor = await openEditor(page);
         await expect(editor.getByTestId("identity-upload")).toHaveAttribute("aria-pressed", "true");
         await expect(editor.getByRole("button", { name: "Guardar imagen", exact: true })).toBeDisabled();
-        await editor.locator("label", { has: page.getByRole("radio", { name: "Laguna", exact: true }) }).click();
+        await editor.locator("label", { has: page.getByRole("radio", { name: "Esmeralda", exact: true }) }).click();
         await editor.getByTestId("identity-upload").click();
         await expect(editor.getByRole("button", { name: "Guardar imagen", exact: true })).toBeDisabled();
         expect(state.patches).toEqual([]);

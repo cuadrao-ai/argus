@@ -562,11 +562,11 @@ async function liveTest(
 }
 test("a color saves its old token through the live profile and reopens selected", async () => {
   await liveTest(undefined, async (page, server) => {
-    await page.act(async () => page.radio("Morera").click());
+    await page.act(async () => page.radio("Menta").click());
     await page.act(async () => page.button("Guardar imagen").click());
     await settle(page);
     assert.deepEqual(server.state.patches, [{ kind: "avatar", token: "plum", mark: "initials" }]);
-    assert.deepEqual(page.checked(), ["Morera"]);
+    assert.deepEqual(page.checked(), ["Menta"]);
     assert.equal(page.preview().textContent, "LP");
     assert.equal(page.button("Guardar imagen").disabled, true);
   });
@@ -602,7 +602,7 @@ test("a saved image keeps its stored crop: reopening, a wrong file and a color c
     await pick(page, new File(["<svg/>"], "unsafe.svg", { type: "image/svg+xml" }));
     assert.match(page.host.querySelector('[role="alert"]')?.textContent ?? "", /JPG, PNG o WebP/);
     assert.equal(page.button("Guardar imagen").disabled, true);
-    await page.act(async () => page.radio("Laguna").click());
+    await page.act(async () => page.radio("Esmeralda").click());
     assert.equal(page.button("Guardar imagen").disabled, false);
     await page.act(async () => page.uploadTile().click());
     assert.equal(page.button("Guardar imagen").disabled, true);
