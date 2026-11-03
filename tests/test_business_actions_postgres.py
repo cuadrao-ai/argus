@@ -580,8 +580,8 @@ def test_receipt_bridge_uses_client_scope_and_live_prepare_transaction(actions):
         {
             "type": "http",
             "app": app,
-            "method": "PATCH",
-            "path": f"/business/receipts/{receipt}/review",
+            "method": "POST",
+            "path": f"/business/receipts/{receipt}/prepare",
             "path_params": {"receipt_id": receipt},
             "headers": [],
             "state": {"request_id": "synthetic"},

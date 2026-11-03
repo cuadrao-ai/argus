@@ -12,7 +12,15 @@ import pytest
 from faker import Faker
 
 from scripts.ops.dgii_rnc_import import LOAD as IMPORT_CONFIG
-from scripts.ops.dgii_rnc_import import _apply_load, parse_zip, validate
+from scripts.ops.dgii_rnc_import import (
+    RncImportError,
+    _apply_load,
+    _copy_header,
+    _psql_copy,
+    main,
+    parse_zip,
+    validate,
+)
 from tests.dgii_rnc_zip import csv_file, csv_record, registry_zip, txt_record, txt_zip
 
 DSN = os.getenv("ARGUS_DISPOSABLE_DATABASE_URL", "").strip()
@@ -547,3 +555,212 @@ def test_the_importer_loads_a_zip_through_copy_and_swap(connection):
         assert cursor.fetchone() == ("no_activo",)
         cursor.execute("select verification from public.dgii_rnc_lookup(%s)", (active,))
         assert cursor.fetchone() == ("verificado",)
+
+
+TABLE_FACTS = (
+    "select relowner::regrole::text, relrowsecurity, relforcerowsecurity, relreplident,"
+    " reloptions from pg_class where oid = %(table)s::regclass",
+    "select item.grantee::regrole::text, item.grantor::regrole::text, item.privilege_type"
+    " from pg_class, aclexplode(relacl) as item where oid = %(table)s::regclass"
+    " order by 1, 2, 3",
+    "select conname, contype, pg_get_constraintdef(oid) from pg_constraint"
+    " where conrelid = %(table)s::regclass order by 1",
+    "select indexrelid::regclass::text, pg_get_indexdef(indexrelid) from pg_index"
+    " where indrelid = %(table)s::regclass order by 1",
+    "select attnum, attname, atttypid::regtype::text, attnotnull, atthasdef from pg_attribute"
+    " where attrelid = %(table)s::regclass and attnum > 0 and not attisdropped order by 1",
+    "select polname from pg_policy where polrelid = %(table)s::regclass order by 1",
+    "select tgname from pg_trigger"
+    " where tgrelid = %(table)s::regclass and not tgisinternal order by 1",
+)
+FUNCTION_FACTS = (
+    "select proname, proowner::regrole::text, prosecdef, provolatile, proconfig, proacl::text[]"
+    " from pg_proc where oid in ('public.dgii_rnc_swap(int)'::regprocedure,"
+    " 'public.dgii_rnc_lookup(text)'::regprocedure) order by 1"
+)
+TABLE_PRIVILEGES = ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE")
+SERVICE_ROLE_PRIVILEGES = {
+    REGISTRY: {"SELECT"},
+    LOAD: {"SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"},
+}
+
+
+def _catalog(connection) -> list[list[tuple]]:
+    with connection.cursor() as cursor:
+        facts = []
+        for table in (REGISTRY, LOAD):
+            for statement in TABLE_FACTS:
+                cursor.execute(statement, {"table": table})
+                facts.append(cursor.fetchall())
+        cursor.execute(FUNCTION_FACTS)
+        facts.append(cursor.fetchall())
+        return facts
+
+
+def _fill_both(connection) -> None:
+    _insert(connection, REGISTRY, "101234567", _name(), _name(), "ACTIVO", date(2026, 1, 1))
+    _insert(connection, LOAD, "101234568", _name(), None, "ACTIVO", FILE_DATE)
+
+
+def _swap(connection, min_rows: int = 1) -> None:
+    with connection.cursor() as cursor:
+        cursor.execute("select public.dgii_rnc_swap(%s)", (min_rows,))
+
+
+def _privileges(connection, role: str, table: str) -> set[str]:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "select privilege from unnest(%s::text[]) as privilege"
+            " where has_table_privilege(%s, %s, privilege)",
+            (list(TABLE_PRIVILEGES), role, table),
+        )
+        return {row[0] for row in cursor.fetchall()}
+
+
+def test_the_swap_leaves_the_catalog_as_it_found_it(connection):
+    before = _catalog(connection)
+    for _ in range(2):
+        _fill_both(connection)
+        _swap(connection)
+        assert _catalog(connection) == before
+        with connection.cursor() as cursor:
+            cursor.execute(f"truncate table {REGISTRY}")
+
+
+def test_each_table_keeps_its_own_privileges_and_row_security_after_a_swap(connection):
+    _fill_both(connection)
+    _swap(connection)
+    for table, granted in SERVICE_ROLE_PRIVILEGES.items():
+        assert _privileges(connection, "service_role", table) == granted
+        for role in DENIED_ROLES:
+            assert _privileges(connection, role, table) == set()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "select relrowsecurity, relforcerowsecurity,"
+                " (select count(*) from pg_policy where polrelid = pg_class.oid)"
+                " from pg_class where oid = %s::regclass",
+                (table,),
+            )
+            assert cursor.fetchone() == (True, False, 0)
+    with connection.cursor() as cursor:
+        cursor.execute("set role service_role")
+        try:
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                cursor.execute(f"delete from {REGISTRY}")
+            cursor.execute(f"delete from {LOAD}")
+        finally:
+            cursor.execute("reset role")
+
+
+def test_the_swap_publishes_the_load_table_itself_and_frees_the_old_one(connection):
+    _fill_both(connection)
+    with connection.cursor() as cursor:
+        cursor.execute("select pg_relation_filenode(%s)", (LOAD,))
+        load_file = cursor.fetchone()[0]
+    _swap(connection)
+    with connection.cursor() as cursor:
+        cursor.execute("select pg_relation_filenode(%s)", (REGISTRY,))
+        assert cursor.fetchone()[0] == load_file
+        cursor.execute("select pg_relation_size(%s)", (LOAD,))
+        assert cursor.fetchone()[0] == 0
+
+
+def test_a_failure_after_the_renames_keeps_the_previous_rows_and_catalog(connection):
+    _fill_both(connection)
+    registry = _contents(connection, REGISTRY)
+    loaded = _contents(connection, LOAD)
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "create function public.dgii_rnc_test_refuse() returns trigger language plpgsql"
+            " as $$ begin raise exception 'refused by the test'; end; $$"
+        )
+        cursor.execute(
+            f"create trigger refuse_truncate before truncate on {REGISTRY}"
+            " for each statement execute function public.dgii_rnc_test_refuse()"
+        )
+    try:
+        before = _catalog(connection)
+        with pytest.raises(psycopg.errors.RaiseException) as caught:
+            _swap(connection)
+        assert caught.value.diag.message_primary == "refused by the test"
+        assert _catalog(connection) == before
+        assert _contents(connection, REGISTRY) == registry
+        assert _contents(connection, LOAD) == loaded
+    finally:
+        with connection.cursor() as cursor:
+            cursor.execute(f"drop trigger refuse_truncate on {REGISTRY}")
+            cursor.execute("drop function public.dgii_rnc_test_refuse()")
+
+
+def _load_cli(tmp_path, monkeypatch, csv_payload: bytes, txt_payload: bytes | None) -> int:
+    monkeypatch.setattr(
+        "scripts.ops.dgii_rnc_import.LOAD",
+        replace(IMPORT_CONFIG, min_rows=1, size_limit_bytes=1 << 40),
+    )
+    monkeypatch.setenv("SUPABASE_STAGING_DB_URL", DSN)
+    csv_path = tmp_path / "rnc-csv.zip"
+    txt_path = tmp_path / "rnc-txt.zip"
+    csv_path.write_bytes(csv_payload)
+    if txt_payload is not None:
+        txt_path.write_bytes(txt_payload)
+    return main(["load", str(csv_path), str(txt_path)])
+
+
+@pytest.mark.parametrize(
+    "txt_payload",
+    [None, b"not a zip", txt_zip("sin separadores"), txt_zip()],
+    ids=["missing", "not_a_zip", "no_pipes", "no_records"],
+)
+def test_a_failed_txt_keeps_the_trade_names_that_exist(
+    connection, tmp_path, monkeypatch, capsys, txt_payload
+):
+    kept_rnc, new_rnc, gone_rnc = "901234567", "901234568", "901234569"
+    kept_name = _name()
+    _insert(connection, REGISTRY, kept_rnc, _name(), kept_name, "ACTIVO", date(2026, 1, 1))
+    _insert(connection, REGISTRY, gone_rnc, _name(), _name(), "ACTIVO", date(2026, 1, 1))
+    payload = registry_zip(csv_file(csv_record(kept_rnc, _name()), csv_record(new_rnc, _name())))
+
+    assert _load_cli(tmp_path, monkeypatch, payload, txt_payload) == 0
+
+    stored = {row[0]: row[2] for row in _contents(connection, REGISTRY)}
+    assert stored == {kept_rnc: kept_name, new_rnc: None}
+    output = capsys.readouterr().out
+    assert ": previous names stay\n" in output
+    assert "trade_name_filled=1\n" in output
+
+
+def test_a_good_txt_replaces_the_trade_names(connection, tmp_path, monkeypatch, capsys):
+    rnc = "901234567"
+    fresh = _name()
+    _insert(connection, REGISTRY, rnc, _name(), _name(), "ACTIVO", date(2026, 1, 1))
+    payload = registry_zip(csv_file(csv_record(rnc, _name())))
+
+    assert _load_cli(tmp_path, monkeypatch, payload, txt_zip(txt_record(rnc, fresh))) == 0
+
+    assert _contents(connection, REGISTRY)[0][2] == fresh
+    assert "trade_names=loaded\n" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "bad_row",
+    [
+        "901234567\t \t\\N\tACTIVO\t2026-10-18\t\\N\t\\N\t\\N\n",
+        "901234567\t{name}\x00\t\\N\tACTIVO\t2026-10-18\t\\N\t\\N\t\\N\n",
+        "901234567\t{name}\t\\N\tACTIVO\tnot a date\t\\N\t\\N\t\\N\n",
+    ],
+    ids=["check_violation", "nul_byte", "bad_value"],
+)
+def test_a_failed_copy_names_the_error_and_no_row(connection, tmp_path, bad_row):
+    name = _name()
+    spill = tmp_path / "copy.tsv"
+    spill.write_bytes(bad_row.format(name=name).encode("utf-8"))
+
+    with pytest.raises(RncImportError) as caught:
+        _psql_copy(DSN, _copy_header(IMPORT_CONFIG), str(spill))
+
+    message = str(caught.value)
+    assert "ERROR:" in message
+    assert "901234567" not in message
+    assert name not in message
+    assert "\n" not in message
+    assert _contents(connection, LOAD) == []

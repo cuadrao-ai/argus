@@ -19,7 +19,6 @@ import type {
   BusinessSpace,
   BusinessWorkspaceInfo,
   ReceiptDetail,
-  ReceiptReviewFields,
   ReceiptSummary,
   BusinessAccess,
 } from "@/lib/business-api";
@@ -81,11 +80,6 @@ export type BusinessDataSource = Readonly<{
   uploadReceipt: (file: File, consentToPrepare: boolean, key: string, documentType?: "recibo" | "venta" | null, onProgress?: api.UploadProgressListener) => Promise<ReceiptSummary>;
   prepareReceipt: (id: string) => Promise<ReceiptSummary>;
   rebindReceipt: (id: string) => Promise<ReceiptDetail>;
-  saveReview: (
-    id: string,
-    version: number,
-    fields: Partial<ReceiptReviewFields>,
-  ) => Promise<ReceiptDetail>;
   confirmReceipt: (id: string, version: number, key: string) => Promise<ReceiptDetail>;
   emailIntake: () => Promise<BusinessEmailIntake>;
   /** The business's name and tax id as the 606, 607 and exports print them. */
@@ -143,7 +137,6 @@ export const liveBusinessDataSource: BusinessDataSource = {
   uploadReceipt: api.uploadBusinessReceipt,
   prepareReceipt: api.prepareBusinessReceipt,
   rebindReceipt: api.rebindBusinessReceipt,
-  saveReview: api.saveBusinessReceiptReview,
   confirmReceipt: api.confirmBusinessReceipt,
   emailIntake: api.getBusinessEmailIntake,
   fiscalProfile: getFiscalProfile,
@@ -239,7 +232,6 @@ export function withBusinessSpace(
     uploadReceipt: after(source.uploadReceipt),
     prepareReceipt: source.prepareReceipt,
     rebindReceipt: source.rebindReceipt,
-    saveReview: source.saveReview,
     confirmReceipt: source.confirmReceipt,
     emailIntake: after(source.emailIntake),
     fiscalProfile: after(source.fiscalProfile),

@@ -24,7 +24,7 @@ const space=(permissions:string[]):GrantedSpace=>({space_id:`66666666-6666-4666-
 const nobody:Access={grants:[],invites:[]};
 const grant=(email:string)=>({id:email,email,display_name:email,capabilities:["read"],created_at:"2026-10-26",owner:false,business_role:"viewer",permissions:["read"]});
 const invite=(email:string,state:"pending"|"expired")=>({id:email,email,requested_role:"viewer",state,created_at:"2026-10-26",expires_at:"2026-11-02"});
-const outcome=(recipient:Recipient,state:string)=>({command_key:recipient.command_key,email:recipient.email,invite_id:state==="refused"?null:"invite-1",state,delivery:state==="refused"?null:"accepted",code:state==="refused"?"invalid_email":null});
+const outcome=(recipient:Recipient,state:string,delivery:string="accepted")=>({command_key:recipient.command_key,email:recipient.email,invite_id:state==="refused"?null:"invite-1",state,delivery:state==="refused"?null:delivery,code:state==="refused"?"invalid_email":null});
 const sendAll=(recipients:Recipient[])=>Response.json({results:recipients.map(recipient=>outcome(recipient,"pending"))});
 const copy=english.workspace_setup_preview;
 
@@ -225,6 +225,59 @@ test("a server duplicate reads as already having access, not as sent",async()=>{
   await page.settle(()=>page.button(copy.batch_done)!==undefined);
   expect(document.body.textContent).toContain(copy.batch_member);
   expect(document.body.textContent).not.toContain(copy.batch_sent_pending);
+ }finally{await page.unmount();}
+});
+
+test.each(["failed","uncertain","not_configured","pending"])("a created invitation whose email delivery is %s never reads as sent",async delivery=>{
+ serve({send:recipients=>Response.json({results:[outcome(recipients[0]!,"pending",delivery)]})});
+ const page=await mountForm();
+ try{
+  await page.typeEmail(0,"sinenvio@example.test");await page.submit();
+  await page.settle(()=>page.button(copy.batch_done)!==undefined);
+  const text=document.body.textContent??"";
+  expect(text).toContain(copy.invite_pending_detail);
+  expect(text).not.toContain(copy.batch_success_one);
+  expect(text).not.toContain(copy.batch_sent_pending);
+  expect(text).not.toContain(copy.batch_no_access);
+ }finally{await page.unmount();}
+});
+
+test("only the delivered rows count as sent, never a duplicate or an undelivered one",async()=>{
+ const states:Record<string,[string,string]>={"enviada":["pending","accepted"],"fallida":["pending","failed"],"miembro":["already_member","accepted"],"mala":["refused","accepted"]};
+ serve({send:recipients=>Response.json({results:recipients.map(recipient=>outcome(recipient,...states[recipient.email.split("@")[0]!]!))})});
+ const page=await mountForm();
+ try{
+  await page.typeEmail(0,"enviada@example.test");
+  for(const [index,name] of ["fallida","miembro","mala"].entries()){await page.addRow();await page.typeEmail(index+1,`${name}@example.test`);}
+  await page.submit();
+  await page.settle(()=>document.querySelector('li [role="alert"]')!==null);
+  const text=document.body.textContent??"";
+  expect(text).toContain(copy.batch_partial.replace("{{sent}}","1").replace("{{failed}}","3"));
+  expect(text.split(copy.batch_sent_pending).length-1).toBe(1);
+  expect(text).toContain(copy.invite_pending_detail);
+ }finally{await page.unmount();}
+});
+
+test("a batch of only duplicates is not announced as sent",async()=>{
+ serve({send:recipients=>Response.json({results:recipients.map(recipient=>outcome(recipient,"already_member"))})});
+ const page=await mountForm();
+ try{
+  await page.typeEmail(0,"uno@example.test");await page.addRow();await page.typeEmail(1,"dos@example.test");await page.submit();
+  await page.settle(()=>page.button(copy.batch_done)!==undefined);
+  const text=document.body.textContent??"";
+  expect(text).not.toContain(copy.batch_success.replace("{{count}}","2"));
+  expect(text).not.toContain(copy.batch_no_access);
+ }finally{await page.unmount();}
+});
+
+test("a delivered invitation still reads as sent",async()=>{
+ serve();
+ const page=await mountForm();
+ try{
+  await page.typeEmail(0,"entregada@example.test");await page.submit();
+  await page.settle(()=>page.button(copy.batch_done)!==undefined);
+  expect(document.body.textContent).toContain(copy.batch_success_one);
+  expect(document.body.textContent).toContain(copy.batch_sent_pending);
  }finally{await page.unmount();}
 });
 

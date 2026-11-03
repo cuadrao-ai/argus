@@ -702,17 +702,6 @@ export async function prepareBusinessReceipt(id: string): Promise<ReceiptSummary
   });
 }
 
-export async function saveBusinessReceiptReview(
-  id: string,
-  version: number,
-  fields: Partial<ReceiptReviewFields>,
-): Promise<ReceiptDetail> {
-  return apiFetch(`/business/receipts/${encodeURIComponent(id)}/review`, {
-    method: "PATCH",
-    body: JSON.stringify({ version, fields }),
-  });
-}
-
 export async function confirmBusinessReceipt(
   id: string,
   version: number,
