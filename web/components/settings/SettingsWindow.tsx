@@ -49,7 +49,7 @@ type SettingsWindowProps = {
 };
 
 const rowBase =
-  "flex min-h-11 w-full items-center gap-3 rounded-item px-2.5 py-2 text-left text-[16px] transition-colors duration-150 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--cuadrao-green)]";
+  "flex min-h-11 w-full gap-3 rounded-item px-2.5 py-2 text-left text-[16px] transition-colors duration-150 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--cuadrao-green)]";
 const muted = "text-[#56635e] dark:text-white/70";
 const hairline = "border-[#DCE0DA] dark:border-white/10";
 
@@ -176,7 +176,7 @@ function DesktopWindow({ sections, renderSection, onSecurity, onDeleteAccount, d
                           data-testid={`settings-nav-${row.id}`}
                           aria-current={isActive ? "page" : undefined}
                           onClick={row.kind === "section" ? () => setActive(row.id) : row.onSelect}
-                          className={`${rowBase} ${rowTone(row, isActive)} ${row.kind === "action" && row.note ? "items-start" : ""}`}
+                          className={`${rowBase} ${rowTone(row, isActive)} ${row.kind === "action" && row.note ? "items-start" : "items-center"}`}
                         >
                           <Icon className={`h-[18px] w-[18px] shrink-0 ${row.kind === "action" && row.note ? "mt-[3px]" : ""} ${row.kind === "action" && row.danger ? "" : isActive ? "text-black dark:text-white" : muted}`} aria-hidden="true" />
                           <span className="min-w-0 flex-1">
