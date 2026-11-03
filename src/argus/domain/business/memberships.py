@@ -457,8 +457,10 @@ class PostgresMembershipCommands:
                 " and i.accepted_at is null and i.revoked_at is null and i.expires_at>clock_timestamp()"
                 " and s.kind='business' and s.closed_at is null)"
                 " or exists(select 1 from public.business_client_grants g"
+                " join public.spaces s on s.id=g.space_id"
                 " join auth.users u on u.id=g.grantee_id where lower(u.email)=%s"
-                " and g.revoked_at is null and (g.expires_at is null or g.expires_at>clock_timestamp()))",
+                " and g.revoked_at is null and (g.expires_at is null or g.expires_at>clock_timestamp())"
+                " and s.kind='business' and s.closed_at is null)",
                 (email, email),
             ).fetchone()[0]
 

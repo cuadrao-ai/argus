@@ -102,7 +102,7 @@ from argus.api.business_spaces import (
 )
 from argus.api.business_workspace import router as business_workspace_router
 from argus.api.business_workspace_images import router as business_workspace_images_router
-from argus.api.dependencies import problem
+from argus.api.dependencies import problem, require_standing_account
 from argus.api.documents import (
     NO_STORE,
     dispatch_preparation,
@@ -446,7 +446,12 @@ def accept_consent(
     return {"version": body.version, "accepted_at": accepted_at}
 
 
-@router.post("/space", response_model=BusinessSpaceInfo, status_code=201)
+@router.post(
+    "/space",
+    response_model=BusinessSpaceInfo,
+    status_code=201,
+    dependencies=[Depends(require_standing_account)],
+)
 def start_space(
     request: Request,
     response: Response,
@@ -540,7 +545,11 @@ class InvitationBatch(BaseModel):
     recipients: list[InvitationRecipient] = Field(min_length=1, max_length=50)
 
 
-@router.post("/access/invitations", response_model=BusinessInvitationBatchResult)
+@router.post(
+    "/access/invitations",
+    response_model=BusinessInvitationBatchResult,
+    dependencies=[Depends(require_standing_account)],
+)
 def invite_recipients(
     body: InvitationBatch,
     request: Request,
@@ -640,7 +649,12 @@ def list_access(
     )
 
 
-@router.post("/access", response_model=BusinessAccess, status_code=201)
+@router.post(
+    "/access",
+    response_model=BusinessAccess,
+    status_code=201,
+    dependencies=[Depends(require_standing_account)],
+)
 def give_access(
     request: Request,
     response: Response,
@@ -689,7 +703,11 @@ def give_access(
     return payload
 
 
-@router.post("/access/invites/{invite_id}/resend", response_model=BusinessAccess)
+@router.post(
+    "/access/invites/{invite_id}/resend",
+    response_model=BusinessAccess,
+    dependencies=[Depends(require_standing_account)],
+)
 def resend_access_invite(
     invite_id: UUID,
     request: Request,

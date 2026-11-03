@@ -14,7 +14,7 @@ from argus.api.business_workspace_images import (
     profile_response,
     workspace_image_problem,
 )
-from argus.api.dependencies import problem
+from argus.api.dependencies import problem, require_standing_account
 from argus.api.documents import NO_STORE
 from argus.api.profile_images import profile_images, storage_problem
 from argus.domain.business.authority import ActionError
@@ -74,7 +74,12 @@ def _selected(request: Request, person: BusinessPerson, space_id: UUID) -> None:
         raise _failure(request, WorkspaceError("business_record_not_found"))
 
 
-@router.post("/spaces", response_model=BusinessSpaceInfo, status_code=201)
+@router.post(
+    "/spaces",
+    response_model=BusinessSpaceInfo,
+    status_code=201,
+    dependencies=[Depends(require_standing_account)],
+)
 def create_additional_business(
     request: Request,
     response: Response,

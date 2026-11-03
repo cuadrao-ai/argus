@@ -5,7 +5,7 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Literal
 
-from fastapi import HTTPException, Request
+from fastapi import Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from loguru import logger
 
@@ -314,11 +314,15 @@ def request_access_token(request: Request) -> str | None:
     return token
 
 
-def current_user(request: Request) -> User:
-    if (
+def mock_auth_enabled() -> bool:
+    return (
         os.getenv("NEXT_PUBLIC_MOCK_AUTH", "").strip().lower() == "true"
         or os.getenv("CUADRAO_MOCK_AUTH", "").strip().lower() == "true"
-    ):
+    )
+
+
+def current_user(request: Request) -> User:
+    if mock_auth_enabled():
         if api_state.supabase_gateway is not None:
             try:
                 user = api_state.supabase_gateway.get_or_create_mock_user()
@@ -442,3 +446,20 @@ def current_user(request: Request) -> User:
     user = api_state.supabase_gateway.get_or_create_profile_for_auth_user(auth_user)
     store_account_context(request, registered_account_context(user.id))
     return user
+
+
+def require_standing_account(
+    request: Request,
+    user: User = Depends(current_user),  # noqa: B008
+) -> None:
+    """The caller is admitted by the allowlist or by open sign-up, not only by a
+    Business invitation or grant. Starting a Business, inviting people to one and
+    taking one over need this, so admission never chains from one invited person
+    to the next."""
+
+    if mock_auth_enabled() or api_state.supabase_gateway is None:
+        return
+    if not permanent_account_access_allowed(
+        api_state.supabase_gateway, user.email or "", None
+    ):
+        raise private_alpha_access_problem(request)

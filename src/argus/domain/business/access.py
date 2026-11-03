@@ -561,8 +561,8 @@ class PostgresAccessStore(PostgresMembershipCommands):
 class InMemoryAccessStore:
     """The same rules without Postgres: the local app and the offline suite.
 
-    Accounts are the emails the test registers through ``confirm``; no email
-    is ever confirmed on its own.
+    Accounts are the emails the test registers through ``confirm``, and closed
+    Businesses the ids it closes through ``close``; neither happens on its own.
     """
 
     def __init__(self) -> None:
@@ -570,6 +570,7 @@ class InMemoryAccessStore:
         self._grants: list[dict] = []
         self._invites: list[dict] = []
         self._accounts: dict[str, str] = {}
+        self._closed: set[str] = set()
         self.ledger: list[AccessCommand] = []
         self._commands: dict[tuple[str, str, str], tuple[str, BusinessRole]] = {}
         self._command_invites: dict[tuple[str, str, str], str | None] = {}
@@ -577,6 +578,10 @@ class InMemoryAccessStore:
     def confirm(self, user_id: str, email: str) -> None:
         with self._lock:
             self._accounts[normalize_email(email)] = user_id
+
+    def close(self, space_id: str) -> None:
+        with self._lock:
+            self._closed.add(space_id)
 
     def _now(self) -> datetime:
         return datetime.now(timezone.utc)
@@ -1073,6 +1078,7 @@ class InMemoryAccessStore:
             now = self._now()
             if any(
                 i["email"] == email
+                and i["space_id"] not in self._closed
                 and i["revoked_at"] is None
                 and i["accepted_at"] is None
                 and i["expires_at"] > now
@@ -1081,7 +1087,9 @@ class InMemoryAccessStore:
                 return True
             person = self._accounts.get(email)
             return person is not None and any(
-                g["grantee_id"] == person and g["revoked_at"] is None
+                g["grantee_id"] == person
+                and g["space_id"] not in self._closed
+                and g["revoked_at"] is None
                 for g in self._grants
             )
 

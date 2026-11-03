@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, StrictStr
 
 from argus.api.business import require_business_surface, unavailable_problem
-from argus.api.dependencies import problem
+from argus.api.dependencies import problem, require_standing_account
 from argus.api.documents import NO_STORE
 from argus.api.routers.business_lifecycle import (
     CommandKey,
@@ -115,7 +115,11 @@ def request_transfer(
     )
 
 
-@router.post("/ownership-transfers/{transfer_id}/accept", response_model=TransferResponse)
+@router.post(
+    "/ownership-transfers/{transfer_id}/accept",
+    response_model=TransferResponse,
+    dependencies=[Depends(require_standing_account)],
+)
 def accept_transfer(
     request: Request, transfer_id: UUID, person: Person, service: Transfer
 ) -> TransferResponse:

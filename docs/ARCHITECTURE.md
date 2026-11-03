@@ -1067,7 +1067,9 @@ the allowlist owns role elevation and explicit denial only: a disabled row still
 blocks signup and login, while an absent row no longer does. When the public
 gate is closed instead, that allowlist owns signup and login admission too,
 and the Business invitation and grant tables admit exactly the email a live
-invitation or grant names; a disabled allowlist row still refuses it.
+invitation or grant on an open Business names; a disabled allowlist row still
+refuses it, and an email admitted only that way cannot start a Business or
+invite anyone.
 Turning the server guest flag off stops bootstrap only: active verified guests
 drain through their fixed expiry or conversion instead of being abruptly
 deauthorized.
