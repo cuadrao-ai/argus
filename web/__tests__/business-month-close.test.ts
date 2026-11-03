@@ -221,7 +221,7 @@ describe("month close mock client", () => {
     const client = createMockMonthCloseClient({ now });
     const snapshot = await client.load("2026-09");
     expect(snapshot.month).toBe("2026-09");
-    expect(snapshot.earliest_month).toBe("2026-09");
+    expect(snapshot.earliest_month).toBe("2026-08");
     expect(monthCloseRequestPath("2026-10")).toBe("/business/month-close?month=2026-10");
     expect(() => monthCloseRequestPath("2026-10-01")).toThrow(MonthCloseError);
   });

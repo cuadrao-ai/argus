@@ -600,7 +600,8 @@ Sheet rules:
    below half of its lowest snap.
 3. **Side drawer on desktop.** From 1024px a sheet is a drawer on the right,
    at least 320px and at most 40% of the screen wide. No blur and no dimming:
-   the page stays readable beside it, and a click beside it closes it.
+   the drawer lies over the page without moving it, and a click beside it
+   closes it.
 4. **One sheet at a time.** Opening something from inside a sheet replaces it
    and shows a back arrow that returns to it. One sheet, one swipe to leave.
 5. **Flat.** No blur, no shadow. Edges are hairlines and corners are
@@ -615,10 +616,63 @@ Which container, screen by screen (Lucas, October 20, 2026):
   that opens in the shared modal bottom sheet and returns to the same list
   position when closed (October 25, 2026). The desktop record tray remains
   non-modal.
-- **Sheets:** Agregar, Exportar registros, settings, forms and lists.
+- **Sheets:** Agregar, Exportar registros, forms and lists.
+- **Window:** Ajustes, the person's own settings (Lucas, November 2, 2026).
+  This reverses settings as sheets for user settings only; Business settings
+  stay on Negocio. See [Ajustes](#ajustes-approved-november-2-2026).
+- **Centered dialog, sheet on a phone:** Comentarios.
 - **Popovers:** pickers (a date, a month, a menu, the period's Personalizado
   range, which opens under its segment and in a sheet on a phone).
 - **Alerts:** closing a month, deleting, removing someone's access.
+
+### Ajustes, approved November 2, 2026
+
+The account menu's **Ajustes** row opens one window that holds every account
+setting. Owner: `components/settings/SettingsWindow.tsx`.
+
+- **Desktop:** centered over a scrim, 860px wide and a fixed height, so it never
+  resizes between sections. A short section list on the left, grouped as
+  Preferencias and Controles de datos; the chosen section on the right with its
+  title and the X. Choosing a section changes the pane in place: nothing stacks
+  and there is no back chain. Up and Down walk the list. Términos and Privacidad
+  sit at the foot of the list.
+- **Phone:** a full screen. The list comes first, with a back arrow that closes
+  Ajustes; a section replaces the list with its own back arrow. Escape and
+  system back go one level.
+- A one-choice setting (Apariencia, Idioma de la app, País y moneda, Barra
+  lateral) is a section, and a pick applies at once and keeps the window open.
+  Apariencia and Barra lateral show each choice as a small drawing of the app.
+  Interruptores con palabras lives in Apariencia.
+- Seguridad leaves for its page. Eliminar cuenta opens its alert above the
+  window; closing the alert returns focus to that row.
+- Business does not list Borrados recientemente.
+- Focus starts on the chosen section and returns to the account button on close.
+- Panels draw through `SettingsSurface`: the window's pane inside Ajustes, the
+  shared sheet anywhere else.
+- The account sheet on a phone is titled with the person's name, so it never
+  repeats Ajustes.
+
+**Perfil** (Lucas, November 3, 2026) is its own centered dialog from the
+account menu. It shows the avatar, the name and the email, then two names, each
+edited in place with a pencil, a check and a cross: Nombre, which the team sees
+on access and record history, and ¿Cómo quieres que te llamemos?, which the
+Home greeting uses. Each has a one-line hint under it. Escape cancels an open
+edit before it closes Perfil. Perfil shows no handle and no language shortcut;
+Idioma de la app lives in Ajustes.
+
+The account deletion alert asks the server first (`GET /account/deletion`)
+and renders only its answer (Lucas, November 3, 2026). Ajustes reads that
+answer as it opens and reuses it for a minute; opening the alert reads again
+only behind an answer over a minute old, and the server checks again on delete.
+The alert opens only once the answer is in, already filled in: it never shows a
+loading line, a skeleton or an empty alert. Pressed before the answer is back,
+the Eliminar cuenta row shows a small spinner in its trailing slot and is busy,
+with its name unchanged, and the alert opens the moment the answer lands. A
+read that failed opens the alert in its failure state, with its reference and
+Reintentar. The row stays a plain row and never lists Businesses. Eliminar
+shows only when allowed, each owned Business is named when it blocks deletion
+(with Transferir and Cerrar when those controls exist, the support contact when
+they do not), and a closed Business's purge date is a warning that never blocks.
 
 ### Dossier gradient, approved October 24, 2026
 
@@ -833,10 +887,10 @@ top right is who you are.
   Content scrolls under the bar through a soft fade in the surface's own
   color, on every screen the bar is on. A screen starts 32px below the bar
   (16px on a phone), and Inicio's cards sit 24px apart from the tablet up.
-- **Top right of the canvas:** the person's account (Perfil, Preferencias,
-  Datos y privacidad, Ayuda, Comentarios, Cerrar sesión). Its sheets open on
-  the same side, so the eye does not cross the screen. Phones already put it
-  there.
+- **Top right of the canvas:** the person's account (Perfil, Ajustes, Ayuda
+  y legal, Comentarios, Cerrar sesión). Ajustes and Comentarios open centered;
+  see [Ajustes](#ajustes-approved-november-2-2026). Phones already put the
+  account there.
 - **Negocio** is a page, not a sheet: Datos (name and RNC), Equipo y accesos,
   Correo de recibos. Nothing about the business lives in the account menu.
 

@@ -426,7 +426,7 @@ describe("mobile top bar", () => {
 
   test("the rail preference entry is absent in drawer mode, not greyed, and present in Business", () => {
     expect(chatSidebar).toContain(
-      "const sidebarPreferenceHandler = isDrawer ? undefined : onOpenSidebarPreference;",
+      "const railPreference = isDrawer ? undefined : sidebarPreference;",
     );
   });
 
@@ -616,9 +616,10 @@ describe("omnisearch below threshold", () => {
       "../components/sidebar/KeyboardShortcutsOverlay.tsx",
     ]) {
       const source = readFileSync(join(import.meta.dir, file), "utf-8");
-      // Managed means it registers, or renders through a shell that does.
+      // Managed means it registers, or renders through a shell that does:
+      // SettingsSurface is the sheet outside Ajustes and the window's pane inside it.
       expect(
-        /useModalSurface|AdaptivePanel|BottomSheet/.test(source),
+        /useModalSurface|AdaptivePanel|BottomSheet|<SettingsSurface/.test(source),
       ).toBe(true);
     }
   });
@@ -629,7 +630,7 @@ describe("omnisearch below threshold", () => {
     // unregistered behind the ones that had already been fixed. The menu is
     // held to owning none of its own, or a panel could re-enter past the
     // dispatch and out of this enumeration's sight.
-    const settingsImport = /import (\w+) from "@\/components\/settings\/([\w/]+)"/g;
+    const settingsImport = /import (\w+)(?:, \{[^}]*\})? from "@\/components\/settings\/([\w/]+)"/g;
     const panels = readFileSync(
       join(import.meta.dir, "../components/sidebar/ProfileSettingsPanels.tsx"),
       "utf-8",
@@ -638,7 +639,10 @@ describe("omnisearch below threshold", () => {
       join(import.meta.dir, "../components/sidebar/ProfileMenu.tsx"),
       "utf-8",
     );
-    expect([...menu.matchAll(settingsImport)]).toEqual([]);
+    // The one settings import the menu owns is the Ajustes window, which only
+    // renders the registry; it is managed itself.
+    expect([...menu.matchAll(settingsImport)].map((match) => match[2])).toEqual(["SettingsWindow"]);
+    expect(readFileSync(join(import.meta.dir, "../components/settings/SettingsWindow.tsx"), "utf-8")).toContain("useModalSurface");
     const imported = [...panels.matchAll(settingsImport)];
     expect(imported.length).toBeGreaterThanOrEqual(6);
     // An import that never reaches the registry is a panel nothing can open,
@@ -652,7 +656,7 @@ describe("omnisearch below threshold", () => {
       visited.add(file);
       const source = readFileSync(join(import.meta.dir, file), "utf-8");
       if (/useModalSurface|AdaptivePanel|BottomSheet/.test(source)) return true;
-      return [...source.matchAll(/import (\w+) from "@\/components\/([\w/-]+)"/g)]
+      return [...source.matchAll(/import (\w+)(?:, \{[^}]*\})? from "@\/components\/([\w/-]+)"/g)]
         .some((match) => new RegExp(`<${match[1]}\\b`).test(source)
           && hasManagedSurface(`../components/${match[2]}.tsx`, visited));
     };

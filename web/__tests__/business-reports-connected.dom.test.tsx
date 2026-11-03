@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterAll, afterEach, beforeAll, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, setSystemTime, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { act, StrictMode } from "react";
 import { I18nextProvider } from "react-i18next";
@@ -435,6 +435,7 @@ test("a period the person chose stays chosen when Registros opens again", async 
   const first = await mount({ width: 390 });
   await first.click(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]'));
   await first.click(first.button("Mes pasado"));
+  await first.click(first.button("Confirmar período"));
   await first.settle(() => addressFilters().period.kind === "last_month");
   const address = window.location.href;
   await cleanup();
@@ -455,11 +456,65 @@ test("a phone period preset holds after its sheet closes", async () => {
   const page = await mount({ width: 390, initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "this_month" } } }) });
   const before = sentFilters(page).length;
   await page.click(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]'));
-  await page.click(page.button("Todo"));
+  await page.click(page.button("Todas las fechas"));
+  await page.click(page.button("Confirmar período"));
   await page.settle(() => document.querySelector('[role="dialog"]') === null && document.querySelector('[data-testid="records-count"]') !== null);
   await pause(200);
   assert.deepEqual(sentFilters(page).slice(before).map((filters) => filters.period), [{ kind: "all" }]);
   assert.deepEqual(addressFilters().period, { kind: "all" });
+});
+
+for (const [preset, kind] of [["Este mes", "this_month"], ["Este año", "this_year"], ["Mes pasado", "last_month"]] as const) test(`${preset} in the one preset list asks the server for ${kind}`, async () => {
+  const page = await mount({ width: 390 });
+  const before = sentFilters(page).length;
+  await page.click(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]'));
+  await page.click(page.button(preset));
+  assert.equal(sentFilters(page).length, before, "choosing a preset only selects dates");
+  await page.click(page.button("Confirmar período"));
+  await page.settle(() => addressFilters().period.kind === kind && document.querySelector('[role="dialog"]') === null && document.querySelector('[data-testid="records-count"]') !== null);
+  await pause(200);
+  assert.deepEqual(sentFilters(page).slice(before).map((filters) => filters.period), [{ kind }]);
+  const label = { this_month: "Este mes", this_year: String(new Date().getFullYear()), last_month: "Mes pasado" }[kind];
+  assert.equal(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]')?.textContent, label, "the button names the whole period, not its dates");
+});
+
+const pressed = () => [...document.querySelectorAll('[aria-label="Períodos rápidos"] button[aria-pressed="true"]')].map((node) => node.textContent);
+const fields = () => [...document.querySelectorAll<HTMLInputElement>('[data-testid="range-picker"] input')].map((input) => input.value);
+
+test("Registros opens its picker on the current period, on Personalizado only when no preset matches", async () => {
+  // An open sheet spends its history entry with back() on a timer after unmount. Resetting the address before
+  // that lands lets back() put the previous report's address in front of the next mount.
+  const reopen = async () => {
+    const spent = new Promise((resolve) => window.addEventListener("popstate", resolve, { once: true }));
+    await cleanup();
+    await act(async () => { await spent; });
+    (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL("http://localhost/biz");
+  };
+  const month = await mount({ width: 390, initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "this_month" } } }) });
+  await month.click(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]'));
+  assert.deepEqual(pressed(), ["Este mes"]);
+  assert.equal(fields()[0], "01/10/2026");
+  await reopen();
+  const latest = await mount({ width: 390, edit: (records) => { for (const row of records) if (row.report_date) row.report_date = "2026-08-14"; } });
+  await latest.click(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]'));
+  assert.deepEqual(pressed(), ["Personalizado"]);
+  assert.deepEqual(fields(), ["01/08/2026", "31/08/2026"]);
+  await reopen();
+  const all = await mount({ width: 390, initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "all" } } }) });
+  await all.click(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]'));
+  assert.deepEqual(pressed(), ["Todas las fechas"]);
+  assert.deepEqual(fields(), ["", ""]);
+});
+
+test("at an hour when the UTC day and the Santo Domingo day differ, the picker opens on the month the page shows", async () => {
+  setSystemTime(new Date("2026-11-01T01:00:00Z"));
+  const localMonth = new Date().getMonth() + 1;
+  const expected = ({ 10: ["01/10/2026", "31/10/2026"], 11: ["01/11/2026", "30/11/2026"] } as Record<number, string[]>)[localMonth];
+  assert.ok(expected, "October 31 in Santo Domingo, November 1 in UTC");
+  const page = await mount({ width: 390, initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "this_month" } } }) });
+  await page.click(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]'));
+  assert.deepEqual(pressed(), ["Este mes"]);
+  assert.deepEqual(fields(), expected);
 });
 
 test("closing the phone Filtros sheet without a choice sends no query", async () => {

@@ -8,7 +8,7 @@ import {
 } from "react";
 import { ChevronDown, Loader2, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import SettingsSurface from "@/components/settings/SettingsSurface";
 import { getUsageAllowances } from "@/lib/argus-api";
 import {
   allowanceMeterTone,
@@ -189,7 +189,7 @@ export default function UsageModal({
   }, [requestVersion]);
 
   return (
-    <AdaptivePanel
+    <SettingsSurface
       title={t("settings.data.usage_panel.title")}
       closeLabel={t("settings.data.usage_panel.close")}
       onClose={onClose}
@@ -272,6 +272,6 @@ export default function UsageModal({
             </>
           )}
         </div>
-    </AdaptivePanel>
+    </SettingsSurface>
   );
 }

@@ -12,6 +12,7 @@ from loguru import logger
 from pydantic import ValidationError
 
 from argus.api import state as api_state
+from argus.api.business_spaces import business_access
 from argus.api.guest_access import permanent_account_access_allowed
 from argus.api.ops_contract import (
     ACCESS_REQUEST_APPROVE_PATH,
@@ -192,8 +193,7 @@ async def requested_signup_denial(request: Request) -> dict[str, bool]:
         raise HTTPException(status_code=503, detail="Canary probe is unavailable.")
     return {
         "denied": not permanent_account_access_allowed(
-            api_state.supabase_gateway,
-            body.email,
+            api_state.supabase_gateway, body.email, business_access()
         )
     }
 

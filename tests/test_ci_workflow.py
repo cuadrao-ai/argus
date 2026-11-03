@@ -21,7 +21,7 @@ DOCS_READING_TESTS_SCRIPT = ROOT / ".github" / "docs-reading-tests.sh"
 RUNBOOK_PATH = ROOT / "docs" / "PRIVATE_LAUNCH_RUNBOOK.md"
 FAKE = Faker()
 
-_HEAVY_CI_JOBS = ("backend-checks", "frontend-checks")
+_HEAVY_CI_JOBS = ("backend-shards", "frontend-checks")
 MARKETING_RUNBOOK_PATH = ROOT / "docs" / "runbooks" / "cuadrao-marketing-launch.md"
 # A push or a ready pull request runs the full CI; the scheduled and manual
 # probe runs only the latest-CLI real-Postgres leg.
@@ -122,7 +122,7 @@ def test_ci_has_active_backend_and_frontend_quality_jobs() -> None:
     assert "mock-demo phase" not in WORKFLOW_PATH.read_text(encoding="utf-8")
 
     backend_steps = "\n".join(
-        str(step.get("run", "")) for step in jobs["backend-checks"]["steps"]
+        str(step.get("run", "")) for step in jobs["backend-shards"]["steps"]
     )
     assert "poetry run ruff check src tests workflows scripts" in backend_steps
     assert "poetry run pytest tests -q --no-cov" in backend_steps
@@ -137,7 +137,7 @@ def test_backend_checks_gates_the_suite_by_directory() -> None:
     workflow = _workflow()
     jobs = workflow["jobs"]
     backend_steps = "\n".join(
-        str(step.get("run", "")) for step in jobs["backend-checks"]["steps"]
+        str(step.get("run", "")) for step in jobs["backend-shards"]["steps"]
     )
 
     assert re.search(r"pytest\s+tests\s", backend_steps)
@@ -151,7 +151,7 @@ def test_backend_checks_gates_the_suite_by_directory() -> None:
     setup_bun_step = next(
         step
         for step in jobs["frontend-checks"]["steps"]
-        if step.get("uses") == "oven-sh/setup-bun@v2"
+        if step.get("uses") == "oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6"
     )
     assert workflow["env"]["ARGUS_CI_BUN_VERSION"] == "1.3.14"
     assert (
@@ -164,15 +164,15 @@ def test_backend_checks_gates_the_suite_by_directory() -> None:
 
 def test_ci_runs_guest_release_gates_with_disposable_local_supabase() -> None:
     jobs = _workflow()["jobs"]
-    guest_job = jobs["database-checks"]
+    guest_job = jobs["database-shards"]
     joined_steps = "\n".join(str(step.get("run", "")) for step in guest_job["steps"])
     uses_steps = {
         str(step.get("uses", "")): step for step in guest_job["steps"] if step.get("uses")
     }
 
-    assert "supabase/setup-cli@v1" in uses_steps
+    assert "supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb" in uses_steps
     assert _workflow()["env"]["ARGUS_CI_SUPABASE_CLI_VERSION"] == "2.109.0"
-    assert uses_steps["supabase/setup-cli@v1"]["with"]["version"] == (
+    assert uses_steps["supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb"]["with"]["version"] == (
         "${{ matrix.supabase-cli == 'latest' && 'latest' || "
         "env.ARGUS_CI_SUPABASE_CLI_VERSION }}"
     )
@@ -232,7 +232,7 @@ def _run_postgres_matrix_step(
     """Run the matrix step's Bash with a poetry that records its arguments."""
     step = next(
         step
-        for step in _workflow()["jobs"]["database-checks"]["steps"]
+        for step in _workflow()["jobs"]["database-shards"]["steps"]
         if step.get("name") == "Run required real-PostgreSQL matrix"
     )
     scratch = Path(tempfile.mkdtemp(dir=tmp_path))
@@ -249,6 +249,8 @@ def _run_postgres_matrix_step(
             **os.environ,
             "PATH": f"{scratch}{os.pathsep}{os.environ['PATH']}",
             "GITHUB_EVENT_NAME": event,
+            "CI_SHARD_INDEX": "0",
+            "CI_SHARD_COUNT": _workflow()["jobs"]["database-shards"]["env"]["CI_SHARD_COUNT"],
         },
         capture_output=True,
         text=True,
@@ -330,14 +332,14 @@ def test_marketing_checks_prove_the_runtime_and_tooling_render_will_use() -> Non
     node_pin = re.search(r"\| `NODE_VERSION` \| `([0-9.]+)` \|", runbook)
     assert node_pin, "the runbook must state the Render NODE_VERSION"
     setup_node = next(
-        step for step in steps if step.get("uses") == "actions/setup-node@v4"
+        step for step in steps if step.get("uses") == "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020"
     )
     assert setup_node["with"]["node-version"] == node_pin.group(1)
 
     bun_pin = re.search(r"npm install -g bun@([0-9.]+)", runbook)
     assert bun_pin, "the runbook build command must pin Bun"
     assert bun_pin.group(1) == workflow["env"]["ARGUS_CI_BUN_VERSION"]
-    setup_bun = next(step for step in steps if step.get("uses") == "oven-sh/setup-bun@v2")
+    setup_bun = next(step for step in steps if step.get("uses") == "oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6")
     assert setup_bun["with"]["bun-version"] == "${{ env.ARGUS_CI_BUN_VERSION }}"
 
     # Each gate runs inside the independent package, in the order a deploy needs.
@@ -460,22 +462,22 @@ def test_agent_runtime_regression_workflow_runs_full_runtime_sweep() -> None:
         "github.event_name != 'pull_request'"
     )
     setup_python_step = next(
-        step for step in job["steps"] if step.get("uses") == "actions/setup-python@v5"
+        step for step in job["steps"] if step.get("uses") == "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065"
     )
     assert setup_python_step["with"]["python-version"] == "3.10"
     checkout_steps = [
-        step for step in job["steps"] if step.get("uses") == "actions/checkout@v4"
+        step for step in job["steps"] if step.get("uses") == "actions/checkout@11d5960a326750d5838078e36cf38b85af677262"
     ]
     assert checkout_steps == [
         {
             "name": "Checkout workflow ref",
             "if": "github.event_name != 'schedule'",
-            "uses": "actions/checkout@v4",
+            "uses": "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
         },
         {
             "name": "Checkout private-alpha-next for nightly schedule",
             "if": "github.event_name == 'schedule'",
-            "uses": "actions/checkout@v4",
+            "uses": "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
             "with": {"ref": "codex/private-alpha-next"},
         },
     ]
@@ -749,7 +751,7 @@ def test_pull_request_heavy_jobs_use_the_shared_docs_change_gate() -> None:
         f"({_DRAFT_OR_PUSH} || {_FULL_RUN}) && "
         "needs.docs-change-gate.outputs.run_marketing == 'true'"
     )
-    guest_job = jobs["database-checks"]
+    guest_job = jobs["database-shards"]
     assert _job_needs(guest_job) == ["docs-change-gate"]
     assert guest_job["if"] == (
         f"({_DRAFT_OR_PUSH} || {_LATEST_CLI_PROBE}) && "
@@ -786,7 +788,7 @@ def test_docs_checks_job_runs_only_when_the_gate_reports_docs_only() -> None:
     assert "bun install --frozen-lockfile" in joined_steps
     assert "bun test" not in joined_steps
     assert "bun run build" not in joined_steps
-    setup_bun = next(step for step in job["steps"] if step.get("uses") == "oven-sh/setup-bun@v2")
+    setup_bun = next(step for step in job["steps"] if step.get("uses") == "oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6")
     assert setup_bun["with"]["bun-version"] == "${{ env.ARGUS_CI_BUN_VERSION }}"
     assert "supabase" not in joined_steps.lower()
     assert "local-smoke" not in joined_steps
@@ -836,7 +838,7 @@ def test_ci_aggregator_allows_skipped_docs_checks_when_not_docs_only() -> None:
 
 def test_real_postgres_matrix_runs_on_pinned_and_latest_supabase_cli() -> None:
     workflow = _workflow()
-    guest_job = workflow["jobs"]["database-checks"]
+    guest_job = workflow["jobs"]["database-shards"]
 
     assert workflow["on"]["schedule"] == [{"cron": "17 9 * * 1"}]
     assert "workflow_dispatch" in workflow["on"]
@@ -858,7 +860,7 @@ def test_real_postgres_matrix_runs_on_pinned_and_latest_supabase_cli() -> None:
     pinned_only = [
         name
         for name, step in by_name.items()
-        if step.get("if") == "matrix.supabase-cli == 'pinned'"
+        if step.get("if") == "matrix.supabase-cli == 'pinned' && matrix.shard == 0"
     ]
     assert pinned_only == [
         "Run required local anonymous Auth matrix",
@@ -867,7 +869,7 @@ def test_real_postgres_matrix_runs_on_pinned_and_latest_supabase_cli() -> None:
 
 def test_scheduled_probe_runs_no_other_job() -> None:
     jobs = _workflow()["jobs"]
-    probe_jobs = {"docs-change-gate", "database-checks"}
+    probe_jobs = {"docs-change-gate", "database-checks", "database-shards"}
 
     for name, job in jobs.items():
         if name in probe_jobs:

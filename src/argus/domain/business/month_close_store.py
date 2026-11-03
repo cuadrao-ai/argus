@@ -6,7 +6,7 @@ The settlement row is an annotation. This module does not copy amounts.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from typing import Literal
 
@@ -16,7 +16,11 @@ from psycopg.rows import dict_row
 from argus.domain.business import ledger
 from argus.domain.business.authority import ActionContext, ActionError, authorize
 from argus.domain.business.dgii_columns import COLUMNS
-from argus.domain.business.dgii_export import FOREIGN_CURRENCY_NOTE, fiscal_manifest
+from argus.domain.business.dgii_export import (
+    FOREIGN_CURRENCY_NOTE,
+    fiscal_manifest,
+    manifest_verdicts,
+)
 from argus.domain.business.dgii_line import PAYMENT_FORM_ISSUES
 from argus.domain.business.dgii_snapshot import fiscal_snapshot
 from argus.domain.business.month_close import (
@@ -96,10 +100,10 @@ def read_month(authority, context: ActionContext, month: str) -> dict:
     today = ledger.today()
     with _session(authority, context, "read") as (connection, auth):
         documents, by_id = _collect(authority, connection, auth.context)
-        forms, foreign, no_payment_form = _form_statuses(
+        forms, foreign, no_payment_form, missing = _form_statuses(
             connection, auth.context, tuple(by_id.values()), start, end, today
         )
-    return month_close(month, today, documents, forms, foreign, no_payment_form)
+    return month_close(month, today, documents, forms, foreign, no_payment_form, missing)
 
 
 def foreign_currency(manifest_forms: dict) -> dict:
@@ -131,6 +135,7 @@ def month_close(  # noqa: ANN001
     forms: dict[str, str],
     foreign: dict | None = None,
     no_payment_form: frozenset[str] = frozenset(),
+    missing: Mapping[str, Sequence[str]] | None = None,
 ) -> dict:
     start, end = month_period(month)
     return {
@@ -139,15 +144,16 @@ def month_close(  # noqa: ANN001
         "payment_methods": list(PAYMENT_METHODS),
         "dgii_forms": forms,
         "dgii_foreign_currency": foreign or foreign_currency({}),
-        **summarize(documents, start, end, no_payment_form),
+        **summarize(documents, start, end, no_payment_form, missing or {}),
     }
 
 
 def _form_statuses(
     connection, context: ActionContext, activities, start, end, today
-) -> tuple[dict[str, str], dict, frozenset[str]]:
-    """Each form's status word, its foreign-currency count and the activities it
-    holds for a missing Forma de Pago, read from the summary the export packet
+) -> tuple[dict[str, str], dict, frozenset[str], dict[str, tuple[str, ...]]]:
+    """Each form's status word, its foreign-currency count, the activities it
+    holds for a missing Forma de Pago, and what each held activity is missing
+    in the export's words, all read from the summary the export packet
     writes."""
 
     with connection.cursor(row_factory=dict_row) as cursor:
@@ -172,7 +178,14 @@ def _form_statuses(
         for issue in manifest["issues"]
         if (issue["code"], issue["field"]) in PAYMENT_FORM_ISSUES
     )
-    return statuses, foreign_currency(manifest["forms"]), no_payment_form
+    missing = {
+        activity_id: codes
+        for activity_id, codes in manifest_verdicts(
+            manifest, {record.activity_id: record for record in records}
+        ).items()
+        if codes
+    }
+    return statuses, foreign_currency(manifest["forms"]), no_payment_form, missing
 
 
 def read_open(authority, context: ActionContext) -> dict:

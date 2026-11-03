@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -6,6 +6,7 @@ import { join } from "node:path";
 import {
   deletionEndsSession,
   endSessionKeepingSurface,
+  getAccountDeletionEligibility,
   requestAccountDeletion,
 } from "@/lib/account-deletion-api";
 
@@ -148,22 +149,6 @@ describe("account deletion outcomes (Lane 6)", () => {
   });
 });
 
-/** Iris's locked copy, item 1 of the handoff's "Copy" section, read from the
- * doc itself so a paraphrase anywhere fails here (Priya #801 B2). */
-function lockedItemOne(language: "ES" | "EN"): string {
-  const doc = readFileSync(
-    join(import.meta.dir, "../../docs/specs/lanes/mvee-five-lane-handoff.md"),
-    "utf-8",
-  );
-  const start = doc.indexOf("**1. Deletion confirmation screen.**");
-  const line = doc
-    .slice(start, doc.indexOf("**2. Note other members see.**"))
-    .split("\n")
-    .find((l) => l.startsWith(`- ${language}: "`));
-  if (!line) throw new Error(`no ${language} line`);
-  return line.slice(`- ${language}: "`.length, -1);
-}
-
 function deletionCopy(locale: "en" | "es-419"): Record<string, string> {
   const json = JSON.parse(
     readFileSync(join(import.meta.dir, `../public/locales/${locale}/common.json`), "utf-8"),
@@ -172,30 +157,63 @@ function deletionCopy(locale: "en" | "es-419"): Record<string, string> {
 }
 
 describe("the deletion confirmation copy", () => {
-  test("carries Iris's locked block word for word, in both languages", () => {
-    const en = lockedItemOne("EN");
-    const es = lockedItemOne("ES");
-    expect(es).toContain("«Exmiembro»");
-    expect(es).toContain("salvo los planes de deuda compartidos");
-    expect(en).toContain("Your receipts and notes are deleted.");
-    expect(deletionCopy("en").shared_plans).toBe(en);
-    expect(deletionCopy("es-419").shared_plans).toBe(es);
-    const dialog = readFileSync(
-      join(import.meta.dir, "../components/sidebar/ProfileDeleteRequestDialog.tsx"),
-      "utf-8",
-    );
-    expect(dialog).toContain(JSON.stringify(en));
-  });
-
   test("never says the account goes now: with the flag off it is a support request (note 9)", () => {
     for (const locale of ["en", "es-419"] as const) {
       const copy = deletionCopy(locale);
-      for (const text of [copy.title, copy.body, copy.shared_plans, copy.confirm]) {
+      for (const text of [copy.title, copy.body, copy.confirm]) {
         expect(text).not.toMatch(/\bnow\b|\bahora\b|signs you out|cierra tu sesión/i);
       }
     }
     expect(deletionCopy("en").requested).toBe(
       "Request sent. Support will delete your account and follow up by email.",
     );
+  });
+});
+
+describe("the server's delete rule, read before the alert offers Eliminar", () => {
+  const originalFetch = globalThis.fetch;
+  const originalMockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    if (originalMockAuth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH;
+    else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMockAuth;
+  });
+
+  test("an allowed account carries its closed-business notices and nothing else", async () => {
+    const notice = { kind: "closed_business", business_id: "b-1", business_name: "Colmado Rosa", purge_at: "2026-11-20T17:45:00Z" };
+    const calls = respond([{ status: 200, body: { allowed: true, blockers: [], notices: [notice, { kind: "later" }] } }]);
+    expect(await getAccountDeletionEligibility()).toEqual({ allowed: true, blockers: [], notices: [notice] });
+    expect(calls[0].url).toEndWith("/account/deletion");
+  });
+
+  test("an owner is blocked by name, and a reason the web does not know still refuses", async () => {
+    respond([{ status: 200, body: { allowed: false, blockers: [{ kind: "business_owner", business_id: "b-2", business_name: "Taller Luna" }, { kind: "something_new" }] } }]);
+    expect(await getAccountDeletionEligibility()).toEqual({
+      allowed: false,
+      blockers: [{ kind: "business_owner", business_id: "b-2", business_name: "Taller Luna" }, { kind: "not_allowed" }],
+      notices: [],
+    });
+  });
+
+  test("a refusal with no reason given is not_allowed, never an open door", async () => {
+    respond([{ status: 200, body: { allowed: false, blockers: [] } }]);
+    expect(await getAccountDeletionEligibility()).toEqual({ allowed: false, blockers: [{ kind: "not_allowed" }], notices: [] });
+    respond([{ status: 200, body: { allowed: true, blockers: [{ kind: "not_allowed" }] } }]);
+    expect(await getAccountDeletionEligibility()).toEqual({ allowed: false, blockers: [{ kind: "not_allowed" }], notices: [] });
+  });
+
+  test("off here (404) keeps the support-ticket path; any other failure is for a retry", async () => {
+    respond([{ status: 404, body: { detail: "not found" } }]);
+    expect(await getAccountDeletionEligibility()).toEqual({ off: true });
+    respond([{ status: 500, body: { detail: "boom" } }]);
+    await expect(getAccountDeletionEligibility()).rejects.toBeDefined();
+  });
+
+  test("a check the server could not run (503) is for a retry, not an answer", async () => {
+    respond([{ status: 503, body: { code: "account_deletion_unavailable", detail: "unavailable" } }]);
+    await expect(getAccountDeletionEligibility()).rejects.toMatchObject({ status: 503, code: "account_deletion_unavailable" });
   });
 });

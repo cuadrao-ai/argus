@@ -2443,7 +2443,7 @@ describe("Argus Alpha frontend contract", () => {
     expect(sidebar).toContain("if (isProfileMenuOpen) return");
   });
 
-  test("profile modal uses gated language shortcuts and the in-app deletion command", () => {
+  test("profile modal leaves the language to Ajustes and keeps the in-app deletion command", () => {
     const profileMenu = readFileSync(
       join(root, "components/sidebar/ProfileMenu.tsx"),
       "utf-8",
@@ -2472,10 +2472,10 @@ describe("Argus Alpha frontend contract", () => {
 
     expect(languageFeatures).toContain("languageDisplayAbbreviation");
     expect(languageFeatures).toContain("localeForLanguage");
-    // The dialog's markup lives in ProfileDetailsDialog; the menu keeps the
-    // state and the requests behind it.
-    expect(detailsDialog).toContain("ENABLED_LANGUAGES");
-    expect(detailsDialog).toContain("languageDisplayAbbreviation");
+    // Perfil no longer repeats the language shortcut; Idioma de la app lives
+    // in Ajustes. The menu still keeps the deletion command's language.
+    expect(detailsDialog).not.toContain("ENABLED_LANGUAGES");
+    expect(detailsDialog).not.toContain("argus-profile-language-trigger");
     expect(profileMenu).toContain("localeForLanguage");
     // Lane 6: the delete button runs the deletion command; with the command
     // off (404) it falls back to the support ticket. Success or in_progress
@@ -2485,15 +2485,13 @@ describe("Argus Alpha frontend contract", () => {
     expect(deleteRequestDialog).toContain(
       "settings.profile.request_deletion.in_progress",
     );
-    expect(detailsDialog).toContain("argus-profile-language-trigger");
-    expect(detailsDialog).toContain("absolute right-0 top-full");
     // Both dialogs live in their own components, because a body-portaled
     // aria-modal surface has to register its own back, Escape, and focus.
     expect(deleteRequestDialog).toContain(
       "settings.profile.request_deletion.title",
     );
     expect(detailsDialog).toContain("useModalSurface");
-    expect(profileMenu).toContain("settings.profile.language_save_error");
+    expect(profileMenu).not.toContain("settings.profile.language_save_error");
     expect(detailsDialog).not.toContain(
       "overflow-hidden rounded-[10px] border border-black/5 bg-black/[0.015]",
     );
@@ -2520,23 +2518,31 @@ describe("Argus Alpha frontend contract", () => {
     expect(en).toContain(
       "Permanently delete your Cuadrao account and your data.",
     );
-    expect(en).toContain("Your account and your data will be deleted, and this");
+    expect(en).toContain('"body": "We delete your account and your personal data. This can\'t be undone."');
     expect(en).toContain("Your account is deleted. You're signed out.");
     expect(en).toContain("Your account is being deleted. You're signed out now");
-    expect(en).toContain('show as \\"Former member.\\"');
+    expect(en).not.toContain('"shared_plans"');
     expect(en).not.toContain("Support will follow up by email.");
     expect(es).toContain('"title": "¿Eliminar tu cuenta?"');
     expect(es).toContain(
       "Elimina para siempre tu cuenta de Cuadrao y tus datos.",
     );
-    expect(es).toContain("Tu cuenta y tus datos se eliminarán, y no");
+    expect(es).toContain('"body": "Borramos tu cuenta y tus datos personales, y no se puede deshacer."');
     expect(es).toContain("Tu cuenta está eliminada. Ya cerraste sesión.");
     expect(es).toContain("Estamos eliminando tu cuenta.");
   });
 
-  test("profile menu groups data controls preferences and legal links", () => {
+  test("Ajustes groups Preferencias and Controles de datos; the menu keeps Ayuda y legal", () => {
     const profileMenu = readFileSync(
       join(root, "components/sidebar/ProfileMenu.tsx"),
+      "utf-8",
+    );
+    const registry = readFileSync(
+      join(root, "components/sidebar/ProfileSettingsPanels.tsx"),
+      "utf-8",
+    );
+    const settingsWindow = readFileSync(
+      join(root, "components/settings/SettingsWindow.tsx"),
       "utf-8",
     );
     const en = readFileSync(
@@ -2550,18 +2556,12 @@ describe("Argus Alpha frontend contract", () => {
     const enCatalog = JSON.parse(en);
     const esCatalog = JSON.parse(es);
 
-    const dataStart = profileMenu.indexOf('{activeSubmenu === "data"');
-    const preferencesStart = profileMenu.indexOf(
-      '{activeSubmenu === "settings"',
-    );
     const legalStart = profileMenu.indexOf('{activeSubmenu === "help"');
-    expect(dataStart).toBeGreaterThan(-1);
-    expect(preferencesStart).toBeGreaterThan(dataStart);
-    expect(legalStart).toBeGreaterThan(preferencesStart);
-
-    const dataBlock = profileMenu.slice(dataStart, preferencesStart);
-    const preferencesBlock = profileMenu.slice(preferencesStart, legalStart);
+    expect(legalStart).toBeGreaterThan(-1);
     const legalBlock = profileMenu.slice(legalStart);
+    expect(profileMenu).toContain('openModal("settings-window")');
+    expect(profileMenu).not.toContain('{activeSubmenu === "data"');
+    expect(profileMenu).not.toContain('{activeSubmenu === "settings"');
 
     expect(en).toContain('"title": "Data Controls"');
     expect(en).toContain('"title": "Preferences"');
@@ -2572,18 +2572,16 @@ describe("Argus Alpha frontend contract", () => {
     expect(es).toContain('"title": "Ayuda y legal"');
     expect(es).toContain('"usage": "Uso"');
 
-    expect(dataBlock).toContain("settings.data.security");
-    expect(dataBlock).toContain("settings.data.usage");
-    expect(dataBlock).not.toContain("cursor-not-allowed");
-    expect(dataBlock).toContain("settings.profile.delete_account");
-    expect(dataBlock).toContain("settings.profile.delete_account_note");
-    expect(dataBlock).toContain("handleOpenDeleteRequest");
-    expect(dataBlock).toContain("hover:bg-[#d66d75]/10");
-    expect(preferencesBlock).toContain("settings.preferences.title");
-    expect(preferencesBlock).toContain("settings.app.appearance");
-    expect(preferencesBlock).toContain("settings.app.language");
-    expect(preferencesBlock).toContain("settings.app.sidebar");
-    expect(preferencesBlock).not.toContain("settings.app.security");
+    expect(registry).toContain('settings: ["settings.app.title", "Preferences"]');
+    expect(registry).toContain('data: ["settings.data.title", "Data Controls"]');
+    for (const label of ["settings.app.appearance", "settings.app.language", "settings.app.sidebar", "settings.data.usage"]) {
+      expect(registry).toContain(`label: ["${label}"`);
+    }
+    expect(settingsWindow).toContain("settings.data.security");
+    expect(settingsWindow).toContain("settings.profile.delete_account");
+    expect(settingsWindow).toContain("onSelect: onDeleteAccount");
+    expect(settingsWindow).not.toContain("cursor-not-allowed");
+    expect(settingsWindow).not.toContain("settings.app.security");
     expect(legalBlock).toContain("keyboard_shortcuts.menu_item");
     expect(legalBlock).toContain("settings.help.terms");
     expect(legalBlock).toContain("settings.help.privacy");
@@ -2618,7 +2616,9 @@ describe("Argus Alpha frontend contract", () => {
     expect(api).not.toContain("deleteAllConversations");
     expect(profileMenu).not.toContain("onDeleteAllConversations");
     expect(profileMenu).not.toContain("delete_all_conversations");
-    expect(profileMenu).toContain("settings.profile.delete_account");
+    expect(
+      readFileSync(join(root, "components/settings/SettingsWindow.tsx"), "utf-8"),
+    ).toContain("settings.profile.delete_account");
     expect(sidebar).not.toContain("deleteAllConversations");
     expect(sidebar).not.toContain("delete_all_confirm");
     expect(en).not.toContain("delete_all_");
@@ -2678,9 +2678,13 @@ describe("Argus Alpha frontend contract", () => {
     expect(es.account_security.session_check_unavailable).toBeTruthy();
   });
 
-  test("profile menu Security row navigates to account security and closes the menu", () => {
+  test("Ajustes' Security row navigates to account security and closes the window", () => {
     const menu = readFileSync(
       join(root, "components/sidebar/ProfileMenu.tsx"),
+      "utf-8",
+    );
+    const settingsWindow = readFileSync(
+      join(root, "components/settings/SettingsWindow.tsx"),
       "utf-8",
     );
     const en = JSON.parse(
@@ -2690,29 +2694,20 @@ describe("Argus Alpha frontend contract", () => {
       readFileSync(join(root, "public/locales/es-419/common.json"), "utf-8"),
     );
 
-    const securityLabel = menu.indexOf('t("settings.data.security"');
-    expect(securityLabel).toBeGreaterThan(-1);
-    const securityButton = menu.slice(
-      menu.lastIndexOf("<button", securityLabel),
-      securityLabel,
+    expect(menu).toContain(
+      'onSecurity={() => navigateFromOverlay("/account/security", closeSettingsWindow)}',
     );
-    expect(securityButton).toContain(
-      'navigateFromOverlay("/account/security", onClose)',
+    const securityRow = settingsWindow.slice(
+      settingsWindow.indexOf('id: "security"'),
+      settingsWindow.indexOf("},", settingsWindow.indexOf('id: "security"')),
     );
-    expect(securityButton).not.toContain("disabled");
-    expect(securityButton).not.toContain("cursor-not-allowed");
+    expect(securityRow).toContain("onSelect: onSecurity");
+    expect(securityRow).toContain("leaves: true");
+    expect(securityRow).not.toContain("disabled");
     expect(en.settings.data.security).toBeTruthy();
     expect(es.settings.data.security).toBeTruthy();
-
-    const usageLabel = menu.indexOf('t("settings.data.usage"');
-    expect(usageLabel).toBeGreaterThan(-1);
-    const usageButton = menu.slice(
-      menu.lastIndexOf("<button", usageLabel),
-      usageLabel,
-    );
-    expect(usageButton).toContain('openModal("usage")');
-    expect(usageButton).not.toContain("disabled");
-    expect(usageButton).not.toContain("cursor-not-allowed");
+    // Usage is a section in the window, offered outside Business only.
+    expect(menu).toContain("usage: !isBusiness,");
   });
 
   test("landing redirects authenticated sessions straight into chat", () => {

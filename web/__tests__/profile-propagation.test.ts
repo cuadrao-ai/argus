@@ -328,7 +328,8 @@ describe("a name is measured after it is normalized", () => {
     }
 
     const menu = source(MENU);
-    expect(saveCalls(menu).filter((call) => call.awaited).length).toBeGreaterThanOrEqual(4);
+    // Display name, preferred name and avatar colour; the language lives in Ajustes now.
+    expect(saveCalls(menu).filter((call) => call.awaited).length).toBeGreaterThanOrEqual(3);
     const close = menu.slice(
       menu.indexOf("const closeProfileModal = useCallback"),
       menu.indexOf("setActiveModal(null);", menu.indexOf("const closeProfileModal")),

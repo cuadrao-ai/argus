@@ -965,6 +965,9 @@
       "preferred_name": "What should we call you?",
       "preferred_name_placeholder": "Leave blank for no name",
       "preferred_name_unset": "Not set",
+      "name": "Name",
+      "name_team_hint": "Your team sees it in access and in each record's history.",
+      "preferred_name_hint": "How we greet you on Home.",
       "preferred_name_save_error": "Could not save that name yet.",
       "preferred_name_too_long": "Keep this to {{count}} characters or fewer.",
       "language_save_error": "Could not update language yet.",
@@ -990,8 +993,9 @@
       "title": "Profile",
       "request_deletion": {
         "title": "Delete your account?",
-        "body": "Your account and your data will be deleted, and this can't be undone. Households you run pass to the longest-standing member, or close if you're the only one.",
-        "shared_plans": "In plans you share, your amounts stay so everyone else's numbers still add up, but without your name: you'll show as \"Former member.\" Your receipts and notes are deleted. Anything you owe or are owed is closed in the app, not marked as paid. Plans you created pass to whoever has been in each one longest, except shared debt plans, which are closed and stay view-only.",
+        "body": "We delete your account and your personal data. This can't be undone.",
+        "business_owner": "Before you delete your account, each Business you own needs a new owner or must be closed.",
+        "check_failed": "We couldn't check your account. Try again.",
         "confirm": "Delete account",
         "submitting": "Deleting...",
         "success": "Your account is deleted. You're signed out.",
@@ -2228,11 +2232,7 @@
       "pick_start": "Choose the start date",
       "preset": {
         "custom": "Custom",
-        "last_30": "Last 30 days",
-        "last_7": "Last 7 days",
-        "last_quarter": "Previous quarter",
-        "today": "Today",
-        "yesterday": "Yesterday"
+        "today": "Today"
       },
       "presets": "Quick periods",
       "title": "Choose a period",
@@ -3551,7 +3551,6 @@
       "deadline": "You can reopen it before {{purgeDate}} at {{purgeTime}} (Dominican Republic time).",
       "deletion": {
         "blocked": "Transfer or close your businesses first.",
-        "checking": "Checking your businesses…",
         "closed_warning": "{{businessName}} is closed. If you delete your account, nobody can reopen it, and its data and receipts will be deleted on {{purgeDate}} at {{purgeTime}} (Dominican Republic time).",
         "failed": "We couldn't check your businesses. Try again.",
         "warning": "You are the sole owner of {{businessName}}. Transfer it or close it before deleting your account."
@@ -3627,6 +3626,10 @@
       "checklist_review_other": "{{count}} to review in the Inbox",
       "checklist_fiscal_one": "Add the RNC or NCF to {{count}} document",
       "checklist_fiscal_other": "Add the RNC or NCF to {{count}} documents",
+      "placeholder": {
+        "checklist_fiscal_data_one": "Complete the 606 or 607 data for {{count}} document",
+        "checklist_fiscal_data_other": "Complete the 606 or 607 data for {{count}} documents"
+      },
       "checklist_settle_one": "Mark {{count}} document as collected or paid",
       "checklist_settle_other": "Mark {{count}} documents as collected or paid",
       "checklist_overdue_one": "{{count}} overdue",
@@ -3640,7 +3643,7 @@
       "record_collection": "Record collection",
       "record_payment": "Record payment",
       "checklist_required": "Needed to close the month",
-      "filing_ready": "You already have everything for the 606 and the 607. Close the month when you finish marking what was collected and what was paid.",
+      "filing_ready": "You already have everything for the 606 and the 607.",
       "nothing_open": "All settled",
       "nothing_open_body": "No one owes you and you owe no one.",
       "checklist_ready": "Everything is ready to close {{month}}.",
@@ -3946,8 +3949,6 @@
       "alias_save": "Save address",
       "email_title": "Receiving email",
       "history_title": "Received emails",
-      "reading_body": "An artificial intelligence service reads each receipt and pulls out the merchant, date and amounts. You review everything before approving.",
-      "reading_off": "If you turn it off, your receipts are saved unread.",
       "reading_title": "Read my receipts automatically",
       "senders": {
         "action_error": "This sender could not be saved. Try again.",
@@ -4172,6 +4173,7 @@
       "range": "{{from}} – {{to}}",
       "show_all": "Show all",
       "this_month": "This month",
+      "this_year": "This year",
       "last_month": "Last month",
       "last_30_days": "Last 30 days",
       "label": "Period"

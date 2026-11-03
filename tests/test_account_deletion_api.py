@@ -15,6 +15,11 @@ from argus.api.guest_access import (
 from argus.api.main import app
 from argus.api.routers import account as account_route
 from argus.api.schemas import User
+from argus.domain.account_deletion.eligibility import (
+    DeletionBlocker,
+    DeletionEligibility,
+    DeletionNotice,
+)
 from argus.domain.account_deletion.service import (
     AccountDeletionIncomplete,
     AccountDeletionRejected,
@@ -25,6 +30,7 @@ from fastapi.testclient import TestClient
 client = TestClient(app)
 USER_ID = "00000000-0000-0000-0000-0000000000d1"
 URL = "/api/v1/account/delete"
+CHECK_URL = "/api/v1/account/deletion"
 
 
 _NOW = datetime(2026, 10, 2, tzinfo=timezone.utc)
@@ -60,8 +66,10 @@ def enabled(monkeypatch):  # noqa: ANN001, ANN201
 @pytest.fixture(autouse=True)
 def _fresh_rate_limit():  # noqa: ANN202
     account_route._per_account.reset()
+    account_route._per_account_check.reset()
     yield
     account_route._per_account.reset()
+    account_route._per_account_check.reset()
 
 
 def test_off_by_default_answers_404_before_auth(monkeypatch) -> None:  # noqa: ANN001
@@ -370,3 +378,180 @@ def test_unreadable_admission_state_is_unavailable_not_accepted(enabled, code):
     assert response.headers["Retry-After"] == "5"
     admin.lock_user.assert_not_called()
     admin.delete_user.assert_not_called()
+
+
+BUSINESS_ID = "00000000-0000-0000-0000-0000000000b1"
+
+
+def _checking(blockers, notices=()):  # noqa: ANN001, ANN202
+    service = MagicMock()
+    service.deletion_eligibility.return_value = DeletionEligibility(
+        list(blockers), list(notices)
+    )
+    return service
+
+
+def test_check_is_off_by_default_and_answers_404_before_auth(monkeypatch) -> None:  # noqa: ANN001
+    monkeypatch.delenv(account_route.FLAG, raising=False)
+    auth = MagicMock(side_effect=AssertionError("auth must not run"))
+    with patch.object(account_route, "deletion_requester", auth):
+        response = client.get(CHECK_URL)
+    assert response.status_code == 404
+    assert response.json()["code"] == "not_found"
+    auth.assert_not_called()
+
+
+def test_check_requires_a_session(enabled) -> None:  # noqa: ANN001
+    response = client.get(CHECK_URL)
+    assert response.status_code in {401, 500, 503}
+
+
+def test_check_allows_a_person_with_no_blockers(enabled) -> None:  # noqa: ANN001
+    service = _checking([])
+    with (
+        patch.object(account_route, "deletion_requester", _registered),
+        patch.object(account_route, "account_deletion_service", return_value=service),
+    ):
+        response = client.get(CHECK_URL)
+    assert response.status_code == 200
+    assert response.json() == {"allowed": True, "blockers": [], "notices": []}
+    service.deletion_eligibility.assert_called_once_with(USER_ID)
+    service.delete_account.assert_not_called()
+
+
+def test_check_names_each_business_the_person_owns(enabled) -> None:  # noqa: ANN001
+    service = _checking(
+        [
+            DeletionBlocker("business_owner", BUSINESS_ID, "Colmado Uno"),
+            DeletionBlocker("business_owner", "other", "Colmado Dos"),
+        ]
+    )
+    with (
+        patch.object(account_route, "deletion_requester", _registered),
+        patch.object(account_route, "account_deletion_service", return_value=service),
+    ):
+        response = client.get(CHECK_URL)
+    assert response.status_code == 200
+    assert response.json() == {
+        "allowed": False,
+        "blockers": [
+            {
+                "kind": "business_owner",
+                "business_id": BUSINESS_ID,
+                "business_name": "Colmado Uno",
+            },
+            {
+                "kind": "business_owner",
+                "business_id": "other",
+                "business_name": "Colmado Dos",
+            },
+        ],
+        "notices": [],
+    }
+
+
+def test_check_gives_any_other_refusal_no_business_fields(enabled) -> None:  # noqa: ANN001
+    service = _checking([DeletionBlocker("not_allowed")])
+    with (
+        patch.object(account_route, "deletion_requester", _registered),
+        patch.object(account_route, "account_deletion_service", return_value=service),
+    ):
+        response = client.get(CHECK_URL)
+    assert response.json() == {
+        "allowed": False,
+        "blockers": [{"kind": "not_allowed"}],
+        "notices": [],
+    }
+
+
+def test_check_works_for_a_guest_session(enabled) -> None:  # noqa: ANN001
+    with (
+        patch.object(account_route, "deletion_requester", _guest),
+        patch.object(
+            account_route, "account_deletion_service", return_value=_checking([])
+        ),
+    ):
+        response = client.get(CHECK_URL)
+    assert response.json() == {"allowed": True, "blockers": [], "notices": []}
+
+
+@pytest.mark.parametrize("construction_error", [None, RuntimeError("unavailable")])
+def test_check_without_a_service_is_unavailable_not_allowed(
+    enabled, construction_error
+) -> None:  # noqa: ANN001
+    with (
+        patch.object(account_route, "deletion_requester", _registered),
+        patch.object(
+            account_route,
+            "account_deletion_service",
+            return_value=None,
+            side_effect=construction_error,
+        ),
+    ):
+        response = client.get(CHECK_URL)
+    assert response.status_code == 503
+    assert response.json()["code"] == "account_deletion_unavailable"
+
+
+def test_check_allows_thirty_reads_a_minute_and_refuses_the_next(enabled) -> None:  # noqa: ANN001
+    service = _checking([])
+    with (
+        patch.object(account_route, "deletion_requester", _registered),
+        patch.object(account_route, "account_deletion_service", return_value=service),
+    ):
+        codes = [client.get(CHECK_URL).status_code for _ in range(31)]
+    assert codes == [200] * 30 + [429]
+
+
+def test_check_answers_429_with_retry_after(enabled) -> None:  # noqa: ANN001
+    service = _checking([])
+    with (
+        patch.object(account_route, "deletion_requester", _registered),
+        patch.object(account_route, "account_deletion_service", return_value=service),
+    ):
+        for _ in range(30):
+            client.get(CHECK_URL)
+        response = client.get(CHECK_URL)
+    assert response.status_code == 429
+    assert response.json()["code"] == "too_many_requests"
+    assert int(response.headers["Retry-After"]) >= 1
+
+
+def test_the_command_keeps_six_and_is_not_spent_by_the_check(enabled) -> None:  # noqa: ANN001
+    service = _checking([])
+    service.delete_account.side_effect = AccountDeletionIncomplete(
+        "third_party_pending", ["apple"]
+    )
+    with (
+        patch.object(account_route, "deletion_requester", _registered),
+        patch.object(account_route, "account_deletion_service", return_value=service),
+    ):
+        for _ in range(31):
+            client.get(CHECK_URL)
+        codes = [client.post(URL, json={"confirm": True}).status_code for _ in range(7)]
+    assert codes == [202] * 6 + [429]
+    assert service.delete_account.call_count == 6
+
+
+def test_check_lists_closed_businesses_without_blocking(enabled) -> None:  # noqa: ANN001
+    purge_at = datetime(2026, 12, 3, 15, 30, tzinfo=timezone.utc)
+    service = _checking(
+        [], [DeletionNotice(BUSINESS_ID, "Colmado Cerrado", purge_at)]
+    )
+    with (
+        patch.object(account_route, "deletion_requester", _registered),
+        patch.object(account_route, "account_deletion_service", return_value=service),
+    ):
+        response = client.get(CHECK_URL)
+    assert response.json() == {
+        "allowed": True,
+        "blockers": [],
+        "notices": [
+            {
+                "kind": "closed_business",
+                "business_id": BUSINESS_ID,
+                "business_name": "Colmado Cerrado",
+                "purge_at": "2026-12-03T15:30:00Z",
+            }
+        ],
+    }

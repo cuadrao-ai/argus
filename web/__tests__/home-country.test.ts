@@ -44,12 +44,12 @@ describe("the home country picker's codes", () => {
       "utf-8",
     );
     const imports = new Map(
-      [...panels.matchAll(/import (\w+) from "@\/components\/settings\/(\w+)"/g)].map(
+      [...panels.matchAll(/import (\w+)(?:, \{[^}]*\})? from "@\/components\/settings\/(\w+)"/g)].map(
         (match) => [match[1], match[2]],
       ),
     );
     const preferences = [
-      ...panels.matchAll(/\w+: \{\s*parent: "settings",\s*render: [^<]*<(\w+)/g),
+      ...panels.matchAll(/\w+: \{\s*parent: "settings",\s*(?:nav: [^\n]*\n\s*)?render: [^<]*<(\w+)/g),
     ].map((match) => imports.get(match[1]));
     expect(preferences).toContain("HomeCountryModal");
     expect(preferences).toContain("LanguageModal");
@@ -80,13 +80,7 @@ describe("the home country picker's codes", () => {
       "utf-8",
     );
     expect(menu).toContain('const homeCountryAvailable = !isBusiness && accountKind === "registered";');
-    const opens = [...menu.matchAll(/openModal\("country"\)/g)];
-    // The Preferences row and its quick jump, each behind the same gate.
-    expect(opens).toHaveLength(2);
-    for (const open of opens) {
-      expect(menu.slice(Math.max(0, open.index - 200), open.index)).toContain(
-        "homeCountryAvailable",
-      );
-    }
+    // Ajustes lists the section only behind that gate.
+    expect(menu).toContain("country: homeCountryAvailable,");
   });
 });

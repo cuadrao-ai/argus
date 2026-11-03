@@ -1,5 +1,12 @@
 """In-app account deletion (Lane 6).
 
+``GET /api/v1/account/deletion`` says, before the person presses delete, what
+would refuse the command and which closed Businesses are still inside their
+reopen window. It reads and starts nothing, under the same flag and session as
+the command. Its per-account limit is its own and larger (30 a minute, since
+Ajustes reads it on open and again when the delete alert opens), so a screen
+that checks often can't starve the delete.
+
 ``POST /api/v1/account/delete`` runs the whole deletion command for the signed-in
 person. It is off unless ``CUADRAO_ACCOUNT_DELETION_ENABLED`` is on, and while off
 it answers 404 before any authentication. The user id comes only from the
@@ -11,7 +18,8 @@ route) may call it again to resume their own run (``account_deletion_auth``).
 from __future__ import annotations
 
 import os
-from typing import Literal
+from datetime import datetime
+from typing import Annotated, Literal, Union
 
 from fastapi import APIRouter, Depends, Request, Response
 from loguru import logger
@@ -38,7 +46,11 @@ router = APIRouter(prefix="/api/v1", tags=["account"])
 # guest create-then-delete loop makes a new account each time, so it is bounded
 # where guests are made (captcha and the per-visitor guest limits), not here.
 _per_account = SlidingWindowLimiter()
+_per_account_check = SlidingWindowLimiter()
 _PER_ACCOUNT = (6, 60)
+# The check is a read the web makes when Ajustes opens and again when the
+# delete alert opens, so it needs room the command doesn't.
+_PER_ACCOUNT_CHECK = (30, 60)
 _INCOMPLETE_RETRY_SECONDS = 5
 
 
@@ -92,7 +104,18 @@ def account_deletion_service() -> AccountDeletionService | None:
     )
 
 
-def _deleting_user(request: Request) -> User:
+def _requester_within(  # noqa: ANN202
+    limiter: SlidingWindowLimiter, budget: tuple[int, int]
+):
+    def requester(request: Request) -> User:
+        return _limited_requester(request, limiter, budget)
+
+    return requester
+
+
+def _limited_requester(
+    request: Request, limiter: SlidingWindowLimiter, budget: tuple[int, int]
+) -> User:
     # The flag is checked before any session check, so a disabled route says
     # nothing about sessions.
     if not account_deletion_enabled():
@@ -104,8 +127,8 @@ def _deleting_user(request: Request) -> User:
             detail="Not found.",
         )
     user = deletion_requester(request)
-    limit, seconds = _PER_ACCOUNT
-    retry = _per_account.record_or_retry_after(
+    limit, seconds = budget
+    retry = limiter.record_or_retry_after(
         keys=(user.id,), limit=limit, window_seconds=seconds
     )
     if retry is not None:
@@ -118,6 +141,10 @@ def _deleting_user(request: Request) -> User:
             headers={"Retry-After": str(retry)},
         )
     return user
+
+
+_deleting_user = _requester_within(_per_account, _PER_ACCOUNT)
+_checking_user = _requester_within(_per_account_check, _PER_ACCOUNT_CHECK)
 
 
 def _problem(description: str) -> dict:  # type: ignore[type-arg]
@@ -166,6 +193,80 @@ _RESPONSES: dict = {  # type: ignore[type-arg]
     # shared session-verification one) is declared in openapi_compat, which
     # rewrites every authenticated operation's 503.
 }
+
+
+class BusinessOwnerBlocker(BaseModel):
+    kind: Literal["business_owner"]
+    business_id: str
+    business_name: str
+
+
+class NotAllowedBlocker(BaseModel):
+    kind: Literal["not_allowed"]
+
+
+class ClosedBusinessNotice(BaseModel):
+    # Never blocks: the Business is already closed. ``purge_at`` is when the
+    # reopen window ends and the Business and its records are removed.
+    kind: Literal["closed_business"]
+    business_id: str
+    business_name: str
+    purge_at: datetime
+
+
+class AccountDeletionEligibilityResponse(BaseModel):
+    allowed: bool
+    blockers: list[
+        Annotated[
+            Union[BusinessOwnerBlocker, NotAllowedBlocker], Field(discriminator="kind")
+        ]
+    ]
+    notices: list[ClosedBusinessNotice]
+
+
+@router.get(
+    "/account/deletion",
+    response_model=AccountDeletionEligibilityResponse,
+    responses={
+        401: _problem("No valid session."),
+        404: _problem(
+            "`not_found`: `CUADRAO_ACCOUNT_DELETION_ENABLED` is off; answered before "
+            "any session check."
+        ),
+        429: _problem(
+            "`too_many_requests`: 30 requests per account per minute; see Retry-After."
+        ),
+        # 503 is declared in openapi_compat, like the command's.
+    },
+)
+def account_deletion_eligibility(
+    request: Request,
+    user: User = Depends(_checking_user),  # noqa: B008
+) -> AccountDeletionEligibilityResponse:
+    try:
+        service = account_deletion_service()
+        eligibility = service.deletion_eligibility(user.id) if service else None
+    except Exception as exc:
+        logger.error("Account deletion check failed: {}", type(exc).__name__)
+        eligibility = None
+    if eligibility is None:
+        raise problem(
+            request,
+            status_code=503,
+            code="account_deletion_unavailable",
+            title="Account Deletion Unavailable",
+            detail="Account deletion is not available right now.",
+        )
+    return AccountDeletionEligibilityResponse(
+        allowed=eligibility.allowed,
+        blockers=[
+            BusinessOwnerBlocker(**vars(b))
+            if b.kind == "business_owner"
+            else NotAllowedBlocker(kind="not_allowed")
+            for b in eligibility.blockers
+        ],
+        notices=[ClosedBusinessNotice(**vars(n)) for n in eligibility.notices],
+    )
 
 
 @router.post(
