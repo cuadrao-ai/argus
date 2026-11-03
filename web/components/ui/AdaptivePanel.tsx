@@ -16,8 +16,8 @@ import styles from "./adaptive-panel.module.css";
  * The one sheet: for anything done while the page stays in view (a form, a
  * picker, a list, a record's details). Below the desktop stop it is a bottom
  * sheet that rests at its snap points. From the desktop stop it is a side
- * drawer on the right, between 320px and 40% of the screen, so the page stays
- * readable beside it; a record beside its list is a wider, non-modal tray.
+ * drawer on the right, between 320px and 40% of the screen, that lies over the
+ * page without moving it; a record beside its list is a wider, non-modal tray.
  * A full stop (delete, close a month) is not a sheet: it is a ConfirmDialog.
  *
  * Owning the header matters as much as owning the shape. It is what lets a
@@ -35,9 +35,8 @@ type DrawerBounds = { preferred: number; min: number; maxVw: number };
  * The drawer's preferred width and its bounds. A record holds its receipt
  * image and its fields in one column beside a list that needs only its rows,
  * so it may take half the screen; everything else stays under 40%. A dossier
- * (an incoming item: its form beside its original) lies over the page, as
- * Facturación's expanded editor does, and may take most of it; the page under
- * it keeps its width, and its owner makes what the drawer covers inert.
+ * (an incoming item: its form beside its original) may take most of the page;
+ * its owner makes what the drawer covers inert.
  */
 const DRAWER_WIDTH: Record<AdaptivePanelWidth, DrawerBounds> = {
   sm: { preferred: 360, min: 320, maxVw: 40 },
@@ -156,35 +155,6 @@ export default function AdaptivePanel({
 
 const EXPANDED_WIDTH: DrawerBounds = { preferred: 1200, min: 720, maxVw: 88 };
 
-/**
- * Every drawn drawer claims the room it needs; the page gives up the widest
- * claim. A drawer stacked on another hands its claim over without the page
- * snapping back between them.
- */
-const drawerClaims = new Map<string, number>();
-function applyDrawerSpace() {
-  const root = document.documentElement;
-  if (drawerClaims.size) root.style.setProperty("--cuadrao-drawer-space", `${Math.max(...drawerClaims.values())}px`);
-  else root.style.removeProperty("--cuadrao-drawer-space");
-}
-
-function useDrawerSpace(id: string, { preferred, min, maxVw }: DrawerBounds, drawn: boolean) {
-  useEffect(() => {
-    if (!drawn) return undefined;
-    const claim = () => {
-      drawerClaims.set(id, Math.max(min, Math.min(preferred, (window.innerWidth * maxVw) / 100)));
-      applyDrawerSpace();
-    };
-    claim();
-    window.addEventListener("resize", claim);
-    return () => {
-      window.removeEventListener("resize", claim);
-      drawerClaims.delete(id);
-      applyDrawerSpace();
-    };
-  }, [id, preferred, min, maxVw, drawn]);
-}
-
 type DrawerProps = {
   title: string;
   titleIcon?: ReactNode;
@@ -212,8 +182,6 @@ type StackPlace = { drawn: boolean; hasBelow: boolean };
 
 function SideDrawerSurface(props: DrawerProps) {
   const place = useSheetStack(props.overlayId, true);
-  // A dossier opens over the page instead of beside it, so the page keeps its width under it.
-  useDrawerSpace(props.overlayId, DRAWER_WIDTH[props.width], place.drawn && props.width !== "dossier");
   return props.modal ? <ModalDrawer {...props} {...place} /> : <TrayDrawer {...props} {...place} />;
 }
 
