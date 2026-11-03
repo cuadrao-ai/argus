@@ -8,6 +8,7 @@ from argus.domain.business.access import PostgresAccessStore
 from argus.domain.business.authority import ActionError, authorize
 from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.memberships import MembershipError
+from argus.domain.business.receipt_consent import SCOPE_VERSION
 from argus.domain.business.roles import ROLE_PERMISSIONS, BusinessRole
 from argus.domain.business.spaces import PostgresSpaceStore
 from psycopg_pool import ConnectionPool
@@ -582,7 +583,7 @@ def test_coowner_consent_has_actual_actor_and_is_invalidated_by_role_loss(pool, 
     arguments = dict(
         actor_id=users["other"],
         enabled=True,
-        version=1,
+        version=SCOPE_VERSION,
         disclosure_token=shown["disclosure_token"],
         idempotency_key="explicit-coowner-consent",
     )
@@ -721,7 +722,7 @@ def test_membership_loss_invalidates_only_that_owners_original_consents(
         users["owner"],
         actor_id=actor,
         enabled=True,
-        version=1,
+        version=SCOPE_VERSION,
         disclosure_token=shown["disclosure_token"],
         idempotency_key="explicit-owner-reading",
     )

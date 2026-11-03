@@ -2,6 +2,7 @@ from uuid import uuid4
 
 import pytest
 from argus.api.business_spaces import business_access
+from argus.domain.business.receipt_consent import SCOPE_VERSION
 from fastapi.testclient import TestClient
 
 from tests.business import test_business_api as api_fixtures
@@ -153,7 +154,7 @@ def test_coowner_reading_consent_is_explicit_and_stops_with_role_loss(alice, bob
     assert before["can_change"] and not before["enabled"]
     body = {
         "enabled": True,
-        "scope_version": 1,
+        "scope_version": SCOPE_VERSION,
         "disclosure_token": before["disclosure_token"],
     }
     changed = bob.client.post(

@@ -20,6 +20,7 @@ from argus.api.documents import documents_service
 from argus.api.email_intake import _read_receipt, configure_email_intake
 from argus.api.main import app
 from argus.api.routers import auth as auth_router
+from argus.domain.business.receipt_consent import SCOPE_VERSION
 from argus.domain.ingestion.documents.jobs import PreparationJobs
 from argus.domain.ingestion.email_intake.provider import ReceivedEmail
 from argus.domain.ingestion.email_intake.service import (
@@ -95,7 +96,7 @@ def _reading(world, enabled: bool):  # noqa: ANN001, ANN202
         f"{API}/business/receipt-reading",
         json={
             "enabled": enabled,
-            "scope_version": 1,
+            "scope_version": SCOPE_VERSION,
             "disclosure_token": shown.json()["disclosure_token"],
         },
         headers={**world.alice.headers, "Idempotency-Key": str(uuid4())},
@@ -136,7 +137,7 @@ def test_reading_turned_off_while_a_read_is_in_flight_stops_before_the_provider(
         # The owner turns reading off after the read began, before the provider.
         if not revoked:
             web.documents.business_receipt_consent.set(
-                web.alice.space_id, web.alice.id, enabled=False, version=1
+                web.alice.space_id, web.alice.id, enabled=False, version=SCOPE_VERSION
             )
             revoked.append(kwargs["connection_id"])
         return source(**kwargs)

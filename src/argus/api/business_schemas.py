@@ -19,6 +19,7 @@ from argus.domain.business.bandeja_group import BandejaGroupName, BandejaReason
 from argus.domain.business.contracts.dossier import RecordContext
 from argus.domain.business.country import CountryCode
 from argus.domain.business.document_type import DocumentType
+from argus.domain.business.receipt_consent import SCOPE_VERSION
 from argus.domain.business.receipts import Attention
 from argus.domain.business.roles import BusinessRole, Permission
 from argus.domain.business.search import SearchKind
@@ -277,7 +278,7 @@ class ReceiptActivityCounts(_Wire):
 
 class ReceiptReadingBody(_Wire):
     enabled: bool = Field(strict=True)
-    scope_version: int = Field(strict=True, ge=1, le=1)
+    scope_version: int = Field(strict=True, ge=1, le=SCOPE_VERSION)
     disclosure_token: str | None = Field(default=None, min_length=64, max_length=64)
     language: Literal["en", "es-419"] = "en"
 

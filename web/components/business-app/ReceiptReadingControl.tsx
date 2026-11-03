@@ -155,9 +155,7 @@ export function InlineReading({reading, failed = false, onChange}: {reading: Pic
       <h2 className="text-[16px] font-medium text-[#172b26] dark:text-white">{t("business.reception.reading_title")}</h2>
       {reading ? <Switch label={t("business.activity.switch_label")} testId="receipt-reading-switch" checked={reading.enabled} disabled={!reading.can_change || !onChange || (!reading.enabled && !reading.available)} onChange={onChange ?? (() => {})} /> : <span className="text-[14px] text-[#56635e] dark:text-white/70">{t("business.activity.state_unknown")}</span>}
     </div>
-    <p className="mt-2 text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{t("business.reception.reading_body")}</p>
-    <p className="mt-2 text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{t("business.reception.reading_off")}</p>
-    {reading?.disclosure ? <p className="mt-3 text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{reading.disclosure}</p> : null}
+    {reading?.disclosure ? <p className="mt-2 text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{reading.disclosure}</p> : null}
     {reading && !reading.enabled && !reading.available ? <p className="mt-2 text-[14px] text-[#56635e] dark:text-white/70">{t("business.activity.unavailable")}</p> : null}
     {failed ? <div role="alert" className="mt-2 flex flex-wrap items-center gap-2 text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]"><p>{t("business.activity.error")}</p><button type="button" className={quietButtonClass} onClick={() => void onChange?.(!reading?.enabled).catch(() => undefined)}>{t("common.retry")}</button></div> : null}
   </div>;
