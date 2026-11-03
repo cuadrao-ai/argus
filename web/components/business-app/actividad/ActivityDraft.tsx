@@ -10,7 +10,7 @@ import { resolveLanguage } from "@/lib/language-features";
 import { Check, CalendarBlank, Lock } from "@phosphor-icons/react";
 import { Avatar } from "@/components/ui/Avatar";
 import { CuadraoMark } from "@/components/CuadraoMark";
-import { useBusiness } from "../BusinessWorkspace";
+import { invoicingShown, useBusiness } from "../BusinessWorkspace";
 import { formatRelativeDay, formatShortDay } from "../business-format";
 import { EmptyState } from "../foundation/EmptyState";
 import { PageHeading } from "../foundation/PageHeading";
@@ -229,7 +229,7 @@ const fromFeed = (item: ActivityItem | (Omit<ActivityItem, "action"> & { action:
 
 export default function ActivityDraft() {
   const { i18n } = useTranslation();
-  const { openPanel, source, chosen } = useBusiness();
+  const { openPanel, source, chosen, invoicing } = useBusiness();
   // Live: the feed as it is, no filters, no Registro column, no record links (those need #1410). Preview: samples.
   const live = source.mode === "live";
   const feed = useActivityFeed(live, chosen?.space_id ?? null);
@@ -281,7 +281,7 @@ export default function ActivityDraft() {
 
   const filterOptions = {
     people: [...new Set(all.map((item) => item.actor?.display_name ?? c.noActor))].map((name) => ({ value: name, label: name })),
-    areas: (Object.keys(c.areas) as Area[]).map((value) => ({ value, label: c.areas[value] })),
+    areas: (Object.keys(c.areas) as Area[]).filter((value) => value !== "invoicing" || invoicingShown(invoicing)).map((value) => ({ value, label: c.areas[value] })),
     actions: (Object.keys(c.groups) as Group[]).filter((g) => all.some((item) => ACTION_META[item.action].group === g)).map((value) => ({ value, label: c.groups[value] })),
   };
   const filterWords: ActivityFilterWords = {

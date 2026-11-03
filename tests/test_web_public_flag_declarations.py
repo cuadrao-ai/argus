@@ -47,9 +47,12 @@ HOSTED_FLAG_SURFACES = (
 BUSINESS_DEFAULT_OFF_FLAGS = (
     "NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED",
     "NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED",
-    "NEXT_PUBLIC_CUADRAO_BUSINESS_INVOICING_ENABLED",
     "NEXT_PUBLIC_CUADRAO_BUSINESS_LIFECYCLE_CONTROLS_ENABLED",
 )
+# The server's `invoicing_available` on GET /business/workspace is the one
+# switch for Facturación; the web switch and its readers are gone.
+RETIRED_WEB_SWITCH = ("NEXT_PUBLIC_CUADRAO_BUSINESS_INVOICING_ENABLED", "businessInvoicingEnabled")
+RETIRED_WEB_SWITCH_SCOPE = ("web", "scripts", ".github", ".env.example", "render.yaml")
 
 
 def _text(path: str) -> str:
@@ -114,3 +117,22 @@ def test_private_alpha_web_flags_are_declared_for_hosted_settings() -> None:
         assert manifest_entries[name]["value"] == staging_value
         for service_env in render_web.values():
             assert service_env[name]["value"] == staging_value
+
+
+def test_web_invoicing_switch_is_gone() -> None:
+    skipped = {"node_modules", ".next", "__pycache__"}
+    found: list[str] = []
+    for scope in RETIRED_WEB_SWITCH_SCOPE:
+        root = ROOT / scope
+        paths = [root] if root.is_file() else [path for path in root.rglob("*") if path.is_file()]
+        for path in paths:
+            if skipped & set(path.relative_to(ROOT).parts):
+                continue
+            if path == ROOT / "tests" / Path(__file__).name:
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                continue
+            found.extend(f"{path.relative_to(ROOT)}:{name}" for name in RETIRED_WEB_SWITCH if name in text)
+    assert found == []

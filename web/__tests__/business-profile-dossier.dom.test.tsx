@@ -18,7 +18,7 @@ async function mount(locale="es-419",live=false) {
   const messages=locale === "en" ? (await import("../public/locales/en/common.json")).default : (await import("../public/locales/es-419/common.json")).default;
   const i18n=i18next.createInstance();await i18n.init({lng:locale,resources:{[locale]:{translation:messages}}});
   const fixture=createFixtureBusinessDataSource({chatAvailable:true});
-  const context={source:live?{...fixture,mode:"live"}:fixture,chosen:{space_id:live?"55555555-5555-4555-8555-555555555555":"profile-test",name:"La Palma",role:"owner",permissions:live?["read","manage"]:undefined},records:{workspace:{country:"DO"}},reload:()=>{},actions:{create:[]}} as unknown as BusinessContextValue;
+  const context={invoicing:"sample" as const,source:live?{...fixture,mode:"live"}:fixture,chosen:{space_id:live?"55555555-5555-4555-8555-555555555555":"profile-test",name:"La Palma",role:"owner",permissions:live?["read","manage"]:undefined},records:{workspace:{country:"DO"}},reload:()=>{},actions:{create:[]}} as unknown as BusinessContextValue;
   const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
   await act(async()=>root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Profile/></BusinessContext.Provider></I18nextProvider>));
   const button=(text:string,container:ParentNode=host)=>[...container.querySelectorAll<HTMLButtonElement>("button")].find(item=>item.textContent?.includes(text))!;
