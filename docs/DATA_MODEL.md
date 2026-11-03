@@ -2647,6 +2647,31 @@ Every user-owned table must enforce strict Row Level Security (RLS).
   execute the two write functions; `financial_account_idempotency` has no
   client policy at all. Proven by `tests/test_financial_accounts_postgres.py`.
 
+### Direct reads stop at Personal rows
+- The client role reads Personal rows only. A Business row keeps its `user_id`
+  when ownership moves and when a grant is revoked, so `user_id` cannot authorize
+  a Business read. Business reads go through the API, which checks the live grant.
+- Migration `20261103003626_direct_reads_personal_only.sql` adds restrictive
+  `*_personal_read` policies for `authenticated` only. `financial_accounts` and
+  `financial_source_connections` own the fact with `owner_space_id is null`.
+  `financial_records`, `financial_asset_details`, `financial_asset_changes`,
+  `financial_observation_coverage`, `financial_goal_allocations`,
+  `financial_debt_plans`, `financial_import_account_links` and
+  `financial_source_gmail_senders` require a visible parent.
+  `financial_record_revisions` and the `financial_activity_*` tables follow
+  `financial_records` through their `*_account_read` policies.
+  `financial_plan_links` asks `argus_private.financial_activity_is_personal`.
+  `chat_turn_lifecycles`, `conversation_read_states` and `backtest_jobs` ask
+  `argus_private.conversation_is_personal`. A `backtest_jobs` row with no
+  conversation is Personal.
+- `financial_import_events` and `financial_import_observations` had this limit
+  before. `financial_goals`, `financial_budgets`, `financial_expectations`,
+  `financial_plan_selections`, `profiles` and `guest_workspaces` have no Business
+  link. `business_consent_acceptances` stays readable: each row records the
+  reader's own acceptance.
+- `tests/test_business_former_owner_reads_postgres.py` proves transfer followed by
+  revocation, and fails when a new client-readable table has no classification.
+
 ### Tables Requiring RLS
 - `private_alpha_allowlist`, `private_alpha_access_welcome_claims`,
   `private_alpha_access_welcome_deliveries`,

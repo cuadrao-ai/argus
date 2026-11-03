@@ -286,6 +286,8 @@ CLIENT_EXECUTABLE_FUNCTIONS: dict[str, frozenset[str]] = {
         {"authenticated"}
     ),
     "argus_private.business_custody_client_allowed()": frozenset({"authenticated"}),
+    "argus_private.conversation_is_personal(uuid)": frozenset({"authenticated"}),
+    "argus_private.financial_activity_is_personal(uuid)": frozenset({"authenticated"}),
     "public.argus_search_symbol_casefold(text)": frozenset({"anon", "authenticated"}),
     "public.is_active_household_member(uuid, uuid)": frozenset({"authenticated"}),
     # The historical staging adoption retains this existing helper grant.
