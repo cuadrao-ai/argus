@@ -621,3 +621,55 @@ describe("a malformed NCF reads as an error in the month's list, not as a missin
     }
   }
 });
+
+describe("ready for the 606 and 607 follows the export verdict, not month completion", () => {
+  const reviewed = { count: 0, detail: null, open() {} };
+  /** Approved and paid, with its RNC and B01 NCF: month completion is satisfied, the 606 still holds it. */
+  const paidPurchase = { activity_id: "rcpt-held", document_kind: "receipt", currency: "DOP", occurred_on: "2026-10-03", total_minor: 118000, itbis_minor: 18000, status: "pagado", counterparty: "Ferretería Prueba", due_on: null, rnc: "199990021", ncf: "B0100000021", ecf: null, sin_comprobante: false, payment_form: null };
+
+  test("a complete month the 606 still holds names what the export is missing and claims nothing", async () => {
+    const { client } = serverClient({ month: () => ({ closed: true, dgii_forms: { "606": "needs_review", "607": "no_operations" }, missing_fiscal_data: [{ ...paidPurchase, missing: ["expense_type_missing", "payment_method_missing"] }] }) });
+    const view = await renderInicio(client, reviewed);
+    try {
+      assert.equal(view.find("month-close-filing"), null, "month completion does not say the 606 is ready");
+      assert.equal(view.find("month-close-checklist-ready"), null);
+      assert.match(view.text("month-close-task-fiscal"), /1 documento/);
+      const which = view.find("month-close-task-fiscal")?.querySelector<HTMLButtonElement>('button[aria-controls="month-close-blockers"]');
+      assert.ok(which);
+      await view.act(async () => which.click());
+      assert.deepEqual([...view.host.querySelectorAll('[data-testid="month-close-blocker"]')].map((item) => item.textContent), ["Ferretería Prueba · Falta el tipo de gasto · Falta la forma de pago"]);
+      assert.equal(view.find("month-close-close"), null, "there is no close action");
+      assert.equal(view.find("month-close-steps-note"), null, "no promise that the steps close the month");
+    } finally { await view.unmount(); }
+  });
+
+  test("the export's own verdict says the 606 and 607 are ready, with no close action", async () => {
+    const { client } = serverClient({ month: () => ({ closed: true, dgii_forms: { "606": "prepared_candidate", "607": "no_operations" }, missing_fiscal_data: [] }) });
+    const view = await renderInicio(client, reviewed);
+    try {
+      assert.equal(view.text("month-close-filing").trim(), "Ya tienes todo para el 606 y el 607.");
+      assert.equal(view.find("month-close-close"), null);
+      assert.equal(view.find("month-close-task-fiscal"), null);
+      assert.doesNotMatch(view.host.textContent ?? "", /Cierra el mes|podrás cerrar|Todo listo para cerrar/);
+    } finally { await view.unmount(); }
+  });
+
+  test("a month the export holds for a reason no document carries claims nothing and lists nothing", async () => {
+    const { client } = serverClient({ month: () => ({ closed: true, dgii_forms: { "606": "needs_review", "607": "needs_review" }, missing_fiscal_data: [] }) });
+    const view = await renderInicio(client, reviewed);
+    try {
+      assert.equal(view.find("month-close-filing"), null);
+      assert.equal(view.find("month-close-task-fiscal"), null);
+      assert.equal(view.text("month-close-checklist-ready").trim(), "Todo al día");
+    } finally { await view.unmount(); }
+  });
+
+  test("an older server without the verdict claims nothing", async () => {
+    const { client } = serverClient({ month: () => ({ closed: true, dgii_forms: undefined }) });
+    const view = await renderInicio(client, reviewed);
+    try {
+      assert.equal(view.find("month-close-filing"), null);
+      assert.equal(view.find("month-close-close"), null);
+    } finally { await view.unmount(); }
+  });
+});
