@@ -7,7 +7,7 @@ delete command and the HTTP routes must agree for every case.
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -22,7 +22,8 @@ from argus.domain.account_deletion.service import (
     AccountDeletionService,
     subject_hash,
 )
-from argus.domain.business.lifecycle import REOPEN_WINDOW
+from argus.domain.business import lifecycle
+from argus.domain.business.purge import BusinessPurgeBusy, PostgresBusinessPurge
 from argus.observability.analytics_deletion import RecordingAnalyticsDeletion
 from fastapi.testclient import TestClient
 from psycopg_pool import ConnectionPool
@@ -230,7 +231,7 @@ def purge_at(w: World, space: str) -> datetime:
         closed_at = db.execute(
             "select closed_at from public.spaces where id=%s", (space,)
         ).fetchone()[0]
-    return closed_at + REOPEN_WINDOW
+    return closed_at + lifecycle.REOPEN_WINDOW
 
 
 def build_case(w: World, case: str) -> tuple[str, list[dict]]:
@@ -406,3 +407,31 @@ def test_the_database_failing_is_unavailable_not_allowed(routes):
         response = client.get("/api/v1/account/deletion")
     assert response.status_code == 503
     assert response.json()["code"] == "account_deletion_unavailable"
+
+
+@pytest.mark.parametrize("window_days", [10, 30, 60])
+def test_the_notice_and_the_purge_follow_the_one_reopen_window(
+    world, monkeypatch, window_days
+):
+    """A Business closed 20 days ago is a notice while the window is open and
+    due for the purge once it has ended, whatever the window is set to."""
+    from argus.domain.business import close_mail
+
+    monkeypatch.setattr(lifecycle, "REOPEN_WINDOW", timedelta(days=window_days))
+    monkeypatch.setattr(close_mail, "enqueue_purge_reminders", lambda pool: ())
+    person = world.person()
+    space = closed_notice(world, person, "Colmado Cerrado", days_ago=20)
+    due = 20 >= window_days
+    purge = PostgresBusinessPurge(world.pool, Objects(), world.auth)
+    swept: list[str] = []
+    monkeypatch.setattr(purge, "purge", lambda *, space_id: swept.append(space_id))
+
+    purge.sweep()
+    notices = world.service.deletion_eligibility(person).notices
+
+    assert (space in swept) is due
+    assert [n.business_id for n in notices] == ([] if due else [space])
+    if not due:
+        assert notices[0].purge_at == purge_at(world, space)
+        with pytest.raises(BusinessPurgeBusy, match="business_purge_not_due"):
+            PostgresBusinessPurge(world.pool, Objects(), world.auth).purge(space_id=space)

@@ -3615,7 +3615,7 @@ A guest session is checked the same way.
   owns (same ownership as above) whose reopen window has not ended, ordered by
   name. `purge_at` is when the window ends and the Business and its records are
   purged, the reopen deadline `closed_at` plus `REOPEN_WINDOW`
-  (`domain/business/lifecycle.py`), in ISO 8601 UTC. A Business past its window
+  (`domain/business/lifecycle.py`, which the Business purge reads too), in ISO 8601 UTC. A Business past its window
   is not listed. `[]` when none.
 - `503 account_deletion_unavailable` when the check cannot be made; it never
   answers `allowed: true` in that case. The shared
