@@ -32,7 +32,11 @@ from tests.test_business_scope_switch_routes_postgres import (
 from tests.test_financial_accounts_api_postgres import ORIGIN
 
 pytestmark = _local_supabase
-ALLOWLIST_ONLY = {**ENV, "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED": "false"}
+ALLOWLIST_ONLY = {
+    **ENV,
+    "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED": "false",
+    "CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED": "true",
+}
 CAPTCHA = "local-captcha-proof"
 GRANT = "X-Business-Grant"
 
@@ -551,3 +555,133 @@ def test_an_invited_person_cannot_start_a_business_or_admit_anyone(world) -> Non
     # The hand-listed owner keeps every power.
     assert start(owner).status_code == 200
     assert start_additional(owner).status_code == 201
+
+
+@pytest.fixture
+def switch_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED", raising=False)
+
+
+def test_with_the_switch_off_only_the_allowlist_admits_the_invited_accountant(
+    world,
+    switch_off,  # noqa: ANN001
+) -> None:
+    """The walk before this switch, which is the default: the invite admits
+    nobody to sign-up, login or requests; a hand-listed accountant signs in,
+    sees and accepts the invitation; and every route the standing check guards
+    answers as it did for a hand-listed person before the check existed."""
+
+    client, owner = world.client, world.owner
+    accountant = _credentials(world, "contadora")
+    _invite(world, accountant.email)
+
+    # Off the allowlist the invite admits nobody: signup, login and requests are refused.
+    assert _code(_signup(world, accountant)) == (400, "auth_signup_failed")
+    _create(world, accountant)
+    assert _code(_login(world, accountant)) == (401, "unauthorized")
+    session = world.gateway.login(
+        email=accountant.email, password=accountant.password, captcha_token=CAPTCHA
+    )
+    bearer = {"Authorization": f"Bearer {session['session']['access_token']}", **ORIGIN}
+    for path in ("/business/spaces", "/me"):
+        assert _code(client.get(f"{API}{path}", headers=bearer)) == (
+            403,
+            "private_alpha_access_required",
+        ), path
+    assert _invite_state(accountant.email) == [False]
+    assert _grants_and_accepts(world.space_id, accountant.id) == (0, 0)
+
+    # Allowlisting permits sign-in; the recipient must still accept explicitly.
+    _allow(accountant.email)
+    _signed_in(world, accountant)
+    first = client.get(f"{API}/business/spaces", headers=accountant.headers)
+    assert first.status_code == 200, first.text
+    assert first.json()["spaces"] == []
+    [invitation] = client.get(
+        f"{API}/business/invitations", headers=accountant.headers
+    ).json()
+    accepted = client.post(
+        f"{API}/business/invitations/{invitation['id']}/accept",
+        headers=accountant.headers,
+        json={"space_id": world.space_id},
+    )
+    assert accepted.status_code == 200, accepted.text
+    assert _invite_state(accountant.email) == [True]
+    [membership] = client.get(
+        f"{API}/business/spaces", headers=accountant.headers
+    ).json()["spaces"]
+
+    # The guarded routes, as before the check existed: the hand-listed owner
+    # starts and adds Businesses and invites; a hand-listed admin invites; a
+    # transfer to a hand-listed member is accepted; the new owner adds a
+    # Business of their own.
+    assert (
+        client.post(
+            f"{API}/business/space",
+            json={"name": "Ferretería Prueba"},
+            headers=owner.headers,
+        ).status_code
+        == 200
+    )
+    assert (
+        _post(
+            world, "/business/spaces", {"name": "Otro", "country": "DO"}, owner.headers
+        ).status_code
+        == 201
+    )
+    outsider = _credentials(world, "ajena")
+    many = client.post(
+        f"{API}/business/access/invitations",
+        json={
+            "recipients": [
+                {"email": outsider.email, "role": "editor", "command_key": "k1"}
+            ]
+        },
+        headers=owner.headers,
+    )
+    assert many.status_code == 200, many.text
+    assert _code(_signup(world, outsider)) == (400, "auth_signup_failed")
+    promoted = client.patch(
+        f"{API}/business/access/grants/{membership['grant_id']}",
+        json={"role": "admin"},
+        headers=owner.headers,
+    )
+    assert promoted.status_code == 200, promoted.text
+    [upgrade] = client.get(
+        f"{API}/business/invitations", headers=accountant.headers
+    ).json()
+    assert (
+        client.post(
+            f"{API}/business/invitations/{upgrade['id']}/accept",
+            headers=accountant.headers,
+            json={"space_id": world.space_id},
+        ).status_code
+        == 200
+    )
+    acting = {**accountant.headers, GRANT: membership["grant_id"]}
+    invited_by_admin = _credentials(world, "colega")
+    invite_one = client.post(
+        f"{API}/business/access", json={"email": invited_by_admin.email}, headers=acting
+    )
+    assert invite_one.status_code == 201, invite_one.text
+    transfer = _post(
+        world,
+        f"/business/spaces/{world.space_id}/ownership-transfers",
+        {"target_grant_id": membership["grant_id"], "confirmation": "Ferretería Prueba"},
+        owner.headers,
+    )
+    assert transfer.status_code == 200, transfer.text
+    taken = client.post(
+        f"{API}/business/ownership-transfers/{transfer.json()['id']}/accept",
+        headers=accountant.headers,
+    )
+    assert taken.status_code == 200, taken.text
+    assert (
+        _post(
+            world,
+            "/business/spaces",
+            {"name": "Mi Negocio", "country": "DO"},
+            accountant.headers,
+        ).status_code
+        == 201
+    )

@@ -46,6 +46,16 @@ def closed_signup(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
+def switch_on(closed_signup, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: ANN001
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED", "true")
+
+
+@pytest.fixture
+def switch_off(closed_signup, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: ANN001
+    monkeypatch.delenv("CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED", raising=False)
+
+
+@pytest.fixture
 def allowlist():
     emails: list[str] = []
 
@@ -83,7 +93,7 @@ def _expire(invite_id: str) -> None:
 
 
 def test_a_live_invite_admits_exactly_that_email_until_it_expires_or_is_revoked(
-    pool, users, gateway, closed_signup
+    pool, users, gateway, switch_on
 ) -> None:  # noqa: ANN001
     spaces, access = PostgresSpaceStore(pool), PostgresAccessStore(pool)
     space, _ = spaces.create(users["owner"], "Colmado")
@@ -113,7 +123,7 @@ def test_a_live_invite_admits_exactly_that_email_until_it_expires_or_is_revoked(
 
 
 def test_acceptance_moves_admission_to_the_grant_and_revocation_ends_it(
-    pool, users, gateway, closed_signup
+    pool, users, gateway, switch_on
 ) -> None:  # noqa: ANN001
     spaces, access = PostgresSpaceStore(pool), PostgresAccessStore(pool)
     space, _ = spaces.create(users["owner"], "Colmado")
@@ -131,7 +141,7 @@ def test_acceptance_moves_admission_to_the_grant_and_revocation_ends_it(
 
 
 def test_a_disabled_row_refuses_and_a_hand_listed_email_outlives_its_invite(
-    pool, users, gateway, closed_signup, allowlist
+    pool, users, gateway, switch_on, allowlist
 ) -> None:  # noqa: ANN001
     spaces, access = PostgresSpaceStore(pool), PostgresAccessStore(pool)
     space, _ = spaces.create(users["owner"], "Colmado")
@@ -151,6 +161,7 @@ def test_open_signup_ignores_invitations(
     pool, users, gateway, allowlist, monkeypatch
 ) -> None:  # noqa: ANN001
     monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED", "true")
     access = PostgresAccessStore(pool)
     disabled = fake.email().lower()
     allowlist(disabled, disabled=True)
@@ -160,7 +171,7 @@ def test_open_signup_ignores_invitations(
 
 
 def test_a_closed_business_admits_no_grantee_and_a_hand_listed_owner_stays(
-    pool, users, gateway, closed_signup, allowlist
+    pool, users, gateway, switch_on, allowlist
 ) -> None:  # noqa: ANN001
     spaces, access = PostgresSpaceStore(pool), PostgresAccessStore(pool)
     space, _ = spaces.create(users["owner"], "Colmado")
@@ -178,3 +189,37 @@ def test_a_closed_business_admits_no_grantee_and_a_hand_listed_owner_stays(
     with psycopg.connect(shared.DSN) as db:
         db.execute("update public.spaces set closed_at=null where id=%s", (space.id,))
     assert permanent_account_access_allowed(gateway, member, access)
+
+
+def test_with_the_switch_off_the_gate_is_the_rule_before_this_switch(
+    pool, users, gateway, switch_off, allowlist, monkeypatch
+) -> None:  # noqa: ANN001
+    """Off, the default: a live invitation and a live grant admit nobody, a
+    hand-listed email is admitted, a disabled row refuses, and open sign-up
+    admits a stranger. The answers the real gateway and store gave before this
+    switch existed."""
+
+    spaces, access = PostgresSpaceStore(pool), PostgresAccessStore(pool)
+    space, _ = spaces.create(users["owner"], "Colmado")
+    member = _confirmed_email(users["other"])
+    invited, by_hand, disabled = (fake.email().lower() for _ in range(3))
+    allowlist(by_hand, disabled=False)
+    allowlist(disabled, disabled=True)
+    _, listed = access.give(space.id, users["owner"], member)
+    access.accept_invite(users["other"], space.id, listed.invites[0].id)
+    access.give(space.id, users["owner"], invited)
+    access.give(space.id, users["owner"], disabled)
+
+    def admitted(email: str) -> bool:
+        return permanent_account_access_allowed(gateway, email, access)
+
+    assert not admitted(invited)
+    assert not admitted(member)
+    assert not admitted(disabled)
+    assert not admitted(fake.email().lower())
+    assert admitted(by_hand)
+
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
+    assert admitted(fake.email().lower())
+    assert admitted(invited) and admitted(member)
+    assert not admitted(disabled)

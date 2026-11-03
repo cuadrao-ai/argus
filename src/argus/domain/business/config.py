@@ -65,3 +65,22 @@ def business_bank_matching_enabled() -> bool:
         return BusinessBankMatchingSettings().enabled
     except ValidationError:
         return False
+
+
+class BusinessInviteAdmissionSettings(BaseSettings):
+    model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
+    enabled: Annotated[bool, BeforeValidator(enabled_flag)] = Field(
+        default=False, validation_alias="CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED"
+    )
+
+
+def business_invite_admission_enabled() -> bool:
+    """Off, the default: only the allowlist and open sign-up admit an email,
+    and the standing check on Business routes is inert. On: a live Business
+    invitation or grant admits its email too, and an account admitted only
+    that way cannot start a Business, invite anyone or take one over."""
+
+    try:
+        return BusinessInviteAdmissionSettings().enabled
+    except ValidationError:
+        return False
