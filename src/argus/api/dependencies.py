@@ -455,9 +455,16 @@ def require_standing_account(
     """The caller is admitted by the allowlist or by open sign-up, not only by a
     Business invitation or grant. Starting a Business, inviting people to one and
     taking one over need this, so admission never chains from one invited person
-    to the next."""
+    to the next. Inert while ``CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED`` is
+    off, when a Business admits no one and the gate alone decides."""
 
-    if mock_auth_enabled() or api_state.supabase_gateway is None:
+    from argus.domain.business.config import business_invite_admission_enabled
+
+    if (
+        not business_invite_admission_enabled()
+        or mock_auth_enabled()
+        or api_state.supabase_gateway is None
+    ):
         return
     if not permanent_account_access_allowed(
         api_state.supabase_gateway, user.email or "", None

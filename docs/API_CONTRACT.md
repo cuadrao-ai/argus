@@ -2395,7 +2395,9 @@ Supabase Auth handles identity/session heavy lifting. Alpha should keep auth low
   row whose `disabled_at` is set. When that flag is off instead, the same table
   becomes an admission list: only an email whose active row carries `admin`,
   `developer`, or `user` may enter, so a `requested` row does not admit it.
-- While that flag is off, a Business invitation also admits exactly the
+- While that flag is off and `CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED=true`
+  (default false; with it off, this rule and the next do not run and the
+  allowlist alone admits), a Business invitation also admits exactly the
   invited email, normalized the way `business_access_invites.email` is stored:
   a pending invitation on an open Business admits it until the invitation
   expires or is revoked, and the accepted grant keeps admitting it until that
@@ -2408,13 +2410,14 @@ Supabase Auth handles identity/session heavy lifting. Alpha should keep auth low
   the access a live Business grant gives, so an owner is offboarded by setting
   `disabled_at`, never by deleting the row. No allowlist row is written: the
   invitation and grant tables own the fact. With the flag on, nothing changes.
-- Admission does not chain. Starting a Business (`POST /business/space`,
-  `POST /business/spaces`), inviting people to one (`POST /business/access`,
-  `POST /business/access/invitations`, an invite resend) and accepting an
-  ownership transfer need an account the allowlist or open sign-up admits on
-  its own; an account admitted only by a Business invitation or grant gets
-  `403 private_alpha_access_required` there and works inside the Businesses
-  that admitted it.
+- Admission does not chain, under the same switch. Starting a Business
+  (`POST /business/space`, `POST /business/spaces`), inviting people to one
+  (`POST /business/access`, `POST /business/access/invitations`, an invite
+  resend) and accepting an ownership transfer need an account the allowlist
+  or open sign-up admits on its own; an account admitted only by a Business
+  invitation or grant gets `403 private_alpha_access_required` there and works
+  inside the Businesses that admitted it. With the switch off, no account is
+  admitted only by a Business, and these routes add no check.
 - `POST /auth/signup` must apply that gate before calling Supabase Auth signup, so denied emails do not create auth users or profiles.
 - `POST /auth/login` must also apply it before creating a browser session, so denied emails cannot enter the app.
 - Authenticated API requests must also reject users the gate denies, so an existing session cannot keep using access the gate would no longer grant.
@@ -2752,9 +2755,9 @@ null through their existing foreign-key behavior.
 `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` has been live in production since
 2026-08-12, so unlisted ordinary accounts may authenticate without role
 elevation while explicitly disabled rows stay blocked. When that flag is off
-instead, permanent signup and login admit active allowlist roles and the emails
-a live Business invitation or grant names, as the private-alpha access rules
-above describe.
+instead, permanent signup and login admit active allowlist roles and, while
+`CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED=true`, the emails a live Business
+invitation or grant names, as the private-alpha access rules above describe.
 Before that flag may be enabled, founder-approved production-parity evidence
 must prove that every enabled permanent Auth provider supplies a verified email
 compatible with profile and allowlist-role rules. Phone, OAuth, or other
@@ -2964,8 +2967,9 @@ Supabase Auth without logging or persistence.
 `401 unauthorized` shape used for invalid credentials, so a caller cannot tell a
 denied email from a listed email with a wrong password. Denial means an
 explicitly disabled row while the public gate is open, and, when it is closed,
-an email that is neither listed nor named by a live Business invitation or
-grant.
+an email that is not listed and, while
+`CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED=true`, not named by a live Business
+invitation or grant either.
 
 ```json
 {
