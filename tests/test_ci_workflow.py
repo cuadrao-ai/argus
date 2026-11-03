@@ -151,7 +151,7 @@ def test_backend_checks_gates_the_suite_by_directory() -> None:
     setup_bun_step = next(
         step
         for step in jobs["frontend-checks"]["steps"]
-        if step.get("uses") == "oven-sh/setup-bun@v2"
+        if step.get("uses") == "oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6"
     )
     assert workflow["env"]["ARGUS_CI_BUN_VERSION"] == "1.3.14"
     assert (
@@ -170,9 +170,9 @@ def test_ci_runs_guest_release_gates_with_disposable_local_supabase() -> None:
         str(step.get("uses", "")): step for step in guest_job["steps"] if step.get("uses")
     }
 
-    assert "supabase/setup-cli@v1" in uses_steps
+    assert "supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb" in uses_steps
     assert _workflow()["env"]["ARGUS_CI_SUPABASE_CLI_VERSION"] == "2.109.0"
-    assert uses_steps["supabase/setup-cli@v1"]["with"]["version"] == (
+    assert uses_steps["supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb"]["with"]["version"] == (
         "${{ matrix.supabase-cli == 'latest' && 'latest' || "
         "env.ARGUS_CI_SUPABASE_CLI_VERSION }}"
     )
@@ -330,14 +330,14 @@ def test_marketing_checks_prove_the_runtime_and_tooling_render_will_use() -> Non
     node_pin = re.search(r"\| `NODE_VERSION` \| `([0-9.]+)` \|", runbook)
     assert node_pin, "the runbook must state the Render NODE_VERSION"
     setup_node = next(
-        step for step in steps if step.get("uses") == "actions/setup-node@v4"
+        step for step in steps if step.get("uses") == "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020"
     )
     assert setup_node["with"]["node-version"] == node_pin.group(1)
 
     bun_pin = re.search(r"npm install -g bun@([0-9.]+)", runbook)
     assert bun_pin, "the runbook build command must pin Bun"
     assert bun_pin.group(1) == workflow["env"]["ARGUS_CI_BUN_VERSION"]
-    setup_bun = next(step for step in steps if step.get("uses") == "oven-sh/setup-bun@v2")
+    setup_bun = next(step for step in steps if step.get("uses") == "oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6")
     assert setup_bun["with"]["bun-version"] == "${{ env.ARGUS_CI_BUN_VERSION }}"
 
     # Each gate runs inside the independent package, in the order a deploy needs.
@@ -460,22 +460,22 @@ def test_agent_runtime_regression_workflow_runs_full_runtime_sweep() -> None:
         "github.event_name != 'pull_request'"
     )
     setup_python_step = next(
-        step for step in job["steps"] if step.get("uses") == "actions/setup-python@v5"
+        step for step in job["steps"] if step.get("uses") == "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065"
     )
     assert setup_python_step["with"]["python-version"] == "3.10"
     checkout_steps = [
-        step for step in job["steps"] if step.get("uses") == "actions/checkout@v4"
+        step for step in job["steps"] if step.get("uses") == "actions/checkout@11d5960a326750d5838078e36cf38b85af677262"
     ]
     assert checkout_steps == [
         {
             "name": "Checkout workflow ref",
             "if": "github.event_name != 'schedule'",
-            "uses": "actions/checkout@v4",
+            "uses": "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
         },
         {
             "name": "Checkout private-alpha-next for nightly schedule",
             "if": "github.event_name == 'schedule'",
-            "uses": "actions/checkout@v4",
+            "uses": "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
             "with": {"ref": "codex/private-alpha-next"},
         },
     ]
@@ -786,7 +786,7 @@ def test_docs_checks_job_runs_only_when_the_gate_reports_docs_only() -> None:
     assert "bun install --frozen-lockfile" in joined_steps
     assert "bun test" not in joined_steps
     assert "bun run build" not in joined_steps
-    setup_bun = next(step for step in job["steps"] if step.get("uses") == "oven-sh/setup-bun@v2")
+    setup_bun = next(step for step in job["steps"] if step.get("uses") == "oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6")
     assert setup_bun["with"]["bun-version"] == "${{ env.ARGUS_CI_BUN_VERSION }}"
     assert "supabase" not in joined_steps.lower()
     assert "local-smoke" not in joined_steps
