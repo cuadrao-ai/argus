@@ -12,9 +12,11 @@ describe("guest modal viewport fit", () => {
     );
 
     // Height and scrolling are the shell's now: a sheet below the panel line,
-    // a capped dialog above it. Either way the form scrolls inside itself.
-    expect(source).toContain("AdaptivePanel");
-    expect(source).toContain('width="lg"');
+    // a capped centered dialog above it. Either way the form scrolls inside itself.
+    expect(source).toContain("<CenteredDialog");
+    const dialog = readFileSync(join(webRoot, "components/ui/CenteredDialog.tsx"), "utf8");
+    expect(dialog).toContain("max-h-[min(720px,calc(100dvh-64px))]");
+    expect(dialog).toContain('<AdaptivePanel title={title}');
     expect(source).toContain("flex-1 overflow-y-auto");
     // The actions are pinned outside the scrolling body, so a long form cannot
     // push Submit off the bottom of the screen.

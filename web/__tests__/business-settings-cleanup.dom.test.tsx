@@ -58,13 +58,6 @@ for (const business of [true, false]) {
     const published = 'a[href="https://cuadrao.ai/terminos"],a[href="https://cuadrao.ai/privacidad"]';
     assert.equal(document.querySelectorAll('a[href="/terms"],a[href="/privacy"]').length, 0);
     assert.equal(document.querySelectorAll(published).length, 2, "the footer links the published pages on both surfaces");
-    await act(async () => button("Preferencias")!.click());
-    assert.equal(Boolean(button("País y moneda")), !business);
-    await act(async () => button("Controles de datos")!.click());
-    assert.equal(Boolean(button("Chats archivados")), !business);
-    assert.equal(Boolean(button("Uso")), !business);
-    assert.equal(button("Eliminar todas las conversaciones"), undefined);
-    assert.ok(button("Seguridad"));
     await act(async () => button("Ayuda y legal")!.click());
     assert.equal(document.querySelectorAll('a[href="/terms"],a[href="/privacy"]').length, 0);
     const links = [...document.querySelectorAll<HTMLAnchorElement>(published)];
@@ -73,6 +66,15 @@ for (const business of [true, false]) {
       assert.equal(link.getAttribute("target"), "_blank");
       assert.equal(link.getAttribute("rel"), "noreferrer");
     }
+    await act(async () => button("Ajustes")!.click());
+    assert.equal(Boolean(button("País y moneda")), !business);
+    assert.equal(Boolean(button("Chats archivados")), !business);
+    assert.equal(Boolean(button("Uso")), !business);
+    assert.equal(Boolean(button("Borrados recientemente")), !business, "Business keeps no deleted chats");
+    assert.equal(button("Eliminar todas las conversaciones"), undefined);
+    assert.ok(button("Seguridad"));
+    assert.ok(button("Eliminar cuenta"));
+    assert.equal(document.querySelectorAll(published).length, 2, "Ajustes keeps Términos and Privacidad at its foot");
   });
 }
 
@@ -112,7 +114,7 @@ test("Ayuda y legal links the published Cuadrao pages, and a setting overrides t
   else process.env.NEXT_PUBLIC_CUADRAO_PRIVACY_URL = privacy;
 });
 
-test("the preferences sheet is titled Preferencias", async () => {
+test("on a phone, Ajustes is a full screen whose sections replace the list and come back", async () => {
   const originalMatchMedia = window.matchMedia.bind(window);
   window.matchMedia = (query: string) => ({
     matches: query.includes("max-width"),
@@ -129,10 +131,17 @@ test("the preferences sheet is titled Preferencias", async () => {
     const anchor = document.createElement("button");
     document.body.appendChild(anchor);
     const { act } = await mount(<ProfileMenu isOpen onClose={() => {}} onLogout={() => {}} anchorRef={{ current: anchor }} />);
-    await act(async () => button("Preferencias")!.click());
-    const headings = [...document.querySelectorAll("h1, h2")].map((node) => node.textContent?.trim());
-    assert.equal(headings.includes("Preferencias"), true);
-    assert.equal(headings.includes("App"), false);
+    await act(async () => { await Promise.resolve(); });
+    const headings = () => [...document.querySelectorAll("h1, h2")].map((node) => node.textContent?.trim());
+    assert.equal(headings().includes("Test owner"), true, "the account sheet is named for the person, not Ajustes");
+    await act(async () => button("Ajustes")!.click());
+    assert.deepEqual(headings(), ["Ajustes"]);
+    assert.ok(document.body.textContent?.includes("Preferencias"));
+    await act(async () => button("Apariencia")!.click());
+    assert.equal(headings().includes("Apariencia"), true);
+    await act(async () => document.querySelector<HTMLButtonElement>('[data-testid="settings-pane-appearance"] [data-testid="settings-window-back"]')!.click());
+    assert.equal(document.querySelector('[data-testid="settings-pane-appearance"]'), null);
+    assert.ok(button("Apariencia"), "back returns to the list");
   } finally {
     window.matchMedia = originalMatchMedia;
   }
@@ -159,7 +168,7 @@ test("Business Preferencias hides WhatsApp unless its flag is on, and Personal i
     await act(async () => {
       await Promise.resolve();
     });
-    await act(async () => button("Preferencias")!.click());
+    await act(async () => button("Ajustes")!.click());
   };
   try {
     await openPreferences(true);
@@ -187,7 +196,7 @@ test("Business feedback uses the requested copy without an inactive learn-more a
   await mount(<FeedbackDialog isOpen onClose={() => {}} type="general" />);
   assert.ok(document.body.textContent?.includes("Cuéntanos cómo te va con Cuadrao. Leemos cada comentario."));
   assert.equal(button("Más información"), undefined);
-  assert.ok(document.body.textContent?.includes("No se adjunta la conversación ni información de contacto."));
+  assert.equal(document.body.textContent?.includes("No se adjunta la conversación ni información de contacto."), false, "Business has no conversation to attach");
 });
 
 test("the language picker shows English once", async () => {

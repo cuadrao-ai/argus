@@ -9,6 +9,7 @@ from loguru import logger
 from psycopg import sql
 
 from argus.domain.account_deletion.auth_admin import AuthAdmin
+from argus.domain.business import lifecycle
 from argus.domain.business.custody_graph import PostgresBusinessCustodyGraph
 from argus.domain.ingestion.documents.objects import SourceObjects, owner_prefix
 from argus.domain.profile_images import ProfileImages, business
@@ -76,10 +77,10 @@ class PostgresBusinessPurge:
         with self.connections.connection() as db:
             candidates = db.execute(
                 "select space_id::text from ("
-                "select id as space_id,closed_at as since from public.spaces where kind='business' and closed_at<=clock_timestamp()-interval '30 days' "
+                "select id as space_id,closed_at as since from public.spaces where kind='business' and closed_at<=clock_timestamp()-%s "
                 "union select space_id,started_at from argus_private.business_purge_runs where status<>'done'"
                 ") q group by space_id order by min(since),space_id limit %s",
-                (limit,),
+                (lifecycle.REOPEN_WINDOW, limit),
             ).fetchall()
         result = dict(resumed=0, done=0, pending=0, failed=0, busy=0)
         for (space,) in candidates:
@@ -127,8 +128,8 @@ class PostgresBusinessPurge:
             ).fetchone()
             if row is None:
                 closed = db.execute(
-                    "select closed_at,created_by,current_owner_id from public.spaces where id=%s and kind='business' and closed_at<=clock_timestamp()-interval '30 days' for update",
-                    (space,),
+                    "select closed_at,created_by,current_owner_id from public.spaces where id=%s and kind='business' and closed_at<=clock_timestamp()-%s for update",
+                    (space, lifecycle.REOPEN_WINDOW),
                 ).fetchone()
                 if closed is None:
                     raise BusinessPurgeBusy("business_purge_not_due")
@@ -197,8 +198,8 @@ class PostgresBusinessPurge:
             if status != "started":
                 return
             custodian = db.execute(
-                "select created_by::text from public.spaces where id=%s and kind='business' and closed_at=%s and closed_at<=clock_timestamp()-interval '30 days' for update",
-                (space, closed_at),
+                "select created_by::text from public.spaces where id=%s and kind='business' and closed_at=%s and closed_at<=clock_timestamp()-%s for update",
+                (space, closed_at, lifecycle.REOPEN_WINDOW),
             ).fetchone()
             if custodian is None:
                 raise BusinessPurgePending("business_purge_state_changed")

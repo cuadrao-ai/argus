@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -6,6 +6,7 @@ import { join } from "node:path";
 import {
   deletionEndsSession,
   endSessionKeepingSurface,
+  getAccountDeletionEligibility,
   requestAccountDeletion,
 } from "@/lib/account-deletion-api";
 
@@ -197,5 +198,53 @@ describe("the deletion confirmation copy", () => {
     expect(deletionCopy("en").requested).toBe(
       "Request sent. Support will delete your account and follow up by email.",
     );
+  });
+});
+
+describe("the server's delete rule, read before the alert offers Eliminar", () => {
+  const originalFetch = globalThis.fetch;
+  const originalMockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    if (originalMockAuth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH;
+    else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMockAuth;
+  });
+
+  test("an allowed account carries its closed-business notices and nothing else", async () => {
+    const notice = { kind: "closed_business", business_id: "b-1", business_name: "Colmado Rosa", purge_at: "2026-11-20T17:45:00Z" };
+    const calls = respond([{ status: 200, body: { allowed: true, blockers: [], notices: [notice, { kind: "later" }] } }]);
+    expect(await getAccountDeletionEligibility()).toEqual({ allowed: true, blockers: [], notices: [notice] });
+    expect(calls[0].url).toEndWith("/account/deletion");
+  });
+
+  test("an owner is blocked by name, and a reason the web does not know still refuses", async () => {
+    respond([{ status: 200, body: { allowed: false, blockers: [{ kind: "business_owner", business_id: "b-2", business_name: "Taller Luna" }, { kind: "something_new" }] } }]);
+    expect(await getAccountDeletionEligibility()).toEqual({
+      allowed: false,
+      blockers: [{ kind: "business_owner", business_id: "b-2", business_name: "Taller Luna" }, { kind: "not_allowed" }],
+      notices: [],
+    });
+  });
+
+  test("a refusal with no reason given is not_allowed, never an open door", async () => {
+    respond([{ status: 200, body: { allowed: false, blockers: [] } }]);
+    expect(await getAccountDeletionEligibility()).toEqual({ allowed: false, blockers: [{ kind: "not_allowed" }], notices: [] });
+    respond([{ status: 200, body: { allowed: true, blockers: [{ kind: "not_allowed" }] } }]);
+    expect(await getAccountDeletionEligibility()).toEqual({ allowed: false, blockers: [{ kind: "not_allowed" }], notices: [] });
+  });
+
+  test("off here (404) keeps the support-ticket path; any other failure is for a retry", async () => {
+    respond([{ status: 404, body: { detail: "not found" } }]);
+    expect(await getAccountDeletionEligibility()).toEqual({ off: true });
+    respond([{ status: 500, body: { detail: "boom" } }]);
+    await expect(getAccountDeletionEligibility()).rejects.toBeDefined();
+  });
+
+  test("a check the server could not run (503) shows as not allowed, never as Eliminar", async () => {
+    respond([{ status: 503, body: { code: "account_deletion_unavailable", detail: "unavailable" } }]);
+    expect(await getAccountDeletionEligibility()).toEqual({ allowed: false, blockers: [{ kind: "not_allowed" }], notices: [] });
   });
 });
