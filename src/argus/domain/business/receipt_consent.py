@@ -13,10 +13,12 @@ from psycopg.types.json import Jsonb
 
 from argus.domain.business.authority import ActionError
 
-SCOPE_VERSION = 1
+# A new wording is a new scope version: an owner who agreed to an earlier one
+# reads as off until they accept this one.
+SCOPE_VERSION = 2
 DISCLOSURES = {
-    "en": "Read my Business receipts with AI. This includes receipts received by email, WhatsApp and upload. Reading creates drafts for review. Only I can approve a financial record. Turning this off stops new reads.",
-    "es-419": "Leer mis recibos del negocio con IA. Esto incluye los recibos que llegan por correo, WhatsApp y archivos subidos. La lectura crea borradores para revisar. Solo yo puedo aprobar un registro financiero. Al desactivar esta opción se detienen las nuevas lecturas.",
+    "en": "We use artificial intelligence to read the receipts that come in by email or WhatsApp, or that you upload to Cuadrao, and prepare a draft of each one. You review it and approve it. If you turn it off, they are saved unread.",
+    "es-419": "Leemos con inteligencia artificial los recibos que llegan por correo, por WhatsApp o que subes en Cuadrao, y preparamos un borrador de cada uno. Tú lo revisas y lo apruebas. Si lo apagas, se guardan sin leer.",
 }
 _COLUMNS = ("id", "scope_version", "consented_at", "revoked_at", "route", "disclosure")
 

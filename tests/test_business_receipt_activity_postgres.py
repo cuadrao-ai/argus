@@ -3,7 +3,10 @@ from argus.api.business_drafts import receipt_detail, receipt_summaries, scoped_
 from argus.api.business_receipt_activity import project
 from argus.domain.business.contracts.actions import ReviewDraft
 from argus.domain.business.contracts.facts import BusinessFactPatch
-from argus.domain.business.receipt_consent import BusinessReceiptConsentStore
+from argus.domain.business.receipt_consent import (
+    SCOPE_VERSION,
+    BusinessReceiptConsentStore,
+)
 from argus.domain.business.scope import BusinessScope
 from fastapi import FastAPI
 from starlette.requests import Request
@@ -175,13 +178,13 @@ def test_consent_generations_revoke_without_adopting_old_permission(actions):
     shown = store.status(space, owner)
     assert shown["enabled"] is False
     accepted = store.set(
-        space, owner, enabled=True, version=1, disclosure_token=shown["disclosure_token"]
+        space, owner, enabled=True, version=SCOPE_VERSION, disclosure_token=shown["disclosure_token"]
     )
     assert store.enabled(space, owner, accepted["consent_id"])
-    store.set(space, owner, enabled=False, version=1)
+    store.set(space, owner, enabled=False, version=SCOPE_VERSION)
     assert not store.enabled(space, owner, accepted["consent_id"])
     again = store.set(
-        space, owner, enabled=True, version=1, disclosure_token=shown["disclosure_token"]
+        space, owner, enabled=True, version=SCOPE_VERSION, disclosure_token=shown["disclosure_token"]
     )
     assert again["consent_id"] != accepted["consent_id"]
     assert not store.enabled(space, owner, accepted["consent_id"])
@@ -204,7 +207,7 @@ def test_delayed_consent_commands_cannot_reverse_a_later_choice(actions):
         space,
         owner,
         enabled=True,
-        version=1,
+        version=SCOPE_VERSION,
         disclosure_token=token,
         idempotency_key="first-enable",
     )
@@ -212,16 +215,16 @@ def test_delayed_consent_commands_cannot_reverse_a_later_choice(actions):
         space,
         owner,
         enabled=True,
-        version=1,
+        version=SCOPE_VERSION,
         disclosure_token=token,
         idempotency_key="noop-enable",
     )
-    store.set(space, owner, enabled=False, version=1, idempotency_key="turn-off")
+    store.set(space, owner, enabled=False, version=SCOPE_VERSION, idempotency_key="turn-off")
     assert not store.set(
         space,
         owner,
         enabled=True,
-        version=1,
+        version=SCOPE_VERSION,
         disclosure_token=token,
         idempotency_key="first-enable",
     )["enabled"]
@@ -229,7 +232,7 @@ def test_delayed_consent_commands_cannot_reverse_a_later_choice(actions):
         space,
         owner,
         enabled=True,
-        version=1,
+        version=SCOPE_VERSION,
         disclosure_token=token,
         idempotency_key="noop-enable",
     )["enabled"]
@@ -237,12 +240,12 @@ def test_delayed_consent_commands_cannot_reverse_a_later_choice(actions):
         space,
         owner,
         enabled=True,
-        version=1,
+        version=SCOPE_VERSION,
         disclosure_token=token,
         idempotency_key="second-enable",
     )
     assert current["consent_id"] != first["consent_id"]
-    assert store.set(space, owner, enabled=False, version=1, idempotency_key="turn-off")[
+    assert store.set(space, owner, enabled=False, version=SCOPE_VERSION, idempotency_key="turn-off")[
         "enabled"
     ]
     assert store.enabled(space, owner, current["consent_id"])
@@ -269,7 +272,7 @@ def test_concurrent_enable_commands_create_one_current_generation(actions):
             space,
             owner,
             enabled=True,
-            version=1,
+            version=SCOPE_VERSION,
             disclosure_token=token,
             idempotency_key=key,
         )

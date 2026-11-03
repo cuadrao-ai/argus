@@ -3942,8 +3942,6 @@
       "alias_save": "Save address",
       "email_title": "Receiving email",
       "history_title": "Received emails",
-      "reading_body": "An artificial intelligence service reads each receipt and pulls out the merchant, date and amounts. You review everything before approving.",
-      "reading_off": "If you turn it off, your receipts are saved unread.",
       "reading_title": "Read my receipts automatically",
       "senders": {
         "action_error": "This sender could not be saved. Try again.",

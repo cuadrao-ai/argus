@@ -4043,8 +4043,6 @@
       "alias_save": "Guardar dirección",
       "email_title": "Correo de recepción",
       "history_title": "Correos recibidos",
-      "reading_body": "Un servicio de inteligencia artificial lee cada recibo y saca el comercio, la fecha y los montos. Tú revisas todo antes de aprobar.",
-      "reading_off": "Si lo apagas, tus recibos se guardan sin leer.",
       "reading_title": "Leer mis recibos automáticamente",
       "senders": {
         "action_error": "No se pudo guardar este remitente. Inténtalo de nuevo.",
