@@ -183,7 +183,8 @@ class MonthClose(_Wire):
     unreviewed_movements_count: int = 0
     # "Ready for the 606 and 607": both forms stand by the export's verdict and
     # no step of this month remains (nothing in the Bandeja, nothing held,
-    # nothing left to mark). The one fact the web shows that sentence from.
+    # nothing left to mark, no read in flight with no date). The one fact the
+    # web shows that sentence from.
     filing_ready: bool = False
 
 

@@ -499,12 +499,14 @@ def unreviewed_in_month(days: Iterable[date], start: date, end: date) -> int:
 FORM_STANDS = frozenset({"prepared_candidate", "no_operations", "summary_only"})
 
 
-def with_unreviewed(summary: dict, count: int) -> dict:
+def with_unreviewed(summary: dict, count: int, month_unknown: bool = False) -> dict:
     """The month close with drafts still in the Bandeja as one blocking reason,
     and ``filing_ready``: the one fact "ready for the 606 and 607", true only
     when both forms stand by the export's verdict and no step of this month
     remains: nothing still in the Bandeja (reading, waiting or unreadable),
-    nothing the forms hold, nothing left to mark cobrado or pagado. The web
+    nothing the forms hold, nothing left to mark cobrado or pagado. While a
+    read in flight has no date, ``month_unknown`` holds every month: nobody yet
+    knows which one it belongs to. It adds no count and no reason. The web
     words the reason from the code, the count and the month."""
 
     reasons = list(summary["reasons"])
@@ -518,6 +520,7 @@ def with_unreviewed(summary: dict, count: int) -> dict:
         "unreviewed_movements_count": count,
         "filing_ready": forms_stand
         and not count
+        and not month_unknown
         and not summary["missing_fiscal_data"]
         and not summary["cuentas_por_cobrar"]
         and not summary["cuentas_por_pagar"],

@@ -9688,8 +9688,10 @@ still needs, first fix first: `expense_type_missing`, `rnc_missing`,
 `export_missing`) and `filing_ready` (bool: the one fact "ready for the 606 and
 607", true only when both `dgii_forms` stand by the export's verdict
 (`prepared_candidate`, `no_operations` or `summary_only`) and no step of the
-month remains: `unreviewed_movements_count` zero, `missing_fiscal_data` empty,
-`cuentas_por_cobrar` and `cuentas_por_pagar` empty; the web shows that sentence
+month remains: `unreviewed_movements_count` zero, no read in flight with no
+date (a receipt being read for the first time, or an email being read, holds
+every month until it lands), `missing_fiscal_data` empty, `cuentas_por_cobrar`
+and `cuentas_por_pagar` empty; the web shows that sentence
 from this field alone, never from `closed`, which stays month completion). Each
 currency block adds `itbis_cobrado_minor` and
 `itbis_cobrado` (ITBIS charged on the sales marked `cobrado`) and

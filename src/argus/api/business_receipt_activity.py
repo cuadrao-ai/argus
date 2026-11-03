@@ -14,6 +14,7 @@ from argus.domain.business.receipt_activity import (
     bandeja,
     inbox_counts,
     project_activity,
+    reading_undated,
 )
 from argus.domain.business.transactions import GrantImportStore, transaction
 
@@ -194,6 +195,23 @@ def unreviewed_days(
         with transaction(store.authority, store.context) as tx:
             days += [draft_close_day(None, at) for at in awaiting_note_arrivals(tx)]
     return days
+
+
+def month_unknown(
+    context,  # noqa: ANN001
+    views: list[dict],
+    receipt_dates: Mapping[str, str] | None = None,
+) -> bool:
+    """Whether the Bandeja holds a read in flight that no month can claim yet:
+    a receipt being read with no date known, or an email being read. The same
+    views and email standings the Bandeja counts."""
+
+    from argus.api.email_intake import email_standings
+
+    retained = receipt_dates or {}
+    return any(reading_undated(view, retained) for view in views) or (
+        "reading" in email_standings(str(context.scope.owner.space_id))
+    )
 
 
 def counts(context, views: list[dict]) -> dict:  # noqa: ANN001
