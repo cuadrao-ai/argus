@@ -11,6 +11,7 @@ import pytest
 from argus.api.business_spaces import business_spaces
 from argus.api.documents import documents_service
 from argus.api.ingestion import ingestion_hub
+from argus.domain.business.receipt_consent import SCOPE_VERSION
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.service import BusinessService
 from fastapi.testclient import TestClient
@@ -72,7 +73,7 @@ class Owner:
             "/receipt-reading",
             {
                 "enabled": enabled,
-                "scope_version": 1,
+                "scope_version": SCOPE_VERSION,
                 "disclosure_token": shown["disclosure_token"],
             },
         )
@@ -103,7 +104,7 @@ class Owner:
         if not consent and shown["enabled"]:
             assert (
                 self.post(
-                    "/receipt-reading", {"enabled": False, "scope_version": 1}
+                    "/receipt-reading", {"enabled": False, "scope_version": SCOPE_VERSION}
                 ).status_code
                 == 200
             )
@@ -623,7 +624,7 @@ def test_overview_totals_each_currency_and_counts_the_inbox(alice: Owner) -> Non
             key=str(uuid4()),
         )
     prepared(alice)
-    alice.post("/receipt-reading", {"enabled": False, "scope_version": 1})
+    alice.post("/receipt-reading", {"enabled": False, "scope_version": SCOPE_VERSION})
     alice.upload(content=RECEIPT + b"\0", consent=False)
     overview = alice.get("/overview", **{"from": "2026-10-01", "to": "2026-10-31"}).json()
     assert {
@@ -798,7 +799,7 @@ def test_owner_enabling_reads_backlog_once_and_disabling_stops_new_reads(alice, 
     shown = alice.get("/receipt-reading").json()
     body = {
         "enabled": True,
-        "scope_version": 1,
+        "scope_version": SCOPE_VERSION,
         "disclosure_token": shown["disclosure_token"],
     }
     assert alice.post("/receipt-reading", body).status_code == 200
@@ -807,7 +808,7 @@ def test_owner_enabling_reads_backlog_once_and_disabling_stops_new_reads(alice, 
     assert alice.post("/receipt-reading", body).status_code == 200
     assert len(stub.calls) == 1
     assert (
-        alice.post("/receipt-reading", {"enabled": False, "scope_version": 1}).status_code
+        alice.post("/receipt-reading", {"enabled": False, "scope_version": SCOPE_VERSION}).status_code
         == 200
     )
     second = alice.upload(content=RECEIPT + b"another", consent=False).json()
@@ -850,7 +851,7 @@ def test_missing_source_does_not_strand_other_unread_receipts(alice, stub):
         "/receipt-reading",
         {
             "enabled": True,
-            "scope_version": 1,
+            "scope_version": SCOPE_VERSION,
             "disclosure_token": shown["disclosure_token"],
         },
     )

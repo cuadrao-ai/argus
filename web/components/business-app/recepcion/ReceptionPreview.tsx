@@ -191,7 +191,7 @@ function ReceptionWorkspace() {
       </div>
       <div className={styles.toolbar} data-selecting={selected.length > 0}>
         {searchInBar ? null : <ReceptionSearch value={query} onChange={searchQuery} />}
-        <div role="group" aria-label={word("arrival_date")}><RecordsDatePreview period={period} value={period} title={word("arrival_date")} allDatesLabel={word("all_dates")} onChange={next => { setSelectedIds([]); setPage(1); setPeriod(next); }} /></div>
+        <div role="group" aria-label={word("arrival_date")}><RecordsDatePreview period={period} value={period} title={word("arrival_date")} onChange={next => { setSelectedIds([]); setPage(1); setPeriod(next); }} /></div>
         <ReceptionFilters key={scope} senders={senders} value={filters} onChange={applyFilters} />
         <div className={styles.bulkSlot}>{selected.length ? <ReceptionBulkBar count={selected.length} approve={() => approval.ask(selected)} clear={() => setSelectedIds([])} /> : null}</div>
         {(query && !searchInBar) || period.key !== "all" ? <button className={quietButtonClass} onClick={clear}>{word("clear")}</button> : null}
