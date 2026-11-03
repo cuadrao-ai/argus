@@ -1,0 +1,15 @@
+{
+  "id": "staging-apply-2026-11-03-waitlist",
+  "project_ref": "skedzwocnmrhfigiwyzi",
+  "hosts": [
+    "db.skedzwocnmrhfigiwyzi.supabase.co",
+    "aws-0-us-east-1.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "1ca6bc30f374f23c2b098deaeb32e66a8562479e",
+  "versions_sha256": "eda728db4f66a864df20a859041cfa808db304f3ad65fe01d1ecaffd59ffcbb7",
+  "issued_at": "2026-11-03T02:18:31Z",
+  "expires_at": "2026-11-05T02:18:31Z",
+  "approved_by": "founder",
+  "approval_reference": "Lucas, in the orchestrator session on 2026-11-03, approved the waitlist cleanup on staging only and deleted the four test rows himself. The earlier batch record applied the other two versions."
+}
