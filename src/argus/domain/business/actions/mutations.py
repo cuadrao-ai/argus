@@ -36,12 +36,15 @@ from argus.domain.business.contracts.facts import (
     BusinessResolution,
     DueOnInput,
     Known,
+    KnownInput,
     ReadPurchase,
 )
 from argus.domain.business.document_type import (
+    TYPE_OF_KIND,
     DocumentType,
     detected_document_type,
-    require_venta_kind,
+    kind_follows_type,
+    require_type_kind,
     typed_facts,
 )
 from argus.domain.business.purchase_review import (
@@ -219,6 +222,15 @@ def revise(
     due_on: DueOnInput | None = None,
 ) -> Applied:
     sources.require_sources(tx, source_ids)
+    named_type = document_type is not None
+    stated = patch.kind if patch is not None else None
+    if isinstance(stated, KnownInput):
+        # A stated kind is a statement of the type: income is a Venta, an
+        # expense or a refund a receipt.
+        named = TYPE_OF_KIND.get(stated.value)
+        if named is None or document_type not in (None, named):
+            raise ActionError("invalid_input", "activity_kind_unsupported")
+        document_type = named
     now = datetime.now(timezone.utc)
     declaration_only = (
         (purchase is not None or payment_split is not None)
@@ -233,9 +245,7 @@ def revise(
         before = None
     else:
         event = (
-            _open_for_type(tx, ref)
-            if document_type is not None
-            else event_at(tx, ref, declaration_only)
+            _open_for_type(tx, ref) if named_type else event_at(tx, ref, declaration_only)
         )
         before = facts_of(event)
         event = replace(event, version=event.version + 1, updated_at=now)
@@ -250,7 +260,7 @@ def revise(
     retyped = document_type is not None and document_type != previous_type
     base = (
         typed_facts(before, document_type, source_ids, origin, _business_tax_id(tx))
-        if retyped and before is not None
+        if document_type is not None and before is not None
         else before
     )
     try:
@@ -265,7 +275,12 @@ def revise(
             after = reviewed_fiscal_facts(after, fiscal_review, source_ids, origin)
     except ValidationError:
         raise ActionError("invalid_input", "business_fact_provenance_invalid") from None
-    require_venta_kind(document_type or previous_type, after)
+    if not isinstance(stated, KnownInput):
+        # A kind saved before the type owned it takes the type's own kind.
+        after = kind_follows_type(
+            after, document_type or previous_type, source_ids, origin
+        )
+    require_type_kind(document_type or previous_type, after)
     if answer_id is not None:
         answer_question(tx, event.id, answer_id, patch, source_ids[-1])
     elif actor.actor_kind == "member" and patch is not None:
@@ -587,18 +602,16 @@ def prepare_attachment(
         facts = merged
     document_type, detected = _read_document_type(tx, event, draft, batch)
     after = BusinessFacts.model_validate(facts)
+    typed_origin = "extracted" if detected else "owner_stated"
     if document_type == "venta":
         read_rnc = after.fiscal.rnc if after.fiscal is not None else None
         after = typed_facts(
-            after,
-            "venta",
-            (source_id,),
-            "extracted" if detected else "owner_stated",
-            _business_tax_id(tx),
+            after, "venta", (source_id,), typed_origin, _business_tax_id(tx)
         )
         if isinstance(read_rnc, Known) and not isinstance(after.fiscal.rnc, Known):
             logger.info("business_venta_issuer_rnc_cleared detected={}", detected)
-    require_venta_kind(document_type, after)
+    after = kind_follows_type(after, document_type, (source_id,), typed_origin)
+    require_type_kind(document_type, after)
     return save_revision(
         tx,
         event,

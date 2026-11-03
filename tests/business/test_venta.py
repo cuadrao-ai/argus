@@ -18,8 +18,9 @@ from argus.domain.business.contracts.facts import (
     BusinessFacts,
     Known,
     KnownInput,
+    UncertainInput,
 )
-from argus.domain.business.document_type import parse_document_type, require_venta_kind
+from argus.domain.business.document_type import parse_document_type, require_type_kind
 from argus.domain.business.month_close import formato_totals, project_documents, summarize
 from argus.domain.ingestion.contract import ImportCandidate, SourceRef
 from argus.domain.ingestion.documents.extractor import batch_from_result
@@ -220,7 +221,13 @@ def test_a_receipt_read_does_not_become_income(monkeypatch):
     assert business["facts"]["kind"]["state"] == "unknown"
 
 
-def test_a_venta_cannot_be_changed_into_an_expense(monkeypatch):
+@pytest.mark.parametrize(
+    "stated",
+    [KnownInput(value="transfer"), UncertainInput(state="unknown")],
+)
+def test_a_venta_refuses_an_unknown_kind_or_one_that_is_no_purchase_or_sale(
+    monkeypatch, stated
+):
     actor = _actor().model_copy(update={"actor_kind": "member"})
     source_id = uuid4()
     now = datetime.now(timezone.utc)
@@ -259,12 +266,12 @@ def test_a_venta_cannot_be_changed_into_an_expense(monkeypatch):
         mutations.revise(
             tx,
             ExistingDraft(draft_id=event.id, version=1),
-            BusinessFactPatch(kind=KnownInput(value="expense")),
+            BusinessFactPatch(kind=stated),
             (source_id,),
             actor,
         )
     assert refused.value.code == "activity_kind_unsupported"
-    require_venta_kind("recibo", BusinessFacts())
+    require_type_kind("recibo", BusinessFacts())
 
 
 def test_a_venta_read_as_an_unpaid_fiscal_bill_is_income_without_a_payable_mark(

@@ -9556,6 +9556,21 @@ approval the change is `422` `document_type_locked`. `BusinessDossier` carries
 and the caller holds `prepare`). A stale `version` is still `409`
 `stale_version` first.
 
+The type is the one answer to purchase or sale; a known `facts.kind` is always
+a kind the type admits. A `venta` admits `income`. A `recibo` admits `expense`
+and `refund`. A known `facts.kind` in a review, a chat or an agent proposal
+states the type: `income` sets `venta`, and `expense` or `refund` sets
+`recibo`, with the same effects as `document_type`. Any other kind, and a kind
+and a `document_type` that disagree in one request, are `422`
+`activity_kind_unsupported`. Setting the type answers an unknown kind with the
+type's own kind: `income` for a `venta`, `expense` for a `recibo`. A read
+follows its type: a read kind the type does not admit becomes the type's own
+kind, and a read unsure of the direction leaves the kind unknown for a person.
+An open draft saved with a kind its type does not admit carries the blocker
+`activity_kind_unsupported` on `kind`, and its approval is `422`
+`activity_kind_unsupported`; its next review that states no kind gives it the
+type's own kind.
+
 The same review may carry `due_on`, alone or with other review input.
 `{"state": "known", "value": "YYYY-MM-DD"}` sets the due date and
 `{"state": "unknown"}` clears it. Absent, the due date stays as it is. Only a

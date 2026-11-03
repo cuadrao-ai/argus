@@ -3672,6 +3672,15 @@ as `document_type`, null when the upload named none. A person's change is a
 normal revision on an open draft; the type is not stored on the revision row,
 whose web source holds the request that named it. No migration.
 
+The type owns purchase or sale. The resolution's `facts.kind`, when known, is
+a kind the type admits: `income` on a `venta`; `expense` or `refund` on a
+`recibo`. Every write keeps that true: a read, a review, a chat proposal and a
+typed note. A stated kind sets the type. A kind may stay unknown on a `recibo`
+until a person says it. Rows written before this rule may hold a kind the type
+does not admit. An open one is blocked from approval, and its next review that
+states no kind gives it the type's own kind. An approved one keeps both values
+as they were approved. No migration.
+
 The resolution's `amount_derived` is true while the declaration's services or
 goods amount is the one the server works out from the confirmed Tipo de gasto,
 and absent otherwise. Every revision works that amount out again from its facts,
