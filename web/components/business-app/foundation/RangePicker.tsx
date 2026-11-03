@@ -115,7 +115,7 @@ export default function RangePicker({ session, phone = false, embedded = false }
   };
   const navigateMonth = (step: number) => { const day = shiftMonth(state.cursor, step); setView(monthOf(day)); dispatch({ type: "cursor", day }); };
   const monthViews = Array.from({ length: monthCount }, (_, index) => monthOf(isoOf(view.year, view.month + index, 1)));
-  const presets = <div className={styles.presets} aria-label={word("presets")}>{PRESETS.filter((preset) => !phone || preset !== "today").map((preset) => <button key={preset} type="button" className={styles.preset} aria-pressed={state.preset === preset} onClick={() => choosePreset(preset)}><span className={styles.presetName}>{t(PRESET_KEYS[preset])}</span><span className={styles.check} data-preset-check>{state.preset === preset ? <Check size={15} aria-hidden="true" /> : null}</span></button>)}</div>;
+  const presets = <div className={styles.presets} aria-label={word("presets")}>{PRESETS.map((preset) => <button key={preset} type="button" className={styles.preset} aria-pressed={state.preset === preset} onClick={() => choosePreset(preset)}><span className={styles.presetName}>{t(PRESET_KEYS[preset])}</span><span className={styles.check} data-preset-check>{state.preset === preset ? <Check size={15} aria-hidden="true" /> : null}</span></button>)}</div>;
   return <div ref={root} data-testid="range-picker" data-month-columns={columns} className={`${styles.picker} ${embedded ? styles.embedded : ""} ${phone ? styles.mobile : columns === 1 ? styles.narrow : ""}`}>
     <div className={styles.layout}>
       {embedded ? null : presets}
@@ -123,7 +123,7 @@ export default function RangePicker({ session, phone = false, embedded = false }
         <div className={styles.fields}>{(["from", "to"] as const).map((edge) => <FormField key={edge} id={`${id}-${edge}`} label={word(edge)} value={state.text[edge]} inputMode="text" autoComplete="off" placeholder={dateInputFormat(locale)} error={checks.errorOf(edge)} success={checks.isValid(edge) ? word("valid_date") : undefined} reserveMessages={[]} onBlur={() => checks.blur(edge)} onChange={(event) => { dispatch({ type: "type", edge, text: event.target.value }); const day = parseRangeInput(event.target.value, locale); if (day && (day < isoOf(view.year, view.month, 1) || day > isoOf(view.year, view.month + monthCount, 0))) setView(monthOf(day)); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); session.confirm(); } }} />)}</div>
         <div className={styles.navigation}>
           <button type="button" className={styles.icon} aria-label={t("business.date_picker.previous_month")} onClick={() => navigateMonth(-1)}><ChevronLeft size={18} aria-hidden="true" /></button>
-          <button type="button" className={styles.today} onClick={() => choosePreset("today")}>{word("preset.today")}</button>
+          {embedded ? <button type="button" className={styles.today} onClick={() => choosePreset("today")}>{word("preset.today")}</button> : null}
           <button type="button" className={styles.icon} aria-label={t("business.date_picker.next_month")} onClick={() => navigateMonth(1)}><ChevronRight size={18} aria-hidden="true" /></button>
         </div>
         <div ref={grids} className={styles.months} style={phone ? undefined : { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }} onKeyDown={onKey} onPointerMove={dragMove} onPointerUp={endDrag} onPointerCancel={() => dispatch({ type: "drag-cancel" })} onPointerLeave={() => { if (!state.drag) dispatch({ type: "hover", day: null }); }}>

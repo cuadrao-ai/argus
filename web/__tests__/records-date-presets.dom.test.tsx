@@ -56,7 +56,9 @@ for (const width of [1440, 390]) {
   test(`one list of presets is the only preset control at ${width}px`, async () => {
     const page = await mount(width, custom);
     const expected = ["Hoy", "Este mes", "Mes pasado", "Este año", "Todas las fechas", "Personalizado"];
-    assert.deepEqual(page.list(), width === 390 ? expected.filter((name) => name !== "Hoy") : expected);
+    assert.deepEqual(page.list(), expected, "phone and desktop share one list");
+    assert.equal([...document.querySelectorAll("button")].filter((node) => node.textContent === "Hoy").length, 1, "one Hoy, in the list, not in the calendar bar");
+    assert.ok(document.querySelector('button[aria-label="Mes anterior"]') && document.querySelector('button[aria-label="Mes siguiente"]'), "the month arrows stay");
     for (const name of ["Todas las fechas", "Este mes", "Mes pasado"]) assert.equal([...document.querySelectorAll("button")].filter((node) => node.textContent === name).length, 1, `${name} appears once`);
     assert.equal(page.button(year), undefined, "the year chip is gone");
   });
@@ -73,13 +75,21 @@ for (const width of [1440, 390]) {
     assert.equal(rows().filter((row) => row.querySelector("[data-preset-check] svg")).length, 1, "only the selected row shows the check");
   });
 
+  test(`Hoy selects today and brings the calendar back to today's month at ${width}px`, async () => {
+    const page = await mount(width, { key: "custom", from: "2025-03-01", to: "2025-03-10" });
+    assert.equal(document.querySelector(`[data-day="${today}"]`), null, "the calendar starts on another month");
+    await page.click(page.button("Hoy"));
+    assert.ok(document.querySelector(`[data-day="${today}"]`), "today's month is showing");
+    assert.deepEqual(page.fields(), [typed(today), typed(today)]);
+  });
+
   test(`Hoy confirms as a custom range and reopens highlighted at ${width}px`, async () => {
     const page = await mount(width, custom);
     await page.click(page.button("Hoy"));
     await page.click([...document.querySelectorAll<HTMLButtonElement>("button")].find((node) => node.textContent === "Confirmar período"));
     assert.equal(page.changes.at(-1)?.key, "custom");
     await page.click(page.host.querySelector("button"));
-    assert.deepEqual(page.pressed(), width === 390 ? [] : ["Hoy"], "the phone keeps its one Hoy in the calendar bar, not in the list");
+    assert.deepEqual(page.pressed(), ["Hoy"]);
   });
 
   for (const name of Object.keys(WHOLE) as (keyof typeof WHOLE)[]) {
