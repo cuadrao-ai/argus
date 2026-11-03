@@ -124,6 +124,19 @@ def still_reading(view: Mapping[str, Any]) -> bool:
     return awaiting_owner(view) and (view.get("activity") or {}).get("state") == "reading"
 
 
+def reading_undated(view: Mapping[str, Any], retained: Mapping[str, str]) -> bool:
+    """A receipt row being read whose date no proposal or earlier read has
+    found (``retained`` by id): until the read lands nobody knows which month
+    it belongs to. Reads the same flag ``project_activity`` turns into
+    "reading", so it works on a view before it is projected."""
+
+    return (
+        awaiting_owner(view)
+        and bool(view.get("read_pending"))
+        and not (view.get("occurred_on") or retained.get(str(view.get("id"))))
+    )
+
+
 #: The Bandeja's buckets by their wire name. ``bandeja`` flags a row with them
 #: and the counts sum them, so each count equals the rows flagged.
 BANDEJA: dict[str, Callable[[Mapping[str, Any]], bool]] = {
