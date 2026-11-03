@@ -560,3 +560,21 @@ def test_live_generated_value_beats_a_different_file_value(manifest):
     actions = dict(plan.actions)
     assert actions["CUADRAO_INGESTION_SECRET_KEY"] == "ok"
     assert "CUADRAO_INGESTION_SECRET_KEY" not in plan.generated
+
+
+@pytest.mark.parametrize("shared", [False, True])
+def test_staging_registered_key_must_differ_from_guest(manifest, shared):
+    live = live_for(manifest, "api", AUDIT_API)
+    guest = live["CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"]
+    live["CUADRAO_OPENROUTER_API_KEY_STG"] = guest if shared else "synthetic-staging-key"
+    plan = se.compute_plan(manifest["services"]["api"], live, {})
+    problem = (
+        "CUADRAO_OPENROUTER_API_KEY_STG and "
+        "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY must differ"
+    )
+    assert (problem in plan.problems) is shared
+    assert (
+        plan.final["CUADRAO_OPENROUTER_API_KEY_STG"]
+        == live["CUADRAO_OPENROUTER_API_KEY_STG"]
+    )
+    assert guest not in "\n".join(plan.problems)

@@ -522,7 +522,7 @@ def test_workflow_proof_env_contract_is_documented_but_not_blueprinted() -> None
         "services"
     ]["workflow"]
     assert set(_contract_array("ARGUS_RENDER_WORKFLOW_PROOF_ENV")) == (
-        set(profile["env"]) | set(profile["required_present"]) | set(profile["optional"])
+        set(profile["env"]) | set(profile["required_present"])
     )
     assert "RENDER_API_KEY" not in _contract_array("ARGUS_RENDER_WORKFLOW_PROOF_ENV")
     render_sync = _source(".github/render-env-sync.sh")
@@ -769,9 +769,7 @@ def test_workflow_sync_preflights_secrets_and_writes_only_managed_settings(
         "services"
     ]["workflow"]
     written = {request.split("/env-vars/", 1)[1].split(" ", 1)[0] for request in requests}
-    assert written == (
-        set(profile["env"]) | set(profile["required_present"]) | set(profile["optional"])
-    )
+    assert written == set(profile["env"]) | set(profile["required_present"])
     assert len(requests) == len(written)
     assert all("unused-" not in request for request in requests)
     assert "fake-prod" not in result.stdout
