@@ -9,11 +9,11 @@ import {
 
 describe("inquiry message", () => {
   test("an untouched form sends only what the visitor typed", () => {
-    expect(buildInquiryMessage(EMPTY_PROFILE, "  Hola  ")).toBe("Hola");
+    expect(buildInquiryMessage(EMPTY_PROFILE, "  Hola  ")).toBe("Mensaje:\nHola");
     expect(buildInquiryMessage(EMPTY_PROFILE, "")).toBe("");
   });
 
-  test("answers lead the note, in Spanish for the founder", () => {
+  test("details come first, then the message, in Spanish for the founder", () => {
     const message = buildInquiryMessage(
       {
         role: "accountant",
@@ -26,11 +26,13 @@ describe("inquiry message", () => {
     );
     expect(message).toBe(
       [
+        "Detalles:",
         "Soy: contable",
         "Prefiere: WhatsApp +1 809 555 0123",
         "Nos conoció por: mi contable",
         "Demostración: le interesa una demostración de Cuadrao",
         "",
+        "Mensaje:",
         "Tengo 12 clientes.",
       ].join("\n"),
     );
@@ -39,14 +41,14 @@ describe("inquiry message", () => {
 
   test("an unchecked demo request adds no demo line", () => {
     const message = buildInquiryMessage({ ...EMPTY_PROFILE, pilot: false }, "Consulta.");
-    expect(message).toBe("Consulta.");
+    expect(message).toBe("Mensaje:\nConsulta.");
     expect(message).not.toMatch(/demostración|piloto|probar/i);
   });
 
   test("a phone number is dropped unless WhatsApp is chosen", () => {
     expect(
       buildInquiryMessage({ ...EMPTY_PROFILE, channel: "email", phone: "123" }, ""),
-    ).toBe("Prefiere: correo");
+    ).toBe("Detalles:\nPrefiere: correo");
   });
 
   test("the fullest message fits the server limit of 1000 characters", () => {
