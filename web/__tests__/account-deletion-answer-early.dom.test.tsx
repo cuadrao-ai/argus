@@ -12,7 +12,7 @@ const originalFetch = globalThis.fetch;
 const originalMockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
 const cleanups: (() => Promise<void>)[] = [];
 let deletionReads = 0;
-let deletionAnswer: unknown = { allowed: false, blockers: [{ kind: "business_owner", business_id: "b-1", business_name: "Colmado Peña" }], notices: [] };
+const deletionAnswer: unknown = { allowed: false, blockers: [{ kind: "business_owner", business_id: "b-1", business_name: "Colmado Peña" }], notices: [] };
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost" });
