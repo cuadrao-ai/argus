@@ -493,32 +493,44 @@ def test_check_without_a_service_is_unavailable_not_allowed(
     assert response.json()["code"] == "account_deletion_unavailable"
 
 
-def test_check_has_its_own_budget_of_the_same_size(enabled) -> None:  # noqa: ANN001
+def test_check_allows_thirty_reads_a_minute_and_refuses_the_next(enabled) -> None:  # noqa: ANN001
     service = _checking([])
-    limit = account_route._PER_ACCOUNT[0]
     with (
         patch.object(account_route, "deletion_requester", _registered),
         patch.object(account_route, "account_deletion_service", return_value=service),
     ):
-        codes = [client.get(CHECK_URL).status_code for _ in range(limit + 1)]
-        delete = client.post(URL, json={"confirm": True}).status_code
-    assert codes == [200] * limit + [429]
-    assert delete != 429
+        codes = [client.get(CHECK_URL).status_code for _ in range(31)]
+    assert codes == [200] * 30 + [429]
 
 
 def test_check_answers_429_with_retry_after(enabled) -> None:  # noqa: ANN001
     service = _checking([])
-    limit = account_route._PER_ACCOUNT[0]
     with (
         patch.object(account_route, "deletion_requester", _registered),
         patch.object(account_route, "account_deletion_service", return_value=service),
     ):
-        for _ in range(limit):
+        for _ in range(30):
             client.get(CHECK_URL)
         response = client.get(CHECK_URL)
     assert response.status_code == 429
     assert response.json()["code"] == "too_many_requests"
-    assert response.headers["Retry-After"]
+    assert int(response.headers["Retry-After"]) >= 1
+
+
+def test_the_command_keeps_six_and_is_not_spent_by_the_check(enabled) -> None:  # noqa: ANN001
+    service = _checking([])
+    service.delete_account.side_effect = AccountDeletionIncomplete(
+        "third_party_pending", ["apple"]
+    )
+    with (
+        patch.object(account_route, "deletion_requester", _registered),
+        patch.object(account_route, "account_deletion_service", return_value=service),
+    ):
+        for _ in range(31):
+            client.get(CHECK_URL)
+        codes = [client.post(URL, json={"confirm": True}).status_code for _ in range(7)]
+    assert codes == [202] * 6 + [429]
+    assert service.delete_account.call_count == 6
 
 
 def test_check_lists_closed_businesses_without_blocking(enabled) -> None:  # noqa: ANN001

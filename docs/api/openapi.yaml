@@ -122,7 +122,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '429':
-          description: '`too_many_requests`: six requests per account per minute; see Retry-After.'
+          description: '`too_many_requests`: 30 requests per account per minute; see Retry-After.'
           content:
             application/json:
               schema:
