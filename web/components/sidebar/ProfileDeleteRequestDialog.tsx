@@ -2,16 +2,13 @@
 
 import { withViewportPortal } from "@/components/ui/withViewportPortal";
 
-import { useCallback, useEffect, useId, useRef, useState, type RefObject } from "react";
+import { useCallback, useId, useRef, type RefObject } from "react";
 import { dangerConfirmButtonClass, quietButtonClass, secondaryButtonClass } from "@/components/business-app/business-ui";
-import { getAccountDeletionEligibility, type AccountDeletionEligibility } from "@/lib/account-deletion-api";
-import { previewDeletionEligibility, previewLifecycleControls } from "@/lib/account-deletion-preview";
+import { previewLifecycleControls } from "@/lib/account-deletion-preview";
+import type { AccountDeletionCheck } from "@/lib/use-account-deletion-eligibility";
 import { businessDeadlineParts, businessLifecycleHref } from "@/lib/business-lifecycle-api";
-import { browserAuthGeneration } from "@/lib/browser-auth-generation";
-import { serverRequestReference } from "@/lib/failure-screen";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { businessLifecycleControlsEnabled } from "@/lib/private-alpha-flags";
-import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useConversationSurface } from "@/components/chat/ChatWorkspace";
 import { useModalSurface } from "../layout/useModalSurface";
@@ -52,7 +49,7 @@ function ProfileDeleteRequestDialogSurface({
   onClose,
   onSubmit,
   returnFocusRef,
-  readEligibility,
+  check,
   lifecycleControls = previewLifecycleControls() ?? businessLifecycleControlsEnabled(),
 }: {
   state: DeleteRequestState;
@@ -60,27 +57,14 @@ function ProfileDeleteRequestDialogSurface({
   onClose: () => void;
   onSubmit: () => void | Promise<void>;
   returnFocusRef?: RefObject<HTMLElement | null>;
-  /** The server's delete rule; a test or the sample preview passes its own. */
-  readEligibility?: () => Promise<AccountDeletionEligibility>;
+  /** The server's answer, or why it could not be read. The opener holds it, and opens the alert only once one of the two is in. */
+  check: AccountDeletionCheck;
   /** Whether Transferir and Cerrar exist to link to. */
   lifecycleControls?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const isBusiness = useConversationSurface() === "business";
-  const [eligibility, setEligibility] = useState<AccountDeletionEligibility | null>(null);
-  const [readError, setReadError] = useState<{ reference: string | null } | null>(null);
-  const [readAttempt, setReadAttempt] = useState(0);
-  // Chosen once per open, so a new function each render never restarts the read.
-  const [read] = useState(() => readEligibility ?? previewDeletionEligibility() ?? getAccountDeletionEligibility);
-  useEffect(() => {
-    let active = true;
-    const generation = browserAuthGeneration();
-    setEligibility(null); setReadError(null);
-    void read().then(answer => {
-      if (active && browserAuthGeneration() === generation) setEligibility(answer);
-    }).catch(error => { if (active && browserAuthGeneration() === generation) setReadError({ reference: serverRequestReference(error) }); });
-    return () => { active = false; };
-  }, [read, readAttempt]);
+  const { answer: eligibility, error: readError, refresh } = check;
   // Off here (404) keeps the old path: the button files a support request.
   const allowed = eligibility !== null && ("off" in eligibility || eligibility.allowed);
   const blockers = eligibility && "blockers" in eligibility && !eligibility.allowed ? eligibility.blockers : [];
@@ -96,7 +80,7 @@ function ProfileDeleteRequestDialogSurface({
   const canDismiss = useCallback(() => state !== "submitting", [state]);
 
   useModalSurface({
-    isOpen: true,
+    isOpen: Boolean(eligibility || readError),
     overlayId,
     // The panel, not the full-screen wrapper. The wrapper's first focusable
     // child is the transparent backdrop, so trapping there opened keyboard
@@ -111,6 +95,9 @@ function ProfileDeleteRequestDialogSurface({
       if (canDismiss()) onClose();
     },
   });
+
+  // Never an empty alert: the opener waits on its row until the answer or the failure is in.
+  if (!eligibility && !readError) return null;
 
   const bodyText = "text-[14px] leading-relaxed text-[#56635e] dark:text-white/70";
   const supportLink = (
@@ -181,13 +168,14 @@ function ProfileDeleteRequestDialogSurface({
           </>
         ) : (
           <>
-            {eligibility === null ? (
-              <div className="space-y-2" data-testid="delete-account-checking">
-                <p role={readError ? "alert" : "status"} className={bodyText}>
-                  {t(readError ? "business.lifecycle.deletion.failed" : "business.lifecycle.deletion.checking")}
+            {readError ? (
+              <div className="space-y-2" data-testid="delete-account-check-failed">
+                <p role="alert" className={bodyText}>
+                  {/* Business names its businesses; outside one the line stays neutral. */}
+                  {isBusiness ? t("business.lifecycle.deletion.failed") : t("settings.profile.request_deletion.check_failed")}
                 </p>
-                {readError?.reference ? <ReferenceCode reference={readError.reference} /> : null}
-                {readError ? <button type="button" className={quietButtonClass} onClick={() => setReadAttempt(value => value + 1)}>{t("common.retry")}</button> : null}
+                {readError.reference ? <ReferenceCode reference={readError.reference} /> : null}
+                <button type="button" className={quietButtonClass} onClick={refresh}>{t("common.retry")}</button>
               </div>
             ) : ownedBusinesses.length ? (
               <div data-testid="delete-account-business-owner">
@@ -220,21 +208,8 @@ function ProfileDeleteRequestDialogSurface({
             ) : (
               <>
                 <p className={bodyText} data-testid="delete-account-allowed">
-                  {t(
-                    "settings.profile.request_deletion.body",
-                    "We delete your account and your personal data. This can't be undone.",
-                  )}
+                  {t("settings.profile.request_deletion.body", "We delete your account and your personal data. This can't be undone.")}
                 </p>
-                {/* The personal app's shared plans; Business has none. */}
-                {isBusiness ? null : <p
-                  className={`mt-2 ${bodyText}`}
-                  data-testid="argus-delete-account-shared-plans"
-                >
-                  {t(
-                    "settings.profile.request_deletion.shared_plans",
-                    "In plans you share, your amounts stay so everyone else's numbers still add up, but without your name: you'll show as \"Former member.\" Your receipts and notes are deleted. Anything you owe or are owed is closed in the app, not marked as paid. Plans you created pass to whoever has been in each one longest, except shared debt plans, which are closed and stay view-only.",
-                  )}
-                </p>}
                 {/* The server names the date; the web only formats it for the reader. */}
                 {notices.map(notice => (
                   <p key={notice.business_id} className={`mt-[13px] ${bodyText}`} data-testid="delete-account-closed-business">

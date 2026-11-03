@@ -23,6 +23,7 @@ import ProfileSettingsPanels, {
   type SidebarPreference,
 } from "./ProfileSettingsPanels";
 import SettingsWindow from "@/components/settings/SettingsWindow";
+import { useAccountDeletionEligibility } from "@/lib/use-account-deletion-eligibility";
 import {
   SHEET_SUBMENU_CLASS,
   profileMenuClass,
@@ -688,12 +689,33 @@ export default function ProfileMenu({
     [handleAvatarThemeSelect, isSavingAvatarTheme],
   );
 
+  // Read as Ajustes opens, so the delete alert opens with the server's answer
+  // already in place. An answer under a minute old is reused.
+  const deletionCheck = useAccountDeletionEligibility(activeModal === "settings-window");
+  const refreshDeletionCheckIfStale = deletionCheck.refreshIfStale;
+  const deletionReady = Boolean(deletionCheck.answer || deletionCheck.error);
+  // A press before the answer is in waits on its row, never in an empty alert.
+  const [waitingToDelete, setWaitingToDelete] = useState(false);
   const handleOpenDeleteRequest = useCallback(() => {
     setDeleteRequestState("idle");
+    if (!deletionReady) {
+      setWaitingToDelete(true);
+      return;
+    }
     setIsDeleteRequestOpen(true);
-  }, []);
+    // Read again only behind an answer over a minute old; the server checks again on delete.
+    refreshDeletionCheckIfStale();
+  }, [deletionReady, refreshDeletionCheckIfStale]);
+  // The alert opens the moment the answer, or the failure, lands: already filled in.
+  if (waitingToDelete && deletionReady) {
+    setWaitingToDelete(false);
+    setIsDeleteRequestOpen(true);
+  }
 
-  const closeSettingsWindow = useCallback(() => setActiveModal(null), []);
+  const closeSettingsWindow = useCallback(() => {
+    setWaitingToDelete(false);
+    setActiveModal(null);
+  }, []);
 
   // The row leaves with the menu, so the dialog's way back is the account button.
   const openFeedback = useCallback(() => {
@@ -813,6 +835,7 @@ export default function ProfileMenu({
       onClose={handleCloseDeleteRequest}
       onSubmit={handleSubmitDeleteRequest}
       returnFocusRef={activeModal === "settings-window" ? deleteAccountRef : anchorRef}
+      check={deletionCheck}
     />
   ) : null;
 
@@ -842,6 +865,7 @@ export default function ProfileMenu({
           )}
           onSecurity={() => navigateFromOverlay("/account/security", closeSettingsWindow)}
           onDeleteAccount={handleOpenDeleteRequest}
+          deleteAccountBusy={waitingToDelete}
           deleteAccountRef={deleteAccountRef}
           legalLinks={LEGAL_LINK_IDS.map((id) => ({
             id,

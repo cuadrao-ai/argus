@@ -995,7 +995,7 @@
         "title": "¿Eliminar tu cuenta?",
         "body": "Borramos tu cuenta y tus datos personales, y no se puede deshacer.",
         "business_owner": "Antes de eliminar tu cuenta, cada negocio tuyo necesita otro dueño o cerrarse.",
-        "shared_plans": "En los planes que compartes, tus montos se quedan para que las cuentas de los demás sigan cuadrando, pero sin tu nombre: aparecerás como «Exmiembro». Tus recibos y notas se borran. Lo que debes o te deben queda cerrado en la app, no marcado como pagado. Los planes que creaste pasan a la persona que lleva más tiempo en cada uno, salvo los planes de deuda compartidos, que se cierran y quedan solo para consulta.",
+        "check_failed": "No pudimos revisar tu cuenta. Intenta otra vez.",
         "confirm": "Eliminar cuenta",
         "submitting": "Eliminando...",
         "success": "Tu cuenta está eliminada. Ya cerraste sesión.",
@@ -3794,7 +3794,6 @@
       "deadline": "Puedes reabrirlo antes del {{purgeDate}} a las {{purgeTime}} (hora de RD).",
       "deletion": {
         "blocked": "Primero transfiere o cierra tus negocios.",
-        "checking": "Revisando tus negocios…",
         "closed_warning": "{{businessName}} está cerrado. Si borras tu cuenta, nadie podrá reabrirlo y sus datos y comprobantes se borrarán el {{purgeDate}} a las {{purgeTime}} (hora de RD).",
         "failed": "No pudimos revisar tus negocios. Intenta otra vez.",
         "warning": "Eres el único dueño de {{businessName}}. Transfiérelo o ciérralo antes de borrar tu cuenta."

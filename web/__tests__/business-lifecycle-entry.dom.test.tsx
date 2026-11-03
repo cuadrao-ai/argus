@@ -50,10 +50,10 @@ async function enter(value: string) { const input = document.querySelector('inpu
 
 test("the deletion alert names each Business the server says blocks it, never offers Eliminar, and links the controls only when they exist", async () => {
   const blockers = businesses.map(business => ({ kind: "business_owner" as const, business_id: business.space_id, business_name: business.name }));
-  const readEligibility = async () => ({ allowed: false as const, blockers, notices: [] });
+  const check = { answer: { allowed: false as const, blockers, notices: [] }, error: null, refresh: () => undefined };
   for (const lifecycleControls of [true, false]) {
     let submitted = 0;
-    const view = await mount(<ProfileDeleteRequestDialog readEligibility={readEligibility} lifecycleControls={lifecycleControls} state="idle" supportMailto="mailto:support@example.test" onClose={() => undefined} onSubmit={() => { submitted++; }} />);
+    const view = await mount(<ProfileDeleteRequestDialog check={check} lifecycleControls={lifecycleControls} state="idle" supportMailto="mailto:support@example.test" onClose={() => undefined} onSubmit={() => { submitted++; }} />);
     try {
       for (const business of businesses) {
         assert.ok(document.body.textContent?.includes(business.name));
@@ -66,11 +66,11 @@ test("the deletion alert names each Business the server says blocks it, never of
   }
 });
 
-test("the deletion alert shows no Eliminar while the server is still answering", async () => {
-  const view = await mount(<ProfileDeleteRequestDialog readEligibility={() => new Promise(() => undefined)} state="idle" supportMailto="mailto:support@example.test" onClose={() => undefined} onSubmit={() => undefined} />);
+test("the deletion alert is never drawn empty: without an answer or a failure there is no alert at all", async () => {
+  const view = await mount(<ProfileDeleteRequestDialog check={{ answer: null, error: null, refresh: () => undefined }} state="idle" supportMailto="mailto:support@example.test" onClose={() => undefined} onSubmit={() => undefined} />);
   try {
-    assert.ok(document.body.textContent?.includes(spanish.business.lifecycle.deletion.checking));
-    assert.equal([...document.querySelectorAll("button")].find(item => item.textContent === spanish.settings.profile.request_deletion.confirm), undefined);
+    assert.equal(document.querySelector('[data-testid="delete-account-alert"]'), null);
+    assert.equal(document.querySelector('[role="dialog"]'), null);
   } finally { await view.close(); }
 });
 

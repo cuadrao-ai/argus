@@ -317,8 +317,11 @@ product behavior reads it, and no API path writes it.
 - `preferred_name` is what Argus calls the user when it addresses them, and
   it is deliberately separate from `display_name`: people fill an identity
   field with a legal name. It is optional, and null means surfaces use no
-  name. It is stated in settings and never inferred from conversation, so no
-  runtime path writes it. A registered-account preference: restrictive
+  name. It is stated and never inferred from conversation. The only runtime
+  write is the profile insert at first creation, which sets it to the first
+  word of the name typed at sign-up when there is one (`get_or_create_profile_for_auth_user`);
+  an existing row is never written by it, so clearing the name stays an opt-out.
+  A registered-account preference: restrictive
   policies read the trusted `is_anonymous` JWT claim to keep it off the guest
   surface, because anonymous Auth users share the `authenticated` role.
 - `country` is where the user lives. It is chosen in Settings and never
@@ -477,7 +480,15 @@ and login; it should not be exposed as a frontend product surface.
 - `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` decides what this table denies, and
   it has been open in production since 2026-08-12. Only a row with `disabled_at`
   set is denied now; a missing email is admitted. When that flag is off instead,
-  a missing email is denied too.
+  a missing email is denied too, unless `CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED`
+  is true (default false) and a live `business_access_invites` row on
+  an open Business, or a live `business_client_grants` row, names exactly that
+  email: the invitation admits it until it expires or is revoked, and the
+  accepted grant admits it until it is revoked or its Business is closed. A
+  row here with `disabled_at` set still refuses that email, and deleting a row
+  does not end the access a live grant gives. An account admitted only this
+  way starts no Business and invites no one. Business admission writes
+  nothing to this table.
 - For a denied email, `/auth/signup` and `/auth/login` check this table before
   provider signup/session work, but public auth responses are normalized to
   reduce invite enumeration: signup returns `400 auth_signup_failed`, login
@@ -3707,7 +3718,7 @@ open items read the date from the resolution, not from the revision.
 | `business_bank_line_outcomes` | One live outcome per bank line (unique `line_id` where `ended_at` is null): `match` to one recorded document (`target_kind`, `target_id` = activity id) or `no_receipt` with `reason` (`cargo_banco`, `entre_cuentas`, `compra_informal`, `personal`). One live match per document (unique `(space_id, target_id)` among live matches). A match stores the settlement it replaced (`prior_*`) and the one it wrote (`applied_*`); a trigger on `business_document_settlements` refuses any other settlement while the match is live. Ending sets `ended_at`, `ended_by`, `end_key` once; the row stays as history. Other updates and direct deletes are refused (`business_evidence_immutable`); account deletion nulls `created_by` and `ended_by`. Unique `(line_id, create_key)` for idempotency. Row-level security with no client policy; service role only, with select, insert and update and no delete or truncate (`20261021060000_business_bank_line_outcomes_no_delete.sql`, as the other bank tables). Migration `20261020210000_business_bank_line_outcomes.sql`, which also turned each `confirmed` suggestion into a live match with its settlement and set it back to `pending`. Keep with the Business record. |
 | `business_bank_suggestions` | One offer per line and target. `target_id` is the recorded activity id of the receipt (expense) or venta (income). Status is `pending` or `declined`; a suggestion reads `confirmed` while its line holds a live match to its target. A declined row is how that pair stays out of later offers. Score parts are the historical offer. Confidence is derived, not stored. Import and the movements read store new pending offers. The movement state (`igualada`, `sugerencia`, `falta_comprobante`, `no_lleva_comprobante`) and the bank coverage date (the newest line date per account) are derived on read, not stored. Keep 10 years. |
 | `business_client_grants` | Canonical accepted membership: stable ID, Business, grantee, issuer, `business_role` (`owner`, `admin`, `editor`, `viewer`), creation/expiry/revocation and `membership_version`. `capabilities` is a trigger-derived legacy projection, never a second authority. Multiple Owners are allowed; active Owner grants cannot expire. Revocation is terminal. Membership mutations write the Business serialization version and a deferred constraint preserves at least one Owner for an open Business, including concurrent direct SQL under read committed and repeatable read. |
-| `business_access_invites` | Explicit recipient acceptance for all new roles and accounts: Business, actual issuer, lowercased email, optional known `recipient_id`, `requested_role`, seven-day expiry, acceptance/grant and revocation. `target_grant_id`/`target_version` bind a pending upgrade to an unchanged membership. `supersedes_id` binds an expired resend to one new generation. Accepted/revoked rows and expired generations cannot revive. `delivery_state` preserves pending/sending/accepted/failed/not_configured/uncertain independently of membership acceptance. Existing server-only RLS remains. |
+| `business_access_invites` | Explicit recipient acceptance for all new roles and accounts: Business, actual issuer, lowercased email, optional known `recipient_id`, `requested_role`, seven-day expiry, acceptance/grant and revocation. `target_grant_id`/`target_version` bind a pending upgrade to an unchanged membership. `supersedes_id` binds an expired resend to one new generation. Accepted/revoked rows and expired generations cannot revive. `delivery_state` preserves pending/sending/accepted/failed/not_configured/uncertain independently of membership acceptance. While public account access is closed and `CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED` is true (default false), a pending row on an open Business admits exactly its `email` to sign-up and sign-in, and the accepted grant admits it until revoked or the Business closes (section 6). Existing server-only RLS remains. |
 | `business_consent_acceptances` | One row per person (`user_id`) and wording (`copy_version`, 16 hex characters the web derives from the words a person accepts: title, body, opt-in and Continuar, in Spanish and English) with the Business they worked in (`space_id`) and the database's `accepted_at`. Never edited. Row security: a signed-in person reads only their own rows and inserts only their own row, naming a Business they hold a live grant on, without choosing the time; the API writes as the service role. Deleting the person or the space cascades the row. Migration `20261019050000_business_consent_acceptances.sql`. |
 | `business_sources` | Stable source identity and idempotent `(space_id, source_key)` for one original message, attachment, agent proposal or human `web_action`. Web actions require channel `web` and retain immutable canonical submitted command text, with server-derived source key and actual `member_set` provenance. Direct source updates/deletes fail; owning connection/client deletion cascades through source links and answered questions under the existing deletion policy. Message/proposal/web-action text is immutable; attachment references the existing source connection rather than copying bytes or extraction. A composite FK prevents another space's connection. |
 | `business_draft_sources` | Many-to-many source relationships pinned by composite FKs to the same client as the canonical candidate. No facts. |
