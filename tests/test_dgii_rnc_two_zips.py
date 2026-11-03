@@ -177,6 +177,17 @@ def test_the_workflow_downloads_through_the_daily_script() -> None:
     assert step["run"].strip() == "bash scripts/ops/dgii_rnc_daily.sh download"
 
 
+def test_the_workflow_never_sees_a_database_credential_or_loads() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert "secrets." not in text
+    assert "SUPABASE_STAGING_DB_URL" not in text
+    assert "DGII_RNC_LOAD_ENABLED" not in text
+    assert "dgii_rnc_import.py load" not in text
+    assert "dgii_rnc_import.py gate" not in text
+    triggers = yaml.safe_load(text)["on"]
+    assert "schedule" not in triggers
+
+
 @pytest.mark.parametrize("failure", ["503", "dead"])
 def test_a_failed_csv_download_stops_the_job(tmp_path: Path, failure: str) -> None:
     completed = _run_daily(tmp_path, "download", csv_response=failure)
