@@ -51,16 +51,20 @@ export function IdentityMark({
   appearance: IdentityAppearance;
   name?: string;
   business?: boolean;
-  size?: number;
+  size?: number | "fill";
 }) {
   const shape = business ? "rounded-mark" : "rounded-full";
   const base = `inline-flex shrink-0 items-center justify-center overflow-hidden ${shape}`;
+  const neutral = "bg-black/[0.05] dark:bg-white/[0.08]";
+  const fill = size === "fill";
+  const box = fill ? "100%" : size;
+  const half = fill ? "50%" : size / 2;
   if (appearance.kind === "image")
     return (
       <span
         aria-hidden="true"
-        className={base}
-        style={{ width: size, height: size }}
+        className={`${base} ${neutral}`}
+        style={{ width: box, height: box }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -74,11 +78,11 @@ export function IdentityMark({
   return (
     <span
       aria-hidden="true"
-      className={`${base} ${appearance.kind === "avatar" ? avatarThemeClassName(appearance.token) : "bg-black/[0.05] dark:bg-white/[0.08]"}`}
+      className={`${base} ${appearance.kind === "avatar" ? avatarThemeClassName(appearance.token) : neutral}`}
       style={{
-        width: size,
-        height: size,
-        fontSize: Math.max(14, size / 3),
+        width: box,
+        height: box,
+        fontSize: fill ? 20 : Math.max(14, size / 3),
         ...(appearance.kind === "avatar"
           ? avatarThemeStyle(appearance.token)
           : {}),
@@ -87,7 +91,7 @@ export function IdentityMark({
       {appearance.kind === "avatar" && appearance.mark === "initials" ? (
         initialsOf(name)
       ) : (
-        <Icon style={{ width: size / 2, height: size / 2 }} strokeWidth={2} />
+        <Icon style={{ width: half, height: half }} strokeWidth={2} />
       )}
     </span>
   );

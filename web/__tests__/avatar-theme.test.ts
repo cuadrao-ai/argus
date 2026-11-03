@@ -1,10 +1,42 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import {
+  AVATAR_COLOR_THEMES,
   AVATAR_THEMES,
   avatarThemeClassName,
   avatarThemeStyle,
   type AvatarTheme,
 } from "@/lib/avatar-theme";
+
+const luminance = (hex: string) => {
+  const [red, green, blue] = [1, 3, 5].map((start) => {
+    const channel = parseInt(hex.slice(start, start + 2), 16) / 255;
+    return channel <= 0.03928
+      ? channel / 12.92
+      : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+};
+const contrast = (first: string, second: string) => {
+  const [dark, light] = [first, second]
+    .map(luminance)
+    .sort((one, two) => one - two);
+  return (light + 0.05) / (dark + 0.05);
+};
+const tokenIn = (block: string, name: string) =>
+  block.match(new RegExp(`${name}:\\s*([^;]+);`))?.[1].trim() ?? "";
+/** A token is a hex color or `rgb(255 255 255 / a)`, painted over its surface. */
+const over = (token: string, surface: string) => {
+  const alpha = token.match(/rgb\(255 255 255 \/ ([\d.]+)\)/)?.[1];
+  if (!alpha) return token;
+  const channels = [1, 3, 5].map((start) => {
+    const base = parseInt(surface.slice(start, start + 2), 16);
+    return Math.round(base + (255 - base) * Number(alpha))
+      .toString(16)
+      .padStart(2, "0");
+  });
+  return `#${channels.join("")}`;
+};
 
 describe("avatar monogram themes", () => {
   test("keeps Argus's original neutral avatar as the deterministic default", () => {
@@ -25,34 +57,63 @@ describe("avatar monogram themes", () => {
       "bg-[#191c1f] text-white dark:bg-white/10",
     );
     expect(avatarThemeStyle(undefined)).toBeUndefined();
-    expect(avatarThemeStyle("ocean", "picker")).toBeUndefined();
+    expect(avatarThemeStyle("ocean")).toBeUndefined();
   });
 
-  test("derives stronger picker and quieter ambient gradients from one hue system", () => {
-    const expectedHues: Record<AvatarTheme, number> = {
-      ember: 28.5,
-      gold: 28.5 + 360 / 7,
-      slate: 28.5 + (360 / 7) * 2,
-      teal: 28.5 + (360 / 7) * 3,
-      ocean: 28.5 + (360 / 7) * 4,
-      indigo: 28.5 + (360 / 7) * 5,
-      plum: 28.5 + (360 / 7) * 6,
-    };
-
-    for (const theme of AVATAR_THEMES) {
-      if (theme.token === "ocean") continue;
-
-      expect(theme.hue).toBeCloseTo(expectedHues[theme.token]);
-      expect(theme.className).toBe("text-white");
-      expect(avatarThemeStyle(theme.token, "picker")).toEqual({
-        backgroundImage:
-          `linear-gradient(145deg, hsl(${theme.hue} 36% 35%), hsl(${theme.hue} 36% 27%))`,
-      });
-      expect(avatarThemeStyle(theme.token, "ambient")).toEqual({
-        backgroundImage:
-          `linear-gradient(145deg, hsl(${theme.hue} 22% 32%), hsl(${theme.hue} 22% 29%))`,
-      });
+  test("paints the six colors flat, in tray order, on the saved tokens", () => {
+    const fills = AVATAR_COLOR_THEMES.map(({ token }) => [
+      token,
+      avatarThemeStyle(token)?.backgroundColor,
+    ]);
+    expect(fills).toEqual([
+      ["ember", "#051F20"],
+      ["gold", "#0B2B26"],
+      ["slate", "#163832"],
+      ["teal", "#235347"],
+      ["indigo", "#8EB69B"],
+      ["plum", "#DAF1DE"],
+    ]);
+    expect(AVATAR_THEMES.map(({ token }) => token)).toEqual([
+      "ocean",
+      ...AVATAR_COLOR_THEMES.map(({ token }) => token),
+    ]);
+    for (const { token } of AVATAR_COLOR_THEMES) {
+      expect(avatarThemeClassName(token)).toBe("");
     }
+  });
+
+  test("initials keep 4.5:1 on every color", () => {
+    for (const { token } of AVATAR_COLOR_THEMES) {
+      const style = avatarThemeStyle(token)!;
+      expect(contrast(style.backgroundColor, style.color)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  test("the tile border keeps 3:1 on both tray surfaces and against the colors it has to hold", () => {
+    const css = readFileSync("app/globals.css", "utf8");
+    const root = css.slice(css.indexOf(":root"), css.indexOf(".dark {"));
+    const dark = css.slice(css.indexOf(".dark {"), css.indexOf("body {"));
+    const lightBorder = tokenIn(root, "--segment-thumb-border");
+    expect(contrast(lightBorder, "#ffffff")).toBeGreaterThanOrEqual(3);
+    expect(contrast(lightBorder, "#DAF1DE")).toBeGreaterThanOrEqual(3);
+    const drawerSurface = "#1b1d20";
+    for (const surface of [drawerSurface, tokenIn(dark, "--cuadrao-menu-surface")]) {
+      const darkBorder = over(tokenIn(dark, "--segment-thumb-border"), surface);
+      expect(contrast(darkBorder, surface)).toBeGreaterThanOrEqual(3);
+      for (const fill of ["#051F20", "#0B2B26", "#163832"])
+        expect(contrast(darkBorder, fill)).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  test("the saved tokens stay one set in the web, the API and the Business appearance", () => {
+    const web = [...AVATAR_THEMES.map(({ token }) => token)].sort();
+    const literal = (path: string, pattern: RegExp) =>
+      [...(readFileSync(path, "utf8").match(pattern)?.[1] ?? "").matchAll(/"(\w+)"/g)]
+        .map((match) => match[1])
+        .sort();
+    expect(literal("../src/argus/api/schemas.py", /AvatarTheme = Literal\[([^\]]+)\]/)).toEqual(web);
+    expect(literal("../src/argus/domain/business/workspace_images.py", /token: Literal\[([^\]]+)\]/)).toEqual(web);
+    expect(literal("lib/business-profile-api.ts", /token: z\.enum\(\[([^\]]+)\]/)).toEqual(web);
   });
 
   test("labels every selectable avatar theme in English and Latin American Spanish", async () => {
