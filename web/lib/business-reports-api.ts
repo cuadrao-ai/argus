@@ -12,14 +12,16 @@ const minorNumber = z.number().refine(Number.isInteger);
 const family = z.enum(["sale", "purchase"]);
 const stage = z.enum(["needs_review", "awaiting_approval", "needs_fiscal_data", "ready_for_export"]);
 const documentKind = z.enum(["invoice", "receipt", "credit_note", "unknown"]);
+/** The document kinds the server's projection names on a row, so Filtros offers only kinds a record can match. The contract still accepts the others. */
+export const REPORT_DOCUMENT_KINDS = ["credit_note", "unknown"] as const satisfies readonly z.infer<typeof documentKind>[];
 const effect = z.enum(["known", "unknown", "unsupported"]);
 const viewName = z.string().trim().refine((value) => Array.from(value).length >= 1 && Array.from(value).length <= 120);
 export const reportSortSchema = z.enum(["date_desc", "date_asc", "name_asc", "name_desc", "amount_asc", "amount_desc"]);
-export const REPORT_PRESENTATION_KEYS = ["counterparty", "date", "gross_amount", "currency", "family", "category", "stage", "note", "attachment", "funding"] as const;
+export const REPORT_PRESENTATION_KEYS = ["counterparty", "date", "gross_amount", "currency", "family", "expense_type", "payment_form", "stage", "note", "attachment", "funding"] as const;
 const presentationKey = z.enum(REPORT_PRESENTATION_KEYS);
 export const reportPresentationSchema = z.strictObject({
-  order: z.array(presentationKey).length(10).refine((values) => values[0] === "counterparty" && new Set(values).size === 10).default([...REPORT_PRESENTATION_KEYS]),
-  hidden: z.array(presentationKey).refine((values) => new Set(values).size === values.length && !values.some((key) => ["counterparty", "gross_amount", "currency"].includes(key))).default(["funding"]),
+  order: z.array(presentationKey).length(REPORT_PRESENTATION_KEYS.length).refine((values) => values[0] === "counterparty" && new Set(values).size === REPORT_PRESENTATION_KEYS.length).default([...REPORT_PRESENTATION_KEYS]),
+  hidden: z.array(presentationKey).refine((values) => new Set(values).size === values.length && !values.some((key) => ["counterparty", "gross_amount", "currency"].includes(key))).default(["funding", "payment_form"]),
   density: z.union([z.literal(40), z.literal(48), z.literal(56)]).default(48),
 });
 const pageSize = z.union([z.literal(25), z.literal(50), z.literal(100)]);
@@ -34,6 +36,7 @@ export const reportFiltersSchema = z.strictObject({
   has_document: z.boolean().nullable().default(null), currencies: z.array(z.string().regex(/^[A-Z]{3}$/)).max(200).default([]),
   amount_min: decimal.nullable().default(null), amount_max: decimal.nullable().default(null),
   counterparties: z.array(z.string().min(1).max(128)).max(200).default([]), categories: z.array(z.string().min(1).max(128)).max(200).default([]),
+  expense_types: z.array(z.string().min(1).max(16)).max(20).default([]),
   funding_sources: z.array(z.string().min(1).max(128)).max(200).default([]), document_kinds: z.array(documentKind).default([]),
   fiscal_classifications: z.array(z.string().min(1).max(128)).max(100).default([]),
 });
@@ -54,6 +57,10 @@ export const reportRequestSchema = z.union([
 export const reportAttachmentSourceSchema = z.object({
   source_id: z.string(), receipt_id: z.string().nullable(), filename: z.string().nullable(), media_type: z.string().nullable(), source_available: z.boolean().nullable(), download_available: z.boolean(),
 });
+/** One 606 answer: its code and the name the DGII list gives it, as the server names it. */
+export const dgiiChoiceSchema = z.object({ code: z.string().min(1), label: z.string().min(1) });
+/** The two 606 answers a purchase carries. A null answer is still missing. */
+export const purchase606Schema = z.object({ expense_type: dgiiChoiceSchema.nullable(), payment_form: dgiiChoiceSchema.nullable() });
 export const reportRecordSchema = z.object({
   row_id: z.string().min(1), draft_id: z.string().nullable(), linked_activity_ids: z.array(z.string()), revision: count,
   report_date: day.nullable(), date_basis: z.enum(["document_issue", "activity_effective"]), family: family.nullable(), stage: stage.nullable(), export_missing: z.string().nullable().optional(), export_missing_several: z.boolean().optional(), export_line: z.boolean().optional(),
@@ -61,7 +68,7 @@ export const reportRecordSchema = z.object({
   recorded_amount: decimal.nullable(), recorded_currency: z.string().nullable(), proposed_amount: decimal.nullable(), money_kind: z.string(),
   money_effect: effect, adjustment_effect: effect.nullable(), counterparty: z.string().nullable(), counterparty_key: z.string().nullable(),
   category_key: z.string(), funding_key: z.string().nullable(), funding_label: z.string().nullable(), funding_kind: z.string().nullable(),
-  has_document: z.boolean(), personal: z.boolean().optional(), document_kind: documentKind, fiscal_classification: z.string(), fiscal_number: z.string().nullable(),
+  has_document: z.boolean(), personal: z.boolean().optional(), dgii_606: purchase606Schema.nullable().optional(), document_kind: documentKind, fiscal_classification: z.string(), fiscal_number: z.string().nullable(),
   note: z.string().nullable(), settlement_status: z.string().nullable(), dependency_fingerprint: z.string(),
   can_edit_note: z.boolean().optional(), can_append_supporting: z.boolean().optional(), annotation_unavailable_reason: z.string().nullable().optional(), attachment_sources: z.array(reportAttachmentSourceSchema).optional(),
 });
@@ -75,7 +82,7 @@ export const reportAnswerSchema = z.object({
   totals: z.array(reportTotalSchema), fingerprint: z.string().regex(/^[0-9a-f]{64}$/), captured_at: z.string(),
   resolved_period: z.object({ from_date: day.nullable(), to_date: day.nullable(), calendar: z.literal("America/Santo_Domingo") }),
   excluded_unknown_dates: count, excluded_personal: z.object({ income: count, expense: count }).optional(),
-  counterparties: z.array(z.object({ key: z.string(), labels: z.array(z.string()) })), categories: z.array(z.string()),
+  counterparties: z.array(z.object({ key: z.string(), labels: z.array(z.string()) })), categories: z.array(z.string()), expense_types: z.array(dgiiChoiceSchema).default([]),
   funding_sources: z.array(z.object({ key: z.string(), label: z.string().nullable(), kind: z.string().nullable() })), coverage_notes: z.array(z.string()),
   overview: z.object({ needs_review: count, awaiting_approval: count, needs_fiscal_data: count.optional(), ready_for_export: count, export_lines: count.optional() }).optional(), effective_sort: reportSortSchema.optional(),
   sort_unavailable_reason: z.literal("amount_sort_requires_single_known_currency").nullable().optional(),
@@ -90,6 +97,8 @@ export type ReportFilters = z.infer<typeof reportFiltersSchema>;
 export type ReportRecipe = z.infer<typeof reportRecipeSchema>;
 export type ReportRequest = z.infer<typeof reportRequestSchema>;
 export type ReportRecord = z.infer<typeof reportRecordSchema>;
+export type DgiiChoice = z.infer<typeof dgiiChoiceSchema>;
+export type Purchase606 = z.infer<typeof purchase606Schema>;
 export type ReportTotal = z.infer<typeof reportTotalSchema>;
 export type ReportAnswer = z.infer<typeof reportAnswerSchema>;
 export type SavedReportView = z.infer<typeof savedReportViewSchema>;

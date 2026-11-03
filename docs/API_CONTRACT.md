@@ -10980,9 +10980,11 @@ accept path recorded.
   text, private messages and OCR are not searched. Structured groups combine with
   AND; each multiselect combines with OR: `record_families` (`sale`, `purchase`),
   `review_stages` (`needs_review`, `awaiting_approval`, `ready_for_export`),
-  `currencies`, `counterparties`, `categories`, `funding_sources`,
-  `document_kinds` (`invoice`, `receipt`, `credit_note`, `unknown`) and
-  `fiscal_classifications`. `has_document` is a live linked attachment, separate
+  `currencies`, `counterparties`, `categories`, `expense_types`, `funding_sources`,
+  `document_kinds` (`invoice`, `receipt`, `credit_note`, `unknown`; the projection
+  names only `credit_note` and `unknown` on a row, so Registros offers those two) and
+  `fiscal_classifications`. `expense_types` takes 606 tipo de gasto codes (`01` to
+  `11`) and `missing`, a purchase that still needs one. `has_document` is a live linked attachment, separate
   from download availability and fiscal number. Each row carries `personal`, the
   owner's Personal mark, and `include_606`, the accountant's 606 answer (`null`
   while no answer applies), both read from the draft as it stands now, after
@@ -10991,6 +10993,16 @@ accept path recorded.
   basis only when it is a purchase the accountant answered `include_606` yes;
   a personal sale never counts. Month close, the DGII packet and the export
   handoff admit by the same rule.
+  Each row carries `dgii_606`, the two 606 answers the export would carry, from
+  the same declaration and admission rules the DGII packet reads: `expense_type`
+  and `payment_form`, each `{code, label}` with the DGII list's own name, or null
+  while the answer is missing (a suggested tipo de gasto nobody confirmed is
+  missing, as in the export). `dgii_606` itself is null for a record the 606
+  never lists: a sale, a Personal record the accountant did not admit, or a
+  purchase the owner said has no comprobante. An answer written in Bandeja or on
+  the recorded record shows in the next read. The answer's `expense_types` lists
+  the tipos de gasto the records carry, `{code, label}` by code; `missing` is
+  always a valid filter value and is never listed.
   Categories use activity IDs plus
   `uncategorized`; funding uses `account:<id>` or `owner_funds` and returns the
   source account type/name, never a balance. Counterparty keys are exact normalized
@@ -11100,9 +11112,13 @@ accept path recorded.
 
   Version-2 recipes also save `page_size` (25/50/100) and `presentation`.
   `presentation.order` contains each of `counterparty`, `date`, `gross_amount`,
-  `currency`, `family`, `category`, `stage`, `note`, `attachment`, `funding` once.
-  Counterparty stays first. `hidden` cannot hide counterparty, amount or currency.
-  The default order is that sequence, with funding hidden. Density is 40/48/56,
+  `currency`, `family`, `expense_type`, `payment_form`, `stage`, `note`,
+  `attachment`, `funding` once. Counterparty stays first. `hidden` cannot hide
+  counterparty, amount or currency. The default order is that sequence, with
+  funding and payment form hidden. A saved presentation from before the 606
+  columns is read as current: `category` becomes `expense_type` in place, and
+  `payment_form` joins the order after it, hidden. `category` is no longer a
+  table column. Density is 40/48/56,
   default 48. Amount and currency move independently. `columns` remains the
   separate export field selection. No summary or widget preference is accepted.
   Page, page size, columns and presentation do not alter the result fingerprint.

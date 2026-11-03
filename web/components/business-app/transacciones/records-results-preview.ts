@@ -2,22 +2,37 @@ import { currencyDigits, minorToDecimal } from "@/lib/money-entry";
 import { customPeriod, todayIso, type Period } from "../business-format";
 import type { ReviewFilter } from "./records-filter-preview-model";
 import type { Money, RecordRow } from "./transacciones-model";
+import type { DgiiChoice, Purchase606 } from "@/lib/business-reports-api";
 
 export type PreviewWorkflow = "review" | "approval" | "ready";
 export type PreviewFinancialEligibility = "confirmed" | "unconfirmed" | "personal";
-export type PreviewRecordMetadata = { workflow: PreviewWorkflow; financialEligibility: PreviewFinancialEligibility; documentNumbers?: readonly string[] };
+/** `dgii606` mirrors a live row's `dgii_606`: null for a record the 606 never lists, absent when the sample says nothing. */
+export type PreviewRecordMetadata = { workflow: PreviewWorkflow; financialEligibility: PreviewFinancialEligibility; documentNumbers?: readonly string[]; dgii606?: Purchase606 | null };
 
 // This is a local illustration for the synthetic own Business, never a source adapter.
+// The 606 names are the server's own list, quoted here only so the sample reads like a live row.
+const SERVICES: DgiiChoice = { code: "02", label: "Gastos por trabajos, suministros y servicios" };
+const COST_OF_SALES: DgiiChoice = { code: "09", label: "Compras y gastos que formarán parte del costo de venta" };
+const CARD: DgiiChoice = { code: "03", label: "Tarjeta crédito/débito" };
+const TRANSFER: DgiiChoice = { code: "02", label: "Cheques/transferencias/depósito" };
 const FIXTURE_METADATA: Readonly<Record<string, PreviewRecordMetadata>> = {
-  "gasto:exp-gas": { workflow: "review", financialEligibility: "confirmed" },
-  "gasto:exp-hosting": { workflow: "ready", financialEligibility: "confirmed", documentNumbers: ["B0100000042"] },
-  "gasto:exp-lunch": { workflow: "approval", financialEligibility: "personal" },
-  "venta:exp-gas": { workflow: "ready", financialEligibility: "confirmed" },
-  "venta:exp-hosting": { workflow: "approval", financialEligibility: "unconfirmed" },
-  "venta:exp-lunch": { workflow: "review", financialEligibility: "personal" },
+  "gasto:exp-gas": { workflow: "review", financialEligibility: "confirmed", dgii606: { expense_type: null, payment_form: TRANSFER } },
+  "gasto:exp-hosting": { workflow: "ready", financialEligibility: "confirmed", documentNumbers: ["B0100000042"], dgii606: { expense_type: SERVICES, payment_form: CARD } },
+  "gasto:exp-imprenta": { workflow: "approval", financialEligibility: "confirmed", dgii606: { expense_type: COST_OF_SALES, payment_form: null } },
+  "gasto:exp-lunch": { workflow: "approval", financialEligibility: "personal", dgii606: null },
+  "venta:exp-gas": { workflow: "ready", financialEligibility: "confirmed", dgii606: null },
+  "venta:exp-hosting": { workflow: "approval", financialEligibility: "unconfirmed", dgii606: null },
+  "venta:exp-lunch": { workflow: "review", financialEligibility: "personal", dgii606: null },
 };
 export function previewRecordMetadata(row: RecordRow, businessId: string | null): PreviewRecordMetadata | null {
   return businessId === "fixture-space" ? FIXTURE_METADATA[`${row.kind}:${row.id}`] ?? null : null;
+}
+/** The tipos de gasto the sample rows carry, for the sample's filter editor; the live editor reads the server's catalogue instead. */
+export const SAMPLE_EXPENSE_TYPES: readonly DgiiChoice[] = Object.values(FIXTURE_METADATA).flatMap((item) => item.dgii606?.expense_type ?? []).filter((choice, index, all) => all.findIndex((other) => other.code === choice.code) === index);
+export function matchesPreviewExpenseType(row: RecordRow, businessId: string | null, selected: readonly string[]): boolean {
+  if (!selected.length) return true;
+  const purchase = previewRecordMetadata(row, businessId)?.dgii606;
+  return Boolean(purchase) && selected.includes(purchase!.expense_type?.code ?? "missing");
 }
 export function exactMinor(money: Money): bigint | null {
   const match = /^([+-]?)(\d+)(?:\.(\d+))?$/.exec(money.amount);

@@ -1,7 +1,7 @@
 import { currencyDigits, MONEY_MAX_INTEGER_DIGITS } from "@/lib/money-entry";
 import type { Money } from "./transacciones-model";
 
-export const FILTER_GROUPS = ["review", "attachment", "amount", "counterparty", "category", "account", "document", "fiscal"] as const;
+export const FILTER_GROUPS = ["review", "attachment", "amount", "counterparty", "expense_type", "account", "document", "fiscal"] as const;
 export type FilterGroup = typeof FILTER_GROUPS[number];
 export type ReviewFilter = "review" | "approval" | "export";
 export type PreviewFilters = {
@@ -11,12 +11,13 @@ export type PreviewFilters = {
   currencies?: string[];
   recordFamilies?: ("sale" | "purchase")[];
   counterparty: string[];
-  category: string[];
+  /** 606 tipo de gasto codes, or `missing` for a purchase that still needs one. */
+  expense_type: string[];
   account: string[];
   document: string[];
   fiscal: string[];
 };
-export const emptyPreviewFilters = (): PreviewFilters => ({ review: [], attachment: "any", amount: { currency: "", min: "", max: "" }, counterparty: [], category: [], account: [], document: [], fiscal: [] });
+export const emptyPreviewFilters = (): PreviewFilters => ({ review: [], attachment: "any", amount: { currency: "", min: "", max: "" }, counterparty: [], expense_type: [], account: [], document: [], fiscal: [] });
 export const activeFilterGroups = (filters: PreviewFilters): FilterGroup[] => FILTER_GROUPS.filter((group) => group === "attachment" ? filters.attachment !== "any" : group === "amount" ? Boolean(filters.currencies?.length || filters.amount.currency) : filters[group].length > 0);
 export const validPreviewAmount = ({ min, max, currency }: PreviewFilters["amount"], currencies?: readonly string[]): boolean => {
   const selected = currencies ?? (currency ? [currency] : []);

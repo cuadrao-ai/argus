@@ -592,3 +592,126 @@ def test_a_recorded_expense_without_an_ncf_needs_fiscal_data(actions):
     )
     assert (result.overview.ready_for_export, result.overview.export_lines) == (0, 0)
     assert result.overview.needs_fiscal_data == 1
+
+
+def test_purchase_rows_carry_their_606_answers_and_a_sale_carries_none(actions, users):
+    from argus.domain.business.contracts.actions import ReviewDraft
+    from argus.domain.business.contracts.dgii import PurchaseReview
+    from argus.domain.business.reporting_query import (
+        DgiiChoice,
+        Purchase606,
+        ReportRequest,
+    )
+    from argus.domain.business.reporting_store import read_report
+
+    from tests.test_business_declaration_after_approval_postgres import (
+        account_funding,
+        approved,
+        captured,
+    )
+
+    service, context, _ = actions
+    account = cash_account(service, context)
+    # A fiscal receipt paid from the cash account: approval fills the forma
+    # de pago from the account; nobody chose a tipo de gasto.
+    cash_paid, version = captured(
+        service, context, "B0100000021", account_funding(account)
+    )
+    approved(service, context, cash_paid, version)
+    owner_paid, _ = record_expense(service, context, owner_funds=True)
+    personal, _ = record_personal_expense(service, context)
+    sale = approve(service, context, reviewed(service, context, account, 4))
+    assert sale.outcome == "applied", sale
+    open_draft = shared.ready(service, context)
+    chosen = service.review(
+        context,
+        open_draft,
+        ReviewDraft(
+            version=service.dossier(context, open_draft).version,
+            purchase=PurchaseReview(category="09", payment_method="04"),
+        ),
+        str(uuid4()),
+    )
+    assert chosen.outcome == "applied", chosen
+
+    rows = {
+        row.draft_id: row
+        for row in read_report(service.authority, context, ReportRequest()).items
+    }
+    cash = DgiiChoice(code="01", label="Efectivo")
+    assert rows[str(cash_paid)].dgii_606 == Purchase606(
+        expense_type=None, payment_form=cash
+    )
+    assert rows[str(owner_paid)].dgii_606 == Purchase606(
+        expense_type=None, payment_form=None
+    )
+    assert rows[str(personal)].dgii_606 is None
+    assert rows[str(sale.draft_id)].dgii_606 is None
+    assert rows[str(open_draft)].dgii_606 == Purchase606(
+        expense_type=DgiiChoice(
+            code="09", label="Compras y gastos que formarán parte del costo de venta"
+        ),
+        payment_form=DgiiChoice(code="04", label="Compra a crédito"),
+    )
+
+    # A tipo de gasto chosen on the recorded record shows in the next read.
+    later = service.review(
+        context,
+        cash_paid,
+        ReviewDraft(
+            version=service.dossier(context, cash_paid).version,
+            purchase=PurchaseReview(category="02"),
+        ),
+        str(uuid4()),
+    )
+    assert later.outcome == "applied", later
+    answer = read_report(
+        service.authority, context, ReportRequest(filters={"expense_types": ["02"]})
+    )
+    [edited] = answer.items
+    assert edited.draft_id == str(cash_paid)
+    assert edited.dgii_606 == Purchase606(
+        expense_type=DgiiChoice(
+            code="02", label="Gastos por trabajos, suministros y servicios"
+        ),
+        payment_form=cash,
+    )
+    assert answer.expense_types == (
+        DgiiChoice(code="02", label="Gastos por trabajos, suministros y servicios"),
+        DgiiChoice(
+            code="09", label="Compras y gastos que formarán parte del costo de venta"
+        ),
+    )
+    missing = read_report(
+        service.authority,
+        context,
+        ReportRequest(filters={"expense_types": ["missing"]}),
+    )
+    assert {row.draft_id for row in missing.items} == {str(owner_paid)}
+
+
+def test_each_offered_document_kind_filter_matches_a_record_of_that_kind(actions):
+    from argus.domain.business.reporting_query import ReportRequest
+    from argus.domain.business.reporting_store import read_report
+
+    service, context, _ = actions
+    plain = shared.ready(service, context)
+    credit = shared.ready(service, context)
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "update public.financial_import_events set resolution=jsonb_set(resolution,'{business,facts,fiscal}',%s::jsonb) where id=%s",
+            (
+                '{"ncf":{"state":"known","value":"B0400000001","origin":"member_set","source_ids":["00000000-0000-0000-0000-000000000001"]}}',
+                credit,
+            ),
+        )
+    rows = read_report(service.authority, context, ReportRequest()).items
+    # The projection names only these two kinds; Registros offers exactly them.
+    assert {row.document_kind for row in rows} == {"credit_note", "unknown"}
+    for kind, draft in (("credit_note", credit), ("unknown", plain)):
+        answer = read_report(
+            service.authority,
+            context,
+            ReportRequest(filters={"document_kinds": [kind]}),
+        )
+        assert [row.draft_id for row in answer.items] == [str(draft)], kind

@@ -20,7 +20,7 @@ export function reportSortToRecords(sort: ReportSort): RecordsSort {
   const key = (Object.keys(SORT_KEYS) as RecordsSort["key"][]).find((key) => sort.startsWith(`${SORT_KEYS[key]}_`))!;
   return { key, direction: sort.endsWith("_asc") ? "asc" : "desc" };
 }
-const COLUMN_KEYS: Record<RecordsColumnKey, ReportPresentation["order"][number]> = { contraparte: "counterparty", fecha: "date", monto: "gross_amount", moneda: "currency", detalle: "family", categoria: "category", estado: "stage", notas: "note", comprobante: "attachment", cuenta: "funding" };
+const COLUMN_KEYS: Record<RecordsColumnKey, ReportPresentation["order"][number]> = { contraparte: "counterparty", fecha: "date", monto: "gross_amount", moneda: "currency", detalle: "family", tipo_gasto: "expense_type", forma_pago: "payment_form", estado: "stage", notas: "note", comprobante: "attachment", cuenta: "funding" };
 const recordColumnKey = (key: ReportPresentation["order"][number]): RecordsColumnKey => (Object.keys(COLUMN_KEYS) as RecordsColumnKey[]).find((column) => COLUMN_KEYS[column] === key)!;
 export function reportPresentationToRecords(presentation: ReportPresentation, sort: ReportSort): RecordsViewPreferences {
   return { order: presentation.order.map(recordColumnKey), hidden: presentation.hidden.map(recordColumnKey), density: DENSITIES.find((density) => DENSITY_ROW_PX[density] === presentation.density)!, sort: reportSortToRecords(sort) };

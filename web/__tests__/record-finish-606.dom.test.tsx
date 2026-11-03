@@ -161,6 +161,8 @@ describe("a recorded purchase with 606 data still missing", () => {
     assert.equal(page.choice("category")?.querySelectorAll("option").length, 12, "the same 11 types and Elegir as before approval");
     assert.equal(page.choice("payment_method")?.querySelectorAll("option").length, 8, "the same 7 forms and Elegir as before approval");
     assert.equal(page.facts()?.querySelector('[data-fact="amount"] button'), null, "the recorded facts stay locked");
+    assert.equal(page.facts()?.querySelector('[data-fact="category_id"]'), null, "tipo de gasto is the only classification a Business record shows");
+    assert.equal(page.facts()?.textContent?.includes("Categoría"), false);
     assert.equal(document.body.textContent?.includes(CORRECTIONS_LINE), false, "the screen does not deny what it offers");
 
     const dossier = page.facts();

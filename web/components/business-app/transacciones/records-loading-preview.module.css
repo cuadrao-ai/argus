@@ -9,7 +9,8 @@
 .detalle { width:44px; }
 .estado { width:82px; height:24px; }
 .notas { width:108px; }
-.categoria { width:88px; }
+.tipo_gasto { width:88px; }
+.forma_pago { width:88px; }
 .cuenta { width:116px; }
 .comprobante { width:16px; height:16px; }
 .narrow { display:none; }
