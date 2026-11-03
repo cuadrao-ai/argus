@@ -54,6 +54,7 @@ from argus.domain.business.contracts.dossier import (
 from argus.domain.business.contracts.listos import ApproveListos, ListosApproved
 from argus.domain.business.contracts.recovery import SenderLease
 from argus.domain.business.duplicates import flag_receipt_duplicates
+from argus.domain.business.receipt_consent import SCOPE_VERSION
 from argus.domain.business.transactions import (
     ActionTransaction,
     GrantImportStore,
@@ -809,10 +810,11 @@ class BusinessActions:
         if draft.business_reading_consent_id is not None:
             permission = tx.rows(
                 "select id,route from public.business_receipt_reading_consents where id=%s"
-                " and space_id=%s and scope_version=1 and revoked_at is null for share",
+                " and space_id=%s and scope_version=%s and revoked_at is null for share",
                 (
                     draft.business_reading_consent_id,
                     tx.context.actor.space_id,
+                    SCOPE_VERSION,
                 ),
             )
             from argus.domain.ingestion.whatsapp.receipt_consent import (
