@@ -18,7 +18,7 @@ from argus.domain.ingestion.reconcile.model import ImportEvent, Observation
 from argus.domain.recording.money_schemas import DESTINATION_ELIGIBILITY
 
 # Stored on the event for recovery and matching, not person-supplied values.
-_INTERNAL = frozenset({"accepted", "accepted_request", "pending_request"})
+_INTERNAL = frozenset({"accepted", "accepted_request", "pending_request", "reopened"})
 _UNCERTAIN_TO_FACT = {
     "amount": "amount",
     "currency": "currency",

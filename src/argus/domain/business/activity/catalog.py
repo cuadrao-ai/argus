@@ -71,6 +71,7 @@ CATALOG: Mapping[str, ActionSpec] = MappingProxyType(
         "approve_expense": ActionSpec("records", "approvals", object=_DRAFT),
         "approve_income": ActionSpec("records", "approvals", object=_DRAFT),
         "approve_refund": ActionSpec("records", "approvals", object=_DRAFT),
+        "reopen_draft": ActionSpec("records", "approvals", object=_DRAFT),
         "capture_note": ActionSpec("records", "edits", object=_DRAFT),
         "prepare_attachment": ActionSpec("documents", "reading", object=_DRAFT),
         "rebind_attachment": ActionSpec("documents", "files", object=_DRAFT),

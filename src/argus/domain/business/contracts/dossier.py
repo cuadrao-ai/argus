@@ -234,6 +234,10 @@ class BusinessDossier(RecordContext):
     #: The caller may write the 607 payment split now, on the same terms as
     #: declaration_editable, on a sale.
     payment_split_editable: bool = False
+    #: The caller may return this approved record to the Bandeja now: it holds
+    #: approve, and no bank match, credit note or refund is linked to the
+    #: record. The reopen route refuses on the same rule.
+    reopen_available: bool = False
     #: The due date a person set in review; null while unknown. Never read
     #: from the document or defaulted. Locked with the other facts once approved.
     due_on: date | None = None
@@ -261,6 +265,7 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "annotation_unavailable_reason": True,
     "due_on": True,
     "declaration_editable": True,
+    "reopen_available": True,
     "expense_type_suggestion": True,
     "payment_split_editable": True,
     "approval_action": True,

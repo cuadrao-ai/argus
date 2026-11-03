@@ -223,6 +223,19 @@ class SettleRemainderCommand(Contract):
     request: SettleRemainder
 
 
+class ReopenDraft(Contract):
+    """The owner returns an approved record to the Bandeja to correct it. The
+    money row it recorded stops counting; a later approval records it again."""
+
+    version: int = Field(ge=1, strict=True)
+
+
+class ReopenCommand(Contract):
+    action: Literal["reopen_draft"] = "reopen_draft"
+    draft_id: UUID
+    request: ReopenDraft
+
+
 class MarkPersonal(Contract):
     """The owner or a prepare-holder marks a receipt as personal (no part of
     it is the Business's) or takes the mark back. Reversible, a new revision
@@ -418,6 +431,7 @@ Command = (
     | RebindAttachmentCommand
     | MarkPersonalCommand
     | DecideFiscalInclusionCommand
+    | ReopenCommand
 )
 
 

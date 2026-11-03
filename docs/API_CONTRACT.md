@@ -9329,7 +9329,32 @@ request reaches it.
 
 Post-recording corrections to the recorded facts are refused with
 `recorded_correction_unsupported`; the 606 declaration alone stays writable
-through the review route, before and after an export (see the review route). This slice defines no reversal or supersession policy.
+through the review route, before and after an export (see the review route).
+The way to correct a recorded fact is Reabrir.
+
+`POST /business/drafts/{draft_id}/reopen` takes `{version}` and an
+`Idempotency-Key` and returns the dossier. It is the owner's, on the approve
+permission: a prepare or read-only grant answers 403 `business_permission_denied`,
+a record of another Business 404 `business_record_not_found`. The draft goes
+back to `open` at `version + 1` with its facts, sources, revisions, marks,
+repeat decisions and 606 or 607 data as they stand; `approval_result` is null
+and `approval_available` follows the open rules again. The money row the
+approval wrote stays in the ledger with every revision and receipt, marked
+`reversed_at`, and no read counts it: period totals, the month close, the 606
+and 607, Registros, Inicio and the account it debited read as before the
+approval. A later approval of the same draft writes one new money row, and
+the comprobante index does not refuse it. The ledger row (`reopen_draft`)
+names who, when and, in its outcome, the activity it reversed; Actividad lists
+it. Replaying the key answers the same dossier and changes nothing; a moved
+version answers 409 `stale_version`; a draft that is not approved answers 422
+`business_draft_not_recorded`. Two links refuse the reopen and leave the record
+as it is: a live bank match on it, 422 `business_record_matched` (unmatch
+first), and a credit note or refund that names it as the purchase it returns,
+recorded or still a draft, 422 `business_refund_linked`. The dossier's
+`reopen_available` is computed by the same rule, so a client shows Reabrir only
+when the server would accept it. A payment mark stays on the reversed row as
+history and the reapproved record starts `pendiente`; a TXT line a download
+carried stays on record and the next export builds from the live rows.
 
 The seven Business tool action names remain `business_read_context`,
 `business_propose_activity`, `business_attach_source`,

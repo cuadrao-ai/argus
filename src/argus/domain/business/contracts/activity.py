@@ -19,6 +19,7 @@ ActivityAction = Literal[
     "approve_expense",
     "approve_income",
     "approve_refund",
+    "reopen_draft",
     "capture_note",
     "prepare_attachment",
     "rebind_attachment",

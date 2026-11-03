@@ -2791,6 +2791,15 @@
       "read_only": "Your permission allows viewing this record.",
       "recorded": "One expense was recorded after approval of revision {{version}}.",
       "correction_unsupported": "Corrections after recording aren't available in this first flow.",
+      "reopen": "Reopen",
+      "reopen_title": "Reopen this receipt?",
+      "reopen_body": "It goes back to the Inbox so you can correct it. It leaves your records until you approve it again.",
+      "reopening": "Reopening…",
+      "reopen_failed": "This receipt could not be reopened. Check the current record before trying again.",
+      "reopen_refused": {
+        "business_record_matched": "This receipt is matched to a bank movement. Undo that match to reopen it.",
+        "business_refund_linked": "A credit note or refund points at this receipt. Deal with that record first."
+      },
       "ecf_title": "Electronic invoice",
       "ecf_note": "What the file proves by itself. Nothing here confirms DGII accepted the invoice; a row marked Review does not block approval.",
       "ecf_see_all_one": "See the {{count}} check",

@@ -38,7 +38,7 @@ def load(
         and m.record_owner_id=r.user_id and m.record_revision=v.revision
         join public.financial_activity_groups g on g.id=m.activity_id and g.user_id=m.user_id
         and g.current_revision=m.activity_revision
-        where r.account_id is null
+        where r.account_id is null and g.reversed_at is null
         and r.user_id=any(%s::uuid[]) and r.owner_space_id=%s""",
         (list(user_ids), scope.space_id),
     ).fetchall()
