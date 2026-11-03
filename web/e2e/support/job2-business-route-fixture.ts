@@ -80,7 +80,7 @@ export async function installBusinessRouteFixture(page: Page) {
         totals: [], fingerprint: "0".repeat(64), captured_at: "2026-11-02T12:00:00Z",
         resolved_period: { from_date: from, to_date: to, calendar: "America/Santo_Domingo" },
         excluded_unknown_dates: 0, excluded_personal: { income: 0, expense: 0 }, counterparties: [], categories: [], funding_sources: [], coverage_notes: [],
-        overview: { needs_review: items.filter((item) => item.stage === "needs_review").length, awaiting_approval: 0, ready_for_export: items.filter((item) => item.stage === "ready_for_export").length }, effective_sort: "date_desc", sort_unavailable_reason: null,
+        overview: { needs_review: items.filter((item) => item.stage === "needs_review").length, needs_fiscal_data: items.filter((item) => item.stage === "needs_fiscal_data").length, ready_for_export: items.filter((item) => item.stage === "ready_for_export").length, exported: items.filter((item) => item.stage === "exported").length }, effective_sort: "date_desc", sort_unavailable_reason: null,
       });
     })();
     return undefined;

@@ -2541,17 +2541,22 @@
         "no_period_records": "No hay registros en este período.",
         "no_results": "No hay registros con estos filtros",
         "overview": {
-          "approval": {
-            "title": "Por aprobar",
-            "description": "Esperando aprobación"
-          },
+          "bandeja_waiting_one": "{{count}} recibo espera en la Bandeja",
+          "bandeja_waiting_other": "{{count}} recibos esperan en la Bandeja",
           "export": {
             "title": "Listos para exportar",
             "description": "Puedes incluirlos en tu exportación"
           },
+          "exported": {
+            "title": "Ya exportados",
+            "description": "Ya salieron en una exportación"
+          },
+          "fiscal": {
+            "title": "Faltan datos fiscales",
+            "description": "Les falta un dato para el 606 o el 607"
+          },
           "review": {
-            "title": "Por revisar",
-            "description": "Necesitan una revisión"
+            "title": "Por revisar"
           }
         },
         "period_summary": "Resumen del período · {{period}}",
@@ -2606,7 +2611,7 @@
           "export": "Exportar resultados"
         },
         "workflow": {
-          "approval": "Por aprobar",
+          "exported": "Exportado",
           "ready": "Listo",
           "review": "Por revisar",
           "unknown": "Estado no disponible",
@@ -2628,7 +2633,6 @@
       "reporting": {
         "access_unavailable": "No tienes acceso a esta función.",
         "financial_cards_pending": "Cobros, pagos y saldos pendientes aún no están disponibles.",
-        "includes_unreviewed": "Incluye documentos por revisar o por aprobar.",
         "invalid_page": "Los registros cambiaron. Abre la última página disponible.",
         "pending_contract": "Esta función aún no está conectada.",
         "records_only": "El ZIP incluye solo los registros filtrados. No incluye archivos originales.",

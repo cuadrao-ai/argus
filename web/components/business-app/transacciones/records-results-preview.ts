@@ -5,10 +5,11 @@ import type { Money, RecordRow } from "./transacciones-model";
 import type { DgiiChoice, Purchase606 } from "@/lib/business-reports-api";
 import { EXPENSE_TYPES, PAYMENT_FORMS } from "../dossier-fixtures";
 
-export type PreviewWorkflow = "review" | "approval" | "ready";
+/** A sample row's stage, as the server would name a recorded row's: a blocker gained after approval, a missing 606 fact, a line ready for the TXT, or a line a downloaded TXT froze. */
+export type PreviewWorkflow = "review" | "fiscal" | "ready" | "exported";
 export type PreviewFinancialEligibility = "confirmed" | "unconfirmed" | "personal";
-/** `dgii606` mirrors a live row's `dgii_606`: null for a record the 606 never lists, absent when the sample says nothing. */
-export type PreviewRecordMetadata = { workflow: PreviewWorkflow; financialEligibility: PreviewFinancialEligibility; documentNumbers?: readonly string[]; dgii606?: Purchase606 | null };
+/** `dgii606` mirrors a live row's `dgii_606`: null for a record the 606 never lists, absent when the sample says nothing. `missing` mirrors `export_missing` on a `fiscal` row. */
+export type PreviewRecordMetadata = { workflow: PreviewWorkflow; financialEligibility: PreviewFinancialEligibility; documentNumbers?: readonly string[]; dgii606?: Purchase606 | null; missing?: { export_missing: string; export_missing_several?: boolean } };
 
 // This is a local illustration for the synthetic own Business, never a source adapter.
 // The sample's one copy of the DGII names lives in dossier-fixtures; live rows read the server's label.
@@ -18,14 +19,17 @@ const SERVICES = expenseType("02");
 const COST_OF_SALES = expenseType("09");
 const CARD = paymentForm("03");
 const TRANSFER = paymentForm("02");
+// Every sample row is an approved record. The gastos cover the three cards: a missing tipo de gasto, a missing forma de pago, an exported line, and a Personal purchase the 606 never lists.
 const FIXTURE_METADATA: Readonly<Record<string, PreviewRecordMetadata>> = {
-  "gasto:exp-gas": { workflow: "review", financialEligibility: "confirmed", dgii606: { expense_type: null, payment_form: TRANSFER } },
-  "gasto:exp-hosting": { workflow: "ready", financialEligibility: "confirmed", documentNumbers: ["B0100000042"], dgii606: { expense_type: SERVICES, payment_form: CARD } },
-  "gasto:exp-imprenta": { workflow: "approval", financialEligibility: "confirmed", dgii606: { expense_type: COST_OF_SALES, payment_form: null } },
-  "gasto:exp-lunch": { workflow: "approval", financialEligibility: "personal", dgii606: null },
+  "gasto:exp-gas": { workflow: "fiscal", financialEligibility: "confirmed", dgii606: { expense_type: null, payment_form: TRANSFER }, missing: { export_missing: "expense_type_missing" } },
+  "gasto:exp-hosting": { workflow: "exported", financialEligibility: "confirmed", documentNumbers: ["B0100000042"], dgii606: { expense_type: SERVICES, payment_form: CARD } },
+  "gasto:exp-imprenta": { workflow: "fiscal", financialEligibility: "confirmed", dgii606: { expense_type: COST_OF_SALES, payment_form: null }, missing: { export_missing: "payment_method_missing" } },
+  "gasto:exp-lunch": { workflow: "ready", financialEligibility: "personal", dgii606: null },
   "venta:exp-gas": { workflow: "ready", financialEligibility: "confirmed", dgii606: null },
-  "venta:exp-hosting": { workflow: "approval", financialEligibility: "unconfirmed", dgii606: null },
-  "venta:exp-lunch": { workflow: "review", financialEligibility: "personal", dgii606: null },
+  "venta:exp-hosting": { workflow: "ready", financialEligibility: "unconfirmed", dgii606: null },
+  "venta:exp-lunch": { workflow: "ready", financialEligibility: "personal", dgii606: null },
+  // The sample's own sales (search-fixtures): the two from late October already went out in an export.
+  ...Object.fromEntries(Array.from({ length: 7 }, (_, index) => [`venta:venta-${index + 1}`, { workflow: index < 5 ? "ready" : "exported", financialEligibility: "confirmed", dgii606: null } satisfies PreviewRecordMetadata])),
 };
 export function previewRecordMetadata(row: RecordRow, businessId: string | null): PreviewRecordMetadata | null {
   return businessId === "fixture-space" ? FIXTURE_METADATA[`${row.kind}:${row.id}`] ?? null : null;
@@ -48,7 +52,6 @@ export type SummaryExclusions = { unconfirmed: number; personal: number; unavail
 const emptyExclusions = (): SummaryExclusions => ({ unconfirmed: 0, personal: 0, unavailable: 0 });
 export type RecordsResultsPreview = {
   count: number;
-  review: number;
   unknownWorkflow: number;
   excluded: SummaryExclusions;
   excludedByKind: { sales: SummaryExclusions; expenses: SummaryExclusions };
@@ -56,7 +59,7 @@ export type RecordsResultsPreview = {
   expenses: Money[];
 };
 export function summarizePreviewRecords(rows: readonly RecordRow[], businessId: string | null): RecordsResultsPreview {
-  const result: RecordsResultsPreview = { count: rows.length, review: 0, unknownWorkflow: 0, excluded: emptyExclusions(), excludedByKind: { sales: emptyExclusions(), expenses: emptyExclusions() }, sales: [], expenses: [] };
+  const result: RecordsResultsPreview = { count: rows.length, unknownWorkflow: 0, excluded: emptyExclusions(), excludedByKind: { sales: emptyExclusions(), expenses: emptyExclusions() }, sales: [], expenses: [] };
   const totals = { venta: new Map<string, bigint>(), gasto: new Map<string, bigint>() };
   for (const row of rows) {
     const exclude = (reason: keyof SummaryExclusions) => {
@@ -64,7 +67,6 @@ export function summarizePreviewRecords(rows: readonly RecordRow[], businessId: 
       result.excludedByKind[row.kind === "venta" ? "sales" : "expenses"][reason] += 1;
     };
     const metadata = previewRecordMetadata(row, businessId);
-    if (metadata?.workflow === "review") result.review += 1;
     if (!metadata) result.unknownWorkflow += 1;
     if (!metadata) { exclude("unavailable"); continue; }
     if (row.marks.personal) { exclude("personal"); continue; }
@@ -80,19 +82,20 @@ export function summarizePreviewRecords(rows: readonly RecordRow[], businessId: 
 }
 
 
-const WORKFLOW_FILTER: Record<PreviewWorkflow, ReviewFilter> = { review: "review", approval: "approval", ready: "export" };
+const WORKFLOW_FILTER: Record<PreviewWorkflow, ReviewFilter> = { review: "review", fiscal: "fiscal", ready: "export", exported: "exported" };
 export function matchesPreviewWorkflow(row: RecordRow, businessId: string | null, selected: readonly ReviewFilter[]): boolean {
   if (!selected.length) return true;
   const metadata = previewRecordMetadata(row, businessId);
   return metadata !== null && selected.includes(WORKFLOW_FILTER[metadata.workflow]);
 }
+const UNKNOWN_COUNTS: Record<ReviewFilter, number | null> = { review: null, fiscal: null, export: null, exported: null };
 export function overviewPreviewCounts(rows: readonly RecordRow[] | null, businessId: string | null): Record<ReviewFilter, number | null> {
-  const counts = { review: 0, approval: 0, export: 0 };
-  if (!rows) return { review: null, approval: null, export: null };
+  const counts: Record<ReviewFilter, number | null> = { review: 0, fiscal: 0, export: 0, exported: 0 };
+  if (!rows) return UNKNOWN_COUNTS;
   for (const row of rows) {
     const metadata = previewRecordMetadata(row, businessId);
-    if (!metadata) return { review: null, approval: null, export: null };
-    counts[WORKFLOW_FILTER[metadata.workflow]] += 1;
+    if (!metadata) return UNKNOWN_COUNTS;
+    counts[WORKFLOW_FILTER[metadata.workflow]]! += 1;
   }
   return counts;
 }

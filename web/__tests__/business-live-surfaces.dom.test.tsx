@@ -22,7 +22,7 @@ mock.module("@/lib/business-activity-api", () => ({
 
 // Inicio's review count answers from here, so each test chooses what the server says.
 const reports = await import("@/lib/business-reports-api");
-let report: () => Promise<unknown> = async () => ({ overview: { needs_review: 0, awaiting_approval: 0, ready_for_export: 0 } });
+let report: () => Promise<unknown> = async () => ({ overview: { needs_review: 0, needs_fiscal_data: 0, ready_for_export: 0, exported: 0 } });
 mock.module("@/lib/business-reports-api", () => ({ ...reports, queryBusinessReport: () => report() }));
 
 let registeredFetch: typeof globalThis.fetch;
@@ -199,7 +199,7 @@ describe("Inicio on a live Business", () => {
     } finally { await page.close(); }
   });
 
-  const overview = (needsReview: number) => ({ overview: { needs_review: needsReview, awaiting_approval: 0, ready_for_export: 0 } });
+  const overview = (needsReview: number) => ({ overview: { needs_review: needsReview, needs_fiscal_data: 0, ready_for_export: 0, exported: 0 } });
   const emptyBandeja = async (): Promise<Partial<BusinessDataSource>> => {
     const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
     const base = createFixtureBusinessDataSource({ chatAvailable: true });

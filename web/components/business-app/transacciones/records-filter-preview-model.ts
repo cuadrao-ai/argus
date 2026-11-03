@@ -1,9 +1,26 @@
 import { currencyDigits, MONEY_MAX_INTEGER_DIGITS } from "@/lib/money-entry";
+import type { ReportStage } from "@/lib/business-reports-api";
 import type { Money } from "./transacciones-model";
 
 export const FILTER_GROUPS = ["review", "attachment", "amount", "counterparty", "expense_type", "account", "document", "fiscal"] as const;
 export type FilterGroup = typeof FILTER_GROUPS[number];
-export type ReviewFilter = "review" | "approval" | "export";
+/**
+ * The server's stages as Registros names them, in the order the Revisión filter lists them.
+ * The three cards are the entries with `card`, in this order; `review` is a recorded row that
+ * gained a blocker after approval, rare and filterable but no card.
+ */
+export const STAGE_FILTERS = [
+  { key: "fiscal", stage: "needs_fiscal_data", card: true },
+  { key: "export", stage: "ready_for_export", card: true },
+  { key: "exported", stage: "exported", card: true },
+  { key: "review", stage: "needs_review", card: false },
+] as const satisfies readonly { key: string; stage: ReportStage; card: boolean }[];
+export type ReviewFilter = typeof STAGE_FILTERS[number]["key"];
+export type CardFilter = Extract<typeof STAGE_FILTERS[number], { card: true }>["key"];
+export const REVIEW_FILTERS: readonly ReviewFilter[] = STAGE_FILTERS.map((entry) => entry.key);
+export const CARD_FILTERS: readonly CardFilter[] = STAGE_FILTERS.flatMap((entry) => (entry.card ? [entry.key] : []));
+export const STAGE_OF: Readonly<Record<ReviewFilter, ReportStage>> = Object.fromEntries(STAGE_FILTERS.map((entry) => [entry.key, entry.stage])) as Record<ReviewFilter, ReportStage>;
+export const FILTER_OF_STAGE: Readonly<Record<ReportStage, ReviewFilter>> = Object.fromEntries(STAGE_FILTERS.map((entry) => [entry.stage, entry.key])) as Record<ReportStage, ReviewFilter>;
 export type PreviewFilters = {
   review: ReviewFilter[];
   attachment: "any" | "with" | "without";
