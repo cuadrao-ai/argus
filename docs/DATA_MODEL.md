@@ -1423,6 +1423,21 @@ Historical. `refusal_observations`, the service-only `refusal_log` view, and the
 refusal evidence, and the writer module was deleted. Nothing reads or writes
 these objects; do not query them.
 
+### cuadrao_early_access_signups and the waitlist objects (dropped)
+
+Historical. `public.cuadrao_early_access_signups`, the `public.cuadrao_waitlist_*`
+functions, the `cuadrao_scheduler` schema with its three functions, the
+`cuadrao-waitlist-retention` and `cuadrao-waitlist-reminders` cron jobs, and the
+table's row in `argus_private.retention_policies` were created by
+`20260920000000_cuadrao_early_access_signups.sql`,
+`20261017010000_personal_waitlist_confirmation.sql`,
+`20261017020000_waitlist_supabase_scheduling.sql`,
+`20261018030000_retention_registry.sql` and
+`20261018030016_security_extensions_waitlist.sql`. They are dropped by
+`20261103010000_remove_waitlist.sql`, which refuses to run while the table holds
+any row. The marketing site has no waitlist and no database. Nothing reads or
+writes these objects; do not query them.
+
 ### cost_ledger_entries
 
 Append-only operational spend records. This table is the first-party source for
@@ -4282,7 +4297,6 @@ These live tables exist in the migrations but have no section above yet. The mig
 | `checkpoint_blobs` | Chat runtime checkpointer | `20260608041032_secure_checkpoint_rls.sql:21` |
 | `checkpoint_writes` | Chat runtime checkpointer | `20260608041032_secure_checkpoint_rls.sql:31` |
 | `argus_memory_vectors` | Personalization memory recall index | `20260807120000_add_memory_semantic_recall_index.sql:9` |
-| `cuadrao_early_access_signups` | Marketing early-access signups | `20260920000000_cuadrao_early_access_signups.sql:21` |
 | `financial_expectations` | Connected plan | `20260929150000_connected_plan.sql:1` |
 | `financial_plan_selections` | Connected plan | `20260929150000_connected_plan.sql:9` |
 | `financial_plan_definition_revisions` | Shared household planning | `20261002000000_shared_household_planning.sql:4` |
