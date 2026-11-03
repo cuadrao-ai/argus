@@ -1,14 +1,7 @@
 name: DGII RNC import
 
 "on":
-  schedule:
-    - cron: "0 7 * * *"
   workflow_dispatch:
-    inputs:
-      dry_run:
-        description: Dry run
-        type: boolean
-        default: true
   pull_request:
     branches: ["codex/private-alpha-next"]
     paths:
@@ -39,32 +32,3 @@ jobs:
 
       - name: Parse the registry
         run: python3 scripts/ops/dgii_rnc_import.py parse rnc-csv.zip rnc-txt.zip
-
-      - name: Decide whether to load
-        id: gate
-        env:
-          ENABLED: ${{ vars.DGII_RNC_LOAD_ENABLED }}
-          DRY_RUN: ${{ (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && (inputs.dry_run == true || inputs.dry_run == 'true'))) && 'true' || 'false' }}
-          SECRET_PRESENT: ${{ secrets.SUPABASE_STAGING_DB_URL != '' && 'true' || 'false' }}
-        run: |
-          set -euo pipefail
-          decision="$(python3 scripts/ops/dgii_rnc_import.py gate)"
-          echo "$decision"
-          if [ "$decision" = "load" ]; then
-            echo "do_load=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "do_load=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Load the registry
-        if: steps.gate.outputs.do_load == 'true'
-        env:
-          SUPABASE_STAGING_DB_URL: ${{ secrets.SUPABASE_STAGING_DB_URL }}
-          DGII_RNC_STATEMENT_TIMEOUT: ${{ vars.DGII_RNC_STATEMENT_TIMEOUT }}
-          DGII_RNC_LOAD_HEADROOM_FLOOR: ${{ vars.DGII_RNC_LOAD_HEADROOM_FLOOR }}
-          DGII_RNC_SIZE_LIMIT: ${{ vars.DGII_RNC_SIZE_LIMIT }}
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-          python3 scripts/ops/dgii_rnc_import.py load rnc-csv.zip rnc-txt.zip
