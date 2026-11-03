@@ -507,6 +507,54 @@ test("Filtros offers only the document kinds a row can carry, and each one finds
   assert.deepEqual([...document.querySelectorAll("tbody tr")].map((row) => row.getAttribute("data-record-key")), [`draft:${fixtureId(5)}`, `draft:${fixtureId(7)}`]);
 });
 
+const aboveTable = () => { const section = document.querySelector('[data-testid="transacciones"]')!; const nodes = [...section.children]; const end = nodes.findIndex((node) => node.querySelector('[data-testid="transacciones-records"], [data-empty-kind]')); return nodes.slice(0, end).map((node) => `${node.tagName}:${node.getAttribute("data-testid") ?? node.getAttribute("role") ?? ""}`); };
+
+test("a filter with no rows shows one title, keeps the pill row as the only clear action, and moves nothing above the table", async () => {
+  const page = await mount({ edit: (records) => { for (const row of records) row.dgii_606 = null; } });
+  const before = aboveTable();
+  await page.click(page.button("Filtros"));
+  await page.click(document.querySelector('[data-group="expense_type"]'));
+  await page.click([...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="checkbox"]')].find((box) => box.parentElement?.textContent === "Falta"));
+  await page.click(page.button("Aplicar"));
+  await page.settle(() => document.querySelector('[data-empty-kind]') !== null);
+  const empty = document.querySelector('[data-empty-kind="filtered"]')!;
+  assert.equal(empty.querySelector("h3")?.textContent, "No hay registros con estos filtros");
+  assert.equal(empty.querySelector("p"), null, "no body line");
+  assert.equal(empty.querySelector("button"), null, "no second clear action");
+  assert.doesNotMatch(document.body.textContent ?? "", /Cada gasto y cada venta que apruebas/);
+  const clears = [...document.querySelectorAll("button")].filter((node) => node.textContent === "Limpiar filtros");
+  assert.equal(clears.length, 1); assert.ok(document.querySelector('[data-testid="records-preview-filter-chips"]')!.contains(clears[0]), "the pill row's Limpiar filtros is the one");
+  assert.deepEqual(aboveTable(), before, "nothing above the table moved");
+  await page.click(clears[0]);
+  await page.settle(() => document.querySelectorAll("tbody tr").length === 25);
+  assert.deepEqual(aboveTable(), before);
+});
+
+test("a Registros with nothing in the period keeps its first-run message and the Bandeja line, with no clear action", async () => {
+  await mount({ edit: (records) => { records.splice(0); } });
+  const empty = document.querySelector('[data-empty-kind="first_run"]')!;
+  assert.equal(empty.querySelector("h3")?.textContent, "Aquí verás tus gastos y ventas");
+  assert.equal(empty.querySelector("p")?.textContent, "Cada gasto y cada venta que apruebas en la Bandeja aparece aquí en su fecha.");
+  assert.equal([...document.querySelectorAll("button")].filter((node) => node.textContent === "Limpiar filtros").length, 0);
+  assert.equal(document.querySelector('[data-empty-kind="filtered"]'), null);
+});
+
+test("a record that left the view says so in a toast, never in a line above the table", async () => {
+  const { useToasts, clearToasts } = await import("@/components/business-app/foundation/toasts");
+  clearToasts();
+  (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL(`http://localhost/biz?report_row=draft:${fixtureId(999)}&report_scope=synthetic-person:${fixtureId(3000)}`);
+  const page = await mount();
+  function Probe() { return <output data-testid="toast-probe">{useToasts().map((toast) => `${toast.kind}:${toast.text}:${toast.action ? "action" : "no-action"}`).join("|")}</output>; }
+  const { createRoot } = await import("react-dom/client");
+  const host = document.createElement("div"); document.body.appendChild(host); const root = createRoot(host);
+  await act(async () => root.render(<Probe />));
+  await page.settle(() => (document.querySelector('[data-testid="toast-probe"]')?.textContent ?? "").includes("Este registro no está disponible."));
+  assert.equal(document.querySelector('[data-testid="toast-probe"]')!.textContent, "info:Este registro no está disponible.:no-action");
+  assert.equal([...document.querySelectorAll('[data-testid="transacciones"] [role="status"]')].filter((node) => /no está disponible/.test(node.textContent ?? "")).length, 0);
+  assert.doesNotMatch(document.querySelector('[data-testid="transacciones"]')!.textContent ?? "", /no está disponible/);
+  await act(async () => root.unmount());
+});
+
 test("a phone period preset holds after its sheet closes", async () => {
   const page = await mount({ width: 390, initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "this_month" } } }) });
   const before = sentFilters(page).length;

@@ -40,6 +40,7 @@ describe("synthetic Business fallback", () => {
       excluded_personal: { income: 0, expense: 0 },
       counterparties: [],
       categories: [],
+      expense_types: [],
       funding_sources: [],
       coverage_notes: [
         "records_only_evidence_separate",

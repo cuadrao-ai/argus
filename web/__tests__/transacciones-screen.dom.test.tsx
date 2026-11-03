@@ -1004,7 +1004,12 @@ for (const language of ["es-419", "en"]) test(`shared currency filter updates ro
     assert.equal(page.records().length, 0);
     assert.match(footer().textContent ?? "", es ? /0–0 de 0/ : /0–0 of 0/);
     assert.ok(document.querySelector(`button[aria-label="${es ? "Quitar filtro Moneda y monto" : "Remove filter Currency and amount"}"]`));
-    const clear = [...document.querySelectorAll("button")].filter((node) => node.textContent === (es ? "Limpiar filtros" : "Clear filters")).at(-1)!;
+    const empty = document.querySelector('[data-empty-kind="filtered"]')!;
+    assert.equal(empty.querySelector("h3")?.textContent, es ? "No hay registros con estos filtros" : "No records match these filters");
+    assert.equal(empty.querySelector("p"), null, "a filtered empty state has no body line"); assert.equal(empty.querySelector("button"), null, "and no clear action of its own");
+    const clears = [...document.querySelectorAll("button")].filter((node) => node.textContent === (es ? "Limpiar filtros" : "Clear filters"));
+    assert.equal(clears.length, 1, "the pill row's Limpiar filtros is the only clear action");
+    const clear = clears.at(-1)!;
     await page.click(clear);
     assert.equal(page.records().length, 6, "empty-result clear also clears the shared currency/amount filter");
     assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]'), null);
@@ -1066,8 +1071,14 @@ for (const width of [1440, 390]) test(`overview filters share chips while counts
     const emptyFields = [...document.querySelectorAll<HTMLInputElement>('[data-testid="range-picker"] input')];
     await fill(emptyFields[0], "22/10/2026"); await fill(emptyFields[1], "22/10/2026"); await clickText("Confirmar período");
     assert.equal(page.records().length, 0);
-    await clickText("Restablecer período");
-    assert.equal(page.records().length, 6, "an empty period has a working local reset without API work");
+    const empty = document.querySelector('[data-empty-kind="first_run"]')!;
+    assert.ok(empty, "no filter is applied, so an empty period is the first-run state");
+    assert.match(empty.textContent ?? "", /Cada gasto y cada venta que apruebas en la Bandeja/);
+    assert.equal([...document.querySelectorAll("button")].filter((node) => /Restablecer período|Limpiar filtros/.test(node.textContent ?? "")).length, 0, "no second way out: the period chip is the way back");
+    await page.click([...document.querySelectorAll('[data-testid="records-toolbar"] button')].find((node) => node.textContent?.includes("22 oct"))!);
+    const backFields = [...document.querySelectorAll<HTMLInputElement>('[data-testid="range-picker"] input')];
+    await fill(backFields[0], "01/10/2026"); await fill(backFields[1], "31/10/2026"); await clickText("Confirmar período");
+    assert.equal(page.records().length, 6, "the period chip brings the rows back without API work");
     await page.unmount();
   } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 });
