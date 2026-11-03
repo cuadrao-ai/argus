@@ -3627,6 +3627,10 @@
       "checklist_review_other": "{{count}} to review in the Inbox",
       "checklist_fiscal_one": "Add the RNC or NCF to {{count}} document",
       "checklist_fiscal_other": "Add the RNC or NCF to {{count}} documents",
+      "placeholder": {
+        "checklist_fiscal_data_one": "Complete the 606 or 607 data for {{count}} document",
+        "checklist_fiscal_data_other": "Complete the 606 or 607 data for {{count}} documents"
+      },
       "checklist_settle_one": "Mark {{count}} document as collected or paid",
       "checklist_settle_other": "Mark {{count}} documents as collected or paid",
       "checklist_overdue_one": "{{count}} overdue",
@@ -3640,7 +3644,7 @@
       "record_collection": "Record collection",
       "record_payment": "Record payment",
       "checklist_required": "Needed to close the month",
-      "filing_ready": "You already have everything for the 606 and the 607. Close the month when you finish marking what was collected and what was paid.",
+      "filing_ready": "You already have everything for the 606 and the 607.",
       "nothing_open": "All settled",
       "nothing_open_body": "No one owes you and you owe no one.",
       "checklist_ready": "Everything is ready to close {{month}}.",

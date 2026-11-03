@@ -317,9 +317,12 @@ def summarize(
     start: date,
     end: date,
     no_payment_form: Collection[str] = (),
+    missing: Mapping[str, Sequence[str]] | None = None,
 ) -> dict:
     """The month's money and lists. ``no_payment_form`` names the activities the
-    606 holds for a missing Forma de Pago; the 606 owns that rule."""
+    606 holds for a missing Forma de Pago, and ``missing`` what the 606 or 607
+    still needs from each activity it holds, in the export's own words; the
+    export owns both rules. ``closed`` is month completion alone."""
 
     chosen = [
         document
@@ -332,7 +335,12 @@ def summarize(
     missing_ncf = []
     ncf_malformed = []
     missing_payment_form = []
+    missing_fiscal_data = []
     for document in sorted(chosen, key=lambda item: (item.occurred_on, item.activity_id)):
+        if missing and document.activity_id in missing:
+            missing_fiscal_data.append(
+                {**_line(document), "missing": list(missing[document.activity_id])}
+            )
         if document.sin_comprobante:
             continue
         if (
@@ -463,6 +471,7 @@ def summarize(
         "ncf_malformed": ncf_malformed,
         "missing_ncf": missing_ncf,
         "missing_payment_form": missing_payment_form,
+        "missing_fiscal_data": missing_fiscal_data,
         "cuentas_por_cobrar": receivables,
         "cuentas_por_pagar": payables,
     }

@@ -125,6 +125,13 @@ class DocumentLine(_Wire):
     payment_form: str | None = None
 
 
+class HeldLine(DocumentLine):
+    # What the 606 or 607 still needs before it carries this document as a
+    # line, first fix first, in the export's own words: the same words
+    # Registros shows as export_missing.
+    missing: list[str]
+
+
 class ForeignCurrencyForm(_Wire):
     # Foreign-currency lines left out of this form until a rate exists.
     pending_rate_count: int = 0
@@ -167,6 +174,9 @@ class MonthClose(_Wire):
     missing_ncf: list[DocumentLine]
     # Purchases the 606 holds until a person sets Forma de Pago, paid or not.
     missing_payment_form: list[DocumentLine] = Field(default_factory=list)
+    # Every document the 606 or 607 holds this month, with what it needs. The
+    # export's verdict, not month completion: `closed` never reads into it.
+    missing_fiscal_data: list[HeldLine] = Field(default_factory=list)
     cuentas_por_cobrar: list[DocumentLine]
     cuentas_por_pagar: list[DocumentLine]
     # Receipt and note drafts the Bandeja still lists in this month.
