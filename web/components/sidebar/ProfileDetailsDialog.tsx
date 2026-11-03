@@ -10,9 +10,10 @@ import {SavedIdentityMark,useIdentityAppearance} from "@/components/identity/Ide
 import {saveAppearance,IDENTITY_EVENT,identityPreviewEnabled} from "@/lib/identity-appearance";
 import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, ChevronUp, Edit2, X } from "lucide-react";
+import { ChevronUp, Edit2, X } from "lucide-react";
 
 import { useModalSurface } from "@/components/layout/useModalSurface";
+import ProfileNameFields from "@/components/sidebar/ProfileNameFields";
 import type { ApiUser } from "@/lib/argus-api";
 import {
   AVATAR_THEMES,
@@ -20,23 +21,10 @@ import {
   avatarThemeStyle,
   type AvatarTheme,
 } from "@/lib/avatar-theme";
-import {
-  ENABLED_LANGUAGES,
-  languageDisplayAbbreviation,
-  normalizeEnabledLanguage,
-} from "@/lib/language-features";
 
 /* The Profile dialog. ProfileMenu owns every value it renders; the layer
  * registration is this file's own, scoped to the panel rather than the backdrop
  * so focus does not open on an invisible dismiss control. */
-
-function profileHandle(profile: ApiUser | null) {
-  const explicitUsername = profile?.username?.trim().replace(/^@+/, "");
-  if (explicitUsername) return `@${explicitUsername}`;
-
-  const emailLocalPart = profile?.email?.split("@")[0]?.trim();
-  return emailLocalPart ? `@${emailLocalPart}` : null;
-}
 
 function profileInitial(profile: ApiUser | null) {
   const source =
@@ -90,14 +78,6 @@ type ProfileDetailsDialogProps = {
   isSavingPreferredName: boolean;
   preferredNameError: string | null;
 
-  languagePickerRef: React.RefObject<HTMLDivElement | null>;
-  isLanguagePickerOpen: boolean;
-  setIsLanguagePickerOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  currentLanguage: string;
-  currentLanguageAbbreviation: string;
-  handleLanguageSelect: (code: string) => void | Promise<void>;
-  isSavingLanguage: boolean;
-  languageError: string | null;
 
 };
 
@@ -134,14 +114,6 @@ function ProfileDetailsDialogSurface({
   handleSavePreferredName,
   isSavingPreferredName,
   preferredNameError,
-  languagePickerRef,
-  isLanguagePickerOpen,
-  setIsLanguagePickerOpen,
-  currentLanguage,
-  currentLanguageAbbreviation,
-  handleLanguageSelect,
-  isSavingLanguage,
-  languageError,
 }: ProfileDetailsDialogProps) {
   const { t } = useTranslation();
   const overlayId = useId();
@@ -169,162 +141,65 @@ function ProfileDetailsDialogSurface({
 
 
   return (
-    <>
-      <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/25 p-4 backdrop-blur-sm dark:bg-black/60">
-        <button
-      tabIndex={-1}
-          className="absolute inset-0"
-          onClick={closeProfileModal}
-          aria-label={t("settings.profile.close", "Close profile")}
-        />
-        <div
-          ref={profileModalRef}
-          className="relative w-full max-w-sm overflow-visible rounded-[18px] border border-black/5 bg-white p-5 dark:border-white/10 dark:bg-[#1b1d20]"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="argus-profile-modal-title"
-        >
-          {/* Header */}
-          <div className="mb-4 flex items-center justify-between">
-            <h2
-              id="argus-profile-modal-title"
-              className="font-display text-[16px] font-medium text-black dark:text-white"
-            >
-              {t("settings.profile.title", "Profile")}
-            </h2>
-            <button
-              onClick={closeProfileModal}
-              className="rounded-full p-1.5 hover:bg-black/5 dark:hover:bg-white/10"
-              aria-label={t("settings.profile.close", "Close profile")}
-            >
-              <X className="h-4 w-4 text-black/50 dark:text-white/50" />
-            </button>
-          </div>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4 dark:bg-black/60">
+      <button
+        tabIndex={-1}
+        className="absolute inset-0 cursor-default"
+        onClick={closeProfileModal}
+        aria-label={t("settings.profile.close", "Close profile")}
+      />
+      <div
+        ref={profileModalRef}
+        className="relative max-h-[calc(100dvh-2rem)] w-full max-w-[440px] overflow-y-auto rounded-surface border border-[#DCE0DA] bg-white p-6 text-[#172b26] dark:border-white/10 dark:bg-[#1b1d20] dark:text-white"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="argus-profile-modal-title"
+      >
+        <div className="mb-[21px] flex items-center justify-between gap-3">
+          <h2 id="argus-profile-modal-title" className="font-display text-[21px] font-medium">
+            {t("settings.profile.title", "Profile")}
+          </h2>
+          <button
+            type="button"
+            onClick={closeProfileModal}
+            aria-label={t("settings.profile.close", "Close profile")}
+            className="-mr-2 flex h-11 w-11 items-center justify-center rounded-full text-black/60 hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] dark:text-white/60 dark:hover:bg-white/10"
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </div>
 
-          <div className="flex flex-col gap-3">
-            {/* Avatar + Name */}
-            <div className="flex items-center gap-3">
-              {accountKind === "registered" ? (
-                <button
-                  ref={avatarTriggerRef}
-                  type="button"
-                  onClick={identityPreviewEnabled()?()=>setEditingImage(true):toggleAvatarPicker}
-                  className="group relative flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full outline-none transition-transform hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-black/30 dark:focus-visible:ring-white/50"
-                  aria-label={t(
-                    "settings.profile.avatar_theme.change",
-                    "Edit avatar",
-                  )}
-                  aria-expanded={isAvatarPickerOpen}
-                  aria-controls="argus-avatar-theme-drawer"
-                  data-avatar-theme-trigger
-                >
-                  <span
-                    className={`flex h-full w-full items-center justify-center rounded-full text-[16px] font-bold ${avatarClassName}`}
-                    style={avatarStyle}
-                  >
-                    <SavedIdentityMark scope={identityScope} name={profile?.display_name??""} size={48} fallback={profileInitial(profile)}/>
-                  </span>
-                  <span
-                    className="pointer-events-none absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-black ring-1 ring-black/10 dark:bg-[#2b2e33] dark:text-white dark:ring-white/15"
-                    aria-hidden="true"
-                  >
-                    <Edit2 className="h-2.5 w-2.5" />
-                  </span>
-                </button>
-              ) : (
-                <div
-                  className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full text-[16px] font-bold ${avatarClassName}`}
-                  style={avatarStyle}
-                >
-                  <SavedIdentityMark scope={identityScope} name={profile?.display_name??""} size={48} fallback={profileInitial(profile)}/>
-                </div>
-              )}
-              <div className="flex min-w-0 flex-1 flex-col">
-                {/* Display Name - editable */}
-                {editingName ? (
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      autoFocus
-                      type="text"
-                      value={nameValue}
-                      onChange={(e) => setNameValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") void handleSaveName();
-                        if (e.key === "Escape") stopEditingName();
-                      }}
-                      disabled={isSavingName}
-                      className="min-w-0 flex-1 rounded-md border border-black/15 bg-transparent px-2 py-1 text-[14px] font-medium outline-none focus:border-black/30 dark:border-white/15 dark:focus:border-white/30"
-                      placeholder={t(
-                        "settings.profile.display_name",
-                        "Display name",
-                      )}
-                    />
-                    <Tooltip content={t("common.save", "Save")} side="top">
-                      <button
-                        onClick={() => void handleSaveName()}
-                        disabled={isSavingName}
-                        className="rounded-md p-1 hover:bg-black/5 dark:hover:bg-white/10"
-                        aria-label={t("common.save", "Save")}
-                      >
-                        <Check
-                          className={`h-3.5 w-3.5 text-[#5ba897] ${
-                            isSavingName ? "opacity-40" : ""
-                          }`}
-                        />
-                      </button>
-                    </Tooltip>
-                    <Tooltip content={t("common.cancel", "Cancel")} side="top">
-                      <button
-                        onClick={stopEditingName}
-                        disabled={isSavingName}
-                        className="rounded-md p-1 hover:bg-black/5 dark:hover:bg-white/10"
-                        aria-label={t("common.cancel", "Cancel")}
-                      >
-                        <X className="h-3.5 w-3.5 text-black/40 dark:text-white/40" />
-                      </button>
-                    </Tooltip>
-                  </div>
-                ) : (
-                  <Tooltip content={t(
-                      "settings.profile.edit_display_name",
-                      "Edit display name",
-                    )} side="top">
-                    <button
-                      type="button"
-                      onClick={handleStartEditName}
-                      className="flex min-h-11 min-w-0 items-center gap-1.5 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:focus-visible:ring-white/25"
-                      aria-label={t(
-                        "settings.profile.edit_display_name",
-                        "Edit display name",
-                      )}
-                    >
-                      <span className="font-display truncate text-[15px] font-medium text-black dark:text-white">
-                        {profile?.display_name ??
-                          t("settings.profile.default_user", "User")}
-                      </span>
-                      <Edit2
-                        className="h-3 w-3 shrink-0 text-black/40 dark:text-white/40"
-                        aria-hidden="true"
-                      />
-                    </button>
-                  </Tooltip>
-                )}
-                {nameError && (
-                  <span className="mt-1 text-[12px] text-[#d66d75]">
-                    {nameError}
-                  </span>
-                )}
-                {/* Username */}
-                {profileHandle(profile) && (
-                  <span className="text-[13px] text-black/40 dark:text-white/40">
-                    {profileHandle(profile)}
-                  </span>
-                )}
-                <span className="text-[13px] text-black/40 dark:text-white/40">
-                  {profile?.email ?? ""}
+        <div className="flex flex-col gap-3 border-b border-[#DCE0DA] pb-[21px] dark:border-white/10">
+          {/* Who this is: the avatar, the name and the email. The names are edited below. */}
+          <div className="flex items-center gap-[13px]">
+            {accountKind === "registered" ? (
+              <button
+                ref={avatarTriggerRef}
+                type="button"
+                onClick={identityPreviewEnabled() ? () => setEditingImage(true) : toggleAvatarPicker}
+                className="group relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full transition-transform hover:scale-[1.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)]"
+                aria-label={t("settings.profile.avatar_theme.change", "Edit avatar")}
+                aria-expanded={isAvatarPickerOpen}
+                aria-controls="argus-avatar-theme-drawer"
+                data-avatar-theme-trigger
+              >
+                <span className={`flex h-full w-full items-center justify-center rounded-full text-[18px] font-bold ${avatarClassName}`} style={avatarStyle}>
+                  <SavedIdentityMark scope={identityScope} name={profile?.display_name ?? ""} size={56} fallback={profileInitial(profile)} />
                 </span>
+                <span className="pointer-events-none absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-white text-black ring-1 ring-black/10 dark:bg-[#2b2e33] dark:text-white dark:ring-white/15" aria-hidden="true">
+                  <Edit2 className="h-3 w-3" />
+                </span>
+              </button>
+            ) : (
+              <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-[18px] font-bold ${avatarClassName}`} style={avatarStyle}>
+                <SavedIdentityMark scope={identityScope} name={profile?.display_name ?? ""} size={56} fallback={profileInitial(profile)} />
               </div>
+            )}
+            <div className="min-w-0">
+              <p className="truncate text-[16px] font-medium">{profile?.display_name || t("settings.profile.default_user", "User")}</p>
+              <p className="truncate text-[14px] text-[#56635e] dark:text-white/70">{profile?.email ?? ""}</p>
             </div>
+          </div>
 
             {accountKind === "registered" && (
               <div
@@ -432,162 +307,33 @@ function ProfileDetailsDialogSurface({
                 </div>
               </div>
             )}
-
-          {/* Its own field rather than display_name, which is an identity field.
-              Optional. Neither name input caps what can be typed: the bound
-              belongs to the trimmed name, and the save refuses an over-long one. */}
-          {accountKind === "registered" && (
-            <div className="mt-2 flex flex-col gap-1.5 border-t border-black/5 pt-3 dark:border-white/5">
-              <label
-                htmlFor="argus-profile-preferred-name"
-                className="text-[13px] text-black/50 dark:text-white/50"
-              >
-                {t(
-                  "settings.profile.preferred_name",
-                  "What should Cuadrao call you?",
-                )}
-              </label>
-              {editingPreferredName ? (
-                <div className="flex items-center gap-1.5">
-                  <input
-                    autoFocus
-                    id="argus-profile-preferred-name"
-                    type="text"
-                    value={preferredNameValue}
-                    onChange={(event) => setPreferredNameValue(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") void handleSavePreferredName();
-                      if (event.key === "Escape") stopEditingPreferredName();
-                    }}
-                    disabled={isSavingPreferredName}
-                    className="min-w-0 flex-1 rounded-md border border-black/15 bg-transparent px-2 py-1 text-[14px] outline-none focus:border-black/30 dark:border-white/15 dark:focus:border-white/30"
-                    placeholder={t(
-                      "settings.profile.preferred_name_placeholder",
-                      "Leave blank for no name",
-                    )}
-                  />
-                  <Tooltip content={t("common.save", "Save")} side="top">
-                    <button
-                      onClick={() => void handleSavePreferredName()}
-                      disabled={isSavingPreferredName}
-                      className="rounded-md p-1 hover:bg-black/5 dark:hover:bg-white/10"
-                      aria-label={t("common.save", "Save")}
-                    >
-                      <Check
-                        className={`h-3.5 w-3.5 text-[#5ba897] ${
-                          isSavingPreferredName ? "opacity-40" : ""
-                        }`}
-                      />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content={t("common.cancel", "Cancel")} side="top">
-                    <button
-                      onClick={stopEditingPreferredName}
-                      disabled={isSavingPreferredName}
-                      className="rounded-md p-1 hover:bg-black/5 dark:hover:bg-white/10"
-                      aria-label={t("common.cancel", "Cancel")}
-                    >
-                      <X className="h-3.5 w-3.5 text-black/40 dark:text-white/40" />
-                    </button>
-                  </Tooltip>
-                </div>
-              ) : (
-                <button
-                  id="argus-profile-preferred-name"
-                  type="button"
-                  onClick={handleStartEditPreferredName}
-                  className="group flex min-h-11 items-center gap-1.5 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:focus-visible:ring-white/25"
-                >
-                  <span
-                    className={`text-[14px] ${
-                      profile?.preferred_name
-                        ? "text-black dark:text-white"
-                        : "text-black/35 dark:text-white/35"
-                    }`}
-                  >
-                    {profile?.preferred_name ||
-                      t("settings.profile.preferred_name_unset", "Not set")}
-                  </span>
-                  <Edit2
-                    className="h-3 w-3 text-black/40 opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100 dark:text-white/40"
-                    aria-hidden="true"
-                  />
-                </button>
-              )}
-              {preferredNameError && (
-                <span className="text-[12px] text-[#d66d75]">
-                  {preferredNameError}
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Info */}
-          <div className="mt-2 flex flex-col gap-2 text-[13px]">
-            <div
-              ref={languagePickerRef}
-              className="relative flex items-center justify-between py-1"
-            >
-              <span className="text-black/50 dark:text-white/50">
-                {t("settings.app.language", "Language")}
-              </span>
-              <button
-                id="argus-profile-language-trigger"
-                type="button"
-                onClick={() => setIsLanguagePickerOpen((open) => !open)}
-                className="-mr-1 rounded-md px-1.5 py-0.5 text-black outline-none transition-colors hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-black/20 dark:text-white dark:hover:bg-white/[0.06] dark:focus-visible:ring-white/20"
-                aria-haspopup="listbox"
-                aria-expanded={isLanguagePickerOpen}
-                aria-controls="argus-profile-language-picker"
-                aria-label={t("settings.app.language", "App language")}
-              >
-                {currentLanguageAbbreviation}
-              </button>
-              {isLanguagePickerOpen && (
-                <div
-                  id="argus-profile-language-picker"
-                  role="listbox"
-                  aria-labelledby="argus-profile-language-trigger"
-                  className="absolute right-0 top-full z-30 mt-1 min-w-[136px] rounded-[10px] border border-black/10 bg-white py-1 shadow-[0_12px_28px_rgba(0,0,0,0.12)] dark:border-white/10 dark:bg-[#23262a]"
-                >
-                  {ENABLED_LANGUAGES.map((entry) => {
-                    const entryLanguage = normalizeEnabledLanguage(entry.code);
-                    const selected = entryLanguage === currentLanguage;
-                    return (
-                      <button
-                        key={entry.code}
-                        type="button"
-                        role="option"
-                        aria-selected={selected}
-                        onClick={() => void handleLanguageSelect(entry.code)}
-                        disabled={isSavingLanguage}
-                        className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-[13px] text-black transition-colors hover:bg-black/5 disabled:cursor-wait disabled:opacity-60 dark:text-white dark:hover:bg-white/5"
-                      >
-                        <span>{entry.name}</span>
-                        {selected ? (
-                          <Check className="h-3.5 w-3.5 text-black dark:text-white" />
-                        ) : (
-                          <span className="text-black/35 dark:text-white/35">
-                            {languageDisplayAbbreviation(entryLanguage)}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-            {languageError && (
-              <span className="text-[12px] text-[#d66d75]">
-                {languageError}
-              </span>
-            )}
-          </div>
-
         </div>
+
+        {accountKind === "registered" ? (
+          <div className="pt-[21px]">
+            <ProfileNameFields
+              profile={profile}
+              editingName={editingName}
+              nameValue={nameValue}
+              setNameValue={setNameValue}
+              startEditName={handleStartEditName}
+              saveName={handleSaveName}
+              stopEditingName={stopEditingName}
+              isSavingName={isSavingName}
+              nameError={nameError}
+              editingPreferredName={editingPreferredName}
+              preferredNameValue={preferredNameValue}
+              setPreferredNameValue={setPreferredNameValue}
+              startEditPreferredName={handleStartEditPreferredName}
+              savePreferredName={handleSavePreferredName}
+              stopEditingPreferredName={stopEditingPreferredName}
+              isSavingPreferredName={isSavingPreferredName}
+              preferredNameError={preferredNameError}
+            />
+          </div>
+        ) : null}
       </div>
     </div>
-    </>
   );
 }
 
