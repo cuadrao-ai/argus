@@ -212,20 +212,8 @@ function ProfileDeleteRequestDialogSurface({
             ) : (
               <>
                 <p className={bodyText} data-testid="delete-account-allowed">
-                  {isBusiness
-                    ? t("settings.profile.request_deletion.body", "We delete your account and your personal data. This can't be undone.")
-                    : t("settings.profile.request_deletion.body_personal", "Your account and your data will be deleted, and this can't be undone. Households you run pass to the longest-standing member, or close if you're the only one.")}
+                  {t("settings.profile.request_deletion.body", "We delete your account and your personal data. This can't be undone.")}
                 </p>
-                {/* The personal app's shared plans; Business has none. */}
-                {isBusiness ? null : <p
-                  className={`mt-2 ${bodyText}`}
-                  data-testid="argus-delete-account-shared-plans"
-                >
-                  {t(
-                    "settings.profile.request_deletion.shared_plans",
-                    "In plans you share, your amounts stay so everyone else's numbers still add up, but without your name: you'll show as \"Former member.\" Your receipts and notes are deleted. Anything you owe or are owed is closed in the app, not marked as paid. Plans you created pass to whoever has been in each one longest, except shared debt plans, which are closed and stay view-only.",
-                  )}
-                </p>}
                 {/* The server names the date; the web only formats it for the reader. */}
                 {notices.map(notice => (
                   <p key={notice.business_id} className={`mt-[13px] ${bodyText}`} data-testid="delete-account-closed-business">

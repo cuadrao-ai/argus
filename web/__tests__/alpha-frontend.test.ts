@@ -2523,7 +2523,7 @@ describe("Argus Alpha frontend contract", () => {
     expect(en).toContain('"body": "We delete your account and your personal data. This can\'t be undone."');
     expect(en).toContain("Your account is deleted. You're signed out.");
     expect(en).toContain("Your account is being deleted. You're signed out now");
-    expect(en).toContain('show as \\"Former member.\\"');
+    expect(en).not.toContain('"shared_plans"');
     expect(en).not.toContain("Support will follow up by email.");
     expect(es).toContain('"title": "¿Eliminar tu cuenta?"');
     expect(es).toContain(

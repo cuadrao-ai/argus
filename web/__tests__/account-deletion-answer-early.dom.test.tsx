@@ -86,13 +86,14 @@ test("a check that could not run shows its reference and Reintentar, never Elimi
   assert.equal(retried, 1);
 });
 
-test("Personal keeps its household wording and a neutral checking line; Business keeps its own", async () => {
+test("the approved body shows everywhere; outside a Business the checking line is neutral", async () => {
   const { default: Dialog } = await import("@/components/sidebar/ProfileDeleteRequestDialog");
   const allowed = { answer: { allowed: true as const, blockers: [] as [], notices: [] }, error: null, refresh: () => undefined };
   const waiting = { answer: null, error: null, refresh: () => undefined };
   for (const business of [false, true]) {
     await mount(<Dialog check={allowed} state="idle" supportMailto="mailto:support@example.test" onClose={() => undefined} onSubmit={() => undefined} />, business);
-    assert.equal(document.querySelector('[data-testid="delete-account-allowed"]')?.textContent, business ? copy.body : copy.body_personal);
+    assert.equal(document.querySelector('[data-testid="delete-account-allowed"]')?.textContent, copy.body);
+    assert.equal(document.body.textContent?.includes("Exmiembro"), false);
     for (const cleanup of cleanups.splice(0)) await cleanup();
     document.body.innerHTML = "";
     await mount(<Dialog check={waiting} state="idle" supportMailto="mailto:support@example.test" onClose={() => undefined} onSubmit={() => undefined} />, business);
@@ -100,5 +101,4 @@ test("Personal keeps its household wording and a neutral checking line; Business
     for (const cleanup of cleanups.splice(0)) await cleanup();
     document.body.innerHTML = "";
   }
-  assert.ok(copy.body_personal.includes("hogares"), "Personal gets back its household sentence");
 });
