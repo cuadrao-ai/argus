@@ -155,17 +155,10 @@ jobs:
           printf '  %s\n' "${docs_tests[@]}"
           poetry run pytest "${docs_tests[@]}" -q --no-cov
 
-  backend-shards:
+  backend-checks:
     runs-on: ubuntu-latest
     needs: docs-change-gate
     if: (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false) || (github.event_name == 'workflow_dispatch' && inputs.full_run)) && needs.docs-change-gate.outputs.run_heavy == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [0, 1]
-    env:
-      CI_SHARD_INDEX: ${{ matrix.shard }}
-      CI_SHARD_COUNT: "2"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -195,17 +188,14 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y poppler-utils
 
       - name: Lint backend, tests, scripts, and workflows
-        if: matrix.shard == 0
         run: poetry run ruff check src tests workflows scripts
 
       - name: Publish message and stream shapes
-        if: matrix.shard == 0
         run: |
           python scripts/publish_message_stream_shapes.py
           git diff --exit-code -- docs/message-and-stream-shapes.md
 
       - name: Check modularity budget
-        if: matrix.shard == 0
         run: poetry run python scripts/check_modularity_budget.py
 
       # Directory-level so new test files are gated without editing this workflow.
@@ -213,55 +203,14 @@ jobs:
         run: >-
           poetry run pytest tests -q --no-cov
           -p scripts.ci.pytest_inventory
-          --ci-inventory=temp/ci-inventory/backend-${CI_SHARD_INDEX}.json
-          --ci-shard-index "${CI_SHARD_INDEX}" --ci-shard-count "${CI_SHARD_COUNT}"
-          --ci-timings=scripts/ci/timings/backend.generated.json
+          --ci-inventory=temp/ci-inventory/backend.json
 
       - name: Retain backend test inventory and timings
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ci-inventory-backend-${{ github.run_id }}-${{ matrix.shard }}
+          name: ci-inventory-backend-${{ github.run_id }}-${{ github.run_attempt }}
           path: temp/ci-inventory/*.json
-          overwrite: true
-          if-no-files-found: error
-          retention-days: 14
-
-  backend-checks:
-    runs-on: ubuntu-latest
-    needs: [docs-change-gate, backend-shards]
-    if: always() && (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false) || (github.event_name == 'workflow_dispatch' && inputs.full_run)) && needs.docs-change-gate.outputs.run_heavy == 'true'
-    steps:
-      - name: Require every backend shard
-        env:
-          SHARDS_RESULT: ${{ needs.backend-shards.result }}
-        run: test "$SHARDS_RESULT" = success
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
-      - name: Download backend inventories
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          pattern: ci-inventory-backend-${{ github.run_id }}-*
-          path: temp/ci-inventory
-          merge-multiple: true
-
-      - name: Prove backend test union
-        run: >-
-          python scripts/ci/test_shards.py temp/ci-inventory/backend-*.json
-          --output temp/ci-proof/backend.json
-
-      - name: Retain backend union proof
-        uses: actions/upload-artifact@v4
-        with:
-          name: ci-proof-backend-${{ github.run_id }}-${{ github.run_attempt }}
-          path: temp/ci-proof/backend.json
           if-no-files-found: error
           retention-days: 14
 
@@ -373,7 +322,7 @@ jobs:
   # is gated after merge. The start skips the Supabase containers no test here
   # reads. Formerly named guest-release-gates; no branch setting requires
   # either name.
-  database-shards:
+  database-checks:
     runs-on: ubuntu-latest
     needs: docs-change-gate
     if: (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false) || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && needs.docs-change-gate.outputs.run_heavy == 'true'
@@ -383,11 +332,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2]
         supabase-cli: ${{ fromJSON(github.event_name == 'pull_request' && '["pinned"]' || ((github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.full_run)) && '["latest"]' || '["pinned", "latest"]')) }}
     env:
-      CI_SHARD_INDEX: ${{ matrix.shard }}
-      CI_SHARD_COUNT: "3"
       OPENROUTER_API_KEY: ""
       ALPACA_API_KEY: ""
       ALPACA_SECRET_KEY: ""
@@ -481,15 +427,13 @@ jobs:
             "${files[@]}" \
             --junitxml=temp/guest-postgres-junit.xml \
             -p scripts.ci.pytest_inventory \
-            --ci-inventory=temp/ci-inventory/postgres-${CI_SHARD_INDEX}.json \
-            --ci-shard-index "${CI_SHARD_INDEX}" --ci-shard-count "${CI_SHARD_COUNT}" \
-            --ci-timings=scripts/ci/timings/postgres.generated.json \
+            --ci-inventory=temp/ci-inventory/postgres.json \
             -q --no-cov
           poetry run python scripts/qa/assert_pytest_gate.py \
             temp/guest-postgres-junit.xml
 
       - name: Run required local anonymous Auth matrix
-        if: matrix.supabase-cli == 'pinned' && matrix.shard == 0
+        if: matrix.supabase-cli == 'pinned'
         run: |
           poetry run pytest \
             tests/test_guest_auth_local_supabase.py \
@@ -504,57 +448,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ci-inventory-database-${{ matrix.supabase-cli }}-${{ github.run_id }}-${{ matrix.shard }}
+          name: ci-inventory-database-${{ matrix.supabase-cli }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: temp/ci-inventory/*.json
-          overwrite: true
-          if-no-files-found: error
-          retention-days: 14
-
-  database-checks:
-    runs-on: ubuntu-latest
-    needs: [docs-change-gate, database-shards]
-    if: always() && (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false) || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && needs.docs-change-gate.outputs.run_heavy == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        supabase-cli: ${{ fromJSON(github.event_name == 'pull_request' && '["pinned"]' || ((github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.full_run)) && '["latest"]' || '["pinned", "latest"]')) }}
-    steps:
-      - name: Require every database shard
-        env:
-          SHARDS_RESULT: ${{ needs.database-shards.result }}
-        run: test "$SHARDS_RESULT" = success
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
-      - name: Download database inventories
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          pattern: ci-inventory-database-${{ matrix.supabase-cli }}-${{ github.run_id }}-*
-          path: temp/ci-inventory
-          merge-multiple: true
-
-      - name: Prove database test union
-        run: >-
-          python scripts/ci/test_shards.py temp/ci-inventory/postgres-*.json
-          --require-passed --output temp/ci-proof/postgres.json
-
-      - name: Prove anonymous Auth test union
-        if: matrix.supabase-cli == 'pinned'
-        run: >-
-          python scripts/ci/test_shards.py temp/ci-inventory/auth.json
-          --require-passed --output temp/ci-proof/auth.json
-
-      - name: Retain database union proof
-        uses: actions/upload-artifact@v4
-        with:
-          name: ci-proof-database-${{ matrix.supabase-cli }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: temp/ci-proof/*.json
           if-no-files-found: error
           retention-days: 14
 
