@@ -36,6 +36,7 @@ from argus.domain.business.contracts.facts import (
     BusinessResolution,
     Known,
 )
+from argus.domain.business.document_type import kind_disagrees
 from argus.domain.business.duplicates import pending_duplicates
 from argus.domain.business.purchase_review import (
     takes_payment_split,
@@ -235,6 +236,10 @@ def workflow_blockers(
 ) -> tuple[list[Blocker], tuple[str, ...]]:
     """Shared fact, question and duplicate readiness, independent of reader role."""
     blocked = blockers(facts, accounts)
+    if event.state == "open" and kind_disagrees(
+        (event.resolution.get("business") or {}).get("document_type", "recibo"), facts
+    ):
+        blocked.append(Blocker(code="activity_kind_unsupported", field="kind"))
     if any(
         q.state in {"open", "owner_does_not_know", "waiting_for_window"}
         for q in questions
