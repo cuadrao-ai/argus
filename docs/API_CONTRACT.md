@@ -1074,7 +1074,12 @@ Application-facing user object.
   welcome. Null or absent means surfaces use no name, which needs no special
   handling.
   - Stated, never inferred. It is a setting; nothing derives it from
-    conversation, and no runtime writes it.
+    conversation. The one runtime write is at first profile creation: when the
+    person typed a name at sign-up, `preferred_name` starts as the first word of
+    it (whitespace separated, at most 40 characters, otherwise left empty). That
+    write happens once and never touches an existing row, so a name the person
+    chose, changed or cleared is never overwritten. Guests, and sign-ins that
+    carry no typed name such as Apple, start with it empty.
   - Bounded at 40 characters. Blank or whitespace clears it, which is how a user
     opts out after opting in.
   - A registered-account preference. Guest responses omit it entirely, and the

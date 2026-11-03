@@ -317,8 +317,11 @@ product behavior reads it, and no API path writes it.
 - `preferred_name` is what Argus calls the user when it addresses them, and
   it is deliberately separate from `display_name`: people fill an identity
   field with a legal name. It is optional, and null means surfaces use no
-  name. It is stated in settings and never inferred from conversation, so no
-  runtime path writes it. A registered-account preference: restrictive
+  name. It is stated and never inferred from conversation. The only runtime
+  write is the profile insert at first creation, which sets it to the first
+  word of the name typed at sign-up when there is one (`get_or_create_profile_for_auth_user`);
+  an existing row is never written by it, so clearing the name stays an opt-out.
+  A registered-account preference: restrictive
   policies read the trusted `is_anonymous` JWT claim to keep it off the guest
   surface, because anonymous Auth users share the `authenticated` role.
 - `country` is where the user lives. It is chosen in Settings and never
