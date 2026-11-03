@@ -63,7 +63,7 @@ test.skipIf(spanishShipped)("the settings switch is proven in a child run with S
   assert.match(output, / 0 fail/, output);
 });
 
-test.skipIf(!spanishShipped)("Preferencias > Idioma offers English, saves it on the account and shows it at once without a reload", async () => {
+test.skipIf(!spanishShipped)("Ajustes > Idioma offers English, saves it on the account and shows it at once without a reload", async () => {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { ChatWorkspaceProvider } = await import("@/components/chat/ChatWorkspace");
@@ -89,7 +89,7 @@ test.skipIf(!spanishShipped)("Preferencias > Idioma offers English, saves it on 
   cleanups.push(() => act(async () => root.unmount()));
   await settle(act);
 
-  await act(async () => button("Preferencias")!.click());
+  await act(async () => button("Ajustes")!.click());
   await act(async () => button("Idioma de la app")!.click());
   const englishChoice = button("English");
   assert.ok(englishChoice, "the language panel offers English on Business");
@@ -111,7 +111,7 @@ test.skipIf(!spanishShipped)("Preferencias > Idioma offers English, saves it on 
     assert.equal(i18n.language, "es-419", "consumer account precedence stays unchanged");
     await act(async () => { await i18n.changeLanguage("en"); });
   }
-  assert.ok(button("Preferences"), "the menu reads in English right after the save");
-  assert.equal(button("Preferencias"), undefined);
+  assert.ok(button("App language"), "Ajustes stays open and reads in English right after the save");
+  assert.equal(button("Idioma de la app"), undefined);
   assert.equal(window.navigator.language, "en-US");
 });

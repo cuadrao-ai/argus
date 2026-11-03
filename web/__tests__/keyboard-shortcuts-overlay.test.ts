@@ -112,11 +112,8 @@ describe("keyboard shortcuts overlay", () => {
       "isMenuOpen || isTriggerFocused || !quickJumpHint",
     );
     expect(profileMenu).toContain("!isQuickJumpActive && (");
-    expect(profileMenu).toContain("min-w-[304px]");
-    expect(profileMenu).toContain("h-[294px]");
-    expect(profileMenu).toContain("min-h-[88px]");
-    expect(profileMenu).toContain("h-[22px] w-full");
-    expect(profileMenu.match(/min-w-\[248px\]/g)).toHaveLength(3);
+    // Ayuda y legal is the one submenu left; Ajustes holds the rest.
+    expect(profileMenu.match(/min-w-\[248px\]/g)).toHaveLength(1);
     expect(profileMenu).toContain("min-h-[38px]");
     expect(profileMenu).toContain("keyboard_shortcuts.menu_item");
     expect(profileMenu).not.toContain('href="/terms"');

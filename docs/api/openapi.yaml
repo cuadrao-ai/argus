@@ -97,6 +97,49 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/account/deletion:
+    get:
+      tags:
+      - account
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDeletionEligibilityResponse'
+        '401':
+          description: No valid session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: '`not_found`: `CUADRAO_ACCOUNT_DELETION_ENABLED` is off; answered before
+            any session check.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: '`too_many_requests`: six requests per account per minute; see Retry-After.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: '`account_deletion_unavailable`: the check could not be made; retry.
+            `auth_session_verification_unavailable`: the session could not be verified; retry.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/auth/access-requests:
     post:
       tags:
@@ -15634,6 +15677,30 @@ components:
       - bank_account_id
       - currency
       - covered_through
+    AccountDeletionEligibilityResponse:
+      properties:
+        allowed:
+          type: boolean
+        blockers:
+          items:
+            oneOf:
+            - $ref: '#/components/schemas/BusinessOwnerBlocker'
+            - $ref: '#/components/schemas/NotAllowedBlocker'
+            discriminator:
+              propertyName: kind
+              mapping:
+                business_owner: '#/components/schemas/BusinessOwnerBlocker'
+                not_allowed: '#/components/schemas/NotAllowedBlocker'
+          type: array
+        notices:
+          items:
+            $ref: '#/components/schemas/ClosedBusinessNotice'
+          type: array
+      type: object
+      required:
+      - allowed
+      - blockers
+      - notices
     AccountDeletionRequest:
       properties:
         confirm:
@@ -18377,6 +18444,20 @@ components:
       - bandeja_attention_count
       - last_received_at
       - last_confirmed_at
+    BusinessOwnerBlocker:
+      properties:
+        kind:
+          type: string
+          const: business_owner
+        business_id:
+          type: string
+        business_name:
+          type: string
+      type: object
+      required:
+      - kind
+      - business_id
+      - business_name
     BusinessProfile:
       properties:
         space_id:
@@ -18898,6 +18979,24 @@ components:
       - code
       - activity_id
       - document_kind
+    ClosedBusinessNotice:
+      properties:
+        kind:
+          type: string
+          const: closed_business
+        business_id:
+          type: string
+        business_name:
+          type: string
+        purge_at:
+          type: string
+          format: date-time
+      type: object
+      required:
+      - kind
+      - business_id
+      - business_name
+      - purge_at
     ClosedBusinesses:
       properties:
         spaces:
@@ -27010,6 +27109,14 @@ components:
       - beta
       - household
       - group_links
+    NotAllowedBlocker:
+      properties:
+        kind:
+          type: string
+          const: not_allowed
+      type: object
+      required:
+      - kind
     NoteResponse:
       properties:
         result:

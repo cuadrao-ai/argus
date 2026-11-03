@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import { pageInset } from "./support/page-inset";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost" });
@@ -33,29 +34,27 @@ test("existing AdaptivePanel consumers keep their width, close control and no ex
   const page = await mount(false);
   const panel = document.querySelector<HTMLElement>('[data-testid="side-drawer"]')!;
   assert.equal(panel.style.minWidth, "320px");
-  assert.equal(document.documentElement.style.getPropertyValue("--cuadrao-drawer-space"), "560px");
+  assert.equal(pageInset(), "0px");
   assert.equal(panel.getAttribute("role"), "dialog");
   assert.equal(panel.querySelector('[aria-label="Expand"]'), null);
   await page.act(async () => { (panel.querySelector('[aria-label="Close"]') as HTMLButtonElement).click(); });
   assert.equal(page.closeCount(), 1);
   await page.unmount();
-  assert.equal(document.documentElement.style.getPropertyValue("--cuadrao-drawer-space"), "");
 });
 
-test("opt-in expansion preserves draft DOM, focus and the workspace's normal width claim", async () => {
+test("opt-in expansion preserves draft DOM, focus and the page's width", async () => {
   const page = await mount(true);
   const input = document.querySelector<HTMLInputElement>('input[aria-label="Draft"]')!;
   input.value = "Unsaved changes";
   const control = document.querySelector<HTMLButtonElement>('[aria-label="Expand"]')!;
   control.focus();
-  const claim = document.documentElement.style.getPropertyValue("--cuadrao-drawer-space");
   await page.act(async () => control.click());
   assert.equal(document.querySelector<HTMLElement>('[data-testid="side-drawer"]')!.style.minWidth, "720px");
   assert.equal(document.querySelector('[data-testid="side-drawer"]')!.getAttribute("data-expanded"), "true");
   assert.equal(document.querySelector('input[aria-label="Draft"]'), input);
   assert.equal(input.value, "Unsaved changes");
   assert.equal(document.activeElement, control);
-  assert.equal(document.documentElement.style.getPropertyValue("--cuadrao-drawer-space"), claim);
+  assert.equal(pageInset(), "0px");
   await page.act(async () => control.click());
   assert.equal(document.querySelector('input[aria-label="Draft"]'), input);
   assert.equal(input.value, "Unsaved changes");
@@ -67,7 +66,6 @@ test("phone remains one full sheet and never gets a desktop expansion control", 
   assert.equal(document.querySelector('[data-testid="side-drawer"]'), null);
   assert.equal(document.querySelector('[aria-label="Expand"]'), null);
   assert.ok(document.querySelector('input[aria-label="Draft"]'));
-  assert.equal(document.documentElement.style.getPropertyValue("--cuadrao-drawer-space"), "");
   await page.unmount();
 });
 

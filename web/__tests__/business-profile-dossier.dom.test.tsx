@@ -4,6 +4,7 @@ import {act} from "react";
 import {createRoot} from "react-dom/client";
 import i18next from "i18next";
 import {I18nextProvider} from "react-i18next";
+import {pageInset} from "./support/page-inset";
 import type {BusinessContextValue} from "../components/business-app/BusinessWorkspace";
 
 beforeAll(()=>{GlobalRegistrator.register({url:"http://localhost/biz",settings:{navigation:{disableChildFrameNavigation:true}}});(globalThis as {IS_REACT_ACT_ENVIRONMENT?:boolean}).IS_REACT_ACT_ENVIRONMENT=true;});
@@ -48,7 +49,7 @@ test("overview opens the shared non-modal right dossier, hides the checklist and
     expect(document.querySelectorAll("#profile-section-dossier")).toHaveLength(1);
     const drawer=document.querySelector('[data-testid="side-drawer"]')!;expect(drawer.getAttribute("role")).toBe("region");expect(drawer.getAttribute("aria-modal")).toBeNull();
     expect(drawer.querySelector("#profile-section-dossier")).not.toBeNull();expect(page.host.querySelector("#profile-section-dossier")).toBeNull();
-    expect(document.documentElement.style.getPropertyValue("--cuadrao-drawer-space")).not.toBe("");
+    expect(pageInset()).toBe("0px");
     await page.click(document.querySelector<HTMLButtonElement>('[aria-label="Cerrar"]')!);
     expect(page.host.querySelector("#profile-next-title")).not.toBeNull();expect(page.host.querySelector("input")).toBeNull();
     await act(async()=>new Promise(resolve=>requestAnimationFrame(resolve)));expect(document.activeElement).toBe(page.host.querySelector('[data-profile-checklist="name"]'));
