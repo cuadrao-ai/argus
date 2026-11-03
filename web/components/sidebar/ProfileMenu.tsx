@@ -55,7 +55,6 @@ import { type ApiUser } from "@/lib/argus-api";
 import {
   readProfile,
   saveProfile,
-  saveProfileLanguage,
 } from "@/lib/profile-writes";
 import {
   DISPLAY_NAME_MAX_LENGTH,
@@ -70,7 +69,6 @@ import {
   type AvatarTheme,
 } from "@/lib/avatar-theme";
 import {
-  languageDisplayAbbreviation,
   localeForLanguage,
   normalizeEnabledLanguage,
 } from "@/lib/language-features";
@@ -160,7 +158,6 @@ export default function ProfileMenu({
   }, [isOpen, placement, anchorRef]);
   const menuOverlayId = useId();
   const menuRef = useRef<HTMLDivElement>(null);
-  const languagePickerRef = useRef<HTMLDivElement>(null);
   const avatarTriggerRef = useRef<HTMLButtonElement>(null);
   const deleteAccountRef = useRef<HTMLButtonElement>(null);
   const avatarThemeDrawerRef = useRef<HTMLDivElement>(null);
@@ -208,9 +205,6 @@ export default function ProfileMenu({
   const [preferredNameError, setPreferredNameError] = useState<string | null>(
     null,
   );
-  const [isLanguagePickerOpen, setIsLanguagePickerOpen] = useState(false);
-  const [isSavingLanguage, setIsSavingLanguage] = useState(false);
-  const [languageError, setLanguageError] = useState<string | null>(null);
   const [isSavingAvatarTheme, setIsSavingAvatarTheme] = useState(false);
   const [avatarThemeError, setAvatarThemeError] = useState<string | null>(null);
   const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
@@ -296,7 +290,6 @@ export default function ProfileMenu({
     if (isOpen) {
       setNameError(null);
       setPreferredNameError(null);
-      setLanguageError(null);
       // Queued too, so it cannot snapshot a row before a pending write and
       // answer after it.
       readProfile()
@@ -378,13 +371,17 @@ export default function ProfileMenu({
   /*
    * Escape inside the Profile dialog, which registers its own layer.
    *
-   * The pickers inside it are nested state rather than layers of their own, so
-   * the registry cannot see them. Defaulting Escape to onDismiss threw the
-   * whole dialog away while a picker was open.
+   * A name edit and the avatar picker inside it are nested state rather than
+   * layers of their own, so the registry cannot see them. Defaulting Escape to
+   * onDismiss threw the whole dialog away while one was open.
    */
   const handleProfileModalEscape = useCallback(() => {
-    if (isLanguagePickerOpen) {
-      setIsLanguagePickerOpen(false);
+    if (editingName) {
+      stopEditingName();
+      return;
+    }
+    if (editingPreferredName) {
+      stopEditingPreferredName();
       return;
     }
     if (isAvatarPickerOpen) {
@@ -405,22 +402,14 @@ export default function ProfileMenu({
     closeAvatarPicker,
     closeProfileModal,
     deleteRequestState,
+    editingName,
+    editingPreferredName,
     isAvatarPickerOpen,
     isDeleteRequestOpen,
-    isLanguagePickerOpen,
     onLogout,
+    stopEditingName,
+    stopEditingPreferredName,
   ]);
-
-
-  useEffect(() => {
-    if (!isLanguagePickerOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (languagePickerRef.current?.contains(e.target as Node)) return;
-      setIsLanguagePickerOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [isLanguagePickerOpen]);
 
   // Submenu hover with delay and guard
   const [canOpenSubmenu, setCanOpenSubmenu] = useState(false);
@@ -615,8 +604,6 @@ export default function ProfileMenu({
   const currentLanguage = normalizeEnabledLanguage(
     profile?.language ?? i18n.language,
   );
-  const currentLanguageAbbreviation =
-    languageDisplayAbbreviation(currentLanguage);
   const avatarClassName =
     accountKind === "registered"
       ? avatarThemeClassName(profile?.avatar_theme)
@@ -625,35 +612,6 @@ export default function ProfileMenu({
     accountKind === "registered"
       ? avatarThemeStyle(profile?.avatar_theme)
       : undefined;
-  const handleLanguageSelect = useCallback(
-    async (code: string) => {
-      if (isSavingLanguage) return;
-
-      const session = editSessionRef.current;
-      setIsSavingLanguage(true);
-      setLanguageError(null);
-      const saved = await saveProfileLanguage(i18n, code, {
-        onShown: (language) =>
-          setProfile((current) =>
-            current
-              ? { ...current, language, locale: localeForLanguage(language) }
-              : current,
-          ),
-        onSaved: applyPatchedProfile,
-      });
-      setIsSavingLanguage(false);
-      if (!isCurrentEditSession(session)) return;
-      if (saved) {
-        setIsLanguagePickerOpen(false);
-        return;
-      }
-      setLanguageError(
-        t("settings.profile.language_save_error", "Could not update language yet."),
-      );
-    },
-    [applyPatchedProfile, i18n, isCurrentEditSession, isSavingLanguage, t],
-  );
-
   const handleAvatarThemeSelect = useCallback(
     async (avatarTheme: AvatarTheme) => {
       if (!profile || accountKind !== "registered" || isSavingAvatarTheme) return;
@@ -943,14 +901,6 @@ export default function ProfileMenu({
         handleSavePreferredName={handleSavePreferredName}
         isSavingPreferredName={isSavingPreferredName}
         preferredNameError={preferredNameError}
-        languagePickerRef={languagePickerRef}
-        isLanguagePickerOpen={isLanguagePickerOpen}
-        setIsLanguagePickerOpen={setIsLanguagePickerOpen}
-        currentLanguage={currentLanguage}
-        currentLanguageAbbreviation={currentLanguageAbbreviation}
-        handleLanguageSelect={handleLanguageSelect}
-        isSavingLanguage={isSavingLanguage}
-        languageError={languageError}
       />
     );
   }
