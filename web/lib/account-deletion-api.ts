@@ -54,7 +54,7 @@ function noticesFrom(raw: unknown): AccountDeletionNotice[] {
   );
 }
 
-/** Reads `GET /account/deletion`. Throws on anything but an answer or a 404. */
+/** Reads `GET /account/deletion`. Throws on anything but an answer, a 404 or the 503 that means the check could not run. */
 export async function getAccountDeletionEligibility(): Promise<AccountDeletionEligibility> {
   try {
     const raw = await apiFetch<{ allowed?: unknown; blockers?: unknown; notices?: unknown }>("/account/deletion");
@@ -63,7 +63,10 @@ export async function getAccountDeletionEligibility(): Promise<AccountDeletionEl
     if (raw.allowed === true && blockers.length === 0) return { allowed: true, blockers: [], notices };
     return { allowed: false, blockers: blockers.length ? blockers : [{ kind: "not_allowed" }], notices };
   } catch (err) {
-    if ((err as { status?: number }).status === 404) return { off: true };
+    const { status, code } = err as { status?: number; code?: string };
+    if (status === 404) return { off: true };
+    // The server could not run the check: it never says yes then, so neither does the alert.
+    if (status === 503 && code === "account_deletion_unavailable") return { allowed: false, blockers: [{ kind: "not_allowed" }], notices: [] };
     throw err;
   }
 }
