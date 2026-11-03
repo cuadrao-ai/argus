@@ -1,0 +1,24 @@
+/* Ajustes moves in place: a section fades in; on a phone it pushes over the list.
+   Under 250ms, ease out, transform and opacity only; reduced motion is a fade. */
+
+.pane {
+  animation: fade 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.push {
+  animation: push 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes fade {
+  from { opacity: 0; }
+}
+
+@keyframes push {
+  from { transform: translateX(32%); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .push {
+    animation: fade 160ms ease-out;
+  }
+}

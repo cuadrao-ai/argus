@@ -990,7 +990,8 @@
       "title": "Profile",
       "request_deletion": {
         "title": "Delete your account?",
-        "body": "Your account and your data will be deleted, and this can't be undone. Households you run pass to the longest-standing member, or close if you're the only one.",
+        "body": "We delete your account and your personal data. This can't be undone.",
+        "business_owner": "Before you delete your account, each Business you own needs a new owner or must be closed.",
         "shared_plans": "In plans you share, your amounts stay so everyone else's numbers still add up, but without your name: you'll show as \"Former member.\" Your receipts and notes are deleted. Anything you owe or are owed is closed in the app, not marked as paid. Plans you created pass to whoever has been in each one longest, except shared debt plans, which are closed and stay view-only.",
         "confirm": "Delete account",
         "submitting": "Deleting...",

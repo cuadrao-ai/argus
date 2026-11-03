@@ -3,15 +3,17 @@
 import { withViewportPortal } from "@/components/ui/withViewportPortal";
 
 import { useCallback, useEffect, useId, useRef, useState, type RefObject } from "react";
-import BusinessOwnershipDeletionBlock, { useBusinessOwnershipCopy, type SolelyOwnedBusiness } from "@/components/business-app/BusinessOwnershipDeletionBlock";
-import { getBusinessDirectory, getBusinessSpaces, type ClosedGrantedSpace } from "@/lib/business-api";
+import { dangerConfirmButtonClass, quietButtonClass, secondaryButtonClass } from "@/components/business-app/business-ui";
+import { getAccountDeletionEligibility, type AccountDeletionEligibility } from "@/lib/account-deletion-api";
+import { previewDeletionEligibility, previewLifecycleControls } from "@/lib/account-deletion-preview";
 import { businessDeadlineParts, businessLifecycleHref } from "@/lib/business-lifecycle-api";
 import { browserAuthGeneration } from "@/lib/browser-auth-generation";
 import { serverRequestReference } from "@/lib/failure-screen";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
-import { businessPilotEnabled } from "@/lib/private-alpha-flags";
+import { businessLifecycleControlsEnabled } from "@/lib/private-alpha-flags";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useConversationSurface } from "@/components/chat/ChatWorkspace";
 import { useModalSurface } from "../layout/useModalSurface";
 
 /**
@@ -24,6 +26,10 @@ import { useModalSurface } from "../layout/useModalSurface";
  * command is switched off on this server (404), support gets a ticket instead
  * (requested), or by email if that fails too, so the confirmation never says
  * the account is deleted "now".
+ *
+ * Before it offers Eliminar it asks the server whether this account may be
+ * deleted, and renders only that answer: the web never works out ownership.
+ * An open Business the person owns blocks it, named one by one.
  *
  * It portals to the body, outside the menu it opens from, so the menu's focus
  * trap never contained it and system back dismissed the menu or the drawer
@@ -46,38 +52,41 @@ function ProfileDeleteRequestDialogSurface({
   onClose,
   onSubmit,
   returnFocusRef,
-  discoverBusinesses,
-  discoverDirectory = !discoverBusinesses && businessPilotEnabled ? getBusinessDirectory : undefined,
+  readEligibility,
+  lifecycleControls = previewLifecycleControls() ?? businessLifecycleControlsEnabled(),
 }: {
   state: DeleteRequestState;
   supportMailto: string;
   onClose: () => void;
   onSubmit: () => void | Promise<void>;
   returnFocusRef?: RefObject<HTMLElement | null>;
-  discoverBusinesses?: typeof getBusinessSpaces;
-  discoverDirectory?: typeof getBusinessDirectory;
+  /** The server's delete rule; a test or the sample preview passes its own. */
+  readEligibility?: () => Promise<AccountDeletionEligibility>;
+  /** Whether Transferir and Cerrar exist to link to. */
+  lifecycleControls?: boolean;
 }) {
   const { t, i18n } = useTranslation();
-  const ownershipCopy = useBusinessOwnershipCopy();
-  const hasDiscovery = Boolean(discoverBusinesses || discoverDirectory);
-  const [businesses, setBusinesses] = useState<SolelyOwnedBusiness[] | null>(hasDiscovery ? null : []);
-  const [closedBusinesses, setClosedBusinesses] = useState<ClosedGrantedSpace[]>([]);
-  const [businessError, setBusinessError] = useState<{ reference: string | null } | null>(null);
-  const [discoveryAttempt, setDiscoveryAttempt] = useState(0);
+  const isBusiness = useConversationSurface() === "business";
+  const [eligibility, setEligibility] = useState<AccountDeletionEligibility | null>(null);
+  const [readError, setReadError] = useState<{ reference: string | null } | null>(null);
+  const [readAttempt, setReadAttempt] = useState(0);
+  // Chosen once per open, so a new function each render never restarts the read.
+  const [read] = useState(() => readEligibility ?? previewDeletionEligibility() ?? getAccountDeletionEligibility);
   useEffect(() => {
-    if (!discoverBusinesses && !discoverDirectory) return;
     let active = true;
     const generation = browserAuthGeneration();
-    setBusinesses(null); setClosedBusinesses([]); setBusinessError(null);
-    const discovery = discoverDirectory ? discoverDirectory() : discoverBusinesses!().then(spaces => ({ spaces, closed_spaces: [] }));
-    void discovery.then(directory => {
-      if (!active || browserAuthGeneration() !== generation) return;
-      setBusinesses(directory.spaces.filter(space => space.role === "owner").map(space => ({ id: space.space_id, name: space.name, transferHref: businessLifecycleHref(space.space_id, "transfer"), closeHref: businessLifecycleHref(space.space_id, "close") })));
-      setClosedBusinesses(directory.closed_spaces.filter(space => space.role === "owner"));
-    }).catch(error => { if (active && browserAuthGeneration() === generation) setBusinessError({ reference: serverRequestReference(error) }); });
+    setEligibility(null); setReadError(null);
+    void read().then(answer => {
+      if (active && browserAuthGeneration() === generation) setEligibility(answer);
+    }).catch(error => { if (active && browserAuthGeneration() === generation) setReadError({ reference: serverRequestReference(error) }); });
     return () => { active = false; };
-  }, [discoverBusinesses, discoverDirectory, discoveryAttempt]);
-  const businessBlocked = businesses === null || businesses.length > 0;
+  }, [read, readAttempt]);
+  // Off here (404) keeps the old path: the button files a support request.
+  const allowed = eligibility !== null && ("off" in eligibility || eligibility.allowed);
+  const blockers = eligibility && "blockers" in eligibility && !eligibility.allowed ? eligibility.blockers : [];
+  const ownedBusinesses = blockers.flatMap(blocker => blocker.kind === "business_owner" ? [blocker] : []);
+  const notAllowed = blockers.length > 0 && ownedBusinesses.length === 0;
+  const notices = eligibility && "notices" in eligibility ? eligibility.notices : [];
   const overlayId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -103,8 +112,15 @@ function ProfileDeleteRequestDialogSurface({
     },
   });
 
+  const bodyText = "text-[14px] leading-relaxed text-[#56635e] dark:text-white/70";
+  const supportLink = (
+    <a className={`${quietButtonClass} text-[14px]`} href={supportMailto}>
+      {t("settings.profile.request_deletion.email_fallback", "Email support")}
+    </a>
+  );
+
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/25 p-4 backdrop-blur-sm dark:bg-black/60">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4 dark:bg-black/60">
       <button
         tabIndex={-1}
         className="absolute inset-0"
@@ -120,39 +136,26 @@ function ProfileDeleteRequestDialogSurface({
       />
       <div
         ref={panelRef}
-        className="relative max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto overscroll-contain rounded-[18px] border border-black/5 bg-white p-5 dark:border-white/10 dark:bg-[#1b1d20]"
+        className="relative max-h-[calc(100dvh-2rem)] w-full max-w-[420px] overflow-y-auto overscroll-contain rounded-surface border border-[#DCE0DA] bg-white p-6 text-[#172b26] dark:border-white/10 dark:bg-[#1b1d20] dark:text-white"
         role="dialog"
         aria-modal="true"
         aria-labelledby="argus-delete-request-title"
+        data-testid="delete-account-alert"
       >
-        <div className="mb-3 flex items-center justify-between">
-          <h3
-            id="argus-delete-request-title"
-            className="font-display text-[16px] font-medium text-black dark:text-white"
-          >
-            {t(
-              "settings.profile.request_deletion.title",
-              "Delete your account?",
-            )}
-          </h3>
-          <button
-            type="button"
-            onClick={() => onClose()}
-            disabled={state === "submitting"}
-            className="rounded-full p-1.5 hover:bg-black/5 disabled:cursor-wait disabled:opacity-50 dark:hover:bg-white/10"
-            aria-label={t(
-              "settings.profile.request_deletion.close",
-              "Close account deletion",
-            )}
-          >
-            <X className="h-4 w-4 text-black/50 dark:text-white/50" />
-          </button>
-        </div>
+        <h3
+          id="argus-delete-request-title"
+          className="mb-[13px] font-display text-[21px] font-medium"
+        >
+          {t(
+            "settings.profile.request_deletion.title",
+            "Delete your account?",
+          )}
+        </h3>
 
         {state === "success" || state === "in_progress" || state === "requested" ? (
           <>
             <p
-              className="text-[13px] leading-relaxed text-black/55 dark:text-white/55"
+              className={bodyText}
               data-testid={`argus-delete-account-${state}`}
             >
               {state === "success"
@@ -170,98 +173,123 @@ function ProfileDeleteRequestDialogSurface({
                       "Request sent. Support will delete your account and follow up by email.",
                     )}
             </p>
-            <div className="mt-5 flex justify-end">
-              <button
-                type="button"
-                onClick={() => onClose()}
-                className="rounded-md bg-black px-3 py-2 text-[13px] font-medium text-white hover:bg-black/85 dark:bg-white dark:text-black dark:hover:bg-white/85"
-              >
+            <div className="mt-[21px] flex justify-end">
+              <button type="button" onClick={() => onClose()} className={secondaryButtonClass}>
                 {t("common.done", "Done")}
               </button>
             </div>
           </>
         ) : (
           <>
-            {/* General and household lines first, then Iris's locked block
-                (handoff "Copy", item 1) word for word in its own key. Nothing
-                here says "now": with the command off this becomes a support
-                request, and the result says so. */}
-            <p className="text-[13px] leading-relaxed text-black/55 dark:text-white/55">
-              {t(
-                "settings.profile.request_deletion.body",
-                "Your account and your data will be deleted, and this can't be undone. Households you run pass to the longest-standing member, or close if you're the only one.",
-              )}
-            </p>
-            <p
-              className="mt-2 text-[13px] leading-relaxed text-black/55 dark:text-white/55"
-              data-testid="argus-delete-account-shared-plans"
-            >
-              {t(
-                "settings.profile.request_deletion.shared_plans",
-                "In plans you share, your amounts stay so everyone else's numbers still add up, but without your name: you'll show as \"Former member.\" Your receipts and notes are deleted. Anything you owe or are owed is closed in the app, not marked as paid. Plans you created pass to whoever has been in each one longest, except shared debt plans, which are closed and stay view-only.",
-              )}
-            </p>
-            {businesses?.length ? <div className="mt-4"><BusinessOwnershipDeletionBlock businesses={businesses} copy={ownershipCopy} /></div> : null}
-            {businesses === null ? <div className="mt-3 space-y-2 text-[13px]">
-              <p role={businessError ? "alert" : "status"}>{t(businessError ? "business.lifecycle.deletion.failed" : "business.lifecycle.deletion.checking")}</p>
-              {businessError?.reference ? <ReferenceCode reference={businessError.reference} /> : null}
-              {businessError ? <button type="button" className="min-h-11 underline" onClick={() => setDiscoveryAttempt(value => value + 1)}>{t("common.retry")}</button> : null}
-            </div> : null}
-            {businesses?.length ? <p className="mt-3 text-[13px]">{t("business.lifecycle.deletion.blocked")}</p> : null}
-            {closedBusinesses.map(business => <p key={business.space_id} className="mt-3 text-[13px] leading-relaxed">{t("business.lifecycle.deletion.closed_warning", { businessName: business.name, ...businessDeadlineParts(business.reopen_until, i18n.resolvedLanguage ?? "es-419") })}</p>)}
-            {state === "error" && (
-              <p className="mt-3 text-[12px] leading-relaxed text-[#d66d75]">
-                {t(
-                  "settings.profile.request_deletion.error",
-                  "We couldn't delete your account just now. Try again.",
-                )}{" "}
-                <a className="underline" href={supportMailto}>
-                  {t(
-                    "settings.profile.request_deletion.email_fallback",
-                    "Email support",
-                  )}
-                </a>
-              </p>
-            )}
-            {state === "unavailable" && (
-              <p className="mt-3 text-[12px] leading-relaxed text-[#d66d75]">
+            {eligibility === null ? (
+              <div className="space-y-2" data-testid="delete-account-checking">
+                <p role={readError ? "alert" : "status"} className={bodyText}>
+                  {t(readError ? "business.lifecycle.deletion.failed" : "business.lifecycle.deletion.checking")}
+                </p>
+                {readError?.reference ? <ReferenceCode reference={readError.reference} /> : null}
+                {readError ? <button type="button" className={quietButtonClass} onClick={() => setReadAttempt(value => value + 1)}>{t("common.retry")}</button> : null}
+              </div>
+            ) : ownedBusinesses.length ? (
+              <div data-testid="delete-account-business-owner">
+                <p className={bodyText}>
+                  {t("settings.profile.request_deletion.business_owner", "Before you delete your account, each Business you own needs a new owner or must be closed.")}
+                </p>
+                <ul className="mt-[13px] divide-y divide-[#DCE0DA] rounded-item border border-[#DCE0DA] dark:divide-white/10 dark:border-white/10">
+                  {ownedBusinesses.map(business => (
+                    <li key={business.business_id} className="flex flex-wrap items-center justify-between gap-x-3 px-3 py-1">
+                      <span className="py-2 text-[16px] font-medium">{business.business_name}</span>
+                      {lifecycleControls ? (
+                        <span className="flex gap-3">
+                          <a className={`${quietButtonClass} text-[14px]`} href={businessLifecycleHref(business.business_id, "transfer")}>{t("business.lifecycle.transfer.title")}</a>
+                          <a className={`${quietButtonClass} text-[14px]`} href={businessLifecycleHref(business.business_id, "close")}>{t("business.lifecycle.close.action")}</a>
+                        </span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+                {lifecycleControls ? null : <p className="mt-2">{supportLink}</p>}
+              </div>
+            ) : notAllowed ? (
+              <p className={bodyText} data-testid="delete-account-not-allowed">
                 {t(
                   "settings.profile.request_deletion.unavailable",
                   "Deleting in the app isn't available here yet. Support can delete your account for you.",
                 )}{" "}
-                <a className="underline" href={supportMailto}>
+                {supportLink}
+              </p>
+            ) : (
+              <>
+                <p className={bodyText} data-testid="delete-account-allowed">
                   {t(
-                    "settings.profile.request_deletion.email_fallback",
-                    "Email support",
+                    "settings.profile.request_deletion.body",
+                    "We delete your account and your personal data. This can't be undone.",
                   )}
-                </a>
+                </p>
+                {/* The personal app's shared plans; Business has none. */}
+                {isBusiness ? null : <p
+                  className={`mt-2 ${bodyText}`}
+                  data-testid="argus-delete-account-shared-plans"
+                >
+                  {t(
+                    "settings.profile.request_deletion.shared_plans",
+                    "In plans you share, your amounts stay so everyone else's numbers still add up, but without your name: you'll show as \"Former member.\" Your receipts and notes are deleted. Anything you owe or are owed is closed in the app, not marked as paid. Plans you created pass to whoever has been in each one longest, except shared debt plans, which are closed and stay view-only.",
+                  )}
+                </p>}
+                {/* The server names the date; the web only formats it for the reader. */}
+                {notices.map(notice => (
+                  <p key={notice.business_id} className={`mt-[13px] ${bodyText}`} data-testid="delete-account-closed-business">
+                    {t("business.lifecycle.deletion.closed_warning", { businessName: notice.business_name, ...businessDeadlineParts(notice.purge_at, i18n.resolvedLanguage ?? "es-419") })}
+                  </p>
+                ))}
+              </>
+            )}
+            {state === "error" && (
+              <p role="alert" className="mt-3 text-[14px] leading-relaxed text-[#9e2f39] dark:text-[#ec9aa0]">
+                {t(
+                  "settings.profile.request_deletion.error",
+                  "We couldn't delete your account just now. Try again.",
+                )}{" "}
+                {supportLink}
               </p>
             )}
-            <div className="mt-5 flex justify-end gap-2">
+            {state === "unavailable" && (
+              <p role="alert" className="mt-3 text-[14px] leading-relaxed text-[#9e2f39] dark:text-[#ec9aa0]">
+                {t(
+                  "settings.profile.request_deletion.unavailable",
+                  "Deleting in the app isn't available here yet. Support can delete your account for you.",
+                )}{" "}
+                {supportLink}
+              </p>
+            )}
+            <div className="mt-[21px] flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => onClose()}
                 disabled={state === "submitting"}
-                className="rounded-md px-3 py-2 text-[13px] font-medium text-black/55 hover:bg-black/5 disabled:cursor-wait disabled:opacity-50 dark:text-white/55 dark:hover:bg-white/10"
+                className={secondaryButtonClass}
               >
                 {t("common.cancel", "Cancel")}
               </button>
-              <button
-                type="button"
-                onClick={() => { if (!businessBlocked) void onSubmit(); }}
-                disabled={state === "submitting" || state === "unavailable" || businessBlocked}
-                className="rounded-md bg-[#d66d75]/12 px-3 py-2 text-[13px] font-medium text-[#b94c55] hover:bg-[#d66d75]/18 disabled:cursor-wait disabled:opacity-60 dark:text-[#e7a2a8]"
-              >
-                {state === "submitting"
-                  ? t(
-                      "settings.profile.request_deletion.submitting",
-                      "Deleting...",
-                    )
-                  : t(
-                      "settings.profile.request_deletion.confirm",
-                      "Delete account",
-                    )}
-              </button>
+              {/* Only once the server has said yes: never while it is still asking. */}
+              {allowed ? (
+                <button
+                  type="button"
+                  data-testid="delete-account-confirm"
+                  onClick={() => void onSubmit()}
+                  disabled={state === "submitting" || state === "unavailable"}
+                  className={`${dangerConfirmButtonClass} disabled:cursor-wait disabled:opacity-60`}
+                >
+                  {state === "submitting"
+                    ? t(
+                        "settings.profile.request_deletion.submitting",
+                        "Deleting...",
+                      )
+                    : t(
+                        "settings.profile.request_deletion.confirm",
+                        "Delete account",
+                      )}
+                </button>
+              ) : null}
             </div>
           </>
         )}

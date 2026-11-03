@@ -286,7 +286,7 @@ describe("private-alpha usage allowance", () => {
     expect(usageLib).toContain("grounding: OperationClassAllowance;");
     expect(usageLib).toContain("execution: UsageAllowance;");
     expect(usageLib).toContain('limiting_window: "hour" | "day"');
-    expect(profileMenu).toContain('openModal("usage")');
+    expect(profileMenu).toContain("usage: !isBusiness,");
     expect(
       readFileSync(
         join(root, "components/sidebar/ProfileSettingsPanels.tsx"),
@@ -340,8 +340,12 @@ describe("private-alpha usage allowance", () => {
     // Tab containment belongs to the shared hook now. Running a private copy
     // beside it moved focus twice per press and skipped a control each time.
     expect(modal).not.toContain("dialogTabTarget");
-    // Ownership moved to the shell, which supplies it to every panel.
-    expect(modal).toContain("AdaptivePanel");
+    // Ownership moved to the shell, which supplies it to every panel: the
+    // sheet outside Ajustes, the window inside it.
+    expect(modal).toContain("<SettingsSurface");
+    expect(
+      readFileSync(join(root, "components/settings/SettingsSurface.tsx"), "utf-8"),
+    ).toContain("<AdaptivePanel {...props} />");
     expect(
       readFileSync(join(root, "components/ui/AdaptivePanel.tsx"), "utf-8"),
     ).toContain("useModalSurface");
@@ -352,17 +356,18 @@ describe("private-alpha usage allowance", () => {
   });
 
   test("uses flat styling and mobile-sized Usage controls", () => {
-    const profileMenu = readFileSync(
-      join(root, "components/sidebar/ProfileMenu.tsx"),
+    const settingsWindow = readFileSync(
+      join(root, "components/settings/SettingsWindow.tsx"),
       "utf-8",
     );
     const modal = readFileSync(
       join(root, "components/settings/UsageModal.tsx"),
       "utf-8",
     );
-    const usageButton = profileMenu.slice(
-      profileMenu.indexOf('onClick={() => openModal("usage")}'),
-      profileMenu.indexOf('onClick={() => openModal("usage")}') + 350,
+    // Usage is a row in Ajustes, and every row there shares one 44px class.
+    const usageButton = settingsWindow.slice(
+      settingsWindow.indexOf("const rowBase ="),
+      settingsWindow.indexOf("const rowBase =") + 120,
     );
 
     expect(modal).not.toContain("shadow-sm");
