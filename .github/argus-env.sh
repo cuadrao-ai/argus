@@ -52,12 +52,15 @@ while IFS= read -r _argus_web_env_key; do
 done <<< "$_argus_web_env_keys"
 unset _argus_web_env_keys _argus_web_env_key
 
-if ! _workflow_keys="$(python3 "${BASH_SOURCE[0]%/*}/private-alpha-release-profile.py" allowed-keys workflow)"; then
+if ! _workflow_keys="$(
+  python3 "${BASH_SOURCE[0]%/*}/private-alpha-release-profile.py" env-pairs workflow &&
+    python3 "${BASH_SOURCE[0]%/*}/private-alpha-release-profile.py" required-present workflow
+)"; then
   exit 1
 fi
 ARGUS_RENDER_WORKFLOW_PROOF_ENV=()
 while IFS= read -r key; do
-  [ -n "$key" ] && ARGUS_RENDER_WORKFLOW_PROOF_ENV+=("$key")
+  [ -n "$key" ] && ARGUS_RENDER_WORKFLOW_PROOF_ENV+=("${key%%=*}")
 done <<< "$_workflow_keys"
 unset _workflow_keys key
 

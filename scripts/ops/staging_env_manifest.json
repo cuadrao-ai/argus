@@ -36,6 +36,24 @@
           "keep_current": true
         },
         {
+          "name": "CUADRAO_OPENROUTER_API_KEY_DEV",
+          "kind": "secret",
+          "keep_current": true,
+          "optional": true
+        },
+        {
+          "name": "CUADRAO_OPENROUTER_API_KEY_STG",
+          "kind": "secret",
+          "keep_current": true,
+          "optional": true
+        },
+        {
+          "name": "CUADRAO_OPENROUTER_API_KEY_PROD",
+          "kind": "secret",
+          "keep_current": true,
+          "optional": true
+        },
+        {
           "name": "CUADRAO_PROD_OPENROUTER_API_KEY",
           "kind": "secret",
           "keep_current": true
@@ -313,6 +331,10 @@
         }
       ],
       "distinct": [
+        [
+          "CUADRAO_OPENROUTER_API_KEY_STG",
+          "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"
+        ],
         [
           "CUADRAO_PROD_OPENROUTER_API_KEY",
           "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"
