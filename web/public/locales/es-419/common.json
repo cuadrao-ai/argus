@@ -960,7 +960,6 @@
       "edit_display_name": "Editar nombre para mostrar",
       "delete_account": "Eliminar cuenta",
       "delete_account_note": "Elimina para siempre tu cuenta de Cuadrao y tus datos.",
-      "delete_account_owner_note": "[placeholder] Antes pasa o cierra {{names}}.",
       "display_name_save_error": "No pudimos guardar ese nombre todavía.",
       "display_name_too_long": "Usa {{count}} caracteres o menos.",
       "preferred_name": "¿Cómo quieres que te llamemos?",

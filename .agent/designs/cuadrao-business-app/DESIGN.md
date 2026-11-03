@@ -652,7 +652,11 @@ setting. Owner: `components/settings/SettingsWindow.tsx`.
   repeats Ajustes.
 
 The account deletion alert asks the server first (`GET /account/deletion`)
-and renders only its answer: a quiet check while it reads, Eliminar only when
+and renders only its answer. Ajustes reads that answer as it opens, so the alert
+opens with it in place and opening it refreshes the answer behind the old one;
+the Eliminar cuenta row stays a plain row and never lists Businesses (Lucas,
+November 3, 2026). A quiet check shows only if no answer is back yet, a check
+that could not run shows its reference and Reintentar, Eliminar shows only when
 allowed, each owned Business named when it blocks deletion (with Transferir and
 Cerrar when those controls exist, the support contact when they do not), and a
 closed Business's purge date as a warning that never blocks.

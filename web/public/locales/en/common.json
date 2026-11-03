@@ -960,7 +960,6 @@
       "edit_display_name": "Edit display name",
       "delete_account": "Delete account",
       "delete_account_note": "Permanently delete your Cuadrao account and your data.",
-      "delete_account_owner_note": "[placeholder] First transfer or close {{names}}.",
       "display_name_save_error": "Could not save that name yet.",
       "display_name_too_long": "Keep this to {{count}} characters or fewer.",
       "preferred_name": "What should we call you?",

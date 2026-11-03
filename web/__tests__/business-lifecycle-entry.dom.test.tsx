@@ -69,7 +69,8 @@ test("the deletion alert names each Business the server says blocks it, never of
 test("the deletion alert shows no Eliminar while the server is still answering", async () => {
   const view = await mount(<ProfileDeleteRequestDialog readEligibility={() => new Promise(() => undefined)} state="idle" supportMailto="mailto:support@example.test" onClose={() => undefined} onSubmit={() => undefined} />);
   try {
-    assert.ok(document.body.textContent?.includes(spanish.business.lifecycle.deletion.checking));
+    // Rendered outside a Business, so the checking line is the neutral one.
+    assert.ok(document.body.textContent?.includes(spanish.settings.profile.request_deletion.checking));
     assert.equal([...document.querySelectorAll("button")].find(item => item.textContent === spanish.settings.profile.request_deletion.confirm), undefined);
   } finally { await view.close(); }
 });

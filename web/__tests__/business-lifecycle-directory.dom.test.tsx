@@ -64,7 +64,8 @@ test("account deletion retries a failed read and warns about a closed Business w
     await act(async () => root.render(<I18nextProvider i18n={i18n}><DeleteDialog state="idle" supportMailto="mailto:test@example.invalid" onClose={() => undefined} onSubmit={() => { deleted += 1; }} readEligibility={readEligibility} /></I18nextProvider>));
     const submit = () => [...document.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === spanish.settings.profile.request_deletion.confirm);
     assert.equal(submit(), undefined, "a failed read cannot offer deletion");
-    assert.ok(document.body.textContent?.includes(spanish.business.lifecycle.deletion.failed));
+    // Rendered outside a Business, so the failure line is the neutral one.
+    assert.ok(document.body.textContent?.includes(spanish.settings.profile.request_deletion.check_failed));
     const retry = [...document.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === spanish.common.retry)!;
     assert.ok(retry);
     await act(async () => retry.click());

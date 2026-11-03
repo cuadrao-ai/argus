@@ -731,8 +731,8 @@ export default function ProfileMenu({
     [handleAvatarThemeSelect, isSavingAvatarTheme],
   );
 
-  // Read as Ajustes opens, so the Eliminar cuenta row and its alert already
-  // hold the server's answer; opening the alert refreshes it behind the old one.
+  // Read as Ajustes opens, so the delete alert opens with the server's answer
+  // already in place; opening it refreshes that answer behind the old one.
   const deletionCheck = useAccountDeletionEligibility(activeModal === "settings-window");
   const refreshDeletionCheck = deletionCheck.refresh;
   const handleOpenDeleteRequest = useCallback(() => {
@@ -891,7 +891,6 @@ export default function ProfileMenu({
           )}
           onSecurity={() => navigateFromOverlay("/account/security", closeSettingsWindow)}
           onDeleteAccount={handleOpenDeleteRequest}
-          deletionAnswer={deletionCheck.answer}
           deleteAccountRef={deleteAccountRef}
           legalLinks={LEGAL_LINK_IDS.map((id) => ({
             id,
