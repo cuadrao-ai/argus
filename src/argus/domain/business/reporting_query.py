@@ -24,9 +24,9 @@ from argus.domain.recording.errors import RecordingInputError
 
 CALENDAR = "America/Santo_Domingo"
 Family = Literal["sale", "purchase"]
-Stage = Literal[
-    "needs_review", "awaiting_approval", "needs_fiscal_data", "ready_for_export"
-]
+#: A recorded row's place on the way to the DGII. Registros lists approved
+#: records only; a draft waits in the Bandeja and is no stage here.
+Stage = Literal["needs_review", "needs_fiscal_data", "ready_for_export", "exported"]
 DocumentKind = Literal["invoice", "receipt", "credit_note", "unknown"]
 Column = Literal[
     "date",
@@ -254,10 +254,13 @@ class FundingOption(Contract):
 
 
 class ReportOverview(Contract):
+    """The period's recorded rows by stage. The three Registros cards read
+    `needs_fiscal_data`, `ready_for_export` and `exported`."""
+
     needs_review: int = 0
-    awaiting_approval: int = 0
     ready_for_export: int = 0
     needs_fiscal_data: int = 0
+    exported: int = 0
     export_lines: int = 0
 
 
@@ -652,9 +655,9 @@ def run_query(
             stage: sum(row.stage == stage for row in overview_rows)
             for stage in (
                 "needs_review",
-                "awaiting_approval",
                 "needs_fiscal_data",
                 "ready_for_export",
+                "exported",
             )
         },
         export_lines=sum(row.export_line for row in overview_rows),

@@ -55,10 +55,6 @@ def draft(*, resolution):
     )
 
 
-def replace_event(event, **changes):
-    return SimpleNamespace(**{**vars(event), **changes})
-
-
 def row(source, state):
     return project(source, state, {}, None)
 
@@ -67,12 +63,6 @@ def test_an_approved_record_keeps_the_merchant_out_of_notas():
     merchant = fake.company()
     state = draft(resolution={"note": merchant})
     assert row(recorded(merchant), state).note is None
-
-
-def test_an_open_draft_keeps_the_merchant_out_of_notas():
-    state = draft(resolution={"note": fake.company()})
-    state = replace(state, event=replace_event(state.event, activity_id=None))
-    assert row(None, state).note is None
 
 
 def test_a_record_shows_the_note_a_person_saved():

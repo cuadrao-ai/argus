@@ -282,64 +282,47 @@ def test_grant_expiring_during_read_cannot_release_records(actions, users, monke
         read_recorded(service.authority, viewer)
 
 
-def test_full_report_merges_accepted_draft_and_uses_owner_fact_readiness(actions, users):
-    from argus.domain.business.reporting_query import ReportRequest
-    from argus.domain.business.reporting_store import read_report
-
-    service, context, _ = actions
-    draft, activity = record_expense(service, context)
-    awaiting = shared.ready(service, context)
-    viewer = viewer_context(service, context, users["other"])
-    owner_result = read_report(service.authority, context, ReportRequest())
-    viewer_result = read_report(service.authority, viewer, ReportRequest())
-    assert owner_result.matching_count == 2
-    rows = {row.draft_id: row for row in owner_result.items}
-    assert rows[str(draft)].row_id == f"draft:{draft}"
-    assert rows[str(draft)].linked_activity_ids == (activity,)
-    assert rows[str(awaiting)].stage == "awaiting_approval"
-    assert [(r.row_id, r.stage) for r in owner_result.items] == [
-        (r.row_id, r.stage) for r in viewer_result.items
-    ]
-
-
-def test_full_report_unknown_document_date_never_uses_capture_or_activity(
-    actions, attachment, monkeypatch
+def test_a_recorded_draft_is_one_row_for_owner_and_viewer_and_an_open_one_is_none(
+    actions, users
 ):
     from argus.domain.business.reporting_query import ReportRequest
     from argus.domain.business.reporting_store import read_report
 
     service, context, _ = actions
-    _, source_id, _ = attachment
-    monkeypatch.setattr(shared, "source", lambda *_args, **_kwargs: source_id)
-    draft = shared.ready(service, context)
+    draft, activity = record_expense(service, context)
+    shared.ready(service, context)
+    viewer = viewer_context(service, context, users["other"])
+    owner_result = read_report(service.authority, context, ReportRequest())
+    viewer_result = read_report(service.authority, viewer, ReportRequest())
+    assert owner_result.matching_count == 1
+    [row] = owner_result.items
+    assert (row.row_id, row.draft_id, row.linked_activity_ids) == (
+        f"draft:{draft}",
+        str(draft),
+        (activity,),
+    )
+    assert [(r.row_id, r.stage) for r in owner_result.items] == [
+        (r.row_id, r.stage) for r in viewer_result.items
+    ]
+
+
+def test_open_and_accepting_drafts_are_not_rows_and_count_in_no_card(actions):
+    from argus.domain.business.reporting_query import ReportOverview, ReportRequest
+    from argus.domain.business.reporting_store import read_report
+
+    service, context, _ = actions
+    shared.ready(service, context)
+    accepting = shared.ready(service, context)
     with service.authority.pool.connection() as db:
         db.execute(
-            "update public.financial_import_events set resolution=jsonb_set(resolution,'{business,facts,occurred_on}',%s::jsonb) where id=%s",
-            ('{"state":"unknown"}', draft),
+            "update public.financial_import_events set state='accepting' where id=%s",
+            (accepting,),
         )
     answer = read_report(service.authority, context, ReportRequest())
-    row = next(row for row in answer.items if row.draft_id == str(draft))
-    assert row.report_date is None
-    assert row.date_basis == "document_issue"
-    assert row.stage == "needs_review"
-    assert answer.matching_count == 2
-    bounded = read_report(
-        service.authority,
-        context,
-        ReportRequest(
-            filters={
-                "period": {
-                    "kind": "custom",
-                    "from_date": "2026-01-01",
-                    "to_date": "2026-12-31",
-                }
-            }
-        ),
-    )
-    assert bounded.matching_count == 0
-    assert bounded.excluded_unknown_dates == sum(
-        row.report_date is None for row in answer.items
-    )
+    assert answer.items == ()
+    assert answer.matching_count == 0
+    assert answer.overview == ReportOverview()
+    assert answer.totals == ()
 
 
 def test_recorded_correction_uses_current_blockers_but_approved_amount(actions):
@@ -364,20 +347,16 @@ def test_unknown_credit_keeps_positive_money_and_incomplete_document_effect(acti
     from argus.domain.business.reporting_store import read_report
 
     service, context, _ = actions
-    draft = shared.ready(service, context)
-    with service.authority.pool.connection() as db:
-        db.execute(
-            "update public.financial_import_events set resolution=jsonb_set(resolution,'{business,facts,fiscal}',%s::jsonb) where id=%s",
-            (
-                '{"ncf":{"state":"known","value":"B0400000001","origin":"member_set","source_ids":["00000000-0000-0000-0000-000000000001"]}}',
-                draft,
-            ),
-        )
+    # A credit note recorded with no purchase it returns.
+    unlinked = approve(
+        service, context, reviewed(service, context, cash_account(service, context), 3)
+    )
+    assert unlinked.outcome == "applied", unlinked
     [row] = read_report(service.authority, context, ReportRequest()).items
     assert row.document_kind == "credit_note"
     assert row.family is None
     assert row.adjustment_effect == "unknown"
-    assert row.proposed_amount is not None
+    assert row.gross_amount is not None
     assert row.stage != "ready_for_export"
 
 
@@ -591,7 +570,75 @@ def test_a_recorded_expense_without_an_ncf_needs_fiscal_data(actions):
         False,
     )
     assert (result.overview.ready_for_export, result.overview.export_lines) == (0, 0)
-    assert result.overview.needs_fiscal_data == 1
+    assert (result.overview.needs_fiscal_data, result.overview.exported) == (1, 0)
+
+
+def test_each_card_counts_its_stage_and_its_filter_matches_it(actions):
+    from argus.domain.business.export import export_package
+    from argus.domain.business.fiscal_profile import set_profile
+    from argus.domain.business.reporting_query import ReportRequest
+    from argus.domain.business.reporting_store import read_report
+    from argus.domain.business.spaces import PostgresSpaceStore
+    from argus.domain.ingestion.documents.objects import InMemorySourceObjects
+
+    from tests.test_business_declaration_after_approval_postgres import (
+        FILER,
+        PERIOD,
+        account_funding,
+        approved,
+        captured,
+        declared,
+    )
+    from tests.test_business_dgii_postgres import PRACTICE_NAME, filer_change
+
+    service, context, _ = actions
+    PostgresSpaceStore(service.authority.pool).rename(context.owner_id, PRACTICE_NAME)
+    set_profile(service.authority, context, filer_change(FILER), "rnc")
+    complete, version = captured(
+        service, context, "B0100000031", account_funding(cash_account(service, context))
+    )
+    view = approved(service, context, complete, version)
+    assert declared(service, context, complete, view.version, category="02").outcome == (
+        "applied"
+    )
+    missing_ncf, _ = record_expense(service, context, owner_funds=True)
+    shared.ready(service, context)
+
+    def cards():
+        overview = read_report(service.authority, context, ReportRequest()).overview
+        return (
+            overview.needs_fiscal_data,
+            overview.ready_for_export,
+            overview.exported,
+        )
+
+    def matching(stage):
+        answer = read_report(
+            service.authority,
+            context,
+            ReportRequest(filters={"review_stages": [stage]}),
+        )
+        assert all(row.stage == stage for row in answer.items), stage
+        return [row.draft_id for row in answer.items]
+
+    assert cards() == (1, 1, 0)
+    assert matching("needs_fiscal_data") == [str(missing_ncf)]
+    assert matching("ready_for_export") == [str(complete)]
+    assert matching("exported") == []
+
+    export_package(service.authority, context, PERIOD, InMemorySourceObjects())
+    assert cards() == (1, 0, 1)
+    assert matching("ready_for_export") == []
+    [exported] = read_report(
+        service.authority,
+        context,
+        ReportRequest(filters={"review_stages": ["exported"]}),
+    ).items
+    assert (exported.draft_id, exported.stage, exported.export_line) == (
+        str(complete),
+        "exported",
+        True,
+    )
 
 
 def test_purchase_rows_carry_their_606_answers_and_a_sale_carries_none(actions, users):
@@ -622,17 +669,6 @@ def test_purchase_rows_carry_their_606_answers_and_a_sale_carries_none(actions, 
     personal, _ = record_personal_expense(service, context)
     sale = approve(service, context, reviewed(service, context, account, 4))
     assert sale.outcome == "applied", sale
-    open_draft = shared.ready(service, context)
-    chosen = service.review(
-        context,
-        open_draft,
-        ReviewDraft(
-            version=service.dossier(context, open_draft).version,
-            purchase=PurchaseReview(category="09", payment_method="04"),
-        ),
-        str(uuid4()),
-    )
-    assert chosen.outcome == "applied", chosen
 
     rows = {
         row.draft_id: row
@@ -647,12 +683,6 @@ def test_purchase_rows_carry_their_606_answers_and_a_sale_carries_none(actions, 
     )
     assert rows[str(personal)].dgii_606 is None
     assert rows[str(sale.draft_id)].dgii_606 is None
-    assert rows[str(open_draft)].dgii_606 == Purchase606(
-        expense_type=DgiiChoice(
-            code="09", label="Compras y gastos que formarán parte del costo de venta"
-        ),
-        payment_form=DgiiChoice(code="04", label="Compra a crédito"),
-    )
 
     # A tipo de gasto chosen on the recorded record shows in the next read.
     later = service.review(
@@ -678,9 +708,6 @@ def test_purchase_rows_carry_their_606_answers_and_a_sale_carries_none(actions, 
     )
     assert answer.expense_types == (
         DgiiChoice(code="02", label="Gastos por trabajos, suministros y servicios"),
-        DgiiChoice(
-            code="09", label="Compras y gastos que formarán parte del costo de venta"
-        ),
     )
     missing = read_report(
         service.authority,
@@ -695,23 +722,24 @@ def test_each_offered_document_kind_filter_matches_a_record_of_that_kind(actions
     from argus.domain.business.reporting_store import read_report
 
     service, context, _ = actions
-    plain = shared.ready(service, context)
-    credit = shared.ready(service, context)
-    with service.authority.pool.connection() as db:
-        db.execute(
-            "update public.financial_import_events set resolution=jsonb_set(resolution,'{business,facts,fiscal}',%s::jsonb) where id=%s",
-            (
-                '{"ncf":{"state":"known","value":"B0400000001","origin":"member_set","source_ids":["00000000-0000-0000-0000-000000000001"]}}',
-                credit,
-            ),
-        )
+    plain, _ = record_expense(service, context)
+    account = cash_account(service, context)
+    purchase = approve(service, context, reviewed(service, context, account, 0))
+    refund = approve(
+        service, context, reviewed(service, context, account, 3, purchase.activity_id)
+    )
+    assert refund.outcome == "applied", refund
+    credit = refund.draft_id
     rows = read_report(service.authority, context, ReportRequest()).items
     # The projection names only these two kinds; Registros offers exactly them.
     assert {row.document_kind for row in rows} == {"credit_note", "unknown"}
-    for kind, draft in (("credit_note", credit), ("unknown", plain)):
+    for kind, drafts in (
+        ("credit_note", {str(credit)}),
+        ("unknown", {str(plain), str(purchase.draft_id)}),
+    ):
         answer = read_report(
             service.authority,
             context,
             ReportRequest(filters={"document_kinds": [kind]}),
         )
-        assert [row.draft_id for row in answer.items] == [str(draft)], kind
+        assert {row.draft_id for row in answer.items} == drafts, kind
