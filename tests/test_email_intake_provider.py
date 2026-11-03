@@ -126,7 +126,10 @@ async def test_oversize_bounded_with_or_without_length(monkeypatch, length_heade
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("value", ["../secret", "not-uuid", EMAIL_ID.replace("-", "")])
+@pytest.mark.parametrize(
+    "value",
+    ["../secret", "not-uuid", pytest.param(EMAIL_ID.replace("-", ""), id="noncanonical-uuid")],
+)
 async def test_invalid_identifier_without_request(value):
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(lambda _: pytest.fail("no request"))

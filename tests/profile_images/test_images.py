@@ -35,7 +35,11 @@ def _close_to(pixel: tuple, color: tuple) -> bool:
 
 @pytest.mark.parametrize(
     "content,media_type",
-    [(png(), "image/png"), (jpeg_with_gps(), "image/jpeg"), (webp(), "image/webp")],
+    [
+        (png(), "image/png"),
+        pytest.param(jpeg_with_gps(), "image/jpeg", id="jpeg-with-metadata"),
+        (webp(), "image/webp"),
+    ],
 )
 def test_every_accepted_type_becomes_a_webp_square(content: bytes, media_type: str) -> None:
     stored = _open(square_webp(content, media_type))
