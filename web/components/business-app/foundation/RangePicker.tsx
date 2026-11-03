@@ -17,7 +17,7 @@ const STEPS: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -
 export function useRangePickerDraft(initial: DateRange, onConfirm: (range: DateRange) => void, maxDays = 366, onAll?: () => void) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
-  const [state, dispatch] = useReducer((draft: ReturnType<typeof createRangeDraft>, action: Parameters<typeof reduceRangeDraft>[1]) => reduceRangeDraft(draft, action, locale), initial, (range) => createRangeDraft(range, locale));
+  const [state, dispatch] = useReducer((draft: ReturnType<typeof createRangeDraft>, action: Parameters<typeof reduceRangeDraft>[1]) => reduceRangeDraft(draft, action, locale), initial, (range) => createRangeDraft(range, locale, todayIso()));
   const word = (key: string) => t(`business.date_range.${key}`);
   const invalid = t("business.date_range.invalid_date", { format: dateInputFormat(locale) });
   const checks = useFieldChecks({

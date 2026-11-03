@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "bun:test";
-import { createRangeDraft, parseRangeInput, presetRange, previewRange, reduceRangeDraft, reportKindOf, shiftMonth, validDraftRange } from "@/components/business-app/foundation/range-picker-state";
+import { createRangeDraft, parseRangeInput, presetRange, previewRange, reduceRangeDraft, shiftMonth, validDraftRange } from "@/components/business-app/foundation/range-picker-state";
 
 const initial = () => createRangeDraft({ from: "2026-10-01", to: "2026-10-25" }, "es-419");
 test("typed dates are locale-specific and reject impossible calendar dates", () => {
@@ -44,20 +44,22 @@ test("typed draft rejects reversed and over-366-day ranges", () => {
   assert.equal(validDraftRange(draft, "es-419"), null);
 });
 
-test("whole-period presets span the same days the server resolves", () => {
-  assert.deepEqual(presetRange("this_month", "2026-11-03"), { from: "2026-11-01", to: "2026-11-30" });
-  assert.deepEqual(presetRange("last_month", "2026-03-31"), { from: "2026-02-01", to: "2026-02-28" });
-  assert.deepEqual(presetRange("last_month", "2026-01-15"), { from: "2025-12-01", to: "2025-12-31" });
-  assert.deepEqual(presetRange("this_year", "2028-06-10"), { from: "2028-01-01", to: "2028-12-31" });
-});
-test("only a range that is exactly a whole period maps to a server report kind", () => {
+test("a draft opens on the preset its range matches, and on custom only when none does", () => {
   const today = "2026-11-03";
-  assert.equal(reportKindOf({ from: "2026-11-01", to: "2026-11-30" }, today), "this_month");
-  assert.equal(reportKindOf({ from: "2026-10-01", to: "2026-10-31" }, today), "last_month");
-  assert.equal(reportKindOf({ from: "2026-01-01", to: "2026-12-31" }, today), "this_year");
-  assert.equal(reportKindOf({ from: "2026-11-01", to: "2026-11-03" }, today), null);
-  assert.equal(reportKindOf(presetRange("last_30", today), today), null);
-  assert.equal(reportKindOf(presetRange("last_quarter", today), today), null);
+  const open = (from: string, to: string) => createRangeDraft({ from, to }, "es-419", today).preset;
+  assert.equal(open("2026-11-01", "2026-11-30"), "this_month");
+  assert.equal(open("2026-10-01", "2026-10-31"), "last_month");
+  assert.equal(open("2026-01-01", "2026-12-31"), "this_year");
+  assert.equal(open("2026-10-28", "2026-11-03"), "last_7");
+  assert.equal(open("2026-11-03", "2026-11-03"), "today");
+  assert.equal(open("2026-11-01", "2026-11-03"), "custom");
+  assert.equal(createRangeDraft({ from: "2026-11-01", to: "2026-11-30" }, "es-419").preset, "custom");
+});
+test("a draft opened with no dates is Todo: empty fields and no selected day", () => {
+  const draft = createRangeDraft({ from: "", to: "" }, "es-419", "2026-11-03");
+  assert.equal(draft.preset, "all");
+  assert.deepEqual(draft.text, { from: "", to: "" });
+  assert.equal(draft.cursor, "2026-11-03");
 });
 test("Todo clears the range, and picking a day afterwards starts a custom range", () => {
   const cleared = reduceRangeDraft(initial(), { type: "preset", preset: "all", today: "2026-11-03" }, "es-419");

@@ -474,7 +474,28 @@ for (const [preset, kind] of [["Este mes", "this_month"], ["Este año", "this_ye
   await page.settle(() => addressFilters().period.kind === kind && document.querySelector('[role="dialog"]') === null && document.querySelector('[data-testid="records-count"]') !== null);
   await pause(200);
   assert.deepEqual(sentFilters(page).slice(before).map((filters) => filters.period), [{ kind }]);
-  if (kind === "this_year") assert.equal(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]')?.textContent, String(new Date().getFullYear()));
+  const label = { this_month: "Este mes", this_year: String(new Date().getFullYear()), last_month: "Mes pasado" }[kind];
+  assert.equal(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]')?.textContent, label, "the button names the whole period, not its dates");
+});
+
+test("Registros opens its picker on the current period, on Personalizado only when no preset matches", async () => {
+  const resetAddress = () => (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL("http://localhost/biz");
+  const month = await mount({ width: 390, initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "this_month" } } }) });
+  await month.click(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]'));
+  const pressed = () => [...document.querySelectorAll('[aria-label="Períodos rápidos"] button[aria-pressed="true"]')].map((node) => node.textContent);
+  const fields = () => [...document.querySelectorAll<HTMLInputElement>('[data-testid="range-picker"] input')].map((input) => input.value);
+  assert.deepEqual(pressed(), ["Este mes"]);
+  assert.equal(fields()[0], "01/10/2026");
+  await cleanup(); resetAddress();
+  const latest = await mount({ width: 390, edit: (records) => { for (const row of records) if (row.report_date) row.report_date = "2026-08-14"; } });
+  await latest.click(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]'));
+  assert.deepEqual(pressed(), ["Personalizado"]);
+  assert.deepEqual(fields(), ["01/08/2026", "31/08/2026"]);
+  await cleanup(); resetAddress();
+  const all = await mount({ width: 390, initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "all" } } }) });
+  await all.click(document.querySelector('[data-testid="records-toolbar"] button[aria-haspopup="dialog"]'));
+  assert.deepEqual(pressed(), ["Todo"]);
+  assert.deepEqual(fields(), ["", ""]);
 });
 
 test("closing the phone Filtros sheet without a choice sends no query", async () => {
