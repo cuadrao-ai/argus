@@ -3,6 +3,7 @@ import { customPeriod, todayIso, type Period } from "../business-format";
 import type { ReviewFilter } from "./records-filter-preview-model";
 import type { Money, RecordRow } from "./transacciones-model";
 import type { DgiiChoice, Purchase606 } from "@/lib/business-reports-api";
+import { EXPENSE_TYPES, PAYMENT_FORMS } from "../dossier-fixtures";
 
 export type PreviewWorkflow = "review" | "approval" | "ready";
 export type PreviewFinancialEligibility = "confirmed" | "unconfirmed" | "personal";
@@ -10,11 +11,13 @@ export type PreviewFinancialEligibility = "confirmed" | "unconfirmed" | "persona
 export type PreviewRecordMetadata = { workflow: PreviewWorkflow; financialEligibility: PreviewFinancialEligibility; documentNumbers?: readonly string[]; dgii606?: Purchase606 | null };
 
 // This is a local illustration for the synthetic own Business, never a source adapter.
-// The 606 names are the server's own list, quoted here only so the sample reads like a live row.
-const SERVICES: DgiiChoice = { code: "02", label: "Gastos por trabajos, suministros y servicios" };
-const COST_OF_SALES: DgiiChoice = { code: "09", label: "Compras y gastos que formarán parte del costo de venta" };
-const CARD: DgiiChoice = { code: "03", label: "Tarjeta crédito/débito" };
-const TRANSFER: DgiiChoice = { code: "02", label: "Cheques/transferencias/depósito" };
+// The sample's one copy of the DGII names lives in dossier-fixtures; live rows read the server's label.
+const expenseType = (code: string): DgiiChoice => ({ code, label: EXPENSE_TYPES[code] });
+const paymentForm = (code: string): DgiiChoice => ({ code, label: PAYMENT_FORMS[code] });
+const SERVICES = expenseType("02");
+const COST_OF_SALES = expenseType("09");
+const CARD = paymentForm("03");
+const TRANSFER = paymentForm("02");
 const FIXTURE_METADATA: Readonly<Record<string, PreviewRecordMetadata>> = {
   "gasto:exp-gas": { workflow: "review", financialEligibility: "confirmed", dgii606: { expense_type: null, payment_form: TRANSFER } },
   "gasto:exp-hosting": { workflow: "ready", financialEligibility: "confirmed", documentNumbers: ["B0100000042"], dgii606: { expense_type: SERVICES, payment_form: CARD } },

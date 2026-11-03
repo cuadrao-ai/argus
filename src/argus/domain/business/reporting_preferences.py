@@ -58,7 +58,8 @@ def _current_columns(value: Any) -> Any:
     ]
     if "payment_form" not in order and "expense_type" in order:
         order.insert(order.index("expense_type") + 1, "payment_form")
-        hidden.append("payment_form")
+        if "payment_form" not in hidden:
+            hidden.append("payment_form")
     return {**value, "order": order, "hidden": hidden}
 
 

@@ -556,6 +556,17 @@ test("a record that left the view says so in a toast, never in a line above the 
   await act(async () => root.unmount());
 });
 
+test("an old categories filter from a saved view or URL is dropped, never sent, and never hides rows without a pill", async () => {
+  const stale = reportRequestSchema.parse({});
+  assert.deepEqual(reportFiltersFromUi({ ...stale.filters, categories: ["transport"] }, reportFiltersForUi(stale.filters), "all").categories, []);
+  (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL(`http://localhost/biz?report=${encodeURIComponent(JSON.stringify({ filters: { categories: ["transport"] } }))}&report_scope=synthetic-person:${fixtureId(3000)}`);
+  const page = await mount();
+  assert.ok(sentFilters(page).every((filters) => filters.categories.length === 0), "no request carries the stale filter");
+  assert.equal(document.querySelectorAll("tbody tr").length, 25);
+  assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]'), null);
+  assert.equal(document.querySelector("[data-empty-kind]"), null);
+});
+
 test("a phone period preset holds after its sheet closes", async () => {
   const page = await mount({ width: 390, initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "this_month" } } }) });
   const before = sentFilters(page).length;

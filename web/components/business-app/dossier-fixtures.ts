@@ -34,8 +34,8 @@ export const dossierFixtureIds = {
   noCurrency: "10000000-0000-4000-8000-000000000022",
 } as const;
 
-const EXPENSE_TYPES: Record<string, string> = { "01": "Gastos de personal", "02": "Gastos por trabajos, suministros y servicios", "03": "Arrendamientos", "04": "Gastos de activos fijo", "05": "Gastos de representación", "06": "Otras deducciones admitidas", "07": "Gastos financieros", "08": "Gastos extraordinarios", "09": "Compras y gastos que formarán parte del costo de venta", "10": "Adquisiciones de activos", "11": "Gastos de seguros" };
-const PAYMENT_FORMS: Record<string, string> = { "01": "Efectivo", "02": "Cheques/transferencias/depósito", "03": "Tarjeta crédito/débito", "04": "Compra a crédito", "05": "Permuta", "06": "Nota de crédito", "07": "Mixto" };
+export const EXPENSE_TYPES: Record<string, string> = { "01": "Gastos de personal", "02": "Gastos por trabajos, suministros y servicios", "03": "Arrendamientos", "04": "Gastos de activos fijo", "05": "Gastos de representación", "06": "Otras deducciones admitidas", "07": "Gastos financieros", "08": "Gastos extraordinarios", "09": "Compras y gastos que formarán parte del costo de venta", "10": "Adquisiciones de activos", "11": "Gastos de seguros" };
+export const PAYMENT_FORMS: Record<string, string> = { "01": "Efectivo", "02": "Cheques/transferencias/depósito", "03": "Tarjeta crédito/débito", "04": "Compra a crédito", "05": "Permuta", "06": "Nota de crédito", "07": "Mixto" };
 const SERVICE_EXPENSE_TYPES = new Set(["02", "03", "07", "11"]);
 const sampleField = (name: string, label: string, kind: DgiiField["kind"] = "money", options: string[] = [], labels: Record<string, string> = {}): DgiiField => ({ name, label, kind, options, labels });
 const SAMPLE_DGII_FIELDS: DgiiFields = {

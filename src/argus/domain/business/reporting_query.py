@@ -168,7 +168,7 @@ class DgiiChoice(Contract):
 
 
 class Purchase606(Contract):
-    """The two 606 answers a purchase carries. A None answer is still missing."""
+    """The two 606 answers a purchase carries. A null answer is still missing."""
 
     expense_type: DgiiChoice | None
     payment_form: DgiiChoice | None

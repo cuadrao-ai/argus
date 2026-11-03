@@ -35,7 +35,9 @@ export const reportFiltersSchema = z.strictObject({
   record_families: z.array(family).default([]), review_stages: z.array(stage).default([]),
   has_document: z.boolean().nullable().default(null), currencies: z.array(z.string().regex(/^[A-Z]{3}$/)).max(200).default([]),
   amount_min: decimal.nullable().default(null), amount_max: decimal.nullable().default(null),
-  counterparties: z.array(z.string().min(1).max(128)).max(200).default([]), categories: z.array(z.string().min(1).max(128)).max(200).default([]),
+  counterparties: z.array(z.string().min(1).max(128)).max(200).default([]),
+  // Registros no longer offers the ledger category, so a saved view or address bar that still names one is read as none: a filter nobody can see or clear never hides rows.
+  categories: z.array(z.string().min(1).max(128)).max(200).default([]).transform((): string[] => []),
   expense_types: z.array(z.string().min(1).max(16)).max(20).default([]),
   funding_sources: z.array(z.string().min(1).max(128)).max(200).default([]), document_kinds: z.array(documentKind).default([]),
   fiscal_classifications: z.array(z.string().min(1).max(128)).max(100).default([]),

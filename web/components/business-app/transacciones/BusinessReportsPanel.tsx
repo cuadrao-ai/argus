@@ -58,7 +58,7 @@ export function reportFiltersForUi(filters: ReportFilters): PreviewFilters {
   return result;
 }
 export function reportFiltersFromUi(current: ReportFilters, filters: PreviewFilters, kind: RecordsFilter["kind"]): ReportFilters {
-  return { ...current, record_families: filters.recordFamilies ?? (kind === "all" ? [] : [kind === "venta" ? "sale" : "purchase"]), review_stages: filters.review.map((key) => STAGES[key]), has_document: filters.attachment === "any" ? null : filters.attachment === "with", currencies: filters.currencies ?? (filters.amount.currency ? [filters.amount.currency] : []), amount_min: filters.amount.min || null, amount_max: filters.amount.max || null, counterparties: filters.counterparty, expense_types: filters.expense_type, funding_sources: filters.account, document_kinds: filters.document as ReportFilters["document_kinds"], fiscal_classifications: filters.fiscal.map((value) => /^[be]\d\d$/i.test(value) ? value.toUpperCase() : value) };
+  return { ...current, record_families: filters.recordFamilies ?? (kind === "all" ? [] : [kind === "venta" ? "sale" : "purchase"]), review_stages: filters.review.map((key) => STAGES[key]), has_document: filters.attachment === "any" ? null : filters.attachment === "with", currencies: filters.currencies ?? (filters.amount.currency ? [filters.amount.currency] : []), amount_min: filters.amount.min || null, amount_max: filters.amount.max || null, counterparties: filters.counterparty, categories: [], expense_types: filters.expense_type, funding_sources: filters.account, document_kinds: filters.document as ReportFilters["document_kinds"], fiscal_classifications: filters.fiscal.map((value) => /^[be]\d\d$/i.test(value) ? value.toUpperCase() : value) };
 }
 
 export default function BusinessReportsPanel() {

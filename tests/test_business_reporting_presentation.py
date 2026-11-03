@@ -65,3 +65,8 @@ def test_category_is_no_longer_a_column():
         Presentation.model_validate({"order": TABLE_COLUMNS, "hidden": ["category"]})
     with pytest.raises(ValidationError):
         Presentation.model_validate({"order": [*TABLE_COLUMNS, "category"]})
+
+
+def test_legacy_order_with_no_hidden_key_hides_forma_de_pago_once():
+    presentation = Presentation.model_validate({"order": LEGACY_ORDER})
+    assert presentation.hidden == ("funding", "payment_form")
