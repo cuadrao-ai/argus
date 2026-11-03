@@ -61,6 +61,7 @@ from argus.domain.postgres_search_reader import (
     PostgresSearchReader,
     SearchReadResult,
 )
+from argus.domain.preferred_name import first_name_typed
 from argus.domain.store import utcnow
 from argus.domain.supabase_backtest_finalization import finalize_backtest
 from argus.domain.supabase_computed_answers import SupabaseComputedAnswerReadMixin
@@ -2038,6 +2039,12 @@ class SupabaseGateway(
             "created_at": now,
             "updated_at": now,
         }
+
+        greeting_name = (
+            None if is_anonymous else first_name_typed(payload["display_name"])
+        )
+        if greeting_name is not None:
+            payload["preferred_name"] = greeting_name
 
         if user_metadata.get("age_confirmed_at") is not None:
             with suppress(ValueError):
