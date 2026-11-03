@@ -626,11 +626,8 @@ def test_a_kind_and_a_type_that_disagree_are_refused(web) -> None:  # noqa: ANN0
     assert _typed(_dossier(web, draft)) == ("recibo", True, True)
 
 
-def test_a_draft_saved_with_two_answers_is_held_until_one_is_chosen(
-    web,  # noqa: ANN001
-) -> None:
-    """A receipt saved as income before the type owned the kind: never approved
-    as it stands, and the owner's kind choice settles it."""
+def _legacy_receipt_saved_as_income(web) -> str:  # noqa: ANN001
+    """The id of a receipt saved as income before the type owned the kind."""
 
     _own_rnc(web)
     account = _account(web)
@@ -649,9 +646,23 @@ def test_a_draft_saved_with_two_answers_is_held_until_one_is_chosen(
             "resolution,'{business,facts,kind,value}','\"income\"') where id=%s",
             (draft,),
         )
+    return draft
+
+
+def _held(web, draft: str) -> dict:  # noqa: ANN001
     held = _dossier(web, draft)
     assert (held["document_type"], held["facts"]["kind"]["value"]) == ("recibo", "income")
     assert {"code": "activity_kind_unsupported", "field": "kind"} in held["blockers"]
+    return held
+
+
+def test_a_draft_saved_with_two_answers_is_held_until_one_is_chosen(
+    web,  # noqa: ANN001
+) -> None:
+    """Never approved as it stands, and the owner's kind choice settles it."""
+
+    draft = _legacy_receipt_saved_as_income(web)
+    held = _held(web, draft)
     assert held["approval_available"] is False
     refused = web.client.post(
         f"{API}/business/drafts/{draft}/approve",
@@ -669,3 +680,39 @@ def test_a_draft_saved_with_two_answers_is_held_until_one_is_chosen(
     assert chosen.status_code == 200, chosen.text
     assert _typed(chosen.json()) == ("venta", False, True)
     assert chosen.json()["approval_available"] is True, chosen.json()["blockers"]
+
+
+def _approve_status(web, draft: str, version: int):  # noqa: ANN001, ANN202
+    return web.client.post(
+        f"{API}/business/drafts/{draft}/approve",
+        json={"version": version, "action": "record_income"},
+        headers=_headers(web),
+    )
+
+
+def test_an_unrelated_review_leaves_a_held_draft_held(web) -> None:  # noqa: ANN001
+    """Only a person's kind or type answers purchase or sale: an edit to the
+    counterparty changes neither, so approval stays refused."""
+
+    draft = _legacy_receipt_saved_as_income(web)
+    edited = _review(
+        web,
+        draft,
+        {"facts": {"counterparty": {"state": "known", "value": "PRÁCTICA otro"}}},
+    )
+    assert edited.status_code == 200, edited.text
+    held = _held(web, draft)
+    assert held["facts"]["counterparty"]["value"] == "PRÁCTICA otro"
+    assert held["approval_available"] is False
+    refused = _approve_status(web, draft, held["version"])
+    assert (refused.status_code, refused.json()["code"]) == (
+        422,
+        "activity_kind_unsupported",
+    )
+
+    named = _review(web, draft, {"document_type": "recibo"})
+    assert named.status_code == 200, named.text
+    assert named.json()["facts"]["kind"]["value"] == "expense"
+    assert {"code": "activity_kind_unsupported", "field": "kind"} not in named.json()[
+        "blockers"
+    ]

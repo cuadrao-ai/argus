@@ -11,7 +11,7 @@ from uuid import uuid4
 
 import pytest
 from argus.domain.business import document_type as types
-from argus.domain.business.actions import mutations, sources
+from argus.domain.business.actions import approval, mutations, sources
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import ExistingDraft
 from argus.domain.business.contracts.facts import BusinessFactPatch, BusinessFacts, Known
@@ -143,7 +143,13 @@ def _tx() -> SimpleNamespace:
     )
 
 
-def _review(monkeypatch, event: ImportEvent | None, kind: str | None, **inputs) -> dict:  # noqa: ANN001
+def _review(
+    monkeypatch,  # noqa: ANN001
+    event: ImportEvent | None,
+    kind: str | None,
+    fields: dict | None = None,
+    **inputs,
+) -> dict:
     actor = _actor().model_copy(update={"actor_kind": inputs.pop("actor", "member")})
     tx = inputs.pop("tx", None) or _tx()
     monkeypatch.setattr(sources, "require_sources", lambda *args: None)
@@ -152,11 +158,12 @@ def _review(monkeypatch, event: ImportEvent | None, kind: str | None, **inputs) 
     if event is not None:
         monkeypatch.setattr(mutations, "event_at", lambda *args: event)
         monkeypatch.setattr(mutations, "_open_for_type", lambda *args: event)
+    stated = {"kind": {"state": "known", "value": kind}} if kind is not None else {}
     mutations.revise(
         tx,
         ExistingDraft(draft_id=event.id, version=event.version) if event else None,
-        BusinessFactPatch.model_validate({"kind": {"state": "known", "value": kind}})
-        if kind is not None
+        BusinessFactPatch.model_validate({**stated, **(fields or {})})
+        if stated or fields
         else None,
         (uuid4(),),
         actor,
@@ -255,3 +262,54 @@ def test_confirming_a_receipt_answers_an_unknown_kind(monkeypatch):
     event = _event("recibo", _facts(PURCHASE_NCF))
     saved = _review(monkeypatch, event, None, document_type="recibo")
     assert _typed(saved) == ("recibo", False, "expense")
+
+
+def test_an_unrelated_review_never_changes_a_legacy_kind(monkeypatch):
+    """A receipt saved as income before the type owned the kind stays blocked:
+    an edit to the counterparty is not the answer to purchase or sale."""
+
+    event = _event("recibo", _facts(PURCHASE_NCF, kind="income"))
+    saved = _review(
+        monkeypatch,
+        event,
+        None,
+        fields={"counterparty": {"state": "known", "value": "PRÁCTICA cliente"}},
+    )
+    assert saved["document_type"] == "recibo"
+    assert saved["facts"]["kind"]["value"] == "income"
+    assert saved["facts"]["kind"]["origin"] == "extracted"
+    assert saved["facts"]["counterparty"]["value"] == "PRÁCTICA cliente"
+
+
+@pytest.mark.parametrize(
+    "document_type,kind,refused",
+    [
+        ("recibo", "income", True),
+        ("venta", "expense", True),
+        ("recibo", "expense", False),
+        ("venta", "income", False),
+    ],
+)
+def test_approval_refuses_a_kind_the_type_does_not_admit(
+    monkeypatch, document_type, kind, refused
+):
+    """The approval's own guard, reached with the dossier saying nothing is
+    blocked: it alone refuses a draft whose kind and type disagree."""
+
+    event = _event(document_type, _facts(PURCHASE_NCF, kind=kind))
+    view = SimpleNamespace(
+        blockers=(), facts=_facts(PURCHASE_NCF, kind=kind), review_flags=()
+    )
+    monkeypatch.setattr(approval.mutations, "event_at", lambda *args: event)
+    monkeypatch.setattr(approval.dossier, "dossier", lambda *args: view)
+    monkeypatch.setattr(approval, "validate_facts", lambda *args: None)
+    monkeypatch.setattr(approval, "require_distinct_fiscal_document", lambda *args: None)
+    call = lambda: approval._reviewed_facts(  # noqa: E731
+        _tx(), uuid4(), 1, kind
+    )
+    if not refused:
+        assert call()[1] is view.facts
+        return
+    with pytest.raises(ActionError) as error:
+        call()
+    assert error.value.code == "activity_kind_unsupported"

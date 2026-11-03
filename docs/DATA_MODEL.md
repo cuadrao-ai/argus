@@ -3689,9 +3689,10 @@ a kind the type admits: `income` on a `venta`; `expense` or `refund` on a
 typed note. A stated `income` makes a `recibo` a `venta`; a `venta` moves
 only by a named type change. A kind may stay unknown on a `recibo`
 until a person says it. Rows written before this rule may hold a kind the type
-does not admit. An open one is blocked from approval, and its next review that
-states no kind gives it the type's own kind. An approved one keeps both values
-as they were approved. No migration.
+does not admit. An open one is blocked from approval and stays so through any
+review that states neither a kind nor a type; a person's stated kind or named
+type settles it. An approved one keeps both values as they were approved. No
+migration.
 
 The resolution's `amount_derived` is true while the declaration's services or
 goods amount is the one the server works out from the confirmed Tipo de gasto,
