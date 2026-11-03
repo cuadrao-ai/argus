@@ -21,7 +21,7 @@ DOCS_READING_TESTS_SCRIPT = ROOT / ".github" / "docs-reading-tests.sh"
 RUNBOOK_PATH = ROOT / "docs" / "PRIVATE_LAUNCH_RUNBOOK.md"
 FAKE = Faker()
 
-_HEAVY_CI_JOBS = ("backend-checks", "frontend-checks")
+_HEAVY_CI_JOBS = ("backend-shards", "frontend-checks")
 MARKETING_RUNBOOK_PATH = ROOT / "docs" / "runbooks" / "cuadrao-marketing-launch.md"
 # A push or a ready pull request runs the full CI; the scheduled and manual
 # probe runs only the latest-CLI real-Postgres leg.
@@ -122,7 +122,7 @@ def test_ci_has_active_backend_and_frontend_quality_jobs() -> None:
     assert "mock-demo phase" not in WORKFLOW_PATH.read_text(encoding="utf-8")
 
     backend_steps = "\n".join(
-        str(step.get("run", "")) for step in jobs["backend-checks"]["steps"]
+        str(step.get("run", "")) for step in jobs["backend-shards"]["steps"]
     )
     assert "poetry run ruff check src tests workflows scripts" in backend_steps
     assert "poetry run pytest tests -q --no-cov" in backend_steps
@@ -137,7 +137,7 @@ def test_backend_checks_gates_the_suite_by_directory() -> None:
     workflow = _workflow()
     jobs = workflow["jobs"]
     backend_steps = "\n".join(
-        str(step.get("run", "")) for step in jobs["backend-checks"]["steps"]
+        str(step.get("run", "")) for step in jobs["backend-shards"]["steps"]
     )
 
     assert re.search(r"pytest\s+tests\s", backend_steps)
@@ -164,7 +164,7 @@ def test_backend_checks_gates_the_suite_by_directory() -> None:
 
 def test_ci_runs_guest_release_gates_with_disposable_local_supabase() -> None:
     jobs = _workflow()["jobs"]
-    guest_job = jobs["database-checks"]
+    guest_job = jobs["database-shards"]
     joined_steps = "\n".join(str(step.get("run", "")) for step in guest_job["steps"])
     uses_steps = {
         str(step.get("uses", "")): step for step in guest_job["steps"] if step.get("uses")
@@ -232,7 +232,7 @@ def _run_postgres_matrix_step(
     """Run the matrix step's Bash with a poetry that records its arguments."""
     step = next(
         step
-        for step in _workflow()["jobs"]["database-checks"]["steps"]
+        for step in _workflow()["jobs"]["database-shards"]["steps"]
         if step.get("name") == "Run required real-PostgreSQL matrix"
     )
     scratch = Path(tempfile.mkdtemp(dir=tmp_path))
@@ -249,6 +249,8 @@ def _run_postgres_matrix_step(
             **os.environ,
             "PATH": f"{scratch}{os.pathsep}{os.environ['PATH']}",
             "GITHUB_EVENT_NAME": event,
+            "CI_SHARD_INDEX": "0",
+            "CI_SHARD_COUNT": "4",
         },
         capture_output=True,
         text=True,
@@ -749,7 +751,7 @@ def test_pull_request_heavy_jobs_use_the_shared_docs_change_gate() -> None:
         f"({_DRAFT_OR_PUSH} || {_FULL_RUN}) && "
         "needs.docs-change-gate.outputs.run_marketing == 'true'"
     )
-    guest_job = jobs["database-checks"]
+    guest_job = jobs["database-shards"]
     assert _job_needs(guest_job) == ["docs-change-gate"]
     assert guest_job["if"] == (
         f"({_DRAFT_OR_PUSH} || {_LATEST_CLI_PROBE}) && "
@@ -836,7 +838,7 @@ def test_ci_aggregator_allows_skipped_docs_checks_when_not_docs_only() -> None:
 
 def test_real_postgres_matrix_runs_on_pinned_and_latest_supabase_cli() -> None:
     workflow = _workflow()
-    guest_job = workflow["jobs"]["database-checks"]
+    guest_job = workflow["jobs"]["database-shards"]
 
     assert workflow["on"]["schedule"] == [{"cron": "17 9 * * 1"}]
     assert "workflow_dispatch" in workflow["on"]
@@ -858,7 +860,7 @@ def test_real_postgres_matrix_runs_on_pinned_and_latest_supabase_cli() -> None:
     pinned_only = [
         name
         for name, step in by_name.items()
-        if step.get("if") == "matrix.supabase-cli == 'pinned'"
+        if step.get("if") == "matrix.supabase-cli == 'pinned' && matrix.shard == 0"
     ]
     assert pinned_only == [
         "Run required local anonymous Auth matrix",
@@ -867,7 +869,7 @@ def test_real_postgres_matrix_runs_on_pinned_and_latest_supabase_cli() -> None:
 
 def test_scheduled_probe_runs_no_other_job() -> None:
     jobs = _workflow()["jobs"]
-    probe_jobs = {"docs-change-gate", "database-checks"}
+    probe_jobs = {"docs-change-gate", "database-checks", "database-shards"}
 
     for name, job in jobs.items():
         if name in probe_jobs:
