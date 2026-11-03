@@ -5,6 +5,7 @@ view says it is saved and waits for a person, and the form is enabled."""
 from __future__ import annotations
 
 from argus.api.documents import documents_service
+from argus.domain.business.receipt_consent import SCOPE_VERSION
 
 from tests.business.test_business_api import RECEIPT, Owner, alice  # noqa: F401
 
@@ -25,13 +26,13 @@ def test_a_queued_receipt_is_pending_only_while_a_read_will_happen(
     )
     consent = documents.business_receipt_consent
     shown = consent.status(alice.scope().owner.space_id, alice.person)
-    accepted = consent.set(alice.scope().owner.space_id, alice.person, enabled=True, version=1, disclosure_token=shown["disclosure_token"])
+    accepted = consent.set(alice.scope().owner.space_id, alice.person, enabled=True, version=SCOPE_VERSION, disclosure_token=shown["disclosure_token"])
     documents._update(alice.person, draft, status="queued", consent=True, business_reading_consent_id=accepted["consent_id"])
     queued = alice.detail(receipt_id)
     assert (queued["status"], queued["read_pending"]) == ("queued", True)
     assert (queued["preparable"], queued["enterable"]) == (False, False)
     # The owner's reading switch is off now: no read will come.
-    consent.set(alice.scope().owner.space_id, alice.person, enabled=False, version=1)
+    consent.set(alice.scope().owner.space_id, alice.person, enabled=False, version=SCOPE_VERSION)
     waiting = alice.detail(receipt_id)
     assert (waiting["status"], waiting["read_pending"]) == ("saved", False)
     assert (waiting["preparable"], waiting["enterable"]) == (True, True)
@@ -40,7 +41,7 @@ def test_a_queued_receipt_is_pending_only_while_a_read_will_happen(
     ]
     assert (listed["status"], listed["read_pending"]) == ("saved", False)
     # Switched back on: the same receipt is pending again, nothing was rewritten.
-    consent.set(alice.scope().owner.space_id, alice.person, enabled=True, version=1, disclosure_token=shown["disclosure_token"])
+    consent.set(alice.scope().owner.space_id, alice.person, enabled=True, version=SCOPE_VERSION, disclosure_token=shown["disclosure_token"])
     assert alice.detail(receipt_id)["read_pending"] is False
     documents.queue(user_id=alice.person, connection_id=receipt_id, consent=True, scope=alice.scope().owner)
     again = alice.detail(receipt_id)

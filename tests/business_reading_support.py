@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from argus.domain.business.receipt_consent import BusinessReceiptConsentStore
+from argus.domain.business.receipt_consent import (
+    SCOPE_VERSION,
+    BusinessReceiptConsentStore,
+)
 
 ROUTE = {
     "gateway": "fixture",
@@ -23,6 +26,6 @@ def turn_reading(
         space_id,
         owner,
         enabled=enabled,
-        version=1,
+        version=SCOPE_VERSION,
         disclosure_token=shown["disclosure_token"],
     )

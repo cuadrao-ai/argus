@@ -8,6 +8,7 @@ from copy import copy
 
 import pytest
 from argus.api.documents import documents_service
+from argus.domain.business.receipt_consent import SCOPE_VERSION
 from argus.domain.ingestion.documents.service import DocumentServiceError
 
 from tests.business.receipt_stub import ReceiptStub
@@ -31,7 +32,7 @@ def test_a_service_without_the_setting_never_reads_a_business_receipt(
         scope.space_id,
         alice.person,
         enabled=True,
-        version=1,
+        version=SCOPE_VERSION,
         disclosure_token=shown["disclosure_token"],
     )
     draft = documents.get(user_id=alice.person, connection_id=receipt_id, scope=scope)

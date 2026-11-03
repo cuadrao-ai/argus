@@ -27,7 +27,7 @@ afterAll(async () => {
 
 const OWN: GrantedSpace = { space_id: "s-own", name: "Ferretería Luna", grant_id: "g-own", role: "owner", business_role: "owner", permissions: ["read", "prepare", "approve", "manage"], capabilities: ["read", "prepare", "approve"], access_seen: true };
 
-test("the reading card says plainly what turning it on means", async () => {
+test("the reading card shows its title and the one sentence the owner agrees to", async () => {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -35,11 +35,11 @@ test("the reading card says plainly what turning it on means", async () => {
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
   const english = (await import("@/public/locales/en/common.json")).default;
   const { InlineReading } = await import("@/components/business-app/ReceiptReadingControl");
-  const reading = { enabled: false, can_change: true, available: true, disclosure: "" };
-  for (const [language, words, title, body, off] of [
-    ["es-419", spanish, "Leer mis recibos automáticamente", "Un servicio de inteligencia artificial lee cada recibo y saca el comercio, la fecha y los montos. Tú revisas todo antes de aprobar.", "Si lo apagas, tus recibos se guardan sin leer."],
-    ["en", english, "Read my receipts automatically", "An artificial intelligence service reads each receipt and pulls out the merchant, date and amounts. You review everything before approving.", "If you turn it off, your receipts are saved unread."],
+  for (const [language, words, title, sentence] of [
+    ["es-419", spanish, "Leer mis recibos automáticamente", "Leemos con inteligencia artificial los recibos que llegan por correo, por WhatsApp o que subes en Cuadrao, y preparamos un borrador de cada uno. Tú lo revisas y lo apruebas. Si lo apagas, se guardan sin leer."],
+    ["en", english, "Read my receipts automatically", "We use artificial intelligence to read the receipts that come in by email or WhatsApp, or that you upload to Cuadrao, and prepare a draft of each one. You review it and approve it. If you turn it off, they are saved unread."],
   ] as const) {
+    const reading = { enabled: false, can_change: true, available: true, disclosure: sentence };
     const i18n = i18next.createInstance();
     await i18n.init({ lng: language, resources: { [language]: { translation: words } }, interpolation: { escapeValue: false } });
     const host = document.createElement("div");
@@ -49,7 +49,7 @@ test("the reading card says plainly what turning it on means", async () => {
     try {
       assert.equal(host.querySelector("h2")?.textContent, title);
       assert.equal(host.querySelector("[role='switch']")?.getAttribute("aria-label"), title);
-      assert.deepEqual([...host.querySelectorAll("p")].map((line) => line.textContent), [body, off]);
+      assert.deepEqual([...host.querySelectorAll("p")].map((line) => line.textContent), [sentence]);
     } finally {
       await act(async () => root.unmount());
       host.remove();
