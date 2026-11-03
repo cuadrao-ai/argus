@@ -250,7 +250,7 @@ def _run_postgres_matrix_step(
             "PATH": f"{scratch}{os.pathsep}{os.environ['PATH']}",
             "GITHUB_EVENT_NAME": event,
             "CI_SHARD_INDEX": "0",
-            "CI_SHARD_COUNT": "4",
+            "CI_SHARD_COUNT": _workflow()["jobs"]["database-shards"]["env"]["CI_SHARD_COUNT"],
         },
         capture_output=True,
         text=True,

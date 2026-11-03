@@ -1,8 +1,10 @@
 # CI test sharding
 
-Backend and database workers collect their complete existing test selection before
+Two backend workers and three database workers per variant collect their complete
+existing test selection before
 assigning whole files to shards. Files stay together to retain module fixtures and
-test order. The partitioner assigns the longest measured file to the least loaded
+test order. The counts use measured test costs and the elapsed time of the other
+CI jobs to limit repeated setup. The partitioner assigns the longest measured file to the least loaded
 shard, with stable tie breaks. New files use the median measured cost per test.
 
 Each database worker starts its own disposable local database on its own runner.

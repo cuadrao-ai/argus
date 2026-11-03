@@ -162,10 +162,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3]
+        shard: [0, 1]
     env:
       CI_SHARD_INDEX: ${{ matrix.shard }}
-      CI_SHARD_COUNT: "4"
+      CI_SHARD_COUNT: "2"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -383,11 +383,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3]
+        shard: [0, 1, 2]
         supabase-cli: ${{ fromJSON(github.event_name == 'pull_request' && '["pinned"]' || ((github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.full_run)) && '["latest"]' || '["pinned", "latest"]')) }}
     env:
       CI_SHARD_INDEX: ${{ matrix.shard }}
-      CI_SHARD_COUNT: "4"
+      CI_SHARD_COUNT: "3"
       OPENROUTER_API_KEY: ""
       ALPACA_API_KEY: ""
       ALPACA_SECRET_KEY: ""
