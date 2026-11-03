@@ -7,7 +7,7 @@ import { createFixtureBusinessDataSource } from "@/components/business-app/fixtu
 describe("the clock every test starts from", () => {
   test("is the pinned instant, so a suite passes or fails the same on every day it runs", () => {
     assert.equal(new Date().getTime(), TEST_NOW.getTime());
-    assert.deepEqual(periodRange("this_month"), { key: "this_month", from: "2026-10-01", to: null });
+    assert.deepEqual(periodRange("this_month"), { key: "this_month", from: "2026-10-01", to: "2026-10-31" });
   });
 
   test("keeps the sample records inside the default month", async () => {

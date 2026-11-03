@@ -182,7 +182,7 @@ export function formatLateness(dueOn: string, today: string, t: (key: string, op
   return { tone: "upcoming", text: t("business.month_close.due_in_days", { count: distance.days, defaultValue: "due in {{count}} days" }) };
 }
 
-export type PeriodKey = "this_month" | "last_month" | "last_30_days" | "all" | "custom";
+export type PeriodKey = "this_month" | "last_month" | "this_year" | "last_30_days" | "all" | "custom";
 /** `to` null means "through today by the server's clock": the API fills it. */
 export type Period = { key: PeriodKey; from: string; to: string | null };
 export const PERIOD_PRESETS: PeriodKey[] = ["this_month", "last_month", "last_30_days", "all"];
@@ -198,20 +198,38 @@ export function todayIso(now = new Date()): string {
   return isoDay(now);
 }
 
+export type WholePeriodKey = "this_month" | "last_month" | "this_year";
+const WHOLE_PERIOD_KEYS: readonly WholePeriodKey[] = ["this_month", "last_month", "this_year"];
+
+/** The one definition of a whole period: the days the server resolves for that report kind. */
+export function wholePeriod(key: WholePeriodKey, today: string): { from: string; to: string } {
+  const [year, month] = today.split("-").map(Number);
+  const day = (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d)).toISOString().slice(0, 10);
+  if (key === "this_year") return { from: day(year, 0, 1), to: day(year, 12, 0) };
+  const shift = key === "this_month" ? 0 : -1;
+  return { from: day(year, month - 1 + shift, 1), to: day(year, month + shift, 0) };
+}
+
+/** The whole period a range is exactly, if it is one. */
+export function wholePeriodKeyOf(range: { from: string; to: string }, today: string): WholePeriodKey | null {
+  return WHOLE_PERIOD_KEYS.find((key) => { const whole = wholePeriod(key, today); return whole.from === range.from && whole.to === range.to; }) ?? null;
+}
+
+/** A confirmed range as the page's period: a whole period by its name, any other range as custom. */
+export function namedPeriod(range: { from: string; to: string }, today: string): Period {
+  const key = wholePeriodKeyOf(range, today);
+  return { key: key ?? "custom", ...range };
+}
+
 export function periodRange(key: PeriodKey, now = new Date()): Period {
   if (key === "all") return { key, from: ALL_FROM, to: null };
   if (key === "custom") return { key, from: isoDay(new Date(now.getFullYear(), now.getMonth(), 1)), to: isoDay(now) };
-  if (key === "last_month") {
-    const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const last = new Date(now.getFullYear(), now.getMonth(), 0);
-    return { key, from: isoDay(first), to: isoDay(last) };
-  }
   if (key === "last_30_days") {
     const start = new Date(now);
     start.setDate(start.getDate() - 29);
     return { key, from: isoDay(start), to: null };
   }
-  return { key, from: isoDay(new Date(now.getFullYear(), now.getMonth(), 1)), to: null };
+  return { key, ...wholePeriod(key, todayIso(now)) };
 }
 
 

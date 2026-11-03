@@ -1,7 +1,17 @@
+import { wholePeriod, wholePeriodKeyOf } from "../business-format";
 import { isoOf, monthOf, shiftDay } from "./DatePicker";
 
 export type DateRange = { from: string; to: string };
-export type RangePreset = "today" | "yesterday" | "last_7" | "last_30" | "last_quarter" | "custom";
+export type RangePreset = "today" | "this_month" | "last_month" | "this_year" | "all" | "custom";
+/** The one list, in order, and the locale key that names each preset. */
+export const PRESET_KEYS: Record<RangePreset, string> = {
+  today: "business.date_range.preset.today",
+  this_month: "business.period.this_month",
+  last_month: "business.period.last_month",
+  this_year: "business.period.this_year",
+  all: "business.reception_preview.all_dates",
+  custom: "business.date_range.preset.custom",
+};
 export type RangeEdge = keyof DateRange;
 export type RangeDraft = {
   range: DateRange;
@@ -40,19 +50,24 @@ export function parseRangeInput(text: string, locale: string): string | null {
   return Number(year) >= 1900 && !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === iso ? iso : null;
 }
 const rangeText = (range: DateRange, locale: string): DateRange => ({ from: formatRangeInput(range.from, locale), to: formatRangeInput(range.to, locale) });
-export const createRangeDraft = (range: DateRange, locale: string): RangeDraft => ({ range, text: rangeText(range, locale), phase: "start", cursor: range.from, hover: null, preset: "custom", drag: null });
+const EMPTY_RANGE: DateRange = { from: "", to: "" };
+function presetOf(range: DateRange, today: string): RangePreset {
+  const whole = wholePeriodKeyOf(range, today);
+  if (whole) return whole;
+  return range.from === today && range.to === today ? "today" : "custom";
+}
+/** Given today, the draft opens on the preset its range matches; a range with no dates is Todo. */
+export function createRangeDraft(range: DateRange, locale: string, today = ""): RangeDraft {
+  if (!range.from) return { range: EMPTY_RANGE, text: EMPTY_RANGE, phase: "start", cursor: today, hover: null, preset: "all", drag: null };
+  return { range, text: rangeText(range, locale), phase: "start", cursor: range.from, hover: null, preset: today ? presetOf(range, today) : "custom", drag: null };
+}
 export function validDraftRange(state: RangeDraft, locale: string, maxDays = 366): DateRange | null {
   const from = parseRangeInput(state.text.from, locale);
   const to = parseRangeInput(state.text.to, locale);
   return from && to && from <= to && to <= shiftDay(from, maxDays - 1) ? { from, to } : null;
 }
-export function presetRange(preset: Exclude<RangePreset, "custom">, today: string): DateRange {
-  if (preset === "today") return { from: today, to: today };
-  if (preset === "yesterday") return { from: shiftDay(today, -1), to: shiftDay(today, -1) };
-  if (preset === "last_7" || preset === "last_30") return { from: shiftDay(today, preset === "last_7" ? -6 : -29), to: today };
-  const month = monthOf(today);
-  const quarterStart = Math.floor(month.month / 3) * 3;
-  return { from: isoOf(month.year, quarterStart - 3, 1), to: isoOf(month.year, quarterStart, 0) };
+export function presetRange(preset: Exclude<RangePreset, "custom" | "all">, today: string): DateRange {
+  return preset === "today" ? { from: today, to: today } : wholePeriod(preset, today);
 }
 export function shiftMonth(day: string, delta: number): string {
   const current = monthOf(day);
@@ -75,7 +90,9 @@ export function reduceRangeDraft(state: RangeDraft, action: RangeAction, locale:
       const parsed = parseRangeInput(action.text, locale);
       return { ...state, text: { ...state.text, [action.edge]: action.text }, range: parsed ? { ...state.range, [action.edge]: parsed } : state.range, cursor: parsed ?? state.cursor, phase: "start", hover: null, preset: "custom" };
     }
-    case "preset": return action.preset === "custom" ? { ...state, preset: "custom" } : replace(presetRange(action.preset, action.today), { phase: "start", preset: action.preset, cursor: presetRange(action.preset, action.today).from });
+    case "preset":
+      if (action.preset === "all") return { ...state, range: { from: "", to: "" }, text: { from: "", to: "" }, phase: "start", hover: null, preset: "all", drag: null };
+      return action.preset === "custom" ? { ...state, preset: "custom" } : replace(presetRange(action.preset, action.today), { phase: "start", preset: action.preset, cursor: presetRange(action.preset, action.today).from });
     case "drag-start": return { ...state, drag: { edge: action.edge, anchor: state.range[action.edge === "from" ? "to" : "from"], before: state.range, moved: false }, hover: null };
     case "drag-move": return state.drag ? replace(orderedRange(state.drag.anchor, action.day), { phase: "start", cursor: action.day, drag: { ...state.drag, moved: state.drag.moved || action.day !== state.drag.before[state.drag.edge] } }) : state;
     case "drag-end": return { ...state, drag: null };
