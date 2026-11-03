@@ -106,8 +106,8 @@ export default function ReceiptReadingControl({ showWhenOn = false, variant = "n
         <AdaptivePanel title={t("business.activity.sheet_title", "Receipt reading")} closeLabel={t("common.close", "Close")} onClose={() => setOpen(false)} width="sm">
           <div data-testid="receipt-reading-sheet" className="flex flex-col gap-3 desktop:px-5">
             <div className="flex items-center justify-between gap-4">
-              <span className="text-[16px] font-medium text-[#172b26] dark:text-white">{t("business.activity.switch_label", "Read my receipts with AI")}</span>
-              <Switch testId="receipt-reading-switch" label={t("business.activity.switch_label", "Read my receipts with AI")} checked={reading.enabled} disabled={!reading.enabled && !reading.available} onChange={change} />
+              <span className="text-[16px] font-medium text-[#172b26] dark:text-white">{t("business.activity.switch_label", "Read my receipts automatically")}</span>
+              <Switch testId="receipt-reading-switch" label={t("business.activity.switch_label", "Read my receipts automatically")} checked={reading.enabled} disabled={!reading.enabled && !reading.available} onChange={change} />
             </div>
             {!reading.enabled && !reading.available ? <p className="text-[13px] text-[#56635e] dark:text-white/65">{t("business.activity.unavailable", "AI reading can't be turned on right now.")}</p> : null}
             {failed ? (

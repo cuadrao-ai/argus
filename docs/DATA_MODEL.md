@@ -3656,7 +3656,7 @@ open items read the date from the resolution, not from the revision.
 | `business_sender_leases` | One durable holder, monotonic fence and expiry per `(space_id, sender_hash)`. Runtime acquisition/renewal/release must lock this row and check the fence before committing. |
 | `business_turns` | Globally deduplicated provider turn key, scoped actual actor/sender, arrival order, phase, model state, immutable typed normalized plan, active lease fence and reply text. A completed model interpretation requires its plan and server-derived `plan_actor: ActorProvenance` snapshot, present together and immutable together, with matching actual actor ID; completion/reply phases require the plan. |
 | `business_action_receipts` | Unique `(space_id, actor_id, idempotency_key)` and `(turn_key, action_index)`, canonical input hash, normalized command, immutable actual `actor: ActorProvenance` snapshot (including human commands without a turn), and typed result. Snapshot actor ID must match the receipt actor. Human `review_draft`, `approve_expense`, `approve_income` and `capture_note` commands, and trusted `prepare_attachment` commands bound to the stored preparation binding, may omit a turn; agent commands require a persisted plan. Agent receipts require the matching action in an already persisted plan of the same client and actor, with identical plan-actor provenance. Identity/command/hash cannot mutate. A settled result cannot change; unknown results allow explicit reconciliation. This is action execution recovery, not another financial ledger. |
-| `business_dgii_export_lines` | One row per 606 or 607 line a person downloaded in a DGII TXT: `space_id`, `activity_id`, `form`, `period` (`YYYYMM`), `actor_id`, `exported_at`. Written by the export in the same transaction that reads the declarations and builds the packet, under the Business's owner advisory lock (the one every review write takes), only for a form whose TXT shipped (`prepared_candidate`): a 606 write that runs alongside lands before the build and the TXT carries it, or waits and is refused. Read by the review route and the dossier: a record with a row refuses a 606 write or a 607 payment split (`fiscal_declaration_exported`) and reads `declaration_editable` and `payment_split_editable` false. Append-only, service role only. The key to spaces restricts and the purge deletes these rows with the other money rows; deleting the activity cascades them; the actor reference clears when that person is deleted. Migration `20261101010000_business_dgii_export_lines.sql`. |
+| `business_dgii_export_lines` | One row per 606 or 607 line per download of a DGII TXT, so a line downloaded twice has two rows: `space_id`, `activity_id`, `form`, `period` (`YYYYMM`), `actor_id`, `exported_at`. Written by the export in the same transaction that reads the declarations and builds the packet, under the Business's owner advisory lock (the one every review write takes), only for a form whose TXT shipped (`prepared_candidate`): a 606 write that runs alongside lands before the build and the TXT carries it, or waits and the next export carries it. A record of what each export contained, by record and form, not by value: no product code reads it, and a row refuses no edit. Append-only, service role only. The key to spaces restricts and the purge deletes these rows with the other money rows; deleting the activity cascades them; the actor reference clears when that person is deleted. Migration `20261101010000_business_dgii_export_lines.sql`. |
 | `business_document_settlements` | One row per recorded activity in one Business (`space_id`, `activity_id`). Status, settlement date, and payment method only. Amounts, ITBIS, RNC, and the fiscal number stay on the activity and its draft. A pending row has no date and no method. A settled row has both, and the status has to match invoice or receipt. Deleting the activity cascades the row; deleting the space is refused while the row exists (`20261101000100`). Both owner keys are custody-deferred: account deletion moves `owner_id` to the record custodian with the Business, and the day-30 purge deletes the row itself before the space. |
 | `business_document_settlement_revisions` | Append-only previous status, date, and method, plus the actor and the time. A repeated identical settlement writes no row. Updates and direct deletes fail. Deleting the settlement cascades these rows. The actor reference clears when that person is deleted. The month summary is computed, not stored. Shapes and the closed rule are in the [month-close contract](contracts/business-month-close.md). |
 
@@ -3716,10 +3716,10 @@ before the approval; if it cannot, the next approval writes from that earlier
 declaration. The export reads the reviewed revision's facts and the declaration
 from the latest revision, then checks current money amount, date and currency.
 On an accepted record the same `ReviewCommand`, carrying only the 606 fields or
-only a sale's 607 payment split, appends one more revision until a downloaded
-DGII TXT carries the record's line
-(`business_dgii_export_lines`, migration `20261101010000`); the recorded facts
-stay refused. The tipo de gasto suggested for an RNC has no column: the dossier
+only a sale's 607 payment split, appends one more revision, before or after a
+downloaded DGII TXT carries the record's line
+(`business_dgii_export_lines`, migration `20261101010000`), and the next export
+carries it; the recorded facts stay refused. The tipo de gasto suggested for an RNC has no column: the dossier
 reads it from the declarations in this Business through
 `financial_import_events.business_rnc`, and a typed purchase is a draft with
 `receipt_state` `no_receipt` and no declaration. No second tax ledger or fiscal approval bypass is added. New human-only action receipt
@@ -4224,21 +4224,27 @@ registry holds every estado, not only active rows, so a suspended or cancelled
 supplier can be flagged. `trade_name` comes from column 3 of the publisher's
 TXT, joined by RNC, from a second zip that the load does not require. About 56
 percent of rows have a value, and most of those differ from the legal name. Null
-means no value, or that the TXT zip failed that day. A blank or
+means no value. When the TXT zip fails or parses to no names, the load keeps each
+RNC's previous `trade_name`, so a new RNC stays null until the next good TXT. A blank or
 whitespace-only value in `trade_name`, `activity` or `regime` fails its check,
 so the loader stores null. `start_date` is null when the file's date is not a
 real dd/mm/yyyy date. `status` stays the raw estado value, including new values,
 with no check. Lookup derives `verification`: `verificado` when the
 trimmed upper-case status is `ACTIVO`, otherwise `no_activo`.
 
-`public.dgii_rnc_swap(min_rows int) returns int` copies every column from the
-load table into the registry.
+`public.dgii_rnc_swap(min_rows int) returns int` publishes the load table by
+renaming it, and returns the row count.
 A null or non-positive minimum raises before the swap takes a lock. The swap
-then locks the load table exclusively, checks the row count, and rejects
-duplicate `rnc` values. A delete on the load table waits for that lock, so the
-published rows are the rows that passed the checks. The swap locks the
-registry, truncates it, and inserts in the same transaction. A raised error
-rolls that transaction back and leaves the previous registry in place.
+then locks the load table in access exclusive mode, checks the row count,
+rejects duplicate `rnc` values, and builds the primary key. A delete on the load
+table waits for that lock, so the published rows are the rows that passed the
+checks. The swap then locks the registry, and in the same transaction it trades
+the two table names, moves the primary key name, empties the old table, and sets
+each table's grants again. Grants stay with a table through a rename, so the swap
+sets them. The two tables share their check constraint names, so a swap changes
+no name. The old table is now the empty load table, and commit returns its space.
+A raised error rolls that transaction back and leaves the previous registry and
+the load rows in place.
 `public.dgii_rnc_lookup(p_rnc text)` is volatile and returns
 `table(rnc text, name text, trade_name text, status text, file_date date, verification text, activity text, start_date date, regime text)`.
 A lookup that waits on a swap reads the rows published by that swap. It strips
@@ -4249,16 +4255,21 @@ Row level security is enabled with no policies. `anon`, `authenticated` and
 clear the staging table, and execute both functions. Cédula rows are personal
 identifiers published in the source file. Access stays service-role only.
 
-A full file is about 800,000 rows. `trade_name` adds about 10 to 15 MB at that
-scale. One local swap of 800,000 synthetic rows, with a commercial name on 56
-percent of them, added 14,778,368 bytes to the registry. With the three CSV
-columns, one local load of 795,000 synthetic rows measured 133 to 178 MiB for
-the table and its key, at an average activity of 30 to 80 characters. No real
-CSV has been measured. Re-running the swap
+The file dated 2026-10-31 holds 796,924 kept rows and 1 dropped row:
+504,853 of 9 digits and 292,071 of 11. `parsed_bytes` is 127,691,030. 448,071 rows
+have a `trade_name`, 772,164 an `activity` (average 70.4 characters), 729,442 a
+`start_date`, and every row a `regime`. The estados are ACTIVO 378,779,
+SUSPENDIDO 331,802, DADO DE BAJA 74,961, CESE TEMPORAL 9,849, ANULADO 1,257 and
+RECHAZADO 276. A local load of synthetic rows with those counts and that
+`parsed_bytes` measured 137.6 MiB of heap and a 24.0 MiB key, which is 161.7 MiB
+for the table. A reload holds two table copies at its peak, so it adds 161.7 MiB
+to a database that already holds the table. `docs/runbooks/dgii-rnc-import.md`
+has the size check. Re-running the swap
 with the same load contents produces the same registry. Proven by
 `tests/test_dgii_rnc_postgres.py`. Migrations
 `supabase/migrations/20261018190000_dgii_rnc_registry.sql` and
-`supabase/migrations/20261102204200_dgii_rnc_csv_columns.sql`.
+`supabase/migrations/20261102204200_dgii_rnc_csv_columns.sql` and
+`supabase/migrations/20261102225200_dgii_rnc_rename_swap.sql`.
 
 ## Tables without a detailed section
 

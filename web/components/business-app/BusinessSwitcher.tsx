@@ -155,7 +155,7 @@ export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, co
       </button> : null}
       {current.permissions?.includes("manage") && onInvite ? <button type="button" role="menuitem" className={menuItemClass} onClick={() => { closeToButton(); onInvite(); }}>
         <UserRoundPlus aria-hidden="true" className="h-5 w-5 shrink-0" />
-        {t("business.switcher.invite")}
+        {t("workspace_setup_preview.batch_title")}
       </button> : null}
       <button type="button" role="menuitem" className={menuItemClass} onClick={() => { setMode("closed"); onOpenSettings(); }}>
         <Settings2 aria-hidden="true" className="h-5 w-5 shrink-0" />

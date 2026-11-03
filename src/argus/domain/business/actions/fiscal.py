@@ -61,25 +61,6 @@ def reviewed_fiscal_facts(
     return facts.model_copy(update={"fiscal": FiscalFacts.model_validate(values)})
 
 
-def exported_line(tx, event) -> bool:
-    """Whether a 606 or 607 TXT a person downloaded carries this record's line."""
-
-    return bool(
-        tx.rows(
-            "select 1 from public.business_dgii_export_lines"
-            " where space_id=%s and activity_id=%s limit 1",
-            (tx.context.actor.space_id, event.activity_id),
-        )
-    )
-
-
-def require_unexported(tx, event) -> None:
-    """A declaration already handed to the DGII in a TXT does not change here."""
-
-    if exported_line(tx, event):
-        raise ActionError("invalid_input", "fiscal_declaration_exported")
-
-
 def remembered_expense_type(tx, draft_id) -> ExpenseType | None:
     """The tipo de gasto a person last chose for this draft's RNC in this
     Business. The only reader of that memory. Nothing stores it: it reaches the

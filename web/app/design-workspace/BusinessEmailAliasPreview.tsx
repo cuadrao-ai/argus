@@ -35,7 +35,7 @@ export default function BusinessEmailAliasPreview({businessId,businessName,defau
   const checks=useFieldChecks({alias:()=>{const error=issue();return error ? t(error === "locked" ? "business.reception.alias_locked" : `workspace_setup_preview.alias_${error}`) : null;}},{alias});
   if(saved.address) return <p className="mt-2 text-[14px] text-[#56635e] dark:text-white/70">{t("business.reception.alias_locked")}</p>;
   if(!canEdit) return null;
-  if(!open) return <button type="button" onClick={()=>setOpen(true)} className={`${quietButtonClass} mt-2`}>{t("business.reception.alias_customize")}</button>;
+  if(!open) return <button type="button" onClick={()=>setOpen(true)} className={`${quietButtonClass} -ml-1 mt-2`}>{t("business.reception.alias_customize")}</button>;
   return <form className="mt-4 space-y-3 border-t border-[#DCE0DA] pt-4 dark:border-white/10" noValidate onSubmit={event=>{
     event.preventDefault();if(!checks.submit()){document.getElementById(id)?.focus();return;}
     try{saveReceptionAlias(storage(),businessId,alias.trim().toLowerCase(),defaultAddress);window.dispatchEvent(new Event(receptionPreviewEvent));setOpen(false);}catch{setFailed(true);}

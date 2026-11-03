@@ -1,9 +1,9 @@
 """Over HTTP on the real app and Postgres: the export builds its TXT and
-freezes the lines it carries under the Business's one owner lock, so a 606
+records the lines it carries under the Business's one owner lock, so a 606
 write that runs at the same time either lands before the build, and the TXT
-carries it, or waits for the build and is refused. Each interleaving is forced
-with a pause at a seam, the same pause a slow export or a slow write gives.
-All values are made up."""
+carries it, or waits for the build, lands after it, and the next TXT carries
+it. Each interleaving is forced with a pause at a seam, the same pause a slow
+export or a slow write gives. All values are made up."""
 
 from __future__ import annotations
 
@@ -136,7 +136,7 @@ def shipped_payment_form(response) -> str:  # noqa: ANN001
     return line.split("|")[-1]
 
 
-def lock_rows(world) -> int:  # noqa: ANN001, F811
+def export_rows(world) -> int:  # noqa: ANN001, F811
     with Connection.connect(shared.DSN) as db:
         return db.execute(
             "select count(*) from public.business_dgii_export_lines where space_id=%s",
@@ -163,7 +163,7 @@ def in_thread(outcome, name, call):  # noqa: ANN001, ANN201
 
 def test_a_write_between_the_snapshot_and_the_build_is_in_the_txt(world):  # noqa: ANN001, F811
     """The export has read the period and is rebuilding images when a person
-    saves Forma de Pago 03. The TXT ships 03, and the record is frozen on 03."""
+    saves Forma de Pago 03. The TXT ships 03."""
 
     draft, version = recorded(world, "B0100001001")
     reached, resume = threading.Event(), threading.Event()
@@ -181,14 +181,13 @@ def test_a_write_between_the_snapshot_and_the_build_is_in_the_txt(world):  # noq
     assert changed.status_code == 200, changed.text
     assert shipped_payment_form(outcome["export"]) == "03"
     view = dossier(world, draft)
-    assert (view["dgii"]["payment_method"], view["declaration_editable"]) == ("03", False)
-    assert lock_rows(world) == 1
+    assert (view["dgii"]["payment_method"], view["declaration_editable"]) == ("03", True)
+    assert export_rows(world) == 1
 
 
 def test_a_write_holding_the_owner_lock_lands_before_the_build(world):  # noqa: ANN001, F811
-    """The write passed the exported check and is saving its revision when the
-    export starts. The export builds after that write commits: the TXT ships
-    03, and the record is frozen on 03."""
+    """The write is saving its revision when the export starts. The export
+    builds after that write commits: the TXT ships 03."""
 
     draft, version = recorded(world, "B0100001002")
     reached, resume = threading.Event(), threading.Event()
@@ -206,14 +205,14 @@ def test_a_write_holding_the_owner_lock_lands_before_the_build(world):  # noqa: 
     assert outcome["write"].status_code == 200, outcome["write"].text
     assert shipped_payment_form(outcome["export"]) == "03"
     view = dossier(world, draft)
-    assert (view["dgii"]["payment_method"], view["declaration_editable"]) == ("03", False)
-    assert lock_rows(world) == 1
+    assert (view["dgii"]["payment_method"], view["declaration_editable"]) == ("03", True)
+    assert export_rows(world) == 1
 
 
-def test_a_write_arriving_during_the_build_is_refused(world):  # noqa: ANN001, F811
+def test_a_write_arriving_during_the_build_lands_after_it(world):  # noqa: ANN001, F811
     """The export is building its TXT when a person saves Forma de Pago 03. The
-    write waits for the export and is refused with the exported code: the TXT
-    ships 01 and the record stays on 01."""
+    write waits for the export and lands: the TXT ships 01, the record holds
+    03, and the next TXT ships 03."""
 
     draft, version = recorded(world, "B0100001003")
     reached, resume = threading.Event(), threading.Event()
@@ -228,12 +227,10 @@ def test_a_write_arriving_during_the_build_is_refused(world):  # noqa: ANN001, F
         resume.set()
         exporter.join(30)
         writer.join(30)
-    refused = outcome["write"]
-    assert (refused.status_code, refused.json().get("code")) == (
-        422,
-        "fiscal_declaration_exported",
-    ), refused.text[:200]
+    assert outcome["write"].status_code == 200, outcome["write"].text
     assert shipped_payment_form(outcome["export"]) == "01"
     view = dossier(world, draft)
-    assert (view["dgii"]["payment_method"], view["declaration_editable"]) == ("01", False)
-    assert lock_rows(world) == 1
+    assert (view["dgii"]["payment_method"], view["declaration_editable"]) == ("03", True)
+    assert export_rows(world) == 1
+    assert shipped_payment_form(download(world)) == "03"
+    assert export_rows(world) == 2

@@ -94,26 +94,34 @@ test("identity marks its required field, validates on submit and confirms a succ
 });
 
 
-test.each([["es-419","Ver perfil","Todavía no hay datos de contacto guardados."],["en","View profile","No contact details have been saved yet."]])("%s opens the saved profile card and returns focus to its action",async(locale,label,emptyHint)=>{
+test.each([["es-419","Ubicación y contacto","Agrega dirección, correo o teléfono.","Ver perfil","Abrir"],["en","Location and contact","Add an address, email or phone.","View profile","Open"]])("%s rows show a quiet action, the profile card is gone and focus returns to the row",async(locale,section,emptyHint,removed,open)=>{
   const page=await mount(locale);try{
-    const trigger=page.button(label);await page.click(trigger);
-    const card=document.querySelector('[data-testid="business-profile-card"]')!;
-    expect(card.textContent).toContain("La Palma");expect(card.textContent).toContain(emptyHint);expect(card.querySelector("input,button,a")).toBeNull();expect(card.querySelector("img")).toBeNull();expect(document.querySelector("[data-footer-slot]")).toBeNull();
+    const trigger=page.button(section);
+    expect(trigger.textContent).toContain(emptyHint);expect(trigger.textContent).toContain(open);expect(page.host.textContent).not.toContain(removed);
+    await page.click(trigger);
+    expect(document.querySelector('[data-testid="business-profile-card"]')).toBeNull();
     expect(page.host.querySelector("#profile-next-title")).toBeNull();expect(document.querySelectorAll('[data-testid="side-drawer"]')).toHaveLength(1);
     await page.click(document.querySelector<HTMLButtonElement>('[data-testid="side-drawer"] button[aria-label]')!);
     await act(async()=>new Promise(resolve=>requestAnimationFrame(resolve)));expect(document.activeElement).toBe(trigger);expect(page.host.querySelector("#profile-next-title")).not.toBeNull();
   }finally{await page.close();}
 });
 
-test("profile card displays saved contact details after an unsaved edit is discarded",async()=>{
+test("a row shows the saved value, never the draft discarded after it",async()=>{
   const page=await mount();try{
     await page.click(page.button("Ubicación y contacto"));await page.type("profile-email","saved@example.com");await page.click(document.querySelector<HTMLButtonElement>('button[type="submit"]')!);
-    await page.type("profile-email","draft@example.com");await page.click(page.button("Ver perfil"));expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+    await page.type("profile-email","draft@example.com");await page.click(page.button("Presencia del negocio"));expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
     await page.click(document.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]')!);
-    const card=document.querySelector('[data-testid="business-profile-card"]')!;expect(card.textContent).toContain("saved@example.com");expect(card.textContent).not.toContain("draft@example.com");expect(card.querySelectorAll("dt")).toHaveLength(1);expect(card.querySelector("input")).toBeNull();
+    const row=page.button("Ubicación y contacto");expect(row.textContent).toContain("saved@example.com");expect(row.textContent).not.toContain("draft@example.com");expect(row.textContent).not.toContain("Agrega dirección");
   }finally{await page.close();}
 });
 
+test("a finished checklist item is checked and muted with no strikethrough",async()=>{
+  const page=await mount();try{
+    const name=page.host.querySelector<HTMLElement>('[data-profile-checklist="name"]')!;
+    const label=name.querySelector<HTMLElement>("span:last-child")!;
+    expect(name.querySelector("svg")).not.toBeNull();expect(label.className).toContain("text-[#56635e]");expect(label.style.textDecoration).toBe("");
+  }finally{await page.close();}
+});
 
 test.each([["es-419","Ubicación y contacto","Guardar cambios"],["en","Location and contact","Save changes"]])("%s pinned footer submits its associated form without losing invalid drafts",async(locale,section,saveLabel)=>{
   const page=await mount(locale);try{

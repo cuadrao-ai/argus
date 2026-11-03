@@ -152,8 +152,8 @@ describe("the Negocio page", () => {
       assert.equal(params().get("view"), "business");
       assert.equal(params().get("tab"), "equipo");
       assert.equal(page.chosenTab(), "Acceso");
-      await page.settle(() => [...page.host.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Invita a un colaborador"));
-      assert.ok([...page.host.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Invita a un colaborador"), "the team tab holds the approved invitation control");
+      await page.settle(() => [...page.host.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Invita a colaboradores"));
+      assert.ok([...page.host.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Invita a colaboradores"), "the team tab holds the approved invitation control");
 
       await page.choose("Recepción");
       assert.equal(params().get("tab"), "correo");
@@ -322,9 +322,29 @@ test("an absent remembered membership still shows removed access", async () => {
 });
 
 
-test("only the owner finds lifecycle controls in Datos, and Acceso has none", async () => {
+const LIFECYCLE_SWITCH = "NEXT_PUBLIC_CUADRAO_BUSINESS_LIFECYCLE_CONTROLS_ENABLED";
+
+test("the pilot hides Transferir and Cerrar until their switch is on", async () => {
+  const previousFetch = globalThis.fetch; const previousAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
+  delete process.env[LIFECYCLE_SWITCH];
+  process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
+  const reads: string[] = [];
+  globalThis.fetch = async url => { reads.push(String(url)); return Response.json({ spaces: [] }); };
+  const owner = { ...OWN, space_id: "39d12d09-bebe-4992-b6dc-cb1a84d52438" };
+  const page = await mount("view=business", owner, { mode: "live", spaceDirectory: async () => ({ spaces: [owner], closed_spaces: [] }) });
+  try {
+    await page.settle(() => page.host.querySelector('[data-testid="business-settings"]') !== null);
+    assert.equal(page.host.querySelector('[data-testid="business-lifecycle-controls"]'), null);
+    assert.equal(page.host.querySelector('a[href*="lifecycle=close"]'), null);
+    assert.equal(page.host.querySelector('a[href*="lifecycle=transfer"]'), null);
+    assert.equal(reads.some(url => url.includes("owned-spaces")), false);
+  } finally { await page.close(); globalThis.fetch = previousFetch; if (previousAuth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = previousAuth; }
+});
+
+test("with the switch on, only the owner finds lifecycle controls in Datos, and Acceso has none", async () => {
   const previousFetch = globalThis.fetch; const previousAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
+  process.env[LIFECYCLE_SWITCH] = "true";
   globalThis.fetch = async url => Response.json({ spaces: String(url).includes("owned-spaces") ? [{ space_id: "39d12d09-bebe-4992-b6dc-cb1a84d52438", name: OWN.name, grant_id: "af2d018e-6e6c-4fc7-9602-9b0b31ff9bc0", member_count: 0, reopen_until: "2026-11-20T17:45:00Z", export_windows: [], members: [] }] : [] });
   const owner = { ...OWN, space_id: "39d12d09-bebe-4992-b6dc-cb1a84d52438" };
   const page = await mount("view=business", owner, { mode: "live", spaceDirectory: async () => ({ spaces: [owner], closed_spaces: [] }) });
@@ -334,7 +354,7 @@ test("only the owner finds lifecycle controls in Datos, and Acceso has none", as
     assert.ok(page.host.querySelector('a[href*="lifecycle=transfer"]'));
     await page.choose("Acceso");
     assert.equal(page.host.querySelector('[data-testid="business-lifecycle-controls"]'), null);
-  } finally { await page.close(); globalThis.fetch = previousFetch; if (previousAuth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = previousAuth; }
+  } finally { await page.close(); delete process.env[LIFECYCLE_SWITCH]; globalThis.fetch = previousFetch; if (previousAuth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = previousAuth; }
 });
 
 

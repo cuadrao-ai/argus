@@ -388,6 +388,11 @@
           "value": "true"
         },
         {
+          "name": "NEXT_PUBLIC_CUADRAO_BUSINESS_LIFECYCLE_CONTROLS_ENABLED",
+          "kind": "plain",
+          "value": "false"
+        },
+        {
           "name": "NEXT_PUBLIC_CUADRAO_API_URL",
           "kind": "plain",
           "keep_current": true

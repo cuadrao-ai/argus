@@ -8,7 +8,7 @@ import BottomSheet from "@/components/ui/BottomSheet";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { useOverlayLayer } from "@/components/layout/overlayStack";
 
-export type AccessRoleOption = {value:string;label:string;description:string};
+export type AccessRoleOption = {value:string;label:string;description:string;disabled?:boolean};
 export default function AccessRolePicker({options,value,onChange,label,disabled=false,compact=false,variant="field",showDetail=true,ownerDocument,portalRoot,id:controlId,onBlur,invalid,describedBy}: {
   id?:string;onBlur?:()=>void;invalid?:boolean;describedBy?:string;
   options:AccessRoleOption[];value:string;onChange:(value:string)=>void;label:string;disabled?:boolean;compact?:boolean;variant?:"field"|"quiet";showDetail?:boolean;ownerDocument?:Document;portalRoot?:Element|null;
@@ -64,7 +64,7 @@ export default function AccessRolePicker({options,value,onChange,label,disabled=
       if (!rect) return;
       const bottom = (frame?.top ?? 0) + rect.bottom;
       const top = (frame?.top ?? 0) + rect.top;
-      const height = list.current?.offsetHeight ?? 280;
+      const height = list.current?.scrollHeight ?? 280;
       const below = window.innerHeight - bottom - 16;
       const above = top - 16;
       const upwards = below < height && above > below;
@@ -94,12 +94,13 @@ export default function AccessRolePicker({options,value,onChange,label,disabled=
   }, [open, sourceDocument, isBelowDesktop]);
   const destination = portalRoot ?? (typeof document === "undefined" ? null : document.body);
   const choices = <>
-      {options.map((option, index) => <button key={option.value} ref={node => { items.current[index] = node; }} type="button" role="option" tabIndex={isBelowDesktop && option.value === value ? 0 : -1} aria-selected={option.value === value}
+      {options.map((option, index) => <button key={option.value} ref={node => { items.current[index] = node; }} type="button" role="option" tabIndex={isBelowDesktop && option.value === value ? 0 : -1} aria-selected={option.value === value} aria-disabled={option.disabled || undefined}
         onClick={() => {
+          if (option.disabled) return;
           onChange(option.value);
           close();
         }}
-        className="flex min-h-11 w-full items-center gap-3 rounded-item px-3 py-2.5 text-left text-[#172b26] hover:bg-black/5 focus:bg-black/5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#2f5a49] dark:focus-visible:outline-[#8fcbb0] dark:text-white dark:hover:bg-white/5 dark:focus:bg-white/5">
+        className="flex min-h-11 w-full items-center gap-3 rounded-item px-3 py-2.5 text-left text-[#172b26] hover:bg-black/5 focus:bg-black/5 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-transparent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#2f5a49] dark:focus-visible:outline-[#8fcbb0] dark:text-white dark:hover:bg-white/5 dark:focus:bg-white/5">
         <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">{option.label}</span>{option.description ? <span className="mt-1 block text-[14px] leading-snug text-[#56635e] dark:text-white/70">{option.description}</span> : null}</span>
         <Check aria-hidden="true" className={`h-4 w-4 shrink-0 ${option.value === value ? "" : "invisible"}`} />
       </button>)}
@@ -110,7 +111,7 @@ export default function AccessRolePicker({options,value,onChange,label,disabled=
       aria-labelledby={compact || variant === "quiet" ? undefined : `${id}-label ${id}-value`} aria-label={compact || variant === "quiet" ? `${label} ${selected?.label ?? ""}` : undefined} aria-describedby={[describedBy,compact || variant === "quiet" || !showDetail || !selected?.description ? undefined : `${id}-detail`].filter(Boolean).join(" ") || undefined} aria-controls={open ? id : undefined}
       style={{minHeight:variant === "field" ? 48 : 44}} disabled={disabled} onClick={() => setOpen(!open)}
       onKeyDown={event => { if (["ArrowDown", "ArrowUp"].includes(event.key)) { event.preventDefault(); setOpen(true); } }}
-      className={variant === "quiet" ? "flex min-h-11 items-center gap-2 rounded-md bg-transparent text-left text-[16px] text-[#56635e] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed dark:text-white/70" : "flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-[#7d8a84] bg-transparent px-3 text-left text-[16px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:focus-visible:outline-[#8fcbb0]"}>
+      className={variant === "quiet" ? "flex min-h-11 w-full items-center justify-between gap-2 rounded-md bg-transparent text-left text-[16px] text-[#56635e] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed dark:text-white/70" : "flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-[#7d8a84] bg-transparent px-3 text-left text-[16px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:focus-visible:outline-[#8fcbb0]"}>
       <span id={`${id}-value`}>{selected?.label}</span><ChevronDown className={`h-4 w-4 shrink-0 transition-transform duration-150 ease-out motion-reduce:transition-none ${open ? "rotate-180" : ""}`} aria-hidden="true" />
     </button>
     {!compact && variant === "field" && showDetail && selected?.description ? <p id={`${id}-detail`} className="mt-2 text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{selected?.description}</p> : null}

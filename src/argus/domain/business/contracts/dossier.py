@@ -224,8 +224,8 @@ class BusinessDossier(RecordContext):
     document_type: DocumentType = "recibo"
     document_type_detected: bool = False
     document_type_editable: bool = False
-    #: The caller may write the 606 declaration now: open, or approved and
-    #: not yet carried by a downloaded DGII TXT, and the caller holds prepare.
+    #: The caller may write the 606 declaration now: open or approved, and the
+    #: caller holds prepare. A download changes nothing here.
     declaration_editable: bool = False
     #: The tipo de gasto a person last chose for this RNC in this Business,
     #: while this draft has no choice of its own and takes one. A suggestion:

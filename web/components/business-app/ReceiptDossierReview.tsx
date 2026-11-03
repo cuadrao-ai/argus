@@ -466,7 +466,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
       </ReceiptEditRow>
     );
   };
-  // Approval needs no 606 data, so a recorded purchase keeps these choices until an export carries its line.
+  // Approval needs no 606 data, so a recorded purchase keeps these choices.
   const showsChoices = (reviewing || dossier.review_state === "accepted") && !dossier.sin_comprobante && (dossier.declaration_editable === true || dossier.dgii?.form === "606");
   const rowNote = (row: ReviewRow) => <ReceiptRowSave save={autosave.saves[row]?.state === "saving" ? undefined : autosave.saves[row]} onRetry={() => rows.retry(row)} />;
   return (<><ContentFade><>

@@ -9,10 +9,7 @@ from psycopg.rows import dict_row
 from pydantic import TypeAdapter
 
 from argus.domain.business.actions.facts import facts_of
-from argus.domain.business.actions.fiscal import (
-    exported_line,
-    remembered_expense_type,
-)
+from argus.domain.business.actions.fiscal import remembered_expense_type
 from argus.domain.business.actions.marks import draft_marks, fiscal_inclusion_available
 from argus.domain.business.actions.refunds import refund_candidates, refund_shaped
 from argus.domain.business.annotations import annotation_available, current_note
@@ -338,11 +335,7 @@ def dossier(
     approvable = not blocked and "approve" in tx.authorization.capabilities
     can_prepare = "prepare" in tx.authorization.capabilities
     can_annotate = annotation_available(tx.authorization, event)
-    fiscal_writable = can_prepare and (
-        event.state == "open"
-        or event.state == "accepted"
-        and not exported_line(tx, event)
-    )
+    fiscal_writable = can_prepare and event.state in ("open", "accepted")
     declaration_editable = fiscal_writable and takes_purchase_declaration(
         facts, resolution.dgii
     )
