@@ -28,6 +28,7 @@ export function usePeriodLabel() {
           this_month: t("business.period.this_month", "This month"),
           last_month: t("business.period.last_month", "Last month"),
           last_30_days: t("business.period.last_30_days", "Last 30 days"),
+          this_year: period.from.slice(0, 4),
           all: t("business.period.all", "All"),
         })[period.key];
 }
