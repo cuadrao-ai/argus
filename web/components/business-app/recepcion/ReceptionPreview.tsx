@@ -135,7 +135,9 @@ function ReceptionWorkspace() {
   const showStatus = view !== "listos";
   const navigateFrom = (next: Parameters<typeof openPanel>[0]) => {
     dossierReturns.set(source, { scope, view, filters, query, page: currentPage, pageSize, period, admittedIds, selectedIds, preferences });
-    openPanel(next);
+    openPanel(next.kind === "receipt" || next.kind === "draft"
+      ? { ...next, receiptIds: matched.flatMap(row => row.kind === "receipt" ? [row.id] : []) }
+      : next);
   };
   const rowKey = (row: ReceptionRow) => `${row.kind}:${row.id}`;
   const titleOf = (row: ReceptionRow) => receptionDocumentTitle(row, { untitled: t("business.receipt.untitled"), pending: word("intake_pending"), exception: word("intake_exception"), text: word("text_intake") });

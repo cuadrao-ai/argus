@@ -33,7 +33,9 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const money = (amount: string | null, currency: string | null) => formatMoney(amount, currency, locale) || UNKNOWN_VALUE;
   const terminalRead = useTerminalRead();
-  const { source, reload, openPanel, revision, records, actions, chosen } = useBusiness();
+  const { source, reload, openPanel, revision, panel, actions, chosen } = useBusiness();
+  const origin = panel?.kind === "receipt" || panel?.kind === "draft" ? panel : null;
+  const receiptIds = origin?.receiptIds ?? [];
   const consent = useBusinessConsent();
   const [detail, setDetail] = useState<ReceiptDetail | null>(null);
   // The reference of the last load that failed.
@@ -110,9 +112,9 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     );
     return <ReceiptDossierReview draftId={openDraft} onUnprepared={retainReceipt} receipt={detail} notice={notice} />;
   }
-  const openReceipt = (id: string) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id }); };
-  const position = receiptPlace(receiptId, records.inbox);
-  const moves = busy ? {} : receiptNavigationActions(receiptId, records.inbox, openReceipt);
+  const openReceipt = (id: string) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id, list: origin?.list, receiptIds }); };
+  const position = receiptPlace(receiptId, receiptIds);
+  const moves = busy ? {} : receiptNavigationActions(receiptId, receiptIds, openReceipt);
   const place = position ? { ...position, previous: moves.previous, next: moves.next } : null;
   const frame = (children: React.ReactNode, source: React.ReactNode = <ReceiptSourcePreview detail={detail} />, reading = false) => (
     <ContentFade><ReceiptReviewFrame
@@ -187,7 +189,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   // A read the backend says is running shows the reading state until it settles; the poll then swaps in the filled fields at once.
   if (waitingForAi) {
     return <>
-      <ReceiptShortcutRegistration actions={receiptNavigationActions(receiptId, records.inbox, (id) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id }); })} />
+      <ReceiptShortcutRegistration actions={moves} />
       {frame(
         <ReceiptReadingState>
           {readStalled ? (
