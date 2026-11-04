@@ -353,26 +353,37 @@ def test_same_tax_identity_keeps_aliases_and_same_name_never_merges_identities()
     assert result.counterparties[0].labels == ("First label", "Second label")
 
 
-def test_unlinked_credit_makes_document_family_final_incomplete():
+def test_unlinked_credit_makes_its_own_document_family_final_incomplete():
+    """A supplier's credit note is a purchase; until it is linked its
+    adjustment is unknown, so the purchases total is open and the sales
+    total is untouched."""
+
     rows = [
         record("sale", family="sale", money_kind="income"),
+        record("bought"),
         record(
             "unlinked",
-            family=None,
+            money_kind="refund",
             document_kind="credit_note",
             gross_amount="20.00",
             adjustment_effect="unknown",
         ),
     ]
     answer = run(rows)
-    sale = next(
-        total
+    families = {
+        total.kind: total
         for total in answer.totals
-        if total.basis == "document_family_amount" and total.kind == "income"
+        if total.basis == "document_family_amount"
+    }
+    assert (families["expense"].known_amount, families["expense"].amount) == (
+        "100.00",
+        None,
     )
-    assert sale.known_amount == "100.00"
-    assert sale.amount is None
-    assert sale.unknown_count == 1
+    assert families["expense"].unknown_count == 1
+    assert (families["income"].amount, families["income"].unknown_count) == (
+        "100.00",
+        0,
+    )
 
 
 def test_exact_amount_strings_survive_large_values_and_aggregate_over_bigint():

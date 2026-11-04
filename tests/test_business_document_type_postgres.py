@@ -232,14 +232,21 @@ def test_the_business_own_rnc_in_any_format_reads_as_a_detected_venta(
     assert _typed(reviewed.json()) == ("venta", True, True)
 
 
-@pytest.mark.parametrize("own", [OWN_RNC, None])
-def test_another_rnc_or_no_profile_reads_as_a_detected_receipt(web, own) -> None:  # noqa: ANN001
+@pytest.mark.parametrize("own,detected", [(OWN_RNC, True), (None, False)])
+def test_another_rnc_reads_as_a_detected_receipt_and_no_profile_as_a_default(
+    web,  # noqa: ANN001
+    own,  # noqa: ANN001
+    detected,  # noqa: ANN001
+) -> None:
+    """With no Business RNC there is nothing to compare: the receipt is a
+    default, not the read's choice."""
+
     if own is not None:
         _own_rnc(web, own)
     receipt = _upload(web, SUPPLIER_RNC if own else OWN_RNC)
-    assert _typed(receipt) == ("recibo", True, True)
+    assert _typed(receipt) == ("recibo", detected, True)
     dossier = _dossier(web, receipt["draft_id"])
-    assert _typed(dossier) == ("recibo", True, True)
+    assert _typed(dossier) == ("recibo", detected, True)
     assert dossier["facts"]["kind"]["value"] == "expense"
 
 
@@ -440,12 +447,16 @@ def _capture(world, body: dict):  # noqa: ANN001, ANN202
 @pytest.mark.parametrize(
     "named,expected,kind",
     [
-        (None, ("recibo", True, True), None),
+        (None, ("recibo", False, True), None),
         ("recibo", ("recibo", False, True), None),
         ("venta", ("venta", False, True), "income"),
     ],
 )
 def test_a_typed_capture_takes_the_same_type_rules(web, named, expected, kind) -> None:  # noqa: ANN001
+    """A note prints no issuer, so an unnamed one is a receipt by default,
+    never a detected one."""
+
+    _own_rnc(web)
     body = {"text": "Vendí 2,360 a PRÁCTICA cliente"}
     if named is not None:
         body["document_type"] = named
@@ -623,7 +634,7 @@ def test_a_kind_and_a_type_that_disagree_are_refused(web) -> None:  # noqa: ANN0
             422,
             "activity_kind_unsupported",
         ), body
-    assert _typed(_dossier(web, draft)) == ("recibo", True, True)
+    assert _typed(_dossier(web, draft)) == ("recibo", False, True)
 
 
 def _legacy_receipt_saved_as_income(web) -> str:  # noqa: ANN001
@@ -716,3 +727,62 @@ def test_an_unrelated_review_leaves_a_held_draft_held(web) -> None:  # noqa: ANN
     assert {"code": "activity_kind_unsupported", "field": "kind"} not in named.json()[
         "blockers"
     ]
+
+
+def _editors(world, draft_id: str) -> tuple:  # noqa: ANN001
+    """Which declaration the Bandeja offers on the draft."""
+
+    view = _dossier(world, draft_id)
+    return view["declaration_editable"], view["payment_split_editable"]
+
+
+@pytest.mark.parametrize(
+    "start,document_type",
+    [
+        ("named_recibo", "recibo"),
+        ("named_venta", "venta"),
+        ("issuer_is_the_business", "venta"),
+        ("issuer_differs", "recibo"),
+        ("typed_note", "recibo"),
+        ("typed_venta", "venta"),
+    ],
+)
+def test_bandeja_registros_and_the_export_agree_on_the_form(
+    web,  # noqa: ANN001
+    start: str,
+    document_type: str,
+) -> None:
+    """One owner: the type the draft starts with decides the editor the
+    Bandeja offers, the family Registros lists and the form the export writes."""
+
+    _own_rnc(web)
+    account = _account(web)
+    if start.startswith("typed"):
+        body = {"text": "PRÁCTICA nota"}
+        if start == "typed_venta":
+            body["document_type"] = "venta"
+        captured = _capture(web, body)
+        assert captured.status_code == 200, captured.text
+        draft = captured.json()["draft_id"]
+    else:
+        printed, named = {
+            "named_recibo": (OWN_RNC, "recibo"),
+            "named_venta": (SUPPLIER_RNC, "venta"),
+            "issuer_is_the_business": (OWN_RNC, None),
+            "issuer_differs": (SUPPLIER_RNC, None),
+        }[start]
+        draft = _upload(web, printed, named, occurred_on="2026-09-16")["draft_id"]
+    assert _dossier(web, draft)["document_type"] == document_type
+    sale = document_type == "venta"
+    assert _editors(web, draft) == (not sale, sale)
+    kind, fiscal = ("income", SALE_607) if sale else ("expense", PURCHASE_606)
+    reviewed = _review(
+        web, draft, {"facts": _facts(kind, "2360.00", "2026-09-16", account), "dgii": fiscal}
+    )
+    assert reviewed.status_code == 200, reviewed.text
+    assert reviewed.json()["approval_available"] is True, reviewed.json()["blockers"]
+    _approve(web, draft, f"record_{kind}")
+    family = "sale" if sale else "purchase"
+    assert _family(web, draft) == (family, (family,))
+    form = "607" if sale else "606"
+    assert _dgii(web) == ({draft: (kind, form)}, int(not sale), int(sale))

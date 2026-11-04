@@ -122,6 +122,7 @@ def test_untrusted_cells_never_become_formulas_or_hyperlinks(note):
         amount="850.00",
         currency="DOP",
         kind="expense",
+        document_type="recibo",
         facts=BusinessFacts(
             counterparty=Known(value=note, origin="extracted", source_ids=(SOURCE,))
         ),
