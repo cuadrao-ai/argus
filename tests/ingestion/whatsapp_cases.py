@@ -19,6 +19,7 @@ from argus.domain.business.scope import resolve_business_scope
 from argus.domain.business.spaces import SpaceStore
 from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.secrets import SecretBox
+from argus.domain.ingestion.whatsapp import intake as intake_module
 from argus.domain.ingestion.whatsapp.business_envelope import ClaimCodec
 from argus.domain.ingestion.whatsapp.identity import WhatsAppKeys
 from argus.domain.ingestion.whatsapp.intake import (
@@ -505,16 +506,35 @@ async def redelivery_during_a_live_claim_asks_for_retry(world: World) -> None:
 async def slow_processing_times_out_as_failed_and_recovers(world: World) -> None:
     await world.link(world.alice, ALICE_PHONE)
     world.graph.media["700000000000113"] = Media(RECEIPT_PNG, "image/png")
-    media = world.intake.media
-    processing_seconds = world.intake.processing_seconds
+    started, cancelled = asyncio.Event(), asyncio.Event()
+    bounded = intake_module._bounded
 
     class Stalled:
         async def fetch(self, media_id: str):  # noqa: ANN202
-            await asyncio.sleep(5)
+            started.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cancelled.set()
 
-    world.intake.media, world.intake.processing_seconds = Stalled(), 0.05
-    with pytest.raises(asyncio.TimeoutError):
-        await world.deliver(image("700000000000113", "wamid.CASE-SLOW"))
+    async def expire_after_fetch_starts(task: asyncio.Task, timeout: float) -> Settlement:
+        assert timeout == world.intake.processing_seconds
+        entered = asyncio.create_task(started.wait())
+        try:
+            await asyncio.wait({task, entered}, return_when=asyncio.FIRST_COMPLETED)
+            if task.done():
+                return task.result()
+            return await bounded(task, timeout=0)
+        finally:
+            entered.cancel()
+            await asyncio.gather(entered, return_exceptions=True)
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(world.intake, "media", Stalled())
+        patch.setattr(intake_module, "_bounded", expire_after_fetch_starts)
+        with pytest.raises(asyncio.TimeoutError):
+            await world.deliver(image("700000000000113", "wamid.CASE-SLOW"))
+    assert cancelled.is_set()
     record = world.record("wamid.CASE-SLOW")
     assert (record.status, record.error_code, record.claim_until) == (
         "failed",
@@ -522,8 +542,6 @@ async def slow_processing_times_out_as_failed_and_recovers(world: World) -> None
         None,
     )
 
-    world.intake.media = media
-    world.intake.processing_seconds = processing_seconds
     await world.deliver(image("700000000000113", "wamid.CASE-SLOW"))
     assert world.record("wamid.CASE-SLOW").status == "captured"
     assert len(world.captures(world.alice)) == 1

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import i18next from "i18next";
 import { act, createElement, type ReactNode } from "react";
@@ -572,6 +572,10 @@ describe("an exit chosen while a code operation is pending wins over its late re
   });
 
   describe("a modified or middle click on password recovery leaves this tab as it is", () => {
+    let originalInterval: typeof window.setInterval;
+    beforeEach(() => { originalInterval = window.setInterval; });
+    afterEach(() => { expect(window.setInterval).toBe(originalInterval); });
+
     const openElsewhere: Array<[string, "click" | "auxclick", MouseEventInit]> = [
       ["Cmd-click", "click", { metaKey: true }],
       ["Ctrl-click", "click", { ctrlKey: true }],
@@ -586,8 +590,9 @@ describe("an exit chosen while a code operation is pending wins over its late re
       let finished = 0;
       const page = await renderSpanishSignup({ ...operations["a code check that succeeds late"](settle), onEmailConfirmed: () => { finished += 1; } });
       let clicks = { leftToBrowser: [] as boolean[], stop: () => {} };
+      const armed = armResend();
       try {
-        const code = await startPending(page, "a code check that succeeds late", armResend());
+        const code = await startPending(page, "a code check that succeeds late", armed);
         clicks = watchClicks(page.host);
         await dispatch(exitsOf(page.host).recovery, type, init);
         expect(takeRecoveryEmail()).toBe("");
@@ -600,6 +605,7 @@ describe("an exit chosen while a code operation is pending wins over its late re
         expect(code.readOnly).toBe(true);
       } finally {
         clicks.stop();
+        armed.restore();
         await act(async () => { page.root.unmount(); });
       }
     });
