@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import unicodedata
 import uuid
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Protocol
@@ -13,6 +14,7 @@ from typing import TYPE_CHECKING, Protocol
 from loguru import logger
 
 from argus.domain.business.document_type import DocumentType
+from argus.domain.business.read_budget import READ_BUDGET_REFUSALS
 from argus.domain.ingestion.connections import (
     DEFAULT_LEASE,
     LIVE,
@@ -21,7 +23,6 @@ from argus.domain.ingestion.connections import (
     SourceConnection,
 )
 from argus.domain.ingestion.contract import ImportCandidate, SourceKind, SourceRef
-from argus.domain.ingestion.documents.dgii_qr import read_dgii_qr
 from argus.domain.ingestion.documents.models import (
     DocumentDraft,
     DraftProposal,
@@ -80,6 +81,10 @@ def lease_live(connection: SourceConnection, now: datetime) -> bool:
 
 
 class Extractor(Protocol):
+    def prepare(
+        self, content: bytes, media_type: str, *, rebuilt_image: bytes | None = None
+    ) -> PreparedDocument: ...
+
     async def extract(
         self,
         *,
@@ -89,7 +94,13 @@ class Extractor(Protocol):
         connection_id: str,
         observed_at: datetime,
         prepared: PreparedDocument | None = None,
+        before_request: Callable[[], Awaitable[None]] | None = None,
     ) -> ExtractionBatch: ...
+
+
+class ReadBudget(Protocol):
+    def charge(self, business_id: str, now: datetime) -> str | None:
+        """Count one read for this Business now, or return why it may not start."""
 
 
 class DocumentServiceError(RuntimeError):
@@ -138,6 +149,7 @@ class DocumentsService:
         jobs_recover_interruptions: bool = False,
         business_actions: BusinessActions | None = None,
         business_preparation_required: bool = False,
+        read_budget: ReadBudget | None = None,
     ) -> None:
         self.hub, self.store, self.extractor = hub, store, extractor
         # One bounded decode/capture at a time on this app-owned service.
@@ -146,6 +158,9 @@ class DocumentsService:
         # The owner's stored receipt-reading setting: the only consent for a
         # Business read, asked again at the moment of each read.
         self.business_receipt_consent = None
+        # Reads a Business may start today and this month, charged just before
+        # the provider is reached, whichever channel the receipt came from.
+        self.read_budget = read_budget
         # An app with a Postgres pool never falls back to legacy Business
         # delivery; without a pool there is no canonical wiring to require.
         self.business_preparation_required = business_preparation_required
@@ -676,7 +691,7 @@ class DocumentsService:
                 )
                 if hashlib.sha256(content).hexdigest() != draft.sha256:
                     raise DocumentServiceError("document_source_changed")
-                prepared_args = {}
+                rebuilt_image = None
                 if draft.media_type in ("image/png", "image/jpeg"):
                     try:
                         await asyncio.to_thread(
@@ -696,41 +711,49 @@ class DocumentsService:
                         ) from None
                     if image is None:
                         raise DocumentServiceError("document_source_unavailable")
-                    prepared_args["prepared"] = PreparedDocument(
-                        1,
-                        (image[1],),
-                        dgii_qr=await asyncio.to_thread(read_dgii_qr, (image[1],)),
-                    )
-                # Asked again just before the provider is reached, so a switch
-                # turned off while the source was read still stops this read. The
-                # only window left is the commit below and the request start.
-                if not self._reading_allowed(user_id, connection_id):
-                    raise DocumentServiceError("document_reading_not_allowed")
-                # Committed before the provider can be reached: without it an
-                # attempt provably never called the provider and may be retried.
-                if attempt_id is not None and not self.store.mark_provider_call(
-                    user_id=user_id,
-                    connection_id=connection_id,
-                    attempt_id=attempt_id,
-                    holder=holder,
-                    now=self.hub.clock(),
-                ):
-                    raise DocumentServiceError("document_lease_lost", retryable=True)
-                if business:
-                    self.business_actions.check_attachment_preparation(
+                    rebuilt_image = image[1]
+                prepared = await asyncio.to_thread(
+                    self.extractor.prepare,
+                    content,
+                    draft.media_type,
+                    rebuilt_image=rebuilt_image,
+                )
+
+                async def before_request() -> None:
+                    if not self._reading_allowed(user_id, connection_id):
+                        raise DocumentServiceError("document_reading_not_allowed")
+                    if business:
+                        self.business_actions.check_attachment_preparation(
+                            user_id=user_id,
+                            connection_id=connection_id,
+                            scope=scope,
+                            holder=holder,
+                            attempt_id=attempt_id,
+                        )
+                    if attempt_id is not None and not self.store.mark_provider_call(
                         user_id=user_id,
                         connection_id=connection_id,
-                        scope=scope,
-                        holder=holder,
                         attempt_id=attempt_id,
-                    )
+                        holder=holder,
+                        now=self.hub.clock(),
+                    ):
+                        raise DocumentServiceError("document_lease_lost", retryable=True)
+                    business_id = space_id(scope)
+                    if business_id is not None and self.read_budget is not None:
+                        refused = await asyncio.to_thread(
+                            self.read_budget.charge, business_id, self.hub.clock()
+                        )
+                        if refused is not None:
+                            raise DocumentServiceError(refused)
+
                 batch = await self.extractor.extract(
                     content=content,
                     filename=draft.filename,
                     media_type=draft.media_type,
                     connection_id=connection_id,
                     observed_at=self.hub.clock(),
-                    **prepared_args,
+                    prepared=prepared,
+                    before_request=before_request,
                 )
                 batch = clean_extracted_text(batch)
                 self._validate(batch, connection_id)
@@ -808,15 +831,17 @@ class DocumentsService:
                 )
             try:
                 withdrawn = code == "document_reading_not_allowed"
+                # A withdrawn permission or a spent budget is not a failure:
+                # the receipt waits saved and unread, the budget with its reason.
+                unread = withdrawn or code in READ_BUDGET_REFUSALS
                 if draft.source_available:
-                    # A withdrawn permission is the owner's choice, not a failure.
                     self._update(
                         user_id,
                         draft,
                         holder=holder,
-                        status="saved" if withdrawn else "needs_attention",
+                        status="saved" if unread else "needs_attention",
                         error_code=None if withdrawn else code,
-                        **({"consent": False} if withdrawn else {}),
+                        **({"consent": False} if unread else {}),
                         source_available=code != "document_source_unavailable",
                     )
                 repo.record_failure(

@@ -34,12 +34,15 @@ from psycopg_pool import ConnectionPool
 
 from tests import test_financial_accounts_postgres as shared
 from tests.business_reading_support import ROUTE, reading_setting, turn_reading
+from tests.document_extractor_support import StubPreparation, start_request
 from tests.document_sources_support import source_objects, stored_paths
 
 users = shared.users
 pytestmark = pytest.mark.skipif(
     not shared.DSN, reason="ARGUS_DISPOSABLE_DATABASE_URL is not configured"
 )
+
+
 
 
 @pytest.fixture
@@ -155,7 +158,7 @@ class Clock:
         return self.now
 
 
-class Extractor:
+class Extractor(StubPreparation):
     """Scripted extraction: ``hang`` holds the first call after the marker."""
 
     def __init__(self, hang: bool = False) -> None:
@@ -163,6 +166,7 @@ class Extractor:
         self.release = asyncio.Event()
 
     async def extract(self, **kwargs: Any) -> ExtractionBatch:
+        await start_request(kwargs)
         self.calls += 1
         amount = "129.50"
         if self.hang and self.calls == 1:
@@ -454,10 +458,11 @@ def test_workflow_worker_prepares_the_dispatched_attempt(
         run_document_preparation,
     )
 
-    class Prepared:
+    class Prepared(StubPreparation):
         calls = 0
 
         async def extract(self, **kwargs: Any) -> ExtractionBatch:
+            await start_request(kwargs)
             Prepared.calls += 1
             candidate = ImportCandidate(
                 source=SourceRef(
@@ -548,10 +553,11 @@ def test_workflow_worker_never_reads_a_business_receipt_once_reading_is_off(
         lambda: ROUTE,
     )
 
-    class Counted:
+    class Counted(StubPreparation):
         calls = 0
 
         async def extract(self, **kwargs: Any) -> ExtractionBatch:
+            await start_request(kwargs)
             Counted.calls += 1
             return ExtractionBatch()
 

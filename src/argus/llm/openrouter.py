@@ -4,7 +4,7 @@ import asyncio
 import json
 import os
 import time
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
@@ -439,6 +439,7 @@ async def invoke_openrouter_json_schema(
     schema_name: str,
     model_name: str | None = None,
     context_packet_ids: list[str] | None = None,
+    before_request: Callable[[], Awaitable[None]] | None = None,
 ) -> SchemaModelT | None:
     started_at = time.perf_counter()
     api_key = resolve_openrouter_api_key()
@@ -473,6 +474,7 @@ async def invoke_openrouter_json_schema(
 
     profile = openrouter_profile_for_task(task)
     last_exc: Exception | None = None
+    admitted = False
     for index, candidate_model in enumerate(candidate_models):
         attempt_started_at = time.perf_counter()
         if (permit := _reserve_openrouter_attempt(task, profile.timeout_seconds, candidate_model, "json_schema", schema_name, context_packet_ids)) is None:
@@ -487,12 +489,24 @@ async def invoke_openrouter_json_schema(
         data: dict[str, object] = {}
         try:
             async with httpx.AsyncClient(timeout=permit.timeout_seconds) as client:
+                request_args = {}
+                if before_request is not None:
+                    request_args["prepared_request"] = transport.prepare_json_schema_request(
+                        client=client, api_key=api_key, payload=payload, task=task,
+                    )
+                    if not admitted:
+                        try:
+                            await before_request()
+                        except Exception as error:
+                            raise provider_permit.ProviderAdmissionError(error) from None
+                        admitted = True
                 if (response := await asyncio.wait_for(
                     _post_openrouter_json_schema(
                         client=client,
                         api_key=api_key,
                         payload=payload,
                         retry_attempt=(task, profile.timeout_seconds, candidate_model, "json_schema", schema_name, context_packet_ids),
+                        **request_args,
                     ),
                     timeout=permit.timeout_seconds,
                 )) is None:
@@ -514,6 +528,8 @@ async def invoke_openrouter_json_schema(
             result = schema_model.model_validate_json(
                 _json_content_without_code_fences(content)
             )
+        except provider_permit.ProviderAdmissionError:
+            raise
         except Exception as exc:
             last_exc = exc
             record_openrouter_route_receipt(
@@ -981,8 +997,8 @@ def _json_content_without_code_fences(content: str) -> str:
     return text.strip()
 
 
-async def _post_openrouter_json_schema(*, client: httpx.AsyncClient, api_key: str, payload: dict[str, object], retry_attempt: OpenRouterRetryAttempt) -> httpx.Response | None:
-    return await transport._post_openrouter_json_schema(client=client, api_key=api_key, payload=payload, retry_attempt=retry_attempt, reserve_attempt=_reserve_openrouter_attempt)
+async def _post_openrouter_json_schema(*, client: httpx.AsyncClient, api_key: str, payload: dict[str, object], retry_attempt: OpenRouterRetryAttempt, prepared_request: httpx.Request | None = None) -> httpx.Response | None:
+    return await transport._post_openrouter_json_schema(client=client, api_key=api_key, payload=payload, retry_attempt=retry_attempt, reserve_attempt=_reserve_openrouter_attempt, prepared_request=prepared_request)
 
 
 def _post_openrouter_json_schema_sync(*, client: httpx.Client, api_key: str, payload: dict[str, object], retry_attempt: OpenRouterRetryAttempt) -> httpx.Response | None:

@@ -33,6 +33,7 @@ SOURCE_MEDIA_TYPES = {
     "message/rfc822": "eml",
 }
 _MAX_PAGES = 8
+_UPLOADS_PER_MINUTE = 60
 _RECOGNIZED_OFF = frozenset({"0", "false", "no", "off"})
 _warned_flags: set[str] = set()
 _warned_invalid = False
@@ -63,6 +64,14 @@ class DocumentExtractionSettings(BaseSettings):
         le=_MAX_PAGES,
         validation_alias=setting_aliases("DOCUMENT_EXTRACTION_MAX_PAGES"),
     )
+    # Web uploads one person may start in a minute. Uploading is cheap; the
+    # Business read budget guards the reads.
+    uploads_per_minute: int = Field(
+        default=_UPLOADS_PER_MINUTE,
+        ge=1,
+        le=600,
+        validation_alias=setting_aliases("DOCUMENT_UPLOADS_PER_MINUTE"),
+    )
 
 
 def _disabled_document_extraction_settings() -> DocumentExtractionSettings:
@@ -70,6 +79,7 @@ def _disabled_document_extraction_settings() -> DocumentExtractionSettings:
         enabled=False,
         max_bytes=SOURCE_MAX_BYTES,
         max_pages=_MAX_PAGES,
+        uploads_per_minute=_UPLOADS_PER_MINUTE,
     )
 
 

@@ -24,17 +24,19 @@ from argus.domain.ingestion.whatsapp.replies import ReplyFailed
 from argus.domain.ingestion.whatsapp.store import InMemoryWhatsAppStore
 
 from tests.business_reading_support import reading_setting, turn_reading
+from tests.document_extractor_support import StubPreparation, start_request
 from tests.ingestion import whatsapp_cases as cases
 from tests.ingestion.whatsapp_support import ALICE_PHONE, RECEIPT_PNG, Media
 
 
-class Extractor:
+class Extractor(StubPreparation):
     def __init__(self) -> None:
         self.calls = 0
         self.fail = False
         self.merchant: str | None = "Ferretería Ochoa"
 
     async def extract(self, **kwargs: Any) -> ExtractionBatch:
+        await start_request(kwargs)
         self.calls += 1
         if self.fail:
             raise RuntimeError("provider down")

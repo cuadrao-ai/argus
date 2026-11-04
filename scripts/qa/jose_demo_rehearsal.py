@@ -355,7 +355,7 @@ def serve_api(args: argparse.Namespace) -> None:
         }
         rows_by_digest = {ALIVE_PACK[k][2]: PRINTED_ROWS[k] for k in PRINTED_ROWS}
 
-        class PrintedReceiptReader:
+        class PrintedReceiptReader(ReceiptStub):
             """The product projection (batch_from_result) over a fixed read of each pack file."""
 
             def __init__(self, *_a: Any, **_k: Any) -> None:
