@@ -119,7 +119,7 @@ try {
       await code.fill("012345678");
       await confirm.click();
       assert.equal(verifies, 0);
-      await expect(page.locator("#auth-confirmation-code-note")).toHaveText(copy.auth.signup.confirmation_code_malformed.replace("{{count}}", "8"));
+      await expect(page.locator("#auth-confirmation-code-note")).toHaveText(copy.auth.signup.confirmation_code_malformed_other.replace("{{count}}", "8"));
       await stable();
       await code.evaluate(element => { const transfer = new DataTransfer(); transfer.setData("text", "0123 4567"); element.dispatchEvent(new ClipboardEvent("paste", { clipboardData: transfer, bubbles: true })); });
       await expect(code).toHaveValue("01234567");

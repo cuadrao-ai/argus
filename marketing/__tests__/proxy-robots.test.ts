@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { NextRequest } from "next/server";
 import { proxy } from "../proxy";
+import { SITE_ROUTES } from "../lib/site-routes";
+import { shareImage } from "../lib/page-metadata";
 
 const previousIndexing = process.env.CUADRAO_SITE_INDEXING;
 
@@ -37,7 +39,12 @@ describe("private-host robots header", () => {
   test("a public host sends no robots header", () => {
     process.env.CUADRAO_SITE_INDEXING = "public";
 
-    expect(robotsHeader("/terminos")).toBeNull();
-    expect(robotsHeader("/privacidad")).toBeNull();
+    for (const { path } of SITE_ROUTES) {
+      expect(robotsHeader(path)).toBeNull();
+      expect(robotsHeader(`${path === "/" ? "" : path}/`)).toBeNull();
+    }
+    for (const locale of ["es", "en"] as const) {
+      expect(robotsHeader(shareImage(locale).url)).toBeNull();
+    }
   });
 });

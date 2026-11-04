@@ -279,7 +279,7 @@ test("read purchases say what the record covers of the receipt total until the r
   const recorded = { ...accepted, read_purchases: read, read_total: "3545.00", unrecorded_purchases: 1 };
   const html = render(recorded);
   assert.match(html, /Registrado .*3[.,]450/);
-  assert.match(html, /1 compras de este recibo siguen sin registrar/);
+  assert.match(html, /1 compra de este recibo sigue sin registrar/);
   assert.match(html, /dossier-settle-remainder/);
   const done = render({ ...recorded, unrecorded_purchases: 0 });
   assert.match(done, /ya está atendido/);
