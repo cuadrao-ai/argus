@@ -2541,17 +2541,22 @@
         "no_period_records": "No records in this period.",
         "no_results": "No records match these filters",
         "overview": {
-          "approval": {
-            "title": "Awaiting approval",
-            "description": "Waiting for approval"
-          },
+          "bandeja_waiting_one": "{{count}} receipt is waiting in the Inbox",
+          "bandeja_waiting_other": "{{count}} receipts are waiting in the Inbox",
           "export": {
             "title": "Ready to export",
             "description": "You can include them in your export"
           },
+          "exported": {
+            "title": "Already exported",
+            "description": "They already went out in an export"
+          },
+          "fiscal": {
+            "title": "Missing fiscal data",
+            "description": "Missing a detail for the 606 or 607"
+          },
           "review": {
-            "title": "To review",
-            "description": "Need a review"
+            "title": "To review"
           }
         },
         "period_summary": "Period summary · {{period}}",
@@ -2606,7 +2611,7 @@
           "export": "Export results"
         },
         "workflow": {
-          "approval": "Awaiting approval",
+          "exported": "Exported",
           "ready": "Ready",
           "review": "To review",
           "unknown": "Status unavailable",
@@ -2628,7 +2633,6 @@
       "reporting": {
         "access_unavailable": "You do not have access to this feature.",
         "financial_cards_pending": "Collections, payments and balances due are not available yet.",
-        "includes_unreviewed": "Includes documents still to review or approve.",
         "invalid_page": "Records changed. Open the last available page.",
         "pending_contract": "This feature is not connected yet.",
         "records_only": "The ZIP includes only filtered records. It does not include original files.",

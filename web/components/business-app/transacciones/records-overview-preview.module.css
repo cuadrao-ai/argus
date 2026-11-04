@@ -1,11 +1,12 @@
-.cards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin:0 0 20px; }
+.overview { margin:0 0 20px; }
+.cards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
 
 @media (min-width: 1024px) {
+  .overview { margin: 0 0 28px; }
   .cards {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 22px;
-    margin: 0 0 28px;
   }
 }
 
@@ -21,8 +22,13 @@
 }
 
 .review { background: #f8b69f; }
-.approval { background: #f8e28b; }
+.fiscal { background: #f8b69f; }
 .export { --workflow-ink:#2f5a49; background:#B8D0BE; }
+.exported { background: #e9e4dc; }
+
+.waiting { margin: 12px 0 0; font-size: 14px; line-height: 1.4; color: #56635e; }
+.waitingLink { font: inherit; color: inherit; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; background: none; border: 0; padding: 0; }
+.waitingLink:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 
 .heading {
   display: flex;
@@ -62,8 +68,10 @@
 }
 
 :global(.dark) .review { background: #50382f; }
-:global(.dark) .approval { background: #49412a; }
+:global(.dark) .fiscal { background: #50382f; }
 :global(.dark) .export { --workflow-ink:#8fcbb0; background:#293b32; }
+:global(.dark) .exported { background: #3a3632; }
+:global(.dark) .waiting { color: rgb(255 255 255 / 65%); }
 :global(.dark) .description { color: rgb(248 238 231 / 75%); }
 
 .card { text-align:left; cursor:pointer; font:inherit; }

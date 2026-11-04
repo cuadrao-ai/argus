@@ -121,7 +121,7 @@ test("attachment keyboard actions do not open the dossier, and the note column h
   assert.equal(row.querySelector('[data-col="monto"]')!.textContent, "9,007,199,254,740,993.01");
   assert.ok(row.querySelector('[data-col="monto"] .cuadrao-amount'));
   assert.equal(row.querySelector('[data-col="moneda"]')!.textContent, "RD$");
-  assert.equal(row.querySelector('[data-record-workflow]')!.textContent, "Por revisar");
+  assert.equal(row.querySelector('[data-record-workflow]')!.textContent, "Falta el tipo de gasto");
   assert.equal(page.host.querySelector('[data-record-key="gasto:unknown"] [data-record-attachment]'), null);
   await page.click(page.host.querySelector('[data-record-attachment="gasto:original"]'));
   await page.click(page.button("Abrir adjunto vinculado"));

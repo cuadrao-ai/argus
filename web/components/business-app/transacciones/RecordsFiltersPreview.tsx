@@ -7,7 +7,7 @@ import MoneyInput from "@/components/money/MoneyInput";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import RecordsFilterSelection from "./RecordsFilterSelection";
 import RecordsPreviewPopover from "./RecordsPreviewPopover";
-import { activeFilterGroups, emptyPreviewFilters, FILTER_GROUPS, validPreviewAmount, type FilterGroup, type PreviewFilters } from "./records-filter-preview-model";
+import { activeFilterGroups, emptyPreviewFilters, FILTER_GROUPS, REVIEW_FILTERS, validPreviewAmount, type FilterGroup, type PreviewFilters } from "./records-filter-preview-model";
 import { SAMPLE_EXPENSE_TYPES } from "./records-results-preview";
 import { useTransaccionesWords } from "./transacciones-words";
 import type { RecordKind } from "./transacciones-model";
@@ -65,7 +65,7 @@ function FilterEditor({ initial, initialKind, apply, close, phone = false, catal
         <h3 className={styles.heading}>{groupLabel(group)}</h3>
         {searchable ? <input type="search" className={`${styles.input} ${styles.search}`} aria-label={word("search")} placeholder={word("search")} value={query} onChange={(event) => setQuery(event.target.value)} /> : null}
         {group === "record" ? <>{(["all", "gasto", "venta"] as const).map((kind) => <label key={kind} className={styles.choice}><input type="radio" name="preview-record-kind" checked={!(draft.recordFamilies && draft.recordFamilies.length > 1) && draftKind === kind} onChange={() => { setDraftKind(kind); setDraft({ ...draft, recordFamilies: undefined }); }} /><span>{kind === "all" ? t("business.transactions.layout.all_types") : t(`business.transactions.records.detail.${kind}`)}</span></label>)}</> : null}
-        {group === "review" ? selection("review", ["review", "approval", "export"]) : null}
+        {group === "review" ? selection("review", [...REVIEW_FILTERS]) : null}
         {group === "attachment" ? <>{(["any", "with", "without"] as const).map((value) => <label key={value} className={styles.choice}><input type="radio" name="preview-attachment" checked={draft.attachment === value} onChange={() => setDraft({ ...draft, attachment: value })} /><span>{word(`attachment.${value}`)}</span></label>)}<p className={styles.hint}>{word("attachment.hint")}</p></> : null}
         {group === "amount" ? <>
           <p className={styles.hint}>{word("amount.currency")}</p>

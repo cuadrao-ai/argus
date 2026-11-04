@@ -171,7 +171,7 @@ def test_v2_layout_does_not_change_export_fingerprint(client, actions):
     http, _ = client
     service, context, _ = actions
     for _ in range(26):
-        shared.ready(service, context)
+        record_expense(service, context)
     request = {"schema_version": 2, "sort": "date_asc"}
     answer = http.post("/business/reports/query", json=request).json()
     changed = {

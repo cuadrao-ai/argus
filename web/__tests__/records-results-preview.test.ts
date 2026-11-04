@@ -21,13 +21,13 @@ test("preview defaults add status, currency and notes while keeping account opti
 
 test("summary keeps workflow and financial eligibility separate and never mixes currencies", () => {
   const result = summarizePreviewRecords(rows, "fixture-space");
-  assert.equal(result.count, 6); assert.equal(result.review, 2); assert.equal(result.unknownWorkflow, 0);
+  assert.equal(result.count, 6); assert.equal(result.unknownWorkflow, 0);
   assert.deepEqual(result.sales, [{ currency: "DOP", amount: "2100.00" }]);
   assert.deepEqual(result.expenses, [{ currency: "DOP", amount: "2100.00" }, { currency: "USD", amount: "24.00" }], "a reviewed record can still have a confirmed amount");
   assert.deepEqual(result.excluded, { personal: 2, unconfirmed: 1, unavailable: 0 });
   assert.deepEqual(result.excludedByKind, { sales: { personal: 1, unconfirmed: 1, unavailable: 0 }, expenses: { personal: 1, unconfirmed: 0, unavailable: 0 } });
   const purchases = summarizePreviewRecords(rows.filter((row) => row.kind === "gasto"), "fixture-space");
-  assert.equal(purchases.count, 3); assert.equal(purchases.review, 1);
+  assert.equal(purchases.count, 3);
   assert.deepEqual(purchases.sales, []); assert.deepEqual(purchases.expenses, result.expenses);
 });
 
@@ -92,11 +92,11 @@ test("partial settlements stay linked to their record and use exact currency tot
 
 test("overview workflow filters match the same metadata and unknown counts stay unavailable", async () => {
   const { overviewPreviewCounts, matchesPreviewWorkflow } = await import("@/components/business-app/transacciones/records-results-preview");
-  assert.deepEqual(overviewPreviewCounts(rows, "fixture-space"), { review: 2, approval: 2, export: 2 });
-  assert.deepEqual(overviewPreviewCounts(rows, "fixture-client"), { review: null, approval: null, export: null });
-  assert.equal(rows.filter((row) => matchesPreviewWorkflow(row, "fixture-space", ["export"])).length, 2);
-  assert.equal(rows.filter((row) => matchesPreviewWorkflow(row, "fixture-space", ["review", "approval"])).length, 4);
-  assert.equal(matchesPreviewWorkflow(rows[0], "fixture-client", ["review"]), false);
+  assert.deepEqual(overviewPreviewCounts(rows, "fixture-space"), { review: 0, fiscal: 1, export: 4, exported: 1 });
+  assert.deepEqual(overviewPreviewCounts(rows, "fixture-client"), { review: null, fiscal: null, export: null, exported: null });
+  assert.equal(rows.filter((row) => matchesPreviewWorkflow(row, "fixture-space", ["export"])).length, 4);
+  assert.equal(rows.filter((row) => matchesPreviewWorkflow(row, "fixture-space", ["fiscal", "exported"])).length, 2);
+  assert.equal(matchesPreviewWorkflow(rows[0], "fixture-client", ["fiscal"]), false);
 });
 
 

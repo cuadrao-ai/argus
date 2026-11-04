@@ -248,9 +248,11 @@ def _projected(
     tx = ActionTransaction(
         connection, live, _PostgresTx(connection, context.owner_id, context.scope)
     )
+    # Registros lists approved records only: a draft reaches a row through the
+    # money row it recorded, so open drafts stay in the Bandeja.
     events = [
         event
-        for event in tx.imports.events(("open", "accepting", "accepted", "dismissed"))
+        for event in tx.imports.events(("accepting", "accepted", "dismissed"))
         if "business" in event.resolution
     ]
     if len(events) + len(snapshot.records) > 10000:
@@ -336,18 +338,15 @@ def _projected(
             if draft.event.activity_id in by_activity:
                 raise ValueError("duplicate canonical draft activity")
             by_activity[draft.event.activity_id] = draft
-    consumed = set()
     projected = []
     for record in snapshot.records:
         draft = drafts.get(record.approved.draft_id) or by_activity.get(
             record.row.activity_id
         )
-        if draft:
-            consumed.add(draft.event.id)
+        # A record mid-approval shows once the approval settles.
+        if draft and draft.event.state == "accepting":
+            continue
         projected.append(project(record, draft, originals, filer_identity, accounts))
-    for draft in drafts.values():
-        if draft.event.id not in consumed and draft.event.state != "dismissed":
-            projected.append(project(None, draft, originals, filer_identity, accounts))
     public_rows = []
     for row in projected:
         draft = drafts.get(row.draft_id)
@@ -398,7 +397,15 @@ def _projected(
             captured_on=snapshot.observed_at.date(),
             registry=registry_from_config("dgii", postgres_rnc_fetch(lookup)),
         )
-    return snapshot, with_export_verdicts(tuple(public_rows), verdicts)
+    exported = frozenset(
+        row[0]
+        for row in connection.execute(
+            "select activity_id::text from public.business_dgii_export_lines"
+            " where space_id=%s",
+            (context.actor.space_id,),
+        ).fetchall()
+    )
+    return snapshot, with_export_verdicts(tuple(public_rows), verdicts, exported)
 
 
 def read_report_snapshot(

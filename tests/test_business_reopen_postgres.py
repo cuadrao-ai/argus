@@ -148,8 +148,7 @@ def test_approve_export_reopen_fix_reapprove_export_counts_once(world) -> None: 
     assert _get(world, "/business/overview", **SPAN).json()["totals"] == []
     _, csv_rows, files = _export(world)
     assert _txt_lines(files) == [] and csv_rows == []
-    [row] = _rows(world)
-    assert (row["draft_id"], row["stage"]) == (draft, "awaiting_approval")
+    assert _rows(world) == [], "a reopened record leaves Registros until approved again"
     assert _waiting(world) == waiting, "the reopened row is back in the Bandeja"
     [receipt] = _reopen_receipts(world.alice.space_id, draft)
     assert (receipt["outcome"], receipt["activity_id"]) == ("applied", first)

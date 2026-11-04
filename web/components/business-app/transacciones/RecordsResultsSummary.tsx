@@ -23,7 +23,7 @@ const METRICS = [
   { key: "balance", icon: Clock3, sale: "receivable", expense: "payable" },
 ] as const;
 
-export function RecordsSummaryCards({ summary, kind, qualifier }: { summary: SettlementSummary; kind: RecordRow["kind"]; qualifier?: string }) {
+export function RecordsSummaryCards({ summary, kind }: { summary: SettlementSummary; kind: RecordRow["kind"] }) {
   const { t, locale } = useTransaccionesWords();
   const [expanded, setExpanded] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -47,7 +47,7 @@ export function RecordsSummaryCards({ summary, kind, qualifier }: { summary: Set
       </dt>
       <dd className={styles.values}>{visible.map((currency) => <div className={styles.currencyRow} key={currency?.currency ?? "unknown"} data-currency={currency?.currency}>
         {currency?.[metric.key] != null ? <span className="cuadrao-amount"><span className={styles.symbol}>{currencySymbol(currency.currency)}</span>{formatAmount(currency[metric.key], currency.currency, locale)}</span> : <><span className={styles.symbol}>{currency ? code(currency) : null}</span>{currency?.known != null && metric.key === "total" ? partial(currency) : <Unknown />}</>}
-      </div>)}{index === 0 && qualifier ? <p className={styles.qualifier} data-summary-qualifier>{qualifier}</p> : null}</dd>
+      </div>)}</dd>
     </div>)}</dl>
     {summary.currencies.length > 2 ? <button ref={trigger} type="button" className={styles.breakdown} aria-expanded={expanded} onClick={() => setExpanded(true)}>
       {t("business.transactions.layout.results.view_currencies", { count: summary.currencies.length })}<ChevronRight size={16} aria-hidden="true" />

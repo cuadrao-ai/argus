@@ -118,7 +118,10 @@ def test_supporting_file_preserves_manual_financial_basis(client, actions, timin
         assert append(http, draft, version).json()["result"] == response.json()["result"]
 
     if timing == "before_approval":
-        attach_unchanged()
+        # Registros lists approved records only; the file waits with the draft.
+        version = service.dossier(context, draft).version
+        assert append(http, draft, version).status_code == 200
+        assert report(http)["items"] == []
     approval = service.approve(
         context,
         draft,
