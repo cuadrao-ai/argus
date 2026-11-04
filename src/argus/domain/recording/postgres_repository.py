@@ -121,6 +121,15 @@ class PostgresFinancialAccountRepository:
                 records, load(self, connection, {user_id}, scope=scope)
             )
 
+    def get_activity(
+        self, *, user_id: str, activity_id: str, scope: OwnerScope
+    ) -> dict[str, Any] | None:
+        from .activity_lookup import load
+
+        with self._pool.connection() as connection:
+            connection.execute("set transaction isolation level repeatable read")
+            return load(self, connection, user_id, activity_id, scope)
+
     def get_account(
         self, *, user_id: str, account_id: str, scope: OwnerScope
     ) -> StoredAccount | None:
@@ -298,6 +307,7 @@ class PostgresFinancialAccountRepository:
         account_id: str,
         *,
         scope: OwnerScope,
+        record_ids: list[str] | None = None,
     ) -> StoredAccount | None:
         in_scope, params = sql_predicate(scope, "owner_space_id")
         row = connection.execute(
@@ -309,7 +319,11 @@ class PostgresFinancialAccountRepository:
             return None
         account_id = str(row[0])
         openings = self._openings(connection, user_id, [account_id])
-        return hydrate(connection, StoredAccount(_facts(row), openings.get(account_id)))
+        return hydrate(
+            connection,
+            StoredAccount(_facts(row), openings.get(account_id)),
+            record_ids=record_ids,
+        )
 
     def _openings(
         self,

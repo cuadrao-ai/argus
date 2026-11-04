@@ -391,15 +391,17 @@ class BusinessService:
         """One saved expense of this Business, with when it was recorded and its
         revision; any other id, including another Business's, is not found."""
 
-        for activity in ledger.expense_activities(self._activities(scope)):
-            if activity["activity_id"] == expense_id:
-                [item] = self._expenses(scope, [activity], date.min, date.max)
-                return {
-                    **item,
-                    "recorded_at": activity.get("recorded_at"),
-                    "revision": activity.get("revision"),
-                }
-        raise ActionError("not_found", "expense_not_found")
+        activity = self.imports.money.repository.get_activity(
+            user_id=scope.person_id, activity_id=expense_id, scope=scope.owner
+        )
+        if activity is None or activity["kind"] != "expense":
+            raise ActionError("not_found", "expense_not_found")
+        [item] = self._expenses(scope, [activity], date.min, date.max)
+        return {
+            **item,
+            "recorded_at": activity.get("recorded_at"),
+            "revision": activity.get("revision"),
+        }
 
     def _expenses(
         self,
