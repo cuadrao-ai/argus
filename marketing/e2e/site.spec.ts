@@ -25,8 +25,8 @@ test.describe("page identity", () => {
       const languages = await page.locator('link[rel="alternate"][hreflang]').evaluateAll((links) =>
         links.map((link) => [link.getAttribute("hreflang"), link.getAttribute("href")]),
       );
-      expect(languages).toContainEqual([entry.lang.startsWith("es") ? "en" : "es", entry.alternate]);
-      expect(languages.map(([lang]) => lang).sort()).toEqual(["en", "es", "x-default"]);
+      expect(languages).toContainEqual([entry.lang.startsWith("es") ? "en" : "es-419", entry.alternate]);
+      expect(languages.map(([lang]) => lang).sort()).toEqual(["en", "es-419", "x-default"]);
       await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", /^https:\/\/cuadrao\.ai\/cuadrao-site\/share-(business|personal)-(es|en)\.png$/);
       await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", /.{40,}/);
       await expect(page.locator('link[rel="manifest"]')).toHaveCount(0);

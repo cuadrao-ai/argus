@@ -89,9 +89,9 @@ export function slugSegments(locale: BusinessLocale, page: BusinessPage): string
 
 export function alternateLanguages(page: BusinessPage): Record<string, string> {
   const urls = Object.fromEntries(
-    LOCALES.filter((locale) => SLUGS[locale][page] !== null).map((locale) => [locale, pageUrl(locale, page)]),
+    LOCALES.filter((locale) => SLUGS[locale][page] !== null).map((locale) => [locale === "es" ? "es-419" : locale, pageUrl(locale, page)]),
   );
-  return { ...urls, "x-default": urls.es };
+  return { ...urls, "x-default": urls["es-419"] };
 }
 
 type Redirect = { source: string; destination: string; permanent: true };
