@@ -19,7 +19,6 @@ type ConfirmDialogProps = {
   tone?: "danger" | "primary";
   /** The confirm failed: says so inside the alert, and the confirm button tries again. */
   error?: ReactNode;
-  additionalAction?: ReactNode;
   onCancel: () => void;
   onConfirm: () => void;
 };
@@ -59,7 +58,6 @@ function ConfirmDialogSurface({
   showKeyboardHints = false,
   tone = "danger",
   error = null,
-  additionalAction,
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
@@ -162,8 +160,7 @@ function ConfirmDialogSurface({
             {error}
           </p>
         ) : null}
-        <div className={`mt-5 flex justify-end gap-2${additionalAction ? " flex-wrap" : ""}`}>
-          {additionalAction}
+        <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
