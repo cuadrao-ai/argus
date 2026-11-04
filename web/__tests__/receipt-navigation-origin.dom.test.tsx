@@ -83,8 +83,11 @@ for (const prepared of [false, true]) for (const width of [1440, 390]) {
           (await import("@/components/business-app/foundation/list-search")).applyListSearch("inbox", "recibo-27.jpg");
         }
       });
-      assert.equal(page.host.querySelectorAll('[data-testid="reception-row"]').length, 1);
+      const rows = () => page.host.querySelectorAll('[data-testid="reception-row"]').length;
+      await page.wait(() => rows() === 1);
+      assert.equal(rows(), 1);
       await page.openFirst();
+      await page.wait(() => page.place()?.textContent === "1 de 1");
       assert.equal(page.place()?.textContent, "1 de 1");
       assert.equal(page.next()?.disabled, true);
       assert.equal(page.previous()?.disabled, true);
@@ -95,6 +98,7 @@ for (const prepared of [false, true]) for (const width of [1440, 390]) {
     const page = await mount(prepared, width);
     try {
       await page.openFirst();
+      await page.wait(() => page.place()?.textContent === "1 de 28");
       for (let index = 0; index < 28; index++) {
         assert.equal(page.place()?.textContent, `${index + 1} de 28`);
         const panel = page.api().panel;
