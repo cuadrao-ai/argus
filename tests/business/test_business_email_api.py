@@ -15,6 +15,7 @@ import pytest
 from argus.api import email_intake as runtime_module
 from argus.api.documents import documents_service
 from argus.domain.ingestion.email_intake.store import InMemoryEmailStore
+from faker import Faker
 from fastapi.testclient import TestClient
 
 from tests.business.test_business_api import BASE, Owner, alice, bob  # noqa: F401
@@ -38,6 +39,8 @@ def signed(body: bytes, *, now: int | None = None) -> dict[str, str]:
 @pytest.fixture
 def runtime(monkeypatch):
     monkeypatch.setenv("ARGUS_RESEND_WEBHOOK_SECRET", SECRET)
+    monkeypatch.setenv("CUADRAO_BUSINESS_EMAIL_DOMAIN", "receipts.example.test")
+    monkeypatch.setattr(runtime_module, "webhook_enabled", lambda: True)
     from argus.api.documents import documents_service
 
     fake = Mock()
@@ -113,6 +116,7 @@ def test_bad_signature_other_event_and_oversize_body_never_enqueue(
 def test_webhook_is_absent_when_receiving_is_off(
     client: TestClient, runtime, monkeypatch
 ) -> None:  # noqa: F811
+    monkeypatch.setattr(runtime_module, "webhook_enabled", lambda: False)
     monkeypatch.setattr("argus.api.routers.email_intake.webhook_enabled", lambda: False)
     body = event()
     assert client.post(WEBHOOK, content=body, headers=signed(body)).status_code == 404
@@ -143,18 +147,55 @@ def test_owner_sees_readiness_and_in_memory_app_cannot_mint_an_address(
 
 
 def test_endpoints_say_unavailable_without_a_runtime(alice: Owner) -> None:  # noqa: F811
-    """The in-memory app keeps no deliveries: the list is empty, every other
-    email route is unavailable."""
-
     runtime_module.configure_email_intake(None)
-    assert alice.get("/email").status_code == 503
-    deliveries = alice.get("/email/deliveries")
-    assert (deliveries.status_code, deliveries.json()) == (200, {"items": []})
+    assert alice.get("/email").status_code == 404
+    assert alice.get("/email/deliveries").status_code == 404
+
+
+@pytest.mark.parametrize("missing", ["receiving", "domain", "provider", "runtime"])
+def test_workspace_and_every_email_route_share_availability(
+    alice: Owner, runtime, monkeypatch, missing
+) -> None:
+    fake = Faker()
+    item_id = fake.uuid4()
+    assert alice.get("/workspace").json()["receiving_channels"]["email"] == {
+        "available": True
+    }
+    assert alice.get("/email").json()["receiving_address"] is None
+    if missing == "receiving":
+        monkeypatch.setattr(runtime_module, "webhook_enabled", lambda: False)
+    elif missing == "domain":
+        monkeypatch.setenv("CUADRAO_BUSINESS_EMAIL_DOMAIN", " ")
+    elif missing == "provider":
+        runtime.provider = None
+    else:
+        runtime_module.configure_email_intake(None)
+    assert alice.get("/workspace").json()["receiving_channels"]["email"] == {
+        "available": False
+    }
+    routes = [
+        ("GET", "", None), ("POST", "", {"alias": fake.user_name()}),
+        ("DELETE", "", None), ("GET", "/availability?alias=fixture", None),
+        ("GET", "/suggestion?name=Fixture", None),
+        ("POST", "/address", {"alias": fake.user_name()}),
+        ("GET", "/senders", None), ("POST", "/senders", {"email": fake.email()}),
+        ("DELETE", f"/senders/{item_id}", None), ("GET", "/inbox", None),
+        ("GET", "/deliveries", None), ("GET", f"/deliveries/{item_id}", None),
+        ("POST", f"/deliveries/{item_id}/retry", None),
+    ]
+    for method, path, body in routes:
+        response = alice.client.request(
+            method, BASE + "/email" + path, json=body,
+            headers={**alice.auth, "Idempotency-Key": fake.uuid4()},
+        )
+        assert response.status_code == 404, (method, path, response.text)
+        assert response.headers["cache-control"] == "no-store"
 
 
 def test_a_grouped_email_original_is_context_not_a_second_receipt(
     alice: Owner,  # noqa: F811
     runtime,  # noqa: ANN001
+    monkeypatch,
 ) -> None:
     """The .eml of an email whose attachment is saved can be seen and downloaded,
     never prepared or confirmed, regardless of the submitted version."""
@@ -198,6 +239,7 @@ def test_a_grouped_email_original_is_context_not_a_second_receipt(
     )
     store.finish(claimed, "captured")
 
+    monkeypatch.setattr(runtime_module, "webhook_enabled", lambda: False)
     listed = {
         item["id"]: item for item in alice.get("/receipts", view="all").json()["items"]
     }

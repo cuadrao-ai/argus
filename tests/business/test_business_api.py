@@ -355,6 +355,9 @@ def test_workspace_lists_expense_accounts_and_document_limits(alice: Owner) -> N
         "chat_available": False,
         "invoicing_available": False,
         "notifications_available": False,
+        "receiving_channels": {
+            "email": {"available": False}, "whatsapp": {"available": False}
+        },
         "logo_url": None,
         "receipt_limits": {
             "max_bytes": 10485760,

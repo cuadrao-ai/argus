@@ -72,18 +72,28 @@ def consent_reads(wa_client):
     return calls
 
 
-def test_registered_consent_read_works_with_flags_off_and_no_enable_token(
+def test_registered_consent_read_is_absent_when_receiving_is_off(
     wa_client, consent_reads, monkeypatch, identities
 ):
     monkeypatch.setenv("ARGUS_WHATSAPP_INTAKE_ENABLED", "false")
     monkeypatch.setenv("ARGUS_BUSINESS_PILOT_ENABLED", "false")
     response = wa_client.get("/api/v1/whatsapp/ai-consent", headers=bearer(ALICE))
-    assert response.status_code == 200
-    assert response.json()["linked"]
-    assert (
-        not response.json()["available"] and response.json()["disclosure_token"] is None
-    )
-    assert consent_reads == [(UUID(identities[ALICE]["id"]), "whatsapp_unavailable")]
+    assert response.status_code == 404
+    assert consent_reads == []
+
+
+def test_workspace_reports_whatsapp_availability_without_a_link(
+    wa_client, monkeypatch
+):
+    path = "/api/v1/business/workspace"
+    assert wa_client.get(LINK, headers=bearer(ALICE)).json()["linked"] is False
+    assert wa_client.get(path, headers=bearer(ALICE)).json()["receiving_channels"][
+        "whatsapp"
+    ] == {"available": True}
+    monkeypatch.setenv("ARGUS_WHATSAPP_INTAKE_ENABLED", "false")
+    assert wa_client.get(path, headers=bearer(ALICE)).json()["receiving_channels"][
+        "whatsapp"
+    ] == {"available": False}
 
 
 def test_with_the_agent_off_the_receipt_permission_is_still_available(
@@ -227,8 +237,14 @@ def test_flag_off_answers_404_everywhere(client: TestClient) -> None:
         client.post(WEBHOOK, content=raw, headers={"X-Hub-Signature-256": sign(raw)}),
         client.post(CODES, headers=bearer(ALICE)),
         client.get(LINK, headers=bearer(ALICE)),
+        client.get("/api/v1/whatsapp/ai-consent", headers=bearer(ALICE)),
+        client.post(
+            "/api/v1/whatsapp/ai-consent",
+            headers={**bearer(ALICE), "Idempotency-Key": "fixture-consent"},
+            json={"action": "enable", "disclosure_token": "a" * 64},
+        ),
     ]
-    assert [r.status_code for r in responses] == [404] * 4
+    assert [r.status_code for r in responses] == [404] * 6
     assert {r.json()["code"] for r in responses} == {"whatsapp_unavailable"}
     # Unlinking is never gated; with intake off nothing here holds a link.
     assert client.delete(LINK, headers=bearer(ALICE)).status_code == 204
