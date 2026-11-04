@@ -42,11 +42,12 @@ async function mount(waiting: number | null, showReports = true) {
   setChosenGrant(null);
   const source = createFixtureBusinessDataSource({ chatAvailable: false });
   let reloads = 0;
+  const opened: BusinessContextValue["panel"][] = [];
   let context = {
     chosen: { space_id: fixtureId(3000), grant_id: fixtureId(3001), role: "owner", name: "Negocio sintético", capabilities: ["read"], permissions: ["read"] },
     userId: "synthetic-person", source: { ...source, mode: "live" }, revision: 0,
     actions: { create: [] }, panel: { kind: "overview" }, invoicing: "unavailable",
-    openPanel: () => undefined, reload: () => { reloads += 1; },
+    openPanel: (panel: BusinessContextValue["panel"]) => { opened.push(panel); }, reload: () => { reloads += 1; },
     records: { workspace: await source.workspace(), inbox: [], error: false, receiptActivity: null },
   } as unknown as BusinessContextValue;
   const activity = (count: number | null) => count === null ? null : {
@@ -68,7 +69,7 @@ async function mount(waiting: number | null, showReports = true) {
   cleanup = async () => { await act(async () => root.unmount()); globalThis.fetch = originalFetch; };
   await render();
   return {
-    host, fixture, reloads: () => reloads,
+    host, fixture, opened, reloads: () => reloads,
     update: async (count: number | null, failure: Partial<BusinessContextValue["records"]> = {}) => {
       context = { ...context, records: { ...context.records, receiptActivity: activity(count), error: false, failureReference: null, serverReference: null, ...failure } };
       await render();
@@ -130,4 +131,14 @@ test("an unavailable shared receipt count shows its reference instead of an endl
   await act(async () => retry.click());
   assert.equal(page.reloads(), 1);
   assert.equal(page.fixture.calls.length, 0);
+});
+
+
+test("clicking the Inicio review count opens the Bandeja queue it counts", async () => {
+  const page = await mount(28, false);
+  const review = page.host.querySelector<HTMLButtonElement>('[data-testid="home-records-to-review"]');
+  assert.ok(review);
+  assert.equal(review.textContent, "28 registros por revisarRevisar");
+  await act(async () => review.click());
+  assert.deepEqual(page.opened, [{ kind: "inbox" }]);
 });
