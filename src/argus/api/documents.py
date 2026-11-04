@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from urllib.parse import unquote
 
@@ -29,7 +30,7 @@ from argus.api.ingestion import (
     require_ingestion_surface,
     unavailable_problem,
 )
-from argus.api.rate_limits import SlidingWindowLimiter
+from argus.api.rate_limits import InFlightGate, SlidingWindowLimiter
 from argus.domain.ingestion.connections import ConnectionNotFound
 from argus.domain.ingestion.documents.config import (
     SOURCE_MEDIA_TYPES,
@@ -50,9 +51,11 @@ from argus.domain.owner_scope import PERSONAL, OwnerScope
 NO_STORE = {"Cache-Control": "no-store"}
 _service: DocumentsService | None = None
 # A rate for one process is an honest in-memory count. Per person: uploads at
-# the configured rate, prepare and the reading toggle at five a minute. Spend
-# is guarded by the Business read budget in Postgres, not here.
+# the configured rate and a few in flight at once, prepare and the reading
+# toggle at five a minute. Spend is guarded by the Business read budget in
+# Postgres, not here.
 _minute = SlidingWindowLimiter()
+_in_flight = InFlightGate()
 _PREPARE_PER_MINUTE = 5
 
 
@@ -65,6 +68,7 @@ def configure_documents(service: DocumentsService | None) -> None:
     stop_document_jobs()
     _service = service
     _minute.reset()
+    _in_flight.reset()
 
 
 def start_documents(app: object, hub: IngestionHub | None) -> None:
@@ -221,31 +225,43 @@ def _minute_scope(path: str) -> str:
     return "upload"
 
 
-def require_document_context(
+def _wait_problem(request: Request, retry_after: int) -> HTTPException:
+    return problem(
+        request,
+        status_code=429,
+        code="document_rate_limited",
+        title="Too Many Requests",
+        detail="Wait before uploading another document.",
+        headers={"Retry-After": str(retry_after), "Cache-Control": "no-store"},
+    )
+
+
+async def require_document_context(
     request: Request,
     service: DocumentsService = Depends(require_document_surface),  # noqa: B008
     context: IngestionContext = Depends(require_ingestion_context),  # noqa: B008
-) -> DocumentContext:
-    if request.method == "POST":
-        scope = _minute_scope(request.url.path)
-        limit = (
-            load_document_extraction_settings().uploads_per_minute
-            if scope == "upload"
-            else _PREPARE_PER_MINUTE
-        )
-        retry = _minute.record_or_retry_after(
-            keys=(f"{context.user_id}:{scope}",), limit=limit, window_seconds=60
-        )
+) -> AsyncIterator[DocumentContext]:
+    """Runs before the handler reads the body, so a refused upload costs the API
+    no bytes. The in-flight slot is held until the handler returns."""
+
+    if request.method != "POST":
+        yield DocumentContext(service, context.user_id)
+        return
+    scope = _minute_scope(request.url.path)
+    settings = load_document_extraction_settings()
+    key = f"{context.user_id}:{scope}"
+    gated = scope == "upload"
+    if gated and not _in_flight.take(key, limit=settings.uploads_in_flight):
+        raise _wait_problem(request, 1)
+    try:
+        limit = settings.uploads_per_minute if gated else _PREPARE_PER_MINUTE
+        retry = _minute.record_or_retry_after(keys=(key,), limit=limit, window_seconds=60)
         if retry is not None:
-            raise problem(
-                request,
-                status_code=429,
-                code="document_rate_limited",
-                title="Too Many Requests",
-                detail="Wait before uploading another document.",
-                headers={"Retry-After": str(retry), "Cache-Control": "no-store"},
-            )
-    return DocumentContext(service, context.user_id)
+            raise _wait_problem(request, retry)
+        yield DocumentContext(service, context.user_id)
+    finally:
+        if gated:
+            _in_flight.release(key)
 
 
 async def read_document_upload(request: Request) -> tuple[str, bytes]:

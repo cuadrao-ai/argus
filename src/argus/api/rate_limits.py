@@ -5,6 +5,32 @@ from threading import Lock
 from time import monotonic
 
 
+class InFlightGate:
+    """Requests in flight per key, capped. The caller releases what it took."""
+
+    def __init__(self) -> None:
+        self._active: defaultdict[str, int] = defaultdict(int)
+        self._lock = Lock()
+
+    def take(self, key: str, *, limit: int) -> bool:
+        with self._lock:
+            if self._active[key] >= limit:
+                return False
+            self._active[key] += 1
+            return True
+
+    def release(self, key: str) -> None:
+        with self._lock:
+            if self._active[key] <= 1:
+                self._active.pop(key, None)
+            else:
+                self._active[key] -= 1
+
+    def reset(self) -> None:
+        with self._lock:
+            self._active.clear()
+
+
 class SlidingWindowLimiter:
     """Small bounded in-process limiter for authenticated API edge controls."""
 

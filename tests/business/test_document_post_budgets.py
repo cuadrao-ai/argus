@@ -1,18 +1,27 @@
-"""Uploads spend a 60-a-minute budget per person and no daily one. Prepare and
-the reading toggle keep their own minute budgets."""
+"""Uploads spend a 60-a-minute budget per person and no daily one, and three
+may be in flight at once. Prepare and the reading toggle keep their own minute
+budgets."""
 
 from __future__ import annotations
 
-import pytest
-from argus.api.documents import _minute
+import asyncio
+import threading
 
-from tests.business.conftest import ALICE
+import pytest
+from argus.api.documents import _in_flight, _minute, documents_service
+
+from tests.business.conftest import ALICE, BOB
 from tests.business.test_business_api import Owner, started
 
 
 @pytest.fixture
 def alice(biz, identities):  # noqa: ANN001
     return started(Owner(biz, ALICE, identities[ALICE]["id"]))
+
+
+@pytest.fixture
+def bob(biz, identities):  # noqa: ANN001
+    return started(Owner(biz, BOB, identities[BOB]["id"]))
 
 
 def _post_budget(owner: Owner, path: str, **headers: str):
@@ -65,4 +74,60 @@ def test_prepare_and_the_reading_toggle_keep_their_own_minute_budgets(alice: Own
     limited = _post_budget(alice, "/receipt-reading")
     assert limited.status_code == 429
     assert limited.json()["code"] == "document_rate_limited"
+    assert alice.upload().status_code == 200
+
+
+def test_a_fourth_upload_in_flight_waits_while_another_person_passes(
+    alice: Owner, bob: Owner, monkeypatch: pytest.MonkeyPatch
+):
+    """Three of one person's uploads are in flight; the fourth is told to wait a
+    second and nobody else is, so a burst from one phone never fills the API."""
+
+    _minute.reset()
+    _in_flight.reset()
+    assert alice.upload(consent=False).status_code == 200
+    documents = documents_service()
+    original = documents.upload
+    release = threading.Event()
+    started = threading.Semaphore(0)
+    holds = iter(range(3))
+
+    async def held(**kwargs):  # noqa: ANN003, ANN202
+        # Only three are held, so a gate that lets a fourth in fails the
+        # assertion below instead of hanging the test.
+        if kwargs["user_id"] == alice.person and next(holds, None) is not None:
+            started.release()
+            await asyncio.to_thread(release.wait)
+        return await original(**kwargs)
+
+    monkeypatch.setattr(documents, "upload", held)
+    answers: list = []
+    senders = [
+        threading.Thread(target=lambda: answers.append(alice.upload(consent=False)))
+        for _ in range(3)
+    ]
+    for sender in senders:
+        sender.start()
+    try:
+        for _ in senders:
+            assert started.acquire(timeout=10)
+        fourth = alice.upload(consent=False)
+        assert fourth.status_code == 429, fourth.text
+        assert fourth.headers["Retry-After"] == "1"
+        assert fourth.json()["code"] == "document_rate_limited"
+        other = bob.upload(consent=False)
+        assert other.status_code == 200, other.text
+    finally:
+        release.set()
+        for sender in senders:
+            sender.join(timeout=10)
+    assert [item.status_code for item in answers] == [200] * 3
+    assert alice.upload(consent=False).status_code == 200
+
+
+def test_a_refused_upload_frees_its_in_flight_slot(alice: Owner):
+    _minute.reset()
+    _in_flight.reset()
+    refused = [alice.upload(media_type="application/zip") for _ in range(4)]
+    assert [item.status_code for item in refused] == [415] * 4
     assert alice.upload().status_code == 200

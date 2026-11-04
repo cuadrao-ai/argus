@@ -8809,9 +8809,12 @@ is implied by capture or recovery.
 
 A person may start `CUADRAO_DOCUMENT_UPLOADS_PER_MINUTE` (60) uploads a minute
 and five prepare, resume or retry calls a minute, counted in process memory; the
-next one answers `429 document_rate_limited` with `Retry-After`. There is no
-daily upload cap: uploading is cheap, and the Business read budget below guards
-the reads.
+next one answers `429 document_rate_limited` with `Retry-After`. A person may
+also have `CUADRAO_DOCUMENT_UPLOADS_IN_FLIGHT` (3) uploads in flight at once;
+the next one answers `429 document_rate_limited` with `Retry-After: 1` before
+its body is read. The web client keeps the file and sends it again after the
+wait; a capture is never refused for either limit. There is no daily upload
+cap: uploading is cheap, and the Business read budget below guards the reads.
 
 `ARGUS_DOCUMENT_EXTRACTION_ENABLED` is the document gate, default off. It
 accepts the same true values as the other default-off surfaces (`1`, `true`,

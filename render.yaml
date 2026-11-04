@@ -201,6 +201,8 @@ services:
         value: "3"
       - key: CUADRAO_DOCUMENT_JOBS_PULL_ENABLED
         value: "false"
+      - key: CUADRAO_DOCUMENT_UPLOADS_IN_FLIGHT
+        value: "3"
       - key: CUADRAO_DOCUMENT_UPLOADS_PER_MINUTE
         value: "60"
       - key: CUADRAO_FISCAL_SANDBOX_API_TOKEN
