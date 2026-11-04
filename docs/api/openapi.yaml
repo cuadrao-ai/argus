@@ -2983,12 +2983,12 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
-        '404':
-          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '422':
           description: Validation Error
           content:
@@ -3041,12 +3041,12 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
-        '404':
-          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '422':
           description: Validation Error
           content:
@@ -3082,12 +3082,12 @@ paths:
       responses:
         '204':
           description: Successful Response
-        '404':
-          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '422':
           description: Validation Error
           content:
@@ -3136,12 +3136,12 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
-        '404':
-          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '422':
           description: Validation Error
           content:
@@ -3190,12 +3190,12 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
-        '404':
-          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '422':
           description: Validation Error
           content:
@@ -3237,8 +3237,6 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
-        '404':
-          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
@@ -3290,8 +3288,6 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
-        '404':
-          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
@@ -3343,12 +3339,12 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
-        '404':
-          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '422':
           description: Validation Error
           content:
@@ -3390,8 +3386,6 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
-        '404':
-          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
@@ -3437,12 +3431,12 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
-        '404':
-          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '422':
           description: Validation Error
           content:
@@ -3489,12 +3483,12 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
-        '404':
-          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '422':
           description: Validation Error
           content:
@@ -3537,12 +3531,12 @@ paths:
       responses:
         '204':
           description: Successful Response
-        '404':
-          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '422':
           description: Validation Error
           content:
@@ -3592,12 +3586,12 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
-        '404':
-          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '422':
           description: Validation Error
           content:

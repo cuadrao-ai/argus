@@ -533,7 +533,7 @@ function BusinessWorkspaceContent({
   }, [chosenGrant, onRecord, period.from, period.to, revision, source, reloadWaits]);
 
   const receivingChannels = useMemo(() => businessReceivingChannels(records.workspaceGrant === chosenGrant ? records.workspace : null), [chosenGrant, records.workspace, records.workspaceGrant]);
-  const emailDeliveries = useEmailDeliveries({ source, enabled: !onRecord && receivingChannels.email.available, revision, businessKey: chosenGrant, onAnswered: emailsAnswered });
+  const emailDeliveries = useEmailDeliveries({ source, enabled: !onRecord, revision, businessKey: chosenGrant, onAnswered: emailsAnswered });
   const workspaceRecords = useMemo<Records>(
     () => ({ ...records, emails: emailDeliveries.items, emailsFailure: emailDeliveries.failure }),
     [records, emailDeliveries.items, emailDeliveries.failure],

@@ -25,6 +25,8 @@ from argus.api.client_ip import resolve_client_ip
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
 from argus.api.email_intake import (
+    EmailHistory,
+    email_history,
     email_intake,
     email_receiving_available,
     part_repeat,
@@ -63,9 +65,7 @@ webhook_router = APIRouter(
 router = APIRouter(
     prefix="/business/email",
     tags=["business-email"],
-    dependencies=[Depends(require_email_receiving)],
     responses={
-        **_UNAVAILABLE,
         403: {
             "description": "`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is missing, someone else's, revoked or expired; `business_permission_denied`: the live grant does not allow this."
         }
@@ -170,13 +170,13 @@ def _runtime(request: Request) -> EmailCapture:
     return runtime
 
 
-def _stored_runtime(request: Request) -> EmailCapture | None:
-    """``_runtime`` for a read that lists: None when the in-memory app keeps no
-    deliveries, so the list is empty rather than refused."""
-
-    if email_intake() is None and api_state.PERSISTENCE_MODE != "supabase":
-        return None
-    return _runtime(request)
+def _stored_history(request: Request) -> EmailHistory | None:
+    history = email_history()
+    if history is None and api_state.PERSISTENCE_MODE == "supabase":
+        raise _problem(
+            request, 503, "email_capture_unavailable", "Email receiving is unavailable."
+        )
+    return history
 
 
 def _readiness(runtime: EmailCapture, space_id: str) -> dict[str, Any]:
@@ -191,7 +191,7 @@ def _readiness(runtime: EmailCapture, space_id: str) -> dict[str, Any]:
     }
 
 
-@router.get("")
+@router.get("", dependencies=[Depends(require_email_receiving)], responses=_UNAVAILABLE)
 def receiving(
     request: Request,
     response: Response,
@@ -272,7 +272,7 @@ def _refuse_alias(request: Request, report: dict) -> None:
         )
 
 
-@router.post("", status_code=201)
+@router.post("", status_code=201, dependencies=[Depends(require_email_receiving)], responses=_UNAVAILABLE)
 def create_receiving_address(
     request: Request,
     response: Response,
@@ -340,7 +340,7 @@ def create_receiving_address(
     return _readiness(runtime, space_id)
 
 
-@router.delete("", status_code=204)
+@router.delete("", status_code=204, dependencies=[Depends(require_email_receiving)], responses=_UNAVAILABLE)
 def stop_receiving(
     request: Request,
     context: Annotated[BusinessContext, Depends(require_business_management)],
@@ -380,7 +380,7 @@ def _public_alias(report: dict) -> dict[str, Any]:
     }
 
 
-@router.get("/availability")
+@router.get("/availability", dependencies=[Depends(require_email_receiving)], responses=_UNAVAILABLE)
 def alias_availability(
     request: Request,
     response: Response,
@@ -399,7 +399,7 @@ def alias_availability(
     )
 
 
-@router.get("/suggestion")
+@router.get("/suggestion", dependencies=[Depends(require_email_receiving)], responses=_UNAVAILABLE)
 def alias_suggestion(
     request: Request,
     response: Response,
@@ -421,7 +421,7 @@ def alias_suggestion(
     return {"alias": suggested, **_public_alias(_alias_report(runtime, suggested))}
 
 
-@router.post("/address")
+@router.post("/address", dependencies=[Depends(require_email_receiving)], responses=_UNAVAILABLE)
 def change_receiving_address(
     request: Request,
     response: Response,
@@ -476,7 +476,7 @@ def _sender_value(kind: str, value: str) -> str | None:
     return cleaned
 
 
-@router.get("/senders")
+@router.get("/senders", dependencies=[Depends(require_email_receiving)], responses=_UNAVAILABLE)
 def list_senders(
     request: Request,
     response: Response,
@@ -527,7 +527,7 @@ def _sender_item(rule, members: frozenset[str]) -> dict[str, Any]:  # noqa: ANN0
     }
 
 
-@router.post("/senders", status_code=201)
+@router.post("/senders", status_code=201, dependencies=[Depends(require_email_receiving)], responses=_UNAVAILABLE)
 def authorize_sender(
     request: Request,
     response: Response,
@@ -560,7 +560,7 @@ def authorize_sender(
     return _sender_item(rule, runtime.store.member_addresses(space_id))
 
 
-@router.delete("/senders/{sender_id}", status_code=204)
+@router.delete("/senders/{sender_id}", status_code=204, dependencies=[Depends(require_email_receiving)], responses=_UNAVAILABLE)
 def remove_sender(
     sender_id: UUID,
     request: Request,
@@ -586,11 +586,11 @@ def inbox(
     context: Annotated[BusinessContext, Depends(require_business)],
 ) -> dict[str, Any]:
     response.headers.update(NO_STORE)
-    runtime = _runtime(request)
+    runtime = _stored_history(request)
     space_id = context.scope.owner.space_id
-    relations = runtime.store.membership(space_id)
+    relations = runtime.store.membership(space_id) if runtime else {}
     grouped = {"remitentes_nuevos": [], "bandeja": []}
-    for item in runtime.store.list(space_id, limit=200):
+    for item in runtime.store.list(space_id, limit=200) if runtime else []:
         if item.inbox_group not in grouped:
             continue
         view = _group(runtime, item, relations=relations)
@@ -605,7 +605,7 @@ def inbox(
 
 
 def _group(
-    runtime: EmailCapture,
+    runtime: EmailHistory,
     delivery,  # noqa: ANN001
     *,
     detail: bool = False,
@@ -647,7 +647,11 @@ def _group(
     if budget_limited:
         result["error_code"] = None
     result["waiting"] = waiting.model_dump() if waiting else None
-    result["retryable"] = False if waiting else runtime.retryable(delivery)
+    capture = email_intake()
+    result["retryable"] = bool(
+        not waiting and capture is not None
+        and email_receiving_available() and capture.retryable(delivery)
+    )
     known = (
         relations
         if relations is not None
@@ -683,7 +687,7 @@ def deliveries(
     context: Annotated[BusinessContext, Depends(require_business)],
 ) -> dict[str, Any]:
     response.headers.update(NO_STORE)
-    runtime = _stored_runtime(request)
+    runtime = _stored_history(request)
     if runtime is None:
         return {"items": []}
     space_id = context.scope.owner.space_id
@@ -704,8 +708,8 @@ def delivery(
     context: Annotated[BusinessContext, Depends(require_business)],
 ) -> dict[str, Any]:
     response.headers.update(NO_STORE)
-    runtime = _runtime(request)
-    item = runtime.store.get(str(delivery_id), context.scope.owner.space_id)
+    runtime = _stored_history(request)
+    item = runtime.store.get(str(delivery_id), context.scope.owner.space_id) if runtime else None
     if item is None:
         raise _problem(
             request, 404, "email_delivery_not_found", "This email is not available."
@@ -713,7 +717,7 @@ def delivery(
     return _group(runtime, item, detail=True)
 
 
-@router.post("/deliveries/{delivery_id}/retry", status_code=202)
+@router.post("/deliveries/{delivery_id}/retry", status_code=202, dependencies=[Depends(require_email_receiving)], responses=_UNAVAILABLE)
 def retry(
     delivery_id: UUID,
     request: Request,

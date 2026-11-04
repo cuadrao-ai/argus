@@ -167,12 +167,12 @@ export function EmailDeliveryDetail({ delivery, loadDetail, openReceipt, retryDe
   const [attempt, setAttempt] = useState(0);
   const [retry, setRetry] = useState<"idle" | "sending" | "accepted" | "error">("idle");
   useEffect(() => {
-    if (waiting || !emailAvailable) return undefined;
+    if (waiting) return undefined;
     let current = true;
     setBody({ status: "loading" });
     loadDetail(delivery.id).then((data) => { if (current) setBody({ status: "ready", data }); }).catch(() => { if (current) setBody({ status: "error" }); });
     return () => { current = false; };
-  }, [emailAvailable, delivery.id, delivery.updated_at, waiting, loadDetail, attempt]);
+  }, [delivery.id, delivery.updated_at, waiting, loadDetail, attempt]);
   const savedReceipt = (documentId: string) => {
     const receipt = inbox?.find((item) => item.id === documentId);
     return receipt && savedUnread(receipt) ? receipt : null;
@@ -194,7 +194,7 @@ export function EmailDeliveryDetail({ delivery, loadDetail, openReceipt, retryDe
         {reason ? <p className="text-[14px] text-[#172b26] dark:text-white" data-testid="email-reason">{reason}</p> : null}
       </div>
 
-      {!waiting && (emailAvailable || body.status === "ready") ? (
+      {!waiting ? (
         <section aria-label={t("business.email.message", "Message")}>
           {body.status === "loading" ? <Settle pending layout="rows" rows={2} /> : null}
           {body.status === "error" ? (

@@ -10673,12 +10673,16 @@ accept path recorded.
   address. WhatsApp uses current intake readiness and the selected Business's
   owner eligibility. A missing address or linked number is setup state, not
   channel availability.
-  The Business web context treats unknown or false as unavailable: no channel
-  offers, filters, preferences entry, sender notice, or channel requests. Switching
-  Business clears these capabilities and associated address and delivery state
-  before the next workspace response. Historical receipt provenance, original
-  email links and messages remain visible. The two WhatsApp revocation routes
-  above remain callable while off; every other channel route answers 404 while
+  The Business web context treats unknown or false as unavailable for channel
+  offers, preferences, sender management and new intake requests. Switching
+  Business clears capability and address state; historical delivery reads use
+  the newly selected Business's scope independently of receiving readiness.
+  Stored receipts retain their channel labels, source filters, original email
+  links, messages, search results and contribution to inbox counts. Historical
+  email reads remain authenticated and scope-checked while receiving is off,
+  including when no intake worker is running. No receiving client or worker is
+  started by a history read. The two WhatsApp revocation routes above remain
+  callable while off; intake setup and mutations still answer 404 while
   unavailable.
 - Business email receiving (default off; `CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED`,
   `CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED`, `CUADRAO_BUSINESS_EMAIL_DOMAIN`,
@@ -10711,8 +10715,13 @@ accept path recorded.
   - GET `/api/v1/business/email` returns
     `{enabled, receiving_address, alias, review_required}`: current
     address readiness for the caller's Business, not channel availability or
-    provider health. All `/api/v1/business/email` routes answer 404
-    `email_intake_unavailable` while the shared availability check is false.
+    provider health. Address setup/readiness, alias selection, sender management,
+    retries and the receiving webhook answer 404 `email_intake_unavailable`
+    while the shared availability check is false. GET `/inbox`, `/deliveries`
+    and `/deliveries/{delivery_id}` under `/api/v1/business/email` instead read
+    stored history with the caller's normal Business access. They remain
+    available while receiving is off, with `retryable: false`; historical
+    receipt metadata, search and inbox counts use the same history reader.
     With availability true and no address, this read succeeds with
     `enabled: false` and `receiving_address: null`, allowing setup. `alias` is null
     and `review_required` is false when no usable route exists.

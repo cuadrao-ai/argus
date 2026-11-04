@@ -12,7 +12,7 @@ from typing import Any
 from argus.api.business import BusinessContext
 from argus.api.business_drafts import search_with_drafts
 from argus.api.business_spaces import business_search_memory
-from argus.api.email_intake import email_intake
+from argus.api.email_intake import email_history, email_receiving_available
 from argus.domain import financial_search
 from argus.domain.business import search as business_search
 from argus.domain.business.contracts.facts import BusinessResolution, Known
@@ -69,10 +69,9 @@ def fiscal_numbers(context: BusinessContext) -> dict[str, tuple[str, ...]]:
 def _email_hits(
     context: BusinessContext, query: SearchQuery
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Deliveries by sender and subject, sender rules by address; none while
-    email receiving is off."""
+    """Past deliveries stay searchable; sender setup needs receiving available."""
 
-    runtime = email_intake()
+    runtime = email_history()
     if runtime is None:
         return [], []
     space_id = context.scope.owner.space_id
@@ -94,7 +93,7 @@ def _email_hits(
         {"id": rule.id, "kind": rule.kind, "value": rule.value, "status": rule.status}
         for rule in runtime.store.list_senders(space_id)
         if business_search.matches(query, rule.value)
-    ]
+    ] if email_receiving_available() else []
     return deliveries, senders
 
 

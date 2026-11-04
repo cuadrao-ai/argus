@@ -535,6 +535,23 @@ def require_whatsapp_surface(request: Request) -> WhatsAppRuntime:
     return runtime
 
 
+def whatsapp_history_store() -> WhatsAppStore | None:
+    """Read captured receipts through the existing Business document authority."""
+    runtime = whatsapp_runtime()
+    if runtime is not None:
+        return runtime.intake.store
+    documents = documents_service()
+    if documents is None:
+        return None
+    authority = getattr(documents.business_actions, "authority", None)
+    pool = getattr(authority, "pool", None)
+    if pool is None:
+        return None
+    from argus.domain.ingestion.whatsapp.store_postgres import PostgresWhatsAppStore
+
+    return PostgresWhatsAppStore(pool)
+
+
 def link_store() -> WhatsAppStore | None:
     """Where a person's sender link lives, whatever the flags say.
 

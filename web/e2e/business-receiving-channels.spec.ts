@@ -69,7 +69,10 @@ for (const width of [1440, 390]) {
     const observed = await setup(page, false, true);
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/biz?receipt=rcpt-ferreteria");
-    if (width < 720) await page.getByTestId("receipt-review-tabs").getByRole("radio", { name: "Original", exact: true }).click();
+    if (width < 720) {
+      await page.getByTestId("receipt-review-tabs").getByRole("radio", { name: "Original", exact: true }).click();
+      await page.getByTestId("receipt-original-source").getByRole("button", { name: "Recibo original", exact: true }).click();
+    }
     await page.getByTestId("receipt-see-email").click();
     const message = "Buenas tardes, adjunto la factura de hoy. Gracias por su compra.";
     await expect(page.getByTestId("email-record")).toBeVisible();
