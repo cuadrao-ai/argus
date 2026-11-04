@@ -3836,6 +3836,8 @@
       "source_unavailable": "Original file missing",
       "check_details": "Check the details",
       "duplicate": "Looks like a repeat",
+      "read_budget_day": "[COPY PENDING] Reads tomorrow: today's read limit was reached",
+      "read_budget_month": "[COPY PENDING] Reads next month: this month's read limit was reached",
       "other": "Needs attention"
     },
     "inbox": {

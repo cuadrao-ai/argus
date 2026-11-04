@@ -38,6 +38,7 @@ from argus.domain.recording.postgres_repository import (
 from psycopg_pool import ConnectionPool
 
 from tests import test_financial_accounts_postgres as shared
+from tests.document_extractor_support import StubPreparation, start_request
 from tests.document_sources_support import (
     LOCAL_STORAGE,
     source_objects,
@@ -55,8 +56,11 @@ PDF = b"%PDF-1.4 retained source fixture"
 DIGEST = hashlib.sha256(PDF).hexdigest()
 
 
-class StatementExtractor:
+
+
+class StatementExtractor(StubPreparation):
     async def extract(self, *, connection_id: str, observed_at, **_: object):  # noqa: ANN001
+        await start_request(_)
         return ExtractionBatch(
             candidates=(
                 ImportCandidate(

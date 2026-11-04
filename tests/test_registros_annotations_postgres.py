@@ -17,11 +17,14 @@ from argus.domain.ingestion.hub import IngestionHub
 from pydantic import ValidationError
 
 from tests import test_business_actions_postgres as shared
+from tests.document_extractor_support import StubPreparation, start_request
 from tests.test_business_reporting_postgres import record_expense, viewer_context
 
 users = shared.users
 actions = shared.actions
 pytestmark = [shared.pytestmark, pytest.mark.owner_acts]
+
+
 
 
 class FileObjects:
@@ -44,8 +47,9 @@ class FileObjects:
         return target.read_bytes() if target.exists() else None
 
 
-class NoExtraction:
+class NoExtraction(StubPreparation):
     async def extract(self, **kwargs):
+        await start_request(kwargs)
         pytest.fail("supporting files cannot extract")
 
 

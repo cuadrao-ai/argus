@@ -134,6 +134,11 @@
           "value": "false"
         },
         {
+          "name": "CUADRAO_DOCUMENT_UPLOADS_PER_MINUTE",
+          "kind": "plain",
+          "value": "60"
+        },
+        {
           "name": "CUADRAO_BUSINESS_INVOICING_ENABLED",
           "kind": "plain",
           "value": "false"
@@ -142,6 +147,16 @@
           "name": "CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED",
           "kind": "plain",
           "value": "false"
+        },
+        {
+          "name": "CUADRAO_BUSINESS_READS_PER_DAY",
+          "kind": "plain",
+          "value": "300"
+        },
+        {
+          "name": "CUADRAO_BUSINESS_READS_PER_MONTH",
+          "kind": "plain",
+          "value": "2000"
         },
         {
           "name": "CUADRAO_FISCAL_SANDBOX_API_TOKEN",

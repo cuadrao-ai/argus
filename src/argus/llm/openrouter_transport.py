@@ -14,6 +14,16 @@ from argus.llm.provider_permit import ProviderCallPermit
 OpenRouterRetryAttempt = tuple[OpenRouterTask, float, str, Literal["json_schema", "chat_model"], str | None, list[str] | None]
 
 
+def prepare_json_schema_request(
+    *, client: httpx.AsyncClient, api_key: str, payload: dict[str, object],
+    task: OpenRouterTask,
+) -> httpx.Request:
+    return client.build_request(
+        "POST", "https://openrouter.ai/api/v1/chat/completions",
+        headers=_openrouter_headers(api_key), json=_guard_request(task, payload),
+    )
+
+
 async def _post_openrouter_json_schema(
     *,
     client: httpx.AsyncClient,
@@ -21,10 +31,14 @@ async def _post_openrouter_json_schema(
     payload: dict[str, object],
     retry_attempt: OpenRouterRetryAttempt,
     reserve_attempt: Callable[..., ProviderCallPermit | None],
+    prepared_request: httpx.Request | None = None,
 ) -> httpx.Response | None:
-    response = await client.post(
-        "https://openrouter.ai/api/v1/chat/completions", headers=_openrouter_headers(api_key), json=_guard_request(retry_attempt[0], payload)
-    )
+    if prepared_request is None:
+        response = await client.post(
+            "https://openrouter.ai/api/v1/chat/completions", headers=_openrouter_headers(api_key), json=_guard_request(retry_attempt[0], payload)
+        )
+    else:
+        response = await client.send(prepared_request)
     try:
         check_retention_response(response, str(payload["model"]))
         response.raise_for_status()

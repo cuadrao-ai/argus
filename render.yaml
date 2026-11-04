@@ -185,6 +185,10 @@ services:
         value: "false"
       - key: CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED
         value: "false"
+      - key: CUADRAO_BUSINESS_READS_PER_DAY
+        value: "300"
+      - key: CUADRAO_BUSINESS_READS_PER_MONTH
+        value: "2000"
       - key: CUADRAO_BUSINESS_SUPPLIER_FAST_PATH_ENABLED
         value: "false"
       - key: CUADRAO_DOCUMENT_EXTRACTION_ENABLED
@@ -197,6 +201,8 @@ services:
         value: "3"
       - key: CUADRAO_DOCUMENT_JOBS_PULL_ENABLED
         value: "false"
+      - key: CUADRAO_DOCUMENT_UPLOADS_PER_MINUTE
+        value: "60"
       - key: CUADRAO_FISCAL_SANDBOX_API_TOKEN
         sync: false
       - key: CUADRAO_FISCAL_SANDBOX_BUSINESS_ID

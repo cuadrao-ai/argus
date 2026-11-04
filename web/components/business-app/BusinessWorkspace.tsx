@@ -90,8 +90,8 @@ export type BusinessPanelState =
   // Negocio: the business's own settings, one tab at a time; `?view=access` from before lands on Equipo y accesos.
   | { kind: "business"; tab?: BusinessTab }
   // `list` is the list the record was opened from; a desktop shows the record beside it. The address bar never carries it.
-  | { kind: "receipt"; receiptId: string; list?: RecordList }
-  | { kind: "draft"; draftId: string; list?: RecordList }
+  | { kind: "receipt"; receiptId: string; list?: RecordList; receiptIds?: readonly string[] }
+  | { kind: "draft"; draftId: string; list?: RecordList; receiptIds?: readonly string[] }
   // An email that brought no receipt, or the one a receipt arrived in; it opens beside the Bandeja.
   | { kind: "email"; emailId: string };
 

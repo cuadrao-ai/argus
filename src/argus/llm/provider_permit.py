@@ -9,6 +9,15 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
+
+class ProviderAdmissionError(Exception):
+    """The caller refused a request before transport began."""
+
+    def __init__(self, reason: Exception) -> None:
+        super().__init__(str(reason))
+        self.reason = reason
+
+
 DEFAULT_PROVIDER_TIMEOUT_SECONDS = 120.0
 
 

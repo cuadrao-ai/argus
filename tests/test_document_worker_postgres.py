@@ -30,6 +30,7 @@ from psycopg_pool import ConnectionPool
 
 from tests import test_document_jobs_postgres as support
 from tests import test_financial_accounts_postgres as shared
+from tests.document_extractor_support import start_request
 from tests.document_sources_support import source_objects
 from workflows import document_worker
 from workflows.document_job import postgres_documents_service
@@ -50,6 +51,8 @@ class Clock(support.Clock):
         self.now += timedelta(days=3650)
 
 
+
+
 class Gauge(support.Extractor):
     """Measures reads at once. Each read holds long enough to overlap the next."""
 
@@ -59,6 +62,7 @@ class Gauge(support.Extractor):
         self.read: list[str] = []
 
     async def extract(self, **kwargs: Any) -> ExtractionBatch:
+        await start_request(kwargs)
         self.read.append(kwargs["connection_id"])
         self.running += 1
         self.peak = max(self.peak, self.running)
