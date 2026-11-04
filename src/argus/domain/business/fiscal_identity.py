@@ -117,7 +117,7 @@ def rnc_check_digit_ok(digits: str) -> bool:
     """Mod-11 over the first 8 digits. Weights 7, 9, 8, 6, 5, 4, 3, 2.
     Remainder 0 checks as 2, remainder 1 checks as 1, otherwise 11 minus the remainder."""
 
-    if re.fullmatch(r"\d{9}", digits) is None:
+    if re.fullmatch(r"[0-9]{9}", digits) is None:
         return False
     weights = (7, 9, 8, 6, 5, 4, 3, 2)
     remainder = (
@@ -133,7 +133,7 @@ def rnc_check_digit_ok(digits: str) -> bool:
 def cedula_check_digit_ok(digits: str) -> bool:
     """Luhn over the 11 digits. The check digit is the last one."""
 
-    if re.fullmatch(r"\d{11}", digits) is None:
+    if re.fullmatch(r"[0-9]{11}", digits) is None:
         return False
     total = 0
     for index, character in enumerate(reversed(digits)):
@@ -150,7 +150,7 @@ def normalized_ncf(value: str | None) -> str | None:
     if value is None:
         return None
     normalized = value.strip().upper()
-    return normalized if re.fullmatch(r"(?:B\d{10}|E\d{12})", normalized) else None
+    return normalized if re.fullmatch(r"(?:B[0-9]{10}|E[0-9]{12})", normalized) else None
 
 
 def document_identity(direction: str, taxpayer_id: str | None, ncf: str | None):
