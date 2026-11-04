@@ -23,6 +23,7 @@ from argus.domain.owner_scope import PERSONAL, BusinessSpace
 from faker import Faker
 
 from tests.business_reading_support import reading_setting, turn_reading
+from tests.document_extractor_support import start_request
 from tests.ingestion.test_whatsapp_receipt_reading import _send, _status, _world
 
 fake = Faker("es_MX")
@@ -41,7 +42,12 @@ def rig():
     repo = InMemoryConnectionRepository()
     clock = Clock()
     hub = IngestionHub(repo, box=None, sink=Mock(), clock=clock)
-    extractor = Mock(extract=AsyncMock(return_value=ExtractionBatch(candidates=())))
+    async def extract(**kwargs):
+        await start_request(kwargs)
+        extractor.provider_calls += 1
+        return ExtractionBatch(candidates=())
+
+    extractor = Mock(extract=AsyncMock(side_effect=extract), provider_calls=0)
     service = DocumentsService(
         hub, InMemoryDocumentStore(repo), extractor, business_actions=Mock()
     )
@@ -94,7 +100,7 @@ async def test_the_read_over_the_day_budget_stays_saved_with_the_reason(rig):
     )
     assert draft.source_available
     assert not service.read_pending(owner, receipts[2], draft)
-    assert extractor.extract.await_count == 2
+    assert extractor.provider_calls == 2
 
 
 @pytest.mark.asyncio
@@ -109,7 +115,7 @@ async def test_another_business_still_reads_when_one_is_over_budget(rig):
     assert (
         await read(service, other, second, await queued(service, other, second))
     ).status == "review_ready"
-    assert extractor.extract.await_count == 2
+    assert extractor.provider_calls == 2
 
 
 @pytest.mark.asyncio
@@ -128,7 +134,7 @@ async def test_the_month_budget_counts_every_day_of_the_month(rig):
     clock.now = datetime(2026, 12, 1, 15, tzinfo=timezone.utc)
     service.queue(user_id=owner, connection_id=refused, consent=True, scope=scope)
     assert (await read(service, owner, scope, refused)).status == "review_ready"
-    assert extractor.extract.await_count == 3
+    assert extractor.provider_calls == 3
 
 
 @pytest.mark.asyncio
@@ -146,7 +152,7 @@ async def test_a_refused_receipt_reads_again_the_next_day_when_asked(rig):
     assert (
         service.get(user_id=owner, connection_id=refused, scope=scope).error_code is None
     )
-    assert extractor.extract.await_count == 2
+    assert extractor.provider_calls == 2
 
 
 @pytest.mark.asyncio
@@ -156,7 +162,7 @@ async def test_a_personal_read_has_no_business_budget(rig):
     owner = str(uuid4())
     for _ in range(2):
         await read(service, owner, PERSONAL, await queued(service, owner, PERSONAL))
-    assert extractor.extract.await_count == 2
+    assert extractor.provider_calls == 2
 
 
 @pytest.mark.asyncio
@@ -176,7 +182,7 @@ async def test_a_refused_pull_attempt_is_not_pulled_or_swept_again(rig):
     assert service.store.pending(limit=10) == []
     assert jobs.sweep().redispatched == []
     assert service.store.pull(now=service.hub.clock(), cap=3) is None
-    assert extractor.extract.await_count == 1
+    assert extractor.provider_calls == 1
 
 
 @pytest.mark.asyncio

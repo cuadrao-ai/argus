@@ -15,6 +15,7 @@ from argus.api.documents import documents_service
 from argus.domain.ingestion.documents.jobs import DISPATCH_WINDOW, MAX_ATTEMPTS
 from argus.domain.owner_scope import PERSONAL
 
+from tests.document_extractor_support import admit
 from tests.ingestion.conftest import ALICE, bearer
 
 DOCUMENTS = "/api/v1/financial-documents"
@@ -43,6 +44,8 @@ def observation(amount: str) -> dict[str, object]:
     }
 
 
+
+
 class Provider:
     """Scripted provider: each call takes the next behavior from ``script``."""
 
@@ -55,6 +58,7 @@ class Provider:
 
         from argus.domain.ingestion.documents.models import ExtractionResult
 
+        await admit(kwargs.get("before_request"))
         behavior = self.script[min(self.calls, len(self.script) - 1)]
         self.calls += 1
         if behavior == "fail":

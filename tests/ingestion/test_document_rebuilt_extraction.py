@@ -66,6 +66,9 @@ async def test_image_extraction_reuses_one_copy_and_preserves_original_identity(
 ):
     service, _, extractor, _ = rig
     original = image_bytes()
+    extractor.prepare.side_effect = lambda content, media_type, **kwargs: PreparedDocument(
+        1, (kwargs["rebuilt_image"],)
+    )
     saved = await service.upload(
         user_id="owner",
         content=original,
@@ -130,7 +133,7 @@ async def test_nonimage_extraction_keeps_original_path(rig, content, media_type)
     )
     assert extractor.extract.call_args.kwargs["content"] == content
     # The extractor's own local step prepares it; nothing is rebuilt or stored.
-    extractor.prepare.assert_called_once_with(content, media_type)
+    extractor.prepare.assert_called_once_with(content, media_type, rebuilt_image=None)
     assert (
         extractor.extract.call_args.kwargs["prepared"] is extractor.prepare.return_value
     )

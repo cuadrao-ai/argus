@@ -23,6 +23,8 @@ from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.ingestion.sink import SubmitResult
 from argus.domain.owner_scope import PERSONAL
 
+from tests.document_extractor_support import StubPreparation, start_request
+
 
 class Clock:
     def __init__(self) -> None:
@@ -32,11 +34,12 @@ class Clock:
         return self.now
 
 
-class Extractor:
+class Extractor(StubPreparation):
     def __init__(self) -> None:
         self.calls = 0
 
     async def extract(self, **kwargs: Any) -> ExtractionBatch:
+        await start_request(kwargs)
         self.calls += 1
         return ExtractionBatch(
             candidates=(

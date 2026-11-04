@@ -15,6 +15,7 @@ from argus.domain.ingestion.connections import InMemoryConnectionRepository
 from argus.domain.ingestion.documents import extractor as extraction
 from argus.domain.ingestion.documents import preparation
 from argus.domain.ingestion.documents.config import DocumentExtractionSettings
+from argus.domain.ingestion.documents.jobs import PreparationJobs
 from argus.domain.ingestion.documents.models import (
     DocumentExtractionError,
     ExtractionResult,
@@ -30,6 +31,7 @@ from faker import Faker
 from PIL import Image
 
 from tests.business_reading_support import reading_setting, turn_reading
+from tests.document_extractor_support import admit
 from tests.ingestion.test_document_jobs_api import observation
 
 fake = Faker("es_MX")
@@ -40,6 +42,7 @@ class Provider:
         self.calls = 0
 
     async def __call__(self, **kwargs: object) -> ExtractionResult:
+        await admit(kwargs.get("before_request"))
         self.calls += 1
         return ExtractionResult.model_validate(observation("250.50"))
 
@@ -154,34 +157,123 @@ async def test_a_valid_file_charges_exactly_once(rig, monkeypatch):
 
 @pytest.mark.parametrize("media_type", ["image/png", "application/pdf"])
 @pytest.mark.parametrize(
-    "code",
+    "refusal,code",
     [
-        "missing_api_key", "document_extraction_disabled", "missing_vision_model",
-        "encrypted_document", "invalid_document", "document_page_limit",
-        "unreadable_image",
+        ("missing_api_key", "missing_api_key"),
+        ("document_extraction_disabled", "document_extraction_disabled"),
+        ("missing_vision_model", "missing_vision_model"),
+        ("encrypted", "encrypted_document"),
+        ("malformed", "invalid_document"),
+        ("over_page_limit", "document_page_limit"),
+        ("unreadable_image", "invalid_document"),
     ],
 )
 @pytest.mark.asyncio
-async def test_every_local_refusal_preserves_budget(rig, monkeypatch, media_type, code):
+async def test_every_local_refusal_preserves_budget(
+    rig, monkeypatch, media_type, refusal, code
+):
     service, provider, scope, owner = rig
     monkeypatch.setattr(preparation, "_run", poppler("Pages: 1\nEncrypted: no\n"))
-    with monkeypatch.context() as refusal:
+    with monkeypatch.context() as patch:
         if code == "missing_api_key":
-            refusal.setattr(extraction, "resolve_openrouter_api_key", lambda *_: "")
+            patch.setattr(extraction, "resolve_openrouter_api_key", lambda *_: "")
         elif code == "missing_vision_model":
-            refusal.setattr(extraction, "resolve_openrouter_model", lambda **_: "")
+            patch.setattr(extraction, "resolve_openrouter_model", lambda **_: "")
         elif code == "document_extraction_disabled":
-            refusal.setattr(service.extractor.settings, "enabled", False)
+            patch.setattr(service.extractor.settings, "enabled", False)
         else:
             # Inject each preparation refusal at the shared decoder boundary.
             # The ordering invariant applies regardless of the source format.
             def refuse(*args, **kwargs):
                 raise DocumentExtractionError(code)
-            refusal.setattr(extraction, "prepare_document", refuse)
+            patch.setattr(extraction, "prepare_document", refuse)
         refused, _ = await read(service, owner, scope, media_type)
         assert refused == code
         assert provider.calls == 0
         assert service.read_budget._reads == {}
     result, draft = await read(service, owner, scope, media_type)
     assert (result, draft.status) == (None, "review_ready")
+    assert provider.calls == 1
+
+
+@pytest.mark.parametrize("media_type", ["image/png", "application/pdf"])
+@pytest.mark.asyncio
+async def test_unreadable_image_bytes_never_spend_budget(rig, monkeypatch, media_type):
+    service, provider, scope, owner = rig
+    render = poppler("Pages: 1\nEncrypted: no\n")
+
+    def unreadable(args, output):
+        render(args, output)
+        if args[0] == "pdftoppm":
+            Path(args[-1]).with_suffix(".jpg").write_bytes(b"not an image")
+
+    monkeypatch.setattr(preparation, "_run", unreadable)
+    with pytest.raises(DocumentExtractionError, match="invalid_document"):
+        if media_type == "image/png":
+            await service.upload(
+                user_id=owner, content=b"not an image", filename="receipt.png",
+                media_type=media_type, consent=True, scope=scope,
+            )
+        else:
+            saved = await service.upload(
+                user_id=owner, content=b"%PDF-fixture", filename="receipt.pdf",
+                media_type=media_type, consent=True, scope=scope,
+            )
+            await service.resume(
+                user_id=owner, connection_id=saved.connection_id, scope=scope
+            )
+    assert service.read_budget._reads == {}
+    assert provider.calls == 0
+
+
+@pytest.mark.parametrize("failure", ["reading", "attachment", "lease"])
+@pytest.mark.parametrize("media_type", ["image/png", "application/pdf"])
+@pytest.mark.asyncio
+async def test_final_local_admission_refusal_never_spends_budget(
+    rig, monkeypatch, failure, media_type
+):
+    service, provider, scope, owner = rig
+    monkeypatch.setattr(preparation, "_run", poppler("Pages: 1\nEncrypted: no\n"))
+    content = b"%PDF-fixture"
+    if media_type == "image/png":
+        image = io.BytesIO()
+        Image.new("RGB", (40, 40), "white").save(image, format="PNG")
+        content = image.getvalue()
+    saved = await service.upload(
+        user_id=owner, content=content, filename="receipt", media_type=media_type,
+        consent=True, scope=scope,
+    )
+    jobs = PreparationJobs(service, None)
+    jobs.start(user_id=owner, connection_id=saved.connection_id)
+    attempt = service.store.job(user_id=owner, connection_id=saved.connection_id)
+    if failure == "reading":
+        monkeypatch.setattr(service, "_reading_allowed", Mock(side_effect=[True, False]))
+        code = "document_reading_not_allowed"
+    elif failure == "attachment":
+        code = "document_preparation_refused"
+        service.business_actions.check_attachment_preparation.side_effect = [
+            None, DocumentServiceError(code)
+        ]
+    else:
+        code = "document_lease_lost"
+        monkeypatch.setattr(service.store, "mark_provider_call", lambda **_: False)
+    with pytest.raises(DocumentServiceError, match=code):
+        await service.resume(
+            user_id=owner, connection_id=saved.connection_id, scope=scope,
+            attempt_id=attempt.attempt_id,
+        )
+    assert service.read_budget._reads == {}
+    assert provider.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_saved_batch_replay_never_prepares_or_charges_again(rig, monkeypatch):
+    service, provider, scope, owner = rig
+    monkeypatch.setattr(preparation, "_run", poppler("Pages: 1\nEncrypted: no\n"))
+    code, draft = await read(service, owner, scope)
+    assert code is None
+    before = dict(service.read_budget._reads)
+    monkeypatch.setattr(service.extractor, "prepare", Mock(side_effect=AssertionError))
+    await service.resume(user_id=owner, connection_id=draft.connection_id, scope=scope)
+    assert service.read_budget._reads == before
     assert provider.calls == 1
