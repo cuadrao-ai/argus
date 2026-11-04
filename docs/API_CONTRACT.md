@@ -11090,11 +11090,13 @@ accept path recorded.
   pilot and durable-store guards apply. Actor, Business and exact selected grant
   come from trusted request context, never the body. Every read and export checks
   the current grant, role and Business closure. A fingerprint grants no authority.
-  Unaccepted canonical Business drafts remain rows. A settled accepted draft and
-  its current Money activity become one row, anchored as `draft:<id>` with
-  `linked_activity_ids`; a standalone activity uses `activity:<id>`. These IDs do
-  not define a future invoice/payment allocation. Disconnected originals never
-  remove the financial row. Dismissed unrecorded drafts are outside this universe.
+  Registros lists approved records only: a draft that is still open, or whose
+  approval is still settling (`accepting`), waits in the Bandeja and is no row
+  and no count here. A settled accepted draft and its current Money activity
+  become one row, anchored as `draft:<id>` with `linked_activity_ids`; a
+  standalone activity uses `activity:<id>`. These IDs do not define a future
+  invoice/payment allocation. Disconnected originals never remove the financial
+  row. A reopened record leaves until it is approved again.
   Recorded amounts and document facts use current Money and the actual approved
   fact revision; current workflow blockers may still require review. Sources,
   account legs, approval receipts and payment annotations are not extra rows.
@@ -11111,7 +11113,8 @@ accept path recorded.
   canonical note, explicit counterparty tax identity and NCF/e-CF only. Original
   text, private messages and OCR are not searched. Structured groups combine with
   AND; each multiselect combines with OR: `record_families` (`sale`, `purchase`),
-  `review_stages` (`needs_review`, `awaiting_approval`, `ready_for_export`),
+  `review_stages` (`needs_review`, `needs_fiscal_data`, `ready_for_export`,
+  `exported`),
   `currencies`, `counterparties`, `categories`, `expense_types`, `funding_sources`,
   `document_kinds` (`invoice`, `receipt`, `credit_note`, `unknown`; the projection
   names only `credit_note` and `unknown` on a row, so Registros offers those two) and
@@ -11175,12 +11178,14 @@ accept path recorded.
   questions (`open`, `owner_does_not_know`, `waiting_for_window`), draft state and
   unresolved duplicate evidence. `business_draft_not_open` is ignored only when
   a settled approval identifies this same current activity. `needs_review` means
-  those human blockers remain, including on recorded rows. `awaiting_approval`
-  means unrecorded fact-ready work; the reader's approve permission does not
-  decide it. `ready_for_export` requires recorded work, no remaining blockers,
-  known exact amount/currency/report date and supported known monetary/document
-  effects. A credit's document adjustment must pass the existing fiscal source
-  validation. It does not mean paid, fiscally valid or government accepted.
+  those human blockers remain on a recorded row. `ready_for_export` requires
+  recorded work, no remaining blockers, known exact amount/currency/report date
+  and supported known monetary/document effects. A credit's document adjustment
+  must pass the existing fiscal source validation. It does not mean paid,
+  fiscally valid or government accepted. `needs_fiscal_data` is a recorded row
+  whose month's 606 or 607 names something missing (`export_missing`).
+  `exported` is a recorded row whose 606 or 607 line a downloaded TXT already
+  froze; it carries `export_line` true.
   Processing, unsettled approval or unavailable evidence uses a separate
   `technical_state` and null stage; failed evidence never becomes empty readiness.
   Missing tax identity or generic document subtype alone creates no human task.
@@ -11255,9 +11260,12 @@ accept path recorded.
   separate export field selection. No summary or widget preference is accepted.
   Page, page size, columns and presentation do not alter the result fingerprint.
 
-  Every report answer adds `overview` with `needs_review`, `awaiting_approval`,
-  and `ready_for_export` counts from the same authorized projection scoped only
-  to Business and period. Table search and filters never change these counts.
+  Every report answer adds `overview` with `needs_review`, `needs_fiscal_data`,
+  `ready_for_export`, `exported` and `export_lines` counts from the same
+  authorized projection scoped only to Business and period. The three Registros
+  cards read `needs_fiscal_data`, `ready_for_export` and `exported`; the
+  Bandeja line beside them reads `pending_review_count` from receipt activity,
+  never this answer. Table search and filters never change these counts.
   Literal search ignores case and accents, and covers counterparty, current note,
   tax identity, fiscal/document identifiers and authorized attachment filenames.
   It does not search file contents, private text, amounts or dates.

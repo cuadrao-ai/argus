@@ -285,14 +285,14 @@ def test_supporting_conflicting_link_wrong_business_and_revoked_replay(
 ):
     service, context, _ = actions
     docs, _ = documents
-    first_draft = shared.ready(service, context)
+    first_draft, _ = record_expense(service, context)
     second_draft = shared.ready(service, context)
     first = append_file(
         service.authority,
         docs,
         context,
         first_draft,
-        1,
+        service.dossier(context, first_draft).version,
         "one.txt",
         "text/plain",
         b"one fixture",

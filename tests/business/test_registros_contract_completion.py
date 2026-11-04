@@ -38,12 +38,12 @@ def test_v1_remains_strict_and_v2_hides_funding_and_payment_form_by_default():
 def test_search_is_literal_accent_insensitive_and_overview_ignores_table_filters():
     rows = [
         row("1", counterparty="Café", stage="needs_review"),
-        row("2", attachment_filenames=("José.pdf",), stage="awaiting_approval"),
+        row("2", attachment_filenames=("José.pdf",), stage="exported"),
     ]
     answer = run_query(IDENTITY, rows, ReportRequestV2(filters={"q": "JOSE"}), NOW)
     assert [r.row_id for r in answer.items] == ["2"]
     assert answer.overview.needs_review == 1
-    assert answer.overview.awaiting_approval == 1
+    assert answer.overview.exported == 1
     assert not run_query(IDENTITY, rows, ReportRequestV2(filters={"q": "%"}), NOW).items
 
 

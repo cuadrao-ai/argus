@@ -114,24 +114,23 @@ def _credit(
 
 
 def project(
-    recorded: RecordedRecord | None,
+    recorded: RecordedRecord,
     draft: DraftState | None,
     originals: dict[str, FiscalRecord],
     filer_identity: str | None,
     accounts: tuple[AccountChoice, ...] = (),
 ) -> ReportRecord:
-    if recorded is None and draft is None:
-        raise ValueError("report source required")
-    approved = recorded.approved if recorded else draft.fiscal
+    """One Registros row for one recorded money row, read with the approved
+    facts and, when a draft backs it, that draft's current marks and blockers."""
+
+    approved = recorded.approved
     facts = approved.facts
     # The Personal mark and the 606 answer change after approval; every reader
     # takes them from the draft as it stands now.
     marks = draft.facts if draft else facts
-    activity = json.loads(recorded.activity_json) if recorded else None
-    has_draft = draft is not None
+    activity = json.loads(recorded.activity_json)
     settled = bool(
-        recorded
-        and approved.draft_id
+        approved.draft_id
         and draft
         and draft.event.state == "accepted"
         and draft.event.accept_key
@@ -150,20 +149,10 @@ def project(
         or value(facts, "receipt_state") in ("fiscal_receipt", "informal_receipt")
     )
     report_date = (
-        value(facts, "occurred_on")
-        if document_backed or not recorded
-        else recorded.row.occurred_on
+        value(facts, "occurred_on") if document_backed else recorded.row.occurred_on
     )
-    currency = (
-        value(facts, "currency")
-        if document_backed or not recorded
-        else recorded.row.currency
-    )
-    gross = (
-        value(facts, "amount")
-        if document_backed or not recorded
-        else str(activity["amount"])
-    )
+    currency = value(facts, "currency") if document_backed else recorded.row.currency
+    gross = value(facts, "amount") if document_backed else str(activity["amount"])
     family = "purchase" if value(facts, "kind") == "expense" else None
     explicit_sale = (
         isinstance(approved.declaration, SalesDeclaration)
@@ -173,12 +162,12 @@ def project(
     if value(facts, "kind") == "income" and explicit_sale:
         family = "sale"
     if (
-        not has_draft
+        draft is None
         and activity["kind"] == "expense"
         and activity.get("source_id") is None
     ):
         family = "purchase"
-    if activity and activity["kind"] == "refund":
+    if activity["kind"] == "refund":
         original = originals.get(activity.get("purchase_activity_id"))
         if original and original.kind == "expense":
             family = "purchase"
@@ -191,17 +180,13 @@ def project(
     blocked = draft.blockers if draft else ()
     if settled:
         blocked = tuple(code for code in blocked if code != "business_draft_not_open")
-    elif recorded and has_draft:
+    elif draft:
         technical = technical or "approval_provenance_unavailable"
-    if draft and draft.event.state == "accepting":
-        technical = "approval_outcome_unknown"
-    effect = "unknown" if technical else recorded.row.effect if recorded else "known"
+    effect = "unknown" if technical else recorded.row.effect
     if technical:
         stage = None
     elif blocked:
         stage = "needs_review"
-    elif not recorded:
-        stage = "awaiting_approval"
     elif (
         currency is not None
         and gross is not None
@@ -221,7 +206,7 @@ def project(
         if funding
         else None
     )
-    if not has_draft and activity:
+    if draft is None:
         funding_key = activity.get("funding") or (
             "account:" + str(activity["legs"][0]["account_id"])
             if activity.get("legs")
@@ -254,7 +239,7 @@ def project(
         if draft
         else f"activity:{recorded.row.activity_id}",
         draft_id=draft.event.id if draft else None,
-        linked_activity_ids=(recorded.row.activity_id,) if recorded else (),
+        linked_activity_ids=(recorded.row.activity_id,),
         revision=draft.event.version if draft else recorded.row.revision,
         report_date=report_date,
         date_basis="document_issue" if document_backed else "activity_effective",
@@ -264,20 +249,16 @@ def project(
         workflow_blockers=blocked,
         currency=currency,
         gross_amount=gross,
-        recorded_amount=str(activity["amount"]) if activity else None,
-        recorded_currency=recorded.row.currency if recorded else None,
-        proposed_amount=gross if not recorded else None,
-        money_kind=recorded.row.kind if recorded else value(facts, "kind") or "unknown",
+        recorded_amount=str(activity["amount"]),
+        recorded_currency=recorded.row.currency,
+        money_kind=recorded.row.kind,
         money_effect=effect,
         adjustment_effect=adjustment,
         # With no draft, the activity's note is its merchant.
         counterparty=value(facts, "counterparty")
-        or (activity.get("note") if activity and not draft else None),
+        or (activity.get("note") if not draft else None),
         counterparty_key=identity,
-        category_key=(
-            activity.get("category_id") if activity else value(facts, "category_id")
-        )
-        or "uncategorized",
+        category_key=activity.get("category_id") or "uncategorized",
         funding_key=funding_key,
         funding_label=account.nickname if account else None,
         funding_kind=account.type
@@ -311,22 +292,26 @@ def project(
         ),
         # Only a saved note: the draft's and the activity's `note` hold the merchant.
         note=draft.event.resolution.get("current_note") if draft else None,
-        settlement_status=recorded.settlement.status
-        if recorded and recorded.settlement
-        else None,
+        settlement_status=recorded.settlement.status if recorded.settlement else None,
         dependency_fingerprint=dependency,
     )
 
 
 def with_export_verdicts(
-    rows: tuple[ReportRecord, ...], verdicts: dict[str, tuple[str, ...] | None]
+    rows: tuple[ReportRecord, ...],
+    verdicts: dict[str, tuple[str, ...] | None],
+    exported: frozenset[str],
 ) -> tuple[ReportRecord, ...]:
-    """A recorded row is ready only when the export carries it as a line."""
+    """A recorded row is ready only when the export carries it as a line, and
+    exported once a downloaded TXT froze that line (``exported`` names the
+    activities with a frozen line)."""
 
     def judged(row: ReportRecord) -> ReportRecord:
-        if row.stage != "ready_for_export" or not row.linked_activity_ids:
+        if row.stage != "ready_for_export":
             return row
         identifier = row.linked_activity_ids[0]
+        if identifier in exported:
+            return row.model_copy(update={"stage": "exported", "export_line": True})
         if identifier not in verdicts:
             return row
         missing = verdicts[identifier]

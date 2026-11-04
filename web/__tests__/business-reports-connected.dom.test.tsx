@@ -22,7 +22,7 @@ const originalMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
 beforeAll(() => { process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 900 }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
 afterEach(async () => { await cleanup(); (await import("@/components/layout/overlayStack")).resetOverlayStack(); document.body.innerHTML = ""; (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL("http://localhost/biz"); });
 afterAll(async () => { await GlobalRegistrator.unregister(); if (originalMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMock; });
-async function mount(options: { readOnly?: boolean; large?: boolean; legacy?: boolean; initial?: ReportRequest; width?: number; role?: string; edit?: (records: ReportRecord[]) => void } = {}) {
+async function mount(options: { readOnly?: boolean; large?: boolean; legacy?: boolean; initial?: ReportRequest; width?: number; role?: string; edit?: (records: ReportRecord[]) => void; waiting?: number | null } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width: options.width ?? 1440, height: 900 });
   const { createRoot } = await import("react-dom/client");
   const fixture = createBusinessReportHttpFixture(); options.edit?.(fixture.records); if (options.large) { fixture.records[0].gross_amount = "9007199254740993.01"; fixture.records[0].recorded_amount = "9007199254740993.01"; fixture.records[3].document_kind = "credit_note"; fixture.records[3].gross_amount = "20.00"; fixture.records[3].adjustment_effect = "known"; fixture.records[4].gross_amount = "-20.00"; fixture.records[4].document_kind = "credit_note"; fixture.records[4].adjustment_effect = "known"; } fixture.controls.readOnly = options.readOnly ?? false; fixture.controls.legacy = options.legacy ?? false;
@@ -36,7 +36,9 @@ async function mount(options: { readOnly?: boolean; large?: boolean; legacy?: bo
   const downloads: Blob[] = []; URL.createObjectURL = (blob) => { downloads.push(blob as Blob); return "blob:synthetic"; }; URL.revokeObjectURL = () => undefined;
   setChosenGrant(null);
   const source = createFixtureBusinessDataSource({ chatAvailable: false });
-  const context = { chosen: { space_id: fixtureId(3000), grant_id: fixtureId(3001), role: options.role ?? "owner", name: "Colmado sintético", capabilities: options.readOnly ? ["read"] : ["read", "prepare", "approve"], permissions: options.readOnly ? ["read"] : ["read", "prepare", "approve", "download", "export"] }, source, revision: 0, actions: { create: [] }, panel: { kind: "transactions" }, openPanel: () => undefined, records: { workspace: await source.workspace(), inbox: [] } } as unknown as BusinessContextValue;
+  const opened: unknown[] = [];
+  const receiptActivity = options.waiting === undefined ? null : options.waiting === null ? null : { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: options.waiting, needs_attention_count: 0, ready_to_review_count: options.waiting };
+  const context = { chosen: { space_id: fixtureId(3000), grant_id: fixtureId(3001), role: options.role ?? "owner", name: "Colmado sintético", capabilities: options.readOnly ? ["read"] : ["read", "prepare", "approve"], permissions: options.readOnly ? ["read"] : ["read", "prepare", "approve", "download", "export"] }, source, revision: 0, actions: { create: [] }, panel: { kind: "transactions" }, openPanel: (panel: unknown) => { opened.push(panel); }, records: { workspace: await source.workspace(), inbox: [], receiptActivity } } as unknown as BusinessContextValue;
   const i18n = i18next.createInstance(); await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const host = document.createElement("div"); document.body.appendChild(host); const root = createRoot(host);
   await act(async () => root.render(<StrictMode><I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><ConnectedBusinessReports initial={options.initial} scope={{ userId: "synthetic-person", businessId: fixtureId(3000), grantId: null }} /></BusinessContext.Provider></I18nextProvider></StrictMode>));
@@ -46,7 +48,7 @@ async function mount(options: { readOnly?: boolean; large?: boolean; legacy?: bo
   const button = (label: string) => [...document.querySelectorAll("button")].find((button) => button.textContent?.trim() === label || button.getAttribute("aria-label") === label);
   const type = async (element: HTMLInputElement | HTMLTextAreaElement, value: string) => { await act(async () => { const prototype = element instanceof HTMLTextAreaElement ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(prototype, "value")!.set!.call(element, value); element.dispatchEvent(new Event("input", { bubbles: true })); }); };
   await settle(() => document.querySelector(`[data-report-schema="${options.legacy ? 1 : 2}"] [data-testid="records-count"]`) !== null);
-  return { fixture, settle, click, button, type, downloads };
+  return { fixture, settle, click, button, type, downloads, opened, context };
 }
 
 test("connected pages, full count, accent search and period-only overview use real transport", async () => {
@@ -60,8 +62,72 @@ test("connected pages, full count, accent search and period-only overview use re
   await page.type(document.querySelector('input[type="search"]')!, "pena");
   await page.settle(() => document.querySelector('[data-testid="records-count"]')?.textContent?.includes("1 de 1") ?? false);
   assert.match(document.querySelector('[data-testid="transacciones-records"]')!.textContent!, /José Peña/);
-  assert.match(document.querySelector('[data-overview-filter="review"]')!.textContent!, /60/);
+  assert.match(document.querySelector('[data-overview-filter="fiscal"]')!.textContent!, /60/);
   assert.ok(page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).some((call) => (call.body as { filters: { q: string }; page: number }).filters.q === "pena" && (call.body as { page: number }).page === 1));
+});
+
+const overviewCards = () => [...document.querySelectorAll<HTMLButtonElement>('[data-testid="records-overview-preview"] [data-overview-filter]')];
+
+test("the three cards read the server's stage counts in order, each with its line, and each filters by its stage", async () => {
+  const page = await mount();
+  assert.deepEqual(overviewCards().map((card) => card.getAttribute("data-overview-filter")), ["fiscal", "export", "exported"]);
+  const [fiscal, ready, exported] = overviewCards();
+  assert.match(fiscal.textContent!, /Faltan datos fiscales/); assert.match(fiscal.textContent!, /60/);
+  assert.match(ready.textContent!, /Listos para exportar/); assert.match(ready.textContent!, /40/); assert.match(ready.textContent!, /Puedes incluirlos en tu exportación/);
+  assert.match(exported.textContent!, /Ya exportados/); assert.match(exported.textContent!, /20/);
+  assert.equal(document.querySelector('[data-overview-filter="review"]'), null, "needs_review is no card");
+  assert.doesNotMatch(document.querySelector('[data-testid="records-overview-preview"]')!.textContent!, /Por aprobar|Por revisar/);
+  for (const card of overviewCards()) assert.ok(card.querySelector("[data-overview-description]")?.textContent, `${card.getAttribute("data-overview-filter")} has its line`);
+  for (const [key, stage] of [["exported", "exported"], ["fiscal", "needs_fiscal_data"], ["export", "ready_for_export"]] as const) {
+    const before = sentFilters(page).length;
+    await page.click(document.querySelector(`[data-overview-filter="${key}"]`));
+    await page.settle(() => sentFilters(page).length > before);
+    assert.deepEqual(sentFilters(page).at(-1)!.review_stages, [stage]);
+    assert.equal(document.querySelector(`[data-overview-filter="${key}"]`)?.getAttribute("aria-pressed"), "true");
+  }
+});
+
+test("a server without the exported count leaves that card unknown and never shows a number", async () => {
+  const page = await mount();
+  page.fixture.controls.overview = { needs_review: 0, ready_for_export: 126 };
+  await page.click(document.querySelector('[data-testid="records-refresh"]'));
+  await page.settle(() => document.querySelector('[data-overview-filter="export"]')?.textContent?.includes("126") ?? false);
+  assert.equal(document.querySelector<HTMLButtonElement>('[data-overview-filter="exported"]')!.disabled, true);
+  assert.equal(document.querySelector<HTMLButtonElement>('[data-overview-filter="fiscal"]')!.disabled, true);
+});
+
+test("the Bandeja line shows the receipt activity count the sidebar shows, opens the Bandeja, and hides at zero or unknown", async () => {
+  const { inboxCount } = await import("@/components/business-app/inbox-count");
+  const page = await mount({ waiting: 4 });
+  const line = document.querySelector('[data-testid="records-bandeja-waiting"]')!;
+  assert.equal(line.textContent, "4 recibos esperan en la Bandeja");
+  assert.equal(inboxCount(page.context.records), 4);
+  await page.click(line.querySelector("button"));
+  assert.deepEqual(page.opened, [{ kind: "inbox" }]);
+  await cleanup();
+  await mount({ waiting: 1 });
+  assert.equal(document.querySelector('[data-testid="records-bandeja-waiting"]')!.textContent, "1 recibo espera en la Bandeja");
+  await cleanup();
+  await mount({ waiting: 0 });
+  assert.equal(document.querySelector('[data-testid="records-bandeja-waiting"]'), null);
+  await cleanup();
+  await mount({ waiting: null });
+  assert.equal(document.querySelector('[data-testid="records-bandeja-waiting"]'), null);
+});
+
+test("Filtros Revisión offers the server's remaining stages and nothing about approval", async () => {
+  const page = await mount();
+  await page.click(page.button("Filtros"));
+  await page.click(document.querySelector('[data-group="review"]'));
+  const labels = [...document.querySelectorAll('[role="dialog"] label')].map((label) => label.textContent).filter((label) => label !== "Seleccionar todo");
+  assert.deepEqual(labels, ["Faltan datos fiscales", "Listos para exportar", "Ya exportados", "Por revisar"]);
+});
+
+test("a saved view or address bar naming a stage the server no longer has reads as no stage filter", async () => {
+  (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL(`http://localhost/biz?report=${encodeURIComponent(JSON.stringify({ filters: { review_stages: ["awaiting_approval", "exported"] } }))}&report_scope=synthetic-person:${fixtureId(3000)}`);
+  const page = await mount();
+  assert.ok(sentFilters(page).every((filters) => !filters.review_stages.includes("awaiting_approval" as never)), "no request carries the stale stage");
+  assert.deepEqual(sentFilters(page).at(-1)!.review_stages, ["exported"]);
 });
 
 test("saved notes stay on the row and the note editor is not offered", async () => {
@@ -238,37 +304,9 @@ test("sales card one shows the server document totals per currency and later car
   assert.match(cards()[0].textContent!, /Facturado/);
   for (const later of cards().slice(1)) { assert.equal(later.querySelectorAll('.cuadrao-amount').length, 0); assert.match(later.textContent!, /-/); }
   assert.equal(document.body.textContent?.includes('Cobros, pagos y saldos pendientes aún no están disponibles.'), true);
-  assert.equal(summary.querySelectorAll('[data-summary-qualifier]').length, 1);
-  assert.ok(cards()[0].querySelector('[data-summary-qualifier]'));
-  assert.equal(cards()[0].querySelector('[data-summary-qualifier]')!.textContent, 'Incluye documentos por revisar o por aprobar.');
+  // Registros lists approved records only, so no total ever includes a document still to review or approve.
+  assert.equal(summary.querySelector('[data-summary-qualifier]'), null);
   assert.ok(page.fixture.calls.every((call) => !call.path.includes('/totals')));
-});
-
-test("the review qualifier hides under the ready-for-export filter and shows again when it is cleared", async () => {
-  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: 'all' }, record_families: ['sale'] } }) });
-  assert.ok(document.querySelector('[data-summary-qualifier]'));
-  await page.click(document.querySelector('[data-overview-filter="export"]'));
-  await page.settle(() => document.querySelector('[data-testid="records-count"]')?.textContent?.includes('0') ?? false);
-  assert.deepEqual((page.fixture.calls.filter((call) => call.path.endsWith('/reports/query')).at(-1)!.body as { filters: { review_stages: string[] } }).filters.review_stages, ['ready_for_export']);
-  assert.equal(document.querySelector('[data-summary-qualifier]'), null);
-  await page.click(document.querySelector('[data-overview-filter="export"]'));
-  await page.settle(() => document.querySelector('[data-summary-qualifier]') !== null);
-});
-
-test("the review qualifier stays when the filter keeps review stages beside ready for export", async () => {
-  await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: 'all' }, record_families: ['sale'], review_stages: ['needs_review', 'ready_for_export'] } }) });
-  assert.ok(document.querySelector('[data-summary-qualifier]'));
-});
-
-test("the review qualifier hides when the server overview reports nothing to review or approve", async () => {
-  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: 'all' }, record_families: ['sale'] } }) });
-  page.fixture.controls.overview = { needs_review: 0, awaiting_approval: 0, ready_for_export: 126 };
-  await page.click(document.querySelector('[data-testid="records-refresh"]'));
-  await page.settle(() => document.querySelector('[data-summary-qualifier]') === null);
-  assert.equal(cards()[0].querySelectorAll('.cuadrao-amount').length > 0, true);
-  page.fixture.controls.overview = { needs_review: 0, awaiting_approval: 3, ready_for_export: 123 };
-  await page.click(document.querySelector('[data-testid="records-refresh"]'));
-  await page.settle(() => document.querySelector('[data-summary-qualifier]') !== null);
 });
 
 test("expense card one keeps an unknown currency unknown and never invents a code or zero", async () => {

@@ -10,7 +10,9 @@ const count = z.number().int().nonnegative();
 // Decimal text owns money. Large legacy JSON minor-unit numbers remain unused metadata.
 const minorNumber = z.number().refine(Number.isInteger);
 const family = z.enum(["sale", "purchase"]);
-const stage = z.enum(["needs_review", "awaiting_approval", "needs_fiscal_data", "ready_for_export"]);
+/** A recorded row's place on the way to the DGII. A draft waits in the Bandeja and is no row here. */
+const stage = z.enum(["needs_review", "needs_fiscal_data", "ready_for_export", "exported"]);
+export type ReportStage = z.infer<typeof stage>;
 const documentKind = z.enum(["invoice", "receipt", "credit_note", "unknown"]);
 /** The document kinds the server's projection names on a row, so Filtros offers only kinds a record can match. The contract still accepts the others. */
 export const REPORT_DOCUMENT_KINDS = ["credit_note", "unknown"] as const satisfies readonly z.infer<typeof documentKind>[];
@@ -32,7 +34,9 @@ export const reportPeriodSchema = z.discriminatedUnion("kind", [
 ]);
 export const reportFiltersSchema = z.strictObject({
   q: z.string().refine((value) => Array.from(value).length <= 200).default(""), period: reportPeriodSchema.default({ kind: "all" }),
-  record_families: z.array(family).default([]), review_stages: z.array(stage).default([]),
+  record_families: z.array(family).default([]),
+  // A saved view or address bar may still name a stage the server dropped when drafts left Registros; it reads as no stage filter, never as a 422.
+  review_stages: z.array(z.string()).default([]).transform((values): ReportStage[] => values.filter((value): value is ReportStage => stage.safeParse(value).success)),
   has_document: z.boolean().nullable().default(null), currencies: z.array(z.string().regex(/^[A-Z]{3}$/)).max(200).default([]),
   amount_min: decimal.nullable().default(null), amount_max: decimal.nullable().default(null),
   counterparties: z.array(z.string().min(1).max(128)).max(200).default([]),
@@ -86,7 +90,7 @@ export const reportAnswerSchema = z.object({
   excluded_unknown_dates: count, excluded_personal: z.object({ income: count, expense: count }).optional(),
   counterparties: z.array(z.object({ key: z.string(), labels: z.array(z.string()) })), categories: z.array(z.string()), expense_types: z.array(dgiiChoiceSchema).default([]),
   funding_sources: z.array(z.object({ key: z.string(), label: z.string().nullable(), kind: z.string().nullable() })), coverage_notes: z.array(z.string()),
-  overview: z.object({ needs_review: count, awaiting_approval: count, needs_fiscal_data: count.optional(), ready_for_export: count, export_lines: count.optional() }).optional(), effective_sort: reportSortSchema.optional(),
+  overview: z.object({ needs_review: count, needs_fiscal_data: count.optional(), ready_for_export: count, exported: count.optional(), export_lines: count.optional() }).optional(), effective_sort: reportSortSchema.optional(),
   sort_unavailable_reason: z.literal("amount_sort_requires_single_known_currency").nullable().optional(),
 });
 export const savedReportViewSchema = z.object({

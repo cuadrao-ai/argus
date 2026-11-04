@@ -81,11 +81,12 @@ def rows(records):
         )
         for subject in records
     ]
-    return (
-        *approved,
-        record(
-            "draft:unapproved", report_date=date(2026, 9, 2), stage="awaiting_approval"
-        ),
+    return tuple(approved)
+
+
+def verdicts(records):
+    return line_verdicts(
+        records, rnc="199990013", captured_on=CAPTURED, registry=MapRegistry({})
     )
 
 
@@ -93,9 +94,6 @@ class TestRegistrosReadyMatchesTheExport:
     def test_ready_count_equals_the_export_line_count_for_the_month(self):
         records = mix()
         registry = MapRegistry({})
-        verdicts = line_verdicts(
-            records, rnc="199990013", captured_on=CAPTURED, registry=registry
-        )
         manifest, lines = fiscal_manifest(
             records,
             rnc="199990013",
@@ -106,22 +104,17 @@ class TestRegistrosReadyMatchesTheExport:
             registry=registry,
         )
         overview = run(
-            with_export_verdicts(rows(records), verdicts),
+            with_export_verdicts(rows(records), verdicts(records), frozenset()),
             ReportFilters(period=SEPTEMBER),
         ).overview
         assert overview.export_lines == len(lines["606"]) + len(lines["607"]) == 1
         assert overview.needs_fiscal_data == 6
-        assert overview.awaiting_approval == 1
         assert overview.ready_for_export == 1
+        assert overview.exported == 0
 
     def test_each_row_names_the_first_thing_missing(self):
         records = mix()
-        judged = with_export_verdicts(
-            rows(records),
-            line_verdicts(
-                records, rnc="199990013", captured_on=CAPTURED, registry=MapRegistry({})
-            ),
-        )
+        judged = with_export_verdicts(rows(records), verdicts(records), frozenset())
         assert [(row.stage, row.export_missing, row.export_line) for row in judged] == [
             ("ready_for_export", None, True),
             ("needs_fiscal_data", "expense_type_missing", False),
@@ -130,8 +123,29 @@ class TestRegistrosReadyMatchesTheExport:
             ("needs_fiscal_data", "ncf_invalid", False),
             ("needs_fiscal_data", "date_missing", False),
             ("needs_fiscal_data", "detail_missing", False),
-            ("awaiting_approval", None, False),
         ]
+
+    def test_a_frozen_line_is_exported_and_each_card_filters_its_own_rows(self):
+        records = mix()
+        judged = with_export_verdicts(
+            rows(records), verdicts(records), frozenset({"activity-0"})
+        )
+        assert (judged[0].stage, judged[0].export_line) == ("exported", True)
+        answer = run(judged, ReportFilters(period=SEPTEMBER))
+        assert (
+            answer.overview.needs_fiscal_data,
+            answer.overview.ready_for_export,
+            answer.overview.exported,
+        ) == (6, 0, 1)
+        for stage, count in (
+            ("needs_fiscal_data", 6),
+            ("ready_for_export", 0),
+            ("exported", 1),
+        ):
+            matched = run(judged, ReportFilters(period=SEPTEMBER, review_stages=[stage]))
+            assert matched.matching_count == count, stage
+            assert all(row.stage == stage for row in matched.items)
+            assert matched.overview == answer.overview, "cards ignore the filter"
 
     def test_missing_items_read_in_spanish(self):
         assert [
@@ -231,14 +245,8 @@ class TestFixOrder:
             named(replace(supplier(base, INVALID), declaration=typeless), 1),
             named(fiscal(base, ncf=None), 2),
         )
-        judged = with_export_verdicts(
-            rows(records),
-            line_verdicts(
-                records, rnc="199990013", captured_on=CAPTURED, registry=MapRegistry({})
-            ),
-        )
+        judged = with_export_verdicts(rows(records), verdicts(records), frozenset())
         assert [(r.export_missing, r.export_missing_several) for r in judged] == [
             ("expense_type_missing", True),
             ("ncf_missing", False),
-            (None, False),
         ]

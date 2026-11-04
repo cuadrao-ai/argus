@@ -6,7 +6,7 @@
 import { dossierFixtureIds } from "../dossier-fixtures";
 
 /** GET /business/reports → overview, for the current month (the Registros default period). */
-export const REPORT_OVERVIEW = { needs_review: 3, awaiting_approval: 2, ready_for_export: 11 } as const;
+export const REPORT_OVERVIEW = { needs_review: 3, needs_fiscal_data: 2, ready_for_export: 11, exported: 0 } as const;
 
 /** GET /business/invoices → stage_counts, all dates. */
 export const INVOICE_STAGE_COUNTS: Record<string, number> = { draft: 2, issued: 5, processing: 0 };

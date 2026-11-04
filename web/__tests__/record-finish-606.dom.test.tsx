@@ -67,7 +67,7 @@ async function mount({ width = 1280, record = "fiscal", serve = () => undefined 
   report.records.splice(1);
   const [row] = report.records;
   Object.assign(row, { draft_id: draftId, counterparty: "Ferretería La Esquina", stage: "needs_fiscal_data", export_missing: "expense_type_missing", export_missing_several: true });
-  report.controls.overview = { needs_review: 0, awaiting_approval: 0, ready_for_export: 0 };
+  report.controls.overview = { needs_review: 0, needs_fiscal_data: 0, ready_for_export: 0, exported: 0 };
   const verdict = ({ dgii }: Dossier) => {
     const missing = [dgii?.category ? null : "expense_type_missing", dgii?.payment_method ? null : "payment_method_missing"].filter(Boolean) as string[];
     Object.assign(row, missing.length ? { stage: "needs_fiscal_data", export_missing: missing[0], export_missing_several: missing.length > 1 } : { stage: "ready_for_export", export_missing: null, export_missing_several: false });

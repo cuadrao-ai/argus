@@ -7,10 +7,10 @@ import json
 import unicodedata
 from dataclasses import asdict, replace
 from datetime import date, datetime, timedelta
-from typing import Literal
+from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from argus.domain.business.contracts.dgii import ExpenseType
 from argus.domain.business.contracts.facts import personal_mark_admits
@@ -24,9 +24,9 @@ from argus.domain.recording.errors import RecordingInputError
 
 CALENDAR = "America/Santo_Domingo"
 Family = Literal["sale", "purchase"]
-Stage = Literal[
-    "needs_review", "awaiting_approval", "needs_fiscal_data", "ready_for_export"
-]
+#: A recorded row's place on the way to the DGII. Registros lists approved
+#: records only; a draft waits in the Bandeja and is no stage here.
+Stage = Literal["needs_review", "needs_fiscal_data", "ready_for_export", "exported"]
 DocumentKind = Literal["invoice", "receipt", "credit_note", "unknown"]
 Column = Literal[
     "date",
@@ -100,6 +100,16 @@ class ReportFilters(Contract):
     funding_sources: tuple[str, ...] = Field(default=(), max_length=200)
     document_kinds: tuple[DocumentKind, ...] = ()
     fiscal_classifications: tuple[str, ...] = Field(default=(), max_length=100)
+
+    @field_validator("review_stages", mode="before")
+    @classmethod
+    def drop_removed_stage(cls, value: Any) -> Any:
+        """Registros no longer lists open drafts, so a saved view or an old tab
+        that still names `awaiting_approval` keeps its other stages."""
+
+        if isinstance(value, (list, tuple)):
+            return [stage for stage in value if stage != "awaiting_approval"]
+        return value
 
     @model_validator(mode="after")
     def amounts(self) -> ReportFilters:
@@ -254,10 +264,13 @@ class FundingOption(Contract):
 
 
 class ReportOverview(Contract):
+    """The period's recorded rows by stage. The three Registros cards read
+    `needs_fiscal_data`, `ready_for_export` and `exported`."""
+
     needs_review: int = 0
-    awaiting_approval: int = 0
     ready_for_export: int = 0
     needs_fiscal_data: int = 0
+    exported: int = 0
     export_lines: int = 0
 
 
@@ -652,9 +665,9 @@ def run_query(
             stage: sum(row.stage == stage for row in overview_rows)
             for stage in (
                 "needs_review",
-                "awaiting_approval",
                 "needs_fiscal_data",
                 "ready_for_export",
+                "exported",
             )
         },
         export_lines=sum(row.export_line for row in overview_rows),

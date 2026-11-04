@@ -592,7 +592,7 @@ def test_the_kind_a_person_picks_sets_the_type_and_the_record_files_as_a_sale(
     assert picked.status_code == 200, picked.text
     assert _typed(picked.json()) == ("venta", False, True)
     assert picked.json()["facts"]["kind"]["value"] == "income"
-    assert _family(web, draft) == ("sale", ("sale",))
+    assert draft not in [row["draft_id"] for row in _report(web)], "still a draft"
 
     reviewed = _review(
         web,

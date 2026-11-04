@@ -31143,9 +31143,9 @@ components:
           $ref: '#/components/schemas/ReportOverview'
           default:
             needs_review: 0
-            awaiting_approval: 0
             ready_for_export: 0
             needs_fiscal_data: 0
+            exported: 0
             export_lines: 0
         effective_sort:
           type: string
@@ -31276,9 +31276,9 @@ components:
             type: string
             enum:
             - needs_review
-            - awaiting_approval
             - needs_fiscal_data
             - ready_for_export
+            - exported
           type: array
           default: []
         has_document:
@@ -31378,9 +31378,9 @@ components:
             type: string
             enum:
             - needs_review
-            - awaiting_approval
             - needs_fiscal_data
             - ready_for_export
+            - exported
           type: array
           default: []
         has_document:
@@ -31462,13 +31462,13 @@ components:
         needs_review:
           type: integer
           default: 0
-        awaiting_approval:
-          type: integer
-          default: 0
         ready_for_export:
           type: integer
           default: 0
         needs_fiscal_data:
+          type: integer
+          default: 0
+        exported:
           type: integer
           default: 0
         export_lines:
@@ -31476,6 +31476,9 @@ components:
           default: 0
       additionalProperties: false
       type: object
+      description: 'The period''s recorded rows by stage. The three Registros cards read
+
+        `needs_fiscal_data`, `ready_for_export` and `exported`.'
     ReportRecipe-Input:
       properties:
         schema_version:
@@ -31801,9 +31804,9 @@ components:
           - type: string
             enum:
             - needs_review
-            - awaiting_approval
             - needs_fiscal_data
             - ready_for_export
+            - exported
           - type: 'null'
         export_missing:
           anyOf:

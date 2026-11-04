@@ -69,7 +69,7 @@ def test_export_is_full_filtered_answer_and_explicitly_records_only(client, acti
     http, _ = client
     service, context, _ = actions
     for _ in range(26):
-        shared.ready(service, context)
+        record_expense(service, context)
     answer = query(http)
     assert len(answer["items"]) == 25
     response = http.post(
@@ -86,7 +86,7 @@ def test_export_is_full_filtered_answer_and_explicitly_records_only(client, acti
     assert len(rows) == manifest["matching_count"] == 26
     assert manifest["scope"] == "filtered_records_only"
     assert manifest["fingerprint"] == answer["fingerprint"]
-    assert all(row["stage"] == "awaiting_approval" for row in rows)
+    assert all(row["stage"] == "needs_fiscal_data" for row in rows)
     assert all((row["personal"], row["include_606"]) == ("False", "") for row in rows)
 
 
@@ -119,7 +119,7 @@ def test_stale_export_requires_explicit_refresh(client, actions):
     http, _ = client
     service, context, _ = actions
     answer = query(http)
-    shared.ready(service, context)
+    record_expense(service, context)
     response = http.post(
         "/business/reports/export",
         json={"expected_fingerprint": answer["fingerprint"], "report": {}},
@@ -162,7 +162,7 @@ def test_export_rechecks_facts_after_build_before_release(client, actions, monke
 
     def changed(*args, **kwargs):
         data = original(*args, **kwargs)
-        shared.ready(service, context)
+        record_expense(service, context)
         return data
 
     monkeypatch.setattr(reporting_export, "build_archive", changed)
