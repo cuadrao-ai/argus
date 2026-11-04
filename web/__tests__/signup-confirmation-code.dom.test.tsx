@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import i18next from "i18next";
 import { act, createElement, type ReactNode } from "react";
@@ -572,6 +572,10 @@ describe("an exit chosen while a code operation is pending wins over its late re
   });
 
   describe("a modified or middle click on password recovery leaves this tab as it is", () => {
+    let originalInterval: typeof window.setInterval;
+    beforeEach(() => { originalInterval = window.setInterval; });
+    afterEach(() => { expect(window.setInterval).toBe(originalInterval); });
+
     const openElsewhere: Array<[string, "click" | "auxclick", MouseEventInit]> = [
       ["Cmd-click", "click", { metaKey: true }],
       ["Ctrl-click", "click", { ctrlKey: true }],
