@@ -33,7 +33,7 @@ def invitation_changed(db: Connection, business_id: str, invite_id: str) -> None
         return
     with _attempt(db):
         row = db.execute(
-            "select recipient_id::text,coalesce(accepted_at,revoked_at,"
+            "select recipient_id::text,least(accepted_at,revoked_at,"
             " case when expires_at<=clock_timestamp() then expires_at end) from public.business_access_invites"
             " where space_id=%s and id=%s",
             (business_id, invite_id),
@@ -50,10 +50,17 @@ def memory_invitation(
     if not notifications_available():
         return
     with _attempt():
-        resolved = (
-            invite["accepted_at"]
-            or invite["revoked_at"]
-            or (invite["expires_at"] if invite["expires_at"] <= now else None)
+        resolved = min(
+            (
+                at
+                for at in (
+                    invite["accepted_at"],
+                    invite["revoked_at"],
+                    invite["expires_at"] if invite["expires_at"] <= now else None,
+                )
+                if at is not None
+            ),
+            default=None,
         )
         if resolved is not None:
             store.resolve(

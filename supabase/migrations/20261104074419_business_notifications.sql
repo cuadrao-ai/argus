@@ -17,7 +17,6 @@ create index business_notifications_recipient_created_idx
 
 alter table public.business_notifications enable row level security;
 revoke all on public.business_notifications from anon, authenticated;
-grant select, update(read_at) on public.business_notifications to authenticated;
 grant all on public.business_notifications to service_role;
 
 create policy business_notifications_read_own on public.business_notifications

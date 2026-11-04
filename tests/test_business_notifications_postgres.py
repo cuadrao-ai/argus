@@ -45,7 +45,9 @@ def identities(pool):
                 "delete from public.business_notifications where business_id=%s",
                 (business,),
             )
-            db.execute("delete from public.business_client_grants where space_id=%s", (business,))
+            db.execute(
+                "delete from public.business_client_grants where space_id=%s", (business,)
+            )
             db.execute("delete from public.spaces where id=%s", (business,))
             db.execute("delete from auth.users where id in (%s,%s)", (recipient, other))
 
@@ -62,59 +64,63 @@ def acting_as(db, user_id):
         yield
 
 
-def test_rls_reads_and_updates_only_recipient_rows(pool, identities):
+@pytest.mark.parametrize("role", ["anon", "authenticated"])
+def test_clients_cannot_read_or_update_any_notification(pool, identities, role):
     business, recipient, other, subject = identities
     store = PostgresNotificationStore(pool)
     store.put(business, recipient, "invitation_received", subject)
-    row = store.list(business, recipient)[0]
+    store.put(business, other, "invitation_received", subject)
     with pool.connection() as db:
-        with acting_as(db, other):
-            assert (
-                db.execute("select id from public.business_notifications").fetchall()
-                == []
-            )
-            assert (
-                db.execute(
-                    "update public.business_notifications set read_at=now() where id=%s",
-                    (row.id,),
-                ).rowcount
-                == 0
-            )
-        with acting_as(db, recipient):
-            assert db.execute(
-                "select id::text from public.business_notifications"
-            ).fetchall() == [(row.id,)]
-            assert (
-                db.execute(
-                    "update public.business_notifications set read_at=now() where id=%s",
-                    (row.id,),
-                ).rowcount
-                == 1
-            )
-        for column, value in (
-            ("recipient_user_id", other),
-            ("business_id", str(uuid4())),
-            ("resolved_at", "2026-11-04"),
-            ("kind", "new_sender_waiting"),
-        ):
-            with (
-                pytest.raises(psycopg.errors.InsufficientPrivilege),
-                acting_as(db, recipient),
+        assert db.execute(
+            "select relrowsecurity from pg_class where oid='public.business_notifications'::regclass"
+        ).fetchone() == (True,)
+        for person in (recipient, other):
+            for statement in (
+                "select * from public.business_notifications",
+                "update public.business_notifications set read_at=now()",
             ):
-                db.execute(
-                    f"update public.business_notifications set {column}=%s where id=%s",
-                    (value, row.id),
-                )
-        with (
-            pytest.raises(psycopg.errors.InsufficientPrivilege),
-            acting_as(db, recipient),
-        ):
-            put(db, business, recipient, "new_sender_waiting", str(uuid4()))
-        with (
-            pytest.raises(psycopg.errors.InsufficientPrivilege),
-            acting_as(db, recipient),
-        ):
-            db.execute("delete from public.business_notifications where id=%s", (row.id,))
+                with (
+                    pytest.raises(psycopg.errors.InsufficientPrivilege),
+                    acting_as(db, person),
+                ):
+                    db.execute("set local role " + role)
+                    db.execute(statement)
+
+
+def test_server_api_returns_and_updates_only_callers_items(pool, identities, monkeypatch):
+    from argus.api import business_notifications as api
+    from argus.api.business import BusinessPerson, require_business_person
+    from argus.api.routers.business_notifications import router
+    from argus.domain.business.access import PostgresAccessStore
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setenv("CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED", "true")
+    monkeypatch.setattr(api, "business_access", lambda: PostgresAccessStore(pool))
+    business, recipient, other, subject = identities
+    store = PostgresNotificationStore(pool)
+    for person in (recipient, other):
+        store.put(business, person, "new_sender_waiting", subject)
+    own, foreign = store.list(business, recipient)[0], store.list(business, other)[0]
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[require_business_person] = lambda: BusinessPerson(
+        recipient, None
+    )
+    with TestClient(app) as client:
+        params = {"business_id": business}
+        response = client.get("/notifications", params=params)
+        assert response.status_code == 200
+        assert [row["id"] for row in response.json()["items"]] == [own.id]
+        assert (
+            client.post(f"/notifications/{foreign.id}/read", params=params).status_code
+            == 404
+        )
+        assert client.post("/notifications/read-all", params=params).json() == {
+            "updated": 1
+        }
+        assert client.get("/notifications", params=params).json()["unread_count"] == 0
+    assert store.list(business, other)[0].read_at is None
 
 
 def test_partial_unique_index_and_resolution(pool, identities):

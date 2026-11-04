@@ -73,3 +73,20 @@ def test_writer_failure_does_not_break_actions(rig, monkeypatch):
     assert access.give(space, owner, "other@example.test")[0]
     email.record_sender(space, "sender@example.test", "aligned")
     assert email.list_senders(space)[0].status == "pending"
+
+
+@pytest.mark.parametrize("action", ["revoke", "resend"])
+def test_old_expired_invitation_stays_outside_recent_window(rig, monkeypatch, action):
+    from datetime import timedelta
+
+    notices, access, _, owner, other, space = rig
+    _, listing = access.give(space, owner, "other@example.test")
+    invite = listing.invites[0]
+    now = invite.expires_at + timedelta(days=40)
+    monkeypatch.setattr(access, "_now", lambda: now)
+    monkeypatch.setattr(notices, "clock", lambda: now)
+    if action == "revoke":
+        access.revoke_invite(space, owner, invite.id)
+    else:
+        access.give(space, owner, "other@example.test")
+    assert all(row.subject_id != invite.id for row in notices.list(space, other))

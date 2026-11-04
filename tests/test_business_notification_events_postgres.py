@@ -320,3 +320,17 @@ def test_disabled_refresh_leaves_expired_projection_untouched(source, monkeypatc
     commands, _ = _commands(db)
     commands.refresh_notifications(business, people[4])
     assert notifications(db, business) == before
+
+
+def test_old_expired_invitation_revoked_today_stays_outside_recent_window(source):
+    db, business, invite, _, people = source
+    events.invitation_changed(db, business, invite)
+    deadline = _expire(db, invite, days=40)
+    db.execute(
+        "update public.business_access_invites set revoked_at=now() where id=%s",
+        (invite,),
+    )
+    events.invitation_changed(db, business, invite)
+    _, store = _commands(db)
+    assert store.list(business, people[4]) == []
+    assert notifications(db, business)[0][3] == deadline
