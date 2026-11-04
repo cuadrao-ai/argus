@@ -75,6 +75,7 @@ test("the records table keeps the note column and does not offer a note editor",
 
 test("local files add without replacing, preserve existing evidence, isolate records and discard cancelled additions", async () => {
   const page = await mount(); await page.click(page.attachment());
+  assert.ok(document.querySelector('[data-testid="side-drawer"]'));
   assert.equal(document.querySelector<HTMLInputElement>('input[type="file"]')!.multiple, true);
   assert.equal(page.button("Guardar"), undefined, "files do not offer a durable Save action");
   assert.match(document.querySelector('[role="dialog"]')!.textContent!, /no se han subido ni vinculado/i);

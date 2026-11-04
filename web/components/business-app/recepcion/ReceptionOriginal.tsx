@@ -1,12 +1,11 @@
 "use client";
 
-import { useId, useRef, useState, type RefObject } from "react";
-import { FileText, ImageIcon, X } from "lucide-react";
+import { useRef, useState, type RefObject } from "react";
+import { FileText, ImageIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { ReceiptSummary } from "@/lib/business-api";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
-import { useModalSurface } from "@/components/layout/useModalSurface";
-import { withViewportPortal } from "@/components/ui/withViewportPortal";
+import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { Tooltip } from "@/components/ui/Tooltip";
 import ReceiptSourcePreview from "../ReceiptSourcePreview";
@@ -16,14 +15,10 @@ function OriginalContent({ receipt, close }: { receipt: ReceiptSummary; close: (
   return <div className={styles.content} onClick={event => { event.stopPropagation(); if ((event.target as HTMLElement).closest('[data-testid="receipt-see-email"],[data-testid="receipt-see-first-email"]')) close(); }}><ReceiptSourcePreview detail={receipt} initialExpanded /></div>;
 }
 
-const DesktopOriginal = withViewportPortal(function DesktopOriginal({ receipt, close, returnFocusRef }: { receipt: ReceiptSummary; close: () => void; returnFocusRef: RefObject<HTMLElement | null> }) {
+function DesktopOriginal({ receipt, close, returnFocusRef }: { receipt: ReceiptSummary; close: () => void; returnFocusRef: RefObject<HTMLElement | null> }) {
   const { t } = useTranslation();
-  const id = useId();
-  const panel = useRef<HTMLDivElement>(null);
-  const closeButton = useRef<HTMLButtonElement>(null);
-  useModalSurface({ isOpen: true, overlayId: id, containerRef: panel, onDismiss: close, onOutsidePointerDown: close, initialFocusRef: closeButton, returnFocusRef });
-  return <div className={styles.overlay} onClick={event => event.stopPropagation()}><div ref={panel} role="dialog" aria-modal="true" aria-labelledby={id} className={styles.dialog} style={{ width: "min(900px, 100%)" }}><header className={styles.header}><h2 id={id} className="min-w-0 break-all">{receipt.filename || t("business.review.source")}</h2><button ref={closeButton} type="button" className={styles.icon} onClick={close} aria-label={t("common.close")}><X size={18} aria-hidden="true" /></button></header><OriginalContent receipt={receipt} close={close} /></div></div>;
-});
+  return <div onClick={event => event.stopPropagation()}><AdaptivePanel titleClassName="break-all" title={receipt.filename || t("business.review.source")} closeLabel={t("common.close")} onClose={close} width="lg" returnFocusRef={returnFocusRef}><OriginalContent receipt={receipt} close={close} /></AdaptivePanel></div>;
+}
 
 export default function ReceptionOriginal({ receipt }: { receipt: ReceiptSummary }) {
   const { t } = useTranslation();

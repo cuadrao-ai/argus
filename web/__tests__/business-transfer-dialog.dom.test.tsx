@@ -6,6 +6,7 @@ import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
 import spanish from "@/public/locales/es-419/common.json";
 import { createRoot } from "react-dom/client";
+import type { BusinessCloseState } from "@/components/business-app/BusinessCloseDialog";
 import BusinessTransferDialog, { businessTransferCopyEs, type BusinessTransferView } from "@/components/business-app/BusinessTransferDialog";
 
 beforeAll(() => {
@@ -14,14 +15,15 @@ beforeAll(() => {
 });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
-async function mount() {
+async function mount(width = 390) {
+  (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 844 });
   const host = document.createElement("div"); document.body.append(host);
   const root = createRoot(host);
   const i18n = i18next.createInstance(); await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
   const calls: string[] = [];
   const request: BusinessTransferView = { kind: "request", members: [{ grant_id: "editar-1", name: "Rosa", eligible: true, reason: null }], onRequest: (id, name) => { calls.push(`request:${id}:${name}`); } };
-  const render = async (view = request, submitting = false) => {
-    await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessTransferDialog businessName="Taller Luna" copy={businessTransferCopyEs} view={view} state={submitting ? { kind: "submitting" } : { kind: "idle" }} onDismiss={() => { calls.push("dismiss"); }} /></I18nextProvider>));
+  const render = async (view = request, submitting = false, failure?: BusinessCloseState) => {
+    await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessTransferDialog businessName="Taller Luna" copy={businessTransferCopyEs} view={view} state={failure ?? (submitting ? { kind: "submitting" } : { kind: "idle" })} onDismiss={() => { calls.push("dismiss"); }} /></I18nextProvider>));
   };
   await render();
   const button = (text: string) => { const found = [...document.querySelectorAll("button")].find((item) => item.textContent === text || item.getAttribute("aria-label") === text); assert.ok(found); return found; };
@@ -107,5 +109,42 @@ test("transfer candidates show server eligibility and cannot select an ineligibl
     await view.enter('input:not([type="radio"])', "Taller Luna");
     assert.equal(view.button("Solicitar transferencia").disabled, true);
     assert.deepEqual(view.calls, []);
+  } finally { await view.close(); }
+});
+
+
+test("desktop owner confirms separately, can return to preparation, and submits once", async () => {
+  const view = await mount(1440);
+  try {
+    await act(async () => document.querySelector<HTMLInputElement>('input[type="radio"][value="editar-1"]')!.click());
+    await view.enter('input:not([type="radio"])', "Taller Luna");
+    await act(async () => view.button("Solicitar transferencia").click());
+    assert.deepEqual(view.calls, []);
+    assert.ok(document.querySelector('[role="alertdialog"]'));
+    await act(async () => view.button("Cancelar").click());
+    assert.equal(document.querySelector('[role="alertdialog"]'), null);
+    assert.equal(document.querySelector<HTMLInputElement>('input:not([type="radio"])')!.value, "Taller Luna");
+    assert.equal(document.querySelector<HTMLInputElement>('input[type="radio"]')!.checked, true);
+    await act(async () => view.button("Solicitar transferencia").click());
+    const confirm = document.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]');
+    assert.ok(confirm);
+    await act(async () => { confirm.click(); confirm.click(); });
+    assert.deepEqual(view.calls, ["request:editar-1:Taller Luna"]);
+  } finally { await view.close(); }
+});
+
+
+test("desktop transfer keeps a failed request reference inside the confirmation", async () => {
+  const view = await mount(1440);
+  try {
+    await act(async () => document.querySelector<HTMLInputElement>('input[type="radio"]')!.click());
+    await view.enter('input:not([type="radio"])', "Taller Luna");
+    await act(async () => view.button("Solicitar transferencia").click());
+    await view.render(undefined, true);
+    assert.equal(document.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]')!.disabled, true);
+    await view.render(undefined, false, { kind: "error", message: "No se pudo enviar la solicitud.", reference: "b195f748-16ea-4b93-a9b0-f139c47e77f5" });
+    assert.ok(document.querySelector('[role="alertdialog"] [data-testid="error-reference"]'));
+    await act(async () => document.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]')!.click());
+    assert.deepEqual(view.calls, ["request:editar-1:Taller Luna"]);
   } finally { await view.close(); }
 });

@@ -329,13 +329,13 @@ test.each([["en","Remove nombre@example.test"],["es-419","Quitar a nombre@exampl
  }finally{await page.unmount();}
 });
 
-test("the dialog stays pinned to its top edge and a long list scrolls inside it",async()=>{
+test("the desktop dialog is centered and a long list scrolls inside it",async()=>{
  serve();
  const page=await mountForm();
  try{
   const dialog=document.querySelector<HTMLElement>("[data-invitation-modal]")!;
-  expect(dialog.parentElement?.className).toContain("items-start");
-  expect(dialog.parentElement?.className).not.toContain("items-center");
+  expect(dialog.parentElement?.className).toContain("items-center");
+  expect(dialog.parentElement?.className).not.toContain("pt-[12dvh]");
   expect(document.querySelector('form ul')?.className).toContain("overflow-y-auto");
  }finally{await page.unmount();}
 });

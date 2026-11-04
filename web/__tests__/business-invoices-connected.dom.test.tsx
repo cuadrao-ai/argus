@@ -645,3 +645,26 @@ test("a rejected new customer keeps the editor open, saves no draft and marks th
     assert.ok(document.querySelector('[data-testid="invoice-editor"]')); assert.ok(document.body.textContent?.includes("The new customer was not saved."));
   } finally { await page.close(); }
 });
+
+
+for (const action of ["Cancel", "Save draft", "Discard changes"]) {
+  test(`desktop invoice leave confirmation preserves ${action}`, async () => {
+    (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width: 1440, height: 900 });
+    const page = await mount();
+    try {
+      await page.click("Create invoice");
+      await page.fill("#invoice-customer-search", "Draft customer");
+      await page.act(async () => document.querySelector<HTMLButtonElement>('[data-testid="side-drawer"] button[aria-label="Close"]')!.click());
+      const alert = document.querySelector('[role="alertdialog"]'); assert.ok(alert);
+      const button = [...alert.querySelectorAll("button")].find(button => button.textContent?.trim() === action); assert.ok(button);
+      await page.act(async () => button.click());
+      if (action === "Save draft") {
+        assert.equal(page.record()?.data.customer_input.name, "Draft customer");
+        assert.equal(page.creates(), 1);
+      } else {
+        assert.equal(page.creates(), 0);
+        assert.equal(Boolean(document.querySelector('[data-testid="invoice-editor"]')), action === "Cancel");
+      }
+    } finally { await page.close(); }
+  });
+}

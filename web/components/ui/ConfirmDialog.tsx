@@ -2,7 +2,7 @@
 
 import { withViewportPortal } from "@/components/ui/withViewportPortal";
 
-import { useId, useRef, useCallback, useEffect } from "react";
+import { useId, useRef, useCallback, useEffect, type ReactNode } from "react";
 import { useModalSurface } from "@/components/layout/useModalSurface";
 import { KeyboardShortcutKeycap } from "@/components/keyboard/KeyboardShortcutKeycap";
 import { CONFIRM_ACTION, FOCUS_RING } from "@/components/business-app/foundation/presentation";
@@ -18,7 +18,8 @@ type ConfirmDialogProps = {
   /** `danger` for a delete; `primary` for a full stop that removes nothing, such as closing a month. */
   tone?: "danger" | "primary";
   /** The confirm failed: says so inside the alert, and the confirm button tries again. */
-  error?: string | null;
+  error?: ReactNode;
+  additionalAction?: ReactNode;
   onCancel: () => void;
   onConfirm: () => void;
 };
@@ -58,6 +59,7 @@ function ConfirmDialogSurface({
   showKeyboardHints = false,
   tone = "danger",
   error = null,
+  additionalAction,
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
@@ -160,7 +162,8 @@ function ConfirmDialogSurface({
             {error}
           </p>
         ) : null}
-        <div className="mt-5 flex justify-end gap-2">
+        <div className={`mt-5 flex justify-end gap-2${additionalAction ? " flex-wrap" : ""}`}>
+          {additionalAction}
           <button
             type="button"
             onClick={onCancel}
