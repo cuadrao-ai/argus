@@ -249,7 +249,7 @@ function NeedsAttention({ c, toReview: liveToReview, retryCount }: { c: Copy; to
   const ready = records.inbox !== null || forceEmpty;
   const toReview: ReviewCount = forceEmpty ? { kind: "ready", value: 0 } : liveToReview;
   let footer: ReactNode = null;
-  if (toReview.kind === "ready" && toReview.value > 0) footer = <SummaryRow testId="home-records-to-review" Icon={FileSearch} label={c.recordsToReview(toReview.value)} verb={c.review} onOpen={() => openPanel({ kind: "transactions" })} />;
+  if (toReview.kind === "ready" && toReview.value > 0) footer = <SummaryRow testId="home-records-to-review" Icon={FileSearch} label={c.recordsToReview(toReview.value)} verb={c.review} onOpen={() => openPanel({ kind: "inbox" })} />;
   else if (toReview.kind === "failed") footer = <CountFailed c={c} reference={toReview.reference} retry={retryCount} />;
   else if (toReview.kind === "loading") footer = <CountLoading label={c.loading} />;
   if (records.error && !forceEmpty) {
