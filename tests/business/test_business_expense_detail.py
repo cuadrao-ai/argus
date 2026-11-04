@@ -7,10 +7,15 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+import pytest
+from argus.domain.business import service as business_service
+
 from tests.business.test_business_api import Owner, alice, bob  # noqa: F401
 
 
-def test_a_hand_entered_expense_opens_as_its_own_detail(alice: Owner) -> None:  # noqa: F811
+def test_a_hand_entered_expense_opens_as_its_own_detail(
+    alice: Owner, monkeypatch: pytest.MonkeyPatch  # noqa: F811
+) -> None:
     account = alice.account("DOP")
     saved = alice.post(
         "/expenses",
@@ -33,6 +38,13 @@ def test_a_hand_entered_expense_opens_as_its_own_detail(alice: Owner) -> None:  
         expense_id,
         None,
         None,
+    )
+
+    def refuse_activity_scan(*args, **kwargs):
+        raise AssertionError("expense detail must not scan every activity")
+
+    monkeypatch.setattr(
+        business_service, "current_activities", refuse_activity_scan
     )
     detail = alice.get(f"/expenses/{expense_id}")
     assert detail.status_code == 200, detail.text
