@@ -35,8 +35,11 @@ from argus.domain.recording.loop import (
 from argus.domain.recording.loop_storage import OperationResult
 
 
-def hydrate(connection: Connection, stored: StoredAccount) -> StoredAccount:
+def hydrate(
+    connection: Connection, stored: StoredAccount, *, record_ids: list[str] | None = None
+) -> StoredAccount:
     account = stored.account
+    selected = "and r.id = any(%s::uuid[]) " if record_ids is not None else ""
     rows = connection.execute(
         "select r.id,r.record_kind,v.revision,v.amount_minor,v.as_of,v.as_of_zone,v.reason,v.recorded_by,v.recorded_at,v.details "
         "from public.financial_records r join public.financial_record_revisions v on v.record_id=r.id "
@@ -44,8 +47,8 @@ def hydrate(connection: Connection, stored: StoredAccount) -> StoredAccount:
         "and not exists (select 1 from public.financial_activity_memberships m "
         "join public.financial_activity_groups g on g.id=m.activity_id and g.user_id=m.user_id "
         "where m.record_id=r.id and coalesce(m.record_owner_id,m.user_id)=r.user_id and g.reversed_at is not null) "
-        "order by r.id,v.revision",
-        (account.user_id, account.id),
+        f"{selected}order by r.id,v.revision",
+        (account.user_id, account.id, *([record_ids] if record_ids is not None else [])),
     ).fetchall()
     expenses: dict[str, list[ExpenseRevision]] = {}
     checks: dict[str, CheckRecord] = {}

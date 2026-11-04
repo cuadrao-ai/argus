@@ -18,7 +18,7 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
-from typing import Protocol
+from typing import Any, Protocol
 from uuid import uuid4
 
 from argus.domain.owner_scope import OwnerScope, holds, space_id
@@ -107,6 +107,10 @@ class FinancialAccountRepository(Protocol):
     def list_accounts(
         self, *, user_id: str, scope: OwnerScope
     ) -> list[StoredAccount]: ...
+
+    def get_activity(
+        self, *, user_id: str, activity_id: str, scope: OwnerScope
+    ) -> dict[str, Any] | None: ...
 
     def get_account(
         self, *, user_id: str, account_id: str, scope: OwnerScope
@@ -225,6 +229,36 @@ class InMemoryFinancialAccountRepository:
             sorted(owned, key=lambda item: (item.account.created_at, item.account.id)),
             funded,
         )
+
+    def get_activity(
+        self, *, user_id: str, activity_id: str, scope: OwnerScope
+    ) -> dict[str, Any] | None:
+        from .money_reads import activity
+
+        with self._lock:
+            funded = self._no_account.get(activity_id)
+            if funded is not None:
+                if funded.user_id == user_id and holds(scope, funded.owner_space_id):
+                    return funded.response()
+                return None
+            records = [
+                replace(stored, expenses=matching)
+                for stored in self.held(user_id, scope)
+                if (
+                    matching := tuple(
+                        record
+                        for record in stored.expenses
+                        if any(
+                            (rev.activity_id or record.id) == activity_id
+                            for rev in record.revisions
+                        )
+                    )
+                )
+            ]
+            try:
+                return activity(records, activity_id)
+            except AccountNotFound:
+                return None
 
     def get_account(
         self, *, user_id: str, account_id: str, scope: OwnerScope

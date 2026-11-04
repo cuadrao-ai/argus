@@ -23,12 +23,17 @@ if TYPE_CHECKING:
 
 
 def load(
-    connection: Connection, user_ids: Collection[str], scope: OwnerScope
+    connection: Connection,
+    user_ids: Collection[str],
+    scope: OwnerScope,
+    *,
+    activity_id: str | None = None,
 ) -> list[NoAccountRecord]:
     if not isinstance(scope, BusinessSpace):
         return []
+    selected = " and g.id=%s" if activity_id is not None else ""
     rows = connection.execute(
-        """select g.id,r.id,r.user_id,r.owner_space_id,r.currency,v.amount_minor,
+        f"""select g.id,r.id,r.user_id,r.owner_space_id,r.currency,v.amount_minor,
         v.as_of,v.as_of_zone,v.details->>'note',v.details->>'category_id',v.recorded_at,
         r.record_kind,r.funding
         from public.financial_records r
@@ -39,8 +44,12 @@ def load(
         join public.financial_activity_groups g on g.id=m.activity_id and g.user_id=m.user_id
         and g.current_revision=m.activity_revision
         where r.account_id is null and g.reversed_at is null
-        and r.user_id=any(%s::uuid[]) and r.owner_space_id=%s""",
-        (list(user_ids), scope.space_id),
+        and r.user_id=any(%s::uuid[]) and r.owner_space_id=%s{selected}""",
+        (
+            list(user_ids),
+            scope.space_id,
+            *([activity_id] if activity_id is not None else []),
+        ),
     ).fetchall()
     return [
         NoAccountRecord(*(str(value) if i < 4 else value for i, value in enumerate(row)))
