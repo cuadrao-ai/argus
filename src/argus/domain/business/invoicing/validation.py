@@ -36,7 +36,7 @@ def customer_errors(data: CustomerInput, *, fiscal: bool = False) -> dict[str, s
     if data.email and not email_valid(data.email):
         errors["email"] = "email"
     if data.tax_id and (
-        not re.fullmatch(r"(?:\d{9}|\d{11})", data.tax_id)
+        not re.fullmatch(r"(?:[0-9]{9}|[0-9]{11})", data.tax_id)
         or not any(c != "0" for c in data.tax_id)
     ):
         errors["tax_id"] = "tax_id"

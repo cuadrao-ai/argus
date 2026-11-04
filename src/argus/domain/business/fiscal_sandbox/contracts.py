@@ -43,9 +43,9 @@ class Case(Strict):
     business_id: UUID
     account_key: str
     company_id: str
-    issuer: str = Field(pattern=r"^\d{9,11}$")
+    issuer: str = Field(pattern=r"^[0-9]{9,11}$")
     kind: Literal["E31", "E32"]
-    number: str = Field(pattern=r"^E3[12]\d{10}$")
+    number: str = Field(pattern=r"^E3[12][0-9]{10}$")
     fixture_revision: str
     fixture_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
     payload_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
