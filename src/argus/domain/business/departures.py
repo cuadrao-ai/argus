@@ -14,6 +14,7 @@ from argus.domain.business.custody_graph import (
     _hash,
     _identity,
 )
+from argus.domain.business.notifications.events import invitation_changed
 
 
 def anonymous_history(table: str, old: dict, user: str, alias: str, issuer: str) -> dict:
@@ -62,10 +63,12 @@ class PostgresBusinessDepartures:
                         (space,),
                     )
                     owner = None
-                db.execute(
-                    "update public.business_access_invites set revoked_at=clock_timestamp() where space_id=%s and (recipient_id=%s or issuer_id=%s) and accepted_at is null and revoked_at is null",
+                revoked = db.execute(
+                    "update public.business_access_invites set revoked_at=clock_timestamp() where space_id=%s and (recipient_id=%s or issuer_id=%s) and accepted_at is null and revoked_at is null returning id::text",
                     (space, user_id, user_id),
-                )
+                ).fetchall()
+                for (invite_id,) in revoked:
+                    invitation_changed(db, space, invite_id)
                 db.execute(
                     "delete from public.business_client_grants where space_id=%s and grantee_id=%s",
                     (space, user_id),

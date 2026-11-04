@@ -120,6 +120,9 @@ from argus.api.routers.business_bank_movements import (
     router as business_bank_movements_router,
 )
 from argus.api.routers.business_logo import router as business_logo_router
+from argus.api.routers.business_notifications import (
+    router as business_notifications_router,
+)
 from argus.api.routers.business_search import router as business_search_router
 from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
 from argus.domain.business.actions import BusinessActions
@@ -127,6 +130,7 @@ from argus.domain.business.authority import ActionError
 from argus.domain.business.country import DEFAULT_COUNTRY
 from argus.domain.business.document_type import parse_document_type
 from argus.domain.business.lifecycle import REOPEN_WINDOW
+from argus.domain.business.notifications.config import notifications_available
 from argus.domain.business.roles import ROLE_PERMISSIONS, BusinessRole
 from argus.domain.business.scope import BusinessScope
 from argus.domain.business.search import SearchKind
@@ -176,6 +180,7 @@ router.include_router(business_bank_router)
 router.include_router(business_bank_movements_router)
 router.include_router(business_logo_router)
 router.include_router(business_search_router)
+router.include_router(business_notifications_router)
 _CONFLICTS = frozenset(
     {
         "receipt_not_prepared",
@@ -819,6 +824,7 @@ def get_workspace(
     workspace = {
         **context.service.workspace(context.scope),
         "invoicing_available": invoicing_available(request),
+        "notifications_available": notifications_available(),
         "logo_url": picture_urls("business", [space_id])[space_id],
     }
     if not context.scope.acting_as_owner:

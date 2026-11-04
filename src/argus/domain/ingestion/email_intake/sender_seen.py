@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import replace
 from uuid import uuid4
 
+from argus.domain.business.notifications.events import memory_sender, sender_changed
 from argus.domain.ingestion.email_intake.addressing import SenderRule, _address_value
 from argus.domain.ingestion.email_intake.alignment import bare_address
 
@@ -25,14 +26,15 @@ class PostgresSenderSeen:
         if full is None:
             return
         with self.pool.connection() as connection, connection.transaction():
-            connection.execute(
+            row = connection.execute(
                 "insert into public.business_email_senders"
                 "(space_id, kind, value, status, last_auth_result, last_seen_at) "
                 "values (%s,'address',%s,'pending',%s,now()) "
                 "on conflict(space_id, kind, value) do update set "
-                "last_auth_result=excluded.last_auth_result, last_seen_at=now()",
+                "last_auth_result=excluded.last_auth_result, last_seen_at=now() returning id::text,status",
                 (space_id, full, verdict),
-            )
+            ).fetchone()
+            sender_changed(connection, space_id, row[0], row[1])
 
     def member_addresses(self, space_id: str) -> frozenset[str]:
         # The Business's people with a live grant, as require_manager sees them.
@@ -107,3 +109,5 @@ class MemorySenderSeen:
             self._senders[key] = replace(
                 current, last_auth_result=verdict, last_seen_at=self.clock()
             )
+
+            memory_sender(self.notifications, self.notification_owners, space_id, current.id, current.status)

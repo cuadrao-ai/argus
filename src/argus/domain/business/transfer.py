@@ -17,6 +17,7 @@ from argus.domain.business.lifecycle import (
     BusinessLifecycleError,
     PostgresBusinessLifecycle,
 )
+from argus.domain.business.notifications.events import invitation_changed
 from argus.domain.business.transfer_mail import (
     deliver_transfer_mail,
     enqueue_transfer_mail,
@@ -292,10 +293,12 @@ class PostgresBusinessTransfer:
                     "update public.business_client_grants set capabilities=%s::text[],business_role='owner',expires_at=null where id=%s",
                     (list(OWNER_CAPABILITIES), command[6]),
                 )
-                db.execute(
-                    "update public.business_access_invites set revoked_at=clock_timestamp() where space_id=%s and issuer_id=%s and accepted_at is null and revoked_at is null",
+                revoked = db.execute(
+                    "update public.business_access_invites set revoked_at=clock_timestamp() where space_id=%s and issuer_id=%s and accepted_at is null and revoked_at is null returning id::text",
                     (command[1], command[2]),
-                )
+                ).fetchall()
+                for (invite_id,) in revoked:
+                    invitation_changed(db, command[1], invite_id)
             row = db.execute(
                 f"update public.business_ownership_transfers set status=%s,resolved_at=%s where id=%s returning {_COLUMNS}",
                 (expected, resolved_at, transfer_id),

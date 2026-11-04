@@ -12,6 +12,7 @@ The product remains the Business receipt workflow in docs/PRODUCT.md.
 - Recipients read and mark only their own rows, filtered by Business.
 - Unresolved items plus items resolved within 30 days list newest first. Unread counts only unresolved unread items.
 - An unresolved event identity is unique. Resolution ends that identity's active lifecycle.
+- Invitation items resolve on acceptance, revocation or canonical expiration.
 - Writes run within a savepoint and log failure without failing the source action.
 
 ## Reserved scope
@@ -33,5 +34,4 @@ sweep and merged-tree modularity check. Stop at PR, without merge or hosted acce
 ## Stop conditions
 
 Stop before PR if the diff exceeds about 800 non-test lines. Report unavailable
-checks. Invitation decline has no existing membership action; clarification is
-pending before implementing that action. Lead-only approvals remain with the lead.
+checks. Lead-only approvals remain with the lead.

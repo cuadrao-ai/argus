@@ -958,6 +958,7 @@ def test_owner_workspace_uses_existing_live_membership(actions, monkeypatch):
             "assistant_available",
             "chat_available",
             "invoicing_available",
+        "notifications_available",
             "receipt_limits",
             "logo_url",
         }

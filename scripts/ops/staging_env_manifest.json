@@ -139,6 +139,11 @@
           "value": "false"
         },
         {
+          "name": "CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED",
+          "kind": "plain",
+          "value": "false"
+        },
+        {
           "name": "CUADRAO_FISCAL_SANDBOX_API_TOKEN",
           "kind": "secret",
           "keep_current": true,

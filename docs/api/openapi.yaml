@@ -4796,6 +4796,168 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/notifications:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: business_id
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessNotifications'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '404':
+          description: Unavailable
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/notifications/read-all:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: business_id
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessNotificationRead'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '404':
+          description: Unavailable
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/notifications/{notification_id}/read:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: notification_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: business_id
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessNotificationRead'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '404':
+          description: Unavailable
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/open-items:
     get:
       tags:
@@ -18369,6 +18531,25 @@ components:
       - currency
       - name_required
       - name_prompt_seen
+    BusinessNotificationRead:
+      properties:
+        updated:
+          type: integer
+      type: object
+      required:
+      - updated
+    BusinessNotifications:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/Notification'
+          type: array
+        unread_count:
+          type: integer
+      type: object
+      required:
+      - items
+      - unread_count
     BusinessOverview:
       properties:
         from:
@@ -18679,6 +18860,8 @@ components:
           type: boolean
         invoicing_available:
           type: boolean
+        notifications_available:
+          type: boolean
         receipt_limits:
           $ref: '#/components/schemas/ReceiptLimits'
         logo_url:
@@ -18695,6 +18878,7 @@ components:
       - assistant_available
       - chat_available
       - invoicing_available
+      - notifications_available
       - receipt_limits
     CallbackRequest:
       properties:
@@ -27251,6 +27435,42 @@ components:
       - draft_id
       - version
       - note
+    Notification:
+      properties:
+        id:
+          type: string
+        business_id:
+          type: string
+        recipient_user_id:
+          type: string
+        kind:
+          type: string
+          enum:
+          - invitation_received
+          - new_sender_waiting
+        subject_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        read_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        resolved_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+      type: object
+      required:
+      - id
+      - business_id
+      - recipient_user_id
+      - kind
+      - subject_id
+      - created_at
     ObservationQuestion:
       properties:
         observation_id:

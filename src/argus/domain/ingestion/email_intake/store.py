@@ -20,6 +20,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
+from argus.domain.business.notifications.store import InMemoryNotificationStore
 from argus.domain.ingestion.documents.config import SOURCE_MAX_BYTES
 from argus.domain.ingestion.documents.store import CaptureHook
 from argus.domain.ingestion.email_intake.addressing import (
@@ -816,7 +817,11 @@ class InMemoryEmailStore(MemorySenderSeen, MemoryAddressing):
         self,
         clock: Callable[[], datetime] | None = None,
         budget: DailyEmailBudget | None = None,
+        notifications: InMemoryNotificationStore | None = None,
+        notification_owners: Callable[[str], tuple[str, ...]] = lambda _: (),
     ) -> None:
+        self.notifications = notifications
+        self.notification_owners = notification_owners
         self.budget = budget or EmailIntakeSettings().daily_budget
         self._lock = RLock()
         self._usage: dict[tuple[str, date], list[int]] = {}

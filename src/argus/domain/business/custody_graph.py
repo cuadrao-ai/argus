@@ -13,6 +13,7 @@ from pydantic import TypeAdapter
 
 from argus.domain.business.contracts.actions import Command, canonical_input_hash
 from argus.domain.business.custody_objects import CustodyReservation
+from argus.domain.business.notifications.events import invitation_changed
 
 #: The name every departure rewrite writes over an erased member's rows; the
 #: activity feed names a departure alias the same way.
@@ -250,10 +251,12 @@ class PostgresBusinessCustodyGraph:
                 (reservation.custodian_id,),
             ).fetchone():
                 raise CustodyGraphError("business_custody_placeholder_invalid")
-            db.execute(
-                "update public.business_access_invites set revoked_at=clock_timestamp() where space_id=%s and (recipient_id=%s or issuer_id=%s) and accepted_at is null and revoked_at is null",
+            revoked = db.execute(
+                "update public.business_access_invites set revoked_at=clock_timestamp() where space_id=%s and (recipient_id=%s or issuer_id=%s) and accepted_at is null and revoked_at is null returning id::text",
                 (space_id, departing_user_id, departing_user_id),
-            )
+            ).fetchall()
+            for (invite_id,) in revoked:
+                invitation_changed(db, space_id, invite_id)
             db.execute(
                 "delete from public.business_client_grants where space_id=%s and grantee_id=%s",
                 (space_id, departing_user_id),
