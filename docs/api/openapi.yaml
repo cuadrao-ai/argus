@@ -16976,6 +16976,8 @@ components:
             - source_unavailable
             - check_details
             - duplicate
+            - read_budget_day
+            - read_budget_month
             - other
             - reading
             - not_read
@@ -18823,6 +18825,8 @@ components:
             - source_unavailable
             - check_details
             - duplicate
+            - read_budget_day
+            - read_budget_month
             - other
           - type: 'null'
         label:
@@ -30285,6 +30289,8 @@ components:
             - source_unavailable
             - check_details
             - duplicate
+            - read_budget_day
+            - read_budget_month
             - other
           - type: 'null'
         duplicate_of:
@@ -30925,6 +30931,8 @@ components:
             - source_unavailable
             - check_details
             - duplicate
+            - read_budget_day
+            - read_budget_month
             - other
           - type: 'null'
         duplicate_of:

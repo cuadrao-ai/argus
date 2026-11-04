@@ -47,6 +47,8 @@ Attention = Literal[
     "source_unavailable",
     "check_details",
     "duplicate",
+    "read_budget_day",
+    "read_budget_month",
     "other",
 ]
 # Preparation failures with nothing read, by the code the draft records.
@@ -103,6 +105,9 @@ _UNREAD_ATTENTION: Mapping[str, Attention] = {
     ),
     "document_preparation_outcome_unknown": "outcome_unknown",
     "document_source_unavailable": "source_unavailable",
+    # The Business read budget was spent; a person asks again once it allows.
+    "business_read_budget_day": "read_budget_day",
+    "business_read_budget_month": "read_budget_month",
 }
 # Another read of the same bytes fails the same way, or cannot be made.
 _NO_RETRY: frozenset[Attention] = frozenset({"unreadable", "source_unavailable"})
