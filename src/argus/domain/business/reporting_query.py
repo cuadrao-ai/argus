@@ -7,10 +7,10 @@ import json
 import unicodedata
 from dataclasses import asdict, replace
 from datetime import date, datetime, timedelta
-from typing import Literal
+from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from argus.domain.business.contracts.dgii import ExpenseType
 from argus.domain.business.contracts.facts import personal_mark_admits
@@ -100,6 +100,16 @@ class ReportFilters(Contract):
     funding_sources: tuple[str, ...] = Field(default=(), max_length=200)
     document_kinds: tuple[DocumentKind, ...] = ()
     fiscal_classifications: tuple[str, ...] = Field(default=(), max_length=100)
+
+    @field_validator("review_stages", mode="before")
+    @classmethod
+    def drop_removed_stage(cls, value: Any) -> Any:
+        """Registros no longer lists open drafts, so a saved view or an old tab
+        that still names `awaiting_approval` keeps its other stages."""
+
+        if isinstance(value, (list, tuple)):
+            return [stage for stage in value if stage != "awaiting_approval"]
+        return value
 
     @model_validator(mode="after")
     def amounts(self) -> ReportFilters:

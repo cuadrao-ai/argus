@@ -10,6 +10,7 @@ from argus.domain.business.reporting_views import (
     list_views,
     save_view,
 )
+from psycopg.types.json import Jsonb
 
 from tests import test_business_actions_postgres as shared
 from tests.test_business_reporting_postgres import viewer_context
@@ -111,3 +112,29 @@ def test_client_roles_have_no_direct_view_or_receipt_access(actions):
                     "select relrowsecurity from pg_class where oid=%s::regclass",
                     ("argus_private." + table,),
                 ).fetchone()[0]
+
+
+def test_a_legacy_view_naming_the_removed_stage_lists_and_opens(actions):
+    from argus.domain.business.reporting_query import ReportRequest
+    from argus.domain.business.reporting_store import read_report
+
+    service, context, _ = actions
+    legacy = {
+        "filters": {"review_stages": ["awaiting_approval", "needs_fiscal_data"]},
+        "columns": ["counterparty", "gross_amount"],
+    }
+    only_legacy = {"filters": {"review_stages": ["awaiting_approval"]}}
+    with service.authority.pool.connection() as db:
+        for name, recipe in (("Mixed", legacy), ("Open only", only_legacy)):
+            db.execute(
+                "insert into argus_private.business_saved_report_views (space_id,actor_id,name,recipe) values (%s,%s,%s,%s)",
+                (context.actor.space_id, context.actor.actor_id, name, Jsonb(recipe)),
+            )
+    mixed, open_only = list_views(service.authority, context)
+    assert mixed.recipe.filters.review_stages == ("needs_fiscal_data",)
+    assert open_only.recipe.filters.review_stages == ()
+    for view in (mixed, open_only):
+        answer = read_report(
+            service.authority, context, ReportRequest(filters=view.recipe.filters)
+        )
+        assert answer.items == ()
