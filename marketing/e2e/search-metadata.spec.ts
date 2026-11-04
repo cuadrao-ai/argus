@@ -32,7 +32,7 @@ for (const route of SITE_ROUTES) {
     expect(tags.canonical).toEqual([route.url]);
     expect(tags.languages).toHaveLength(3);
     expect(Object.fromEntries(tags.languages)).toEqual({
-      "es-419": pageUrl("es", route.page), en: pageUrl("en", route.page),
+      "es": pageUrl("es", route.page), en: pageUrl("en", route.page),
       "x-default": pageUrl("es", route.page),
     });
     expect(tags.robots.join(",")).not.toMatch(/noindex|none/i);
@@ -77,7 +77,7 @@ test("the public sitemap lists exactly the public pages with reciprocal language
     const entry = entries.find((candidate) => candidate.url === route.url)!;
     expect(entry.languages).toHaveLength(3);
     expect(Object.fromEntries(entry.languages)).toEqual({
-      "es-419": pageUrl("es", route.page), en: pageUrl("en", route.page),
+      "es": pageUrl("es", route.page), en: pageUrl("en", route.page),
       "x-default": pageUrl("es", route.page),
     });
   }

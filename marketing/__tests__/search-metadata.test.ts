@@ -22,7 +22,7 @@ for (const route of SITE_ROUTES) {
     expect(new URL(String(metadata.alternates?.canonical), metadata.metadataBase!).href)
       .toBe(new URL(route.url).href);
     expect(metadata.alternates?.languages).toEqual({
-      "es-419": pageUrl("es", route.page),
+      "es": pageUrl("es", route.page),
       en: pageUrl("en", route.page),
       "x-default": pageUrl("es", route.page),
     });
@@ -76,7 +76,7 @@ test("public sitemap and generated pages match the public route list exactly", (
   })));
   for (const route of SITE_ROUTES) {
     expect(entries.find((entry) => entry.url === route.url)?.alternates?.languages).toEqual({
-      "es-419": pageUrl("es", route.page),
+      "es": pageUrl("es", route.page),
       en: pageUrl("en", route.page),
       "x-default": pageUrl("es", route.page),
     });

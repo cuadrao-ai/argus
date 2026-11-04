@@ -75,9 +75,9 @@ describe("case handling", () => {
 describe("alternates", () => {
   test.each(PAGES)("%s links both languages and defaults to Spanish", (page) => {
     const alternates = alternateLanguages(page);
-    expect(alternates["es-419"]).toBe(pageUrl("es", page));
+    expect(alternates.es).toBe(pageUrl("es", page));
     expect(alternates.en).toBe(pageUrl("en", page));
-    expect(alternates["x-default"]).toBe(alternates["es-419"]);
+    expect(alternates["x-default"]).toBe(alternates.es);
   });
 });
 
