@@ -7,10 +7,15 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+import pytest
+from argus.domain.recording.repository import InMemoryFinancialAccountRepository
+
 from tests.business.test_business_api import Owner, alice, bob  # noqa: F401
 
 
-def test_a_hand_entered_expense_opens_as_its_own_detail(alice: Owner) -> None:  # noqa: F811
+def test_a_hand_entered_expense_opens_as_its_own_detail(
+    alice: Owner, monkeypatch: pytest.MonkeyPatch  # noqa: F811
+) -> None:
     account = alice.account("DOP")
     saved = alice.post(
         "/expenses",
@@ -33,6 +38,13 @@ def test_a_hand_entered_expense_opens_as_its_own_detail(alice: Owner) -> None:  
         expense_id,
         None,
         None,
+    )
+
+    def refuse_listing(*args, **kwargs):
+        raise AssertionError("expense detail must not list every account and activity")
+
+    monkeypatch.setattr(
+        InMemoryFinancialAccountRepository, "list_accounts", refuse_listing
     )
     detail = alice.get(f"/expenses/{expense_id}")
     assert detail.status_code == 200, detail.text

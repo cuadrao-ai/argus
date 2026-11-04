@@ -213,8 +213,12 @@ def scoped_legacy(request, documents, hub, user_id, scope):
     if pool is None:
         if not isinstance(hub.sink.money.repository, InMemoryFinancialAccountRepository):
             raise unavailable_problem(request)
-        account_rows = hub.sink.money.accounts.list_accounts(
-            user_id=scope.person_id, scope=scope.owner
+        account_rows = (
+            []
+            if request.method == "GET" and "expense_id" in request.path_params
+            else hub.sink.money.accounts.list_accounts(
+                user_id=scope.person_id, scope=scope.owner
+            )
         )
         space = business_spaces().get(scope.owner.space_id)
         capabilities = {"read", "prepare"}
