@@ -85,12 +85,21 @@ def rig(monkeypatch):
     return service, provider, scope, owner
 
 
-async def read(service: DocumentsService, owner: str, scope: BusinessSpace):  # noqa: ANN201
+async def read(
+    service: DocumentsService, owner: str, scope: BusinessSpace,
+    media_type: str = "application/pdf",
+):  # noqa: ANN201
+    if media_type == "image/png":
+        image = io.BytesIO()
+        Image.new("RGB", (40, 40), fake.hex_color()).save(image, format="PNG")
+        content = image.getvalue()
+    else:
+        content = b"%PDF-" + fake.uuid4().encode()
     outcome = await service.upload(
         user_id=owner,
-        content=b"%PDF-" + fake.uuid4().encode(),
+        content=content,
         filename=fake.file_name(extension="pdf"),
-        media_type="application/pdf",
+        media_type=media_type,
         consent=True,
         scope=scope,
     )
@@ -140,4 +149,39 @@ async def test_a_valid_file_charges_exactly_once(rig, monkeypatch):
         "business_read_budget_day",
         "business_read_budget_day",
     )
+    assert provider.calls == 1
+
+
+@pytest.mark.parametrize("media_type", ["image/png", "application/pdf"])
+@pytest.mark.parametrize(
+    "code",
+    [
+        "missing_api_key", "document_extraction_disabled", "missing_vision_model",
+        "encrypted_document", "invalid_document", "document_page_limit",
+        "unreadable_image",
+    ],
+)
+@pytest.mark.asyncio
+async def test_every_local_refusal_preserves_budget(rig, monkeypatch, media_type, code):
+    service, provider, scope, owner = rig
+    monkeypatch.setattr(preparation, "_run", poppler("Pages: 1\nEncrypted: no\n"))
+    with monkeypatch.context() as refusal:
+        if code == "missing_api_key":
+            refusal.setattr(extraction, "resolve_openrouter_api_key", lambda *_: "")
+        elif code == "missing_vision_model":
+            refusal.setattr(extraction, "resolve_openrouter_model", lambda **_: "")
+        elif code == "document_extraction_disabled":
+            refusal.setattr(service.extractor.settings, "enabled", False)
+        else:
+            # Inject each preparation refusal at the shared decoder boundary.
+            # The ordering invariant applies regardless of the source format.
+            def refuse(*args, **kwargs):
+                raise DocumentExtractionError(code)
+            refusal.setattr(extraction, "prepare_document", refuse)
+        refused, _ = await read(service, owner, scope, media_type)
+        assert refused == code
+        assert provider.calls == 0
+        assert service.read_budget._reads == {}
+    result, draft = await read(service, owner, scope, media_type)
+    assert (result, draft.status) == (None, "review_ready")
     assert provider.calls == 1
