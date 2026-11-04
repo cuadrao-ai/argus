@@ -343,7 +343,7 @@ def dossier(
     can_annotate = annotation_available(tx.authorization, event)
     fiscal_writable = can_prepare and event.state in ("open", "accepted")
     declaration_editable = fiscal_writable and takes_purchase_declaration(
-        facts, resolution.dgii
+        resolution.document_type, facts
     )
     reopen_available = (
         event.state == "accepted"
@@ -390,7 +390,7 @@ def dossier(
         if declaration_editable and not _chose_expense_type(resolution.dgii)
         else None,
         payment_split_editable=fiscal_writable
-        and takes_payment_split(facts, resolution.dgii),
+        and takes_payment_split(resolution.document_type),
         reopen_available=reopen_available,
         due_on=resolution.due_on,
         **draft_marks(tx, draft_id, facts),

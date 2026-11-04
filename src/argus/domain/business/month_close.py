@@ -26,6 +26,12 @@ from argus.domain.business.contracts.facts import (
     personal_mark_admits,
 )
 from argus.domain.business.dgii_validation import credit_note, declarable, reportable_607
+from argus.domain.business.document_type import (
+    SALE,
+    DocumentType,
+    direction,
+    money_document_type,
+)
 from argus.domain.business.fiscal_identity import normalized_ncf
 from argus.domain.business.ledger import occurred_on
 from argus.domain.recording.currency import (
@@ -622,6 +628,8 @@ class FiscalParts:
     sin_comprobante: bool = False
     due_on: date | None = None
     payment_form: str | None = None
+    #: The draft's type, the one owner of invoice or receipt. None with no draft.
+    document_type: DocumentType | None = None
 
 
 _NO_FISCAL = FiscalParts(None, None, None, None, False, None)
@@ -675,6 +683,7 @@ def read_fiscal(resolution: Mapping | None, currency: str) -> FiscalParts:
         parsed.dgii.payment_method
         if isinstance(parsed.dgii, PurchaseDeclaration)
         else None,
+        parsed.document_type,
     )
 
 
@@ -736,11 +745,12 @@ def project_documents(
         parts = read_fiscal(
             latest.get(activity_id, {}).get("resolution"), activity["currency"]
         )
+        document_type = parts.document_type or money_document_type(activity["kind"])
         documents.append(
             MonthDocument(
                 activity_id=activity_id,
                 space_id=space_id,
-                role="invoice" if activity["kind"] == "income" else "receipt",
+                role="invoice" if direction(document_type) is SALE else "receipt",
                 currency=str(activity["currency"]),
                 total_minor=int(activity["amount_minor"]),
                 itbis_minor=parts.itbis_minor,

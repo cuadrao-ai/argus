@@ -4,6 +4,7 @@ from datetime import date
 
 from argus.domain.business.contracts.dgii import PurchaseDeclaration, amount_or_zero
 from argus.domain.business.dgii_validation import FiscalRecord, fact_value, ncf_type
+from argus.domain.business.document_type import direction
 from argus.domain.business.fiscal_identity import (
     cedula_check_digit_ok,
     identity_digits,
@@ -156,7 +157,14 @@ def _dated(record: RncRecord, locale: str) -> str:
 
 
 def confirmed_declaration(record: FiscalRecord):
+    """The declaration the record's form reads. Data saved for the other form
+    is no declaration of this record, and a suggested tipo de gasto nobody
+    confirmed counts as missing."""
+
     declaration = record.declaration
+    found = direction(record.document_type)
+    if declaration is None or found is None or declaration.form != found.form:
+        return None
     if isinstance(declaration, PurchaseDeclaration) and declaration.category_suggested:
         return declaration.model_copy(update={"category": None})
     return declaration

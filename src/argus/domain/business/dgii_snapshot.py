@@ -10,6 +10,7 @@ from argus.domain.business.contracts.facts import (
     is_personal,
 )
 from argus.domain.business.dgii_validation import FiscalRecord
+from argus.domain.business.document_type import money_document_type
 from argus.domain.business.ledger import occurred_on
 from argus.domain.recording.owner_funds import no_account
 
@@ -51,11 +52,12 @@ def fiscal_snapshot(cursor, context, activities):
     for activity in activities:
         identifier = activity["activity_id"]
         row = approved.get(identifier)
-        current = (
-            BusinessResolution.model_validate(row["resolution"]["business"]).facts
+        resolution = (
+            BusinessResolution.model_validate(row["resolution"]["business"])
             if row
-            else BusinessFacts()
+            else None
         )
+        current = resolution.facts if resolution else BusinessFacts()
         records.append(
             FiscalRecord(
                 activity_id=identifier,
@@ -66,6 +68,9 @@ def fiscal_snapshot(cursor, context, activities):
                 amount=str(activity["amount"]),
                 currency=activity["currency"],
                 kind=activity["kind"],
+                document_type=resolution.document_type
+                if resolution
+                else money_document_type(activity["kind"]),
                 facts=BusinessFacts.model_validate(row["after_facts"])
                 if row
                 else BusinessFacts(),

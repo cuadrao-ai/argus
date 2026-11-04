@@ -401,9 +401,7 @@ def _matches(row: ReportRecord, filters: ReportFilters, period: ResolvedPeriod) 
 
 
 def _admitted(row: ReportRecord) -> bool:
-    return personal_mark_admits(
-        row.personal, row.include_606, sale=row.money_kind == "income"
-    )
+    return personal_mark_admits(row.personal, row.include_606, sale=row.family == "sale")
 
 
 def _totals(
@@ -503,19 +501,8 @@ def _document_totals(
             groups.setdefault((component.currency, component.kind), []).append(component)
     totals = []
     for (currency, kind), members in groups.items():
-        # An unlinked credit cannot safely be assigned to either document family.
-        ambiguous = (
-            sum(
-                row.document_kind == "credit_note"
-                and row.family is None
-                and row.currency == currency
-                for row in rows
-            )
-            if kind != "unknown"
-            else 0
-        )
         known = sum(member.known_amount_minor for member in members)
-        unknown = sum(member.unknown_count for member in members) + ambiguous
+        unknown = sum(member.unknown_count for member in members)
         unsupported = sum(member.unsupported_count for member in members)
         complete = unknown == unsupported == 0
         totals.append(
@@ -523,8 +510,7 @@ def _document_totals(
                 currency=currency,
                 kind=kind,
                 basis="document_family_amount",
-                matching_count=sum(member.matching_count for member in members)
-                + ambiguous,
+                matching_count=sum(member.matching_count for member in members),
                 known_amount_minor=known,
                 unknown_count=unknown,
                 unsupported_count=unsupported,

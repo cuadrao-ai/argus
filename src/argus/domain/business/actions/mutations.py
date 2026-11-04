@@ -42,10 +42,10 @@ from argus.domain.business.contracts.facts import (
 from argus.domain.business.document_type import (
     TYPE_OF_KIND,
     DocumentType,
-    detected_document_type,
     kind_disagrees,
     kind_follows_type,
     require_type_kind,
+    resolved_document_type,
     typed_facts,
 )
 from argus.domain.business.purchase_review import (
@@ -263,8 +263,9 @@ def revise(
             raise ActionError("invalid_input", "activity_kind_unsupported")
         document_type = stated_type
     retyped = document_type is not None and document_type != previous_type
+    current_type = document_type or previous_type
     base = (
-        typed_facts(before, document_type, source_ids, origin, _business_tax_id(tx))
+        typed_facts(before, document_type, source_ids, origin, business_tax_id(tx))
         if document_type is not None and before is not None
         else before
     )
@@ -283,7 +284,7 @@ def revise(
     if document_type is not None or not kind_disagrees(previous_type, after):
         # A kind saved before the type owned it stays blocked until a person
         # states the kind or the type; an edit that states neither leaves it.
-        require_type_kind(document_type or previous_type, after)
+        require_type_kind(current_type, after)
     if answer_id is not None:
         answer_question(tx, event.id, answer_id, patch, source_ids[-1])
     elif actor.actor_kind == "member" and patch is not None:
@@ -299,7 +300,7 @@ def revise(
     stored = _stored_declaration(event, retyped)
     if purchase is not None:
         current = declared or stored
-        if not takes_purchase_declaration(after, current):
+        if not takes_purchase_declaration(current_type, after):
             raise ActionError("invalid_input", "fiscal_direction_unsupported")
         previous = current if isinstance(current, PurchaseDeclaration) else None
         declared = apply_purchase(previous, purchase)
@@ -315,7 +316,7 @@ def revise(
             raise ActionError("invalid_input", "recorded_correction_unsupported")
     if payment_split is not None:
         current = declared or stored
-        if not takes_payment_split(after, current):
+        if not takes_payment_split(current_type):
             raise ActionError("invalid_input", "fiscal_direction_unsupported")
         declared = apply_payment_split(current, payment_split)
     return save_revision(
@@ -609,7 +610,7 @@ def prepare_attachment(
     if document_type == "venta":
         read_rnc = after.fiscal.rnc if after.fiscal is not None else None
         after = typed_facts(
-            after, "venta", (source_id,), typed_origin, _business_tax_id(tx)
+            after, "venta", (source_id,), typed_origin, business_tax_id(tx)
         )
         if isinstance(read_rnc, Known) and not isinstance(after.fiscal.rnc, Known):
             logger.info("business_venta_issuer_rnc_cleared detected={}", detected)
@@ -640,13 +641,11 @@ def _read_document_type(
     batch: ExtractionBatch,
 ) -> tuple[DocumentType, bool]:
     """The type the upload named wins. A later document on a draft keeps the
-    draft's type. Otherwise a document the business itself issued is a Venta:
-    the QR's issuer when there is one, else the RNC the read found."""
+    draft's type. Otherwise the issuer decides, the QR's issuer when there is
+    one, else the RNC the read found, by the one rule typed entry follows."""
 
-    if draft.document_type is not None:
-        return draft.document_type, False
     previous = event.resolution.get("business")
-    if previous is not None:
+    if draft.document_type is None and previous is not None:
         return previous.get("document_type", "recibo"), previous.get(
             "document_type_detected", False
         )
@@ -654,20 +653,19 @@ def _read_document_type(
         issuer = batch.dgii_qr.rnc_emisor
     else:
         issuer = batch.receipt.rnc if batch.receipt is not None else None
-    detected = (
-        "recibo"
-        if issuer is None
-        else detected_document_type(issuer, _business_tax_id(tx))
+    document_type, detected = resolved_document_type(
+        draft.document_type, issuer, business_tax_id(tx)
     )
-    logger.info(
-        "business_document_type_detected type={} issuer_from_qr={}",
-        detected,
-        batch.dgii_qr is not None,
-    )
-    return detected, True
+    if detected:
+        logger.info(
+            "business_document_type_detected type={} issuer_from_qr={}",
+            document_type,
+            batch.dgii_qr is not None,
+        )
+    return document_type, detected
 
 
-def _business_tax_id(tx: ActionTransaction) -> str | None:
+def business_tax_id(tx: ActionTransaction) -> str | None:
     [space] = tx.rows(
         "select business_rnc from public.spaces where id=%s",
         (tx.context.actor.space_id,),

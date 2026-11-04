@@ -19,7 +19,7 @@ from argus.domain.business.contracts.facts import (
     BusinessFacts,
     Known,
 )
-from argus.domain.business.document_type import typed_facts
+from argus.domain.business.document_type import resolved_document_type, typed_facts
 from argus.domain.business.transactions import transaction
 
 if TYPE_CHECKING:
@@ -77,18 +77,21 @@ def capture(
                         after = BusinessFacts(
                             currency=Known(value="DOP", origin="default", source_ids=())
                         )
-                        # A typed note prints no issuer RNC, so the read's rule
-                        # finds no Business number in it: a receipt.
-                        document_type = request.document_type or "recibo"
+                        # A typed note prints no issuer RNC: the read's rule
+                        # names the type, a receipt by default.
+                        own = mutations.business_tax_id(tx)
+                        document_type, detected = resolved_document_type(
+                            request.document_type, None, own
+                        )
                         if request.purchase is not None:
                             after = _typed_purchase_facts(request, source_id)
                         if document_type == "venta":
                             after = typed_facts(
-                                after, "venta", (source_id,), "owner_stated", None
+                                after, "venta", (source_id,), "owner_stated", own
                             )
                         typed = {
                             "document_type": document_type,
-                            "document_type_detected": request.document_type is None,
+                            "document_type_detected": detected,
                         }
                     else:
                         event = mutations.event_at(tx, request.draft)

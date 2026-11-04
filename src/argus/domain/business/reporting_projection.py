@@ -27,6 +27,7 @@ from argus.domain.business.dgii_validation import (
     is_credit,
     record_issues,
 )
+from argus.domain.business.document_type import SALE, direction
 from argus.domain.business.fiscal_identity import normalized_ncf, normalized_taxpayer_id
 from argus.domain.business.reporting_query import DgiiChoice, Purchase606, ReportRecord
 from argus.domain.ingestion.reconcile.model import ImportEvent
@@ -79,8 +80,11 @@ def purchase_606(
 
 def _credit(
     record: FiscalRecord, originals: dict[str, FiscalRecord], filer_identity: str | None
-) -> tuple[str | None, str, FiscalRecord | None]:
-    declaration = record.declaration
+) -> tuple[str, FiscalRecord | None]:
+    """A credit note's adjustment, known once the document it returns is
+    linked and the line is clean, and that original."""
+
+    declaration = confirmed_declaration(record)
     original = None
     if isinstance(declaration, PurchaseDeclaration):
         original = originals.get(str(declaration.purchase_activity_id))
@@ -88,7 +92,7 @@ def _credit(
         matches = [
             item
             for item in originals.values()
-            if item.kind == "income"
+            if direction(item.document_type) is SALE
             and not is_credit(item)
             and normalized_ncf(fact_value(item, "ncf"))
             == normalized_ncf(declaration.modified_ncf)
@@ -105,12 +109,8 @@ def _credit(
         )
         for issue in issues
     )
-    family = (
-        {"expense": "purchase", "income": "sale"}.get(original.kind)
-        if original and not invalid_reference
-        else None
-    )
-    return family, "known" if family and not issues else "unknown", original
+    linked = original is not None and not invalid_reference
+    return "known" if linked and not issues else "unknown", original
 
 
 def project(
@@ -153,29 +153,13 @@ def project(
     )
     currency = value(facts, "currency") if document_backed else recorded.row.currency
     gross = value(facts, "amount") if document_backed else str(activity["amount"])
-    family = "purchase" if value(facts, "kind") == "expense" else None
-    explicit_sale = (
-        isinstance(approved.declaration, SalesDeclaration)
-        or draft
-        and draft.event.resolution["business"].get("document_type") == "venta"
-    )
-    if value(facts, "kind") == "income" and explicit_sale:
-        family = "sale"
-    if (
-        draft is None
-        and activity["kind"] == "expense"
-        and activity.get("source_id") is None
-    ):
-        family = "purchase"
-    if activity["kind"] == "refund":
-        original = originals.get(activity.get("purchase_activity_id"))
-        if original and original.kind == "expense":
-            family = "purchase"
+    found = direction(approved.document_type)
+    family = found.family if found else None
     document_kind = "credit_note" if is_credit(approved) else "unknown"
     adjustment = None
     credit_original = None
     if document_kind == "credit_note":
-        family, adjustment, credit_original = _credit(approved, originals, filer_identity)
+        adjustment, credit_original = _credit(approved, originals, filer_identity)
     technical = draft.technical_state if draft else None
     blocked = draft.blockers if draft else ()
     if settled:
@@ -218,9 +202,7 @@ def project(
     )
     identity = normalized_taxpayer_id(fact_value(approved, "rnc"))
     # A sale's fiscal identity is the buyer; an issuer is never a customer.
-    if value(facts, "kind") == "income" and identity == normalized_taxpayer_id(
-        filer_identity
-    ):
+    if found is SALE and identity == normalized_taxpayer_id(filer_identity):
         identity = None
     payload = {
         "recorded": recorded,
