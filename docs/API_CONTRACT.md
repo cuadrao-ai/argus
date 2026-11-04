@@ -8807,6 +8807,12 @@ without it remains saved. Existing registered-owner/accounts/ingestion/document
 feature gates remain. The model stays `ARGUS_VISION_MODEL`; no fallback or retry
 is implied by capture or recovery.
 
+A person may start `CUADRAO_DOCUMENT_UPLOADS_PER_MINUTE` (60) uploads a minute
+and five prepare, resume or retry calls a minute, counted in process memory; the
+next one answers `429 document_rate_limited` with `Retry-After`. There is no
+daily upload cap: uploading is cheap, and the Business read budget below guards
+the reads.
+
 `ARGUS_DOCUMENT_EXTRACTION_ENABLED` is the document gate, default off. It
 accepts the same true values as the other default-off surfaces (`1`, `true`,
 `yes`, `on`). Unset, `false`, `0`, `no`, `off`, a blank value, or an
@@ -11043,9 +11049,19 @@ accept path recorded.
   owner's consented retry starts another), `no_purchase_found`,
   `not_a_receipt` (a statement, a payment notice, or a file with no receipt
   object), `several_purchases` (several or ambiguous purchases), `source_unavailable`,
-  `check_details` (a purchase is ready but the read was incomplete) or
-  `other`. `error_code` stays the precise cause. Nothing is retried
-  automatically because of it.
+  `check_details` (a purchase is ready but the read was incomplete),
+  `read_budget_day` or `read_budget_month` (the Business's read budget for
+  the day or the month was spent before this read could start; `error_code`
+  is `business_read_budget_day` or `business_read_budget_month`, the receipt
+  is saved unread with `preparable: true`, and a consented `/prepare` reads it
+  once the budget allows) or `other`. `error_code` stays the precise cause.
+  Nothing is retried automatically because of it.
+- The Business read budget counts every provider read a Business starts,
+  whichever channel the receipt came from (web, email, WhatsApp, `/prepare`,
+  a worker retry): `CUADRAO_BUSINESS_READS_PER_DAY` (300) a Santo Domingo day
+  and `CUADRAO_BUSINESS_READS_PER_MONTH` (2000) a month, kept in Postgres. A
+  capture is never refused for budget; the receipt is saved and the read waits
+  for a person.
 - GET `/api/v1/business/receipts/{id}/source` returns verified original bytes
   for PDF, text, CSV, XLSX, XML and EML, and rebuilt JPEGs for PNG/JPEG images.
   A missing image copy is built on its first download and then reused; no bulk

@@ -62,6 +62,8 @@ def prepare_document(
     content: bytes,
     media_type: str,
     settings: DocumentExtractionSettings | None = None,
+    *,
+    rebuilt_image: bytes | None = None,
 ) -> PreparedDocument:
     settings = settings if settings is not None else load_document_extraction_settings()
     if not content:
@@ -78,7 +80,7 @@ def prepare_document(
         ecf = read_ecf(content) if media_type in XML_MEDIA_TYPES else None
         return PreparedDocument(pages, (), text, currency, ecf)
     if media_type in ("image/png", "image/jpeg"):
-        image = _image(content, media_type)
+        image = rebuilt_image if rebuilt_image is not None else _image(content, media_type)
         return PreparedDocument(1, (image,), dgii_qr=read_dgii_qr((image,)))
     if media_type != "application/pdf":
         raise DocumentExtractionError("unsupported_media_type")
