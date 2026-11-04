@@ -3140,6 +3140,8 @@
       "source_unavailable": "Falta el archivo original",
       "check_details": "Revisa los datos",
       "duplicate": "Parece repetido",
+      "read_budget_day": "[PENDIENTE COPY] Se lee mañana: hoy se alcanzó el límite de lecturas",
+      "read_budget_month": "[PENDIENTE COPY] Se lee el próximo mes: se alcanzó el límite de lecturas",
       "other": "Necesita atención"
     },
     "inbox": {

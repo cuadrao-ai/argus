@@ -39,6 +39,8 @@ export const RECEIPT_ATTENTIONS = [
   "source_unavailable",
   "check_details",
   "duplicate",
+  "read_budget_day",
+  "read_budget_month",
   "other",
 ] as const;
 export type ReceiptAttention = (typeof RECEIPT_ATTENTIONS)[number];

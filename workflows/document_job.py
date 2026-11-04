@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from datetime import datetime, timezone
 
 from argus.domain.business.actions import BusinessActions
+from argus.domain.business.read_budget import PostgresReadBudget
 from argus.domain.business.receipt_consent import BusinessReceiptConsentStore
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
 from argus.domain.ingestion.documents.extractor import DocumentExtractor
@@ -78,6 +79,7 @@ def postgres_documents_service(
         jobs_recover_interruptions=True,
         business_actions=BusinessActions(pool, sink),
         business_preparation_required=True,
+        read_budget=PostgresReadBudget(pool),
     )
     service.business_receipt_consent = BusinessReceiptConsentStore(pool)
     return service

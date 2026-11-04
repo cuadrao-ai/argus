@@ -26,6 +26,7 @@ from argus.domain.ingestion.whatsapp.store_postgres import PostgresWhatsAppStore
 
 from tests import test_business_actions_postgres as shared
 from tests.business_reading_support import ROUTE, reading_setting, turn_reading
+from tests.document_extractor_support import StubPreparation, start_request
 from tests.document_sources_support import source_objects
 from tests.ingestion import whatsapp_cases as cases
 from tests.ingestion.whatsapp_support import ALICE_PHONE, RECEIPT_PNG, Media
@@ -35,11 +36,14 @@ users = shared.users
 pytestmark = shared.pytestmark
 
 
-class Extractor:
+
+
+class Extractor(StubPreparation):
     def __init__(self) -> None:
         self.calls = 0
 
     async def extract(self, **kwargs: Any):  # noqa: ANN201
+        await start_request(kwargs)
         self.calls += 1
         result = ExtractionResult.model_validate(
             dict(

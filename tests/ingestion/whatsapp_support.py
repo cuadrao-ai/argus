@@ -17,6 +17,8 @@ from typing import Any
 
 import httpx
 
+from tests.document_extractor_support import StubPreparation
+
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "whatsapp"
 DOCUMENT_FIXTURES = Path(__file__).parents[1] / "document_extraction_fixtures"
 APP_SECRET = "test-app-secret"
@@ -43,6 +45,8 @@ ENV = {
     # A fixed test key: photos are acknowledged only once sealed with it.
     "ARGUS_INGESTION_SECRET_KEY": "dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHQ=",
 }
+
+
 
 
 def fixture(name: str, **overrides: Any) -> dict[str, Any]:
@@ -149,7 +153,7 @@ class RecordingTransport:
         return [payload["text"]["body"] for payload in self.sent]
 
 
-class RefusingExtractor:
+class RefusingExtractor(StubPreparation):
     """Fails the test if anything tries to prepare a WhatsApp capture."""
 
     calls = 0

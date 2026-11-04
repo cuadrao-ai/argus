@@ -49,8 +49,11 @@ from argus.domain.owner_scope import PERSONAL, OwnerScope
 
 NO_STORE = {"Cache-Control": "no-store"}
 _service: DocumentsService | None = None
+# A rate for one process is an honest in-memory count. Per person: uploads at
+# the configured rate, prepare and the reading toggle at five a minute. Spend
+# is guarded by the Business read budget in Postgres, not here.
 _minute = SlidingWindowLimiter()
-_day = SlidingWindowLimiter()
+_PREPARE_PER_MINUTE = 5
 
 
 def documents_service() -> DocumentsService | None:
@@ -62,7 +65,6 @@ def configure_documents(service: DocumentsService | None) -> None:
     stop_document_jobs()
     _service = service
     _minute.reset()
-    _day.reset()
 
 
 def start_documents(app: object, hub: IngestionHub | None) -> None:
@@ -118,6 +120,7 @@ def _service_over(
     # With jobs on, an expired attempt waits for the job reconciler, which
     # resumes it once intake is back; a read never settles it.
     from argus.domain.business.actions import BusinessActions
+    from argus.domain.business.read_budget import InMemoryReadBudget, PostgresReadBudget
     from argus.domain.ingestion.reconcile.service import ReconciliationService
 
     actions = (
@@ -132,6 +135,7 @@ def _service_over(
         jobs_recover_interruptions=load_document_job_settings().enabled,
         business_actions=actions,
         business_preparation_required=pool is not None,
+        read_budget=InMemoryReadBudget() if pool is None else PostgresReadBudget(pool),
     )
     from argus.api.business_spaces import business_access
     from argus.domain.business.receipt_consent import BusinessReceiptConsentStore
@@ -223,15 +227,14 @@ def require_document_context(
     context: IngestionContext = Depends(require_ingestion_context),  # noqa: B008
 ) -> DocumentContext:
     if request.method == "POST":
-        checks = (
-            (_minute, (f"{context.user_id}:{_minute_scope(request.url.path)}",), 5, 60),
-            (_day, (context.user_id,), 30, 86400),
+        scope = _minute_scope(request.url.path)
+        limit = (
+            load_document_extraction_settings().uploads_per_minute
+            if scope == "upload"
+            else _PREPARE_PER_MINUTE
         )
-    else:
-        checks = ()
-    for limiter, keys, limit, seconds in checks:
-        retry = limiter.record_or_retry_after(
-            keys=keys, limit=limit, window_seconds=seconds
+        retry = _minute.record_or_retry_after(
+            keys=(f"{context.user_id}:{scope}",), limit=limit, window_seconds=60
         )
         if retry is not None:
             raise problem(

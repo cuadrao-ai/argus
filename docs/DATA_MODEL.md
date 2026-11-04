@@ -3621,6 +3621,25 @@ uncertain reservation grants additional download capacity. Byte reservations on
 subsequent days charge that day's counter. Policy comes from receiving settings;
 it is not copied into a client or route row.
 
+### Business read budget
+
+`business_read_daily_usage` is server-only, with RLS and no client grants.
+Its primary key is `(business_id, day)`, where `day` is the Santo Domingo
+calendar day and `reads` counts the provider reads the Business started that
+day, whichever channel the receipt came from (web, email, WhatsApp, "Leer de
+nuevo", a worker retry). The month's count is the sum of its days; no second
+column holds it. Migration `20261104201500_business_read_daily_usage.sql` adds
+the table. `src/argus/domain/business/read_budget.py` owns the budget: one
+transaction per read, under a per-Business advisory lock, reads the day and
+month counts and writes the day row only while both are under
+`CUADRAO_BUSINESS_READS_PER_DAY` (300) and `CUADRAO_BUSINESS_READS_PER_MONTH`
+(2000), so three reads starting at once never overshoot. It is charged at the
+one place a read starts (`DocumentsService.resume`, just before the provider
+is reached). Over the budget the receipt stays saved and unread with
+`error_code` `business_read_budget_day` or `business_read_budget_month`, and
+reads again only when a person asks while the budget allows. A space deletion
+cascades its rows. The in-memory store keeps the same rule for memory mode.
+
 ### Business WhatsApp AI permission
 
 `business_whatsapp_ai_consents` is server-only, with RLS and no client grants.

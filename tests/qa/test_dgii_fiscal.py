@@ -363,3 +363,25 @@ def test_a_normal_email_is_refused_before_intake(tmp_path: Path) -> None:
     assert "QA seed account" in completed.stderr
     assert "intake: not run" not in completed.stdout
     assert not (tmp_path / "temp").exists()
+
+
+@pytest.mark.asyncio
+async def test_seed_extractor_obeys_preparation_and_admission_contract() -> None:
+    from datetime import datetime, timezone
+    from unittest.mock import AsyncMock
+    from uuid import uuid4
+
+    seed = importlib.import_module("business_month_seed")
+    document = fiscal.build_plan(CANON).documents[0]
+    extractor = seed._SeedExtractor([document])
+    content = document.body.encode()
+    prepared = extractor.prepare(content, "text/plain")
+    admission = AsyncMock()
+    batch = await extractor.extract(
+        content=content, filename=document.filename, media_type="text/plain",
+        connection_id=str(uuid4()), observed_at=datetime.now(timezone.utc),
+        prepared=prepared, before_request=admission,
+    )
+    assert batch.readable
+    assert prepared.pages == 1
+    admission.assert_awaited_once()

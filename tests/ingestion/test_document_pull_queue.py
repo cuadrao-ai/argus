@@ -33,6 +33,7 @@ from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.sink import SubmitResult
 from argus.domain.owner_scope import PERSONAL
 
+from tests.document_extractor_support import start_request
 from tests.ingestion import test_document_jobs_api as api
 from tests.ingestion import test_document_jobs_recharge as support
 from workflows import document_worker
@@ -52,6 +53,8 @@ JOB_SETTINGS = {
 }
 
 
+
+
 class Gauge(support.Extractor):
     """Extraction that measures reads at once and holds each until released."""
 
@@ -62,6 +65,7 @@ class Gauge(support.Extractor):
         self.release = asyncio.Event()
 
     async def extract(self, **kwargs: Any) -> ExtractionBatch:
+        await start_request(kwargs)
         self.read.append(kwargs["connection_id"])
         self.running += 1
         self.peak = max(self.peak, self.running)
@@ -240,6 +244,7 @@ async def test_a_claimed_read_that_died_after_the_provider_waits_for_the_owner(p
     original, kills = extractor.extract, [support.WorkerKilled()]
 
     async def killed(**kwargs: Any) -> ExtractionBatch:
+        await start_request(kwargs)
         if kills:
             extractor.calls += 1
             raise kills.pop()

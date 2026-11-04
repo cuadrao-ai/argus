@@ -155,7 +155,7 @@ async def test_scripted_extraction_preserves_fiscal_evidence_and_personal_candid
     monkeypatch.setattr(
         extractor,
         "prepare_document",
-        lambda *_: PreparedDocument(
+        lambda *_, **__: PreparedDocument(
             pages=1, images=(b"synthetic",), text=content.decode()
         ),
     )
