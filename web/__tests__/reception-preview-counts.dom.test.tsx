@@ -69,6 +69,7 @@ async function mount({ width = 1440, role = "owner", prepare = true, permissions
 }
 
 const rows = (page: Awaited<ReturnType<typeof mount>>) => [...page.host.querySelectorAll<HTMLElement>('[data-testid="reception-row"]')];
+const receiptIds = ["listo-dos", "listo-tres", "listo-uno", "problem-receipt", "reading-receipt", "review-receipt"];
 
 for (const width of [1440, 390]) for (const role of ["owner", "accountant"] as const) test(`the live Bandeja renders Reception and ${role} actions at ${width}px`, async () => {
   // A desktop shell shows the top bar, which holds the one Agregar; a phone keeps Agregar in the Bandeja toolbar.
@@ -81,7 +82,7 @@ for (const width of [1440, 390]) for (const role of ["owner", "accountant"] as c
   if (upload) assert.ok(upload.closest(width < 768 ? '[data-testid="reception-add"]' : '[data-testid="top-bar"] [data-testid="add-menu-header"]'), width < 768 ? "a phone keeps Agregar in the toolbar" : "a wide screen keeps Agregar in the top bar");
   const review = page.host.querySelector<HTMLButtonElement>('[data-testid="business-primary-review"]');
   if (role === "owner") { assert.ok(upload); assert.equal(review, null); await page.click(upload); assert.equal(page.uploads(), 1); }
-  else { assert.equal(upload, null); assert.ok(review); assert.equal(review.textContent, "Revisar recibos"); await page.click(review); assert.deepEqual(page.opened, [{ kind: "receipt", receiptId: "listo-dos", list: "inbox" }]); }
+  else { assert.equal(upload, null); assert.ok(review); assert.equal(review.textContent, "Revisar recibos"); await page.click(review); assert.deepEqual(page.opened, [{ kind: "receipt", receiptId: "listo-dos", list: "inbox", receiptIds }]); }
 });
 
 test("a read-only owner sees no Add capability in the live Bandeja", async () => {
@@ -170,8 +171,8 @@ test("every row has one quiet Abrir, the row click does the same, and nothing el
     ["Recibo con problema", { kind: "receipt", receiptId: "problem-receipt", list: "inbox" }],
     ["Nota admitida", { kind: "draft", draftId: "admitted-note", list: "inbox" }],
   ] as const) {
-    assert.deepEqual(await opened(name, abrir), target, `Abrir on ${name}`);
-    assert.deepEqual(await opened(name, cell), target, `the row click on ${name}`);
+    assert.deepEqual(await opened(name, abrir), { ...target, receiptIds }, `Abrir on ${name}`);
+    assert.deepEqual(await opened(name, cell), { ...target, receiptIds }, `the row click on ${name}`);
   }
 });
 

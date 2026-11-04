@@ -158,7 +158,9 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   const { t, i18n } = useTranslation();
   const stateWord = useReceiptStateWord();
   const primaryKeys = usePrimaryKeys();
-  const { source, reload, records, openPanel, guardPanel } = useBusiness();
+  const { source, reload, records, openPanel, guardPanel, panel } = useBusiness();
+  const origin = panel?.kind === "receipt" || panel?.kind === "draft" ? panel : null;
+  const receiptIds = origin?.receiptIds ?? [];
   const [dossier, setDossier] = useState<BusinessDossier | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const [operation, setOperation] = useState<Operation>({ kind: "idle" });
@@ -351,21 +353,21 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
     return () => { pageOpen.current = false; };
   }, []);
 
-  // Only a recorded approval moves on, to the next row of the Bandeja as the server lists it now,
-  // and only while the owner is still on this receipt: leaving it or switching Business unmounts the page.
   const approveAndNext = async (anyway: boolean) => {
     if (!receipt) return;
-    const seen = records.inbox;
+    const seen = origin?.receiptIds?.map(id => ({ id })) ?? records.inbox;
     setAdvancing(true);
     try {
       const approved = await approveRecord({ next: true, anyway });
       if (approved?.approval_result?.status !== "recorded" || !pageOpen.current) return;
       const fresh = await source.receipts("inbox").catch(() => null);
       if (!pageOpen.current) return;
-      const next = fresh ? nextBandejaReceipt(receipt.id, seen, fresh) : null;
+      const freshById = new Map(fresh?.map(item => [item.id, item]));
+      const ordered = origin?.receiptIds?.flatMap(id => freshById.get(id) ?? []) ?? fresh;
+      const next = ordered ? nextBandejaReceipt(receipt.id, seen, ordered) : null;
       if (next) handTitleFocus(next);
       if (!next && fresh && !bandejaReceipts(fresh).some((item) => item.id !== receipt.id)) setFinished(true);
-      else openPanel(next ? { kind: "receipt", receiptId: next } : { kind: "inbox" });
+      else openPanel(next ? { kind: "receipt", receiptId: next, ...(origin?.receiptIds ? { list: origin.list, receiptIds: origin.receiptIds } : {}) } : { kind: "inbox" });
     } finally {
       setAdvancing(false);
     }
@@ -438,8 +440,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   const approvalLabel = dossier.approval_action === "record_income" ? t("business.dgii.approve_income", "Approve income") : dossier.approval_action === "record_refund" ? t("business.dgii.approve_refund", "Approve refund") : t("business.dossier.approve_action", "Approve expense");
 
   const canMove = settled && !autosave.busy && !advancing && !settling;
-  const moves = canMove && receipt ? receiptNavigationActions(receipt.id, records.inbox, (id) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id }); }) : {};
-  const position = receipt ? receiptPlace(receipt.id, records.inbox) : null;
+  const moves = canMove && receipt ? receiptNavigationActions(receipt.id, receiptIds, (id) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id, list: origin?.list, receiptIds }); }) : {};
+  const position = receipt ? receiptPlace(receipt.id, receiptIds) : null;
   const firstSource = dossier.sources[0];
   const fiscalFacts = dossier.facts.fiscal;
   const fiscalEdit: Record<"rnc" | "fiscal_number" | "itbis", { name: "rnc" | "ncf" | "itbis"; value: string }> = {

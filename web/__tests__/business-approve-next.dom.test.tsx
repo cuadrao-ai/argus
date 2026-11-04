@@ -27,6 +27,7 @@ afterAll(async () => {
 type Role = "owner" | "accountant";
 type Refusal = { status: number; code: string };
 type Options = {
+  width?: number;
   strict?: boolean;
   role?: Role;
   refuse?: Refusal | null;
@@ -38,7 +39,8 @@ type Options = {
   bandejaFails?: boolean;
 };
 
-async function mount({ strict = false, role = "owner", refuse = null, unrecorded, hold, bandejaFails = false, nextUnavailable }: Options = {}) {
+async function mount({ width = 800, strict = false, role = "owner", refuse = null, unrecorded, hold, bandejaFails = false, nextUnavailable }: Options = {}) {
+  (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
   const { act, StrictMode, Fragment } = await import("react");
   const Boundary = strict ? StrictMode : Fragment;
   const { createRoot } = await import("react-dom/client");
@@ -159,8 +161,8 @@ async function mount({ strict = false, role = "owner", refuse = null, unrecorded
   const badge = () => host.querySelector('[data-testid="business-inbox-count"]')?.textContent ?? null;
   const heading = () => host.querySelector('[data-testid="panel"] h2')?.textContent ?? null;
   await settle(() => badge() !== null);
-  const open = async (receiptId: string) => {
-    await act(async () => api!.openPanel({ kind: "receipt", receiptId }));
+  const open = async (receiptId: string, receiptIds?: readonly string[]) => {
+    await act(async () => api!.openPanel({ kind: "receipt", receiptId, ...(receiptIds ? { list: "inbox", receiptIds } : {}) }));
     await settle(() => heading() === names[receiptId as keyof typeof names] && (button("Aprobar") !== null || (host.textContent ?? "").includes("Puedes revisar")));
   };
   const click = async (name: string, done: () => boolean) => {
@@ -185,6 +187,25 @@ async function mount({ strict = false, role = "owner", refuse = null, unrecorded
 }
 
 describe("Aprobar y siguiente on the receipt review page", () => {
+  test("approval follows the origin list order and preserves it on the next receipt", async () => {
+    const page = await mount({ width: 390 });
+    const receiptIds = ["rcpt-uno", "rcpt-tres", "rcpt-dos"];
+    try {
+      await page.open("rcpt-uno", receiptIds);
+      await page.click("Aprobar y siguiente", () => page.heading() === "Tres");
+      assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-tres", list: "inbox", receiptIds });
+    } finally { await page.act(async () => page.root.unmount()); }
+  });
+
+  test.each([{ receiptIds: ["rcpt-uno"] }, { receiptIds: [] as string[] }])("approval never widens an exhausted origin list %j", async ({ receiptIds }) => {
+    const page = await mount({ width: 390 });
+    try {
+      await page.open("rcpt-uno", receiptIds);
+      await page.click("Aprobar y siguiente", () => page.panel().kind === "inbox");
+      assert.equal(page.panel().kind, "inbox");
+    } finally { await page.act(async () => page.root.unmount()); }
+  });
+
   test("the owner sees green Aprobar y siguiente as the primary action, with Aprobar beside it and its keys named", async () => {
     const page = await mount();
     await page.open("rcpt-uno");
