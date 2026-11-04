@@ -70,7 +70,7 @@ test("Recepción opens on Correo then Remitentes and names no channel it cannot 
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const source = createFixtureBusinessDataSource({ chatAvailable: false });
-  const context = (chosen: GrantedSpace | null) => ({ source, chosen, revision: 0, reload: () => undefined }) as unknown as BusinessContextValue;
+  const context = (chosen: GrantedSpace | null) => ({ source, chosen, receivingChannels: { email: { available: true }, whatsapp: { available: true } }, revision: 0, reload: () => undefined }) as unknown as BusinessContextValue;
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);

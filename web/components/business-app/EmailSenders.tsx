@@ -19,6 +19,7 @@ import {
   type EmailSenderView,
   EmailSenderRequestError,
 } from "@/lib/business-email";
+import { useReceivingChannels } from "./business-context";
 import { quietButtonClass } from "./business-ui";
 import { RowAction, RowTextAction } from "./foundation/RowAction";
 import { BUSINESS_STATUS, FOCUS_RING } from "./foundation/presentation";
@@ -78,6 +79,11 @@ function SenderRow({
 }
 
 export default function EmailSenders({ client }: { client?: EmailSenderClient }) {
+  const channels = useReceivingChannels();
+  return channels.email.available ? <AvailableEmailSenders client={client} /> : null;
+}
+
+function AvailableEmailSenders({ client }: { client?: EmailSenderClient }) {
   const { t } = useTranslation();
   const source = useRef<EmailSenderClient | null>(client ?? null);
   const [attempt, setAttempt] = useState(0);

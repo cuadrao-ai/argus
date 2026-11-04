@@ -10,7 +10,7 @@ beforeAll(() => {
 });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
-async function mount(width: number, language = "es-419", preview = false, mock = true, respond: typeof fetch = async () => Response.json([])) {
+async function mount(width: number, language = "es-419", preview = false, mock = true, respond: typeof fetch = async () => Response.json([]), emailAvailable = true) {
   const originalFetch=globalThis.fetch;
   globalThis.fetch=respond;
   const originalEnv = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
@@ -29,7 +29,7 @@ async function mount(width: number, language = "es-419", preview = false, mock =
   const actions: string[] = [];
   const accepted:string[]=[];
   const render = async (businessId = "business-a", businessName = "Colmado Luna") => {
-    await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessNotifications businessId={businessId} businessName={businessName} preview={preview} onInvitationAccepted={grant=>accepted.push(grant)} onAction={(target) => actions.push(target)} /></I18nextProvider>));
+    await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessNotifications emailAvailable={emailAvailable} businessId={businessId} businessName={businessName} preview={preview} onInvitationAccepted={grant=>accepted.push(grant)} onAction={(target) => actions.push(target)} /></I18nextProvider>));
   };
   await render();
   return { host, actions, accepted, render, trigger: host.querySelector<HTMLButtonElement>("button")!, close: async () => {
@@ -325,5 +325,17 @@ test("empty notifications without a Business name use generic account copy", asy
     const empty = document.querySelector('[data-notification-state="empty-all"]')!;
     assert.match(empty.textContent ?? "", /Updates for your account will appear here/);
     assert.doesNotMatch(empty.textContent ?? "", /undefined|{{business}}/);
+  } finally { await page.close(); }
+});
+
+
+test("email off never asks for pending senders while account invitations still load", async () => {
+  const requests: string[] = [];
+  const page = await mount(1280, "es-419", false, true, async input => { requests.push(String(input)); return Response.json([]); }, false);
+  try {
+    assert.ok(requests.some(url => url.includes("invitations")));
+    assert.equal(requests.filter(url => url.includes("email-intake")).length, 0);
+    await act(async () => page.trigger.click());
+    assert.equal(page.host.querySelector('[data-notice="sender"]'), null);
   } finally { await page.close(); }
 });

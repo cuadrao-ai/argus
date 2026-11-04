@@ -323,6 +323,19 @@ export type BusinessAccount = {
   currency: CurrencyCode;
 };
 
+export type ReceivingChannels = Readonly<{
+  email: Readonly<{ available: boolean }>;
+  whatsapp: Readonly<{ available: boolean }>;
+}>;
+
+const NO_RECEIVING_CHANNELS: ReceivingChannels = { email: { available: false }, whatsapp: { available: false } };
+
+/** Only an explicit workspace answer enables a receiving channel. */
+export function businessReceivingChannels(workspace: Pick<BusinessWorkspaceInfo, "receiving_channels"> | null | undefined): ReceivingChannels {
+  if (!workspace?.receiving_channels) return NO_RECEIVING_CHANNELS;
+  return { email: { available: workspace.receiving_channels.email?.available === true }, whatsapp: { available: workspace.receiving_channels.whatsapp?.available === true } };
+}
+
 export type BusinessWorkspaceInfo = {
   /** The Business's own country and currency. Absent in older payloads. */
   country?: BusinessCountry;
@@ -335,6 +348,8 @@ export type BusinessWorkspaceInfo = {
   chat_available: boolean;
   /** Whether the server offers Facturación to this person; the one switch. */
   invoicing_available: boolean;
+  /** Server-owned channel availability, independent of address or linking state. */
+  receiving_channels?: ReceivingChannels;
   /** What a receipt upload accepts. The backend's document settings own it. */
   receipt_limits: ReceiptLimits;
 };

@@ -4144,6 +4144,7 @@
         "empty_attention_help": "Cuando un recibo necesite algo de ti, aparece aquí.",
         "empty_listos": "No hay recibos listos",
         "empty_listos_help": "Cuando un recibo tenga todo confirmado, aparece aquí para aprobarlo.",
+        "empty_start_upload_help": "Agrega un archivo.",
         "listos": "Listos",
         "open": "Abrir",
         "reason": {

@@ -2983,6 +2983,8 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
@@ -3039,6 +3041,8 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
@@ -3078,6 +3082,8 @@ paths:
       responses:
         '204':
           description: Successful Response
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
@@ -3130,6 +3136,8 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
@@ -3182,6 +3190,8 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
@@ -3227,6 +3237,8 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
@@ -3278,6 +3290,8 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
@@ -3329,6 +3343,8 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
@@ -3374,6 +3390,8 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
@@ -3419,6 +3437,8 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
@@ -3469,6 +3489,8 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
@@ -3515,6 +3537,8 @@ paths:
       responses:
         '204':
           description: Successful Response
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
@@ -3568,6 +3592,8 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
@@ -15347,6 +15373,8 @@ paths:
           content:
             application/json:
               schema: {}
+        '404':
+          description: 'email_intake_unavailable: email receiving is off or not configured.'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -15392,6 +15420,9 @@ paths:
             text/plain:
               schema:
                 type: string
+        '404':
+          description: 'whatsapp_unavailable: receiving is off or the selected Business is
+            ineligible.'
         '422':
           description: Validation Error
           content:
@@ -15425,6 +15456,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WebhookAck'
+        '404':
+          description: 'whatsapp_unavailable: receiving is off or the selected Business is
+            ineligible.'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -15454,6 +15488,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AIConsentResponse'
+        '404':
+          description: 'whatsapp_unavailable: receiving is off or the selected Business is
+            ineligible.'
         '422':
           description: Validation Error
           content:
@@ -15493,6 +15530,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AIConsentResponse'
+        '404':
+          description: 'whatsapp_unavailable: receiving is off or the selected Business is
+            ineligible.'
         '422':
           description: Validation Error
           content:
@@ -15534,6 +15574,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LinkStatusResponse'
+        '404':
+          description: 'whatsapp_unavailable: receiving is off or the selected Business is
+            ineligible.'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -15579,6 +15622,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LinkCodeResponse'
+        '404':
+          description: 'whatsapp_unavailable: receiving is off or the selected Business is
+            ineligible.'
         '422':
           description: Validation Error
           content:
@@ -18862,6 +18908,8 @@ components:
           type: boolean
         notifications_available:
           type: boolean
+        receiving_channels:
+          $ref: '#/components/schemas/ReceivingChannels'
         receipt_limits:
           $ref: '#/components/schemas/ReceiptLimits'
         logo_url:
@@ -18879,6 +18927,7 @@ components:
       - chat_available
       - invoicing_available
       - notifications_available
+      - receiving_channels
       - receipt_limits
     CallbackRequest:
       properties:
@@ -31040,6 +31089,25 @@ components:
       - currency
       - category_id
       - account_id
+    ReceivingChannel:
+      properties:
+        available:
+          type: boolean
+      additionalProperties: false
+      type: object
+      required:
+      - available
+    ReceivingChannels:
+      properties:
+        email:
+          $ref: '#/components/schemas/ReceivingChannel'
+        whatsapp:
+          $ref: '#/components/schemas/ReceivingChannel'
+      additionalProperties: false
+      type: object
+      required:
+      - email
+      - whatsapp
     RecentActivityResponse:
       properties:
         record_id:

@@ -8,6 +8,7 @@ import type { ReceiptSummary } from "@/lib/business-api";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
+import { useReceivingChannels } from "../business-context";
 import { useBusiness } from "../BusinessWorkspace";
 import ReceiptReadingControl from "../ReceiptReadingControl";
 import { loadFailure, type LoadFailure } from "../bandeja-sources";
@@ -55,6 +56,7 @@ export default function ReceptionPreview() {
 
 function ReceptionWorkspace() {
   const { t, i18n } = useTranslation();
+  const emailAvailable = useReceivingChannels().email.available;
   const locale = resolveLanguage({ device: i18n.resolvedLanguage ?? i18n.language });
   const word = (key: string) => t(`business.reception_preview.${key}`);
   const { source, records, chosen, panel, openPanel, revision, refresh, reload, retrySources } = useBusiness();
@@ -165,7 +167,7 @@ function ReceptionWorkspace() {
   const tabEmpty = view === "all" ? null : view;
   const empty = narrowed ? { kind: "filtered" as const, title: word("empty"), body: word("empty_help"), action: { label: word("clear"), run: clear } }
     : tabEmpty ? { kind: "done" as const, title: word(`placeholder.empty_${tabEmpty}`), body: word(`placeholder.empty_${tabEmpty}_help`), action: { label: t("business.inbox.see_all"), run: () => chooseTab("all") } }
-    : { kind: "first_run" as const, title: word("empty_start"), body: word("empty_start_help") };
+    : { kind: "first_run" as const, title: word("empty_start"), body: word(emailAvailable ? "empty_start_help" : "placeholder.empty_start_upload_help") };
   const searchQuery = (next: string) => { setSelectedIds([]); setPage(1); setQuery(next); };
   // A wide screen keeps Agregar in the top bar; with the bar's search on, it also searches from there, scoped to
   // Bandeja, through the query this list lends. A phone keeps both.

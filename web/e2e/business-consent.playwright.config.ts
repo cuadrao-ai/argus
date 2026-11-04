@@ -5,7 +5,7 @@ const port = Number(process.env.PLAYWRIGHT_PORT ?? 3198);
 
 export default defineConfig({
   testDir: ".",
-  testMatch: "business-consent.spec.ts",
+  testMatch: ["business-consent.spec.ts", "business-receiving-channels.spec.ts"],
   outputDir: "../temp/consent-results",
   workers: 1,
   retries: 0,

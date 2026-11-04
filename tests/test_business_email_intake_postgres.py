@@ -274,9 +274,10 @@ def address_client(rig, actions, monkeypatch):
     app.dependency_overrides[require_business_document_write] = lambda: context
     app.include_router(api.router)
     monkeypatch.setattr(api, "email_intake", lambda: rig["runtime"])
+    monkeypatch.setattr("argus.api.email_intake.email_intake", lambda: rig["runtime"])
     monkeypatch.setattr(api, "ingestion_hub", lambda: rig["documents"].hub)
     rig["documents"].hub.sink = actions[0].imports
-    monkeypatch.setattr(api, "webhook_enabled", lambda: True)
+    monkeypatch.setattr("argus.api.email_intake.webhook_enabled", lambda: True)
     monkeypatch.setenv("CUADRAO_BUSINESS_EMAIL_DOMAIN", "recibos.example.test")
     rig["store"].deactivate_routes(rig["route"].space_id)
     with TestClient(app) as client:
@@ -652,7 +653,9 @@ def receipts(actions, users, monkeypatch):
     )
     monkeypatch.setenv("ARGUS_RESEND_WEBHOOK_SECRET", SECRET)
     monkeypatch.setattr(api, "email_intake", lambda: runtime)
-    monkeypatch.setattr(api, "webhook_enabled", lambda: True)
+    monkeypatch.setattr("argus.api.email_intake.email_intake", lambda: runtime)
+    monkeypatch.setenv("CUADRAO_BUSINESS_EMAIL_DOMAIN", "recibos.example.test")
+    monkeypatch.setattr("argus.api.email_intake.webhook_enabled", lambda: True)
     app = FastAPI()
     app.include_router(api.webhook_router)
     owner_documents, _ = bind_to_grant(documents, hub, service, context, "prepare")

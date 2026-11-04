@@ -7,6 +7,7 @@ import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import type { ReceiptSummary } from "@/lib/business-api";
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake, BusinessEmailPart } from "@/lib/business-email";
 import { businessReceivingAddress } from "@/lib/business-email";
+import { useReceivingChannels } from "./business-context";
 import { useBusiness } from "./BusinessWorkspace";
 import { useRecordTray } from "./record-tray";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
@@ -76,6 +77,8 @@ export function EmailReceivingAddress({ intake, onActivate }: { intake: Business
 export function EmailAddressSection({ intake, onRetry, onActivated }: { intake: Load<BusinessEmailIntake>; onRetry: () => void; onActivated: (next: BusinessEmailIntake) => void }) {
   const { t } = useTranslation();
   const { source } = useBusiness();
+  const emailAvailable = useReceivingChannels().email.available;
+  if (!emailAvailable) return null;
   return (
     <section aria-label={t("business.email.forward_to", "Forward receipts to this address:")}>
       {intake.status === "loading" ? <Settle pending layout="rows" rows={1} /> : null}
@@ -92,6 +95,11 @@ export function EmailAddressSection({ intake, onRetry, onActivated }: { intake: 
 
 /** The address on its own, for the Negocio page: it loads itself. */
 export function BusinessEmailAddress() {
+  const channels = useReceivingChannels();
+  return channels.email.available ? <AvailableBusinessEmailAddress /> : null;
+}
+
+function AvailableBusinessEmailAddress() {
   const { source, revision, reload, chosen } = useBusiness();
   const preview = useReceptionPreview(chosen?.space_id ?? "");
   const localPreview = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
@@ -152,18 +160,19 @@ export function EmailDeliveryDetail({ delivery, loadDetail, openReceipt, retryDe
   inbox?: ReceiptSummary[] | null;
 }) {
   const { t, i18n } = useTranslation();
+  const emailAvailable = useReceivingChannels().email.available;
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const waiting = delivery.waiting;
   const [body, setBody] = useState<Load<BusinessEmailDetail>>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
   const [retry, setRetry] = useState<"idle" | "sending" | "accepted" | "error">("idle");
   useEffect(() => {
-    if (waiting) return undefined;
+    if (waiting || !emailAvailable) return undefined;
     let current = true;
     setBody({ status: "loading" });
     loadDetail(delivery.id).then((data) => { if (current) setBody({ status: "ready", data }); }).catch(() => { if (current) setBody({ status: "error" }); });
     return () => { current = false; };
-  }, [delivery.id, delivery.updated_at, waiting, loadDetail, attempt]);
+  }, [emailAvailable, delivery.id, delivery.updated_at, waiting, loadDetail, attempt]);
   const savedReceipt = (documentId: string) => {
     const receipt = inbox?.find((item) => item.id === documentId);
     return receipt && savedUnread(receipt) ? receipt : null;
@@ -185,7 +194,7 @@ export function EmailDeliveryDetail({ delivery, loadDetail, openReceipt, retryDe
         {reason ? <p className="text-[14px] text-[#172b26] dark:text-white" data-testid="email-reason">{reason}</p> : null}
       </div>
 
-      {!waiting ? (
+      {!waiting && (emailAvailable || body.status === "ready") ? (
         <section aria-label={t("business.email.message", "Message")}>
           {body.status === "loading" ? <Settle pending layout="rows" rows={2} /> : null}
           {body.status === "error" ? (
@@ -226,9 +235,9 @@ export function EmailDeliveryDetail({ delivery, loadDetail, openReceipt, retryDe
         </ul>
       </section>
 
-      {delivery.original_document_id || (!waiting && delivery.retryable) ? (
+      {delivery.original_document_id || (emailAvailable && !waiting && delivery.retryable) ? (
         <div className="flex flex-wrap gap-2">
-          {!waiting && delivery.retryable ? <button type="button" className={primaryButtonClass} disabled={retry === "sending" || retry === "accepted"} onClick={async () => {
+          {emailAvailable && !waiting && delivery.retryable ? <button type="button" className={primaryButtonClass} disabled={retry === "sending" || retry === "accepted"} onClick={async () => {
             setRetry("sending");
             try { await retryDelivery(delivery.id); setRetry("accepted"); } catch { setRetry("error"); }
           }}>{retry === "sending" ? t("business.email.retrying", "Requesting…") : t("business.email.retry", "Try again")}</button> : null}

@@ -495,6 +495,7 @@ export function createFixtureBusinessDataSource(
         assistant_available: true,
         chat_available: chatAvailable,
         invoicing_available: false,
+        receiving_channels: { email: { available: true }, whatsapp: { available: true } },
         receipt_limits: {
           max_bytes: 10 * 1024 * 1024,
           media_types: ["application/pdf", "image/jpeg", "image/png"],

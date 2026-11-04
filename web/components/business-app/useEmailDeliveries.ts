@@ -7,6 +7,7 @@ import { loadFailure, type LoadFailure } from "./bandeja-sources";
 
 const POLL_MS = 5000;
 const POLLS = 6;
+const NO_DELIVERIES: BusinessEmailDelivery[] = [];
 
 export type EmailDeliveries = Readonly<{
   /** Newest first as the server lists them; null until the first answer for this business. */
@@ -32,7 +33,11 @@ export function useEmailDeliveries({ source, enabled, revision, businessKey, onA
   const [refreshing, setRefreshing] = useState(false);
   const [stalled, setStalled] = useState(false);
   useEffect(() => {
-    if (!enabled) return undefined;
+    if (!enabled) {
+      setLoaded({ key: businessKey, items: null, failure: null });
+      onAnswered?.(revision, true);
+      return undefined;
+    }
     let current = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let polls = 0;
@@ -60,5 +65,5 @@ export function useEmailDeliveries({ source, enabled, revision, businessKey, onA
   }, [source, enabled, revision, businessKey, attempt, onAnswered]);
   const refresh = useCallback(() => setAttempt((value) => value + 1), []);
   const mine = loaded.key === businessKey;
-  return { items: mine ? loaded.items : null, failure: mine ? loaded.failure : null, refreshing, stalled, refresh };
+  return { items: enabled ? (mine ? loaded.items : null) : NO_DELIVERIES, failure: enabled && mine ? loaded.failure : null, refreshing: enabled && refreshing, stalled: enabled && stalled, refresh };
 }

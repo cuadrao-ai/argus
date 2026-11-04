@@ -27,10 +27,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 
 type Source = ReturnType<typeof import("@/components/business-app/fixture-data").createFixtureBusinessDataSource>;
 
-/**
- * Mounts the real provider over the fixture source, with the server's workspace answer under this test's control,
- * and the desktop top bar the shell would draw from `headerSearch`.
- */
+/** Mounts the real provider with the server workspace answer under test control. */
 async function mount(answer: { available: boolean } | "hold", url = "/biz", overrides: Partial<Source> = {}) {
   search = url.includes("?") ? url.slice(url.indexOf("?")) : "";
   window.history.replaceState(null, "", url);
@@ -89,11 +86,9 @@ async function mount(answer: { available: boolean } | "hold", url = "/biz", over
   // A held workspace answer holds the whole first load, so that case waits on the directory alone; a failed read settles on its error.
   await settle(() => api !== null && (answer === "hold" ? api.spaces !== null : api.records.inbox !== null || api.records.error));
   cleanups.push(async () => { await act(async () => root.unmount()); host.remove(); });
-  const navItems = () => [...host.querySelectorAll('[data-testid="business-sidebar-nav"] button')].map((node) => node.textContent?.trim() ?? "");
   const text = () => host.textContent ?? "";
-  const heading = () => host.querySelector('[data-testid="top-bar"] h1')?.textContent?.trim() ?? null;
   return {
-    act, host, settle, navItems, text, heading,
+    act, host, settle, text,
     api: () => api!,
     // Waits for the read in flight to hold before answering it, so a reload's fresh read is the one released.
     release: async (workspace: Partial<BusinessWorkspaceInfo>) => {
@@ -138,7 +133,7 @@ test("a Business switch drops channel capabilities and the old forwarding addres
     emailIntake: async () => { addressRequests += 1; return { enabled: true, receiving_address: "inbox@cuadrao.example" }; },
     emailDeliveries: async () => { deliveryRequests += 1; return []; },
   });
-  await page.release({ receiving_channels: { email: { available: true }, whatsapp: { available: true } } } as Partial<BusinessWorkspaceInfo>);
+  await page.release({ receiving_channels: { email: { available: true }, whatsapp: { available: true } } });
   await page.settle(() => page.host.querySelector('[data-testid="forward-address"]')?.textContent === "inbox@cuadrao.example");
   const before = { addressRequests, deliveryRequests };
   const other = page.api().spaces?.find(space => space.grant_id !== page.api().chosen?.grant_id);
@@ -148,4 +143,27 @@ test("a Business switch drops channel capabilities and the old forwarding addres
   assert.equal(page.host.querySelector('[data-testid="email-address"]'), null);
   assert.equal(addressRequests, before.addressRequests);
   assert.equal(deliveryRequests, before.deliveryRequests);
+});
+
+
+test("automatic grant fallback waits for the new Business workspace before channel requests", async () => {
+  const { setChosenGrant } = await import("@/lib/business-grant");
+  let requests = 0;
+  const page = await mount("hold", "/biz", {
+    emailIntake: async () => { requests += 1; return { enabled: true, receiving_address: "inbox@cuadrao.example" }; },
+    emailDeliveries: async () => { requests += 1; return []; },
+  });
+  const enabled = { receiving_channels: { email: { available: true }, whatsapp: { available: true } } };
+  await page.release(enabled);
+  const other = page.api().spaces?.find(space => space.role === "accountant");
+  assert.ok(other);
+  await page.act(async () => page.api().chooseBusiness(other!.grant_id));
+  await page.release(enabled);
+  await page.settle(() => page.host.querySelector('[data-testid="forward-address"]')?.textContent === "inbox@cuadrao.example");
+  const before = requests;
+  // Directory removal and grant refusal both use this automatic fallback path.
+  await page.act(async () => setChosenGrant(null));
+  assert.equal(page.api().receivingChannels?.email.available, false);
+  assert.equal(page.host.querySelector('[data-testid="forward-address"]')?.textContent, "");
+  assert.equal(requests, before);
 });

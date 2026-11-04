@@ -7,10 +7,12 @@ from contextlib import suppress
 from datetime import datetime
 
 import httpx
+from fastapi import Request
 from loguru import logger
 
 from argus.api import state as api_state
-from argus.api.documents import documents_service
+from argus.api.dependencies import problem
+from argus.api.documents import NO_STORE, documents_service
 from argus.api.ingestion import ingestion_enabled
 from argus.domain.business.config import business_pilot_enabled
 from argus.domain.ingestion.documents.config import load_document_extraction_settings
@@ -57,6 +59,32 @@ def webhook_enabled() -> bool:
         and settings.receiving_enabled
         and bool(settings.webhook_secret.get_secret_value())
     )
+
+
+def email_receiving_available() -> bool:
+    """Receiving readiness, independent of whether a Business has an address."""
+    runtime = email_intake()
+    return bool(
+        runtime is not None
+        and runtime.provider is not None
+        and webhook_enabled()
+        and EmailIntakeSettings().receiving_domain.strip()
+    )
+
+
+def require_email_receiving(request: Request) -> EmailCapture:
+    if not email_receiving_available():
+        raise problem(
+            request,
+            status_code=404,
+            code="email_intake_unavailable",
+            title="Not Found",
+            detail="Email receiving is not available.",
+            headers=NO_STORE,
+        )
+    runtime = email_intake()
+    assert runtime is not None
+    return runtime
 
 
 async def _drain(runtime: EmailCapture) -> None:

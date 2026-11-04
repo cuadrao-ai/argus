@@ -39,7 +39,7 @@ def signed(body: bytes, *, now: int | None = None) -> dict[str, str]:
 @pytest.fixture
 def runtime(monkeypatch):
     monkeypatch.setenv("ARGUS_RESEND_WEBHOOK_SECRET", SECRET)
-    monkeypatch.setenv("CUADRAO_BUSINESS_EMAIL_DOMAIN", "receipts.example.test")
+    monkeypatch.setenv("CUADRAO_BUSINESS_EMAIL_DOMAIN", "recibos.example.test")
     monkeypatch.setattr(runtime_module, "webhook_enabled", lambda: True)
     from argus.api.documents import documents_service
 
@@ -53,7 +53,6 @@ def runtime(monkeypatch):
     fake.route_usable = lambda route: True
     fake.retryable = lambda delivery: False
     runtime_module.configure_email_intake(fake)
-    monkeypatch.setattr("argus.api.routers.email_intake.webhook_enabled", lambda: True)
     yield fake
     runtime_module.configure_email_intake(None)
 
@@ -117,11 +116,9 @@ def test_webhook_is_absent_when_receiving_is_off(
     client: TestClient, runtime, monkeypatch
 ) -> None:  # noqa: F811
     monkeypatch.setattr(runtime_module, "webhook_enabled", lambda: False)
-    monkeypatch.setattr("argus.api.routers.email_intake.webhook_enabled", lambda: False)
     body = event()
     assert client.post(WEBHOOK, content=body, headers=signed(body)).status_code == 404
     runtime_module.configure_email_intake(None)
-    monkeypatch.setattr("argus.api.routers.email_intake.webhook_enabled", lambda: True)
     assert client.post(WEBHOOK, content=body, headers=signed(body)).status_code == 404
 
 
@@ -154,7 +151,7 @@ def test_endpoints_say_unavailable_without_a_runtime(alice: Owner) -> None:  # n
 
 @pytest.mark.parametrize("missing", ["receiving", "domain", "provider", "runtime"])
 def test_workspace_and_every_email_route_share_availability(
-    alice: Owner, runtime, monkeypatch, missing
+    alice: Owner, runtime, monkeypatch, missing  # noqa: F811
 ) -> None:
     fake = Faker()
     item_id = fake.uuid4()

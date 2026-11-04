@@ -59,13 +59,16 @@ function withPage(group: WorkspaceSearchGroup, page: WorkspaceSearchPage): Works
  * and the preview see them like the first rows.
  */
 export function useWorkspaceSearch(search: WorkspaceSearch | null, query: string) {
-  const [state, setState] = useState<WorkspaceSearchState>({ status: "idle" });
+  const [storedState, setState] = useState<WorkspaceSearchState>({ status: "idle" });
+  const [resultIdentity, setResultIdentity] = useState(search?.identity);
   const [loads, setLoads] = useState<Readonly<Record<string, GroupLoad>>>({});
   const [attempt, setAttempt] = useState(0);
   const latest = useRef(0);
   const current = useRef(search);
   const trimmed = query.trim();
   const enabled = search !== null;
+  const identity = search?.identity;
+  const state: WorkspaceSearchState = resultIdentity === identity ? storedState : { status: enabled && searchQueryIsIndexable(trimmed) ? "loading" : "idle" };
 
   // A new query or retry searches again; a re-rendered workspace does not.
   useEffect(() => {
@@ -75,6 +78,7 @@ export function useWorkspaceSearch(search: WorkspaceSearch | null, query: string
   useEffect(() => {
     const request = ++latest.current;
     setLoads({});
+    setResultIdentity(identity);
     if (!enabled || !searchQueryIsIndexable(trimmed)) {
       setState({ status: "idle" });
       return;
@@ -93,7 +97,7 @@ export function useWorkspaceSearch(search: WorkspaceSearch | null, query: string
         });
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [attempt, enabled, trimmed]);
+  }, [attempt, enabled, identity, trimmed]);
 
   const retry = useCallback(() => setAttempt((value) => value + 1), []);
 

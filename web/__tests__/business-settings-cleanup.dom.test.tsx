@@ -147,22 +147,20 @@ test("on a phone, Ajustes is a full screen whose sections replace the list and c
   }
 });
 
-test("Business Preferencias hides WhatsApp unless its flag is on, and Personal ignores that flag", async () => {
-  const { businessWhatsappPreferencesEnabledFromEnv } = await import("@/lib/private-alpha-flags");
-  assert.equal(businessWhatsappPreferencesEnabledFromEnv(undefined), false);
-  assert.equal(businessWhatsappPreferencesEnabledFromEnv("true"), true);
+test("Business Preferencias follows the workspace WhatsApp answer and ignores the old public flag", async () => {
+  const { BusinessContext } = await import("@/components/business-app/business-context");
   const pilot = process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED;
   const whatsapp = process.env.NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED;
   process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED = "true";
   delete process.env.NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED;
-  const openPreferences = async (business: boolean) => {
+  const openPreferences = async (business: boolean, available?: boolean) => {
     for (const cleanup of cleanups.splice(0)) await cleanup();
     document.body.innerHTML = "";
     const { default: ProfileMenu } = await import("@/components/sidebar/ProfileMenu");
     const anchor = document.createElement("button");
     document.body.appendChild(anchor);
     const { act } = await mount(
-      <ProfileMenu isOpen onClose={() => {}} onLogout={() => {}} anchorRef={{ current: anchor }} />,
+      <BusinessContext.Provider value={{ receivingChannels: { email: { available: false }, whatsapp: { available: available === true } } } as unknown as import("@/components/business-app/BusinessWorkspace").BusinessContextValue}><ProfileMenu isOpen onClose={() => {}} onLogout={() => {}} anchorRef={{ current: anchor }} /></BusinessContext.Provider>,
       business,
     );
     await act(async () => {
@@ -175,7 +173,10 @@ test("Business Preferencias hides WhatsApp unless its flag is on, and Personal i
     assert.equal(button("WhatsApp"), undefined);
     assert.equal(document.body.textContent?.includes("No hay ningún número vinculado"), false);
     process.env.NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED = "true";
-    await openPreferences(true);
+    await openPreferences(true, false);
+    assert.equal(button("WhatsApp"), undefined);
+    delete process.env.NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED;
+    await openPreferences(true, true);
     assert.ok(button("WhatsApp"));
     delete process.env.NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED;
     await openPreferences(false);
@@ -226,3 +227,24 @@ for (const succeeds of [true, false]) {
     assert.equal(said(), succeeds ? spanish.business.email.copied : spanish.business.overview.copy_forward_failed.replace("{{address}}", address));
   });
 }
+
+
+test("an open WhatsApp preference pane disappears when the Business answer turns off", async () => {
+  const { BusinessContext } = await import("@/components/business-app/business-context");
+  const { default: ProfileMenu } = await import("@/components/sidebar/ProfileMenu");
+  const { useState } = await import("react");
+  let disable = () => {};
+  const anchor = document.createElement("button"); document.body.append(anchor);
+  function Harness() {
+    const [available, setAvailable] = useState(true);
+    disable = () => setAvailable(false);
+    return <BusinessContext.Provider value={{ receivingChannels: { email: { available: false }, whatsapp: { available } } } as unknown as import("@/components/business-app/BusinessWorkspace").BusinessContextValue}><ProfileMenu isOpen onClose={() => {}} onLogout={() => {}} anchorRef={{ current: anchor }} /></BusinessContext.Provider>;
+  }
+  const page = await mount(<Harness />);
+  await page.act(async () => button("Ajustes")!.click());
+  await page.act(async () => button("WhatsApp")!.click());
+  assert.ok(document.querySelector('[data-testid="settings-pane-whatsapp"]'));
+  await page.act(async () => disable());
+  assert.equal(document.querySelector('[data-testid="settings-pane-whatsapp"]'), null);
+  assert.ok(!document.body.textContent?.includes("WhatsApp"));
+});

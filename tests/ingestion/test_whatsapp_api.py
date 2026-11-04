@@ -6,7 +6,6 @@ from dataclasses import replace
 from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
-from uuid import UUID
 
 import httpx
 import pytest
@@ -207,7 +206,10 @@ def wa_client(
         )
         # Linking needs a Business space; both people have started theirs.
         for token in (ALICE, BOB):
-            business_spaces().create(identities[token]["id"], "Mi negocio")
+            response = test_client.post(
+                "/api/v1/business/space", json={"name": "Mi negocio"}, headers=bearer(token)
+            )
+            assert response.status_code == 201, response.text
         yield test_client
 
 

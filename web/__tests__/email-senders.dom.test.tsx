@@ -59,13 +59,15 @@ const mixed: EmailSender[] = [
   sender({ id: "blocked", value: "spam@lista.example", status: "blocked", tag: "unverified" }),
 ];
 
-async function mount(client: EmailSenderClient) {
+async function mount(client: EmailSenderClient, available = true) {
+  const { BusinessContext } = await import("@/components/business-app/business-context");
+  const context = { receivingChannels: { email: { available }, whatsapp: { available: false } } } as unknown as import("@/components/business-app/BusinessWorkspace").BusinessContextValue;
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { en: { translation: english }, "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  await act(async () => { root.render(<I18nextProvider i18n={i18n}><EmailSenders client={client} /></I18nextProvider>); });
+  await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><EmailSenders client={client} /></BusinessContext.Provider></I18nextProvider>); });
   const settle = async (done: () => boolean) => {
     for (let i = 0; i < 20 && !done(); i += 1) await act(async () => { await Promise.resolve(); });
   };
@@ -312,4 +314,11 @@ test("a failed check is a plain muted line that opens the locked tooltip by poin
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, TOOLTIP_DELAY_MS + 30)); });
     assert.equal(document.querySelector("[role='tooltip']")?.textContent, senderCopy.tag_unverified_tip);
   } finally { await page.close(); }
+});
+
+
+test("email off renders no sender management and makes no sender request", async () => {
+  let requests = 0;
+  const page = await mount({ list: async () => { requests += 1; return mixed; }, update: async () => mixed[0]! }, false);
+  try { assert.equal(requests, 0); assert.equal(page.host.textContent, ""); } finally { await page.close(); }
 });

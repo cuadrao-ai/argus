@@ -24,7 +24,12 @@ from argus.api.business import (
 from argus.api.client_ip import resolve_client_ip
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
-from argus.api.email_intake import email_intake, part_repeat, webhook_enabled
+from argus.api.email_intake import (
+    email_intake,
+    email_receiving_available,
+    part_repeat,
+    require_email_receiving,
+)
 from argus.api.ingestion import ingestion_hub
 from argus.api.rate_limits import SlidingWindowLimiter
 from argus.domain.business.actions import BusinessActions
@@ -49,11 +54,18 @@ from argus.domain.ingestion.email_intake.standing import email_row
 from argus.domain.ingestion.email_intake.store import RecipientTaken
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 
-webhook_router = APIRouter(prefix="/webhooks/resend", tags=["business-email"])
+_UNAVAILABLE = {
+    404: {"description": "email_intake_unavailable: email receiving is off or not configured."}
+}
+webhook_router = APIRouter(
+    prefix="/webhooks/resend", tags=["business-email"], responses=_UNAVAILABLE
+)
 router = APIRouter(
     prefix="/business/email",
     tags=["business-email"],
+    dependencies=[Depends(require_email_receiving)],
     responses={
+        **_UNAVAILABLE,
         403: {
             "description": "`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is missing, someone else's, revoked or expired; `business_permission_denied`: the live grant does not allow this."
         }
@@ -95,15 +107,13 @@ def _problem(request: Request, status: int, code: str, detail: str, context=None
 
 
 @webhook_router.post("", status_code=202)
-async def receive(request: Request) -> Response:
+async def receive(
+    request: Request,
+    runtime: Annotated[EmailCapture, Depends(require_email_receiving)],
+) -> Response:
     """Signature checked over the raw bytes before parsing. 202 means the event
     is a durable row; the worker fetches the message later."""
 
-    runtime = email_intake()
-    if not webhook_enabled() or runtime is None or runtime.provider is None:
-        raise _problem(
-            request, 404, "email_intake_unavailable", "Email receiving is not available."
-        )
     body = bytearray()
     async for chunk in request.stream():
         body.extend(chunk)
@@ -174,7 +184,7 @@ def _readiness(runtime: EmailCapture, space_id: str) -> dict[str, Any]:
     usable = route is not None and runtime.route_usable(route)
     # Configuration readiness, not a claim about provider or DNS health.
     return {
-        "enabled": bool(usable and webhook_enabled() and runtime.provider is not None),
+        "enabled": bool(usable and email_receiving_available()),
         "receiving_address": route.recipient if usable else None,
         "alias": route.alias if usable else None,
         "review_required": bool(route.review_required) if usable else False,

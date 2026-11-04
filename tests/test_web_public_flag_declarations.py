@@ -45,7 +45,6 @@ HOSTED_FLAG_SURFACES = (
     "staging_env_manifest.json",
 )
 BUSINESS_DEFAULT_OFF_FLAGS = (
-    "NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED",
     "NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED",
     "NEXT_PUBLIC_CUADRAO_BUSINESS_LIFECYCLE_CONTROLS_ENABLED",
 )
@@ -136,3 +135,16 @@ def test_web_invoicing_switch_is_gone() -> None:
                 continue
             found.extend(f"{path.relative_to(ROOT)}:{name}" for name in RETIRED_WEB_SWITCH if name in text)
     assert found == []
+
+
+def test_whatsapp_preferences_have_no_independent_web_switch() -> None:
+    name = "NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED"
+    assert name not in APPROVED_STAGING_OVERRIDES
+    for surface, declared in _hosted_flag_declarations().items():
+        assert name not in declared, surface
+    for folder in ("web/lib", "web/components"):
+        for path in (ROOT / folder).rglob("*"):
+            if path.suffix in {".ts", ".tsx"}:
+                text = path.read_text(encoding="utf-8")
+                assert name not in text, path.relative_to(ROOT)
+                assert "businessWhatsAppPreferencesEnabled" not in text, path.relative_to(ROOT)

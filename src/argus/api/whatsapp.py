@@ -3,7 +3,7 @@
 Default-off behind ``CUADRAO_WHATSAPP_INTAKE_ENABLED`` and nested inside the
 document surface and the Business pilot: a WhatsApp receipt is a saved document
 draft in the owner's Business space, so intake cannot be on while either is
-off. Every route but unlinking answers 404 when off.
+off. Every route but unlinking and consent revocation answers 404 when off.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from argus.api.document_jobs import document_jobs
 from argus.api.documents import documents_service
 from argus.api.ingestion import IngestionContext, ingestion_hub, require_ingestion_context
 from argus.domain.business.config import business_pilot_enabled
-from argus.domain.business.scope import resolve_business_scope
+from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.spaces import SpaceStore
 from argus.domain.ingestion.documents.config import load_document_extraction_settings
 from argus.domain.ingestion.documents.models import DocumentExtractionError
@@ -512,20 +512,26 @@ def unavailable_problem(request: Request) -> HTTPException:
     )
 
 
+def whatsapp_receiving_available(scope: BusinessScope | None = None) -> bool:
+    """Receiving readiness and eligibility for the selected Business."""
+    documents = documents_service()
+    return bool(
+        whatsapp_runtime() is not None
+        and business_pilot_enabled()
+        and load_whatsapp_settings().intake_ready
+        and load_document_extraction_settings().enabled
+        and documents is not None
+        and documents.hub is ingestion_hub()
+        and (scope is None or scope.acting_as_owner)
+    )
+
+
 def require_whatsapp_surface(request: Request) -> WhatsAppRuntime:
     """Flag first, before signatures or sessions, so an off surface looks absent."""
-
-    runtime = whatsapp_runtime()
-    documents = documents_service()
-    if (
-        runtime is None
-        or not business_pilot_enabled()
-        or not load_whatsapp_settings().intake_ready
-        or not load_document_extraction_settings().enabled
-        or documents is None
-        or documents.hub is not ingestion_hub()
-    ):
+    if not whatsapp_receiving_available():
         raise unavailable_problem(request)
+    runtime = whatsapp_runtime()
+    assert runtime is not None
     return runtime
 
 
@@ -562,11 +568,12 @@ def require_whatsapp_owner(
     """Linking needs the person's Business space: captures land there.
     WhatsApp is the owner's channel: a chosen client grant is refused."""
 
-    from argus.api.business import own_business_only
+    from argus.api.business import working_scope
 
-    own_business_only(request, context.user_id)
     spaces = business_spaces()
-    scope = resolve_business_scope(spaces, context.user_id) if spaces else None
+    scope = working_scope(request, spaces, context.user_id) if spaces else None
     if scope is None:
         raise space_missing_problem(request)
+    if not whatsapp_receiving_available(scope):
+        raise unavailable_problem(request)
     return WhatsAppOwnerContext(runtime, scope.person_id)
