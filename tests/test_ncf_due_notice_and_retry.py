@@ -111,7 +111,12 @@ class TestNcfDueNoticeAndRetry:
         tx.imports = Mock()
         tx.imports.put_event.side_effect = put_event
         tx.imports.event.side_effect = lambda _draft_id: held["event"]
-        tx.rows = Mock(return_value=[])
+        # The read asks the Business for its RNC; this Business has none.
+        tx.rows = Mock(
+            side_effect=lambda sql, *args: [{"business_rnc": None}]
+            if "business_rnc" in sql
+            else []
+        )
         tx.context = Mock(actor=Mock(space_id=binding.space_id))
 
         unpaid = _due_notice(draft, "pending")
