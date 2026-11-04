@@ -65,12 +65,14 @@ export default function AdaptivePanel({
   initialFocusRef,
   expansion,
   titleId: titleIdProp,
+  titleClassName,
   headerActions,
   children,
 }: {
   title: string;
   /** The title's element id, for a record whose own page labels itself by it. */
   titleId?: string;
+  titleClassName?: string;
   /** Controls before the close button, such as a record's previous and next. */
   headerActions?: ReactNode;
   /** A small mark before the title, such as a channel's logo; decorative, the title names the panel. */
@@ -150,7 +152,7 @@ export default function AdaptivePanel({
     );
   }
 
-  return <SideDrawer {...{ title, titleIcon, summary, headerSize, titleId, overlayId, panelRef, onClose, closeLabel, stackBackLabel, dismissible, modal, width, footer, returnFocusRef, initialFocusRef, back, expansion, headerActions, children }} />;
+  return <SideDrawer {...{ title, titleIcon, summary, headerSize, titleId, titleClassName, overlayId, panelRef, onClose, closeLabel, stackBackLabel, dismissible, modal, width, footer, returnFocusRef, initialFocusRef, back, expansion, headerActions, children }} />;
 }
 
 const EXPANDED_WIDTH: DrawerBounds = { preferred: 1200, min: 720, maxVw: 88 };
@@ -161,6 +163,7 @@ type DrawerProps = {
   summary?: ReactNode;
   headerSize: "default" | "large";
   titleId: string;
+  titleClassName?: string;
   overlayId: string;
   panelRef: React.RefObject<HTMLDivElement | null>;
   onClose: () => void;
@@ -252,6 +255,7 @@ function DrawerPanel({
   summary,
   headerSize,
   titleId,
+  titleClassName,
   panelRef,
   onClose,
   closeLabel,
@@ -303,7 +307,7 @@ function DrawerPanel({
           </button>
         ) : null}
         <div className="min-w-0 flex-1 pt-2.5">
-          <h2 id={titleId} ref={titleRef} tabIndex={titleRef ? -1 : undefined} className={`rounded-mark font-display ${headerSize === "large" ? "text-[21px]" : "text-[17px]"} font-medium text-black focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white ${titleIcon ? "flex items-center gap-2" : ""}`}>{titleIcon ? <span aria-hidden="true" className="flex shrink-0">{titleIcon}</span> : null}{title}</h2>
+          <h2 id={titleId} ref={titleRef} tabIndex={titleRef ? -1 : undefined} className={`${titleClassName ?? ""} rounded-mark font-display ${headerSize === "large" ? "text-[21px]" : "text-[17px]"} font-medium text-black focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white ${titleIcon ? "flex items-center gap-2" : ""}`}>{titleIcon ? <span aria-hidden="true" className="flex shrink-0">{titleIcon}</span> : null}{title}</h2>
           {/* A summary slot another component portals into takes no room while it is empty. */}
           {summary ? <div className={`mt-1 ${headerSize === "large" ? "text-[14px]" : "text-[13px]"} text-[#56635e] has-[>[data-header-slot]:empty]:hidden dark:text-white/70`}>{summary}</div> : null}
         </div>

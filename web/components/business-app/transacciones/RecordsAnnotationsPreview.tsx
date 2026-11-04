@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
-import { FileText, Pencil, Plus, StickyNote, X } from "lucide-react";
+import { FileText, Pencil, Plus, StickyNote } from "lucide-react";
 import Image from "next/image";
 import { appendBusinessReportSupportingFile, downloadBusinessReportAttachment, getBusinessReportAnnotationDossier, setBusinessReportCurrentNote, type CurrentNoteCommand, type ReportScope, type SupportingFileCommand } from "@/lib/business-reports-api";
 import { NOTES_ENTRY_ENABLED } from "@/lib/business-notes-entry";
@@ -10,9 +10,8 @@ import { saveBlobDownload } from "../ExportRecordsPanel";
 import type { ReceiptLimits } from "@/lib/business-api";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
-import { useModalSurface } from "@/components/layout/useModalSurface";
 import BottomSheet from "@/components/ui/BottomSheet";
-import { withViewportPortal } from "@/components/ui/withViewportPortal";
+import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useBusiness } from "../BusinessWorkspace";
 import { formatMoney, UNKNOWN_VALUE } from "../business-format";
@@ -293,10 +292,7 @@ function LocalFilePreview({ file }: { file: File }) {
 }
 
 type DesktopEditorProps = { title: string; close: () => void; footer: ReactNode; children: ReactNode; initialFocusRef?: RefObject<HTMLElement | null>; returnFocusRef: RefObject<HTMLElement | null> };
-const DesktopEditor = withViewportPortal(function DesktopEditor({ title, close, footer, children, initialFocusRef, returnFocusRef }: DesktopEditorProps) {
+function DesktopEditor({ title, close, footer, children, initialFocusRef, returnFocusRef }: DesktopEditorProps) {
   const { t } = useTransaccionesWords();
-  const id = useId();
-  const panel = useRef<HTMLDivElement>(null);
-  useModalSurface({ isOpen: true, overlayId: id, containerRef: panel, onDismiss: close, onOutsidePointerDown: close, initialFocusRef, returnFocusRef });
-  return <div className={styles.overlay}><div ref={panel} role="dialog" aria-modal="true" aria-labelledby={id} className={styles.dialog}><header className={styles.header}><h2 id={id}>{title}</h2><button type="button" className={styles.icon} onClick={close} aria-label={t("common.close")}><X size={18} aria-hidden="true" /></button></header>{children}{footer}</div></div>;
-});
+  return <AdaptivePanel title={title} closeLabel={t("common.close")} onClose={close} width="lg" footer={footer} initialFocusRef={initialFocusRef} returnFocusRef={returnFocusRef}>{children}</AdaptivePanel>;
+}

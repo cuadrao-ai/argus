@@ -6,6 +6,8 @@ import { FormField, useFieldChecks, type FieldRules } from "@/components/ui/Form
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import InvoiceDateField from "./InvoiceDateField";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { fieldClass, fieldLabelClass } from "@/components/ui/form-field";
 import { primaryButtonClass, quietButtonClass } from "../business-ui";
 import { ToolbarPicker } from "../transacciones/RecordsToolbar";
@@ -39,6 +41,7 @@ export type ConnectedInvoiceEditor = { busy: boolean; blocked: boolean; amounts:
 
 export default function InvoiceEditor({ initial, business, customers, onAddCustomer, onSave, onClose, connection }: { connection?: ConnectedInvoiceEditor; initial: InvoicePreview; business: string; customers: BusinessCustomer[]; onAddCustomer: (customer: BusinessCustomer) => void; onSave: (invoice: InvoicePreview, options?: { newCustomer: boolean }) => void; onClose: () => void }) {
   const { word, t } = useInvoiceWords();
+  const { isBelowDesktop } = useResponsiveLayout();
   const [draft, setDraft] = useState(initial);
   const [activeItemId, setActiveItemId] = useState(initial.items[0]?.id ?? "");
   const [checkedItems, setCheckedItems] = useState<ReadonlySet<string>>(() => new Set());
@@ -259,6 +262,6 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
     </div>
   </section>
   </AdaptivePanel>
-    {leaving ? <AdaptivePanel title={word("unsaved")} closeLabel={t("common.close")} onClose={() => setLeaving(false)}><div className={styles.panelBody}><p>{word("leave_note")}</p><button className={primaryButtonClass} onClick={save}>{word("save_draft")}</button><button className={quietButtonClass} onClick={onClose}>{word("discard")}</button></div></AdaptivePanel> : null}
+    {leaving ? isBelowDesktop ? <AdaptivePanel title={word("unsaved")} closeLabel={t("common.close")} onClose={() => setLeaving(false)}><div className={styles.panelBody}><p>{word("leave_note")}</p><button className={primaryButtonClass} onClick={save}>{word("save_draft")}</button><button className={quietButtonClass} onClick={onClose}>{word("discard")}</button></div></AdaptivePanel> : <ConfirmDialog isOpen tone="primary" title={t("business.settings.profile_discard_title", "Discard your changes?")} description={t("business.settings.profile_discard_detail", "Changes in this section haven't been saved.")} confirmLabel={t("business.settings.profile_discard", "Discard changes")} cancelLabel={t("business.settings.profile_keep_editing", "Keep editing")} onCancel={() => setLeaving(false)} onConfirm={onClose} /> : null}
   </>;
 }

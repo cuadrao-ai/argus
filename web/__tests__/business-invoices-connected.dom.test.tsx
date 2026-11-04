@@ -645,3 +645,61 @@ test("a rejected new customer keeps the editor open, saves no draft and marks th
     assert.ok(document.querySelector('[data-testid="invoice-editor"]')); assert.ok(document.body.textContent?.includes("The new customer was not saved."));
   } finally { await page.close(); }
 });
+
+
+for (const editor of ["invoice", "customer"] as const) for (const action of ["Keep editing", "Discard changes"]) {
+  test(`desktop ${editor} uses the locked unsaved confirmation: ${action}`, async () => {
+    (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width: 1440, height: 900 });
+    const page = await mount();
+    try {
+      if (editor === "invoice") {
+        await page.click("Create invoice");
+        await page.fill("#invoice-customer-search", "Draft customer");
+      } else {
+        await page.click("Customers"); await page.click("Add customer");
+        await page.fill("#customer-name", "Draft customer");
+      }
+      await page.act(async () => document.querySelector<HTMLButtonElement>('[data-testid="side-drawer"] button[aria-label="Close"]')!.click());
+      const alert = document.querySelector('[role="alertdialog"]'); assert.ok(alert);
+      assert.equal(alert.querySelector("h2")?.textContent, "Discard changes?");
+      assert.equal(alert.querySelector("p")?.textContent, "Changes to this section have not been saved.");
+      const buttons = [...alert.querySelectorAll("button")];
+      assert.deepEqual(buttons.map(button => button.textContent?.trim()), ["Keep editing", "Discard changes"]);
+      const button = buttons.find(button => button.textContent?.trim() === action); assert.ok(button);
+      await page.act(async () => button.click());
+      assert.equal(document.querySelector('[role="alertdialog"]'), null);
+      assert.equal(page.creates(), 0);
+      assert.equal(page.customerRecords().length, 0);
+      if (action === "Keep editing") {
+        const input = document.querySelector<HTMLInputElement>(editor === "invoice" ? "#invoice-customer-search" : "#customer-name");
+        assert.equal(input?.value, "Draft customer");
+        await page.click(editor === "invoice" ? "Save draft" : "Save customer");
+        assert.equal(editor === "invoice" ? page.record()?.data.customer_input.name : page.customerRecords()[0]?.data.name, "Draft customer");
+      } else {
+        assert.equal(document.querySelector(editor === "invoice" ? '[data-testid="invoice-editor"]' : "#customer-name"), null);
+      }
+    } finally { await page.close(); }
+  });
+}
+
+for (const editor of ["invoice", "customer"] as const) {
+  test(`phone ${editor} keeps its existing unsaved sheet`, async () => {
+    (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width: 390, height: 844 });
+    const page = await mount();
+    try {
+      if (editor === "invoice") {
+        await page.click("Create invoice"); await page.fill("#invoice-customer-search", "Phone draft");
+      } else {
+        await page.click("Customers"); await page.click("Add customer"); await page.fill("#customer-name", "Phone draft");
+      }
+      await page.act(async () => [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button[aria-label="Close"]')].at(-1)!.click());
+      assert.equal(document.querySelector('[role="alertdialog"]'), null);
+      const sheet = [...document.querySelectorAll('[role="dialog"]')].filter(node => !node.closest('[hidden]')).at(-1); assert.ok(sheet);
+      assert.ok(sheet.textContent?.includes("Unsaved changes"));
+      assert.ok(sheet.textContent?.includes("Discard changes"));
+      assert.ok(sheet.textContent?.includes(editor === "invoice" ? "Save draft" : "Cancel"));
+      assert.equal(sheet.textContent?.includes("Keep editing"), false);
+      assert.equal(page.creates(), 0);
+    } finally { await page.close(); }
+  });
+}

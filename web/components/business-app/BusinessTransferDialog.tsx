@@ -4,6 +4,7 @@ import { useId, useRef, useState } from "react";
 import spanish from "@/public/locales/es-419/common.json";
 import { FormField } from "@/components/ui/FormField";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { businessDeadlineParts } from "@/lib/business-lifecycle-api";
 import { resolveLanguage } from "@/lib/language-features";
@@ -78,6 +79,7 @@ export default function BusinessTransferDialog({ businessName, copy, view, state
   onDismiss: () => void;
 }) {
   const { t, i18n } = useTranslation();
+  const { isBelowDesktop } = useResponsiveLayout();
   const [confirming, setConfirming] = useState(false);
   const nameId = useId();
   const memberId = useId();
@@ -90,10 +92,11 @@ export default function BusinessTransferDialog({ businessName, copy, view, state
   const firstEligible = view.kind === "request" ? view.members.findIndex(member => member.eligible) : -1;
   const canRequest = view.kind === "request" && view.members.some((member) => member.grant_id === grantId && member.eligible) && businessName.length > 0 && confirmation === businessName && !submitting;
 
+  if (confirming && !isBelowDesktop && view.kind === "request") return <ConfirmDialog isOpen title={copy.title} description={copy.help} confirmLabel={copy.request} cancelLabel={copy.cancel} tone="primary" isBusy={submitting} error={state.kind === "error" ? <>{state.message}{state.reference ? <> <ReferenceCode reference={state.reference} /></> : null}</> : null} onCancel={() => { if (!submitting) setConfirming(false); }} onConfirm={() => { if (canRequest) view.onRequest(grantId, confirmation); }} />;
   if (confirming && view.kind === "recipient") return <ConfirmDialog isOpen title={t("business.lifecycle.transfer.accept_title", { businessName })} description={t("business.lifecycle.transfer.accept_body", { ownerName: view.ownerName })} confirmLabel={copy.accept} cancelLabel={copy.cancel} tone="primary" isBusy={submitting} error={state.kind === "error" ? state.message : null} onCancel={() => { if (!submitting) setConfirming(false); }} onConfirm={view.onAccept} />;
   return <AdaptivePanel title={copy.title} closeLabel={copy.cancel} onClose={dismiss} width="md" initialFocusRef={view.kind === "request" ? memberRef : undefined}>
     <div className="space-y-5 p-5" aria-busy={submitting}>
-      {view.kind === "request" ? <form className="space-y-5" onSubmit={(event) => { event.preventDefault(); if (canRequest) view.onRequest(grantId, confirmation); }}>
+      {view.kind === "request" ? <form className="space-y-5" onSubmit={(event) => { event.preventDefault(); if (canRequest) { if (isBelowDesktop) view.onRequest(grantId, confirmation); else setConfirming(true); } }}>
         {view.members.length === 0 ? <p className="text-[14px] leading-relaxed">{copy.empty}</p> : null}
         <fieldset aria-describedby={helpId}>
           <legend className="block text-[14px]">{copy.member}</legend>

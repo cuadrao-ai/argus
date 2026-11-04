@@ -86,9 +86,9 @@ function DesktopDialog({ title, firstField, onClose, children }: { title: string
   const id = useId();
   const panel = useRef<HTMLDivElement>(null);
   useModalSurface({ isOpen: true, overlayId: id, containerRef: panel, onDismiss: onClose, initialFocusRef: firstField });
-  return <div className="fixed inset-0 z-[130] flex items-start justify-center bg-black/40 px-4 pb-4 pt-[12dvh] dark:bg-black/60">
+  return <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/40 p-4 dark:bg-black/60">
     <button type="button" tabIndex={-1} aria-label={t("common.close")} className="absolute inset-0" onClick={onClose} />
-    <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={id} data-invitation-modal style={{ maxHeight: "calc(88dvh - 1rem)" }} className="relative flex w-full max-w-[600px] flex-col overflow-hidden rounded-surface border border-black/10 bg-white p-7 text-[#172b26] dark:border-white/10 dark:bg-[#151719] dark:text-white">
+    <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={id} data-invitation-modal style={{ maxHeight: "calc(100dvh - 2rem)" }} className="relative flex w-full max-w-[600px] flex-col overflow-hidden rounded-surface border border-black/10 bg-white p-7 text-[#172b26] dark:border-white/10 dark:bg-[#151719] dark:text-white">
       <div className="grid grid-cols-[minmax(0,1fr)_44px] items-start gap-2">
         <h2 id={id} className="font-display pt-1 text-left text-[24px] font-medium tracking-tight">{title}</h2>
         <button type="button" aria-label={t("common.close")} onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#56635e] hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 dark:text-white/70 dark:hover:bg-white/5"><X className="h-5 w-5" aria-hidden="true" /></button>
