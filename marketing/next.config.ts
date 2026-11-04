@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 import { nextRedirects, nextRewrites } from "./lib/site-routes";
 
 const nextConfig: NextConfig = {
+  agentRules: false,
   poweredByHeader: false,
   experimental: { globalNotFound: true },
   async redirects() {
