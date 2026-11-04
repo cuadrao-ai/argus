@@ -129,7 +129,11 @@ async def test_nonimage_extraction_keeps_original_path(rig, content, media_type)
         user_id="owner", connection_id=saved.connection_id, scope=PERSONAL
     )
     assert extractor.extract.call_args.kwargs["content"] == content
-    assert "prepared" not in extractor.extract.call_args.kwargs
+    # The extractor's own local step prepares it; nothing is rebuilt or stored.
+    extractor.prepare.assert_called_once_with(content, media_type)
+    assert (
+        extractor.extract.call_args.kwargs["prepared"] is extractor.prepare.return_value
+    )
     assert (
         service.store.rebuilt(user_id="owner", connection_id=saved.connection_id) is None
     )

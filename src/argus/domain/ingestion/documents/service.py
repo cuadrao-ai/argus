@@ -711,6 +711,13 @@ class DocumentsService:
                         (image[1],),
                         dgii_qr=await asyncio.to_thread(read_dgii_qr, (image[1],)),
                     )
+                elif (prepare := getattr(self.extractor, "prepare", None)) is not None:
+                    # Decoded and checked here, before the budget is charged, so
+                    # a file the local checks refuse costs no read. A stand-in
+                    # extractor without this step reads the bytes itself.
+                    prepared_args["prepared"] = await asyncio.to_thread(
+                        prepare, content, draft.media_type
+                    )
                 # Asked again just before the provider is reached, so a switch
                 # turned off while the source was read still stops this read. The
                 # only window left is the commit below and the request start.

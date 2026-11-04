@@ -310,9 +310,7 @@ def priced_amounts(batch: ExtractionBatch) -> tuple[PricedAmount, ...]:
         _consider(
             found,
             candidate.amount,
-            _priced_currency(
-                candidate.currency, candidate.account.currency, agreed
-            ),
+            _priced_currency(candidate.currency, candidate.account.currency, agreed),
             candidate.merchant,
             candidate.occurred_on,
         )
@@ -538,15 +536,8 @@ class DocumentExtractor:
             settings if settings is not None else load_document_extraction_settings()
         )
 
-    async def extract(
-        self,
-        content: bytes,
-        filename: str,
-        media_type: str,
-        connection_id: str,
-        observed_at: datetime,
-        prepared: PreparedDocument | None = None,
-    ) -> ExtractionBatch:
+    def _provider(self) -> tuple[str, str]:
+        """The model and key a read would use, or the reason there is none."""
         if not self.settings.enabled:
             raise DocumentExtractionError("document_extraction_disabled")
         model = resolve_openrouter_model(task="document_extraction")
@@ -558,10 +549,26 @@ class DocumentExtractor:
             raise DocumentExtractionError("missing_api_key") from None
         if not key:
             raise DocumentExtractionError("missing_api_key")
+        return model, key
+
+    def prepare(self, content: bytes, media_type: str) -> PreparedDocument:
+        """The local, free half of a read: decode and check the file. A file
+        refused here never reaches the provider and costs no read budget."""
+        self._provider()
+        return prepare_document(content, media_type, self.settings)
+
+    async def extract(
+        self,
+        content: bytes,
+        filename: str,
+        media_type: str,
+        connection_id: str,
+        observed_at: datetime,
+        prepared: PreparedDocument | None = None,
+    ) -> ExtractionBatch:
+        model, key = self._provider()
         if prepared is None:
-            prepared = await asyncio.to_thread(
-                prepare_document, content, media_type, self.settings
-            )
+            prepared = await asyncio.to_thread(self.prepare, content, media_type)
         blocks: list[dict[str, object]] = [
             {"type": "text", "text": f"Read all {prepared.pages} pages."}
         ]
