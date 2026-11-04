@@ -389,9 +389,9 @@ describe("private-alpha usage allowance", () => {
     expect(en.no_limit).toBe("No limit");
     expect(en.messages).toBeUndefined();
     expect(en.message_rule).toBeUndefined();
-    expect(en.left_today).toContain("{{count}}");
-    expect(en.hourly_available).toContain("{{count}}");
-    expect(en.workspace_available).toContain("{{count}}");
+    expect(en.left_today_other).toContain("{{count}}");
+    expect(en.hourly_available_other).toContain("{{count}}");
+    expect(en.workspace_available_other).toContain("{{count}}");
     expect(en.what_counts).toBe("What counts?");
     expect(en.conversation_rule).toBe(
       "Conversation is free. Asking questions and reading answers never counts.",
@@ -411,9 +411,9 @@ describe("private-alpha usage allowance", () => {
     expect(es.no_limit).toBe("Sin límite");
     expect(es.messages).toBeUndefined();
     expect(es.message_rule).toBeUndefined();
-    expect(es.left_today).toContain("{{count}}");
-    expect(es.hourly_available).toContain("{{count}}");
-    expect(es.workspace_available).toContain("{{count}}");
+    expect(es.left_today_other).toContain("{{count}}");
+    expect(es.hourly_available_other).toContain("{{count}}");
+    expect(es.workspace_available_other).toContain("{{count}}");
     expect(es.what_counts.length).toBeGreaterThan(0);
     expect(es.conversation_rule).toBe(
       "La conversación es gratis. Preguntar y leer respuestas nunca cuenta.",
@@ -488,8 +488,8 @@ describe("private-alpha usage allowance", () => {
     ).toBe("Quedan 2 en este chat temporal · vence 10 sep");
 
     const es = readLocale("es-419");
-    expect(es.command_palette.decision_note_count).toBe("{{count}} / {{max}}");
-    expect(es.chat.confirmation.asset_count).toBe("{{count}} activos");
+    expect(es.command_palette.decision_note_count_other).toBe("{{count}} / {{max}}");
+    expect(es.chat.confirmation.asset_count_other).toBe("{{count}} activos");
   });
 
   test("presents a flat quiet gauge with one What counts disclosure", () => {

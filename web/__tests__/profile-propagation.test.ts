@@ -264,8 +264,8 @@ describe("a name is measured after it is normalized", () => {
         "display_name_too_long",
         "preferred_name_too_long",
       ]) {
-        expect(typeof catalog.settings.profile[key]).toBe("string");
-        expect(catalog.settings.profile[key]).toContain("{{count}}");
+        expect(typeof catalog.settings.profile[`${key}_other`]).toBe("string");
+        expect(catalog.settings.profile[`${key}_other`]).toContain("{{count}}");
       }
     }
   });
