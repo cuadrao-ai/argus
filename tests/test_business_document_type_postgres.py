@@ -775,9 +775,12 @@ def test_bandeja_registros_and_the_export_agree_on_the_form(
     assert _dossier(web, draft)["document_type"] == document_type
     sale = document_type == "venta"
     assert _editors(web, draft) == (not sale, sale)
-    kind, fiscal = ("income", SALE_607) if sale else ("expense", PURCHASE_606)
+    # The declaration's base plus ITBIS must equal the recorded total.
+    kind, amount, fiscal = (
+        ("income", "2360.00", SALE_607) if sale else ("expense", "1180.00", PURCHASE_606)
+    )
     reviewed = _review(
-        web, draft, {"facts": _facts(kind, "2360.00", "2026-09-16", account), "dgii": fiscal}
+        web, draft, {"facts": _facts(kind, amount, "2026-09-16", account), "dgii": fiscal}
     )
     assert reviewed.status_code == 200, reviewed.text
     assert reviewed.json()["approval_available"] is True, reviewed.json()["blockers"]

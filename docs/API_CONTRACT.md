@@ -9591,7 +9591,10 @@ equals the rule's result. An unchanged amount sent in `dgii.declaration` stays
 derived. The export holds a split that does not add up to the total with
 `fiscal_invoice_total_conflict`. `purchase` on a record that takes no 606 (a `venta`, with a
 607 or with nothing), open or approved, is 422 `fiscal_direction_unsupported`
-and writes nothing. The body's `payment_split` carries the 607 payment split
+and writes nothing. A `dgii.declaration` whose `form` is not the type's own
+is the same 422. A declaration saved for the other form is no declaration of
+the record: `purchase` and `payment_split` start the type's own form afresh
+and replace it, and an expense approval writes its 606 over it. The body's `payment_split` carries the 607 payment split
 (`SalePaymentSplit`: `cash`, `bank`, `card`, `credit`, `gift`, `barter`,
 `other_payment`), on the same terms: absent buckets stay as they were, a null
 clears a bucket, and a sale with no declaration starts one holding only

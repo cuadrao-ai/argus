@@ -15,13 +15,21 @@ from uuid import uuid4
 
 import pytest
 from argus.domain.business import document_type as types
-from argus.domain.business.actions import captures, mutations, sources
+from argus.domain.business.actions import approval, captures, mutations, sources
+from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import CaptureNote
+from argus.domain.business.contracts.dgii import (
+    FiscalReview,
+    PurchaseReview,
+    SalePaymentSplit,
+)
 from argus.domain.business.contracts.facts import BusinessFacts, Known
 from argus.domain.business.dgii_export import fiscal_manifest
 from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.month_close import project_documents
 from argus.domain.business.purchase_review import (
+    apply_payment_split,
+    apply_purchase,
     takes_payment_split,
     takes_purchase_declaration,
 )
@@ -33,6 +41,12 @@ from argus.domain.ingestion.documents.dgii_qr import parse_dgii_url
 from argus.domain.ingestion.documents.models import ExtractionBatch, ReceiptDetails
 from argus.domain.ingestion.reconcile.model import ImportEvent
 
+from tests.business.test_document_type_direction import (
+    PURCHASE_NCF,
+    _event,
+    _facts,
+    _review,
+)
 from tests.business.test_venta import _actor, _draft
 from tests.dgii.test_packet import practice_records
 from tests.dgii_qr_support import RNC as QR_ISSUER
@@ -480,3 +494,73 @@ def test_month_close_reads_the_role_from_the_type():
         "bought": "receipt",
         "undrafted-sale": "invoice",
     }
+
+
+STRAY_606 = apply_purchase(
+    None, PurchaseReview(category="09", payment_method="01")
+).model_dump(mode="json")
+STRAY_607 = apply_payment_split(None, SalePaymentSplit(cash="118.00")).model_dump(
+    mode="json"
+)
+
+
+def _holding(document_type: str, kind: str, declaration: dict) -> ImportEvent:
+    event = _event(document_type, _facts(PURCHASE_NCF, kind=kind))
+    event.resolution["business"]["dgii"] = declaration
+    return event
+
+
+@pytest.mark.parametrize(
+    "document_type,kind,stray,write,form",
+    [
+        ("venta", "income", STRAY_606, {"payment_split": SalePaymentSplit(bank="118.00")}, "607"),
+        ("recibo", "expense", STRAY_607, {"purchase": PurchaseReview(category="02")}, "606"),
+    ],
+)
+def test_an_enabled_editor_replaces_a_declaration_saved_for_the_other_form(
+    monkeypatch, document_type, kind, stray, write, form
+):
+    """A declaration saved for the other form is no declaration of the
+    record: the type's own editor saves and starts its own form."""
+
+    saved = _review(monkeypatch, _holding(document_type, kind, stray), None, **write)
+    assert saved["dgii"]["form"] == form
+    if form == "607":
+        assert (saved["dgii"]["bank"], saved["dgii"].get("category")) == ("118.00", None)
+    else:
+        assert (saved["dgii"]["category"], saved["dgii"].get("bank")) == ("02", None)
+
+
+@pytest.mark.parametrize(
+    "document_type,kind,stray",
+    [("venta", "income", STRAY_606), ("recibo", "expense", STRAY_607)],
+)
+def test_a_reviewed_declaration_of_the_other_form_is_refused(
+    monkeypatch, document_type, kind, stray
+):
+    review = FiscalReview.model_validate(
+        {
+            "fiscal": {"rnc": OTHER, "ncf": PURCHASE_NCF, "itbis": "18.00"},
+            "declaration": stray,
+        }
+    )
+    event = _event(document_type, _facts(PURCHASE_NCF, kind=kind))
+    with pytest.raises(ActionError) as refused:
+        _review(monkeypatch, event, None, fiscal_review=review)
+    assert refused.value.code == "fiscal_direction_unsupported"
+
+
+def test_an_expense_approval_writes_its_606_over_a_stray_607():
+    source = uuid4()
+    facts = BusinessFacts.model_validate(
+        {
+            "kind": Known(value="expense", origin="member_set", source_ids=(source,)),
+            "fiscal": {
+                "rnc": Known(value=OTHER, origin="extracted", source_ids=(source,)),
+                "ncf": Known(value=PURCHASE_NCF, origin="extracted", source_ids=(source,)),
+            },
+        }
+    )
+    event = _holding("recibo", "expense", STRAY_607)
+    written = approval._approval_declaration(_tx(OWN), event, facts, None)
+    assert written is not None and written.form == "606"

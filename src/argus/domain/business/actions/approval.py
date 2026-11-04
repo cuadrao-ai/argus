@@ -176,7 +176,10 @@ def _approval_declaration(
     if not saved:
         return built
     current = _declaration(saved)
-    if built is None or not isinstance(current, PurchaseDeclaration):
+    if not isinstance(current, PurchaseDeclaration):
+        # Saved for the other form: no declaration of this purchase.
+        return built
+    if built is None:
         return current if failed is not None else None
     filled = current.model_copy(
         update={

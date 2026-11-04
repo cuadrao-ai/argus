@@ -42,6 +42,7 @@ from argus.domain.business.contracts.facts import (
 from argus.domain.business.document_type import (
     TYPE_OF_KIND,
     DocumentType,
+    direction,
     kind_disagrees,
     kind_follows_type,
     require_type_kind,
@@ -296,8 +297,11 @@ def revise(
             value = getattr(patch, question["field"])
             if value is not None and value.state in {"known", "owner_does_not_know"}:
                 answer_question(tx, event.id, question["id"], patch, source_ids[-1])
+    current_form = direction(current_type).form
     declared = fiscal_review.declaration if fiscal_review else None
-    stored = _stored_declaration(event, retyped)
+    if declared is not None and declared.form != current_form:
+        raise ActionError("invalid_input", "fiscal_direction_unsupported")
+    stored = _stored_declaration(event, retyped, current_form)
     if purchase is not None:
         current = declared or stored
         if not takes_purchase_declaration(current_type, after):
@@ -341,11 +345,15 @@ def revise(
     )
 
 
-def _stored_declaration(event: ImportEvent, retyped: bool) -> DgiiDeclaration | None:
-    """The draft's saved declaration. One filled under another type is gone."""
+def _stored_declaration(
+    event: ImportEvent, retyped: bool, form: str
+) -> DgiiDeclaration | None:
+    """The draft's saved declaration on the type's own ``form``. One filled
+    under another type is gone, and one saved for the other form is no
+    declaration of this record: a write starts its own form's afresh."""
 
     raw = (event.resolution.get("business") or {}).get("dgii")
-    if retyped or not raw:
+    if retyped or not raw or raw.get("form") != form:
         return None
     return TypeAdapter(DgiiDeclaration).validate_python(raw)
 
