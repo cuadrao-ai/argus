@@ -74,17 +74,23 @@ for (const prepared of [false, true]) for (const width of [1440, 390]) {
       const manual = [...document.querySelectorAll("label")].find(node => node.textContent === "Carga manual")?.querySelector("input");
       await page.click(manual);
       await page.click(findButton("Aplicar"));
-      const search = page.host.querySelector<HTMLInputElement>('input[type="search"]');
+      const searchField = () => page.host.querySelector<HTMLInputElement>('input[type="search"]');
+      if (width < 1024) await page.wait(() => searchField() !== null);
+      const search = searchField();
       await page.act(async () => {
         if (search) {
           Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(search, "recibo-27.jpg");
           search.dispatchEvent(new Event("input", { bubbles: true }));
         } else {
+          assert.ok(width >= 1024, "a phone searches through the list field");
           (await import("@/components/business-app/foundation/list-search")).applyListSearch("inbox", "recibo-27.jpg");
         }
       });
-      assert.equal(page.host.querySelectorAll('[data-testid="reception-row"]').length, 1);
+      const rows = () => page.host.querySelectorAll('[data-testid="reception-row"]').length;
+      await page.wait(() => rows() === 1);
+      assert.equal(rows(), 1);
       await page.openFirst();
+      await page.wait(() => page.place()?.textContent === "1 de 1");
       assert.equal(page.place()?.textContent, "1 de 1");
       assert.equal(page.next()?.disabled, true);
       assert.equal(page.previous()?.disabled, true);
@@ -95,6 +101,7 @@ for (const prepared of [false, true]) for (const width of [1440, 390]) {
     const page = await mount(prepared, width);
     try {
       await page.openFirst();
+      await page.wait(() => page.place()?.textContent === "1 de 28");
       for (let index = 0; index < 28; index++) {
         assert.equal(page.place()?.textContent, `${index + 1} de 28`);
         const panel = page.api().panel;
