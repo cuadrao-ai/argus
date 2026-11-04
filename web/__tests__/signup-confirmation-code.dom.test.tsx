@@ -590,8 +590,9 @@ describe("an exit chosen while a code operation is pending wins over its late re
       let finished = 0;
       const page = await renderSpanishSignup({ ...operations["a code check that succeeds late"](settle), onEmailConfirmed: () => { finished += 1; } });
       let clicks = { leftToBrowser: [] as boolean[], stop: () => {} };
+      const armed = armResend();
       try {
-        const code = await startPending(page, "a code check that succeeds late", armResend());
+        const code = await startPending(page, "a code check that succeeds late", armed);
         clicks = watchClicks(page.host);
         await dispatch(exitsOf(page.host).recovery, type, init);
         expect(takeRecoveryEmail()).toBe("");
@@ -604,6 +605,7 @@ describe("an exit chosen while a code operation is pending wins over its late re
         expect(code.readOnly).toBe(true);
       } finally {
         clicks.stop();
+        armed.restore();
         await act(async () => { page.root.unmount(); });
       }
     });
