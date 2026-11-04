@@ -304,16 +304,13 @@ jobs:
           bunx playwright test e2e/browser-storage-disclosure.spec.ts
           NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true PLAYWRIGHT_PORT=3101 bunx playwright test e2e/business-receipt-upload-recovery.spec.ts
           NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true NEXT_PUBLIC_ENABLE_SPANISH=true PLAYWRIGHT_PORT=3102 bunx playwright test --config e2e/business-consent.playwright.config.ts
-          NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true NEXT_PUBLIC_ARGUS_API_URL=http://localhost:3103/api/v1 NEXT_PUBLIC_SUPABASE_URL=http://localhost:3103 NEXT_PUBLIC_SUPABASE_ANON_KEY=synthetic PLAYWRIGHT_PORT=3103 bunx playwright test e2e/receipt-navigation-scope.spec.ts
 
       - name: Retain receipt upload browser evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: receipt-upload-browser-evidence
-          path: |
-            web/temp/playwright-results/**/receipt-upload-*.png
-            web/temp/playwright-results/**/receipt-navigation-*.png
+          path: web/temp/playwright-results/**/receipt-upload-*.png
           if-no-files-found: warn
 
   marketing-checks:
