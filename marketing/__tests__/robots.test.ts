@@ -29,6 +29,13 @@ Disallow: /
 `);
   });
 
+  test.each(["", "private", "PUBLIC", "true"])("%s does not enable indexing", (value) => {
+    delete process.env.CUADRAO_SITE_INDEXING;
+    const blocked = resolveRobots(robots());
+    process.env.CUADRAO_SITE_INDEXING = value;
+    expect(resolveRobots(robots())).toBe(blocked);
+  });
+
   test("a public host still allows the site, blocks the API, and names the sitemap", () => {
     process.env.CUADRAO_SITE_INDEXING = "public";
 
