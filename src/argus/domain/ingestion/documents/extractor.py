@@ -28,6 +28,7 @@ from argus.domain.ingestion.contract import (
     SourceRef,
 )
 from argus.domain.ingestion.documents.config import (
+    PROVIDER_CALLS_PER_READ,
     DocumentExtractionSettings,
     load_document_extraction_settings,
 )
@@ -572,20 +573,22 @@ class DocumentExtractor:
     ) -> ExtractionResult | None:
         """The provider call, made once more when it times out. The second call
         is admitted again, so it is charged like the first. Any other failure,
-        and a second timeout, end the read."""
-        try:
-            return await call()
-        except Exception as exc:
-            if not timed_out(exc):
-                raise
-            failure_class = type(exc).__name__
-        logger.bind(failure_class=failure_class).warning(
-            "Document extraction provider timed out; reading once more: "
-            "connection_id={} failure_class={}",
-            connection_id,
-            failure_class,
-        )
-        return await call()
+        and the last timeout, end the read."""
+        for number in range(1, PROVIDER_CALLS_PER_READ + 1):
+            try:
+                return await call()
+            except Exception as exc:
+                if number == PROVIDER_CALLS_PER_READ or not timed_out(exc):
+                    raise
+                failure_class = type(exc).__name__
+            logger.bind(failure_class=failure_class).warning(
+                "Document extraction provider timed out; reading once more: "
+                "connection_id={} failure_class={} call={}",
+                connection_id,
+                failure_class,
+                number,
+            )
+        return None
 
     async def extract(
         self,

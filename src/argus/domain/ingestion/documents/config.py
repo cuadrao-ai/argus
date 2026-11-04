@@ -16,6 +16,7 @@ from pydantic import BeforeValidator, Field, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from argus.api.financial_accounts import TRUE_VALUES
+from argus.llm.openrouter import openrouter_profile_for_task
 from argus.settings_names import setting_aliases, setting_value
 
 # The bucket in 20261008100000 repeats both, checked by a real-Postgres test.
@@ -115,6 +116,19 @@ def load_document_extraction_settings() -> DocumentExtractionSettings:
         return _disabled_document_extraction_settings()
 
 
+# Provider calls one read may make: the first, and one more when it times out.
+PROVIDER_CALLS_PER_READ = 2
+# Local work around the provider calls: decoding, the budget charge, the saves.
+_READ_LOCAL_SECONDS = 30.0
+
+
+def read_seconds() -> float:
+    """The longest one read can take: every provider call at its timeout, plus
+    the local work around them. Every wait sized for a read derives from it."""
+    timeout = openrouter_profile_for_task("document_extraction").timeout_seconds
+    return PROVIDER_CALLS_PER_READ * timeout + _READ_LOCAL_SECONDS
+
+
 class DocumentJobSettings(BaseSettings):
     """Durable preparation jobs (#823). Off keeps FastAPI background tasks."""
 
@@ -142,9 +156,10 @@ class DocumentJobSettings(BaseSettings):
         le=32,
         validation_alias=setting_aliases("DOCUMENT_JOBS_MAX_READS"),
     )
-    # Covers one read from the pull: the 90 s provider timeout, its local work.
+    # Covers one read from the pull, retry included. The host's shutdown delay
+    # must be this plus 5 s, and the host allows at most 300 s.
     drain_seconds: float = Field(
-        default=120.0,
+        default_factory=read_seconds,
         gt=0,
         le=300,
         validation_alias=setting_aliases("DOCUMENT_JOBS_DRAIN_SECONDS"),
