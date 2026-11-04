@@ -69,8 +69,8 @@ async function mount(waiting: number | null, showReports = true) {
   await render();
   return {
     host, fixture, reloads: () => reloads,
-    update: async (count: number | null, error = false) => {
-      context = { ...context, records: { ...context.records, receiptActivity: activity(count), error, failureReference: error ? "receipt-count-test" : null } };
+    update: async (count: number | null, failure: Partial<BusinessContextValue["records"]> = {}) => {
+      context = { ...context, records: { ...context.records, receiptActivity: activity(count), error: false, failureReference: null, serverReference: null, ...failure } };
       await render();
     },
   };
@@ -85,13 +85,14 @@ function counts(host: HTMLElement, expected: number) {
 test("Inicio, Bandeja and Registros use the same server count and follow its updates", async () => {
   const page = await mount(28);
   counts(page.host, 28);
+  const reportRequests = page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).length;
   await page.update(1);
   counts(page.host, 1);
   await page.update(0);
   for (const id of ["home-records-to-review", "business-inbox-count", "records-bandeja-waiting"]) {
     assert.equal(page.host.querySelector(`[data-testid="${id}"]`), null, id);
   }
-  assert.equal(page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).length, 1, "only Registros requests its report");
+  assert.equal(page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).length, reportRequests, "receipt activity updates do not request another report");
 });
 
 test("Inicio does not request a report while its shared receipt count is unknown", async () => {
@@ -105,11 +106,26 @@ test("Inicio does not request a report while its shared receipt count is unknown
 
 test("a failed shared receipt load keeps its reference and retries that load", async () => {
   const page = await mount(null, false);
-  await page.update(null, true);
+  await page.update(null, { error: true, failureReference: "receipt-count-test" });
   const section = page.host.querySelector('[data-testid="home-needs-attention"]')!;
   assert.ok(section.textContent?.includes("receipt-count-test"));
   assert.equal(page.host.querySelector('[data-testid="home-records-to-review"]'), null);
   const retry = [...section.querySelectorAll("button")].find((button) => button.textContent === "Reintentar");
+  assert.ok(retry);
+  await act(async () => retry.click());
+  assert.equal(page.reloads(), 1);
+  assert.equal(page.fixture.calls.length, 0);
+});
+
+
+test("an unavailable shared receipt count shows its reference instead of an endless skeleton", async () => {
+  const page = await mount(null, false);
+  await page.update(null, { inbox: null, serverReference: "receipt-service-test" });
+  const failure = page.host.querySelector('[data-testid="home-records-to-review-failed"]');
+  assert.ok(failure);
+  assert.ok(failure.textContent?.includes("receipt-service-test"));
+  assert.equal(page.host.querySelector('[data-testid="home-needs-attention"] [aria-busy="true"]'), null);
+  const retry = [...failure.querySelectorAll("button")].find((button) => button.textContent === "Reintentar");
   assert.ok(retry);
   await act(async () => retry.click());
   assert.equal(page.reloads(), 1);
