@@ -249,3 +249,33 @@ def test_dossier_attachment_sources_that_arrived_by_whatsapp_say_so(monkeypatch)
     composed = api.with_source_channels(dossier, space_id="space", owner_id="owner")
     assert [s.channel for s in composed.sources] == ["whatsapp", "web", "email", "web"]
     assert asked == ["owner"]
+
+
+@pytest.mark.parametrize("runtime_present", [True, False])
+def test_saved_whatsapp_provenance_survives_receiving_off(
+    wa_biz, identities, monkeypatch, runtime_present
+):
+    from argus.api import account_deletion_runtime
+    from argus.domain.ingestion.whatsapp import store_postgres
+
+    client, _ = wa_biz
+    alice = started(Owner(client, ALICE, identities[ALICE]["id"]))
+    bob = started(Owner(client, BOB))
+    link_alice(client)
+    assert post(client, fixture("image_message.json")).status_code == 200
+    [saved] = alice.get("/receipts", view="all").json()["items"]
+    store = whatsapp_runtime().intake.store
+    monkeypatch.setenv("ARGUS_WHATSAPP_INTAKE_ENABLED", "false")
+    if not runtime_present:
+        configure_whatsapp(None)
+        monkeypatch.setattr(api_state, "PERSISTENCE_MODE", "supabase")
+        monkeypatch.setattr(api_state, "DATABASE_URL", "fixture-only")
+        pool = object()
+        monkeypatch.setattr(account_deletion_runtime, "deletion_pool", lambda _: pool)
+        monkeypatch.setattr(store_postgres, "PostgresWhatsAppStore", lambda selected: store if selected is pool else None)
+    [still_saved] = alice.get("/receipts", view="all").json()["items"]
+    assert still_saved["id"] == saved["id"]
+    assert still_saved["channel"] == "whatsapp"
+    assert alice.detail(saved["id"])["channel"] == "whatsapp"
+    assert bob.get("/receipts", view="all").json()["items"] == []
+    assert bob.get(f"/receipts/{saved['id']}").status_code == 404

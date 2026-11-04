@@ -130,7 +130,7 @@ test("opened capped mail does not fetch an unread body or offer an immediate ret
 });
 
 
-test("email off keeps historical attachments and an already loaded message without fetching or offering retry", async () => {
+test("email off reads historical attachments and the message without offering an intake retry", async () => {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { BusinessContext } = await import("@/components/business-app/business-context");
@@ -146,7 +146,8 @@ test("email off keeps historical attachments and an already loaded message witho
   const render = (available: boolean) => act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={{ receivingChannels: { email: { available }, whatsapp: { available: false } } } as BusinessContextValue}><EmailDeliveryDetail delivery={item} loadDetail={loadDetail} openReceipt={() => undefined} retryDelivery={async () => undefined} /></BusinessContext.Provider></I18nextProvider>));
   try {
     await render(false);
-    assert.equal(requests, 0);
+    assert.equal(requests, 1);
+    assert.ok(host.textContent?.includes("Mensaje guardado"));
     assert.ok(host.textContent?.includes("recibo-prueba-ferreteria.pdf"));
     assert.ok(!host.textContent?.includes(spanish.business.email.retry));
     await render(true);

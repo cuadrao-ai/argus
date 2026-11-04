@@ -28,7 +28,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 type Source = ReturnType<typeof import("@/components/business-app/fixture-data").createFixtureBusinessDataSource>;
 
 /** Mounts the real provider with the server workspace answer under test control. */
-async function mount(answer: { available: boolean } | "hold", url = "/biz", overrides: Partial<Source> = {}) {
+async function mount(answer: { available: boolean } | "hold", url = "/biz", overrides: Partial<Source> = {}, history = false) {
   search = url.includes("?") ? url.slice(url.indexOf("?")) : "";
   window.history.replaceState(null, "", url);
   const { act } = await import("react");
@@ -39,6 +39,8 @@ async function mount(answer: { available: boolean } | "hold", url = "/biz", over
   const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
   const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+  const { default: ReceiptSourcePreview } = await import("@/components/business-app/ReceiptSourcePreview");
+  const { EmailRecord } = await import("@/components/business-app/BusinessEmailDeliveries");
   const { default: BusinessReception } = await import("@/components/business-app/BusinessReception");
   const { useForwardAddress } = await import("@/components/business-app/useForwardAddress");
   const { setChosenGrant } = await import("@/lib/business-grant");
@@ -62,7 +64,7 @@ async function mount(answer: { available: boolean } | "hold", url = "/biz", over
   function Probe() {
     api = useBusiness();
     const address = useForwardAddress();
-    return <p data-testid="forward-address">{address}</p>;
+    return <><p data-testid="forward-address">{address}</p>{history ? api.panel.kind === "email" ? <EmailRecord emailId={api.panel.emailId} /> : <ReceiptSourcePreview detail={{ id: "historical-receipt", media_type: "application/pdf", filename: "recibo.pdf", received_at: "2026-11-04T00:00:00Z", channel: "email", email_delivery_ids: ["historical-email", "historical-repeat"] }} /> : null}</>;
   }
   const host = document.createElement("div");
   document.body.appendChild(host);
@@ -101,7 +103,7 @@ async function mount(answer: { available: boolean } | "hold", url = "/biz", over
 }
 
 
-test("off and unanswered channels make no address or delivery request and expose no email offer", async () => {
+test("off and unanswered channels expose no email offer or address request but retain history reads", async () => {
   for (const answer of [{ available: false }, "hold"] as const) {
     let addressRequests = 0;
     let deliveryRequests = 0;
@@ -110,7 +112,7 @@ test("off and unanswered channels make no address or delivery request and expose
       emailDeliveries: async () => { deliveryRequests += 1; return []; },
     });
     assert.equal(addressRequests, 0);
-    assert.equal(deliveryRequests, 0);
+    assert.ok(deliveryRequests > 0, "stored email history still loads");
     assert.equal(page.host.querySelector('[data-testid="email-address"]'), null);
     assert.ok(!page.text().includes("Remitentes"));
     assert.equal(page.host.querySelector('[data-testid="forward-address"]')?.textContent, "");
@@ -142,16 +144,16 @@ test("a Business switch drops channel capabilities and the old forwarding addres
   assert.equal(page.host.querySelector('[data-testid="forward-address"]')?.textContent, "");
   assert.equal(page.host.querySelector('[data-testid="email-address"]'), null);
   assert.equal(addressRequests, before.addressRequests);
-  assert.equal(deliveryRequests, before.deliveryRequests);
+  assert.ok(deliveryRequests > before.deliveryRequests, "the new Business loads its own stored history");
 });
 
 
-test("automatic grant fallback waits for the new Business workspace before channel requests", async () => {
+test("automatic grant fallback waits for the new Business workspace before intake requests", async () => {
   const { setChosenGrant } = await import("@/lib/business-grant");
   let requests = 0;
   const page = await mount("hold", "/biz", {
     emailIntake: async () => { requests += 1; return { enabled: true, receiving_address: "inbox@cuadrao.example" }; },
-    emailDeliveries: async () => { requests += 1; return []; },
+    emailDeliveries: async () => [],
   });
   const enabled = { receiving_channels: { email: { available: true }, whatsapp: { available: true } } };
   await page.release(enabled);
@@ -166,4 +168,37 @@ test("automatic grant fallback waits for the new Business workspace before chann
   assert.equal(page.api().receivingChannels?.email.available, false);
   assert.equal(page.host.querySelector('[data-testid="forward-address"]')?.textContent, "");
   assert.equal(requests, before);
+});
+
+
+test("email off: Ver correo opens the stored email and body while intake and retry stay unavailable", async () => {
+  let listReads = 0;
+  let bodyReads = 0;
+  let intakeRequests = 0;
+  let retryRequests = 0;
+  const delivery = { id: "historical-email", state: "captured" as const, received_at: "2026-11-04T00:00:00Z", updated_at: "2026-11-04T00:00:00Z", sender: "sender@cuadrao.example", subject: "Recibo guardado", sent_at: null, error_code: null, retryable: true, original_document_id: null, parts: [{ id: "part", filename: "recibo.pdf", media_type: "application/pdf", state: "captured" as const, document_id: "historical-receipt", error_code: null }] };
+  const page = await mount({ available: false }, "/biz", {
+    emailDeliveries: async () => { listReads += 1; return [delivery]; },
+    emailDelivery: async () => { bodyReads += 1; return { ...delivery, text_body: "Mensaje histórico conservado" }; },
+    emailIntake: async () => { intakeRequests += 1; return { enabled: false, receiving_address: null }; },
+    retryEmailDelivery: async () => { retryRequests += 1; return { id: delivery.id }; },
+    receiptSource: () => new Promise<Blob>(() => undefined),
+  }, true);
+  assert.ok(listReads > 0);
+  assert.equal(page.api().records.emails?.length, 1);
+  assert.ok(page.text().includes("Llegó por correo"));
+  assert.ok(page.text().includes("Este archivo llegó 2 veces por correo."));
+  const seeEmail = page.host.querySelector<HTMLButtonElement>('[data-testid="receipt-see-email"]');
+  assert.ok(seeEmail);
+  await page.act(async () => seeEmail!.click());
+  await page.settle(() => page.text().includes("Mensaje histórico conservado"));
+  assert.ok(page.host.querySelector('[data-testid="email-record"]'));
+  assert.ok(page.text().includes("Recibo guardado"));
+  assert.ok(page.text().includes("recibo.pdf"));
+  assert.equal(bodyReads, 1);
+  assert.equal(intakeRequests, 0);
+  assert.equal(retryRequests, 0);
+  assert.ok(!page.text().includes("Obtener una dirección"));
+  const retryLabel = (await import("@/public/locales/es-419/common.json")).default.business.email.retry;
+  assert.ok(![...page.host.querySelectorAll("button")].some(button => button.textContent === retryLabel));
 });

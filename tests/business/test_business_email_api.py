@@ -146,11 +146,11 @@ def test_owner_sees_readiness_and_in_memory_app_cannot_mint_an_address(
 def test_endpoints_say_unavailable_without_a_runtime(alice: Owner) -> None:  # noqa: F811
     runtime_module.configure_email_intake(None)
     assert alice.get("/email").status_code == 404
-    assert alice.get("/email/deliveries").status_code == 404
+    assert alice.get("/email/deliveries").json() == {"items": []}
 
 
 @pytest.mark.parametrize("missing", ["receiving", "domain", "provider", "runtime"])
-def test_workspace_and_every_email_route_share_availability(
+def test_workspace_and_email_intake_routes_share_availability(
     alice: Owner, runtime, monkeypatch, missing  # noqa: F811
 ) -> None:
     fake = Faker()
@@ -176,8 +176,7 @@ def test_workspace_and_every_email_route_share_availability(
         ("GET", "/suggestion?name=Fixture", None),
         ("POST", "/address", {"alias": fake.user_name()}),
         ("GET", "/senders", None), ("POST", "/senders", {"email": fake.email()}),
-        ("DELETE", f"/senders/{item_id}", None), ("GET", "/inbox", None),
-        ("GET", "/deliveries", None), ("GET", f"/deliveries/{item_id}", None),
+        ("DELETE", f"/senders/{item_id}", None),
         ("POST", f"/deliveries/{item_id}/retry", None),
     ]
     for method, path, body in routes:

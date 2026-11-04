@@ -131,7 +131,7 @@ def test_each_read_answers_its_empty_shape_once_the_business_exists(alice: Owner
     ) == (422, "invalid_period")
 
     deliveries = alice.get("/email/deliveries")
-    assert _code(deliveries) == (404, "email_intake_unavailable")
+    assert (deliveries.status_code, deliveries.json()) == (200, {"items": []})
 
 
 def test_without_a_business_every_read_still_says_the_space_is_missing(alice: Owner):
@@ -180,6 +180,6 @@ def test_durable_mode_without_a_pool_refuses_as_before(alice: Owner):
             "business_unavailable",
         )
         assert _code(alice.get("/email/deliveries")) == (
-            404,
-            "email_intake_unavailable",
+            503,
+            "email_capture_unavailable",
         )
