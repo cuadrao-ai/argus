@@ -3,6 +3,7 @@ import { createFixtureBusinessDataSource } from "../components/business-app/fixt
 import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
 
 async function setup(page: Page, available: boolean) {
+  await page.emulateMedia({ reducedMotion: "reduce" });
   const requests: string[] = [];
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
@@ -20,7 +21,7 @@ async function setup(page: Page, available: boolean) {
     if (path === "space") return route.fulfill({ json: { id: "fixture-space", name: "Colmado de prueba" } });
     if (path === "spaces") return route.fulfill({ json: { spaces: (await source.spaces()).slice(0, 1) } });
     if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });
-    if (path === "receipts") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, needs_attention_count: 0 } } });
+    if (path === "receipts") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, needs_attention_count: 0, ready_to_review_count: 0, bandeja_attention_count: 0, bandeja_listo_count: 0 } } });
     if (path === "receipt-reading") return route.fulfill({ json: { enabled: false, available: true, can_change: false } });
     if (path === "email") return route.fulfill({ json: { enabled: false, receiving_address: null } });
     if (["email/deliveries", "email/senders", "captures"].includes(path)) return route.fulfill({ json: { items: [] } });
@@ -36,6 +37,7 @@ for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/biz?view=inbox");
     await expect(page.getByTestId("reception-preview")).toBeVisible();
+    await expect(page.getByRole("tab", { name: /^Listos\s*0$/ })).toBeVisible();
     await expect(page.getByText("o recibe documentos por correo", { exact: false })).toHaveCount(0);
     await expect(page.getByTestId("email-address")).toHaveCount(0);
     await page.screenshot({ path: info.outputPath(`channels-off-inbox-${width}.png`), fullPage: true });
