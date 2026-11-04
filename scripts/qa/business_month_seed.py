@@ -25,6 +25,10 @@ import asyncio
 import os
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from argus.domain.ingestion.documents.preparation import PreparedDocument
 
 QA_DIR = Path(__file__).resolve().parent
 if str(QA_DIR) not in sys.path:
@@ -280,6 +284,13 @@ class _SeedExtractor:
     def __init__(self, documents) -> None:  # noqa: ANN001
         self._documents = {document.filename: document for document in documents}
 
+    def prepare(
+        self, content: bytes, media_type: str, *, rebuilt_image: bytes | None = None
+    ) -> PreparedDocument:
+        from argus.domain.ingestion.documents.preparation import prepare_document
+
+        return prepare_document(content, media_type, rebuilt_image=rebuilt_image)
+
     async def extract(
         self,
         *,
@@ -289,6 +300,7 @@ class _SeedExtractor:
         connection_id: str,
         observed_at,
         prepared=None,
+        before_request=None,
     ):
         import hashlib
 
@@ -302,6 +314,8 @@ class _SeedExtractor:
         )
 
         document = self._documents[filename]
+        if before_request is not None:
+            await before_request()
         amount = f"{document.amount:.2f}"
         result = ExtractionResult(
             complete=True,

@@ -7,6 +7,7 @@ everything after the provider call is the production path. No network.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from typing import Any
 
@@ -61,6 +62,13 @@ class ReceiptStub:
         self.failure: str | None = None
         self.calls: list[str] = []
 
+    def prepare(
+        self, content: bytes, media_type: str, *, rebuilt_image: bytes | None = None
+    ) -> PreparedDocument:
+        from argus.domain.ingestion.documents.preparation import prepare_document
+
+        return prepare_document(content, media_type, rebuilt_image=rebuilt_image)
+
     async def extract(
         self,
         *,
@@ -70,7 +78,10 @@ class ReceiptStub:
         connection_id: str,
         observed_at: datetime,
         prepared: PreparedDocument | None = None,
+        before_request: Callable[[], Awaitable[None]] | None = None,
     ) -> ExtractionBatch:
+        if before_request is not None:
+            await before_request()
         self.calls.append(connection_id)
         if self.failure is not None:
             code, self.failure = self.failure, None
