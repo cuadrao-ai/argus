@@ -86,7 +86,7 @@ const dossierCopy = {
     en: "Show less",
     es419: "Mostrar menos",
   },
-  "command_palette.decision_note_count": {
+  "command_palette.decision_note_count_other": {
     en: "{{count}} / {{max}}",
     es419: "{{count}} / {{max}}",
   },

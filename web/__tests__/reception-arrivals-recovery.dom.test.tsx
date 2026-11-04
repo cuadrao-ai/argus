@@ -18,7 +18,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 const ACTIVITY = { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 1, needs_attention_count: 0, ready_to_review_count: 1 };
 
 /** The live Bandeja over a source whose full read the test can break, and a poll the test can tick. */
-async function mount() {
+async function mount(language: "es-419" | "en" = "es-419") {
   Reflect.set(process.env, "NODE_ENV", "production");
   process.env.NEXT_PUBLIC_MOCK_AUTH = "false";
   const { act } = await import("react");
@@ -28,7 +28,7 @@ async function mount() {
   const Inbox = (await import("@/components/business-app/BusinessInboxPanel")).default;
   const source = (await import("@/components/business-app/fixture-data")).createFixtureBusinessDataSource({ chatAvailable: false });
   const i18n = (await import("i18next")).default.createInstance();
-  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: (await import("@/public/locales/es-419/common.json")).default } }, interpolation: { escapeValue: false } });
+  await i18n.init({ lng: language, resources: { "es-419": { translation: (await import("@/public/locales/es-419/common.json")).default }, en: { translation: (await import("@/public/locales/en/common.json")).default } }, interpolation: { escapeValue: false } });
   const seed = (await source.receipts("all"))[0];
   const receipt = (id: string): ReceiptSummary => ({ ...seed, id, merchant: `Recibo ${id}`, bandeja: { por_revisar: true, leyendo: false, con_problema: false } });
   let receipts = [receipt("uno")];
@@ -130,4 +130,16 @@ test("a server failure offers Reintentar, and a refusal does not ask again on a 
   const reads = refused.allReads();
   await refused.tick();
   assert.equal(refused.allReads(), reads, "asking again would get the same refusal");
+});
+
+for (const [language, one, other] of [
+  ["es-419", "Hay 1 elemento nuevo.", "Hay 2 elementos nuevos."],
+  ["en", "There is 1 new item.", "There are 2 new items."],
+] as const) test(`the arrival banner uses singular and plural grammar in ${language}`, async () => {
+  const page = await mount(language);
+  await page.start();
+  await page.tick([...page.receipts(), page.receipt("dos")]);
+  assert.equal(page.host.querySelector('[role="status"] span')?.textContent, one);
+  await page.tick([...page.receipts(), page.receipt("tres")]);
+  assert.equal(page.host.querySelector('[role="status"] span')?.textContent, other);
 });
