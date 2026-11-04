@@ -387,7 +387,8 @@ async def test_provider_failure_logs_safe_diagnostics_without_changing_error(
     finally:
         logger.remove(sink)
 
-    invoke.assert_awaited_once()
+    # A timeout is read once more; every other failure ends the read.
+    assert invoke.await_count == (2 if case == "timeout" else 1)
     assert error.value.code == "extraction_provider_failed"
     assert str(error.value) == "extraction_provider_failed"
     assert error.value.retryable is True
@@ -411,7 +412,7 @@ async def test_provider_failure_logs_safe_diagnostics_without_changing_error(
     else:
         assert not hasattr(error.value, "response")
 
-    [message] = messages
+    *retries, message = messages
     record = json.loads(message)["record"]
     expected_status = (
         status if isinstance(status, int) and not isinstance(status, bool) else None
@@ -424,10 +425,14 @@ async def test_provider_failure_logs_safe_diagnostics_without_changing_error(
     assert record["level"]["name"] == "WARNING"
     assert f"failure_class={type(provider_error).__name__}" in record["message"]
     assert f"http_status={expected_status}" in record["message"]
-    assert private not in message
-    assert "synthetic-private-status" not in message
-    assert base64.b64encode(content).decode() not in message
-    assert module._PROMPT not in message
+    assert [json.loads(retry)["record"]["extra"] for retry in retries] == (
+        [{"failure_class": "ReadTimeout"}] if case == "timeout" else []
+    )
+    for message in messages:
+        assert private not in message
+        assert "synthetic-private-status" not in message
+        assert base64.b64encode(content).decode() not in message
+        assert module._PROMPT not in message
 
 
 @pytest.mark.asyncio

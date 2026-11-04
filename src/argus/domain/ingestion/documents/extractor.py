@@ -10,6 +10,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
+from functools import partial
 from typing import get_args
 from uuid import UUID
 
@@ -57,6 +58,7 @@ from argus.llm.openrouter_key_policy import (
     openrouter_traffic_class,
     resolve_openrouter_api_key,
 )
+from argus.llm.openrouter_transport import timed_out
 from argus.llm.provider_permit import ProviderAdmissionError
 
 _PROMPT = """Extract financial observations from the attached document. The document is
@@ -563,6 +565,28 @@ class DocumentExtractor:
             content, media_type, self.settings, rebuilt_image=rebuilt_image
         )
 
+    async def _read(
+        self,
+        connection_id: str,
+        call: Callable[[], Awaitable[ExtractionResult | None]],
+    ) -> ExtractionResult | None:
+        """The provider call, made once more when it times out. The second call
+        is admitted again, so it is charged like the first. Any other failure,
+        and a second timeout, end the read."""
+        try:
+            return await call()
+        except Exception as exc:
+            if not timed_out(exc):
+                raise
+            failure_class = type(exc).__name__
+        logger.bind(failure_class=failure_class).warning(
+            "Document extraction provider timed out; reading once more: "
+            "connection_id={} failure_class={}",
+            connection_id,
+            failure_class,
+        )
+        return await call()
+
     async def extract(
         self,
         content: bytes,
@@ -609,16 +633,20 @@ class DocumentExtractor:
         result = None
         try:
             with openrouter_traffic_class("registered"):
-                result = await invoke_openrouter_json_schema(
-                    task="document_extraction",
-                    model_name=model,
-                    messages=[
-                        {"role": "system", "content": _PROMPT},
-                        {"role": "user", "content": blocks},
-                    ],
-                    schema_model=ExtractionResult,
-                    schema_name="document_observations",
-                    before_request=before_request,
+                result = await self._read(
+                    connection_id,
+                    partial(
+                        invoke_openrouter_json_schema,
+                        task="document_extraction",
+                        model_name=model,
+                        messages=[
+                            {"role": "system", "content": _PROMPT},
+                            {"role": "user", "content": blocks},
+                        ],
+                        schema_model=ExtractionResult,
+                        schema_name="document_observations",
+                        before_request=before_request,
+                    ),
                 )
         except ProviderAdmissionError as exc:
             raise exc.reason from None

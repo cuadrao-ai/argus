@@ -7,7 +7,9 @@ re-dispatches an attempt whose worker died only when the attempt provably never
 reached the provider (no ``provider_call_started_at``), up to ``MAX_ATTEMPTS``.
 An attempt that may have reached the provider is never billed again
 automatically: it settles to ``needs_attention`` and only the owner's consented
-prepare or resume starts a new paid attempt. A superseded attempt cannot claim
+prepare or resume starts a new paid attempt. The one exception is the
+extractor's own second call when the provider times out, made inside the same
+attempt under its lease. A superseded attempt cannot claim
 the draft, and its late result is refused by the connection lease.
 """
 
