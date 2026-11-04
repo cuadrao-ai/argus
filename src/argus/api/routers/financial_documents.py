@@ -8,13 +8,13 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Header, Query, Request,
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from argus.api.documents import (
+    DOCUMENT_CONTEXT,
     NO_STORE,
     DocumentContext,
     dispatch_preparation,
     document_filename,
     document_problem,
     read_document_upload,
-    require_document_context,
     require_saved_document_context,
 )
 from argus.domain.ingestion.documents.config import SOURCE_MEDIA_TYPES
@@ -55,7 +55,7 @@ async def upload_document(
         default=None, alias="X-Document-Proposal", max_length=8192
     ),
     consent: str | None = Header(default=None, alias="X-Extraction-Consent"),
-    context: DocumentContext = Depends(require_document_context),  # noqa: B008
+    context: DocumentContext = DOCUMENT_CONTEXT,
 ) -> dict[str, object]:
     response.headers.update(NO_STORE)
     try:
@@ -99,7 +99,7 @@ async def resume_document(
     connection_id: str,
     background_tasks: BackgroundTasks,
     consent: str | None = Header(default=None, alias="X-Extraction-Consent"),
-    context: DocumentContext = Depends(require_document_context),  # noqa: B008
+    context: DocumentContext = DOCUMENT_CONTEXT,
 ) -> dict[str, object]:
     try:
         outcome = context.service.queue(
@@ -246,7 +246,7 @@ def update_proposal(
     response: Response,
     connection_id: str,
     body: ProposalUpdate,
-    context: DocumentContext = Depends(require_document_context),  # noqa: B008
+    context: DocumentContext = DOCUMENT_CONTEXT,
 ) -> dict[str, object]:
     response.headers["Cache-Control"] = "no-store"
     try:

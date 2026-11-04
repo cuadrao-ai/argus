@@ -134,6 +134,11 @@
           "value": "false"
         },
         {
+          "name": "CUADRAO_DOCUMENT_UPLOADS_IN_FLIGHT",
+          "kind": "plain",
+          "value": "3"
+        },
+        {
           "name": "CUADRAO_DOCUMENT_UPLOADS_PER_MINUTE",
           "kind": "plain",
           "value": "60"

@@ -34,6 +34,7 @@ SOURCE_MEDIA_TYPES = {
 }
 _MAX_PAGES = 8
 _UPLOADS_PER_MINUTE = 60
+_UPLOADS_IN_FLIGHT = 3
 _RECOGNIZED_OFF = frozenset({"0", "false", "no", "off"})
 _warned_flags: set[str] = set()
 _warned_invalid = False
@@ -72,6 +73,14 @@ class DocumentExtractionSettings(BaseSettings):
         le=600,
         validation_alias=setting_aliases("DOCUMENT_UPLOADS_PER_MINUTE"),
     )
+    # Web uploads one person may have in flight at once; the next waits a second.
+    # Each one holds its bytes in API memory until it is saved.
+    uploads_in_flight: int = Field(
+        default=_UPLOADS_IN_FLIGHT,
+        ge=1,
+        le=64,
+        validation_alias=setting_aliases("DOCUMENT_UPLOADS_IN_FLIGHT"),
+    )
 
 
 def _disabled_document_extraction_settings() -> DocumentExtractionSettings:
@@ -80,6 +89,7 @@ def _disabled_document_extraction_settings() -> DocumentExtractionSettings:
         max_bytes=SOURCE_MAX_BYTES,
         max_pages=_MAX_PAGES,
         uploads_per_minute=_UPLOADS_PER_MINUTE,
+        uploads_in_flight=_UPLOADS_IN_FLIGHT,
     )
 
 
