@@ -10,6 +10,7 @@ from uuid import uuid4
 from psycopg.errors import UniqueViolation
 from psycopg.rows import dict_row
 
+from argus.domain.business.notifications.events import memory_sender, sender_changed
 from argus.domain.ingestion.email_intake.alignment import bare_address
 from argus.domain.ingestion.email_intake.models import RecipientRoute, route_from_row
 
@@ -225,6 +226,7 @@ class PostgresAddressing:
                 value if status == "blocked" else None,
                 value,
             )
+            sender_changed(connection, space_id, row["id"], status)
             return SenderRule(**row)
 
     def remove_sender(
@@ -246,6 +248,7 @@ class PostgresAddressing:
             self._write_event(
                 cursor, space_id, actor_id, "sender_removed", row["value"], None
             )
+            sender_changed(connection, space_id, row["id"], "removed")
             return SenderRule(**row)
 
     def has_sender_rules(self, space_id: str) -> bool:
@@ -437,6 +440,7 @@ class MemoryAddressing:
                 value if status == "blocked" else None,
                 value,
             )
+            memory_sender(self.notifications, self.notification_owners, space_id, rule.id, status)
             return rule
 
     def remove_sender(
@@ -455,6 +459,7 @@ class MemoryAddressing:
                 return None
             rule = self._senders.pop(found)
             self._remember(space_id, actor_id, "sender_removed", rule.value, None)
+            memory_sender(self.notifications, self.notification_owners, space_id, rule.id, "removed")
             return rule
 
     def has_sender_rules(self, space_id: str) -> bool:

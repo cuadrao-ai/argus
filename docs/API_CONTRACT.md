@@ -10585,8 +10585,28 @@ connection id). Its review is the import event its purchase created, composed
 by `receipt_review`. Its expense is the canonical activity that the import
 accept path recorded.
 
+- GET `/api/v1/business/notifications?business_id=<uuid>` returns `{items,
+  unread_count}` for the authenticated recipient in that Business. A pending
+  invite recipient needs no existing membership. Items contain `id`, `business_id`,
+  `recipient_user_id`, `kind`, `subject_id`, `created_at`, `read_at`, `resolved_at`.
+  Unresolved items and items resolved within 30 days sort by creation time and ID,
+  newest first. Unread count includes only unresolved, unread items.
+- POST `/api/v1/business/notifications/{notification_id}/read?business_id=<uuid>`
+  marks the caller's one item read; POST `/api/v1/business/notifications/read-all?business_id=<uuid>`
+  marks their items in that Business read. Both return `{updated: <count>}`.
+  Replays preserve the first read time.
+  Neither action changes another recipient or Business.
+- `CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED` defaults false. One availability function
+  owns `notifications_available` in the workspace, route guards and event writers.
+  Disabled routes answer 404 before authentication and writers perform no writes.
+  Responses use `Cache-Control: no-store`. Enabled writes mirror invitations for
+  known recipients and pending senders for every active owner, resolving when the
+  source action clears them. Reads resolve expired invitation items using the original
+  invitation expiry time, preserving the 30-day history window. Notification failure logs a safe classification and
+  never fails the source action. This backend slice enables no hosted setting.
+
 - GET `/api/v1/business/workspace` returns `{country, currency, accounts,
-  currencies, assistant_available: false, chat_available, invoicing_available,
+  currencies, assistant_available: false, chat_available, invoicing_available, notifications_available,
   receipt_limits: {max_bytes, media_types}, logo_url}`. `country` and `currency` are the Business's own,
   the same values `GET /business/space` returns. `accounts` lists unarchived cash, checking, savings and credit
   card accounts. `currencies` lists their currencies. The limits come from the

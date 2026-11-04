@@ -10,6 +10,7 @@ from uuid import UUID
 from psycopg import Connection
 from psycopg_pool import ConnectionPool
 
+from argus.domain.business.notifications.events import invitation_changed
 from argus.domain.business.roles import (
     ROLE_PERMISSIONS,
     BusinessRole,
@@ -176,6 +177,9 @@ class PostgresMembershipCommands:
                 existing[2] if existing else None,
             ),
         ).fetchone()
+        invitation_changed(db, space_id, invite[0])
+        if pending:
+            invitation_changed(db, space_id, pending[0])
         remember_command(db, space_id, owner_id, command_key, email, role, invite[0])
         _record(
             db,
@@ -229,11 +233,13 @@ class PostgresMembershipCommands:
                     "update public.business_access_invites set revoked_at=clock_timestamp() where id=%s",
                     (invite_id,),
                 )
-                db.execute(
+                replacement = db.execute(
                     "insert into public.business_access_invites(space_id,issuer_id,email,requested_role,expires_at,recipient_id,target_grant_id,target_version,supersedes_id)"
-                    " select space_id,%s,email,requested_role,clock_timestamp()+%s,recipient_id,target_grant_id,target_version,id from public.business_access_invites where id=%s",
+                    " select space_id,%s,email,requested_role,clock_timestamp()+%s,recipient_id,target_grant_id,target_version,id from public.business_access_invites where id=%s returning id::text",
                     (owner_id, INVITE_LIFETIME, invite_id),
-                )
+                ).fetchone()
+                invitation_changed(db, space_id, invite_id)
+                invitation_changed(db, space_id, replacement[0])
             return self._list(db, space_id, owner_id)
 
     def revoke_grant(
@@ -355,7 +361,21 @@ class PostgresMembershipCommands:
                     action="revoke_invite", invite_id=UUID(invite_id), email=row[0]
                 ),
             )
+            invitation_changed(db, space_id, invite_id)
             return True
+
+    def refresh_notifications(self, business_id: str, user_id: str) -> None:
+        with self.pool.connection() as db:
+            rows = db.execute(
+                "select i.id::text from public.business_access_invites i"
+                " join public.business_notifications n on n.subject_id=i.id and n.business_id=i.space_id"
+                " where n.business_id=%s and n.recipient_user_id=%s"
+                " and n.kind='invitation_received' and n.resolved_at is null"
+                " and (i.accepted_at is not null or i.revoked_at is not null or i.expires_at<=clock_timestamp())",
+                (business_id, user_id),
+            ).fetchall()
+            for (invite_id,) in rows:
+                invitation_changed(db, business_id, invite_id)
 
     def accept_invites(self, user_id: str) -> int:
         return 0
@@ -441,6 +461,7 @@ class PostgresMembershipCommands:
                     email=row[1],
                 ),
             )
+            invitation_changed(db, space_id, invite_id)
             return grant
 
     def admits_email(self, email: str) -> bool:

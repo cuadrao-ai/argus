@@ -24,6 +24,8 @@ from argus.domain.business.memberships import (
     PostgresMembershipCommands,
     RecipientInvitation,
 )
+from argus.domain.business.notifications.events import memory_invitation
+from argus.domain.business.notifications.store import InMemoryNotificationStore
 from argus.domain.business.roles import (
     ROLE_PERMISSIONS,
     BusinessRole,
@@ -565,7 +567,8 @@ class InMemoryAccessStore:
     Businesses the ids it closes through ``close``; neither happens on its own.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, notifications: InMemoryNotificationStore | None = None) -> None:
+        self.notifications = notifications or InMemoryNotificationStore()
         self._lock = threading.RLock()
         self._grants: list[dict] = []
         self._invites: list[dict] = []
@@ -574,6 +577,22 @@ class InMemoryAccessStore:
         self.ledger: list[AccessCommand] = []
         self._commands: dict[tuple[str, str, str], tuple[str, BusinessRole]] = {}
         self._command_invites: dict[tuple[str, str, str], str | None] = {}
+
+    def owner_ids(self, space_id: str) -> tuple[str, ...]:
+        with self._lock:
+            return tuple(
+                g["grantee_id"] for g in self._grants
+                if g["space_id"] == space_id and g["revoked_at"] is None
+                and g["business_role"] == BusinessRole.OWNER
+            )
+
+    def refresh_notifications(self, business_id: str, user_id: str) -> None:
+        with self._lock:
+            subjects = {n.subject_id for n in self.notifications.list(business_id, user_id)
+                        if n.kind == "invitation_received" and n.resolved_at is None}
+            for invite in self._invites:
+                if invite["space_id"] == business_id and invite["id"] in subjects:
+                    memory_invitation(self.notifications, invite, self._now())
 
     def confirm(self, user_id: str, email: str) -> None:
         with self._lock:
@@ -828,6 +847,7 @@ class InMemoryAccessStore:
                 return False, self._list(space_id, owner_id)
             if pending:
                 pending["revoked_at"] = self._now()
+                memory_invitation(self.notifications, pending, self._now())
             created_at = self._now()
             invite = {
                 "id": str(uuid4()),
@@ -845,6 +865,7 @@ class InMemoryAccessStore:
                 "revoked_at": None,
             }
             self._invites.append(invite)
+            memory_invitation(self.notifications, invite, self._now())
             if command_key:
                 self._commands[identity] = (email, role)
                 self._command_invites[identity] = invite["id"]
@@ -912,6 +933,8 @@ class InMemoryAccessStore:
                 )
                 replacement.pop("command_key", None)
                 self._invites.append(replacement)
+                memory_invitation(self.notifications, invite, self._now())
+                memory_invitation(self.notifications, replacement, self._now())
             return self._list(space_id, owner_id)
 
     def revoke_grant(
@@ -1004,6 +1027,7 @@ class InMemoryAccessStore:
                 return False
             self._manager(space_id, owner_id, invite["requested_role"])
             invite["revoked_at"] = self._now()
+            memory_invitation(self.notifications, invite, self._now())
             self.ledger.append(
                 AccessCommand(
                     action="revoke_invite",
@@ -1059,6 +1083,7 @@ class InMemoryAccessStore:
                     space_id, user_id, invite["issuer_id"], invite["requested_role"]
                 )
             invite["accepted_at"], invite["accepted_grant_id"] = self._now(), grant["id"]
+            memory_invitation(self.notifications, invite, self._now())
             self.ledger.append(
                 AccessCommand(
                     action="accept_invite",
