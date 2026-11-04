@@ -22,6 +22,8 @@ from argus.domain.ingestion.sink import SubmitResult
 from argus.domain.owner_scope import PERSONAL
 from faker import Faker
 
+from tests.document_extractor_support import start_request
+
 fake = Faker()
 Rig = tuple[DocumentsService, IngestionHub, Mock, Mock]
 
@@ -36,6 +38,7 @@ def rig() -> Rig:
     extractor = Mock()
 
     async def extract(**kwargs: Any) -> ExtractionBatch:
+        await start_request(kwargs)
         candidate = ImportCandidate(
             source=SourceRef(
                 source="statement",

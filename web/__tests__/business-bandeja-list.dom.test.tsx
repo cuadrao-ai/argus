@@ -421,7 +421,9 @@ describe("typed notes in the list", () => {
     assert.equal(noteRows(page).length, 0);
     await page.choose("all");
     await page.act(async () => noteRows(page)[0].querySelector<HTMLButtonElement>("button")!.click());
-    assert.deepEqual(page.api().panel, { kind: "draft", draftId: "draft-a", list: "inbox" });
+    const panel = page.api().panel;
+    assert.ok(panel.kind === "draft");
+    assert.deepEqual({ kind: panel.kind, draftId: panel.draftId, list: panel.list }, { kind: "draft", draftId: "draft-a", list: "inbox" });
   });
 
   test("a notes outage says so above the receipts it still lists", async () => {

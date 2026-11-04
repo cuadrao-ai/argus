@@ -140,7 +140,10 @@ describe("a record in the desktop tray", () => {
     assert.equal(page.tray(), tray, "the tray stays open and is not drawn again");
     assert.equal(page.row("Papelería Central")?.getAttribute("aria-current"), "true");
     assert.equal(page.row("Ferretería La Esquina")?.getAttribute("aria-current"), null);
-    assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-papeleria", list: "inbox" });
+    const panel = page.panel();
+    assert.ok(panel.kind === "receipt");
+    assert.deepEqual({ kind: panel.kind, receiptId: panel.receiptId, list: panel.list }, { kind: "receipt", receiptId: "rcpt-papeleria", list: "inbox" });
+    assert.ok(panel.receiptIds?.includes("rcpt-papeleria"));
   });
 
   test("Escape inside the tray closes it, returns to the Bandeja, and puts focus on the row", async () => {

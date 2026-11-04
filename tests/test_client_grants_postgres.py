@@ -192,6 +192,7 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "public.business_logos",
         "public.business_notifications",
         "public.business_questions",
+        "public.business_read_daily_usage",
         "public.business_receipt_activity_baseline",
         "public.business_receipt_consent_commands",
         "public.business_receipt_read_states",

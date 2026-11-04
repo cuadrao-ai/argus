@@ -33,17 +33,15 @@ export function ReceiptShortcutRegistration({ actions }: { actions: ReviewShortc
 }
 
 /** The receipt's place among the receipts a person reviews in order, or null outside that list. */
-export function receiptPlace(receiptId: string, rows: readonly { id: string; email_original?: boolean }[] | null): { index: number; total: number } | null {
-  const receipts = (rows ?? []).filter((row) => !row.email_original);
-  const index = receipts.findIndex((row) => row.id === receiptId);
+export function receiptPlace(receiptId: string, receipts: readonly string[]): { index: number; total: number } | null {
+  const index = receipts.indexOf(receiptId);
   return index < 0 ? null : { index: index + 1, total: receipts.length };
 }
 
-export function receiptNavigationActions(receiptId: string, rows: readonly { id: string; email_original?: boolean }[] | null, open: (id: string) => void): ReviewShortcutActions {
-  const receipts = (rows ?? []).filter((row) => !row.email_original);
-  const index = receipts.findIndex((row) => row.id === receiptId);
+export function receiptNavigationActions(receiptId: string, receipts: readonly string[], open: (id: string) => void): ReviewShortcutActions {
+  const index = receipts.indexOf(receiptId);
   if (index < 0) return {};
   const previous = receipts[index - 1];
   const next = receipts[index + 1];
-  return { ...(previous ? { previous: () => open(previous.id) } : {}), ...(next ? { next: () => open(next.id) } : {}) };
+  return { ...(previous ? { previous: () => open(previous) } : {}), ...(next ? { next: () => open(next) } : {}) };
 }

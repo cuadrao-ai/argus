@@ -15,6 +15,7 @@ from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.owner_scope import PERSONAL, BusinessSpace
 
 from tests.business_reading_support import reading_setting, turn_reading
+from tests.document_extractor_support import start_request
 
 
 def reading_on(service: DocumentsService, scope: BusinessSpace, owner: str) -> None:
@@ -30,6 +31,11 @@ def document_bridge():
         repo, box=None, sink=sink, clock=lambda: datetime.now(timezone.utc)
     )
     extractor = Mock(extract=AsyncMock(return_value=ExtractionBatch(candidates=())))
+    async def extract(**kwargs):
+        await start_request(kwargs)
+        return extractor.extract.return_value
+
+    extractor.extract.side_effect = extract
     bridge = Mock()
     service = DocumentsService(hub, store, extractor, business_actions=bridge)
     service.business_receipt_consent = reading_setting()
