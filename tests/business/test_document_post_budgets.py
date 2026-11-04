@@ -11,7 +11,7 @@ import pytest
 from argus.api.documents import _in_flight, _minute, documents_service
 
 from tests.business.conftest import ALICE, BOB
-from tests.business.test_business_api import Owner, started
+from tests.business.test_business_api import RECEIPT, Owner, started
 
 
 @pytest.fixture
@@ -131,3 +131,48 @@ def test_a_refused_upload_frees_its_in_flight_slot(alice: Owner):
     refused = [alice.upload(media_type="application/zip") for _ in range(4)]
     assert [item.status_code for item in refused] == [415] * 4
     assert alice.upload().status_code == 200
+
+
+def test_a_slot_covers_the_upload_not_the_read_behind_it(
+    alice: Owner, monkeypatch: pytest.MonkeyPatch
+):
+    """With jobs off a read runs as a background task after the response. Three
+    receipts being read must not hold the three upload slots: the person keeps
+    uploading while the API reads."""
+
+    _minute.reset()
+    _in_flight.reset()
+    assert alice.reading(True).status_code == 200
+    documents = documents_service()
+    release = threading.Event()
+    started = threading.Semaphore(0)
+    blocked = iter(range(3))
+
+    async def read_later(**kwargs):  # noqa: ANN003, ANN202
+        if next(blocked, None) is None:
+            return
+        started.release()
+        await asyncio.to_thread(release.wait)
+
+    monkeypatch.setattr(documents, "background_prepare", read_later)
+    answers: list = []
+    senders = [
+        threading.Thread(
+            target=lambda n=n: answers.append(alice.upload(content=RECEIPT + bytes([n])))
+        )
+        for n in range(3)
+    ]
+    for sender in senders:
+        sender.start()
+    try:
+        for _ in senders:
+            assert started.acquire(timeout=10)
+        while_reading = [alice.upload(content=RECEIPT + bytes([n])) for n in (10, 11)]
+        assert [item.status_code for item in while_reading] == [200, 200], [
+            item.text for item in while_reading
+        ]
+    finally:
+        release.set()
+        for sender in senders:
+            sender.join(timeout=10)
+    assert [item.status_code for item in answers] == [200] * 3

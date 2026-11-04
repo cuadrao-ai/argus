@@ -264,6 +264,13 @@ async def require_document_context(
             _in_flight.release(key)
 
 
+# The slot guards the handler's own work. FastAPI's default dependency scope
+# releases after the response and its background tasks, so three receipts
+# being read would hold the three slots; the function scope releases when the
+# handler returns. Every caller takes the dependency from here.
+DOCUMENT_CONTEXT = Depends(require_document_context, scope="function")
+
+
 async def read_document_upload(request: Request) -> tuple[str, bytes]:
     """The media type and bounded raw bytes of an upload request body."""
 
