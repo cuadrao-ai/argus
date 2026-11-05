@@ -3917,7 +3917,14 @@ or split proposals. `batch` holds typed observations, receipt itemization,
 projection issues and compatible canonical candidates. It may be null before
 preparation. `preparation_job` names the current preparation attempt (number,
 ID, the draft version it was dispatched for, dispatch time, when its provider
-call started, and a retry request) when `CUADRAO_DOCUMENT_JOBS_ENABLED` (older `ARGUS_DOCUMENT_JOBS_ENABLED`) is on.
+call started, a retry request, and `reruns`) when `CUADRAO_DOCUMENT_JOBS_ENABLED` (older `ARGUS_DOCUMENT_JOBS_ENABLED`) is on.
+`reruns` counts the paid attempts of this preparation the sweep started because
+an earlier attempt died past its provider-call time with no saved batch; it
+bounds them at one (`MAX_RERUNS`). It is omitted from the JSON when zero, so a
+row written before it or by a preparation that never needed it is unchanged,
+and the owner's "Leer de nuevo" starts a new preparation with it at zero. A
+reader older than the field rejects a row that carries it (the model forbids
+unknown keys), so a rollback leaves a receipt mid-rerun to "Leer de nuevo".
 With `CUADRAO_DOCUMENT_JOBS_PULL_ENABLED` on, the dispatch time stays null until
 a worker pulls the attempt, so a null means it waits in the queue.
 Only that attempt may claim the draft. The provider-call time is committed

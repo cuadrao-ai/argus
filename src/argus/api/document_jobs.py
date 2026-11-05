@@ -51,16 +51,27 @@ class InProcessDispatcher:
         self.loop, self.service = loop, service
         self.drain_seconds = read_seconds() if drain_seconds is None else drain_seconds
         self.tasks: set[asyncio.Task[str]] = set()
+        # Set on the loop thread by ``drain``, read there by ``_spawn``, so a
+        # dispatch from any thread after the drain began starts no read.
+        self.closed = False
 
     def __call__(self, connection_id: str, attempt_id: str) -> None:
         self.loop.call_soon_threadsafe(self._spawn, connection_id, attempt_id)
 
     def _spawn(self, connection_id: str, attempt_id: str) -> None:
+        if self.closed:
+            # The attempt is recorded; the next boot's sweep redispatches it.
+            logger.warning(
+                "Document preparation dispatch refused during shutdown",
+                connection_id=connection_id,
+            )
+            return
         task = self.loop.create_task(run_attempt(self.service, connection_id, attempt_id))
         self.tasks.add(task)
         task.add_done_callback(self.tasks.discard)
 
     async def drain(self) -> None:
+        self.closed = True
         deadline = self.loop.time() + self.drain_seconds
         while self.tasks and (remaining := deadline - self.loop.time()) > 0:
             await asyncio.wait(set(self.tasks), timeout=remaining)
@@ -111,7 +122,8 @@ def start_document_jobs(service: DocumentsService, settings: DocumentJobSettings
 
 
 async def drain_document_jobs() -> None:
-    """The sweep stops before the drain, or it could dispatch into it."""
+    """The sweep stops before the drain, or it could dispatch into it. Awaiting
+    the cancelled sweeper joins a sweep already running on its thread."""
     global _sweeper
     if _sweeper is not None:
         _sweeper.cancel()

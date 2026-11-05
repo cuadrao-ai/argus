@@ -4,6 +4,7 @@ The worker is this process's in-process fallback; the provider is scripted, so
 no model is called. The sweep runs on its own cadence inside the running app.
 """
 
+import asyncio
 import threading
 import time
 from collections.abc import Iterator
@@ -14,9 +15,16 @@ from unittest.mock import patch
 
 import pytest
 from argus.api import state as api_state
-from argus.api.document_jobs import document_jobs
+from argus.api.document_jobs import (
+    InProcessDispatcher,
+    document_jobs,
+    drain_document_jobs,
+    start_document_jobs,
+    stop_document_jobs,
+)
 from argus.api.documents import documents_service
 from argus.api.main import app
+from argus.domain.ingestion.documents.config import DocumentJobSettings
 from argus.domain.ingestion.documents.jobs import (
     DISPATCH_WINDOW,
     MAX_ATTEMPTS,
@@ -26,7 +34,10 @@ from argus.domain.owner_scope import PERSONAL
 from fastapi.testclient import TestClient
 
 from tests.document_extractor_support import admit
+from tests.ingestion import test_document_jobs_recharge as support
 from tests.ingestion.conftest import ALICE, bearer
+
+rig = support.rig
 
 DOCUMENTS = "/api/v1/financial-documents"
 IMPORTS = "/api/v1/financial-imports"
@@ -458,6 +469,83 @@ def test_shutdown_cancels_a_read_past_the_drain_for_the_next_boot_to_rerun(
     assert len(dispatched) == 1
     assert service.store.job(user_id=user, connection_id=connection).reruns == 1
     assert provider.calls == 1, "nothing ran again before the next boot"
+
+
+@pytest.fixture
+def paused_sweep(monkeypatch):
+    """The sweep holds on its thread before it dispatches, until released."""
+    original, entered, release = PreparationJobs.sweep, threading.Event(), threading.Event()
+
+    def gated(self, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        entered.set()
+        release.wait(10)
+        return original(self, **kwargs)
+
+    monkeypatch.setattr(PreparationJobs, "sweep", gated)
+    yield entered, release
+    release.set()
+
+
+@pytest.mark.asyncio
+async def test_shutdown_joins_a_running_sweep_before_the_drain(
+    rig, paused_sweep, monkeypatch
+):
+    service, _, clock, extractor, _ = rig
+    monkeypatch.setenv("CUADRAO_DOCUMENT_EXTRACTION_ENABLED", "true")
+    entered, release = paused_sweep
+    connection = await support.queued(service)
+    # Past the window the upload's own dispatch had, so the sweep dispatches it.
+    clock.now += DISPATCH_WINDOW + timedelta(seconds=1)
+    start_document_jobs(
+        service, DocumentJobSettings(enabled=True, sweep_seconds=3600, drain_seconds=5)
+    )
+    try:
+        await asyncio.to_thread(entered.wait, 5)
+        draining = asyncio.create_task(drain_document_jobs())
+        await asyncio.sleep(0.05)
+        assert not draining.done(), "the drain waits for the sweep on its thread"
+        assert extractor.calls == 0
+
+        release.set()
+        await asyncio.wait_for(draining, 5)
+
+        assert document_jobs().dispatch.tasks == set(), "the sweep's read ran inside the drain"
+        assert extractor.calls == 1
+        draft = service.get(user_id="owner", connection_id=connection, scope=PERSONAL)
+        assert draft.status == "review_ready"
+    finally:
+        stop_document_jobs()
+
+
+@pytest.mark.asyncio
+async def test_a_dispatch_after_the_drain_starts_no_read_and_waits_for_the_next_boot(
+    rig,
+):
+    service, _, clock, extractor, _ = rig
+    loop = asyncio.get_running_loop()
+    stopping = InProcessDispatcher(loop, service, drain_seconds=0.01)
+    jobs = PreparationJobs(service, stopping)
+    connection = await support.queued(service)
+    await stopping.drain()
+
+    jobs.start(user_id="owner", connection_id=connection)
+    await asyncio.sleep(0.05)
+    assert stopping.tasks == set(), "no read starts after the drain began"
+    assert extractor.calls == 0
+    job = service.store.job(user_id="owner", connection_id=connection)
+    assert job.dispatched_at is not None, "the attempt is recorded for the next boot"
+
+    booted = PreparationJobs(service, InProcessDispatcher(loop, service))
+    assert booted.sweep().redispatched == [], "a dispatch inside the window is in flight"
+    clock.now += DISPATCH_WINDOW + timedelta(seconds=1)
+    assert booted.sweep().redispatched == [connection]
+    for _ in range(500):
+        draft = service.get(user_id="owner", connection_id=connection, scope=PERSONAL)
+        if draft.status == "review_ready":
+            break
+        await asyncio.sleep(0.01)
+    assert draft.status == "review_ready"
+    assert extractor.calls == 1
 
 
 def test_flag_off_prepares_through_background_tasks_only(flag_off_client, monkeypatch):

@@ -325,7 +325,14 @@ async def sweep_forever(jobs: PreparationJobs, interval: float) -> None:
     while True:
         try:
             if load_document_extraction_settings().enabled:
-                await asyncio.to_thread(jobs.sweep)
+                sweep = asyncio.ensure_future(asyncio.to_thread(jobs.sweep))
+                try:
+                    await asyncio.shield(sweep)
+                except asyncio.CancelledError:
+                    # A cancel cannot stop the thread: a stopping process
+                    # waits for the sweep to return before it drains reads.
+                    await sweep
+                    raise
         except Exception as error:
             logger.warning(
                 "Document preparation sweep failed",
