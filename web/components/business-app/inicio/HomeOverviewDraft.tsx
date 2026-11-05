@@ -248,11 +248,9 @@ function NeedsAttention({ c, toReview: liveToReview, retryCount }: { c: Copy; to
   const rows = all.slice(0, PREVIEW_ROWS.needs);
   const total = bandejaAttentionCount(records);
   const ready = records.inbox !== null || forceEmpty;
-  // Registros keeps its own review queue (GET /business/reports overview, this month). It is a different queue from
-  // Bandeja's, so it is a summary row under the list, never added to the count. MISSING: Registros opened on that filter.
   const toReview: ReviewCount = forceEmpty ? { kind: "ready", value: 0 } : liveToReview;
   let footer: ReactNode = null;
-  if (toReview.kind === "ready" && toReview.value > 0) footer = <SummaryRow testId="home-records-to-review" Icon={FileSearch} label={c.recordsToReview(toReview.value)} verb={c.review} onOpen={() => openPanel({ kind: "transactions" })} />;
+  if (toReview.kind === "ready" && toReview.value > 0) footer = <SummaryRow testId="home-records-to-review" Icon={FileSearch} label={c.recordsToReview(toReview.value)} verb={c.review} onOpen={() => openPanel({ kind: "inbox" })} />;
   else if (toReview.kind === "failed") footer = <CountFailed c={c} reference={toReview.reference} retry={retryCount} />;
   else if (toReview.kind === "loading") footer = <CountLoading label={c.loading} />;
   if (records.error && !forceEmpty) {
@@ -267,7 +265,7 @@ function NeedsAttention({ c, toReview: liveToReview, retryCount }: { c: Copy; to
   }
   // Bandeja still loading, or nothing in it while the review count is still on its way: the card as it will stand,
   // header and four row cards, never an empty panel and never "Todo al día" before the server has said so.
-  if (!ready || (rows.length === 0 && toReview.kind === "loading")) {
+  if ((!ready && toReview.kind !== "failed") || (rows.length === 0 && toReview.kind === "loading")) {
     return (
       <Section title={c.needs} icon={CircleAlert} testId="home-needs-attention">
         <ul role="status" aria-busy="true" className="space-y-2">

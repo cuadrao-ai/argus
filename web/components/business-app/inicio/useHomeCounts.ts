@@ -3,16 +3,15 @@
 import { useEffect, useState } from "react";
 import { getChosenGrant, LOCAL_BUSINESS_PREFIX } from "@/lib/business-grant";
 import { listInvoices } from "@/lib/business-invoices-api";
-import { defaultReportRequest } from "@/lib/business-reporting-wire";
-import { queryBusinessReport } from "@/lib/business-reports-api";
 import { referenceCode } from "@/lib/failure-screen";
 import { invoicingShown, useBusiness } from "../BusinessWorkspace";
-import { INVOICE_STAGE_COUNTS, REPORT_OVERVIEW } from "./home-draft-data";
+import { inboxCount } from "../inbox-count";
+import { INVOICE_STAGE_COUNTS } from "./home-draft-data";
 
-/** Registros waiting for review, as the server answered it: still loading, unreadable (with its reference), or a number. `none` is a Business with no server to ask. */
+/** Bandeja rows waiting for review, as the server answered it: still loading, unreadable (with its reference), or a number. `none` is a Business with no server to ask. */
 export type ReviewCount = { kind: "none" } | { kind: "loading" } | { kind: "failed"; reference: string } | { kind: "ready"; value: number };
 
-type Counts = { key: string; toReview: ReviewCount; drafts: number | null };
+type Counts = { key: string; drafts: number | null };
 
 /** The preview's sample Business, the only one that shows samples; a person's own local Business never does. */
 export function useSampleBusiness() {
@@ -20,36 +19,29 @@ export function useSampleBusiness() {
   return source.mode !== "live" && !chosen?.space_id?.startsWith(LOCAL_BUSINESS_PREFIX);
 }
 
-/**
- * Inicio's two counts from other screens: Registros' records waiting for review this month (the report overview,
- * Registros' own default period) and Facturación's saved drafts (stage counts, only where Facturación is on).
- * Live, the review count is loading, failed with a reference to show, or the server's number, and never reads as
- * zero until the server says zero. A failed drafts count leaves its row hidden rather than guessed. The local
- * preview reads the samples.
- */
+/** Receipt review uses the shared Bandeja count. Only invoice drafts need a separate request. */
 export function useHomeCounts(): { toReview: ReviewCount; drafts: number | null; retry: () => void } {
-  const { source, chosen, userId, invoicing: invoicingState } = useBusiness();
+  const { source, chosen, userId, records, reload, invoicing: invoicingState } = useBusiness();
   const live = source.mode === "live";
   const samples = useSampleBusiness();
   const invoicing = invoicingShown(invoicingState);
-  const [attempt, setAttempt] = useState(0);
-  const key = `${userId ?? "none"}:${chosen?.space_id ?? "none"}:${attempt}`;
+  const key = `${userId ?? "none"}:${chosen?.space_id ?? "none"}`;
   const [counts, setCounts] = useState<Counts | null>(null);
   useEffect(() => {
-    if (!live || !userId || !chosen) return;
+    if (!live || !userId || !chosen || !invoicing) return;
     const controller = new AbortController();
     const scope = { userId, businessId: chosen.space_id, grantId: getChosenGrant() };
-    const toReview = queryBusinessReport(scope, defaultReportRequest(), controller.signal).then(
-      (answer): ReviewCount => (answer.overview ? { kind: "ready", value: answer.overview.needs_review } : { kind: "failed", reference: referenceCode(null) }),
-      (error): ReviewCount => ({ kind: "failed", reference: referenceCode(error) }),
-    );
-    const drafts = invoicing ? listInvoices(scope, { page: 1, page_size: 25, search: "" }, controller.signal).then((page) => page.stage_counts.draft ?? 0, () => null) : Promise.resolve(null);
-    void Promise.all([toReview, drafts]).then(([review, draftCount]) => { if (!controller.signal.aborted) setCounts({ key, toReview: review, drafts: draftCount }); });
+    void listInvoices(scope, { page: 1, page_size: 25, search: "" }, controller.signal)
+      .then((page) => page.stage_counts.draft ?? 0, () => null)
+      .then((drafts) => { if (!controller.signal.aborted) setCounts({ key, drafts }); });
     return () => controller.abort();
   }, [live, userId, chosen, invoicing, key]);
-  const retry = () => setAttempt((value) => value + 1);
-  if (samples) return { toReview: { kind: "ready", value: REPORT_OVERVIEW.needs_review }, drafts: invoicing ? INVOICE_STAGE_COUNTS.draft ?? 0 : null, retry };
-  if (!live || !userId) return { toReview: { kind: "none" }, drafts: null, retry };
-  const current = counts?.key === key ? counts : null;
-  return { toReview: current?.toReview ?? { kind: "loading" }, drafts: current?.drafts ?? null, retry };
+  const waiting = inboxCount(records);
+  const toReview: ReviewCount = records.error || (waiting === null && records.serverReference)
+    ? { kind: "failed", reference: records.failureReference ?? records.serverReference ?? referenceCode(null) }
+    : waiting !== null ? { kind: "ready", value: waiting }
+    : live ? { kind: "loading" } : { kind: "none" };
+  if (samples) return { toReview, drafts: invoicing ? INVOICE_STAGE_COUNTS.draft ?? 0 : null, retry: reload };
+  const current = live && invoicing && counts?.key === key ? counts : null;
+  return { toReview, drafts: current?.drafts ?? null, retry: reload };
 }
