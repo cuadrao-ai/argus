@@ -7,9 +7,9 @@
   ],
   "database": "postgres",
   "candidate_sha": "a5ef2e3c14c7852199c2c08173ec346299c8682f",
-  "versions_sha256": "14b6ee20af3a27094545a81ef569d64b58d37f3a4b8745f51f666e5d73b033dd",
+  "versions_sha256": "b95d57f6cd159d5d1a6c43b4ba61eb0bb559311441cc974a9327d0274ac9ac1e",
   "issued_at": "2026-11-05T08:39:38Z",
   "expires_at": "2026-11-07T08:39:38Z",
   "approved_by": "founder",
-  "approval_reference": "Lucas, 2026-11-05: production is upgraded in place, not reset (issue 1789); production holds no real data, so destructive and contract-replacing migrations are accepted; standing go for the production migrations once the dry run shows no errors. The planner fix is PR 1810 (merged), rehearsed on a disposable local database: main's 82 migrations, then these 122 in order, no SQL failure, schema identical to a fresh build. Dry run first, then --execute with --allow-mid-file-commit 20261003120001."
+  "approval_reference": "Lucas, 2026-11-05: production is upgraded in place, not reset (issue 1789); production holds no real data, so destructive and contract-replacing migrations are accepted; standing go for the production migrations once the dry run shows no errors. The planner fix is PR 1810 (merged), rehearsed on a disposable local database: main's 82 migrations, then the missing versions in order (123 against production's real ledger, which also lacks main's 20261017020000), no SQL failure, schema identical to a fresh build. Dry run first, then --execute with --allow-mid-file-commit 20261003120001."
 }
