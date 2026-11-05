@@ -74,5 +74,3 @@ def test_new_address_records_the_acting_person_after_transfer(
     assert actors == [alice.person]
     assert response.status_code == 201
     assert runtime.store.route_for_space(scope.owner.space_id).granted_by == alice.person
-
-
