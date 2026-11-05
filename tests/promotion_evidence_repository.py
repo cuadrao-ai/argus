@@ -53,7 +53,11 @@ REACHED_BY_THE_EVAL = {
 
 # None reaches the measurement, so evidence survives changing them.
 UNREACHED_BY_THE_EVAL = {
-    "release-flags": ("render.yaml", ".github/private-alpha-release-profile.json"),
+    "release-flags": (
+        "render.yaml",
+        ".github/private-alpha-release-profile.json",
+        "scripts/ops/staging_env_manifest.json",
+    ),
     "environment-template": (".env.example",),
     "migration": ("supabase/migrations/20260913000000_example.sql",),
     "frontend": ("web/app/page.tsx",),
@@ -267,6 +271,9 @@ def _layout(case_ids: Iterable[str]) -> dict[str, str]:
         ".github/private-alpha-release-profile.json": (
             Path(__file__).resolve().parents[1]
             / ".github/private-alpha-release-profile.json"
+        ).read_text(encoding="utf-8"),
+        "scripts/ops/staging_env_manifest.json": (
+            Path(__file__).resolve().parents[1] / "scripts/ops/staging_env_manifest.json"
         ).read_text(encoding="utf-8"),
         "supabase/migrations/20260913000000_example.sql": "select 1;\n",
         "docs/release-manifests/notes.md": "# Notes\n",

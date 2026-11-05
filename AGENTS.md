@@ -108,8 +108,8 @@ cd marketing && bun run lint && bun run typecheck && bun test && bun run build
 - Never commit secrets or env files (`.example` files hold placeholders). Never print
   secret values or write through a linked `.env`. The web gets only `NEXT_PUBLIC_*`.
 - New settings use `CUADRAO_*` names (`ARGUS_*` is a read-only fallback). Declare hosted
-  ones in `.env.example`, `render.yaml`, `.github/private-alpha-release-profile.json`
-  and `scripts/ops/staging_env_manifest.json`.
+  ones in `.env.example`, `render.yaml` and `scripts/ops/staging_env_manifest.json`,
+  which owns each setting's staging and production rule.
 - Synthetic data only (Faker, the seed script). No real customer data anywhere.
 
 ## Copy

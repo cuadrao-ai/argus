@@ -35,15 +35,18 @@ ARGUS_QA_REQUIRED_ENV=(
   CUADRAO_READOUT_FALLBACK_MODEL
 )
 
-ARGUS_RENDER_API_ENV_KEYS="$(python3 "${BASH_SOURCE[0]%/*}/private-alpha-release-profile.py" allowed-keys api)" || exit 1
+# scripts/ops/staging_env_manifest.json owns every hosted setting; this reads its production rules.
+ARGUS_SETTINGS_TOOL="${BASH_SOURCE[0]%/*}/../scripts/ops/staging_env.py"
+
+ARGUS_RENDER_API_ENV_KEYS="$(python3 "$ARGUS_SETTINGS_TOOL" names production api allowed)" || exit 1
 ARGUS_RENDER_API_ENV=()
 while IFS= read -r argus_api_env_key; do
   ARGUS_RENDER_API_ENV+=("$argus_api_env_key")
 done <<< "$ARGUS_RENDER_API_ENV_KEYS"
 unset ARGUS_RENDER_API_ENV_KEYS argus_api_env_key
 
-if ! _argus_web_env_keys="$(python3 "$(dirname "${BASH_SOURCE[0]}")/private-alpha-release-profile.py" allowed-keys web)" || [ -z "$_argus_web_env_keys" ]; then
-  echo "Cannot load web environment keys from the release profile." >&2
+if ! _argus_web_env_keys="$(python3 "$ARGUS_SETTINGS_TOOL" names production web allowed)" || [ -z "$_argus_web_env_keys" ]; then
+  echo "Cannot load web environment keys from the settings manifest." >&2
   exit 1
 fi
 ARGUS_RENDER_WEB_ENV=()
@@ -53,8 +56,8 @@ done <<< "$_argus_web_env_keys"
 unset _argus_web_env_keys _argus_web_env_key
 
 if ! _workflow_keys="$(
-  python3 "${BASH_SOURCE[0]%/*}/private-alpha-release-profile.py" env-pairs workflow &&
-    python3 "${BASH_SOURCE[0]%/*}/private-alpha-release-profile.py" required-present workflow
+  python3 "$ARGUS_SETTINGS_TOOL" print production workflow &&
+    python3 "$ARGUS_SETTINGS_TOOL" names production workflow required
 )"; then
   exit 1
 fi

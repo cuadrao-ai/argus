@@ -24,7 +24,14 @@ def _source(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
-BLUEPRINT_DECLARES_STAGING_OVERRIDE = {"CUADRAO_BUSINESS_BANK_MATCHING_ENABLED"}
+BLUEPRINT_DECLARES_STAGING_OVERRIDE = {
+    "CUADRAO_BUSINESS_BANK_MATCHING_ENABLED",
+    "CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED",
+    "CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED",
+    "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED",
+    "CUADRAO_WHATSAPP_INTAKE_ENABLED",
+    "CUADRAO_WHATSAPP_OUTBOUND_ENABLED",
+}
 
 
 def _blueprint_env_item(entry: dict) -> dict:
@@ -42,12 +49,17 @@ def _blueprint_env_item(entry: dict) -> dict:
     return item
 
 
-def test_render_config_audit_uses_the_checked_in_release_profile() -> None:
+def test_render_config_audit_reads_settings_from_the_manifest() -> None:
     source = _source(".github/render-env-sync.sh")
+    contract = _source(".github/argus-env.sh")
 
     assert "private-alpha-release-profile.py" in source
-    assert "env-pairs" in source
-    assert "required-present" in source
+    assert 'print production "$surface"' in source
+    assert 'names production "$surface" required' in source
+    assert 'ARGUS_SETTINGS_TOOL="${BASH_SOURCE[0]%/*}/../scripts/ops/staging_env.py"' in (
+        contract
+    )
+    assert "private-alpha-release-profile.py" not in contract
     assert "release_profile_hash=" in source
     assert "release_profile_status=ready" in source
 
@@ -139,7 +151,9 @@ def test_blueprint_matches_the_live_dashboard_service_shape() -> None:
     manifest = json.loads(_source("scripts/ops/staging_env_manifest.json"))
     declared = {item["key"]: item for item in stage_api["envVars"]}
     assert declared == {
-        entry["name"]: _blueprint_env_item(entry) for entry in manifest["services"]["api"]["entries"]
+        entry["name"]: _blueprint_env_item(entry)
+        for entry in manifest["services"]["api"]["entries"]
+        if not entry.get("production_only")
     }
     assert services["cuadrao-marketing-staging"]["branch"] == "main"
     assert "NEXT_PUBLIC_CUADRAO_API_URL" in _contract_array("ARGUS_RENDER_WEB_ENV")
@@ -262,7 +276,7 @@ def test_render_env_sync_audit_accepts_manual_deploys_on_all_three(
     assert "status=ready" in result.stdout
 
 
-def test_render_env_sync_audit_compares_the_transition_cors_allowlist(
+def test_render_env_sync_audit_flags_open_public_account_access(
     tmp_path: Path,
 ) -> None:
     result = _run_render_release_audit(
@@ -270,21 +284,39 @@ def test_render_env_sync_audit_compares_the_transition_cors_allowlist(
         expect_mode="real-workflow",
         api_env_json=_render_env_payload(
             "cuadrao-api",
-            overrides={
-                "ARGUS_BACKTEST_JOBS_SHADOW_ENABLED": "true",
-                "ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED": "true",
-                "ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED": "true",
-                "RENDER_API_KEY": "fake-render-token",
-                "CUADRAO_CORS_ALLOW_ORIGINS": "https://argus-app-suz5.onrender.com",
-            },
+            overrides={"CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED": "true"},
         ),
         web_env_json=_render_env_payload("cuadrao-web"),
         workflow_env_json=_workflow_env_payload(),
     )
 
     assert result.returncode == 1
-    assert "drift argus-api:CUADRAO_CORS_ALLOW_ORIGINS" in result.stdout
+    assert (
+        "drift argus-api:CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED expected=false actual=true"
+        in result.stdout
+    )
     assert "status=drift" in result.stdout
+
+
+def test_render_env_sync_audit_flags_a_live_name_production_must_not_set(
+    tmp_path: Path,
+) -> None:
+    result = _run_render_release_audit(
+        tmp_path,
+        expect_mode="real-workflow",
+        api_env_json=_render_env_payload(
+            "cuadrao-api", extra={"CUADRAO_INGESTION_SECRET_KEY": "fake-key"}
+        ),
+        web_env_json=_render_env_payload("cuadrao-web"),
+        workflow_env_json=_workflow_env_payload(),
+    )
+
+    assert result.returncode == 1
+    assert (
+        "forbidden argus-api:CUADRAO_INGESTION_SECRET_KEY unexpected_live_env"
+        in result.stdout
+    )
+    assert "fake-key" not in result.stdout
 
 
 def test_supabase_public_keys_are_supplied_by_the_service_environment() -> None:

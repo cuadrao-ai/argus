@@ -39,8 +39,8 @@ Commands:
   api-proof-shadow-on     Retired; exits without changing hosted settings.
   api-real-workflow-on    Retired; exits without changing hosted settings.
   api-runtime             Sync argus-api build/start commands.
-  release-config-audit    Read-only release-profile audit with redacted fingerprints.
-  workflow-proof          Sync only workflow settings in the release profile.
+  release-config-audit    Read-only production audit against the settings manifest, with redacted fingerprints.
+  workflow-proof          Sync only the workflow settings in the settings manifest.
   workflow-release        Release argus-backtests so env/build changes reach new runs.
   workflow-runtime        Sync workflow build/start commands on argus-backtests.
   workflow-version-status Print latest argus-backtests workflow version and release proof.
@@ -53,8 +53,8 @@ Required local env:
   RENDER_API_KEY
 
 Additional local env for workflow-proof:
-  Supply required secret values named in the workflow release profile.
-  Plain values come from .github/private-alpha-release-profile.json.
+  Supply the required secret values the settings manifest names for the workflow.
+  Plain values come from scripts/ops/staging_env_manifest.json.
 USAGE
 }
 
@@ -68,15 +68,18 @@ release_profile_hash() {
   python3 "$RELEASE_PROFILE_TOOL" hash
 }
 
-release_profile_env_pairs() {
+manifest_env_pairs() {
   local surface="$1"
-  python3 "$RELEASE_PROFILE_TOOL" env-pairs "$surface"
+  python3 "$ARGUS_SETTINGS_TOOL" print production "$surface"
 }
 
-release_profile_env_value() {
+manifest_env_value() {
   local surface="$1"
   local key="$2"
-  python3 "$RELEASE_PROFILE_TOOL" env-value "$surface" "$key"
+  manifest_env_pairs "$surface" | awk -v key="$key" '
+    index($0, key "=") == 1 { print substr($0, length(key) + 2); found = 1 }
+    END { if (!found) { print "settings manifest does not define " key > "/dev/stderr"; exit 1 } }
+  '
 }
 
 release_profile_auto_deploy_trigger() {
@@ -84,14 +87,14 @@ release_profile_auto_deploy_trigger() {
   python3 "$RELEASE_PROFILE_TOOL" auto-deploy-trigger "$surface"
 }
 
-release_profile_required_present() {
+manifest_required_present() {
   local surface="$1"
-  python3 "$RELEASE_PROFILE_TOOL" required-present "$surface"
+  python3 "$ARGUS_SETTINGS_TOOL" names production "$surface" required
 }
 
-release_profile_allowed_keys() {
+manifest_allowed_keys() {
   local surface="$1"
-  python3 "$RELEASE_PROFILE_TOOL" allowed-keys "$surface"
+  python3 "$ARGUS_SETTINGS_TOOL" names production "$surface" allowed
 }
 
 AUDIT_FAILURES=0
@@ -431,7 +434,7 @@ workflow_render_env_value() {
   local workflow_database_url="${ARGUS_WORKFLOW_DATABASE_URL:-${SUPABASE_POSTGRES_TRANSACTION_POOLER_URL:-}}"
   local profile_value=""
 
-  if profile_value="$(release_profile_env_value workflow "$key" 2>/dev/null)"; then
+  if profile_value="$(manifest_env_value workflow "$key" 2>/dev/null)"; then
     echo "$profile_value"
     return
   fi
@@ -520,11 +523,11 @@ audit_unexpected_render_env_keys() {
   done < <(render_env_keys "$env_json")
 }
 
-release_profile_expected_pairs() {
+manifest_expected_pairs() {
   local surface="$1"
   local key
 
-  release_profile_env_pairs "$surface"
+  manifest_env_pairs "$surface"
 
   while IFS= read -r key; do
     [ -n "$key" ] || continue
@@ -533,7 +536,7 @@ release_profile_expected_pairs() {
     else
       printf '%s=<present>\n' "$key"
     fi
-  done < <(release_profile_required_present "$surface")
+  done < <(manifest_required_present "$surface")
 }
 
 fingerprint_rows() {
@@ -639,16 +642,16 @@ audit_release_config() {
   local audit_workflow_env=false
   while IFS= read -r mode_pair; do
     api_profile_pairs+=("$mode_pair")
-  done < <(release_profile_expected_pairs api "$expected_mode")
+  done < <(manifest_expected_pairs api "$expected_mode")
   while IFS= read -r mode_pair; do
     web_profile_pairs+=("$mode_pair")
-  done < <(release_profile_expected_pairs marketing "$expected_mode")
+  done < <(manifest_expected_pairs marketing "$expected_mode")
   while IFS= read -r mode_pair; do
     api_allowed_keys+=("$mode_pair")
-  done < <(release_profile_allowed_keys api)
+  done < <(manifest_allowed_keys api)
   while IFS= read -r mode_pair; do
     web_allowed_keys+=("$mode_pair")
-  done < <(release_profile_allowed_keys marketing)
+  done < <(manifest_allowed_keys marketing)
   if [ "$expected_mode" = "real-workflow" ]; then
     audit_workflow_env=true
     while IFS= read -r mode_pair; do
@@ -656,10 +659,10 @@ audit_release_config() {
     done < <(workflow_expected_env_pairs)
     while IFS= read -r mode_pair; do
       workflow_profile_pairs+=("$mode_pair")
-    done < <(release_profile_expected_pairs workflow "$expected_mode")
+    done < <(manifest_expected_pairs workflow "$expected_mode")
     while IFS= read -r mode_pair; do
       workflow_allowed_keys+=("$mode_pair")
-    done < <(release_profile_allowed_keys workflow)
+    done < <(manifest_allowed_keys workflow)
   fi
   api_env_json="$(render_env_json "$API_SERVICE_ID")"
   web_env_json="$(render_env_json "$WEB_SERVICE_ID")"
@@ -789,7 +792,7 @@ sync_workflow_proof() {
   local key
   while IFS= read -r key; do
     require_local_env "$key"
-  done < <(release_profile_required_present workflow)
+  done < <(manifest_required_present workflow)
   for key in "${ARGUS_RENDER_WORKFLOW_PROOF_ENV[@]}"; do
     put_render_env "$WORKFLOW_SERVICE_ID" "$key" "$(workflow_render_env_value "$key")"
   done

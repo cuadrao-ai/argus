@@ -20,18 +20,14 @@ services:
         value: supabase
       - key: CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS
         value: "180"
-      - key: CUADRAO_RUNTIME_EVENT_KEEPALIVE_SECONDS
-        value: "15"
       - key: CUADRAO_CHECKPOINTER_MODE
         value: postgres
       - key: CUADRAO_MOCK_AUTH
         value: "false"
       - key: CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED
-        value: "true"
+        value: "false"
       - key: CUADRAO_CORS_ALLOW_ORIGINS
-        value: https://argus-app-suz5.onrender.com,https://arguschat.ai,https://www.arguschat.ai
-      - key: ARGUS_APP_ORIGIN
-        value: https://arguschat.ai
+        sync: false
       - key: CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED
         value: "false"
       - key: CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED
@@ -50,20 +46,8 @@ services:
         value: "false"
       - key: CUADRAO_BUSINESS_SUPPLIER_FAST_PATH_ENABLED
         value: "false"
-      - key: CUADRAO_INVITE_CODE_SECRET
-        sync: false
-      - key: CUADRAO_INVITE_CODE_SECRET_PREVIOUS
-        sync: false
       - key: CUADRAO_APPLE_REVOCATION_CAPTURE_ENABLED
         value: "false"
-      - key: CUADRAO_APPLE_TEAM_ID
-        sync: false
-      - key: CUADRAO_APPLE_SIGN_IN_KEY_ID
-        sync: false
-      - key: CUADRAO_APPLE_SIGN_IN_PRIVATE_KEY
-        sync: false
-      - key: CUADRAO_APPLE_BUNDLE_ID
-        sync: false
       - key: CUADRAO_OPS_TOKEN
         sync: false
       - key: CUADRAO_VISITOR_KEY_SECRET
@@ -85,12 +69,6 @@ services:
       - key: SUPABASE_ANON_KEY
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false
-      - key: SUPABASE_JWT_SECRET
-        sync: false
-      - key: CUADRAO_OPENROUTER_API_KEY_DEV
-        sync: false
-      - key: CUADRAO_OPENROUTER_API_KEY_STG
         sync: false
       - key: CUADRAO_OPENROUTER_API_KEY_PROD
         sync: false
@@ -120,6 +98,48 @@ services:
         value: openai/gpt-5.6-luna
       - key: CUADRAO_READOUT_FALLBACK_MODEL
         value: openai/gpt-5.6-luna
+      - key: CUADRAO_APP_ORIGIN
+        sync: false
+      - key: CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED
+        value: "false"
+      - key: CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED
+        value: "false"
+      - key: CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED
+        value: "false"
+      - key: CUADRAO_BUSINESS_PILOT_ENABLED
+        value: "true"
+      - key: CUADRAO_DOCUMENT_EXTRACTION_ENABLED
+        value: "true"
+      - key: CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS
+        value: "210"
+      - key: CUADRAO_DOCUMENT_JOBS_MAX_READS
+        value: "3"
+      - key: CUADRAO_DOCUMENT_UPLOADS_IN_FLIGHT
+        value: "3"
+      - key: CUADRAO_DOCUMENT_UPLOADS_PER_MINUTE
+        value: "60"
+      - key: CUADRAO_BUSINESS_INVOICING_ENABLED
+        value: "false"
+      - key: CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED
+        value: "false"
+      - key: CUADRAO_BUSINESS_READS_PER_DAY
+        value: "300"
+      - key: CUADRAO_BUSINESS_READS_PER_MONTH
+        value: "2000"
+      - key: CUADRAO_FISCAL_SANDBOX_CONTACT_ENABLED
+        value: "false"
+      - key: CUADRAO_FISCAL_SANDBOX_ENABLED
+        value: "false"
+      - key: CUADRAO_FINANCIAL_ACCOUNTS_ENABLED
+        value: "true"
+      - key: CUADRAO_INGESTION_ENABLED
+        value: "true"
+      - key: CUADRAO_VISION_MODEL
+        sync: false
+      - key: CUADRAO_WHATSAPP_INTAKE_ENABLED
+        value: "false"
+      - key: CUADRAO_WHATSAPP_OUTBOUND_ENABLED
+        value: "false"
   - type: web
     name: cuadrao-web
     runtime: node

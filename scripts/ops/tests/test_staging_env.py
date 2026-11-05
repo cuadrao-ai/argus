@@ -578,3 +578,108 @@ def test_staging_registered_key_must_differ_from_guest(manifest, shared):
         == live["CUADRAO_OPENROUTER_API_KEY_STG"]
     )
     assert guest not in "\n".join(plan.problems)
+
+
+def _offline(capsys, *argv):
+    assert se.run(list(argv)) == 0
+    return capsys.readouterr().out
+
+
+def test_every_entry_has_a_production_rule(manifest):
+    for label, service in manifest["services"].items():
+        for entry in service["entries"]:
+            modes = set(entry["production"]) & set(se.PRODUCTION_MODES)
+            assert len(modes) == 1, f"{label}:{entry['name']}"
+    entry = manifest["services"]["web"]["entries"][0]
+    del entry["production"]
+    with pytest.raises(se.ManifestError, match="no production rule"):
+        se.validate_manifest(manifest)
+
+
+@pytest.mark.parametrize("kind", ["secret", "generated"])
+def test_a_secret_cannot_hold_a_production_value(manifest, kind):
+    entry = next(e for e in manifest["services"]["api"]["entries"] if e["kind"] == kind)
+    entry["production"] = {"value": "plain-looking"}
+    with pytest.raises(se.ManifestError, match="looks like a secret"):
+        se.validate_manifest(manifest)
+    with pytest.raises(se.ManifestError, match="looks like a secret"):
+        se.paste_ready(manifest, "production", "api")
+
+
+@pytest.mark.parametrize("environment", se.ENVIRONMENTS)
+def test_paste_ready_files_carry_plain_names_only(manifest, environment, capsys):
+    for label, service in manifest["services"].items():
+        if environment == "staging" and "service_id" not in service:
+            continue
+        kinds = {e["name"]: e["kind"] for e in service["entries"]}
+        lines = _offline(capsys, "print", environment, label).splitlines()
+        assert lines and all(re.fullmatch(r"[A-Z][A-Z0-9_]*=\S.*", line) for line in lines)
+        names = [line.split("=", 1)[0] for line in lines]
+        assert {kinds[name] for name in names} == {"plain"}
+        assert not any(se.SECRETISH_NAME.search(name) for name in names)
+
+
+def test_production_account_access_is_invite_only(capsys):
+    lines = _offline(capsys, "print", "production", "api").splitlines()
+    assert "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=false" in lines
+    assert "CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED=false" in lines
+
+
+def test_offline_commands_never_read_secrets(monkeypatch, tmp_path, capsys):
+    def refuse(_path):
+        raise AssertionError("read_secrets called")
+
+    monkeypatch.setattr(se, "read_secrets", refuse)
+    live = tmp_path / "live.txt"
+    live.write_text("APP_ENV\n")
+    for argv in (
+        ["print", "production", "api"],
+        ["print", "production", "web", "--to-fill"],
+        ["print", "staging", "api", "--live-names", str(live)],
+        ["names", "production", "workflow", "required"],
+    ):
+        _offline(capsys, *argv)
+
+
+def test_to_fill_lists_each_supplied_name_blank_with_its_source(manifest, capsys):
+    text = _offline(capsys, "print", "production", "api", "--to-fill")
+    lines = text.splitlines()
+    comments, assignments = lines[0::2], lines[1::2]
+    assert len(comments) == len(assignments)
+    assert all(line.startswith("# ") and len(line) > 2 for line in comments)
+    assert all(re.fullmatch(r"[A-Z][A-Z0-9_]*=", line) for line in assignments)
+    production = {
+        e["name"]: e["production"] for e in manifest["services"]["api"]["entries"]
+    }
+    supplied = sorted(n for n, r in production.items() if {"enter", "copy_from"} & set(r))
+    assert [line[:-1] for line in assignments] == supplied
+    assert "# copy the live value of ARGUS_APP_ORIGIN on cuadrao-api" in lines
+
+
+def test_live_names_lists_deletions_and_waits_on_copied_legacy_names(tmp_path, capsys):
+    live = tmp_path / "live.txt"
+    live.write_text(
+        "# exported names\nAPP_ENV\nARGUS_APP_ORIGIN\nARGUS_PERSISTENCE_MODE\n"
+        "CUADRAO_INGESTION_SECRET_KEY\nDATABASE_URL\nSUPABASE_ANON_KEY\nSUPABASE_DB_POOL\n"
+    )
+    out = _offline(capsys, "print", "production", "api", "--live-names", str(live))
+    assert out.splitlines() == [
+        "delete now:",
+        "ARGUS_PERSISTENCE_MODE",
+        "CUADRAO_INGESTION_SECRET_KEY",
+        "delete after the launch deploy:",
+        "ARGUS_APP_ORIGIN",
+    ]
+
+
+def test_staging_commands_skip_production_only_entries(manifest, capsys):
+    production_only = {
+        e["name"] for e in manifest["services"]["api"]["entries"] if e.get("production_only")
+    }
+    assert "CUADRAO_CHAT_MODEL" in production_only
+    staging = _offline(capsys, "print", "staging", "api") + _offline(
+        capsys, "print", "staging", "api", "--to-fill"
+    )
+    assert not any(name in staging for name in production_only)
+    plan = se.compute_plan(manifest["services"]["api"], {"CUADRAO_CHAT_MODEL": "x"}, {})
+    assert ("CUADRAO_CHAT_MODEL", "extra") in plan.actions

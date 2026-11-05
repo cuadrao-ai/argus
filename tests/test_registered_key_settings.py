@@ -188,32 +188,43 @@ def test_declarations_are_optional_and_server_only() -> None:
     example = (root / ".env.example").read_text()
     for name in NEW_NAMES:
         assert f"{name}=your_registered_key_here" in example
+    # Production reads only the _PROD key (openrouter_key_policy.registered).
+    read_in_production = "CUADRAO_OPENROUTER_API_KEY_PROD"
     blueprint = yaml.safe_load((root / "render.yaml").read_text())
     for service in blueprint["services"]:
         entries = {entry["key"]: entry for entry in service.get("envVars", [])}
-        if "CUADRAO_PROD_OPENROUTER_API_KEY" in entries:
+        if service["name"] == "cuadrao-api":
+            assert entries[read_in_production] == {"key": read_in_production, "sync": False}
+            assert not (set(NEW_NAMES) - {read_in_production}) & entries.keys()
+        elif "CUADRAO_PROD_OPENROUTER_API_KEY" in entries:
             for name in NEW_NAMES:
                 assert entries[name] == {"key": name, "sync": False}
         else:
             assert not set(NEW_NAMES) & entries.keys()
-    profile = json.loads(
-        (root / ".github/private-alpha-release-profile.json").read_text()
-    )
-    for name, service in profile["services"].items():
-        if name in {"api", "workflow"}:
-            assert set(NEW_NAMES) <= set(service["optional"])
-            assert not set(NEW_NAMES) & set(service["required_present"])
-        else:
-            assert not set(NEW_NAMES) & set(service["optional"])
     manifest = json.loads((root / "scripts/ops/staging_env_manifest.json").read_text())
     entries = {entry["name"]: entry for entry in manifest["services"]["api"]["entries"]}
     for name in NEW_NAMES:
-        assert entries[name] == {
+        staging = {k: v for k, v in entries[name].items() if k != "production"}
+        assert staging == {
             "name": name,
             "kind": "secret",
             "keep_current": True,
             "optional": True,
         }
+        production = entries[name]["production"]
+        if name == read_in_production:
+            assert production["optional"] is True and "enter" in production
+        else:
+            assert production == {"not_set": True}
+    workflow = {
+        entry["name"]: entry["production"]
+        for entry in manifest["services"]["workflow"]["entries"]
+    }
+    for name in NEW_NAMES:
+        assert workflow[name]["optional"] is True
+    for label in ("web", "marketing"):
+        names = {entry["name"] for entry in manifest["services"][label]["entries"]}
+        assert not set(NEW_NAMES) & names
 
 
 @pytest.mark.parametrize(

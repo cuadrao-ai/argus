@@ -1,4 +1,4 @@
-"""Staging metadata declares fiscal settings without changing production."""
+"""Staging declares the fiscal sandbox; production keeps it off and unconfigured."""
 
 import json
 from pathlib import Path
@@ -9,13 +9,8 @@ ROOT = Path(__file__).resolve().parents[1]
 PREFIX = "CUADRAO_FISCAL_SANDBOX_"
 
 
-def test_staging_fiscal_declaration_matches_manifests_and_excludes_production():
-    profile = json.loads(
-        (ROOT / ".github/private-alpha-release-profile.json").read_text()
-    )
-    declaration = profile["staging_only"]["api"]
-    assert declaration["manifest"] == "scripts/ops/staging_env_manifest.json"
-    manifest = json.loads((ROOT / declaration["manifest"]).read_text())
+def test_staging_fiscal_declaration_matches_manifests_and_production_stays_off():
+    manifest = json.loads((ROOT / "scripts/ops/staging_env_manifest.json").read_text())
     entries = {
         entry["name"]: entry
         for entry in manifest["services"]["api"]["entries"]
@@ -30,26 +25,24 @@ def test_staging_fiscal_declaration_matches_manifests_and_excludes_production():
         for entry in services["cuadrao-api-staging"]["envVars"]
         if entry["key"].startswith(PREFIX)
     }
-    fiscal_settings = [
-        name for name in declaration["settings"] if name.startswith(PREFIX)
-    ]
-    assert len(fiscal_settings) == len(set(fiscal_settings)) == 11
-    assert set(fiscal_settings) == set(entries) == set(staging)
+    assert len(entries) == 11
+    assert set(entries) == set(staging)
     for name, entry in entries.items():
         if "value" in entry:
             assert staging[name]["value"] == entry["value"]
         else:
             assert entry["keep_current"] and entry["optional"]
             assert staging[name]["sync"] is False
-    for gate in ("ENABLED", "CONTACT_ENABLED"):
-        assert entries[PREFIX + gate]["value"] == "false"
-    production = profile["services"]["api"]
-    assert not any(name.startswith(PREFIX) for name in production["env"])
-    assert not any(
-        name.startswith(PREFIX)
-        for field in ("required_present", "optional")
-        for name in production[field]
-    )
-    assert not any(
-        entry["key"].startswith(PREFIX) for entry in services["cuadrao-api"]["envVars"]
-    )
+    gates = {PREFIX + gate for gate in ("ENABLED", "CONTACT_ENABLED")}
+    for name, entry in entries.items():
+        if name in gates:
+            assert entry["value"] == "false"
+            assert entry["production"] == {"value": "false"}
+        else:
+            assert entry["production"] == {"not_set": True}
+    production = {
+        entry["key"]: entry.get("value")
+        for entry in services["cuadrao-api"]["envVars"]
+        if entry["key"].startswith(PREFIX)
+    }
+    assert production == dict.fromkeys(sorted(gates), "false")
