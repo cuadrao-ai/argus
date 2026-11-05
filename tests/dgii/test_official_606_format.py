@@ -1,7 +1,6 @@
 """Public 606 workbook v2020.2 source contract; no native macro execution.
 
-The generator, validators and list ranges are cited in
-docs/reports/1440-dgii-format-audit.md. The source XLS is not a test dependency.
+The source XLS is not a test dependency.
 """
 
 import io
