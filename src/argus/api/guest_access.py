@@ -9,7 +9,7 @@ from typing import Literal, Protocol
 from fastapi import Request
 
 from argus.api.client_ip import resolve_client_ip
-from argus.api.schemas import AccountCapabilities
+from argus.api.schemas import AccountAccessMode, AccountCapabilities
 from argus.domain.guest_workspaces import GuestWorkspace
 from argus.domain.visitor_usage import visitor_key_for
 
@@ -37,6 +37,10 @@ def guest_access_enabled() -> bool:
 
 def public_account_access_enabled() -> bool:
     return _enabled("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED")
+
+
+def account_access_mode() -> AccountAccessMode:
+    return "open" if public_account_access_enabled() else "invite_only"
 
 
 class PermanentAccessGateway(Protocol):

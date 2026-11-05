@@ -234,6 +234,15 @@ class AppleIdentity(BaseModel):
     subject: str = Field(min_length=1, max_length=512, repr=False)
 
 
+AccountAccessMode = Literal["open", "invite_only"]
+
+
+class AccountAccessModeResponse(BaseModel):
+    access_mode: AccountAccessMode = Field(
+        description="Whether anyone may create an account (open) or only invited people (invite_only)."
+    )
+
+
 class UserResponse(BaseModel):
     user: User | GuestUser
     apple_identity: AppleIdentity | None = None

@@ -449,6 +449,7 @@ def test_authenticated_openapi_declares_session_verification_unavailable() -> No
     unauthenticated_paths = {
         "/api/v1/auth/signup",
         "/api/v1/auth/login",
+        "/api/v1/auth/access-mode",
         "/api/v1/auth/access-requests",
         "/api/v1/auth/guest",
         "/api/v1/auth/logout",
