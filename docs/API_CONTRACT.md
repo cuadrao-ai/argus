@@ -9647,9 +9647,20 @@ is one revision: a `venta` becomes income and loses a payable bill mark, a
 cleared unless the same request saves one. The printed RNC, NCF and ITBIS stay
 as read. Setting the type, changed or not, ends `document_type_detected`. After
 approval the change is `422` `document_type_locked`. `BusinessDossier` carries
-`document_type`, `document_type_detected` and `document_type_editable` (open,
-and the caller holds `prepare`). A stale `version` is still `409`
-`stale_version` first.
+`document_type`, `document_type_detected`, `document_type_editable` (open,
+and the caller holds `prepare`) and `document_type_pending`. A stale `version`
+is still `409` `stale_version` first.
+
+With no Business tax id on the fiscal profile and no type named by a person or
+the upload, the draft has no type: por confirmar. `document_type` is null and
+`document_type_pending` is `business_rnc_missing`. The dossier carries the
+blocker `document_type_pending`, `approval_available` is false and the approve
+route is `422` `document_type_pending`; `declaration_editable` and
+`payment_split_editable` are false, and a `purchase`, `payment_split` or
+`dgii.declaration` write is `422` `fiscal_direction_unsupported`, so the draft
+reaches neither the 606 nor the 607. Naming `document_type`, or stating a
+kind, settles it as a named type. Setting the Business tax id
+(`PATCH /business/fiscal-profile`) types every open draft the rule owns again.
 
 The type is the one answer to purchase or sale; a known `facts.kind` is always
 a kind the type admits. A `venta` admits `income`. A `recibo` admits `expense`
@@ -10106,6 +10117,16 @@ A member who is not the owner and holds approve receives 403 `business_owner_req
 A member without approve receives 403 `business_permission_denied`. Each accepted change
 is an immutable action receipt with the actor and the time. Replaying the same key returns
 the saved profile and does not write again.
+
+A tax id added, changed or cleared (a format-only change is no change) types
+again, in the same transaction, every open draft whose type no person or
+document named: one held por confirmar and one the read detected. The rule is
+the upload's: the issuer RNC the draft carries (the DGII QR's, else the read's)
+against the new tax id, a receipt by default with no issuer. Each draft whose
+answer changes gets one revision whose web source holds this request; a
+Venta's own RNC is cleared as on a read. A type a person or an upload named,
+a receipt the rule defaulted to, and every approved record stay as they are.
+With the tax id cleared, a detected type waits again.
 
 `GET /business/fiscal-profile/fields` supplies the form controls from the same
 typed declaration and annex column definitions used by the exporter. Each field
@@ -10668,14 +10689,18 @@ accept path recorded.
   the RNC the read found) equals the Business's own tax id from the fiscal
   profile after both are reduced to digits, else `recibo`. The draft records
   that the read set it only when it compared the two numbers: with no issuer
-  RNC on the document, or no Business tax id to compare with, `recibo` is a
-  default, not the read's choice. A typed note follows the same rule and
-  prints no issuer, so an unnamed note is a default `recibo`.
-  `ReceiptSummary.document_type` reports the current
+  RNC on the document, `recibo` is a default, not the read's choice. With no
+  Business tax id to compare with, the draft has no type until a person names
+  one or the profile gains a tax id: `document_type` is null and
+  `document_type_pending` is `business_rnc_missing`. A typed note follows the
+  same rule and prints no issuer, so an unnamed note is a default `recibo`
+  with a Business tax id and has no type without one; a typed `purchase`
+  names a `recibo`. `ReceiptSummary.document_type` reports the current
   type (`recibo` until a read or a person sets it),
-  `document_type_detected` is true while the read's choice stands, and
+  `document_type_detected` is true while the read's choice stands,
   `document_type_editable` is true while the receipt's draft is open and the
-  caller holds `prepare`. Both flags are left out of the wire when false. The
+  caller holds `prepare`, and `document_type_pending` says why the type is
+  null. Each is left out of the wire when false or null. The
   field meanings are in the
   [month-close contract](contracts/business-month-close.md).
 - Business email receiving (default off; `CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED`,

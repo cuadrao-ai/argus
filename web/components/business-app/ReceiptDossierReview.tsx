@@ -476,7 +476,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
           facts={dossier.facts}
           patch={facts}
           fiscal={typed}
-          documentType={edit?.change.write === "type" ? edit.change.documentType : dossier.document_type}
+          documentType={edit?.change.write === "type" ? edit.change.documentType : dossier.document_type ?? undefined}
           accounts={accounts}
           currencies={receiptCurrencyOptions(records.workspace, accounts, currency)}
           disabled={!mutable || saving}
@@ -551,7 +551,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
             onMouseLeave={() => setHighlight([])}
             onBlur={() => setHighlight([])}
           >
-            <ReceiptRecordFacts dossier={dossier} accounts={accounts} attention={attention} choices={showsChoices ? <ReceiptOwnerChoices dossier={dossier} fields={fields} failed={fieldsFailed} disabled={!dossier.declaration_editable || (reviewing && !mutable)} readOnly={!reviewing && !canPrepare} saves={autosave.saves} onChoose={(choice, value) => void autosave.save(choice, { write: "purchase", purchase: { [choice]: value } })} onRetry={(choice) => void autosave.retry(choice)} onCancel={autosave.clear} onReload={() => setFieldsAttempt((value) => value + 1)} /> : undefined} typeRow={dossier.document_type ? <ReceiptDocumentType dossier={dossier} row={reviewing ? (shown) => rowControl("document_type", shown) : undefined} note={reviewing ? rowNote("document_type") : undefined} /> : undefined} review={reviewing ? {
+            <ReceiptRecordFacts dossier={dossier} accounts={accounts} attention={attention} choices={showsChoices ? <ReceiptOwnerChoices dossier={dossier} fields={fields} failed={fieldsFailed} disabled={!dossier.declaration_editable || (reviewing && !mutable)} readOnly={!reviewing && !canPrepare} saves={autosave.saves} onChoose={(choice, value) => void autosave.save(choice, { write: "purchase", purchase: { [choice]: value } })} onRetry={(choice) => void autosave.retry(choice)} onCancel={autosave.clear} onReload={() => setFieldsAttempt((value) => value + 1)} /> : undefined} typeRow={dossier.document_type || dossier.document_type_pending ? <ReceiptDocumentType dossier={dossier} row={reviewing ? (shown) => rowControl("document_type", shown) : undefined} note={reviewing ? rowNote("document_type") : undefined} /> : undefined} review={reviewing ? {
               onEdit: canPrepare && mutable ? rows.open : undefined,
               row: rowControl,
               note: rowNote,

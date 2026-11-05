@@ -42,6 +42,7 @@ from argus.domain.business.contracts.facts import (
 from argus.domain.business.document_type import (
     TYPE_OF_KIND,
     DocumentType,
+    ResolvedType,
     direction,
     kind_disagrees,
     kind_follows_type,
@@ -123,10 +124,12 @@ def save_revision(
     dgii: DgiiDeclaration | None = None,
     clear_dgii: bool = False,
     amount_derived: bool | None = None,
-    document_type: DocumentType | None = None,
-    document_type_detected: bool = False,
+    resolved: ResolvedType | None = None,
     due_on: DueOnInput | None = None,
 ) -> Applied:
+    """``resolved`` None keeps the type the draft has; a draft saved before
+    the type was stored is a receipt."""
+
     validate_facts(tx, after)
     resolution = dict(event.resolution)
     previous = resolution.get("business") or {}
@@ -147,9 +150,9 @@ def save_revision(
         dgii_qr = DgiiQr.model_validate(kept_qr) if kept_qr else None
     if bill_mark is None:
         bill_mark = previous.get("bill_mark")
-    if document_type is None:
-        document_type = previous.get("document_type", "recibo")
-        document_type_detected = previous.get("document_type_detected", False)
+    if resolved is None:
+        resolved = stored_type(previous)
+    document_type = resolved.document_type
     if document_type == "venta":
         # An issued invoice is never a bill the business owes.
         bill_mark = None
@@ -177,7 +180,7 @@ def save_revision(
         dgii=declaration,
         amount_derived=amount_derived,
         document_type=document_type,
-        document_type_detected=document_type_detected,
+        document_type_detected=resolved.detected,
         due_on=after_due_on,
     ).model_dump(mode="json")
     event = replace(event, resolution=resolution, anchor_on=after.occurred_on.value)
@@ -206,6 +209,17 @@ def save_revision(
         ),
     )
     return Applied(outcome="applied", draft_id=event.id, version=event.version)
+
+
+def stored_type(business: dict | None) -> ResolvedType:
+    """The type a draft's resolution holds. None while por confirmar; a
+    receipt on a draft saved before the type was stored."""
+
+    previous = business or {}
+    return ResolvedType(
+        previous.get("document_type", "recibo"),
+        previous.get("document_type_detected", False),
+    )
 
 
 def revise(
@@ -254,9 +268,7 @@ def revise(
         "owner_via_agent": "owner_stated",
         "extractor": "extracted",
     }[actor.actor_kind]
-    previous_type = (event.resolution.get("business") or {}).get(
-        "document_type", "recibo"
-    )
+    previous_type = stored_type(event.resolution.get("business")).document_type
     if stated_type is not None and document_type is None:
         # A stated kind states the type: income makes a receipt a Venta. A
         # Venta is an issued invoice; only a named type change moves it.
@@ -297,7 +309,9 @@ def revise(
             value = getattr(patch, question["field"])
             if value is not None and value.state in {"known", "owner_does_not_know"}:
                 answer_question(tx, event.id, question["id"], patch, source_ids[-1])
-    current_form = direction(current_type).form
+    # A draft with no type yet is on neither form: no declaration applies.
+    found = direction(current_type)
+    current_form = found.form if found else None
     declared = fiscal_review.declaration if fiscal_review else None
     if declared is not None and declared.form != current_form:
         raise ActionError("invalid_input", "fiscal_direction_unsupported")
@@ -340,13 +354,13 @@ def revise(
             bool((event.resolution.get("business") or {}).get("amount_derived")),
             purchase,
         ),
-        document_type=document_type,
+        resolved=ResolvedType(document_type) if document_type is not None else None,
         due_on=due_on,
     )
 
 
 def _stored_declaration(
-    event: ImportEvent, retyped: bool, form: str
+    event: ImportEvent, retyped: bool, form: str | None
 ) -> DgiiDeclaration | None:
     """The draft's saved declaration on the type's own ``form``. One filled
     under another type is gone, and one saved for the other form is no
@@ -612,18 +626,9 @@ def prepare_attachment(
             for name, incoming in facts["fiscal"].items():
                 merged["fiscal"][name] = _retain_or_fill(merged["fiscal"][name], incoming)
         facts = merged
-    document_type, detected = _read_document_type(tx, event, draft, batch)
+    resolved = _read_document_type(tx, event, draft, batch)
     after = BusinessFacts.model_validate(facts)
-    typed_origin = "extracted" if detected else "owner_stated"
-    if document_type == "venta":
-        read_rnc = after.fiscal.rnc if after.fiscal is not None else None
-        after = typed_facts(
-            after, "venta", (source_id,), typed_origin, business_tax_id(tx)
-        )
-        if isinstance(read_rnc, Known) and not isinstance(after.fiscal.rnc, Known):
-            logger.info("business_venta_issuer_rnc_cleared detected={}", detected)
-    after = kind_follows_type(after, document_type, (source_id,), typed_origin)
-    require_type_kind(document_type, after)
+    after = facts_under_type(after, resolved, (source_id,), business_tax_id(tx))
     return save_revision(
         tx,
         event,
@@ -637,9 +642,32 @@ def prepare_attachment(
         batch.ecf_checks,
         batch.dgii_qr,
         _due_notice_mark(batch, bill=bill, booked_from_bill=booked_from_bill),
-        document_type=document_type,
-        document_type_detected=detected,
+        resolved=resolved,
     )
+
+
+def facts_under_type(
+    facts: BusinessFacts,
+    resolved: ResolvedType,
+    source_ids: tuple[UUID, ...],
+    own: str | None,
+) -> BusinessFacts:
+    """The facts with the meaning the rule's type gives them: a Venta's kind
+    is income and the Business's own RNC on it is not the client's; any
+    type's kind is one it admits. With no type yet the facts stay as read."""
+
+    origin = "extracted" if resolved.detected else "owner_stated"
+    document_type = resolved.document_type
+    if document_type == "venta":
+        read_rnc = facts.fiscal.rnc if facts.fiscal is not None else None
+        facts = typed_facts(facts, "venta", source_ids, origin, own)
+        if isinstance(read_rnc, Known) and not isinstance(facts.fiscal.rnc, Known):
+            logger.info(
+                "business_venta_issuer_rnc_cleared detected={}", resolved.detected
+            )
+    facts = kind_follows_type(facts, document_type, source_ids, origin)
+    require_type_kind(document_type, facts)
+    return facts
 
 
 def _read_document_type(
@@ -647,30 +675,34 @@ def _read_document_type(
     event: ImportEvent,
     draft: DocumentDraft,
     batch: ExtractionBatch,
-) -> tuple[DocumentType, bool]:
+) -> ResolvedType:
     """The type the upload named wins. A later document on a draft keeps the
     draft's type. Otherwise the issuer decides, the QR's issuer when there is
     one, else the RNC the read found, by the one rule typed entry follows."""
 
     previous = event.resolution.get("business")
     if draft.document_type is None and previous is not None:
-        return previous.get("document_type", "recibo"), previous.get(
-            "document_type_detected", False
-        )
-    if batch.dgii_qr is not None:
-        issuer = batch.dgii_qr.rnc_emisor
-    else:
-        issuer = batch.receipt.rnc if batch.receipt is not None else None
-    document_type, detected = resolved_document_type(
-        draft.document_type, issuer, business_tax_id(tx)
+        return stored_type(previous)
+    printed = batch.receipt.rnc if batch.receipt is not None else None
+    resolved = resolved_document_type(
+        draft.document_type, read_issuer(batch.dgii_qr, printed), business_tax_id(tx)
     )
-    if detected:
+    if resolved.detected:
         logger.info(
             "business_document_type_detected type={} issuer_from_qr={}",
-            document_type,
+            resolved.document_type,
             batch.dgii_qr is not None,
         )
-    return document_type, detected
+    elif resolved.pending:
+        logger.info("business_document_type_pending reason={}", resolved.pending)
+    return resolved
+
+
+def read_issuer(qr: DgiiQr | None, printed: str | None) -> str | None:
+    """The RNC that issued the document: the QR's when there is one, else the
+    one the read printed."""
+
+    return qr.rnc_emisor if qr is not None else printed
 
 
 def business_tax_id(tx: ActionTransaction) -> str | None:

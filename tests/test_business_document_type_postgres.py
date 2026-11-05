@@ -232,22 +232,112 @@ def test_the_business_own_rnc_in_any_format_reads_as_a_detected_venta(
     assert _typed(reviewed.json()) == ("venta", True, True)
 
 
-@pytest.mark.parametrize("own,detected", [(OWN_RNC, True), (None, False)])
-def test_another_rnc_reads_as_a_detected_receipt_and_no_profile_as_a_default(
-    web,  # noqa: ANN001
-    own,  # noqa: ANN001
-    detected,  # noqa: ANN001
-) -> None:
-    """With no Business RNC there is nothing to compare: the receipt is a
-    default, not the read's choice."""
-
-    if own is not None:
-        _own_rnc(web, own)
-    receipt = _upload(web, SUPPLIER_RNC if own else OWN_RNC)
-    assert _typed(receipt) == ("recibo", detected, True)
+def test_another_rnc_reads_as_a_detected_receipt(web) -> None:  # noqa: ANN001
+    _own_rnc(web)
+    receipt = _upload(web, SUPPLIER_RNC)
+    assert _typed(receipt) == ("recibo", True, True)
     dossier = _dossier(web, receipt["draft_id"])
-    assert _typed(dossier) == ("recibo", detected, True)
+    assert _typed(dossier) == ("recibo", True, True)
     assert dossier["facts"]["kind"]["value"] == "expense"
+
+
+def _blocker_codes(view: dict) -> list[str]:
+    return [blocker["code"] for blocker in view["blockers"]]
+
+
+def test_with_no_business_rnc_the_direction_waits_for_a_person(web) -> None:  # noqa: ANN001
+    """Por confirmar: no type, the reason on the receipt and the dossier, no
+    606 or 607 editor or write, no approval, until the owner picks a type;
+    the pick is a named type and opens its form's editor."""
+
+    receipt = _upload(web, OWN_RNC)
+    assert _typed(receipt) == (None, False, True)
+    assert receipt["document_type_pending"] == "business_rnc_missing"
+    draft = receipt["draft_id"]
+    dossier = _dossier(web, draft)
+    assert _typed(dossier) == (None, False, True)
+    assert dossier["document_type_pending"] == "business_rnc_missing"
+    assert "document_type_pending" in _blocker_codes(dossier)
+    assert dossier["approval_available"] is False
+    assert _editors(web, draft) == (False, False)
+    for body in (
+        {"purchase": {"category": "09"}},
+        {"payment_split": {"cash": "1180.00"}},
+    ):
+        refused = _review(web, draft, body)
+        assert (refused.status_code, refused.json()["code"]) == (
+            422,
+            "fiscal_direction_unsupported",
+        ), body
+    refused = web.client.post(
+        f"{API}/business/drafts/{draft}/approve",
+        json={"version": dossier["version"], "action": "record_expense"},
+        headers=_headers(web),
+    )
+    assert (refused.status_code, refused.json()["code"]) == (
+        422,
+        "document_type_pending",
+    )
+
+    picked = _review(web, draft, {"document_type": "venta"})
+    assert picked.status_code == 200, picked.text
+    view = picked.json()
+    assert _typed(view) == ("venta", False, True)
+    assert "document_type_pending" not in view
+    assert "document_type_pending" not in _blocker_codes(view)
+    assert view["facts"]["kind"]["value"] == "income"
+    assert _editors(web, draft) == (False, True)
+
+
+def test_adding_the_business_rnc_types_the_open_drafts_again(web) -> None:  # noqa: ANN001
+    """An issuer equal to the new RNC becomes a Venta, a different one a
+    receipt, a typed note the default receipt, each as one more revision. A
+    type the upload named, one the owner picked and an approved record stay."""
+
+    waits_sale = _upload(web, OWN_RNC)["draft_id"]
+    waits_purchase = _upload(web, SUPPLIER_RNC, occurred_on="2026-09-04")["draft_id"]
+    named = _upload(web, OWN_RNC, "recibo", occurred_on="2026-09-05")["draft_id"]
+    picked = _upload(web, SUPPLIER_RNC, occurred_on="2026-09-06")["draft_id"]
+    assert _review(web, picked, {"document_type": "venta"}).status_code == 200
+    note = _capture(web, {"text": "Compra de clavos"})
+    assert note.status_code == 200, note.text
+    assert _typed(note.json()) == (None, False, True)
+    noted = note.json()["draft_id"]
+    approved = _upload(web, OWN_RNC, "recibo", occurred_on="2026-09-07")["draft_id"]
+    account = _account(web)
+    reviewed = _review(
+        web,
+        approved,
+        {
+            "facts": _facts("expense", "1180.00", "2026-09-07", account),
+            "dgii": PURCHASE_606,
+        },
+    )
+    assert reviewed.status_code == 200, reviewed.text
+    _approve(web, approved, "record_expense")
+    kept = {
+        draft: (_typed(_dossier(web, draft)), _dossier(web, draft)["version"])
+        for draft in (named, picked, approved)
+    }
+    history_before = len(_dossier(web, waits_sale)["history"])
+
+    _own_rnc(web)
+
+    sale = _dossier(web, waits_sale)
+    assert _typed(sale) == ("venta", True, True)
+    assert sale["facts"]["kind"]["value"] == "income"
+    assert "document_type_pending" not in sale
+    assert len(sale["history"]) == history_before + 1
+    assert _editors(web, waits_sale) == (False, True)
+    purchase = _dossier(web, waits_purchase)
+    assert _typed(purchase) == ("recibo", True, True)
+    assert purchase["facts"]["kind"]["value"] == "expense"
+    assert _typed(_dossier(web, noted)) == ("recibo", False, True)
+    assert {
+        draft: (_typed(_dossier(web, draft)), _dossier(web, draft)["version"])
+        for draft in kept
+    } == kept
+    assert kept[approved][0] == ("recibo", False, False)
 
 
 @pytest.mark.parametrize("printed,named", [(OWN_RNC, "recibo"), (SUPPLIER_RNC, "venta")])
@@ -617,6 +707,7 @@ def test_the_kind_a_person_picks_sets_the_type_and_the_record_files_as_a_sale(
 
 
 def test_a_kind_and_a_type_that_disagree_are_refused(web) -> None:  # noqa: ANN001
+    _own_rnc(web)
     draft = _upload(web, SUPPLIER_RNC, unsure=True)["draft_id"]
     for body in (
         {

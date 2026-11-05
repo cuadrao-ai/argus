@@ -16,6 +16,8 @@ from uuid import uuid4
 import pytest
 from argus.domain.business import document_type as types
 from argus.domain.business.actions import approval, captures, mutations, sources
+from argus.domain.business.actions import dossier as dossier_actions
+from argus.domain.business.actions.retype import recheck_open_drafts
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import CaptureNote
 from argus.domain.business.contracts.dgii import (
@@ -55,7 +57,9 @@ from tests.dgii_qr_support import URL
 OWN = "131000002"
 OTHER = "101000007"
 DAY = date(2026, 9, 3)
-PERIOD = dict(start=date(2026, 9, 1), end=date(2026, 9, 30), captured_on=date(2026, 10, 18))
+PERIOD = dict(
+    start=date(2026, 9, 1), end=date(2026, 9, 30), captured_on=date(2026, 10, 18)
+)
 
 
 @pytest.mark.parametrize(
@@ -68,16 +72,20 @@ PERIOD = dict(start=date(2026, 9, 1), end=date(2026, 9, 30), captured_on=date(20
         (None, OTHER, OWN, ("recibo", True)),
         # A typed note prints no issuer: a receipt by default.
         (None, None, OWN, ("recibo", False)),
-        # No Business RNC to compare with: a receipt by default.
-        (None, OTHER, None, ("recibo", False)),
+        # No Business RNC to compare with: por confirmar, whatever is printed.
+        (None, OTHER, None, (None, False)),
         (None, "RNC 131000002", OWN, ("recibo", False)),
-        (None, None, None, ("recibo", False)),
+        (None, None, None, (None, False)),
+        # A named type never waits for the Business RNC.
+        ("venta", None, None, ("venta", False)),
     ],
 )
 def test_one_rule_names_the_type_and_whether_the_read_chose_it(
     named, issuer, own, expected
 ):
-    assert types.resolved_document_type(named, issuer, own) == expected
+    found = types.resolved_document_type(named, issuer, own)
+    assert (found.document_type, found.detected) == expected
+    assert found.pending == ("business_rnc_missing" if expected[0] is None else None)
 
 
 @pytest.mark.parametrize(
@@ -90,7 +98,12 @@ def test_each_type_is_one_family_on_one_form(document_type, family, form):
 
 @pytest.mark.parametrize(
     "kind,document_type",
-    [("expense", "recibo"), ("refund", "recibo"), ("income", "venta"), ("transfer", None)],
+    [
+        ("expense", "recibo"),
+        ("refund", "recibo"),
+        ("income", "venta"),
+        ("transfer", None),
+    ],
 )
 def test_money_with_no_document_stands_under_the_type_whose_kinds_include_it(
     kind, document_type
@@ -148,7 +161,9 @@ def _read(monkeypatch, *, named, printed, own, qr=False) -> dict:  # noqa: ANN00
     return tx.imports.put_event.call_args.args[0].resolution["business"]
 
 
-def _typed(monkeypatch, request: CaptureNote, own: str | None) -> tuple[dict, SimpleNamespace]:  # noqa: ANN001
+def _typed(
+    monkeypatch, request: CaptureNote, own: str | None
+) -> tuple[dict, SimpleNamespace]:  # noqa: ANN001
     """One typed note on a Business whose RNC is ``own``; the saved resolution
     and the transaction it ran in."""
 
@@ -315,7 +330,10 @@ def test_every_reader_takes_the_direction_from_the_type(monkeypatch, name):
 
     make, expected = CASES[name]
     saved = make(monkeypatch)
-    assert (saved["document_type"], saved.get("document_type_detected", False)) == expected
+    assert (
+        saved["document_type"],
+        saved.get("document_type_detected", False),
+    ) == expected
     found = types.direction(saved["document_type"])
     facts = BusinessFacts.model_validate(saved["facts"])
     assert (
@@ -335,17 +353,17 @@ def test_every_reader_takes_the_direction_from_the_type(monkeypatch, name):
 def test_an_approved_record_routes_by_its_type_with_no_draft_in_hand(monkeypatch, name):
     make, (document_type, _detected) = CASES[name]
     record = _approved(make(monkeypatch))
-    assert project(_recorded(record), None, {}, OWN).family == types.direction(
-        document_type
-    ).family
+    assert (
+        project(_recorded(record), None, {}, OWN).family
+        == types.direction(document_type).family
+    )
 
 
 @pytest.mark.parametrize(
     "make",
     [
         lambda m: _read(m, named=None, printed=None, own=OWN),
-        lambda m: _read(m, named=None, printed=OTHER, own=None),
-        lambda m: _typed(m, CaptureNote(text="Compra de clavos"), None)[0],
+        lambda m: _typed(m, CaptureNote(text="Compra de clavos"), OWN)[0],
     ],
 )
 def test_a_defaulted_type_is_never_marked_detected(monkeypatch, make):
@@ -354,6 +372,276 @@ def test_a_defaulted_type_is_never_marked_detected(monkeypatch, make):
         "recibo",
         False,
     )
+
+
+PENDING_CASES = {
+    "read_with_no_business_rnc": lambda m: _read(m, named=None, printed=OTHER, own=None),
+    "own_rnc_printed_with_no_business_rnc": lambda m: _read(
+        m, named=None, printed=OWN, own=None
+    ),
+    "typed_note_with_no_business_rnc": lambda m: _typed(
+        m, CaptureNote(text="Compra de clavos"), None
+    )[0],
+}
+
+
+@pytest.mark.parametrize("name", list(PENDING_CASES))
+def test_with_no_business_rnc_and_no_named_type_the_direction_waits(monkeypatch, name):
+    """Por confirmar: the draft has no type, is not detected, and the Bandeja
+    offers neither the 606 nor the 607 editor."""
+
+    saved = PENDING_CASES[name](monkeypatch)
+    assert (saved["document_type"], saved.get("document_type_detected", False)) == (
+        None,
+        False,
+    )
+    facts = BusinessFacts.model_validate(saved["facts"])
+    assert not takes_purchase_declaration(None, facts)
+    assert not takes_payment_split(None)
+    assert types.direction(None) is None
+
+
+@pytest.mark.parametrize(
+    "request_body,expected",
+    [
+        (CaptureNote(text="Factura a cliente", document_type="venta"), "venta"),
+        (CaptureNote(text="Clavos", document_type="recibo"), "recibo"),
+        (
+            CaptureNote(
+                text="Clavos", purchase={"amount": "118.00", "occurred_on": "2026-09-03"}
+            ),
+            "recibo",
+        ),
+    ],
+)
+def test_a_named_type_or_a_typed_purchase_never_waits_for_the_business_rnc(
+    monkeypatch, request_body, expected
+):
+    saved = _typed(monkeypatch, request_body, None)[0]
+    assert (saved["document_type"], saved.get("document_type_detected", False)) == (
+        expected,
+        False,
+    )
+
+
+def _pending_event(printed: str | None = OTHER) -> ImportEvent:
+    """An open draft read with no Business RNC: no type, a kind as read, and
+    the RNC the read printed, if any."""
+
+    source = uuid4()
+    data = {"kind": Known(value="expense", origin="extracted", source_ids=(source,))}
+    if printed is not None:
+        data["fiscal"] = {
+            "rnc": Known(value=printed, origin="extracted", source_ids=(source,)),
+            "ncf": Known(value=PURCHASE_NCF, origin="extracted", source_ids=(source,)),
+        }
+    event = _event("recibo", BusinessFacts.model_validate(data))
+    event.resolution["business"].update(document_type=None, document_type_detected=False)
+    return event
+
+
+@pytest.mark.parametrize(
+    "write",
+    [
+        {"purchase": PurchaseReview(category="09", payment_method="01")},
+        {"payment_split": SalePaymentSplit(cash="118.00")},
+        {
+            "fiscal_review": FiscalReview.model_validate(
+                {
+                    "fiscal": {"rnc": OTHER, "ncf": PURCHASE_NCF, "itbis": "18.00"},
+                    "declaration": apply_purchase(
+                        None, PurchaseReview(category="09", payment_method="01")
+                    ).model_dump(mode="json"),
+                }
+            )
+        },
+    ],
+)
+def test_a_pending_draft_takes_no_606_and_no_607_write(monkeypatch, write):
+    with pytest.raises(ActionError) as refused:
+        _review(monkeypatch, _pending_event(), None, **write)
+    assert refused.value.code == "fiscal_direction_unsupported"
+
+
+def _workflow_blockers(monkeypatch, event: ImportEvent) -> list[str]:  # noqa: ANN001
+    monkeypatch.setattr(dossier_actions, "blockers", lambda *args: [])
+    monkeypatch.setattr(dossier_actions, "pending_duplicates", lambda *args: {})
+    facts = BusinessFacts.model_validate(event.resolution["business"]["facts"])
+    blocked, _ids = dossier_actions.workflow_blockers(_tx(None), event, facts, (), ())
+    return [blocker.code for blocker in blocked]
+
+
+def test_a_pending_draft_is_blocked_from_approval_until_someone_names_the_type(
+    monkeypatch,
+):
+    event = _pending_event()
+    assert _workflow_blockers(monkeypatch, event) == ["document_type_pending"]
+    event.resolution["business"] = _review(
+        monkeypatch, event, None, document_type="recibo"
+    )
+    assert _workflow_blockers(monkeypatch, event) == []
+
+
+@pytest.mark.parametrize(
+    "pick,sale",
+    [
+        ({"document_type": "venta"}, True),
+        ({"document_type": "recibo"}, False),
+        ({"kind": "income"}, True),
+    ],
+)
+def test_a_person_picks_the_type_of_a_pending_draft_by_hand(monkeypatch, pick, sale):
+    """The pick is a named type: it wins, the kind follows it, and the
+    matching form's editor opens."""
+
+    saved = _review(
+        monkeypatch,
+        _pending_event(),
+        pick.get("kind"),
+        **{key: value for key, value in pick.items() if key != "kind"},
+    )
+    document_type = saved["document_type"]
+    assert (document_type, saved.get("document_type_detected", False)) == (
+        "venta" if sale else "recibo",
+        False,
+    )
+    facts = BusinessFacts.model_validate(saved["facts"])
+    assert facts.kind.value == ("income" if sale else "expense")
+    assert takes_payment_split(document_type) is sale
+    assert takes_purchase_declaration(document_type, facts) is not sale
+
+
+MEMBER = _actor().model_copy(update={"actor_kind": "member"})
+
+
+def _recheck(
+    monkeypatch, own: str | None, *events: ImportEvent
+) -> tuple[int, dict[str, dict]]:  # noqa: ANN001
+    """The rule run again over ``events`` as the open drafts of a Business
+    whose RNC is now ``own``: how many changed, and each saved resolution."""
+
+    monkeypatch.setattr(sources, "attach", lambda *args: None)
+    monkeypatch.setattr(mutations, "validate_facts", lambda *args: None)
+    tx = _tx(own)
+    tx.imports.events = lambda states: list(events) if states == ("open",) else []
+    changed = recheck_open_drafts(tx, MEMBER, (uuid4(),))
+    saved = {
+        call.args[0].id: call.args[0].resolution["business"]
+        for call in tx.imports.put_event.call_args_list
+    }
+    return changed, saved
+
+
+def _typed_saved(saved: dict) -> tuple:
+    return (
+        saved["document_type"],
+        saved.get("document_type_detected", False),
+        saved["facts"]["kind"]["value"],
+    )
+
+
+def test_adding_the_business_rnc_types_the_open_drafts_the_rule_owns_again(monkeypatch):
+    """A draft whose issuer is the Business becomes a Venta, one whose issuer
+    differs a receipt, one with no issuer the default receipt; a type a person
+    named, or the rule already defaulted, stays as it was."""
+
+    own_issuer = _pending_event(OWN)
+    other_issuer = _pending_event(OTHER)
+    no_issuer = _pending_event(None)
+    named = _event("venta", _facts(PURCHASE_NCF, kind="income"))
+    named.resolution["business"]["document_type_detected"] = False
+    defaulted = _event("recibo", _facts(PURCHASE_NCF, kind="expense"))
+    defaulted.resolution["business"]["document_type_detected"] = False
+    changed, saved = _recheck(
+        monkeypatch, OWN, own_issuer, other_issuer, no_issuer, named, defaulted
+    )
+    assert changed == 3
+    assert {key: _typed_saved(value) for key, value in saved.items()} == {
+        own_issuer.id: ("venta", True, "income"),
+        other_issuer.id: ("recibo", True, "expense"),
+        no_issuer.id: ("recibo", False, "expense"),
+    }
+
+
+def test_changing_the_business_rnc_re_reads_a_detected_type_and_removing_it_waits_again(
+    monkeypatch,
+):
+    detected = _pending_event(OWN)
+    detected.resolution["business"].update(
+        document_type="recibo", document_type_detected=True
+    )
+    changed, saved = _recheck(monkeypatch, OWN, detected)
+    assert (changed, _typed_saved(saved[detected.id])) == (1, ("venta", True, "income"))
+
+    sold = _event("venta", _facts(PURCHASE_NCF, kind="income"))
+    changed, saved = _recheck(monkeypatch, None, sold)
+    assert changed == 1
+    assert (
+        saved[sold.id]["document_type"],
+        saved[sold.id].get("document_type_detected", False),
+    ) == (None, False)
+
+
+def test_a_profile_change_types_open_drafts_again_only_when_the_number_changes(
+    monkeypatch,
+):
+    """The Business RNC the rule compares with changed: the open drafts it
+    owns are typed again in the same transaction, sourced to the change. A
+    name-only change leaves them alone."""
+
+    from contextlib import contextmanager
+
+    from argus.domain.business import fiscal_profile
+
+    waiting = _pending_event(OWN)
+    tx = _tx(OWN)
+    tx.imports.events = lambda states: [waiting] if states == ("open",) else []
+    tx.authorization = SimpleNamespace(provenance=MEMBER, permissions=("manage",))
+    rows = {
+        "select name": [
+            {"name": "Taller", "business_rnc": None, "business_tax_id_type": None}
+        ],
+        "business_rnc from": [{"business_rnc": OWN}],
+    }
+    tx.rows = Mock(
+        side_effect=lambda sql, *args: next(
+            (value for key, value in rows.items() if key in sql), []
+        )
+    )
+    monkeypatch.setattr(fiscal_profile.plans, "receipt", lambda *args: None)
+    monkeypatch.setattr(fiscal_profile.plans, "start_receipt", lambda *args: None)
+    monkeypatch.setattr(fiscal_profile.plans, "finish_receipt", lambda *args: None)
+    monkeypatch.setattr(fiscal_profile, "read_profile", lambda *args: {})
+    monkeypatch.setattr(sources, "record_source", lambda *args: uuid4())
+    monkeypatch.setattr(sources, "attach", lambda *args: None)
+    monkeypatch.setattr(mutations, "validate_facts", lambda *args: None)
+
+    @contextmanager
+    def opened(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+        yield tx
+
+    monkeypatch.setattr(fiscal_profile, "transaction", opened)
+    context = SimpleNamespace(
+        actor=SimpleNamespace(actor_kind="member", actor_id=uuid4(), space_id=uuid4())
+    )
+    renamed = fiscal_profile.FiscalProfileChange(
+        name="Taller Nuevo", previous_name="Taller", tax_id=None, previous_tax_id=None
+    )
+    fiscal_profile.set_profile(None, context, renamed, "key-1")
+    assert tx.imports.put_event.call_args_list == []
+
+    numbered = fiscal_profile.FiscalProfileChange(
+        name="Taller",
+        previous_name="Taller",
+        tax_id={"type": "rnc", "value": OWN},
+        previous_tax_id=None,
+    )
+    fiscal_profile.set_profile(None, context, numbered, "key-2")
+    [saved] = [
+        call.args[0].resolution["business"]
+        for call in tx.imports.put_event.call_args_list
+    ]
+    assert _typed_saved(saved) == ("venta", True, "income")
 
 
 def test_typed_entry_reads_the_business_rnc(monkeypatch):
@@ -513,8 +801,20 @@ def _holding(document_type: str, kind: str, declaration: dict) -> ImportEvent:
 @pytest.mark.parametrize(
     "document_type,kind,stray,write,form",
     [
-        ("venta", "income", STRAY_606, {"payment_split": SalePaymentSplit(bank="118.00")}, "607"),
-        ("recibo", "expense", STRAY_607, {"purchase": PurchaseReview(category="02")}, "606"),
+        (
+            "venta",
+            "income",
+            STRAY_606,
+            {"payment_split": SalePaymentSplit(bank="118.00")},
+            "607",
+        ),
+        (
+            "recibo",
+            "expense",
+            STRAY_607,
+            {"purchase": PurchaseReview(category="02")},
+            "606",
+        ),
     ],
 )
 def test_an_enabled_editor_replaces_a_declaration_saved_for_the_other_form(
@@ -557,7 +857,9 @@ def test_an_expense_approval_writes_its_606_over_a_stray_607():
             "kind": Known(value="expense", origin="member_set", source_ids=(source,)),
             "fiscal": {
                 "rnc": Known(value=OTHER, origin="extracted", source_ids=(source,)),
-                "ncf": Known(value=PURCHASE_NCF, origin="extracted", source_ids=(source,)),
+                "ncf": Known(
+                    value=PURCHASE_NCF, origin="extracted", source_ids=(source,)
+                ),
             },
         }
     )

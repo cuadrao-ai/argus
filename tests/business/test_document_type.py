@@ -33,16 +33,18 @@ OTHER = "101000007"
         ("131 00000 2", "1-31-00000-2", "venta"),
         ("001-0000000-1", "00100000001", "venta"),
         (OTHER, OWN, "recibo"),
-        (OWN, None, "recibo"),
+        # No Business number to compare with: por confirmar, whatever is printed.
+        (OWN, None, None),
         (None, OWN, "recibo"),
-        (None, None, "recibo"),
+        (None, None, None),
         ("RNC 131000002", OWN, "recibo"),
-        ("1310000021", "1310000021", "recibo"),
-        ("000000000", "000000000", "recibo"),
+        # A Business number that is no RNC is no number: por confirmar.
+        ("1310000021", "1310000021", None),
+        ("000000000", "000000000", None),
     ],
 )
 def test_only_the_business_own_identity_reads_as_a_venta(issuer, own, expected):
-    assert resolved_document_type(None, issuer, own)[0] == expected
+    assert resolved_document_type(None, issuer, own).document_type == expected
 
 
 def _batch(rnc: str | None, qr: bool = False) -> ExtractionBatch:
@@ -110,14 +112,14 @@ def test_the_named_type_wins_then_the_draft_then_the_issuer(
     found = mutations._read_document_type(
         _tx(own), _event(previous), _draft(document_type=named), _batch(printed, qr)
     )
-    assert found == expected
+    assert (found.document_type, found.detected) == expected
 
 
 def test_the_issuer_from_the_qr_outranks_a_printed_own_rnc():
     found = mutations._read_document_type(
         _tx(OWN), _event(), _draft(), _batch(OWN, qr=True)
     )
-    assert found == ("recibo", True)
+    assert (found.document_type, found.detected) == ("recibo", True)
 
 
 def _known(value: str, source) -> dict:  # noqa: ANN001

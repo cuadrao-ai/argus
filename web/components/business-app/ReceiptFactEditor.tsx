@@ -46,7 +46,7 @@ export default function ReceiptFactEditor({ facts, accounts, currencies, disable
 
   return (
     <div ref={controls} className="space-y-3" data-testid={`edit-${field}`}>
-      {field === "document_type" ? <label className="block text-[13px] text-black/65 dark:text-white/65"><span className="sr-only">{t("business.dossier.type_label", "Type")}</span><ReviewSelect value={documentType} disabled={disabled} onChange={(event) => onDocumentTypeChange?.(event.target.value as DocumentType)}>{(Object.keys(DOCUMENT_TYPE_LABELS) as DocumentType[]).map((type) => <option key={type} value={type}>{t(DOCUMENT_TYPE_LABELS[type])}</option>)}</ReviewSelect></label> : null}
+      {field === "document_type" ? <label className="block text-[13px] text-black/65 dark:text-white/65"><span className="sr-only">{t("business.dossier.type_label", "Type")}</span><ReviewSelect value={documentType ?? ""} disabled={disabled} onChange={(event) => onDocumentTypeChange?.(event.target.value as DocumentType)}>{documentType ? null : <option value="" disabled>{t("business.dossier.type_pending", "To confirm")}</option>}{(Object.keys(DOCUMENT_TYPE_LABELS) as DocumentType[]).map((type) => <option key={type} value={type}>{t(DOCUMENT_TYPE_LABELS[type])}</option>)}</ReviewSelect></label> : null}
       {field === "kind" ? <label className="block text-[13px] text-black/65 dark:text-white/65"><span className="sr-only">{label("kind")}</span><ReviewSelect value={kind.value ?? ""} disabled={disabled} onChange={(event) => {
         if (event.target.value === "expense" || event.target.value === "income" || event.target.value === "refund") set("kind", { state: "known", value: event.target.value });
         else if (!event.target.value) set("kind", { state: "unknown", value: null });

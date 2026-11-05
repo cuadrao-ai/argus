@@ -239,7 +239,9 @@ class ReadPurchase(Contract):
 
 class BusinessResolution(Contract):
     schema_version: Literal[1] = 1
-    document_type: DocumentType = "recibo"
+    #: None while por confirmar: no person named the type and no Business RNC
+    #: let the read decide. Absent on a draft saved before the type was stored.
+    document_type: DocumentType | None = "recibo"
     #: The read set the type because the upload named none; false once a person sets it.
     document_type_detected: bool = Field(
         default=False, exclude_if=lambda value: value is False

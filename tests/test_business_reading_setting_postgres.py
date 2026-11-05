@@ -37,7 +37,12 @@ from tests.business.test_business_api import RECEIPT
 from tests.business.test_business_email_api import SECRET, WEBHOOK, signed
 from tests.business_reading_support import ROUTE
 from tests.local_supabase_support import local_supabase_gateway
-from tests.test_business_scope_switch_routes_postgres import API, ENV, _person
+from tests.test_business_scope_switch_routes_postgres import (
+    API,
+    ENV,
+    _person,
+    seed_business_rnc,
+)
 
 pytestmark = pytest.mark.skipif(
     not (shared.DSN and os.getenv("ARGUS_LOCAL_SUPABASE_URL")),
@@ -75,6 +80,7 @@ def web(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
             started = client.post(f"{API}/business/space", json={}, headers=alice.headers)
             assert started.status_code == 201, started.text
             alice.space_id = started.json()["id"]
+            seed_business_rnc(client, alice.headers)
             yield SimpleNamespace(
                 client=client, alice=alice, documents=documents, stub=stub
             )

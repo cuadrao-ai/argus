@@ -125,12 +125,14 @@ export type ReceiptSummary = ReceiptReviewFields & {
   include_606_by?: string | null;
   /** The caller may mark or unmark it: anyone holding prepare, on a receipt that has a draft. */
   personal_editable?: boolean;
-  /** `venta` is an invoice this business already issued. Absent means a receipt. */
-  document_type?: "recibo" | "venta";
+  /** `venta` is an invoice this business already issued. Absent means a receipt. Null while the server holds the type por confirmar; `document_type_pending` says why. */
+  document_type?: "recibo" | "venta" | null;
   /** The type was read from the document (its RNC is the Business's own), not picked; absent when false. */
   document_type_detected?: boolean;
   /** True while the draft is open and the caller can prepare: the type can still change. */
   document_type_editable?: boolean;
+  /** Why the draft has no type yet: held from the 606 and the 607 until a person picks one or the Business RNC is set. */
+  document_type_pending?: "business_rnc_missing";
   filename: string | null;
   /** The sender's own words sent with the file (a WhatsApp caption), verbatim. */
   source_text?: string | null;

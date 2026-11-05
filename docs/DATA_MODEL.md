@@ -3698,8 +3698,14 @@ older commands, tables, grants and row-level security.
 The resolution's `document_type` (`recibo` or `venta`) is the draft's current
 document type, and `document_type_detected` is true while the read's choice
 stands: the read compared the issuer RNC with the Business's own. A `recibo`
-the server fell back to, with no issuer or no Business RNC to compare, is a
-default and is not detected. The type is the one owner of purchase or sale:
+the server fell back to, with no issuer, is a default and is not detected.
+With no Business RNC to compare with and no named type, `document_type` is
+null: the draft is por confirmar, blocked from approval and from both forms,
+until a person names the type or `spaces.business_rnc` is set. A change of
+`spaces.business_rnc` through the fiscal profile types every open draft the
+rule owns (null or detected) again, as a normal revision whose web source holds
+the profile request; approved records never change. The type is the one owner
+of purchase or sale:
 Registros' family, the Bandeja's 606 and 607 editors, month close's invoice or
 receipt role and the export's form all read it, never the kind or the saved
 declaration. The upload's own choice lives on `financial_document_extractions.draft`

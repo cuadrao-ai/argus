@@ -90,14 +90,22 @@ def _prepare(draft: DocumentDraft, receipt: ReceiptDetails, monkeypatch):
     return _prepare_batch(draft, batch, monkeypatch)
 
 
-def _prepare_batch(draft: DocumentDraft, batch: ExtractionBatch, monkeypatch):
+def _prepare_batch(
+    draft: DocumentDraft,
+    batch: ExtractionBatch,
+    monkeypatch,  # noqa: ANN001
+    own: str | None = "131000002",
+):
+    """One read on a Business whose RNC is ``own``; with none the read cannot
+    tell a sale from a purchase."""
+
     actor = _actor()
     tx = SimpleNamespace(
         context=SimpleNamespace(
             owner_id=str(uuid4()), actor=SimpleNamespace(space_id=uuid4())
         ),
         imports=SimpleNamespace(put_event=Mock()),
-        rows=Mock(return_value=[{"business_rnc": None}]),
+        rows=Mock(return_value=[{"business_rnc": own}]),
     )
     monkeypatch.setattr(sources, "record_source", lambda *args: uuid4())
     monkeypatch.setattr(sources, "attach", lambda *args: None)

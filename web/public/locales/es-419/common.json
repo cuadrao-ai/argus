@@ -2752,6 +2752,8 @@
       "type_detected_recibo": "Lo detectamos como compra. Cámbialo si es una venta.",
       "type_locked": "Este registro ya está aprobado. Su tipo no cambia.",
       "type_clears_choices": "Cambiar el tipo borra el tipo de gasto y la forma de pago.",
+      "type_pending": "[placeholder] business.dossier.type_pending",
+      "type_pending_reason": { "business_rnc_missing": "[placeholder] business.dossier.type_pending_reason.business_rnc_missing" },
       "title": "Revisar registro",
       "unknown": "Desconocido",
       "rnc_unknown": "Sin RNC",
@@ -2999,7 +3001,8 @@
         "owner_funding_unsupported": "Todavía no se pueden registrar gastos con dinero del dueño en este primer flujo.",
         "permission_denied": "Tu permiso actual no permite esta acción.",
         "currency_mismatch": "La cuenta de pago y el registro necesitan la misma moneda.",
-        "idempotency_conflict": "Esta acción tiene otra base guardada. Consulta el registro actual."
+        "idempotency_conflict": "Esta acción tiene otra base guardada. Consulta el registro actual.",
+        "document_type_pending": "[placeholder] business.dossier.blocker.document_type_pending"
       }
     },
     "actions": {

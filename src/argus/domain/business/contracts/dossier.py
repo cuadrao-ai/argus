@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import Field, model_validator
 
-from argus.domain.business.document_type import DocumentType
+from argus.domain.business.document_type import DocumentType, DocumentTypePending
 
 from .actions import ApprovalAction
 from .authority import ActorProvenance, Capability
@@ -220,10 +220,13 @@ class BusinessDossier(RecordContext):
     sin_comprobante: bool = False
     #: The document type: a receipt (recibo) or an invoice the business issued
     #: (venta). Detected when no person named it. Editable while the draft is
-    #: open and the caller may prepare.
-    document_type: DocumentType = "recibo"
+    #: open and the caller may prepare. Null while por confirmar, and then
+    #: ``document_type_pending`` says why: the draft is held from the 606 and
+    #: the 607 until a person picks a type or the Business RNC lets the rule.
+    document_type: DocumentType | None = "recibo"
     document_type_detected: bool = False
     document_type_editable: bool = False
+    document_type_pending: DocumentTypePending | None = None
     #: The caller may write the 606 declaration now: open or approved, and the
     #: caller holds prepare. A download changes nothing here.
     declaration_editable: bool = False

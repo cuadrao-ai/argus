@@ -27,7 +27,7 @@ from faker import Faker
 from psycopg.types.json import Jsonb
 
 from tests import test_business_actions_postgres as shared
-from tests.test_business_spaces_migration_postgres import connection
+from tests.test_business_spaces_migration_postgres import SEED_RNC, connection
 
 users = shared.users
 shared_actions = shared.actions
@@ -55,7 +55,7 @@ def actions(shared_actions):
             name=name,
             previous_name=name,
             tax_id={"type": "rnc", "value": FILER},
-            previous_tax_id=None,
+            previous_tax_id={"type": "rnc", "value": SEED_RNC},
         ),
         "rnc",
     )
