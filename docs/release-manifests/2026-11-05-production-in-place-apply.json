@@ -1,0 +1,14 @@
+{
+  "id": "DRAFT-production-in-place-2026-11-05",
+  "project_ref": "lgdhvepyrzbnscqssgqq",
+  "hosts": [
+    "db.lgdhvepyrzbnscqssgqq.supabase.co"
+  ],
+  "database": "postgres",
+  "candidate_sha": "REPLACE_WITH_REVIEWED_40_CHARACTER_CANDIDATE_SHA",
+  "versions_sha256": "14b6ee20af3a27094545a81ef569d64b58d37f3a4b8745f51f666e5d73b033dd",
+  "issued_at": "REPLACE_WITH_APPROVAL_UTC_TIMESTAMP",
+  "expires_at": "REPLACE_WITH_EXPIRY_UTC_TIMESTAMP_WITHIN_THREE_DAYS",
+  "approved_by": "PENDING_FOUNDER_APPROVAL",
+  "approval_reference": "DRAFT ONLY; not approval to connect or execute. Issue #1789 requests an in-place plan, no production reset. Repository-only inventory: main 980d56ba357301f1689527fe9ce4cbb377b5a1f6 to target 30c22864e7a7f563ad4f2a59e89ea358bcde95f5; 122 missing versions, 63 below main ledger head. Digest includes all listed versions as recorded, no unrecorded versions, and --allow-mid-file-commit 20261003120001. Current planner rejects this list; review and test the missing-prefix ordering fix first. Before completing this record: rederive the delta for the exact candidate and verified ledger; resolve waitlist rows without unapproved data loss and separately approve refusal-evidence deletion; review all destructive and contract changes, backup/restore and maintenance evidence, event-trigger compatibility, and historical ledger reconciliation. Replace every placeholder only after explicit founder approval, commit the completed record after the exact candidate, and run the tool without --execute first. Its dry run connects and checks planning, not SQL execution. The direct host is the only proposed host; verify connectivity separately and do not copy the staging pooler host."
+}
