@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 from typing import Literal
 
@@ -12,6 +13,12 @@ from argus.llm.openrouter_tasks import OpenRouterTask
 from argus.llm.provider_permit import ProviderCallPermit
 
 OpenRouterRetryAttempt = tuple[OpenRouterTask, float, str, Literal["json_schema", "chat_model"], str | None, list[str] | None]
+
+
+def timed_out(exc: BaseException) -> bool:
+    """The transport gave up waiting, on the request's own deadline or on the
+    call's. A refusal or a broken answer is never a timeout."""
+    return isinstance(exc, (TimeoutError, asyncio.TimeoutError, httpx.TimeoutException))
 
 
 def prepare_json_schema_request(

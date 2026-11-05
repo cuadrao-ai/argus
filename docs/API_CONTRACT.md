@@ -8932,8 +8932,9 @@ workers. A waiting attempt costs nothing and never expires: it counts as lost
 only after a worker took it. `/prepare` or `/resume` of a saved preparation
 returns the draft to `queued` until a worker replays it. A stopping worker takes
 no new read and gives reads in flight `CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS`
-(default 120) to finish. A read still running then is cancelled, and the sweep
-treats it as a dead worker.
+(default 210: two provider calls at their 90 s timeout, the second being the
+retry after a timeout, plus local work) to finish. A read still running then
+is cancelled, and the sweep treats it as a dead worker.
 
 Preparation preserves extracted observations and receipt itemization separately
 from canonical candidate projection. Receipt payment evidence is `paid|pending|unknown`,
