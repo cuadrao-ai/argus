@@ -9659,7 +9659,12 @@ shows the same line and the person may switch it to `venta`. Nothing else
 changes: approval and the 606 editor work as on any receipt. Naming
 `document_type`, or stating a kind, settles it as a named type. Setting the
 Business tax id (`PATCH /business/fiscal-profile`) types every open draft the
-rule owns again, the suggested ones and the detected ones.
+rule owns again, the suggested ones and the detected ones. The rule compares
+the issuer RNC the read found (the QR's before the printed one), kept on the
+draft, never the RNC fact a `venta` clears, so clearing and restoring the
+same tax id leaves every type as read. A change of type there has the effects
+of a named one: a declaration saved under the other type is cleared. A
+detected draft read before its issuer was kept keeps its type.
 
 The type is the one answer to purchase or sale; a known `facts.kind` is always
 a kind the type admits. A `venta` admits `income`. A `recibo` admits `expense`

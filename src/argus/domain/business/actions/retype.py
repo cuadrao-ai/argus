@@ -3,7 +3,9 @@
 A draft nobody named is the rule's to decide: the receipt it suggested with
 no Business RNC, and the type the read detected against the old number. A
 type a person or a document named, or a receipt the rule defaulted to with
-no issuer, stays. Approved records never change here.
+no issuer, stays. Approved records never change here. The rule compares the
+issuer the read found, kept on the draft, never the RNC fact: a Venta's RNC is
+the client's.
 """
 
 from __future__ import annotations
@@ -17,12 +19,11 @@ from loguru import logger
 from argus.domain.business.actions.mutations import (
     business_tax_id,
     facts_under_type,
-    read_issuer,
     save_revision,
     stored_type,
 )
 from argus.domain.business.contracts.authority import ActorProvenance
-from argus.domain.business.contracts.facts import BusinessResolution, Known
+from argus.domain.business.contracts.facts import BusinessResolution
 from argus.domain.business.document_type import resolved_document_type
 from argus.domain.business.transactions import ActionTransaction
 
@@ -44,11 +45,17 @@ def recheck_open_drafts(
         current = stored_type(business)
         if not current.rule_owned:
             continue
-        resolution = BusinessResolution.model_validate(business)
-        resolved = resolved_document_type(None, _issuer(resolution), own)
+        if current.detected and current.issuer is None:
+            # Read before the draft kept its issuer: nothing left to compare.
+            logger.info(
+                "business_document_type_recheck_skipped draft={} reason=issuer_not_kept",
+                event.id,
+            )
+            continue
+        resolved = resolved_document_type(None, current.issuer, own)
         if resolved == current:
             continue
-        before = resolution.facts
+        before = BusinessResolution.model_validate(business).facts
         after = facts_under_type(before, resolved, source_ids, own)
         logger.info(
             "business_document_type_rechecked draft={} was={} now={} detected={}"
@@ -71,10 +78,3 @@ def recheck_open_drafts(
         )
         retyped += 1
     return retyped
-
-
-def _issuer(resolution: BusinessResolution) -> str | None:
-    """The RNC that issued the draft's document, as the draft carries it."""
-
-    rnc = resolution.facts.fiscal.rnc if resolution.facts.fiscal is not None else None
-    return read_issuer(resolution.dgii_qr, rnc.value if isinstance(rnc, Known) else None)

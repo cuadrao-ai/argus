@@ -79,11 +79,14 @@ class ResolvedType:
     only when the read compared an issuer with the Business RNC. ``suggested``
     is true for the receipt the rule falls back to with no Business RNC to
     compare: a named type never is, and the rule may type the draft again
-    once the RNC arrives. The Bandeja shows both as the read's choice."""
+    once the RNC arrives. The Bandeja shows both as the read's choice.
+    ``issuer`` is the issuer RNC the read found, the QR's before the printed
+    one: the rule's input, kept so a re-check compares the same evidence."""
 
     document_type: DocumentType
     detected: bool = False
     suggested: bool = False
+    issuer: str | None = None
 
     @property
     def rule_owned(self) -> bool:
@@ -102,14 +105,16 @@ def resolved_document_type(
     receipt by default, never marked as the read's choice."""
 
     if named is not None:
-        return ResolvedType(named)
+        return ResolvedType(named, issuer=issuer_tax_id)
     own = normalized_taxpayer_id(business_tax_id)
     if own is None:
-        return ResolvedType("recibo", suggested=True)
+        return ResolvedType("recibo", suggested=True, issuer=issuer_tax_id)
     issuer = normalized_taxpayer_id(issuer_tax_id)
     if issuer is None:
-        return ResolvedType("recibo")
-    return ResolvedType("venta" if issuer == own else "recibo", True)
+        return ResolvedType("recibo", issuer=issuer_tax_id)
+    return ResolvedType(
+        "venta" if issuer == own else "recibo", detected=True, issuer=issuer_tax_id
+    )
 
 
 def kind_disagrees(document_type: DocumentType, facts: BusinessFacts) -> bool:

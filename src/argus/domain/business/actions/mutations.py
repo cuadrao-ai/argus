@@ -128,7 +128,9 @@ def save_revision(
     due_on: DueOnInput | None = None,
 ) -> Applied:
     """``resolved`` None keeps the type the draft has; a draft saved before
-    the type was stored is a receipt."""
+    the type was stored is a receipt. A write that changes the type and
+    brings no declaration of its own drops the stored one: every path that
+    retypes a draft lands here."""
 
     validate_facts(tx, after)
     resolution = dict(event.resolution)
@@ -150,9 +152,16 @@ def save_revision(
         dgii_qr = DgiiQr.model_validate(kept_qr) if kept_qr else None
     if bill_mark is None:
         bill_mark = previous.get("bill_mark")
+    kept = stored_type(previous)
     if resolved is None:
-        resolved = stored_type(previous)
+        resolved = kept
+    elif resolved.issuer is None:
+        # Only a read finds the issuer; a person's type keeps the read's.
+        resolved = replace(resolved, issuer=kept.issuer)
     document_type = resolved.document_type
+    if document_type != kept.document_type and dgii is None:
+        # A declaration filled under the other type no longer applies.
+        clear_dgii, amount_derived = True, False
     if document_type == "venta":
         # An issued invoice is never a bill the business owes.
         bill_mark = None
@@ -182,6 +191,7 @@ def save_revision(
         document_type=document_type,
         document_type_detected=resolved.detected,
         document_type_suggested=resolved.suggested,
+        document_type_issuer=resolved.issuer,
         due_on=after_due_on,
     ).model_dump(mode="json")
     event = replace(event, resolution=resolution, anchor_on=after.occurred_on.value)
@@ -221,6 +231,7 @@ def stored_type(business: dict | None) -> ResolvedType:
         previous.get("document_type", "recibo"),
         previous.get("document_type_detected", False),
         previous.get("document_type_suggested", False),
+        previous.get("document_type_issuer"),
     )
 
 
@@ -346,8 +357,6 @@ def revise(
         actor,
         turn_key,
         dgii=declared,
-        # A declaration filled under the other type no longer applies.
-        clear_dgii=retyped and declared is None,
         amount_derived=amount_is_derived(
             declared,
             stored,
@@ -683,10 +692,11 @@ def _read_document_type(
     previous = event.resolution.get("business")
     if draft.document_type is None and previous is not None:
         return stored_type(previous)
-    printed = batch.receipt.rnc if batch.receipt is not None else None
-    resolved = resolved_document_type(
-        draft.document_type, read_issuer(batch.dgii_qr, printed), business_tax_id(tx)
-    )
+    if batch.dgii_qr is not None:
+        issuer = batch.dgii_qr.rnc_emisor
+    else:
+        issuer = batch.receipt.rnc if batch.receipt is not None else None
+    resolved = resolved_document_type(draft.document_type, issuer, business_tax_id(tx))
     if resolved.detected:
         logger.info(
             "business_document_type_detected type={} issuer_from_qr={}",
@@ -696,13 +706,6 @@ def _read_document_type(
     elif resolved.suggested:
         logger.info("business_document_type_suggested reason=business_rnc_missing")
     return resolved
-
-
-def read_issuer(qr: DgiiQr | None, printed: str | None) -> str | None:
-    """The RNC that issued the document: the QR's when there is one, else the
-    one the read printed."""
-
-    return qr.rnc_emisor if qr is not None else printed
 
 
 def business_tax_id(tx: ActionTransaction) -> str | None:

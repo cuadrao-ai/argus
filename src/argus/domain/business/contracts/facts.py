@@ -250,6 +250,14 @@ class BusinessResolution(Contract):
     document_type_suggested: bool = Field(
         default=False, exclude_if=lambda value: value is False
     )
+    #: The issuer RNC the read found, the QR's before the printed one, as the
+    #: rule compares it with the Business RNC. Set when the read types the
+    #: draft and kept on later revisions; a Venta's RNC fact is the client's,
+    #: so the re-check reads this. None for a typed note or a draft read before
+    #: it was kept.
+    document_type_issuer: str | None = Field(
+        default=None, max_length=80, exclude_if=lambda value: value is None
+    )
     facts: BusinessFacts
     dgii: DgiiDeclaration | None = None
     #: The server worked out the 606 services or goods amount from the Tipo de
