@@ -1445,6 +1445,10 @@
       "password_required": "Enter your password.",
       "password_short": "Use at least {{min}} characters."
     },
+    "invite_only": {
+      "body": "Cuadrao is in early access, by invitation only.",
+      "request_access": "Request access"
+    },
     "login": {
       "brand": "cuadrao",
       "subtitle": "Sign in to continue",
