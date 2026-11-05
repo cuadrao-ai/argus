@@ -3443,7 +3443,7 @@ boundary proposal is approved.
   lapsed because the process died after the 200 can be run again.
   `recovery_attempts` counts sweep retakes. A sweep (every 60 seconds in the
   API process, and at most once a minute on webhook traffic, independent of
-  `CUADRAO_DOCUMENT_JOBS_ENABLED`) retakes a lapsed claim by compare-and-set on
+  the document read sweep) retakes a lapsed claim by compare-and-set on
   `claim_until` and runs the original processing path. After three retakes the
   row settles `failed` with `whatsapp_recovery_exhausted` and the linked sender
   gets one `whatsapp_photo_lost` reply. A lapsed row with no envelope settles
@@ -3917,7 +3917,8 @@ or split proposals. `batch` holds typed observations, receipt itemization,
 projection issues and compatible canonical candidates. It may be null before
 preparation. `preparation_job` names the current preparation attempt (number,
 ID, the draft version it was dispatched for, dispatch time, when its provider
-call started, a retry request, and `reruns`) when `CUADRAO_DOCUMENT_JOBS_ENABLED` (older `ARGUS_DOCUMENT_JOBS_ENABLED`) is on.
+call started, a retry request, and `reruns`). Every read goes through it: no
+setting leaves a read outside the attempt record.
 `reruns` counts the paid attempts of this preparation the sweep started because
 an earlier attempt died past its provider-call time with no saved batch; it
 bounds them at one (`MAX_RERUNS`). It is omitted from the JSON when zero, so a
@@ -3925,8 +3926,10 @@ row written before it or by a preparation that never needed it is unchanged,
 and the owner's "Leer de nuevo" starts a new preparation with it at zero. A
 reader older than the field rejects a row that carries it (the model forbids
 unknown keys), so a rollback leaves a receipt mid-rerun to "Leer de nuevo".
-With `CUADRAO_DOCUMENT_JOBS_PULL_ENABLED` on, the dispatch time stays null until
-a worker pulls the attempt, so a null means it waits in the queue.
+The dispatch time stays null until a puller (an API instance or the worker
+command) takes the attempt, so a null means it waits in the queue; the take is
+one row update under a database lock, which is how `CUADRAO_DOCUMENT_JOBS_MAX_READS`
+holds across every puller.
 Only that attempt may claim the draft. The provider-call time is committed
 under the attempt's live lease before the provider can be reached. The job is
 replaced together with the draft only while no lease is live. Legacy rows can have a batch without retained source; a duplicate
@@ -3986,10 +3989,11 @@ owner-prefix call expands to legacy, sealed and rebuilt prefixes. Row deletion
 also removes legacy inline bytes. No
 path deletes confirmed financial activity. Draft updates compare versions, and preparation completion
 checks the connection lease. Duplicate capture cannot replace a source or reset
-an attempt. A persisted in-flight state prevents automatic retry after uncertain
-process loss. Queued work can resume explicitly; frozen candidate delivery can
-repeat without another model request. The process background task is not the
-source of durability.
+an attempt. A persisted in-flight state bounds automatic work after an uncertain
+process loss to one paid rerun (`reruns`); after that only the owner starts a
+read. Queued work waits on its row until a puller takes it; frozen candidate
+delivery can repeat without another model request. The row, not any process,
+is the source of durability.
 
 Preparation status is `saved|queued|preparing|review_ready|needs_attention`.
 Approval state remains in reconciliation events. The immutable batch retains receipt

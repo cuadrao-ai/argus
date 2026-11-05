@@ -10,14 +10,13 @@ until an explicit `/prepare` or `/resume`, and nothing noticed while the API was
 
 ## Settings
 
-`DocumentJobSettings` in `documents/config.py`, one name each, following the
-`ARGUS_DOCUMENT_EXTRACTION_*` convention (shared true values, fails closed):
-`ARGUS_DOCUMENT_JOBS_ENABLED` (default off), `ARGUS_DOCUMENT_JOBS_WORKFLOW_TASK`
-and `ARGUS_DOCUMENT_JOBS_SWEEP_SECONDS` (default 30). Off, the routes
-add `background_prepare` to FastAPI background tasks and a read marks an expired
-attempt `needs_attention` (`document_preparation_interrupted`), exactly as before.
-`test_flag_off_prepares_through_background_tasks_only` and the existing
-`test_interrupted_attempt_needs_attention_without_automatic_retry` pin this.
+`DocumentJobSettings` in `documents/config.py`: `CUADRAO_DOCUMENT_JOBS_SWEEP_SECONDS`
+(default 30), `CUADRAO_DOCUMENT_JOBS_MAX_READS` (default 3) and
+`CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS`. Since issue 1795 there is no on or off
+switch and no push dispatch: every read waits on its row and each API instance
+pulls it with the same `DocumentWorker` the standalone command runs. The
+sections below describe the push design this lane shipped with; the pull and the
+cap are in `docs/API_CONTRACT.md`.
 
 ## Dispatch
 

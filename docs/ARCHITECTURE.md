@@ -375,8 +375,10 @@ and month close. Request and response shapes for month close are in
 Receipts reach a Business space by upload, by email (`/business/email` and the
 `/webhooks/resend` webhook in `routers/email_intake.py`) and by WhatsApp
 (`/webhooks/whatsapp` and `/whatsapp` in `routers/whatsapp.py`, default off).
-Each arrives as a saved document draft. The `workflows/document_job.py` task
-prepares drafts outside the request.
+Each arrives as a saved document draft. A read waits on its draft's row until
+a puller takes it: every API instance runs one
+(`src/argus/domain/ingestion/documents/worker.py`), and
+`python -m workflows.document_worker` runs the same one to add capacity.
 
 ---
 # 7. Communication Protocols

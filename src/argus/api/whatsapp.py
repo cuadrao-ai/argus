@@ -22,14 +22,19 @@ from loguru import logger
 from argus.api import state as api_state
 from argus.api.business_spaces import business_spaces, space_missing_problem
 from argus.api.dependencies import problem
-from argus.api.document_jobs import document_jobs
 from argus.api.documents import documents_service
 from argus.api.ingestion import IngestionContext, ingestion_hub, require_ingestion_context
 from argus.domain.business.config import business_pilot_enabled
 from argus.domain.business.scope import resolve_business_scope
 from argus.domain.business.spaces import SpaceStore
-from argus.domain.ingestion.documents.config import load_document_extraction_settings
-from argus.domain.ingestion.documents.models import DocumentExtractionError
+from argus.domain.ingestion.documents.config import (
+    load_document_extraction_settings,
+    read_seconds,
+)
+from argus.domain.ingestion.documents.models import (
+    DocumentDraft,
+    DocumentExtractionError,
+)
 from argus.domain.ingestion.documents.service import (
     DocumentServiceError,
     DocumentsService,
@@ -57,8 +62,11 @@ from argus.domain.ingestion.whatsapp.store import (
     InMemoryWhatsAppStore,
     WhatsAppStore,
 )
+from argus.domain.owner_scope import OwnerScope
 
 WEBHOOK_PATH = "/api/v1/webhooks/whatsapp"
+# How often a delivery checks whether its receipt's read has settled.
+SETTLE_POLL_SECONDS = 1.0
 
 
 class _RedactWebhookQuery(logging.Filter):
@@ -131,13 +139,10 @@ class DocumentsDestination:
             ) from None
         except DocumentServiceError:
             raise CaptureFailed("whatsapp_capture_failed") from None
-        # Queued by ``upload`` and prepared inline by ``read``: the follow-up
-        # carries the link. A replay is a duplicate and gets the duplicate reply.
-        reading = (
-            outcome.status == "queued"
-            and not outcome.replayed
-            and document_jobs() is None
-        )
+        # Queued by ``upload`` and read by a puller while ``read`` waits: the
+        # follow-up carries the link. A replay is a duplicate and gets the
+        # duplicate reply.
+        reading = outcome.status == "queued" and not outcome.replayed
         return Captured(
             outcome.connection_id, already_held=outcome.replayed, reading=reading
         )
@@ -157,8 +162,10 @@ class DocumentsDestination:
     async def read(
         self, *, owner_id: str, connection_id: str
     ) -> tuple[str, dict[str, str] | None] | None:
-        """Read a queued receipt through the owner's own preparation path, after
-        the acknowledgement. The draft's status when it settles, else ``None``."""
+        """Queue the receipt's read through the owner's own preparation path,
+        after the acknowledgement, and wait for a puller to settle it. The
+        draft's status then, still ``queued`` or ``preparing`` when one read's
+        time passed first, else ``None``."""
 
         from fastapi import BackgroundTasks
 
@@ -197,10 +204,27 @@ class DocumentsDestination:
                 raise error from release_error
             raise
         await tasks()
-        settled = self.documents.get(
-            user_id=owner_id, connection_id=connection_id, scope=scope.owner
-        )
+        settled = await self._settled(owner_id, connection_id, scope.owner)
         return settled.status, self._found(owner_id, connection_id)
+
+    async def _settled(
+        self, owner_id: str, connection_id: str, scope: OwnerScope
+    ) -> DocumentDraft:
+        """The read runs on whichever puller takes it, here or in another
+        process, so its row is the only place it shows it is done."""
+
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + read_seconds()
+        while True:
+            draft = await asyncio.to_thread(
+                self.documents.get,
+                user_id=owner_id,
+                connection_id=connection_id,
+                scope=scope,
+            )
+            if draft.status not in ("queued", "preparing") or loop.time() >= deadline:
+                return draft
+            await asyncio.sleep(SETTLE_POLL_SECONDS)
 
     def _found(self, owner_id: str, connection_id: str) -> dict[str, str] | None:
         """The merchant, amount and currency of a receipt that read as exactly

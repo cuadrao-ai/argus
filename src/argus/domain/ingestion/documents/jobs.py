@@ -1,10 +1,10 @@
 """Durable document preparation: bounded attempts that recover a dead worker.
 
-The API records one attempt per accepted preparation and hands it to a worker,
-or in pull mode leaves it on its row for a worker to pull. An attempt no process
-has taken is waiting, however old, and costs nothing. A reconciler sweep
-re-dispatches an attempt whose worker died when the attempt provably never
-reached the provider (no ``provider_call_started_at``), up to ``MAX_ATTEMPTS``.
+The API records one attempt per accepted preparation and leaves it on its row,
+where a puller (``worker.DocumentWorker``) takes it. An attempt no process has
+taken is waiting, however old, and costs nothing. A reconciler sweep requeues
+an attempt whose worker died when the attempt provably never reached the
+provider (no ``provider_call_started_at``), up to ``MAX_ATTEMPTS``.
 An attempt that died past its provider marker with no saved result (a deploy,
 a restart or a crash mid-read) is run again once, ``MAX_RERUNS``, as a new paid
 attempt through the same admission; a rerun that dies the same way settles to
@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -45,11 +44,9 @@ from argus.domain.ingestion.documents.service import (
 MAX_ATTEMPTS = 3
 MAX_RERUNS = 1
 OUTCOME_UNKNOWN = "document_preparation_outcome_unknown"
-# An unclaimed dispatch is presumed lost after the same window a lease lasts.
+# A pulled attempt that never claimed is presumed lost after the same window a
+# lease lasts.
 DISPATCH_WINDOW = DEFAULT_LEASE
-
-Dispatch = Callable[[str, str], None]
-"""Start ``(connection_id, attempt_id)`` on a worker; return once handed off."""
 
 
 def in_flight(
@@ -57,22 +54,17 @@ def in_flight(
     job: PreparationJob | None,
     connection: SourceConnection,
     now: datetime,
-    *,
-    pull: bool,
 ) -> bool:
-    """The one liveness oracle: a held lease, or a queued draft whose dispatch
-    (or, before any attempt, whose queueing) is younger than the window. In pull
-    mode an attempt no process has taken is in flight too, however old. An
-    attempt dispatched for an older draft version can never claim, so it is not
-    in flight."""
+    """The one liveness oracle: a held lease, an attempt no puller has taken
+    yet however old, or a queued draft whose take (or, before any attempt,
+    whose queueing) is younger than the window. An attempt recorded for an
+    older draft version can never claim, so it is not in flight."""
     if lease_live(connection, now):
         return True
     if draft.status != "queued" or (job is not None and not dispatched(draft, job)):
         return False
     anchor = job.dispatched_at if job is not None else draft.updated_at
-    if anchor is None:
-        return pull
-    return anchor + DISPATCH_WINDOW > now
+    return anchor is None or anchor + DISPATCH_WINDOW > now
 
 
 def dispatched(draft: DocumentDraft, job: PreparationJob | None) -> bool:
@@ -95,13 +87,14 @@ def own_claim(draft: DocumentDraft, job: PreparationJob | None) -> bool:
 
 
 class PreparationJobs:
-    def __init__(self, service: DocumentsService, dispatch: Dispatch | None) -> None:
-        """``dispatch`` None is pull mode: the row is the queue and a worker
-        pulls from it, so every waiting attempt keeps its draft ``queued``."""
-        self.service, self.dispatch = service, dispatch
+    """The row is the queue: every waiting attempt keeps its draft ``queued``
+    until a puller takes it."""
+
+    def __init__(self, service: DocumentsService) -> None:
+        self.service = service
 
     def start(self, *, user_id: str, connection_id: str) -> None:
-        """Dispatch a fresh preparation unless an attempt is already in flight."""
+        """Record a fresh preparation unless an attempt is already in flight."""
         store, now = self.service.store, self.service.hub.clock()
         draft = store.draft(user_id=user_id, connection_id=connection_id)
         if draft is None:
@@ -110,9 +103,8 @@ class PreparationJobs:
             user_id=user_id, connection_id=connection_id
         )
         job = store.job(user_id=user_id, connection_id=connection_id)
-        pull = self.dispatch is None
         if lease_live(connection, now) or (
-            dispatched(draft, job) and in_flight(draft, job, connection, now, pull=pull)
+            dispatched(draft, job) and in_flight(draft, job, connection, now)
         ):
             return
         if (
@@ -121,8 +113,9 @@ class PreparationJobs:
         ):
             return
         # A saved read with no source is never pulled, so it keeps its status.
-        requeue = pull and draft.source_available
-        self._advance(user_id, connection_id, now, job, draft, attempt=1, requeue=requeue)
+        self._advance(
+            user_id, connection_id, now, job, draft, attempt=1, requeue=draft.source_available
+        )
 
     def sweep(self, *, limit: int = 50) -> SweepReport:
         report, now = SweepReport(), self.service.hub.clock()
@@ -152,7 +145,7 @@ class PreparationJobs:
         if draft is None:
             return
         if draft.status in {"queued", "preparing"}:
-            if in_flight(draft, job, connection, now, pull=self.dispatch is None):
+            if in_flight(draft, job, connection, now):
                 return
             reason = "unclaimed" if draft.status == "queued" else "interrupted"
         elif draft.status == "needs_attention" and job is not None and job.retry:
@@ -194,11 +187,9 @@ class PreparationJobs:
                     reason=reason,
                 )
             return
-        # A waiting attempt reaches here only with pull off. It never ran.
-        fresh = job is None or (
-            draft.status == "queued"
-            and (not dispatched(draft, job) or job.dispatched_at is None)
-        )
+        # A waiting attempt is in flight, so a queued draft here has no attempt
+        # for its version and never ran.
+        fresh = job is None or (draft.status == "queued" and not dispatched(draft, job))
         attempt = 1 if fresh or job is None else job.attempt + 1
         if attempt <= MAX_ATTEMPTS:
             if self._advance(
@@ -279,7 +270,7 @@ class PreparationJobs:
         unmarked: bool = False,
         reruns: int = 0,
     ) -> bool:
-        """Make a new attempt current, then hand it to a worker. A sweep also
+        """Make a new attempt current and leave it for a puller. A sweep also
         returns an interrupted or failed draft to ``queued``."""
         requeued = (
             self.service.revise(draft, status="queued", error_code=None)
@@ -290,10 +281,9 @@ class PreparationJobs:
             attempt=attempt,
             attempt_id=str(uuid.uuid4()),
             draft_version=(requeued or draft).version,
-            dispatched_at=None if self.dispatch is None else now,
             reruns=reruns,
         )
-        if not self.service.store.advance(
+        return self.service.store.advance(
             user_id=user_id,
             connection_id=connection_id,
             now=now,
@@ -301,21 +291,7 @@ class PreparationJobs:
             job=nxt,
             draft=requeued,
             unmarked=unmarked,
-        ):
-            return False
-        if self.dispatch is None:
-            return True
-        try:
-            self.dispatch(connection_id, nxt.attempt_id)
-        except Exception as error:
-            # The job is durable: the sweep re-dispatches once the window passes.
-            logger.warning(
-                "Document preparation dispatch failed",
-                connection_id=connection_id,
-                attempt=nxt.attempt,
-                failure_mode=type(error).__name__,
-            )
-        return True
+        )
 
 
 async def sweep_forever(jobs: PreparationJobs, interval: float) -> None:
@@ -329,9 +305,16 @@ async def sweep_forever(jobs: PreparationJobs, interval: float) -> None:
                 try:
                     await asyncio.shield(sweep)
                 except asyncio.CancelledError:
-                    # A cancel cannot stop the thread: a stopping process
+                    # A cancel cannot stop the thread, so a stopping process
                     # waits for the sweep to return before it drains reads.
-                    await sweep
+                    # The cancel wins over whatever that sweep raises: awaiting
+                    # it would raise its error, which the loop below swallows.
+                    await asyncio.wait({sweep})
+                    if not sweep.cancelled() and sweep.exception() is not None:
+                        logger.warning(
+                            "Document preparation sweep failed while stopping",
+                            failure_mode=type(sweep.exception()).__name__,
+                        )
                     raise
         except Exception as error:
             logger.warning(
@@ -344,8 +327,7 @@ async def sweep_forever(jobs: PreparationJobs, interval: float) -> None:
 async def run_attempt(
     service: DocumentsService, connection_id: str, attempt_id: str
 ) -> str:
-    """Worker entry point, in process, in a Render Workflow task or in the pull
-    worker."""
+    """A puller's entry point for the attempt it took."""
     user_id = service.store.owner(connection_id=connection_id)
     if user_id is None:
         return "gone"

@@ -139,7 +139,6 @@ SCOPED = [
             "queue",
             "enter",
             "resume",
-            "background_prepare",
         )
     ),
 ]

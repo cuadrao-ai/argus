@@ -41,7 +41,6 @@ def email_reader_boundary(receipts, monkeypatch):
     monkeypatch.setattr(extractor, "extract", extraction)
     dispatch = AsyncMock(wraps=documents_api.dispatch_preparation)
     monkeypatch.setattr(documents_api, "dispatch_preparation", dispatch)
-    monkeypatch.setattr(documents_api, "document_jobs", lambda: None)
     monkeypatch.setattr(intake_api, "documents_service", lambda: documents)
     preparation = Mock(wraps=world["service"].prepare_attachment)
     preflight = Mock(wraps=world["service"].check_attachment_preparation)

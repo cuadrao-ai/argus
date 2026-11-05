@@ -119,19 +119,9 @@
           "value": "210"
         },
         {
-          "name": "CUADRAO_DOCUMENT_JOBS_ENABLED",
-          "kind": "plain",
-          "value": "false"
-        },
-        {
           "name": "CUADRAO_DOCUMENT_JOBS_MAX_READS",
           "kind": "plain",
           "value": "3"
-        },
-        {
-          "name": "CUADRAO_DOCUMENT_JOBS_PULL_ENABLED",
-          "kind": "plain",
-          "value": "false"
         },
         {
           "name": "CUADRAO_DOCUMENT_UPLOADS_IN_FLIGHT",

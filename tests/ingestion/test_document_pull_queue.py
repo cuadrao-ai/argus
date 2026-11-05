@@ -11,10 +11,11 @@ from typing import Any
 
 import pytest
 import yaml
-from argus.api.document_jobs import document_jobs
+from argus.api.document_jobs import document_worker as api_worker
 from argus.domain.ingestion.connections import DEFAULT_LEASE
 from argus.domain.ingestion.documents import extractor as extraction
 from argus.domain.ingestion.documents import preparation
+from argus.domain.ingestion.documents import worker as document_worker
 from argus.domain.ingestion.documents.config import (
     CANCEL_SECONDS,
     PROVIDER_CALLS_PER_READ,
@@ -38,6 +39,7 @@ from argus.domain.ingestion.documents.models import (
     PreparationJob,
 )
 from argus.domain.ingestion.documents.service import DocumentsService
+from argus.domain.ingestion.documents.worker import DocumentWorker
 from argus.domain.ingestion.sink import SubmitResult
 from argus.domain.owner_scope import PERSONAL
 from argus.llm import openrouter
@@ -47,23 +49,26 @@ from tests.ingestion import test_document_jobs_api as api
 from tests.ingestion import test_document_jobs_recharge as support
 from tests.ingestion.test_document_timeout_retry import OK, Provider
 from tests.ingestion.test_read_budget_local_refusals import poppler
-from workflows import document_worker
-from workflows.document_worker import DocumentWorker, serve
 
 rig = support.rig
 jobs_env = api.jobs_env
 jobs_client = api.jobs_client
+reads_finish_inside_the_request = api.reads_finish_inside_the_request
 
 OWNER = "owner"
 ROOT = Path(__file__).resolve().parents[2]
 # The host's shutdown delay must exceed the drain by this much; Render allows 300 s.
 HOST_SHUTDOWN_MARGIN_SECONDS, HOST_SHUTDOWN_MAX_SECONDS = 5, 300
 JOB_SETTINGS = {
-    "CUADRAO_DOCUMENT_JOBS_ENABLED": "false",
-    "CUADRAO_DOCUMENT_JOBS_PULL_ENABLED": "false",
     "CUADRAO_DOCUMENT_JOBS_MAX_READS": "3",
     "CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS": f"{read_seconds():g}",
 }
+# Deleted with the one read path (issue 1795): nothing may declare them again.
+REMOVED_SETTINGS = (
+    "CUADRAO_DOCUMENT_JOBS_ENABLED",
+    "CUADRAO_DOCUMENT_JOBS_PULL_ENABLED",
+    "CUADRAO_DOCUMENT_JOBS_WORKFLOW_TASK",
+)
 
 
 
@@ -101,14 +106,7 @@ def attempt(service: DocumentsService, connection: str) -> PreparationJob:
 
 def settings(**changes: Any) -> DocumentJobSettings:
     return DocumentJobSettings(
-        **{
-            "enabled": True,
-            "pull": True,
-            "max_reads": 3,
-            "sweep_seconds": 3600,
-            "drain_seconds": 5,
-            **changes,
-        }
+        **{"max_reads": 3, "sweep_seconds": 3600, "drain_seconds": 5, **changes}
     )
 
 
@@ -122,7 +120,7 @@ async def until(predicate: Callable[[], bool], seconds: float = 5.0) -> None:
 @pytest.fixture
 def pull(rig):
     service, _, clock, extractor, _ = rig
-    return service, PreparationJobs(service, None), clock, extractor
+    return service, PreparationJobs(service), clock, extractor
 
 
 @pytest.fixture
@@ -186,20 +184,6 @@ async def test_pull_counts_every_read_against_the_cap(pull):
         next_up,
         attempt(service, next_up).attempt_id,
     )
-
-
-@pytest.mark.asyncio
-async def test_turning_pull_off_hands_waiting_reads_back_with_no_attempt_burned(rig):
-    service, push, clock, extractor, dispatched = rig
-    [connection] = await waiting(service, PreparationJobs(service, None))
-
-    assert push.sweep().redispatched == [connection]
-
-    assert attempt(service, connection).attempt == 1
-    assert attempt(service, connection).dispatched_at == clock()
-    [handed_off] = dispatched
-    assert await run_attempt(service, connection, handed_off) == "prepared"
-    assert extractor.calls == 1
 
 
 @pytest.mark.asyncio
@@ -338,7 +322,7 @@ async def test_a_worker_reads_oldest_first_and_never_passes_the_cap(
 ) -> None:
     service, _, clock, _, _ = rig
     gauge = service.extractor = Gauge()
-    jobs = PreparationJobs(service, None)
+    jobs = PreparationJobs(service)
     connections = await waiting(service, jobs, 5)
     stop = asyncio.Event()
     running = asyncio.create_task(
@@ -367,7 +351,7 @@ async def test_stop_takes_no_new_read_and_lets_reads_in_flight_finish(
 ) -> None:
     service, _, clock, _, _ = rig
     gauge = service.extractor = Gauge()
-    jobs = PreparationJobs(service, None)
+    jobs = PreparationJobs(service)
     first, second = await waiting(service, jobs, 2)
     stop = asyncio.Event()
     running = asyncio.create_task(
@@ -392,7 +376,7 @@ async def test_stop_ends_the_pulls_even_with_slots_free(rig, worker_env) -> None
     service, _, clock, _, _ = rig
     gauge = service.extractor = Gauge()
     gauge.release.set()
-    jobs = PreparationJobs(service, None)
+    jobs = PreparationJobs(service)
     first, second, third = await waiting(service, jobs, 3)
     stop = asyncio.Event()
     original = service.store.pull
@@ -413,7 +397,7 @@ async def test_stop_ends_the_pulls_even_with_slots_free(rig, worker_env) -> None
 async def test_a_read_past_the_drain_bound_is_read_once_more(rig, worker_env) -> None:
     service, _, clock, _, _ = rig
     gauge = service.extractor = Gauge()
-    jobs = PreparationJobs(service, None)
+    jobs = PreparationJobs(service)
     [connection] = await waiting(service, jobs)
     stop = asyncio.Event()
     worker = DocumentWorker(service, settings(drain_seconds=0.01))
@@ -447,7 +431,7 @@ def retrying(rig, worker_env, monkeypatch):
 async def stopped_during_the_retry(
     service: DocumentsService, provider: Provider, drain_seconds: float
 ) -> tuple[str, asyncio.Task[None], PreparationJobs]:
-    jobs = PreparationJobs(service, None)
+    jobs = PreparationJobs(service)
     [connection] = await waiting(service, jobs)
     stop = asyncio.Event()
     worker = DocumentWorker(service, settings(drain_seconds=drain_seconds))
@@ -510,7 +494,7 @@ async def test_with_extraction_off_a_waiting_read_neither_runs_nor_fails(
 async def test_a_pull_failure_leaves_the_worker_running(rig, worker_env) -> None:
     service, _, clock, _, _ = rig
     gauge = service.extractor = Gauge()
-    jobs = PreparationJobs(service, None)
+    jobs = PreparationJobs(service)
     [connection] = await waiting(service, jobs)
     original, failures = service.store.pull, [ConnectionError("database down")]
 
@@ -529,81 +513,7 @@ async def test_a_pull_failure_leaves_the_worker_running(rig, worker_env) -> None
     await running
 
 
-@pytest.mark.parametrize(
-    "env",
-    [
-        {},
-        {"CUADRAO_DOCUMENT_JOBS_ENABLED": "true"},
-        {"CUADRAO_DOCUMENT_JOBS_PULL_ENABLED": "true"},
-    ],
-)
-@pytest.mark.asyncio
-async def test_the_worker_command_refuses_to_run_unless_pull_mode_is_on(
-    monkeypatch, env
-) -> None:
-    for name in JOB_SETTINGS:
-        monkeypatch.delenv(name, raising=False)
-        monkeypatch.delenv(name.replace("CUADRAO_", "ARGUS_"), raising=False)
-    for name, value in env.items():
-        monkeypatch.setenv(name, value)
-
-    with pytest.raises(SystemExit, match="pull mode is off"):
-        await serve()
-
-
-@pytest.fixture
-def pull_env(monkeypatch):
-    monkeypatch.setenv("ARGUS_DOCUMENT_JOBS_ENABLED", "true")
-    monkeypatch.setenv("CUADRAO_DOCUMENT_JOBS_PULL_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_DOCUMENT_JOBS_SWEEP_SECONDS", "0.02")
-
-
-@pytest.fixture
-def pull_client(pull_env, client):
-    return client
-
-
-def test_the_api_records_the_attempt_and_leaves_the_read_and_sweep_to_the_worker(
-    pull_client, monkeypatch
-):
-    provider = api.Provider("succeed")
-    clock = api.install(monkeypatch, provider)
-    connection = api.upload(pull_client)
-
-    job = api.job(connection)
-    assert (job.attempt, job.dispatched_at) == (1, None)
-    assert api.document(pull_client, connection)["status"] == "queued"
-
-    service = document_jobs().service
-    assert service.store.pull(now=clock(), cap=1) == (connection, job.attempt_id)
-    clock.offset = DISPATCH_WINDOW * 2
-    time.sleep(0.1)
-
-    assert provider.calls == 0, "no read runs in the API"
-    assert api.job(connection).attempt == 1, "no sweep runs in the API"
-
-
-def test_the_owner_retry_in_the_api_waits_in_the_queue_too(pull_client, monkeypatch):
-    provider = api.Provider("succeed")
-    clock = api.install(monkeypatch, provider)
-    connection = api.upload(pull_client)
-    service = document_jobs().service
-    owner = service.store.owner(connection_id=connection)
-    draft = service.store.draft(user_id=owner, connection_id=connection)
-    service._update(owner, draft, status="needs_attention", error_code="anything")
-
-    assert api.retry_with_consent(pull_client, connection).status_code == 200
-
-    time.sleep(0.05)
-    assert provider.calls == 0
-    assert api.document(pull_client, connection)["status"] == "queued"
-    assert service.store.pull(now=clock(), cap=1) == (
-        connection,
-        api.job(connection).attempt_id,
-    )
-
-
-def test_pull_off_keeps_the_api_on_its_own_dispatch_and_sweep(jobs_client, monkeypatch):
+def test_the_api_reads_through_the_same_pull_as_the_worker(jobs_client, monkeypatch):
     provider = api.Provider("succeed")
     api.install(monkeypatch, provider)
     connection = api.upload(jobs_client)
@@ -611,21 +521,39 @@ def test_pull_off_keeps_the_api_on_its_own_dispatch_and_sweep(jobs_client, monke
     api.wait_for(
         lambda: api.document(jobs_client, connection)["status"] == "review_ready"
     )
-    assert provider.calls == 1
-    assert api.job(connection).dispatched_at is not None
-    assert document_jobs().dispatch is not None
+    job = api.job(connection)
+    assert (job.attempt, provider.calls) == (1, 1)
+    assert job.dispatched_at is not None, "a pull took the attempt"
 
 
-def test_reads_at_once_default_to_three_and_pull_stays_off(monkeypatch):
+def test_the_owner_retry_in_the_api_goes_through_the_queue_too(
+    jobs_client, monkeypatch
+):
+    provider = api.Provider("succeed")
+    api.install(monkeypatch, provider)
+    connection = api.upload(jobs_client)
+    api.wait_for(
+        lambda: api.document(jobs_client, connection)["status"] == "review_ready"
+    )
+    service = api_worker().service
+    owner = service.store.owner(connection_id=connection)
+    draft = service.store.draft(user_id=owner, connection_id=connection)
+    service._update(owner, draft, status="needs_attention", error_code="anything")
+
+    assert api.retry_with_consent(jobs_client, connection).status_code == 200
+
+    api.wait_for(
+        lambda: api.document(jobs_client, connection)["status"] == "review_ready"
+    )
+    assert (api.job(connection).attempt, provider.calls) == (1, 1), "replayed, unpaid"
+
+
+def test_reads_at_once_default_to_three(monkeypatch):
     for name in JOB_SETTINGS:
         monkeypatch.delenv(name, raising=False)
         monkeypatch.delenv(name.replace("CUADRAO_", "ARGUS_"), raising=False)
     loaded = load_document_job_settings()
-    assert (loaded.pull, loaded.max_reads, loaded.drain_seconds) == (
-        False,
-        3,
-        read_seconds(),
-    )
+    assert (loaded.max_reads, loaded.drain_seconds) == (3, read_seconds())
 
 
 def test_every_wait_for_a_read_covers_both_provider_calls():
@@ -648,7 +576,7 @@ def test_the_api_shutdown_fits_the_host_window():
     assert shutdown + HOST_SHUTDOWN_MARGIN_SECONDS <= HOST_SHUTDOWN_MAX_SECONDS
 
 
-def test_job_settings_are_declared_off_on_staging_and_absent_from_production():
+def test_job_settings_are_declared_on_staging_and_the_switches_are_gone():
     profile = json.loads(
         (ROOT / ".github/private-alpha-release-profile.json").read_text()
     )
@@ -660,6 +588,7 @@ def test_job_settings_are_declared_off_on_staging_and_absent_from_production():
     example = (ROOT / ".env.example").read_text()
     entries = {e["name"]: e for e in manifest["services"]["api"]["entries"]}
     staging = {e["key"]: e for e in services["cuadrao-api-staging"]["envVars"]}
+    production = {e["key"] for e in services["cuadrao-api"]["envVars"]}
 
     for name, value in JOB_SETTINGS.items():
         assert name in profile["staging_only"]["api"]["settings"]
@@ -667,5 +596,9 @@ def test_job_settings_are_declared_off_on_staging_and_absent_from_production():
         assert staging[name]["value"] == value
         assert f"{name}={value}\n" in example
         assert name not in profile["services"]["api"]["env"]
-        assert name not in {e["key"] for e in services["cuadrao-api"]["envVars"]}
+        assert name not in production
+    declared = json.dumps(profile) + json.dumps(manifest) + example
+    declared += json.dumps(services)
+    for name in REMOVED_SETTINGS:
+        assert name not in declared, f"{name} was deleted with the one read path"
     assert not any(service["type"] == "worker" for service in services.values())

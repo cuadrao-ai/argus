@@ -195,12 +195,8 @@ services:
         value: "true"
       - key: CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS
         value: "210"
-      - key: CUADRAO_DOCUMENT_JOBS_ENABLED
-        value: "false"
       - key: CUADRAO_DOCUMENT_JOBS_MAX_READS
         value: "3"
-      - key: CUADRAO_DOCUMENT_JOBS_PULL_ENABLED
-        value: "false"
       - key: CUADRAO_DOCUMENT_UPLOADS_IN_FLIGHT
         value: "3"
       - key: CUADRAO_DOCUMENT_UPLOADS_PER_MINUTE

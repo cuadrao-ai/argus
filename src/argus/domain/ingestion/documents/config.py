@@ -142,26 +142,17 @@ def read_seconds() -> float:
 
 
 class DocumentJobSettings(BaseSettings):
-    """Durable preparation jobs (#823). Off keeps FastAPI background tasks."""
+    """The one read path: every read waits on its row until a puller takes it.
+    Nothing here can turn that off."""
 
     model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
-    enabled: Annotated[bool, BeforeValidator(enabled_flag)] = Field(
-        default=False, validation_alias=setting_aliases("DOCUMENT_JOBS_ENABLED")
-    )
-    workflow_task: str = Field(
-        default="", validation_alias=setting_aliases("DOCUMENT_JOBS_WORKFLOW_TASK")
-    )
     sweep_seconds: float = Field(
         default=30.0,
         gt=0,
         le=3600,
         validation_alias=setting_aliases("DOCUMENT_JOBS_SWEEP_SECONDS"),
     )
-    # Pull mode: the API only records attempts. ``python -m
-    # workflows.document_worker`` reads them and owns the sweep.
-    pull: Annotated[bool, BeforeValidator(enabled_flag)] = Field(
-        default=False, validation_alias=setting_aliases("DOCUMENT_JOBS_PULL_ENABLED")
-    )
+    # Reads at once across every puller: each API instance and any worker.
     max_reads: int = Field(
         default=3,
         ge=1,
@@ -178,15 +169,15 @@ class DocumentJobSettings(BaseSettings):
 
 
 def load_document_job_settings() -> DocumentJobSettings:
-    """Read job settings, or jobs off when they cannot be read."""
+    """Read job settings, or the defaults when they cannot be read."""
 
     try:
         return DocumentJobSettings()
     except ValidationError:
         logger.warning(
-            "Document job settings are invalid; preparation stays on background tasks",
+            "Document job settings are invalid; the defaults apply",
             failure_mode="ValidationError",
         )
         return DocumentJobSettings.model_construct(
-            enabled=False, workflow_task="", sweep_seconds=30.0
+            sweep_seconds=30.0, max_reads=3, drain_seconds=read_seconds()
         )

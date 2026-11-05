@@ -2,16 +2,25 @@
 receipt-reading setting is on."""
 
 from collections.abc import Callable
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import Mock
 from uuid import uuid4
 
 import pytest
+from argus.api import whatsapp as whatsapp_api
+from argus.api.document_jobs import (
+    drain_document_jobs,
+    start_document_jobs,
+    stop_document_jobs,
+)
 from argus.api.whatsapp import DocumentsDestination
 from argus.domain.business.spaces import InMemorySpaceStore
 from argus.domain.ingestion.connections import InMemoryConnectionRepository
 from argus.domain.ingestion.contract import ImportCandidate, SourceRef
+from argus.domain.ingestion.documents import worker as reading
+from argus.domain.ingestion.documents.config import DocumentJobSettings
 from argus.domain.ingestion.documents.models import ExtractionBatch
 from argus.domain.ingestion.documents.service import (
     DocumentServiceError,
@@ -134,20 +143,61 @@ async def test_with_the_switch_off_the_receipt_waits_unread_and_no_follow_up() -
     )
 
 
-@pytest.mark.asyncio
-async def test_with_document_jobs_on_the_acknowledgement_keeps_the_link(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    jobs = Mock()
-    monkeypatch.setattr("argus.api.document_jobs._jobs", jobs)
-    world, extractor, _ = _world(on=True)
-    connection_id = await _send(world, "wamid.READ-JOBS")
-    assert jobs.start.called
-    assert extractor.calls == 0
-    assert len(world.transport.sent) == 2
-    assert world.transport.bodies()[-1] == (
-        f"Recibido. Revísalo aquí: {cases.ORIGIN}/biz?receipt={connection_id}"
-    )
+class TestTheReadRunsOnThePuller:
+    """As in the running API: the delivery records the attempt and waits while
+    a puller reads it, then follows up with what it read."""
+
+    @pytest.fixture
+    def reads_finish_inside_the_request(self) -> None:
+        """The process's real puller reads here, not the delivery."""
+
+    @pytest.fixture
+    def puller(self, monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
+        monkeypatch.setenv("CUADRAO_DOCUMENT_EXTRACTION_ENABLED", "true")
+        # Only the delivery's own wake can start the read.
+        monkeypatch.setattr(reading, "POLL_SECONDS", 3600)
+        monkeypatch.setattr(whatsapp_api, "SETTLE_POLL_SECONDS", 0.01)
+
+        @asynccontextmanager
+        async def running(world: cases.World):  # noqa: ANN202
+            start_document_jobs(world.documents, DocumentJobSettings(sweep_seconds=3600))
+            try:
+                yield
+            finally:
+                await drain_document_jobs()
+                stop_document_jobs()
+
+        return running
+
+    @pytest.mark.asyncio
+    async def test_the_follow_up_carries_what_the_puller_read(self, puller) -> None:  # noqa: ANN001
+        world, extractor, _ = _world(on=True)
+        async with puller(world):
+            connection_id = await _send(world, "wamid.READ-PULLED")
+        link = f"{cases.ORIGIN}/biz?receipt={connection_id}"
+        job = world.documents.store.job(user_id=world.alice, connection_id=connection_id)
+        assert (job.attempt, job.dispatched_at is not None) == (1, True), "a pull took it"
+        assert (_status(world, connection_id), extractor.calls) == ("review_ready", 1)
+        assert world.transport.bodies()[-2:] == [
+            "Recibido. Lo estoy leyendo.",
+            f"Leí: Ferretería Ochoa, 850 DOP. Revísalo antes de guardar: {link}",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_a_read_no_puller_settles_in_time_still_sends_the_link(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(whatsapp_api, "SETTLE_POLL_SECONDS", 0.01)
+        monkeypatch.setattr(whatsapp_api, "read_seconds", lambda: 0.05)
+        world, extractor, _ = _world(on=True)
+        connection_id = await _send(world, "wamid.READ-WAITING")
+        job = world.documents.store.job(user_id=world.alice, connection_id=connection_id)
+        assert (job.attempt, job.dispatched_at) == (1, None), "it waits on its row"
+        assert (_status(world, connection_id), extractor.calls) == ("queued", 0)
+        assert world.transport.bodies()[-2:] == [
+            "Recibido. Lo estoy leyendo.",
+            f"Recibido. Revísalo aquí: {cases.ORIGIN}/biz?receipt={connection_id}",
+        ]
 
 
 @pytest.mark.asyncio
