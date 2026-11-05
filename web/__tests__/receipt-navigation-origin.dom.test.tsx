@@ -54,7 +54,9 @@ async function mount(prepared: boolean, width: number) {
   };
   await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessWorkspaceProvider source={source}><Probe /></BusinessWorkspaceProvider></BusinessConsentTestProvider></I18nextProvider>));
   await act(async () => api!.openPanel({ kind: "inbox" }));
-  await wait(() => host.querySelector('[data-testid="reception-row"]') !== null);
+  // Rows can arrive before the directory. Choosing the Business remounts its
+  // list, so wait for that scope before entering filters or search text.
+  await wait(() => api!.chosen !== null && host.querySelector('[data-testid="reception-row"]') !== null);
   const click = async (node: HTMLElement | null | undefined) => { assert.ok(node); await act(async () => node.click()); };
   await click(host.querySelector("#reception-tab-attention"));
   const place = () => document.querySelector<HTMLElement>('[data-testid="receipt-place"]');
