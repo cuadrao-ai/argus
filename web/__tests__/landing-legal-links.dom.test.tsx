@@ -41,7 +41,10 @@ async function mountFrontDoor(query: string) {
   window.history.replaceState(null, "", `/${query}`);
   const originalFetch = globalThis.fetch;
   restoreFetch = () => { globalThis.fetch = originalFetch; };
-  globalThis.fetch = async () => Response.json({ code: "profile_unavailable" }, { status: 503 });
+  globalThis.fetch = (async (input: RequestInfo | URL) =>
+    new URL(String(input)).pathname.endsWith("/auth/access-mode")
+      ? Response.json({ access_mode: "open" })
+      : Response.json({ code: "profile_unavailable" }, { status: 503 })) as typeof fetch;
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;

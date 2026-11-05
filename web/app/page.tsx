@@ -40,6 +40,11 @@ import { saveProfileLanguage } from "@/lib/profile-writes";
 import { guestProfileProbeOutcome } from "@/lib/guest-account";
 import { completeAuthVerification } from "@/lib/auth-verification";
 import { acceptanceLinks } from "@/lib/cuadrao-legal-links";
+import {
+  type AccountAccessMode,
+  defaultLandingAuthMode,
+  readAccountAccessMode,
+} from "@/lib/account-access";
 
 type AuthMode = "intro" | "request" | "signup" | "login";
 
@@ -74,6 +79,7 @@ export default function LandingPage() {
   const [sessionEnded, setSessionEnded] = useState(false);
   const [profileProbeFailedClosed, setProfileProbeFailedClosed] =
     useState(false);
+  const [accountAccess, setAccountAccess] = useState<AccountAccessMode>("unavailable");
 
   useEffect(() => {
     captureLandingIntentFromLocation();
@@ -81,11 +87,13 @@ export default function LandingPage() {
     setAuthMode(nextAuthMode);
     setSessionEnded(sessionEndedNotice(window.location.search));
     const verification = completeAuthVerification();
+    const accessRead = readAccountAccessMode();
     let cancelled = false;
     (async () => {
       try {
-        const verified = await verification;
+        const [verified, access] = await Promise.all([verification, accessRead]);
         if (cancelled) return;
+        setAccountAccess(access);
         if (verified === "failed") {
           setVerificationFailed(true);
           setAuthMode("login");
@@ -130,6 +138,8 @@ export default function LandingPage() {
       cancelled = true;
     };
   }, [router]);
+
+  const shownAuthMode: AuthMode = authMode === "intro" ? defaultLandingAuthMode(accountAccess) : authMode;
 
   const updateAuthMode = (nextMode: AuthMode) => {
     setAuthMode(nextMode);
@@ -231,10 +241,10 @@ export default function LandingPage() {
     router.refresh();
   };
 
-  const isSignup = authMode === "signup";
+  const isSignup = shownAuthMode === "signup";
   const acceptance = acceptanceLinks();
   const entrySurface = resolveLandingEntrySurface({
-    authMode,
+    authMode: shownAuthMode,
     // A Business build has no guest chat: a signed-out visitor sees login.
     guestEntryAvailable: guestEntryAvailable({ businessBuild: businessPilotEnabled, probeFailedClosed: profileProbeFailedClosed, guestAccessEnabled, guestCaptchaConfigured }),
     isCheckingSession,
@@ -253,7 +263,7 @@ export default function LandingPage() {
     <>
       <DevModeBadge />
       <main
-        data-auth-split={(isSignup || authMode === "login") && !homeClosed ? "true" : undefined}
+        data-auth-split={(isSignup || shownAuthMode === "login") && !homeClosed ? "true" : undefined}
         className={`${styles.screen} group/auth relative flex min-h-[100dvh] w-full flex-col justify-between overflow-hidden bg-[#fafbf8] px-6 py-8 md:px-12 dark:bg-[#172b26] min-[80rem]:data-[auth-split=true]:grid min-[80rem]:data-[auth-split=true]:grid-cols-2 min-[80rem]:data-[auth-split=true]:p-0`}
       >
         <SettingsMenu />
@@ -267,7 +277,7 @@ export default function LandingPage() {
         <div data-auth-brand="cuadrao" className="relative z-10 flex w-full flex-col items-center gap-6 pb-2 md:pb-4 min-[80rem]:group-data-[auth-split=true]/auth:justify-center min-[80rem]:group-data-[auth-split=true]/auth:px-12 min-[80rem]:group-data-[auth-split=true]/auth:py-24">
           {homeClosed ? (
             <BusinessClosedNotice navigate={leaveClosedHome} />
-          ) : authMode === "intro" ? (
+          ) : shownAuthMode === "intro" ? (
             <button
               type="button"
               onClick={showRequest}
@@ -278,14 +288,14 @@ export default function LandingPage() {
             </button>
           ) : (
             <div className="w-full max-w-sm md:group-data-[auth-split=true]/auth:max-w-xl">
-              {authMode === "signup" || authMode === "login" ? <AuthHero mode={authMode} /> : null}
-              {sessionEnded && authMode === "login" ? (
+              {shownAuthMode === "signup" || shownAuthMode === "login" ? <AuthHero mode={shownAuthMode} /> : null}
+              {sessionEnded && shownAuthMode === "login" ? (
                 <p role="status" data-testid="session-ended" className="mb-4 text-center text-[16px] text-[#2f5a49]">
                   {t("auth.screen.session_ended", "Your session ended. Sign in again.")}
                 </p>
               ) : null}
               {verificationFailed ? <p role="alert">{t("auth.errors.unauthorized", "We couldn’t verify those account details. Check them and try again.")}</p> : null}
-              {authMode === "request" ? (
+              {shownAuthMode === "request" ? (
                 <RequestAccess
                   onShowSignup={showSignup}
                   onShowLogin={showLogin}
@@ -295,6 +305,7 @@ export default function LandingPage() {
                   emailFirst
                   mode={isSignup ? "signup" : "login"}
                   brand="cuadrao"
+                  accountAccess={accountAccess}
                   onModeChange={(mode) => updateAuthMode(mode)}
                   onSubmit={handleAuthSubmit}
                   onEmailConfirmed={finishConfirmedSignup}
@@ -319,7 +330,7 @@ export default function LandingPage() {
             </p>
           ) : null}
 
-          {authMode === "intro" && (
+          {shownAuthMode === "intro" && (
             <>
               <p className="text-[16px] tracking-wide">
                 {t('landing.already_account')}{" "}
