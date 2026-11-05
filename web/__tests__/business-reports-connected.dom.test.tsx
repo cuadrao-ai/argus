@@ -284,7 +284,7 @@ test("an unavailable original keeps its filename and linked evidence distinct fr
 });
 
 test("older v1 servers keep query usable and leave unsupported overview unavailable", async () => {
-  const page = await mount({ legacy: true });
+  const page = await mount({ legacy: true, initial: reportRequestSchema.parse({ schema_version: 1 }) });
   assert.equal(document.querySelector('[data-report-schema]')?.getAttribute('data-report-schema'), '1');
   assert.equal(document.querySelectorAll('tbody tr').length, 25);
   for (const card of document.querySelectorAll<HTMLButtonElement>('[data-overview-filter]')) assert.equal(card.disabled, true);

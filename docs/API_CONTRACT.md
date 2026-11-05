@@ -10689,8 +10689,10 @@ accept path recorded.
   Email requires current capture and receiving readiness, a runtime with its
   receiving adapter, and a configured domain. It does not require an existing
   address. WhatsApp uses current intake readiness and the selected Business's
-  owner eligibility. A missing address or linked number is setup state, not
-  channel availability.
+  owner eligibility and requires that Business to be the authenticated person's
+  supported intake destination. Link status, link codes and consent always use
+  the authenticated person's identity, including after a Business transfer.
+  A missing address or linked number is setup state, not channel availability.
   The Business web context treats unknown or false as unavailable for channel
   offers, preferences, sender management and new intake requests. Switching
   Business clears capability and address state; historical delivery reads use

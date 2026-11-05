@@ -334,7 +334,7 @@ def create_receiving_address(
             ALIAS_UNAVAILABLE,
             context={"suggestions": report["suggestions"]},
         ) from None
-    if route.granted_by != context.scope.person_id:
+    if route.granted_by != context.scope.acting_person_id:
         _require_usable(request, runtime, route)
         response.status_code = 200
     return _readiness(runtime, space_id)

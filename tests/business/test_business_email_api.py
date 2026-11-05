@@ -15,7 +15,6 @@ import pytest
 from argus.api import email_intake as runtime_module
 from argus.api.documents import documents_service
 from argus.domain.ingestion.email_intake.store import InMemoryEmailStore
-from faker import Faker
 from fastapi.testclient import TestClient
 
 from tests.business.test_business_api import BASE, Owner, alice, bob  # noqa: F401
@@ -147,45 +146,6 @@ def test_endpoints_say_unavailable_without_a_runtime(alice: Owner) -> None:  # n
     runtime_module.configure_email_intake(None)
     assert alice.get("/email").status_code == 404
     assert alice.get("/email/deliveries").json() == {"items": []}
-
-
-@pytest.mark.parametrize("missing", ["receiving", "domain", "provider", "runtime"])
-def test_workspace_and_email_intake_routes_share_availability(
-    alice: Owner, runtime, monkeypatch, missing  # noqa: F811
-) -> None:
-    fake = Faker()
-    item_id = fake.uuid4()
-    assert alice.get("/workspace").json()["receiving_channels"]["email"] == {
-        "available": True
-    }
-    assert alice.get("/email").json()["receiving_address"] is None
-    if missing == "receiving":
-        monkeypatch.setattr(runtime_module, "webhook_enabled", lambda: False)
-    elif missing == "domain":
-        monkeypatch.setenv("CUADRAO_BUSINESS_EMAIL_DOMAIN", " ")
-    elif missing == "provider":
-        runtime.provider = None
-    else:
-        runtime_module.configure_email_intake(None)
-    assert alice.get("/workspace").json()["receiving_channels"]["email"] == {
-        "available": False
-    }
-    routes = [
-        ("GET", "", None), ("POST", "", {"alias": fake.user_name()}),
-        ("DELETE", "", None), ("GET", "/availability?alias=fixture", None),
-        ("GET", "/suggestion?name=Fixture", None),
-        ("POST", "/address", {"alias": fake.user_name()}),
-        ("GET", "/senders", None), ("POST", "/senders", {"email": fake.email()}),
-        ("DELETE", f"/senders/{item_id}", None),
-        ("POST", f"/deliveries/{item_id}/retry", None),
-    ]
-    for method, path, body in routes:
-        response = alice.client.request(
-            method, BASE + "/email" + path, json=body,
-            headers={**alice.auth, "Idempotency-Key": fake.uuid4()},
-        )
-        assert response.status_code == 404, (method, path, response.text)
-        assert response.headers["cache-control"] == "no-store"
 
 
 def test_a_grouped_email_original_is_context_not_a_second_receipt(

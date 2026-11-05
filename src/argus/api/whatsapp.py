@@ -515,15 +515,19 @@ def unavailable_problem(request: Request) -> HTTPException:
 def whatsapp_receiving_available(scope: BusinessScope | None = None) -> bool:
     """Receiving readiness and eligibility for the selected Business."""
     documents = documents_service()
-    return bool(
+    ready = bool(
         whatsapp_runtime() is not None
         and business_pilot_enabled()
         and load_whatsapp_settings().intake_ready
         and load_document_extraction_settings().enabled
         and documents is not None
         and documents.hub is ingestion_hub()
-        and (scope is None or scope.acting_as_owner)
     )
+    if not ready or scope is None:
+        return ready
+    spaces = business_spaces()
+    destination = resolve_business_scope(spaces, scope.acting_person_id) if spaces else None
+    return bool(scope.acting_as_owner and destination and destination.owner == scope.owner)
 
 
 def require_whatsapp_surface(request: Request) -> WhatsAppRuntime:
@@ -593,4 +597,4 @@ def require_whatsapp_owner(
         raise space_missing_problem(request)
     if not whatsapp_receiving_available(scope):
         raise unavailable_problem(request)
-    return WhatsAppOwnerContext(runtime, scope.person_id)
+    return WhatsAppOwnerContext(runtime, context.user_id)

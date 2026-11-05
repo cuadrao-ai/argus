@@ -22,7 +22,7 @@ from tests.ingestion.test_whatsapp_api import (  # noqa: F401
 
 @pytest.mark.parametrize("supported_destination,selected", [(False, True), (True, True), (True, False)])
 def test_transferred_business_never_uses_creators_channel_account(
-    wa_client, consent_reads, identities, supported_destination, selected
+    wa_client, consent_reads, identities, supported_destination, selected, monkeypatch  # noqa: F811
 ):
     fake = Faker()
     creator, caller = identities[ALICE]["id"], identities[BOB]["id"]
@@ -62,4 +62,13 @@ def test_transferred_business_never_uses_creators_channel_account(
     else:
         assert [r.status_code for r in responses] == [404] * 4
         assert consent_reads == []
+    from argus.api.routers import whatsapp as routes
+
+    revoked = []
+    monkeypatch.setenv("CUADRAO_WHATSAPP_INTAKE_ENABLED", "false")
+    monkeypatch.setattr(routes, "_consent_pool", lambda request: object())
+    monkeypatch.setattr(routes, "AIConsentStore", lambda *args: SimpleNamespace(revoke=revoked.append))
+    assert wa_client.delete(LINK, headers=headers).status_code == 204
+    assert wa_client.delete("/api/v1/whatsapp/ai-consent", headers=headers).status_code == 204
+    assert [str(owner) for owner in revoked] == [caller]
     assert store.destination_link(destination_owner_id=creator) == creator_link
