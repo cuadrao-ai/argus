@@ -11,7 +11,6 @@ from pydantic import TypeAdapter
 from argus.domain.business.actions.facts import facts_of
 from argus.domain.business.actions.fiscal import remembered_expense_type
 from argus.domain.business.actions.marks import draft_marks, fiscal_inclusion_available
-from argus.domain.business.actions.mutations import stored_type
 from argus.domain.business.actions.refunds import refund_candidates, refund_shaped
 from argus.domain.business.actions.reopen import linked_reason
 from argus.domain.business.annotations import annotation_available, current_note
@@ -37,7 +36,7 @@ from argus.domain.business.contracts.facts import (
     BusinessResolution,
     Known,
 )
-from argus.domain.business.document_type import kind_disagrees, pending_reason
+from argus.domain.business.document_type import kind_disagrees
 from argus.domain.business.duplicates import pending_duplicates
 from argus.domain.business.purchase_review import (
     takes_payment_split,
@@ -237,13 +236,10 @@ def workflow_blockers(
 ) -> tuple[list[Blocker], tuple[str, ...]]:
     """Shared fact, question and duplicate readiness, independent of reader role."""
     blocked = blockers(facts, accounts)
-    document_type = stored_type(event.resolution.get("business")).document_type
-    if event.state == "open" and kind_disagrees(document_type, facts):
+    if event.state == "open" and kind_disagrees(
+        (event.resolution.get("business") or {}).get("document_type", "recibo"), facts
+    ):
         blocked.append(Blocker(code="activity_kind_unsupported", field="kind"))
-    if event.state == "open" and document_type is None:
-        # Por confirmar: nobody has said purchase or sale, so the record is
-        # held from the 606, the 607 and approval until someone does.
-        blocked.append(Blocker(code="document_type_pending"))
     if any(
         q.state in {"open", "owner_does_not_know", "waiting_for_window"}
         for q in questions
@@ -387,9 +383,8 @@ def dossier(
         bill_mark=resolution.bill_mark,
         dgii=resolution.dgii.model_dump(mode="json") if resolution.dgii else None,
         document_type=resolution.document_type,
-        document_type_detected=resolution.document_type_detected,
+        document_type_detected=resolution.rule_chose_type(),
         document_type_editable=event.state == "open" and can_prepare,
-        document_type_pending=pending_reason(resolution.document_type),
         declaration_editable=declaration_editable,
         expense_type_suggestion=remembered_expense_type(tx, draft_id)
         if declaration_editable and not _chose_expense_type(resolution.dgii)

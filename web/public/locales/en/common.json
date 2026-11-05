@@ -2752,8 +2752,6 @@
       "type_detected_recibo": "We read it as a purchase. Change it if it is a sale.",
       "type_locked": "This record is approved. Its type no longer changes.",
       "type_clears_choices": "Changing the type clears the expense type and payment form.",
-      "type_pending": "To confirm",
-      "type_pending_reason": { "business_rnc_missing": "The business RNC is missing. Pick purchase or sale, or add it in settings." },
       "title": "Review record",
       "unknown": "Unknown",
       "rnc_unknown": "No RNC",
@@ -3001,8 +2999,7 @@
         "owner_funding_unsupported": "Owner-funded expenses cannot be recorded in this first flow yet.",
         "permission_denied": "Your current permission does not allow this action.",
         "currency_mismatch": "The funding account and record need the same currency.",
-        "idempotency_conflict": "This action has a different saved basis. Check the current record.",
-        "document_type_pending": "Confirm whether this is a purchase or a sale."
+        "idempotency_conflict": "This action has a different saved basis. Check the current record."
       }
     },
     "empty": {

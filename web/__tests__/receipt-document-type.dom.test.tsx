@@ -46,16 +46,3 @@ test("a record the server marks fixed shows its type as text, with no control", 
     assert.match(view.host.textContent ?? "", /Venta/);
   } finally { await view.close(); }
 });
-
-test("a draft the server holds por confirmar shows that, the server's reason, and no type", async () => {
-  const source = fixtures();
-  const view = await mount({ ...await source.dossier(dossierFixtureIds.ready), document_type: null, document_type_detected: undefined, document_type_pending: "business_rnc_missing" as const });
-  try {
-    const row = view.host.querySelector("[data-testid='receipt-document-type']");
-    assert.equal(row?.getAttribute("data-type"), "pending");
-    assert.equal(row?.getAttribute("data-pending"), "business_rnc_missing");
-    assert.match(view.host.textContent ?? "", /business\.dossier\.type_pending\b/);
-    assert.match(view.host.textContent ?? "", /type_pending_reason\.business_rnc_missing/);
-    assert.doesNotMatch(view.host.textContent ?? "", /Compra|Venta/);
-  } finally { await view.close(); }
-});

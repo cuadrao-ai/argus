@@ -42,7 +42,6 @@ from argus.domain.business.contracts.facts import (
     Known,
     personal_mark_admits,
 )
-from argus.domain.business.document_type import pending_reason
 from argus.domain.business.receipts import read_attention
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.search import SearchQuery
@@ -458,9 +457,8 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
         else None,
         **row["marks"],
         "document_type": resolution.document_type,
-        "document_type_detected": resolution.document_type_detected,
+        "document_type_detected": resolution.rule_chose_type(),
         "document_type_editable": row["state"] == "open",
-        "document_type_pending": pending_reason(resolution.document_type),
     }
     for key, item in (
         ("draft_id", str(row["id"])),

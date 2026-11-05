@@ -33,14 +33,12 @@ OTHER = "101000007"
         ("131 00000 2", "1-31-00000-2", "venta"),
         ("001-0000000-1", "00100000001", "venta"),
         (OTHER, OWN, "recibo"),
-        # No Business number to compare with: por confirmar, whatever is printed.
-        (OWN, None, None),
+        (OWN, None, "recibo"),
         (None, OWN, "recibo"),
-        (None, None, None),
+        (None, None, "recibo"),
         ("RNC 131000002", OWN, "recibo"),
-        # A Business number that is no RNC is no number: por confirmar.
-        ("1310000021", "1310000021", None),
-        ("000000000", "000000000", None),
+        ("1310000021", "1310000021", "recibo"),
+        ("000000000", "000000000", "recibo"),
     ],
 )
 def test_only_the_business_own_identity_reads_as_a_venta(issuer, own, expected):

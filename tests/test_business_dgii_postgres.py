@@ -31,7 +31,6 @@ from psycopg.rows import dict_row
 
 from tests import test_business_actions_postgres as shared
 from tests.dgii.test_packet import packet
-from tests.test_business_spaces_migration_postgres import SEED_RNC
 
 users = shared.users
 shared_actions = shared.actions
@@ -56,7 +55,7 @@ def actions(shared_actions):
 
 def filer_change(
     value: str | None,
-    previous: str | None = SEED_RNC,
+    previous: str | None = None,
     *,
     name: str = PRACTICE_NAME,
     previous_name: str = PRACTICE_NAME,

@@ -143,14 +143,12 @@ export type BusinessDossier = BusinessRecordContext & {
   /** The receipt total the read showed, and how many read purchases this record leaves unrecorded (0 once settled). */
   read_total?: string | null;
   unrecorded_purchases?: number;
-  /** Compra (`recibo`) or Venta: the draft's current type. Null while the server holds it por confirmar; `document_type_pending` says why. */
-  document_type?: "recibo" | "venta" | null;
+  /** Compra (`recibo`) or Venta: the draft's current type. */
+  document_type?: "recibo" | "venta";
   /** The type was read from the document, not picked; absent when false. */
   document_type_detected?: boolean;
   /** True while the draft is open and the caller can prepare. The server refuses a change after approval. */
   document_type_editable?: boolean;
-  /** Why the draft has no type yet. The server holds it from the 606 and the 607 until a person picks one or the Business RNC is set. */
-  document_type_pending?: "business_rnc_missing";
   draft_id: string;
   version: number;
   review_state: "open" | "accepting" | "accepted" | "dismissed";

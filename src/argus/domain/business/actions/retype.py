@@ -1,9 +1,9 @@
 """The open drafts the rule types again when the Business RNC changes.
 
-A draft nobody named is the rule's to decide: one still por confirmar, and
-one the read detected against the old number. A type a person or a document
-named, or a receipt the rule defaulted to with no issuer, stays. Approved
-records never change here; a person reopens one to change it.
+A draft nobody named is the rule's to decide: the receipt it suggested with
+no Business RNC, and the type the read detected against the old number. A
+type a person or a document named, or a receipt the rule defaulted to with
+no issuer, stays. Approved records never change here.
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ def recheck_open_drafts(
         if business is None:
             continue
         current = stored_type(business)
-        if current.document_type is not None and not current.detected:
+        if not current.rule_owned:
             continue
         resolution = BusinessResolution.model_validate(business)
         resolved = resolved_document_type(None, _issuer(resolution), own)
@@ -51,11 +51,13 @@ def recheck_open_drafts(
         before = resolution.facts
         after = facts_under_type(before, resolved, source_ids, own)
         logger.info(
-            "business_document_type_rechecked draft={} was={} now={} detected={}",
+            "business_document_type_rechecked draft={} was={} now={} detected={}"
+            " suggested={}",
             event.id,
             current.document_type,
             resolved.document_type,
             resolved.detected,
+            resolved.suggested,
         )
         save_revision(
             tx,

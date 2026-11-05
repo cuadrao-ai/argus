@@ -3,9 +3,9 @@
 A receipt is a purchase. A Venta is an invoice the business has already issued.
 A person may name the type when the file is saved. Otherwise the read sets it:
 a document the business itself issued is a Venta. With no Business RNC to tell
-the two apart the draft has no type yet: por confirmar, held from both forms
-until a person picks one or the RNC arrives and the rule decides. The type
-stays editable while the draft is open. The reader is unchanged: the type
+the two apart the draft is a receipt the rule suggests, shown as the read's
+choice, and typed again once the RNC arrives. The type stays editable while
+the draft is open. The reader is unchanged: the type
 gives the printed RNC, NCF, and ITBIS their meaning afterwards.
 
 The type is the one answer to purchase or sale. The kind is never a second
@@ -73,79 +73,61 @@ def money_document_type(kind: str) -> DocumentType | None:
     return TYPE_OF_KIND.get(kind)
 
 
-#: Why a draft has no type yet. The one reason: no Business RNC to compare
-#: the issuer with. The reason is the type's absence, read back by
-#: ``pending_reason``; it is never stored beside it.
-DocumentTypePending = Literal["business_rnc_missing"]
-
-
 @dataclass(frozen=True)
 class ResolvedType:
-    """The type a draft stands under. ``document_type`` None is por confirmar:
-    the draft has no direction until a person picks one or the Business RNC
-    lets the rule decide. ``detected`` is true only when the read compared an
-    issuer with the Business RNC; a named or defaulted type is never detected."""
+    """The type a draft stands under and how it got it. ``detected`` is true
+    only when the read compared an issuer with the Business RNC. ``suggested``
+    is true for the receipt the rule falls back to with no Business RNC to
+    compare: a named type never is, and the rule may type the draft again
+    once the RNC arrives. The Bandeja shows both as the read's choice."""
 
-    document_type: DocumentType | None
+    document_type: DocumentType
     detected: bool = False
+    suggested: bool = False
 
     @property
-    def pending(self) -> DocumentTypePending | None:
-        return pending_reason(self.document_type)
+    def rule_owned(self) -> bool:
+        """Whether the rule, not a person, chose the type."""
 
-
-PENDING = ResolvedType(None)
-
-
-def pending_reason(document_type: DocumentType | None) -> DocumentTypePending | None:
-    """What the Bandeja and the dossier say about a draft with no type."""
-
-    return "business_rnc_missing" if document_type is None else None
+        return self.detected or self.suggested
 
 
 def resolved_document_type(
     named: DocumentType | None, issuer_tax_id: str | None, business_tax_id: str | None
 ) -> ResolvedType:
     """The type a draft takes, and whether the read chose it. A named type
-    wins. With no Business number nothing can tell a sale from a purchase:
-    por confirmar. Otherwise the issuer decides: the Business's own number is
-    a Venta, any other a receipt. With no issuer to compare, a receipt by
-    default, never marked as the read's choice."""
+    wins. With no Business number nothing can tell a sale from a purchase: a
+    receipt the rule suggests. Otherwise the issuer decides: the Business's
+    own number is a Venta, any other a receipt. With no issuer to compare, a
+    receipt by default, never marked as the read's choice."""
 
     if named is not None:
         return ResolvedType(named)
     own = normalized_taxpayer_id(business_tax_id)
     if own is None:
-        return PENDING
+        return ResolvedType("recibo", suggested=True)
     issuer = normalized_taxpayer_id(issuer_tax_id)
     if issuer is None:
         return ResolvedType("recibo")
     return ResolvedType("venta" if issuer == own else "recibo", True)
 
 
-def kind_disagrees(document_type: DocumentType | None, facts: BusinessFacts) -> bool:
-    """With no type yet, no kind disagrees: there is nothing to admit against."""
-
+def kind_disagrees(document_type: DocumentType, facts: BusinessFacts) -> bool:
     from argus.domain.business.contracts.facts import Known
 
     kind = facts.kind
-    return (
-        document_type is not None
-        and isinstance(kind, Known)
-        and kind.value not in TYPE_KINDS[document_type]
-    )
+    return isinstance(kind, Known) and kind.value not in TYPE_KINDS[document_type]
 
 
 def kind_follows_type(
     facts: BusinessFacts,
-    document_type: DocumentType | None,
+    document_type: DocumentType,
     source_ids: tuple[UUID, ...],
     origin: FactOrigin,
 ) -> BusinessFacts:
     """The facts with a kind the type admits: the type's own kind in place of
-    one it does not. An unknown kind stays unknown, and a draft with no type
-    keeps the kind as read: nobody has said yet whether the document is a
-    purchase or a sale."""
+    one it does not. An unknown kind stays unknown: nobody has said yet
+    whether the document is a purchase or a sale."""
 
     if not kind_disagrees(document_type, facts):
         return facts
@@ -230,7 +212,7 @@ def require_venta_kind(document_type: str | None, facts: BusinessFacts) -> None:
         raise ActionError("invalid_input", "activity_kind_unsupported")
 
 
-def require_type_kind(document_type: DocumentType | None, facts: BusinessFacts) -> None:
+def require_type_kind(document_type: DocumentType, facts: BusinessFacts) -> None:
     """A known kind is one the type admits, and a Venta's kind is known."""
 
     if kind_disagrees(document_type, facts):

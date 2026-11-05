@@ -18,7 +18,7 @@ from argus.api.schemas import Language
 from argus.domain.business.bandeja_group import BandejaGroupName, BandejaReason
 from argus.domain.business.contracts.dossier import RecordContext
 from argus.domain.business.country import CountryCode
-from argus.domain.business.document_type import DocumentType, DocumentTypePending
+from argus.domain.business.document_type import DocumentType
 from argus.domain.business.receipt_consent import SCOPE_VERSION
 from argus.domain.business.receipts import Attention
 from argus.domain.business.roles import BusinessRole, Permission
@@ -323,8 +323,7 @@ class ReceiptSummary(_Wire):
     # The whole message of an email whose attachment is already a receipt. It
     # cannot be prepared or approved; its attachment is the receipt.
     email_original: bool = False
-    # Null while por confirmar; then document_type_pending says why.
-    document_type: DocumentType | None = "recibo"
+    document_type: DocumentType = "recibo"
     # The read set the type because the upload named none.
     document_type_detected: bool = Field(
         default=False, exclude_if=lambda value: value is False
@@ -332,11 +331,6 @@ class ReceiptSummary(_Wire):
     # The caller may change the type now: its draft is open and they hold prepare.
     document_type_editable: bool = Field(
         default=False, exclude_if=lambda value: value is False
-    )
-    # Why the draft has no type yet: held from the 606 and the 607 until a
-    # person picks one or the Business RNC lets the read decide.
-    document_type_pending: DocumentTypePending | None = Field(
-        default=None, exclude_if=lambda value: value is None
     )
     expense_id: str | None
     merchant: str | None

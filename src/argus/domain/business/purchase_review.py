@@ -25,17 +25,15 @@ from argus.domain.business.fiscal_identity import identity_digits, normalized_nc
 AMOUNT_SIDES = ("services_amount", "goods_amount")
 
 
-def takes_purchase_declaration(
-    document_type: DocumentType | None, facts: BusinessFacts
-) -> bool:
+def takes_purchase_declaration(document_type: DocumentType, facts: BusinessFacts) -> bool:
     """Whether a 606 declaration belongs on this record: a purchase with a
     comprobante. The one rule behind the dossier's declaration_editable and
-    the review's 606 write. A draft with no type yet takes neither form."""
+    the review's 606 write."""
 
     return direction(document_type) is PURCHASE and not is_sin_comprobante(facts)
 
 
-def takes_payment_split(document_type: DocumentType | None) -> bool:
+def takes_payment_split(document_type: DocumentType) -> bool:
     """Whether a 607 payment split belongs on this record: a sale. The one
     rule behind the dossier's payment_split_editable and the review's write."""
 

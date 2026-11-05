@@ -25,13 +25,7 @@ from psycopg.types.json import Jsonb
 from tests import test_financial_accounts_postgres as shared
 from tests.business_cleanup import delete_spaces
 from tests.local_supabase_support import local_supabase_gateway
-from tests.test_business_scope_switch_routes_postgres import (
-    API,
-    ENV,
-    PERIOD,
-    _code,
-    seed_business_rnc,
-)
+from tests.test_business_scope_switch_routes_postgres import API, ENV, PERIOD, _code
 from tests.test_business_scope_switch_routes_postgres import (
     pytestmark as _local_supabase,
 )
@@ -205,7 +199,6 @@ def world(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
             )
             assert started.status_code == 201, started.text
             found.space_id = started.json()["id"]
-            seed_business_rnc(client, found.owner.headers)
             yield found
     finally:
         with Connection.connect(shared.DSN) as db:

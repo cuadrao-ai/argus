@@ -181,6 +181,7 @@ def save_revision(
         amount_derived=amount_derived,
         document_type=document_type,
         document_type_detected=resolved.detected,
+        document_type_suggested=resolved.suggested,
         due_on=after_due_on,
     ).model_dump(mode="json")
     event = replace(event, resolution=resolution, anchor_on=after.occurred_on.value)
@@ -212,13 +213,14 @@ def save_revision(
 
 
 def stored_type(business: dict | None) -> ResolvedType:
-    """The type a draft's resolution holds. None while por confirmar; a
-    receipt on a draft saved before the type was stored."""
+    """The type a draft's resolution holds; a receipt on a draft saved
+    before the type was stored."""
 
     previous = business or {}
     return ResolvedType(
         previous.get("document_type", "recibo"),
         previous.get("document_type_detected", False),
+        previous.get("document_type_suggested", False),
     )
 
 
@@ -309,9 +311,7 @@ def revise(
             value = getattr(patch, question["field"])
             if value is not None and value.state in {"known", "owner_does_not_know"}:
                 answer_question(tx, event.id, question["id"], patch, source_ids[-1])
-    # A draft with no type yet is on neither form: no declaration applies.
-    found = direction(current_type)
-    current_form = found.form if found else None
+    current_form = direction(current_type).form
     declared = fiscal_review.declaration if fiscal_review else None
     if declared is not None and declared.form != current_form:
         raise ActionError("invalid_input", "fiscal_direction_unsupported")
@@ -360,7 +360,7 @@ def revise(
 
 
 def _stored_declaration(
-    event: ImportEvent, retyped: bool, form: str | None
+    event: ImportEvent, retyped: bool, form: str
 ) -> DgiiDeclaration | None:
     """The draft's saved declaration on the type's own ``form``. One filled
     under another type is gone, and one saved for the other form is no
@@ -654,7 +654,7 @@ def facts_under_type(
 ) -> BusinessFacts:
     """The facts with the meaning the rule's type gives them: a Venta's kind
     is income and the Business's own RNC on it is not the client's; any
-    type's kind is one it admits. With no type yet the facts stay as read."""
+    type's kind is one it admits."""
 
     origin = "extracted" if resolved.detected else "owner_stated"
     document_type = resolved.document_type
@@ -693,8 +693,8 @@ def _read_document_type(
             resolved.document_type,
             batch.dgii_qr is not None,
         )
-    elif resolved.pending:
-        logger.info("business_document_type_pending reason={}", resolved.pending)
+    elif resolved.suggested:
+        logger.info("business_document_type_suggested reason=business_rnc_missing")
     return resolved
 
 

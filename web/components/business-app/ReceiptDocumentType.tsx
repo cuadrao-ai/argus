@@ -10,8 +10,7 @@ import { DOCUMENT_TYPE_LABELS } from "./receipt-fact-rows";
 /**
  * Compra or Venta on one record, as a fact row. `row` is the shared edit row on
  * a draft whose type can still change; after approval it is fixed. A type read
- * from the document says so, so a wrong guess is easy to spot and fix. A draft
- * the server holds por confirmar shows that and the server's reason.
+ * from the document says so, so a wrong guess is easy to spot and fix.
  */
 export default function ReceiptDocumentType({ dossier, row, note }: {
   dossier: BusinessDossier;
@@ -20,25 +19,22 @@ export default function ReceiptDocumentType({ dossier, row, note }: {
   note?: ReactNode;
 }) {
   const { t } = useTranslation();
-  const current = dossier.document_type ?? null;
-  const pending = dossier.document_type_pending ?? null;
-  if (!current && !pending) return null;
+  const current = dossier.document_type;
+  if (!current) return null;
   const label = t("business.dossier.type_label", "Type");
-  const value = current ? t(DOCUMENT_TYPE_LABELS[current]) : t("business.dossier.type_pending", "To confirm");
-  const hint = pending
-    ? t(`business.dossier.type_pending_reason.${pending}`, "Pick purchase or sale, or add the business RNC in settings.")
-    : dossier.document_type_detected
-      ? current === "venta"
-        ? t("business.dossier.type_detected_venta", "We read it as a sale from your business's RNC. Add the client's RNC.")
-        : t("business.dossier.type_detected_recibo", "We read it as a purchase. Change it if it is a sale.")
-      : null;
+  const value = t(DOCUMENT_TYPE_LABELS[current]);
+  const detected = dossier.document_type_detected
+    ? current === "venta"
+      ? t("business.dossier.type_detected_venta", "We read it as a sale from your business's RNC. Add the client's RNC.")
+      : t("business.dossier.type_detected_recibo", "We read it as a purchase. Change it if it is a sale.")
+    : null;
 
   return (
-    <div data-testid="receipt-document-type" data-fact="document_type" data-type={current ?? "pending"} data-pending={pending ?? undefined} data-detected={dossier.document_type_detected ? "true" : undefined} className={FACT_ROW_CLASS}>
+    <div data-testid="receipt-document-type" data-fact="document_type" data-type={current} data-detected={dossier.document_type_detected ? "true" : undefined} className={FACT_ROW_CLASS}>
       <dt className={FACT_LABEL_CLASS}>{label}</dt>
       <dd className="min-w-0 break-words py-[7px] text-[15px] leading-[22px] text-[#172b26] dark:text-white">
         {row ? row({ label, value }) : value}
-        {hint ? <p className="mt-1 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{hint}</p> : null}
+        {detected ? <p className="mt-1 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{detected}</p> : null}
         {note}
       </dd>
     </div>

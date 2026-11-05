@@ -44,18 +44,13 @@ def _one(db, sql: str, params: tuple = ()):  # noqa: ANN001, ANN202
     return db.execute(sql, params).fetchone()[0]
 
 
-#: The Business RNC every test Business starts with, so a read can tell a
-#: sale from a purchase; a test about the missing number clears it first.
-SEED_RNC = "130999996"
-
-
-def space(db, owner: str, rnc: str | None = SEED_RNC) -> str:  # noqa: ANN001
+def space(db, owner: str) -> str:  # noqa: ANN001
     return str(
         _one(
             db,
-            "insert into public.spaces (kind, name, created_by, business_rnc, business_tax_id_type)"
-            " values ('business', 'Colmado', %s, %s, %s) returning id",
-            (owner, rnc, None if rnc is None else "rnc"),
+            "insert into public.spaces (kind, name, created_by)"
+            " values ('business', 'Colmado', %s) returning id",
+            (owner,),
         )
     )
 

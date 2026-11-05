@@ -25,7 +25,6 @@ from tests import test_financial_accounts_postgres as shared
 from tests.business.test_business_api import RECEIPT
 from tests.business_cleanup import delete_spaces
 from tests.local_supabase_support import local_supabase_gateway
-from tests.test_business_spaces_migration_postgres import SEED_RNC
 from tests.test_financial_accounts_api_postgres import ORIGIN
 
 pytestmark = pytest.mark.skipif(
@@ -56,29 +55,6 @@ class Person:
     email: str
     headers: dict[str, str]
     space_id: str = ""
-
-
-def seed_business_rnc(
-    client: TestClient, headers: dict[str, str], value: str = SEED_RNC
-) -> None:
-    """The Business RNC a test Business starts with, set as its owner would,
-    so a read can tell a sale from a purchase. The profile name is read back
-    first: the route checks it against the stored one."""
-
-    profile = client.get(f"{API}/business/fiscal-profile", headers=headers)
-    assert profile.status_code == 200, profile.text
-    name = profile.json()["name"]
-    saved = client.patch(
-        f"{API}/business/fiscal-profile",
-        json={
-            "name": name,
-            "previous_name": name,
-            "tax_id": {"type": "rnc", "value": value},
-            "previous_tax_id": profile.json()["tax_id"],
-        },
-        headers={**headers, "Idempotency-Key": str(uuid4())},
-    )
-    assert saved.status_code == 200, saved.text
 
 
 def _person(client: TestClient, gateway, label: str, created: list[str]) -> Person:  # noqa: ANN001
@@ -133,7 +109,6 @@ def web(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
                 )
                 assert started.status_code == 201, started.text
                 person.space_id = started.json()["id"]
-                seed_business_rnc(client, person.headers)
             world = SimpleNamespace(client=client, **people)
             world.grant_a = _grant(world, world.alice, world.bob)
             world.grant_c = _grant(world, world.carol, world.bob)
@@ -539,9 +514,7 @@ def test_every_route_binds_to_the_chosen_grant_and_a_record_of_another_business_
         assert answer.status_code == 200, (path, answer.text)
 
 
-def test_revoked_and_expired_memberships_stop_routes_while_inviter_loss_does_not(
-    web,
-) -> None:  # noqa: ANN001
+def test_revoked_and_expired_memberships_stop_routes_while_inviter_loss_does_not(web) -> None:  # noqa: ANN001
     client, alice, bob, carol = web.client, web.alice, web.bob, web.carol
     receipt_a = _upload(web, alice, RECEIPT).json()["id"]
     draft_a = _note(web, alice, "nota de A").json()["draft_id"]
@@ -621,31 +594,13 @@ def test_revoked_and_expired_memberships_stop_routes_while_inviter_loss_does_not
             "update public.business_client_grants set revoked_at=now() where space_id=%s and grantee_id=%s",
             (carol.space_id, carol.id),
         )
-    assert (
-        client.get(
-            f"{API}/business/receipts/{receipt_c}", headers=_as(bob, web.grant_c)
-        ).status_code
-        == 200
-    )
-    assert (
-        client.get(f"{API}/business/workspace", headers=carol.headers).status_code != 200
-    )
+    assert client.get(f"{API}/business/receipts/{receipt_c}", headers=_as(bob, web.grant_c)).status_code == 200
+    assert client.get(f"{API}/business/workspace", headers=carol.headers).status_code != 200
     with Connection.connect(shared.DSN) as db:
-        assert db.execute(
-            "select count(*) from public.business_client_grants where space_id=%s and grantee_id=%s and revoked_at is null",
-            (carol.space_id, carol.id),
-        ).fetchone() == (0,)
-        db.execute(
-            "update public.business_client_grants set revoked_at=now() where id=%s",
-            (web.grant_c,),
-        )
+        assert db.execute("select count(*) from public.business_client_grants where space_id=%s and grantee_id=%s and revoked_at is null", (carol.space_id, carol.id)).fetchone() == (0,)
+        db.execute("update public.business_client_grants set revoked_at=now() where id=%s", (web.grant_c,))
     everything_refused(web.grant_c, receipt_c, draft_c)
-    assert {
-        s["space_id"]
-        for s in client.get(f"{API}/business/spaces", headers=bob.headers).json()[
-            "spaces"
-        ]
-    } == {bob.space_id}
+    assert {s["space_id"] for s in client.get(f"{API}/business/spaces", headers=bob.headers).json()["spaces"]} == {bob.space_id}
 
 
 @pytest.mark.parametrize("state", ["owner", "viewer", "revoked"])

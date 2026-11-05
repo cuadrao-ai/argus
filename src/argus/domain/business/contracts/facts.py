@@ -239,11 +239,15 @@ class ReadPurchase(Contract):
 
 class BusinessResolution(Contract):
     schema_version: Literal[1] = 1
-    #: None while por confirmar: no person named the type and no Business RNC
-    #: let the read decide. Absent on a draft saved before the type was stored.
-    document_type: DocumentType | None = "recibo"
+    document_type: DocumentType = "recibo"
     #: The read set the type because the upload named none; false once a person sets it.
     document_type_detected: bool = Field(
+        default=False, exclude_if=lambda value: value is False
+    )
+    #: The rule fell back to a receipt with no Business RNC to compare the
+    #: issuer with; the rule types the draft again once the RNC arrives. The
+    #: Bandeja shows it as the read's choice. False once a person sets the type.
+    document_type_suggested: bool = Field(
         default=False, exclude_if=lambda value: value is False
     )
     facts: BusinessFacts
@@ -268,6 +272,12 @@ class BusinessResolution(Contract):
     #: The due date a person set in review. None is unknown: never read from
     #: the document and never defaulted.
     due_on: date | None = Field(default=None, exclude_if=lambda value: value is None)
+
+    def rule_chose_type(self) -> bool:
+        """The type on the wire is the rule's, not a person's: the read's
+        choice or the receipt suggested with no Business RNC."""
+
+        return self.document_type_detected or self.document_type_suggested
 
     def unrecorded_purchases(self) -> int:
         """Read purchases this draft's amount does not account for. One read

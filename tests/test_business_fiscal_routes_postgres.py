@@ -119,18 +119,6 @@ def _known(values: dict) -> dict:
 
 def test_review_write_path_from_capture_to_the_606_line(world) -> None:  # noqa: ANN001
     client, alice = world.client, world.alice
-    # The Business RNC first: without it a typed note has no type yet.
-    profile = client.patch(
-        f"{API}/business/fiscal-profile",
-        json={
-            "name": "Ferretería Prueba",
-            "previous_name": "Ferretería Prueba",
-            "tax_id": {"type": "rnc", "value": "199990013"},
-            "previous_tax_id": None,
-        },
-        headers={**alice.headers, "Idempotency-Key": str(uuid4())},
-    )
-    assert profile.status_code == 200, profile.text
     note = _note(world, alice, "Pagué 1180 en Ferretería Prueba")
     assert note.status_code == 200, note.text
     draft = note.json()["draft_id"]
@@ -223,6 +211,17 @@ def test_review_write_path_from_capture_to_the_606_line(world) -> None:  # noqa:
     assert locked.status_code == 422, locked.text
     assert locked.json()["code"] == "recorded_correction_unsupported"
 
+    profile = client.patch(
+        f"{API}/business/fiscal-profile",
+        json={
+            "name": "Ferretería Prueba",
+            "previous_name": "Ferretería Prueba",
+            "tax_id": {"type": "rnc", "value": "199990013"},
+            "previous_tax_id": None,
+        },
+        headers={**alice.headers, "Idempotency-Key": str(uuid4())},
+    )
+    assert profile.status_code == 200, profile.text
     exported = client.get(
         f"{API}/business/exports",
         params={"start": "2026-09-01", "end": "2026-09-30"},

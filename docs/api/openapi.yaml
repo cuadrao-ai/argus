@@ -18156,12 +18156,10 @@ components:
           type: boolean
           default: false
         document_type:
-          anyOf:
-          - type: string
-            enum:
-            - recibo
-            - venta
-          - type: 'null'
+          type: string
+          enum:
+          - recibo
+          - venta
           default: recibo
         document_type_detected:
           type: boolean
@@ -18169,11 +18167,6 @@ components:
         document_type_editable:
           type: boolean
           default: false
-        document_type_pending:
-          anyOf:
-          - type: string
-            const: business_rnc_missing
-          - type: 'null'
         declaration_editable:
           type: boolean
           default: false
@@ -30322,12 +30315,10 @@ components:
           type: boolean
           default: false
         document_type:
-          anyOf:
-          - type: string
-            enum:
-            - recibo
-            - venta
-          - type: 'null'
+          type: string
+          enum:
+          - recibo
+          - venta
           default: recibo
         document_type_detected:
           type: boolean
@@ -30335,11 +30326,6 @@ components:
         document_type_editable:
           type: boolean
           default: false
-        document_type_pending:
-          anyOf:
-          - type: string
-            const: business_rnc_missing
-          - type: 'null'
         expense_id:
           anyOf:
           - type: string
@@ -30971,12 +30957,10 @@ components:
           type: boolean
           default: false
         document_type:
-          anyOf:
-          - type: string
-            enum:
-            - recibo
-            - venta
-          - type: 'null'
+          type: string
+          enum:
+          - recibo
+          - venta
           default: recibo
         document_type_detected:
           type: boolean
@@ -30984,11 +30968,6 @@ components:
         document_type_editable:
           type: boolean
           default: false
-        document_type_pending:
-          anyOf:
-          - type: string
-            const: business_rnc_missing
-          - type: 'null'
         expense_id:
           anyOf:
           - type: string
