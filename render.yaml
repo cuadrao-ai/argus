@@ -194,7 +194,7 @@ services:
       - key: CUADRAO_DOCUMENT_EXTRACTION_ENABLED
         value: "true"
       - key: CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS
-        value: "120"
+        value: "210"
       - key: CUADRAO_DOCUMENT_JOBS_ENABLED
         value: "false"
       - key: CUADRAO_DOCUMENT_JOBS_MAX_READS

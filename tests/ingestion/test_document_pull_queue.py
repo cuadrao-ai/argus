@@ -11,9 +11,15 @@ from typing import Any
 import pytest
 import yaml
 from argus.api.document_jobs import document_jobs
+from argus.domain.ingestion.connections import DEFAULT_LEASE
+from argus.domain.ingestion.documents import extractor as extraction
+from argus.domain.ingestion.documents import preparation
 from argus.domain.ingestion.documents.config import (
+    PROVIDER_CALLS_PER_READ,
+    DocumentExtractionSettings,
     DocumentJobSettings,
     load_document_job_settings,
+    read_seconds,
 )
 from argus.domain.ingestion.documents.jobs import (
     DISPATCH_WINDOW,
@@ -32,10 +38,13 @@ from argus.domain.ingestion.documents.models import (
 from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.sink import SubmitResult
 from argus.domain.owner_scope import PERSONAL
+from argus.llm import openrouter
 
 from tests.document_extractor_support import start_request
 from tests.ingestion import test_document_jobs_api as api
 from tests.ingestion import test_document_jobs_recharge as support
+from tests.ingestion.test_document_timeout_retry import OK, Provider
+from tests.ingestion.test_read_budget_local_refusals import poppler
 from workflows import document_worker
 from workflows.document_worker import DocumentWorker, serve
 
@@ -45,11 +54,13 @@ jobs_client = api.jobs_client
 
 OWNER = "owner"
 ROOT = Path(__file__).resolve().parents[2]
+# The host's shutdown delay must exceed the drain by this much; Render allows 300 s.
+HOST_SHUTDOWN_MARGIN_SECONDS, HOST_SHUTDOWN_MAX_SECONDS = 5, 300
 JOB_SETTINGS = {
     "CUADRAO_DOCUMENT_JOBS_ENABLED": "false",
     "CUADRAO_DOCUMENT_JOBS_PULL_ENABLED": "false",
     "CUADRAO_DOCUMENT_JOBS_MAX_READS": "3",
-    "CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS": "120",
+    "CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS": f"{read_seconds():g}",
 }
 
 
@@ -410,6 +421,65 @@ async def test_a_read_past_the_drain_bound_stays_recoverable(rig, worker_env) ->
     assert gauge.read == [connection], "reached the provider, so never billed twice"
 
 
+@pytest.fixture
+def retrying(rig, worker_env, monkeypatch):
+    """The real extractor over a scripted provider whose first call times out
+    and whose second call waits to be released, so the worker runs a retry."""
+    service = rig[0]
+    monkeypatch.setenv("ARGUS_VISION_MODEL", "test/vision")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
+    monkeypatch.setattr(preparation, "_run", poppler("Pages: 1\nEncrypted: no\n"))
+    service.extractor = extraction.DocumentExtractor(
+        DocumentExtractionSettings(enabled=True)
+    )
+    provider = Provider(asyncio.TimeoutError, OK, gated=True)
+    monkeypatch.setattr(extraction, "invoke_openrouter_json_schema", provider)
+    return service, provider
+
+
+async def stopped_during_the_retry(
+    service: DocumentsService, provider: Provider, drain_seconds: float
+) -> tuple[str, asyncio.Task[None], PreparationJobs]:
+    jobs = PreparationJobs(service, None)
+    [connection] = await waiting(service, jobs)
+    stop = asyncio.Event()
+    worker = DocumentWorker(service, settings(drain_seconds=drain_seconds))
+    running = asyncio.create_task(worker.run(stop))
+    await asyncio.wait_for(provider.started.wait(), 5)
+    provider.release()
+    await asyncio.wait_for(provider.started.wait(), 5)
+    assert provider.calls == 2, "the retry is in flight"
+    stop.set()
+    return connection, running, jobs
+
+
+@pytest.mark.asyncio
+async def test_a_stop_during_the_retry_lets_the_second_call_finish(retrying) -> None:
+    service, provider = retrying
+    connection, running, _ = await stopped_during_the_retry(service, provider, 5)
+    await asyncio.sleep(0.05)
+    assert not running.done(), "the drain waits for the second call"
+
+    provider.release()
+    await asyncio.wait_for(running, 5)
+
+    assert read(service, connection).status == "review_ready"
+    assert provider.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_a_retry_cancelled_by_the_drain_is_recovered_with_a_reason(
+    retrying,
+) -> None:
+    service, provider = retrying
+    connection, running, jobs = await stopped_during_the_retry(service, provider, 0.01)
+    await asyncio.wait_for(running, 5)
+
+    assert jobs.sweep().outcome_unknown == [connection]
+    assert read(service, connection).error_code == OUTCOME_UNKNOWN
+    assert provider.calls == 2, "a cancelled retry is never billed a third time"
+
+
 @pytest.mark.asyncio
 async def test_with_extraction_off_a_waiting_read_neither_runs_nor_fails(
     pull, monkeypatch
@@ -546,7 +616,22 @@ def test_reads_at_once_default_to_three_and_pull_stays_off(monkeypatch):
         monkeypatch.delenv(name, raising=False)
         monkeypatch.delenv(name.replace("CUADRAO_", "ARGUS_"), raising=False)
     loaded = load_document_job_settings()
-    assert (loaded.pull, loaded.max_reads, loaded.drain_seconds) == (False, 3, 120.0)
+    assert (loaded.pull, loaded.max_reads, loaded.drain_seconds) == (
+        False,
+        3,
+        read_seconds(),
+    )
+
+
+def test_every_wait_for_a_read_covers_both_provider_calls():
+    timeout = openrouter.openrouter_profile_for_task("document_extraction").timeout_seconds
+    assert (PROVIDER_CALLS_PER_READ, timeout) == (2, 90)
+    assert read_seconds() == 2 * 90 + 30 == 210
+    assert DocumentJobSettings().drain_seconds == read_seconds()
+    assert read_seconds() < DEFAULT_LEASE.total_seconds(), (
+        "a sweep never calls a read dead while its retry still runs"
+    )
+    assert read_seconds() + HOST_SHUTDOWN_MARGIN_SECONDS <= HOST_SHUTDOWN_MAX_SECONDS
 
 
 def test_job_settings_are_declared_off_on_staging_and_absent_from_production():

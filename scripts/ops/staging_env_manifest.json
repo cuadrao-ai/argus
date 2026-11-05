@@ -116,7 +116,7 @@
         {
           "name": "CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS",
           "kind": "plain",
-          "value": "120"
+          "value": "210"
         },
         {
           "name": "CUADRAO_DOCUMENT_JOBS_ENABLED",
