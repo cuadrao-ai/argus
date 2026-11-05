@@ -20,7 +20,7 @@ from argus.api.documents import (
     require_saved_documents,
 )
 from argus.api.ingestion import IngestionContext, require_ingestion_context
-from argus.api.whatsapp import whatsapp_runtime
+from argus.api.whatsapp import whatsapp_history_store
 from argus.domain.business.config import business_pilot_enabled
 from argus.domain.business.contracts.dossier import RecordContext
 from argus.domain.business.memberships import MembershipError
@@ -230,10 +230,10 @@ class BusinessContext:
 
 
 def _captured(person_id: str) -> frozenset[str]:
-    runtime = whatsapp_runtime()
-    if runtime is None:
+    store = whatsapp_history_store()
+    if store is None:
         return frozenset()
-    return runtime.intake.store.captured_connections(destination_owner_id=person_id)
+    return store.captured_connections(destination_owner_id=person_id)
 
 
 def _context(

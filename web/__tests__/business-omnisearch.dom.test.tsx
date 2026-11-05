@@ -35,7 +35,7 @@ async function mount(canExport = true) {
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
   const opened: (BusinessPanelState | "export")[] = [];
   function Harness() {
-    const search = useBusinessSearch({ source, accounts: [], openPanel: (panel) => opened.push(panel), actions, owner: true, scope: "own", canExport, openExport: () => opened.push("export") });
+    const search = useBusinessSearch({ emailAvailable: true, source, accounts: [], openPanel: (panel) => opened.push(panel), actions, owner: true, scope: "own", canExport, openExport: () => opened.push("export") });
     const [open, setOpen] = useState(false);
     const workspace = { id: "business", conversationSurface: "business", chatAvailable: false, search } as unknown as ChatWorkspace;
     return (

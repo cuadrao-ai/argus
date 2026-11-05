@@ -310,7 +310,9 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: receipt-upload-browser-evidence
-          path: web/temp/playwright-results/**/receipt-upload-*.png
+          path: |
+            web/temp/playwright-results/**/receipt-upload-*.png
+            web/temp/consent-results/**/channels-*.png
           if-no-files-found: warn
 
   marketing-checks:

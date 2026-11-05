@@ -106,6 +106,8 @@ export type WorkspaceSearchScope = Readonly<{
 }>;
 
 export type WorkspaceSearch = Readonly<{
+  /** Changes when the result scope or permitted groups change. */
+  identity?: string;
   /** Hits carry previews, so the palette keeps its dossier pane and sheet. */
   previewAvailable?: boolean;
   /**

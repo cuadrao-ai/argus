@@ -32,13 +32,15 @@ async function mount() {
   cleanups.push(async () => { iframeSource.mockRestore(); });
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
+  const { BusinessContext } = await import("@/components/business-app/business-context");
+  const context = { receivingChannels: { email: { available: true }, whatsapp: { available: true } } } as unknown as import("@/components/business-app/BusinessWorkspace").BusinessContextValue;
   const { default: Preview } = await import("@/app/design-workspace/WorkspaceSetupPreview");
   const i18n = createInstance();
   await i18n.init({ lng: "en", resources: {} });
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
-  await act(async () => root.render(<I18nextProvider i18n={i18n}><Preview /></I18nextProvider>));
+  await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Preview /></BusinessContext.Provider></I18nextProvider>));
   cleanups.push(async () => { await act(async () => root.unmount()); });
   const frame = host.querySelector("iframe")!;
   assert.ok(frame.contentWindow);

@@ -97,6 +97,18 @@ def web(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
             patch.object(api_state, "PERSISTENCE_MODE", "supabase"),
             TestClient(app, base_url="http://localhost:3000") as client,
         ):
+            from argus.api import email_intake as email_api
+            from argus.api.documents import documents_service
+            from argus.domain.ingestion.email_intake.store import PostgresEmailStore
+
+            # Exercise membership authority with the channel available; its
+            # default-off refusal is covered by the channel availability suite.
+            monkeypatch.setattr(email_api, "_runtime", SimpleNamespace(
+                provider=object(), documents=documents_service(),
+                store=PostgresEmailStore(app.state.financial_accounts_pool),
+            ))
+            monkeypatch.setattr(email_api, "webhook_enabled", lambda: True)
+            monkeypatch.setenv("CUADRAO_BUSINESS_EMAIL_DOMAIN", "recibos.example.test")
             people = {
                 label: _person(client, gateway, label, created)
                 for label in ("alice", "bob", "carol", "dave")

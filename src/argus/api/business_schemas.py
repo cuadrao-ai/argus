@@ -126,6 +126,15 @@ class ReceiptLimits(_Wire):
     media_types: list[str]
 
 
+class ReceivingChannel(_Wire):
+    available: bool
+
+
+class ReceivingChannels(_Wire):
+    email: ReceivingChannel
+    whatsapp: ReceivingChannel
+
+
 class BusinessWorkspace(_Wire):
     country: str
     currency: str
@@ -136,6 +145,7 @@ class BusinessWorkspace(_Wire):
     #: The server's one answer on Facturación; the client shows no entry point while false.
     invoicing_available: bool
     notifications_available: bool
+    receiving_channels: ReceivingChannels
     receipt_limits: ReceiptLimits
     logo_url: str | None = None
 

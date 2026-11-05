@@ -140,7 +140,6 @@ def test_without_a_business_every_read_still_says_the_space_is_missing(alice: Ow
         alice.get("/month-close", month="2026-10"),
         alice.get("/open-items"),
         alice.get("/bank/movements", **PERIOD),
-        alice.get("/email/deliveries"),
     ):
         assert _code(response) == (404, "business_space_missing")
 

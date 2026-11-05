@@ -22,6 +22,7 @@ import ProfileSettingsPanels, {
   type SettingsPanel,
   type SidebarPreference,
 } from "./ProfileSettingsPanels";
+import { useReceivingChannels } from "@/components/business-app/business-context";
 import SettingsWindow from "@/components/settings/SettingsWindow";
 import { useAccountDeletionEligibility } from "@/lib/use-account-deletion-eligibility";
 import {
@@ -75,7 +76,7 @@ import {
 } from "@/lib/language-features";
 import { memoryAvailable as fetchMemoryAvailable } from "@/lib/memory-privacy";
 import { cuadraoLegalLinks } from "@/lib/cuadrao-legal-links";
-import { businessPilotEnabledFromEnv, businessWhatsappPreferencesEnabledFromEnv, evidenceReceiptSharingEnabled } from "@/lib/private-alpha-flags";
+import { businessPilotEnabledFromEnv, evidenceReceiptSharingEnabled } from "@/lib/private-alpha-flags";
 import { supportEmail } from "@/lib/support-email";
 import { navigateFromOverlay } from "@/lib/overlay-history";
 import { QuickJumpBadge } from "@/components/keyboard/QuickJumpBadge";
@@ -137,6 +138,7 @@ export default function ProfileMenu({
 }: ProfileMenuProps) {
   const { t, i18n } = useTranslation();
   const isBusiness = useConversationSurface() === "business";
+  const receivingChannels = useReceivingChannels();
   const invitationPreviewAvailable = isBusiness && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
   const [localInvitations, setLocalInvitations] = useState<LocalInvitation[]>([]);
   const previousInvitationRequest = useRef(invitationOpenRequest?.id);
@@ -179,7 +181,7 @@ export default function ProfileMenu({
   const whatsappLinkAvailable =
     accountKind === "registered" &&
     (isBusiness
-      ? businessWhatsappPreferencesEnabledFromEnv()
+      ? receivingChannels.whatsapp.available
       : businessPilotEnabledFromEnv());
   // What Ajustes lists for this account, in its order.
   const windowSections = SETTINGS_WINDOW_ORDER.filter((panel) => ({
@@ -848,8 +850,9 @@ export default function ProfileMenu({
     return (
       <>
         <SettingsWindow
+          key={String(whatsappLinkAvailable)}
           sections={windowSections}
-          renderSection={(panel) => (
+          renderSection={(panel) => panel === "whatsapp" && !whatsappLinkAvailable ? null : (
             <ProfileSettingsPanels
               panel={panel}
               asSheet={false}

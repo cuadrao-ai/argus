@@ -330,16 +330,27 @@ def test_whatsapp_stays_the_owners_channel_under_a_chosen_grant(
     assert owner.start().status_code == 201 and accountant.start().status_code == 201
     grant = _grant(owner, accountant)
     headers = {GRANT: grant}
+    assert get_as(accountant, "/workspace", grant).json()["receiving_channels"][
+        "whatsapp"
+    ] == {"available": False}
+    assert accountant.get("/workspace").json()["receiving_channels"]["whatsapp"] == {
+        "available": True
+    }
     # WhatsApp is the owner's channel: every link route refuses a grantee.
     for response in (
         client.post(
             "/api/v1/whatsapp/link-codes", headers={**accountant.auth, **headers}
         ),
         client.get("/api/v1/whatsapp/link", headers={**accountant.auth, **headers}),
+        client.get("/api/v1/whatsapp/ai-consent", headers={**accountant.auth, **headers}),
+        client.post(
+            "/api/v1/whatsapp/ai-consent", headers={**accountant.auth, **headers},
+            json={"action": "enable", "disclosure_token": "a" * 64},
+        ),
     ):
         assert (response.status_code, response.json()["code"]) == (
-            403,
-            "business_permission_denied",
+            404,
+            "whatsapp_unavailable",
         )
     assert client.get("/api/v1/whatsapp/link", headers=accountant.auth).status_code == 200
     # Ending one's own sender link is never gated: it is the person's, not the Business's.

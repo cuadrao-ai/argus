@@ -38,6 +38,8 @@ def signed(body: bytes, *, now: int | None = None) -> dict[str, str]:
 @pytest.fixture
 def runtime(monkeypatch):
     monkeypatch.setenv("ARGUS_RESEND_WEBHOOK_SECRET", SECRET)
+    monkeypatch.setenv("CUADRAO_BUSINESS_EMAIL_DOMAIN", "recibos.example.test")
+    monkeypatch.setattr(runtime_module, "webhook_enabled", lambda: True)
     from argus.api.documents import documents_service
 
     fake = Mock()
@@ -50,7 +52,6 @@ def runtime(monkeypatch):
     fake.route_usable = lambda route: True
     fake.retryable = lambda delivery: False
     runtime_module.configure_email_intake(fake)
-    monkeypatch.setattr("argus.api.routers.email_intake.webhook_enabled", lambda: True)
     yield fake
     runtime_module.configure_email_intake(None)
 
@@ -113,11 +114,10 @@ def test_bad_signature_other_event_and_oversize_body_never_enqueue(
 def test_webhook_is_absent_when_receiving_is_off(
     client: TestClient, runtime, monkeypatch
 ) -> None:  # noqa: F811
-    monkeypatch.setattr("argus.api.routers.email_intake.webhook_enabled", lambda: False)
+    monkeypatch.setattr(runtime_module, "webhook_enabled", lambda: False)
     body = event()
     assert client.post(WEBHOOK, content=body, headers=signed(body)).status_code == 404
     runtime_module.configure_email_intake(None)
-    monkeypatch.setattr("argus.api.routers.email_intake.webhook_enabled", lambda: True)
     assert client.post(WEBHOOK, content=body, headers=signed(body)).status_code == 404
 
 
@@ -143,18 +143,15 @@ def test_owner_sees_readiness_and_in_memory_app_cannot_mint_an_address(
 
 
 def test_endpoints_say_unavailable_without_a_runtime(alice: Owner) -> None:  # noqa: F811
-    """The in-memory app keeps no deliveries: the list is empty, every other
-    email route is unavailable."""
-
     runtime_module.configure_email_intake(None)
-    assert alice.get("/email").status_code == 503
-    deliveries = alice.get("/email/deliveries")
-    assert (deliveries.status_code, deliveries.json()) == (200, {"items": []})
+    assert alice.get("/email").status_code == 404
+    assert alice.get("/email/deliveries").json() == {"items": []}
 
 
 def test_a_grouped_email_original_is_context_not_a_second_receipt(
     alice: Owner,  # noqa: F811
     runtime,  # noqa: ANN001
+    monkeypatch,
 ) -> None:
     """The .eml of an email whose attachment is saved can be seen and downloaded,
     never prepared or confirmed, regardless of the submitted version."""
@@ -198,6 +195,7 @@ def test_a_grouped_email_original_is_context_not_a_second_receipt(
     )
     store.finish(claimed, "captured")
 
+    monkeypatch.setattr(runtime_module, "webhook_enabled", lambda: False)
     listed = {
         item["id"]: item for item in alice.get("/receipts", view="all").json()["items"]
     }

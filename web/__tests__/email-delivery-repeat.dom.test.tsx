@@ -128,3 +128,34 @@ test("opened capped mail does not fetch an unread body or offer an immediate ret
   await act(async () => root.unmount());
   host.remove();
 });
+
+
+test("email off reads historical attachments and the message without offering an intake retry", async () => {
+  const { act } = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const { BusinessContext } = await import("@/components/business-app/business-context");
+  const { EmailDeliveryDetail } = await import("@/components/business-app/BusinessEmailDeliveries");
+  const { I18nextProvider } = await import("react-i18next");
+  const i18n = (await import("i18next")).default.createInstance();
+  const spanish = (await import("@/public/locales/es-419/common.json")).default;
+  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
+  const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
+  let requests = 0;
+  const item = { ...delivery("history", null), retryable: true };
+  const loadDetail = async () => { requests += 1; return { ...item, text_body: "Mensaje guardado" }; };
+  const render = (available: boolean) => act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={{ receivingChannels: { email: { available }, whatsapp: { available: false } } } as BusinessContextValue}><EmailDeliveryDetail delivery={item} loadDetail={loadDetail} openReceipt={() => undefined} retryDelivery={async () => undefined} /></BusinessContext.Provider></I18nextProvider>));
+  try {
+    await render(false);
+    assert.equal(requests, 1);
+    assert.ok(host.textContent?.includes("Mensaje guardado"));
+    assert.ok(host.textContent?.includes("recibo-prueba-ferreteria.pdf"));
+    assert.ok(!host.textContent?.includes(spanish.business.email.retry));
+    await render(true);
+    assert.equal(requests, 1);
+    assert.ok(host.textContent?.includes("Mensaje guardado"));
+    await render(false);
+    assert.equal(requests, 1);
+    assert.ok(host.textContent?.includes("Mensaje guardado"));
+    assert.ok(!host.textContent?.includes(spanish.business.email.retry));
+  } finally { await act(async () => root.unmount()); host.remove(); }
+});

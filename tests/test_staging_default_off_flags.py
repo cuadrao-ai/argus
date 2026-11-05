@@ -21,11 +21,6 @@ APPROVED_STAGING_OVERRIDES: dict[str, str] = {
         "The Consumer staging proof uses households ahead of the iOS beta "
         "build. Prod stays false."
     ),
-    "NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED": (
-        "Prepare the requested persistent staging pilot's existing connection "
-        "controls for a reviewed manual release. Activation remains behind "
-        "founder approval, CI, Eval, and manual release gates. Prod stays false."
-    ),
     "CUADRAO_BUSINESS_BANK_MATCHING_ENABLED": (
         "Lucas approved bank matching on staging 2026-10-28 (demo loop approval "
         "2). Prod stays false."
@@ -202,40 +197,11 @@ def test_default_off_profile_flags_are_not_turned_on_in_staging() -> None:
     )
 
 
-def test_explicit_staging_web_override_keeps_production_false() -> None:
-    profile = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
-    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-    render_config = yaml.safe_load(RENDER_PATH.read_text(encoding="utf-8"))
-    name = "NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED"
-    stage = next(
-        service
-        for service in render_config["services"]
-        if service["name"] == "cuadrao-web-staging"
-    )
-    assert (
-        next(entry for entry in stage["envVars"] if entry["key"] == name)["value"]
-        == "true"
-    )
-    assert (
-        next(
-            entry
-            for entry in manifest["services"]["web"]["entries"]
-            if entry["name"] == name
-        )["value"]
-        == "true"
-    )
-    assert profile["services"]["web"]["env"][name] == "false"
-    assert (
-        prod_values_other_than_false(profile, render_config, APPROVED_STAGING_OVERRIDES)
-        == []
-    )
-
-
 @pytest.mark.parametrize("surface", ["profile", "render", "unknown", "unnamed"])
 def test_staging_exception_cannot_hide_other_true_values(surface: str) -> None:
     profile = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
     render_config = yaml.safe_load(RENDER_PATH.read_text(encoding="utf-8"))
-    name = "NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED"
+    name = "CUADRAO_BUSINESS_BANK_MATCHING_ENABLED"
     if surface == "profile":
         profile["services"]["web"]["env"][name] = "true"
     elif surface == "render":

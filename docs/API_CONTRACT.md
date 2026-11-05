@@ -9098,7 +9098,9 @@ uncertain fields, and more than 18 digits leaves the amount unresolved.
 Off unless `CUADRAO_WHATSAPP_INTAKE_ENABLED` (or the older `ARGUS_WHATSAPP_INTAKE_ENABLED`; the
 Cuadrao name wins when both are set; every WhatsApp setting follows this rule) is true, its credentials are set and
 the document surface above is on. While off, every route below except
-`DELETE /api/v1/whatsapp/link` answers 404 `whatsapp_unavailable`. A WhatsApp receipt becomes a document draft with
+`DELETE /api/v1/whatsapp/link` and `DELETE /api/v1/whatsapp/ai-consent` answers
+404 `whatsapp_unavailable`. Selected client Businesses are also unavailable for
+WhatsApp setup and consent reads or enables. A WhatsApp receipt becomes a document draft with
 `consent: false` and `status: saved`; AI preparation still waits for the
 owner's consent on the web. Spec and activation:
 [cuadrao-whatsapp-intake](specs/lanes/cuadrao-whatsapp-intake.md).
@@ -9225,8 +9227,9 @@ Business draft context can be sent to AI providers. Phone linking, document
 consent and a prepare grant do not imply this permission. Recording remains a
 separate exact-version human approval.
 
-`GET /api/v1/whatsapp/ai-consent` is an authenticated registered-account read,
-independent of pilot, intake and provider availability flags. It returns
+`GET /api/v1/whatsapp/ai-consent` is an authenticated registered-account read
+behind the same channel availability and selected-Business eligibility check as
+link setup. It answers 404 `whatsapp_unavailable` when that check fails. It returns
 `linked`, `available`, `reason`, `last4`, `scope_version`, `purpose`,
 `disclosure`, `route`, `disclosure_token`, `enabled`, `consented_at` and
 `revoked_at`. The server derives the current link, owner, Business and effective
@@ -10679,6 +10682,28 @@ accept path recorded.
   caller holds `prepare`. Both flags are left out of the wire when false. The
   field meanings are in the
   [month-close contract](contracts/business-month-close.md).
+- Receiving channel availability is owned by the server. GET
+  `/api/v1/business/workspace` includes required
+  `receiving_channels: {email: {available: boolean}, whatsapp: {available: boolean}}`.
+  Each channel has one predicate shared by this response and its API dependency.
+  Email requires current capture and receiving readiness, a runtime with its
+  receiving adapter, and a configured domain. It does not require an existing
+  address. WhatsApp uses current intake readiness and the selected Business's
+  owner eligibility and requires that Business to be the authenticated person's
+  supported intake destination. Link status, link codes and consent always use
+  the authenticated person's identity, including after a Business transfer.
+  A missing address or linked number is setup state, not channel availability.
+  The Business web context treats unknown or false as unavailable for channel
+  offers, preferences, sender management and new intake requests. Switching
+  Business clears capability and address state; historical delivery reads use
+  the newly selected Business's scope independently of receiving readiness.
+  Stored receipts retain their channel labels, source filters, original email
+  links, messages, search results and contribution to inbox counts. Historical
+  email reads remain authenticated and scope-checked while receiving is off,
+  including when no intake worker is running. No receiving client or worker is
+  started by a history read. The two WhatsApp revocation routes above remain
+  callable while off; intake setup and mutations still answer 404 while
+  unavailable.
 - Business email receiving (default off; `CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED`,
   `CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED`, `CUADRAO_BUSINESS_EMAIL_DOMAIN`,
   `RESEND_BUSINESS_API_KEY`, `CUADRAO_RESEND_WEBHOOK_SECRET`; the older
@@ -10708,8 +10733,17 @@ accept path recorded.
     limit. Work spanning that midnight must obtain the new day's allowance
     before its next fetch.
   - GET `/api/v1/business/email` returns
-    `{enabled, receiving_address, alias, review_required}`: configuration
-    readiness for the caller's Business, not provider health. `alias` is null
+    `{enabled, receiving_address, alias, review_required}`: current
+    address readiness for the caller's Business, not channel availability or
+    provider health. Address setup/readiness, alias selection, sender management,
+    retries and the receiving webhook answer 404 `email_intake_unavailable`
+    while the shared availability check is false. GET `/inbox`, `/deliveries`
+    and `/deliveries/{delivery_id}` under `/api/v1/business/email` instead read
+    stored history with the caller's normal Business access. They remain
+    available while receiving is off, with `retryable: false`; historical
+    receipt metadata, search and inbox counts use the same history reader.
+    With availability true and no address, this read succeeds with
+    `enabled: false` and `receiving_address: null`, allowing setup. `alias` is null
     and `review_required` is false when no usable route exists.
   - POST `/api/v1/business/email` (prepare capability) takes `{alias}` and
     creates one address per Business, `<alias>@<domain>`. The alias is the
@@ -10722,9 +10756,10 @@ accept path recorded.
     and 422 `email_alias_unavailable` with "Ese nombre no está disponible.
     Prueba otro." when the name is taken or refused. 409
     `email_route_revoked` when that address's grant is no longer live and
-    409 `email_route_unavailable` while capture is off: stop receiving, then
-    create a new address. 503 `email_receiving_unconfigured` without a domain
-    or Postgres, before the alias is checked.
+    409 `email_route_unavailable` when the stored route cannot capture: stop
+    receiving, then create a new address. 503 `email_receiving_unconfigured` without persistent
+    address storage, before the alias is checked. A missing domain makes the
+    channel unavailable and therefore answers 404 instead.
   - GET `/api/v1/business/email/availability?alias=` returns
     `{available, review_required, suggestions, message}`. Taken and refused
     names share one message and never name the holder. Suggestions are two or

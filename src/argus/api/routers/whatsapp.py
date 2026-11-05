@@ -8,7 +8,7 @@ from typing import Annotated
 from urllib.parse import quote
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import PlainTextResponse
 from loguru import logger
@@ -18,7 +18,6 @@ from pydantic import BaseModel, ConfigDict
 
 from argus.api import state as api_state
 from argus.api.dependencies import current_user, problem
-from argus.api.guest_access import account_context
 from argus.api.rate_limits import SlidingWindowLimiter
 from argus.api.schemas import User
 from argus.api.whatsapp import (
@@ -27,7 +26,6 @@ from argus.api.whatsapp import (
     link_store,
     require_whatsapp_owner,
     require_whatsapp_surface,
-    whatsapp_runtime,
 )
 from argus.domain.business.authority import ActionError
 from argus.domain.ingestion.whatsapp.ai_consent import (
@@ -41,7 +39,12 @@ from argus.domain.ingestion.whatsapp.store import ReplyLanguage
 
 MAX_WEBHOOK_BYTES = 512 * 1024
 
-webhook_router = APIRouter(prefix="/webhooks/whatsapp", tags=["whatsapp"])
+_UNAVAILABLE = {
+    404: {"description": "whatsapp_unavailable: receiving is off or the selected Business is ineligible."}
+}
+webhook_router = APIRouter(
+    prefix="/webhooks/whatsapp", tags=["whatsapp"], responses=_UNAVAILABLE
+)
 link_router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
 _code_limiter = SlidingWindowLimiter()
 
@@ -129,47 +132,22 @@ def _consent_store(request: Request, context: WhatsAppOwnerContext) -> AIConsent
     return store
 
 
-@link_router.get("/ai-consent", response_model=AIConsentResponse)
+@link_router.get("/ai-consent", response_model=AIConsentResponse, responses=_UNAVAILABLE)
 async def get_whatsapp_ai_consent(
     request: Request,
-    user: Annotated[User, Depends(current_user)],
+    context: Annotated[WhatsAppOwnerContext, Depends(require_whatsapp_owner)],
     language: str | None = Query(default=None, max_length=16),
 ) -> AIConsentResponse:
-    if account_context(request).kind != "registered":
-        raise problem(
-            request,
-            status_code=403,
-            code="registered_account_required",
-            title="Account Required",
-            detail="A registered account is required.",
-        )
-    runtime = whatsapp_runtime()
-    store = runtime.receipts if runtime else None
-    if store is None:
-        from argus.domain.ingestion.whatsapp.receipt_consent import (
-            receipt_consent_store,
-        )
-
-        store = receipt_consent_store(_consent_pool(request))
-    reason = (
-        None
-        if runtime is not None and runtime.receipts is not None
-        else "whatsapp_unavailable"
-    )
-    try:
-        require_whatsapp_surface(request)
-    except HTTPException:
-        reason = "whatsapp_unavailable"
     return await _consent_call(
         request,
-        store.status,
-        UUID(user.id),
-        reason,
+        _consent_store(request, context).status,
+        UUID(context.destination_owner_id),
+        None,
         language,
     )
 
 
-@link_router.post("/ai-consent", response_model=AIConsentResponse)
+@link_router.post("/ai-consent", response_model=AIConsentResponse, responses=_UNAVAILABLE)
 async def enable_whatsapp_ai_consent(
     request: Request,
     body: EnableAIConsent,
@@ -305,7 +283,9 @@ async def receive_whatsapp_webhook(
     return WebhookAck(received=True)
 
 
-@link_router.post("/link-codes", response_model=LinkCodeResponse, status_code=201)
+@link_router.post(
+    "/link-codes", response_model=LinkCodeResponse, status_code=201, responses=_UNAVAILABLE
+)
 async def create_whatsapp_link_code(
     request: Request,
     body: LinkCodeRequest | None = None,
@@ -338,7 +318,7 @@ async def create_whatsapp_link_code(
     )
 
 
-@link_router.get("/link", response_model=LinkStatusResponse)
+@link_router.get("/link", response_model=LinkStatusResponse, responses=_UNAVAILABLE)
 async def get_whatsapp_link(
     context: WhatsAppOwnerContext = Depends(require_whatsapp_owner),  # noqa: B008
 ) -> LinkStatusResponse:

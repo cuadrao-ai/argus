@@ -210,7 +210,8 @@ def _email(attachment: bytes) -> bytes:
 
 def _email_runtime(web, monkeypatch: pytest.MonkeyPatch, raw: bytes):  # noqa: ANN001, ANN202
     monkeypatch.setenv("ARGUS_RESEND_WEBHOOK_SECRET", SECRET)
-    monkeypatch.setattr("argus.api.routers.email_intake.webhook_enabled", lambda: True)
+    monkeypatch.setattr("argus.api.email_intake.webhook_enabled", lambda: True)
+    monkeypatch.setenv("CUADRAO_BUSINESS_EMAIL_DOMAIN", "recibos.example.test")
     pool = app.state.financial_accounts_pool
     with Connection.connect(shared.DSN) as db:
         [grant] = db.execute(
