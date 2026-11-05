@@ -354,7 +354,9 @@ def test_unknown_credit_keeps_positive_money_and_incomplete_document_effect(acti
     assert unlinked.outcome == "applied", unlinked
     [row] = read_report(service.authority, context, ReportRequest()).items
     assert row.document_kind == "credit_note"
-    assert row.family is None
+    # A supplier's credit note is a purchase; the link it lacks leaves only
+    # the adjustment unknown.
+    assert row.family == "purchase"
     assert row.adjustment_effect == "unknown"
     assert row.gross_amount is not None
     assert row.stage != "ready_for_export"

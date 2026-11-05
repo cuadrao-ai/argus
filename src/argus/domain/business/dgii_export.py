@@ -34,6 +34,7 @@ from argus.domain.business.dgii_validation import (
     ncf_type,
     record_issues,
 )
+from argus.domain.business.document_type import direction
 from argus.domain.business.fiscal_identity import (
     document_identity,
     normalized_ncf,
@@ -44,8 +45,14 @@ from argus.domain.business.rnc_registry import RncRegistry, UnknownRncRegistry
 FOREIGN_CURRENCY_NOTE = "Moneda extranjera: pendiente de tasa"
 # Plain words a person reads in place of a reason code.
 REASON_TEXT = {"fiscal_conversion_required": FOREIGN_CURRENCY_NOTE}
-# Only these kinds reach a 606 or 607 line; transfers and card payments never do.
-DECLARED_KINDS = frozenset({"expense", "refund", "income"})
+
+
+def fiscal_form(record: FiscalRecord) -> str | None:
+    """The one form the record is on, from its document type: the 606 for a
+    purchase, the 607 for a sale, none for money with no document."""
+
+    found = direction(record.document_type)
+    return found.form if found else None
 
 
 @dataclass(frozen=True)
@@ -236,6 +243,7 @@ def fiscal_manifest(
 
     for record in selected:
         gross = Decimal(record.amount)
+        form = fiscal_form(record)
         item = {
             "activity_id": record.activity_id,
             "draft_id": record.draft_id,
@@ -249,12 +257,15 @@ def fiscal_manifest(
             "reason": None,
         }
         bridge.append(item)
+        if form is None:
+            item.update(disposition="excluded", reason="non_fiscal_money_movement")
+            continue
         if not personal_mark_admits(
-            record.personal, record.include_606, sale=record.kind == "income"
+            record.personal, record.include_606, sale=form == "607"
         ):
             item.update(disposition="excluded", reason="personal")
             continue
-        if isinstance(record.declaration, PurchaseDeclaration):
+        if isinstance(confirmed_declaration(record), PurchaseDeclaration):
             check, line_warnings = line_review(record, registry)
             checks.append(check)
             item["rnc_check_status"] = check["status"]
@@ -265,22 +276,16 @@ def fiscal_manifest(
                 item.update(disposition="excluded", reason="no_fiscal_number")
                 continue
             item["reason"] = "fiscal_conversion_required"
-            if record.kind in DECLARED_KINDS:
-                item["note"] = FOREIGN_CURRENCY_NOTE
-                targets = (record.declaration.form,) if record.declaration else COLUMNS
-                for form in targets:
-                    pending_rate[form] += 1
+            item["note"] = FOREIGN_CURRENCY_NOTE
+            pending_rate[form] += 1
             issues.extend(collect(record))
             continue
-        if record.kind == "expense":
-            totals["purchase_invoice_gross"] += gross
+        if form == "607":
+            totals["sales_gross"] += gross
         elif record.kind == "refund":
             totals["purchase_credit_gross"] += gross
-        elif record.kind == "income":
-            totals["sales_gross"] += gross
         else:
-            item.update(disposition="excluded", reason="non_fiscal_money_movement")
-            continue
+            totals["purchase_invoice_gross"] += gross
         ncf = fact_value(record, "ecf") or fact_value(record, "ncf")
         if not ncf:
             if is_sin_comprobante(record.facts):
@@ -295,7 +300,7 @@ def fiscal_manifest(
                     }
                 )
             continue
-        if isinstance(record.declaration, PurchaseDeclaration) and ncf_type(ncf) == "02":
+        if form == "606" and ncf_type(ncf) == "02":
             item.update(
                 disposition="excluded", reason="b02_purchase_not_reportable_in_606"
             )
@@ -313,14 +318,11 @@ def fiscal_manifest(
             issues.extend(errors)
             item["reason"] = errors[0]["code"]
             continue
-        declaration = record.declaration
         values = _row(record)
-        mapped = dict(
-            zip((column[0] for column in COLUMNS[declaration.form]), values, strict=False)
-        )
+        mapped = dict(zip((column[0] for column in COLUMNS[form]), values, strict=False))
         base, tax = Decimal(mapped["billed_amount"]), Decimal(mapped["itbis"])
         sign = Decimal(-1) if is_credit(record) else Decimal(1)
-        if declaration.form == "606":
+        if form == "606":
             totals["606_unsigned_base"] += base
             totals["606_unsigned_itbis"] += tax
             totals["606_net_base"] += sign * base
@@ -339,9 +341,9 @@ def fiscal_manifest(
                     continue
             totals["607_detail_itbis"] += sign * tax
             totals["607_detail_gross"] += sign * gross
-        rows[declaration.form].append(values)
+        rows[form].append(values)
         item.update(
-            disposition=declaration.form,
+            disposition=form,
             reason="credit_note_positive_magnitude" if is_credit(record) else "included",
         )
     totals["purchase_net_gross"] = (
@@ -370,8 +372,7 @@ def fiscal_manifest(
             for issue in issues
             if issue["activity_id"] is None
             or any(
-                record.activity_id == issue["activity_id"]
-                and (record.declaration is None or record.declaration.form == form)
+                record.activity_id == issue["activity_id"] and fiscal_form(record) == form
                 for record in selected
             )
         ]

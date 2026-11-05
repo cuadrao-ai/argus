@@ -299,6 +299,7 @@ def _projected(
             value(facts, "amount") or "0",
             value(facts, "currency") or "unknown",
             value(facts, "kind") or "unknown",
+            resolution.document_type,
             facts,
             resolution.dgii,
             tuple(source.source_id for source in sources),

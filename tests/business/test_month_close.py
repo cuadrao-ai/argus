@@ -660,6 +660,7 @@ def _sale_record(
         gross,
         "DOP",
         "income",
+        "venta",
         facts,
         declaration,
         (str(source),),
@@ -685,7 +686,9 @@ def _project(records: tuple[FiscalRecord, ...]) -> list[MonthDocument]:
                 "activity_id": record.activity_id,
                 "resolution": {
                     "business": BusinessResolution(
-                        facts=record.facts, dgii=record.declaration
+                        facts=record.facts,
+                        dgii=record.declaration,
+                        document_type=record.document_type,
                     ).model_dump(mode="json")
                 },
             }

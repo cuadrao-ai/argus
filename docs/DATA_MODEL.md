@@ -3697,7 +3697,12 @@ older commands, tables, grants and row-level security.
 
 The resolution's `document_type` (`recibo` or `venta`) is the draft's current
 document type, and `document_type_detected` is true while the read's choice
-stands. The upload's own choice lives on `financial_document_extractions.draft`
+stands: the read compared the issuer RNC with the Business's own. A `recibo`
+the server fell back to, with no issuer or no Business RNC to compare, is a
+default and is not detected. The type is the one owner of purchase or sale:
+Registros' family, the Bandeja's 606 and 607 editors, month close's invoice or
+receipt role and the export's form all read it, never the kind or the saved
+declaration. The upload's own choice lives on `financial_document_extractions.draft`
 as `document_type`, null when the upload named none. A person's change is a
 normal revision on an open draft; the type is not stored on the revision row,
 whose web source holds the request that named it. No migration.

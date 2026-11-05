@@ -942,7 +942,7 @@ async def upload_receipt(
             type(error).__name__,
         )
         raise failure from None
-    return receipt_summary(context, receipt)
+    return await run_in_threadpool(receipt_summary, context, receipt)
 
 
 @router.get("/receipt-reading")
@@ -1141,7 +1141,7 @@ async def prepare_receipt(
         [receipt] = _email_flagged(
             context, [context.service.receipt(context.scope, receipt_id)]
         )
-        return receipt_summary(context, receipt)
+        return await run_in_threadpool(receipt_summary, context, receipt)
     except Exception as error:
         raise _problem(request, error) from None
 

@@ -63,6 +63,8 @@ def checked(monkeypatch):
         authorization=SimpleNamespace(provenance=actor),
         connection=object(),
         context=SimpleNamespace(actor=SimpleNamespace(space_id=binding.space_id)),
+        # The read asks the Business for its RNC; this Business has none.
+        rows=Mock(return_value=[{"business_rnc": None}]),
     )
     monkeypatch.setattr(
         "argus.domain.business.actions.service.email_connection_standing",

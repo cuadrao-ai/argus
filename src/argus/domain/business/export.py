@@ -22,6 +22,7 @@ from argus.domain.business.contracts.facts import (
 )
 from argus.domain.business.dgii_export import build_fiscal_packet
 from argus.domain.business.dgii_validation import FiscalRecord
+from argus.domain.business.document_type import SALE, direction
 from argus.domain.business.ledger import occurred_on
 from argus.domain.business.month_close import document_settlement
 from argus.domain.business.rnc_registry import (
@@ -270,15 +271,21 @@ def personal_handoff(
     sheet: Sequence[Mapping[str, str]],
     rows: Sequence[Mapping[str, str]],
     originals: Mapping[str, str],
+    records: Sequence[FiscalRecord],
 ) -> tuple[list[Mapping[str, str]], list[dict[str, str]]]:
     """To hand everything over in one sheet with a Personal column instead, return
     ``(list(sheet), [])`` here and add "Personal" to SHEET_COLUMNS."""
 
+    sales = {
+        str(UUID(str(record.activity_id)))
+        for record in records
+        if direction(record.document_type) is SALE
+    }
     admitted = [
         personal_mark_admits(
             row["personal"] == "yes",
             {"yes": True, "no": False}.get(row["include_606"]),
-            sale=row["kind"] == "income",
+            sale=row["activity_id"] in sales,
         )
         for row in rows
     ]
@@ -478,6 +485,7 @@ def build_export(
             sheet,
             rows,
             {entry["source_id"]: entry["file"] for entry in entries if entry["file"]},
+            snapshot.fiscal_records,
         )
         csv_bytes = _csv(business, SHEET_COLUMNS)
         personal_bytes = _csv(personal, PERSONAL_COLUMNS)

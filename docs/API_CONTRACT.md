@@ -8809,9 +8809,12 @@ is implied by capture or recovery.
 
 A person may start `CUADRAO_DOCUMENT_UPLOADS_PER_MINUTE` (60) uploads a minute
 and five prepare, resume or retry calls a minute, counted in process memory; the
-next one answers `429 document_rate_limited` with `Retry-After`. There is no
-daily upload cap: uploading is cheap, and the Business read budget below guards
-the reads.
+next one answers `429 document_rate_limited` with `Retry-After`. A person may
+also have `CUADRAO_DOCUMENT_UPLOADS_IN_FLIGHT` (3) uploads in flight at once;
+the next one answers `429 document_rate_limited` with `Retry-After: 1` before
+its body is read. The web client keeps the file and sends it again after the
+wait; a capture is never refused for either limit. There is no daily upload
+cap: uploading is cheap, and the Business read budget below guards the reads.
 
 `ARGUS_DOCUMENT_EXTRACTION_ENABLED` is the document gate, default off. It
 accepts the same true values as the other default-off surfaces (`1`, `true`,
@@ -8929,8 +8932,9 @@ workers. A waiting attempt costs nothing and never expires: it counts as lost
 only after a worker took it. `/prepare` or `/resume` of a saved preparation
 returns the draft to `queued` until a worker replays it. A stopping worker takes
 no new read and gives reads in flight `CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS`
-(default 120) to finish. A read still running then is cancelled, and the sweep
-treats it as a dead worker.
+(default 210: two provider calls at their 90 s timeout, the second being the
+retry after a timeout, plus local work) to finish. A read still running then
+is cancelled, and the sweep treats it as a dead worker.
 
 Preparation preserves extracted observations and receipt itemization separately
 from canonical candidate projection. Receipt payment evidence is `paid|pending|unknown`,
@@ -9492,12 +9496,14 @@ approve action this draft takes, by its kind (`record_expense`,
 `record_income`, `record_refund`, the `action` the approve route's body
 discriminates on), and null while `approval_available` is false.
 `declaration_editable` is true while the caller may write the 606
-declaration: the caller holds `prepare`, the record takes a 606 (an income,
-whether it holds a 607 or nothing, and a record with `sin_comprobante` true read
-false, and a 606 write on either answers 422 `fiscal_direction_unsupported`),
-and the draft is open or approved. A downloaded DGII TXT changes nothing here.
-`payment_split_editable` is true on the same terms for a sale: an income with
-no 606 declaration. `expense_type_suggestion` is the tipo de gasto (`01` to
+declaration: the caller holds `prepare`, the record takes a 606 (its
+`document_type` is `recibo`; a `venta`, whether it holds a 607 or nothing, and
+a record with `sin_comprobante` true read false, and a 606 write on either
+answers 422 `fiscal_direction_unsupported`), and the draft is open or
+approved. A downloaded DGII TXT changes nothing here. `payment_split_editable`
+is true on the same terms for a sale: a `venta`. The type alone decides which
+form a record takes; neither flag reads the kind or a saved declaration.
+`expense_type_suggestion` is the tipo de gasto (`01` to
 `11`) a person last chose for this draft's supplier RNC in this Business, on
 another open, accepting or accepted purchase, or null. It is read fresh and
 stored nowhere: it is null while `declaration_editable` is false or the draft
@@ -9590,17 +9596,19 @@ fit a 606 amount. A person's amount ends that, on `purchase` or as a change to t
 `dgii.declaration`: it is not rewritten, and on `purchase` that holds even when it
 equals the rule's result. An unchanged amount sent in `dgii.declaration` stays
 derived. The export holds a split that does not add up to the total with
-`fiscal_invoice_total_conflict`. `purchase` on a record that takes no 606 (an income, with a
+`fiscal_invoice_total_conflict`. `purchase` on a record that takes no 606 (a `venta`, with a
 607 or with nothing), open or approved, is 422 `fiscal_direction_unsupported`
-and writes nothing. The body's `payment_split` carries the 607 payment split
+and writes nothing. A `dgii.declaration` whose `form` is not the type's own
+is the same 422. A declaration saved for the other form is no declaration of
+the record: `purchase` and `payment_split` start the type's own form afresh
+and replace it, and an expense approval writes its 606 over it. The body's `payment_split` carries the 607 payment split
 (`SalePaymentSplit`: `cash`, `bank`, `card`, `credit`, `gift`, `barter`,
 `other_payment`), on the same terms: absent buckets stay as they were, a null
 clears a bucket, and a sale with no declaration starts one holding only
 the split. The server fills no bucket and does not check the sum when it writes;
 the export holds a split that does not equal the total with
-`fiscal_payment_total_conflict`. `payment_split` on anything but an income, or
-on an income that holds a 606 declaration, is 422
-`fiscal_direction_unsupported`. `purchase` sits beside `facts`, not inside
+`fiscal_payment_total_conflict`. `payment_split` on anything but a `venta` is
+422 `fiscal_direction_unsupported`. `purchase` sits beside `facts`, not inside
 it: `BusinessFactPatch` is the patch the interpreter fills, and a tax field is
 never the model's to fill. The
 identifiers in `dgii.fiscal` (`rnc`, `ncf`) and `modified_ncf` are normalized on
@@ -10663,7 +10671,11 @@ accept path recorded.
   the issuer RNC (the DGII QR's `RncEmisor` when the document carries one, else
   the RNC the read found) equals the Business's own tax id from the fiscal
   profile after both are reduced to digits, else `recibo`. The draft records
-  that the read set it. `ReceiptSummary.document_type` reports the current
+  that the read set it only when it compared the two numbers: with no issuer
+  RNC on the document, or no Business tax id to compare with, `recibo` is a
+  default, not the read's choice. A typed note follows the same rule and
+  prints no issuer, so an unnamed note is a default `recibo`.
+  `ReceiptSummary.document_type` reports the current
   type (`recibo` until a read or a person sets it),
   `document_type_detected` is true while the read's choice stands, and
   `document_type_editable` is true while the receipt's draft is open and the

@@ -62,6 +62,8 @@ class Provider:
         behavior = self.script[min(self.calls, len(self.script) - 1)]
         self.calls += 1
         if behavior == "fail":
+            raise RuntimeError("provider failed")
+        if behavior == "timeout":
             raise TimeoutError("provider timed out")
         if behavior == "hang":
             while not self.release.is_set():
@@ -303,6 +305,37 @@ def test_reported_provider_failure_is_not_retried_automatically(jobs_client, mon
     assert retry_with_consent(jobs_client, connection).status_code == 200
     wait_for(lambda: document(jobs_client, connection)["status"] == "review_ready")
     assert provider.calls == 2
+
+
+def test_a_timed_out_read_is_read_once_more_and_shown_as_one(jobs_client, monkeypatch):
+    provider = Provider("timeout", "succeed")
+    install(monkeypatch, provider)
+    connection = upload(jobs_client)
+    wait_for(lambda: document(jobs_client, connection)["status"] == "review_ready")
+    assert document(jobs_client, connection)["error_code"] is None
+    assert provider.calls == 2
+    assert job(connection).retry is False
+    assert len(imports(jobs_client)) == 1
+
+
+def test_a_second_timeout_is_one_clear_failure_the_owner_reads_again(
+    jobs_client, monkeypatch
+):
+    provider = Provider("timeout", "timeout", "succeed")
+    install(monkeypatch, provider)
+    connection = upload(jobs_client)
+    wait_for(lambda: document(jobs_client, connection)["status"] == "needs_attention")
+    assert document(jobs_client, connection)["error_code"] == (
+        "extraction_provider_failed"
+    )
+    time.sleep(0.2)
+    assert provider.calls == 2
+    assert job(connection).retry is False
+
+    assert retry_with_consent(jobs_client, connection).status_code == 200
+    wait_for(lambda: document(jobs_client, connection)["status"] == "review_ready")
+    assert provider.calls == 3
+    assert len(imports(jobs_client)) == 1
 
 
 def test_attempts_dying_before_the_marker_stop_at_the_bound(

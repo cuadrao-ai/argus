@@ -122,6 +122,7 @@ def test_untrusted_cells_never_become_formulas_or_hyperlinks(note):
         amount="850.00",
         currency="DOP",
         kind="expense",
+        document_type="recibo",
         facts=BusinessFacts(
             counterparty=Known(value=note, origin="extracted", source_ids=(SOURCE,))
         ),
@@ -674,6 +675,21 @@ def test_personal_purchase_leaves_the_business_sheet_for_personal_csv():
 
 def test_the_accountants_606_yes_hands_a_personal_purchase_over_as_business():
     purchase, sale = UUID(int=5), UUID(int=6)
+    # The sale is a Venta by its type, the one owner of purchase or sale.
+    sold = FiscalRecord(
+        activity_id=str(sale),
+        activity_revision=1,
+        draft_id=str(DRAFT),
+        approved_revision=1,
+        occurred_on=date(2026, 10, 11),
+        amount="850.00",
+        currency="DOP",
+        kind="income",
+        document_type="venta",
+        facts=BusinessFacts(),
+        declaration=None,
+        source_ids=(),
+    )
     files = unpack(
         export.build_archive(
             snapshot(
@@ -689,6 +705,7 @@ def test_the_accountants_606_yes_hands_a_personal_purchase_over_as_business():
                         include_606="yes",
                     ),
                 ),
+                fiscal_records=(sold,),
             ),
             lambda _: None,
         )

@@ -197,7 +197,11 @@ def _email(content: bytes, settings: DocumentExtractionSettings) -> PreparedDocu
 
 
 def validate_source(content: bytes, media_type: str) -> None:
-    """Validate bounded capture without requiring extraction tools or credentials."""
+    """Validate bounded capture without requiring extraction tools or credentials.
+
+    An image is judged from its header in the capped child: size, frame count
+    and format. The full decode happens once, when the receipt is read, and a
+    body that fails it settles as an invalid document there."""
     if not content:
         raise DocumentExtractionError("document_empty")
     if len(content) > load_document_extraction_settings().max_bytes:
@@ -216,7 +220,7 @@ def validate_source(content: bytes, media_type: str) -> None:
     elif media_type in FLAT_MEDIA_TYPES:
         flat_text(content, media_type)
     elif media_type in ("image/jpeg", "image/png"):
-        _image(content, media_type)
+        image_pixels(content, media_type)
     elif media_type == "application/pdf":
         if not content.startswith(b"%PDF-"):
             raise DocumentExtractionError("invalid_document")

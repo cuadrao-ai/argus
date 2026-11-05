@@ -220,6 +220,15 @@ def run_capped(args: list[str], output: Path, *, image: bool = False) -> None:
                             raise DocumentExtractionError("document_text_limit")
                         target.write(chunk)
                 returncode = process.wait(timeout=max(0.01, deadline - time.monotonic()))
+                if returncode < 0:
+                    # Killed by the kernel or the host, so the file was never
+                    # judged: a server failure the read can try again.
+                    error = DocumentExtractionError(
+                        "document_preparation_interrupted", True
+                    )
+                    error.metadata["reason"] = "killed"
+                    error.metadata["signal"] = -returncode
+                    raise error
                 if returncode:
                     code, reason = (
                         _IMAGE_EXIT_CODES.get(returncode, ("invalid_document", "format"))
@@ -228,8 +237,6 @@ def run_capped(args: list[str], output: Path, *, image: bool = False) -> None:
                     )
                     error = DocumentExtractionError(code)
                     error.metadata["reason"] = reason
-                    if returncode < 0:
-                        error.metadata["signal"] = -returncode
                     raise error
             finally:
                 if process.poll() is None:

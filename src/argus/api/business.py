@@ -14,9 +14,9 @@ from argus.api.business_spaces import (
 )
 from argus.api.dependencies import problem
 from argus.api.documents import (
+    DOCUMENT_CONTEXT,
     NO_STORE,
     DocumentContext,
-    require_document_context,
     require_saved_documents,
 )
 from argus.api.ingestion import IngestionContext, require_ingestion_context
@@ -282,7 +282,7 @@ def require_business_workspace(
 def require_business_document_write(
     request: Request,
     _surface: None = Depends(require_business_surface),  # noqa: B008
-    context: DocumentContext = Depends(require_document_context),  # noqa: B008
+    context: DocumentContext = DOCUMENT_CONTEXT,
 ) -> BusinessContext:
     return _context(request, context.service, context.service.hub, context.user_id)
 

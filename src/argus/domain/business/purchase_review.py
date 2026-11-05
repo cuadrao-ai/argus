@@ -19,34 +19,25 @@ from argus.domain.business.contracts.facts import (
     is_sin_comprobante,
 )
 from argus.domain.business.dgii_codes import PAYMENT_FORM_BY_ACCOUNT_TYPE
+from argus.domain.business.document_type import PURCHASE, SALE, DocumentType, direction
 from argus.domain.business.fiscal_identity import identity_digits, normalized_ncf
 
 AMOUNT_SIDES = ("services_amount", "goods_amount")
 
 
-def takes_purchase_declaration(
-    facts: BusinessFacts, declaration: DgiiDeclaration | None
-) -> bool:
-    """Whether a 606 declaration belongs on this record. A sale's 607, an
-    income with no declaration and a record with no comprobante take none. The
-    one rule behind the dossier's declaration_editable and the review's 606
-    write."""
+def takes_purchase_declaration(document_type: DocumentType, facts: BusinessFacts) -> bool:
+    """Whether a 606 declaration belongs on this record: a purchase with a
+    comprobante. The one rule behind the dossier's declaration_editable and
+    the review's 606 write."""
 
-    if isinstance(declaration, SalesDeclaration) or is_sin_comprobante(facts):
-        return False
-    kind = facts.kind.value if isinstance(facts.kind, Known) else None
-    return declaration is not None or kind != "income"
+    return direction(document_type) is PURCHASE and not is_sin_comprobante(facts)
 
 
-def takes_payment_split(
-    facts: BusinessFacts, declaration: DgiiDeclaration | None
-) -> bool:
-    """Whether a 607 payment split belongs on this record: a sale with no 606
-    declaration. The one rule behind the dossier's payment_split_editable and
-    the review's write."""
+def takes_payment_split(document_type: DocumentType) -> bool:
+    """Whether a 607 payment split belongs on this record: a sale. The one
+    rule behind the dossier's payment_split_editable and the review's write."""
 
-    kind = facts.kind.value if isinstance(facts.kind, Known) else None
-    return kind == "income" and not isinstance(declaration, PurchaseDeclaration)
+    return direction(document_type) is SALE
 
 
 def apply_payment_split(
