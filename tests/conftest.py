@@ -28,6 +28,14 @@ def mock_auth_env(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def reads_finish_inside_the_request(monkeypatch):
+    """Tests that watch the app's real document puller override this by name."""
+    from tests.document_reads_support import read_inside_each_dispatch
+
+    read_inside_each_dispatch(monkeypatch)
+
+
+@pytest.fixture(autouse=True)
 def reset_guest_funnel_milestones():
     """Milestone claims are durable by design, so they must not leak between
     tests the way they must not leak between requests."""

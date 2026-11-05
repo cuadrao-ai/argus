@@ -154,7 +154,8 @@ def test_a_slot_covers_the_upload_not_the_read_behind_it(
         started.release()
         await asyncio.to_thread(release.wait)
 
-    monkeypatch.setattr(documents, "background_prepare", read_later)
+    # The puller reads through ``resume``; the request only records the attempt.
+    monkeypatch.setattr(documents, "resume", read_later)
     answers: list = []
     senders = [
         threading.Thread(

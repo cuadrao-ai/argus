@@ -29,7 +29,7 @@ from argus.domain.household.repository import FinancialAccountLookup
 from argus.domain.ingestion.connections import ConnectionNotFound
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
 from argus.domain.ingestion.contract import ImportCandidate
-from argus.domain.ingestion.documents.jobs import PreparationJobs, run_attempt
+from argus.domain.ingestion.documents.jobs import run_attempt
 from argus.domain.ingestion.documents.objects import owner_prefix
 from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
@@ -58,6 +58,7 @@ from tests import test_financial_accounts_postgres as shared
 from tests.business.receipt_stub import ReceiptStub
 from tests.business_cleanup import delete_spaces
 from tests.business_reading_support import reading_setting, turn_reading
+from tests.document_reads_support import TakenAtOnce
 from tests.document_sources_support import LOCAL_STORAGE, source_objects
 
 pytestmark = pytest.mark.skipif(
@@ -554,9 +555,7 @@ def test_a_job_for_a_business_receipt_keeps_its_space(world: World) -> None:
     person, a = world.people["a"], world.biz["a"]
     turn_reading(world.documents.business_receipt_consent, a.owner.space_id, person)
     dispatched: list[tuple[str, str]] = []
-    jobs = PreparationJobs(
-        world.documents, lambda cid, aid: dispatched.append((cid, aid))
-    )
+    jobs = TakenAtOnce(world.documents, lambda *attempt: dispatched.append(attempt))
     receipt = asyncio.run(
         world.documents.upload(
             user_id=person,

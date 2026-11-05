@@ -10,14 +10,13 @@ until an explicit `/prepare` or `/resume`, and nothing noticed while the API was
 
 ## Settings
 
-`DocumentJobSettings` in `documents/config.py`, one name each, following the
-`ARGUS_DOCUMENT_EXTRACTION_*` convention (shared true values, fails closed):
-`ARGUS_DOCUMENT_JOBS_ENABLED` (default off), `ARGUS_DOCUMENT_JOBS_WORKFLOW_TASK`
-and `ARGUS_DOCUMENT_JOBS_SWEEP_SECONDS` (default 30). Off, the routes
-add `background_prepare` to FastAPI background tasks and a read marks an expired
-attempt `needs_attention` (`document_preparation_interrupted`), exactly as before.
-`test_flag_off_prepares_through_background_tasks_only` and the existing
-`test_interrupted_attempt_needs_attention_without_automatic_retry` pin this.
+`DocumentJobSettings` in `documents/config.py`: `CUADRAO_DOCUMENT_JOBS_SWEEP_SECONDS`
+(default 30), `CUADRAO_DOCUMENT_JOBS_MAX_READS` (default 3) and
+`CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS`. Since issue 1795 there is no on or off
+switch and no push dispatch: every read waits on its row and each API instance
+pulls it with the same `DocumentWorker` the standalone command runs. The
+sections below describe the push design this lane shipped with; the pull and the
+cap are in `docs/API_CONTRACT.md`.
 
 ## Dispatch
 
@@ -92,7 +91,8 @@ claim names it: the write that moves the draft to `preparing` also sets
 
 ## Retry and spend bounds
 
-An expired attempt is never billed again automatically. The sweep decides:
+An expired attempt is billed again automatically at most once, and only when
+its own provider call was cut off (issue 1795). The sweep decides:
 
 - Dead and unclaimed, dead `preparing` whose claim names the current attempt
   (`claimed`, at `draft_version + 1`) with no marker, or a retryable failure
@@ -100,16 +100,21 @@ An expired attempt is never billed again automatically. The sweep decides:
   explicit preparation. Past the bound: `document_preparation_interrupted`.
 - Dead `preparing` with a saved preparation, whoever claimed it: re-dispatch,
   which replays delivery without a provider call or consent.
-- Any other dead `preparing` draft (a marker, no job, or a claim that does not
-  name the current attempt, such as a flag-off writer killed mid-call):
+- Dead `preparing` with a marker, whose claim names the current attempt, with
+  no saved preparation: rerun once (`MAX_RERUNS = 1`, counted on the job as
+  `reruns`), a new paid attempt through the same admission. A rerun that dies
+  the same way: `needs_attention` with `document_preparation_outcome_unknown`.
+- Any other dead `preparing` draft (no job, or a claim that does not name the
+  current attempt, such as a flag-off writer killed mid-call):
   `needs_attention` with `document_preparation_outcome_unknown`.
 - After the sweep reads an attempt, a newer draft version refuses any re-dispatch;
   a marker refuses one except a saved-result replay (`unmarked=False`).
 - A failure reported after the marker keeps its code and is not retried.
 
-Automatic work never makes a second provider call for one explicit
-preparation. Only a consented `/prepare` or `/resume` starts a new paid attempt
-(document POST limits: 5 per minute, 30 per day).
+Automatic work makes at most two reads for one explicit preparation: the
+first, and one rerun after that read was cut off past its marker. Past that,
+only a consented `/prepare` or `/resume` starts a new paid attempt (document
+POST limits: 5 per minute, 30 per day).
 
 ## Stale-result rejection
 
@@ -142,9 +147,11 @@ an attempt that dies before the marker may return to `queued`. `/resume` on a de
 
 - `tests/ingestion/test_document_jobs_api.py`: a kill before the marker
   recovers inside the window with one provider call; a kill after the marker
+  is rerun once and both completions save once; a rerun killed the same way
   settles to `document_preparation_outcome_unknown` and only a consented retry
-  makes the second call; late results refused; reported failures not retried;
-  the bound; settings; flag off unchanged.
+  makes the third call; late results refused; reported failures not retried;
+  the bound; a shutdown waits for a read inside the drain and cancels one past
+  it for the next boot's sweep; settings; flag off unchanged.
 - `tests/test_document_jobs_postgres.py`: the same on real Postgres and
   Storage, two concurrent sweepers dispatching each attempt once, two running
   instances recovering a dead worker without restart, and the workflow worker.

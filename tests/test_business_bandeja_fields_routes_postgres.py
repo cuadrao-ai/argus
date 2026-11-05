@@ -11,10 +11,10 @@ from decimal import Decimal
 from uuid import uuid4
 
 import pytest
-from argus.domain.ingestion.documents.jobs import PreparationJobs
 
 from tests.business.receipt_stub import DETAILS, PURCHASE
 from tests.business.test_business_api import RECEIPT
+from tests.document_reads_support import leave_reads_waiting
 from tests.test_business_approval_fiscal_postgres import (
     EDITED_SUPPLIER,
     SUPPLIER,
@@ -114,11 +114,7 @@ def test_each_receipt_says_which_bandeja_buckets_it_sits_in_and_the_counts_agree
     web.stub.failure = "encrypted_document"
     unreadable = saved(RECEIPT + b"\x44")
     web.stub.failure = None
-    attempts: list[tuple[str, str]] = []
-    monkeypatch.setattr(
-        "argus.api.documents.document_jobs",
-        lambda: PreparationJobs(web.documents, lambda *attempt: attempts.append(attempt)),
-    )
+    leave_reads_waiting(monkeypatch)
     reading = saved(RECEIPT + b"\x45")
 
     page = _get(web, "/business/receipts", alice.headers, view="all")

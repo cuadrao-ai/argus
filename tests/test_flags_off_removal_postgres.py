@@ -47,7 +47,6 @@ ON = {
     "ARGUS_FINANCIAL_ACCOUNTS_ENABLED": "true",
     "ARGUS_INGESTION_ENABLED": "true",
     "ARGUS_DOCUMENT_EXTRACTION_ENABLED": "true",
-    "ARGUS_DOCUMENT_JOBS_ENABLED": "false",
     "ARGUS_BUSINESS_CHAT_ENABLED": "false",
     # Intake is on with the project's local test credentials; nothing is sent.
     **WHATSAPP_TEST_ENV,

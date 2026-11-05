@@ -13,9 +13,9 @@ from loguru import logger
 from argus.api import state as api_state
 from argus.api.dependencies import problem
 from argus.api.document_jobs import (
-    document_jobs,
     start_document_jobs,
     stop_document_jobs,
+    wake_document_reads,
 )
 from argus.api.financial_accounts import (
     FinancialAccountsContext,
@@ -39,6 +39,7 @@ from argus.domain.ingestion.documents.config import (
     load_document_job_settings,
 )
 from argus.domain.ingestion.documents.extractor import DocumentExtractor
+from argus.domain.ingestion.documents.jobs import PreparationJobs
 from argus.domain.ingestion.documents.models import DocumentExtractionError
 from argus.domain.ingestion.documents.service import (
     DocumentServiceError,
@@ -89,9 +90,8 @@ def _start_documents(app: object, hub: IngestionHub) -> None:
     # Register cleanup even when extraction is off, so disconnect still erases it.
     service = _service_over(app, hub, DocumentExtractor())
     configure_documents(service)
-    jobs = load_document_job_settings()
-    if service is not None and jobs.enabled:
-        start_document_jobs(service, jobs)
+    if service is not None:
+        start_document_jobs(service, load_document_job_settings())
 
 
 def start_saved_documents(app: object, hub: IngestionHub | None) -> None:
@@ -121,8 +121,6 @@ def _service_over(
         store = PostgresDocumentStore(pool, SupabaseSourceObjects(gateway.client.storage))
     else:
         store = InMemoryDocumentStore(hub.connections)
-    # With jobs on, an expired attempt waits for the job reconciler, which
-    # resumes it once intake is back; a read never settles it.
     from argus.domain.business.actions import BusinessActions
     from argus.domain.business.read_budget import InMemoryReadBudget, PostgresReadBudget
     from argus.domain.ingestion.reconcile.service import ReconciliationService
@@ -136,7 +134,6 @@ def _service_over(
         hub,
         store,
         extractor,
-        jobs_recover_interruptions=load_document_job_settings().enabled,
         business_actions=actions,
         business_preparation_required=pool is not None,
         read_budget=InMemoryReadBudget() if pool is None else PostgresReadBudget(pool),
@@ -321,10 +318,9 @@ async def dispatch_preparation(
     *,
     scope: OwnerScope,
 ) -> None:
-    """A durable attempt when preparation jobs are on, else a background task.
-
-    A job reads its scope from the connection; the background task is told it.
-    """
+    """Record one attempt for the read, the only way a receipt gets read, and
+    wake this process's puller once ``background_tasks`` run: after the
+    response for a request, when the caller awaits them for a delivery."""
 
     from uuid import UUID
 
@@ -343,17 +339,11 @@ async def dispatch_preparation(
             UUID(connection_id),
             target=None,
         )
-    jobs = document_jobs()
-    if jobs is None:
-        background_tasks.add_task(
-            service.background_prepare,
-            user_id=user_id,
-            connection_id=connection_id,
-            scope=scope,
-        )
-        return
     # Recorded before the response, so a closed client cannot lose the intake.
-    await asyncio.to_thread(jobs.start, user_id=user_id, connection_id=connection_id)
+    await asyncio.to_thread(
+        PreparationJobs(service).start, user_id=user_id, connection_id=connection_id
+    )
+    background_tasks.add_task(wake_document_reads)
 
 
 def document_problem(request: Request, error: Exception) -> HTTPException:

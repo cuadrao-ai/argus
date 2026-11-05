@@ -10,11 +10,11 @@ import asyncio
 from uuid import uuid4
 
 import pytest
-from argus.domain.ingestion.documents.jobs import PreparationJobs
 
 from tests import test_financial_accounts_postgres as shared
 from tests.business.receipt_stub import ReceiptStub
 from tests.business.test_business_api import RECEIPT
+from tests.document_reads_support import leave_reads_waiting, read_receipt
 from tests.test_business_reading_setting_postgres import (  # noqa: F401
     _reading,
     _upload,
@@ -86,11 +86,7 @@ def test_por_revisar_counts_reviewable_receipts_and_notes_in_every_surface(
     assert _row(web, unreadable) == ("needs_attention", "unreadable", False)
     assert _ready(web) == 3
 
-    attempts: list[tuple[str, str]] = []
-    monkeypatch.setattr(
-        "argus.api.documents.document_jobs",
-        lambda: PreparationJobs(web.documents, lambda *attempt: attempts.append(attempt)),
-    )
+    leave_reads_waiting(monkeypatch)
     reading = _saved(web, RECEIPT + b"\x35")
     status, _attention, pending = _row(web, reading)
     assert status in ("queued", "preparing") or pending
@@ -115,18 +111,12 @@ def test_por_revisar_counts_reviewable_receipts_and_notes_in_every_surface(
     activity = _get(web, "/business/receipt-activity")
     assert (activity["pending_review_count"], activity["reading_count"]) == (6, 1)
 
-    from workflows.document_job import run_document_preparation
+    from psycopg_pool import ConnectionPool
 
-    [(connection_id, attempt_id)] = attempts
-    outcome = asyncio.run(
-        run_document_preparation(
-            connection_id,
-            attempt_id,
-            env={"ARGUS_WORKFLOW_DATABASE_URL": shared.DSN},
-            objects=web.documents.store.objects,
-            extractor=ReceiptStub(),
-        )
-    )
-    assert outcome["outcome"] == "prepared"
+    from workflows.document_job import postgres_documents_service
+
+    with ConnectionPool(shared.DSN, min_size=0, max_size=2) as own:
+        worker = postgres_documents_service(own, web.documents.store.objects, ReceiptStub())
+        assert asyncio.run(read_receipt(worker, web.alice.id, reading)) == "prepared"
     assert _row(web, reading)[2] is False
     assert _ready(web) == 5

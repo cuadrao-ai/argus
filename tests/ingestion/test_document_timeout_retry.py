@@ -239,7 +239,7 @@ async def test_a_second_call_over_the_budget_leaves_the_receipt_saved_unread(rig
 async def test_nobody_reads_the_receipt_while_it_is_read_once_more(rig):
     provider = rig.answers(asyncio.TimeoutError, OK, gated=True)
     connection = await rig.upload()
-    jobs = PreparationJobs(rig.service, None)
+    jobs = PreparationJobs(rig.service)
     first = asyncio.create_task(rig.resume(connection))
     for call in (1, 2):
         await asyncio.wait_for(provider.started.wait(), timeout=5)
@@ -256,7 +256,7 @@ async def test_nobody_reads_the_receipt_while_it_is_read_once_more(rig):
 async def test_a_worker_attempt_reads_once_more_inside_itself_and_never_again(rig):
     provider = rig.answers(asyncio.TimeoutError, asyncio.TimeoutError)
     connection = await rig.upload()
-    jobs = PreparationJobs(rig.service, None)
+    jobs = PreparationJobs(rig.service)
     jobs.start(user_id=rig.owner, connection_id=connection)
     store = rig.service.store
     attempt = store.job(user_id=rig.owner, connection_id=connection).attempt_id
@@ -269,6 +269,37 @@ async def test_a_worker_attempt_reads_once_more_inside_itself_and_never_again(ri
     assert store.pull(now=rig.service.hub.clock(), cap=3) is None
     assert rig.draft(connection).status == "needs_attention"
     assert (provider.calls, rig.budget.charged) == (2, 2)
+
+
+@pytest.mark.asyncio
+async def test_a_business_read_killed_after_its_call_is_rerun_and_charged_per_call(
+    rig,
+):
+    provider = rig.answers(OK, OK, gated=True)
+    connection = await rig.upload()
+    jobs = PreparationJobs(rig.service)
+    jobs.start(user_id=rig.owner, connection_id=connection)
+    store, clock = rig.service.store, rig.service.hub.clock
+    killed = asyncio.create_task(
+        run_attempt(rig.service, *store.pull(now=clock(), cap=1))
+    )
+    await asyncio.wait_for(provider.started.wait(), timeout=5)
+    killed.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await killed
+    assert (provider.calls, rig.budget.charged, rig.saves) == (1, 1, 0)
+
+    assert jobs.sweep().rerun == [connection]
+    rerun = asyncio.create_task(
+        run_attempt(rig.service, *store.pull(now=clock(), cap=1))
+    )
+    await asyncio.wait_for(provider.started.wait(), timeout=5)
+    provider.release()
+    assert await rerun == "prepared"
+
+    assert rig.draft(connection).status == "review_ready"
+    assert (provider.calls, rig.budget.charged, rig.saves) == (2, 2, 1)
+    assert jobs.sweep().rerun == []
 
 
 def _page() -> bytes:
