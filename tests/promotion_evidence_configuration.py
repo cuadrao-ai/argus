@@ -1,8 +1,8 @@
 """Release-owned API model and flag identity for eval evidence.
 
 This checks measurement/configuration mistakes, not deliberate evidence tampering.
-The settings manifest's production rules own the selected keys; commits from
-before those rules existed read the release profile's API env instead.
+The settings manifest's production rules own the selected keys. A commit whose
+release profile still holds an API env predates them and reads that env.
 Historical spelling equivalence is limited to the approved environment rename
 identities below.
 """
@@ -133,13 +133,12 @@ def _production_api_values(manifest_source: str | None) -> dict[str, str] | None
 def release_configuration_at_commit(sha: str, *, repository_root: Path) -> dict[str, str]:
     """Only API model IDs and explicit on/off flags from the named commit."""
     assert re.fullmatch(r"[0-9a-f]{40}", sha), "release_configuration: full SHA required"
-    environment = _production_api_values(
+    profile = _file_at_commit(sha, RELEASE_PROFILE, repository_root=repository_root)
+    legacy = json.loads(profile or "{}").get("services", {}).get("api", {}).get("env")
+    environment = legacy if legacy is not None else _production_api_values(
         _file_at_commit(sha, SETTINGS_MANIFEST, repository_root=repository_root)
     )
-    if environment is None:
-        profile = _file_at_commit(sha, RELEASE_PROFILE, repository_root=repository_root)
-        assert profile is not None, f"release_configuration: no settings at {sha[:8]}"
-        environment = json.loads(profile)["services"]["api"]["env"]
+    assert environment is not None, f"release_configuration: no settings at {sha[:8]}"
     return {
         key: value
         for key, value in environment.items()
