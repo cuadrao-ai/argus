@@ -10125,7 +10125,8 @@ Validation failures are 422 and the problem `code` says what to fix.
 A member who is not the owner and holds approve receives 403 `business_owner_required`.
 A member without approve receives 403 `business_permission_denied`. Each accepted change
 is an immutable action receipt with the actor and the time. Replaying the same key returns
-the saved profile and does not write again.
+the saved profile and does not write again. A change of tax id types no existing draft
+again: only documents read after it are compared with it.
 
 `GET /business/fiscal-profile/fields` supplies the form controls from the same
 typed declaration and annex column definitions used by the exporter. Each field
@@ -10687,10 +10688,15 @@ accept path recorded.
   the issuer RNC (the DGII QR's `RncEmisor` when the document carries one, else
   the RNC the read found) equals the Business's own tax id from the fiscal
   profile after both are reduced to digits, else `recibo`. The draft records
-  that the read set it only when it compared the two numbers: with no issuer
-  RNC on the document, or no Business tax id to compare with, `recibo` is a
-  default, not the read's choice. A typed note follows the same rule and
-  prints no issuer, so an unnamed note is a default `recibo`.
+  that the read set it when it compared the two numbers, and when there was
+  no Business tax id to compare with: then nothing tells a sale from a
+  purchase, so the draft is a `recibo` marked as the read's choice and the
+  person may switch it. With no issuer RNC on the document and a Business tax
+  id, `recibo` is a default, not the read's choice. The tax id is the one on
+  the profile when the draft is read; setting it later types no existing
+  draft again. A typed note follows the same rule and prints no issuer, so an
+  unnamed note is a default `recibo` with a Business tax id and the read's
+  choice without one; a typed `purchase` names a `recibo`.
   `ReceiptSummary.document_type` reports the current
   type (`recibo` until a read or a person sets it),
   `document_type_detected` is true while the read's choice stands, and
