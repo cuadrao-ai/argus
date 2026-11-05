@@ -1,10 +1,10 @@
 """The one way a queued receipt gets read: a loop that pulls waiting attempts.
 
-The API runs one of these in every instance and ``python -m
-workflows.document_worker`` runs one on its own; all of them pull from the same
-rows through ``store.pull``, which holds ``max_reads`` across every puller. A
-stop takes no new read, gives reads in flight ``drain_seconds`` to finish and
-cancels the rest, which releases their leases for the next boot's sweep.
+Only ``python -m workflows.document_worker`` runs one; the API never does. Every
+worker pulls from the same rows through ``store.pull``, which holds
+``max_reads`` across every puller. A stop takes no new read, gives reads in
+flight ``drain_seconds`` to finish and cancels the rest, which releases their
+leases for the next boot's sweep.
 """
 
 from __future__ import annotations
@@ -32,11 +32,6 @@ class DocumentWorker:
     def __init__(self, service: DocumentsService, settings: DocumentJobSettings) -> None:
         self.service, self.settings = service, settings
         self.reads: set[asyncio.Task[str]] = set()
-        self._wake = asyncio.Event()
-
-    def wake(self) -> None:
-        """A read was queued in this process: pull now instead of at the next poll."""
-        self._wake.set()
 
     async def run(self, stop: asyncio.Event) -> None:
         jobs = PreparationJobs(self.service)
@@ -54,15 +49,11 @@ class DocumentWorker:
         await self._drain()
 
     async def _nap(self, stop: asyncio.Event) -> None:
-        waits = [asyncio.ensure_future(stop.wait()), asyncio.ensure_future(self._wake.wait())]
+        waiting = asyncio.ensure_future(stop.wait())
         try:
-            await asyncio.wait(
-                waits, timeout=POLL_SECONDS, return_when=asyncio.FIRST_COMPLETED
-            )
+            await asyncio.wait({waiting}, timeout=POLL_SECONDS)
         finally:
-            for wait in waits:
-                wait.cancel()
-        self._wake.clear()
+            waiting.cancel()
 
     async def _pull(self, stop: asyncio.Event) -> None:
         # As in the sweep: with extraction off a queued read neither runs nor fails.

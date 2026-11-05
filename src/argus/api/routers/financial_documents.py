@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, Query, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from argus.api.documents import (
@@ -49,7 +49,6 @@ class DocumentResponse(BaseModel):
 async def upload_document(
     request: Request,
     response: Response,
-    background_tasks: BackgroundTasks,
     filename: str | None = Header(default=None, alias="X-Document-Filename"),
     proposal: str | None = Header(
         default=None, alias="X-Document-Proposal", max_length=8192
@@ -84,7 +83,6 @@ async def upload_document(
                 context.service,
                 context.user_id,
                 outcome.connection_id,
-                background_tasks,
                 scope=PERSONAL,
             )
         return asdict(outcome)
@@ -97,7 +95,6 @@ async def upload_document(
 async def resume_document(
     request: Request,
     connection_id: str,
-    background_tasks: BackgroundTasks,
     consent: str | None = Header(default=None, alias="X-Extraction-Consent"),
     context: DocumentContext = DOCUMENT_CONTEXT,
 ) -> dict[str, object]:
@@ -112,7 +109,6 @@ async def resume_document(
             context.service,
             context.user_id,
             connection_id,
-            background_tasks,
             scope=PERSONAL,
         )
         return asdict(outcome)

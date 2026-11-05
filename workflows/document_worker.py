@@ -1,8 +1,9 @@
 """A standalone document reader: ``python -m workflows.document_worker``.
 
-It runs the same ``DocumentWorker`` every API instance runs, over the same rows
-and under the same ``max_reads`` cap, so it adds reading capacity and nothing
-else. SIGTERM stops the pulls and gives reads in flight ``drain_seconds``.
+It is the only process that reads receipts: the API records each read as an
+attempt on its row and never reads it. Every worker pulls under the same
+``max_reads`` cap. SIGTERM stops the pulls and gives reads in flight
+``drain_seconds``.
 """
 
 from __future__ import annotations

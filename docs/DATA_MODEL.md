@@ -3928,8 +3928,8 @@ row written before it or by a preparation that never needed it is unchanged,
 and the owner's "Leer de nuevo" starts a new preparation with it at zero. A
 reader older than the field rejects a row that carries it (the model forbids
 unknown keys), so a rollback leaves a receipt mid-rerun to "Leer de nuevo".
-The dispatch time stays null until a puller (an API instance or the worker
-command) takes the attempt, so a null means it waits in the queue; the take is
+The dispatch time stays null until a puller (the worker command, the only
+reader) takes the attempt, so a null means it waits in the queue; the take is
 one row update under a database lock, which is how `CUADRAO_DOCUMENT_JOBS_MAX_READS`
 holds across every puller.
 Only that attempt may claim the draft. The provider-call time is committed

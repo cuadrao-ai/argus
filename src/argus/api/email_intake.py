@@ -183,19 +183,14 @@ def _queued_email_reader(route, connection_id: str):
 
 
 async def _read_receipt(route, connection_id: str) -> None:
-    from fastapi import BackgroundTasks
-
     from argus.api.documents import dispatch_preparation
 
     reader = await asyncio.to_thread(_queued_email_reader, route, connection_id)
     if reader is None:
         return
     service, scope = reader
-    tasks = BackgroundTasks()
     try:
-        await dispatch_preparation(
-            service, route.principal_id, connection_id, tasks, scope=scope
-        )
+        await dispatch_preparation(service, route.principal_id, connection_id, scope=scope)
     except Exception as error:
         await asyncio.to_thread(
             service.release_queued,
@@ -205,7 +200,6 @@ async def _read_receipt(route, connection_id: str) -> None:
             code=getattr(error, "code", "document_delivery_failed"),
         )
         raise
-    await tasks()
 
 
 def start_email_intake(app) -> None:  # noqa: ANN001
