@@ -8898,9 +8898,10 @@ preparation; routes and bodies stay the same. Off, the rules above hold
 exactly. On, capture and `/prepare` or `/resume` record one attempt before
 responding and hand it to a worker (a Render Workflow task, or a task in the
 API process). Before an attempt can reach the provider it durably records that
-its provider call started. The expired-attempt rule above still holds: an
-attempt is never billed again automatically. A sweep settles an attempt whose
-worker died as follows:
+its provider call started. An attempt cut off after that record (a deploy, a
+restart or a crash mid-read) is run again once, paid again; a rerun cut off the
+same way waits for the owner. A sweep settles an attempt whose worker died as
+follows:
 
 - No provider-call record, and the draft's claim names the current attempt
   (or nothing claimed it yet): the provider was never reached, so the sweep
@@ -8909,11 +8910,18 @@ worker died as follows:
   becomes `needs_attention` with `document_preparation_interrupted`.
 - A saved preparation exists: the sweep replays its delivery automatically.
   That makes no provider call and needs no consent.
-- Any other dead `preparing` draft (a provider-call record, or a claim that
-  does not name the current attempt): the outcome is unknown. The draft becomes
-  `needs_attention` with `document_preparation_outcome_unknown` and nothing is
-  re-dispatched.
+- A provider-call record, the draft's claim names the current attempt and no
+  preparation is saved: the provider may have been reached. The sweep runs the
+  read again once, as a new attempt through the same admission, so the Business
+  read budget is charged per provider call. A rerun that dies the same way
+  becomes `needs_attention` with `document_preparation_outcome_unknown`.
+- Any other dead `preparing` draft (a claim that does not name the current
+  attempt): the outcome is unknown. The draft becomes `needs_attention` with
+  `document_preparation_outcome_unknown` and nothing is re-dispatched.
 - A reported provider failure keeps its own code and is not retried.
+- A saved preparation is first-writer-wins and every write is fenced by the
+  attempt's lease, so a receipt is saved once, and delivered once, however many
+  attempts complete.
 
 Only the owner's `/prepare` or `/resume` with `X-Extraction-Consent: true`
 starts a new paid attempt from `needs_attention`. A superseded attempt's late
@@ -8935,6 +8943,13 @@ no new read and gives reads in flight `CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS`
 (default 210: two provider calls at their 90 s timeout, the second being the
 retry after a timeout, plus local work) to finish. A read still running then
 is cancelled, and the sweep treats it as a dead worker.
+
+A stopping API (SIGTERM on a deploy or a restart, with reads in the API process)
+does the same once WhatsApp deliveries settle: the sweep dispatches no more,
+reads in flight get the same drain, and a read cancelled past it releases its
+lease, so the next boot's first sweep reruns it. The API service's shutdown
+delay must cover the WhatsApp drain (20 s), the read drain and the 5 s cancel
+wait: 240 s at the defaults, and the host allows at most 300 s.
 
 Preparation preserves extracted observations and receipt itemization separately
 from canonical candidate projection. Receipt payment evidence is `paid|pending|unknown`,
