@@ -83,14 +83,17 @@ def capture(
                         named = request.document_type
                         if named is None and request.purchase is not None:
                             named = "recibo"
-                        resolved = resolved_document_type(named, None, own)
+                        document_type, detected = resolved_document_type(named, None, own)
                         if request.purchase is not None:
                             after = _typed_purchase_facts(request, source_id)
-                        if resolved.document_type == "venta":
+                        if document_type == "venta":
                             after = typed_facts(
                                 after, "venta", (source_id,), "owner_stated", own
                             )
-                        typed = {"resolved": resolved}
+                        typed = {
+                            "document_type": document_type,
+                            "document_type_detected": detected,
+                        }
                     else:
                         event = mutations.event_at(tx, request.draft)
                         before = after = facts_of(event)

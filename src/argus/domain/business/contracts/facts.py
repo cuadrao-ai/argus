@@ -244,20 +244,6 @@ class BusinessResolution(Contract):
     document_type_detected: bool = Field(
         default=False, exclude_if=lambda value: value is False
     )
-    #: The rule fell back to a receipt with no Business RNC to compare the
-    #: issuer with; the rule types the draft again once the RNC arrives. The
-    #: Bandeja shows it as the read's choice. False once a person sets the type.
-    document_type_suggested: bool = Field(
-        default=False, exclude_if=lambda value: value is False
-    )
-    #: The issuer RNC the read found, the QR's before the printed one, as the
-    #: rule compares it with the Business RNC. Set when the read types the
-    #: draft and kept on later revisions; a Venta's RNC fact is the client's,
-    #: so the re-check reads this. None for a typed note or a draft read before
-    #: it was kept.
-    document_type_issuer: str | None = Field(
-        default=None, max_length=80, exclude_if=lambda value: value is None
-    )
     facts: BusinessFacts
     dgii: DgiiDeclaration | None = None
     #: The server worked out the 606 services or goods amount from the Tipo de
@@ -280,12 +266,6 @@ class BusinessResolution(Contract):
     #: The due date a person set in review. None is unknown: never read from
     #: the document and never defaulted.
     due_on: date | None = Field(default=None, exclude_if=lambda value: value is None)
-
-    def rule_chose_type(self) -> bool:
-        """The type on the wire is the rule's, not a person's: the read's
-        choice or the receipt suggested with no Business RNC."""
-
-        return self.document_type_detected or self.document_type_suggested
 
     def unrecorded_purchases(self) -> int:
         """Read purchases this draft's amount does not account for. One read

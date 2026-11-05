@@ -42,7 +42,7 @@ OTHER = "101000007"
     ],
 )
 def test_only_the_business_own_identity_reads_as_a_venta(issuer, own, expected):
-    assert resolved_document_type(None, issuer, own).document_type == expected
+    assert resolved_document_type(None, issuer, own)[0] == expected
 
 
 def _batch(rnc: str | None, qr: bool = False) -> ExtractionBatch:
@@ -110,14 +110,14 @@ def test_the_named_type_wins_then_the_draft_then_the_issuer(
     found = mutations._read_document_type(
         _tx(own), _event(previous), _draft(document_type=named), _batch(printed, qr)
     )
-    assert (found.document_type, found.detected) == expected
+    assert found == expected
 
 
 def test_the_issuer_from_the_qr_outranks_a_printed_own_rnc():
     found = mutations._read_document_type(
         _tx(OWN), _event(), _draft(), _batch(OWN, qr=True)
     )
-    assert (found.document_type, found.detected) == ("recibo", True)
+    assert found == ("recibo", True)
 
 
 def _known(value: str, source) -> dict:  # noqa: ANN001

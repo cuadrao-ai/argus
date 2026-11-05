@@ -115,20 +115,14 @@ def _headers(world) -> dict:  # noqa: ANN001
     return {**world.alice.headers, "Idempotency-Key": str(uuid4())}
 
 
-def _own_rnc(
-    world,  # noqa: ANN001
-    value: str | None = OWN_RNC,
-    previous: str | None = None,
-) -> None:
+def _own_rnc(world, value: str = OWN_RNC) -> None:  # noqa: ANN001
     saved = world.client.patch(
         f"{API}/business/fiscal-profile",
         json={
             "name": NAME,
             "previous_name": NAME,
-            "tax_id": None if value is None else {"type": "rnc", "value": value},
-            "previous_tax_id": None
-            if previous is None
-            else {"type": "rnc", "value": previous},
+            "tax_id": {"type": "rnc", "value": value},
+            "previous_tax_id": None,
         },
         headers=_headers(world),
     )
@@ -239,12 +233,13 @@ def test_the_business_own_rnc_in_any_format_reads_as_a_detected_venta(
 
 
 @pytest.mark.parametrize("own", [OWN_RNC, None])
-def test_another_rnc_reads_as_a_detected_receipt_and_no_profile_as_a_suggested_one(
+def test_another_rnc_and_no_profile_read_as_a_receipt_the_read_chose(
     web,  # noqa: ANN001
     own,  # noqa: ANN001
 ) -> None:
-    """With no Business RNC there is nothing to compare: the receipt is the
-    rule's suggestion, shown as the read's choice, and approval is open."""
+    """With no Business RNC there is nothing to compare: even the Business's
+    own number reads as a receipt, shown as the read's choice so the person
+    may switch it."""
 
     if own is not None:
         _own_rnc(web, own)
@@ -253,153 +248,6 @@ def test_another_rnc_reads_as_a_detected_receipt_and_no_profile_as_a_suggested_o
     dossier = _dossier(web, receipt["draft_id"])
     assert _typed(dossier) == ("recibo", True, True)
     assert dossier["facts"]["kind"]["value"] == "expense"
-    assert "document_type_pending" not in {b["code"] for b in dossier["blockers"]}
-    assert _editors(web, receipt["draft_id"]) == (True, False)
-
-
-def test_a_suggested_receipt_is_switched_to_a_sale_by_hand(web) -> None:  # noqa: ANN001
-    draft = _upload(web, OWN_RNC)["draft_id"]
-    picked = _review(web, draft, {"document_type": "venta"})
-    assert picked.status_code == 200, picked.text
-    assert _typed(picked.json()) == ("venta", False, True)
-    assert picked.json()["facts"]["kind"]["value"] == "income"
-    assert _editors(web, draft) == (False, True)
-
-
-def test_adding_the_business_rnc_types_the_open_drafts_again(web) -> None:  # noqa: ANN001
-    """A suggested receipt whose issuer is the new RNC becomes a Venta, one
-    whose issuer differs a detected receipt, a typed note the default receipt,
-    each as one more revision. A type the upload named, one the owner picked
-    and an approved record stay."""
-
-    suggested_sale = _upload(web, OWN_RNC)["draft_id"]
-    suggested_purchase = _upload(web, SUPPLIER_RNC, occurred_on="2026-09-04")["draft_id"]
-    named = _upload(web, OWN_RNC, "recibo", occurred_on="2026-09-05")["draft_id"]
-    picked = _upload(web, SUPPLIER_RNC, occurred_on="2026-09-06")["draft_id"]
-    assert _review(web, picked, {"document_type": "venta"}).status_code == 200
-    note = _capture(web, {"text": "Compra de clavos"})
-    assert note.status_code == 200, note.text
-    assert _typed(note.json()) == ("recibo", True, True)
-    noted = note.json()["draft_id"]
-    approved = _upload(web, OWN_RNC, occurred_on="2026-09-07")["draft_id"]
-    account = _account(web)
-    # The review states no kind: a stated kind would name the type and end the
-    # suggestion. The kind stays as read, so the approved record is a
-    # suggested receipt the re-check must leave alone.
-    facts = _facts("expense", "1180.00", "2026-09-07", account)
-    del facts["kind"]
-    reviewed = _review(web, approved, {"facts": facts, "dgii": PURCHASE_606})
-    assert reviewed.status_code == 200, reviewed.text
-    _approve(web, approved, "record_expense")
-    kept = {
-        draft: (_typed(_dossier(web, draft)), _dossier(web, draft)["version"])
-        for draft in (named, picked, approved)
-    }
-    history_before = {
-        draft: len(_dossier(web, draft)["history"])
-        for draft in (suggested_sale, suggested_purchase, noted)
-    }
-
-    _own_rnc(web)
-
-    sale = _dossier(web, suggested_sale)
-    assert _typed(sale) == ("venta", True, True)
-    assert sale["facts"]["kind"]["value"] == "income"
-    assert _editors(web, suggested_sale) == (False, True)
-    purchase = _dossier(web, suggested_purchase)
-    assert _typed(purchase) == ("recibo", True, True)
-    assert purchase["facts"]["kind"]["value"] == "expense"
-    assert _typed(_dossier(web, noted)) == ("recibo", False, True)
-    assert {draft: len(_dossier(web, draft)["history"]) for draft in history_before} == {
-        draft: count + 1 for draft, count in history_before.items()
-    }
-    assert {
-        draft: (_typed(_dossier(web, draft)), _dossier(web, draft)["version"])
-        for draft in kept
-    } == kept
-    assert kept[approved][0] == ("recibo", True, False)
-
-
-def _stored_type(world, draft_id: str) -> tuple:  # noqa: ANN001
-    dossier = _dossier(world, draft_id)
-    return (*_typed(dossier), dossier["facts"]["kind"]["value"])
-
-
-def test_clearing_and_restoring_the_business_rnc_leaves_every_type_as_read(
-    web,  # noqa: ANN001
-) -> None:
-    """The re-check decides from the issuer the read found, never from the
-    RNC fact a Venta clears: a read Venta is still a Venta."""
-
-    _own_rnc(web)
-    drafts = (
-        _upload(web, OWN_RNC)["draft_id"],
-        _upload(web, SUPPLIER_RNC, occurred_on="2026-09-04")["draft_id"],
-        _upload(web, None, occurred_on="2026-09-05")["draft_id"],
-    )
-    read = {draft: _stored_type(web, draft) for draft in drafts}
-    assert [value[:2] for value in read.values()] == [
-        ("venta", True),
-        ("recibo", True),
-        ("recibo", False),
-    ]
-
-    _own_rnc(web, None, previous=OWN_RNC)
-    _own_rnc(web, OWN_RNC)
-
-    assert {draft: _stored_type(web, draft) for draft in drafts} == read
-
-
-def _retyped(dossier: dict) -> tuple:
-    """What a type change leaves on the draft, apart from who chose it."""
-
-    facts = dossier["facts"]
-    return (
-        dossier["dgii"],
-        facts["kind"]["value"],
-        facts["amount"]["value"],
-        facts["fiscal"]["rnc"]["state"],
-    )
-
-
-def test_a_recheck_and_a_hand_pick_retype_a_filled_purchase_the_same_way(
-    web,  # noqa: ANN001
-) -> None:
-    """Two purchases with their 606 filled. The corrected Business RNC makes
-    the read one a Venta; the owner then names the uploaded-as-Compra one a
-    Venta under the same RNC. Both drop the 606 and read the same; the next
-    correction makes the re-checked one a Compra again with no 607."""
-
-    _own_rnc(web)
-    account = _account(web)
-    filled = []
-    for day, named in (("2026-09-08", "recibo"), ("2026-09-09", None)):
-        draft = _upload(web, SUPPLIER_RNC, named, occurred_on=day)["draft_id"]
-        facts = _facts("expense", "1180.00", day, account)
-        del facts["kind"]
-        reviewed = _review(web, draft, {"facts": facts, "dgii": PURCHASE_606})
-        assert reviewed.status_code == 200, reviewed.text
-        assert reviewed.json()["dgii"]["form"] == "606"
-        filled.append(draft)
-    picked, rechecked = filled
-
-    _own_rnc(web, SUPPLIER_RNC, previous=OWN_RNC)
-
-    assert _dossier(web, picked)["dgii"]["form"] == "606"
-    assert _review(web, picked, {"document_type": "venta"}).status_code == 200
-    by_hand, by_rule = _dossier(web, picked), _dossier(web, rechecked)
-    assert (_typed(by_hand), _typed(by_rule)) == (
-        ("venta", False, True),
-        ("venta", True, True),
-    )
-    assert _retyped(by_hand) == _retyped(by_rule)
-    assert _retyped(by_rule)[0] is None
-    assert _editors(web, rechecked) == (False, True)
-
-    _own_rnc(web, OWN_RNC, previous=SUPPLIER_RNC)
-
-    back = _dossier(web, rechecked)
-    assert (_typed(back), back["dgii"]) == (("recibo", True, True), None)
 
 
 @pytest.mark.parametrize("printed,named", [(OWN_RNC, "recibo"), (SUPPLIER_RNC, "venta")])
@@ -786,8 +634,7 @@ def test_a_kind_and_a_type_that_disagree_are_refused(web) -> None:  # noqa: ANN0
             422,
             "activity_kind_unsupported",
         ), body
-    # Nothing was saved: the receipt the rule suggested with no Business RNC
-    # stands, reported as the rule's choice.
+    # Nothing was saved: the receipt read with no Business RNC stands.
     assert _typed(_dossier(web, draft)) == ("recibo", True, True)
 
 
@@ -888,6 +735,62 @@ def _editors(world, draft_id: str) -> tuple:  # noqa: ANN001
 
     view = _dossier(world, draft_id)
     return view["declaration_editable"], view["payment_split_editable"]
+
+
+def test_with_no_business_rnc_a_receipt_is_the_reads_choice_and_approves(
+    web,  # noqa: ANN001
+) -> None:
+    """The type adds no blocker: the 606 editor is on and the owner approves
+    the receipt as an expense."""
+
+    account = _account(web)
+    draft = _upload(web, OWN_RNC)["draft_id"]
+    assert _typed(_dossier(web, draft)) == ("recibo", True, True)
+    assert _editors(web, draft) == (True, False)
+    # A stated kind would name the type; the review keeps the kind as read.
+    facts = _facts("expense", "1180.00", "2026-09-03", account)
+    del facts["kind"]
+    reviewed = _review(web, draft, {"facts": facts, "dgii": PURCHASE_606})
+    assert reviewed.status_code == 200, reviewed.text
+    assert _typed(reviewed.json()) == ("recibo", True, True)
+    assert reviewed.json()["approval_available"] is True, reviewed.json()["blockers"]
+    _approve(web, draft, "record_expense")
+    assert _typed(_dossier(web, draft)) == ("recibo", True, False)
+
+
+def _as_saved(dossier: dict) -> tuple:
+    return (
+        _typed(dossier),
+        dossier["version"],
+        len(dossier["history"]),
+        dossier["facts"],
+        dossier["dgii"],
+    )
+
+
+def test_setting_the_business_rnc_later_retypes_no_draft_and_the_next_read_uses_it(
+    web,  # noqa: ANN001
+) -> None:
+    """Drafts read before the Business RNC keep the receipt they were read as,
+    with no new revision. A receipt read after it is compared with it: the
+    Business's own number reads as a Venta."""
+
+    early = [
+        _upload(web, OWN_RNC)["draft_id"],
+        _upload(web, SUPPLIER_RNC, occurred_on="2026-09-04")["draft_id"],
+    ]
+    note = _capture(web, {"text": "Compra de clavos"})
+    assert note.status_code == 200, note.text
+    early.append(note.json()["draft_id"])
+    before = {draft: _as_saved(_dossier(web, draft)) for draft in early}
+    assert {saved[0] for saved in before.values()} == {("recibo", True, True)}
+
+    _own_rnc(web)
+
+    assert {draft: _as_saved(_dossier(web, draft)) for draft in early} == before
+    later = _upload(web, OWN_RNC, occurred_on="2026-09-05")
+    assert _typed(later) == ("venta", True, True)
+    assert _typed(_dossier(web, later["draft_id"])) == ("venta", True, True)
 
 
 @pytest.mark.parametrize(

@@ -2,11 +2,9 @@
 
 A receipt is a purchase. A Venta is an invoice the business has already issued.
 A person may name the type when the file is saved. Otherwise the read sets it:
-a document the business itself issued is a Venta. With no Business RNC to tell
-the two apart the draft is a receipt the rule suggests, shown as the read's
-choice, and typed again once the RNC arrives. The type stays editable while
-the draft is open. The reader is unchanged: the type
-gives the printed RNC, NCF, and ITBIS their meaning afterwards.
+a document the business itself issued is a Venta. The type stays editable while
+the draft is open. The reader is unchanged: the type gives the printed RNC, NCF,
+and ITBIS their meaning afterwards.
 
 The type is the one answer to purchase or sale. The kind is never a second
 answer: a known kind is always one the type admits. Every reader that places
@@ -73,48 +71,26 @@ def money_document_type(kind: str) -> DocumentType | None:
     return TYPE_OF_KIND.get(kind)
 
 
-@dataclass(frozen=True)
-class ResolvedType:
-    """The type a draft stands under and how it got it. ``detected`` is true
-    only when the read compared an issuer with the Business RNC. ``suggested``
-    is true for the receipt the rule falls back to with no Business RNC to
-    compare: a named type never is, and the rule may type the draft again
-    once the RNC arrives. The Bandeja shows both as the read's choice.
-    ``issuer`` is the issuer RNC the read found, the QR's before the printed
-    one: the rule's input, kept so a re-check compares the same evidence."""
-
-    document_type: DocumentType
-    detected: bool = False
-    suggested: bool = False
-    issuer: str | None = None
-
-    @property
-    def rule_owned(self) -> bool:
-        """Whether the rule, not a person, chose the type."""
-
-        return self.detected or self.suggested
-
-
 def resolved_document_type(
     named: DocumentType | None, issuer_tax_id: str | None, business_tax_id: str | None
-) -> ResolvedType:
-    """The type a draft takes, and whether the read chose it. A named type
-    wins. With no Business number nothing can tell a sale from a purchase: a
-    receipt the rule suggests. Otherwise the issuer decides: the Business's
-    own number is a Venta, any other a receipt. With no issuer to compare, a
-    receipt by default, never marked as the read's choice."""
+) -> tuple[DocumentType, bool]:
+    """The type a new draft takes, and whether the read chose it. A named type
+    wins. With no Business number nothing tells a sale from a purchase: a
+    receipt marked as the read's choice, so the person sees it and may switch
+    it. Otherwise the issuer decides: the Business's own number is a Venta,
+    any other a receipt. With no issuer to compare, a receipt by default,
+    never marked as the read's choice. A number set later types no existing
+    draft again."""
 
     if named is not None:
-        return ResolvedType(named, issuer=issuer_tax_id)
+        return named, False
     own = normalized_taxpayer_id(business_tax_id)
     if own is None:
-        return ResolvedType("recibo", suggested=True, issuer=issuer_tax_id)
+        return "recibo", True
     issuer = normalized_taxpayer_id(issuer_tax_id)
     if issuer is None:
-        return ResolvedType("recibo", issuer=issuer_tax_id)
-    return ResolvedType(
-        "venta" if issuer == own else "recibo", detected=True, issuer=issuer_tax_id
-    )
+        return "recibo", False
+    return ("venta" if issuer == own else "recibo"), True
 
 
 def kind_disagrees(document_type: DocumentType, facts: BusinessFacts) -> bool:

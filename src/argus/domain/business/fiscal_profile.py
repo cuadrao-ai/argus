@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Literal
-from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 
@@ -10,10 +8,7 @@ from argus.domain.business.actions import plans
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import Applied
 from argus.domain.business.contracts.dgii import TaxId
-from argus.domain.business.fiscal_identity import (
-    normalized_filer_tax_id,
-    normalized_taxpayer_id,
-)
+from argus.domain.business.fiscal_identity import normalized_filer_tax_id
 from argus.domain.business.spaces import MAX_NAME_LENGTH
 from argus.domain.business.transactions import transaction
 
@@ -144,30 +139,5 @@ def set_profile(authority, context, command: FiscalProfileChange, key: str):
                     context.actor.space_id,
                 ),
             )
-            if _number(tax_id) != _number(command.previous_tax_id):
-                _retype_open_drafts(tx, context, command, key)
             plans.finish_receipt(tx, key, Applied(outcome="applied"))
     return read_profile(authority, context)
-
-
-def _number(tax_id: TaxId | None) -> str | None:
-    return None if tax_id is None else normalized_taxpayer_id(tax_id.value)
-
-
-def _retype_open_drafts(tx, context, command: FiscalProfileChange, key: str) -> None:  # noqa: ANN001
-    """The Business RNC the rule compares issuers with changed: the open
-    drafts it owns are typed again, each revision sourced to this change."""
-
-    from argus.domain.business.actions import sources
-    from argus.domain.business.actions.retype import recheck_open_drafts
-    from argus.domain.business.contracts.dossier import WebActionSource, web_action_text
-
-    evidence = WebActionSource(
-        id=uuid4(),
-        received_at=datetime.now(timezone.utc),
-        text=web_action_text(command.model_dump(mode="json")),
-    )
-    source_id = sources.record_source(
-        tx, f"profile:{context.actor.actor_id}:{key}", evidence
-    )
-    recheck_open_drafts(tx, tx.authorization.provenance, (source_id,))

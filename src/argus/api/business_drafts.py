@@ -457,7 +457,7 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
         else None,
         **row["marks"],
         "document_type": resolution.document_type,
-        "document_type_detected": resolution.rule_chose_type(),
+        "document_type_detected": resolution.document_type_detected,
         "document_type_editable": row["state"] == "open",
     }
     for key, item in (

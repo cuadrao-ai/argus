@@ -383,7 +383,7 @@ def dossier(
         bill_mark=resolution.bill_mark,
         dgii=resolution.dgii.model_dump(mode="json") if resolution.dgii else None,
         document_type=resolution.document_type,
-        document_type_detected=resolution.rule_chose_type(),
+        document_type_detected=resolution.document_type_detected,
         document_type_editable=event.state == "open" and can_prepare,
         declaration_editable=declaration_editable,
         expense_type_suggestion=remembered_expense_type(tx, draft_id)
