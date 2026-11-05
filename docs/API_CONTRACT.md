@@ -2393,13 +2393,15 @@ Supabase Auth handles identity/session heavy lifting. Alpha should keep auth low
 - email + password
 
 **Private-alpha access:**
-- `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` is the one gate over permanent
-  signup, login, and authenticated requests, and it has been open in production
-  since 2026-08-12. Public registration is therefore open: the server-side
-  Supabase `private_alpha_allowlist` table admits any email and denies only a
-  row whose `disabled_at` is set. When that flag is off instead, the same table
-  becomes an admission list: only an email whose active row carries `admin`,
-  `developer`, or `user` may enter, so a `requested` row does not admit it.
+- `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED` is the one gate over permanent
+  signup, login, and authenticated requests. Production sets it to `false`, so
+  production is invite only: the server-side Supabase `private_alpha_allowlist`
+  table is an admission list, and only an email whose active row carries
+  `admin`, `developer`, or `user` may enter. A `requested` row does not admit
+  it, and a row whose `disabled_at` is set still refuses it. Staging sets the
+  flag to `true`. When the flag is true, the same table admits any email and
+  denies only a row whose `disabled_at` is set. The
+  [architecture](ARCHITECTURE.md) states the production value.
 - While that flag is off and `CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED=true`
   (default false; with it off, this rule and the next do not run and the
   allowlist alone admits), a Business invitation also admits exactly the
@@ -2639,10 +2641,10 @@ Guest access is additive and server-authoritative.
 `CUADRAO_GUEST_ACCESS_ENABLED` defaults to `true`; explicit `false` is the
 emergency bootstrap kill switch. `NEXT_PUBLIC_GUEST_ACCESS_ENABLED` also
 defaults to `true` and controls presentation only. The independent
-`CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` policy has been open in production
-since 2026-08-12, so guests may create permanent accounts. That policy is the
-one flag here that fails closed when unset, so an environment omitting it denies
-permanent accounts rather than allowing them.
+`CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED` policy is `false` in production, so a
+guest may create a permanent account only with an active allowlist row. That
+policy is the one flag here that fails closed when unset, so an environment
+omitting it denies permanent accounts rather than allowing them.
 
 - `POST /api/v1/auth/guest` creates or reuses one verified Supabase anonymous
   session. Origin, feature flag, bounded CAPTCHA input, and IP throttling are
@@ -2731,7 +2733,8 @@ not evidence of the current sign-in method. The native session journal records
 the successful grant method; its [validation contract](../native/Packages/ArgusSession/README.md)
 keeps known email and Google sessions independent of a linked Apple identity.
 It is not a profile preference.
-Public account creation is absent unless that last value is true.
+The presentation permission is false in production, so the guest surface does
+not offer account creation there.
 Guest capability truth distinguishes owner-scoped current-workspace search
 (`can_search_current_workspace`) from broader Grounded Discovery
 (`can_use_grounded_discovery`). Both guest and registered accounts report the
@@ -2757,13 +2760,13 @@ owner until that claim commits.
 excluded from owner rewriting: they retain anonymous attribution or become
 null through their existing foreign-key behavior.
 
-`CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` has been live in production since
-2026-08-12, so unlisted ordinary accounts may authenticate without role
-elevation while explicitly disabled rows stay blocked. When that flag is off
-instead, permanent signup and login admit active allowlist roles and, while
+`CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED` is `false` in production, so permanent
+signup and login admit active allowlist roles and, while
 `CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED=true`, the emails a live Business
 invitation or grant names, as the private-alpha access rules above describe.
-Before that flag may be enabled, founder-approved production-parity evidence
+Production keeps the invitation switch false, and explicitly disabled rows stay
+blocked. If the flag is true, unlisted ordinary accounts may authenticate
+without role elevation. Before that flag may be enabled, founder-approved production-parity evidence
 must prove that every enabled permanent Auth provider supplies a verified email
 compatible with profile and allowlist-role rules. Phone, OAuth, or other
 emailless permanent identities require a separate schema and Auth slice.

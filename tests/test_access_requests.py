@@ -384,10 +384,8 @@ def test_access_request_environment_contract_is_value_free() -> None:
         "key": "CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD",
         "sync": False,
     }
-    assert api_env["ARGUS_APP_ORIGIN"] == {
-        "key": "ARGUS_APP_ORIGIN",
-        "value": "https://arguschat.ai",
-    }
+    # Production copies the origin from the live ARGUS_APP_ORIGIN (staging_env_manifest.json).
+    assert api_env["CUADRAO_APP_ORIGIN"] == {"key": "CUADRAO_APP_ORIGIN", "sync": False}
     env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
     assert (
         "CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD="

@@ -663,11 +663,11 @@ Before any guest traffic:
 - the exact candidate SHA must pass the local real-Auth/Postgres browser matrix
   in an isolated process;
 - checked-in server/frontend Guest defaults must remain true and explicit false
-  must preserve rollback. Public-account access is no longer held closed here:
-  the founder opened it on 2026-08-12;
+  must preserve rollback. Production sets `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED`
+  to `false`, so it is invite only;
 - the branch-deployed canary must prove `/` opens guest chat only in the
-  approved staged mode, and that permanent signup/login admits an ordinary
-  unlisted email while a disabled row stays blocked;
+  approved staged mode, and that permanent signup/login admits an email with an
+  active allowlist row while an unlisted email and a disabled row stay blocked;
 - hosted Supabase must explicitly enable anonymous Auth, configure an approved
   CAPTCHA posture, and retain provider plus Argus rate limits;
 - conversion must prove distinct-UUID ordinary signup and atomic claim, plus
@@ -684,9 +684,8 @@ Before any guest traffic:
   projections must remain explicitly unmeasured.
 
 Canary failure rolls back presentation first, then server guest bootstrap. It
-does not touch `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true`, which the founder
-authorized separately on 2026-08-12; closing public registration again is its
-own founder decision. A local Block 4 pass is not “public ready.”
+does not touch `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=false`, which production
+keeps as a separate policy; changing it is its own founder decision. A local Block 4 pass is not “public ready.”
 
 ## CI triggers and tooling (October 13, 2026)
 

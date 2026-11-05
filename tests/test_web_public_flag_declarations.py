@@ -15,35 +15,20 @@ ROOT = Path(__file__).resolve().parents[1]
 # until the flag is declared in each hosted file, or this map records the
 # surface that still leaves it unset.
 UNSET_WEB_FLAG_SURFACES = {
-    "NEXT_PUBLIC_GUEST_ACCESS_ENABLED": {
-        "render.yaml",
-        "private-alpha-release-profile.json",
-        "staging_env_manifest.json",
-    },
-    "NEXT_PUBLIC_OMNISEARCH_ENABLED": {"render.yaml", "staging_env_manifest.json"},
-    "NEXT_PUBLIC_RESEARCH_RAIL_ENABLED": {"render.yaml", "staging_env_manifest.json"},
-    "NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED": {
-        "render.yaml",
-        "staging_env_manifest.json",
-    },
-    "NEXT_PUBLIC_BUSINESS_PILOT_ENABLED": {
-        ".env.example",
-        "private-alpha-release-profile.json",
-    },
+    "NEXT_PUBLIC_GUEST_ACCESS_ENABLED": {"render.yaml", "manifest production", "manifest staging"},
+    "NEXT_PUBLIC_OMNISEARCH_ENABLED": {"render.yaml", "manifest staging"},
+    "NEXT_PUBLIC_RESEARCH_RAIL_ENABLED": {"render.yaml", "manifest staging"},
+    "NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED": {"render.yaml", "manifest staging"},
+    "NEXT_PUBLIC_BUSINESS_PILOT_ENABLED": {".env.example"},
     # Fallback alias read after NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED;
     # the hosted files declare only the Cuadrao name.
     "NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED": {
         "render.yaml",
-        "private-alpha-release-profile.json",
-        "staging_env_manifest.json",
+        "manifest production",
+        "manifest staging",
     },
 }
-HOSTED_FLAG_SURFACES = (
-    ".env.example",
-    "render.yaml",
-    "private-alpha-release-profile.json",
-    "staging_env_manifest.json",
-)
+HOSTED_FLAG_SURFACES = (".env.example", "render.yaml", "manifest production", "manifest staging")
 BUSINESS_DEFAULT_OFF_FLAGS = (
     "NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED",
     "NEXT_PUBLIC_CUADRAO_BUSINESS_LIFECYCLE_CONTROLS_ENABLED",
@@ -60,8 +45,8 @@ def _text(path: str) -> str:
 
 def _hosted_flag_declarations() -> dict[str, set[str]]:
     env_assignments = set(re.findall(r"^(NEXT_PUBLIC_[A-Z0-9_]+)=", _text(".env.example"), re.M))
-    profile = json.loads(_text(".github/private-alpha-release-profile.json"))
     manifest = json.loads(_text("scripts/ops/staging_env_manifest.json"))
+    web = manifest["services"]["web"]["entries"]
     render_config = yaml.safe_load(_text("render.yaml"))
     render_keys = {
         item["key"]
@@ -71,10 +56,8 @@ def _hosted_flag_declarations() -> dict[str, set[str]]:
     return {
         ".env.example": env_assignments,
         "render.yaml": render_keys,
-        "private-alpha-release-profile.json": set(profile["services"]["web"]["env"]),
-        "staging_env_manifest.json": {
-            entry["name"] for entry in manifest["services"]["web"]["entries"]
-        },
+        "manifest production": {e["name"] for e in web if "not_set" not in e["production"]},
+        "manifest staging": {e["name"] for e in web if not e.get("production_only")},
     }
 
 
@@ -99,7 +82,6 @@ def test_private_alpha_web_flags_are_declared_for_hosted_settings() -> None:
     assert problems == []
 
     env_example = _text(".env.example")
-    profile_env = json.loads(_text(".github/private-alpha-release-profile.json"))["services"]["web"]["env"]
     manifest_entries = {
         entry["name"]: entry
         for entry in json.loads(_text("scripts/ops/staging_env_manifest.json"))["services"]["web"]["entries"]
@@ -111,7 +93,7 @@ def test_private_alpha_web_flags_are_declared_for_hosted_settings() -> None:
     }
     for name in BUSINESS_DEFAULT_OFF_FLAGS:
         assert re.search(rf"^{name}=false$", env_example, re.M)
-        assert profile_env[name] == "false"
+        assert manifest_entries[name]["production"] == {"value": "false"}
         staging_value = "true" if APPROVED_STAGING_OVERRIDES.get(name, "").strip() else "false"
         assert manifest_entries[name]["value"] == staging_value
         for service_env in render_web.values():

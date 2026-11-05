@@ -182,22 +182,17 @@ def test_editor_flag_is_default_off_and_only_declared_for_staging(monkeypatch):
     monkeypatch.delenv(name, raising=False)
     assert not Settings().enabled
     root = Path(__file__).resolve().parents[1]
-    profile = json.loads(
-        (root / ".github/private-alpha-release-profile.json").read_text()
-    )
-    assert name in profile["staging_only"]["api"]["settings"]
     services = {
         s["name"]: s
         for s in yaml.safe_load((root / "render.yaml").read_text())["services"]
     }
-    assert name not in {e["key"] for e in services["cuadrao-api"]["envVars"]}
-    assert {e["key"]: e.get("value") for e in services["cuadrao-api-staging"]["envVars"]}[
-        name
-    ] == "false"
+    for service in ("cuadrao-api", "cuadrao-api-staging"):
+        assert {e["key"]: e.get("value") for e in services[service]["envVars"]}[
+            name
+        ] == "false"
     manifest = json.loads((root / "scripts/ops/staging_env_manifest.json").read_text())
-    assert {e["name"]: e.get("value") for e in manifest["services"]["api"]["entries"]}[
-        name
-    ] == "false"
+    entry = next(e for e in manifest["services"]["api"]["entries"] if e["name"] == name)
+    assert (entry["value"], entry["production"]) == ("false", {"value": "false"})
 
 
 @pytest.mark.parametrize("currency", ["USD", "EUR"])

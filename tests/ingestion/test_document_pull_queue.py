@@ -573,10 +573,7 @@ def test_the_worker_shutdown_fits_the_host_window():
     assert shutdown + HOST_SHUTDOWN_MARGIN_SECONDS <= HOST_SHUTDOWN_MAX_SECONDS
 
 
-def test_job_settings_are_declared_on_staging_and_the_switches_are_gone():
-    profile = json.loads(
-        (ROOT / ".github/private-alpha-release-profile.json").read_text()
-    )
+def test_job_settings_match_on_staging_and_production_and_the_switches_are_gone():
     manifest = json.loads((ROOT / "scripts/ops/staging_env_manifest.json").read_text())
     services = {
         service["name"]: service
@@ -585,16 +582,15 @@ def test_job_settings_are_declared_on_staging_and_the_switches_are_gone():
     example = (ROOT / ".env.example").read_text()
     entries = {e["name"]: e for e in manifest["services"]["api"]["entries"]}
     staging = {e["key"]: e for e in services["cuadrao-api-staging"]["envVars"]}
-    production = {e["key"] for e in services["cuadrao-api"]["envVars"]}
+    production = {e["key"]: e for e in services["cuadrao-api"]["envVars"]}
 
     for name, value in JOB_SETTINGS.items():
-        assert name in profile["staging_only"]["api"]["settings"]
         assert entries[name]["value"] == value
+        assert entries[name]["production"] == {"value": value}
         assert staging[name]["value"] == value
+        assert production[name]["value"] == value
         assert f"{name}={value}\n" in example
-        assert name not in profile["services"]["api"]["env"]
-        assert name not in production
-    declared = json.dumps(profile) + json.dumps(manifest) + example
+    declared = json.dumps(manifest) + example
     declared += json.dumps(services)
     for name in REMOVED_SETTINGS:
         assert name not in declared, f"{name} was deleted with the one read path"
