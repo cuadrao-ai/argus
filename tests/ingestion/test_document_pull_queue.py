@@ -1,6 +1,7 @@
 """Pull mode: a queued read waits on its row until a worker takes it."""
 
 import asyncio
+import inspect
 import json
 import time
 from collections.abc import Callable
@@ -15,6 +16,7 @@ from argus.domain.ingestion.connections import DEFAULT_LEASE
 from argus.domain.ingestion.documents import extractor as extraction
 from argus.domain.ingestion.documents import preparation
 from argus.domain.ingestion.documents.config import (
+    CANCEL_SECONDS,
     PROVIDER_CALLS_PER_READ,
     DocumentExtractionSettings,
     DocumentJobSettings,
@@ -249,10 +251,10 @@ async def test_a_claimed_read_that_died_before_the_provider_is_read_again_once(p
 
 
 @pytest.mark.asyncio
-async def test_a_claimed_read_that_died_after_the_provider_waits_for_the_owner(pull):
+async def test_a_claimed_read_that_died_after_the_provider_is_read_once_more(pull):
     service, jobs, clock, extractor = pull
     [connection] = await waiting(service, jobs)
-    original, kills = extractor.extract, [support.WorkerKilled()]
+    original, kills = extractor.extract, [support.WorkerKilled(), support.WorkerKilled()]
 
     async def killed(**kwargs: Any) -> ExtractionBatch:
         await start_request(kwargs)
@@ -262,21 +264,26 @@ async def test_a_claimed_read_that_died_after_the_provider_waits_for_the_owner(p
         return await original(**kwargs)
 
     extractor.extract = killed
-    taken = service.store.pull(now=clock(), cap=3)
     with pytest.raises(support.WorkerKilled):
-        await run_attempt(service, *taken)
+        await run_attempt(service, *service.store.pull(now=clock(), cap=3))
+
+    assert jobs.sweep().rerun == [connection]
+    assert read(service, connection).status == "queued", "the rerun waits for a worker"
+    with pytest.raises(support.WorkerKilled):
+        await run_attempt(service, *service.store.pull(now=clock(), cap=3))
+    assert extractor.calls == 2
 
     assert jobs.sweep().outcome_unknown == [connection]
     assert read(service, connection).error_code == OUTCOME_UNKNOWN
     assert service.store.pull(now=clock(), cap=3) is None
-    assert extractor.calls == 1, "an uncertain read is never billed again"
+    assert extractor.calls == 2, "one paid rerun, then the owner decides"
 
     service.queue(user_id=OWNER, connection_id=connection, consent=True, scope=PERSONAL)
     jobs.start(user_id=OWNER, connection_id=connection)
     assert await run_attempt(service, *service.store.pull(now=clock(), cap=3)) == (
         "prepared"
     )
-    assert extractor.calls == 2
+    assert extractor.calls == 3
     assert service.hub.sink.submit.call_count == 1
 
 
@@ -403,7 +410,7 @@ async def test_stop_ends_the_pulls_even_with_slots_free(rig, worker_env) -> None
 
 
 @pytest.mark.asyncio
-async def test_a_read_past_the_drain_bound_stays_recoverable(rig, worker_env) -> None:
+async def test_a_read_past_the_drain_bound_is_read_once_more(rig, worker_env) -> None:
     service, _, clock, _, _ = rig
     gauge = service.extractor = Gauge()
     jobs = PreparationJobs(service, None)
@@ -416,9 +423,9 @@ async def test_a_read_past_the_drain_bound_stays_recoverable(rig, worker_env) ->
     stop.set()
     await asyncio.wait_for(running, 5)
 
-    assert jobs.sweep().outcome_unknown == [connection]
-    assert read(service, connection).error_code == OUTCOME_UNKNOWN
-    assert gauge.read == [connection], "reached the provider, so never billed twice"
+    assert jobs.sweep().rerun == [connection]
+    assert read(service, connection).status == "queued", "the rerun waits for a worker"
+    assert gauge.read == [connection], "the cancelled worker never read it again"
 
 
 @pytest.fixture
@@ -468,16 +475,14 @@ async def test_a_stop_during_the_retry_lets_the_second_call_finish(retrying) -> 
 
 
 @pytest.mark.asyncio
-async def test_a_retry_cancelled_by_the_drain_is_recovered_with_a_reason(
-    retrying,
-) -> None:
+async def test_a_retry_cancelled_by_the_drain_is_read_once_more(retrying) -> None:
     service, provider = retrying
     connection, running, jobs = await stopped_during_the_retry(service, provider, 0.01)
     await asyncio.wait_for(running, 5)
 
-    assert jobs.sweep().outcome_unknown == [connection]
-    assert read(service, connection).error_code == OUTCOME_UNKNOWN
-    assert provider.calls == 2, "a cancelled retry is never billed a third time"
+    assert jobs.sweep().rerun == [connection]
+    assert read(service, connection).status == "queued", "the rerun waits for a worker"
+    assert provider.calls == 2, "the cancelled worker never called a third time"
 
 
 @pytest.mark.asyncio
@@ -632,6 +637,15 @@ def test_every_wait_for_a_read_covers_both_provider_calls():
         "a sweep never calls a read dead while its retry still runs"
     )
     assert read_seconds() + HOST_SHUTDOWN_MARGIN_SECONDS <= HOST_SHUTDOWN_MAX_SECONDS
+
+
+def test_the_api_shutdown_fits_the_host_window():
+    from argus.api.whatsapp import drain_whatsapp
+
+    whatsapp = inspect.signature(drain_whatsapp).parameters["timeout"].default
+    shutdown = whatsapp + read_seconds() + CANCEL_SECONDS
+    assert shutdown == 20 + 210 + 5 == 235
+    assert shutdown + HOST_SHUTDOWN_MARGIN_SECONDS <= HOST_SHUTDOWN_MAX_SECONDS
 
 
 def test_job_settings_are_declared_off_on_staging_and_absent_from_production():

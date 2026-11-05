@@ -13,11 +13,16 @@ records attempts: ``workflows/document_worker.py`` reads them and runs the sweep
 from __future__ import annotations
 
 import asyncio
+import contextlib
 
 from loguru import logger
 
 from argus.api import state as api_state
-from argus.domain.ingestion.documents.config import DocumentJobSettings
+from argus.domain.ingestion.documents.config import (
+    CANCEL_SECONDS,
+    DocumentJobSettings,
+    read_seconds,
+)
 from argus.domain.ingestion.documents.jobs import (
     Dispatch,
     PreparationJobs,
@@ -38,9 +43,13 @@ class InProcessDispatcher:
     """Local fallback: each attempt runs as a task on the API's event loop."""
 
     def __init__(
-        self, loop: asyncio.AbstractEventLoop, service: DocumentsService
+        self,
+        loop: asyncio.AbstractEventLoop,
+        service: DocumentsService,
+        drain_seconds: float | None = None,
     ) -> None:
         self.loop, self.service = loop, service
+        self.drain_seconds = read_seconds() if drain_seconds is None else drain_seconds
         self.tasks: set[asyncio.Task[str]] = set()
 
     def __call__(self, connection_id: str, attempt_id: str) -> None:
@@ -50,6 +59,18 @@ class InProcessDispatcher:
         task = self.loop.create_task(run_attempt(self.service, connection_id, attempt_id))
         self.tasks.add(task)
         task.add_done_callback(self.tasks.discard)
+
+    async def drain(self) -> None:
+        deadline = self.loop.time() + self.drain_seconds
+        while self.tasks and (remaining := deadline - self.loop.time()) > 0:
+            await asyncio.wait(set(self.tasks), timeout=remaining)
+        late = set(self.tasks)
+        if not late:
+            return
+        logger.warning("Document reads outlived the drain count={}", len(late))
+        for read in late:
+            read.cancel()
+        await asyncio.wait(late, timeout=CANCEL_SECONDS)
 
 
 def render_dispatcher(task_id: str) -> Dispatch:
@@ -83,10 +104,22 @@ def start_document_jobs(service: DocumentsService, settings: DocumentJobSettings
     dispatch: Dispatch = (
         render_dispatcher(task_id)
         if task_id and api_state.PERSISTENCE_MODE == "supabase"
-        else InProcessDispatcher(loop, service)
+        else InProcessDispatcher(loop, service, settings.drain_seconds)
     )
     _jobs = PreparationJobs(service, dispatch)
     _sweeper = loop.create_task(sweep_forever(_jobs, settings.sweep_seconds))
+
+
+async def drain_document_jobs() -> None:
+    """The sweep stops before the drain, or it could dispatch into it."""
+    global _sweeper
+    if _sweeper is not None:
+        _sweeper.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await _sweeper
+        _sweeper = None
+    if _jobs is not None and isinstance(_jobs.dispatch, InProcessDispatcher):
+        await _jobs.dispatch.drain()
 
 
 def stop_document_jobs() -> None:

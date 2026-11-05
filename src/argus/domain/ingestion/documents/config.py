@@ -130,6 +130,8 @@ def load_document_extraction_settings() -> DocumentExtractionSettings:
 PROVIDER_CALLS_PER_READ = 2
 # Local work around the provider calls: decoding, the budget charge, the saves.
 _READ_LOCAL_SECONDS = 30.0
+# How long a read cancelled at the end of a drain gets to release its lease.
+CANCEL_SECONDS = 5.0
 
 
 def read_seconds() -> float:
@@ -166,8 +168,7 @@ class DocumentJobSettings(BaseSettings):
         le=32,
         validation_alias=setting_aliases("DOCUMENT_JOBS_MAX_READS"),
     )
-    # Covers one read from the pull, retry included. The host's shutdown delay
-    # must be this plus 5 s, and the host allows at most 300 s.
+    # Covers one read, retry included, in the worker and in the API.
     drain_seconds: float = Field(
         default_factory=read_seconds,
         gt=0,

@@ -6,14 +6,24 @@ no model is called. The sweep runs on its own cadence inside the running app.
 
 import threading
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
+from argus.api import state as api_state
 from argus.api.document_jobs import document_jobs
 from argus.api.documents import documents_service
-from argus.domain.ingestion.documents.jobs import DISPATCH_WINDOW, MAX_ATTEMPTS
+from argus.api.main import app
+from argus.domain.ingestion.documents.jobs import (
+    DISPATCH_WINDOW,
+    MAX_ATTEMPTS,
+    PreparationJobs,
+)
 from argus.domain.owner_scope import PERSONAL
+from fastapi.testclient import TestClient
 
 from tests.document_extractor_support import admit
 from tests.ingestion.conftest import ALICE, bearer
@@ -235,9 +245,26 @@ def test_kill_before_the_provider_marker_recovers_with_one_provider_call(
     assert document(jobs_client, connection) == before
 
 
-def test_kill_after_the_provider_marker_waits_for_a_consented_retry(
+def test_a_read_cut_off_after_the_provider_marker_is_read_once_more(
     jobs_client, monkeypatch
 ):
+    provider = Provider("hang", "succeed")
+    install(monkeypatch, provider)
+    connection = upload(jobs_client)
+    wait_for(lambda: provider.calls == 1)
+    assert job(connection).provider_call_started_at is not None
+    [running] = stale_attempts()
+
+    running.cancel()
+
+    wait_for(lambda: document(jobs_client, connection)["status"] == "review_ready")
+    assert document(jobs_client, connection)["error_code"] is None
+    assert provider.calls == 2, "the rerun is one more paid call"
+    assert (job(connection).attempt, job(connection).reruns) == (2, 1)
+    assert len(imports(jobs_client)) == 1
+
+
+def test_both_completions_of_one_receipt_save_once(jobs_client, monkeypatch):
     provider = Provider("hang", "succeed")
     clock = install(monkeypatch, provider)
     connection = upload(jobs_client)
@@ -245,31 +272,48 @@ def test_kill_after_the_provider_marker_waits_for_a_consented_retry(
     assert job(connection).provider_call_started_at is not None
 
     clock.offset = DISPATCH_WINDOW + timedelta(seconds=1)
-    wait_for(lambda: document(jobs_client, connection)["status"] == "needs_attention")
-    settled = document(jobs_client, connection)
-    assert settled["error_code"] == "document_preparation_outcome_unknown"
-    time.sleep(0.2)
-    assert provider.calls == 1, "an uncertain attempt is never billed again"
-    assert job(connection).attempt == 1
-
-    refused = retry_with_consent(jobs_client, connection, consent=False)
-    assert refused.status_code == 422
-    assert refused.json()["code"] == "document_extraction_consent_required"
-    assert provider.calls == 1
-
-    assert retry_with_consent(jobs_client, connection).status_code == 200
     wait_for(lambda: document(jobs_client, connection)["status"] == "review_ready")
     assert provider.calls == 2
-    assert job(connection).attempt == 1, "an owner retry starts a new preparation"
+    assert (job(connection).attempt, job(connection).reruns) == (2, 1)
     assert len(imports(jobs_client)) == 1
 
     before = document(jobs_client, connection)
+    wait_for(lambda: len(stale_attempts()) == 1)
     [stale] = stale_attempts()
     provider.release.set()
     wait_for(stale.done)
     assert stale.result() == "document_lease_lost"
     assert document(jobs_client, connection) == before
     assert [c["amount"] for c in before["preparation"]["candidates"]] == ["250.5"]
+    assert len(imports(jobs_client)) == 1
+
+
+def test_a_rerun_cut_off_after_its_marker_is_one_clear_failure(jobs_client, monkeypatch):
+    provider = Provider("hang", "hang", "succeed")
+    install(monkeypatch, provider)
+    connection = upload(jobs_client)
+    for call in (1, 2):
+        wait_for(lambda call=call: provider.calls == call)
+        wait_for(lambda: len(stale_attempts()) == 1)
+        [running] = stale_attempts()
+        running.cancel()
+
+    wait_for(lambda: document(jobs_client, connection)["status"] == "needs_attention")
+    settled = document(jobs_client, connection)
+    assert settled["error_code"] == "document_preparation_outcome_unknown"
+    time.sleep(0.2)
+    assert provider.calls == 2, "one paid rerun, then the owner decides"
+    assert (job(connection).attempt, job(connection).reruns) == (2, 1)
+
+    refused = retry_with_consent(jobs_client, connection, consent=False)
+    assert refused.status_code == 422
+    assert refused.json()["code"] == "document_extraction_consent_required"
+    assert provider.calls == 2
+
+    assert retry_with_consent(jobs_client, connection).status_code == 200
+    wait_for(lambda: document(jobs_client, connection)["status"] == "review_ready")
+    assert provider.calls == 3
+    assert job(connection).attempt == 1, "an owner retry starts a new preparation"
     assert len(imports(jobs_client)) == 1
 
 
@@ -360,6 +404,60 @@ def test_attempts_dying_before_the_marker_stop_at_the_bound(
     assert retry_with_consent(jobs_client, connection).status_code == 200
     wait_for(lambda: document(jobs_client, connection)["status"] == "review_ready")
     assert provider.calls == 1
+
+
+@contextmanager
+def running_app(gateway) -> Iterator[TestClient]:
+    with (
+        patch.object(api_state, "supabase_gateway", gateway),
+        patch("argus.api.dependencies.auth_session_is_active", return_value=True),
+        TestClient(app) as test_client,
+    ):
+        yield test_client
+
+
+def test_shutdown_lets_a_read_in_flight_finish_inside_the_drain(
+    jobs_env, ingestion_env, gateway, monkeypatch
+):
+    monkeypatch.setenv("ARGUS_DOCUMENT_JOBS_DRAIN_SECONDS", "5")
+    with running_app(gateway) as client:
+        provider = Provider("hang")
+        install(monkeypatch, provider)
+        service = documents_service()
+        connection = upload(client)
+        wait_for(lambda: provider.calls == 1)
+        user = service.store.owner(connection_id=connection)
+        threading.Timer(0.3, provider.release.set).start()
+        stopping = time.monotonic()
+
+    assert time.monotonic() - stopping >= 0.3, "shutdown waited for the read"
+    draft = service.store.draft(user_id=user, connection_id=connection)
+    assert (draft.status, provider.calls) == ("review_ready", 1)
+
+
+def test_shutdown_cancels_a_read_past_the_drain_for_the_next_boot_to_rerun(
+    jobs_env, ingestion_env, gateway, monkeypatch
+):
+    monkeypatch.setenv("ARGUS_DOCUMENT_JOBS_DRAIN_SECONDS", "0.05")
+    with running_app(gateway) as client:
+        provider = Provider("hang", "succeed")
+        install(monkeypatch, provider)
+        service = documents_service()
+        connection = upload(client)
+        wait_for(lambda: provider.calls == 1)
+        user = service.store.owner(connection_id=connection)
+
+    row = service.hub.connections.get_any_scope(user_id=user, connection_id=connection)
+    assert row.lease_until is None, "the cancelled read released its lease"
+    assert service.store.draft(user_id=user, connection_id=connection).status == (
+        "preparing"
+    )
+    dispatched: list[str] = []
+    booted = PreparationJobs(service, lambda _, attempt: dispatched.append(attempt))
+    assert booted.sweep().rerun == [connection]
+    assert len(dispatched) == 1
+    assert service.store.job(user_id=user, connection_id=connection).reruns == 1
+    assert provider.calls == 1, "nothing ran again before the next boot"
 
 
 def test_flag_off_prepares_through_background_tasks_only(flag_off_client, monkeypatch):

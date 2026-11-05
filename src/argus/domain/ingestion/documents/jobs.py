@@ -3,14 +3,16 @@
 The API records one attempt per accepted preparation and hands it to a worker,
 or in pull mode leaves it on its row for a worker to pull. An attempt no process
 has taken is waiting, however old, and costs nothing. A reconciler sweep
-re-dispatches an attempt whose worker died only when the attempt provably never
+re-dispatches an attempt whose worker died when the attempt provably never
 reached the provider (no ``provider_call_started_at``), up to ``MAX_ATTEMPTS``.
-An attempt that may have reached the provider is never billed again
-automatically: it settles to ``needs_attention`` and only the owner's consented
-prepare or resume starts a new paid attempt. The one exception is the
-extractor's own second call when the provider times out, made inside the same
-attempt under its lease. A superseded attempt cannot claim
-the draft, and its late result is refused by the connection lease.
+An attempt that died past its provider marker with no saved result (a deploy,
+a restart or a crash mid-read) is run again once, ``MAX_RERUNS``, as a new paid
+attempt through the same admission; a rerun that dies the same way settles to
+``needs_attention`` and only the owner's consented prepare or resume starts a
+new paid attempt. The extractor's own second call when the provider times out
+is made inside the same attempt under its lease. A superseded attempt cannot
+claim the draft, and its late result is refused by the connection lease, so a
+receipt is saved once however many attempts complete.
 """
 
 from __future__ import annotations
@@ -41,6 +43,7 @@ from argus.domain.ingestion.documents.service import (
 )
 
 MAX_ATTEMPTS = 3
+MAX_RERUNS = 1
 OUTCOME_UNKNOWN = "document_preparation_outcome_unknown"
 # An unclaimed dispatch is presumed lost after the same window a lease lasts.
 DISPATCH_WINDOW = DEFAULT_LEASE
@@ -79,9 +82,16 @@ def dispatched(draft: DocumentDraft, job: PreparationJob | None) -> bool:
 @dataclass
 class SweepReport:
     redispatched: list[str] = field(default_factory=list)
+    rerun: list[str] = field(default_factory=list)
     exhausted: list[str] = field(default_factory=list)
     outcome_unknown: list[str] = field(default_factory=list)
     errors: int = 0
+
+
+def own_claim(draft: DocumentDraft, job: PreparationJob | None) -> bool:
+    """The current attempt wrote this ``preparing`` draft: it claimed the draft,
+    and the draft moved exactly once since the version it was dispatched for."""
+    return job is not None and job.claimed and draft.version == job.draft_version + 1
 
 
 class PreparationJobs:
@@ -150,17 +160,31 @@ class PreparationJobs:
         else:
             return
         saved = store.get(user_id=user_id, connection_id=connection_id) is not None
-        if (
-            draft.status == "preparing"
-            and not saved
-            and not (
-                # Only the current attempt's own claim, before any provider call.
-                job is not None
-                and job.claimed
-                and draft.version == job.draft_version + 1
-                and job.provider_call_started_at is None
-            )
+        mine = own_claim(draft, job)
+        if draft.status == "preparing" and not saved and not (
+            mine and job.provider_call_started_at is None
         ):
+            # The provider may have been reached. The current attempt's own
+            # read is run again once, paid again; any other writer's is not.
+            if mine and job.reruns < MAX_RERUNS:
+                if self._advance(
+                    user_id,
+                    connection_id,
+                    now,
+                    job,
+                    draft,
+                    attempt=job.attempt + 1,
+                    requeue=True,
+                    reruns=job.reruns + 1,
+                ):
+                    report.rerun.append(connection_id)
+                    logger.warning(
+                        "Document preparation rerun after an interrupted provider call",
+                        connection_id=connection_id,
+                        attempt=job.attempt + 1,
+                        reason=reason,
+                    )
+                return
             if self._settle(user_id, connection_id, now, job, draft, OUTCOME_UNKNOWN):
                 report.outcome_unknown.append(connection_id)
                 logger.warning(
@@ -187,6 +211,7 @@ class PreparationJobs:
                 requeue=True,
                 # A saved preparation replays without a provider call.
                 unmarked=not fresh and not saved,
+                reruns=0 if fresh or job is None else job.reruns,
             ):
                 report.redispatched.append(connection_id)
                 logger.info(
@@ -252,6 +277,7 @@ class PreparationJobs:
         attempt: int,
         requeue: bool,
         unmarked: bool = False,
+        reruns: int = 0,
     ) -> bool:
         """Make a new attempt current, then hand it to a worker. A sweep also
         returns an interrupted or failed draft to ``queued``."""
@@ -265,6 +291,7 @@ class PreparationJobs:
             attempt_id=str(uuid.uuid4()),
             draft_version=(requeued or draft).version,
             dispatched_at=None if self.dispatch is None else now,
+            reruns=reruns,
         )
         if not self.service.store.advance(
             user_id=user_id,

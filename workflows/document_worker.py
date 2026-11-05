@@ -15,6 +15,7 @@ import contextlib
 import signal
 
 from argus.domain.ingestion.documents.config import (
+    CANCEL_SECONDS,
     DocumentJobSettings,
     load_document_extraction_settings,
     load_document_job_settings,
@@ -34,8 +35,6 @@ from workflows.document_job import postgres_documents_service, storage_source_ob
 from workflows.proof import require_database_url
 
 POLL_SECONDS = 1.0
-# How long a cancelled read gets to release its lease before the process exits.
-CANCEL_SECONDS = 5.0
 
 
 class DocumentWorker:

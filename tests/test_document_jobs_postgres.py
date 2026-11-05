@@ -306,7 +306,7 @@ async def test_kill_before_the_marker_recovers_with_one_provider_call(
 
 
 @pytest.mark.asyncio
-async def test_kill_after_the_marker_settles_until_a_consented_retry(
+async def test_kill_after_the_marker_is_rerun_once_and_both_completions_save_once(
     pool: ConnectionPool, users: dict[str, str]
 ) -> None:
     clock, extractor = Clock(), Extractor(hang=True)
@@ -321,31 +321,70 @@ async def test_kill_after_the_marker_settles_until_a_consented_retry(
 
     clock.now += DISPATCH_WINDOW + timedelta(seconds=1)
     report = api.jobs.sweep()
-    assert connection in report.outcome_unknown
-    assert connection not in report.redispatched
-    settled = api.service.get(user_id=owner, connection_id=connection, scope=PERSONAL)
-    assert (settled.status, settled.error_code) == (
-        "needs_attention",
-        "document_preparation_outcome_unknown",
-    )
-    assert connection not in api.jobs.sweep().redispatched
-    assert api.attempts(connection) == [first]
-    assert extractor.calls == 1
+    assert connection in report.rerun
+    assert connection not in report.outcome_unknown
+    [_, rerun] = api.attempts(connection)
+    assert api.service.store.job(user_id=owner, connection_id=connection).reruns == 1
+    assert await run_attempt(api.service, connection, rerun) == "prepared"
+    assert connection not in api.jobs.sweep().rerun
+    assert extractor.calls == 2
 
-    api.service.queue(
-        user_id=owner, connection_id=connection, consent=True, scope=PERSONAL
-    )
-    api.jobs.start(user_id=owner, connection_id=connection)
-    [_, retried] = api.attempts(connection)
-    assert await run_attempt(api.service, connection, retried) == "prepared"
     extractor.release.set()
-    assert await dead == "document_lease_lost"
+    assert await dead == "document_lease_lost", "the first call's late answer is refused"
 
     batch = api.service.store.get(user_id=owner, connection_id=connection)
-    assert [c.amount for c in batch.candidates] == ["129.5"]
-    assert extractor.calls == 2
+    assert [c.amount for c in batch.candidates] == ["129.5"], "the rerun's read is kept"
+    read = api.service.get(user_id=owner, connection_id=connection, scope=PERSONAL)
+    assert (read.status, read.error_code) == ("review_ready", None)
     api.sink.submit.assert_called_once()
     forget(api.service, owner, connection)
+
+
+@pytest.mark.asyncio
+async def test_a_deploy_that_cuts_a_read_is_rerun_by_the_next_boot(
+    pool: ConnectionPool, users: dict[str, str]
+) -> None:
+    from argus.api.document_jobs import InProcessDispatcher
+
+    loop = asyncio.get_running_loop()
+    clock, extractor, owner = Clock(), Extractor(hang=True), users["owner"]
+    stopping: list[InProcessDispatcher] = []
+
+    def old_dispatcher(service: DocumentsService) -> InProcessDispatcher:
+        stopping.append(InProcessDispatcher(loop, service, drain_seconds=0.05))
+        return stopping[-1]
+
+    old = instance(pool, clock, extractor, dispatch=old_dispatcher)
+    with ConnectionPool(shared.DSN, min_size=0, max_size=4) as other_pool:
+        new = instance(
+            other_pool,
+            clock,
+            extractor,
+            dispatch=lambda service: InProcessDispatcher(loop, service),
+        )
+        connection = await capture(old.service, owner)
+        old.jobs.start(user_id=owner, connection_id=connection)
+        while extractor.calls == 0:
+            await asyncio.sleep(0.01)
+        assert new.jobs.sweep().rerun == [], "a live lease is never reclaimed"
+
+        [draining] = stopping
+        await draining.drain()
+
+        assert new.jobs.sweep().rerun == [connection]
+        for _ in range(500):
+            draft = new.service.get(
+                user_id=owner, connection_id=connection, scope=PERSONAL
+            )
+            if draft.status == "review_ready":
+                break
+            await asyncio.sleep(0.01)
+        assert draft.status == "review_ready"
+        assert extractor.calls == 2
+        assert len(old.attempts(connection)) + len(new.attempts(connection)) == 2
+        new.sink.submit.assert_called_once()
+        old.sink.submit.assert_not_called()
+        forget(new.service, owner, connection)
 
 
 def test_concurrent_sweepers_dispatch_each_attempt_once(

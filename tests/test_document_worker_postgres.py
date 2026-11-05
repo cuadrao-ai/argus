@@ -18,7 +18,6 @@ from argus.domain.ingestion.connections_postgres import PostgresConnectionReposi
 from argus.domain.ingestion.documents.config import DocumentJobSettings
 from argus.domain.ingestion.documents.jobs import (
     DISPATCH_WINDOW,
-    OUTCOME_UNKNOWN,
     PreparationJobs,
     run_attempt,
 )
@@ -257,7 +256,7 @@ async def test_a_kill_before_the_marker_reads_once_and_records_once(
 
 
 @pytest.mark.asyncio
-async def test_a_kill_after_the_marker_waits_for_the_owner_and_records_once(
+async def test_a_kill_after_the_marker_is_read_once_more_and_records_once(
     pool: ConnectionPool, users: dict[str, str]
 ) -> None:
     clock, extractor, owner = Clock(), support.Extractor(hang=True), users["owner"]
@@ -272,13 +271,10 @@ async def test_a_kill_after_the_marker_waits_for_the_owner_and_records_once(
         await asyncio.sleep(0.01)
 
     clock.now += DISPATCH_WINDOW + timedelta(seconds=1)
-    assert jobs.sweep().outcome_unknown == [connection]
+    assert jobs.sweep().rerun == [connection]
     draft = service.get(user_id=owner, connection_id=connection, scope=PERSONAL)
-    assert draft.error_code == OUTCOME_UNKNOWN
-    assert service.store.pull(now=clock(), cap=3) is None
+    assert (draft.status, draft.error_code) == ("queued", None)
 
-    service.queue(user_id=owner, connection_id=connection, consent=True, scope=PERSONAL)
-    jobs.start(user_id=owner, connection_id=connection)
     assert await run_attempt(service, *service.store.pull(now=clock(), cap=3)) == (
         "prepared"
     )
@@ -287,6 +283,7 @@ async def test_a_kill_after_the_marker_waits_for_the_owner_and_records_once(
 
     assert extractor.calls == 2
     assert observations(pool, owner, connection) == 1
+    assert jobs.sweep().rerun == []
 
 
 def test_the_worker_command_starts_and_stops_on_sigterm() -> None:

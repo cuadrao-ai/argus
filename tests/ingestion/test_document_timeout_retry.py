@@ -271,6 +271,38 @@ async def test_a_worker_attempt_reads_once_more_inside_itself_and_never_again(ri
     assert (provider.calls, rig.budget.charged) == (2, 2)
 
 
+@pytest.mark.asyncio
+async def test_a_business_read_killed_after_its_call_is_rerun_and_charged_per_call(
+    rig,
+):
+    provider = rig.answers(OK, OK, gated=True)
+    connection = await rig.upload()
+    rig.service.jobs_recover_interruptions = True
+    jobs = PreparationJobs(rig.service, None)
+    jobs.start(user_id=rig.owner, connection_id=connection)
+    store, clock = rig.service.store, rig.service.hub.clock
+    killed = asyncio.create_task(
+        run_attempt(rig.service, *store.pull(now=clock(), cap=1))
+    )
+    await asyncio.wait_for(provider.started.wait(), timeout=5)
+    killed.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await killed
+    assert (provider.calls, rig.budget.charged, rig.saves) == (1, 1, 0)
+
+    assert jobs.sweep().rerun == [connection]
+    rerun = asyncio.create_task(
+        run_attempt(rig.service, *store.pull(now=clock(), cap=1))
+    )
+    await asyncio.wait_for(provider.started.wait(), timeout=5)
+    provider.release()
+    assert await rerun == "prepared"
+
+    assert rig.draft(connection).status == "review_ready"
+    assert (provider.calls, rig.budget.charged, rig.saves) == (2, 2, 1)
+    assert jobs.sweep().rerun == []
+
+
 def _page() -> bytes:
     page = io.BytesIO()
     Image.new("RGB", (40, 40), fake.hex_color()).save(page, format="JPEG")
