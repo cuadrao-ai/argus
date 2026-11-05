@@ -115,14 +115,20 @@ def _headers(world) -> dict:  # noqa: ANN001
     return {**world.alice.headers, "Idempotency-Key": str(uuid4())}
 
 
-def _own_rnc(world, value: str = OWN_RNC) -> None:  # noqa: ANN001
+def _own_rnc(
+    world,  # noqa: ANN001
+    value: str | None = OWN_RNC,
+    previous: str | None = None,
+) -> None:
     saved = world.client.patch(
         f"{API}/business/fiscal-profile",
         json={
             "name": NAME,
             "previous_name": NAME,
-            "tax_id": {"type": "rnc", "value": value},
-            "previous_tax_id": None,
+            "tax_id": None if value is None else {"type": "rnc", "value": value},
+            "previous_tax_id": None
+            if previous is None
+            else {"type": "rnc", "value": previous},
         },
         headers=_headers(world),
     )
@@ -312,6 +318,88 @@ def test_adding_the_business_rnc_types_the_open_drafts_again(web) -> None:  # no
         for draft in kept
     } == kept
     assert kept[approved][0] == ("recibo", True, False)
+
+
+def _stored_type(world, draft_id: str) -> tuple:  # noqa: ANN001
+    dossier = _dossier(world, draft_id)
+    return (*_typed(dossier), dossier["facts"]["kind"]["value"])
+
+
+def test_clearing_and_restoring_the_business_rnc_leaves_every_type_as_read(
+    web,  # noqa: ANN001
+) -> None:
+    """The re-check decides from the issuer the read found, never from the
+    RNC fact a Venta clears: a read Venta is still a Venta."""
+
+    _own_rnc(web)
+    drafts = (
+        _upload(web, OWN_RNC)["draft_id"],
+        _upload(web, SUPPLIER_RNC, occurred_on="2026-09-04")["draft_id"],
+        _upload(web, None, occurred_on="2026-09-05")["draft_id"],
+    )
+    read = {draft: _stored_type(web, draft) for draft in drafts}
+    assert [value[:2] for value in read.values()] == [
+        ("venta", True),
+        ("recibo", True),
+        ("recibo", False),
+    ]
+
+    _own_rnc(web, None, previous=OWN_RNC)
+    _own_rnc(web, OWN_RNC)
+
+    assert {draft: _stored_type(web, draft) for draft in drafts} == read
+
+
+def _retyped(dossier: dict) -> tuple:
+    """What a type change leaves on the draft, apart from who chose it."""
+
+    facts = dossier["facts"]
+    return (
+        dossier["dgii"],
+        facts["kind"]["value"],
+        facts["amount"]["value"],
+        facts["fiscal"]["rnc"]["state"],
+    )
+
+
+def test_a_recheck_and_a_hand_pick_retype_a_filled_purchase_the_same_way(
+    web,  # noqa: ANN001
+) -> None:
+    """Two purchases with their 606 filled. The corrected Business RNC makes
+    the read one a Venta; the owner then names the uploaded-as-Compra one a
+    Venta under the same RNC. Both drop the 606 and read the same; the next
+    correction makes the re-checked one a Compra again with no 607."""
+
+    _own_rnc(web)
+    account = _account(web)
+    filled = []
+    for day, named in (("2026-09-08", "recibo"), ("2026-09-09", None)):
+        draft = _upload(web, SUPPLIER_RNC, named, occurred_on=day)["draft_id"]
+        facts = _facts("expense", "1180.00", day, account)
+        del facts["kind"]
+        reviewed = _review(web, draft, {"facts": facts, "dgii": PURCHASE_606})
+        assert reviewed.status_code == 200, reviewed.text
+        assert reviewed.json()["dgii"]["form"] == "606"
+        filled.append(draft)
+    picked, rechecked = filled
+
+    _own_rnc(web, SUPPLIER_RNC, previous=OWN_RNC)
+
+    assert _dossier(web, picked)["dgii"]["form"] == "606"
+    assert _review(web, picked, {"document_type": "venta"}).status_code == 200
+    by_hand, by_rule = _dossier(web, picked), _dossier(web, rechecked)
+    assert (_typed(by_hand), _typed(by_rule)) == (
+        ("venta", False, True),
+        ("venta", True, True),
+    )
+    assert _retyped(by_hand) == _retyped(by_rule)
+    assert _retyped(by_rule)[0] is None
+    assert _editors(web, rechecked) == (False, True)
+
+    _own_rnc(web, OWN_RNC, previous=SUPPLIER_RNC)
+
+    back = _dossier(web, rechecked)
+    assert (_typed(back), back["dgii"]) == (("recibo", True, True), None)
 
 
 @pytest.mark.parametrize("printed,named", [(OWN_RNC, "recibo"), (SUPPLIER_RNC, "venta")])

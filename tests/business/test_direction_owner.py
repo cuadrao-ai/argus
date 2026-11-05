@@ -541,14 +541,40 @@ def _typed_saved(saved: dict) -> tuple:
     return (*_resolved(saved), saved["facts"]["kind"]["value"])
 
 
+def _read_event(
+    monkeypatch,  # noqa: ANN001
+    *,
+    printed: str | None,
+    own: str | None,
+    qr: bool = False,
+) -> ImportEvent:
+    """An open draft as the read saved it on a Business whose RNC was ``own``."""
+
+    saved = _read(monkeypatch, named=None, printed=printed, own=own, qr=qr)
+    event = _event(saved["document_type"], BusinessFacts.model_validate(saved["facts"]))
+    event.resolution["business"] = saved
+    return event
+
+
+def _with(event: ImportEvent, saved: dict) -> ImportEvent:
+    return replace(event, resolution={"business": saved}, version=event.version + 1)
+
+
+def _rechecked(monkeypatch, own: str | None, event: ImportEvent) -> ImportEvent:  # noqa: ANN001
+    """The draft after the rule runs again on a Business whose RNC is ``own``."""
+
+    _changed, saved = _recheck(monkeypatch, own, event)
+    return _with(event, saved[event.id]) if event.id in saved else event
+
+
 def test_adding_the_business_rnc_types_the_open_drafts_the_rule_owns_again(monkeypatch):
     """A suggested receipt whose issuer is the Business becomes a Venta, one
     whose issuer differs a detected receipt, one with no issuer the default
     receipt; a type a person named, or the rule already defaulted, stays."""
 
-    own_issuer = _suggested_event(OWN)
-    other_issuer = _suggested_event(OTHER)
-    no_issuer = _suggested_event(None)
+    own_issuer = _read_event(monkeypatch, printed=OWN, own=None)
+    other_issuer = _read_event(monkeypatch, printed=OTHER, own=None)
+    no_issuer = _read_event(monkeypatch, printed=None, own=None)
     named = _event("venta", _facts(PURCHASE_NCF, kind="income"))
     named.resolution["business"]["document_type_detected"] = False
     defaulted = _event("recibo", _facts(PURCHASE_NCF, kind="expense"))
@@ -567,22 +593,122 @@ def test_adding_the_business_rnc_types_the_open_drafts_the_rule_owns_again(monke
 def test_changing_the_business_rnc_re_reads_a_detected_type_and_removing_it_suggests_again(
     monkeypatch,
 ):
-    detected = _suggested_event(OWN)
-    detected.resolution["business"].update(
-        document_type_detected=True, document_type_suggested=False
-    )
+    detected = _read_event(monkeypatch, printed=OWN, own=OTHER)
+    assert _resolved(detected.resolution["business"]) == ("recibo", True, False)
     changed, saved = _recheck(monkeypatch, OWN, detected)
     assert (changed, _typed_saved(saved[detected.id])) == (
         1,
         ("venta", True, False, "income"),
     )
 
-    sold = _event("venta", _facts(PURCHASE_NCF, kind="income"))
+    sold = _read_event(monkeypatch, printed=OWN, own=OWN)
     changed, saved = _recheck(monkeypatch, None, sold)
     assert (changed, _typed_saved(saved[sold.id])) == (
         1,
         ("recibo", False, True, "expense"),
     )
+
+
+ROUND_TRIP_READS = {
+    "printed_own_rnc": dict(printed=OWN, own=OWN),
+    "printed_other_rnc": dict(printed=OTHER, own=OWN),
+    "qr_issuer_is_the_business": dict(printed=OTHER, own=QR_ISSUER, qr=True),
+    "qr_issuer_outranks_a_printed_own_rnc": dict(printed=OWN, own=OWN, qr=True),
+    "no_issuer": dict(printed=None, own=OWN),
+}
+
+
+@pytest.mark.parametrize("name", list(ROUND_TRIP_READS))
+def test_clearing_and_restoring_the_same_business_rnc_leaves_every_type_as_read(
+    monkeypatch, name
+):
+    """The re-check decides from the issuer the read found, never from the
+    RNC fact a Venta clears: an untouched Venta stays a Venta."""
+
+    read = ROUND_TRIP_READS[name]
+    event = _read_event(monkeypatch, **read)
+    cleared = _rechecked(monkeypatch, None, event)
+    restored = _rechecked(monkeypatch, read["own"], cleared)
+    assert _typed_saved(restored.resolution["business"]) == _typed_saved(
+        event.resolution["business"]
+    )
+
+
+def test_a_detected_draft_read_before_the_issuer_was_recorded_keeps_its_type(
+    monkeypatch,
+):
+    """Nothing the read found is left to compare: the type stays as read."""
+
+    legacy = _event("venta", _facts(PURCHASE_NCF, kind="income"))
+    for own in (None, OTHER):
+        assert _recheck(monkeypatch, own, legacy) == (0, {})
+
+
+def _filled(monkeypatch, event: ImportEvent, **write) -> ImportEvent:  # noqa: ANN001, ANN003
+    """The draft after a person fills its own form."""
+
+    return _with(event, _review(monkeypatch, event, None, **write))
+
+
+def _form(saved: dict) -> str | None:
+    return (saved.get("dgii") or {}).get("form")
+
+
+def test_a_recheck_that_changes_the_type_leaves_no_declaration_of_the_other_form(
+    monkeypatch,
+):
+    """A Compra with its 606 filled becomes a Venta when the Business RNC is
+    corrected to the issuer's, and back: neither carries the other's form,
+    and the amount is no longer the server's."""
+
+    purchase = _filled(
+        monkeypatch,
+        _read_event(monkeypatch, printed=OTHER, own=OWN),
+        purchase=PurchaseReview(category="02"),
+    )
+    held = purchase.resolution["business"]
+    assert (_form(held), held.get("amount_derived")) == ("606", True)
+
+    sale = _rechecked(monkeypatch, OTHER, purchase)
+    saved = sale.resolution["business"]
+    assert saved["document_type"] == "venta"
+    assert (_form(saved), saved.get("amount_derived", False)) == (None, False)
+
+    split = _filled(monkeypatch, sale, payment_split=SalePaymentSplit(bank="118.00"))
+    assert _form(split.resolution["business"]) == "607"
+    back = _rechecked(monkeypatch, OWN, split).resolution["business"]
+    assert back["document_type"] == "recibo"
+    assert (_form(back), back.get("amount_derived", False)) == (None, False)
+
+
+def _stored_result(saved: dict) -> tuple:
+    """What a type change leaves on the draft, apart from who chose it."""
+
+    facts = saved["facts"]
+    return (
+        saved["document_type"],
+        saved.get("dgii"),
+        saved.get("amount_derived", False),
+        saved.get("bill_mark"),
+        facts["kind"]["value"],
+        facts["fiscal"]["rnc"]["state"],
+        facts["fiscal"]["rnc"].get("value"),
+    )
+
+
+def test_a_manual_and_an_automatic_retype_store_the_same_result(monkeypatch):
+    """A person naming Venta and the re-check reading Venta change the same
+    draft the same way: the type, the facts it gives, and no 606 left."""
+
+    purchase = _filled(
+        monkeypatch,
+        _read_event(monkeypatch, printed=OTHER, own=OWN),
+        purchase=PurchaseReview(category="02"),
+    )
+    automatic = _rechecked(monkeypatch, OTHER, purchase).resolution["business"]
+    manual = _review(monkeypatch, purchase, None, document_type="venta", tx=_tx(OTHER))
+    assert _stored_result(automatic) == _stored_result(manual)
+    assert _stored_result(manual)[:3] == ("venta", None, False)
 
 
 def test_a_profile_change_types_open_drafts_again_only_when_the_number_changes(
@@ -596,7 +722,7 @@ def test_a_profile_change_types_open_drafts_again_only_when_the_number_changes(
 
     from argus.domain.business import fiscal_profile
 
-    waiting = _suggested_event(OWN)
+    waiting = _read_event(monkeypatch, printed=OWN, own=None)
     tx = _tx(OWN)
     tx.imports.events = lambda states: [waiting] if states == ("open",) else []
     tx.authorization = SimpleNamespace(provenance=MEMBER, permissions=("manage",))
