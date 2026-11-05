@@ -232,21 +232,21 @@ def test_the_business_own_rnc_in_any_format_reads_as_a_detected_venta(
     assert _typed(reviewed.json()) == ("venta", True, True)
 
 
-@pytest.mark.parametrize("own,detected", [(OWN_RNC, True), (None, False)])
-def test_another_rnc_reads_as_a_detected_receipt_and_no_profile_as_a_default(
+@pytest.mark.parametrize("own", [OWN_RNC, None])
+def test_another_rnc_and_no_profile_read_as_a_receipt_the_read_chose(
     web,  # noqa: ANN001
     own,  # noqa: ANN001
-    detected,  # noqa: ANN001
 ) -> None:
-    """With no Business RNC there is nothing to compare: the receipt is a
-    default, not the read's choice."""
+    """With no Business RNC there is nothing to compare: even the Business's
+    own number reads as a receipt, shown as the read's choice so the person
+    may switch it."""
 
     if own is not None:
         _own_rnc(web, own)
     receipt = _upload(web, SUPPLIER_RNC if own else OWN_RNC)
-    assert _typed(receipt) == ("recibo", detected, True)
+    assert _typed(receipt) == ("recibo", True, True)
     dossier = _dossier(web, receipt["draft_id"])
-    assert _typed(dossier) == ("recibo", detected, True)
+    assert _typed(dossier) == ("recibo", True, True)
     assert dossier["facts"]["kind"]["value"] == "expense"
 
 
@@ -634,7 +634,8 @@ def test_a_kind_and_a_type_that_disagree_are_refused(web) -> None:  # noqa: ANN0
             422,
             "activity_kind_unsupported",
         ), body
-    assert _typed(_dossier(web, draft)) == ("recibo", False, True)
+    # Nothing was saved: the receipt read with no Business RNC stands.
+    assert _typed(_dossier(web, draft)) == ("recibo", True, True)
 
 
 def _legacy_receipt_saved_as_income(web) -> str:  # noqa: ANN001
@@ -734,6 +735,62 @@ def _editors(world, draft_id: str) -> tuple:  # noqa: ANN001
 
     view = _dossier(world, draft_id)
     return view["declaration_editable"], view["payment_split_editable"]
+
+
+def test_with_no_business_rnc_a_receipt_is_the_reads_choice_and_approves(
+    web,  # noqa: ANN001
+) -> None:
+    """The type adds no blocker: the 606 editor is on and the owner approves
+    the receipt as an expense."""
+
+    account = _account(web)
+    draft = _upload(web, OWN_RNC)["draft_id"]
+    assert _typed(_dossier(web, draft)) == ("recibo", True, True)
+    assert _editors(web, draft) == (True, False)
+    # A stated kind would name the type; the review keeps the kind as read.
+    facts = _facts("expense", "1180.00", "2026-09-03", account)
+    del facts["kind"]
+    reviewed = _review(web, draft, {"facts": facts, "dgii": PURCHASE_606})
+    assert reviewed.status_code == 200, reviewed.text
+    assert _typed(reviewed.json()) == ("recibo", True, True)
+    assert reviewed.json()["approval_available"] is True, reviewed.json()["blockers"]
+    _approve(web, draft, "record_expense")
+    assert _typed(_dossier(web, draft)) == ("recibo", True, False)
+
+
+def _as_saved(dossier: dict) -> tuple:
+    return (
+        _typed(dossier),
+        dossier["version"],
+        len(dossier["history"]),
+        dossier["facts"],
+        dossier["dgii"],
+    )
+
+
+def test_setting_the_business_rnc_later_retypes_no_draft_and_the_next_read_uses_it(
+    web,  # noqa: ANN001
+) -> None:
+    """Drafts read before the Business RNC keep the receipt they were read as,
+    with no new revision. A receipt read after it is compared with it: the
+    Business's own number reads as a Venta."""
+
+    early = [
+        _upload(web, OWN_RNC)["draft_id"],
+        _upload(web, SUPPLIER_RNC, occurred_on="2026-09-04")["draft_id"],
+    ]
+    note = _capture(web, {"text": "Compra de clavos"})
+    assert note.status_code == 200, note.text
+    early.append(note.json()["draft_id"])
+    before = {draft: _as_saved(_dossier(web, draft)) for draft in early}
+    assert {saved[0] for saved in before.values()} == {("recibo", True, True)}
+
+    _own_rnc(web)
+
+    assert {draft: _as_saved(_dossier(web, draft)) for draft in early} == before
+    later = _upload(web, OWN_RNC, occurred_on="2026-09-05")
+    assert _typed(later) == ("venta", True, True)
+    assert _typed(_dossier(web, later["draft_id"])) == ("venta", True, True)
 
 
 @pytest.mark.parametrize(

@@ -75,15 +75,20 @@ def resolved_document_type(
     named: DocumentType | None, issuer_tax_id: str | None, business_tax_id: str | None
 ) -> tuple[DocumentType, bool]:
     """The type a new draft takes, and whether the read chose it. A named type
-    wins. Otherwise the issuer decides: the Business's own number is a Venta,
-    any other a receipt. With no issuer or no Business number to compare, a
-    receipt by default, never marked as the read's choice."""
+    wins. With no Business number nothing tells a sale from a purchase: a
+    receipt marked as the read's choice, so the person sees it and may switch
+    it. Otherwise the issuer decides: the Business's own number is a Venta,
+    any other a receipt. With no issuer to compare, a receipt by default,
+    never marked as the read's choice. A number set later types no existing
+    draft again."""
 
     if named is not None:
         return named, False
-    issuer = normalized_taxpayer_id(issuer_tax_id)
     own = normalized_taxpayer_id(business_tax_id)
-    if issuer is None or own is None:
+    if own is None:
+        return "recibo", True
+    issuer = normalized_taxpayer_id(issuer_tax_id)
+    if issuer is None:
         return "recibo", False
     return ("venta" if issuer == own else "recibo"), True
 

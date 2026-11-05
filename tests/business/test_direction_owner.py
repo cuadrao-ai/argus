@@ -16,6 +16,7 @@ from uuid import uuid4
 import pytest
 from argus.domain.business import document_type as types
 from argus.domain.business.actions import approval, captures, mutations, sources
+from argus.domain.business.actions import dossier as dossier_actions
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import CaptureNote
 from argus.domain.business.contracts.dgii import (
@@ -23,7 +24,7 @@ from argus.domain.business.contracts.dgii import (
     PurchaseReview,
     SalePaymentSplit,
 )
-from argus.domain.business.contracts.facts import BusinessFacts, Known
+from argus.domain.business.contracts.facts import BusinessFacts, BusinessResolution, Known
 from argus.domain.business.dgii_export import fiscal_manifest
 from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.month_close import project_documents
@@ -68,10 +69,13 @@ PERIOD = dict(start=date(2026, 9, 1), end=date(2026, 9, 30), captured_on=date(20
         (None, OTHER, OWN, ("recibo", True)),
         # A typed note prints no issuer: a receipt by default.
         (None, None, OWN, ("recibo", False)),
-        # No Business RNC to compare with: a receipt by default.
-        (None, OTHER, None, ("recibo", False)),
+        # No Business RNC to compare with: a receipt shown as the read's
+        # choice, whatever is printed, so the person may switch it.
+        (None, OTHER, None, ("recibo", True)),
+        (None, OWN, None, ("recibo", True)),
         (None, "RNC 131000002", OWN, ("recibo", False)),
-        (None, None, None, ("recibo", False)),
+        (None, None, None, ("recibo", True)),
+        ("venta", None, None, ("venta", False)),
     ],
 )
 def test_one_rule_names_the_type_and_whether_the_read_chose_it(
@@ -180,6 +184,10 @@ def _typed(monkeypatch, request: CaptureNote, own: str | None) -> tuple[dict, Si
     return tx.imports.put_event.call_args.args[0].resolution["business"], tx
 
 
+TYPED_PURCHASE = CaptureNote(
+    text="Clavos", purchase={"amount": "118.00", "occurred_on": "2026-09-03"}
+)
+
 CASES = {
     "named_recibo": (
         lambda m: _read(m, named="recibo", printed=OWN, own=OWN),
@@ -214,6 +222,14 @@ CASES = {
             m, CaptureNote(text="Factura a cliente", document_type="venta"), OWN
         )[0],
         ("venta", False),
+    ),
+    "own_rnc_printed_with_no_business_rnc": (
+        lambda m: _read(m, named=None, printed=OWN, own=None),
+        ("recibo", True),
+    ),
+    "typed_note_with_no_business_rnc": (
+        lambda m: _typed(m, CaptureNote(text="Compra de clavos"), None)[0],
+        ("recibo", True),
     ),
 }
 
@@ -344,8 +360,8 @@ def test_an_approved_record_routes_by_its_type_with_no_draft_in_hand(monkeypatch
     "make",
     [
         lambda m: _read(m, named=None, printed=None, own=OWN),
-        lambda m: _read(m, named=None, printed=OTHER, own=None),
-        lambda m: _typed(m, CaptureNote(text="Compra de clavos"), None)[0],
+        lambda m: _typed(m, CaptureNote(text="Compra de clavos"), OWN)[0],
+        lambda m: _typed(m, TYPED_PURCHASE, None)[0],
     ],
 )
 def test_a_defaulted_type_is_never_marked_detected(monkeypatch, make):
@@ -354,6 +370,39 @@ def test_a_defaulted_type_is_never_marked_detected(monkeypatch, make):
         "recibo",
         False,
     )
+
+
+@pytest.mark.parametrize(
+    "make",
+    [
+        lambda m: _read(m, named=None, printed=OTHER, own=None),
+        lambda m: _read(m, named=None, printed=OWN, own=None),
+        lambda m: _read(m, named=None, printed=None, own=None),
+        lambda m: _typed(m, CaptureNote(text="Compra de clavos"), None)[0],
+    ],
+)
+def test_with_no_business_rnc_a_receipt_is_the_reads_choice_and_ready_to_approve(
+    monkeypatch, make
+):
+    """The dossier's ``document_type_detected`` is true, so the Bandeja shows
+    the line that offers the switch to Venta. The 606 editor is on and the
+    type adds no blocker."""
+
+    saved = make(monkeypatch)
+    resolution = BusinessResolution.model_validate(saved)
+    assert (resolution.document_type, resolution.document_type_detected) == (
+        "recibo",
+        True,
+    )
+    assert takes_purchase_declaration("recibo", resolution.facts) is True
+    event = _event("recibo", resolution.facts)
+    event.resolution["business"] = saved
+    monkeypatch.setattr(dossier_actions, "blockers", lambda *args: [])
+    monkeypatch.setattr(dossier_actions, "pending_duplicates", lambda *args: {})
+    blocked, _ids = dossier_actions.workflow_blockers(
+        _tx(None), event, resolution.facts, (), ()
+    )
+    assert blocked == []
 
 
 def test_typed_entry_reads_the_business_rnc(monkeypatch):

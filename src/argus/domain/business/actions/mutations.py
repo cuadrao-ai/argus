@@ -661,14 +661,15 @@ def _read_document_type(
         issuer = batch.dgii_qr.rnc_emisor
     else:
         issuer = batch.receipt.rnc if batch.receipt is not None else None
-    document_type, detected = resolved_document_type(
-        draft.document_type, issuer, business_tax_id(tx)
-    )
+    own = business_tax_id(tx)
+    document_type, detected = resolved_document_type(draft.document_type, issuer, own)
     if detected:
         logger.info(
-            "business_document_type_detected type={} issuer_from_qr={}",
+            "business_document_type_detected type={} issuer_from_qr={}"
+            " business_rnc_missing={}",
             document_type,
             batch.dgii_qr is not None,
+            own is None,
         )
     return document_type, detected
 

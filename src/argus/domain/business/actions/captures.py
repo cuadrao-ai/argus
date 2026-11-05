@@ -78,11 +78,12 @@ def capture(
                             currency=Known(value="DOP", origin="default", source_ids=())
                         )
                         # A typed note prints no issuer RNC: the read's rule
-                        # names the type, a receipt by default.
+                        # names the type. A typed purchase names a receipt.
                         own = mutations.business_tax_id(tx)
-                        document_type, detected = resolved_document_type(
-                            request.document_type, None, own
-                        )
+                        named = request.document_type
+                        if named is None and request.purchase is not None:
+                            named = "recibo"
+                        document_type, detected = resolved_document_type(named, None, own)
                         if request.purchase is not None:
                             after = _typed_purchase_facts(request, source_id)
                         if document_type == "venta":
