@@ -1,0 +1,15 @@
+{
+  "id": "staging-apply-2026-11-05-read-budget",
+  "project_ref": "skedzwocnmrhfigiwyzi",
+  "hosts": [
+    "db.skedzwocnmrhfigiwyzi.supabase.co",
+    "aws-0-us-east-1.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "39274cae36252af3f7388bda42c196592916f697",
+  "versions_sha256": "5bb170fc59f39864c4e31177dc1149fddcdccb20fbccb010c041c84a810daea8",
+  "issued_at": "2026-11-05T00:19:54Z",
+  "expires_at": "2026-11-07T00:19:54Z",
+  "approved_by": "founder",
+  "approval_reference": "Standing rule from Lucas, 2026-10-21: a reviewed migration may be applied to staging only with a committed approval record and a dry run first. PR 1783 (per-Business read budget) passed its Codex review and was merged at 25d6f2a46; the founder asked on 2026-11-04 to run the 70 and 150 photo bursts on staging after bulk steps 2 and 3."
+}

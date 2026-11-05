@@ -11,6 +11,7 @@ on:
       - web/app/auth-entry.module.css
       - web/public/locales/*/common.json
       - web/scripts/auth-design-evidence.ts
+      - web/scripts/invite-only-evidence.ts
       - web/scripts/recovery-design-evidence.ts
       - .github/workflows/auth-design-evidence.yml
 
@@ -62,6 +63,7 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:3199/ > /dev/null
           bun scripts/auth-design-evidence.ts
+          bun scripts/invite-only-evidence.ts
           bun scripts/recovery-design-evidence.ts capture
       - name: Remove local-only recovery component fixture
         if: always()
