@@ -301,6 +301,18 @@ def test_qa_script_derives_internal_database_url_from_session_pooler() -> None:
     assert "Session Pooler -> internal DATABASE_URL" in qa_script
 
 
+def test_only_the_postgres_mode_runs_the_document_worker() -> None:
+    """The API never reads a receipt. QA mode reads through the worker beside
+    it; memory mode has no queue a second process can read, so nothing does."""
+    qa_script = _source(".github/qa.sh")
+    dev_script = _source(".github/dev.sh")
+
+    assert "poetry run python -m workflows.document_worker &" in qa_script
+    assert qa_script.index("workflows.document_worker") < qa_script.index("fastapi dev")
+    assert "workflows.document_worker" not in dev_script
+    assert "Receipt reads: None" in dev_script
+
+
 def test_dev_script_ignores_database_urls_even_when_env_contains_them() -> None:
     dev_script = _source(".github/dev.sh")
     env_contract = ENV_CONTRACT.read_text()

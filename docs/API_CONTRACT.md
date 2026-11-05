@@ -8897,16 +8897,16 @@ the same draft.
 
 There is one read path and no setting turns it off. Capture and `/prepare` or
 `/resume` record one attempt before responding and leave the draft `queued` on
-its row. Every API instance runs a puller that takes the oldest waiting attempt
-from the database, and `python -m workflows.document_worker` runs the same
-puller to add capacity; two pullers never take one attempt. At most
+its row. The API never reads it: `python -m workflows.document_worker` is the
+only reader, and it takes the oldest waiting attempt from the database; two
+workers never take one attempt. At most
 `CUADRAO_DOCUMENT_JOBS_MAX_READS` (default 3) reads run at once across every
-instance and worker. A waiting attempt costs nothing and never expires: it
+worker. A waiting attempt costs nothing and never expires: it
 counts as lost only after a puller took it. Before an attempt can reach the
 provider it durably records that its provider call started. An attempt cut off
 after that record (a deploy, a restart or a crash mid-read) is run again once,
 paid again; a rerun cut off the same way waits for the owner. A sweep in every
-puller, once at start and every `CUADRAO_DOCUMENT_JOBS_SWEEP_SECONDS` (default
+worker, once at start and every `CUADRAO_DOCUMENT_JOBS_SWEEP_SECONDS` (default
 30), settles an attempt whose process died as follows:
 
 - No provider-call record, and the draft's claim names the current attempt
@@ -8931,7 +8931,7 @@ puller, once at start and every `CUADRAO_DOCUMENT_JOBS_SWEEP_SECONDS` (default
 
 Only the owner's `/prepare` or `/resume` with `X-Extraction-Consent: true`
 starts a new paid attempt from `needs_attention`. A superseded attempt's late
-result is refused. Instances coordinate through the database, so one attempt is
+result is refused. Workers coordinate through the database, so one attempt is
 taken once. Settings are `CUADRAO_DOCUMENT_JOBS_MAX_READS`,
 `CUADRAO_DOCUMENT_JOBS_SWEEP_SECONDS` and `CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS`
 (older `ARGUS_` names). `CUADRAO_DOCUMENT_JOBS_ENABLED`,
@@ -8939,17 +8939,15 @@ taken once. Settings are `CUADRAO_DOCUMENT_JOBS_MAX_READS`,
 no longer exist. Design: `docs/specs/lanes/cuadrao-document-preparation-jobs.md`.
 
 `/prepare` or `/resume` of a saved preparation returns the draft to `queued`
-until a puller replays it. A stopping puller, the API on SIGTERM (a deploy or a
-restart) once WhatsApp deliveries settle, or the worker command, takes no new
-read, waits for a sweep already running, and gives reads in flight
+until a puller replays it. A stopping worker (SIGTERM on a deploy or a restart)
+takes no new read, waits for a sweep already running, and gives reads in flight
 `CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS` (default 210: two provider calls at their
 90 s timeout, the second being the retry after a timeout, plus local work) to
 finish. A read still running then is cancelled, which releases its lease, so
 the next boot's first sweep reruns it. An attempt recorded while a puller stops
-waits on its row for the next puller. The API service's shutdown delay must
-cover the WhatsApp drain (20 s), the read drain and the 5 s cancel wait: 240 s
-at the defaults, and the host allows at most 300 s; the worker's, the drain
-plus 5 s.
+waits on its row for the next puller. The worker's shutdown delay must cover
+the read drain and the 5 s cancel wait: 215 s at the defaults, and the host
+allows at most 300 s. The API drains no reads.
 
 Preparation preserves extracted observations and receipt itemization separately
 from canonical candidate projection. Receipt payment evidence is `paid|pending|unknown`,
@@ -9289,7 +9287,7 @@ A Business owner explicitly enables scope version 2 `business_receipt_reading` f
 
 `GET /business/receipt-reading?language=en|es-419` returns the current permission and disclosure. It changes nothing. The disclosure is the one sentence the Recepción card shows under its title, and the web shows it as the server sends it. `DISCLOSURES` in `src/argus/domain/business/receipt_consent.py` owns its words. A new wording is a new scope version. An owner who accepted an earlier scope reads `enabled: false` and is asked again; until they accept, their receipts are saved unread and no read runs. `POST /business/receipt-reading` takes `{enabled,scope_version,disclosure_token,language}` and `Idempotency-Key` from the owner. `scope_version` is the one the `GET` returned (2); any other version is refused with 422 `business_receipt_consent_changed`. The displayed disclosure and current processor/model route bind acceptance. Every enable, no-op enable and disable command is replay-safe; a delayed command cannot reverse a later choice. Enable queues saved unread receipts with no prior failure or extraction under the newly accepted generation. Failed and provider-unknown outcomes require explicit recovery. The existing document job and preparation binding remain the only reader. Email originals with attached receipt files provide context and are not read or counted twice.
 
-The stored setting is the only consent for a Business read, on every path: web upload, the legacy `/prepare`, email, WhatsApp, and every puller that reads (each API instance and `python -m workflows.document_worker`). A receipt is queued under the setting's current generation and read only while that generation is still on. Each read asks again before it reads the source and again just before the provider call; a setting turned off in between leaves the receipt `saved`, unread, with no provider call. A reader built without the setting never reads a Business receipt. `X-Extraction-Consent` on `POST /business/receipts` is ignored for every caller, owner or grantee: the receipt is `queued` while the setting is on and `saved` while it is off.
+The stored setting is the only consent for a Business read, on every path: web upload, the legacy `/prepare`, email, WhatsApp, and the reader (`python -m workflows.document_worker`). A receipt is queued under the setting's current generation and read only while that generation is still on. Each read asks again before it reads the source and again just before the provider call; a setting turned off in between leaves the receipt `saved`, unread, with no provider call. A reader built without the setting never reads a Business receipt. `X-Extraction-Consent` on `POST /business/receipts` is ignored for every caller, owner or grantee: the receipt is `queued` while the setting is on and `saved` while it is off.
 
 Receipt summary/detail add `activity:{state,unread,completion_cursor}` after canonical Business draft overlay. State is `saved_unread|reading|ready|read_failed|blocked|inactive`; blocked is reserved for a security denial. `GET /business/receipt-activity` returns server `reading_count`, `unread_count`, `presentation:working|unread|none`, `pending_review_count`, `needs_attention_count`, `ready_to_review_count`, `bandeja_listo_count`, `bandeja_attention_count` and `por_igualar_count`. Saved unread and unread ready receipts count as unread; security-blocked and context originals do not. Existing completions before the migration baseline start read. A new completion on an older receipt is unread.
 

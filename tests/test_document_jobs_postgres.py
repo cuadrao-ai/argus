@@ -356,7 +356,7 @@ def puller_settings(**changes: Any) -> DocumentJobSettings:
 async def running_pullers(
     *services: DocumentsService, **changes: Any
 ) -> AsyncIterator[list[asyncio.Task[None]]]:
-    """One API instance's puller per service, over one database, stopped and
+    """One document worker per service, over one database, stopped and
     drained on exit whatever the test raised."""
     stops = [asyncio.Event() for _ in services]
     pullers = [
@@ -417,7 +417,7 @@ async def test_a_deploy_that_cuts_a_read_is_rerun_by_the_next_boot(
 
 @dataclass
 class Meter:
-    """Reads in provider calls at once across every instance on this loop.
+    """Reads in provider calls at once across every worker on this loop.
     Each holds until ``open`` is set, so the cap is reached and held."""
 
     running: int = 0

@@ -167,8 +167,6 @@ class DocumentsDestination:
         draft's status then, still ``queued`` or ``preparing`` when one read's
         time passed first, else ``None``."""
 
-        from fastapi import BackgroundTasks
-
         from argus.api.documents import dispatch_preparation
 
         scope = resolve_business_scope(self.spaces, owner_id)
@@ -179,13 +177,11 @@ class DocumentsDestination:
         )
         if current.status != "queued":
             return None
-        tasks = BackgroundTasks()
         try:
             await dispatch_preparation(
                 _as_owner(self.documents, owner_id, scope.owner),
                 owner_id,
                 connection_id,
-                tasks,
                 scope=scope.owner,
             )
         except Exception as error:
@@ -203,15 +199,14 @@ class DocumentsDestination:
             except Exception as release_error:  # noqa: BLE001
                 raise error from release_error
             raise
-        await tasks()
         settled = await self._settled(owner_id, connection_id, scope.owner)
         return settled.status, self._found(owner_id, connection_id)
 
     async def _settled(
         self, owner_id: str, connection_id: str, scope: OwnerScope
     ) -> DocumentDraft:
-        """The read runs on whichever puller takes it, here or in another
-        process, so its row is the only place it shows it is done."""
+        """The read runs on the document worker, in another process, so its
+        row is the only place it shows it is done."""
 
         loop = asyncio.get_running_loop()
         deadline = loop.time() + read_seconds()

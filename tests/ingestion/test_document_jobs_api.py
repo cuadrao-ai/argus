@@ -1,7 +1,8 @@
-"""Document preparation jobs recover a dead worker while the API keeps running.
+"""Document preparation jobs recover a dead read while the API keeps running.
 
-The worker is this process's in-process fallback; the provider is scripted, so
-no model is called. The sweep runs on its own cadence inside the running app.
+The API only records each read; the document worker, run here on the test
+client's loop over the app's own documents service, reads it. The provider is
+scripted, so no model is called. The sweep runs on the worker's cadence.
 """
 
 import asyncio
@@ -15,16 +16,13 @@ from unittest.mock import patch
 
 import pytest
 from argus.api import state as api_state
-from argus.api.document_jobs import (
-    document_worker,
-    drain_document_jobs,
-    start_document_jobs,
-    stop_document_jobs,
-)
 from argus.api.documents import dispatch_preparation, documents_service
 from argus.api.main import app
 from argus.domain.ingestion.documents import worker as reading
-from argus.domain.ingestion.documents.config import DocumentJobSettings
+from argus.domain.ingestion.documents.config import (
+    DocumentJobSettings,
+    load_document_job_settings,
+)
 from argus.domain.ingestion.documents.jobs import (
     DISPATCH_WINDOW,
     MAX_ATTEMPTS,
@@ -32,7 +30,6 @@ from argus.domain.ingestion.documents.jobs import (
 )
 from argus.domain.ingestion.documents.worker import DocumentWorker
 from argus.domain.owner_scope import PERSONAL
-from fastapi import BackgroundTasks
 from fastapi.testclient import TestClient
 
 from tests.document_extractor_support import admit
@@ -106,7 +103,7 @@ class Clock:
 
 @pytest.fixture
 def reads_finish_inside_the_request():
-    """These tests watch the app's real puller, so no read runs in the request."""
+    """These tests watch a real document worker, so no read runs in the request."""
 
 
 @pytest.fixture
@@ -116,8 +113,28 @@ def jobs_env(monkeypatch):
     monkeypatch.setattr(reading, "POLL_SECONDS", 0.01)
 
 
+@contextmanager
+def document_worker_on(client: TestClient) -> Iterator[DocumentWorker]:
+    """``python -m workflows.document_worker``'s loop over the app's documents
+    service, on the client's event loop; leaving stops it and drains its reads."""
+    worker = DocumentWorker(documents_service(), load_document_job_settings())
+    stop = client.portal.call(asyncio.Event)
+    running = client.portal.start_task_soon(worker.run, stop)
+    try:
+        yield worker
+    finally:
+        client.portal.call(stop.set)
+        running.result(timeout=30)
+
+
 @pytest.fixture
-def jobs_client(jobs_env, client):
+def reader(jobs_env, client):
+    with document_worker_on(client) as worker:
+        yield worker
+
+
+@pytest.fixture
+def jobs_client(reader, client):
     return client
 
 
@@ -219,12 +236,12 @@ def retry_with_consent(client, connection: str, consent: bool = True):
     return client.post(f"{DOCUMENTS}/{connection}/resume", headers=headers)
 
 
-def stale_attempts():
-    return list(document_worker().reads)
+def stale_attempts(reader: DocumentWorker):
+    return list(reader.reads)
 
 
 def test_kill_before_the_provider_marker_recovers_with_one_provider_call(
-    jobs_client, gate, monkeypatch
+    jobs_client, reader, gate, monkeypatch
 ):
     provider = Provider("succeed")
     clock = install(monkeypatch, provider)
@@ -246,7 +263,7 @@ def test_kill_before_the_provider_marker_recovers_with_one_provider_call(
     assert len(imports(jobs_client)) == 1
 
     before = document(jobs_client, connection)
-    [stale] = stale_attempts()
+    [stale] = stale_attempts(reader)
     held.release.set()
     wait_for(stale.done)
     assert stale.result() == "document_lease_lost"
@@ -255,14 +272,14 @@ def test_kill_before_the_provider_marker_recovers_with_one_provider_call(
 
 
 def test_a_read_cut_off_after_the_provider_marker_is_read_once_more(
-    jobs_client, monkeypatch
+    jobs_client, reader, monkeypatch
 ):
     provider = Provider("hang", "succeed")
     install(monkeypatch, provider)
     connection = upload(jobs_client)
     wait_for(lambda: provider.calls == 1)
     assert job(connection).provider_call_started_at is not None
-    [running] = stale_attempts()
+    [running] = stale_attempts(reader)
 
     running.cancel()
 
@@ -273,7 +290,7 @@ def test_a_read_cut_off_after_the_provider_marker_is_read_once_more(
     assert len(imports(jobs_client)) == 1
 
 
-def test_both_completions_of_one_receipt_save_once(jobs_client, monkeypatch):
+def test_both_completions_of_one_receipt_save_once(jobs_client, reader, monkeypatch):
     provider = Provider("hang", "succeed")
     clock = install(monkeypatch, provider)
     connection = upload(jobs_client)
@@ -287,8 +304,8 @@ def test_both_completions_of_one_receipt_save_once(jobs_client, monkeypatch):
     assert len(imports(jobs_client)) == 1
 
     before = document(jobs_client, connection)
-    wait_for(lambda: len(stale_attempts()) == 1)
-    [stale] = stale_attempts()
+    wait_for(lambda: len(stale_attempts(reader)) == 1)
+    [stale] = stale_attempts(reader)
     provider.release.set()
     wait_for(stale.done)
     assert stale.result() == "document_lease_lost"
@@ -297,14 +314,14 @@ def test_both_completions_of_one_receipt_save_once(jobs_client, monkeypatch):
     assert len(imports(jobs_client)) == 1
 
 
-def test_a_rerun_cut_off_after_its_marker_is_one_clear_failure(jobs_client, monkeypatch):
+def test_a_rerun_cut_off_after_its_marker_is_one_clear_failure(jobs_client, reader, monkeypatch):
     provider = Provider("hang", "hang", "succeed")
     install(monkeypatch, provider)
     connection = upload(jobs_client)
     for call in (1, 2):
         wait_for(lambda call=call: provider.calls == call)
-        wait_for(lambda: len(stale_attempts()) == 1)
-        [running] = stale_attempts()
+        wait_for(lambda: len(stale_attempts(reader)) == 1)
+        [running] = stale_attempts(reader)
         running.cancel()
 
     wait_for(lambda: document(jobs_client, connection)["status"] == "needs_attention")
@@ -327,14 +344,14 @@ def test_a_rerun_cut_off_after_its_marker_is_one_clear_failure(jobs_client, monk
 
 
 def test_cancelled_worker_before_the_marker_recovers_on_the_next_sweep(
-    jobs_client, gate, monkeypatch
+    jobs_client, reader, gate, monkeypatch
 ):
     provider = Provider("succeed")
     install(monkeypatch, provider)
     held = gate()
     connection = upload(jobs_client)
     wait_for(lambda: held.entered == 1)
-    [worker] = stale_attempts()
+    [worker] = stale_attempts(reader)
 
     worker.cancel()
 
@@ -425,11 +442,53 @@ def running_app(gateway) -> Iterator[TestClient]:
         yield test_client
 
 
-def test_shutdown_lets_a_read_in_flight_finish_inside_the_drain(
+def test_the_api_starts_no_document_worker_and_no_sweep(
+    jobs_env, ingestion_env, gateway, monkeypatch
+):
+    """The API records a read and nothing in it ever reads: no worker starts,
+    no sweep runs and the attempt waits on its row for the worker command."""
+    monkeypatch.setenv("ARGUS_DOCUMENT_EXTRACTION_ENABLED", "true")
+    started, sweeps = [], []
+    original_init, original_sweep = DocumentWorker.__init__, PreparationJobs.sweep
+
+    def tracked_init(self, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003, ANN202
+        started.append(self)
+        original_init(self, *args, **kwargs)
+
+    def tracked_sweep(self, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        sweeps.append(self)
+        return original_sweep(self, **kwargs)
+
+    monkeypatch.setattr(DocumentWorker, "__init__", tracked_init)
+    monkeypatch.setattr(PreparationJobs, "sweep", tracked_sweep)
+    with running_app(gateway) as client:
+        provider = Provider("succeed")
+        install(monkeypatch, provider)
+        connection = upload(client)
+        time.sleep(0.2)
+        assert document(client, connection)["status"] == "queued"
+        assert job(connection).dispatched_at is None, "no puller took it"
+
+    assert (started, sweeps, provider.calls) == ([], [], 0)
+
+
+def test_only_the_worker_command_imports_the_reader():
+    root = Path(__file__).parents[2]
+    importers = sorted(
+        str(path.relative_to(root))
+        for folder in ("src", "workflows")
+        for path in (root / folder).rglob("*.py")
+        if "documents.worker import" in path.read_text()
+        or "documents import worker" in path.read_text()
+    )
+    assert importers == ["workflows/document_worker.py"]
+
+
+def test_a_stopping_worker_lets_a_read_in_flight_finish_inside_the_drain(
     jobs_env, ingestion_env, gateway, monkeypatch
 ):
     monkeypatch.setenv("ARGUS_DOCUMENT_JOBS_DRAIN_SECONDS", "5")
-    with running_app(gateway) as client:
+    with running_app(gateway) as client, document_worker_on(client):
         provider = Provider("hang")
         install(monkeypatch, provider)
         service = documents_service()
@@ -439,16 +498,16 @@ def test_shutdown_lets_a_read_in_flight_finish_inside_the_drain(
         threading.Timer(0.3, provider.release.set).start()
         stopping = time.monotonic()
 
-    assert time.monotonic() - stopping >= 0.3, "shutdown waited for the read"
+    assert time.monotonic() - stopping >= 0.3, "the stop waited for the read"
     draft = service.store.draft(user_id=user, connection_id=connection)
     assert (draft.status, provider.calls) == ("review_ready", 1)
 
 
-def test_shutdown_cancels_a_read_past_the_drain_for_the_next_boot_to_rerun(
+def test_a_stopping_worker_cancels_a_read_past_the_drain_for_the_next_boot_to_rerun(
     jobs_env, ingestion_env, gateway, monkeypatch
 ):
     monkeypatch.setenv("ARGUS_DOCUMENT_JOBS_DRAIN_SECONDS", "0.05")
-    with running_app(gateway) as client:
+    with running_app(gateway) as client, document_worker_on(client):
         provider = Provider("hang", "succeed")
         install(monkeypatch, provider)
         service = documents_service()
@@ -495,7 +554,8 @@ def puller_settings(**changes):  # noqa: ANN003, ANN201
 
 
 async def read_by_the_next_boot(service, connection: str) -> None:  # noqa: ANN001
-    start_document_jobs(service, puller_settings())
+    stop = asyncio.Event()
+    running = asyncio.create_task(DocumentWorker(service, puller_settings()).run(stop))
     try:
         for _ in range(500):
             draft = service.get(user_id="owner", connection_id=connection, scope=PERSONAL)
@@ -504,12 +564,12 @@ async def read_by_the_next_boot(service, connection: str) -> None:  # noqa: ANN0
             await asyncio.sleep(0.01)
         assert draft.status == "review_ready"
     finally:
-        await drain_document_jobs()
-        stop_document_jobs()
+        stop.set()
+        await running
 
 
 @pytest.mark.asyncio
-async def test_shutdown_joins_a_running_sweep_and_leaves_its_read_to_the_next_boot(
+async def test_a_stop_joins_a_running_sweep_and_leaves_its_read_to_the_next_boot(
     rig, paused_sweep, monkeypatch
 ):
     service, _, clock, extractor, _ = rig
@@ -519,17 +579,15 @@ async def test_shutdown_joins_a_running_sweep_and_leaves_its_read_to_the_next_bo
     connection = await support.queued(service)
     # Past the window the upload's own start had, so the sweep requeues it.
     clock.now += DISPATCH_WINDOW + timedelta(seconds=1)
-    start_document_jobs(service, puller_settings())
-    try:
-        await asyncio.to_thread(entered.wait, 5)
-        draining = asyncio.create_task(drain_document_jobs())
-        await asyncio.sleep(0.05)
-        assert not draining.done(), "the drain waits for the sweep on its thread"
+    stop = asyncio.Event()
+    running = asyncio.create_task(DocumentWorker(service, puller_settings()).run(stop))
+    await asyncio.to_thread(entered.wait, 5)
+    stop.set()
+    await asyncio.sleep(0.05)
+    assert not running.done(), "the drain waits for the sweep on its thread"
 
-        release.set()
-        await asyncio.wait_for(draining, 5)
-    finally:
-        stop_document_jobs()
+    release.set()
+    await asyncio.wait_for(running, 5)
 
     assert extractor.calls == 0, "a stopped puller takes no read the sweep requeued"
     job = service.store.job(user_id="owner", connection_id=connection)
@@ -547,17 +605,15 @@ async def test_a_sweep_that_raises_after_the_cancel_does_not_hold_the_drain(
     monkeypatch.setenv("CUADRAO_DOCUMENT_EXTRACTION_ENABLED", "true")
     entered, release, failure = paused_sweep
     failure.append(RuntimeError("database away"))
-    start_document_jobs(service, puller_settings())
-    try:
-        await asyncio.to_thread(entered.wait, 5)
-        draining = asyncio.create_task(drain_document_jobs())
-        await asyncio.sleep(0.05)
-        assert not draining.done()
+    stop = asyncio.Event()
+    running = asyncio.create_task(DocumentWorker(service, puller_settings()).run(stop))
+    await asyncio.to_thread(entered.wait, 5)
+    stop.set()
+    await asyncio.sleep(0.05)
+    assert not running.done()
 
-        release.set()
-        await asyncio.wait_for(draining, 5)
-    finally:
-        stop_document_jobs()
+    release.set()
+    await asyncio.wait_for(running, 5)
     assert extractor.calls == 0
 
 
@@ -583,21 +639,20 @@ async def test_a_cancel_while_the_puller_joins_its_sweep_stops_it(rig, paused_sw
 
 
 @pytest.mark.asyncio
-async def test_a_read_queued_while_the_puller_stops_waits_for_the_next_boot(
+async def test_a_read_queued_while_no_worker_runs_waits_for_the_next_boot(
     rig, monkeypatch
 ):
     service, _, _, extractor, _ = rig
     monkeypatch.setenv("CUADRAO_DOCUMENT_EXTRACTION_ENABLED", "true")
     monkeypatch.setattr(reading, "POLL_SECONDS", 0.01)
-    start_document_jobs(service, puller_settings())
-    await drain_document_jobs()
+    stop = asyncio.Event()
+    stop.set()
+    await DocumentWorker(service, puller_settings()).run(stop)
     connection = await support.queued(service)
 
-    await dispatch_preparation(
-        service, "owner", connection, BackgroundTasks(), scope=PERSONAL
-    )
+    await dispatch_preparation(service, "owner", connection, scope=PERSONAL)
     await asyncio.sleep(0.05)
-    assert extractor.calls == 0, "no read starts after the drain began"
+    assert extractor.calls == 0, "the dispatch records the read and never reads it"
     job = service.store.job(user_id="owner", connection_id=connection)
     assert (job.attempt, job.dispatched_at) == (1, None), "it waits on its row"
 

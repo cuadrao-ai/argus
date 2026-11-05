@@ -14,7 +14,6 @@ from uuid import UUID
 
 from fastapi import (
     APIRouter,
-    BackgroundTasks,
     Depends,
     Header,
     HTTPException,
@@ -881,7 +880,6 @@ def create_account(
 )
 async def upload_receipt(
     request: Request,
-    background_tasks: BackgroundTasks,
     filename: str | None = Header(default=None, alias="X-Document-Filename"),
     document_type: str | None = Header(default=None, alias="X-Document-Type"),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
@@ -918,7 +916,6 @@ async def upload_receipt(
                 context.service.documents,
                 context.scope.person_id,
                 receipt.id,
-                background_tasks,
                 scope=context.scope.owner,
             )
     except Exception as error:
@@ -966,7 +963,6 @@ def receipt_reading(
 async def set_receipt_reading(
     request: Request,
     body: ReceiptReadingBody,
-    background_tasks: BackgroundTasks,
     context: Annotated[BusinessContext, Depends(require_business_document_write)] = None,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
@@ -998,7 +994,6 @@ async def set_receipt_reading(
                         context.service.documents,
                         context.scope.person_id,
                         receipt_id,
-                        background_tasks,
                         scope=context.scope.owner,
                     )
                 except DocumentServiceError as error:
@@ -1120,7 +1115,6 @@ def get_receipt_source(
 async def prepare_receipt(
     request: Request,
     receipt_id: str,
-    background_tasks: BackgroundTasks,
     consent: str | None = Header(default=None, alias="X-Extraction-Consent"),
     context: BusinessContext = Depends(require_business_document_write),  # noqa: B008
 ) -> dict[str, Any]:
@@ -1135,7 +1129,6 @@ async def prepare_receipt(
             context.service.documents,
             context.scope.person_id,
             receipt_id,
-            background_tasks,
             scope=context.scope.owner,
         )
         [receipt] = _email_flagged(

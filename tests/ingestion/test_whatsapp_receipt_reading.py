@@ -1,6 +1,7 @@
 """A receipt sent by WhatsApp is read only while the owner's stored
 receipt-reading setting is on."""
 
+import asyncio
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -10,11 +11,6 @@ from uuid import uuid4
 
 import pytest
 from argus.api import whatsapp as whatsapp_api
-from argus.api.document_jobs import (
-    drain_document_jobs,
-    start_document_jobs,
-    stop_document_jobs,
-)
 from argus.api.whatsapp import DocumentsDestination
 from argus.domain.business.spaces import InMemorySpaceStore
 from argus.domain.ingestion.connections import InMemoryConnectionRepository
@@ -27,6 +23,7 @@ from argus.domain.ingestion.documents.service import (
     DocumentsService,
 )
 from argus.domain.ingestion.documents.store import InMemoryDocumentStore
+from argus.domain.ingestion.documents.worker import DocumentWorker
 from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.ingestion.sink import SubmitResult
 from argus.domain.ingestion.whatsapp.replies import ReplyFailed
@@ -145,27 +142,28 @@ async def test_with_the_switch_off_the_receipt_waits_unread_and_no_follow_up() -
 
 class TestTheReadRunsOnThePuller:
     """As in the running API: the delivery records the attempt and waits while
-    a puller reads it, then follows up with what it read."""
+    the document worker reads it, then follows up with what it read."""
 
     @pytest.fixture
     def reads_finish_inside_the_request(self) -> None:
-        """The process's real puller reads here, not the delivery."""
+        """The document worker reads here, not the delivery."""
 
     @pytest.fixture
     def puller(self, monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
         monkeypatch.setenv("CUADRAO_DOCUMENT_EXTRACTION_ENABLED", "true")
-        # Only the delivery's own wake can start the read.
-        monkeypatch.setattr(reading, "POLL_SECONDS", 3600)
+        monkeypatch.setattr(reading, "POLL_SECONDS", 0.01)
         monkeypatch.setattr(whatsapp_api, "SETTLE_POLL_SECONDS", 0.01)
 
         @asynccontextmanager
         async def running(world: cases.World):  # noqa: ANN202
-            start_document_jobs(world.documents, DocumentJobSettings(sweep_seconds=3600))
+            stop = asyncio.Event()
+            worker = DocumentWorker(world.documents, DocumentJobSettings(sweep_seconds=3600))
+            pulling = asyncio.create_task(worker.run(stop))
             try:
                 yield
             finally:
-                await drain_document_jobs()
-                stop_document_jobs()
+                stop.set()
+                await pulling
 
         return running
 

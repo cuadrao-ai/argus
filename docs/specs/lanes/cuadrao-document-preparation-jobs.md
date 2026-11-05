@@ -13,10 +13,11 @@ until an explicit `/prepare` or `/resume`, and nothing noticed while the API was
 `DocumentJobSettings` in `documents/config.py`: `CUADRAO_DOCUMENT_JOBS_SWEEP_SECONDS`
 (default 30), `CUADRAO_DOCUMENT_JOBS_MAX_READS` (default 3) and
 `CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS`. Since issue 1795 there is no on or off
-switch and no push dispatch: every read waits on its row and each API instance
-pulls it with the same `DocumentWorker` the standalone command runs. The
-sections below describe the push design this lane shipped with; the pull and the
-cap are in `docs/API_CONTRACT.md`.
+switch and no push dispatch: every read waits on its row. The API only records
+it; `python -m workflows.document_worker` is the only reader and runs the sweep.
+The API starts, imports and wakes no reader. The sections below describe the
+push design this lane shipped with; the pull and the cap are in
+`docs/API_CONTRACT.md`.
 
 ## Dispatch
 
