@@ -13,6 +13,7 @@ from argus.api import email_intake as intake_api
 from argus.domain.ingestion.email_intake.alignment import provider_verdict
 from argus.domain.owner_scope import BusinessSpace
 
+from tests import document_reads_support as reads
 from tests import test_business_email_intake_postgres as shared
 from tests.business.test_business_email_api import signed
 from tests.business_reading_support import turn_reading
@@ -246,9 +247,11 @@ def test_permission_change_after_email_reader_boundary_dispatch_before_task_bloc
         world["space"], "address", world["provider"].sender, "authorized"
     )
     original = world["dispatch"]
+    worker_read = reads.read_receipt
+    reads.leave_reads_waiting(monkeypatch)
 
-    async def dispatch_then_withdraw(*args, **kwargs):
-        await original(*args, **kwargs)
+    async def dispatch_then_withdraw(service, user_id, connection_id, **kwargs):
+        await original(service, user_id, connection_id, **kwargs)
         if permission == "sender_blocked":
             world["store"].upsert_sender(
                 world["space"], "address", world["provider"].sender, "blocked"
@@ -260,6 +263,8 @@ def test_permission_change_after_email_reader_boundary_dispatch_before_task_bloc
                 world["owner"],
                 False,
             )
+        # The document worker takes the recorded read only now.
+        await worker_read(service, user_id, connection_id)
 
     monkeypatch.setattr(documents_api, "dispatch_preparation", dispatch_then_withdraw)
     delivery = _deliver_for_reader(world, {"dmarc": "pass", "dkim": "pass"})
