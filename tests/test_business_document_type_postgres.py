@@ -277,14 +277,12 @@ def test_adding_the_business_rnc_types_the_open_drafts_again(web) -> None:  # no
     noted = note.json()["draft_id"]
     approved = _upload(web, OWN_RNC, occurred_on="2026-09-07")["draft_id"]
     account = _account(web)
-    reviewed = _review(
-        web,
-        approved,
-        {
-            "facts": _facts("expense", "1180.00", "2026-09-07", account),
-            "dgii": PURCHASE_606,
-        },
-    )
+    # The review states no kind: a stated kind would name the type and end the
+    # suggestion. The kind stays as read, so the approved record is a
+    # suggested receipt the re-check must leave alone.
+    facts = _facts("expense", "1180.00", "2026-09-07", account)
+    del facts["kind"]
+    reviewed = _review(web, approved, {"facts": facts, "dgii": PURCHASE_606})
     assert reviewed.status_code == 200, reviewed.text
     _approve(web, approved, "record_expense")
     kept = {
@@ -700,7 +698,9 @@ def test_a_kind_and_a_type_that_disagree_are_refused(web) -> None:  # noqa: ANN0
             422,
             "activity_kind_unsupported",
         ), body
-    assert _typed(_dossier(web, draft)) == ("recibo", False, True)
+    # Nothing was saved: the receipt the rule suggested with no Business RNC
+    # stands, reported as the rule's choice.
+    assert _typed(_dossier(web, draft)) == ("recibo", True, True)
 
 
 def _legacy_receipt_saved_as_income(web) -> str:  # noqa: ANN001

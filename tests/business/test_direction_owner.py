@@ -490,6 +490,30 @@ def test_a_person_picks_the_type_of_a_suggested_receipt_by_hand(monkeypatch, pic
     assert takes_purchase_declaration(document_type, facts) is not sale
 
 
+@pytest.mark.parametrize(
+    "kind,fields,expected",
+    [
+        # A stated kind, even the one the read gave, names the type.
+        ("expense", None, ("recibo", False, False)),
+        # A review that states no kind leaves the suggestion standing.
+        (
+            None,
+            {"counterparty": {"state": "known", "value": "Ferretería"}},
+            ("recibo", False, True),
+        ),
+    ],
+)
+def test_a_review_ends_the_suggestion_only_when_it_states_the_kind_or_the_type(
+    monkeypatch, kind, fields, expected
+):
+    """The stored flags and the wire agree: the wire's ``document_type_detected``
+    is true while the suggestion stands and false once a person named it."""
+
+    saved = _review(monkeypatch, _suggested_event(), kind, fields)
+    assert _resolved(saved) == expected
+    assert BusinessResolution.model_validate(saved).rule_chose_type() is expected[2]
+
+
 MEMBER = _actor().model_copy(update={"actor_kind": "member"})
 
 
