@@ -263,7 +263,7 @@ for (const { home, login, cta } of cases) {
 }
 
 for (const { home, login } of cases) {
-  test(`${home} public Marketing shows no sign-in`, async () => {
+  test(`${home} public Marketing signs in to the production app`, async () => {
     const browser = await chromium.launch({
       args: ["--host-resolver-rules=MAP cuadrao.ai 127.0.0.1", "--no-proxy-server"],
     });
@@ -281,7 +281,7 @@ for (const { home, login } of cases) {
       if (mobile) await header.getByRole("button", { name: /Abrir menú|Open menu/ }).click();
       const nav = header.locator("nav:visible");
       await expect(nav.locator("[data-language-switch]")).toBeVisible();
-      await expect(nav.getByText(login, { exact: true })).toHaveCount(0);
+      await expect(nav.getByRole("link", { name: login, exact: true })).toHaveAttribute("href", "https://app.cuadrao.ai/?auth=login");
     } finally {
       await browser.close();
     }
