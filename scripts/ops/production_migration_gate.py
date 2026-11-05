@@ -13,7 +13,16 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal, Mapping, Protocol, Sequence, TypedDict, TypeVar, cast
+from typing import (
+    Collection,
+    Literal,
+    Mapping,
+    Protocol,
+    Sequence,
+    TypedDict,
+    TypeVar,
+    cast,
+)
 from urllib.parse import unquote, urlsplit
 
 MigrationClassification = Literal[
@@ -38,8 +47,11 @@ _LEDGER_RECONCILIATION_THROUGH = "20260811210000"
 _RECONCILED_CANDIDATE_CATALOG_SHA256 = (
     "f05cf5738ce8b6e0ad74ce2b4b77d773387bc5421bab3a101448241b5431e2c2"
 )
-_RECONCILED_PRODUCTION_LEDGER_SHA256 = (
-    "e352a2c003572611f0fb201305e085e3736eefbfae0d62ef29f4322a18062032"
+_RECONCILED_PRODUCTION_LEDGER_SHA256S = (
+    # The hand-reconciled 63-row history production held on 2026-08-13.
+    "e352a2c003572611f0fb201305e085e3736eefbfae0d62ef29f4322a18062032",
+    # The 61-row history a Supabase CLI push of main 980d56ba3 records.
+    "b46b42afac8c07b413c436bb90c448b4eb60d8325340d1117d266ebd28654c03",
 )
 
 
@@ -399,7 +411,7 @@ def build_migration_report(
     candidate_migrations: Sequence[CandidateMigration],
     applied_migrations: Sequence[AppliedMigration],
     reconciled_candidate_catalog_sha256: str | None = None,
-    reconciled_production_ledger_sha256: str | None = None,
+    reconciled_production_ledger_sha256s: Collection[str] | None = None,
 ) -> dict[str, object]:
     """Build a fail-closed comparison report for release evidence."""
 
@@ -418,8 +430,8 @@ def build_migration_report(
     )
     production_ledger_sha256 = _production_ledger_sha256(applied_migrations)
     production_ledger_matches_reconciliation = (
-        reconciled_production_ledger_sha256 is None
-        or production_ledger_sha256 == reconciled_production_ledger_sha256
+        reconciled_production_ledger_sha256s is None
+        or production_ledger_sha256 in reconciled_production_ledger_sha256s
     )
     historical_mappings, mapped_candidate_versions, mapped_applied_versions = (
         _historical_migration_mappings(candidate_by_version, applied_by_version)
@@ -614,8 +626,8 @@ def main(
     reconciled_candidate_catalog_sha256: str | None = (
         _RECONCILED_CANDIDATE_CATALOG_SHA256
     ),
-    reconciled_production_ledger_sha256: str | None = (
-        _RECONCILED_PRODUCTION_LEDGER_SHA256
+    reconciled_production_ledger_sha256s: Collection[str] | None = (
+        _RECONCILED_PRODUCTION_LEDGER_SHA256S
     ),
 ) -> int:
     """Run the production migration gate and write its durable JSON report."""
@@ -685,7 +697,7 @@ def main(
             candidate_migrations=candidate_migrations,
             applied_migrations=applied_migrations,
             reconciled_candidate_catalog_sha256=(reconciled_candidate_catalog_sha256),
-            reconciled_production_ledger_sha256=(reconciled_production_ledger_sha256),
+            reconciled_production_ledger_sha256s=(reconciled_production_ledger_sha256s),
         )
         report["landing_verification"] = (
             {
