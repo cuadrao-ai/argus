@@ -726,22 +726,15 @@ def prepare(receipts, connection_id: str):
     """The owner's prepare click: queue, then the Business read and draft."""
 
     from argus.api.documents import dispatch_preparation
-    from fastapi import BackgroundTasks
 
     scope = BusinessSpace(receipts["space"])
     documents = receipts["documents"]
     documents.queue(
         user_id=receipts["owner"], connection_id=connection_id, consent=True, scope=scope
     )
-    tasks = BackgroundTasks()
-
-    async def run() -> None:
-        await dispatch_preparation(
-            documents, receipts["owner"], connection_id, tasks, scope=scope
-        )
-        await tasks()
-
-    asyncio.run(run())
+    asyncio.run(
+        dispatch_preparation(documents, receipts["owner"], connection_id, scope=scope)
+    )
     with receipts["pool"].connection() as db:
         draft_id, origin = db.execute(
             "select l.draft_id, s.origin from public.business_draft_sources l"

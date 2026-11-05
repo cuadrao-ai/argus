@@ -136,9 +136,9 @@ def test_a_refused_upload_frees_its_in_flight_slot(alice: Owner):
 def test_a_slot_covers_the_upload_not_the_read_behind_it(
     alice: Owner, monkeypatch: pytest.MonkeyPatch
 ):
-    """With jobs off a read runs as a background task after the response. Three
-    receipts being read must not hold the three upload slots: the person keeps
-    uploading while the API reads."""
+    """A read runs after the response, never inside the upload. Three receipts
+    being read must not hold the three upload slots: the person keeps
+    uploading while they are read."""
 
     _minute.reset()
     _in_flight.reset()

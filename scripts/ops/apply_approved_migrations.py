@@ -381,11 +381,11 @@ def plan_steps(
     """Validate the approved list against the ledger and return ordered steps.
 
     ``approved`` versions are recorded. They must sit above the gate's
-    reconciliation threshold and above everything already applied there, and
-    must be the next versions in order with none skipped (a prefix is fine, so a
-    run can go in batches). ``unrecorded`` versions run without a ledger row and
-    must sit at or below the threshold, where the gate holds a pinned
-    hand-reconciliation.
+    reconciliation threshold and be the candidate's lowest missing versions
+    there, with none skipped (a prefix is fine, so a run can go in batches). A
+    missing version below the ledger head is applied in version order with the
+    rest. ``unrecorded`` versions run without a ledger row and must sit at or
+    below the threshold, where the gate holds a pinned hand-reconciliation.
     """
 
     by_version = {migration.version: migration for migration in candidates}
@@ -413,20 +413,16 @@ def plan_steps(
             raise ApplyError(
                 f"unrecorded version {version} is above the reconciliation threshold"
             )
-    head = max((version for version in applied if version > threshold), default=threshold)
-    for version in approved:
-        if version <= head:
-            raise ApplyError(
-                f"recorded version {version} is not above the ledger head {head}"
-            )
-    above = sorted(version for version in by_version if version > head)
-    if sorted(approved) != above[: len(approved)]:
+    missing = sorted(
+        version for version in by_version if version > threshold and version not in applied
+    )
+    if sorted(approved) != missing[: len(approved)]:
         skipped = [
-            version for version in above[: len(approved)] if version not in approved
+            version for version in missing[: len(approved)] if version not in approved
         ]
         raise ApplyError(
-            f"the approved list skips {skipped or 'versions'} that sit between the ledger head and "
-            "its last entry; skipped versions could never be applied afterwards"
+            f"the approved list skips missing versions {skipped} that sort before its last "
+            "entry; apply the missing versions in order"
         )
     steps: list[Step] = []
     for version in sorted({*approved, *unrecorded}):

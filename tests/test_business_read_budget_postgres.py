@@ -17,7 +17,6 @@ import pytest
 from argus.api.documents import dispatch_preparation
 from argus.domain.business.read_budget import PostgresReadBudget, ReadBudgetSettings
 from argus.domain.owner_scope import BusinessSpace
-from fastapi import BackgroundTasks
 from psycopg_pool import ConnectionPool
 
 from tests import test_business_actions_postgres as shared
@@ -166,11 +165,9 @@ def test_an_emailed_receipt_spends_the_same_budget(receipts):  # noqa: ANN001, F
     attachment = deliver(receipts, {"spf": "pass", "dkim": "pass", "dmarc": "pass"})
     assert attachment is not None
     documents.queue(user_id=owner, connection_id=attachment, consent=True, scope=scope)
-    tasks = BackgroundTasks()
 
     async def read() -> None:
-        await dispatch_preparation(documents, owner, attachment, tasks, scope=scope)
-        await tasks()
+        await dispatch_preparation(documents, owner, attachment, scope=scope)
         # The dispatch only records the attempt; a puller takes it.
         await read_receipt(documents, owner, attachment)
 

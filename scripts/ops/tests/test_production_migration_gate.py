@@ -372,7 +372,7 @@ def test_historical_ledger_change_breaks_the_reconciled_production_fingerprint()
         reconciled_candidate_catalog_sha256=(
             migration_gate._candidate_catalog_sha256([candidate])
         ),
-        reconciled_production_ledger_sha256="0" * 64,
+        reconciled_production_ledger_sha256s=("0" * 64,),
     )
 
     assert report["status"] == "blocked"
@@ -381,6 +381,63 @@ def test_historical_ledger_change_breaks_the_reconciled_production_fingerprint()
         report["historical_ledger_variance"]["production_ledger_matches_reconciliation"]
         is False
     )
+
+
+def _history_through_reconciliation() -> list[CandidateMigration]:
+    root = Path(__file__).resolve().parents[3]
+    return [
+        CandidateMigration.from_source(path.relative_to(root).as_posix(), path.read_text())
+        for path in sorted((root / "supabase" / "migrations").glob("*.sql"))
+        if path.name[:14] <= migration_gate._LEDGER_RECONCILIATION_THROUGH
+    ]
+
+
+def _history_report(applied: list[AppliedMigration]) -> dict[str, Any]:
+    history = _history_through_reconciliation()
+    return build_migration_report(
+        candidate_sha="4" * 40,
+        target=ProductionDatabaseTarget(
+            project_ref="production-ref",
+            database_host="pooler.supabase.test",
+        ),
+        candidate_migrations=history,
+        applied_migrations=applied,
+        reconciled_candidate_catalog_sha256=(
+            migration_gate._RECONCILED_CANDIDATE_CATALOG_SHA256
+        ),
+        reconciled_production_ledger_sha256s=(
+            migration_gate._RECONCILED_PRODUCTION_LEDGER_SHA256S
+        ),
+    )
+
+
+def test_a_ledger_that_recorded_exactly_the_reconciled_history_passes() -> None:
+    history = _history_through_reconciliation()
+    report = _history_report(
+        [AppliedMigration(m.version, m.name, m.statements) for m in history]
+    )
+
+    assert report["status"] == "pass"
+    assert report["historical_ledger_variance"]["candidate_catalog_matches_reconciliation"]
+    assert report["historical_ledger_variance"]["production_ledger_matches_reconciliation"]
+
+
+@pytest.mark.parametrize("change", ["drop_row", "edit_statements", "rename"])
+def test_any_other_history_still_breaks_the_production_fingerprint(change: str) -> None:
+    applied = [
+        AppliedMigration(m.version, m.name, m.statements)
+        for m in _history_through_reconciliation()
+    ]
+    last = applied[-1]
+    applied[-1:] = {
+        "drop_row": [],
+        "edit_statements": [AppliedMigration(last.version, last.name, (*last.statements, "select 1"))],
+        "rename": [AppliedMigration(last.version, f"{last.name}_renamed", last.statements)],
+    }[change]
+
+    report = _history_report(applied)
+
+    assert "historical_production_ledger_drift" in report["stop_reasons"]
 
 
 def test_blank_applied_migration_name_blocks_as_drift() -> None:
@@ -1128,7 +1185,7 @@ def test_cli_writes_a_complete_blocking_report_without_leaking_credentials(
         repo_root=repo,
         connect_factory=lambda *_args, **_kwargs: connection,
         reconciled_candidate_catalog_sha256=None,
-        reconciled_production_ledger_sha256=None,
+        reconciled_production_ledger_sha256s=None,
     )
 
     report = json.loads(output_path.read_text(encoding="utf-8"))
@@ -1199,7 +1256,7 @@ def test_cli_passes_only_when_the_production_ledger_matches(
         repo_root=repo,
         connect_factory=lambda *_args, **_kwargs: connection,
         reconciled_candidate_catalog_sha256=None,
-        reconciled_production_ledger_sha256=None,
+        reconciled_production_ledger_sha256s=None,
     )
 
     report = json.loads(capsys.readouterr().out)

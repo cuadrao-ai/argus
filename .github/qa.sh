@@ -30,12 +30,18 @@ echo "   - Market Data: Live provider catalog (production-like asset resolution)
 echo "   - Fallback: Strict (errors exposed for debugging)"
 echo "   - Runtime checkpoints: Postgres"
 echo "   - Database URL: Session Pooler -> internal DATABASE_URL"
+echo "   - Receipt reads: python -m workflows.document_worker (the only reader)"
 echo ""
 echo "Frontend QA reminder:"
 echo "   web/.env.local should use NEXT_PUBLIC_MOCK_AUTH=false for real auth"
 echo "   and NEXT_PUBLIC_ARGUS_API_URL=http://127.0.0.1:8000/api/v1"
 echo ""
-echo "Starting FastAPI backend on http://127.0.0.1:8000"
+echo "Starting the document worker and FastAPI backend on http://127.0.0.1:8000"
 echo ""
+
+# The API never reads a receipt; the worker pulls each queued read from Postgres.
+poetry run python -m workflows.document_worker &
+worker_pid=$!
+trap 'kill "$worker_pid" 2>/dev/null || true; wait "$worker_pid" 2>/dev/null || true' EXIT
 
 poetry run fastapi dev src/argus/api/main.py

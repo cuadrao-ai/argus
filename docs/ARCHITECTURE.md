@@ -135,8 +135,8 @@ Founder decision, November 1, 2026: receipt reads leave the API for a plain
 background worker, `python -m workflows.document_worker`, which pulls from
 Postgres. The unmet requirement is a concurrency cap: a Render Workflow starts
 every run it is given and has no cap setting, so a burst of reads would need a
-gate in the API. The worker holds one setting for reads at once. It is built and
-default off, and no hosted service runs it yet. The measurements and the order of
+gate in the API. The worker holds one setting for reads at once. It is the only
+reader: the API never runs one. The measurements and the order of
 work live in [the receipt intake architecture](specs/cuadrao-receipt-intake-architecture.md).
 
 Retirement inventories describe old tasks and configuration, not blanket deletion
@@ -376,9 +376,11 @@ Receipts reach a Business space by upload, by email (`/business/email` and the
 `/webhooks/resend` webhook in `routers/email_intake.py`) and by WhatsApp
 (`/webhooks/whatsapp` and `/whatsapp` in `routers/whatsapp.py`, default off).
 Each arrives as a saved document draft. A read waits on its draft's row until
-a puller takes it: every API instance runs one
-(`src/argus/domain/ingestion/documents/worker.py`), and
-`python -m workflows.document_worker` runs the same one to add capacity.
+the document worker takes it. The worker,
+`python -m workflows.document_worker` (`src/argus/domain/ingestion/documents/worker.py`),
+is the only reader, and it runs the sweep. The API records the read and never
+starts, imports or wakes a reader, so a burst of reads cannot hold up its
+health check.
 
 ---
 # 7. Communication Protocols

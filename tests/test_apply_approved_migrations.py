@@ -199,10 +199,47 @@ def test_plan_refuses_anything_unapproved(
         applier.plan_steps(CANDIDATES, APPLIED, approved, unrecorded)
 
 
-def test_recorded_versions_must_follow_the_ledger_head() -> None:
-    candidates = [*CANDIDATES, _migration("20260915000000", "behind_head")]
-    with pytest.raises(applier.ApplyError):
-        applier.plan_steps(candidates, ["20260925120000"], ["20260915000000"])
+BEHIND_HEAD = [*CANDIDATES, _migration("20260915000000", "behind_head")]
+LEDGER_AHEAD = [*APPLIED, "20260928200000"]  # missing: 20260915000000, 20260925120000, 20260929090000
+
+
+def test_missing_versions_below_the_ledger_head_apply_in_version_order() -> None:
+    steps = applier.plan_steps(
+        BEHIND_HEAD, LEDGER_AHEAD, ["20260929090000", "20260915000000", "20260925120000"]
+    )
+    connection = _Connection()
+    done = applier.apply_steps(connection, steps)
+    assert done == ["20260915000000", "20260925120000", "20260929090000"]
+    assert all(step.record for step in steps)
+    assert connection.log.count("ledger") == 3
+
+
+@pytest.mark.parametrize(
+    ("approved", "refusal"),
+    [
+        (["20260915000000", "20260928200000"], "already in the ledger"),
+        (["20260915000000", "20260915000000"], "more than once"),
+        (["20260916000000"], "not a candidate"),
+        (["20260505000001"], "reconciliation threshold"),
+        (["20260925120000"], r"skips missing versions \['20260915000000'\]"),
+        (["20260915000000", "20260929090000"], r"skips missing versions \['20260925120000'\]"),
+    ],
+)
+def test_below_the_head_every_other_plan_refusal_holds(
+    approved: list[str], refusal: str
+) -> None:
+    with pytest.raises(applier.ApplyError, match=refusal):
+        applier.plan_steps(BEHIND_HEAD, LEDGER_AHEAD, approved)
+
+
+def test_below_the_head_a_mid_file_commit_still_needs_its_flag() -> None:
+    candidates = [*CANDIDATES, _migration("20260915000000", "mid", MID_COMMIT)]
+    with pytest.raises(applier.ApplyError, match="allow-mid-file-commit"):
+        applier.plan_steps(candidates, LEDGER_AHEAD, ["20260915000000"])
+    steps = applier.plan_steps(
+        candidates, LEDGER_AHEAD, ["20260915000000"], allow_mid_file_commit=["20260915000000"]
+    )
+    assert len(steps[0].segments) == 2
 
 
 # --- transaction control ------------------------------------------------------------
@@ -523,6 +560,15 @@ def test_a_record_for_another_run_or_time_or_host_is_refused(
 ) -> None:
     with pytest.raises(applier.ApplyError):
         _approval(**changes)
+
+
+def test_a_record_refuses_a_version_it_does_not_list_or_a_changed_candidate() -> None:
+    with pytest.raises(applier.ApplyError, match="different list of versions"):
+        applier.parse_hosted_approval(
+            _record(), SHA, ["20260915000000", *VERSIONS], (), NOW
+        )
+    with pytest.raises(applier.ApplyError, match="different candidate commit"):
+        applier.parse_hosted_approval(_record(), "b" * 40, VERSIONS, (), NOW)
 
 
 def test_a_record_with_missing_or_extra_keys_is_refused() -> None:
