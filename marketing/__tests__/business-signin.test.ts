@@ -3,8 +3,8 @@ import { businessSignInHref } from "../lib/business-signin";
 
 describe("Business sign-in destination", () => {
   test.each([
-    ["cuadrao.ai", "https://cuadrao-app-y7m5.onrender.com/?auth=login"],
-    ["www.cuadrao.ai", "https://cuadrao-app-y7m5.onrender.com/?auth=login"],
+    ["cuadrao.ai", "https://app.cuadrao.ai/?auth=login"],
+    ["www.cuadrao.ai", "https://app.cuadrao.ai/?auth=login"],
     ["cuadrao-marketing-staging.onrender.com", "https://cuadrao-web-staging.onrender.com/?auth=login"],
   ])("%s signs in to its own app", (hostname, href) => {
     expect(businessSignInHref(hostname)).toBe(href);
