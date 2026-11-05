@@ -140,26 +140,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v1/auth/access-mode:
-    get:
-      tags:
-      - auth
-      description: Public and sessionless.
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AccountAccessModeResponse'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   /api/v1/auth/access-requests:
     post:
       tags:
@@ -15780,18 +15760,6 @@ components:
       required:
       - email
       - language
-    AccountAccessModeResponse:
-      properties:
-        access_mode:
-          type: string
-          enum:
-          - open
-          - invite_only
-          description: Whether anyone may create an account (open) or only invited people
-            (invite_only).
-      type: object
-      required:
-      - access_mode
     AccountCapabilities:
       properties:
         can_create_additional_conversation:

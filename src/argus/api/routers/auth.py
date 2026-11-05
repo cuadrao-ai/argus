@@ -4,14 +4,7 @@ from datetime import datetime, timezone
 from math import ceil
 from typing import Literal
 
-from fastapi import (
-    APIRouter,
-    BackgroundTasks,
-    Depends,
-    HTTPException,
-    Request,
-    Response,
-)
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from loguru import logger
@@ -28,7 +21,6 @@ from argus.api.dependencies import (
     request_access_token,
 )
 from argus.api.guest_access import (
-    account_access_mode,
     account_context,
     client_identity,
     guest_access_enabled,
@@ -43,7 +35,6 @@ from argus.api.rate_limits import SlidingWindowLimiter
 from argus.api.schemas import (
     AccessRequestAccepted,
     AccessRequestCreate,
-    AccountAccessModeResponse,
     GuestAccountSignupRequest,
     GuestBootstrapRequest,
     GuestHandoffClaimResponse,
@@ -201,13 +192,6 @@ def _enforce_guest_attempt_limit(request: Request) -> None:
 def _auth_user_payload(user: User, *, account_kind: str) -> dict[str, object]:
     response_user = guest_safe_user(user) if account_kind == "guest" else user
     return response_user.model_dump(mode="json")
-
-
-@router.get("/auth/access-mode", response_model=AccountAccessModeResponse)
-def auth_access_mode(response: Response) -> AccountAccessModeResponse:
-    """Public and sessionless."""
-    response.headers["Cache-Control"] = "public, max-age=60"
-    return AccountAccessModeResponse(access_mode=account_access_mode())
 
 
 @router.get("/auth/session")

@@ -20,7 +20,6 @@ import {
   verifyEmailOtp,
 } from "@/lib/email-otp";
 import { blockingErrorBannerClass } from "@/lib/failure-treatment";
-import type { AccountAccessMode } from "@/lib/account-access";
 import { InviteOnlyNotice } from "./InviteOnlyNotice";
 
 const CONFIRMATION_CODE_LENGTH = 8;
@@ -41,7 +40,6 @@ export type AuthFormSubmissionResult = {
 type AuthFormProps = {
   mode: AuthFormMode;
   brand?: "argus" | "cuadrao";
-  accountAccess?: AccountAccessMode;
   allowModeSwitch?: boolean;
   embedded?: boolean;
   emailFirst?: boolean;
@@ -195,7 +193,6 @@ const LEGAL_LINK_CLASS =
 export default function AuthForm({
   mode,
   brand = "cuadrao",
-  accountAccess = "open",
   allowModeSwitch = true,
   embedded = false,
   emailFirst = false,
@@ -226,7 +223,9 @@ export default function AuthForm({
   };
   const errorRef = useRef<HTMLParagraphElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
-  const signupRefusedWhileInviteOnly = request.status === "failed" && request.code === "auth_signup_failed" && accountAccess === "invite_only";
+  // The server refuses a sign-up with one generic code, so an address is never
+  // told whether it is invited. For the person, that refusal is invite only.
+  const signupRefused = request.status === "failed" && request.code === "auth_signup_failed";
   const formRef = useRef<HTMLFormElement>(null);
   const id = useId();
   const isSubmitting = request.status === "pending";
@@ -619,8 +618,8 @@ export default function AuthForm({
           <form ref={formRef} onSubmit={handleSubmit} noValidate aria-busy={isSubmitting} className="space-y-3">
             {authError ? (
               <div data-auth-feedback="true">
-                <p ref={errorRef} tabIndex={-1} role="alert" data-testid={signupRefusedWhileInviteOnly ? "invite-only-refusal" : undefined} className={blockingErrorBannerClass}>
-                  {signupRefusedWhileInviteOnly ? <InviteOnlyNotice linkClassName="font-medium underline underline-offset-4" /> : authError}
+                <p ref={errorRef} tabIndex={-1} role="alert" data-testid={signupRefused ? "invite-only-refusal" : undefined} className={blockingErrorBannerClass}>
+                  {signupRefused ? <InviteOnlyNotice linkClassName="font-medium underline underline-offset-4" /> : authError}
                 </p>
               </div>
             ) : null}
@@ -719,13 +718,7 @@ export default function AuthForm({
             </button>
           </form>
 
-          {!isSignup && accountAccess === "invite_only" && (
-            <p data-testid="invite-only-notice" className="mt-5 text-center text-[15px] tracking-wide text-gray-500 dark:text-gray-400">
-              <InviteOnlyNotice linkClassName="font-medium text-black transition-opacity hover:opacity-80 dark:text-white" />
-            </p>
-          )}
-
-          {allowModeSwitch && onModeChange && (isSignup || accountAccess === "open") && (
+          {allowModeSwitch && onModeChange && (
             <p className="mt-5 text-center text-[15px] tracking-wide text-gray-500 dark:text-gray-400">
               {isSignup
                 ? t("landing.already_account", "Already have an account?")

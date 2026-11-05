@@ -23,7 +23,7 @@ try {
     const page = await browser.newPage({ viewport: { width, height }, colorScheme: "light", reducedMotion: "reduce" });
     const errors: string[] = [];
     const blocked: string[] = [];
-    let accessReads = 0, signups = 0;
+    let signups = 0;
     page.on("pageerror", error => errors.push(error.message));
     await installBreakpointFixture(page, { language, theme: "light", emptyChat: true });
     await page.route("**/*", async route => {
@@ -31,10 +31,6 @@ try {
       if (!["127.0.0.1", "localhost"].includes(url.hostname)) {
         blocked.push(`${request.method()} ${url.pathname}`);
         return route.abort();
-      }
-      if (url.pathname.endsWith("/auth/access-mode")) {
-        accessReads++;
-        return route.fulfill({ json: { access_mode: "invite_only" } });
       }
       if (url.pathname.endsWith("/auth/signup")) {
         signups++;
@@ -48,16 +44,12 @@ try {
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${file} overflow`);
       captures.push({ file, head, sha256: createHash("sha256").update(image).digest("hex"), width, height, language, state });
     };
-    const sentence = `${copy.auth.invite_only.body} ${copy.auth.invite_only.request_access}`;
 
-    await page.goto(`${baseURL}/`, { waitUntil: "networkidle" });
+    await page.goto(`${baseURL}/?auth=login`, { waitUntil: "networkidle" });
     await page.evaluate(() => document.fonts.ready);
     await expect(page.getByRole("heading", { name: copy.auth.login.title, exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: copy.auth.signup.submit, exact: true })).toHaveCount(0);
-    const notice = page.getByTestId("invite-only-notice");
-    await expect(notice).toHaveText(sentence);
-    assert.equal(await notice.locator("a").getAttribute("href"), CONTACT_PAGE[language]);
-    assert.equal(await notice.locator("a").getAttribute("target"), null);
+    await expect(page.getByRole("button", { name: copy.auth.signup.submit, exact: true })).toBeVisible();
+    await expect(page.getByTestId("invite-only-refusal")).toHaveCount(0);
     await capture("login");
 
     await page.goto(`${baseURL}/?auth=signup`, { waitUntil: "networkidle" });
@@ -70,12 +62,12 @@ try {
     await password.fill("synthetic long password 47");
     await submit.click();
     const refusal = page.getByTestId("invite-only-refusal");
-    await expect(refusal).toHaveText(sentence);
+    await expect(refusal).toHaveText(`${copy.auth.invite_only.body} ${copy.auth.invite_only.request_access}`);
     assert.equal(await refusal.locator("a").getAttribute("href"), CONTACT_PAGE[language]);
+    assert.equal(await refusal.locator("a").getAttribute("target"), null);
     assert.equal(signups, 1);
     await capture("refused");
 
-    assert.ok(accessReads >= 1, "the front door asked the server for the access mode");
     assert.deepEqual(errors, []);
     assert.deepEqual(blocked, []);
     await page.close();

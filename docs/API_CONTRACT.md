@@ -2435,12 +2435,6 @@ Supabase Auth handles identity/session heavy lifting. Alpha should keep auth low
   origins return `403` / `csrf_origin_rejected`, rate limiting returns `429` /
   `too_many_requests` with `Retry-After`, and unavailable persistence returns
   `503` / `access_request_unavailable`.
-- `GET /api/v1/auth/access-mode` is public and sessionless. It returns only
-  `{"access_mode":"open"}` or `{"access_mode":"invite_only"}`, the
-  `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED` setting as the front door reads it
-  before a session exists, with `Cache-Control: public, max-age=60`. It carries
-  no personal data and never varies by caller. The web renders the screen this
-  answer names and never decides the mode on its own.
 - An access request may insert only a missing `requested` row with normalized
   email and the requested language. It must never overwrite an existing
   requested, approved, privileged, or disabled row. `requested` and unknown

@@ -1,7 +1,17 @@
 "use client";
 
 import { useTranslation } from "react-i18next";
-import { contactPageHref } from "@/lib/account-access";
+
+const CONTACT_PAGE_URL = {
+  "es-419": "https://cuadrao.ai/contacto",
+  en: "https://cuadrao.ai/en/contact",
+} as const;
+
+export function contactPageHref(language: string | undefined): string {
+  return language?.toLowerCase().startsWith("en")
+    ? CONTACT_PAGE_URL.en
+    : CONTACT_PAGE_URL["es-419"];
+}
 
 export function InviteOnlyNotice({ linkClassName }: { linkClassName: string }) {
   const { t, i18n } = useTranslation();
