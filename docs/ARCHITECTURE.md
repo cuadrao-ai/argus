@@ -1057,19 +1057,20 @@ Two server flags own separate policy boundaries:
 
 - `CUADRAO_GUEST_ACCESS_ENABLED` defaults on; explicit `false` is the emergency
   bootstrap kill switch.
-- `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` separately controls ordinary
-  permanent-account access. Unlike the guest flag it fails closed when unset, so
-  an environment that omits it denies public registration. The founder opened it
-  in production on 2026-08-12; explicit `false` closes it again.
+- `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=false` in production separately
+  controls ordinary permanent-account access, so production is invite only.
+  Staging sets it to `true` for internal use. Unlike the guest flag it fails
+  closed when unset, so an environment that omits it denies public registration.
+  The production rule in `scripts/ops/staging_env_manifest.json` owns the value.
 
 `NEXT_PUBLIC_GUEST_ACCESS_ENABLED` also defaults on and selects presentation
 only; explicit `false` restores the preserved auth-first landing. An explicit
-client/server disagreement fails closed. With public permanent accounts open,
-the allowlist owns role elevation and explicit denial only: a disabled row still
-blocks signup and login, while an absent row no longer does. When the public
-gate is closed instead, that allowlist owns signup and login admission too,
-and, while `CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED` is true (default false),
-the Business invitation and grant tables admit exactly the email a live
+client/server disagreement fails closed. With the flag false, as in
+production, the allowlist owns signup and login admission: only an email with an
+active row enters, and a disabled row still refuses it. When the flag is true,
+the allowlist owns role elevation and explicit denial only, and an absent row no
+longer blocks. With the flag false and `CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED`
+true (default false; production keeps it false), the Business invitation and grant tables admit exactly the email a live
 invitation or grant on an open Business names; a disabled allowlist row still
 refuses it, and an email admitted only that way cannot start a Business or
 invite anyone.

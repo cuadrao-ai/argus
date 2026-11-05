@@ -1,8 +1,10 @@
 """Release-owned API model and flag identity for eval evidence.
 
 This checks measurement/configuration mistakes, not deliberate evidence tampering.
-The release profile owns the selected keys. Historical spelling equivalence is
-limited to the approved environment rename identities below.
+The settings manifest's production rules own the selected keys; commits from
+before those rules existed read the release profile's API env instead.
+Historical spelling equivalence is limited to the approved environment rename
+identities below.
 """
 
 from __future__ import annotations
@@ -15,6 +17,7 @@ from pathlib import Path
 from typing import Mapping
 
 RELEASE_PROFILE = ".github/private-alpha-release-profile.json"
+SETTINGS_MANIFEST = "scripts/ops/staging_env_manifest.json"
 
 _APPROVED_ENV_RENAMES = {
     key: key.replace("ARGUS_", "CUADRAO_", 1)
@@ -102,18 +105,41 @@ MANIFESTS_BEFORE_CONFIGURATION = frozenset(
 )
 
 
+def _file_at_commit(sha: str, path: str, *, repository_root: Path) -> str | None:
+    shown = subprocess.run(
+        ["git", "--no-replace-objects", "show", f"{sha}:{path}"],
+        cwd=repository_root,
+        capture_output=True,
+        check=False,
+        text=True,
+        timeout=10,
+    )
+    return shown.stdout if shown.returncode == 0 else None
+
+
+def _production_api_values(manifest_source: str | None) -> dict[str, str] | None:
+    if manifest_source is None:
+        return None
+    entries = json.loads(manifest_source)["services"]["api"]["entries"]
+    if not any("production" in entry for entry in entries):
+        return None
+    return {
+        entry["name"]: entry["production"]["value"]
+        for entry in entries
+        if "value" in entry["production"]
+    }
+
+
 def release_configuration_at_commit(sha: str, *, repository_root: Path) -> dict[str, str]:
     """Only API model IDs and explicit on/off flags from the named commit."""
     assert re.fullmatch(r"[0-9a-f]{40}", sha), "release_configuration: full SHA required"
-    source = subprocess.run(
-        ["git", "--no-replace-objects", "show", f"{sha}:{RELEASE_PROFILE}"],
-        cwd=repository_root,
-        capture_output=True,
-        check=True,
-        text=True,
-        timeout=10,
-    ).stdout
-    environment = json.loads(source)["services"]["api"]["env"]
+    environment = _production_api_values(
+        _file_at_commit(sha, SETTINGS_MANIFEST, repository_root=repository_root)
+    )
+    if environment is None:
+        profile = _file_at_commit(sha, RELEASE_PROFILE, repository_root=repository_root)
+        assert profile is not None, f"release_configuration: no settings at {sha[:8]}"
+        environment = json.loads(profile)["services"]["api"]["env"]
     return {
         key: value
         for key, value in environment.items()

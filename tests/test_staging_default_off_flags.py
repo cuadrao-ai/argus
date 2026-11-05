@@ -8,9 +8,13 @@ import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-PROFILE_PATH = ROOT / ".github" / "private-alpha-release-profile.json"
 MANIFEST_PATH = ROOT / "scripts" / "ops" / "staging_env_manifest.json"
 RENDER_PATH = ROOT / "render.yaml"
+
+_LAUNCH_DAY_ONE = (
+    "Staging keeps in-development features on. Production day one is staging's "
+    "features with email and WhatsApp off (launch plan 2026-11-04)."
+)
 
 APPROVED_STAGING_OVERRIDES: dict[str, str] = {
     "CUADRAO_BETA_INVITES_ENABLED": (
@@ -25,7 +29,31 @@ APPROVED_STAGING_OVERRIDES: dict[str, str] = {
         "Lucas approved bank matching on staging 2026-10-28 (demo loop approval "
         "2). Prod stays false."
     ),
+    "CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED": _LAUNCH_DAY_ONE,
+    "CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED": _LAUNCH_DAY_ONE,
+    "CUADRAO_WHATSAPP_INTAKE_ENABLED": _LAUNCH_DAY_ONE,
+    "CUADRAO_WHATSAPP_OUTBOUND_ENABLED": _LAUNCH_DAY_ONE,
+    "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED": (
+        "Staging is internal and stays open. Production is invite only "
+        "(launch plan 2026-11-04): only allowlist rows may sign in."
+    ),
 }
+
+
+def production_values(manifest: dict) -> dict:
+    """The manifest's fixed production values, shaped {services: {label: {env}}}."""
+    return {
+        "services": {
+            label: {
+                "env": {
+                    entry["name"]: entry["production"]["value"]
+                    for entry in service["entries"]
+                    if "value" in entry["production"]
+                }
+            }
+            for label, service in manifest["services"].items()
+        }
+    }
 
 
 def _is_feature_flag(name: str) -> bool:
@@ -33,13 +61,13 @@ def _is_feature_flag(name: str) -> bool:
 
 
 def turned_on_default_off_flags(
-    profile: dict,
+    production: dict,
     manifest: dict,
     overrides: Mapping[str, str],
 ) -> list[str]:
     default_off = [
         name
-        for service in profile["services"].values()
+        for service in production["services"].values()
         for name, value in service["env"].items()
         if value == "false" and _is_feature_flag(name)
     ]
@@ -113,7 +141,7 @@ def test_temp_manifest_true_flag_fails_and_a_reasoned_override_passes() -> None:
 
 
 def prod_values_other_than_false(
-    profile: dict,
+    production: dict,
     render_config: dict,
     overrides: Mapping[str, str],
 ) -> list[str]:
@@ -123,7 +151,7 @@ def prod_values_other_than_false(
             continue
         profile_values = [
             service["env"][name]
-            for service in profile["services"].values()
+            for service in production["services"].values()
             if name in service.get("env", {})
         ]
         render_values = [
@@ -178,7 +206,7 @@ def test_approved_staging_overrides_record_a_reason() -> None:
 
 
 def test_staging_overrides_stay_false_in_prod() -> None:
-    profile = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
+    profile = production_values(json.loads(MANIFEST_PATH.read_text(encoding="utf-8")))
     render_config = yaml.safe_load(RENDER_PATH.read_text(encoding="utf-8"))
     assert (
         prod_values_other_than_false(
@@ -188,8 +216,8 @@ def test_staging_overrides_stay_false_in_prod() -> None:
     )
 
 
-def test_default_off_profile_flags_are_not_turned_on_in_staging() -> None:
-    profile = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
+def test_production_off_flags_are_not_turned_on_in_staging() -> None:
+    profile = production_values(json.loads(MANIFEST_PATH.read_text(encoding="utf-8")))
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     assert (
         turned_on_default_off_flags(profile, manifest, APPROVED_STAGING_OVERRIDES)
@@ -199,7 +227,7 @@ def test_default_off_profile_flags_are_not_turned_on_in_staging() -> None:
 
 @pytest.mark.parametrize("surface", ["profile", "render", "unknown", "unnamed"])
 def test_staging_exception_cannot_hide_other_true_values(surface: str) -> None:
-    profile = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
+    profile = production_values(json.loads(MANIFEST_PATH.read_text(encoding="utf-8")))
     render_config = yaml.safe_load(RENDER_PATH.read_text(encoding="utf-8"))
     name = "CUADRAO_BUSINESS_BANK_MATCHING_ENABLED"
     if surface == "profile":
@@ -222,7 +250,7 @@ def test_staging_exception_cannot_hide_other_true_values(surface: str) -> None:
 
 
 def test_another_staging_flag_still_needs_its_own_approval() -> None:
-    profile = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
+    profile = production_values(json.loads(MANIFEST_PATH.read_text(encoding="utf-8")))
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     name = "NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED"
     entry = next(
