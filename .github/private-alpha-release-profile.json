@@ -1,162 +1,22 @@
 {
   "schema_version": 1,
   "release_mode": "real-workflow",
-  "staging_only": {
-    "api": {
-      "manifest": "scripts/ops/staging_env_manifest.json",
-      "settings": [
-        "CUADRAO_BUSINESS_INVOICING_ENABLED",
-        "CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED",
-        "CUADRAO_BUSINESS_READS_PER_DAY",
-        "CUADRAO_BUSINESS_READS_PER_MONTH",
-        "CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS",
-        "CUADRAO_DOCUMENT_JOBS_MAX_READS",
-        "CUADRAO_DOCUMENT_UPLOADS_IN_FLIGHT",
-        "CUADRAO_DOCUMENT_UPLOADS_PER_MINUTE",
-        "CUADRAO_FISCAL_SANDBOX_API_TOKEN",
-        "CUADRAO_FISCAL_SANDBOX_BUSINESS_ID",
-        "CUADRAO_FISCAL_SANDBOX_CALLBACK_SECRET",
-        "CUADRAO_FISCAL_SANDBOX_CONTACT_ENABLED",
-        "CUADRAO_FISCAL_SANDBOX_ENABLED",
-        "CUADRAO_FISCAL_SANDBOX_MANIFEST_PATH",
-        "CUADRAO_FISCAL_SANDBOX_MANIFEST_SHA256",
-        "CUADRAO_FISCAL_SANDBOX_POLL_LIMIT",
-        "CUADRAO_FISCAL_SANDBOX_POLL_SECONDS",
-        "CUADRAO_FISCAL_SANDBOX_STORAGE_HOST",
-        "CUADRAO_FISCAL_SANDBOX_STORAGE_PATH_PREFIX"
-      ]
-    }
-  },
   "services": {
     "api": {
       "name": "argus-api",
-      "auto_deploy_trigger": "off",
-      "env": {
-        "APP_ENV": "production",
-        "CUADRAO_PERSISTENCE_MODE": "supabase",
-        "CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS": "180",
-        "CUADRAO_RUNTIME_EVENT_KEEPALIVE_SECONDS": "15",
-        "CUADRAO_CHECKPOINTER_MODE": "postgres",
-        "CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING": "100",
-        "CUADRAO_REGISTERED_DAILY_TURN_CEILING": "200",
-        "CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED": "false",
-        "CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED": "false",
-        "CUADRAO_HOUSEHOLDS_ENABLED": "false",
-        "CUADRAO_BETA_INVITES_ENABLED": "false",
-        "CUADRAO_BETA_INVITE_GATE_ENABLED": "false",
-        "CUADRAO_ACCOUNT_DELETION_ENABLED": "false",
-        "CUADRAO_BUSINESS_BANK_MATCHING_ENABLED": "false",
-        "CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED": "false",
-        "CUADRAO_BUSINESS_SUPPLIER_FAST_PATH_ENABLED": "false",
-        "CUADRAO_APPLE_REVOCATION_CAPTURE_ENABLED": "false",
-        "POSTHOG_REGION": "us",
-        "CUADRAO_MOCK_AUTH": "false",
-        "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED": "true",
-        "CUADRAO_CORS_ALLOW_ORIGINS": "https://argus-app-suz5.onrender.com,https://arguschat.ai,https://www.arguschat.ai",
-        "ARGUS_APP_ORIGIN": "https://arguschat.ai",
-        "CUADRAO_UTILITY_MODEL": "google/gemini-2.5-flash-lite",
-        "CUADRAO_UTILITY_FALLBACK_MODEL": "qwen/qwen3.5-9b",
-        "CUADRAO_CHAT_MODEL": "deepseek/deepseek-v4-flash",
-        "CUADRAO_CHAT_FALLBACK_MODEL": "qwen/qwen3.5-9b",
-        "CUADRAO_OPENROUTER_RESULT_SUMMARY_TIMEOUT_SECONDS": "30",
-        "CUADRAO_STRUCTURED_MODEL": "x-ai/grok-4.3",
-        "CUADRAO_STRUCTURED_FALLBACK_MODEL": "anthropic/claude-haiku-4.5",
-        "CUADRAO_CONTEXT_MODEL": "openai/gpt-oss-120b",
-        "CUADRAO_CONTEXT_FALLBACK_MODEL": "deepseek/deepseek-v4-flash",
-        "CUADRAO_READOUT_MODEL": "openai/gpt-5.6-luna",
-        "CUADRAO_READOUT_FALLBACK_MODEL": "openai/gpt-5.6-luna"
-      },
-      "required_present": [
-        "CUADRAO_OPS_TOKEN",
-        "CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD",
-        "CUADRAO_VISITOR_KEY_SECRET",
-        "POSTHOG_PROJECT_TOKEN",
-        "DATABASE_URL",
-        "SUPABASE_URL",
-        "SUPABASE_ANON_KEY",
-        "SUPABASE_SERVICE_ROLE_KEY",
-        "SUPABASE_JWT_SECRET",
-        "CUADRAO_PROD_OPENROUTER_API_KEY",
-        "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"
-      ],
-      "optional": [
-        "CUADRAO_OPENROUTER_API_KEY_DEV",
-        "CUADRAO_OPENROUTER_API_KEY_STG",
-        "CUADRAO_OPENROUTER_API_KEY_PROD",
-        "CUADRAO_INVITE_CODE_SECRET",
-        "CUADRAO_INVITE_CODE_SECRET_PREVIOUS",
-        "CUADRAO_APPLE_TEAM_ID",
-        "CUADRAO_APPLE_SIGN_IN_KEY_ID",
-        "CUADRAO_APPLE_SIGN_IN_PRIVATE_KEY",
-        "CUADRAO_APPLE_BUNDLE_ID"
-      ]
+      "auto_deploy_trigger": "off"
     },
     "web": {
       "name": "argus-app",
-      "auto_deploy_trigger": "off",
-      "env": {
-        "ARGUS_APP_ORIGIN": "https://arguschat.ai",
-        "NEXT_PUBLIC_MOCK_AUTH": "false",
-        "NEXT_PUBLIC_ENABLE_SPANISH": "true",
-        "NEXT_PUBLIC_OMNISEARCH_ENABLED": "true",
-        "NEXT_PUBLIC_RESEARCH_RAIL_ENABLED": "true",
-        "NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED": "false",
-        "NEXT_PUBLIC_BUSINESS_ONLY_WEB": "true",
-        "NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED": "false",
-        "NEXT_PUBLIC_CUADRAO_BUSINESS_LIFECYCLE_CONTROLS_ENABLED": "false",
-        "NEXT_PUBLIC_CUADRAO_SUPPORT_EMAIL": "support@get-argus.com"
-      },
-      "required_present": [
-        "NEXT_PUBLIC_SUPABASE_URL",
-        "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-        "NEXT_PUBLIC_CUADRAO_API_URL",
-        "NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY"
-      ],
-      "optional": []
+      "auto_deploy_trigger": "off"
     },
     "marketing": {
       "name": "cuadrao-web",
-      "auto_deploy_trigger": "off",
-      "env": {
-        "CUADRAO_INQUIRY_FROM": "Cuadrao <website@notify.cuadrao.ai>",
-        "CUADRAO_INQUIRY_TO": "hola@cuadrao.ai"
-      },
-      "required_present": [
-        "RESEND_API_KEY"
-      ],
-      "optional": [
-        "RESEND_API_URL",
-        "CUADRAO_SITE_INDEXING",
-        "CUADRAO_TRUSTED_CLIENT_IP_HEADER",
-        "CUADRAO_SOCIAL_PREVIEW"
-      ]
+      "auto_deploy_trigger": "off"
     },
     "workflow": {
       "name": "argus-backtests",
-      "auto_deploy_trigger": "off",
-      "env": {
-        "APP_ENV": "production",
-        "CUADRAO_UTILITY_MODEL": "google/gemini-2.5-flash-lite",
-        "CUADRAO_UTILITY_FALLBACK_MODEL": "qwen/qwen3.5-9b",
-        "CUADRAO_CHAT_MODEL": "deepseek/deepseek-v4-flash",
-        "CUADRAO_CHAT_FALLBACK_MODEL": "qwen/qwen3.5-9b",
-        "CUADRAO_OPENROUTER_RESULT_SUMMARY_TIMEOUT_SECONDS": "30",
-        "CUADRAO_STRUCTURED_MODEL": "x-ai/grok-4.3",
-        "CUADRAO_STRUCTURED_FALLBACK_MODEL": "anthropic/claude-haiku-4.5",
-        "CUADRAO_CONTEXT_MODEL": "openai/gpt-oss-120b",
-        "CUADRAO_CONTEXT_FALLBACK_MODEL": "deepseek/deepseek-v4-flash",
-        "CUADRAO_READOUT_MODEL": "openai/gpt-5.6-luna",
-        "CUADRAO_READOUT_FALLBACK_MODEL": "openai/gpt-5.6-luna"
-      },
-      "required_present": [
-        "CUADRAO_PROD_OPENROUTER_API_KEY",
-        "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"
-      ],
-      "optional": [
-        "CUADRAO_OPENROUTER_API_KEY_DEV",
-        "CUADRAO_OPENROUTER_API_KEY_STG",
-        "CUADRAO_OPENROUTER_API_KEY_PROD"
-      ]
+      "auto_deploy_trigger": "off"
     }
   },
   "workflow": {

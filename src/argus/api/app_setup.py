@@ -128,9 +128,6 @@ async def lifespan(app: FastAPI):
 
         await drain_whatsapp()
         await stop_worker(app)
-        from argus.api.document_jobs import drain_document_jobs
-
-        await drain_document_jobs()
         stop_ingestion(app)
         stop_bank_matching(app)
         stop_profile_images(app)

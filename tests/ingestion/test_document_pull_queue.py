@@ -1,7 +1,6 @@
 """Pull mode: a queued read waits on its row until a worker takes it."""
 
 import asyncio
-import inspect
 import json
 import time
 from collections.abc import Callable
@@ -11,7 +10,7 @@ from typing import Any
 
 import pytest
 import yaml
-from argus.api.document_jobs import document_worker as api_worker
+from argus.api.documents import documents_service
 from argus.domain.ingestion.connections import DEFAULT_LEASE
 from argus.domain.ingestion.documents import extractor as extraction
 from argus.domain.ingestion.documents import preparation
@@ -53,6 +52,7 @@ from tests.ingestion.test_read_budget_local_refusals import poppler
 rig = support.rig
 jobs_env = api.jobs_env
 jobs_client = api.jobs_client
+reader = api.reader
 reads_finish_inside_the_request = api.reads_finish_inside_the_request
 
 OWNER = "owner"
@@ -513,7 +513,7 @@ async def test_a_pull_failure_leaves_the_worker_running(rig, worker_env) -> None
     await running
 
 
-def test_the_api_reads_through_the_same_pull_as_the_worker(jobs_client, monkeypatch):
+def test_an_api_upload_is_read_through_the_workers_pull(jobs_client, monkeypatch):
     provider = api.Provider("succeed")
     api.install(monkeypatch, provider)
     connection = api.upload(jobs_client)
@@ -535,7 +535,7 @@ def test_the_owner_retry_in_the_api_goes_through_the_queue_too(
     api.wait_for(
         lambda: api.document(jobs_client, connection)["status"] == "review_ready"
     )
-    service = api_worker().service
+    service = documents_service()
     owner = service.store.owner(connection_id=connection)
     draft = service.store.draft(user_id=owner, connection_id=connection)
     service._update(owner, draft, status="needs_attention", error_code="anything")
@@ -567,19 +567,13 @@ def test_every_wait_for_a_read_covers_both_provider_calls():
     assert read_seconds() + HOST_SHUTDOWN_MARGIN_SECONDS <= HOST_SHUTDOWN_MAX_SECONDS
 
 
-def test_the_api_shutdown_fits_the_host_window():
-    from argus.api.whatsapp import drain_whatsapp
-
-    whatsapp = inspect.signature(drain_whatsapp).parameters["timeout"].default
-    shutdown = whatsapp + read_seconds() + CANCEL_SECONDS
-    assert shutdown == 20 + 210 + 5 == 235
+def test_the_worker_shutdown_fits_the_host_window():
+    shutdown = read_seconds() + CANCEL_SECONDS
+    assert shutdown == 210 + 5 == 215
     assert shutdown + HOST_SHUTDOWN_MARGIN_SECONDS <= HOST_SHUTDOWN_MAX_SECONDS
 
 
-def test_job_settings_are_declared_on_staging_and_the_switches_are_gone():
-    profile = json.loads(
-        (ROOT / ".github/private-alpha-release-profile.json").read_text()
-    )
+def test_job_settings_match_on_staging_and_production_and_the_switches_are_gone():
     manifest = json.loads((ROOT / "scripts/ops/staging_env_manifest.json").read_text())
     services = {
         service["name"]: service
@@ -588,16 +582,15 @@ def test_job_settings_are_declared_on_staging_and_the_switches_are_gone():
     example = (ROOT / ".env.example").read_text()
     entries = {e["name"]: e for e in manifest["services"]["api"]["entries"]}
     staging = {e["key"]: e for e in services["cuadrao-api-staging"]["envVars"]}
-    production = {e["key"] for e in services["cuadrao-api"]["envVars"]}
+    production = {e["key"]: e for e in services["cuadrao-api"]["envVars"]}
 
     for name, value in JOB_SETTINGS.items():
-        assert name in profile["staging_only"]["api"]["settings"]
         assert entries[name]["value"] == value
+        assert entries[name]["production"] == {"value": value}
         assert staging[name]["value"] == value
+        assert production[name]["value"] == value
         assert f"{name}={value}\n" in example
-        assert name not in profile["services"]["api"]["env"]
-        assert name not in production
-    declared = json.dumps(profile) + json.dumps(manifest) + example
+    declared = json.dumps(manifest) + example
     declared += json.dumps(services)
     for name in REMOVED_SETTINGS:
         assert name not in declared, f"{name} was deleted with the one read path"

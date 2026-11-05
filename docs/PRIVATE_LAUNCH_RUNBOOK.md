@@ -168,7 +168,7 @@ Render env tab, staging, names and non-secret flags:
 
 Render env tab, production, names and non-secret flags:
 
-- `cuadrao-api` (audit label `argus-api`): the [section 3](#3-render-environment-on-production) profile keys and their non-secret values; `CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED`; `CUADRAO_VISION_MODEL` present or absent (do not set it until the allow-list change); `SUPABASE_ANON_KEY` present (`sync: false`; do not record the value); `renderSubdomainPolicy` still enabled until the promotion-day apply; the staging-true `CUADRAO_*` names in section 3 absent. On promotion day, confirm `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED` is `true` on dashboard `cuadrao-api`. The check is the name and on/off only. Never set or change it on production without the founder's explicit approval.
+- `cuadrao-api` (audit label `argus-api`): the [section 3](#3-render-environment-on-production) profile keys and their non-secret values; `CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED`; `CUADRAO_VISION_MODEL` present or absent (do not set it until the allow-list change); `SUPABASE_ANON_KEY` present (`sync: false`; do not record the value); `renderSubdomainPolicy` still enabled until the promotion-day apply; the staging-true `CUADRAO_*` names in section 3 absent. On promotion day, confirm `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED` is `false` on dashboard `cuadrao-api`. The check is the name and on/off only. Never set or change it on production without the founder's explicit approval.
 - `cuadrao-web` (marketing site): start command confirmed on 2026-10-18 as `bun run start -- -p $PORT`. `MARKETING_POSTAL_ADDRESS` present or absent (do not record the string). Do not expect the business-web env from the `argus-app` audit contract (`NEXT_PUBLIC_ARGUS_API_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED`, `ARGUS_TRUSTED_CLIENT_IP_HEADER`) on this service.
 
 ### 1. Preflight
@@ -286,9 +286,9 @@ After the apply, read grants and RLS back, then rerun the same gate.
 
 ### 3. Render environment on production
 
-Do not copy `cuadrao-api-staging` or `cuadrao-web-staging` onto production. The staging manifest turns surfaces on that the production release profile keeps off.
+Do not copy `cuadrao-api-staging` or `cuadrao-web-staging` onto production. `scripts/ops/staging_env_manifest.json` holds both rules for every setting, and production keeps several staging surfaces off. Build the production files from it: `python3 scripts/ops/staging_env.py print production api` gives the paste-ready values, `--to-fill` lists the names you supply and where each value comes from, and `--live-names <file>` lists the live names to delete.
 
-`release-config-audit` fails a live key that is outside the candidate profile's allowed set (`env`, `required_present`, and `optional`) with `unexpected_live_env`. It also fails a missing or different value for every key in the profile `env` map. Set the keys below to the integration profile values before the audit, unless Lucas changes the profile in a reviewed commit and the landed SHA is gated again. This checklist does not change the profile.
+`release-config-audit` fails a live key whose production rule is `not_set`, or that the manifest does not name, with `unexpected_live_env`. It also fails a missing or different value for every production `value` rule, and a missing value for every required `enter` or `copy_from` rule.
 
 `render.yaml` marks `SUPABASE_ANON_KEY` on `cuadrao-api` as `sync: false`. `main`'s blueprint inlines a value on `argus-api`. Do not sync. On promotion day, after a reviewed diff, read back that the name is still present on dashboard `cuadrao-api`. Do not record the value. `NEXT_PUBLIC_SUPABASE_ANON_KEY` belongs to the `argus-app` business-web audit contract. No production service carries that contract yet. Do not copy the business-web anon key onto the marketing site.
 
@@ -446,7 +446,7 @@ Warmup dispatches a paid workflow proof. Lucas approves that spend in the window
 1. Stop tester exposure. Leave the Send Email Hook off.
 2. Emergency-only env flips, used for the incident they match and then recorded:
    - Workflow dispatch and execution controls require a separately approved operator change and readback. The retired `api-safe-off` command cannot perform emergency rollback.
-   - Guest access: set `NEXT_PUBLIC_GUEST_ACCESS_ENABLED=false`, then `CUADRAO_GUEST_ACCESS_ENABLED=false`. Leave `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true`.
+   - Guest access: set `NEXT_PUBLIC_GUEST_ACCESS_ENABLED=false`, then `CUADRAO_GUEST_ACCESS_ENABLED=false`. Leave `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=false`.
    - `ARGUS_ENABLE_EXECUTION_REALISM=false` is the execution-realism kill switch.
    Sharing flags, the three ceilings, `ARGUS_TRUSTED_CLIENT_IP_HEADER`, and `renderSubdomainPolicy` are not emergency flips.
 3. Revert code, keep migrations. Roll dashboard `cuadrao-api` and `argus-backtests` back to the same previous successful deploy. Leave `cuadrao-web` on its current marketing deploy. Do not roll a business-web service this promotion did not deploy. A Render rollback restores that deploy's env values as well, so read the env back afterward and re-apply any secret that was rotated since that artifact. Do not reverse, edit, or delete applied SQL. Old code has to tolerate the expanded schema, or Lucas approves a forward fix. The [waitlist rollback floor](#waitlist-rollback-floor) still forbids a code rollback below `061ba50e` while active `requested` rows can exist, until that section's maintenance proof is done.
@@ -1713,7 +1713,7 @@ Product defaults:
 
 ```bash
 CUADRAO_GUEST_ACCESS_ENABLED=true
-CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true
+CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=false
 NEXT_PUBLIC_GUEST_ACCESS_ENABLED=true
 CUADRAO_VISITOR_KEY_SECRET=<unique high-entropy environment secret>
 ARGUS_DISCOVERY_GLOBAL_DAILY_CEILING=500
@@ -1722,12 +1722,14 @@ ARGUS_DISCOVERY_GLOBAL_DAILY_CEILING=500
 Guest access is part of the normal product shape. The two Guest flags are
 default-on emergency kill switches; explicit `false` activates rollback. The
 frontend flag controls presentation only and the API remains authoritative.
-Public-account access is open as of 2026-08-12: permanent signup and login
-admit any email without an explicitly disabled allowlist row, the guest surface
-offers account creation, and existing admin/developer behavior is unchanged
-because opening the gate grants no role. That third flag is the one that fails
-closed when unset, so it must be set explicitly on every service that reads it;
-omitting it denies registration rather than opening it.
+Production sets `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED` to `false`, so it is
+invite only: permanent signup and login admit only an email with an active
+allowlist row, and the team adds those rows. A disabled row still refuses the
+email. A Business invitation admits an email only while
+`CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED` is true, and production keeps that
+switch false. That third flag is the one that fails closed when unset, so it
+must be set explicitly on every service that reads it; omitting it denies
+registration.
 
 Staging uses Cloudflare Turnstile test keys: the always-pass site key in
 `NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY` (the Cuadrao name; the Argus name
@@ -1805,8 +1807,8 @@ Rollback order:
 
 1. set `NEXT_PUBLIC_GUEST_ACCESS_ENABLED=false`;
 2. set `CUADRAO_GUEST_ACCESS_ENABLED=false`;
-3. leave `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` untouched, because rolling
-   guest access back does not close public registration;
+3. leave `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=false` untouched, because rolling
+   guest access back does not change who may register;
 4. verify the preserved centered auth landing path;
 5. stop new guest creation while retaining existing rows for safe expiry,
    conversion, or bounded cleanup.
@@ -1824,11 +1826,11 @@ persistence, allowances, and conversion policy, not through onboarding.
 The live `argus-api` plan is `standard`. The live `argus-app` plan is
 `starter`. The requested-role migration and access-request exposure are
 complete after the paid-plan readback and maintenance/private-health probes in
-`docs/release-evidence/public-alpha-readiness.md`. Public account creation is
-open: the founder set `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` live on
-2026-08-12, recorded in
-`docs/release-manifests/2026-08-12-main-production-promotion-716221f.md`, so
-anyone may register and the allowlist blocks only explicitly disabled rows.
+`docs/release-evidence/public-alpha-readiness.md`. Production is invite
+only: `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED` is `false`, so only an email with
+an active allowlist row may register. The 2026-08-12 promotion record,
+`docs/release-manifests/2026-08-12-main-production-promotion-716221f.md`, is
+history from when the value was `true`.
 The evidence records the paid API instance type plus the maintenance and
 private/SSH/local verification controls.
 

@@ -152,14 +152,14 @@ class DocumentJobSettings(BaseSettings):
         le=3600,
         validation_alias=setting_aliases("DOCUMENT_JOBS_SWEEP_SECONDS"),
     )
-    # Reads at once across every puller: each API instance and any worker.
+    # Reads at once across every document worker.
     max_reads: int = Field(
         default=3,
         ge=1,
         le=32,
         validation_alias=setting_aliases("DOCUMENT_JOBS_MAX_READS"),
     )
-    # Covers one read, retry included, in the worker and in the API.
+    # Covers one read, retry included, in a stopping worker.
     drain_seconds: float = Field(
         default_factory=read_seconds,
         gt=0,

@@ -477,11 +477,11 @@ and login; it should not be exposed as a frontend product surface.
   pre-created Auth user, or password-setup flow.
 - Add a new private-alpha user with only an `email`; set `role` only for
   `admin` or `developer` access. Use `disabled_at` to revoke access.
-- `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` decides what this table denies, and
-  it has been open in production since 2026-08-12. Only a row with `disabled_at`
-  set is denied now; a missing email is admitted. When that flag is off instead,
-  a missing email is denied too, unless `CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED`
-  is true (default false) and a live `business_access_invites` row on
+- `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED` decides what this table denies, and
+  production sets it to `false`, so a missing email is denied there. When the
+  flag is true, only a row with `disabled_at` set is denied. With the flag false
+  and `CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED` true (default false; production
+  keeps it false), a live `business_access_invites` row on
   an open Business, or a live `business_client_grants` row, names exactly that
   email: the invitation admits it until it expires or is revoked, and the
   accepted grant admits it until it is revoked or its Business is closed. A
@@ -3928,8 +3928,8 @@ row written before it or by a preparation that never needed it is unchanged,
 and the owner's "Leer de nuevo" starts a new preparation with it at zero. A
 reader older than the field rejects a row that carries it (the model forbids
 unknown keys), so a rollback leaves a receipt mid-rerun to "Leer de nuevo".
-The dispatch time stays null until a puller (an API instance or the worker
-command) takes the attempt, so a null means it waits in the queue; the take is
+The dispatch time stays null until a puller (the worker command, the only
+reader) takes the attempt, so a null means it waits in the queue; the take is
 one row update under a database lock, which is how `CUADRAO_DOCUMENT_JOBS_MAX_READS`
 holds across every puller.
 Only that attempt may claim the draft. The provider-call time is committed

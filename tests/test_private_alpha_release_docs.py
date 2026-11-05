@@ -16,9 +16,9 @@ from tests.release_promotion_evidence_support import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-RELEASE_PROFILE_PATH = ROOT / ".github" / "private-alpha-release-profile.json"
+SETTINGS_MANIFEST_PATH = ROOT / "scripts" / "ops" / "staging_env_manifest.json"
 PUBLIC_ACCOUNT_ACCESS_FLAG = "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED"
-# The release profile owns this flag's value. Product truth is where prose states
+# The settings manifest's production rule owns this flag's value. Product truth is where prose states
 # it, and every other doc may point here rather than repeat it.
 CANONICAL_VALUE_DOC = "docs/ARCHITECTURE.md"
 
@@ -132,9 +132,10 @@ def _source(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
-def _release_profile_value(key: str) -> str:
-    profile = json.loads(RELEASE_PROFILE_PATH.read_text(encoding="utf-8"))
-    return profile["services"]["api"]["env"][key]
+def _production_value(key: str) -> str:
+    manifest = json.loads(SETTINGS_MANIFEST_PATH.read_text(encoding="utf-8"))
+    entry = next(e for e in manifest["services"]["api"]["entries"] if e["name"] == key)
+    return entry["production"]["value"]
 
 
 def _standing_doc_paths() -> list[Path]:
@@ -407,15 +408,15 @@ def test_public_account_access_claim_detector_reads_grammar_not_phrases() -> Non
         assert not _access_claim_contradictions(claim, "false"), f"false alarm: {claim}"
 
 
-def test_public_account_access_claims_cannot_contradict_the_release_profile() -> None:
-    """The release profile owns this flag; standing prose only derives from it.
+def test_public_account_access_claims_cannot_contradict_the_production_value() -> None:
+    """The manifest's production rule owns this flag; standing prose only derives from it.
 
     Prose drifted out of agreement with the deployed flag once already, because
     nothing connected a sentence to the profile that decides the value.
     """
-    declared = _release_profile_value(PUBLIC_ACCOUNT_ACCESS_FLAG)
+    declared = _production_value(PUBLIC_ACCOUNT_ACCESS_FLAG)
     assert declared in _STATE_WORDS, (
-        f"{PUBLIC_ACCOUNT_ACCESS_FLAG} is `{declared}` in the release profile. "
+        f"{PUBLIC_ACCOUNT_ACCESS_FLAG} is `{declared}` in production. "
         "Add its boolean spelling to _STATE_WORDS before this guard can read it."
     )
     declared_assignment = f"{PUBLIC_ACCOUNT_ACCESS_FLAG}={declared}"
@@ -432,7 +433,7 @@ def test_public_account_access_claims_cannot_contradict_the_release_profile() ->
 
     assert not contradictions, (
         f"{PUBLIC_ACCOUNT_ACCESS_FLAG} is `{declared}` in "
-        f"{RELEASE_PROFILE_PATH.name}, so these standing claims are wrong:\n"
+        f"{SETTINGS_MANIFEST_PATH.name}, so these standing claims are wrong:\n"
         + "\n".join(f"  - {item}" for item in contradictions)
     )
     # One doc states the value; the rest may point at it. Requiring the literal
@@ -441,7 +442,7 @@ def test_public_account_access_claims_cannot_contradict_the_release_profile() ->
     # flag change a hand-edit of every copy.
     assert declared_assignment in _source(CANONICAL_VALUE_DOC), (
         f"{CANONICAL_VALUE_DOC} is where prose states this flag's value, so it "
-        f"must say `{declared_assignment}` to match {RELEASE_PROFILE_PATH.name}."
+        f"must say `{declared_assignment}` to match {SETTINGS_MANIFEST_PATH.name}."
     )
 def _commit_measurement_fixture_candidate(
     repository_root: Path,

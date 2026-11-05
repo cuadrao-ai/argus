@@ -22,29 +22,46 @@ from tests.release_promotion_evidence_support import (
 )
 
 PROFILE = ".github/private-alpha-release-profile.json"
+MANIFEST = "scripts/ops/staging_env_manifest.json"
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _profile() -> dict:
-    return json.loads((ROOT / PROFILE).read_text())
+def _manifest() -> dict:
+    return json.loads((ROOT / MANIFEST).read_text())
 
 
-def _configuration(profile: dict) -> dict[str, str]:
+def _production(manifest: dict) -> dict[str, dict]:
     return {
-        key: value
-        for key, value in profile["services"]["api"]["env"].items()
-        if key.endswith("_MODEL") or value in {"true", "false"}
+        entry["name"]: entry["production"]
+        for entry in manifest["services"]["api"]["entries"]
+    }
+
+
+def _set_production(manifest: dict, service: str, key: str, rule: dict) -> None:
+    entries = manifest["services"][service]["entries"]
+    entry = next((e for e in entries if e["name"] == key), None)
+    if entry is None:
+        entry = {"name": key, "kind": "plain", "production_only": True}
+        entries.append(entry)
+    entry["production"] = rule
+
+
+def _configuration(manifest: dict) -> dict[str, str]:
+    return {
+        key: rule["value"]
+        for key, rule in _production(manifest).items()
+        if "value" in rule and (key.endswith("_MODEL") or rule["value"] in {"true", "false"})
     }
 
 
 def _measured(tmp_path: Path) -> tuple[str, dict, dict]:
     commit_measured_repository(tmp_path)
-    profile = _profile()
-    sha = commit_files(tmp_path, {PROFILE: json.dumps(profile)})
+    manifest = _manifest()
+    sha = commit_files(tmp_path, {MANIFEST: json.dumps(manifest)})
     scorecard = live_eval_scorecard(tmp_path, measured_sha=sha)
     scorecard["schema_version"] = 3
-    scorecard["provenance"]["release_configuration"] = _configuration(profile)
-    return sha, profile, scorecard
+    scorecard["provenance"]["release_configuration"] = _configuration(manifest)
+    return sha, manifest, scorecard
 
 
 def _gate(tmp_path: Path, measured: str, candidate: str, scorecard: dict) -> None:
@@ -181,20 +198,20 @@ def test_approved_configuration_rename_uses_shipped_git_object(tmp_path: Path) -
         )
 
 
-@pytest.mark.parametrize("key", sorted(_configuration(_profile())))
+@pytest.mark.parametrize("key", sorted(_configuration(_manifest())))
 @pytest.mark.parametrize("changed_in", ["contract", "eval-environment"])
 def test_model_or_flag_mismatch_fails_promotion(
     tmp_path: Path, key: str, changed_in: str
 ) -> None:
-    measured, profile, scorecard = _measured(tmp_path)
-    old = profile["services"]["api"]["env"][key]
+    measured, manifest, scorecard = _measured(tmp_path)
+    old = _production(manifest)[key]["value"]
     new = "false" if old == "true" else "true" if old == "false" else old + "-changed"
     if changed_in == "contract":
-        profile["services"]["api"]["env"][key] = new
-        candidate = commit_files(tmp_path, {PROFILE: json.dumps(profile)})
+        _set_production(manifest, "api", key, {"value": new})
+        candidate = commit_files(tmp_path, {MANIFEST: json.dumps(manifest)})
         # A later checkout agrees with the evidence, but the candidate does not.
-        profile["services"]["api"]["env"][key] = old
-        commit_files(tmp_path, {PROFILE: json.dumps(profile)})
+        _set_production(manifest, "api", key, {"value": old})
+        commit_files(tmp_path, {MANIFEST: json.dumps(manifest)})
     else:
         candidate = measured
         scorecard["provenance"]["release_configuration"][key] = new
@@ -213,9 +230,9 @@ def test_model_or_flag_mismatch_fails_promotion(
     ],
 )
 def test_other_settings_keep_evidence(tmp_path: Path, service: str, key: str) -> None:
-    measured, profile, scorecard = _measured(tmp_path)
-    profile["services"][service]["env"][key] = "changed"
-    candidate = commit_files(tmp_path, {PROFILE: json.dumps(profile)})
+    measured, manifest, scorecard = _measured(tmp_path)
+    _set_production(manifest, service, key, {"value": "changed"})
+    candidate = commit_files(tmp_path, {MANIFEST: json.dumps(manifest)})
     _gate(tmp_path, measured, candidate, scorecard)
 
 
@@ -226,13 +243,13 @@ def test_new_promotion_refuses_older_scorecard(tmp_path: Path) -> None:
         _gate(tmp_path, measured, measured, scorecard)
 
 
-@pytest.mark.parametrize("key", sorted(_configuration(_profile())))
+@pytest.mark.parametrize("key", sorted(_configuration(_manifest())))
 def test_writer_records_environment_and_refuses_a_mid_run_change(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, key: str
 ) -> None:
     from tests.evals import measurement_eval_scorecard as writer
 
-    expected = _configuration(_profile())
+    expected = _configuration(_manifest())
     for name, value in expected.items():
         monkeypatch.setenv(name, value)
     monkeypatch.setenv("ARGUS_MARKET_DATA_PROVIDER_MODE", "synthetic_unit_fixture")
@@ -274,20 +291,20 @@ def test_capture_uses_runtime_model_resolution_and_keeps_missing_flags_unknown(
 
 @pytest.mark.parametrize("change", ["added", "removed", "missing-value", "flag-alias"])
 def test_configuration_requires_all_current_keys(tmp_path: Path, change: str) -> None:
-    measured, profile, scorecard = _measured(tmp_path)
+    measured, manifest, scorecard = _measured(tmp_path)
     key = "CUADRAO_ACCOUNT_DELETION_ENABLED"
     candidate = measured
     if change == "added":
         key = "ARGUS_NEW_CAPABILITY_ENABLED"
-        profile["services"]["api"]["env"][key] = "true"
+        _set_production(manifest, "api", key, {"value": "true"})
     elif change == "removed":
-        del profile["services"]["api"]["env"][key]
+        _set_production(manifest, "api", key, {"not_set": True})
     else:
         scorecard["provenance"]["release_configuration"][key] = (
             None if change == "missing-value" else "1"
         )
     if change in {"added", "removed"}:
-        candidate = commit_files(tmp_path, {PROFILE: json.dumps(profile)})
+        candidate = commit_files(tmp_path, {MANIFEST: json.dumps(manifest)})
     with pytest.raises(AssertionError, match=key):
         _gate(tmp_path, measured, candidate, scorecard)
 
@@ -333,9 +350,10 @@ def test_baseline_configuration_change_does_not_hide_new_failures(tmp_path: Path
         assert_main_promotion_baseline_comparison,
     )
 
-    measured, profile, baseline = _measured(tmp_path)
-    profile["services"]["api"]["env"]["CUADRAO_CHAT_MODEL"] += "-changed"
-    candidate = commit_files(tmp_path, {PROFILE: json.dumps(profile)})
+    measured, manifest, baseline = _measured(tmp_path)
+    chat = _production(manifest)["CUADRAO_CHAT_MODEL"]["value"]
+    _set_production(manifest, "api", "CUADRAO_CHAT_MODEL", {"value": chat + "-changed"})
+    candidate = commit_files(tmp_path, {MANIFEST: json.dumps(manifest)})
     relative = write_evidence(tmp_path, "baseline.json", baseline)
     manifest = (
         f"- Candidate SHA: `{candidate}`\n- Rollback target: `{measured}`\n"
@@ -365,9 +383,9 @@ def test_scorecard_records_a_disagreeing_environment_without_substituting_contra
 ) -> None:
     from tests.evals import measurement_eval_scorecard as writer
 
-    for name, value in _configuration(_profile()).items():
+    for name, value in _configuration(_manifest()).items():
         monkeypatch.setenv(name, value)
-    expected = _configuration(_profile())[key]
+    expected = _configuration(_manifest())[key]
     different = "wrong/model" if key.endswith("_MODEL") else str(expected != "true").lower()
     monkeypatch.setenv(key, different)
     monkeypatch.setenv("ARGUS_MARKET_DATA_PROVIDER_MODE", "synthetic_unit_fixture")

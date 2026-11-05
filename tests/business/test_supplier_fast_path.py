@@ -117,13 +117,8 @@ def test_map_registry_status_keeps_known_rows_and_an_unseen_value(
         assert info.notice is None
 
 
-def test_flag_is_default_off_in_the_four_declaration_files() -> None:
+def test_flag_is_default_off_in_the_three_declaration_files() -> None:
     env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
-    profile = json.loads(
-        (ROOT / ".github" / "private-alpha-release-profile.json").read_text(
-            encoding="utf-8"
-        )
-    )
     manifest = json.loads(
         (ROOT / "scripts" / "ops" / "staging_env_manifest.json").read_text(
             encoding="utf-8"
@@ -136,16 +131,12 @@ def test_flag_is_default_off_in_the_four_declaration_files() -> None:
     render_values = {
         item["key"]: item.get("value") for item in render_api["envVars"]
     }
-    manifest_values = {
-        entry["name"]: entry["value"]
-        for entry in manifest["services"]["api"]["entries"]
-        if "value" in entry
-    }
+    entry = next(e for e in manifest["services"]["api"]["entries"] if e["name"] == FLAG)
 
     assert re.search(rf"^{FLAG}=false$", env_example, re.M)
-    assert profile["services"]["api"]["env"][FLAG] == "false"
     assert render_values[FLAG] == "false"
-    assert manifest_values[FLAG] == "false"
+    assert entry["value"] == "false"
+    assert entry["production"] == {"value": "false"}
 
 
 def test_flag_off_does_nothing(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -1,9 +1,14 @@
-"""Make the two Render staging services match scripts/ops/staging_env_manifest.json.
+"""Render settings for staging and production, from scripts/ops/staging_env_manifest.json.
 
-Commands: plan, apply [--confirm], check, clipboard api|web, show-verify-token.
-Output carries variable names only, never values. Staging services only: the
-manifest names both service ids and apply refuses any service whose Render name
+Staging commands (the two staging services only): plan, apply [--confirm],
+check, clipboard api|web, show-verify-token. Their output carries variable
+names only, never values, and apply refuses any service whose Render name
 differs from the manifest's.
+
+Offline commands, for either environment and any service: print (a paste-ready
+KEY=VALUE file, --to-fill for the names you supply, --live-names FILE for the
+names to delete) and names (required or allowed names). They never read the
+secrets file and never call Render.
 """
 
 from __future__ import annotations
@@ -18,7 +23,7 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Protocol
+from typing import Any, Callable, Literal, Protocol
 
 MANIFEST_PATH = Path(__file__).with_name("staging_env_manifest.json")
 STAGING_IDS = {"api": "srv-db4mrrvlk1mc73d733j0", "web": "srv-db5ihr7lot8c73f3b3h0"}
@@ -27,6 +32,9 @@ DEFAULT_SECRETS_FILE = Path.home() / ".cuadrao" / "staging-secrets.env"
 RENDER_API = "https://api.render.com/v1"
 VERIFY_TOKEN_NAME = "CUADRAO_WHATSAPP_VERIFY_TOKEN"
 KINDS = ("plain", "secret", "generated")
+ENVIRONMENTS = ("staging", "production")
+PRODUCTION_MODES = ("value", "copy_from", "enter", "not_set")
+STAGING_FIELDS = {"value", "keep_current", "copy_from", "optional", "requires", "b64_bytes"}
 API_URL_NAMES = ("NEXT_PUBLIC_CUADRAO_API_URL", "NEXT_PUBLIC_ARGUS_API_URL")
 API_URL_SHAPE = re.compile(r"https://[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*(:\d+)?/api/v1")
 SECRETISH_NAME = re.compile(
@@ -98,33 +106,56 @@ class HttpRenderClient:
 
 
 def load_manifest(path: Path = MANIFEST_PATH) -> dict[str, Any]:
-    manifest = json.loads(path.read_text())
+    try:
+        manifest = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ManifestError(f"cannot load the settings manifest: {type(exc).__name__}") from None
     validate_manifest(manifest)
     return manifest
 
 
+def staging_services(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {
+        label: service
+        for label, service in manifest["services"].items()
+        if "service_id" in service
+    }
+
+
+def staging_entries(service: dict[str, Any]) -> list[dict[str, Any]]:
+    return [e for e in service["entries"] if not e.get("production_only")]
+
+
+def entries_for(service: dict[str, Any], environment: str) -> list[dict[str, Any]]:
+    return service["entries"] if environment == "production" else staging_entries(service)
+
+
 def validate_manifest(manifest: dict[str, Any]) -> None:
-    if set(manifest["services"]) != set(STAGING_IDS):
+    if not isinstance(manifest, dict) or not isinstance(manifest.get("services"), dict):
+        raise ManifestError("manifest has no services")
+    if set(staging_services(manifest)) != set(STAGING_IDS):
         raise ManifestError(
             "manifest must describe exactly the api and web staging services"
         )
     for label, service in manifest["services"].items():
+        _validate_production(label, service)
+    for label, service in staging_services(manifest).items():
         if service["service_id"] != STAGING_IDS[label]:
             raise ManifestError(f"{label}: service id is not the pinned staging service")
-        entries = {e["name"]: e for e in service["entries"]}
-        for entry in service["entries"]:
+        entries = {e["name"]: e for e in staging_entries(service)}
+        for entry in staging_entries(service):
             if any(r not in entries for r in entry.get("requires", [])):
                 raise ManifestError(
                     f"{label}: {entry['name']} requires an entry that is missing"
                 )
-        names = [e["name"] for e in service["entries"]]
+        names = [e["name"] for e in staging_entries(service)]
         names += [r["name"] for r in service["remove"]] + [
             h["name"] for h in service["hold"]
         ]
         duplicates = sorted({n for n in names if names.count(n) > 1})
         if duplicates:
             raise ManifestError(f"{label}: duplicate or conflicting names: {duplicates}")
-        for entry in service["entries"]:
+        for entry in staging_entries(service):
             name, kind = entry["name"], entry.get("kind")
             if kind not in KINDS:
                 raise ManifestError(f"{label}: {name} has unknown kind")
@@ -162,6 +193,185 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
         for pair in service.get("distinct", []):
             if any(name not in entries for name in pair):
                 raise ManifestError(f"{label}: distinct pair names an unknown entry")
+
+
+def _validate_production(label: str, service: dict[str, Any]) -> None:
+    if not service.get("production", {}).get("service_name"):
+        raise ManifestError(f"{label}: production service_name is missing")
+    names = [e["name"] for e in service["entries"]]
+    duplicates = sorted({n for n in names if names.count(n) > 1})
+    if duplicates:
+        raise ManifestError(f"{label}: duplicate names: {duplicates}")
+    for entry in service["entries"]:
+        name, rule = entry["name"], entry.get("production")
+        if entry.get("kind") not in KINDS:
+            raise ManifestError(f"{label}: {name} has unknown kind")
+        if not isinstance(rule, dict):
+            raise ManifestError(f"{label}: {name} has no production rule")
+        modes = [m for m in PRODUCTION_MODES if m in rule]
+        if len(modes) != 1 or set(rule) - {*modes, "optional", "service"}:
+            raise ManifestError(
+                f"{label}: {name} production rule needs exactly one of "
+                + ", ".join(PRODUCTION_MODES)
+            )
+        mode = modes[0]
+        if mode == "not_set" and rule["not_set"] is not True:
+            raise ManifestError(f"{label}: {name} not_set must be true")
+        if mode != "enter" and "optional" in rule:
+            raise ManifestError(f"{label}: {name} only an entered value can be optional")
+        if mode != "copy_from" and "service" in rule:
+            raise ManifestError(f"{label}: {name} service only qualifies copy_from")
+        if mode in ("enter", "copy_from") and not str(rule[mode]).strip():
+            raise ManifestError(f"{label}: {name} production {mode} is empty")
+        if mode == "value":
+            _require_plain_value(label, name, entry["kind"], str(rule["value"]))
+        staging_fields = STAGING_FIELDS & set(entry)
+        if entry.get("production_only") and staging_fields:
+            raise ManifestError(
+                f"{label}: {name} is production_only and cannot carry {sorted(staging_fields)}"
+            )
+
+
+def _require_plain_value(label: str, name: str, kind: str, value: str) -> None:
+    if (
+        kind != "plain"
+        or SECRETISH_NAME.search(name)
+        or SECRETISH_VALUE.search(value)
+    ):
+        raise ManifestError(
+            f"{label}: {name} looks like a secret and cannot hold a plain value"
+        )
+    if not value or "\n" in value:
+        raise ManifestError(f"{label}: {name} value must be one non-empty line")
+
+
+Mode = Literal["value", "copy_from", "enter", "not_set"]
+
+
+@dataclass(frozen=True)
+class Rule:
+    """What one environment wants for one name, in a single vocabulary."""
+
+    mode: Mode
+    text: str = ""  # the value, the copied name, or where an entered value comes from
+    optional: bool = False
+    source: str | None = None  # the service a copied name lives on, when not this one
+
+
+def rule_for(
+    entry: dict[str, Any], environment: str, service: dict[str, Any]
+) -> Rule:
+    if environment == "production":
+        rule = entry["production"]
+        mode: Mode = next(m for m in PRODUCTION_MODES if m in rule)  # type: ignore[assignment]
+        if mode == "copy_from":
+            return Rule(mode, str(rule["copy_from"]), source=rule.get("service"))
+        if mode == "not_set":
+            return Rule(mode)
+        return Rule(mode, str(rule[mode]), bool(rule.get("optional")))
+    name = service["service_name"]
+    optional = bool(entry.get("optional"))
+    if "value" in entry:
+        return Rule("value", str(entry["value"]))
+    if "copy_from" in entry:
+        return Rule("copy_from", str(entry["copy_from"]))
+    if entry.get("keep_current"):
+        return Rule("enter", f"keep the live value on {name}", optional)
+    if entry["kind"] == "generated":
+        return Rule("enter", "generated once into the secrets file by apply", optional)
+    return Rule("enter", "the local secrets file", optional)
+
+
+def _offline_service(
+    manifest: dict[str, Any], environment: str, label: str
+) -> dict[str, Any]:
+    service = manifest["services"].get(label)
+    if service is None or (
+        environment == "staging" and label not in staging_services(manifest)
+    ):
+        raise ManifestError(f"{label} has no {environment} service in the manifest")
+    return service
+
+
+def paste_ready(manifest: dict[str, Any], environment: str, label: str) -> str:
+    service = _offline_service(manifest, environment, label)
+    lines = []
+    for entry in entries_for(service, environment):
+        rule = rule_for(entry, environment, service)
+        if rule.mode != "value":
+            continue
+        _require_plain_value(label, entry["name"], entry["kind"], rule.text)
+        lines.append(f"{entry['name']}={rule.text}")
+    return "".join(f"{line}\n" for line in sorted(lines))
+
+
+def to_fill(manifest: dict[str, Any], environment: str, label: str) -> str:
+    service = _offline_service(manifest, environment, label)
+    blocks = []
+    for entry in sorted(entries_for(service, environment), key=lambda e: e["name"]):
+        rule = rule_for(entry, environment, service)
+        if rule.mode == "copy_from":
+            source = manifest["services"][rule.source or label]
+            target = (
+                source["production"]["service_name"]
+                if environment == "production"
+                else source["service_name"]
+            )
+            where = f"copy the live value of {rule.text} on {target}"
+        elif rule.mode == "enter":
+            where = rule.text + (" (optional: leave it out when unused)" if rule.optional else "")
+        else:
+            continue
+        blocks.append(f"# {where}\n{entry['name']}=\n")
+    return "".join(blocks)
+
+
+def names(
+    manifest: dict[str, Any], environment: str, label: str, which: str
+) -> list[str]:
+    service = _offline_service(manifest, environment, label)
+    rules = [(e["name"], rule_for(e, environment, service)) for e in entries_for(service, environment)]
+    if which == "required":
+        return sorted(
+            n for n, r in rules if r.mode in ("copy_from", "enter") and not r.optional
+        )
+    return sorted(n for n, r in rules if r.mode != "not_set")
+
+
+def names_to_delete(
+    manifest: dict[str, Any], environment: str, label: str, live: set[str]
+) -> tuple[list[str], list[str]]:
+    """Live names the manifest does not keep: (delete now, delete after the launch deploy).
+
+    DATABASE_URL and SUPABASE_* names are never listed. A legacy name that a
+    kept name copies from waits for the launch deploy, because the copy reads
+    it until then.
+    """
+
+    service = _offline_service(manifest, environment, label)
+    kept = set(names(manifest, environment, label, "allowed"))
+    if environment == "staging":
+        kept |= {hold["name"] for hold in service["hold"]}
+    copied = {
+        rule.text
+        for entry in entries_for(service, environment)
+        if (rule := rule_for(entry, environment, service)).mode == "copy_from"
+        and rule.source is None
+    }
+    extra = sorted(
+        n
+        for n in live - kept
+        if n != "DATABASE_URL" and not n.startswith("SUPABASE_")
+    )
+    return [n for n in extra if n not in copied], [n for n in extra if n in copied]
+
+
+def read_live_names(path: Path) -> set[str]:
+    return {
+        line.strip()
+        for line in path.read_text().splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    }
 
 
 def read_secrets(path: Path) -> dict[str, str]:
@@ -210,7 +420,7 @@ def compute_plan(
     generator: Callable[[], str] = lambda: secrets_module.token_urlsafe(48),
 ) -> Plan:
     plan = Plan(final=dict(live))
-    ordered = sorted(service["entries"], key=lambda e: bool(e.get("requires")))
+    ordered = sorted(staging_entries(service), key=lambda e: bool(e.get("requires")))
     for entry in ordered:
         name, kind = entry["name"], entry["kind"]
         unmet = [r for r in entry.get("requires", []) if r not in plan.final]
@@ -317,7 +527,7 @@ def read_live(client: RenderClient, service: dict[str, Any]) -> dict[str, str]:
 
 
 def _services(manifest: dict[str, Any], which: str) -> list[tuple[str, dict[str, Any]]]:
-    items = list(manifest["services"].items())
+    items = list(staging_services(manifest).items())
     return items if which == "all" else [(which, manifest["services"][which])]
 
 
@@ -357,9 +567,51 @@ def run(
     )
     sub.add_parser("clipboard").add_argument("service", choices=["api", "web"])
     sub.add_parser("show-verify-token")
+    print_parser = sub.add_parser(
+        "print", help="paste-ready KEY=VALUE lines; never reads secrets"
+    )
+    print_parser.add_argument("environment", choices=ENVIRONMENTS)
+    print_parser.add_argument("service")
+    print_mode = print_parser.add_mutually_exclusive_group()
+    print_mode.add_argument(
+        "--to-fill",
+        action="store_true",
+        help="the names you supply, blank, each with where its value comes from",
+    )
+    print_mode.add_argument(
+        "--live-names",
+        type=Path,
+        help="a file of live names, one per line; prints the names to delete",
+    )
+    names_parser = sub.add_parser("names", help="required or allowed names")
+    names_parser.add_argument("environment", choices=ENVIRONMENTS)
+    names_parser.add_argument("service")
+    names_parser.add_argument("which", choices=["required", "allowed"])
     args = parser.parse_args(argv)
 
     manifest = load_manifest()
+
+    if args.command in ("names", "print"):
+        if args.command == "names":
+            text = "\n".join(names(manifest, args.environment, args.service, args.which))
+        elif args.live_names:
+            now, later = names_to_delete(
+                manifest,
+                args.environment,
+                args.service,
+                read_live_names(args.live_names),
+            )
+            text = "\n".join(
+                ["delete now:", *now, "delete after the launch deploy:", *later]
+            )
+        elif args.to_fill:
+            text = to_fill(manifest, args.environment, args.service).rstrip("\n")
+        else:
+            text = paste_ready(manifest, args.environment, args.service).rstrip("\n")
+        if text:
+            out(text)
+        return 0
+
     file_secrets = read_secrets(args.secrets_file)
 
     if args.command == "show-verify-token":
@@ -384,7 +636,7 @@ def run(
         if os.environ.get("RENDER_API_KEY"):
             live = read_live(_client(client_factory), service)
         plan = compute_plan(service, live, file_secrets)
-        managed = {e["name"] for e in service["entries"]} - set(plan.missing)
+        managed = {e["name"] for e in staging_entries(service)} - set(plan.missing)
         block = {k: v for k, v in plan.final.items() if k in managed}
         for name, value in plan.generated.items():
             append_secret(args.secrets_file, name, value)

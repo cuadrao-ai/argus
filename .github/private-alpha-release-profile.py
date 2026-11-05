@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Validate and expose the non-secret private-alpha release profile."""
+"""Validate and expose the non-secret private-alpha release profile.
+
+The profile owns service names, the deploy trigger and the workflow contract.
+Environment settings live in scripts/ops/staging_env_manifest.json; read them
+with scripts/ops/staging_env.py.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +18,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 PROFILE_PATH = ROOT / ".github" / "private-alpha-release-profile.json"
+MANIFEST_PATH = ROOT / "scripts" / "ops" / "staging_env_manifest.json"
 SURFACES = ("api", "web", "workflow", "marketing")
 AUTO_DEPLOY_TRIGGERS = ("off", "checksPass")
 FORBIDDEN_KEY_FRAGMENTS = (
@@ -47,12 +53,6 @@ def _require_mapping(value: object, field: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ProfileValidationError(f"{field} must be an object")
     return value
-
-
-def _require_strings(value: object, field: str) -> list[str]:
-    if not isinstance(value, list) or not all(isinstance(item, str) and item for item in value):
-        raise ProfileValidationError(f"{field} must be a non-empty list of strings")
-    return list(value)
 
 
 def validate_profile(profile: dict[str, Any]) -> None:
@@ -90,20 +90,11 @@ def validate_profile(profile: dict[str, Any]) -> None:
                 f"{', '.join(AUTO_DEPLOY_TRIGGERS)}"
             )
         triggers.add(service.get("auto_deploy_trigger"))
-        env = _require_mapping(service.get("env"), f"services.{surface}.env")
-        if not env or not all(isinstance(key, str) and isinstance(value, str) for key, value in env.items()):
-            raise ProfileValidationError(f"services.{surface}.env must contain string pairs")
-        required_present = _require_strings(
-            service.get("required_present"),
-            f"services.{surface}.required_present",
-        )
-        optional = service.get("optional")
-        if not isinstance(optional, list) or not all(
-            isinstance(item, str) and item for item in optional
-        ):
-            raise ProfileValidationError(f"services.{surface}.optional must be a list of strings")
-        if set(env).intersection(required_present) or set(env).intersection(optional) or set(required_present).intersection(optional):
-            raise ProfileValidationError(f"services.{surface} repeats environment keys")
+        if {"env", "required_present", "optional"} & set(service):
+            raise ProfileValidationError(
+                f"services.{surface} must not hold environment settings; "
+                "scripts/ops/staging_env_manifest.json owns them"
+            )
     if len(triggers) != 1:
         raise ProfileValidationError(
             "api, web, workflow, and marketing must share one auto_deploy_trigger"
@@ -139,34 +130,8 @@ def _walk_keys(value: object) -> list[str]:
 
 
 def profile_hash() -> str:
-    return hashlib.sha256(PROFILE_PATH.read_bytes()).hexdigest()
-
-
-def env_pairs(profile: dict[str, Any], surface: str) -> list[str]:
-    return [
-        f"{key}={value}"
-        for key, value in sorted(profile["services"][surface]["env"].items())
-    ]
-
-
-def required_present(profile: dict[str, Any], surface: str) -> list[str]:
-    return sorted(profile["services"][surface]["required_present"])
-
-
-def allowed_keys(profile: dict[str, Any], surface: str) -> list[str]:
-    service = profile["services"][surface]
-    return sorted(
-        set(service["env"]).union(service["required_present"], service["optional"])
-    )
-
-
-def env_value(profile: dict[str, Any], surface: str, key: str) -> str:
-    try:
-        return profile["services"][surface]["env"][key]
-    except KeyError as exc:
-        raise ProfileValidationError(
-            f"services.{surface}.env does not define {key}"
-        ) from exc
+    """One hash over the release contract: this profile and the settings manifest."""
+    return hashlib.sha256(PROFILE_PATH.read_bytes() + MANIFEST_PATH.read_bytes()).hexdigest()
 
 
 def auto_deploy_trigger(profile: dict[str, Any], surface: str) -> str:
@@ -183,17 +148,8 @@ def main() -> int:
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("validate")
     subparsers.add_parser("hash")
-    env_parser = subparsers.add_parser("env-pairs")
-    env_parser.add_argument("surface", choices=SURFACES)
-    env_value_parser = subparsers.add_parser("env-value")
-    env_value_parser.add_argument("surface", choices=SURFACES)
-    env_value_parser.add_argument("key")
     autodeploy_parser = subparsers.add_parser("auto-deploy-trigger")
     autodeploy_parser.add_argument("surface", choices=SURFACES)
-    present_parser = subparsers.add_parser("required-present")
-    present_parser.add_argument("surface", choices=SURFACES)
-    allowed_parser = subparsers.add_parser("allowed-keys")
-    allowed_parser.add_argument("surface", choices=SURFACES)
     args = parser.parse_args()
 
     try:
@@ -203,16 +159,8 @@ def main() -> int:
             print("profile_status=ready")
         elif args.command == "hash":
             print(profile_hash())
-        elif args.command == "env-pairs":
-            print("\n".join(env_pairs(profile, args.surface)))
-        elif args.command == "env-value":
-            print(env_value(profile, args.surface, args.key))
         elif args.command == "auto-deploy-trigger":
             print(auto_deploy_trigger(profile, args.surface))
-        elif args.command == "required-present":
-            print("\n".join(required_present(profile, args.surface)))
-        elif args.command == "allowed-keys":
-            print("\n".join(allowed_keys(profile, args.surface)))
     except ProfileValidationError as exc:
         print(f"release profile error: {exc}", file=sys.stderr)
         return 1

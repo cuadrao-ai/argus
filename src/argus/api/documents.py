@@ -7,16 +7,11 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from urllib.parse import unquote
 
-from fastapi import BackgroundTasks, Depends, HTTPException, Request
+from fastapi import Depends, HTTPException, Request
 from loguru import logger
 
 from argus.api import state as api_state
 from argus.api.dependencies import problem
-from argus.api.document_jobs import (
-    start_document_jobs,
-    stop_document_jobs,
-    wake_document_reads,
-)
 from argus.api.financial_accounts import (
     FinancialAccountsContext,
     require_financial_accounts_context,
@@ -36,7 +31,6 @@ from argus.domain.ingestion.documents.config import (
     SOURCE_MEDIA_TYPES,
     DocumentExtractionSettings,
     load_document_extraction_settings,
-    load_document_job_settings,
 )
 from argus.domain.ingestion.documents.extractor import DocumentExtractor
 from argus.domain.ingestion.documents.jobs import PreparationJobs
@@ -66,7 +60,6 @@ def documents_service() -> DocumentsService | None:
 
 def configure_documents(service: DocumentsService | None) -> None:
     global _service
-    stop_document_jobs()
     _service = service
     _minute.reset()
     _in_flight.reset()
@@ -90,8 +83,6 @@ def _start_documents(app: object, hub: IngestionHub) -> None:
     # Register cleanup even when extraction is off, so disconnect still erases it.
     service = _service_over(app, hub, DocumentExtractor())
     configure_documents(service)
-    if service is not None:
-        start_document_jobs(service, load_document_job_settings())
 
 
 def start_saved_documents(app: object, hub: IngestionHub | None) -> None:
@@ -314,13 +305,11 @@ async def dispatch_preparation(
     service: DocumentsService,
     user_id: str,
     connection_id: str,
-    background_tasks: BackgroundTasks,
     *,
     scope: OwnerScope,
 ) -> None:
-    """Record one attempt for the read, the only way a receipt gets read, and
-    wake this process's puller once ``background_tasks`` run: after the
-    response for a request, when the caller awaits them for a delivery."""
+    """Record one attempt for the read, the only way a receipt gets read.
+    The API never reads it: ``python -m workflows.document_worker`` pulls it."""
 
     from uuid import UUID
 
@@ -343,7 +332,6 @@ async def dispatch_preparation(
     await asyncio.to_thread(
         PreparationJobs(service).start, user_id=user_id, connection_id=connection_id
     )
-    background_tasks.add_task(wake_document_reads)
 
 
 def document_problem(request: Request, error: Exception) -> HTTPException:
