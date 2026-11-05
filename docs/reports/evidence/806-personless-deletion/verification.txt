@@ -1,0 +1,11 @@
+Integration base 875de09ac2115acec42e09060b92878aa5f18eff
+Final behavioral verification before module-docstring-only cleanup.
+49 passed, 0 skipped, 0 failed, 19 warnings in 40.56s.
+30 synthetic HTTP adapter tests and 19 real PostgreSQL account-deletion tests.
+Warnings are psycopg_pool default-open deprecations.
+Ruff focused checks passed.
+Modularity budget passed with no violations.
+No provider calls, hosted changes, iOS changes, paid calls, or live data.
+Independent sketch review completed. HTTP409 remains retryable pending.
+Comment review completed. Three descriptive module docstrings removed.
+Final independent code review and exact-head CI belong to the root coordinator.

@@ -1,0 +1,44 @@
+warning: /Users/garces/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/garces/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+Building for debugging...
+[Using on-disk description]
+[12 / 56] ConcurrencyExtras
+[34 / 98] ConcurrencyExtras
+[46 / 118] IssueReporting
+[52 / 118] IssueReporting
+[65 / 118] Crypto
+[80 / 119] IssueReporting
+[87 / 126] Crypto
+[101 / 133] Clocks
+[114 / 146] Clocks
+[121 / 153] Clocks
+[124 / 153] XCTestDynamicOverlay
+[144 / 172] Helpers
+[150 / 178] Helpers
+[152 / 178] Auth
+[171 / 197] Auth
+[175 / 199] ArgusSession
+[192 / 218] ArgusSession
+[193 / 218] ArgusSession
+[194 / 218] ArgusSession
+[199 / 215] ArgusSession
+[200 / 215] Auth
+[205 / 214] ArgusSessionTests-product
+[224 / 233] ArgusSessionTests-product
+[228 / 232] ArgusSessionTests-product
+[230 / 232] ArgusSessionTests-product
+Build complete! (4.83 sec)
+Test Suite 'Selected tests' started at 2026-10-05 21:08:58.806.
+Test Suite 'ArgusSessionTests.xctest' started at 2026-10-05 21:08:58.807.
+Test Suite 'SessionControllerTests' started at 2026-10-05 21:08:58.807.
+Test Case '-[ArgusSessionTests.SessionControllerTests testDeleteFailureRemainsPendingUntilLocalCleanupSucceeds]' started.
+/private/tmp/cuadrao-native-apple-name-20261005/ios/Packages/ArgusSession/Tests/ArgusSessionTests/SessionControllerTests.swift:221: error: -[ArgusSessionTests.SessionControllerTests testDeleteFailureRemainsPendingUntilLocalCleanupSucceeds] : XCTAssertEqual failed: ("signOutPending") is not equal to ("signedOut")
+Test Case '-[ArgusSessionTests.SessionControllerTests testDeleteFailureRemainsPendingUntilLocalCleanupSucceeds]' failed (0.113 seconds).
+Test Suite 'SessionControllerTests' failed at 2026-10-05 21:08:58.920.
+	 Executed 1 test, with 1 failure (0 unexpected) in 0.113 (0.113) seconds
+Test Suite 'ArgusSessionTests.xctest' failed at 2026-10-05 21:08:58.920.
+	 Executed 1 test, with 1 failure (0 unexpected) in 0.113 (0.113) seconds
+Test Suite 'Selected tests' failed at 2026-10-05 21:08:58.920.
+	 Executed 1 test, with 1 failure (0 unexpected) in 0.113 (0.114) seconds
+Note: Some test targets reported failures:
+  - ArgusSessionTests (XCTest)

@@ -1,0 +1,8 @@
+rows_sql_before_seed: {"business_accounts": 0, "business_connections": 0, "business_import_events": 0, "business_conversations": 0, "spaces": 1}
+run_attempt_personal_job_prepared: "prepared"
+run_attempt_business_job_prepared: "prepared"
+seeded_ids: {"personal_account": "c37b4ae4-dde4-45d4-8da3-855179ad0f1c", "business_account": "2fbc70d8-ab05-4eb6-9841-623e97d37e1c", "personal_expense": "f24443a5-d33b-4476-961a-619956effca2", "business_expense": "c7e95bd7-24d7-4503-844c-c3aa5cb04c08", "personal_receipt": "0282b4c6-f843-4c20-a70f-91c7250ecc0d", "business_receipt": "3f376e2e-87bd-4026-aa31-dbad3056c74a", "space": "1ccaca74-cb12-4d1b-b6f4-3392a01a971c", "whatsapp_receipt": "5c23b42b-73f2-434f-a4fe-024472b0a307", "personal_job_prepared": "a2323dc6-0d84-4648-9843-4eb85012353b", "personal_job_queued": "eedafbb4-e5a0-4575-aeb7-a0a5b544c68d", "business_job_prepared": "b7a8288f-36f4-4c1f-90d2-8c78ff043527"}
+jobs: [["0282b4c6-f843-4c20-a70f-91c7250ecc0d", "review_ready", false], ["3f376e2e-87bd-4026-aa31-dbad3056c74a", "review_ready", false], ["5c23b42b-73f2-434f-a4fe-024472b0a307", "saved", false], ["a2323dc6-0d84-4648-9843-4eb85012353b", "review_ready", true], ["b7a8288f-36f4-4c1f-90d2-8c78ff043527", "review_ready", true], ["eedafbb4-e5a0-4575-aeb7-a0a5b544c68d", "queued", true]]
+whatsapp_rows: {"whatsapp_link_codes": 1, "whatsapp_sender_links": 1, "whatsapp_inbound_messages": 1}
+rows_sql_after_seed: {"business_accounts": 1, "business_connections": 3, "business_import_events": 2, "business_conversations": 0, "spaces": 2}
+exit=0

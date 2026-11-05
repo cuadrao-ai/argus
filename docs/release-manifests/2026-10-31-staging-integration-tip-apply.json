@@ -1,0 +1,15 @@
+{
+  "id": "staging-apply-2026-10-31-integration-tip",
+  "project_ref": "skedzwocnmrhfigiwyzi",
+  "hosts": [
+    "db.skedzwocnmrhfigiwyzi.supabase.co",
+    "aws-0-us-east-1.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "58e3c74f6619ef8f3fd7884dbcd578fe45810260",
+  "versions_sha256": "1086d9371e6665d3e527a6c657b9b866b27179aca7251ff71f973d3d4f5dbf15",
+  "issued_at": "2026-10-31T23:25:51Z",
+  "expires_at": "2026-11-02T23:25:51Z",
+  "approved_by": "founder",
+  "approval_reference": "Lucas, in the orchestrator session on 2026-10-31, approved deploying integration to staging after being told it needs these five migrations and that one is a one-way drop of refusal_observations (\"Yes, do both\"). The standing 2026-10-21 rule covers staging only, with a committed approval record and a dry run first. This record covers only versions 20261030220000, 20261031010000, 20261031020000, 20261031094421, 20261031100000 for staging project skedzwocnmrhfigiwyzi at candidate 58e3c74f6619ef8f3fd7884dbcd578fe45810260. It does not authorize production changes."
+}

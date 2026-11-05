@@ -1,0 +1,47 @@
+{
+  "original_integration": "9d6ed94491be9d904da881901a6d7a2dc8cf635b",
+  "current_integration": "9d6ed94491be9d904da881901a6d7a2dc8cf635b",
+  "reconciliation_merge": null,
+  "semantic_overlap": "Integration unchanged; ancestor of worker. Would-be merged tree is worker tree.",
+  "financial_gate": {
+    "source_head": "9d49cde3359a54d8d28624e5f16973d032bbd61b",
+    "passed": 394,
+    "skipped": 0,
+    "duration_seconds": 26.03,
+    "command": "pytest tests/financial_accounts tests/test_financial_accounts_postgres.py tests/test_financial_assets_postgres.py tests/test_openapi_compatibility.py scripts/qa/test_financial_response_fault.py ios/scripts/auth/test_run_ui.py --no-cov",
+    "database": "real local Postgres59202, synthetic per-test owners"
+  },
+  "native_package": {
+    "source_head": "0aabfb1605336d695fa59b636061e53995b65282",
+    "passed": 64,
+    "skipped": 4,
+    "failures": 0,
+    "skips": "Inherited opt-in live-auth tests; assembled native tests exercise real auth."
+  },
+  "native_cases": 2,
+  "independent_review": {
+    "reviewer": "assets_independent_review, fresh gpt-6-sol context",
+    "final_reviewed_head": "0aabfb1605336d695fa59b636061e53995b65282",
+    "confirmed_remaining_findings": 0,
+    "report": "independent-review.md"
+  },
+  "github_finding": {
+    "comment": "https://github.com/lagarcess/argus/pull/759#discussion_r4150665997",
+    "fix": "cb49c1ee3bfe358ec6a359fd732ecadf45a38db9",
+    "proof": "Twelve focused type/history/API cases pass in memory and Postgres; first estimate still allowed."
+  },
+  "retained_evidence": "Native lifecycle9d49 and APIreadback9d49 retained across the subsequent test-selector-only commit; later preservation delta is documentation/evidence only. Final-head revalidation and terminal CI/review are recorded in the PR terminal audit.",
+  "demo": {
+    "checkout": "/Users/garces/.codex/worktrees/connected-personal-assets-demo/private-alpha-next",
+    "cache": "/private/tmp/argus-personal-assets-build",
+    "mirror": "http://localhost:59213",
+    "fault_proxy": "Stopped; installed app restored to direct59300"
+  },
+  "limits": [
+    "Local simulator delivery; physical-iPhone internet proof remains pending.",
+    "Manual estimates only.",
+    "Archive preserves totals; no sale/disposal or known-value withdrawal contract.",
+    "No sharing rights or currency conversion.",
+    "No merge/deployment/hosted settings change."
+  ]
+}

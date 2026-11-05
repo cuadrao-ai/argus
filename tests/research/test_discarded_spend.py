@@ -329,7 +329,7 @@ def test_a_parser_failure_tells_the_operator_and_not_the_reader() -> None:
 
 def test_the_operator_log_names_the_line_that_failed() -> None:
     """Codex round 4: the log has to be able to locate a parser regression,
-    so prove the traceback reaches a sink rather than asserting it."""
+    so prove its safe origin reaches a sink without attaching exception text."""
     from argus.domain.research.contracts import ResearchUnavailableError
     from argus.domain.research.perplexity_agent import _packet_from_response
     from loguru import logger
@@ -412,11 +412,10 @@ def test_a_turn_that_never_reached_the_provider_bills_nothing(monkeypatch, ledge
     assert _settle(result, ledger)["billable_quantity"] == 0
 
 
-def test_a_cache_hit_reports_the_packet_it_served_and_claims_no_new_call(
+def test_a_repeated_freeform_answer_reports_and_bills_its_new_call(
     monkeypatch, ledger, stepping_clock
 ) -> None:
-    """The turn read no provider response, so it reports the stored packet's
-    own usage and bills no request."""
+    """Each freeform turn reports and bills the response it actually retrieved."""
     set_research_query(
         monkeypatch,
         globals(),
@@ -432,33 +431,31 @@ def test_a_cache_hit_reports_the_packet_it_served_and_claims_no_new_call(
                 tickers=["NFLX"],
                 sources=["https://ir.netflix.net/financials/quarterly-earnings/"],
             )
-        ],
+        ]
+        * 2,
     )
 
     first = run_research_turn("What were Netflix's main growth drivers?")
     second = run_research_turn("What were Netflix's main growth drivers?")
 
     assert first is not None and second is not None
-    assert len(transport.requests) == 1, "the second turn was served from the cache"
+    assert len(transport.requests) == 2, "the second turn retrieves its own answer"
     served = second.stage_patch["research"]["usage"]
-    assert served["cache_status"] == "hit"
+    assert served["cache_status"] == "miss"
     assert served["cost_usd"] == pytest.approx(ONE_RESPONSE_USD)
     assert served["invocations"] == first.stage_patch["research"]["usage"]["invocations"]
-    # The sidecar describes the record it served; the ledger records what this
-    # turn paid, which is nothing, so a report summing the column cannot charge
-    # one retrieval twice.
+    # Both the sidecar and ledger describe this turn's new retrieval.
     entry = _settle(second, ledger)
-    assert entry["billable_quantity"] == 0
-    assert entry["cost_amount"] is None
-    assert entry["cost_source"] == "unavailable"
-    assert entry["latency_ms"] is None
+    assert entry["billable_quantity"] == 1
+    assert entry["cost_amount"] == pytest.approx(ONE_RESPONSE_USD)
+    assert entry["cost_source"] == "provider_reported"
+    assert entry["latency_ms"] == CALL_LATENCY_MS
 
 
-def test_the_cache_stores_one_response_not_the_turn_that_retried(
+def test_repeated_answer_usage_excludes_the_previous_turn_retry(
     monkeypatch, stepping_clock
 ) -> None:
-    """A later question served from the record paid for the response that was
-    stored, not for the retry this turn happened to run."""
+    """A later question owns fresh usage, without inheriting the earlier retry."""
     set_research_query(
         monkeypatch,
         globals(),
@@ -471,13 +468,15 @@ def test_the_cache_stores_one_response_not_the_turn_that_retried(
         tickers=["NFLX"],
         sources=["https://ir.netflix.net/financials/quarterly-earnings/"],
     )
-    transport = wire_grounded_client(monkeypatch, [_provider_only_document(), published])
+    transport = wire_grounded_client(
+        monkeypatch, [_provider_only_document(), published, published]
+    )
 
     paid = run_research_turn("What were Netflix's main growth drivers?")
     served = run_research_turn("What were Netflix's main growth drivers?")
 
     assert paid is not None and served is not None
-    assert len(transport.requests) == 2, "the second turn made no call"
+    assert len(transport.requests) == 3, "the second turn makes one fresh call"
     assert paid.stage_patch["research"]["usage"]["cost_usd"] == pytest.approx(
         2 * ONE_RESPONSE_USD
     )
@@ -485,7 +484,7 @@ def test_the_cache_stores_one_response_not_the_turn_that_retried(
         "invocations": 1,
         "latency_ms": CALL_LATENCY_MS,
         "cost_usd": pytest.approx(ONE_RESPONSE_USD),
-        "cache_status": "hit",
+        "cache_status": "miss",
     }
 
 

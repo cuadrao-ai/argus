@@ -28,6 +28,7 @@ from argus.api.naming import (
     title_word_budget,
 )
 from argus.api.schemas import ChatStreamRequest, Conversation
+from argus.domain.owner_scope import PERSONAL
 
 LANGUAGES = ("en", "es-419")
 _LABEL_PREFIX = "chat.next_experiments.labels."
@@ -122,7 +123,7 @@ def _generate_title(
     api_state.store.reset()
     api_state.store.get_or_create_dev_user()
     conversation = memory_conversation(
-        title="New idea", title_source="system_default", language=language
+        scope=PERSONAL, title="New idea", title_source="system_default", language=language
     )
     title = artifact_naming.maybe_generate_conversation_title(
         user_id=_DEV_USER_ID,

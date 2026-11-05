@@ -22,13 +22,13 @@ for (const cell of AUDIT_CELLS.filter((cell) => cell.account === "registered")) 
     await page.getByRole("button", { name: copy.settings.data.title, exact: true }).click();
     const openRequest = () => page.getByRole("button", { name: new RegExp(`^${copy.settings.profile.delete_account}`) }).click();
     const dialog = page.getByRole("dialog", { name: copy.settings.profile.request_deletion.title, exact: true });
-    const support = dialog.getByRole("button", { name: copy.settings.profile.request_deletion.contact_support, exact: true });
+    const confirm = dialog.getByRole("button", { name: copy.settings.profile.request_deletion.confirm, exact: true });
     for (const close of ["cancel", "escape", "back"] as const) {
       await openRequest();
       await expect(dialog).toBeVisible();
       // Visibility alone passes for a dialog behind another sheet. Hit-test the
       // actual action before any mutation and require one modal presentation.
-      await expect.poll(() => support.evaluate((node) => {
+      await expect.poll(() => confirm.evaluate((node) => {
         const r = node.getBoundingClientRect();
         return node.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
       })).toBe(true);

@@ -1,5 +1,9 @@
+import { browserAuthGeneration, browserLogoutGeneration, invalidateBrowserAuth, requireBrowserAuthGeneration } from "./browser-auth-generation";
+import { synchronizeBusinessAccount } from "./business-grant";
 import { rememberReceiptFollowupClaim } from './receipt-followup-storage';
 import { parseToolProgress, type ToolProgress, type ToolResultCard, type ToolScalar } from "./tool-result-card";
+import { authenticatedRequestHeaders } from "./chat-auth-ownership";
+import type { AccountRequestOptions } from "./argus-api-transport";
 import { getSupabaseClient } from "./supabase-client";
 import i18next from "i18next";
 import { localizeArtifactFinalPayload } from "./artifact-response-transport";
@@ -16,6 +20,7 @@ import type {
   StrategyConfirmationPayload,
 } from "@/components/chat/types";
 import {
+  accountLanguage,
   normalizeEnabledLanguage,
   type ArgusLocale,
 } from "./language-features";
@@ -38,15 +43,20 @@ import {
   resultMetricDisplayOrder,
 } from "./result-card-display";
 import { acquirePasswordAuthCaptchaToken } from "./guest-captcha";
+import { postPasswordAuth } from "./password-auth-request";
+import { attributionBody } from "./landing-intent";
 import { resultReadoutContentFromMetadata, type ResultReadoutContent } from "./result-readout-content";
 import { resultReadoutFacts } from "./result-readout-facts";
 import {
-  ARGUS_API_BASE_URL,
+  CUADRAO_API_BASE_URL,
   apiFetch,
   unauthenticatedApiFetch,
 } from "./argus-api-transport";
+import { appendSurface, surfaceQuery, type ConversationSurface } from "./conversation-surface-api";
+import { requireConversationInShell } from "./conversation-surface-guard";
 
 export { apiFetch, unauthenticatedApiFetch } from "./argus-api-transport";
+export type { ConversationSurface } from "./conversation-surface-api";
 
 // ─── Shared primitive types ──────────────────────────────────────────────────
 
@@ -234,6 +244,7 @@ export type Conversation = {
   preview?: ConversationPreview | null;
   language?: "en" | "es-419" | null;
   activity?: ConversationActivity | null;
+  surface?: ConversationSurface;
 };
 
 type AuthSessionPayload = {
@@ -408,7 +419,7 @@ export class ChatStreamError extends Error {
     message: string,
     public status: number,
     public code = "unknown",
-    public requestId: string | null = null,
+    public requestId: string | null = null, public retryAfter: string | null = null,
   ) {
     super(message);
     this.name = "ChatStreamError";
@@ -575,6 +586,7 @@ export async function persistBrowserSession(payload: AuthResponsePayload) {
   if (!supabase) {
     return;
   }
+  const logoutGeneration = browserLogoutGeneration();
   const { data, error } = await supabase.auth.setSession({
     access_token: session.access_token,
     refresh_token: session.refresh_token,
@@ -582,6 +594,8 @@ export async function persistBrowserSession(payload: AuthResponsePayload) {
   if (error) {
     throw error;
   }
+  if (logoutGeneration !== browserLogoutGeneration()) throw new Error("Browser session changed");
+  synchronizeBusinessAccount(data?.session?.user.id ?? null);
   if (payload.guest_claim && data?.session?.user.id) {
     rememberReceiptFollowupClaim(data.session.user.id, payload.guest_claim.conversation_id);
   }
@@ -600,10 +614,16 @@ export type ProfilePatch = {
   country?: string | null;
   /** ISO 4217; null goes back to the currency the country implies. */
   currency_override?: string | null;
+  table_density?: "compacto" | "normal" | "amplio";
 };
 
-export async function getMe() {
-  return apiFetch<UserResponse>("/me");
+/** The one place an account enters the web: its language is the one that may decide here. */
+function readAccount(response: UserResponse): UserResponse {
+  return { ...response, user: { ...response.user, language: accountLanguage(response.user) } };
+}
+
+export async function getMe(expectedUserId?: string) {
+  return readAccount(await apiFetch<UserResponse>("/me", { expectedUserId }));
 }
 
 export async function getUsageAllowances() {
@@ -632,10 +652,12 @@ export async function getMarketSession(signal?: AbortSignal) {
 }
 
 export async function patchMe(patch: ProfilePatch) {
-  return apiFetch<UserResponse>("/me", {
-    method: "PATCH",
-    body: JSON.stringify(patch),
-  });
+  return readAccount(
+    await apiFetch<UserResponse>("/me", {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+  );
 }
 
 export async function getStarterPrompts() {
@@ -654,30 +676,33 @@ export async function signupWithEmail(payload: {
   display_name?: string | null;
   username?: string | null;
 }) {
+  const generation = browserAuthGeneration();
   const captchaToken = await acquirePasswordAuthCaptchaToken();
-  const response = await unauthenticatedApiFetch<AuthResponsePayload>(
-    "/auth/signup",
-    {
-      method: "POST",
-      body: JSON.stringify({ ...payload, captcha_token: captchaToken }),
-    },
-  );
+  const response = await postPasswordAuth<AuthResponsePayload>("/auth/signup", {
+    ...payload,
+    captcha_token: captchaToken,
+    ...attributionBody(),
+  });
+  requireBrowserAuthGeneration(generation);
   await persistBrowserSession(response);
   return { response, needsEmailConfirmation: !response.session };
 }
 
-export async function loginWithEmail(payload: {
-  email: string;
-  password: string;
-}) {
+export async function loginWithEmail(
+  payload: {
+    email: string;
+    password: string;
+  },
+  options?: { requestTimeoutMs?: number },
+) {
+  const generation = browserAuthGeneration();
   const captchaToken = await acquirePasswordAuthCaptchaToken();
-  const response = await unauthenticatedApiFetch<AuthResponsePayload>(
+  const response = await postPasswordAuth<AuthResponsePayload>(
     "/auth/login",
-    {
-      method: "POST",
-      body: JSON.stringify({ ...payload, captcha_token: captchaToken }),
-    },
+    { ...payload, captcha_token: captchaToken },
+    options?.requestTimeoutMs,
   );
+  requireBrowserAuthGeneration(generation);
   await persistBrowserSession(response);
   return response;
 }
@@ -711,6 +736,8 @@ export async function synchronizeCurrentBrowserLogout<T>(
 }
 
 export async function logoutFromApi() {
+  invalidateBrowserAuth();
+  synchronizeBusinessAccount(null);
   return synchronizeCurrentBrowserLogout(
     async () => {
       const supabase = getSupabaseClient();
@@ -721,13 +748,15 @@ export async function logoutFromApi() {
   );
 }
 
-export async function createConversation(language?: string | null) {
-  const payload: { title: null; language?: ApiLanguage } = { title: null };
+export async function createConversation(language?: string | null, options: AccountRequestOptions = {}, surface?: ConversationSurface) {
+  const payload: { title: null; language?: ApiLanguage; surface?: "business" } = { title: null };
   if (language) {
     payload.language = normalizeApiLanguage(language);
   }
+  if (surface === "business") payload.surface = surface;
 
   return apiFetch<{ conversation: Conversation }>("/conversations", {
+    ...options,
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -741,13 +770,15 @@ export async function listConversations(
     cursor?: string;
     archived?: boolean;
     deleted?: boolean;
+    surface?: ConversationSurface;
   } = {},
 ) {
-  const { limit = 20, cursor, archived, deleted } = params;
+  const { limit = 20, cursor, archived, deleted, surface } = params;
   const searchParams = new URLSearchParams({ limit: String(limit) });
   if (cursor) searchParams.append("cursor", cursor);
   if (archived !== undefined) searchParams.append("archived", String(archived));
   if (deleted !== undefined) searchParams.append("deleted", String(deleted));
+  appendSurface(searchParams, surface);
 
   return apiFetch<{ items: Conversation[]; next_cursor: string | null }>(
     `/conversations?${searchParams.toString()}`,
@@ -768,10 +799,12 @@ export async function getConversationMessages(
   if (options.anchorMessageId) {
     searchParams.append("anchor_message_id", options.anchorMessageId);
   }
-  return apiFetch<{ items: ApiMessage[]; next_cursor: string | null }>(
+  const page = await apiFetch<{ items: ApiMessage[]; next_cursor: string | null; surface?: ConversationSurface }>(
     `/conversations/${conversationId}/messages?${searchParams.toString()}`,
     { signal: options.signal },
   );
+  requireConversationInShell(conversationId, page.surface);
+  return page;
 }
 
 export async function addConfirmationPeerAssets(
@@ -882,67 +915,7 @@ export async function deleteConversation(conversationId: string) {
   });
 }
 
-export async function deleteAllConversations() {
-  return apiFetch<{ success: boolean; deleted_count: number }>(
-    "/conversations",
-    {
-      method: "DELETE",
-    },
-  );
-}
-
-// ─── History ──────────────────────────────────────────────────────────────────
-
-export async function listHistory(
-  params: {
-    limit?: number;
-    cursor?: string;
-    archived?: boolean;
-    deleted?: boolean;
-  } = {},
-) {
-  const { limit = 20, cursor, archived, deleted } = params;
-  const searchParams = new URLSearchParams({ limit: String(limit) });
-  if (cursor) searchParams.append("cursor", cursor);
-  if (archived !== undefined) searchParams.append("archived", String(archived));
-  if (deleted !== undefined) searchParams.append("deleted", String(deleted));
-
-  return apiFetch<{ items: HistoryItem[]; next_cursor: string | null }>(
-    `/history?${searchParams.toString()}`,
-  );
-}
-
-export async function searchGlobal(params: {
-  q: string;
-  limit?: number;
-  cursor?: string;
-  decisionState?: DecisionState | null;
-  includeLedgerGroups?: boolean;
-  conversationIds?: string[];
-}) {
-  const {
-    q,
-    limit = 20,
-    cursor,
-    decisionState,
-    includeLedgerGroups = false,
-    conversationIds,
-  } = params;
-  const searchParams = new URLSearchParams({
-    q,
-    limit: String(limit),
-  });
-  if (cursor) searchParams.append("cursor", cursor);
-  if (decisionState) searchParams.append("decision_state", decisionState);
-  if (includeLedgerGroups) {
-    searchParams.append("include_ledger_groups", "true");
-  }
-  for (const id of conversationIds ?? [])
-    searchParams.append("conversation_id", id);
-  return apiFetch<SearchResponse>(
-    `/search?${searchParams.toString()}`,
-  );
-}
+export { listHistory, searchGlobal } from "./conversation-surface-api";
 
 export async function createEvidenceDecision(
   artifactId: string,
@@ -991,6 +964,7 @@ export async function getBacktestJob(jobId: string) {
 // ─── Chat stream ──────────────────────────────────────────────────────────────
 
 export type ChatStreamOptions = Readonly<{
+  expectedUserId?: string;
   requestId?: string;
   signal?: AbortSignal;
   failedAssistantId?: string;
@@ -1004,23 +978,13 @@ export async function streamChatMessage(
   mentions: ChatMention[] = [],
   options: ChatStreamOptions = {},
 ) {
-  const isMockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
-  const authHeaders: Record<string, string> = {};
   const submittedRequestId = options.requestId ?? randomId();
-  if (!isMockAuth) {
-    const supabase = getSupabaseClient();
-    if (!supabase) {
-      throw new Error("Supabase auth client is unavailable in non-mock mode.");
-    }
-    const { data, error } = await supabase.auth.getSession();
-    if (!error && data.session) {
-      authHeaders["Authorization"] = `Bearer ${data.session.access_token}`;
-    }
-  }
+  const authHeaders = await authenticatedRequestHeaders(options.expectedUserId);
+  options.signal?.throwIfAborted();
 
-  const response = await fetch(`${ARGUS_API_BASE_URL}/chat/stream`, {
+  const response = await fetch(`${CUADRAO_API_BASE_URL}/chat/stream`, {
     method: "POST",
-    credentials: "include",
+    credentials: options.expectedUserId === undefined ? "include" : "omit",
     signal: options.signal,
     headers: {
       "Content-Type": "application/json",
@@ -1064,6 +1028,7 @@ export async function streamChatMessage(
       message,
       response.status,
       typeof code === "string" ? code : "unknown", responseRequestId,
+      response.headers.get("Retry-After"),
     );
   }
   const reader = response.body.getReader();

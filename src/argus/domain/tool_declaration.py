@@ -260,6 +260,7 @@ class ToolDeclaration:
     rules: tuple[ExactlyOneUnknown, ...] = ()
     domain: tuple[str, ...] = ()
     units: tuple[ToolUnit, ...] = ()
+    surfaces: frozenset[str] = frozenset({"personal"})
     confirmation_handler: Callable[..., Any] | None = None
     arguments_type: type[BaseModel] = field(init=False, repr=False)
     call_arguments_type: type[BaseModel] = field(init=False, repr=False)
@@ -270,6 +271,8 @@ class ToolDeclaration:
     def __post_init__(self) -> None:
         if re.fullmatch(r"[a-z][a-z0-9_]{0,79}", self.name) is None:
             raise ValueError("A tool name must be a stable snake_case identity")
+        if not self.surfaces or not self.surfaces <= {"personal", "business"}:
+            raise ValueError("A tool needs declared supported surfaces")
         if not self.description or not callable(self.handler):
             raise TypeError("A tool needs a description and a real typed callable")
         argument_type, result_type, uses_context = _callable_contract(self.handler)

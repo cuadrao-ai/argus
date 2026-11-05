@@ -1,0 +1,76 @@
+{
+  "sourceCommit": "f98974687caecc01c24786007e448754a782d1a2",
+  "capturedAt": "2026-10-09T21:56:51.678Z",
+  "baseURL": "http://127.0.0.1:4512",
+  "browser": "Playwright Chromium headless, isolated context",
+  "captures": [
+    {
+      "route": "/",
+      "file": "business-es.png",
+      "width": 1440
+    },
+    {
+      "route": "/en",
+      "file": "business-en.png",
+      "width": 1440
+    },
+    {
+      "route": "/personal",
+      "file": "personal-es.png",
+      "width": 1440
+    },
+    {
+      "route": "/en/personal",
+      "file": "personal-en.png",
+      "width": 1440
+    },
+    {
+      "route": "/contacto",
+      "file": "contact-es.png",
+      "width": 1440
+    },
+    {
+      "route": "/en/contact",
+      "file": "contact-en.png",
+      "width": 1440
+    },
+    {
+      "route": "/privacidad",
+      "file": "privacy-es.png",
+      "width": 1440
+    },
+    {
+      "route": "/en/privacy",
+      "file": "privacy-en.png",
+      "width": 1440
+    },
+    {
+      "route": "/",
+      "file": "business-es-320.png",
+      "width": 320
+    },
+    {
+      "route": "/",
+      "file": "business-es-390.png",
+      "width": 390
+    },
+    {
+      "route": "/",
+      "file": "footer-rest.png",
+      "width": 1440,
+      "state": "rest"
+    },
+    {
+      "route": "/",
+      "file": "footer-peek.png",
+      "width": 1440,
+      "state": "peek"
+    },
+    {
+      "route": "/",
+      "file": "footer-settled.png",
+      "width": 1440,
+      "state": "settled"
+    }
+  ]
+}

@@ -16,7 +16,6 @@ from argus.agent_runtime.llm_interpreter import OpenRouterStructuredInterpreter
 from argus.agent_runtime.stages.interpret_types import InterpretationRequest
 from argus.agent_runtime.state.models import UserState
 from argus.api import state as api_state
-from argus.api.chat import title_finalization
 from argus.api.guest_access import registered_account_context
 from argus.api.message_store import (
     create_message,
@@ -26,6 +25,7 @@ from argus.api.message_store import (
 from argus.api.routers.history import history as list_history
 from argus.api.search_assembly import scored_memory_search_items
 from argus.domain.conversation_previews import project_conversation_preview
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.supabase_gateway import SupabaseGateway
 from langchain_core.messages import AIMessage
 
@@ -85,6 +85,7 @@ def test_degraded_compatibility_text_stays_durable_but_not_in_history_or_preview
     user = api_state.store.get_or_create_dev_user()
     user_id = user.id
     conversation = memory_conversation(
+        scope=PERSONAL,
         title="AAPL idea",
         title_source="system_default",
         language="es-419",
@@ -139,11 +140,10 @@ def test_degraded_compatibility_text_stays_durable_but_not_in_history_or_preview
     assert search_items[0][1].matched_text == ("Prueba AAPL con velas de cinco minutos.")
 
 
-def test_llm_voice_remains_in_history_preview_and_interpreter_only() -> (
-    None
-):
+def test_llm_voice_remains_in_history_preview_and_interpreter_only() -> None:
     user_id = "user-1"
     conversation = memory_conversation(
+        scope=PERSONAL,
         title="AAPL idea",
         title_source="system_default",
         language="en",
@@ -245,54 +245,6 @@ def test_supabase_append_omits_degraded_compatibility_text_from_preview() -> Non
     assert llm_call.kwargs["preview"] == EXACT_LLM_VOICE
 
 
-def test_artifact_naming_context_excludes_only_degraded_compatibility_text(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    naming_calls: list[dict[str, Any]] = []
-
-    def capture_naming_context(**kwargs: Any) -> str:
-        naming_calls.append(kwargs)
-        return "AAPL idea"
-
-    monkeypatch.setattr(
-        title_finalization,
-        "maybe_generate_conversation_title",
-        capture_naming_context,
-    )
-    monkeypatch.setattr(title_finalization, "persist_route_receipts", MagicMock())
-
-    degraded_title = title_finalization.finalize_conversation_title_after_turn(
-        user_id="user-1",
-        conversation_id="conversation-1",
-        language="es-419",
-        assistant_message=RAW_ENGLISH_FALLBACK,
-        assistant_metadata=_degraded_clarification(),
-    )
-    legacy_metadata = _degraded_clarification()
-    legacy_metadata["clarification"].pop("prompt_source")
-    legacy_title = title_finalization.finalize_conversation_title_after_turn(
-        user_id="user-1",
-        conversation_id="conversation-1",
-        language="es-419",
-        assistant_message=RAW_ENGLISH_FALLBACK,
-        assistant_metadata=legacy_metadata,
-    )
-    llm_title = title_finalization.finalize_conversation_title_after_turn(
-        user_id="user-1",
-        conversation_id="conversation-1",
-        language="en",
-        assistant_message=EXACT_LLM_VOICE,
-        assistant_metadata=_llm_clarification(),
-    )
-
-    assert degraded_title == legacy_title == llm_title == "AAPL idea"
-    assert [call["assistant_message"] for call in naming_calls] == [
-        None,
-        None,
-        EXACT_LLM_VOICE,
-    ]
-
-
 def test_message_append_migration_backfills_legacy_degraded_previews() -> None:
     migration = (
         Path(__file__).resolve().parents[1]
@@ -318,6 +270,7 @@ def test_chat_history_keeps_degraded_replies_and_only_naming_drops_failed_lookup
 ):
     user_id = "user-1"
     conversation = memory_conversation(
+        scope=PERSONAL,
         title="AAPL",
         title_source="system_default",
         language="en",

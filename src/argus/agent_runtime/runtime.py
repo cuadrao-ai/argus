@@ -10,10 +10,7 @@ from argus.agent_runtime.artifact_action_recovery import (
     artifact_action_recovery_message,
 )
 from argus.agent_runtime.history import select_thread_history
-from argus.agent_runtime.next_experiments import (
-    detect_next_experiment_acceptance,
-    offered_kinds_from_thread_metadata,
-)
+from argus.agent_runtime.next_experiments import offered_kinds_from_thread_metadata
 from argus.agent_runtime.state.models import (
     ArtifactReference,
     ConfirmationPayload,
@@ -38,7 +35,6 @@ from argus.agent_runtime.workflow_contract import (
     WORKFLOW_NODE_NAMES,
 )
 from argus.domain.result_readout_content import READOUT_METADATA_KEYS
-from argus.observability.product_events import capture_product_event
 
 MAX_RECENT_THREAD_HISTORY = 6
 WorkflowState = dict[str, Any]
@@ -125,22 +121,6 @@ async def stream_agent_turn_events(
             fallback_confirmation_payload=fallback_confirmation_payload,
         )
     )
-    acceptance = detect_next_experiment_acceptance(
-        message,
-        fallback_selected_thread_metadata,
-    )
-    if acceptance is not None:
-        # Typed acceptance for Stage-1 ordering; the offered impression
-        # rides the previous result's metadata.
-        try:
-            capture_product_event(
-                "next_experiment_selected",
-                user_id=user.user_id,
-                conversation_id=thread_id,
-                attributes=acceptance,
-            )
-        except Exception:
-            logger.debug("next_experiment_selected emission failed")
     config = {"configurable": {"thread_id": thread_id}}
     seen_stage_starts: set[str] = set()
     seen_stage_outcomes: set[str] = set()

@@ -1,0 +1,24 @@
+{
+  "shortfall": {
+    "source_head": "83523335d43e6f6e98ac1ddd05fb47a0531ddc83",
+    "scope": "Native shared-shortfall scene created by correcting one existing synthetic reverse transfer; no new activity",
+    "phase": "shortfall",
+    "a_assigned_minor": "40000",
+    "a_supported_minor": null,
+    "b_supported_minor": null,
+    "a_state": "needs_review",
+    "pool_backing_minor": "39000",
+    "shared_shortfall_minor": "2000"
+  },
+  "restore": {
+    "source_head": "83523335d43e6f6e98ac1ddd05fb47a0531ddc83",
+    "scope": "Native shared-shortfall scene created by correcting one existing synthetic reverse transfer; no new activity",
+    "phase": "restore",
+    "a_assigned_minor": "40000",
+    "a_supported_minor": "40000",
+    "b_supported_minor": "1000",
+    "a_state": "active",
+    "pool_backing_minor": "41000",
+    "shared_shortfall_minor": "0"
+  }
+}

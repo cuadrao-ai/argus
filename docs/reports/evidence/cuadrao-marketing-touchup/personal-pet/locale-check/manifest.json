@@ -1,0 +1,30 @@
+{
+  "sourceCommit": "d5436b7e861876fea205ac7cdb68ac943702c8fa",
+  "browser": "Playwright WebKit",
+  "captures": [
+    {
+      "file": "phone-es-1440-webkit.png",
+      "locale": "es",
+      "width": 1440,
+      "labels": "Crear cuentaIniciar sesión"
+    },
+    {
+      "file": "phone-en-1440-webkit.png",
+      "locale": "en",
+      "width": 1440,
+      "labels": "Create accountSign in"
+    },
+    {
+      "file": "phone-es-390-webkit.png",
+      "locale": "es",
+      "width": 390,
+      "labels": "Crear cuentaIniciar sesión"
+    },
+    {
+      "file": "phone-en-390-webkit.png",
+      "locale": "en",
+      "width": 390,
+      "labels": "Create accountSign in"
+    }
+  ]
+}

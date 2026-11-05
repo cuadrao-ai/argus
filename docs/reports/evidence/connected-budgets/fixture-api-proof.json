@@ -1,0 +1,30 @@
+{
+  "phase": "initial_fixture_baseline",
+  "source_sha": "95d54dc7fab1adf7aa638fd4b67c53d36db35a79",
+  "financial_policy": "budgets not implemented; no budget progress claimed",
+  "api_readbacks": 15,
+  "readback": {
+    "checking_minor": 82300,
+    "cash_minor": 14000,
+    "card_minor": 0,
+    "unknown_balance": "unknown",
+    "usd_minor": 5000
+  },
+  "setup_runs": 2,
+  "owner_record_counts_after_rerun": {
+    "accounts": 5,
+    "logical_activities": 8
+  },
+  "owner_isolation": "other synthetic owner GET account and activity returns404",
+  "expected_purchases_from_selected_bank_and_card_minor": 12000,
+  "native_home_reopen": {
+    "test": "FinancialLoopUITests/testRetainedHomeSurvivesReopening",
+    "result": "ui-20260930T003614Z.xcresult",
+    "passed": true,
+    "expected_dop_known_position_minor": 96300,
+    "expected_dop_spending_minor": 14000,
+    "expected_usd_position_minor": 5000,
+    "unknown_balance_count": 1,
+    "budget_controls": "not implemented"
+  }
+}

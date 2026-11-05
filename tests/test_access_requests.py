@@ -294,7 +294,7 @@ def test_public_access_request_uses_bounded_auth_attempt_limiter(
 ) -> None:
     from argus.api.routers import auth
 
-    headers = {"X-Forwarded-For": "203.0.113.19"}
+    headers = {"CF-Connecting-IP": "203.0.113.19"}
     payload = {"email": "person@example.com", "language": "en"}
     for _ in range(auth.AUTH_ACCESS_REQUEST_ATTEMPT_LIMIT):
         response = client.post(
@@ -376,21 +376,19 @@ def test_public_access_request_requires_language(
 def test_access_request_environment_contract_is_value_free() -> None:
     render = yaml.safe_load((ROOT / "render.yaml").read_text(encoding="utf-8"))
     api = next(
-        service for service in render["services"] if service["name"] == "argus-api"
+        service for service in render["services"] if service["name"] == "cuadrao-api"
     )
     api_env = {entry["key"]: entry for entry in api["envVars"]}
 
-    assert api_env["ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD"] == {
-        "key": "ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD",
+    assert api_env["CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD"] == {
+        "key": "CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD",
         "sync": False,
     }
-    assert api_env["ARGUS_APP_ORIGIN"] == {
-        "key": "ARGUS_APP_ORIGIN",
-        "value": "https://arguschat.ai",
-    }
+    # Production copies the origin from the live ARGUS_APP_ORIGIN (staging_env_manifest.json).
+    assert api_env["CUADRAO_APP_ORIGIN"] == {"key": "CUADRAO_APP_ORIGIN", "sync": False}
     env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
     assert (
-        "ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD="
+        "CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD="
         "your_resend_smtp_password_here" in env_example
     )
     assert "ARGUS_APP_ORIGIN=http://localhost:3000" in env_example

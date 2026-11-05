@@ -1,0 +1,214 @@
+{
+  "goal-spanish-before-relaunch": {
+    "type": "runtime-snapshot",
+    "rs": "1",
+    "screenHash": "06n6ds7",
+    "seq": 93,
+    "count": 105,
+    "targets": [
+      "e16|tap|button|Atrás||BackButton",
+      "e19|tap|button|Opciones del plan||plan-detail-options",
+      "e20|tap|button|||",
+      "e58|tap|button|DOP 0||plan-detail-exact",
+      "e64|tap|button|Llegar en 3 meses||plan-in-3-months",
+      "e65|tap|button|Llegar en 6 meses||plan-in-6-months",
+      "e66|tap|button|Llegar en 12 meses||plan-in-12-months"
+    ],
+    "scroll": [
+      "e26|swipe|scroll-view|||goal.detail",
+      "e62|swipe|scroll-view|||"
+    ],
+    "text": [
+      "e31|text|text|Personal||",
+      "e32|text|text|Emergency F6D90||",
+      "e33|text|text|DOP 750.00||goal.supported",
+      "e34|text|text|Respaldado por dinero registrado||",
+      "e35|text|text|En progreso||goal.state",
+      "e36|text|text|A tu ritmo, llegarías en||",
+      "e37|text|text|Este aporte no alcanza para llegar.||plan-estimated-date",
+      "e54|text|text|Hoy||",
+      "e55|text|text|12 meses||",
+      "e56|text|text|Punteado: estimado · gris: plan guardado||",
+      "e57|text|text|Cada mes||",
+      "e59|text|text|DOP 0||",
+      "e67|text|text|Escenario al 11 de octubre de 2026. Aportes mensuales constantes. Sin rendimientos, compras nuevas ni comisiones. El plan no mueve dinero.||"
+    ],
+    "udid": "C85CDCF9-E5DB-4A86-97FB-65C46B349B35"
+  },
+  "goal-english-relaunch": {
+    "type": "runtime-snapshot",
+    "rs": "1",
+    "screenHash": "0o6qfse",
+    "seq": 94,
+    "count": 102,
+    "targets": [
+      "e51|tap|button|DOP 0||plan-detail-exact",
+      "e57|tap|button|Get there in 3 months||plan-in-3-months",
+      "e58|tap|button|Get there in 6 months||plan-in-6-months",
+      "e91|tap|button|Back||BackButton",
+      "e94|tap|button|Plan options||plan-detail-options",
+      "e95|tap|button|||"
+    ],
+    "scroll": [
+      "e19|swipe|scroll-view|||goal.detail",
+      "e55|swipe|scroll-view|||"
+    ],
+    "text": [
+      "e24|text|text|Personal||",
+      "e25|text|text|Emergency F6D90||",
+      "e26|text|text|DOP 750.00||goal.supported",
+      "e27|text|text|Supported by recorded money||",
+      "e28|text|text|In progress||goal.state",
+      "e29|text|text|At your pace, you would arrive in||",
+      "e30|text|text|This amount won't get you there.||plan-estimated-date",
+      "e47|text|text|Today||",
+      "e48|text|text|12 months||",
+      "e49|text|text|Dashed: estimate · gray: saved plan||",
+      "e50|text|text|Each month||",
+      "e52|text|text|DOP 0||",
+      "e60|text|text|Scenario as of October 11, 2026. Fixed monthly contributions. No returns, new purchases, or fees. The plan doesn't move money.||"
+    ],
+    "udid": "C85CDCF9-E5DB-4A86-97FB-65C46B349B35"
+  },
+  "goal-contribution-draft-keyboard": {
+    "type": "runtime-snapshot",
+    "rs": "1",
+    "screenHash": "149cqr0",
+    "seq": 100,
+    "count": 184,
+    "targets": [
+      "e77|tap|button|Link an existing transfer||goal.link",
+      "e78|tap|button|The details, clearly||",
+      "e82|tap|button|Emergency F6D90, DOP 150.00||goal.activity.7BAD5C8B-E498-40ED-BEAE-68A136C4A4B4",
+      "e87|tap|button|Stop counting this contribution||goal.release.96D9A312-93A7-40A1-8B45-1212251EBAF0",
+      "e140|typeText|text-field|Amount|99|loop.amount",
+      "e144|typeText|text-field||Emergency F6D90|loop.note",
+      "e17|tap|button|Back||BackButton",
+      "e20|tap|button|Plan options||plan-detail-options",
+      "e21|tap|button|||",
+      "e56|tap|button|DOP 0||plan-detail-exact",
+      "e62|tap|button|Get there in 3 months||plan-in-3-months",
+      "e63|tap|button|Get there in 6 months||plan-in-6-months",
+      "e73|tap|button|Change allocation||goal.allocate",
+      "e76|tap|button|Record a contribution||goal.record",
+      "e115|tap|button|Cancel||",
+      "e130|tap|button|||loop.source",
+      "e131|tap|button|||",
+      "e135|tap|button|||loop.destination",
+      "e136|tap|button|||",
+      "e143|tap|button|Date Picker|Oct 11, 2026|",
+      "e170|tap|button|1||",
+      "e171|tap|button|2||",
+      "e172|tap|button|3||",
+      "e173|tap|button|4||",
+      "e174|tap|button|5||",
+      "e175|tap|button|6||",
+      "e176|tap|button|7||",
+      "e177|tap|button|8||",
+      "e178|tap|button|9||",
+      "e179|tap|button|.||",
+      "e180|tap|button|0||",
+      "e181|tap|button|Delete||"
+    ],
+    "scroll": [
+      "e27|swipe|scroll-view|||goal.detail",
+      "e60|swipe|scroll-view|||",
+      "e121|swipe|scroll-view|||"
+    ],
+    "text": [
+      "e55|text|text|Each month||",
+      "e57|text|text|DOP 0||",
+      "e127|text|text|Goal savings F6D90||",
+      "e128|text|text|Transfer||",
+      "e65|text|text|Scenario as of October 11, 2026. Fixed monthly contributions. No returns, new purchases, or fees. The plan doesn't move money.||",
+      "e129|text|text|From||loop.source.label",
+      "e66|text|text|Planned contributions||",
+      "e67|text|text|Planned by projection date||",
+      "e68|text|text|DOP 0.00||",
+      "e134|text|text|To||loop.destination.label",
+      "e69|text|text|Conditional projected savings||",
+      "e70|text|text|DOP 750.00||",
+      "e71|text|text|Nov 10, 2026||",
+      "e72|text|text|Planned contributions are estimates. They do not move money or count as saved today.||",
+      "e139|text|text|Fixed currency: DOP||",
+      "e74|text|text|Change allocation||",
+      "e141|text|text|Date||",
+      "e147|text|text|15/200||",
+      "e79|text|text|The details, clearly||",
+      "e81|text|text|Recorded contributions||",
+      "e83|text|text|Emergency F6D90||",
+      "e84|text|text|DOP 150.00||",
+      "e86|text|text|Original entry is current||"
+    ],
+    "udid": "C85CDCF9-E5DB-4A86-97FB-65C46B349B35"
+  },
+  "goal-after-cancel": {
+    "type": "runtime-snapshot",
+    "rs": "1",
+    "screenHash": "0aseuv1",
+    "seq": 104,
+    "count": 105,
+    "targets": [
+      "e16|tap|button|Back||BackButton",
+      "e19|tap|button|Plan options||plan-detail-options",
+      "e20|tap|button|||",
+      "e58|tap|button|DOP 0||plan-detail-exact",
+      "e64|tap|button|Get there in 3 months||plan-in-3-months",
+      "e65|tap|button|Get there in 6 months||plan-in-6-months"
+    ],
+    "scroll": [
+      "e26|swipe|scroll-view|||goal.detail",
+      "e62|swipe|scroll-view|||"
+    ],
+    "text": [
+      "e31|text|text|Personal||",
+      "e32|text|text|Emergency F6D90||",
+      "e33|text|text|DOP 750.00||goal.supported",
+      "e34|text|text|Supported by recorded money||",
+      "e35|text|text|In progress||goal.state",
+      "e36|text|text|At your pace, you would arrive in||",
+      "e37|text|text|This amount won't get you there.||plan-estimated-date",
+      "e54|text|text|Today||",
+      "e55|text|text|12 months||",
+      "e56|text|text|Dashed: estimate · gray: saved plan||",
+      "e57|text|text|Each month||",
+      "e59|text|text|DOP 0||",
+      "e67|text|text|Scenario as of October 11, 2026. Fixed monthly contributions. No returns, new purchases, or fees. The plan doesn't move money.||"
+    ],
+    "udid": "C85CDCF9-E5DB-4A86-97FB-65C46B349B35"
+  },
+  "goal-search-origin-restored": {
+    "type": "runtime-snapshot",
+    "rs": "1",
+    "screenHash": "0sdek9t",
+    "seq": 106,
+    "count": 73,
+    "targets": [
+      "e23|tap|button|Filters, 1 active||search.filters",
+      "e44|tap|button|Emergency F6D90, Goals · Target amount · DOP 2,500.00||search.row.goal.C631C990-DA4B-4B71-8241-489AC197FC50",
+      "e27|typeText|text-field||Emergency F6D90|search.query",
+      "e30|tap|button|All||search.filter.all",
+      "e31|tap|button|Accounts||search.filter.account",
+      "e32|tap|button|Activity||search.filter.activity",
+      "e33|tap|button|Plans||search.filter.plans",
+      "e35|tap|button|Clear filters||",
+      "e61|tap|button|Home||tab.home",
+      "e63|tap|button|Plan||tab.plan",
+      "e65|tap|button|Add||nav.add",
+      "e67|tap|button|Search||tab.search",
+      "e69|tap|button|Profile||header.profile",
+      "e22|tap|button|Clear search||search.clear"
+    ],
+    "scroll": [
+      "e28|swipe|scroll-view|||search.kinds",
+      "e36|swipe|scroll-view|||search.results"
+    ],
+    "text": [
+      "e25|text|text|1||",
+      "e34|text|text|DOP||search.filter-summary",
+      "e46|text|text|Emergency F6D90||",
+      "e48|text|text|Goals · Target amount · DOP 2,500.00||"
+    ],
+    "udid": "C85CDCF9-E5DB-4A86-97FB-65C46B349B35"
+  }
+}

@@ -59,8 +59,8 @@ describe("the sharing flag", () => {
     expect(menu).toContain(
       'evidenceReceiptSharingEnabled && accountKind === "registered"',
     );
-    // Both the menu entry and its quick-jump counterpart use the same gate.
-    expect(menu.match(/receiptsAvailable/g)?.length).toBeGreaterThanOrEqual(3);
+    // Ajustes lists the section only through that same gate.
+    expect(menu).toContain("receipts: receiptsAvailable,");
   });
 });
 
@@ -161,8 +161,11 @@ describe("the receipt list", () => {
     // centred dialog above it. A panel that draws its own fixed overlay renders
     // a desktop card at phone width, which is the regression the shell exists to
     // prevent, and it escapes the overlay layer stack the drawer depends on.
+    // It draws through SettingsSurface, which is that panel outside Ajustes and
+    // the window's pane inside it.
     const list = source(RECEIPT_LIST);
-    expect(list).toContain("AdaptivePanel");
+    expect(list).toContain("<SettingsSurface");
+    expect(source(join(WEB_ROOT, "components/settings/SettingsSurface.tsx"))).toContain("<AdaptivePanel {...props} />");
     expect(list).not.toContain("fixed inset-0");
   });
 
@@ -175,7 +178,7 @@ describe("the receipt list", () => {
     const registry = source(PANEL_REGISTRY);
     const entry = registry.slice(
       registry.indexOf("  receipts: {"),
-      registry.indexOf("},", registry.indexOf("  receipts: {")),
+      registry.indexOf("\n  },", registry.indexOf("  receipts: {")),
     );
     expect(entry).toContain('parent: "data"');
     expect(entry).toContain("SharedReceiptsView");
@@ -185,11 +188,12 @@ describe("the receipt list", () => {
     expect(registry).toContain("onBack: asSheet ? () => onBack(parent) : undefined");
   });
 
-  test("the menu opens it through the registry, not its own mount", () => {
+  test("the menu opens it through the registry inside Ajustes, not its own mount", () => {
     // The extraction is what keeps this file inside its size budget, so a mount
     // added back here would undo it silently.
     const menu = source(PROFILE_MENU);
-    expect(menu).toContain('openModal("receipts")');
+    expect(menu).toContain("<ProfileSettingsPanels");
+    expect(menu).toContain("receipts: receiptsAvailable,");
     expect(menu).not.toContain("SharedReceiptsView");
     expect(menu).not.toContain("backToDataControls");
   });

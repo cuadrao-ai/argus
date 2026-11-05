@@ -23,6 +23,7 @@ from argus.api.schemas import (
 )
 from argus.domain.market_data.assets import ResolvedAsset
 from argus.domain.market_data.new_york_clock import new_york_today
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.store import utcnow
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
@@ -207,11 +208,9 @@ async def _runtime_success_events(**kwargs: Any):
 @pytest.fixture(autouse=True)
 def _patch_engine_io(monkeypatch: pytest.MonkeyPatch) -> None:
     from argus.api import state as api_state
-    from argus.api.routers import agent as agent_router
     from argus.domain import engine as domain_engine
 
     monkeypatch.setattr(api_state, "supabase_gateway", None)
-    monkeypatch.setattr(agent_router, "stream_agent_turn_events", _runtime_success_events)
     monkeypatch.setattr(domain_engine, "resolve_asset", _fake_resolve_asset)
     monkeypatch.setattr(domain_engine, "fetch_ohlcv", _fake_fetch_ohlcv)
     monkeypatch.setattr(domain_engine, "fetch_price_series", _fake_fetch_price_series)
@@ -279,6 +278,28 @@ def test_patch_me_updates_language_preferences() -> None:
     user = response.json()["user"]
     assert user["language"] == "es-419"
     assert user["locale"] == "es-419"
+    assert user["onboarding"]["language_confirmed"] is True
+    assert (
+        client.get("/api/v1/me").json()["user"]["onboarding"]["language_confirmed"]
+        is True
+    )
+
+
+def test_patch_me_marks_language_chosen_only_when_language_is_saved() -> None:
+    client = _client()
+    assert (
+        client.get("/api/v1/me").json()["user"]["onboarding"]["language_confirmed"]
+        is False
+    )
+
+    renamed = client.patch("/api/v1/me", json={"display_name": "Alexandra"})
+    assert renamed.status_code == 200
+    assert renamed.json()["user"]["onboarding"]["language_confirmed"] is False
+
+    chosen = client.patch("/api/v1/me", json={"language": "en", "locale": "en-US"})
+    assert chosen.status_code == 200
+    assert chosen.json()["user"]["onboarding"]["language_confirmed"] is True
+    assert chosen.json()["user"]["language"] == "en"
 
 
 def test_conversation_messages_and_patch_follow_contract() -> None:
@@ -294,7 +315,7 @@ def test_conversation_messages_and_patch_follow_contract() -> None:
 
     messages = client.get(f"/api/v1/conversations/{conversation['id']}/messages")
     assert messages.status_code == 200
-    assert messages.json() == {"items": [], "next_cursor": None}
+    assert messages.json() == {"items": [], "next_cursor": None, "surface": "personal"}
 
     patched = client.patch(
         f"/api/v1/conversations/{conversation['id']}",
@@ -314,215 +335,6 @@ def test_unknown_conversation_messages_return_not_found() -> None:
 
     assert response.status_code == 404
     assert response.json()["code"] == "not_found"
-
-
-def test_deleted_conversation_messages_return_not_found() -> None:
-    client = _client()
-    conversation = client.post("/api/v1/conversations", json={}).json()["conversation"]
-
-    stream = client.post(
-        "/api/v1/chat/stream",
-        json={
-            "conversation_id": conversation["id"],
-            "message": "Backtest Tesla when it dips",
-            "language": "en",
-        },
-    )
-    assert stream.status_code == 200
-
-    hydrated = client.get(f"/api/v1/conversations/{conversation['id']}/messages")
-    assert hydrated.status_code == 200
-    assert len(hydrated.json()["items"]) > 0
-
-    deleted = client.delete(f"/api/v1/conversations/{conversation['id']}")
-    assert deleted.status_code == 200
-
-    response = client.get(f"/api/v1/conversations/{conversation['id']}/messages")
-
-    assert response.status_code == 404
-    assert response.json()["code"] == "not_found"
-
-
-def test_backtest_rejects_mixed_asset_symbols_with_problem_details() -> None:
-    client = _client()
-
-    response = client.post(
-        "/api/v1/backtests/run",
-        headers={"Idempotency-Key": "mixed-assets"},
-        json={
-            "template": "rsi_mean_reversion",
-            "asset_class": "equity",
-            "symbols": ["AAPL", "BTC"],
-        },
-    )
-
-    assert response.status_code == 422
-    payload = response.json()
-    assert payload["code"] == "mixed_asset_not_supported"
-    assert payload["request_id"]
-    assert payload["context"]["conflicting_symbols"] == [
-        {"symbol": "AAPL", "asset_class": "equity"},
-        {"symbol": "BTC", "asset_class": "crypto"},
-    ]
-
-
-def test_backtest_run_requires_idempotency_key_header() -> None:
-    client = _client()
-
-    response = client.post(
-        "/api/v1/backtests/run",
-        json={
-            "template": "rsi_mean_reversion",
-            "asset_class": "equity",
-            "symbols": ["AAPL"],
-        },
-    )
-
-    assert response.status_code == 400
-    payload = response.json()
-    assert payload["code"] == "idempotency_key_required"
-    assert payload["request_id"]
-
-
-def test_backtest_rejects_explicit_asset_class_conflict() -> None:
-    client = _client()
-
-    response = client.post(
-        "/api/v1/backtests/run",
-        headers={"Idempotency-Key": "asset-class-conflict"},
-        json={
-            "template": "rsi_mean_reversion",
-            "asset_class": "crypto",
-            "symbols": ["AAPL"],
-        },
-    )
-
-    assert response.status_code == 422
-    payload = response.json()
-    assert payload["code"] == "asset_class_conflict"
-    assert payload["context"] == {
-        "requested_asset_class": "crypto",
-        "inferred_asset_class": "equity",
-        "symbols": ["AAPL"],
-    }
-
-
-def test_backtest_run_normalizes_defaults_persists_metrics_and_history(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("ARGUS_ENABLE_EXECUTION_REALISM", "false")
-    client = _client()
-    conversation = client.post("/api/v1/conversations", json={}).json()["conversation"]
-
-    response = client.post(
-        "/api/v1/backtests/run",
-        headers={"Idempotency-Key": "tsla-dip"},
-        json={
-            "conversation_id": conversation["id"],
-            "template": "rsi_mean_reversion",
-            "asset_class": "equity",
-            "symbols": ["TSLA"],
-        },
-    )
-
-    assert response.status_code == 200
-    run = response.json()["run"]
-    assert run["status"] == "completed"
-    assert run["asset_class"] == "equity"
-    assert run["conversation_result_card"]["asset_class"] == "equity"
-    assert run["benchmark_symbol"] == "SPY"
-    assert run["config_snapshot"]["side"] == "long"
-    assert run["config_snapshot"]["starting_capital"] == 1000
-    assert "_execution_realism" not in run["config_snapshot"]
-    assert "summary" not in run
-    assert set(run["metrics"]) == {"aggregate", "by_symbol"}
-    assert isinstance(
-        run["metrics"]["aggregate"]["performance"]["total_return_pct"], float
-    )
-    artifact_id = run["conversation_result_card"]["evidence_artifact_id"]
-    assert run["conversation_result_card"]["idea_id"]
-    assert run["conversation_result_card"]["idea_version_id"]
-    assert run["conversation_result_card"]["evidence_lifecycle"] == "captured"
-    assert run["conversation_result_card"]["artifact_type"] == "backtest"
-    assert api_state.store.evidence_artifacts[artifact_id].source_run_id == run["id"]
-    assert run["conversation_result_card"]["assumptions"] == [
-        "Long-only",
-        "Equal weight",
-        "No fees/slippage",
-        "Benchmark: SPY",
-    ]
-    assert run["conversation_result_card"]["benchmark_note"] is None
-
-    history = client.get("/api/v1/history")
-    assert history.status_code == 200
-    assert [item["type"] for item in history.json()["items"]] == ["run", "chat"]
-
-
-def test_memory_direct_admission_persists_guest_traffic_class(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from datetime import timedelta
-
-    from argus.api.guest_access import (
-        AccountContext,
-        guest_capabilities,
-        store_account_context,
-    )
-    from argus.api.routers import backtest as backtest_router
-    from fastapi import Request
-
-    api_state.store.reset()
-    user = api_state.store.get_or_create_dev_user()
-    request = Request(
-        {
-            "type": "http",
-            "method": "POST",
-            "path": "/api/v1/backtests/run",
-            "headers": [],
-            "query_string": b"",
-            "scheme": "http",
-            "server": ("testserver", 80),
-            "client": ("127.0.0.1", 50000),
-        }
-    )
-    store_account_context(
-        request,
-        AccountContext(
-            kind="guest",
-            user_id=user.id,
-            expires_at=utcnow() + timedelta(days=7),
-            capabilities=guest_capabilities(),
-        ),
-    )
-    monkeypatch.setattr(
-        backtest_router,
-        "emit_guest_funnel_event",
-        lambda **_: None,
-    )
-
-    decision, job = backtest_router._admit_direct_run(
-        request,
-        user=user,
-        idempotency_key="guest-memory-admission",
-        identity_hash=f"sha256:{'a' * 64}",
-        payload_hash=f"sha256:{'b' * 64}",
-        launch_payload={
-            "kind": "run_backtest_job",
-            "request": {"template": "buy_and_hold", "symbols": ["AAPL"]},
-        },
-        conversation_id=None,
-    )
-
-    assert decision == "admitted"
-    assert job is not None
-    assert job["execution_metadata"] == {
-        "source": "api_direct",
-        "openrouter_traffic_class": "guest",
-    }
-    assert (
-        api_state.store.backtest_jobs[job["id"]]["execution_metadata"]
-        == (job["execution_metadata"])
-    )
 
 
 def test_history_excludes_archived_and_deleted_chats_by_default() -> None:
@@ -698,6 +510,7 @@ def test_delete_all_conversations_memory_fallback_skips_other_users_chats() -> N
         "conversation"
     ]
     other = memory_conversation(
+        scope=PERSONAL,
         title="Not mine",
         title_source="system_default",
         language="en",
@@ -763,6 +576,7 @@ def test_history_can_return_archived_chats_without_deleted_chats() -> None:
 
 def test_history_filters_runs_by_parent_conversation_lifecycle() -> None:
     client = _client()
+    user_id = api_state.store.get_or_create_dev_user().id
 
     active = client.post("/api/v1/conversations", json={"title": "Active idea"}).json()[
         "conversation"
@@ -779,17 +593,25 @@ def test_history_filters_runs_by_parent_conversation_lifecycle() -> None:
         ("TSLA", archived),
         ("MSFT", deleted),
     ):
-        response = client.post(
-            "/api/v1/backtests/run",
-            headers={"Idempotency-Key": f"{symbol.lower()}-history-lifecycle"},
-            json={
-                "conversation_id": conversation["id"],
-                "template": "rsi_mean_reversion",
-                "asset_class": "equity",
-                "symbols": [symbol],
+        run = BacktestRun(
+            id=f"{symbol.lower()}-history-lifecycle",
+            conversation_id=conversation["id"],
+            strategy_id=None,
+            status="completed",
+            asset_class="equity",
+            symbols=[symbol],
+            allocation_method="equal_weight",
+            benchmark_symbol="SPY",
+            metrics={},
+            config_snapshot={"template": "rsi_mean_reversion"},
+            conversation_result_card={
+                "title": f"{symbol} mean reversion",
+                "rows": [{"label": "Return", "value": "+1.0%"}],
             },
+            created_at=utcnow(),
         )
-        assert response.status_code == 200
+        api_state.store.backtest_runs[run.id] = run
+        api_state.store.backtest_run_owners[run.id] = user_id
 
     assert (
         client.patch(
@@ -837,287 +659,6 @@ def test_execution_realism_payload_is_ignored_when_feature_flag_off(
     assert "_execution_realism" not in config
 
 
-@pytest.mark.parametrize("timeframe", ["1h", "2h", "4h", "6h", "12h", "1D"])
-def test_backtest_accepts_supported_timeframes(timeframe: str) -> None:
-    client = _client()
-    response = client.post(
-        "/api/v1/backtests/run",
-        headers={"Idempotency-Key": f"timeframe-{timeframe.lower()}"},
-        json={
-            "template": "dca_accumulation",
-            "asset_class": "equity",
-            "symbols": ["AAPL"],
-            "timeframe": timeframe,
-            "parameters": {"dca_cadence": "monthly"},
-        },
-    )
-    assert response.status_code == 200
-    assert response.json()["run"]["config_snapshot"]["timeframe"] == timeframe
-
-
-def test_backtest_rejects_coverage_adjustment_to_same_calendar_day(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from argus.domain import engine as domain_engine
-
-    def same_day_intraday_bars(**_: Any) -> pd.DataFrame:
-        index = pd.date_range(
-            start="2024-01-03T14:30:00Z",
-            periods=7,
-            freq="1h",
-        )
-        close = pd.Series(range(100, 107), index=index, dtype=float)
-        return pd.DataFrame(
-            {
-                "open": close,
-                "high": close + 1.0,
-                "low": close - 1.0,
-                "close": close,
-                "volume": 1_000.0,
-            },
-            index=index,
-        )
-
-    monkeypatch.setattr(domain_engine, "fetch_ohlcv", same_day_intraday_bars)
-    client = _client()
-
-    response = client.post(
-        "/api/v1/backtests/run",
-        headers={"Idempotency-Key": "same-day-adjusted-window"},
-        json={
-            "template": "buy_and_hold",
-            "asset_class": "equity",
-            "symbols": ["AAPL"],
-            "timeframe": "1h",
-            "start_date": "2024-01-01",
-            "end_date": "2024-01-05",
-        },
-    )
-
-    assert response.status_code == 422
-    assert response.json()["code"] == "invalid_chronological_date_range"
-
-
-def test_backtest_rejects_stablecoin_symbol() -> None:
-    client = _client()
-    response = client.post(
-        "/api/v1/backtests/run",
-        headers={"Idempotency-Key": "stablecoin-rejected"},
-        json={
-            "template": "dca_accumulation",
-            "asset_class": "crypto",
-            "symbols": ["USDT"],
-            "timeframe": "1D",
-        },
-    )
-    assert response.status_code == 422
-    assert response.json()["code"] == "stablecoin_not_supported"
-
-
-def test_backtest_rejects_unsupported_parameters_payload() -> None:
-    client = _client()
-    response = client.post(
-        "/api/v1/backtests/run",
-        headers={"Idempotency-Key": "unsupported-parameters"},
-        json={
-            "template": "rsi_mean_reversion",
-            "asset_class": "equity",
-            "symbols": ["AAPL"],
-            "parameters": {"rsi_length": 21},
-        },
-    )
-    assert response.status_code == 422
-    assert response.json()["code"] == "unsupported_parameters"
-
-
-def test_backtest_allows_equity_lookback_beyond_three_years() -> None:
-    client = _client()
-    response = client.post(
-        "/api/v1/backtests/run",
-        headers={"Idempotency-Key": "equity-long-lookback"},
-        json={
-            "template": "dca_accumulation",
-            "asset_class": "equity",
-            "symbols": ["AAPL"],
-            "start_date": "2020-01-01",
-            "end_date": "2024-01-10",
-        },
-    )
-    assert response.status_code == 200
-    assert response.json()["run"]["asset_class"] == "equity"
-
-
-def test_backtest_rejects_equity_start_before_provider_history() -> None:
-    client = _client()
-    response = client.post(
-        "/api/v1/backtests/run",
-        headers={"Idempotency-Key": "provider-history-start"},
-        json={
-            "template": "buy_and_hold",
-            "asset_class": "equity",
-            "symbols": ["AAPL"],
-            "start_date": "2015-12-31",
-            "end_date": "2016-01-15",
-        },
-    )
-    assert response.status_code == 422
-    assert response.json()["code"] == "provider_history_start_unavailable"
-
-
-def test_backtest_rejects_unknown_symbol() -> None:
-    client = _client()
-    response = client.post(
-        "/api/v1/backtests/run",
-        headers={"Idempotency-Key": "unknown-symbol"},
-        json={
-            "template": "dca_accumulation",
-            "asset_class": "equity",
-            "symbols": ["FAKE123"],
-        },
-    )
-    assert response.status_code == 422
-    assert response.json()["code"] == "invalid_symbol"
-
-
-def test_draft_strategy_templates_have_no_api_path() -> None:
-    """Draft templates stay rejected at the direct backtest boundary."""
-    client = _client()
-    for template in ("momentum_breakout", "trend_follow"):
-        ran = client.post(
-            "/api/v1/backtests/run",
-            headers={"Idempotency-Key": f"draft-{template}"},
-            json={
-                "template": template,
-                "asset_class": "equity",
-                "symbols": ["AAPL"],
-            },
-        )
-        assert ran.status_code == 422, f"{template} accepted by POST /backtests/run"
-
-
-def test_chat_stream_persists_messages_and_emits_contract_events() -> None:
-    client = _client()
-    conversation = client.post("/api/v1/conversations", json={}).json()["conversation"]
-
-    response = client.post(
-        "/api/v1/chat/stream",
-        headers={"Idempotency-Key": "chat-tsla"},
-        json={
-            "conversation_id": conversation["id"],
-            "message": "What if I bought Tesla whenever it dipped hard?",
-            "language": "en",
-        },
-    )
-
-    assert response.status_code == 200
-    stream = response.text
-    assert '"type":"stage_start","stage":"interpret"' in stream
-    assert '"type":"stage_outcome","outcome":"ready_to_respond"' in stream
-    assert '"type":"token"' not in stream
-    assert '"type":"final"' in stream
-    assert "data: [DONE]" in stream
-
-    result_line = next(
-        line.removeprefix("data: ")
-        for line in stream.splitlines()
-        if line.startswith("data: {") and '"run"' in line
-    )
-    assert json.loads(result_line)["payload"]["run"]["conversation_result_card"][
-        "status_label"
-    ]
-
-    messages = client.get(f"/api/v1/conversations/{conversation['id']}/messages")
-    assert [message["role"] for message in messages.json()["items"]] == [
-        "user",
-        "assistant",
-    ]
-
-
-def test_chat_stream_with_es_419_emits_spanish_assistant_copy() -> None:
-    client = _client()
-    conversation = client.post("/api/v1/conversations", json={}).json()["conversation"]
-
-    response = client.post(
-        "/api/v1/chat/stream",
-        headers={"Idempotency-Key": "chat-spanish"},
-        json={
-            "conversation_id": conversation["id"],
-            "message": "Backtest Tesla when it dips",
-            "language": "es-419",
-        },
-    )
-
-    assert response.status_code == 200
-    assert '"type":"token"' not in response.text
-
-    messages = client.get(f"/api/v1/conversations/{conversation['id']}/messages")
-    assert messages.status_code == 200
-    assistant_message = messages.json()["items"][-1]
-    assert assistant_message["role"] == "assistant"
-    assert assistant_message["content"] == ""
-    assert assistant_message["metadata"]["result_fact_bank"]["symbols"] == ["TSLA"]
-    assert api_state.store.messages[conversation["id"]][-1].content
-
-
-def test_chat_stream_defaults_to_english_assistant_copy() -> None:
-    client = _client()
-    conversation = client.post("/api/v1/conversations", json={}).json()["conversation"]
-
-    response = client.post(
-        "/api/v1/chat/stream",
-        headers={"Idempotency-Key": "chat-default-language"},
-        json={
-            "conversation_id": conversation["id"],
-            "message": "Backtest Tesla when it dips",
-        },
-    )
-
-    assert response.status_code == 200
-    assert '"type":"token"' not in response.text
-
-    messages = client.get(f"/api/v1/conversations/{conversation['id']}/messages")
-    assert messages.status_code == 200
-    assistant_message = messages.json()["items"][-1]
-    assert assistant_message["role"] == "assistant"
-    assert assistant_message["content"] == ""
-    assert assistant_message["metadata"]["result_fact_bank"]["symbols"] == ["TSLA"]
-    assert api_state.store.messages[conversation["id"]][-1].content
-
-
-def test_chat_stream_sends_profile_language_to_runtime() -> None:
-    client = _client()
-    conversation = client.post("/api/v1/conversations", json={}).json()["conversation"]
-
-    response = client.post(
-        "/api/v1/chat/stream",
-        json={
-            "conversation_id": conversation["id"],
-            "message": "Backtest Tesla when it dips",
-            "language": "en",
-        },
-    )
-
-    assert response.status_code == 200
-    stream = response.text
-    assert "event:" not in stream
-    assert stream.count("data: [DONE]") == 1
-    events = _stream_events(stream)
-    token_events = [event for event in events if event.get("type") == "token"]
-    assert token_events == []
-    final_payload = _final_payload(stream)
-    assert final_payload["stage_outcome"] == "ready_to_respond"
-    assert final_payload["assistant_response"] == ""
-    assert final_payload["message_id"]
-    assert final_payload["run"]["conversation_id"] == conversation["id"]
-    messages = client.get(f"/api/v1/conversations/{conversation['id']}/messages").json()[
-        "items"
-    ]
-    assert [message["role"] for message in messages] == ["user", "assistant"]
-    runtime_turn = messages[-1]["metadata"]["agent_runtime_turn"]
-    assert runtime_turn["status"] == "completed"
-    assert runtime_turn["terminal"] is True
-
-
 def test_conversations_cursor_pagination_is_stable() -> None:
     client = _client()
     for idx in range(3):
@@ -1140,39 +681,6 @@ def test_conversations_cursor_pagination_is_stable() -> None:
     second_payload = second_page.json()
     assert second_payload["items"]
     first_ids = {item["id"] for item in payload["items"]}
-    second_ids = {item["id"] for item in second_payload["items"]}
-    assert first_ids.isdisjoint(second_ids)
-
-
-def test_messages_cursor_pagination_is_stable() -> None:
-    client = _client()
-    conversation = client.post("/api/v1/conversations", json={}).json()["conversation"]
-    for idx in range(3):
-        response = client.post(
-            "/api/v1/chat/stream",
-            json={
-                "conversation_id": conversation["id"],
-                "message": f"Test message {idx}",
-                "language": "en",
-            },
-        )
-        assert response.status_code == 200
-
-    first_page = client.get(
-        f"/api/v1/conversations/{conversation['id']}/messages?limit=2"
-    )
-    assert first_page.status_code == 200
-    first_payload = first_page.json()
-    assert len(first_payload["items"]) == 2
-    assert first_payload["next_cursor"] is not None
-
-    second_page = client.get(
-        f"/api/v1/conversations/{conversation['id']}/messages?limit=2&cursor={first_payload['next_cursor']}"
-    )
-    assert second_page.status_code == 200
-    second_payload = second_page.json()
-    assert second_payload["items"]
-    first_ids = {item["id"] for item in first_payload["items"]}
     second_ids = {item["id"] for item in second_payload["items"]}
     assert first_ids.isdisjoint(second_ids)
 
@@ -2084,20 +1592,19 @@ def test_search_memory_mode_centers_fragment_on_late_message_match() -> None:
     assert repeated.json()["items"][0]["match"]["fragment"] == fragment
 
 
-def test_search_emits_recall_usage_product_event(monkeypatch) -> None:
-    observed: list[dict[str, object]] = []
-
-    def fake_capture(kind: str, **kwargs: object) -> None:
-        observed.append({"kind": kind, **kwargs})
-
+def test_search_sends_no_recall_usage_event(monkeypatch) -> None:
+    """recall_usage was retired from PostHog by SPEC 0 package 0C-1."""
+    posts: list[object] = []
+    monkeypatch.setenv("POSTHOG_PROJECT_TOKEN", "ph_project_token")
+    monkeypatch.setenv("POSTHOG_REGION", "us")
     monkeypatch.setattr(
-        "argus.api.routers.search.capture_product_event",
-        fake_capture,
-        raising=False,
+        "argus.observability.envelope.httpx.post",
+        lambda *args, **kwargs: posts.append((args, kwargs)),
     )
     client = _client()
     user_id = api_state.store.get_or_create_dev_user().id
     memory_conversation(
+        scope=PERSONAL,
         title="Tesla recall source",
         title_source="user_renamed",
         language="en",
@@ -2107,21 +1614,7 @@ def test_search_emits_recall_usage_product_event(monkeypatch) -> None:
     response = client.get("/api/v1/search?q=tesla&limit=20")
 
     assert response.status_code == 200
-    assert observed == [
-        {
-            "kind": "recall_usage",
-            "user_id": user_id,
-            "status": "completed",
-            "attributes": {
-                "query_present": True,
-                "decision_state_filter_present": False,
-                "result_count": 1,
-                "returned_types": ["conversation"],
-                "has_more": False,
-                "source": "memory",
-            },
-        }
-    ]
+    assert posts == []
 
 
 def test_search_collapses_p1_artifacts_into_source_conversation() -> None:
@@ -2687,6 +2180,7 @@ def test_search_memory_mode_excludes_other_users_owned_objects() -> None:
     other_user_id = "00000000-0000-0000-0000-000000000099"
     now = utcnow()
     memory_conversation(
+        scope=PERSONAL,
         title="Leaky Tesla alpha chat",
         title_source="user_renamed",
         language="en",
@@ -2887,118 +2381,6 @@ def test_search_id_scoped_recall_caps_visible_conversation_ids_at_fifty() -> Non
     assert response.json()["code"] == "validation_error"
 
 
-def test_decision_endpoint_marks_evidence_artifact_decided() -> None:
-    client = _client()
-    conversation = client.post("/api/v1/conversations", json={}).json()["conversation"]
-
-    response = client.post(
-        "/api/v1/chat/stream",
-        headers={"Idempotency-Key": "chat-p1-evidence"},
-        json={
-            "conversation_id": conversation["id"],
-            "message": "Backtest TSLA from 2025 to 2025",
-            "language": "en",
-        },
-    )
-    payload = _final_payload(response.text)
-    artifact_id = payload["run"]["conversation_result_card"]["evidence_artifact_id"]
-
-    decision = client.post(
-        f"/api/v1/evidence-artifacts/{artifact_id}/decision",
-        json={"decision_state": "promising", "note": "Worth revisiting."},
-    )
-
-    assert decision.status_code == 200
-    body = decision.json()
-    assert body["decision"]["decision_state"] == "promising"
-    assert body["decision"]["note"] == "Worth revisiting."
-    assert body["evidence_artifact"]["lifecycle"] == "decided"
-    artifact = api_state.store.evidence_artifacts[artifact_id]
-    assert api_state.store.ideas[artifact.idea_id].lifecycle == "decided"
-    assert api_state.store.idea_versions[artifact.idea_version_id].lifecycle == "decided"
-    assistant_result_cards = [
-        message.metadata.get("result_card")
-        for messages in api_state.store.messages.values()
-        for message in messages
-        if message.role == "assistant"
-        and isinstance(message.metadata.get("result_card"), dict)
-    ]
-    assert any(
-        card.get("evidence_artifact_id") == artifact_id
-        and card.get("decision_state") == "promising"
-        for card in assistant_result_cards
-    )
-    reloaded = client.get(f"/api/v1/conversations/{conversation['id']}/messages")
-    assert reloaded.status_code == 200
-    reloaded_cards = [
-        item.get("metadata", {}).get("result_card")
-        for item in reloaded.json()["items"]
-        if isinstance(item.get("metadata", {}).get("result_card"), dict)
-    ]
-    assert any(
-        card.get("evidence_artifact_id") == artifact_id
-        and card.get("decision_state") == "promising"
-        for card in reloaded_cards
-    )
-    api_state.store.evidence_artifacts[artifact_id] = artifact.model_copy(
-        update={"digest": "PRIVATE ENGLISH ARTIFACT DIGEST"}
-    )
-    recalled = client.get("/api/v1/search?q=Worth%20revisiting&limit=20")
-    assert recalled.status_code == 200
-    assert len(recalled.json()["items"]) == 1
-    recalled_conversation = recalled.json()["items"][0]
-    assert recalled_conversation["type"] == "conversation"
-    assert recalled_conversation["id"] == conversation["id"]
-    assert recalled_conversation["matched_text"] == ""
-    assert recalled_conversation["match"]["fragment"] == ""
-    assert recalled_conversation["match"]["layer"] == "decision"
-    assert recalled_conversation["match"]["count"] == 1
-    assert "message_id" not in recalled_conversation["match"]
-    assert "PRIVATE ENGLISH ARTIFACT DIGEST" not in recalled.text
-    assert recalled_conversation["dossier"]["decision"]["note"] == "Worth revisiting."
-
-
-def test_decision_endpoint_is_idempotent_per_evidence_artifact() -> None:
-    client = _client()
-    conversation = client.post("/api/v1/conversations", json={}).json()["conversation"]
-
-    response = client.post(
-        "/api/v1/chat/stream",
-        headers={"Idempotency-Key": "chat-p1-decision-idempotent"},
-        json={
-            "conversation_id": conversation["id"],
-            "message": "Backtest TSLA from 2025 to 2025",
-            "language": "en",
-        },
-    )
-    artifact_id = _final_payload(response.text)["run"]["conversation_result_card"][
-        "evidence_artifact_id"
-    ]
-
-    first = client.post(
-        f"/api/v1/evidence-artifacts/{artifact_id}/decision",
-        json={"decision_state": "watching", "note": "Track it."},
-    )
-    second = client.post(
-        f"/api/v1/evidence-artifacts/{artifact_id}/decision",
-        json={"decision_state": "promising", "note": "Still promising."},
-    )
-
-    assert first.status_code == 200
-    assert second.status_code == 200
-    first_body = first.json()
-    second_body = second.json()
-    assert second_body["decision"]["id"] == first_body["decision"]["id"]
-    assert second_body["decision"]["decision_state"] == "promising"
-    assert second_body["decision"]["note"] == "Still promising."
-    decisions_for_artifact = [
-        decision
-        for decision in api_state.store.decision_notes.values()
-        if decision.evidence_artifact_id == artifact_id
-    ]
-    assert len(decisions_for_artifact) == 1
-
-
 def test_decision_endpoint_invalid_body_returns_problem_details() -> None:
     client = _client()
     response = client.post(
@@ -3036,83 +2418,6 @@ def test_decision_note_write_limit_is_500_and_legacy_reads_remain_compatible() -
     )
     assert rejected.status_code == 422
     assert "note" in str(rejected.json()["context"]["errors"])
-
-
-def test_search_projects_one_typed_conversation_dossier() -> None:
-    client = _client()
-    conversation = client.post("/api/v1/conversations", json={}).json()["conversation"]
-
-    response = client.post(
-        "/api/v1/chat/stream",
-        headers={"Idempotency-Key": "chat-p1-search"},
-        json={
-            "conversation_id": conversation["id"],
-            "message": "Backtest TSLA from 2025 to 2025",
-            "language": "en",
-        },
-    )
-    artifact_id = _final_payload(response.text)["run"]["conversation_result_card"][
-        "evidence_artifact_id"
-    ]
-    client.post(
-        f"/api/v1/evidence-artifacts/{artifact_id}/decision",
-        json={
-            "decision_state": "watching",
-            "note": "Track it.\nReview risk before the next run.",
-        },
-    )
-
-    payload = client.get("/api/v1/search?q=TSLA&limit=20").json()
-
-    conversations = [item for item in payload["items"] if item["type"] == "conversation"]
-    assert len(conversations) == 1
-    item = conversations[0]
-    assert item["type"] == "conversation"
-    assert item["id"] == conversation["id"]
-    assert item["conversation_id"] == conversation["id"]
-    assert item["preview"]["kind"] == "result"
-    assert item["preview"]["symbols"] == ["TSLA"]
-    assert item["preview"]["text"] is None
-
-    dossier = item["dossier"]
-    assert list(dossier) == [
-        "run_id",
-        "run_label",
-        "completed_at",
-        "result_message_id",
-        "tested",
-        "outcome",
-        "decision",
-        "actions",
-    ]
-    assert dossier["run_id"]
-    assert dossier["result_message_id"]
-    assert dossier["decision"] == {
-        "state": "watching",
-        "note": "Track it.\nReview risk before the next run.",
-        "run_label": dossier["run_label"],
-    }
-    assert dossier["tested"]["symbols"] == ["TSLA"]
-    assert dossier["tested"]["strategy_family"] == "rsi_mean_reversion"
-    assert dossier["outcome"]["run_label"]
-    assert dossier["outcome"]["benchmark_symbol"] == "SPY"
-    assert "quick_take" not in dossier["outcome"]
-    assert dossier["outcome"]["result_fact_bank"]["symbols"] == ["TSLA"]
-    assert dossier["outcome"]["metrics"] == [{"name": "total_return_pct", "value": 12.5}]
-    assert item["total_runs"] == 1
-    assert item["decided_runs"] == 1
-    assert "actions" not in item
-
-    history = client.get(
-        f"/api/v1/conversations/{conversation['id']}/run-dossiers?limit=20"
-    )
-    assert history.status_code == 200
-    assert history.json() == {
-        "items": [dossier],
-        "next_cursor": None,
-        "total_runs": 1,
-        "decided_runs": 1,
-    }
 
 
 def test_run_dossier_history_uses_non_leaking_ownership_and_cursor_errors() -> None:
@@ -3408,47 +2713,6 @@ def test_search_dossier_result_anchor_does_not_depend_on_later_user_copy() -> No
     assert followed_up is not None
     assert followed_up[1].dossier is not None
     assert followed_up[1].dossier.result_message_id == assistant_offer["id"]
-
-
-def test_search_default_dossier_does_not_mix_an_older_run_decision() -> None:
-    client = _client()
-    conversation = client.post("/api/v1/conversations", json={}).json()["conversation"]
-    first_response = client.post(
-        "/api/v1/chat/stream",
-        headers={"Idempotency-Key": "dossier-first-run"},
-        json={
-            "conversation_id": conversation["id"],
-            "message": "Backtest AAPL from 2025 to 2025",
-            "language": "en",
-        },
-    )
-    first = _final_payload(first_response.text)["run"]
-    artifact_id = first["conversation_result_card"]["evidence_artifact_id"]
-    client.post(
-        f"/api/v1/evidence-artifacts/{artifact_id}/decision",
-        json={"decision_state": "watching", "note": "Anchor this older run."},
-    )
-    second_response = client.post(
-        "/api/v1/chat/stream",
-        headers={"Idempotency-Key": "dossier-second-run"},
-        json={
-            "conversation_id": conversation["id"],
-            "message": "Backtest TSLA from 2025 to 2025",
-            "language": "en",
-        },
-    )
-    second = _final_payload(second_response.text)["run"]
-
-    response = client.get("/api/v1/search?q=anchor&limit=20")
-
-    assert response.status_code == 200
-    item = response.json()["items"][0]
-    dossier = item["dossier"]
-    assert dossier["run_id"] == second["id"]
-    assert dossier["run_label"] == second["conversation_result_card"]["title"]
-    assert dossier["decision"] is None
-    assert item["total_runs"] == 2
-    assert item["decided_runs"] == 1
 
 
 def test_search_actions_anchor_latest_run_without_generation_or_auto_execution(
@@ -4122,139 +3386,3 @@ def test_invalid_cursor_returns_problem_details() -> None:
     payload = response.json()
     assert payload["code"] == "validation_error"
 
-
-def test_chat_missing_symbol_asks_clarifying_question(monkeypatch) -> None:
-    from argus.api.routers import agent as agent_router
-
-    client = _client()
-    conversation = client.post("/api/v1/conversations", json={}).json()["conversation"]
-
-    async def _missing_symbol_events(**_: Any):
-        yield {
-            "type": "final",
-            "payload": {
-                "stage_outcome": "await_user_reply",
-                "assistant_prompt": "Which symbols do you want to test?",
-                "final_response_payload": {"error": "missing_required_input"},
-            },
-        }
-
-    monkeypatch.setattr(
-        agent_router,
-        "stream_agent_turn_events",
-        _missing_symbol_events,
-    )
-
-    response = client.post(
-        "/api/v1/chat/stream",
-        json={
-            "conversation_id": conversation["id"],
-            "message": "Run RSI",
-            "language": "en",
-        },
-    )
-
-    assert response.status_code == 200
-    assert "Which symbols do you want to test?" in response.text
-    assert "running_backtest" not in response.text
-    assert '"run"' not in response.text
-
-
-def test_chat_run_uses_extracted_timeframe_not_hardcoded_1d(monkeypatch) -> None:
-    from argus.api.routers import agent as agent_router
-
-    client = _client()
-    conversation = client.post("/api/v1/conversations", json={}).json()["conversation"]
-
-    async def _btc_1h_events(**_: Any):
-        result = _runtime_success_result(symbol="BTC", timeframe="1h")
-        yield {"type": "final", "payload": result}
-
-    monkeypatch.setattr(agent_router, "stream_agent_turn_events", _btc_1h_events)
-
-    response = client.post(
-        "/api/v1/chat/stream",
-        json={
-            "conversation_id": conversation["id"],
-            "message": "Run BTC 1h",
-        },
-    )
-
-    assert response.status_code == 200
-    # The timeframe "1h" should be in the result run config_snapshot
-    assert '"timeframe":"1h"' in response.text or '"timeframe": "1h"' in response.text
-
-
-def test_chat_stream_passes_thread_context_to_runtime(monkeypatch) -> None:
-    from argus.api import state as api_state
-    from argus.api.routers import agent as agent_router
-
-    client = _client()
-    conversation = client.post("/api/v1/conversations", json={}).json()["conversation"]
-
-    # Insert a message into memory store manually
-    from datetime import datetime, timezone
-
-    from argus.api.schemas import Message
-
-    msg1 = Message(
-        id="msg1",
-        conversation_id=conversation["id"],
-        role="user",
-        content="Tell me about AAPL",
-        created_at=datetime.now(timezone.utc),
-    )
-    api_state.store.messages[conversation["id"]] = [msg1]
-
-    captured_runtime: dict[str, Any] = {}
-
-    async def _fake_stream_agent_turn_events(**kwargs: Any):
-        captured_runtime.update(kwargs)
-        yield {
-            "type": "final",
-            "payload": _runtime_success_result(symbol="AAPL", assistant_response="ok"),
-        }
-
-    monkeypatch.setattr(
-        agent_router,
-        "stream_agent_turn_events",
-        _fake_stream_agent_turn_events,
-    )
-
-    response = client.post(
-        "/api/v1/chat/stream",
-        json={
-            "conversation_id": conversation["id"],
-            "message": "Backtest it",
-        },
-    )
-
-    assert response.status_code == 200
-    assert captured_runtime["thread_id"] == conversation["id"]
-    assert captured_runtime["message"] == "Backtest it"
-
-
-def test_starter_prompts_returns_generic_suggestions() -> None:
-    client = _client()
-
-    resp = client.get("/api/v1/chat/starter-prompts")
-    assert resp.status_code == 200
-    assert len(resp.json()["prompts"]) == 4
-    assert "Test Apple against SPY over the last 12 months." in resp.json()["prompts"]
-
-
-def test_starter_prompts_follow_profile_language() -> None:
-    client = _client()
-
-    response = client.patch(
-        "/api/v1/me",
-        json={"language": "es-419"},
-    )
-    assert response.status_code == 200
-
-    resp = client.get("/api/v1/chat/starter-prompts")
-    assert resp.status_code == 200
-    prompts = resp.json()["prompts"]
-    assert len(prompts) == 4
-    assert "Prueba Bitcoin en lo que va del año." in prompts
-    assert all("2024" not in prompt for prompt in prompts)

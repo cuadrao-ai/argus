@@ -1,0 +1,4 @@
+debug exit=0 seconds=38
+release exit=0 seconds=92
+host exit=0 seconds=16
+focused exit=0 seconds=585

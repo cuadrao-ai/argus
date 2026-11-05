@@ -1,0 +1,204 @@
+name: Deploy staging
+
+# Path map. cuadrao-app-staging builds web/ (blueprint rootDir web).
+# cuadrao-api-staging builds the repo root with poetry: pyproject.toml,
+# poetry.lock, .python-version, src/, web/argus_display_contract/,
+# supabase/migrations, supabase/config.toml, Dockerfile, requirements.txt.
+# docs/ and marketing stay out. autoDeploy stays off.
+
+"on":
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Full 40-character commit. Empty uses the selected ref.
+        required: false
+        default: ""
+        type: string
+      force_all:
+        description: Deploy both staging services.
+        required: false
+        default: false
+        type: boolean
+      dry_run:
+        description: Stop before the deploy request.
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  checks: read
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      INPUT_SHA: ${{ inputs.sha }}
+      GIT_REF: ${{ github.ref }}
+      GIT_SHA: ${{ github.sha }}
+      FORCE_ALL: ${{ inputs.force_all }}
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+      - name: Fetch the selected ref
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git init --quiet .
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          gh auth setup-git
+          git fetch --no-tags origin "$GIT_REF"
+          git fetch --no-tags origin \
+            "codex/private-alpha-next:refs/remotes/origin/codex/private-alpha-next"
+          git checkout --detach "$GIT_SHA"
+          mkdir -p "$RUNNER_TEMP/deploy-tools/.github" \
+            "$RUNNER_TEMP/deploy-tools/scripts/ci"
+          cp .github/docs-only-changes.sh \
+            "$RUNNER_TEMP/deploy-tools/.github/docs-only-changes.sh"
+          cp scripts/ci/deploy_staging.py \
+            "$RUNNER_TEMP/deploy-tools/scripts/ci/deploy_staging.py"
+
+      - name: Resolve and validate the commit
+        run: |
+          set -euo pipefail
+          sha="$(python3 scripts/ci/deploy_staging.py validate-sha)"
+          git cat-file -e "${sha}^{commit}" 2>/dev/null \
+            || git fetch --no-tags origin "$sha"
+          python3 scripts/ci/deploy_staging.py assert-ancestor \
+            --sha "$sha" \
+            --tip refs/remotes/origin/codex/private-alpha-next
+          printf 'TARGET_SHA=%s\n' "$sha" >> "$GITHUB_ENV"
+
+      - name: Require a green ci check
+        env:
+          TARGET_SHA: ${{ env.TARGET_SHA }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api --paginate \
+            "/repos/${GITHUB_REPOSITORY}/commits/${TARGET_SHA}/check-runs" \
+            --jq '.check_runs[]' > "$RUNNER_TEMP/check-runs.jsonl"
+          gh api \
+            "/repos/${GITHUB_REPOSITORY}/commits/${TARGET_SHA}/status" \
+            > "$RUNNER_TEMP/commit-status.json"
+          python3 scripts/ci/deploy_staging.py require-green \
+            --check-runs "$RUNNER_TEMP/check-runs.jsonl" \
+            --status "$RUNNER_TEMP/commit-status.json"
+
+      - name: Read the last deployed commits
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          TARGET_SHA: ${{ env.TARGET_SHA }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RENDER_API_KEY:-}" ]; then
+            echo "RENDER_API_KEY is missing. Lucas adds it as a repository secret."
+            exit 1
+          fi
+          parent="$(git rev-parse "${TARGET_SHA}^")"
+          python3 scripts/ci/deploy_staging.py allowlist > "$RUNNER_TEMP/allowlist.txt"
+          while IFS= read -r name; do
+            [ -n "$name" ] || continue
+            python3 scripts/ci/deploy_staging.py allow-name --name "$name"
+            list="$(curl -fsS \
+              --get \
+              --header "Authorization: Bearer ${RENDER_API_KEY}" \
+              --header "Accept: application/json" \
+              --data-urlencode "name=${name}" \
+              --data-urlencode "limit=20" \
+              "https://api.render.com/v1/services")"
+            service_id="$(printf '%s' "$list" \
+              | python3 scripts/ci/deploy_staging.py resolve-service --expect "$name")"
+            deploys="$(curl -fsS \
+              --header "Authorization: Bearer ${RENDER_API_KEY}" \
+              --header "Accept: application/json" \
+              "https://api.render.com/v1/services/${service_id}/deploys?limit=100")"
+            live="$(printf '%s' "$deploys" \
+              | python3 scripts/ci/deploy_staging.py live-commit)"
+            base="$(LIVE_COMMIT="$live" PARENT_SHA="$parent" \
+              python3 scripts/ci/deploy_staging.py comparison-base)"
+            git cat-file -e "${base}^{commit}" 2>/dev/null \
+              || git fetch --no-tags origin "$base"
+            printf '%s\n' "$base" > "$RUNNER_TEMP/${name}.base"
+            printf '%s\n' "$service_id" > "$RUNNER_TEMP/${name}.id"
+          done < "$RUNNER_TEMP/allowlist.txt"
+          api_base="$(cat "$RUNNER_TEMP/cuadrao-api-staging.base")"
+          web_base="$(cat "$RUNNER_TEMP/cuadrao-app-staging.base")"
+          older="$(API_BASE="$api_base" WEB_BASE="$web_base" \
+            python3 scripts/ci/deploy_staging.py older-base)"
+          {
+            printf 'API_BASE=%s\n' "$api_base"
+            printf 'WEB_BASE=%s\n' "$web_base"
+            printf 'COMPARE_BASE=%s\n' "$older"
+          } >> "$GITHUB_ENV"
+
+      # The classifier reads PR_BASE_SHA only when the event name is pull_request.
+      - name: Select jobs from changed files
+        env:
+          PR_BASE_SHA: ${{ env.COMPARE_BASE }}
+          GITHUB_EVENT_NAME: pull_request
+          TARGET_SHA: ${{ env.TARGET_SHA }}
+          API_BASE: ${{ env.API_BASE }}
+          WEB_BASE: ${{ env.WEB_BASE }}
+        run: |
+          set -euo pipefail
+          git checkout --detach "$TARGET_SHA"
+          mkdir -p .github scripts/ci
+          cp "$RUNNER_TEMP/deploy-tools/.github/docs-only-changes.sh" \
+            .github/docs-only-changes.sh
+          cp "$RUNNER_TEMP/deploy-tools/scripts/ci/deploy_staging.py" \
+            scripts/ci/deploy_staging.py
+          git diff --name-only -z --no-renames --diff-filter=ACDMRTUXB \
+            "${API_BASE}...${TARGET_SHA}" > "$RUNNER_TEMP/api-paths.txt"
+          git diff --name-only -z --no-renames --diff-filter=ACDMRTUXB \
+            "${WEB_BASE}...${TARGET_SHA}" > "$RUNNER_TEMP/web-paths.txt"
+          .github/docs-only-changes.sh
+          python3 scripts/ci/deploy_staging.py select-services \
+            --api-paths "$RUNNER_TEMP/api-paths.txt" \
+            --web-paths "$RUNNER_TEMP/web-paths.txt" \
+            > "$RUNNER_TEMP/selection.txt"
+
+      - name: Deploy the selected services
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          TARGET_SHA: ${{ env.TARGET_SHA }}
+        run: |
+          set -euo pipefail
+          selection="$(cat "$RUNNER_TEMP/selection.txt")"
+          if [ "$selection" = "Nothing deployable changed since the comparison commit. Skipping deploy." ]; then
+            printf '%s\n' "$selection"
+            exit 0
+          fi
+          if [ -z "${RENDER_API_KEY:-}" ]; then
+            echo "RENDER_API_KEY is missing. Lucas adds it as a repository secret."
+            exit 1
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "Dry run. Not requesting a deploy."
+            printf '%s\n' "$selection"
+            exit 0
+          fi
+          while IFS= read -r name; do
+            [ -n "$name" ] || continue
+            python3 scripts/ci/deploy_staging.py allow-name --name "$name"
+            service_id="$(cat "$RUNNER_TEMP/${name}.id")"
+            body="$(python3 -c 'import json,os; print(json.dumps({"commitId": os.environ["TARGET_SHA"]}))')"
+            curl -fsS --request POST \
+              --header "Authorization: Bearer ${RENDER_API_KEY}" \
+              --header "Accept: application/json" \
+              --header "Content-Type: application/json" \
+              --data "$body" \
+              --output "$RUNNER_TEMP/deploy-body.json" \
+              "https://api.render.com/v1/services/${service_id}/deploys"
+            python3 scripts/ci/deploy_staging.py wait-deploy \
+              --name "$name" \
+              --service-id "$service_id" \
+              --response "$RUNNER_TEMP/deploy-body.json" \
+              --sha "$TARGET_SHA" \
+              --timeout 900 \
+              --interval 15
+          done < "$RUNNER_TEMP/selection.txt"

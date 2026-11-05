@@ -242,10 +242,10 @@ def _configure_guest_usage(
     workspace_simulations_used: int,
     expires_at: datetime | None = None,
 ) -> GuestWorkspace:
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     workspace = _configure_guest_account(mock_gateway)
     if expires_at is not None:
         workspace = workspace.model_copy(update={"expires_at": expires_at})

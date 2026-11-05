@@ -1,0 +1,16 @@
+{
+  "source_head": "f32e301198c39a1bcafd24e698466b9fc6441439",
+  "original_and_current_integration": "15e57931584b21dd7f9e453dbeb9127fc4b8cff3",
+  "fixed_design": "7f72dfd73d0c137a1118dffebe5219985577548a",
+  "database": "new disposable local Postgres59752 / ios-accounts-59750",
+  "migration": "20261001190000_goal_residual_allocations.sql",
+  "command": "ARGUS_DISPOSABLE_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:59752/postgres PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src /Users/garces/.codex/worktrees/5a42/private-alpha-next/.venv/bin/python -m pytest -q --no-cov -p no:cacheprovider tests/financial_accounts/test_goal_allocations_postgres.py tests/financial_accounts/test_goals.py tests/financial_accounts/test_goal_edges.py tests/financial_accounts/test_goal_api.py tests/financial_accounts/test_budgets.py tests/financial_accounts/test_budget_api.py tests/financial_accounts/test_debts.py tests/financial_accounts/test_debt_api.py tests/financial_accounts/test_plan.py tests/financial_accounts/test_plan_api.py tests/financial_accounts/test_plan_recurrence.py tests/test_connected_plan_postgres.py --junitxml=docs/reports/evidence/shared-household-planning/allocation-cutover-junit.xml",
+  "result": {
+    "passed": 170,
+    "skipped": 0,
+    "failed": 0
+  },
+  "junit": "allocation-cutover-junit.xml",
+  "log": "allocation-cutover-check.txt",
+  "disposition": "Exact financial source f32e3011 tested. Concurrent uncommitted edits were restricted to native local-test helpers and new shared-wire schema tests; no tested financial source changed. Source was not deployed; existing demos and hosted databases untouched. This proves normalization and affected Personal regressions, not assembled shared-plan delivery."
+}

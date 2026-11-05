@@ -200,15 +200,9 @@ def test_refused_publication_removes_the_run_row_and_strips_the_turn(
         "the job row carries the contract's durable refusal record, or it "
         "cannot distinguish a cleaned withheld result from a cancellation"
     )
-    withdrawal = [
-        payload
-        for kind, payload in product_events
-        if kind == "evidence_capture" and payload.get("status") == "withdrawn"
-    ]
-    assert withdrawal and withdrawal[0]["backtest_run_id"] == "run-1", (
-        "finalization already appended completion telemetry, so the "
-        "withdrawal must ride the same stream to keep funnel counts honest"
-    )
+    # evidence_capture was retired by SPEC 0 package 0C-1, so there is no
+    # completion to withdraw.
+    assert [kind for kind, _ in product_events] == []
     assert "result_card" not in metadata and "latest_run_id" not in metadata
     assert "result_card" not in runtime_result and "run" not in runtime_result
     assert metadata["recovery"]["code"] == "run_result_withheld"

@@ -1,0 +1,10 @@
+{
+  "source_head": "83523335d43e6f6e98ac1ddd05fb47a0531ddc83",
+  "scope": "Read-only SQL scoped to retained synthetic goal/activity IDs; unrelated native fixtures preserved",
+  "postgres_port": 59102,
+  "goal_definitions": 2,
+  "canonical_logical_activities": 4,
+  "shared_goal_activity_claims": 2,
+  "accepted_response_loss_create_receipts": 1,
+  "duplicate_definitions_or_activity_groups": false
+}

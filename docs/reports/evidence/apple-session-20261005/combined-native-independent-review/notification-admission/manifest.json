@@ -1,0 +1,17 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AD3171CD-69D5-44E9-93AF-1E38FE5FFCD7",
+        "deviceName" : "Cuadrao-Apple-Combined-QA",
+        "exportedFileName" : "321DA98D-5813-440B-A747-53B8B8637B47.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "independent-notification-dispatch-probe_0_1169CE3F-95BC-4551-8FB6-6826EC1FCB9F.png",
+        "timestamp" : 1791251756.257
+      }
+    ],
+    "testIdentifier" : "AppleSessionJourneyUITests/testIndependentQueuedNotificationDispatchProbe()",
+    "testIdentifierURL" : "test://com.apple.xcode/ArgusFoundation/ArgusFoundationUITests/AppleSessionJourneyUITests/testIndependentQueuedNotificationDispatchProbe"
+  }
+]

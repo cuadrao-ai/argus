@@ -1,0 +1,78 @@
+From: facturacion@hotelbrisadeleste.example
+To: recibos@negocio.example
+Subject: Factura =?utf-8?q?electr=C3=B3nica?= E320000001234
+Date: Fri, 09 Oct 2026 18:30:00 -0400
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============8932834057887012047=="
+
+--===============8932834057887012047==
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+<html><body>
+<h2>Hotel Brisa del Este SRL</h2>
+<p>RNC 131111222 =C2=B7 Sucursal Punta Ficticia =C2=B7 Factura de Consumo Ele=
+ctr=C3=B3nica (tipo 32)</p>
+<p>e-NCF E320000001234 =C2=B7 Fecha de emisi=C3=B3n 09-10-2026 =C2=B7 Tasa de=
+ cambio 58.62</p>
+<p>Habitaci=C3=B3n 412 =C2=B7 Hu=C3=A9sped de Prueba</p>
+<table border=3D"1"><tr><td>Room Charge</td><td align=3D'right'>24620.40</td>=
+</tr><tr><td>Minibar</td><td align=3D'right'>1360.00</td></tr>
+<tr><td>Base imponible</td><td align=3D'right'>25980.40</td></tr>
+<tr><td>ITBIS 18%</td><td align=3D'right'>4676.47</td></tr>
+<tr><td>Propina legal 10%</td><td align=3D'right'>2598.04</td></tr>
+<tr><td><b>Total RD$</b></td><td align=3D'right'><b>33254.91</b></td></tr>
+<tr><td>Total USD</td><td align=3D'right'>567.30</td></tr>
+</table>
+<p>Pagado con tarjeta en RD$. Documento ficticio para pruebas.</p>
+</body></html>
+
+--===============8932834057887012047==
+Content-Type: application/xml
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="factura-E320000001234.xml"
+MIME-Version: 1.0
+
+PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPEVDRiB4bWxucz0iaHR0cHM6
+Ly9kZ2lpLmdvdi5kby9lY2YvdjEiPgogIDxFbmNhYmV6YWRvPgogICAgPFZlcnNpb24+MS4wPC9W
+ZXJzaW9uPgogICAgPElkRG9jPgogICAgICA8VGlwb2VDRj4zMjwvVGlwb2VDRj4KICAgICAgPGVO
+Q0Y+RTMyMDAwMDAwMTIzNDwvZU5DRj4KICAgICAgPEZlY2hhVmVuY2ltaWVudG9TZWN1ZW5jaWE+
+MzEtMTItMjAyNzwvRmVjaGFWZW5jaW1pZW50b1NlY3VlbmNpYT4KICAgICAgPEluZGljYWRvck1v
+bnRvR3JhdmFkbz4wPC9JbmRpY2Fkb3JNb250b0dyYXZhZG8+CiAgICAgIDxUaXBvSW5ncmVzb3M+
+MDE8L1RpcG9JbmdyZXNvcz4KICAgICAgPFRpcG9QYWdvPjE8L1RpcG9QYWdvPgogICAgICA8VGFi
+bGFGb3JtYXNQYWdvPgogICAgICAgIDxGb3JtYURlUGFnbz48Rm9ybWFQYWdvPjM8L0Zvcm1hUGFn
+bz48TW9udG9QYWdvPjMzMjU0LjkxPC9Nb250b1BhZ28+PC9Gb3JtYURlUGFnbz4KICAgICAgPC9U
+YWJsYUZvcm1hc1BhZ28+CiAgICA8L0lkRG9jPgogICAgPEVtaXNvcj4KICAgICAgPFJOQ0VtaXNv
+cj4xMzExMTEyMjI8L1JOQ0VtaXNvcj4KICAgICAgPFJhem9uU29jaWFsRW1pc29yPkhvdGVsIEJy
+aXNhIGRlbCBFc3RlIFNSTDwvUmF6b25Tb2NpYWxFbWlzb3I+CiAgICAgIDxOb21icmVDb21lcmNp
+YWw+SG90ZWwgQnJpc2EgZGVsIEVzdGU8L05vbWJyZUNvbWVyY2lhbD4KICAgICAgPFN1Y3Vyc2Fs
+PlB1bnRhIEZpY3RpY2lhPC9TdWN1cnNhbD4KICAgICAgPERpcmVjY2lvbkVtaXNvcj5Bdi4gSW1h
+Z2luYXJpYSAxLCBQdW50YSBGaWN0aWNpYTwvRGlyZWNjaW9uRW1pc29yPgogICAgICA8RmVjaGFF
+bWlzaW9uPjA5LTEwLTIwMjY8L0ZlY2hhRW1pc2lvbj4KICAgIDwvRW1pc29yPgogICAgPENvbXBy
+YWRvcj4KICAgICAgPFJhem9uU29jaWFsQ29tcHJhZG9yPkNvbnN1bWlkb3IgRmluYWw8L1Jhem9u
+U29jaWFsQ29tcHJhZG9yPgogICAgPC9Db21wcmFkb3I+CiAgICA8SW5mb3JtYWNpb25lc0FkaWNp
+b25hbGVzPgogICAgICA8TnVtZXJvSGFiaXRhY2lvbj40MTI8L051bWVyb0hhYml0YWNpb24+CiAg
+ICAgIDxOb21icmVIdWVzcGVkPkh1w6lzcGVkIGRlIFBydWViYTwvTm9tYnJlSHVlc3BlZD4KICAg
+IDwvSW5mb3JtYWNpb25lc0FkaWNpb25hbGVzPgogICAgPFRvdGFsZXM+CiAgICAgIDxNb250b0dy
+YXZhZG9Ub3RhbD4yNTk4MC40MDwvTW9udG9HcmF2YWRvVG90YWw+CiAgICAgIDxNb250b0dyYXZh
+ZG9JMT4yNTk4MC40MDwvTW9udG9HcmF2YWRvSTE+CiAgICAgIDxJVEJJUzE+MTg8L0lUQklTMT4K
+ICAgICAgPFRvdGFsSVRCSVM+NDY3Ni40NzwvVG90YWxJVEJJUz4KICAgICAgPFRvdGFsSVRCSVMx
+PjQ2NzYuNDc8L1RvdGFsSVRCSVMxPgogICAgICA8TW9udG9Qcm9waW5hTGVnYWw+MjU5OC4wNDwv
+TW9udG9Qcm9waW5hTGVnYWw+CiAgICAgIDxNb250b1RvdGFsPjMzMjU0LjkxPC9Nb250b1RvdGFs
+PgogICAgPC9Ub3RhbGVzPgogICAgPE90cmFNb25lZGE+CiAgICAgIDxUaXBvTW9uZWRhPlVTRDwv
+VGlwb01vbmVkYT4KICAgICAgPFRpcG9DYW1iaW8+NTguNjI8L1RpcG9DYW1iaW8+CiAgICAgIDxN
+b250b0dyYXZhZG9Ub3RhbE90cmFNb25lZGE+NDQzLjIwPC9Nb250b0dyYXZhZG9Ub3RhbE90cmFN
+b25lZGE+CiAgICAgIDxUb3RhbElUQklTT3RyYU1vbmVkYT43OS43ODwvVG90YWxJVEJJU090cmFN
+b25lZGE+CiAgICAgIDxNb250b1RvdGFsT3RyYU1vbmVkYT41NjcuMzA8L01vbnRvVG90YWxPdHJh
+TW9uZWRhPgogICAgPC9PdHJhTW9uZWRhPgogIDwvRW5jYWJlemFkbz4KICA8RGV0YWxsZXNJdGVt
+cz4KICAgIDxJdGVtPjxOdW1lcm9MaW5lYT4xPC9OdW1lcm9MaW5lYT48SW5kaWNhZG9yRmFjdHVy
+YWNpb24+MTwvSW5kaWNhZG9yRmFjdHVyYWNpb24+PE5vbWJyZUl0ZW0+Um9vbSBDaGFyZ2U8L05v
+bWJyZUl0ZW0+PENhbnRpZGFkSXRlbT4yPC9DYW50aWRhZEl0ZW0+PFByZWNpb1VuaXRhcmlvSXRl
+bT4xMjMxMC4yMDwvUHJlY2lvVW5pdGFyaW9JdGVtPjxNb250b0l0ZW0+MjQ2MjAuNDA8L01vbnRv
+SXRlbT48L0l0ZW0+CiAgICA8SXRlbT48TnVtZXJvTGluZWE+MjwvTnVtZXJvTGluZWE+PEluZGlj
+YWRvckZhY3R1cmFjaW9uPjE8L0luZGljYWRvckZhY3R1cmFjaW9uPjxOb21icmVJdGVtPk1pbmli
+YXI8L05vbWJyZUl0ZW0+PENhbnRpZGFkSXRlbT4xPC9DYW50aWRhZEl0ZW0+PFByZWNpb1VuaXRh
+cmlvSXRlbT4xMzYwLjAwPC9QcmVjaW9Vbml0YXJpb0l0ZW0+PE1vbnRvSXRlbT4xMzYwLjAwPC9N
+b250b0l0ZW0+PC9JdGVtPgogIDwvRGV0YWxsZXNJdGVtcz4KPC9FQ0Y+Cg==
+
+--===============8932834057887012047==--

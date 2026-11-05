@@ -16,10 +16,6 @@ from typing import Any
 from loguru import logger
 
 from argus.api.chat.backtest_job_envelopes import admission_failure_reason
-from argus.api.guest_observability import (
-    emit_verified_guest_funnel_event,
-    guest_session_allowance_present,
-)
 from argus.domain.backtest_admission import CHAT_RUN_SCOPE, validate_idempotency_key
 from argus.domain.usage_limits import (
     GUEST_SIMULATION_VISITOR_LIMITS,
@@ -114,7 +110,6 @@ def admit_durable_chat_job(
     }
 
     visitor_key = getattr(context, "visitor_key", None)
-    should_check_first_guest_simulation = False
     if visitor_key:
         # Replay resolves before allowance: a retry of an admitted run must
         # return its existing job, never a conversion wall.
@@ -125,9 +120,6 @@ def admit_durable_chat_job(
         )
         if existing_reservation is None:
             now = datetime.now(timezone.utc)
-            should_check_first_guest_simulation = guest_session_allowance_present(
-                context.allowance_limits
-            )
             if not visitor_within_limits(
                 gateway.client,
                 visitor_key=visitor_key,
@@ -135,15 +127,6 @@ def admit_durable_chat_job(
                 limits=list(GUEST_SIMULATION_VISITOR_LIMITS),
                 now=now,
             ):
-                emit_verified_guest_funnel_event(
-                    "guest_limit_reached",
-                    user_id=context.user_id,
-                    conversation_id=context.conversation_id,
-                    surface="backtest",
-                    product_capability="simulation",
-                    conversion_reason="simulation_limit",
-                    terminal_outcome="limit_reached",
-                )
                 return _record_rejection(
                     gateway=gateway,
                     context=context,
@@ -187,28 +170,6 @@ def admit_durable_chat_job(
                         error=str(exc),
                         failure_classification="telemetry_only",
                     )
-            if (
-                decision == "admitted"
-                and should_check_first_guest_simulation
-                and _guest_session_simulation_used_count(
-                    gateway=gateway,
-                    context=context,
-                )
-                == 1
-            ):
-                emit_verified_guest_funnel_event(
-                    "first_simulation_admitted",
-                    user_id=context.user_id,
-                    conversation_id=context.conversation_id,
-                    job_id=(
-                        str(job.get("id"))
-                        if isinstance(job, dict) and job.get("id")
-                        else None
-                    ),
-                    surface="backtest",
-                    product_capability="simulation",
-                    terminal_outcome="admitted",
-                )
             return ChatAdmissionResult(
                 decision=decision,
                 job=dict(job) if isinstance(job, dict) else None,
@@ -232,18 +193,6 @@ def admit_durable_chat_job(
                 execution_metadata=execution_metadata,
             )
         if decision in ("conflict", "allowance_exhausted", "conversion_required"):
-            if decision == "conversion_required" and guest_session_allowance_present(
-                context.allowance_limits
-            ):
-                emit_verified_guest_funnel_event(
-                    "guest_limit_reached",
-                    user_id=context.user_id,
-                    conversation_id=context.conversation_id,
-                    surface="backtest",
-                    product_capability="simulation",
-                    conversion_reason="simulation_limit",
-                    terminal_outcome="limit_reached",
-                )
             return _record_rejection(
                 gateway=gateway,
                 context=context,
@@ -255,44 +204,3 @@ def admit_durable_chat_job(
             )
         raise RuntimeError(f"Backtest admission returned unknown decision {decision!r}.")
     return ChatAdmissionResult(decision="per_user_capacity")
-
-
-def _guest_session_simulation_used_count(*, gateway: Any, context: Any) -> int | None:
-    """Read the durable workspace counter after the atomic admission charge."""
-    window = next(
-        (
-            item
-            for item in context.allowance_limits or []
-            if str(item.get("period") or "") == "guest_session"
-        ),
-        None,
-    )
-    if not isinstance(window, dict):
-        return None
-    raw_period_start = window.get("period_start")
-    try:
-        if isinstance(raw_period_start, str):
-            period_start = datetime.fromisoformat(raw_period_start.replace("Z", "+00:00"))
-        elif isinstance(raw_period_start, datetime):
-            period_start = raw_period_start
-        else:
-            return None
-    except ValueError:
-        logger.warning("Guest first-simulation period start was invalid")
-        return None
-    try:
-        rows = gateway.list_current_usage_counters(
-            user_id=context.user_id,
-            resources=(SIMULATION_USAGE_RESOURCE,),
-            period="guest_session",
-            at=datetime.now(timezone.utc),
-            period_start=period_start,
-        )
-    except Exception:
-        logger.opt(exception=True).warning("Guest first-simulation counter read failed")
-        return None
-    row = next(
-        (item for item in rows if str(item.get("resource")) == SIMULATION_USAGE_RESOURCE),
-        None,
-    )
-    return int(row.get("used_count", 0)) if isinstance(row, dict) else 0

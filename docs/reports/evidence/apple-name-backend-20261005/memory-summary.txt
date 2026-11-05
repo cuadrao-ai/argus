@@ -1,0 +1,5 @@
+collected 72 items
+tests/test_apple_name_api.py ..................                          [ 25%]
+tests/test_apple_sign_in_api.py ..............................           [ 66%]
+tests/test_openapi_compatibility.py ........................             [100%]
+============================== 72 passed in 4.33s ==============================

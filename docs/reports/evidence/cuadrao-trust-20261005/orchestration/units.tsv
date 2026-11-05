@@ -1,0 +1,24 @@
+id	track	state	branch	pr	sha	brief
+identity-safety	identity	landed	codex/cuadrao-social-release-safety	844	36c70b91ef03ffcfcc7482a7714a0f244fe5fe4e	docs/reports/evidence/cuadrao-trust-20261005/preflight.md
+deletion-recovery	deletion	landed	codex/cuadrao-deletion-recovery-proof	846	cea9f6e18c582615dee44cf1a7d3a05b936b660a	docs/reports/evidence/cuadrao-trust-20261005/preflight.md
+analytics-deletion	deletion	landed	codex/cuadrao-personless-deletion	847	ea9d9e57a26cd788d4a92adde4c0984b964ae94d	docs/reports/evidence/cuadrao-trust-20261005/preflight.md
+privacy-evidence	privacy	landed	codex/cuadrao-privacy-evidence	845	c9f53b75f13c51c24a4680be9a1c052f960db562	docs/reports/evidence/cuadrao-trust-20261005/preflight.md
+primary-currency	foundations	landed	codex/cuadrao-primary-currency	853	c86981c076d4512aaee8d6c61d278f60ef597e75	docs/reports/evidence/cuadrao-trust-20261005/preflight.md
+paired-transfers	foundations	landed	codex/cuadrao-paired-transfers	854	8efd724a0a3f48139745e2c741dc2e23f2612320	docs/reports/evidence/cuadrao-trust-20261005/preflight.md
+privacy-manifest	privacy	landed	codex/cuadrao-app-privacy-manifest	849	944515d21d54aa4d0b926e78a070cecdde4baa54	docs/reports/evidence/cuadrao-trust-20261005/preflight.md
+native-buttons	identity	landed	codex/cuadrao-native-provider-appearance	857	fb847fc340a7c7acac55922691fa0f99c50e33a6	docs/reports/evidence/cuadrao-trust-20261005/preflight.md
+apple-binding	identity	landed	codex/apple-identity-binding-800	858	ad2e7d84236bc2bc0f0ffb82d3e0c9e6b9f6f04d	docs/reports/evidence/cuadrao-trust-20261005/preflight.md
+apple-deletion	deletion	landed	codex/apple-deletion-admission-20261005	862	55f6fe1c415261c86d5a1ada63eee7583c0dc411	docs/reports/evidence/cuadrao-trust-20261005/preflight.md
+apple-session	identity	landed	codex/cuadrao-apple-session-20261005	864	49215121969c17347bcf2e702199196e23ec4ede	docs/reports/evidence/cuadrao-trust-20261005/preflight.md
+recovery-address	operations	landed	codex/recovery-trusted-client-ip	865	4887769303119a6cdd9995034997e1a4c011448e	docs/reports/evidence/cuadrao-trust-20261005/preflight.md
+ci-release-resolution	operations	landed	codex/cuadrao-ci-release-resolution	851	c4f9a08b6fc9cf429b47c4cd024183db02fcd959	docs/reports/evidence/cuadrao-trust-20261005/preflight.md
+canary-fixture	operations	landed	codex/issue-861-canary-fixture-close	863	d2347166f78df1a1e67f52ab194936ee14ab210b	docs/reports/evidence/cuadrao-trust-20261005/preflight.md
+apple-lock-observer	operations	landed	codex/867-apple-lock-observer	868	8a3e80daaf8947a5dfd43268eeb3f2459427de97	docs/reports/evidence/cuadrao-trust-20261005/preflight.md
+apple-name-backend	identity	landed	codex/cuadrao-apple-name-backend	869	b62f35d1a25fb344a99df3702a5199b146a1e152	docs/reports/evidence/cuadrao-trust-20261005/preflight.md
+invite-hardening	operations	landed	codex/cuadrao-invite-hardening-804-20261005	871	258aa357dcfd7dc64506572d3dbba092845014c5	docs/reports/evidence/cuadrao-trust-20261005/active-queue-20261005.md
+apple-name-native	identity	landed	codex/cuadrao-native-apple-name-20261005	874	6ec654919775f0f5001c2c7732e18c9507618762	docs/reports/evidence/cuadrao-trust-20261005/active-queue-20261005.md
+deletion-native-command	deletion	landed	codex/cuadrao-native-deletion-command-20261005	875	a4d403089b91536b0adcf02e2e7164ce921eab94	docs/reports/evidence/cuadrao-trust-20261005/active-queue-20261005.md
+currency-home-c1	foundations	needs-verify	codex/cuadrao-primary-home-bindings-20261005		87a616ef0	docs/reports/evidence/cuadrao-trust-20261005/active-queue-20261005.md
+currency-forecast-c3	foundations	needs-verify	codex/cuadrao-primary-forecast-binding-20261005		27dc03711ab93b5a6273da6ab1394ab4d97f6f78	docs/reports/evidence/cuadrao-trust-20261005/active-queue-20261005.md
+confirmed-cleanup	deletion	landed	codex/cuadrao-confirmed-deletion-cleanup-20261006	876	7887546aa644ccc683ec08be88b133ba7283e131	docs/reports/evidence/cuadrao-trust-20261005/confirmed-cleanup-unit-brief.md
+personal-observation-reader	foundations	needs-verify	codex/cuadrao-connected-preview		1eca92329c62c012fc789beb3b9c973c49aaaef2	docs/reports/evidence/cuadrao-trust-20261005/personal-observation-read-contract.md

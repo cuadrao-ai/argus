@@ -1,0 +1,26 @@
+test_duplicate_category_rejected (__main__.ManifestChecks.test_duplicate_category_rejected) ... ok
+test_missing_category_rejected (__main__.ManifestChecks.test_missing_category_rejected) ... ok
+test_no_declarations_rejected (__main__.ManifestChecks.test_no_declarations_rejected) ... ok
+test_packaged_manifest (__main__.ManifestChecks.test_packaged_manifest) ... ok
+test_source_manifest (__main__.ManifestChecks.test_source_manifest) ... ok
+test_unverified_tracking_claim_rejected (__main__.ManifestChecks.test_unverified_tracking_claim_rejected) ... ok
+test_wrong_reason_rejected (__main__.ManifestChecks.test_wrong_reason_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.001s
+
+OK
+
+Integration base: 875de09ac2115acec42e09060b92878aa5f18eff
+Xcode: 27.0, build 27A266a
+Configuration: Release, SDK iphonesimulator, generic simulator destination, CODE_SIGNING_ALLOWED=NO
+Baseline proof: git cat-file -e 875de09ac:ios/ArgusFoundation/PrivacyInfo.xcprivacy exits 128. App-owned manifest absent.
+Build result: BUILD SUCCEEDED, exit 0.
+Source manifest SHA256: 1faaebba42e775c8eb0b40256c2acecd72c3a4a1ff23870fd08940180e275972
+App manifest is packaged at ArgusFoundation.app/PrivacyInfo.xcprivacy; packaged source equality verified.
+Built inventory: 12 manifests, comprising app manifest and 11 dependency bundle manifests. No archive signatures verified.
+Tests: 7 passed, 0 failed, 0 skipped. Five negative mutation cases reject missing or false declarations.
+Simulator journeys: 0. No UI/runtime behavior changed. Phone unavailable.
+No hosted request, customer record, credential, paid model call, or provider deletion ran.
+Initial sandbox build failed before dependency resolution because Xcode could not write default manifest/module caches. Authorized isolated build succeeded after escalation.
+Build command: xcodebuild -project ios/ArgusFoundation.xcodeproj -scheme ArgusFoundation -configuration Release -sdk iphonesimulator -destination "generic/platform=iOS Simulator" -derivedDataPath /private/tmp/cuadrao-trust-manifest-derived -clonedSourcePackagesDirPath /private/tmp/cuadrao-trust-manifest-packages -disableAutomaticPackageResolution CODE_SIGNING_ALLOWED=NO build

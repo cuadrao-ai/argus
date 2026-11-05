@@ -1,0 +1,18 @@
+{
+  "migration": "20261002020000_shared_plan_retained_revision_scope.sql",
+  "sha256": "f468d846e178c0555e4a303df7f82c29fd2e41a17e917e3978db61c2bee87e49",
+  "target": "NEW isolated disposable Postgres59752 only",
+  "before": [
+    7,
+    1,
+    0
+  ],
+  "after": [
+    7,
+    1,
+    0
+  ],
+  "rls": true,
+  "authenticated_select": false,
+  "scope": "Schema integrity only; full shared-plan behavior pending"
+}

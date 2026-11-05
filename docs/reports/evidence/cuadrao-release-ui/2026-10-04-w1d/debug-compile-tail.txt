@@ -1,0 +1,5 @@
+	ios/.build/results/build-20261004T054513Z.xcresult
+
+** BUILD SUCCEEDED **
+
+exit=0

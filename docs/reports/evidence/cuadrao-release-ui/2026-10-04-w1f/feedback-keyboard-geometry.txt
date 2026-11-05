@@ -1,0 +1,20 @@
+Keyboard geometry probe, iPhone 18 Pro Max (0335699A-C522-492B-A8C3-8FD3D7CAC06A), sources e694d5da2 plus the probe (keyboard-geometry-probe.swift.txt)
+Feedback page, kind Un problema, title typed, software keyboard up. Each drag is 60 pt upward at x = mid.
+
+W1F typed app=(0.0, 0.0, 440.0, 956.0) keyboard=(0.0, 1000.0, 440.0, 245.0) save.exists=true save.frame=(20.0, 845.6666666666666, 400.0, 52.0) save.hittable=true title.frame=(40.0, 345.0, 360.0, 42.333333333333314)
+W1F keyboard-settled app=(0.0, 0.0, 440.0, 956.0) keyboard=(0.0, 653.0, 440.0, 245.0) save.exists=true save.frame=(20.0, 845.6666666666666, 400.0, 52.0) save.hittable=false title.frame=(40.0, 345.0, 360.0, 42.333333333333314)
+W1F bar=(0.0, 609.0, 440.0, 44.0)
+W1F drag startY=643.0 (keyboard.minY-10.0) save moved up by 0.0
+W1F drag startY=623.0 (keyboard.minY-30.0) save moved up by 0.0
+W1F drag startY=610.0 (keyboard.minY-43.0) save moved up by 0.0
+W1F drag startY=602.0 (keyboard.minY-51.0) save moved up by 250.33333333333337
+W1F drag startY=563.0 (keyboard.minY-90.0) save moved up by 84.0
+W1F after-drags app=(0.0, 0.0, 440.0, 956.0) keyboard=(0.0, 653.0, 440.0, 245.0) save.exists=true save.frame=(20.0, 511.33333333333326, 400.0, 52.0) save.hittable=true title.frame=(40.0, 10.666666666666657, 360.0, 42.33333333333332)
+
+Hierarchy lines:
+Button, 0x1143d4b40, {{20.0, 511.3}, {400.0, 52.0}}, identifier: 'cuadrao.feedback.save', label: 'Guardar borrador'
+Other, 0x1143d7480, {{0.0, 609.0}, {440.0, 44.0}}, label: 'Typing Predictions'
+Keyboard, 0x1143e0140, {{0.0, 653.0}, {440.0, 245.0}}
+
+Idle wait after the probe: W1F-IDLE-WAIT 0.05063903331756592
+Test Case result: Test Case '-[ArgusFoundationUITests.W1fDiagnosticUITests testFeedbackKeyboardGeometry]' passed (39.420 seconds).

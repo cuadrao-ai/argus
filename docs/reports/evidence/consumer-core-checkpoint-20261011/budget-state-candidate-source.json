@@ -1,0 +1,12 @@
+{
+  "source_head": "40ff4967040c854ca5dd0764115227544011a6e2",
+  "files": {
+    "ios/ArgusFoundationUITests/ConnectedChrome.swift": "7372c96dbee869149f1f8c4a1f2ead738d42a214a2e7a2875e4f9abeb1ebaa37",
+    "ios/ArgusFoundation/Accounts/ConnectedTransactionSheet.swift": "3ee8402fbb2feeba8f177c9dadce879c10f748edb568cb0330d91ae4a29498ff",
+    "ios/ArgusFoundationUITests/ConnectedReleaseSurfaceUITests.swift": "25156576caa026f8fe7af8aeff12f93d353c6c99ba459d123a6925d95e901e3e",
+    "ios/ArgusFoundationUITests/FinancialLoopUITests.swift": "fbe9c68f35b61f7647716955d013f0e581c737675386135e5ec611cb18b84a71",
+    "ios/ArgusFoundationUITests/ConnectedBudgetUITests.swift": "a49c3c24ea099fc3bf9371003bdf2753cb0c338c0b9fa82eee293bcf72441d89",
+    "ios/ArgusFoundationUITests/ConnectedGoalUITests.swift": "21da14664e3884a22093f770e84b8085f9f4c03206c86c6d1d53fd1972e4d51c"
+  },
+  "backend_commit": "cad1cbe1ec27ff89c08eadbec31718a0e627383c"
+}

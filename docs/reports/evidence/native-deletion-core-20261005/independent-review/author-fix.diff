@@ -1,0 +1,121 @@
+diff --git a/ios/Packages/ArgusSession/Sources/ArgusSession/SessionController.swift b/ios/Packages/ArgusSession/Sources/ArgusSession/SessionController.swift
+index ec60e7eb3..5a67c54b7 100644
+--- a/ios/Packages/ArgusSession/Sources/ArgusSession/SessionController.swift
++++ b/ios/Packages/ArgusSession/Sources/ArgusSession/SessionController.swift
+@@ -29,10 +29,14 @@ public actor SessionController {
+     public func snapshot() -> SessionSnapshot { state }
+
+     public func requestCredentialRevalidation() throws -> SessionSnapshot {
+-        guard !mutating else { throw SessionFailure.busy }
+-        if try restoreDeletionState() { return state }
+         credentialValidationGeneration &+= 1
+         do {
++            // Admit notifications during adoption without retiring proof owned by its mutation.
++            if !mutating, try restoreDeletionState() { return state }
++            if try vault.deletionJournal()?.phase == .uncertain {
++                setState(.accountDeletionUncertain)
++                return state
++            }
+             if try vault.pending() != nil {
+                 setState(.signOutPending)
+                 return state
+@@ -43,7 +47,9 @@ public actor SessionController {
+             }
+             return state
+         } catch {
+-            if state.phase != .signOutPending { setState(.credentialValidationRequired) }
++            if state.phase != .signOutPending && state.phase != .accountDeletionUncertain && state.phase != .accountDeletionPending {
++                setState(.credentialValidationRequired)
++            }
+             throw SessionFailure.storageUnavailable
+         }
+     }
+@@ -631,6 +637,7 @@ public actor SessionController {
+         // Persist before dispatch, including before cancellation can reach transport.
+         try vault.saveDeletionJournal(journal, epoch: epoch)
+         let identity = state
++        let validationGeneration = credentialValidationGeneration
+         setState(.accountDeletionUncertain)
+         var request = URLRequest(url: configuration.argusAPIURL.appending(path: "api/v1/account/delete"))
+         request.httpMethod = "POST"
+@@ -678,7 +685,13 @@ public actor SessionController {
+                                   canRetry: journal.canRetry, recovery: refusal)
+             } else {
+                 try vault.removeDeletionJournal(epoch: epoch)
+-                state = identity
++                if validationGeneration == credentialValidationGeneration {
++                    state = identity
++                } else {
++                    setState(.credentialValidationRequired, profile: identity.profile, appleIdentity: identity.appleIdentity)
++                    let method = try vault.signInMethod()
++                    if !(method == .apple || method == nil && identity.appleIdentity != nil) { state = identity }
++                }
+             }
+             return .refused(refusal)
+         }
+diff --git a/ios/Packages/ArgusSession/Tests/ArgusSessionTests/AccountDeletionTests.swift b/ios/Packages/ArgusSession/Tests/ArgusSessionTests/AccountDeletionTests.swift
+index 063378a74..21a5df15a 100644
+--- a/ios/Packages/ArgusSession/Tests/ArgusSessionTests/AccountDeletionTests.swift
++++ b/ios/Packages/ArgusSession/Tests/ArgusSessionTests/AccountDeletionTests.swift
+@@ -38,8 +38,8 @@ private struct DeletionFixture {
+     let storage = MemoryStore()
+     let configuration = try! SessionConfiguration(argusAPIURL: URL(string: "https://api.example.test")!,
+         supabaseURL: URL(string: "https://auth.example.test")!, publicAnonKey: "sb_publishable_test", keychainService: UUID().uuidString)
+-    func controller() throws -> SessionController {
+-        try SessionController(configuration: configuration, storage: storage, fetch: { [server] in try await server.send($0) })
++    func controller(appleChecker: any AppleCredentialChecking = AuthorizedAppleChecker()) throws -> SessionController {
++        try SessionController(configuration: configuration, storage: storage, appleChecker: appleChecker, fetch: { [server] in try await server.send($0) })
+     }
+     func login(_ controller: SessionController) async throws -> SessionSnapshot {
+         try await controller.login(email: "alice@example.test", password: "synthetic-password", captchaToken: "synthetic-captcha")
+@@ -214,6 +214,9 @@ final class AccountDeletionTests: XCTestCase {
+         let command = Task { try await controller.deleteAccount(expectedIdentity: identity) }
+         await gate.waitUntilStarted()
+         XCTAssertEqual(try fixture.journal()?.phase, .uncertain)
++        let notification = try await controller.requestCredentialRevalidation()
++        XCTAssertEqual(notification.phase, .accountDeletionUncertain)
++        XCTAssertEqual(notification.revision, identity.revision)
+         do { _ = try await controller.deleteAccount(expectedIdentity: identity); XCTFail("Duplicate") } catch {}
+         do { _ = try await controller.financialAccounts(expectedIdentity: identity); XCTFail("Protected dispatch") } catch {}
+         await gate.release(); _ = try await command.value
+@@ -252,12 +255,37 @@ final class AccountDeletionTests: XCTestCase {
+         catch { XCTAssertEqual(error as? SessionFailure, .busy) }
+         do { _ = try await controller.retryPendingSignOut(); XCTFail("Cannot retire B issued proof") }
+         catch { XCTAssertEqual(error as? SessionFailure, .busy) }
+-        do { _ = try await controller.requestCredentialRevalidation(); XCTFail("Cannot restore A during B adoption") }
+-        catch { XCTAssertEqual(error as? SessionFailure, .busy) }
+-        XCTAssertNotNil(try fixture.storage.retrieve(key: fixture.configuration.storagePrefix + ".pending"))
++        let adopting = await controller.snapshot()
++        let pendingProof = try fixture.storage.retrieve(key: fixture.configuration.storagePrefix + ".pending")
++        let notification = try await controller.requestCredentialRevalidation()
++        XCTAssertEqual(notification.phase, .signOutPending, "Notification must be admitted during adoption")
++        XCTAssertEqual(notification.revision, adopting.revision, "A's deletion acknowledgement must not retire B's epoch")
++        XCTAssertEqual(try fixture.storage.retrieve(key: fixture.configuration.storagePrefix + ".pending"), pendingProof)
+         await gate.release(); let bob = try await login.value
+         XCTAssertNotEqual(bob.profile?.id, alice.profile?.id)
+         let snapshot = await controller.snapshot(); XCTAssertEqual(snapshot, bob)
+     }
+
++
++    func testAppleNotificationDuringRefusedDeletionDoesNotRestoreStaleAuthenticatedAccess() async throws {
++        let fixture = DeletionFixture(); let controller = try fixture.controller()
++        let identity = try await controller.signIn(with: .init(provider: .apple, idToken: AuthServer.aliceIdToken, nonce: SignInNonce())).session
++        XCTAssertEqual(identity.phase, .authenticated)
++        await fixture.server.configure(409, ["code": "apple_reauthorization_required"])
++        let gate = RequestGate(); await fixture.server.hold(gate)
++        let command = Task { try await controller.deleteAccount(expectedIdentity: identity) }
++        await gate.waitUntilStarted()
++        let notification = try await controller.requestCredentialRevalidation()
++        XCTAssertEqual(notification.phase, .accountDeletionUncertain)
++        await gate.release(); let result = try await command.value
++        XCTAssertEqual(result, .refused(.freshAppleAuthorizationRequired))
++        let snapshot = await controller.snapshot()
++        XCTAssertEqual(snapshot.phase, .credentialValidationRequired)
++        XCTAssertEqual(snapshot.revision, identity.revision)
++        XCTAssertNil(try fixture.journal())
++        XCTAssertNotNil(try fixture.storage.retrieve(key: fixture.configuration.storagePrefix + ".session"))
++        do { _ = try await controller.financialAccounts(expectedIdentity: identity); XCTFail("Notification requires fresh Apple validation") } catch {}
++        let reads = await fixture.server.auth.count("/financial-accounts"); XCTAssertEqual(reads, 0)
++    }
++
+ }

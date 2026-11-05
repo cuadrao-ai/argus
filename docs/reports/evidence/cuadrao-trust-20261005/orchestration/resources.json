@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "resources": [
+    {
+      "resource": "postgres60332",
+      "container": "supabase_db_cuadrao-trust-20261005",
+      "created_by": "root",
+      "physical_owner": "root",
+      "lease_owner": null,
+      "worker_stop_allowed": false,
+      "release_action": "mark lease_owner null; preserve running container",
+      "health": "Post-recovery lightweight select1 passed; API60340/Auth60331 health200; no full suite rerun",
+      "lease_scope": "Atomic confirmed-cleanup QA terminal and own synthetic fixtures/services cleaned; root DB preserved",
+      "local_tcp_execution": "Use authorized escalated execution for local bind/TCP tests; default sandbox denies these operations."
+    },
+    {
+      "resource": "mac_simulator_build",
+      "physical_owner": "shared Mac",
+      "lease_owner": null,
+      "worker_stop_allowed": false,
+      "simulator": null,
+      "release_action": "Privacy verifier released Mac after one archive attempt; own derived output removed, retained bundle/dependencies and foreign resources preserved",
+      "simulator_owner": null
+    }
+  ],
+  "local_run_hold": {
+    "owner": "Counsel",
+    "active": false,
+    "restriction": "One serial native verifier; no broad parallel DB runs; foreign stacks preserved",
+    "reason": "Owner reports preserved Docker recovery; root verified API60340 and Auth60331 health200 plus PG60332 select1"
+  }
+}

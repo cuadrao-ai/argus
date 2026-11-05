@@ -1,0 +1,49 @@
+{
+  "capture_start_head": "81d8c2182fa4c8fa0d859b7278b7250df9dad1b2",
+  "recorded_at_utc": "2026-09-28T21:32:53.886065+00:00",
+  "source_sha256": {
+    "prototypes/chart-validation/android/.gitignore": "6409fa61e338c8dedada902c171cdd004b146e5b3bf602700f104bd30acc0a12",
+    "prototypes/chart-validation/android/README.md": "b4668d12686a107bfff6b264e03cc65f2ac9555b18df004c9d2a1908602ceb00",
+    "prototypes/chart-validation/android/app/build.gradle.kts": "740f94cf8fa31fcf0344ec11628efec774dd2717c4da959001cfecffdf518f8f",
+    "prototypes/chart-validation/android/app/src/androidTest/java/ai/argus/chartprototype/ChartProofTest.kt": "9379ae03585fe4a679dfc7a8bcaf8370b74d206942ee36b65ced875c6e169ea8",
+    "prototypes/chart-validation/android/app/src/main/AndroidManifest.xml": "77cc220380709682a606bea304caaef502f36452e8648f4797d477ec1964643c",
+    "prototypes/chart-validation/android/app/src/main/java/ai/argus/chartprototype/ChartTheme.kt": "68880c4f561cec2df3c262c0f85b6e5cbd8c286d15d93f1f63658ce3ef74b40f",
+    "prototypes/chart-validation/android/app/src/main/java/ai/argus/chartprototype/Fixture.kt": "dae572d7a119f196934c24d8bc86c6108022416cc693999834cd31db9599fc24",
+    "prototypes/chart-validation/android/app/src/main/java/ai/argus/chartprototype/LabControls.kt": "ea5b7dc71a63626f0777ecd2789e258c5b03f5f0cda9b1dc33c54cff9e56ffbd",
+    "prototypes/chart-validation/android/app/src/main/java/ai/argus/chartprototype/MainActivity.kt": "71777437885f30b2a33af22c36319bb471ef60de3305eb48ab34604a13e940e7",
+    "prototypes/chart-validation/android/app/src/main/res/font/inter_variable.ttf": "4989b125924991b90d05b2d16e0e388c48f7d5bb8b30539bbf9c755278d0ccaf",
+    "prototypes/chart-validation/android/app/src/main/res/font/space_grotesk.ttf": "acad6de1fc93436f5c0f1f4137751ef04f1aea3063e7036535970ffcfbd79f72",
+    "prototypes/chart-validation/android/app/src/main/res/xml/data_extraction_rules.xml": "66c2d7c6ac2a3c03200235a556e0f410620cae5bdfedd4ebdf18528fcbc42886",
+    "prototypes/chart-validation/android/app/src/test/java/ai/argus/chartprototype/SelectionTest.kt": "83aaf524be9a71ce9f50de1401dd6c0055e14fc23dbdbaf866e951655e063ec8",
+    "prototypes/chart-validation/android/build.gradle.kts": "da71d0eac72987c2d01a1f157d32a259661e11c327cde75b71e6248d8ea602ba",
+    "prototypes/chart-validation/android/gradle/wrapper/gradle-wrapper.jar": "b3a875ddc1f044746e1b1a55f645584505f4a10438c1afea9f15e92a7c42ec13",
+    "prototypes/chart-validation/android/gradle/wrapper/gradle-wrapper.properties": "40c4ac801fa3d3029cc46957c91216f9fcff52a05a011a0579357bae3dc4c441",
+    "prototypes/chart-validation/android/gradle.properties": "e43a00491832254a35cf5a979ef6de17f78c4e159d446be39319d2e3d3e46325",
+    "prototypes/chart-validation/android/gradlew": "fb68debc1b1acf8ec55dc0d5e5495e1dedd0bd6b61f304bee61613eeb2bd9b92",
+    "prototypes/chart-validation/android/licenses/OFL-1.1-Inter.txt": "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a",
+    "prototypes/chart-validation/android/licenses/OFL-1.1-Space-Grotesk.txt": "18a4de52385f6b988782639d5d0cc1326e5a8c2de9a7f01d7b20d9aedcc60943",
+    "prototypes/chart-validation/android/licenses/README.md": "47d9a27f1c017f70dd7c85d14e3fac83e54a46237034eb8325a461f2d730959f",
+    "prototypes/chart-validation/android/settings.gradle.kts": "bd439b5b72a7de9d2441d01667352987eb210866d8cc7e0436d202256b1df7ca",
+    "prototypes/chart-validation/fixtures/series.json": "a12a24634763f951f6daad7d200614dd777e83785d9ed4da9907720e5bdf418f",
+    "prototypes/chart-validation/fixtures/visual-style.json": "d1ab2aee8e20f5fe032759114e271d998406926e352d879b3b468aebe59ede72"
+  },
+  "debug_apk_sha256": "8b22218614988e8fd99a4420a6c4d68235b300bf4cf0bd184b4803a47e11a1bc",
+  "test_apk_sha256": "56a28179e6f39ad8725f2556ed2a5ee50300ead6885ed402784ab1a3e27de947",
+  "packaged_shared_assets_byte_equal": {
+    "visual-style.json": true,
+    "series.json": true
+  },
+  "export_head": "62c6e674cb16576c25f71e90377826d3ac21b3e8",
+  "android_shared_sources_unchanged_at_export": true,
+  "motion_capture_head": "62c6e674cb16576c25f71e90377826d3ac21b3e8",
+  "motion_source_equal_to_precision_commit": true,
+  "motion_reuses_verified_apk": true,
+  "motion_requested_recording_seconds": 8,
+  "motion_encoded_duration_seconds": 6.2561,
+  "motion_verified_frames_seconds": [
+    1,
+    4,
+    6
+  ],
+  "motion_case": "stress"
+}

@@ -83,8 +83,19 @@ describe("responsive breakpoints", () => {
   });
 });
 
+const POINTER_AFFORDANCE_PATHS = [
+  "components/sidebar/pointerAffordances.module.css",
+  "components/business-app/transacciones/transacciones-cells.module.css",
+] as const;
+const pointerInventory = (paths: readonly string[]) => [...paths].sort();
+
 describe("pointer capability stays an affordance concern", () => {
-  test("only the sidebar hover affordance stylesheet branches on the pointer", () => {
+  test("pointer inventory keeps the exact allowed paths regardless of directory order", () => {
+    expect(pointerInventory([...POINTER_AFFORDANCE_PATHS].reverse())).toEqual(pointerInventory(POINTER_AFFORDANCE_PATHS));
+    expect(pointerInventory([...POINTER_AFFORDANCE_PATHS, "components/global-pointer.css"])).not.toEqual(pointerInventory(POINTER_AFFORDANCE_PATHS));
+  });
+
+  test("only the cleared sidebar and record-cell affordances branch on the pointer", () => {
     /*
      * Geometry follows the DESIGN.md widths. Pointer capability answers only
      * whether a hover-revealed control is reachable, so it stays in one CSS
@@ -113,9 +124,18 @@ describe("pointer capability stays an affordance concern", () => {
     };
     scan(join(import.meta.dir, "..", "components"));
     scan(join(import.meta.dir, "..", "app"));
-    expect(offenders).toEqual([
-      "components/sidebar/pointerAffordances.module.css",
-    ]);
+    expect(pointerInventory(offenders)).toEqual(pointerInventory(POINTER_AFFORDANCE_PATHS));
+
+
+    const recordCells = readFileSync(join(import.meta.dir, "../components/business-app/transacciones/transacciones-cells.module.css"), "utf-8");
+    const approved = [
+      "@media (hover:hover) and (pointer:fine) { .emptyActionDash { visibility:visible; } .emptyActionIcon { visibility:hidden; } :global(tr[data-record-key]:hover) .emptyActionDash, :global(tr[data-record-key]:focus-within) .emptyActionDash { visibility:hidden; } :global(tr[data-record-key]:hover) .emptyActionIcon, :global(tr[data-record-key]:focus-within) .emptyActionIcon { visibility:visible; } }",
+      "@media (any-pointer:coarse) { .emptyActionDash { visibility:hidden; } .emptyActionIcon { visibility:visible; } }",
+    ];
+    const mediaBlocks = (source: string) => source.match(/@media[^{}]*\{(?:[^{}]|\{[^{}]*\})*\}/g)?.map((block) => block.replace(/\s+/g, " ").trim()) ?? [];
+    expect(mediaBlocks(recordCells)).toEqual(approved);
+    expect(mediaBlocks(recordCells + "\n@media (pointer:fine) { :global(body) { display:none; } }")).not.toEqual(approved);
+    expect(mediaBlocks(recordCells.replace("visibility:visible", "display:none"))).not.toEqual(approved);
 
     const affordances = readFileSync(
       join(

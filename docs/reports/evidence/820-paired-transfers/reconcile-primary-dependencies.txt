@@ -1,0 +1,96 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: <worker-checkout>
+configfile: pyproject.toml
+plugins: benchmark-5.2.3, mock-3.15.1, Faker-30.10.0, asyncio-1.4.0, hypothesis-6.151.12, langsmith-0.7.31, respx-0.23.1, cov-7.0.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 23 items
+
+tests/test_private_alpha_canary_split.py .........FFFFFF...FFFFF         [100%]
+
+=================================== FAILURES ===================================
+_ test_session_tool_mints_private_storage_state_and_revokes_it[immediate-close] _
+tests/test_private_alpha_canary_split.py:460: in test_session_tool_mints_private_storage_state_and_revokes_it
+    assert minted.returncode == 0, minted.stderr
+E   AssertionError: error: Cannot find module '@supabase/supabase-js' from '<worker-checkout>/web/node_modules/.bun-cache/@supabase/ssr@0.12.7@@@1/dist/main/createBrowserClient.js'
+E
+E     Bun v1.3.14 (macOS arm64)
+E
+E   assert 1 == 0
+E    +  where 1 = CompletedProcess(args=['<bun-bin>/bun', 'e2e/support/private-alpha-canary-session.ts', 'mint'], returncod...web/node_modules/.bun-cache/@supabase/ssr@0.12.7@@@1/dist/main/createBrowserClient.js'\n\nBun v1.3.14 (macOS arm64)\n").returncode
+_ test_session_tool_mints_private_storage_state_and_revokes_it[delayed-close] __
+tests/test_private_alpha_canary_split.py:460: in test_session_tool_mints_private_storage_state_and_revokes_it
+    assert minted.returncode == 0, minted.stderr
+E   AssertionError: error: Cannot find module '@supabase/ssr' from '<worker-checkout>/web/e2e/support/private-alpha-canary-session.ts'
+E
+E     Bun v1.3.14 (macOS arm64)
+E
+E   assert 1 == 0
+E    +  where 1 = CompletedProcess(args=['<bun-bin>/bun', 'e2e/support/private-alpha-canary-session.ts', 'mint'], returncod.../tmp/cuadrao-paired-transfer-20261005/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n").returncode
+____ test_session_tool_retries_a_transient_allowlist_lookup_and_reports_it _____
+tests/test_private_alpha_canary_split.py:527: in test_session_tool_retries_a_transient_allowlist_lookup_and_reports_it
+    assert minted.returncode == 0, minted.stderr
+E   AssertionError: error: Cannot find module '@supabase/ssr' from '<worker-checkout>/web/e2e/support/private-alpha-canary-session.ts'
+E
+E     Bun v1.3.14 (macOS arm64)
+E
+E   assert 1 == 0
+E    +  where 1 = CompletedProcess(args=['<bun-bin>/bun', 'e2e/support/private-alpha-canary-session.ts', 'mint'], returncod.../tmp/cuadrao-paired-transfer-20261005/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n").returncode
+____ test_session_tool_revokes_a_minted_session_that_fails_least_privilege _____
+tests/test_private_alpha_canary_split.py:582: in test_session_tool_revokes_a_minted_session_that_fails_least_privilege
+    assert "canary_identity_is_not_least_privilege" in result.stderr
+E   assert 'canary_identity_is_not_least_privilege' in "error: Cannot find module '@supabase/ssr' from '<worker-checkout>/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n"
+E    +  where "error: Cannot find module '@supabase/ssr' from '<worker-checkout>/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n" = CompletedProcess(args=['<bun-bin>/bun', 'e2e/support/private-alpha-canary-session.ts', 'mint'], returncod.../tmp/cuadrao-paired-transfer-20261005/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n").stderr
+__ test_session_tool_preserves_a_private_retry_handoff_when_revocation_fails ___
+tests/test_private_alpha_canary_split.py:634: in test_session_tool_preserves_a_private_retry_handoff_when_revocation_fails
+    assert "canary_session_revocation_failed" in failed_mint.stderr
+E   assert 'canary_session_revocation_failed' in "error: Cannot find module '@supabase/ssr' from '<worker-checkout>/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n"
+E    +  where "error: Cannot find module '@supabase/ssr' from '<worker-checkout>/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n" = CompletedProcess(args=['<bun-bin>/bun', 'e2e/support/private-alpha-canary-session.ts', 'mint'], returncod.../tmp/cuadrao-paired-transfer-20261005/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n").stderr
+_________ test_session_tool_rejects_a_stale_admin_profile_before_mint __________
+tests/test_private_alpha_canary_split.py:685: in test_session_tool_rejects_a_stale_admin_profile_before_mint
+    assert "canary_identity_profile_is_not_least_privilege" in result.stderr
+E   assert 'canary_identity_profile_is_not_least_privilege' in "error: Cannot find module '@supabase/ssr' from '<worker-checkout>/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n"
+E    +  where "error: Cannot find module '@supabase/ssr' from '<worker-checkout>/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n" = CompletedProcess(args=['<bun-bin>/bun', 'e2e/support/private-alpha-canary-session.ts', 'mint'], returncod.../tmp/cuadrao-paired-transfer-20261005/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n").stderr
+_________ test_session_tool_provisions_only_a_safe_dedicated_identity __________
+tests/test_private_alpha_canary_split.py:828: in test_session_tool_provisions_only_a_safe_dedicated_identity
+    assert result.returncode == 0, result.stderr
+E   AssertionError: error: Cannot find module '@supabase/ssr' from '<worker-checkout>/web/e2e/support/private-alpha-canary-session.ts'
+E
+E     Bun v1.3.14 (macOS arm64)
+E
+E   assert 1 == 0
+E    +  where 1 = CompletedProcess(args=['<bun-bin>/bun', 'e2e/support/private-alpha-canary-session.ts', 'provision'], retu.../tmp/cuadrao-paired-transfer-20261005/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n").returncode
+_____ test_session_tool_revokes_and_rolls_back_a_failed_profile_bootstrap ______
+tests/test_private_alpha_canary_split.py:890: in test_session_tool_revokes_and_rolls_back_a_failed_profile_bootstrap
+    assert "canary_profile_bootstrap_failed" in result.stderr
+E   assert 'canary_profile_bootstrap_failed' in "error: Cannot find module '@supabase/ssr' from '<worker-checkout>/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n"
+E    +  where "error: Cannot find module '@supabase/ssr' from '<worker-checkout>/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n" = CompletedProcess(args=['<bun-bin>/bun', 'e2e/support/private-alpha-canary-session.ts', 'provision'], retu.../tmp/cuadrao-paired-transfer-20261005/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n").stderr
+______ test_session_tool_refuses_to_relabel_an_existing_unknown_identity _______
+tests/test_private_alpha_canary_split.py:930: in test_session_tool_refuses_to_relabel_an_existing_unknown_identity
+    assert "canary_identity_is_not_dedicated" in result.stderr
+E   assert 'canary_identity_is_not_dedicated' in "error: Cannot find module '@supabase/ssr' from '<worker-checkout>/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n"
+E    +  where "error: Cannot find module '@supabase/ssr' from '<worker-checkout>/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n" = CompletedProcess(args=['<bun-bin>/bun', 'e2e/support/private-alpha-canary-session.ts', 'provision'], retu.../tmp/cuadrao-paired-transfer-20261005/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n").stderr
+______ test_session_tool_refuses_to_overwrite_an_elevated_allowlist_role _______
+tests/test_private_alpha_canary_split.py:969: in test_session_tool_refuses_to_overwrite_an_elevated_allowlist_role
+    assert "canary_existing_allowlist_is_not_least_privilege" in result.stderr
+E   assert 'canary_existing_allowlist_is_not_least_privilege' in "error: Cannot find module '@supabase/ssr' from '<worker-checkout>/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n"
+E    +  where "error: Cannot find module '@supabase/ssr' from '<worker-checkout>/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n" = CompletedProcess(args=['<bun-bin>/bun', 'e2e/support/private-alpha-canary-session.ts', 'provision'], retu.../tmp/cuadrao-paired-transfer-20261005/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n").stderr
+______ test_session_tool_refuses_to_provision_over_a_stale_admin_profile _______
+tests/test_private_alpha_canary_split.py:1006: in test_session_tool_refuses_to_provision_over_a_stale_admin_profile
+    assert "canary_identity_profile_is_not_least_privilege" in result.stderr
+E   assert 'canary_identity_profile_is_not_least_privilege' in "error: Cannot find module '@supabase/ssr' from '<worker-checkout>/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n"
+E    +  where "error: Cannot find module '@supabase/ssr' from '<worker-checkout>/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n" = CompletedProcess(args=['<bun-bin>/bun', 'e2e/support/private-alpha-canary-session.ts', 'provision'], retu.../tmp/cuadrao-paired-transfer-20261005/web/e2e/support/private-alpha-canary-session.ts'\n\nBun v1.3.14 (macOS arm64)\n").stderr
+=========================== short test summary info ============================
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_mints_private_storage_state_and_revokes_it[immediate-close]
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_mints_private_storage_state_and_revokes_it[delayed-close]
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_retries_a_transient_allowlist_lookup_and_reports_it
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_revokes_a_minted_session_that_fails_least_privilege
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_preserves_a_private_retry_handoff_when_revocation_fails
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_rejects_a_stale_admin_profile_before_mint
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_provisions_only_a_safe_dedicated_identity
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_revokes_and_rolls_back_a_failed_profile_bootstrap
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_refuses_to_relabel_an_existing_unknown_identity
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_refuses_to_overwrite_an_elevated_allowlist_role
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_refuses_to_provision_over_a_stale_admin_profile
+======================== 11 failed, 12 passed in 6.84s =========================

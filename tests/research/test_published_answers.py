@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import copy
 import json
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -78,7 +77,7 @@ def test_a_row_citing_a_page_outside_the_retrieval_record_publishes(monkeypatch)
     )
     prose = "NVIDIA fell **4.3%** and analysts now target **$250**."
     transport = _wire(
-        monkeypatch, [_typed_document(rows_with_one_rejected(), answer=prose)]
+        monkeypatch, [_typed_document(rows_with_one_rejected(), answer=prose)] * 2
     )
 
     result = _run("Why is NVDA moving this week?")
@@ -94,8 +93,8 @@ def test_a_row_citing_a_page_outside_the_retrieval_record_publishes(monkeypatch)
 
     served = _run("Why is NVDA moving this week?")
     assert served is not None
-    assert len(transport.requests) == 1, "a published answer serves for its class TTL"
-    assert served.stage_patch["research"]["usage"]["cache_status"] == "hit"
+    assert len(transport.requests) == 2, "freeform answers are regenerated per request"
+    assert served.stage_patch["research"]["usage"]["cache_status"] == "miss"
     assert served.stage_patch["research"]["rows"] == sidecar["rows"]
 
 
@@ -141,14 +140,8 @@ def test_a_figure_written_without_a_citation_is_named_under_the_answer(
 
 
 def test_the_thorough_path_composes_the_same_published_answer() -> None:
-    """Both composition paths share the one seam and the one cache rule: a
-    published packet serves for its class TTL, not the withheld day cap."""
-    from argus.domain.research import cache as research_cache
-    from argus.domain.research.cache import (
-        WITHHELD_TTL_SECONDS,
-        cache_get,
-        research_cache_key,
-    )
+    """Job composition publishes the same answer without sharing private context."""
+    from argus.domain.research.cache import cache_get, cache_stats
     from argus.domain.research.perplexity_agent import _packet_from_response
 
     prose = "Netflix grew **16%** and analysts target **$250**."
@@ -177,22 +170,14 @@ def test_the_thorough_path_composes_the_same_published_answer() -> None:
         tickers=["NFLX"],
         sources=[PROVIDER_PAGE],
     )
-    # A quarterly class: the day cap #568 gave withheld records must not
-    # bound a published one, which serves for the class's ninety days.
+    # Composition still recognizes quarterly finance data.
     for item in document["output"]:
         if item.get("type") == "finance_results":
             item["categories"] = ["financials"]
             for result in item["results"]:
                 result["category"] = "financials"
     packet = _packet_from_response(document, latency_ms=1, on_unpriced=lambda _: None)
-    key = research_cache_key(
-        capability_class="thorough_research",
-        shape="thorough",
-        symbols=("NFLX",),
-        period_key="current",
-        question_fingerprint="growth",
-        language="es-419",
-    )
+    key = "research-packet/v1:legacy-job-key"
     job_request = {
         "capability_class": "thorough_research",
         "language": "es-419",
@@ -211,14 +196,8 @@ def test_the_thorough_path_composes_the_same_published_answer() -> None:
         in composed["answer"]
     )
     assert [row["source_url"] for row in composed["research"]["rows"]] == [INVENTED, None]
-    assert cache_get(key) is packet
-    real_monotonic = time.monotonic
-    monkeypatch_clock = lambda: real_monotonic() + WITHHELD_TTL_SECONDS + 1  # noqa: E731
-    research_cache.time.monotonic = monkeypatch_clock
-    try:
-        assert cache_get(key) is packet, "a published answer outlives the withheld cap"
-    finally:
-        research_cache.time.monotonic = real_monotonic
+    assert cache_get(key) is None
+    assert cache_stats()["entries"] == 0
 
 
 @pytest.mark.parametrize(
@@ -414,7 +393,7 @@ def test_the_thorough_path_withholds_an_answer_that_retrieved_nothing(
     """The background run composes through the same gate: a thorough answer
     whose response used no retrieval tool is not published and not stored,
     whether or not its claim needed a publisher."""
-    from argus.domain.research.cache import cache_get, research_cache_key
+    from argus.domain.research.cache import cache_get, cache_stats
     from argus.domain.research.perplexity_agent import _packet_from_response
 
     packet = _packet_from_response(
@@ -425,14 +404,7 @@ def test_the_thorough_path_withholds_an_answer_that_retrieved_nothing(
         latency_ms=1,
         on_unpriced=lambda _: None,
     )
-    key = research_cache_key(
-        capability_class="thorough_research",
-        shape="thorough",
-        symbols=("NFLX",),
-        period_key="current",
-        question_fingerprint="growth",
-        language="es-419",
-    )
+    key = "research-packet/v1:legacy-job-key"
     job_request = {
         "capability_class": "thorough_research",
         "language": "es-419",
@@ -450,6 +422,7 @@ def test_the_thorough_path_withholds_an_answer_that_retrieved_nothing(
     assert "16" not in composed["answer"]
     assert composed["research"]["rows"] == []
     assert cache_get(key) is None
+    assert cache_stats()["entries"] == 0
 
 
 def test_a_survey_that_never_retrieved_is_still_not_grounded(monkeypatch) -> None:
@@ -481,15 +454,11 @@ def test_a_survey_that_never_retrieved_is_still_not_grounded(monkeypatch) -> Non
     assert len(transport.requests) == 4, "a survey that never retrieved is not stored"
 
 
-def test_a_survey_naming_nothing_the_resolver_verifies_is_withheld_for_a_day(
+def test_a_survey_naming_nothing_the_resolver_verifies_is_withheld_without_sharing(
     monkeypatch,
 ) -> None:
     """A survey with cited rows whose prose names no tradable ticker is
-    withheld by composition; the record serves for the day cap, never the
-    class's ninety days."""
-    from argus.domain.research import cache as research_cache
-    from argus.domain.research.cache import WITHHELD_TTL_SECONDS
-
+    withheld by composition; subsequent requests still run independently."""
     set_research_query(monkeypatch, globals(), question_kind="market_pulse", symbols=[])
     document = agent_response(
         text=typed_answer_text(
@@ -521,17 +490,8 @@ def test_a_survey_naming_nothing_the_resolver_verifies_is_withheld_for_a_day(
 
     served = _run("what is moving today")
     assert served is not None
-    assert len(transport.requests) == 1, "the withheld record serves the same survey"
-    assert served.stage_patch["research"]["usage"]["cache_status"] == "hit"
-
-    real_monotonic = time.monotonic
-    monkeypatch.setattr(
-        research_cache.time,
-        "monotonic",
-        lambda: real_monotonic() + WITHHELD_TTL_SECONDS + 1,
-    )
-    _run("what is moving today")
-    assert len(transport.requests) == 2, "the record outlives no day on any class"
+    assert len(transport.requests) == 2, "withheld answers are not shared"
+    assert served.stage_patch["research"]["usage"]["cache_status"] == "miss"
 
 
 def test_a_survey_that_names_a_verified_ticker_publishes_whatever_its_rows(
@@ -676,14 +636,14 @@ def test_the_recorded_local_probe_publishes_what_it_found(monkeypatch) -> None:
     """The live recording #568 replayed: eleven pages on the bank's own site
     and no rate on any of them. The provider's answer says so in its own
     words, states no figure, and is what the reader gets, with the site it
-    read as its sources; the record serves the next identical question."""
+    read as its sources; each identical question still runs independently."""
     set_research_query(
         monkeypatch, globals(), question_kind="current_external", symbols=[]
     )
     recorded = _naming_the_pages_it_read(
         json.loads(RECORDED_LOCAL_PROBE.read_text())["exchanges"][-1]["response"]
     )
-    transport = _wire(monkeypatch, [recorded])
+    transport = _wire(monkeypatch, [recorded, recorded])
     question = (
         "¿Qué tasa de interés paga hoy el Banco Popular Dominicano por un "
         "certificado financiero a un año en pesos?"
@@ -700,8 +660,8 @@ def test_the_recorded_local_probe_publishes_what_it_found(monkeypatch) -> None:
 
     served = _run(question, language="es-419")
     assert served is not None
-    assert len(transport.requests) == 1
-    assert served.stage_patch["research"]["usage"]["cache_status"] == "hit"
+    assert len(transport.requests) == 2
+    assert served.stage_patch["research"]["usage"]["cache_status"] == "miss"
 
 
 RECORDED_NIKE_QUOTE = (

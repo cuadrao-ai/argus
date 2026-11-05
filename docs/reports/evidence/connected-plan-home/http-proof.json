@@ -1,0 +1,52 @@
+{
+  "status": "passed",
+  "checks": [
+    "Earlier bill shows shortfall despite positive period ending",
+    "Expected income and bills leave actual balances unchanged",
+    "Same-key fulfillment retries preserve one canonical activity",
+    "Fulfilled occurrence is not subtracted twice",
+    "Amount correction keeps the same occurrence fulfilled",
+    "Actual refund does not reopen a paid bill",
+    "Matching activity is offered for explicit linking",
+    "Link retries replay without new activity",
+    "Linked receipt replaces expected income in forecast",
+    "Expectation edit preserves already fulfilled future occurrence",
+    "Account correction re-evaluates linked status",
+    "Corrected linked account restores derived fulfillment",
+    "Unknown cash remains unknown and currencies stay separate",
+    "Saved reporting zone persists",
+    "Second authenticated identity cannot read or edit owner expectations",
+    "Fresh authentication reopens the same durable links"
+  ],
+  "accounts": [
+    {
+      "id": "932838fb-1fbf-412b-9714-fb1a978f8c46",
+      "nickname": "Plan checking 0e8620",
+      "currency": "DOP"
+    },
+    {
+      "id": "e24d7150-7d75-43f2-8cc5-119e379df57c",
+      "nickname": "Plan reserve 0e8620",
+      "currency": "DOP"
+    },
+    {
+      "id": "1b0893c3-d9b4-485f-aac1-e7fc9d5fdac1",
+      "nickname": "Plan unknown dollars 0e8620",
+      "currency": "USD"
+    }
+  ],
+  "expectation_ids": [
+    "4d0cfd18-ec08-4648-aa36-53cb93ddad88",
+    "0fc54c7c-b845-4453-9eaa-401bfa622b42"
+  ],
+  "activity_ids": [
+    "e569029e-e52c-4562-8dd2-593d22d97886",
+    "cd357c87-1c63-4cf7-bbb1-8f3521d342c4",
+    "99470654-9e50-41bc-8564-78aa53293dd4"
+  ],
+  "recorded_at": "2026-09-29T19:17:08.416885+00:00",
+  "limitations": [
+    "Synthetic local identities only; no physical-device or internet deployment proof.",
+    "Recurrence boundary and concurrency coverage belongs to the real-Postgres test matrix."
+  ]
+}

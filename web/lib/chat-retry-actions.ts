@@ -22,6 +22,7 @@ const STRUCTURED_CHAT_ACTION_TYPES = new Set<NonNullable<ChatActionOption["type"
   "save_strategy",
   "retry_failed_action",
   "select_response_option",
+  "select_discovery_candidate",
   "retest_run",
 ]);
 
@@ -244,6 +245,28 @@ export function durableRetryLastTurnFromStreamError(
     },
   );
   return action ? { action, persistedMessage, requestMessageId } : null;
+}
+
+export function retryLastTurnSendOptions(input: {
+  failedAssistantId: string | null;
+  requestMessageId: string | null;
+}): {
+  renderUserMessage: boolean;
+  replacementAssistantId?: string;
+  keepLocalTranscript?: boolean;
+} {
+  const keepLocalTranscript = !input.requestMessageId;
+  if (input.failedAssistantId) {
+    return {
+      renderUserMessage: false,
+      replacementAssistantId: input.failedAssistantId,
+      keepLocalTranscript,
+    };
+  }
+  if (input.requestMessageId) {
+    return { renderUserMessage: true };
+  }
+  return { renderUserMessage: false, keepLocalTranscript };
 }
 
 export function retryLastTurnRequestMessageIdFromAction(

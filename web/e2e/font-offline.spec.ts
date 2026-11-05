@@ -26,7 +26,7 @@ test("renders bilingual text with local canonical font faces", async ({ page }, 
     }
   });
 
-  await page.goto("/privacy", { waitUntil: "networkidle" });
+  await page.goto("/auth/forgot-password", { waitUntil: "networkidle" });
   await expect(page.locator("h1").first()).toBeVisible();
 
   const typography = await page.evaluate(async (sample) => {

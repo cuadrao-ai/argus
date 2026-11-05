@@ -22,6 +22,8 @@ export const FOCUSABLE_SELECTOR = [
   `input:not([disabled]):not([type='hidden'])${NOT_OPTED_OUT}`,
   `select:not([disabled])${NOT_OPTED_OUT}`,
   `textarea:not([disabled])${NOT_OPTED_OUT}`,
+  `summary${NOT_OPTED_OUT}`,
+  "[contenteditable]:not([contenteditable='false']):not([tabindex='-1'])",
   "[tabindex]:not([tabindex='-1'])",
 ].join(",");
 

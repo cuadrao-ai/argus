@@ -390,7 +390,7 @@ test("expanded, collapsed, Quick Peek, selected, dark, and reduced-motion projec
   await captureEvidence(page, "16-en-desktop-dark-reduced-quick-peek.png");
   await page.keyboard.press("Escape");
 
-  await page.getByRole("button", { name: "Collapse sidebar" }).click();
+  await page.getByRole("button", { name: "Collapse", exact: true }).click();
   const recents = page.getByRole("button", { name: "Recents" });
   await expect(
     recents.locator('[data-sidebar-activity-overlay="true"]'),

@@ -1,0 +1,10 @@
+alter table public.business_action_receipts
+    drop constraint business_action_receipts_unplanned_command,
+    add constraint business_action_receipts_unplanned_command check (
+        turn_key is not null or
+        (command->>'action' in ('review_draft', 'approve_expense', 'capture_note', 'approve_income')) is true
+    ),
+    add constraint business_action_receipts_income_human check (
+        command->>'action' is distinct from 'approve_income'
+        or (actor->>'actor_kind' = 'member' and turn_key is null and action_index is null) is true
+    );

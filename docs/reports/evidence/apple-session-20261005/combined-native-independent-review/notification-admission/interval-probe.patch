@@ -1,0 +1,159 @@
+diff --git a/ios/ArgusFoundation/Auth/AppleSessionHarness.swift b/ios/ArgusFoundation/Auth/AppleSessionHarness.swift
+index 1b470c9ee..8e9cfc01d 100644
+--- a/ios/ArgusFoundation/Auth/AppleSessionHarness.swift
++++ b/ios/ArgusFoundation/Auth/AppleSessionHarness.swift
+@@ -3,12 +3,16 @@ import ArgusSession
+ import AuthenticationServices
+ import SwiftUI
+ import Security
++import Combine
+ 
+ struct AppleSessionHarness: View {
+     private static var didReset = false
+     @StateObject private var model: ProfileAuthModel
+     @State private var checker: HarnessAppleChecker
+     @State private var checks = 0
++    @State private var probe = IntervalDispatchProbe()
++    @State private var probeResult = "not run"
++    @State private var notificationQueued = false
+     @State private var identityChangePending = false
+     @State private var identityReceipt = ""
+     @State private var checkerWaiting = false
+@@ -73,10 +77,44 @@ struct AppleSessionHarness: View {
+                     checker.set(.revoked)
+                     NotificationCenter.default.post(name: ASAuthorizationAppleIDProvider.credentialRevokedNotification, object: nil)
+                 }.accessibilityIdentifier("harness.revoke-notify")
+-                Button("Release") { checker.release() }.accessibilityIdentifier("harness.release")
++                Button("Release") { probe.release(); checker.release() }.accessibilityIdentifier("harness.release")
+             }.font(.caption)
+             Button("Error after sign-in") { checker.failAfterAuthorizedCheck() }
+                 .accessibilityIdentifier("harness.error-after-signin")
++            Button("Arm dispatch probe") {
++                Task {
++                    let stored = Mirror(reflecting: model).children.first { $0.label == "controller" }!.value
++                    let actualController = (stored as! SessionController?)!
++                    let identity = await actualController.snapshot()
++                    precondition(identity.phase == .authenticated)
++                    do {
++                        _ = try await actualController.financialAccount(id: UUID(uuidString: "71d866ac-e53d-47f0-b1fa-eb4008d4c211")!, expectedIdentity: identity)
++                        preconditionFailure("Synthetic endpoint must reject")
++                    } catch {
++                        precondition(error as? SessionFailure == .rejected(status: 404, code: "interval_probe_dispatched"))
++                    }
++                    probe.arm(model: model, controller: actualController, identity: identity, checker: checker)
++                    checker.holdNext { checkerWaiting = true }
++                    await model.restore()
++                    probeResult = probe.result
++                    checkerWaiting = false
++                }
++            }.accessibilityIdentifier("probe.arm")
++            Button("Notify revocation for probe") {
++                checker.set(.revoked)
++                NotificationCenter.default.post(name: ASAuthorizationAppleIDProvider.credentialRevokedNotification, object: nil)
++                Task {
++                    for _ in 0..<100 {
++                        if Mirror(reflecting: model).children.contains(where: { $0.label == "revalidationRequested" && ($0.value as? Bool) == true }) {
++                            notificationQueued = true
++                            return
++                        }
++                        try? await Task.sleep(for: .milliseconds(10))
++                    }
++                }
++            }.accessibilityIdentifier("probe.notify")
++            if notificationQueued { Text("Notification queued").accessibilityIdentifier("probe.queued") }
++            Text(probeResult).accessibilityIdentifier("probe.result")
+             Divider()
+             if model.state == .credentialValidationRequired || model.state == .reauthenticationRequired || model.state == .pendingSignOut {
+                 ConnectedCuadraoAuthFlow().environmentObject(model)
+@@ -105,6 +143,35 @@ struct AppleSessionHarness: View {
+ 
+ }
+ 
++private final class IntervalDispatchProbe: @unchecked Sendable {
++    private let lock = NSLock()
++    private var value = "not run"
++    private var observer: AnyCancellable?
++    @MainActor private var released = false
++    @MainActor func release() { released = true }
++    var result: String { lock.lock(); defer { lock.unlock() }; return value }
++    private func record(_ value: String) { lock.lock(); defer { lock.unlock() }; self.value = value }
++
++    @MainActor
++    func arm(model: ProfileAuthModel, controller: SessionController, identity: SessionSnapshot, checker: HarnessAppleChecker) {
++        released = false
++        observer = model.$state.dropFirst().filter { [self] _ in released }.prefix(1).sink { [self] _ in
++            let checked = checker.count
++            let barrier = DispatchSemaphore(value: 0)
++            Task.detached { [self] in
++                do {
++                    _ = try await controller.financialAccount(id: UUID(uuidString: "71d866ac-e53d-47f0-b1fa-eb4008d4c211")!, expectedIdentity: identity)
++                    record("unexpected account")
++                } catch {
++                    record(error as? SessionFailure == .rejected(status: 404, code: "interval_probe_dispatched") ? "DISPATCHED at check \(checked)" : "BLOCKED \(String(describing: error as? SessionFailure)) at check \(checked)")
++                }
++                barrier.signal()
++            }
++            if barrier.wait(timeout: .now() + 5) == .timedOut { record("probe timeout") }
++        }
++    }
++}
++
+ @MainActor
+ private final class HarnessAppleChecker: AppleCredentialChecking {
+     var count = 0
+diff --git a/ios/ArgusFoundationUITests/AppleSessionJourneyUITests.swift b/ios/ArgusFoundationUITests/AppleSessionJourneyUITests.swift
+index dba818cca..6c2c64693 100644
+--- a/ios/ArgusFoundationUITests/AppleSessionJourneyUITests.swift
++++ b/ios/ArgusFoundationUITests/AppleSessionJourneyUITests.swift
+@@ -96,6 +96,25 @@ final class AppleSessionJourneyUITests: XCTestCase {
+         app.terminate()
+     }
+ 
++    func testIndependentQueuedNotificationDispatchProbe() {
++        let app = launch("en")
++        reset(app)
++        app.buttons["harness.apple"].tap()
++        XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 8))
++        app.alerts.buttons.firstMatch.tap()
++        app.buttons["probe.arm"].tap()
++        XCTAssertTrue(app.staticTexts["harness.checker-waiting"].waitForExistence(timeout: 8))
++        app.buttons["probe.notify"].tap()
++        XCTAssertTrue(app.staticTexts["probe.queued"].waitForExistence(timeout: 8))
++        app.buttons["harness.release"].tap()
++        let result = app.staticTexts["probe.result"]
++        expectation(for: NSPredicate(format: "label != %@", "not run"), evaluatedWith: result)
++        waitForExpectations(timeout: 8)
++        capture(app, "independent-notification-dispatch-probe")
++        XCTAssertTrue(result.label.hasPrefix("BLOCKED"), result.label)
++        XCTAssertTrue(result.label.hasSuffix("at check 2"), result.label)
++    }
++
+     private func launch(_ language: String) -> XCUIApplication {
+         let app = XCUIApplication()
+         app.launchArguments = ["--apple-session-harness", "--reset-apple-session-harness", "-AppleLanguages", "(\(language))", "-AppleLocale", language == "en" ? "en_US" : "es_DO"]
+diff --git a/ios/scripts/auth/apple-session-server.py b/ios/scripts/auth/apple-session-server.py
+index fef4dce70..a3af9f8e6 100644
+--- a/ios/scripts/auth/apple-session-server.py
++++ b/ios/scripts/auth/apple-session-server.py
+@@ -37,6 +37,7 @@ def session():
+ 
+ class Handler(BaseHTTPRequestHandler):
+     linked = True
++    probe_dispatches = 0
+ 
+     def log_message(self, *_):
+         pass
+@@ -51,7 +52,12 @@ class Handler(BaseHTTPRequestHandler):
+     def respond(self):
+         path = self.path.split("?")[0]
+         status = 200
+-        if path.startswith("/synthetic/identity-"):
++        if path == "/synthetic/probe-count":
++            body = {"dispatches": Handler.probe_dispatches}
++        elif path.lower() == "/api/v1/financial-accounts/71d866ac-e53d-47f0-b1fa-eb4008d4c211":
++            Handler.probe_dispatches += 1
++            status, body = 404, {"code": "interval_probe_dispatched"}
++        elif path.startswith("/synthetic/identity-"):
+             Handler.linked = path.endswith("identity-present")
+             body = {}
+         elif path == "/api/v1/auth/login":

@@ -1,0 +1,5 @@
+2026-10-08 03:16:39.911 | WARNING  | argus.api.account_deletion_runtime:standalone_apple:123 - Apple revoke for deletion unavailable
+D_build2_account_deletion: {"ok": true, "value": {"status": "done"}}
+D_after: {"auth_user": 0, "spaces": 0, "accounts": 0, "whatsapp_links": 0, "storage_objects": 6, "deletion_run": ["done", {"counts": {"events": 0, "admin_handoffs": 0, "households_left": 0, "households_closed": 0, "placeholders_used": 0, "plans_handed_over": 0, "archives_passed_on": 0, "credentials_captured": 0, "cross_scope_references": 0}, "storage": "not_applicable", "analytics": "recorded_by_fake", "revocations": {}}]}
+rows_sql_after_delete: {"business_accounts": 0, "business_connections": 0, "business_import_events": 0, "business_conversations": 0, "spaces": 1}
+exit=0

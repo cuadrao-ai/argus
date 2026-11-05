@@ -23,7 +23,7 @@ def _valid_scorecard_provenance(
         fixture_sha256="b" * 64,
         fixture_case_ids=fixture_case_ids or ("case-a",),
         worktree_clean=True,
-        release_configuration={"ARGUS_CHAT_MODEL": "test/model"},
+        release_configuration={"CUADRAO_CHAT_MODEL": "test/model"},
         live_market_data_probe=scorecards.LiveMarketDataProbe(
             symbol="SPY",
             requested_date_range={"start": "2024-01-01", "end": "2024-01-10"},
@@ -166,7 +166,7 @@ def test_scorecard_records_provenance_and_provider_cost() -> None:
         "fixture_sha256": "b" * 64,
         "fixture_case_ids": ["costed-case"],
         "worktree_clean": True,
-        "release_configuration": {"ARGUS_CHAT_MODEL": "test/model"},
+        "release_configuration": {"CUADRAO_CHAT_MODEL": "test/model"},
         "live_market_data_probe": {
             "symbol": "SPY",
             "requested_date_range": {

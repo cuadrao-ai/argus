@@ -1,0 +1,89 @@
+{
+  "devices" : [
+    {
+      "architecture" : "arm64",
+      "deviceId" : "26D1423D-1F0F-44C6-88B5-5084ADDD13BF",
+      "deviceName" : "Argus Foundation Large",
+      "modelName" : "iPhone 18 Pro Max",
+      "osBuildNumber" : "24A434",
+      "osVersion" : "27.0",
+      "platform" : "iOS Simulator"
+    }
+  ],
+  "testNodes" : [
+    {
+      "children" : [
+        {
+          "children" : [
+            {
+              "children" : [
+                {
+                  "duration" : "47s",
+                  "durationInSeconds" : 47.05721390247345,
+                  "name" : "testAppearancePersistsAcrossRelaunch()",
+                  "nodeIdentifier" : "FoundationUITests/testAppearancePersistsAcrossRelaunch()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/ArgusFoundation/ArgusFoundationUITests/FoundationUITests/testAppearancePersistsAcrossRelaunch",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "16s",
+                  "durationInSeconds" : 16.864452004432678,
+                  "name" : "testDarkNavigation()",
+                  "nodeIdentifier" : "FoundationUITests/testDarkNavigation()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/ArgusFoundation/ArgusFoundationUITests/FoundationUITests/testDarkNavigation",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "22s",
+                  "durationInSeconds" : 22.725862979888916,
+                  "name" : "testNavigationAndHeaderReturn()",
+                  "nodeIdentifier" : "FoundationUITests/testNavigationAndHeaderReturn()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/ArgusFoundation/ArgusFoundationUITests/FoundationUITests/testNavigationAndHeaderReturn",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "9s",
+                  "durationInSeconds" : 9.058017015457153,
+                  "name" : "testSearchStateSurvivesTabSwitchAndKeyboard()",
+                  "nodeIdentifier" : "FoundationUITests/testSearchStateSurvivesTabSwitchAndKeyboard()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/ArgusFoundation/ArgusFoundationUITests/FoundationUITests/testSearchStateSurvivesTabSwitchAndKeyboard",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "18s",
+                  "durationInSeconds" : 18.44037103652954,
+                  "name" : "testSpanishLargeTextAndAccessibility()",
+                  "nodeIdentifier" : "FoundationUITests/testSpanishLargeTextAndAccessibility()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/ArgusFoundation/ArgusFoundationUITests/FoundationUITests/testSpanishLargeTextAndAccessibility",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "FoundationUITests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/ArgusFoundation/ArgusFoundationUITests/FoundationUITests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            }
+          ],
+          "name" : "ArgusFoundationUITests",
+          "nodeIdentifierURL" : "test://com.apple.xcode/ArgusFoundation/ArgusFoundationUITests",
+          "nodeType" : "UI test bundle",
+          "result" : "Passed"
+        }
+      ],
+      "name" : "ArgusFoundation",
+      "nodeType" : "Test Plan",
+      "result" : "Passed"
+    }
+  ],
+  "testPlanConfigurations" : [
+    {
+      "configurationId" : "1",
+      "configurationName" : "Test Scheme Action"
+    }
+  ]
+}

@@ -10,8 +10,8 @@ is what proves the layout absorbed it.
 
 ## Setup
 
-Backend on port 8010 from this worktree with `ARGUS_MOCK_AUTH=true`,
-`ARGUS_PERSISTENCE_MODE=memory`, and **`ARGUS_MARKET_DATA_PROVIDER_MODE=live_provider`**
+Backend on port 8010 from this worktree with `CUADRAO_MOCK_AUTH=true`,
+`CUADRAO_PERSISTENCE_MODE=memory`, and **`ARGUS_MARKET_DATA_PROVIDER_MODE=live_provider`**
 with the real Alpaca credentials. The provider mode matters: the hermetic
 `synthetic_unit_fixture` mode reports no session at all by design, so a fixture
 run could not have produced the closure frames.

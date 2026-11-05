@@ -1,0 +1,7 @@
+Starting: Intent { cmp=ai.argus.chartprototype/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: ai.argus.chartprototype/.MainActivity
+TotalTime: 845
+WaitTime: 846
+Complete

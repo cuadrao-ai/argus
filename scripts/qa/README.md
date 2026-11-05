@@ -138,7 +138,9 @@ in `temp/qa-evidence-248/`.
   runner restarts the backend between spec files; each file stays within one
   identity's budget.
 - Argus recovery limiter: 5 requests per email and per client address per 10
-  minutes. Specs use run-unique `x-forwarded-for` addresses; sends to the
+  minutes. Specs use run-unique trusted-client-IP addresses
+  (`CF-Connecting-IP`; `X-Forwarded-For` is ignored for backend keying);
+  sends to the
   recovery identity stay at 3 per run, so leave ~10 minutes between full runs
   against a still-running server (fresh servers reset the in-memory buckets).
 - GoTrue `max_frequency` (1s between sends per user): specs call

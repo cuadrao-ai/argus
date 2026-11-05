@@ -1,0 +1,29 @@
+Modularity budget report
+========================
+
+Top scanned files by current line count:
+- tests/agent_runtime/test_interpret_stage.py: 10921 lines (watched)
+- tests/agent_runtime/test_conversational_contract_hardening.py: 7288 lines (watched)
+- tests/test_chat_runtime_reload_guardrails.py: 6279 lines (watched)
+- tests/agent_runtime/test_llm_interpreter_artifact_capability_repairs.py: 5731 lines (watched)
+- src/argus/agent_runtime/llm_interpreter.py: 5354 lines (watched)
+- tests/agent_runtime/test_llm_interpreter_semantic_contracts.py: 5226 lines (watched)
+- tests/agent_runtime/test_llm_interpreter_date_window_repairs.py: 4688 lines (watched)
+- tests/agent_runtime/test_llm_interpreter_grounding_and_signal_rules.py: 4552 lines (watched)
+- tests/test_alpha_api_supabase.py: 4541 lines (watched)
+- tests/test_alpha_api.py: 4238 lines (watched)
+
+Watched-file budget status:
+- tests/agent_runtime/test_interpret_stage.py: 10921 lines (baseline 11010, growth -89, limit 11085)
+- tests/agent_runtime/test_conversational_contract_hardening.py: 7288 lines (baseline 7285, growth +3, limit 7360)
+- tests/test_chat_runtime_reload_guardrails.py: 6279 lines (baseline 6280, growth -1, limit 6355)
+- tests/agent_runtime/test_llm_interpreter_artifact_capability_repairs.py: 5731 lines (baseline 5738, growth -7, limit 5813)
+- src/argus/agent_runtime/llm_interpreter.py: 5354 lines (baseline 5279, growth +75, limit 5354)
+- tests/agent_runtime/test_llm_interpreter_semantic_contracts.py: 5226 lines (baseline 5292, growth -66, limit 5367)
+- tests/agent_runtime/test_llm_interpreter_date_window_repairs.py: 4688 lines (baseline 4693, growth -5, limit 4768)
+- tests/agent_runtime/test_llm_interpreter_grounding_and_signal_rules.py: 4552 lines (baseline 4562, growth -10, limit 4637)
+- tests/test_alpha_api_supabase.py: 4541 lines (baseline 4489, growth +52, limit 4564)
+- tests/test_alpha_api.py: 4238 lines (baseline 4335, growth -97, limit 4410)
+
+Budget violations:
+- none

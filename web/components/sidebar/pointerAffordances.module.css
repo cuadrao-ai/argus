@@ -10,6 +10,10 @@
   opacity: 1;
 }
 
+.replaceCue {
+  opacity: 1;
+}
+
 .hoverLayoutDate {
   right: 3.5rem;
 }
@@ -33,6 +37,15 @@
     opacity: 1;
   }
 
+  .replaceCue {
+    opacity: 0;
+  }
+
+  :global(.group:hover) .replaceCue,
+  :global(.group:focus-visible) .replaceCue {
+    opacity: 1;
+  }
+
   .hoverLayoutDate {
     right: 0.75rem;
   }
@@ -53,6 +66,10 @@
   }
 
   .recentsOwnerAction {
+    opacity: 1;
+  }
+
+  .replaceCue {
     opacity: 1;
   }
 

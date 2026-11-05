@@ -8,12 +8,17 @@ service are both required before the subsystem is reachable at all.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
 from typing import TypeVar
 
 from fastapi import APIRouter, Depends, Request, Response
 
+from argus.api.conversation_surface import (
+    evidence_source_conversation_id,
+    is_business_conversation,
+    message_conversation_id,
+)
 from argus.api.dependencies import current_user, problem
 from argus.api.guest_access import account_context
 from argus.api.personalization_memory import (
@@ -52,6 +57,8 @@ from argus.memory.contracts import (
     MemoryCandidateDraft,
     MemoryEdit,
     MemoryProposalTrigger,
+    MemoryProvenance,
+    MemorySourceKind,
     SensitivityAssessment,
     SensitivityStatus,
 )
@@ -89,6 +96,49 @@ def _restricted_content_problem(request: Request):
 ResultT = TypeVar("ResultT")
 
 
+def _provenance_names_business_conversation(
+    *, user_id: str, provenance: Iterable[MemoryProvenance]
+) -> bool:
+    """Whether a memory source is a Business conversation, one of its messages, or
+    evidence it produced. Memory stays Personal."""
+
+    for ref in provenance:
+        conversation_id: str | None = None
+        if ref.source_kind is MemorySourceKind.CONVERSATION:
+            conversation_id = ref.source_id
+        elif ref.source_kind is MemorySourceKind.MESSAGE:
+            conversation_id = message_conversation_id(
+                user_id=user_id, message_id=ref.source_id
+            )
+        elif ref.source_kind is MemorySourceKind.EVIDENCE_ARTIFACT:
+            conversation_id = evidence_source_conversation_id(
+                user_id=user_id, artifact_id=ref.source_id
+            )
+        if is_business_conversation(user_id=user_id, conversation_id=conversation_id):
+            return True
+    return False
+
+
+def _refuse_business_provenance(
+    request: Request, ctx: MemoryApiContext, provenance: Iterable[MemoryProvenance]
+) -> None:
+    """Memory is Personal: a Business chat is never its source."""
+    if _provenance_names_business_conversation(
+        user_id=ctx.subject.owner_id, provenance=provenance
+    ):
+        raise _invalid_memory_request(request)
+
+
+def _invalid_memory_request(request: Request):
+    return problem(
+        request,
+        status_code=400,
+        code="invalid_memory_request",
+        title="Invalid Memory Request",
+        detail="The request is not valid for personalization memory.",
+    )
+
+
 def _run(request: Request, call: Callable[[], ResultT]) -> ResultT:
     try:
         return call()
@@ -96,13 +146,7 @@ def _run(request: Request, call: Callable[[], ResultT]) -> ResultT:
         raise personalization_memory_unavailable_problem(request) from None
     except ValueError:
         # The original message may quote request content; do not echo it.
-        raise problem(
-            request,
-            status_code=400,
-            code="invalid_memory_request",
-            title="Invalid Memory Request",
-            detail="The request is not valid for personalization memory.",
-        ) from None
+        raise _invalid_memory_request(request) from None
 
 
 @router.get("/memory/availability", response_model=MemoryAvailabilityResponse)
@@ -150,6 +194,8 @@ def propose_memory(
     request: Request,
     ctx: MemoryApiContext = Depends(require_memory_api_context),  # noqa: B008
 ) -> MemoryProposalResponse:
+    provenance = tuple(ref.to_domain() for ref in payload.provenance)
+    _refuse_business_provenance(request, ctx, provenance)
     sensitivity = _assessed_or_problem(
         request,
         candidate_content_for_assessment(
@@ -163,7 +209,7 @@ def propose_memory(
         value=payload.value,
         label=payload.label,
         future_benefit=payload.future_benefit,
-        provenance=tuple(ref.to_domain() for ref in payload.provenance),
+        provenance=provenance,
         trigger=MemoryProposalTrigger.EXPLICIT_REQUEST,
         sensitivity=sensitivity,
     )
@@ -188,6 +234,8 @@ def propose_saved_decision_memory(
     request: Request,
     ctx: MemoryApiContext = Depends(require_memory_api_context),  # noqa: B008
 ) -> MemoryProposalResponse:
+    source = _run(request, payload.to_source)
+    _refuse_business_provenance(request, ctx, (source.provenance,))
     sensitivity = _assessed_or_problem(
         request,
         candidate_content_for_assessment(
@@ -200,7 +248,7 @@ def propose_saved_decision_memory(
         request,
         lambda: ctx.service.propose_saved_decision(
             ctx.subject,
-            payload.to_source(),
+            source,
             sensitivity=sensitivity,
             context=payload.context,
         ),

@@ -2,6 +2,7 @@ import json
 from contextlib import nullcontext
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -13,7 +14,6 @@ from argus.api.main import app
 from argus.api.pagination import encode_cursor
 from argus.api.schemas import (
     AccountCapabilities,
-    BacktestRun,
     Conversation,
     EvidenceArtifact,
     GuestAccountSummary,
@@ -27,8 +27,8 @@ from argus.api.schemas import (
 from argus.domain.backtest_finalization import MemoryBacktestFinalizationGateway
 from argus.domain.chat_turn_lifecycle import TransitionResult
 from argus.domain.conversation_activity import Boundary, encode_attention_cursor
-from argus.domain.guest_workspaces import GuestWorkspace
 from argus.domain.market_data.assets import ResolvedAsset
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.postgres_history_reader import (
     HistoryCursorError,
     PostgresHistoryReader,
@@ -204,31 +204,29 @@ def test_gateway_auth_flows_use_separate_auth_client():
     signup_response = MagicMock()
     signup_response.user = object()
     signup_response.model_dump.return_value = {"user": {"id": "auth-user"}}
-    auth_client.auth.sign_up.return_value = signup_response
+    auth_client.sign_up.return_value = signup_response
 
     login_response = MagicMock()
     login_response.session = object()
     login_response.model_dump.return_value = {"session": {"access_token": "token"}}
-    auth_client.auth.sign_in_with_password.return_value = login_response
+    auth_client.sign_in_with_password.return_value = login_response
 
-    gateway = SupabaseGateway(client=service_client, auth_client=auth_client)
+    gateway = SupabaseGateway(
+        client=service_client, auth_client_factory=lambda: auth_client
+    )
 
     assert gateway.signup(
         email="alpha@example.com",
         password="password",
         captcha_token="captcha-proof",
-    ) == {
-        "user": {"id": "auth-user"}
-    }
+    ) == {"user": {"id": "auth-user"}}
     assert gateway.login(
         email="alpha@example.com",
         password="password",
         captcha_token="captcha-proof",
-    ) == {
-        "session": {"access_token": "token"}
-    }
+    ) == {"session": {"access_token": "token"}}
 
-    auth_client.auth.sign_up.assert_called_once_with(
+    auth_client.sign_up.assert_called_once_with(
         {
             "email": "alpha@example.com",
             "password": "password",
@@ -242,7 +240,7 @@ def test_gateway_auth_flows_use_separate_auth_client():
             },
         }
     )
-    auth_client.auth.sign_in_with_password.assert_called_once_with(
+    auth_client.sign_in_with_password.assert_called_once_with(
         {
             "email": "alpha@example.com",
             "password": "password",
@@ -259,8 +257,10 @@ def test_gateway_signup_records_language_for_profile_bootstrap():
     signup_response = MagicMock()
     signup_response.user = object()
     signup_response.model_dump.return_value = {"user": {"id": "auth-user"}}
-    auth_client.auth.sign_up.return_value = signup_response
-    gateway = SupabaseGateway(client=service_client, auth_client=auth_client)
+    auth_client.sign_up.return_value = signup_response
+    gateway = SupabaseGateway(
+        client=service_client, auth_client_factory=lambda: auth_client
+    )
 
     gateway.signup(
         email="alpha@example.com",
@@ -269,7 +269,7 @@ def test_gateway_signup_records_language_for_profile_bootstrap():
         language="es-419",
     )
 
-    auth_client.auth.sign_up.assert_called_once_with(
+    auth_client.sign_up.assert_called_once_with(
         {
             "email": "alpha@example.com",
             "password": "password",
@@ -467,10 +467,8 @@ async def _runtime_success_events(**kwargs: Any):
 
 @pytest.fixture(autouse=True)
 def _patch_engine_io(monkeypatch: pytest.MonkeyPatch) -> None:
-    from argus.api.routers import agent as agent_router
     from argus.domain import engine as domain_engine
 
-    monkeypatch.setattr(agent_router, "stream_agent_turn_events", _runtime_success_events)
     monkeypatch.setattr(domain_engine, "resolve_asset", _fake_resolve_asset)
     monkeypatch.setattr(domain_engine, "fetch_ohlcv", _fake_fetch_ohlcv)
     monkeypatch.setattr(domain_engine, "fetch_price_series", _fake_fetch_price_series)
@@ -563,182 +561,32 @@ def mock_gateway():
         "status": "succeeded",
     }
     gateway.get_backtest_job.return_value = None
+
+    def _rpc(name: str, params: dict[str, Any] | None = None, **_kwargs: Any):
+        if name in {
+            "claim_registered_compute_usage",
+            "claim_guest_compute_usage",
+            "claim_research_usage",
+        }:
+            return SimpleNamespace(
+                execute=lambda: SimpleNamespace(
+                    data={
+                        "available": True,
+                        "guest_exhausted": False,
+                        "visitor_exhausted": False,
+                        "session_exhausted": False,
+                    }
+                )
+            )
+        return MagicMock()
+
+    gateway.client = SimpleNamespace(rpc=_rpc)
     with (
         patch("argus.api.state.supabase_gateway", gateway),
+        patch("argus.api.routers.profile._apple_identity", return_value=None),
         patch("argus.api.dependencies.auth_session_is_active", return_value=True),
     ):
         yield gateway
-
-
-def test_run_backtest_quota_exceeded_before_provider_preflight(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_gateway,
-) -> None:
-    from argus.api import backtest_service
-
-    provider_preflight = MagicMock(
-        side_effect=AssertionError("provider preflight must not run over quota")
-    )
-    monkeypatch.setattr(backtest_service, "prepare_market_data", provider_preflight)
-    mock_gateway.check_usage_limits.side_effect = QuotaExceededError(
-        "Quota exceeded for backtest_runs (day)"
-    )
-
-    response = client.post(
-        "/api/v1/backtests/run",
-        json={"symbols": ["AAPL"]},
-        headers={
-            "Authorization": "Bearer test-token",
-            "Idempotency-Key": "quota-exceeded",
-        },
-    )
-    assert response.status_code == 429
-    data = response.json()
-    assert data["code"] == "too_many_requests"
-    assert "Quota exceeded for backtest_runs" in data["detail"]
-    assert response.headers.get("Retry-After") == "60"
-    provider_preflight.assert_not_called()
-    mock_gateway.check_usage_limits.assert_called_once()
-    mock_gateway.check_and_increment_usage_limits.assert_not_called()
-
-
-def test_run_backtest_coverage_rejection_does_not_consume_allowance(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_gateway,
-) -> None:
-    from argus.api import backtest_service
-    from argus.domain.backtesting.coverage import MarketDataCoverageError
-
-    monkeypatch.setattr(
-        backtest_service,
-        "prepare_market_data",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
-            MarketDataCoverageError("no_common_data_window")
-        ),
-    )
-
-    response = client.post(
-        "/api/v1/backtests/run",
-        json={
-            "template": "buy_and_hold",
-            "asset_class": "equity",
-            "symbols": ["AAPL", "MSFT"],
-            "start_date": "2024-01-01",
-            "end_date": "2024-01-05",
-        },
-        headers={
-            "Authorization": "Bearer test-token",
-            "Idempotency-Key": "coverage-rejected-before-quota",
-        },
-    )
-
-    assert response.status_code == 422
-    assert response.json()["code"] == "no_common_data_window"
-    mock_gateway.check_and_increment_usage_limits.assert_not_called()
-    mock_gateway.finalize_backtest_completion.assert_not_called()
-
-
-def test_direct_run_persists_requested_and_effective_data_windows(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_gateway,
-) -> None:
-    from argus.domain import engine as domain_engine
-
-    def fetch_with_leading_gap(symbol: str, **_: object) -> pd.DataFrame:
-        days = (
-            ["2024-01-03", "2024-01-04", "2024-01-05"]
-            if symbol == "AAPL"
-            else [
-                "2024-01-01",
-                "2024-01-02",
-                "2024-01-03",
-                "2024-01-04",
-                "2024-01-05",
-            ]
-        )
-        index = pd.to_datetime(days, utc=True)
-        close = pd.Series(range(100, 100 + len(index)), index=index, dtype=float)
-        return pd.DataFrame(
-            {
-                "open": close,
-                "high": close + 1.0,
-                "low": close - 1.0,
-                "close": close,
-                "volume": 1_000.0,
-            },
-            index=index,
-        )
-
-    monkeypatch.setattr(domain_engine, "fetch_ohlcv", fetch_with_leading_gap)
-    response = client.post(
-        "/api/v1/backtests/run",
-        json={
-            "template": "buy_and_hold",
-            "asset_class": "equity",
-            "symbols": ["AAPL"],
-            "start_date": "2024-01-01",
-            "end_date": "2024-01-05",
-        },
-        headers={
-            "Authorization": "Bearer test-token",
-            "Idempotency-Key": "direct-effective-window",
-        },
-    )
-
-    assert response.status_code == 200
-    run = response.json()["run"]
-    assert run["config_snapshot"]["requested_date_range"] == {
-        "start": "2024-01-01",
-        "end": "2024-01-05",
-    }
-    assert run["config_snapshot"]["effective_date_range"] == {
-        "start": "2024-01-03",
-        "end": "2024-01-05",
-    }
-    assert run["conversation_result_card"]["date_range"] == {
-        "start": "2024-01-03",
-        "end": "2024-01-05",
-        "display": "January 3, 2024 to January 5, 2024",
-    }
-    assert run["chart"]["series"][0]["time"] == "2024-01-03"
-    assert run["chart"]["series"][-1]["time"] == "2024-01-05"
-    mock_gateway.check_and_increment_usage_limits.assert_not_called()
-    mock_gateway.admit_backtest_job.assert_called_once()
-
-
-def test_chat_entry_reads_no_conversation_meter(mock_gateway):
-    now = utcnow()
-    conversation = Conversation(
-        id="conv-1",
-        title="New conversation",
-        title_source="system_default",
-        language="en",
-        pinned=False,
-        archived=False,
-        last_message_preview=None,
-        deleted_at=None,
-        created_at=now,
-        updated_at=now,
-    )
-    mock_gateway.get_conversation.return_value = conversation
-    mock_gateway.create_message.side_effect = lambda **kwargs: Message(
-        id="msg-1",
-        conversation_id=kwargs["conversation_id"],
-        role=kwargs["role"],  # type: ignore[arg-type]
-        content=kwargs["content"],
-        created_at=utcnow(),
-    )
-
-    response = client.post(
-        "/api/v1/chat/stream",
-        json={"conversation_id": "conv-1", "message": "Test TSLA dip idea"},
-        headers={"Authorization": "Bearer test-token"},
-    )
-
-    assert response.status_code == 200
-    # Conversation is compute: no window is consulted or charged.
-    mock_gateway.check_usage_limits.assert_not_called()
-    mock_gateway.check_and_increment_usage_limits.assert_not_called()
 
 
 def test_successful_api_response_omits_static_rate_limit_headers(mock_gateway):
@@ -892,7 +740,7 @@ def test_me_usage_openapi_contract_publishes_operation_classes():
 
 def test_me_usage_requires_authentication(mock_gateway, monkeypatch):
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
 
     response = client.get("/api/v1/me/usage")
 
@@ -931,12 +779,13 @@ def test_me_usage_returns_problem_details_when_durable_truth_is_unavailable(
     assert response.headers["X-Request-Id"] == "usage-read-failure"
 
 
-def test_patch_me_supabase_ignores_retired_profile_fields(mock_gateway):
+def test_patch_me_supabase_ignores_retired_profile_fields(mock_gateway, monkeypatch):
+    monkeypatch.setenv("ARGUS_DEV_MEMORY_FALLBACK", "false")
     before = _mock_profile(stage="language_selection")
     mock_gateway.get_user.return_value = before
 
     def _updated_user(_user_id: str, payload: dict) -> User:
-        return User.model_validate(payload)
+        return User.model_validate(before.model_dump() | payload)
 
     mock_gateway.update_user.side_effect = _updated_user
 
@@ -960,12 +809,13 @@ def test_patch_me_supabase_ignores_retired_profile_fields(mock_gateway):
     assert "theme" not in mock_gateway.update_user.call_args.args[1]
 
 
-def test_patch_me_persists_a_curated_avatar_theme(mock_gateway):
+def test_patch_me_persists_a_curated_avatar_theme(mock_gateway, monkeypatch):
+    monkeypatch.setenv("ARGUS_DEV_MEMORY_FALLBACK", "false")
     before = _mock_profile()
     mock_gateway.get_user.return_value = before
 
     def _updated_user(_user_id: str, payload: dict) -> User:
-        return User.model_validate(payload)
+        return User.model_validate(before.model_dump() | payload)
 
     mock_gateway.update_user.side_effect = _updated_user
 
@@ -1129,7 +979,7 @@ def test_delete_all_conversations_supabase_delegates_with_user_ownership(
     assert response.status_code == 200
     assert response.json() == {"success": True, "deleted_count": 3}
     mock_gateway.soft_delete_all_conversations.assert_called_once_with(
-        user_id="00000000-0000-0000-0000-000000000001"
+        scope=PERSONAL, user_id="00000000-0000-0000-0000-000000000001"
     )
 
 
@@ -1178,9 +1028,7 @@ def test_supabase_activity_get_and_patch_use_verified_source_identity(
     assert current.status_code == 200
     assert current.json()["attention"]["status"] == "new_activity"
     cursor = current.json()["attention"]["cursor"]
-    assert cursor == encode_attention_cursor(
-        Boundary("chat_turn", source_id, now)
-    )
+    assert cursor == encode_attention_cursor(Boundary("chat_turn", source_id, now))
 
     mock_gateway.mutate_conversation_activity_read_state.return_value = {
         "outcome": "applied",
@@ -1248,570 +1096,11 @@ def test_supabase_activity_conflict_maps_to_rfc_problem(mock_gateway) -> None:
     assert response.json()["type"].endswith("/attention-cursor-conflict")
 
 
-def test_run_backtest_supabase_persists_normalized_snapshot_and_assumptions(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_gateway,
-):
-    monkeypatch.delenv("ARGUS_ENABLE_EXECUTION_REALISM", raising=False)
-
-    response = client.post(
-        "/api/v1/backtests/run",
-        json={"template": "rsi_mean_reversion", "symbols": ["TSLA"]},
-        headers={
-            "Authorization": "Bearer test-token",
-            "Idempotency-Key": "supabase-normalized-snapshot",
-        },
-    )
-
-    assert response.status_code == 200
-    run = response.json()["run"]
-    assert run["config_snapshot"]["side"] == "long"
-    assert run["config_snapshot"]["starting_capital"] == 1000
-    assert run["config_snapshot"]["benchmark_symbol"] == "SPY"
-    assert run["config_snapshot"]["_execution_realism"] == {
-        "enabled": False,
-        "fee_bps": 0.0,
-        "slippage_bps": 0.0,
-    }
-    assert "No fees/slippage" in run["conversation_result_card"]["assumptions"]
-    assert run["conversation_result_card"]["assumptions"][-1] == "Benchmark: SPY"
-    assert run["conversation_result_card"]["benchmark_note"] is None
-    mock_gateway.finalize_direct_backtest_success.assert_called_once()
-    called_run = mock_gateway.finalize_direct_backtest_success.call_args.kwargs[
-        "finalization"
-    ].run
-    assert isinstance(called_run, BacktestRun)
-    assert called_run.config_snapshot["starting_capital"] == 1000
-    assert called_run.config_snapshot["_execution_realism"] == {
-        "enabled": False,
-        "fee_bps": 0.0,
-        "slippage_bps": 0.0,
-    }
-    assert mock_gateway.admit_backtest_job.call_args.kwargs[
-        "execution_metadata"
-    ] == {
-        "source": "api_direct",
-        "openrouter_traffic_class": "registered",
-    }
-
-
-def test_guest_run_backtest_supabase_persists_guest_traffic_class(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_gateway,
-) -> None:
-    from argus.api.routers import backtest as backtest_router
-
-    profile = _mock_profile().model_copy(
-        update={
-            "email": None,
-            "username": None,
-            "display_name": None,
-            "is_admin": False,
-        }
-    )
-    workspace = GuestWorkspace(
-        user_id=profile.id,
-        conversation_id=None,
-        status="active",
-        created_at=profile.created_at,
-        expires_at=profile.created_at + timedelta(days=7),
-        claimed_by=None,
-        claimed_at=None,
-        updated_at=profile.created_at,
-    )
-    mock_gateway.get_auth_user_from_token.return_value = {
-        "id": profile.id,
-        "email": None,
-        "is_anonymous": True,
-    }
-    mock_gateway.get_or_create_profile_for_auth_user.return_value = profile
-    mock_gateway.get_active_guest_workspace.return_value = workspace
-    mock_gateway.client = object()
-    monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
-    monkeypatch.setattr(
-        backtest_router,
-        "visitor_within_limits",
-        lambda *_args, **_kwargs: True,
-    )
-    monkeypatch.setattr(
-        backtest_router,
-        "settle_visitor_usage",
-        lambda *_args, **_kwargs: None,
-    )
-
-    response = client.post(
-        "/api/v1/backtests/run",
-        json={"template": "rsi_mean_reversion", "symbols": ["TSLA"]},
-        headers={
-            "Authorization": "Bearer guest-token",
-            "Idempotency-Key": "guest-supabase-traffic-class",
-        },
-    )
-
-    assert response.status_code == 200, response.text
-    assert mock_gateway.admit_backtest_job.call_args.kwargs[
-        "execution_metadata"
-    ] == {
-        "source": "api_direct",
-        "openrouter_traffic_class": "guest",
-    }
-
-
-def test_run_backtest_supabase_kill_switch_restores_legacy_snapshot(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_gateway,
-):
-    monkeypatch.setenv("ARGUS_ENABLE_EXECUTION_REALISM", "false")
-
-    response = client.post(
-        "/api/v1/backtests/run",
-        json={"template": "rsi_mean_reversion", "symbols": ["TSLA"]},
-        headers={
-            "Authorization": "Bearer test-token",
-            "Idempotency-Key": "supabase-execution-realism-kill-switch",
-        },
-    )
-
-    assert response.status_code == 200
-    run = response.json()["run"]
-    assert "_execution_realism" not in run["config_snapshot"]
-    assert "No fees/slippage" in run["conversation_result_card"]["assumptions"]
-    mock_gateway.finalize_direct_backtest_success.assert_called_once()
-    called_run = mock_gateway.finalize_direct_backtest_success.call_args.kwargs[
-        "finalization"
-    ].run
-    assert isinstance(called_run, BacktestRun)
-    assert "_execution_realism" not in called_run.config_snapshot
-
-
-def test_run_backtest_finalization_failure_is_explicit_and_retryable(mock_gateway):
-    mock_gateway.finalize_direct_backtest_success.side_effect = RuntimeError(
-        "database unavailable"
-    )
-
-    response = client.post(
-        "/api/v1/backtests/run",
-        json={"template": "rsi_mean_reversion", "symbols": ["TSLA"]},
-        headers={
-            "Authorization": "Bearer test-token",
-            "Idempotency-Key": "supabase-finalization-failure",
-        },
-    )
-
-    assert response.status_code == 503
-    assert response.json()["code"] == "finalization_failed"
-    assert response.json()["context"] == {"retryable": True}
-    assert response.headers["Retry-After"] == "1"
-
-
-def test_run_backtest_rejects_unowned_parent_conversation(mock_gateway):
-    mock_gateway.get_conversation.return_value = None
-
-    response = client.post(
-        "/api/v1/backtests/run",
-        json={
-            "conversation_id": "conversation-other",
-            "template": "rsi_mean_reversion",
-            "symbols": ["AAPL"],
-        },
-        headers={
-            "Authorization": "Bearer test-token",
-            "Idempotency-Key": "unowned-parent-conversation",
-        },
-    )
-
-    assert response.status_code == 404
-    assert response.json()["code"] == "not_found"
-    mock_gateway.finalize_backtest_completion.assert_not_called()
-    mock_gateway.get_conversation.assert_called_once_with(
-        user_id="00000000-0000-0000-0000-000000000001",
-        conversation_id="conversation-other",
-    )
-
-
-def test_get_backtest_supabase_reads_from_gateway(mock_gateway):
-    create = client.post(
-        "/api/v1/backtests/run",
-        json={"template": "rsi_mean_reversion", "symbols": ["AAPL"]},
-        headers={
-            "Authorization": "Bearer test-token",
-            "Idempotency-Key": "supabase-get-backtest",
-        },
-    )
-    assert create.status_code == 200
-    created_run = create.json()["run"]
-    mock_gateway.get_backtest_run.return_value = BacktestRun.model_validate(created_run)
-
-    response = client.get(
-        f"/api/v1/backtests/{created_run['id']}",
-        headers={"Authorization": "Bearer test-token"},
-    )
-
-    assert response.status_code == 200
-    mock_gateway.get_backtest_run.assert_called_once()
-    assert response.json()["run"]["id"] == created_run["id"]
-
-
-def test_chat_stream_supabase_persists_backtest_run(mock_gateway):
-    now = utcnow()
-    conversation = Conversation(
-        id="conv-1",
-        title="New conversation",
-        title_source="system_default",
-        language="en",
-        pinned=False,
-        archived=False,
-        last_message_preview=None,
-        deleted_at=None,
-        created_at=now,
-        updated_at=now,
-    )
-    mock_gateway.get_conversation.return_value = conversation
-    mock_gateway.create_message.side_effect = lambda **kwargs: Message(
-        id="msg-1",
-        conversation_id=kwargs["conversation_id"],
-        role=kwargs["role"],  # type: ignore[arg-type]
-        content=kwargs["content"],
-        created_at=utcnow(),
-    )
-
-    response = client.post(
-        "/api/v1/chat/stream",
-        json={"conversation_id": "conv-1", "message": "Test TSLA dip idea"},
-        headers={"Authorization": "Bearer test-token"},
-    )
-
-    assert response.status_code == 200
-    assert "event:" not in response.text
-    assert response.text.count("data: [DONE]") == 1
-    mock_gateway.finalize_backtest_completion.assert_called_once()
-    persisted_run = mock_gateway.finalize_backtest_completion.call_args.kwargs[
-        "finalization"
-    ].run
-    final_payload = _final_payload(response.text)
-    terminal = mock_gateway.finalize_chat_turn.call_args.kwargs
-    assert terminal["to_status"] == "completed"
-    assert final_payload["message_id"] == terminal["message"].id
-    assert final_payload["run"]["id"] == persisted_run.id
-    assert final_payload["run"]["conversation_result_card"]["title"] == (
-        "TSLA RSI Mean Reversion"
-    )
-
-
-def test_chat_stream_succeeds_when_cost_ledger_table_is_unavailable(
-    mock_gateway,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from argus.api.routers import agent as agent_router
-    from argus.llm.openrouter import (
-        clear_openrouter_route_receipts,
-        record_openrouter_route_receipt,
-    )
-
-    async def runtime_events_with_receipt(**kwargs: Any):
-        record_openrouter_route_receipt(
-            task="interpretation",
-            model_name="unit-test-model",
-            mode="json_schema",
-            schema_name="LLMInterpretationResponse",
-            latency_ms=15,
-            outcome="succeeded",
-            token_usage={
-                "prompt_tokens": 20,
-                "completion_tokens": 10,
-                "total_tokens": 30,
-            },
-            usage_cost_usd=0.0005,
-        )
-        async for event in _runtime_success_events(**kwargs):
-            yield event
-
-    clear_openrouter_route_receipts()
-    monkeypatch.setattr(
-        agent_router,
-        "stream_agent_turn_events",
-        runtime_events_with_receipt,
-    )
-    now = utcnow()
-    conversation = Conversation(
-        id="conv-ledger-unavailable",
-        title="New conversation",
-        title_source="system_default",
-        language="en",
-        pinned=False,
-        archived=False,
-        last_message_preview=None,
-        deleted_at=None,
-        created_at=now,
-        updated_at=now,
-    )
-    mock_gateway.get_conversation.return_value = conversation
-    mock_gateway.create_message.side_effect = lambda **kwargs: Message(
-        id="msg-ledger-unavailable",
-        conversation_id=kwargs["conversation_id"],
-        role=kwargs["role"],  # type: ignore[arg-type]
-        content=kwargs["content"],
-        metadata=kwargs.get("metadata") or {},
-        created_at=utcnow(),
-    )
-    mock_gateway.create_route_receipt.return_value = {"id": "receipt-1"}
-    mock_gateway.create_cost_ledger_entry.side_effect = RuntimeError(
-        "PGRST205: cost_ledger_entries is unavailable"
-    )
-
-    response = client.post(
-        "/api/v1/chat/stream",
-        json={
-            "conversation_id": conversation.id,
-            "message": "Test TSLA dip idea",
-        },
-        headers={"Authorization": "Bearer test-token"},
-    )
-
-    assert response.status_code == 200
-    assert response.text.count("data: [DONE]") == 1
-    assert _final_payload(response.text)["run"]["status"] == "completed"
-    assert "PGRST205" not in response.text
-    assert "cost_ledger_entries" not in response.text
-    mock_gateway.create_route_receipt.assert_called_once()
-    mock_gateway.create_cost_ledger_entry.assert_called_once()
-
-
-def test_chat_stream_finalization_failure_returns_retryable_error(mock_gateway):
-    now = utcnow()
-    conversation = Conversation(
-        id="conv-finalization-failure",
-        title="New conversation",
-        title_source="system_default",
-        language="en",
-        pinned=False,
-        archived=False,
-        last_message_preview=None,
-        deleted_at=None,
-        created_at=now,
-        updated_at=now,
-    )
-    mock_gateway.get_conversation.return_value = conversation
-    mock_gateway.finalize_backtest_completion.side_effect = RuntimeError(
-        "database unavailable"
-    )
-    mock_gateway.create_message.side_effect = lambda **kwargs: Message(
-        id="msg-finalization-failure",
-        conversation_id=kwargs["conversation_id"],
-        role=kwargs["role"],  # type: ignore[arg-type]
-        content=kwargs["content"],
-        metadata=kwargs.get("metadata") or {},
-        created_at=utcnow(),
-    )
-
-    response = client.post(
-        "/api/v1/chat/stream",
-        json={
-            "conversation_id": conversation.id,
-            "message": "Test TSLA dip idea",
-        },
-        headers={
-            "Authorization": "Bearer test-token",
-            "Idempotency-Key": "chat-finalization-failure",
-        },
-    )
-
-    assert response.status_code == 200
-    error = next(
-        event for event in _stream_events(response.text) if event.get("type") == "error"
-    )
-    assert error["code"] == "finalization_failed"
-    assert error["recovery"]["retryable"] is True
-    assert not any(
-        event.get("type") == "final" for event in _stream_events(response.text)
-    )
-
-
-def test_chat_stream_finalization_retry_reuses_original_execution_identity(
-    mock_gateway,
-):
-    now = utcnow()
-    conversation = Conversation(
-        id="conv-finalization-retry",
-        title="New conversation",
-        title_source="system_default",
-        language="en",
-        pinned=False,
-        archived=False,
-        last_message_preview=None,
-        deleted_at=None,
-        created_at=now,
-        updated_at=now,
-    )
-    mock_gateway.get_conversation.return_value = conversation
-    persisted_messages: list[Message] = []
-
-    def create_message(**kwargs) -> Message:
-        message = Message(
-            id=f"msg-{len(persisted_messages) + 1}",
-            conversation_id=kwargs["conversation_id"],
-            role=kwargs["role"],
-            content=kwargs["content"],
-            metadata=kwargs.get("metadata") or {},
-            created_at=utcnow(),
-        )
-        persisted_messages.append(message)
-        return message
-
-    def persist_lifecycle_message(**kwargs) -> Message:
-        message = kwargs["message"]
-        persisted_messages.append(message)
-        return message
-
-    mock_gateway.create_message.side_effect = create_message
-    mock_gateway.accept_chat_turn.side_effect = persist_lifecycle_message
-    mock_gateway.finalize_chat_turn.side_effect = persist_lifecycle_message
-    mock_gateway.list_messages.side_effect = lambda **_: list(persisted_messages)
-    finalization_store = AlphaStore()
-    finalization_calls = []
-
-    def commit_then_lose_first_response(*, finalization):
-        finalization_calls.append(finalization)
-        finalized = MemoryBacktestFinalizationGateway(
-            finalization_store
-        ).finalize_backtest_completion(finalization=finalization)
-        if len(finalization_calls) == 1:
-            raise RuntimeError("finalization response lost")
-        return finalized
-
-    mock_gateway.finalize_backtest_completion.side_effect = (
-        commit_then_lose_first_response
-    )
-    payload = {
-        "conversation_id": conversation.id,
-        "message": "Test TSLA dip idea",
-    }
-
-    first = client.post(
-        "/api/v1/chat/stream",
-        json=payload,
-        headers={
-            "Authorization": "Bearer test-token",
-            "Idempotency-Key": "first-transport-attempt",
-        },
-    )
-    second = client.post(
-        "/api/v1/chat/stream",
-        json=payload,
-        headers={
-            "Authorization": "Bearer test-token",
-            "Idempotency-Key": "retry-transport-attempt",
-        },
-    )
-
-    assert (
-        next(
-            event for event in _stream_events(first.text) if event.get("type") == "error"
-        )["code"]
-        == "finalization_failed"
-    )
-    assert _final_payload(second.text)["run"]["id"] == next(
-        iter(finalization_store.backtest_runs)
-    )
-    assert len(finalization_calls) == 2
-    assert (
-        finalization_calls[1].execution_identity
-        == finalization_calls[0].execution_identity
-    )
-    assert finalization_calls[1].run.id == finalization_calls[0].run.id
-    assert len(finalization_store.backtest_runs) == 1
-    assert len(finalization_store.evidence_artifacts) == 1
-    assert mock_gateway.accept_chat_turn.call_count == 2
-    assert mock_gateway.finalize_chat_turn.call_count == 2
-
-
-def test_chat_stream_supabase_rejects_memory_only_conversation(mock_gateway):
-    from argus.api import state as api_state
-
-    now = utcnow()
-    memory_only_conversation = Conversation(
-        id="memory-only-conversation",
-        title="Memory only",
-        title_source="system_default",
-        language="en",
-        pinned=False,
-        archived=False,
-        last_message_preview=None,
-        deleted_at=None,
-        created_at=now,
-        updated_at=now,
-    )
-    api_state.store.conversations[memory_only_conversation.id] = memory_only_conversation
-    api_state.store.messages[memory_only_conversation.id] = []
-    mock_gateway.get_conversation.return_value = None
-
-    response = client.post(
-        "/api/v1/chat/stream",
-        json={
-            "conversation_id": memory_only_conversation.id,
-            "message": "Test TSLA dip idea",
-        },
-        headers={"Authorization": "Bearer test-token"},
-    )
-
-    assert response.status_code == 404
-    mock_gateway.get_conversation.assert_called_with(
-        user_id="00000000-0000-0000-0000-000000000001",
-        conversation_id=memory_only_conversation.id,
-    )
-    mock_gateway.create_message.assert_not_called()
-
-
-def test_chat_stream_supabase_treats_marker_text_as_ordinary_turn(mock_gateway):
-    now = utcnow()
-    conversation = Conversation(
-        id="conv-3",
-        title="New conversation",
-        title_source="system_default",
-        language="en",
-        pinned=False,
-        archived=False,
-        last_message_preview=None,
-        deleted_at=None,
-        created_at=now,
-        updated_at=now,
-    )
-    mock_gateway.get_conversation.return_value = conversation
-    mock_gateway.get_user.return_value = _mock_profile(stage="language_selection")
-    mock_gateway.count_completed_runs.return_value = 0
-    mock_gateway.create_message.side_effect = lambda **kwargs: Message(
-        id="msg-3",
-        conversation_id=kwargs["conversation_id"],
-        role=kwargs["role"],  # type: ignore[arg-type]
-        content=kwargs["content"],
-        created_at=utcnow(),
-    )
-
-    response = client.post(
-        "/api/v1/chat/stream",
-        json={
-            "conversation_id": "conv-3",
-            "message": "__ONBOARDING_GOAL__:test_stock_idea",
-        },
-        headers={"Authorization": "Bearer test-token"},
-    )
-
-    assert response.status_code == 200
-    mock_gateway.create_message.assert_not_called()
-    accepted = mock_gateway.accept_chat_turn.call_args.kwargs["message"]
-    assert accepted.role == "user"
-    assert accepted.content == "__ONBOARDING_GOAL__:test_stock_idea"
-    terminal = mock_gateway.finalize_chat_turn.call_args.kwargs
-    assert terminal["to_status"] == "completed"
-    assert terminal["message"].role == "assistant"
-
-
 def test_unauthorized_missing_token(mock_gateway):
     import os
 
     os.environ["NEXT_PUBLIC_MOCK_AUTH"] = "false"
-    os.environ["ARGUS_MOCK_AUTH"] = "false"
+    os.environ["CUADRAO_MOCK_AUTH"] = "false"
 
     response = client.get("/api/v1/me")
     assert response.status_code == 401
@@ -1821,7 +1110,7 @@ def test_unauthorized_invalid_token(mock_gateway):
     import os
 
     os.environ["NEXT_PUBLIC_MOCK_AUTH"] = "false"
-    os.environ["ARGUS_MOCK_AUTH"] = "false"
+    os.environ["CUADRAO_MOCK_AUTH"] = "false"
     mock_gateway.get_auth_user_from_token.side_effect = Exception("Invalid token")
 
     response = client.get("/api/v1/me", headers={"Authorization": "Bearer invalid-token"})
@@ -1830,7 +1119,7 @@ def test_unauthorized_invalid_token(mock_gateway):
 
 def test_unauthorized_revoked_supabase_session(mock_gateway, monkeypatch):
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     monkeypatch.setattr(api_state, "DATABASE_URL", "postgresql://auth-pool/argus")
     mock_gateway.get_auth_user_from_token.return_value = {
         "id": "00000000-0000-0000-0000-000000000001",
@@ -1860,7 +1149,7 @@ def test_auth_session_verification_failure_fails_closed(mock_gateway, monkeypatc
     from argus.api.auth_sessions import AuthSessionVerificationUnavailable
 
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     monkeypatch.setattr(api_state, "DATABASE_URL", "postgresql://auth-pool/argus")
     mock_gateway.get_auth_user_from_token.return_value = {
         "id": "00000000-0000-0000-0000-000000000001",
@@ -1885,7 +1174,7 @@ def test_profile_creation_on_first_login(mock_gateway):
     import os
 
     os.environ["NEXT_PUBLIC_MOCK_AUTH"] = "false"
-    os.environ["ARGUS_MOCK_AUTH"] = "false"
+    os.environ["CUADRAO_MOCK_AUTH"] = "false"
     mock_gateway.get_auth_user_from_token.return_value = {
         "id": "00000000-0000-0000-0000-000000000001",
         "email": "developer@argus.local",
@@ -1910,7 +1199,7 @@ def test_authenticated_request_blocks_private_alpha_email_without_access(mock_ga
     import os
 
     os.environ["NEXT_PUBLIC_MOCK_AUTH"] = "false"
-    os.environ["ARGUS_MOCK_AUTH"] = "false"
+    os.environ["CUADRAO_MOCK_AUTH"] = "false"
     mock_gateway.get_auth_user_from_token.return_value = {
         "id": "user-1",
         "email": "disabled@example.com",
@@ -2168,7 +1457,7 @@ def test_signup_allows_email_on_private_alpha_allowlist(mock_gateway, monkeypatc
 
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = True
     mock_gateway.signup.return_value = {
         "session": {
@@ -2182,6 +1471,7 @@ def test_signup_allows_email_on_private_alpha_allowlist(mock_gateway, monkeypatc
     response = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "beta@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2200,8 +1490,6 @@ def test_signup_allows_email_on_private_alpha_allowlist(mock_gateway, monkeypatc
     assert response.cookies.get("sb-auth-token") == "access-token-123"
 
 
-
-
 def test_signup_duplicate_obfuscated_user_does_not_emit_product_event(
     mock_gateway,
     monkeypatch,
@@ -2210,7 +1498,7 @@ def test_signup_duplicate_obfuscated_user_does_not_emit_product_event(
 
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     captured_events: list[tuple[str, dict[str, object]]] = []
 
     def fake_capture_product_event(kind: str, **payload: object) -> None:
@@ -2233,6 +1521,7 @@ def test_signup_duplicate_obfuscated_user_does_not_emit_product_event(
     response = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "existing@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2252,7 +1541,7 @@ def test_signup_keeps_obfuscated_duplicate_indistinguishable_without_profile(
 
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = True
     fresh_provider_response = {
         "session": None,
@@ -2275,14 +1564,17 @@ def test_signup_keeps_obfuscated_duplicate_indistinguishable_without_profile(
         duplicate_provider_response,
     ]
     profile_rows: set[str] = set()
-    mock_gateway.get_or_create_profile_for_auth_user.side_effect = (
-        lambda auth_user: profile_rows.add(str(auth_user["id"]))
-    )
-    headers = {"X-Forwarded-For": "203.0.113.92"}
+    def create_profile(auth_user):
+        profile_rows.add(str(auth_user["id"]))
+        return _mock_profile().model_copy(update={"id": str(auth_user["id"])})
+
+    mock_gateway.get_or_create_profile_for_auth_user.side_effect = create_profile
+    headers = {"CF-Connecting-IP": "203.0.113.92"}
 
     fresh = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "fresh@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2292,6 +1584,7 @@ def test_signup_keeps_obfuscated_duplicate_indistinguishable_without_profile(
     duplicate = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "existing@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2318,7 +1611,7 @@ def test_signup_retry_does_not_reveal_profile_creation_through_username(
 
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = True
     mock_gateway.signup.side_effect = [
         {
@@ -2338,7 +1631,7 @@ def test_signup_retry_does_not_reveal_profile_creation_through_username(
             },
         },
     ]
-    headers = {"X-Forwarded-For": "203.0.113.93"}
+    headers = {"CF-Connecting-IP": "203.0.113.93"}
 
     with patch(
         "argus.api.routers.auth.serialized_username_signup",
@@ -2360,6 +1653,7 @@ def test_signup_retry_does_not_reveal_profile_creation_through_username(
         first = client.post(
             "/api/v1/auth/signup",
             json={
+                "age_confirmed_at": "2026-01-01T00:00:00Z",
                 "email": "fresh@example.com",
                 "password": "password123",
                 "captcha_token": "captcha-proof",
@@ -2370,6 +1664,7 @@ def test_signup_retry_does_not_reveal_profile_creation_through_username(
         retry = client.post(
             "/api/v1/auth/signup",
             json={
+                "age_confirmed_at": "2026-01-01T00:00:00Z",
                 "email": "fresh@example.com",
                 "password": "password123",
                 "captcha_token": "captcha-proof",
@@ -2392,7 +1687,7 @@ def test_signup_normalizes_taken_username_before_creating_auth_user_or_profile(
 
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = True
     with patch(
         "argus.api.routers.auth.serialized_username_signup",
@@ -2406,6 +1701,7 @@ def test_signup_normalizes_taken_username_before_creating_auth_user_or_profile(
         response = client.post(
             "/api/v1/auth/signup",
             json={
+                "age_confirmed_at": "2026-01-01T00:00:00Z",
                 "email": "fresh@example.com",
                 "password": "password123",
                 "captcha_token": "captcha-proof",
@@ -2427,13 +1723,14 @@ def test_signup_normalizes_taken_username_before_creating_auth_user_or_profile(
 
 def test_signup_passes_selected_language_to_gateway(mock_gateway, monkeypatch):
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = True
     mock_gateway.signup.return_value = {"user": {"id": "user-1"}}
 
     response = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "alpha@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2443,6 +1740,7 @@ def test_signup_passes_selected_language_to_gateway(mock_gateway, monkeypatch):
 
     assert response.status_code == 200
     mock_gateway.signup.assert_called_once_with(
+        age_confirmed_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
         email="alpha@example.com",
         password="password123",
         display_name=None,
@@ -2457,11 +1755,12 @@ def test_signup_rejects_unsupported_language_before_provider_signup(
     monkeypatch,
 ):
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
 
     response = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "alpha@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2480,7 +1779,7 @@ def test_password_auth_requires_captcha_before_provider_call(
     monkeypatch,
 ):
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = True
 
     response = client.post(
@@ -2500,7 +1799,7 @@ def test_password_auth_bounds_captcha_before_provider_call(
     monkeypatch,
 ):
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = True
 
     response = client.post(
@@ -2525,13 +1824,14 @@ def test_public_signup_allowlist_denial_matches_provider_failure(
 
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = False
     headers = {"X-Request-Id": "signup-enumeration-regression"}
 
     allowlist_denied = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "stranger@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2550,6 +1850,7 @@ def test_public_signup_allowlist_denial_matches_provider_failure(
     provider_failed = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "alpha@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2563,14 +1864,18 @@ def test_public_signup_allowlist_denial_matches_provider_failure(
         == provider_failed.headers["X-Request-Id"]
         == headers["X-Request-Id"]
     )
-    assert allowlist_denied.json() == provider_failed.json() == {
-        "type": "https://api.argus.app/problems/auth-signup-failed",
-        "title": "Signup Failed",
-        "status": 400,
-        "detail": "Signup failed. Please try again.",
-        "code": "auth_signup_failed",
-        "request_id": "signup-enumeration-regression",
-    }
+    assert (
+        allowlist_denied.json()
+        == provider_failed.json()
+        == {
+            "type": "https://api.argus.app/problems/auth-signup-failed",
+            "title": "Signup Failed",
+            "status": 400,
+            "detail": "Signup failed. Please try again.",
+            "code": "auth_signup_failed",
+            "request_id": "signup-enumeration-regression",
+        }
+    )
     assert "provider rejected captcha" not in provider_failed.text
 
 
@@ -2582,13 +1887,14 @@ def test_public_signup_allowlist_denial_matches_taken_username_precheck(
 
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     headers = {"X-Request-Id": "signup-username-enumeration-regression"}
     mock_gateway.private_alpha_email_allowed.return_value = False
 
     allowlist_denied = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "stranger@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2611,6 +1917,7 @@ def test_public_signup_allowlist_denial_matches_taken_username_precheck(
         username_taken = client.post(
             "/api/v1/auth/signup",
             json={
+                "age_confirmed_at": "2026-01-01T00:00:00Z",
                 "email": "alpha@example.com",
                 "password": "password123",
                 "captcha_token": "captcha-proof",
@@ -2629,7 +1936,7 @@ def test_login_normalizes_private_alpha_access_failures(
     monkeypatch,
 ):
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = False
 
     response = client.post(
@@ -2655,7 +1962,7 @@ def test_login_normalizes_private_alpha_access_failures(
 
 def test_login_normalizes_provider_auth_failures(mock_gateway, monkeypatch):
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = True
     mock_gateway.login.side_effect = RuntimeError("invalid provider password")
 
@@ -2686,10 +1993,10 @@ def test_login_rate_limit_blocks_extra_attempt_before_provider(
 
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = True
     mock_gateway.login.side_effect = RuntimeError("invalid provider password")
-    headers = {"X-Forwarded-For": "203.0.113.10"}
+    headers = {"CF-Connecting-IP": "203.0.113.10"}
 
     for _ in range(auth_router.AUTH_LOGIN_ATTEMPT_LIMIT):
         response = client.post(
@@ -2727,14 +2034,15 @@ def test_signup_rate_limit_blocks_extra_attempt_before_allowlist_check(
 
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     mock_gateway.private_alpha_email_allowed.return_value = False
-    headers = {"X-Forwarded-For": "203.0.113.11"}
+    headers = {"CF-Connecting-IP": "203.0.113.11"}
 
     for _ in range(auth_router.AUTH_SIGNUP_ATTEMPT_LIMIT):
         response = client.post(
             "/api/v1/auth/signup",
             json={
+                "age_confirmed_at": "2026-01-01T00:00:00Z",
                 "email": "stranger@example.com",
                 "password": "password123",
                 "captcha_token": "captcha-proof",
@@ -2747,6 +2055,7 @@ def test_signup_rate_limit_blocks_extra_attempt_before_allowlist_check(
     blocked = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "stranger@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -3059,6 +2368,7 @@ def test_search_supabase_pushes_bounded_cursor_and_filter_to_gateway(
 
     assert response.status_code == 200
     mock_gateway.search_rows.assert_called_once_with(
+        scope=PERSONAL,
         user_id="00000000-0000-0000-0000-000000000001",
         query="needle",
         source_limit=3,
@@ -3109,6 +2419,7 @@ def test_search_supabase_pushes_visible_conversation_ids_to_bounded_reader(
 
     assert response.status_code == 200
     mock_gateway.search_rows.assert_called_once_with(
+        scope=PERSONAL,
         user_id="00000000-0000-0000-0000-000000000001",
         query="",
         source_limit=2,
@@ -3665,6 +2976,7 @@ def test_history_supabase_requests_non_archived_rows_by_default(mock_gateway):
 
     assert response.status_code == 200
     mock_gateway.list_history_rows.assert_called_once_with(
+        scope=PERSONAL,
         user_id="00000000-0000-0000-0000-000000000001",
         limit=21,
         cursor_activity_at=None,
@@ -3707,13 +3019,9 @@ def test_history_supabase_chat_items_carry_title_source(mock_gateway):
     )
 
     assert response.status_code == 200
-    chat_items = [
-        item for item in response.json()["items"] if item["type"] == "chat"
-    ]
+    chat_items = [item for item in response.json()["items"] if item["type"] == "chat"]
     assert [item["title_source"] for item in chat_items] == ["ai_generated"]
-    non_chat_items = [
-        item for item in response.json()["items"] if item["type"] != "chat"
-    ]
+    non_chat_items = [item for item in response.json()["items"] if item["type"] != "chat"]
     assert non_chat_items
     assert all("title_source" not in item for item in non_chat_items)
     assert all("activity" not in item for item in non_chat_items)
@@ -3742,6 +3050,7 @@ def test_history_supabase_can_request_archived_rows(mock_gateway):
 
     assert response.status_code == 200
     mock_gateway.list_history_rows.assert_called_once_with(
+        scope=PERSONAL,
         user_id="00000000-0000-0000-0000-000000000001",
         limit=21,
         cursor_activity_at=None,
@@ -3788,6 +3097,7 @@ def test_history_supabase_middle_page_uses_cursor_pivot_outside_candidates(
         "11111111-1111-1111-1111-111111111111"
     ]
     mock_gateway.list_history_rows.assert_called_once_with(
+        scope=PERSONAL,
         user_id="00000000-0000-0000-0000-000000000001",
         limit=3,
         cursor_activity_at=pivot_at,
@@ -3858,6 +3168,7 @@ def test_history_supabase_cursor_retains_original_pivot_rank(mock_gateway):
     assert second_page.status_code == 200
     assert mock_gateway.list_history_rows.call_args_list[1].kwargs == {
         "user_id": "00000000-0000-0000-0000-000000000001",
+        "scope": PERSONAL,
         "limit": 3,
         "cursor_activity_at": pivot_at,
         "cursor_id": pivot_id,
@@ -4021,6 +3332,7 @@ def test_conversation_first_middle_final_and_empty_pages(mock_gateway):
     calls = mock_gateway.list_conversations.call_args_list
     assert calls[0].kwargs == {
         "user_id": "00000000-0000-0000-0000-000000000001",
+        "scope": PERSONAL,
         "limit": 2,
         "archived": None,
         "deleted": False,
@@ -4195,6 +3507,7 @@ def test_message_first_middle_final_and_empty_pages(mock_gateway):
     assert final_page.json() == {
         "items": [messages[4].model_dump(mode="json")],
         "next_cursor": None,
+        "surface": "personal",
     }
 
     empty_page = client.get(
@@ -4202,7 +3515,7 @@ def test_message_first_middle_final_and_empty_pages(mock_gateway):
         headers={"Authorization": "Bearer test-token"},
     )
     assert empty_page.status_code == 200
-    assert empty_page.json() == {"items": [], "next_cursor": None}
+    assert empty_page.json() == {"items": [], "next_cursor": None, "surface": "personal"}
 
     calls = mock_gateway.list_messages.call_args_list
     assert calls[0].kwargs == {
@@ -4238,10 +3551,7 @@ def test_message_malformed_pivot_uses_existing_invalid_cursor_problem(mock_gatew
     mock_gateway.get_conversation.return_value = conversation
 
     response = client.get(
-        (
-            f"/api/v1/conversations/{conversation.id}/messages"
-            f"?limit=2&cursor={cursor}"
-        ),
+        (f"/api/v1/conversations/{conversation.id}/messages" f"?limit=2&cursor={cursor}"),
         headers={"Authorization": "Bearer test-token"},
     )
 

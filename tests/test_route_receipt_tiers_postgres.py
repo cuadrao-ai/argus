@@ -130,32 +130,6 @@ def _delete_turn(connection, turn: dict[str, str]) -> None:
         cursor.execute("delete from auth.users where id = %s", (turn["user_id"],))
 
 
-def _api_turn(turn: dict[str, str], receipt, monkeypatch) -> None:
-    from argus.api import state as api_state
-    from argus.api.chat.route_receipts import persist_route_receipts
-    from argus.domain.supabase_gateway import SupabaseGateway
-
-    from supabase import create_client
-
-    monkeypatch.setattr(
-        api_state,
-        "supabase_gateway",
-        SupabaseGateway(client=create_client(LOCAL_URL, LOCAL_SERVICE_KEY)),
-    )
-    persist_route_receipts(
-        receipts=[receipt],
-        user_id=turn["user_id"],
-        conversation_id=turn["conversation_id"],
-        run_id=turn["run_id"],
-        message_id=turn["message_id"],
-        metadata={
-            "request_id": str(uuid4()),
-            "source": "api_turn",
-            "turn_id": turn["message_id"],
-        },
-    )
-
-
 def _render_workflow(turn: dict[str, str], receipt, monkeypatch) -> None:
     from workflows.backtest_job import (
         PostgresBacktestJobGateway,
@@ -175,8 +149,8 @@ def _render_workflow(turn: dict[str, str], receipt, monkeypatch) -> None:
 
 @pytest.mark.parametrize(
     ("persist", "ledger_source"),
-    [(_api_turn, "api_turn"), (_render_workflow, "render_workflow")],
-    ids=["api_turn", "render_workflow"],
+    [(_render_workflow, "render_workflow")],
+    ids=["render_workflow"],
 )
 def test_result_summary_receipt_and_its_cost_row_persist(
     persist, ledger_source, monkeypatch

@@ -1,0 +1,34 @@
+{
+  "original_candidate": "07f768f28be6f900b1a3d2e7b242bcdbad25d93a",
+  "actually_preceding_baseline": "8d60ff2340b74e781f87d9736b2718676f09860c",
+  "fixture_fixed_candidate": "060a03f883f08fccdb613ee65343a8296a4793d7",
+  "original_candidate_compile_failure": "XCTestCase stored name conflicts with inherited name property; no tests executed",
+  "baseline_package": {
+    "executed": 139,
+    "passed": 135,
+    "skipped": 4,
+    "failed": 0
+  },
+  "fixture_fixed_package": {
+    "executed": 154,
+    "passed": 149,
+    "skipped": 4,
+    "failed": 1,
+    "new_name_cases": 15,
+    "new_name_failures": 0
+  },
+  "confirmed_changed_regression": "testDeleteFailureRemainsPendingUntilLocalCleanupSucceeds baseline focused pass1, candidate focused fail1",
+  "independent_boundaries": {
+    "passed": 3,
+    "skipped": 0,
+    "failed": 0
+  },
+  "terminal_acceptance": "scoped QA passed on a6; release captain owns dependency reconciliation/CI/provider gates",
+  "final_tested_head": "a6efe6e3360f1c4e58c97807b91547de527b0b04",
+  "final_package": {
+    "executed": 154,
+    "passed": 150,
+    "skipped": 4,
+    "failed": 0
+  }
+}

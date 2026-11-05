@@ -1,0 +1,15 @@
+{
+  "id": "staging-apply-2026-10-21-a",
+  "project_ref": "skedzwocnmrhfigiwyzi",
+  "hosts": [
+    "db.skedzwocnmrhfigiwyzi.supabase.co",
+    "aws-0-us-east-1.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "c1f6d369dcb56a2a5eb8e29d1502571e35a243dd",
+  "versions_sha256": "abca1b1d77386b47539d82f0b2059cc97dcdeaf3fe5d71ea07ef11b52798f182",
+  "issued_at": "2026-10-21T00:55:00-05:00",
+  "expires_at": "2026-10-24T00:55:00-05:00",
+  "approved_by": "founder",
+  "approval_reference": "Lucas yes, 2026-10-21, staging only, verbatim: \"Yes. Apply 20261020210000 and 20261020220000 to staging skedzwocnmrhfigiwyzi only, with a committed approval record and a dry run before each, before #1344 and #1346 merge. Never prod.\" #1344 Eval SHIP at fb7d1d18: https://github.com/lagarcess/argus/pull/1344#issuecomment-6309029661 #1346 Eval SHIP at 4e9d1f25: https://github.com/lagarcess/argus/pull/1346#issuecomment-6309029995"
+}

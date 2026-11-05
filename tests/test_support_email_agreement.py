@@ -13,7 +13,7 @@ from faker import Faker
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB_ROOT = ROOT / "web"
-SUPPORT_EMAIL_ENV = "NEXT_PUBLIC_ARGUS_SUPPORT_EMAIL"
+SUPPORT_EMAIL_ENV = "NEXT_PUBLIC_CUADRAO_SUPPORT_EMAIL"
 WEB_OWNER = "web/lib/support-email.ts"
 CODE_SUFFIXES = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs")
 fake = Faker()
@@ -69,11 +69,17 @@ def test_web_uses_the_configured_support_address() -> None:
     assert _web_support_email(configured) == configured
 
 
-def test_release_profile_pins_the_api_support_address() -> None:
-    # render.yaml is held to this profile by test_private_alpha_release_profile.py.
-    profile_path = ROOT / ".github" / "private-alpha-release-profile.json"
-    profile = json.loads(profile_path.read_text(encoding="utf-8"))
-    assert profile["services"]["web"]["env"][SUPPORT_EMAIL_ENV] == SUPPORT_EMAIL_ADDRESS
+def test_hosted_settings_leave_the_address_to_the_contract_file() -> None:
+    # Unset, the web reads support_contact.json, so no hosted setting repeats it.
+    manifest_path = ROOT / "scripts" / "ops" / "staging_env_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    entry = next(
+        e for e in manifest["services"]["web"]["entries"] if e["name"] == SUPPORT_EMAIL_ENV
+    )
+    assert entry["production"] == {"not_set": True}
+    assert entry["production_only"] is True
+    assert SUPPORT_EMAIL_ADDRESS not in manifest_path.read_text(encoding="utf-8")
+    assert SUPPORT_EMAIL_ENV not in (ROOT / "render.yaml").read_text(encoding="utf-8")
 
 
 def test_only_the_web_owner_reads_the_support_address_setting() -> None:

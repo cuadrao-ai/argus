@@ -1,0 +1,4 @@
+Compiles on 9493ea575 plus the W1g working-tree change (overlay removed, review entry added; no probe file on disk), each xcodebuild its own command, derived data ios/.build/DerivedData, destination iPhone 18 Pro 8AFB6084-8918-416E-9164-E21061306BEC
+Debug build: ** BUILD SUCCEEDED **
+Release build: ** BUILD SUCCEEDED **
+build-for-testing (Debug): ** TEST BUILD SUCCEEDED **

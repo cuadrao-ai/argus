@@ -1,0 +1,11 @@
+{
+ "signed_in_home_business_nav_visible": false,
+ "signed_in_home_mentions_business_merchants": [],
+ "signed_in_biz_http": 200,
+ "signed_in_biz_business_nav_visible": false,
+ "signed_in_biz_text": "404 This page could not be found.",
+ "signed_out_biz_http": 200,
+ "signed_out_biz_is_not_found_page": true,
+ "no_such_page_http": 404,
+ "business_api_calls_from_web": []
+}

@@ -1,0 +1,136 @@
+{
+  "synthetic": true,
+  "seed": 71,
+  "schema_status": "provisional evaluation-only scaffolding",
+  "disclaimer": "Fictional institutions and formats. No evidence of Dominican bank extraction accuracy.",
+  "fixtures": [
+    {
+      "file": "manual.json",
+      "format": "JSON",
+      "scenario": "manual cash expense, income and transfer",
+      "seed": 71,
+      "extraction_mode": "actual",
+      "expected_behavior": "Three explicit proposals; nothing saved until confirmation.",
+      "sha256": "53b74e3a23f665c081a490849f0610b2f0ba354aa30ce24abe6e6d5b6787d45e",
+      "limitations": "Synthetic only; authored stubs are separate from this expected-answer manifest."
+    },
+    {
+      "file": "transactions.csv",
+      "format": "CSV",
+      "scenario": "mixed reliable rows and explicit ambiguities",
+      "seed": 71,
+      "extraction_mode": "actual",
+      "expected_behavior": "Six reliable rows; five exceptions. Preserve both identical purchases.",
+      "sha256": "ba7c8753f79438fd5a083661de781a12e9743a3a4c00c1781d4f98b1666d9366",
+      "limitations": "Synthetic only; authored stubs are separate from this expected-answer manifest."
+    },
+    {
+      "file": "overlapping.csv",
+      "format": "CSV",
+      "scenario": "overlapping statement import",
+      "seed": 71,
+      "extraction_mode": "actual",
+      "expected_behavior": "tx-dop-01 repeats an existing source ID; overlap-new is distinct.",
+      "sha256": "7b086041a95976b3e857c4fe7c1b9b0dac69e5293b8a869aea264960628ff05a",
+      "limitations": "Synthetic only; authored stubs are separate from this expected-answer manifest."
+    },
+    {
+      "file": "statement.pdf",
+      "format": "text PDF",
+      "scenario": "reconcilable fictional statement",
+      "seed": 71,
+      "extraction_mode": "actual-when-pdftotext-available",
+      "expected_behavior": "Opening DOP 1000.00 + 1200.00 - 125.50 - 125.50 + 25.50 = 1974.50.",
+      "sha256": "1b645e59745427819177ae69bd340e71d2d95ade0e5126ac98801d39509dbec8",
+      "limitations": "Synthetic only; authored stubs are separate from this expected-answer manifest."
+    },
+    {
+      "file": "statement-overlap.pdf",
+      "format": "text PDF",
+      "scenario": "overlapping statement periods",
+      "seed": 71,
+      "extraction_mode": "actual-when-pdftotext-available",
+      "expected_behavior": "September 10 to October 10 overlaps September statement; statement-01 through statement-04 repeat, statement-05 is new.",
+      "sha256": "dc2835861b6ba918c2da9e29232983d59e20a28ea2e9698f964665b7e52c8ace",
+      "limitations": "Synthetic only; authored stubs are separate from this expected-answer manifest."
+    },
+    {
+      "file": "conversation-es.txt",
+      "format": "Spanish text",
+      "scenario": "explicit cash expense and ambiguous dollars",
+      "seed": 71,
+      "extraction_mode": "stub",
+      "expected_behavior": "One resolvable expense and one ambiguous currency/account proposal.",
+      "sha256": "98f99ac44f7e4f34cc68ba30ad60a93a1c13d1c8e1c40ba2b172d1ef2d5a0a11",
+      "limitations": "Synthetic only; authored stubs are separate from this expected-answer manifest."
+    },
+    {
+      "file": "conversation-en.txt",
+      "format": "English text",
+      "scenario": "income versus hypothetical spending",
+      "seed": 71,
+      "extraction_mode": "stub",
+      "expected_behavior": "Only USD 90 income; hypothetical question is not a proposal.",
+      "sha256": "8d83aa9ba6d070b58a414a577420417cb67ae11e4856630a5ff4b2c6893f7024",
+      "limitations": "Synthetic only; authored stubs are separate from this expected-answer manifest."
+    },
+    {
+      "file": "voice-transcript-es.txt",
+      "format": "Spanish transcript",
+      "scenario": "disfluency, correction and household ambiguity",
+      "seed": 71,
+      "extraction_mode": "stub",
+      "expected_behavior": "Self-corrected amount is DOP 250; household destination remains unresolved.",
+      "sha256": "d470ec119f4b5d4159e11df62fe6c2b222a32bd77be73c3db520416e60ab0593",
+      "limitations": "Synthetic only; authored stubs are separate from this expected-answer manifest."
+    },
+    {
+      "file": "receipt.png",
+      "format": "PNG receipt",
+      "scenario": "partially unreadable total",
+      "seed": 71,
+      "extraction_mode": "stub",
+      "expected_behavior": "Missing total prevents confirmation; visible item does not determine total.",
+      "sha256": "83c086bd67466b7769e7dd5af8963831f672f4ca9dacee2dec5ba383e4b076b8",
+      "limitations": "Synthetic only; authored stubs are separate from this expected-answer manifest."
+    },
+    {
+      "file": "scanned-statement.png",
+      "format": "PNG scanned-looking page",
+      "scenario": "partial extraction failure",
+      "seed": 71,
+      "extraction_mode": "stub",
+      "expected_behavior": "Reliable income can be confirmed; unreadable expense remains visible.",
+      "sha256": "e5fca617d1c70b2a78c422a128312f5e4e3927db59d4c37f07f5a5ce038b9805",
+      "limitations": "Synthetic only; authored stubs are separate from this expected-answer manifest."
+    }
+  ],
+  "anchors": {
+    "statement_balances": {
+      "opening": "1000.00",
+      "closing": "1974.50",
+      "currency": "DOP"
+    },
+    "legitimate_twins": [
+      "tx-dop-02",
+      "tx-dop-03"
+    ],
+    "ambiguous_currency": "tx-currency",
+    "ambiguous_date": "tx-date",
+    "ambiguous_number": "tx-number",
+    "missing_fields": "tx-missing",
+    "household_resolution": "tx-household",
+    "post_confirmation_correction": {
+      "source_id": "manual-expense",
+      "original": "150.00",
+      "corrected": "175.00",
+      "currency": "DOP"
+    }
+  },
+  "limitations": [
+    "OCR and STT are untested. Local macOS say yielded zero audio bytes in the sandbox; voice fixtures remain transcripts only.",
+    "No household permissions, canonical schema, FX conversion or real-bank support is modeled.",
+    "Source IDs deliberately represent source provenance; similar merchant/amount values are not identity.",
+    "Generated PDF format is intentionally simple; parsing it proves only this synthetic text path."
+  ]
+}

@@ -1,16 +1,15 @@
-import { LANGUAGE_STORAGE_KEY } from './browser-storage';
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import LanguageDetector from 'i18next-browser-languagedetector';
 import HttpBackend from 'i18next-http-backend';
-import { ENABLED_LANGUAGE_CODES } from './language-features';
+import { DEFAULT_LANGUAGE, ENABLED_LANGUAGE_CODES, browserLanguageSources, fallbackChain, resolveLanguage } from './language-features';
 
 i18n
   .use(HttpBackend)
-  .use(LanguageDetector)
   .use(initReactI18next)
   .init({
-    fallbackLng: 'en',
+    // The server has no sources, so it starts on the default the layout renders.
+    lng: resolveLanguage(browserLanguageSources()),
+    fallbackLng: (code?: string) => fallbackChain(code, DEFAULT_LANGUAGE),
     supportedLngs: ENABLED_LANGUAGE_CODES,
     defaultNS: 'common',
     ns: ['common'],
@@ -22,19 +21,6 @@ i18n
     parseMissingKeyHandler: () => '',
     backend: {
       loadPath: '/locales/{{lng}}/{{ns}}.json',
-    },
-    detection: {
-      order: ['localStorage', 'navigator'],
-      caches: ['localStorage'],
-      // Declared rather than inherited, so the key the detector persists is
-      // one the storage registry knows about.
-      lookupLocalStorage: LANGUAGE_STORAGE_KEY,
-      // Language comes from what the user actually set, not from geography.
-      // navigator.language of es-MX or es-ES is still Spanish, so it resolves
-      // to the one Spanish Argus ships. A transform on the detected value, so
-      // it adds no second route to the key above.
-      convertDetectedLanguage: (language: string) =>
-        language.toLowerCase().startsWith('es') ? 'es-419' : language,
     },
   });
 

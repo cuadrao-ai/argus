@@ -26,6 +26,7 @@ from argus.agent_runtime.interpreter.research_routing import (
 )
 from argus.agent_runtime.stages.interpret_types import AssetDiscoveryRequest
 from argus.llm.openrouter import invoke_openrouter_json_schema
+from argus.log_sink import exception_origin
 
 _TRIGGER_ACTS = frozenset({None, "educational_question"})
 _HISTORY_TURNS = 4
@@ -110,7 +111,14 @@ async def focused_discovery_payload_response(
             schema_name="FocusedAssetDiscoveryRead",
         )
     except Exception as exc:  # noqa: BLE001
-        logger.debug("Focused discovery read failed", error=str(exc))
+        origin = exception_origin(exc)
+        logger.debug(
+            "Focused discovery read failed error_type={} error_origin={}",
+            type(exc).__name__,
+            origin,
+            error_type=type(exc).__name__,
+            error_origin=origin,
+        )
         return None
     if not isinstance(read, FocusedAssetDiscoveryRead):
         return None

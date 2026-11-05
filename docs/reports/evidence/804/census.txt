@@ -1,0 +1,22 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0 -- /private/tmp/cuadrao-scipy-env-20261005/bin/python
+cachedir: .pytest_cache
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+hypothesis profile 'default'
+rootdir: /private/tmp/cuadrao-invite-hardening-804-20261005
+configfile: pyproject.toml
+plugins: benchmark-5.2.3, mock-3.15.1, Faker-30.10.0, asyncio-1.4.0, hypothesis-6.151.12, langsmith-0.7.31, respx-0.23.1, cov-7.0.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 3 items
+
+tests/test_account_deletion_fk_census_postgres.py::test_sweep_names_every_user_reference_and_the_census_document_matches_it PASSED [ 33%]
+tests/test_account_deletion_fk_census_postgres.py::test_deleting_a_sharing_user_reports_every_blocker_and_cascade PASSED [ 66%]
+tests/test_account_deletion_fk_census_postgres.py::test_deleting_a_guest_with_a_full_chat_and_research_graph PASSED [100%]
+
+=============================== warnings summary ===============================
+tests/test_account_deletion_fk_census_postgres.py::test_deleting_a_sharing_user_reports_every_blocker_and_cascade
+  /private/tmp/cuadrao-scipy-env-20261005/lib/python3.11/site-packages/psycopg_pool/pool.py:134: DeprecationWarning: the default for the ConnectionPool 'open' parameter will become 'False' in a future release. Please use open={True|False} explicitly, or use the pool as context manager using: `with ConnectionPool(...) as pool: ...`
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=================== 3 passed, 1 warning in 90.08s (0:01:30) ====================

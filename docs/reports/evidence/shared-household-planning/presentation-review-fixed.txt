@@ -1,0 +1,97 @@
+warning: /Users/garces/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/garces/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+Building for debugging...
+[Constructing description]
+[Planning deferred tasks]
+[14 / 50] Clocks
+[15 / 35] FinancialModels
+[24 / 44] FinancialModels
+[30 / 46] FinancialModels
+[36 / 47] FinancialModelTests-product
+[42 / 53] FinancialModelTests-product
+[47 / 53] FinancialModelTests-product
+[49 / 53] FinancialModelTests-product
+Build complete! (2.56 sec)
+Test Suite 'All tests' started at 2026-10-01 17:30:16.516.
+Test Suite 'FinancialModelTests.xctest' started at 2026-10-01 17:30:16.516.
+Test Suite 'HouseholdModelTests' started at 2026-10-01 17:30:16.516.
+Test Case '-[FinancialModelTests.HouseholdModelTests testChangedAssetDecodesWithRedactedAuthorAndKeepsPersonalAuthorRequired]' started.
+Test Case '-[FinancialModelTests.HouseholdModelTests testChangedAssetDecodesWithRedactedAuthorAndKeepsPersonalAuthorRequired]' passed (0.007 seconds).
+Test Case '-[FinancialModelTests.HouseholdModelTests testCommittedPendingRetryWhileOffPreservesExactJournalThroughRelaunch]' started.
+Test Case '-[FinancialModelTests.HouseholdModelTests testCommittedPendingRetryWhileOffPreservesExactJournalThroughRelaunch]' passed (0.003 seconds).
+Test Case '-[FinancialModelTests.HouseholdModelTests testDefaultOffAndUnavailableDiscoveryNeverClaimMembershipLoss]' started.
+Test Case '-[FinancialModelTests.HouseholdModelTests testDefaultOffAndUnavailableDiscoveryNeverClaimMembershipLoss]' passed (0.002 seconds).
+Test Case '-[FinancialModelTests.HouseholdModelTests testDelayedCreateCannotSelectHouseholdAfterSignOut]' started.
+Test Case '-[FinancialModelTests.HouseholdModelTests testDelayedCreateCannotSelectHouseholdAfterSignOut]' passed (0.001 seconds).
+Test Case '-[FinancialModelTests.HouseholdModelTests testDelayedDetailCannotReturnAfterAccessGenerationChanges]' started.
+Test Case '-[FinancialModelTests.HouseholdModelTests testDelayedDetailCannotReturnAfterAccessGenerationChanges]' passed (0.002 seconds).
+Test Case '-[FinancialModelTests.HouseholdModelTests testDelayedDiscoveryCannotRestoreDisabledOrSignedOutOrChangedIdentity]' started.
+Test Case '-[FinancialModelTests.HouseholdModelTests testDelayedDiscoveryCannotRestoreDisabledOrSignedOutOrChangedIdentity]' passed (0.005 seconds).
+Test Case '-[FinancialModelTests.HouseholdModelTests testDeniedRetryForPreviousHouseholdPreservesCurrentScope]' started.
+Test Case '-[FinancialModelTests.HouseholdModelTests testDeniedRetryForPreviousHouseholdPreservesCurrentScope]' passed (0.003 seconds).
+Test Case '-[FinancialModelTests.HouseholdModelTests testDepartureReturnsToPersonalAndRemovesPersistedSelection]' started.
+Test Case '-[FinancialModelTests.HouseholdModelTests testDepartureReturnsToPersonalAndRemovesPersistedSelection]' passed (0.002 seconds).
+Test Case '-[FinancialModelTests.HouseholdModelTests testPreparedInvitationCannotFollowSelectionOrRetryIntoAnotherHousehold]' started.
+Test Case '-[FinancialModelTests.HouseholdModelTests testPreparedInvitationCannotFollowSelectionOrRetryIntoAnotherHousehold]' passed (0.005 seconds).
+Test Case '-[FinancialModelTests.HouseholdModelTests testRateLimitedPendingRetryKeepsExactCommandUntilExplicitRetry]' started.
+Test Case '-[FinancialModelTests.HouseholdModelTests testRateLimitedPendingRetryKeepsExactCommandUntilExplicitRetry]' passed (0.002 seconds).
+Test Case '-[FinancialModelTests.HouseholdModelTests testScopeChangesReleaseWriteBusyAndPreserveExactRetry]' started.
+Test Case '-[FinancialModelTests.HouseholdModelTests testScopeChangesReleaseWriteBusyAndPreserveExactRetry]' passed (0.004 seconds).
+Test Case '-[FinancialModelTests.HouseholdModelTests testScopedAccessLossClearsSelectionButOther404And403DoNot]' started.
+Test Case '-[FinancialModelTests.HouseholdModelTests testScopedAccessLossClearsSelectionButOther404And403DoNot]' passed (0.007 seconds).
+Test Case '-[FinancialModelTests.HouseholdModelTests testSelectedHouseholdOffAcrossEntryPointsClearsProtectedStateAndRestoresSelection]' started.
+2026-10-01 17:30:16.578 xctest[8275:38804530] Error obtaining permanent ID: Error Domain=NSCocoaErrorDomain Code=134020 "The model configuration used to open the store is incompatible with the one that was used to create the store."
+Test Case '-[FinancialModelTests.HouseholdModelTests testSelectedHouseholdOffAcrossEntryPointsClearsProtectedStateAndRestoresSelection]' passed (0.025 seconds).
+Test Case '-[FinancialModelTests.HouseholdModelTests testUncertainCommandSurvivesRelaunchWithExactBodyAndKey]' started.
+Test Case '-[FinancialModelTests.HouseholdModelTests testUncertainCommandSurvivesRelaunchWithExactBodyAndKey]' passed (0.002 seconds).
+Test Suite 'HouseholdModelTests' passed at 2026-10-01 17:30:16.588.
+	 Executed 14 tests, with 0 failures (0 unexpected) in 0.071 (0.072) seconds
+Test Suite 'HouseholdPlanModelTests' started at 2026-10-01 17:30:16.588.
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testBackedSavingsUsesSupportedResidualShareAndCurrentnessFromServer]' started.
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testBackedSavingsUsesSupportedResidualShareAndCurrentnessFromServer]' passed (0.001 seconds).
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testChangedCadenceCarriesOnlyExplicitScheduleAndServerCutover]' started.
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testChangedCadenceCarriesOnlyExplicitScheduleAndServerCutover]' passed (0.000 seconds).
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testCommittedConsentResponseLossReplaysExactReceiptAfterAuthorizationAdvances]' started.
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testCommittedConsentResponseLossReplaysExactReceiptAfterAuthorizationAdvances]' passed (0.019 seconds).
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testContributionConfirmsNormalizedReviewRatherThanEditableDraft]' started.
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testContributionConfirmsNormalizedReviewRatherThanEditableDraft]' passed (0.004 seconds).
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testDeletedDetailLeavesBackAndSearchOriginAvailable]' started.
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testDeletedDetailLeavesBackAndSearchOriginAvailable]' passed (0.004 seconds).
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testDisabledAndRevokedReadClearAllPlanAndPrivateEditorState]' started.
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testDisabledAndRevokedReadClearAllPlanAndPrivateEditorState]' passed (0.005 seconds).
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testDuplicateBudgetScopeUsesExistingBudgetExplanation]' started.
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testDuplicateBudgetScopeUsesExistingBudgetExplanation]' passed (0.000 seconds).
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testFutureAmountEditsLeaveExistingAnchorsToCanonicalServer]' started.
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testFutureAmountEditsLeaveExistingAnchorsToCanonicalServer]' passed (0.000 seconds).
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testLateContributionPreviewCannotReappearAfterSignOut]' started.
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testLateContributionPreviewCannotReappearAfterSignOut]' passed (0.002 seconds).
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testLateDetailAndSnapshotCannotCrossScopeOrSignOut]' started.
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testLateDetailAndSnapshotCannotCrossScopeOrSignOut]' passed (0.004 seconds).
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testLostResponseRetriesExactTypedBodyOnlyUnderSameScope]' started.
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testLostResponseRetriesExactTypedBodyOnlyUnderSameScope]' passed (0.004 seconds).
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testNewMembershipCannotRetryAnOldConfirmation]' started.
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testNewMembershipCannotRetryAnOldConfirmation]' passed (0.002 seconds).
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testPeopleWritesReachCanonicalParticipantsRouteForEveryKind]' started.
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testPeopleWritesReachCanonicalParticipantsRouteForEveryKind]' passed (0.009 seconds).
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testRetryLiveScopePreflightCannotSubmitAfterSignOutRevocationOrDisablement]' started.
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testRetryLiveScopePreflightCannotSubmitAfterSignOutRevocationOrDisablement]' passed (0.006 seconds).
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testSnapshotAndSearchDestinationCarryScopeAndReturnContext]' started.
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testSnapshotAndSearchDestinationCarryScopeAndReturnContext]' passed (0.003 seconds).
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testTitleOnlyEditingPreservesOriginalScheduleAndSendsNoCutoverForEveryCadence]' started.
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testTitleOnlyEditingPreservesOriginalScheduleAndSendsNoCutoverForEveryCadence]' passed (0.001 seconds).
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testUncommittedOldAuthorizationReachesServerCASAndCannotMutate]' started.
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testUncommittedOldAuthorizationReachesServerCASAndCannotMutate]' passed (0.003 seconds).
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testUniformNotFoundStillEndsAccessWhenHouseholdMembershipIsGone]' started.
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testUniformNotFoundStillEndsAccessWhenHouseholdMembershipIsGone]' passed (0.002 seconds).
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testViewerContributionCapabilityNeverGrantsDefinitionOrOtherClaimEditing]' started.
+Test Case '-[FinancialModelTests.HouseholdPlanModelTests testViewerContributionCapabilityNeverGrantsDefinitionOrOtherClaimEditing]' passed (0.002 seconds).
+Test Suite 'HouseholdPlanModelTests' passed at 2026-10-01 17:30:16.658.
+	 Executed 19 tests, with 0 failures (0 unexpected) in 0.069 (0.070) seconds
+Test Suite 'FinancialModelTests.xctest' passed at 2026-10-01 17:30:16.658.
+	 Executed 33 tests, with 0 failures (0 unexpected) in 0.140 (0.142) seconds
+Test Suite 'All tests' passed at 2026-10-01 17:30:16.658.
+	 Executed 33 tests, with 0 failures (0 unexpected) in 0.140 (0.143) seconds
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.

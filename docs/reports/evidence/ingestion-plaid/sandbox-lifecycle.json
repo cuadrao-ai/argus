@@ -1,0 +1,124 @@
+{
+  "after_initial": {
+    "cursor_saved": true,
+    "fresh": true,
+    "status": "active"
+  },
+  "currency_missing": 0,
+  "disconnect": {
+    "credential_deleted": true,
+    "item_get_after_remove": "ITEM_NOT_FOUND",
+    "provider_revocation": "revoked",
+    "status": "disconnected"
+  },
+  "environment": "sandbox",
+  "evidence_by_status": {
+    "pending": 18,
+    "posted": 331,
+    "removed": 17
+  },
+  "exchange": {
+    "access_token_sealed": true,
+    "connections": 1,
+    "created": true,
+    "label": "First Platypus Bank",
+    "retry_created": false,
+    "retry_same_connection": true
+  },
+  "initial_sync": {
+    "added": 331,
+    "error_code": null,
+    "modified": 0,
+    "more_pending": false,
+    "not_ready_polls": 1,
+    "pages": 4,
+    "pending": 17,
+    "posted": 314,
+    "removed": 0,
+    "replacing": 0,
+    "restarts": 0,
+    "skipped": 0,
+    "status": "synced"
+  },
+  "institution": "ins_109508",
+  "link_token_created": true,
+  "page_size": 100,
+  "pending_to_posted": {
+    "earlier_pending_rows_now_removed": 17,
+    "pending_before_refresh": 17,
+    "posted_dates_split": 17,
+    "posted_rows_naming_an_earlier_pending_row": 17,
+    "refresh_calls": 1,
+    "refresh_polls": 1,
+    "refresh_sync": {
+      "added": 35,
+      "error_code": null,
+      "modified": 0,
+      "more_pending": false,
+      "pages": 1,
+      "pending": 18,
+      "posted": 17,
+      "removed": 17,
+      "replacing": 17,
+      "restarts": 0,
+      "skipped": 0,
+      "status": "synced"
+    }
+  },
+  "provider_calls": {
+    "/institutions/get_by_id": 1,
+    "/item/get": 3,
+    "/item/public_token/exchange": 2,
+    "/item/remove": 1,
+    "/link/token/create": 2,
+    "/sandbox/item/reset_login": 1,
+    "/sandbox/public_token/create": 1,
+    "/transactions/refresh": 1,
+    "/transactions/sync": 8,
+    "/webhook_verification_key/get": 1
+  },
+  "provider_calls_total": 21,
+  "reconnect": {
+    "last_error_code": "plaid_item_login_required",
+    "link_update_mode_ui": "not exercised (needs Plaid Link in a browser)",
+    "status_after_check_without_link_ui": "needs_reauth",
+    "update_mode_link_token_created": true
+  },
+  "reset_login": {
+    "cursor_kept": true,
+    "freshness_kept": true,
+    "last_error_code": "plaid_item_login_required",
+    "status": "needs_reauth",
+    "sync": {
+      "added": 0,
+      "error_code": "plaid_item_login_required",
+      "modified": 0,
+      "more_pending": false,
+      "pages": 0,
+      "pending": 0,
+      "posted": 0,
+      "removed": 0,
+      "replacing": 0,
+      "restarts": 0,
+      "skipped": 0,
+      "status": "failed"
+    }
+  },
+  "resync": {
+    "added": 0,
+    "error_code": null,
+    "modified": 0,
+    "more_pending": false,
+    "pages": 1,
+    "pending": 0,
+    "posted": 0,
+    "removed": 0,
+    "replacing": 0,
+    "restarts": 0,
+    "skipped": 0,
+    "status": "synced"
+  },
+  "run_at": "2026-10-01T19:31:50+00:00",
+  "test_user": "user_transactions_dynamic",
+  "webhook_key_unknown_kid": "INVALID_WEBHOOK_VERIFICATION_KEY_ID"
+}

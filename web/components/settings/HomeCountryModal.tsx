@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import SettingsSurface from "@/components/settings/SettingsSurface";
 import type { ApiUser, ProfilePatch } from "@/lib/argus-api";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
 import {
@@ -168,7 +168,7 @@ export default function HomeCountryModal({
       : (profile?.currency ?? t("settings.app.no_currency", "Not set"));
 
   return (
-    <AdaptivePanel
+    <SettingsSurface
       title={t("settings.app.home_country", "Country and currency")}
       closeLabel={t("settings.app.close_home_country", "Close country and currency")}
       onClose={onClose}
@@ -205,7 +205,7 @@ export default function HomeCountryModal({
         <p className="px-1 pt-2 text-[12px] text-black/45 dark:text-white/45">
           {t(
             "settings.app.home_country_note",
-            "When Argus looks things up, it uses your country as your location.",
+            "When Cuadrao looks things up, it uses your country as your location.",
           )}
         </p>
       </div>
@@ -259,6 +259,6 @@ export default function HomeCountryModal({
           ))
         )}
       </div>
-    </AdaptivePanel>
+    </SettingsSurface>
   );
 }

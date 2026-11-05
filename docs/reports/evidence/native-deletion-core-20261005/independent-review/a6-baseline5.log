@@ -1,0 +1,52 @@
+warning: /Users/garces/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/garces/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+Building for debugging...
+[Constructing description]
+[Planning 308 / 393]
+[Creating build graph]
+[12 / 56] Crypto
+[31 / 117] IssueReporting
+[46 / 118] HTTPTypes
+[55 / 118] Crypto
+[68 / 118] IssueReporting
+[88 / 128] HTTPTypes
+[95 / 131] _IssueReporting
+[110 / 142] XCTestDynamicOverlay
+[117 / 149] XCTestDynamicOverlay
+[123 / 153] XCTestDynamicOverlay
+[144 / 172] Helpers
+[148 / 174] Crypto
+[152 / 178] Auth
+[171 / 197] Auth
+[175 / 199] ArgusSession
+[192 / 218] ArgusSession
+[194 / 218] ArgusSession
+[199 / 215] ArgusSession
+[200 / 215] Auth
+[205 / 214] ArgusSessionTests-product
+[224 / 233] ArgusSessionTests-product
+[228 / 232] ArgusSessionTests-product
+[230 / 232] ArgusSessionTests-product
+Build complete! (5.35 sec)
+Test Suite 'Selected tests' started at 2026-10-05 21:30:49.893.
+Test Suite 'ArgusSessionTests.xctest' started at 2026-10-05 21:30:49.893.
+Test Suite 'AppleCredentialValidationTests' started at 2026-10-05 21:30:49.893.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testNotificationDuringAdoptionKeepsJournalAndRequiresFreshCheck]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testNotificationDuringAdoptionKeepsJournalAndRequiresFreshCheck]' passed (0.005 seconds).
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testNotificationDuringCaptureHoldsSessionWithoutReplayingCode]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testNotificationDuringCaptureHoldsSessionWithoutReplayingCode]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testNotificationInvalidatesInFlightAppleAnswersBeforeQueuedRestore]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testNotificationInvalidatesInFlightAppleAnswersBeforeQueuedRestore]' passed (0.003 seconds).
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testUnreadableNotificationAdmissionInvalidatesInFlightCheckerAnswer]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testUnreadableNotificationAdmissionInvalidatesInFlightCheckerAnswer]' passed (0.003 seconds).
+Test Suite 'AppleCredentialValidationTests' passed at 2026-10-05 21:30:49.906.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.012 (0.013) seconds
+Test Suite 'AppleNameInitializationTests' started at 2026-10-05 21:30:49.906.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testNameCommandIsAwaitedAndLateRevalidationCannotAdoptItsResponse]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testNameCommandIsAwaitedAndLateRevalidationCannotAdoptItsResponse]' passed (0.002 seconds).
+Test Suite 'AppleNameInitializationTests' passed at 2026-10-05 21:30:49.908.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'ArgusSessionTests.xctest' passed at 2026-10-05 21:30:49.908.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.015 (0.015) seconds
+Test Suite 'Selected tests' passed at 2026-10-05 21:30:49.908.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.015 (0.016) seconds

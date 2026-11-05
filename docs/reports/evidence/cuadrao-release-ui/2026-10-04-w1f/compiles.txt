@@ -1,0 +1,13 @@
+Compiles on sources 3ed8dae0a (no probe file on disk), each xcodebuild its own command, derived data ios/.build/DerivedData
+Debug build: ** BUILD SUCCEEDED **
+Release build: ** BUILD SUCCEEDED **
+build-for-testing (Debug): ** TEST BUILD SUCCEEDED **
+
+Release binary, strings count:
+  --cuadrao-design: 0
+  --cuadrao-release-gates: 0
+  --design-gallery: 1
+  --home-populated: 1
+Release Info.plist CUADRAO_DESIGN_PREVIEW: false
+Release launch with no arguments and with --cuadrao-design --cuadrao-home --home-populated: screenshots byte-identical (cmp), see release-design-argument-launch.png
+git diff --check: clean

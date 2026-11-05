@@ -1,0 +1,54 @@
+{
+  "results": [
+    {
+      "path": "/business/personal",
+      "width": 320,
+      "height": 1754,
+      "title": "Tus finanzas, en orden. | Cuadrao Personal"
+    },
+    {
+      "path": "/business/personal",
+      "width": 390,
+      "height": 1700,
+      "title": "Tus finanzas, en orden. | Cuadrao Personal"
+    },
+    {
+      "path": "/business/personal",
+      "width": 768,
+      "height": 1294,
+      "title": "Tus finanzas, en orden. | Cuadrao Personal"
+    },
+    {
+      "path": "/business/personal",
+      "width": 1440,
+      "height": 1499,
+      "title": "Tus finanzas, en orden. | Cuadrao Personal"
+    },
+    {
+      "path": "/business/en/personal",
+      "width": 320,
+      "height": 1745,
+      "title": "Your finances, in order. | Cuadrao Personal"
+    },
+    {
+      "path": "/business/en/personal",
+      "width": 390,
+      "height": 1673,
+      "title": "Your finances, in order. | Cuadrao Personal"
+    },
+    {
+      "path": "/business/en/personal",
+      "width": 768,
+      "height": 1294,
+      "title": "Your finances, in order. | Cuadrao Personal"
+    },
+    {
+      "path": "/business/en/personal",
+      "width": 1440,
+      "height": 1499,
+      "title": "Your finances, in order. | Cuadrao Personal"
+    }
+  ],
+  "errors": [],
+  "checks": "8 Personal layouts and metadata checks after hydration fix, mobile DOM and visual order, real unavailable signup endpoint. No signup saved and no email sent."
+}

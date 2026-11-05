@@ -1,0 +1,4 @@
+Test Case '-[ArgusFoundationUITests.CuadraoConsistencyUITests testMoneyEntryAndBlankCreationSpanish]' passed (24.718 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testInvitationProminentLabelsLightAndDark]' passed (22.942 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testInviteFullStateAndQRSharing]' passed (9.686 seconds).
+exit=0 seconds=280

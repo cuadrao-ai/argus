@@ -1,0 +1,15 @@
+{
+  "id": "staging-apply-2026-11-04-business-notifications",
+  "project_ref": "skedzwocnmrhfigiwyzi",
+  "hosts": [
+    "db.skedzwocnmrhfigiwyzi.supabase.co",
+    "aws-0-us-east-1.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "ee52b90fad26c637d47aa5d880cae525adf28352",
+  "versions_sha256": "723341674ad6395a758ee2b36061987259136e0fef7f6a1d87e90896e8337f8e",
+  "issued_at": "2026-11-04T12:30:01Z",
+  "expires_at": "2026-11-06T12:30:01Z",
+  "approved_by": "founder",
+  "approval_reference": "Lucas, in the orchestrator session on 2026-11-04, approved the stored notification bell migration and its staging deploy, on staging only."
+}

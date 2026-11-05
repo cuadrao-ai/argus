@@ -1,0 +1,9 @@
+W1B-MONEY-SLOW ["1", "12", "125", "1,250", "1,250.", "1,250.5"]
+Test Case '-[ArgusFoundationUITests.W1bDiagnosticUITests testMoneyPerCharacterHandPaced]' passed (14.990 seconds).
+W1B-MONEY-CHAR 1,250.5
+Test Case '-[ArgusFoundationUITests.W1bDiagnosticUITests testMoneyPerCharacterNoPause]' passed (13.186 seconds).
+<unknown>:0: warning: -[ArgusFoundationUITests.W1bDiagnosticUITests testMoneyWholeString] : Modifying state during view update, this will cause undefined behavior.
+W1B-MONEY-FAST 150.5
+ios/ArgusFoundationUITests/W1bDiagnosticUITests.swift:85: error: -[ArgusFoundationUITests.W1bDiagnosticUITests testMoneyWholeString] : XCTAssertEqual failed: ("Optional("150.5")") is not equal to ("Optional("1,250.5")")
+Test Case '-[ArgusFoundationUITests.W1bDiagnosticUITests testMoneyWholeString]' failed (11.694 seconds).
+exit=65 seconds=4448

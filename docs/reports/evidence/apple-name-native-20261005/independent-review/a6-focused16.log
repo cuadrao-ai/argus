@@ -1,0 +1,49 @@
+warning: /Users/garces/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/garces/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+Building for debugging...
+[Computing dependencies]
+Build complete! (0.34 sec)
+Test Suite 'Selected tests' started at 2026-10-05 21:14:36.716.
+Test Suite 'ArgusSessionTests.xctest' started at 2026-10-05 21:14:36.717.
+Test Suite 'AppleNameInitializationTests' started at 2026-10-05 21:14:36.717.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testCallbackIsDurableBeforeProviderGrantAndCanonicalNameIsAwaited]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testCallbackIsDurableBeforeProviderGrantAndCanonicalNameIsAwaited]' passed (0.004 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testCallbackStorageFailureAndSupersededCallbackNeverStartGrant]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testCallbackStorageFailureAndSupersededCallbackNeverStartGrant]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testDeniedAdoptionNeverDispatchesNameAndClearsCallback]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testDeniedAdoptionNeverDispatchesNameAndClearsCallback]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testDifferentCallbackAndDifferentCanonicalSubjectCannotReceiveOldName]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testDifferentCallbackAndDifferentCanonicalSubjectCannotReceiveOldName]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testDurableAcknowledgementFailureNeverReportsNameSaved]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testDurableAcknowledgementFailureNeverReportsNameSaved]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testExistingNameAndExplicitClearAreCanonicalNoOps]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testExistingNameAndExplicitClearAreCanonicalNoOps]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testExpiredCallbackAndEmptyNameDoNotBecomeCommands]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testExpiredCallbackAndEmptyNameDoNotBecomeCommands]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testLostGrantResponseKeepsOnlyCallbackIntentForFreshSameSubjectGrant]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testLostGrantResponseKeepsOnlyCallbackIntentForFreshSameSubjectGrant]' passed (1.011 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testLostNameResponseRetriesAfterRelaunchWithoutCodeReplay]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testLostNameResponseRetriesAfterRelaunchWithoutCodeReplay]' passed (0.005 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testNameCommandIsAwaitedAndLateRevalidationCannotAdoptItsResponse]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testNameCommandIsAwaitedAndLateRevalidationCannotAdoptItsResponse]' passed (0.004 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testRecoverableAdoptionFailuresPreserveFirstCallbackForFreshGrant]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testRecoverableAdoptionFailuresPreserveFirstCallbackForFreshGrant]' passed (0.007 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testRefreshKeepsExactBoundIntentAndUnknownGrantCannotPromoteIt]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testRefreshKeepsExactBoundIntentAndUnknownGrantCannotPromoteIt]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testSignOutClearsPendingNameAndRejectsOldIdentityRetry]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testSignOutClearsPendingNameAndRejectsOldIdentityRetry]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testUnavailableNameDoesNotFailSignInAndExplicitRetryUsesStoredIntent]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testUnavailableNameDoesNotFailSignInAndExplicitRetryUsesStoredIntent]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testUncertainAppleValidationRetainsNameWithoutDispatchUntilAuthorized]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testUncertainAppleValidationRetainsNameWithoutDispatchUntilAuthorized]' passed (0.002 seconds).
+Test Suite 'AppleNameInitializationTests' passed at 2026-10-05 21:14:37.765.
+	 Executed 15 tests, with 0 failures (0 unexpected) in 1.048 (1.049) seconds
+Test Suite 'SessionControllerTests' started at 2026-10-05 21:14:37.766.
+Test Case '-[ArgusSessionTests.SessionControllerTests testDeleteFailureRemainsPendingUntilLocalCleanupSucceeds]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testDeleteFailureRemainsPendingUntilLocalCleanupSucceeds]' passed (0.001 seconds).
+Test Suite 'SessionControllerTests' passed at 2026-10-05 21:14:37.767.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.001 (0.002) seconds
+Test Suite 'ArgusSessionTests.xctest' passed at 2026-10-05 21:14:37.767.
+	 Executed 16 tests, with 0 failures (0 unexpected) in 1.049 (1.051) seconds
+Test Suite 'Selected tests' passed at 2026-10-05 21:14:37.767.
+	 Executed 16 tests, with 0 failures (0 unexpected) in 1.049 (1.051) seconds

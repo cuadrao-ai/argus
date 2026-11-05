@@ -1,0 +1,15 @@
+{
+  "verification": "ChartProofTest.screenshot asserts captured bitmap pixel(10,height/2) equals resolved theme before PNG save; seven tests passed. Saved PNGs also visually inspected.",
+  "dark": [
+    "spanish-dark.png",
+    "system-os-dark.png"
+  ],
+  "dark_expected_body": "#191c1f",
+  "light": [
+    "spanish-light.png",
+    "system-os-light.png",
+    "spanish-system.png"
+  ],
+  "light_expected_body": "#ffffff",
+  "system_bars": "Visual inspection confirmed light icons on dark and dark icons on light."
+}

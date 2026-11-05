@@ -1,0 +1,106 @@
+{
+  "assembled_source_head": "83523335d43e6f6e98ac1ddd05fb47a0531ddc83",
+  "simulator": "A466756C-1478-4FA9-8604-3D9FEE15A601",
+  "device": "Argus Connected Savings Goals, iPhone17e/iOS27.0",
+  "auth": "real local registered synthetic owners",
+  "api": 59100,
+  "postgres": 59102,
+  "response_loss_proxy": 59112,
+  "final_installed_build": "ordinary direct API59100, English/dark",
+  "native_cases": [
+    {
+      "purpose": "complete_native_journey",
+      "source_head": "83523335d43e6f6e98ac1ddd05fb47a0531ddc83",
+      "result_bundle": "ui-20260930T062412Z.xcresult",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "start_time": 1790749455.352,
+      "finish_time": 1790749752.855,
+      "runtime_warnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        }
+      ]
+    },
+    {
+      "purpose": "goal_create_accepted_response_loss",
+      "source_head": "83523335d43e6f6e98ac1ddd05fb47a0531ddc83",
+      "result_bundle": "ui-20260930T062959Z.xcresult",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "start_time": 1790749802.217,
+      "finish_time": 1790749923.857,
+      "runtime_warnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        }
+      ]
+    },
+    {
+      "purpose": "contribution_accepted_response_loss",
+      "source_head": "83523335d43e6f6e98ac1ddd05fb47a0531ddc83",
+      "result_bundle": "ui-20260930T063300Z.xcresult",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "start_time": 1790749983.056,
+      "finish_time": 1790750188.368,
+      "runtime_warnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        }
+      ]
+    },
+    {
+      "purpose": "retained_home_search_reopen_spanish",
+      "source_head": "83523335d43e6f6e98ac1ddd05fb47a0531ddc83",
+      "result_bundle": "ui-20260930T063831Z.xcresult",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "start_time": 1790750313.844,
+      "finish_time": 1790750463.411,
+      "runtime_warnings": []
+    }
+  ],
+  "manual_shared_shortfall": "Original reverse transfer corrected20 to40; native A/B support unavailable and sharedshortfall20; restored20 and reopened A400/B10 without reallocation",
+  "financial_checks": {
+    "passed": 310,
+    "skipped": 0,
+    "real_postgres": true
+  },
+  "tool_checks": {
+    "passed": 14,
+    "skipped": 0
+  },
+  "fault_helper_checks": {
+    "passed": 19,
+    "source": "inherited unchanged helper"
+  },
+  "swift_package": {
+    "passed": 55,
+    "skipped": 4,
+    "skip_reason": "inherited opt-in live-auth tests; native real-auth acceptance passed separately",
+    "retention": "package source unchanged since writer verification"
+  },
+  "visual_standard": "Existing native typography, teal progress meter, pill controls and original activity/editor navigation; approved reference retained",
+  "video": {
+    "file": "goal-journey.mp4",
+    "source_head": "83523335d43e6f6e98ac1ddd05fb47a0531ddc83",
+    "raw_recording_start": "2026-09-30T06:33:08.967468+00:00",
+    "raw_range_seconds": [
+      123,
+      185
+    ],
+    "duration_seconds": 62,
+    "purpose": "actual transfer review, accepted response loss, relaunch and exact retry to one contribution and matching accounts",
+    "auth_frames_excluded": true,
+    "timing_claim": "Edited recording, not a latency benchmark"
+  },
+  "limitations": "Local synthetic simulator proof only; no deployment, signing or physical-iPhone internet verification"
+}

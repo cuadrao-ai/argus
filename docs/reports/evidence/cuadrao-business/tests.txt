@@ -1,0 +1,95 @@
+bun test v1.4.2 (744846f84)
+
+__tests__/business-site.test.ts:
+(pass) isolated business preview > fails closed for %s [0.02ms]
+(pass) isolated business preview > fails closed for 
+(pass) isolated business preview > fails closed for false
+(pass) isolated business preview > fails closed for 1
+(pass) isolated business preview > fails closed for TRUE
+(pass) isolated business preview > opens only with the explicit local preview value
+(pass) isolated business preview > resolves all es surfaces [0.06ms]
+(pass) isolated business preview > resolves all en surfaces
+(pass) isolated business preview > does not claim another app route: %s
+(pass) isolated business preview > does not claim another app route: / [0.02ms]
+(pass) isolated business preview > does not claim another app route: /chat
+(pass) isolated business preview > does not claim another app route: /business-old
+(pass) isolated business preview > does not claim another app route: /business/private
+(pass) isolated business preview > does not claim another app route: /business/en/demo/extra
+(pass) isolated business preview > does not claim another app route: /business/es
+(pass) illustrative business money > keeps receivables separate from cash received [0.02ms]
+(pass) illustrative business money > shows the original Dominican currency in es [0.83ms]
+(pass) illustrative business money > shows the original Dominican currency in en [0.04ms]
+
+__tests__/spanish-ui-smoke.test.ts:
+(pass) Spanish UI Smoke Harness > Spanish locale JSON exists and parses [0.46ms]
+(pass) Spanish UI Smoke Harness > non-retryable discovery copy makes no temporal promise in either locale [0.48ms]
+(pass) Spanish UI Smoke Harness > Spanish smoke keys exist for the private-alpha UI surface [0.50ms]
+(pass) Spanish UI Smoke Harness > required Spanish static UI values do not fall back to English [0.19ms]
+(pass) Spanish UI Smoke Harness > Source referencing verified keys [0.23ms]
+(pass) Spanish UI Smoke Harness > Confirmation cards do not use translated display labels as state [0.08ms]
+(pass) Spanish UI Smoke Harness > English and Spanish locales should have identical keys [4.06ms]
+(pass) Spanish UI Smoke Harness > Matching keys should have identical placeholders [1.83ms]
+(pass) Spanish UI Smoke Harness > Spanish feature flag enables es-419 [6.60ms]
+(pass) Spanish UI Smoke Harness > I18n provider keeps the document language in sync [0.06ms]
+
+__tests__/public-receipt.test.ts:
+(pass) public receipt id > accepts an unguessable token and refuses anything short or odd [0.07ms]
+(pass) public receipt id > path prefix matches the backend contract [0.01ms]
+(pass) fetching a receipt > a malformed id never reaches the network [0.09ms]
+(pass) fetching a receipt > an available receipt returns its frozen payload [0.10ms]
+(pass) fetching a receipt > only the backend saying revoked makes a receipt revoked [0.02ms]
+(pass) fetching a receipt > a transient failure is never presented as a revocation [0.09ms]
+(pass) fetching a receipt > 410 is the one status that does mean gone [0.02ms]
+(pass) fetching a receipt > the request carries no credentials and no auth header [0.12ms]
+(pass) never indexable > both the layout and the page declare noindex and nofollow [0.07ms]
+(pass) never indexable > the preview image is marked noindex at the header level too [0.03ms]
+(pass) never indexable > no user-facing control can turn indexing on [0.12ms]
+(pass) never indexable > a view is reported by the rendered page, not by reading the receipt [0.11ms]
+(pass) never indexable > the metadata pass and the page render share one backend read [0.04ms]
+(pass) never indexable > an outage renders distinctly from a revocation, page and card alike [0.09ms]
+(pass) never indexable > the route is never cached, so revocation lands on the next request [0.02ms]
+(pass) the preview image inherits the never-expose list > it renders a named subset of the frozen payload and nothing else [0.03ms]
+(pass) the preview image inherits the never-expose list > the card publishes less than the page, on purpose [0.02ms]
+(pass) the preview image inherits the never-expose list > it never reads a private record and never calls a provider [0.05ms]
+(pass) the preview image inherits the never-expose list > it carries the provenance mark and the not-advice framing [0.03ms]
+(pass) the preview image inherits the never-expose list > it follows the receipt's own language, not a viewer's [0.04ms]
+(pass) the rendered page > carries the provenance mark and prominent not-advice framing [6.95ms]
+(pass) the rendered page > renders no field outside the closed payload [0.16ms]
+(pass) the rendered page > shows no attribution: the owner is never named [0.04ms]
+(pass) try argus > lands on bare guest entry with no carried state and no new parameter [0.64ms]
+(pass) headline metric > prefers total return over whatever happens to be first [0.02ms]
+(pass) headline metric > falls back to the first metric, and to nothing when there are none [0.01ms]
+(pass) viewer language > reads the request rather than a stored preference [0.02ms]
+(pass) viewer language > both languages have the whole receipt namespace [0.25ms]
+(pass) viewer language > no em dash in receipt copy, in either language [0.06ms]
+(pass) viewer language > copy resolves and interpolates [0.01ms]
+(pass) viewer language > a missing or unparseable date degrades to the undated note [0.13ms]
+(pass) the strategy a receipt shows > the rules shown are composed from the frozen facts [0.07ms]
+(pass) the strategy a receipt shows > labels are the viewer's language and values stay frozen [0.10ms]
+(pass) the strategy a receipt shows > the frozen key set matches the backend enum exactly [0.34ms]
+(pass) a view is only counted when a receipt was shown > the outage notice does not fire the beacon [0.04ms]
+(pass) the public route escapes the client i18n gate > so a shared link is not blank without JavaScript [0.12ms]
+(pass) the strategy name a receipt renders > is composed from the executed facts, never from a frozen label [0.06ms]
+(pass) the plan sentence > states a crossover's entry and its mirrored exit in words [0.09ms]
+(pass) the plan sentence > states a differing exit as its own sentence [0.03ms]
+(pass) the plan sentence > splits an indicator threshold into its buy and its sell [0.02ms]
+(pass) the plan sentence > a strategy that never sells says so and stops at one rule [0.03ms]
+(pass) the plan sentence > reads in the viewer's language while the values stay frozen [0.03ms]
+(pass) the plan sentence > the comparison is stated as a verdict, not left as two numbers [0.03ms]
+(pass) the plan sentence > states the difference of the two shown returns, even beside an older frozen delta [0.02ms]
+(pass) the plan sentence > says nothing when the payload names no benchmark at all
+(pass) the plan sentence > says nothing rather than guessing when a figure will not parse
+(pass) the action bar > is fixed to the bottom and clears the iOS home indicator [0.04ms]
+(pass) the action bar > never ships the button without the framing attached [0.04ms]
+(pass) the action bar > the clearance constant does not live in a client module [0.04ms]
+(pass) the action bar > the clearance is valid CSS calc, spaces and all [0.02ms]
+(pass) the action bar > the tombstone leaves room for its fixed bar while the thread has an in-flow composer [0.03ms]
+(pass) the action bar > its position owes nothing to JavaScript [0.03ms]
+(pass) the action bar > the tombstone gets it too [0.01ms]
+(pass) the action bar > the in-flow call to action block is gone from both surfaces [0.03ms]
+(pass) the action bar > the framing on the bar is not the paragraph already in flow [0.62ms]
+
+ 83 pass
+ 0 fail
+ 3970 expect() calls
+Ran 83 tests across 3 files. [138.00ms]

@@ -1,5 +1,77 @@
 # Next promotion: run the gates in this order
 
+The ordered Cuadrao staging-to-production checklist is the launch runbook
+section
+[Cuadrao production promotion](../PRIVATE_LAUNCH_RUNBOOK.md#cuadrao-production-promotion).
+
+- On promotion day, confirm `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED` is `true`
+  on dashboard `cuadrao-api`. The check is the name and on/off only. Never set
+  or change it on production without the founder's explicit approval. See
+  [Dashboard checks (founder, at promotion)](../PRIVATE_LAUNCH_RUNBOOK.md#dashboard-checks-founder-at-promotion).
+- Must-fix before `CUADRAO_AUTH_EMAIL_HOOK_ENABLED` is turned on in any
+  environment. Do not change production from this item. The same steps are in
+  [Auth email hook](../PRIVATE_LAUNCH_RUNBOOK.md#4-auth-email-hook).
+
+  1. Leave the flag off. The Send Email hook schema in
+     `web/server/emails/auth-actions.tsx` does not accept `invite` on
+     `email_action_type`. With the hook enabled, Supabase hands every auth
+     email to the hook, so an invite fails and nobody gets one.
+  2. Before enabling, add `invite` to the hook schema and renderer. Use
+     `/auth/confirm?token_hash=...&type=invite`. Add a test.
+  3. Treat PR #1267 as a must-fix before production promotion. The order is
+     [Auth email templates (token-hash confirm links)](../PRIVATE_LAUNCH_RUNBOOK.md#auth-email-templates-token-hash-confirm-links).
+     Its signup and magic-link mails stay code only.
+  4. Do not paste Auth templates in this step. The paste order is
+     [Auth email templates (token-hash confirm links)](../PRIVATE_LAUNCH_RUNBOOK.md#auth-email-templates-token-hash-confirm-links).
+  5. Read back that Supabase Authentication, Hooks, Send Email stays disabled
+     until steps 2 and 3 are done.
+- Must-fix before production promotion. PR #1267 is required. Do not change
+  production from this item. Production recovery is likely broken on the
+  current web. `POST /api/auth/recovery` calls `resetPasswordForEmail` through
+  the server Supabase client. The browser later runs `exchangeCodeForSession`
+  at `/auth/recovery`. On staging the link verified, the exchange never ran,
+  and the page showed "Este enlace de recuperación falta, venció o ya fue
+  usado." Production web runs `main` at `78e6f3f8`, which has the same path.
+  Pasting token-hash templates before `web/app/auth/confirm/route.ts` is
+  deployed makes every recovery, email-change, and invite link return 404.
+  That happened on staging on 2026-10-18. The same steps are in
+  [Auth email templates (token-hash confirm links)](../PRIVATE_LAUNCH_RUNBOOK.md#auth-email-templates-token-hash-confirm-links).
+
+  1. Confirm that PR #1226 and PR #1267 are squashed into
+     `codex/private-alpha-next` and promoted.
+  2. Deploy production `cuadrao-web` with `/auth/confirm`. Read back that
+     `GET /auth/confirm` on production is not a 404.
+  3. Only after that readback, paste the token-hash templates for recovery,
+     email_change, and invite into the production Supabase dashboard. Render
+     them with `bun scripts/emails/render-staging-auth.ts`, or the production
+     equivalent of that script. Check that the Site URL equals the production
+     web origin. Check that the redirect allow list includes
+     `<prod-web-origin>/auth/confirm`. Leave the confirmation and magic_link
+     templates code only.
+  4. Run a reset test on a throwaway production account. Follow the link
+     through `/auth/confirm` to `/auth/recovery` and set a new password. This
+     step needs Lucas's explicit yes at promotion time.
+
+  Staging currently sends interim templates that use `{{ .ConfirmationURL }}`.
+  After PR #1267 is deployed to `cuadrao-web-staging`, replace the recovery,
+  email_change, and invite staging templates with the token-hash versions.
+  Rerun the same password-reset smoke test on staging.
+- The hosted staging cron `cuadrao-dgii-rnc-staging` in `render.yaml` is the
+  only scheduled DGII RNC loader. It runs daily at 07:00 UTC from
+  `codex/private-alpha-next`, with automatic deploys off. Promotion to `main`
+  does not start the schedule. The workflow `.github/workflows/dgii-rnc-import.yml`
+  only downloads and parses on matching pull requests or manual dispatch.
+  It has no schedule or database credential and never loads.
+  Follow [DGII RNC schedule](../PRIVATE_LAUNCH_RUNBOOK.md#dgii-rnc-schedule)
+  for the separate staging approval, migration and size checks, and first-load
+  verification. This promotion does not enable loading. Keep
+  `DGII_RNC_LOAD_ENABLED` and `SUPABASE_STAGING_DB_URL` unset on the cron until
+  Lucas explicitly approves the first staging load. Set those values on the
+  cron service only, never as repository variables or secrets.
+
+This file remains the historical preparation checklist for eval identity,
+local rehearsal, and spending records.
+
 This is a preparation checklist, not a promotion manifest or permission to deploy.
 The rehearsal report is [promotion-readiness](../reports/evidence/promotion-readiness/README.md).
 Create the actual candidate record from [TEMPLATE.md](TEMPLATE.md).
@@ -12,7 +84,7 @@ The founder owns these decisions. Record their answers in the candidate manifest
    still applies unless the founder grants another explicit exception. PR #603's
    exception and spending approvals do not carry forward. Name the exact proposed
    main commit, its parents, rollback build, release captain and approver.
-2. **Sharing.** Choose both `ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED` and
+2. **Sharing.** Choose both `CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED` and
    `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED`. Both are `false` in the audited
    release profile and Blueprint. PR #632 landed with sharing still off. Enabling
    it needs an approved contract change and an enabled-surface browser walk.
@@ -86,9 +158,9 @@ eval list in `tests/evals/README.md`, prompt-freeze and the release-doc tests.
 The explicit focused command is useful first so release failures appear early.
 
 ```bash
-export OPENROUTER_API_KEY= ARGUS_PROD_OPENROUTER_API_KEY=
-export ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY= PERPLEXITY_API_KEY=
-export ALPACA_API_KEY= ALPACA_SECRET_KEY= ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD=
+export OPENROUTER_API_KEY= CUADRAO_PROD_OPENROUTER_API_KEY=
+export CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY= PERPLEXITY_API_KEY=
+export ALPACA_API_KEY= ALPACA_SECRET_KEY= CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD=
 export ARGUS_RUN_LIVE_EVALS=0 ARGUS_MARKET_DATA_PROVIDER_MODE=synthetic_unit_fixture
 poetry run python .agent/scripts/ownership/verify_branch_ownership.py
 poetry run ruff check src tests workflows scripts
@@ -111,7 +183,7 @@ poetry run pytest tests -q --no-cov
 The ordinary suite deliberately skips opt-in live/DB tests. This is acceptable
 only alongside the separate required local matrices below. Never set live-eval
 flags just to remove these skips. CI's required `ci` rollup includes ownership,
-backend, frontend and guest-release-gates; also inspect the runtime-regression,
+backend, frontend and database-checks; also inspect the runtime-regression,
 local-smoke and any other required checks returned by `gh pr checks "$PR"`.
 
 ## Local database commands
@@ -270,7 +342,7 @@ to obtain evidence the first run should already have retained.
 
 Authority: [runbook](../PRIVATE_LAUNCH_RUNBOOK.md),
 [release discipline](../specs/private-alpha-ci-cd-sota.md),
-[active board](../specs/argus-grounded-finance-roadmap.md),
+[active board](../specs/argus-answers-that-stay-true-roadmap.md),
 [manifest template](TEMPLATE.md), `.github/workflows/ci.yml`,
 `.github/workflows/private-alpha-smoke.yml`, `.github/workflows/private-alpha-canary.yml`,
 `tests/promotion_evidence_identity.py`, `tests/promotion_evidence_configuration.py`,

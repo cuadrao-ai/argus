@@ -1,0 +1,44 @@
+{
+  "pr": 874,
+  "head": "6ec654919775f0f5001c2c7732e18c9507618762",
+  "original_integration_base": "7d037b07d4b98b34c6c0ad3026811c7d2f28ae47",
+  "original_dependency_head": "a24a6c60627460ddfd6042b3f42b342c5eff11f0",
+  "run_original_integration_base": "875de09ac2115acec42e09060b92878aa5f18eff",
+  "reconciliation_merge": "9144553f8da6dc7c36f02e6f137cd2cb44fa1c6b",
+  "integration_parent": "5d46a73d4d97b0412dccff517eb43c73e4316977",
+  "merge": "a2c65549b3ffcb97ee0be24b971110be8c090b32",
+  "merged_at": "2026-10-06T03:04:13Z",
+  "tree": "cc3410bf168090333c794bdfa0c72cb731d54f86",
+  "tree_equal": true,
+  "review": "https://github.com/lagarcess/argus/pull/874#pullrequestreview-5423283949",
+  "terminal_audit": "https://github.com/lagarcess/argus/pull/874#issuecomment-6008477975",
+  "ci": {
+    "success": 17,
+    "expected_skip": 3,
+    "failure": 0,
+    "pending": 0
+  },
+  "review_threads": 0,
+  "local_proof": {
+    "package_passed": 150,
+    "package_optional_local_skipped": 4,
+    "focused_passed": 16,
+    "independent_boundary_passed": 3,
+    "signed_local_api_auth_postgres_passed": 1,
+    "provider_config_passed": 22,
+    "actual_model_ui_passed": 1,
+    "screenshots": 4
+  },
+  "retention": "All401native hashes and eight critical server owners unchanged;29raw evidence entries plusfiles.json verified, screenshots byte-identical. Introduced compile and cleanup regressions preserved with baseline/fixes/reruns.",
+  "configuration_names": [],
+  "scope_and_limits": "First Apple name pregrant journal and canonical initializer/retry; no overwriting later user edit. No actual Apple authorization/provider/phone/hosted/activation proof. Release providers remain off; parents800/803 open.",
+  "housekeeping": "protected-branch PR873 pending; exact integration CI and smoke passed",
+  "integration_checks": {
+    "sha": "a2c65549b3ffcb97ee0be24b971110be8c090b32",
+    "ci_run": 37407223683,
+    "ci": "success",
+    "smoke_run": 37407223674,
+    "smoke": "success",
+    "canonical_clean_parity": true
+  }
+}

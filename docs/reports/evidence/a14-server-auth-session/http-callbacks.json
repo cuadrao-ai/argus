@@ -1,0 +1,121 @@
+{
+  "client": "python-httpx language-neutral probe (not a native client)",
+  "suite": "callbacks",
+  "captured_at": "2026-09-28T17:27:04+00:00",
+  "environment": "local lane Supabase stack argus-native-auth-proof (jwt_expiry=60, confirmations on) + unchanged Argus API; Argus API launched from the fix branch at argus_api_head",
+  "results": [
+    {
+      "id": "D1",
+      "area": "confirmation",
+      "scenario": "Email confirmation after Argus /auth/signup",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "Confirmation returns to the web site_url; Argus signup has no redirect parameter a native client could set",
+      "observed": {
+        "signup_status": 200,
+        "callback_target": "http://localhost:3000",
+        "carries_session_fragment": true
+      },
+      "verdict": "pass",
+      "note": "Hosted: lands on the web app with an implicit-flow session in the URL fragment. A native return needs Argus to pass emailRedirectTo (proposal P4)."
+    },
+    {
+      "id": "D2",
+      "area": "recovery",
+      "scenario": "PKCE recovery that returns to an allowlisted app callback",
+      "path": "unchanged-argus + lane redirect allowlist entry",
+      "evidence_level": 3,
+      "expected": "Link redirects to the app scheme with ?code; exchange with the verifier yields a session Argus accepts",
+      "observed": {
+        "recover_status": 200,
+        "callback_target": "argusnativeproof://auth-callback",
+        "callback_has_code": true,
+        "callback_has_tokens": false,
+        "exchange_status": 200,
+        "argus_me_matches": true
+      },
+      "verdict": "pass",
+      "note": ""
+    },
+    {
+      "id": "D3",
+      "area": "recovery",
+      "scenario": "The same callback delivered twice, and the same email link opened twice",
+      "path": "unchanged-argus + lane redirect allowlist entry",
+      "evidence_level": 3,
+      "expected": "Second exchange refused; second link open returns an error to the callback, not a code",
+      "observed": {
+        "repeat_exchange_status": 404,
+        "repeat_exchange_error": "flow_state_not_found",
+        "repeat_link_target": "argusnativeproof://auth-callback",
+        "repeat_link_error_code": "otp_expired",
+        "repeat_link_has_code": false
+      },
+      "verdict": "pass",
+      "note": ""
+    },
+    {
+      "id": "D4",
+      "area": "recovery",
+      "scenario": "A code arrives on a device that did not start the flow (wrong verifier), and a forged code",
+      "path": "unchanged-argus + lane redirect allowlist entry",
+      "evidence_level": 3,
+      "expected": "Both refused; no session",
+      "observed": {
+        "mismatched_status": 400,
+        "mismatched_error": "bad_code_verifier",
+        "invalid_status": 404,
+        "invalid_error": "flow_state_not_found"
+      },
+      "verdict": "pass",
+      "note": "PKCE binds the link to the device that requested it. A user who requests recovery on the phone and opens the email on a laptop cannot finish on the laptop through this flow."
+    },
+    {
+      "id": "D5",
+      "area": "recovery",
+      "scenario": "Recovery requested with a redirect that is not on the allowlist",
+      "path": "unchanged-argus + lane redirect allowlist entry",
+      "evidence_level": 3,
+      "expected": "Supabase ignores the unlisted redirect and falls back to site_url",
+      "observed": {
+        "recover_status": 200,
+        "callback_target": "http://localhost:3000"
+      },
+      "verdict": "pass",
+      "note": ""
+    },
+    {
+      "id": "D6",
+      "area": "recovery",
+      "scenario": "Password reset by recovery, then sign out everywhere as the web recovery page does",
+      "path": "unchanged-argus + lane redirect allowlist entry",
+      "evidence_level": 3,
+      "expected": "Other sessions end after the reset; the recovery session ends after signOut(scope: global)",
+      "observed": {
+        "update_status": 200,
+        "other_session_after_update": 401,
+        "global_signout_status": 204,
+        "other_session_after_global": 401
+      },
+      "verdict": "pass",
+      "note": "Supabase revoked the other session on the password update itself. Native recovery still ends with a global sign-out, matching web/lib/auth-security.ts resetRecoveredPassword, so the recovery session does not linger."
+    },
+    {
+      "id": "D7",
+      "area": "recovery",
+      "scenario": "Recovery link opened after otp_expiry (60 s on the lane stack)",
+      "path": "unchanged-argus + lane redirect allowlist entry",
+      "evidence_level": 3,
+      "expected": "Callback receives an error, not a code",
+      "observed": {
+        "callback_target": "argusnativeproof://auth-callback",
+        "error_code": "otp_expired",
+        "has_code": false
+      },
+      "verdict": "pass",
+      "note": ""
+    }
+  ],
+  "probe_checkout_head": "de61fd3e7d299fcd0c7fda24f3c95f5427822271",
+  "argus_api_head": "54fe7b6fe"
+}

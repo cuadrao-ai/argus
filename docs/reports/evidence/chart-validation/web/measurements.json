@@ -1,0 +1,118 @@
+{
+  "sourceHead": "49b0495bd0217b94be57b00d8ae96ba6a98b8830",
+  "timestamp": "2026-09-28T20:54:36.765Z",
+  "host": "darwin 27.0.0 arm64",
+  "node": "v26.10.0",
+  "library": "5.2.0",
+  "visualStyleSha256": "d1ab2aee8e20f5fe032759114e271d998406926e352d879b3b468aebe59ede72",
+  "fixtureSha256": "a12a24634763f951f6daad7d200614dd777e83785d9ed4da9907720e5bdf418f",
+  "device": "Desktop browser and touch-enabled viewport emulation; no physical device",
+  "browsers": [
+    {
+      "name": "chromium",
+      "version": "147.0.7727.15",
+      "viewport": "390x844 @2x",
+      "contrast": [
+        {
+          "appearance": "light",
+          "actual": 3.7795323705801835,
+          "projected": 3.664787429925613,
+          "readout": 15.558084693949729
+        },
+        {
+          "appearance": "dark",
+          "actual": 6.105460352525305,
+          "projected": 6.317659583381754,
+          "readout": 17.068007321187196
+        }
+      ],
+      "results": [
+        "stress: endpoints, reset, independent values, segment structure, formatting pass",
+        "empty: endpoints, reset, independent values, segment structure, formatting pass",
+        "single: endpoints, reset, independent values, segment structure, formatting pass",
+        "buy-and-hold: endpoints, reset, independent values, segment structure, formatting pass",
+        "recurring-contributions: endpoints, reset, independent values, segment structure, formatting pass",
+        "long: endpoints, reset, independent values, segment structure, formatting pass",
+        "mouse release retains; horizontal endpoints clamp; every stress row accessible including gaps",
+        "CDP touch: horizontal release retained; cancellation restored; vertical scroll 0 -> 181px preserved selection",
+        "Local fonts loaded; both themes meet stroke/readout contrast; 150% text selection height stable without overflow; reduced-motion has no authored animations"
+      ],
+      "renderLongMs": [
+        21.299999952316284,
+        22,
+        21,
+        18,
+        18.5,
+        19.09999990463257,
+        20.40000009536743,
+        17.300000071525574,
+        18.799999952316284
+      ],
+      "readoutMs": {
+        "samples": 198,
+        "p50": 0.20000004768371582,
+        "p95": 0.3999999761581421,
+        "max": 1.1999999284744263
+      },
+      "idleFrameMs": {
+        "samples": 120,
+        "p50": 8.300000000000182,
+        "p95": 9.199999999999818
+      },
+      "pageErrors": []
+    },
+    {
+      "name": "webkit",
+      "version": "26.4",
+      "viewport": "390x844 @2x",
+      "contrast": [
+        {
+          "appearance": "light",
+          "actual": 3.7795323705801835,
+          "projected": 3.664787429925613,
+          "readout": 15.558084693949729
+        },
+        {
+          "appearance": "dark",
+          "actual": 6.105460352525305,
+          "projected": 6.317659583381754,
+          "readout": 17.068007321187196
+        }
+      ],
+      "results": [
+        "stress: endpoints, reset, independent values, segment structure, formatting pass",
+        "empty: endpoints, reset, independent values, segment structure, formatting pass",
+        "single: endpoints, reset, independent values, segment structure, formatting pass",
+        "buy-and-hold: endpoints, reset, independent values, segment structure, formatting pass",
+        "recurring-contributions: endpoints, reset, independent values, segment structure, formatting pass",
+        "long: endpoints, reset, independent values, segment structure, formatting pass",
+        "mouse release retains; horizontal endpoints clamp; every stress row accessible including gaps",
+        "WebKit touch cancellation/vertical gestures not automated: Chromium touch evidence only",
+        "Local fonts loaded; both themes meet stroke/readout contrast; 150% text selection height stable without overflow; reduced-motion has no authored animations"
+      ],
+      "renderLongMs": [
+        51,
+        37,
+        33,
+        35,
+        38,
+        38,
+        34,
+        35,
+        35.00000000000091
+      ],
+      "readoutMs": {
+        "samples": 192,
+        "p50": 0,
+        "p95": 1,
+        "max": 1.0000000000009095
+      },
+      "idleFrameMs": {
+        "samples": 120,
+        "p50": 17,
+        "p95": 17
+      },
+      "pageErrors": []
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "kind": "landing_confirmed",
+  "record": {
+    "revision": {
+      "context": {
+        "owner": "lagarcess",
+        "repo": "argus",
+        "number": 851
+      },
+      "headRefOid": "c4f9a08b6fc9cf429b47c4cd024183db02fcd959",
+      "baseRefName": "codex/private-alpha-next",
+      "baseRefOid": "875de09ac2115acec42e09060b92878aa5f18eff"
+    },
+    "pullRequestId": "PR_kwDOR50h4s8AAAABGwEopw",
+    "state": "MERGED",
+    "pending": {
+      "autoMerge": false,
+      "queueEntryId": null
+    },
+    "mergeCommitOid": "49add7b0d4fb01ec79066c6b6f08750de5ea69d1",
+    "mergedAt": "2026-10-05T16:54:27Z",
+    "source": "https://github.com/lagarcess/argus/pull/851"
+  }
+}

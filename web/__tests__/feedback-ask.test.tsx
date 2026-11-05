@@ -104,8 +104,8 @@ const TURNS: { label: string; messages: Message[]; follows: string | undefined }
 ];
 
 const LOCALES: { language: Language; question: string; answers: string[]; dismiss: string }[] = [
-  { language: "en", question: "How is Argus doing?", answers: ["Bad", "Okay", "Good"], dismiss: "Don&#x27;t ask again in this chat" },
-  { language: "es-419", question: "¿Qué tal lo está haciendo Argus?", answers: ["Mal", "Regular", "Bien"], dismiss: "No volver a preguntar en este chat" },
+  { language: "en", question: "How is Cuadrao doing?", answers: ["Bad", "Okay", "Good"], dismiss: "Don&#x27;t ask again in this chat" },
+  { language: "es-419", question: "¿Qué tal lo está haciendo Cuadrao?", answers: ["Mal", "Regular", "Bien"], dismiss: "No volver a preguntar en este chat" },
 ];
 
 const HIDDEN: { label: string; props: Partial<AskProps> }[] = [
@@ -140,8 +140,6 @@ describe("feedback ask", () => {
         evidence_artifact_id: "result-1-evidence",
         rating,
         tags: [],
-        hasAttachments: false,
-        attachmentCount: 0,
       });
       const serialized = JSON.stringify(context);
       expect(serialized).not.toContain(READOUT);
@@ -156,7 +154,7 @@ describe("feedback ask", () => {
       ...feedbackAskPointers(backtestResult("result-2"), "conversation-2"),
       conversation_id: "conversation-2",
     };
-    const detail = { tags: [], attachmentCount: 0 };
+    const detail = { tags: [] };
 
     expect(
       feedbackContextForSubmission(handed, { ...detail, includeConversationContext: false }),
@@ -164,8 +162,6 @@ describe("feedback ask", () => {
       source: "feedback_ask",
       surface: "chat",
       tags: [],
-      hasAttachments: false,
-      attachmentCount: 0,
     });
     expect(
       feedbackContextForSubmission(handed, { ...detail, includeConversationContext: true }),

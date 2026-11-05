@@ -13,10 +13,9 @@ deserves an honest page instead of a broken one.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, Request, Response
+from fastapi import APIRouter, Request, Response
 
 from argus.api.dependencies import problem
-from argus.api.guest_access import client_identity
 from argus.api.public_excerpt_schemas import (
     PublicExcerptFunnelStage,
     PublicExcerptView,
@@ -25,24 +24,14 @@ from argus.api.public_excerpts import (
     public_excerpt_reader,
     require_evidence_receipt_sharing_enabled,
 )
-from argus.api.rate_limits import SlidingWindowLimiter
 from argus.domain.public_excerpts import (
     PublicExcerptUnreadableError,
     revoked_public_view,
 )
-from argus.observability.product_events import capture_product_event
 
 router = APIRouter(prefix="/api/v1/public", tags=["public-receipts"])
 
 MAX_PUBLIC_ID_LENGTH = 64
-FUNNEL_STAGE_LIMIT = 60
-FUNNEL_STAGE_WINDOW_SECONDS = 3600
-
-_FUNNEL_LIMITER = SlidingWindowLimiter()
-
-
-def reset_receipt_funnel_limiter_for_tests() -> None:
-    _FUNNEL_LIMITER.reset()
 
 
 @router.get("/receipts/{public_id}", response_model=PublicExcerptView)
@@ -51,8 +40,7 @@ def read_public_receipt(public_id: str, request: Request) -> PublicExcerptView:
 
     This endpoint answers more than once per human visit, from the page's metadata
     pass, the page render, and the preview image, and a crawler expanding a pasted
-    link hits it with nobody having opened anything. Views are reported by the
-    rendered page instead, through /public/receipt-funnel.
+    link hits it with nobody having opened anything.
     """
     require_evidence_receipt_sharing_enabled()
     if len(public_id) > MAX_PUBLIC_ID_LENGTH:
@@ -77,43 +65,13 @@ def read_public_receipt(public_id: str, request: Request) -> PublicExcerptView:
 
 
 @router.post("/receipt-funnel", status_code=204)
-def record_receipt_funnel_stage(
-    payload: PublicExcerptFunnelStage,
-    request: Request,
-    background_tasks: BackgroundTasks,
-) -> Response:
-    """Record one viewer-side funnel stage. Carries no id and stores nothing.
+def record_receipt_funnel_stage(payload: PublicExcerptFunnelStage) -> Response:
+    """Accept a viewer-side funnel stage and record nothing.
 
-    Section 7.2 asks for the acquisition path to be observable end to end, and
-    both viewer-side stages happen on a page nobody is signed in to. A marker on
-    the guest entry url is ruled out by section 6: sharing adds no new parameter
-    to that surface.
-
-    Views are reported from the rendered page rather than counted on the read
-    endpoint, because that endpoint answers metadata passes and preview-image
-    renders too. A pasted link would otherwise log several views before any
-    person opened it.
+    Wave 1 does not track share-page views or a share funnel (SPEC 0, Iris's
+    round 2 answer 4), so this endpoint counts nothing. It stays a 204 so a
+    receipt page already open in a browser does not error when it reports.
     """
+    del payload
     require_evidence_receipt_sharing_enabled()
-    retry_after = _FUNNEL_LIMITER.record_or_retry_after(
-        keys=(f"receipt-funnel:{client_identity(request)}",),
-        limit=FUNNEL_STAGE_LIMIT,
-        window_seconds=FUNNEL_STAGE_WINDOW_SECONDS,
-    )
-    if retry_after is not None:
-        raise problem(
-            request,
-            status_code=429,
-            code="too_many_requests",
-            title="Too Many Requests",
-            detail="Too many events from this client.",
-            headers={"Retry-After": str(retry_after)},
-        )
-    background_tasks.add_task(
-        capture_product_event,
-        f"receipt_{payload.stage}",
-        user_id=None,
-        status=payload.stage,
-        attributes={"kind": payload.kind},
-    )
     return Response(status_code=204)

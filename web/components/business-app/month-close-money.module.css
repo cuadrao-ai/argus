@@ -1,0 +1,14 @@
+/* Home's Por cobrar and Por pagar cards measure themselves: the label sits top right of the total once the
+   card has room, and stacks above it in a narrow card. The total scales with the card, never under 24px. */
+.card { container-type: inline-size; }
+.head { display: flex; flex-direction: column; gap: 4px; }
+.total { font-size: clamp(24px, 8cqi, 30px); }
+@container (min-width: 24rem) {
+  .head { flex-direction: row-reverse; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .label { flex-shrink: 0; padding-top: 8px; white-space: nowrap; }
+}
+
+/* A row keeps its body and its action on one line while the card has room; a narrow card moves the action under it. */
+.row { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; }
+.row > :first-child { flex: 1 1 14rem; }
+.action { margin-left: auto; }

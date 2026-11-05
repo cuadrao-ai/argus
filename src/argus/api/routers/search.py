@@ -12,11 +12,13 @@ from argus.api.client_capabilities import (
     dossier_decision_action_availability,
 )
 from argus.api.conversation_previews import conversation_previews
+from argus.api.conversation_surface import surface_scope
 from argus.api.dependencies import current_user, problem
 from argus.api.guest_access import account_context
 from argus.api.memory_ledger_index import MemoryLedgerWorkLimitExceeded
 from argus.api.pagination import decode_cursor, encode_cursor, invalid_cursor_problem
 from argus.api.schemas import (
+    ConversationSurface,
     DecisionState,
     PaginatedSearch,
     SearchAssetRollup,
@@ -39,7 +41,6 @@ from argus.domain.search_text import (
     search_has_indexable_token,
     search_query_is_indexable,
 )
-from argus.observability.product_events import capture_product_event
 
 router = APIRouter(prefix="/api/v1", tags=["search"])
 
@@ -65,8 +66,10 @@ def search(
         min_length=1,
         max_length=50,
     ),
+    surface: ConversationSurface = Query("personal"),  # noqa: B008
     user: User = Depends(current_user),  # noqa: B008
 ) -> PaginatedSearch:
+    scope = surface_scope(request, user_id=user.id, surface=surface)
     context = account_context(request)
     decision_action_availability = dossier_decision_action_availability(
         can_save_decision=context.capabilities.can_save_decision,
@@ -125,21 +128,6 @@ def search(
             if include_ledger_groups
             else None
         )
-        capture_product_event(
-            "recall_usage",
-            user_id=user.id,
-            status="completed",
-            attributes={
-                "query_present": True,
-                "decision_state_filter_present": decision_state is not None,
-                "result_count": 0,
-                "returned_types": [],
-                "has_more": False,
-                "source": (
-                    "supabase" if api_state.supabase_gateway is not None else "memory"
-                ),
-            },
-        )
         return PaginatedSearch(
             items=[],
             next_cursor=None,
@@ -161,6 +149,7 @@ def search(
         try:
             read_kwargs: dict[str, Any] = {
                 "user_id": user.id,
+                "scope": scope,
                 "query": query,
                 "source_limit": (
                     len(requested_conversation_ids) if id_scoped_recall else limit + 1
@@ -199,6 +188,7 @@ def search(
         try:
             memory_read = memory_search_read(
                 user=user,
+                scope=scope,
                 query=query,
                 source_limit=(
                     len(requested_conversation_ids) if id_scoped_recall else limit + 1
@@ -341,21 +331,9 @@ def search(
     asset_rollup = with_computed_results(
         asset_rollup,
         user=user,
+        scope=scope,
         query=query,
         guest_conversation_id=workspace_conversation_id,
-    )
-    capture_product_event(
-        "recall_usage",
-        user_id=user.id,
-        status="completed",
-        attributes={
-            "query_present": bool(query),
-            "decision_state_filter_present": decision_state is not None,
-            "result_count": len(page_items) + (1 if asset_rollup is not None else 0),
-            "returned_types": _returned_types(page_items, asset_rollup=asset_rollup),
-            "has_more": has_more,
-            "source": "supabase" if api_state.supabase_gateway is not None else "memory",
-        },
     )
     return PaginatedSearch(
         items=[
@@ -388,17 +366,3 @@ def _ledger_groups_from_counts(
         SearchLedgerGroup(decision_state=state, count=int(values.get(state, 0)))
         for state in LEDGER_DECISION_STATE_ORDER
     ]
-
-
-def _returned_types(
-    page_items: list[tuple[int, SearchItem]],
-    *,
-    asset_rollup: SearchAssetRollup | None,
-) -> list[str]:
-    returned: list[str] = []
-    if asset_rollup is not None:
-        returned.append(asset_rollup.type)
-    for _, item in page_items:
-        if item.type not in returned:
-            returned.append(item.type)
-    return returned

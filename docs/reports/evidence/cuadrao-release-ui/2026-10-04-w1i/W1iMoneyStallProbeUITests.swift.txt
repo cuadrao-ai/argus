@@ -1,0 +1,105 @@
+import XCTest
+
+final class W1iMoneyStallProbeUITests: XCTestCase {
+    func testProbeNoStall() { probe(stall: false) }
+    func testProbeStall() { probe(stall: true) }
+
+    func testFreshEditorStall() { freshEditor(stall: true) }
+    func testFreshEditorNoStall() { freshEditor(stall: false) }
+    func testFreshEditorHeavyStall() { freshEditor(stall: true, flag: "-W1iStallHeavy", rounds: 20) }
+
+    private func freshEditor(stall: Bool, flag: String? = nil, rounds: Int = 50) {
+        continueAfterFailure = true
+        let app = XCUIApplication.cuadraoPreview()
+        app.launchArguments = CuadraoPreviewLaunch.arguments + ["--plan-reset", "-cuadrao.design.appearance", "light", flag ?? (stall ? "-W1iStall" : "-W1iLog")]
+        app.launch(); app.buttons["tab.plan"].tap()
+        app.segmentedControls["plan-audience"].buttons["En grupo"].tap()
+        app.buttons["group-card-trip"].tap()
+        XCTAssertTrue(app.staticTexts["group-own-share"].waitForExistence(timeout: 3))
+        app.segmentedControls["group-sections"].buttons["Gastos"].tap()
+        app.buttons["group-add-expense"].tap()
+        app.textFields["group-expense-name"].tap(); app.textFields["group-expense-name"].typeText("Cena del viernes\n")
+        _ = replace(app.textFields["group-expense-amount"], with: "2000", label: "setup")
+        if app.toolbars.buttons["Listo"].exists { app.toolbars.buttons["Listo"].tap() }
+        reveal(app, app.buttons["group-expense-draft"])
+        app.buttons["group-expense-draft"].tap()
+        XCTAssertTrue(app.buttons["group-entry-draft"].waitForExistence(timeout: 3))
+        app.buttons["group-entry-draft"].tap()
+        reveal(app, app.buttons["group-expense-save"]); app.buttons["group-expense-save"].tap()
+        var mismatches = 0
+        for round in 0..<rounds {
+            app.buttons.matching(identifier: "group-entry-recorded").element(boundBy: 0).tap()
+            mismatches += replace(app.textFields["Parte de Tú"], with: "500", label: "fresh \(round) Tú")
+            mismatches += replace(app.textFields["Parte de Ana"], with: "300", label: "fresh \(round) Ana")
+            if app.toolbars.buttons["Listo"].exists { app.toolbars.buttons["Listo"].tap() }
+            app.buttons["Cancelar"].tap()
+            XCTAssertTrue(app.buttons.matching(identifier: "group-entry-recorded").element(boundBy: 0).waitForExistence(timeout: 3))
+        }
+        print("W1I-FRESH stall=\(flag ?? String(stall)) mismatches \(mismatches)")
+        XCTAssertEqual(mismatches, 0)
+    }
+
+    private func probe(stall: Bool) {
+        continueAfterFailure = true
+        let app = XCUIApplication.cuadraoPreview()
+        app.launchArguments = CuadraoPreviewLaunch.arguments + ["--plan-reset", "-cuadrao.design.appearance", "light", stall ? "-W1iStall" : "-W1iLog"]
+        app.launch(); app.buttons["tab.plan"].tap()
+        app.segmentedControls["plan-audience"].buttons["En grupo"].tap()
+        app.buttons["group-card-trip"].tap()
+        XCTAssertTrue(app.staticTexts["group-own-share"].waitForExistence(timeout: 3))
+        app.segmentedControls["group-sections"].buttons["Gastos"].tap()
+        app.buttons["group-add-expense"].tap()
+        app.textFields["group-expense-name"].tap(); app.textFields["group-expense-name"].typeText("Cena del viernes\n")
+        replace(app.textFields["group-expense-amount"], with: "2000", label: "setup")
+        if app.toolbars.buttons["Listo"].exists { app.toolbars.buttons["Listo"].tap() }
+        reveal(app, app.buttons["group-expense-draft"])
+        app.buttons["group-expense-draft"].tap()
+        XCTAssertTrue(app.buttons["group-entry-draft"].waitForExistence(timeout: 3))
+        app.buttons["group-entry-draft"].tap()
+        reveal(app, app.buttons["group-expense-save"]); app.buttons["group-expense-save"].tap()
+        app.buttons.matching(identifier: "group-entry-recorded").element(boundBy: 0).tap()
+        let values = ["300", "1250.5", "40.25", "7", "99999", "0.5", "2000", "400", "12.3", "865"]
+        var mismatches = 0
+        for round in 0..<50 {
+            for name in ["Parte de Ana", "group-expense-amount"] {
+                let field = app.textFields[name]
+                if !field.isHittable { reveal(app, field) }
+                let typed = values[(round + (name == "group-expense-amount" ? 3 : 0)) % values.count]
+                mismatches += replace(field, with: typed, label: "round \(round) \(name)")
+            }
+        }
+        if app.toolbars.buttons["Listo"].exists { app.toolbars.buttons["Listo"].tap() }
+        print("W1I-PROBE stall=\(stall) mismatches \(mismatches)")
+        XCTAssertEqual(mismatches, 0)
+    }
+
+    private func replace(_ field: XCUIElement, with text: String, label: String) -> Int {
+        var wrong = 0
+        let before = field.value as? String ?? ""
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
+        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: before.count))
+        let cleared = settle(field) { $0.isEmpty || $0 == field.placeholderValue }
+        if !cleared.0 { wrong += 1; print("W1I-MISMATCH \(label) deletes: before '\(before)' left '\(cleared.1)'") }
+        field.typeText(text)
+        let typed = settle(field) { $0.replacingOccurrences(of: ",", with: "") == text }
+        if !typed.0 { wrong += 1; print("W1I-MISMATCH \(label) typed '\(text)' read '\(typed.1)' (before '\(before)', after deletes '\(cleared.1)')") }
+        print("W1I-ROUND \(label) before '\(before)' cleared '\(cleared.1)' typed '\(text)' read '\(typed.1)'")
+        return wrong
+    }
+
+    private func settle(_ field: XCUIElement, _ ok: @escaping (String) -> Bool) -> (Bool, String) {
+        let predicate = NSPredicate { _, _ in ok(field.value as? String ?? "") }
+        let done = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: nil)], timeout: 3) == .completed
+        return (done, field.value as? String ?? "")
+    }
+
+    private func reveal(_ app: XCUIApplication, _ element: XCUIElement) {
+        for _ in 0..<7 {
+            let navigation = app.buttons["tab.home"]
+            let bottom = navigation.exists ? navigation.frame.minY - 12 : app.frame.maxY
+            if element.isHittable && element.frame.midY < bottom { return }
+            app.swipeUp()
+        }
+        XCTAssertTrue(element.isHittable)
+    }
+}

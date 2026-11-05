@@ -1,0 +1,130 @@
+{
+  "tested_head": "cc58b16f7f8ee4f520ffa4658f1396ba7a0cc4d7",
+  "source_parent": "cc58b16f7f8ee4f520ffa4658f1396ba7a0cc4d7",
+  "raw_manifest_payloads": 14,
+  "raw_bundle_files_including_manifest": 15,
+  "verified_ios_git_objects_and_hashes": 403,
+  "normalization": "UTF-8 text; remove trailing whitespace; one final newline. README fixes focused-log filename and two spacing errors. Original manifest retained as raw-files.json. No source or test copied into executable paths.",
+  "results": {
+    "package_executed": 168,
+    "package_passed": 164,
+    "package_existing_opt_in_skips": 4,
+    "package_failures": 0,
+    "focused_passed": 19,
+    "focused_skips": 0,
+    "live_sdk_passed": 1,
+    "live_sdk_skips": 0,
+    "generic_app_build": "BUILD SUCCEEDED",
+    "baseline_passed": 5,
+    "original_candidate_failure_events": 8,
+    "original_candidate_affected_tests": 5
+  },
+  "provider_limit": "Synthetic RecordingAnalyticsDeletion in APP_ENV=test; no real Apple, PostHog, provider or hosted completion claim. No physical phone or UI journey.",
+  "raw_to_published": [
+    {
+      "raw_path": "407-package-failures.log",
+      "published_path": "407-package-failures.log",
+      "raw_sha256": "289b2a9ffab106b88371675c4d3e0385dca80bf1bffb288da79621c827eb8ac0",
+      "published_sha256": "289b2a9ffab106b88371675c4d3e0385dca80bf1bffb288da79621c827eb8ac0",
+      "changed": false
+    },
+    {
+      "raw_path": "LiveDeletionTests.swift",
+      "published_path": "LiveDeletionTests.swift",
+      "raw_sha256": "1c508c8ff42daabb0f5d5477d0a53df5c00aff95bc4c22b2daf1fda7f6e1311b",
+      "published_sha256": "1c508c8ff42daabb0f5d5477d0a53df5c00aff95bc4c22b2daf1fda7f6e1311b",
+      "changed": false
+    },
+    {
+      "raw_path": "README.md",
+      "published_path": "README.md",
+      "raw_sha256": "09c538b839352b729edef8a9c0f852ab2f30190745327d1e495238b91969b3b0",
+      "published_sha256": "8a0d65b1121dfd410e830b5605c236ee15a8fa27ae76dd57be748f79fd92677f",
+      "changed": true
+    },
+    {
+      "raw_path": "a6-baseline5.log",
+      "published_path": "a6-baseline5.log",
+      "raw_sha256": "cb9270e4987a3b1236f3ce7552f914a80ea763b32ddb331287232b27c9de957b",
+      "published_sha256": "cb9270e4987a3b1236f3ce7552f914a80ea763b32ddb331287232b27c9de957b",
+      "changed": false
+    },
+    {
+      "raw_path": "author-fix.diff",
+      "published_path": "author-fix.diff",
+      "raw_sha256": "2ec77319cab1189a6328af8dc39155c2c50a727517b23ee85c5db0bd1983cda8",
+      "published_sha256": "811de3f4f861ae8d4b99d815dc98327f69904373e9a10815f28480c052925639",
+      "changed": true
+    },
+    {
+      "raw_path": "cc58-app-build.log",
+      "published_path": "cc58-app-build.log",
+      "raw_sha256": "353b53d6e1f5127555c953495e8dcd064c4251743fe081d4bba7e83697d48aa8",
+      "published_sha256": "8cf3ba81f297e362bf28625660bed7e9a3b8d7de5ada5832bc27064471609375",
+      "changed": true
+    },
+    {
+      "raw_path": "cc58-focused19.log",
+      "published_path": "cc58-focused19.log",
+      "raw_sha256": "6f6959212070cdfe8b0af96b352ec068edc02eff1e2162bf9a635e289acdcbf1",
+      "published_sha256": "6f6959212070cdfe8b0af96b352ec068edc02eff1e2162bf9a635e289acdcbf1",
+      "changed": false
+    },
+    {
+      "raw_path": "cc58-live-sdk.log",
+      "published_path": "cc58-live-sdk.log",
+      "raw_sha256": "43af341fdaf4896c9f3c3963b2ebb6d0d6ad1236c51f4987075f191354397293",
+      "published_sha256": "43af341fdaf4896c9f3c3963b2ebb6d0d6ad1236c51f4987075f191354397293",
+      "changed": false
+    },
+    {
+      "raw_path": "cc58-package.log",
+      "published_path": "cc58-package.log",
+      "raw_sha256": "9efe233cd4a06f0f9080184227ae28494d8953da173bb2dff062d39dc1213be9",
+      "published_sha256": "9efe233cd4a06f0f9080184227ae28494d8953da173bb2dff062d39dc1213be9",
+      "changed": false
+    },
+    {
+      "raw_path": "cleanup.json",
+      "published_path": "cleanup.json",
+      "raw_sha256": "c9d125aab047ffec813f8ca9f6d5fa137aa295d730b2cfe1e24a67c91620a11b",
+      "published_sha256": "c9d125aab047ffec813f8ca9f6d5fa137aa295d730b2cfe1e24a67c91620a11b",
+      "changed": false
+    },
+    {
+      "raw_path": "files.json",
+      "published_path": "raw-files.json",
+      "raw_sha256": "dbdb7fac619e33fe6f8039acd58403e4871125aa154d03d61e2fa8ac37cb9ec1",
+      "published_sha256": "dbdb7fac619e33fe6f8039acd58403e4871125aa154d03d61e2fa8ac37cb9ec1",
+      "changed": false
+    },
+    {
+      "raw_path": "fixture-port-adaptation.diff",
+      "published_path": "fixture-port-adaptation.diff",
+      "raw_sha256": "a081c0f6e0c2b0aef168902e81862895a36f669b12b9c945f335234bf225526f",
+      "published_sha256": "a081c0f6e0c2b0aef168902e81862895a36f669b12b9c945f335234bf225526f",
+      "changed": false
+    },
+    {
+      "raw_path": "live-driver.py",
+      "published_path": "live-driver.py",
+      "raw_sha256": "a62d3ce5517601eda6bfd911dc98070d9722366ec5435fb9c85b2919c691e7dc",
+      "published_sha256": "a62d3ce5517601eda6bfd911dc98070d9722366ec5435fb9c85b2919c691e7dc",
+      "changed": false
+    },
+    {
+      "raw_path": "live-readback-cleanup.log",
+      "published_path": "live-readback-cleanup.log",
+      "raw_sha256": "d4750ef20bba40e1f341ecf5640c4bd036e83e51a68b605ce0e70528ef679c0c",
+      "published_sha256": "d4750ef20bba40e1f341ecf5640c4bd036e83e51a68b605ce0e70528ef679c0c",
+      "changed": false
+    },
+    {
+      "raw_path": "provenance.json",
+      "published_path": "provenance.json",
+      "raw_sha256": "5c799055311da94a6f6a0efaff2363a9a9e6545a39c58baf745b06a17812085e",
+      "published_sha256": "5c799055311da94a6f6a0efaff2363a9a9e6545a39c58baf745b06a17812085e",
+      "changed": false
+    }
+  ]
+}

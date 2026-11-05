@@ -1,0 +1,453 @@
+== compat-build1_C | 2 failed, 1245 passed, 3 skipped, 197 warnings in 264.00s (0:04:24)
+    1 tests/test_guest_auth_local_supabase.py
+    1 tests/test_search_postgres.py
+      cause seen: ImportError: dlopen(scipy) macOS loader
+    FAILED tests/test_guest_auth_local_supabase.py::test_guest_run_through_real_flag_off_tool_corridor_settles_simulation
+    FAILED tests/test_search_postgres.py::test_asset_rollup_pair_symbol_normalization_matches_memory_contract
+exit=1 seconds=267
+
+== compat-build1_B1 | 3 failed, 1244 passed, 3 skipped, 197 warnings in 250.43s (0:04:10)
+    1 tests/test_account_deletion_guards_postgres.py
+    1 tests/test_guest_auth_local_supabase.py
+    1 tests/test_search_postgres.py
+      cause seen: ImportError: dlopen(scipy) macOS loader
+    FAILED tests/test_account_deletion_guards_postgres.py::test_two_sweeps_at_once_resume_a_run_once
+    FAILED tests/test_guest_auth_local_supabase.py::test_guest_run_through_real_flag_off_tool_corridor_settles_simulation
+    FAILED tests/test_search_postgres.py::test_asset_rollup_pair_symbol_normalization_matches_memory_contract
+exit=1 seconds=254
+
+== compat-build1_B2 | 2 failed, 1245 passed, 3 skipped, 197 warnings in 246.84s (0:04:06)
+    1 tests/test_guest_auth_local_supabase.py
+    1 tests/test_search_postgres.py
+      cause seen: ImportError: dlopen(scipy) macOS loader
+    FAILED tests/test_guest_auth_local_supabase.py::test_guest_run_through_real_flag_off_tool_corridor_settles_simulation
+    FAILED tests/test_search_postgres.py::test_asset_rollup_pair_symbol_normalization_matches_memory_contract
+exit=1 seconds=250
+
+== compat-build1_B3 | 4 failed, 1243 passed, 3 skipped, 197 warnings in 245.70s (0:04:05)
+    1 tests/test_account_deletion_fk_census_postgres.py
+    1 tests/test_client_grants_postgres.py
+    1 tests/test_guest_auth_local_supabase.py
+    1 tests/test_search_postgres.py
+      cause seen: AssertionError: assert {'argus_priva...entials', ...} == {'argus_priva...entials', ...}
+      cause seen: ImportError: dlopen(scipy) macOS loader
+    FAILED tests/test_account_deletion_fk_census_postgres.py::test_sweep_names_every_user_reference_and_the_census_document_matches_it
+    FAILED tests/test_client_grants_postgres.py::test_every_relation_is_listed_exactly_once
+    FAILED tests/test_guest_auth_local_supabase.py::test_guest_run_through_real_flag_off_tool_corridor_settles_simulation
+    FAILED tests/test_search_postgres.py::test_asset_rollup_pair_symbol_normalization_matches_memory_contract
+exit=1 seconds=248
+
+== compat-build1_B4 | 4 failed, 1243 passed, 3 skipped, 197 warnings in 242.42s (0:04:02)
+    1 tests/test_account_deletion_fk_census_postgres.py
+    1 tests/test_client_grants_postgres.py
+    1 tests/test_guest_auth_local_supabase.py
+    1 tests/test_search_postgres.py
+      cause seen: AssertionError: assert {'argus_priva...entials', ...} == {'argus_priva...entials', ...}
+      cause seen: ImportError: dlopen(scipy) macOS loader
+    FAILED tests/test_account_deletion_fk_census_postgres.py::test_sweep_names_every_user_reference_and_the_census_document_matches_it
+    FAILED tests/test_client_grants_postgres.py::test_every_relation_is_listed_exactly_once
+    FAILED tests/test_guest_auth_local_supabase.py::test_guest_run_through_real_flag_off_tool_corridor_settles_simulation
+    FAILED tests/test_search_postgres.py::test_asset_rollup_pair_symbol_normalization_matches_memory_contract
+exit=1 seconds=245
+
+== compat-build1_B4biz | 5 failed, 1242 passed, 3 skipped, 197 warnings in 252.54s (0:04:12)
+    1 tests/test_account_deletion_fk_census_postgres.py
+    1 tests/test_client_grants_postgres.py
+    1 tests/test_conversation_activity_postgres.py
+    1 tests/test_guest_auth_local_supabase.py
+    1 tests/test_search_postgres.py
+      cause seen: AssertionError: assert {'argus_priva...entials', ...} == {'argus_priva...entials', ...}
+      cause seen: ImportError: dlopen(scipy) macOS loader
+    FAILED tests/test_account_deletion_fk_census_postgres.py::test_sweep_names_every_user_reference_and_the_census_document_matches_it
+    FAILED tests/test_client_grants_postgres.py::test_every_relation_is_listed_exactly_once
+    FAILED tests/test_conversation_activity_postgres.py::test_cutoff_baseline_reads_existing_terminal_but_not_later_completion
+    FAILED tests/test_guest_auth_local_supabase.py::test_guest_run_through_real_flag_off_tool_corridor_settles_simulation
+    FAILED tests/test_search_postgres.py::test_asset_rollup_pair_symbol_normalization_matches_memory_contract
+exit=1 seconds=255
+
+== compat-build2_C | 28 failed, 1245 passed, 3 skipped, 200 warnings, 1 error in 279.62s (0:04:39)
+    1 tests/test_account_deletion_api_postgres.py
+    3 tests/test_account_deletion_third_parties_postgres.py
+    3 tests/test_client_grants_postgres.py
+    3 tests/test_document_extractions_postgres.py
+   17 tests/test_document_source_objects_postgres.py
+    1 tests/test_guest_auth_local_supabase.py
+    1 tests/test_search_postgres.py
+      cause seen: argus.domain.ingestion.documents.service.DocumentServiceError: document_storage_unavailable
+      cause seen: httpx.HTTPStatusError: Client error '400 Bad Request' for url 'http://127.0.0.1:57791/storage/v1/object/financial-document-sources/<uuid>/<uuid>/aaaaaaaaaaaaaaaaaaaaaaaaa
+      cause seen: httpx.HTTPStatusError: Client error '400 Bad Request' for url 'http://127.0.0.1:57791/storage/v1/object/financial-document-sources/<uuid>/<uuid>/ed41915c09594a9cfbd60c709
+      cause seen: AssertionError: assert {} == {'financial-d...urces': False}
+      cause seen: psycopg.errors.ForeignKeyViolation: insert or update on table "objects" violates foreign key constraint "objects_bucketId_fkey"
+      cause seen: AssertionError: assert None == (10485760, ['application/pdf', 'image/jpeg', 'image/png'])
+      cause seen: psycopg.errors.UndefinedColumn: column d.source_path does not exist
+      cause seen: ImportError: dlopen(scipy) macOS loader
+    FAILED tests/test_account_deletion_api_postgres.py::test_storage_failure_answers_202_until_a_retry_erases_the_sources
+    FAILED tests/test_account_deletion_third_parties_postgres.py::test_document_sources_are_erased_before_the_account_delete
+    FAILED tests/test_account_deletion_third_parties_postgres.py::test_a_source_written_after_the_first_erase_is_gone_before_the_auth_delete
+    FAILED tests/test_client_grants_postgres.py::test_private_buckets_exist_and_are_not_public
+    FAILED tests/test_client_grants_postgres.py::test_client_roles_cannot_see_their_own_private_objects[anon]
+    FAILED tests/test_client_grants_postgres.py::test_client_roles_cannot_see_their_own_private_objects[authenticated]
+    FAILED tests/test_document_extractions_postgres.py::test_checkpoint_is_immutable_and_owner_scoped
+    FAILED tests/test_document_extractions_postgres.py::test_capture_survives_new_store_handles_and_disconnect_hides_source
+    FAILED tests/test_document_extractions_postgres.py::test_bucket_and_reference_check_use_the_python_limits
+    FAILED tests/test_document_source_objects_postgres.py::test_upload_stores_the_object_and_no_bytes
+    FAILED tests/test_document_source_objects_postgres.py::test_duplicate_upload_makes_no_second_object
+    FAILED tests/test_document_source_objects_postgres.py::test_only_the_owner_reads_the_source
+    FAILED tests/test_document_source_objects_postgres.py::test_disconnect_removes_the_object_and_keeps_confirmed_activity
+    FAILED tests/test_document_source_objects_postgres.py::test_a_crash_after_the_object_write_leaves_no_row
+    FAILED tests/test_document_source_objects_postgres.py::test_disconnect_takes_an_orphan_that_was_never_retried
+    FAILED tests/test_document_source_objects_postgres.py::test_a_failed_object_delete_keeps_the_row_for_the_retry
+    FAILED tests/test_document_source_objects_postgres.py::test_rows_from_before_the_move_are_still_served_and_erased
+    FAILED tests/test_document_source_objects_postgres.py::test_the_database_refuses_an_incoherent_source[empty]
+    FAILED tests/test_document_source_objects_postgres.py::test_the_database_refuses_an_incoherent_source[path off owner]
+    FAILED tests/test_document_source_objects_postgres.py::test_the_database_refuses_an_incoherent_source[partial reference]
+    FAILED tests/test_document_source_objects_postgres.py::test_the_database_refuses_an_incoherent_source[two sources]
+    FAILED tests/test_document_source_objects_postgres.py::test_the_database_refuses_an_incoherent_source[no draft]
+    FAILED tests/test_document_source_objects_postgres.py::test_capture_on_a_gone_connection_removes_its_object
+    FAILED tests/test_document_source_objects_postgres.py::test_capture_during_an_account_deletion_run_leaves_no_object
+    FAILED tests/test_document_source_objects_postgres.py::test_a_lost_object_is_reported_and_an_identical_upload_restores_it
+    FAILED tests/test_document_source_objects_postgres.py::test_a_storage_outage_is_retryable_in_upload_and_preparation
+    FAILED tests/test_guest_auth_local_supabase.py::test_guest_run_through_real_flag_off_tool_corridor_settles_simulation
+    FAILED tests/test_search_postgres.py::test_asset_rollup_pair_symbol_normalization_matches_memory_contract
+    ERROR tests/test_account_deletion_third_parties_postgres.py::test_a_source_written_after_the_first_erase_is_gone_before_the_auth_delete
+exit=1 seconds=283
+
+== compat-build2_B1 | 2 failed, 1271 passed, 3 skipped, 200 warnings in 276.87s (0:04:36)
+    1 tests/test_guest_auth_local_supabase.py
+    1 tests/test_search_postgres.py
+      cause seen: ImportError: dlopen(scipy) macOS loader
+    FAILED tests/test_guest_auth_local_supabase.py::test_guest_run_through_real_flag_off_tool_corridor_settles_simulation
+    FAILED tests/test_search_postgres.py::test_asset_rollup_pair_symbol_normalization_matches_memory_contract
+exit=1 seconds=280
+
+== compat-build2_B2 | 2 failed, 1271 passed, 3 skipped, 200 warnings in 274.01s (0:04:34)
+    1 tests/test_guest_auth_local_supabase.py
+    1 tests/test_search_postgres.py
+      cause seen: ImportError: dlopen(scipy) macOS loader
+    FAILED tests/test_guest_auth_local_supabase.py::test_guest_run_through_real_flag_off_tool_corridor_settles_simulation
+    FAILED tests/test_search_postgres.py::test_asset_rollup_pair_symbol_normalization_matches_memory_contract
+exit=1 seconds=277
+
+== compat-build2_B3 | 5 failed, 1268 passed, 3 skipped, 200 warnings in 263.01s (0:04:23)
+    1 tests/test_account_deletion_fk_census_postgres.py
+    1 tests/test_client_grants_postgres.py
+    1 tests/test_conversation_activity_postgres.py
+    1 tests/test_guest_auth_local_supabase.py
+    1 tests/test_search_postgres.py
+      cause seen: AssertionError: assert {'argus_priva...entials', ...} == {'argus_priva...entials', ...}
+      cause seen: ImportError: dlopen(scipy) macOS loader
+    FAILED tests/test_account_deletion_fk_census_postgres.py::test_sweep_names_every_user_reference_and_the_census_document_matches_it
+    FAILED tests/test_client_grants_postgres.py::test_every_relation_is_listed_exactly_once
+    FAILED tests/test_conversation_activity_postgres.py::test_cutoff_baseline_reads_existing_terminal_but_not_later_completion
+    FAILED tests/test_guest_auth_local_supabase.py::test_guest_run_through_real_flag_off_tool_corridor_settles_simulation
+    FAILED tests/test_search_postgres.py::test_asset_rollup_pair_symbol_normalization_matches_memory_contract
+exit=1 seconds=266
+
+== compat-build2_B4 | 5 failed, 1268 passed, 3 skipped, 200 warnings in 269.25s (0:04:29)
+    1 tests/test_account_deletion_fk_census_postgres.py
+    1 tests/test_client_grants_postgres.py
+    1 tests/test_conversation_activity_postgres.py
+    1 tests/test_guest_auth_local_supabase.py
+    1 tests/test_search_postgres.py
+      cause seen: AssertionError: assert {'argus_priva...entials', ...} == {'argus_priva...entials', ...}
+      cause seen: ImportError: dlopen(scipy) macOS loader
+    FAILED tests/test_account_deletion_fk_census_postgres.py::test_sweep_names_every_user_reference_and_the_census_document_matches_it
+    FAILED tests/test_client_grants_postgres.py::test_every_relation_is_listed_exactly_once
+    FAILED tests/test_conversation_activity_postgres.py::test_cutoff_baseline_reads_existing_terminal_but_not_later_completion
+    FAILED tests/test_guest_auth_local_supabase.py::test_guest_run_through_real_flag_off_tool_corridor_settles_simulation
+    FAILED tests/test_search_postgres.py::test_asset_rollup_pair_symbol_normalization_matches_memory_contract
+exit=1 seconds=272
+
+== compat-build2_B4biz | 5 failed, 1268 passed, 3 skipped, 200 warnings in 247.25s (0:04:07)
+    1 tests/test_account_deletion_fk_census_postgres.py
+    1 tests/test_client_grants_postgres.py
+    1 tests/test_conversation_activity_postgres.py
+    1 tests/test_guest_auth_local_supabase.py
+    1 tests/test_search_postgres.py
+      cause seen: AssertionError: assert {'argus_priva...entials', ...} == {'argus_priva...entials', ...}
+      cause seen: ImportError: dlopen(scipy) macOS loader
+    FAILED tests/test_account_deletion_fk_census_postgres.py::test_sweep_names_every_user_reference_and_the_census_document_matches_it
+    FAILED tests/test_client_grants_postgres.py::test_every_relation_is_listed_exactly_once
+    FAILED tests/test_conversation_activity_postgres.py::test_cutoff_baseline_reads_existing_terminal_but_not_later_completion
+    FAILED tests/test_guest_auth_local_supabase.py::test_guest_run_through_real_flag_off_tool_corridor_settles_simulation
+    FAILED tests/test_search_postgres.py::test_asset_rollup_pair_symbol_normalization_matches_memory_contract
+exit=1 seconds=250
+
+== compat-activation_C | 312 failed, 1016 passed, 3 skipped, 206 warnings, 91 errors in 141.66s (0:02:21)
+   20 tests/financial_accounts/test_assets.py
+   23 tests/financial_accounts/test_goal_allocations_postgres.py
+   18 tests/financial_accounts/test_loop_commands.py
+   19 tests/household/test_household_financial_boundaries.py
+    6 tests/household/test_household_postgres.py
+    6 tests/household/test_household_review_regressions.py
+    4 tests/household/test_paired_transfers.py
+   13 tests/household/test_shared_contributor_departure.py
+    3 tests/household/test_shared_goal_edits.py
+    6 tests/household/test_shared_personal_bridge.py
+    1 tests/household/test_shared_planning.py
+    6 tests/household/test_shared_planning_api.py
+    6 tests/household/test_shared_planning_departure.py
+   13 tests/household/test_shared_planning_invariants.py
+    7 tests/household/test_shared_planning_lifecycle.py
+    5 tests/household/test_shared_planning_money.py
+    7 tests/test_account_deletion_api_postgres.py
+    1 tests/test_account_deletion_apple_admission_postgres.py
+    2 tests/test_account_deletion_business_guard_postgres.py
+    2 tests/test_account_deletion_fk_census_postgres.py
+    7 tests/test_account_deletion_guards_postgres.py
+   12 tests/test_account_deletion_key_fingerprint_postgres.py
+    8 tests/test_account_deletion_postgres.py
+    4 tests/test_account_deletion_reseal_postgres.py
+    9 tests/test_account_deletion_third_parties_postgres.py
+    4 tests/test_analytics_deletion_postgres.py
+    3 tests/test_budgets_postgres.py
+    4 tests/test_business_postgres.py
+   13 tests/test_business_space_isolation_postgres.py
+   10 tests/test_business_spaces_migration_postgres.py
+    5 tests/test_client_grants_postgres.py
+    7 tests/test_connected_goals_postgres.py
+    5 tests/test_connected_plan_postgres.py
+    3 tests/test_document_extractions_postgres.py
+    8 tests/test_document_jobs_postgres.py
+   17 tests/test_document_source_objects_postgres.py
+    1 tests/test_financial_accounts_api_postgres.py
+    6 tests/test_financial_accounts_postgres.py
+    1 tests/test_financial_assets_postgres.py
+    4 tests/test_financial_loop_postgres.py
+    1 tests/test_guest_auth_local_supabase.py
+   15 tests/test_ingestion_connections_postgres.py
+    5 tests/test_ingestion_gmail_postgres.py
+    5 tests/test_ingestion_plaid_postgres.py
+   41 tests/test_ingestion_reconcile_postgres.py
+    3 tests/test_ingestion_shortcuts_postgres.py
+    9 tests/test_personal_money_postgres.py
+    1 tests/test_search_postgres.py
+   24 tests/test_whatsapp_intake_postgres.py
+      cause seen: psycopg.errors.UndefinedColumn: column "owner_space_id" of relation "financial_source_connections" does not exist
+      cause seen: psycopg.errors.UndefinedFunction: function public.create_financial_account(unknown, unknown, unknown, unknown, unknown, unknown, smallint, integer, timestamp with time zo
+      cause seen: psycopg.errors.UndefinedFunction: function public.create_financial_account(unknown, unknown, unknown, unknown, unknown, unknown, smallint, unknown, unknown, unknown, unkn
+      cause seen: psycopg.errors.UndefinedTable: relation "public.spaces" does not exist
+      cause seen: psycopg.errors.UndefinedFunction: function public.create_financial_account(unknown, unknown, unknown, unknown, unknown, unknown, smallint, smallint, timestamp with time z
+      cause seen: psycopg.errors.UndefinedColumn: column "owner_space_id" does not exist
+      cause seen: AssertionError: assert {'argus_priva...entials', ...} == {'argus_priva...entials', ...}
+      cause seen: psycopg.errors.UndefinedFunction: function "public.business_space_of(uuid)" does not exist
+      cause seen: AssertionError: assert {} == {'financial-d...urces': False}
+      cause seen: psycopg.errors.ForeignKeyViolation: insert or update on table "objects" violates foreign key constraint "objects_bucketId_fkey"
+      cause seen: AssertionError: assert None == (10485760, ['application/pdf', 'image/jpeg', 'image/png'])
+      cause seen: AssertionError: {"type":"https://api.argus.app/problems/internal-error","title":"Internal Error","status":500,"detail":"An unexpected error occurred. Please try again.","
+      cause seen: AssertionError: assert 0 == 5
+      cause seen: ImportError: dlopen(scipy) macOS loader
+      cause seen: psycopg.errors.UndefinedTable: relation "public.whatsapp_inbound_messages" does not exist
+    (403 failing or erroring test ids omitted; distinct causes above)
+exit=1 seconds=145
+
+== compat-activation_B1 | 309 failed, 1019 passed, 3 skipped, 206 warnings, 91 errors in 147.75s (0:02:27)
+   20 tests/financial_accounts/test_assets.py
+   23 tests/financial_accounts/test_goal_allocations_postgres.py
+   18 tests/financial_accounts/test_loop_commands.py
+   19 tests/household/test_household_financial_boundaries.py
+    6 tests/household/test_household_postgres.py
+    6 tests/household/test_household_review_regressions.py
+    4 tests/household/test_paired_transfers.py
+   13 tests/household/test_shared_contributor_departure.py
+    3 tests/household/test_shared_goal_edits.py
+    6 tests/household/test_shared_personal_bridge.py
+    1 tests/household/test_shared_planning.py
+    6 tests/household/test_shared_planning_api.py
+    6 tests/household/test_shared_planning_departure.py
+   13 tests/household/test_shared_planning_invariants.py
+    7 tests/household/test_shared_planning_lifecycle.py
+    5 tests/household/test_shared_planning_money.py
+    7 tests/test_account_deletion_api_postgres.py
+    1 tests/test_account_deletion_apple_admission_postgres.py
+    2 tests/test_account_deletion_business_guard_postgres.py
+    2 tests/test_account_deletion_fk_census_postgres.py
+    7 tests/test_account_deletion_guards_postgres.py
+   12 tests/test_account_deletion_key_fingerprint_postgres.py
+    8 tests/test_account_deletion_postgres.py
+    4 tests/test_account_deletion_reseal_postgres.py
+    9 tests/test_account_deletion_third_parties_postgres.py
+    4 tests/test_analytics_deletion_postgres.py
+    3 tests/test_budgets_postgres.py
+    4 tests/test_business_postgres.py
+   13 tests/test_business_space_isolation_postgres.py
+   10 tests/test_business_spaces_migration_postgres.py
+    2 tests/test_client_grants_postgres.py
+    7 tests/test_connected_goals_postgres.py
+    5 tests/test_connected_plan_postgres.py
+    3 tests/test_document_extractions_postgres.py
+    8 tests/test_document_jobs_postgres.py
+   17 tests/test_document_source_objects_postgres.py
+    1 tests/test_financial_accounts_api_postgres.py
+    6 tests/test_financial_accounts_postgres.py
+    1 tests/test_financial_assets_postgres.py
+    4 tests/test_financial_loop_postgres.py
+    1 tests/test_guest_auth_local_supabase.py
+   15 tests/test_ingestion_connections_postgres.py
+    5 tests/test_ingestion_gmail_postgres.py
+    5 tests/test_ingestion_plaid_postgres.py
+   41 tests/test_ingestion_reconcile_postgres.py
+    3 tests/test_ingestion_shortcuts_postgres.py
+    9 tests/test_personal_money_postgres.py
+    1 tests/test_search_postgres.py
+   24 tests/test_whatsapp_intake_postgres.py
+      cause seen: psycopg.errors.UndefinedColumn: column "owner_space_id" of relation "financial_source_connections" does not exist
+      cause seen: psycopg.errors.UndefinedFunction: function public.create_financial_account(unknown, unknown, unknown, unknown, unknown, unknown, smallint, integer, timestamp with time zo
+      cause seen: psycopg.errors.UndefinedFunction: function public.create_financial_account(unknown, unknown, unknown, unknown, unknown, unknown, smallint, unknown, unknown, unknown, unkn
+      cause seen: psycopg.errors.UndefinedTable: relation "public.spaces" does not exist
+      cause seen: psycopg.errors.UndefinedFunction: function public.create_financial_account(unknown, unknown, unknown, unknown, unknown, unknown, smallint, smallint, timestamp with time z
+      cause seen: psycopg.errors.UndefinedColumn: column "owner_space_id" does not exist
+      cause seen: AssertionError: assert {'argus_priva...entials', ...} == {'argus_priva...entials', ...}
+      cause seen: psycopg.errors.UndefinedFunction: function "public.business_space_of(uuid)" does not exist
+      cause seen: AssertionError: {"type":"https://api.argus.app/problems/internal-error","title":"Internal Error","status":500,"detail":"An unexpected error occurred. Please try again.","
+      cause seen: AssertionError: assert 0 == 5
+      cause seen: ImportError: dlopen(scipy) macOS loader
+      cause seen: psycopg.errors.UndefinedTable: relation "public.whatsapp_inbound_messages" does not exist
+    (400 failing or erroring test ids omitted; distinct causes above)
+exit=1 seconds=151
+
+== compat-activation_B2 | 309 failed, 1019 passed, 3 skipped, 206 warnings, 91 errors in 142.83s (0:02:22)
+   20 tests/financial_accounts/test_assets.py
+   23 tests/financial_accounts/test_goal_allocations_postgres.py
+   18 tests/financial_accounts/test_loop_commands.py
+   19 tests/household/test_household_financial_boundaries.py
+    6 tests/household/test_household_postgres.py
+    6 tests/household/test_household_review_regressions.py
+    4 tests/household/test_paired_transfers.py
+   13 tests/household/test_shared_contributor_departure.py
+    3 tests/household/test_shared_goal_edits.py
+    6 tests/household/test_shared_personal_bridge.py
+    1 tests/household/test_shared_planning.py
+    6 tests/household/test_shared_planning_api.py
+    6 tests/household/test_shared_planning_departure.py
+   13 tests/household/test_shared_planning_invariants.py
+    7 tests/household/test_shared_planning_lifecycle.py
+    5 tests/household/test_shared_planning_money.py
+    7 tests/test_account_deletion_api_postgres.py
+    1 tests/test_account_deletion_apple_admission_postgres.py
+    2 tests/test_account_deletion_business_guard_postgres.py
+    2 tests/test_account_deletion_fk_census_postgres.py
+    7 tests/test_account_deletion_guards_postgres.py
+   12 tests/test_account_deletion_key_fingerprint_postgres.py
+    8 tests/test_account_deletion_postgres.py
+    4 tests/test_account_deletion_reseal_postgres.py
+    9 tests/test_account_deletion_third_parties_postgres.py
+    4 tests/test_analytics_deletion_postgres.py
+    3 tests/test_budgets_postgres.py
+    4 tests/test_business_postgres.py
+   13 tests/test_business_space_isolation_postgres.py
+   10 tests/test_business_spaces_migration_postgres.py
+    2 tests/test_client_grants_postgres.py
+    7 tests/test_connected_goals_postgres.py
+    5 tests/test_connected_plan_postgres.py
+    3 tests/test_document_extractions_postgres.py
+    8 tests/test_document_jobs_postgres.py
+   17 tests/test_document_source_objects_postgres.py
+    1 tests/test_financial_accounts_api_postgres.py
+    6 tests/test_financial_accounts_postgres.py
+    1 tests/test_financial_assets_postgres.py
+    4 tests/test_financial_loop_postgres.py
+    1 tests/test_guest_auth_local_supabase.py
+   15 tests/test_ingestion_connections_postgres.py
+    5 tests/test_ingestion_gmail_postgres.py
+    5 tests/test_ingestion_plaid_postgres.py
+   41 tests/test_ingestion_reconcile_postgres.py
+    3 tests/test_ingestion_shortcuts_postgres.py
+    9 tests/test_personal_money_postgres.py
+    1 tests/test_search_postgres.py
+   24 tests/test_whatsapp_intake_postgres.py
+      cause seen: psycopg.errors.UndefinedColumn: column "owner_space_id" of relation "financial_source_connections" does not exist
+      cause seen: psycopg.errors.UndefinedFunction: function public.create_financial_account(unknown, unknown, unknown, unknown, unknown, unknown, smallint, integer, timestamp with time zo
+      cause seen: psycopg.errors.UndefinedFunction: function public.create_financial_account(unknown, unknown, unknown, unknown, unknown, unknown, smallint, unknown, unknown, unknown, unkn
+      cause seen: psycopg.errors.UndefinedTable: relation "public.spaces" does not exist
+      cause seen: psycopg.errors.UndefinedFunction: function public.create_financial_account(unknown, unknown, unknown, unknown, unknown, unknown, smallint, smallint, timestamp with time z
+      cause seen: psycopg.errors.UndefinedColumn: column "owner_space_id" does not exist
+      cause seen: AssertionError: assert {'argus_priva...entials', ...} == {'argus_priva...entials', ...}
+      cause seen: psycopg.errors.UndefinedFunction: function "public.business_space_of(uuid)" does not exist
+      cause seen: AssertionError: {"type":"https://api.argus.app/problems/internal-error","title":"Internal Error","status":500,"detail":"An unexpected error occurred. Please try again.","
+      cause seen: AssertionError: assert 0 == 5
+      cause seen: ImportError: dlopen(scipy) macOS loader
+      cause seen: psycopg.errors.UndefinedTable: relation "public.whatsapp_inbound_messages" does not exist
+    (400 failing or erroring test ids omitted; distinct causes above)
+exit=1 seconds=147
+
+== compat-activation_B3 | 308 failed, 1020 passed, 3 skipped, 206 warnings, 91 errors in 170.11s (0:02:50)
+   20 tests/financial_accounts/test_assets.py
+   23 tests/financial_accounts/test_goal_allocations_postgres.py
+   18 tests/financial_accounts/test_loop_commands.py
+   19 tests/household/test_household_financial_boundaries.py
+    6 tests/household/test_household_postgres.py
+    6 tests/household/test_household_review_regressions.py
+    4 tests/household/test_paired_transfers.py
+   13 tests/household/test_shared_contributor_departure.py
+    3 tests/household/test_shared_goal_edits.py
+    6 tests/household/test_shared_personal_bridge.py
+    1 tests/household/test_shared_planning.py
+    6 tests/household/test_shared_planning_api.py
+    6 tests/household/test_shared_planning_departure.py
+   13 tests/household/test_shared_planning_invariants.py
+    7 tests/household/test_shared_planning_lifecycle.py
+    5 tests/household/test_shared_planning_money.py
+    7 tests/test_account_deletion_api_postgres.py
+    1 tests/test_account_deletion_apple_admission_postgres.py
+    2 tests/test_account_deletion_business_guard_postgres.py
+    2 tests/test_account_deletion_fk_census_postgres.py
+    7 tests/test_account_deletion_guards_postgres.py
+   12 tests/test_account_deletion_key_fingerprint_postgres.py
+    8 tests/test_account_deletion_postgres.py
+    4 tests/test_account_deletion_reseal_postgres.py
+    9 tests/test_account_deletion_third_parties_postgres.py
+    4 tests/test_analytics_deletion_postgres.py
+    3 tests/test_budgets_postgres.py
+    4 tests/test_business_postgres.py
+   13 tests/test_business_space_isolation_postgres.py
+   10 tests/test_business_spaces_migration_postgres.py
+    2 tests/test_client_grants_postgres.py
+    7 tests/test_connected_goals_postgres.py
+    5 tests/test_connected_plan_postgres.py
+    3 tests/test_document_extractions_postgres.py
+    8 tests/test_document_jobs_postgres.py
+   17 tests/test_document_source_objects_postgres.py
+    1 tests/test_financial_accounts_api_postgres.py
+    6 tests/test_financial_accounts_postgres.py
+    1 tests/test_financial_assets_postgres.py
+    4 tests/test_financial_loop_postgres.py
+    1 tests/test_guest_auth_local_supabase.py
+   15 tests/test_ingestion_connections_postgres.py
+    5 tests/test_ingestion_gmail_postgres.py
+    5 tests/test_ingestion_plaid_postgres.py
+   41 tests/test_ingestion_reconcile_postgres.py
+    3 tests/test_ingestion_shortcuts_postgres.py
+    9 tests/test_personal_money_postgres.py
+    1 tests/test_search_postgres.py
+   23 tests/test_whatsapp_intake_postgres.py
+      cause seen: psycopg.errors.UndefinedColumn: column "owner_space_id" of relation "financial_source_connections" does not exist
+      cause seen: psycopg.errors.UndefinedFunction: function public.create_financial_account(unknown, unknown, unknown, unknown, unknown, unknown, smallint, integer, timestamp with time zo
+      cause seen: psycopg.errors.UndefinedFunction: function public.create_financial_account(unknown, unknown, unknown, unknown, unknown, unknown, smallint, unknown, unknown, unknown, unkn
+      cause seen: psycopg.errors.UndefinedTable: relation "public.spaces" does not exist
+      cause seen: psycopg.errors.UndefinedFunction: function public.create_financial_account(unknown, unknown, unknown, unknown, unknown, unknown, smallint, smallint, timestamp with time z
+      cause seen: psycopg.errors.UndefinedColumn: column "owner_space_id" does not exist
+      cause seen: AssertionError: assert {'argus_priva...entials', ...} == {'argus_priva...entials', ...}
+      cause seen: psycopg.errors.UndefinedFunction: function "public.business_space_of(uuid)" does not exist
+      cause seen: AssertionError: {"type":"https://api.argus.app/problems/internal-error","title":"Internal Error","status":500,"detail":"An unexpected error occurred. Please try again.","
+      cause seen: AssertionError: assert 0 == 5
+      cause seen: ImportError: dlopen(scipy) macOS loader
+    (399 failing or erroring test ids omitted; distinct causes above)
+exit=1 seconds=173
+
+== compat-activation_B4 | 2 failed, 1417 passed, 3 skipped, 202 warnings in 259.05s (0:04:19)
+    1 tests/test_guest_auth_local_supabase.py
+    1 tests/test_search_postgres.py
+      cause seen: ImportError: dlopen(scipy) macOS loader
+    FAILED tests/test_guest_auth_local_supabase.py::test_guest_run_through_real_flag_off_tool_corridor_settles_simulation
+    FAILED tests/test_search_postgres.py::test_asset_rollup_pair_symbol_normalization_matches_memory_contract
+exit=1 seconds=263
+
+== compat-activation_B4biz | 2 failed, 1417 passed, 3 skipped, 202 warnings in 274.75s (0:04:34)
+    1 tests/test_guest_auth_local_supabase.py
+    1 tests/test_search_postgres.py
+      cause seen: ImportError: dlopen(scipy) macOS loader
+    FAILED tests/test_guest_auth_local_supabase.py::test_guest_run_through_real_flag_off_tool_corridor_settles_simulation
+    FAILED tests/test_search_postgres.py::test_asset_rollup_pair_symbol_normalization_matches_memory_contract
+exit=1 seconds=278
+

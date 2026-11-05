@@ -25,7 +25,7 @@ export default function ReceiptBody({ payload, createdAt, copy, language, previe
   return <main className="mx-auto flex w-full max-w-3xl flex-col px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-6 text-black tablet:px-8 tablet:pt-9 dark:text-white">
     {!preview && <ReceiptViewBeacon kind={receiptDocumentKind(payload)} />}
     <header className="mb-8">
-      <h1 className="font-display text-xl font-medium tracking-tight">Argus</h1>
+      <h1 className="font-display text-xl font-medium tracking-tight">Cuadrao</h1>
       <p className="mt-2 text-sm leading-relaxed text-black/55 dark:text-white/55">{date ? interpolate(copy.thread.notice, { date }) : copy.thread.preview_notice}</p>
       {notes.map((entry) => <aside key={entry.ownerNote} className="mt-5 rounded-2xl border border-black/10 px-4 py-3 dark:border-white/10"><h2 className="mb-1 text-xs font-medium text-black/50 dark:text-white/50">{copy.sections.note}</h2><p lang={entry.language} className="whitespace-pre-wrap break-words text-sm leading-relaxed">{entry.ownerNote}</p></aside>)}
     </header>
@@ -34,7 +34,7 @@ export default function ReceiptBody({ payload, createdAt, copy, language, previe
         <div data-receipt-question="" className="flex w-full justify-end">
           <p lang={entry.language} className="max-w-[85%] whitespace-pre-wrap break-words rounded-[24px] rounded-br-sm bg-black/5 px-5 py-3.5 text-[16px] font-normal leading-[1.5] tracking-[0.24px] dark:bg-white/10">{entry.title}</p>
         </div>
-        <div className="min-w-0"><p className="mb-3 font-display text-sm font-medium">Argus</p><ReceiptTurnContent entry={entry} copy={copy} language={language} /></div>
+        <div className="min-w-0"><p className="mb-3 font-display text-sm font-medium">Cuadrao</p><ReceiptTurnContent entry={entry} copy={copy} language={language} /></div>
       </article>)}
     </div>
     <footer className="mt-10 w-full">{footer ?? <ReceiptFollowupBox copy={copy} />}</footer>

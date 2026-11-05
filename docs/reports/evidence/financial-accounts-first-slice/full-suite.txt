@@ -1,0 +1,30 @@
+1099:            + f"{measured['passed']} passed, {measured['failed']} failed.\n"
+1105:E       Last measured at 6e9e6d7edef24c1f849c16fee1f3cb666ced0ad5: 70 passed, 3 failed.
+4410:FAILED tests/test_bounded_read_indexes_postgres.py::test_forward_indexes_exist_without_changing_rls_or_select_grants
+4411:FAILED tests/test_canary_check_evidence.py::test_session_tool_names_only_the_failures_it_raised
+4412:FAILED tests/test_guest_workspace_postgres.py::test_owner_scoped_rls_separates_guest_and_registered_product_rows
+4413:FAILED tests/test_guest_workspace_postgres.py::test_expired_guest_cannot_read_or_write_product_rows
+4414:FAILED tests/test_guest_workspace_postgres.py::test_profile_and_usage_table_grants_stay_service_owned
+4415:FAILED tests/test_interpreter_prompt_freeze.py::test_model_facing_text_matches_its_measured_fingerprint
+4416:FAILED tests/test_public_alpha_render_load.py::test_harness_help_runs_from_the_repository_root
+4417:FAILED tests/test_result_card_gain.py::test_run_profit_reaches_live_and_reloaded_web_card[1000.5-0.5-1-en-buy_and_hold]
+4418:FAILED tests/test_result_card_gain.py::test_run_profit_reaches_live_and_reloaded_web_card[1000.5-0.5-1-en-dca_accumulation]
+4419:FAILED tests/test_result_card_gain.py::test_run_profit_reaches_live_and_reloaded_web_card[1000.5-0.5-1-es-419-buy_and_hold]
+4420:FAILED tests/test_result_card_gain.py::test_run_profit_reaches_live_and_reloaded_web_card[1000.5-0.5-1-es-419-dca_accumulation]
+4421:FAILED tests/test_result_card_gain.py::test_run_profit_reaches_live_and_reloaded_web_card[10.005-0.005-0.01-en-buy_and_hold]
+4422:FAILED tests/test_result_card_gain.py::test_run_profit_reaches_live_and_reloaded_web_card[10.005-0.005-0.01-en-dca_accumulation]
+4423:FAILED tests/test_result_card_gain.py::test_run_profit_reaches_live_and_reloaded_web_card[10.005-0.005-0.01-es-419-buy_and_hold]
+4424:FAILED tests/test_result_card_gain.py::test_run_profit_reaches_live_and_reloaded_web_card[10.005-0.005-0.01-es-419-dca_accumulation]
+4425:FAILED tests/test_result_card_gain.py::test_run_profit_reaches_live_and_reloaded_web_card[1000.5--0.5--1-en-buy_and_hold]
+4426:FAILED tests/test_result_card_gain.py::test_run_profit_reaches_live_and_reloaded_web_card[1000.5--0.5--1-en-dca_accumulation]
+4427:FAILED tests/test_result_card_gain.py::test_run_profit_reaches_live_and_reloaded_web_card[1000.5--0.5--1-es-419-buy_and_hold]
+4428:FAILED tests/test_result_card_gain.py::test_run_profit_reaches_live_and_reloaded_web_card[1000.5--0.5--1-es-419-dca_accumulation]
+4429:FAILED tests/test_result_card_gain.py::test_run_profit_reaches_live_and_reloaded_web_card[10.005--0.005--0.01-en-buy_and_hold]
+4430:FAILED tests/test_result_card_gain.py::test_run_profit_reaches_live_and_reloaded_web_card[10.005--0.005--0.01-en-dca_accumulation]
+4431:FAILED tests/test_result_card_gain.py::test_run_profit_reaches_live_and_reloaded_web_card[10.005--0.005--0.01-es-419-buy_and_hold]
+4432:FAILED tests/test_result_card_gain.py::test_run_profit_reaches_live_and_reloaded_web_card[10.005--0.005--0.01-es-419-dca_accumulation]
+4433:FAILED tests/test_result_card_gain.py::test_run_profit_reaches_live_and_reloaded_web_card[1000.5-0-0-en-buy_and_hold]
+4434:FAILED tests/test_result_card_gain.py::test_run_profit_reaches_live_and_reloaded_web_card[1000.5-0-0-en-dca_accumulation]
+4435:FAILED tests/test_result_card_gain.py::test_run_profit_reaches_live_and_reloaded_web_card[1000.5-0-0-es-419-buy_and_hold]
+4436:FAILED tests/test_result_card_gain.py::test_run_profit_reaches_live_and_reloaded_web_card[1000.5-0-0-es-419-dca_accumulation]
+4437:===== 27 failed, 9863 passed, 10 skipped, 5 warnings in 478.73s (0:07:58) ======

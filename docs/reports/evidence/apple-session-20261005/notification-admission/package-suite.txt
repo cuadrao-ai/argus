@@ -1,0 +1,53 @@
+Test Suite 'All tests' started at 2026-10-05 14:50:20.070.
+CoreData: error: Unable to create token NSXPCConnection.  NSXPCStoreServerEndpointFactory 0x76ca6bccf0 -newEndpointWithError returned error Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.contactsd.persistence" UserInfo={NSDebugDescription=connection to service named com.apple.contactsd.persistence}
+CoreData: error: NSXPCStoreConnectionManager failed to initialize any connections for store at file:///Users/garces/Library/Application%20Support/AddressBook/AddressBook-v22.abcddb with error = Error Domain=NSCocoaErrorDomain Code=4097 "Couldn’t communicate with a helper application." UserInfo={NSUnderlyingError=0x76ca040d50 {Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.contactsd.persistence" UserInfo={NSDebugDescription=connection to service named com.apple.contactsd.persistence}}}
+CoreData: error: Unable to create token NSXPCConnection.  NSXPCStoreServerEndpointFactory 0x76ca6bccf0 -newEndpointWithError returned error Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.contactsd.persistence" UserInfo={NSDebugDescription=connection to service named com.apple.contactsd.persistence}
+CoreData: error: NSXPCStoreConnectionManager failed to initialize any connections for store at file:///Users/garces/Library/Application%20Support/AddressBook/AddressBook-v22.abcddb with error = Error Domain=NSCocoaErrorDomain Code=4097 "Couldn’t communicate with a helper application." UserInfo={NSUnderlyingError=0x76ca040f90 {Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.contactsd.persistence" UserInfo={NSDebugDescription=connection to service named com.apple.contactsd.persistence}}}
+CoreData: error: addPersistentStoreWithType:configuration:URL:options:error: returned error NSCocoaErrorDomain (4097)
+CoreData: error: userInfo:
+CoreData: error: 	NSUnderlyingException : NSXPCStoreServerEndpointFactory failed to provide an endpoint
+CoreData: error: 	NSUnderlyingError : Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.contactsd.persistence" UserInfo={NSDebugDescription=connection to service named com.apple.contactsd.persistence}
+CoreData: error: storeType: NSXPCStore
+CoreData: error: configuration: (null)
+CoreData: error: URL: file:///Users/garces/Library/Application%20Support/AddressBook/AddressBook-v22.abcddb
+	 Executed 17 tests, with 0 failures (0 unexpected) in 5.075 (5.077) seconds
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.014 (0.014) seconds
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.002 (0.003) seconds
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.001 (0.002) seconds
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.006 (0.007) seconds
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.006 (0.006) seconds
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+	 Executed 14 tests, with 0 failures (0 unexpected) in 0.005 (0.006) seconds
+CoreData: error: Unable to create token NSXPCConnection.  NSXPCStoreServerEndpointFactory 0x76ca6bd0e0 -newEndpointWithError returned error Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.contactsd.persistence" UserInfo={NSDebugDescription=connection to service named com.apple.contactsd.persistence}
+CoreData: error: NSXPCStoreConnectionManager failed to initialize any connections for store at file:///Users/garces/Library/Application%20Support/AddressBook/AddressBook-v22.abcddb with error = Error Domain=NSCocoaErrorDomain Code=4097 "Couldn’t communicate with a helper application." UserInfo={NSUnderlyingError=0x76ca04ef40 {Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.contactsd.persistence" UserInfo={NSDebugDescription=connection to service named com.apple.contactsd.persistence}}}
+	 Executed 16 tests, with 0 failures (0 unexpected) in 2.063 (2.064) seconds
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.007 (0.008) seconds
+/private/tmp/cuadrao-apple-session-20261005/ios/Packages/ArgusSession/Tests/ArgusSessionTests/LiveSessionTests.swift:95: -[ArgusSessionTests.LiveFinancialAccountTests testLocalDurableAccountsThroughProductionClient] : Test skipped - Set ARGUS_SESSION_LIVE_CONFIG for the isolated local auth stack
+Test Case '-[ArgusSessionTests.LiveFinancialAccountTests testLocalDurableAccountsThroughProductionClient]' skipped (0.001 seconds).
+	 Executed 1 test, with 1 test skipped and 0 failures (0 unexpected) in 0.001 (0.001) seconds
+/private/tmp/cuadrao-apple-session-20261005/ios/Packages/ArgusSession/Tests/ArgusSessionTests/LiveSessionTests.swift:95: -[ArgusSessionTests.LiveSessionTests testLiveConcurrentRefreshAfterExpiryMargin] : Test skipped - Set ARGUS_SESSION_LIVE_CONFIG for the isolated local auth stack
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveConcurrentRefreshAfterExpiryMargin]' skipped (0.000 seconds).
+/private/tmp/cuadrao-apple-session-20261005/ios/Packages/ArgusSession/Tests/ArgusSessionTests/LiveSessionTests.swift:95: -[ArgusSessionTests.LiveSessionTests testLiveInvalidLoginAndConfirmationRequiredSignup] : Test skipped - Set ARGUS_SESSION_LIVE_CONFIG for the isolated local auth stack
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveInvalidLoginAndConfirmationRequiredSignup]' skipped (0.000 seconds).
+/private/tmp/cuadrao-apple-session-20261005/ios/Packages/ArgusSession/Tests/ArgusSessionTests/LiveSessionTests.swift:95: -[ArgusSessionTests.LiveSessionTests testLiveRegisteredRelaunchRevocationAndAccountSwitch] : Test skipped - Set ARGUS_SESSION_LIVE_CONFIG for the isolated local auth stack
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveRegisteredRelaunchRevocationAndAccountSwitch]' skipped (0.000 seconds).
+	 Executed 3 tests, with 3 tests skipped and 0 failures (0 unexpected) in 0.001 (0.001) seconds
+CoreData: error: Unable to create token NSXPCConnection.  NSXPCStoreServerEndpointFactory 0x76ca6bd0e0 -newEndpointWithError returned error Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.contactsd.persistence" UserInfo={NSDebugDescription=connection to service named com.apple.contactsd.persistence}
+CoreData: error: NSXPCStoreConnectionManager failed to initialize any connections for store at file:///Users/garces/Library/Application%20Support/AddressBook/AddressBook-v22.abcddb with error = Error Domain=NSCocoaErrorDomain Code=4097 "Couldn’t communicate with a helper application." UserInfo={NSUnderlyingError=0x76ca04eeb0 {Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.contactsd.persistence" UserInfo={NSDebugDescription=connection to service named com.apple.contactsd.persistence}}}
+CoreData: error: addPersistentStoreWithType:configuration:URL:options:error: returned error NSCocoaErrorDomain (4097)
+CoreData: error: userInfo:
+CoreData: error: 	NSUnderlyingException : NSXPCStoreServerEndpointFactory failed to provide an endpoint
+CoreData: error: 	NSUnderlyingError : Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.contactsd.persistence" UserInfo={NSDebugDescription=connection to service named com.apple.contactsd.persistence}
+CoreData: error: storeType: NSXPCStore
+CoreData: error: configuration: (null)
+CoreData: error: URL: file:///Users/garces/Library/Application%20Support/AddressBook/AddressBook-v22.abcddb
+	 Executed 20 tests, with 0 failures (0 unexpected) in 3.112 (3.113) seconds
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.006 (0.007) seconds
+	 Executed 136 tests, with 4 tests skipped and 0 failures (0 unexpected) in 10.305 (10.314) seconds
+Test Suite 'All tests' passed at 2026-10-05 14:50:30.384.
+	 Executed 136 tests, with 4 tests skipped and 0 failures (0 unexpected) in 10.305 (10.314) seconds

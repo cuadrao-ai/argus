@@ -1,0 +1,24 @@
+{
+  "client": "python-httpx language-neutral probe (not a native client)",
+  "suite": "captcha",
+  "captured_at": "2026-09-28T17:28:44+00:00",
+  "environment": "local lane Supabase stack argus-native-auth-proof (jwt_expiry=60, confirmations on) + unchanged Argus API; Argus API launched from the fix branch at argus_api_head",
+  "results": [
+    {
+      "id": "B4",
+      "area": "captcha",
+      "scenario": "Test secret that reports an already-spent token (stand-in for reuse or expiry)",
+      "path": "unchanged-argus + local Supabase Auth with a Cloudflare test secret",
+      "evidence_level": 3,
+      "expected": "Sign-in refused; the client must fetch a fresh token for every attempt",
+      "observed": {
+        "login_status": 401,
+        "code": "unauthorized"
+      },
+      "verdict": "pass",
+      "note": ""
+    }
+  ],
+  "probe_checkout_head": "de61fd3e7d299fcd0c7fda24f3c95f5427822271",
+  "argus_api_head": "54fe7b6fe"
+}

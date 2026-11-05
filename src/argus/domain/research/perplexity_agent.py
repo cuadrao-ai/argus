@@ -65,6 +65,7 @@ from argus.domain.research.contracts import (
     RetrievedRow,
 )
 from argus.domain.research.pricing import validated_research_cost_usd
+from argus.log_sink import exception_origin
 
 PERPLEXITY_AGENT_URL = "https://api.perplexity.ai/v1/agent"
 
@@ -516,10 +517,16 @@ def _packet_from_response(
         # Argus was billed for, not a crashed turn. Checking each nested shape
         # would only name the ones seen so far; the next one is already out
         # there. The catch is wide enough to cover an Argus-side regression in
-        # the parser too, so the traceback is attached: no sink is configured,
-        # and loguru's default renders it. What leaves with the error stays
-        # generic instead, because a failed job serves its detail to a reader.
-        logger.opt(exception=True).warning("Research response could not be parsed")
+        # the parser too. Exception chains can include raw provider values,
+        # even with diagnostic locals disabled, so retain only the error class.
+        origin = exception_origin(exc)
+        logger.warning(
+            "Research response could not be parsed error_type={} error_origin={}",
+            type(exc).__name__,
+            origin,
+            error_type=type(exc).__name__,
+            error_origin=origin,
+        )
         raise ResearchUnavailableError(
             "malformed_response", "response shape not parseable", usage=usage
         ) from exc

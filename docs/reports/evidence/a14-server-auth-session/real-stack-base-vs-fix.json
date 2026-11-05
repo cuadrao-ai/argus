@@ -1,0 +1,35 @@
+{
+  "what": "CI's local-Auth and Postgres test files, same lane stack, integration base tree versus fix tree, Linux python:3.10 container",
+  "base_tree": "3b9313f3d",
+  "fix_tree": "54fe7b6fe",
+  "stack": "argus-native-auth-proof (jwt_expiry=60, email confirmations on); not CI's default auth config",
+  "files": [
+    "tests/test_guest_auth_local_supabase.py",
+    "tests/test_guest_signup_local_supabase.py",
+    "tests/test_*_postgres.py"
+  ],
+  "base_counts": {
+    "fail": 7,
+    "pass": 409
+  },
+  "fix_counts": {
+    "fail": 7,
+    "pass": 410
+  },
+  "differences": [
+    {
+      "test": "tests.test_guest_auth_local_supabase::test_concurrent_logins_keep_identities_and_leave_refresh_to_the_client",
+      "base": null,
+      "fix": "pass"
+    }
+  ],
+  "failing_on_both": [
+    "tests.test_bounded_read_indexes_postgres::test_forward_indexes_exist_without_changing_rls_or_select_grants",
+    "tests.test_guest_signup_local_supabase::test_real_email_change_keeps_email_change_template_with_old_address",
+    "tests.test_guest_signup_local_supabase::test_real_guest_signup_emits_signup_mail_and_claims_completed_work[en-Argus: confirm your email-An Argus account signup was requested for]",
+    "tests.test_guest_signup_local_supabase::test_real_guest_signup_emits_signup_mail_and_claims_completed_work[es-419-Argus: confirma tu correo-Se solicit\\xf3 crear una cuenta de Argus para]",
+    "tests.test_guest_workspace_postgres::test_expired_guest_cannot_read_or_write_product_rows",
+    "tests.test_guest_workspace_postgres::test_owner_scoped_rls_separates_guest_and_registered_product_rows",
+    "tests.test_guest_workspace_postgres::test_profile_and_usage_table_grants_stay_service_owned"
+  ]
+}

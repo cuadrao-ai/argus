@@ -19,9 +19,9 @@ from argus.env import load_project_dotenv
 
 load_project_dotenv()
 
-PERSISTENCE_MODE = os.getenv("ARGUS_PERSISTENCE_MODE", "memory").strip().lower()
+PERSISTENCE_MODE = os.getenv("CUADRAO_PERSISTENCE_MODE", "memory").strip().lower()
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
-CHECKPOINTER_MODE = os.getenv("ARGUS_CHECKPOINTER_MODE", "").strip().lower()
+CHECKPOINTER_MODE = os.getenv("CUADRAO_CHECKPOINTER_MODE", "").strip().lower()
 if not CHECKPOINTER_MODE:
     CHECKPOINTER_MODE = (
         "postgres" if PERSISTENCE_MODE == "supabase" and DATABASE_URL else "memory"

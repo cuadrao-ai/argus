@@ -1,0 +1,21 @@
+{
+  "tested_source": "a6efe6e3360f1c4e58c97807b91547de527b0b04",
+  "source_manifest_entries": 29,
+  "source_files_including_manifest": 30,
+  "publication_manifest_hashes_verified": true,
+  "candidate_ios_hashes_verified": 401,
+  "production_source_changed": false,
+  "credential_pattern_scan": {
+    "jwt": [],
+    "private_key": [],
+    "password_url": [],
+    "secret_key": []
+  },
+  "screenshots_visually_inspected": 4,
+  "modularity_budget": "pass, current branch only; no reconciliation performed",
+  "diff_check": "normal files pass; preserved .diff/.patch include mandatory single-space context lines and patch EOF; checked separately with blank-at-eol/blank-at-eof disabled",
+  "limitations": [
+    "No actual-local-secret-value scan repeated here; independent author records that scan in README",
+    "Dependency864 remains blocked as reported by parent; no READY claim"
+  ]
+}

@@ -42,6 +42,8 @@ type KeyboardShortcutMatch =
 export type KeyboardShortcutDefinition = {
   id: KeyboardShortcutId;
   group: KeyboardShortcutGroup;
+  /** Acts on conversations, so a workspace without chat neither offers nor lists it. */
+  needsChat: boolean;
   labelKey: string;
   defaultLabel: string;
   match: KeyboardShortcutMatch;
@@ -55,6 +57,7 @@ export const KEYBOARD_SHORTCUTS: readonly KeyboardShortcutDefinition[] = [
   {
     id: "omnisearch",
     group: "navigation",
+    needsChat: false,
     labelKey: "keyboard_shortcuts.shortcuts.omnisearch",
     defaultLabel: "Open search",
     match: "primary_key",
@@ -65,6 +68,7 @@ export const KEYBOARD_SHORTCUTS: readonly KeyboardShortcutDefinition[] = [
   {
     id: "keyboard_shortcuts",
     group: "navigation",
+    needsChat: false,
     labelKey: "keyboard_shortcuts.shortcuts.keyboard_shortcuts",
     defaultLabel: "Show keyboard shortcuts",
     match: "primary_key",
@@ -75,6 +79,7 @@ export const KEYBOARD_SHORTCUTS: readonly KeyboardShortcutDefinition[] = [
   {
     id: "open_recents",
     group: "navigation",
+    needsChat: true,
     labelKey: "keyboard_shortcuts.shortcuts.open_recents",
     defaultLabel: "Open Recents",
     match: "primary_shift_code",
@@ -85,6 +90,7 @@ export const KEYBOARD_SHORTCUTS: readonly KeyboardShortcutDefinition[] = [
   {
     id: "expand_sidebar_recents",
     group: "navigation",
+    needsChat: true,
     labelKey: "keyboard_shortcuts.shortcuts.expand_sidebar_recents",
     defaultLabel: "Toggle sidebar and Recents",
     match: "primary_shift_code",
@@ -95,6 +101,7 @@ export const KEYBOARD_SHORTCUTS: readonly KeyboardShortcutDefinition[] = [
   {
     id: "open_settings",
     group: "navigation",
+    needsChat: false,
     labelKey: "keyboard_shortcuts.shortcuts.open_settings",
     defaultLabel: "Open Settings",
     match: "primary_shift_code",
@@ -105,6 +112,7 @@ export const KEYBOARD_SHORTCUTS: readonly KeyboardShortcutDefinition[] = [
   {
     id: "new_chat",
     group: "chat",
+    needsChat: true,
     labelKey: "keyboard_shortcuts.shortcuts.new_chat",
     defaultLabel: "New chat",
     match: "primary_shift_code",
@@ -115,6 +123,7 @@ export const KEYBOARD_SHORTCUTS: readonly KeyboardShortcutDefinition[] = [
   {
     id: "delete_focused_chat",
     group: "chat",
+    needsChat: true,
     labelKey: "keyboard_shortcuts.shortcuts.delete_focused_chat",
     defaultLabel: "Delete current chat",
     match: "primary_shift_key",
@@ -125,6 +134,7 @@ export const KEYBOARD_SHORTCUTS: readonly KeyboardShortcutDefinition[] = [
   {
     id: "rename_focused_chat",
     group: "chat",
+    needsChat: true,
     labelKey: "keyboard_shortcuts.shortcuts.rename_focused_chat",
     defaultLabel: "Rename current chat",
     match: "primary_shift_key",
@@ -135,6 +145,7 @@ export const KEYBOARD_SHORTCUTS: readonly KeyboardShortcutDefinition[] = [
   {
     id: "archive_focused_chat",
     group: "chat",
+    needsChat: true,
     labelKey: "keyboard_shortcuts.shortcuts.archive_focused_chat",
     defaultLabel: "Archive current chat",
     match: "primary_shift_key",
@@ -145,6 +156,7 @@ export const KEYBOARD_SHORTCUTS: readonly KeyboardShortcutDefinition[] = [
   {
     id: "toggle_read_focused_chat",
     group: "chat",
+    needsChat: true,
     labelKey: "keyboard_shortcuts.shortcuts.toggle_read_focused_chat",
     defaultLabel: "Mark current chat as read or unread",
     match: "primary_shift_key",
@@ -155,6 +167,7 @@ export const KEYBOARD_SHORTCUTS: readonly KeyboardShortcutDefinition[] = [
   {
     id: "toggle_pin_focused_chat",
     group: "chat",
+    needsChat: true,
     labelKey: "keyboard_shortcuts.shortcuts.toggle_pin_focused_chat",
     defaultLabel: "Pin or unpin current chat",
     match: "primary_shift_code",
@@ -165,6 +178,7 @@ export const KEYBOARD_SHORTCUTS: readonly KeyboardShortcutDefinition[] = [
   {
     id: "quick_jump",
     group: "quick_jump",
+    needsChat: true,
     labelKey: "keyboard_shortcuts.shortcuts.quick_jump",
     defaultLabel: "Quick-jump visible items",
     match: "quick_jump",
@@ -174,6 +188,7 @@ export const KEYBOARD_SHORTCUTS: readonly KeyboardShortcutDefinition[] = [
   {
     id: "command_palette_rename",
     group: "omnisearch",
+    needsChat: true,
     labelKey: "command_palette.shortcut_legend.rename",
     defaultLabel: "Rename",
     match: "primary_shift_key",
@@ -184,6 +199,7 @@ export const KEYBOARD_SHORTCUTS: readonly KeyboardShortcutDefinition[] = [
   {
     id: "command_palette_archive",
     group: "omnisearch",
+    needsChat: true,
     labelKey: "command_palette.shortcut_legend.archive",
     defaultLabel: "Archive",
     match: "primary_shift_key",
@@ -194,6 +210,7 @@ export const KEYBOARD_SHORTCUTS: readonly KeyboardShortcutDefinition[] = [
   {
     id: "command_palette_delete",
     group: "omnisearch",
+    needsChat: true,
     labelKey: "command_palette.shortcut_legend.delete",
     defaultLabel: "Delete",
     match: "primary_shift_key",
@@ -353,4 +370,37 @@ export function quickJumpIndexForEvent(
     : event.ctrlKey && event.shiftKey && !event.metaKey && !event.altKey;
   const match = /^Digit([1-9])$/.exec(event.code);
   return modifierMatches && match ? Number(match[1]) - 1 : null;
+}
+
+
+export type WorkspaceKeyboardShortcut = Readonly<{
+  id: string;
+  label: string;
+  code: string;
+  keyLabel: string;
+  shift?: boolean;
+  jumpIndex?: number;
+  run?: () => boolean;
+}>;
+
+export function matchesWorkspaceShortcut(shortcut: WorkspaceKeyboardShortcut, event: KeyboardShortcutEvent, command: boolean): boolean {
+  if (event.repeat) return false;
+  if (shortcut.jumpIndex !== undefined) return quickJumpIndexForEvent(event, command) === shortcut.jumpIndex;
+  const primary = command ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+  return primary && !event.altKey && event.shiftKey === Boolean(shortcut.shift) && event.code === shortcut.code;
+}
+
+export function workspaceShortcutKeys(shortcut: WorkspaceKeyboardShortcut, command: boolean): readonly string[] {
+  if (shortcut.jumpIndex !== undefined) return command ? ["⌘", "⌥", String(shortcut.jumpIndex + 1)] : ["Ctrl", "Shift", String(shortcut.jumpIndex + 1)];
+  return [command ? "⌘" : "Ctrl", ...(shortcut.shift ? [command ? "⇧" : "Shift"] : []), shortcut.keyLabel];
+}
+
+export function workspaceKeyboardTargetBlocked(event: KeyboardEvent): boolean {
+  const target = event.target as HTMLElement | null;
+  return event.defaultPrevented || event.repeat || event.isComposing || event.keyCode === 229 || Boolean(target?.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]'));
+}
+
+export function workspaceShortcutMatchesQuery(shortcut: WorkspaceKeyboardShortcut, command: boolean, query: string): boolean {
+  const normalize = (value: string) => value.toLocaleLowerCase().replace(/⌘|command|cmd/g, "meta").replace(/⌥|option/g, "alt").replace(/⇧/g, "shift").replace(/control/g, "ctrl").replace(/[+\s]/g, "");
+  return normalize(`${shortcut.label} ${workspaceShortcutKeys(shortcut, command).join(" ")} ${shortcut.code}`).includes(normalize(query));
 }

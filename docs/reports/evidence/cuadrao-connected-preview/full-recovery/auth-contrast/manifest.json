@@ -1,0 +1,15 @@
+{
+  "source": "2a1d911b3993b208a25b51ecd156af8a31b6121c",
+  "test": "AuthUITests/testConnectedSignInFilledFieldsInBothAppearances",
+  "executed": 1,
+  "failures": 0,
+  "skipped": 0,
+  "duration_seconds": 50.534,
+  "audit": "XCTest contrast audit passed in light and dark appearances",
+  "screenshots": [
+    "light.png",
+    "dark.png"
+  ],
+  "independent_review": "clean, source and runtime screenshots reviewed",
+  "scope": "Entered synthetic email and password; no credential submission or provider requests"
+}

@@ -16,6 +16,7 @@ from argus.api.message_store import (
     load_runtime_thread_history,
     memory_conversation,
 )
+from argus.domain.owner_scope import PERSONAL
 
 RECALL_TEXT = "Rejected the higher-drawdown ETH variant on 2026-07-30."
 ANSWER_TEXT = "Here is how that idea performed over the period you asked about."
@@ -45,6 +46,7 @@ def _memory_recall_metadata() -> dict[str, Any]:
 def _seed_turn(*, with_memory: bool) -> tuple[str, str]:
     user = api_state.store.get_or_create_dev_user()
     conversation = memory_conversation(
+        scope=PERSONAL,
         title="ETH idea",
         title_source="system_default",
         language="en",

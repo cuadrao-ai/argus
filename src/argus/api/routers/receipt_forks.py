@@ -5,10 +5,14 @@ from __future__ import annotations
 from threading import RLock
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict
 
 from argus.api import state as api_state
+from argus.api.conversation_surface import (
+    conversation_not_found,
+    is_business_conversation,
+)
 from argus.api.dependencies import current_user, problem
 from argus.api.guest_access import account_context, client_identity
 from argus.api.message_store import memory_conversation, memory_message
@@ -18,6 +22,7 @@ from argus.api.public_excerpts import (
 )
 from argus.api.rate_limits import SlidingWindowLimiter
 from argus.api.schemas import Conversation, Language, User
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.postgres_public_excerpt_forks import fork_public_excerpt
 from argus.domain.public_excerpt_forks import (
     ForkError,
@@ -25,7 +30,6 @@ from argus.domain.public_excerpt_forks import (
     fork_marker,
     resolve_fork_replay,
 )
-from argus.observability.product_events import capture_product_event
 
 router = APIRouter(prefix="/api/v1/public", tags=["public-receipts"])
 _MEMORY_LOCK = RLock()
@@ -81,6 +85,7 @@ def _memory_fork(*, user: User, public_id: str, payload: PublicExcerptForkReques
             title="New idea",
             title_source="system_default",
             language=payload.language or user.language,
+            scope=PERSONAL,
             user_id=user.id,
         )
         for index, message in enumerate(messages):
@@ -97,7 +102,6 @@ def fork_receipt(
     public_id: str,
     payload: PublicExcerptForkRequest,
     request: Request,
-    background_tasks: BackgroundTasks,
     user: User = Depends(current_user),  # noqa: B008
 ) -> PublicExcerptForkResponse:
     require_evidence_receipt_sharing_enabled()
@@ -115,6 +119,11 @@ def fork_receipt(
             detail="Try again shortly.",
             headers={"Retry-After": str(retry_after)},
         )
+    replaced = payload.replace_guest_conversation_id
+    if replaced is not None and is_business_conversation(
+        user_id=user.id, conversation_id=str(replaced)
+    ):
+        raise conversation_not_found(request)
     if len(public_id) > 64:
         raise problem(
             request,
@@ -151,11 +160,4 @@ def fork_receipt(
             title="Shared conversation unavailable",
             detail=error.code,
         ) from error
-    if created:
-        background_tasks.add_task(
-            capture_product_event,
-            "receipt_followed_up",
-            user_id=None,
-            status="followed_up",
-        )
     return PublicExcerptForkResponse(conversation=conversation, created=created)

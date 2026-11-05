@@ -1,8 +1,8 @@
 """Research rail metering: one flat meter for users, rich classes underneath.
 
 Retrieval is the grounding operation class: metered per retrieval, never per
-turn. A signed-in account has no research window of its own and is bounded
-only by the shared ceiling. A guest carries a small research allowance keyed
+turn. A signed-in account has a daily research ceiling keyed to
+``user:<account id>``. A guest carries a small research allowance keyed
 to the visitor (spec section 9b). What this module owns:
 
 - the shared global daily ceiling, atomically claimed immediately before a
@@ -13,8 +13,6 @@ to the visitor (spec section 9b). What this module owns:
   balanced_lookup, thorough_research, screening, peer_expansion), recorded on
   the cost ledger whether or not a provider call happened, because the class
   mix is what makes natural tiers visible later.
-- a bounded PostHog research event from that same sidecar, including degraded
-  outcomes; analytics delivery is independent of ledger availability.
 """
 
 from __future__ import annotations
@@ -37,14 +35,16 @@ from argus.domain.usage_limits import (
     align_usage_period,
     global_research_daily_ceiling,
     read_memory_usage,
+    registered_research_limits,
     settle_memory_usage,
 )
 from argus.domain.visitor_usage import (
+    is_registered_account_usage_key,
     memory_visitor_within_limits,
+    registered_account_usage_key,
     settle_memory_visitor_usage,
     visitor_key_for,
 )
-from argus.observability.research_events import capture_research_turn_event
 
 RESEARCH_USAGE_RESOURCE = "research_searches"
 # Charged against the visitor table when Supabase is live for the same reason
@@ -59,12 +59,25 @@ def _ceiling_limits() -> list[tuple[str, int]]:
 
 
 def research_meter(*, is_guest: bool) -> UsageMeter:
-    """The per-visitor research counter the atomic claim charges; a signed-in
-    account has no window of its own on it."""
+    """The per-account research counter ``GET /me/usage`` may project.
+
+    Guests keep the visitor day window. Signed-in accounts have a daily
+    claim ceiling, but this meter stays empty so the usage panel does not
+    invent an allowance window the product surface does not promise.
+    """
     return UsageMeter(
         resource=RESEARCH_USAGE_RESOURCE,
         limits=list(GUEST_RESEARCH_VISITOR_LIMITS) if is_guest else [],
     )
+
+
+def research_account_limits(*, account_key: str | None) -> list[tuple[str, int]]:
+    """Limits the optional per-account research row is claimed against."""
+    if account_key is None:
+        return []
+    if is_registered_account_usage_key(account_key):
+        return list(registered_research_limits())
+    return list(GUEST_RESEARCH_VISITOR_LIMITS)
 
 
 def grounding_meter(*, is_guest: bool) -> UsageMeter:
@@ -76,15 +89,21 @@ def grounding_meter(*, is_guest: bool) -> UsageMeter:
 
 
 def guest_research_visitor_key(
-    *, is_guest: bool, client_identity: str | None
+    *,
+    is_guest: bool,
+    client_identity: str | None,
+    user_id: str | None = None,
 ) -> str | None:
-    """The subject a guest's research is charged against, or None for a user.
+    """The subject a research claim charges against.
 
-    Computed once at the request edge so everything downstream carries the
-    keyed digest rather than the address, including the job row a background
-    run settles from long after the request is gone.
+    Guests key on the visitor digest. Signed-in accounts key on
+    ``user:<account id>``. Computed once at the request edge so everything
+    downstream carries the opaque subject, including the job row a
+    background run settles from long after the request is gone.
     """
-    return visitor_key_for(client_identity) if is_guest else None
+    if is_guest:
+        return visitor_key_for(client_identity)
+    return registered_account_usage_key(user_id)
 
 
 def claim_research_provider_attempt(
@@ -93,9 +112,10 @@ def claim_research_provider_attempt(
 ) -> ResearchAttemptAdmission:
     """Atomically claim capacity immediately before billable provider work.
 
-    Two bounds are owned here: the shared global circuit breaker, and, for a
-    guest, that visitor's own daily research allowance. A signed-in user has
-    no research window of their own.
+    Two bounds are owned here: the shared global circuit breaker, and the
+    optional per-account daily row. Guests use the visitor key and the
+    three-question allowance. Signed-in accounts use ``user:<id>`` and the
+    registered daily research ceiling.
 
     Flag-off short-circuits to available. Fails closed: without writable truth,
     no research spend is allowed, and
@@ -104,7 +124,8 @@ def claim_research_provider_attempt(
     if not research_rail_enabled():
         return ResearchAttemptAdmission(available=True)
     now = datetime.now(timezone.utc)
-    guest_meter = research_meter(is_guest=True)
+    account_limits = research_account_limits(account_key=guest_visitor_key)
+    account_limit = dict(account_limits)["day"] if account_limits else 1
     try:
         if api_state.supabase_gateway is not None:
             client = api_state.supabase_gateway.client
@@ -112,23 +133,26 @@ def claim_research_provider_attempt(
                 "claim_research_usage",
                 {
                     "p_guest_visitor_key": guest_visitor_key,
-                    "p_resource": guest_meter.resource,
+                    "p_resource": RESEARCH_USAGE_RESOURCE,
                     "p_global_visitor_key": GLOBAL_CEILING_KEY,
                     "p_global_limit": global_research_daily_ceiling(),
-                    "p_guest_limit": dict(guest_meter.limits)["day"],
+                    "p_guest_limit": account_limit,
                 },
             ).execute()
             payload = getattr(result, "data", None)
             if not isinstance(payload, dict):
                 raise TypeError("Research usage claim returned no object")
+            account_exhausted = payload.get("guest_exhausted") is True
+            registered = is_registered_account_usage_key(guest_visitor_key)
             return ResearchAttemptAdmission(
                 available=payload.get("available") is True,
-                guest_exhausted=payload.get("guest_exhausted") is True,
+                guest_exhausted=account_exhausted and not registered,
+                registered_exhausted=account_exhausted and registered,
                 period_start=payload.get("period_start") or None,
             )
         return _claim_memory_research_usage(
             guest_visitor_key=guest_visitor_key,
-            guest_meter=guest_meter,
+            account_limits=account_limits,
             now=now,
         )
     except Exception as exc:  # noqa: BLE001
@@ -144,11 +168,12 @@ def release_research_provider_claim(
     *,
     guest_visitor_key: str | None,
 ) -> bool:
-    """Give a guest back the research question a failed provider call cost.
+    """Give the account back the research question a failed provider call cost.
 
-    Only the guest's own row for the period the claim charged is returned. The
+    Only the per-account row for the period the claim charged is returned. The
     shared ceiling keeps the attempt: it bounds provider work, and the work was
-    attempted. A signed-in account has no allowance of its own to return.
+    attempted. Guests and signed-in accounts both get that row back when
+    provider work failed with no usable response.
     Returns whether the charge went back; anything short of a confirmed release
     leaves the charge standing. This never raises."""
     if (
@@ -158,14 +183,13 @@ def release_research_provider_claim(
         or not research_rail_enabled()
     ):
         return False
-    guest_meter = research_meter(is_guest=True)
     try:
         if api_state.supabase_gateway is not None:
             result = api_state.supabase_gateway.client.rpc(
                 "release_research_usage",
                 {
                     "p_guest_visitor_key": guest_visitor_key,
-                    "p_resource": guest_meter.resource,
+                    "p_resource": RESEARCH_USAGE_RESOURCE,
                     "p_global_visitor_key": GLOBAL_CEILING_KEY,
                     "p_period_start": admission.period_start,
                 },
@@ -175,7 +199,7 @@ def release_research_provider_claim(
         else:
             released = _release_memory_research_usage(
                 guest_visitor_key=guest_visitor_key,
-                resource=guest_meter.resource,
+                resource=RESEARCH_USAGE_RESOURCE,
                 period_start=datetime.fromisoformat(admission.period_start),
             )
     except Exception as exc:  # noqa: BLE001
@@ -216,24 +240,26 @@ def _release_memory_research_usage(
 def _claim_memory_research_usage(
     *,
     guest_visitor_key: str | None,
-    guest_meter: UsageMeter,
+    account_limits: list[tuple[str, int]],
     now: datetime,
 ) -> ResearchAttemptAdmission:
     """Process-local twin of the database transaction used in tests/dev."""
 
+    registered = is_registered_account_usage_key(guest_visitor_key)
     with _MEMORY_CLAIM_LOCK:
         if guest_visitor_key is not None:
-            guest_within = memory_visitor_within_limits(
+            account_within = memory_visitor_within_limits(
                 api_state.store.visitor_usage_counters,
                 visitor_key=guest_visitor_key,
-                resource=guest_meter.resource,
-                limits=list(guest_meter.limits),
+                resource=RESEARCH_USAGE_RESOURCE,
+                limits=list(account_limits),
                 now=now,
             )
-            if not guest_within:
+            if not account_within:
                 return ResearchAttemptAdmission(
                     available=False,
-                    guest_exhausted=True,
+                    guest_exhausted=not registered,
+                    registered_exhausted=registered,
                 )
         if not _memory_ceiling_available(now=now):
             return ResearchAttemptAdmission(available=False)
@@ -248,8 +274,8 @@ def _claim_memory_research_usage(
             settle_memory_visitor_usage(
                 api_state.store.visitor_usage_counters,
                 visitor_key=guest_visitor_key,
-                resource=guest_meter.resource,
-                limits=list(guest_meter.limits),
+                resource=RESEARCH_USAGE_RESOURCE,
+                limits=list(account_limits),
                 now=now,
             )
         charged, _ = align_usage_period(now, "day")
@@ -319,12 +345,6 @@ def record_research_turn_evidence(
         message_id=message_id,
         request_id=request_id,
         tool_call_id=tool_call_id,
-    )
-    capture_research_turn_event(
-        research=research,
-        user_id=user_id,
-        conversation_id=conversation_id,
-        message_id=message_id,
     )
 
 

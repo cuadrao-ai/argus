@@ -46,13 +46,13 @@ for key in list(os.environ):
 
 os.environ.update(
     {
-        "ARGUS_PERSISTENCE_MODE": "memory",
+        "CUADRAO_PERSISTENCE_MODE": "memory",
         "ARGUS_DEV_MEMORY_FALLBACK": "true",
-        "ARGUS_CHECKPOINTER_MODE": "memory",
-        "ARGUS_MOCK_AUTH": "true",
+        "CUADRAO_CHECKPOINTER_MODE": "memory",
+        "CUADRAO_MOCK_AUTH": "true",
         "ARGUS_MARKET_DATA_PROVIDER_MODE": "synthetic_unit_fixture",
         "ARGUS_IN_PLACE_CARD_EDITS_ENABLED": "true",
-        "ARGUS_CORS_ALLOW_ORIGINS": f"{WEB_ORIGIN},http://localhost:{WEB_PORT}",
+        "CUADRAO_CORS_ALLOW_ORIGINS": f"{WEB_ORIGIN},http://localhost:{WEB_PORT}",
         "ARGUS_APP_ORIGIN": WEB_ORIGIN,
         "ARGUS_BACKTEST_JOBS_SHADOW_ENABLED": "false",
         "ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED": "false",

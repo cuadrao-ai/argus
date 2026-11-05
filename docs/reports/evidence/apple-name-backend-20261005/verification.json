@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-05",
+  "original_integration": "2b2d0d9e8ed311c11b7585fbd757fb37f915e12f",
+  "current_integration": "fc4057c8789d3e3504fcb0e980344d6bf51e66c0",
+  "reconciliation": "8d5cc0192758138069ef21b83b9b2c5696cb323a",
+  "source_tree": "6dc988f48edaa23cfb82759b03d4f598fbae1860",
+  "baseline_red": {
+    "failed": 3,
+    "reason": "initializer absent"
+  },
+  "memory_reconciled": {
+    "passed": 72,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 4.33
+  },
+  "postgres_auth_reconciled": {
+    "passed": 46,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 5.74
+  },
+  "blocked_writer_races": 12,
+  "modularity_violations": 0,
+  "hosted_changes": false,
+  "provider_calls": false,
+  "native_verified": false,
+  "enabled": false,
+  "pending_prerequisite": 862
+}

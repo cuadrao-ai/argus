@@ -1,0 +1,33 @@
+{
+  "pr": 876,
+  "head": "7887546aa644ccc683ec08be88b133ba7283e131",
+  "original_integration_base": "8146d16e90633eb543781f8882665482f0d5dca9",
+  "run_original_integration_base": "875de09ac2115acec42e09060b92878aa5f18eff",
+  "reconciliation_merge": null,
+  "integration_parent": "8146d16e90633eb543781f8882665482f0d5dca9",
+  "merge": "184d2614e4d2beb5ed994bd3cd8f3a5ef211f1dd",
+  "merged_at": "2026-10-06T04:10:58Z",
+  "tree": "2b84744ae9259da60a420b03ba42c01c9bedc599",
+  "tree_equal": true,
+  "review": "https://github.com/lagarcess/argus/pull/876#pullrequestreview-5423623193",
+  "terminal_audit": "https://github.com/lagarcess/argus/pull/876#issuecomment-6009163064",
+  "ci": {
+    "success": 16,
+    "expected_skip": 3,
+    "failure": 0,
+    "pending": 0
+  },
+  "review_threads": 0,
+  "local_proof": {
+    "baseline_gap_reproduced": 1,
+    "package_passed": 170,
+    "package_optional_local_skipped": 4,
+    "filesystem_passed": 6,
+    "all_deletion_passed": 20,
+    "actual_local_sdk_api_auth_postgres_passed": 1
+  },
+  "retention": "52 package fingerprints match tested f787; 16 raw payloads and manifest match publication. Introduced b77 fixture compile failure and fixture-only fix preserved. Historical #875 evidence unchanged.",
+  "configuration_names": [],
+  "scope_and_limits": "Required synchronous throwing callback inside session actor; validated ownership before side effects, completed journal retained on failure, cleanup-only retries. Actual app receipt store/UI/provider/phone/hosted gates remain open; no activation.",
+  "housekeeping": "protected-branch PR873; integration CI37412482876 running, smoke37412482873 passed"
+}

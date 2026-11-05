@@ -1,0 +1,154 @@
+[
+  {
+    "attachments": [
+      {
+        "configurationName": "Test Scheme Action",
+        "deviceId": "AAC78F82-61C2-4E51-A14C-4F341CD19A79",
+        "deviceName": "Argus Chart Validation 17e",
+        "exportedFileName": "E665B331-B178-472F-90F9-79CA0A491E45.png",
+        "isAssociatedWithFailure": false,
+        "suggestedHumanReadableName": "recurring-es-dark_0_BC387E16-04B3-4920-B0DB-E7308807493C.png",
+        "timestamp": 1790629150.082,
+        "repositoryFile": "recurring-es-dark.png"
+      },
+      {
+        "configurationName": "Test Scheme Action",
+        "deviceId": "AAC78F82-61C2-4E51-A14C-4F341CD19A79",
+        "deviceName": "Argus Chart Validation 17e",
+        "exportedFileName": "869EB4F2-A591-4260-B640-74A6F0CBC974.png",
+        "isAssociatedWithFailure": false,
+        "suggestedHumanReadableName": "single-system_0_AC1BC6E4-0065-4A37-87F9-CA893869886B.png",
+        "timestamp": 1790629144.911,
+        "repositoryFile": "single-system.png"
+      },
+      {
+        "configurationName": "Test Scheme Action",
+        "deviceId": "AAC78F82-61C2-4E51-A14C-4F341CD19A79",
+        "deviceName": "Argus Chart Validation 17e",
+        "exportedFileName": "F8589FB0-3554-4EE5-8FAB-51F5FF8E6D9A.png",
+        "isAssociatedWithFailure": false,
+        "suggestedHumanReadableName": "empty_0_1F27CC75-FA18-4519-9810-C7CAC59024B9.png",
+        "timestamp": 1790629139.168,
+        "repositoryFile": "empty.png"
+      }
+    ],
+    "testIdentifier": "ChartUITests/testEmptySingleAndContribution()",
+    "testIdentifierURL": "test://com.apple.xcode/ChartPrototype/ChartPrototypeUITests/ChartUITests/testEmptySingleAndContribution"
+  },
+  {
+    "attachments": [
+      {
+        "configurationName": "Test Scheme Action",
+        "deviceId": "AAC78F82-61C2-4E51-A14C-4F341CD19A79",
+        "deviceName": "Argus Chart Validation 17e",
+        "exportedFileName": "8C8139B2-DF78-419B-831D-80E85A272A04.png",
+        "isAssociatedWithFailure": false,
+        "suggestedHumanReadableName": "enlarged-text-es_0_DD83DB49-4EAE-4734-97EE-6B73A17CB13B.png",
+        "timestamp": 1790629157.505,
+        "repositoryFile": "enlarged-text-es.png"
+      }
+    ],
+    "testIdentifier": "ChartUITests/testEnlargedTextReadoutAndTouchTargets()",
+    "testIdentifierURL": "test://com.apple.xcode/ChartPrototype/ChartPrototypeUITests/ChartUITests/testEnlargedTextReadoutAndTouchTargets"
+  },
+  {
+    "attachments": [
+      {
+        "configurationName": "Test Scheme Action",
+        "deviceId": "AAC78F82-61C2-4E51-A14C-4F341CD19A79",
+        "deviceName": "Argus Chart Validation 17e",
+        "exportedFileName": "559B184C-A058-41AE-9FC2-3A7B7C6798CC.png",
+        "isAssociatedWithFailure": false,
+        "suggestedHumanReadableName": "vertical-scroll_0_3D8E163B-FC04-429A-A99E-21D9AC647DC5.png",
+        "timestamp": 1790629165.526,
+        "repositoryFile": "vertical-scroll.png"
+      },
+      {
+        "configurationName": "Test Scheme Action",
+        "deviceId": "AAC78F82-61C2-4E51-A14C-4F341CD19A79",
+        "deviceName": "Argus Chart Validation 17e",
+        "exportedFileName": "AFBC4807-C450-4CCE-BADF-4A0030981451.png",
+        "isAssociatedWithFailure": false,
+        "suggestedHumanReadableName": "horizontal-release_0_834DE4E8-813C-4F8C-90CE-6D02AD88B96D.png",
+        "timestamp": 1790629163.406,
+        "repositoryFile": "horizontal-release.png"
+      }
+    ],
+    "testIdentifier": "ChartUITests/testHorizontalReleaseAndVerticalScroll()",
+    "testIdentifierURL": "test://com.apple.xcode/ChartPrototype/ChartPrototypeUITests/ChartUITests/testHorizontalReleaseAndVerticalScroll"
+  },
+  {
+    "attachments": [
+      {
+        "configurationName": "Test Scheme Action",
+        "deviceId": "AAC78F82-61C2-4E51-A14C-4F341CD19A79",
+        "deviceName": "Argus Chart Validation 17e",
+        "exportedFileName": "A1FA16B6-56F8-4371-9725-7F2B355B0798.png",
+        "isAssociatedWithFailure": false,
+        "suggestedHumanReadableName": "long-series_0_07CC9503-618F-4F5A-B050-980D27D75826.png",
+        "timestamp": 1790629182.136,
+        "repositoryFile": "long-series.png"
+      }
+    ],
+    "testIdentifier": "ChartUITests/testLongSeriesInteractionPerformance()",
+    "testIdentifierURL": "test://com.apple.xcode/ChartPrototype/ChartPrototypeUITests/ChartUITests/testLongSeriesInteractionPerformance"
+  },
+  {
+    "attachments": [
+      {
+        "configurationName": "Test Scheme Action",
+        "deviceId": "AAC78F82-61C2-4E51-A14C-4F341CD19A79",
+        "deviceName": "Argus Chart Validation 17e",
+        "exportedFileName": "356E7C68-7F8C-4417-8690-C19495D90B83.png",
+        "isAssociatedWithFailure": false,
+        "suggestedHumanReadableName": "native-recognizer-cancellation_0_6932353E-73F9-4C5B-8BE6-5877DFC4A795.png",
+        "timestamp": 1790629188.44,
+        "repositoryFile": "native-recognizer-cancellation.png"
+      }
+    ],
+    "testIdentifier": "ChartUITests/testNativeRecognizerCancellationRestoresSelection()",
+    "testIdentifierURL": "test://com.apple.xcode/ChartPrototype/ChartPrototypeUITests/ChartUITests/testNativeRecognizerCancellationRestoresSelection"
+  },
+  {
+    "attachments": [
+      {
+        "configurationName": "Test Scheme Action",
+        "deviceId": "AAC78F82-61C2-4E51-A14C-4F341CD19A79",
+        "deviceName": "Argus Chart Validation 17e",
+        "exportedFileName": "9A80EFD2-6587-4433-B3DC-FE051221FDBA.png",
+        "isAssociatedWithFailure": false,
+        "suggestedHumanReadableName": "dark-es-endpoint_0_B00CB3C7-8D5C-4CB5-AB6F-27747719E647.png",
+        "timestamp": 1790629201.41,
+        "repositoryFile": "dark-es-endpoint.png"
+      },
+      {
+        "configurationName": "Test Scheme Action",
+        "deviceId": "AAC78F82-61C2-4E51-A14C-4F341CD19A79",
+        "deviceName": "Argus Chart Validation 17e",
+        "exportedFileName": "429738F7-35C6-4039-8632-073CD768E84F.png",
+        "isAssociatedWithFailure": false,
+        "suggestedHumanReadableName": "light-en-missing_0_FD8BE5EE-BB78-4730-92C0-648D5F855ACD.png",
+        "timestamp": 1790629194.941,
+        "repositoryFile": "light-en-missing.png"
+      }
+    ],
+    "testIdentifier": "ChartUITests/testReadoutEndpointsMissingResetAndLocale()",
+    "testIdentifierURL": "test://com.apple.xcode/ChartPrototype/ChartPrototypeUITests/ChartUITests/testReadoutEndpointsMissingResetAndLocale"
+  },
+  {
+    "attachments": [
+      {
+        "configurationName": "Test Scheme Action",
+        "deviceId": "AAC78F82-61C2-4E51-A14C-4F341CD19A79",
+        "deviceName": "Argus Chart Validation 17e",
+        "exportedFileName": "2B23C9D3-79C8-4388-BB8C-79380E2ED47C.png",
+        "isAssociatedWithFailure": false,
+        "suggestedHumanReadableName": "localized-scenario_0_4FC328BF-7579-42CC-9C1F-DDB1645BBE26.png",
+        "timestamp": 1790629216.592,
+        "repositoryFile": "localized-scenario.png"
+      }
+    ],
+    "testIdentifier": "ChartUITests/testScenarioPickerUsesLocalizedFixtureTitles()",
+    "testIdentifierURL": "test://com.apple.xcode/ChartPrototype/ChartPrototypeUITests/ChartUITests/testScenarioPickerUsesLocalizedFixtureTitles"
+  }
+]

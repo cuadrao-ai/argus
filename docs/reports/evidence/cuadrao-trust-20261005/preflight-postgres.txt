@@ -1,0 +1,25 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.10.20, pytest-8.4.2, pluggy-1.6.0
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: /private/tmp/cuadrao-trust-20261005
+configfile: pyproject.toml
+plugins: benchmark-5.2.3, mock-3.15.1, Faker-30.10.0, asyncio-1.4.0, hypothesis-6.151.12, langsmith-0.7.31, respx-0.23.1, cov-7.0.0, anyio-4.13.0
+asyncio: mode=strict, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 23 items
+
+tests/test_apple_sign_in_credentials_postgres.py ..............          [ 60%]
+tests/test_account_deletion_guards_postgres.py .........                 [100%]
+
+=============================== warnings summary ===============================
+tests/test_account_deletion_guards_postgres.py::test_locked_owner_columns_move_only_inside_the_deletion_writer
+tests/test_account_deletion_guards_postgres.py::test_two_first_requests_open_one_run_and_revoke_once
+tests/test_account_deletion_guards_postgres.py::test_two_sweeps_at_once_resume_a_run_once
+tests/test_account_deletion_guards_postgres.py::test_a_plan_edit_after_the_data_step_still_finishes
+tests/test_account_deletion_guards_postgres.py::test_an_activity_two_households_pin_goes_with_the_oldest_claim[h2]
+tests/test_account_deletion_guards_postgres.py::test_an_activity_two_households_pin_goes_with_the_oldest_claim[h1]
+tests/test_account_deletion_guards_postgres.py::test_a_pass_that_lost_its_claim_never_finishes_the_run
+  /Users/garces/.codex/worktrees/05f0/private-alpha-next/.venv/lib/python3.10/site-packages/psycopg_pool/pool.py:134: DeprecationWarning: the default for the ConnectionPool 'open' parameter will become 'False' in a future release. Please use open={True|False} explicitly, or use the pool as context manager using: `with ConnectionPool(...) as pool: ...`
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 23 passed, 7 warnings in 16.45s ========================

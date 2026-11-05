@@ -1,0 +1,206 @@
+[
+  {
+    "source": "docs/reports/evidence/marketing-footer-bounded/before-business.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/before-business.png",
+    "bytes": 103494,
+    "sha256": "605ac85652e95347f50a11f10a55cd83ecaeda500612e19c8fd81260c103c2e9"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-bounded/before-personal.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/before-personal.png",
+    "bytes": 60550,
+    "sha256": "031bea5a70180baf0750ce194b2e8556a9c44d26eb82e27554b371b9a7299df8"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-bounded/business-footer-hover.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/business-footer-hover.png",
+    "bytes": 126287,
+    "sha256": "e16a0a6a8c917578286c513a2713a4b2f1046c7ba9c132e18f2d38be61f4544f"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-bounded/business-footer-mobile.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/business-footer-mobile.png",
+    "bytes": 69045,
+    "sha256": "d52861985065a21dc8e46818410b6dc3ece139916337b2d1929213ad0532437f"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-bounded/business-footer-reduced-motion.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/business-footer-reduced-motion.png",
+    "bytes": 124630,
+    "sha256": "607273d0f624de6c3f8172f7579b5a2992eea0e1cbeb1beab25f01f01bfff952"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-bounded/business-footer-rest.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/business-footer-rest.png",
+    "bytes": 122599,
+    "sha256": "046897673bcf0ef5441c74861bd44223147505f91cbc808b502d962efdb9bbac"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-bounded/business-footer-restored.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/business-footer-restored.png",
+    "bytes": 122602,
+    "sha256": "f0ec8a716209f9f6a8cbec6e3659b9569d2ab1d86e88483be55a88405d5ccc17"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-bounded/personal-footer-hover.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/personal-footer-hover.png",
+    "bytes": 63491,
+    "sha256": "b36e0eaaac9d134317d011bfb97a141ef3acceb9fc30cb0d4548bd4084fd4cb4"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-bounded/personal-footer-mobile.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/personal-footer-mobile.png",
+    "bytes": 44340,
+    "sha256": "10686739ac1e15f7fe7c5f7265c6de4f281cd3e84dde752901e8dc408e5aafb7"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-bounded/personal-footer-reduced-motion.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/personal-footer-reduced-motion.png",
+    "bytes": 63491,
+    "sha256": "b36e0eaaac9d134317d011bfb97a141ef3acceb9fc30cb0d4548bd4084fd4cb4"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-bounded/personal-footer-rest.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/personal-footer-rest.png",
+    "bytes": 60392,
+    "sha256": "a7cd81b19df7fdb884033f572baab3effb7f3b9cac5ef5c2dddd30b1a3033679"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-bounded/personal-footer-restored.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-bounded/personal-footer-restored.png",
+    "bytes": 60392,
+    "sha256": "a7cd81b19df7fdb884033f572baab3effb7f3b9cac5ef5c2dddd30b1a3033679"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-background/after-en-1440.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/after-en-1440.png",
+    "bytes": 111120,
+    "sha256": "f4d1b25eb2f63bf9bc0938618105984265cd20d76afeb87115b8e37cf8250860"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-background/after-en-390.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/after-en-390.png",
+    "bytes": 79228,
+    "sha256": "715e12920ea6ed837d78a7c9418737712c2830ebcc93e34c6374aaa1b520048e"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-background/after-es-1440.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/after-es-1440.png",
+    "bytes": 117671,
+    "sha256": "5b9d91eb540faf1bad5ef5b82083472d8776b80bac1ca40fc43674fe75ad3f9a"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-background/after-es-390.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/after-es-390.png",
+    "bytes": 82420,
+    "sha256": "17ecc2587e16ee4f0f5838667896b5652f446f9138e463ff437037266feb0079"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-background/after-personal-1440.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/after-personal-1440.png",
+    "bytes": 63491,
+    "sha256": "b36e0eaaac9d134317d011bfb97a141ef3acceb9fc30cb0d4548bd4084fd4cb4"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-background/after-personal-390.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/after-personal-390.png",
+    "bytes": 49994,
+    "sha256": "cca28c33a41227a64a6002558d79cac1de305829b3578ce3b0d36a8a4e6c656a"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-background/before-en-1440.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/before-en-1440.png",
+    "bytes": 111120,
+    "sha256": "f4d1b25eb2f63bf9bc0938618105984265cd20d76afeb87115b8e37cf8250860"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-background/before-en-390.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/before-en-390.png",
+    "bytes": 79228,
+    "sha256": "715e12920ea6ed837d78a7c9418737712c2830ebcc93e34c6374aaa1b520048e"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-background/before-es-1440.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/before-es-1440.png",
+    "bytes": 114431,
+    "sha256": "308d3f885c592ccae1c85fe0b3fa1c7ed594b9d9c9766d607cd20b024f711549"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-background/before-es-390.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/before-es-390.png",
+    "bytes": 82508,
+    "sha256": "f5cd24774af3b9a92cbc37b51d92275db2641950c0ca1dfe23b9d11c3c6894f3"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-background/before-personal-1440.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/before-personal-1440.png",
+    "bytes": 60550,
+    "sha256": "031bea5a70180baf0750ce194b2e8556a9c44d26eb82e27554b371b9a7299df8"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-background/before-personal-390.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/before-personal-390.png",
+    "bytes": 50084,
+    "sha256": "c132e5dd70992b5f942dcf3cf14c6bf6f65eef3a921fb49be522880d91319e5f"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-background/ios-after-en.mp4",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/ios-after-en.mp4",
+    "bytes": 325478,
+    "sha256": "19651a115a9008cb5a9dee82949157361ef1ef18feacf31541498a684e281032"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-background/ios-after-en.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/ios-after-en.png",
+    "bytes": 373940,
+    "sha256": "e8f3b5daf3a0ab2ed12c118fa3f7df55c912a9b4eeee3755f79dc71a86583ad2"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-background/ios-after-es.mp4",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/ios-after-es.mp4",
+    "bytes": 335623,
+    "sha256": "43287ea7703e14cfe6f2f9ac32c123e34fce67d73ade0d0bad24dd7eb97f49e2"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-background/ios-after-es.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/ios-after-es.png",
+    "bytes": 389614,
+    "sha256": "10c8a5ca2a746b3fe5908cdeb82b27938ebd9b429ba77520b9c2fe0fd46f739e"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-background/ios-after-personal.mp4",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/ios-after-personal.mp4",
+    "bytes": 214389,
+    "sha256": "9c75710d2dbcb10edeb8b173d7f9ec8ecfef28677f2576c7f03e6650465de3b8"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-background/ios-after-personal.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/ios-after-personal.png",
+    "bytes": 389886,
+    "sha256": "5a4afcfa4a66ba6651c112115a5075fb0e7d0010875eb2fcb8c9f12e8f9c82c4"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-background/ios-before-en.mp4",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/ios-before-en.mp4",
+    "bytes": 332290,
+    "sha256": "c21abef38f1059cc1d5eb12e6129a79d26abec096ea8d007796f61e3aa2c9109"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-background/ios-before-en.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/ios-before-en.png",
+    "bytes": 355879,
+    "sha256": "b82f2581e83ea93b22270162289d214cc7360adbc8492ebf867d5dfe384972a2"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-background/ios-before-es.mp4",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/ios-before-es.mp4",
+    "bytes": 798044,
+    "sha256": "84b550be67a1e504c4fb15a307859935bae2367780bf9f38f315924ead67936a"
+  },
+  {
+    "source": "docs/reports/evidence/marketing-footer-background/ios-before-es.png",
+    "artifact": "/Users/garces/.codex/visualizations/2026/10/16/01a1430c-fce8-78b1-a002-a704ae804d29/cuadrao-sprint/footer-artifacts/marketing-footer-background/ios-before-es.png",
+    "bytes": 408832,
+    "sha256": "38df4add79f859e762ab272ac787e4095cbb8f8c9e3cd4a60a932c161e832a5b"
+  }
+]

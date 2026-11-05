@@ -1,0 +1,3 @@
+scenario_switch_to_idle_ms=398.570208
+12_shell_300ms_swipes_including_test_sync_ms=5099.932794
+points=2000

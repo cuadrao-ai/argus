@@ -22,3 +22,39 @@ export const guestAccessEnabled = guestAccessEnabledFromEnv(
 // separate founder decision from merging it.
 export const evidenceReceiptSharingEnabled =
   process.env.NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED === "true";
+
+// Cuadrao Business owner pilot: overview, receipt inbox, review and expenses
+// inside the chat shell on /biz. Default off until the connected pilot passes.
+export function businessPilotEnabledFromEnv(
+  value: string | undefined = process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED,
+): boolean {
+  return value === "true";
+}
+
+export const businessPilotEnabled = businessPilotEnabledFromEnv();
+
+// Business is the only web app. Unset is on. The string "false" restores the
+// consumer web (root, guest chat, and /chat).
+export function businessOnlyWebFromEnv(value: string | undefined): boolean {
+  return value !== "false";
+}
+
+export const businessOnlyWebEnabled = businessOnlyWebFromEnv(
+  process.env.NEXT_PUBLIC_BUSINESS_ONLY_WEB,
+);
+
+// Statement match cards. Default off, and nested under the Business pilot.
+// CUADRAO wins when both names are set.
+export const businessBankMatchingEnabled = (() => {
+  const cuadrao = process.env.NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED;
+  const legacy = process.env.NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED;
+  const value = (cuadrao ?? legacy ?? "").trim().toLowerCase();
+  return businessPilotEnabled && ["1", "true", "yes", "on"].includes(value);
+})();
+
+// Transferir and Cerrar on Negocio. Default off for the pilot.
+export function businessLifecycleControlsEnabled(
+  value: string | undefined = process.env.NEXT_PUBLIC_CUADRAO_BUSINESS_LIFECYCLE_CONTROLS_ENABLED,
+): boolean {
+  return value === "true";
+}

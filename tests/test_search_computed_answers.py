@@ -9,6 +9,7 @@ from argus.api import state as api_state
 from argus.api.main import app
 from argus.api.message_store import create_message
 from argus.domain.computation_marker import computation_from_tool_card
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.store import utcnow
 from faker import Faker
 from fastapi.testclient import TestClient
@@ -249,15 +250,17 @@ def test_a_guest_sees_only_its_own_workspace_results() -> None:
     user = api_state.store.get_or_create_dev_user()
 
     scoped = with_computed_results(
-        None, user=user, query="aapl", guest_conversation_id=workspace_id
+        None, scope=PERSONAL, user=user, query="aapl", guest_conversation_id=workspace_id
     )
     everything = with_computed_results(
-        None, user=user, query="aapl", guest_conversation_id=None
+        None, scope=PERSONAL, user=user, query="aapl", guest_conversation_id=None
     )
 
     assert scoped is not None and scoped.result_count == 1
     assert everything is not None and everything.result_count == 2
     assert (
-        with_computed_results(None, user=user, query="tsla", guest_conversation_id=None)
+        with_computed_results(
+            None, scope=PERSONAL, user=user, query="tsla", guest_conversation_id=None
+        )
         is None
     )

@@ -1,0 +1,2 @@
+SWIFT_EXIT 0
+CLEANUP_OK original Auth container and env restored; owned API stopped; synthetic users removed; initial user set unchanged

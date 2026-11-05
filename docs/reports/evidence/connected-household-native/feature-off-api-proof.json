@@ -1,0 +1,73 @@
+{
+  "source_head": "c38e4d107fd983cd95d5adf703513b913e443b0f",
+  "boundary": "real local Auth/API/Postgres; enabled59520 and disabled59620; read-only financial verification",
+  "normalization": "Home recorded_at is a fresh read timestamp; all financial fields compared unchanged",
+  "checks": [
+    {
+      "actor": 0,
+      "case": "personal unchanged while Household off",
+      "path": "/financial-accounts",
+      "status": 200
+    },
+    {
+      "actor": 0,
+      "case": "personal unchanged while Household off",
+      "path": "/financial-home",
+      "status": 200
+    },
+    {
+      "actor": 0,
+      "case": "typed disabled gate",
+      "path": "/households",
+      "status": 404,
+      "code": "households_unavailable"
+    },
+    {
+      "actor": 0,
+      "case": "typed disabled gate",
+      "path": "/household-invitations/preview",
+      "status": 404,
+      "code": "households_unavailable"
+    },
+    {
+      "actor": 0,
+      "case": "existing enabled surface preserved",
+      "path": "/households",
+      "status": 200
+    },
+    {
+      "actor": 1,
+      "case": "personal unchanged while Household off",
+      "path": "/financial-accounts",
+      "status": 200
+    },
+    {
+      "actor": 1,
+      "case": "personal unchanged while Household off",
+      "path": "/financial-home",
+      "status": 200
+    },
+    {
+      "actor": 1,
+      "case": "typed disabled gate",
+      "path": "/households",
+      "status": 404,
+      "code": "households_unavailable"
+    },
+    {
+      "actor": 1,
+      "case": "typed disabled gate",
+      "path": "/household-invitations/preview",
+      "status": 404,
+      "code": "households_unavailable"
+    },
+    {
+      "actor": 1,
+      "case": "existing enabled surface preserved",
+      "path": "/households",
+      "status": 200
+    }
+  ],
+  "passed": 10,
+  "financial_writes": 0
+}

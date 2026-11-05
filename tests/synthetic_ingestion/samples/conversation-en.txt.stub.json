@@ -1,0 +1,23 @@
+{
+  "synthetic": true,
+  "extraction_mode": "stub",
+  "source_file": "conversation-en.txt",
+  "limitations": "Authored proposals for lifecycle tests; not extraction or confidence evidence.",
+  "proposals": [
+    {
+      "source_id": "chat-en-01",
+      "date": "2026-09-10",
+      "description": "Compra sintética",
+      "amount": "90.00",
+      "currency": "USD",
+      "kind": "income",
+      "account": "cash-usd",
+      "destination": "personal",
+      "source_ref": {
+        "char_start": 11,
+        "char_end": 71,
+        "quote": "I received USD 90 on 2026-09-10 in my personal cash account."
+      }
+    }
+  ]
+}

@@ -1,0 +1,81 @@
+--- a/ios/ArgusFoundationUITests/ConnectedChrome.swift
++++ b/ios/ArgusFoundationUITests/ConnectedChrome.swift
+@@ -92,4 +92,7 @@
+-        if nativeBack.waitForExistence(timeout: 2) { nativeBack.tap() }
+-        else {
+-            XCTAssertTrue(buttons[legacyIdentifier].waitForExistence(timeout: 5))
+-            buttons[legacyIdentifier].tap()
++        let back = nativeBack.waitForExistence(timeout: 2) ? nativeBack : buttons[legacyIdentifier]
++        let ready = XCTNSPredicateExpectation(
++            predicate: NSPredicate { _, _ in back.exists && back.isHittable }, object: nil
++        )
++        guard XCTWaiter.wait(for: [ready], timeout: 10) == .completed else {
++            XCTFail("Back must be hittable before leaving the detail")
++            return
+@@ -96,0 +100 @@
++        back.tap()
+--- a/ios/ArgusFoundationUITests/FinancialLoopUITests.swift
++++ b/ios/ArgusFoundationUITests/FinancialLoopUITests.swift
+@@ -366 +366,14 @@
+-        let bottom = min(app.frame.maxY - 130, scrollView.frame.maxY)
++        let lowerControls = app.buttons.allElementsBoundByIndex
++            + app.toolbars.allElementsBoundByIndex + app.tabBars.allElementsBoundByIndex
++            + app.keyboards.allElementsBoundByIndex
++        let bottom = lowerControls.reduce(min(app.frame.maxY, scrollView.frame.maxY)) { edge, control in
++            let frame = control.frame
++            guard frame.intersects(scrollView.frame), frame.intersects(app.frame),
++                  control.elementType == .keyboard || frame.minY >= scrollView.frame.midY else { return edge }
++            let controlReference = control.identifier.isEmpty ? control.label : control.identifier
++            let inScroll = scrollView.descendants(matching: control.elementType)
++                .matching(identifier: controlReference).allElementsBoundByIndex
++                .contains { $0.frame == frame }
++            guard !inScroll && control.isHittable else { return edge }
++            return min(edge, frame.minY)
++        }
+--- a/ios/ArgusFoundationUITests/ConnectedPlanUITests.swift
++++ b/ios/ArgusFoundationUITests/ConnectedPlanUITests.swift
+@@ -3,0 +4,44 @@
++    func testRetainedGoalReturnsAfterCorrectionCancellation() throws {
++        let title = try XCTUnwrap(ProcessInfo.processInfo.environment["ARGUS_TEST_RETAINED_GOAL"])
++        try signIn()
++        _ = openGoal(title)
++        assertGoal("DOP 750.00")
++        let contribution = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'goal.activity.' AND identifier != 'goal.activity.back'")).firstMatch
++        tapVisible(contribution)
++        assertText("DOP 150.00")
++        tapVisible(app.buttons["activity.correct"])
++        XCTAssertTrue(app.navigationBars["Correct entry"].waitForExistence(timeout: 10))
++        tapVisible(app.navigationBars["Correct entry"].buttons["Cancel"])
++        app.returnFromDetail("goal.activity.back")
++        assertGoal("DOP 750.00")
++        capture("goal-return-after-correction-cancel")
++    }
++
++    func testRetainedCoverageAfterBoundaryRepair() throws {
++        let environment = ProcessInfo.processInfo.environment
++        let bankID = try XCTUnwrap(environment["ARGUS_TEST_RECONCILE_BANK_ID"])
++        let cashID = try XCTUnwrap(environment["ARGUS_TEST_RECONCILE_CASH_ID"])
++        let cashName = try XCTUnwrap(environment["ARGUS_TEST_RECONCILE_CASH_NAME"])
++        let bank = MoneyAccount(name: "Retained reconciliation bank", id: try XCTUnwrap(UUID(uuidString: bankID)).uuidString)
++        let cash = MoneyAccount(name: cashName, id: try XCTUnwrap(UUID(uuidString: cashID)).uuidString)
++        try signIn()
++        openMoneyAccount(bank)
++        tapVisible(app.buttons["accounts.record"])
++        app.buttons["loop.kind.transfer"].tap()
++        chooseMoneyAccount("loop.destination", account: cash)
++        fillMoneyField("loop.amount", with: "60")
++        fillMoneyField("loop.note", with: "Unsaved boundary verification")
++        dismissMoneyKeyboard()
++        reviewMoney(answersByAccount: [bank.id.lowercased(): [false, true]])
++        XCTAssertTrue(app.buttons["loop.confirm"].waitForExistence(timeout: 10))
++        capture("footer-boundary-coverage-ready-unsaved")
++        let back = app.navigationBars["Review transaction"].buttons["Back"]
++        let ready = NSPredicate { _, _ in back.exists && back.isEnabled && back.isHittable }
++        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: ready, object: nil)], timeout: 10), .completed)
++        back.tap()
++        let cancel = app.navigationBars["Add transaction"].buttons["Cancel"]
++        XCTAssertTrue(cancel.waitForExistence(timeout: 10))
++        cancel.tap()
++        XCTAssertTrue(app.buttons["accounts.record"].waitForExistence(timeout: 10))
++    }
++

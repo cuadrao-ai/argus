@@ -1,0 +1,218 @@
+/* Both weights sit stacked, so becoming the current screen is a crossfade, never a swap. */
+.icon {
+  display: grid;
+  place-items: center;
+  transition: transform 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.layer {
+  grid-area: 1 / 1;
+  overflow: visible;
+  transition: opacity 120ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* The weight leaving waits for the arriving one, so the icon never dims midway. */
+.icon[data-active="true"] .outline,
+.icon[data-active="false"] .fill {
+  opacity: 0;
+  transition-delay: 60ms;
+}
+
+.icon[data-settle] {
+  animation: nav-icon-settle 180ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+:global(button):active .icon[data-active] {
+  transform: scale(0.92);
+  transition-duration: 80ms;
+}
+
+/* Starts where the press left it, so a click lands without a second dip. */
+@keyframes nav-icon-settle {
+  from {
+    transform: scale(0.92);
+  }
+}
+
+/* Moves. Every keyframe begins and ends at rest, so a move cut short can only land the icon at rest.
+   The transform origin and the receipt's cut-out apply only while moving: at rest Chrome then draws the parts exactly as the one Phosphor path. */
+.icon[data-move] [data-part] {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Inicio: the house hops and lands, settling on its ground. */
+.icon[data-move] [data-part="house"] {
+  transform-box: view-box;
+  transform-origin: 128px 224px;
+  animation: nav-move-house 420ms;
+}
+
+@keyframes nav-move-house {
+  0% {
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  35% {
+    transform: translateY(-40px);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.5);
+  }
+  62% {
+    transform: translateY(0) scale(1.08, 0.88);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  82% {
+    transform: scale(0.98, 1.03);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+/* Bandeja: a receipt drops in under the rim, lands with a small bounce as the tray dips, then slides away behind the lip. */
+.icon [data-part="receipt"] {
+  transform: translateY(-128px);
+}
+
+.icon:not([data-move]) [data-part="tray"] > path {
+  mask: none;
+}
+
+.icon[data-move] [data-part="receipt"] {
+  animation: nav-move-receipt 560ms;
+}
+
+.icon[data-move] [data-part="tray"] {
+  animation: nav-move-tray 560ms;
+}
+
+@keyframes nav-move-receipt {
+  0% {
+    transform: translateY(-128px);
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
+  }
+  28% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  38% {
+    transform: translateY(-8px);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.5);
+  }
+  46%,
+  62% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.5);
+  }
+  100% {
+    transform: translateY(112px);
+  }
+}
+
+@keyframes nav-move-tray {
+  0%,
+  27% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  36% {
+    transform: translateY(12px);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  50% {
+    transform: translateY(-3px);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  62%,
+  100% {
+    transform: translateY(0);
+  }
+}
+
+/* Registros: the table unfolds from its header row and settles, like a list filling in. */
+.icon[data-move] [data-part="table"] {
+  transform-box: view-box;
+  transform-origin: 128px 48px;
+  animation: nav-move-table 400ms;
+}
+
+@keyframes nav-move-table {
+  0% {
+    animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
+  }
+  30% {
+    transform: scaleY(0.72);
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+  68% {
+    transform: scaleY(1.06);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+/* The invoice lifts like a sheet being picked up, then returns to its resting glyph. */
+.icon[data-move] [data-part="invoice-document"] {
+  transform-origin:128px 160px;
+  animation:invoice-lift 240ms cubic-bezier(.2,.7,.2,1);
+}
+@keyframes invoice-lift {
+  0%,100% { transform:translateY(0) rotate(0deg); }
+  45% { transform:translateY(-10px) rotate(-7deg); }
+  72% { transform:translateY(-3px) rotate(2deg); }
+}
+
+/* Actividad: the hands turn back a full hour while the rewind arrow pulls back and settles. Both turn about the clock's center. */
+.icon[data-move] [data-part="clock-hands"],
+.icon[data-move] [data-part="clock-dial"] {
+  transform-box: view-box;
+  transform-origin: 128px 128px;
+}
+
+.icon[data-move] [data-part="clock-hands"] {
+  animation: nav-move-clock-hands 520ms;
+}
+
+.icon[data-move] [data-part="clock-dial"] {
+  animation: nav-move-clock-dial 520ms;
+}
+
+@keyframes nav-move-clock-hands {
+  0% {
+    transform: rotate(0deg);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  78% {
+    transform: rotate(-372deg);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  100% {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes nav-move-clock-dial {
+  0% {
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  30% {
+    transform: rotate(-16deg);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  65% {
+    transform: rotate(3deg);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon,
+  .layer,
+  .icon[data-settle],
+  .icon[data-move] [data-part],
+  .icon[data-active="true"] .outline,
+  .icon[data-active="false"] .fill {
+    transition: none;
+    animation: none;
+  }
+
+  :global(button):active .icon[data-active] {
+    transform: none;
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "after_sync": {
+    "by_status": {
+      "pending": 17,
+      "posted": 314
+    },
+    "drafts_affect_ledger": false,
+    "not_ready_polls": 1,
+    "observations": 331,
+    "open_events": 331,
+    "sync_status": "synced",
+    "unresolved_account": 331
+  },
+  "disconnect": {
+    "accepted_kept": 1,
+    "accepted_redacted": true,
+    "ledger_activities": 1,
+    "open_after": 0,
+    "provider_revocation": "revoked",
+    "unreviewed_removed": 330
+  },
+  "environment": "sandbox",
+  "institution": "ins_109508",
+  "resync": {
+    "events_after": 331,
+    "events_before": 331,
+    "ledger_activities": 1,
+    "status": "synced"
+  },
+  "review": {
+    "accepted_kind": "expense",
+    "account_link_reused_by_other_drafts": 68,
+    "ledger_activities": 1,
+    "replay_same_activity": true
+  },
+  "run_at": "2026-10-01T22:48:04+00:00",
+  "test_user": "user_transactions_dynamic"
+}

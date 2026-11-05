@@ -1,0 +1,52 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.10.20, pytest-8.4.2, pluggy-1.6.0
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: /Users/garces/.codex/worktrees/634c/private-alpha-next
+configfile: pyproject.toml
+plugins: benchmark-5.2.3, mock-3.15.1, Faker-30.10.0, asyncio-1.4.0, hypothesis-6.151.12, langsmith-0.7.31, respx-0.23.1, cov-7.0.0, anyio-4.13.0
+asyncio: mode=strict, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 634 items
+
+tests/ingestion/test_api.py .........                                    [  1%]
+tests/ingestion/test_connections.py ...............                      [  3%]
+tests/ingestion/test_contract.py ................                        [  6%]
+tests/ingestion/test_document_benchmark.py ..................            [  9%]
+tests/ingestion/test_document_extraction.py ..............               [ 11%]
+tests/ingestion/test_document_preparation.py .........                   [ 12%]
+tests/ingestion/test_document_service.py .............                   [ 14%]
+tests/ingestion/test_documents_api.py .....                              [ 15%]
+tests/ingestion/test_gmail_api.py ....................                   [ 18%]
+tests/ingestion/test_gmail_hardening.py .................                [ 21%]
+tests/ingestion/test_gmail_oauth.py ...................                  [ 24%]
+tests/ingestion/test_gmail_parsing.py .................................. [ 29%]
+....                                                                     [ 30%]
+tests/ingestion/test_gmail_sync.py ............                          [ 32%]
+tests/ingestion/test_gmail_sync_failures.py .............                [ 34%]
+tests/ingestion/test_imports_api.py ......                               [ 35%]
+tests/ingestion/test_plaid_api.py ........                               [ 36%]
+tests/ingestion/test_plaid_exchange_revoke.py .........                  [ 38%]
+tests/ingestion/test_plaid_link.py ...............                       [ 40%]
+tests/ingestion/test_plaid_mapping.py ................                   [ 42%]
+tests/ingestion/test_plaid_sync.py ..........                            [ 44%]
+tests/ingestion/test_plaid_sync_safety.py ........                       [ 45%]
+tests/ingestion/test_plaid_verification.py ..............                [ 47%]
+tests/ingestion/test_plaid_verification_limits.py ........               [ 49%]
+tests/ingestion/test_plaid_webhook_api.py .............                  [ 51%]
+tests/ingestion/test_reconcile.py ...................................... [ 57%]
+                                                                         [ 57%]
+tests/ingestion/test_router_imports.py ......                            [ 58%]
+tests/ingestion/test_secrets.py ....                                     [ 58%]
+tests/ingestion/test_shortcuts_amounts.py .............................. [ 63%]
+...........                                                              [ 65%]
+tests/ingestion/test_shortcuts_api.py ........................           [ 69%]
+tests/ingestion/test_shortcuts_events.py ......................          [ 72%]
+tests/ingestion/test_shortcuts_intake.py ..........                      [ 74%]
+tests/document_extraction_fixtures/test_fixtures.py ............         [ 76%]
+tests/test_openrouter_policy.py ........................................ [ 82%]
+........................................................................ [ 93%]
+..............                                                           [ 95%]
+tests/test_openapi_compatibility.py .......................              [ 99%]
+tests/test_route_receipt_tiers_migration.py .                            [ 99%]
+tests/test_document_extractions_postgres.py ss                           [100%]
+
+======================= 632 passed, 2 skipped in 12.73s ========================

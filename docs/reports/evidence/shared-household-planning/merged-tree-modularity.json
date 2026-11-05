@@ -1,0 +1,10 @@
+{
+  "source_head": "d290207646956a60ad1b1eb62b4a49a20e91901a",
+  "original_base": "15e57931584b21dd7f9e453dbeb9127fc4b8cff3",
+  "current_integration": "15e57931584b21dd7f9e453dbeb9127fc4b8cff3",
+  "reconciliation_merge": null,
+  "semantic_overlap": "No integration advance; final reviewed verification source tree equals the would-be merged tree. Publication metadata/evidence changes no watched source budget.",
+  "would_be_merged_tree": "4e50aff5b952d25407cf01340b3629b759b4b60e",
+  "head_tree": "4e50aff5b952d25407cf01340b3629b759b4b60e",
+  "modularity": "pass; zero watched-file budget violations"
+}

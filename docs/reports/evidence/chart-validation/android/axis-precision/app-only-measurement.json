@@ -1,0 +1,17 @@
+{
+  "context": "Precision-fix debug app without instrumentation; 12 adb input swipes at 300ms each; SwiftShader emulator",
+  "swipes": 12,
+  "requested_duration_ms_per_swipe": 300,
+  "total_shell_command_wall_ms": 4719.461207976565,
+  "coordinates": {
+    "a": [
+      322,
+      1248
+    ],
+    "b": [
+      900,
+      1248
+    ]
+  },
+  "warning": "Command wall time includes adb and injection overhead; not input-to-display latency."
+}

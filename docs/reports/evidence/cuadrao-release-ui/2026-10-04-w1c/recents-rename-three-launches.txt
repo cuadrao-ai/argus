@@ -1,0 +1,3 @@
+W1C rename round=0 shown=true seconds=1.15
+W1C rename round=1 shown=true seconds=1.14
+W1C rename round=2 shown=true seconds=1.15

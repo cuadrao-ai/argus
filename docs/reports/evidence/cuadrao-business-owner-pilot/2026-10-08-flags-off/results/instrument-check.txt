@@ -1,0 +1,1 @@
+{"instrument": "the needle scan finds A's own Personal ids in A's Personal reads (S1)", "/financial-accounts": ["A.personal_account", "A.personal_account_name"], "/financial-home": ["A.personal_account", "A.personal_account_name", "A.personal_expense", "A.personal_note"], "/financial-documents": ["A.personal_document"], "/conversations": ["A.conversation"]}

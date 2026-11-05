@@ -64,7 +64,7 @@ export default function CommandPaletteRowActions({
       data-row-action
     >
       {actions.map((action) => (
-        <Tooltip key={action.id} content={action.label} side="top" delay={120}>
+        <Tooltip key={action.id} content={action.label} side="top">
           <button
             type="button"
             disabled={action.disabled}

@@ -1,0 +1,67 @@
+{
+  "simulator": "4E22655F-72DC-468F-AEBB-97FBDC58B514",
+  "api": "http://127.0.0.1:58600",
+  "database": "real isolated local Postgres 58602",
+  "tests": [
+    {
+      "test": "testConnectedPlanRecordsLinksCorrectsAndReopens",
+      "seconds": 352.298,
+      "product_commit": "ab1e3e63036881590bba9fa173b840fbc80774d2",
+      "result": "passed",
+      "xcode_exit": 0,
+      "local_result": "ui-20260929T185604Z.xcresult"
+    },
+    {
+      "test": "testPlanKeepsUnknownCurrencyAndLocalizedPresentation",
+      "seconds": 122.002,
+      "product_commit": "36abc0bc41fe0c12cb8651582e177dfd652013b0",
+      "result": "passed",
+      "xcode_exit": 0,
+      "local_result": "ui-20260929T190241Z.xcresult"
+    },
+    {
+      "test": "testPlanCanRemoveArchivedAndChangedSelectedAccounts",
+      "seconds": 156.851,
+      "product_commit": "20750992472ae3dfddb3f6f11718fa84f0ed3113",
+      "result": "passed",
+      "xcode_exit": 0,
+      "local_result": "ui-20260929T191400Z.xcresult"
+    },
+    {
+      "test": "testPlanResponseLossRecoversOnceAfterRelaunch",
+      "seconds": 259.054,
+      "product_commit": "20750992472ae3dfddb3f6f11718fa84f0ed3113",
+      "result": "passed",
+      "xcode_exit": 0,
+      "local_result": "ui-20260929T191721Z.xcresult"
+    },
+    {
+      "test": "testRetainedHomeSurvivesReopening",
+      "seconds": 15.357,
+      "product_commit": "20750992472ae3dfddb3f6f11718fa84f0ed3113",
+      "result": "passed",
+      "xcode_exit": 0,
+      "local_result": "ui-20260929T192223Z.xcresult",
+      "mode": "direct API, proxy removed"
+    }
+  ],
+  "notes": [
+    "Main test driver refinements were committed in 36abc0bc; its app product source is ab1e3e63.",
+    "Response-loss case used local fault proxy 58612, dropping one response after commit.",
+    "Raw xctestrun and logs stay ignored because they contain synthetic credentials.",
+    "Only completed clean Xcode exits are counted. Failed setup and automation attempts are not passes."
+  ],
+  "retained_forecast": {
+    "evidence": "Final native UI inspection and committed plan-forecast-*.png",
+    "included_accounts": [
+      "Recovery plan AD6C",
+      "Plan bank C6C5"
+    ],
+    "currency": "DOP",
+    "starting": "180.00",
+    "after_bill": "-20.00",
+    "shortfall_date": "2026-09-29",
+    "later_income_date": "2026-10-04",
+    "ending": "480.00"
+  }
+}

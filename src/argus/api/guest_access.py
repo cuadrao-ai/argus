@@ -8,6 +8,7 @@ from typing import Literal, Protocol
 
 from fastapi import Request
 
+from argus.api.client_ip import resolve_client_ip
 from argus.api.schemas import AccountCapabilities
 from argus.domain.guest_workspaces import GuestWorkspace
 from argus.domain.visitor_usage import visitor_key_for
@@ -24,7 +25,7 @@ def _enabled(name: str, *, default: bool = False) -> bool:
 
 
 def guest_access_enabled() -> bool:
-    server_enabled = _enabled("ARGUS_GUEST_ACCESS_ENABLED", default=True)
+    server_enabled = _enabled("CUADRAO_GUEST_ACCESS_ENABLED", default=True)
     presentation = os.getenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED")
     if presentation is None or not presentation.strip():
         return server_enabled
@@ -35,7 +36,7 @@ def guest_access_enabled() -> bool:
 
 
 def public_account_access_enabled() -> bool:
-    return _enabled("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED")
+    return _enabled("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED")
 
 
 class PermanentAccessGateway(Protocol):
@@ -44,13 +45,35 @@ class PermanentAccessGateway(Protocol):
     def private_alpha_email_allowed(self, email: str) -> bool: ...
 
 
+class BusinessAdmission(Protocol):
+    def admits_email(self, email: str) -> bool: ...
+
+
 def permanent_account_access_allowed(
     gateway: PermanentAccessGateway,
     email: str,
+    business: BusinessAdmission | None,
 ) -> bool:
+    """Whether this email may sign up, sign in and keep a session.
+
+    Open public access refuses only a disabled allowlist row. Closed, the
+    allowlist admits its active rows, then, while
+    ``CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED`` is true, a Business admits an
+    email it holds a live invitation or grant for, unless a disabled row
+    refuses it. With that switch off, the Business is never asked.
+    """
+    # business.config reaches api.dependencies, which imports this module.
+    from argus.domain.business.config import business_invite_admission_enabled
+
     if public_account_access_enabled():
         return not gateway.private_alpha_email_disabled(email)
-    return gateway.private_alpha_email_allowed(email)
+    if gateway.private_alpha_email_allowed(email):
+        return True
+    if business is None or not business_invite_admission_enabled():
+        return False
+    if gateway.private_alpha_email_disabled(email):
+        return False
+    return business.admits_email(email)
 
 
 @dataclass(frozen=True)
@@ -75,18 +98,11 @@ _current_account_context: ContextVar[AccountContext | None] = ContextVar(
 def client_identity(request: Request) -> str:
     """Best available identifier for the visitor behind a request.
 
-    Prefers the first `x-forwarded-for` hop so a proxied deployment sees the
-    caller rather than the proxy. Guest allowances are charged against this
-    instead of a user id, because a guest user id renews on a timer.
+    Delegates to the single trusted-header helper. Guest allowances are
+    charged against this instead of a user id, because a guest user id
+    renews on a timer.
     """
-    forwarded_for = request.headers.get("x-forwarded-for")
-    if forwarded_for:
-        first_hop = forwarded_for.split(",", 1)[0].strip()
-        if first_hop:
-            return first_hop
-    if request.client and request.client.host:
-        return request.client.host
-    return "unknown"
+    return resolve_client_ip(request)
 
 
 def visitor_key_for_request(request: Request) -> str:

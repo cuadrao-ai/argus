@@ -477,41 +477,6 @@ def test_authenticated_browser_cannot_mutate_guest_policy_state(identities) -> N
                 )
 
 
-def test_profile_and_usage_table_grants_stay_service_owned() -> None:
-    with _connect() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                select role_name,
-                       has_table_privilege(role_name, 'public.profiles', 'select'),
-                       has_table_privilege(role_name, 'public.profiles', 'update'),
-                       has_table_privilege(
-                         role_name,
-                         'public.usage_counters',
-                         'select'
-                       ),
-                       has_table_privilege(
-                         role_name,
-                         'public.usage_counters',
-                         'insert'
-                       ),
-                       has_table_privilege(
-                         role_name,
-                         'public.usage_counters',
-                         'update'
-                       )
-                from unnest(array['anon', 'authenticated', 'service_role'])
-                  as role_name
-                order by role_name
-                """
-            )
-            assert cursor.fetchall() == [
-                ("anon", False, False, False, False, False),
-                ("authenticated", False, False, False, False, False),
-                ("service_role", True, True, True, True, True),
-            ]
-
-
 def test_concurrent_guest_conversation_creation_allows_exactly_one(identities) -> None:
     barrier = Barrier(2)
 

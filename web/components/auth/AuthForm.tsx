@@ -1,9 +1,28 @@
 "use client";
 
-import { type FormEvent, useEffect, useRef, useState } from "react";
-import { Eye, EyeClosed } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import Link from "next/link";
+import { rememberRecoveryEmail } from "./recovery-email";
+
+import { AlertCircle, Check, EyeClosed, LoaderCircle } from "lucide-react";
+import Image from "next/image";
+import { type FormEvent, type MouseEvent, useEffect, useId, useRef, useState } from "react";
+import { FormField, PasswordField, useFieldChecks } from "@/components/ui/FormField";
+import { fieldLabelClass } from "@/components/ui/form-field";
+import { PASSWORD_MIN_LENGTH } from "@/lib/password-strength";
+import { Trans, useTranslation } from "react-i18next";
+import { acceptanceLinks } from "@/lib/cuadrao-legal-links";
+import {
+  EmailOtpRejectedError,
+  EmailOtpError,
+  resendSignupEmail,
+  type EmailResendAcceptance,
+  normalizeEmailOtp,
+  verifyEmailOtp,
+} from "@/lib/email-otp";
 import { blockingErrorBannerClass } from "@/lib/failure-treatment";
+import { InviteOnlyNotice } from "./InviteOnlyNotice";
+
+const CONFIRMATION_CODE_LENGTH = 8;
 
 export type AuthFormMode = "login" | "signup";
 
@@ -20,12 +39,17 @@ export type AuthFormSubmissionResult = {
 
 type AuthFormProps = {
   mode: AuthFormMode;
+  brand?: "argus" | "cuadrao";
   allowModeSwitch?: boolean;
   embedded?: boolean;
+  emailFirst?: boolean;
   onModeChange?: (mode: AuthFormMode) => void;
   onSubmit: (
     submission: AuthFormSubmission,
   ) => Promise<AuthFormSubmissionResult | void>;
+  onConfirmEmailCode?: (input: { email: string; code: string }) => Promise<void>;
+  onEmailConfirmed?: (input: { signal: AbortSignal }) => void | Promise<void>;
+  onResendEmailCode?: (input: { email: string }) => Promise<EmailResendAcceptance | void>;
 };
 
 type AuthErrorTranslation = Readonly<{
@@ -44,8 +68,8 @@ const AUTH_ERROR_MESSAGE_BY_CODE: Readonly<
   Record<string, AuthErrorTranslation>
 > = {
   captcha_unavailable: {
-    key: "auth.errors.captcha_unavailable",
-    fallback: "We couldn’t complete the security check. Please try again.",
+    key: "auth.errors.browser_check_failed",
+    fallback: "We couldn’t verify your browser. Try again.",
   },
   unauthorized: {
     key: "auth.errors.unauthorized",
@@ -66,7 +90,7 @@ const AUTH_ERROR_MESSAGE_BY_CODE: Readonly<
   },
   internal_error: {
     key: "auth.errors.internal_error",
-    fallback: "Argus couldn’t complete this account request. Please try again.",
+    fallback: "Cuadrao couldn’t complete this account request. Please try again.",
   },
   account_already_registered: {
     key: "auth.errors.account_already_registered",
@@ -142,6 +166,10 @@ const AUTH_ERROR_MESSAGE_BY_CODE: Readonly<
     fallback:
       "We couldn’t claim the temporary conversation right now. Please try again.",
   },
+  otp_rejected: {
+    key: "auth.errors.otp_rejected",
+    fallback: "That code was not accepted. Check the email and try again.",
+  },
 };
 
 function authErrorCode(error: unknown): string {
@@ -159,192 +187,533 @@ export function localizedAuthErrorMessage(
   return translate(message.key, message.fallback);
 }
 
+const LEGAL_LINK_CLASS =
+  "font-semibold text-zinc-800 transition-colors hover:text-black dark:text-zinc-400 dark:hover:text-white";
+
 export default function AuthForm({
   mode,
+  brand = "cuadrao",
   allowModeSwitch = true,
   embedded = false,
+  emailFirst = false,
   onModeChange,
   onSubmit,
+  onConfirmEmailCode,
+  onEmailConfirmed,
+  onResendEmailCode,
 }: AuthFormProps) {
   const { t } = useTranslation();
-  const [displayName, setDisplayName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [entry, setEntry] = useState<{ mode: AuthFormMode; step: "identity" | "password" }>({ mode, step: "identity" });
+  const entryStep = entry.mode === mode ? entry.step : "identity";
+  const isIdentityStep = emailFirst && entryStep === "identity";
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [request, setRequest] = useState<{ status: "idle" | "pending" } | { status: "failed"; code: string }>({ status: "idle" });
+  const pending = useRef(false);
+  // The choice in force, meaning this mode and this step. Every request
+  // captures its signal when it starts, and a request whose choice was
+  // superseded drops its result instead of routing or rendering it.
+  const choice = useRef(new AbortController());
+  const supersedeChoice = () => {
+    choice.current.abort();
+    choice.current = new AbortController();
+  };
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  // The server refuses a sign-up with one generic code, so an address is never
+  // told whether it is invited. For the person, that refusal is invite only.
+  const signupRefused = request.status === "failed" && request.code === "auth_signup_failed";
+  const formRef = useRef<HTMLFormElement>(null);
+  const id = useId();
+  const isSubmitting = request.status === "pending";
+  const authErrorKind = request.status === "failed" ? request.code : null;
+  const errorMessage = authErrorKind === null ? null : AUTH_ERROR_MESSAGE_BY_CODE[authErrorKind] ?? GENERIC_AUTH_ERROR;
+  const authError = errorMessage ? t(errorMessage.key, errorMessage.fallback) : null;
   const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
+  const [confirmationCode, setConfirmationCode] = useState("");
+  const [codeErrorKind, setCodeErrorKind] = useState<string | null>(null);
+  const [confirmationStatus, setConfirmationStatus] = useState<"editing" | "verifying" | "verified">("editing");
+  const [activeSlot, setActiveSlot] = useState(0);
+  const [rejectionCount, setRejectionCount] = useState(0);
+  const confirmationInputRef = useRef<HTMLInputElement>(null);
+  const confirming = useRef(false);
+  const isConfirming = confirmationStatus === "verifying";
+  const isVerified = confirmationStatus === "verified";
+  // While the code is checked, the loading button is why sign-in, recovery
+  // and resend wait: one value disables them and names their explanation.
+  const competingActionsWaitOn = isConfirming ? "auth-confirmation-submit" : undefined;
+  // Only a plain primary click chooses recovery in this tab. A modified or
+  // middle click opens recovery elsewhere, so this tab changes nothing.
+  const chooseRecovery = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (competingActionsWaitOn) {
+      event.preventDefault();
+      return;
+    }
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    supersedeChoice();
+    rememberRecoveryEmail(email);
+  };
+  const codeErrorMessage = codeErrorKind !== null ? AUTH_ERROR_MESSAGE_BY_CODE[codeErrorKind] ?? GENERIC_AUTH_ERROR : null;
+  const codeError = codeErrorKind === "incomplete"
+    ? t("auth.signup.confirmation_code_incomplete", { count: CONFIRMATION_CODE_LENGTH })
+    : codeErrorKind === "malformed" ? t("auth.signup.confirmation_code_malformed", { count: CONFIRMATION_CODE_LENGTH })
+    : codeErrorKind === "otp_transient" ? t("auth.signup.confirmation_temporary_error")
+    : codeErrorKind === "otp_rejected" || codeErrorKind === "otp_expired" ? t("auth.signup.confirmation_code_rejected")
+    : codeErrorKind === "too_many_requests" ? t("auth.signup.confirmation_rate_limited")
+    : codeErrorMessage ? t(codeErrorMessage.key, codeErrorMessage.fallback) : null;
+  const [resend, setResend] = useState<{ status: "idle" | "pending" | "sent" } | { status: "failed"; code: string }>({ status: "idle" });
+  const isResending = resend.status === "pending";
+  const [resendAvailableAt, setResendAvailableAt] = useState(0);
+  const [resendSeconds, setResendSeconds] = useState(30);
   const confirmationHeadingRef = useRef<HTMLHeadingElement>(null);
   const isSignup = mode === "signup";
+  const acceptance = acceptanceLinks();
+  const labels = {
+    email: t("auth.login.email_placeholder"),
+    password: t("auth.login.password_placeholder"),
+  };
+  const messages = {
+    emailRequired: t("auth.form.email_required"),
+    emailInvalid: t("auth.form.email_invalid"),
+    emailValid: t("auth.form.email_valid"),
+    passwordRequired: t("auth.form.password_required"),
+    passwordShort: t("auth.form.password_short", { min: PASSWORD_MIN_LENGTH }),
+  };
+  const checks = useFieldChecks({
+    email: (values) => !values.email.trim() ? messages.emailRequired
+      : emailRef.current?.validity.typeMismatch ? messages.emailInvalid : null,
+    password: (values) => isIdentityStep ? null : !values.password ? messages.passwordRequired
+      : isSignup && values.password.length < PASSWORD_MIN_LENGTH ? messages.passwordShort : null,
+  }, { email, password });
+  const resetChecks = checks.reset;
 
   useEffect(() => {
+    if (emailFirst) {
+      setPassword("");
+      setEntry({ mode, step: "identity" });
+    }
     setNeedsEmailConfirmation(false);
-  }, [mode]);
+    setConfirmationCode("");
+    setCodeErrorKind(null);
+    setConfirmationStatus("editing");
+    setRejectionCount(0);
+    setResend({ status: "idle" });
+    setResendAvailableAt(0);
+    setResendSeconds(30);
+    setActiveSlot(0);
+    confirming.current = false;
+    pending.current = false;
+    setRequest({ status: "idle" });
+    resetChecks();
+    return supersedeChoice;
+  }, [mode, resetChecks, emailFirst]);
+
+  useEffect(() => {
+    if (emailFirst && entry.mode === mode && entryStep === "password") {
+      const frame = requestAnimationFrame(() => {
+        formRef.current?.querySelector<HTMLInputElement>('input[autocomplete$="password"]')?.focus();
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+  }, [emailFirst, entry, entryStep, mode]);
+
+  useEffect(() => {
+    if (checks.attempt > 0) formRef.current?.querySelector<HTMLInputElement>('[aria-invalid="true"]')?.focus();
+  }, [checks.attempt]);
+
+  useEffect(() => {
+    if (request.status === "failed") errorRef.current?.focus();
+  }, [request]);
 
   useEffect(() => {
     if (needsEmailConfirmation) {
       confirmationHeadingRef.current?.focus();
+      setResendAvailableAt(Date.now() + 30_000);
     }
   }, [needsEmailConfirmation]);
 
+  useEffect(() => {
+    if (!needsEmailConfirmation) return;
+    const update = () => setResendSeconds(Math.max(0, Math.ceil((resendAvailableAt - Date.now()) / 1000)));
+    update();
+    const timer = window.setInterval(update, 1000);
+    return () => window.clearInterval(timer);
+  }, [needsEmailConfirmation, resendAvailableAt]);
+
+  const resendFeedback = resend.status === "pending" ? t("auth.signup.confirmation_resend_pending")
+    : resend.status === "sent" ? t("auth.signup.confirmation_resend_sent")
+    : resend.status === "failed" ? resend.code === "too_many_requests" ? t("auth.signup.confirmation_rate_limited")
+    : t("auth.signup.confirmation_resend_failed") : null;
+
+  const updateConfirmationCode = (value: string) => {
+    const digits = value.replace(/\s+/g, "");
+    if (!/^[0-9]*$/.test(digits) || digits.length > CONFIRMATION_CODE_LENGTH) {
+      setCodeErrorKind("malformed");
+      return;
+    }
+    setConfirmationCode(digits);
+    setActiveSlot(Math.min(digits.length, CONFIRMATION_CODE_LENGTH - 1));
+    setCodeErrorKind(null);
+  };
+
+  const handleResendCode = async () => {
+    if (confirming.current || isVerified || Date.now() < resendAvailableAt) return;
+    confirming.current = true;
+    const { signal } = choice.current;
+    setResend({ status: "pending" });
+    setCodeErrorKind(null);
+    try {
+      const accepted = await (onResendEmailCode ? onResendEmailCode({ email: email.trim() }) : resendSignupEmail({ email: email.trim() }));
+      if (signal.aborted) return;
+      setResend({ status: "sent" });
+      const seconds = accepted?.retryAfterSeconds ?? 30;
+      setResendAvailableAt(Date.now() + seconds * 1000);
+      setResendSeconds(seconds);
+    } catch (error) {
+      if (signal.aborted) return;
+      setResend({ status: "failed", code: authErrorCode(error) });
+      if (error instanceof EmailOtpError && error.code === "too_many_requests") {
+        const seconds = error.retryAfterSeconds ?? 30;
+        setResendAvailableAt(Date.now() + seconds * 1000);
+        setResendSeconds(seconds);
+      }
+    } finally {
+      if (!signal.aborted) confirming.current = false;
+    }
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setAuthError(null);
-    setIsSubmitting(true);
+    if (pending.current) return;
+    setRequest({ status: "idle" });
+    if (!checks.submit()) return;
+    if (isIdentityStep) {
+      resetChecks();
+      setEntry({ mode, step: "password" });
+      return;
+    }
+    pending.current = true;
+    const { signal } = choice.current;
+    setRequest({ status: "pending" });
     try {
       const result = await onSubmit({
         mode,
-        displayName: displayName.trim(),
+        displayName: [firstName.trim(), lastName.trim()].filter(Boolean).join(" "),
         email: email.trim(),
         password,
       });
-      setNeedsEmailConfirmation(
-        Boolean(result && result.status === "email_confirmation_required"),
-      );
+      if (signal.aborted) return;
+      setNeedsEmailConfirmation(Boolean(result && result.status === "email_confirmation_required"));
+      setRequest({ status: "idle" });
     } catch (error) {
-      setAuthError(
-        localizedAuthErrorMessage(error, (key, fallback) =>
-          String(t(key, fallback)),
-        ),
-      );
+      if (!signal.aborted) setRequest({ status: "failed", code: authErrorCode(error) });
     } finally {
-      setIsSubmitting(false);
+      if (!signal.aborted) pending.current = false;
+    }
+  };
+
+  const handleConfirmCode = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (confirming.current || (isVerified && !codeErrorKind)) return;
+    if (!isVerified && (codeErrorKind === "malformed" || confirmationCode.length !== CONFIRMATION_CODE_LENGTH)) {
+      setCodeErrorKind(codeErrorKind === "malformed" ? "malformed" : "incomplete");
+      confirmationInputRef.current?.focus();
+      return;
+    }
+    confirming.current = true;
+    const { signal } = choice.current;
+    setCodeErrorKind(null);
+    setResend({ status: "idle" });
+    if (!isVerified) {
+      setConfirmationStatus("verifying");
+      try {
+        const token = normalizeEmailOtp(confirmationCode);
+        if (!token) throw new EmailOtpRejectedError();
+        if (onConfirmEmailCode) {
+          await onConfirmEmailCode({ email: email.trim(), code: token });
+        } else {
+          await verifyEmailOtp({ email: email.trim(), token, type: "signup" });
+        }
+        if (signal.aborted) return;
+        setConfirmationStatus("verified");
+      } catch (error) {
+        if (signal.aborted) return;
+        setCodeErrorKind(authErrorCode(error) || "generic");
+        setConfirmationStatus("editing");
+        if (["otp_rejected", "otp_expired"].includes(authErrorCode(error))) {
+          setConfirmationCode("");
+          setActiveSlot(0);
+          setRejectionCount((count) => count + 1);
+        }
+        confirming.current = false;
+        requestAnimationFrame(() => {
+          if (!signal.aborted) confirmationInputRef.current?.focus();
+        });
+        return;
+      }
+    }
+    try {
+      await onEmailConfirmed?.({ signal });
+    } catch (error) {
+      if (!signal.aborted) setCodeErrorKind(authErrorCode(error) || "generic");
+    } finally {
+      if (!signal.aborted) confirming.current = false;
     }
   };
 
   return (
     <div
+      ref={cardRef}
+      data-auth-entry-step={emailFirst ? entryStep : undefined}
+      data-auth-brand={brand}
+      data-auth-step={needsEmailConfirmation ? "confirmation" : undefined}
       className={
-        embedded
+        needsEmailConfirmation
+          ? "w-full px-1 py-7 min-[80rem]:pt-[55px]"
+          : embedded
           ? "w-full"
           : "w-full rounded-[20px] border border-black/10 bg-white p-7 dark:border-white/10 dark:bg-[#151719]"
       }
     >
       {needsEmailConfirmation ? (
-        <div
-          data-testid="auth-check-email"
-          role="status"
-          aria-live="polite"
-          className="w-full text-center"
-        >
+        <div data-testid="auth-check-email" className="w-full text-center">
+          <div
+            data-confirmation-illustration="true"
+            aria-hidden="true"
+            className="mx-auto mb-[21px] h-[112px] w-[168px]"
+          >
+            <Image src="/images/auth/confirmation-envelope.png" alt="" width={1536} height={1024} sizes="168px" className="h-full w-full object-contain" />
+          </div>
           <h2
             ref={confirmationHeadingRef}
             tabIndex={-1}
-            className="font-display text-[24px] font-medium tracking-tight text-black outline-none dark:text-white"
+            className="font-display text-balance text-[28px] font-medium leading-[1.2] tracking-tight text-black outline-none dark:text-white min-[80rem]:text-[40px]"
           >
             {t("auth.signup.confirmation_title", "Check your email")}
           </h2>
-          <p className="mt-3 text-[15px] leading-relaxed text-black/60 dark:text-white/60">
-            {t(
-              "auth.signup.confirmation_description",
-              "Use the confirmation link we sent to finish creating your account. Then return here to sign in.",
-            )}
+          <p className="mx-auto mt-[13px] max-w-md text-[16px] leading-relaxed text-black/60 dark:text-white/60">
+            <Trans
+              i18nKey="auth.signup.confirmation_description"
+              values={{ correo: email.trim() }}
+              components={{ email: <strong className="font-medium [overflow-wrap:anywhere]" /> }}
+            />
           </p>
+          <form onSubmit={handleConfirmCode} aria-busy={isConfirming || isResending} className="mx-auto mt-[34px] max-w-[400px] space-y-2 text-left">
+            <div>
+              <label htmlFor="auth-confirmation-code" className={`${fieldLabelClass} text-center`}>
+                {t("auth.signup.confirmation_code_label")}
+              </label>
+              <div data-otp-control data-otp-status={confirmationStatus} data-otp-error={Boolean(codeError && !isVerified)}>
+                <input
+                  ref={confirmationInputRef}
+                  id="auth-confirmation-code"
+                  data-testid="auth-confirmation-code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  aria-required="true"
+                  spellCheck={false}
+                  autoCapitalize="off"
+                  value={confirmationCode}
+                  readOnly={isConfirming || isResending || isVerified}
+                  aria-invalid={codeError && !isVerified ? true : undefined}
+                  aria-describedby="auth-confirmation-code-note"
+                  onChange={(event) => updateConfirmationCode(event.target.value)}
+                  onSelect={(event) => setActiveSlot(Math.min(event.currentTarget.selectionStart ?? confirmationCode.length, CONFIRMATION_CODE_LENGTH - 1))}
+                  onBlur={() => {
+                    if (codeErrorKind !== "malformed" && confirmationCode && confirmationCode.length !== CONFIRMATION_CODE_LENGTH) setCodeErrorKind("incomplete");
+                  }}
+                  onPaste={(event) => {
+                    if (isConfirming || isResending || isVerified) return;
+                    event.preventDefault();
+                    updateConfirmationCode(event.clipboardData.getData("text"));
+                  }}
+                />
+                <div key={rejectionCount} data-otp-slots data-otp-rejected={rejectionCount > 0} aria-hidden="true">
+                  {Array.from({ length: CONFIRMATION_CODE_LENGTH }, (_, index) => (
+                    <span
+                      key={index}
+                      data-otp-slot={index}
+                      data-active={index === activeSlot}
+                      onPointerDown={(event) => {
+                        event.preventDefault();
+                        if (isConfirming || isResending || isVerified) return;
+                        const input = confirmationInputRef.current;
+                        const position = Math.min(index, confirmationCode.length);
+                        input?.focus();
+                        input?.setSelectionRange(position, position < confirmationCode.length ? position + 1 : position);
+                        setActiveSlot(Math.min(position, CONFIRMATION_CODE_LENGTH - 1));
+                      }}
+                    >{confirmationCode[index] ?? ""}</span>
+                  ))}
+                </div>
+              </div>
+              <div className="mt-1.5 grid text-[14px] leading-[22px]">
+                {["auth.signup.confirmation_code_rejected", "auth.signup.confirmation_code_incomplete", "auth.errors.generic"].map((key) => (
+                  <p key={key} aria-hidden="true" className="invisible col-start-1 row-start-1 flex gap-1.5">
+                    <span className="h-4 w-4 shrink-0" />{t(key, { count: CONFIRMATION_CODE_LENGTH })}
+                  </p>
+                ))}
+                <p id="auth-confirmation-code-note" aria-live="polite" className={`col-start-1 row-start-1 flex min-h-[22px] gap-1.5 ${(codeError || resend.status === "failed") ? "text-[#9e2f39]! dark:text-[#ec9aa0]!" : "text-[#2f5a49]! dark:text-[#8fcbb0]!"}`}>
+                  {codeError ? <AlertCircle aria-hidden="true" className="mt-[3px] h-4 w-4 shrink-0" /> : isVerified ? <Check aria-hidden="true" className="mt-[3px] h-4 w-4 shrink-0" /> : null}
+                  {codeError || resendFeedback || (isVerified ? t("auth.signup.confirmation_verified") : "")}
+                </p>
+              </div>
+            </div>
+            <button
+              type="submit"
+              id="auth-confirmation-submit"
+              disabled={isConfirming || isResending || (isVerified && !codeErrorKind)}
+              className="font-display flex w-full items-center justify-center rounded-[9999px] bg-black px-[32px] py-[14px] text-[16px] font-medium text-white transition-opacity hover:opacity-85 focus:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black disabled:opacity-50 dark:bg-white dark:text-black dark:focus-visible:ring-white"
+            >
+              {isConfirming ? <LoaderCircle aria-hidden="true" className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" /> : null}
+              {isConfirming
+                ? t("auth.signup.confirmation_loading", "Confirming...")
+                : isVerified && codeErrorKind ? t("auth.login.submit")
+                : isVerified ? t("auth.signup.confirmation_verified")
+                : t("auth.signup.confirmation_submit", "Confirm")}
+            </button>
+          </form>
+          <p className="mx-auto mt-[21px] max-w-[400px] text-[14px] leading-relaxed text-black/60 dark:text-white/60">
+            {t("auth.signup.confirmation_help")}
+          </p>
+          <div className="mx-auto mt-3 max-w-[400px] text-center text-[14px]">
+            <button type="button" disabled={resendSeconds > 0 || isConfirming || isResending || isVerified}
+              aria-describedby={competingActionsWaitOn}
+              className="min-h-11 rounded-item px-3 underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] disabled:cursor-not-allowed disabled:no-underline"
+              onClick={() => void handleResendCode()}>
+              {resendSeconds > 0 ? t("auth.signup.confirmation_resend_wait", { seconds: resendSeconds }) : t("auth.signup.confirmation_resend")}
+            </button>
+          </div>
+          <div data-testid="auth-check-email-exits" className="mx-auto mt-3 flex max-w-[400px] flex-col items-center gap-1 text-[14px] text-black/60 dark:text-white/60">
+            {allowModeSwitch && onModeChange ? (
+              <p>
+                {t("landing.already_account")}{" "}
+                <button type="button" disabled={Boolean(competingActionsWaitOn)} aria-describedby={competingActionsWaitOn}
+                  className="min-h-11 rounded-item px-1 font-medium text-black underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] disabled:cursor-not-allowed disabled:no-underline dark:text-white"
+                  onClick={() => {
+                    supersedeChoice();
+                    onModeChange("login");
+                    if (emailFirst) requestAnimationFrame(() => cardRef.current?.querySelector("h2")?.focus());
+                  }}>
+                  {t("landing.sign_in")}
+                </button>
+              </p>
+            ) : null}
+            <Link href="/auth/forgot-password" onClick={chooseRecovery} onAuxClick={chooseRecovery}
+              aria-disabled={competingActionsWaitOn ? true : undefined} aria-describedby={competingActionsWaitOn}
+              className="flex min-h-11 items-center rounded-item px-3 font-medium text-black underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] aria-disabled:cursor-not-allowed aria-disabled:no-underline dark:text-white">
+              {t("auth.recovery.forgot")}
+            </Link>
+          </div>
         </div>
       ) : (
-        <>
-          <form onSubmit={handleSubmit} className="space-y-3">
-            {isSignup && (
-              <input
-                type="text"
-                value={displayName}
-                onChange={(event) => setDisplayName(event.target.value)}
-                placeholder={t("auth.signup.name_placeholder", "Name")}
-                autoComplete="name"
-                className="w-full rounded-[20px] border border-black/15 bg-transparent px-5 py-[14px] text-[16px] tracking-[0.16px] text-black transition-colors placeholder:text-black/40 focus:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black dark:border-white/20 dark:text-white dark:placeholder:text-white/40 dark:focus-visible:ring-white"
-              />
+        <div data-auth-entry-content={emailFirst ? "true" : undefined}>
+          <h2 tabIndex={-1} className="outline-none font-display mb-[21px] text-[24px] font-medium tracking-tight text-black dark:text-white">
+            {t(`auth.${mode}.title`)}
+          </h2>
+          <form ref={formRef} onSubmit={handleSubmit} noValidate aria-busy={isSubmitting} className="space-y-3">
+            {authError ? (
+              <div data-auth-feedback="true">
+                <p ref={errorRef} tabIndex={-1} role="alert" data-testid={signupRefused ? "invite-only-refusal" : undefined} className={blockingErrorBannerClass}>
+                  {signupRefused ? <InviteOnlyNotice linkClassName="font-medium underline underline-offset-4" /> : authError}
+                </p>
+              </div>
+            ) : null}
+            {(emailFirst || isSignup) && (
+              <div data-auth-collapse={emailFirst ? "true" : undefined} data-open={isSignup && (!emailFirst || isIdentityStep)}
+                aria-hidden={emailFirst && (!isSignup || !isIdentityStep) ? true : undefined}
+                inert={emailFirst && (!isSignup || !isIdentityStep)}>
+              <div><div role="group" aria-labelledby={`${id}-names-note`}>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <FormField id={`${id}-first-name`} label={t("auth.signup.first_name_placeholder")}
+                  placeholder={emailFirst ? t("auth.form.first_name_hint") : undefined}
+                  value={firstName} onChange={(event) => setFirstName(event.target.value)}
+                  autoComplete="given-name" reserveMessages={[]} readOnly={isSubmitting} />
+                <FormField id={`${id}-last-name`} label={t("auth.signup.last_name_placeholder")}
+                  placeholder={emailFirst ? t("auth.form.last_name_hint") : undefined}
+                  value={lastName} onChange={(event) => setLastName(event.target.value)}
+                  autoComplete="family-name" reserveMessages={[]} readOnly={isSubmitting} />
+                </div>
+                <p id={`${id}-names-note`} className="mt-1.5 text-[12px]">{t("auth.form.names_optional")}</p>
+              </div></div></div>
             )}
-
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder={t("auth.login.email_placeholder", "Email address")}
-              autoComplete="email"
-              required
-              autoFocus
-              className="w-full rounded-[20px] border border-black/15 bg-transparent px-5 py-[14px] text-[16px] tracking-[0.16px] text-black transition-colors placeholder:text-black/40 focus:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black dark:border-white/20 dark:text-white dark:placeholder:text-white/40 dark:focus-visible:ring-white"
-            />
-
-            <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder={t("auth.login.password_placeholder", "Password")}
-                autoComplete={isSignup ? "new-password" : "current-password"}
-                required
-                minLength={isSignup ? 8 : undefined}
-                aria-describedby={
-                  isSignup ? "auth-signup-password-requirement" : undefined
-                }
-                className="w-full rounded-[20px] border border-black/15 bg-transparent px-5 py-[14px] pr-14 text-[16px] tracking-[0.16px] text-black transition-colors placeholder:text-black/40 focus:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black dark:border-white/20 dark:text-white dark:placeholder:text-white/40 dark:focus-visible:ring-white"
-              />
-              <button
-                type="button"
-                aria-label={
-                  showPassword
-                    ? t("auth.password.hide", "Hide password")
-                    : t("auth.password.show", "Show password")
-                }
-                onClick={() => setShowPassword((visible) => !visible)}
-                className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-black/45 transition-colors hover:bg-black/5 hover:text-black focus:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black dark:text-white/45 dark:hover:bg-white/10 dark:hover:text-white dark:focus-visible:ring-white"
-              >
-                {showPassword ? (
-                  <EyeClosed className="h-5 w-5" />
-                ) : (
-                  <Eye className="h-5 w-5" />
-                )}
-              </button>
+            {emailFirst && (
+              <div data-auth-collapse="true" data-open={!isIdentityStep} aria-hidden={isIdentityStep || undefined} inert={isIdentityStep}>
+              <div><div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-current/15 px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-[12px] opacity-70">{labels.email}</p>
+                  <p className="break-all text-[15px]">{email}</p>
+                  <input type="hidden" name="username" autoComplete="username" value={email} />
+                </div>
+                <button type="button" disabled={isSubmitting} className="min-h-11 shrink-0 rounded px-2 text-sm underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2"
+                  onClick={() => {
+                    setPassword(""); resetChecks(); setRequest({ status: "idle" }); setEntry({ mode, step: "identity" });
+                    requestAnimationFrame(() => emailRef.current?.focus());
+                  }}>{t("auth.form.edit_email")}</button>
+              </div></div></div>
+            )}
+            <div data-auth-collapse={emailFirst ? "true" : undefined} data-open={!emailFirst || isIdentityStep}
+              aria-hidden={emailFirst && !isIdentityStep ? true : undefined} inert={emailFirst && !isIdentityStep}>
+              <div><FormField ref={emailRef} id={`${id}-email`} type="email" label={labels.email}
+              placeholder={emailFirst ? t("auth.form.email_hint") : undefined}
+              value={email} onChange={(event) => { setEmail(event.target.value); if (request.status === "failed") setRequest({ status: "idle" }); }}
+              onBlur={() => checks.blur("email")} error={checks.errorOf("email")}
+              success={checks.isValid("email") ? messages.emailValid : undefined}
+              reserveMessages={[messages.emailRequired, messages.emailInvalid, messages.emailValid]}
+              autoComplete="email" autoCapitalize="none" spellCheck={false} required readOnly={isSubmitting} /></div>
             </div>
-
-            {isSignup && (
-              <p
-                id="auth-signup-password-requirement"
-                className="-mt-1 px-1 text-[12px] tracking-[0.16px] text-black/55 dark:text-white/55"
-              >
-                {t(
-                  "auth.signup.password_requirement",
-                  "At least 8 characters.",
-                )}
-              </p>
-            )}
+            <div data-auth-collapse={emailFirst ? "true" : undefined} data-open={!isIdentityStep}
+              aria-hidden={isIdentityStep || undefined} inert={isIdentityStep}>
+              <div><PasswordField key={mode} id={`${id}-password`} label={labels.password}
+              placeholder={emailFirst ? t("auth.form.password_hint") : undefined}
+              value={password} onChange={(event) => { setPassword(event.target.value); if (request.status === "failed") setRequest({ status: "idle" }); }}
+              onBlur={() => checks.blur("password")} error={checks.errorOf("password")}
+              reserveMessages={isSignup ? [messages.passwordRequired, messages.passwordShort] : [messages.passwordRequired]}
+              advice={t("auth.form.password_advice")} coaching="on-focus"
+              hideIcon={<EyeClosed className="h-5 w-5" aria-hidden="true" />}
+              autoComplete={isSignup ? "new-password" : "current-password"}
+              required readOnly={isSubmitting} minLength={isSignup ? PASSWORD_MIN_LENGTH : undefined} />
 
             {!isSignup && (
-              <a
+              <Link
                 href="/auth/forgot-password"
-                className="block px-1 text-right text-sm font-medium text-black/60 transition-opacity hover:opacity-75 dark:text-white/60"
+                onClick={() => rememberRecoveryEmail(email)}
+                className="mt-3 block px-1 text-right text-sm font-medium text-black/60 transition-opacity hover:opacity-75 dark:text-white/60"
               >
                 {t("auth.recovery.forgot", "Forgot password?")}
-              </a>
+              </Link>
             )}
-
-            {authError && (
-              <p role="alert" className={blockingErrorBannerClass}>
-                {authError}
-              </p>
-            )}
+              </div>
+            </div>
 
             <button
               type="submit"
               disabled={isSubmitting}
-              className="font-display flex w-full items-center justify-center rounded-[9999px] bg-black px-[32px] py-[14px] text-[16px] font-medium text-white transition-opacity hover:opacity-85 focus:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black disabled:opacity-50 dark:bg-white dark:text-black dark:focus-visible:ring-white"
+              className="font-display flex w-full items-center justify-center rounded-[9999px] bg-black px-[32px] py-[14px] text-[16px] font-medium text-white transition-opacity hover:opacity-85 focus:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black disabled:cursor-wait disabled:opacity-100 dark:bg-white dark:text-black dark:focus-visible:ring-white"
             >
               {isSubmitting ? (
                 <>
                   <span
                     data-testid="auth-submit-spinner"
                     aria-hidden="true"
-                    className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+                    className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none rounded-full border-2 border-current border-t-transparent"
                   />
                   {isSignup
                     ? t("auth.signup.loading", "Creating account...")
                     : t("auth.login.loading", "Signing in...")}
                 </>
+              ) : isIdentityStep ? (
+                t("auth.login.submit")
+              ) : authErrorKind === "captcha_unavailable" ? (
+                t("auth.errors.browser_check_retry", "Try again")
               ) : isSignup ? (
                 t("auth.signup.submit", "Sign up")
               ) : (
-                t("auth.login.submit", "Sign in")
+                t("auth.login.submit", "Continue")
               )}
             </button>
           </form>
@@ -353,11 +722,15 @@ export default function AuthForm({
             <p className="mt-5 text-center text-[15px] tracking-wide text-gray-500 dark:text-gray-400">
               {isSignup
                 ? t("landing.already_account", "Already have an account?")
-                : t("auth.signup.new_account", "New to Argus?")}{" "}
+                : t("auth.signup.new_account_cuadrao", "New to Cuadrao?")}{" "}
               <button
                 type="button"
                 className="font-medium text-black transition-opacity hover:opacity-80 dark:text-white"
-                onClick={() => onModeChange(isSignup ? "login" : "signup")}
+                disabled={isSubmitting}
+                onClick={() => {
+                  onModeChange(isSignup ? "login" : "signup");
+                  if (emailFirst) requestAnimationFrame(() => cardRef.current?.querySelector("h2")?.focus());
+                }}
               >
                 {isSignup
                   ? t("landing.sign_in", "Sign in")
@@ -366,29 +739,25 @@ export default function AuthForm({
             </p>
           )}
 
-          <p className="mt-5 w-full px-4 text-center text-[11px] tracking-tight text-zinc-500 md:text-[12px]">
-            {isSignup
-              ? t("landing.legal_prefix", "By signing up, you agree to our")
-              : t(
-                  "auth.legal.continuing_prefix",
-                  "By continuing, you agree to our",
-                )}{" "}
-            <a
-              href="/terms"
-              className="font-semibold text-zinc-800 transition-colors hover:text-black dark:text-zinc-400 dark:hover:text-white"
-            >
-              {t("landing.terms", "Terms")}
-            </a>{" "}
-            {t("common.and", "and")}{" "}
-            <a
-              href="/privacy"
-              className="font-semibold text-zinc-800 transition-colors hover:text-black dark:text-zinc-400 dark:hover:text-white"
-            >
-              {t("landing.privacy", "Privacy Policy")}
-            </a>
-            .
-          </p>
-        </>
+          {acceptance ? (
+            <p className="mt-5 w-full px-4 text-center text-[11px] tracking-tight text-zinc-500 md:text-[12px]">
+              {isSignup
+                ? t("landing.legal_prefix", "By signing up, you agree to our")
+                : t(
+                    "auth.legal.continuing_prefix",
+                    "By continuing, you agree to our",
+                  )}{" "}
+              <a href={acceptance.terms} className={LEGAL_LINK_CLASS}>
+                {t("landing.terms", "Terms")}
+              </a>{" "}
+              {t("common.and", "and")}{" "}
+              <a href={acceptance.privacy} className={LEGAL_LINK_CLASS}>
+                {t("landing.privacy", "Privacy Policy")}
+              </a>
+              .
+            </p>
+          ) : null}
+        </div>
       )}
     </div>
   );

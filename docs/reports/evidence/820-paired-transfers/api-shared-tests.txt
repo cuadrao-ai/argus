@@ -1,0 +1,26 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.10.20, pytest-8.4.2, pluggy-1.6.0
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: /private/tmp/cuadrao-paired-transfer-20261005
+configfile: pyproject.toml
+plugins: benchmark-5.2.3, mock-3.15.1, Faker-30.10.0, asyncio-1.4.0, hypothesis-6.151.12, langsmith-0.7.31, respx-0.23.1, cov-7.0.0, anyio-4.13.0
+asyncio: mode=strict, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 36 items
+
+tests/financial_accounts/test_money_api.py ......                        [ 16%]
+tests/household/test_shared_planning_api.py ......                       [ 33%]
+tests/household/test_shared_plan_wire.py ..                              [ 38%]
+tests/household/test_shared_goal_edits.py ...                            [ 47%]
+tests/household/test_shared_planning_invariants.py .............         [ 83%]
+tests/household/test_shared_personal_bridge.py ......                    [100%]
+
+=============================== warnings summary ===============================
+tests/household/test_shared_planning_api.py: 6 warnings
+tests/household/test_shared_goal_edits.py: 3 warnings
+tests/household/test_shared_planning_invariants.py: 13 warnings
+tests/household/test_shared_personal_bridge.py: 6 warnings
+  /Users/garces/.codex/worktrees/05f0/private-alpha-next/.venv/lib/python3.10/site-packages/psycopg_pool/pool.py:134: DeprecationWarning: the default for the ConnectionPool 'open' parameter will become 'False' in a future release. Please use open={True|False} explicitly, or use the pool as context manager using: `with ConnectionPool(...) as pool: ...`
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 36 passed, 28 warnings in 6.19s ========================

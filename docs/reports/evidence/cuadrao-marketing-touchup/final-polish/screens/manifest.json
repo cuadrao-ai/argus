@@ -1,0 +1,168 @@
+{
+  "sourceCommit": "ece1aa067f6c810dd349fb57742a4eb0bd235ee9",
+  "capturedAt": "2026-10-10T02:30:45.831Z",
+  "baseURL": "http://127.0.0.1:4512",
+  "forms": "No submissions; provider-disabled preview",
+  "captures": [
+    {
+      "route": "/",
+      "browser": "chromium",
+      "width": 1440,
+      "height": 900,
+      "files": [
+        "chromium-business-es-1440-page.png",
+        "chromium-business-es-1440-footer.png"
+      ]
+    },
+    {
+      "route": "/en",
+      "browser": "chromium",
+      "width": 1440,
+      "height": 900,
+      "files": [
+        "chromium-business-en-1440-page.png",
+        "chromium-business-en-1440-footer.png"
+      ]
+    },
+    {
+      "route": "/personal",
+      "browser": "chromium",
+      "width": 1440,
+      "height": 900,
+      "files": [
+        "chromium-personal-es-1440-page.png",
+        "chromium-personal-es-1440-footer.png"
+      ]
+    },
+    {
+      "route": "/en/personal",
+      "browser": "chromium",
+      "width": 1440,
+      "height": 900,
+      "files": [
+        "chromium-personal-en-1440-page.png",
+        "chromium-personal-en-1440-footer.png"
+      ]
+    },
+    {
+      "route": "/",
+      "browser": "chromium",
+      "width": 390,
+      "height": 844,
+      "files": [
+        "chromium-business-es-390-page.png",
+        "chromium-business-es-390-footer.png"
+      ]
+    },
+    {
+      "route": "/en",
+      "browser": "chromium",
+      "width": 390,
+      "height": 844,
+      "files": [
+        "chromium-business-en-390-page.png",
+        "chromium-business-en-390-footer.png"
+      ]
+    },
+    {
+      "route": "/personal",
+      "browser": "chromium",
+      "width": 390,
+      "height": 844,
+      "files": [
+        "chromium-personal-es-390-page.png",
+        "chromium-personal-es-390-footer.png"
+      ]
+    },
+    {
+      "route": "/en/personal",
+      "browser": "chromium",
+      "width": 390,
+      "height": 844,
+      "files": [
+        "chromium-personal-en-390-page.png",
+        "chromium-personal-en-390-footer.png"
+      ]
+    },
+    {
+      "route": "/",
+      "browser": "webkit",
+      "width": 1440,
+      "height": 900,
+      "files": [
+        "webkit-business-es-1440-page.png",
+        "webkit-business-es-1440-footer.png"
+      ]
+    },
+    {
+      "route": "/en",
+      "browser": "webkit",
+      "width": 1440,
+      "height": 900,
+      "files": [
+        "webkit-business-en-1440-page.png",
+        "webkit-business-en-1440-footer.png"
+      ]
+    },
+    {
+      "route": "/personal",
+      "browser": "webkit",
+      "width": 1440,
+      "height": 900,
+      "files": [
+        "webkit-personal-es-1440-page.png",
+        "webkit-personal-es-1440-footer.png"
+      ]
+    },
+    {
+      "route": "/en/personal",
+      "browser": "webkit",
+      "width": 1440,
+      "height": 900,
+      "files": [
+        "webkit-personal-en-1440-page.png",
+        "webkit-personal-en-1440-footer.png"
+      ]
+    },
+    {
+      "route": "/",
+      "browser": "webkit",
+      "width": 390,
+      "height": 844,
+      "files": [
+        "webkit-business-es-390-page.png",
+        "webkit-business-es-390-footer.png"
+      ]
+    },
+    {
+      "route": "/en",
+      "browser": "webkit",
+      "width": 390,
+      "height": 844,
+      "files": [
+        "webkit-business-en-390-page.png",
+        "webkit-business-en-390-footer.png"
+      ]
+    },
+    {
+      "route": "/personal",
+      "browser": "webkit",
+      "width": 390,
+      "height": 844,
+      "files": [
+        "webkit-personal-es-390-page.png",
+        "webkit-personal-es-390-footer.png"
+      ]
+    },
+    {
+      "route": "/en/personal",
+      "browser": "webkit",
+      "width": 390,
+      "height": 844,
+      "files": [
+        "webkit-personal-en-390-page.png",
+        "webkit-personal-en-390-footer.png"
+      ]
+    }
+  ]
+}

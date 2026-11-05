@@ -1,0 +1,31 @@
+{
+  "pr": 868,
+  "head": "8a3e80daaf8947a5dfd43268eeb3f2459427de97",
+  "original_integration_base": "7018e0edebbc370b999005a857230bf3c3a1ad8b",
+  "reconciliation_merge": "ced29082be4851a6b855df23922d5e7c062cd806",
+  "integration_parent": "2b2d0d9e8ed311c11b7585fbd757fb37f915e12f",
+  "merge": "fc4057c8789d3e3504fcb0e980344d6bf51e66c0",
+  "merged_at": "2026-10-05T22:30:41Z",
+  "tree_equal": true,
+  "tree": "9e8391ab062b4048545d2b8ba031278358cf0ef5",
+  "review": "https://github.com/lagarcess/argus/pull/868#pullrequestreview-5421309928",
+  "terminal_audit": "https://github.com/lagarcess/argus/pull/868#issuecomment-6004486966",
+  "ci": {
+    "success": 16,
+    "expected_skip": 3,
+    "failure": 0,
+    "pending": 0
+  },
+  "review_threads": 0,
+  "fresh_final_context_tests": {
+    "identity_parser_passed": 11,
+    "failed": 0,
+    "skipped": 0
+  },
+  "retained_proof": "12 PostgreSQL observer cases,25 focused identity/credential checks,23 canary checks; source comparison in final review",
+  "scope": "Test-only statistics observer; production source unchanged",
+  "closed_issue": 867,
+  "parent_issue_832": "open",
+  "new_configuration_names": [],
+  "housekeeping": "pending protected-branch evidence PR"
+}

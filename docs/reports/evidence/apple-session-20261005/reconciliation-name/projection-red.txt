@@ -1,0 +1,109 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: /private/tmp/cuadrao-apple-session-20261005
+configfile: pyproject.toml
+plugins: benchmark-5.2.3, mock-3.15.1, Faker-30.10.0, asyncio-1.4.0, hypothesis-6.151.12, langsmith-0.7.31, respx-0.23.1, cov-7.0.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 31 items / 28 deselected / 3 selected
+
+tests/test_profile_apple_identity.py FF                                  [ 66%]
+tests/test_apple_name_api.py F                                           [100%]
+
+=================================== FAILURES ===================================
+_ test_profile_patch_preserves_current_identity_envelope[001234.abcdef0123456789abcdef0123456789.0420] _
+
+owner = (User(id='00000000-0000-0000-0000-000000000001', email='developer@argus.local', username='mock-developer', display_nam..., 23, 36, 8, 172352, tzinfo=datetime.timezone.utc), currency=None), <starlette.requests.Request object at 0x110a38a90>)
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x111355a90>
+subject = '001234.abcdef0123456789abcdef0123456789.0420'
+
+    @pytest.mark.parametrize("subject", [SUBJECT, None])
+    def test_profile_patch_preserves_current_identity_envelope(owner, monkeypatch, subject):
+        from argus.api.schemas import ProfilePatch
+    
+        user, request = owner
+        monkeypatch.setattr(profile, "require_account_capability", lambda *a, **k: None)
+        identity = LinkedAppleIdentity(subject) if subject else None
+        read = MagicMock(return_value=identity)
+        monkeypatch.setattr(profile, "_apple_identity", read)
+        result = profile.patch_me(ProfilePatch(currency_override="USD"), request, user)
+        assert result.user.currency == "USD"
+>       assert result.apple_identity == (
+            profile.AppleIdentity(subject=subject) if subject else None
+        )
+E       AssertionError: assert None == AppleIdentity()
+E        +  where None = UserResponse(user=User(id='00000000-0000-0000-0000-000000000001', email='developer@argus.local', username='mock-develo...urrent_workspace=True, can_use_grounded_discovery=True, can_submit_feedback=True), public_account_access_enabled=False).apple_identity
+
+tests/test_profile_apple_identity.py:147: AssertionError
+----------------------------- Captured stderr call -----------------------------
+2026-10-05 18:36:08.173 | INFO     | argus.api.routers.profile:patch_me:408 - Profile updated
+_________ test_profile_patch_preserves_current_identity_envelope[None] _________
+
+self = <MagicMock id='4582461456'>
+args = (<starlette.requests.Request object at 0x1114e3550>, '00000000-0000-0000-0000-000000000001')
+kwargs = {}, msg = "Expected 'mock' to be called once. Called 0 times."
+
+    def assert_called_once_with(self, /, *args, **kwargs):
+        """assert that the mock was called exactly once and that that call was
+        with the specified arguments."""
+        if not self.call_count == 1:
+            msg = ("Expected '%s' to be called once. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'mock' to be called once. Called 0 times.
+
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:950: AssertionError
+
+During handling of the above exception, another exception occurred:
+
+owner = (User(id='00000000-0000-0000-0000-000000000001', email='developer@argus.local', username='mock-developer', display_nam... 23, 36, 8, 173084, tzinfo=datetime.timezone.utc), currency='USD'), <starlette.requests.Request object at 0x1114e3550>)
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x110d1c310>
+subject = None
+
+    @pytest.mark.parametrize("subject", [SUBJECT, None])
+    def test_profile_patch_preserves_current_identity_envelope(owner, monkeypatch, subject):
+        from argus.api.schemas import ProfilePatch
+    
+        user, request = owner
+        monkeypatch.setattr(profile, "require_account_capability", lambda *a, **k: None)
+        identity = LinkedAppleIdentity(subject) if subject else None
+        read = MagicMock(return_value=identity)
+        monkeypatch.setattr(profile, "_apple_identity", read)
+        result = profile.patch_me(ProfilePatch(currency_override="USD"), request, user)
+        assert result.user.currency == "USD"
+        assert result.apple_identity == (
+            profile.AppleIdentity(subject=subject) if subject else None
+        )
+>       read.assert_called_once_with(request, user.id)
+E       AssertionError: Expected 'mock' to be called once. Called 0 times.
+
+tests/test_profile_apple_identity.py:150: AssertionError
+----------------------------- Captured stderr call -----------------------------
+2026-10-05 18:36:08.175 | INFO     | argus.api.routers.profile:patch_me:408 - Profile updated
+______________ test_saved_name_returns_current_identity_envelope _______________
+
+client = <starlette.testclient.TestClient object at 0x111357c50>
+gateway = <MagicMock spec='SupabaseGateway' id='4581075664'>
+identities = {'guest-gina': {'email': None, 'id': '4de11842-7a4c-4ab3-9918-b034c8cd32bb', 'is_anonymous': True}, 'registered-alice'...ed-bob': {'email': 'registered-bob@example.test', 'id': '7588df0e-131b-4920-a9fa-c5d20463c240', 'is_anonymous': False}}
+
+    def test_saved_name_returns_current_identity_envelope(client, gateway, identities):
+        with patch(COMMAND, return_value=gateway.get_or_create_profile_for_auth_user(identities[ALICE]).model_dump()):
+            response = client.post(
+                URL,
+                json={"display_name": "Name"},
+                headers={"Authorization": f"Bearer {ALICE}"},
+            )
+        assert response.status_code == 200
+>       assert response.json()["apple_identity"] == {"subject": SUBJECT}
+E       AssertionError: assert None == {'subject': '001234.abcdef0123456789abcdef0123456789.0420'}
+
+tests/test_apple_name_api.py:127: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+2026-10-05 18:36:08.189 | WARNING  | argus.api.apple_sign_in:start_apple_sign_in:100 - Apple token capture is unconfigured; failing closed
+=========================== short test summary info ============================
+FAILED tests/test_profile_apple_identity.py::test_profile_patch_preserves_current_identity_envelope[001234.abcdef0123456789abcdef0123456789.0420]
+FAILED tests/test_profile_apple_identity.py::test_profile_patch_preserves_current_identity_envelope[None]
+FAILED tests/test_apple_name_api.py::test_saved_name_returns_current_identity_envelope
+======================= 3 failed, 28 deselected in 1.24s =======================

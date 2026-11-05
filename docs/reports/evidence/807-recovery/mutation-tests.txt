@@ -1,0 +1,3 @@
+plain SHA-256 fingerprint exit 1 ============================== 1 failed in 0.10s ===============================
+stale connection fingerprint exit 1 ============================== 4 failed in 0.91s ===============================
+stale Apple fingerprint exit 1 ============================== 2 failed in 0.91s ===============================

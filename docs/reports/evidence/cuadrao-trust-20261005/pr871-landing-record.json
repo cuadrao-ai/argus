@@ -1,0 +1,37 @@
+{
+  "pr": 871,
+  "head": "258aa357dcfd7dc64506572d3dbba092845014c5",
+  "original_integration_base": "dd04130e8aa174db3de6139541d3b2e0f36868d0",
+  "run_original_integration_base": "875de09ac2115acec42e09060b92878aa5f18eff",
+  "reconciliation_merge": "0338fe3b0073b998102d63fb9cd0799907e2d8aa",
+  "integration_parent": "ce7c7350af9a75019a622016ce3a65dbd17e1cc8",
+  "merge": "c0d44d399b8fbf2edcdd0a8fd3ad4759a0e9c548",
+  "merged_at": "2026-10-06T01:16:40Z",
+  "tree": "604dc7f10740f69d8aeb2979baae5bde4a37ded6",
+  "tree_equal": true,
+  "review": "https://github.com/lagarcess/argus/pull/871#pullrequestreview-5422626057",
+  "terminal_audit": "https://github.com/lagarcess/argus/pull/871#issuecomment-6007302392",
+  "ci": {
+    "success": 16,
+    "expected_skip": 3,
+    "failure": 0,
+    "pending": 0
+  },
+  "review_threads": 0,
+  "local_proof": {
+    "independent_unit_config_unique": 117,
+    "independent_postgres_invite": 9,
+    "independent_postgres_census": 3,
+    "postgres_skips": 0,
+    "postgres_warnings": 1,
+    "author_mocked": 272,
+    "author_loader": 17
+  },
+  "configuration_names": [
+    "CUADRAO_BETA_INVITES_ENABLED",
+    "CUADRAO_BETA_INVITE_GATE_ENABLED"
+  ],
+  "configuration_disposition": "existing flags explicitly false in Render and canonical release profile; no hosted application or activation",
+  "scope_and_limits": "Entropy floor mutation and own-PID lock observer red controls; census/document assertions; generation and deployment ordering clarified. Hosted WEB_CONCURRENCY/readback, secret setup, destructive migration approval/application and activation remain open; parent804 not closed.",
+  "housekeeping": "pending protected-branch evidence PR860"
+}

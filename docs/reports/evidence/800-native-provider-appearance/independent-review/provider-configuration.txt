@@ -1,0 +1,4 @@
+Debug
+Native provider configuration passed 11 cases
+Release
+Native provider configuration passed 11 cases

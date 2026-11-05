@@ -1,0 +1,12 @@
+                        ).fetchone()[0]
+                        first_poll.set()
+                        if count:
+                            break
+                        time.sleep(0.02)
+>                   assert count
+E                   assert 0
+
+tests/test_apple_identity_postgres.py:258: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_apple_identity_postgres.py::test_identity_insert_committed_while_parent_lock_waits_is_seen
+1 failed in 5.91s

@@ -1,0 +1,31 @@
+{
+  "result": "passed",
+  "scope": "localhost58500 synthetic Auth/API/Postgres",
+  "activity_kinds": [
+    "income",
+    "expense",
+    "transfer",
+    "card_payment",
+    "refund"
+  ],
+  "monthly_delta": {
+    "gross_income_minor": 10000,
+    "gross_purchases_minor": 0,
+    "refunds_minor": 2500,
+    "net_spending_minor": -2500
+  },
+  "credit_minor": 2500,
+  "pair_replay": "one accepted operation",
+  "pair_detail": "reachable from both account legs",
+  "correction": "old and new accounts reviewed; history retained",
+  "refund_cap": "rejected excess",
+  "unknown": "investment income preserves unknown",
+  "isolation": "other owner refused",
+  "reopen": "durable HTTP read",
+  "verified_at_utc": "2026-09-29T13:17:12.109957+00:00",
+  "checked_head": "2e678d3d42d4eaaf93a83e4cf7eaac061ff4e144",
+  "api_started_from": "062fd2aa82c0044f55eb9ae35162b3a1eec0f05d",
+  "source_equivalence": "git diff 062fd2aa82c0044f55eb9ae35162b3a1eec0f05d 2e678d3d42d4eaaf93a83e4cf7eaac061ff4e144 -- src supabase/migrations scripts/verify_personal_money.py is empty",
+  "command": ".venv/bin/python scripts/verify_personal_money.py --fixture <ignored accounts-local-58500/client.json>",
+  "limitation": "HTTP proof; native process recovery and visual acceptance are recorded separately."
+}

@@ -1,0 +1,58 @@
+warning: /Users/garces/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/garces/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+Building for debugging...
+[Using on-disk description]
+Build complete! (0.36 sec)
+Test Suite 'Selected tests' started at 2026-10-05 21:40:57.615.
+Test Suite 'ArgusSessionTests.xctest' started at 2026-10-05 21:40:57.616.
+Test Suite 'AccountDeletionTests' started at 2026-10-05 21:40:57.616.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcceptedAcknowledgementAllowsAnotherAccountWithoutRetiringIt]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcceptedAcknowledgementAllowsAnotherAccountWithoutRetiringIt]' passed (0.012 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcceptedAJournalCannotRetireBDuringSDKAdoption]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcceptedAJournalCannotRetireBDuringSDKAdoption]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcceptedRetiresProofAndRelaunchCannotRetry]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcceptedRetiresProofAndRelaunchCannotRetry]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAppleNotificationDuringRefusedDeletionDoesNotRestoreStaleAuthenticatedAccess]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAppleNotificationDuringRefusedDeletionDoesNotRestoreStaleAuthenticatedAccess]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testConcurrentDuplicateIsDeniedWhileJournalAlreadyQuarantinesProtectedWork]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testConcurrentDuplicateIsDeniedWhileJournalAlreadyQuarantinesProtectedWork]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testDoneIssuesOwnerReceiptAndRetiresWithoutRefreshOrCapture]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testDoneIssuesOwnerReceiptAndRetiresWithoutRefreshOrCapture]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testExpiredProofUsesSupportWithoutRefreshOrDispatch]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testExpiredProofUsesSupportWithoutRefreshOrDispatch]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testIncompleteHonorsRetryAfterAndMalformedDoneCannotIssueReceipt]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testIncompleteHonorsRetryAfterAndMalformedDoneCannotIssueReceipt]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testInterruptedCompletedCleanupReceiptCanBeRecoveredAndAcknowledged]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testInterruptedCompletedCleanupReceiptCanBeRecoveredAndAcknowledged]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testJournalFailureHasNoCommandEffects]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testJournalFailureHasNoCommandEffects]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testLostResponseSurvivesRelaunchAndBlocksProtectedDispatchBeforeSameCommandResolution]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testLostResponseSurvivesRelaunchAndBlocksProtectedDispatchBeforeSameCommandResolution]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testNoAdmissionRefusalsRestoreCurrentIdentityAndNeverClearCredentials]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testNoAdmissionRefusalsRestoreCurrentIdentityAndNeverClearCredentials]' passed (0.003 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testRecoveryRefusalCannotTurnLostResponseIntoNoAdmission]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testRecoveryRefusalCannotTurnLostResponseIntoNoAdmission]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testUnauthorizedNeverRefreshesAndKeepsUncertaintyForSupport]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testUnauthorizedNeverRefreshesAndKeepsUncertaintyForSupport]' passed (0.001 seconds).
+Test Suite 'AccountDeletionTests' passed at 2026-10-05 21:40:57.641.
+	 Executed 14 tests, with 0 failures (0 unexpected) in 0.025 (0.025) seconds
+Test Suite 'AppleCredentialValidationTests' started at 2026-10-05 21:40:57.641.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testNotificationDuringAdoptionKeepsJournalAndRequiresFreshCheck]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testNotificationDuringAdoptionKeepsJournalAndRequiresFreshCheck]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testNotificationDuringCaptureHoldsSessionWithoutReplayingCode]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testNotificationDuringCaptureHoldsSessionWithoutReplayingCode]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testNotificationInvalidatesInFlightAppleAnswersBeforeQueuedRestore]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testNotificationInvalidatesInFlightAppleAnswersBeforeQueuedRestore]' passed (0.003 seconds).
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testUnreadableNotificationAdmissionInvalidatesInFlightCheckerAnswer]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testUnreadableNotificationAdmissionInvalidatesInFlightCheckerAnswer]' passed (0.002 seconds).
+Test Suite 'AppleCredentialValidationTests' passed at 2026-10-05 21:40:57.649.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.008 (0.008) seconds
+Test Suite 'AppleNameInitializationTests' started at 2026-10-05 21:40:57.649.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testNameCommandIsAwaitedAndLateRevalidationCannotAdoptItsResponse]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testNameCommandIsAwaitedAndLateRevalidationCannotAdoptItsResponse]' passed (0.002 seconds).
+Test Suite 'AppleNameInitializationTests' passed at 2026-10-05 21:40:57.651.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'ArgusSessionTests.xctest' passed at 2026-10-05 21:40:57.651.
+	 Executed 19 tests, with 0 failures (0 unexpected) in 0.035 (0.036) seconds
+Test Suite 'Selected tests' passed at 2026-10-05 21:40:57.651.
+	 Executed 19 tests, with 0 failures (0 unexpected) in 0.035 (0.036) seconds

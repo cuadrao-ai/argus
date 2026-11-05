@@ -1,0 +1,1 @@
+{"status": 200, "count": 1, "lists_personal_document": true, "item_shapes": [{"source": "statement", "status": "active", "label": "..."}]}

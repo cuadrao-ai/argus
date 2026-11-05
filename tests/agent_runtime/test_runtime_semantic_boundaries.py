@@ -186,7 +186,6 @@ def test_production_paths_do_not_import_legacy_response_composer() -> None:
     production_files = [
         "src/argus/agent_runtime/runtime.py",
         "src/argus/agent_runtime/stages/clarify.py",
-        "src/argus/api/chat/result_actions.py",
     ]
     violations: list[str] = []
 

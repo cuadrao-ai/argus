@@ -425,15 +425,15 @@ Frontend package management uses Bun.
 Required model and data variables:
 
 - `OPENROUTER_API_KEY`
-- `ARGUS_UTILITY_MODEL` / `ARGUS_UTILITY_FALLBACK_MODEL`: cheap background
+- `CUADRAO_UTILITY_MODEL` / `CUADRAO_UTILITY_FALLBACK_MODEL`: cheap background
   utility tasks such as titles and labels.
-- `ARGUS_CHAT_MODEL` / `ARGUS_CHAT_FALLBACK_MODEL`: clarification,
+- `CUADRAO_CHAT_MODEL` / `CUADRAO_CHAT_FALLBACK_MODEL`: clarification,
   `chat_composer`, `discovery_voicing` and `knowledge_voicing`.
-- `ARGUS_READOUT_MODEL` / `ARGUS_READOUT_FALLBACK_MODEL`: Quick take
+- `CUADRAO_READOUT_MODEL` / `CUADRAO_READOUT_FALLBACK_MODEL`: Quick take
   (`result_summary`), both set to `openai/gpt-5.6-luna`.
-- `ARGUS_STRUCTURED_MODEL` / `ARGUS_STRUCTURED_FALLBACK_MODEL`: durable
+- `CUADRAO_STRUCTURED_MODEL` / `CUADRAO_STRUCTURED_FALLBACK_MODEL`: durable
   JSON-schema artifact interpretation, repair, and draft edits.
-- `ARGUS_CONTEXT_MODEL` / `ARGUS_CONTEXT_FALLBACK_MODEL`: `capability_conflict`.
+- `CUADRAO_CONTEXT_MODEL` / `CUADRAO_CONTEXT_FALLBACK_MODEL`: `capability_conflict`.
 - `PERPLEXITY_API_KEY`: existing Agent credentials, also used by Breakdown.
 - `ARGUS_FRED_CONTEXT_SERIES`: curated comma-separated macro series for context
   packets. Default: `FEDFUNDS,DGS10,DGS2,T10Y2Y,CPIAUCSL,CPILFESL,UNRATE,PAYEMS,INDPRO,USREC`.
@@ -443,7 +443,7 @@ Required model and data variables:
   context packets. Simulation results must still persist without context.
 - `ALPACA_API_KEY`
 - `ALPACA_SECRET_KEY`
-- `ARGUS_PERSISTENCE_MODE`
+- `CUADRAO_PERSISTENCE_MODE`
 - Supabase variables from `.env.example` when running with Supabase persistence.
 
 Structured artifact calls use OpenRouter JSON-schema responses directly and

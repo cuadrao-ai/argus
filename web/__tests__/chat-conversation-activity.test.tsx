@@ -641,7 +641,7 @@ describe("active conversation activity announcements", () => {
         "Tesla dip idea",
         interpolateDefault,
       ),
-    ).toBe("Argus is working on Tesla dip idea.");
+    ).toBe("Cuadrao is working on Tesla dip idea.");
     expect(harness.runtime.getAnnouncement("conversation-a")).toBeNull();
   });
 
@@ -684,7 +684,7 @@ describe("active conversation activity announcements", () => {
     );
 
     expect(logicalAcknowledgments).toBe(1);
-    expect(html).toContain("Argus is working on Tesla dip idea.");
+    expect(html).toContain("Cuadrao is working on Tesla dip idea.");
   });
 
   test("uses transition-specific copy and leaves optimistic manual unread to its toast", () => {

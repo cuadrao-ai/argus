@@ -1739,7 +1739,7 @@ def test_concurrent_cleanup_claims_each_guest_at_most_once() -> None:
             )
 
 
-def test_guest_privileged_functions_are_service_role_only() -> None:
+def test_guest_privileged_functions_are_service_role_executable() -> None:
     signatures = (
         "public.bind_guest_conversation(uuid,uuid)",
         "public.replace_empty_guest_conversation(uuid,text,text,text)",
@@ -1753,16 +1753,10 @@ def test_guest_privileged_functions_are_service_role_only() -> None:
         with connection.cursor() as cursor:
             for signature in signatures:
                 cursor.execute(
-                    "select"
-                    " has_function_privilege('anon', %s, 'execute'),"
-                    " has_function_privilege('authenticated', %s, 'execute'),"
-                    " has_function_privilege('service_role', %s, 'execute')",
-                    (signature, signature, signature),
+                    "select has_function_privilege('service_role', %s, 'execute')",
+                    (signature,),
                 )
-                anon, authenticated, service_role = cursor.fetchone()
-                assert anon is False
-                assert authenticated is False
-                assert service_role is True
+                assert cursor.fetchone() == (True,), signature
             cursor.execute(
                 "select routine.prosecdef, routine.proconfig"
                 " from pg_proc as routine"

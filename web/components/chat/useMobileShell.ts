@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
+import type { SidebarMode } from "@/components/sidebar/ChatSidebar";
+import { readStored, writeStored, type StorageKey } from "@/lib/browser-storage";
 import type { ResponsiveLayout } from "@/lib/responsive-layout";
 
 export type MobileShell = ResponsiveLayout & {
@@ -18,6 +20,78 @@ export type MobileShell = ResponsiveLayout & {
  * state: a desktop user with an expanded rail who narrows the window must not
  * find a drawer already covering the conversation.
  */
+/** Which business navigation band this width uses, and how the rail behaves there. */
+export function businessShellLayout(
+  workspaceId: string | undefined,
+  belowTablet: boolean,
+  belowDesktop: boolean,
+  sidebarOpen: boolean,
+) {
+  const businessShell = workspaceId === "business";
+  const businessPhone = businessShell && belowTablet;
+  const businessTabletStrip = businessShell && !belowTablet && belowDesktop;
+  const nav = !businessShell ? undefined : businessPhone ? "phone" : businessTabletStrip ? "tablet" : "desktop";
+  return {
+    businessShell,
+    businessPhone,
+    businessTabletStrip,
+    nav,
+    sidebarCollapsed: businessTabletStrip ? true : !(belowTablet ? true : sidebarOpen),
+    railLocked: businessTabletStrip,
+    sidebarIsOpen: businessTabletStrip ? false : belowTablet ? true : sidebarOpen,
+  };
+}
+
+/**
+ * Rail open state and the saved rail preference. Business keeps its own saved
+ * preference, opening labeled until the person picks another: the personal
+ * one shares this origin's storage and must not reach the Business rail.
+ */
+export function sidebarModeKey(workspaceId: string | undefined): StorageKey {
+  return workspaceId === "business" ? "cuadrao:business_sidebar_mode" : "argus:sidebar_mode";
+}
+
+export function useSidebarRail(workspaceId: string | undefined) {
+  const business = workspaceId === "business";
+  const key = sidebarModeKey(workspaceId);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(business);
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode>(business ? "expanded" : "collapsed");
+
+  useEffect(() => {
+    const saved = readStored(key) as SidebarMode | null;
+    if (saved === "expanded" || saved === "collapsed" || saved === "hover") {
+      const normalized = business && saved === "hover" ? "collapsed" : saved;
+      if (normalized !== saved) writeStored(key, normalized);
+      setSidebarMode(normalized);
+      setIsSidebarOpen(normalized === "expanded");
+    } else {
+      setSidebarMode(business ? "expanded" : "collapsed");
+      setIsSidebarOpen(business);
+    }
+  }, [business, key]);
+
+  const chooseSidebarMode = useCallback((mode: SidebarMode) => {
+    const normalized = business && mode === "hover" ? "collapsed" : mode;
+    setSidebarMode(normalized);
+    writeStored(key, normalized);
+    setIsSidebarOpen(normalized === "expanded");
+  }, [business, key]);
+  const toggleSidebar = useCallback(() => {
+    const nextOpen = !isSidebarOpen;
+    setIsSidebarOpen(nextOpen);
+    if (business) {
+      const mode = nextOpen ? "expanded" : "collapsed";
+      setSidebarMode(mode);
+      writeStored(key, mode);
+    }
+  }, [business, isSidebarOpen, key]);
+  const closeRailForDialog = useCallback(() => {
+    if (!business) setIsSidebarOpen(false);
+  }, [business]);
+
+  return { isSidebarOpen, setIsSidebarOpen, sidebarMode, chooseSidebarMode, toggleSidebar, closeRailForDialog };
+}
+
 export function useMobileShell(): MobileShell {
   const layout = useResponsiveLayout();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);

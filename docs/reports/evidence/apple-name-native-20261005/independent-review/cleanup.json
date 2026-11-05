@@ -1,0 +1,10 @@
+{
+  "own59920_free": true,
+  "own_simulator_deleted": true,
+  "signed_name_test_users_remaining": 0,
+  "root_auth_health": 200,
+  "root_postgres_responding": true,
+  "root_auth_configuration_changed": false,
+  "standalone_real_api_started": false,
+  "candidate_clean": true
+}

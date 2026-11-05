@@ -279,7 +279,7 @@ Functional matrix results (sanitized; counters verified in the UI, the
 2. One completed chat response settled exactly one unit in both windows
    (hour 0→1, day 0→1) and persisted across reload.
 3. Injected pre-terminal runtime failure (test-only
-   `ARGUS_RUNTIME_EVENT_TIMEOUT_SECONDS` on the local process) rendered
+   `CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS` on the local process) rendered
    the honest recovery message and consumed zero (counters unchanged).
 4. The persisted Retry completed and settled one unit for the one
    delivered outcome (no double charge across the failed attempt).
@@ -363,7 +363,7 @@ byte-identical to `f6fb982`, where items 1–4 executed):
 2. One completed chat response settled exactly one unit in both windows
    (0→1, 0→1).
 3. Injected pre-terminal infrastructure failure
-   (`ARGUS_RUNTIME_EVENT_TIMEOUT_SECONDS=1` on the local process only)
+   (`CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS=1` on the local process only)
    rendered the honest recovery and consumed zero; the persisted Retry
    after restoring the clean process settled exactly one unit (1→2) for
    the one delivered outcome.
@@ -445,7 +445,7 @@ UI/API/database agreement at every step:
    four counter rows.
 2. One completed chat response settled exactly one message unit (3→4).
 3. One injected pre-terminal infrastructure failure (local-process
-   `ARGUS_RUNTIME_EVENT_TIMEOUT_SECONDS=1`) rendered the honest
+   `CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS=1`) rendered the honest
    recovery and settled nothing (day counter unchanged at 4; the hourly
    window rolled over naturally during the pass and both surfaces
    tracked the new window truthfully).

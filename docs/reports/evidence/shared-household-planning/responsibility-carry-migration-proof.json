@@ -1,0 +1,20 @@
+{
+  "target": "NEW disposable59752 only",
+  "migration": "20261002040000_shared_plan_responsibility_carry.sql",
+  "sha256": "b5b2fbf3d633c7803c033ec58f620e12745b321fc747954c8006201ed95af2c3",
+  "before": {
+    "accounts": 7,
+    "households": 1,
+    "version_count": 0
+  },
+  "after": {
+    "accounts": 7,
+    "households": 1,
+    "version_count": 1
+  },
+  "checks": [
+    "atomic existing revision trigger replacement",
+    "retained synthetic records unchanged",
+    "one local migration version"
+  ]
+}

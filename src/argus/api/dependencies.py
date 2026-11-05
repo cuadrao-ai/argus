@@ -5,11 +5,9 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Literal
 
-from fastapi import HTTPException, Request
+from fastapi import Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from loguru import logger
-from pydantic import ValidationError
-from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from argus.api import state as api_state
 from argus.api.auth_sessions import (
@@ -17,6 +15,7 @@ from argus.api.auth_sessions import (
     auth_session_is_active,
 )
 from argus.api.browser_cookies import set_browser_cookie
+from argus.api.browser_session import REFRESH_COOKIE_MAX_AGE, renew_browser_token
 from argus.api.guest_access import (
     guest_account_context,
     permanent_account_access_allowed,
@@ -24,162 +23,40 @@ from argus.api.guest_access import (
     store_account_context,
     visitor_key_for_request,
 )
-from argus.api.schemas import CHAT_STREAM_MAX_BODY_BYTES, ChatStreamRequest, User
-
-CHAT_STREAM_PATH = "/api/v1/chat/stream"
+from argus.api.schemas import User
 
 
-class ChatRequestBoundaryMiddleware:
-    """Bound the chat ingress and validate it before FastAPI resolves dependencies."""
-
-    def __init__(self, app: ASGIApp) -> None:
-        self.app = app
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if (
-            scope["type"] != "http"
-            or scope["method"] != "POST"
-            or scope["path"] != CHAT_STREAM_PATH
-        ):
-            await self.app(scope, receive, send)
-            return
-
-        state = scope.setdefault("state", {})
-        request_id = state.get("request_id") or _scope_request_id(scope)
-        state["request_id"] = request_id
-        declared_length = _declared_content_length(scope)
-        if declared_length is not None and declared_length > CHAT_STREAM_MAX_BODY_BYTES:
-            await _send_problem(
-                scope,
-                receive,
-                send,
-                status_code=413,
-                body=_request_body_too_large_problem(request_id),
-                request_id=request_id,
-            )
-            return
-
-        body_parts: list[bytes] = []
-        received_bytes = 0
-        while True:
-            message = await receive()
-            if message["type"] == "http.disconnect":
-                return
-            if message["type"] != "http.request":
-                continue
-            chunk = message.get("body", b"")
-            received_bytes += len(chunk)
-            if received_bytes > CHAT_STREAM_MAX_BODY_BYTES:
-                await _send_problem(
-                    scope,
-                    receive,
-                    send,
-                    status_code=413,
-                    body=_request_body_too_large_problem(request_id),
-                    request_id=request_id,
-                )
-                return
-            body_parts.append(chunk)
-            if not message.get("more_body", False):
-                break
-
-        body = b"".join(body_parts)
-        validation_errors = _chat_stream_validation_errors(body)
-        if validation_errors is not None:
-            await _send_problem(
-                scope,
-                receive,
-                send,
-                status_code=422,
-                body=validation_problem_body(request_id, validation_errors),
-                request_id=request_id,
-            )
-            return
-
-        replayed = False
-
-        async def replay_receive() -> Message:
-            nonlocal replayed
-            if replayed:
-                return await receive()
-            replayed = True
-            return {"type": "http.request", "body": body, "more_body": False}
-
-        await self.app(scope, replay_receive, send)
-
-
-def _scope_request_id(scope: Scope) -> str:
-    for name, value in scope.get("headers", []):
-        if name.lower() == b"x-request-id" and value:
-            return value.decode("latin-1")
-    return api_state.store.new_id()
-
-
-def _declared_content_length(scope: Scope) -> int | None:
-    values = [
-        value
-        for name, value in scope.get("headers", [])
-        if name.lower() == b"content-length"
+def validate_startup_configuration() -> None:
+    enabled_flags = [
+        name
+        for name in (
+            "NEXT_PUBLIC_MOCK_AUTH",
+            "CUADRAO_MOCK_AUTH",
+            "ARGUS_DEV_ENDPOINTS_ENABLED",
+        )
+        if os.getenv(name, "").strip().lower() == "true"
     ]
-    if len(values) != 1:
-        return None
-    try:
-        declared = int(values[0])
-    except ValueError:
-        return None
-    return declared if declared >= 0 else None
-
-
-def _chat_stream_validation_errors(body: bytes) -> list[dict[str, Any]] | None:
-    try:
-        payload = json.loads(body)
-    except RecursionError:
-        return [
-            {
-                "type": "value_error",
-                "loc": ["body"],
-                "msg": "Value error, request_body_nesting_exceeded",
-            }
-        ]
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        return None
-    try:
-        ChatStreamRequest.model_validate(payload)
-    except ValidationError as exc:
-        return [
-            {key: value for key, value in error.items() if key != "url"}
-            | {"loc": ["body", *error["loc"]]}
-            for error in exc.errors()
-        ]
-    return None
-
-
-def _request_body_too_large_problem(request_id: str) -> dict[str, Any]:
-    return {
-        "type": "https://api.argus.app/problems/request-body-too-large",
-        "title": "Request Body Too Large",
-        "status": 413,
-        "detail": "Request body exceeds the 65,536-byte limit.",
-        "code": "request_body_too_large",
-        "request_id": request_id,
+    if not enabled_flags:
+        return
+    environments = {
+        value
+        for name in ("APP_ENV", "ENVIRONMENT", "ARGUS_ENV", "ARGUS_APP_ENV")
+        if (value := os.getenv(name, "").strip().lower())
     }
-
-
-async def _send_problem(
-    scope: Scope,
-    receive: Receive,
-    send: Send,
-    *,
-    status_code: int,
-    body: dict[str, Any],
-    request_id: str,
-) -> None:
-    response = JSONResponse(
-        body,
-        status_code=status_code,
-        headers={"X-Request-Id": request_id},
+    local = bool(environments) and environments <= {
+        "local",
+        "development",
+        "dev",
+        "test",
+        "local-smoke",
+    }
+    hosted = os.getenv("RENDER", "").strip().lower() == "true" or bool(
+        os.getenv("RENDER_SERVICE_ID", "").strip()
     )
-    await response(scope, receive, send)
+    if not local or hosted:
+        reason = "local_environment_required_for_" + ",".join(enabled_flags)
+        logger.error("startup_config_refused{{reason={}}}", reason)
+        raise RuntimeError(reason)
 
 
 def _json_safe_validation_error(value: Any) -> Any:
@@ -246,6 +123,9 @@ async def request_id_middleware(request: Request, call_next):  # type: ignore[no
             },
             status_code=500,
         )
+    renewed = getattr(request.state, "renewed_browser_session", None)
+    if renewed is not None and response.status_code < 400:
+        _apply_auth_session_cookies(request, response, renewed)
     response.headers["X-Request-Id"] = request_id
     return response
 
@@ -327,6 +207,8 @@ def require_account_capability(
 def auth_response(request: Request, payload: dict[str, Any]) -> JSONResponse:
     response = JSONResponse(payload)
     _apply_auth_session_cookies(request, response, payload)
+    # Conversion/sign-in owns the final session, after any source renewal.
+    request.state.renewed_browser_session = None
     return response
 
 
@@ -353,7 +235,12 @@ def _apply_auth_session_cookies(
     if isinstance(access_token, str) and access_token:
         set_browser_cookie(response, "sb-auth-token", access_token, **cookie_kwargs)
     if isinstance(refresh_token, str) and refresh_token:
-        set_browser_cookie(response, "sb-refresh-token", refresh_token, **cookie_kwargs)
+        set_browser_cookie(
+            response,
+            "sb-refresh-token",
+            refresh_token,
+            **{**cookie_kwargs, "max_age": REFRESH_COOKIE_MAX_AGE},
+        )
 
 
 def browser_cookie_policy(request: Request) -> dict[str, Any]:
@@ -390,32 +277,11 @@ def dev_memory_fallback_enabled() -> bool:
     return os.getenv("ARGUS_DEV_MEMORY_FALLBACK", "").strip().lower() == "true"
 
 
-def current_user(request: Request) -> User:
-    if (
-        os.getenv("NEXT_PUBLIC_MOCK_AUTH", "").strip().lower() == "true"
-        or os.getenv("ARGUS_MOCK_AUTH", "").strip().lower() == "true"
-    ):
-        if api_state.supabase_gateway is not None:
-            try:
-                user = api_state.supabase_gateway.get_or_create_mock_user()
-                store_account_context(request, registered_account_context(user.id))
-                return user
-            except Exception:
-                if not dev_memory_fallback_enabled():
-                    raise
-        user = api_state.store.get_or_create_dev_user()
-        store_account_context(request, registered_account_context(user.id))
-        return user
-
-    if api_state.supabase_gateway is None:
-        raise problem(
-            request,
-            status_code=500,
-            code="internal_error",
-            title="Internal Error",
-            detail="Supabase persistence is required for non-mock authentication.",
-        )
-
+def request_access_token(request: Request) -> str | None:
+    """The bearer token, or the Supabase session cookie's access token."""
+    renewed_token = getattr(request.state, "access_token", None)
+    if isinstance(renewed_token, str) and renewed_token:
+        return renewed_token
     auth_header = request.headers.get("Authorization")
     token = None
     if auth_header and auth_header.startswith("Bearer "):
@@ -445,6 +311,51 @@ def current_user(request: Request) -> User:
                 token = token_value
                 break
 
+    return token
+
+
+def mock_auth_enabled() -> bool:
+    return (
+        os.getenv("NEXT_PUBLIC_MOCK_AUTH", "").strip().lower() == "true"
+        or os.getenv("CUADRAO_MOCK_AUTH", "").strip().lower() == "true"
+    )
+
+
+def current_user(request: Request) -> User:
+    if mock_auth_enabled():
+        if api_state.supabase_gateway is not None:
+            try:
+                user = api_state.supabase_gateway.get_or_create_mock_user()
+                store_account_context(request, registered_account_context(user.id))
+                return user
+            except Exception:
+                if not dev_memory_fallback_enabled():
+                    raise
+        user = api_state.store.get_or_create_dev_user()
+        store_account_context(request, registered_account_context(user.id))
+        return user
+
+    if api_state.supabase_gateway is None:
+        raise problem(
+            request,
+            status_code=500,
+            code="internal_error",
+            title="Internal Error",
+            detail="Supabase persistence is required for non-mock authentication.",
+        )
+
+    token = request_access_token(request)
+    try:
+        token = renew_browser_token(request, api_state.supabase_gateway, token)
+    except Exception:
+        raise problem(
+            request,
+            status_code=401,
+            code="unauthorized",
+            title="Unauthorized",
+            detail="Invalid or expired session.",
+        ) from None
+
     if not token:
         raise problem(
             request,
@@ -467,6 +378,11 @@ def current_user(request: Request) -> User:
 
     auth_user_id = str(auth_user.get("id") or "")
     try:
+        # Also false for an account-deletion placeholder (banned with no
+        # sessions, so defense in depth) and for a person whose deletion run
+        # is in flight: that account is locked until the run finishes. Only
+        # POST /account/delete accepts the latter, to resume its own run
+        # (argus.api.account_deletion_auth).
         session_is_active = auth_session_is_active(
             database_url=api_state.DATABASE_URL,
             token=token,
@@ -494,17 +410,12 @@ def current_user(request: Request) -> User:
             user_id=auth_user_id,
             at=datetime.now(timezone.utc),
         )
-        if (
-            workspace is None
-            and request.scope.get("path") == "/api/v1/auth/guest/signup"
-        ):
+        if workspace is None and request.scope.get("path") == "/api/v1/auth/guest/signup":
             # A claim can commit before its response reaches the browser. Keep
             # that source session valid only for the replay-safe signup route.
-            workspace = (
-                api_state.supabase_gateway.get_guest_workspace_for_signup_retry(
-                    user_id=auth_user_id,
-                    at=datetime.now(timezone.utc),
-                )
+            workspace = api_state.supabase_gateway.get_guest_workspace_for_signup_retry(
+                user_id=auth_user_id,
+                at=datetime.now(timezone.utc),
             )
         if workspace is None:
             raise problem(
@@ -524,10 +435,38 @@ def current_user(request: Request) -> User:
         )
         return user
 
+    from argus.api.business_spaces import business_access
+
     auth_email = str(auth_user.get("email") or "")
-    if not permanent_account_access_allowed(api_state.supabase_gateway, auth_email):
+    if not permanent_account_access_allowed(
+        api_state.supabase_gateway, auth_email, business_access()
+    ):
         raise private_alpha_access_problem(request)
 
     user = api_state.supabase_gateway.get_or_create_profile_for_auth_user(auth_user)
     store_account_context(request, registered_account_context(user.id))
     return user
+
+
+def require_standing_account(
+    request: Request,
+    user: User = Depends(current_user),  # noqa: B008
+) -> None:
+    """The caller is admitted by the allowlist or by open sign-up, not only by a
+    Business invitation or grant. Starting a Business, inviting people to one and
+    taking one over need this, so admission never chains from one invited person
+    to the next. Inert while ``CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED`` is
+    off, when a Business admits no one and the gate alone decides."""
+
+    from argus.domain.business.config import business_invite_admission_enabled
+
+    if (
+        not business_invite_admission_enabled()
+        or mock_auth_enabled()
+        or api_state.supabase_gateway is None
+    ):
+        return
+    if not permanent_account_access_allowed(
+        api_state.supabase_gateway, user.email or "", None
+    ):
+        raise private_alpha_access_problem(request)

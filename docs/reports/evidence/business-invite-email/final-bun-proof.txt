@@ -1,0 +1,88 @@
+bun test v1.4.2 (744846f84)
+
+web/__tests__/email-template-slots.test.ts:
+(pass) title and optional preheader escape HTML while plain text preserves copy [0.48ms]
+(pass) asset origins are configurable and reject paths, credentials and unsafe schemes [0.10ms]
+(pass) all nine empty slots refuse delivery and share the preview layout [0.19ms]
+(pass) intro precedes the code and both formats share the approved footer [0.04ms]
+
+web/__tests__/business-closed-email-template.test.ts:
+(pass) Business close copy preserves approved values and escapes HTML [0.10ms]
+(pass) Python artifact is derived from the renderer and supports single-pass literal substitutions [7.96ms]
+
+web/__tests__/business-invite-email-template.test.ts:
+(pass) invite HTML and plain text match the canonical Python artifact snapshots [0.15ms]
+(pass) the button cannot contain an accept token and template values cannot inject HTML [0.10ms]
+
+web/__tests__/auth-email-transport.test.ts:
+(pass) Auth email compatibility and delivery > every account action uses the shared layout and all code emails put the code first in the subject [0.30ms]
+(pass) Auth email compatibility and delivery > posts both rendered parts and the same per-recipient key on repeat without retries [0.42ms]
+(pass) Auth email compatibility and delivery > missing credentials make no provider request and default configuration is off [0.06ms]
+(pass) password_changed_notification retries accepted-response-lost across a minute with identical provider content [5.00ms]
+(pass) password_changed_notification retries rejected-before-acceptance across a minute with identical provider content [0.46ms]
+(pass) email_changed_notification retries accepted-response-lost across a minute with identical provider content [0.32ms]
+(pass) email_changed_notification retries rejected-before-acceptance across a minute with identical provider content [0.29ms]
+
+web/__tests__/reset-password-email.test.tsx:
+(pass) recovery preserves its verification URL and Spanish safety copy in the shared layout [0.10ms]
+
+web/__tests__/email-template-presentation.test.ts:
+(pass) waitlist confirmation HTML/plain snapshot and light/dark AA [15.73ms]
+(pass) waitlist reminder HTML/plain snapshot and light/dark AA [5.08ms]
+(pass) waitlist welcome HTML/plain snapshot and light/dark AA [3.00ms]
+(pass) waitlist launch HTML/plain snapshot and light/dark AA [5.32ms]
+(pass) disabled slot phone_changed_notification HTML/plain snapshot and light/dark AA [1.96ms]
+(pass) disabled slot identity_linked_notification HTML/plain snapshot and light/dark AA [1.99ms]
+(pass) disabled slot identity_unlinked_notification HTML/plain snapshot and light/dark AA [1.64ms]
+(pass) disabled slot mfa_factor_enrolled_notification HTML/plain snapshot and light/dark AA [1.43ms]
+(pass) disabled slot mfa_factor_unenrolled_notification HTML/plain snapshot and light/dark AA [1.34ms]
+(pass) disabled slot business_transfer_request_recipient HTML/plain snapshot and light/dark AA [1.27ms]
+(pass) disabled slot business_transfer_declined_owner HTML/plain snapshot and light/dark AA [1.59ms]
+(pass) disabled slot business_transfer_accepted_both HTML/plain snapshot and light/dark AA [1.44ms]
+(pass) disabled slot business_transfer_withdrawn_recipient HTML/plain snapshot and light/dark AA [1.56ms]
+(pass) Business close HTML/plain snapshot and light/dark AA [1.74ms]
+(pass) presentation checker catches low contrast in each mode and legacy branding [4.76ms]
+
+web/__tests__/email-branding-checker.test.ts:
+(pass) email branding guard rejects old identity and staging hosts [0.10ms]
+
+web/__tests__/auth-email-hook.test.ts:
+(pass) staging Auth email hook > is disabled by default and refuses mismatched project, origin or expiry without sending [0.40ms]
+(pass) staging Auth email hook > accepts Next internal URLs only in the pinned Render service, regardless of spoofed forwarding headers [0.43ms]
+(pass) staging Auth email hook > sends approved recovery with fixed sender headers and an exact staging Supabase verification link [0.19ms]
+(pass) staging Auth email hook > renders the approved Spanish copy and shared layout for each action [0.46ms]
+(pass) staging Auth email hook > secure email change sends both addresses with the official hash mapping and stable distinct retry keys [0.32ms]
+(pass) staging Auth email hook > preserves PKCE token prefixes and Supabase empty-redirect defaults [0.66ms]
+(pass) staging Auth email hook > rejects bad signatures, mutated raw bytes, stale signatures, unknown actions and unsafe recipient or redirect [1.75ms]
+(pass) staging Auth email hook > rejects invalid, unverified, stale and future delivery timestamps before sending security notices [0.27ms]
+(pass) signed security notices send only to their documented recipients and disabled five send nothing [0.79ms]
+
+web/__tests__/shared-account-email.test.ts:
+(pass) shared account email layout > escapes copy and renders the same action in a button, grey fallback and plain text [0.13ms]
+(pass) shared account email layout > keeps signup codes unbroken and rejects codes in waitlist messages [0.07ms]
+(pass) shared account email layout > waitlist leave link is in the footer and shares the help text style [0.04ms]
+(pass) shared account email layout > account and waitlist mail share the configured legal address without account unsubscribe [0.06ms]
+(pass) shared account email layout > rejects script, credential and header-injection URLs [0.04ms]
+(pass) shared account email layout > all visible text and background pairs pass AA in both modes [0.09ms]
+(pass) shared account email layout > the deployed web copy derives exactly from the canonical marketing renderer [0.09ms]
+(pass) missing or multiline legal address refuses rendering [0.03ms]
+
+web/__tests__/auth-email-approved-copy.test.ts:
+(pass) approved HTML and plain text signup 0 [3.92ms]
+(pass) approved HTML and plain text magiclink 1 [3.43ms]
+(pass) approved HTML and plain text recovery 2 [5.65ms]
+(pass) approved HTML and plain text email_change 3 [2.73ms]
+(pass) approved HTML and plain text email_change 4 [2.21ms]
+(pass) approved HTML and plain text reauthentication 5 [1.96ms]
+(pass) approved HTML and plain text password_changed_notification 6 [2.35ms]
+(pass) approved HTML and plain text email_changed_notification 7 [2.07ms]
+(pass) local 60-second configuration produces truthful expiry in all sign-in mail [0.34ms]
+(pass) security notices show send time in RD and old-address notice has no reset or action link [0.39ms]
+(pass) committed notification flags enable exactly the two approved notices [2.17ms]
+(pass) notification recipients derive from signed documented fields and disabled actions need no tokens [0.21ms]
+(pass) security send time normalizes ICU day-period spaces [0.50ms]
+
+ 62 pass
+ 0 fail
+ 22 snapshots, 274 expect() calls
+Ran 62 tests across 10 files. [176.00ms]

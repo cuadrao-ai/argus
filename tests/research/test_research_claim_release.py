@@ -211,13 +211,39 @@ def test_a_release_returns_only_the_day_the_claim_charged(guest_store) -> None:
     assert _guest_used() == 1
 
 
-def test_a_signed_in_claim_has_no_guest_question_to_return(guest_store) -> None:
+def test_a_claim_without_an_account_key_has_nothing_to_return(guest_store) -> None:
     admission = evidence.claim_research_provider_attempt(guest_visitor_key=None)
 
     assert not evidence.release_research_provider_claim(
         admission, guest_visitor_key=None
     )
 
+    assert _ceiling_used() == 1
+
+
+def test_a_signed_in_release_returns_the_account_question_and_keeps_the_ceiling(
+    guest_store,
+) -> None:
+    from argus.domain.visitor_usage import registered_account_usage_key
+
+    key = registered_account_usage_key("00000000-0000-0000-0000-000000000099")
+    admission = evidence.claim_research_provider_attempt(guest_visitor_key=key)
+    row = api_state.store.visitor_usage_counters.get(
+        (key, evidence.RESEARCH_USAGE_RESOURCE, "day")
+    )
+    assert admission.available
+    assert int(row["used_count"]) == 1
+    assert _ceiling_used() == 1
+
+    assert evidence.release_research_provider_claim(admission, guest_visitor_key=key)
+    assert (
+        int(
+            api_state.store.visitor_usage_counters[
+                (key, evidence.RESEARCH_USAGE_RESOURCE, "day")
+            ]["used_count"]
+        )
+        == 0
+    )
     assert _ceiling_used() == 1
 
 
@@ -420,32 +446,6 @@ def _result_follow_up(monkeypatch: pytest.MonkeyPatch) -> None:
     assert answer.text is None
 
 
-def _result_breakdown(monkeypatch: pytest.MonkeyPatch) -> None:
-    from argus.api.chat import breakdown
-
-    from tests.test_backtest_message_projection import _completed_run
-
-    class _Down:
-        def run_structured(self, *_args, **_kwargs):
-            raise ResearchUnavailableError("timeout")
-
-    monkeypatch.setattr(breakdown, "_client", lambda: _Down())
-    monkeypatch.setattr(
-        api_state,
-        "supabase_gateway",
-        SimpleNamespace(create_cost_ledger_entry=lambda *, entry: None),
-    )
-    run = _completed_run()
-    result = breakdown.result_breakdown_action(
-        run,
-        language="en",
-        user_id="owner",
-        conversation_id=run.conversation_id,
-        request_id="request",
-    )
-    assert result.fallback_used
-
-
 def _discovery_search(monkeypatch: pytest.MonkeyPatch) -> None:
     from argus.agent_runtime.discovery import composer
     from argus.domain.research.search import SearchUnavailableError
@@ -482,7 +482,6 @@ CLAIMED_PROVIDER_PATHS = {
     "thorough_submission": _thorough_submission,
     "thorough_synchronous_run": _thorough_synchronous_run,
     "result_follow_up": _result_follow_up,
-    "result_breakdown": _result_breakdown,
     "discovery_search": _discovery_search,
 }
 

@@ -183,6 +183,7 @@ type ConversationActivityTerminalReadinessSessionOptions = Readonly<{
 export type ConversationActivityTerminalReadinessSession = Readonly<{
   stage: () => boolean;
   accept: (payload: ChatFinalPayload, identityAuthorized: boolean) => boolean;
+  reject: (identityAuthorized: boolean) => boolean;
   finish: (identityAuthorized: boolean) => boolean;
 }>;
 
@@ -237,6 +238,18 @@ export const createConversationActivityTerminalReadinessSession = (
       });
       if (promoted) settled = true;
       return promoted;
+    },
+    reject: (identityAuthorized) => {
+      if (settled || !identityAuthorized) return false;
+      const request = visibleRequest();
+      if (!request || request.kind !== "chat_turn") return false;
+      // A pre-admission rejection adds no canonical assistant artifact. Keep the
+      // existing transcript and the local question available for editing.
+      settled = promoteCanonicalConversationActivityTranscript({
+        ...options,
+        conversationId: request.conversationId,
+      });
+      return settled;
     },
     finish: (identityAuthorized) => {
       if (settled || !identityAuthorized) return false;

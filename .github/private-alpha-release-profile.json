@@ -4,136 +4,19 @@
   "services": {
     "api": {
       "name": "argus-api",
-      "auto_deploy_trigger": "off",
-      "env": {
-        "APP_ENV": "production",
-        "POETRY_VERSION": "2.1.3",
-        "ARGUS_PERSISTENCE_MODE": "supabase",
-        "ARGUS_DEV_MEMORY_FALLBACK": "false",
-        "ARGUS_MARKET_DATA_PROVIDER_MODE": "live_provider",
-        "MARKET_DATA_CACHE_TTL": "43200",
-        "ARGUS_RUNTIME_EVENT_TIMEOUT_SECONDS": "180",
-        "ARGUS_RUNTIME_EVENT_KEEPALIVE_SECONDS": "15",
-        "ARGUS_CHECKPOINTER_MODE": "postgres",
-        "ARGUS_ENABLE_EXECUTION_REALISM": "true",
-        "ARGUS_ENABLE_PERSONALIZATION_MEMORY": "true",
-        "ARGUS_RESEARCH_RAIL_ENABLED": "true",
-        "ARGUS_RESEARCH_GLOBAL_DAILY_CEILING": "5000",
-        "ARGUS_ENABLE_MEMORY_SEMANTIC_RECALL": "false",
-        "ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED": "true",
-        "ARGUS_IN_PLACE_CARD_EDITS_ENABLED": "true",
-        "ARGUS_MEMORY_EMBEDDING_MODEL": "pplx-embed-v1-0.6b",
-        "ARGUS_MEMORY_EMBEDDING_DIMENSIONS": "1024",
-        "ARGUS_MEMORY_EMBEDDING_TIMEOUT_SECONDS": "8.0",
-        "ARGUS_MEMORY_VECTOR_COLLECTION": "argus_memory_vectors",
-        "ARGUS_DISCOVERY_SEARCH_PROVIDER": "perplexity_direct",
-        "POSTHOG_REGION": "us",
-        "ARGUS_MOCK_AUTH": "false",
-        "ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED": "true",
-        "ARGUS_CORS_ALLOW_ORIGINS": "https://argus-app-suz5.onrender.com,https://arguschat.ai,https://www.arguschat.ai",
-        "ARGUS_APP_ORIGIN": "https://arguschat.ai",
-        "ARGUS_BACKTEST_JOBS_SHADOW_ENABLED": "true",
-        "ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED": "true",
-        "ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED": "true",
-        "ARGUS_BACKTEST_WORKFLOW_TASK": "argus-backtests/workflow_proof",
-        "ARGUS_BACKTEST_REAL_WORKFLOW_TASK": "argus-backtests/run_backtest_job",
-        "ARGUS_BACKTEST_JOBS_USER_RUNNING_LIMIT": "1",
-        "ARGUS_BACKTEST_JOBS_USER_QUEUED_LIMIT": "2",
-        "ARGUS_BACKTEST_JOBS_GLOBAL_RUNNING_LIMIT": "5",
-        "ARGUS_BACKTEST_JOBS_GLOBAL_QUEUED_LIMIT": "10",
-        "ARGUS_CONTEXT_PACKETS_ENABLED": "true",
-        "ARGUS_CONTEXT_PACKET_BUDGET_SECONDS": "4",
-        "ARGUS_TITLE_AUTOGEN_ENABLED": "true",
-        "ARGUS_TITLE_AUTOGEN_TIMEOUT_MS": "250",
-        "ARGUS_READINESS_ASSET_TIMEOUT_SECONDS": "25",
-        "ARGUS_UTILITY_MODEL": "google/gemini-2.5-flash-lite",
-        "ARGUS_UTILITY_FALLBACK_MODEL": "qwen/qwen3.5-9b",
-        "ARGUS_CHAT_MODEL": "deepseek/deepseek-v4-flash",
-        "ARGUS_CHAT_FALLBACK_MODEL": "qwen/qwen3.5-9b",
-        "ARGUS_OPENROUTER_RESULT_SUMMARY_TIMEOUT_SECONDS": "30",
-        "ARGUS_STRUCTURED_MODEL": "x-ai/grok-4.3",
-        "ARGUS_STRUCTURED_FALLBACK_MODEL": "anthropic/claude-haiku-4.5",
-        "ARGUS_CONTEXT_MODEL": "openai/gpt-oss-120b",
-        "ARGUS_CONTEXT_FALLBACK_MODEL": "deepseek/deepseek-v4-flash",
-        "ARGUS_READOUT_MODEL": "openai/gpt-5.6-luna",
-        "ARGUS_READOUT_FALLBACK_MODEL": "openai/gpt-5.6-luna",
-        "ALPACA_PAPER_TRADING": "true"
-      },
-      "required_present": [
-        "ARGUS_OPS_TOKEN",
-        "ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD",
-        "ARGUS_VISITOR_KEY_SECRET",
-        "PERPLEXITY_API_KEY",
-        "POSTHOG_PROJECT_TOKEN",
-        "DATABASE_URL",
-        "SUPABASE_URL",
-        "SUPABASE_ANON_KEY",
-        "SUPABASE_SERVICE_ROLE_KEY",
-        "SUPABASE_JWT_SECRET",
-        "RENDER_API_KEY",
-        "ARGUS_PROD_OPENROUTER_API_KEY",
-        "ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY",
-        "ALPACA_API_KEY",
-        "ALPACA_SECRET_KEY"
-      ],
-      "optional": []
+      "auto_deploy_trigger": "off"
     },
     "web": {
       "name": "argus-app",
-      "auto_deploy_trigger": "off",
-      "env": {
-        "ARGUS_APP_ORIGIN": "https://arguschat.ai",
-        "NEXT_PUBLIC_APP_ENV": "production",
-        "NEXT_PUBLIC_MOCK_AUTH": "false",
-        "NEXT_PUBLIC_ENABLE_SPANISH": "true",
-        "NEXT_PUBLIC_OMNISEARCH_ENABLED": "true",
-        "NEXT_PUBLIC_RESEARCH_RAIL_ENABLED": "true",
-        "NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED": "true",
-        "NEXT_PUBLIC_ARGUS_SUPPORT_EMAIL": "support@get-argus.com"
-      },
-      "required_present": [
-        "NEXT_PUBLIC_SUPABASE_URL",
-        "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-        "NEXT_PUBLIC_ARGUS_API_URL",
-        "NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY"
-      ],
-      "optional": ["NEXT_PUBLIC_POSTHOG_KEY"]
+      "auto_deploy_trigger": "off"
+    },
+    "marketing": {
+      "name": "cuadrao-web",
+      "auto_deploy_trigger": "off"
     },
     "workflow": {
       "name": "argus-backtests",
-      "auto_deploy_trigger": "off",
-      "env": {
-        "APP_ENV": "production",
-        "ARGUS_RENDER_WORKFLOW_PROOF_TASK": "argus-backtests/workflow_proof",
-        "ARGUS_WORKFLOW_PROOF_PLAN": "starter",
-        "POETRY_VERSION": "2.1.3",
-        "ARGUS_BACKTEST_WORKFLOW_TIMEOUT_SECONDS": "300",
-        "ARGUS_MARKET_DATA_PROVIDER_MODE": "live_provider",
-        "ENABLE_MARKET_DATA_CACHE": "false",
-        "ALPACA_PAPER_TRADING": "true",
-        "ARGUS_UTILITY_MODEL": "google/gemini-2.5-flash-lite",
-        "ARGUS_UTILITY_FALLBACK_MODEL": "qwen/qwen3.5-9b",
-        "ARGUS_CHAT_MODEL": "deepseek/deepseek-v4-flash",
-        "ARGUS_CHAT_FALLBACK_MODEL": "qwen/qwen3.5-9b",
-        "ARGUS_OPENROUTER_RESULT_SUMMARY_TIMEOUT_SECONDS": "30",
-        "ARGUS_STRUCTURED_MODEL": "x-ai/grok-4.3",
-        "ARGUS_STRUCTURED_FALLBACK_MODEL": "anthropic/claude-haiku-4.5",
-        "ARGUS_CONTEXT_MODEL": "openai/gpt-oss-120b",
-        "ARGUS_CONTEXT_FALLBACK_MODEL": "deepseek/deepseek-v4-flash",
-        "ARGUS_READOUT_MODEL": "openai/gpt-5.6-luna",
-        "ARGUS_READOUT_FALLBACK_MODEL": "openai/gpt-5.6-luna"
-      },
-      "required_present": [
-        "ARGUS_WORKFLOW_DATABASE_URL",
-        "ALPACA_API_KEY",
-        "ALPACA_SECRET_KEY",
-        "ARGUS_PROD_OPENROUTER_API_KEY",
-        "ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY"
-      ],
-      "optional": [
-        "ARGUS_RENDER_WORKFLOW_RELEASE_COMMIT",
-        "ARGUS_RENDER_WORKFLOW_RELEASE_VERSION_ID"
-      ]
+      "auto_deploy_trigger": "off"
     }
   },
   "workflow": {
@@ -148,21 +31,9 @@
     "real_workflow_execution": true
   },
   "locales": {
-    "supported": ["en", "es-419"],
-    "required_static_keys": [
-      "chat.confirmation.actions.run_backtest"
-    ]
-  },
-  "canary": {
-    "language": "es-419",
-    "chat_prompt": "Hola, ¿qué puedes hacer por mí?",
-    "backtest_prompt": "Prueba una estrategia de comprar y mantener AAPL y MSFT con pesos iguales desde el 1 de enero de 2025 hasta el 5 de junio de 2026 con 10000 dolares",
-    "research_prompt": "¿Cuáles fueron los ingresos de Apple en su último trimestre reportado?",
-    "required_steps": [
-      "services_same_commit",
-      "signed_in_chat_answer",
-      "backtest_completes",
-      "research_answer_with_sources"
+    "supported": [
+      "en",
+      "es-419"
     ]
   }
 }

@@ -1,0 +1,63 @@
+{
+  "original_integration_base": "77ddf2c7d33cc4c7273cc4c39354b5152fe01e91",
+  "current_integration": "650b0fc660777cbcdfb1ea99a3be7beecbbe1a96",
+  "reconciliation_merge": "7667ee1e19589bed2e00aa1b9c08600965554860",
+  "reviewed_record_head": "85d564ae1b998d3f372828728855dab26e5b5deb",
+  "publication": "Evidence-only commit after reconciliation; exact final head is recorded in the PR. It changes no web implementation.",
+  "web_tree_equality": {
+    "excluded_path": "web/AGENTS.md",
+    "sha256": "cfb6be77eeea65e636e7e357581779022cd71890704b10f4046f6605753a02e3",
+    "heads": [
+      "85d564ae1b998d3f372828728855dab26e5b5deb",
+      "7667ee1e19589bed2e00aa1b9c08600965554860"
+    ],
+    "comparison": "all tracked web paths, modes and blob IDs; only imported web instructions differ"
+  },
+  "images": [
+    {
+      "file": "brand-signin-light-spanish-1280.png",
+      "captured_head": "7667ee1e19589bed2e00aa1b9c08600965554860",
+      "sha256": "bb3a967893ef49abd4e99b690f44e57d3cf78f5d7860c481594f5f940bea12e1",
+      "bytes": 42981,
+      "classification": "synthetic local offline es-419"
+    },
+    {
+      "file": "brand-signin-dark-spanish-390.png",
+      "captured_head": "7667ee1e19589bed2e00aa1b9c08600965554860",
+      "sha256": "593d13659149249a14a56760921d725109e9fca519953e4938775125ea2e7314",
+      "bytes": 38860,
+      "classification": "synthetic local offline es-419"
+    },
+    {
+      "file": "uncertain-retained-intent-spanish.png",
+      "captured_head": "85d564ae1b998d3f372828728855dab26e5b5deb",
+      "sha256": "fe42804b3b98a5ec4ed5c54a2b33d2cfa667c9f4c20705af86c21c880e153443",
+      "bytes": 101903,
+      "classification": "synthetic local offline es-419"
+    },
+    {
+      "file": "owner-funded-expenses-spanish.png",
+      "captured_head": "85d564ae1b998d3f372828728855dab26e5b5deb",
+      "sha256": "aca449fcad5eadca4a8a242a6d48c0e55064ffa2f3306049d510d3188765c634",
+      "bytes": 64262,
+      "classification": "synthetic local offline es-419"
+    },
+    {
+      "file": "owner-funded-search-spanish.png",
+      "captured_head": "85d564ae1b998d3f372828728855dab26e5b5deb",
+      "sha256": "77e831cf507b4b5d14e69af2f50e9d0b901a328207a1175f798b68e56becbf60",
+      "bytes": 70680,
+      "classification": "synthetic local offline es-419"
+    }
+  ],
+  "brand_sources": [
+    "21228276594adbd2b25d4165460976f11199d404",
+    "e05bdcffe60303fa06e8ea6d99da6cb49c6c7f06",
+    "5887b7034f5c9948ccdf9bb967156c6ade5b8276",
+    "bca99e4e19116483a3cf62cab595d9b0d3f008dd",
+    "d136c33947439040d4d9bf6a984e19d7f63b6f6b",
+    "11fd99836590f9fcf388d02e9bc6898d52eb4257"
+  ],
+  "latest_palette_source": "11fd99836590f9fcf388d02e9bc6898d52eb4257",
+  "acceptance": "Local UI render/behavior proof only. Hosted auth, API/worker integration, grants and staging acceptance remain coordinator-owned."
+}

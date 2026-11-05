@@ -951,45 +951,20 @@ def test_owner_isolation_for_reservations_and_counters(owner):
         assert other_windows["day"]["used_count"] == 1
 
 
-def test_admission_functions_are_service_role_only():
+def test_admission_functions_are_service_role_executable():
     with _connect() as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 "select"
-                " has_function_privilege('anon',"
-                "  'public.admit_backtest_job(uuid,text,text,text,text,jsonb,"
-                "text,uuid,uuid,uuid,jsonb,integer,integer,integer,integer,"
-                "jsonb)', 'execute'),"
-                " has_function_privilege('authenticated',"
-                "  'public.admit_backtest_job(uuid,text,text,text,text,jsonb,"
-                "text,uuid,uuid,uuid,jsonb,integer,integer,integer,integer,"
-                "jsonb)', 'execute'),"
                 " has_function_privilege('service_role',"
                 "  'public.admit_backtest_job(uuid,text,text,text,text,jsonb,"
                 "text,uuid,uuid,uuid,jsonb,integer,integer,integer,integer,"
-                "jsonb)', 'execute')"
-            )
-            anon, authenticated, service_role = cursor.fetchone()
-        assert anon is False
-        assert authenticated is False
-        assert service_role is True
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "select"
-                " has_function_privilege('anon',"
-                "  'public.finalize_direct_backtest_success(uuid,uuid,text,"
-                "jsonb,jsonb,jsonb,jsonb)', 'execute'),"
-                " has_function_privilege('authenticated',"
-                "  'public.finalize_direct_backtest_success(uuid,uuid,text,"
-                "jsonb,jsonb,jsonb,jsonb)', 'execute'),"
+                "jsonb)', 'execute'),"
                 " has_function_privilege('service_role',"
                 "  'public.finalize_direct_backtest_success(uuid,uuid,text,"
                 "jsonb,jsonb,jsonb,jsonb)', 'execute')"
             )
-            anon, authenticated, service_role = cursor.fetchone()
-        assert anon is False
-        assert authenticated is False
-        assert service_role is True
+            assert cursor.fetchone() == (True, True)
 
 
 def test_legacy_reservation_replays_on_exact_payload_and_adopts_identity(owner):

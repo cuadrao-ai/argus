@@ -1,0 +1,48 @@
+{
+  "read_at": "2026-09-29T14:34:17.087789+00:00",
+  "api": "http://127.0.0.1:58500/api/v1",
+  "synthetic_data": true,
+  "accounts": [
+    {
+      "identity": "A",
+      "account_id": "df1b5d93-88b3-4f0c-84c8-99f33b47d4ae",
+      "nickname": "Pending A 6D519",
+      "balance": {
+        "state": "known",
+        "amount_minor": 12500,
+        "amount": "125.00",
+        "as_of": "2026-09-29T09:30:44-05:00",
+        "basis": "opening",
+        "activity_since_tracking_minor": 2500,
+        "credit_minor": null
+      },
+      "other_identity_account_absent": true,
+      "activity": [
+        {
+          "record_id": "85a12d1c-444f-45f1-abb7-94e03f4a09e2",
+          "revision": 1,
+          "kind": "income",
+          "activity_id": "85a12d1c-444f-45f1-abb7-94e03f4a09e2",
+          "amount_minor": 2500,
+          "note": "Isolated pending income 6D519"
+        }
+      ]
+    },
+    {
+      "identity": "B",
+      "account_id": "84be5201-1227-4cde-b28a-d8992beed90c",
+      "nickname": "Isolated B 6D519",
+      "balance": {
+        "state": "known",
+        "amount_minor": 32100,
+        "amount": "321.00",
+        "as_of": "2026-09-29T10:29:25-04:00",
+        "basis": "opening",
+        "activity_since_tracking_minor": 0,
+        "credit_minor": null
+      },
+      "other_identity_account_absent": true,
+      "activity": []
+    }
+  ]
+}

@@ -83,23 +83,23 @@ test("avatar drawer persists keyboard selection and returns focus on dismiss", a
 
   const picker = dialog.getByRole("radiogroup", { name: "Avatar color" });
   const defaultAvatar = picker.getByRole("radio", { name: "Default" });
-  const siennaAvatar = picker.getByRole("radio", { name: "Sienna" });
-  const mulberryAvatar = picker.getByRole("radio", { name: "Mulberry" });
+  const nightAvatar = picker.getByRole("radio", { name: "Night" });
+  const mintAvatar = picker.getByRole("radio", { name: "Mint" });
 
   await expect(defaultAvatar).toHaveAttribute("aria-checked", "true");
   await expect(defaultAvatar).toHaveAttribute("tabindex", "0");
   await expect(defaultAvatar).toBeFocused();
 
   await page.keyboard.press("ArrowRight");
-  await expect(siennaAvatar).toHaveAttribute("aria-checked", "true");
-  await expect(siennaAvatar).toHaveAttribute("tabindex", "0");
-  await expect(siennaAvatar).toBeFocused();
+  await expect(nightAvatar).toHaveAttribute("aria-checked", "true");
+  await expect(nightAvatar).toHaveAttribute("tabindex", "0");
+  await expect(nightAvatar).toBeFocused();
   await expect.poll(() => avatarThemePatches).toEqual(["ember"]);
   await expect(picker).not.toHaveAttribute("aria-busy", "true");
 
   await page.keyboard.press("End");
-  await expect(mulberryAvatar).toHaveAttribute("aria-checked", "true");
-  await expect(mulberryAvatar).toBeFocused();
+  await expect(mintAvatar).toHaveAttribute("aria-checked", "true");
+  await expect(mintAvatar).toBeFocused();
   await expect.poll(() => avatarThemePatches).toEqual(["ember", "plum"]);
   await expect(picker).not.toHaveAttribute("aria-busy", "true");
 

@@ -1,0 +1,22 @@
+{
+  "base": "8146d16e90633eb543781f8882665482f0d5dca9",
+  "runtime_verification": "Independent QA: package170 passed4existing skips;filesystem6;deletion20;liveSDK1;exactbaselinegap1. Separate overlapping runs; no provider/app UI claim.",
+  "files": [
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/SessionController.swift",
+      "sha256": "69e0a36620e6a25142ba672a535b3f34710042fba156bfe6c68cd69d853a6c1d",
+      "git_object": "8720b2c26da7c3955bc5b291eef423f3c94f52dc"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/AccountDeletionTests.swift",
+      "sha256": "ecf769347c014d64add7938aca6f24510a4836aedf982300efc9ab021284644f",
+      "git_object": "c78c823fac107268d3fd59a4ca1647461b350e9c"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/README.md",
+      "sha256": "aebf5d023d8dd0983e84757c14192f6caabfbbf06c567a283f2d545b430a93a6",
+      "git_object": "5f9370fd385c70fc45c8596839f5cc430581fe23"
+    }
+  ],
+  "source_head": "f787ca63af9ba4e6355357ed5e1a8ead5a3dfb21"
+}

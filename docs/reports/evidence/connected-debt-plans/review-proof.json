@@ -1,0 +1,40 @@
+{
+  "reviewer": "independent fresh-context gpt-6-astra, high reasoning",
+  "integration_base": "7c29b2a9b3f4680f6804a2abc8378df45b05540c",
+  "initial_reviewed_commit": "24e10533c",
+  "initial_confirmed_findings": [
+    {
+      "severity": "P2",
+      "cause": "Native edits resent an unchanged claimed schedule",
+      "resolution": "Production draft command omits unchanged schedule; three direct production-command regressions passed"
+    },
+    {
+      "severity": "P2",
+      "cause": "An archived partially paid future debt occurrence remained in cash forecast",
+      "resolution": "Shared debt projection marks archive exclusion and preserves paid history; real Postgres regression passed"
+    }
+  ],
+  "affected_followups": [
+    {
+      "range": "24e10533c..e77569b41",
+      "outcome": "clean"
+    },
+    {
+      "range": "e77569b41..8281bc233",
+      "outcome": "clean; test-only restored-detail setup change"
+    },
+    {
+      "range": "8281bc233..70e34fe94641806ca3e80ac9ac6fff9ad73603f3",
+      "outcome": "clean",
+      "checks": {
+        "focused_memory_tests": 2,
+        "focused_api_tests": 1,
+        "whitespace": "pass"
+      }
+    }
+  ],
+  "latest_reviewed_source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3",
+  "unresolved_confirmed_findings": 0,
+  "scope": "Finished diff once, then only affected fixes and acceptance-harness changes",
+  "cleanup": "Read-only review; no edits, services, database writes, subagents or running helpers"
+}

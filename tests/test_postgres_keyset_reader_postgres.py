@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 
 import psycopg
 import pytest
+from argus.domain.owner_scope import PERSONAL
 
 DSN = os.getenv("ARGUS_DISPOSABLE_DATABASE_URL", "").strip()
 pytestmark = pytest.mark.skipif(
@@ -281,6 +282,7 @@ def test_conversation_deep_page_uses_tuple_index_condition_at_64_and_12k(
     ):
         pool = _ExplainPool()
         PostgresKeysetReader(pool).list_conversation_rows(
+            scope=PERSONAL,
             user_id=str(keyset_scale_rows[owner_key]),
             limit=20,
             archived=None,
@@ -338,6 +340,7 @@ def test_deleted_conversation_deep_page_is_page_bounded_at_12k(
         cursor.execute(
             "explain (analyze, buffers, format json) "
             + _conversation_page_sql(
+                scope_condition="owner_space_id is null",
                 archived=None,
                 deleted=True,
                 has_cursor=True,
@@ -548,6 +551,7 @@ def test_keyset_reader_preserves_filters_deletion_stability_and_owner_scope() ->
 
     try:
         first = reader.list_conversation_rows(
+            scope=PERSONAL,
             user_id=str(owner_id),
             limit=2,
             archived=False,
@@ -571,6 +575,7 @@ def test_keyset_reader_preserves_filters_deletion_stability_and_owner_scope() ->
                 )
 
         middle = reader.list_conversation_rows(
+            scope=PERSONAL,
             user_id=str(owner_id),
             limit=2,
             archived=False,
@@ -587,6 +592,7 @@ def test_keyset_reader_preserves_filters_deletion_stability_and_owner_scope() ->
         assert [
             row["id"]
             for row in reader.list_conversation_rows(
+                scope=PERSONAL,
                 user_id=str(owner_id),
                 limit=20,
                 archived=True,
@@ -596,6 +602,7 @@ def test_keyset_reader_preserves_filters_deletion_stability_and_owner_scope() ->
         assert {
             row["id"]
             for row in reader.list_conversation_rows(
+                scope=PERSONAL,
                 user_id=str(owner_id),
                 limit=20,
                 archived=None,
@@ -604,6 +611,7 @@ def test_keyset_reader_preserves_filters_deletion_stability_and_owner_scope() ->
         } == {str(conversation_ids[1]), str(conversation_ids[7])}
         with pytest.raises(ConversationKeysetCursorError):
             reader.list_conversation_rows(
+                scope=PERSONAL,
                 user_id=str(owner_id),
                 limit=2,
                 archived=False,
@@ -613,6 +621,7 @@ def test_keyset_reader_preserves_filters_deletion_stability_and_owner_scope() ->
             )
         with pytest.raises(ConversationKeysetCursorError):
             reader.list_conversation_rows(
+                scope=PERSONAL,
                 user_id=str(owner_id),
                 limit=2,
                 archived=False,
@@ -673,15 +682,23 @@ def test_keyset_reader_preserves_filters_deletion_stability_and_owner_scope() ->
                     "insert into public.messages"
                     " (id, user_id, conversation_id, role, content, created_at)"
                     " values (%s, %s, %s, 'assistant', 'Saved reply', %s)",
-                    (reply_id, owner_id, conversation_id, timestamp + timedelta(seconds=1)),
+                    (
+                        reply_id,
+                        owner_id,
+                        conversation_id,
+                        timestamp + timedelta(seconds=1),
+                    ),
                 )
         latest = reader.read_conversation_preview_messages(
             user_id=str(owner_id), conversation_ids=[str(conversation_id)]
         )
         assert latest[0]["id"] == str(reply_id)
-        assert reader.read_conversation_preview_messages(
-            user_id=str(other_id), conversation_ids=[str(conversation_id)]
-        ) == []
+        assert (
+            reader.read_conversation_preview_messages(
+                user_id=str(other_id), conversation_ids=[str(conversation_id)]
+            )
+            == []
+        )
     finally:
         with psycopg.connect(DSN, autocommit=True) as connection:
             with connection.cursor() as cursor:

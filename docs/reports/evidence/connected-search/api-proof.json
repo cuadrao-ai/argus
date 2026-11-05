@@ -1,0 +1,52 @@
+{
+  "checks": [
+    "One logical transfer result",
+    "Obsolete note is absent",
+    "Current correction projects canonical amount",
+    "Literal/accent query cafe",
+    "Literal/accent query %_",
+    "Literal/accent query '",
+    "Literal/accent query \\",
+    "All pages have unique canonical account IDs",
+    "Edits invalidate snapshot cursor",
+    "Archived account remains findable",
+    "Archived expectation outside forecast remains findable",
+    "Currency filter preserves unknown balance",
+    "Other owner cannot search these records",
+    "Other owner cannot open typed destinations",
+    "Expectation opens by exact ID"
+  ],
+  "recorded_at": "2026-09-29T21:08:46.653262+00:00",
+  "search_query": "Search 0e0f30",
+  "account_ids": [
+    "fd4da519-1a2d-453a-a3c6-9a0b9fc6d564",
+    "691fe156-8736-4dc8-820a-fd8a44350f42",
+    "556fdce5-a0af-4209-b672-94186a7c82e5",
+    "a2f17b50-755d-441a-9f8f-0b70d92e9f23",
+    "5cebc9b9-41ed-47a2-9275-0714f41900f5",
+    "4b73b998-8d58-48f0-83f7-14f21523ba3e",
+    "4b148116-6456-466c-9ce8-515c8a40c566",
+    "aa73db0b-2698-4b29-ae02-846290b7b75d",
+    "1ba17475-d677-4724-8386-2b2b6d9f1977",
+    "4a7b694b-129b-41d6-b95e-692b7f320d10",
+    "53e46efa-72da-44ca-82ae-57332b3870ee",
+    "457d1214-a94e-4c6b-b2a5-50db4c60ac67",
+    "b184ac85-b7af-4420-b239-32c6f8bf77a3",
+    "6fe3fe4d-770c-4258-ad30-14b345d2454c",
+    "02818897-3b2e-4479-8807-f412ce5fb0b0",
+    "447d3345-12e8-4297-96c2-d6459ba36681",
+    "826af7cd-89f1-4181-b79e-8f22a57853a5",
+    "6452d359-d895-46ac-b97d-842e667aadb2",
+    "059aafb2-45cc-4081-85a1-f6d99d0c46f0",
+    "52c42d8a-d2ec-4a35-ab77-81d05070822d",
+    "326f5f2c-cdb8-4012-8631-1c90104366d7",
+    "555a9a36-c899-40e3-a5ae-daa1f64e906b",
+    "9c023c25-7cde-4643-939c-f2bb6b2705a6"
+  ],
+  "activity_id": "a0cfcb44-04f6-43b0-9770-9a6a77c03770",
+  "expectation_id": "cb4dff5b-f2b9-4449-8e66-983ffdd89878",
+  "limitations": [
+    "Local synthetic data only; native interaction acceptance is separate."
+  ],
+  "source_commit": "78e65a026"
+}

@@ -1,0 +1,13 @@
+--- a/ios/Packages/ArgusSession/Tests/ArgusSessionTests/LiveSessionTests.swift
++++ b/ios/Packages/ArgusSession/Tests/ArgusSessionTests/LiveSessionTests.swift
+@@ -104,8 +104,8 @@
+         }
+         components.path = ""
+         let api = try XCTUnwrap(components.url)
+-        guard api.host == "127.0.0.1", api.port == 58400,
+-              input.supabaseURL.host == "127.0.0.1", input.supabaseURL.port == 58401,
++        guard api.host == "127.0.0.1", api.port == 60343,
++              input.supabaseURL.host == "127.0.0.1", input.supabaseURL.port == 60331,
+               input.users.count >= 2 else { throw SessionFailure.invalidConfiguration }
+         let config = try SessionConfiguration(argusAPIURL: api, supabaseURL: input.supabaseURL, publicAnonKey: input.publicAnonKey, keychainService: "argus.session.local-proof.\(UUID().uuidString)")
+         return Self(configuration: config, users: input.users, storage: DeviceKeychain(service: config.keychainService))

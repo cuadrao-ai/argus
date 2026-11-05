@@ -1,5 +1,6 @@
 "use client";
 
+import { Switch } from "@/components/ui/Switch";
 import {
   useCallback,
   useEffect,
@@ -16,7 +17,7 @@ import {
   Trash2,
   } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import SettingsSurface from "@/components/settings/SettingsSurface";
 import {
   ALL_MEMORY_CATEGORIES,
   deleteMemoryRecord,
@@ -133,7 +134,7 @@ function MemoryRecordRow({ record, locale, onEdited, onDeleted }: RecordRowProps
         code === "memory_sensitivity_restricted"
           ? t(
               "settings.data.personalization.errors.restricted",
-              "Argus keeps sensitive details out of memory.",
+              "Cuadrao keeps sensitive details out of memory.",
             )
           : t(
               "settings.data.personalization.errors.edit",
@@ -423,7 +424,7 @@ export default function MemoryControlsModal({
   }, [isMutating, t]);
 
   return (
-    <AdaptivePanel
+    <SettingsSurface
       title={t("settings.data.personalization.title", "Memory")}
       closeLabel={t("settings.data.personalization.close", "Close memory")}
       onClose={onClose}
@@ -463,7 +464,7 @@ export default function MemoryControlsModal({
               <p className="text-[12.5px] leading-relaxed text-black/55 dark:text-white/55">
                 {t(
                   "settings.data.personalization.intro",
-                  "Argus only remembers what you confirm. You can review, edit, delete, or turn off everything here.",
+                  "Cuadrao only remembers what you confirm. You can review, edit, delete, or turn off everything here.",
                 )}
               </p>
 
@@ -487,35 +488,21 @@ export default function MemoryControlsModal({
                         )}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={settings.enabled}
-                  disabled={isMutating}
-                  onClick={() => void handleToggleMemory()}
-                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-                    settings.enabled
-                      ? "bg-[#5d7f72]"
-                      : "bg-black/[0.15] dark:bg-white/[0.2]"
-                  }`}
-                  aria-label={t(
+                <Switch
+                  checked={settings.enabled}
+                  onChange={() => handleToggleMemory()}
+                  label={t(
                     "settings.data.personalization.toggle_label",
                     "Remember confirmed memories",
                   )}
-                >
-                  <span
-                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-[left] ${
-                      settings.enabled ? "left-[22px]" : "left-0.5"
-                    }`}
-                  />
-                </button>
+                />
               </div>
 
               <div className="mt-4">
                 <h3 className="text-[13px] font-medium text-black dark:text-white">
                   {t(
                     "settings.data.personalization.records_title",
-                    "What Argus remembers",
+                    "What Cuadrao remembers",
                   )}
                 </h3>
                 {records.length === 0 ? (
@@ -587,6 +574,6 @@ export default function MemoryControlsModal({
             </div>
           )}
         </div>
-    </AdaptivePanel>
+    </SettingsSurface>
   );
 }

@@ -1,0 +1,12 @@
+{
+  "version": "argus.chart-prototype-style/v1",
+  "source": ".agent/designs/argus/DESIGN.md",
+  "light": {
+    "actual": "#4d8f80",
+    "projected": "#6a88ac"
+  },
+  "dark": {
+    "actual": "#5ba897",
+    "projected": "#7da0ca"
+  }
+}

@@ -28,6 +28,7 @@ class ResearchAttemptAdmission:
 
     available: bool
     guest_exhausted: bool = False
+    registered_exhausted: bool = False
     period_start: str | None = None
 
 

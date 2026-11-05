@@ -1,0 +1,91 @@
+(node:63578) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+Running 6 tests using 2 workers
+
+(node:63592) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:63593) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:63593) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:63592) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:63592) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:63593) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  2 [chromium] › e2e/business-form-hydration.spec.ts:10:11 › marketing forms Spanish without JavaScript › demo cannot submit visitor information through native navigation (155ms)
+  ✓  3 [chromium] › e2e/business-form-hydration.spec.ts:20:7 › Personal Spanish retains email after unavailable signup (158ms)
+  ✘  1 [chromium] › e2e/business-form-hydration.spec.ts:10:11 › marketing forms Spanish without JavaScript › personal cannot submit visitor information through native navigation (5.1s)
+(node:63626) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  4 [chromium] › e2e/business-form-hydration.spec.ts:10:11 › marketing forms /en without JavaScript › personal cannot submit visitor information through native navigation (5.0s)
+(node:63626) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:63626) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:63627) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  5 [chromium] › e2e/business-form-hydration.spec.ts:10:11 › marketing forms /en without JavaScript › demo cannot submit visitor information through native navigation (75ms)
+(node:63627) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:63627) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  6 [chromium] › e2e/business-form-hydration.spec.ts:20:7 › Personal /en retains email after unavailable signup (247ms)
+
+
+  1) [chromium] › e2e/business-form-hydration.spec.ts:10:11 › marketing forms Spanish without JavaScript › personal cannot submit visitor information through native navigation
+
+    Error: expect(locator).toBeDisabled() failed
+
+    Locator:  locator('#personal-email')
+    Expected: disabled
+    Received: enabled
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toBeDisabled" with timeout 5000ms
+      - waiting for locator('#personal-email')
+        9 × locator resolved to <input value="" required="" type="email" name="email" maxlength="254" inputmode="email" id="personal-email" autocomplete="email" placeholder="tu@correo.com" aria-describedby="signup-local"/>
+          - unexpected value "enabled"
+
+
+      10 |       test(`${surface} cannot submit visitor information through native navigation`, async ({ page }) => {
+      11 |         await page.goto(`/business${localePath}/${surface}`);
+    > 12 |         await expect(page.locator(`#${field}`)).toBeDisabled();
+         |                                                 ^
+      13 |         await expect(page.locator('main button[type="submit"]')).toBeDisabled();
+      14 |         await expect(page.locator('main')).toContainText("JavaScript", { useInnerText: true });
+      15 |         expect(new URL(page.url()).search).toBe("");
+        at /Users/garces/.codex/worktrees/ff26/private-alpha-next/web/e2e/business-form-hydration.spec.ts:12:49
+
+    Error Context: temp/playwright-results/1791355676381-63593/business-form-hydration-ma-11d1a-n-through-native-navigation-chromium/error-context.md
+
+  2) [chromium] › e2e/business-form-hydration.spec.ts:10:11 › marketing forms /en without JavaScript › personal cannot submit visitor information through native navigation
+
+    Error: expect(locator).toBeDisabled() failed
+
+    Locator:  locator('#personal-email')
+    Expected: disabled
+    Received: enabled
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toBeDisabled" with timeout 5000ms
+      - waiting for locator('#personal-email')
+        9 × locator resolved to <input value="" required="" type="email" name="email" maxlength="254" inputmode="email" id="personal-email" autocomplete="email" placeholder="you@example.com" aria-describedby="signup-local"/>
+          - unexpected value "enabled"
+
+
+      10 |       test(`${surface} cannot submit visitor information through native navigation`, async ({ page }) => {
+      11 |         await page.goto(`/business${localePath}/${surface}`);
+    > 12 |         await expect(page.locator(`#${field}`)).toBeDisabled();
+         |                                                 ^
+      13 |         await expect(page.locator('main button[type="submit"]')).toBeDisabled();
+      14 |         await expect(page.locator('main')).toContainText("JavaScript", { useInnerText: true });
+      15 |         expect(new URL(page.url()).search).toBe("");
+        at /Users/garces/.codex/worktrees/ff26/private-alpha-next/web/e2e/business-form-hydration.spec.ts:12:49
+
+    Error Context: temp/playwright-results/1791355676381-63592/business-form-hydration-ma-48707-n-through-native-navigation-chromium/error-context.md
+
+  2 failed
+    [chromium] › e2e/business-form-hydration.spec.ts:10:11 › marketing forms Spanish without JavaScript › personal cannot submit visitor information through native navigation
+    [chromium] › e2e/business-form-hydration.spec.ts:10:11 › marketing forms /en without JavaScript › personal cannot submit visitor information through native navigation
+  4 passed (6.5s)

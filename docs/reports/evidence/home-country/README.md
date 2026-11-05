@@ -15,7 +15,7 @@ with integration `afdd8a86` as `523b17d5`.
 - Research sends the asking user's country as the web search's
   `user_location`, on the inline path and on the thorough job, whose typed
   request carries the country. A user with no country sends no location.
-- `ARGUS_RESEARCH_HOME_COUNTRY`, `home_location()`, `LOCAL_SOURCE_DOMAINS` and
+- `[removed obsolete setting]`, `home_location()`, `LOCAL_SOURCE_DOMAINS` and
   the `local_sources` parameter are removed, not kept as a fallback.
 
 ## Browser proof (`browser/`)

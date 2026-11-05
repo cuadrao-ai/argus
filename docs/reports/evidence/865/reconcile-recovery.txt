@@ -1,0 +1,61 @@
+bun test v1.4.2 (744846f84)
+
+web/__tests__/auth-security.test.ts:
+(pass) account security actions > the recovery page is the only owner of the PKCE code exchange [3.42ms]
+(pass) account security actions > partial revoke-all outcomes stay honest and retryable in both password flows [0.22ms]
+(pass) account security actions > ordinary logout keeps provider failure retryable while still clearing Argus cookies [2.15ms]
+(pass) account security actions > ordinary logout reports cookie failure after provider revocation succeeds [0.41ms]
+(pass) account security actions > ordinary logout still starts cookie cleanup when auth lookup throws [0.18ms]
+(pass) account security actions > account security redirects only auth failures and retries unavailable checks [0.03ms]
+(pass) account security actions > normal password change proves the current password and requires a fresh login [0.19ms]
+(pass) account security actions > the change path is one native provider update with no sign-in verification [0.24ms]
+(pass) account security actions > a rejected current password leaves the session and cookies untouched [0.39ms]
+(pass) account security actions > normal password change reports a successful update when revoke-all fails [0.05ms]
+(pass) account security actions > recovery exchanges one code before changing the password [0.08ms]
+(pass) account security actions > recovery reports a successful update when revoke-all fails [0.05ms]
+(pass) account security actions > an invalid or reused recovery code cannot change a password [0.02ms]
+(pass) account security actions > signing out other sessions preserves this browser and its cookies [0.03ms]
+(pass) account security actions > signing out this browser uses only the local scope [0.03ms]
+(pass) account security actions > a revoke-others provider failure does not claim success [0.02ms]
+(pass) account security actions > global sign out reports partial cleanup without claiming cookie sync [0.04ms]
+(pass) recovery request safety > production recovery uses one configured origin and rejects another [1.30ms]
+(pass) recovery request safety > production recovery reports missing origin configuration as unavailable [2.61ms]
+(pass) recovery request safety > local recovery allows only the documented local origins [0.08ms]
+(pass) recovery request safety > rate limiting applies independently to normalized email and address [0.49ms]
+(pass) recovery request safety > rate limiting bounds active unique-key churn [2.33ms]
+(pass) recovery request safety > key churn never evicts an actively blocked recovery victim [0.05ms]
+(pass) recovery request safety > rate limiting globally removes expired one-off keys [1.43ms]
+(pass) recovery request safety > account-dependent provider rejection matches the accepted response [2.44ms]
+(pass) recovery request safety > classified CAPTCHA rejection is surfaced without provider detail [0.37ms]
+(pass) recovery request safety > recovery forwards one bounded CAPTCHA token to the provider [0.32ms]
+(pass) recovery request safety > recovery rejects missing or invalid CAPTCHA tokens before provider work [0.59ms]
+(pass) recovery request safety > recovery ignores a body-supplied redirect [0.06ms]
+(pass) recovery request safety > recovery rejects null and malformed origins before provider work [0.37ms]
+(pass) recovery request safety > recovery rejects non-json and oversized bodies before provider work [0.72ms]
+(pass) recovery request safety > recovery rejects non-object JSON before provider work [0.04ms]
+(pass) recovery request safety > recovery bounds email and client-address inputs before provider work [6.42ms]
+(pass) recovery request safety > recovery global abuse budget fails closed with retry guidance [1.07ms]
+(pass) recovery request safety > invalid recovery emails do not consume the provider-wide budget [0.09ms]
+(pass) recovery request safety > locally blocked recovery attempts do not consume the provider-wide budget [0.08ms]
+(pass) recovery request safety > account security confirmation labels are localized in English and Spanish [2.01ms]
+
+web/__tests__/recovery-client-ip.test.ts:
+(pass) trusted address survives rotated forwarding headers: undefined [0.61ms]
+(pass) trusted address survives rotated forwarding headers: "" [0.10ms]
+(pass) trusted address survives rotated forwarding headers: "   " [0.06ms]
+(pass) trusted address survives rotated forwarding headers: " X-Verified-Client-IP " [0.69ms]
+(pass) missing selected header shares the unknown bucket: undefined [0.11ms]
+(pass) missing selected header shares the unknown bucket: X-Verified-Client-IP [0.16ms]
+(pass) invalid trusted address rejects before sending: not-an-ip [0.04ms]
+(pass) invalid trusted address rejects before sending: 1111111111111111111111111111111111111111111111
+(pass) invalid trusted address rejects before sending: 203.0.113.55, 198.51.100.1
+(pass) same email remains bounded across trusted addresses [0.07ms]
+(pass) global budget bounds distinct trusted addresses and emails [3.31ms]
+(pass) malformed untrusted headers cannot reject recovery: undefined [0.08ms]
+(pass) malformed untrusted headers cannot reject recovery:     [0.11ms]
+(pass) malformed untrusted headers cannot reject recovery: 203.0.113.55 [0.02ms]
+
+ 51 pass
+ 0 fail
+ 159 expect() calls
+Ran 51 tests across 2 files. [144.00ms]

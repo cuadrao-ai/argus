@@ -1,0 +1,96 @@
+{
+  "sourceCommit": "80cb9aca17b8a3789ea32f121928af1b48226484",
+  "capturedAt": "2026-10-09T22:33:26.661Z",
+  "baseURL": "http://127.0.0.1:4512",
+  "browser": "Playwright Chromium headless, isolated context",
+  "captures": [
+    {
+      "route": "/",
+      "file": "business-es.png",
+      "width": 1440
+    },
+    {
+      "route": "/en",
+      "file": "business-en.png",
+      "width": 1440
+    },
+    {
+      "route": "/personal",
+      "file": "personal-es.png",
+      "width": 1440
+    },
+    {
+      "route": "/en/personal",
+      "file": "personal-en.png",
+      "width": 1440
+    },
+    {
+      "route": "/contacto",
+      "file": "contact-es.png",
+      "width": 1440
+    },
+    {
+      "route": "/en/contact",
+      "file": "contact-en.png",
+      "width": 1440
+    },
+    {
+      "route": "/privacidad",
+      "file": "privacy-es.png",
+      "width": 1440
+    },
+    {
+      "route": "/en/privacy",
+      "file": "privacy-en.png",
+      "width": 1440
+    },
+    {
+      "route": "/",
+      "file": "business-es-320.png",
+      "width": 320
+    },
+    {
+      "route": "/",
+      "file": "business-es-390.png",
+      "width": 390
+    },
+    {
+      "route": "/",
+      "file": "header-1151.png",
+      "width": 1151
+    },
+    {
+      "route": "/",
+      "file": "header-1200.png",
+      "width": 1200
+    },
+    {
+      "route": "/",
+      "file": "header-1440.png",
+      "width": 1440
+    },
+    {
+      "route": "/",
+      "file": "header-mobile-menu.png",
+      "width": 390
+    },
+    {
+      "route": "/",
+      "file": "footer-rest.png",
+      "width": 1440,
+      "state": "rest"
+    },
+    {
+      "route": "/",
+      "file": "footer-peek.png",
+      "width": 1440,
+      "state": "peek"
+    },
+    {
+      "route": "/",
+      "file": "footer-settled.png",
+      "width": 1440,
+      "state": "settled"
+    }
+  ]
+}

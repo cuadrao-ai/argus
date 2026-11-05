@@ -1,5 +1,5 @@
-"""Stage-0 Try next selection (issue #249, spec
-2026-07-29-try-next-surface-ownership.md): deterministic, result-aware,
+"""Stage-0 Try next selection (issue #249, `next_experiments` in
+docs/API_CONTRACT.md): deterministic, result-aware,
 capped, typed — and attached to the completed-result stage patch."""
 
 from __future__ import annotations

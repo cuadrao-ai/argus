@@ -21,6 +21,7 @@ from argus.api.main import app
 from argus.api.message_store import memory_conversation, memory_message
 from argus.api.schemas import OnboardingState
 from argus.domain.market_data.assets import ResolvedAsset
+from argus.domain.owner_scope import PERSONAL
 from fastapi.testclient import TestClient
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -154,11 +155,9 @@ async def _runtime_events(**kwargs: Any):
 
 @pytest.fixture(autouse=True)
 def _patch_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
-    from argus.api.routers import agent as agent_router
     from argus.domain import engine as domain_engine
 
     monkeypatch.setattr(api_state, "supabase_gateway", None)
-    monkeypatch.setattr(agent_router, "stream_agent_turn_events", _runtime_events)
     monkeypatch.setattr(domain_engine, "resolve_asset", _fake_resolve_asset)
     monkeypatch.setattr(domain_engine, "fetch_ohlcv", _fake_fetch_ohlcv)
     monkeypatch.setattr(domain_engine, "fetch_price_series", _fake_fetch_price_series)
@@ -173,7 +172,8 @@ def _client() -> TestClient:
 def _set_legacy_onboarding_stage(client: TestClient, stage: str) -> str:
     """Seed the legacy persisted profile shape directly, as old rows have it.
 
-    There is deliberately no API that can write onboarding state anymore, so
+    No API takes onboarding state from a client. `PATCH /me` sets only
+    `language_confirmed`, when a language is saved, so
     the seed mutates the store the way a legacy database row would look.
     """
 
@@ -211,45 +211,6 @@ def _ordinary_turn_reaches_runtime(client: TestClient) -> None:
     assert finals[0]["payload"]["assistant_response"] == ORDINARY_REPLY
 
 
-def test_legacy_language_selection_stage_reaches_ordinary_chat() -> None:
-    client = _client()
-    _set_legacy_onboarding_stage(client, "language_selection")
-    _ordinary_turn_reaches_runtime(client)
-
-
-def test_legacy_primary_goal_selection_stage_reaches_ordinary_chat() -> None:
-    client = _client()
-    _set_legacy_onboarding_stage(client, "primary_goal_selection")
-    _ordinary_turn_reaches_runtime(client)
-
-
-def test_marker_text_routes_as_ordinary_turn_without_profile_write() -> None:
-    """The hidden control protocol is gone: marker-shaped text is just text."""
-
-    client = _client()
-    before = client.get("/api/v1/me").json()["user"]["onboarding"]
-    conversation = client.post("/api/v1/conversations", json={}).json()["conversation"]
-
-    response = client.post(
-        "/api/v1/chat/stream",
-        json={
-            "conversation_id": conversation["id"],
-            "message": "__ONBOARDING_GOAL__:test_stock_idea",
-            "language": "en",
-        },
-    )
-    assert response.status_code == 200
-    events = _stream_events(response.text)
-    stages = [event["stage"] for event in events if event.get("type") == "stage_start"]
-    assert stages[0] == "interpret"
-    finals = [event for event in events if event.get("type") == "final"]
-    assert len(finals) == 1
-    assert finals[0]["payload"]["assistant_response"] == ORDINARY_REPLY
-
-    after = client.get("/api/v1/me").json()["user"]["onboarding"]
-    assert after == before
-
-
 def test_patch_me_ignores_legacy_onboarding_field() -> None:
     client = _client()
     before = client.get("/api/v1/me").json()["user"]["onboarding"]
@@ -275,53 +236,6 @@ def test_patch_me_ignores_legacy_onboarding_field() -> None:
     assert after == before
 
 
-def test_first_backtest_leaves_legacy_onboarding_state_untouched() -> None:
-    client = _client()
-    before = client.get("/api/v1/me").json()["user"]["onboarding"]
-    conversation = client.post("/api/v1/conversations", json={}).json()["conversation"]
-
-    response = client.post(
-        "/api/v1/chat/stream",
-        json={
-            "conversation_id": conversation["id"],
-            "message": "Backtest Tesla when it dips",
-            "language": "en",
-        },
-    )
-    assert response.status_code == 200
-    assert '"run"' in response.text
-
-    after = client.get("/api/v1/me").json()["user"]["onboarding"]
-    assert after == before
-
-
-def test_starter_prompts_are_goal_independent_and_localized() -> None:
-    client = _client()
-    baseline = client.get("/api/v1/chat/starter-prompts").json()["prompts"]
-    assert baseline
-    assert all(isinstance(prompt, str) and prompt for prompt in baseline)
-
-    user_id = client.get("/api/v1/me").json()["user"]["id"]
-    user = api_state.store.users[user_id]
-    api_state.store.users[user_id] = user.model_copy(
-        update={
-            "onboarding": OnboardingState(
-                completed=True,
-                stage="completed",
-                language_confirmed=True,
-                primary_goal="explore_crypto",
-            )
-        }
-    )
-    with_legacy_goal = client.get("/api/v1/chat/starter-prompts").json()["prompts"]
-    assert with_legacy_goal == baseline
-
-    assert client.patch("/api/v1/me", json={"language": "es-419"}).status_code == 200
-    spanish = client.get("/api/v1/chat/starter-prompts").json()["prompts"]
-    assert spanish
-    assert spanish != baseline
-
-
 def test_language_preference_updates_still_work() -> None:
     client = _client()
     response = client.patch(
@@ -344,6 +258,7 @@ def test_legacy_marker_messages_stay_hidden_from_reads() -> None:
     client = _client()
     user_id = client.get("/api/v1/me").json()["user"]["id"]
     conversation = memory_conversation(
+        scope=PERSONAL,
         title="Legacy",
         title_source="system_default",
         language="en",
@@ -387,7 +302,8 @@ def test_legacy_marker_messages_stay_hidden_from_reads() -> None:
 
 
 def test_no_active_source_carries_onboarding_protocol() -> None:
-    """Marker literals and onboarding writes exist only in legacy read filters."""
+    """Marker literals exist only in legacy read filters, and the profile router
+    touches onboarding state only to record that a language was chosen."""
 
     allowed_backend = {
         REPO_ROOT / "src/argus/api/chat/legacy_onboarding_markers.py",
@@ -413,12 +329,13 @@ def test_no_active_source_carries_onboarding_protocol() -> None:
                 offending.append(str(path.relative_to(REPO_ROOT)))
     assert offending == []
 
-    agent_router = (REPO_ROOT / "src/argus/api/routers/agent.py").read_text(
-        encoding="utf-8"
-    )
-    assert "onboarding" not in agent_router.lower()
-
     profile_router = (REPO_ROOT / "src/argus/api/routers/profile.py").read_text(
         encoding="utf-8"
     )
-    assert "onboarding" not in profile_router.lower()
+    onboarding_lines = [
+        line for line in profile_router.splitlines() if "onboarding" in line.lower()
+    ]
+    assert onboarding_lines, "PATCH /me records the chosen language in onboarding"
+    assert all(
+        "language_confirmed" in line for line in onboarding_lines
+    ), onboarding_lines

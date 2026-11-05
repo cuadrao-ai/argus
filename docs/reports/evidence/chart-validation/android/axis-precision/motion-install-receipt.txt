@@ -1,0 +1,9 @@
+Performing Streamed Install
+Success
+Starting: Intent { cmp=ai.argus.chartprototype/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: ai.argus.chartprototype/.MainActivity
+TotalTime: 2478
+WaitTime: 2503
+Complete

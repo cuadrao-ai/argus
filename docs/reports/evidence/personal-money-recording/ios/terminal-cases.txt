@@ -1,0 +1,27 @@
+ui-20260929T131712Z.log
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testAccountAndActivityRowsOpenFromCenter]' passed (72.141 seconds).
+Case passed; Xcode result finalizer stalled and was terminated; no clean runner exit claimed.
+
+ui-20260929T132906Z.log
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testIncomeSpendingRefundAndCorrections]' passed (326.433 seconds).
+Case passed; Xcode result finalizer stalled and was terminated; no clean runner exit claimed.
+
+ui-20260929T133516Z.log
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testTransferAndWrongAccountCorrection]' passed (318.747 seconds).
+Case passed; Xcode result finalizer stalled and was terminated; no clean runner exit claimed.
+
+ui-20260929T134103Z.log
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testCardPaymentRefundAndCreditBalance]' passed (322.893 seconds).
+Case passed; Xcode result finalizer stalled and was terminated; no clean runner exit claimed.
+
+ui-20260929T134706Z.log
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testMoneyReconciliationCurrenciesAndIdentity]' passed (423.703 seconds).
+Case passed; Xcode result finalizer stalled and was terminated; no clean runner exit claimed.
+
+ui-20260929T135454Z.log
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testCommittedResponseLossSurvivesRelaunch]' passed (126.763 seconds).
+Case passed; Xcode result finalizer stalled and was terminated; no clean runner exit claimed.
+
+ui-20260929T135754Z.log
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testRetainedHomeSurvivesReopening]' passed (15.513 seconds).
+TEST EXECUTE SUCCEEDED; exit 0

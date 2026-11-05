@@ -1,0 +1,30 @@
+Mac pass output: /Users/garces/.codex/worktrees/cuadrao-release-ui/private-alpha-next/ios/.build/mac-pass/20261004T085437Z
+== run_home_balance
+Passed 81 Home balance projection checks
+== run_plan_preview
+Passed 58 Plan preview checks
+== run_group_preview
+Passed 50 group preview checks
+== run_receipt_preview
+Receipt preview checks passed: 44
+== run_temporary_chat
+PASS: context voice ownership, nested return, minimization and recording lifecycle
+PASS: focus replacement/removal, draft/attachment continuity, turn snapshots, chart scope, temporary privacy and first-use examples (es)
+PASS: hold, left cancel, up lock, diagonal disambiguation, accessible recording, review and interruption
+PASS: live voice start, mute/speaking, interruption, keyboard handoff, minimization, end and conversation boundaries (es)
+PASS: temporary entry, whitespace, attachments, context lock, history isolation, draft restoration, new chat and history opening (es)
+PASS: context voice ownership, nested return, minimization and recording lifecycle
+PASS: focus replacement/removal, draft/attachment continuity, turn snapshots, chart scope, temporary privacy and first-use examples (en)
+PASS: hold, left cancel, up lock, diagonal disambiguation, accessible recording, review and interruption
+PASS: live voice start, mute/speaking, interruption, keyboard handoff, minimization, end and conversation boundaries (en)
+PASS: temporary entry, whitespace, attachments, context lock, history isolation, draft restoration, new chat and history opening (en)
+== run_avatar_crop
+Avatar crop checks passed: 213
+== run_release_updates
+Passed 25 release Updates checks
+== run_release_identity
+Release identity checks passed
+== run_tap_targets
+plain-style statements: 127, without a content shape: 44, reviewed: 44, unreviewed: 0, stale entries: 0, container styles: 0, helpers without a shape: 0
+== checks: ok
+Mac pass output: /Users/garces/.codex/worktrees/cuadrao-release-ui/private-alpha-next/ios/.build/mac-pass/20261004T085437Z

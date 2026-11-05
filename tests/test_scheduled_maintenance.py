@@ -4,6 +4,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 from scripts.ops import scheduled_maintenance
 from scripts.ops.scheduled_maintenance import (
     MaintenanceJob,
@@ -17,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _jobs() -> tuple[MaintenanceJob, ...]:
-    return maintenance_jobs(guest_limit=25, stale_limit=100)
+    return maintenance_jobs(guest_limit=25)
 
 
 def test_scheduled_pass_invokes_every_registered_ops_job() -> None:
@@ -25,33 +27,41 @@ def test_scheduled_pass_invokes_every_registered_ops_job() -> None:
 
     assert [job.name for job in jobs] == [
         "guest_workspace_retention",
-        "stale_backtest_jobs",
         "expired_access_welcome_claims",
+        "account_deletion_resume",
     ]
     assert jobs[0].argv[0] == "scripts/ops/cleanup_expired_guest_workspaces.py"
-    assert jobs[1].argv[0] == "scripts/ops/stale_backtest_jobs.py"
-    assert jobs[2].argv == ("scripts/ops/release_expired_access_welcome_claims.py",)
+    assert jobs[1].argv == ("scripts/ops/release_expired_access_welcome_claims.py",)
+    assert jobs[2].argv[0] == "scripts/ops/resume_account_deletions.py"
     for job in jobs:
         assert (ROOT / job.argv[0]).is_file()
 
 
 def test_bounded_batch_arguments_reach_each_job() -> None:
-    jobs = maintenance_jobs(guest_limit=40, stale_limit=7)
+    jobs = maintenance_jobs(guest_limit=40)
 
     assert jobs[0].argv == (
         "scripts/ops/cleanup_expired_guest_workspaces.py",
         "--limit",
         "40",
     )
-    assert jobs[1].argv == (
-        "scripts/ops/stale_backtest_jobs.py",
-        "--json",
-        "--limit",
-        "7",
-    )
+    assert jobs[2].argv[1:] == ("--limit", "25")
+    tuned = maintenance_jobs(guest_limit=40, deletion_limit=3)
+    assert tuned[0].argv[-1] == "40" and tuned[2].argv[1:] == ("--limit", "3")
 
 
-def test_a_failed_retention_purge_does_not_hide_the_reconciler() -> None:
+def test_deletion_limit_is_its_own_bounded_flag() -> None:
+    from scripts.ops.scheduled_maintenance import _build_parser
+
+    parser = _build_parser()
+    args = parser.parse_args(["--guest-limit", "40", "--deletion-limit", "9"])
+    assert (args.guest_limit, args.deletion_limit) == (40, 9)
+    for bad in ("0", "101"):
+        with pytest.raises(SystemExit):
+            parser.parse_args(["--deletion-limit", bad])
+
+
+def test_a_failed_retention_purge_does_not_hide_later_jobs() -> None:
     invoked: list[str] = []
 
     def runner(job: MaintenanceJob) -> int:
@@ -63,23 +73,23 @@ def test_a_failed_retention_purge_does_not_hide_the_reconciler() -> None:
 
     assert invoked == [
         "guest_workspace_retention",
-        "stale_backtest_jobs",
         "expired_access_welcome_claims",
+        "account_deletion_resume",
     ]
     assert summary["status"] == "degraded"
     assert summary["failed_count"] == 1
     assert summary["failed_jobs"] == ["guest_workspace_retention"]
 
 
-def test_a_failed_reconciliation_is_counted_and_named() -> None:
+def test_a_failed_job_is_counted_and_named() -> None:
     outcomes = run_maintenance(
         _jobs(),
-        runner=lambda job: 1 if job.name == "stale_backtest_jobs" else 0,
+        runner=lambda job: 1 if job.name == "account_deletion_resume" else 0,
     )
     summary = summarize(outcomes)
 
     assert summary["status"] == "degraded"
-    assert summary["failed_jobs"] == ["stale_backtest_jobs"]
+    assert summary["failed_jobs"] == ["account_deletion_resume"]
 
 
 def test_a_job_that_cannot_start_is_a_counted_failure_not_a_crash() -> None:
@@ -124,7 +134,7 @@ def test_main_exits_nonzero_and_prints_a_machine_readable_summary(
     monkeypatch.setattr(
         scheduled_maintenance,
         "run_job",
-        lambda job: 1 if job.name == "stale_backtest_jobs" else 0,
+        lambda job: 1 if job.name == "account_deletion_resume" else 0,
     )
 
     exit_code = main([])
@@ -132,7 +142,7 @@ def test_main_exits_nonzero_and_prints_a_machine_readable_summary(
 
     assert exit_code == 1
     assert summary["status"] == "degraded"
-    assert summary["failed_jobs"] == ["stale_backtest_jobs"]
+    assert summary["failed_jobs"] == ["account_deletion_resume"]
     assert summary["job_count"] == 3
 
 
@@ -167,10 +177,8 @@ def test_each_job_runs_as_its_own_child_from_the_repo_root(monkeypatch) -> None:
 
 def test_runbook_keeps_operator_entry_point_outside_render_contract() -> None:
     blueprint = (ROOT / "render.yaml").read_text(encoding="utf-8")
-    contract = (ROOT / ".github" / "argus-env.sh").read_text(encoding="utf-8")
     runbook = (ROOT / "docs" / "PRIVATE_LAUNCH_RUNBOOK.md").read_text(encoding="utf-8")
     entry_point = "poetry run python scripts/ops/scheduled_maintenance.py"
 
     assert f"startCommand: {entry_point}" not in blueprint
-    assert "ARGUS_RENDER_CRON_START_COMMAND" not in contract
     assert entry_point in runbook

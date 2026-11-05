@@ -1,0 +1,23 @@
+{
+  "source": "0a512315142c8d59b71146b0e24e1848072634e2",
+  "bundle": "local.argus.founder.47R3855RTJ",
+  "display_name": "Cuadrao Check",
+  "version": "3432",
+  "privacy_manifest": true,
+  "signature_verified": true,
+  "release_build": "passed",
+  "release_source": "0a512315142c8d59b71146b0e24e1848072634e2",
+  "phone_api_profile_status": 200,
+  "phone_api_accounts_status": 200,
+  "phone_install": "passed",
+  "preview": "untouched; separate bundle local.cuadrao.design.47R3855RTJ",
+  "remaining": [
+    "Debt and Goal iOS26.5 account-picker test failures under investigation",
+    "Physical Home and Chat visual acceptance",
+    "Physical connected money acceptance"
+  ],
+  "phone_launch": "passed; founder observed sign-in screen",
+  "installed_check_build": "3432",
+  "installed_preview_build": "3427",
+  "physical_acceptance": "pending sign-in and founder review"
+}

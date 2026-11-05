@@ -1,0 +1,25 @@
+Test Suite 'Selected tests' started at 2026-10-05 20:50:01.593.
+Test Suite 'ArgusSessionTests.xctest' started at 2026-10-05 20:50:01.593.
+Test Suite 'LiveCurrencyTests' started at 2026-10-05 20:50:01.593.
+Test Case '-[ArgusSessionTests.LiveCurrencyTests testLivePrimaryCurrencyWriteReadbackAndRelaunch]' started.
+Test Case '-[ArgusSessionTests.LiveCurrencyTests testLivePrimaryCurrencyWriteReadbackAndRelaunch]' passed (0.593 seconds).
+Test Suite 'LiveCurrencyTests' passed at 2026-10-05 20:50:02.186.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.593 (0.593) seconds
+Test Suite 'LiveFinancialAccountTests' started at 2026-10-05 20:50:02.186.
+Test Case '-[ArgusSessionTests.LiveFinancialAccountTests testLocalDurableAccountsThroughProductionClient]' started.
+Test Case '-[ArgusSessionTests.LiveFinancialAccountTests testLocalDurableAccountsThroughProductionClient]' passed (0.905 seconds).
+Test Suite 'LiveFinancialAccountTests' passed at 2026-10-05 20:50:03.091.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.905 (0.905) seconds
+Test Suite 'LiveSessionTests' started at 2026-10-05 20:50:03.092.
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveConcurrentRefreshAfterExpiryMargin]' started.
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveConcurrentRefreshAfterExpiryMargin]' passed (32.216 seconds).
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveInvalidLoginAndConfirmationRequiredSignup]' started.
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveInvalidLoginAndConfirmationRequiredSignup]' passed (0.169 seconds).
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveRegisteredRelaunchRevocationAndAccountSwitch]' started.
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveRegisteredRelaunchRevocationAndAccountSwitch]' passed (0.564 seconds).
+Test Suite 'LiveSessionTests' passed at 2026-10-05 20:50:36.041.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 32.949 (32.949) seconds
+Test Suite 'ArgusSessionTests.xctest' passed at 2026-10-05 20:50:36.041.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 34.447 (34.447) seconds
+Test Suite 'Selected tests' passed at 2026-10-05 20:50:36.041.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 34.447 (34.448) seconds

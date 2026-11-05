@@ -72,6 +72,18 @@ class ConversationMessagePersistenceMixin:
         row = _row_one(result)
         return Message.model_validate(row) if row else None
 
+    def message_conversation_id(self, *, user_id: str, message_id: str) -> str | None:
+        result = (
+            self.client.table("messages")
+            .select("conversation_id")
+            .eq("user_id", user_id)
+            .eq("id", message_id)
+            .limit(1)
+            .execute()
+        )
+        row = _row_one(result)
+        return str(row["conversation_id"]) if row else None
+
     def latest_message(
         self,
         *,

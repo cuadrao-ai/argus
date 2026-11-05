@@ -1,0 +1,13 @@
+{
+  "build": "3420",
+  "displayName": "Cuadrao Preview",
+  "bundleIdentifier": "local.cuadrao.design.47R3855RTJ",
+  "sourceCommit": "519cfa5f",
+  "integrationCommit": "0ea81a208668e0391aaf008412716f6cae38826c",
+  "device": "iPhone 15",
+  "installation": "confirmed by devicectl install and device app readback",
+  "remoteLaunch": "denied: device locked",
+  "physicalJourney": "not verified",
+  "authEnabled": false,
+  "standaloneDesignPreview": true
+}

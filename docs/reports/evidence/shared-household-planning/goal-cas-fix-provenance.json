@@ -1,0 +1,30 @@
+{
+  "test_source": "15503fce44087f7acdc5d28640bd9322710f0df5",
+  "changes": [
+    "tests/test_connected_goals_postgres.py"
+  ],
+  "failed_original_run": 36943678943,
+  "original_pr_run": 36943684986,
+  "original_pr_outcome": "SUCCESS; parallel push guest gate failed on legitimate stale account CAS escaping the old test",
+  "cause": "The allocation helper reads reviewed account versions before owner serialization; spending may advance the account while allocation waits. A stale rejection is correct.",
+  "fix": "Only documented allocation StaleVersion or goal_backing_shortfall accepted; outcome-correlated assigned/support pairs; final80000 cash; one20000 expense; ordered interleavings plus concurrent race",
+  "verification": {
+    "passed": 7,
+    "skipped": 0,
+    "files": [
+      "goal-cas-regression.txt",
+      "goal-cas-regression.xml",
+      "goal-cas-commands.txt"
+    ]
+  },
+  "production_source": "unchanged; no CAS relaxation, schema/service/UI/fixture changes",
+  "review": "Clean affected-only review atd2902076; ordered-case oracle finding fixed, no unchanged review expansion",
+  "final_test_source": "d290207646956a60ad1b1eb62b4a49a20e91901a",
+  "test_sha256": "a0f9e2789664ad85cf05c4fdc87f4e96b550af990bc3a336c82eed1ec244b50a",
+  "final_verification": {
+    "passed": 7,
+    "skipped": 0,
+    "log": "goal-cas-final.txt",
+    "junit": "goal-cas-final.xml"
+  }
+}

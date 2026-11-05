@@ -6,6 +6,7 @@ from typing import Any
 from uuid import UUID
 
 import pytest
+from argus.domain.owner_scope import PERSONAL
 
 
 class _RecordingCursor:
@@ -59,7 +60,15 @@ def test_preview_read_uses_one_owner_scoped_latest_message_query():
     owner = "30000000-0000-0000-0000-000000000001"
     ids = ["20000000-0000-0000-0000-000000000001", "20000000-0000-0000-0000-000000000002"]
     pool = _RecordingPool(
-        [[{"conversation_id": UUID(ids[0]), "id": UUID(ids[1]), "metadata": {"result_card": {}}}]]
+        [
+            [
+                {
+                    "conversation_id": UUID(ids[0]),
+                    "id": UUID(ids[1]),
+                    "metadata": {"result_card": {}},
+                }
+            ]
+        ]
     )
     rows = reader_type(pool).read_conversation_preview_messages(
         user_id=owner, conversation_ids=ids
@@ -117,6 +126,7 @@ def test_conversation_first_page_uses_owner_scoped_limit_plus_one_sql() -> None:
 
     assert (
         reader.list_conversation_rows(
+            scope=PERSONAL,
             user_id="30000000-0000-0000-0000-000000000001",
             limit=2,
             archived=None,
@@ -162,6 +172,7 @@ def test_conversation_cursor_uses_exact_pivot_and_tuple_keyset_variants(
 
     assert (
         reader_type(pool).list_conversation_rows(
+            scope=PERSONAL,
             user_id="30000000-0000-0000-0000-000000000001",
             limit=20,
             archived=archived,
@@ -235,6 +246,7 @@ def test_conversation_missing_foreign_or_ambiguous_pivot_fails_closed(
 
     with pytest.raises(cursor_error):
         reader_type(pool).list_conversation_rows(
+            scope=PERSONAL,
             user_id="30000000-0000-0000-0000-000000000001",
             limit=20,
             archived=False,
@@ -291,6 +303,7 @@ def test_keyset_reader_rejects_invalid_or_incomplete_ids_before_acquiring_pool()
 
     with pytest.raises(ValueError, match="owner"):
         reader.list_conversation_rows(
+            scope=PERSONAL,
             user_id="not-a-uuid",
             limit=20,
             archived=False,
@@ -298,6 +311,7 @@ def test_keyset_reader_rejects_invalid_or_incomplete_ids_before_acquiring_pool()
         )
     with pytest.raises(cursor_error, match="incomplete"):
         reader.list_conversation_rows(
+            scope=PERSONAL,
             user_id="30000000-0000-0000-0000-000000000001",
             limit=20,
             archived=False,

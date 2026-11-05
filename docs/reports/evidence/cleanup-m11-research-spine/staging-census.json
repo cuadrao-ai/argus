@@ -1,0 +1,671 @@
+{
+  "project_ref": "skedzwocnmrhfigiwyzi",
+  "source_commit": "651870a54be4e5506dbb38f3902fef1a97eef8df",
+  "access": "Supabase MCP execute_sql, BEGIN READ ONLY, ROLLBACK",
+  "census": {
+    "views": [],
+    "tables": [
+      {
+        "table": "backtest_jobs",
+        "rls_enabled": true
+      },
+      {
+        "table": "backtest_runs",
+        "rls_enabled": true
+      },
+      {
+        "table": "collection_strategies",
+        "rls_enabled": true
+      },
+      {
+        "table": "collections",
+        "rls_enabled": true
+      },
+      {
+        "table": "context_packets",
+        "rls_enabled": true
+      },
+      {
+        "table": "cost_ledger_entries",
+        "rls_enabled": true
+      },
+      {
+        "table": "decision_notes",
+        "rls_enabled": true
+      },
+      {
+        "table": "evidence_artifacts",
+        "rls_enabled": true
+      },
+      {
+        "table": "idea_versions",
+        "rls_enabled": true
+      },
+      {
+        "table": "ideas",
+        "rls_enabled": true
+      },
+      {
+        "table": "public_excerpt_snapshots",
+        "rls_enabled": true
+      },
+      {
+        "table": "route_receipts",
+        "rls_enabled": true
+      },
+      {
+        "table": "run_context_packets",
+        "rls_enabled": true
+      },
+      {
+        "table": "strategies",
+        "rls_enabled": true
+      }
+    ],
+    "database": "postgres",
+    "triggers": [
+      {
+        "name": "revoke_public_excerpts_on_run_delete",
+        "table": "backtest_runs",
+        "function": "revoke_public_excerpts_for_deleted_source()",
+        "definition": "CREATE TRIGGER revoke_public_excerpts_on_run_delete BEFORE DELETE ON public.backtest_runs FOR EACH ROW EXECUTE FUNCTION revoke_public_excerpts_for_deleted_source()"
+      },
+      {
+        "name": "revoke_public_excerpts_on_conversation_purge",
+        "table": "conversations",
+        "function": "revoke_public_excerpts_for_deleted_source()",
+        "definition": "CREATE TRIGGER revoke_public_excerpts_on_conversation_purge BEFORE DELETE ON public.conversations FOR EACH ROW EXECUTE FUNCTION revoke_public_excerpts_for_deleted_source()"
+      },
+      {
+        "name": "revoke_public_excerpts_on_conversation_soft_delete",
+        "table": "conversations",
+        "function": "revoke_public_excerpts_for_deleted_source()",
+        "definition": "CREATE TRIGGER revoke_public_excerpts_on_conversation_soft_delete AFTER UPDATE OF deleted_at ON public.conversations FOR EACH ROW EXECUTE FUNCTION revoke_public_excerpts_for_deleted_source()"
+      },
+      {
+        "name": "set_decision_notes_updated_at",
+        "table": "decision_notes",
+        "function": "set_updated_at()",
+        "definition": "CREATE TRIGGER set_decision_notes_updated_at BEFORE UPDATE ON public.decision_notes FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+      },
+      {
+        "name": "prevent_evidence_artifacts_immutable_update",
+        "table": "evidence_artifacts",
+        "function": "prevent_evidence_artifact_immutable_update()",
+        "definition": "CREATE TRIGGER prevent_evidence_artifacts_immutable_update BEFORE UPDATE ON public.evidence_artifacts FOR EACH ROW EXECUTE FUNCTION prevent_evidence_artifact_immutable_update()"
+      },
+      {
+        "name": "revoke_public_excerpts_on_artifact_delete",
+        "table": "evidence_artifacts",
+        "function": "revoke_public_excerpts_for_deleted_source()",
+        "definition": "CREATE TRIGGER revoke_public_excerpts_on_artifact_delete BEFORE DELETE ON public.evidence_artifacts FOR EACH ROW EXECUTE FUNCTION revoke_public_excerpts_for_deleted_source()"
+      },
+      {
+        "name": "set_evidence_artifacts_updated_at",
+        "table": "evidence_artifacts",
+        "function": "set_updated_at()",
+        "definition": "CREATE TRIGGER set_evidence_artifacts_updated_at BEFORE UPDATE ON public.evidence_artifacts FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+      },
+      {
+        "name": "prevent_idea_versions_immutable_update",
+        "table": "idea_versions",
+        "function": "prevent_idea_version_immutable_update()",
+        "definition": "CREATE TRIGGER prevent_idea_versions_immutable_update BEFORE UPDATE ON public.idea_versions FOR EACH ROW EXECUTE FUNCTION prevent_idea_version_immutable_update()"
+      },
+      {
+        "name": "set_ideas_updated_at",
+        "table": "ideas",
+        "function": "set_updated_at()",
+        "definition": "CREATE TRIGGER set_ideas_updated_at BEFORE UPDATE ON public.ideas FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+      },
+      {
+        "name": "revoke_public_excerpts_on_message_delete",
+        "table": "messages",
+        "function": "revoke_public_excerpts_for_deleted_source()",
+        "definition": "CREATE TRIGGER revoke_public_excerpts_on_message_delete BEFORE DELETE ON public.messages FOR EACH ROW EXECUTE FUNCTION revoke_public_excerpts_for_deleted_source()"
+      },
+      {
+        "name": "enforce_public_excerpt_source_is_live",
+        "table": "public_excerpt_snapshots",
+        "function": "enforce_public_excerpt_source_is_live()",
+        "definition": "CREATE TRIGGER enforce_public_excerpt_source_is_live BEFORE INSERT ON public.public_excerpt_snapshots FOR EACH ROW EXECUTE FUNCTION enforce_public_excerpt_source_is_live()"
+      },
+      {
+        "name": "prevent_public_excerpt_immutable_update",
+        "table": "public_excerpt_snapshots",
+        "function": "prevent_public_excerpt_immutable_update()",
+        "definition": "CREATE TRIGGER prevent_public_excerpt_immutable_update BEFORE UPDATE ON public.public_excerpt_snapshots FOR EACH ROW EXECUTE FUNCTION prevent_public_excerpt_immutable_update()"
+      }
+    ],
+    "functions": [
+      {
+        "function": "admit_backtest_job(uuid,text,text,text,text,jsonb,text,uuid,uuid,uuid,jsonb,integer,integer,integer,integer,jsonb)",
+        "matched_targets": [
+          "backtest_jobs",
+          "backtest_runs"
+        ]
+      },
+      {
+        "function": "argus_private.backtest_job_result_hydrateable(backtest_jobs)",
+        "matched_targets": [
+          "backtest_jobs",
+          "backtest_runs",
+          "evidence_artifacts"
+        ]
+      },
+      {
+        "function": "argus_private.claim_guest_workspace_handoff(uuid,text,uuid)",
+        "matched_targets": [
+          "backtest_jobs",
+          "backtest_runs",
+          "collection_strategies",
+          "collections",
+          "context_packets",
+          "decision_notes",
+          "evidence_artifacts",
+          "idea_versions",
+          "ideas",
+          "run_context_packets",
+          "strategies"
+        ]
+      },
+      {
+        "function": "argus_private.validated_usage_windows(uuid,text,jsonb,timestamp with time zone)",
+        "matched_targets": [
+          "backtest_runs"
+        ]
+      },
+      {
+        "function": "baseline_conversation_activity_read_states(timestamp with time zone,uuid,integer)",
+        "matched_targets": [
+          "backtest_jobs"
+        ]
+      },
+      {
+        "function": "claim_expired_guest_workspaces(integer,boolean)",
+        "matched_targets": [
+          "backtest_jobs",
+          "backtest_runs",
+          "collection_strategies",
+          "collections",
+          "context_packets",
+          "cost_ledger_entries",
+          "decision_notes",
+          "evidence_artifacts",
+          "idea_versions",
+          "ideas",
+          "route_receipts",
+          "run_context_packets",
+          "strategies"
+        ]
+      },
+      {
+        "function": "delete_withheld_backtest_result(uuid,uuid)",
+        "matched_targets": [
+          "backtest_runs",
+          "evidence_artifacts",
+          "idea_versions",
+          "ideas"
+        ]
+      },
+      {
+        "function": "enforce_public_excerpt_source_is_live()",
+        "matched_targets": [
+          "backtest_runs",
+          "evidence_artifacts"
+        ]
+      },
+      {
+        "function": "finalize_backtest_completion(uuid,text,jsonb,jsonb,jsonb,jsonb)",
+        "matched_targets": [
+          "backtest_runs",
+          "evidence_artifacts",
+          "idea_versions",
+          "ideas",
+          "strategies"
+        ]
+      },
+      {
+        "function": "finalize_direct_backtest_success(uuid,uuid,text,jsonb,jsonb,jsonb,jsonb)",
+        "matched_targets": [
+          "backtest_jobs"
+        ]
+      },
+      {
+        "function": "mutate_conversation_activity_read_state(uuid,uuid,text,text,uuid)",
+        "matched_targets": [
+          "backtest_jobs"
+        ]
+      },
+      {
+        "function": "prevent_evidence_artifact_immutable_update()",
+        "matched_targets": [
+          "evidence_artifacts"
+        ]
+      },
+      {
+        "function": "prevent_idea_version_immutable_update()",
+        "matched_targets": [
+          "idea_versions"
+        ]
+      },
+      {
+        "function": "prevent_public_excerpt_immutable_update()",
+        "matched_targets": [
+          "public_excerpt_snapshots"
+        ]
+      },
+      {
+        "function": "read_conversation_activity_sources(uuid,uuid[])",
+        "matched_targets": [
+          "backtest_jobs"
+        ]
+      },
+      {
+        "function": "replace_empty_guest_conversation(uuid,text,text,text)",
+        "matched_targets": [
+          "backtest_jobs",
+          "backtest_runs"
+        ]
+      },
+      {
+        "function": "replace_guest_conversation(uuid,text,text,text)",
+        "matched_targets": [
+          "backtest_jobs",
+          "backtest_runs",
+          "collection_strategies",
+          "collections",
+          "context_packets",
+          "decision_notes",
+          "evidence_artifacts",
+          "idea_versions",
+          "ideas",
+          "run_context_packets",
+          "strategies"
+        ]
+      },
+      {
+        "function": "revoke_public_excerpts_for_deleted_source()",
+        "matched_targets": [
+          "backtest_runs",
+          "public_excerpt_snapshots"
+        ]
+      },
+      {
+        "function": "upsert_current_decision_note(uuid,uuid,uuid,text,text)",
+        "matched_targets": [
+          "decision_notes",
+          "evidence_artifacts",
+          "idea_versions",
+          "ideas"
+        ]
+      }
+    ],
+    "read_only": "on",
+    "captured_at": "2026-10-18T02:47:01.299883+00:00",
+    "foreign_keys": [
+      {
+        "name": "backtest_jobs_confirmation_message_id_fkey",
+        "source": "backtest_jobs",
+        "target": "messages",
+        "definition": "FOREIGN KEY (confirmation_message_id) REFERENCES messages(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "backtest_jobs_conversation_id_fkey",
+        "source": "backtest_jobs",
+        "target": "conversations",
+        "definition": "FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "backtest_jobs_request_message_id_fkey",
+        "source": "backtest_jobs",
+        "target": "messages",
+        "definition": "FOREIGN KEY (request_message_id) REFERENCES messages(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "backtest_jobs_result_run_id_fkey",
+        "source": "backtest_jobs",
+        "target": "backtest_runs",
+        "definition": "FOREIGN KEY (result_run_id) REFERENCES backtest_runs(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "backtest_jobs_user_id_fkey",
+        "source": "backtest_jobs",
+        "target": "profiles",
+        "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "backtest_runs_conversation_id_fkey",
+        "source": "backtest_runs",
+        "target": "conversations",
+        "definition": "FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "backtest_runs_strategy_id_fkey",
+        "source": "backtest_runs",
+        "target": "strategies",
+        "definition": "FOREIGN KEY (strategy_id) REFERENCES strategies(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "backtest_runs_user_id_fkey",
+        "source": "backtest_runs",
+        "target": "profiles",
+        "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "collection_strategies_collection_id_fkey",
+        "source": "collection_strategies",
+        "target": "collections",
+        "definition": "FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "collection_strategies_strategy_id_fkey",
+        "source": "collection_strategies",
+        "target": "strategies",
+        "definition": "FOREIGN KEY (strategy_id) REFERENCES strategies(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "collection_strategies_user_id_fkey",
+        "source": "collection_strategies",
+        "target": "profiles",
+        "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "collections_user_id_fkey",
+        "source": "collections",
+        "target": "profiles",
+        "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "context_packets_user_id_fkey",
+        "source": "context_packets",
+        "target": "profiles",
+        "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "cost_ledger_entries_backtest_job_id_fkey",
+        "source": "cost_ledger_entries",
+        "target": "backtest_jobs",
+        "definition": "FOREIGN KEY (backtest_job_id) REFERENCES backtest_jobs(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "cost_ledger_entries_backtest_run_id_fkey",
+        "source": "cost_ledger_entries",
+        "target": "backtest_runs",
+        "definition": "FOREIGN KEY (backtest_run_id) REFERENCES backtest_runs(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "cost_ledger_entries_conversation_id_fkey",
+        "source": "cost_ledger_entries",
+        "target": "conversations",
+        "definition": "FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "cost_ledger_entries_message_id_fkey",
+        "source": "cost_ledger_entries",
+        "target": "messages",
+        "definition": "FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "cost_ledger_entries_route_receipt_id_fkey",
+        "source": "cost_ledger_entries",
+        "target": "route_receipts",
+        "definition": "FOREIGN KEY (route_receipt_id) REFERENCES route_receipts(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "cost_ledger_entries_user_id_fkey",
+        "source": "cost_ledger_entries",
+        "target": "profiles",
+        "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "decision_notes_evidence_artifact_id_fkey",
+        "source": "decision_notes",
+        "target": "evidence_artifacts",
+        "definition": "FOREIGN KEY (evidence_artifact_id) REFERENCES evidence_artifacts(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "decision_notes_idea_id_fkey",
+        "source": "decision_notes",
+        "target": "ideas",
+        "definition": "FOREIGN KEY (idea_id) REFERENCES ideas(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "decision_notes_idea_version_id_fkey",
+        "source": "decision_notes",
+        "target": "idea_versions",
+        "definition": "FOREIGN KEY (idea_version_id) REFERENCES idea_versions(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "decision_notes_source_conversation_id_fkey",
+        "source": "decision_notes",
+        "target": "conversations",
+        "definition": "FOREIGN KEY (source_conversation_id) REFERENCES conversations(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "decision_notes_source_message_id_fkey",
+        "source": "decision_notes",
+        "target": "messages",
+        "definition": "FOREIGN KEY (source_message_id) REFERENCES messages(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "decision_notes_user_id_fkey",
+        "source": "decision_notes",
+        "target": "profiles",
+        "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "evidence_artifacts_idea_id_fkey",
+        "source": "evidence_artifacts",
+        "target": "ideas",
+        "definition": "FOREIGN KEY (idea_id) REFERENCES ideas(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "evidence_artifacts_idea_version_id_fkey",
+        "source": "evidence_artifacts",
+        "target": "idea_versions",
+        "definition": "FOREIGN KEY (idea_version_id) REFERENCES idea_versions(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "evidence_artifacts_source_conversation_id_fkey",
+        "source": "evidence_artifacts",
+        "target": "conversations",
+        "definition": "FOREIGN KEY (source_conversation_id) REFERENCES conversations(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "evidence_artifacts_source_run_id_fkey",
+        "source": "evidence_artifacts",
+        "target": "backtest_runs",
+        "definition": "FOREIGN KEY (source_run_id) REFERENCES backtest_runs(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "evidence_artifacts_user_id_fkey",
+        "source": "evidence_artifacts",
+        "target": "profiles",
+        "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "idea_versions_idea_id_fkey",
+        "source": "idea_versions",
+        "target": "ideas",
+        "definition": "FOREIGN KEY (idea_id) REFERENCES ideas(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "idea_versions_source_conversation_id_fkey",
+        "source": "idea_versions",
+        "target": "conversations",
+        "definition": "FOREIGN KEY (source_conversation_id) REFERENCES conversations(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "idea_versions_source_run_id_fkey",
+        "source": "idea_versions",
+        "target": "backtest_runs",
+        "definition": "FOREIGN KEY (source_run_id) REFERENCES backtest_runs(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "idea_versions_user_id_fkey",
+        "source": "idea_versions",
+        "target": "profiles",
+        "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "ideas_active_version_id_fkey",
+        "source": "ideas",
+        "target": "idea_versions",
+        "definition": "FOREIGN KEY (active_version_id) REFERENCES idea_versions(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "ideas_source_conversation_id_fkey",
+        "source": "ideas",
+        "target": "conversations",
+        "definition": "FOREIGN KEY (source_conversation_id) REFERENCES conversations(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "ideas_user_id_fkey",
+        "source": "ideas",
+        "target": "profiles",
+        "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "public_excerpt_snapshots_evidence_artifact_id_fkey",
+        "source": "public_excerpt_snapshots",
+        "target": "evidence_artifacts",
+        "definition": "FOREIGN KEY (evidence_artifact_id) REFERENCES evidence_artifacts(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "public_excerpt_snapshots_owner_id_fkey",
+        "source": "public_excerpt_snapshots",
+        "target": "profiles",
+        "definition": "FOREIGN KEY (owner_id) REFERENCES profiles(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "public_excerpt_snapshots_source_conversation_id_fkey",
+        "source": "public_excerpt_snapshots",
+        "target": "conversations",
+        "definition": "FOREIGN KEY (source_conversation_id) REFERENCES conversations(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "public_excerpt_snapshots_source_run_id_fkey",
+        "source": "public_excerpt_snapshots",
+        "target": "backtest_runs",
+        "definition": "FOREIGN KEY (source_run_id) REFERENCES backtest_runs(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "route_receipts_conversation_id_fkey",
+        "source": "route_receipts",
+        "target": "conversations",
+        "definition": "FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "route_receipts_message_id_fkey",
+        "source": "route_receipts",
+        "target": "messages",
+        "definition": "FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "route_receipts_run_id_fkey",
+        "source": "route_receipts",
+        "target": "backtest_runs",
+        "definition": "FOREIGN KEY (run_id) REFERENCES backtest_runs(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "route_receipts_user_id_fkey",
+        "source": "route_receipts",
+        "target": "profiles",
+        "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "run_context_packets_context_packet_id_fkey",
+        "source": "run_context_packets",
+        "target": "context_packets",
+        "definition": "FOREIGN KEY (context_packet_id) REFERENCES context_packets(id) ON DELETE RESTRICT"
+      },
+      {
+        "name": "run_context_packets_run_id_fkey",
+        "source": "run_context_packets",
+        "target": "backtest_runs",
+        "definition": "FOREIGN KEY (run_id) REFERENCES backtest_runs(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "run_context_packets_user_id_fkey",
+        "source": "run_context_packets",
+        "target": "profiles",
+        "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "strategies_conversation_id_fkey",
+        "source": "strategies",
+        "target": "conversations",
+        "definition": "FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "strategies_user_id_fkey",
+        "source": "strategies",
+        "target": "profiles",
+        "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+      }
+    ],
+    "missing_targets": []
+  },
+  "exact_row_counts": {
+    "captured_separately_after": "2026-10-18T02:44:15Z",
+    "rows": [
+      {
+        "table_name": "backtest_jobs",
+        "row_count": 0
+      },
+      {
+        "table_name": "backtest_runs",
+        "row_count": 0
+      },
+      {
+        "table_name": "collection_strategies",
+        "row_count": 0
+      },
+      {
+        "table_name": "collections",
+        "row_count": 0
+      },
+      {
+        "table_name": "context_packets",
+        "row_count": 0
+      },
+      {
+        "table_name": "cost_ledger_entries",
+        "row_count": 0
+      },
+      {
+        "table_name": "decision_notes",
+        "row_count": 0
+      },
+      {
+        "table_name": "evidence_artifacts",
+        "row_count": 0
+      },
+      {
+        "table_name": "idea_versions",
+        "row_count": 0
+      },
+      {
+        "table_name": "ideas",
+        "row_count": 0
+      },
+      {
+        "table_name": "public_excerpt_snapshots",
+        "row_count": 0
+      },
+      {
+        "table_name": "route_receipts",
+        "row_count": 0
+      },
+      {
+        "table_name": "run_context_packets",
+        "row_count": 0
+      },
+      {
+        "table_name": "strategies",
+        "row_count": 0
+      }
+    ]
+  }
+}

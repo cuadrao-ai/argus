@@ -1,0 +1,3 @@
+source_id,date,description,amount,currency,kind,account,destination
+tx-dop-01,2026-09-10,Ingreso sintético,1200.00,DOP,income,cash-dop,personal
+overlap-new,2026-09-11,Compra sintética,60.00,DOP,expense,cash-dop,personal

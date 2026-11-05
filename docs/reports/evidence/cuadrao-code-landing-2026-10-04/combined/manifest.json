@@ -1,0 +1,68 @@
+[
+  {
+    "file": "context-chart-selection-en.png",
+    "test": "CuadraoContextUITests/testChartContextKeepsPeriodAndDistributionSelection()",
+    "source": "349A1DBD-956D-4A3F-9D00-C7A5978A8092.png",
+    "timestamp": 1791157719.166
+  },
+  {
+    "file": "interactive-paging-balance-es.png",
+    "test": "CuadraoHomeChartUITests/testInteractivePagingAndBalanceMeaning()",
+    "source": "83CC8B61-A818-4745-92AF-8A59A59CD043.png",
+    "timestamp": 1791157739.694
+  },
+  {
+    "file": "story-distribution-decomposition-es.png",
+    "test": "CuadraoHomeChartUITests/testSpendingHighlightsAndReturn()",
+    "source": "819E63C4-D01D-49B4-9E60-F6E558D73AFC.png",
+    "timestamp": 1791157780.662
+  },
+  {
+    "file": "story-all-highlights-es.png",
+    "test": "CuadraoHomeChartUITests/testSpendingHighlightsAndReturn()",
+    "source": "1B20ECD5-42A7-4268-AE76-B2A8D9F35332.png",
+    "timestamp": 1791157762.838
+  },
+  {
+    "file": "story-supporting-months-es.png",
+    "test": "CuadraoHomeChartUITests/testSpendingHighlightsAndReturn()",
+    "source": "46AE5759-59AC-44D1-8ED3-9C22367B8962.png",
+    "timestamp": 1791157757.214
+  },
+  {
+    "file": "story-history-average-es.png",
+    "test": "CuadraoHomeChartUITests/testSpendingHighlightsAndReturn()",
+    "source": "5E610107-ACA0-43CF-B363-5BDE2B009C81.png",
+    "timestamp": 1791157755.186
+  },
+  {
+    "file": "story-month-title-es.png",
+    "test": "CuadraoHomeChartUITests/testSpendingHighlightsAndReturn()",
+    "source": "8EAF8064-B95C-4ED4-8E46-2CB524E8901B.png",
+    "timestamp": 1791157750.527
+  },
+  {
+    "file": "search-no-results-es.png",
+    "test": "CuadraoSupportUITests/testSearchPlansChatReturnAndRecovery()",
+    "source": "67798584-3E53-43A8-B543-833DB107ED46.png",
+    "timestamp": 1791157803.501
+  },
+  {
+    "file": "search-chat-return-es.png",
+    "test": "CuadraoSupportUITests/testSearchPlansChatReturnAndRecovery()",
+    "source": "8D7B0509-CCAD-4490-A464-D9D0CFBE490F.png",
+    "timestamp": 1791157798.497
+  },
+  {
+    "file": "search-real-plan-es.png",
+    "test": "CuadraoSupportUITests/testSearchPlansChatReturnAndRecovery()",
+    "source": "3D84CD57-7FAA-4270-B3EA-B9D9A268AA93.png",
+    "timestamp": 1791157793.141
+  },
+  {
+    "file": "access-unanswered-es-light.png",
+    "test": "InvitationsUITests/testAnAccessCheckWithoutAnAnswerKeepsTheAppClosed()",
+    "source": "1952C2BF-8C2B-475F-B843-14A81A5D3BCC.png",
+    "timestamp": 1791157817.448
+  }
+]

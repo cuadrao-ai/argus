@@ -31,12 +31,14 @@ from argus.domain.research.admission import (
     ResearchAttemptAdmission,
     admitted_provider_work,
 )
+from argus.domain.research.cache import SearchPacketCache
 from argus.domain.research.search import (
     SearchResultPacket,
     SearchUnavailableError,
     discovery_search_config,
     selection,
 )
+from argus.domain.research.search.contracts import MAX_RESULTS
 from argus.llm.openrouter import invoke_openrouter_chat_completion
 
 
@@ -95,7 +97,7 @@ async def discovery_operation_result(
     current_user_message: str,
     language: str,
     discovery_allowance_available: bool = True,
-    packet_cache: Any | None = None,
+    packet_cache: type[SearchPacketCache] | None = None,
     provider_admission: Callable[[], ResearchAttemptAdmission] | None = None,
 ) -> StageResult | None:
     """The find pipeline behind the act gate, callable as a rail operation.
@@ -133,7 +135,14 @@ async def discovery_operation_result(
             can_request_search=discovery_allowance_available,
         )
     usage: dict[str, Any] = {"search_attempted": False}
-    packet = packet_cache.get() if packet_cache is not None else None
+    # Bind once to the exact request the provider receives. Extraction and
+    # voicing remain per request and never enter the shared packet.
+    cache = (
+        packet_cache(query=query, provider_id=config.provider_id, max_results=MAX_RESULTS)
+        if packet_cache is not None
+        else None
+    )
+    packet = cache.get() if cache is not None else None
     if packet is not None:
         # A cached packet is not a provider attempt: no search substage, no
         # spend, and the ceiling stays untouched.
@@ -169,6 +178,7 @@ async def discovery_operation_result(
                     note = research_capacity_exhausted_note(
                         runtime_locale(language),
                         guest_allowance=admission.guest_exhausted,
+                        registered_allowance=admission.registered_exhausted,
                     )
                     answer = result.stage_patch.get("assistant_response")
                     result.stage_patch["assistant_response"] = (
@@ -184,7 +194,7 @@ async def discovery_operation_result(
                 packet = await asyncio.to_thread(
                     provider.search,
                     query,
-                    max_results=5,
+                    max_results=MAX_RESULTS,
                     timeout_seconds=config.timeout_seconds,
                 )
         except SearchUnavailableError as exc:
@@ -218,9 +228,9 @@ async def discovery_operation_result(
             cost_usd=packet.cost_usd,
             result_count=len(packet.results),
         )
-        if packet_cache is not None:
-            usage["cache_status"] = "miss"
-            packet_cache.put(packet)
+        usage["cache_status"] = "miss"
+        if cache is not None:
+            cache.put(packet)
     extraction = await extract_candidates(
         request=request, packet=packet, language=language
     )

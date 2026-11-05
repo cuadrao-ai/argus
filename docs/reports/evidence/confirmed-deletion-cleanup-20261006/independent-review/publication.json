@@ -1,0 +1,141 @@
+{
+  "tested_head": "f787ca63af9ba4e6355357ed5e1a8ead5a3dfb21",
+  "current_integration": "8146d16e90633eb543781f8882665482f0d5dca9",
+  "raw_manifest_payloads": 16,
+  "raw_bundle_files_including_manifest": 17,
+  "verified_package_git_objects_and_hashes": 52,
+  "normalization": "UTF-8 text; trim trailing whitespace and trailing blank lines; one final newline. Raw manifest retained as raw-files.json. Changes are archival evidence only.",
+  "results": {
+    "baseline_gap_probe_passed": 1,
+    "package_executed": 174,
+    "package_passed": 170,
+    "package_existing_opt_in_skips": 4,
+    "filesystem_passed": 6,
+    "deletion_passed": 20,
+    "live_sdk_passed": 1,
+    "focused_and_live_skips": 0
+  },
+  "overlap_rule": "Full package, filesystem6, deletion20 and migrated live case are separate overlapping runs; do not sum.",
+  "external_limits": "Synthetic analytics; no provider/hosted completion, app UI/receipt-store integration or physical-phone proof.",
+  "raw_to_published": [
+    {
+      "raw_path": "8146-gap-reproduction.log",
+      "published_path": "8146-gap-reproduction.log",
+      "raw_sha256": "c34af4eac6f6a4dda7b16424a141adb7aa3a715d053885d411ffaaf82ac79a8d",
+      "published_sha256": "c34af4eac6f6a4dda7b16424a141adb7aa3a715d053885d411ffaaf82ac79a8d",
+      "changed": false
+    },
+    {
+      "raw_path": "BaselineDeletionCleanupGapTests.swift",
+      "published_path": "BaselineDeletionCleanupGapTests.swift",
+      "raw_sha256": "eb3cb6db2f1994ff8234e261d1eddd5c9fb81d4f7937b99854947c28dba1cdc2",
+      "published_sha256": "eb3cb6db2f1994ff8234e261d1eddd5c9fb81d4f7937b99854947c28dba1cdc2",
+      "changed": false
+    },
+    {
+      "raw_path": "LiveDeletionTests.swift",
+      "published_path": "LiveDeletionTests.swift",
+      "raw_sha256": "387f93f6fb2279f0ed3e43c36f1294979cc77563227760f267bd5b74db8a34f6",
+      "published_sha256": "387f93f6fb2279f0ed3e43c36f1294979cc77563227760f267bd5b74db8a34f6",
+      "changed": false
+    },
+    {
+      "raw_path": "README.md",
+      "published_path": "README.md",
+      "raw_sha256": "29c7f77a6c52f8edd81e2d1e3361b8ae608ca6055bc7d31e13481c17eaba6a9f",
+      "published_sha256": "29c7f77a6c52f8edd81e2d1e3361b8ae608ca6055bc7d31e13481c17eaba6a9f",
+      "changed": false
+    },
+    {
+      "raw_path": "actor-change.diff",
+      "published_path": "actor-change.diff",
+      "raw_sha256": "79a1446dc01d099c1fdb0308ae17f74623d8e932e424b5e26839adc8039f0d1e",
+      "published_sha256": "1b8f9f667eb7be44d73c5efe320d28cd10291f943f0cf46d034825554ce24810",
+      "changed": true
+    },
+    {
+      "raw_path": "b77-compile-failure.log",
+      "published_path": "b77-compile-failure.log",
+      "raw_sha256": "be62d4e163309c14531722b15f90feb0d9dd7ddbe701789abca8eecd5e05a3c9",
+      "published_sha256": "be62d4e163309c14531722b15f90feb0d9dd7ddbe701789abca8eecd5e05a3c9",
+      "changed": false
+    },
+    {
+      "raw_path": "cleanup.json",
+      "published_path": "cleanup.json",
+      "raw_sha256": "dc18aaf132e062e1e544bf18d04ab444840fa976b2df8ce255c82be0e36bb034",
+      "published_sha256": "dc18aaf132e062e1e544bf18d04ab444840fa976b2df8ce255c82be0e36bb034",
+      "changed": false
+    },
+    {
+      "raw_path": "f787-deletion20.log",
+      "published_path": "f787-deletion20.log",
+      "raw_sha256": "770e3d73857104e60806539880fe4ba8a2f6f6c0c049aab4a1ec4eb4a529ea3d",
+      "published_sha256": "770e3d73857104e60806539880fe4ba8a2f6f6c0c049aab4a1ec4eb4a529ea3d",
+      "changed": false
+    },
+    {
+      "raw_path": "f787-filesystem6.log",
+      "published_path": "f787-filesystem6.log",
+      "raw_sha256": "8e7268ec206bd8f400c5b37f5e3244577fcdcab33e096d79045fbda8c1ab1095",
+      "published_sha256": "8e7268ec206bd8f400c5b37f5e3244577fcdcab33e096d79045fbda8c1ab1095",
+      "changed": false
+    },
+    {
+      "raw_path": "f787-live-sdk.log",
+      "published_path": "f787-live-sdk.log",
+      "raw_sha256": "a337aee23a02e47af7c41fe7e05faf9a6ffae8de2e4ef0f467a78c7c60f674b7",
+      "published_sha256": "a337aee23a02e47af7c41fe7e05faf9a6ffae8de2e4ef0f467a78c7c60f674b7",
+      "changed": false
+    },
+    {
+      "raw_path": "f787-package.log",
+      "published_path": "f787-package.log",
+      "raw_sha256": "3490a1f6fd8bba1fa8301709a4d28f96d9d14f6d0cd78e62a45c58637b4d11d9",
+      "published_sha256": "3490a1f6fd8bba1fa8301709a4d28f96d9d14f6d0cd78e62a45c58637b4d11d9",
+      "changed": false
+    },
+    {
+      "raw_path": "files.json",
+      "published_path": "raw-files.json",
+      "raw_sha256": "131c60ff7c7b88c123737fc45968c8e125de8288d0cc6c9dd95d8544eb1b2215",
+      "published_sha256": "131c60ff7c7b88c123737fc45968c8e125de8288d0cc6c9dd95d8544eb1b2215",
+      "changed": false
+    },
+    {
+      "raw_path": "fixture-fix.diff",
+      "published_path": "fixture-fix.diff",
+      "raw_sha256": "ad5474c4a2c90ca6df1f3e75fb617df7069ab2eeb7a250992748ace0d32a6672",
+      "published_sha256": "ad5474c4a2c90ca6df1f3e75fb617df7069ab2eeb7a250992748ace0d32a6672",
+      "changed": false
+    },
+    {
+      "raw_path": "live-driver.py",
+      "published_path": "live-driver.py",
+      "raw_sha256": "67046bc2d0ce7c11d1a7d801826c40c2626ce47faee79fe0d7d68a2f02ca7e13",
+      "published_sha256": "67046bc2d0ce7c11d1a7d801826c40c2626ce47faee79fe0d7d68a2f02ca7e13",
+      "changed": false
+    },
+    {
+      "raw_path": "live-readback-cleanup.log",
+      "published_path": "live-readback-cleanup.log",
+      "raw_sha256": "a750822ff4fe8dac36e0bf09113149a07e19d639c39d1b13e3e57a1020348235",
+      "published_sha256": "a750822ff4fe8dac36e0bf09113149a07e19d639c39d1b13e3e57a1020348235",
+      "changed": false
+    },
+    {
+      "raw_path": "port-adaptation.diff",
+      "published_path": "port-adaptation.diff",
+      "raw_sha256": "a081c0f6e0c2b0aef168902e81862895a36f669b12b9c945f335234bf225526f",
+      "published_sha256": "a081c0f6e0c2b0aef168902e81862895a36f669b12b9c945f335234bf225526f",
+      "changed": false
+    },
+    {
+      "raw_path": "provenance.json",
+      "published_path": "provenance.json",
+      "raw_sha256": "d959957b96bbf6dc2c4ba63da860234e094e5354d0b67d41bd219c54dd56dffe",
+      "published_sha256": "d959957b96bbf6dc2c4ba63da860234e094e5354d0b67d41bd219c54dd56dffe",
+      "changed": false
+    }
+  ]
+}

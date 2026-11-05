@@ -1,0 +1,135 @@
+{
+  "scope": "Local simulator acceptance for the first complete financial loop; physical-iPhone internet acceptance remains pending.",
+  "captured_at": "2026-09-29T03:50:45-05:00",
+  "native_source_commit": "d5299f65a5e9a49ccb50509b2d839107f7734f95",
+  "backend_source_commit": "92020058d503459dbb7f9e2efa828dd5cddb1637",
+  "evidence_commit_note": "This evidence-only commit does not change the tested source.",
+  "runtime": {
+    "xcode": "27.0",
+    "ios": "27.0",
+    "simulator": "Argus Accounts Compact",
+    "simulator_udid": "197C9C31-77FD-4D31-A9C6-EACA55732B15",
+    "viewport_points": "390x844",
+    "screenshot_pixels": "1170x2532",
+    "api": "http://127.0.0.1:58400",
+    "supabase": "http://127.0.0.1:58401",
+    "postgres_port": 58402,
+    "data": "Synthetic registered identity with durable local Postgres; no paid providers"
+  },
+  "ui": {
+    "tests": 3,
+    "executed": 3,
+    "skipped": 0,
+    "failures": 0,
+    "duration_seconds": 165.782,
+    "cases": [
+      {
+        "name": "testAccountEntryKeepsUnknownAndSignedBalances",
+        "duration_seconds": 49.21
+      },
+      {
+        "name": "testCompleteFinancialLoop",
+        "duration_seconds": 103.189
+      },
+      {
+        "name": "testSpanishConnectedCheckReview",
+        "duration_seconds": 13.384
+      }
+    ]
+  },
+  "session_package": {
+    "tests": 43,
+    "executed": 39,
+    "skipped": 4,
+    "failures": 0,
+    "skip_reason": "Environment-gated live tests not configured for this package invocation; connected UI suite exercised the real API separately."
+  },
+  "presentation_models": {
+    "tests": 5,
+    "executed": 5,
+    "skipped": 0,
+    "failures": 0,
+    "cases": [
+      {
+        "name": "testDateChangeDropsObsoleteCoverageAndPriorAnswerCanBeCorrected",
+        "duration_seconds": 0.006
+      },
+      {
+        "name": "testExpiredIdentityDuringConfirmReturnsToSignIn",
+        "duration_seconds": 0.002
+      },
+      {
+        "name": "testOldEditorCannotInjectDataAfterOwnerSwitch",
+        "duration_seconds": 0.002
+      },
+      {
+        "name": "testPostSaveHomeWinsOverEarlierRead",
+        "duration_seconds": 0.002
+      },
+      {
+        "name": "testUncertainSaveFreezesDraftAndReplaysAcceptedOperation",
+        "duration_seconds": 0.003
+      }
+    ]
+  },
+  "checks": {
+    "native_branch_modularity": "pass",
+    "git_diff_check": "pass"
+  },
+  "video": {
+    "file": "connected-loop.mp4",
+    "duration_seconds": 129.49333333333334,
+    "capture_fps": 12,
+    "processing": "AVFoundation 1920x1080 preset, aspect preserved; no cuts or speed changes",
+    "coverage": "Starts immediately after account creation; expense, Home, correction, balance check, late already-included expense, reopen, Spanish review. Does not record initial sign-in or unknown-to-known journey.",
+    "privacy": "Synthetic application UI only; credential entry and terminal/debug output are outside the recording."
+  },
+  "artifacts": [
+    {
+      "file": "account-entry-dark.png",
+      "bytes": 199519,
+      "sha256": "d11b5dfaca837f6e5ec43a5e525207472a93254040dcffa4f8d31ba15f37a93c"
+    },
+    {
+      "file": "balance-check-dark.png",
+      "bytes": 175638,
+      "sha256": "5649b214b496249727de681d2714548e7d289647ec5b5e6f513177beb4ace8ae"
+    },
+    {
+      "file": "balance-check-spanish-dark.png",
+      "bytes": 178261,
+      "sha256": "15ad14661b136db39ace5af3de5114381dfe245363efa284c0169f608177663a"
+    },
+    {
+      "file": "connected-loop.mp4",
+      "bytes": 19226709,
+      "sha256": "5803833a8c83aeb3de966c069dce2b946c41d34a5413fa0e5e6fc2eb3ffd92bd"
+    },
+    {
+      "file": "home-dark.png",
+      "bytes": 331824,
+      "sha256": "8c4229fb51a40483f4da3b7f9410cbe5455518fb736383493a3486de00ed3fe4"
+    },
+    {
+      "file": "home-spanish-dark.png",
+      "bytes": 340197,
+      "sha256": "39289a6f6c4f19209499fc803d24f099aff8a62058d5e01774160c039fded293"
+    },
+    {
+      "file": "opening-inclusion-dark.png",
+      "bytes": 177743,
+      "sha256": "665834bfb7a07ee8fae7e778cddcfa4afb0b7c20b7313d8647ded0e6be0482c8"
+    },
+    {
+      "file": "reopened-account-dark.png",
+      "bytes": 308131,
+      "sha256": "d8bb9bb79e35056cd641a32c9e4c14e26fdac1e4658d1251dc30e9b9df5f77d7"
+    }
+  ],
+  "limits": [
+    "No physical-iPhone or hosted deployment acceptance",
+    "No claim that other MVEE journeys are implemented",
+    "Screenshots demonstrate appearance; behavioral evidence is the actual API UI tests and recording",
+    "Raw xcresult and logs stay local; sanitized test facts only are committed"
+  ]
+}

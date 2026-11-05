@@ -1,0 +1,21 @@
+{
+  "pr": 869,
+  "head": "b62f35d1a25fb344a99df3702a5199b146a1e152",
+  "original_integration_base": "2b2d0d9e8ed311c11b7585fbd757fb37f915e12f",
+  "integration_parent": "5861a8f1b11cfa053e99e2280ddfcfa264abfd66",
+  "merge": "927740efd7911847bc6deca1c0586905b170ff7d",
+  "merged_at": "2026-10-05T23:30:36Z",
+  "review": "https://github.com/lagarcess/argus/pull/869#pullrequestreview-5421824624",
+  "terminal_audit": "https://github.com/lagarcess/argus/pull/869#issuecomment-6005441029",
+  "ci": {
+    "success": 17,
+    "expected_skip": 2,
+    "failure": 0,
+    "pending": 0
+  },
+  "review_threads": 0,
+  "scope_and_limits": "Server name initializer only; independent123 API+81 PG with27warnings; unchanged privacy guard fixed; native and hosted gates open",
+  "housekeeping": "pending protected-branch evidence PR",
+  "tree_equal": true,
+  "tree": "6952c8131f19fde688195e1bb136fb5a4fa919a6"
+}

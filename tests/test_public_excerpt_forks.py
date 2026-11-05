@@ -82,7 +82,7 @@ def test_view_no_write_and_fork_is_owned_idempotent_and_revoked_copy_survives(
     from tests.test_public_excerpt_api import _create, _seed
 
     monkeypatch.setattr(state, "supabase_gateway", None)
-    monkeypatch.setenv("ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED", "true")
     state.store.reset()
     client = TestClient(app)
     owner = _seed(client)
@@ -135,7 +135,7 @@ def test_flag_off_fork_is_hidden_before_auth_or_body_validation(monkeypatch):
     def auth_must_not_run():
         raise AssertionError("auth resolved behind disabled flag")
 
-    monkeypatch.delenv("ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED", raising=False)
+    monkeypatch.delenv("CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED", raising=False)
     app.dependency_overrides[current_user] = auth_must_not_run
     try:
         client = TestClient(app)
@@ -147,32 +147,28 @@ def test_flag_off_fork_is_hidden_before_auth_or_body_validation(monkeypatch):
         app.dependency_overrides.pop(current_user, None)
 
 
-@pytest.mark.parametrize("kind", ["receipt_followed_up", "receipt_signed_up"])
-def test_fork_funnel_is_count_only(kind):
-    from argus.observability.product_events import build_product_event
-
-    event = build_product_event(kind, user_id=None)
-    assert event.actor_hash is None
-    assert event.conversation_id is None
-    assert event.message_id is None
-    assert event.attributes == {"product_event": kind}
-
-
 @pytest.mark.parametrize(
-    "replayed,kind,expected",
+    "replayed,kind",
     [
-        (False, "new_account_signup", 1),
-        (True, "new_account_signup", 0),
-        (False, "existing_account", 0),
+        (False, "new_account_signup"),
+        (True, "new_account_signup"),
+        (False, "existing_account"),
     ],
 )
-def test_signup_count_comes_only_from_new_completed_handoff(
-    mocker, replayed, kind, expected
-):
+def test_a_completed_handoff_counts_no_shared_signup(mocker, monkeypatch, replayed, kind):
+    """Wave 1 tracks no share funnel (SPEC 0, 0C-1): a signup that came from a
+    shared conversation is not looked up or counted."""
     from types import SimpleNamespace
 
     from argus.domain.supabase_guest_accounts import GuestAccountPersistenceMixin
 
+    posts: list[object] = []
+    monkeypatch.setenv("POSTHOG_PROJECT_TOKEN", "ph_project_token")
+    monkeypatch.setenv("POSTHOG_REGION", "us")
+    monkeypatch.setattr(
+        "argus.observability.envelope.httpx.post",
+        lambda *args, **kwargs: posts.append((args, kwargs)),
+    )
     gateway = GuestAccountPersistenceMixin()
     gateway.client = mocker.MagicMock()
     gateway.client.rpc.return_value.execute.return_value = SimpleNamespace(
@@ -187,13 +183,18 @@ def test_signup_count_comes_only_from_new_completed_handoff(
     gateway.client.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = SimpleNamespace(
         data=[{"handoff_kind": kind}]
     )
-    capture = mocker.patch.object(gateway, "_capture_shared_signup")
-    gateway.claim_guest_workspace_handoff(
+
+    payload = gateway.claim_guest_workspace_handoff(
         handoff_id=str(uuid4()),
         opaque_secret="local-fixture-secret",
         destination_user_id=str(uuid4()),
     )
-    assert capture.call_count == expected
+
+    assert payload["handoff_kind"] == kind
+    assert [call.args for call in gateway.client.table.call_args_list] == [
+        ("guest_workspace_handoffs",)
+    ]
+    assert posts == []
 
 
 @pytest.mark.parametrize("revoked", [False, True])

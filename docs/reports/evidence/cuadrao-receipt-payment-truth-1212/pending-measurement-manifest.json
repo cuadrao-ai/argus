@@ -1,0 +1,67 @@
+{
+  "status": "BLOCKED_NO_EXECUTION_SAFE_BUDGET_ROUTE",
+  "model": "google/gemini-3.8-flash",
+  "calls": 3,
+  "concurrency": 1,
+  "retries": 0,
+  "max_output_tokens_per_call": 12000,
+  "timeout_seconds_per_call": 90,
+  "baseline_scorecard": "docs/reports/evidence/cuadrao-receipt-extraction-20261011/live-measurement.json",
+  "fixture_paths_relative_to": "repository root",
+  "fixtures": [
+    {
+      "id": "receipt-dop",
+      "path": "tests/document_extraction_fixtures/receipt-dop.png",
+      "sha256": "009f3082c0052c66be647a12a9c0967470c041fb648733cf45ba077740da25c3",
+      "comparison": "all checks from the named old scorecard remain true",
+      "expected_checks": {
+        "readable": true,
+        "complete": true,
+        "one_purchase_candidate": true,
+        "merchant": true,
+        "date": true,
+        "currency": true,
+        "total": true,
+        "missing_fiscal_unknown": true,
+        "unprinted_components_unknown": true,
+        "printed_items_exact": true,
+        "unprinted_item_units_unknown": true,
+        "purchase_amount_exact": true
+      }
+    },
+    {
+      "id": "unreadable",
+      "path": "tests/document_extraction_fixtures/unreadable.png",
+      "sha256": "b822720e186af2390eea6b1c221536267b7c3ee96b2239e16719020759b59307",
+      "comparison": "all checks from the named old scorecard remain true",
+      "expected_checks": {
+        "marked_unreadable": true,
+        "zero_candidates": true,
+        "no_invented_receipt_values": true,
+        "no_invented_items": true,
+        "no_invented_observations": true,
+        "no_invented_observation_values": true
+      }
+    },
+    {
+      "id": "order-confirmation-estimated-tax",
+      "path": "tests/fixtures/receipt-payment-truth/order-confirmation.png",
+      "sha256": "bdbec2022e702b7aaf7d436897ca5f9bba6696470ee410eade2d8a7fbb452eda",
+      "expected": {
+        "readable": true,
+        "complete": true,
+        "payment_status": "unknown",
+        "purchase_candidates": 0,
+        "purchase_observations": 0,
+        "paid_purchase_date": null,
+        "receipt_tax": null,
+        "estimated_tax": "3.20",
+        "receipt_total": "43.20",
+        "money_writes": 0
+      }
+    }
+  ],
+  "spend_cap_usd": null,
+  "input_token_upper_bound": null,
+  "reason": "Existing price guard rejects current nonzero price categories; runner reserves context length and requires six fixtures. No validated fixture-specific input bound exists."
+}

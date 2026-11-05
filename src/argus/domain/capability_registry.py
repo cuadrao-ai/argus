@@ -69,7 +69,9 @@ def indicator_template(key: str) -> str | None:
     return INDICATOR_TEMPLATE_REACHABILITY.get(key)
 
 
-def get_tool_catalog(*, include_unavailable: bool = False) -> ToolCatalog:
+def get_tool_catalog(
+    *, include_unavailable: bool = False, surface: str = "personal"
+) -> ToolCatalog:
     """Assemble real declarations only when a catalog consumer asks for them.
 
     Each declaration lives beside its typed callable and card presenter. This
@@ -78,6 +80,19 @@ def get_tool_catalog(*, include_unavailable: bool = False) -> ToolCatalog:
     receipt readers may resolve an already admitted binding with
     ``include_unavailable``; new calls always use the effective catalog.
     """
+    if surface == "business":
+        from argus.domain.business.tools import get_business_declarations
+
+        return ToolCatalog(
+            tuple(
+                declaration
+                for declaration in get_business_declarations()
+                if surface in declaration.surfaces
+            )
+        )
+    if surface != "personal":
+        raise ValueError("Unknown tool surface")
+
     from argus.agent_runtime.research_tools import get_research_declarations
     from argus.agent_runtime.tools.registered_backtest import get_backtest_declaration
     from argus.domain.calculations import get_calculation_declarations
@@ -89,5 +104,13 @@ def get_tool_catalog(*, include_unavailable: bool = False) -> ToolCatalog:
         else ()
     )
     return ToolCatalog(
-        (get_backtest_declaration(), *get_calculation_declarations(), *research)
+        tuple(
+            declaration
+            for declaration in (
+                get_backtest_declaration(),
+                *get_calculation_declarations(),
+                *research,
+            )
+            if surface in declaration.surfaces
+        )
     )

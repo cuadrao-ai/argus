@@ -32,6 +32,14 @@ from argus.api.chat.research_job_reconciliation import (
     fail_stranded_research_job,
     is_stranded_research_job,
 )
+from argus.api.render_workflows import RENDER_TASK_RUNS_URL as RENDER_TASK_RUNS_URL
+from argus.api.render_workflows import (
+    RenderWorkflowDispatcher as RenderWorkflowDispatcher,
+)
+from argus.api.render_workflows import _render_task_runs_endpoint
+from argus.api.render_workflows import (
+    render_local_dev_enabled as render_local_dev_enabled,
+)
 from argus.domain.backtest_admission import (
     DEFAULT_GLOBAL_QUEUED_LIMIT,
     DEFAULT_GLOBAL_RUNNING_LIMIT,
@@ -46,7 +54,6 @@ DEFAULT_WORKFLOW_TASK = "argus-backtests/workflow_proof"
 DEFAULT_REAL_WORKFLOW_TASK = "argus-backtests/run_backtest_job"
 PROOF_JOB_KIND = "render_workflow_proof"
 REAL_BACKTEST_JOB_KIND = "run_backtest_job"
-RENDER_TASK_RUNS_URL = "https://api.render.com/v1/task-runs"
 WORKFLOW_METADATA_KEY = "workflow_backtest"
 DEFAULT_STALE_QUEUED_SECONDS = 15 * 60
 DEFAULT_STALE_RUNNING_SECONDS = 15 * 60
@@ -103,19 +110,6 @@ def backtest_workflow_execution_enabled() -> bool:
         os.getenv("ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED", "").strip().lower()
         in TRUE_VALUES
     )
-
-
-def render_local_dev_enabled() -> bool:
-    return os.getenv("RENDER_USE_LOCAL_DEV", "").strip().lower() in TRUE_VALUES
-
-
-def _render_task_runs_endpoint(endpoint: str | None = None) -> str:
-    if endpoint:
-        return endpoint.rstrip("/")
-    if render_local_dev_enabled():
-        local_base = os.getenv("RENDER_LOCAL_DEV_URL", "http://localhost:8120").strip()
-        return f"{local_base.rstrip('/')}/v1/task-runs"
-    return RENDER_TASK_RUNS_URL
 
 
 @contextmanager
@@ -319,40 +313,6 @@ def _reconcile_backpressure_blockers(
         if before and after and after != before:
             changed = True
     return changed
-
-
-class RenderWorkflowDispatcher:
-    def __init__(
-        self,
-        *,
-        api_key: str | None = None,
-        task_id: str | None = None,
-        endpoint: str | None = None,
-    ) -> None:
-        self.api_key = (api_key or os.getenv("RENDER_API_KEY") or "").strip()
-        self.task_id = (task_id or _workflow_task_id()).strip()
-        self.endpoint = _render_task_runs_endpoint(endpoint)
-
-    def dispatch(self, *, job_id: str, nonce: str) -> dict[str, Any]:
-        if not self.api_key and not render_local_dev_enabled():
-            raise RuntimeError("RENDER_API_KEY is required to dispatch backtest jobs.")
-        if "/" not in self.task_id:
-            raise RuntimeError(
-                "ARGUS_BACKTEST_WORKFLOW_TASK must use {workflow-slug}/{task-name}."
-            )
-
-        headers = {"Content-Type": "application/json"}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-        response = httpx.post(
-            self.endpoint,
-            headers=headers,
-            json={"task": self.task_id, "input": [job_id, nonce]},
-            timeout=15,
-        )
-        response.raise_for_status()
-        data = response.json()
-        return dict(data) if isinstance(data, dict) else {"response": data}
 
 
 class RenderTaskRunClient:
@@ -795,7 +755,7 @@ class ShadowBacktestJobTool:
         self._gateway_getter = gateway_getter
         self._dev_memory_fallback_getter = dev_memory_fallback_getter
         self._dispatcher_getter = dispatcher_getter or (
-            lambda: RenderWorkflowDispatcher()
+            lambda: RenderWorkflowDispatcher(task_id=_workflow_task_id())
         )
 
     def run(self, payload: dict[str, Any]) -> dict[str, Any]:

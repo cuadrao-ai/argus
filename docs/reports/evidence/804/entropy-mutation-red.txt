@@ -1,0 +1,25 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: /private/tmp/cuadrao-invite-hardening-804-20261005
+configfile: pyproject.toml
+plugins: benchmark-5.2.3, mock-3.15.1, Faker-30.10.0, asyncio-1.4.0, hypothesis-6.151.12, langsmith-0.7.31, respx-0.23.1, cov-7.0.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 1 item
+
+tests/household/test_invite_code_security.py F                           [100%]
+
+=================================== FAILURES ===================================
+__________________ test_skewed_secret_fails_the_entropy_floor __________________
+
+    def test_skewed_secret_fails_the_entropy_floor():
+        """Ten distinct characters cannot substitute for the 96-bit estimate."""
+        secret = "a" * 23 + "bcdefghij"
+        assert len(secret) == 32 and len(set(secret)) == 10
+>       with pytest.raises(InviteCodesUnavailable, match="placeholder"):
+E       Failed: DID NOT RAISE <class 'argus.domain.household.errors.InviteCodesUnavailable'>
+
+tests/household/test_invite_code_security.py:114: Failed
+=========================== short test summary info ============================
+FAILED tests/household/test_invite_code_security.py::test_skewed_secret_fails_the_entropy_floor
+============================== 1 failed in 0.19s ===============================

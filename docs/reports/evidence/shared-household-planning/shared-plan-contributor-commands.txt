@@ -1,0 +1,25 @@
+Commit: 942f1f009a5927816176d166f6c1357577e0ce51
+Working directory: /Users/garces/.codex/worktrees/shared-household-planning/private-alpha-next
+Finding: PR #773 P1 PRRT_kwDOR50h4s6oKYJd / comment 4161118895
+
+Exact affected-test command (185 passed, 0 failed, 0 skipped, 33.80 seconds):
+ARGUS_DISPOSABLE_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:59752/postgres PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src /Users/garces/.codex/worktrees/5a42/private-alpha-next/.venv/bin/python -m pytest -q --no-cov -p no:cacheprovider tests/household/test_shared_contributor_departure.py tests/household/test_shared_personal_bridge.py tests/household/test_shared_goal_edits.py tests/household/test_shared_planning_money.py tests/household/test_shared_planning_invariants.py tests/household/test_shared_planning_departure.py tests/household/test_household_financial_boundaries.py tests/household/test_household_postgres.py tests/financial_accounts/test_goals.py tests/financial_accounts/test_goal_edges.py tests/financial_accounts/test_plan.py tests/financial_accounts/test_plan_recurrence.py tests/financial_accounts/test_debts.py tests/financial_accounts/test_goal_api.py tests/financial_accounts/test_plan_api.py tests/financial_accounts/test_debt_api.py --junitxml=/private/tmp/shared-plan-contributor-regression.xml > /private/tmp/shared-plan-contributor-regression.log 2>&1
+
+Exact final scoped Ruff commands:
+/Users/garces/.codex/worktrees/5a42/private-alpha-next/.venv/bin/ruff check --no-cache src/argus/domain/household/planning_retention.py src/argus/domain/household/planning_projection.py src/argus/domain/household/planning_store.py src/argus/domain/household/postgres.py src/argus/domain/planning/storage.py src/argus/domain/planning/shared_claims.py tests/household/test_shared_contributor_departure.py
+/Users/garces/.codex/worktrees/5a42/private-alpha-next/.venv/bin/ruff format --check --no-cache src/argus/domain/household/planning_retention.py src/argus/domain/household/planning_projection.py src/argus/domain/household/planning_store.py src/argus/domain/household/postgres.py src/argus/domain/planning/storage.py src/argus/domain/planning/shared_claims.py tests/household/test_shared_contributor_departure.py
+
+Other final checks:
+git diff --check
+PYTHONDONTWRITEBYTECODE=1 /Users/garces/.codex/worktrees/5a42/private-alpha-next/.venv/bin/python scripts/check_modularity_budget.py --top 3
+
+Migration requirement:
+supabase/migrations/20261002050000_shared_contributor_retention.sql
+SHA256 1fac5b2bf6650ef5db5bd94466cd8bb0c4456ed8ef1f36024eb7e9d3016de092
+Captain reviewed and applied only to NEW disposable PostgreSQL 127.0.0.1:59752.
+Worker authored source only; no migration/DDL application, services or schema rehearsal.
+Coordinated service/schema cutover. An already-departed legacy contributor on an active binding without verified captured consent fails the migration, rather than inventing historical authorization from current private facts.
+
+New regression surface (13 cases): leave/remove private expense/bill/saving correction, Household and Personal Home/Plan/Search stable after private changes; remaining contributors live; Goal current backing unknown, exact authorized allocation support retained as history; fresh membership/new consent and allocation revision; signed refund/released history; later private returns excluded even in subsequent owner archive/close; debt funding privacy/live remaining payment; atomic rollback after retaining consent.
+
+Existing psycopg_pool deprecation warnings only (73); no skipped PostgreSQL fixtures.

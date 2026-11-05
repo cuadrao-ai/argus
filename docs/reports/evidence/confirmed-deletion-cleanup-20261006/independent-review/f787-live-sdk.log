@@ -1,0 +1,40 @@
+Building for debugging...
+[Constructing description]
+[Planning deferred tasks]
+[7 / 51]
+[11 / 55] HTTPTypes
+[30 / 116] Crypto
+[47 / 117] IssueReporting
+[58 / 117] Crypto
+[69 / 117] IssueReporting
+[87 / 127] HTTPTypes
+[94 / 130] Crypto
+[109 / 141] XCTestDynamicOverlay
+[116 / 148] Clocks
+[122 / 152] Helpers
+[141 / 171] XCTestDynamicOverlay
+[143 / 171] Helpers
+[151 / 177] Auth
+[170 / 196] Auth
+[174 / 198] ArgusSession
+[190 / 217] Auth
+[193 / 217] ArgusSession
+[197 / 213] ArgusSession
+[198 / 213] Auth
+[203 / 212] ArgusSessionTests-product
+[222 / 231] ArgusSessionTests-product
+[226 / 230] ArgusSessionTests-product
+[228 / 230] ArgusSessionTests-product
+Build complete! (42.38 sec)
+Test Suite 'Selected tests' started at 2026-10-05 22:43:49.372.
+Test Suite 'ArgusSessionTests.xctest' started at 2026-10-05 22:43:49.373.
+Test Suite 'LiveDeletionTests' started at 2026-10-05 22:43:49.373.
+Test Case '-[ArgusSessionTests.LiveDeletionTests testLocalDeletionCommandRetiresOnlyAAndPreservesB]' started.
+Test Case '-[ArgusSessionTests.LiveDeletionTests testLocalDeletionCommandRetiresOnlyAAndPreservesB]' passed (0.769 seconds).
+Test Suite 'LiveDeletionTests' passed at 2026-10-05 22:43:50.142.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.769 (0.770) seconds
+Test Suite 'ArgusSessionTests.xctest' passed at 2026-10-05 22:43:50.142.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.769 (0.770) seconds
+Test Suite 'Selected tests' passed at 2026-10-05 22:43:50.142.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.769 (0.770) seconds
+ACTUAL_DELETION_OUTCOME completed200

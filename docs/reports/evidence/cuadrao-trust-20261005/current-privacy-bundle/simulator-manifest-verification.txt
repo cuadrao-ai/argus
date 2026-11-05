@@ -1,0 +1,12 @@
+test_duplicate_category_rejected (__main__.ManifestChecks.test_duplicate_category_rejected) ... ok
+test_missing_category_rejected (__main__.ManifestChecks.test_missing_category_rejected) ... ok
+test_no_declarations_rejected (__main__.ManifestChecks.test_no_declarations_rejected) ... ok
+test_packaged_manifest (__main__.ManifestChecks.test_packaged_manifest) ... ok
+test_source_manifest (__main__.ManifestChecks.test_source_manifest) ... ok
+test_unverified_tracking_claim_rejected (__main__.ManifestChecks.test_unverified_tracking_claim_rejected) ... ok
+test_wrong_reason_rejected (__main__.ManifestChecks.test_wrong_reason_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.001s
+
+OK

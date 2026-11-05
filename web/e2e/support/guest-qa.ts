@@ -690,10 +690,10 @@ export function assertExactLocalCandidate(
   } else if (process.env.NEXT_PUBLIC_MOCK_AUTH !== "false") {
     throw new Error("Guest QA requires real browser Auth");
   }
-  if (process.env.ARGUS_MOCK_AUTH !== "false") {
+  if (process.env.CUADRAO_MOCK_AUTH !== "false") {
     throw new Error("Guest QA requires real backend Auth");
   }
-  if (process.env.ARGUS_GUEST_ACCESS_ENABLED !== "true") {
+  if (process.env.CUADRAO_GUEST_ACCESS_ENABLED !== "true") {
     throw new Error("Guest QA requires the process-only server guest flag");
   }
   if (process.env.NEXT_PUBLIC_GUEST_ACCESS_ENABLED !== "true") {
@@ -1506,7 +1506,7 @@ export function seedGuestSimulationExhaustionFixture(params: {
   const confirmationId = `confirmation-${randomUUID()}`;
   const visitorKey = `visitor:${createHmac(
     "sha256",
-    process.env.ARGUS_VISITOR_KEY_SECRET ?? "argus-visitor-key",
+    process.env.CUADRAO_VISITOR_KEY_SECRET ?? "argus-visitor-key",
   )
     .update("127.0.0.1")
     .digest("hex")
@@ -2584,9 +2584,9 @@ export class BackendController {
         cwd: REPOSITORY_ROOT,
         env: {
           ...process.env,
-          ARGUS_GUEST_ACCESS_ENABLED: "true",
-          ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED: String(publicAccountsEnabled),
-          ARGUS_MOCK_AUTH: "false",
+          CUADRAO_GUEST_ACCESS_ENABLED: "true",
+          CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED: String(publicAccountsEnabled),
+          CUADRAO_MOCK_AUTH: "false",
           ...(options.openRouterApiKey !== undefined
             ? { OPENROUTER_API_KEY: options.openRouterApiKey }
             : {}),

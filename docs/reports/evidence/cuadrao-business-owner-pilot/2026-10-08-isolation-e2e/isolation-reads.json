@@ -1,0 +1,92 @@
+{
+ "personalLeaks": {
+  "/financial-accounts": {
+   "status": 200,
+   "business_hits": []
+  },
+  "/financial-documents": {
+   "status": 200,
+   "business_hits": []
+  },
+  "/financial-imports?state=open": {
+   "status": 200,
+   "business_hits": []
+  },
+  "/financial-imports?state=accepted": {
+   "status": 200,
+   "business_hits": []
+  },
+  "/financial-activities/purchases": {
+   "status": 200,
+   "business_hits": []
+  },
+  "/financial-home": {
+   "status": 200,
+   "business_hits": []
+  },
+  "/financial-search?q=Ferreter": {
+   "status": 200,
+   "business_hits": []
+  },
+  "/financial-search?q=Colmado": {
+   "status": 200,
+   "business_hits": []
+  },
+  "/financial-search?q=Farmacia": {
+   "status": 200,
+   "business_hits": []
+  },
+  "/financial-search?q=Libreria": {
+   "status": 200,
+   "business_hits": []
+  },
+  "/financial-search?q=": {
+   "status": 200,
+   "business_hits": []
+  },
+  "/search?q=Ferreter": {
+   "status": 200,
+   "business_hits": []
+  }
+ },
+ "businessLeaks": {
+  "/business/receipts?view=all": {
+   "status": 200,
+   "personal_hits": []
+  },
+  "/business/receipts?view=inbox": {
+   "status": 200,
+   "personal_hits": []
+  },
+  "/business/expenses?from=2026-10-01&to=2026-10-31": {
+   "status": 200,
+   "personal_hits": []
+  },
+  "/business/workspace": {
+   "status": 200,
+   "personal_hits": []
+  },
+  "/business/overview?from=2026-10-01&to=2026-10-31": {
+   "status": 200,
+   "personal_hits": []
+  },
+  "/business/updates": {
+   "status": 200,
+   "personal_hits": []
+  }
+ },
+ "personalSeesOwn": {
+  "documents": true,
+  "purchases": true,
+  "home": true,
+  "search": true
+ },
+ "homeSpend": "120000",
+ "overviewTotals": [
+  {
+   "currency": "DOP",
+   "amount": "4604.10",
+   "count": 3
+  }
+ ]
+}

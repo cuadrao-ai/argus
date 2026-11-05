@@ -1,0 +1,74 @@
+[
+  {
+    "path": "8146-gap-reproduction.log",
+    "sha256": "c34af4eac6f6a4dda7b16424a141adb7aa3a715d053885d411ffaaf82ac79a8d"
+  },
+  {
+    "path": "BaselineDeletionCleanupGapTests.swift",
+    "sha256": "eb3cb6db2f1994ff8234e261d1eddd5c9fb81d4f7937b99854947c28dba1cdc2"
+  },
+  {
+    "path": "LiveDeletionTests.swift",
+    "sha256": "387f93f6fb2279f0ed3e43c36f1294979cc77563227760f267bd5b74db8a34f6"
+  },
+  {
+    "path": "README.md",
+    "sha256": "29c7f77a6c52f8edd81e2d1e3361b8ae608ca6055bc7d31e13481c17eaba6a9f"
+  },
+  {
+    "path": "actor-change.diff",
+    "sha256": "1b8f9f667eb7be44d73c5efe320d28cd10291f943f0cf46d034825554ce24810"
+  },
+  {
+    "path": "b77-compile-failure.log",
+    "sha256": "be62d4e163309c14531722b15f90feb0d9dd7ddbe701789abca8eecd5e05a3c9"
+  },
+  {
+    "path": "cleanup.json",
+    "sha256": "dc18aaf132e062e1e544bf18d04ab444840fa976b2df8ce255c82be0e36bb034"
+  },
+  {
+    "path": "f787-deletion20.log",
+    "sha256": "770e3d73857104e60806539880fe4ba8a2f6f6c0c049aab4a1ec4eb4a529ea3d"
+  },
+  {
+    "path": "f787-filesystem6.log",
+    "sha256": "8e7268ec206bd8f400c5b37f5e3244577fcdcab33e096d79045fbda8c1ab1095"
+  },
+  {
+    "path": "f787-live-sdk.log",
+    "sha256": "a337aee23a02e47af7c41fe7e05faf9a6ffae8de2e4ef0f467a78c7c60f674b7"
+  },
+  {
+    "path": "f787-package.log",
+    "sha256": "3490a1f6fd8bba1fa8301709a4d28f96d9d14f6d0cd78e62a45c58637b4d11d9"
+  },
+  {
+    "path": "fixture-fix.diff",
+    "sha256": "ad5474c4a2c90ca6df1f3e75fb617df7069ab2eeb7a250992748ace0d32a6672"
+  },
+  {
+    "path": "live-driver.py",
+    "sha256": "67046bc2d0ce7c11d1a7d801826c40c2626ce47faee79fe0d7d68a2f02ca7e13"
+  },
+  {
+    "path": "live-readback-cleanup.log",
+    "sha256": "a750822ff4fe8dac36e0bf09113149a07e19d639c39d1b13e3e57a1020348235"
+  },
+  {
+    "path": "port-adaptation.diff",
+    "sha256": "a081c0f6e0c2b0aef168902e81862895a36f669b12b9c945f335234bf225526f"
+  },
+  {
+    "path": "provenance.json",
+    "sha256": "d959957b96bbf6dc2c4ba63da860234e094e5354d0b67d41bd219c54dd56dffe"
+  },
+  {
+    "path": "publication.json",
+    "sha256": "f86f6fb3a38f2dff9d7226f176c0e2f33e33a4776bd4258c267c2ee2fab3de05"
+  },
+  {
+    "path": "raw-files.json",
+    "sha256": "131c60ff7c7b88c123737fc45968c8e125de8288d0cc6c9dd95d8544eb1b2215"
+  }
+]

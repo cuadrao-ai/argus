@@ -6,14 +6,16 @@ import type {
   ComputedAnswerSummary,
   ContinuedResult,
 } from "./computation-contract";
+import { appendSurface, type ConversationSurface } from "./conversation-surface-api";
 
 const answerPath = (ref: ComputedAnswerRef) =>
   `/conversations/${encodeURIComponent(ref.conversation_id)}/messages/${encodeURIComponent(ref.message_id)}`;
 
-/** The owner's other computed answers of one kind, newest first, for a comparison. */
-export function listComputedAnswers(kind: string, excludeMessageId?: string): Promise<{ items: ComputedAnswerSummary[] }> {
+/** The owner's other computed answers of one kind on one side, newest first, for a comparison. */
+export function listComputedAnswers(kind: string, excludeMessageId?: string, surface?: ConversationSurface): Promise<{ items: ComputedAnswerSummary[] }> {
   const params = new URLSearchParams({ kind });
   if (excludeMessageId) params.set("exclude_message_id", excludeMessageId);
+  appendSurface(params, surface);
   return apiFetch(`/computations/answers?${params.toString()}`);
 }
 

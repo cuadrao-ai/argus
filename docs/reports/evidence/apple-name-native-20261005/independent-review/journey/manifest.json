@@ -1,0 +1,44 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "FEB9FD84-9606-4E56-AD07-AAA14B7AF72A",
+        "deviceName" : "Cuadrao-Apple-Name-Independent-QA",
+        "exportedFileName" : "74B42222-F40E-4687-8732-B63CBC8BCA2B.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "first-name-canonical-after-relaunch_0_76FC85AC-5FD7-4C97-8232-0C2D3D1B7351.png",
+        "timestamp" : 1791253126.272
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "FEB9FD84-9606-4E56-AD07-AAA14B7AF72A",
+        "deviceName" : "Cuadrao-Apple-Name-Independent-QA",
+        "exportedFileName" : "23A1C79E-2AA2-40FC-945B-69A34EA6934A.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "first-name-canonical-after-retry_0_A0CB6301-8719-403F-BD10-132A0D44155E.png",
+        "timestamp" : 1791253122.192
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "FEB9FD84-9606-4E56-AD07-AAA14B7AF72A",
+        "deviceName" : "Cuadrao-Apple-Name-Independent-QA",
+        "exportedFileName" : "7028BD00-08FB-486B-B77B-350B47CE600F.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "first-name-outage-capture-failed_0_08378028-4B62-4E4C-9F4F-EAB3B1C220CF.png",
+        "timestamp" : 1791253120.748
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "FEB9FD84-9606-4E56-AD07-AAA14B7AF72A",
+        "deviceName" : "Cuadrao-Apple-Name-Independent-QA",
+        "exportedFileName" : "058971A9-CC5F-48B5-B99F-0F0E9CCCDCA1.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "first-name-durable-before-grant_0_985C5033-7EEC-4B9A-BE32-855A84069716.png",
+        "timestamp" : 1791253117.367
+      }
+    ],
+    "testIdentifier" : "IndependentAppleNameUITests/testFormattedFirstNameIsDurableBeforeGrantAndCanonicalAfterRetryAndRelaunch()",
+    "testIdentifierURL" : "test://com.apple.xcode/ArgusFoundation/ArgusFoundationUITests/IndependentAppleNameUITests/testFormattedFirstNameIsDurableBeforeGrantAndCanonicalAfterRetryAndRelaunch"
+  }
+]

@@ -1,0 +1,13 @@
+Release Mach-O files: 1
+--cuadrao-release-gates count=0
+--cuadrao-release-ui count=0
+--cuadrao-design count=0
+--design-gallery count=2
+ReleaseUIReview count=0
+ReleaseIdentityGallery count=0
+ReleaseInvitationsGallery count=0
+ReleaseUpdatesGallery count=0
+CUADRAO_DESIGN_PREVIEW=false
+ARGUS_AUTH_ENABLED=false
+ARGUS_APPLE_SIGN_IN_ENABLED=false
+ARGUS_GOOGLE_SIGN_IN_ENABLED=false

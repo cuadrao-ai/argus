@@ -1,0 +1,190 @@
+{
+  "result_bundle": "test-20260928T180855Z.xcresult",
+  "captures": [
+    {
+      "file": "persisted-system.png",
+      "test": "FoundationUITests/testAppearancePersistsAcrossRelaunch()",
+      "captured_at": 1790618987.137,
+      "sha256": "9eba3baec2893b592440cfe15f6b4d4543a072a5dbad3b47aab09bb647fd8856",
+      "source_commit": "5adfca1f43155226f292e939f749cd8a9c8b161b",
+      "app_tree": "e87d161426d11fb9d993cdff608b31133b1c7d0a"
+    },
+    {
+      "file": "appearance-system.png",
+      "test": "FoundationUITests/testAppearancePersistsAcrossRelaunch()",
+      "captured_at": 1790618977.683,
+      "sha256": "6a6a964be6ad584bd4c23d23a201cf24720221cecb9967472e6d16f2bd509d29",
+      "source_commit": "5adfca1f43155226f292e939f749cd8a9c8b161b",
+      "app_tree": "e87d161426d11fb9d993cdff608b31133b1c7d0a"
+    },
+    {
+      "file": "persisted-dark.png",
+      "test": "FoundationUITests/testAppearancePersistsAcrossRelaunch()",
+      "captured_at": 1790618973.382,
+      "sha256": "ff3118e5704c7e39c4962d66e2335abd364cdc36976c82be2e475d1ee4c16b47",
+      "source_commit": "5adfca1f43155226f292e939f749cd8a9c8b161b",
+      "app_tree": "e87d161426d11fb9d993cdff608b31133b1c7d0a"
+    },
+    {
+      "file": "appearance-dark.png",
+      "test": "FoundationUITests/testAppearancePersistsAcrossRelaunch()",
+      "captured_at": 1790618963.762,
+      "sha256": "745d54f5685ce9a9ba5924f91ae6f81dea4ac5a9be70dcecf9398c2e55d29f99",
+      "source_commit": "5adfca1f43155226f292e939f749cd8a9c8b161b",
+      "app_tree": "e87d161426d11fb9d993cdff608b31133b1c7d0a"
+    },
+    {
+      "file": "persisted-light.png",
+      "test": "FoundationUITests/testAppearancePersistsAcrossRelaunch()",
+      "captured_at": 1790618959.265,
+      "sha256": "9eba3baec2893b592440cfe15f6b4d4543a072a5dbad3b47aab09bb647fd8856",
+      "source_commit": "5adfca1f43155226f292e939f749cd8a9c8b161b",
+      "app_tree": "e87d161426d11fb9d993cdff608b31133b1c7d0a"
+    },
+    {
+      "file": "appearance-light.png",
+      "test": "FoundationUITests/testAppearancePersistsAcrossRelaunch()",
+      "captured_at": 1790618949.347,
+      "sha256": "2c9190feb3da5b006bd8d310af24d70bf2ea5963764876d280f2f28145000137",
+      "source_commit": "5adfca1f43155226f292e939f749cd8a9c8b161b",
+      "app_tree": "e87d161426d11fb9d993cdff608b31133b1c7d0a"
+    },
+    {
+      "file": "updates.png",
+      "test": "FoundationUITests/testNavigationAndHeaderReturn()",
+      "captured_at": 1790619020.676,
+      "sha256": "ea8e2ce541c3d578b919d8b829ae63f16ef1f81b3cb2a4b09dce5f77a6f2f60e",
+      "source_commit": "5adfca1f43155226f292e939f749cd8a9c8b161b",
+      "app_tree": "e87d161426d11fb9d993cdff608b31133b1c7d0a"
+    },
+    {
+      "file": "plan.png",
+      "test": "FoundationUITests/testNavigationAndHeaderReturn()",
+      "captured_at": 1790619016.736,
+      "sha256": "d2c2f272ea5d5edf6f4e0835b4e2447e06ac43716d9f04b3c6fc3df2b34630f2",
+      "source_commit": "5adfca1f43155226f292e939f749cd8a9c8b161b",
+      "app_tree": "e87d161426d11fb9d993cdff608b31133b1c7d0a"
+    },
+    {
+      "file": "argus.png",
+      "test": "FoundationUITests/testNavigationAndHeaderReturn()",
+      "captured_at": 1790619015.01,
+      "sha256": "e9e5198d1cf6c9e423d387f4fa89d4b1e4402448657ed7cb4cc01f5bc79ebf55",
+      "source_commit": "5adfca1f43155226f292e939f749cd8a9c8b161b",
+      "app_tree": "e87d161426d11fb9d993cdff608b31133b1c7d0a"
+    },
+    {
+      "file": "accounts.png",
+      "test": "FoundationUITests/testNavigationAndHeaderReturn()",
+      "captured_at": 1790619013.373,
+      "sha256": "7efb35f73aabbfd09070365a344ac32c0054a2e42bc4dabfba8b0ea491daba6d",
+      "source_commit": "5adfca1f43155226f292e939f749cd8a9c8b161b",
+      "app_tree": "e87d161426d11fb9d993cdff608b31133b1c7d0a"
+    },
+    {
+      "file": "home.png",
+      "test": "FoundationUITests/testNavigationAndHeaderReturn()",
+      "captured_at": 1790619011.761,
+      "sha256": "43a68639914255893a9b68fe3c79235d64ddb17b15c674d473d1944e3362f94b",
+      "source_commit": "5adfca1f43155226f292e939f749cd8a9c8b161b",
+      "app_tree": "e87d161426d11fb9d993cdff608b31133b1c7d0a"
+    },
+    {
+      "file": "spanish-large-preferences.png",
+      "test": "FoundationUITests/testSpanishLargeTextAndAccessibility()",
+      "captured_at": 1790619054.28,
+      "sha256": "8a0c7a803034f5b2fd836d3399007b397a40d318fa923739302e2e80a0ee4ad3",
+      "source_commit": "5adfca1f43155226f292e939f749cd8a9c8b161b",
+      "app_tree": "e87d161426d11fb9d993cdff608b31133b1c7d0a"
+    },
+    {
+      "file": "spanish-large-plan.png",
+      "test": "FoundationUITests/testSpanishLargeTextAndAccessibility()",
+      "captured_at": 1790619049.297,
+      "sha256": "e66507653af02fafb3e8a0186c8c60d6775bc610a18d025b40f69816d3249da8",
+      "source_commit": "5adfca1f43155226f292e939f749cd8a9c8b161b",
+      "app_tree": "e87d161426d11fb9d993cdff608b31133b1c7d0a"
+    },
+    {
+      "file": "spanish-large-argus.png",
+      "test": "FoundationUITests/testSpanishLargeTextAndAccessibility()",
+      "captured_at": 1790619048.385,
+      "sha256": "cd7af64c2065a585481ff1592a2799df7eee5ceb8a492ecf50a213a98f86a1cd",
+      "source_commit": "5adfca1f43155226f292e939f749cd8a9c8b161b",
+      "app_tree": "e87d161426d11fb9d993cdff608b31133b1c7d0a"
+    },
+    {
+      "file": "spanish-large-accounts.png",
+      "test": "FoundationUITests/testSpanishLargeTextAndAccessibility()",
+      "captured_at": 1790619047.417,
+      "sha256": "aed1e7c6308efc6ee2b7c543becdba7ea42474355bdd9b0fbb07372aa0548f6b",
+      "source_commit": "5adfca1f43155226f292e939f749cd8a9c8b161b",
+      "app_tree": "e87d161426d11fb9d993cdff608b31133b1c7d0a"
+    },
+    {
+      "file": "spanish-large-home.png",
+      "test": "FoundationUITests/testSpanishLargeTextAndAccessibility()",
+      "captured_at": 1790619046.489,
+      "sha256": "b84ce92c2f11532f4e6a3f212c85ca9fa27da8ceaf9670869bea2343818a848f",
+      "source_commit": "5adfca1f43155226f292e939f749cd8a9c8b161b",
+      "app_tree": "e87d161426d11fb9d993cdff608b31133b1c7d0a"
+    },
+    {
+      "file": "dark-search.png",
+      "test": "FoundationUITests/testDarkNavigation()",
+      "captured_at": 1790619203.053,
+      "source_commit": "143883c4412692a7f4baeb40dd0d50fd1d05ff0d",
+      "app_tree": "edab64f6b1e5d1c29867a9ce136158b4970615f7",
+      "sha256": "d955dfc0bb51ddc2f173106d5c4e93e40caf4786ef41058124cd75f744534c40"
+    },
+    {
+      "file": "dark-plan.png",
+      "test": "FoundationUITests/testDarkNavigation()",
+      "captured_at": 1790619202.244,
+      "source_commit": "143883c4412692a7f4baeb40dd0d50fd1d05ff0d",
+      "app_tree": "edab64f6b1e5d1c29867a9ce136158b4970615f7",
+      "sha256": "99016f88b5756217cc93c31c07baa6444573157f27827a71c87192f79907781c"
+    },
+    {
+      "file": "dark-argus.png",
+      "test": "FoundationUITests/testDarkNavigation()",
+      "captured_at": 1790619201.398,
+      "source_commit": "143883c4412692a7f4baeb40dd0d50fd1d05ff0d",
+      "app_tree": "edab64f6b1e5d1c29867a9ce136158b4970615f7",
+      "sha256": "d2dc67fa6fd8d65f3a65f8a172ed8a4908deff97eb402597666708acc4330f8b"
+    },
+    {
+      "file": "dark-accounts.png",
+      "test": "FoundationUITests/testDarkNavigation()",
+      "captured_at": 1790619200.48,
+      "source_commit": "143883c4412692a7f4baeb40dd0d50fd1d05ff0d",
+      "app_tree": "edab64f6b1e5d1c29867a9ce136158b4970615f7",
+      "sha256": "b511b0f063c1f4614f83ea8c006886321c000248669254c5002dd71788bbd0a9"
+    },
+    {
+      "file": "dark-home.png",
+      "test": "FoundationUITests/testDarkNavigation()",
+      "captured_at": 1790619199.537,
+      "source_commit": "143883c4412692a7f4baeb40dd0d50fd1d05ff0d",
+      "app_tree": "edab64f6b1e5d1c29867a9ce136158b4970615f7",
+      "sha256": "3dfa48bb843e24b189231a211c74781c9bf7dc9fdae9fc42f833d1505df9165b"
+    },
+    {
+      "file": "search-retained.png",
+      "test": "FoundationUITests/testSearchStateSurvivesTabSwitchAndKeyboard()",
+      "captured_at": 1790619216.082,
+      "source_commit": "143883c4412692a7f4baeb40dd0d50fd1d05ff0d",
+      "app_tree": "edab64f6b1e5d1c29867a9ce136158b4970615f7",
+      "sha256": "87b7fdd46bea1826cb6673fc0a0b548bcd71848b573fc25fe4cfb5a2bf404ee5"
+    },
+    {
+      "file": "search-keyboard.png",
+      "test": "FoundationUITests/testSearchStateSurvivesTabSwitchAndKeyboard()",
+      "captured_at": 1790619215.081,
+      "source_commit": "143883c4412692a7f4baeb40dd0d50fd1d05ff0d",
+      "app_tree": "edab64f6b1e5d1c29867a9ce136158b4970615f7",
+      "sha256": "4660510f7129bec59deff2fbc853d6a14acc5055394168fdbed253d625c88e5c"
+    }
+  ],
+  "delta_result_bundle": "test-20260928T181303Z.xcresult"
+}

@@ -105,6 +105,8 @@ export type ChatActionOption = {
   artifactType?: ArtifactType;
   artifactStatus?: string;
   savedStrategyId?: string | null;
+  /** Client-owned: hide the retry control until this instant. */
+  availableAtMs?: number;
 };
 
 export type ChatMention = {

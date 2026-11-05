@@ -1,0 +1,31 @@
+{
+  "verified_at": "2026-09-28T21:55:39.290045+00:00",
+  "verified_against_source_head": "83d63d81a639609757d27fcdde52d7720b3d3bdd",
+  "current_integration": "86df1ee95cc3c88d713efa6a24538c6217b2ea29",
+  "fixture_sha256": "a12a24634763f951f6daad7d200614dd777e83785d9ed4da9907720e5bdf418f",
+  "visual_style_sha256": "d1ab2aee8e20f5fe032759114e271d998406926e352d879b3b468aebe59ede72",
+  "platforms": [
+    {
+      "platform": "ios",
+      "capture_head": "f5f4f4467fe53c3a1990cda9574b353c8b72d83f",
+      "source_and_fixture_changed_paths": [],
+      "source_hash_mismatches": [],
+      "retained": true
+    },
+    {
+      "platform": "android",
+      "capture_head": "81d8c2182fa4c8fa0d859b7278b7250df9dad1b2",
+      "source_and_fixture_changed_paths": [],
+      "source_hash_mismatches": [],
+      "retained": true
+    },
+    {
+      "platform": "web",
+      "capture_head": "49b0495bd0217b94be57b00d8ae96ba6a98b8830",
+      "source_and_fixture_changed_paths": [],
+      "source_hash_mismatches": [],
+      "retained": true
+    }
+  ],
+  "scope": "Final visual captures supersede pre-refinement screenshots. Evidence-only commits require the same source comparison; original capture heads remain unchanged."
+}

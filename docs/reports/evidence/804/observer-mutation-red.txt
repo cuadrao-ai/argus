@@ -1,0 +1,47 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: /private/tmp/cuadrao-invite-hardening-804-20261005
+configfile: pyproject.toml
+plugins: benchmark-5.2.3, mock-3.15.1, Faker-30.10.0, asyncio-1.4.0, hypothesis-6.151.12, langsmith-0.7.31, respx-0.23.1, cov-7.0.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 1 item
+
+tests/test_invite_code_security_postgres.py F                            [100%]
+
+=================================== FAILURES ===================================
+__________ test_lock_wait_observer_ignores_an_unrelated_owned_waiter ___________
+
+    def test_lock_wait_observer_ignores_an_unrelated_owned_waiter():
+        """A second test-owned waiter cannot stand in for the target connection."""
+        import time
+        from uuid import uuid4
+
+        lock_key = uuid4().int % (2**63)
+        with (
+            psycopg.connect(DSN, autocommit=True) as holder,
+            psycopg.connect(DSN, autocommit=True) as unrelated,
+            psycopg.connect(DSN, autocommit=True) as target,
+            psycopg.connect(DSN, autocommit=True) as probe,
+        ):
+            holder.execute("select pg_advisory_lock(%s)", (lock_key,))
+            worker = threading.Thread(
+                target=unrelated.execute,
+                args=("select pg_advisory_lock(%s)", (lock_key,)),
+            )
+            worker.start()
+            try:
+                deadline = time.monotonic() + 10
+                while not _lock_waiter_count(probe, unrelated.info.backend_pid):
+                    assert time.monotonic() < deadline, "owned control never waited"
+                    time.sleep(0.02)
+>               assert _lock_waiter_count(probe, target.info.backend_pid) == 0
+E               assert 1 == 0
+E                +  where 1 = _lock_waiter_count(<psycopg.Connection [IDLE] (host=127.0.0.1 port=60332 database=postgres) at 0x10e7af0d0>, 19403)
+E                +    where 19403 = <psycopg.ConnectionInfo object at 0x10e7cdc90>.backend_pid
+E                +      where <psycopg.ConnectionInfo object at 0x10e7cdc90> = <psycopg.Connection [IDLE] (host=127.0.0.1 port=60332 database=postgres) at 0x10e7ae8d0>.info
+
+tests/test_invite_code_security_postgres.py:318: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_invite_code_security_postgres.py::test_lock_wait_observer_ignores_an_unrelated_owned_waiter
+============================== 1 failed in 1.92s ===============================

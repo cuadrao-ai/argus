@@ -1,27 +1,28 @@
 # ARCHITECTURE.md
 
-## Argus System Architecture Source of Truth (Alpha MVP)
+## Existing Runtime Architecture and Technical Contracts
 
 **Status:** Active | **Alpha Architecture v1 Locked**
 **Audience:** Engineers, AI agents, founders
-**Purpose:** Define how Argus is structured technically, how systems communicate, where state lives, what services own what responsibilities, and how to build the Alpha MVP with low complexity and high iteration speed.
+**Purpose:** Define the existing runtime's technical boundaries and intended contracts. The [MVEE](specs/argus-minimum-viable-ecosystem-experience.md) owns product experience. New financial-record, ingestion, household, and native-client architecture remains to be designed through explicit scoped work.
 
 > [!IMPORTANT]
 > **Locked Status**: No structural architecture shifts (service ownership changes or protocol swaps) are allowed without explicit approval. Additive refinements and implementation detail documentation are permitted.
 
 > [!NOTE]
-> This document describes the **target architecture** — the intended production state of the Argus agent runtime. It is the north star for implementation. Where current code diverges from this doc, the doc is correct and the code must change.
+> This document contains both existing system descriptions and intended runtime contracts. Check code and release evidence for availability. Resolve a concrete discrepancy in the assigned scope; this document does not select the architecture of the new ecosystem or authorize an unrelated migration.
 
 ---
 
 # 1. Architecture Philosophy
 
-Argus is a **chat-first product powered by a backtesting engine**.
+The existing conversational runtime and backtesting engine are infrastructure
+that the approved ecosystem carries forward.
 
-This means:
+Their architectural responsibilities remain:
 
-- Conversation UX is the primary product surface.
-- Quantitative execution is supporting infrastructure.
+- Preserve conversational state, grounded responses, and artifact continuity.
+- Keep quantitative execution reproducible and separate from interpretation.
 - Simplicity and speed are favored over premature complexity.
 - Systems should be modular enough to evolve without rewrites.
 - Launch speed matters more than theoretical perfection.
@@ -54,24 +55,115 @@ Use streaming or jobs only where they materially improve UX.
 
 Prefer simpler architecture that can ship now.
 
-## Agent Quality Pillars
+## Document draft and preparation ownership
 
-The four assistant-quality pillars (Intelligence, Evaluation, Platform, User
-Experience) that keep AI work grounded in this architecture are defined once, in
-`AGENTS.md` → "Agent Quality Pillars". That is their canonical home; do not
-restate them here (a second copy drifts). This doc only adds architecture-
-specific emphasis: durable facts come from product records, engine outputs, and
-provider-backed validation — LLMs interpret and voice, they do not own truth.
+The default-off document lane follows the [capture contract](API_CONTRACT.md#document-capture-preparation-and-review).
+`DocumentsService` saves supported source bytes and a draft in the existing
+`financial_document_extractions` store before model work. The statement connection
+ID is the shared identity for later Chat and Plan entry points. Source retention,
+preparation state, observations and candidate delivery share that owner.
+
+FastAPI background tasks dispatch persisted preparation intent. Connection leases
+and draft versions fence work; interrupted in-flight attempts require explicit
+recovery instead of automatic model retries. Prepared candidates enter existing
+reconciliation. Retained observations and receipt itemization remain review data,
+and only reconciliation confirmation through MoneyService writes financial activity.
+Plan proposals grant no sharing or authority to change plan currency. No separate
+ledger, draft store, OCR vendor or conversational runtime is introduced.
+
+## Cuadrao action and integration principles
+
+These principles constrain future assigned Cuadrao contracts. They do not declare
+new APIs, business services or a replacement chat runtime implemented.
+
+Screens, chat, jobs and external tools use the same canonical record and action
+owners. A model can propose or explain an action. Validated domain services own
+financial calculations, authorization and durable writes.
+
+An approval applies to the reviewed revision, destination and action. Execution
+rechecks current permissions and rejects a changed basis. Duplicate delivery
+must not repeat a financial effect. An uncertain external result requires
+reconciliation before resubmission, not a blind retry. Endpoint payloads and
+idempotency behavior remain with the assigned [API contract](API_CONTRACT.md).
+
+Fiscal integration follows the [partner-first decision](specs/argus-decision-log.md#fiscal-route).
+Cuadrao-owned fiscal tooling remains a parallel direction. Canonical records and
+business rules stay independent of provider adapters, so replacing a provider
+does not replace the customer's records. This neither chooses the provider nor
+authorizes live fiscal issuance. Regulatory eligibility and signing authority
+need separate evidence for the selected route.
+
+The blueprint's entities, queues, MCP tools and runtime mechanisms remain
+proposals until their scoped technical contracts are approved. Its diagrams do
+not authorize another active chat brain or decide Cuadrao's future agent runtime.
+
+## Cuadrao reuse decisions
+
+Founder-aligned October 4, 2026. Reuse the existing foundations below. This is
+implementation direction, not proof of connected availability or permission to
+enable a provider. [#826](https://github.com/lagarcess/argus/issues/826) owns the
+bounded runtime contract and its migration plan.
+
+| Foundation | Direction | What remains to deliver |
+| --- | --- | --- |
+| Render Workflows | Extend the existing backtest execution foundation to assigned import and export jobs. Receipt reads run in a plain background worker instead, as recorded below. | Separate task families, persisted product state, duplicate-safe effects, bounded retries and recovery after interruption. This extension is not already delivered. |
+| LangGraph | Start from the existing orchestration and checkpointing foundation. | Define Cuadrao's state and action contract. Preserve the active Argus runtime until its authorized transition; do not start a second chat brain per client. |
+| Mem0 and pgvector | Reuse the existing semantic-recall integration; retain Supabase/Postgres as the storage foundation rather than adding a second memory database. | Define Cuadrao recall scope, consent, correction, revocation, deletion and first-release availability in #826. The current adapter configures pgvector and returns canonical record IDs; this is code evidence, not hosted enablement evidence. |
+| On-demand context injection | Retrieve the permitted records and memories needed for the current request. | Resolve retrieved IDs through current authorization and canonical records before model dispatch. Define bounded context selection and stale/deleted/revoked-result handling; similarity is not authority or financial truth. |
+| Supabase and financial services | Keep identity, storage and canonical financial operations under existing owners. | Complete the approved space contract and share the same actions across manual and conversational entry points. |
+| OpenRouter, Perplexity and Grok voice | Retain the [selected provider direction](specs/argus-decision-log.md#ai-providers). | Connect only assigned capabilities with shared consent and server-side credentials. Voice selection does not settle first-release inclusion. |
+| Resend and Apple push | Keep Resend for approved email uses; use direct APNs for iOS push. | Deliver the assigned inbox/push journey with private payloads. Email templates do not expand consumer Updates or household invitation channels. |
+
+React Email and react-pdf are candidates for their assigned template and business
+PDF work, not new consumer launch dependencies. Specialist OCR needs evidence of
+lower total correction effort and cost against the existing vision path.
+
+Founder-locked clarification, October 4: LangGraph, Mem0/pgvector, scoped
+on-demand context injection and Render Workflows are the starting stack for
+Cuadrao's continuous agentic chat. Temporal, Inngest, Trigger.dev and Novu are
+not additional launch dependencies. Evaluate a replacement or addition only
+against a demonstrated unmet requirement in the assigned slice, including
+recovery, approval waits or scheduling. Braintrust is optional evaluation and
+tracing tooling; quality evaluation remains required without selecting it.
+Reconcile any external trace content and retention before transmitting user data.
+This lock supersedes the earlier blanket pgvector deferral for Cuadrao memory;
+it does not authorize a general vector-search rewrite, provider activation or a
+new runtime. No library license or copied application-code rights are established
+by this reuse map.
+
+Founder decision, November 1, 2026: receipt reads leave the API for a plain
+background worker, `python -m workflows.document_worker`, which pulls from
+Postgres. The unmet requirement is a concurrency cap: a Render Workflow starts
+every run it is given and has no cap setting, so a burst of reads would need a
+gate in the API. The worker holds one setting for reads at once. It is the only
+reader: the API never runs one. The measurements and the order of
+work live in [the receipt intake architecture](specs/cuadrao-receipt-intake-architecture.md).
+
+Retirement inventories describe old tasks and configuration, not blanket deletion
+of these foundations. Before removal, name current callers, the replacement
+owner, retained state and migration evidence. A retired backtest task does not
+retire Render Workflows; a retired chat route does not authorize deletion of
+checkpoints or memory infrastructure needed by its successor. Preserve current
+behavior until its authorized transition and verify secret consumers before
+revocation or renaming.
+
+## Agent Quality
+
+The engineering rules that keep AI work grounded in this architecture live once,
+in `AGENTS.md` under "Codebase rules" and "Checks". Do not restate them here (a
+second copy drifts). This doc only adds architecture-specific emphasis: durable
+facts come from product records, engine outputs, and provider-backed validation.
+LLMs interpret and voice; they do not own truth.
 
 ---
 
-# 3. Product Surface Architecture
+# 3. Existing Client Surfaces
 
-## Primary Surface
+## Conversational Surface
 
 ### Chat Workspace
 
-The main Argus experience.
+The existing conversational workspace. The MVEE defines its role alongside the other ecosystem surfaces.
 
 Contains:
 
@@ -83,7 +175,7 @@ Contains:
 - result cards
 - follow-up actions
 
-## Supporting Surfaces
+## Retrieval and Account Surfaces
 
 ### Recents
 
@@ -139,9 +231,14 @@ API Control Plane (argus-api / FastAPI / Render)
 ---
 # 5. Frontend Architecture
 
-## Current Launch Surface
+## Existing Alpha web surface
 
-Web app / PWA.
+Three clients ship from this repository: the public website (`cuadrao-web`,
+built from `marketing/`), the signed-in web app on staging (`cuadrao-web-staging`,
+built from `web/`, Business only through `NEXT_PUBLIC_BUSINESS_ONLY_WEB`), and
+the native iPhone app (`ios/ArgusFoundation/`). The
+[Cuadrao launch boundary](specs/argus-minimum-viable-ecosystem-experience.md#consumer-and-business-launch-boundary)
+owns the consumer iPhone and business web direction.
 
 **Chosen because:**
 
@@ -150,9 +247,79 @@ Web app / PWA.
 - Shared codebase
 - Mobile-accessible enough for alpha
 
-## Long-Term Direction
+## Approved Platform Direction
 
-Native mobile + web parity where valuable.
+**Founder-locked September 26, 2026.** This section owns the interface stack
+decision; other product and agent documents link here.
+
+| Platform | Selected interface stack |
+| --- | --- |
+| iOS | Swift + SwiftUI, with UIKit where a component requires it |
+| Android | Kotlin + Jetpack Compose, with Android Views where a component requires it |
+| Web/PWA | Retain and evolve the existing Next.js + React + TypeScript app |
+
+Mobile interfaces are platform-native implementations, not PWA/WebView shells.
+React Native is not the selected mobile framework. Preserve the Argus visual
+identity and product behavior while respecting each platform's navigation,
+gestures, keyboard behavior, accessibility, and device capabilities.
+
+All clients use the same Argus backend and canonical financial records,
+permissions, calculations, and conversational runtime. Extend the existing
+backend through shared contracts; do not create an independent financial or
+chat truth for each interface. Existing web UI code does not automatically
+become native UI; carry forward its design and behavior through explicit
+native implementation and verification.
+
+The founder accepts separate interface implementation and maintenance to gain
+direct platform integration and control over interaction quality. Coordinated
+agents may implement against shared specifications and acceptance criteria;
+agent capacity does not replace device testing or integration review. Judge
+quality on representative devices, including affordable and midrange Android
+phones, rather than assuming the chosen framework guarantees performance.
+
+This locks the platform stacks, not a new service topology or implementation
+assignment. Client/API contracts, native authentication and guest continuity,
+local storage/offline synchronization, device integrations, supported OS/device
+ranges, financial-record and household design, ownership/task breakdown, and
+rollout order still require scoped technical definition. No runtime, feature
+gate, or production deployment changes are made by this decision.
+
+### Voice and chart direction
+
+**Founder-locked September 28, 2026.** This section owns provider and chart
+library direction; [MVEE voice](specs/argus-minimum-viable-ecosystem-experience.md#43-speak-to-argus)
+owns the experience. These are implementation choices to validate, not shipped
+integrations or an authorization for paid calls or deployment.
+
+- **Voice:** xAI is the selected provider direction for dictation, transcription
+  and full spoken conversation. The proposed integration path is xAI streaming
+  speech-to-text → existing Argus runtime → xAI streaming text-to-speech.
+  LangGraph remains the single conversational owner; financial drafts,
+  confirmation, permissions and durable records keep their existing owners.
+  Direct speech-to-speech orchestration requires a bounded architecture review
+  before adoption. The hosted Voice Agent Builder's separate reasoning,
+  knowledge store and recording defaults are not adopted by this decision.
+- **Charts:** Swift Charts for iOS, Vico as the Android Compose candidate to
+  validate, and retained TradingView Lightweight Charts for web. Do not add a
+  React Native stack for charting. Validate one representative financial chart
+  before committing library versions or spreading the implementation.
+- **Shared chart contract:** consume the same canonical series, units, dates,
+  projection/actual distinction and missing-data semantics. Clients render and
+  select points; they must not reconstruct financial calculations independently.
+  Use a stable date/value readout, responsive scrubbing and restrained styling.
+  Preserve actual jumps, gaps and flat periods rather than smoothing away facts.
+- **Acceptance still required:** spoken Dominican Spanish and English, language
+  switching, amounts and corrections, interruption/cancellation, disconnection,
+  transcript/card consistency, privacy modes, retention and cost. Charts need
+  scrolling/gesture coexistence, accessibility, theme and representative-device
+  performance checks. Exact API contracts, credentials, versions, OS ranges and
+  rollout remain scoped implementation work.
+
+Sources checked September 28, 2026: [xAI voice APIs](https://docs.x.ai/developers/rest-api-reference/inference/voice),
+[Voice Agent Builder](https://x.ai/news/grok-voice-agent-builder),
+[Swift Charts interaction](https://developer.apple.com/videos/play/wwdc2023/10037/),
+[Vico](https://github.com/patrykandpatrick/vico), and
+[Lightweight Charts](https://github.com/tradingview/lightweight-charts).
 
 ## Frontend Responsibilities
 
@@ -197,6 +364,25 @@ The backend should coordinate systems, not become monolithic business chaos.
 - Becoming deeply stateful
 - Importing or executing the heavy backtest stack in the API startup path
 
+## Cuadrao Business and intake surfaces
+
+The same FastAPI service hosts Cuadrao Business. Its routes live in
+`src/argus/api/routers/business_*.py` and its domain in
+`src/argus/domain/business/`, including the DGII fiscal profile, 606/607 export
+and month close. Request and response shapes for month close are in
+[the month-close contract](contracts/business-month-close.md).
+
+Receipts reach a Business space by upload, by email (`/business/email` and the
+`/webhooks/resend` webhook in `routers/email_intake.py`) and by WhatsApp
+(`/webhooks/whatsapp` and `/whatsapp` in `routers/whatsapp.py`, default off).
+Each arrives as a saved document draft. A read waits on its draft's row until
+the document worker takes it. The worker,
+`python -m workflows.document_worker` (`src/argus/domain/ingestion/documents/worker.py`),
+is the only reader, and it runs the sweep. The API records the read and never
+starts, imports or wakes a reader, so a burst of reads cannot hold up its
+health check.
+
+---
 # 7. Communication Protocols
 
 ## Chat Messaging
@@ -359,7 +545,10 @@ Provider ownership:
 
 **Use for:**
 
-- Measurement-only product analytics for the approved private-alpha event set.
+- Measurement-only product analytics for the closed wave 1 event registry
+  (`src/argus/observability/analytics_events.py`, listed in `docs/DATA_MODEL.md`
+  section 12.1.1). The sink re-validates each event against the registry and
+  refuses anything else.
 - Aggregate funnels, retention, and loop-health questions.
 
 **Do not use for:**
@@ -394,9 +583,18 @@ Argus does not have one canonical object. It has multiple first-class objects.
 
 Authenticated profile language is product state, not browser state. Signup
 validates the selected language and creates the profile with its server-derived
-locale in the same server-owned path. Browser detection is only a logged-out
-hint; login and reload hydrate the authoritative profile before rendering the
-authenticated application.
+locale in the same server-owned path. Login and reload hydrate the
+authoritative profile before rendering the authenticated application.
+
+The language a visitor sees is decided in this order: the account's saved
+language once signed in; else a choice saved on the device (the one `i18nextLng`
+key); else the default, which is `es-419` on a Cuadrao Business build that ships
+Spanish and `en` otherwise. The browser's language is a logged-out hint on a
+consumer build only; a Business build never reads it. The auth page offers the
+other language by its own name; a press switches at once and the choice is saved
+on the account at sign-in. A key the shown language lacks is read from that
+language's own chain (`en` for English readers, `es-419` then `en` for Spanish
+readers), and both locale files carry the same keys, which a test enforces.
 
 # 11. Conversation Model
 
@@ -526,6 +724,22 @@ the card into a new chat, and sharing freezes it. None of these creates a
 backtest run, a job, an evidence artifact or a strategy. The only paid read is
 a refresh of cited inputs the user starts, which goes through the research
 allowance and the cost ledger like a turn.
+
+### Registered in-process calculations
+
+`get_calculation_declarations()` in
+`src/argus/domain/calculations/__init__.py` is the only catalog of free
+calculations. Do not restate that inventory here: names, count, and modules
+belong to that owner. Each registered calculation is local, never confirmed,
+and recomputes in process through its own compute function. CI derives the
+live set from the same owner (for example
+`tests/test_calculation_kernels.py` parametrizes over
+`get_calculation_declarations()`), so a new registration cannot leave a
+hand-maintained doc table behind.
+
+Open product work that is not yet registered in that catalog, including
+candidates under PR #634, is out of scope for this architecture summary until
+it lands in `get_calculation_declarations()`.
 
 Recovery preserves the current question's ownership. When interpreter candidates
 fail, focused strategy repair requires a typed strategy read from that same turn;
@@ -734,21 +948,22 @@ Alpha search is implemented using **Postgres Full-Text Search (FTS)** + recency 
 
 ## Deferred Direction
 
-Semantic retrieval (Vector embeddings) is deferred from Alpha.
-- Use SQL/Text search first.
-- Re-evaluate semantic search for Beta.
-- Do not add pgvector or embedding tables for the launch chat/backtest branch.
-  Structured Supabase product records and run metadata are sufficient until
-  Argus needs semantic recall across large histories.
+The global Search surface retains SQL/text search. A vector-search replacement
+is not part of this launch assignment. This boundary does not prohibit reuse of
+the existing Mem0/pgvector adapter for scoped Cuadrao memory under the
+[reuse decision](#cuadrao-reuse-decisions). Memory recall and global Search have
+different owners and acceptance criteria.
 
 ## Structured Recall Versus Memory
 
 P2 continuity comes from owner-scoped `Idea`, `IdeaVersion`,
 `EvidenceArtifact`, `DecisionNote`, conversation, and run records in Supabase.
-That structured recall is not memory. A future `MemoryRecord`
-or equivalent cross-conversation preference layer remains post-PMF and requires
-earned opt-in plus inspect/edit/delete/reset/disable/"why was this used?"
-controls before activation.
+That structured recall is not memory. Current production availability for
+personalization memory (flag, role gate, semantic recall) and its approved
+transition are owned by
+[PRODUCT.md Current production availability and planned changes](PRODUCT.md#current-production-availability-and-planned-changes).
+Other docs link there rather than restate rollout state. Memory must not be
+required for the idea/evidence/comparison loop.
 
 # 15. Deletion / Archival Model
 
@@ -842,19 +1057,25 @@ runtime and accounting owners.
 
 Two server flags own separate policy boundaries:
 
-- `ARGUS_GUEST_ACCESS_ENABLED` defaults on; explicit `false` is the emergency
+- `CUADRAO_GUEST_ACCESS_ENABLED` defaults on; explicit `false` is the emergency
   bootstrap kill switch.
-- `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` separately controls ordinary
-  permanent-account access. Unlike the guest flag it fails closed when unset, so
-  an environment that omits it denies public registration. The founder opened it
-  in production on 2026-08-12; explicit `false` closes it again.
+- `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=false` in production separately
+  controls ordinary permanent-account access, so production is invite only.
+  Staging sets it to `true` for internal use. Unlike the guest flag it fails
+  closed when unset, so an environment that omits it denies public registration.
+  The production rule in `scripts/ops/staging_env_manifest.json` owns the value.
 
 `NEXT_PUBLIC_GUEST_ACCESS_ENABLED` also defaults on and selects presentation
 only; explicit `false` restores the preserved auth-first landing. An explicit
-client/server disagreement fails closed. With public permanent accounts open,
-the allowlist owns role elevation and explicit denial only: a disabled row still
-blocks signup and login, while an absent row no longer does. When the public
-gate is closed instead, that allowlist owns signup and login admission too.
+client/server disagreement fails closed. With the flag false, as in
+production, the allowlist owns signup and login admission: only an email with an
+active row enters, and a disabled row still refuses it. When the flag is true,
+the allowlist owns role elevation and explicit denial only, and an absent row no
+longer blocks. With the flag false and `CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED`
+true (default false; production keeps it false), the Business invitation and grant tables admit exactly the email a live
+invitation or grant on an open Business names; a disabled allowlist row still
+refuses it, and an email admitted only that way cannot start a Business or
+invite anyone.
 Turning the server guest flag off stops bootstrap only: active verified guests
 drain through their fixed expiry or conversion instead of being abruptly
 deauthorized.

@@ -175,14 +175,16 @@ describe("chat header wiring", () => {
   });
 
   test("owner menu renders only for a manageable conversation", () => {
-    expect(chat).toContain(') : currentView === "chat" &&');
+    expect(chat).toContain('currentView === "chat" &&');
     expect(chat).toContain("conversationId &&");
     expect(chat).toContain("canManageConversation ? (");
     expect(chat).toContain("<ChatHeaderMenu");
   });
 
   test("header delete dialog names the active chat", () => {
-    expect(chat).toContain("{ title: headerConversationTitle }");
+    const dialog = readFileSync(join(root, "components/chat/ConversationDeleteDialog.tsx"), "utf-8");
+    expect(chat).toContain("title={headerConversationTitle}");
+    expect(dialog).toContain("{ title },");
     expect(chat).not.toContain('{ title: t("common.conversation", "Conversation") }');
   });
 

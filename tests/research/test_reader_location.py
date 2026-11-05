@@ -129,12 +129,13 @@ def test_a_search_made_for_one_country_never_answers_another(
         monkeypatch, globals(), question_kind="current_external", symbols=["NVDA"]
     )
     transport = wire_grounded_client(monkeypatch, [_answer() for _ in range(3)])
-    message = "Why is NVDA moving this week? (one search per country)"
+    message = "Why is NVDA moving this week? (reader location preserved)"
 
     for country in ("MX", "MX", "DO"):
         assert run_research_turn(message, country=country) is not None
 
     assert [_user_location(request) for request in transport.requests] == [
+        {"country": "MX"},
         {"country": "MX"},
         {"country": "DO"},
     ]

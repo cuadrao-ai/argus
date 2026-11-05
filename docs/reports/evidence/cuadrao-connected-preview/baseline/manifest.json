@@ -1,0 +1,40 @@
+{
+  "source_commit": "875de09ac2115acec42e09060b92878aa5f18eff",
+  "source": "Unmodified approved Preview at integration base, captured before editing the UI",
+  "simulator": "iPhone 18 Pro, iOS 27.0",
+  "locale": "es-419, es_DO",
+  "date": "2026-10-05",
+  "status_bar": "9:41, wifi, charged 100%",
+  "launch_arguments": [
+    "--cuadrao-design",
+    "--cuadrao-home",
+    "--home-populated",
+    "--plan-reset",
+    "--receipt-reset"
+  ],
+  "appearance_argument": "-cuadrao.design.appearance light|dark",
+  "files": {
+    "home-light.png": {
+      "sha256": "dc49c404b1670f7a63a4c982677996f0ba5e6f0c227fcb56ecbd6d1722d3e472"
+    },
+    "home-dark.png": {
+      "sha256": "2f77199f7d450d1bd83035c5dc9cec4d727ed2a96bdd032a46c178bbe0e0fdcc"
+    },
+    "plan-light.png": {
+      "sha256": "b9d6a594ba2471df81fb9c59fa5c14b87c9fa07acbe452bcaf6f45c1d76e243d"
+    },
+    "plan-dark.png": {
+      "sha256": "8604a79f3d8cc84934fbb060e5bddac952ad1c271c3df10ed6059d2539574654"
+    },
+    "account-light.png": {
+      "sha256": "219091619015a193ec5c5d560d8cfe701b7e83442545bf7981c1274fe0d070b0"
+    },
+    "activity-light.png": {
+      "sha256": "5e09b0f68ec751602b5d9890d1f53ae8faedddfa3e8ffa9a0a6c0d9b3825af96"
+    },
+    "home-empty-light.png": {
+      "sha256": "352f9c2a8fb44e7f0eb85413bddb2caa588effc538ae013042927f5e79f6c9e3",
+      "launch_difference": "Omit --home-populated, add --plan-empty"
+    }
+  }
+}

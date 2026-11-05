@@ -1,0 +1,32 @@
+{
+  "status": "preimplementation_baseline_only",
+  "integration_base": "15e57931584b21dd7f9e453dbeb9127fc4b8cff3",
+  "worker_preparation_commit": "275b1ff3",
+  "design_checkpoint": "7f72dfd73d0c137a1118dffebe5219985577548a",
+  "command": "PYTHONPATH=src /Users/garces/.codex/worktrees/5a42/private-alpha-next/.venv/bin/python -m pytest -q tests/financial_accounts/test_plan.py tests/financial_accounts/test_budgets.py tests/financial_accounts/test_goals.py tests/financial_accounts/test_goal_edges.py tests/financial_accounts/test_debts.py tests/financial_accounts/test_financial_search.py tests/household/test_household_domain.py tests/household/test_household_lifecycle.py",
+  "result": {
+    "passed": 81,
+    "skipped": 74,
+    "failed": 0,
+    "seconds": 15.47
+  },
+  "skip_reason": "Disposable Postgres DSN not assigned; skipped cases are not accepted database evidence.",
+  "native_status": "not_yet_verified_for_this_lane",
+  "shared_planning_status": "not_implemented_or_demonstrated",
+  "environment_mutations": "No existing simulator, database, service or hosted system changed.",
+  "pending_decisions": [
+    "Plan-specific participant/view/edit and private-contribution interaction",
+    "Shared-plan owner departure custody"
+  ],
+  "native_transport_baseline": {
+    "tested_head": "150a9b10ff533478f30a83aa03c25f662130ade7",
+    "command": "env -u ARGUS_SESSION_LIVE_CONFIG swift test --package-path ios/Packages/ArgusSession --scratch-path /private/tmp/argus-shared-household-planning-swift-build --cache-path /private/tmp/argus-shared-household-planning-swift-cache --skip LiveSessionTests",
+    "passed": 64,
+    "skipped": 1,
+    "failed": 0,
+    "excluded": "LiveSessionTests; no live configuration supplied",
+    "skip_reason": "LiveFinancialAccountTests requires the isolated Auth fixture.",
+    "scope": "Existing native transport/session baseline only; no shared-planning UI or simulator acceptance.",
+    "log": "swift-baseline.txt"
+  }
+}

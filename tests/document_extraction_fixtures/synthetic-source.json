@@ -1,0 +1,25 @@
+[
+  {
+    "id": "statement-dop",
+    "file": "statement-dop.pdf",
+    "pages": [
+      ["FICTICIO / SYNTHETIC - NO ES UN FORMATO BANCARIO REAL", "Estado de cuenta personal DOP - septiembre 2026 - pagina 1 de 2", "Saldo inicial DOP 1,000.00", "Fecha       Descripcion              Debito DOP     Credito DOP", "2026-09-01  Ingreso quincena                           1,200.00", "2026-09-02  Compra mercado                 125.50", "Continua en pagina 2. No sumar el saldo como transaccion."],
+      ["FICTICIO / SYNTHETIC - NO ES UN FORMATO BANCARIO REAL", "Estado de cuenta personal DOP - septiembre 2026 - pagina 2 de 2", "Fecha       Descripcion              Debito DOP     Credito DOP", "2026-09-03  Compra mercado                 125.50", "2026-09-04  Devolucion                                   25.50", "Saldo final DOP 1,974.50", "FIN DEL ESTADO. Los saldos no son movimientos."]
+    ]
+  },
+  {
+    "id": "statement-usd",
+    "file": "statement-usd.pdf",
+    "pages": [["FICTICIO / SYNTHETIC - NO ES UN FORMATO BANCARIO REAL", "Estado de cuenta USD - septiembre 2026", "Saldo inicial USD 100.00", "Fecha       Descripcion              Debito USD     Credito USD", "2026-09-07  Compra en linea                 40.25", "2026-09-08  Ingreso                                     100.00", "Saldo final USD 159.75", "Los saldos no son transacciones."]]
+  },
+  {
+    "id": "receipt-dop",
+    "file": "receipt-dop.png",
+    "pages": [["FICTICIO / SYNTHETIC", "Colmado Nube de Papel (ficticio)", "Fecha 2026-09-10", "Arroz                         DOP 150.00", "Leche                         DOP 100.50", "TOTAL                         DOP 250.50", "Efectivo                      DOP 300.00", "Cambio                        DOP 49.50"]]
+  },
+  {
+    "id": "unreadable",
+    "file": "unreadable.png",
+    "pages": [["FICTICIO / SYNTHETIC", "Documento ilegible", "2026-09-11 Compra DOP 999.00", "TOTAL DOP 999.00"]]
+  }
+]

@@ -5121,8 +5121,8 @@ async def test_explicit_model_timeout_churn_does_not_invent_strategy_ownership(
         repair_calls.append(kwargs["schema_name"])
         raise AssertionError("An unread turn must not enter focused strategy repair")
 
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "primary/model")
-    monkeypatch.setenv("ARGUS_STRUCTURED_FALLBACK_MODEL", "fallback/model")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "primary/model")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_FALLBACK_MODEL", "fallback/model")
     monkeypatch.setattr(interpreter_module, "build_openrouter_model", build_model)
     monkeypatch.setattr(interpreter_module, "resolve_asset", resolve_asset)
     monkeypatch.setattr(
@@ -5186,8 +5186,8 @@ async def test_explicit_model_timeout_churn_does_not_repair_nonmaterial_refineme
         repair_calls.append(kwargs["schema_name"])
         raise AssertionError("non-material refinement should not reach repair schema")
 
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "primary/model")
-    monkeypatch.setenv("ARGUS_STRUCTURED_FALLBACK_MODEL", "fallback/model")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "primary/model")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_FALLBACK_MODEL", "fallback/model")
     monkeypatch.setattr(interpreter_module, "build_openrouter_model", build_model)
     monkeypatch.setattr(
         "argus.llm.openrouter.resolve_openrouter_model",

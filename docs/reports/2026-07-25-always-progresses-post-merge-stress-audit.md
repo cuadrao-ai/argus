@@ -215,7 +215,7 @@ latest-result fact answers. The continuity stress path exposed its misuse; this
 audit does not yet prove that PR #268 introduced the underlying defect.
 
 The visible `TRY NEXT` heading is also inconsistent with the active
-[result voice bridge design](../superpowers/specs/2026-06-11-argus-result-voice-bridge-design.md),
+[result voice bridge design](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-06-11-argus-result-voice-bridge-design.md),
 which removes Try next as a visible result surface.
 
 ### AP-STRESS-06 — Supported crossover request is misread as an unsupported comparison

@@ -1,0 +1,399 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild build-for-testing -project /private/tmp/cuadrao-apple-session-20261005/ios/ArgusFoundation.xcodeproj -scheme ArgusFoundation -destination "platform=iOS Simulator,id=AD3171CD-69D5-44E9-93AF-1E38FE5FFCD7" -derivedDataPath /private/tmp/cuadrao-apple-combined-xcode -clonedSourcePackagesDirPath /private/tmp/cuadrao-apple-session-xcode-packages -disableAutomaticPackageResolution -parallel-testing-enabled NO -xcconfig /private/tmp/apple-combined-live/native.xcconfig CODE_SIGNING_REQUIRED=NO
+
+Build settings from command line:
+    CODE_SIGNING_REQUIRED = NO
+
+Build settings from configuration file '/private/tmp/apple-combined-live/native.xcconfig':
+    ARGUS_API_URL = http:/$()/127.0.0.1:60341
+    ARGUS_APPLE_SIGN_IN_ENABLED = false
+    ARGUS_AUTH_ENABLED = true
+    ARGUS_CAPTCHA_URL = http:/$()/127.0.0.1:60345/captcha.html
+    ARGUS_GOOGLE_SIGN_IN_ENABLED = false
+    ARGUS_LOCAL_BUNDLE_IDENTIFIER = local.argus.apple-combined-proof
+    ARGUS_SUPABASE_ANON_KEY = [REDACTED_LOCAL_CREDENTIAL]
+    ARGUS_SUPABASE_URL = http:/$()/127.0.0.1:60331
+    ARGUS_WEB_URL = http:/$()/127.0.0.1:60345
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  swift-http-types: https://github.com/apple/swift-http-types.git @ 1.8.0
+  AppAuth: https://github.com/openid/AppAuth-iOS.git @ 2.1.0
+  swift-asn1: https://github.com/apple/swift-asn1.git @ 1.7.3
+  swift-issue-reporting: https://github.com/pointfreeco/swift-issue-reporting @ 2.1.1
+  swift-concurrency-extras: https://github.com/pointfreeco/swift-concurrency-extras @ 1.4.1
+  Supabase: https://github.com/supabase/supabase-swift.git @ 2.55.2
+  InteropForGoogle: https://github.com/google/interop-ios-for-google-sdks.git @ 101.0.0
+  AppCheck: https://github.com/google/app-check.git @ 11.3.2
+  GoogleSignIn: https://github.com/google/GoogleSignIn-iOS.git @ 9.2.0
+  xctest-dynamic-overlay: https://github.com/pointfreeco/xctest-dynamic-overlay @ 1.13.1
+  swift-clocks: https://github.com/pointfreeco/swift-clocks @ 1.1.1
+  swift-crypto: https://github.com/apple/swift-crypto.git @ 4.5.2
+  GoogleUtilities: https://github.com/google/GoogleUtilities.git @ 8.1.4
+  GTMAppAuth: https://github.com/google/GTMAppAuth.git @ 5.0.0
+  ArgusSession: /tmp/cuadrao-apple-session-20261005/ios/Packages/ArgusSession @ local
+  GTMSessionFetcher: https://github.com/google/gtm-session-fetcher.git @ 3.5.0
+  Promises: https://github.com/google/promises.git @ 2.4.1
+
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (54 targets)
+    Target 'ArgusFoundationUITests' in project 'ArgusFoundation'
+        ➜ Explicit dependency on target 'ArgusFoundation' in project 'ArgusFoundation'
+    Target 'ArgusFoundation' in project 'ArgusFoundation'
+        ➜ Explicit dependency on target 'ArgusSession-product' in project 'ArgusSession'
+        ➜ Explicit dependency on target 'GoogleSignIn-product' in project 'GoogleSignIn'
+        ➜ Explicit dependency on target 'GoogleSignInSwift-product' in project 'GoogleSignIn'
+    Target 'GoogleSignInSwift-product' in project 'GoogleSignIn'
+        ➜ Explicit dependency on target 'GoogleSignInSwift' in project 'GoogleSignIn'
+        ➜ Explicit dependency on target 'GoogleSignIn_GoogleSignInSwift' in project 'GoogleSignIn'
+        ➜ Explicit dependency on target 'GoogleSignIn' in project 'GoogleSignIn'
+        ➜ Explicit dependency on target 'AppAuth-product' in project 'AppAuth'
+        ➜ Explicit dependency on target 'AppAuthCore-product' in project 'AppAuth'
+        ➜ Explicit dependency on target 'AppCheckCore-product' in project 'AppCheck'
+        ➜ Explicit dependency on target 'GTMAppAuth-product' in project 'GTMAppAuth'
+        ➜ Explicit dependency on target 'GTMSessionFetcherCore-product' in project 'GTMSessionFetcher'
+    Target 'GoogleSignInSwift' in project 'GoogleSignIn'
+        ➜ Explicit dependency on target 'GoogleSignIn_GoogleSignInSwift' in project 'GoogleSignIn'
+        ➜ Explicit dependency on target 'GoogleSignIn' in project 'GoogleSignIn'
+        ➜ Explicit dependency on target 'AppAuth-product' in project 'AppAuth'
+        ➜ Explicit dependency on target 'AppAuthCore-product' in project 'AppAuth'
+        ➜ Explicit dependency on target 'AppCheckCore-product' in project 'AppCheck'
+        ➜ Explicit dependency on target 'GTMAppAuth-product' in project 'GTMAppAuth'
+        ➜ Explicit dependency on target 'GTMSessionFetcherCore-product' in project 'GTMSessionFetcher'
+    Target 'GoogleSignIn_GoogleSignInSwift' in project 'GoogleSignIn' (no dependencies)
+    Target 'GoogleSignIn-product' in project 'GoogleSignIn'
+        ➜ Explicit dependency on target 'GoogleSignIn' in project 'GoogleSignIn'
+        ➜ Explicit dependency on target 'GoogleSignIn_GoogleSignIn' in project 'GoogleSignIn'
+        ➜ Explicit dependency on target 'AppAuth-product' in project 'AppAuth'
+        ➜ Explicit dependency on target 'AppAuthCore-product' in project 'AppAuth'
+        ➜ Explicit dependency on target 'AppCheckCore-product' in project 'AppCheck'
+        ➜ Explicit dependency on target 'GTMAppAuth-product' in project 'GTMAppAuth'
+        ➜ Explicit dependency on target 'GTMSessionFetcherCore-product' in project 'GTMSessionFetcher'
+    Target 'GoogleSignIn' in project 'GoogleSignIn'
+        ➜ Explicit dependency on target 'GoogleSignIn_GoogleSignIn' in project 'GoogleSignIn'
+        ➜ Explicit dependency on target 'AppAuth-product' in project 'AppAuth'
+        ➜ Explicit dependency on target 'AppAuthCore-product' in project 'AppAuth'
+        ➜ Explicit dependency on target 'AppCheckCore-product' in project 'AppCheck'
+        ➜ Explicit dependency on target 'GTMAppAuth-product' in project 'GTMAppAuth'
+        ➜ Explicit dependency on target 'GTMSessionFetcherCore-product' in project 'GTMSessionFetcher'
+    Target 'GTMAppAuth-product' in project 'GTMAppAuth'
+        ➜ Explicit dependency on target 'GTMAppAuth' in project 'GTMAppAuth'
+        ➜ Explicit dependency on target 'GTMAppAuth_GTMAppAuth' in project 'GTMAppAuth'
+        ➜ Explicit dependency on target 'GTMSessionFetcherCore-product' in project 'GTMSessionFetcher'
+        ➜ Explicit dependency on target 'AppAuthCore-product' in project 'AppAuth'
+    Target 'GTMAppAuth' in project 'GTMAppAuth'
+        ➜ Explicit dependency on target 'GTMAppAuth_GTMAppAuth' in project 'GTMAppAuth'
+        ➜ Explicit dependency on target 'GTMSessionFetcherCore-product' in project 'GTMSessionFetcher'
+        ➜ Explicit dependency on target 'AppAuthCore-product' in project 'AppAuth'
+    Target 'GTMSessionFetcherCore-product' in project 'GTMSessionFetcher'
+        ➜ Explicit dependency on target 'GTMSessionFetcherCore' in project 'GTMSessionFetcher'
+        ➜ Explicit dependency on target 'GTMSessionFetcher_GTMSessionFetcherCore' in project 'GTMSessionFetcher'
+    Target 'GTMSessionFetcherCore' in project 'GTMSessionFetcher'
+        ➜ Explicit dependency on target 'GTMSessionFetcher_GTMSessionFetcherCore' in project 'GTMSessionFetcher'
+    Target 'GTMSessionFetcher_GTMSessionFetcherCore' in project 'GTMSessionFetcher' (no dependencies)
+    Target 'GTMAppAuth_GTMAppAuth' in project 'GTMAppAuth' (no dependencies)
+    Target 'AppCheckCore-product' in project 'AppCheck'
+        ➜ Explicit dependency on target 'AppCheckCore' in project 'AppCheck'
+        ➜ Explicit dependency on target 'FBLPromises-product' in project 'Promises'
+        ➜ Explicit dependency on target 'GULEnvironment-product' in project 'GoogleUtilities'
+        ➜ Explicit dependency on target 'GULUserDefaults-product' in project 'GoogleUtilities'
+    Target 'AppCheckCore' in project 'AppCheck'
+        ➜ Explicit dependency on target 'FBLPromises-product' in project 'Promises'
+        ➜ Explicit dependency on target 'GULEnvironment-product' in project 'GoogleUtilities'
+        ➜ Explicit dependency on target 'GULUserDefaults-product' in project 'GoogleUtilities'
+    Target 'GULUserDefaults-product' in project 'GoogleUtilities'
+        ➜ Explicit dependency on target 'GoogleUtilities-UserDefaults' in project 'GoogleUtilities'
+        ➜ Explicit dependency on target 'GoogleUtilities_GoogleUtilities-UserDefaults' in project 'GoogleUtilities'
+        ➜ Explicit dependency on target 'third-party-IsAppEncrypted' in project 'GoogleUtilities'
+        ➜ Explicit dependency on target 'GoogleUtilities-Environment' in project 'GoogleUtilities'
+        ➜ Explicit dependency on target 'GoogleUtilities-Logger' in project 'GoogleUtilities'
+    Target 'GoogleUtilities-UserDefaults' in project 'GoogleUtilities'
+        ➜ Explicit dependency on target 'GoogleUtilities_GoogleUtilities-UserDefaults' in project 'GoogleUtilities'
+        ➜ Explicit dependency on target 'third-party-IsAppEncrypted' in project 'GoogleUtilities'
+        ➜ Explicit dependency on target 'GoogleUtilities-Environment' in project 'GoogleUtilities'
+        ➜ Explicit dependency on target 'GoogleUtilities-Logger' in project 'GoogleUtilities'
+    Target 'GoogleUtilities-Logger' in project 'GoogleUtilities'
+        ➜ Explicit dependency on target 'GoogleUtilities_GoogleUtilities-Logger' in project 'GoogleUtilities'
+        ➜ Explicit dependency on target 'third-party-IsAppEncrypted' in project 'GoogleUtilities'
+        ➜ Explicit dependency on target 'GoogleUtilities-Environment' in project 'GoogleUtilities'
+    Target 'GoogleUtilities_GoogleUtilities-Logger' in project 'GoogleUtilities' (no dependencies)
+    Target 'GoogleUtilities_GoogleUtilities-UserDefaults' in project 'GoogleUtilities' (no dependencies)
+    Target 'GULEnvironment-product' in project 'GoogleUtilities'
+        ➜ Explicit dependency on target 'GoogleUtilities-Environment' in project 'GoogleUtilities'
+        ➜ Explicit dependency on target 'GoogleUtilities_GoogleUtilities-Environment' in project 'GoogleUtilities'
+        ➜ Explicit dependency on target 'third-party-IsAppEncrypted' in project 'GoogleUtilities'
+    Target 'GoogleUtilities-Environment' in project 'GoogleUtilities'
+        ➜ Explicit dependency on target 'GoogleUtilities_GoogleUtilities-Environment' in project 'GoogleUtilities'
+        ➜ Explicit dependency on target 'third-party-IsAppEncrypted' in project 'GoogleUtilities'
+    Target 'third-party-IsAppEncrypted' in project 'GoogleUtilities' (no dependencies)
+    Target 'GoogleUtilities_GoogleUtilities-Environment' in project 'GoogleUtilities' (no dependencies)
+    Target 'FBLPromises-product' in project 'Promises'
+        ➜ Explicit dependency on target 'FBLPromises' in project 'Promises'
+        ➜ Explicit dependency on target 'Promises_FBLPromises' in project 'Promises'
+    Target 'FBLPromises' in project 'Promises'
+        ➜ Explicit dependency on target 'Promises_FBLPromises' in project 'Promises'
+    Target 'Promises_FBLPromises' in project 'Promises' (no dependencies)
+    Target 'AppAuthCore-product' in project 'AppAuth'
+        ➜ Explicit dependency on target 'AppAuthCore' in project 'AppAuth'
+        ➜ Explicit dependency on target 'AppAuth_AppAuthCore' in project 'AppAuth'
+    Target 'AppAuth-product' in project 'AppAuth'
+        ➜ Explicit dependency on target 'AppAuth' in project 'AppAuth'
+        ➜ Explicit dependency on target 'AppAuth_AppAuth' in project 'AppAuth'
+        ➜ Explicit dependency on target 'AppAuthCore' in project 'AppAuth'
+    Target 'AppAuth' in project 'AppAuth'
+        ➜ Explicit dependency on target 'AppAuth_AppAuth' in project 'AppAuth'
+        ➜ Explicit dependency on target 'AppAuthCore' in project 'AppAuth'
+    Target 'AppAuthCore' in project 'AppAuth'
+        ➜ Explicit dependency on target 'AppAuth_AppAuthCore' in project 'AppAuth'
+    Target 'AppAuth_AppAuthCore' in project 'AppAuth' (no dependencies)
+    Target 'AppAuth_AppAuth' in project 'AppAuth' (no dependencies)
+    Target 'GoogleSignIn_GoogleSignIn' in project 'GoogleSignIn' (no dependencies)
+    Target 'ArgusSession-product' in project 'ArgusSession'
+        ➜ Explicit dependency on target 'ArgusSession' in project 'ArgusSession'
+        ➜ Explicit dependency on target 'Auth-product' in project 'Supabase'
+    Target 'ArgusSession' in project 'ArgusSession'
+        ➜ Explicit dependency on target 'Auth-product' in project 'Supabase'
+    Target 'Auth-product' in project 'Supabase'
+        ➜ Explicit dependency on target 'Auth' in project 'Supabase'
+        ➜ Explicit dependency on target 'Helpers' in project 'Supabase'
+        ➜ Explicit dependency on target 'ConcurrencyExtras-product' in project 'swift-concurrency-extras'
+        ➜ Explicit dependency on target 'HTTPTypes-product' in project 'swift-http-types'
+        ➜ Explicit dependency on target 'Clocks-product' in project 'swift-clocks'
+        ➜ Explicit dependency on target 'XCTestDynamicOverlay-product' in project 'xctest-dynamic-overlay'
+        ➜ Explicit dependency on target 'IssueReporting-product' in project 'xctest-dynamic-overlay'
+        ➜ Explicit dependency on target 'Crypto-product' in project 'swift-crypto'
+    Target 'Auth' in project 'Supabase'
+        ➜ Explicit dependency on target 'Helpers' in project 'Supabase'
+        ➜ Explicit dependency on target 'ConcurrencyExtras-product' in project 'swift-concurrency-extras'
+        ➜ Explicit dependency on target 'HTTPTypes-product' in project 'swift-http-types'
+        ➜ Explicit dependency on target 'Clocks-product' in project 'swift-clocks'
+        ➜ Explicit dependency on target 'XCTestDynamicOverlay-product' in project 'xctest-dynamic-overlay'
+        ➜ Explicit dependency on target 'IssueReporting-product' in project 'xctest-dynamic-overlay'
+        ➜ Explicit dependency on target 'Crypto-product' in project 'swift-crypto'
+    Target 'Crypto-product' in project 'swift-crypto'
+        ➜ Explicit dependency on target 'Crypto' in project 'swift-crypto'
+        ➜ Explicit dependency on target 'swift-crypto_Crypto' in project 'swift-crypto'
+    Target 'Crypto' in project 'swift-crypto'
+        ➜ Explicit dependency on target 'swift-crypto_Crypto' in project 'swift-crypto'
+    Target 'swift-crypto_Crypto' in project 'swift-crypto' (no dependencies)
+    Target 'Helpers' in project 'Supabase'
+        ➜ Explicit dependency on target 'ConcurrencyExtras-product' in project 'swift-concurrency-extras'
+        ➜ Explicit dependency on target 'HTTPTypes-product' in project 'swift-http-types'
+        ➜ Explicit dependency on target 'Clocks-product' in project 'swift-clocks'
+        ➜ Explicit dependency on target 'XCTestDynamicOverlay-product' in project 'xctest-dynamic-overlay'
+        ➜ Explicit dependency on target 'IssueReporting-product' in project 'xctest-dynamic-overlay'
+    Target 'IssueReporting-product' in project 'xctest-dynamic-overlay'
+        ➜ Explicit dependency on target '_IssueReporting' in project 'xctest-dynamic-overlay'
+        ➜ Explicit dependency on target 'IssueReporting-product' in project 'swift-issue-reporting'
+    Target 'XCTestDynamicOverlay-product' in project 'xctest-dynamic-overlay'
+        ➜ Explicit dependency on target 'XCTestDynamicOverlay' in project 'xctest-dynamic-overlay'
+        ➜ Explicit dependency on target '_IssueReporting' in project 'xctest-dynamic-overlay'
+        ➜ Explicit dependency on target 'IssueReporting-product' in project 'swift-issue-reporting'
+    Target 'XCTestDynamicOverlay' in project 'xctest-dynamic-overlay'
+        ➜ Explicit dependency on target '_IssueReporting' in project 'xctest-dynamic-overlay'
+        ➜ Explicit dependency on target 'IssueReporting-product' in project 'swift-issue-reporting'
+    Target '_IssueReporting' in project 'xctest-dynamic-overlay'
+        ➜ Explicit dependency on target 'IssueReporting-product' in project 'swift-issue-reporting'
+    Target 'Clocks-product' in project 'swift-clocks'
+        ➜ Explicit dependency on target 'Clocks' in project 'swift-clocks'
+        ➜ Explicit dependency on target 'ConcurrencyExtras-product' in project 'swift-concurrency-extras'
+        ➜ Explicit dependency on target 'IssueReporting-product' in project 'swift-issue-reporting'
+    Target 'Clocks' in project 'swift-clocks'
+        ➜ Explicit dependency on target 'ConcurrencyExtras-product' in project 'swift-concurrency-extras'
+        ➜ Explicit dependency on target 'IssueReporting-product' in project 'swift-issue-reporting'
+    Target 'IssueReporting-product' in project 'swift-issue-reporting'
+        ➜ Explicit dependency on target 'IssueReporting' in project 'swift-issue-reporting'
+    Target 'IssueReporting' in project 'swift-issue-reporting' (no dependencies)
+    Target 'HTTPTypes-product' in project 'swift-http-types'
+        ➜ Explicit dependency on target 'HTTPTypes' in project 'swift-http-types'
+    Target 'HTTPTypes' in project 'swift-http-types' (no dependencies)
+    Target 'ConcurrencyExtras-product' in project 'swift-concurrency-extras'
+        ➜ Explicit dependency on target 'ConcurrencyExtras' in project 'swift-concurrency-extras'
+    Target 'ConcurrencyExtras' in project 'swift-concurrency-extras' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk -x objective-c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --print-asset-tag-combinations --output-format xml1 /tmp/cuadrao-apple-session-20261005/ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+ReadFileContents /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/share/docc/features.json
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+Build description signature: d3dd22829979b9d2b600a29532c67a80
+Build description path: /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/XCBuildData/d3dd22829979b9d2b600a29532c67a80.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk /tmp/cuadrao-apple-combined-xcode/SDKStatCaches.noindex/iphonesimulator27.0-24A430-8dc58220667be655e1bcc261a7455254.sdkstatcache
+    cd /tmp/cuadrao-apple-session-20261005/ios/ArgusFoundation.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk -o /tmp/cuadrao-apple-combined-xcode/SDKStatCaches.noindex/iphonesimulator27.0-24A430-8dc58220667be655e1bcc261a7455254.sdkstatcache
+
+ProcessInfoPlistFile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/swift-crypto_Crypto.bundle/Info.plist /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/swift-crypto.build/Debug-iphonesimulator/swift-crypto_Crypto-b.build/empty-swift-crypto_Crypto.plist (in target 'swift-crypto_Crypto' from project 'swift-crypto')
+    cd /tmp/cuadrao-apple-session-xcode-packages/checkouts/swift-crypto
+    builtin-infoPlistUtility /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/swift-crypto.build/Debug-iphonesimulator/swift-crypto_Crypto-b.build/empty-swift-crypto_Crypto.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/swift-crypto_Crypto.bundle/Info.plist
+
+ProcessInfoPlistFile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GoogleSignIn_GoogleSignIn.bundle/Info.plist /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/GoogleSignIn.build/Debug-iphonesimulator/GoogleSignIn_GoogleSignIn-b.build/empty-GoogleSignIn_GoogleSignIn.plist (in target 'GoogleSignIn_GoogleSignIn' from project 'GoogleSignIn')
+    cd /tmp/cuadrao-apple-session-xcode-packages/checkouts/GoogleSignIn-iOS
+    builtin-infoPlistUtility /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/GoogleSignIn.build/Debug-iphonesimulator/GoogleSignIn_GoogleSignIn-b.build/empty-GoogleSignIn_GoogleSignIn.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GoogleSignIn_GoogleSignIn.bundle/Info.plist
+
+ProcessInfoPlistFile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/AppAuth_AppAuth.bundle/Info.plist /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/AppAuth.build/Debug-iphonesimulator/AppAuth_AppAuth-b.build/empty-AppAuth_AppAuth.plist (in target 'AppAuth_AppAuth' from project 'AppAuth')
+    cd /tmp/cuadrao-apple-session-xcode-packages/checkouts/AppAuth-iOS
+    builtin-infoPlistUtility /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/AppAuth.build/Debug-iphonesimulator/AppAuth_AppAuth-b.build/empty-AppAuth_AppAuth.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/AppAuth_AppAuth.bundle/Info.plist
+
+ProcessInfoPlistFile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/AppAuth_AppAuthCore.bundle/Info.plist /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/AppAuth.build/Debug-iphonesimulator/AppAuth_AppAuthCore-b.build/empty-AppAuth_AppAuthCore.plist (in target 'AppAuth_AppAuthCore' from project 'AppAuth')
+    cd /tmp/cuadrao-apple-session-xcode-packages/checkouts/AppAuth-iOS
+    builtin-infoPlistUtility /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/AppAuth.build/Debug-iphonesimulator/AppAuth_AppAuthCore-b.build/empty-AppAuth_AppAuthCore.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/AppAuth_AppAuthCore.bundle/Info.plist
+
+ProcessInfoPlistFile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/Promises_FBLPromises.bundle/Info.plist /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/Promises.build/Debug-iphonesimulator/Promises_FBLPromises-b.build/empty-Promises_FBLPromises.plist (in target 'Promises_FBLPromises' from project 'Promises')
+    cd /tmp/cuadrao-apple-session-xcode-packages/checkouts/promises
+    builtin-infoPlistUtility /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/Promises.build/Debug-iphonesimulator/Promises_FBLPromises-b.build/empty-Promises_FBLPromises.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/Promises_FBLPromises.bundle/Info.plist
+
+ProcessInfoPlistFile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GoogleUtilities_GoogleUtilities-Environment.bundle/Info.plist /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/GoogleUtilities.build/Debug-iphonesimulator/GoogleUtilities_GoogleUtilities-Environment-b.build/empty-GoogleUtilities_GoogleUtilities-Environment.plist (in target 'GoogleUtilities_GoogleUtilities-Environment' from project 'GoogleUtilities')
+    cd /tmp/cuadrao-apple-session-xcode-packages/checkouts/GoogleUtilities
+    builtin-infoPlistUtility /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/GoogleUtilities.build/Debug-iphonesimulator/GoogleUtilities_GoogleUtilities-Environment-b.build/empty-GoogleUtilities_GoogleUtilities-Environment.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GoogleUtilities_GoogleUtilities-Environment.bundle/Info.plist
+
+ProcessInfoPlistFile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GoogleUtilities_GoogleUtilities-UserDefaults.bundle/Info.plist /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/GoogleUtilities.build/Debug-iphonesimulator/GoogleUtilities_GoogleUtilities-UserDefaults-b.build/empty-GoogleUtilities_GoogleUtilities-UserDefaults.plist (in target 'GoogleUtilities_GoogleUtilities-UserDefaults' from project 'GoogleUtilities')
+    cd /tmp/cuadrao-apple-session-xcode-packages/checkouts/GoogleUtilities
+    builtin-infoPlistUtility /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/GoogleUtilities.build/Debug-iphonesimulator/GoogleUtilities_GoogleUtilities-UserDefaults-b.build/empty-GoogleUtilities_GoogleUtilities-UserDefaults.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GoogleUtilities_GoogleUtilities-UserDefaults.bundle/Info.plist
+
+ProcessInfoPlistFile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GoogleUtilities_GoogleUtilities-Logger.bundle/Info.plist /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/GoogleUtilities.build/Debug-iphonesimulator/GoogleUtilities_GoogleUtilities-Logger-b.build/empty-GoogleUtilities_GoogleUtilities-Logger.plist (in target 'GoogleUtilities_GoogleUtilities-Logger' from project 'GoogleUtilities')
+    cd /tmp/cuadrao-apple-session-xcode-packages/checkouts/GoogleUtilities
+    builtin-infoPlistUtility /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/GoogleUtilities.build/Debug-iphonesimulator/GoogleUtilities_GoogleUtilities-Logger-b.build/empty-GoogleUtilities_GoogleUtilities-Logger.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GoogleUtilities_GoogleUtilities-Logger.bundle/Info.plist
+
+ProcessInfoPlistFile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GTMAppAuth_GTMAppAuth.bundle/Info.plist /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/GTMAppAuth.build/Debug-iphonesimulator/GTMAppAuth_GTMAppAuth-b.build/empty-GTMAppAuth_GTMAppAuth.plist (in target 'GTMAppAuth_GTMAppAuth' from project 'GTMAppAuth')
+    cd /tmp/cuadrao-apple-session-xcode-packages/checkouts/GTMAppAuth
+    builtin-infoPlistUtility /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/GTMAppAuth.build/Debug-iphonesimulator/GTMAppAuth_GTMAppAuth-b.build/empty-GTMAppAuth_GTMAppAuth.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GTMAppAuth_GTMAppAuth.bundle/Info.plist
+
+ProcessInfoPlistFile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GTMSessionFetcher_GTMSessionFetcherCore.bundle/Info.plist /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/GTMSessionFetcher.build/Debug-iphonesimulator/GTMSessionFetcher_GTMSessionFetcherCore-b.build/empty-GTMSessionFetcher_GTMSessionFetcherCore.plist (in target 'GTMSessionFetcher_GTMSessionFetcherCore' from project 'GTMSessionFetcher')
+    cd /tmp/cuadrao-apple-session-xcode-packages/checkouts/gtm-session-fetcher
+    builtin-infoPlistUtility /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/GTMSessionFetcher.build/Debug-iphonesimulator/GTMSessionFetcher_GTMSessionFetcherCore-b.build/empty-GTMSessionFetcher_GTMSessionFetcherCore.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GTMSessionFetcher_GTMSessionFetcherCore.bundle/Info.plist
+
+ProcessInfoPlistFile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GoogleSignIn_GoogleSignInSwift.bundle/Info.plist /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/GoogleSignIn.build/Debug-iphonesimulator/GoogleSignIn_GoogleSignInSwift-b.build/empty-GoogleSignIn_GoogleSignInSwift.plist (in target 'GoogleSignIn_GoogleSignInSwift' from project 'GoogleSignIn')
+    cd /tmp/cuadrao-apple-session-xcode-packages/checkouts/GoogleSignIn-iOS
+    builtin-infoPlistUtility /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/GoogleSignIn.build/Debug-iphonesimulator/GoogleSignIn_GoogleSignInSwift-b.build/empty-GoogleSignIn_GoogleSignInSwift.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GoogleSignIn_GoogleSignInSwift.bundle/Info.plist
+
+Copy /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/GoogleUtilities_GoogleUtilities-Environment.bundle /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GoogleUtilities_GoogleUtilities-Environment.bundle (in target 'ArgusFoundation' from project 'ArgusFoundation')
+    cd /tmp/cuadrao-apple-session-20261005/ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -strip-unsigned-binaries -strip-deterministic -strip-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip -resolve-src-symlinks /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GoogleUtilities_GoogleUtilities-Environment.bundle /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app
+
+Copy /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/GoogleUtilities_GoogleUtilities-Logger.bundle /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GoogleUtilities_GoogleUtilities-Logger.bundle (in target 'ArgusFoundation' from project 'ArgusFoundation')
+    cd /tmp/cuadrao-apple-session-20261005/ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -strip-unsigned-binaries -strip-deterministic -strip-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip -resolve-src-symlinks /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GoogleUtilities_GoogleUtilities-Logger.bundle /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app
+
+Copy /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/GoogleSignIn_GoogleSignInSwift.bundle /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GoogleSignIn_GoogleSignInSwift.bundle (in target 'ArgusFoundation' from project 'ArgusFoundation')
+    cd /tmp/cuadrao-apple-session-20261005/ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -strip-unsigned-binaries -strip-deterministic -strip-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip -resolve-src-symlinks /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GoogleSignIn_GoogleSignInSwift.bundle /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app
+
+Copy /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/GoogleUtilities_GoogleUtilities-UserDefaults.bundle /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GoogleUtilities_GoogleUtilities-UserDefaults.bundle (in target 'ArgusFoundation' from project 'ArgusFoundation')
+    cd /tmp/cuadrao-apple-session-20261005/ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -strip-unsigned-binaries -strip-deterministic -strip-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip -resolve-src-symlinks /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GoogleUtilities_GoogleUtilities-UserDefaults.bundle /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app
+
+Copy /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/GTMSessionFetcher_GTMSessionFetcherCore.bundle /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GTMSessionFetcher_GTMSessionFetcherCore.bundle (in target 'ArgusFoundation' from project 'ArgusFoundation')
+    cd /tmp/cuadrao-apple-session-20261005/ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -strip-unsigned-binaries -strip-deterministic -strip-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip -resolve-src-symlinks /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GTMSessionFetcher_GTMSessionFetcherCore.bundle /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app
+
+Copy /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/GTMAppAuth_GTMAppAuth.bundle /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GTMAppAuth_GTMAppAuth.bundle (in target 'ArgusFoundation' from project 'ArgusFoundation')
+    cd /tmp/cuadrao-apple-session-20261005/ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -strip-unsigned-binaries -strip-deterministic -strip-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip -resolve-src-symlinks /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GTMAppAuth_GTMAppAuth.bundle /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app
+
+Copy /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/GoogleSignIn_GoogleSignIn.bundle /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GoogleSignIn_GoogleSignIn.bundle (in target 'ArgusFoundation' from project 'ArgusFoundation')
+    cd /tmp/cuadrao-apple-session-20261005/ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -strip-unsigned-binaries -strip-deterministic -strip-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip -resolve-src-symlinks /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/GoogleSignIn_GoogleSignIn.bundle /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app
+
+Copy /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/AppAuth_AppAuthCore.bundle /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/AppAuth_AppAuthCore.bundle (in target 'ArgusFoundation' from project 'ArgusFoundation')
+    cd /tmp/cuadrao-apple-session-20261005/ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -strip-unsigned-binaries -strip-deterministic -strip-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip -resolve-src-symlinks /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/AppAuth_AppAuthCore.bundle /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app
+
+Copy /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/AppAuth_AppAuth.bundle /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/AppAuth_AppAuth.bundle (in target 'ArgusFoundation' from project 'ArgusFoundation')
+    cd /tmp/cuadrao-apple-session-20261005/ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -strip-unsigned-binaries -strip-deterministic -strip-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip -resolve-src-symlinks /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/AppAuth_AppAuth.bundle /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app
+
+Copy /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/swift-crypto_Crypto.bundle /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/swift-crypto_Crypto.bundle (in target 'ArgusFoundation' from project 'ArgusFoundation')
+    cd /tmp/cuadrao-apple-session-20261005/ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -strip-unsigned-binaries -strip-deterministic -strip-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip -resolve-src-symlinks /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/swift-crypto_Crypto.bundle /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app
+
+Copy /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/Promises_FBLPromises.bundle /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/Promises_FBLPromises.bundle (in target 'ArgusFoundation' from project 'ArgusFoundation')
+    cd /tmp/cuadrao-apple-session-20261005/ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -strip-unsigned-binaries -strip-deterministic -strip-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip -resolve-src-symlinks /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/Promises_FBLPromises.bundle /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app
+
+ProcessInfoPlistFile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/Info.plist /tmp/cuadrao-apple-session-20261005/ios/Config/Info.plist (in target 'ArgusFoundation' from project 'ArgusFoundation')
+    cd /tmp/cuadrao-apple-session-20261005/ios
+    builtin-infoPlistUtility /tmp/cuadrao-apple-session-20261005/ios/Config/Info.plist -producttype com.apple.product-type.application -genpkginfo /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/PkgInfo -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/ArgusFoundation.build/Debug-iphonesimulator/ArgusFoundation.build/assetcatalog_generated_info.plist -scanforprivacyfile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/AppAuth_AppAuth.bundle -scanforprivacyfile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/AppAuth_AppAuthCore.bundle -scanforprivacyfile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/GTMAppAuth_GTMAppAuth.bundle -scanforprivacyfile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/GTMSessionFetcher_GTMSessionFetcherCore.bundle -scanforprivacyfile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/GoogleSignIn_GoogleSignIn.bundle -scanforprivacyfile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/GoogleSignIn_GoogleSignInSwift.bundle -scanforprivacyfile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/GoogleUtilities_GoogleUtilities-Environment.bundle -scanforprivacyfile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/GoogleUtilities_GoogleUtilities-Logger.bundle -scanforprivacyfile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/GoogleUtilities_GoogleUtilities-UserDefaults.bundle -scanforprivacyfile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/Promises_FBLPromises.bundle -scanforprivacyfile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/swift-crypto_Crypto.bundle -o /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/Info.plist
+
+AppIntentsSSUTraining (in target 'ArgusFoundation' from project 'ArgusFoundation')
+    cd /tmp/cuadrao-apple-session-20261005/ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsnltrainingprocessor --infoplist-path /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/Info.plist --temp-dir-path /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/ArgusFoundation.build/Debug-iphonesimulator/ArgusFoundation.build/ssu --bundle-id local.argus.apple-combined-proof --product-path /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app --extracted-metadata-path /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/Metadata.appintents --metadata-file-list /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/ArgusFoundation.build/Debug-iphonesimulator/ArgusFoundation.build/ArgusFoundation.DependencyMetadataFileList --source-file /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/Info.plist --archive-ssu-assets
+2026-10-05 20:51:50.283 appintentsnltrainingprocessor[54620:12197814] Parsing options for appintentsnltrainingprocessor
+2026-10-05 20:51:50.283 appintentsnltrainingprocessor[54620:12197814] Starting AppIntents SSU YAML Generation
+2026-10-05 20:51:50.284 appintentsnltrainingprocessor[54620:12197814] No AppShortcuts found - Skipping.
+
+CopySwiftLibs /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app (in target 'ArgusFoundation' from project 'ArgusFoundation')
+    cd /tmp/cuadrao-apple-session-20261005/ios
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/ArgusFoundation.debug.dylib --scan-folder /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/Frameworks --scan-folder /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/PlugIns --scan-folder /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/SystemExtensions --scan-folder /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/Extensions --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/ArgusFoundation.build/Debug-iphonesimulator/ArgusFoundation.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os
+
+CodeSign /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/ArgusFoundation.debug.dylib (in target 'ArgusFoundation' from project 'ArgusFoundation')
+    cd /tmp/cuadrao-apple-session-20261005/ios
+
+    Signing Identity:     "Sign to Run Locally"
+
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/ArgusFoundation.debug.dylib
+/tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/ArgusFoundation.debug.dylib: replacing existing signature
+
+CodeSign /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/__preview.dylib (in target 'ArgusFoundation' from project 'ArgusFoundation')
+    cd /tmp/cuadrao-apple-session-20261005/ios
+
+    Signing Identity:     "Sign to Run Locally"
+
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/__preview.dylib
+/tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app/__preview.dylib: replacing existing signature
+
+CodeSign /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app (in target 'ArgusFoundation' from project 'ArgusFoundation')
+    cd /tmp/cuadrao-apple-session-20261005/ios
+
+    Signing Identity:     "Sign to Run Locally"
+
+    /usr/bin/codesign --force --sign - --entitlements /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/ArgusFoundation.build/Debug-iphonesimulator/ArgusFoundation.build/ArgusFoundation.app.xcent --timestamp\=none --generate-entitlement-der /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app
+/tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app: replacing existing signature
+
+Validate /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app (in target 'ArgusFoundation' from project 'ArgusFoundation')
+    cd /tmp/cuadrao-apple-session-20261005/ios
+    builtin-validationUtility /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app -shallow-bundle -infoplist-subpath Info.plist
+
+ProcessInfoPlistFile /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundationUITests-Runner.app/PlugIns/ArgusFoundationUITests.xctest/Info.plist /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/ArgusFoundation.build/Debug-iphonesimulator/ArgusFoundationUITests.build/empty-ArgusFoundationUITests.plist (in target 'ArgusFoundationUITests' from project 'ArgusFoundation')
+    cd /tmp/cuadrao-apple-session-20261005/ios
+    builtin-infoPlistUtility /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/ArgusFoundation.build/Debug-iphonesimulator/ArgusFoundationUITests.build/empty-ArgusFoundationUITests.plist -producttype com.apple.product-type.bundle.ui-testing -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/ArgusFoundation.build/Debug-iphonesimulator/ArgusFoundationUITests.build/ProductTypeInfoPlistAdditions.plist -o /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundationUITests-Runner.app/PlugIns/ArgusFoundationUITests.xctest/Info.plist
+
+CopySwiftLibs /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundationUITests-Runner.app/PlugIns/ArgusFoundationUITests.xctest (in target 'ArgusFoundationUITests' from project 'ArgusFoundation')
+    cd /tmp/cuadrao-apple-session-20261005/ios
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundationUITests-Runner.app/PlugIns/ArgusFoundationUITests.xctest/ArgusFoundationUITests --scan-folder /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundationUITests-Runner.app/PlugIns/ArgusFoundationUITests.xctest/Frameworks --scan-folder /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundationUITests-Runner.app/PlugIns/ArgusFoundationUITests.xctest/PlugIns --scan-folder /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundationUITests-Runner.app/PlugIns/ArgusFoundationUITests.xctest/SystemExtensions --scan-folder /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundationUITests-Runner.app/PlugIns/ArgusFoundationUITests.xctest/Extensions --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /tmp/cuadrao-apple-combined-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundationUITests-Runner.app/PlugIns/ArgusFoundationUITests.xctest/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/ArgusFoundation.build/Debug-iphonesimulator/ArgusFoundationUITests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os
+
+PruneExplicitPrecompiledModules /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+
+PruneExplicitPrecompiledModules /tmp/cuadrao-apple-combined-xcode/SDKExplicitPrecompiledModules
+
+PruneExplicitPrecompiledModules /tmp/cuadrao-apple-combined-xcode/Build/Intermediates.noindex/ExplicitPrecompiledModules
+
+** TEST BUILD SUCCEEDED **
+

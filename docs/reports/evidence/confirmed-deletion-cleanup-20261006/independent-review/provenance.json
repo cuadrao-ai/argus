@@ -1,0 +1,323 @@
+{
+  "baseline": "8146d16e90633eb543781f8882665482f0d5dca9",
+  "original_candidate": "b77de5f6df62f3a47e138c6a1b88055505b67416",
+  "tested_head": "f787ca63af9ba4e6355357ed5e1a8ead5a3dfb21",
+  "actor_unchanged_by_fixture_fix": true,
+  "unexpected_live_copy_changes": [],
+  "fixture_only_changed": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/LiveSessionTests.swift",
+  "live_test_matches_committed_migration": true,
+  "files": [
+    {
+      "path": "ios/Packages/ArgusSession/.gitignore",
+      "git_object": "2d9f16e2d276179d73c91ec2022a23834caec180",
+      "candidate_sha256": "acc718146d21aae829cba1761475e05de39d73209d83af2ab8487a74843cead0",
+      "live_sha256": "acc718146d21aae829cba1761475e05de39d73209d83af2ab8487a74843cead0"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Package.resolved",
+      "git_object": "cceb902a3ef3dba7770683a8a13fc2888ddd55b3",
+      "candidate_sha256": "b5917084b614e8533859a427c6589ce76c28115d5caab90355368ed902d4af41",
+      "live_sha256": "b5917084b614e8533859a427c6589ce76c28115d5caab90355368ed902d4af41"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Package.swift",
+      "git_object": "86b0b925696179429f83cd90e379c14622e1b1a7",
+      "candidate_sha256": "f8ddeeb9bc728e6e6aa728e46651d756b3821d6ba5d2fc1c7ef5b3cc5b4ed2b5",
+      "live_sha256": "f8ddeeb9bc728e6e6aa728e46651d756b3821d6ba5d2fc1c7ef5b3cc5b4ed2b5"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/README.md",
+      "git_object": "5f9370fd385c70fc45c8596839f5cc430581fe23",
+      "candidate_sha256": "aebf5d023d8dd0983e84757c14192f6caabfbbf06c567a283f2d545b430a93a6",
+      "live_sha256": "aebf5d023d8dd0983e84757c14192f6caabfbbf06c567a283f2d545b430a93a6"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/AccountDeletion.swift",
+      "git_object": "9232994d36cc42b7716c891bc4c1cf40aae2cf49",
+      "candidate_sha256": "4d1dc5f04d0acbcf55ff289ef63a37b2e8e8e61698755ae37688aedc082971b5",
+      "live_sha256": "4d1dc5f04d0acbcf55ff289ef63a37b2e8e8e61698755ae37688aedc082971b5"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/AppleNameIntent.swift",
+      "git_object": "1fe92c190b29fbe825cc4954ea2634b881446530",
+      "candidate_sha256": "b4cf1dddd018202c87d7fac3937b4a3762b467c61dab3444fc82b63a6203ba7c",
+      "live_sha256": "b4cf1dddd018202c87d7fac3937b4a3762b467c61dab3444fc82b63a6203ba7c"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/CredentialStorage.swift",
+      "git_object": "dcf08dcbb58e08db6e69fee49ccd5fb7ec6b00ff",
+      "candidate_sha256": "1a98a4f9b7b8ea48649fd53113eea2c70964a7b1980b216c4c8ff74678600efc",
+      "live_sha256": "1a98a4f9b7b8ea48649fd53113eea2c70964a7b1980b216c4c8ff74678600efc"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialAccountTypes.swift",
+      "git_object": "54c7dd399704030b6070626f5da3eefc32cd3615",
+      "candidate_sha256": "502056b33145e97e667f8cfb8ff99c930a8b6f5f9b5d75889145c8c4f73454a9",
+      "live_sha256": "502056b33145e97e667f8cfb8ff99c930a8b6f5f9b5d75889145c8c4f73454a9"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialActivityTypes.swift",
+      "git_object": "279e6419c3066db373818d6331a5e48c85518fa2",
+      "candidate_sha256": "31aa04d2ec970bb18ab9e07c234ba5e101cf471d962d6dbff3d973cab1389ac3",
+      "live_sha256": "31aa04d2ec970bb18ab9e07c234ba5e101cf471d962d6dbff3d973cab1389ac3"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialAsset.swift",
+      "git_object": "61113f90f74a03030496ee7424faeb0177285f66",
+      "candidate_sha256": "915fb3170f1507e9bfc9b6546edd95519a61b760e46e42d7278607ce96f90061",
+      "live_sha256": "915fb3170f1507e9bfc9b6546edd95519a61b760e46e42d7278607ce96f90061"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialBudget.swift",
+      "git_object": "b3f23fa576f05e07aee71676e68e1719f1cd3db3",
+      "candidate_sha256": "5262395b78048c9e0aa180e80dd2087334622de499955661c8d42569fff92bb5",
+      "live_sha256": "5262395b78048c9e0aa180e80dd2087334622de499955661c8d42569fff92bb5"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialDebt.swift",
+      "git_object": "d781155b2bb87c1628d3522cc8f80004cef3647a",
+      "candidate_sha256": "9e7146f75efc0e317fc6d5b978eaa656a1b3082e73f84b6b0cf9999e302df3b0",
+      "live_sha256": "9e7146f75efc0e317fc6d5b978eaa656a1b3082e73f84b6b0cf9999e302df3b0"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialExpectationSeed.swift",
+      "git_object": "6758aa8cf545d03adceba59626bb7f13fa668035",
+      "candidate_sha256": "76aa3aee586e441d99da6da1800d3f968d0fa759d18f178531448f0059ce1751",
+      "live_sha256": "76aa3aee586e441d99da6da1800d3f968d0fa759d18f178531448f0059ce1751"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialGoal.swift",
+      "git_object": "3cf714d80637924804af8d89d65fee5e19947ddc",
+      "candidate_sha256": "6cc5cb9e7b169d35a905aad3daec6d1e4e6161bc88ee1588097d53c50c935dee",
+      "live_sha256": "6cc5cb9e7b169d35a905aad3daec6d1e4e6161bc88ee1588097d53c50c935dee"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialLoopTransport.swift",
+      "git_object": "4454f31bf4643e6e0cfb103a34582835fc78cbf8",
+      "candidate_sha256": "51c91dab6a37c4697d5c0531a65c04d83cd157e3d917e325567871c8cc47bd53",
+      "live_sha256": "51c91dab6a37c4697d5c0531a65c04d83cd157e3d917e325567871c8cc47bd53"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialLoopTypes.swift",
+      "git_object": "4b7a306a2f643467c51fdf984b84018f92d5fed5",
+      "candidate_sha256": "c57ff8ea64669c96c0d16bd07be53275ffb0c4c34c49750dd3b5c60924588002",
+      "live_sha256": "c57ff8ea64669c96c0d16bd07be53275ffb0c4c34c49750dd3b5c60924588002"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialPlanTransport.swift",
+      "git_object": "4d22909ab873db3f682d60cbd30db6aa0242661c",
+      "candidate_sha256": "b522faeeab87f9341aed7c55eac09e76182a40b2306991b8a274f66ae8c6bfbd",
+      "live_sha256": "b522faeeab87f9341aed7c55eac09e76182a40b2306991b8a274f66ae8c6bfbd"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialPlanTypes.swift",
+      "git_object": "dc8e2b456e25ba3a86912efc7c2d0c0eff296cb8",
+      "candidate_sha256": "8413634496385b7fac09cf138fb1552ed1116d56427d64b83bda64ec63acc1ae",
+      "live_sha256": "8413634496385b7fac09cf138fb1552ed1116d56427d64b83bda64ec63acc1ae"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialSearch.swift",
+      "git_object": "44891fafc1feea41ad10f542cba03ed0ccea62e0",
+      "candidate_sha256": "46d7473374754315861a351a13652a0830187afedf3672ba53422ac77d4edcf9",
+      "live_sha256": "46d7473374754315861a351a13652a0830187afedf3672ba53422ac77d4edcf9"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialWriteJournal.swift",
+      "git_object": "5414db4a869a68b6df4c74eab6102dd891e646f6",
+      "candidate_sha256": "76765b3cf9b6627cea3ce0ab04024399196020f4cdfdbaf11190a8ef927c5d01",
+      "live_sha256": "76765b3cf9b6627cea3ce0ab04024399196020f4cdfdbaf11190a8ef927c5d01"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/Household.swift",
+      "git_object": "a1fa0d98642e0d7b8adc81a0e95150dacb6afb0b",
+      "candidate_sha256": "bd540da244088e10432be4465513b99e940eba4bd2818f25236cdc78c38e7e6c",
+      "live_sha256": "bd540da244088e10432be4465513b99e940eba4bd2818f25236cdc78c38e7e6c"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/HouseholdPlan.swift",
+      "git_object": "e6e8793e7780e0bc768d15c0372bef8fa5e2725c",
+      "candidate_sha256": "c917d70840802324b8628bd537e1d4f4591ff1a54210f7d13cbddaff548f9c4d",
+      "live_sha256": "c917d70840802324b8628bd537e1d4f4591ff1a54210f7d13cbddaff548f9c4d"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/HouseholdPlanCommands.swift",
+      "git_object": "91032e867c9ac9550a95874f7cc391ed2337b01c",
+      "candidate_sha256": "a33f23c73dfa763b02b697bf7334a613b2078ed84580eaeb0e9af00d8649d33d",
+      "live_sha256": "a33f23c73dfa763b02b697bf7334a613b2078ed84580eaeb0e9af00d8649d33d"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/HouseholdPlanValues.swift",
+      "git_object": "67cf67294d52bde48c07e4b77432b7c5532b2cc1",
+      "candidate_sha256": "5ae1d55db4e5070f0409cbbcc257dd4ae4a7c683044059a1761f4740197c9461",
+      "live_sha256": "5ae1d55db4e5070f0409cbbcc257dd4ae4a7c683044059a1761f4740197c9461"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/IdentityProviderSignIn.swift",
+      "git_object": "bbcadc620a9310ce1e76c87c0fe31abdb055b367",
+      "candidate_sha256": "e91d6316b1d42860315f6fab5c991dbbe23c13ab94c51ff33501d5d3b650921a",
+      "live_sha256": "e91d6316b1d42860315f6fab5c991dbbe23c13ab94c51ff33501d5d3b650921a"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/Invitations.swift",
+      "git_object": "1e5afa652659d4f7fceb598924580987366bb162",
+      "candidate_sha256": "0909c25784d40a7c1c7197fa660f4abb6c8ec90c912c55b46e3417e9cac10973",
+      "live_sha256": "0909c25784d40a7c1c7197fa660f4abb6c8ec90c912c55b46e3417e9cac10973"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/SessionConfiguration.swift",
+      "git_object": "88261996754049d9e1c16e5c4fe6221a77fdbbd2",
+      "candidate_sha256": "f97c3400379b43e4bfab1396833a885fb929afc886dcac7f458fd78c08c19345",
+      "live_sha256": "f97c3400379b43e4bfab1396833a885fb929afc886dcac7f458fd78c08c19345"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/SessionController.swift",
+      "git_object": "8720b2c26da7c3955bc5b291eef423f3c94f52dc",
+      "candidate_sha256": "69e0a36620e6a25142ba672a535b3f34710042fba156bfe6c68cd69d853a6c1d",
+      "live_sha256": "69e0a36620e6a25142ba672a535b3f34710042fba156bfe6c68cd69d853a6c1d"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/SessionTransport.swift",
+      "git_object": "4f43a04c0be2f3e6ec72bddad69d9220e6314429",
+      "candidate_sha256": "911bf67316821b64b5980fc8db582b71b9d6a22ea9417f0474259fb9a8f1f4c5",
+      "live_sha256": "911bf67316821b64b5980fc8db582b71b9d6a22ea9417f0474259fb9a8f1f4c5"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/SessionTypes.swift",
+      "git_object": "8ea6df7a8924e204544619d63b44ca80569ef110",
+      "candidate_sha256": "778e72e8905ab0fe3fec7524e52928783b059aa52786adf7a5e454af3582cff3",
+      "live_sha256": "778e72e8905ab0fe3fec7524e52928783b059aa52786adf7a5e454af3582cff3"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/AccountDeletionTests.swift",
+      "git_object": "c78c823fac107268d3fd59a4ca1647461b350e9c",
+      "candidate_sha256": "ecf769347c014d64add7938aca6f24510a4836aedf982300efc9ab021284644f",
+      "live_sha256": "ecf769347c014d64add7938aca6f24510a4836aedf982300efc9ab021284644f"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/AppleCredentialValidationTests.swift",
+      "git_object": "81ff4f62391c4a33c7d25a5e78b986415eb57d1c",
+      "candidate_sha256": "fc2f38038a054381c10168e633c6bdbd596f6b04263b7c82a5a5835deca7d78d",
+      "live_sha256": "fc2f38038a054381c10168e633c6bdbd596f6b04263b7c82a5a5835deca7d78d"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/AppleNameInitializationTests.swift",
+      "git_object": "e06638a275cb0c46c2db944538f08616c2fd6dae",
+      "candidate_sha256": "6f327a4e55cafbaacd3fec2069a92e6f8630c9ebe71ae615e66dc3e9b532fe60",
+      "live_sha256": "6f327a4e55cafbaacd3fec2069a92e6f8630c9ebe71ae615e66dc3e9b532fe60"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/ConfigurationTests.swift",
+      "git_object": "661901c3e8d0b304a308d4de87c56f956e9152f7",
+      "candidate_sha256": "9d11a5d796b3174500beb28fed92a7ffda1608e96d7adefc3712c4f4b6cb17cd",
+      "live_sha256": "9d11a5d796b3174500beb28fed92a7ffda1608e96d7adefc3712c4f4b6cb17cd"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/FinancialAccountTests.swift",
+      "git_object": "9cad6b52b1e98acb21170a6a0d0b58df8cdc099d",
+      "candidate_sha256": "c5426d7cfdbe5f5a199a6a9412ff183e8583498174b5a134d35c7e9e33bd8ac5",
+      "live_sha256": "c5426d7cfdbe5f5a199a6a9412ff183e8583498174b5a134d35c7e9e33bd8ac5"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/FinancialAssetTests.swift",
+      "git_object": "6517312d0786e366c6380927f4715edef3a29e3e",
+      "candidate_sha256": "7fa42aec8788fb7d0596939954876ba02514fd4c502a3eb2b2226118a71567d8",
+      "live_sha256": "7fa42aec8788fb7d0596939954876ba02514fd4c502a3eb2b2226118a71567d8"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/FinancialBudgetTests.swift",
+      "git_object": "2352fd29b679cefdf109a7b8723cc690c81e9807",
+      "candidate_sha256": "150d7c4c43489b308214b0faf112d2cb0d6568dba4aa407fcf15b3102ab72eb0",
+      "live_sha256": "150d7c4c43489b308214b0faf112d2cb0d6568dba4aa407fcf15b3102ab72eb0"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/FinancialDebtTests.swift",
+      "git_object": "e9f83fde704c83a6a33a07f46ec4b5bc9e08c25f",
+      "candidate_sha256": "abb6793188fe128baec434996993f10195dcadbf33979c520fc566772c529a0a",
+      "live_sha256": "abb6793188fe128baec434996993f10195dcadbf33979c520fc566772c529a0a"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/FinancialExpectationSeedTests.swift",
+      "git_object": "9b2f0062a63455966473206d1b7a7b1977bde129",
+      "candidate_sha256": "f3dfc173e4abadbe0402de2ec94ad7a94ec6df9e0b45dc7b1099255fe2299269",
+      "live_sha256": "f3dfc173e4abadbe0402de2ec94ad7a94ec6df9e0b45dc7b1099255fe2299269"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/FinancialGoalTests.swift",
+      "git_object": "96f6b180fcbf3a0ae12f4d362c73a5c00c3dbe4d",
+      "candidate_sha256": "45ab2a689a1c4a73cc7a971c8eee0752c40457209a28bfe5b09b572cfc4b85fc",
+      "live_sha256": "45ab2a689a1c4a73cc7a971c8eee0752c40457209a28bfe5b09b572cfc4b85fc"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/FinancialLoopTests.swift",
+      "git_object": "f374c63d15e465766fd4bc7de30132ee5429e272",
+      "candidate_sha256": "d363692e87308a6edc98cf1d69403559fc466ec2dccc19309470ff270870f3d0",
+      "live_sha256": "d363692e87308a6edc98cf1d69403559fc466ec2dccc19309470ff270870f3d0"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/FinancialPlanTests.swift",
+      "git_object": "ac6e29cb501c42589b69ac1f43ac00d7a26e8cb8",
+      "candidate_sha256": "5d5c683e170c9cb3fe7ff5d5841b346fd1d6df1e0b9090f2ab124eaa3d8daede",
+      "live_sha256": "5d5c683e170c9cb3fe7ff5d5841b346fd1d6df1e0b9090f2ab124eaa3d8daede"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/FinancialSearchTests.swift",
+      "git_object": "d6254591c7e87bc35f5f58183f9f72ab0b9d9e61",
+      "candidate_sha256": "a678e3f270256d7403f63bc93b921be5304d4016e80f7c8d1cc103b51fb0035c",
+      "live_sha256": "a678e3f270256d7403f63bc93b921be5304d4016e80f7c8d1cc103b51fb0035c"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/FinancialWriteJournalTests.swift",
+      "git_object": "322a4046aa7a338b1f3276ff108f9dc8fa0ab204",
+      "candidate_sha256": "cfc13f4c7255c2fcf6ca3d54cf4fc16eaec91b7067c91593e127c4f678c4eabb",
+      "live_sha256": "cfc13f4c7255c2fcf6ca3d54cf4fc16eaec91b7067c91593e127c4f678c4eabb"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/HouseholdPlanTests.swift",
+      "git_object": "08c0bfb7f380be841b3c706f21c1da8ebbb36515",
+      "candidate_sha256": "9ce16b3a46ed5db2e257e9a30f7386ae22177e0b7b22545515ae3f79933bfd52",
+      "live_sha256": "9ce16b3a46ed5db2e257e9a30f7386ae22177e0b7b22545515ae3f79933bfd52"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/IdentitySignInTests.swift",
+      "git_object": "cac24d836066e132c27cd7859fdb60addcbb6428",
+      "candidate_sha256": "a64ba8997b6bf6772f64aa899cfc334c1c393b460ac3b4652ea872d1ad615d81",
+      "live_sha256": "a64ba8997b6bf6772f64aa899cfc334c1c393b460ac3b4652ea872d1ad615d81"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/InvitationsTests.swift",
+      "git_object": "3f50795f3a6af58b4f31a21f24ada63f052250c6",
+      "candidate_sha256": "bfdd51e8bef69353a8ace6a0c38f768f0c5db82e8e947158df6722639c94170a",
+      "live_sha256": "bfdd51e8bef69353a8ace6a0c38f768f0c5db82e8e947158df6722639c94170a"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/LiveFinancialAccountTests.swift",
+      "git_object": "0da16d7bc18ce5c7084ac8fc49837ffeee683f56",
+      "candidate_sha256": "1083065da7acafaec7baa5963475ed13c5a3129bb5de2681b2eec09bddf80d65",
+      "live_sha256": "1083065da7acafaec7baa5963475ed13c5a3129bb5de2681b2eec09bddf80d65"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/LiveSessionTests.swift",
+      "git_object": "7ab13040fb4b163f88342c1acab0a0bd9140e154",
+      "candidate_sha256": "bc131ee43e14138e0dcab534849af018596aae48e174e40bd8cd66e62d50c7d4",
+      "live_sha256": "71e545d4ac81cd182b9582dc34ee2465f15ae085b0667be8ecd501e77969c39c"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/SessionControllerTests.swift",
+      "git_object": "806ed18e67623bd5a829d2422eb78f7d48d17d2b",
+      "candidate_sha256": "2ad1071a87af12472becdf25ccc6a6c569d608127a657cbc5459d3c85a0892e1",
+      "live_sha256": "2ad1071a87af12472becdf25ccc6a6c569d608127a657cbc5459d3c85a0892e1"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/TestSupport.swift",
+      "git_object": "563d0ce1258e5060da4643fc78f803ce282a84c7",
+      "candidate_sha256": "632d021ff1f3d041268c59cb6479a8e62ae643fab132957c00b26d8fd3727c49",
+      "live_sha256": "632d021ff1f3d041268c59cb6479a8e62ae643fab132957c00b26d8fd3727c49"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/TransportAndStorageTests.swift",
+      "git_object": "1eec29441ff473b923d1e9bcb866fd727cc7c7eb",
+      "candidate_sha256": "d3497ce3802de007955809928af61b20ef4328deb4ec528959db5f2c0f117ef9",
+      "live_sha256": "d3497ce3802de007955809928af61b20ef4328deb4ec528959db5f2c0f117ef9"
+    }
+  ]
+}

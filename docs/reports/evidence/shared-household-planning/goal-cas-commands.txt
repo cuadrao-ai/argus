@@ -1,0 +1,41 @@
+Worktree: /Users/garces/.codex/worktrees/shared-household-planning/private-alpha-next
+Base: d140f3a1d6f41a453ccf5420b69c738354bddf37
+Owned change: tests/test_connected_goals_postgres.py only
+
+PYTHONDONTWRITEBYTECODE=1 ARGUS_DISPOSABLE_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:59752/postgres PYTHONPATH=src /Users/garces/.codex/worktrees/5a42/private-alpha-next/.venv/bin/python -m pytest -q --no-cov -p no:cacheprovider tests/test_connected_goals_postgres.py --junitxml=/private/tmp/shared-plan-goal-cas-regression.xml 2>&1 | tee /private/tmp/shared-plan-goal-cas-regression.log
+Result: 7 passed, 0 skipped, 0 failed in 1.52s
+Log: /private/tmp/shared-plan-goal-cas-regression.log
+JUnit: /private/tmp/shared-plan-goal-cas-regression.xml
+
+/Users/garces/.codex/worktrees/5a42/private-alpha-next/.venv/bin/ruff check --no-cache tests/test_connected_goals_postgres.py
+Result: All checks passed!
+/Users/garces/.codex/worktrees/5a42/private-alpha-next/.venv/bin/ruff format --check --no-cache tests/test_connected_goals_postgres.py
+Result: 1 file already formatted
+
+git diff --check
+Result: exit0
+
+No runtime, migration, schema, service, native, hosted, or other checkout changes.
+
+Commit: 15503fce44087f7acdc5d28640bd9322710f0df5
+Post-commit git status --short: empty; index released.
+
+Affected assertion-review follow-up
+Base: 15503fce44087f7acdc5d28640bd9322710f0df5
+Final commit: d290207646956a60ad1b1eb62b4a49a20e91901a
+Only tests/test_connected_goals_postgres.py changed: nine assertion lines.
+
+set -o pipefail
+PYTHONDONTWRITEBYTECODE=1 ARGUS_DISPOSABLE_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:59752/postgres PYTHONPATH=src /Users/garces/.codex/worktrees/5a42/private-alpha-next/.venv/bin/python -m pytest -q --no-cov -p no:cacheprovider tests/test_connected_goals_postgres.py --junitxml=/private/tmp/shared-plan-goal-cas-final.xml 2>&1 | tee /private/tmp/shared-plan-goal-cas-final.log
+Result: 7 passed, 0 skipped, 0 failed in 1.47s
+Final log: /private/tmp/shared-plan-goal-cas-final.log
+Final JUnit: /private/tmp/shared-plan-goal-cas-final.xml
+
+/Users/garces/.codex/worktrees/5a42/private-alpha-next/.venv/bin/ruff check --no-cache tests/test_connected_goals_postgres.py
+Result: All checks passed!
+/Users/garces/.codex/worktrees/5a42/private-alpha-next/.venv/bin/ruff format --check --no-cache tests/test_connected_goals_postgres.py
+Result: 1 file already formatted
+git diff --check
+Result: exit0
+
+Post-commit tracked worktree/index clean; captain's four untracked evidence files retained untouched. No runtime/fixtures/DDL/services/native/push. Index released; worker stopped.

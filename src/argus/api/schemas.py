@@ -18,6 +18,7 @@ from pydantic import (
 )
 from typing_extensions import NotRequired, TypedDict
 
+from argus.api.age_confirmation import AgeConfirmation
 from argus.api.artifact_presentation import ReaderJobResponse, reader_run
 from argus.api.conversation_preview_contract import ConversationPreview
 
@@ -54,6 +55,7 @@ from argus.domain.home_country import (
     TenderCurrencyCode,
     resolved_currency,
 )
+from argus.domain.owner_scope import surface_of
 from argus.domain.result_readout_content import ResultReadoutContent
 from argus.domain.strategy_template_contract import (
     ExecutableStrategyTemplate as StrategyTemplate,
@@ -107,11 +109,12 @@ CHAT_STREAM_MAX_ACTION_PAYLOAD_STRING_LENGTH = 4_096
 
 
 class OnboardingState(BaseModel):
-    """Legacy/inert compatibility state; no product behavior reads or writes it.
+    """Legacy compatibility state from the removed onboarding flow.
 
-    The explicit onboarding flow is removed. The field survives only because
-    old profile rows carry it and deployed clients may still read the `/me`
-    shape during a rollout.
+    `language_confirmed` is the one live field: `PATCH /me` sets it when a
+    language is saved, and the Business web shows an account language only once
+    it is set. The other fields survive because old profile rows carry them and
+    deployed clients may still read the `/me` shape.
     """
 
     completed: bool = False
@@ -150,6 +153,9 @@ PreferredName = Annotated[
 ]
 
 
+TableDensity = Literal["compacto", "normal", "amplio"]
+
+
 class User(BaseModel):
     id: str
     email: str | None
@@ -166,6 +172,8 @@ class User(BaseModel):
     country: CountryCode = None
     #: ISO 4217 the user chose over the currency their country implies.
     currency_override: CurrencyCode = None
+    #: Row height for dense tables. Phones ignore it.
+    table_density: TableDensity = "normal"
     is_admin: bool = False
     onboarding: OnboardingState = Field(default_factory=OnboardingState)
     created_at: datetime
@@ -222,19 +230,30 @@ def guest_safe_user(user: User) -> GuestUser:
     return GuestUser.model_validate(user.model_dump())
 
 
+class AppleIdentity(BaseModel):
+    subject: str = Field(min_length=1, max_length=512, repr=False)
+
+
 class UserResponse(BaseModel):
     user: User | GuestUser
+    apple_identity: AppleIdentity | None = None
     account_kind: Literal["guest", "registered"]
     guest: GuestAccountSummary | None
     capabilities: AccountCapabilities
     public_account_access_enabled: bool = Field(
         description="Server-authoritative permission to expose ordinary account creation."
     )
+    photo_url: str | None = Field(
+        default=None,
+        description="A signed URL to the person's 256 px profile photo, valid for about an hour; null without one.",
+    )
 
     @model_validator(mode="after")
     def _hide_registered_preferences_from_guests(self) -> UserResponse:
-        if self.account_kind == "guest" and isinstance(self.user, User):
-            self.user = guest_safe_user(self.user)
+        if self.account_kind == "guest":
+            self.apple_identity = None
+            if isinstance(self.user, User):
+                self.user = guest_safe_user(self.user)
         return self
 
 
@@ -246,11 +265,18 @@ class ProfilePatch(BaseModel):
     avatar_theme: AvatarTheme = "ocean"
     country: AssignedCountryCode = None
     currency_override: TenderCurrencyCode = None
+    table_density: TableDensity | None = None
+
+
+ConversationSurface = Literal["personal", "business"]
 
 
 class ConversationCreate(BaseModel):
     title: str | None = None
     language: Language | None = None
+    #: Which chats the new conversation joins. The server resolves Business to
+    #: the person's own space; the client never names a space.
+    surface: ConversationSurface = "personal"
 
 
 class ConversationPatch(BaseModel):
@@ -315,6 +341,16 @@ class Conversation(BaseModel):
     preview: ConversationPreview | None = None
     language: Language | None = None
     activity: ConversationActivity | None = None
+    #: The chats it belongs to, from its stored owner_space_id: Personal (/chat)
+    #: or Business (/biz). A shell that receives the other surface sends it there.
+    surface: ConversationSurface = "personal"
+
+    @model_validator(mode="before")
+    @classmethod
+    def _surface_from_stored_space(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "owner_space_id" in data and "surface" not in data:
+            return {**data, "surface": surface_of(data["owner_space_id"])}
+        return data
 
 
 class ConversationResponse(BaseModel):
@@ -333,6 +369,8 @@ class Message(BaseModel):
 class PaginatedMessages(BaseModel):
     items: list[Message]
     next_cursor: str | None = None
+    #: The surface of the conversation these messages belong to.
+    surface: ConversationSurface = "personal"
 
 
 class PaginatedConversations(BaseModel):
@@ -951,6 +989,8 @@ class MarketSessionResponse(BaseModel):
 
 
 class FeedbackRequest(BaseModel):
+    # account_deletion_request: the support-ticket fallback while the in-app
+    # command (POST /account/delete) is off.
     type: Literal["bug", "feature", "general", "account_deletion_request"]
     message: str = Field(min_length=1, max_length=MAX_FEEDBACK_MESSAGE_LENGTH)
     context: dict[str, Any] = Field(default_factory=dict)
@@ -981,6 +1021,7 @@ def _context_depth(value: Any) -> int:
 
 
 class SignupRequest(BaseModel):
+    age_confirmed_at: AgeConfirmation = None
     email: str
     password: str
     captcha_token: str = Field(min_length=1, max_length=4096)
@@ -1144,6 +1185,7 @@ class GuestHandoffClaimResponse(BaseModel):
 
 
 class GuestAccountSignupRequest(BaseModel):
+    age_confirmed_at: AgeConfirmation = None
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     email: str = Field(min_length=3, max_length=320)
@@ -1173,36 +1215,6 @@ class GuestAccountSignupRequest(BaseModel):
             return None
         normalized = value.strip().casefold()
         return normalized or None
-
-
-class GuestFunnelClientEventRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    event: Literal["starter_action_selected", "conversion_prompt_shown"]
-    language: Language
-    surface: Literal["starter_actions", "conversion_modal"]
-    strategy_category: Literal["buy_and_hold", "dca_accumulation"] | None = None
-    conversion_reason: GuestConversionReason | None = None
-    terminal_outcome: Literal["selected", "shown"]
-
-    @model_validator(mode="after")
-    def require_event_specific_properties(self) -> "GuestFunnelClientEventRequest":
-        if self.event == "starter_action_selected":
-            if (
-                self.surface != "starter_actions"
-                or self.strategy_category is None
-                or self.conversion_reason is not None
-                or self.terminal_outcome != "selected"
-            ):
-                raise ValueError("invalid_starter_action_event")
-        elif (
-            self.surface != "conversion_modal"
-            or self.conversion_reason is None
-            or self.strategy_category is not None
-            or self.terminal_outcome != "shown"
-        ):
-            raise ValueError("invalid_conversion_prompt_event")
-        return self
 
 
 class SuccessResponse(BaseModel):

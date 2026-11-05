@@ -1,0 +1,56 @@
+{
+  "reviewer": "fresh-context budget_independent_review, gpt-6.1-sol high",
+  "substitution": "Founder-approved replacement for unavailable Codex review capacity",
+  "full_diff": {
+    "base": "9f51912198c2c77e239f670a2b3f78da2942afed",
+    "head": "538626c583c59aa5baa6c0fafb24aa95b779e893"
+  },
+  "findings": [
+    {
+      "priority": "P2",
+      "finding": "Account type/currency changes prevented budget removal",
+      "resolution": "Archiving retains ownership but skips active eligibility; restore validates current scope",
+      "fix": "d1a0ab144411db70e38d66f4feea384afda84ea5",
+      "verification": "Both type and currency cases failed before fix, then passed in memory and real Postgres; archive/replay and rejected restoration covered"
+    },
+    {
+      "priority": "P3",
+      "finding": "Contributor restoration ran before asynchronously loaded rows",
+      "resolution": "Restore surviving anchor when contributor IDs arrive, with cancellation guard",
+      "fix": "4d1cb7af7",
+      "verification": "Passed native lower-contributor/back/relaunch scroll position within 12px at 742975239be1a786fbac4b24040ec6d645d80033"
+    }
+  ],
+  "affected_delta_clean": "d98803bad79c8d7cca38d77cc75aa878519b4a1f",
+  "accessibility_followup": {
+    "cause": "Parent budget.detail identifier propagated onto visible Close control",
+    "fix": "0f1a02ae20dc6eb91a3e1a08545bb49c6ca1cf78",
+    "reviewed_head": "0f1a02ae20dc6eb91a3e1a08545bb49c6ca1cf78",
+    "verdict": "clean",
+    "scope": "Only one-line accessibility containment delta"
+  },
+  "status": "Full independent review and bounded affected-fix reviews clean through ced256196c04eae6cfcd18f456f3dc00017315c7; zero open findings. Subsequent publication changes evidence/documentation only.",
+  "test_followup": {
+    "reviewed_head": "bf08a1e7dfbc24844c2f7f2b25fe9d24f4d1485e",
+    "verdict": "clean",
+    "resolution": "Select native confirmation wrapper once; scope retry to Plan and activate Plan after relaunch",
+    "source_review_finding": "65507cc4 selected hidden Plan after relaunch; resolved by bf08a1e7"
+  },
+  "contract_artifact_followup": {
+    "reviewed_head": "f3bf192c61533951105dc57f3cacfe09af212346",
+    "verdict": "clean",
+    "verification": "Generated OpenAPI matches canonical API; 23 compatibility tests pass"
+  },
+  "amount_layout_followup": {
+    "reviewed_head": "3269927fdf59d260d2f6d0c8a54d78346629607f",
+    "verdict": "clean",
+    "scope": "Contributor amount alone keeps full width and layout priority",
+    "verification": "Native recorded rerun at 3269927f shows full DOP80.00 and DOP120.00 amounts; money/position/edit/lifecycle assertions passed"
+  },
+  "navigation_fixture_followup": {
+    "reviewed_head": "ced256196c04eae6cfcd18f456f3dc00017315c7",
+    "verdict": "clean",
+    "scope": "Reuse Search/relaunch helper; clear correctly persisted prior query before entering new title; opt-in retained-budget Home/Search/reopen acceptance",
+    "verification": "Affected native test passed at ced25619, zero failures/skips, no new financial fixtures"
+  }
+}

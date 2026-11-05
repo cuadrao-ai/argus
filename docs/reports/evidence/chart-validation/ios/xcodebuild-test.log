@@ -1,0 +1,573 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project prototypes/chart-validation/ios/ChartPrototype.xcodeproj -scheme ChartPrototype -sdk iphonesimulator -destination id=AAC78F82-61C2-4E51-A14C-4F341CD19A79 -derivedDataPath /tmp/argus-chart-ios -resultBundlePath /tmp/argus-chart-ios-final-f5f4f446.xcresult test CODE_SIGNING_ALLOWED=NO -parallel-testing-enabled NO
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+    SDKROOT = iphonesimulator27.0
+
+Writing result bundle at path:
+	/tmp/argus-chart-ios-final-f5f4f446.xcresult
+
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (2 targets)
+    Target 'ChartPrototypeUITests' in project 'ChartPrototype'
+        ➜ Explicit dependency on target 'ChartPrototype' in project 'ChartPrototype'
+    Target 'ChartPrototype' in project 'ChartPrototype' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: 0ffa2d87dd0a8e8c3dde3cfe5d199013
+Build description path: /tmp/argus-chart-ios/Build/Intermediates.noindex/XCBuildData/0ffa2d87dd0a8e8c3dde3cfe5d199013.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk /tmp/argus-chart-ios/SDKStatCaches.noindex/iphonesimulator27.0-24A430-8dc58220667be655e1bcc261a7455254.sdkstatcache
+    cd /Users/garces/.codex/worktrees/2825/private-alpha-next/prototypes/chart-validation/ios/ChartPrototype.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator27.0.sdk -o /tmp/argus-chart-ios/SDKStatCaches.noindex/iphonesimulator27.0-24A430-8dc58220667be655e1bcc261a7455254.sdkstatcache
+
+ProcessInfoPlistFile /tmp/argus-chart-ios/Build/Products/Debug-iphonesimulator/ChartPrototype.app/Info.plist /tmp/argus-chart-ios/Build/Intermediates.noindex/ChartPrototype.build/Debug-iphonesimulator/ChartPrototype.build/empty-ChartPrototype.plist (in target 'ChartPrototype' from project 'ChartPrototype')
+    cd /Users/garces/.codex/worktrees/2825/private-alpha-next/prototypes/chart-validation/ios
+    builtin-infoPlistUtility /tmp/argus-chart-ios/Build/Intermediates.noindex/ChartPrototype.build/Debug-iphonesimulator/ChartPrototype.build/empty-ChartPrototype.plist -producttype com.apple.product-type.application -genpkginfo /tmp/argus-chart-ios/Build/Products/Debug-iphonesimulator/ChartPrototype.app/PkgInfo -expandbuildsettings -format binary -platform iphonesimulator -o /tmp/argus-chart-ios/Build/Products/Debug-iphonesimulator/ChartPrototype.app/Info.plist
+
+ProcessInfoPlistFile /tmp/argus-chart-ios/Build/Products/Debug-iphonesimulator/ChartPrototypeUITests-Runner.app/PlugIns/ChartPrototypeUITests.xctest/Info.plist /tmp/argus-chart-ios/Build/Intermediates.noindex/ChartPrototype.build/Debug-iphonesimulator/ChartPrototypeUITests.build/empty-ChartPrototypeUITests.plist (in target 'ChartPrototypeUITests' from project 'ChartPrototype')
+    cd /Users/garces/.codex/worktrees/2825/private-alpha-next/prototypes/chart-validation/ios
+    builtin-infoPlistUtility /tmp/argus-chart-ios/Build/Intermediates.noindex/ChartPrototype.build/Debug-iphonesimulator/ChartPrototypeUITests.build/empty-ChartPrototypeUITests.plist -producttype com.apple.product-type.bundle.ui-testing -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /tmp/argus-chart-ios/Build/Intermediates.noindex/ChartPrototype.build/Debug-iphonesimulator/ChartPrototypeUITests.build/ProductTypeInfoPlistAdditions.plist -o /tmp/argus-chart-ios/Build/Products/Debug-iphonesimulator/ChartPrototypeUITests-Runner.app/PlugIns/ChartPrototypeUITests.xctest/Info.plist
+
+CopySwiftLibs /tmp/argus-chart-ios/Build/Products/Debug-iphonesimulator/ChartPrototypeUITests-Runner.app/PlugIns/ChartPrototypeUITests.xctest (in target 'ChartPrototypeUITests' from project 'ChartPrototype')
+    cd /Users/garces/.codex/worktrees/2825/private-alpha-next/prototypes/chart-validation/ios
+    builtin-swiftStdLibTool --copy --verbose --scan-executable /tmp/argus-chart-ios/Build/Products/Debug-iphonesimulator/ChartPrototypeUITests-Runner.app/PlugIns/ChartPrototypeUITests.xctest/ChartPrototypeUITests --scan-folder /tmp/argus-chart-ios/Build/Products/Debug-iphonesimulator/ChartPrototypeUITests-Runner.app/PlugIns/ChartPrototypeUITests.xctest/Frameworks --scan-folder /tmp/argus-chart-ios/Build/Products/Debug-iphonesimulator/ChartPrototypeUITests-Runner.app/PlugIns/ChartPrototypeUITests.xctest/PlugIns --scan-folder /tmp/argus-chart-ios/Build/Products/Debug-iphonesimulator/ChartPrototypeUITests-Runner.app/PlugIns/ChartPrototypeUITests.xctest/SystemExtensions --scan-folder /tmp/argus-chart-ios/Build/Products/Debug-iphonesimulator/ChartPrototypeUITests-Runner.app/PlugIns/ChartPrototypeUITests.xctest/Extensions --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /tmp/argus-chart-ios/Build/Products/Debug-iphonesimulator/ChartPrototypeUITests-Runner.app/PlugIns/ChartPrototypeUITests.xctest/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /tmp/argus-chart-ios/Build/Intermediates.noindex/ChartPrototype.build/Debug-iphonesimulator/ChartPrototypeUITests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os
+Ignoring --strip-bitcode because --sign was not passed
+
+PruneExplicitPrecompiledModules /tmp/argus-chart-ios/Build/Intermediates.noindex/ExplicitPrecompiledModules
+
+PruneExplicitPrecompiledModules /tmp/argus-chart-ios/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+
+PruneExplicitPrecompiledModules /tmp/argus-chart-ios/SDKExplicitPrecompiledModules
+
+2026-09-28 15:58:53.884901-0500 ChartPrototypeUITests-Runner[51444:23622930] [Default] Running tests...
+    t =      nans Interface orientation changed to Portrait
+Test Suite 'All tests' started at 2026-09-28 15:58:54.966.
+Test Suite 'ChartPrototypeUITests.xctest' started at 2026-09-28 15:58:54.967.
+Test Suite 'ChartUITests' started at 2026-09-28 15:58:54.967.
+Test Case '-[ChartPrototypeUITests.ChartUITests testEmptySingleAndContribution]' started.
+    t =     0.00s Start Test at 2026-09-28 15:58:54.969
+    t =     0.02s Set Up
+    t =     0.03s Open ai.argus.chartprototype
+    t =     0.03s     Launch ai.argus.chartprototype
+2026-09-28 15:58:55.086 xcodebuild[51388:23622374] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+2026-09-28 15:58:55.086 xcodebuild[51388:23622374] [MT] IDELaunchParametersSnapshot: no debugger version
+objc[51444]: Class UIAccessibilityLoaderWebShared is implemented in both /Library/Developer/CoreSimulator/Volumes/iOS_23F77/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.5.simruntime/Contents/Resources/RuntimeRoot/System/Library/AccessibilityBundles/WebCore.axbundle/WebCore (0x10666c310) and /Library/Developer/CoreSimulator/Volumes/iOS_23F77/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.5.simruntime/Contents/Resources/RuntimeRoot/System/Library/AccessibilityBundles/WebKit.axbundle/WebKit (0x106708398). This may cause spurious casting failures and mysterious crashes. One of the duplicates must be removed or renamed.
+    t =     0.73s         Setting up automation session
+    t =     1.57s         Wait for ai.argus.chartprototype to idle
+    t =     3.02s Waiting 15.0s for "selectedDate" StaticText to exist
+    t =     4.05s     Checking `Expect predicate `existsNoRetry == 1` for object "selectedDate" StaticText`
+    t =     4.05s         Checking existence of `"selectedDate" StaticText`
+    t =     4.11s Find the "next" Button
+    t =     4.20s Added attachment named 'empty'
+    t =     4.20s Terminate ai.argus.chartprototype:51458
+    t =     5.25s Open ai.argus.chartprototype
+    t =     5.26s     Launch ai.argus.chartprototype
+2026-09-28 15:59:00.224 xcodebuild[51388:23622374] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+2026-09-28 15:59:00.224 xcodebuild[51388:23622374] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     5.46s         Setting up automation session
+    t =     6.25s         Wait for ai.argus.chartprototype to idle
+    t =     7.67s Waiting 15.0s for "selectedDate" StaticText to exist
+    t =     8.70s     Checking `Expect predicate `existsNoRetry == 1` for object "selectedDate" StaticText`
+    t =     8.70s         Checking existence of `"selectedDate" StaticText`
+    t =     8.77s Tap "next" Button
+    t =     8.77s     Wait for ai.argus.chartprototype to idle
+    t =     8.78s     Find the "next" Button
+    t =     8.80s     Check for interrupting elements affecting "next" Button
+    t =     8.83s     Synthesize event
+    t =     9.12s     Wait for ai.argus.chartprototype to idle
+    t =     9.13s Find the "selectedDate" StaticText
+    t =     9.15s Tap "next" Button
+    t =     9.15s     Wait for ai.argus.chartprototype to idle
+    t =     9.15s     Find the "next" Button
+    t =     9.18s     Check for interrupting elements affecting "next" Button
+    t =     9.20s     Synthesize event
+    t =     9.50s     Wait for ai.argus.chartprototype to idle
+    t =     9.50s Tap "previous" Button
+    t =     9.50s     Wait for ai.argus.chartprototype to idle
+    t =     9.51s     Find the "previous" Button
+    t =     9.53s     Check for interrupting elements affecting "previous" Button
+    t =     9.56s     Synthesize event
+    t =     9.85s     Wait for ai.argus.chartprototype to idle
+    t =     9.85s Find the "selectedDate" StaticText
+    t =     9.94s Added attachment named 'single-system'
+    t =     9.94s Terminate ai.argus.chartprototype:51475
+    t =    11.00s Open ai.argus.chartprototype
+    t =    11.00s     Launch ai.argus.chartprototype
+2026-09-28 15:59:05.967 xcodebuild[51388:23622374] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+2026-09-28 15:59:05.967 xcodebuild[51388:23622374] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =    11.21s         Setting up automation session
+    t =    12.09s         Wait for ai.argus.chartprototype to idle
+    t =    13.56s Waiting 15.0s for "selectedDate" StaticText to exist
+    t =    14.59s     Checking `Expect predicate `existsNoRetry == 1` for object "selectedDate" StaticText`
+    t =    14.59s         Checking existence of `"selectedDate" StaticText`
+    t =    14.66s Tap "next" Button
+    t =    14.66s     Wait for ai.argus.chartprototype to idle
+    t =    14.66s     Find the "next" Button
+    t =    14.69s     Check for interrupting elements affecting "next" Button
+    t =    14.71s     Synthesize event
+    t =    15.01s     Wait for ai.argus.chartprototype to idle
+    t =    15.01s Find the "contributionValue" StaticText
+    t =    15.11s Added attachment named 'recurring-es-dark'
+    t =    15.12s Tear Down
+Test Case '-[ChartPrototypeUITests.ChartUITests testEmptySingleAndContribution]' passed (15.352 seconds).
+Test Case '-[ChartPrototypeUITests.ChartUITests testEnlargedTextReadoutAndTouchTargets]' started.
+    t =     0.00s Start Test at 2026-09-28 15:59:10.322
+    t =     0.02s Set Up
+    t =     0.02s Open ai.argus.chartprototype
+    t =     0.02s     Launch ai.argus.chartprototype
+    t =     0.02s         Terminate ai.argus.chartprototype:51499
+2026-09-28 15:59:11.389 xcodebuild[51388:23622374] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+2026-09-28 15:59:11.389 xcodebuild[51388:23622374] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.28s         Setting up automation session
+    t =     2.03s         Wait for ai.argus.chartprototype to idle
+    t =     3.45s Waiting 15.0s for "selectedDate" StaticText to exist
+    t =     4.48s     Checking `Expect predicate `existsNoRetry == 1` for object "selectedDate" StaticText`
+    t =     4.48s         Checking existence of `"selectedDate" StaticText`
+    t =     4.55s Find the "financialChart" Other
+    t =     4.59s Find the "selectedDate" StaticText
+    t =     4.62s Tap "next" Button
+    t =     4.62s     Wait for ai.argus.chartprototype to idle
+    t =     4.62s     Find the "next" Button
+    t =     4.66s     Check for interrupting elements affecting "next" Button
+    t =     4.68s     Synthesize event
+    t =     4.69s         Scroll element to visible
+    t =     4.69s         Find the "next" Button
+    t =     4.73s         Computed hit point {195, 668} after scrolling to visible
+    t =     5.01s     Wait for ai.argus.chartprototype to idle
+    t =     5.02s Find the "financialChart" Other
+    t =     5.05s Find the "selectedDate" StaticText
+    t =     5.09s Find the "previous" Button
+    t =     5.12s Find the "next" Button
+    t =     5.15s Find the "reset" Button
+    t =     5.18s Find the "actualValue" StaticText
+    t =     5.21s Find the Target Application 'ai.argus.chartprototype'
+    t =     5.22s Swipe down Target Application 'ai.argus.chartprototype'
+    t =     5.22s     Wait for ai.argus.chartprototype to idle
+    t =     5.23s     Find the Target Application 'ai.argus.chartprototype'
+    t =     5.24s     Check for interrupting elements affecting "ChartPrototype" Application
+    t =     5.26s     Synthesize event
+    t =     5.65s     Wait for ai.argus.chartprototype to idle
+    t =     6.18s Swipe down Target Application 'ai.argus.chartprototype'
+    t =     6.18s     Wait for ai.argus.chartprototype to idle
+    t =     6.18s     Find the Target Application 'ai.argus.chartprototype'
+    t =     6.20s     Check for interrupting elements affecting "ChartPrototype" Application
+    t =     6.22s     Synthesize event
+    t =     6.61s     Wait for ai.argus.chartprototype to idle
+    t =     7.18s Added attachment named 'enlarged-text-es'
+    t =     7.18s Tear Down
+Test Case '-[ChartPrototypeUITests.ChartUITests testEnlargedTextReadoutAndTouchTargets]' passed (7.414 seconds).
+Test Case '-[ChartPrototypeUITests.ChartUITests testHorizontalReleaseAndVerticalScroll]' started.
+    t =     0.00s Start Test at 2026-09-28 15:59:17.737
+    t =     0.02s Set Up
+    t =     0.02s Open ai.argus.chartprototype
+    t =     0.02s     Launch ai.argus.chartprototype
+    t =     0.02s         Terminate ai.argus.chartprototype:51535
+2026-09-28 15:59:18.803 xcodebuild[51388:23622374] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+2026-09-28 15:59:18.803 xcodebuild[51388:23622374] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.28s         Setting up automation session
+    t =     2.03s         Wait for ai.argus.chartprototype to idle
+    t =     3.46s Waiting 15.0s for "selectedDate" StaticText to exist
+    t =     4.50s     Checking `Expect predicate `existsNoRetry == 1` for object "selectedDate" StaticText`
+    t =     4.50s         Checking existence of `"selectedDate" StaticText`
+    t =     4.57s Checking existence of `"financialChart" Other`
+    t =     4.60s Press "financialChart" Other[0.20, 0.50] for 0.1 seconds, then drag to "financialChart" Other[0.85, 0.50] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds
+    t =     4.60s     Wait for ai.argus.chartprototype to idle
+    t =     4.60s     Find the "financialChart" Other
+    t =     4.63s     Check for interrupting elements affecting "financialChart" Other
+    t =     4.66s     Synthesize event
+    t =     4.66s         Find the "financialChart" Other
+    t =     4.70s         Find the "financialChart" Other
+    t =     4.73s         Find the "financialChart" Other
+    t =     4.76s         Find the "financialChart" Other
+    t =     4.80s         Find the "financialChart" Other
+    t =     5.56s     Wait for ai.argus.chartprototype to idle
+    t =     5.57s Find the "selectedDate" StaticText
+    t =     5.67s Added attachment named 'horizontal-release'
+    t =     5.67s Find the "selectedDate" StaticText
+    t =     5.70s Find the "financialChart" Other
+    t =     5.73s Press "financialChart" Other[0.50, 0.85] for 0.1 seconds, then drag to "financialChart" Other[0.50, 0.05] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds
+    t =     5.73s     Wait for ai.argus.chartprototype to idle
+    t =     5.74s     Find the "financialChart" Other
+    t =     5.77s     Check for interrupting elements affecting "financialChart" Other
+    t =     5.79s     Synthesize event
+    t =     5.79s         Find the "financialChart" Other
+    t =     5.83s         Find the "financialChart" Other
+    t =     5.86s         Find the "financialChart" Other
+    t =     5.89s         Find the "financialChart" Other
+    t =     5.93s         Find the "financialChart" Other
+    t =     6.61s     Wait for ai.argus.chartprototype to idle
+    t =     6.61s Find the "selectedDate" StaticText
+    t =     6.64s Find the "financialChart" Other
+    t =     6.67s Swipe up Target Application 'ai.argus.chartprototype'
+    t =     6.67s     Wait for ai.argus.chartprototype to idle
+    t =     6.67s     Find the Target Application 'ai.argus.chartprototype'
+    t =     6.69s     Check for interrupting elements affecting "ChartPrototype" Application
+    t =     6.71s     Synthesize event
+    t =     7.13s     Wait for ai.argus.chartprototype to idle
+    t =     7.68s Find the "scrollEnd" StaticText
+    t =     7.79s Added attachment named 'vertical-scroll'
+    t =     7.79s Tear Down
+Test Case '-[ChartPrototypeUITests.ChartUITests testHorizontalReleaseAndVerticalScroll]' passed (8.025 seconds).
+Test Case '-[ChartPrototypeUITests.ChartUITests testLongSeriesInteractionPerformance]' started.
+    t =     0.00s Start Test at 2026-09-28 15:59:25.762
+    t =     0.02s Set Up
+    t =     0.02s Open ai.argus.chartprototype
+    t =     0.02s     Launch ai.argus.chartprototype
+    t =     0.02s         Terminate ai.argus.chartprototype:51593
+2026-09-28 15:59:26.821 xcodebuild[51388:23622374] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+2026-09-28 15:59:26.821 xcodebuild[51388:23622374] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.27s         Setting up automation session
+    t =     2.06s         Wait for ai.argus.chartprototype to idle
+    t =     3.65s Waiting 15.0s for "selectedDate" StaticText to exist
+    t =     4.69s     Checking `Expect predicate `existsNoRetry == 1` for object "selectedDate" StaticText`
+    t =     4.69s         Checking existence of `"selectedDate" StaticText`
+    t =     4.94s Press "financialChart" Other[0.15, 0.50] for 0.1 seconds, then drag to "financialChart" Other[0.90, 0.50] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds
+    t =     4.94s     Wait for ai.argus.chartprototype to idle
+    t =     4.94s     Find the "financialChart" Other
+    t =     4.98s     Check for interrupting elements affecting "financialChart" Other
+    t =     5.00s     Synthesize event
+    t =     5.00s         Find the "financialChart" Other
+    t =     5.03s         Find the "financialChart" Other
+    t =     5.06s         Find the "financialChart" Other
+    t =     5.10s         Find the "financialChart" Other
+    t =     5.13s         Find the "financialChart" Other
+    t =     5.96s     Wait for ai.argus.chartprototype to idle
+    t =     5.99s Find the "selectedDate" StaticText
+    t =     7.30s Press "financialChart" Other[0.15, 0.50] for 0.1 seconds, then drag to "financialChart" Other[0.90, 0.50] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds
+    t =     7.30s     Wait for ai.argus.chartprototype to idle
+    t =     7.31s     Find the "financialChart" Other
+    t =     7.33s     Check for interrupting elements affecting "financialChart" Other
+    t =     7.36s     Synthesize event
+    t =     7.36s         Find the "financialChart" Other
+    t =     7.39s         Find the "financialChart" Other
+    t =     7.42s         Find the "financialChart" Other
+    t =     7.46s         Find the "financialChart" Other
+    t =     7.49s         Find the "financialChart" Other
+    t =     8.33s     Wait for ai.argus.chartprototype to idle
+    t =     8.35s Find the "selectedDate" StaticText
+    t =     8.95s Press "financialChart" Other[0.15, 0.50] for 0.1 seconds, then drag to "financialChart" Other[0.90, 0.50] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds
+    t =     8.95s     Wait for ai.argus.chartprototype to idle
+    t =     8.95s     Find the "financialChart" Other
+    t =     8.98s     Check for interrupting elements affecting "financialChart" Other
+    t =     9.00s     Synthesize event
+    t =     9.00s         Find the "financialChart" Other
+    t =     9.03s         Find the "financialChart" Other
+    t =     9.06s         Find the "financialChart" Other
+    t =     9.09s         Find the "financialChart" Other
+    t =     9.12s         Find the "financialChart" Other
+    t =     9.95s     Wait for ai.argus.chartprototype to idle
+    t =    10.20s Find the "selectedDate" StaticText
+    t =    10.80s Press "financialChart" Other[0.15, 0.50] for 0.1 seconds, then drag to "financialChart" Other[0.90, 0.50] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds
+    t =    10.80s     Wait for ai.argus.chartprototype to idle
+    t =    10.80s     Find the "financialChart" Other
+    t =    10.83s     Check for interrupting elements affecting "financialChart" Other
+    t =    10.85s     Synthesize event
+    t =    10.85s         Find the "financialChart" Other
+    t =    10.88s         Find the "financialChart" Other
+    t =    10.92s         Find the "financialChart" Other
+    t =    10.95s         Find the "financialChart" Other
+    t =    10.98s         Find the "financialChart" Other
+    t =    11.81s     Wait for ai.argus.chartprototype to idle
+    t =    11.99s Find the "selectedDate" StaticText
+    t =    12.60s Press "financialChart" Other[0.15, 0.50] for 0.1 seconds, then drag to "financialChart" Other[0.90, 0.50] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds
+    t =    12.60s     Wait for ai.argus.chartprototype to idle
+    t =    12.61s     Find the "financialChart" Other
+    t =    12.63s     Check for interrupting elements affecting "financialChart" Other
+    t =    12.66s     Synthesize event
+    t =    12.66s         Find the "financialChart" Other
+    t =    12.69s         Find the "financialChart" Other
+    t =    12.73s         Find the "financialChart" Other
+    t =    12.76s         Find the "financialChart" Other
+    t =    12.80s         Find the "financialChart" Other
+    t =    13.63s     Wait for ai.argus.chartprototype to idle
+    t =    13.82s Find the "selectedDate" StaticText
+    t =    14.42s Press "financialChart" Other[0.15, 0.50] for 0.1 seconds, then drag to "financialChart" Other[0.90, 0.50] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds
+    t =    14.42s     Wait for ai.argus.chartprototype to idle
+    t =    14.42s     Find the "financialChart" Other
+    t =    14.45s     Check for interrupting elements affecting "financialChart" Other
+    t =    14.47s     Synthesize event
+    t =    14.47s         Find the "financialChart" Other
+    t =    14.50s         Find the "financialChart" Other
+    t =    14.54s         Find the "financialChart" Other
+    t =    14.57s         Find the "financialChart" Other
+    t =    14.60s         Find the "financialChart" Other
+    t =    15.44s     Wait for ai.argus.chartprototype to idle
+    t =    15.47s Find the "selectedDate" StaticText
+/Users/garces/.codex/worktrees/2825/private-alpha-next/prototypes/chart-validation/ios/ChartPrototypeUITests/ChartUITests.swift:142: Test Case '-[ChartPrototypeUITests.ChartUITests testLongSeriesInteractionPerformance]' measured [Clock Monotonic Time, s] average: 1.169, relative standard deviation: 7.129%, values: [1.065993, 1.261526, 1.213040, 1.233070, 1.071477], performanceMetricID:com.apple.dt.XCTMetric_Clock.time.monotonic, baselineName: "", baselineAverage: , polarity: prefers smaller, maxPercentRegression: 10.000%, maxPercentRelativeStandardDeviation: 10.000%, maxRegression: 0.000, maxStandardDeviation: 0.000
+/Users/garces/.codex/worktrees/2825/private-alpha-next/prototypes/chart-validation/ios/ChartPrototypeUITests/ChartUITests.swift:142: Test Case '-[ChartPrototypeUITests.ChartUITests testLongSeriesInteractionPerformance]' measured [Memory Peak Physical (chartprototype), kB] average: 47345.486, relative standard deviation: 7.220%, values: [41601.256000, 47220.968000, 46450.920000, 49793.256000, 51661.032000], performanceMetricID:com.apple.dt.XCTMetric_Memory-ai.argus.chartprototype.physical_peak, baselineName: "", baselineAverage: , polarity: prefers smaller, maxPercentRegression: 10.000%, maxPercentRelativeStandardDeviation: 10.000%, maxRegression: 0.000, maxStandardDeviation: 0.000
+/Users/garces/.codex/worktrees/2825/private-alpha-next/prototypes/chart-validation/ios/ChartPrototypeUITests/ChartUITests.swift:142: Test Case '-[ChartPrototypeUITests.ChartUITests testLongSeriesInteractionPerformance]' measured [CPU Cycles (chartprototype), kC] average: 3017006.589, relative standard deviation: 10.947%, values: [2604987.197000, 3266365.828000, 3304224.559000, 3288831.897000, 2620623.466000], performanceMetricID:com.apple.dt.XCTMetric_CPU-ai.argus.chartprototype.cycles, baselineName: "", baselineAverage: , polarity: prefers smaller, maxPercentRegression: 10.000%, maxPercentRelativeStandardDeviation: 10.000%, maxRegression: 0.000, maxStandardDeviation: 0.000
+/Users/garces/.codex/worktrees/2825/private-alpha-next/prototypes/chart-validation/ios/ChartPrototypeUITests/ChartUITests.swift:142: Test Case '-[ChartPrototypeUITests.ChartUITests testLongSeriesInteractionPerformance]' measured [Absolute Memory Physical (chartprototype), kB] average: 45503.925, relative standard deviation: 4.550%, values: [41502.952000, 45877.480000, 46188.776000, 46483.688000, 47466.728000], performanceMetricID:com.apple.dt.XCTMetric_Memory-ai.argus.chartprototype.physical_absolute, baselineName: "", baselineAverage: , polarity: prefers smaller, maxPercentRegression: 10.000%, maxPercentRelativeStandardDeviation: 10.000%, maxRegression: 0.000, maxStandardDeviation: 0.000
+/Users/garces/.codex/worktrees/2825/private-alpha-next/prototypes/chart-validation/ios/ChartPrototypeUITests/ChartUITests.swift:142: Test Case '-[ChartPrototypeUITests.ChartUITests testLongSeriesInteractionPerformance]' measured [Memory Physical (chartprototype), kB] average: 353.894, relative standard deviation: 96.607%, values: [65.536000, 966.656000, 376.832000, 360.448000, 0.000000], performanceMetricID:com.apple.dt.XCTMetric_Memory-ai.argus.chartprototype.physical, baselineName: "", baselineAverage: , polarity: prefers smaller, maxPercentRegression: 10.000%, maxPercentRelativeStandardDeviation: 10.000%, maxRegression: 0.000, maxStandardDeviation: 0.000
+/Users/garces/.codex/worktrees/2825/private-alpha-next/prototypes/chart-validation/ios/ChartPrototypeUITests/ChartUITests.swift:142: Test Case '-[ChartPrototypeUITests.ChartUITests testLongSeriesInteractionPerformance]' measured [CPU Time (chartprototype), s] average: 0.976, relative standard deviation: 8.454%, values: [0.876262, 1.069269, 1.017226, 1.039066, 0.877469], performanceMetricID:com.apple.dt.XCTMetric_CPU-ai.argus.chartprototype.time, baselineName: "", baselineAverage: , polarity: prefers smaller, maxPercentRegression: 10.000%, maxPercentRelativeStandardDeviation: 10.000%, maxRegression: 0.000, maxStandardDeviation: 0.000
+/Users/garces/.codex/worktrees/2825/private-alpha-next/prototypes/chart-validation/ios/ChartPrototypeUITests/ChartUITests.swift:142: Test Case '-[ChartPrototypeUITests.ChartUITests testLongSeriesInteractionPerformance]' measured [CPU Instructions Retired (chartprototype), kI] average: 13216195.927, relative standard deviation: 11.717%, values: [11303003.369000, 14471573.342000, 14490350.432000, 14479784.350000, 11336268.142000], performanceMetricID:com.apple.dt.XCTMetric_CPU-ai.argus.chartprototype.instructions_retired, baselineName: "", baselineAverage: , polarity: prefers smaller, maxPercentRegression: 10.000%, maxPercentRelativeStandardDeviation: 10.000%, maxRegression: 0.000, maxStandardDeviation: 0.000
+    t =    16.37s Added attachment named 'long-series'
+    t =    16.37s Tear Down
+Test Case '-[ChartPrototypeUITests.ChartUITests testLongSeriesInteractionPerformance]' passed (16.588 seconds).
+Test Case '-[ChartPrototypeUITests.ChartUITests testNativeRecognizerCancellationRestoresSelection]' started.
+    t =     0.00s Start Test at 2026-09-28 15:59:42.351
+    t =     0.02s Set Up
+    t =     0.02s Open ai.argus.chartprototype
+    t =     0.02s     Launch ai.argus.chartprototype
+    t =     0.02s         Terminate ai.argus.chartprototype:51620
+2026-09-28 15:59:43.421 xcodebuild[51388:23622374] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+2026-09-28 15:59:43.421 xcodebuild[51388:23622374] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.28s         Setting up automation session
+    t =     2.10s         Wait for ai.argus.chartprototype to idle
+    t =     3.55s Waiting 15.0s for "selectedDate" StaticText to exist
+    t =     4.58s     Checking `Expect predicate `existsNoRetry == 1` for object "selectedDate" StaticText`
+    t =     4.58s         Checking existence of `"selectedDate" StaticText`
+    t =     4.66s Tap "next" Button
+    t =     4.66s     Wait for ai.argus.chartprototype to idle
+    t =     4.66s     Find the "next" Button
+    t =     4.69s     Check for interrupting elements affecting "next" Button
+    t =     4.72s     Synthesize event
+    t =     5.01s     Wait for ai.argus.chartprototype to idle
+    t =     5.02s Find the "selectedDate" StaticText
+    t =     5.04s Press "financialChart" Other[0.20, 0.50] for 0.1 seconds, then drag to "financialChart" Other[0.85, 0.50] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds
+    t =     5.04s     Wait for ai.argus.chartprototype to idle
+    t =     5.04s     Find the "financialChart" Other
+    t =     5.07s     Check for interrupting elements affecting "financialChart" Other
+    t =     5.09s     Synthesize event
+    t =     5.09s         Find the "financialChart" Other
+    t =     5.13s         Find the "financialChart" Other
+    t =     5.16s         Find the "financialChart" Other
+    t =     5.19s         Find the "financialChart" Other
+    t =     5.23s         Find the "financialChart" Other
+    t =     5.99s     Wait for ai.argus.chartprototype to idle
+    t =     6.00s Find the "selectedDate" StaticText
+    t =     6.09s Added attachment named 'native-recognizer-cancellation'
+    t =     6.09s Tear Down
+Test Case '-[ChartPrototypeUITests.ChartUITests testNativeRecognizerCancellationRestoresSelection]' passed (6.318 seconds).
+Test Case '-[ChartPrototypeUITests.ChartUITests testReadoutEndpointsMissingResetAndLocale]' started.
+    t =     0.00s Start Test at 2026-09-28 15:59:48.670
+    t =     0.02s Set Up
+    t =     0.03s Open ai.argus.chartprototype
+    t =     0.03s     Launch ai.argus.chartprototype
+    t =     0.03s         Terminate ai.argus.chartprototype:51673
+2026-09-28 15:59:49.748 xcodebuild[51388:23622374] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+2026-09-28 15:59:49.748 xcodebuild[51388:23622374] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.29s         Setting up automation session
+    t =     2.10s         Wait for ai.argus.chartprototype to idle
+    t =     3.56s Waiting 15.0s for "selectedDate" StaticText to exist
+    t =     4.58s     Checking `Expect predicate `existsNoRetry == 1` for object "selectedDate" StaticText`
+    t =     4.58s         Checking existence of `"selectedDate" StaticText`
+    t =     4.66s Tap "next" Button
+    t =     4.66s     Wait for ai.argus.chartprototype to idle
+    t =     4.66s     Find the "next" Button
+    t =     4.69s     Check for interrupting elements affecting "next" Button
+    t =     4.71s     Synthesize event
+    t =     5.01s     Wait for ai.argus.chartprototype to idle
+    t =     5.01s Find the "selectedDate" StaticText
+    t =     5.05s Find the "actualValue" StaticText
+    t =     5.09s Tap "next" Button
+    t =     5.09s     Wait for ai.argus.chartprototype to idle
+    t =     5.09s     Find the "next" Button
+    t =     5.12s     Check for interrupting elements affecting "next" Button
+    t =     5.15s     Synthesize event
+    t =     5.44s     Wait for ai.argus.chartprototype to idle
+    t =     5.45s Tap "next" Button
+    t =     5.45s     Wait for ai.argus.chartprototype to idle
+    t =     5.45s     Find the "next" Button
+    t =     5.48s     Check for interrupting elements affecting "next" Button
+    t =     5.51s     Synthesize event
+    t =     5.80s     Wait for ai.argus.chartprototype to idle
+    t =     5.81s Tap "next" Button
+    t =     5.81s     Wait for ai.argus.chartprototype to idle
+    t =     5.81s     Find the "next" Button
+    t =     5.84s     Check for interrupting elements affecting "next" Button
+    t =     5.87s     Synthesize event
+    t =     6.17s     Wait for ai.argus.chartprototype to idle
+    t =     6.17s Find the "actualValue" StaticText
+    t =     6.27s Added attachment named 'light-en-missing'
+    t =     6.27s Tap "reset" Button
+    t =     6.27s     Wait for ai.argus.chartprototype to idle
+    t =     6.28s     Find the "reset" Button
+    t =     6.31s     Check for interrupting elements affecting "reset" Button
+    t =     6.33s     Synthesize event
+    t =     6.63s     Wait for ai.argus.chartprototype to idle
+    t =     6.63s Find the "selectedDate" StaticText
+    t =     6.66s Tap "previous" Button
+    t =     6.66s     Wait for ai.argus.chartprototype to idle
+    t =     6.66s     Find the "previous" Button
+    t =     6.69s     Check for interrupting elements affecting "previous" Button
+    t =     6.72s     Synthesize event
+    t =     7.01s     Wait for ai.argus.chartprototype to idle
+    t =     7.02s Find the "selectedDate" StaticText
+    t =     7.05s Tap "next" Button
+    t =     7.05s     Wait for ai.argus.chartprototype to idle
+    t =     7.05s     Find the "next" Button
+    t =     7.08s     Check for interrupting elements affecting "next" Button
+    t =     7.10s     Synthesize event
+    t =     7.40s     Wait for ai.argus.chartprototype to idle
+    t =     7.40s Find the "selectedDate" StaticText
+    t =     7.43s Tap "locale" Switch
+    t =     7.43s     Wait for ai.argus.chartprototype to idle
+    t =     7.43s     Find the "locale" Switch
+    t =     7.45s     Check for interrupting elements affecting "locale" Switch
+    t =     7.48s     Synthesize event
+    t =     7.48s         Scroll element to visible
+    t =     7.48s         Find the "locale" Switch
+    t =     7.52s         Computed hit point {336.5, 676} after scrolling to visible
+    t =     7.80s     Wait for ai.argus.chartprototype to idle
+    t =     9.10s Find the "projectedValue" StaticText
+    t =     9.13s Tap "Oscuro" Button
+    t =     9.13s     Wait for ai.argus.chartprototype to idle
+    t =     9.13s     Find the "Oscuro" Button
+    t =     9.16s     Check for interrupting elements affecting "Oscuro" Button
+    t =     9.18s     Synthesize event
+    t =     9.48s     Wait for ai.argus.chartprototype to idle
+    t =    10.76s Swipe down Target Application 'ai.argus.chartprototype'
+    t =    10.76s     Wait for ai.argus.chartprototype to idle
+    t =    10.76s     Find the Target Application 'ai.argus.chartprototype'
+    t =    10.78s     Check for interrupting elements affecting "ChartPrototype" Application
+    t =    10.79s     Synthesize event
+    t =    11.18s     Wait for ai.argus.chartprototype to idle
+    t =    11.73s Swipe down Target Application 'ai.argus.chartprototype'
+    t =    11.73s     Wait for ai.argus.chartprototype to idle
+    t =    11.74s     Find the Target Application 'ai.argus.chartprototype'
+    t =    11.76s     Check for interrupting elements affecting "ChartPrototype" Application
+    t =    11.78s     Synthesize event
+    t =    12.17s     Wait for ai.argus.chartprototype to idle
+    t =    12.74s Added attachment named 'dark-es-endpoint'
+    t =    12.74s Tear Down
+Test Case '-[ChartPrototypeUITests.ChartUITests testReadoutEndpointsMissingResetAndLocale]' passed (12.981 seconds).
+Test Case '-[ChartPrototypeUITests.ChartUITests testScenarioPickerUsesLocalizedFixtureTitles]' started.
+    t =     0.00s Start Test at 2026-09-28 16:00:01.652
+    t =     0.02s Set Up
+    t =     0.02s Open ai.argus.chartprototype
+    t =     0.03s     Launch ai.argus.chartprototype
+    t =     0.03s         Terminate ai.argus.chartprototype:51688
+2026-09-28 16:00:02.723 xcodebuild[51388:23622374] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+2026-09-28 16:00:02.723 xcodebuild[51388:23622374] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.28s         Setting up automation session
+    t =     2.04s         Wait for ai.argus.chartprototype to idle
+    t =     3.47s Waiting 15.0s for "selectedDate" StaticText to exist
+    t =     4.49s     Checking `Expect predicate `existsNoRetry == 1` for object "selectedDate" StaticText`
+    t =     4.49s         Checking existence of `"selectedDate" StaticText`
+    t =     4.57s Tap "scenario" Button
+    t =     4.57s     Wait for ai.argus.chartprototype to idle
+    t =     4.58s     Find the "scenario" Button
+    t =     4.61s     Check for interrupting elements affecting "scenario" Button
+    t =     4.63s     Synthesize event
+    t =     4.64s         Scroll element to visible
+    t =     4.64s         Find the "scenario" Button
+    t =     4.68s         Computed hit point {112.5, 672.83333333333326} after scrolling to visible
+    t =     4.97s     Wait for ai.argus.chartprototype to idle
+    t =     6.16s Find the "scenario-option-recurring-contributions" Button
+    t =     6.20s Checking existence of `Button (First Match)`
+    t =     6.27s Tap "scenario-option-recurring-contributions" Button
+    t =     6.27s     Wait for ai.argus.chartprototype to idle
+    t =     6.27s     Find the "scenario-option-recurring-contributions" Button
+    t =     6.31s     Check for interrupting elements affecting "scenario-option-recurring-contributions" Button
+    t =     6.35s     Synthesize event
+    t =     6.64s     Wait for ai.argus.chartprototype to idle
+    t =     8.05s Find the "scenario" Button
+    t =     8.08s Tap "locale" Switch
+    t =     8.08s     Wait for ai.argus.chartprototype to idle
+    t =     8.09s     Find the "locale" Switch
+    t =     8.11s     Check for interrupting elements affecting "locale" Switch
+    t =     8.13s     Synthesize event
+    t =     8.42s     Wait for ai.argus.chartprototype to idle
+    t =     9.71s Tap "scenario" Button
+    t =     9.71s     Wait for ai.argus.chartprototype to idle
+    t =     9.71s     Find the "scenario" Button
+    t =     9.75s     Check for interrupting elements affecting "scenario" Button
+    t =     9.78s     Synthesize event
+    t =    10.08s     Wait for ai.argus.chartprototype to idle
+    t =    11.19s Find the "scenario-option-recurring-contributions" Button
+    t =    11.22s Tap "scenario-option-recurring-contributions" Button
+    t =    11.22s     Wait for ai.argus.chartprototype to idle
+    t =    11.23s     Find the "scenario-option-recurring-contributions" Button
+    t =    11.26s     Check for interrupting elements affecting "scenario-option-recurring-contributions" Button
+    t =    11.28s     Synthesize event
+    t =    11.58s     Wait for ai.argus.chartprototype to idle
+    t =    12.99s Swipe down Target Application 'ai.argus.chartprototype'
+    t =    12.99s     Wait for ai.argus.chartprototype to idle
+    t =    12.99s     Find the Target Application 'ai.argus.chartprototype'
+    t =    13.01s     Check for interrupting elements affecting "ChartPrototype" Application
+    t =    13.04s     Synthesize event
+    t =    13.43s     Wait for ai.argus.chartprototype to idle
+    t =    13.93s Swipe down Target Application 'ai.argus.chartprototype'
+    t =    13.94s     Wait for ai.argus.chartprototype to idle
+    t =    13.94s     Find the Target Application 'ai.argus.chartprototype'
+    t =    13.96s     Check for interrupting elements affecting "ChartPrototype" Application
+    t =    13.98s     Synthesize event
+    t =    14.37s     Wait for ai.argus.chartprototype to idle
+    t =    14.94s Added attachment named 'localized-scenario'
+    t =    14.94s Tear Down
+Test Case '-[ChartPrototypeUITests.ChartUITests testScenarioPickerUsesLocalizedFixtureTitles]' passed (15.179 seconds).
+Test Case '-[ChartPrototypeUITests.ChartUITests testScenarioResetsSelection]' started.
+    t =     0.00s Start Test at 2026-09-28 16:00:16.831
+    t =     0.02s Set Up
+    t =     0.02s Open ai.argus.chartprototype
+    t =     0.02s     Launch ai.argus.chartprototype
+    t =     0.02s         Terminate ai.argus.chartprototype:51761
+2026-09-28 16:00:17.894 xcodebuild[51388:23622374] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+2026-09-28 16:00:17.894 xcodebuild[51388:23622374] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.27s         Setting up automation session
+    t =     2.05s         Wait for ai.argus.chartprototype to idle
+    t =     3.54s Waiting 15.0s for "selectedDate" StaticText to exist
+    t =     4.56s     Checking `Expect predicate `existsNoRetry == 1` for object "selectedDate" StaticText`
+    t =     4.57s         Checking existence of `"selectedDate" StaticText`
+    t =     4.65s Tap "next" Button
+    t =     4.65s     Wait for ai.argus.chartprototype to idle
+    t =     4.65s     Find the "next" Button
+    t =     4.70s     Check for interrupting elements affecting "next" Button
+    t =     4.73s     Synthesize event
+    t =     5.06s     Wait for ai.argus.chartprototype to idle
+    t =     5.07s Tap "scenario" Button
+    t =     5.07s     Wait for ai.argus.chartprototype to idle
+    t =     5.07s     Find the "scenario" Button
+    t =     5.11s     Check for interrupting elements affecting "scenario" Button
+    t =     5.13s     Synthesize event
+    t =     5.14s         Scroll element to visible
+    t =     5.14s         Find the "scenario" Button
+    t =     5.18s         Computed hit point {123, 672.83333333333326} after scrolling to visible
+    t =     5.46s     Wait for ai.argus.chartprototype to idle
+    t =     6.64s Tap "scenario-option-empty" Button
+    t =     6.64s     Wait for ai.argus.chartprototype to idle
+    t =     6.65s     Find the "scenario-option-empty" Button
+    t =     6.69s     Check for interrupting elements affecting "scenario-option-empty" Button
+    t =     6.72s     Synthesize event
+    t =     7.01s     Wait for ai.argus.chartprototype to idle
+    t =     8.43s Find the "selectedDate" StaticText
+    t =     8.45s Find the "next" Button
+    t =     8.47s Tear Down
+Test Case '-[ChartPrototypeUITests.ChartUITests testScenarioResetsSelection]' passed (8.696 seconds).
+Test Suite 'ChartUITests' passed at 2026-09-28 16:00:25.527.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 90.553 (90.560) seconds
+Test Suite 'ChartPrototypeUITests.xctest' passed at 2026-09-28 16:00:25.528.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 90.553 (90.561) seconds
+Test Suite 'All tests' passed at 2026-09-28 16:00:25.529.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 90.553 (90.562) seconds
+2026-09-28 16:00:25.835 xcodebuild[51388:23622374] [MT] IDETestOperationsObserverDebug: 93.127 elapsed -- Testing started completed.
+2026-09-28 16:00:25.835 xcodebuild[51388:23622374] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-09-28 16:00:25.835 xcodebuild[51388:23622374] [MT] IDETestOperationsObserverDebug: 93.127 sec, +93.127 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/argus-chart-ios-final-f5f4f446.xcresult
+
+** TEST SUCCEEDED **
+
+Testing started

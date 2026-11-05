@@ -81,13 +81,13 @@ def _wire(monkeypatch: pytest.MonkeyPatch, *packets: ResearchPacket) -> _Researc
     return client
 
 
-def test_repeated_tool_calls_use_their_arguments_and_the_shared_cache(
+def test_repeated_tool_calls_use_their_arguments_without_sharing_answers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from argus.agent_runtime.research_tools import FastQuoteArguments, fast_quote
 
     first_packet, second_packet = _packet("AAPL"), _packet("MSFT")
-    client = _wire(monkeypatch, first_packet, second_packet)
+    client = _wire(monkeypatch, first_packet, second_packet, first_packet)
     first = FastQuoteArguments(
         request="Read AAPL's current share price", symbols=["AAPL"]
     )
@@ -105,20 +105,20 @@ def test_repeated_tool_calls_use_their_arguments_and_the_shared_cache(
         with research_attempt_admission_context(claim):
             a = await fast_quote(first, context=context)
             b = await fast_quote(second, context=context)
-            cached = await fast_quote(first, context=context)
-        return a, b, cached
+            repeated = await fast_quote(first, context=context)
+        return a, b, repeated
 
-    a, b, cached = asyncio.run(invoke())
-    assert a.rows == cached.rows == first_packet.rows
+    a, b, repeated = asyncio.run(invoke())
+    assert a.rows == repeated.rows == first_packet.rows
     assert b.rows == second_packet.rows
-    assert len(client.calls) == 2
+    assert len(client.calls) == 3
     # The allowance counts one research question/turn. Existing admission
-    # owns that grain even when the model needs two retrieval operations.
+    # owns that grain even when the model needs three retrieval operations.
     assert len(claims) == 1
     assert first.request in client.calls[0][0]
     assert second.request not in client.calls[0][0]
     assert context.state.current_user_message not in client.calls[0][0]
-    assert context.stage_result.stage_patch["research"]["usage"]["cache_status"] == "hit"
+    assert context.stage_result.stage_patch["research"]["usage"]["cache_status"] == "miss"
     assert "candidate_strategy_draft" not in context.stage_result.stage_patch
     assert "confirmed_strategy_summary" not in context.stage_result.stage_patch
 
@@ -368,7 +368,7 @@ def test_peer_expansion_reuses_the_existing_cache_for_a_repeated_call(
     context = _context()
     common = {
         "request": "Find candidate assets around this business",
-        "anchor_symbols": ["PANW"],
+        "anchor_symbols": ["AAPL"],
         "needs_current_facts": True,
     }
 

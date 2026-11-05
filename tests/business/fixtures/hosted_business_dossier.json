@@ -1,0 +1,309 @@
+{
+  "space_id": "dc2f4bba-3726-4cbc-a51f-d3bffa626941",
+  "space_name": "Taller de prueba",
+  "draft_id": "9b359329-376a-400c-b7f9-059db473538c",
+  "version": 2,
+  "review_state": "open",
+  "facts": {
+    "kind": {
+      "state": "known",
+      "value": "expense",
+      "origin": "owner_stated",
+      "verified": false,
+      "source_ids": [
+        "da459794-de92-4e21-944e-3689f6909886"
+      ]
+    },
+    "amount": {
+      "state": "known",
+      "value": "1850",
+      "origin": "owner_stated",
+      "verified": false,
+      "source_ids": [
+        "da459794-de92-4e21-944e-3689f6909886"
+      ]
+    },
+    "currency": {
+      "state": "known",
+      "value": "DOP",
+      "origin": "default",
+      "verified": false,
+      "source_ids": []
+    },
+    "occurred_on": {
+      "state": "known",
+      "value": "2026-10-09",
+      "origin": "owner_stated",
+      "verified": false,
+      "source_ids": [
+        "da459794-de92-4e21-944e-3689f6909886"
+      ]
+    },
+    "counterparty": {
+      "state": "known",
+      "value": "Ferretería del barrio",
+      "origin": "owner_stated",
+      "verified": false,
+      "source_ids": [
+        "da459794-de92-4e21-944e-3689f6909886"
+      ]
+    },
+    "funding": {
+      "state": "owner_does_not_know",
+      "value": null,
+      "origin": "owner_stated",
+      "verified": false,
+      "source_ids": [
+        "da459794-de92-4e21-944e-3689f6909886"
+      ]
+    },
+    "business_share": {
+      "state": "known",
+      "value": {
+        "kind": "all"
+      },
+      "origin": "owner_stated",
+      "verified": false,
+      "source_ids": [
+        "da459794-de92-4e21-944e-3689f6909886"
+      ]
+    },
+    "receipt_state": {
+      "state": "known",
+      "value": "no_receipt",
+      "origin": "owner_stated",
+      "verified": false,
+      "source_ids": [
+        "da459794-de92-4e21-944e-3689f6909886"
+      ]
+    },
+    "category_id": {
+      "state": "unknown",
+      "value": null,
+      "origin": null,
+      "verified": false,
+      "source_ids": []
+    },
+    "fiscal": null
+  },
+  "accounts": [],
+  "sources": [
+    {
+      "id": "da459794-de92-4e21-944e-3689f6909886",
+      "kind": "message",
+      "channel": "whatsapp",
+      "received_at": "2026-10-10T20:00:00Z",
+      "text": "Ayer gasté 1850 en la ferretería para el negocio. No tengo recibo. No sé de cuál dinero salió."
+    }
+  ],
+  "questions": [
+    {
+      "id": "618343dc-bc3d-4c78-8fc5-c659a2a43302",
+      "draft_id": "9b359329-376a-400c-b7f9-059db473538c",
+      "field": "funding",
+      "asked_of": "accountant",
+      "channel": "web",
+      "state": "owner_does_not_know",
+      "prompt": "Revisar de dónde salió el dinero.",
+      "allowed_answers": [
+        "known",
+        "owner_does_not_know"
+      ],
+      "answer_source_id": "da459794-de92-4e21-944e-3689f6909886",
+      "created_at": "2026-10-10T20:00:00Z"
+    }
+  ],
+  "history": [
+    {
+      "draft_id": "9b359329-376a-400c-b7f9-059db473538c",
+      "version": 2,
+      "actor": {
+        "actor_id": "7ce4707b-e757-434f-83d6-9a67f23e9345",
+        "actor_kind": "owner_via_agent",
+        "display_name": "Elisabet Cortina",
+        "grant_id": "f1a29c25-8a28-4e8e-9df4-8d7985a59294",
+        "issuer_id": "7ba7827b-d284-4a08-8de7-a9399add7744",
+        "issuer_display_name": "Fortunato Natalio Doménech Pino"
+      },
+      "before": {
+        "kind": {
+          "state": "known",
+          "value": "expense",
+          "origin": "owner_stated",
+          "verified": false,
+          "source_ids": [
+            "da459794-de92-4e21-944e-3689f6909886"
+          ]
+        },
+        "amount": {
+          "state": "known",
+          "value": "1850",
+          "origin": "owner_stated",
+          "verified": false,
+          "source_ids": [
+            "da459794-de92-4e21-944e-3689f6909886"
+          ]
+        },
+        "currency": {
+          "state": "known",
+          "value": "DOP",
+          "origin": "default",
+          "verified": false,
+          "source_ids": []
+        },
+        "occurred_on": {
+          "state": "known",
+          "value": "2026-10-09",
+          "origin": "owner_stated",
+          "verified": false,
+          "source_ids": [
+            "da459794-de92-4e21-944e-3689f6909886"
+          ]
+        },
+        "counterparty": {
+          "state": "known",
+          "value": "Ferretería del barrio",
+          "origin": "owner_stated",
+          "verified": false,
+          "source_ids": [
+            "da459794-de92-4e21-944e-3689f6909886"
+          ]
+        },
+        "funding": {
+          "state": "unknown",
+          "value": null,
+          "origin": null,
+          "verified": false,
+          "source_ids": []
+        },
+        "business_share": {
+          "state": "known",
+          "value": {
+            "kind": "all"
+          },
+          "origin": "owner_stated",
+          "verified": false,
+          "source_ids": [
+            "da459794-de92-4e21-944e-3689f6909886"
+          ]
+        },
+        "receipt_state": {
+          "state": "known",
+          "value": "no_receipt",
+          "origin": "owner_stated",
+          "verified": false,
+          "source_ids": [
+            "da459794-de92-4e21-944e-3689f6909886"
+          ]
+        },
+        "category_id": {
+          "state": "unknown",
+          "value": null,
+          "origin": null,
+          "verified": false,
+          "source_ids": []
+        },
+        "fiscal": null
+      },
+      "after": {
+        "kind": {
+          "state": "known",
+          "value": "expense",
+          "origin": "owner_stated",
+          "verified": false,
+          "source_ids": [
+            "da459794-de92-4e21-944e-3689f6909886"
+          ]
+        },
+        "amount": {
+          "state": "known",
+          "value": "1850",
+          "origin": "owner_stated",
+          "verified": false,
+          "source_ids": [
+            "da459794-de92-4e21-944e-3689f6909886"
+          ]
+        },
+        "currency": {
+          "state": "known",
+          "value": "DOP",
+          "origin": "default",
+          "verified": false,
+          "source_ids": []
+        },
+        "occurred_on": {
+          "state": "known",
+          "value": "2026-10-09",
+          "origin": "owner_stated",
+          "verified": false,
+          "source_ids": [
+            "da459794-de92-4e21-944e-3689f6909886"
+          ]
+        },
+        "counterparty": {
+          "state": "known",
+          "value": "Ferretería del barrio",
+          "origin": "owner_stated",
+          "verified": false,
+          "source_ids": [
+            "da459794-de92-4e21-944e-3689f6909886"
+          ]
+        },
+        "funding": {
+          "state": "owner_does_not_know",
+          "value": null,
+          "origin": "owner_stated",
+          "verified": false,
+          "source_ids": [
+            "da459794-de92-4e21-944e-3689f6909886"
+          ]
+        },
+        "business_share": {
+          "state": "known",
+          "value": {
+            "kind": "all"
+          },
+          "origin": "owner_stated",
+          "verified": false,
+          "source_ids": [
+            "da459794-de92-4e21-944e-3689f6909886"
+          ]
+        },
+        "receipt_state": {
+          "state": "known",
+          "value": "no_receipt",
+          "origin": "owner_stated",
+          "verified": false,
+          "source_ids": [
+            "da459794-de92-4e21-944e-3689f6909886"
+          ]
+        },
+        "category_id": {
+          "state": "unknown",
+          "value": null,
+          "origin": null,
+          "verified": false,
+          "source_ids": []
+        },
+        "fiscal": null
+      },
+      "source_ids": [
+        "da459794-de92-4e21-944e-3689f6909886"
+      ],
+      "turn_key": "a054e7b0e5f806b67e531140801d847bfdcff401753a9699bc78b7b35e19077c",
+      "created_at": "2026-10-10T20:00:00Z"
+    }
+  ],
+  "capabilities": [
+    "prepare",
+    "read"
+  ],
+  "blockers": [
+    {
+      "code": "funding_unknown",
+      "field": "funding"
+    }
+  ],
+  "approval_available": false,
+  "approval_result": null
+}

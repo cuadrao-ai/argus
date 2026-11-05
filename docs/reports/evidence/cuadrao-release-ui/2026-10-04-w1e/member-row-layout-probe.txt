@@ -1,0 +1,18 @@
+click x=100.0 taps=0
+click x=112.0 taps=1
+click x=118.0 taps=1
+click x=125.0 taps=1
+click x=150.0 taps=1
+click x=168.0 taps=1
+click x=174.0 taps=0
+click x=185.0 taps=0
+click x=197.0 taps=0
+click x=210.0 taps=0
+DIFF fixed w=280 custom=true name=3ch  name old x=59.0 w=23.5 new w=23.5  trailing old x=140.0 w=140.0 new x=146.0 w=134.0  gap old=57.5 new=63.5 untappable-before-trailing=32.0
+DIFF fixed w=280 custom=true name=8ch  name old x=59.0 w=50.0 new w=50.0  trailing old x=141.0 w=139.0 new x=146.0 w=134.0  gap old=32.0 new=37.0 untappable-before-trailing=32.0
+DIFF fixed w=280 custom=true name=14ch  name old x=59.0 w=62.5 new w=55.0  trailing old x=156.0 w=124.0 new x=146.0 w=134.0  gap old=34.5 new=32.0 untappable-before-trailing=32.0
+DIFF fixed w=280 custom=true name=28ch  name old x=59.0 w=62.5 new w=55.0  trailing old x=156.0 w=124.0 new x=146.0 w=134.0  gap old=34.5 new=32.0 untappable-before-trailing=32.0
+DIFF fixed w=280 custom=true name=53ch  name old x=59.0 w=62.5 new w=55.0  trailing old x=156.0 w=124.0 new x=146.0 w=134.0  gap old=34.5 new=32.0 untappable-before-trailing=32.0
+overlay tap area w=343 custom=false: (109.0, 0.0, 123.5, 44.0) button maxX=109.0 trailing minX=264.5
+overlay tap area w=343 custom=true: (109.0, 8.0, 62.0, 44.0) button maxX=109.0 trailing minX=203.0
+cases=180 mismatches=27 by variant=["c45e": 22, "fixed": 5] tapBad=0

@@ -21,15 +21,12 @@ describe("feedback context consent", () => {
         includeConversationContext: false,
         rating: "negative",
         tags: ["incorrect"],
-        attachmentCount: 0,
       }),
     ).toEqual({
       source: "message_more_menu",
       surface: "chat",
       rating: "negative",
       tags: ["incorrect"],
-      hasAttachments: false,
-      attachmentCount: 0,
     });
   });
 
@@ -39,7 +36,6 @@ describe("feedback context consent", () => {
         includeConversationContext: true,
         rating: "negative",
         tags: [],
-        attachmentCount: 1,
       }),
     ).toEqual({
       source: "message_more_menu",
@@ -50,8 +46,6 @@ describe("feedback context consent", () => {
       artifact_type: "result_card",
       rating: "negative",
       tags: [],
-      hasAttachments: true,
-      attachmentCount: 1,
     });
   });
 });

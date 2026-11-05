@@ -1,0 +1,197 @@
+{
+  "assembled_source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3",
+  "simulator": "1A90F684-345F-465C-AA50-6A5298F34156",
+  "device": "Argus Foundation Compact, iPhone17e/iOS27.0",
+  "auth": "real local registered synthetic owners",
+  "api": 59200,
+  "postgres": 59202,
+  "response_loss_proxy": 59212,
+  "native_cases": [
+    {
+      "purpose": "loan_create_payment_response_loss_correction_return_edit_archive_restore_search_relaunch",
+      "source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3",
+      "result_bundle": "ui-20260930T211006Z.xcresult",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "start_time": 1790802614.717,
+      "finish_time": 1790803096.999,
+      "runtime_warnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        }
+      ]
+    },
+    {
+      "purpose": "existing_card_payment_linked_once_and_actual_return",
+      "source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3",
+      "result_bundle": "ui-20260930T211836Z.xcresult",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "start_time": 1790803120.367,
+      "finish_time": 1790803487.132,
+      "runtime_warnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        }
+      ]
+    },
+    {
+      "purpose": "retained_home_search_back_relaunch_spanish",
+      "source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3",
+      "result_bundle": "ui-20260930T212512Z.xcresult",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "start_time": 1790803516.993,
+      "finish_time": 1790803623.216,
+      "runtime_warnings": []
+    }
+  ],
+  "financial_checks": {
+    "passed": 343,
+    "skipped": 0,
+    "real_postgres": true,
+    "source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3"
+  },
+  "production_native_draft_tests": {
+    "passed": 3,
+    "failed": 0,
+    "source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3"
+  },
+  "swift_package": {
+    "passed": 59,
+    "skipped": 4,
+    "failed": 0,
+    "skip_reason": "Inherited opt-in live-auth cases; real native auth passed separately",
+    "retention": "Package source unchanged after writer verification"
+  },
+  "screenshots": [
+    {
+      "file": "debt-canonical-money-preview.png",
+      "timestamp": 1790802817.84,
+      "case": "loan_native_recovery",
+      "source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3"
+    },
+    {
+      "file": "debt-committed-payment-response-lost.png",
+      "timestamp": 1790802820.699,
+      "case": "loan_native_recovery",
+      "source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3"
+    },
+    {
+      "file": "debt-pending-payment-retained-after-relaunch.png",
+      "timestamp": 1790802827.502,
+      "case": "loan_native_recovery",
+      "source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3"
+    },
+    {
+      "file": "debt-payment-recovered-once.png",
+      "timestamp": 1790802835.327,
+      "case": "loan_native_recovery",
+      "source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3"
+    },
+    {
+      "file": "debt-partial-actual-payment.png",
+      "timestamp": 1790802837.5,
+      "case": "loan_native_recovery",
+      "source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3"
+    },
+    {
+      "file": "debt-canonical-money-preview-2.png",
+      "timestamp": 1790802888.765,
+      "case": "loan_native_recovery",
+      "source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3"
+    },
+    {
+      "file": "debt-canonical-money-preview-3.png",
+      "timestamp": 1790802958.422,
+      "case": "loan_native_recovery",
+      "source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3"
+    },
+    {
+      "file": "debt-return-preserves-original-payment.png",
+      "timestamp": 1790802967.023,
+      "case": "loan_native_recovery",
+      "source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3"
+    },
+    {
+      "file": "debt-canonical-money-preview-4.png",
+      "timestamp": 1790803017.303,
+      "case": "loan_native_recovery",
+      "source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3"
+    },
+    {
+      "file": "debt-search-current-detail.png",
+      "timestamp": 1790803081.845,
+      "case": "loan_native_recovery",
+      "source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3"
+    },
+    {
+      "file": "debt-search-query-and-filter-restored.png",
+      "timestamp": 1790803096.083,
+      "case": "loan_native_recovery",
+      "source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3"
+    },
+    {
+      "file": "card-linked-original-return-updates-plan.png",
+      "timestamp": 1790803473.075,
+      "case": "existing_card_link_return",
+      "source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3"
+    },
+    {
+      "file": "card-existing-payment-linked-once.png",
+      "timestamp": 1790803378.842,
+      "case": "existing_card_link_return",
+      "source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3"
+    },
+    {
+      "file": "debt-search-query-and-filter-restored-es.png",
+      "timestamp": 1790803622.627,
+      "case": "retained_spanish_home_search_relaunch",
+      "source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3"
+    },
+    {
+      "file": "debt-search-current-detail-es.png",
+      "timestamp": 1790803606.818,
+      "case": "retained_spanish_home_search_relaunch",
+      "source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3"
+    },
+    {
+      "file": "debt-home-current-truth-es.png",
+      "timestamp": 1790803561.556,
+      "case": "retained_spanish_home_search_relaunch",
+      "source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3"
+    }
+  ],
+  "video": {
+    "file": "debt-journey.mp4",
+    "source_head": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3",
+    "raw_start_utc": "2026-09-30T21:10:28.402521+00:00",
+    "raw_range_seconds": [
+      183,
+      273
+    ],
+    "duration_seconds": 90,
+    "shows": "Confirm canonical payment; lose accepted response; reopen and replay once; inspect and correct original payment",
+    "privacy": "Only synthetic financial frames; sign-in and private runner logs excluded; avconvert metadata filter preserved"
+  },
+  "final_installed_build": "Ordinary direct API59200, English/dark; retained native app and credentials remain private",
+  "native_totals": {
+    "passed": 3,
+    "failed": 0,
+    "skipped": 0
+  },
+  "visual_review": "Existing native typography, dark surfaces and pill controls; recorded/expected debt distinct; optional funding and estimate disclosure; original payment and clear From/To return direction",
+  "runtime_warning_disposition": "Invalid frame dimension warning appears in passing loan/card cases and also in retained savings native acceptance. No visible failure observed; broader layout polish remains tracked in the existing manifest.",
+  "reconciliation": {
+    "original_integration_base": "7c29b2a9b3f4680f6804a2abc8378df45b05540c",
+    "current_integration": "7c29b2a9b3f4680f6804a2abc8378df45b05540c",
+    "merge_sha": null,
+    "overlap": "Integration has not advanced; would-be merged tree is the worker tree",
+    "evidence_retention": "All behavior captured at source 70e34fe94641806ca3e80ac9ac6fff9ad73603f3; later preservation commits change only docs/evidence. Runtime equivalence is checked before readiness."
+  }
+}

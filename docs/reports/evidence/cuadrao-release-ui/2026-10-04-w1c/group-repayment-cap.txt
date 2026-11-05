@@ -1,0 +1,8 @@
+W1C group seed initial=3,000.00 save=true
+W1C group seed after-500 value=500 save=true error=none
+W1C group seed after-done value=500.00 save=true
+W1C group save frame=(27.27272727272727, 796.3878787878788, 385.4545454545455, 50.10909090909081) hittable=true enabled=true keyboards=1 toolbar=(354.0, 913.0, 61.0, 38.0)
+W1C group after-centre-tap fieldExists=false
+W1C journey t0 value=500 enabled=true
+W1C journey t1 value=500 enabled=true texts=["", "Vamos cuadrando", "Envió", "Recibió", "Registra dinero que ya se devolvió por fuera de Cuadrao. Puedes registrar una parte.", "Ana", "Tú", "DOP", "Samaná con los panas", "5 personas · Compartir gastos", "Tu parte", "DOP 3,500", "Total del grupo", "Pagaste", "DOP 14,000", "DOP 14,000", "Te deben", "10,500.00", "¿Y si se suma alguien más?", "DOP 2,526.32", "por persona · 19 personas previstas", "Estimado total: DOP 48,000. Reparto igual; todavía no es una deuda.", "Vista previa local · no envía invitaciones ni mueve dinero", "+1", "Añadir gasto"] buttons=["Sheet Grabber", "Dictate", "Inicio", "Plan", "Asistente", "Buscar", "Perfil", "Cerrar", "Listo", "Back", "More", "", "Envió, Ana", "Recibió, Tú", "Registrar reembolso", "Ver personas", "Ver cómo cuadramos", "Añadir gasto", "El plan", "Gastos", "Personas"]
+W1C journey t2 value=500.00 enabled=true

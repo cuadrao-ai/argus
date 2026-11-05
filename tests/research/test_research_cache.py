@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import inspect
 import time
+from datetime import datetime, timezone
 
 from argus.domain.research import cache as research_cache
 from argus.domain.research.cache import (
@@ -16,19 +18,18 @@ from argus.domain.research.cache import (
     research_cache_key,
     ttl_for_packet,
 )
-from argus.domain.research.contracts import ResearchPacket
+from argus.domain.research.search.contracts import SearchResultPacket
 
 
-def _key_for_user(question: str) -> str:
-    # Deliberately built from public request identity only; two users asking
-    # the same question must produce the same key.
-    return research_cache_key(
-        capability_class="fast_quote",
-        shape="fast",
-        symbols=("AAPL",),
-        period_key="current",
-        question_fingerprint=" ".join(question.lower().split()),
-        language="en",
+def _key_for_user(query: str) -> str:
+    return research_cache_key(query=query, provider_id="perplexity_direct", max_results=5)
+
+
+def _search_packet() -> SearchResultPacket:
+    return SearchResultPacket(
+        retrieved_at=datetime.now(timezone.utc),
+        latency_ms=1,
+        provider_id="perplexity_direct",
     )
 
 
@@ -41,11 +42,11 @@ def test_cache_key_has_no_user_parameter() -> None:
 
 
 def test_cross_user_hit_shares_one_provider_answer() -> None:
-    key_user_a = _key_for_user("What is Apple trading at?")
-    key_user_b = _key_for_user("what is apple trading at?")
+    key_user_a = _key_for_user("equity peers of AAPL")
+    key_user_b = _key_for_user("equity peers of AAPL")
     assert key_user_a == key_user_b
 
-    packet = ResearchPacket(answer_markdown="AAPL at $312.41")
+    packet = _search_packet()
     assert cache_get(key_user_a) is None
     cache_put(
         key_user_a,
@@ -54,7 +55,7 @@ def test_cross_user_hit_shares_one_provider_answer() -> None:
     )
     served = cache_get(key_user_b)
     assert served is not None
-    assert served.answer_markdown == "AAPL at $312.41"
+    assert served is packet
     stats = cache_stats()
     assert stats["hits"] == 1 and stats["misses"] == 1
 
@@ -138,7 +139,7 @@ def test_closed_period_rule_wins_over_everything() -> None:
 
 def test_expired_entries_fall_out(monkeypatch) -> None:
     key = _key_for_user("expiring")
-    cache_put(key, ResearchPacket(answer_markdown="old"), ttl_seconds=120.0)
+    cache_put(key, _search_packet(), ttl_seconds=120.0)
     real_monotonic = time.monotonic
     monkeypatch.setattr(
         research_cache.time, "monotonic", lambda: real_monotonic() + 121.0
@@ -170,20 +171,45 @@ def test_a_withheld_record_serves_for_its_class_capped_at_a_day() -> None:
     )
 
 
-def test_the_scenario_contract_has_its_own_cache_identity() -> None:
-    """Decision 10: a packet answered under the retrieval contract never
-    serves a scenario question, and the reverse; the contract is part of the
-    public request identity, still with no user parameter."""
+def test_provider_request_dimensions_have_distinct_cache_identity() -> None:
     base = dict(
-        capability_class="balanced_lookup",
-        shape="balanced",
-        symbols=("NVDA",),
-        period_key="ten years",
-        question_fingerprint="what will $10,000 in nvda be worth in ten years?",
-        language="en",
+        query="equity peers of NVDA", provider_id="perplexity_direct", max_results=5
     )
-    assert research_cache_key(**base) == research_cache_key(**base, contract="retrieval")
-    assert research_cache_key(**base, contract="scenario") != research_cache_key(**base)
+    key = research_cache_key(**base)
+    for changed in (
+        {"query": "equity peers of AMD"},
+        {"provider_id": "brave"},
+        {"max_results": 3},
+    ):
+        assert research_cache_key(**(base | changed)) != key
+
+
+def test_cache_key_preserves_field_boundaries() -> None:
+    assert research_cache_key(query="A|B", provider_id="C", max_results=5) != (
+        research_cache_key(query="A", provider_id="B|C", max_results=5)
+    )
+
+
+def test_old_contract_entries_are_neither_read_nor_written() -> None:
+    old_key = hashlib.sha256(
+        b"fast_quote|fast|AAPL|current|quote|en|retrieval|"
+    ).hexdigest()
+    cache_put(old_key, _search_packet(), ttl_seconds=120.0)
+    assert cache_get(old_key) is None
+    assert cache_stats()["entries"] == 0
+
+
+def test_cache_contract_version_invalidates_existing_entries(monkeypatch) -> None:
+    old_key = _key_for_user("equity peers of AAPL")
+    packet = _search_packet()
+    cache_put(old_key, packet, ttl_seconds=120.0)
+    assert cache_get(old_key) is packet
+
+    monkeypatch.setattr(research_cache, "CACHE_CONTRACT", "future-public-contract")
+    new_key = _key_for_user("equity peers of AAPL")
+    assert new_key != old_key
+    assert cache_get(old_key) is None
+    assert cache_get(new_key) is None
 
 
 def test_a_scenario_lives_in_the_analyst_estimates_class() -> None:

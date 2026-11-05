@@ -1,0 +1,34 @@
+{
+  "checks": [
+    {
+      "table": "households",
+      "authenticated_status": 403,
+      "direct_access_denied": true
+    },
+    {
+      "table": "household_members",
+      "authenticated_status": 403,
+      "direct_access_denied": true
+    },
+    {
+      "table": "household_invitations",
+      "authenticated_status": 403,
+      "direct_access_denied": true
+    },
+    {
+      "table": "household_account_grants",
+      "authenticated_status": 403,
+      "direct_access_denied": true
+    },
+    {
+      "table": "household_command_receipts",
+      "authenticated_status": 403,
+      "direct_access_denied": true
+    },
+    {
+      "table": "financial_accounts",
+      "authenticated_status": 200,
+      "other_owner_rows": 0
+    }
+  ]
+}

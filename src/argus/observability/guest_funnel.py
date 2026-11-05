@@ -12,20 +12,16 @@ from argus.observability.envelope import (
 )
 from argus.observability.product_events import actor_hash_for_user
 
+# Retired from PostHog (SPEC 0, 0C-1): the sink refuses these envelopes, so
+# nothing below reaches PostHog. Only the kinds a later wave 1 package renames
+# are left, at the call sites that package replaces:
+# ``first_useful_assistant_response_completed`` becomes ``first_answer_shown``
+# (0C-3), and the two account completions become ``signed_in`` (0C-4). The
+# milestone claim stays; 0C-3 reuses it for ``first_answer_shown``.
 GuestFunnelEventKind = Literal[
-    "guest_session_started",
-    "starter_action_selected",
     "first_useful_assistant_response_completed",
-    "confirmation_reached",
-    "first_simulation_admitted",
-    "first_result_completed",
-    "conversion_prompt_shown",
     "account_creation_completed",
     "existing_account_sign_in_completed",
-    "temporary_workspace_claimed",
-    "guest_limit_reached",
-    "guest_feedback_submitted",
-    "guest_session_expired",
 ]
 GuestFunnelLanguage = Literal["en", "es-419"]
 GuestFunnelSurface = Literal[
@@ -81,11 +77,8 @@ GuestFunnelConversionReason = Literal[
 MILESTONE_EVENT_KINDS: frozenset[GuestFunnelEventKind] = frozenset(
     {
         "first_useful_assistant_response_completed",
-        "first_simulation_admitted",
-        "first_result_completed",
         "account_creation_completed",
         "existing_account_sign_in_completed",
-        "temporary_workspace_claimed",
     }
 )
 
@@ -93,19 +86,9 @@ GUEST_FUNNEL_EVENT_MAP: dict[
     GuestFunnelEventKind,
     tuple[EventType, EventAction],
 ] = {
-    "guest_session_started": ("system", "started"),
-    "starter_action_selected": ("user_message", "started"),
     "first_useful_assistant_response_completed": ("ai_response", "completed"),
-    "confirmation_reached": ("tool_result", "completed"),
-    "first_simulation_admitted": ("tool_call", "started"),
-    "first_result_completed": ("tool_result", "completed"),
-    "conversion_prompt_shown": ("system", "started"),
     "account_creation_completed": ("storage", "completed"),
     "existing_account_sign_in_completed": ("system", "completed"),
-    "temporary_workspace_claimed": ("storage", "completed"),
-    "guest_limit_reached": ("system", "suppressed"),
-    "guest_feedback_submitted": ("storage", "completed"),
-    "guest_session_expired": ("system", "failed"),
 }
 
 

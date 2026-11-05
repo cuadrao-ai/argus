@@ -1,0 +1,64 @@
+import XCTest
+
+// Throwaway W1g verifier, never committed: the split member row toggles only on its drawn label.
+final class ZZSplitRowProbeUITests: XCTestCase {
+    override func setUp() { continueAfterFailure = true }
+
+    func testSplitBoundaryProbe() {
+        let app = XCUIApplication.cuadraoPreview()
+        app.launchArguments = CuadraoPreviewLaunch.arguments + ["--plan-reset", "-cuadrao.design.appearance", "light"]
+        app.launch(); app.buttons["tab.plan"].tap()
+        app.segmentedControls["plan-audience"].buttons["En grupo"].tap()
+        app.buttons["group-card-trip"].tap()
+        XCTAssertTrue(app.segmentedControls["group-sections"].waitForExistence(timeout: 3))
+        app.segmentedControls["group-sections"].buttons["Gastos"].tap()
+        app.buttons["group-add-expense"].tap()
+        let name = app.textFields["group-expense-name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 3))
+        name.tap(); name.typeText("Prueba\n")
+        let amount = app.textFields["group-expense-amount"]
+        amount.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
+        amount.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (amount.value as? String ?? "").count))
+        amount.typeText("2000")
+        if app.toolbars.buttons["Listo"].exists { app.toolbars.buttons["Listo"].tap() }
+        let member = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Ana,")).firstMatch
+        XCTAssertTrue(member.waitForExistence(timeout: 3))
+        for _ in 0..<5 where !(member.isHittable && member.frame.maxY < app.frame.maxY - 160) { app.swipeUp() }
+        sleep(1)
+        for mode in ["equal", "exact"] {
+            if mode == "exact" {
+                app.buttons["group-split-method"].tap()
+                let exact = app.buttons["Montos exactos"]; XCTAssertTrue(exact.waitForExistence(timeout: 3)); exact.tap(); sleep(1)
+            }
+            let m = member.frame
+            let trailing: XCUIElement
+            if mode == "exact" { trailing = app.textFields["group-share-1"] } else {
+                trailing = app.staticTexts.allElementsBoundByIndex.filter { abs($0.frame.midY - m.midY) < 14 && $0.frame.minX > m.maxX }.min(by: { $0.frame.minX < $1.frame.minX })!
+            }
+            let t = trailing.frame
+            var xs = [44, 36, 32, 28, 24, 20, 16, 12, 8, 4].map { t.minX - CGFloat($0) }
+            xs += [2, 6, 10, 14, 16, 18, 20, 22, 24, 28, 32, 40].map { m.maxX + CGFloat($0) }
+            xs.append((m.maxX + t.minX) / 2)
+            for x in xs.sorted() where x > m.maxX && x < t.minX {
+                let before = member.label
+                app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: x, dy: m.midY)).tap(); sleep(1)
+                let toggled = member.label != before
+                let keyboard = app.keyboards.firstMatch.exists
+                log("splitprobe mode=\(mode) labelMaxX=\(m.maxX) trailingMinX=\(t.minX) x=\(x) toggled=\(toggled) keyboard=\(keyboard)")
+                if x >= t.minX - 44 { XCTAssertFalse(toggled, "mode=\(mode) tap \(t.minX - x) pt before the money field changed who is in the split") }
+                if keyboard, app.toolbars.buttons["Listo"].exists { app.toolbars.buttons["Listo"].tap(); sleep(1) }
+                if toggled { member.tap(); sleep(1) }
+            }
+            for dx in [0.1, 0.5, 0.9] {
+                let before = member.label
+                member.coordinate(withNormalizedOffset: CGVector(dx: dx, dy: 0.5)).tap(); sleep(1)
+                let toggled = member.label != before
+                log("splitprobe mode=\(mode) label dx=\(dx) x=\(m.minX + m.width * dx) toggled=\(toggled)")
+                XCTAssertTrue(toggled, "mode=\(mode) label tap at dx=\(dx) did not toggle")
+                if toggled { member.tap(); sleep(1); XCTAssertEqual(member.label, before, "restore") }
+            }
+        }
+    }
+
+    private func log(_ s: String) { print("TAPPROOF " + s) }
+}

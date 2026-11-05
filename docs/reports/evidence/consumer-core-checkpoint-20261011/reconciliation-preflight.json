@@ -1,0 +1,9 @@
+{
+  "core_head": "40ff4967040c854ca5dd0764115227544011a6e2",
+  "remote_integration": "e465c2fe4bf7e2749215bc677a1fa225adab384c",
+  "merge_tree": "94364e354c24c966e79443da157f87fcad4ce70c",
+  "merge_tree_exit_code": 0,
+  "modularity_exit_code": 0,
+  "source": "git merge-tree calculation; no branch merge or HEAD movement",
+  "snapshot_scope": "script, exact config, all scan roots and watched files"
+}

@@ -1,0 +1,206 @@
+[
+  {
+    "bundle_relative_path": "AppAuth_AppAuth.bundle/PrivacyInfo.xcprivacy",
+    "sha256": "5ade962faaea1eddbbdd06c4cf8a872cec554f64c55a00e00136004d378e1ced",
+    "keys": [
+      "NSPrivacyAccessedAPITypes",
+      "NSPrivacyCollectedDataTypes",
+      "NSPrivacyTracking",
+      "NSPrivacyTrackingDomains"
+    ],
+    "required_api_declarations": [],
+    "collected_data_types": [],
+    "tracking": false
+  },
+  {
+    "bundle_relative_path": "AppAuth_AppAuthCore.bundle/PrivacyInfo.xcprivacy",
+    "sha256": "5ade962faaea1eddbbdd06c4cf8a872cec554f64c55a00e00136004d378e1ced",
+    "keys": [
+      "NSPrivacyAccessedAPITypes",
+      "NSPrivacyCollectedDataTypes",
+      "NSPrivacyTracking",
+      "NSPrivacyTrackingDomains"
+    ],
+    "required_api_declarations": [],
+    "collected_data_types": [],
+    "tracking": false
+  },
+  {
+    "bundle_relative_path": "GTMAppAuth_GTMAppAuth.bundle/PrivacyInfo.xcprivacy",
+    "sha256": "5a9b8fc0cddb10201bb47cc2804b3f004c7251476622d25bfc4eb54ed46e1084",
+    "keys": [
+      "NSPrivacyAccessedAPITypes",
+      "NSPrivacyCollectedDataTypes",
+      "NSPrivacyTracking",
+      "NSPrivacyTrackingDomains"
+    ],
+    "required_api_declarations": [],
+    "collected_data_types": [],
+    "tracking": false
+  },
+  {
+    "bundle_relative_path": "GTMSessionFetcher_GTMSessionFetcherCore.bundle/PrivacyInfo.xcprivacy",
+    "sha256": "3e4a93cbe86acef7dd7e063a28c849992f556e7f52cadc5f37c1e8b0e1b54686",
+    "keys": [
+      "NSPrivacyAccessedAPITypes",
+      "NSPrivacyCollectedDataTypes",
+      "NSPrivacyTracking",
+      "NSPrivacyTrackingDomains"
+    ],
+    "required_api_declarations": [
+      {
+        "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+        "NSPrivacyAccessedAPITypeReasons": [
+          "CA92.1"
+        ]
+      }
+    ],
+    "collected_data_types": [],
+    "tracking": false
+  },
+  {
+    "bundle_relative_path": "GoogleSignIn_GoogleSignIn.bundle/PrivacyInfo.xcprivacy",
+    "sha256": "9300972853096f7d570d6c4a4bf7152a36c798e89c4f0d81d3b4c6b5dfaddfd0",
+    "keys": [
+      "NSPrivacyAccessedAPITypes",
+      "NSPrivacyCollectedDataTypes",
+      "NSPrivacyTracking",
+      "NSPrivacyTrackingDomains"
+    ],
+    "required_api_declarations": [
+      {
+        "NSPrivacyAccessedAPITypeReasons": [
+          "CA92.1"
+        ],
+        "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults"
+      }
+    ],
+    "collected_data_types": [
+      "NSPrivacyCollectedDataTypeName",
+      "NSPrivacyCollectedDataTypeEmailAddress",
+      "NSPrivacyCollectedDataTypePhoneNumber",
+      "NSPrivacyCollectedDataTypeOtherDataTypes",
+      "NSPrivacyCollectedDataTypeCoarseLocation",
+      "NSPrivacyCollectedDataTypeUserID",
+      "NSPrivacyCollectedDataTypeDeviceID",
+      "NSPrivacyCollectedDataTypeOtherUsageData"
+    ],
+    "tracking": false
+  },
+  {
+    "bundle_relative_path": "GoogleSignIn_GoogleSignInSwift.bundle/PrivacyInfo.xcprivacy",
+    "sha256": "5a9b8fc0cddb10201bb47cc2804b3f004c7251476622d25bfc4eb54ed46e1084",
+    "keys": [
+      "NSPrivacyAccessedAPITypes",
+      "NSPrivacyCollectedDataTypes",
+      "NSPrivacyTracking",
+      "NSPrivacyTrackingDomains"
+    ],
+    "required_api_declarations": [],
+    "collected_data_types": [],
+    "tracking": false
+  },
+  {
+    "bundle_relative_path": "GoogleUtilities_GoogleUtilities-Environment.bundle/PrivacyInfo.xcprivacy",
+    "sha256": "b08273d687379394792f71c94c1083616a04af8afaa396d8058980f444cfb3d4",
+    "keys": [
+      "NSPrivacyAccessedAPITypes",
+      "NSPrivacyCollectedDataTypes",
+      "NSPrivacyTracking",
+      "NSPrivacyTrackingDomains"
+    ],
+    "required_api_declarations": [
+      {
+        "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+        "NSPrivacyAccessedAPITypeReasons": [
+          "C56D.1"
+        ]
+      }
+    ],
+    "collected_data_types": [],
+    "tracking": false
+  },
+  {
+    "bundle_relative_path": "GoogleUtilities_GoogleUtilities-Logger.bundle/PrivacyInfo.xcprivacy",
+    "sha256": "1377eccedff8f8320f78040e9c9d3e17ecc0ea569594b56af0ef17be44197c7a",
+    "keys": [
+      "NSPrivacyAccessedAPITypes",
+      "NSPrivacyCollectedDataTypes",
+      "NSPrivacyTracking",
+      "NSPrivacyTrackingDomains"
+    ],
+    "required_api_declarations": [],
+    "collected_data_types": [],
+    "tracking": false
+  },
+  {
+    "bundle_relative_path": "GoogleUtilities_GoogleUtilities-UserDefaults.bundle/PrivacyInfo.xcprivacy",
+    "sha256": "fac507c510aba7884e805fb5feff1a8a8d0c7f42c01d174f927a2bdfaa7130b4",
+    "keys": [
+      "NSPrivacyAccessedAPITypes",
+      "NSPrivacyCollectedDataTypes",
+      "NSPrivacyTracking",
+      "NSPrivacyTrackingDomains"
+    ],
+    "required_api_declarations": [
+      {
+        "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+        "NSPrivacyAccessedAPITypeReasons": [
+          "1C8F.1",
+          "C56D.1"
+        ]
+      }
+    ],
+    "collected_data_types": [],
+    "tracking": false
+  },
+  {
+    "bundle_relative_path": "PrivacyInfo.xcprivacy",
+    "sha256": "1faaebba42e775c8eb0b40256c2acecd72c3a4a1ff23870fd08940180e275972",
+    "keys": [
+      "NSPrivacyAccessedAPITypes"
+    ],
+    "required_api_declarations": [
+      {
+        "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+        "NSPrivacyAccessedAPITypeReasons": [
+          "CA92.1"
+        ]
+      },
+      {
+        "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategorySystemBootTime",
+        "NSPrivacyAccessedAPITypeReasons": [
+          "35F9.1"
+        ]
+      }
+    ],
+    "collected_data_types": [],
+    "tracking": "omitted"
+  },
+  {
+    "bundle_relative_path": "Promises_FBLPromises.bundle/PrivacyInfo.xcprivacy",
+    "sha256": "74b0cd72fc23c1ef302f22ee2753f61817cdc5af0ff7a7f2d0632b524fb8acea",
+    "keys": [
+      "NSPrivacyAccessedAPITypes",
+      "NSPrivacyCollectedDataTypes",
+      "NSPrivacyTracking",
+      "NSPrivacyTrackingDomains"
+    ],
+    "required_api_declarations": [],
+    "collected_data_types": [],
+    "tracking": false
+  },
+  {
+    "bundle_relative_path": "swift-crypto_Crypto.bundle/PrivacyInfo.xcprivacy",
+    "sha256": "42fb8a30dd8d7ba0900e1bf17fe64ed8c12cfdb8a9c791ab6b4e1eceb0f299c0",
+    "keys": [
+      "NSPrivacyAccessedAPITypes",
+      "NSPrivacyCollectedDataTypes",
+      "NSPrivacyTracking",
+      "NSPrivacyTrackingDomains"
+    ],
+    "required_api_declarations": [],
+    "collected_data_types": [],
+    "tracking": false
+  }
+]

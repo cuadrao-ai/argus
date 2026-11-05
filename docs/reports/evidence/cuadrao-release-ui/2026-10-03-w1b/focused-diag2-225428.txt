@@ -1,0 +1,12 @@
+Test Case '-[ArgusFoundationUITests.CuadraoHistoryDesignUITests testScanAndEnglishParity]' passed (28.613 seconds).
+W1B-HOME step=0 app=(0.0, 0.0, 440.0, 956.0) row=(31.66666603088379, 1231.3333740234375, 384.3333435058594, 39.6666259765625) hittable=false tab=(24.0, 862.0, 78.33333333333333, 48.0)
+W1B-HOME step=1 app=(0.0, 0.0, 440.0, 956.0) row=(31.66666603088379, 731.3333129882812, 384.3333435058594, 39.66668701171875) hittable=true tab=(89.0, 862.0, 52.333333333333314, 48.0)
+W1B-HOME opened=false before=(31.66666603088379, 731.3333129882812, 384.3333435058594, 39.66668701171875)
+Test Case '-[ArgusFoundationUITests.W1bDiagnosticUITests testHomeActivityTrace]' passed (13.057 seconds).
+W1B-ATTACH 1791088571.821414
+Test Case '-[ArgusFoundationUITests.W1bDiagnosticUITests testRecentsRenameIdle]' passed (38.010 seconds).
+W1B-GALLERY-BARS Find: Target Application 'local.argus.foundation'
+W1B-DETAIL-BARS Find: Target Application 'local.argus.foundation'
+W1B-AFTER-BACK truth=false row0=false root=true
+Test Case '-[ArgusFoundationUITests.W1bDiagnosticUITests testUpdatesBackTrace]' passed (11.128 seconds).
+exit=0 seconds=2540

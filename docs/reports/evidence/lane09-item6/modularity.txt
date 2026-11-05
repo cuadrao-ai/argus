@@ -1,0 +1,13 @@
+Modularity budget report
+========================
+
+Top scanned files by current line count:
+- tests/agent_runtime/test_interpret_stage.py: 10921 lines (watched)
+- tests/agent_runtime/test_conversational_contract_hardening.py: 7288 lines (watched)
+
+Watched-file budget status:
+- tests/agent_runtime/test_interpret_stage.py: 10921 lines (baseline 11010, growth -89, limit 11085)
+- tests/agent_runtime/test_conversational_contract_hardening.py: 7288 lines (baseline 7285, growth +3, limit 7360)
+
+Budget violations:
+- none

@@ -2,8 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { ThumbsUp, ThumbsDown, MoreHorizontal, Copy, MessageSquareWarning, RotateCcw } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import SafeMarkdown from "@/components/chat/SafeMarkdown";
 import { useTranslation } from "react-i18next";
 import SharedConversationMessage from "./SharedConversationMessage";
 import StrategyResultCard from "./StrategyResultCard";
@@ -51,7 +50,8 @@ import {
   retryableNoticeIconClass,
   retryableNoticeRetryPillClass,
 } from "@/lib/failure-treatment";
-import GuestArtifactHint from "@/components/guest/GuestArtifactHint";
+import { GUEST_COMPUTE_CLAIM_RETRY_IN_KEY } from "@/lib/compute-claim-error";
+import { useRetryAfterCountdown } from "@/lib/use-retry-after-countdown";
 import { isSettledStrategyResult } from "@/lib/chat-result-message";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { actionHasCardScopedOwnership } from "@/lib/chat-action-ownership";
@@ -230,6 +230,13 @@ export default function ChatMessage({
         })
       : action.label;
   const retryAction = message.actions?.find(isRetryAction);
+  const retryAfterRemaining = useRetryAfterCountdown(retryAction?.availableAtMs);
+  const retryReady = retryAfterRemaining <= 0;
+  const retryActionLabel = retryAction
+    ? retryReady
+      ? actionLabel(retryAction)
+      : t(GUEST_COMPUTE_CLAIM_RETRY_IN_KEY, { count: retryAfterRemaining })
+    : "";
   const userRecoveryText =
     isUser && message.recoveryDisplay
       ? recoveryDisplayText(message.recoveryDisplay, t, locale).trim()
@@ -260,15 +267,20 @@ export default function ChatMessage({
     >
       <MessageSquareWarning className={retryableNoticeIconClass} aria-hidden="true" />
       <div className={retryableNoticeBodyClass}>
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+        <SafeMarkdown>{text}</SafeMarkdown>
       </div>
       {retryAction ? (
         <button
           type="button"
-          onClick={() => onAction?.(retryAction)}
-          className={retryableNoticeRetryPillClass}
+          disabled={!retryReady}
+          aria-disabled={!retryReady}
+          onClick={() => {
+            if (!retryReady) return;
+            onAction?.(retryAction);
+          }}
+          className={`${retryableNoticeRetryPillClass} disabled:pointer-events-none disabled:opacity-50 disabled:hover:bg-transparent`}
         >
-          {actionLabel(retryAction)}
+          {retryActionLabel}
         </button>
       ) : null}
     </div>
@@ -350,8 +362,8 @@ export default function ChatMessage({
 
   return (
     <div className="flex w-full justify-start animate-in fade-in slide-in-from-bottom-2 duration-300 group relative">
-      {!isUser && !isStreaming && (
-        <Tooltip content={t('chat.copy_plaintext')} side="left" delay={150}>
+      {shouldShowAssistantFooter && (
+        <Tooltip content={t('chat.copy_plaintext')} side="left">
           <button
             onClick={() => {
               void handleCopy();
@@ -363,7 +375,7 @@ export default function ChatMessage({
           </button>
         </Tooltip>
       )}
-      <div className="flex flex-col max-w-[85%]">
+      <div className="flex max-w-[85%] flex-col">
         <div className="flex flex-col mt-1.5">
           {isSettledStrategyResult(message) ? (
             <div className="flex w-full max-w-[min(100%,660px)] flex-col gap-4">
@@ -377,7 +389,6 @@ export default function ChatMessage({
                 resumeDecisionArtifactId={resumeDecisionArtifactId}
                 onDecisionResumeHandled={onDecisionResumeHandled}
               />
-              {isGuest ? <GuestArtifactHint kind="result" /> : null}
               {displayContent && (
                 <ResultReadout
                   content={displayContent}
@@ -429,7 +440,6 @@ export default function ChatMessage({
                     : undefined
                 }
               />
-              {isGuest ? <GuestArtifactHint kind="confirmation" /> : null}
             </div>
           ) : message.contentPresentation === "result_readout" ? (
             <ResultReadout content={displayContent} label={t("chat.result_readout.quick_take", "Quick take")} />
@@ -456,15 +466,15 @@ export default function ChatMessage({
                   : "recovery-failure-notice"
               }
             >
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              <SafeMarkdown>
                 {displayContent}
-              </ReactMarkdown>
+              </SafeMarkdown>
             </FailureNotice>
           ) : (
             <div className="text-black dark:text-white text-[16px] leading-[1.6] tracking-[0.24px] prose dark:prose-invert max-w-none">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              <SafeMarkdown>
                 {displayContent}
-              </ReactMarkdown>
+              </SafeMarkdown>
             </div>
           )}
           {assumedInputsLine ? (
@@ -493,9 +503,9 @@ export default function ChatMessage({
                 retryableNotice(recoveryDisplayText(message.recoveryDisplay, t, locale))
               ) : (
                 <FailureNotice testId="recovery-failure-notice">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  <SafeMarkdown>
                     {recoveryDisplayText(message.recoveryDisplay, t, locale)}
-                  </ReactMarkdown>
+                  </SafeMarkdown>
                 </FailureNotice>
               )}
             </div>
@@ -766,7 +776,7 @@ export default function ChatMessage({
                   }
                 }}
               >
-                <Tooltip content={t('chat.good_response')} side="top" delay={150}>
+                <Tooltip content={t('chat.good_response')} side="top">
                   <button
                     className={`p-1.5 rounded-full transition-all duration-200 group/thumb ${ rating === "positive" ? selectedFeedbackClass : idleFeedbackClass }`}
                     aria-label={t('chat.good_response')}
@@ -775,7 +785,7 @@ export default function ChatMessage({
                     <ThumbsUp className={`w-3.5 h-3.5 ${rating === "positive" ? selectedFeedbackIconClass : ""}`} />
                   </button>
                 </Tooltip>
-                <Tooltip content={t('chat.poor_response')} side="top" delay={150}>
+                <Tooltip content={t('chat.poor_response')} side="top">
                   <button
                     className={`p-1.5 rounded-full transition-all duration-200 group/thumb ${ rating === "negative" ? selectedFeedbackClass : idleFeedbackClass }`}
                     aria-label={t('chat.poor_response')}
@@ -789,7 +799,7 @@ export default function ChatMessage({
                 {retryAction &&
                   !message.assistantRecoveryCode &&
                   message.kind !== "backtest_job" && (
-                  <Tooltip content={actionLabel(retryAction)} side="top" delay={150}>
+                  <Tooltip content={actionLabel(retryAction)} side="top">
                     <button
                       type="button"
                       className={`${retryIconButtonClass} p-1.5`}
@@ -800,7 +810,7 @@ export default function ChatMessage({
                     </button>
                   </Tooltip>
                 )}
-                <Tooltip content={t('chat.more_actions')} side="top" delay={150}>
+                <Tooltip content={t('chat.more_actions')} side="top">
                   <button
                     onClick={toggleOptions}
                     className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors"
@@ -870,7 +880,7 @@ function UserTurnRecovery({
         </p>
       ) : null}
       {retryAction ? (
-        <Tooltip content={retryLabel} side="top" delay={150}>
+        <Tooltip content={retryLabel} side="top">
           <button
             type="button"
             data-testid="user-turn-retry"
@@ -897,9 +907,9 @@ function ResultReadout({
     <section aria-label={label}>
       <div className="argus-result-section-label">{label}</div>
       <div className="argus-result-readout prose dark:prose-invert max-w-none">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+        <SafeMarkdown>
           {content}
-        </ReactMarkdown>
+        </SafeMarkdown>
       </div>
     </section>
   );
@@ -920,9 +930,9 @@ function ResultBreakdown({
     <section aria-label={ariaLabel} aria-busy={isWorking || undefined}>
       <div className="argus-result-section-label">{label}</div>
       <div className="argus-result-breakdown prose dark:prose-invert max-w-none">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+        <SafeMarkdown>
           {content}
-        </ReactMarkdown>
+        </SafeMarkdown>
       </div>
     </section>
   );

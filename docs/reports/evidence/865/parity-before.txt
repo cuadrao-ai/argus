@@ -1,0 +1,71 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: <checkout>
+configfile: pyproject.toml
+plugins: benchmark-5.2.3, mock-3.15.1, Faker-30.10.0, asyncio-1.4.0, hypothesis-6.151.12, langsmith-0.7.31, respx-0.23.1, cov-7.0.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 2 items
+
+tests/test_environment_scripts.py F                                      [ 50%]
+tests/test_private_alpha_release_profile.py F                            [100%]
+
+=================================== FAILURES ===================================
+________ test_render_blueprint_declares_shared_render_env_contract_vars ________
+
+    def test_render_blueprint_declares_shared_render_env_contract_vars() -> None:
+        assert set(_contract_array("ARGUS_RENDER_API_ENV")) == set(_render_env("argus-api"))
+>       assert set(_contract_array("ARGUS_RENDER_WEB_ENV")) == set(_render_env("argus-app"))
+E       AssertionError: assert {'ARGUS_APP_O...SPANISH', ...} == {'ARGUS_APP_O...ITE_KEY', ...}
+E
+E         Extra items in the right set:
+E         'ARGUS_TRUSTED_CLIENT_IP_HEADER'
+E         Use -v to get more diff
+
+tests/test_environment_scripts.py:412: AssertionError
+______ test_render_blueprint_matches_the_authoritative_nonsecret_profile _______
+
+    def test_render_blueprint_matches_the_authoritative_nonsecret_profile() -> None:
+        profile = _profile()
+        render_blueprint = yaml.safe_load((ROOT / "render.yaml").read_text(encoding="utf-8"))
+        render_services = {
+            service["name"]: {entry["key"]: entry for entry in service.get("envVars", [])}
+            for service in render_blueprint["services"]
+        }
+
+        for surface in ("api", "web"):
+            service_profile = profile["services"][surface]
+            rendered_service = next(
+                service
+                for service in render_blueprint["services"]
+                if service["name"] == service_profile["name"]
+            )
+            assert rendered_service["autoDeployTrigger"] == service_profile[
+                "auto_deploy_trigger"
+            ]
+            rendered_env = render_services[service_profile["name"]]
+            expected_keys = set(service_profile["env"])
+            expected_keys.update(service_profile["required_present"])
+            expected_keys.update(service_profile["optional"])
+>           assert set(rendered_env) == expected_keys
+E           AssertionError: assert {'ARGUS_APP_O...ITE_KEY', ...} == {'ARGUS_APP_O...SPANISH', ...}
+E
+E             Extra items in the left set:
+E             'ARGUS_TRUSTED_CLIENT_IP_HEADER'
+E             Use -v to get more diff
+
+tests/test_private_alpha_release_profile.py:280: AssertionError
+=============================== warnings summary ===============================
+../../../../../..<python-env>/lib/python3.11/site-packages/_pytest/cacheprovider.py:475
+  <python-env>/lib/python3.11/site-packages/_pytest/cacheprovider.py:475: PytestCacheWarning: could not create cache path <checkout>/.pytest_cache/v/cache/nodeids: [Errno 1] Operation not permitted: '<checkout>/pytest-cache-files-ah7vq7og'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+../../../../../..<python-env>/lib/python3.11/site-packages/_pytest/cacheprovider.py:429
+  <python-env>/lib/python3.11/site-packages/_pytest/cacheprovider.py:429: PytestCacheWarning: could not create cache path <checkout>/.pytest_cache/v/cache/lastfailed: [Errno 1] Operation not permitted: '<checkout>/pytest-cache-files-3n0onif3'
+    config.cache.set("cache/lastfailed", self.lastfailed)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_environment_scripts.py::test_render_blueprint_declares_shared_render_env_contract_vars
+FAILED tests/test_private_alpha_release_profile.py::test_render_blueprint_matches_the_authoritative_nonsecret_profile
+======================== 2 failed, 2 warnings in 0.80s =========================

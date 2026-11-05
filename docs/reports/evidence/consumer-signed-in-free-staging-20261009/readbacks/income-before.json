@@ -1,0 +1,31 @@
+{
+  "api_url": "https://cuadrao-api-staging.onrender.com/api/v1",
+  "phase": "before",
+  "period": {
+    "month": "2026-10",
+    "time_zone": "America/Santo_Domingo",
+    "start_at": "2026-10-01T00:00:00-04:00",
+    "end_at_exclusive": "2026-11-01T00:00:00-04:00"
+  },
+  "coverage": "recorded_only",
+  "captured_at": "2026-10-10T04:15:07.324248+00:00",
+  "owner_hash": "4d22247f37ee7c0bc5d649f30c4141e06ba7c045de7b9561dc5e99476a5c0301",
+  "currencies": [
+    {
+      "currency": "DOP",
+      "currency_fraction_digits": 2,
+      "assets_minor": "285000",
+      "cash_minor": "285000",
+      "other_assets_minor": "0",
+      "debts_minor": "2550",
+      "net_worth_minor": "282450",
+      "recorded_spending_minor": "26000",
+      "gross_income_minor": "100000",
+      "gross_purchases_minor": "26000",
+      "refunds_minor": "5000",
+      "net_spending_minor": "21000",
+      "known_accounts": 4,
+      "unknown_accounts": 0
+    }
+  ]
+}

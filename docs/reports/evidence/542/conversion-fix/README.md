@@ -1,6 +1,6 @@
 # Guest conversion transport fix: PR #547
 
-**Public-signup acceptance correction:** the screenshots below used a harness that explicitly forced `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=false`. They proved transport and the gated-access modal, but did not prove the production signup branch. The [corrected public-signup captures and flag trace](public-signup/README.md) supersede them for that acceptance claim. Product code is unchanged.
+**Public-signup acceptance correction:** the screenshots below used a harness that explicitly forced `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=false`. They proved transport and the gated-access modal, but did not prove the production signup branch. The [corrected public-signup captures and flag trace](public-signup/README.md) supersede them for that acceptance claim. Product code is unchanged.
 
 The guest workspace refusal now opens the existing conversion modal. The product change is one optional field, `FinalResponsePayload.code`; admission, allowance policy, daily precheck, frontend copy, and #543's durable receipts are unchanged.
 

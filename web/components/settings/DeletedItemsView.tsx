@@ -8,7 +8,8 @@ import {
   RotateCcw,
   } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import { useConversationSurface } from "@/components/chat/ChatWorkspace";
+import SettingsSurface from "@/components/settings/SettingsSurface";
 import { Tooltip } from "@/components/ui/Tooltip";
 import {
   listHistory,
@@ -31,12 +32,13 @@ export default function DeletedItemsView({ onClose, onBack, backLabel, onRestore
   const { t } = useTranslation();
   const [deletedItems, setDeletedItems] = useState<HistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const surface = useConversationSurface();
 
   useEffect(() => {
-    listHistory({ deleted: true })
+    listHistory({ deleted: true, surface })
       .then(({ items }) => setDeletedItems(items.filter(isDeletedItemVisible)))
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [surface]);
 
   const handleRestore = async (item: HistoryItem) => {
     try {
@@ -50,7 +52,7 @@ export default function DeletedItemsView({ onClose, onBack, backLabel, onRestore
   };
 
   return (
-    <AdaptivePanel
+    <SettingsSurface
       title={t("settings.data.recently_deleted")}
       closeLabel={t("settings.data.close_deleted", "Close recently deleted")}
       onClose={onClose}
@@ -58,7 +60,7 @@ export default function DeletedItemsView({ onClose, onBack, backLabel, onRestore
       backLabel={backLabel}
       width="md"
     >
-      <p className="px-5 pt-3 text-[12px] text-black/40 dark:text-white/40">
+      <p className="px-5 pt-3 text-[14px] text-[#56635e] dark:text-white/70">
         {t(
           "settings.data.deleted_retention_note",
           "Items in this list can currently be restored.",
@@ -116,6 +118,6 @@ export default function DeletedItemsView({ onClose, onBack, backLabel, onRestore
             </div>
           )}
         </div>
-    </AdaptivePanel>
+    </SettingsSurface>
   );
 }

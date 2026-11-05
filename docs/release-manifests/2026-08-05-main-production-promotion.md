@@ -39,7 +39,7 @@
 - real_workflow_task: `argus-backtests/run_backtest_job`
 - Backtest service mode: real workflow, live provider
 - Env reconciliation: green. Required API variables were present without exposing values: `PERPLEXITY_API_KEY`, `POSTHOG_PROJECT_TOKEN`, `POSTHOG_REGION`, `ARGUS_ENABLE_EXECUTION_REALISM=true`, and `ARGUS_DISCOVERY_SEARCH_PROVIDER=perplexity_direct`.
-- Security/configuration: `ARGUS_VISITOR_KEY_SECRET` is non-default; support email is present; QA-only mock-auth variables are not enabled; founder confirmed the hosted OpenRouter key identity as `argus-prod`.
+- Security/configuration: `CUADRAO_VISITOR_KEY_SECRET` is non-default; support email is present; QA-only mock-auth variables are not enabled; founder confirmed the hosted OpenRouter key identity as `argus-prod`.
 - CAPTCHA posture: exact production sitekey `0x4AAAAAAD-5dlnAEBKLlhui` changed from Managed to Non-interactive during promotion. Domain allowlist, clearance setting, bot-fight setting, and server-side CAPTCHA verification/enforcement were unchanged.
 
 ## Gate Evidence

@@ -1,0 +1,32 @@
+{
+  "status": "deterministic_read_prerequisite_only_not_shared_planning_delivery",
+  "tested_head": "2499e3c5a602c4b50b03bc9be8d7fb631feeae3f",
+  "integration_base": "15e57931584b21dd7f9e453dbeb9127fc4b8cff3",
+  "design_checkpoint": "7f72dfd73d0c137a1118dffebe5219985577548a",
+  "captain_exact_head_check": {
+    "command": "PYTHONPATH=src /Users/garces/.codex/worktrees/5a42/private-alpha-next/.venv/bin/python -m pytest -q --no-cov tests/financial_accounts/test_canonical_groups.py tests/household/test_household_financial_boundaries.py",
+    "passed": 10,
+    "skipped": 30,
+    "failed": 0,
+    "log": "canonical-read-check.txt"
+  },
+  "writer_focused_regression": {
+    "command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src /Users/garces/.codex/worktrees/5a42/private-alpha-next/.venv/bin/python -m pytest -q --no-cov -p no:cacheprovider tests/financial_accounts/test_canonical_groups.py tests/financial_accounts/test_household_projection.py tests/financial_accounts/test_personal_money.py tests/financial_accounts/test_debts.py tests/household/test_household_domain.py tests/household/test_household_lifecycle.py tests/household/test_household_financial_boundaries.py tests/household/test_household_review_regressions.py",
+    "passed": 45,
+    "skipped": 65,
+    "failed": 0,
+    "provenance": "Implementation writer reported the recorded command/result before stopping; captain ran the affected subset at the committed head."
+  },
+  "static_checks": "Scoped Ruff check and format check passed on the five source/test files; captain git diff --check passed.",
+  "skip_reason": "Disposable PostgreSQL DSN not assigned; no SQL-backed resolver or assembled API/database proof is claimed.",
+  "remaining": [
+    "Cross-owner canonical Money posting and Personal-reader integration",
+    "Shared claims and one savings allocation pool",
+    "Plan consent and departure custody decisions",
+    "All four shared plan lifecycles and native contribution flow",
+    "Home/Search/aggregate integration",
+    "Real Auth/API/Postgres and simulator evidence",
+    "Fresh independent review, reconciliation, CI and PR"
+  ],
+  "resources": "No new services, simulator or database. Native transport tests used only lane-owned temporary caches. Existing demos, design and phone resources untouched."
+}

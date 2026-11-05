@@ -199,8 +199,8 @@ All environment evidence below is tied to exact candidate
 | API | `ARGUS_RESEARCH_GLOBAL_DAILY_CEILING` | `5000` | Bound total daily research-provider spend. |
 | API | `ARGUS_ENABLE_PERSONALIZATION_MEMORY` | `false` | Keep personalization memory off. |
 | API | `ARGUS_ENABLE_MEMORY_SEMANTIC_RECALL` | `false` | Keep semantic memory recall off. |
-| API | `ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED` | `false` | Keep public evidence receipts unavailable. |
-| API | `ARGUS_MOCK_AUTH` | `false` | Require real production authentication. |
+| API | `CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED` | `false` | Keep public evidence receipts unavailable. |
+| API | `CUADRAO_MOCK_AUTH` | `false` | Require real production authentication. |
 | API | `ARGUS_BACKTEST_JOBS_SHADOW_ENABLED` | `true` | Preserve job-path observation in real-workflow mode. |
 | API | `ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED` | `true` | Allow hosted backtest dispatch. |
 | API | `ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED` | `true` | Execute real hosted workflow jobs. |

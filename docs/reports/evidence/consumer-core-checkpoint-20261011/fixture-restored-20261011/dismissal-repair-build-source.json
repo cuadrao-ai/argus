@@ -1,0 +1,27 @@
+{
+  "source_head": "fec08feba1ef98f3fa8330e70ec6f2f574f0120b",
+  "files": {
+    "ios/ArgusFoundationUITests/ConnectedChrome.swift": "7372c96dbee869149f1f8c4a1f2ead738d42a214a2e7a2875e4f9abeb1ebaa37",
+    "ios/ArgusFoundation/Accounts/ConnectedTransactionSheet.swift": "3ee8402fbb2feeba8f177c9dadce879c10f748edb568cb0330d91ae4a29498ff",
+    "ios/ArgusFoundationUITests/ConnectedReleaseSurfaceUITests.swift": "25156576caa026f8fe7af8aeff12f93d353c6c99ba459d123a6925d95e901e3e",
+    "ios/ArgusFoundationUITests/FinancialLoopUITests.swift": "fbe9c68f35b61f7647716955d013f0e581c737675386135e5ec611cb18b84a71",
+    "ios/ArgusFoundationUITests/ConnectedBudgetUITests.swift": "a460c512fb36e6260e4328650f1f9354b3752a39de8ecf2ed324e759a1785af8",
+    "ios/ArgusFoundationUITests/ConnectedGoalUITests.swift": "21da14664e3884a22093f770e84b8085f9f4c03206c86c6d1d53fd1972e4d51c",
+    "ios/ArgusFoundationUITests/SearchUITests.swift": "1b1dda32e16138dbe7d724970dc4712c562e964a39572311613df4b897f851a8"
+  },
+  "backend_commit": "cad1cbe1ec27ff89c08eadbec31718a0e627383c",
+  "source_head_role": "base commit before test-only repairs; exact source files are hashed",
+  "executable_sha256": "3fe65a8e7c8b676a45bc6077c9aceb772bdd1a470974b814151f7ad6a18b7d49",
+  "bundle_id": "local.argus.consumer.staging",
+  "build": "1",
+  "app_version": "0.1.0",
+  "native_product_source": "unchanged from 40ff4967040c854ca5dd0764115227544011a6e2",
+  "hosted_pin_role": "assigned cad1 pin; no new hosted SHA readback in this continuation",
+  "build_result": "PASS",
+  "sandbox_build_attempt": {
+    "path": "ios/.build/consumer-staging/core-search-dismissal-20261011",
+    "exit_code": 74,
+    "cause": "Xcode cache and simulator service access denied by sandbox; no compile assertion result"
+  },
+  "matching_committed_test_source": "f9dae47a562e0c660d5c60d67506d0903ac02fea"
+}

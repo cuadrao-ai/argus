@@ -30,7 +30,7 @@ export function ConversationActivityJumpButton({
     latest: t("chat.jump_to_latest", "Jump to latest"),
     working: t(
       "chat.activity.jump_working",
-      "Jump to latest; Argus is working below",
+      "Jump to latest; Cuadrao is working below",
     ),
     unread: t("chat.activity.jump_new", "Jump to new activity"),
     needsInput: t(

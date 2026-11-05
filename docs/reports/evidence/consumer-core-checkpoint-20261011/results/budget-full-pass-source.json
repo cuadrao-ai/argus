@@ -1,0 +1,58 @@
+{
+  "source_commit": "40ff4967040c854ca5dd0764115227544011a6e2",
+  "test": "testConnectedBudgetSpendingCorrectionRefundSearchAndReopen",
+  "synthetic_budget": "Food DF84D",
+  "result": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "summary_sha256": "b4610264e00d39953143c24460e93805f12e1e9e4a05939ee4cd5a8f0dfb8c9e",
+  "screenshots": [
+    {
+      "path": "screenshots/budget-final-40ff49670/budget-spanish-detail.png",
+      "sha256": "c770beb0904be34e2a91c0f168689fae60c00b1bd7b6651951ca8aa46aca657c",
+      "original": "275EF180-05FB-4F90-966D-EB720907CF4F.png"
+    },
+    {
+      "path": "screenshots/budget-final-40ff49670/budget-search-origin-restored.png",
+      "sha256": "172d03f9ccba41aeaf7c9864110cb60242aa297ebd0b97197ee2f225cd8652da",
+      "original": "5DE7ECEC-DB3C-4FB9-BBFC-5548DC0D80E7.png"
+    },
+    {
+      "path": "screenshots/budget-final-40ff49670/budget-detail-restored-after-relaunch.png",
+      "sha256": "95cb2932884b06daefe73edee9ad753c6a0d7586b788557864293a944bb9ace7",
+      "original": "26EEA260-F9DE-4097-93CB-470CB4C57653.png"
+    },
+    {
+      "path": "screenshots/budget-final-40ff49670/budget-reversible-removal.png",
+      "sha256": "332217598ef6dc61515054dbb08a7e22d7590cc7cd25a2b7d3e7e189eee334bb",
+      "original": "0DE65417-4867-4BB0-9E1E-CE9064263B6A.png"
+    },
+    {
+      "path": "screenshots/budget-final-40ff49670/budget-contributor-position-restored.png",
+      "sha256": "11db87e725a9e5b7ad6cda2151edaa0fe1144d899a4482de7eeb2d65a955f939",
+      "original": "A210AEED-31F4-4B32-B5A6-23CAEE15A07B.png"
+    },
+    {
+      "path": "screenshots/budget-final-40ff49670/budget-cross-account-refund.png",
+      "sha256": "82d36b648e2a274a63ff27849d9975b213b8eaa99a544c2444324cdf6d1eb1ce",
+      "original": "952C98EB-790C-4665-99A1-D4B7269F8703.png"
+    },
+    {
+      "path": "screenshots/budget-final-40ff49670/budget-contributor-correction-propagated.png",
+      "sha256": "66e2317d5e491c039d0322977f3779e2aa9c912d8fbe0a8d88b2afcf27fa35d2",
+      "original": "4C31BE37-CB46-4B82-ADAC-81B86E9C9C3E.png"
+    },
+    {
+      "path": "screenshots/budget-final-40ff49670/budget-over-limit-after-card-purchase.png",
+      "sha256": "2c0ac99bf20b89bf894aec0713c84a1f044a9e1d7f1e3fb31196b32604394148",
+      "original": "EA7DE9A9-3C5E-4B27-A7EC-DB4C20BD8436.png"
+    },
+    {
+      "path": "screenshots/budget-final-40ff49670/budget-initial-limit-and-scope.png",
+      "sha256": "7e818555139c8e3f956239eacbc120fe5bae51e4291c09da60095509d9baad90",
+      "original": "7967C56D-0475-4787-9B6C-F8B29F6F59E3.png"
+    }
+  ]
+}

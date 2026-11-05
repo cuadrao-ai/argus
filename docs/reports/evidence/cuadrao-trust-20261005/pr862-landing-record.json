@@ -1,0 +1,35 @@
+{
+  "pr": 862,
+  "head": "55f6fe1c415261c86d5a1ada63eee7583c0dc411",
+  "original_integration_base": "f5c83cd88a0af56dc8154a89c6ea4f75d9c518ce",
+  "reconciliation_merge": "f156c3bc45283999145042bff797337e3c0a17a1",
+  "integration_parent": "fc4057c8789d3e3504fcb0e980344d6bf51e66c0",
+  "merge": "7c2522fb7d08f183bb1b07cd9b4aabe829089dc0",
+  "merged_at": "2026-10-05T22:50:12Z",
+  "tree_equal": true,
+  "tree": "7105322855db37b1ce6192c7902eadffd22035fb",
+  "review": "https://github.com/lagarcess/argus/pull/862#pullrequestreview-5421515788",
+  "terminal_audit": "https://github.com/lagarcess/argus/pull/862#issuecomment-6004787276",
+  "ci": {
+    "success": 16,
+    "expected_skip": 3,
+    "failure": 0,
+    "pending": 0
+  },
+  "review_threads": 0,
+  "retained_independent_proof": {
+    "unit": 148,
+    "postgres": 62,
+    "end_to_end": 9,
+    "basis": "unchanged deletion and credential runtime/test owners; changed observer module explicitly distinguished"
+  },
+  "current_author_context_tests": {
+    "focused": 107,
+    "parser": 11,
+    "failure": 0,
+    "skip": 0
+  },
+  "new_configuration_names": [],
+  "parent_issues_800_803": "open; native,provider,phone,hosted activation and remaining policy gates",
+  "housekeeping": "pending protected-branch evidence PR"
+}

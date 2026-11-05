@@ -44,7 +44,7 @@ test("back out of a dossier costs one press per step", async ({ page }) => {
   // show that a press moved.
   await page.setViewportSize({ width: 390, height: 844 });
   await installMobileShellFixture(page, { account: "registered" });
-  await page.goto("/privacy");
+  await page.goto("/auth/forgot-password");
   await page.waitForTimeout(400);
   await page.goto("/chat");
   await page.waitForTimeout(1200);
@@ -65,7 +65,7 @@ test("back out of a dossier costs one press per step", async ({ page }) => {
   // The press that used to be spent on a duplicate.
   await page.goBack();
   await page.waitForTimeout(900);
-  expect(new URL(page.url()).pathname).toBe("/privacy");
+  expect(new URL(page.url()).pathname).toBe("/auth/forgot-password");
 });
 
 test("no overlay hands its first tab stop to a backdrop", async ({ page }) => {

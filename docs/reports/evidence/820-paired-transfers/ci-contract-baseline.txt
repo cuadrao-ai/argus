@@ -1,0 +1,15 @@
+Command: /private/tmp/cuadrao-scipy-env-20261005/bin/python -m pytest --no-cov -q --tb=short tests/test_environment_scripts.py::test_render_blueprint_declares_shared_render_env_contract_vars tests/test_environment_scripts.py::test_render_env_sync_audit_uses_large_render_env_page tests/test_environment_scripts.py::test_render_env_sync_audit_includes_workflow_env_parity tests/test_environment_scripts.py::test_render_env_sync_audit_accepts_required_turnstile_site_key tests/test_environment_scripts.py::test_render_env_sync_skips_workflow_env_gate_outside_real_workflow_mode tests/test_environment_scripts.py::test_render_env_sync_audit_workflow_secrets_ready_without_local_secrets tests/test_private_alpha_release_profile.py::test_render_blueprint_matches_the_authoritative_nonsecret_profile tests/test_render_release_profile_contract.py::test_render_env_sync_audit_accepts_manual_deploys_on_all_three
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: /private/tmp/pr854-ci-baseline-26c0692
+configfile: pyproject.toml
+plugins: benchmark-5.2.3, mock-3.15.1, Faker-30.10.0, asyncio-1.4.0, hypothesis-6.151.12, langsmith-0.7.31, respx-0.23.1, cov-7.0.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 8 items
+
+tests/test_environment_scripts.py ......                                 [ 75%]
+tests/test_private_alpha_release_profile.py .                            [ 87%]
+tests/test_render_release_profile_contract.py .                          [100%]
+
+============================== 8 passed in 10.80s ==============================

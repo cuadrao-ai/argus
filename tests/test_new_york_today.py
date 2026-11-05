@@ -41,13 +41,13 @@ from argus.api.chat.confirmation import (
     _edit_constraints,
 )
 from argus.domain.backtesting.date_window import validate_backtest_date_window
+from argus.domain.clock import new_york_now, new_york_today
 from argus.domain.engine import normalize_backtest_config
-from argus.domain.market_data.new_york_clock import new_york_now, new_york_today
 from argus.domain.research.source_selection import question_date
 from argus.nlp.natural_time import resolve_date_range_intent, resolve_date_range_text
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1] / "src/argus"
-OWNER = SOURCE_ROOT / "domain/market_data/new_york_clock.py"
+OWNER = SOURCE_ROOT / "domain/clock.py"
 
 INSTANTS = pytest.mark.parametrize(
     ("asked_at", "new_york_date"),

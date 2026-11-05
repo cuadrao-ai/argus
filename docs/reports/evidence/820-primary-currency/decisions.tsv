@@ -1,0 +1,5 @@
+step	decision	evidence
+1	Use existing server-resolved User.currency; preserve unknown native state	profiles.currency_override and domain/home_country.py own resolution
+2	Keep profile selection separate from Home/charts/transfers	#820 assignment and root ownership contract
+3	Persist explicit validated PATCH fields only	#848 baseline local Postgres race fails; fixed local proof passes
+4	Retain broad suite failure as environment issue	#852 exact baseline SciPy loader failure

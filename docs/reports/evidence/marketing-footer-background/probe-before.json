@@ -1,0 +1,290 @@
+[
+  {
+    "path": "/",
+    "width": 390,
+    "body": "rgb(255, 255, 255)",
+    "site": {
+      "y": 0,
+      "height": 6662.71875,
+      "width": 390,
+      "bg": "rgb(250, 251, 248)"
+    },
+    "main": {
+      "y": 76,
+      "height": 5138.046875,
+      "width": 390,
+      "bg": "rgba(0, 0, 0, 0)"
+    },
+    "footer": {
+      "y": 5214.046875,
+      "height": 1448.671875,
+      "width": 390,
+      "bg": "rgb(23, 43, 38)"
+    },
+    "children": [
+      {
+        "y": 5214.046875,
+        "height": 367.40625,
+        "width": 390,
+        "bg": "rgb(247, 245, 238)"
+      },
+      {
+        "y": 5581.453125,
+        "height": 995.46875,
+        "width": 350,
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "y": 6576.921875,
+        "height": 85.796875,
+        "width": 374.40625,
+        "bg": "rgba(0, 0, 0, 0)"
+      }
+    ],
+    "logo": {
+      "src": "/cuadrao-site/cuadrao-lockup-dark.svg",
+      "naturalWidth": 0,
+      "visible": "visible",
+      "opacity": "1"
+    },
+    "scrollWidth": 390
+  },
+  {
+    "path": "/en",
+    "width": 390,
+    "body": "rgb(255, 255, 255)",
+    "site": {
+      "y": 0,
+      "height": 6630.6875,
+      "width": 390,
+      "bg": "rgb(250, 251, 248)"
+    },
+    "main": {
+      "y": 76,
+      "height": 5106.046875,
+      "width": 390,
+      "bg": "rgba(0, 0, 0, 0)"
+    },
+    "footer": {
+      "y": 5182.046875,
+      "height": 1448.640625,
+      "width": 390,
+      "bg": "rgb(23, 43, 38)"
+    },
+    "children": [
+      {
+        "y": 5182.046875,
+        "height": 367.40625,
+        "width": 390,
+        "bg": "rgb(247, 245, 238)"
+      },
+      {
+        "y": 5549.453125,
+        "height": 995.4375,
+        "width": 350,
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "y": 6544.890625,
+        "height": 85.796875,
+        "width": 374.40625,
+        "bg": "rgba(0, 0, 0, 0)"
+      }
+    ],
+    "logo": {
+      "src": "/cuadrao-site/cuadrao-lockup-dark.svg",
+      "naturalWidth": 268,
+      "visible": "visible",
+      "opacity": "1"
+    },
+    "scrollWidth": 390
+  },
+  {
+    "path": "/personal",
+    "width": 390,
+    "body": "rgb(255, 255, 255)",
+    "site": {
+      "y": 0,
+      "height": 2637.015625,
+      "width": 390,
+      "bg": "rgb(247, 245, 239)"
+    },
+    "main": {
+      "y": 76,
+      "height": 1581.984375,
+      "width": 390,
+      "bg": "rgba(0, 0, 0, 0)"
+    },
+    "footer": {
+      "y": 1657.984375,
+      "height": 979.03125,
+      "width": 390,
+      "bg": "rgba(0, 0, 0, 0)"
+    },
+    "children": [
+      {
+        "y": 1657.984375,
+        "height": 901.03125,
+        "width": 350,
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "y": 2559.015625,
+        "height": 78,
+        "width": 374.40625,
+        "bg": "rgba(0, 0, 0, 0)"
+      }
+    ],
+    "logo": {
+      "src": "/cuadrao-site/cuadrao-lockup-light.svg",
+      "naturalWidth": 268,
+      "visible": "visible",
+      "opacity": "1"
+    },
+    "scrollWidth": 390
+  },
+  {
+    "path": "/",
+    "width": 1440,
+    "body": "rgb(255, 255, 255)",
+    "site": {
+      "y": 0,
+      "height": 4885.25,
+      "width": 1440,
+      "bg": "rgb(250, 251, 248)"
+    },
+    "main": {
+      "y": 90,
+      "height": 3719.890625,
+      "width": 1440,
+      "bg": "rgba(0, 0, 0, 0)"
+    },
+    "footer": {
+      "y": 3809.890625,
+      "height": 1075.359375,
+      "width": 1440,
+      "bg": "rgb(23, 43, 38)"
+    },
+    "children": [
+      {
+        "y": 3809.890625,
+        "height": 304.375,
+        "width": 1440,
+        "bg": "rgb(247, 245, 238)"
+      },
+      {
+        "y": 4114.265625,
+        "height": 468.59375,
+        "width": 1280,
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "y": 4582.859375,
+        "height": 302.390625,
+        "width": 1382.40625,
+        "bg": "rgba(0, 0, 0, 0)"
+      }
+    ],
+    "logo": {
+      "src": "/cuadrao-site/cuadrao-lockup-dark.svg",
+      "naturalWidth": 0,
+      "visible": "visible",
+      "opacity": "1"
+    },
+    "scrollWidth": 1440
+  },
+  {
+    "path": "/en",
+    "width": 1440,
+    "body": "rgb(255, 255, 255)",
+    "site": {
+      "y": 0,
+      "height": 4883.828125,
+      "width": 1440,
+      "bg": "rgb(250, 251, 248)"
+    },
+    "main": {
+      "y": 90,
+      "height": 3718.46875,
+      "width": 1440,
+      "bg": "rgba(0, 0, 0, 0)"
+    },
+    "footer": {
+      "y": 3808.46875,
+      "height": 1075.359375,
+      "width": 1440,
+      "bg": "rgb(23, 43, 38)"
+    },
+    "children": [
+      {
+        "y": 3808.46875,
+        "height": 304.375,
+        "width": 1440,
+        "bg": "rgb(247, 245, 238)"
+      },
+      {
+        "y": 4112.84375,
+        "height": 468.59375,
+        "width": 1280,
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "y": 4581.4375,
+        "height": 302.390625,
+        "width": 1382.40625,
+        "bg": "rgba(0, 0, 0, 0)"
+      }
+    ],
+    "logo": {
+      "src": "/cuadrao-site/cuadrao-lockup-dark.svg",
+      "naturalWidth": 268,
+      "visible": "visible",
+      "opacity": "1"
+    },
+    "scrollWidth": 1440
+  },
+  {
+    "path": "/personal",
+    "width": 1440,
+    "body": "rgb(255, 255, 255)",
+    "site": {
+      "y": 0,
+      "height": 1984.671875,
+      "width": 1440,
+      "bg": "rgb(247, 245, 239)"
+    },
+    "main": {
+      "y": 90,
+      "height": 1182.078125,
+      "width": 1440,
+      "bg": "rgba(0, 0, 0, 0)"
+    },
+    "footer": {
+      "y": 1272.078125,
+      "height": 712.59375,
+      "width": 1440,
+      "bg": "rgba(0, 0, 0, 0)"
+    },
+    "children": [
+      {
+        "y": 1272.078125,
+        "height": 424.59375,
+        "width": 1280,
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "y": 1696.671875,
+        "height": 288,
+        "width": 1382.40625,
+        "bg": "rgba(0, 0, 0, 0)"
+      }
+    ],
+    "logo": {
+      "src": "/cuadrao-site/cuadrao-lockup-light.svg",
+      "naturalWidth": 268,
+      "visible": "visible",
+      "opacity": "1"
+    },
+    "scrollWidth": 1440
+  }
+]

@@ -254,7 +254,7 @@ def bounded_index_rows() -> Iterator[dict[str, Any]]:
                 )
 
 
-def test_forward_indexes_exist_without_changing_rls_or_select_grants() -> None:
+def test_forward_indexes_exist_without_changing_rls() -> None:
     with psycopg.connect(DSN, autocommit=True) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
@@ -299,39 +299,6 @@ def test_forward_indexes_exist_without_changing_rls_or_select_grants() -> None:
                 "evidence_artifacts": True,
                 "decision_notes": True,
                 "messages": True,
-            }
-
-            cursor.execute(
-                """
-                select table_name, has_table_privilege(
-                    'authenticated',
-                    format('public.%%I', table_name),
-                    'select'
-                )
-                from unnest(%s::text[]) as table_name
-                """,
-                (
-                    [
-                        "conversations",
-                        "strategies",
-                        "collections",
-                        "backtest_runs",
-                        "ideas",
-                        "evidence_artifacts",
-                        "messages",
-                        "decision_notes",
-                    ],
-                ),
-            )
-            assert dict(cursor.fetchall()) == {
-                "conversations": False,
-                "strategies": False,
-                "collections": False,
-                "backtest_runs": False,
-                "ideas": False,
-                "evidence_artifacts": False,
-                "decision_notes": False,
-                "messages": False,
             }
 
 

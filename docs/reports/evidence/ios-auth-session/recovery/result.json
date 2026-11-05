@@ -1,0 +1,9 @@
+{
+  "oldArgusLoginStatus": 200,
+  "oldAccessAfterReset": 401,
+  "oldRefreshAfterReset": 400,
+  "newPasswordLogin": 200,
+  "newIdentityMe": 200,
+  "argusLoginCalls": 2,
+  "boundary": "Unchanged web development CAPTCHA fixture; Supabase public Cloudflare always-pass test secret, no hosted changes."
+}

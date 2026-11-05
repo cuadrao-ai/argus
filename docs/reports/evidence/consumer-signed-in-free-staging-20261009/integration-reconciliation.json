@@ -1,0 +1,51 @@
+{
+  "record_scope": "Preparation snapshot after the October 10 one-way integration merge. The initial_check retains the original pre-publication record. Native sources and results are unchanged. Final review and exact-head CI status are recorded in PR #952.",
+  "checked_at": "2026-10-10T19:54:46.578644+00:00",
+  "original_integration_base": "cd14c9883f180876d27c121f0787b25a73529492",
+  "current_remote_integration": "59c695a0e2690f28bd5c5e48b73a66ce07ebc785",
+  "reconciliation_merge": "14bae401b58b1de2ca63dd1b77e0bfc275eb412a",
+  "overlap_disposition": "265 intervening integration paths contain Marketing and documentation changes only. No changed-path overlap, iOS or shared runtime/API/data/schema/environment change invalidates Consumer evidence.",
+  "evidence": "All iOS app/test/script bytes match published head 9bba18fea6878049bbcff1f86d93fce7b3237f7f. App source tree 6f6e052f8ad348c247145915c5cb0c89c5d76c36 matches native identifier test source 7a66caad04e3c4ecadd48c8ae6a11042fd077bcc. Earlier cases retain their original source provenance; no native or hosted rerun occurred.",
+  "new_branch_ci": "Reconciled candidate CI pending publication at this preparation snapshot. Earlier published-head CI success remains recorded in publication_update. Final status belongs to PR #952.",
+  "publication_update": {
+    "verified_on": "2026-10-10",
+    "previous_ci_summary": "Draft publication approved; CI pending publication.",
+    "published_head": "9bba18fea6878049bbcff1f86d93fce7b3237f7f",
+    "push_ci": "https://github.com/lagarcess/argus/actions/runs/38034083813",
+    "push_ci_conclusion": "success",
+    "pr_ci": "https://github.com/lagarcess/argus/actions/runs/38034096851",
+    "pr_smoke": "https://github.com/lagarcess/argus/actions/runs/38034096834",
+    "pr_job_disposition": "skipped; not passing test evidence",
+    "new_native_runs": false,
+    "final_integration_reconciliation_pending": false,
+    "reconciliation_completed_at": "2026-10-10T19:54:46.578644+00:00"
+  },
+  "ready": false,
+  "latest_remote_read_at": "2026-10-10T19:54:46.578644+00:00",
+  "latest_remote_integration_sha": "59c695a0e2690f28bd5c5e48b73a66ce07ebc785",
+  "modularity_check": "Passed on reconciled tree 14bae401b58b1de2ca63dd1b77e0bfc275eb412a.",
+  "final_local_test_source": "7a66caad04e3c4ecadd48c8ae6a11042fd077bcc",
+  "initial_check": {
+    "checked_at": "2026-10-10T07:20:12.116460+00:00",
+    "original_integration_base": "cd14c9883f180876d27c121f0787b25a73529492",
+    "current_remote_integration": "cd14c9883f180876d27c121f0787b25a73529492",
+    "reconciliation_merge": null,
+    "overlap_disposition": "Integration has not advanced; no intervening runtime, API/data, UI owner, migration or environment changes to reconcile.",
+    "evidence": "Retained at each recorded test source. The sole later app delta refreshes the amount field identifier; the focused native regression passed at 7a66caad04e3c4ecadd48c8ae6a11042fd077bcc",
+    "new_branch_ci": "Draft publication approved; CI pending publication.",
+    "ready": false,
+    "latest_remote_read_at": "2026-10-10T07:20:12.116460+00:00",
+    "latest_remote_integration_sha": "cd14c9883f180876d27c121f0787b25a73529492",
+    "modularity_check": "Passed on the unchanged current integration base plus Consumer test changes and the approved one-line identifier fix.",
+    "final_local_test_source": "7a66caad04e3c4ecadd48c8ae6a11042fd077bcc"
+  },
+  "provider_free_checks": {
+    "source": "14bae401b58b1de2ca63dd1b77e0bfc275eb412a",
+    "readback_unit_tests_passed": 5,
+    "changed_python_ruff": "passed",
+    "changed_document_links": "passed",
+    "combined_tree_modularity": "passed",
+    "diff_check": "passed"
+  },
+  "native_acceptance": "Unchanged partial checkpoint. Budget setup failure, largest-text Date layout and split Goal evidence remain explicit."
+}

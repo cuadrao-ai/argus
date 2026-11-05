@@ -20,10 +20,9 @@ remain separate decisions:
 
 - Guest code may integrate without completing this checklist.
 - Internet-facing Guest traffic requires this checklist and founder approval.
-- `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` is a separate policy that the
-  founder approved and opened in production on 2026-08-12, so this checklist
-  never gated it and does not gate it now; explicit `false` closes it again. The
-  minimum bundle below is still the abuse-control reference for any
+- `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED` is a separate policy that production
+  sets to `false`, so production is invite only. This checklist never gated it
+  and does not gate it now. The minimum bundle below is still the abuse-control reference for any
   internet-facing exposure, including registered traffic.
 
 ## Algorithm Decision
@@ -153,9 +152,9 @@ support and monitoring recognize them instead of re-diagnosing:
 2. **Address rotation defeats visitor caps.** A rotating-IP visitor can farm
    fresh guest workspaces. Standing mitigations: Turnstile on hosted guest
    entry and guest backtests costing in-process compute rather than provider
-   spend. Account creation stopped being a mitigation when public registration
-   opened on 2026-08-12, so registered allowances are now the boundary that a
-   rotating visitor reaches instead. No further code owed at alpha scale.
+   spend. Account creation is a mitigation again, because production admits only
+   allowlisted emails, so registered allowances are the boundary that a
+   rotating visitor reaches only after an invite. No further code owed at alpha scale.
 3. **Account deletion is manual.** The delete-and-return loop is founder
    gated. Acceptable at alpha scale; revisit when self-serve deletion
    ships.
@@ -195,7 +194,7 @@ boundary ineffective.
 
 - [ ] Apply migrations through
       `20260727230000_add_visitor_usage_counters.sql`.
-- [ ] Set a unique, high-entropy `ARGUS_VISITOR_KEY_SECRET` for this
+- [ ] Set a unique, high-entropy `CUADRAO_VISITOR_KEY_SECRET` for this
       environment; do not reuse a local or staging value.
 - [ ] Set and record `ARGUS_DISCOVERY_GLOBAL_DAILY_CEILING`.
 - [ ] Confirm a renewed Guest workspace does not restore the visitor's two

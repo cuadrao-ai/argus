@@ -1,0 +1,19 @@
+{
+  "accounts": 7,
+  "households": 1,
+  "retained_accounts_unchanged": true,
+  "protected_retention_rls": [
+    [
+      "household_plan_archived_allocations",
+      true
+    ],
+    [
+      "household_plan_archived_claims",
+      true
+    ]
+  ],
+  "disposition": "Applied once only to verified NEW ios-accounts-59750 Postgres59752; no existing or hosted database touched",
+  "migration": "20261002050000_shared_contributor_retention.sql",
+  "migration_sha256": "1fac5b2bf6650ef5db5bd94466cd8bb0c4456ed8ef1f36024eb7e9d3016de092",
+  "source_head_before_fix_commit": "119edf0421fb20ed88782d8975a88015cb64b54e"
+}

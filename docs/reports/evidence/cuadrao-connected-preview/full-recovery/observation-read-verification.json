@@ -1,0 +1,62 @@
+{
+  "source_commit": "5aa369d9ef4aee5d1b0fcf55ba2a8280eef04cac",
+  "verified_at_utc": "2026-10-06T03:50:58Z",
+  "source_sha256": {
+    "ios/ArgusFoundation/Accounts/FinancialObservationRead.swift": "84271e43b5fd4d4098a2dcea7870c6beabd73d4eaab014283ddf147cc4c2a346",
+    "ios/ArgusFoundation/Accounts/FinancialLoopModel.swift": "82ce11e7d67f576e351fc01b2d587aa7c8dae267e14d8e2fde33884331da9aa1",
+    "ios/FinancialModelTests/FinancialObservationReadTests.swift": "1c33a9f0c66e20b2b79e649943328f6d2bd9250d98862408e8ede54c610d3af0",
+    "ios/FinancialModelTests/run.py": "2482b0190d4d969835610dec2621c71104ace20394780b124641496ae600b2d7"
+  },
+  "verification_identity": "Tests and app compilation ran on these exact file contents before the source commit. Independent review hashes match. Later evidence edits do not change application source.",
+  "model_tests": {
+    "command": "ARGUS_FINANCIAL_MODEL_TEST_FILTER=FinancialObservationReadTests ARGUS_SWIFT_DISABLE_SANDBOX=1 python3 ios/FinancialModelTests/run.py",
+    "executed": 7,
+    "passed": 7,
+    "failed": 0,
+    "skipped": 0,
+    "log": "observation-model-tests.log"
+  },
+  "ios_compile": {
+    "tool": "XcodeBuildMCP build_sim",
+    "status": "SUCCEEDED",
+    "configuration": "Debug",
+    "scheme": "ArgusFoundation",
+    "target": "iOS Simulator",
+    "duration_ms": 14368,
+    "errors": [],
+    "warnings": [
+      {
+        "path": "ios/ArgusFoundation/Connected/ConnectedCuadraoRoot.swift",
+        "line": 27,
+        "message": "'weak' ownership of capture 'auth' differs from implicitly-captured strong reference in outer scope",
+        "disposition": "Existing source, unchanged by this reader."
+      }
+    ]
+  },
+  "independent_review": {
+    "scope": [
+      "ios/ArgusFoundation/Accounts/FinancialObservationRead.swift",
+      "ios/ArgusFoundation/Accounts/FinancialLoopModel.swift",
+      "ios/FinancialModelTests/FinancialObservationReadTests.swift",
+      "ios/FinancialModelTests/run.py"
+    ],
+    "outcome": "No actionable findings",
+    "runtime_performed_by_reviewer": false
+  },
+  "modularity": "Pass on recovery branch; not a current-integration merged-tree readiness check.",
+  "local_wire_readback": {
+    "owned_accounts": 2,
+    "opening_observations_per_account": 1,
+    "accepted_checks_per_account": 0,
+    "before_after_versions_match": true,
+    "raw_payload_retained_privately": true
+  },
+  "remaining": [
+    "No UI consumer of this reader yet.",
+    "Historical account type and ownership-share attribution remains a foundation contract gap.",
+    "Aggregate Home balance history and Activity coverage/insights remain open.",
+    "No new phone build or physical acceptance from this change.",
+    "No latest-integration reconciliation or READY claim."
+  ],
+  "resources": "Exclusive Mac verification lease released after terminal checks. No simulator runtime, phone, PG or provider use; existing resources preserved."
+}

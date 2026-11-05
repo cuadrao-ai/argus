@@ -1,0 +1,35 @@
+{
+  "synthetic": true,
+  "rows": [
+    {
+      "source_id": "manual-expense",
+      "date": "2026-09-10",
+      "description": "Efectivo: almuerzo",
+      "amount": "150.00",
+      "currency": "DOP",
+      "kind": "expense",
+      "account": "cash-dop",
+      "destination": "personal"
+    },
+    {
+      "source_id": "manual-income",
+      "date": "2026-09-10",
+      "description": "Efectivo: ingreso",
+      "amount": "1000.00",
+      "currency": "DOP",
+      "kind": "income",
+      "account": "cash-dop",
+      "destination": "personal"
+    },
+    {
+      "source_id": "manual-transfer",
+      "date": "2026-09-10",
+      "description": "Efectivo a cuenta",
+      "amount": "300.00",
+      "currency": "DOP",
+      "kind": "transfer",
+      "account": "cash-dop",
+      "destination": "personal"
+    }
+  ]
+}

@@ -55,11 +55,11 @@ def _workspace() -> GuestWorkspace:
 @pytest.fixture(autouse=True)
 def _clear_flags(monkeypatch: pytest.MonkeyPatch):
     for name in (
-        "ARGUS_GUEST_ACCESS_ENABLED",
-        "ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED",
+        "CUADRAO_GUEST_ACCESS_ENABLED",
+        "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED",
         "NEXT_PUBLIC_GUEST_ACCESS_ENABLED",
         "NEXT_PUBLIC_MOCK_AUTH",
-        "ARGUS_MOCK_AUTH",
+        "CUADRAO_MOCK_AUTH",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -72,7 +72,7 @@ def test_guest_access_defaults_on_while_public_account_access_defaults_off() -> 
 def test_explicit_server_guest_kill_switch_disables_access(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "false")
 
     assert guest_access_enabled() is False
 
@@ -80,7 +80,7 @@ def test_explicit_server_guest_kill_switch_disables_access(
 def test_explicit_client_server_guest_flag_mismatch_fails_closed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "false")
 
     assert guest_access_enabled() is False
@@ -89,7 +89,7 @@ def test_explicit_client_server_guest_flag_mismatch_fails_closed(
 def test_verified_anonymous_auth_truth_owns_guest_status_and_capabilities(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
     gateway = MagicMock(spec=SupabaseGateway)
     profile = _profile(email=None)
@@ -155,12 +155,15 @@ def test_registered_auth_truth_ignores_editable_anonymous_metadata() -> None:
     with (
         patch.object(api_state, "supabase_gateway", gateway),
         patch("argus.api.dependencies.auth_session_is_active", return_value=True),
+        patch("argus.api.routers.profile._apple_identity", return_value=None) as identity,
     ):
         response = client.get(
             "/api/v1/me",
             headers={"Authorization": "Bearer verified-member-token"},
         )
 
+    identity.assert_called_once()
+    assert identity.call_args.args[1] == USER_ID
     assert response.status_code == 200
     assert response.json()["account_kind"] == "registered"
     assert response.json()["guest"] is None

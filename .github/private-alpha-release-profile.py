@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Validate and expose the non-secret private-alpha release profile."""
+"""Validate and expose the non-secret private-alpha release profile.
+
+The profile owns service names, the deploy trigger and the workflow contract.
+Environment settings live in scripts/ops/staging_env_manifest.json; read them
+with scripts/ops/staging_env.py.
+"""
 
 from __future__ import annotations
 
@@ -13,19 +18,9 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 PROFILE_PATH = ROOT / ".github" / "private-alpha-release-profile.json"
-LOCALES_DIR = ROOT / "web" / "public" / "locales"
-SURFACES = ("api", "web", "workflow")
-# Deploys are manual by founder decision; all three services share one trigger.
-# render.yaml mirrors it for the API and app, held to this profile by its contract test.
+MANIFEST_PATH = ROOT / "scripts" / "ops" / "staging_env_manifest.json"
+SURFACES = ("api", "web", "workflow", "marketing")
 AUTO_DEPLOY_TRIGGERS = ("off", "checksPass")
-# The canary's fixed checks, in run order. They never follow features.
-CANARY_CHECKS = (
-    "services_same_commit",
-    "signed_in_chat_answer",
-    "backtest_completes",
-    "research_answer_with_sources",
-)
-CANARY_PROMPTS = ("chat_prompt", "backtest_prompt", "research_prompt")
 FORBIDDEN_KEY_FRAGMENTS = (
     "candidate_sha",
     "deploy_id",
@@ -60,12 +55,6 @@ def _require_mapping(value: object, field: str) -> dict[str, Any]:
     return value
 
 
-def _require_strings(value: object, field: str) -> list[str]:
-    if not isinstance(value, list) or not all(isinstance(item, str) and item for item in value):
-        raise ProfileValidationError(f"{field} must be a non-empty list of strings")
-    return list(value)
-
-
 def validate_profile(profile: dict[str, Any]) -> None:
     if profile.get("schema_version") != 1:
         raise ProfileValidationError("schema_version must be 1")
@@ -81,11 +70,14 @@ def validate_profile(profile: dict[str, Any]) -> None:
 
     services = _require_mapping(profile.get("services"), "services")
     if set(services) != set(SURFACES):
-        raise ProfileValidationError("services must define api, web, and workflow")
+        raise ProfileValidationError(
+            "services must define api, web, workflow, and marketing"
+        )
     expected_names = {
         "api": "argus-api",
         "web": "argus-app",
         "workflow": "argus-backtests",
+        "marketing": "cuadrao-web",
     }
     triggers: set[object] = set()
     for surface, expected_name in expected_names.items():
@@ -98,23 +90,14 @@ def validate_profile(profile: dict[str, Any]) -> None:
                 f"{', '.join(AUTO_DEPLOY_TRIGGERS)}"
             )
         triggers.add(service.get("auto_deploy_trigger"))
-        env = _require_mapping(service.get("env"), f"services.{surface}.env")
-        if not env or not all(isinstance(key, str) and isinstance(value, str) for key, value in env.items()):
-            raise ProfileValidationError(f"services.{surface}.env must contain string pairs")
-        required_present = _require_strings(
-            service.get("required_present"),
-            f"services.{surface}.required_present",
-        )
-        optional = service.get("optional")
-        if not isinstance(optional, list) or not all(
-            isinstance(item, str) and item for item in optional
-        ):
-            raise ProfileValidationError(f"services.{surface}.optional must be a list of strings")
-        if set(env).intersection(required_present) or set(env).intersection(optional) or set(required_present).intersection(optional):
-            raise ProfileValidationError(f"services.{surface} repeats environment keys")
+        if {"env", "required_present", "optional"} & set(service):
+            raise ProfileValidationError(
+                f"services.{surface} must not hold environment settings; "
+                "scripts/ops/staging_env_manifest.json owns them"
+            )
     if len(triggers) != 1:
         raise ProfileValidationError(
-            "api, web, and workflow must share one auto_deploy_trigger"
+            "api, web, workflow, and marketing must share one auto_deploy_trigger"
         )
 
     workflow = _require_mapping(profile.get("workflow"), "workflow")
@@ -136,25 +119,6 @@ def validate_profile(profile: dict[str, Any]) -> None:
     locales = _require_mapping(profile.get("locales"), "locales")
     if locales.get("supported") != ["en", "es-419"]:
         raise ProfileValidationError("locales.supported must be [en, es-419]")
-    static_keys = _require_strings(locales.get("required_static_keys"), "locales.required_static_keys")
-    if "chat.confirmation.actions.run_backtest" not in static_keys:
-        raise ProfileValidationError(
-            "chat.confirmation.actions.run_backtest is required for the release canary"
-        )
-
-    canary = _require_mapping(profile.get("canary"), "canary")
-    if canary.get("language") not in locales["supported"]:
-        raise ProfileValidationError("canary.language must be a supported locale")
-    for field in CANARY_PROMPTS:
-        if not isinstance(canary.get(field), str) or not canary[field].strip():
-            raise ProfileValidationError(f"canary.{field} must be a non-empty string")
-    required_steps = _require_strings(
-        canary.get("required_steps"), "canary.required_steps"
-    )
-    if tuple(required_steps) != CANARY_CHECKS:
-        raise ProfileValidationError(
-            f"canary.required_steps must be exactly {', '.join(CANARY_CHECKS)}"
-        )
 
 
 def _walk_keys(value: object) -> list[str]:
@@ -166,34 +130,8 @@ def _walk_keys(value: object) -> list[str]:
 
 
 def profile_hash() -> str:
-    return hashlib.sha256(PROFILE_PATH.read_bytes()).hexdigest()
-
-
-def env_pairs(profile: dict[str, Any], surface: str) -> list[str]:
-    return [
-        f"{key}={value}"
-        for key, value in sorted(profile["services"][surface]["env"].items())
-    ]
-
-
-def required_present(profile: dict[str, Any], surface: str) -> list[str]:
-    return sorted(profile["services"][surface]["required_present"])
-
-
-def allowed_keys(profile: dict[str, Any], surface: str) -> list[str]:
-    service = profile["services"][surface]
-    return sorted(
-        set(service["env"]).union(service["required_present"], service["optional"])
-    )
-
-
-def env_value(profile: dict[str, Any], surface: str, key: str) -> str:
-    try:
-        return profile["services"][surface]["env"][key]
-    except KeyError as exc:
-        raise ProfileValidationError(
-            f"services.{surface}.env does not define {key}"
-        ) from exc
+    """One hash over the release contract: this profile and the settings manifest."""
+    return hashlib.sha256(PROFILE_PATH.read_bytes() + MANIFEST_PATH.read_bytes()).hexdigest()
 
 
 def auto_deploy_trigger(profile: dict[str, Any], surface: str) -> str:
@@ -205,65 +143,13 @@ def auto_deploy_trigger(profile: dict[str, Any], surface: str) -> str:
     return value
 
 
-def _nested_value(payload: dict[str, Any], path: str) -> str:
-    current: object = payload
-    for part in path.split("."):
-        if not isinstance(current, dict) or part not in current:
-            raise ProfileValidationError(f"locale catalog does not contain {path}")
-        current = current[part]
-    if not isinstance(current, str) or not current:
-        raise ProfileValidationError(f"locale catalog value for {path} must be a string")
-    return current
-
-
-def static_key_values(profile: dict[str, Any], language: str) -> dict[str, str]:
-    if language not in profile["locales"]["supported"]:
-        raise ProfileValidationError(f"unsupported release locale: {language}")
-    locale_path = LOCALES_DIR / language / "common.json"
-    try:
-        catalog = json.loads(locale_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ProfileValidationError(f"cannot load locale catalog for {language}: {exc}") from exc
-    if not isinstance(catalog, dict):
-        raise ProfileValidationError(f"locale catalog for {language} must be an object")
-    return {
-        key: _nested_value(catalog, key)
-        for key in profile["locales"]["required_static_keys"]
-    }
-
-
-def canary_value(profile: dict[str, Any], field: str) -> str:
-    value = profile["canary"].get(field)
-    if not isinstance(value, (str, int, float, bool)):
-        raise ProfileValidationError(f"canary.{field} must be a scalar value")
-    return str(value).lower() if isinstance(value, bool) else str(value)
-
-
-def canary_checks(profile: dict[str, Any]) -> list[str]:
-    return list(profile["canary"]["required_steps"])
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("validate")
     subparsers.add_parser("hash")
-    env_parser = subparsers.add_parser("env-pairs")
-    env_parser.add_argument("surface", choices=SURFACES)
-    env_value_parser = subparsers.add_parser("env-value")
-    env_value_parser.add_argument("surface", choices=SURFACES)
-    env_value_parser.add_argument("key")
     autodeploy_parser = subparsers.add_parser("auto-deploy-trigger")
     autodeploy_parser.add_argument("surface", choices=SURFACES)
-    present_parser = subparsers.add_parser("required-present")
-    present_parser.add_argument("surface", choices=SURFACES)
-    allowed_parser = subparsers.add_parser("allowed-keys")
-    allowed_parser.add_argument("surface", choices=SURFACES)
-    static_parser = subparsers.add_parser("static-key-values")
-    static_parser.add_argument("language")
-    canary_parser = subparsers.add_parser("canary-value")
-    canary_parser.add_argument("field", choices=("language", *CANARY_PROMPTS))
-    subparsers.add_parser("canary-checks")
     args = parser.parse_args()
 
     try:
@@ -273,22 +159,8 @@ def main() -> int:
             print("profile_status=ready")
         elif args.command == "hash":
             print(profile_hash())
-        elif args.command == "env-pairs":
-            print("\n".join(env_pairs(profile, args.surface)))
-        elif args.command == "env-value":
-            print(env_value(profile, args.surface, args.key))
         elif args.command == "auto-deploy-trigger":
             print(auto_deploy_trigger(profile, args.surface))
-        elif args.command == "required-present":
-            print("\n".join(required_present(profile, args.surface)))
-        elif args.command == "allowed-keys":
-            print("\n".join(allowed_keys(profile, args.surface)))
-        elif args.command == "static-key-values":
-            print(json.dumps(static_key_values(profile, args.language), sort_keys=True))
-        elif args.command == "canary-value":
-            print(canary_value(profile, args.field))
-        elif args.command == "canary-checks":
-            print("\n".join(canary_checks(profile)))
     except ProfileValidationError as exc:
         print(f"release profile error: {exc}", file=sys.stderr)
         return 1

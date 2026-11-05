@@ -1,0 +1,15 @@
+{
+  "id": "staging-apply-2026-11-04-consent-scope-2",
+  "project_ref": "skedzwocnmrhfigiwyzi",
+  "hosts": [
+    "db.skedzwocnmrhfigiwyzi.supabase.co",
+    "aws-0-us-east-1.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "201b9764f789a816c4d13a5de4eeefb290d9b79e",
+  "versions_sha256": "2eeeccefc2b97bb34c5eef77fac692bd83f756f647c322a545f4e3feffdd5431",
+  "issued_at": "2026-11-04T05:27:00Z",
+  "expires_at": "2026-11-06T05:27:00Z",
+  "approved_by": "founder",
+  "approval_reference": "Lucas, in the orchestrator session on 2026-11-03 (local time), approved the staging deploy of the milestone commit 201b9764f, including the receipt reading consent scope 2 migration, on staging only."
+}

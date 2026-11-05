@@ -7,6 +7,8 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+
+from argus.agent_runtime.business.interpreter import BusinessInterpreterMethods
 from datetime import date
 from functools import partial
 from typing import Any
@@ -402,6 +404,7 @@ from argus.agent_runtime.turn_execution_evidence import (
     current_turn_has_material_execution_evidence,
 )
 from argus.domain.market_data import is_ticker_like_query, resolve_asset
+from argus.llm.openrouter_retention import OpenRouterRoutingError
 from argus.llm.openrouter import (
     OpenRouterTask,
     annotate_latest_openrouter_route_receipt,
@@ -464,7 +467,7 @@ def _selected_thread_metadata_context(metadata: dict[str, Any]) -> str:
     return json.dumps(context, sort_keys=True, default=str)
 
 
-class OpenRouterStructuredInterpreter:
+class OpenRouterStructuredInterpreter(BusinessInterpreterMethods):
     def __init__(
         self,
         *,
@@ -482,9 +485,6 @@ class OpenRouterStructuredInterpreter:
     async def ainvoke(
         self, request: InterpretationRequest
     ) -> StructuredInterpretation | None:
-        """
-        Executes the interpretation turn.
-        """
         self.last_failure_kind, self.correction_attempted = None, False
         candidate_models: list[str] | None = None
         if self.model_name is None:
@@ -528,6 +528,8 @@ class OpenRouterStructuredInterpreter:
                     )
                     self.last_status = "used" if index == 0 else "fallback_used"
                     return self._to_runtime_interpretation(response, request=request)
+                except OpenRouterRoutingError:
+                    raise
                 except Exception as exc:
                     recovered = await contract_recovery.handle_candidate_failure(
                         interpreter=self,
@@ -603,22 +605,10 @@ class OpenRouterStructuredInterpreter:
                     )
                     self.last_status = "used"
                     return self._to_runtime_interpretation(response, request=request)
+            except OpenRouterRoutingError:
+                raise
             except Exception as exc:
-                record_openrouter_route_receipt(
-                    task="interpretation",
-                    model_name=self.model_name,
-                    mode="chat_model",
-                    schema_name="LLMInterpretationResponse",
-                    latency_ms=_elapsed_ms(started_at),
-                    outcome="failed",
-                    failure_mode=type(exc).__name__,
-                )
-                log_openrouter_failure(
-                    task="interpretation",
-                    model_name=self.model_name,
-                    exc=exc,
-                    message="Primary LLM interpretation failed; attempting fallback",
-                )
+                contract_recovery.record_legacy_failure(self.model_name, started_at, exc)
 
         # 2. Try Fallback Model (if primary failed or was unavailable)
         from argus.llm.openrouter import resolve_openrouter_model
@@ -667,6 +657,8 @@ class OpenRouterStructuredInterpreter:
                     )
                     self.last_status = "fallback_used"
                     return self._to_runtime_interpretation(response, request=request)
+            except OpenRouterRoutingError:
+                raise
             except Exception as exc:
                 self.last_status = "failed"
                 record_openrouter_route_receipt(
@@ -3262,6 +3254,7 @@ async def _plan_focused_artifact_edit(
     return response
 
 
+@turn_execution.focused_repair
 async def _repair_incomplete_strategy_extraction(
     *,
     failed_response: LLMInterpretationResponse,
@@ -4914,7 +4907,6 @@ async def _focused_strategy_repair_after_candidate_failures(
         current_message_length=len(request.current_user_message),
         reason_codes=list(seed_response.reason_codes),
     ).info("Structured interpretation candidates failed; attempting focused repair")
-    # Preserve the existing last-resort call allowance for typed test repairs.
     with turn_execution.last_resort_repair_scope():
         return await _repair_incomplete_strategy_extraction(
             failed_response=seed_response,

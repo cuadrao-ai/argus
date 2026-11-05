@@ -118,9 +118,10 @@ describe("next moves answer the newest question only", () => {
     // The hover reveal survives for the feedback controls only. Option rows are
     // gated on isLatest instead, because touch devices never hover.
     expect(message).toContain("footerVisibilityClass");
+    const rowStart = message.indexOf("{showNextMoveRows && (");
     const rowBlock = message.slice(
-      message.indexOf("{showNextMoveRows && ("),
-      message.indexOf("{shouldShowAssistantFooter && ("),
+      rowStart,
+      message.indexOf("{shouldShowAssistantFooter && (", rowStart),
     );
     expect(rowBlock).toContain("<NextMoveRow");
     expect(rowBlock).not.toContain("footerVisibilityClass");

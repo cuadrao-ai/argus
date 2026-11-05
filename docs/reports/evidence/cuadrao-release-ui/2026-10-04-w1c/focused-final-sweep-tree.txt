@@ -1,0 +1,10 @@
+ios/ArgusFoundationUITests/CuadraoGroupDesignUITests.swift:48: error: -[ArgusFoundationUITests.CuadraoGroupDesignUITests testSharedJourneySpanish] : XCTAssertTrue failed
+Test Case '-[ArgusFoundationUITests.CuadraoGroupDesignUITests testSharedJourneySpanish]' failed (42.990 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoReceiptUITests testPhotoImportKeepsOriginalWithoutInventedItems]' passed (51.937 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoReceiptUITests testReceiptShowsYouOweWhenAnotherPersonPaid]' passed (38.605 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoSupportUITests testHomeActivityReturnsToSameRow]' passed (13.216 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSharedPlanningFourKindsPrivateContributionsCorrectionsAndReopen]' skipped (0.039 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testUpdatesNoDataAndReadOnlyHistory]' passed (10.519 seconds).
+	 Executed 6 tests, with 1 test skipped and 1 failure (0 unexpected) in 157.305 (157.313) seconds
+	 Executed 6 tests, with 1 test skipped and 1 failure (0 unexpected) in 157.305 (157.314) seconds
+exit=65 seconds=162

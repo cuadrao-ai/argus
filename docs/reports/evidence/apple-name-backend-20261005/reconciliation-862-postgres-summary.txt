@@ -1,0 +1,9 @@
+collected 77 items
+tests/test_apple_name_postgres.py ................................       [ 41%]
+tests/test_apple_name_api_postgres.py .                                  [ 42%]
+tests/test_apple_name_deletion_postgres.py ....                          [ 48%]
+tests/test_profile_currency_api_postgres.py .                            [ 49%]
+tests/test_apple_identity_postgres.py ............                       [ 64%]
+tests/test_account_deletion_apple_admission_postgres.py ................ [ 85%]
+tests/test_account_deletion_apple_admission_postgres.py: 27 warnings
+======================= 77 passed, 27 warnings in 9.30s ========================

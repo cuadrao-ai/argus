@@ -12,6 +12,7 @@ unchanged; the user-visible experience is the same or better.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 from typing import Any
 
@@ -24,37 +25,43 @@ from argus.agent_runtime.stages.interpret_types import (
 )
 from argus.agent_runtime.state.models import RunState, UserState
 from argus.domain.research.admission import claim_current_research_attempt
-from argus.domain.research.cache import (
-    cache_get,
-    cache_put,
-    research_cache_key,
-    ttl_for_packet,
-)
+from argus.domain.research.cache import SearchPacketCache
 from argus.domain.research.contracts import CapabilityClass
 
 
-class _FindPacketCache:
-    """Shared-cache adapter for the composer's provider seam.
+def _public_anchor_search(request: AssetDiscoveryRequest) -> bool:
+    """Share only anchors the asset catalog has already validated.
 
-    Search packets obey the same per-data-class TTL table as every other
-    Perplexity result; the key carries no user identity, so a packet one
-    person paid for serves the next person's identical question. A find
-    search only runs when the interpreter said current facts are required,
-    so its results are movers-fresh by definition, never months-stable
-    peers data."""
+    Discovery turns leave the strategy draft empty, so decision and state
+    provenance are not proof. Each anchor is resolved through the same
+    catalog check a strategy symbol uses. A category, a private description,
+    an unresolved symbol, or a class that conflicts with the request stays
+    uncached. This does not search.
+    """
+    if request.relationship == "category" or (request.category_description or "").strip():
+        return False
+    anchors = [symbol.strip() for symbol in request.anchor_symbols if symbol.strip()]
+    if not anchors:
+        return False
+    expected_class = request.asset_class_hint or "equity"
+    from argus.agent_runtime.resolution import resolve_asset_candidate
 
-    def __init__(self, key: str) -> None:
-        self._key = key
-
-    def get(self) -> Any:
-        return cache_get(self._key)
-
-    def put(self, packet: Any) -> None:
-        cache_put(
-            self._key,
-            packet,
-            ttl_seconds=ttl_for_packet(question_kind="find_assets"),
+    for index, anchor in enumerate(anchors):
+        resolution = resolve_asset_candidate(
+            anchor,
+            field=f"asset_discovery.anchor_symbols[{index}]",
+            source="llm_extraction",
+            asset_class_hint=expected_class,
         )
+        asset = resolution.asset
+        if (
+            resolution.status != "resolved"
+            or asset is None
+            or resolution.provenance.validated_by != "provider_catalog"
+            or asset.asset_class != expected_class
+        ):
+            return False
+    return True
 
 
 async def find_assets_stage_result(
@@ -83,18 +90,9 @@ async def find_assets_stage_result(
     )
     packet_cache = None
     if request is not None and request.needs_current_facts:
-        anchors = tuple(
-            symbol.strip().upper() for symbol in request.anchor_symbols if symbol.strip()
-        )
-        key = research_cache_key(
-            capability_class=capability_class,
-            shape="find",
-            symbols=anchors,
-            period_key="current",
-            question_fingerprint=" ".join(state.current_user_message.lower().split()),
-            language=grounded.language_tag(user.language_preference),
-        )
-        packet_cache = _FindPacketCache(key)
+        # Sync catalog lookups: off the loop, or one anchor stalls every stream.
+        if await asyncio.to_thread(_public_anchor_search, request):
+            packet_cache = SearchPacketCache
     result = await discovery_operation_result(
         decision=effective_decision,
         request=request,

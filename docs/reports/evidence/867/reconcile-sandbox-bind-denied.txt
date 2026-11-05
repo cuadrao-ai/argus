@@ -1,0 +1,574 @@
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+.........FFFFFF...FFFFF                                                  [100%]
+=================================== FAILURES ===================================
+_ test_session_tool_mints_private_storage_state_and_revokes_it[immediate-close] _
+
+tmp_path = PosixPath('/private/tmp/pytest-of-garces/pytest-21/test_session_tool_mints_privat0')
+faker = <faker.proxy.Faker object at 0x10d84a050>, response_close_delay = 0
+
+    @pytest.mark.parametrize(
+        "response_close_delay", [0, 0.05], ids=["immediate-close", "delayed-close"]
+    )
+    def test_session_tool_mints_private_storage_state_and_revokes_it(
+        tmp_path: Path,
+        faker: Faker,
+        response_close_delay: float,
+    ) -> None:
+        email = faker.email().lower()
+        user_id = faker.uuid4()
+        session_id = faker.uuid4()
+        service_role_key = "test-service-role-key"
+        storage_path = tmp_path / "storage-state.json"
+        handoff_path = tmp_path / "session-handoff.json"
+    
+>       with _supabase_session_stub(
+            email=email,
+            user_id=user_id,
+            session_id=session_id,
+            response_close_delay=response_close_delay,
+        ) as (supabase_url, calls):
+
+tests/test_private_alpha_canary_split.py:435: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/contextlib.py:137: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/test_private_alpha_canary_split.py:238: in _supabase_session_stub
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.ThreadingHTTPServer object at 0x111704650>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/socketserver.py:472: PermissionError
+_ test_session_tool_mints_private_storage_state_and_revokes_it[delayed-close] __
+
+tmp_path = PosixPath('/private/tmp/pytest-of-garces/pytest-21/test_session_tool_mints_privat1')
+faker = <faker.proxy.Faker object at 0x10d84a050>, response_close_delay = 0.05
+
+    @pytest.mark.parametrize(
+        "response_close_delay", [0, 0.05], ids=["immediate-close", "delayed-close"]
+    )
+    def test_session_tool_mints_private_storage_state_and_revokes_it(
+        tmp_path: Path,
+        faker: Faker,
+        response_close_delay: float,
+    ) -> None:
+        email = faker.email().lower()
+        user_id = faker.uuid4()
+        session_id = faker.uuid4()
+        service_role_key = "test-service-role-key"
+        storage_path = tmp_path / "storage-state.json"
+        handoff_path = tmp_path / "session-handoff.json"
+    
+>       with _supabase_session_stub(
+            email=email,
+            user_id=user_id,
+            session_id=session_id,
+            response_close_delay=response_close_delay,
+        ) as (supabase_url, calls):
+
+tests/test_private_alpha_canary_split.py:435: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/contextlib.py:137: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/test_private_alpha_canary_split.py:238: in _supabase_session_stub
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.ThreadingHTTPServer object at 0x111937c50>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/socketserver.py:472: PermissionError
+____ test_session_tool_retries_a_transient_allowlist_lookup_and_reports_it _____
+
+tmp_path = PosixPath('/private/tmp/pytest-of-garces/pytest-21/test_session_tool_retries_a_tr0')
+faker = <faker.proxy.Faker object at 0x10d84a050>
+
+    def test_session_tool_retries_a_transient_allowlist_lookup_and_reports_it(
+        tmp_path: Path,
+        faker: Faker,
+    ) -> None:
+        email = faker.email().lower()
+        service_role_key = "test-service-role-key"
+    
+>       with _supabase_session_stub(
+            email=email,
+            user_id=faker.uuid4(),
+            session_id=faker.uuid4(),
+            allowlist_lookup_failures=1,
+        ) as (supabase_url, calls):
+
+tests/test_private_alpha_canary_split.py:501: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/contextlib.py:137: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/test_private_alpha_canary_split.py:238: in _supabase_session_stub
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.ThreadingHTTPServer object at 0x111934f90>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/socketserver.py:472: PermissionError
+____ test_session_tool_revokes_a_minted_session_that_fails_least_privilege _____
+
+tmp_path = PosixPath('/private/tmp/pytest-of-garces/pytest-21/test_session_tool_revokes_a_mi0')
+faker = <faker.proxy.Faker object at 0x10d84a050>
+
+    def test_session_tool_revokes_a_minted_session_that_fails_least_privilege(
+        tmp_path: Path,
+        faker: Faker,
+    ) -> None:
+        email = faker.email().lower()
+        service_role_key = "test-service-role-key"
+        env = os.environ.copy()
+    
+>       with _supabase_session_stub(
+            email=email,
+            user_id=faker.uuid4(),
+            session_id=faker.uuid4(),
+            metadata_role="developer",
+        ) as (supabase_url, calls):
+
+tests/test_private_alpha_canary_split.py:552: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/contextlib.py:137: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/test_private_alpha_canary_split.py:238: in _supabase_session_stub
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.ThreadingHTTPServer object at 0x111935010>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/socketserver.py:472: PermissionError
+__ test_session_tool_preserves_a_private_retry_handoff_when_revocation_fails ___
+
+tmp_path = PosixPath('/private/tmp/pytest-of-garces/pytest-21/test_session_tool_preserves_a_0')
+faker = <faker.proxy.Faker object at 0x10d84a050>
+
+    def test_session_tool_preserves_a_private_retry_handoff_when_revocation_fails(
+        tmp_path: Path,
+        faker: Faker,
+    ) -> None:
+        email = faker.email().lower()
+        service_role_key = "test-service-role-key"
+        handoff_path = tmp_path / "session-handoff.json"
+        env = os.environ.copy()
+    
+>       with _supabase_session_stub(
+            email=email,
+            user_id=faker.uuid4(),
+            session_id=faker.uuid4(),
+            metadata_role="developer",
+            logout_statuses=(503, 204),
+        ) as (supabase_url, calls):
+
+tests/test_private_alpha_canary_split.py:597: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/contextlib.py:137: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/test_private_alpha_canary_split.py:238: in _supabase_session_stub
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.ThreadingHTTPServer object at 0x111730c50>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/socketserver.py:472: PermissionError
+_________ test_session_tool_rejects_a_stale_admin_profile_before_mint __________
+
+tmp_path = PosixPath('/private/tmp/pytest-of-garces/pytest-21/test_session_tool_rejects_a_st0')
+faker = <faker.proxy.Faker object at 0x10d84a050>
+
+    def test_session_tool_rejects_a_stale_admin_profile_before_mint(
+        tmp_path: Path,
+        faker: Faker,
+    ) -> None:
+        email = faker.email().lower()
+        env = os.environ.copy()
+    
+>       with _supabase_session_stub(
+            email=email,
+            user_id=faker.uuid4(),
+            session_id=faker.uuid4(),
+            profile_is_admin=True,
+        ) as (supabase_url, calls):
+
+tests/test_private_alpha_canary_split.py:659: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/contextlib.py:137: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/test_private_alpha_canary_split.py:238: in _supabase_session_stub
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.ThreadingHTTPServer object at 0x111761310>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/socketserver.py:472: PermissionError
+_________ test_session_tool_provisions_only_a_safe_dedicated_identity __________
+
+tmp_path = PosixPath('/private/tmp/pytest-of-garces/pytest-21/test_session_tool_provisions_o0')
+faker = <faker.proxy.Faker object at 0x10d84a050>
+
+    def test_session_tool_provisions_only_a_safe_dedicated_identity(
+        tmp_path: Path,
+        faker: Faker,
+    ) -> None:
+        email = f"private-alpha-canary+{faker.sha256()[:32]}@get-argus.com"
+        service_role_key = "test-service-role-key"
+        env = os.environ.copy()
+    
+>       with _supabase_session_stub(
+            email=email,
+            user_id=faker.uuid4(),
+            session_id=faker.uuid4(),
+            listed_user=False,
+            profile_exists=False,
+        ) as (supabase_url, calls):
+
+tests/test_private_alpha_canary_split.py:804: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/contextlib.py:137: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/test_private_alpha_canary_split.py:238: in _supabase_session_stub
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.ThreadingHTTPServer object at 0x110da3590>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/socketserver.py:472: PermissionError
+_____ test_session_tool_revokes_and_rolls_back_a_failed_profile_bootstrap ______
+
+faker = <faker.proxy.Faker object at 0x10d84a050>
+
+    def test_session_tool_revokes_and_rolls_back_a_failed_profile_bootstrap(
+        faker: Faker,
+    ) -> None:
+        email = f"private-alpha-canary+{faker.sha256()[:32]}@get-argus.com"
+        service_role_key = "test-service-role-key"
+        user_id = faker.uuid4()
+        env = os.environ.copy()
+    
+>       with _supabase_session_stub(
+            email=email,
+            user_id=user_id,
+            session_id=faker.uuid4(),
+            listed_user=False,
+            profile_exists=False,
+            profile_bootstrap_status=503,
+        ) as (supabase_url, calls):
+
+tests/test_private_alpha_canary_split.py:864: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/contextlib.py:137: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/test_private_alpha_canary_split.py:238: in _supabase_session_stub
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.ThreadingHTTPServer object at 0x111760750>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/socketserver.py:472: PermissionError
+______ test_session_tool_refuses_to_relabel_an_existing_unknown_identity _______
+
+faker = <faker.proxy.Faker object at 0x10d84a050>
+
+    def test_session_tool_refuses_to_relabel_an_existing_unknown_identity(
+        faker: Faker,
+    ) -> None:
+        email = f"private-alpha-canary+{faker.sha256()[:32]}@get-argus.com"
+        env = os.environ.copy()
+    
+>       with _supabase_session_stub(
+            email=email,
+            user_id=faker.uuid4(),
+            session_id=faker.uuid4(),
+            metadata_source="employee",
+        ) as (supabase_url, calls):
+
+tests/test_private_alpha_canary_split.py:907: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/contextlib.py:137: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/test_private_alpha_canary_split.py:238: in _supabase_session_stub
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.ThreadingHTTPServer object at 0x111986090>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/socketserver.py:472: PermissionError
+______ test_session_tool_refuses_to_overwrite_an_elevated_allowlist_role _______
+
+faker = <faker.proxy.Faker object at 0x10d84a050>
+
+    def test_session_tool_refuses_to_overwrite_an_elevated_allowlist_role(
+        faker: Faker,
+    ) -> None:
+        email = f"private-alpha-canary+{faker.sha256()[:32]}@get-argus.com"
+        env = os.environ.copy()
+    
+>       with _supabase_session_stub(
+            email=email,
+            user_id=faker.uuid4(),
+            session_id=faker.uuid4(),
+            listed_user=False,
+            allowlist_role="developer",
+        ) as (supabase_url, calls):
+
+tests/test_private_alpha_canary_split.py:945: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/contextlib.py:137: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/test_private_alpha_canary_split.py:238: in _supabase_session_stub
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.ThreadingHTTPServer object at 0x111704110>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/socketserver.py:472: PermissionError
+______ test_session_tool_refuses_to_provision_over_a_stale_admin_profile _______
+
+faker = <faker.proxy.Faker object at 0x10d84a050>
+
+    def test_session_tool_refuses_to_provision_over_a_stale_admin_profile(
+        faker: Faker,
+    ) -> None:
+        email = f"private-alpha-canary+{faker.sha256()[:32]}@get-argus.com"
+        env = os.environ.copy()
+    
+>       with _supabase_session_stub(
+            email=email,
+            user_id=faker.uuid4(),
+            session_id=faker.uuid4(),
+            profile_is_admin=True,
+        ) as (supabase_url, calls):
+
+tests/test_private_alpha_canary_split.py:983: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/contextlib.py:137: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/test_private_alpha_canary_split.py:238: in _supabase_session_stub
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.ThreadingHTTPServer object at 0x1118f4310>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/Users/garces/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/socketserver.py:472: PermissionError
+=========================== short test summary info ============================
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_mints_private_storage_state_and_revokes_it[immediate-close]
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_mints_private_storage_state_and_revokes_it[delayed-close]
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_retries_a_transient_allowlist_lookup_and_reports_it
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_revokes_a_minted_session_that_fails_least_privilege
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_preserves_a_private_retry_handoff_when_revocation_fails
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_rejects_a_stale_admin_profile_before_mint
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_provisions_only_a_safe_dedicated_identity
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_revokes_and_rolls_back_a_failed_profile_bootstrap
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_refuses_to_relabel_an_existing_unknown_identity
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_refuses_to_overwrite_an_elevated_allowlist_role
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_refuses_to_provision_over_a_stale_admin_profile
+11 failed, 12 passed in 1.39s

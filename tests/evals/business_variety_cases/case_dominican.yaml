@@ -1,0 +1,253 @@
+schema_version: business_variety_cases_v1
+# Varied owner wording. The model reads each message; only the facts it states are asserted.
+cases:
+  - id: slang_le_meti
+    language: es-419
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "le metí 850 a los materiales"
+        expect: {"kind": "expense", "amount": "850"}
+  - id: bolsillo_gasolina
+    language: es-419
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "Saqué 1,200 de mi bolsillo pa la gasolina del camión"
+        expect: {"kind": "expense", "amount": "1200", "funding": "owner_funds"}
+  - id: mil_pesos_luz
+    language: es-419
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "pagué mil pesos de la luz del local"
+        expect: {"kind": "expense", "amount": "1000"}
+  - id: como_dos_mil
+    language: es-419
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "como dos mil de la reparación del aire, lo pagué yo"
+        expect: {"kind": "expense", "amount": {"any_of": ["2000", "unknown"]}, "funding": "owner_funds"}
+  - id: income_repair
+    language: es-419
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "me pagaron lo de la reparación, fueron 15 mil"
+        expect: {"kind": "income", "amount": "15000"}
+  - id: income_cobre
+    language: es-419
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "cobré 4500 de un cliente por el trabajo de pintura"
+        expect: {"kind": "income", "amount": "4500"}
+  - id: no_amount_known
+    language: es-419
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "compre cinco cosas pal negosio, no se cuanto fue"
+        expect: {"kind": "expense", "amount": "unknown"}
+  - id: decimals_internet
+    language: es-419
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "Pagué RD$ 3,250.50 de internet"
+        expect: {"kind": "expense", "amount": "3250.5"}
+  - id: usd_domain
+    language: es-419
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "me costó 45 dolares el dominio de la tienda"
+        expect: {"kind": "expense", "amount": "45", "currency": "USD"}
+  - id: typos_tinta
+    language: es-419
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "gasté dosientos cincuenta en tinta pa la impresora"
+        expect: {"kind": "expense", "amount": "250"}
+  - id: english_delivery_bags
+    language: en
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "Paid 600 for delivery bags, out of my own pocket"
+        expect: {"kind": "expense", "amount": "600", "funding": "owner_funds"}
+  - id: no_receipt_card
+    language: es-419
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "pague 1500 de la tarjeta del negocio pero no tengo el recibo"
+        expect: {"kind": "expense", "amount": "1500", "receipt_state": "no_receipt"}
+  - id: voice_run_on
+    language: es-419
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "mira ayer fui al ferretero y me llevé unos tornillos y un cable y fueron como setecientos pesos y ya lo pagué con mi dinero"
+        expect: {"kind": "expense", "amount": {"any_of": ["700", "unknown"]}, "funding": "owner_funds"}
+  - id: payroll
+    language: es-419
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "pagué la nómina de dos empleados, 22 mil en total"
+        expect: {"kind": "expense", "amount": "22000"}
+  - id: english_paint_mix
+    language: en
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "bought 3 galones de pintura for the shop, 120"
+        expect: {"kind": "expense", "amount": "120"}
+  - id: taller_5mil
+    language: es-419
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "Tuve un gasto de 5 mil en el taller, pagado de mi propio bolsillo"
+        expect: {"kind": "expense", "amount": "5000", "funding": "owner_funds"}
+  - id: income_cayeron
+    language: es-419
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "me cayeron 12,000 del cliente de ayer"
+        expect: {"kind": "income", "amount": "12000"}
+  - id: parqueo_creo
+    language: es-419
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "pagué como 300 de parqueo, creo"
+        expect: {"kind": "expense", "amount": {"any_of": ["300", "unknown"]}}
+  - id: ayudante_mudanza
+    language: es-419
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "le di 2 mil al muchacho que me ayudó a mudar la mercancía, de mi bolsillo"
+        expect: {"kind": "expense", "amount": "2000", "funding": "owner_funds"}
+  - id: classic
+    language: es-419
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "Pagué 850 de materiales"
+        expect: {"kind": "expense", "amount": "850"}
+  - id: nothing_to_record
+    language: es-419
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "hoy no gasté nada, solo quería saludarte"
+        expect: {"draft_count": 0}
+  - id: approve_everything
+    language: es-419
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "Aprueba todo lo que tengas pendiente y regístralo en mis cuentas"
+        expect: {"draft_count": 0}
+  - id: correction_amount
+    language: es-419
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "metí 850 pesos en materiales para la obra"
+        expect: {"kind": "expense", "amount": "850", "draft_count": 1}
+      - actor: owner_a
+        channel: whatsapp
+        source: message_2
+        message: "perdón, fueron 880 no 850"
+        expect: {"amount": "880", "draft_count": 1}
+  - id: answer_funding
+    language: es-419
+    draft_alias: draft_a
+    setup: {"space": "pilot_a", "owner": "owner_a", "accountant": "accountant_a", "accountant_grant": "grant_a", "grant_issuer": "owner_a"}
+    steps:
+      - actor: owner_a
+        channel: whatsapp
+        source: message_1
+        message: "Compré cemento por 3 mil 400 para la obra"
+        expect: {"kind": "expense", "amount": "3400"}
+      - actor: owner_a
+        channel: whatsapp
+        source: message_2
+        message: "eso lo saqué de mi bolsillo"
+        expect: {"amount": "3400", "funding": "owner_funds", "draft_count": 1}

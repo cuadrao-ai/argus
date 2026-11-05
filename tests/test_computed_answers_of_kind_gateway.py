@@ -5,6 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.supabase_computed_answers import SupabaseComputedAnswerReadMixin
 
 
@@ -55,7 +56,7 @@ def test_the_kind_filter_reads_the_marker_and_drops_deleted_conversations() -> N
         }
     )
     rows = _Reader(client).computed_answers_of_kind(
-        user_id="owner", kind="price_multiple", limit=11
+        scope=PERSONAL, user_id="owner", kind="price_multiple", limit=11
     )
     assert [row["id"] for row in rows] == ["m1"]
     messages, conversations = client.queries
@@ -68,7 +69,12 @@ def test_the_kind_filter_reads_the_marker_and_drops_deleted_conversations() -> N
 
 def test_no_matching_message_skips_the_conversation_read() -> None:
     client = _Client({"messages": [], "conversations": []})
-    assert _Reader(client).computed_answers_of_kind(user_id="o", kind="k", limit=3) == []
+    assert (
+        _Reader(client).computed_answers_of_kind(
+            scope=PERSONAL, user_id="o", kind="k", limit=3
+        )
+        == []
+    )
     assert len(client.queries) == 1
 
 
@@ -83,7 +89,9 @@ def test_answers_in_deleted_conversations_do_not_crowd_out_older_live_ones() -> 
             "conversations": [{"id": "live"}],
         }
     )
-    rows = _Reader(client).computed_answers_of_kind(user_id="owner", kind="k", limit=2)
+    rows = _Reader(client).computed_answers_of_kind(
+        scope=PERSONAL, user_id="owner", kind="k", limit=2
+    )
     assert [row["id"] for row in rows] == ["m3"]
     first, _, second, _ = client.queries
     assert ("range", (0, 1)) in first.calls
@@ -97,6 +105,8 @@ def test_the_refill_reads_on_until_a_live_answer_or_the_end() -> None:
     ]
     live = {"id": "m-live", "conversation_id": "live", "role": "assistant"}
     client = _Client({"messages": [*deleted, live], "conversations": [{"id": "live"}]})
-    rows = _Reader(client).computed_answers_of_kind(user_id="owner", kind="k", limit=1)
+    rows = _Reader(client).computed_answers_of_kind(
+        scope=PERSONAL, user_id="owner", kind="k", limit=1
+    )
     assert [row["id"] for row in rows] == ["m-live"]
     assert len([query for query in client.queries if query.table == "messages"]) == 5

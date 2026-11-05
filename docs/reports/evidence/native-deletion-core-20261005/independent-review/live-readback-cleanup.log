@@ -1,0 +1,4 @@
+OWN_API_PID 76940
+LIVE_DELETION_EXIT 0
+PG_A_PRESENT False PG_B_PRESENT True PG_A_RUN_STATUS done
+CLEANUP_OK own API stopped; own synthetic users removed; private fixture deleted; root Auth config/DB preserved

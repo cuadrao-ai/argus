@@ -1,0 +1,38 @@
+{
+  "synthetic": true,
+  "extraction_mode": "stub",
+  "source_file": "voice-transcript-es.txt",
+  "limitations": "Authored proposals for lifecycle tests; not extraction or confidence evidence.",
+  "proposals": [
+    {
+      "source_id": "voice-01",
+      "date": "2026-09-10",
+      "description": "Compra sintética",
+      "amount": "250.00",
+      "currency": "DOP",
+      "kind": "expense",
+      "account": "cash-dop",
+      "destination": "personal",
+      "source_ref": {
+        "char_start": 35,
+        "char_end": 177,
+        "quote": "Eh... gasté trescientos, no, doscientos cincuenta pesos dominicanos ayer... bueno, fue el diez de septiembre de 2026, de mi efectivo personal."
+      }
+    },
+    {
+      "source_id": "voice-02",
+      "date": "",
+      "description": "Compra sintética",
+      "amount": "700.00",
+      "currency": "DOP",
+      "kind": "expense",
+      "account": "",
+      "destination": "personal or household",
+      "source_ref": {
+        "char_start": 178,
+        "char_end": 252,
+        "quote": "Y setecientos de la compra de casa, no sé si ponerlo personal o del hogar."
+      }
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+PASS: fixture endpoints, tie, null gaps, missing row selection, empty/single, release/cancel/reset, locale/currency

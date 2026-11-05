@@ -1,0 +1,149 @@
+{
+  "mode": "live",
+  "model": "qwen/qwen3.7-plus",
+  "git_head": "f8ad929008bc6f3d2ed833cd23bba488d142f6de",
+  "runner_sha256": "04281a6a26616e610d7b6ebca73a14faff378b4b30d8fac91b680a3bff80f13c",
+  "started_at": "2026-10-02T17:39:15.278282+00:00",
+  "cumulative_ceiling_usd": "6",
+  "prior_reserved_usd": "1.4030075136",
+  "prior_known_cost_usd": "0.00489199536",
+  "prior_cost_unknown": true,
+  "endpoint_snapshot": [
+    {
+      "name": "Alibaba | qwen/qwen3.7-plus-20260602",
+      "model_id": "qwen/qwen3.7-plus",
+      "model_name": "Qwen: Qwen3.7 Plus",
+      "context_length": 1000000,
+      "pricing": {
+        "prompt": "0.00000032",
+        "completion": "0.00000128",
+        "input_cache_read": "0.000000064",
+        "input_cache_write": "0.0000004",
+        "discount": 0,
+        "overrides": [
+          {
+            "min_prompt_tokens": 256000,
+            "prompt": "0.00000096",
+            "completion": "0.00000384",
+            "input_cache_read": "0.000000192",
+            "input_cache_write": "0.0000012"
+          }
+        ]
+      },
+      "provider_name": "Alibaba",
+      "tag": "alibaba",
+      "quantization": "unknown",
+      "max_completion_tokens": 131072,
+      "max_prompt_tokens": 983616,
+      "supported_parameters": [
+        "reasoning",
+        "include_reasoning",
+        "max_tokens",
+        "temperature",
+        "top_p",
+        "seed",
+        "presence_penalty",
+        "response_format",
+        "logprobs",
+        "top_logprobs",
+        "tools",
+        "tool_choice",
+        "structured_outputs",
+        "top_k",
+        "frequency_penalty",
+        "stop"
+      ],
+      "supports_tool_choice": {
+        "none": true,
+        "auto": true,
+        "required": true,
+        "function": true
+      },
+      "status": 0,
+      "uptime_last_30m": 99.977704811707,
+      "uptime_last_5m": 99.9735659529474,
+      "uptime_last_1d": 99.94298859705299,
+      "supports_implicit_caching": false,
+      "native_tools": {},
+      "supports_voice_cloning": false,
+      "supports_multiple_audio_references": false,
+      "supports_image_reference": false,
+      "latency_last_30m": null,
+      "throughput_last_30m": null
+    }
+  ],
+  "proposed_cumulative_reservation_usd": "3.8951675136",
+  "results": [
+    {
+      "fixture_id": "statement-usd",
+      "fixture_sha256": "ecb9500f20c436b90373b8c3bae817c67b89c34329eee1cc399c67298e8e019d",
+      "model_observations": [],
+      "canonical_candidates": [],
+      "error_code": "extraction_provider_failed",
+      "request": {
+        "model": "qwen/qwen3.7-plus",
+        "max_tokens": 12000,
+        "provider": {
+          "require_parameters": true,
+          "data_collection": "deny",
+          "zdr": true,
+          "allow_fallbacks": false,
+          "only": [
+            "alibaba"
+          ],
+          "max_price": {
+            "prompt": 0.96,
+            "completion": 3.84,
+            "request": 0,
+            "image": 0
+          }
+        },
+        "schema_sha256": "dd57d1e6e7dc5e8f8315e23dbcd9cd054be60e88a28fcefb598f45d6271037f6",
+        "images": [
+          {
+            "width": 1600,
+            "height": 1131,
+            "sha256": "bef6f4c94afe5abbe50db234ee540e4a1692a6fce498c801974cc488a7e68354",
+            "bytes": 67233
+          }
+        ],
+        "supplemental_pdf_text_chars": 400
+      },
+      "http_status": 404,
+      "provider_error_code": 404,
+      "provider_error_terms": [
+        "privacy",
+        "no endpoints"
+      ],
+      "candidate_validation": "failed_or_not_reached",
+      "latency_ms": 815,
+      "accuracy_passed": false
+    }
+  ],
+  "stop_reason": "unknown_cost_or_multiple_attempts",
+  "complete": false,
+  "new_budget": {
+    "model": "qwen/qwen3.7-plus",
+    "provider": "alibaba",
+    "context_tokens": 1000000,
+    "output_tokens": 12000,
+    "prompt_usd_per_token": "9.6E-7",
+    "completion_usd_per_token": "0.00000384",
+    "cache_read_usd_per_token": "1.92E-7",
+    "cache_write_usd_per_token": "0.0000012",
+    "reserved_input_usd_per_token": "0.0000012",
+    "maximum_request_usd": "1.24608000",
+    "approved_cap_usd": "4.5969924864",
+    "maximum_run_usd": "2.49216000",
+    "reserved_usd": "1.24608000",
+    "attempts": 1,
+    "attempted_fixtures": [
+      "statement-usd"
+    ]
+  },
+  "cumulative_reserved_usd": "2.6490875136",
+  "new_known_cost_usd": "0",
+  "new_actual_cost_usd": null,
+  "cumulative_known_cost_usd": "0.00489199536",
+  "cumulative_actual_cost_usd": null
+}

@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any
 
 from argus.api import state as api_state
+from argus.api.conversation_surface import memory_conversation_in_scope
 from argus.api.decision_contract import DecisionActionAvailability, DecisionNote
 from argus.api.message_store import owned_conversation_message
 from argus.api.schemas import (
@@ -30,6 +31,7 @@ from argus.domain.answer_dossiers import (
     question_before,
     question_text,
 )
+from argus.domain.owner_scope import OwnerScope
 from argus.domain.run_dossiers import message_metadata, row_activity
 from argus.domain.search_text import normalize_search_symbol
 
@@ -72,6 +74,7 @@ def with_computed_results(
     rollup: SearchAssetRollup | None,
     *,
     user: User,
+    scope: OwnerScope,
     query: str,
     guest_conversation_id: str | None,
 ) -> SearchAssetRollup | None:
@@ -79,7 +82,7 @@ def with_computed_results(
     normalized_query = normalize_search_symbol(query)
     if normalized_query is None:
         return rollup
-    rows = _computed_symbol_rows(user, guest_conversation_id)
+    rows = _computed_symbol_rows(user, scope, guest_conversation_id)
     by_symbol: dict[str, list[Mapping[str, Any]]] = {}
     display: dict[str, str] = {}
     for row in rows:
@@ -211,15 +214,17 @@ def _answer_decisions(user: User, message_ids: Sequence[str]) -> dict[str, Decis
 
 
 def _computed_symbol_rows(
-    user: User, guest_conversation_id: str | None
+    user: User, scope: OwnerScope, guest_conversation_id: str | None
 ) -> list[Mapping[str, Any]]:
     if api_state.supabase_gateway is not None:
         return api_state.supabase_gateway.computed_answer_rows_for_symbols(
-            user_id=user.id, conversation_id=guest_conversation_id
+            user_id=user.id, scope=scope, conversation_id=guest_conversation_id
         )
     rows: list[Mapping[str, Any]] = []
     for conversation_id, messages in api_state.store.messages.items():
-        if api_state.store.conversation_owners.get(conversation_id) != user.id:
+        if api_state.store.conversation_owners.get(
+            conversation_id
+        ) != user.id or not memory_conversation_in_scope(conversation_id, scope):
             continue
         if guest_conversation_id is not None and conversation_id != guest_conversation_id:
             continue

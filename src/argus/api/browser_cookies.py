@@ -16,8 +16,8 @@ from typing import Any, Final
 
 from loguru import logger
 
-# Cookie name -> the item key under legal.privacy.sections.cookies.items that
-# discloses it. Adding a cookie means adding it here and to that disclosure.
+# Cookie name -> the purpose the published privacy policy (cuadrao.ai/privacidad)
+# discloses it under. A cookie outside security and operation needs the policy first.
 COOKIE_REGISTRY: Final[dict[str, str]] = {
     "sb-auth-token": "sign_in",
     "sb-refresh-token": "sign_in",

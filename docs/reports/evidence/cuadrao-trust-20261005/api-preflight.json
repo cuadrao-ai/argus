@@ -1,0 +1,29 @@
+{
+  "/health": {
+    "status": 200,
+    "body": {
+      "status": "healthy",
+      "version": "1.0.0-alpha"
+    }
+  },
+  "/api/v1/households": {
+    "status": 401,
+    "body": {
+      "type": "https://api.argus.app/problems/unauthorized",
+      "title": "Unauthorized",
+      "status": 401,
+      "detail": "Missing or invalid Authorization header or session cookie.",
+      "code": "unauthorized"
+    }
+  },
+  "/api/v1/account/delete": {
+    "status": 404,
+    "body": {
+      "type": "https://api.argus.app/problems/not-found",
+      "title": "Not Found",
+      "status": 404,
+      "detail": "Not found.",
+      "code": "not_found"
+    }
+  }
+}

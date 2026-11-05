@@ -24,7 +24,7 @@ describe("pwa manifest", () => {
   });
 
   test("names the app and keeps short_name under a home-screen icon", () => {
-    expect(manifest.name).toBe("Argus");
+    expect(manifest.name).toBe("Cuadrao");
     expect(manifest.short_name.length).toBeLessThanOrEqual(12);
   });
 
@@ -33,9 +33,9 @@ describe("pwa manifest", () => {
     expect(manifest.display_override).toEqual(["standalone", "minimal-ui"]);
   });
 
-  test("carries the Argus dark theme and a splash background", () => {
-    expect(manifest.theme_color).toBe("#191c1f");
-    expect(manifest.background_color).toBe("#191c1f");
+  test("carries the Cuadrao paper surface as theme and splash background", () => {
+    expect(manifest.theme_color).toBe("#fafbf8");
+    expect(manifest.background_color).toBe("#fafbf8");
   });
 
   test("starts and scopes at the app root", () => {
@@ -53,20 +53,6 @@ describe("pwa manifest", () => {
     ]);
   });
 
-  test("ships a separate maskable 512 so Android does not box the icon", () => {
-    const maskable = manifest.icons.filter(
-      (icon: { purpose?: string }) => icon.purpose === "maskable",
-    );
-    expect(maskable).toHaveLength(1);
-    expect(maskable[0].sizes).toBe("512x512");
-    expect(maskable[0].src).not.toBe(
-      manifest.icons.find(
-        (icon: { purpose?: string; sizes: string }) =>
-          icon.purpose === "any" && icon.sizes === "512x512",
-      ).src,
-    );
-  });
-
   test("every declared icon exists at its declared size", () => {
     for (const icon of manifest.icons) {
       const [width, height] = icon.sizes.split("x").map(Number);
@@ -75,25 +61,14 @@ describe("pwa manifest", () => {
     }
   });
 
-  test("ships narrow and wide screenshots for the install prompt", () => {
-    const formFactors = manifest.screenshots.map(
-      (shot: { form_factor: string }) => shot.form_factor,
-    );
-    expect(formFactors).toContain("narrow");
-    expect(formFactors).toContain("wide");
-    for (const shot of manifest.screenshots) {
-      const [width, height] = shot.sizes.split("x").map(Number);
-      expect(pngSize(shot.src)).toEqual({ width, height });
-    }
+  test("declares no screenshots: none of Cuadrao exist yet, and none of Argus remain", () => {
+    expect(manifest.screenshots).toBeUndefined();
   });
 
   test("carries no em dash in install copy", () => {
     expect(manifest.name).not.toContain("—");
     expect(manifest.short_name).not.toContain("—");
     expect(manifest.description).not.toContain("—");
-    for (const shot of manifest.screenshots) {
-      expect(shot.label).not.toContain("—");
-    }
   });
 });
 
@@ -110,7 +85,7 @@ describe("document head", () => {
   test("declares theme-color for light and dark", () => {
     expect(layout).toContain('media: "(prefers-color-scheme: light)"');
     expect(layout).toContain('media: "(prefers-color-scheme: dark)"');
-    expect(layout).toContain('color: "#191c1f"');
-    expect(layout).toContain('color: "#ffffff"');
+    expect(layout).toContain('color: "#172b26"');
+    expect(layout).toContain('color: "#fafbf8"');
   });
 });

@@ -1,0 +1,2 @@
+Test Case '-[ArgusFoundationUITests.CuadraoGroupDesignUITests testSharedJourneySpanish]' passed (58.299 seconds).
+exit=0 seconds=62

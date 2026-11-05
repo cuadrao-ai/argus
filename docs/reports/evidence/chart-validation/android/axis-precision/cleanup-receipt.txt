@@ -1,0 +1,10 @@
+Success
+Success
+OK: killing emulator, bye bye
+OK
+Stopping Daemon(s)
+1 Daemon stopped
+List of devices attached
+emulator-5584          device product:sdk_gphone64_arm64 model:sdk_gphone64_arm64 device:emu64a transport_id:5
+
+List of devices attached

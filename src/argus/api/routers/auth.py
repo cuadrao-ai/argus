@@ -4,19 +4,21 @@ from datetime import datetime, timezone
 from math import ceil
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from loguru import logger
 
 from argus.api import state as api_state
 from argus.api.browser_cookies import delete_browser_cookie, set_browser_cookie
+from argus.api.business_spaces import business_access
 from argus.api.dependencies import (
     _apply_auth_session_cookies,
     auth_response,
     browser_cookie_policy,
     current_user,
     problem,
+    request_access_token,
 )
 from argus.api.guest_access import (
     account_context,
@@ -28,10 +30,7 @@ from argus.api.guest_access import (
     store_account_context,
     visitor_key_for_request,
 )
-from argus.api.guest_observability import (
-    emit_guest_funnel_event,
-    emit_verified_guest_funnel_event,
-)
+from argus.api.guest_observability import emit_verified_guest_funnel_event
 from argus.api.rate_limits import SlidingWindowLimiter
 from argus.api.schemas import (
     AccessRequestAccepted,
@@ -47,6 +46,8 @@ from argus.api.schemas import (
     User,
     guest_safe_user,
 )
+from argus.domain.existing_account_email import send_existing_account_notice
+from argus.domain.login_browser_check import CaptchaVerificationError
 from argus.domain.supabase_guest_accounts import EmailAlreadyRegisteredError
 from argus.domain.username_signup import (
     serialized_guest_signup,
@@ -84,7 +85,28 @@ def _login_auth_problem(request: Request) -> HTTPException:
     )
 
 
-def _signup_auth_problem(request: Request) -> HTTPException:
+def _browser_check_problem(request: Request) -> HTTPException:
+    return problem(
+        request,
+        status_code=400,
+        code="captcha_unavailable",
+        title="Browser Check Failed",
+        detail="The browser check did not complete. Try again.",
+    )
+
+
+def _signup_auth_problem(
+    request: Request,
+    *,
+    reason: Literal["access_denied", "username_unavailable", "signup_failed"],
+    surface: Literal["direct_signup", "guest_conversion"],
+) -> HTTPException:
+    logger.warning(
+        "Signup rejected: surface={surface} reason={reason} request_id={request_id}",
+        surface=surface,
+        reason=reason,
+        request_id=request.state.request_id,
+    )
     return problem(
         request,
         status_code=400,
@@ -265,15 +287,6 @@ def guest_bootstrap(
             visitor_key=visitor_key_for_request(request),
         )
         store_account_context(request, guest_context)
-        emit_guest_funnel_event(
-            account=guest_context,
-            kind="guest_session_started",
-            user_id=profile.id,
-            language=profile.language,
-            surface="guest_entry",
-            product_capability="account",
-            terminal_outcome="started",
-        )
         payload = dict(result)
         payload.update(
             {
@@ -336,8 +349,7 @@ def create_guest_handoff(
         email=body.destination_email,
     )
     if not permanent_account_access_allowed(
-        api_state.supabase_gateway,
-        body.destination_email,
+        api_state.supabase_gateway, body.destination_email, business_access()
     ):
         raise _login_auth_problem(request)
     try:
@@ -458,16 +470,6 @@ def claim_guest_handoff(
         surface="account_conversion",
         product_capability="account",
         terminal_outcome="completed",
-    )
-    emit_verified_guest_funnel_event(
-        "temporary_workspace_claimed",
-        user_id=source_user_id,
-        visitor_key=conversion_visitor_key,
-        conversation_id=payload.conversation_id,
-        language=user.language,
-        surface="account_conversion",
-        product_capability="history",
-        terminal_outcome="claimed",
     )
     response = JSONResponse(
         content=jsonable_encoder(payload.model_dump(mode="json")),
@@ -619,8 +621,12 @@ def signup_guest_account(
             detail="This session already belongs to a permanent account.",
         )
     _enforce_auth_attempt_limit(request, action="signup", email=body.email)
-    if not permanent_account_access_allowed(api_state.supabase_gateway, body.email):
-        raise _signup_auth_problem(request)
+    if not permanent_account_access_allowed(
+        api_state.supabase_gateway, body.email, business_access()
+    ):
+        raise _signup_auth_problem(
+            request, reason="access_denied", surface="guest_conversion"
+        )
 
     handoff_id = request.cookies.get(_GUEST_HANDOFF_ID_COOKIE, "").strip()
     opaque_secret = request.cookies.get(_GUEST_HANDOFF_COOKIE, "").strip()
@@ -684,7 +690,9 @@ def signup_guest_account(
                     }
             else:
                 if body.username is not None and not prevalidation.username_available:
-                    raise _signup_auth_problem(request)
+                    raise _signup_auth_problem(
+                        request, reason="username_unavailable", surface="guest_conversion"
+                    )
                 result = api_state.supabase_gateway.signup(
                     email=body.email,
                     password=body.password,
@@ -692,6 +700,7 @@ def signup_guest_account(
                     display_name=body.display_name,
                     username=body.username,
                     language=body.language,
+                    age_confirmed_at=body.age_confirmed_at,
                     guest_signup_handoff={
                         "handoff_id": handoff_id,
                         "proof": str(handoff["proof"]),
@@ -717,6 +726,10 @@ def signup_guest_account(
             profile = api_state.supabase_gateway.get_or_create_profile_for_auth_user(
                 auth_user
             )
+            if body.age_confirmed_at is not None:
+                api_state.supabase_gateway.record_age_confirmation(
+                    profile.id, body.age_confirmed_at
+                )
             result["user"] = profile.model_dump(mode="json")
             _emit_account_registration_completed_event(
                 profile, surface="guest_conversion"
@@ -745,16 +758,6 @@ def signup_guest_account(
                     product_capability="account",
                     terminal_outcome="completed",
                 )
-                emit_verified_guest_funnel_event(
-                    "temporary_workspace_claimed",
-                    user_id=source_user_id,
-                    visitor_key=conversion_visitor_key,
-                    conversation_id=claim_payload.conversation_id,
-                    language=profile.language,
-                    surface="account_conversion",
-                    product_capability="history",
-                    terminal_outcome="claimed",
-                )
             response = auth_response(request, result)
             _clear_guest_handoff_cookies(request, response)
             return response
@@ -772,11 +775,15 @@ def signup_guest_account(
             ),
         ) from None
     except Exception:
-        raise _signup_auth_problem(request) from None
+        raise _signup_auth_problem(
+            request, reason="signup_failed", surface="guest_conversion"
+        ) from None
 
 
 @router.post("/auth/signup")
-def signup(request: Request, body: SignupRequest) -> JSONResponse:
+def signup(
+    request: Request, body: SignupRequest, background_tasks: BackgroundTasks
+) -> JSONResponse:
     if api_state.supabase_gateway is None:
         raise problem(
             request,
@@ -786,8 +793,12 @@ def signup(request: Request, body: SignupRequest) -> JSONResponse:
             detail="Supabase persistence is required for authentication.",
         )
     _enforce_auth_attempt_limit(request, action="signup", email=body.email)
-    if not permanent_account_access_allowed(api_state.supabase_gateway, body.email):
-        raise _signup_auth_problem(request)
+    if not permanent_account_access_allowed(
+        api_state.supabase_gateway, body.email, business_access()
+    ):
+        raise _signup_auth_problem(
+            request, reason="access_denied", surface="direct_signup"
+        )
     try:
         with serialized_username_signup(
             api_state.DATABASE_URL,
@@ -799,7 +810,9 @@ def signup(request: Request, body: SignupRequest) -> JSONResponse:
                 and not prevalidation.auth_user_exists
                 and not prevalidation.username_available
             ):
-                raise _signup_auth_problem(request)
+                raise _signup_auth_problem(
+                    request, reason="username_unavailable", surface="direct_signup"
+                )
             result = api_state.supabase_gateway.signup(
                 email=body.email,
                 password=body.password,
@@ -807,6 +820,7 @@ def signup(request: Request, body: SignupRequest) -> JSONResponse:
                 display_name=body.display_name,
                 username=body.username,
                 language=body.language,
+                age_confirmed_at=body.age_confirmed_at,
             )
             auth_user = result.get("user")
             if not isinstance(auth_user, dict):
@@ -818,15 +832,27 @@ def signup(request: Request, body: SignupRequest) -> JSONResponse:
                 profile = api_state.supabase_gateway.get_or_create_profile_for_auth_user(
                     auth_user
                 )
+                if body.age_confirmed_at is not None:
+                    api_state.supabase_gateway.record_age_confirmation(
+                        profile.id, body.age_confirmed_at
+                    )
                 _emit_account_registration_completed_event(
                     profile,
                     surface="direct_signup",
+                )
+            else:
+                background_tasks.add_task(
+                    send_existing_account_notice,
+                    recipient=body.email,
+                    language=body.language,
                 )
             return auth_response(request, result)
     except HTTPException:
         raise
     except Exception:
-        raise _signup_auth_problem(request) from None
+        raise _signup_auth_problem(
+            request, reason="signup_failed", surface="direct_signup"
+        ) from None
 
 
 @router.post(
@@ -880,7 +906,9 @@ def login(request: Request, body: LoginRequest) -> JSONResponse:
             detail="Supabase persistence is required for authentication.",
         )
     _enforce_auth_attempt_limit(request, action="login", email=body.email)
-    if not permanent_account_access_allowed(api_state.supabase_gateway, body.email):
+    if not permanent_account_access_allowed(
+        api_state.supabase_gateway, body.email, business_access()
+    ):
         raise _login_auth_problem(request)
     try:
         result = api_state.supabase_gateway.login(
@@ -888,6 +916,8 @@ def login(request: Request, body: LoginRequest) -> JSONResponse:
             password=body.password,
             captcha_token=body.captcha_token,
         )
+    except CaptchaVerificationError:
+        raise _browser_check_problem(request) from None
     except Exception:
         raise _login_auth_problem(request) from None
     handoff_id = request.cookies.get(_GUEST_HANDOFF_ID_COOKIE, "").strip()
@@ -947,15 +977,6 @@ def login(request: Request, body: LoginRequest) -> JSONResponse:
             product_capability="account",
             terminal_outcome="completed",
         )
-        emit_verified_guest_funnel_event(
-            "temporary_workspace_claimed",
-            user_id=source_user_id,
-            visitor_key=conversion_visitor_key,
-            conversation_id=claim_payload.conversation_id,
-            surface="account_conversion",
-            product_capability="history",
-            terminal_outcome="claimed",
-        )
     response = auth_response(request, result)
     _clear_guest_handoff_cookies(request, response)
     return response
@@ -981,6 +1002,31 @@ def _enforce_browser_auth_origin(request: Request) -> None:
 @router.post("/auth/logout")
 def logout(request: Request) -> JSONResponse:
     _enforce_browser_auth_origin(request)
+    try:
+        gateway = api_state.supabase_gateway
+        if gateway is not None:
+            authorization = request.headers.get("Authorization")
+            if authorization is not None:
+                token = (
+                    authorization.removeprefix("Bearer ").strip()
+                    if authorization.startswith("Bearer ")
+                    else None
+                )
+            else:
+                token = request_access_token(request)
+                refresh = request.cookies.get("sb-refresh-token")
+                if refresh:
+                    try:
+                        payload = gateway.refresh_browser_session(refresh)
+                        token = payload["session"]["access_token"]
+                    except Exception:
+                        logger.warning(
+                            "Logout refresh resolution failed; using access cookie"
+                        )
+            if token:
+                gateway.client.auth.admin.sign_out(token, scope="local")
+    except Exception:
+        logger.warning("Logout session revocation failed; clearing browser cookies")
     response = JSONResponse({"success": True})
     delete_browser_cookie(response, "sb-auth-token", path="/")
     delete_browser_cookie(response, "sb-refresh-token", path="/")

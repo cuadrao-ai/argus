@@ -1,0 +1,7 @@
+collected 123 items
+tests/test_preferred_name.py ...................                         [ 15%]
+tests/test_apple_name_api.py ..................                          [ 30%]
+tests/test_apple_sign_in_api.py ..............................           [ 54%]
+tests/test_openapi_compatibility.py ........................             [ 73%]
+tests/test_account_deletion_api.py ................................      [100%]
+============================= 123 passed in 7.63s ==============================

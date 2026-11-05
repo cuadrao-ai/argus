@@ -1,0 +1,282 @@
+{
+  "client": "python-httpx language-neutral probe (not a native client)",
+  "suite": "session",
+  "captured_at": "2026-09-28T17:25:35+00:00",
+  "environment": "local lane Supabase stack argus-native-auth-proof (jwt_expiry=60, confirmations on) + unchanged Argus API; Argus API launched from the fix branch at argus_api_head",
+  "results": [
+    {
+      "id": "A1",
+      "area": "sign-in",
+      "scenario": "Argus /auth/login with no Origin and no cookies returns the session in JSON",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "200 with access_token, refresh_token, expires_in; user id",
+      "observed": {
+        "status": 200,
+        "has_access_token": true,
+        "has_refresh_token": true,
+        "expires_in": 60,
+        "set_cookie_names": [
+          "sb-auth-token",
+          "sb-refresh-token"
+        ]
+      },
+      "verdict": "pass",
+      "note": "Argus also sets sb-auth-token and sb-refresh-token cookies; a bearer client must not store them."
+    },
+    {
+      "id": "A2",
+      "area": "bearer",
+      "scenario": "Bearer access token reaches a harmless protected endpoint (GET /me)",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "200 and the profile email matches the signed-in user",
+      "observed": {
+        "status": 200,
+        "email_matches": true
+      },
+      "verdict": "pass",
+      "note": ""
+    },
+    {
+      "id": "A3",
+      "area": "bearer",
+      "scenario": "No bearer and no cookie is rejected",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "401 unauthorized",
+      "observed": {
+        "status": 401,
+        "code": "unauthorized"
+      },
+      "verdict": "pass",
+      "note": ""
+    },
+    {
+      "id": "A4",
+      "area": "refresh",
+      "scenario": "Refresh directly against Supabase Auth with the public anon key, as the web does",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "200, rotated refresh token, same session_id; Argus accepts the new access token",
+      "observed": {
+        "refresh_status": 200,
+        "refresh_token_rotated": true,
+        "same_session_id": true,
+        "me_with_new_access": 200,
+        "me_with_previous_access_before_expiry": 200
+      },
+      "verdict": "pass",
+      "note": "The previous access token stays usable until its exp because the session row is unchanged."
+    },
+    {
+      "id": "A5a",
+      "area": "refresh-race",
+      "scenario": "Five unserialized refreshes with one refresh token inside the reuse window",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "Server tolerates reuse inside refresh_token_reuse_interval (10 s locally)",
+      "observed": {
+        "statuses": [
+          200,
+          200,
+          200,
+          200,
+          200
+        ],
+        "distinct_refresh_tokens_returned": 1
+      },
+      "verdict": "pass",
+      "note": "The reuse window hides races only when every racer finishes inside it."
+    },
+    {
+      "id": "A5b",
+      "area": "refresh-race",
+      "scenario": "Late racers present older refresh tokens after the reuse window",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "Record Supabase's rule: which older tokens are still accepted, and whether the family is revoked",
+      "observed": {
+        "parent_status": 200,
+        "grandparent_status": 400,
+        "grandparent_error": "refresh_token_already_used",
+        "active_token_status_after_reuse": 200
+      },
+      "verdict": "pass",
+      "note": "A token two rotations old is refused; the immediate parent is tolerated. One lost refresh response is survivable, two are a sign-out. Clients single-flight refresh and persist the rotated token before using it."
+    },
+    {
+      "id": "A6",
+      "area": "expiry",
+      "scenario": "Expired access token is rejected; refresh recovers without re-entering credentials",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "401 unauthorized on the expired token, then 200 after refresh",
+      "observed": {
+        "expired_status": 401,
+        "expired_code": "unauthorized",
+        "refresh_status": 200,
+        "me_after_refresh": 200
+      },
+      "verdict": "pass",
+      "note": "Another account signed in through the same API process afterwards, which moves that process's server-side refresh timer off this session (see A14). The API does not distinguish expired from revoked; clients refresh once on 401 and treat a second 401 as signed out."
+    },
+    {
+      "id": "A14",
+      "area": "refresh-ownership",
+      "scenario": "The client alone owns refresh for a session Argus issued (the most recent sign-in on this API process, left untouched)",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "The client's refresh token is still valid after the access token expires",
+      "observed": {
+        "refresh_tokens_at_login_total_revoked": [
+          1,
+          0
+        ],
+        "refresh_tokens_after_expiry_total_revoked": [
+          1,
+          0
+        ],
+        "client_refresh_status": 200,
+        "client_refresh_error": null
+      },
+      "verdict": "pass",
+      "note": "Failed assumption. Argus's shared server-side supabase-py auth client keeps the last session it signed in and refreshes it on a timer (auto_refresh_token defaults to true), rotating the token the client holds. Once it rotates twice, the client's token is refused and the user is signed out. Affects web and native alike."
+    },
+    {
+      "id": "A7",
+      "area": "logout",
+      "scenario": "Argus POST /auth/logout alone (clearing local state only)",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "200, but the same access token still works: nothing was revoked",
+      "observed": {
+        "logout_status": 200,
+        "me_after": 200,
+        "refresh_still_valid": true
+      },
+      "verdict": "pass",
+      "note": "Discarding tokens locally leaves a live refresh token server-side. Native logout must revoke."
+    },
+    {
+      "id": "A8",
+      "area": "revoke",
+      "scenario": "Supabase signOut(scope: local) revokes this session; Argus rejects its unexpired access token",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "204; /me 401 before the JWT exp; refresh token rejected",
+      "observed": {
+        "revoke_status": 204,
+        "me_status": 401,
+        "me_code": "unauthorized",
+        "access_token_unexpired": true,
+        "refresh_status": 400
+      },
+      "verdict": "pass",
+      "note": "Argus checks auth.sessions on every request, so revocation is immediate, not at token expiry."
+    },
+    {
+      "id": "A9",
+      "area": "revoke",
+      "scenario": "Sign out other devices, then everywhere",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "others: this device 200, tablet 401; global: this device 401",
+      "observed": {
+        "others_status": 204,
+        "this_device_after_others": 200,
+        "tablet_after_others": 401,
+        "global_status": 204,
+        "this_device_after_global": 401
+      },
+      "verdict": "pass",
+      "note": ""
+    },
+    {
+      "id": "A10",
+      "area": "account-switch",
+      "scenario": "The server resolves identity only from the bearer on each request",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "Each token returns its own user; switching is a client-side cache and in-flight concern",
+      "observed": {
+        "token_a_resolves_a": true,
+        "token_b_resolves_b": true
+      },
+      "verdict": "pass",
+      "note": ""
+    },
+    {
+      "id": "A11",
+      "area": "cookie-hazard",
+      "scenario": "A platform-default cookie store keeps Argus's sb-auth-token from the last /auth/login",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "Failed assumption: a request that omits the bearer is silently authenticated as the cookie's user",
+      "observed": {
+        "stored_cookie_names": [
+          "sb-auth-token",
+          "sb-refresh-token"
+        ],
+        "no_bearer_status": 200,
+        "no_bearer_resolves_previous_user": true,
+        "bearer_wins_over_cookie": true
+      },
+      "verdict": "pass",
+      "note": "Bearer takes precedence, but any code path that forgets the header acts as the previous account. Native clients must not keep sb-* cookies."
+    },
+    {
+      "id": "A12",
+      "area": "argus-checks",
+      "scenario": "Argus login attempt limit versus calling Supabase password sign-in directly",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "Argus answers 401 for 8 attempts, then 429 with Retry-After; direct Supabase calls are not counted by Argus",
+      "observed": {
+        "argus_statuses": [
+          401,
+          401,
+          401,
+          401,
+          401,
+          401,
+          401,
+          401,
+          429
+        ],
+        "argus_retry_after_present": true,
+        "direct_supabase_statuses": [
+          400,
+          400,
+          400,
+          400,
+          400,
+          400,
+          400,
+          400,
+          400
+        ]
+      },
+      "verdict": "pass",
+      "note": "Direct SDK sign-in skips Argus's limiter, allowlist gate, profile repair, and guest claim. Sign-in stays on Argus."
+    },
+    {
+      "id": "A13",
+      "area": "argus-checks",
+      "scenario": "A non-allowlisted account signs in directly against Supabase",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "Argus login 401; direct Supabase issues a session; Argus still refuses it on every product call",
+      "observed": {
+        "argus_login_status": 401,
+        "direct_supabase_status": 200,
+        "me_with_direct_session": 403,
+        "me_code": "private_alpha_access_required"
+      },
+      "verdict": "pass",
+      "note": "The allowlist is enforced twice, so a direct session is not an access bypass, but it is a live Supabase session Argus never counted."
+    }
+  ],
+  "probe_checkout_head": "de61fd3e7d299fcd0c7fda24f3c95f5427822271",
+  "argus_api_head": "54fe7b6fe"
+}

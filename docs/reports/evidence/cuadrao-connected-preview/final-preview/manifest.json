@@ -1,0 +1,30 @@
+{
+  "source_revision": "eddb7da97f3c38135bf855cc1c73930154fb0713",
+  "baseline_revision": "875de09ac2115acec42e09060b92878aa5f18eff",
+  "captures": [
+    {
+      "image": "final-preview/home-dark.png",
+      "changed_pixels": 0,
+      "max_channel_difference": 0,
+      "diff_bbox": null,
+      "baseline_sha256": "2f77199f7d450d1bd83035c5dc9cec4d727ed2a96bdd032a46c178bbe0e0fdcc",
+      "candidate_sha256": "2f77199f7d450d1bd83035c5dc9cec4d727ed2a96bdd032a46c178bbe0e0fdcc"
+    },
+    {
+      "image": "final-preview/home-empty-light.png",
+      "changed_pixels": 0,
+      "max_channel_difference": 0,
+      "diff_bbox": null,
+      "baseline_sha256": "352f9c2a8fb44e7f0eb85413bddb2caa588effc538ae013042927f5e79f6c9e3",
+      "candidate_sha256": "352f9c2a8fb44e7f0eb85413bddb2caa588effc538ae013042927f5e79f6c9e3"
+    },
+    {
+      "image": "final-preview/home-light.png",
+      "changed_pixels": 0,
+      "max_channel_difference": 0,
+      "diff_bbox": null,
+      "baseline_sha256": "dc49c404b1670f7a63a4c982677996f0ba5e6f0c227fcb56ecbd6d1722d3e472",
+      "candidate_sha256": "dc49c404b1670f7a63a4c982677996f0ba5e6f0c227fcb56ecbd6d1722d3e472"
+    }
+  ]
+}

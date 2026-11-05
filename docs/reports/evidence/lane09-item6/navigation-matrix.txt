@@ -1,0 +1,45 @@
+(node:52673) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[WebServer] (node:52687) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:52688) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 18 tests using 1 worker
+
+(node:52689) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:52689) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:52689) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:52688) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+  ✓   1 [chromium] › e2e/business-navigation-shortcuts.spec.ts:19:5 › desktop navigation, searchable platform sheet, strict input and overlay blocking (4.2s)
+  ✓   2 [chromium] › e2e/business-navigation-shortcuts.spec.ts:68:5 › phone tabs have 44px targets and the approval footer stays above them (915ms)
+  ✓   3 [chromium] › e2e/business-navigation-shortcuts.spec.ts:91:5 › review keys approve through existing revision action; edit keys focus fields; read-only does nothing (1.7s)
+  ✓   4 [chromium] › e2e/business-navigation-shortcuts.spec.ts:109:5 › previous/next preserve inbox order and approve-next records before moving (3.8s)
+  ✓   5 [chromium] › e2e/business-navigation-shortcuts.spec.ts:129:5 › reserved, repeated, composing, and editable keys leave Business actions alone (902ms)
+  ✓   6 [chromium] › e2e/business-navigation-shortcuts.spec.ts:162:5 › English Business uses existing labels without chat-only actions (890ms)
+(node:52765) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:52765) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:52765) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   7 [firefox] › e2e/business-navigation-shortcuts.spec.ts:19:5 › desktop navigation, searchable platform sheet, strict input and overlay blocking (2.6s)
+  ✓   8 [firefox] › e2e/business-navigation-shortcuts.spec.ts:68:5 › phone tabs have 44px targets and the approval footer stays above them (1.2s)
+  ✓   9 [firefox] › e2e/business-navigation-shortcuts.spec.ts:91:5 › review keys approve through existing revision action; edit keys focus fields; read-only does nothing (2.2s)
+  ✓  10 [firefox] › e2e/business-navigation-shortcuts.spec.ts:109:5 › previous/next preserve inbox order and approve-next records before moving (4.2s)
+  ✓  11 [firefox] › e2e/business-navigation-shortcuts.spec.ts:129:5 › reserved, repeated, composing, and editable keys leave Business actions alone (1.1s)
+  ✓  12 [firefox] › e2e/business-navigation-shortcuts.spec.ts:162:5 › English Business uses existing labels without chat-only actions (1.1s)
+(node:52794) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:52794) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:52794) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  13 [webkit] › e2e/business-navigation-shortcuts.spec.ts:19:5 › desktop navigation, searchable platform sheet, strict input and overlay blocking (2.8s)
+  ✓  14 [webkit] › e2e/business-navigation-shortcuts.spec.ts:68:5 › phone tabs have 44px targets and the approval footer stays above them (1.0s)
+  ✓  15 [webkit] › e2e/business-navigation-shortcuts.spec.ts:91:5 › review keys approve through existing revision action; edit keys focus fields; read-only does nothing (1.8s)
+  ✓  16 [webkit] › e2e/business-navigation-shortcuts.spec.ts:109:5 › previous/next preserve inbox order and approve-next records before moving (3.8s)
+  ✓  17 [webkit] › e2e/business-navigation-shortcuts.spec.ts:129:5 › reserved, repeated, composing, and editable keys leave Business actions alone (957ms)
+  ✓  18 [webkit] › e2e/business-navigation-shortcuts.spec.ts:162:5 › English Business uses existing labels without chat-only actions (984ms)
+
+  18 passed (38.4s)

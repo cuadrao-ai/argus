@@ -1,6 +1,5 @@
 import React from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import SafeMarkdown from "@/components/chat/SafeMarkdown";
 import ResearchSourcesList from "./ResearchSourcesList";
 import ReceiptChart from "@/components/receipt/ReceiptChart";
 import { researchSourcesFromFacts } from "@/lib/chat-discovery-sidecar";
@@ -24,7 +23,7 @@ export default function ToolCardPresentation({ presentation, t, locale, inputs, 
       <p className="font-display break-words text-[34px] font-medium leading-tight tabular-nums tracking-tight text-black dark:text-white">{toolFactValue(presentation.answer, t, locale)}</p>
       <p className="mt-1 text-sm text-black/60 dark:text-white/60">{localizedToolText(presentation.answer.label, t)}</p>
     </div> : null}
-    {presentation.narrative ? <div className="prose mt-4 max-w-none text-sm leading-relaxed text-black dark:prose-invert dark:text-white"><ReactMarkdown remarkPlugins={[remarkGfm]}>{presentation.narrative}</ReactMarkdown></div> : null}
+    {presentation.narrative ? <div className="prose mt-4 max-w-none text-sm leading-relaxed text-black dark:prose-invert dark:text-white"><SafeMarkdown>{presentation.narrative}</SafeMarkdown></div> : null}
     {presentation.visual && presentation.visual.series.length > 1 ? <div data-tool-visual className="mt-4"><ReceiptChart visual={presentation.visual} /></div> : null}
     {shownRows.length > 0 ? <dl className="mt-4 divide-y divide-black/5 dark:divide-white/10">
       {shownRows.map((row) => <div key={row.name} className="flex justify-between gap-4 py-2 text-sm"><dt className="text-black/60 dark:text-white/60">{localizedToolText(row.label, t)}</dt><dd className="break-words text-right tabular-nums">{toolFactValue(row, t, locale)}</dd></div>)}

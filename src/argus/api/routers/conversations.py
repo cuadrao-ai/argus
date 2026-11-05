@@ -23,6 +23,13 @@ from argus.api.client_capabilities import (
 )
 from argus.api.conversation_activity import conversation_activity_service
 from argus.api.conversation_previews import conversation_previews
+from argus.api.conversation_surface import (
+    memory_conversation_in_scope,
+    refuse_business_under_grant,
+    refuse_closed_chat,
+    require_open_business_chat,
+    surface_scope,
+)
 from argus.api.decision_message_reads import owned_message_decisions
 from argus.api.dependencies import (
     current_user,
@@ -51,6 +58,7 @@ from argus.api.schemas import (
     ConversationCreate,
     ConversationPatch,
     ConversationResponse,
+    ConversationSurface,
     Message,
     PaginatedConversations,
     PaginatedMessages,
@@ -64,6 +72,7 @@ from argus.domain.backtest_message_projection import (
     hydrate_backtest_job_action_messages,
     represented_backtest_job_request_ids,
 )
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.postgres_run_dossier_reader import RunDossierCursorError
 from argus.domain.run_dossiers import project_run_dossier
 from argus.domain.store import utcnow
@@ -172,6 +181,8 @@ def create_conversation(
     request: Request,
     user: User = Depends(current_user),  # noqa: B008
 ) -> ConversationResponse:
+    scope = surface_scope(request, user_id=user.id, surface=payload.surface)
+    refuse_closed_chat(request, payload.surface)
     title = payload.title or "New idea"
     title_source = "user_renamed" if payload.title else "system_default"
     language = payload.language or user.language
@@ -221,6 +232,7 @@ def create_conversation(
                 title=title,
                 title_source=title_source,
                 language=language,
+                scope=scope,
             )
         except Exception as exc:
             if not dev_memory_fallback_enabled():
@@ -233,6 +245,7 @@ def create_conversation(
                 title=title,
                 title_source=title_source,
                 language=language,
+                scope=scope,
                 user_id=user.id,
             )
     else:
@@ -240,6 +253,7 @@ def create_conversation(
             title=title,
             title_source=title_source,
             language=language,
+            scope=scope,
             user_id=user.id,
         )
     return ConversationResponse(
@@ -292,8 +306,10 @@ def list_conversations(
     cursor: str | None = Query(None),
     archived: bool | None = Query(None),
     deleted: bool = Query(False),
+    surface: ConversationSurface = Query("personal"),  # noqa: B008
     user: User = Depends(current_user),  # noqa: B008
 ) -> PaginatedConversations:
+    scope = surface_scope(request, user_id=user.id, surface=surface)
     cursor_updated_at: datetime | None = None
     cursor_id: str | None = None
     if cursor:
@@ -307,6 +323,7 @@ def list_conversations(
         try:
             items = api_state.supabase_gateway.list_conversations(
                 user_id=user.id,
+                scope=scope,
                 limit=limit,
                 archived=archived,
                 deleted=deleted,
@@ -322,7 +339,7 @@ def list_conversations(
                 conversation.id,
                 user.id,
                 allow_unowned=True,
-            ):
+            ) or not memory_conversation_in_scope(conversation.id, scope):
                 continue
             if deleted:
                 if conversation.deleted_at is None:
@@ -382,8 +399,10 @@ def list_conversations(
 @router.delete("/conversations", response_model=BulkConversationDeleteResponse)
 def delete_all_conversations(
     request: Request,
+    surface: ConversationSurface = Query("personal"),  # noqa: B008
     user: User = Depends(current_user),  # noqa: B008
 ) -> BulkConversationDeleteResponse:
+    scope = surface_scope(request, user_id=user.id, surface=surface)
     require_account_capability(
         request,
         "can_manage_conversation",
@@ -393,6 +412,7 @@ def delete_all_conversations(
     if api_state.supabase_gateway is not None:
         deleted_count = api_state.supabase_gateway.soft_delete_all_conversations(
             user_id=user.id,
+            scope=scope,
         )
     else:
         now = utcnow()
@@ -402,7 +422,7 @@ def delete_all_conversations(
                 conversation_id,
                 user.id,
                 allow_unowned=False,
-            ):
+            ) or not memory_conversation_in_scope(conversation_id, scope):
                 continue
             if conversation.deleted_at is not None:
                 continue
@@ -413,8 +433,9 @@ def delete_all_conversations(
         # Supabase revokes inside the same statement, through the deleted_at
         # trigger. Repeating it here would add a request after the delete already
         # committed, and a timeout on that request would report 500 for work that
-        # durably succeeded.
-        revoke_all_receipts(user_id=user.id)
+        # durably succeeded. Receipts come only from Personal conversations.
+        if scope == PERSONAL:
+            revoke_all_receipts(user_id=user.id)
     return BulkConversationDeleteResponse(success=True, deleted_count=deleted_count)
 
 
@@ -425,6 +446,8 @@ def patch_conversation(
     request: Request,
     user: User = Depends(current_user),  # noqa: B008
 ) -> ConversationResponse:
+    # Chat is the owner's: a chosen client grant is refused on a Business conversation.
+    refuse_business_under_grant(request, user_id=user.id, conversation_id=conversation_id)
     require_account_capability(
         request,
         "can_manage_conversation",
@@ -483,6 +506,8 @@ def delete_conversation(
     request: Request,
     user: User = Depends(current_user),  # noqa: B008
 ) -> SuccessResponse:
+    # Chat is the owner's: a chosen client grant is refused on a Business conversation.
+    refuse_business_under_grant(request, user_id=user.id, conversation_id=conversation_id)
     require_account_capability(
         request,
         "can_manage_conversation",
@@ -554,6 +579,8 @@ def list_run_dossiers(
     cursor: str | None = Query(None),
     user: User = Depends(current_user),  # noqa: B008
 ) -> PaginatedRunDossiers:
+    # Chat is the owner's: a chosen client grant is refused on a Business conversation.
+    refuse_business_under_grant(request, user_id=user.id, conversation_id=conversation_id)
     context = account_context(request)
     decision_action_availability = dossier_decision_action_availability(
         can_save_decision=context.capabilities.can_save_decision,
@@ -672,6 +699,8 @@ def list_messages(
     anchor_message_id: str | None = Query(None),
     user: User = Depends(current_user),  # noqa: B008
 ) -> PaginatedMessages:
+    # Chat is the owner's: a chosen client grant is refused on a Business conversation.
+    refuse_business_under_grant(request, user_id=user.id, conversation_id=conversation_id)
     if cursor is not None and anchor_message_id is not None:
         raise problem(
             request,
@@ -845,12 +874,15 @@ def list_messages(
     if has_more and page_items:
         last = page_items[-1]
         next_cursor = encode_cursor(last.created_at.isoformat(), last.id)
-    return PaginatedMessages(items=page_items, next_cursor=next_cursor)
+    return PaginatedMessages(
+        items=page_items, next_cursor=next_cursor, surface=conversation.surface
+    )
 
 
 @router.post(
     "/conversations/{conversation_id}/confirmations/{confirmation_id}/peer-assets",
     response_model=ConfirmationPeerAssetsResponse,
+    dependencies=[Depends(require_open_business_chat)],
 )
 def add_confirmation_peer_assets(
     conversation_id: str,
@@ -869,6 +901,8 @@ def add_confirmation_peer_assets(
     card is updated in place; motion, chips, and inline period disclosure
     carry the change, never a narration banner.
     """
+    # Chat is the owner's: a chosen client grant is refused on a Business conversation.
+    refuse_business_under_grant(request, user_id=user.id, conversation_id=conversation_id)
     from argus.agent_runtime.research_basket import (
         confirmation_symbols_restoration,
         peer_add_rows,
@@ -1092,6 +1126,7 @@ def add_confirmation_peer_assets(
 @router.post(
     "/conversations/{conversation_id}/confirmations/{confirmation_id}/direct-edit",
     response_model=ConfirmationDirectEditResponse,
+    dependencies=[Depends(require_open_business_chat)],
 )
 def direct_edit_confirmation(
     conversation_id: str,
@@ -1111,6 +1146,8 @@ def direct_edit_confirmation(
     in the transcript. Only turn-based edits supersede; failures persist
     nothing.
     """
+    # Chat is the owner's: a chosen client grant is refused on a Business conversation.
+    refuse_business_under_grant(request, user_id=user.id, conversation_id=conversation_id)
     from argus.agent_runtime.confirmation_direct_edit import (
         direct_edit_confirmation_preparation,
     )

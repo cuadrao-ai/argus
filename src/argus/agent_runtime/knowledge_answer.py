@@ -55,6 +55,7 @@ from argus.llm.openrouter import (
     invoke_openrouter_json_schema,
     openrouter_structured_model_candidates,
 )
+from argus.log_sink import exception_origin
 
 _KNOWLEDGE_INTENTS = frozenset(
     {"unsupported_or_out_of_scope", "conversation_followup", "beginner_guidance"}
@@ -357,7 +358,14 @@ async def _classify_question(
             schema_name="KnowledgeQueryExtraction",
         )
     except Exception as exc:  # noqa: BLE001
-        logger.debug("Knowledge route classification failed", error=str(exc))
+        origin = exception_origin(exc)
+        logger.debug(
+            "Knowledge route classification failed error_type={} error_origin={}",
+            type(exc).__name__,
+            origin,
+            error_type=type(exc).__name__,
+            error_origin=origin,
+        )
         return None
     if not isinstance(extraction, KnowledgeQueryExtraction):
         return None

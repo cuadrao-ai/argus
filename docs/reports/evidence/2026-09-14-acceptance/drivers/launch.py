@@ -39,7 +39,7 @@ def assemble():
     assert local['API_URL'].startswith('http://127.0.0.1:56731')
     assert '@127.0.0.1:56732/' in local['DB_URL']
     source = dotenv_values(REAL_ENV)
-    required_secrets = ['ARGUS_OPS_TOKEN','ARGUS_VISITOR_KEY_SECRET','PERPLEXITY_API_KEY','ARGUS_PROD_OPENROUTER_API_KEY','ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY','ALPACA_API_KEY','ALPACA_SECRET_KEY']
+    required_secrets = ['CUADRAO_OPS_TOKEN','CUADRAO_VISITOR_KEY_SECRET','PERPLEXITY_API_KEY','CUADRAO_PROD_OPENROUTER_API_KEY','CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY','ALPACA_API_KEY','ALPACA_SECRET_KEY']
     for key in required_secrets:
         assert source.get(key), f'environment check failed: missing {key}'
     services = {s['name']:s for s in yaml.safe_load((ROOT/'render.yaml').read_text())['services']}
@@ -50,10 +50,10 @@ def assemble():
         literals = {x['key']:str(x['value']) for x in entries if 'value' in x}
         env = {**BASICS, **literals}
         if service == 'argus-api':
-            substitutions = {'SUPABASE_URL':local['API_URL'],'SUPABASE_ANON_KEY':local['ANON_KEY'],'ARGUS_APP_ORIGIN':APP_ORIGIN,'ARGUS_CORS_ALLOW_ORIGINS':APP_ORIGIN,'ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED':'false','ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED':'false'}
+            substitutions = {'SUPABASE_URL':local['API_URL'],'SUPABASE_ANON_KEY':local['ANON_KEY'],'ARGUS_APP_ORIGIN':APP_ORIGIN,'CUADRAO_CORS_ALLOW_ORIGINS':APP_ORIGIN,'ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED':'false','ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED':'false'}
             env.update({key:source[key] for key in required_secrets})
             env.update(DATABASE_URL=local['DB_URL'],SUPABASE_SERVICE_ROLE_KEY=local['SERVICE_ROLE_KEY'],SUPABASE_JWT_SECRET=local['JWT_SECRET'])
-            intentionally_absent = ['RENDER_API_KEY','POSTHOG_PROJECT_TOKEN','ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD']
+            intentionally_absent = ['RENDER_API_KEY','POSTHOG_PROJECT_TOKEN','CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD']
             allowed_extra = set(BASICS)
         else:
             substitutions = {'NEXT_PUBLIC_SUPABASE_URL':local['API_URL'],'NEXT_PUBLIC_SUPABASE_ANON_KEY':local['ANON_KEY'],'NEXT_PUBLIC_ARGUS_API_URL':API_ORIGIN,'ARGUS_APP_ORIGIN':APP_ORIGIN}

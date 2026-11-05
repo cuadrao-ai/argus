@@ -1,0 +1,115 @@
+{
+  "scope": "Connected personal monthly spending budgets on dedicated iPhone simulator with real local Auth/API/Postgres; no physical device or deployment claim",
+  "integration_base": "9f51912198c2c77e239f670a2b3f78da2942afed",
+  "simulator": "CC81C737-2F0A-48EA-961C-D9ECFFACA219",
+  "device": "Argus Connected Budgets, iPhone 17e, iOS 27",
+  "api": "loopback 59000",
+  "postgres": "isolated 59002",
+  "complete_native_journey": {
+    "source_head": "742975239be1a786fbac4b24040ec6d645d80033",
+    "result": "passed",
+    "duration_seconds": 477.284,
+    "local_result": "ui-20260930T022007Z.xcresult",
+    "independent_expected_spending": [
+      120,
+      200,
+      180,
+      155
+    ],
+    "final_limit": 160,
+    "contributors": 3,
+    "coverage": [
+      "create from eligible existing activity",
+      "new card expense and overage",
+      "canonical contributor inspection/correction/back",
+      "linked refund deposited into unknown account outside budget scope",
+      "preserved contributor position after back and relaunch",
+      "edit limit",
+      "archive and restore",
+      "budget Search actual detail/back/query",
+      "reopen detail",
+      "Spanish presentation"
+    ]
+  },
+  "committed_response_loss": {
+    "source_head": "bf08a1e7dfbc24844c2f7f2b25fe9d24f4d1485e",
+    "result": "passed",
+    "local_result": "ui-20260930T023915Z.xcresult",
+    "proof": "Proxy dropped exactly one accepted budget POST response; pending command survived relaunch; same key/body recovered one canonical budget and one native list row",
+    "retained_after": "Only contributor amount layout changed at 3269927f; journal, transport, receipts and recovery source are unchanged",
+    "native_summary": {
+      "failedTests": 0,
+      "finishTime": 1790736090.777,
+      "passedTests": 1,
+      "result": "Passed",
+      "skippedTests": 0,
+      "startTime": 1790735958.913,
+      "totalTestCount": 1
+    }
+  },
+  "backend_matrix": {
+    "source_head": "d98803bad79c8d7cca38d77cc75aa878519b4a1f",
+    "tests": 236,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "real_postgres": 59002
+  },
+  "swift_contract_suite": {
+    "tests": 55,
+    "failures": 0,
+    "existing_opt_in_live_auth_skips": 4,
+    "new_budget_tests": 3
+  },
+  "openapi_compatibility": {
+    "source_head": "f3bf192c61533951105dc57f3cacfe09af212346",
+    "tests": 23,
+    "failures": 0
+  },
+  "recorded_final_rerun": {
+    "source_head": "3269927fdf59d260d2f6d0c8a54d78346629607f",
+    "financial_assertions": "passed through create 120, expense 200, correction 180, cross-account refund 155, contributor/back/relaunch position, edit160 and archive/restore",
+    "local_result": "ui-20260930T024219Z.xcresult",
+    "whole_test_result": "Test fixture appended title to correctly preserved previous Search query; corrected in test-only ced25619; affected navigation rerun passed",
+    "recording": "budget-journey.mp4",
+    "duration_seconds": 106.93,
+    "privacy": "Only financial scenes; no auth, credentials or failed test setup included",
+    "source_recording_start": "2026-09-30T02:44:14.055311+00:00",
+    "ranges_seconds": [
+      "118:16",
+      "170:30",
+      "225:18",
+      "288:20",
+      "316:14",
+      "335:10"
+    ],
+    "requested_segment_duration_seconds": 108,
+    "export": "H264 MP4, network-optimized review resolution; original full-resolution native screenshots retained"
+  },
+  "limitations": [
+    "Personal fixed calendar month with no rollover per approved policy",
+    "Full-owner snapshot remains inherited scaling limit",
+    "No signing, physical-phone internet verification or deployment",
+    "Existing synthetic records and previous demos retained; Home aggregate reflects all retained fixture activity"
+  ],
+  "retention": "Subsequent evidence/docs publication does not alter source; terminal PR audit records final exact head, unchanged integration and explicit evidence revalidation",
+  "affected_navigation_rerun": {
+    "source_head": "ced256196c04eae6cfcd18f456f3dc00017315c7",
+    "local_result": "ui-20260930T025248Z.xcresult",
+    "retained_budget": "Food F15BC",
+    "coverage": [
+      "Home actual budget summary/live detail/back without losing position",
+      "clear prior Search query using existing control",
+      "Search actual budget detail/relaunch",
+      "same query/result on return",
+      "Spanish light detail"
+    ],
+    "failedTests": 0,
+    "finishTime": 1790736829.778,
+    "passedTests": 1,
+    "result": "Passed",
+    "skippedTests": 0,
+    "startTime": 1790736771.834,
+    "totalTestCount": 1
+  }
+}

@@ -16,11 +16,11 @@ from tests.release_promotion_evidence_support import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-RELEASE_PROFILE_PATH = ROOT / ".github" / "private-alpha-release-profile.json"
-PUBLIC_ACCOUNT_ACCESS_FLAG = "ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED"
-# The release profile owns this flag's value. Product truth is where prose states
+SETTINGS_MANIFEST_PATH = ROOT / "scripts" / "ops" / "staging_env_manifest.json"
+PUBLIC_ACCOUNT_ACCESS_FLAG = "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED"
+# The settings manifest's production rule owns this flag's value. Product truth is where prose states
 # it, and every other doc may point here rather than repeat it.
-CANONICAL_VALUE_DOC = "docs/PRODUCT.md"
+CANONICAL_VALUE_DOC = "docs/ARCHITECTURE.md"
 
 # Records of a moment keep the claims they shipped with, because quoting a
 # superseded posture is their job. Everything else under docs/, .agent/, and the
@@ -35,8 +35,6 @@ _RECORD_TREES = (
     "docs/qa/",
 )
 _DATED_RECORD = re.compile(r"^\d{4}-\d{2}-\d{2}-")
-# Domain knowledge vendored for agents, not Argus access policy.
-_UNRELATED_TREES = (".agent/skills/",)
 
 # Closed boolean vocabularies, so a new stale sentence is caught by grammar
 # rather than by matching a phrase somebody already wrote. These are read next to
@@ -134,9 +132,10 @@ def _source(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
-def _release_profile_value(key: str) -> str:
-    profile = json.loads(RELEASE_PROFILE_PATH.read_text(encoding="utf-8"))
-    return profile["services"]["api"]["env"][key]
+def _production_value(key: str) -> str:
+    manifest = json.loads(SETTINGS_MANIFEST_PATH.read_text(encoding="utf-8"))
+    entry = next(e for e in manifest["services"]["api"]["entries"] if e["name"] == key)
+    return entry["production"]["value"]
 
 
 def _standing_doc_paths() -> list[Path]:
@@ -153,7 +152,7 @@ def _standing_doc_paths() -> list[Path]:
         for path in candidates
         if not path.relative_to(ROOT)
         .as_posix()
-        .startswith(_RECORD_TREES + _UNRELATED_TREES)
+        .startswith(_RECORD_TREES)
         and not _DATED_RECORD.match(path.name)
     ]
 
@@ -363,7 +362,7 @@ def test_public_account_access_claim_detector_reads_grammar_not_phrases() -> Non
         "Public registration is open, so the only refusal is a disabled "
         "allowlist entry.",
         # A neighbouring flag's value is not this flag's, even in one sentence.
-        f"Set `ARGUS_GUEST_ACCESS_ENABLED=false` but keep "
+        f"Set `CUADRAO_GUEST_ACCESS_ENABLED=false` but keep "
         f"`{PUBLIC_ACCOUNT_ACCESS_FLAG}=true`.",
         # Negation holds however far it sits from the state word.
         "Public signup is not expected to be open.",
@@ -409,15 +408,15 @@ def test_public_account_access_claim_detector_reads_grammar_not_phrases() -> Non
         assert not _access_claim_contradictions(claim, "false"), f"false alarm: {claim}"
 
 
-def test_public_account_access_claims_cannot_contradict_the_release_profile() -> None:
-    """The release profile owns this flag; standing prose only derives from it.
+def test_public_account_access_claims_cannot_contradict_the_production_value() -> None:
+    """The manifest's production rule owns this flag; standing prose only derives from it.
 
     Prose drifted out of agreement with the deployed flag once already, because
     nothing connected a sentence to the profile that decides the value.
     """
-    declared = _release_profile_value(PUBLIC_ACCOUNT_ACCESS_FLAG)
+    declared = _production_value(PUBLIC_ACCOUNT_ACCESS_FLAG)
     assert declared in _STATE_WORDS, (
-        f"{PUBLIC_ACCOUNT_ACCESS_FLAG} is `{declared}` in the release profile. "
+        f"{PUBLIC_ACCOUNT_ACCESS_FLAG} is `{declared}` in production. "
         "Add its boolean spelling to _STATE_WORDS before this guard can read it."
     )
     declared_assignment = f"{PUBLIC_ACCOUNT_ACCESS_FLAG}={declared}"
@@ -434,7 +433,7 @@ def test_public_account_access_claims_cannot_contradict_the_release_profile() ->
 
     assert not contradictions, (
         f"{PUBLIC_ACCOUNT_ACCESS_FLAG} is `{declared}` in "
-        f"{RELEASE_PROFILE_PATH.name}, so these standing claims are wrong:\n"
+        f"{SETTINGS_MANIFEST_PATH.name}, so these standing claims are wrong:\n"
         + "\n".join(f"  - {item}" for item in contradictions)
     )
     # One doc states the value; the rest may point at it. Requiring the literal
@@ -443,7 +442,7 @@ def test_public_account_access_claims_cannot_contradict_the_release_profile() ->
     # flag change a hand-edit of every copy.
     assert declared_assignment in _source(CANONICAL_VALUE_DOC), (
         f"{CANONICAL_VALUE_DOC} is where prose states this flag's value, so it "
-        f"must say `{declared_assignment}` to match {RELEASE_PROFILE_PATH.name}."
+        f"must say `{declared_assignment}` to match {SETTINGS_MANIFEST_PATH.name}."
     )
 def _commit_measurement_fixture_candidate(
     repository_root: Path,
@@ -789,13 +788,19 @@ def test_production_migration_gate_is_executable_and_precedes_service_deploy() -
     assert runbook_gate_index < runbook_landing_index
     assert runbook_landing_index < runbook_landed_gate_index
     assert runbook_landed_gate_index < tester_gate.index("sync the Blueprint")
-    assert runbook_landed_gate_index < tester_gate.index("api-real-workflow-on")
     assert runbook_landed_gate_index < tester_gate.index(
-        "Deploy **all three live services**"
+        "Confirm the approved workflow controls"
+    )
+    assert runbook_landed_gate_index < tester_gate.index(
+        "Deploy production `cuadrao-api`, then **`argus-backtests`**"
     )
     assert runbook_gate_index < tester_gate.index("sync the Blueprint")
-    assert runbook_gate_index < tester_gate.index("api-real-workflow-on")
-    assert runbook_gate_index < tester_gate.index("Deploy **all three live services**")
+    assert runbook_gate_index < tester_gate.index(
+        "Confirm the approved workflow controls"
+    )
+    assert runbook_gate_index < tester_gate.index(
+        "Deploy production `cuadrao-api`, then **`argus-backtests`**"
+    )
     assert "rerun the gate against the landed SHA" in " ".join(tester_gate.split())
     assert "Production Migration Gate" in manifest
     assert "Candidate migrations" in manifest
@@ -818,12 +823,19 @@ def test_public_alpha_waitlist_rollback_floor_is_durable_and_ordered() -> None:
     assert "prefer a forward fix" in evidence_text.lower()
     assert "out-of-band Render control-plane readback" in evidence_text
     assert "serviceDetails.maintenanceMode.enabled=true" in evidence_text
-    assert "https://argus-ohr5.onrender.com/api/v1/auth/access-requests" in evidence_text
+    assert "https://api.arguschat.ai/api/v1/auth/access-requests" in evidence_text
     assert "every configured custom API domain" in evidence_text
     assert "exact HTTP `503` maintenance-mode status" in evidence_text
     assert "configured maintenance page marker or SHA-256 fingerprint" in evidence_text
     assert "An arbitrary `403`, `429`, or `503` is not maintenance proof." in (
         evidence_text
+    )
+    assert (
+        "`https://argus-ohr5.onrender.com` must return HTTP `404` and is not a "
+        "maintenance probe surface" in evidence_text
+    )
+    assert (
+        "do not require `503` from that hostname" in evidence_text
     )
     assert "must not return HTTP `202`" not in evidence_text
     assert (
@@ -859,6 +871,13 @@ def test_public_alpha_waitlist_rollback_floor_is_durable_and_ordered() -> None:
     )
     assert "Disable maintenance last" in evidence_text
     assert "public invalid-body readback" in evidence_text
+    assert (
+        "that hostname remains excluded from the maintenance fingerprint surface"
+        in evidence_text
+    )
+    assert (
+        "is not an application route-absence probe surface" in evidence_text
+    )
     assert "Do not execute this SQL as part of repository verification." in evidence_text
     for official_reference in (
         "https://render.com/docs/maintenance-mode",
@@ -915,6 +934,9 @@ def test_public_alpha_waitlist_rollback_floor_is_durable_and_ordered() -> None:
     assert "061ba50e" in runbook_text
     assert "serviceDetails.maintenanceMode.enabled=true" in runbook_text
     assert "exact maintenance status and page fingerprint" in runbook_text
+    assert "`argus-app` onrender URL" in runbook_text
+    assert "https://argus-ohr5.onrender.com` must return HTTP `404`" in runbook_text
+    assert "Never front the API with a Cloudflare Worker" in runbook_text
     assert "same-SHA restart" in runbook_text
     assert "old-instance shutdown/drain" in runbook_text
     assert "ACCESS EXCLUSIVE" in runbook_text
@@ -930,8 +952,8 @@ def test_waitlist_exposure_waits_for_paid_render_rollback_controls() -> None:
     )
     runbook = " ".join(_source("docs/PRIVATE_LAUNCH_RUNBOOK.md").split())
     blueprint = _source("render.yaml")
-    api_service = blueprint.split("name: argus-api", 1)[1].split("\n  - type:", 1)[0]
-    app_service = blueprint.split("name: argus-app", 1)[1]
+    api_service = blueprint.split("name: cuadrao-api", 1)[1].split("\n  - type:", 1)[0]
+    app_service = blueprint.split("name: cuadrao-web", 1)[1]
 
     assert "plan: standard" in api_service
     assert "plan: starter" in app_service
@@ -1072,14 +1094,6 @@ def test_guest_launch_safety_records_live_hard_provider_caps() -> None:
     assert "Guest key is not capped at `$5/week`" in safety
 
 
-def test_public_alpha_spec_drops_superseded_inference_footer() -> None:
-    spec = _source("docs/superpowers/specs/2026-07-30-public-alpha-readiness.md")
-
-    assert "### Inference" not in spec
-    assert "exact exit-criterion number" not in spec
-    assert 'Confirm email" setting is currently' not in spec
-
-
 def test_private_launch_runbook_assigns_app_origin_and_smtp_secret_correctly() -> None:
     runbook = _source("docs/PRIVATE_LAUNCH_RUNBOOK.md")
     ownership = runbook.split("## Render Environment Ownership", 1)[1].split(
@@ -1090,12 +1104,11 @@ def test_private_launch_runbook_assigns_app_origin_and_smtp_secret_correctly() -
     assert "Both `argus-app` and `argus-api`" in ownership_text
     assert "password-recovery redirects" in ownership_text
     assert "approval signup links" in ownership_text
-    assert "`ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD`" in ownership_text
+    assert "`CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD`" in ownership_text
 
 
 def test_execution_realism_contract_is_consistent_across_canon_and_release_docs() -> None:
     for path in (
-        "docs/PRODUCT.md",
         "docs/ARCHITECTURE.md",
         "docs/API_CONTRACT.md",
         "docs/PRIVATE_LAUNCH_RUNBOOK.md",
@@ -1118,12 +1131,6 @@ def test_api_contract_does_not_exclude_supported_execution_costs() -> None:
 
 def test_private_alpha_release_manifest_template_has_required_audit_fields() -> None:
     template = _source("docs/release-manifests/TEMPLATE.md")
-    canary_checks = json.loads(RELEASE_PROFILE_PATH.read_text(encoding="utf-8"))[
-        "canary"
-    ]["required_steps"]
-
-    for check in canary_checks:
-        assert f"`{check}`" in template
     for expected in (
         "Candidate SHA",
         "Promotion target",
@@ -1174,13 +1181,11 @@ def test_private_alpha_integration_doc_points_to_current_gate_and_later_memo() -
     assert "workflow_runtime_proof=ready" in integration
 
 
-def test_agents_guardrail_keeps_canary_evidence_before_main_promotion() -> None:
-    agents = _source("AGENTS.md")
+def test_ci_cd_spec_keeps_canary_evidence_before_main_promotion() -> None:
+    spec = " ".join(_source("docs/specs/private-alpha-ci-cd-sota.md").split())
 
-    assert "docs/specs/private-alpha-ci-cd-sota.md" in agents
-    assert "branch-deployed staging/private-alpha Render validation surface" in agents
-    assert "Do not treat merge to `main` as a prerequisite for canary" in agents
-    assert "`main` is the later promotion target" in agents
+    assert "branch-deployed private-alpha Render validation surface" in spec
+    assert "`main` is the promotion target, not a surprise prerequisite." in spec
 
 
 def test_eval_docs_document_mocked_first_test_tiers_and_agent_pointer() -> None:

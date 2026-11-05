@@ -1,0 +1,27 @@
+HTTP and contract
+........................................................................ [ 46%]
+........................................................................ [ 92%]
+...........                                                              [100%]
+155 passed in 2.21s
+
+Final PostgreSQL
+........................................................................ [ 80%]
+.................                                                        [100%]
+=============================== warnings summary ===============================
+tests/test_analytics_deletion_postgres.py: 4 warnings
+tests/test_account_deletion_third_parties_postgres.py: 7 warnings
+tests/test_account_deletion_postgres.py: 10 warnings
+tests/test_account_deletion_apple_admission_postgres.py: 27 warnings
+tests/test_account_deletion_api_postgres.py: 6 warnings
+  /private/tmp/cuadrao-scipy-env-20261005/lib/python3.11/site-packages/psycopg_pool/pool.py:134: DeprecationWarning: the default for the ConnectionPool 'open' parameter will become 'False' in a future release. Please use open={True|False} explicitly, or use the pool as context manager using: `with ConnectionPool(...) as pool: ...`
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+89 passed, 54 warnings in 52.18s
+
+Mocked Run
+........................................................................ [ 26%]
+........................................................................ [ 52%]
+........................................................................ [ 79%]
+........................................................                 [100%]
+272 passed in 9.26s

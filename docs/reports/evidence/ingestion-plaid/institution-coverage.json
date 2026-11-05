@@ -1,0 +1,115 @@
+{
+  "api_country_codes": [
+    "AT",
+    "BE",
+    "CA",
+    "DE",
+    "DK",
+    "EE",
+    "ES",
+    "FI",
+    "FR",
+    "GB",
+    "IE",
+    "IT",
+    "LT",
+    "LV",
+    "NL",
+    "NO",
+    "PL",
+    "PT",
+    "SE",
+    "US"
+  ],
+  "countries": {
+    "AT": {
+      "institutions_with_transactions": 13
+    },
+    "BE": {
+      "institutions_with_transactions": 17
+    },
+    "CA": {
+      "institutions_with_transactions": 195
+    },
+    "DE": {
+      "institutions_with_transactions": 1016
+    },
+    "DK": {
+      "institutions_with_transactions": 17
+    },
+    "DO": {
+      "institutions_with_transactions": {
+        "error_code": "INVALID_FIELD"
+      }
+    },
+    "EE": {
+      "institutions_with_transactions": 8
+    },
+    "ES": {
+      "institutions_with_transactions": 78
+    },
+    "FI": {
+      "institutions_with_transactions": 4
+    },
+    "FR": {
+      "institutions_with_transactions": 99
+    },
+    "GB": {
+      "institutions_with_transactions": 92
+    },
+    "IE": {
+      "institutions_with_transactions": 13
+    },
+    "IT": {
+      "institutions_with_transactions": 226
+    },
+    "LT": {
+      "institutions_with_transactions": 8
+    },
+    "LV": {
+      "institutions_with_transactions": 8
+    },
+    "NL": {
+      "institutions_with_transactions": 18
+    },
+    "NO": {
+      "institutions_with_transactions": 8
+    },
+    "PL": {
+      "institutions_with_transactions": 14
+    },
+    "PT": {
+      "institutions_with_transactions": 24
+    },
+    "SE": {
+      "institutions_with_transactions": 9
+    },
+    "US": {
+      "institutions_with_transactions": 9865
+    }
+  },
+  "dominican_bank_search_in_supported_countries": {
+    "Banco BHD": {
+      "countries": [],
+      "matches": 0,
+      "names": []
+    },
+    "Banco Popular Dominicano": {
+      "countries": [],
+      "matches": 0,
+      "names": []
+    },
+    "Banreservas": {
+      "countries": [],
+      "matches": 0,
+      "names": []
+    }
+  },
+  "dominican_country_code_search": {
+    "error_code": "INVALID_FIELD"
+  },
+  "environment": "sandbox",
+  "note": "Directory metadata from the named environment only; Sandbox Items are synthetic and do not prove a real institution connects.",
+  "provider_calls_total": 25,
+  "run_at": "2026-10-01T19:37:27+00:00"
+}

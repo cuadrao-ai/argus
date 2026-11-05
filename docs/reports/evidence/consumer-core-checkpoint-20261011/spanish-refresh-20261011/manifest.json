@@ -1,0 +1,302 @@
+{
+  "method": "manual simulator checks; original screenshots and semantic UI snapshots",
+  "tested_source": "40ff4967040c854ca5dd0764115227544011a6e2",
+  "initial_inspection_head": "4a953d7e9c07b7b7d057506bb0b630287b6585b9",
+  "continuation_inspection_head": "769654e23",
+  "app_executable_sha256": "1bc275b457ae6cb4121052377824138c6076fd01c0a0b734e83d42b542f1eab2",
+  "simulator_id": "C85CDCF9-E5DB-4A86-97FB-65C46B349B35",
+  "locale": "es_DO",
+  "language": "es-419",
+  "api": "https://cuadrao-api-staging.onrender.com",
+  "assigned_backend_pin": "cad1cbe1ec27ff89c08eadbec31718a0e627383c",
+  "fresh_hosted_pin_readback": false,
+  "new_xctest_execution": false,
+  "financial_writes": false,
+  "screenshots": [
+    {
+      "file": "home.jpg",
+      "sha256": "1a3f68ef0a12a36121b8b909640e3483125394e7985335d742d4d6c67ab4e1d2",
+      "captured_file_mtime_utc": "2026-10-11T19:21:53.422658+00:00"
+    },
+    {
+      "file": "budget-before-relaunch.jpg",
+      "sha256": "b1c28a3e98aa0d4d680d723868a364f1065ec85f60a88500a3d66c2f302287d7",
+      "captured_file_mtime_utc": "2026-10-11T19:18:07.507888+00:00"
+    },
+    {
+      "file": "budget-after-relaunch.jpg",
+      "sha256": "b1c28a3e98aa0d4d680d723868a364f1065ec85f60a88500a3d66c2f302287d7",
+      "captured_file_mtime_utc": "2026-10-11T19:18:25.581366+00:00"
+    },
+    {
+      "file": "search-after-relaunch.jpg",
+      "sha256": "e61c6d9d3b9321b897dc2f79e0f7e1930be19fd7f209af1e67123ecb30a6deac",
+      "captured_file_mtime_utc": "2026-10-11T19:18:54.928300+00:00"
+    },
+    {
+      "file": "home-add-tray.jpg",
+      "sha256": "3950c3fc5d6708d40ab98cf8d53033d7089723599dbab62d4725661084538883",
+      "captured_file_mtime_utc": "2026-10-11T19:22:03.767816+00:00"
+    },
+    {
+      "file": "search-settled.jpg",
+      "sha256": "364fc8c4dd6a85e2206c2cdc57e67965f1840a8596f2b46a6d5b25d23fe55216",
+      "captured_file_mtime_utc": "2026-10-11T19:51:53.682038+00:00"
+    }
+  ],
+  "captures": {
+    "coreRefreshBudgetBefore": {
+      "type": "runtime-snapshot",
+      "rs": "1",
+      "screenHash": "137i5xk",
+      "seq": 13,
+      "count": 89,
+      "targets": [
+        "e61|tap|button|Los detalles, claros||",
+        "e16|tap|button|Atrás||BackButton",
+        "e19|tap|button|Opciones del plan||plan-detail-options",
+        "e20|tap|button|||",
+        "e55|tap|button|DOP 160||plan-detail-exact"
+      ],
+      "scroll": [
+        "e26|swipe|scroll-view|||budget.detail"
+      ],
+      "text": [
+        "e31|text|text|Personal||",
+        "e32|text|text|Food DF84D||",
+        "e33|text|text|DOP 155.00||budget.spent",
+        "e34|text|text|Gasto neto||",
+        "e35|text|text|octubre de 2026||",
+        "e36|text|text|DOP 5.00, disponibles||budget.remaining",
+        "e37|text|text|DOP 5.00||",
+        "e38|text|text|disponibles||",
+        "e39|text|text|Dale aire a tu mes.||",
+        "e40|text|text|A este ritmo: DOP 436.82 al cierre. El margen no cambia el gasto previsto.||",
+        "e51|text|text|1 oct.||",
+        "e52|text|text|31 oct.||",
+        "e53|text|text|Punteado: estimado · gris: plan guardado||",
+        "e54|text|text|Mi margen||",
+        "e56|text|text|DOP 160||",
+        "e59|text|text|Proyección simple con 11 días registrados de un mes de 31 días. No es un gasto confirmado.||",
+        "e60|text|text|Basado en compras registradas y reembolsos recibidos en este alcance. No incluye actividad faltante.||",
+        "e62|text|text|Los detalles, claros||"
+      ],
+      "udid": "C85CDCF9-E5DB-4A86-97FB-65C46B349B35"
+    },
+    "coreRefreshBudgetAfter": {
+      "type": "runtime-snapshot",
+      "rs": "1",
+      "screenHash": "137i5xk",
+      "seq": 18,
+      "count": 89,
+      "targets": [
+        "e61|tap|button|Los detalles, claros||",
+        "e16|tap|button|Atrás||BackButton",
+        "e19|tap|button|Opciones del plan||plan-detail-options",
+        "e20|tap|button|||",
+        "e55|tap|button|DOP 160||plan-detail-exact"
+      ],
+      "scroll": [
+        "e26|swipe|scroll-view|||budget.detail"
+      ],
+      "text": [
+        "e31|text|text|Personal||",
+        "e32|text|text|Food DF84D||",
+        "e33|text|text|DOP 155.00||budget.spent",
+        "e34|text|text|Gasto neto||",
+        "e35|text|text|octubre de 2026||",
+        "e36|text|text|DOP 5.00, disponibles||budget.remaining",
+        "e37|text|text|DOP 5.00||",
+        "e38|text|text|disponibles||",
+        "e39|text|text|Dale aire a tu mes.||",
+        "e40|text|text|A este ritmo: DOP 436.82 al cierre. El margen no cambia el gasto previsto.||",
+        "e51|text|text|1 oct.||",
+        "e52|text|text|31 oct.||",
+        "e53|text|text|Punteado: estimado · gris: plan guardado||",
+        "e54|text|text|Mi margen||",
+        "e56|text|text|DOP 160||",
+        "e59|text|text|Proyección simple con 11 días registrados de un mes de 31 días. No es un gasto confirmado.||",
+        "e60|text|text|Basado en compras registradas y reembolsos recibidos en este alcance. No incluye actividad faltante.||",
+        "e62|text|text|Los detalles, claros||"
+      ],
+      "udid": "C85CDCF9-E5DB-4A86-97FB-65C46B349B35"
+    },
+    "coreRefreshSearchAfter": {
+      "type": "runtime-snapshot",
+      "rs": "1",
+      "screenHash": "0abvwel",
+      "seq": 20,
+      "count": 70,
+      "targets": [
+        "e23|tap|button|Filtros, 1 activos||search.filters",
+        "e44|tap|button|Food DF84D, Presupuestos · DOP 160.00||search.row.budget.030742FD-A020-4241-B55D-5D92C3B576F5",
+        "e27|typeText|text-field||Food DF84D|search.query",
+        "e22|tap|button|Borrar búsqueda||search.clear",
+        "e30|tap|button|Todo||search.filter.all",
+        "e31|tap|button|Cuentas||search.filter.account",
+        "e32|tap|button|Movimientos||search.filter.activity",
+        "e33|tap|button|Planes||search.filter.plans",
+        "e35|tap|button|Quitar filtros||",
+        "e61|tap|button|Inicio||tab.home",
+        "e63|tap|button|Plan||tab.plan",
+        "e65|tap|button|Añadir||nav.add",
+        "e67|tap|button|Buscar||tab.search",
+        "e69|tap|button|Perfil||header.profile"
+      ],
+      "scroll": [
+        "e28|swipe|scroll-view|||search.kinds",
+        "e36|swipe|scroll-view|||search.results"
+      ],
+      "text": [
+        "e25|text|text|1||",
+        "e34|text|text|DOP||search.filter-summary",
+        "e46|text|text|Food DF84D||",
+        "e48|text|text|Presupuestos · DOP 160.00||"
+      ],
+      "udid": "C85CDCF9-E5DB-4A86-97FB-65C46B349B35"
+    },
+    "coreRefreshHomeSettled": {
+      "type": "runtime-snapshot",
+      "rs": "1",
+      "screenHash": "14rmqng",
+      "seq": 36,
+      "count": 395,
+      "targets": [
+        "e44|tap|button|Search bill F1B24A, 10 oct 2026 · Previsto, 35.00, Vencido, incluido desde hoy||home.upcoming.7249bbc3-3400-543d-a592-6f7776218a15",
+        "e50|tap|button|Search bill FFEF18, 10 oct 2026 · Previsto, 30.00, Vencido, incluido desde hoy||home.upcoming.cc1a3e69-07b5-590e-8064-d50ff05a1fa1",
+        "e60|tap|button|Unknown account 69FFB5, Cuenta corriente, -25.50, DOP · pendiente||accounts.row.40BFFA44-4B64-448D-A286-D7C87CCDB456",
+        "e28|tap|button|DOP||home-chart-currency",
+        "e29|tap|button|||",
+        "e33|tap|button|Explorar balance||home-history-expand",
+        "e43|tap|button|Ver plan||home.viewPlan",
+        "e56|tap|button|Cuentas||accounts.manage",
+        "e59|tap|button|Añadir cuenta||accounts.add",
+        "e61|tap|text|Unknown account 69FFB5||",
+        "e62|tap|image|CuadraoAccount-checking||",
+        "e63|tap|text|-25.50||",
+        "e383|tap|button|Inicio||tab.home",
+        "e385|tap|button|Plan||tab.plan",
+        "e387|tap|button|Añadir||nav.add",
+        "e389|tap|button|Buscar||tab.search",
+        "e391|tap|button|Perfil||header.profile"
+      ],
+      "scroll": [
+        "e19|swipe|scroll-view|||screen.home"
+      ],
+      "text": [
+        "e26|text|text|Hola||home-greeting",
+        "e27|text|text|Personal||",
+        "e32|text|text|26,518.50||home.netWorth.DOP",
+        "e30|text|text|DOP||",
+        "e34|text|text|Balance parcial||home-chart-date",
+        "e39|text|text|9 oct||",
+        "e40|text|text|11 oct||",
+        "e41|text|text|Saldos desconocidos: 5||",
+        "e45|text|text|Search bill F1B24A||",
+        "e47|text|text|35.00||",
+        "e48|text|text|10 oct 2026 · Previsto||",
+        "e49|text|text|Vencido, incluido desde hoy||",
+        "e51|text|text|Search bill FFEF18||",
+        "e53|text|text|30.00||",
+        "e54|text|text|10 oct 2026 · Previsto||",
+        "e55|text|text|Vencido, incluido desde hoy||",
+        "e57|text|text|Cuentas||",
+        "e61|text|text|Unknown account 69FFB5||",
+        "e63|text|text|-25.50||"
+      ],
+      "udid": "C85CDCF9-E5DB-4A86-97FB-65C46B349B35"
+    },
+    "coreRefreshAddTrayHome": {
+      "type": "runtime-snapshot",
+      "rs": "1",
+      "screenHash": "0s3ejh2",
+      "seq": 38,
+      "count": 414,
+      "targets": [
+        "e45|tap|button|Search bill F1B24A, 10 oct 2026 · Previsto, 35.00, Vencido, incluido desde hoy||home.upcoming.7249bbc3-3400-543d-a592-6f7776218a15",
+        "e51|tap|button|Search bill FFEF18, 10 oct 2026 · Previsto, 30.00, Vencido, incluido desde hoy||home.upcoming.cc1a3e69-07b5-590e-8064-d50ff05a1fa1",
+        "e61|tap|button|Unknown account 69FFB5, Cuenta corriente, -25.50, DOP · pendiente||accounts.row.40BFFA44-4B64-448D-A286-D7C87CCDB456",
+        "e29|tap|button|DOP||home-chart-currency",
+        "e30|tap|button|||",
+        "e34|tap|button|Explorar balance||home-history-expand",
+        "e44|tap|button|Ver plan||home.viewPlan",
+        "e57|tap|button|Cuentas||accounts.manage",
+        "e60|tap|button|Añadir cuenta||accounts.add",
+        "e62|tap|text|Unknown account 69FFB5||",
+        "e63|tap|image|CuadraoAccount-checking||",
+        "e64|tap|text|-25.50||",
+        "e388|tap|button|Cuenta||add.tray.account",
+        "e391|tap|button|Transacción||add.tray.transaction",
+        "e394|tap|button|Plan||add.tray.plan",
+        "e402|tap|button|Inicio||tab.home",
+        "e404|tap|button|Plan||tab.plan",
+        "e406|tap|button|Cerrar||nav.add",
+        "e408|tap|button|Buscar||tab.search",
+        "e410|tap|button|Perfil||header.profile"
+      ],
+      "scroll": [
+        "e20|swipe|scroll-view|||screen.home",
+        "e386|swipe|scroll-view|||"
+      ],
+      "text": [
+        "e27|text|text|Hola||home-greeting",
+        "e28|text|text|Personal||",
+        "e33|text|text|26,518.50||home.netWorth.DOP",
+        "e31|text|text|DOP||",
+        "e35|text|text|Balance parcial||home-chart-date",
+        "e40|text|text|9 oct||",
+        "e41|text|text|11 oct||",
+        "e42|text|text|Saldos desconocidos: 5||",
+        "e46|text|text|Search bill F1B24A||",
+        "e48|text|text|35.00||",
+        "e389|text|text|Cuenta||",
+        "e49|text|text|10 oct 2026 · Previsto||",
+        "e50|text|text|Vencido, incluido desde hoy||",
+        "e392|text|text|Transacción||",
+        "e52|text|text|Search bill FFEF18||",
+        "e54|text|text|30.00||",
+        "e55|text|text|10 oct 2026 · Previsto||",
+        "e395|text|text|Plan||",
+        "e56|text|text|Vencido, incluido desde hoy||",
+        "e58|text|text|Cuentas||",
+        "e62|text|text|Unknown account 69FFB5||",
+        "e64|text|text|-25.50||"
+      ],
+      "udid": "C85CDCF9-E5DB-4A86-97FB-65C46B349B35"
+    },
+    "coreContinuationSearchResult": {
+      "type": "runtime-snapshot",
+      "rs": "1",
+      "screenHash": "07att7i",
+      "seq": 57,
+      "count": 70,
+      "targets": [
+        "e20|tap|button|Filtros, 1 activos||search.filters",
+        "e41|tap|button|Food DF84D, Presupuestos · DOP 160.00||search.row.budget.030742FD-A020-4241-B55D-5D92C3B576F5",
+        "e24|typeText|text-field||Food DF84D|search.query",
+        "e19|tap|button|Borrar búsqueda||search.clear",
+        "e27|tap|button|Todo||search.filter.all",
+        "e28|tap|button|Cuentas||search.filter.account",
+        "e29|tap|button|Movimientos||search.filter.activity",
+        "e30|tap|button|Planes||search.filter.plans",
+        "e32|tap|button|Quitar filtros||",
+        "e58|tap|button|Inicio||tab.home",
+        "e60|tap|button|Plan||tab.plan",
+        "e62|tap|button|Añadir||nav.add",
+        "e64|tap|button|Buscar||tab.search",
+        "e66|tap|button|Perfil||header.profile"
+      ],
+      "scroll": [
+        "e25|swipe|scroll-view|||search.kinds",
+        "e33|swipe|scroll-view|||search.results"
+      ],
+      "text": [
+        "e22|text|text|1||",
+        "e31|text|text|DOP||search.filter-summary",
+        "e43|text|text|Food DF84D||",
+        "e45|text|text|Presupuestos · DOP 160.00||"
+      ],
+      "udid": "C85CDCF9-E5DB-4A86-97FB-65C46B349B35"
+    }
+  }
+}

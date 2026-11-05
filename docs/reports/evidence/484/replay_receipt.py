@@ -8,7 +8,7 @@ from argus.llm.openrouter import record_openrouter_route_receipt
 
 snapshot = json.loads(Path(__file__).with_name("production-receipt.json").read_text())
 receipt = snapshot["receipt"]
-os.environ["ARGUS_CHAT_FALLBACK_MODEL"] = receipt["fallback_model"]
+os.environ["CUADRAO_CHAT_FALLBACK_MODEL"] = receipt["fallback_model"]
 record_openrouter_route_receipt(
     task=receipt["task"],
     model_name=receipt["model"],

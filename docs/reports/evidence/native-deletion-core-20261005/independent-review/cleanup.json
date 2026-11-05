@@ -1,0 +1,11 @@
+{
+  "own60343_free": true,
+  "own_test_users_remaining": 0,
+  "own_fixture_deleted": true,
+  "root_auth_health": 200,
+  "root_postgres_responding": true,
+  "auth_config_changed": false,
+  "own_deletion_run_cleaned": "verified exclusive-before/after set in live-driver finally",
+  "own_simulator_created": false,
+  "candidate_clean": true
+}

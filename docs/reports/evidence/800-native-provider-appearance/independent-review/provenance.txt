@@ -1,0 +1,13 @@
+PR: https://github.com/lagarcess/argus/pull/857
+Head: e8a5c10e908f45983cbe1023454ee4a52af765cd
+Base: 26c0692d634953bd542a6cca6504138e6e420e6c
+Original base: a6688eea10895d9f57664f1ece8a7eba96503732
+Author tested merge: 99b903090881e741a093b30fde5d00a9df2d7863
+Binary-inclusive base-to-head patch-id: 1c3c49160efddbe75019419944b22198bf6db420
+Native-only patch-id: e07fe070811c18cb6b893a7d74f343edd1bbb05a
+Independent simulator: 97B97D04-0B6A-4B81-8B7A-C3EE070226FC; iPhone 18 Pro; iOS 27.0
+Head checkout unchanged. Baseline checkout receives only HEAD NativeProviderAppearanceUITests.swift test harness.
+Independent native configuration checks: 11 Debug + 11 Release passed.
+Merged-tree modularity: passed; no violations.
+Whitespace check: passed. ios tree unchanged from author tested merge. Integration base is ancestor of head. Original/current base ios trees identical.
+No provider buttons tapped; synthetic identifiers and loopback endpoints only.

@@ -1,0 +1,41 @@
+{
+  "capture_start_head": "b6aecdfdaf964f81aeb411110c003d9662bd5e68",
+  "export_head": "f5f4f4467fe53c3a1990cda9574b353c8b72d83f",
+  "android_source_commit": "de8f9cdf6874e8e46d04c887393f003fb5b74492",
+  "source_equality_to_android_commit": true,
+  "captured_at_utc": "2026-09-28T20:59:02.934539+00:00",
+  "source_sha256": {
+    "prototypes/chart-validation/android/.gitignore": "6409fa61e338c8dedada902c171cdd004b146e5b3bf602700f104bd30acc0a12",
+    "prototypes/chart-validation/android/README.md": "b4668d12686a107bfff6b264e03cc65f2ac9555b18df004c9d2a1908602ceb00",
+    "prototypes/chart-validation/android/app/build.gradle.kts": "1f005c44756ce3fc1f73d9025fbc4cf2fb340538e5f706b12118f89823d897ca",
+    "prototypes/chart-validation/android/app/src/androidTest/java/ai/argus/chartprototype/ChartProofTest.kt": "97ed3ee7fa774a184383c857c52334e358ae643a30e9bff472a2a7d4912e19c5",
+    "prototypes/chart-validation/android/app/src/main/AndroidManifest.xml": "77cc220380709682a606bea304caaef502f36452e8648f4797d477ec1964643c",
+    "prototypes/chart-validation/android/app/src/main/java/ai/argus/chartprototype/ChartTheme.kt": "68880c4f561cec2df3c262c0f85b6e5cbd8c286d15d93f1f63658ce3ef74b40f",
+    "prototypes/chart-validation/android/app/src/main/java/ai/argus/chartprototype/Fixture.kt": "2e8bacf928f82222d164fa7d76bc3d51833ac60dc369620a98418981b3b9d38c",
+    "prototypes/chart-validation/android/app/src/main/java/ai/argus/chartprototype/LabControls.kt": "ea5b7dc71a63626f0777ecd2789e258c5b03f5f0cda9b1dc33c54cff9e56ffbd",
+    "prototypes/chart-validation/android/app/src/main/java/ai/argus/chartprototype/MainActivity.kt": "7d73dfa6461a58e1cefbd0e70142884529a7dbd0f0cbbcc406f2aa08c2fdb88f",
+    "prototypes/chart-validation/android/app/src/main/res/font/inter_variable.ttf": "4989b125924991b90d05b2d16e0e388c48f7d5bb8b30539bbf9c755278d0ccaf",
+    "prototypes/chart-validation/android/app/src/main/res/font/space_grotesk.ttf": "acad6de1fc93436f5c0f1f4137751ef04f1aea3063e7036535970ffcfbd79f72",
+    "prototypes/chart-validation/android/app/src/main/res/xml/data_extraction_rules.xml": "66c2d7c6ac2a3c03200235a556e0f410620cae5bdfedd4ebdf18528fcbc42886",
+    "prototypes/chart-validation/android/app/src/test/java/ai/argus/chartprototype/SelectionTest.kt": "ba7d1fa15add7255594242ff1188e514b2af6ead8e11049d3269eb69e8b8636a",
+    "prototypes/chart-validation/android/build.gradle.kts": "da71d0eac72987c2d01a1f157d32a259661e11c327cde75b71e6248d8ea602ba",
+    "prototypes/chart-validation/android/gradle/wrapper/gradle-wrapper.jar": "b3a875ddc1f044746e1b1a55f645584505f4a10438c1afea9f15e92a7c42ec13",
+    "prototypes/chart-validation/android/gradle/wrapper/gradle-wrapper.properties": "40c4ac801fa3d3029cc46957c91216f9fcff52a05a011a0579357bae3dc4c441",
+    "prototypes/chart-validation/android/gradle.properties": "e43a00491832254a35cf5a979ef6de17f78c4e159d446be39319d2e3d3e46325",
+    "prototypes/chart-validation/android/gradlew": "fb68debc1b1acf8ec55dc0d5e5495e1dedd0bd6b61f304bee61613eeb2bd9b92",
+    "prototypes/chart-validation/android/licenses/OFL-1.1-Inter.txt": "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a",
+    "prototypes/chart-validation/android/licenses/OFL-1.1-Space-Grotesk.txt": "18a4de52385f6b988782639d5d0cc1326e5a8c2de9a7f01d7b20d9aedcc60943",
+    "prototypes/chart-validation/android/licenses/README.md": "47d9a27f1c017f70dd7c85d14e3fac83e54a46237034eb8325a461f2d730959f",
+    "prototypes/chart-validation/android/settings.gradle.kts": "bd439b5b72a7de9d2441d01667352987eb210866d8cc7e0436d202256b1df7ca",
+    "prototypes/chart-validation/fixtures/series.json": "a12a24634763f951f6daad7d200614dd777e83785d9ed4da9907720e5bdf418f",
+    "prototypes/chart-validation/fixtures/visual-style.json": "d1ab2aee8e20f5fe032759114e271d998406926e352d879b3b468aebe59ede72"
+  },
+  "debug_apk_sha256": "56401ecc1f36c4fd42f453d2e060ccce02ba8eb8cdd3f077be113fc2b910f2b1",
+  "packaged_shared_assets_byte_equal": {
+    "visual-style.json": true,
+    "series.json": true
+  },
+  "test_apk_sha256": "c69ffa9879feb43b96614ee92d0122b1e89b06f0c6de2082ad35477b0035fd65",
+  "android_and_shared_sources_equal_start_to_export": true,
+  "head_timing_note": "Device acceptance started at capture_start_head. Parent advanced the repository during capture; the recorder/export metadata observed export_head. Android implementation and shared fixtures/style are byte-identical across these heads. No per-artifact commit timing is asserted."
+}

@@ -1,0 +1,10 @@
+2026-10-08 02:09:52.442 | INFO     | argus.api.app_setup:lifespan:65 - Using Supabase product persistence with memory LangGraph checkpointer
+2026-10-08 02:09:52.447 | INFO     | argus.api.shortcuts:start_shortcuts:90 - Shortcuts connector ready
+seed_upload_a: {"http": 200, "status": "saved", "replayed": false, "connection_id": "f3d02d8d-40b5-4c52-8a19-a6901ac5122a"}
+seed_row_a: {"source_bytes_len": null, "source_path": "8f3afe96-d3d0-422f-b28d-3f530727a7b3/f3d02d8d-40b5-4c52-8a19-a6901ac5122a/a725a99d4c64a1f6a7ddae8e48a41dc98119dc9ed385dca007c038404522bc8f"}
+seed_upload_b: {"http": 200, "status": "saved", "replayed": false, "connection_id": "c010941a-6883-480c-89d2-41586c86b140"}
+seed_row_b: {"source_bytes_len": null, "source_path": "8f3afe96-d3d0-422f-b28d-3f530727a7b3/c010941a-6883-480c-89d2-41586c86b140/0afbddff334ab079fd4e72e1ddbe35fc7b26e51008088db07b5b518ea9456c29"}
+seed_upload_v: {"http": 200, "status": "saved", "replayed": false, "connection_id": "a81396a7-c27e-4727-a164-d785a0017622"}
+seed_objects_u: ["8f3afe96-d3d0-422f-b28d-3f530727a7b3/c010941a-6883-480c-89d2-41586c86b140/0afbddff334ab079fd4e72e1ddbe35fc7b26e51008088db07b5b518ea9456c29", "8f3afe96-d3d0-422f-b28d-3f530727a7b3/f3d02d8d-40b5-4c52-8a19-a6901ac5122a/a725a99d4c64a1f6a7ddae8e48a41dc98119dc9ed385dca007c038404522bc8f"]
+seed_objects_v: ["87a7b851-4fe0-4414-8f88-ce334ad0c004/a81396a7-c27e-4727-a164-d785a0017622/bb8f80a6132e3264b1c9ca267e2a486888b00a3644b03c1ed1a0c77f360612af"]
+exit=0

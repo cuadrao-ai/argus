@@ -1,0 +1,27 @@
+{
+  "capture_source_commit": "f93e11d7e639b77b5ffd82ec9d04076bdb6dd713",
+  "recorded_utc": "2026-09-28T20:32:59.172673+00:00",
+  "source_sha256": {
+    "prototypes/chart-validation/android/.gitignore": "6409fa61e338c8dedada902c171cdd004b146e5b3bf602700f104bd30acc0a12",
+    "prototypes/chart-validation/android/README.md": "ecabefb1bf12479b9e1d32c4a973edb9e868fa7f46b5def0f5af5270e5d3c07e",
+    "prototypes/chart-validation/android/app/build.gradle.kts": "1f005c44756ce3fc1f73d9025fbc4cf2fb340538e5f706b12118f89823d897ca",
+    "prototypes/chart-validation/android/app/src/androidTest/java/ai/argus/chartprototype/ChartProofTest.kt": "2fb356fb967291cd2fa18a5935ce18d989c1a69f0875b7e0188ed7d27d3c0641",
+    "prototypes/chart-validation/android/app/src/main/AndroidManifest.xml": "77cc220380709682a606bea304caaef502f36452e8648f4797d477ec1964643c",
+    "prototypes/chart-validation/android/app/src/main/java/ai/argus/chartprototype/Fixture.kt": "2e8bacf928f82222d164fa7d76bc3d51833ac60dc369620a98418981b3b9d38c",
+    "prototypes/chart-validation/android/app/src/main/java/ai/argus/chartprototype/MainActivity.kt": "57955da2bd8411277c38afaa00cbb9a44b035664f7ef65103cd3c169c87800fe",
+    "prototypes/chart-validation/android/app/src/main/res/xml/data_extraction_rules.xml": "66c2d7c6ac2a3c03200235a556e0f410620cae5bdfedd4ebdf18528fcbc42886",
+    "prototypes/chart-validation/android/app/src/test/java/ai/argus/chartprototype/SelectionTest.kt": "ba7d1fa15add7255594242ff1188e514b2af6ead8e11049d3269eb69e8b8636a",
+    "prototypes/chart-validation/android/build.gradle.kts": "da71d0eac72987c2d01a1f157d32a259661e11c327cde75b71e6248d8ea602ba",
+    "prototypes/chart-validation/android/gradle.properties": "e43a00491832254a35cf5a979ef6de17f78c4e159d446be39319d2e3d3e46325",
+    "prototypes/chart-validation/android/gradle/wrapper/gradle-wrapper.jar": "b3a875ddc1f044746e1b1a55f645584505f4a10438c1afea9f15e92a7c42ec13",
+    "prototypes/chart-validation/android/gradle/wrapper/gradle-wrapper.properties": "40c4ac801fa3d3029cc46957c91216f9fcff52a05a011a0579357bae3dc4c441",
+    "prototypes/chart-validation/android/gradlew": "fb68debc1b1acf8ec55dc0d5e5495e1dedd0bd6b61f304bee61613eeb2bd9b92",
+    "prototypes/chart-validation/android/settings.gradle.kts": "bd439b5b72a7de9d2441d01667352987eb210866d8cc7e0436d202256b1df7ca",
+    "prototypes/chart-validation/fixtures/series.json": "a12a24634763f951f6daad7d200614dd777e83785d9ed4da9907720e5bdf418f"
+  },
+  "fixture_sha256": "a12a24634763f951f6daad7d200614dd777e83785d9ed4da9907720e5bdf418f",
+  "command": "See README.md: exact-head Gradle build/unit/lint, explicit adb install target+test APKs, am instrument -w, pull app external-files before owned device cleanup.",
+  "app_apk_sha256": "41a87b8a48328bfa5fd664f7145a037604bde5105186dc1f9ed52ac0d32883a3",
+  "test_apk_sha256": "e24a021accead7aec781a15f2549c8272dcd65ff2c711aecf2bb633a8224ba5c",
+  "packaged_fixture_sha256": "a12a24634763f951f6daad7d200614dd777e83785d9ed4da9907720e5bdf418f"
+}

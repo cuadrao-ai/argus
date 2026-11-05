@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, type RefObject } from "react";
 import { Check, Copy, ExternalLink, Link2, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import SettingsSurface from "@/components/settings/SettingsSurface";
 import {
   copyReceiptLink,
   listEvidenceReceipts,
@@ -131,7 +131,7 @@ export default function SharedReceiptsView({
   };
 
   return (
-    <AdaptivePanel
+    <SettingsSurface
       title={t("receipt.list.title", "Shared links")}
       closeLabel={t("receipt.list.close", "Close shared links")}
       onClose={onClose}
@@ -291,10 +291,10 @@ export default function SharedReceiptsView({
           <p className="mt-5 text-[11.5px] leading-relaxed text-black/40 dark:text-white/40">
             {t(
               "receipt.list.cache_note",
-              "The link dies on Argus right away. Chat apps sometimes keep an old preview card in threads where it was already pasted, and Argus cannot reach into those.",
+              "The link dies on Cuadrao right away. Chat apps sometimes keep an old preview card in threads where it was already pasted, and Cuadrao cannot reach into those.",
             )}
           </p>
         </div>
-    </AdaptivePanel>
+    </SettingsSurface>
   );
 }

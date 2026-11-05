@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, type Dispatch, type RefObject, type SetStateAction } from "react";
+import { useEffect, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import { getMe, listConversations } from "@/lib/argus-api";
+import { commitShellLanguage } from "@/lib/language-features";
+import { businessPilotEnabled } from "@/lib/private-alpha-flags";
 import { guestProfileProbeOutcome } from "@/lib/guest-account";
 import { readActiveConversationRouteState } from "@/lib/chat-conversation-routing";
+import { currentAuthLoginPath } from "@/lib/landing-intent";
+import { CONVERSATION_UNAVAILABLE } from "@/lib/conversation-surface-guard";
+import { useConversationSurface } from "./ChatWorkspace";
 import type { Message } from "./types";
 
 export type ProfileState =
@@ -32,6 +37,16 @@ type InitialChatSessionOptions = {
   cancelActiveNavigation: () => void;
 };
 
+/**
+ * A guest's latest Personal conversation is picked only on the Personal shell
+ * and never on the notice address: on the Business shell that pick would send
+ * the conversation to the notice and the next load would pick it again.
+ */
+export function guestAutoPickAllowed(surface: string, search: string = typeof window === "undefined" ? "" : window.location.search): boolean {
+  if (surface === "business") return false;
+  return new URLSearchParams(search.startsWith("?") ? search.slice(1) : search).get("notice") !== CONVERSATION_UNAVAILABLE;
+}
+
 export function useInitialChatSession({
   hasAcceptedUserInputRef,
   setAccount,
@@ -41,9 +56,11 @@ export function useInitialChatSession({
   resetToEmptyChatSurface,
   navigateConversationTranscript,
   cancelActiveNavigation,
-}: InitialChatSessionOptions): void {
+}: InitialChatSessionOptions): boolean {
+  const [initialRoutingSettled, setInitialRoutingSettled] = useState(false);
   const { t, i18n } = useTranslation();
   const router = useRouter();
+  const surface = useConversationSurface();
 
   useEffect(() => {
     let cancelled = false;
@@ -58,10 +75,7 @@ export function useInitialChatSession({
         } catch (error) {
           probeOutcome = guestProfileProbeOutcome(error);
         }
-        const resolvedLanguage = meResponse?.user?.language ?? i18n.language;
-        if (resolvedLanguage && resolvedLanguage !== i18n.language) {
-          await i18n.changeLanguage(resolvedLanguage);
-        }
+        await commitShellLanguage(i18n, businessPilotEnabled, meResponse?.user?.language);
         if (cancelled) return;
         if (probeOutcome === null) {
           setProfileState("established");
@@ -69,13 +83,14 @@ export function useInitialChatSession({
           setProfileState("bootstrap_required");
         } else if (probeOutcome === "fail_closed") {
           setProfileState("unavailable");
-          router.replace("/?auth=login");
+          router.replace(currentAuthLoginPath());
           return;
         }
         if (hasAcceptedUserInputRef.current) return;
         const activeRoute = readActiveConversationRouteState();
         let activeConversationId = activeRoute.conversationId;
-        if (!activeConversationId && meResponse?.account_kind === "guest") {
+        if (!activeConversationId && meResponse?.account_kind === "guest" && guestAutoPickAllowed(surface)) {
+          // Guests have no Business space, so this is always the Personal list.
           const { items } = await listConversations({ limit: 2 });
           if (cancelled || hasAcceptedUserInputRef.current) return;
           activeConversationId = items[0]?.id ?? null;
@@ -84,21 +99,24 @@ export function useInitialChatSession({
           const userId = meResponse?.user.id;
           if (!userId) {
             resetToEmptyChatSurface();
+            setInitialRoutingSettled(true);
             return;
           }
           await navigateConversationTranscript(activeConversationId, userId, {
             bootstrap: true,
             messageId: activeRoute.messageId ?? undefined,
           });
+          if (!cancelled) setInitialRoutingSettled(true);
           return;
         }
 
         if (cancelled || hasAcceptedUserInputRef.current) return;
         resetToEmptyChatSurface();
+        setInitialRoutingSettled(true);
       } catch {
         if (cancelled) return;
         setProfileState("unavailable");
-        router.replace("/?auth=login");
+        router.replace(currentAuthLoginPath());
         setMessages([
           {
             id: "offline",
@@ -117,4 +135,6 @@ export function useInitialChatSession({
     // Bootstraps the active conversation once; re-running on callback or i18n updates would create noisy chat reloads.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  return initialRoutingSettled;
 }

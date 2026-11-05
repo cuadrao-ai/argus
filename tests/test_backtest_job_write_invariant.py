@@ -287,6 +287,28 @@ def test_link_write_callers_are_enumerated() -> None:
 
 MIGRATIONS = REPO / "supabase" / "migrations"
 
+
+def _recreated_backtest_writers_are_contained(source: str) -> None:
+    writers = {}
+    for definition in source.split("CREATE OR REPLACE FUNCTION ")[1:]:
+        if (
+            "update public.backtest_jobs" in definition
+            or "insert into public.backtest_jobs" in definition
+        ):
+            signature, body = definition.split("AS $function$", 1)
+            writers[signature.split("(", 1)[0]] = body.split("$function$;", 1)[0]
+    assert set(writers) == {
+        "public.admit_backtest_job",
+        "public.finalize_direct_backtest_success",
+    }
+    EXPECTED_MIGRATION_WRITERS["20260722000002_atomic_backtest_admission.sql"](
+        writers["public.admit_backtest_job"]
+    )
+    EXPECTED_MIGRATION_WRITERS["20260722000004_serialize_direct_success.sql"](
+        writers["public.finalize_direct_backtest_success"]
+    )
+
+
 # Migration files that write backtest_jobs, with the containment proof
 # for each. Migrations are append-only, so a new writer shows up as an
 # unclassified filename and fails the walk.
@@ -323,6 +345,7 @@ EXPECTED_MIGRATION_WRITERS = {
         "where launch_payload ->> 'created_by' = 'workflows.proof_cli'",
         absent=("result_run_id =", "status ="),
     ),
+    "20261018040000_harden_definer_search_paths.sql": _recreated_backtest_writers_are_contained,
 }
 
 

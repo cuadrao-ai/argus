@@ -22,7 +22,7 @@ def test_signup_emits_product_event_for_public_registration(
 
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     captured_events: list[tuple[str, dict[str, object]]] = []
 
     def fake_capture_product_event(kind: str, **payload: object) -> None:
@@ -67,6 +67,7 @@ def test_signup_emits_product_event_for_public_registration(
     response = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "beta@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",

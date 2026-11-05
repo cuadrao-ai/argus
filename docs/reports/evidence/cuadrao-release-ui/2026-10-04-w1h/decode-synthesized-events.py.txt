@@ -1,0 +1,13 @@
+import json,subprocess,sys,re
+d=sys.argv[1]
+m=json.load(open(d+'/manifest.json'))
+for t in m:
+  print(t['testIdentifier'])
+  for a in sorted(t['attachments'],key=lambda a:a['timestamp']):
+    n=a['suggestedHumanReadableName']; f=d+'/'+a['exportedFileName']
+    extra=''
+    if n.startswith('Synthesized'):
+      out=subprocess.run(['plutil','-p',f],capture_output=True,text=True).stdout
+      name=re.search(r'2 => "([^"]+)"',out); xs=re.findall(r'\n    (9|10) => ([\d.]+)',out)
+      extra=(name.group(1) if name else '')+' '+str(xs)
+    print('  ',round(a['timestamp'],3),n[:60],extra)

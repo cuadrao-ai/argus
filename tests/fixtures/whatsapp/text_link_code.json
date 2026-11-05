@@ -1,0 +1,39 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "900000000000001",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "15550009999",
+              "phone_number_id": "100000000000001"
+            },
+            "contacts": [
+              {
+                "profile": {
+                  "name": "Synthetic Owner"
+                },
+                "wa_id": "15550101234"
+              }
+            ],
+            "messages": [
+              {
+                "from": "15550101234",
+                "id": "wamid.SYNTHETIC0003",
+                "timestamp": "1791370800",
+                "type": "text",
+                "text": {
+                  "body": "CUADRAO ABCD2345"
+                }
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}

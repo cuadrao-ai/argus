@@ -100,12 +100,8 @@ const PROOF = {
   conversionPrompt: /KEEP GOING WITH ARGUS|Request access|Solicitar acceso|SIGUE|Start a new conversation|nueva conversación/i,
   settingsRoot: /Data Controls|Controles de datos/i,
   usage: /left today|available this hour|hoy|esta hora/i,
-  /* One per settings destination, each a row only that panel renders. */
   settingsProfile: /Avatar color|Color de avatar/i,
-  settingsData: /Delete all conversations|Eliminar todas las conversaciones/i,
-  /* Not the Sidebar row: that one only exists from the tablet stop up, so it
-     cannot prove this panel at 390. Appearance is the row that is always here
-     and that the Profile panel does not also render. */
+  settingsData: /Recently deleted|Borrados recientemente/i,
   settingsPreferences: /Appearance|Apariencia/i,
   settingsHelpLegal: /Keyboard shortcuts|Atajos de teclado/i,
   /* At 390 the panel drops the keyboard shortcuts row, and its remaining rows
@@ -128,13 +124,9 @@ const PROOF = {
   usageError: /Try again|Reintentar/i,
   /* The typed question itself, which the composer renders into the DOM. */
   typedQuestion: /drawdown/i,
-  /* Legal and auth each cross-link to the other, so the marker has to be body
-     copy rather than a heading or a nav label. */
-  privacy: /Data we collect|Datos que recopilamos/i,
-  terms: /Acceptable use|Uso aceptable/i,
   login: /Forgot password|Olvidaste tu contraseña/i,
   signup: /At least 8 characters|Al menos 8 caracteres/i,
-  requestAccess: /Request access to Argus|Solicitar acceso a Argus/i,
+  requestAccess: /Request access to Cuadrao|Solicita acceso a Cuadrao/i,
   forgotPassword: /Recover your account|Recupera tu cuenta/i,
   recovery: /Choose a new password|Elige una nueva contraseña/i,
 } as const;
@@ -434,33 +426,6 @@ test.describe("signed-in surfaces", () => {
     });
 
     /*
-     * A persisted result card hydrates from a run fetch rather than from
-     * message metadata, so it cannot be stubbed onto a transcript message. The
-     * committed playground renders the same component from static fixtures,
-     * which is what the width behaviour is read from here.
-     */
-    test(`result card fixtures at ${band}`, async ({ page }) => {
-      await open(page, band, "/dev/result-card", {});
-      await capture(page, `signed-in/result-card-playground-${band}-en-dark`, PROOF.result);
-
-      for (const fixture of [
-        "positive-single-symbol",
-        "negative-single-symbol",
-        "benchmark-underperformance-positive",
-        "modeled-execution-costs",
-      ]) {
-        const card = page.getByTestId(`result-card-fixture-${fixture}`).first();
-        if (!(await card.count())) continue;
-        await card.scrollIntoViewIfNeeded();
-        await page.waitForTimeout(300);
-        const base = join(OUT_DIR, `signed-in/result-card-${fixture}-${band}-en-dark`);
-        await mkdir(dirname(base), { recursive: true });
-        await card.screenshot({ path: `${base}.png` });
-        await writeFile(`${base}.txt`, await card.innerText(), "utf8");
-      }
-    });
-
-    /*
      * The cross pass. Crossing every view by language and theme is ~300
      * captures that nobody reads, so it is spent only where copy length or
      * theming actually breaks things: the metric table, the allowance meters
@@ -538,13 +503,7 @@ test.describe("signed-in surfaces", () => {
       );
     });
 
-    test(`legal and auth at ${band}`, async ({ page }) => {
-      await open(page, band, "/privacy", {});
-      await capture(page, `chrome/privacy-${band}-en-dark`, PROOF.privacy);
-
-      await open(page, band, "/terms", {});
-      await capture(page, `chrome/terms-${band}-en-dark`, PROOF.terms);
-
+    test(`auth at ${band}`, async ({ page }) => {
       await open(page, band, "/?auth=login", {});
       await capture(page, `chrome/login-${band}-en-dark`, PROOF.login);
 

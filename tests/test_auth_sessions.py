@@ -12,7 +12,7 @@ class _FakeCursor:
     def __init__(self, *, active: bool) -> None:
         self.active = active
         self.query: str | None = None
-        self.params: tuple[UUID, UUID] | None = None
+        self.params: tuple[UUID, ...] | None = None
 
     def __enter__(self) -> _FakeCursor:
         return self
@@ -20,7 +20,7 @@ class _FakeCursor:
     def __exit__(self, *args: object) -> None:
         return None
 
-    def execute(self, query: str, params: tuple[UUID, UUID]) -> None:
+    def execute(self, query: str, params: tuple[UUID, ...]) -> None:
         self.query = query
         self.params = params
 
@@ -66,7 +66,10 @@ def test_auth_session_verifier_accepts_matching_active_session() -> None:
         user_id=str(user_id),
     )
     assert "auth.sessions" in str(pool.cursor.query)
-    assert pool.cursor.params == (session_id, user_id)
+    assert "argus_private.account_placeholders" in str(pool.cursor.query)
+    # A person whose deletion run is in flight is locked out too.
+    assert "argus_private.account_deletion_runs" in str(pool.cursor.query)
+    assert pool.cursor.params == (session_id, user_id, user_id, user_id)
 
 
 def test_auth_session_verifier_rejects_revoked_session() -> None:

@@ -1,0 +1,12 @@
+source_id,date,description,amount,currency,kind,account,destination
+tx-dop-01,2026-09-10,Ingreso sintético,1200.00,DOP,income,cash-dop,personal
+tx-dop-02,2026-09-10,Comercio Ficticio Morante,125.50,DOP,expense,cash-dop,personal
+tx-dop-03,2026-09-10,Comercio Ficticio Morante,125.50,DOP,expense,cash-dop,personal
+tx-dop-04,2026-09-10,Devolución sintética,25.50,DOP,refund,cash-dop,personal
+tx-dop-05,2026-09-10,Transferencia sintética,200.00,DOP,transfer,cash-dop,personal
+tx-usd-01,2026-09-10,Compra sintética,40.00,USD,expense,cash-usd,personal
+tx-currency,2026-09-10,Compra sintética,30.00,$,expense,cash-dop,personal
+tx-date,03/04/2026,Compra sintética,80.00,DOP,expense,cash-dop,personal
+tx-number,2026-09-10,Compra sintética,"1.234,56",DOP,expense,cash-dop,personal
+tx-missing,,Compra sintética,,DOP,expense,,personal
+tx-household,2026-09-10,Compra sintética,700.00,DOP,expense,cash-dop,personal or household

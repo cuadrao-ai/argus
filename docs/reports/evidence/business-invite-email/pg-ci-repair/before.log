@@ -1,0 +1,57 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.10.20, pytest-8.4.2, pluggy-1.6.0
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: /private/tmp/cuadrao-business-invite-email-20261018
+configfile: pyproject.toml
+plugins: benchmark-5.2.3, mock-3.15.1, Faker-30.10.0, asyncio-1.4.0, hypothesis-6.151.12, langsmith-0.7.31, respx-0.23.1, cov-7.0.0, anyio-4.13.0
+asyncio: mode=strict, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 1 item
+
+tests/test_access_request_postgres.py F                                  [100%]
+
+=================================== FAILURES ===================================
+_______ test_protected_approval_replay_uses_real_gateway_and_sends_once ________
+tests/test_access_request_postgres.py:1097: in test_protected_approval_replay_uses_real_gateway_and_sends_once
+    assert first.status_code == second.status_code == 200
+E   assert 503 == 200
+E    +  where 503 = <Response [503 Service Unavailable]>.status_code
+----------------------------- Captured stderr call -----------------------------
+2026-10-18 00:27:50.343 | ERROR    | argus.api.routers.ops:_approval_unavailable:211 - access approval failed
+Traceback (most recent call last):
+  File "/private/tmp/cuadrao-business-invite-email-20261018/src/argus/api/routers/ops.py", line 292, in approve_access_request
+    result = await asyncio.to_thread(
+  File "/Users/garces/.local/share/uv/python/cpython-3.10.20-macos-aarch64-none/lib/python3.10/asyncio/threads.py", line 25, in to_thread
+    return await loop.run_in_executor(None, func_call)
+  File "/Users/garces/.local/share/uv/python/cpython-3.10.20-macos-aarch64-none/lib/python3.10/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "/private/tmp/cuadrao-business-invite-email-20261018/src/argus/domain/access_approval_email.py", line 155, in send_access_welcome_email
+    receipt = send_resend_email(
+  File "/private/tmp/cuadrao-business-invite-email-20261018/src/argus/domain/resend_email.py", line 61, in send_resend_email
+    mail_code, _ = smtp.mail(_SENDER_ADDRESS)
+  File "/private/tmp/cuadrao-business-invite-email-20261018/tests/test_access_request_postgres.py", line 1030, in mail
+    assert sender == "noreply@get-argus.com"
+AssertionError: assert 'no-responder@mail.cuadrao.ai' == 'noreply@get-argus.com'
+
+  - noreply@get-argus.com
+  + no-responder@mail.cuadrao.ai
+2026-10-18 00:27:50.363 | ERROR    | argus.api.routers.ops:_approval_unavailable:211 - access approval failed
+Traceback (most recent call last):
+  File "/private/tmp/cuadrao-business-invite-email-20261018/src/argus/api/routers/ops.py", line 292, in approve_access_request
+    result = await asyncio.to_thread(
+  File "/Users/garces/.local/share/uv/python/cpython-3.10.20-macos-aarch64-none/lib/python3.10/asyncio/threads.py", line 25, in to_thread
+    return await loop.run_in_executor(None, func_call)
+  File "/Users/garces/.local/share/uv/python/cpython-3.10.20-macos-aarch64-none/lib/python3.10/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "/private/tmp/cuadrao-business-invite-email-20261018/src/argus/domain/access_approval_email.py", line 155, in send_access_welcome_email
+    receipt = send_resend_email(
+  File "/private/tmp/cuadrao-business-invite-email-20261018/src/argus/domain/resend_email.py", line 61, in send_resend_email
+    mail_code, _ = smtp.mail(_SENDER_ADDRESS)
+  File "/private/tmp/cuadrao-business-invite-email-20261018/tests/test_access_request_postgres.py", line 1030, in mail
+    assert sender == "noreply@get-argus.com"
+AssertionError: assert 'no-responder@mail.cuadrao.ai' == 'noreply@get-argus.com'
+
+  - noreply@get-argus.com
+  + no-responder@mail.cuadrao.ai
+=========================== short test summary info ============================
+FAILED tests/test_access_request_postgres.py::test_protected_approval_replay_uses_real_gateway_and_sends_once
+============================== 1 failed in 2.32s ===============================

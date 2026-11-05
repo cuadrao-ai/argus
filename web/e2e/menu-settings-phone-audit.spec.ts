@@ -32,7 +32,6 @@ const REGISTERED: Surface[] = [
   { name: "deleted", path: [DATA, "settings.data.recently_deleted"] },
   { name: "usage", path: [DATA, "settings.data.usage"] },
   { name: "shared-links", path: [DATA, "settings.data.shared_links"], optional: true },
-  { name: "delete-all-confirm", path: [DATA, "settings.data.delete_all_conversations"] },
   { name: "account-delete", path: [DATA, "settings.profile.delete_account"] },
   { name: "appearance", path: [PREFS, "settings.app.appearance"] },
   { name: "language", path: [PREFS, "settings.app.language"] },
@@ -120,12 +119,11 @@ for (const cell of AUDIT_CELLS) {
           }
           const marker = surface.marker
             ? page.getByText(label(language, surface.marker), { exact: true }).filter({ visible: true }).last()
-            : surface.name === "delete-all-confirm" ? page.getByRole("alertdialog")
-              : surface.name === "account-delete" ? page.getByRole("dialog", { name: label(language, "settings.profile.request_deletion.title"), exact: true })
-                : page.getByRole("dialog").last();
+            : surface.name === "account-delete" ? page.getByRole("dialog", { name: label(language, "settings.profile.request_deletion.title"), exact: true })
+              : page.getByRole("dialog").last();
           if (surface.name === "account-delete") {
-            const supportButton = marker.getByRole("button", { name: label(language, "settings.profile.request_deletion.contact_support"), exact: true });
-            const hitTest = await supportButton.evaluate((control) => {
+            const confirmButton = marker.getByRole("button", { name: label(language, "settings.profile.request_deletion.confirm"), exact: true });
+            const hitTest = await confirmButton.evaluate((control) => {
               const rect = control.getBoundingClientRect();
               const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
               return { controlCovered: hit !== null && !control.contains(hit), coveringClass: hit?.className, coveringZIndex: hit ? getComputedStyle(hit).zIndex : null };
@@ -207,22 +205,15 @@ for (const cell of AUDIT_CELLS) {
       }
 
       if (account === "registered") {
-        for (const destination of ["security", "terms", "privacy"] as const) {
-          test(`settings route ${destination}`, async ({ page }) => {
-            await openFixture(page, cell);
-            await openSettings(page, cell);
-            if (destination === "security") {
-              await button(page, cell, DATA).click();
-              await button(page, cell, "settings.data.security").click();
-            } else {
-              await button(page, cell, "settings.help.title").click();
-              await page.getByRole("link", { name: label(language, `settings.help.${destination}`), exact: true }).first().click();
-            }
-            await expect(page).toHaveURL(new RegExp(destination === "security" ? "/account/security$" : `/${destination}$`));
-            await page.addStyleTag({ content: FREEZE_CSS });
-            await capture(page, cell, destination, page.getByRole("heading", { name: label(language, destination === "security" ? "account_security.title" : `legal.${destination}.title`), exact: true }));
-          });
-        }
+        test("settings route security", async ({ page }) => {
+          await openFixture(page, cell);
+          await openSettings(page, cell);
+          await button(page, cell, DATA).click();
+          await button(page, cell, "settings.data.security").click();
+          await expect(page).toHaveURL(/\/account\/security$/);
+          await page.addStyleTag({ content: FREEZE_CSS });
+          await capture(page, cell, "security", page.getByRole("heading", { name: label(language, "account_security.title"), exact: true }));
+        });
         test("currency picker", async ({ page }) => {
           await openFixture(page, cell);
           await openSettings(page, cell);

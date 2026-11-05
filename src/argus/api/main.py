@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+import re
+
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
+from pydantic import Field
+from pydantic_settings import BaseSettings
 
 from argus.api import app_setup, openapi_compat, pagination, search_utils
 from argus.api import state as api_state
 from argus.api.routers import (
-    agent,
-    analytics,
+    account,
     auth,
-    backtest,
+    auth_apple,
     computations,
     conversation_activity,
     conversations,
@@ -19,11 +22,17 @@ from argus.api.routers import (
     evidence,
     evidence_receipts,
     feedback,
+    financial_accounts,
     history,
+    household_financial,
+    household_planning,
+    households,
+    internal_client_ip,
     market,
     ops,
     personalization_memory,
     profile,
+    profile_apple_name,
     public_receipts,
     receipt_forks,
     search,
@@ -39,33 +48,49 @@ app = FastAPI(
 app_setup.add_core_middleware_and_handlers(app)
 
 
+class DeploymentMetadata(BaseSettings):
+    git_sha: str | None = Field(default=None, validation_alias="RENDER_GIT_COMMIT")
+
+
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "healthy", "version": "1.0.0-alpha"}
+def health() -> dict[str, str | None]:
+    commit = DeploymentMetadata().git_sha
+    return {
+        "status": "healthy",
+        "version": "1.0.0-alpha",
+        "git_sha": commit
+        if commit and re.fullmatch(r"[0-9a-fA-F]{40}", commit)
+        else None,
+    }
 
 
 for api_router in (
     auth.router,
-    analytics.router,
+    auth_apple.router,
     profile.router,
+    profile_apple_name.router,
     conversations.router,
     computations.router,
     tool_results.router,
     conversation_activity.router,
-    backtest.router,
     evidence.router,
     decisions.router,
     evidence_receipts.router,
     public_receipts.router,
     receipt_forks.router,
-    agent.router,
     history.router,
     search.router,
     discovery.router,
     market.router,
     personalization_memory.router,
+    financial_accounts.router,
+    households.router,
+    household_financial.router,
+    household_planning.router,
     feedback.router,
+    account.router,
     ops.router,
+    internal_client_ip.router,
     dev.router,
 ):
     app.include_router(api_router)

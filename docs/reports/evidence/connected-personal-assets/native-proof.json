@@ -1,0 +1,72 @@
+{
+  "simulator_id": "1A90F684-345F-465C-AA50-6A5298F34156",
+  "bundle": "local.argus.assets-demo",
+  "api_port": 59300,
+  "auth_port": 59201,
+  "postgres_port": 59202,
+  "cases": [
+    {
+      "test": "FinancialLoopUITests/testConnectedAssetEstimateShareDebtHistorySearchAndRelaunch()",
+      "source_head": "9d49cde3359a54d8d28624e5f16973d032bbd61b",
+      "status": "passed",
+      "duration_seconds": 352.094,
+      "captures": [
+        {
+          "file": "asset-restored-spanish-relaunch.png",
+          "captured_at": 1790815884.982
+        },
+        {
+          "file": "asset-search-origin-preserved.png",
+          "captured_at": 1790815836.417
+        },
+        {
+          "file": "asset-restored-same-record.png",
+          "captured_at": 1790815803.491
+        },
+        {
+          "file": "asset-archived-record-preserved.png",
+          "captured_at": 1790815797.262
+        },
+        {
+          "file": "asset-old-correction-preserves-latest.png",
+          "captured_at": 1790815727.398
+        },
+        {
+          "file": "asset-estimate-review.png",
+          "captured_at": 1790815681.002
+        },
+        {
+          "file": "asset-whole-estimate-and-half-share.png",
+          "captured_at": 1790815648.85
+        }
+      ]
+    },
+    {
+      "test": "FinancialLoopUITests/testAssetUnknownZeroVehicleAndCommittedCreateRecovery()",
+      "source_head": "0aabfb1605336d695fa59b636061e53995b65282",
+      "status": "passed",
+      "duration_seconds": 156.11,
+      "captures": [
+        {
+          "file": "asset-create-recovered-once.png",
+          "captured_at": 1790816345.922
+        },
+        {
+          "file": "asset-create-response-lost.png",
+          "captured_at": 1790816310.825
+        },
+        {
+          "file": "asset-zero-remains-known.png",
+          "captured_at": 1790816280.295
+        }
+      ]
+    }
+  ],
+  "recording": {
+    "file": "asset-journey.mp4",
+    "source_head": "9d49cde3359a54d8d28624e5f16973d032bbd61b",
+    "duration_seconds": 59.828,
+    "content": "Manual pending-create exact retry after reopen, one saved vehicle and estimate controls",
+    "disposition": "Later source change is UI-test locator only; runtime unchanged."
+  }
+}

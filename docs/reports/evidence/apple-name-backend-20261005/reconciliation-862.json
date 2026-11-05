@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-05",
+  "original_integration": "2b2d0d9e8ed311c11b7585fbd757fb37f915e12f",
+  "current_integration": "7c2522fb7d08f183bb1b07cd9b4aabe829089dc0",
+  "normal_merge": "5412f94cdcb8c7abb278d8f99ee40879f44c708f",
+  "previous_reviewed_head": "175982863f33bc71820242d2827214a68f2a77f3",
+  "name_runtime_changed": false,
+  "migration_changed": false,
+  "deletion_dependency_landed": true,
+  "parent_lock_races": 4,
+  "interrupted_first_transaction_cases": 2,
+  "duplicate_deletion_run_count": 1,
+  "signed_auth_denied_dispatch": true,
+  "api_contract": {
+    "passed": 104,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 4.56
+  },
+  "postgres_auth": {
+    "passed": 77,
+    "failed": 0,
+    "skipped": 0,
+    "warnings": 27,
+    "seconds": 9.3
+  },
+  "modularity_violations": 0,
+  "provider_requests": 0,
+  "hosted_changes": false,
+  "enabled": false
+}

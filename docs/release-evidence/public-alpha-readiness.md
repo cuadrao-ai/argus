@@ -237,7 +237,7 @@ defers a Pro decision until that changes.
 
 ## Approval SMTP secret
 
-`ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD` is present on the live `argus-api` Render
+`CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD` is present on the live `argus-api` Render
 service. The value was copied from the locally resolved Resend credential only
 after verifying that interpolation produced an actual `re_...` credential, not
 the literal `${RESEND_API_KEY}` reference. A redacted Render control-plane
@@ -317,13 +317,17 @@ forward-fix before changing maintenance state or data.
    `serviceDetails.maintenanceMode.enabled=true`, the configured maintenance
    page URI, and every configured custom API domain.
 2. Derive and record the expected configured maintenance page marker or
-   SHA-256 fingerprint. Probe
-   `https://argus-ohr5.onrender.com/api/v1/auth/access-requests` and the
-   equivalent path on every configured custom API domain. Every response must
-   have the exact HTTP `503` maintenance-mode status and the configured marker
-   or fingerprint. An arbitrary `403`, `429`, or `503` is not maintenance
-   proof. If the control-plane state or expected response signature cannot be
-   verified, stop and forward-fix.
+   SHA-256 fingerprint. Probe `/api/v1/auth/access-requests` on every
+   configured custom API domain (for example
+   `https://api.arguschat.ai/api/v1/auth/access-requests`). Every maintenance
+   probe response must have the exact HTTP `503` maintenance-mode status and
+   the configured marker or fingerprint. An arbitrary `403`, `429`, or `503`
+   is not maintenance proof. After `argus-api`'s
+   `renderSubdomainPolicy: disabled` is applied,
+   `https://argus-ohr5.onrender.com` must return HTTP `404` and is not a
+   maintenance probe surface; do not require `503` from that hostname. If the
+   control-plane state or expected response signature cannot be verified,
+   stop and forward-fix.
 3. Keep maintenance enabled. Capture the current live commit and all current
    instance IDs, then trigger a same-SHA Render service restart. Wait until the
    restart deploy is terminal with `status=live`, has a non-empty `finishedAt`,
@@ -390,12 +394,15 @@ commit;
 8. Before changing public traffic, re-read the maintenance configuration and
    response signature exactly as in steps 1 and 2. Require
    `serviceDetails.maintenanceMode.enabled=true`, exact HTTP `503`, and the
-   same configured page marker or fingerprint on the onrender URL and every
-   configured custom domain.
+   same configured page marker or fingerprint on every configured custom API
+   domain. Keep requiring HTTP `404` from `https://argus-ohr5.onrender.com`;
+   that hostname remains excluded from the maintenance fingerprint surface.
 9. Disable maintenance last. Then perform a public invalid-body readback on
-   the onrender URL and every configured custom domain and require HTTP `404`
-   route absence. If any surface returns another status, immediately re-enable
-   maintenance, stop, clean up the failed rollback state, and forward-fix.
+   every configured custom API domain and require HTTP `404` route absence.
+   `https://argus-ohr5.onrender.com` must still return HTTP `404` and is not
+   an application route-absence probe surface. If any custom-domain surface
+   returns another status, immediately re-enable maintenance, stop, clean up
+   the failed rollback state, and forward-fix.
 
 Do not execute this SQL as part of repository verification. It is a
 production-state change reserved for an explicitly authorized rollback.

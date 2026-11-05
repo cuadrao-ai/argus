@@ -1,0 +1,4 @@
+retrieved_date	owner	url	purpose	limitation
+2026-10-05	Apple	https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype	Full required API category list and approved reason definitions	Retrieved through official DocC JSON; source describes declarations, not this app's use
+2026-10-05	Apple	https://developer.apple.com/tutorials/data/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype.json	Machine-readable content actually reviewed	SHA256 19546c6db12067a6e6441140399e8323fd73d5e79d1c682e1d0b826b16da6cf5
+2026-10-05	Apple	https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api	Required-reason declaration entry point	Does not replace data-collection privacy answers or third-party SDK audit

@@ -1,0 +1,31 @@
+bun test v1.4.2 (744846f84)
+
+__tests__/business-approve-next.dom.test.tsx:
+(pass) Aprobar y siguiente on the receipt review page > after advancing, keyboard focus is on the next receipt heading (Strict Mode false) [902.45ms]
+243 | 
+244 |   for (const strict of [false, true]) test(`after advancing, keyboard focus is on the next receipt heading (Strict Mode ${strict})`, async () => {
+245 |     const page = await mount({ strict });
+246 |     await page.open("rcpt-uno");
+247 |     await page.click("Aprobar y siguiente", () => page.heading() === "Dos" && document.activeElement?.id === "receipt-review-title");
+248 |     assert.equal(document.activeElement?.id, "receipt-review-title");
+                 ^
+AssertionError: Expected values to be strictly equal:
++ actual - expected
+
++ ''
+- 'receipt-review-title'
+
+ generatedMessage: true,
+     actual: "",
+   expected: "receipt-review-title",
+   operator: "strictEqual",
+       diff: "simple",
+       code: "ERR_ASSERTION"
+
+      at /Users/garces/.codex/worktrees/lane09-item6-navigation/private-alpha-next/web/__tests__/business-approve-next.dom.test.tsx:248:12
+(fail) Aprobar y siguiente on the receipt review page > after advancing, keyboard focus is on the next receipt heading (Strict Mode true) [2941.32ms]
+
+ 1 pass
+ 18 filtered out
+ 1 fail
+Ran 2 tests across 1 file. [3.91s]

@@ -1,0 +1,38 @@
+[
+  {
+    "name": "business-es",
+    "width": 1440,
+    "fill": "rgba(0, 0, 0, 0)",
+    "stroke": "1px",
+    "transform": "matrix(1, 0, 0, 1, 0, 21.6)",
+    "font": "spaceGrotesk, \"spaceGrotesk Fallback\", sans-serif",
+    "overflow": false
+  },
+  {
+    "name": "business-en",
+    "width": 390,
+    "fill": "rgba(0, 0, 0, 0)",
+    "stroke": "1px",
+    "transform": "matrix(1, 0, 0, 1, 0, 5.85)",
+    "font": "spaceGrotesk, \"spaceGrotesk Fallback\", sans-serif",
+    "overflow": false
+  },
+  {
+    "name": "personal-es",
+    "width": 390,
+    "fill": "rgba(0, 0, 0, 0)",
+    "stroke": "1px",
+    "transform": "matrix(1, 0, 0, 1, 0, 5.85)",
+    "font": "spaceGrotesk, \"spaceGrotesk Fallback\", sans-serif",
+    "overflow": false
+  },
+  {
+    "name": "personal-en",
+    "width": 1440,
+    "fill": "rgba(0, 0, 0, 0)",
+    "stroke": "1px",
+    "transform": "matrix(1, 0, 0, 1, 0, 21.6)",
+    "font": "spaceGrotesk, \"spaceGrotesk Fallback\", sans-serif",
+    "overflow": false
+  }
+]

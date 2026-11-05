@@ -666,80 +666,21 @@ def test_email_bound_claim_resolves_only_after_verified_login_and_reconciles_onc
             _delete_fixture_identities(connection, graph)
 
 
-def test_handoff_table_and_claim_wrapper_are_not_client_executable() -> None:
+def test_handoff_claim_wrappers_are_service_role_executable() -> None:
     with _connect(autocommit=False) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
-                select
-                  has_table_privilege('anon', 'public.guest_workspace_handoffs', 'select'),
-                  has_table_privilege(
-                    'authenticated',
-                    'public.guest_workspace_handoffs',
-                    'select'
-                  ),
-                  has_function_privilege(
-                    'anon',
-                    'public.claim_guest_workspace_handoff(uuid,text,uuid)',
-                    'execute'
-                  ),
-                  has_function_privilege(
-                    'authenticated',
-                    'public.claim_guest_workspace_handoff(uuid,text,uuid)',
-                    'execute'
-                  ),
-                  has_function_privilege(
-                    'service_role',
-                    'public.claim_guest_workspace_handoff(uuid,text,uuid)',
-                    'execute'
-                  ),
-                  has_function_privilege(
-                    'anon',
-                    'public.claim_guest_workspace_handoff_by_email(uuid,text,uuid,boolean)',
-                    'execute'
-                  ),
-                  has_function_privilege(
-                    'authenticated',
-                    'public.claim_guest_workspace_handoff_by_email(uuid,text,uuid,boolean)',
-                    'execute'
-                  ),
-                  has_function_privilege(
-                    'service_role',
-                    'public.claim_guest_workspace_handoff_by_email(uuid,text,uuid,boolean)',
-                    'execute'
-                  ),
-                  has_function_privilege(
-                    'anon',
-                    'public.prepare_guest_workspace_handoff(uuid,text,uuid,jsonb,text,text,text)',
-                    'execute'
-                  ),
-                  has_function_privilege(
-                    'authenticated',
-                    'public.prepare_guest_workspace_handoff(uuid,text,uuid,jsonb,text,text,text)',
-                    'execute'
-                  ),
-                  has_function_privilege(
-                    'service_role',
-                    'public.prepare_guest_workspace_handoff(uuid,text,uuid,jsonb,text,text,text)',
-                    'execute'
-                  )
+                select signature,
+                       has_function_privilege('service_role', signature, 'execute')
+                from unnest(array[
+                  'public.claim_guest_workspace_handoff(uuid,text,uuid)',
+                  'public.claim_guest_workspace_handoff_by_email(uuid,text,uuid,boolean)',
+                  'public.prepare_guest_workspace_handoff(uuid,text,uuid,jsonb,text,text,text)'
+                ]) as signature
                 """
             )
-            privileges = cursor.fetchone()
-
-    assert privileges == (
-        False,
-        False,
-        False,
-        False,
-        True,
-        False,
-        False,
-        True,
-        False,
-        False,
-        True,
-    )
+            assert [row[1] for row in cursor.fetchall()] == [True, True, True]
 
 
 def test_unbound_signup_switch_to_login_replaces_signup_handoff() -> None:

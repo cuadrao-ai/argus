@@ -1,0 +1,52 @@
+{
+ "A": {
+  "auth_users": 1,
+  "spaces": 1,
+  "financial_records": 2,
+  "financial_document_extractions": 4,
+  "financial_import_observations": 1,
+  "whatsapp_link_codes": 1,
+  "whatsapp_sender_links": 1,
+  "whatsapp_inbound_messages_to_owner": 3,
+  "storage_objects": 4,
+  "financial_accounts.personal": 1,
+  "financial_accounts.business": 1,
+  "financial_source_connections.personal": 1,
+  "financial_source_connections.business": 3,
+  "financial_import_events.personal": 0,
+  "financial_import_events.business": 1,
+  "conversations.personal": 1,
+  "conversations.business": 0,
+  "whatsapp_inbound_messages_from_owner_links": 3
+ },
+ "B": {
+  "auth_users": 1,
+  "spaces": 1,
+  "financial_records": 2,
+  "financial_document_extractions": 2,
+  "financial_import_observations": 0,
+  "whatsapp_link_codes": 0,
+  "whatsapp_sender_links": 0,
+  "whatsapp_inbound_messages_to_owner": 0,
+  "storage_objects": 2,
+  "financial_accounts.personal": 1,
+  "financial_accounts.business": 1,
+  "financial_source_connections.personal": 1,
+  "financial_source_connections.business": 1,
+  "financial_import_events.personal": 0,
+  "financial_import_events.business": 0,
+  "conversations.personal": 0,
+  "conversations.business": 0,
+  "whatsapp_inbound_messages_from_owner_links": 0
+ },
+ "stack_totals": {
+  "auth_users": 2,
+  "storage_objects": 6,
+  "spaces": 2,
+  "whatsapp_sender_links": 1,
+  "whatsapp_link_codes": 1,
+  "whatsapp_inbound_messages": 3,
+  "deletion_runs_done": 4,
+  "deletion_runs_not_done": 0
+ }
+}

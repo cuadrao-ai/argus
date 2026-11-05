@@ -1,0 +1,120 @@
+[
+  {
+    "port": 3219,
+    "path": "/business",
+    "status": 200,
+    "noindex": true,
+    "content_language": "es-DO",
+    "server_rendered": true
+  },
+  {
+    "port": 3219,
+    "path": "/business/demo",
+    "status": 200,
+    "noindex": true,
+    "content_language": "es-DO",
+    "server_rendered": true
+  },
+  {
+    "port": 3219,
+    "path": "/business/personal",
+    "status": 200,
+    "noindex": true,
+    "content_language": "es-DO",
+    "server_rendered": true
+  },
+  {
+    "port": 3219,
+    "path": "/business/en",
+    "status": 200,
+    "noindex": true,
+    "content_language": "en",
+    "server_rendered": true
+  },
+  {
+    "port": 3219,
+    "path": "/business/en/demo",
+    "status": 200,
+    "noindex": true,
+    "content_language": "en",
+    "server_rendered": true
+  },
+  {
+    "port": 3219,
+    "path": "/business/en/personal",
+    "status": 200,
+    "noindex": true,
+    "content_language": "en",
+    "server_rendered": true
+  },
+  {
+    "port": 3219,
+    "path": "/business/icon.svg",
+    "status": 200
+  },
+  {
+    "port": 3219,
+    "path": "/business/missing",
+    "status": 404
+  },
+  {
+    "port": 3219,
+    "path": "/",
+    "status": 200
+  },
+  {
+    "port": 3219,
+    "path": "/dev/result-card",
+    "status": 404
+  },
+  {
+    "port": 3218,
+    "path": "/business",
+    "status": 404
+  },
+  {
+    "port": 3218,
+    "path": "/business/demo",
+    "status": 404
+  },
+  {
+    "port": 3218,
+    "path": "/business/personal",
+    "status": 404
+  },
+  {
+    "port": 3218,
+    "path": "/business/en",
+    "status": 404
+  },
+  {
+    "port": 3218,
+    "path": "/business/en/demo",
+    "status": 404
+  },
+  {
+    "port": 3218,
+    "path": "/business/en/personal",
+    "status": 404
+  },
+  {
+    "port": 3218,
+    "path": "/business/icon.svg",
+    "status": 404
+  },
+  {
+    "port": 3218,
+    "path": "/business/missing",
+    "status": 404
+  },
+  {
+    "port": 3218,
+    "path": "/",
+    "status": 200
+  },
+  {
+    "port": 3218,
+    "path": "/dev/result-card",
+    "status": 404
+  }
+]

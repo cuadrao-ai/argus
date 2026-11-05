@@ -1,0 +1,29 @@
+{
+  "service": "cuadrao-api-staging",
+  "pinned_sha": "cad1cbe1ec27ff89c08eadbec31718a0e627383c",
+  "deploy_id": "dep-db4qeilckfvc73fss4kg",
+  "auto_deploy": "off",
+  "health_http": 200,
+  "health": {
+    "status": "healthy",
+    "version": "1.0.0-alpha"
+  },
+  "authenticated_financial_accounts_http": 200,
+  "financial_accounts_response_keys": [
+    "accounts"
+  ],
+  "synthetic_account_count": 0,
+  "registered_synthetic_login_verified": true,
+  "all_other_env_values_unchanged": true,
+  "schema_ledger_unchanged": true,
+  "checkpoint_migrations_unchanged": true,
+  "restart_event_id": "evt-db4qd4ijnfac7385lad0",
+  "restart_alone_result": "404 financial_accounts_unavailable on new instance; same-code redeploy required",
+  "new_instance": "srv-db4mrrvlk1mc73d733j0-ksz76",
+  "startup_complete_at": "2026-10-10T02:50:33.144323593Z",
+  "read_correlation": "6da4dfbfd4f84b658f9ccc9b41cf85e7",
+  "new_instance_request_confirmed": true,
+  "request_log_id": "4fe3823a-aaf1-4b93-ace2-c72168403bd0",
+  "request_served_at": "2026-10-10T02:51:13.334280004Z",
+  "verdict": "PASS"
+}

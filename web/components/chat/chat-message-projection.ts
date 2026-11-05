@@ -60,6 +60,26 @@ import {
   type RecoveryDisplay,
   visibleComposerResponseActions,
 } from "@/lib/chat-recovery-display";
+import { DAILY_CAP_RECOVERY_CODE, dailyCapResetAtMs } from "@/lib/daily-cap-reset-time";
+import {
+  claimErrorKeepsLocalTranscript,
+  claimErrorMessagePatch,
+  claimErrorRetryAction,
+  admissionErrorTerminalPayload,
+  computeClaimTransportPatch,
+  isComputeClaimUnavailable,
+  settleAdmissionTransportReadiness,
+} from "@/lib/compute-claim-error";
+
+export {
+  claimErrorKeepsLocalTranscript,
+  claimErrorMessagePatch,
+  claimErrorRetryAction,
+  admissionErrorTerminalPayload,
+  computeClaimTransportPatch,
+  isComputeClaimUnavailable,
+  settleAdmissionTransportReadiness,
+};
 import {
   applyConsumedResultActions,
   applyConfirmationActionEffects,
@@ -68,6 +88,7 @@ import {
   consumedResultActionsFromApi,
   hiddenSaveActionMessageIdsFromApi,
   isBreakdownActionMetadata,
+  isStaleConfirmationActionRejectionCode,
   normalizeConfirmationHistory,
   settleOpenConfirmationsAfterTextFinal,
 } from "./artifact-history";
@@ -84,6 +105,28 @@ export type HydratedMessages = {
   messages: Message[];
   inputActions: ChatActionOption[];
 };
+
+export function applyChatHttpErrorToMessages(
+  messages: Message[],
+  display: ReturnType<typeof chatHttpErrorDisplay>,
+  input: Parameters<typeof claimErrorMessagePatch>[0],
+): Message[] {
+  if (display.recoveryDisplay?.kind === "recovery_code" &&
+    display.recoveryDisplay.code === DAILY_CAP_RECOVERY_CODE) {
+    // Admission was refused before an assistant turn existed.
+    return messages.filter((message) => message.id !== input.assistantMessageId);
+  }
+  const staleConfirmation = isStaleConfirmationActionRejectionCode(input.code);
+  const claimPatch = claimErrorMessagePatch(input);
+  return messages.map((message) => message.id === input.assistantMessageId ? {
+    ...message,
+    content: staleConfirmation ? "" : display.content,
+    recoveryDisplay: staleConfirmation
+      ? { kind: "recovery_code", code: input.code! }
+      : (display.recoveryDisplay ?? message.recoveryDisplay),
+    ...claimPatch,
+  } : message);
+}
 
 export function chatActionRequestFromAction(
   action: ChatActionOption,
@@ -645,7 +688,27 @@ const RETEST_COVERAGE_PROBLEM_CODES: ReadonlySet<string> = new Set([
 export function chatHttpErrorDisplay(
   problemCode: string | null,
   backendMessage: string,
+  response?: { status: number; retryAfter: string | null; nowMs?: number },
 ): { content: string; recoveryDisplay: RecoveryDisplay | null } {
+  if (response?.status === 429) {
+    return {
+      content: "",
+      recoveryDisplay: {
+        kind: "recovery_code",
+        code: DAILY_CAP_RECOVERY_CODE,
+        values: { resetAt: new Date(dailyCapResetAtMs(response.retryAfter, response.nowMs)).toISOString() },
+      },
+    };
+  }
+  if (isComputeClaimUnavailable(problemCode)) {
+    return {
+      content: "",
+      recoveryDisplay: {
+        kind: "recovery_code",
+        code: problemCode,
+      },
+    };
+  }
   if (!problemCode || !RETEST_COVERAGE_PROBLEM_CODES.has(problemCode)) {
     return { content: backendMessage, recoveryDisplay: null };
   }

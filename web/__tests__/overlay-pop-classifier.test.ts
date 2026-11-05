@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -21,7 +21,13 @@ type Listener = (event: Event) => void;
 const listeners: Listener[] = [];
 let subject: typeof import("../components/layout/useOverlayBackDismiss");
 
-beforeAll(async () => {
+/**
+ * A new `window` per case. The module installs its classifier once per window
+ * object, so cases that share one see the listener an earlier case installed
+ * and the first case only passes when it happens to run first.
+ */
+function standUpWindow(): void {
+  listeners.length = 0;
   (globalThis as { window?: unknown }).window = {
     addEventListener: (type: string, listener: Listener) => {
       if (type === "popstate") listeners.push(listener);
@@ -29,8 +35,14 @@ beforeAll(async () => {
     removeEventListener: () => undefined,
     history: { back: () => undefined },
   };
+}
+
+beforeAll(async () => {
+  standUpWindow();
   subject = await import("../components/layout/useOverlayBackDismiss");
 });
+
+beforeEach(standUpWindow);
 
 afterAll(() => {
   delete (globalThis as { window?: unknown }).window;

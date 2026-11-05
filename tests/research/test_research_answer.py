@@ -158,18 +158,20 @@ def test_narrative_clause_can_never_use_the_fast_configuration(monkeypatch) -> N
     assert result.stage_patch["research"]["sources"]
 
 
-def test_second_identical_question_serves_from_cache(monkeypatch) -> None:
+def test_second_identical_freeform_question_bypasses_shared_cache(monkeypatch) -> None:
     set_research_query(
         monkeypatch, globals(), question_kind="live_quote", symbols=["AAPL"]
     )
-    transport = _wire_client(monkeypatch, [agent_response()])
+    transport = _wire_client(monkeypatch, [agent_response(), agent_response()])
 
     first = _run("What is Apple trading at right now?")
     second = _run("What is Apple trading at right now?")
 
-    assert len(transport.requests) == 1, "the cache must absorb the second call"
+    assert (
+        len(transport.requests) == 2
+    ), "freeform answers must be generated for each request"
     assert second is not None
-    assert second.stage_patch["research"]["usage"]["cache_status"] == "hit"
+    assert second.stage_patch["research"]["usage"]["cache_status"] == "miss"
     assert (
         second.stage_patch["assistant_response"]
         == first.stage_patch["assistant_response"]
@@ -293,15 +295,12 @@ def test_cross_company_returns_a_background_job_request(monkeypatch) -> None:
     assert [s["symbol"] for s in job_request["subjects"]] == ["NFLX", "AAPL"]
     assert job_request["period_start_date"] == "2023-08-12"
     assert job_request["requires_publisher_sources"] is True
-    # The key computed at classification time rides the request so completion
-    # paths store the packet under the exact identity later turns look up.
-    assert job_request["cache_key"]
+    assert "cache_key" not in job_request
     assert "research" not in result.stage_patch
 
 
-def test_thorough_cache_hit_answers_inline_without_a_job(monkeypatch) -> None:
-    """An identical thorough question after a finalized job answers from the
-    shared cache: no job request, no provider call, no wait."""
+def test_completed_thorough_answer_is_not_shared_with_later_jobs(monkeypatch) -> None:
+    """A finalized freeform answer remains scoped to its job."""
     set_research_query(
         monkeypatch, globals(), question_kind="cross_company", symbols=["NFLX", "AAPL"]
     )
@@ -326,23 +325,21 @@ def test_thorough_cache_hit_answers_inline_without_a_job(monkeypatch) -> None:
 
     second = _run("Compare Netflix and Apple over three years", user=SPANISH_USER)
     assert second is not None
-    # The cache is keyed by language: the Spanish user misses and gets a job.
+    # Each request gets its own job, regardless of language.
     assert "research_job_request" in second.stage_patch
 
-    # A different user with the same question hits: shared by design.
+    # A different user with the same question also gets a separate job.
     third = _run(
         "Compare Netflix and Apple over three years",
         user=UserState(user_id="another-user", language_preference="en"),
     )
     assert third is not None
-    assert transport.requests == [], "a cache hit must not touch the provider"
-    assert "research_job_request" not in third.stage_patch
-    sidecar = third.stage_patch["research"]
-    assert sidecar["shape"] == "thorough"
-    assert sidecar["usage"]["cache_status"] == "hit"
-    assert "Thorough comparison" in third.stage_patch["assistant_response"]
-    # Verified peers from the cached packet still become runnable rows.
-    assert sidecar["peers"] and sidecar["peers"][0]["symbol"] == "MSFT"
+    assert transport.requests == [], "thorough requests never run inline"
+    assert "research_job_request" in third.stage_patch
+    assert "cache_key" not in third.stage_patch["research_job_request"]
+    assert "research" not in third.stage_patch
+    # Composition still supplies the verified peers to the original job.
+    assert composed["research"]["peers"][0]["symbol"] == "MSFT"
 
 
 def test_screening_grounds_instead_of_queueing_a_background_job(monkeypatch) -> None:
@@ -489,22 +486,26 @@ def test_atomic_claim_denial_stops_an_inline_provider_call(monkeypatch) -> None:
     assert result.stage_patch["research"]["usage"]["cache_status"] == "bypass"
 
 
-def test_cache_hit_never_claims_research_capacity(monkeypatch) -> None:
+def test_repeated_freeform_question_rechecks_research_capacity(monkeypatch) -> None:
     set_research_query(
         monkeypatch, globals(), question_kind="live_quote", symbols=["AAPL"]
     )
     transport = _wire_client(monkeypatch, [agent_response()])
     assert _run("What is Apple trading at right now?") is not None
+    claims = []
 
     def reject_claim() -> ResearchAttemptAdmission:
-        raise AssertionError("a cache hit must not claim capacity")
+        claims.append(True)
+        return ResearchAttemptAdmission(available=False, guest_exhausted=True)
 
     with research_attempt_admission_context(reject_claim):
         result = _run("What is Apple trading at right now?")
 
     assert result is not None
+    assert claims == [True]
     assert len(transport.requests) == 1
-    assert result.stage_patch["research"]["usage"]["cache_status"] == "hit"
+    assert result.stage_patch["research"]["usage"]["cache_status"] == "bypass"
+    assert "free research" in result.stage_patch["assistant_response"]
 
 
 def test_provider_failure_degrades_without_fabricating(monkeypatch) -> None:

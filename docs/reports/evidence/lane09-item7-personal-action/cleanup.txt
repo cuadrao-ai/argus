@@ -1,0 +1,8 @@
+Filesystem   1024-blocks      Used Available Capacity iused      ifree %iused  Mounted on
+/dev/disk3s5   971298980 760000000 181200000    81% 8634074 1813329120    0%   /System/Volumes/Data
+Owned caches before removal: allocated bytes=82481152; logical bytes=78832359
+Removed web/.next
+Removed web/.next-item7-parent
+Removed web/temp/item7-playwright
+Filesystem   1024-blocks      Used Available Capacity iused      ifree %iused  Mounted on
+/dev/disk3s5   971298980 760000000 181200000    81% 8632580 1814141240    0%   /System/Volumes/Data

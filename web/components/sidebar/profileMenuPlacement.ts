@@ -11,7 +11,7 @@
  * submenus upward at the parent's width instead.
  */
 
-export type ProfileMenuPlacement = "rail" | "drawer";
+export type ProfileMenuPlacement = "rail" | "drawer" | "header";
 
 /**
  * Inside a sheet a submenu is the sheet's whole body, so it needs no surface of
@@ -21,10 +21,10 @@ export const SHEET_SUBMENU_CLASS =
   "[&_button]:min-h-[44px] [&_a]:min-h-[44px]";
 
 const MENU_SURFACE =
-  "rounded-[14px] border border-black/10 bg-white py-1.5 dark:border-white/10 dark:bg-[#1f2225] [&>button]:mx-1 [&>button]:my-0.5 [&>button]:w-[calc(100%-0.5rem)] [&>button]:rounded-[10px] [&>div>button]:mx-1 [&>div>button]:my-0.5 [&>div>button]:w-[calc(100%-0.5rem)] [&>div>button]:rounded-[10px]";
+  "rounded-surface border border-black/10 bg-white py-1.5 dark:border-white/10 dark:bg-[#1f2225] [&>button]:mx-1 [&>button]:my-0.5 [&>button]:w-[calc(100%-0.5rem)] [&>button]:rounded-item [&>div>button]:mx-1 [&>div>button]:my-0.5 [&>div>button]:w-[calc(100%-0.5rem)] [&>div>button]:rounded-item";
 
 const SUBMENU_SURFACE =
-  "rounded-[12px] border border-black/10 bg-white py-1 dark:border-white/10 dark:bg-[#1f2225] [&>button]:mx-1 [&>button]:my-0.5 [&>button]:w-[calc(100%-0.5rem)] [&>button]:rounded-[10px]";
+  "rounded-surface border border-black/10 bg-white py-1 dark:border-white/10 dark:bg-[#1f2225] [&>button]:mx-1 [&>button]:my-0.5 [&>button]:w-[calc(100%-0.5rem)] [&>button]:rounded-item";
 
 /** Touch needs the 44px minimum from DESIGN.md section 17. */
 const TOUCH_TARGETS = "[&_button]:min-h-[44px]";
@@ -38,6 +38,14 @@ export function profileMenuClass(
       // Bounded so it cannot outgrow the screen, and scrollable so nothing in
       // it becomes unreachable when it does hit the bound.
       className: `absolute bottom-full left-0 right-0 z-30 mb-1.5 max-h-[70dvh] overflow-y-auto overscroll-contain ${TOUCH_TARGETS} ${MENU_SURFACE}`,
+      left: undefined,
+    };
+  }
+  if (placement === "header") {
+    // Opened from the top-right profile control on desktop workspaces.
+    return {
+      // The menu sets its right and top from the trigger; these are only the first frame's place.
+      className: `fixed right-4 top-16 z-[60] min-w-[220px] tablet:right-8 ${MENU_SURFACE}`,
       left: undefined,
     };
   }
@@ -69,6 +77,9 @@ export function profileSubmenuClass(
 ): string {
   if (placement === "drawer") {
     return `absolute inset-0 overflow-y-auto overscroll-contain ${TOUCH_TARGETS} [&_a]:min-h-[44px] ${SUBMENU_SURFACE}`;
+  }
+  if (placement === "header") {
+    return `absolute right-full top-0 mr-1.5 ${railSizeClass} ${SUBMENU_SURFACE}`;
   }
   return `absolute bottom-0 left-full ml-1.5 ${railSizeClass} ${SUBMENU_SURFACE}`;
 }

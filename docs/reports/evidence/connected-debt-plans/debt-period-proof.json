@@ -1,0 +1,30 @@
+{
+  "evaluated_commit": "539852292e2bb10f7218b606f1447e892ea50142",
+  "real_recorded_principal_minor": 50000,
+  "explicit_nominal_apr_percent": 12,
+  "first_period_start": "2026-09-30",
+  "next_morning": {
+    "state": "conditional",
+    "payoff_date": "2026-11-30",
+    "payments": 2,
+    "total_interest_minor": "505",
+    "total_fees_minor": "0",
+    "assumptions": {
+      "annual_rate_percent": "12",
+      "recurring_fees": "0",
+      "first_period_start": "2026-09-30",
+      "no_new_borrowing": true
+    }
+  },
+  "elapsed_unpaid_period": {
+    "state": "unavailable",
+    "reason": "period_boundary_required",
+    "assumptions": {
+      "annual_rate_percent": "12",
+      "recurring_fees": "0",
+      "first_period_start": "2026-09-30",
+      "no_new_borrowing": true
+    }
+  },
+  "scope": "pure projection using retained real API balance and terms; no clock or database mutation"
+}

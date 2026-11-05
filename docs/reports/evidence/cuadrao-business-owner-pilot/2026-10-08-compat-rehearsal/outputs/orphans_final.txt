@@ -1,0 +1,5 @@
+ unreferenced_objects | owner_deleted 
+----------------------+---------------
+                   40 |            39
+(1 row)
+

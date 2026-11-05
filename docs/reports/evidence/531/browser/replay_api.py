@@ -24,11 +24,11 @@ WEB_ORIGIN = f"http://127.0.0.1:{WEB_PORT}"
 
 os.environ.update(
     {
-        "ARGUS_PERSISTENCE_MODE": "memory",
+        "CUADRAO_PERSISTENCE_MODE": "memory",
         "ARGUS_DEV_MEMORY_FALLBACK": "true",
-        "ARGUS_CHECKPOINTER_MODE": "memory",
-        "ARGUS_MOCK_AUTH": "true",
-        "ARGUS_CORS_ALLOW_ORIGINS": (
+        "CUADRAO_CHECKPOINTER_MODE": "memory",
+        "CUADRAO_MOCK_AUTH": "true",
+        "CUADRAO_CORS_ALLOW_ORIGINS": (
             f"{WEB_ORIGIN},http://localhost:{WEB_PORT}"
         ),
         "ARGUS_APP_ORIGIN": WEB_ORIGIN,

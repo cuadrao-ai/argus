@@ -1276,8 +1276,8 @@ def test_run_backtest_job_restores_guest_openrouter_scope_for_result_readout(
     )
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("OPENROUTER_API_KEY", "dev-only")
-    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "registered-key")
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
+    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "registered-key")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
     job = _job_row(
         launch_payload={
             "kind": REAL_BACKTEST_JOB_KIND,

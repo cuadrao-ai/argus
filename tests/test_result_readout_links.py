@@ -2,7 +2,6 @@
 
 import json
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 from argus.domain.research.contracts import ResearchSource
@@ -131,24 +130,3 @@ def test_unreturned_destination_cannot_hide_behind_a_returned_url_label(language
     assert rendered == f"`{source.url}`"
     assert hrefs(rendered) == []
 
-
-def test_composer_checks_the_same_returned_sources_that_travel_to_the_panel(
-    language_case,
-):
-    from argus.api.chat.breakdown import _llm_result_breakdown_with_metadata
-
-    language, title, sentence = language_case
-    source = ResearchSource(url="https://example.com/results", title=title)
-    response = SimpleNamespace(
-        draft={"language": language, "text": sentence + " " + source.url, "figures": []},
-        sources=(source,),
-        usage=None,
-    )
-    client = SimpleNamespace(run_structured=lambda *args, **kwargs: response)
-    text, failure, _, sources = _llm_result_breakdown_with_metadata(
-        {}, language=language, client=client
-    )
-    assert failure is None
-    assert hrefs(text) == [source.url]
-    assert title in text
-    assert sources == (source,)

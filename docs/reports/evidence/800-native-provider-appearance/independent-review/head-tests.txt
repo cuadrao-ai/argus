@@ -1,0 +1,19 @@
+Test Suite 'Selected tests' started at 2026-10-05 13:05:12.804.
+Test Suite 'ArgusFoundationUITests.xctest' started at 2026-10-05 13:05:12.805.
+Test Suite 'CuadraoSignInPresentationUITests' started at 2026-10-05 13:05:12.805.
+Test Case '-[ArgusFoundationUITests.CuadraoSignInPresentationUITests testDefaultLaunchOffersNoAppleSignIn]' started.
+Test Case '-[ArgusFoundationUITests.CuadraoSignInPresentationUITests testDefaultLaunchOffersNoAppleSignIn]' passed (21.495 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoSignInPresentationUITests testDesignPreviewOffersNoAppleSignIn]' started.
+Test Case '-[ArgusFoundationUITests.CuadraoSignInPresentationUITests testDesignPreviewOffersNoAppleSignIn]' passed (18.899 seconds).
+Test Suite 'CuadraoSignInPresentationUITests' passed at 2026-10-05 13:05:53.209.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 40.394 (40.404) seconds
+Test Suite 'NativeProviderAppearanceUITests' started at 2026-10-05 13:05:53.210.
+Test Case '-[ArgusFoundationUITests.NativeProviderAppearanceUITests testConnectedProviderAppearance]' started.
+Test Case '-[ArgusFoundationUITests.NativeProviderAppearanceUITests testConnectedProviderAppearance]' passed (137.243 seconds).
+Test Suite 'NativeProviderAppearanceUITests' passed at 2026-10-05 13:08:10.453.
+	 Executed 1 test, with 0 failures (0 unexpected) in 137.243 (137.243) seconds
+Test Suite 'ArgusFoundationUITests.xctest' passed at 2026-10-05 13:08:10.454.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 177.637 (177.649) seconds
+Test Suite 'Selected tests' passed at 2026-10-05 13:08:10.454.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 177.637 (177.650) seconds
+** TEST SUCCEEDED **

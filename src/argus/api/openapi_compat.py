@@ -44,8 +44,6 @@ EXCLUDED_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
     }
 )
 
-STREAMING_OPERATION = ("post", "/api/v1/chat/stream")
-SSE_MEDIA_TYPE = "text/event-stream"
 
 # Routes that authenticate the caller themselves (or bootstrap a session) and
 # therefore never fall behind the shared bounded-session-verification
@@ -131,11 +129,28 @@ def _error_response(description: str) -> dict[str, Any]:
     }
 
 
+# Request documentation only; this body never reaches an interpretation model.
+_CREATE_ACCOUNT_AMOUNT = (
+    "Starting balance as typed, dot-decimal; a liability is the positive amount "
+    "owed. Omitted or blank on a Personal cash, checking, savings, investment, "
+    "credit card or other debt account records an opening of 0 at as_of. "
+    "Property, vehicle and other asset values, and Business accounts, stay "
+    "unknown when omitted. as_of defaults to now."
+)
+
+
 def customize_openapi_document(document: dict[str, Any]) -> dict[str, Any]:
     """Correct generated declarations to match real runtime behavior."""
 
     spec = copy.deepcopy(document)
     schemas = spec.setdefault("components", {}).setdefault("schemas", {})
+    amount = (
+        schemas.get("CreateFinancialAccountRequest", {})
+        .get("properties", {})
+        .get("amount")
+    )
+    if amount is not None:
+        amount["description"] = _CREATE_ACCOUNT_AMOUNT
     schemas["Error"] = copy.deepcopy(ERROR_COMPONENT)
     responses_components = spec["components"].setdefault("responses", {})
     responses_components["AuthSessionVerificationUnavailable"] = copy.deepcopy(
@@ -144,72 +159,10 @@ def customize_openapi_document(document: dict[str, Any]) -> dict[str, Any]:
 
     _rewrite_validation_errors(spec)
 
-    run_op = spec.get("paths", {}).get(f"{API_PREFIX}/backtests/run", {}).get("post")
-    if run_op is not None:
-        for parameter in run_op.get("parameters", []):
-            if parameter.get("name") == "Idempotency-Key":
-                parameter["required"] = True
-                parameter["schema"] = {"type": "string"}
-        responses = run_op.setdefault("responses", {})
-        responses.setdefault(
-            "400", {"description": "Missing required Idempotency-Key header."}
-        )
-        responses.setdefault(
-            "409",
-            {
-                "description": "The data window changed after approval and must be reviewed again."
-            },
-        )
-        responses["503"] = {
-            "description": (
-                "Problem Details when bounded auth-session verification is "
-                "temporarily unavailable (`auth_session_verification_unavailable`) "
-                "or market data is temporarily unavailable "
-                "(`market_data_unavailable`).\n"
-            ),
-            "content": {"application/json": {"schema": copy.deepcopy(_ERROR_REF)}},
-        }
-
-    stream_method, stream_path = STREAMING_OPERATION
-    stream_op = spec.get("paths", {}).get(stream_path, {}).get(stream_method)
-    if stream_op is not None:
-        responses = stream_op.setdefault("responses", {})
-        success = responses.setdefault("200", {})
-        success["description"] = (
-            "Canonical data-only SSE stream: stage_start, token, stage_outcome, "
-            "final, then [DONE]."
-        )
-        success["content"] = {SSE_MEDIA_TYPE: {"schema": {"type": "string"}}}
-        responses["409"] = _error_response(
-            "The selected response option is missing, mismatched, foreign to the "
-            "owner or conversation, or no longer attached to the latest active "
-            "assistant message."
-        )
-        responses["413"] = _error_response(
-            "The chat request body exceeded the 65,536-byte ingress limit."
-        )
-
     logout_op = spec.get("paths", {}).get("/api/v1/auth/logout", {}).get("post")
     if logout_op is not None:
         logout_op.setdefault("responses", {})["403"] = {
             "description": "Untrusted browser origin rejected."
-        }
-
-    by_action_op = (
-        spec.get("paths", {})
-        .get(f"{API_PREFIX}/backtest-jobs/by-action/{{confirmation_id}}", {})
-        .get("get")
-    )
-    if by_action_op is not None:
-        responses = by_action_op.setdefault("responses", {})
-        responses["404"] = {
-            "description": "No owner-scoped reservation exists for this action identity."
-        }
-        responses["409"] = {
-            "description": "The action identity is linked to different immutable inputs."
-        }
-        responses["500"] = {
-            "description": "Durable job or confirmation-artifact state is inconsistent."
         }
 
     guest_bootstrap_op = spec.get("paths", {}).get("/api/v1/auth/guest", {}).get("post")
@@ -250,14 +203,48 @@ def customize_openapi_document(document: dict[str, Any]) -> dict[str, Any]:
         for method, operation in path_item.items():
             if method not in HTTP_METHODS or not isinstance(operation, dict):
                 continue
-            if (method, path) == ("post", f"{API_PREFIX}/backtests/run"):
-                operation.setdefault("responses", {})["500"] = _error_response(
-                    "An unexpected server error occurred."
-                )
-                continue
             responses = operation.setdefault("responses", {})
             responses["503"] = copy.deepcopy(_AUTH_SESSION_UNAVAILABLE_RESPONSE_REF)
             responses["500"] = _error_response("An unexpected server error occurred.")
+
+    profile_op = spec.get("paths", {}).get(f"{API_PREFIX}/me", {}).get("get")
+    if profile_op is not None:
+        profile_op.setdefault("responses", {})["503"] = _error_response(
+            "`apple_identity_unavailable`: current linked identity could not be verified. "
+            "`auth_session_verification_unavailable`: the session could not be verified."
+        )
+
+    profile_patch = spec.get("paths", {}).get(f"{API_PREFIX}/me", {}).get("patch")
+    if profile_patch is not None:
+        profile_patch.setdefault("responses", {})["503"] = _error_response(
+            "`apple_identity_unavailable`: current linked identity could not be verified; "
+            "no profile update is applied. "
+            "`auth_session_verification_unavailable`: the session could not be verified."
+        )
+
+    deletion_op = (
+        spec.get("paths", {}).get(f"{API_PREFIX}/account/delete", {}).get("post")
+    )
+    if deletion_op is not None:
+        # Starting and resuming a deletion are the same POST (Lane 6).
+        deletion_op.setdefault("responses", {})["503"] = _error_response(
+            "`account_deletion_incomplete`: the run may be open or its admission "
+            "state could not be established; retry this route (Retry-After: 5). "
+            "`account_deletion_unavailable`: no deletion has started and its "
+            "identity, credential, or deletion service is unavailable. "
+            "`auth_session_verification_unavailable`: the session "
+            "could not be verified; retry."
+        )
+
+    check_op = (
+        spec.get("paths", {}).get(f"{API_PREFIX}/account/deletion", {}).get("get")
+    )
+    if check_op is not None:
+        check_op.setdefault("responses", {})["503"] = _error_response(
+            "`account_deletion_unavailable`: the check could not be made; retry. "
+            "`auth_session_verification_unavailable`: the session could not be "
+            "verified; retry."
+        )
 
     search_op = spec.get("paths", {}).get(f"{API_PREFIX}/search", {}).get("get")
     if search_op is not None:
@@ -413,11 +400,6 @@ def structural_projection(document: dict[str, Any]) -> dict[str, Any]:
             responses[str(status)] = _resolve_response(
                 response, schemas, response_components, ()
             )
-
-        if (method, path) == STREAMING_OPERATION and "200" in responses:
-            # Approved manual streaming difference: the success body is SSE and
-            # only that success body schema is excluded from comparison.
-            responses["200"] = {SSE_MEDIA_TYPE: {}}
 
         projection[f"{method.upper()} {path}"] = {
             "parameters": parameters,

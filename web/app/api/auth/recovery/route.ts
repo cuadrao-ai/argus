@@ -22,6 +22,7 @@ export async function POST(request: Request) {
   return handleRecoveryRequest(request, {
     configuredAppOrigin: process.env.ARGUS_APP_ORIGIN,
     environment: process.env.NODE_ENV,
+    trustedClientIpHeader: process.env.ARGUS_TRUSTED_CLIENT_IP_HEADER,
     limiter,
     globalLimiter,
     async sendRecovery(email, redirectTo, captchaToken) {

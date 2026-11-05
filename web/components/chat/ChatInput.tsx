@@ -1,4 +1,11 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import type { TFunction } from "i18next";
 import { ArrowUp, AtSign, MessageSquareWarning } from "lucide-react";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
@@ -24,6 +31,7 @@ import {
   type ComposerSegment,
 } from "./composer-model";
 import { entityTokenClassName } from "./entity-token";
+import { noteLandingStarterComposerMatch } from "@/lib/landing-intent";
 import type { ChatMention } from "./types";
 
 type ChatInputProps = {
@@ -34,6 +42,16 @@ type ChatInputProps = {
   disabled?: boolean;
   placeholder?: string;
   onToast?: (message: string) => void;
+  draftText?: string | null;
+  /**
+   * Replaces the asset/indicator mention control. A workspace that passes one
+   * has no mention picker at all, including the typed `@` trigger.
+   */
+  leadingControl?: ReactNode;
+  /** Unsent text, so a workspace can keep a draft across navigation. */
+  onDraftChange?: (text: string) => void;
+  /** Called once a send is accepted. */
+  onSent?: () => void;
 };
 
 export type DiscoverySection = {
@@ -82,6 +100,10 @@ export default function ChatInput({
   disabled = false,
   placeholder,
   onToast,
+  draftText,
+  leadingControl,
+  onDraftChange,
+  onSent,
 }: ChatInputProps) {
   const { t } = useTranslation();
   const [segments, setSegments] = useState<ComposerSegment[]>([{ type: "text", text: "" }]);
@@ -98,10 +120,16 @@ export default function ChatInput({
   const [isMounted, setIsMounted] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const pendingCaretOffsetRef = useRef<number | null>(null);
+  const appliedDraftRef = useRef(false);
   const activeMentionOffsetRef = useRef<number | null>(null);
   const buttonDiscoveryAnchorOffsetRef = useRef<number | null>(null);
   const buttonDiscoveryQueryEndOffsetRef = useRef<number | null>(null);
   const composerIsEmpty = !composerHasContent;
+  const mentionsEnabled = leadingControl === undefined;
+  const onDraftChangeRef = useRef(onDraftChange);
+  useLayoutEffect(() => {
+    onDraftChangeRef.current = onDraftChange;
+  }, [onDraftChange]);
 
   const inputPlaceholder = placeholder ?? t("chat.input_placeholder");
   const discoverySections = useMemo(
@@ -137,13 +165,33 @@ export default function ChatInput({
   const sendButtonLabel = t("chat.send_message", "Send message");
   const textOnlyInputMessage = t(
     "chat.text_only_input",
-    "Argus can only accept text here right now.",
+    "Cuadrao can only accept text here right now.",
   );
   const isMentionButtonHidden = shouldHideMentionButton(isDiscoveryOpen, composerRawText);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (appliedDraftRef.current) return;
+    const text = draftText?.trim();
+    if (!text) return;
+    if (composerHasContent || composerRawText.trim()) {
+      appliedDraftRef.current = true;
+      return;
+    }
+    appliedDraftRef.current = true;
+    pendingCaretOffsetRef.current = text.length;
+    setSegments([{ type: "text", text }]);
+  }, [composerHasContent, composerRawText, draftText]);
+
+  useEffect(() => {
+    if (!mentionsEnabled || !draftText?.trim()) return;
+    noteLandingStarterComposerMatch(
+      Boolean(appliedDraftRef.current) && composerRawText === draftText,
+    );
+  }, [composerRawText, draftText, mentionsEnabled]);
 
   useEffect(() => {
     if (!isDiscoveryOpen) return;
@@ -218,6 +266,7 @@ export default function ChatInput({
     writeSegmentsToEditor(editorRef.current, segments);
     setComposerHasContent(!isComposerEmpty(segments));
     setComposerRawText(rawComposerText(segments));
+    onDraftChangeRef.current?.(rawComposerText(segments));
     if (pendingCaretOffsetRef.current !== null) {
       const offset = pendingCaretOffsetRef.current;
       pendingCaretOffsetRef.current = null;
@@ -238,6 +287,7 @@ export default function ChatInput({
   };
 
   const updateDiscoveryState = (current: ComposerSegment[], cursor: number | null) => {
+    if (!mentionsEnabled) return;
     const rawText = rawComposerText(current);
     const currentCursor = cursor ?? rawText.length;
     const mention = findMentionAtOffset(current, currentCursor);
@@ -303,6 +353,7 @@ export default function ChatInput({
     if (message) {
       const accepted = await onSend(message, composerMentions(current, message));
       if (accepted === false) return;
+      onSent?.();
       setSegments([{ type: "text", text: "" }]);
       setComposerHasContent(false);
       setComposerRawText("");
@@ -388,6 +439,7 @@ export default function ChatInput({
     const cursor = getCaretTextOffset(editorRef.current);
     setComposerHasContent(!isComposerEmpty(current));
     setComposerRawText(rawComposerText(current));
+    onDraftChangeRef.current?.(rawComposerText(current));
     updateDiscoveryState(current, cursor);
     scheduleComposerTokenFocus();
   };
@@ -496,6 +548,7 @@ export default function ChatInput({
         </div>
       )}
 
+      {mentionsEnabled ? (
       <button
         type="button"
         onMouseDown={(event) => event.preventDefault()}
@@ -515,6 +568,9 @@ export default function ChatInput({
       >
         <AtSign className="h-4 w-4" />
       </button>
+      ) : (
+        <div className="absolute left-3 top-1/2 z-20 -translate-y-1/2">{leadingControl}</div>
+      )}
 
       <div className="relative flex min-w-0 flex-1 flex-col justify-center py-2 pl-14 pr-2">
         <div
@@ -604,7 +660,7 @@ export default function ChatInput({
                   updateDiscoveryState(next.segments, next.offset);
                 }
               }
-            } else if (e.key === "@" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            } else if (mentionsEnabled && e.key === "@" && !e.ctrlKey && !e.metaKey && !e.altKey) {
               buttonDiscoveryAnchorOffsetRef.current = null;
               buttonDiscoveryQueryEndOffsetRef.current = null;
               activeMentionOffsetRef.current = null;
@@ -627,7 +683,7 @@ export default function ChatInput({
 
       <div className="flex h-14 w-14 shrink-0 self-center items-center justify-center">
         {sendDisabledReason ? (
-          <Tooltip content={sendDisabledReason} side="top" delay={150}>
+          <Tooltip content={sendDisabledReason} side="top">
             <span
               data-testid="chat-send-disabled-tooltip"
               aria-disabled="true"

@@ -1,0 +1,48 @@
+{
+  "canonical_retries": 5,
+  "committed_response_loss": "one accepted budget response dropped; exact bytes/key replayed once",
+  "contributors": 4,
+  "final_limit_minor": 16000,
+  "final_spent_minor": 15500,
+  "integration_base": "9f51912198c2c77e239f670a2b3f78da2942afed",
+  "journey": "connected_budget_api",
+  "limitations": "Native UI, transport-loss recovery and boundary matrix recorded separately",
+  "owner_read_and_write_isolation": true,
+  "phases": {
+    "corrected_expense": {
+      "dop_net_spending_minor": 20000,
+      "dop_position_minor": 90300,
+      "over_budget_minor": 3000,
+      "remaining_minor": -3000,
+      "spent_minor": 18000
+    },
+    "cross_account_refund": {
+      "dop_net_spending_minor": 17500,
+      "dop_position_minor": 92800,
+      "over_budget_minor": 500,
+      "remaining_minor": -500,
+      "spent_minor": 15500
+    },
+    "existing_activity": {
+      "dop_net_spending_minor": 14000,
+      "dop_position_minor": 96300,
+      "over_budget_minor": 0,
+      "remaining_minor": 3000,
+      "spent_minor": 12000
+    },
+    "recorded_expense": {
+      "dop_net_spending_minor": 22000,
+      "dop_position_minor": 88300,
+      "over_budget_minor": 5000,
+      "remaining_minor": -5000,
+      "spent_minor": 20000
+    }
+  },
+  "real_postgres_counts": {
+    "financial_accounts": 5,
+    "financial_activity_groups": 10,
+    "financial_budgets": 6
+  },
+  "scope_checks": 5,
+  "source_sha": "738bd803d5e5f147e23123a053cb315405745c94"
+}

@@ -1,0 +1,25 @@
+.sheen {
+  position: absolute;
+  inset-inline: 0;
+  top: -30%;
+  height: 30%;
+  pointer-events: none;
+  background-image: linear-gradient(to bottom, rgb(47 90 73 / 0), rgb(47 90 73 / 0.2), rgb(47 90 73 / 0));
+  animation: receipt-reading-sheen 1.6s ease-in-out infinite;
+}
+
+@keyframes receipt-reading-sheen {
+  from {
+    top: -30%;
+  }
+
+  to {
+    top: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheen {
+    display: none;
+  }
+}

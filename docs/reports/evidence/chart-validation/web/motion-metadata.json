@@ -1,0 +1,15 @@
+{
+  "sourceHead": "de8f9cdf6874e8e46d04c887393f003fb5b74492",
+  "timestamp": "2026-09-28T20:54:55.573Z",
+  "browser": "147.0.7727.15",
+  "viewport": "390x844 touch emulation",
+  "videoSha256": "bc160fe79dcb37ded707fd1e67941b2bd20cf99850046268719a24d7c1bdf7b5",
+  "visualStyleSha256": "d1ab2aee8e20f5fe032759114e271d998406926e352d879b3b468aebe59ede72",
+  "sequence": [
+    "horizontal scrub",
+    "release retains",
+    "reverse scrub",
+    "cancel restores",
+    "vertical page scroll"
+  ]
+}

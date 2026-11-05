@@ -1,0 +1,110 @@
+[
+  {
+    "attachments": [
+      {
+        "configurationName": "Test Scheme Action",
+        "deviceId": "1F378304-B575-47B3-AD39-5A1DFE87047D",
+        "deviceName": "Apple Session Interval Probe",
+        "exportedFileName": "0D65E780-A545-4D35-ACDB-724519894891.png",
+        "isAssociatedWithFailure": false,
+        "suggestedHumanReadableName": "apple-revoked-signed-out-es-419_0_B73ECFB5-D7C4-4EE3-84C1-E189F1892C7C.png",
+        "timestamp": 1791230005.679,
+        "committedFileName": "apple-revoked-signed-out-es-419.png"
+      },
+      {
+        "configurationName": "Test Scheme Action",
+        "deviceId": "1F378304-B575-47B3-AD39-5A1DFE87047D",
+        "deviceName": "Apple Session Interval Probe",
+        "exportedFileName": "57E246FF-8052-4853-89EF-65C4BFBA2A50.png",
+        "isAssociatedWithFailure": false,
+        "suggestedHumanReadableName": "apple-validation-retry-es-419_0_9A464697-4E38-4898-AFB8-F1396459EE6F.png",
+        "timestamp": 1791230000.823,
+        "committedFileName": "apple-validation-retry-es-419.png"
+      },
+      {
+        "configurationName": "Test Scheme Action",
+        "deviceId": "1F378304-B575-47B3-AD39-5A1DFE87047D",
+        "deviceName": "Apple Session Interval Probe",
+        "exportedFileName": "B1D3BA82-0BA3-49F8-BF24-3F50BC731EFA.png",
+        "isAssociatedWithFailure": false,
+        "suggestedHumanReadableName": "apple-capture-failed-es-419_0_A7688461-3B83-45AA-B4B4-9A37B68A1255.png",
+        "timestamp": 1791229997.671,
+        "committedFileName": "apple-capture-failed-es-419.png"
+      },
+      {
+        "configurationName": "Test Scheme Action",
+        "deviceId": "1F378304-B575-47B3-AD39-5A1DFE87047D",
+        "deviceName": "Apple Session Interval Probe",
+        "exportedFileName": "9FCC6B46-E4DF-4E8A-85DC-42BEEA86096A.png",
+        "isAssociatedWithFailure": false,
+        "suggestedHumanReadableName": "apple-revoked-signed-out-en_0_B33014B5-F5D4-4562-B615-BB43B0A4B6D0.png",
+        "timestamp": 1791229988.727,
+        "committedFileName": "apple-revoked-signed-out-en.png"
+      },
+      {
+        "configurationName": "Test Scheme Action",
+        "deviceId": "1F378304-B575-47B3-AD39-5A1DFE87047D",
+        "deviceName": "Apple Session Interval Probe",
+        "exportedFileName": "7831CFB7-9604-4A20-BC6D-44A590012394.png",
+        "isAssociatedWithFailure": false,
+        "suggestedHumanReadableName": "apple-validation-retry-en_0_06FE1C4E-2E03-4102-9AFA-715FD7730BEB.png",
+        "timestamp": 1791229983.855,
+        "committedFileName": "apple-validation-retry-en.png"
+      },
+      {
+        "configurationName": "Test Scheme Action",
+        "deviceId": "1F378304-B575-47B3-AD39-5A1DFE87047D",
+        "deviceName": "Apple Session Interval Probe",
+        "exportedFileName": "94E88D78-12D5-47FC-BC98-F39C057C085E.png",
+        "isAssociatedWithFailure": false,
+        "suggestedHumanReadableName": "apple-capture-failed-en_0_FD5896E2-C59D-4E5B-9DD2-4EDEFBF49C5E.png",
+        "timestamp": 1791229980.721,
+        "committedFileName": "apple-capture-failed-en.png"
+      }
+    ],
+    "testIdentifier": "AppleSessionJourneyUITests/testCaptureFailureRecoveryAndRevocationInEnglishAndSpanish()",
+    "testIdentifierURL": "test://com.apple.xcode/ArgusFoundation/ArgusFoundationUITests/AppleSessionJourneyUITests/testCaptureFailureRecoveryAndRevocationInEnglishAndSpanish"
+  },
+  {
+    "attachments": [
+      {
+        "configurationName": "Test Scheme Action",
+        "deviceId": "1F378304-B575-47B3-AD39-5A1DFE87047D",
+        "deviceName": "Apple Session Interval Probe",
+        "exportedFileName": "6864A393-C3AB-4425-882D-377C39523710.png",
+        "isAssociatedWithFailure": false,
+        "suggestedHumanReadableName": "apple-explicit-sign-in-again_0_19B6F9DD-3C76-405F-9282-1D7A70807103.png",
+        "timestamp": 1791230023.49,
+        "committedFileName": "apple-explicit-sign-in-again.png"
+      },
+      {
+        "configurationName": "Test Scheme Action",
+        "deviceId": "1F378304-B575-47B3-AD39-5A1DFE87047D",
+        "deviceName": "Apple Session Interval Probe",
+        "exportedFileName": "2B82AB2D-C20C-4D12-87BC-09A742792446.png",
+        "isAssociatedWithFailure": false,
+        "suggestedHumanReadableName": "email-with-apple-link_0_03367BBD-3308-42D3-96F4-BF3D99AF3DBA.png",
+        "timestamp": 1791230015.719,
+        "committedFileName": "email-with-apple-link.png"
+      }
+    ],
+    "testIdentifier": "AppleSessionJourneyUITests/testKnownEmailIgnoresLinkedAppleAndMissingAppleSubjectRequiresNewSignIn()",
+    "testIdentifierURL": "test://com.apple.xcode/ArgusFoundation/ArgusFoundationUITests/AppleSessionJourneyUITests/testKnownEmailIgnoresLinkedAppleAndMissingAppleSubjectRequiresNewSignIn"
+  },
+  {
+    "attachments": [
+      {
+        "configurationName": "Test Scheme Action",
+        "deviceId": "1F378304-B575-47B3-AD39-5A1DFE87047D",
+        "deviceName": "Apple Session Interval Probe",
+        "exportedFileName": "9622372B-D6E8-4DAF-9C37-83F50E98C571.png",
+        "isAssociatedWithFailure": false,
+        "suggestedHumanReadableName": "apple-notification-during-validation_0_85C5CF97-41D9-4A79-B23E-DE5688F65A11.png",
+        "timestamp": 1791230038.372,
+        "committedFileName": "apple-notification-during-validation.png"
+      }
+    ],
+    "testIdentifier": "AppleSessionJourneyUITests/testNotificationDuringBusyValidationIsCoalescedByTheActualModel()",
+    "testIdentifierURL": "test://com.apple.xcode/ArgusFoundation/ArgusFoundationUITests/AppleSessionJourneyUITests/testNotificationDuringBusyValidationIsCoalescedByTheActualModel"
+  }
+]

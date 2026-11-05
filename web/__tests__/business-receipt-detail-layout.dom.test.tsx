@@ -1,0 +1,252 @@
+import assert from "node:assert/strict";
+import { afterAll, beforeAll, describe, mock, test } from "bun:test";
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import type { BusinessDataSource } from "@/components/business-app/business-data";
+import type { BusinessDossier } from "@/lib/business-dossier";
+import type { ReceiptDetail } from "@/lib/business-api";
+import { dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
+
+mock.module("next/navigation", () => ({
+  usePathname: () => "/biz",
+  useRouter: () => ({ push: () => {}, replace: () => {}, refresh: () => {}, prefetch: () => {} }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+beforeAll(() => {
+  GlobalRegistrator.register({ url: "http://localhost/biz" });
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+});
+afterAll(async () => {
+  await GlobalRegistrator.unregister();
+});
+
+type Change = (dossier: BusinessDossier) => void;
+
+/** Ferretería La Esquina opened as a prepared record; the change edits the record the server returns. */
+async function mount({ change, overrides = {}, receipt = {}, until = "footer" }: { change?: Change; overrides?: Partial<BusinessDataSource>; receipt?: Partial<ReceiptDetail>; until?: "footer" | "top" } = {}) {
+  const { act } = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const i18next = (await import("i18next")).default;
+  const { I18nextProvider } = await import("react-i18next");
+  const spanish = (await import("@/public/locales/es-419/common.json")).default;
+  const { BusinessWorkspaceProvider } = await import("@/components/business-app/BusinessWorkspace");
+  const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
+  const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+  const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
+  const ReceiptReviewPanel = (await import("@/components/business-app/ReceiptReviewPanel")).default;
+  const { setChosenGrant } = await import("@/lib/business-grant");
+  setChosenGrant(null);
+  const i18n = i18next.createInstance();
+  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+  const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
+  const source: BusinessDataSource = {
+    ...fixture,
+    receipt: async (id, signal) => ({ ...await fixture.receipt(id, signal), draft_id: dossierFixtureIds.fiscal, ...receipt }),
+    dossier: async (id) => {
+      const dossier = structuredClone(await fixture.dossier(id));
+      change?.(dossier);
+      return dossier;
+    },
+    ...overrides,
+  };
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  await act(async () => {
+    root.render(
+      <I18nextProvider i18n={i18n}>
+        <BusinessConsentTestProvider accepted>
+          <BusinessWorkspaceProvider source={source}>
+            <ReceiptReviewPanel target={{ kind: "receipt", id: "rcpt-ferreteria" }} />
+          </BusinessWorkspaceProvider>
+        </BusinessConsentTestProvider>
+      </I18nextProvider>,
+    );
+  });
+  const settle = async (ready: () => boolean) => {
+    for (let i = 0; i < 80 && !ready(); i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
+    assert.ok(ready(), "the page settled");
+  };
+  const footer = () => host.querySelector<HTMLElement>('[data-testid="receipt-review-footer"]');
+  const button = (name: string) => [...(footer()?.querySelectorAll<HTMLButtonElement>("button") ?? [])].find((item) => item.textContent === name);
+  await settle(() => Boolean(until === "top" ? host.querySelector('[data-testid="receipt-top-block"]') : footer()));
+  return { host, act, settle, footer, button, close: () => act(async () => { root.unmount(); host.remove(); }) };
+}
+
+const noDate: Change = (dossier) => {
+  dossier.facts.occurred_on = { state: "unknown", value: null, origin: null, verified: false, source_ids: [] };
+  dossier.blockers = [{ code: "fact_required", field: "occurred_on" }];
+  dossier.approval_available = false;
+};
+
+describe("the receipt detail's top block", () => {
+  test("supplier, total and status come first, with no business name or revision number", async () => {
+    const page = await mount();
+    // One header: the supplier is its title, and the block under it holds the total and the status.
+    const top = page.host.querySelector('[data-testid="receipt-top-block"]')!;
+    assert.equal(page.host.querySelector("#receipt-review-title")?.textContent, "Ferretería La Esquina");
+    assert.match(top.querySelector('[data-testid="receipt-total"]')?.textContent ?? "", /^RD\$ \d{1,3}(,\d{3})*\.\d{2}$/);
+    assert.equal(top.querySelector('[data-testid="status-pill"]')?.textContent, "Listo para revisar");
+    assert.doesNotMatch(top.textContent ?? "", /Revisión|Mi negocio/);
+    const review = page.host.querySelector('[data-testid="business-record-review"]')!;
+    assert.ok(review.textContent!.indexOf("Ferretería La Esquina") < review.textContent!.indexOf("Fecha de actividad"));
+    await page.close();
+  });
+
+  test("the status word is the list's: a confirmed receipt reads Aprobado, not the server's status name", async () => {
+    for (const draft_id of [dossierFixtureIds.fiscal, null]) {
+      for (const [status, word] of [["review_ready", "Listo para revisar"], ["confirmed", "Aprobado"]] as const) {
+        const page = await mount({ receipt: { status, draft_id }, until: "top" });
+        assert.equal(page.host.querySelector('[data-testid="receipt-top-block"] [data-testid="status-pill"]')?.textContent, word, `${status} ${draft_id ? "with" : "without"} a draft`);
+        await page.close();
+      }
+    }
+  });
+
+  test("an unknown total is hidden, never shown as zero", async () => {
+    const page = await mount({ change: (dossier) => { dossier.facts.amount = { state: "unknown", value: null, origin: null, verified: false, source_ids: [] }; } });
+    assert.equal(page.host.querySelector('[data-testid="receipt-total"]'), null);
+    assert.doesNotMatch(page.host.querySelector('[data-testid="receipt-top-block"]')?.textContent ?? "", /0\.00|desconocido/i);
+    await page.close();
+  });
+});
+
+describe("a record opened without its receipt", () => {
+  test("shows the record's own review state when no status pill can say it", async () => {
+    const { act } = await import("react");
+    const { createRoot } = await import("react-dom/client");
+    const i18next = (await import("i18next")).default;
+    const { I18nextProvider } = await import("react-i18next");
+    const spanish = (await import("@/public/locales/es-419/common.json")).default;
+    const { BusinessWorkspaceProvider } = await import("@/components/business-app/BusinessWorkspace");
+    const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
+    const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+    const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
+    const ReceiptReviewPanel = (await import("@/components/business-app/ReceiptReviewPanel")).default;
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+    const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
+    for (const [state, shown] of [["open", "Listo para revisar"], ["accepting", "Consultando resultado de aprobación"]] as const) {
+      const source: BusinessDataSource = { ...fixture, dossier: async (id) => ({ ...structuredClone(await fixture.dossier(id)), review_state: state }) };
+      const host = document.createElement("div");
+      document.body.appendChild(host);
+      const root = createRoot(host);
+      await act(async () => {
+        root.render(<I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessWorkspaceProvider source={source}><ReceiptReviewPanel target={{ kind: "draft", id: dossierFixtureIds.ready }} /></BusinessWorkspaceProvider></BusinessConsentTestProvider></I18nextProvider>);
+      });
+      for (let i = 0; i < 80 && !host.querySelector('[data-testid="receipt-top-block"]'); i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
+      const top = host.querySelector('[data-testid="receipt-top-block"]')!;
+      assert.ok(top.textContent?.includes(shown), `${state}: ${top.textContent}`);
+      assert.equal(Boolean(top.querySelector('[data-testid="status-pill"]')), state === "open");
+      await act(async () => { root.unmount(); host.remove(); });
+    }
+  });
+});
+
+describe("the footer", () => {
+  test("holds Más, Aprobar and Aprobar y siguiente, and nothing else, with no reason while Aprobar is open", async () => {
+    const page = await mount();
+    const footer = page.footer()!;
+    // Más holds the Personal mark, the note and the refresh; only its trigger sits in the footer row.
+    assert.deepEqual([...footer.querySelectorAll("button")].filter((item) => !item.closest("#receipt-more-panel")).map((item) => item.textContent), ["Más", "Aprobar", "Aprobar y siguiente"]);
+    assert.equal(page.button("Aprobar")?.disabled, false);
+    assert.equal(footer.querySelector('[data-testid="approve-reason"]'), null);
+    await page.close();
+  });
+
+  test("a missing date disables Aprobar, and the top box alone says why", async () => {
+    const page = await mount({ change: noDate });
+    assert.equal(page.button("Aprobar")?.disabled, true);
+    assert.equal(page.button("Aprobar y siguiente")?.disabled, true);
+    assert.equal(page.footer()!.querySelector('[data-testid="approve-reason"]'), null, "the footer repeats nothing");
+    assert.ok(page.host.querySelector('[data-testid="dossier-attention"]')?.textContent?.includes("Fecha de actividad"));
+    assert.equal(page.button("Aprobar")?.getAttribute("aria-describedby"), "dossier-attention-title", "the box describes the disabled button");
+    assert.equal(page.host.querySelector('[data-fact="occurred_on"]')?.textContent?.includes("Agrega la fecha para aprobar"), false, "nor does the row");
+    await page.close();
+  });
+
+  test("a blocker is the top box's to say; a hold with no blocker has no box, so the footer says why", async () => {
+    const blocked = await mount({ change: (dossier) => { dossier.blockers = [{ code: "unknown_funding", field: "funding" }]; dossier.approval_available = false; } });
+    assert.equal(blocked.button("Aprobar")?.disabled, true);
+    assert.ok(blocked.host.querySelector('[data-testid="dossier-attention"]')?.textContent?.includes("Confirma cómo se pagó."));
+    assert.equal(blocked.footer()!.querySelector('[data-testid="approve-reason"]'), null);
+    await blocked.close();
+    const held = await mount({ change: (dossier) => { dossier.blockers = []; dossier.approval_available = false; } });
+    assert.equal(held.footer()!.querySelector('[data-testid="approve-reason"]')?.textContent, "Este registro necesita más revisión antes de aprobarse.");
+    await held.close();
+  });
+
+  test("approving shows a spinner on Aprobar and a second press sends nothing", async () => {
+    let release: () => void = () => {};
+    let approvals = 0;
+    const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+    const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
+    const page = await mount({
+      change: (dossier) => {
+        if (dossier.facts.fiscal) dossier.facts.fiscal.rnc = { state: "known", value: "101123456", origin: "owner_stated", verified: false, source_ids: [] };
+      },
+      overrides: {
+        approveDraft: async (id, version) => {
+          approvals += 1;
+          await new Promise<void>((resolve) => { release = resolve; });
+          return fixture.dossier(id).then((dossier) => ({ ...dossier, version }));
+        },
+      },
+    });
+    const approve = page.button("Aprobar")!;
+    await page.act(async () => { approve.click(); });
+    const busy = page.footer()!.querySelector<HTMLButtonElement>('button[aria-busy="true"]')!;
+    assert.ok(busy.querySelector(".animate-spin"), "the spinner shows");
+    assert.equal(busy.textContent, "Aprobando…");
+    assert.equal(busy.disabled, true);
+    await page.act(async () => { busy.click(); });
+    assert.equal(approvals, 1);
+    assert.equal(page.footer()!.querySelector('[data-testid="approve-reason"]'), null, "no reason while the approval runs");
+    await page.act(async () => { release(); });
+    await page.close();
+  });
+});
+
+describe("a receipt that will not load", () => {
+  test("says so in red beside an alert icon, and Reintentar asks again", async () => {
+    let calls = 0;
+    const { act } = await import("react");
+    const { createRoot } = await import("react-dom/client");
+    const i18next = (await import("i18next")).default;
+    const { I18nextProvider } = await import("react-i18next");
+    const spanish = (await import("@/public/locales/es-419/common.json")).default;
+    const { BusinessWorkspaceProvider } = await import("@/components/business-app/BusinessWorkspace");
+    const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
+    const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+    const ReceiptReviewPanel = (await import("@/components/business-app/ReceiptReviewPanel")).default;
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+    const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
+    const source: BusinessDataSource = {
+      ...fixture,
+      receipt: async (id, signal) => {
+        calls += 1;
+        if (calls === 1) throw Object.assign(new Error("gone"), { status: 404 });
+        return fixture.receipt(id, signal);
+      },
+    };
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(<I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessWorkspaceProvider source={source}><ReceiptReviewPanel target={{ kind: "receipt", id: "rcpt-ferreteria" }} /></BusinessWorkspaceProvider></BusinessConsentTestProvider></I18nextProvider>);
+    });
+    for (let i = 0; i < 40 && !host.querySelector('[data-testid="receipt-load-error"]'); i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
+    const error = host.querySelector('[data-testid="receipt-load-error"]')!;
+    const alert = error.querySelector('[role="alert"]')!;
+    assert.equal(alert.textContent, "Este recibo no está disponible. Puede que lo hayan quitado.");
+    assert.match(alert.className, /text-\[#9e2f39\]/);
+    assert.ok(alert.querySelector(".lucide-circle-alert"));
+    const retry = [...error.querySelectorAll("button")].find((item) => item.textContent === "Reintentar")!;
+    await act(async () => { retry.click(); });
+    for (let i = 0; i < 80 && !host.querySelector('[data-testid="receipt-top-block"]'); i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
+    assert.equal(calls, 2);
+    assert.ok(host.querySelector('[data-testid="receipt-top-block"]'));
+    await act(async () => { root.unmount(); host.remove(); });
+  });
+});

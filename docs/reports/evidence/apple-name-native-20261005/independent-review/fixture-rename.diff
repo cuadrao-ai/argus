@@ -1,0 +1,235 @@
+diff --git a/ios/Packages/ArgusSession/Tests/ArgusSessionTests/AppleNameInitializationTests.swift b/ios/Packages/ArgusSession/Tests/ArgusSessionTests/AppleNameInitializationTests.swift
+index 8008d6165..e06638a27 100644
+--- a/ios/Packages/ArgusSession/Tests/ArgusSessionTests/AppleNameInitializationTests.swift
++++ b/ios/Packages/ArgusSession/Tests/ArgusSessionTests/AppleNameInitializationTests.swift
+@@ -5,7 +5,7 @@ import XCTest
+ 
+ final class AppleNameInitializationTests: XCTestCase, @unchecked Sendable {
+     private let subject = "canonical-apple-subject"
+-    private let name = "María del Carmen 王"
++    private let seedName = "María del Carmen 王"
+ 
+     private func prepare(_ client: SessionController, name: String? = nil, subject: String? = nil) throws -> AppleNameAuthorization {
+         try client.prepareAppleName(displayName: name, subject: subject ?? self.subject)
+@@ -26,10 +26,10 @@ final class AppleNameInitializationTests: XCTestCase, @unchecked Sendable {
+         await fixture.server.configureAppleName()
+         await fixture.server.holdIdToken(gate)
+         let client = try fixture.controller()
+-        let authorization = try prepare(client, name: "  " + name + "  ")
++        let authorization = try prepare(client, name: "  " + seedName + "  ")
+         let callback = try XCTUnwrap(fixture.storage.retrieve(key: fixture.configuration.storagePrefix + ".apple-name"))
+         let intent = try JSONDecoder().decode(AppleNameIntent.self, from: callback)
+-        XCTAssertEqual(intent.displayName, name)
++        XCTAssertEqual(intent.displayName, seedName)
+         let fields = try XCTUnwrap(JSONSerialization.jsonObject(with: callback) as? [String: Any])
+         XCTAssertEqual(Set(fields.keys), Set(["id", "subject", "displayName", "createdAt"]))
+         let task = Task { try await self.signIn(client, authorization: authorization) }
+@@ -37,7 +37,7 @@ final class AppleNameInitializationTests: XCTestCase, @unchecked Sendable {
+         XCTAssertNil(try journal(fixture))
+         await gate.release()
+         let result = try await task.value
+-        XCTAssertEqual(result.session.profile?.displayName, name)
++        XCTAssertEqual(result.session.profile?.displayName, seedName)
+         XCTAssertEqual(result.appleName, .saved)
+         XCTAssertEqual(result.appleCapture, .saved)
+         XCTAssertNil(try journal(fixture)?.appleName)
+@@ -45,14 +45,14 @@ final class AppleNameInitializationTests: XCTestCase, @unchecked Sendable {
+         let requests = await names(fixture)
+         XCTAssertEqual(requests.count, 1)
+         let sent = try JSONSerialization.jsonObject(with: XCTUnwrap(requests.first?.httpBody)) as? [String: String]
+-        XCTAssertEqual(sent, ["display_name": name])
++        XCTAssertEqual(sent, ["display_name": seedName])
+     }
+ 
+     func testLostGrantResponseKeepsOnlyCallbackIntentForFreshSameSubjectGrant() async throws {
+         let fixture = try SessionFixture(), client = try fixture.controller()
+         await fixture.server.configureAppleName()
+         await fixture.server.configureIdToken(status: 503)
+-        do { _ = try await signIn(client, authorization: prepare(client, name: name)); XCTFail("Expected outage") }
++        do { _ = try await signIn(client, authorization: prepare(client, name: seedName)); XCTFail("Expected outage") }
+         catch { XCTAssertEqual(error as? SessionFailure, .unavailable) }
+         XCTAssertNil(try journal(fixture))
+         XCTAssertNil(try fixture.storage.retrieve(key: fixture.configuration.storagePrefix + ".pending"))
+@@ -63,18 +63,18 @@ final class AppleNameInitializationTests: XCTestCase, @unchecked Sendable {
+         XCTAssertTrue(before.isEmpty)
+         await fixture.server.configureIdToken()
+         let result = try await signIn(relaunched, authorization: prepare(relaunched))
+-        XCTAssertEqual(result.session.profile?.displayName, name)
++        XCTAssertEqual(result.session.profile?.displayName, seedName)
+     }
+ 
+     func testLostNameResponseRetriesAfterRelaunchWithoutCodeReplay() async throws {
+         let fixture = try SessionFixture(), client = try fixture.controller()
+         await fixture.server.configureAppleName(loseResponse: true)
+-        let result = try await signIn(client, authorization: prepare(client, name: name))
++        let result = try await signIn(client, authorization: prepare(client, name: seedName))
+         XCTAssertEqual(result.session.phase, .authenticated)
+         XCTAssertEqual(result.appleName, .pending(.unavailable))
+-        XCTAssertEqual(try journal(fixture)?.appleName?.intent.displayName, name)
++        XCTAssertEqual(try journal(fixture)?.appleName?.intent.displayName, seedName)
+         let restored = try await fixture.controller().restore()
+-        XCTAssertEqual(restored.profile?.displayName, name)
++        XCTAssertEqual(restored.profile?.displayName, seedName)
+         XCTAssertNil(try journal(fixture)?.appleName)
+         let requests = await fixture.server.captured()
+         XCTAssertEqual(requests.filter { $0.url?.path.hasSuffix("/apple-name") == true }.count, 2)
+@@ -85,11 +85,11 @@ final class AppleNameInitializationTests: XCTestCase, @unchecked Sendable {
+     func testUnavailableNameDoesNotFailSignInAndExplicitRetryUsesStoredIntent() async throws {
+         let fixture = try SessionFixture(), client = try fixture.controller()
+         await fixture.server.configureAppleName(statuses: [503])
+-        let result = try await signIn(client, authorization: prepare(client, name: name))
++        let result = try await signIn(client, authorization: prepare(client, name: seedName))
+         XCTAssertEqual(result.session.phase, .authenticated)
+         XCTAssertEqual(result.appleName, .pending(.rejected(status: 503, code: "apple_name_unavailable")))
+         let recovered = try await client.retryAppleNameInitialization(expectedIdentity: result.session)
+-        XCTAssertEqual(recovered.profile?.displayName, name)
++        XCTAssertEqual(recovered.profile?.displayName, seedName)
+         XCTAssertNil(try journal(fixture)?.appleName)
+     }
+ 
+@@ -97,7 +97,7 @@ final class AppleNameInitializationTests: XCTestCase, @unchecked Sendable {
+         for chosen in [Optional("User chosen name"), nil] {
+             let fixture = try SessionFixture(), client = try fixture.controller()
+             await fixture.server.configureAppleName(displayName: chosen, closed: true)
+-            let result = try await signIn(client, authorization: prepare(client, name: name))
++            let result = try await signIn(client, authorization: prepare(client, name: seedName))
+             XCTAssertEqual(result.session.profile?.displayName, chosen)
+             XCTAssertEqual(result.appleName, .saved)
+             XCTAssertNil(try journal(fixture)?.appleName)
+@@ -106,7 +106,7 @@ final class AppleNameInitializationTests: XCTestCase, @unchecked Sendable {
+ 
+     func testDifferentCallbackAndDifferentCanonicalSubjectCannotReceiveOldName() async throws {
+         let fixture = try SessionFixture(), client = try fixture.controller()
+-        _ = try prepare(client, name: name)
++        _ = try prepare(client, name: seedName)
+         let other = try prepare(client, subject: "another-apple-subject")
+         XCTAssertNil(other.intentID)
+         await fixture.server.configureAppleName()
+@@ -118,7 +118,7 @@ final class AppleNameInitializationTests: XCTestCase, @unchecked Sendable {
+         let mismatch = try SessionFixture(), otherClient = try mismatch.controller()
+         await mismatch.server.configureAppleName()
+         await mismatch.server.configureApple(subject: "different-server-subject")
+-        let different = try await signIn(otherClient, authorization: prepare(otherClient, name: name))
++        let different = try await signIn(otherClient, authorization: prepare(otherClient, name: seedName))
+         XCTAssertNil(different.session.profile?.displayName)
+         XCTAssertNil(try journal(mismatch)?.appleName)
+         let mismatchRequests = await names(mismatch)
+@@ -128,7 +128,7 @@ final class AppleNameInitializationTests: XCTestCase, @unchecked Sendable {
+     func testSignOutClearsPendingNameAndRejectsOldIdentityRetry() async throws {
+         let fixture = try SessionFixture(), client = try fixture.controller()
+         await fixture.server.configureAppleName(statuses: [503])
+-        let result = try await signIn(client, authorization: prepare(client, name: name))
++        let result = try await signIn(client, authorization: prepare(client, name: seedName))
+         _ = try await client.signOut()
+         do { _ = try await client.retryAppleNameInitialization(expectedIdentity: result.session); XCTFail("Expected stale identity") }
+         catch { XCTAssertEqual(error as? SessionFailure, .staleOperation) }
+@@ -139,7 +139,7 @@ final class AppleNameInitializationTests: XCTestCase, @unchecked Sendable {
+     func testDeniedAdoptionNeverDispatchesNameAndClearsCallback() async throws {
+         let fixture = try SessionFixture(), client = try fixture.controller()
+         await fixture.server.configure(meStatuses: [403])
+-        do { _ = try await signIn(client, authorization: prepare(client, name: name)); XCTFail("Expected denial") }
++        do { _ = try await signIn(client, authorization: prepare(client, name: seedName)); XCTFail("Expected denial") }
+         catch { XCTAssertEqual(error as? SessionFailure, .rejected(status: 403, code: "unauthorized")) }
+         let sent = await names(fixture)
+         XCTAssertTrue(sent.isEmpty)
+@@ -149,7 +149,7 @@ final class AppleNameInitializationTests: XCTestCase, @unchecked Sendable {
+     func testRefreshKeepsExactBoundIntentAndUnknownGrantCannotPromoteIt() async throws {
+         let fixture = try SessionFixture(), client = try fixture.controller()
+         await fixture.server.configureAppleName(statuses: [503])
+-        _ = try await signIn(client, authorization: prepare(client, name: name))
++        _ = try await signIn(client, authorization: prepare(client, name: seedName))
+         let before = try XCTUnwrap(journal(fixture)?.appleName)
+         let owner = CredentialVault(backing: fixture.storage, prefix: fixture.configuration.storagePrefix)
+         let rotated = try await fixture.server.sessionData()
+@@ -163,7 +163,7 @@ final class AppleNameInitializationTests: XCTestCase, @unchecked Sendable {
+ 
+     func testExpiredCallbackAndEmptyNameDoNotBecomeCommands() async throws {
+         let fixture = try SessionFixture(), client = try fixture.controller()
+-        let expired = AppleNameIntent(id: UUID(), subject: subject, displayName: name,
++        let expired = AppleNameIntent(id: UUID(), subject: subject, displayName: seedName,
+                                       createdAt: Date().addingTimeInterval(-AppleNameIntent.retention - 1))
+         try fixture.storage.store(key: fixture.configuration.storagePrefix + ".apple-name", value: JSONEncoder().encode(expired))
+         let authorization = try prepare(client, name: "  \n  ")
+@@ -177,7 +177,7 @@ final class AppleNameInitializationTests: XCTestCase, @unchecked Sendable {
+         let fixture = try SessionFixture(), client = try fixture.controller(), gate = RequestGate()
+         await fixture.server.configureAppleName()
+         await fixture.server.holdAppleName(gate)
+-        let authorization = try prepare(client, name: name)
++        let authorization = try prepare(client, name: seedName)
+         let task = Task { try await self.signIn(client, authorization: authorization) }
+         await gate.waitUntilStarted()
+         XCTAssertNotNil(try journal(fixture)?.appleName)
+@@ -190,7 +190,7 @@ final class AppleNameInitializationTests: XCTestCase, @unchecked Sendable {
+         XCTAssertNil(outcome.session.profile?.displayName)
+         XCTAssertNotNil(try journal(fixture)?.appleName)
+         let restored = try await client.restore()
+-        XCTAssertEqual(restored.profile?.displayName, name)
++        XCTAssertEqual(restored.profile?.displayName, seedName)
+         XCTAssertNil(try journal(fixture)?.appleName)
+     }
+ 
+@@ -199,14 +199,14 @@ final class AppleNameInitializationTests: XCTestCase, @unchecked Sendable {
+         await fixture.server.configureAppleName()
+         await checker.configure(.transferred)
+         let client = try fixture.controller(appleChecker: checker)
+-        let outcome = try await signIn(client, authorization: prepare(client, name: name))
++        let outcome = try await signIn(client, authorization: prepare(client, name: seedName))
+         XCTAssertEqual(outcome.session.phase, .credentialValidationRequired)
+         XCTAssertNotNil(try journal(fixture)?.appleName)
+         let before = await names(fixture)
+         XCTAssertTrue(before.isEmpty)
+         await checker.configure(.authorized)
+         let restored = try await fixture.controller(appleChecker: checker).restore()
+-        XCTAssertEqual(restored.profile?.displayName, name)
++        XCTAssertEqual(restored.profile?.displayName, seedName)
+         let requests = await fixture.server.captured()
+         XCTAssertEqual(requests.filter { $0.url?.path.hasSuffix("/authorization-code") == true }.count, 0)
+     }
+@@ -214,9 +214,9 @@ final class AppleNameInitializationTests: XCTestCase, @unchecked Sendable {
+     func testCallbackStorageFailureAndSupersededCallbackNeverStartGrant() async throws {
+         let fixture = try SessionFixture(), client = try fixture.controller()
+         fixture.storage.failedWriteSuffix = ".apple-name"
+-        XCTAssertThrowsError(try prepare(client, name: name)) { XCTAssertEqual($0 as? SessionFailure, .storageUnavailable) }
++        XCTAssertThrowsError(try prepare(client, name: seedName)) { XCTAssertEqual($0 as? SessionFailure, .storageUnavailable) }
+         fixture.storage.failedWriteSuffix = nil
+-        let old = try prepare(client, name: name)
++        let old = try prepare(client, name: seedName)
+         _ = try prepare(client, name: "Second callback")
+         do { _ = try await signIn(client, authorization: old); XCTFail("Expected stale callback") }
+         catch { XCTAssertEqual(error as? SessionFailure, .staleOperation) }
+@@ -228,7 +228,7 @@ final class AppleNameInitializationTests: XCTestCase, @unchecked Sendable {
+         let fixture = try SessionFixture(), client = try fixture.controller(), gate = RequestGate()
+         await fixture.server.configureAppleName()
+         await fixture.server.holdAppleName(gate)
+-        let authorization = try prepare(client, name: name)
++        let authorization = try prepare(client, name: seedName)
+         let task = Task { try await self.signIn(client, authorization: authorization) }
+         await gate.waitUntilStarted()
+         fixture.storage.failedWriteSuffix = ".session"
+@@ -239,7 +239,7 @@ final class AppleNameInitializationTests: XCTestCase, @unchecked Sendable {
+         fixture.storage.failedWriteSuffix = nil
+         XCTAssertNotNil(try journal(fixture)?.appleName)
+         let restored = try await fixture.controller().restore()
+-        XCTAssertEqual(restored.profile?.displayName, name)
++        XCTAssertEqual(restored.profile?.displayName, seedName)
+         XCTAssertNil(try journal(fixture)?.appleName)
+     }
+ 
+@@ -249,7 +249,7 @@ final class AppleNameInitializationTests: XCTestCase, @unchecked Sendable {
+             await fixture.server.configureAppleName()
+             if storageFailure { fixture.storage.failedWriteSuffix = ".session" }
+             else { await fixture.server.configure(meStatuses: [503]) }
+-            do { _ = try await signIn(client, authorization: prepare(client, name: name)); XCTFail("Expected incomplete adoption") }
++            do { _ = try await signIn(client, authorization: prepare(client, name: seedName)); XCTFail("Expected incomplete adoption") }
+             catch {
+                 let expected: SessionFailure = storageFailure ? .storageUnavailable : .rejected(status: 503, code: "unauthorized")
+                 XCTAssertEqual(error as? SessionFailure, expected)
+@@ -259,7 +259,7 @@ final class AppleNameInitializationTests: XCTestCase, @unchecked Sendable {
+             let relaunched = try fixture.controller()
+             _ = try await relaunched.restore()
+             let result = try await signIn(relaunched, authorization: prepare(relaunched))
+-            XCTAssertEqual(result.session.profile?.displayName, name)
++            XCTAssertEqual(result.session.profile?.displayName, seedName)
+         }
+     }
+ 

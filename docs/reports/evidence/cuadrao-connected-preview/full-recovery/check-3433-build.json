@@ -1,0 +1,47 @@
+{
+  "source": "2a1d911b3993b208a25b51ecd156af8a31b6121c",
+  "bundle": "local.argus.founder.47R3855RTJ",
+  "display_name": "Cuadrao Check",
+  "version": "3433",
+  "privacy_manifest": true,
+  "signature_verified": true,
+  "phone_install": "passed",
+  "phone_launch": "passed",
+  "installed_check_build": "3433",
+  "installed_preview_build": "3427",
+  "physical_acceptance": "Founder confirmed sign-in; Home appears sparse and visual acceptance remains open",
+  "change": "Connected authentication uses the shared adaptive WelcomePalette in every auth state",
+  "local_connectivity": {
+    "old_test_server_certificate": "expired 2026-10-05T20:41:37Z",
+    "replacement_server_certificate_expires": "2026-11-04T00:48:24Z",
+    "https_health": "200 using verified replacement CA",
+    "phone_certificate_trust": "Founder installed and enabled Cuadrao Local Test CA October2026 after confirming the older certificate was enabled",
+    "api_login": "200 through validated HTTPS after local Docker recovery",
+    "authenticated_profile": 200,
+    "docker_recovery": "Nondestructive Docker Desktop restart; all containers and volumes preserved",
+    "physical_https": "Safari GET /health200 after replacement trust",
+    "physical_auth": "Auth token, /me, accounts and plan reads200; founder confirmed signed in"
+  },
+  "remaining": [
+    "Physical Home and Chat visual acceptance",
+    "Physical connected money acceptance",
+    "Connected historical chart data and populated review fixture; do not infer completion from empty-state screenshots"
+  ],
+  "physical_contrast": "Founder confirmed sign-in contrast is fixed on Check3433",
+  "ios26_5": {
+    "goal": "passed at 089236f81",
+    "retained_budget_scroll_and_relaunch": "passed at 089236f81",
+    "debt": "passed after independently reviewed keyboard-driver correction; one executed, no failures or skips, 500.131 seconds",
+    "debt_result": "ui-20261006T013241Z.xcresult"
+  },
+  "fixture_state": {
+    "active_accounts": 2,
+    "recent_movements": 3,
+    "net_balance_DOP": "6500.00",
+    "budgets": 0,
+    "debts": 0,
+    "goals": 0,
+    "pending_expected_items": 0,
+    "fulfilled_expected_items": 1
+  }
+}

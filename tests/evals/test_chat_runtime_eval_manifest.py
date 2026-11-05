@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from tests.evals import chat_runtime_eval_harness
 from tests.evals.chat_runtime_eval_harness import (
     build_semantic_judge_messages,
     capability_context_payload,
@@ -296,34 +297,21 @@ def test_judge_payload_includes_every_sanitized_semantic_step_in_order() -> None
         assert all(prompt not in serialized_case for prompt in step.prompt_variants)
 
 
-def test_eval_case_iteration_emits_eval_readiness_product_event(monkeypatch) -> None:
-    observed: list[dict[str, object]] = []
-
-    def fake_capture(kind: str, **kwargs: object) -> None:
-        observed.append({"kind": kind, **kwargs})
-
+def test_eval_case_iteration_emits_no_product_event(monkeypatch) -> None:
+    # Eval tooling never writes into the product analytics stream (SPEC 0, 0C-1).
+    posts: list[object] = []
+    monkeypatch.setenv("POSTHOG_PROJECT_TOKEN", "phc_test")
+    monkeypatch.setenv("POSTHOG_REGION", "us")
     monkeypatch.setattr(
-        "tests.evals.chat_runtime_eval_harness.capture_product_event",
-        fake_capture,
-        raising=False,
+        "argus.observability.envelope.httpx.post",
+        lambda *args, **kwargs: posts.append((args, kwargs)),
     )
 
-    manifest = _load_manifest()
     cases = iter_eval_cases(priority="must_pass")
 
     assert cases
-    assert observed == [
-        {
-            "kind": "eval_readiness",
-            "user_id": None,
-            "status": "completed",
-            "attributes": {
-                "priority": "must_pass",
-                "case_count": len(cases),
-                "scenario_count": len(manifest["scenarios"]),
-            },
-        }
-    ]
+    assert posts == []
+    assert not hasattr(chat_runtime_eval_harness, "capture_product_event")
 
 
 def test_eval_harness_parses_canonical_sse_frames() -> None:

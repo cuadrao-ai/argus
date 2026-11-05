@@ -1,0 +1,23 @@
+(node:63693) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+Running 6 tests using 2 workers
+
+(node:63708) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:63707) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:63708) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:63707) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:63708) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:63707) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › e2e/business-form-hydration.spec.ts:10:11 › marketing forms Spanish without JavaScript › demo cannot submit visitor information through native navigation (189ms)
+  ✓  2 [chromium] › e2e/business-form-hydration.spec.ts:10:11 › marketing forms Spanish without JavaScript › personal cannot submit visitor information through native navigation (191ms)
+  ✓  4 [chromium] › e2e/business-form-hydration.spec.ts:10:11 › marketing forms /en without JavaScript › personal cannot submit visitor information through native navigation (76ms)
+  ✓  5 [chromium] › e2e/business-form-hydration.spec.ts:10:11 › marketing forms /en without JavaScript › demo cannot submit visitor information through native navigation (67ms)
+  ✓  3 [chromium] › e2e/business-form-hydration.spec.ts:20:7 › Personal Spanish retains email after unavailable signup (268ms)
+  ✓  6 [chromium] › e2e/business-form-hydration.spec.ts:20:7 › Personal /en retains email after unavailable signup (256ms)
+
+  6 passed (1.0s)

@@ -1,0 +1,7 @@
+ui-20260929T142849Z.log
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testPendingMoneyWriteRemainsIsolatedAcrossIdentities]' passed (232.846 seconds).
+TEST EXECUTE SUCCEEDED; exit 0
+
+ui-20260929T143325Z.log
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testRetainedHomeSurvivesReopening]' passed (15.469 seconds).
+TEST EXECUTE SUCCEEDED; exit 0

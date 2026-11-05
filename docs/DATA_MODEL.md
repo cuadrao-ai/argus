@@ -4,15 +4,14 @@
 
 **Status:** Active
 **Audience:** Backend engineers, database agents, API agents, frontend agents
-**Purpose:** Define the Alpha MVP database entities, relationships, ownership rules, and persistence expectations for Argus.
+**Purpose:** Define existing entities, relationships, ownership rules, and persistence contracts. The [MVEE](specs/argus-minimum-viable-ecosystem-experience.md) owns the approved experience; its financial records and household permissions still need explicit schema and access-control design.
 
 ---
 
 # 1. Data Model Philosophy
 
-Argus is a chat-first AI investing sandbox.
-
-The data model must support:
+The existing model supports conversational finance and historical simulations.
+It must preserve:
 
 - multi-chat conversations
 - persistent user preferences
@@ -53,6 +52,33 @@ remain in Supabase.
 
 ---
 
+## Cuadrao record design principles
+
+These principles guide assigned financial and business schema work. Existing
+entity contracts below remain the implementation reference; this section adds
+no table, role or retention exception.
+
+- Each durable fact has one record owner. Screens and tools derive views from
+  that owner rather than maintain independent financial truth.
+- Financial values use exact decimal or integer minor-unit arithmetic with
+  explicit precision and rounding. Preserve original amounts, currency and
+  provenance. Apply the [product currency rule](specs/argus-minimum-viable-ecosystem-experience.md#currency-rule).
+- Accepted corrections remain distinguishable from extraction output. Reprocessing
+  cannot silently overwrite a user's correction. Keep the source, accepted
+  revision and resulting record connected during their permitted lifetime.
+- Processing a document does not discard its evidence. Retention remains subject
+  to [account deletion](#account-deletion-lane-6) and the applicable approved policy.
+  Business retention exceptions remain open; source preservation is not a promise
+  of indefinite storage.
+- Commercial, fiscal, payment and settlement events represent different facts.
+  A document marked fiscally accepted does not prove payment. A net deposit and
+  its fee must not create another sale. Assigned business contracts must define
+  these states and their evidence before implementation.
+
+The quality guide's [partial-payment example](research/cuadrao-constitution-2026-10-04/QUALITY-SOURCE.md)
+is a future business acceptance case. It does not require consumer launch to
+include invoicing or payment-provider integration.
+
 # 3. Core Entities
 
 Alpha MVP requires these primary entities:
@@ -91,6 +117,91 @@ memory_reconciliations
 memory_provider_projections
 memory_provider_cleanup
 ```
+
+Default-off, registered-only (`ARGUS_FINANCIAL_ACCOUNTS_ENABLED`):
+```text
+financial_accounts
+financial_records
+financial_record_revisions
+financial_account_idempotency
+```
+
+Default-off, registered-only (`CUADRAO_HOUSEHOLDS_ENABLED`):
+```text
+households
+household_members
+household_invitations
+household_account_grants
+```
+
+Default-off, registered-only (`CUADRAO_BETA_INVITES_ENABLED`; household
+invitations also write the record):
+```text
+beta_invitations
+invite_referrals
+invite_sender_refs
+beta_admissions
+argus_private.invite_code_digests
+beta_invite_quota_grants
+```
+
+Default-off, registered-only (`ARGUS_INGESTION_ENABLED`):
+```text
+financial_source_connections
+financial_source_gmail_senders
+financial_shortcut_device_tokens
+financial_import_events
+financial_import_observations
+financial_import_account_links
+```
+
+Default-off, service-role only (`CUADRAO_WHATSAPP_INTAKE_ENABLED`):
+```text
+whatsapp_link_codes
+whatsapp_sender_links
+whatsapp_inbound_messages
+```
+
+Default-off, service-role only (`CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED`, or the older `ARGUS_` name): one
+receiving address per Business, naming the Business owner as the documents'
+owner and a member's live client grant as the authority checked before each
+capture; a durable delivery queue; one row per attachment part.
+```text
+business_email_routes
+business_email_deliveries
+business_email_parts
+business_email_retired_aliases
+business_email_senders
+business_email_address_events
+```
+
+A route may carry one current alias. Changing it appends the previous
+recipient to `business_email_retired_aliases` and leaves existing deliveries
+on the route id. Deleting the route keeps the live alias reserved.
+`business_email_senders` is one rule per Business, kind, and
+value. Its status is `authorized`, `blocked` or `pending`
+(`pending` is written only by intake, for a sender not on the list, while
+`CUADRAO_BUSINESS_EMAIL_PENDING_SENDERS_ENABLED` is on). `last_auth_result`
+and `last_seen_at` hold the last message's sender verdict and arrival time;
+they are null on rows that have seen no mail since 20261031094421. `business_email_address_events` appends one row when that address stops
+or changes, and when a sender is authorized, removed, or blocked. The row
+stores the actor, the time, the old address, and the new address. The daily
+allowance day is America/Santo_Domingo.
+
+Service-role only, part of the hosted Business beta (no flag):
+```text
+business_access_invites
+```
+
+Migration `20261014100000_business_ledger_human_actions.sql` widens the
+turn-less allow-list on `business_action_receipts` once for every person's own
+row the Business flows write from here on: `access_seen` (a grantee dismissed
+the one-time "you now have access" line), `email_ai_consent_declined` (the
+owner declined the emailed-receipts AI notice; no permission row exists),
+`mark_personal` and `decide_606` (the Personal mark and the 606 answer), and
+the three writes of the legacy receipt surface a grantee can make
+(`receipt_upload`, `receipt_review`, `receipt_confirm`), each only as a member
+with no turn and no action index.
 
 Optional or later:
 ```
@@ -153,11 +264,23 @@ Represents the application-facing user profile. Supabase Auth owns identity and 
   `plum`, `teal`, `ember`, `gold`, `indigo`, or `slate`)
 - `country`: `text` (Nullable; an ISO 3166-1 alpha-2 code when present)
 - `currency_override`: `text` (Nullable; an ISO 4217 code when present)
+- `table_density`: `text` (Default: `'normal'`; one of `compacto`, `normal`, or
+  `amplio`; the row height for dense tables. Migration
+  `20261020220000_profile_table_density.sql`. Written only through `PATCH /me`;
+  no client column grant)
 - `is_admin`: `boolean` (Default: `false`)
 - `onboarding`: `jsonb` (legacy/inert; the applied migration defaults new rows
   to the historical shape below)
+- `age_confirmed_at`: nullable `timestamptz`, first explicit 18+ attestation instant; no backfill for existing profiles
 - `created_at`: `timestamptz`
 - `updated_at`: `timestamptz`
+
+The new age field stores one unverified attestation per profile. Signup metadata
+allows first-profile recovery, but never grants access or verifies age. The first
+stored value is immutable; only the backend may initialize it. Existing RLS and
+account-deletion retention apply, including cascade deletion of the profile.
+There is no birth date, raw age range, history table or extra index. Replayed
+initial writes preserve the first instant. Future and non-finite values fail.
 
 ### Legacy Onboarding Shape (inert compatibility state)
 
@@ -182,11 +305,23 @@ product behavior reads it, and no API path writes it.
   authentication this row is authoritative and no frontend repair update is
   required.
 - `display_name` is an identity field. It is what the account is called.
+- `name_initialization_closed` is an internal monotonic boolean for the Apple
+  first-authorization display-name command. Existing rows start closed; a new
+  unnamed row starts open. Inserted names, successful initialization and any
+  explicit update of either name column close it, including NULL clears and
+  same-value writes. Database triggers prevent reopening, including privileged
+  updates, and prevent a named insert from claiming open eligibility. Unrelated
+  partial profile updates do not close it. It stores no second name value,
+  appears in no API response and grants no new client column access. It never
+  permits the initializer to write `preferred_name`.
 - `preferred_name` is what Argus calls the user when it addresses them, and
   it is deliberately separate from `display_name`: people fill an identity
   field with a legal name. It is optional, and null means surfaces use no
-  name. It is stated in settings and never inferred from conversation, so no
-  runtime path writes it. A registered-account preference: restrictive
+  name. It is stated and never inferred from conversation. The only runtime
+  write is the profile insert at first creation, which sets it to the first
+  word of the name typed at sign-up when there is one (`get_or_create_profile_for_auth_user`);
+  an existing row is never written by it, so clearing the name stays an opt-out.
+  A registered-account preference: restrictive
   policies read the trusted `is_anonymous` JWT claim to keep it off the guest
   surface, because anonymous Auth users share the `authenticated` role.
 - `country` is where the user lives. It is chosen in Settings and never
@@ -342,10 +477,18 @@ and login; it should not be exposed as a frontend product surface.
   pre-created Auth user, or password-setup flow.
 - Add a new private-alpha user with only an `email`; set `role` only for
   `admin` or `developer` access. Use `disabled_at` to revoke access.
-- `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` decides what this table denies, and
-  it has been open in production since 2026-08-12. Only a row with `disabled_at`
-  set is denied now; a missing email is admitted. When that flag is off instead,
-  a missing email is denied too.
+- `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED` decides what this table denies, and
+  production sets it to `false`, so a missing email is denied there. When the
+  flag is true, only a row with `disabled_at` set is denied. With the flag false
+  and `CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED` true (default false; production
+  keeps it false), a live `business_access_invites` row on
+  an open Business, or a live `business_client_grants` row, names exactly that
+  email: the invitation admits it until it expires or is revoked, and the
+  accepted grant admits it until it is revoked or its Business is closed. A
+  row here with `disabled_at` set still refuses that email, and deleting a row
+  does not end the access a live grant gives. An account admitted only this
+  way starts no Business and invites no one. Business admission writes
+  nothing to this table.
 - For a denied email, `/auth/signup` and `/auth/login` check this table before
   provider signup/session work, but public auth responses are normalized to
   reduce invite enumeration: signup returns `400 auth_signup_failed`, login
@@ -451,6 +594,8 @@ Represents an isolated chat thread. Each conversation represents a single invest
 - `archived`: `boolean` (Default: `false`)
 - `deleted_at`: `timestamptz` (Nullable, for soft delete)
 - `last_message_preview`: `text` (Nullable)
+- `owner_space_id`: `uuid` (Nullable; with `user_id`, references
+  `spaces(id, created_by)` ON DELETE CASCADE)
 - `created_at`: `timestamptz`
 - `updated_at`: `timestamptz`
 
@@ -459,6 +604,15 @@ Represents an isolated chat thread. Each conversation represents a single invest
 
 ### Notes
 - Conversations use **soft delete** behavior.
+- `owner_space_id` null is a Personal (`/chat`) conversation; a Business
+  (`/biz`) conversation stores its space. Every conversation written before
+  Business existed is Personal, with no backfill. The rule lives in
+  `argus.domain.owner_scope`. Recents, History, search (one fragment on every
+  `public.conversations` read in `postgres_search_reader.py`), computed answers
+  and delete-all filter by it; reads by conversation id stay owner-scoped.
+- A continued computed answer keeps its source's space; a public receipt fork
+  is Personal. Decisions, evidence decisions, shared receipts and memory never
+  attach to a Business conversation.
 - AI-generated titles should be created once sufficient context is established.
 - `language` can be stored at the thread level for continuity, but the user profile remains the primary source.
 - `last_message_preview` remains a private compatibility/search projection of
@@ -1196,25 +1350,25 @@ service role server-side; service-role grants do not relax frontend/client RLS.
 
 ## 12.1.1 P1 Observability Envelope
 
-P1 defines the private-alpha observability envelope in code. Product events now
-flow to PostHog, and B3 measurement slice 3 adds the first durable internal cost
-ledger while keeping product analytics and eval-result persistence separate.
+P1 defines the private-alpha observability envelope in code. B3 measurement
+slice 3 adds the first durable internal cost ledger while keeping product
+analytics and eval-result persistence separate. Wave 1 (SPEC 0, package 0C-1)
+replaces the earlier product and guest funnel events with one closed analytics
+registry: PostHog receives only the events below, each under its own name.
 
 Current behavior:
-- `argus_observability_event/v1` is the canonical event-envelope schema.
+- `argus_observability_event/v1` is the canonical event-envelope schema;
+  analytics events carry `argus_analytics_event/v1`.
 - Default privacy mode is `metadata_only`.
-- Product-event categories emitted to PostHog are evidence capture, decision
-  capture, recall usage, continuity mismatch, compare started, and eval
-  readiness.
-- The exact registered product-event name is carried as
-  `attributes.product_event`; envelope `event_type` remains in the broader memo
-  15.5 event taxonomy.
-- The sanitizer strips raw prompts, transcripts, context packets, route
-  receipts, provider/model metadata, auth tokens, API keys, broker credentials,
-  account balances, exact holdings, payment identifiers, and similar sensitive
-  payloads.
-- Raw user, session, conversation, turn, message, job, and run identifiers are
-  hashed in the PostHog projection.
+- The only way an event reaches PostHog is `capture_analytics_event()` in
+  `src/argus/observability/analytics_events.py`. Only the frozen
+  `AnalyticsEnvelope` it builds can carry an event (the generic envelope has no
+  such field), and the sink validates it again before sending, technical
+  fields and build timestamp included. It suppresses everything else with
+  `reason = "not_an_analytics_event"`, including an envelope that only names an
+  event, a subclass or unvalidated copy of a model, extra attributes, or a
+  `distinct_id` that is not an actor hash. The eval harness writes nothing to
+  the product stream.
 - Live PostHog capture is enabled only when `POSTHOG_PROJECT_TOKEN` and an
   explicit PostHog region/host are present; missing token suppresses with
   `reason = "posthog_not_configured"`, and missing or unsupported region/host
@@ -1222,92 +1376,78 @@ Current behavior:
 - PostHog is server-side only and personless (`$process_person_profile = false`).
 - US Cloud is the current PostHog region choice for private alpha compliance
   posture.
-- Research settlement projects the sidecar's work kind and outcome into a
-  bounded `research` event. Native dimension meanings and the
-  `capability_category` to `product_capability` rename are defined in
-  `docs/API_CONTRACT.md` section 17.1; analytics is not the spend ledger.
+
+Analytics events. Each is one Pydantic model (`extra="forbid"`, strict) whose
+fields are exactly the properties listed. Every field is a literal value, a
+boolean, a bounded integer, a calculation name checked against the catalog, or
+`cohort`. `tests/test_analytics_events.py`
+fails if any field could hold free text or a money-formatted value (A4).
+
+| Event | Properties | Fires (package) |
+| --- | --- | --- |
+| `first_answer_shown` | `account_kind`: `guest` or `signed_in`; `chip_audience`: `everyday`, `practitioner`, or `none`; `language`: `en` or `es-419`; `cohort` for guests with a stored cohort only | first completed answer per subject (0C-3) |
+| `signed_in` | `signup`: `new` or `returning`; `trigger`: `save`, `goal`, `checklist`, or `other`; `guest_id_hash` only when the account came from a guest; `cohort` when the account has one | every sign-up and sign-in (0C-4) |
+| `card_saved` | `calculator`: a registered calculation name or `backtest` | saving a card (0C-4) |
+| `goal_created` | `goal_type`: `savings` | registered; fires in stage 2 |
+| `checklist_step_completed` | `step`: `1`, `2`, or `3` | registered; fires in stage 2 |
+| `reminders_opted_in`, `reminders_opted_out` | `channel`: `email` or `push` | registered; fire in stage 3 |
+| `session_started` | `days_since_signup`: integer, 0 to 36500, computed on the server; `cohort` when the account has one | once per browser session, signed-in only (0C-5) |
+| `installed_app_opened` | none | standalone launch, once per session (0C-5) |
+| `landing_viewed` | `language`: `en` or `es-419`; `cohort` for guests with a stored cohort only | once per landing view (0C-5) |
+| `receipt_shared` | `calculator`: a registered calculation name, `backtest`, `multiple`, or `none` | a real share-link insert (0C-8) |
+
+- `cohort` is the invite cohort code, `^[a-z]{2,12}-[a-z0-9]{4,8}$` (for
+  example `piloto-7kq2`). The pattern is enforced by the model.
+- `calculator` is checked when the event is validated against the names
+  `get_calculation_declarations()` returns, plus the listed fixed values. The
+  calculation catalog is the only owner of that list; a new calculation is
+  accepted without editing the analytics registry.
+- Technical properties, sent with every event and nothing else besides the
+  event's own properties: `$process_person_profile` (always `false`),
+  `schema_version`, `event_id`, `environment`, and `internal_account`
+  (a boolean every caller must state; the sink refuses an envelope without one,
+  and any technical value the registry did not set). `distinct_id` is `actor_hash_for_user(<user id>)`:
+  the account id for signed-in users, the guest user id for guests.
+  `guest_id_hash` is the same hash of the guest user id, so a guest's events
+  and the account's `signed_in` join without person profiles or aliasing.
+- Saved-query filter (SPEC 0, 0C-6): `environment = production` and
+  `internal_account = false`, broken down by `cohort`.
+- Retired: `evidence_capture`, `decision_capture`, `recall_usage`,
+  `continuity_mismatch`, `compare_started`, `next_experiments_offered`,
+  `next_experiment_selected`, `eval_readiness`, the `receipt_*` funnel,
+  `account_registration_completed`, every guest funnel event, and the research
+  settlement event no longer reach PostHog. Research work kind and outcome stay
+  on the cost ledger (`capability_class`). The guest funnel milestone claim
+  table stays and is reused by `first_answer_shown`.
 
 Deferred durable surfaces:
 - Eval run/case result persistence.
 - Route-receipt to cost/eval/product-event joins beyond existing product
   records.
 
-### refusal_observations and refusal_log
+### refusal_observations and refusal_log (dropped)
 
-`refusal_observations` is private question/outcome evidence for the grounded-finance
-board's Refusal log and rejected artifact actions (#314). It observes every
-terminal chat reply so a boundary stated only in prose is retained too. A row
-does not assert that its answer is a refusal, a bug, or a missing capability.
-Those judgments belong to the reader; the writer adds no semantic taxonomy.
+Historical. `refusal_observations`, the service-only `refusal_log` view, and the
+`validate_refusal_observation_pair()` trigger function were created by
+`20260908205041_add_refusal_observations.sql` and dropped by
+`20261030220000_drop_refusal_observations.sql`. The chat API no longer writes
+refusal evidence, and the writer module was deleted. Nothing reads or writes
+these objects; do not query them.
 
-`RefusalObservation` in `src/argus/observability/refusal_log.py` is the frozen
-Python write contract. Stored fields are:
+### cuadrao_early_access_signups and the waitlist objects (dropped)
 
-- `id`: generated `uuid`; each rejected request receives an independent identity.
-- `user_id`: verified actor `uuid`, references `profiles.id` ON DELETE CASCADE.
-- `request_id`: supplied/generated request correlation `text`, never a dedupe key.
-- `conversation_id`: nullable `text`. For rejected requests it is only the
-  submitted claim; it may be malformed, nonexistent, or belong to someone else.
-  It is not a foreign key and never authorizes or resolves an artifact.
-- `request_message_id`, `response_message_id`: nullable `uuid` pointers to the
-  exact canonical messages, both ON DELETE CASCADE. A terminal pair requires
-  both pointers; `response_message_id` is unique to prevent repeat persistence
-  from inflating frequency. The insert guard verifies the owner, conversation,
-  user/assistant roles, and existing runtime turn identity when available.
-- `asked`, `action`, `outcome`: nullable `text`, `jsonb` object, and `jsonb` object.
-  Linked turns must leave them null because messages already own those facts.
-  Requests rejected before message storage retain the submitted question,
-  validated action, and original HTTP problem here, without rewriting the shape.
-- `status_code`: actual transport status, `200` for accepted streams and `400`–`599`
-  for rejected requests; this is not a semantic outcome category.
-- `created_at`: insertion `timestamptz`.
-
-`refusal_log` is a service-only view with `security_invoker = true`. It exposes
-the same identity/status columns plus `asked`, `action`, `outcome`, and `response`.
-For linked turns it reads exact user-message content, `metadata.chat_action`,
-the full original assistant metadata, and assistant content. For rejected
-requests it reads the retained question/action/problem and has no response
-message. It never pairs by timestamp or joins rejected target claims.
-
-RLS is enabled with no client policies. `PUBLIC`, `anon`, and `authenticated`
-have no table or view access. The service role has table `INSERT`/`SELECT` and
-view `SELECT` only; there is no update/delete API, frontend surface, model-context
-projection, or PostHog export. Deleting either linked message removes its
-observation; deleting the actor removes both linked and rejected observations.
-Conversation deletion removes linked observations through message cascades.
-Rejected observations follow actor deletion because their conversation id is
-only a claim. A failed write logs only a content-free operational failure and
-does not change the original response or allowance settlement.
-
-Read frequency from existing outcome fields without assigning write-time labels:
-
-```sql
--- Original clarification shapes, including successful-context rows with null codes.
-select outcome #>> '{clarification,reason_code}' as reason_code, count(*)
-from public.refusal_log
-where created_at >= now() - interval '7 days'
-  and response_message_id is not null
-group by outcome #>> '{clarification,reason_code}'
-order by count(*) desc;
-
--- Original rejected-action problems; repeated request ids still count separately.
-select action ->> 'type' as action_type, status_code,
-       outcome ->> 'code' as code, count(*)
-from public.refusal_log
-where created_at >= now() - interval '7 days' and status_code >= 400
-group by action ->> 'type', status_code, outcome ->> 'code'
-order by count(*) desc;
-
--- Read the actual question and response before judging whether Argus could answer.
-select created_at, asked, action, outcome, response
-from public.refusal_log
-where created_at >= now() - interval '7 days'
-order by created_at desc;
-```
-
-The additive migration is `20260908205041_add_refusal_observations.sql`.
-Rollback removes the view, table, and its pair-validation function after removing
-the observation hooks. No model-facing or public request/response contract changes.
+Historical. `public.cuadrao_early_access_signups`, the `public.cuadrao_waitlist_*`
+functions, the `cuadrao_scheduler` schema with its three functions, the
+`cuadrao-waitlist-retention` and `cuadrao-waitlist-reminders` cron jobs, and the
+table's row in `argus_private.retention_policies` were created by
+`20260920000000_cuadrao_early_access_signups.sql`,
+`20261017010000_personal_waitlist_confirmation.sql`,
+`20261017020000_waitlist_supabase_scheduling.sql`,
+`20261018030000_retention_registry.sql` and
+`20261018030016_security_extensions_waitlist.sql`. They are dropped by
+`20261103010000_remove_waitlist.sql`, which refuses to run while the table holds
+any row. The marketing site has no waitlist and no database. Nothing reads or
+writes these objects; do not query them.
 
 ### cost_ledger_entries
 
@@ -1414,7 +1554,7 @@ Cost model notes:
 A public evidence receipt: an immutable, sanitized snapshot of one or more
 eligible answers selected from one conversation, created by a registered owner
 and revocable by that owner. This extends the existing receipt table behind the
-default-off `ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED` flag.
+default-off `CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED` flag.
 
 The pipeline is `owned assistant messages -> PublicExcerptSnapshot ->
 PublicExcerptView`. Backtest messages resolve their canonical EvidenceArtifact
@@ -1772,6 +1912,192 @@ back without transferring memory. A clean conversion carries zero memory,
 performs no retrospective extraction, and leaves personalization disabled until
 the registered user later completes a fresh scoped opt-in.
 
+## 12.1.4 Financial accounts (first slice)
+
+Registered-only, behind `ARGUS_FINANCIAL_ACCOUNTS_ENABLED`. Spec:
+[`docs/specs/lanes/financial-accounts-first-slice.md`](specs/lanes/financial-accounts-first-slice.md).
+Migration `20260928200000_financial_accounts_first_slice.sql`. Ownership is one
+fact, `financial_accounts.user_id`; records and revisions carry a copy for
+indexed RLS, and composite foreign keys `(account_id, user_id)` and
+`(record_id, user_id)` force the copies to agree with the account.
+
+### financial_accounts
+
+| Field | Rule |
+| --- | --- |
+| `id` | uuid, server-assigned, stable across nickname, archive and edits |
+| `user_id` | owner, `auth.users(id)` on delete cascade |
+| `space_id` | text, default `personal`; household sharing uses explicit grants and does not rewrite this field |
+| `type` | one of the nine account types; nature derives from it in code and is never stored |
+| `currency` | ISO 4217 code, `^[A-Z]{3}$`; accepted set is the CLDR tender set in code |
+| `nickname` | null or 1–60 characters, trimmed by the domain |
+| `archived` | boolean, organizational only |
+| `ownership_share_bps` | 1–10,000, default 10,000; never a permission |
+| `version` | starts at 1; every account edit, opening write and correction increments it; the edit's compare-and-set key |
+| `created_at`, `updated_at` | `set_updated_at()` trigger |
+
+### financial_records
+
+One row per confirmed record. This slice writes only `record_kind =
+'opening_balance'`, at most one per account (partial unique index).
+`current_revision` is the correction compare-and-set key.
+
+### financial_record_revisions
+
+Append-only. `(record_id, revision)` unique. Each row stores the owner-signed
+`amount_minor` (bigint), `as_of` (timestamptz) with `as_of_zone` (IANA),
+optional `reason` (1–200 characters; null on revision 1), `capture_method`
+(`manual` only in this slice), `recorded_by` (`auth.users` on delete set null,
+so history keeps its row when an author is later deleted) and `recorded_at`.
+Balances are derived on read from the current revision; nothing derived is
+stored.
+
+### financial_account_idempotency
+
+The create reservation, keyed `(user_id, operation_scope, idempotency_key)`
+with `operation_scope = 'financial_accounts.create'`, `identity_hash` and the
+`account_id` it produced. Same key and identity replays; a different identity
+conflicts. Rows cascade with their account.
+
+### Functions
+
+- `create_financial_account(...)` writes the account, its opening record and
+  revision 1, and the reservation in one transaction. A concurrent duplicate
+  blocks on the reservation primary key and then re-reads to replay or
+  conflict. It returns `registered_required` for an anonymous `auth.users` row.
+- `write_financial_opening(...)` locks the account, compares the caller's
+  `expected_version` (the account version the client saw when composing the
+  write) and the caller's `expected_revision` (null when no opening exists) with
+  the locked row, and either appends the next revision and bumps `version`
+  or returns `stale` having written nothing.
+
+Both are `security definer`, executable by `service_role` only. The API calls
+them over `DATABASE_URL`; there is no client write path.
+
+### Complete financial loop extension
+
+Migration `20260929090000_financial_loop.sql` extends these same records with
+`expense` and `balance_check`; it does not add a parallel ledger. The canonical
+wire and review behavior is [the complete financial loop contract](API_CONTRACT.md#complete-financial-loop-authorized-september-29-2026).
+
+`financial_record_revisions.details` holds typed kind-specific facts. Expense
+revisions store optional note/category beside the existing signed amount/date,
+reason, actor and timestamp. The domain exposes positive expense amounts while
+the durable movement is negative. Check revisions store immutable confirmation
+expected amount, difference, reviewed account version, source, kind and optional
+note. The observed signed amount/date use the existing columns. Check sequence
+is the strictly increasing reviewed account version; local-day admission prevents
+backdated insertion in this build. Opening remains one stable record with revisions.
+
+`financial_observation_coverage` binds exact observation and activity revisions.
+Its composite keys enforce the same account and owner through both records and
+revisions. Each row records an explicit `included` fact. Correction writes new
+coverage rows beside the new revision, retaining earlier choices. New checks
+capture the currently known eligible activity. Current balance and unexplained
+residuals derive in `domain/recording/loop.py`; confirmation facts are not replaced
+when later activity explains a difference. No recording-order timestamp substitutes
+for a source financial date.
+
+`financial_operation_receipts` binds owner/account/idempotency key to the accepted
+record/revision and request hash. The Postgres repository locks the account,
+checks registered ownership, replays an existing receipt before CAS, then appends
+record/revision/coverage and receipt atomically. An exception rolls back every
+write. All money decisions remain in the shared domain, not repeated in SQL.
+Metadata edits bind validation and CAS to the same caller-visible version.
+Read snapshots use repeatable-read transactions; mutations hydrate under their
+account lock. Native clients have no write grant. Coverage has registered-owner
+SELECT RLS; receipts have no client read policy or grant.
+
+Home derives currency-separated personal-position subtotals from that same read.
+Its aggregate minor units are exact decimal-integer strings; single-account
+positions, activity totals and residuals are checked within Int64 before commit.
+Unknown positions remain absent from known subtotals and explicitly counted.
+Archived accounts retain their money in this projection.
+
+
+## 12.1.5 Households (membership, invitations, grants)
+
+The landed `20261001090000_household_membership.sql` is extended by
+`20261001120000_household_consent_recovery.sql`, behind default-off
+`CUADRAO_HOUSEHOLDS_ENABLED`. These remain the only Household membership tables.
+Financial ownership stays `financial_accounts.user_id`; no share changes
+`space_id`, financial ownership, or the Personal owner-only RLS policies.
+
+`households.version` is a positive CAS/authorization generation. Scoped commands
+serialize under the household row lock; financial adapters then acquire the
+existing Recording owner/account locks. `household_members.id` is the membership
+incarnation: leave/removal sets `left_at`, and a fresh invite creates a new ID.
+Members carry a user-supplied `display_name`; administrator authority remains
+`households.admin_user_id`, not a second stored role.
+
+`household_invitations` stores only a token hash and seven-day UTC expiry.
+`accepted_membership_id` binds same-recipient retries to the original membership,
+including after departure, closure and rejoin. Historical accepted memberships
+are backfilled where the invitation acceptance timestamp identifies the row.
+Unresolvable historical outcomes fail closed. Token plaintext is returned once.
+The short typed code is not stored on this table: its keyed digest lives in
+`argus_private.invite_code_digests` (below), and plaintext is returned once.
+
+`argus_private.invite_code_digests` (migration
+`20261003150100_invite_code_digests_private.sql`, #789) holds one row per typed
+code: `digest` (primary key, `v2.<key id>.<HMAC-SHA-256 hex>` under
+`CUADRAO_INVITE_CODE_SECRET`, enforced by a check), exactly one of
+`household_invitation_id` or `beta_invitation_id` (unique, cascading), `created_at`
+and `rehashed_at` (set when a code found under the previous secret moves to the
+current one). The schema is unreachable for anon and authenticated; the table has
+RLS with no policy and no privilege for anon, authenticated or service_role.
+Only the backend database owner reads it. The earlier `code_hash` columns on
+`household_invitations` and `beta_invitations` are dropped.
+
+`beta_invitations` holds beta invites (`kind='beta'`, `max_uses=1`) and founder
+group links (`kind='group_link'`, a `source_label`, a cap in `max_uses`, an
+expiry, `use_count` and `overflow_count`). Creation is idempotent on
+`(created_by, idempotency_key)` with a request hash. `invite_referrals` is the
+who-invited-whom record: one row per beta or household invitation and one row
+per group-link redemption, with `kind`, `inviter_origin_id` (the row that
+admitted the sender), a random `sender_ref`, and live `sender_user_id` and
+`acceptor_user_id`. Live ids use `ON DELETE SET NULL`; the `invite_sender_refs`
+mapping cascades, so after a deletion the row identifies nobody while counts
+and the chain survive. `beta_admissions` has one row per admitted person
+(`via` beta invitation, group link, household invitation, or an account that
+existed when the migration ran) and cascades with the account.
+`beta_invite_quota_grants` records founder grants above the 10 beta invites.
+All five tables have RLS on, explicit per-command policies (owner-scoped
+select, no client insert, update or delete) and every client privilege revoked;
+only the API service reads and writes them.
+
+Each active `household_account_grants` row binds `owner_membership_id` and
+`recipient_membership_id` in the same household. The owner composite FK also
+binds `owner_user_id`; the financial account composite FK preserves original
+ownership. The unique active key is `(household_id,account_id,recipient_membership_id)`.
+`permission` is the sole view/edit fact. There is no global editable permission
+beside a recipient permission. Projections deduplicate these grant rows by
+account. Departure revokes both directions of consent; closure revokes all.
+All old unbound grant rows are preserved but revoked by the extension migration:
+no migration invents named consent. Future sharing requires an explicit choice.
+
+`household_command_receipts` has primary key `(actor_id,operation,idempotency_key)`
+and stores canonical body hash, household ID, original membership ID and optional
+invitation ID. It stores neither capabilities nor protected snapshots. Exact
+retry returns only current state of that original outcome; invite replay returns
+token-null metadata under current admin authorization. Financial receipts remain
+Recording-owned, with actor/household/membership-qualified scope and live grant
+checks before replay. Committed financial receipts replay before rejecting an
+old Household generation; generation checks continue to protect new writes.
+All Household authorization tables and receipts are
+service-owned, RLS-enabled, with no direct anon/authenticated table grants.
+
+Financial records and legitimate activity survive leave/removal/closure.
+The forward `20261001130000_household_grant_deletion.sql` migration makes both
+membership-bound grant FKs cascade on membership deletion. Leave, removal and
+closure continue to preserve revoked grant rows; deleting an auth user removes
+the authorization edges referencing their deleted membership. It never deletes
+another owner's financial accounts or legitimate record history. Historical
+identity FKs retain the landed deletion behavior. Closing a household
+is explicit; an administrator transfers authority to a current member or closes
+before leaving. API shapes and read redaction are owned by
+[API_CONTRACT.md](API_CONTRACT.md#174-households-canonical-membership-and-financial-adapters).
+
 ## 12.2 backtest_jobs
 
 Represents durable lifecycle state for a backtest execution job. Jobs bridge
@@ -2010,14 +2336,19 @@ Tracks resource consumption for quotas and limits.
 Tracks visitor-scoped and shared provider allowances without inventing a
 profile owner. This is intentionally separate from `usage_counters`, whose
 `user_id` is a foreign key to `profiles.id`. It also holds the guest compute
-anti-abuse ceiling (`guest_compute_turns`, one unit per completed guest turn,
-settled in the terminal transaction), which is not an allowance and is never
-projected by `GET /me/usage`.
+anti-abuse ceiling (`guest_compute_turns`, one visitor-keyed row and one
+`session:<guest user id>` row, claimed atomically at turn start) and the
+signed-in compute ceiling (`account_compute_turns`, keyed on
+`user:<account id>`), which are not allowances and are never projected by
+`GET /me/usage`. Signed-in research uses the same `user:<account id>`
+subject on `research_searches`.
 
 ### Fields
-- `visitor_key`: `text` (opaque keyed digest; never a raw address)
+- `visitor_key`: `text` (opaque subject; never a raw address). `visitor:`
+  keys are a keyed digest. `user:<account id>` and `session:<guest user id>`
+  store the id as-is.
 - `resource`: `text` (`discovery_searches`, `research_searches`,
-  `guest_compute_turns`)
+  `guest_compute_turns`, `account_compute_turns`)
 - `period`: `text` (`day`)
 - `period_start`: `timestamptz`
 - `period_end`: `timestamptz`
@@ -2032,7 +2363,8 @@ projected by `GET /me/usage`.
 - **Window lookup index**:
   `(visitor_key, resource, period_end)`
 - RLS is enabled with no policies. Only `service_role` has table access and may
-  execute `settle_visitor_usage`, `claim_research_usage`, or
+  execute `settle_visitor_usage`, `claim_research_usage`,
+  `claim_guest_compute_usage`, `claim_registered_compute_usage`, or
   `purge_expired_visitor_usage`.
 - Expired rows are disposable operational data, but `period_end` is not a timer
   and nothing in the database acts on it. The row has no owner to cascade from,
@@ -2056,30 +2388,59 @@ projected by `GET /me/usage`.
 ### Research policy
 - A guest receives three provider-backed research questions per visitor per
   UTC day. Renewing the temporary workspace does not reset that allowance.
+- A signed-in account receives 15 provider-backed research questions per
+  UTC day (`ARGUS_REGISTERED_DAILY_RESEARCH_CEILING`), keyed on
+  `user:<account id>` in the same table. `GET /me/usage` does not project
+  that row.
 - Every signed-in or guest provider attempt also draws on the shared
   `global:research` daily row. Its ceiling is configured by
   `ARGUS_RESEARCH_GLOBAL_DAILY_CEILING` and defaults to `5000` when blank or
   invalid.
-- `claim_research_usage` locks the shared row and optional guest row in one
+- `claim_research_usage` locks the shared row and optional per-account row in one
   transaction, checks both limits, and increments both or neither before
   provider work starts. This is the concurrency boundary: simultaneous turns
-  from one visitor cannot both consume one remaining slot. An admitted claim
+  from one account cannot both consume one remaining slot. An admitted claim
   returns the `period_start` it charged.
 - When the provider work a claim admitted fails with no usable response, and
   the turn's charge does not already stand, the backend calls
   `release_research_usage` (service-role only, like the claim) with that
-  `period_start`. It decrements only the guest's own row for that day, never
+  `period_start`. It decrements only the account's own row for that day, never
   below zero, and never touches the shared row, which keeps the attempt. It
   returns `released`, and only a confirmed release lets a later provider path
   in the same turn claim again. The charge stands for the rest of the turn once
   provider work was served, was cancelled while it may still be billing, or
   could not be released (the function failed or matched no charge), so one
-  turn never costs a guest more than one question. Migration
+  turn never costs an account more than one question. Migration
   `20260913230000_release_research_guest_claim.sql` adds the release and the
   claim's `period_start`.
 - Cache hits, ordinary chat turns, unconfigured-provider paths, and persisted
   thorough-job replays never call the claim. Claim failures degrade to the honest
   research-capacity response and do not enter the provider path.
+
+### Guest compute policy
+- A guest's ordinary chat turns claim one `guest_compute_turns` unit against
+  the visitor digest and one unit against `session:<guest user id>` in the
+  same transaction, at turn start. The guest hits whichever daily ceiling
+  is lower. The visitor ceiling is 300. The session ceiling defaults to 100
+  (`CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING`) so one workspace cannot reset
+  the cap by changing IP. A claim that is admitted stands if the turn later
+  errors; there is no release. A claim RPC error is not treated as
+  exhaustion; the guest sees a short retry, not the daily-cap 429.
+  Migration
+  `20260925120000_claim_guest_compute_usage.sql` adds the claim. The visitor
+  identity is the trusted client IP header (`CF-Connecting-IP` by default,
+  `ARGUS_TRUSTED_CLIENT_IP_HEADER`), never the first `X-Forwarded-For` hop.
+  IPv6 visitor keys group by `/64`.
+
+### Signed-in compute policy
+- A signed-in account's ordinary chat turns claim one
+  `account_compute_turns` unit against `user:<account id>` at turn start.
+  The daily ceiling defaults to 200 (`CUADRAO_REGISTERED_DAILY_TURN_CEILING`).
+  A claim that is admitted stands if the turn later errors; there is no
+  release. A claim RPC error is not treated as exhaustion; the user sees a
+  short retry, not the daily-cap 429. Migration
+  `20260925140000_claim_registered_compute_usage.sql` adds the claim.
+  `GET /me/usage` never projects this counter.
 
 ---
 
@@ -2166,6 +2527,47 @@ conversation recovery is exposed in the current product.
 
 ### Archive
 Used specifically for **conversations** to hide them from the primary sidebar without deleting the data.
+
+### Account deletion (Lane 6)
+`POST /account/delete`, behind the default-off `CUADRAO_ACCOUNT_DELETION_ENABLED`,
+runs one deletion command for registered and guest accounts. The
+[account deletion census](specs/lanes/account-deletion-fk-census.md) owns what
+happens to each table. Rows other people still rely on, such as the person's
+amounts in their plans and legs of shared activities, move to a nameless
+placeholder, one per
+[sharing scope](specs/lanes/account-deletion-fk-census.md#sharing-scopes-and-the-standalone-shared-group).
+Everything else of the person's is deleted, their feedback loses its email and
+user id, and the anonymous invite record stays.
+
+Three `argus_private` tables hold identifying data only while a run is in
+flight: `account_deletion_runs` (the user id and two hashes of it),
+`account_deletion_placeholders` (the map from the run to its placeholders) and
+`account_deletion_revocations` (each pending revocation with its encrypted
+credential). The
+[census](specs/lanes/account-deletion-fk-census.md#placeholders-one-per-sharing-scope-none-tied-to-the-person)
+owns what the run keeps once it completes. The existing run's `steps` also owns
+the Apple terminal receipt. After confirmed provider revocation, receipt creation
+and removal of the exact stored Apple credential commit in one transaction,
+fenced by the live run claim. A missing credential without a terminal receipt
+keeps an Apple-linked pending run unresolved. No second deletion journal exists.
+A run waiting on a third party keeps the account locked and its auth user in place. It finishes when the person
+retries or an operator runs `scripts/ops/scheduled_maintenance.py`. Nothing runs
+that sweep on a schedule, by the founder's decision of October 3, 2026, and no
+cron is to be created for it. The
+[launch runbook](PRIVATE_LAUNCH_RUNBOOK.md#account-deletion-runs-lane-6) owns
+the cadence and the 7-day operator force; the
+[API contract](API_CONTRACT.md#post-accountdelete) owns the route.
+
+The personless analytics adapter stores `analytics_evidence` in the existing
+run `steps`. It contains submission and request UUIDs, parsed provider status,
+selected-event count, HTTP status and local outcome. The run UUID owns submission
+identity, so retries do not create a separate identity store. Provider bodies,
+queries, distinct IDs and credentials are excluded from this evidence. A selected
+event count is not an independently verified deletion count. Where the server
+sends no PostHog events, the step records `not_applicable` and
+`analytics_evidence` holds only `{"reason": "posthog_not_configured"}`. The
+[API contract](API_CONTRACT.md#post-accountdelete) owns completion and retry behavior.
+
 ---
 
 # 17. Recents / History Model
@@ -2224,6 +2626,18 @@ Every user-owned table must enforce strict Row Level Security (RLS).
   `UPDATE`, or `DELETE` rows where `user_id = auth.uid()`. Server-owned or
   immutable tables may revoke some of those operations; this default never
   grants a client write that a table-specific rule forbids.
+- RLS policies are not the only guard: client table, column and function
+  privileges in `public` and `argus_private` are owned by
+  `tests/test_client_grants_postgres.py`. The early tables `backtest_jobs`,
+  `backtest_runs`, `collection_strategies`, `collections`, `context_packets`,
+  `conversations`, `decision_notes`, `evidence_artifacts`, `feedback`,
+  `idea_versions`, `ideas`, `messages`, `profiles`, `route_receipts`,
+  `run_context_packets`, `strategies` and `usage_counters` carry no `anon` or
+  `authenticated` privilege except `authenticated` `SELECT` on `backtest_jobs`
+  and `SELECT (id, avatar_theme, country, currency_override, preferred_name)`
+  plus `UPDATE (avatar_theme, country, currency_override, preferred_name)` on
+  `profiles` (`20261005090000_explicit_client_grants.sql`). The backend writes
+  these tables with the service role.
 
 ### Chat-turn lifecycle
 - `chat_turn_lifecycles` grants authenticated owners `SELECT` only. No client
@@ -2236,6 +2650,39 @@ Every user-owned table must enforce strict Row Level Security (RLS).
   read-source, reconciliation, or baseline functions; service-role persistence
   owns those operations.
 
+### Financial accounts
+- `financial_accounts`, `financial_records` and `financial_record_revisions`
+  grant authenticated owners `SELECT` only, and only when the trusted
+  `is_anonymous` JWT claim is not `true`, so a guest reads nothing even about
+  rows carrying its own id. No client role may insert, update, delete, or
+  execute the two write functions; `financial_account_idempotency` has no
+  client policy at all. Proven by `tests/test_financial_accounts_postgres.py`.
+
+### Direct reads stop at Personal rows
+- The client role reads Personal rows only. A Business row keeps its `user_id`
+  when ownership moves and when a grant is revoked, so `user_id` cannot authorize
+  a Business read. Business reads go through the API, which checks the live grant.
+- Migration `20261103003626_direct_reads_personal_only.sql` adds restrictive
+  `*_personal_read` policies for `authenticated` only. `financial_accounts` and
+  `financial_source_connections` own the fact with `owner_space_id is null`.
+  `financial_records`, `financial_asset_details`, `financial_asset_changes`,
+  `financial_observation_coverage`, `financial_goal_allocations`,
+  `financial_debt_plans`, `financial_import_account_links` and
+  `financial_source_gmail_senders` require a visible parent.
+  `financial_record_revisions` and the `financial_activity_*` tables follow
+  `financial_records` through their `*_account_read` policies.
+  `financial_plan_links` asks `argus_private.financial_activity_is_personal`.
+  `chat_turn_lifecycles`, `conversation_read_states` and `backtest_jobs` ask
+  `argus_private.conversation_is_personal`. A `backtest_jobs` row with no
+  conversation is Personal.
+- `financial_import_events` and `financial_import_observations` had this limit
+  before. `financial_goals`, `financial_budgets`, `financial_expectations`,
+  `financial_plan_selections`, `profiles` and `guest_workspaces` have no Business
+  link. `business_consent_acceptances` stays readable: each row records the
+  reader's own acceptance.
+- `tests/test_business_former_owner_reads_postgres.py` proves transfer followed by
+  revocation, and fails when a new client-readable table has no classification.
+
 ### Tables Requiring RLS
 - `private_alpha_allowlist`, `private_alpha_access_welcome_claims`,
   `private_alpha_access_welcome_deliveries`,
@@ -2245,7 +2692,9 @@ Every user-owned table must enforce strict Row Level Security (RLS).
   `usage_counters`, `guest_workspaces`, `memory_settings`,
   `memory_candidates`, `memory_consent_actions`, `memory_records`,
   `memory_provenance`, `memory_prompt_history`, `memory_reconciliations`,
-  `memory_provider_projections`, `memory_provider_cleanup`.
+  `memory_provider_projections`, `memory_provider_cleanup`,
+  `financial_accounts`, `financial_records`, `financial_record_revisions`,
+  `financial_account_idempotency`.
 
 ### Guest ownership
 - Supabase anonymous identities use the `authenticated` role, so every guest
@@ -2432,3 +2881,1536 @@ When adding or changing a table, ask:
 > *Does this store durable truth, recovery state, or useful research memory without turning context into simulation truth?*
 
 If no, it likely should wait for post-Alpha.
+
+### Personal money activity extension (authorized September 29, 2026)
+
+Additive migration retains financial_records/revisions and existing coverage foreign
+keys. All activity uses current signed leg movements in the existing projection.
+Kind, role, active and source/refund provenance live in revision details. Account
+correction retires departed legs with new inactive zero revisions and creates/reuses
+replacement records; immutable account_id and historical coverage remain.
+
+financial_activity_groups owns stable identity, owner, immutable kind and current
+revision. financial_activity_memberships binds each group revision to exact record
+revisions and role using owner-qualified composite keys. Shared facts derive from
+primary single/source leg, never a second stored amount. All existing expense IDs
+and revisions backfill as groups with identical IDs. Refund provenance contains
+stable purchase group and reviewed revision. Purchase category edits with linked
+refunds fail explicitly, so copied historical category cannot silently drift.
+
+`financial_activity_groups.reversed_at` (nullable, migration
+`20261103003000_business_record_reversal.sql`) names the instant a Business
+reopen (`reopen_draft`) took the row out of every read. The three ledger
+loaders (`canonical_groups.load`, `loop_postgres.hydrate`,
+`owner_funds_postgres.load`) leave a reversed group and its legs out, so totals,
+the month close, the 606 and 607, Registros and account balances read as before
+the approval; the group, its records, revisions, memberships and money receipts
+stay as history, and a settlement, export line or bank outcome keyed to it stays
+too. Who reopened, when and from which draft version is the `reopen_draft` row
+in `business_action_receipts`, whose outcome names the activity. The reopened
+draft returns to `open` with `activity_id` null (the state check requires it)
+and keeps a `reopened` list in its resolution (`activity_id`, `version`,
+`actor_id`, `key`, `at`); the approval's recovery keys (`approval_receipt`,
+`accepted`, `accepted_request`, `pending_request`) leave it. Written only by
+the reopen, under the Business's owner lock; never set on a Personal row. The
+same migration admits `reopen_draft` as a turn-less human command on
+`business_action_receipts`.
+
+financial_activity_receipts binds owner/key, request hash, accepted group/revision and
+affected account IDs. Every canonical AND legacy activity writer takes one owner
+transaction advisory lock before discovering dependencies, then the complete affected
+account rows in UUID order. Replay precedes CAS. All revisions/membership/coverage,
+versions and receipt commit atomically. Metadata/opening/check writers stay account-only;
+none acquires owner lock after account lock. Reads use repeatable-read snapshots.
+Money rules stay in domain code. Owner serialization protects refund/purchase races.
+Group/membership SELECT RLS is registered-owner only, writes service-only; receipts
+have no client grants. Home derives monthly totals from current logical activities
+through the shared Recording spending reducer.
+
+financial_activity_revisions is only the owner-qualified group revision identity;
+it stores no duplicate money facts. Group current revision, memberships and receipts
+reference it. Revision purchase_activity_id/purchase_revision are generated from
+details and enforce an owner-qualified FK to the exact reviewed purchase revision.
+This preserves one source for refund provenance while making cross-owner references
+unrepresentable. The additive integrity migration is 20260929130000.
+
+### Paired currency transfer facts (#820)
+
+No schema or backfill is added. Each exact leg revision retains its own integer
+`amount_minor`; the corresponding canonical account owns its immutable currency.
+Group revisions, memberships, coverage and receipt transactions remain unchanged.
+No rate, converted total or duplicate amount is stored. Per-leg read denomination
+and formatted amount derive from that account and revision after visibility filtering.
+A hidden source does not disclose its denomination through the legacy summary.
+
+The destination input is included in request identity only when non-null. Existing
+receipt and preview preimages remain identical when it is absent. Plan currency
+stays fixed and current attribution rejects pairs with any different-currency leg.
+The write flag and acceptance boundary live in the
+[transfer contract](specs/lanes/cuadrao-cross-currency-transfers.md).
+
+### Connected Plan storage
+
+The additive connected Plan migration stores owner-scoped expectations with versioned
+schedule segments, owner projection selection, occurrence-to-canonical-activity links,
+and idempotency receipts. It stores no actual balance or parallel ledger. Expectations
+contain only planned money; linked occurrence snapshots preserve the reviewed schedule
+and amount while actual amounts always derive from the current canonical activity.
+Owner-qualified foreign keys connect links to expectations and activity revisions.
+RLS allows registered owners to read their rows; writes remain service-only and receipt
+rows have no client grants. All Plan writes take the same financial activity owner lock
+before account locks. Recording from Plan composes the existing Money planner/persist
+inside that transaction. Read snapshots use repeatable read for planning and accounts.
+Schedule edits cut over only after every previously fulfilled date, including future
+prepayments. Amount/title edits retain occurrence identity and linked snapshots.
+
+### Connected personal spending budgets
+
+`financial_budgets` stores owner-scoped versioned definitions with stable IDs,
+name, positive limit in integer minor units, currency, calendar month, explicit
+account/category arrays, Uncategorized inclusion, and reversible archived state.
+The shared Plan selection owns the reporting time zone. Budget rows contain no
+actual totals. The account and category arrays are canonical sorted unique sets.
+A partial unique storage index rejects duplicate active owner/month/currency/
+account/category/Uncategorized scopes. Restoration observes the same constraint
+and current account eligibility. Archiving retains ownership checks even if an
+account no longer supports the definition's expense scope.
+
+Registered owners may SELECT their budget rows. Writes are service-only, and the
+existing financial_plan_receipts table retains exact accepted command results
+without client grants. Budget commands use the existing owner advisory lock,
+replay-before-version checks, account locks, and atomic transaction. Plan, Home,
+budget detail, and Search read the same repeatable-read owner snapshot.
+
+Recording's spending reducer derives full expense/refund amounts and loan interest/fee
+costs from current logical activity. Principal, transfers and card payments contribute
+zero. Linked refunds inherit scope from the current original purchase; linked payment
+returns retain the original cost scope. Their actual received timestamp owns period
+membership. Unlinked refunds use their recorded scope. Negative net spending is valid.
+Home's compatibility recorded_spending_minor field remains lifetime gross active
+expense activity only; monthly gross/net spending includes canonical loan costs.
+Archived accounts remain explicit scope members. Definition changes never write
+account records, cash forecasts, or bill-fulfillment links.
+
+### Connected personal savings goals
+
+`financial_goals` stores owner-qualified versioned definitions, immutable currency,
+target, optional date/destination, explicit unlinked allocation residuals,
+reversible archive state and contribution schedule segments. No saved total or
+account balance is persisted. Current Recording position/activity and one shared
+personal ownership rounding function supply actual money.
+
+The additive goal migration extends `financial_plan_links` with stable claim_id,
+nullable occurrence_id/expectation_id, goal_id and attribution. Existing expectation
+identity/snapshot, unique owner/activity and owner-qualified exact activity-revision
+foreign keys remain. A goal claim has attribution and/or its own occurrence;
+released attribution persists explicitly and retains fulfillment. Ad hoc claims
+cannot enter expectation-only readers. Accepted original personal amounts are
+provenance, never current-value fallback. Goal rows use registered-owner SELECT
+RLS and service-only writes. Existing Plan receipts, owner/account locks and
+repeatable-read snapshots own goal writes/reads and atomic contribution posting.
+
+
+## Connected debt intentions and dated payment returns
+
+`financial_debt_plans(id,user_id,debt_account_id,body)` stores only versioned intentions and explicit scenario assumptions, with an owner-qualified account FK, registered-owner SELECT RLS and service-only writes. A partial unique index permits one active plan per debt account; restoration checks that constraint. Balances and cumulative payment/cost counters are never stored here.
+
+`financial_plan_links.debt_plan_id` adds a mutually exclusive debt purpose to existing expectation/goal claims. Debt claims retain activity revision provenance and stable occurrence snapshots. Global owner/activity uniqueness remains. Non-debt occurrence uniqueness remains through a partial index; debt occurrences allow multiple payment claims. Extras have no occurrence. Every writer uses the existing Plan receipt, shared owner advisory lock, sorted account locks and current version checks.
+
+Loan source record revisions retain total movement and `details.interest_minor`. Destination movement retains principal, including zero principal. Fees derive losslessly as source total minus principal minus interest through the single Recording payment decoder. There is no second payment ledger. Real `payment_reversal` activity revisions retain inverse signed cash/debt movements, the explicit returned split, and generated owner-qualified original activity/revision FKs. Both original and dated return remain canonical activities. Paired corrections append revisions atomically and preserve former observation coverage. Current linked caps and account/date/category guards prevent contradictory corrections.
+
+Recording position and spending remain the actual owners. Loan interest and fees contribute once, scoped to funding account and selected/default existing category. Return costs reduce spending in the return period; principal and cards do not count. Debt progress, forecast remainders, recorded clear/reopening and savings backing concerns derive from current canonical revisions. Conditional payoff remains an explicit monthly model, separate from actual position and scheduled cash commitments.
+
+Debt-plan archive preserves canonical payments and claimed occurrence snapshots. The shared occurrence projection marks retained archived intentions `plan_archived`, suppressing only residual forecast movement. Restore derives the same residual from current canonical activity.
+
+## Shared Household planning storage sketch
+
+**Status:** Worker storage contract for the [assigned shared planning lane](specs/argus-execution-board.md#connected-shared-household-planning-lane), October 1, 2026. Schema/cutover source is applied only to NEW disposable Postgres on port 59752. The connected native journey and focused independent review passed; exact publication gates are recorded on PR #773. No existing demo or hosted database is migrated. The [API contract](API_CONTRACT.md#shared-household-planning-contract-sketch) owns the scoped public wire and approved permission/departure rules.
+
+The implemented design adds consent and responsibility references to existing
+owner-qualified definitions. The alternative adds Household scope directly to
+every canonical definition and replaces owner-qualified readers with scope
+readers. References retain existing Personal ownership, identities, and
+recurrence with fewer authorization changes. Neither candidate permits copied
+definitions, shadow Personal goals, a second allocation engine, or stored
+editable actual totals.
+
+### Binding and participant records
+
+The `household_plan_bindings` contains `id`, `household_id`,
+`owner_membership_id`, `owner_user_id`, exactly one of `budget_id`,
+`expectation_id`, `goal_id`, or `debt_plan_id`, and `revoked_at`.
+The original definition ID remains its financial identity. Composite foreign
+keys bind the selected definition to its original owner and the owner's current
+membership to the same Household. Binding lifecycle also records owner-departure
+archive, the retained authorized recipients and previously shared definition
+revision. Read-only archived history grants no write or future projection. An
+expectation binding admits bills, not
+private expected income. A partial unique key permits one live, non-departed binding per
+canonical definition; retained departed bindings preserve prior consent. There is no second plan amount, balance, name, schedule,
+completion flag, or owner in a copied body.
+
+The `household_plan_participants` contains `binding_id`,
+`membership_id`, one permission `view|edit`, and revocation state. Owner powers
+derive from original ownership; no stored owner role competes with that fact.
+The participant membership FK binds the same Household incarnation. Joining or
+rejoining cannot reactivate consent. The household row/version remains the
+authorization lock and generation owner.
+
+Responsibilities belong to the canonical definition's versioned state and name
+participant membership, optional explicit minor-unit amount, and their
+occurrence or period. They retain safe cutover and fulfilled snapshot rules.
+They contain intentions, never receipts, editable progress, or account balance.
+Every activity or definition edit retains the actual authenticated actor and
+append-only correction history. View-only participants may record/link and
+correct their own contributions, without definition editing or access to other
+participants' private funding. These powers require distinct server checks.
+
+### One canonical claim and allocation owner
+
+`financial_plan_links` remains the activity-claim owner. The proposed extension
+separates definition owner `user_id` from `activity_owner_id`, backfilled to the
+same value for existing rows. Definition foreign keys continue to use
+`user_id`. The exact activity-revision FK uses `activity_owner_id`. A unique
+`(activity_owner_id,activity_id)` over active or occurrence-bound claims replaces
+the existing same-owner uniqueness. Released unscheduled extras remain historical
+rows without reserving the active slot. Personal and shared writers cannot
+count one activity twice; scheduled claim lifecycle remains unchanged.
+
+Shared claims add binding, contributor membership, explicit purpose, and an
+optional budget purpose. Checks require one canonical definition purpose and
+an owner-qualified binding. A goal claim may fulfill its own occurrence without
+another attribution. Shared bills permit multiple independently claimed actual
+payments on one occurrence; the existing single-claim rule remains for Personal
+bill occurrences. Debt's existing multiple-payment rule remains. Budget
+matching and explicit claims deduplicate by logical activity identity.
+Funding transfers are attributed receipts, not spending or bill/debt fulfillment.
+
+Goal claims and any explicit unlinked residual allocations identify the actual
+destination account owner through owner-qualified account references. The
+existing `goal_projection` pool reducer must load all Personal and shared claims
+against that owner's account capacity. Claim creation, replacement, correction,
+and release use the same owner serialization. There is one pool per original
+account, regardless of which definition owner or Household uses it. Actual
+account position, account ownership-share rounding, and current activity remain
+Recording facts. Unshared private claims affect capacity validation internally
+but never become shared contribution rows or shared totals.
+
+No shared adapter calls a Personal projection and filters its output. Shared
+responses select consented definition facts and claims before projection. Full
+private pools, min(balance,claim) support, shortfall amounts, affected private
+goals, funding accounts, notes, history, and copied Personal receipts cannot
+enter the shared output. Fully supported public credit discloses the consented
+claim amount; unresolved support stays null with a review state.
+
+Private cross-owner attribution cannot remain directly readable through the
+definition owner's `financial_plan_links.owner_read` policy. Shared claim rows
+require service projection; existing same-owner Personal rows retain their read
+policy. Private residual account references likewise cannot enter an owner-
+readable goal body. The canonical `financial_goal_allocations` relation
+stores `goal_id`, `goal_owner_id`, `account_id`, `account_owner_id`, and
+`unlinked_minor`, with both owner-qualified FKs and a unique goal/account key.
+Existing JSON residuals backfill into that relation and cease to be a second
+authoritative allocation store. The Personal API's allocation shape remains
+derived and compatible. Only the safe API exposes shared residuals; there is no
+direct Household SELECT grant. This normalization is a required migration and
+deployment-compatibility risk, not a second allocation reducer. Source changes
+and backfill rehearsal are approved only for a new disposable local test
+database. Validate every legacy allocation, exact amount, owner reference and
+row count before removing JSON; update all readers/writers in the same cutover.
+No incomplete migration fallback is permitted. Existing demos and hosted
+databases remain untouched.
+
+### Smallest multi-owner Money extension
+
+The extended `financial_activity_memberships` retains one logical group
+owner in `user_id` and adds `record_owner_id`, completely backfilled from
+`user_id` for pre-extension rows. Group/revision FKs
+keep `user_id`; record/revision FKs use `record_owner_id`. Each leg stays bound
+to its original account and owner. Existing same-owner rows retain the same
+identity, revision, money facts, and coverage.
+
+The source account owner owns a paired transfer/payment group. Canonical
+Recording persistence writes each leg, observation coverage, and account-version
+update under that leg's actual owner. It derives amount and payment splits from
+the same original signed leg revisions. It creates no parallel income, expense,
+transaction copy, or saved aggregate. Current activity readers assemble the
+complete logical group internally, then expose only independently authorized
+legs and public consented contribution facts.
+
+One Recording resolver loads the authoritative group `current_revision`, its
+exact revision membership, and all original-owner leg records internally.
+Every Personal and Household activity, balance-linked summary, spending,
+refund/return cap, debt progress, and goal claim reader derives from that
+resolver. `groups(load_owner(...))`, the first visible leg, and
+`max(visible_history)` cannot choose the canonical revision or primary amount.
+A destination-only loan view must not turn principal into the full payment.
+An account removed from the current revision must not revive an earlier active
+leg. Personal spending counts only the owned funding leg's canonical costs;
+destination debt principal does not become spending. Transfers/card payments
+remain zero spending in every scope.
+
+Personal and Household disclosure are explicit projections over that complete
+canonical fact. A source owner's private note, cost breakdown, source identity,
+and history never copy into a foreign-owned destination revision or public
+contribution. Destination revision details retain only facts necessary for that
+owner's canonical movement and exact group linkage. They do not depend on
+filtering a private note after raw table access has already exposed it.
+
+Cross-owner payment returns require an explicit original group owner beside
+the existing exact original activity/revision reference. A generated
+`reversal_of_owner_id` derives from revision details, with same-owner fallback
+only for pre-extension rows. Its composite FK preserves the original canonical
+identity. Purchase refunds retain their existing owner-qualified boundary.
+Neither a return nor a correction may create an unqualified foreign reference.
+
+Membership SELECT RLS must not expose the other owner's record/account IDs
+through the group-owner row. Existing Personal read access stays owner-scoped;
+cross-owner metadata requires a safe service projection. New binding,
+participant, and command receipt tables have RLS enabled and no direct
+`anon` or `authenticated` grants. Shared claims do not widen direct Personal
+table policies to Household members.
+
+The group owner's existing membership SELECT policy cannot expose a foreign
+leg merely because `user_id` matches. Direct membership reads require the
+caller to own the leg as well. Account owners retain reads of their own
+financial records; full cross-owner group assembly remains service-owned.
+
+Consent history records `first_shared_revision` and each named recipient's
+`granted_revision`. New consent cannot expose earlier private revisions.
+Owner departure pins retained definition, claim, activity and allocation
+**revision references**, not copied balances/totals/ledgers. Service-only
+`household_plan_archived_*` relations and restrictive foreign keys preserve
+those previously shared facts. Remaining readers still need their live granted
+membership incarnation; archived plans provide no future projections or writes.
+Private post-departure edits cannot enter retained history.
+
+Contributor departure uses the same canonical retention owner even on an active
+plan owned by someone else. The protected retention relations pin exact
+original/related activity and allocation revision references to the ended
+membership incarnation. `membership_ended_at` records that access boundary;
+signed `last_applied_minor` and nonnegative `last_supported_minor` are immutable
+last-authorized disclosure evidence, never editable current money or pool
+totals. Current Goal backing is null/`needs_review` after that consent ends.
+Remaining members' current activity continues through the ordinary canonical
+reader. Distinct allocation revisions preserve history when fresh explicit
+consent follows rejoining.
+
+Migration `20261002050000` fails atomically if a legacy active binding already
+contains a departed contributor without its authorized retention boundary.
+Today's private state cannot safely backfill a past consent boundary. Recover
+verified history before such a cutover; never invent a snapshot or hide the
+gap through a fallback. Its rehearsal/application is limited to NEW local
+Postgres59752, which retained seven account rows unchanged; it does not authorize
+any existing demonstration, hosted or production migration.
+
+### Transactions, receipts, and migration risks
+
+Cross-owner groups cannot retain cascades that delete another account owner's
+leg, claim, or payment-return history when the group owner is removed. The
+migration must preserve surviving owners' financial history and reject an
+unsafe destructive deletion. Owner departure archives their shared plans, retains the previously shared
+history for remaining authorized members and suppresses future projections.
+The retained view contains no private funding. Departure revokes the departing
+member's household access; removal/revocation still ends a recipient's access.
+Closure revokes household access while preserving owners' records and history.
+These operations never delete financial activity or transfer ownership. This lane does not add account
+deletion or define a new profile-erasure policy.
+
+Shared mutations take the Household row lock, resolve the current binding and
+membership, acquire all involved owner advisory locks in UUID order, then all
+old/new/dependency account locks in UUID order. They never acquire a Household
+lock after an owner/account lock. Plan and Recording commands share this owner
+lock convention. Canonical activity correction must discover every claim owner
+before acquiring locks; it cannot take a second owner lock after account locks.
+Read projections use one coherent database snapshot and live scope checks.
+
+Correction/return dependency discovery includes every old and new account leg,
+every exact original/refund/return reference, and every Personal/shared claim
+that can change backing or fulfillment. The transaction locks the complete
+owner set before any account lock, revalidates the dependency set under those
+locks, and rejects a changed set without posting. Partial correction of one
+side is invalid. Activity authorship alone does not grant authority over another
+owner's account. After an edit grant is withdrawn, a paired correction requiring
+that account is denied; retained originals remain readable only through the
+caller's currently authorized projection.
+
+A service-owned scoped receipt binds actor, Household, original membership,
+operation, key, normalized request hash, and accepted canonical identities.
+It stores no protected result snapshot. Activity, leg revisions, coverage,
+account versions, claim, plan version, and receipt commit or roll back together.
+Replay uses live authorization before loading an accepted result. Existing
+Personal receipt bodies and replay semantics remain compatible.
+
+The migration risks are composite-FK replacement, direct SELECT leakage through
+cross-owner memberships/claims, changed claim uniqueness, and multi-owner lock
+ordering. Backfill and constraint validation must preserve all existing rows.
+PG tests must exercise real concurrent claim/record/correction/revoke commands,
+failure rollback, exact retries, owner-qualified malformed inserts, and direct
+registered/anonymous RLS reads. Existing Personal goal pools, receipts, budgets,
+debt returns, recurrence, and Household same-owner financial tests remain
+regression coverage. This sketch is not permission to apply hosted migrations.
+
+
+## Connected personal asset estimates and links
+
+`financial_accounts` remains the asset identity and ownership-share owner.
+Opening and value-update revisions remain the whole-estimate owner. Optional
+`estimate_basis` lives in that exact revision's `details` object. Existing
+revisions without it mean unspecified basis. A correction retains the record
+identity and original observation order, appends one revision and hydrates only
+one current observation for that identity. No attributed value or equity is stored.
+
+`financial_asset_details` has one row per account/owner and one nullable
+`related_debt_account_id`. Owner-qualified foreign keys bind both existing
+accounts; type checks require an optional asset and a liability respectively.
+`financial_asset_changes` retains the accepted account version, previous/new
+ownership share, previous/new debt ID, actor, timestamp, idempotency key and
+request hash. Details, account share/version and accepted change commit together.
+Changes are append-only and unique by owner/account/key and account/version.
+They are non-money receipts, never financial records. Registered-owner RLS
+allows reads; only the service writes. Existing debt balances and plans remain
+canonical and unchanged. Current details are a pointer, not a money allocation.
+
+The existing record/revision receipt owns estimate retry identity. Details
+changes replay their accepted version before stale-version validation. Account
+metadata/link type validation is serialized with details writes. Existing
+owner-scoped native financial journals persist pending account creation and
+asset commands until an accepted response or explicit failure resolution.
+
+## Apple sign-in credentials
+
+`public.apple_sign_in_credentials`
+(`supabase/migrations/20261003150000_apple_sign_in_credentials.sql`) holds one
+row per person who signed in with Apple while
+`CUADRAO_APPLE_REVOCATION_CAPTURE_ENABLED` was on: `user_id` (primary key, the
+verified session's user), `client_id` (the Apple client the token was issued
+to, the bundle id for the native app), `secret_ciphertext` (Apple's refresh
+token sealed with AES-256-GCM under `ARGUS_INGESTION_SECRET_KEY`, bound to
+`apple_sign_in:<user_id>`), `captured_at`, `updated_at` and
+`secret_key_fingerprint` and nullable `apple_subject`. A later sign-in replaces
+the row.
+`secret_key_fingerprint` (Lane 6, `20261004090000_account_deletion.sql`) names
+the key that sealed the token without revealing it (`SecretBox.key_id`: 32 hex
+characters of HMAC-SHA256 of a fixed label under the key); capture sets it, and
+rows stored before Lane 6 have none. A token that doesn't open is discarded
+only when its fingerprint is the running key's.
+
+`apple_subject` (`20261005160000_apple_credential_subject_binding.sql`) records
+the subject verified for that credential. `auth.identities` remains the owner
+of the account's current linked identity. Existing rows stay NULL with no
+backfill, so they remain unverified. A new capture compares the returned Apple
+subject with the current identity, then repeats that check in the save
+transaction. New deletion admission requires a readable credential bound to
+that current subject before inserting its first run. Legacy unverified rows
+require fresh authorization for new admission; their existing pending-run
+revocation remains compatible.
+
+The save transaction uses `READ COMMITTED`, locks the Auth user first, then
+reads and locks all that user's identity rows in a separate statement. The
+immediate identity-to-user foreign key blocks new identity inserts and inbound
+moves while those locks are held. Identity row locks block edits and deletion.
+The credential write also compares the pre-exchange ciphertext, so a stale
+capture cannot overwrite or recreate a replaced or removed row. No transaction
+stays open across Apple HTTP. Deletion admission shares this lock order and
+locks the deletion run last. Ordinary capture refuses an active deletion run;
+recovery capture requires its exact claim and checks expiry after acquiring the
+run lock. These locks prove agreement at commit, not after later Auth changes.
+
+The compatibility `upsert` clears `apple_subject` when it writes an unverified
+credential. Older binaries do not know this column. Keep capture disabled
+during their replacement, and do not run old capture writers alongside
+binding-aware consumers.
+
+RLS is on with no policy, and every client privilege is revoked: no client
+role can read or write any column. The API's service role is the only writer.
+No SECURITY DEFINER function is involved.
+
+`user_id` references `auth.users` with `on delete restrict`. An auth user who
+still has an unrevoked Apple token cannot be deleted, so no deletion path can
+drop the token without revoking it at Apple. The account-deletion run revokes
+first, then atomically removes the unchanged credential and records the terminal
+receipt under its live claim before deleting the user. A failed local transaction
+keeps the row for a retry, while a committed receipt explains an absent row.
+The row is the pending revoke until then, which matches the contract that the
+encrypted credential is kept only while a revoke is pending. Apple's
+`invalid_grant` on revoke is classified as already revoked, so it also deletes
+the row. This classification also applies during an App Store app transfer;
+the service does not distinguish transferred credentials from revoked or
+expired tokens. Transfer handling and the separate `invalid_request` pending
+path remain operator/release concerns in #803.
+
+If `ARGUS_INGESTION_SECRET_KEY` was rotated, the token can't be opened and so
+can't be revoked, and the restrict key would keep that user undeletable
+forever. The deletion run then calls `discard_unreadable`, which deletes the
+row only while it still can't be opened and never logs a token. No route
+exposes it. Apple's authorization stays until the person removes it in their
+Apple ID settings.
+
+Capture never writes a row for a code that belongs to another Apple ID: that is
+`409 apple_identity_mismatch`, and the token is revoked at Apple instead.
+
+## Connected financial sources
+
+Default-off with `ARGUS_INGESTION_ENABLED`. Lane spec:
+[financial-ingestion-connectors](specs/lanes/financial-ingestion-connectors.md).
+
+`financial_source_connections` holds one row per person-authorized connection
+(Plaid Item, Gmail mailbox, Shortcuts device). It owns status, last successful
+and last attempted refresh, the last actionable error code, an attention warning
+(`attention_code`, `attention_at`) that successful syncs do not clear, the provider sync
+cursor, a short sync lease (`lease_holder`, `lease_until`) and the sealed
+provider credential (`secret_ciphertext`, AES-256-GCM bound to
+`source:id`, key `ARGUS_INGESTION_SECRET_KEY`). One live row per
+`(source, external_ref)` across all people, so a Plaid Item or mailbox grant
+never backs two people's connections; webhooks resolve by the same pair.
+Cursor advances are compare-and-set under the lease; failures never clear
+`last_success_at` or the cursor, and recording a failure releases the lease so
+a sync already in flight cannot report success over it. A check constraint keeps disconnected rows free
+of credential, cursor and lease. `secret_key_fingerprint` (Lane 6) names the
+key that sealed `secret_ciphertext` (`SecretBox.key_id`, 32 hex characters,
+non-secret); every sealing path sets it (Plaid link and update-mode reconnect,
+Gmail connect and reconnect), it is null with no credential, and rows sealed
+before Lane 6 have none. Account deletion gives up on a credential that does
+not open only when its fingerprint is the running key's.
+
+Registered owners may `SELECT` only the non-secret columns (column grant); no
+client role can read `secret_ciphertext`, `sync_cursor` or the lease, or write
+anything. Proven by `tests/test_ingestion_connections_postgres.py`.
+
+These rows are connection state, never financial records. Imported evidence
+and review state belong to reconciliation; canonical activity remains in the
+existing activity tables written only through `MoneyService`.
+
+### Gmail sender allowlist
+
+`financial_source_gmail_senders` (migration
+`20261002120100_financial_source_gmail_senders.sql`) holds the senders a person
+chose for one Gmail connection: `(connection_id, sender)` primary key,
+`user_id`, `created_at` and `backfilled_at` (when that sender's lookback window
+was last searched; null means the next sync searches it). `sender` is a
+lowercased address or domain name with no whitespace, quotes, parentheses,
+commas or angle brackets, so it can never inject Gmail search operators. The
+connector reads only messages whose authenticated `From` matches an entry.
+Rows cascade with their connection and their user, and the Gmail adapter's
+`forget` hook deletes them on disconnect. The server writes rows only through the owner's
+live Gmail connection (checked in the same transaction). Registered owners may
+`SELECT` their rows; no client role can write. Rows never hold message content.
+Proven by `tests/test_ingestion_gmail_postgres.py`.
+
+The cursor for a Gmail connection is the mailbox `historyId` in
+`financial_source_connections.sync_cursor`; the sealed credential is the
+Google refresh token. Access tokens are never stored.
+
+`financial_shortcut_device_tokens` holds one row per Shortcuts connection:
+`connection_id` (primary key, cascades from `financial_source_connections`),
+`user_id`, `token_sha256` (32-byte SHA-256 digest of the device token; the
+token itself is never stored) and `created_at`. Disconnect deletes the row, and
+intake also requires the connection to be live. Enrollment counts a person's
+live device digests and inserts the new one in a single transaction under a
+per-person advisory lock, so the five-device limit holds under concurrency. Row level security is enabled
+with no policies and every client grant revoked, so no client role can read or
+write it. Proven by `tests/test_ingestion_shortcuts_postgres.py`.
+
+WhatsApp receipt intake keeps three service-role-only tables (migration
+`20261008130000_whatsapp_intake.sql`). Phone numbers, provider message ids and
+link codes are stored only as HMAC-SHA256 digests under
+`CUADRAO_WHATSAPP_SENDER_KEY`. `destination_owner_id` references `auth.users`
+and is the person today; it becomes the business principal if the Business
+boundary proposal is approved.
+
+- `whatsapp_link_codes`: `destination_owner_id`, `code_digest` (unique),
+  `reply_language` (`es-419` or `en`, from the web app when the code was
+  issued), `created_at`, `expires_at`, `consumed_at`. Single use; issuing a new code or
+  revoking the link deletes the owner's unused ones.
+- `whatsapp_sender_links`: `destination_owner_id`, `wa_id_hash`, `last4`,
+  `reply_language` (copied from the redeemed code; replies use it, not
+  `profiles.language`), `status` (`active` or `revoked`), `linked_at`, `revoked_at`. Partial unique
+  indexes allow one active link per sender and one per destination; linking
+  revokes whichever active link it replaces.
+- `whatsapp_inbound_messages`: one row per provider message, unique on
+  `provider_message_key`, with `sender_hash`, `destination_owner_id`,
+  `status` (`received`, `linked`, `rejected`, `captured`, `failed`),
+  `connection_id` (the captured document's statement connection), `error_code`,
+  `claim_until`, `received_at` and `updated_at`. Linked, rejected and captured
+  are final. A received row whose claim lapsed, or a failed row, is reclaimed by
+  a redelivery of the same message. Settling requires the claim the worker
+  took, so a worker whose claim lapsed cannot overwrite a newer one. A captured row's draft is owned by
+  `financial_document_extractions`.
+- Loss recovery (migration `20261031010000_whatsapp_claim_envelope.sql`):
+  `claim_envelope` holds the message (media id, type, caption, sender number)
+  sealed with the ingestion secret box, written with the claim, so a claim that
+  lapsed because the process died after the 200 can be run again.
+  `recovery_attempts` counts sweep retakes. A sweep (every 60 seconds in the
+  API process, and at most once a minute on webhook traffic, independent of
+  the document read sweep) retakes a lapsed claim by compare-and-set on
+  `claim_until` and runs the original processing path. After three retakes the
+  row settles `failed` with `whatsapp_recovery_exhausted` and the linked sender
+  gets one `whatsapp_photo_lost` reply. A lapsed row with no envelope settles
+  `failed` with `whatsapp_claim_envelope_missing`. Every settlement clears
+  `claim_envelope`: the trigger `whatsapp_inbound_clear_settled_envelope`
+  nulls it on any write that leaves `received`/`failed` or ends the claim, so
+  code from before this migration (a rollout or a code-only rollback) still
+  settles sealed rows and still drops their bytes. The check
+  `whatsapp_inbound_claim_envelope_shape` then holds by construction: an
+  envelope only on `received` and `failed`, version byte 1. Each item renews
+  its own lease (compare-and-set, fresh clock) right before its work, so no
+  photo is fetched under a lapsed lease. A photo is acknowledged only once its
+  envelope is sealed; with no codec, or when sealing fails, the webhook answers
+  503 and commits nothing, so the provider redelivers. Text stays best effort.
+
+Row level security is enabled with no policies and every client grant revoked.
+Proven by `tests/test_whatsapp_intake_postgres.py`.
+
+### Business name prompt
+
+`spaces.business_name_prompt_seen_at` stores the first owner visit that claimed
+its optional naming prompt. Migration `20261016142927_business_name_prompt.sql`
+adds the nullable timestamp without changing existing names, grants or RLS.
+The conditional update requires the authenticated owner, the currently open
+Business, its expected ID, a default name and a null timestamp. Concurrent
+claims produce one winner. Renaming preserves the timestamp. Client roles have
+no direct write grant on this state. Required naming for owner invites and
+exports derives from the current name, independently of this timestamp.
+
+### Business saved report views
+
+`20261026013716_business_saved_report_views.sql` adds two private preference
+relations. `argus_private.business_saved_report_views` stores UUID `id`,
+`space_id`, `actor_id`, trimmed `name`, strict version-1 `recipe` JSON (filters,
+relative/fixed period, ordered columns and sort), monotonic `version`, and
+created/updated timestamps. It stores no financial rows or cached report result.
+The `(actor_id, space_id, id)` index serves the private list.
+
+`argus_private.business_report_view_commands` stores the exact mutation and its
+response under `(space_id, actor_id, command_key)` for atomic retries. Expected
+view version prevents lost edits. The existing authorized Business transaction
+serializes writes; every read and replay checks the live selected grant and
+closed-Business rule. Read capability permits personal preference changes;
+export still requires its separate current permission.
+
+Both relations enable RLS with no client policies and revoke all client/public
+privileges. Service-role grants are limited to view CRUD and receipt SELECT/INSERT.
+The service scopes every statement to Business and actor. Actor and space FKs
+cascade preference metadata only. They neither own nor reference financial rows,
+original objects or custody state, and do not enable account deletion. Synthetic
+PostgreSQL view, conflict, revocation and client-grant tests prove this boundary.
+
+### Business record annotations and version-two preferences
+
+The additive `20261026095000_registros_preferences_annotations.sql` migration
+allows recipe schema versions 1 and 2 in the existing private saved-view table.
+Version 2 stores presentation order/hidden columns/density and page size; neither
+version stores result money or cached rows. Existing RLS, person/Business scope,
+FKs, client privilege denial and deletion behavior remain unchanged.
+
+Current editable text is `financial_import_events.resolution.current_note`.
+The original `note` and immutable source text remain intact. An annotation only
+increments the event version and update timestamp. Its existing
+`business_draft_revisions` row retains unchanged financial facts and adds
+nullable `before_current_note` and `after_current_note`. Null means no note edit;
+empty text means explicit clear. New note values are at most 500 code points.
+The existing approved revision pointer continues to identify the original
+approved facts. Supporting-file revisions carry their new source IDs through
+the same history owner, with no financial-fact or settlement changes.
+
+`business_action_receipts` permits the two new human-only commands
+`edit_current_note` and `append_supporting_file`. They cannot belong to model
+turns. A successful receipt retains the existing `applied` outcome envelope and
+an `annotation_result` containing the exact public command result. Supporting
+intent may remain pending after an object failure; its hash and authority scope
+prevent key reuse with changed payload. Existing document connections, object
+custody, source records and same-space source links own the bytes. No new table,
+foreign key, client grant or alternative evidence owner is introduced.
+
+### Durable Business workspace identity
+
+`20261025223500_business_workspace_persistence.sql` adds
+`spaces.business_legacy_default`, `business_workspace_revision`,
+`business_provided_details`, and `business_appearance`. Existing open and historical
+rows retain the default marker. The unique open default index is scoped to marked
+rows and `current_owner_id`; explicit additional rows are unmarked. Both types keep
+`current_owner_id` as the legacy transfer anchor and `created_by` as custody.
+`business_space_of` resolves only a marked open row with live membership. Closing A
+never promotes B. Reopening a marked historical row still conflicts with another
+marked open default, while an additional row does not consume that slot. Legacy
+transfer eligibility remains conservative; transfer of an additional row does not
+move the marked default. Directory ordering puts the live marked default first.
+
+Workspace details and appearance are Business-scoped JSON objects, written only
+through the service. The revision trigger covers changes to canonical display name,
+provided details and appearance, including writes by legacy naming/fiscal routes.
+No change to these values means no revision increment. Country stays immutable.
+
+`argus_private.business_workspace_commands` stores `(actor_id, operation,
+command_key)` as its primary key, normalized JSON payload, target `space_id` and
+creation time. Operations are create/save/upload. Current permission is required
+before replay. Actor FK cascades remove transient command metadata on account
+deletion; Business FK cascades remove it on Business purge. This ledger is not
+membership authority or historical document custody.
+
+`argus_private.business_workspace_assets` stores server-minted asset ID, Business
+FK, normalized source SHA-256, bounded width/height and creation time; the Business
+and digest pair is unique. It records staged and formerly selected source assets
+until Business purge, independently of current appearance. Both new tables enable
+RLS, revoke all client privileges, and grant service-role SELECT/INSERT only.
+
+Images use the existing private profile-images bucket, under the exact
+`business/{space_id}/identity/` prefix. Flat source keys include the normalized
+byte digest; render keys include that digest and versioned normalized crop recipe.
+No image data URL or signed URL is persisted. Sources normalize to at most 1280 px;
+renders are 512 px; each stored WebP stays at most 1 MiB and contains no upload metadata.
+The invoice logo at `business/{space_id}/256.webp` and personal photos are unchanged.
+Saved reset/crop changes do not destroy historical assets immediately. The existing
+Business purge erases all identity objects before deleting metadata, including
+unreferenced blobs from failed transactions, with retry-safe paginated deletion.
+Storage absence holds purge while assets or identity objects remain. Account
+retention keeps assets with their Business; the existing detach rule still precedes
+a person's storage deletion. No new hosted bucket or configuration is required.
+
+### Profile photos and Business logos
+
+`20261021040000_profile_images.sql` adds the private `profile-images` Storage
+bucket (`image/webp` only, 1 MiB) and two server-only tables with RLS and no
+client grant: `profile_photos (user_id primary key → auth.users on delete
+cascade, sha256, updated_at)` and `business_logos (space_id primary key →
+spaces on delete cascade, sha256, updated_at)`. A row means the subject has a
+picture; the picture is the object at `people/{user_id}/256.webp` or
+`business/{space_id}/256.webp`, a path the server derives from the key, so the
+row stores no path. The server re-encodes every upload to one 256 px WebP
+square rebuilt from pixels, so no EXIF, GPS, ICC or XMP data is stored, and
+`sha256` is that object's digest; it versions the signed URL. Only the service
+role reads the rows or the bucket; readers get a signed URL (about an hour)
+from the API, which answers the visibility rule: a person's photo to that
+person, and to a Business owner whose access list names them once the person
+has dismissed their access line (their `access_seen` receipt); a logo to the
+Business's owner and live members. The `spaces` row is unchanged. The row goes
+with its auth user or space; the object does not: account deletion erases
+`people/{user_id}/` and `business/{space_id}/` for every space the person
+created in its `storage` step (`spaces.created_by` cascades with the user). A
+Business that account deletion retains has already moved to its record
+custodian by then, so its logo stays with it. The day-30 purge erases
+`business/{space_id}/` before it deletes the space row, retries a failed erase
+with the graph intact, and holds while a logo row exists without picture
+storage.
+
+### Business receipt reading consent and attention
+
+`20261014130000_business_receipt_reading_activity.sql` adds server-only `business_receipt_reading_consents`. Each generation records the Business, affirmative owner, scope version, displayed disclosure, disclosed configured route and accepted time. Revocation ends that generation. `20261103040226_business_receipt_reading_scope_2.sql` widens the scope check from 1 to 1 or 2 and changes no row. Scope 2 is the one sentence the Recepción card shows; `SCOPE_VERSION` in `src/argus/domain/business/receipt_consent.py` names the current scope. A generation of an earlier scope reads as off, and every read bound to it is refused, until the owner accepts the current sentence. That acceptance revokes the earlier generation and records a new one. `business_receipt_consent_commands` records every scoped enable, no-op and disable key/hash under the owner lock. Replays cannot override later choices. Existing channel-specific consent does not backfill it. DocumentDraft JSON captures `business_reading_consent_id` at capture or explicit backlog/recovery queue. Dispatch and result use validate that generation, current route and original grant.
+
+This table is the only Business reading consent. Two earlier migrations stay in the repo because staging already applied them, so a fresh database and staging run the same files in order and end identical. `20261014090000_business_email_receipt_reading_consent.sql` created a per-address `business_email_ai_consents` table and a unique index `business_email_routes_consent_key` on `business_email_routes(id, space_id, principal_id)`. `20261014120000_business_ai_consents.sql` drops that table, its trigger function and that index, and adds `business_ai_consents`, a per-Business owner setting (service role only, RLS with no policies). No code reads or writes `business_ai_consents`. It is empty, superseded by `business_receipt_reading_consents`, and must not gain a reader.
+
+`business_receipt_read_states` stores `(space_id,person_id,connection_id)` and the exact server completion cursor. It stores no money, review facts or source text. An acknowledgement under the live read grant locks and rechecks the canonical record before changing only that person's boundary. `business_receipt_activity_baseline` records the migration time. Completions established before it start read without changing receipt content. New completions on old receipts remain unread. Tables have RLS with no direct client grants; only the existing service-role backend mutates them.
+
+### Business email daily receiving allowance
+
+`business_email_daily_usage` is server-only, with RLS and no client grants.
+Its primary key is `(route_id, day)`, where `day` is UTC and the immutable,
+unique route owns the receiving address. `messages` counts admitted messages
+and later download retries. `bytes_used` includes completed response-body bytes,
+outstanding 10 MiB fetch reservations, and conservative charges for interrupted
+fetches. A route deletion cascades its usage rows, including account/space deletion.
+Migration `20261014133457_business_email_daily_budget.sql` adds this table and
+internal delivery budget day, message-lease and fetch-token columns. The delivery
+and daily counter changes share short transactions. New-row admission deduplicates
+before charging; a quota wait is durable pending work due next UTC midnight.
+Each fetch checks the live delivery lease; settlement consumes its exact fetch
+token once. A reclaimed or expired worker cannot refund a later attempt. Crashed
+reservations remain charged for their original day. No automatic release of an
+uncertain reservation grants additional download capacity. Byte reservations on
+subsequent days charge that day's counter. Policy comes from receiving settings;
+it is not copied into a client or route row.
+
+### Business read budget
+
+`business_read_daily_usage` is server-only, with RLS and no client grants.
+Its primary key is `(business_id, day)`, where `day` is the Santo Domingo
+calendar day and `reads` counts the provider reads the Business started that
+day, whichever channel the receipt came from (web, email, WhatsApp, "Leer de
+nuevo", a worker retry). The month's count is the sum of its days; no second
+column holds it. Migration `20261104201500_business_read_daily_usage.sql` adds
+the table. `src/argus/domain/business/read_budget.py` owns the budget: one
+transaction per read, under a per-Business advisory lock, reads the day and
+month counts and writes the day row only while both are under
+`CUADRAO_BUSINESS_READS_PER_DAY` (300) and `CUADRAO_BUSINESS_READS_PER_MONTH`
+(2000), so three reads starting at once never overshoot. It is charged at the
+one place a read starts (`DocumentsService.resume`, just before the provider
+is reached). Over the budget the receipt stays saved and unread with
+`error_code` `business_read_budget_day` or `business_read_budget_month`, and
+reads again only when a person asks while the budget allows. A space deletion
+cascades its rows. The in-memory store keeps the same rule for memory mode.
+
+### Business WhatsApp AI permission
+
+`business_whatsapp_ai_consents` is server-only, with RLS and no client grants.
+Migration `20261011100000_business_whatsapp_ai_consent.sql` binds each receipt
+through the existing sender-link composite identity to one Business owner and
+sender generation. It stores the consenting owner, actual grant/issuer, versioned
+purpose/disclosure, selected provider-route snapshot/hash, database timestamp,
+idempotency key/input hash and monotonic owner revocation. Identity and disclosure
+cannot be rewritten or directly erased; parent link/space/account deletion
+cascades without a retention exception. Service-role TRUNCATE is denied.
+
+The nullable immutable `whatsapp_inbound_messages.ai_consent_id` references the
+same consent/link/Business/owner/sender composite. Existing and unconsented rows
+remain null. A revoked receipt cannot be attached to a new capture, and an old
+capture cannot switch to a fresh opt-in. This keeps permission separate from
+financial facts, original evidence, action receipts, document extraction and
+Personal memory. No permission is created by migration or link establishment.
+
+## Import reconciliation
+
+### Hosted Business contract foundation (October 10, 2026)
+
+Migration `20261010223000_business_contract_foundation.sql` supplies storage
+and constraints for the assigned first hosted flow. Domain schemas live in
+`argus.domain.business.contracts`. Runtime adoption, live grants, model calls,
+web/WhatsApp wiring and money behavior are separate implementation work.
+
+`financial_import_events.resolution.business` is the sole current Business
+resolution, `{schema_version: 1, facts: BusinessFacts}`. Existing event `version`,
+`state`, `activity_id` and claim fields remain canonical. Typed facts preserve
+known, unknown and owner-does-not-know states with provenance. The legacy scalar
+projection is derived at adapters, including explicit nulls which mask prior
+extraction. Apply this projection after extraction selection, not through the
+legacy `event_facts.pick` fallback that treats null as absent. Unknown kind also
+masks direction, so old outflow evidence cannot silently become expense again.
+Never persist another current scalar draft, default an activity date
+from upload time, or infer account/tax/funding from missing input. The only
+default value is unverified DOP currency. Fiscal facts are evidence, not model
+tax decisions. Income is a distinct draft kind; expense acceptance does not
+establish delivery of all seven Business journeys.
+
+`financial_import_events.resolution.different_purchases` holds explicit
+same-Business receipt decisions, keyed by the comparison event ID. Each entry
+binds `self` and `other` hashes of normalized duplicate facts and live import
+evidence, plus `source_self` and `source_other` hashes of the attached source
+IDs, immutable source hashes and saved extraction batches. Human review sources
+and event versions/timestamps do not enter these hashes. Only an open target is
+changed; an accepted comparison and its financial record are read-only. The
+existing revision/source/action-receipt mechanism records who decided and which
+two versions they reviewed. Current evidence and live authority are checked again
+for replay and approval. A missing source verifier cannot validate a decision.
+Migration `20261023005500_business_duplicate_resolution.sql` adds only
+`resolve_duplicate` to the existing unplanned-command allowlist, preserving all
+older commands, tables, grants and row-level security.
+
+The resolution's `document_type` (`recibo` or `venta`) is the draft's current
+document type, and `document_type_detected` is true while the read's choice
+stands: the read compared the issuer RNC with the Business's own, or found no
+Business RNC to compare with and read a `recibo` the person may switch. A
+`recibo` the server fell back to with no issuer is a default and is not
+detected. The Business RNC is read when the draft is typed; setting it later
+types no existing draft again. The type is the one owner of purchase or sale:
+Registros' family, the Bandeja's 606 and 607 editors, month close's invoice or
+receipt role and the export's form all read it, never the kind or the saved
+declaration. The upload's own choice lives on `financial_document_extractions.draft`
+as `document_type`, null when the upload named none. A person's change is a
+normal revision on an open draft; the type is not stored on the revision row,
+whose web source holds the request that named it. No migration.
+
+The type owns purchase or sale. The resolution's `facts.kind`, when known, is
+a kind the type admits: `income` on a `venta`; `expense` or `refund` on a
+`recibo`. Every write keeps that true: a read, a review, a chat proposal and a
+typed note. A stated `income` makes a `recibo` a `venta`; a `venta` moves
+only by a named type change. A kind may stay unknown on a `recibo`
+until a person says it. Rows written before this rule may hold a kind the type
+does not admit. An open one is blocked from approval and stays so through any
+review that states neither a kind nor a type; a person's stated kind or named
+type settles it. An approved one keeps both values as they were approved. No
+migration.
+
+The resolution's `amount_derived` is true while the declaration's services or
+goods amount is the one the server works out from the confirmed Tipo de gasto,
+and absent otherwise. Every revision works that amount out again from its facts,
+so it follows the total and the ITBIS. A person's amount, or a change of type
+that drops the declaration, ends it. It stays on the resolution, off the
+declaration and the API, so no client reads or sets it. No migration.
+
+The resolution's `due_on` is the due date a person set in review: a date, or
+absent while it is unknown. No read, default or issue date fills it. A change
+is a normal revision on an open draft, and the draft locks it with the other
+facts once approved. Migration `20261020120000_business_due_on.sql` adds the
+nullable `business_draft_revisions.before_due_on` and `after_due_on` date
+columns, so each revision keeps the value before and after it. The table keeps
+row-level security with no client policy; anon and authenticated hold no
+privilege and only the service role reads and appends rows. Month close and
+open items read the date from the resolution, not from the revision.
+
+| Table | Durable owner and invariants |
+| --- | --- |
+| `business_bank_accounts` | Server-only, as are imports, lines and suggestions. Migration `20261022181300_business_bank_authorization.sql` removes client table privileges. The existing capability helper remains available for the separate consent policy. A binding insert or account/space change must reference a financial account in that Business with the same record custodian (`spaces.created_by`), independent of `current_owner_id`. Existing invalid rows stay stored and API bank preflight refuses them. The guard does not run when custody rewrites the account and space owners in one transaction. One bank account per Business space. `space_id` is unique. `account_id` references `financial_accounts`, checked at commit (`deferrable initially deferred`, `20261021065000_business_bank_accounts_account_key_deferred.sql`): an owner's account deletion cascades to `financial_accounts` before `spaces`, and the binding goes with the space in the same delete. Deleting the account while the binding exists is still refused. Keep 10 years. No delete API. |
+| `business_bank_imports` | One accepted statement upload. Unique `(space_id, imported_by, idempotency_key)`. `source_sha256` is the file bytes. Keep 10 years. No delete API. |
+| `business_bank_lines` | Immutable raw statement lines. Unique `(bank_account_id, occurred_on, amount, normalized_description, line_hash)`. `raw_line` is the source cells. Updates are refused. Re-import returns the existing row. Keep 10 years. No delete API. |
+| `business_bank_line_outcomes` | One live outcome per bank line (unique `line_id` where `ended_at` is null): `match` to one recorded document (`target_kind`, `target_id` = activity id) or `no_receipt` with `reason` (`cargo_banco`, `entre_cuentas`, `compra_informal`, `personal`). One live match per document (unique `(space_id, target_id)` among live matches). A match stores the settlement it replaced (`prior_*`) and the one it wrote (`applied_*`); a trigger on `business_document_settlements` refuses any other settlement while the match is live. Ending sets `ended_at`, `ended_by`, `end_key` once; the row stays as history. Other updates and direct deletes are refused (`business_evidence_immutable`); account deletion nulls `created_by` and `ended_by`. Unique `(line_id, create_key)` for idempotency. Row-level security with no client policy; service role only, with select, insert and update and no delete or truncate (`20261021060000_business_bank_line_outcomes_no_delete.sql`, as the other bank tables). Migration `20261020210000_business_bank_line_outcomes.sql`, which also turned each `confirmed` suggestion into a live match with its settlement and set it back to `pending`. Keep with the Business record. |
+| `business_bank_suggestions` | One offer per line and target. `target_id` is the recorded activity id of the receipt (expense) or venta (income). Status is `pending` or `declined`; a suggestion reads `confirmed` while its line holds a live match to its target. A declined row is how that pair stays out of later offers. Score parts are the historical offer. Confidence is derived, not stored. Import and the movements read store new pending offers. The movement state (`igualada`, `sugerencia`, `falta_comprobante`, `no_lleva_comprobante`) and the bank coverage date (the newest line date per account) are derived on read, not stored. Keep 10 years. |
+| `business_client_grants` | Canonical accepted membership: stable ID, Business, grantee, issuer, `business_role` (`owner`, `admin`, `editor`, `viewer`), creation/expiry/revocation and `membership_version`. `capabilities` is a trigger-derived legacy projection, never a second authority. Multiple Owners are allowed; active Owner grants cannot expire. Revocation is terminal. Membership mutations write the Business serialization version and a deferred constraint preserves at least one Owner for an open Business, including concurrent direct SQL under read committed and repeatable read. |
+| `business_access_invites` | Explicit recipient acceptance for all new roles and accounts: Business, actual issuer, lowercased email, optional known `recipient_id`, `requested_role`, seven-day expiry, acceptance/grant and revocation. `target_grant_id`/`target_version` bind a pending upgrade to an unchanged membership. `supersedes_id` binds an expired resend to one new generation. Accepted/revoked rows and expired generations cannot revive. `delivery_state` preserves pending/sending/accepted/failed/not_configured/uncertain independently of membership acceptance. While public account access is closed and `CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED` is true (default false), a pending row on an open Business admits exactly its `email` to sign-up and sign-in, and the accepted grant admits it until revoked or the Business closes (section 6). Existing server-only RLS remains. |
+| `business_consent_acceptances` | One row per person (`user_id`) and wording (`copy_version`, 16 hex characters the web derives from the words a person accepts: title, body, opt-in and Continuar, in Spanish and English) with the Business they worked in (`space_id`) and the database's `accepted_at`. Never edited. Row security: a signed-in person reads only their own rows and inserts only their own row, naming a Business they hold a live grant on, without choosing the time; the API writes as the service role. Deleting the person or the space cascades the row. Migration `20261019050000_business_consent_acceptances.sql`. |
+| `business_sources` | Stable source identity and idempotent `(space_id, source_key)` for one original message, attachment, agent proposal or human `web_action`. Web actions require channel `web` and retain immutable canonical submitted command text, with server-derived source key and actual `member_set` provenance. Direct source updates/deletes fail; owning connection/client deletion cascades through source links and answered questions under the existing deletion policy. Message/proposal/web-action text is immutable; attachment references the existing source connection rather than copying bytes or extraction. A composite FK prevents another space's connection. |
+| `business_draft_sources` | Many-to-many source relationships pinned by composite FKs to the same client as the canonical candidate. No facts. |
+| `business_draft_revisions` | Append-only `(draft_id, version)` before/after typed fact snapshots, actual actor and grant/issuer display provenance, source IDs, optional turn key and timestamp. Every source ID is checked and locked against the same client on insertion. They are readable history, never an alternative current draft. Updates and direct deletes fail; deletion of the owning candidate/space cascades. |
+| `business_questions` | Stable field question, recipient, channel, prompt, allowed answer states and answer-source reference. An owner-does-not-know answer requires its source and moves recipient to accountant. It does not trigger another owner question. Composite FKs scope draft and answer source. Deleting the owning source cascades the answered question instead of clearing its provenance. |
+| `business_notifications` | Migration `20261104074419`. UUID `id`, `business_id` referencing `spaces`, `recipient_user_id` referencing `auth.users`, `kind` (`invitation_received` or `new_sender_waiting`), UUID `subject_id`, and `created_at`, nullable `read_at` and `resolved_at`. Both foreign keys cascade on deletion; notifications are personal state and never move to custody aliases. The unresolved `(business_id, recipient_user_id, kind, subject_id)` tuple is unique. Server-only table: all privileges revoked from `anon` and `authenticated`, with RLS enabled. The API scopes reads and read-state updates to the caller; server writers create and resolve rows. Reads include unresolved items and items resolved within 30 days, newest first. No notification text or delivery credentials. |
+| `business_search_recents` | A member's recent Business searches: `space_id`, `user_id` (the member, owner or grantee), the query as typed (1 to 512 characters), `query_key` (the query folded as search folds it) and `searched_at`. Unique `(space_id, user_id, query_key)`: searching again replaces the text and moves it to the top. The API keeps the 10 newest per member and Business. Row security on, no client grants; only the service-role API reads and writes, for the signed-in member in the Business their live grant names. Deleting the member or the space cascades the row. Migration `20261020200000_business_search_memory.sql`. |
+| `business_search_opens` | Records a member opened from a Business search result: `space_id`, `user_id`, `kind` (one of the search lists), `record_id`, `opened_count` and `last_opened_at`, primary key `(space_id, user_id, kind, record_id)`. `record_id` is not a foreign key: a record gone from search simply ranks nothing. Search ranks that member's opened records first. The API keeps the 200 most recently opened per member and Business. Row security on, no client grants; same owner, cascade and migration as `business_search_recents`. |
+| `business_fiscal_observations` | Server-only immutable semantic evidence from response, authenticated callback, exact-ID poll, artifact read or unknown contact. Ordered identity key, source and digest dedupe, sanitized code/body hash, private artifact locators, applied/quarantined disposition and optional composite `(operation_id,space_id)` foreign key. At most 256 observations per operation and 1000 unmatched quarantine rows through the service. No raw body, free-text diagnostic, bearer, actor or callback-selected Business. Business/operation purge cascades; unmatched callbacks remain bounded quarantine. One pure projector derives statuses; no mutable provider-status copy. |
+| `business_invoice_commands` | Business plus command key uniquely binds the canonical request digest and immutable result. Transaction advisory lock serializes retries independently from optimistic version checks. Server-only RLS with no client access. |
+| `business_invoice_revisions` | Immutable UUID revision with invoice/Business/version, optional same-Business customer FK, full partial editor input and exact server amounts or null. Unique invoice/version. Updates are refused. Customer edits never rewrite revisions. |
+| `business_invoices` | Stable Business-owned UUID and current version. One optional unique same-Business fiscal operation binds immutable issuer/customer/revision/payload snapshots. Preparation and operation insertion commit together. Once prepared, the aggregate cannot be updated. Draft save adds a revision with compare-and-set under lock. No payment, delivery-send or schedule state is fabricated. |
+| `business_customers` | Business-scoped UUID customer, versioned complete contact data, archive flag and timestamps. Archive preserves every invoice snapshot. Server-only RLS; live membership is checked in every API transaction. |
+| `business_fiscal_operations` | Synthetic sandbox operational intent with stable `(space_id,document_key)`, pinned manifest case/payload/fixture hashes, immutable account/company/issuer/type/number, preparation/approval provenance, first-contact token/time, first validated external ID and bounded read-only reconciliation attempts/lease. Unique issuer/type/number and company/type/number identities cross actors and Businesses. Contact cannot reset and external ID cannot be replaced. Server-only RLS and no browser-role privileges. `spaces` cascade handles Business purge; nested actor provenance is included in the existing audited custody/departure inventory, with Auth deletion blocked until detached. No balances, financial acceptance or invoice-number allocation. Migration `20261024095154_business_fiscal_sandbox_operations.sql`. |
+| `business_sender_leases` | One durable holder, monotonic fence and expiry per `(space_id, sender_hash)`. Runtime acquisition/renewal/release must lock this row and check the fence before committing. |
+| `business_turns` | Globally deduplicated provider turn key, scoped actual actor/sender, arrival order, phase, model state, immutable typed normalized plan, active lease fence and reply text. A completed model interpretation requires its plan and server-derived `plan_actor: ActorProvenance` snapshot, present together and immutable together, with matching actual actor ID; completion/reply phases require the plan. |
+| `business_action_receipts` | Unique `(space_id, actor_id, idempotency_key)` and `(turn_key, action_index)`, canonical input hash, normalized command, immutable actual `actor: ActorProvenance` snapshot (including human commands without a turn), and typed result. Snapshot actor ID must match the receipt actor. Human `review_draft`, `approve_expense`, `approve_income`, `reopen_draft` and `capture_note` commands, and trusted `prepare_attachment` commands bound to the stored preparation binding, may omit a turn; agent commands require a persisted plan. Agent receipts require the matching action in an already persisted plan of the same client and actor, with identical plan-actor provenance. Identity/command/hash cannot mutate. A settled result cannot change; unknown results allow explicit reconciliation. This is action execution recovery, not another financial ledger. |
+| `business_dgii_export_lines` | One row per 606 or 607 line per download of a DGII TXT, so a line downloaded twice has two rows: `space_id`, `activity_id`, `form`, `period` (`YYYYMM`), `actor_id`, `exported_at`. Written by the export in the same transaction that reads the declarations and builds the packet, under the Business's owner advisory lock (the one every review write takes), only for a form whose TXT shipped (`prepared_candidate`): a 606 write that runs alongside lands before the build and the TXT carries it, or waits and the next export carries it. A record of what each export contained, by record and form, not by value: Registros reads it to mark a record `exported`, and a row refuses no edit. Append-only, service role only. The key to spaces restricts and the purge deletes these rows with the other money rows; deleting the activity cascades them; the actor reference clears when that person is deleted. Migration `20261101010000_business_dgii_export_lines.sql`. |
+| `business_document_settlements` | One row per recorded activity in one Business (`space_id`, `activity_id`). Status, settlement date, and payment method only. Amounts, ITBIS, RNC, and the fiscal number stay on the activity and its draft. A pending row has no date and no method. A settled row has both, and the status has to match invoice or receipt. Deleting the activity cascades the row; deleting the space is refused while the row exists (`20261101000100`). Both owner keys are custody-deferred: account deletion moves `owner_id` to the record custodian with the Business, and the day-30 purge deletes the row itself before the space. |
+| `business_document_settlement_revisions` | Append-only previous status, date, and method, plus the actor and the time. A repeated identical settlement writes no row. Updates and direct deletes fail. Deleting the settlement cascades these rows. The actor reference clears when that person is deleted. The month summary is computed, not stored. Shapes and the closed rule are in the [month-close contract](contracts/business-month-close.md). |
+
+Migration `20261011070000_business_manual_capture_command.sql` extends only
+the action-receipt checks to admit human `capture_note` commands without a turn.
+A capture requires actor kind `member` and null `turn_key`/`action_index`; it
+cannot be a planned agent action. The typed command is
+`{action: "capture_note", request: {text, draft?: {draft_id, version}}}`.
+Original text uses an existing immutable `business_sources` message with channel
+`web`, not a second manual-note store. The source key and ID come from the server.
+Its capture receipt outcome identifies the canonical draft and exact immutable
+revision whose sole source ID identifies that note. Receipt actor/grant/issuer
+metadata and revision history retain attribution without rewriting source text.
+Runtime must atomically persist the receipt, original source, candidate/link and
+revision under a live prepare grant. A new candidate has unknown facts except
+unverified default DOP; an append preserves facts and open questions. Neither
+path writes money, manufactures a turn, grants consent or amends accepted records.
+Existing source lifecycle, receipt immutability and client privileges are unchanged.
+
+Migration `20261018220000_business_dgii_period_export.sql` adds only nullable
+columns to the existing owners. `spaces.business_rnc` holds the owner's explicit
+nine-digit RNC or eleven-digit cédula. Existing server-only RLS and client revocations
+also protect this column. Migration `20261019070000_business_fiscal_profile.sql`
+adds `spaces.business_tax_id_type` (`rnc` or `cedula`) on the same row. The pair
+constraint requires both null, or digits whose length matches the type and which
+are not all zero. A value already stored as 9 or 11 digits receives the matching
+type. The Business name remains `spaces.name`. Profile changes stay on the existing
+action receipt, which already records the actor and the time. No second name,
+tax-id, or history table is added. `business_draft_revisions.before_dgii` and `after_dgii`
+retain immutable typed declaration snapshots alongside the existing facts,
+actual actor, grant, source IDs and version. Current additional tax fields live
+only in `financial_import_events.resolution.business.dgii`; canonical fiscal
+identity and ITBIS remain in `BusinessFacts.fiscal`.
+
+Migration `20261021020000_business_country.sql` adds `spaces.country` (`DO`,
+`US` or `CA`, default `DO`) and `spaces.currency` (ISO 4217, three upper-case
+letters, default `DOP`). The check constraints and the
+`business_country_immutable` trigger, which refuses an update that changes
+`country`, apply to `kind = 'business'` rows only, so a later Personal or
+Household space row carries no fiscal country. The server sets `currency` from the country when
+the space starts. Existing rows are `DO` and `DOP`. The registry
+`argus.domain.business.country` is the one owner of what each country implies,
+and a test keeps the `business_country_known` check equal to its codes. The
+person's profile `home_country` never decides a Business. See the
+[Business country plan](specs/business-country.md).
+
+The existing human `ReviewCommand` carries the tax input. It updates the current
+resolution and appends one source-linked revision atomically. Every later
+revision preserves the declaration. Owner approval binds the reviewed revision.
+When the draft holds no declaration, or one whose Tipo Id or Forma de Pago is
+unknown, an expense approval appends one revision at the next version with the
+606 declaration built from the reviewed facts, or the saved one with only those
+two filled in; its expense type stays unknown and its payment form is known
+only from the Business account that paid. If the money write then fails, the
+reopened draft appends one revision that puts the declaration back as it was
+before the approval; if it cannot, the next approval writes from that earlier
+declaration. The export reads the reviewed revision's facts and the declaration
+from the latest revision, then checks current money amount, date and currency.
+On an accepted record the same `ReviewCommand`, carrying only the 606 fields or
+only a sale's 607 payment split, appends one more revision, before or after a
+downloaded DGII TXT carries the record's line
+(`business_dgii_export_lines`, migration `20261101010000`), and the next export
+carries it; the recorded facts stay refused. The tipo de gasto suggested for an RNC has no column: the dossier
+reads it from the declarations in this Business through
+`financial_import_events.business_rnc`, and a typed purchase is a draft with
+`receipt_state` `no_receipt` and no declaration. No second tax ledger or fiscal approval bypass is added. New human-only action receipt
+types `approve_refund` and `set_business_rnc` retain the existing immutable actor,
+command hash and idempotency rules. The migration uses five-second lock and
+60-second statement timeouts. It creates no table, role, policy, client grant or
+environment setting.
+
+All new tables have RLS enabled and no client policies, with anon/authenticated
+grants revoked. Only the server projects authorized dossiers and original
+sources. The existing import event and observation SELECT policies now permit
+only Personal rows. Business rows, including creator reads, use the server's live
+grant boundary; Personal owner access is unchanged. Scope foreign keys prevent cross-client links even for service writes;
+they do not replace live domain authorization. New records cascade with the
+existing source/client lifecycle. Revision actor/grant snapshots remain stable
+when a grant is revoked. No new retention exception or grant-issuance policy is
+implied by the schema.
+
+Every domain mutation rechecks the live grant and expected canonical version
+inside its transaction, then atomically updates resolution, revision, affected
+questions/source links and action receipt. Grants are never cached authority. A persisted provenance snapshot records the original grant; resume rechecks that same grant live and cannot substitute another grant or infer history from current grants.
+The agent's actor kind only receives read/prepare even if the represented human
+has approve. Approval must be a human command bound to the reviewed version.
+For the existing reconciliation acceptance path, the permission/version check
+and acceptance claim share a transaction; MoneyService runs after that claim
+commits. The stored canonical request/key owns idempotent effect recovery, not
+a claim of one cross-service SQL transaction. Owner funds creates one expense
+without a Business bank debit and leaves capital/debt classification unresolved.
+Post-recording correction is unsupported in this slice.
+
+Migration `20261101020000_business_records_with_no_funding.sql` replaces
+`financial_records_funding_shape`. A row with no account still needs
+`owner_space_id` and `currency`. It is now an expense with `funding` `owner_funds`
+or null, or an income with `funding` null. Null means nobody stated how it was
+paid, and no word stands for it. Every other kind keeps its account. Every row the
+old check admits passes this one. The migration uses five-second lock and 60-second
+statement timeouts, and it scans the table under the lock. `owner_funds_postgres.load`
+is the one reader of `account_id is null` rows, and the canonical group loader
+skips them. An API from before this change loads no null-funding row: the row
+stays stored and leaves every read until the API rolls forward, so the loader
+ships with or before the first such approval.
+
+Migration `20261011110000_business_income_command.sql` extends the current
+`business_action_receipts_unplanned_command` constraint supplied by manual
+capture migration `20261011070000_business_manual_capture_command.sql`. It keeps
+`review_draft`, `approve_expense` and `capture_note`, and adds `approve_income`.
+The additional income constraint permits only actual `member` receipts without
+turn key or action index. Turn pairing, capture's human-only constraint,
+immutable actor/issuer/grant/command/hash, settled outcomes, RLS and lifecycle
+constraints are unchanged; no table, foreign key or client privilege is added.
+
+`IncomeApprovalCommand` stores the explicit `record_income` request and exact
+reviewed version. Its current facts remain `resolution.business`; the existing
+candidate acceptance claim and persisted canonical money request own recovery.
+No model action gains approval authority. Actions must recheck the original
+live grant and reviewed revision, require an explicit same-client receiving
+account, preserve income kind through the sole MoneyService and settle one
+canonical effect. Contract storage alone does not establish that income
+execution/readiness adapters have been delivered. Existing expense commands
+and their canonical hashes retain their behavior.
+
+Worker recovery consumes the persisted plan and receipts rather than asking the
+model to reinterpret a partially executed turn. Runtime compares normalized
+input hashes on replay and rejects changed input. Sender order and lease fences
+must be enforced by the worker/domain transaction; storage alone is not proof
+of those implemented behaviors. Model or reply `unknown` outcomes require
+reconciliation, never blind retry. Lease rows must retain their fence across
+release so replacement workers cannot reuse an earlier fence.
+
+The version-1 plan also accepts an additive server-owned existing-draft binding,
+`{draft_id, base_version}`. Dispatch captures it from authorized canonical context;
+all actions targeting that draft must use the identical binding, without mixing
+exact-version references. The first operation uses the captured base version.
+Later operations derive their expected version only from successful immutable
+receipts whose command contains that same binding in the same turn, client and
+actor. Missing, failed, unknown, mismatched or regressing results cannot advance
+the binding. Current-record checks still reject an intervening external revision.
+The stored command and hash retain the base binding, never a rewritten resolved
+version. Existing exact-version references and creation-only `from_action`
+references keep their prior semantics and replay. This changes no table, grant,
+approval contract or ownership of current facts.
+
+### Existing ingestion persistence
+
+`financial_document_extractions` owns the durable draft, the immutable preparation
+delivery checkpoint and the reference to the retained source, keyed by the
+existing statement connection. It is not a second ledger. `draft` stores source
+metadata, consent, preparation status, version and destination
+or split proposals. `batch` holds typed observations, receipt itemization,
+projection issues and compatible canonical candidates. It may be null before
+preparation. `preparation_job` names the current preparation attempt (number,
+ID, the draft version it was dispatched for, dispatch time, when its provider
+call started, a retry request, and `reruns`). Every read goes through it: no
+setting leaves a read outside the attempt record.
+`reruns` counts the paid attempts of this preparation the sweep started because
+an earlier attempt died past its provider-call time with no saved batch; it
+bounds them at one (`MAX_RERUNS`). It is omitted from the JSON when zero, so a
+row written before it or by a preparation that never needed it is unchanged,
+and the owner's "Leer de nuevo" starts a new preparation with it at zero. A
+reader older than the field rejects a row that carries it (the model forbids
+unknown keys), so a rollback leaves a receipt mid-rerun to "Leer de nuevo".
+The dispatch time stays null until a puller (the worker command, the only
+reader) takes the attempt, so a null means it waits in the queue; the take is
+one row update under a database lock, which is how `CUADRAO_DOCUMENT_JOBS_MAX_READS`
+holds across every puller.
+Only that attempt may claim the draft. The provider-call time is committed
+under the attempt's live lease before the provider can be reached. The job is
+replaced together with the draft only while no lease is live. Legacy rows can have a batch without retained source; a duplicate
+upload can attach that source without changing the frozen batch.
+
+Before a newly extracted batch is saved, NUL characters in extracted string
+values are replaced with U+FFFD so the JSONB write succeeds. A changed batch
+records `metadata.text_cleaning.nul_replacements` as the number of replacements.
+An unchanged batch has no cleaning marker. The retained source bytes and their
+SHA-256 stay unchanged. Replacement does not join damaged amount or fiscal
+identifier digits into a valid value. Existing fiscal validation still applies.
+
+**Business preparation binding (`20261011194500`).** The existing `financial_document_extractions` row has an immutable optional `preparation_binding`. It names the binding ID, Business/owner, source connection and SHA-256, captured extractor provenance for the actual preparing human and exact grant/issuer, explicit target (`null` means create), affirmative per-document consent and capture time. This is not a new permission or consent policy. Later consent withdrawal still blocks completion.
+
+A bound extraction's saved batch cannot be replaced or cleared. A `prepare_attachment` action receipt requires a nonnull batch on the exact bound document. The service validates that JSON as `ExtractionBatch`, recomputes its digest with the existing canonical input encoder and compares the caller checkpoint before writing. SQL enforces linkage and immutability; it does not independently hash Python canonical JSON or authorize completion. The command stores that digest and the original binding, including explicit `target: null`; the existing receipt input hash covers the full command.
+
+One existing Actions transaction locks the connection/document, checks the original live grant/issuer, owner/Business, source, consent, lease and exact target, then writes the canonical draft revision, source link and settled receipt. It rechecks completion conditions before commit. The original authority and saved-batch identity are never replaced on retry. There is no Money posting, new ledger or inferred legacy conversion. PostgreSQL checks stored source availability/reference and inline legacy bytes; it cannot make an external Storage object's existence atomic with its transaction.
+
+
+**Retained source objects (#778, `20261008100000`; Lane 06B, `20261016180000`).**
+One `financial_document_extractions` row still represents one document connection.
+New originals live at `sealed/{user_id}/{original_sha256}` and rebuilt copies at
+`rebuilt/{user_id}/{original_sha256}` in the private `financial-document-sources`
+bucket. Only the service role reaches the bucket. Same-owner connections may
+share an object. Writes never overwrite bytes; identical retries are no-ops.
+Existing `{user_id}/{connection_id}/{sha256}` objects remain in place.
+
+The row retains `source_bucket`, `source_path`, `source_media_type`,
+`source_size_bytes` and `source_sha256`, all set or all null. The additive
+migration accepts legacy and sealed paths. New `rebuilt_bucket`, `rebuilt_path`,
+`rebuilt_media_type`, `rebuilt_size_bytes` and `rebuilt_sha256` are also all set or
+all null. The rebuilt path uses the original digest; `rebuilt_sha256` verifies the
+actual rebuilt bytes. Checks bind both references to the owner, digest, allowed
+media types and 1 to 10 MiB size limits. Legacy `source_bytes` remains unchanged
+and is verified against the draft digest on reads. Non-image legacy sources may
+still download from inline bytes; images require a rebuilt copy. No existing
+objects or inline bytes move in this migration.
+
+User downloads and attachment exports select verified originals for PDF, text,
+CSV, XLSX, XML and EML, and verified rebuilt JPEGs for PNG/JPEG images. Lane 06C's
+bounded helper builds a missing image on its first download; later downloads
+reuse the stored copy. Originals always remain retained. There is no bulk rebuild
+and no original-image fallback. Conversion runs outside export snapshot locks;
+permission and source identity are rechecked before release. Existing extraction
+and email retry readers keep verified original access. Original reads identify
+their storage reader in logs; integrity mismatches log and fail closed. A separate
+service-role audit response remains a held contract item, not a new endpoint.
+
+Capture commits a pending reference before the external write, then publishes
+availability after the upload and capture hook commit. Pending sources are not
+queued for extraction. A crash leaves a reference that retry or disconnect can
+find. Owner advisory locks serialize writes and last-reference deletion. A
+copy shared by another connection remains until its last reference is removed.
+Disconnect deletes both copies and the legacy connection prefix before deleting
+the row; failure preserves the reference for retry. Account deletion's unchanged
+owner-prefix call expands to legacy, sealed and rebuilt prefixes. Row deletion
+also removes legacy inline bytes. No
+path deletes confirmed financial activity. Draft updates compare versions, and preparation completion
+checks the connection lease. Duplicate capture cannot replace a source or reset
+an attempt. A persisted in-flight state bounds automatic work after an uncertain
+process loss to one paid rerun (`reruns`); after that only the owner starts a
+read. Queued work waits on its row until a puller takes it; frozen candidate
+delivery can repeat without another model request. The row, not any process,
+is the source of durability.
+
+Preparation status is `saved|queued|preparing|review_ready|needs_attention`.
+Approval state remains in reconciliation events. The immutable batch retains receipt
+`payment_status` and separate final `tax` and `estimated_tax` values. Payment
+status is evidence only: an unpaid read still projects its purchase, and the
+Business draft keeps the amount unverified. Older saved batches keep their stored
+candidates and are not backfilled or automatically prepared again. Valid observations can project
+independently while incompatible observations stay on the draft with issues.
+Opening/running scopes and unknown scopes remain reviewable preparation evidence
+without being relabeled into the narrower canonical candidate scope enum. Receipt
+items, tax/service, tip and totals do not independently create financial records.
+Destination/payer/participant/item assignments remain private proposals and grant
+no access or sharing. Canonical Plan owns authorization and fixed currency;
+MoneyService owns confirmed financial activity.
+
+Default-off with `ARGUS_INGESTION_ENABLED`. Lane spec:
+[financial-ingestion-connectors](specs/lanes/financial-ingestion-connectors.md).
+None of these rows is a financial record or affects balances.
+
+- `financial_import_observations`: one row per `(user_id, connection_id,
+  external_id)`; the contract candidate JSON (bounded, inert text, attachment
+  references only), its content fingerprint, revision count and `live` flag
+  (false when the source removed it or a newer observation superseded it).
+  Cascades with its connection and its event.
+- `financial_import_events`: groups observations of one real-world fact; holds
+  state, the person's `resolution`, attention, possible duplicates, the match
+  anchor date, the accepting idempotency key and, once accepted, the recorded
+  `activity_id`. A check ties `state='accepted'` to a non-null `activity_id`;
+  a unique index allows one event per `(user_id, activity_id)`, so one purchase
+  cannot be recorded or linked twice. A partial unique index
+  (`financial_import_events_sale_ncf_idx`, migration
+  `20261021050000_business_sale_ncf_once.sql`) allows one accepting or accepted
+  sale (`facts.kind` income) per `owner_space_id` and normalized NCF or e-CF, so
+  two approvals of the same sale comprobante cannot both land. Three stored
+  generated columns (`20261101000200_business_purchase_comprobante_once.sql`)
+  project the Business facts the way the code normalizes them: `business_kind`
+  (`facts.kind`), `business_rnc` (`facts.fiscal.rnc` as its 9 or 11 digits,
+  spaces and dashes removed, null when every digit is zero) and
+  `business_fiscal_number` (e-CF before NCF, trimmed, upper case, null unless B
+  plus ten digits or E plus twelve). A second partial unique index
+  (`financial_import_events_purchase_comprobante_idx`) allows one accepting or
+  accepted purchase (`business_kind` not income) per `owner_space_id`,
+  `business_rnc` and `business_fiscal_number`, so two approvals of one
+  supplier's comprobante cannot both land in one Business; two Businesses may
+  hold the same pair. Receipts with no RNC or no comprobante keep the code
+  check on merchant, date, amount and currency. The approval maps the index
+  refusal to the `duplicate_comprobante` refusal with the record it collides
+  with. The migration stops with
+  `business_purchase_comprobante_duplicates_present` and changes nothing while
+  duplicates exist. The `(owner_space_id, user_id)` key to `spaces` is
+  `on delete restrict` (`20261101000100`): a Business event never goes with a
+  space delete; the day-30 purge deletes it itself before the space.
+- `financial_import_account_links`: person-confirmed mapping from
+  `(connection_id, account_key)` to an owned `financial_accounts` row
+  (owner-qualified foreign key); deleted on disconnect.
+
+All writes run in one per-person transaction under a transaction-scoped
+advisory lock. Registered owners may `SELECT` Personal imports; Business import
+events and observations are server-readable only. No client role writes. Proven
+by `tests/test_ingestion_reconcile_postgres.py`. On disconnect, unreviewed
+observations (and events left empty) are deleted; observations of accepted
+events are reduced to provenance (source, connection, external id, dates,
+status) and kept with the record.
+
+### Business closure lifecycle command history, draft October 18, 2026
+
+`20261021070000_business_close_lifecycle.sql` adds
+`business_lifecycle_commands`. One row stores the original result of one owner's
+close or reopen command, uniquely keyed by `(space_id, idempotency_key)`.
+The composite `(space_id, owner_id)` foreign key references the canonical
+`spaces(id, created_by)` and cascades with the space. Checks bind each action to
+its required exact-name confirmation and original closed/open result. Keys have
+1 to 200 characters and may not be whitespace-only. The table contains no email,
+receipt content, copied permission state or current financial facts.
+
+`spaces.closed_at` remains the only current closure state. Reopening clears it
+only before the single domain 30-day deadline; the command history is an
+idempotency record, never a second current-state owner. The server serializes
+commands under the existing owner and space rows. Original command results
+prevent delayed retries from changing later state. Existing grant rows remain
+unchanged. RLS has no client policies or grants, and `service_role` has only
+SELECT and INSERT on the command table. A space deletion removes its history.
+No new retention exception, purge execution or owner-deletion behavior ships in
+this bounded domain slice.
+
+### Business canonical membership and invitation migration
+
+`20261025182039_business_membership_roles.sql` maps existing active legacy grants
+without inventing historical acceptance: legacy anchor plus approve becomes
+Owner, prepare becomes Editor, and read-only becomes Viewer. No collaborator
+gains management or approval. Expiring active Owners fail preflight. An open
+Business with no grant history may receive its preexisting implicit anchor Owner
+grant only for a valid, non-anonymous, unbanned identity outside deletion
+admission. Any membership history prevents this backfill; an open Business with
+history but no live non-expiring Owner fails `business_owner_history_requires_review`.
+Neither backfill creates invitation acceptance, reading consent, AI consent, or
+moves financial rows. Revoked/demoted anchors are never healed by reads.
+
+`spaces.membership_revision` is only a serialization counter, not an Owner count
+or another authority. Writing it on membership mutation makes a stale repeatable
+read transaction abort instead of validating against an old membership snapshot.
+The service locks the Business before rechecking actor permissions and executing
+membership/acceptance commands. The database's actual clock checks expiry after
+lock acquisition. Role loss invalidates that Owner's live consent generations;
+new membership never creates consent.
+
+`argus_private.business_invitation_commands` owns per-recipient idempotency:
+primary key `(space_id, actor_id, command_key)` binds email, requested role and
+invitation generation. RLS is enabled; browser roles have no schema/table access.
+Business/actor/invitation lifetime deletion cascades command rows. Invitation
+recipient and upgrade-target identities do not cascade-delete invitation history.
+Known recipient IDs are checked against Auth or the Business's existing retained
+actor aliases. Auth deletion refuses unresolved recipient references. The existing
+custody/departure path first cancels pending invitations, then replaces the
+recipient with its scoped alias through the exact authorized identity map.
+Arbitrary identity changes, null rebinding and issuer rewrites are refused.
+Accepted invitation history survives member deletion; a replacement email account
+cannot accept or list it. No new public table is introduced. A committed `sending` marker precedes transport; sending or
+uncertain outcomes do not auto-retry, even if the process died before sending.
+Known rejection can retry and accepted sends converge. SMTP exactly-once delivery
+is not asserted.
+
+Legacy record custody, source IDs, object paths, retained documents and historical
+action provenance stay unchanged. The one-open-default-Business creation limit,
+legacy anchor-only transfer admission and existing account-deletion custody guards
+remain. Reverting application code alone after applying the schema is unsafe:
+older code can auto-accept invitations and cannot interpret all canonical roles.
+Hosted migration and any forward rollback require separate authorization and
+review of pending invitations and active grants. This PR supplies local proof only.
+
+### Business current owner and transfer commands, draft October 18, 2026
+
+The forward migration `20261021080000_business_current_owner_transfer.sql`
+separates `spaces.current_owner_id`, now the legacy default/transfer anchor,
+from `spaces.created_by`, the unchanged record custodian. Canonical active Owner
+membership now supplies ordinary authority. The new owner column is
+backfilled, indexed, nullable only for a closed Business and references Auth
+with SET NULL. The one-open-Business unique index uses current ownership.
+The legacy financial composite custody keys are unchanged.
+
+`business_ownership_transfers` stores the Business lifetime key, original owner,
+target person and existing grant, exact-name confirmation, request key, pending
+or terminal state and timestamps. One Business has at most one pending transfer.
+The table has RLS, no client grants and only SELECT, INSERT and UPDATE for
+service_role. A trigger prevents command/history rewrites and terminal changes.
+Transfer actors deliberately have no Auth cascade. Their explicit anonymization
+is a remaining account-deletion requirement before this lane can be enabled.
+The lifecycle command owner is now historical actor provenance. Its FK names
+only the Business lifetime, so a new owner can close without rekeying old history.
+
+The model checklist covers both new persistence owners. Ownership and transfer
+commands are server-only. Current owner lookup and pending recipient queries
+have indexes. Replay and target acceptance are tested on actual Postgres.
+Financial values, record IDs, revisions, sources and object paths do not move on
+transfer. Historical consent stays attributed to its original person and is
+revoked. The current owner must consent separately. Private/client behavior,
+retention and account-deletion custody movement remain WIP, with global account
+deletion and lifecycle readiness still closed.
+
+### Business transfer expiry and mail, WIP October 18, 2026
+
+The transfer successor migration `20261021130000_business_transfer_mail_expiry.sql`
+adds immutable `business_ownership_transfers.expires_at`, exactly 168 hours after
+`created_at`, plus the terminal `expired` state. It preserves the scoped custody
+rewrite guard added by migration 20261021120000. GET computes deadline status without
+changing history; new requests close expired pending commands under the same
+Business lock.
+
+`business_transfer_mail_outbox` owns personal notification transport only. Its
+model checklist covers every new column. `id`, `transfer_id`, `variant`,
+`recipient_id`, `owner_id`, `target_id`, `recipient_email`, `context` and
+`created_at` identify one event and freeze its recipient and source facts.
+`first_attempt_at` and `payload` reserve the first send before provider work.
+`sent_at`, `provider_receipt`, `suppressed_at` and `uncertain_at` record its
+outcome. A unique transfer/variant/recipient key prevents duplicate journal rows.
+The transfer FK cascades deletion. Independent actor columns allow dependency
+checks even after canonical transfer history becomes anonymous.
+
+The table has RLS and no public, anon or authenticated privileges. Only the
+server service role can read, insert, update and delete. Its pending index
+supports recovery. No client policy exposes names, addresses or payloads.
+Custody cleanup deletes the Business's outbox before changing historical actors.
+The Auth deletion guard refuses unresolved outbox dependencies. Canonical
+transfer history survives anonymously; transport is not retained Business data.
+The complete account-deletion orchestration and lifecycle activation remain held.
+
+### Business custody copy reservations, draft October 18, 2026
+
+The forward migration `20261021090000_business_custody_object_manifest.sql` adds
+`argus_private.business_custody_reservations` and `business_custody_objects`.
+The first owns one dedicated placeholder ID and anonymous historical actor ID
+per Business, with creation and Auth-ready times. It stores no departed-person
+ID. The second owns source and destination object paths, hash, size, media type,
+creation and verification times. Its in-flight source path contains the outgoing
+identity until the future completion writer clears it.
+
+The model checklist covers both tables and all columns. Both have RLS and no
+public or client grants. service_role can SELECT, INSERT and UPDATE, and cannot
+DELETE or TRUNCATE. Business and reservation FKs use RESTRICT so deletion cannot
+silently lose a reserved/orphan-object purge plan. The source path key deduplicates
+work. A destination index supports purge discovery. No original path or canonical
+record is moved by this helper. Byte hashes and sizes are verified after readback.
+Media type is passed to Storage creation; the existing Storage protocol exposes
+no destination metadata reader, so destination media metadata is not independently
+verified. Full custody and privacy completion remain pending.
+
+### Transfer decline and automatic consent invalidation
+
+The forward migration `20261021100000_business_transfer_decline.sql` adds the
+terminal `declined` transfer state. It preserves immutable command history.
+The owner withdraws through cancellation. Recipient decline and withdrawal both
+end pending state and leave ownership unchanged.
+
+`20261021110000_business_consent_transfer_invalidation.sql` adds the indexed
+nullable `business_ai_consents.invalidated_by_transfer_id` FK. It identifies an
+automatic invalidation by an accepted ownership transfer. The original owner and
+consenting actor stay unchanged. `revoked_by` stays NULL because nobody issued a
+manual revocation command. A deferred trigger requires the linked transfer to
+be accepted for the same Business and original owner. Existing manual revocation
+keeps its original owner attribution. Existing table RLS and grants are preserved.
+This column is server-only, adds no client authority, and follows Business
+lifetime deletion. Its original owner identity still needs the pending deletion
+anonymization writer.
+
+### Business member departure aliases and day-30 purge, backend WIP October 18, 2026
+
+Forward migration `20261021140000_business_account_deletion_orchestration.sql`
+adds private `business_departure_aliases`. Its composite `space_id,actor_id`
+key identifies a Business-scoped historical actor with no Auth account or grant.
+`departing_user_id,deletion_run_id,claim_id,started_at` fence the exact identity
+rewrite to the live claimed account-deletion run. Verified Auth absence clears
+`departing_user_id,claim_id` and sets `identity_cleaned_at`. The anonymous actor
+survives until its Business is purged. The existing custody graph guard and
+transfer-outbox Auth deletion guard stay composed. No service or client role
+can write the alias table or invoke the privileged identity writer.
+
+Forward migration `20261021150000_business_closed_purge.sql` adds private
+`business_purge_runs` and `business_purge_objects`. `id,space_id,closed_at`
+identify one purge and its original deadline. `status,claim_id,claimed_until`
+serialize the existing sweep across retries. `placeholder_id` names only the
+reserved synthetic custodian that still needs Storage/Auth cleanup, and is
+cleared on completion. `started_at,completed_at` form the non-personal deletion
+receipt. The object plan's `run_id,path,deleted_at` tracks exact original,
+rebuilt and orphan-copy cleanup before graph cascades. Shared live references
+prevent removing another scope's bytes. Completed settlement deletes all path
+rows, so the receipt retains neither object prefixes nor a real account ID.
+
+The model checklist applies to both migrations and every listed column. All
+new tables live in `argus_private`, enable RLS and deny public, anon,
+authenticated and service-role access. The postgres deletion writer alone owns
+them. Alias lifetime follows the Business through CASCADE. Purge receipts have
+no space FK so graph deletion cannot discard a retry plan. Object plans have
+a run FK with CASCADE. Run and due-date indexes bound sweep discovery. No new
+client policy, Data API endpoint, hosted activation or longer retention grant
+is introduced. The original `spaces.closed_at` owns the thirty-day deadline.
+
+### Business money rows never cascade, November 1, 2026
+
+Forward migration `20261101000100_business_money_rows_restrict.sql` answers
+#1446 Q1: money rows and their evidence never cascade from a Business. The
+eight keys from those tables to `spaces` become `on delete restrict`, each
+keeping its name, columns, `on update no action` and deferrability, so the
+custody move's deferred-key list still names them:
+`business_action_receipts.space_id`, `business_turns.space_id`,
+`business_sources.space_id`, `business_document_settlements (space_id,
+owner_id)`, `financial_import_events (owner_space_id, user_id)`,
+`financial_source_connections (owner_space_id, user_id)`,
+`financial_records (owner_space_id, user_id)` and
+`financial_accounts (owner_space_id, user_id)`. A space delete is refused
+while any of those rows names it. Operational rows (grants, invites, leases,
+outboxes, read states, consents, bank matching, fiscal sandbox, workspace,
+saved views, invoice editor) keep cascading.
+
+Removal runs only through the day-30 purge: `delete_money_rows` in
+`argus.domain.business.purge` deletes those eight tables for the space, child
+before parent, after the activities and before the space row, inside the
+purge transaction. Revisions, sources, questions, observations and
+extractions still cascade from their event, source or connection. Sources,
+draft revisions and settlements refuse a direct delete
+(`business_evidence_immutable`) and until now went only with the space
+cascade, so the same migration redefines
+`argus_private.business_immutable_evidence` and
+`argus_private.business_settlement_delete_guard` to also accept a delete when
+`argus_private.business_purge_marked(space_id)` holds: the connection is
+`postgres` and the transaction-local setting `argus.business_purge_space`
+names that space, which `delete_money_rows` sets first. Synthetic teardown in
+tests goes through the same deleter (`tests/business_cleanup.py`).
+
+A person who leaves never reaches these rows: every Business money row's
+`user_id` is the space custodian, and `business_auth_retention_guard`
+(`20261021140000`) refuses a plain `auth.users` delete of a custodian until
+custody moves to a placeholder. The `user_id` keys to `auth.users` on the
+shared `financial_*` tables stay `cascade` because Personal rows and the
+Personal deletion writer (`deletion_finish`) rely on them.
+
+### Business close notification transport, held October 18, 2026
+
+Forward migration `20261021160000_business_close_mail.sql` adds
+`business_close_mail_outbox`. This is server-only personal mail transport, with
+RLS and no `anon` or `authenticated` rights. Only `service_role` receives CRUD.
+It is separate from retained Business history.
+
+Model checklist for the new table and all columns. `id` is the provider
+idempotency identity. `space_id` cascades on Business purge. `closed_at` identifies
+the closure generation and combines with `recipient_id` in the unique event key.
+`owner_id`, `recipient_id`, `recipient_email` and `context` contain personal
+notification data and are removed during departure or scoped custody detachment.
+The recipient Auth FK cascades as a final privacy safeguard. `created_at` orders
+pending work. `first_attempt_at` and `payload` are committed together before SMTP;
+retries retain both and the provider key. `sent_at`, `suppressed_at`,
+`uncertain_at` and `provider_receipt` record delivery, stale-close suppression,
+the 23-hour retry hold and the bounded receipt. All lifecycle control dates and
+owner authority still derive from `spaces` and the existing grants.
+
+The October 21 backend checkpoint adds `kind` to the same unapplied migration.
+It is one of `member_closed`, `owner_closed`, `purge_reminder` or
+`member_reopened`, and joins `space_id,closed_at,recipient_id` in the unique event
+key. For `member_reopened`, `closed_at` is the close instant the reopen undid.
+`context` adds `reopenPath`, a relative app path with no personal data beyond
+the space ID. Only `member_closed` has approved copy; the other kinds stay with
+null `payload` and `first_attempt_at` until theirs is approved. An owner kind is
+suppressed once its recipient is no longer the current owner. Departure,
+custody detachment and purge remove every kind, as before.
+
+## Public RNC registry
+
+`public.dgii_rnc` holds the latest published registry of RNC and cédula
+identifiers. `public.dgii_rnc_load` is the staging table a later loader fills.
+Neither table keeps history. Each daily file replaces the registry.
+
+| Column | `dgii_rnc` | `dgii_rnc_load` |
+| --- | --- | --- |
+| `rnc` | primary key, 9 or 11 digits | not null, same check, no primary key |
+| `name` | not null, trimmed length greater than 0 | same |
+| `trade_name` | nullable commercial name | same |
+| `status` | not null raw publisher text | same |
+| `file_date` | not null source-file date | same |
+| `activity` | nullable actividad económica | same |
+| `start_date` | nullable fecha de inicio | same |
+| `regime` | nullable régimen | same |
+
+The publisher's CSV is the source of every column except `trade_name`. The
+registry holds every estado, not only active rows, so a suspended or cancelled
+supplier can be flagged. `trade_name` comes from column 3 of the publisher's
+TXT, joined by RNC, from a second zip that the load does not require. About 56
+percent of rows have a value, and most of those differ from the legal name. Null
+means no value. When the TXT zip fails or parses to no names, the load keeps each
+RNC's previous `trade_name`, so a new RNC stays null until the next good TXT. A blank or
+whitespace-only value in `trade_name`, `activity` or `regime` fails its check,
+so the loader stores null. `start_date` is null when the file's date is not a
+real dd/mm/yyyy date. `status` stays the raw estado value, including new values,
+with no check. Lookup derives `verification`: `verificado` when the
+trimmed upper-case status is `ACTIVO`, otherwise `no_activo`.
+
+`public.dgii_rnc_swap(min_rows int) returns int` publishes the load table by
+renaming it, and returns the row count.
+A null or non-positive minimum raises before the swap takes a lock. The swap
+then locks the load table in access exclusive mode, checks the row count,
+rejects duplicate `rnc` values, and builds the primary key. A delete on the load
+table waits for that lock, so the published rows are the rows that passed the
+checks. The swap then locks the registry, and in the same transaction it trades
+the two table names, moves the primary key name, empties the old table, and sets
+each table's grants again. Grants stay with a table through a rename, so the swap
+sets them. The two tables share their check constraint names, so a swap changes
+no name. The old table is now the empty load table, and commit returns its space.
+A raised error rolls that transaction back and leaves the previous registry and
+the load rows in place.
+`public.dgii_rnc_lookup(p_rnc text)` is volatile and returns
+`table(rnc text, name text, trade_name text, status text, file_date date, verification text, activity text, start_date date, regime text)`.
+A lookup that waits on a swap reads the rows published by that swap. It strips
+non-digits from the input and returns no row when nothing matches.
+
+Row level security is enabled with no policies. `anon`, `authenticated` and
+`public` have no privileges. `service_role` may select the registry, load and
+clear the staging table, and execute both functions. Cédula rows are personal
+identifiers published in the source file. Access stays service-role only.
+
+The file dated 2026-10-31 holds 796,924 kept rows and 1 dropped row:
+504,853 of 9 digits and 292,071 of 11. `parsed_bytes` is 127,691,030. 448,071 rows
+have a `trade_name`, 772,164 an `activity` (average 70.4 characters), 729,442 a
+`start_date`, and every row a `regime`. The estados are ACTIVO 378,779,
+SUSPENDIDO 331,802, DADO DE BAJA 74,961, CESE TEMPORAL 9,849, ANULADO 1,257 and
+RECHAZADO 276. A local load of synthetic rows with those counts and that
+`parsed_bytes` measured 137.6 MiB of heap and a 24.0 MiB key, which is 161.7 MiB
+for the table. A reload holds two table copies at its peak, so it adds 161.7 MiB
+to a database that already holds the table. `docs/runbooks/dgii-rnc-import.md`
+has the size check. Re-running the swap
+with the same load contents produces the same registry. Proven by
+`tests/test_dgii_rnc_postgres.py`. Migrations
+`supabase/migrations/20261018190000_dgii_rnc_registry.sql` and
+`supabase/migrations/20261102204200_dgii_rnc_csv_columns.sql` and
+`supabase/migrations/20261102225200_dgii_rnc_rename_swap.sql`.
+
+## Tables without a detailed section
+
+These live tables exist in the migrations but have no section above yet. The migration is the schema.
+
+| Table | Area | Created in `supabase/migrations/` |
+| --- | --- | --- |
+| `checkpoint_migrations` | Chat runtime checkpointer | `20260608041032_secure_checkpoint_rls.sql:6` |
+| `checkpoints` | Chat runtime checkpointer | `20260608041032_secure_checkpoint_rls.sql:10` |
+| `checkpoint_blobs` | Chat runtime checkpointer | `20260608041032_secure_checkpoint_rls.sql:21` |
+| `checkpoint_writes` | Chat runtime checkpointer | `20260608041032_secure_checkpoint_rls.sql:31` |
+| `argus_memory_vectors` | Personalization memory recall index | `20260807120000_add_memory_semantic_recall_index.sql:9` |
+| `financial_expectations` | Connected plan | `20260929150000_connected_plan.sql:1` |
+| `financial_plan_selections` | Connected plan | `20260929150000_connected_plan.sql:9` |
+| `financial_plan_definition_revisions` | Shared household planning | `20261002000000_shared_household_planning.sql:4` |
+| `financial_plan_responsibilities` | Shared household planning | `20261002000000_shared_household_planning.sql:66` |
+| `household_plan_receipts` | Shared household planning | `20261002000000_shared_household_planning.sql:75` |
+| `financial_goal_allocation_revisions` | Shared household planning | `20261002000000_shared_household_planning.sql:158` |
+| `household_plan_archived_claims` | Shared household planning | `20261002000000_shared_household_planning.sql:185` |
+| `household_plan_archived_allocations` | Shared household planning | `20261002000000_shared_household_planning.sql:191` |
+| `household_plan_archived_activities` | Shared household planning | `20261002020000_shared_plan_retained_revision_scope.sql:16` |
+| `household_deletion_events` | Account deletion | `20261004090000_account_deletion.sql:310` |
+| `whatsapp_outbox` | Business WhatsApp worker | `20261011020000_business_whatsapp_worker.sql:75` |
+| `whatsapp_reply_groups` | Business WhatsApp replies | `20261016065035_whatsapp_reply_grouping.sql:4` |
+| `whatsapp_reply_days` | Business WhatsApp replies | `20261016065035_whatsapp_reply_grouping.sql:19` |
+| `whatsapp_reply_attempts` | Business WhatsApp replies | `20261016065035_whatsapp_reply_grouping.sql:30` |

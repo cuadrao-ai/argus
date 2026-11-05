@@ -1,0 +1,12 @@
+{
+  "database": "NEW disposable59752",
+  "migration": "20261002000000_shared_household_planning.sql",
+  "sha256": "c4b273fdb0240f3b4f035159905cbd057b4ccb3df3b8aecab0bc2c1aff2ea421",
+  "checks": [
+    "explicit atomic transaction",
+    "fresh source applied only once",
+    "seven synthetic accounts and household retained",
+    "eight new service-only tables RLS enabled and authenticated SELECT denied"
+  ],
+  "disposition": "schema application only; adapters and assembled shared journeys still pending"
+}

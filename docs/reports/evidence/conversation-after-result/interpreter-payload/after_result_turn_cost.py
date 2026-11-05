@@ -25,9 +25,9 @@ sys.path.insert(0, str(TREE / "src"))
 load_dotenv(os.environ["AFTER_RESULT_ENV_FILE"], override=False)
 os.environ.update(
     {
-        "ARGUS_PERSISTENCE_MODE": "memory",
+        "CUADRAO_PERSISTENCE_MODE": "memory",
         "ARGUS_DEV_MEMORY_FALLBACK": "true",
-        "ARGUS_CHECKPOINTER_MODE": "memory",
+        "CUADRAO_CHECKPOINTER_MODE": "memory",
         "ARGUS_MARKET_DATA_PROVIDER_MODE": "live_provider",
         "ARGUS_ASSET_PROVIDER_MODE": "live_provider",
         "ARGUS_RESEARCH_RAIL_ENABLED": "true",
@@ -35,7 +35,7 @@ os.environ.update(
         "ARGUS_BACKTEST_JOBS_SHADOW_ENABLED": "false",
         "ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED": "false",
         "ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED": "false",
-        "ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD": "",
+        "CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD": "",
         "ENABLE_MARKET_DATA_CACHE": "false",
         "DATABASE_URL": "",
         "POSTHOG_PROJECT_TOKEN": "",

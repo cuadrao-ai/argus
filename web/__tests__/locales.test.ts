@@ -75,8 +75,8 @@ const dossierCopy = {
     es419: "Volver a probar con datos actuales",
   },
   "command_palette.retest_tooltip": {
-    en: "Reuse this setup with the latest available data. You’ll review it before it runs.",
-    es419: "Reutiliza esta configuración con los datos más recientes disponibles. Podrás revisarla antes de ejecutarla.",
+    en: "Reuse this setup with the latest data.",
+    es419: "Reutiliza esta configuración con los datos más recientes.",
   },
   "command_palette.show_full_note": {
     en: "Show full note",
@@ -86,13 +86,13 @@ const dossierCopy = {
     en: "Show less",
     es419: "Mostrar menos",
   },
-  "command_palette.decision_note_count": {
+  "command_palette.decision_note_count_other": {
     en: "{{count}} / {{max}}",
     es419: "{{count}} / {{max}}",
   },
   "command_palette.asset_rollup.heading": {
-    en: "Your Argus history",
-    es419: "Tu historial de Argus",
+    en: "Your Cuadrao history",
+    es419: "Tu historial de Cuadrao",
   },
   "command_palette.asset_rollup.scope_registered": {
     en: "Across your conversations",
@@ -178,8 +178,8 @@ const conversationActivityCopy = {
     es419: "Marcar como leída",
   },
   "chat.activity.jump_working": {
-    en: "Jump to latest; Argus is working below",
-    es419: "Ir a lo más reciente; Argus sigue trabajando abajo",
+    en: "Jump to latest; Cuadrao is working below",
+    es419: "Ir a lo más reciente; Cuadrao sigue trabajando abajo",
   },
   "chat.activity.jump_new": {
     en: "Jump to new activity",
@@ -211,8 +211,8 @@ const conversationActivityCopy = {
     es419: "Marcada como no leída.",
   },
   "chat.activity.announce_working": {
-    en: "Argus is working on {{title}}.",
-    es419: "Argus está trabajando en {{title}}.",
+    en: "Cuadrao is working on {{title}}.",
+    es419: "Cuadrao está trabajando en {{title}}.",
   },
   "chat.activity.announce_needs_attention": {
     en: "{{title}} needs attention.",
@@ -288,5 +288,25 @@ describe("conversation activity locales", () => {
         interpolationVariables(english ?? ""),
       );
     }
+  });
+});
+
+
+describe("business dossier refresh copy", () => {
+  test("es-419 supplies the Spanish label and English stays the fallback", () => {
+    expect(translationAt(es419, "business.dossier.refresh")).toBe("Consultar registro actual");
+    expect(translationAt(en, "business.dossier.refresh")).toBe("Check current record");
+  });
+});
+
+describe("daily question limit copy", () => {
+  test.each([
+    [en, "You've reached today's question limit. It resets at {{time}}."],
+    [es419, "Llegaste al límite de preguntas de hoy. Se reinicia a las {{time}}."],
+  ] as const)("uses Iris's exact copy with no vague wait or em dash", (catalog, expected) => {
+    expect(catalog.chat.recovery.daily_cap_reached).toBe(expected);
+    expect(catalog.chat.recovery.daily_cap_reached).not.toContain("\u2014");
+    expect(catalog.chat.recovery.registered_compute_claim_unavailable).not.toContain("\u2014");
+    expect(catalog.chat).not.toHaveProperty("rate_limit_error");
   });
 });

@@ -152,6 +152,7 @@ export class RecoveryAttemptLimiter {
 type RecoveryRequestDependencies = {
   configuredAppOrigin: string | undefined;
   environment: string | undefined;
+  trustedClientIpHeader?: string;
   limiter: RecoveryAttemptLimiter;
   globalLimiter: RecoveryAttemptLimiter;
   sendRecovery: (
@@ -177,10 +178,12 @@ function jsonResponse(
   });
 }
 
-function clientAddress(request: Request): string | null {
-  const forwardedFor = request.headers.get("x-forwarded-for");
-  const realIp = request.headers.get("x-real-ip");
-  const value = forwardedFor?.split(",", 1)[0]?.trim() || realIp?.trim();
+function clientAddress(
+  request: Request,
+  configuredHeader: string | undefined,
+): string | null {
+  const header = configuredHeader?.trim() || "CF-Connecting-IP";
+  const value = request.headers.get(header)?.trim();
   if (!value) return "unknown";
   if (value.length > MAX_CLIENT_ADDRESS_LENGTH || isIP(value) === 0) {
     return null;
@@ -277,7 +280,7 @@ export async function handleRecoveryRequest(
     return jsonResponse({ accepted: false }, bodyResult.status);
   }
   const { body } = bodyResult;
-  const address = clientAddress(request);
+  const address = clientAddress(request, dependencies.trustedClientIpHeader);
   if (!address) return jsonResponse({ accepted: false }, 400);
 
   const email =

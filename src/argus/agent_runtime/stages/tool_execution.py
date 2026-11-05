@@ -45,6 +45,7 @@ class ToolExecutionContext:
     artifact_id: str = field(default_factory=lambda: str(uuid4()))
     approval_available: bool = False
     stage_result: StageResult | None = None
+    business: Any | None = None
 
 
 _active_tool_context: ContextVar[ToolExecutionContext | None] = ContextVar(
@@ -67,8 +68,11 @@ async def execute_tool_calls_async(
     user: UserState | None = None,
     latest_task_snapshot: TaskSnapshot | None = None,
     selected_thread_metadata: dict[str, Any] | None = None,
+    business_bindings: tuple[Any, ...] | None = None,
 ) -> StageResult:
     calls = list(state.tool_calls)
+    if business_bindings is not None and len(business_bindings) != len(calls):
+        return _rejected_batch("business_binding_count_mismatch")
     if not calls and state.confirmation_payload is not None:
         from argus.agent_runtime.tools.registered_backtest import approved_backtest_call
 
@@ -114,7 +118,8 @@ async def execute_tool_calls_async(
             ),
             call=call,
             artifact_id=str(uuid4()),
-            approval_available=index == 0,
+            approval_available=index == 0 and business_bindings is None,
+            business=business_bindings[index] if business_bindings is not None else None,
         )
         try:
             arguments = declaration.validate_arguments(call.arguments)
@@ -182,6 +187,8 @@ async def execute_tool_calls_async(
         )
         cards.append(card.model_dump(mode="json"))
         references.append(_card_reference(card))
+        if business_bindings is not None and tool_outcome.status != "succeeded":
+            break
     return _with_cards(outcome, patch=patch, cards=cards, references=references)
 
 

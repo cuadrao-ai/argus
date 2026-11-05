@@ -84,6 +84,5 @@ export function feedbackAskContext(
     includeConversationContext: true,
     rating,
     tags: [],
-    attachmentCount: 0,
   });
 }

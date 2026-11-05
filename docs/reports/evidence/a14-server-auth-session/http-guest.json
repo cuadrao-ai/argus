@@ -1,0 +1,202 @@
+{
+  "client": "python-httpx language-neutral probe (not a native client)",
+  "suite": "guest",
+  "captured_at": "2026-09-28T17:25:53+00:00",
+  "environment": "local lane Supabase stack argus-native-auth-proof (jwt_expiry=60, confirmations on) + unchanged Argus API; Argus API launched from the fix branch at argus_api_head",
+  "results": [
+    {
+      "id": "C1",
+      "area": "guest-start",
+      "scenario": "Bearer-only guest start, then a second start that presents the guest bearer",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "200 anonymous session in JSON; the repeat reuses the guest instead of minting one",
+      "observed": {
+        "status": 200,
+        "account_kind": "guest",
+        "has_session": true,
+        "conversation_created": true,
+        "repeat_status": 200,
+        "repeat_reused": true
+      },
+      "verdict": "pass",
+      "note": "A native client must persist and resend its guest bearer; starting without it creates a new anonymous user and loses the temporary conversation."
+    },
+    {
+      "id": "C2",
+      "area": "handoff-transport",
+      "scenario": "Handoff creation returns its secret only as HttpOnly cookies scoped to /api/v1/auth",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "201 {handoff_id, expires_at}; secret absent from the body",
+      "observed": {
+        "status": 201,
+        "body_keys": [
+          "expires_at",
+          "handoff_id"
+        ],
+        "set_cookie_names": [
+          "argus-guest-handoff",
+          "argus-guest-handoff-id"
+        ],
+        "secret_cookie_attrs": [
+          "httponly",
+          "max-age",
+          "path=/api/v1/auth",
+          "samesite=lax"
+        ]
+      },
+      "verdict": "pass",
+      "note": ""
+    },
+    {
+      "id": "C3",
+      "area": "bearer-only-conversion",
+      "scenario": "A bearer-only client signs in after creating a handoff",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "Failed assumption: sign-in succeeds but nothing is claimed; the claim route refuses without the cookie",
+      "observed": {
+        "login_status": 200,
+        "guest_claim_present": false,
+        "conversation_moved": false,
+        "explicit_claim_status": 400,
+        "explicit_claim_code": "guest_handoff_invalid"
+      },
+      "verdict": "pass",
+      "note": "Without a cookie store or a new transport, guest-to-account conversion on native loses the conversation."
+    },
+    {
+      "id": "C4",
+      "area": "scoped-jar-conversion",
+      "scenario": "A cookie store that keeps only argus-guest-handoff* converts the guest on sign-in",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "200 with guest_claim for the guest conversation; no sb-* cookie retained; handoff cookies cleared",
+      "observed": {
+        "stored_before_login": [
+          "argus-guest-handoff",
+          "argus-guest-handoff-id"
+        ],
+        "login_status": 200,
+        "claimed_conversation_matches": true,
+        "conversation_visible_to_account": true,
+        "stored_after_login": [],
+        "response_set_cookie_names": [
+          "argus-guest-handoff",
+          "argus-guest-handoff-id",
+          "sb-auth-token",
+          "sb-refresh-token"
+        ]
+      },
+      "verdict": "pass",
+      "note": ""
+    },
+    {
+      "id": "C5",
+      "area": "interruption",
+      "scenario": "The sign-in response is lost after the claim committed; the app retries with the handoff it still holds",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "Replay-safe: 200 with the same guest_claim, no duplicate and no error",
+      "observed": {
+        "retry_status": 200,
+        "same_conversation": true
+      },
+      "verdict": "pass",
+      "note": "Clients must delete the stored handoff only after a response is received and processed."
+    },
+    {
+      "id": "C6",
+      "area": "cancellation",
+      "scenario": "The user cancels sign-in, keeps chatting as a guest, then retries",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "Guest session unaffected; a second handoff replaces the first; the later sign-in claims",
+      "observed": {
+        "guest_me_after_cancel": 200,
+        "first_handoff": 201,
+        "second_handoff": 201,
+        "handoff_id_changed": true,
+        "later_claim_matches": true
+      },
+      "verdict": "pass",
+      "note": ""
+    },
+    {
+      "id": "C7",
+      "area": "account-mismatch",
+      "scenario": "The guest named one email, then signs in to a different account",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "Claim refused as wrong destination; handoff cleared; the conversation stays with the guest",
+      "observed": {
+        "status": 403,
+        "code": "guest_handoff_wrong_destination",
+        "session_in_body": false,
+        "response_set_cookie_names": [
+          "argus-guest-handoff",
+          "argus-guest-handoff-id",
+          "sb-auth-token",
+          "sb-refresh-token"
+        ],
+        "handoff_cookies_left": []
+      },
+      "verdict": "pass",
+      "note": "Bob's password was accepted and Argus set sb-* session cookies, but the body carries no session. A bearer client ends up with a live Supabase session it cannot see or revoke."
+    },
+    {
+      "id": "C8",
+      "area": "new-account-conversion",
+      "scenario": "Guest creates an account, leaves to confirm email, the app restarts, then signs in",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "Signup returns no session while confirmation is pending; the persisted handoff claims on first sign-in",
+      "observed": {
+        "handoff_ttl_minutes": 10080,
+        "signup_status": 200,
+        "signup_session_present": false,
+        "handoff_cookies_kept_for_confirmation": [
+          "argus-guest-handoff",
+          "argus-guest-handoff-id"
+        ],
+        "confirmation_redirect_origin": "http://localhost:3000",
+        "login_after_confirm": 200,
+        "claim_matches": true
+      },
+      "verdict": "pass",
+      "note": "The confirmation link returns to the web site_url, not the app. The handoff secret must survive an app restart in secure storage for its full lifetime."
+    },
+    {
+      "id": "C9",
+      "area": "post-conversion",
+      "scenario": "The converted guest's old bearer after a successful claim",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "Guest bearer no longer works; the app must discard it",
+      "observed": {
+        "status": 403,
+        "code": "guest_session_expired"
+      },
+      "verdict": "pass",
+      "note": ""
+    },
+    {
+      "id": "C10",
+      "area": "account-switch",
+      "scenario": "After converting into Alice, sign out and sign in as Bob on the same device",
+      "path": "unchanged-argus",
+      "evidence_level": 3,
+      "expected": "Bob sees none of Alice's claimed conversations; Alice's revoked token is refused",
+      "observed": {
+        "bob_sees_alice_claims": false,
+        "alice_token_after_switch": 401,
+        "bob_is_bob": true
+      },
+      "verdict": "pass",
+      "note": ""
+    }
+  ],
+  "probe_checkout_head": "de61fd3e7d299fcd0c7fda24f3c95f5427822271",
+  "argus_api_head": "54fe7b6fe"
+}

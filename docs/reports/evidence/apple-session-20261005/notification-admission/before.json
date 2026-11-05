@@ -1,0 +1,26 @@
+{
+  "product_head": "371fffc961bac086b5a12b5b4646ac5790d5cdcb",
+  "instrumentation": "interval-probe.patch",
+  "test": "AppleSessionJourneyUITests/testIndependentQueuedNotificationDispatchProbe",
+  "run": "before4",
+  "executed": 1,
+  "passed": 0,
+  "failures": 1,
+  "seconds": 12.892,
+  "displayed_result": "DISPATCHED at check 2",
+  "counter_before": 2,
+  "counter_after": 4,
+  "positive_control_dispatches": 1,
+  "forbidden_interval_dispatches": 1,
+  "order": [
+    "Apple sign-in checker 1 authorized",
+    "positive-control direct protected GET dispatched",
+    "foreground checker 2 held with authorized answer",
+    "actual Apple credential notification delivered",
+    "actual model queued-revalidation receipt observed",
+    "release checker 2",
+    "hold MainActor at next actual model state publication",
+    "direct actor protected GET dispatched",
+    "allow queued restore to run checker 3 and retire"
+  ]
+}
