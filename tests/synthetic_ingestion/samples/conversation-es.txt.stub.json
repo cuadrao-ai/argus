@@ -1,0 +1,38 @@
+{
+  "synthetic": true,
+  "extraction_mode": "stub",
+  "source_file": "conversation-es.txt",
+  "limitations": "Authored proposals for lifecycle tests; not extraction or confidence evidence.",
+  "proposals": [
+    {
+      "source_id": "chat-es-01",
+      "date": "2026-09-10",
+      "description": "Compra sintética",
+      "amount": "350.00",
+      "currency": "DOP",
+      "kind": "expense",
+      "account": "cash-dop",
+      "destination": "personal",
+      "source_ref": {
+        "char_start": 11,
+        "char_end": 87,
+        "quote": "Gasté RD$350 en comida el 10 de septiembre de 2026, de mi efectivo personal."
+      }
+    },
+    {
+      "source_id": "chat-es-02",
+      "date": "2026-09-10",
+      "description": "Compra sintética",
+      "amount": "20.00",
+      "currency": "$",
+      "kind": "expense",
+      "account": "",
+      "destination": "personal",
+      "source_ref": {
+        "char_start": 88,
+        "char_end": 138,
+        "quote": "También pagué $20; no dije la moneda ni la cuenta."
+      }
+    }
+  ]
+}

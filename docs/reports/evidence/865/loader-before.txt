@@ -1,0 +1,225 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: <checkout>
+configfile: pyproject.toml
+plugins: benchmark-5.2.3, mock-3.15.1, Faker-30.10.0, asyncio-1.4.0, hypothesis-6.151.12, langsmith-0.7.31, respx-0.23.1, cov-7.0.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 8 items
+
+tests/test_web_env_profile.py FFFFFFFF                                   [100%]
+
+=================================== FAILURES ===================================
+___________ test_web_contract_derives_each_profile_key_category[env] ___________
+
+web_contract = PosixPath('/private/var/folders/04/_3s7_2qd2z3_pxhb1jgjj5m00000gn/T/pytest-of-garces/pytest-84/test_web_contract_derives_each0/checkout with spaces/.github')
+category = 'env'
+
+    @pytest.mark.parametrize('category', ['env', 'required_present', 'optional'])
+    def test_web_contract_derives_each_profile_key_category(web_contract: Path, category: str) -> None:
+        path = web_contract / 'private-alpha-release-profile.json'
+        profile = json.loads(path.read_text())
+        key = 'ARGUS_SYNTHETIC_PROFILE_KEY'
+        web = profile['services']['web']
+        if category == 'env':
+            web[category][key] = 'fixture'
+        else:
+            web[category].append(key)
+        path.write_text(json.dumps(profile))
+        result = source_contract(web_contract)
+        assert result.returncode == 0, result.stderr
+>       assert set(result.stdout.splitlines()) == set(web['env']) | set(web['required_present']) | set(web['optional']) | {'CONTRACT_LOADED'}
+E       AssertionError: assert {'ARGUS_APP_O...ITE_KEY', ...} == {'ARGUS_APP_O...T_EMAIL', ...}
+E
+E         Extra items in the right set:
+E         'ARGUS_SYNTHETIC_PROFILE_KEY'
+E         Use -v to get more diff
+
+tests/test_web_env_profile.py:47: AssertionError
+____ test_web_contract_derives_each_profile_key_category[required_present] _____
+
+web_contract = PosixPath('/private/var/folders/04/_3s7_2qd2z3_pxhb1jgjj5m00000gn/T/pytest-of-garces/pytest-84/test_web_contract_derives_each1/checkout with spaces/.github')
+category = 'required_present'
+
+    @pytest.mark.parametrize('category', ['env', 'required_present', 'optional'])
+    def test_web_contract_derives_each_profile_key_category(web_contract: Path, category: str) -> None:
+        path = web_contract / 'private-alpha-release-profile.json'
+        profile = json.loads(path.read_text())
+        key = 'ARGUS_SYNTHETIC_PROFILE_KEY'
+        web = profile['services']['web']
+        if category == 'env':
+            web[category][key] = 'fixture'
+        else:
+            web[category].append(key)
+        path.write_text(json.dumps(profile))
+        result = source_contract(web_contract)
+        assert result.returncode == 0, result.stderr
+>       assert set(result.stdout.splitlines()) == set(web['env']) | set(web['required_present']) | set(web['optional']) | {'CONTRACT_LOADED'}
+E       AssertionError: assert {'ARGUS_APP_O...ITE_KEY', ...} == {'ARGUS_APP_O...T_EMAIL', ...}
+E
+E         Extra items in the right set:
+E         'ARGUS_SYNTHETIC_PROFILE_KEY'
+E         Use -v to get more diff
+
+tests/test_web_env_profile.py:47: AssertionError
+________ test_web_contract_derives_each_profile_key_category[optional] _________
+
+web_contract = PosixPath('/private/var/folders/04/_3s7_2qd2z3_pxhb1jgjj5m00000gn/T/pytest-of-garces/pytest-84/test_web_contract_derives_each2/checkout with spaces/.github')
+category = 'optional'
+
+    @pytest.mark.parametrize('category', ['env', 'required_present', 'optional'])
+    def test_web_contract_derives_each_profile_key_category(web_contract: Path, category: str) -> None:
+        path = web_contract / 'private-alpha-release-profile.json'
+        profile = json.loads(path.read_text())
+        key = 'ARGUS_SYNTHETIC_PROFILE_KEY'
+        web = profile['services']['web']
+        if category == 'env':
+            web[category][key] = 'fixture'
+        else:
+            web[category].append(key)
+        path.write_text(json.dumps(profile))
+        result = source_contract(web_contract)
+        assert result.returncode == 0, result.stderr
+>       assert set(result.stdout.splitlines()) == set(web['env']) | set(web['required_present']) | set(web['optional']) | {'CONTRACT_LOADED'}
+E       AssertionError: assert {'ARGUS_APP_O...ITE_KEY', ...} == {'ARGUS_APP_O...T_EMAIL', ...}
+E
+E         Extra items in the right set:
+E         'ARGUS_SYNTHETIC_PROFILE_KEY'
+E         Use -v to get more diff
+
+tests/test_web_env_profile.py:47: AssertionError
+______ test_web_contract_stops_before_using_failed_profile[missing-tool] _______
+
+web_contract = PosixPath('/private/var/folders/04/_3s7_2qd2z3_pxhb1jgjj5m00000gn/T/pytest-of-garces/pytest-84/test_web_contract_stops_before0/checkout with spaces/.github')
+failure = 'missing-tool'
+
+    @pytest.mark.parametrize('failure', ['missing-tool', 'missing-profile', 'invalid-profile', 'empty-success', 'partial-error'])
+    def test_web_contract_stops_before_using_failed_profile(web_contract: Path, failure: str) -> None:
+        tool = web_contract / 'private-alpha-release-profile.py'
+        profile = web_contract / 'private-alpha-release-profile.json'
+        if failure == 'missing-tool':
+            tool.unlink()
+        elif failure == 'missing-profile':
+            profile.unlink()
+        elif failure == 'invalid-profile':
+            profile.write_text('{}')
+        elif failure == 'empty-success':
+            tool.write_text('')
+        else:
+            tool.write_text('print("ARGUS_PARTIAL_KEY")\nraise SystemExit(7)\n')
+        result = source_contract(web_contract)
+>       assert result.returncode != 0
+E       assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['bash', '-c', 'source "$1"; printf "%s\\n" "${ARGUS_RENDER_WEB_ENV[@]}"; echo CONTRACT_LOADED',...NABLED\nNEXT_PUBLIC_RESEARCH_RAIL_ENABLED\nNEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED\nCONTRACT_LOADED\n', stderr='').returncode
+
+tests/test_web_env_profile.py:65: AssertionError
+_____ test_web_contract_stops_before_using_failed_profile[missing-profile] _____
+
+web_contract = PosixPath('/private/var/folders/04/_3s7_2qd2z3_pxhb1jgjj5m00000gn/T/pytest-of-garces/pytest-84/test_web_contract_stops_before1/checkout with spaces/.github')
+failure = 'missing-profile'
+
+    @pytest.mark.parametrize('failure', ['missing-tool', 'missing-profile', 'invalid-profile', 'empty-success', 'partial-error'])
+    def test_web_contract_stops_before_using_failed_profile(web_contract: Path, failure: str) -> None:
+        tool = web_contract / 'private-alpha-release-profile.py'
+        profile = web_contract / 'private-alpha-release-profile.json'
+        if failure == 'missing-tool':
+            tool.unlink()
+        elif failure == 'missing-profile':
+            profile.unlink()
+        elif failure == 'invalid-profile':
+            profile.write_text('{}')
+        elif failure == 'empty-success':
+            tool.write_text('')
+        else:
+            tool.write_text('print("ARGUS_PARTIAL_KEY")\nraise SystemExit(7)\n')
+        result = source_contract(web_contract)
+>       assert result.returncode != 0
+E       assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['bash', '-c', 'source "$1"; printf "%s\\n" "${ARGUS_RENDER_WEB_ENV[@]}"; echo CONTRACT_LOADED',...NABLED\nNEXT_PUBLIC_RESEARCH_RAIL_ENABLED\nNEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED\nCONTRACT_LOADED\n', stderr='').returncode
+
+tests/test_web_env_profile.py:65: AssertionError
+_____ test_web_contract_stops_before_using_failed_profile[invalid-profile] _____
+
+web_contract = PosixPath('/private/var/folders/04/_3s7_2qd2z3_pxhb1jgjj5m00000gn/T/pytest-of-garces/pytest-84/test_web_contract_stops_before2/checkout with spaces/.github')
+failure = 'invalid-profile'
+
+    @pytest.mark.parametrize('failure', ['missing-tool', 'missing-profile', 'invalid-profile', 'empty-success', 'partial-error'])
+    def test_web_contract_stops_before_using_failed_profile(web_contract: Path, failure: str) -> None:
+        tool = web_contract / 'private-alpha-release-profile.py'
+        profile = web_contract / 'private-alpha-release-profile.json'
+        if failure == 'missing-tool':
+            tool.unlink()
+        elif failure == 'missing-profile':
+            profile.unlink()
+        elif failure == 'invalid-profile':
+            profile.write_text('{}')
+        elif failure == 'empty-success':
+            tool.write_text('')
+        else:
+            tool.write_text('print("ARGUS_PARTIAL_KEY")\nraise SystemExit(7)\n')
+        result = source_contract(web_contract)
+>       assert result.returncode != 0
+E       assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['bash', '-c', 'source "$1"; printf "%s\\n" "${ARGUS_RENDER_WEB_ENV[@]}"; echo CONTRACT_LOADED',...NABLED\nNEXT_PUBLIC_RESEARCH_RAIL_ENABLED\nNEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED\nCONTRACT_LOADED\n', stderr='').returncode
+
+tests/test_web_env_profile.py:65: AssertionError
+______ test_web_contract_stops_before_using_failed_profile[empty-success] ______
+
+web_contract = PosixPath('/private/var/folders/04/_3s7_2qd2z3_pxhb1jgjj5m00000gn/T/pytest-of-garces/pytest-84/test_web_contract_stops_before3/checkout with spaces/.github')
+failure = 'empty-success'
+
+    @pytest.mark.parametrize('failure', ['missing-tool', 'missing-profile', 'invalid-profile', 'empty-success', 'partial-error'])
+    def test_web_contract_stops_before_using_failed_profile(web_contract: Path, failure: str) -> None:
+        tool = web_contract / 'private-alpha-release-profile.py'
+        profile = web_contract / 'private-alpha-release-profile.json'
+        if failure == 'missing-tool':
+            tool.unlink()
+        elif failure == 'missing-profile':
+            profile.unlink()
+        elif failure == 'invalid-profile':
+            profile.write_text('{}')
+        elif failure == 'empty-success':
+            tool.write_text('')
+        else:
+            tool.write_text('print("ARGUS_PARTIAL_KEY")\nraise SystemExit(7)\n')
+        result = source_contract(web_contract)
+>       assert result.returncode != 0
+E       assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['bash', '-c', 'source "$1"; printf "%s\\n" "${ARGUS_RENDER_WEB_ENV[@]}"; echo CONTRACT_LOADED',...NABLED\nNEXT_PUBLIC_RESEARCH_RAIL_ENABLED\nNEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED\nCONTRACT_LOADED\n', stderr='').returncode
+
+tests/test_web_env_profile.py:65: AssertionError
+______ test_web_contract_stops_before_using_failed_profile[partial-error] ______
+
+web_contract = PosixPath('/private/var/folders/04/_3s7_2qd2z3_pxhb1jgjj5m00000gn/T/pytest-of-garces/pytest-84/test_web_contract_stops_before4/checkout with spaces/.github')
+failure = 'partial-error'
+
+    @pytest.mark.parametrize('failure', ['missing-tool', 'missing-profile', 'invalid-profile', 'empty-success', 'partial-error'])
+    def test_web_contract_stops_before_using_failed_profile(web_contract: Path, failure: str) -> None:
+        tool = web_contract / 'private-alpha-release-profile.py'
+        profile = web_contract / 'private-alpha-release-profile.json'
+        if failure == 'missing-tool':
+            tool.unlink()
+        elif failure == 'missing-profile':
+            profile.unlink()
+        elif failure == 'invalid-profile':
+            profile.write_text('{}')
+        elif failure == 'empty-success':
+            tool.write_text('')
+        else:
+            tool.write_text('print("ARGUS_PARTIAL_KEY")\nraise SystemExit(7)\n')
+        result = source_contract(web_contract)
+>       assert result.returncode != 0
+E       assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['bash', '-c', 'source "$1"; printf "%s\\n" "${ARGUS_RENDER_WEB_ENV[@]}"; echo CONTRACT_LOADED',...NABLED\nNEXT_PUBLIC_RESEARCH_RAIL_ENABLED\nNEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED\nCONTRACT_LOADED\n', stderr='').returncode
+
+tests/test_web_env_profile.py:65: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_web_env_profile.py::test_web_contract_derives_each_profile_key_category[env]
+FAILED tests/test_web_env_profile.py::test_web_contract_derives_each_profile_key_category[required_present]
+FAILED tests/test_web_env_profile.py::test_web_contract_derives_each_profile_key_category[optional]
+FAILED tests/test_web_env_profile.py::test_web_contract_stops_before_using_failed_profile[missing-tool]
+FAILED tests/test_web_env_profile.py::test_web_contract_stops_before_using_failed_profile[missing-profile]
+FAILED tests/test_web_env_profile.py::test_web_contract_stops_before_using_failed_profile[invalid-profile]
+FAILED tests/test_web_env_profile.py::test_web_contract_stops_before_using_failed_profile[empty-success]
+FAILED tests/test_web_env_profile.py::test_web_contract_stops_before_using_failed_profile[partial-error]
+============================== 8 failed in 0.82s ===============================

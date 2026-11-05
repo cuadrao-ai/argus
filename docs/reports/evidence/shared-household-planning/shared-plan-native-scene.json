@@ -1,0 +1,23 @@
+{
+  "expected_minor" : {
+    "bill_agreed" : "6000",
+    "bill_paid" : "2000",
+    "budget_spent" : "4000",
+    "debt_paid" : "2000",
+    "goal_backed" : "2000"
+  },
+  "names" : {
+    "bill" : "Native household bill C6E10C",
+    "budget" : "Native household budget C6E10C",
+    "debt" : "Native household debt C6E10C",
+    "goal" : "Native household goal C6E10C"
+  },
+  "rows" : {
+    "bill" : "sharedPlan.row.bill.F41B6558-1104-4116-B775-DF00A8272189",
+    "budget" : "sharedPlan.row.budget.4B85B0B9-7F0A-420E-9B76-C6498A2776E7",
+    "debt" : "sharedPlan.row.debt.508F6199-3063-4EDB-B053-35E40F420B51",
+    "goal" : "sharedPlan.row.goal.DB549A51-5072-4880-A7CE-515A2D328579"
+  },
+  "scope" : "Native four-kind recorded journey; server privacy\/retry\/departure proof accompanies this evidence",
+  "stamp" : "C6E10C"
+}

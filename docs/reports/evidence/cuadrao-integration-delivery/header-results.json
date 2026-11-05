@@ -1,0 +1,194 @@
+[
+  {
+    "width": 320,
+    "route": "business",
+    "height": 72,
+    "overflow": false,
+    "overlap": false
+  },
+  {
+    "width": 320,
+    "route": "business/en",
+    "height": 72,
+    "overflow": false,
+    "overlap": false
+  },
+  {
+    "width": 320,
+    "route": "business/personal",
+    "height": 72,
+    "overflow": false,
+    "overlap": false
+  },
+  {
+    "width": 320,
+    "route": "business/en/personal",
+    "height": 72,
+    "overflow": false,
+    "overlap": false
+  },
+  {
+    "width": 320,
+    "route": "business/demo",
+    "height": 49.59375,
+    "overflow": false,
+    "overlap": false,
+    "href": "/business",
+    "iconBefore": true,
+    "offset": 0.796875
+  },
+  {
+    "width": 320,
+    "route": "business/en/demo",
+    "height": 49.59375,
+    "overflow": false,
+    "overlap": false,
+    "href": "/business/en",
+    "iconBefore": true,
+    "offset": 0.796875
+  },
+  {
+    "width": 390,
+    "route": "business",
+    "height": 72,
+    "overflow": false,
+    "overlap": false
+  },
+  {
+    "width": 390,
+    "route": "business/en",
+    "height": 72,
+    "overflow": false,
+    "overlap": false
+  },
+  {
+    "width": 390,
+    "route": "business/personal",
+    "height": 72,
+    "overflow": false,
+    "overlap": false
+  },
+  {
+    "width": 390,
+    "route": "business/en/personal",
+    "height": 72,
+    "overflow": false,
+    "overlap": false
+  },
+  {
+    "width": 390,
+    "route": "business/demo",
+    "height": 49.59375,
+    "overflow": false,
+    "overlap": false,
+    "href": "/business",
+    "iconBefore": true,
+    "offset": 0.796875
+  },
+  {
+    "width": 390,
+    "route": "business/en/demo",
+    "height": 49.59375,
+    "overflow": false,
+    "overlap": false,
+    "href": "/business/en",
+    "iconBefore": true,
+    "offset": 0.796875
+  },
+  {
+    "width": 768,
+    "route": "business",
+    "height": 72,
+    "overflow": false,
+    "overlap": false
+  },
+  {
+    "width": 768,
+    "route": "business/en",
+    "height": 72,
+    "overflow": false,
+    "overlap": false
+  },
+  {
+    "width": 768,
+    "route": "business/personal",
+    "height": 72,
+    "overflow": false,
+    "overlap": false
+  },
+  {
+    "width": 768,
+    "route": "business/en/personal",
+    "height": 72,
+    "overflow": false,
+    "overlap": false
+  },
+  {
+    "width": 768,
+    "route": "business/demo",
+    "height": 49.59375,
+    "overflow": false,
+    "overlap": false,
+    "href": "/business",
+    "iconBefore": true,
+    "offset": 0.796875
+  },
+  {
+    "width": 768,
+    "route": "business/en/demo",
+    "height": 49.59375,
+    "overflow": false,
+    "overlap": false,
+    "href": "/business/en",
+    "iconBefore": true,
+    "offset": 0.796875
+  },
+  {
+    "width": 1440,
+    "route": "business",
+    "height": 88,
+    "overflow": false,
+    "overlap": false
+  },
+  {
+    "width": 1440,
+    "route": "business/en",
+    "height": 88,
+    "overflow": false,
+    "overlap": false
+  },
+  {
+    "width": 1440,
+    "route": "business/personal",
+    "height": 88,
+    "overflow": false,
+    "overlap": false
+  },
+  {
+    "width": 1440,
+    "route": "business/en/personal",
+    "height": 88,
+    "overflow": false,
+    "overlap": false
+  },
+  {
+    "width": 1440,
+    "route": "business/demo",
+    "height": 48.796875,
+    "overflow": false,
+    "overlap": false,
+    "href": "/business",
+    "iconBefore": true,
+    "offset": 0.390625
+  },
+  {
+    "width": 1440,
+    "route": "business/en/demo",
+    "height": 48.796875,
+    "overflow": false,
+    "overlap": false,
+    "href": "/business/en",
+    "iconBefore": true,
+    "offset": 0.390625
+  }
+]

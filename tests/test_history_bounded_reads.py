@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 from uuid import UUID
 
 import pytest
+from argus.domain.owner_scope import PERSONAL
 
 
 class _RecordingCursor:
@@ -88,6 +89,7 @@ def test_history_first_page_uses_one_bounded_query_and_preserves_raw_groups() ->
     )
 
     rows = reader_type(pool).list_rows(
+        scope=PERSONAL,
         user_id="00000000-0000-0000-0000-000000000001",
         limit=3,
         archived=False,
@@ -139,6 +141,7 @@ def test_history_cursor_uses_one_pivot_query_and_one_candidate_query() -> None:
     )
 
     rows = reader_type(pool).list_rows(
+        scope=PERSONAL,
         user_id="00000000-0000-0000-0000-000000000001",
         limit=4,
         archived=False,
@@ -157,6 +160,7 @@ def test_history_cursor_uses_one_pivot_query_and_one_candidate_query() -> None:
     candidate_params = pool.cursor.executions[1][1]
     assert candidate_params == {
         "user_id": UUID("00000000-0000-0000-0000-000000000001"),
+        "owner_space_id": None,
         "cursor_activity_at": cursor_at,
         "cursor_id": UUID("11111111-1111-1111-1111-111111111111"),
         "source_limit": 4,
@@ -182,6 +186,7 @@ def test_history_legacy_cursor_rejects_changed_pivot_activity() -> None:
 
     with pytest.raises(cursor_error, match="pivot changed"):
         reader_type(pool).list_rows(
+            scope=PERSONAL,
             user_id="00000000-0000-0000-0000-000000000001",
             limit=4,
             archived=False,
@@ -211,6 +216,7 @@ def test_history_ranked_cursor_rejects_source_rank_mismatch() -> None:
 
     with pytest.raises(cursor_error, match="pivot rank"):
         reader_type(pool).list_rows(
+            scope=PERSONAL,
             user_id="00000000-0000-0000-0000-000000000001",
             limit=4,
             archived=False,
@@ -232,6 +238,7 @@ def test_history_cursor_rejects_timezone_naive_timestamp_before_pool_acquisition
 
     with pytest.raises(cursor_error):
         reader_type(pool).list_rows(
+            scope=PERSONAL,
             user_id="00000000-0000-0000-0000-000000000001",
             limit=4,
             archived=False,
@@ -259,6 +266,7 @@ def test_history_cursor_rejects_noncanonical_uuid_before_pool_acquisition(
 
     with pytest.raises(cursor_error):
         reader_type(pool).list_rows(
+            scope=PERSONAL,
             user_id="00000000-0000-0000-0000-000000000001",
             limit=4,
             archived=False,
@@ -282,6 +290,7 @@ def test_history_candidate_sql_uses_cached_specialized_variants() -> None:
 
     _candidate_sql.cache_clear()
     sql = _candidate_sql(
+        business=False,
         archived=False,
         deleted=False,
         has_cursor=False,
@@ -289,6 +298,7 @@ def test_history_candidate_sql_uses_cached_specialized_variants() -> None:
         pivot_type_rank=0,
     )
     repeated = _candidate_sql(
+        business=False,
         archived=False,
         deleted=False,
         has_cursor=False,
@@ -313,6 +323,7 @@ def test_history_first_page_splits_pin_tiers_before_each_source_limit() -> None:
     from argus.domain.postgres_history_reader import _candidate_sql
 
     sql = _candidate_sql(
+        business=False,
         archived=False,
         deleted=True,
         has_cursor=False,
@@ -378,6 +389,7 @@ def test_history_unpinned_cursor_specializes_each_source_rank(
     from argus.domain.postgres_history_reader import _candidate_sql
 
     sql = _candidate_sql(
+        business=False,
         archived=False,
         deleted=False,
         has_cursor=True,
@@ -405,6 +417,7 @@ def test_history_pinned_cursor_splits_same_and_lower_pin_tiers(
     from argus.domain.postgres_history_reader import _candidate_sql
 
     sql = _candidate_sql(
+        business=False,
         archived=True,
         deleted=True,
         has_cursor=True,
@@ -446,6 +459,7 @@ def test_history_cursor_missing_or_ambiguous_pivot_fails_closed(
 
     with pytest.raises(cursor_error):
         reader_type(pool).list_rows(
+            scope=PERSONAL,
             user_id="00000000-0000-0000-0000-000000000001",
             limit=4,
             archived=False,
@@ -496,6 +510,7 @@ def test_supabase_persistence_requires_and_injects_history_database_reader(
 
     monkeypatch.setenv("SUPABASE_URL", "https://argus.local")
     monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "test-service-key")
+    monkeypatch.setenv("SUPABASE_ANON_KEY", "test-anon-key")
     monkeypatch.delenv("DATABASE_URL", raising=False)
     with pytest.raises(RuntimeError, match="DATABASE_URL"):
         supabase_gateway.SupabaseGateway.from_env()

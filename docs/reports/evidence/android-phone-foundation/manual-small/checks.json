@@ -1,0 +1,8 @@
+{
+  "sourceCommit": "8fe35fd32abf0c27ffbc08312db082a4478ba964",
+  "device": "emulator-5580",
+  "coldRestartDarkPersisted": true,
+  "keyboardHidesNavigation": true,
+  "backDismissesKeyboardAndRetainsDraft": true,
+  "restoredAppearance": "SYSTEM"
+}

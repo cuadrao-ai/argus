@@ -24,6 +24,7 @@ from argus.domain import backtest_admission
 from argus.domain.backtest_finalization import MemoryBacktestFinalizationGateway
 from argus.domain.store import utcnow
 from argus.llm.openrouter import (
+    _SCHEMA_IN_PROMPT_INSTRUCTION,
     clear_openrouter_route_receipts,
     invoke_openrouter_json_schema,
 )
@@ -544,11 +545,11 @@ class ConcreteTrajectoryRuntime:
 
         self._monkeypatch.setattr(api_state, "supabase_gateway", None)
         self._monkeypatch.setenv("OPENROUTER_API_KEY", "trajectory-fixture-key")
-        self._monkeypatch.setenv("ARGUS_CHAT_MODEL", "openai/trajectory-fixture")
+        self._monkeypatch.setenv("CUADRAO_CHAT_MODEL", "openai/trajectory-fixture")
         self._monkeypatch.setenv("PERPLEXITY_API_KEY", "")
         self._monkeypatch.setenv("ARGUS_GROUNDED_DISCOVERY_ENABLED", "false")
         self._monkeypatch.setenv("ARGUS_DEV_MEMORY_FALLBACK", "true")
-        self._monkeypatch.setenv("ARGUS_RUNTIME_STREAM_WORKER", "false")
+        self._monkeypatch.setenv("CUADRAO_RUNTIME_STREAM_WORKER", "false")
         self._monkeypatch.setenv("ARGUS_BACKTEST_JOBS_SHADOW_ENABLED", "true")
         self._monkeypatch.setenv("ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED", "true")
         self._monkeypatch.setenv("ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED", "true")
@@ -627,10 +628,30 @@ class ConcreteTrajectoryRuntime:
         if not isinstance(content, str):
             raise AssertionError("trajectory provider received no typed content")
         response_format = payload.get("response_format")
-        if (
+        native_schema = (
             isinstance(response_format, dict)
             and response_format.get("type") == "json_schema"
+        )
+        first = messages[0]
+        schema_content = first.get("content") if first.get("role") == "system" else None
+        if (
+            isinstance(schema_content, list)
+            and len(schema_content) == 1
+            and isinstance(schema_content[0], dict)
+            and schema_content[0].get("type") == "text"
         ):
+            schema_content = schema_content[0].get("text")
+        prompt_schema = None
+        if isinstance(schema_content, str) and schema_content.startswith(
+            _SCHEMA_IN_PROMPT_INSTRUCTION
+        ):
+            try:
+                prompt_schema = json.loads(
+                    schema_content[len(_SCHEMA_IN_PROMPT_INSTRUCTION) :]
+                )
+            except json.JSONDecodeError:
+                pass
+        if native_schema or prompt_schema == StructuredInterpretation.model_json_schema():
             StructuredInterpretation.model_validate_json(content)
         else:
             content = (
@@ -734,39 +755,6 @@ class ConcreteTrajectoryRuntime:
     ) -> StepObservation:
         del history
         state = self._state(trajectory)
-        if trajectory.label == "alpha_session_05" and step.request.get("method") == "GET":
-            raw_confirmation_id = state.raw_artifact_ids[
-                "alpha_session_05:confirmation:1"
-            ]
-            with self._monkeypatch.context() as route_patch:
-                route_patch.setattr(
-                    api_state,
-                    "supabase_gateway",
-                    self._backtest_gateway,
-                )
-                response = self._http.get(
-                    f"/api/v1/backtest-jobs/by-action/{raw_confirmation_id}"
-                )
-            job_alias = None
-            if response.status_code == 200:
-                payload = response.json()
-                job = payload.get("job")
-                raw_job_id = job.get("id") if isinstance(job, dict) else None
-                if not isinstance(raw_job_id, str):
-                    raise AssertionError("by-action lookup returned no durable job id")
-                job_alias = f"{trajectory.label}:job:1"
-                state.artifact_aliases[raw_job_id] = job_alias
-                state.raw_artifact_ids[job_alias] = raw_job_id
-            return StepObservation(
-                artifact_identity=job_alias,
-                action_identity="alpha_session_05:confirmation:1",
-                reload_state="not_found" if response.status_code == 404 else "found",
-                checkpoints={
-                    "by_action.lookup_status": response.status_code,
-                    "by_action.replay_allowed": response.status_code == 404,
-                    "admission.execution_count": self._execution_count(state=state),
-                },
-            )
         if trajectory.label == "alpha_session_07" and step.request.get("after"):
             self._age_disconnected_turn_for_reconciliation(state=state)
         response = self._http.get(
@@ -806,13 +794,6 @@ class ConcreteTrajectoryRuntime:
                 and self._same_coverage(
                     approval_coverage,
                     self._job_coverage(job),
-                )
-            )
-            checkpoints["effective_window.completed_result_reloads"] = (
-                self._reloaded_result_matches_approval(
-                    state=state,
-                    confirmation_alias=confirmation_alias,
-                    reloaded_run=self._reloaded_backtest_run(job=job),
                 )
             )
         action_alias = self._persisted_action_alias(
@@ -1921,51 +1902,6 @@ class ConcreteTrajectoryRuntime:
             and isinstance(run_id, str)
             and len(evidence) == 1
             and cls._evidence_matches_run(evidence[0], run=run)
-        )
-
-    def _reloaded_backtest_run(
-        self, *, job: dict[str, Any] | None
-    ) -> dict[str, Any] | None:
-        raw_run_id = job.get("result_run_id") if isinstance(job, dict) else None
-        if not isinstance(raw_run_id, str) or not raw_run_id:
-            return None
-        response = self._http.get(f"/api/v1/backtests/{raw_run_id}")
-        if response.status_code != 200:
-            return None
-        payload = response.json()
-        run = payload.get("run")
-        return run if isinstance(run, dict) else None
-
-    @classmethod
-    def _reloaded_result_matches_approval(
-        cls,
-        *,
-        state: _TrajectoryState,
-        confirmation_alias: str | None,
-        reloaded_run: dict[str, Any] | None,
-    ) -> bool:
-        job = cls._job_for_confirmation(
-            state=state,
-            confirmation_alias=confirmation_alias,
-        )
-        durable_run = cls._run_for_job(job)
-        return bool(
-            cls._completed_result_surfaces_are_canonical(
-                state=state,
-                confirmation_alias=confirmation_alias,
-            )
-            and cls._has_result_surfaces(reloaded_run)
-            and cls._run_value(reloaded_run, "id") == cls._run_value(durable_run, "id")
-            and all(
-                cls._run_value(reloaded_run, field) == cls._run_value(durable_run, field)
-                for field in (
-                    "status",
-                    "metrics",
-                    "config_snapshot",
-                    "conversation_result_card",
-                    "chart",
-                )
-            )
         )
 
     @staticmethod

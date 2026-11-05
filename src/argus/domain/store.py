@@ -83,6 +83,8 @@ class AlphaStore:
     users: dict[str, User] = field(default_factory=dict)
     conversations: dict[str, Conversation] = field(default_factory=dict)
     conversation_owners: dict[str, str] = field(default_factory=dict)
+    # A Business conversation's space id; a conversation absent here is Personal.
+    conversation_spaces: dict[str, str] = field(default_factory=dict)
     messages: dict[str, list[Message]] = field(default_factory=dict)
     strategies: dict[str, Strategy] = field(default_factory=dict)
     strategy_owners: dict[str, str] = field(default_factory=dict)
@@ -150,6 +152,7 @@ class AlphaStore:
         for field_name in (
             "conversations",
             "conversation_owners",
+            "conversation_spaces",
             "messages",
             "backtest_runs",
             "backtest_run_owners",
@@ -174,6 +177,7 @@ class AlphaStore:
         self.users.clear()
         self.conversations.clear()
         self.conversation_owners.clear()
+        self.conversation_spaces.clear()
         self.messages.clear()
         self.strategies.clear()
         self.strategy_owners.clear()

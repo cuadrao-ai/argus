@@ -13,6 +13,7 @@ from argus.domain.backtest_finalization import (
     finalize_backtest_completion,
 )
 from argus.domain.evidence import build_backtest_evidence_capture, build_decision_note
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.postgres_search_reader import SearchReadResult
 from argus.domain.search_text import search_text_matches_query
 from argus.domain.store import utcnow
@@ -2571,6 +2572,7 @@ def test_gateway_history_delegates_to_bounded_postgres_reader() -> None:
     gateway = SupabaseGateway(client=MagicMock(), history_reader=reader)
 
     result = gateway.list_history_rows(
+        scope=PERSONAL,
         user_id="00000000-0000-0000-0000-000000000001",
         limit=21,
         archived=True,
@@ -2583,6 +2585,7 @@ def test_gateway_history_delegates_to_bounded_postgres_reader() -> None:
 
     assert result == reader.list_rows.return_value
     reader.list_rows.assert_called_once_with(
+        scope=PERSONAL,
         user_id="00000000-0000-0000-0000-000000000001",
         limit=21,
         archived=True,
@@ -2599,6 +2602,7 @@ def test_gateway_history_fails_closed_without_postgres_reader() -> None:
 
     with pytest.raises(RuntimeError, match="Postgres reader"):
         gateway.list_history_rows(
+            scope=PERSONAL,
             user_id="00000000-0000-0000-0000-000000000001",
             limit=21,
         )
@@ -2700,6 +2704,7 @@ def test_search_rows_delegates_to_private_postgres_reader():
     )
 
     result = gateway.search_rows(
+        scope=PERSONAL,
         user_id="00000000-0000-0000-0000-000000000001",
         query="momentum",
         source_limit=21,
@@ -2713,6 +2718,7 @@ def test_search_rows_delegates_to_private_postgres_reader():
 
     assert result is expected
     search_reader.search_rows.assert_called_once_with(
+        scope=PERSONAL,
         user_id="00000000-0000-0000-0000-000000000001",
         query="momentum",
         source_limit=21,
@@ -2733,6 +2739,7 @@ def test_search_rows_requires_private_postgres_reader():
         match="Persistent Search requires its Postgres reader",
     ):
         gateway.search_rows(
+            scope=PERSONAL,
             user_id="00000000-0000-0000-0000-000000000001",
             query="",
             source_limit=21,

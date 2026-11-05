@@ -4,7 +4,6 @@ from pathlib import Path
 
 S1_RUNTIME_PROSE_FILES = (
     Path("src/argus/agent_runtime/stages/explain.py"),
-    Path("src/argus/api/chat/breakdown.py"),
     Path("src/argus/api/chat/confirmation.py"),
     Path("src/argus/api/chat/confirmation_lifecycle.py"),
     Path("src/argus/api/chat/confirmation_research_peers.py"),

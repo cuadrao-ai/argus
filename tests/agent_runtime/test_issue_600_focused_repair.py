@@ -134,9 +134,9 @@ def replay_transport(monkeypatch: pytest.MonkeyPatch) -> Callable[[str, str], No
     monkeypatch.setenv("OPENROUTER_API_KEY", "hermetic-test-key")
     monkeypatch.setenv("ARGUS_ASSET_PROVIDER_MODE", "synthetic_unit_fixture")
     monkeypatch.setenv("ARGUS_ENABLE_EXECUTION_REALISM", "true")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "x-ai/grok-4.3")
-    monkeypatch.setenv("ARGUS_STRUCTURED_FALLBACK_MODEL", "anthropic/claude-haiku-4.5")
-    monkeypatch.setenv("ARGUS_TURN_CALL_ALLOWANCE", "7")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "x-ai/grok-4.3")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_FALLBACK_MODEL", "anthropic/claude-haiku-4.5")
+    monkeypatch.setenv("CUADRAO_TURN_CALL_ALLOWANCE", "7")
     monkeypatch.setenv("ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED", "false")
     monkeypatch.setitem(
         assets.SYNTHETIC_UNIT_ASSETS, "DOCN", ("equity", "DigitalOcean", "DOCN")
@@ -155,8 +155,8 @@ def replay_transport(monkeypatch: pytest.MonkeyPatch) -> Callable[[str, str], No
         mode, _, continuation = mode.partition(":")
         relation, _, route = continuation.partition(":")
         followup_intent, _, followup_act = route.partition("/")
-        if mode == "audit_budget_exhausted":
-            monkeypatch.setenv("ARGUS_TURN_CALL_ALLOWANCE", "4")
+        if mode == "repair_on_exhausted_corridor":
+            monkeypatch.setenv("CUADRAO_TURN_CALL_ALLOWANCE", "4")
 
         async def post(
             *,
@@ -279,7 +279,7 @@ def replay_transport(monkeypatch: pytest.MonkeyPatch) -> Callable[[str, str], No
     [
         "repair",
         "audit_unavailable",
-        "audit_budget_exhausted",
+        "repair_on_exhausted_corridor",
         "audit_omits_seed",
         "audit_bad_fee_span",
         "audit_bad_slippage_span",
@@ -297,7 +297,7 @@ async def test_focused_repair_delivers_stated_money_and_costs_or_asks(
     )
     capture = openrouter.begin_openrouter_route_receipt_capture()
     try:
-        with turn_execution_scope(entry_state={}):
+        with turn_execution_scope(entry_state={}) as execution:
             interpreted = await interpret_stage_async(
                 state=state,
                 user=user,
@@ -311,11 +311,7 @@ async def test_focused_repair_delivers_stated_money_and_costs_or_asks(
                 pending = state.candidate_strategy_draft
                 assert pending.capital_amount == CONTRIBUTION
                 assert pending.extra_parameters["recurring_contribution"] == CONTRIBUTION
-                if mode in {
-                    "audit_unavailable",
-                    "audit_budget_exhausted",
-                    "audit_omits_seed",
-                }:
+                if mode in {"audit_unavailable", "audit_omits_seed"}:
                     assert pending.extra_parameters.get("initial_capital") is None
                     candidates = [
                         field.candidate_normalized_value
@@ -373,6 +369,10 @@ async def test_focused_repair_delivers_stated_money_and_costs_or_asks(
             for r in receipts
         )
     assert not any(r.failure_mode == "AssertionError" for r in receipts)
+    # The repair's approval is funded even after the corridor is spent (#928).
+    assert execution.repair_approval_grant_used == (
+        1 if mode == "repair_on_exhausted_corridor" else 0
+    )
 
 
 @pytest.mark.asyncio

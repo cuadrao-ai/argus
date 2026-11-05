@@ -1,0 +1,93 @@
+Money keystroke probe, October 4 2026, app source c2b47c6612d6639f393c76520d902bc67255e387 plus the DEBUG instrumentation in this folder.
+Simulator iPhone 18 Pro. Output of summarize.sh.txt over the four complete runs. fresh-nostall-1 was interrupted at 61 of 101 replacements with 0 mismatches and is not counted.
+Stall: a repeating main-queue block sleeping 60 to 150 ms every 20 to 120 ms (stall) or 250 to 600 ms every 5 to 60 ms (heavy).
+
+== probe-nostall-1
+W1I-PROBE stall=false mismatches 0
+Test Case '-[ArgusFoundationUITests.W1iMoneyStallProbeUITests testProbeNoStall]' passed (374.630 seconds).
+replacements read back: 101  mismatches logged: 0
+keystrokes handled: 956  accepted: 956  refused at range guard: 0  refused by validation: 0
+keystrokes handled while earlier writes were queued (pending>0): 12  max pending: 3
+field rewrites by update: 6  of which onto a non-empty field: 0
+re-syncs from value: 7  of which onto a non-empty raw: 0  onChange(value) asking for re-sync: 0
+value change reports: 627  with a keystroke or queued write between the value write and its report: 0
+end-editing reformats: 101
+== probe-stall-1
+W1I-PROBE stall=true mismatches 0
+Test Case '-[ArgusFoundationUITests.W1iMoneyStallProbeUITests testProbeStall]' passed (478.283 seconds).
+replacements read back: 101  mismatches logged: 0
+keystrokes handled: 956  accepted: 956  refused at range guard: 0  refused by validation: 0
+keystrokes handled while earlier writes were queued (pending>0): 245  max pending: 5
+field rewrites by update: 6  of which onto a non-empty field: 0
+re-syncs from value: 7  of which onto a non-empty raw: 0  onChange(value) asking for re-sync: 0
+value change reports: 423  with a keystroke or queued write between the value write and its report: 0
+end-editing reformats: 101
+== fresh-stall-1
+W1I-FRESH stall=true mismatches 0
+Test Case '-[ArgusFoundationUITests.W1iMoneyStallProbeUITests testFreshEditorStall]' passed (698.387 seconds).
+replacements read back: 101  mismatches logged: 0
+keystrokes handled: 904  accepted: 904  refused at range guard: 0  refused by validation: 0
+keystrokes handled while earlier writes were queued (pending>0): 197  max pending: 4
+field rewrites by update: 251  of which onto a non-empty field: 0
+re-syncs from value: 252  of which onto a non-empty raw: 0  onChange(value) asking for re-sync: 0
+value change reports: 446  with a keystroke or queued write between the value write and its report: 0
+end-editing reformats: 101
+== fresh-heavy-1
+W1I-FRESH stall=-W1iStallHeavy mismatches 1
+Test Case '-[ArgusFoundationUITests.W1iMoneyStallProbeUITests testFreshEditorHeavyStall]' failed (744.262 seconds).
+replacements read back: 41  mismatches logged: 1
+keystrokes handled: 364  accepted: 364  refused at range guard: 0  refused by validation: 0
+keystrokes handled while earlier writes were queued (pending>0): 128  max pending: 4
+field rewrites by update: 101  of which onto a non-empty field: 0
+re-syncs from value: 102  of which onto a non-empty raw: 0  onChange(value) asking for re-sync: 0
+value change reports: 151  with a keystroke or queued write between the value write and its report: 0
+end-editing reformats: 41
+probe-nostall-1 replacements 101 bursts 101 with keystrokes sent but not handled: 0 []
+probe-stall-1 replacements 101 bursts 101 with keystrokes sent but not handled: 0 []
+fresh-stall-1 replacements 101 bursts 101 with keystrokes sent but not handled: 0 []
+fresh-heavy-1 replacements 41 bursts 41 with keystrokes sent but not handled: 0 []
+
+The one mismatch logged in fresh-heavy-1 is a probe read that timed out, not a wrong field. Test log and app log for that burst:
+W1I-MISMATCH fresh 9 Ana deletes: before '500.00' left '0.00'
+  group-share-1 key old='500.00' range=5,1 str='' pending=0
+  group-share-1 key old='500.0' range=4,1 str='' pending=0
+  group-share-1 key old='500.' range=3,1 str='' pending=0
+  group-share-1 key old='500' range=2,1 str='' pending=0
+  group-share-1 key old='50' range=1,1 str='' pending=1
+  group-share-1 key old='5' range=0,1 str='' pending=0
+  group-share-1 onChange(value) 500.0->0.0 live=0.0 raw='' resync=false
+  group-share-1 key old='' range=0,0 str='3' pending=0
+  group-share-1 onChange(value) 0.0->3.0 live=3.0 raw='3' resync=false
+  group-share-1 key old='3' range=1,0 str='0' pending=0
+  group-share-1 key old='30' range=2,0 str='0' pending=1
+  group-share-1 onChange(value) 3.0->300.0 live=300.0 raw='300' resync=false
+
+Sample stalled burst (probe-stall-1): six typed characters handled before any of their queued writes ran.
+  group-share-1 commit raw='30' binding was '300'
+  group-share-1 commit raw='3' binding was '30'
+  group-share-1 key old='3' range=0,1 str='' pending=0
+  group-share-1 accept -> ''
+  group-share-1 commit raw='' binding was '3'
+  group-share-1 onChange(raw) '300.'->'' write value 0.0 (was 300.0)
+  group-share-1 onChange(value) 300.0->0.0 live=0.0 raw='' resync=false
+  group-share-1 key old='' range=0,0 str='1' pending=0
+  group-share-1 accept -> '1'
+  group-share-1 key old='1' range=1,0 str='2' pending=1
+  group-share-1 accept -> '12'
+  group-share-1 key old='12' range=2,0 str='5' pending=2
+  group-share-1 accept -> '125'
+  group-share-1 key old='125' range=3,0 str='0' pending=3
+  group-share-1 accept -> '1250'
+  group-share-1 key old='1,250' range=5,0 str='.' pending=4
+  group-share-1 accept -> '1250.'
+  group-share-1 key old='1,250.' range=6,0 str='5' pending=5
+  group-share-1 accept -> '1250.5'
+  group-share-1 commit raw='1' binding was ''
+  group-share-1 commit raw='12' binding was '1'
+  group-share-1 commit raw='125' binding was '12'
+
+Value writes that changed the value, paired with their change report, and what was logged between the two:
+  probe-nostall-1: pairs 625, pairs where a later keystroke was already handled and its write was queued 11, binding writes or keystrokes between the write and its report 0
+  probe-stall-1: pairs 421, pairs where a later keystroke was already handled and its write was queued 41, binding writes or keystrokes between the write and its report 0
+  fresh-stall-1: pairs 395, pairs where a later keystroke was already handled and its write was queued 21, binding writes or keystrokes between the write and its report 0
+  fresh-heavy-1: pairs 130, pairs where a later keystroke was already handled and its write was queued 7, binding writes or keystrokes between the write and its report 0

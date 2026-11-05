@@ -197,10 +197,10 @@ def _note_future_horizon_question(interpretation: Any) -> None:
     draft = interpretation.candidate_strategy_draft
     logger.info(
         "Research answers a future-horizon question over a strategy claim "
-        "intent={} act={} assets={} horizon={}",
+        "intent={} act={} asset_count={} reason={}",
         interpretation.intent,
         interpretation.semantic_turn_act,
-        list(getattr(draft, "asset_universe", None) or []),
-        (strategy_draft_future_horizon(draft) or {}).get("evidence"),
+        len(getattr(draft, "asset_universe", None) or []),
+        FUTURE_HORIZON_QUESTION_REASON_CODE,
         failure_classification=FUTURE_HORIZON_QUESTION_REASON_CODE,
     )

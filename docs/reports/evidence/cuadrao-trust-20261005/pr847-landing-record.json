@@ -1,0 +1,28 @@
+{
+  "pr": 847,
+  "head": "ea9d9e57a26cd788d4a92adde4c0984b964ae94d",
+  "original_integration_base": "875de09ac2115acec42e09060b92878aa5f18eff",
+  "integration_parent": "927740efd7911847bc6deca1c0586905b170ff7d",
+  "merge": "70b0cd3891937f026900aceb96ce5f556c76b0b3",
+  "merged_at": "2026-10-05T23:54:58Z",
+  "review": "https://github.com/lagarcess/argus/pull/847#pullrequestreview-5422105673",
+  "terminal_audit": "https://github.com/lagarcess/argus/pull/847#issuecomment-6005873252",
+  "ci": {
+    "success": 16,
+    "expected_skip": 3,
+    "failure": 0,
+    "pending": 0
+  },
+  "review_threads": 0,
+  "scope_and_limits": "Personless asynchronous deletion remains safely disabled;540 independent local checks+42 context checks; actual provider proof and activation open",
+  "housekeeping": "pending protected-branch evidence PR",
+  "tree_equal": true,
+  "tree": "169b404629012f49ea82380610744936a43299d4",
+  "configuration_names": [
+    "ARGUS_ANALYTICS_DELETION_ENABLED",
+    "ARGUS_POSTHOG_DELETION_HOST",
+    "ARGUS_POSTHOG_DELETION_PROJECT_ID",
+    "ARGUS_POSTHOG_DELETION_API_KEY"
+  ],
+  "configuration_disposition": "safe false/blank .env.example declarations; no hosted configuration or activation"
+}

@@ -1,0 +1,444 @@
+"""Durable WhatsApp state: deliveries, sender links and one-time link codes.
+
+A delivery moves ``received -> linked | rejected | captured | failed``. Linked,
+rejected and captured are final. A failed delivery, or a received one whose
+claim lapsed (the process died mid-way), is claimed again when Meta redelivers
+it, so recovery reuses the original record. A live claim makes a concurrent
+redelivery a no-op, so one message never produces two captures or two replies.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import threading
+from dataclasses import dataclass, replace
+from datetime import date, datetime
+from typing import TYPE_CHECKING, Literal, Protocol
+from zoneinfo import ZoneInfo
+
+if TYPE_CHECKING:
+    from argus.domain.ingestion.whatsapp.reply_groups import PendingFailure
+
+ReplyLanguage = Literal["en", "es-419"]
+InboundStatus = Literal["received", "linked", "rejected", "captured", "failed"]
+SettledStatus = Literal["linked", "rejected", "captured", "failed"]
+RETRYABLE: frozenset[InboundStatus] = frozenset({"received", "failed"})
+# Unlinked numbers hear back at most once per Dominican calendar day.
+REPLY_DAY = ZoneInfo("America/Santo_Domingo")
+UNLINKED_REPLY_RESERVED = "whatsapp_unlinked_reply_reserved"
+
+
+def dominican_day(at: datetime) -> date:
+    return at.astimezone(REPLY_DAY).date()
+
+
+def unlinked_reply_key(sender_hash: bytes, day: date) -> bytes:
+    """The provider_message_key of the one reservation row per sender and day.
+    Its unique key is what makes two reservations for the same day collide."""
+
+    return hashlib.sha256(
+        b"argus.whatsapp.unlinked-reply\0" + sender_hash + day.isoformat().encode()
+    ).digest()
+
+
+# A capture whose sender link ended before it settled keeps no connection.
+SENDER_LINK_REVOKED = "sender_link_revoked"
+
+
+@dataclass(frozen=True)
+class InboundRecord:
+    provider_message_key: bytes
+    sender_hash: bytes
+    status: InboundStatus
+    destination_owner_id: str | None
+    connection_id: str | None
+    error_code: str | None
+    claim_until: datetime | None
+    received_at: datetime
+    updated_at: datetime
+    # The sealed message while its claim is unsettled; cleared on settling.
+    claim_envelope: bytes | None = None
+    recovery_attempts: int = 0
+
+
+@dataclass(frozen=True)
+class Claim:
+    record: InboundRecord
+    claimed: bool
+
+
+@dataclass(frozen=True)
+class Settlement:
+    status: SettledStatus
+    destination_owner_id: str | None = None
+    connection_id: str | None = None
+    error_code: str | None = None
+    # Not stored; they choose the reply. ``duplicate``: the destination already
+    # held these bytes. ``reading``: an inline read follows the acknowledgement.
+    # ``reply_language``: the sender link's, if any.
+    duplicate: bool = False
+    reading: bool = False
+    reply_language: str | None = None
+
+
+def revoked(settlement: Settlement) -> Settlement:
+    return replace(
+        settlement,
+        status="rejected",
+        connection_id=None,
+        error_code=SENDER_LINK_REVOKED,
+        duplicate=False,
+        reading=False,
+    )
+
+
+@dataclass(frozen=True)
+class SenderLink:
+    destination_owner_id: str
+    last4: str
+    linked_at: datetime
+    reply_language: ReplyLanguage
+
+
+class WhatsAppStore(Protocol):
+    def claim(
+        self,
+        *,
+        provider_message_key: bytes,
+        sender_hash: bytes,
+        now: datetime,
+        claim_until: datetime,
+        claim_envelope: bytes | None = None,
+    ) -> Claim: ...
+
+    def lapsed_claims(self, *, now: datetime, limit: int) -> list[InboundRecord]:
+        """Unsettled messages whose claim ran out: the worker holding it died."""
+        ...
+
+    def retake(
+        self,
+        *,
+        provider_message_key: bytes,
+        held: datetime,
+        now: datetime,
+        claim_until: datetime,
+    ) -> datetime | None:
+        """Take a lapsed claim only if it is still the one ``held``, counting
+        the attempt; None when another worker got there first."""
+        ...
+
+    def inbound(self, provider_message_key: bytes) -> InboundRecord | None:
+        """The row for one message, or None when it was never claimed."""
+        ...
+
+    def renew(
+        self,
+        *,
+        provider_message_key: bytes,
+        held: datetime,
+        now: datetime,
+        claim_until: datetime,
+    ) -> datetime | None:
+        """Extend this worker's claim right before its work starts, only if it
+        is still the one ``held``; None when it was lost to another worker."""
+        ...
+
+    def settle(
+        self,
+        *,
+        provider_message_key: bytes,
+        claim_until: datetime | None,
+        settlement: Settlement,
+        now: datetime,
+        reply_failure: PendingFailure | None = None,
+    ) -> Settlement | None:
+        """Settle only while the caller's claim is the one held; None when it is not.
+
+        A capture settles only while its owner's sender link is active, checked
+        in the same transaction. Otherwise the message settles ``rejected`` with
+        ``SENDER_LINK_REVOKED`` and no connection. Returns what was stored.
+        """
+        ...
+
+    def issue_code(
+        self,
+        *,
+        destination_owner_id: str,
+        code_digest: bytes,
+        reply_language: ReplyLanguage,
+        now: datetime,
+        expires_at: datetime,
+    ) -> None: ...
+
+    def redeem_code(
+        self, *, code_digest: bytes, sender_hash: bytes, last4: str, now: datetime
+    ) -> SenderLink | None:
+        """Consume the code and make its sender link active, carrying its language."""
+        ...
+
+    def sender_link(self, *, sender_hash: bytes) -> SenderLink | None: ...
+
+    def destination_link(self, *, destination_owner_id: str) -> SenderLink | None: ...
+
+    def revoke(self, *, destination_owner_id: str, now: datetime) -> bool:
+        """End the active link and every unused code for this destination."""
+        ...
+
+    def captured_connections(self, *, destination_owner_id: str) -> frozenset[str]:
+        """Documents this destination received through WhatsApp."""
+        ...
+
+    def reserve_unlinked_reply(
+        self, *, sender_hash: bytes, provider_message_key: bytes, now: datetime
+    ) -> bool:
+        """Take this number's one unlinked reply for the Dominican day this
+        message arrived; ``False`` when the day's reply is already taken."""
+        ...
+
+
+@dataclass
+class _Code:
+    owner: str
+    reply_language: ReplyLanguage
+    expires_at: datetime
+    consumed: bool = False
+
+
+@dataclass
+class _Link:
+    owner: str
+    sender: bytes
+    last4: str
+    linked_at: datetime
+    reply_language: ReplyLanguage
+    active: bool = True
+
+
+class InMemoryWhatsAppStore:
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._inbound: dict[bytes, InboundRecord] = {}
+        self._codes: dict[bytes, _Code] = {}
+        self._links: list[_Link] = []
+        self.reply_failures: list[PendingFailure] = []
+
+    def claim(
+        self,
+        *,
+        provider_message_key: bytes,
+        sender_hash: bytes,
+        now: datetime,
+        claim_until: datetime,
+        claim_envelope: bytes | None = None,
+    ) -> Claim:
+        with self._lock:
+            current = self._inbound.get(provider_message_key)
+            if current is None:
+                record = InboundRecord(
+                    provider_message_key,
+                    sender_hash,
+                    "received",
+                    None,
+                    None,
+                    None,
+                    claim_until,
+                    now,
+                    now,
+                    claim_envelope,
+                )
+                self._inbound[provider_message_key] = record
+                return Claim(record, True)
+            if current.status in RETRYABLE and (
+                current.claim_until is None or current.claim_until <= now
+            ):
+                record = replace(
+                    current,
+                    claim_until=claim_until,
+                    updated_at=now,
+                    claim_envelope=claim_envelope or current.claim_envelope,
+                )
+                self._inbound[provider_message_key] = record
+                return Claim(record, True)
+            return Claim(current, False)
+
+    def settle(
+        self,
+        *,
+        provider_message_key: bytes,
+        claim_until: datetime | None,
+        settlement: Settlement,
+        now: datetime,
+        reply_failure: PendingFailure | None = None,
+    ) -> Settlement | None:
+        with self._lock:
+            current = self._inbound[provider_message_key]
+            if current.status not in RETRYABLE or current.claim_until != claim_until:
+                return None
+            if settlement.connection_id is not None and not any(
+                link.active
+                and link.owner == settlement.destination_owner_id
+                and link.sender == current.sender_hash
+                for link in self._links
+            ):
+                settlement = revoked(settlement)
+            self._inbound[provider_message_key] = replace(
+                current,
+                status=settlement.status,
+                destination_owner_id=settlement.destination_owner_id,
+                connection_id=settlement.connection_id,
+                error_code=settlement.error_code,
+                claim_until=None,
+                updated_at=now,
+                claim_envelope=None,
+            )
+            if reply_failure is not None:
+                self.reply_failures.append(reply_failure)
+            return settlement
+
+    def lapsed_claims(self, *, now: datetime, limit: int) -> list[InboundRecord]:
+        with self._lock:
+            lapsed = [
+                record
+                for record in self._inbound.values()
+                if record.status in RETRYABLE
+                and record.claim_until is not None
+                and record.claim_until <= now
+            ]
+        return sorted(lapsed, key=lambda record: record.claim_until)[:limit]  # type: ignore[arg-type, return-value]
+
+    def retake(
+        self,
+        *,
+        provider_message_key: bytes,
+        held: datetime,
+        now: datetime,
+        claim_until: datetime,
+    ) -> datetime | None:
+        with self._lock:
+            current = self._inbound[provider_message_key]
+            if current.status not in RETRYABLE or current.claim_until != held:
+                return None
+            self._inbound[provider_message_key] = replace(
+                current,
+                claim_until=claim_until,
+                updated_at=now,
+                recovery_attempts=current.recovery_attempts + 1,
+            )
+            return claim_until
+
+    def renew(
+        self,
+        *,
+        provider_message_key: bytes,
+        held: datetime,
+        now: datetime,
+        claim_until: datetime,
+    ) -> datetime | None:
+        with self._lock:
+            current = self._inbound[provider_message_key]
+            if current.status not in RETRYABLE or current.claim_until != held:
+                return None
+            self._inbound[provider_message_key] = replace(
+                current, claim_until=claim_until, updated_at=now
+            )
+            return claim_until
+
+    def inbound(self, provider_message_key: bytes) -> InboundRecord | None:
+        return self._inbound.get(provider_message_key)
+
+    def reserve_unlinked_reply(
+        self, *, sender_hash: bytes, provider_message_key: bytes, now: datetime
+    ) -> bool:
+        with self._lock:
+            day = dominican_day(self._inbound[provider_message_key].received_at)
+            key = unlinked_reply_key(sender_hash, day)
+            if key in self._inbound:
+                return False
+            self._inbound[key] = InboundRecord(
+                key,
+                sender_hash,
+                "rejected",
+                None,
+                None,
+                UNLINKED_REPLY_RESERVED,
+                None,
+                now,
+                now,
+            )
+            return True
+
+    def captured_connections(self, *, destination_owner_id: str) -> frozenset[str]:
+        with self._lock:
+            return frozenset(
+                record.connection_id
+                for record in self._inbound.values()
+                if record.status == "captured"
+                and record.connection_id is not None
+                and record.destination_owner_id == destination_owner_id
+            )
+
+    def issue_code(
+        self,
+        *,
+        destination_owner_id: str,
+        code_digest: bytes,
+        reply_language: ReplyLanguage,
+        now: datetime,
+        expires_at: datetime,
+    ) -> None:
+        with self._lock:
+            for digest in [
+                d
+                for d, c in self._codes.items()
+                if c.owner == destination_owner_id and not c.consumed
+            ]:
+                del self._codes[digest]
+            self._codes[code_digest] = _Code(
+                destination_owner_id, reply_language, expires_at
+            )
+
+    def redeem_code(
+        self, *, code_digest: bytes, sender_hash: bytes, last4: str, now: datetime
+    ) -> SenderLink | None:
+        with self._lock:
+            code = self._codes.get(code_digest)
+            if code is None or code.consumed or code.expires_at <= now:
+                return None
+            code.consumed = True
+            for link in self._links:
+                if link.active and (
+                    link.sender == sender_hash or link.owner == code.owner
+                ):
+                    link.active = False
+            link = _Link(code.owner, sender_hash, last4, now, code.reply_language)
+            self._links.append(link)
+            return SenderLink(link.owner, link.last4, link.linked_at, link.reply_language)
+
+    def _active(self, predicate) -> SenderLink | None:  # noqa: ANN001
+        for link in self._links:
+            if link.active and predicate(link):
+                return SenderLink(
+                    link.owner, link.last4, link.linked_at, link.reply_language
+                )
+        return None
+
+    def sender_link(self, *, sender_hash: bytes) -> SenderLink | None:
+        return self._active(lambda link: link.sender == sender_hash)
+
+    def destination_link(self, *, destination_owner_id: str) -> SenderLink | None:
+        return self._active(lambda link: link.owner == destination_owner_id)
+
+    def revoke(self, *, destination_owner_id: str, now: datetime) -> bool:
+        with self._lock:
+            for digest in [
+                d
+                for d, c in self._codes.items()
+                if c.owner == destination_owner_id and not c.consumed
+            ]:
+                del self._codes[digest]
+            revoked = False
+            for link in self._links:
+                if link.active and link.owner == destination_owner_id:
+                    link.active = False
+                    revoked = True
+            return revoked

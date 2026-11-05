@@ -1,0 +1,36 @@
+{
+  "status": "canonical_read_real_postgres_prerequisite_verified_not_shared_planning_delivery",
+  "tested_head": "d3147db88e8b7efe01af0f23256b929b575b48a1",
+  "source_commit": "2499e3c5a602c4b50b03bc9be8d7fb631feeae3f",
+  "integration_base": "15e57931584b21dd7f9e453dbeb9127fc4b8cff3",
+  "design_checkpoint": "7f72dfd73d0c137a1118dffebe5219985577548a",
+  "database": {
+    "host": "127.0.0.1",
+    "port": 59702,
+    "project": "ios-accounts-59700",
+    "synthetic": true
+  },
+  "command": "ARGUS_DISPOSABLE_DATABASE_URL=<lane-owned loopback Postgres DSN on59702> PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src /Users/garces/.codex/worktrees/5a42/private-alpha-next/.venv/bin/python -m pytest -q --no-cov -p no:cacheprovider tests/financial_accounts/test_canonical_groups.py tests/financial_accounts/test_household_projection.py tests/financial_accounts/test_personal_money.py tests/financial_accounts/test_debts.py tests/household/test_household_domain.py tests/household/test_household_lifecycle.py tests/household/test_household_financial_boundaries.py tests/household/test_household_review_regressions.py --junitxml=ios/.build/accounts-local-59700/canonical-read-postgres-junit.xml",
+  "counts": {
+    "tests": 110,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "log": "canonical-read-postgres-check.txt",
+  "junit": "canonical-read-postgres-junit.xml",
+  "ci": {
+    "head": "d3147db88e8b7efe01af0f23256b929b575b48a1",
+    "run": "https://github.com/lagarcess/argus/actions/runs/36901975308",
+    "conclusion": "success",
+    "executed": [
+      "ownership-gate",
+      "backend-checks",
+      "frontend-checks",
+      "guest-release-gates",
+      "ci"
+    ],
+    "docs_checks": "skipped because push classified heavy"
+  },
+  "limits": "Real database/domain proof only. No live API/Auth user journey, shared plan implementation, native UI, independent finished-diff review or merge readiness claimed."
+}

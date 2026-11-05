@@ -1,0 +1,58 @@
+.block {
+  background-color: rgb(0 0 0 / 0.06);
+}
+
+:global(.dark) .block {
+  background-color: rgb(255 255 255 / 0.08);
+}
+
+.shimmer {
+  background-image: linear-gradient(
+    90deg,
+    rgb(0 0 0 / 0) 0%,
+    rgb(0 0 0 / 0.05) 50%,
+    rgb(0 0 0 / 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: business-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+:global(.dark) .shimmer {
+  background-image: linear-gradient(
+    90deg,
+    rgb(255 255 255 / 0) 0%,
+    rgb(255 255 255 / 0.08) 50%,
+    rgb(255 255 255 / 0) 100%
+  );
+}
+
+.fade {
+  animation: business-content-fade var(--business-content-fade) ease both;
+}
+
+@keyframes business-skeleton-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@keyframes business-content-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer,
+  .fade {
+    animation: none;
+  }
+}

@@ -173,14 +173,14 @@ export SUPABASE_POSTGRES_DIRECT_URL="$DB_URL"
 export SUPABASE_POSTGRES_TRANSACTION_POOLER_URL="$DB_URL"
 export DATABASE_URL="$DB_URL"
 
-export ARGUS_PERSISTENCE_MODE=supabase
+export CUADRAO_PERSISTENCE_MODE=supabase
 export ARGUS_DEV_MEMORY_FALLBACK=false
 export ARGUS_MARKET_DATA_PROVIDER_MODE=live_provider
-export ARGUS_CHECKPOINTER_MODE=postgres
-export ARGUS_MOCK_AUTH=false
-export ARGUS_GUEST_ACCESS_ENABLED=true
-export ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=false
-export ARGUS_CORS_ALLOW_ORIGINS="http://localhost:$app_port"
+export CUADRAO_CHECKPOINTER_MODE=postgres
+export CUADRAO_MOCK_AUTH=false
+export CUADRAO_GUEST_ACCESS_ENABLED=true
+export CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=false
+export CUADRAO_CORS_ALLOW_ORIGINS="http://localhost:$app_port"
 export ARGUS_BACKTEST_JOBS_SHADOW_ENABLED=false
 export ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED=false
 export ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED=false
@@ -192,12 +192,10 @@ export NEXT_PUBLIC_MOCK_AUTH=false
 export NEXT_PUBLIC_GUEST_ACCESS_ENABLED=true
 export NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN=argus-local-browser-qa
 export NEXT_PUBLIC_ENABLE_SPANISH=true
-export NEXT_PUBLIC_CHAT_EXPLORATORY_SUGGESTIONS_ENABLED=false
 export NEXT_PUBLIC_OMNISEARCH_ENABLED=true
 export NEXT_PUBLIC_POSTHOG_KEY=
-unset NEXT_PUBLIC_POSTHOG_HOST || true
 unset POSTHOG_PROJECT_TOKEN POSTHOG_REGION POSTHOG_HOST \
-  ARGUS_POSTHOG_TIMEOUT_SECONDS || true
+  CUADRAO_POSTHOG_TIMEOUT_SECONDS || true
 
 if [ "$mode" != "list" ]; then
   command -v lsof >/dev/null || {
@@ -221,12 +219,10 @@ if [ "$mode" = "authoritative" ]; then
   export ARGUS_GUEST_QA_REQUIRE_ZERO_STATE=true
   unset ARGUS_GUEST_QA_ENTRY || true
   unset ARGUS_GUEST_QA_PREFLIGHT || true
-  unset ARGUS_GUEST_QA_START_CHECK || true
   unset ARGUS_GUEST_QA_EVIDENCE_SEGMENT || true
   build_frontend
 elif [ "$mode" = "continuation" ]; then
   export ARGUS_GUEST_QA_REQUIRE_ZERO_STATE=true
-  export ARGUS_GUEST_QA_START_CHECK=11
   export ARGUS_GUEST_QA_EVIDENCE_SEGMENT=provider-free-11-20
   unset ARGUS_GUEST_QA_ENTRY || true
   unset ARGUS_GUEST_QA_PREFLIGHT || true
@@ -236,20 +232,17 @@ elif [ "$mode" = "entry" ]; then
   export ARGUS_GUEST_QA_REQUIRE_ZERO_STATE=false
   export NEXT_PUBLIC_MOCK_AUTH=true
   unset ARGUS_GUEST_QA_PREFLIGHT || true
-  unset ARGUS_GUEST_QA_START_CHECK || true
   unset ARGUS_GUEST_QA_EVIDENCE_SEGMENT || true
   build_frontend
 elif [ "$mode" = "preflight" ]; then
   export ARGUS_GUEST_QA_PREFLIGHT=true
   export ARGUS_GUEST_QA_REQUIRE_ZERO_STATE=false
   unset ARGUS_GUEST_QA_ENTRY || true
-  unset ARGUS_GUEST_QA_START_CHECK || true
   unset ARGUS_GUEST_QA_EVIDENCE_SEGMENT || true
   build_frontend
 else
   unset ARGUS_GUEST_QA_ENTRY || true
   unset ARGUS_GUEST_QA_PREFLIGHT || true
-  unset ARGUS_GUEST_QA_START_CHECK || true
   unset ARGUS_GUEST_QA_EVIDENCE_SEGMENT || true
   export ARGUS_GUEST_QA_REQUIRE_ZERO_STATE=false
 fi

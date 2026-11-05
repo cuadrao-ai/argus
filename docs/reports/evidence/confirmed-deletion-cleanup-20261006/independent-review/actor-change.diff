@@ -1,0 +1,25 @@
+diff --git a/ios/Packages/ArgusSession/Sources/ArgusSession/SessionController.swift b/ios/Packages/ArgusSession/Sources/ArgusSession/SessionController.swift
+index 5a67c54b7..8720b2c26 100644
+--- a/ios/Packages/ArgusSession/Sources/ArgusSession/SessionController.swift
++++ b/ios/Packages/ArgusSession/Sources/ArgusSession/SessionController.swift
+@@ -601,13 +601,17 @@ public actor SessionController {
+         try vault.deletionOwners().sorted { $0.uuidString < $1.uuidString }.compactMap { try accountDeletionStatus(userID: $0) }
+     }
+
+-    /// The app acknowledges only after its exact-user local cleanup succeeds.
+-    public func acknowledgeConfirmedAccountDeletion(_ receipt: ConfirmedAccountDeletion) throws {
++    /// Validate ownership and run idempotent cleanup without letting another account enter between them.
++    public func acknowledgeConfirmedAccountDeletion(_ receipt: ConfirmedAccountDeletion,
++                                                   cleanup: @Sendable (UUID) throws -> Void) throws {
++        try beginMutation(); defer { mutating = false }
+         guard try vault.session() == nil, try vault.pending() == nil,
+               let journal = try vault.deletionJournal(userID: receipt.userID), journal.phase == .completed,
+               journal.id == receipt.commandID, journal.userID == receipt.userID,
+               journal.initiatingRevision == receipt.initiatingRevision else { throw SessionFailure.staleOperation }
+-        try vault.removeDeletionJournal(epoch: vault.epoch(), userID: receipt.userID)
++        let epoch = vault.epoch()
++        try cleanup(journal.userID)
++        try vault.removeDeletionJournal(epoch: epoch, userID: journal.userID)
+     }
+
+     private func requireNoUncertainDeletion() throws {

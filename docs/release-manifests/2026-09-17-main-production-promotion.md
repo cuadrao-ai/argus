@@ -110,21 +110,34 @@ Local readback: 79/79 migrations match with no missing, unexpected, name or cont
 
 ## Deploy Proof
 
-No release deploy has been attempted. Initial readback is retained in `docs/reports/evidence/2026-09-17-main-promotion/deploy-before.json`; fresh readback at 2026-09-17 23:10 UTC is `docs/reports/evidence/2026-09-17-main-promotion/final-hosted-readback.json`. No service changed.
+Correction 2026-09-25: Head of Engineering verified the production Render
+deploy in the Render dashboard. `argus-api` is live at
+`a9286b21886eb03df7a21f2f4b7d5e79af570679`. It was deployed 2026-09-17
+8:54 PM CT (2026-09-18 01:54Z). The previous `argus-api` deploy was
+`3d98057c1e722317f0243fb96fb647771ddae484`. `argus-app` and
+`argus-backtests` were not independently verified on 2026-09-25. This
+repo does not record a verified SHA for either of those two services
+after this promotion.
+
+Pre-deploy readback remains in
+`docs/reports/evidence/2026-09-17-main-promotion/deploy-before.json`
+and `docs/reports/evidence/2026-09-17-main-promotion/final-hosted-readback.json`
+(2026-09-17 23:10 UTC). Those files still showed all three services at
+`3d98057c` before this deploy.
 
 | Service | Observed deployed commit | Status |
 | --- | --- | --- |
-| `argus-api` | `3d98057c1e722317f0243fb96fb647771ddae484` | live |
-| `argus-app` | `3d98057c1e722317f0243fb96fb647771ddae484` | live |
-| `argus-backtests` | `3d98057` ready-version prefix | ready, version `wfv-dajijpbm8hqs738ed7i0` |
+| `argus-api` | `a9286b21886eb03df7a21f2f4b7d5e79af570679` | live. Deployed 2026-09-17 8:54 PM CT (2026-09-18 01:54Z). Previous deploy `3d98057c1e722317f0243fb96fb647771ddae484`. Verified in Render by Head of Engineering on 2026-09-25. |
+| `argus-app` | not independently verified on 2026-09-25 | The repo does not record a verified `argus-app` SHA for this deploy. |
+| `argus-backtests` | not independently verified on 2026-09-25 | The repo does not record a verified workflow SHA for this deploy. |
 
-Render MCP was reached through the repository-configured endpoint and credential. It exposes API/app deployment tools but no Workflow operations; the repository's Workflow release command uses Render's Workflow API through its CLI. This capability gap is recorded, not represented as a completed deploy.
+Render MCP was reached through the repository-configured endpoint and credential during the original promotion write-up. It exposes API/app deployment tools but no Workflow operations; the repository's Workflow release command uses Render's Workflow API through its CLI. That capability gap is unchanged.
 
 ## Environment Proof
 
 - Expected mode: `real-workflow`.
 - Release profile hash: `71659a53a4c39b129c62ab0cb42068205be3a78d60c229f95898fe64353f3733`.
-- `ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED=true` and `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED=true` agree in Blueprint, release profile and declared environment example. Live sharing has not been enabled.
+- `CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED=true` and `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED=true` agree in Blueprint, release profile and declared environment example on `origin/main`. Correction 2026-09-25: production `render.yaml` on `main` has both flags `true`. The integration Blueprint still has both `false`.
 - API/app were observed with `autoDeployTrigger=off`; the profile retains manual mode for all three services.
 - Hosted environment fingerprints, workflow effective-provider proof, warmup, guest controls/cleanup and post-deploy audit remain pending. No existing identity or guest workspace was modified for QA.
 
@@ -155,7 +168,8 @@ Canary: workflow 298408697 was read back `disabled_manually`; issue #614 was clo
 ## Release Decision
 
 - Decision: **PRODUCTION PROMOTION AUTHORIZED; IN PROGRESS**. Founder accepted the two earlier candidate-only typed failures, then requested Docker validation and an explicit stop. The new follow-up failure remains unresolved and is now explicitly accepted as a known gap.
-- Not performed per latest stop instruction: production backup/migrations/gate, main landing and landed-ref gate, three-service deploy and hosted verification. PR #655 is draft; no readiness or deploy clearance is inferred from this preparation checkpoint. The later documentation-publication head must retain current CI before landing.
+- Correction 2026-09-25: `origin/main` is `a9286b21886eb03df7a21f2f4b7d5e79af570679` (`feat(release): promote the approved private alpha roadmap`). `argus-api` is live at that SHA. `argus-app` and `argus-backtests` were not independently verified.
+- The original write-up recorded that production backup/migrations/gate, main landing, and the three-service deploy had not been performed, and that PR #655 was still draft. That was the pre-deploy checkpoint. The 2026-09-25 correction above records the `argus-api` deploy that followed.
 - Signed-out sharing walk: completed locally at exact `cfc1988d` with screenshots/console evidence; link publication and viewing passed, follow-up navigation passed, follow-up calculation intent failed. Production walk and revocation acceptance were not performed.
 - Tester invitations/public exposure changes: none.
 - Rollback owner: founder/Codex within the explicit promotion authority; restore the prior code and sharing posture while retaining compatible widened schema.
@@ -165,4 +179,14 @@ Preproduction checkpoint, written after final review returned: `docs/reports/evi
 
 ## Privacy Notes
 
-No production conversation, user, run or job rows were read. No production backup or browser transcript has been published. Native eval evidence contains authored fixture scenarios and the harness's retained/redacted output, not customer conversations. Credentials remain in ignored local files; the evidence directory was scanned against operator credential values with zero matches. Backup contents, tokens, cookies and auth storage must never be committed.
+No production conversation, user, run or job rows were read. No production
+backup or browser transcript has been published. The disposable local sharing
+walk retains privacy-safe aggregates and redacted screenshots only — not full
+guest transcript dumps, accessibility-tree YAML captures, Auth UUIDs, or raw
+receipt slugs (see
+`docs/reports/evidence/2026-09-17-main-promotion/local-sharing-walk/`). Native
+eval evidence contains authored fixture scenarios and the harness's
+retained/redacted output, not customer conversations. Credentials remain in
+ignored local files; the evidence directory was scanned against operator
+credential values with zero matches. Backup contents, tokens, cookies and auth
+storage must never be committed.

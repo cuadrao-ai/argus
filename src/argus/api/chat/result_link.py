@@ -258,17 +258,6 @@ def _withhold_refused_result_publication(
         job_id=str((link_outcome.job or {}).get("id") or ""),
         run_id=run_id,
     )
-    from argus.api.chat.evidence import emit_evidence_capture_withdrawn
-
-    # Finalization already appended its completion telemetry; the typed
-    # withdrawal on the same stream keeps evidence-funnel counts honest.
-    emit_evidence_capture_withdrawn(
-        user_id=user_id,
-        conversation_id=(
-            str((link_outcome.job or {}).get("conversation_id") or "") or None
-        ),
-        run_id=run_id,
-    )
     restore_pending_card_for_failed_job(
         gateway,
         user_id=user_id,

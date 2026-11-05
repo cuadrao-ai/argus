@@ -42,7 +42,7 @@ const ANNOUNCEMENT_COPY: Record<
 > = {
   working: {
     key: "chat.activity.announce_working",
-    defaultValue: "Argus is working on {{title}}.",
+    defaultValue: "Cuadrao is working on {{title}}.",
   },
   needs_attention: {
     key: "chat.activity.announce_needs_attention",

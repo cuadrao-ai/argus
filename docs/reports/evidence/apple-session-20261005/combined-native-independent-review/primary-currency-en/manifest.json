@@ -1,0 +1,26 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AD3171CD-69D5-44E9-93AF-1E38FE5FFCD7",
+        "deviceName" : "Cuadrao-Apple-Combined-QA",
+        "exportedFileName" : "5D912CFC-61C2-4C7F-ACF7-8A7FCCFD4559.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "primary-currency-en-restored_0_47C6F432-4BF2-4795-A14C-92707B6577F9.png",
+        "timestamp" : 1791251544.443
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AD3171CD-69D5-44E9-93AF-1E38FE5FFCD7",
+        "deviceName" : "Cuadrao-Apple-Combined-QA",
+        "exportedFileName" : "B94F260A-12D9-4997-A3AB-37210DDF2669.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "primary-currency-en-saved_0_D2D64FB4-27E3-4CE5-B9A7-CD7131993942.png",
+        "timestamp" : 1791251537.771
+      }
+    ],
+    "testIdentifier" : "AuthJourneyUITests/testPrimaryCurrencySurvivesRelaunch()",
+    "testIdentifierURL" : "test://com.apple.xcode/ArgusFoundation/ArgusFoundationUITests/AuthJourneyUITests/testPrimaryCurrencySurvivesRelaunch"
+  }
+]

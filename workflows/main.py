@@ -3,6 +3,9 @@ from __future__ import annotations
 import os
 
 from argus.llm.openrouter_key_policy import validate_hosted_openrouter_configuration
+from argus.log_sink import configure_logging
+
+configure_logging()
 
 try:
     from render_sdk import Retry, Workflows

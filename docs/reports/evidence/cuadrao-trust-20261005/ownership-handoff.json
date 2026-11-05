@@ -1,0 +1,8 @@
+{
+  "source": "preceding coordinator final transcript 32bae757-e6b1-4698-9d37-f19d5b42459e",
+  "final_at": "2026-10-05T16:05:22.420Z",
+  "final_stop_reason": "end_turn",
+  "cleanup_statement": "Worker worktrees, my simulator, my local stacks and a leftover background process are all cleaned up.",
+  "final_integration": "875de09ac2115acec42e09060b92878aa5f18eff",
+  "independently_fetched_same_integration_before_first_merge": true
+}

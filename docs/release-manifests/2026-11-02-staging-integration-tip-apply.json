@@ -1,0 +1,15 @@
+{
+  "id": "staging-apply-2026-11-02-integration-tip",
+  "project_ref": "skedzwocnmrhfigiwyzi",
+  "hosts": [
+    "db.skedzwocnmrhfigiwyzi.supabase.co",
+    "aws-0-us-east-1.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "9c94c7950d4d6c6fa36c1d0a6cabb88d3dd0c728",
+  "versions_sha256": "33867eb8cd1d80dd36f7eddbd173a4982fdbe4e84761cbcd9b044dd8c1af2a7f",
+  "issued_at": "2026-11-02T07:24:13Z",
+  "expires_at": "2026-11-04T07:24:13Z",
+  "approved_by": "founder",
+  "approval_reference": "Lucas, in the orchestrator session on 2026-11-02, approved deploying integration to staging after being told it needs these four migrations, that the worker stays off, and that no new service is needed."
+}

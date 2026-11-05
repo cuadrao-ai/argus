@@ -1,0 +1,80 @@
+Local synthetic acceptance; no hosted/provider calls.
+
+Deterministic final package (source af6e62b1):
+Test Case '-[ArgusSessionTests.ConfigurationTests testAcceptsHTTPSAndLoopbackOrigins]' started.
+Test Case '-[ArgusSessionTests.ConfigurationTests testAcceptsHTTPSAndLoopbackOrigins]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.ConfigurationTests testRejectsRemoteHTTPAndEmbeddedCredentials]' started.
+Test Case '-[ArgusSessionTests.ConfigurationTests testRejectsRemoteHTTPAndEmbeddedCredentials]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.ConfigurationTests testRejectsSecretRoleKeyAndEmptyConfiguration]' started.
+Test Case '-[ArgusSessionTests.ConfigurationTests testRejectsSecretRoleKeyAndEmptyConfiguration]' passed (0.000 seconds).
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveConcurrentRefreshAfterExpiryMargin]' started.
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveConcurrentRefreshAfterExpiryMargin]' skipped (0.001 seconds).
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveInvalidLoginAndConfirmationRequiredSignup]' started.
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveInvalidLoginAndConfirmationRequiredSignup]' skipped (0.000 seconds).
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveRegisteredRelaunchRevocationAndAccountSwitch]' started.
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveRegisteredRelaunchRevocationAndAccountSwitch]' skipped (0.000 seconds).
+	 Executed 3 tests, with 3 tests skipped and 0 failures (0 unexpected) in 0.002 (0.003) seconds
+Test Case '-[ArgusSessionTests.SessionControllerTests testAnonymousSessionIsPreservedWithoutAnyNetworkOrAccountReplacement]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testAnonymousSessionIsPreservedWithoutAnyNetworkOrAccountReplacement]' passed (0.004 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testConcurrentExpiredRequestsUseOneRefreshAndPersistRotation]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testConcurrentExpiredRequestsUseOneRefreshAndPersistRotation]' passed (0.011 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testDeleteFailureRemainsPendingUntilLocalCleanupSucceeds]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testDeleteFailureRemainsPendingUntilLocalCleanupSucceeds]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testFailedRevokePersistsPendingAndBlocksNewEntryAcrossRelaunch]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testFailedRevokePersistsPendingAndBlocksNewEntryAcrossRelaunch]' passed (2.045 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testFailedRotationPersistenceEndsUsableSessionAndRetainsRevocation]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testFailedRotationPersistenceEndsUsableSessionAndRetainsRevocation]' passed (0.003 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testJournalFailureRetainsVisiblePendingStateAndBlocksEntry]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testJournalFailureRetainsVisiblePendingStateAndBlocksEntry]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testLateProfileCannotReplaceNewAccount]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testLateProfileCannotReplaceNewAccount]' passed (0.003 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testLateRefreshCannotResurrectSignedOutCredentials]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testLateRefreshCannotResurrectSignedOutCredentials]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testOne401RefreshAndRetryBut503RetainsSession]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testOne401RefreshAndRetryBut503RetainsSession]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testProfileMustMatchSDKIdentity]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testProfileMustMatchSDKIdentity]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testRegisteredLoginRestoresCanonicalProfile]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testRegisteredLoginRestoresCanonicalProfile]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testRejectedRefreshEndsUsableSessionForBothSDKErrorShapes]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testRejectedRefreshEndsUsableSessionForBothSDKErrorShapes]' passed (0.006 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testSDKSuppressedLogout401DoesNotClaimRevoked]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testSDKSuppressedLogout401DoesNotClaimRevoked]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testSDKSwallowedWriteFailureNeverReportsSuccessfulAdoption]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testSDKSwallowedWriteFailureNeverReportsSuccessfulAdoption]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testSecond401EndsUsableSession]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testSecond401EndsUsableSession]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testSignOutJournalFailureIsVisibleAndInvalidatesOldProfile]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testSignOutJournalFailureIsVisibleAndInvalidatesOldProfile]' passed (0.003 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testSignOutWithoutStoredCredentialStillInvalidatesInFlightProfile]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testSignOutWithoutStoredCredentialStillInvalidatesInFlightProfile]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testSignupWithoutSessionRequiresConfirmationWithoutAutomaticLogin]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testSignupWithoutSessionRequiresConfirmationWithoutAutomaticLogin]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testTransientRefreshFailureKeepsSessionRetryable]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testTransientRefreshFailureKeepsSessionRetryable]' passed (1.033 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testWriteFailureNeverClaimsAuthenticated]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testWriteFailureNeverClaimsAuthenticated]' passed (0.000 seconds).
+	 Executed 20 tests, with 0 failures (0 unexpected) in 3.124 (3.126) seconds
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testDifferentAPIOriginsCannotRestoreEachOthersCredentials]' started.
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testDifferentAPIOriginsCannotRestoreEachOthersCredentials]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testRetiredStorageCannotReadWriteOrDeleteCurrentAccount]' started.
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testRetiredStorageCannotReadWriteOrDeleteCurrentAccount]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testTransportConfigurationCannotStoreOrReplayCookies]' started.
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testTransportConfigurationCannotStoreOrReplayCookies]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testTransportRejectsForeignRequestsAndRedirectResponses]' started.
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testTransportRejectsForeignRequestsAndRedirectResponses]' passed (0.000 seconds).
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.003 (0.003) seconds
+	 Executed 30 tests, with 3 tests skipped and 0 failures (0 unexpected) in 3.131 (3.135) seconds
+	 Executed 30 tests, with 3 tests skipped and 0 failures (0 unexpected) in 3.131 (3.136) seconds
+
+Earlier isolated live package proof (final failure-only fixes revalidated by deterministic suite):
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveConcurrentRefreshAfterExpiryMargin]' started.
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveConcurrentRefreshAfterExpiryMargin]' passed (32.602 seconds).
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveInvalidLoginAndConfirmationRequiredSignup]' started.
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveInvalidLoginAndConfirmationRequiredSignup]' passed (0.343 seconds).
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveRegisteredRelaunchRevocationAndAccountSwitch]' started.
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveRegisteredRelaunchRevocationAndAccountSwitch]' passed (0.984 seconds).
+	 Executed 3 tests, with 0 failures (0 unexpected) in 33.929 (33.930) seconds
+	 Executed 3 tests, with 0 failures (0 unexpected) in 33.929 (33.930) seconds
+	 Executed 3 tests, with 0 failures (0 unexpected) in 33.929 (33.931) seconds

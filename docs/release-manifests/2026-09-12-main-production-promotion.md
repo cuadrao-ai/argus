@@ -88,8 +88,8 @@ Status: The founder merged PR #603 as `3d98057c1e722317f0243fb96fb647771ddae484`
   - real workflow task verified: Candidate hosted task pending Step 8.
 - Feature flags: both receipt-sharing values are false. The complete service key records are in `sharing-off/browser-completion/environment-proof.json`.
 - Guest staged mode:
-  - `ARGUS_GUEST_ACCESS_ENABLED`: Not declared in the service key record; production code default applies.
-  - `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED`: `true`, from the release literal key record.
+  - `CUADRAO_GUEST_ACCESS_ENABLED`: Not declared in the service key record; production code default applies.
+  - `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED`: `true`, from the release literal key record.
   - `NEXT_PUBLIC_GUEST_ACCESS_ENABLED`: Not declared in the service key record; production code default applies.
   - permanent account allowlist verified: No allowlist change; local new-account signup and profile save verified.
 - Anonymous Auth / abuse controls:
@@ -182,7 +182,7 @@ Status: The founder merged PR #603 as `3d98057c1e722317f0243fb96fb647771ddae484`
 
 ## Sharing-Off Decision and Initial Preflight, 2026-09-13 (Historical)
 
-The founder chose to promote with sharing off after the live findings in [#604](https://github.com/lagarcess/argus/issues/604#issuecomment-5655111583). Only `ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED` and `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED` change from `true` to `false` in `render.yaml` and the release profile. Their existing contract tests derive and compare the profile and Blueprint values; no separate true-valued test pin exists. Code defaults, runtime code, eval fixtures and all seven migrations remain unchanged. The earlier sharing-on records below are historical evidence, not the intended release configuration.
+The founder chose to promote with sharing off after the live findings in [#604](https://github.com/lagarcess/argus/issues/604#issuecomment-5655111583). Only `CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED` and `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED` change from `true` to `false` in `render.yaml` and the release profile. Their existing contract tests derive and compare the profile and Blueprint values; no separate true-valued test pin exists. Code defaults, runtime code, eval fixtures and all seven migrations remain unchanged. The earlier sharing-on records below are historical evidence, not the intended release configuration.
 
 The full native candidate scorecard remains measurement evidence for the unchanged code exercised in Environment B: that job uses its explicit env file and does not read `render.yaml` or exercise sharing. Its original bytes and recorded measured SHA remain unchanged. This does **not** yet establish that the release validator accepts the scorecard for the new product head. `tests/test_private_alpha_release_docs.py:546` requires the scorecard's `provenance.candidate_sha` to equal the manifest candidate SHA. `eval_measured_code_unchanged` at `tests/release_promotion_evidence_support.py:94` is used for the baseline comparison at lines 160-164; it is not an alternative to the earlier exact-SHA assertion.
 
@@ -601,7 +601,7 @@ Evidence directory: `docs/reports/evidence/2026-09-12-main-promotion/`.
 - `release-contract-tests.log`: 87 passed and one failed, exit 1. The new skeleton has no durable live eval scorecard because Step 3 has not run. This is an outstanding evidence requirement, not a product regression. No test was weakened or waived.
 - `modularity.log`: no violations. Main is an ancestor, so the candidate is also the would-be merged product tree.
 - `local-smoke.log`: exit 28 after API health and workflow probe passed. Exact error: `curl: (28) Operation timed out after 20010 milliseconds with 0 bytes received`. Product readiness did not complete. Cause is unclassified; no retry, timeout change or product fix has been made. The smoke processes exited and no listener remains on their ports 8126 or 3126.
-- `environment-parity-before.json`: Render literals, release-profile keys and contract arrays agree for API and web. The template inventory found undocumented settings: `ARGUS_STRUCTURED_REASONING_EFFORT`, `ARGUS_CAPABILITY_REASONING_EFFORT`, `ARGUS_ENV`, `ARGUS_APP_ENV`, `ARGUS_RENDER_WORKFLOW_PROOF_TIMEOUT_SECONDS`, `ARGUS_RENDER_WORKFLOW_PROOF_POLL_SECONDS`, and `ARGUS_WORKFLOW_PROOF_USER_ID`. These are documentation gaps, not an established product regression. Their absence from the live release contract means the production defaults still apply. The initial static inventory is not exhaustive; dynamic task-timeout keys remain to be covered by the resumed full parity pass.
+- `environment-parity-before.json`: Render literals, release-profile keys and contract arrays agree for API and web. The template inventory found undocumented settings: `CUADRAO_STRUCTURED_REASONING_EFFORT`, `CUADRAO_CAPABILITY_REASONING_EFFORT`, `ARGUS_ENV`, `ARGUS_APP_ENV`, `ARGUS_RENDER_WORKFLOW_PROOF_TIMEOUT_SECONDS`, `ARGUS_RENDER_WORKFLOW_PROOF_POLL_SECONDS`, and `ARGUS_WORKFLOW_PROOF_USER_ID`. These are documentation gaps, not an established product regression. Their absence from the live release contract means the production defaults still apply. The initial static inventory is not exhaustive; dynamic task-timeout keys remain to be covered by the resumed full parity pass.
 - `DATABASE_URL` is intentionally derived and documented; `MEM0_TELEMETRY` is forced off internally; `RENDER_TASK_RUN_ID` is platform-supplied. These are not requested configuration changes.
 - `measured-tree-identity.json`: the product paths from the prior promotion and every non-doc Git path are unchanged from the measured head. This stop-record commit contains docs and evidence only.
 - `preflight-status.json`: gate outcomes, zero spend, no live mutations and local cleanup record.
@@ -638,7 +638,7 @@ Captured before startup at the measured head. Secret-bearing keys record only pr
 | `ALPACA_PAPER_TRADING` | `true` |
 | `ALPACA_SECRET_KEY` | `present` |
 | `APP_ENV` | `production` |
-| `ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD` | `absent` |
+| `CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD` | `absent` |
 | `ARGUS_APP_ORIGIN` | `http://localhost:3136` |
 | `ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED` | `false` |
 | `ARGUS_BACKTEST_JOBS_GLOBAL_QUEUED_LIMIT` | `10` |
@@ -649,47 +649,47 @@ Captured before startup at the measured head. Secret-bearing keys record only pr
 | `ARGUS_BACKTEST_REAL_WORKFLOW_TASK` | `argus-backtests/run_backtest_job` |
 | `ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED` | `false` |
 | `ARGUS_BACKTEST_WORKFLOW_TASK` | `argus-backtests/workflow_proof` |
-| `ARGUS_CHAT_FALLBACK_MODEL` | `qwen/qwen3.5-9b` |
-| `ARGUS_CHAT_MODEL` | `deepseek/deepseek-v4-flash` |
-| `ARGUS_CHECKPOINTER_MODE` | `postgres` |
-| `ARGUS_CONTEXT_FALLBACK_MODEL` | `deepseek/deepseek-v4-flash` |
-| `ARGUS_CONTEXT_MODEL` | `openai/gpt-oss-120b` |
+| `CUADRAO_CHAT_FALLBACK_MODEL` | `qwen/qwen3.5-9b` |
+| `CUADRAO_CHAT_MODEL` | `deepseek/deepseek-v4-flash` |
+| `CUADRAO_CHECKPOINTER_MODE` | `postgres` |
+| `CUADRAO_CONTEXT_FALLBACK_MODEL` | `deepseek/deepseek-v4-flash` |
+| `CUADRAO_CONTEXT_MODEL` | `openai/gpt-oss-120b` |
 | `ARGUS_CONTEXT_PACKETS_ENABLED` | `true` |
 | `ARGUS_CONTEXT_PACKET_BUDGET_SECONDS` | `4` |
-| `ARGUS_CORS_ALLOW_ORIGINS` | `http://localhost:3136` |
+| `CUADRAO_CORS_ALLOW_ORIGINS` | `http://localhost:3136` |
 | `ARGUS_DEV_MEMORY_FALLBACK` | `false` |
 | `ARGUS_DISCOVERY_SEARCH_PROVIDER` | `perplexity_direct` |
 | `ARGUS_ENABLE_EXECUTION_REALISM` | `true` |
 | `ARGUS_ENABLE_MEMORY_SEMANTIC_RECALL` | `false` |
 | `ARGUS_ENABLE_PERSONALIZATION_MEMORY` | `true` |
-| `ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED` | `true` |
-| `ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY` | `present` |
+| `CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED` | `true` |
+| `CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY` | `present` |
 | `ARGUS_IN_PLACE_CARD_EDITS_ENABLED` | `true` |
 | `ARGUS_MARKET_DATA_PROVIDER_MODE` | `live_provider` |
 | `ARGUS_MEMORY_EMBEDDING_DIMENSIONS` | `1024` |
 | `ARGUS_MEMORY_EMBEDDING_MODEL` | `pplx-embed-v1-0.6b` |
 | `ARGUS_MEMORY_EMBEDDING_TIMEOUT_SECONDS` | `8.0` |
 | `ARGUS_MEMORY_VECTOR_COLLECTION` | `argus_memory_vectors` |
-| `ARGUS_MOCK_AUTH` | `false` |
-| `ARGUS_OPENROUTER_RESULT_SUMMARY_TIMEOUT_SECONDS` | `30` |
-| `ARGUS_OPS_TOKEN` | `present` |
-| `ARGUS_PERSISTENCE_MODE` | `supabase` |
-| `ARGUS_PROD_OPENROUTER_API_KEY` | `present` |
-| `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED` | `true` |
+| `CUADRAO_MOCK_AUTH` | `false` |
+| `CUADRAO_OPENROUTER_RESULT_SUMMARY_TIMEOUT_SECONDS` | `30` |
+| `CUADRAO_OPS_TOKEN` | `present` |
+| `CUADRAO_PERSISTENCE_MODE` | `supabase` |
+| `CUADRAO_PROD_OPENROUTER_API_KEY` | `present` |
+| `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED` | `true` |
 | `ARGUS_READINESS_ASSET_TIMEOUT_SECONDS` | `25` |
-| `ARGUS_READOUT_FALLBACK_MODEL` | `openai/gpt-5.6-luna` |
-| `ARGUS_READOUT_MODEL` | `openai/gpt-5.6-luna` |
+| `CUADRAO_READOUT_FALLBACK_MODEL` | `openai/gpt-5.6-luna` |
+| `CUADRAO_READOUT_MODEL` | `openai/gpt-5.6-luna` |
 | `ARGUS_RESEARCH_GLOBAL_DAILY_CEILING` | `5000` |
 | `ARGUS_RESEARCH_RAIL_ENABLED` | `true` |
-| `ARGUS_RUNTIME_EVENT_KEEPALIVE_SECONDS` | `15` |
-| `ARGUS_RUNTIME_EVENT_TIMEOUT_SECONDS` | `180` |
-| `ARGUS_STRUCTURED_FALLBACK_MODEL` | `anthropic/claude-haiku-4.5` |
-| `ARGUS_STRUCTURED_MODEL` | `x-ai/grok-4.3` |
+| `CUADRAO_RUNTIME_EVENT_KEEPALIVE_SECONDS` | `15` |
+| `CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS` | `180` |
+| `CUADRAO_STRUCTURED_FALLBACK_MODEL` | `anthropic/claude-haiku-4.5` |
+| `CUADRAO_STRUCTURED_MODEL` | `x-ai/grok-4.3` |
 | `ARGUS_TITLE_AUTOGEN_ENABLED` | `true` |
 | `ARGUS_TITLE_AUTOGEN_TIMEOUT_MS` | `250` |
-| `ARGUS_UTILITY_FALLBACK_MODEL` | `qwen/qwen3.5-9b` |
-| `ARGUS_UTILITY_MODEL` | `google/gemini-2.5-flash-lite` |
-| `ARGUS_VISITOR_KEY_SECRET` | `present` |
+| `CUADRAO_UTILITY_FALLBACK_MODEL` | `qwen/qwen3.5-9b` |
+| `CUADRAO_UTILITY_MODEL` | `google/gemini-2.5-flash-lite` |
+| `CUADRAO_VISITOR_KEY_SECRET` | `present` |
 | `DATABASE_URL` | `present` |
 | `HOME` | `/private/tmp/argus-promotion-20260912-supabase/home` |
 | `MARKET_DATA_CACHE_TTL` | `43200` |
@@ -710,7 +710,7 @@ Captured before startup at the measured head. Secret-bearing keys record only pr
 | --- | --- |
 | `ARGUS_APP_ORIGIN` | `http://localhost:3136` |
 | `HOME` | `/private/tmp/argus-promotion-20260912-supabase/home` |
-| `NEXT_PUBLIC_APP_ENV` | `production` |
+| `[removed obsolete setting]` | `production` |
 | `NEXT_PUBLIC_ARGUS_API_URL` | `http://localhost:8136/api/v1` |
 | `NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN` | `present` |
 | `NEXT_PUBLIC_ARGUS_SUPPORT_EMAIL` | `support@get-argus.com` |
@@ -794,7 +794,7 @@ The unchanged landed smoke first exited 28 on its known 20-second cold readiness
 
 ### Hosted settings and migrations
 
-The only environment writes were four per-key Render PUTs: `ARGUS_READOUT_MODEL` and `ARGUS_READOUT_FALLBACK_MODEL`, each `openai/gpt-5.6-luna`, on `argus-api` and `argus-backtests`. All three `autoDeployTrigger` values were `off` before, immediately before, after those writes, and after deployment. All unrelated environment values matched the pre-write readback. No Blueprint sync or `workflow-runtime` command ran. Sharing stayed off. Evidence: `hosted-settings-before.json`, `hosted-settings-immediately-before-write.json`, `hosted-settings-writes.json`, `hosted-settings-after.json`, and `hosted-settings-post-deploy.json`. The historical preapproval stop is retained in `workflow-settings-method-decision.json`; the final founder approval, its scope and completed execution are recorded separately in `workflow-settings-final-decision.json`.
+The only environment writes were four per-key Render PUTs: `CUADRAO_READOUT_MODEL` and `CUADRAO_READOUT_FALLBACK_MODEL`, each `openai/gpt-5.6-luna`, on `argus-api` and `argus-backtests`. All three `autoDeployTrigger` values were `off` before, immediately before, after those writes, and after deployment. All unrelated environment values matched the pre-write readback. No Blueprint sync or `workflow-runtime` command ran. Sharing stayed off. Evidence: `hosted-settings-before.json`, `hosted-settings-immediately-before-write.json`, `hosted-settings-writes.json`, `hosted-settings-after.json`, and `hosted-settings-post-deploy.json`. The historical preapproval stop is retained in `workflow-settings-method-decision.json`; the final founder approval, its scope and completed execution are recorded separately in `workflow-settings-final-decision.json`.
 
 Immediately before application, the read-only production gate verified `origin/main` at the merge commit and reported only the seven approved missing migrations. The founder approved all seven, including the theme drop, without backup. Each migration ran in one transaction with its ledger row. Execution and the ledger statement array used the gate's own `_split_supabase_statements`; the exact name and statement array were read back before each commit. The gate itself remained read-only.
 

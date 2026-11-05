@@ -1,0 +1,2489 @@
+{
+  "security": [
+    {
+      "name": "rls_enabled_no_policy",
+      "level": "INFO",
+      "count": 74,
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy",
+      "objects": [
+        {
+          "name": "account_deletion_placeholders",
+          "type": "table",
+          "schema": "argus_private"
+        },
+        {
+          "name": "account_deletion_revocations",
+          "type": "table",
+          "schema": "argus_private"
+        },
+        {
+          "name": "account_deletion_runs",
+          "type": "table",
+          "schema": "argus_private"
+        },
+        {
+          "name": "account_placeholders",
+          "type": "table",
+          "schema": "argus_private"
+        },
+        {
+          "name": "invite_code_digests",
+          "type": "table",
+          "schema": "argus_private"
+        },
+        {
+          "name": "apple_sign_in_credentials",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "argus_memory_vectors",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "business_access_invites",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "business_action_receipts",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "business_ai_consents",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "business_client_grants",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "business_draft_revisions",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "business_draft_sources",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "business_email_daily_usage",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "business_email_deliveries",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "business_email_parts",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "business_email_routes",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "business_questions",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "business_receipt_activity_baseline",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "business_receipt_consent_commands",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "business_receipt_read_states",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "business_receipt_reading_consents",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "business_sender_leases",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "business_sources",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "business_turns",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "business_whatsapp_ai_consents",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "checkpoint_blobs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "checkpoint_migrations",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "checkpoint_writes",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "checkpoints",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "cost_ledger_entries",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "cuadrao_early_access_signups",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "financial_account_idempotency",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "financial_activity_receipts",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "financial_document_extractions",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "financial_goal_allocation_revisions",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "financial_operation_receipts",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "financial_plan_definition_revisions",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "financial_plan_receipts",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "financial_plan_responsibilities",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "financial_shortcut_device_tokens",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "guest_funnel_milestones",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "guest_workspace_handoffs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "household_command_receipts",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "household_deletion_events",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "household_plan_archived_activities",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "household_plan_archived_allocations",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "household_plan_archived_claims",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "household_plan_bindings",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "household_plan_participants",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "household_plan_receipts",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "memory_candidates",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "memory_consent_actions",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "memory_prompt_history",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "memory_provenance",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "memory_provider_cleanup",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "memory_provider_projections",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "memory_reconciliations",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "memory_records",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "memory_settings",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "private_alpha_access_welcome_claims",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "private_alpha_access_welcome_deliveries",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "private_alpha_allowlist",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "public_excerpt_snapshots",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "refusal_observations",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "spaces",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "visitor_usage_counters",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "whatsapp_inbound_messages",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "whatsapp_link_codes",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "whatsapp_outbox",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "whatsapp_reply_attempts",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "whatsapp_reply_days",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "whatsapp_reply_groups",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "whatsapp_sender_links",
+          "type": "table",
+          "schema": "public"
+        }
+      ]
+    },
+    {
+      "name": "function_search_path_mutable",
+      "level": "WARN",
+      "count": 2,
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0011_function_search_path_mutable",
+      "objects": [
+        {
+          "name": "set_updated_at",
+          "type": "function",
+          "schema": "public"
+        },
+        {
+          "name": "argus_search_symbol_casefold",
+          "type": "function",
+          "schema": "public"
+        }
+      ]
+    },
+    {
+      "name": "extension_in_public",
+      "level": "WARN",
+      "count": 1,
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public",
+      "objects": [
+        {
+          "name": "vector",
+          "type": "extension",
+          "schema": "public"
+        }
+      ]
+    },
+    {
+      "name": "anon_security_definer_function_executable",
+      "level": "WARN",
+      "count": 1,
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable",
+      "objects": [
+        {
+          "name": "rls_auto_enable",
+          "schema": "public",
+          "language": "plpgsql",
+          "arguments": "",
+          "security_definer": true
+        }
+      ]
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "level": "WARN",
+      "count": 2,
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable",
+      "objects": [
+        {
+          "name": "is_active_household_member",
+          "schema": "public",
+          "language": "sql",
+          "arguments": "p_household_id uuid, p_user_id uuid",
+          "security_definer": true
+        },
+        {
+          "name": "rls_auto_enable",
+          "schema": "public",
+          "language": "plpgsql",
+          "arguments": "",
+          "security_definer": true
+        }
+      ]
+    },
+    {
+      "name": "auth_leaked_password_protection",
+      "level": "WARN",
+      "count": 1,
+      "remediation": "https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection",
+      "objects": [
+        {
+          "type": "auth",
+          "entity": "Auth"
+        }
+      ]
+    }
+  ],
+  "performance": [
+    {
+      "name": "unindexed_foreign_keys",
+      "level": "INFO",
+      "count": 137,
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0001_unindexed_foreign_keys",
+      "objects": [
+        {
+          "name": "backtest_jobs",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "backtest_jobs_confirmation_message_id_fkey",
+          "fkey_columns": [
+            5
+          ]
+        },
+        {
+          "name": "backtest_jobs",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "backtest_jobs_request_message_id_fkey",
+          "fkey_columns": [
+            4
+          ]
+        },
+        {
+          "name": "beta_admissions",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "beta_admissions_referral_id_fkey",
+          "fkey_columns": [
+            3
+          ]
+        },
+        {
+          "name": "business_access_invites",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "business_access_invites_accepted_grant_id_fkey",
+          "fkey_columns": [
+            8
+          ]
+        },
+        {
+          "name": "business_access_invites",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "business_access_invites_issuer_id_fkey",
+          "fkey_columns": [
+            3
+          ]
+        },
+        {
+          "name": "business_action_receipts",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "business_action_receipts_turn_key_space_id_actor_id_fkey",
+          "fkey_columns": [
+            7,
+            1,
+            2
+          ]
+        },
+        {
+          "name": "business_ai_consents",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "business_ai_consents_space_fkey",
+          "fkey_columns": [
+            2,
+            3
+          ]
+        },
+        {
+          "name": "business_draft_revisions",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "business_draft_revisions_draft_id_space_id_fkey",
+          "fkey_columns": [
+            2,
+            1
+          ]
+        },
+        {
+          "name": "business_draft_sources",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "business_draft_sources_draft_id_space_id_fkey",
+          "fkey_columns": [
+            2,
+            1
+          ]
+        },
+        {
+          "name": "business_draft_sources",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "business_draft_sources_source_id_space_id_fkey",
+          "fkey_columns": [
+            3,
+            1
+          ]
+        },
+        {
+          "name": "business_email_deliveries",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "business_email_deliveries_original_document_id_fkey",
+          "fkey_columns": [
+            9
+          ]
+        },
+        {
+          "name": "business_email_deliveries",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "business_email_deliveries_principal_id_fkey",
+          "fkey_columns": [
+            7
+          ]
+        },
+        {
+          "name": "business_email_deliveries",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "business_email_deliveries_route_id_fkey",
+          "fkey_columns": [
+            5
+          ]
+        },
+        {
+          "name": "business_email_parts",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "business_email_parts_document_id_fkey",
+          "fkey_columns": [
+            6
+          ]
+        },
+        {
+          "name": "business_email_routes",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "business_email_routes_grant_id_space_id_fkey",
+          "fkey_columns": [
+            6,
+            3
+          ]
+        },
+        {
+          "name": "business_email_routes",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "business_email_routes_granted_by_fkey",
+          "fkey_columns": [
+            5
+          ]
+        },
+        {
+          "name": "business_email_routes",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "business_email_routes_principal_id_fkey",
+          "fkey_columns": [
+            4
+          ]
+        },
+        {
+          "name": "business_email_routes",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "business_email_routes_space_id_principal_id_fkey",
+          "fkey_columns": [
+            3,
+            4
+          ]
+        },
+        {
+          "name": "business_questions",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "business_questions_answer_source_id_space_id_fkey",
+          "fkey_columns": [
+            10,
+            2
+          ]
+        },
+        {
+          "name": "business_questions",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "business_questions_draft_id_space_id_fkey",
+          "fkey_columns": [
+            3,
+            2
+          ]
+        },
+        {
+          "name": "business_receipt_consent_commands",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "business_receipt_consent_commands_owner_id_fkey",
+          "fkey_columns": [
+            2
+          ]
+        },
+        {
+          "name": "business_receipt_read_states",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "business_receipt_read_states_connection_id_fkey",
+          "fkey_columns": [
+            3
+          ]
+        },
+        {
+          "name": "business_receipt_read_states",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "business_receipt_read_states_person_id_fkey",
+          "fkey_columns": [
+            2
+          ]
+        },
+        {
+          "name": "business_receipt_reading_consents",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "business_receipt_reading_consents_owner_id_fkey",
+          "fkey_columns": [
+            3
+          ]
+        },
+        {
+          "name": "business_sources",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "business_sources_connection_id_space_id_fkey",
+          "fkey_columns": [
+            7,
+            2
+          ]
+        },
+        {
+          "name": "business_whatsapp_ai_consents",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "business_whatsapp_consent_original_link_fkey",
+          "fkey_columns": [
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "name": "collection_strategies",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "collection_strategies_user_id_fkey",
+          "fkey_columns": [
+            4
+          ]
+        },
+        {
+          "name": "conversation_read_states",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "conversation_read_states_owner_fk",
+          "fkey_columns": [
+            2,
+            1
+          ]
+        },
+        {
+          "name": "conversations",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "conversations_owner_space_fkey",
+          "fkey_columns": [
+            12,
+            2
+          ]
+        },
+        {
+          "name": "cost_ledger_entries",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "cost_ledger_entries_backtest_job_id_fkey",
+          "fkey_columns": [
+            12
+          ]
+        },
+        {
+          "name": "cost_ledger_entries",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "cost_ledger_entries_message_id_fkey",
+          "fkey_columns": [
+            10
+          ]
+        },
+        {
+          "name": "decision_notes",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "decision_notes_evidence_artifact_id_fkey",
+          "fkey_columns": [
+            5
+          ]
+        },
+        {
+          "name": "decision_notes",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "decision_notes_idea_id_fkey",
+          "fkey_columns": [
+            3
+          ]
+        },
+        {
+          "name": "decision_notes",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "decision_notes_idea_version_id_fkey",
+          "fkey_columns": [
+            4
+          ]
+        },
+        {
+          "name": "decision_notes",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "decision_notes_source_conversation_id_fkey",
+          "fkey_columns": [
+            6
+          ]
+        },
+        {
+          "name": "decision_notes",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "decision_notes_source_message_id_fkey",
+          "fkey_columns": [
+            11
+          ]
+        },
+        {
+          "name": "evidence_artifacts",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "evidence_artifacts_idea_id_fkey",
+          "fkey_columns": [
+            3
+          ]
+        },
+        {
+          "name": "evidence_artifacts",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "evidence_artifacts_idea_version_id_fkey",
+          "fkey_columns": [
+            4
+          ]
+        },
+        {
+          "name": "evidence_artifacts",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "evidence_artifacts_source_conversation_id_fkey",
+          "fkey_columns": [
+            5
+          ]
+        },
+        {
+          "name": "evidence_artifacts",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "evidence_artifacts_source_run_id_fkey",
+          "fkey_columns": [
+            6
+          ]
+        },
+        {
+          "name": "financial_account_idempotency",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_account_idempotency_account_id_fkey",
+          "fkey_columns": [
+            5
+          ]
+        },
+        {
+          "name": "financial_accounts",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_accounts_owner_space_fkey",
+          "fkey_columns": [
+            12,
+            2
+          ]
+        },
+        {
+          "name": "financial_activity_groups",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_activity_current_revision_fk",
+          "fkey_columns": [
+            1,
+            4,
+            2
+          ]
+        },
+        {
+          "name": "financial_activity_groups",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_activity_groups_user_id_fkey",
+          "fkey_columns": [
+            2
+          ]
+        },
+        {
+          "name": "financial_activity_memberships",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_activity_membership_revision_fk",
+          "fkey_columns": [
+            1,
+            3,
+            2
+          ]
+        },
+        {
+          "name": "financial_activity_memberships",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_activity_memberships_activity_id_user_id_fkey",
+          "fkey_columns": [
+            1,
+            2
+          ]
+        },
+        {
+          "name": "financial_activity_memberships",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_activity_original_record_revision",
+          "fkey_columns": [
+            4,
+            5,
+            7
+          ]
+        },
+        {
+          "name": "financial_activity_receipts",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_activity_receipt_revision_fk",
+          "fkey_columns": [
+            5,
+            6,
+            1
+          ]
+        },
+        {
+          "name": "financial_activity_receipts",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_activity_receipts_activity_id_user_id_fkey",
+          "fkey_columns": [
+            5,
+            1
+          ]
+        },
+        {
+          "name": "financial_activity_revisions",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_activity_revisions_activity_id_user_id_fkey",
+          "fkey_columns": [
+            1,
+            3
+          ]
+        },
+        {
+          "name": "financial_asset_changes",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_asset_changes_account_id_user_id_fkey",
+          "fkey_columns": [
+            1,
+            2
+          ]
+        },
+        {
+          "name": "financial_asset_changes",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_asset_changes_previous_debt_account_id_user_id_fkey",
+          "fkey_columns": [
+            6,
+            2
+          ]
+        },
+        {
+          "name": "financial_asset_changes",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_asset_changes_related_debt_account_id_user_id_fkey",
+          "fkey_columns": [
+            7,
+            2
+          ]
+        },
+        {
+          "name": "financial_asset_details",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_asset_details_account_id_user_id_fkey",
+          "fkey_columns": [
+            1,
+            2
+          ]
+        },
+        {
+          "name": "financial_asset_details",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_asset_details_related_debt_account_id_user_id_fkey",
+          "fkey_columns": [
+            3,
+            2
+          ]
+        },
+        {
+          "name": "financial_debt_plans",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_debt_plans_debt_account_id_user_id_fkey",
+          "fkey_columns": [
+            3,
+            2
+          ]
+        },
+        {
+          "name": "financial_expectations",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_expectations_user_id_fkey",
+          "fkey_columns": [
+            2
+          ]
+        },
+        {
+          "name": "financial_goal_allocation_revisions",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_goal_allocation_revi_account_id_account_owner_id_fkey",
+          "fkey_columns": [
+            5,
+            6
+          ]
+        },
+        {
+          "name": "financial_goal_allocation_revisions",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_goal_allocation_revisi_contributor_membership_id_fkey",
+          "fkey_columns": [
+            8
+          ]
+        },
+        {
+          "name": "financial_goal_allocation_revisions",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_goal_allocation_revisions_binding_id_fkey",
+          "fkey_columns": [
+            9
+          ]
+        },
+        {
+          "name": "financial_goal_allocation_revisions",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_goal_allocation_revisions_goal_id_goal_owner_id_fkey",
+          "fkey_columns": [
+            3,
+            4
+          ]
+        },
+        {
+          "name": "financial_goal_allocations",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_goal_allocations_binding_id_goal_owner_id_fkey",
+          "fkey_columns": [
+            9,
+            2
+          ]
+        },
+        {
+          "name": "financial_goal_allocations",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_goal_allocations_contributor_membership_id_fkey",
+          "fkey_columns": [
+            10
+          ]
+        },
+        {
+          "name": "financial_goal_allocations",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_goal_allocations_goal_id_goal_owner_id_fkey",
+          "fkey_columns": [
+            1,
+            2
+          ]
+        },
+        {
+          "name": "financial_goals",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_goals_user_id_fkey",
+          "fkey_columns": [
+            2
+          ]
+        },
+        {
+          "name": "financial_import_account_links",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_import_account_links_account_id_user_id_fkey",
+          "fkey_columns": [
+            4,
+            1
+          ]
+        },
+        {
+          "name": "financial_import_account_links",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_import_account_links_connection_id_fkey",
+          "fkey_columns": [
+            2
+          ]
+        },
+        {
+          "name": "financial_import_events",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_import_events_owner_space_fkey",
+          "fkey_columns": [
+            15,
+            2
+          ]
+        },
+        {
+          "name": "financial_import_observations",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_import_observations_connection_id_fkey",
+          "fkey_columns": [
+            4
+          ]
+        },
+        {
+          "name": "financial_import_observations",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_import_observations_event_id_user_id_fkey",
+          "fkey_columns": [
+            3,
+            2
+          ]
+        },
+        {
+          "name": "financial_observation_coverage",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_observation_coverag_activity_id_account_id_user__fkey",
+          "fkey_columns": [
+            5,
+            1,
+            2
+          ]
+        },
+        {
+          "name": "financial_observation_coverage",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_observation_coverag_activity_id_activity_revisio_fkey",
+          "fkey_columns": [
+            5,
+            6,
+            2
+          ]
+        },
+        {
+          "name": "financial_observation_coverage",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_observation_coverag_observation_id_account_id_us_fkey",
+          "fkey_columns": [
+            3,
+            1,
+            2
+          ]
+        },
+        {
+          "name": "financial_observation_coverage",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_observation_coverag_observation_id_observation_r_fkey",
+          "fkey_columns": [
+            3,
+            4,
+            2
+          ]
+        },
+        {
+          "name": "financial_operation_receipts",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_operation_receipts_record_id_account_id_user_id_fkey",
+          "fkey_columns": [
+            5,
+            2,
+            1
+          ]
+        },
+        {
+          "name": "financial_operation_receipts",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_operation_receipts_record_id_revision_user_id_fkey",
+          "fkey_columns": [
+            5,
+            6,
+            1
+          ]
+        },
+        {
+          "name": "financial_plan_definition_revisions",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_plan_definition_revisions_actor_id_fkey",
+          "fkey_columns": [
+            6
+          ]
+        },
+        {
+          "name": "financial_plan_definition_revisions",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_plan_definition_revisions_owner_id_fkey",
+          "fkey_columns": [
+            3
+          ]
+        },
+        {
+          "name": "financial_plan_links",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_plan_links_activity_id_activity_revision_activit_fkey",
+          "fkey_columns": [
+            4,
+            5,
+            11
+          ]
+        },
+        {
+          "name": "financial_plan_links",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_plan_links_binding_id_user_id_fkey",
+          "fkey_columns": [
+            12,
+            1
+          ]
+        },
+        {
+          "name": "financial_plan_links",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_plan_links_budget_id_user_id_fkey",
+          "fkey_columns": [
+            16,
+            1
+          ]
+        },
+        {
+          "name": "financial_plan_links",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_plan_links_contributor_membership_id_fkey",
+          "fkey_columns": [
+            13
+          ]
+        },
+        {
+          "name": "financial_plan_links",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_plan_links_debt_plan_id_user_id_fkey",
+          "fkey_columns": [
+            10,
+            1
+          ]
+        },
+        {
+          "name": "financial_plan_links",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_plan_links_expectation_id_user_id_fkey",
+          "fkey_columns": [
+            3,
+            1
+          ]
+        },
+        {
+          "name": "financial_plan_links",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_plan_links_goal_id_user_id_fkey",
+          "fkey_columns": [
+            8,
+            1
+          ]
+        },
+        {
+          "name": "financial_plan_responsibilities",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_plan_responsibilities_membership_id_fkey",
+          "fkey_columns": [
+            5
+          ]
+        },
+        {
+          "name": "financial_record_revisions",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_payment_return_original_owner_fk",
+          "fkey_columns": [
+            15,
+            16,
+            17
+          ]
+        },
+        {
+          "name": "financial_record_revisions",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_purchase_revision_owner_fk",
+          "fkey_columns": [
+            13,
+            14,
+            3
+          ]
+        },
+        {
+          "name": "financial_record_revisions",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_record_revisions_record_id_user_id_fkey",
+          "fkey_columns": [
+            2,
+            3
+          ]
+        },
+        {
+          "name": "financial_record_revisions",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_record_revisions_recorded_by_fkey",
+          "fkey_columns": [
+            10
+          ]
+        },
+        {
+          "name": "financial_records",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_records_account_id_user_id_fkey",
+          "fkey_columns": [
+            2,
+            3
+          ]
+        },
+        {
+          "name": "financial_records",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_records_owner_funded_scope_fk",
+          "fkey_columns": [
+            7,
+            3
+          ]
+        },
+        {
+          "name": "financial_source_connections",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "financial_source_connections_owner_space_fkey",
+          "fkey_columns": [
+            21,
+            2
+          ]
+        },
+        {
+          "name": "guest_workspace_handoffs",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "guest_workspace_handoffs_source_conversation_id_fkey",
+          "fkey_columns": [
+            5
+          ]
+        },
+        {
+          "name": "household_account_grants",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_account_grants_account_id_owner_user_id_fkey",
+          "fkey_columns": [
+            3,
+            4
+          ]
+        },
+        {
+          "name": "household_account_grants",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_grant_owner_membership",
+          "fkey_columns": [
+            8,
+            2,
+            4
+          ]
+        },
+        {
+          "name": "household_account_grants",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_grant_recipient_membership",
+          "fkey_columns": [
+            9,
+            2
+          ]
+        },
+        {
+          "name": "household_command_receipts",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_command_receipts_household_id_fkey",
+          "fkey_columns": [
+            5
+          ]
+        },
+        {
+          "name": "household_command_receipts",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_command_receipts_invitation_id_fkey",
+          "fkey_columns": [
+            7
+          ]
+        },
+        {
+          "name": "household_command_receipts",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_command_receipts_membership_id_fkey",
+          "fkey_columns": [
+            6
+          ]
+        },
+        {
+          "name": "household_deletion_events",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_deletion_events_binding_id_fkey",
+          "fkey_columns": [
+            4
+          ]
+        },
+        {
+          "name": "household_deletion_events",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_deletion_events_household_id_fkey",
+          "fkey_columns": [
+            2
+          ]
+        },
+        {
+          "name": "household_invitations",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_invitations_accepted_by_fkey",
+          "fkey_columns": [
+            8
+          ]
+        },
+        {
+          "name": "household_invitations",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_invitations_accepted_membership_id_fkey",
+          "fkey_columns": [
+            10
+          ]
+        },
+        {
+          "name": "household_invitations",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_invitations_created_by_fkey",
+          "fkey_columns": [
+            4
+          ]
+        },
+        {
+          "name": "household_plan_archived_activities",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_plan_archived_activ_activity_id_activity_revisio_fkey",
+          "fkey_columns": [
+            2,
+            4,
+            3
+          ]
+        },
+        {
+          "name": "household_plan_archived_allocations",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_plan_archived_allocations_allocation_id_revision_fkey",
+          "fkey_columns": [
+            2,
+            3
+          ]
+        },
+        {
+          "name": "household_plan_archived_claims",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_plan_archived_claim_activity_id_activity_revisio_fkey",
+          "fkey_columns": [
+            3,
+            5,
+            4
+          ]
+        },
+        {
+          "name": "household_plan_bindings",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_plan_bindings_budget_id_owner_user_id_fkey",
+          "fkey_columns": [
+            6,
+            4
+          ]
+        },
+        {
+          "name": "household_plan_bindings",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_plan_bindings_debt_plan_id_owner_user_id_fkey",
+          "fkey_columns": [
+            9,
+            4
+          ]
+        },
+        {
+          "name": "household_plan_bindings",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_plan_bindings_expectation_id_owner_user_id_fkey",
+          "fkey_columns": [
+            7,
+            4
+          ]
+        },
+        {
+          "name": "household_plan_bindings",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_plan_bindings_goal_id_owner_user_id_fkey",
+          "fkey_columns": [
+            8,
+            4
+          ]
+        },
+        {
+          "name": "household_plan_bindings",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_plan_bindings_household_id_fkey",
+          "fkey_columns": [
+            2
+          ]
+        },
+        {
+          "name": "household_plan_bindings",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_plan_bindings_kind_definition_id_owner_user_id_f_fkey",
+          "fkey_columns": [
+            5,
+            10,
+            4,
+            15
+          ]
+        },
+        {
+          "name": "household_plan_bindings",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_plan_bindings_kind_definition_id_owner_user_id_r_fkey",
+          "fkey_columns": [
+            5,
+            10,
+            4,
+            14
+          ]
+        },
+        {
+          "name": "household_plan_bindings",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_plan_bindings_owner_membership_id_household_id_o_fkey",
+          "fkey_columns": [
+            3,
+            2,
+            4
+          ]
+        },
+        {
+          "name": "household_plan_participants",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_plan_participants_binding_id_household_id_fkey",
+          "fkey_columns": [
+            1,
+            2
+          ]
+        },
+        {
+          "name": "household_plan_participants",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_plan_participants_membership_id_household_id_fkey",
+          "fkey_columns": [
+            3,
+            2
+          ]
+        },
+        {
+          "name": "household_plan_receipts",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_plan_receipts_binding_id_fkey",
+          "fkey_columns": [
+            6
+          ]
+        },
+        {
+          "name": "household_plan_receipts",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "household_plan_receipts_membership_id_fkey",
+          "fkey_columns": [
+            2
+          ]
+        },
+        {
+          "name": "households",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "households_created_by_fkey",
+          "fkey_columns": [
+            4
+          ]
+        },
+        {
+          "name": "idea_versions",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "idea_versions_idea_id_fkey",
+          "fkey_columns": [
+            3
+          ]
+        },
+        {
+          "name": "idea_versions",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "idea_versions_source_conversation_id_fkey",
+          "fkey_columns": [
+            4
+          ]
+        },
+        {
+          "name": "idea_versions",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "idea_versions_source_run_id_fkey",
+          "fkey_columns": [
+            5
+          ]
+        },
+        {
+          "name": "ideas",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "ideas_active_version_id_fkey",
+          "fkey_columns": [
+            7
+          ]
+        },
+        {
+          "name": "ideas",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "ideas_source_conversation_id_fkey",
+          "fkey_columns": [
+            3
+          ]
+        },
+        {
+          "name": "invite_referrals",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "invite_referrals_acceptor_user_id_fkey",
+          "fkey_columns": [
+            8
+          ]
+        },
+        {
+          "name": "public_excerpt_snapshots",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "public_excerpt_snapshots_evidence_artifact_id_fkey",
+          "fkey_columns": [
+            4
+          ]
+        },
+        {
+          "name": "route_receipts",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "route_receipts_message_id_fkey",
+          "fkey_columns": [
+            5
+          ]
+        },
+        {
+          "name": "route_receipts",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "route_receipts_run_id_fkey",
+          "fkey_columns": [
+            4
+          ]
+        },
+        {
+          "name": "run_context_packets",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "run_context_packets_context_packet_id_fkey",
+          "fkey_columns": [
+            4
+          ]
+        },
+        {
+          "name": "run_context_packets",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "run_context_packets_user_id_fkey",
+          "fkey_columns": [
+            2
+          ]
+        },
+        {
+          "name": "strategies",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "strategies_conversation_id_fkey",
+          "fkey_columns": [
+            3
+          ]
+        },
+        {
+          "name": "whatsapp_inbound_messages",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "whatsapp_inbound_ai_consent_fkey",
+          "fkey_columns": [
+            18,
+            12,
+            13,
+            4,
+            3
+          ]
+        },
+        {
+          "name": "whatsapp_inbound_messages",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "whatsapp_inbound_original_link_fkey",
+          "fkey_columns": [
+            12,
+            13,
+            4,
+            3
+          ]
+        },
+        {
+          "name": "whatsapp_reply_attempts",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "whatsapp_reply_attempts_sender_hash_day_fkey",
+          "fkey_columns": [
+            1,
+            5
+          ]
+        },
+        {
+          "name": "whatsapp_sender_links",
+          "type": "table",
+          "schema": "public",
+          "fkey_name": "whatsapp_sender_links_destination_space_fkey",
+          "fkey_columns": [
+            9,
+            2
+          ]
+        }
+      ]
+    },
+    {
+      "name": "auth_rls_initplan",
+      "level": "WARN",
+      "count": 18,
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0003_auth_rls_initplan",
+      "objects": [
+        {
+          "name": "conversations",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "messages",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "strategies",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "collections",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "collection_strategies",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "backtest_runs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "feedback",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "usage_counters",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "context_packets",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "run_context_packets",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "route_receipts",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "backtest_jobs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "guest_workspaces",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "profiles",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "conversations",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "messages",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "backtest_jobs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "chat_turn_lifecycles",
+          "type": "table",
+          "schema": "public"
+        }
+      ]
+    },
+    {
+      "name": "no_primary_key",
+      "level": "INFO",
+      "count": 1,
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0004_no_primary_key",
+      "objects": [
+        {
+          "name": "financial_plan_responsibilities",
+          "type": "table",
+          "schema": "public"
+        }
+      ]
+    },
+    {
+      "name": "unused_index",
+      "level": "INFO",
+      "count": 113,
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index",
+      "objects": [
+        {
+          "name": "profiles",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "conversations",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "conversations",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "strategies",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "strategies",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "strategies",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "strategies",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "collections",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "collections",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "collections",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "collection_strategies",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "collection_strategies",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "backtest_runs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "backtest_runs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "backtest_runs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "backtest_runs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "feedback",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "usage_counters",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "usage_counters",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "checkpoints",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "checkpoint_blobs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "checkpoint_writes",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "context_packets",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "context_packets",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "run_context_packets",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "route_receipts",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "route_receipts",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "backtest_jobs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "backtest_jobs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "backtest_jobs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "ideas",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "ideas",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "idea_versions",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "evidence_artifacts",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "evidence_artifacts",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "decision_notes",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "decision_notes",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "decision_notes",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "invite_referrals",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "chat_turn_lifecycles",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "chat_turn_lifecycles",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "cost_ledger_entries",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "cost_ledger_entries",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "cost_ledger_entries",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "cost_ledger_entries",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "cost_ledger_entries",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "cost_ledger_entries",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "backtest_jobs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "ideas",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "guest_workspaces",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "guest_workspaces",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "evidence_artifacts",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "conversations",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "strategies",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "collections",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "guest_workspace_handoffs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "guest_workspace_handoffs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "visitor_usage_counters",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "messages",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "decision_notes",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "conversations",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "strategies",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "collections",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "backtest_runs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "messages",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "memory_candidates",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "memory_consent_actions",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "memory_records",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "memory_records",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "households",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "memory_reconciliations",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "household_members",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "decision_notes",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "memory_provider_cleanup",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "memory_provider_cleanup",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "backtest_runs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "backtest_runs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "backtest_runs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "backtest_runs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "backtest_runs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "backtest_jobs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "backtest_jobs",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "household_invitations",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "argus_memory_vectors",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "argus_memory_vectors",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "public_excerpt_snapshots",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "public_excerpt_snapshots",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "public_excerpt_snapshots",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "refusal_observations",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "guest_funnel_milestones",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "refusal_observations",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "refusal_observations",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "public_excerpt_snapshots",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "public_excerpt_snapshots",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "public_excerpt_snapshots",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "financial_goal_allocations",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "financial_activity_memberships",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "financial_import_observations",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "household_deletion_events",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "financial_document_extractions",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "business_turns",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "conversations",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "whatsapp_sender_links",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "business_questions",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "whatsapp_inbound_messages",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "whatsapp_inbound_messages",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "whatsapp_outbox",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "whatsapp_inbound_messages",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "business_ai_consents",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "whatsapp_reply_groups",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "whatsapp_reply_attempts",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "financial_document_extractions",
+          "type": "table",
+          "schema": "public"
+        },
+        {
+          "name": "financial_document_extractions",
+          "type": "table",
+          "schema": "public"
+        }
+      ]
+    }
+  ]
+}

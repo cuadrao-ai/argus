@@ -15,8 +15,8 @@
     "argus-api"
   ],
   "approved_keys": {
-    "ARGUS_READOUT_MODEL": "openai/gpt-5.6-luna",
-    "ARGUS_READOUT_FALLBACK_MODEL": "openai/gpt-5.6-luna"
+    "CUADRAO_READOUT_MODEL": "openai/gpt-5.6-luna",
+    "CUADRAO_READOUT_FALLBACK_MODEL": "openai/gpt-5.6-luna"
   },
   "approval_conditions": [
     "Read all three autoDeployTrigger values before writes; all must be off",

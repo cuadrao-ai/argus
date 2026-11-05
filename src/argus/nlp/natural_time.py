@@ -10,7 +10,7 @@ from dateparser.date import DateDataParser
 from dateparser.languages.loader import default_loader
 from dateparser.search import search_dates
 
-from argus.domain.market_data.new_york_clock import new_york_today
+from argus.domain.clock import new_york_today
 
 DatePeriod = Literal["day", "week", "month", "year"]
 DateIntentUnit = Literal["day", "week", "month", "quarter", "year"]

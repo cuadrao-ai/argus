@@ -1,0 +1,6 @@
+Success
+Success
+OK: killing emulator, bye bye
+OK
+Stopping Daemon(s)
+1 Daemon stopped

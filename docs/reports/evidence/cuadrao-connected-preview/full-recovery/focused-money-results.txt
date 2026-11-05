@@ -1,0 +1,19 @@
+Focused money simulator evidence, October 5, 2026
+Application source: 2a1d911b3993b208a25b51ecd156af8a31b6121c
+The second run differs only in the independently reviewed test-driver keyboard dismissal.
+
+ui-20261006T011608Z.log
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testConnectedDebtActualSplitCorrectionReturnAndRelaunch]' failed (377.892 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testConnectedGoalAllocationContributionCorrectionSearchAndRestore]' passed (448.004 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testRetainedBudgetViewportRestoration]' passed (109.877 seconds).
+	 Executed 3 tests, with 1 failure (0 unexpected) in 935.773 (935.775) seconds
+	 Executed 3 tests, with 1 failure (0 unexpected) in 935.773 (935.776) seconds
+	 Executed 3 tests, with 1 failure (0 unexpected) in 935.773 (935.778) seconds
+** TEST EXECUTE FAILED **
+
+ui-20261006T013241Z.log
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testConnectedDebtActualSplitCorrectionReturnAndRelaunch]' passed (500.131 seconds).
+	 Executed 1 test, with 0 failures (0 unexpected) in 500.131 (500.132) seconds
+	 Executed 1 test, with 0 failures (0 unexpected) in 500.131 (500.133) seconds
+	 Executed 1 test, with 0 failures (0 unexpected) in 500.131 (500.133) seconds
+** TEST EXECUTE SUCCEEDED **

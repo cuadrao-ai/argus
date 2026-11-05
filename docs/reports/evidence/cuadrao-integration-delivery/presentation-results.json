@@ -1,0 +1,150 @@
+{
+  "results": [
+    {
+      "path": "/business",
+      "width": 320,
+      "height": 12084,
+      "title": "Cada cuenta. En su sitio. | Cuadrao"
+    },
+    {
+      "path": "/business",
+      "width": 390,
+      "height": 11254,
+      "title": "Cada cuenta. En su sitio. | Cuadrao"
+    },
+    {
+      "path": "/business",
+      "width": 768,
+      "height": 9568,
+      "title": "Cada cuenta. En su sitio. | Cuadrao"
+    },
+    {
+      "path": "/business",
+      "width": 1440,
+      "height": 8439,
+      "title": "Cada cuenta. En su sitio. | Cuadrao"
+    },
+    {
+      "path": "/business/personal",
+      "width": 320,
+      "height": 1754,
+      "title": "Tus finanzas, en orden. | Cuadrao Personal"
+    },
+    {
+      "path": "/business/personal",
+      "width": 390,
+      "height": 1700,
+      "title": "Tus finanzas, en orden. | Cuadrao Personal"
+    },
+    {
+      "path": "/business/personal",
+      "width": 768,
+      "height": 1294,
+      "title": "Tus finanzas, en orden. | Cuadrao Personal"
+    },
+    {
+      "path": "/business/personal",
+      "width": 1440,
+      "height": 1499,
+      "title": "Tus finanzas, en orden. | Cuadrao Personal"
+    },
+    {
+      "path": "/business/demo",
+      "width": 320,
+      "height": 2465,
+      "title": "Hablemos de tu negocio | Cuadrao"
+    },
+    {
+      "path": "/business/demo",
+      "width": 390,
+      "height": 2268,
+      "title": "Hablemos de tu negocio | Cuadrao"
+    },
+    {
+      "path": "/business/demo",
+      "width": 768,
+      "height": 2131,
+      "title": "Hablemos de tu negocio | Cuadrao"
+    },
+    {
+      "path": "/business/demo",
+      "width": 1440,
+      "height": 1558,
+      "title": "Hablemos de tu negocio | Cuadrao"
+    },
+    {
+      "path": "/business/en",
+      "width": 320,
+      "height": 12035,
+      "title": "Every record. In its place. | Cuadrao"
+    },
+    {
+      "path": "/business/en",
+      "width": 390,
+      "height": 11109,
+      "title": "Every record. In its place. | Cuadrao"
+    },
+    {
+      "path": "/business/en",
+      "width": 768,
+      "height": 9509,
+      "title": "Every record. In its place. | Cuadrao"
+    },
+    {
+      "path": "/business/en",
+      "width": 1440,
+      "height": 8440,
+      "title": "Every record. In its place. | Cuadrao"
+    },
+    {
+      "path": "/business/en/personal",
+      "width": 320,
+      "height": 1745,
+      "title": "Your finances, in order. | Cuadrao Personal"
+    },
+    {
+      "path": "/business/en/personal",
+      "width": 390,
+      "height": 1673,
+      "title": "Your finances, in order. | Cuadrao Personal"
+    },
+    {
+      "path": "/business/en/personal",
+      "width": 768,
+      "height": 1294,
+      "title": "Your finances, in order. | Cuadrao Personal"
+    },
+    {
+      "path": "/business/en/personal",
+      "width": 1440,
+      "height": 1499,
+      "title": "Your finances, in order. | Cuadrao Personal"
+    },
+    {
+      "path": "/business/en/demo",
+      "width": 320,
+      "height": 2396,
+      "title": "Let's talk about your business | Cuadrao"
+    },
+    {
+      "path": "/business/en/demo",
+      "width": 390,
+      "height": 2268,
+      "title": "Let's talk about your business | Cuadrao"
+    },
+    {
+      "path": "/business/en/demo",
+      "width": 768,
+      "height": 2104,
+      "title": "Let's talk about your business | Cuadrao"
+    },
+    {
+      "path": "/business/en/demo",
+      "width": 1440,
+      "height": 1558,
+      "title": "Let's talk about your business | Cuadrao"
+    }
+  ],
+  "errors": [],
+  "checks": "24 page/layout/metadata checks, FAQ/anchors, mobile DOM and visual order, local contact validation/review focus, real unavailable signup endpoint. No signup saved and no email sent."
+}

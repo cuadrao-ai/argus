@@ -1,0 +1,124 @@
+== voice-pair-r1
+Executed 2 tests, with 1 failure (0 unexpected) in 38.822 (38.825) seconds
+Executed 2 tests, with 1 failure (0 unexpected) in 38.822 (38.826) seconds
+Executed 2 tests, with 1 failure (0 unexpected) in 38.822 (38.828) seconds
+Test Case '-[ArgusFoundationUITests.CuadraoVoiceDesignUITests testHoldComposerAndWaveformWithoutStartingLiveVoice]' passed (23.467 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoVoiceDesignUITests testLockedRecordingAndCleanAttachments]' failed (15.355 seconds).
+ios/ArgusFoundationUITests/CuadraoVoiceDesignUITests.swift:155: error: -[ArgusFoundationUITests.CuadraoVoiceDesignUITests testLockedRecordingAndCleanAttachments] : XCTAssertTrue failed
+== voice-pair-r2
+Executed 2 tests, with 0 failures (0 unexpected) in 55.426 (55.429) seconds
+Executed 2 tests, with 0 failures (0 unexpected) in 55.426 (55.430) seconds
+Executed 2 tests, with 0 failures (0 unexpected) in 55.426 (55.431) seconds
+Test Case '-[ArgusFoundationUITests.CuadraoVoiceDesignUITests testHoldComposerAndWaveformWithoutStartingLiveVoice]' passed (22.785 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoVoiceDesignUITests testLockedRecordingAndCleanAttachments]' passed (32.641 seconds).
+== voice-alone-r1
+Executed 1 test, with 0 failures (0 unexpected) in 32.785 (32.788) seconds
+Executed 1 test, with 0 failures (0 unexpected) in 32.785 (32.789) seconds
+Executed 1 test, with 0 failures (0 unexpected) in 32.785 (32.790) seconds
+Test Case '-[ArgusFoundationUITests.CuadraoVoiceDesignUITests testLockedRecordingAndCleanAttachments]' passed (32.785 seconds).
+== voice-unrelated-pred-r1
+Executed 1 test, with 0 failures (0 unexpected) in 21.034 (21.036) seconds
+Executed 1 test, with 0 failures (0 unexpected) in 32.273 (32.274) seconds
+Executed 2 tests, with 0 failures (0 unexpected) in 53.307 (53.311) seconds
+Test Case '-[ArgusFoundationUITests.CuadraoGroupDesignUITests testSampleCardAtLargeTextEnglish]' passed (21.034 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoVoiceDesignUITests testLockedRecordingAndCleanAttachments]' passed (32.273 seconds).
+== split-hold
+Executed 1 test, with 0 failures (0 unexpected) in 22.742 (22.745) seconds
+Executed 1 test, with 0 failures (0 unexpected) in 22.742 (22.746) seconds
+Executed 1 test, with 0 failures (0 unexpected) in 22.742 (22.747) seconds
+Test Case '-[ArgusFoundationUITests.CuadraoVoiceDesignUITests testHoldComposerAndWaveformWithoutStartingLiveVoice]' passed (22.742 seconds).
+== split-locked
+Executed 1 test, with 0 failures (0 unexpected) in 31.822 (31.825) seconds
+Executed 1 test, with 0 failures (0 unexpected) in 31.822 (31.826) seconds
+Executed 1 test, with 0 failures (0 unexpected) in 31.822 (31.827) seconds
+Test Case '-[ArgusFoundationUITests.CuadraoVoiceDesignUITests testLockedRecordingAndCleanAttachments]' passed (31.822 seconds).
+== voice-alone-keep
+Executed 1 test, with 0 failures (0 unexpected) in 32.677 (32.680) seconds
+Executed 1 test, with 0 failures (0 unexpected) in 32.677 (32.681) seconds
+Test Case '-[ArgusFoundationUITests.CuadraoVoiceDesignUITests testLockedRecordingAndCleanAttachments]' passed (32.677 seconds).
+== voice-pair-prefix-load1
+Executed 2 tests, with 0 failures (0 unexpected) in 56.355 (56.358) seconds
+Executed 2 tests, with 0 failures (0 unexpected) in 56.355 (56.359) seconds
+Executed 2 tests, with 0 failures (0 unexpected) in 56.355 (56.360) seconds
+Test Case '-[ArgusFoundationUITests.CuadraoVoiceDesignUITests testHoldComposerAndWaveformWithoutStartingLiveVoice]' passed (23.070 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoVoiceDesignUITests testLockedRecordingAndCleanAttachments]' passed (33.286 seconds).
+== voice-pair-prefix-load2
+Executed 2 tests, with 0 failures (0 unexpected) in 55.249 (55.252) seconds
+Executed 2 tests, with 0 failures (0 unexpected) in 55.249 (55.253) seconds
+Test Case '-[ArgusFoundationUITests.CuadraoVoiceDesignUITests testHoldComposerAndWaveformWithoutStartingLiveVoice]' passed (22.551 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoVoiceDesignUITests testLockedRecordingAndCleanAttachments]' passed (32.698 seconds).
+== voice-pair-prefix-load3
+Executed 2 tests, with 0 failures (0 unexpected) in 55.371 (55.374) seconds
+Executed 2 tests, with 0 failures (0 unexpected) in 55.371 (55.375) seconds
+Test Case '-[ArgusFoundationUITests.CuadraoVoiceDesignUITests testHoldComposerAndWaveformWithoutStartingLiveVoice]' passed (22.744 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoVoiceDesignUITests testLockedRecordingAndCleanAttachments]' passed (32.627 seconds).
+== voice-pair-fixed-r1
+Executed 2 tests, with 0 failures (0 unexpected) in 60.109 (60.112) seconds
+Executed 2 tests, with 0 failures (0 unexpected) in 60.109 (60.113) seconds
+Executed 2 tests, with 0 failures (0 unexpected) in 60.109 (60.114) seconds
+Test Case '-[ArgusFoundationUITests.CuadraoVoiceDesignUITests testHoldComposerAndWaveformWithoutStartingLiveVoice]' passed (22.647 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoVoiceDesignUITests testLockedRecordingAndCleanAttachments]' passed (37.462 seconds).
+== voice-pair-fixed-r2
+Executed 2 tests, with 0 failures (0 unexpected) in 57.233 (57.236) seconds
+Executed 2 tests, with 0 failures (0 unexpected) in 57.233 (57.237) seconds
+Executed 2 tests, with 0 failures (0 unexpected) in 57.233 (57.238) seconds
+Test Case '-[ArgusFoundationUITests.CuadraoVoiceDesignUITests testHoldComposerAndWaveformWithoutStartingLiveVoice]' passed (21.910 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoVoiceDesignUITests testLockedRecordingAndCleanAttachments]' passed (35.323 seconds).
+== voice-pair-fixed-r3
+Executed 2 tests, with 0 failures (0 unexpected) in 57.321 (57.324) seconds
+Executed 2 tests, with 0 failures (0 unexpected) in 57.321 (57.325) seconds
+Executed 2 tests, with 0 failures (0 unexpected) in 57.321 (57.326) seconds
+Test Case '-[ArgusFoundationUITests.CuadraoVoiceDesignUITests testHoldComposerAndWaveformWithoutStartingLiveVoice]' passed (21.424 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoVoiceDesignUITests testLockedRecordingAndCleanAttachments]' passed (35.897 seconds).
+== group-pair-load1
+Executed 2 tests, with 0 failures (0 unexpected) in 92.544 (92.547) seconds
+Executed 2 tests, with 0 failures (0 unexpected) in 92.544 (92.548) seconds
+Test Case '-[ArgusFoundationUITests.CuadraoGroupDesignUITests testSampleCardSaveImage]' passed (28.578 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoGroupDesignUITests testSharedJourneySpanish]' passed (63.967 seconds).
+== group-pair-load2
+Executed 2 tests, with 0 failures (0 unexpected) in 95.080 (95.084) seconds
+Executed 2 tests, with 0 failures (0 unexpected) in 95.080 (95.085) seconds
+Executed 2 tests, with 0 failures (0 unexpected) in 95.080 (95.086) seconds
+Test Case '-[ArgusFoundationUITests.CuadraoGroupDesignUITests testSampleCardSaveImage]' passed (30.037 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoGroupDesignUITests testSharedJourneySpanish]' passed (65.044 seconds).
+== split-diag-load14
+Executed 1 test, with 0 failures (0 unexpected) in 56.274 (56.277) seconds
+Executed 1 test, with 0 failures (0 unexpected) in 56.274 (56.278) seconds
+Executed 1 test, with 0 failures (0 unexpected) in 56.274 (56.279) seconds
+Test Case '-[ArgusFoundationUITests.W1hSplitDiagnosticUITests testShareReplaceReadBack]' passed (56.274 seconds).
+== split-diag-load0
+Executed 1 test, with 0 failures (0 unexpected) in 54.804 (54.806) seconds
+Executed 1 test, with 0 failures (0 unexpected) in 54.804 (54.807) seconds
+Executed 1 test, with 0 failures (0 unexpected) in 54.804 (54.808) seconds
+Test Case '-[ArgusFoundationUITests.W1hSplitDiagnosticUITests testShareReplaceReadBack]' passed (54.804 seconds).
+== group-class-guard
+Executed 6 tests, with 0 failures (0 unexpected) in 214.726 (214.732) seconds
+Executed 6 tests, with 0 failures (0 unexpected) in 214.726 (214.733) seconds
+Executed 6 tests, with 0 failures (0 unexpected) in 214.726 (214.734) seconds
+Test Case '-[ArgusFoundationUITests.CuadraoGroupDesignUITests testGroupCreationSavingsEnglishDark]' passed (34.158 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoGroupDesignUITests testPersonalPolishAndLargeText]' passed (31.416 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoGroupDesignUITests testSampleCardAtLargeTextEnglish]' passed (21.110 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoGroupDesignUITests testSampleCardNativeSharing]' passed (30.807 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoGroupDesignUITests testSampleCardSaveImage]' passed (30.133 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoGroupDesignUITests testSharedJourneySpanish]' passed (67.102 seconds).
+== release-journey-class
+Executed 13 tests, with 0 failures (0 unexpected) in 190.053 (190.064) seconds
+Executed 13 tests, with 0 failures (0 unexpected) in 190.053 (190.065) seconds
+Executed 13 tests, with 0 failures (0 unexpected) in 190.053 (190.067) seconds
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testAIConsentCanBeDeclined]' passed (9.043 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testAvatarEnglishLargeText]' passed (9.802 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testAvatarSaveCancelAndDefaultIcon]' passed (13.343 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testDeletionCodeResendClearsOldCode]' passed (20.011 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testDeletionConfirmationPendingAndFinish]' passed (19.927 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testDeletionSharedConsequencesEnglish]' passed (7.974 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testFullPreviewSharesProfileAvatarWithNavigation]' passed (14.677 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testInvitationProminentLabelsLightAndDark]' passed (25.595 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testInviteFullStateAndQRSharing]' passed (9.705 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testPhotoCropAndTabAvatarInDarkAppearance]' passed (17.199 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testReleaseGatesHideAvatarEditingAndPhotos]' passed (15.264 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testSocialCancellationAndNameRecovery]' passed (16.811 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testUpdatesNoDataAndReadOnlyHistory]' passed (10.702 seconds).
+== auth-welcome
+Executed 1 test, with 0 failures (0 unexpected) in 14.631 (14.633) seconds
+Executed 1 test, with 0 failures (0 unexpected) in 14.631 (14.634) seconds
+Test Case '-[ArgusFoundationUITests.CuadraoSignInPresentationUITests testDefaultLaunchOffersNoAppleSignIn]' passed (14.631 seconds).

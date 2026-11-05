@@ -1,0 +1,18 @@
+import { test, expect } from '@playwright/test';
+import { VIEWPORTS, installComputeLimitJourney, sendQuestion, captureEvidence, MIDNIGHT_RETRY_AFTER } from './fixtures/compute-limit-journey';
+test.use({ timezoneId: 'America/Santo_Domingo' });
+for (const language of ['en', 'es-419'] as const) {
+  for (const viewport of VIEWPORTS) {
+    for (const scenario of [{account:'registered',status:503},{account:'guest',status:429},{account:'registered',status:429}] as const) {
+      test(`before ${scenario.account} ${scenario.status} ${language} ${viewport.name}`, async ({page}) => {
+        await page.setViewportSize(viewport);
+        const evidence = await installComputeLimitJourney(page, {...scenario, language, retryAfter:scenario.status===503?'15':MIDNIGHT_RETRY_AFTER});
+        await sendQuestion(page, language);
+        await expect.poll(()=>evidence.streamStatuses).toEqual([scenario.status]);
+        await expect(page.getByText(language==='en'?'What would you like to test?':'¿Qué te gustaría probar?', {exact:true})).toBeVisible();
+        await expect(page.getByTestId('chat-input')).toBeEnabled();
+        await captureEvidence(page, `${scenario.account}-${scenario.status}-${language}-${viewport.name}`);
+      });
+    }
+  }
+}

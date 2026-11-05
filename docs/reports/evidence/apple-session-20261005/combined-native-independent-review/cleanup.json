@@ -1,0 +1,14 @@
+{
+  "own_ports_free": {
+    "60341": true,
+    "60345": true,
+    "59920": true
+  },
+  "own_ui_user_count": 0,
+  "root_auth_health": 200,
+  "root_postgres_responding": true,
+  "own_simulator_deleted": true,
+  "private_native_config_removed": true,
+  "candidate_clean": true,
+  "local_auth_exact_restoration": "verified by live-cleanup.log"
+}

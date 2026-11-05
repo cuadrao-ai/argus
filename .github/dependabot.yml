@@ -1,0 +1,11 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    target-branch: codex/private-alpha-next
+    schedule:
+      interval: weekly
+    allow:
+      - dependency-name: pillow
+      - dependency-name: lxml
+    open-pull-requests-limit: 2

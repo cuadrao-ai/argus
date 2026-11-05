@@ -1,0 +1,92 @@
+[
+  {
+    "path": "ios",
+    "before": "e59928351ce38fe6d0d52c00804974e953b95e47",
+    "after": "e59928351ce38fe6d0d52c00804974e953b95e47",
+    "unchanged": true
+  },
+  {
+    "path": "src/argus/api/routers/profile.py",
+    "before": "088165cbc2a9672a29f7539f69dde45766fdc150",
+    "after": "088165cbc2a9672a29f7539f69dde45766fdc150",
+    "unchanged": true
+  },
+  {
+    "path": "src/argus/api/routers/profile_apple_name.py",
+    "before": "3f6344059d14172734b6adb1b82b27c1a244602e",
+    "after": "3f6344059d14172734b6adb1b82b27c1a244602e",
+    "unchanged": true
+  },
+  {
+    "path": "src/argus/api/dependencies.py",
+    "before": "6d4c670d986d929a64afe4c6c8c80eedafdb25dd",
+    "after": "6d4c670d986d929a64afe4c6c8c80eedafdb25dd",
+    "unchanged": true
+  },
+  {
+    "path": "src/argus/api/account_deletion_auth.py",
+    "before": "c791cb49d0ea6c57e1ccf6134e012acbe30ffd2d",
+    "after": "c791cb49d0ea6c57e1ccf6134e012acbe30ffd2d",
+    "unchanged": true
+  },
+  {
+    "path": "src/argus/domain/apple_sign_in",
+    "before": "7ba1fe1818be380554bdb07059dc9db87647b45d",
+    "after": "7ba1fe1818be380554bdb07059dc9db87647b45d",
+    "unchanged": true
+  },
+  {
+    "path": "src/argus/domain/account_deletion",
+    "before": "6a0934ca5762e77e1632bb09fac87353879c867f",
+    "after": "6a0934ca5762e77e1632bb09fac87353879c867f",
+    "unchanged": true
+  },
+  {
+    "path": "src/argus/domain/supabase_gateway.py",
+    "before": "9df413ddf24b60c992ad576c431e3eeb50f671be",
+    "after": "9df413ddf24b60c992ad576c431e3eeb50f671be",
+    "unchanged": true
+  },
+  {
+    "path": "src/argus/api/schemas.py",
+    "before": "590d4b104b38409891e3a060bd95d8b151d18c55",
+    "after": "590d4b104b38409891e3a060bd95d8b151d18c55",
+    "unchanged": true
+  },
+  {
+    "path": "src/argus/api/openapi_compat.py",
+    "before": "d7e43a60e6c74fcebdf3226bff1062b594c761a6",
+    "after": "d7e43a60e6c74fcebdf3226bff1062b594c761a6",
+    "unchanged": true
+  },
+  {
+    "path": "docs/api/openapi.yaml",
+    "before": "f9a6738956fec696eb85c99985e49d2d59f94736",
+    "after": "f9a6738956fec696eb85c99985e49d2d59f94736",
+    "unchanged": true
+  },
+  {
+    "path": "supabase/migrations",
+    "before": "a6db3ca75f4fb1957082bd80de69b3577d8177a8",
+    "after": "a6db3ca75f4fb1957082bd80de69b3577d8177a8",
+    "unchanged": true
+  },
+  {
+    "path": "tests/test_profile_apple_identity_postgres.py",
+    "before": "5a47a171d97dc5bba3b2132ed00f30ed23500029",
+    "after": "5a47a171d97dc5bba3b2132ed00f30ed23500029",
+    "unchanged": true
+  },
+  {
+    "path": "tests/test_profile_currency_api_postgres.py",
+    "before": "1547a369eb8643c245f3c744dc16f6ab0aa6aace",
+    "after": "1547a369eb8643c245f3c744dc16f6ab0aa6aace",
+    "unchanged": true
+  },
+  {
+    "path": "tests/test_apple_name_api_postgres.py",
+    "before": "f1d6955321f094517ba8f68114528b2e838c90d2",
+    "after": "f1d6955321f094517ba8f68114528b2e838c90d2",
+    "unchanged": true
+  }
+]

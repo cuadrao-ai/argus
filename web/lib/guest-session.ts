@@ -4,6 +4,7 @@ import {
   unauthenticatedApiFetch,
 } from "./argus-api";
 import { acquireGuestCaptchaToken } from "./guest-captcha";
+import { attributionBody } from "./landing-intent";
 
 export {
   guestCaptchaConfigured,
@@ -30,21 +31,6 @@ export type GuestBootstrapResponse = {
   user?: Record<string, unknown> | null;
 };
 
-export async function bootstrapGuest(payload: {
-  captcha_token: string;
-  language: "en" | "es-419";
-}) {
-  const response = await unauthenticatedApiFetch<GuestBootstrapResponse>(
-    "/auth/guest",
-    {
-      method: "POST",
-      body: JSON.stringify(payload),
-    },
-  );
-  await persistBrowserSession(response);
-  return response;
-}
-
 export function createGuestSessionBootstrapper<
   TInput,
   TResult,
@@ -54,10 +40,11 @@ export function createGuestSessionBootstrapper<
   return {
     run(input: TInput) {
       if (!pending) {
-        pending = bootstrap(input).catch((error: unknown) => {
-          pending = null;
+        const started = bootstrap(input).catch((error: unknown) => {
+          if (pending === started) pending = null;
           throw error;
         });
+        pending = started;
       }
       return pending;
     },
@@ -67,21 +54,88 @@ export function createGuestSessionBootstrapper<
   };
 }
 
+let persistGuestBootstrap = true;
+let guestBootstrapAbort: AbortController | null = null;
+
 const browserGuestBootstrapper = createGuestSessionBootstrapper<
   GuestSessionInput,
   GuestBootstrapResponse
 >(async ({ language, captchaToken: browserCaptchaToken }) => {
-  const captchaToken = await acquireGuestCaptchaToken(browserCaptchaToken);
+  const signal = guestBootstrapAbort?.signal;
+  const captchaToken = await acquireGuestCaptchaToken(
+    browserCaptchaToken,
+    signal,
+  );
   return bootstrapGuest({
     captcha_token: captchaToken,
     language: normalizeApiLanguage(language),
+    signal,
   });
 });
+
+function guestBootstrapAbortError(): Error {
+  const error = new Error("Guest bootstrap cancelled.");
+  error.name = "AbortError";
+  return error;
+}
+
+export function isGuestBootstrapAbortError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    (error as { name: string }).name === "AbortError"
+  );
+}
+
+function armGuestBootstrapAbort() {
+  if (!guestBootstrapAbort || guestBootstrapAbort.signal.aborted) {
+    guestBootstrapAbort = new AbortController();
+  }
+}
+
+export function resetGuestBootstrapRuntime() {
+  persistGuestBootstrap = true;
+  guestBootstrapAbort = null;
+  browserGuestBootstrapper.reset();
+}
+
+export function cancelPendingGuestBootstrap() {
+  persistGuestBootstrap = false;
+  guestBootstrapAbort?.abort();
+  browserGuestBootstrapper.reset();
+}
+
+export async function bootstrapGuest(payload: {
+  captcha_token: string;
+  language: "en" | "es-419";
+  signal?: AbortSignal;
+}) {
+  const { signal, captcha_token, language } = payload;
+  if (signal?.aborted || !persistGuestBootstrap) {
+    throw guestBootstrapAbortError();
+  }
+  const response = await unauthenticatedApiFetch<GuestBootstrapResponse>(
+    "/auth/guest",
+    {
+      method: "POST",
+      body: JSON.stringify({ captcha_token, language, ...attributionBody() }),
+      signal,
+    },
+  );
+  if (signal?.aborted || !persistGuestBootstrap) {
+    return response;
+  }
+  await persistBrowserSession(response);
+  return response;
+}
 
 export function startGuestSession(
   language?: string | null,
   captchaToken?: string | null,
 ) {
+  persistGuestBootstrap = true;
+  armGuestBootstrapAbort();
   return browserGuestBootstrapper.run({ language, captchaToken });
 }
 

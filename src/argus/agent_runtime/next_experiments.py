@@ -1,7 +1,7 @@
 """Stage-0 Try next selection: typed, result-aware, capped experiment rows.
 
-The stacked rows are the one Try next surface (spec
-2026-07-29-try-next-surface-ownership.md). Selection here is a
+The stacked rows are the one Try next surface (`next_experiments` in
+docs/API_CONTRACT.md). Selection here is a
 deterministic policy over the supported experiment set for the strategy
 family that actually ran; smarter layers (telemetry ordering, an LLM
 selector) arrive later behind the same contract and may reorder rows but

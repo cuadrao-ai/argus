@@ -1,12 +1,9 @@
-"""Shared research cache with per-data-class TTL.
+"""Shared public-market discovery packets with bounded retention.
 
-SHARED ACROSS USERS BY DESIGN. finance_search returns public market data, so
-one user's answer may serve another user's identical question, and that is the
-cost lever. The hard rule at this seam: THIS CACHE MUST NEVER BE REUSED FOR
-ANYTHING USER-SCOPED. Keys must never include a user, guest, visitor, session,
-or conversation identity, and values must only ever be provider packets about
-public markets. Memory, preferences, drafts, and any personalized content are
-forbidden here, whatever the TTL.
+Only searches built from provider-validated public symbols are eligible.
+Free-form questions, categories, criteria and personalized provider answers
+must bypass this cache. The runtime checks provenance before constructing the
+adapter; this storage boundary accepts only SearchResultPacket values.
 
 TTL is per data class, the seven rows of the spec section 7 table:
 
@@ -19,35 +16,22 @@ TTL is per data class, the seven rows of the spec section 7 table:
 - ``filings_transcripts``  90d   (earnings transcripts, SEC filings: immutable
                                   once published)
 
-The two immutable rows share the 90-day value because this cache lives in
-process memory: immutability is real, retention is bounded. The class of an
-entry comes from what the packet actually contains when its result categories
-are uniform (a holdings-only pull is constituents data whatever the question
-was), and from the question's dominant data need otherwise; the most volatile
-ingredient of a genuinely current ask (a live quote) keeps its short
-tolerance because the question kind carries it there.
-
-A withheld packet, one whose prose composition will not publish, is stored
-under the same key for its class TTL capped at ``WITHHELD_TTL_SECONDS`` (one
-day) when it carries a retrieval record; one that never retrieved is not
-stored.
-
-The closed-period rule stands: a question about an entirely closed window is
-``closed_ohlcv`` regardless of anything else. The cache key includes the
-period of interest, so a specific past close is a different entry from a
-trailing window.
+Eligible discovery searches use the movers TTL. The data-class helpers also
+own provider recency selection for grounded research, which no longer shares
+answer packets. The older TTL classes remain that configuration vocabulary.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 import threading
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal
 
-from argus.domain.research.contracts import CapabilityClass, ResearchPacket
+from argus.domain.research.search.contracts import SearchResultPacket
 
 DataClass = Literal[
     "quotes",
@@ -162,7 +146,7 @@ def ttl_for_packet(
 
 @dataclass
 class _Entry:
-    packet: ResearchPacket
+    packet: SearchResultPacket
     stored_at: float
     ttl_seconds: float
 
@@ -173,41 +157,53 @@ _HITS = 0
 _MISSES = 0
 
 
-def research_cache_key(
-    *,
-    capability_class: CapabilityClass,
-    shape: str,
-    symbols: tuple[str, ...],
-    period_key: str,
-    question_fingerprint: str,
-    language: str,
-    contract: str = "retrieval",
-    country: str | None = None,
-) -> str:
-    """Public-market request identity only. No user identity may enter here.
+CACHE_CONTRACT = "public-discovery-packet/v2"
 
-    ``contract`` names the provider-facing instructions the packet was
-    produced under (``retrieval`` or ``scenario``): a packet answered under
-    one contract never serves a question asked under the other. ``country``
-    is the location the request carried, so a search made for one country's
-    readers never answers another's."""
-    material = "|".join(
-        (
-            capability_class,
-            shape,
-            ",".join(sorted(symbol.upper() for symbol in symbols)),
-            period_key,
-            question_fingerprint,
-            language,
-            contract,
-            country or "",
-        )
+
+def research_cache_key(*, query: str, provider_id: str, max_results: int) -> str:
+    """Identity of the actual eligible provider request, without lossy folding.
+
+    The caller must establish public-only provenance before constructing a key.
+    JSON preserves field boundaries; query case, order and punctuation remain
+    significant unless the provider's own query builder already normalized them.
+    """
+    material = json.dumps(
+        [CACHE_CONTRACT, query, provider_id, max_results], ensure_ascii=False
     )
-    return hashlib.sha256(material.encode()).hexdigest()
+    return f"{CACHE_CONTRACT}:" + hashlib.sha256(material.encode()).hexdigest()
 
 
-def cache_get(key: str) -> ResearchPacket | None:
+class SearchPacketCache:
+    """One identity for both reads and writes of an eligible search request."""
+
+    def __init__(self, *, query: str, provider_id: str, max_results: int) -> None:
+        # The direct Search API receives only query and result limit. Model-backed
+        # adapters have further configuration and need their own identity contract.
+        self._key = (
+            research_cache_key(
+                query=query, provider_id=provider_id, max_results=max_results
+            )
+            if provider_id == "perplexity_direct"
+            else None
+        )
+
+    def get(self) -> SearchResultPacket | None:
+        return cache_get(self._key) if self._key is not None else None
+
+    def put(self, packet: SearchResultPacket) -> None:
+        if self._key is None:
+            return
+        cache_put(
+            self._key,
+            packet,
+            ttl_seconds=ttl_for_packet(question_kind="find_assets"),
+        )
+
+
+def cache_get(key: str) -> SearchResultPacket | None:
     global _HITS, _MISSES
+    if not key.startswith(f"{CACHE_CONTRACT}:"):
+        return None
     now = time.monotonic()
     with _LOCK:
         entry = _CACHE.get(key)
@@ -222,8 +218,12 @@ def cache_get(key: str) -> ResearchPacket | None:
         return entry.packet
 
 
-def cache_put(key: str, packet: ResearchPacket, *, ttl_seconds: float) -> None:
-    if ttl_seconds <= 0:
+def cache_put(key: str, packet: SearchResultPacket, *, ttl_seconds: float) -> None:
+    if (
+        ttl_seconds <= 0
+        or not key.startswith(f"{CACHE_CONTRACT}:")
+        or not isinstance(packet, SearchResultPacket)
+    ):
         return
     with _LOCK:
         if len(_CACHE) >= _MAX_ENTRIES:

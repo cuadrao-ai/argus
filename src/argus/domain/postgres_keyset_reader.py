@@ -13,6 +13,7 @@ from argus.api.chat.legacy_onboarding_markers import (
     _LEGACY_SKIP_MARKER,
 )
 from argus.domain.conversation_previews import MAX_CONVERSATION_PREVIEWS
+from argus.domain.owner_scope import OwnerScope, sql_predicate
 
 _KEYSET_ACQUIRE_TIMEOUT_SECONDS = 2.0
 _LEGACY_GOAL_LIKE = _LEGACY_GOAL_PREFIX.replace("_", r"\_").replace("%", r"\%") + "%"
@@ -27,7 +28,8 @@ archived,
 last_message_preview,
 deleted_at,
 created_at,
-updated_at
+updated_at,
+owner_space_id
 """
 _MESSAGE_COLUMNS = """
 id,
@@ -60,6 +62,7 @@ def _uuid(value: str, *, label: str) -> UUID:
 @lru_cache(maxsize=24)
 def _conversation_page_sql(
     *,
+    scope_condition: str,
     archived: bool | None,
     deleted: bool,
     has_cursor: bool,
@@ -73,6 +76,7 @@ def _conversation_page_sql(
 select {_CONVERSATION_COLUMNS}
 from public.conversations
 where user_id = %s
+  and {scope_condition}
   and {deleted_predicate}{archived_predicate}{cursor_predicate}
 order by pinned desc, updated_at desc, id desc
 limit %s
@@ -153,13 +157,15 @@ class PostgresKeysetReader:
                     ),
                 )
                 return _stringify_uuid_fields(
-                    cursor.fetchall(), fields=("conversation_id", "id"),
+                    cursor.fetchall(),
+                    fields=("conversation_id", "id"),
                 )
 
     def list_conversation_rows(
         self,
         *,
         user_id: str,
+        scope: OwnerScope,
         limit: int,
         archived: bool | None,
         deleted: bool,
@@ -200,7 +206,8 @@ class PostgresKeysetReader:
                         )
                     cursor_pinned = pivot["pinned"]
 
-                params: list[Any] = [owner_id]
+                scope_condition, scope_params = sql_predicate(scope, "owner_space_id")
+                params: list[Any] = [owner_id, *scope_params]
                 if archived is not None:
                     params.append(archived)
                 if has_cursor:
@@ -214,6 +221,7 @@ class PostgresKeysetReader:
                 params.append(limit + 1)
                 cursor.execute(
                     _conversation_page_sql(
+                        scope_condition=scope_condition,
                         archived=archived,
                         deleted=deleted,
                         has_cursor=has_cursor,

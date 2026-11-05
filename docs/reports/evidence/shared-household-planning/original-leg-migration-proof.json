@@ -1,0 +1,12 @@
+{
+  "database": "NEW disposable59752",
+  "migration": "20261002010000_shared_money_original_leg_owners.sql",
+  "sha256": "b2aa1c22b0e0fd465412f317d2ce0c8bf1eca709959cf904bc9a18c9f1163f78",
+  "checks": [
+    "atomic local application once",
+    "record owner backfill nonnull",
+    "deferred true-owner record revision FK",
+    "seven synthetic accounts and household retained"
+  ],
+  "disposition": "schema only; multi-owner writes and privacy readers require independent runtime verification"
+}

@@ -1,0 +1,4 @@
+Test Case '-[ArgusFoundationUITests.CuadraoGroupDesignUITests testSharedJourneySpanish]' passed (56.085 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoReceiptUITests testReceiptShowsYouOweWhenAnotherPersonPaid]' passed (38.249 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSharedPlanningFourKindsPrivateContributionsCorrectionsAndReopen]' skipped (0.036 seconds).
+exit=0 seconds=99

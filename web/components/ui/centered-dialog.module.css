@@ -1,0 +1,24 @@
+/* A centered dialog arrives from just below its rest. Under 250ms, ease out,
+   transform and opacity only; reduced motion is a fade. */
+
+.scrim {
+  animation: fade 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dialog {
+  animation: rise 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes fade {
+  from { opacity: 0; }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog {
+    animation: fade 160ms ease-out;
+  }
+}

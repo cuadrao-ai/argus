@@ -1,0 +1,55 @@
+{
+  "tested_source": "a6efe6e3360f1c4e58c97807b91547de527b0b04",
+  "original_integration_base": "7d037b07d4b98b34c6c0ad3026811c7d2f28ae47",
+  "original_session_dependency": "a24a6c60627460ddfd6042b3f42b342c5eff11f0",
+  "current_integration": "5d46a73d4d97b0412dccff517eb43c73e4316977",
+  "reconciliation_merge": "9144553f8da6dc7c36f02e6f137cd2cb44fa1c6b",
+  "native_files_verified": 401,
+  "native_combined_fingerprint_sha256": "9de045d9309b63814f92be386fcefe8c7fdb231026262497683762d4f3b41885",
+  "native_changed_paths": [],
+  "server_and_signed_test_fingerprints": [
+    {
+      "path": "src/argus/api/dependencies.py",
+      "sha256": "10218b01a7813f8f1037ae8bc681bbef0184ac94dfe6b69de381116cc7907e05"
+    },
+    {
+      "path": "src/argus/api/routers/profile.py",
+      "sha256": "070f1043342a029bb956ed1e5957d74d53bd0b24d1f5449aeed0bfce9ff457fb"
+    },
+    {
+      "path": "src/argus/api/routers/profile_apple_name.py",
+      "sha256": "6d31ee1de7c358575673b5a4894b25944f3e3975ecd3eb9d150fbde03bb459d1"
+    },
+    {
+      "path": "src/argus/api/schemas.py",
+      "sha256": "35d30317a8b0a22b1c59e12a952ba72a91afdb13b7a35673de46d9d5a7c2e013"
+    },
+    {
+      "path": "src/argus/domain/supabase_gateway.py",
+      "sha256": "cee16e281bae75cb8f69cba18ff38b76dcf989440e472315981922bb98ac3aa0"
+    },
+    {
+      "path": "src/argus/domain/apple_sign_in/identity.py",
+      "sha256": "b9afcce8fe07cf32cf36bad47e17a7a371f5b445b0e3122d7abf24fbdd49f8fa"
+    },
+    {
+      "path": "src/argus/domain/apple_sign_in/name.py",
+      "sha256": "9621ea5afa2c971aa8cdb3473dba7ddcb958b5b0ab8ec3c85f689d1c5e9a396d"
+    },
+    {
+      "path": "tests/test_apple_name_api_postgres.py",
+      "sha256": "6a4808d4fd830641259f8ad98da8f502386555fdece4dfdfb2958f73187ce282"
+    }
+  ],
+  "evidence_retained": [
+    "full package 150 passed / 4 opt-in skips",
+    "focused16",
+    "independent3",
+    "signed local1",
+    "provider configuration22",
+    "actual model UI1 / screenshots4"
+  ],
+  "evidence_invalidated": [],
+  "scope": "Retained source-scoped acceptance, not new test execution or exact-head CI",
+  "conflict_disposition": "Five native conflicted incoming files equal original dependency a24 byte-for-byte; kept tested Name versions. Two backend test conflicts retain landed integration fixture/env repairs. No production behavior reconstructed."
+}

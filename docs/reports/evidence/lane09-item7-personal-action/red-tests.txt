@@ -1,0 +1,71 @@
+bun test v1.4.2 (744846f84)
+
+__tests__/receipt-marks.dom.test.tsx:
+(pass) the chips > a read receipt without a fiscal number says so in grey text; a personal one says Personal; a receipt not yet read says nothing [81.03ms]
+(pass) the chips > the owner sees a dot on the Personal chip when someone else marked it, read as Marcado por <nombre>; the accountant does not [1.68ms]
+(pass) the Overview's two totals > Gastos reales and Con valor fiscal stand side by side with the 606 line under the second, from the server's numbers [7.93ms]
+100 | 
+101 |   test("anyone the server lets prepare gets a row menu; a read-only grant gets the chip only", async () => {
+102 |     const marked: string[] = [];
+103 |     const owner = await mountRow(receipt({ personal_editable: true, fiscal_known: true, fiscal_value: null }), (r) => marked.push(r.id));
+104 |     const trigger = owner.host.querySelector('[aria-haspopup="menu"]') as HTMLButtonElement;
+105 |     assert.ok(trigger, "a row menu");
+                 ^
+AssertionError: a row menu
+ generatedMessage: false,
+     actual: null,
+   expected: true,
+   operator: "==",
+       diff: "simple",
+       code: "ERR_ASSERTION"
+
+      at /private/tmp/cuadrao-lane09-item7-personal-action/web/__tests__/receipt-marks.dom.test.tsx:105:12
+(fail) the Personal control in the Bandeja > anyone the server lets prepare gets a row menu; a read-only grant gets the chip only [6.87ms]
+124 |     const marked: ReceiptSummary[] = [];
+125 |     const owner = await mountRow(receipt({ personal: true, personal_marked_by: "Marta", personal_editable: true, fiscal_value: "ncf" }), (r) => marked.push(r));
+126 |     assert.ok(owner.host.querySelector('[data-mark="personal"] [data-testid="personal-marked-dot"]'), "the dot on the chip");
+127 |     assert.equal(owner.host.querySelector('[data-mark="personal"] .sr-only')?.textContent, "Marcado por Marta");
+128 |     const trigger = owner.host.querySelector('[aria-haspopup="menu"]') as HTMLButtonElement;
+129 |     assert.ok(trigger, "a row menu");
+                 ^
+AssertionError: a row menu
+ generatedMessage: false,
+     actual: null,
+   expected: true,
+   operator: "==",
+       diff: "simple",
+       code: "ERR_ASSERTION"
+
+      at /private/tmp/cuadrao-lane09-item7-personal-action/web/__tests__/receipt-marks.dom.test.tsx:129:12
+(fail) the Personal control in the Bandeja > the owner sees who marked the receipt and takes the mark back through its menu [1.37ms]
+(pass) the receipt page's marks card > the owner marks and unmarks; the 606 is read-only for the owner: pending, included or not [2.62ms]
+(pass) the receipt page's marks card > the owner sees who else marked it and undoes the accountant's mark in one tap [0.65ms]
+(pass) the receipt page's marks card > a read-only grant reads the mark and has no control [0.35ms]
+(pass) the receipt page's marks card > the accountant with prepare marks Personal too, and sees Sí and No, 44px each, only for a personal receipt with a fiscal number [1.32ms]
+(pass) the review page's fiscal details > a record without an NCF or an e-CF reads Sin comprobante fiscal in its fiscal row, never No registrado [4.83ms]
+(pass) the review page's fiscal details > in English it reads No fiscal receipt number; a record with an NCF shows its number [4.74ms]
+(pass) one owner for the marks > the Bandeja row and the record show the same server marks for a grantee's mark, the owner's mark and after an unmark [2.29ms]
+(pass) the server states what the browser used to guess > an unreadable receipt nobody read shows no fiscal chip; a read one without a number does [1.23ms]
+(pass) the server states what the browser used to guess > the 606 line names whoever answered, even when the owner edited the record afterwards [0.34ms]
+(pass) the server states what the browser used to guess > the history reads a 606 answer as Sí or No, never true or false [1.79ms]
+374 |     const { ReceiptRow } = await import("@/components/business-app/BusinessInboxPanel");
+375 |     let opened = 0;
+376 |     let marked = 0;
+377 |     await env.act(async () => env.root.render(<env.I18nextProvider i18n={env.i18n}><ul><ReceiptRow receipt={receipt({ personal_editable: true })} onOpen={() => { opened++; }} onMark={() => { marked++; }} /></ul></env.I18nextProvider>));
+378 |     const trigger = env.host.querySelector('[aria-haspopup="menu"]') as HTMLButtonElement;
+379 |     assert.ok(trigger);
+                 ^
+AssertionError: null == true
+ generatedMessage: true,
+     actual: null,
+   expected: true,
+   operator: "==",
+       diff: "simple",
+       code: "ERR_ASSERTION"
+
+      at /private/tmp/cuadrao-lane09-item7-personal-action/web/__tests__/receipt-marks.dom.test.tsx:379:12
+(fail) the Bandeja row menu > opening and dismissing the menu never opens or changes a receipt [0.74ms]
+
+ 13 pass
+ 3 fail
+Ran 16 tests across 1 file. [200.00ms]

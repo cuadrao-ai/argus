@@ -1,0 +1,4 @@
+RECORD    20261008140000 business_spaces [destructive]
+committed 20261008140000 business_spaces
+applied 1 step(s)
+exit=0

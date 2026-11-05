@@ -577,8 +577,8 @@ async def test_recorded_two_turns_reach_the_card_with_every_fact(
     )
 
     monkeypatch.setattr(confirm_module, "fetch_alpaca_market_clock", lambda: None)
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "scripted/primary")
-    monkeypatch.setenv("ARGUS_STRUCTURED_FALLBACK_MODEL", "scripted/fallback")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "scripted/primary")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_FALLBACK_MODEL", "scripted/fallback")
     monkeypatch.setenv("ARGUS_RESEARCH_RAIL_ENABLED", "false")
     monkeypatch.setenv("ARGUS_CONTEXT_PACKETS_ENABLED", "false")
     workflow = build_agent_runtime_workflow(

@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites name="pytest tests">
+  <testsuite name="pytest" errors="0" failures="5" skipped="0" tests="7" time="182.385" timestamp="2026-10-04T01:37:50.032084+00:00" hostname="docker-desktop">
+    <testcase classname="tests.test_access_request_postgres" name="test_access_request_constraints_and_rls_are_service_role_only" time="0.008" />
+    <testcase classname="tests.test_access_request_postgres" name="test_direct_requested_user_activation_without_delivery_is_rejected" time="0.013" />
+    <testcase classname="tests.test_bounded_read_indexes_postgres" name="test_forward_indexes_exist_without_changing_rls_or_select_grants" time="0.006"><failure message="AssertionError: assert {'backtest_ru...s': True, ...} == {'backtest_ru...': False, ...}&#10;  &#10;  Differing items:&#10;  {'decision_notes': True} != {'decision_notes': False}&#10;  {'collections': True} != {'collections': False}&#10;  {'backtest_runs': True} != {'backtest_runs': False}&#10;  {'ideas': True} != {'ideas': False}&#10;  {'strategies': True} != {'strategies': False}...&#10;  &#10;  ...Full output truncated (4 lines hidden), use '-vv' to show" /></testcase>
+    <testcase classname="tests.test_guest_workspace_postgres" name="test_owner_scoped_rls_separates_guest_and_registered_product_rows" time="0.037"><failure message="Failed: DID NOT RAISE &lt;class 'psycopg.errors.InsufficientPrivilege'&gt;" /></testcase>
+    <testcase classname="tests.test_guest_workspace_postgres" name="test_expired_guest_cannot_read_or_write_product_rows" time="0.014"><failure message="Failed: DID NOT RAISE &lt;class 'psycopg.errors.InsufficientPrivilege'&gt;" /></testcase>
+    <testcase classname="tests.test_guest_workspace_postgres" name="test_profile_and_usage_table_grants_stay_service_owned" time="0.005"><failure message="AssertionError: assert [('anon', Tru..., True, True)] == [('anon', Fal..., True, True)]&#10;  &#10;  At index 0 diff: ('anon', True, True, True, True, True) != ('anon', False, False, False, False, False)&#10;  Use -v to get more diff" /></testcase>
+    <testcase classname="tests.test_invite_code_security_postgres" name="test_no_client_role_can_ever_read_a_code_digest" time="0.029"><failure message="AssertionError: assert [('auth.mfa_r....code_hash',)] == []&#10;  &#10;  Left contains one more item: ('auth.mfa_recovery_codes.code_hash',)&#10;  Use -v to get more diff" /></testcase>
+  </testsuite>
+</testsuites>

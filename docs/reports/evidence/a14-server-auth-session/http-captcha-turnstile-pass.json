@@ -1,0 +1,42 @@
+{
+  "client": "python-httpx language-neutral probe (not a native client)",
+  "suite": "captcha",
+  "captured_at": "2026-09-28T17:27:49+00:00",
+  "environment": "local lane Supabase stack argus-native-auth-proof (jwt_expiry=60, confirmations on) + unchanged Argus API; Argus API launched from the fix branch at argus_api_head",
+  "results": [
+    {
+      "id": "B1",
+      "area": "captcha",
+      "scenario": "Test secret that always passes: token forwarded by Argus and verified by Supabase Auth",
+      "path": "unchanged-argus + local Supabase Auth with a Cloudflare test secret",
+      "evidence_level": 3,
+      "expected": "Guest start and sign-in succeed with the dummy token; Argus rejects a missing token before Supabase; direct Supabase sign-in without a token fails; refresh needs no token",
+      "observed": {
+        "guest_with_dummy": 200,
+        "login_with_dummy": 200,
+        "login_without_token": 422,
+        "direct_supabase_without_token": 400,
+        "direct_supabase_error": "captcha_failed",
+        "refresh_without_token": 200
+      },
+      "verdict": "pass",
+      "note": "Calling Supabase directly from the SDK does not skip captcha, so E2's direct-refresh path does not weaken bot protection. Sign-in still belongs on Argus for its own checks (A12, A13)."
+    },
+    {
+      "id": "B2",
+      "area": "captcha",
+      "scenario": "Always-pass test secret given a token the test widget would never issue",
+      "path": "unchanged-argus + local Supabase Auth with a Cloudflare test secret",
+      "evidence_level": 3,
+      "expected": "Record Cloudflare's test-secret behavior for a non-dummy token",
+      "observed": {
+        "login_status": 200,
+        "code": null
+      },
+      "verdict": "pass",
+      "note": "Documented: test secrets accept only the dummy token. Observed status tells whether that holds for this key."
+    }
+  ],
+  "probe_checkout_head": "de61fd3e7d299fcd0c7fda24f3c95f5427822271",
+  "argus_api_head": "54fe7b6fe"
+}

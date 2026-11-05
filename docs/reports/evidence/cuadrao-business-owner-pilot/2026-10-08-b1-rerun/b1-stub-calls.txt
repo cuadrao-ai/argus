@@ -1,0 +1,12 @@
+2026-10-08T07:18:38.793661+00:00 pid <2e receipt> fc21d52c1acc call=1 read
+2026-10-08T07:18:43.475011+00:00 pid <web receipt> b3b675045581 call=1 read
+2026-10-08T07:18:47.647299+00:00 pid <WhatsApp receipt> 0cde8fde9397 call=1 read
+2026-10-08T07:19:00.044936+00:00 pid <2a receipt> 23fe789cb435 call=1 read
+2026-10-08T07:19:40.027313+00:00 pid <2a2 receipt> 0e078ad2555e call=1 read
+2026-10-08T07:19:45.569837+00:00 pid <2b receipt> 4df6f3c96277 call=1 read
+2026-10-08T07:19:51.314109+00:00 pid <2c receipt> bf31017bb6a1 call=1 read
+2026-10-08T07:20:02.023555+00:00 pid <2d receipt> 57fe5e344a9d call=1 fail:extraction_provider_failed
+2026-10-08T07:20:46.852890+00:00 pid <2d receipt> 57fe5e344a9d call=2 fail:extraction_provider_failed
+2026-10-08T07:24:03.060562+00:00 pid <2e receipt> fc21d52c1acc call=2 read
+2026-10-08T07:24:15.769074+00:00 pid <s3-ready receipt> 653e530be8f7 call=1 read
+2026-10-08T07:25:04.318679+00:00 pid <s3-several receipt> 3c1fc278ea26 call=1 read

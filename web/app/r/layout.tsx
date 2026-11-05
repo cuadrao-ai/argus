@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import LandingIntentCapture from "@/components/receipt/LandingIntentCapture";
 
 /** Public frozen conversation shell. Noindex applies to every shared route. */
 export const viewport: Viewport = {
@@ -24,6 +25,7 @@ export default function PublicReceiptLayout({
   return (
     // Fill the viewport even when the selected thread is short.
     <div className="flex min-h-dvh w-full flex-col bg-white text-black dark:bg-[#191c1f] dark:text-white">
+      <LandingIntentCapture />
       {children}
     </div>
   );

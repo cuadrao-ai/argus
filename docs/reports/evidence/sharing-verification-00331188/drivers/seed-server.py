@@ -52,7 +52,7 @@ for index, (template, title) in enumerate([
                           "payload": snapshot.payload.model_dump(mode="json")}
 
 (OUT / "receipts.json").write_text(json.dumps(receipts, indent=2))
-assert os.environ["ARGUS_MOCK_AUTH"] == "false"
+assert os.environ["CUADRAO_MOCK_AUTH"] == "false"
 assert state.supabase_gateway is None
 
 @app.middleware("http")

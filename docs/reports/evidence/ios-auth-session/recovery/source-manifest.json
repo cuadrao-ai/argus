@@ -1,0 +1,15 @@
+{
+  "head": "661318138d53882b5280685a39a0e6b9a1c46385",
+  "files": {
+    "web/app/auth/forgot-password/page.tsx": "5c21af91b582c4fec63a763eb906cefab11eabeebfea9c7b0d060f5e50c5335b",
+    "web/app/auth/recovery/page.tsx": "462a586569280908c00db53299393a7ae9f8c7ee06c5120b9ec12d3381af534a",
+    "web/lib/auth-security.ts": "50194e7f72047f3bc9732fd530cd89be42ba0080969c29e43b54424892fcffde",
+    "web/lib/recovery-request.ts": "fc65187aa0154efd095ad2278ecbb66ecefa1ad56749e6e14e545d9cbcc20bb8",
+    "web/lib/guest-captcha.ts": "3f81bc61cc06b4969c7f580fec4acadaf1f64eac304d20ec14e17b949b0ee219",
+    "ios/scripts/auth/recovery-browser.py": "600b4025e3cb48fe0ab6c356ee4060cf0506ee7168b14cb4db5bf14a0772719b"
+  },
+  "screenshots": {
+    "recovery-ready.png": "b135fb99a1d268e957fc55d6f937d85172734db000a6b5f0a352cf9458a3d647",
+    "recovery-complete.png": "9289fe4e51b34dc2d09e2719c7c33e38121451e63c2cff7bab8c3996cb462da6"
+  }
+}

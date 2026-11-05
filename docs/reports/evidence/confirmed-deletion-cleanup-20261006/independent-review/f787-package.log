@@ -1,0 +1,455 @@
+warning: /Users/garces/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/garces/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+Building for debugging...
+[Using on-disk description]
+[11 / 55] ConcurrencyExtras
+[35 / 116] IssueReporting
+[48 / 117] IssueReporting
+[61 / 117] Crypto
+[75 / 117] IssueReporting
+[85 / 127] HTTPTypes
+[100 / 132] _IssueReporting
+[109 / 141] XCTestDynamicOverlay
+[118 / 148] XCTestDynamicOverlay
+[122 / 152] XCTestDynamicOverlay
+[143 / 171] Helpers
+[145 / 171] Helpers
+[151 / 177] Auth
+[170 / 196] Auth
+[174 / 198] ArgusSession
+[192 / 217] ArgusSession
+[193 / 217] ArgusSession
+[198 / 214] ArgusSession
+[199 / 214] Auth
+[204 / 213] ArgusSessionTests-product
+[223 / 232] ArgusSessionTests-product
+[224 / 232] ArgusSessionTests-product
+[228 / 232] ArgusSessionTests-product
+[230 / 232] ArgusSessionTests-product
+Build complete! (4.86 sec)
+Test Suite 'All tests' started at 2026-10-05 22:40:05.740.
+Test Suite 'ArgusSessionTests.xctest' started at 2026-10-05 22:40:05.741.
+Test Suite 'AccountDeletionTests' started at 2026-10-05 22:40:05.741.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcceptedAcknowledgementAllowsAnotherAccountWithoutRetiringIt]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcceptedAcknowledgementAllowsAnotherAccountWithoutRetiringIt]' passed (0.005 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcceptedAJournalCannotRetireBDuringSDKAdoption]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcceptedAJournalCannotRetireBDuringSDKAdoption]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcceptedRetiresProofAndRelaunchCannotRetry]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcceptedRetiresProofAndRelaunchCannotRetry]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcknowledgementStorageFailureAfterCleanupRetainsIdempotentRetryObligation]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcknowledgementStorageFailureAfterCleanupRetainsIdempotentRetryObligation]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAppleNotificationDuringRefusedDeletionDoesNotRestoreStaleAuthenticatedAccess]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAppleNotificationDuringRefusedDeletionDoesNotRestoreStaleAuthenticatedAccess]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testCleanupCallbackFailureRetainsJournalAndRelaunchRetriesCleanupOnly]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testCleanupCallbackFailureRetainsJournalAndRelaunchRetriesCleanupOnly]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testCleanupCannotInterruptBAdoptionBeforeSDKProofIsStored]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testCleanupCannotInterruptBAdoptionBeforeSDKProofIsStored]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testCompletedCleanupUsesValidatedOwnerAndMissingDirectoryIsIdempotent]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testCompletedCleanupUsesValidatedOwnerAndMissingDirectoryIsIdempotent]' passed (0.003 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testConcurrentDuplicateIsDeniedWhileJournalAlreadyQuarantinesProtectedWork]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testConcurrentDuplicateIsDeniedWhileJournalAlreadyQuarantinesProtectedWork]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testDoneIssuesOwnerReceiptAndRetiresWithoutRefreshOrCapture]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testDoneIssuesOwnerReceiptAndRetiresWithoutRefreshOrCapture]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testExpiredProofUsesSupportWithoutRefreshOrDispatch]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testExpiredProofUsesSupportWithoutRefreshOrDispatch]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testIncompleteHonorsRetryAfterAndMalformedDoneCannotIssueReceipt]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testIncompleteHonorsRetryAfterAndMalformedDoneCannotIssueReceipt]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testInterruptedCompletedCleanupReceiptCanBeRecoveredAndAcknowledged]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testInterruptedCompletedCleanupReceiptCanBeRecoveredAndAcknowledged]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testJournalFailureHasNoCommandEffects]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testJournalFailureHasNoCommandEffects]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testLostResponseSurvivesRelaunchAndBlocksProtectedDispatchBeforeSameCommandResolution]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testLostResponseSurvivesRelaunchAndBlocksProtectedDispatchBeforeSameCommandResolution]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testNoAdmissionRefusalsRestoreCurrentIdentityAndNeverClearCredentials]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testNoAdmissionRefusalsRestoreCurrentIdentityAndNeverClearCredentials]' passed (0.003 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testPendingUncertaintyAndOrdinarySignOutCannotAuthorizeCleanup]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testPendingUncertaintyAndOrdinarySignOutCannotAuthorizeCleanup]' passed (0.005 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testRecoveryRefusalCannotTurnLostResponseIntoNoAdmission]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testRecoveryRefusalCannotTurnLostResponseIntoNoAdmission]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testStaleCompletedCleanupHasNoFilesystemEffectsWhileBOwnsSession]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testStaleCompletedCleanupHasNoFilesystemEffectsWhileBOwnsSession]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testUnauthorizedNeverRefreshesAndKeepsUncertaintyForSupport]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testUnauthorizedNeverRefreshesAndKeepsUncertaintyForSupport]' passed (0.001 seconds).
+Test Suite 'AccountDeletionTests' passed at 2026-10-05 22:40:05.777.
+	 Executed 20 tests, with 0 failures (0 unexpected) in 0.035 (0.036) seconds
+Test Suite 'AppleCredentialValidationTests' started at 2026-10-05 22:40:05.777.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testAppleUsesCanonicalSubjectAndRevalidatesOnRelaunch]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testAppleUsesCanonicalSubjectAndRevalidatesOnRelaunch]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testForegroundUnreadableMethodOrPendingJournalBlocksCachedSDKDispatch]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testForegroundUnreadableMethodOrPendingJournalBlocksCachedSDKDispatch]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testKnownEmailAndGoogleIgnoreAppleLinkAcrossRelaunch]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testKnownEmailAndGoogleIgnoreAppleLinkAcrossRelaunch]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testLostMethodSessionWriteHasPendingCredentialsForRelaunch]' started.
+2026-10-05 22:40:05.826 xctest[3683:12546794] Error obtaining permanent ID: Error Domain=NSCocoaErrorDomain Code=134020 "The model configuration used to open the store is incompatible with the one that was used to create the store."
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testLostMethodSessionWriteHasPendingCredentialsForRelaunch]' passed (1.005 seconds).
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testNewGrantForSameAccountReplacesMethodAndCanonicalMismatchSkipsChecker]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testNewGrantForSameAccountReplacesMethodAndCanonicalMismatchSkipsChecker]' passed (0.008 seconds).
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testNotificationDuringAdoptionKeepsJournalAndRequiresFreshCheck]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testNotificationDuringAdoptionKeepsJournalAndRequiresFreshCheck]' passed (0.003 seconds).
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testNotificationDuringCaptureHoldsSessionWithoutReplayingCode]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testNotificationDuringCaptureHoldsSessionWithoutReplayingCode]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testNotificationHoldsAppleAccessButLeavesKnownEmailAndGoogleUsable]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testNotificationHoldsAppleAccessButLeavesKnownEmailAndGoogleUsable]' passed (0.004 seconds).
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testNotificationInvalidatesInFlightAppleAnswersBeforeQueuedRestore]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testNotificationInvalidatesInFlightAppleAnswersBeforeQueuedRestore]' passed (0.004 seconds).
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testPendingRevocationTakesPriorityOverMalformedOrUnreadableOrdinarySession]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testPendingRevocationTakesPriorityOverMalformedOrUnreadableOrdinarySession]' passed (2.034 seconds).
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testPendingValidationReportsDiscardedCaptureAndNeverReplaysOnRetry]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testPendingValidationReportsDiscardedCaptureAndNeverReplaysOnRetry]' passed (0.003 seconds).
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testRevocationAndNotFoundRetireThroughPendingJournal]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testRevocationAndNotFoundRetireThroughPendingJournal]' passed (2.081 seconds).
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testRevocationStorageFailureRemainsPendingAndCannotSwitchAccountsDuringCheck]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testRevocationStorageFailureRemainsPendingAndCannotSwitchAccountsDuringCheck]' passed (0.006 seconds).
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testUncertainAppleStateKeepsCredentialsAndCanRetry]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testUncertainAppleStateKeepsCredentialsAndCanRetry]' passed (0.004 seconds).
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testUnknownLinkedSessionRequiresExplicitSignIn]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testUnknownLinkedSessionRequiresExplicitSignIn]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testUnreadableNotificationAdmissionInvalidatesInFlightCheckerAnswer]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testUnreadableNotificationAdmissionInvalidatesInFlightCheckerAnswer]' passed (0.004 seconds).
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testValidationBlocksSavedSnapshotAndPublishesPendingBeforeCheckCompletes]' started.
+Test Case '-[ArgusSessionTests.AppleCredentialValidationTests testValidationBlocksSavedSnapshotAndPublishesPendingBeforeCheckCompletes]' passed (0.002 seconds).
+Test Suite 'AppleCredentialValidationTests' passed at 2026-10-05 22:40:10.946.
+	 Executed 17 tests, with 0 failures (0 unexpected) in 5.167 (5.168) seconds
+Test Suite 'AppleNameInitializationTests' started at 2026-10-05 22:40:10.946.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testCallbackIsDurableBeforeProviderGrantAndCanonicalNameIsAwaited]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testCallbackIsDurableBeforeProviderGrantAndCanonicalNameIsAwaited]' passed (0.003 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testCallbackStorageFailureAndSupersededCallbackNeverStartGrant]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testCallbackStorageFailureAndSupersededCallbackNeverStartGrant]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testDeniedAdoptionNeverDispatchesNameAndClearsCallback]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testDeniedAdoptionNeverDispatchesNameAndClearsCallback]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testDifferentCallbackAndDifferentCanonicalSubjectCannotReceiveOldName]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testDifferentCallbackAndDifferentCanonicalSubjectCannotReceiveOldName]' passed (0.003 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testDurableAcknowledgementFailureNeverReportsNameSaved]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testDurableAcknowledgementFailureNeverReportsNameSaved]' passed (0.003 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testExistingNameAndExplicitClearAreCanonicalNoOps]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testExistingNameAndExplicitClearAreCanonicalNoOps]' passed (0.003 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testExpiredCallbackAndEmptyNameDoNotBecomeCommands]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testExpiredCallbackAndEmptyNameDoNotBecomeCommands]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testLostGrantResponseKeepsOnlyCallbackIntentForFreshSameSubjectGrant]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testLostGrantResponseKeepsOnlyCallbackIntentForFreshSameSubjectGrant]' passed (1.007 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testLostNameResponseRetriesAfterRelaunchWithoutCodeReplay]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testLostNameResponseRetriesAfterRelaunchWithoutCodeReplay]' passed (0.005 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testNameCommandIsAwaitedAndLateRevalidationCannotAdoptItsResponse]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testNameCommandIsAwaitedAndLateRevalidationCannotAdoptItsResponse]' passed (0.004 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testRecoverableAdoptionFailuresPreserveFirstCallbackForFreshGrant]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testRecoverableAdoptionFailuresPreserveFirstCallbackForFreshGrant]' passed (0.007 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testRefreshKeepsExactBoundIntentAndUnknownGrantCannotPromoteIt]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testRefreshKeepsExactBoundIntentAndUnknownGrantCannotPromoteIt]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testSignOutClearsPendingNameAndRejectsOldIdentityRetry]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testSignOutClearsPendingNameAndRejectsOldIdentityRetry]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testUnavailableNameDoesNotFailSignInAndExplicitRetryUsesStoredIntent]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testUnavailableNameDoesNotFailSignInAndExplicitRetryUsesStoredIntent]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testUncertainAppleValidationRetainsNameWithoutDispatchUntilAuthorized]' started.
+Test Case '-[ArgusSessionTests.AppleNameInitializationTests testUncertainAppleValidationRetainsNameWithoutDispatchUntilAuthorized]' passed (0.002 seconds).
+Test Suite 'AppleNameInitializationTests' passed at 2026-10-05 22:40:11.991.
+	 Executed 15 tests, with 0 failures (0 unexpected) in 1.044 (1.045) seconds
+Test Suite 'ConfigurationTests' started at 2026-10-05 22:40:11.991.
+Test Case '-[ArgusSessionTests.ConfigurationTests testAcceptsHTTPSAndLoopbackOrigins]' started.
+Test Case '-[ArgusSessionTests.ConfigurationTests testAcceptsHTTPSAndLoopbackOrigins]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.ConfigurationTests testRejectsRemoteHTTPAndEmbeddedCredentials]' started.
+Test Case '-[ArgusSessionTests.ConfigurationTests testRejectsRemoteHTTPAndEmbeddedCredentials]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.ConfigurationTests testRejectsSecretRoleKeyAndEmptyConfiguration]' started.
+Test Case '-[ArgusSessionTests.ConfigurationTests testRejectsSecretRoleKeyAndEmptyConfiguration]' passed (0.000 seconds).
+Test Suite 'ConfigurationTests' passed at 2026-10-05 22:40:11.992.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'FinancialAccountTests' started at 2026-10-05 22:40:11.992.
+Test Case '-[ArgusSessionTests.FinancialAccountTests testConflictAndValidationRemainBoundedWithoutRetry]' started.
+Test Case '-[ArgusSessionTests.FinancialAccountTests testConflictAndValidationRemainBoundedWithoutRetry]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.FinancialAccountTests testCreateLostResponseRetryKeepsExactBodyAndKey]' started.
+Test Case '-[ArgusSessionTests.FinancialAccountTests testCreateLostResponseRetryKeepsExactBodyAndKey]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.FinancialAccountTests testFinancial401UsesExistingRefreshAndSecond401RetiresIdentity]' started.
+Test Case '-[ArgusSessionTests.FinancialAccountTests testFinancial401UsesExistingRefreshAndSecond401RetiresIdentity]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.FinancialAccountTests testRetiredIdentityRejectsLateSuccessAndFailureAndUnsentOldDraft]' started.
+Test Case '-[ArgusSessionTests.FinancialAccountTests testRetiredIdentityRejectsLateSuccessAndFailureAndUnsentOldDraft]' passed (0.003 seconds).
+Test Case '-[ArgusSessionTests.FinancialAccountTests testWirePrecisionUnknownZeroAndStoredDates]' started.
+Test Case '-[ArgusSessionTests.FinancialAccountTests testWirePrecisionUnknownZeroAndStoredDates]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.FinancialAccountTests testWriteBodiesKeepViewedVersionsAndOmitUnchangedDebtAmount]' started.
+Test Case '-[ArgusSessionTests.FinancialAccountTests testWriteBodiesKeepViewedVersionsAndOmitUnchangedDebtAmount]' passed (0.000 seconds).
+Test Suite 'FinancialAccountTests' passed at 2026-10-05 22:40:12.002.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.010 (0.010) seconds
+Test Suite 'FinancialAssetTests' started at 2026-10-05 22:40:12.002.
+Test Case '-[ArgusSessionTests.FinancialAssetTests testAssetProjectionDecodesServerContributionAndUnknownSeparately]' started.
+Test Case '-[ArgusSessionTests.FinancialAssetTests testAssetProjectionDecodesServerContributionAndUnknownSeparately]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.FinancialAssetTests testEstimateCommandKeepsSelectedRevisionAndProvenance]' started.
+Test Case '-[ArgusSessionTests.FinancialAssetTests testEstimateCommandKeepsSelectedRevisionAndProvenance]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.FinancialAssetTests testMalformedPendingAssetPathIsRejectedBeforeSending]' started.
+Test Case '-[ArgusSessionTests.FinancialAssetTests testMalformedPendingAssetPathIsRejectedBeforeSending]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.FinancialAssetTests testPendingCreateSurvivesJournalRelaunchAndSendsExactRequest]' started.
+Test Case '-[ArgusSessionTests.FinancialAssetTests testPendingCreateSurvivesJournalRelaunchAndSendsExactRequest]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.FinancialAssetTests testRemovingDebtLinkEncodesExplicitNull]' started.
+Test Case '-[ArgusSessionTests.FinancialAssetTests testRemovingDebtLinkEncodesExplicitNull]' passed (0.000 seconds).
+Test Suite 'FinancialAssetTests' passed at 2026-10-05 22:40:12.005.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.003 (0.003) seconds
+Test Suite 'FinancialBudgetTests' started at 2026-10-05 22:40:12.005.
+Test Case '-[ArgusSessionTests.FinancialBudgetTests testBudgetCreateAndLifecycleHaveDistinctVersionedPayloads]' started.
+Test Case '-[ArgusSessionTests.FinancialBudgetTests testBudgetCreateAndLifecycleHaveDistinctVersionedPayloads]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.FinancialBudgetTests testBudgetSearchHitRetainsCanonicalIDAndLifecycle]' started.
+Test Case '-[ArgusSessionTests.FinancialBudgetTests testBudgetSearchHitRetainsCanonicalIDAndLifecycle]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.FinancialBudgetTests testOverageAndNegativeNetDisplayWithoutRecomputingMoney]' started.
+Test Case '-[ArgusSessionTests.FinancialBudgetTests testOverageAndNegativeNetDisplayWithoutRecomputingMoney]' passed (0.000 seconds).
+Test Suite 'FinancialBudgetTests' passed at 2026-10-05 22:40:12.006.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'FinancialDebtTests' started at 2026-10-05 22:40:12.006.
+Test Case '-[ArgusSessionTests.FinancialDebtTests testActualLoanAndReturnedComponentsRoundTripWithoutGuesses]' started.
+Test Case '-[ArgusSessionTests.FinancialDebtTests testActualLoanAndReturnedComponentsRoundTripWithoutGuesses]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.FinancialDebtTests testDebtJournalRestoresExactOwnerTokenVersionAndBytes]' started.
+Test Case '-[ArgusSessionTests.FinancialDebtTests testDebtJournalRestoresExactOwnerTokenVersionAndBytes]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.FinancialDebtTests testOptionalScenarioClearsExplicitlyWithoutChangingSchedule]' started.
+Test Case '-[ArgusSessionTests.FinancialDebtTests testOptionalScenarioClearsExplicitlyWithoutChangingSchedule]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.FinancialDebtTests testUnknownDebtSearchNeverUsesPlannedPaymentAsBalance]' started.
+Test Case '-[ArgusSessionTests.FinancialDebtTests testUnknownDebtSearchNeverUsesPlannedPaymentAsBalance]' passed (0.000 seconds).
+Test Suite 'FinancialDebtTests' passed at 2026-10-05 22:40:12.007.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'FinancialExpectationSeedTests' started at 2026-10-05 22:40:12.007.
+Test Case '-[ArgusSessionTests.FinancialExpectationSeedTests testAccountStaysUnsetUnlessEligibleInTheSameCurrency]' started.
+Test Case '-[ArgusSessionTests.FinancialExpectationSeedTests testAccountStaysUnsetUnlessEligibleInTheSameCurrency]' passed (0.003 seconds).
+Test Case '-[ArgusSessionTests.FinancialExpectationSeedTests testCalendarDayFollowsTheMovementTimeZone]' started.
+Test Case '-[ArgusSessionTests.FinancialExpectationSeedTests testCalendarDayFollowsTheMovementTimeZone]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.FinancialExpectationSeedTests testExpenseWithNoteAndEligibleAccountBecomesMonthlyBill]' started.
+Test Case '-[ArgusSessionTests.FinancialExpectationSeedTests testExpenseWithNoteAndEligibleAccountBecomesMonthlyBill]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.FinancialExpectationSeedTests testIncomeWithoutNoteUsesFallbackTitleAndTruncatesLongNotes]' started.
+Test Case '-[ArgusSessionTests.FinancialExpectationSeedTests testIncomeWithoutNoteUsesFallbackTitleAndTruncatesLongNotes]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.FinancialExpectationSeedTests testNextMonthlyDateForMovementTodayPastAndFuture]' started.
+Test Case '-[ArgusSessionTests.FinancialExpectationSeedTests testNextMonthlyDateForMovementTodayPastAndFuture]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.FinancialExpectationSeedTests testNextMonthlyDateKeepsAnchorAndClampsShortMonths]' started.
+Test Case '-[ArgusSessionTests.FinancialExpectationSeedTests testNextMonthlyDateKeepsAnchorAndClampsShortMonths]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.FinancialExpectationSeedTests testOnlyIncomeAndExpenseWithTheOriginalAmountAreEligible]' started.
+Test Case '-[ArgusSessionTests.FinancialExpectationSeedTests testOnlyIncomeAndExpenseWithTheOriginalAmountAreEligible]' passed (0.000 seconds).
+Test Suite 'FinancialExpectationSeedTests' passed at 2026-10-05 22:40:12.015.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.007 (0.007) seconds
+Test Suite 'FinancialGoalTests' started at 2026-10-05 22:40:12.015.
+Test Case '-[ArgusSessionTests.FinancialGoalTests testDateOnlyAndExplicitSetupClearingSurviveCommandEncoding]' started.
+Test Case '-[ArgusSessionTests.FinancialGoalTests testDateOnlyAndExplicitSetupClearingSurviveCommandEncoding]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.FinancialGoalTests testGoalJournalOperationRoundTripsExactCommandIdentity]' started.
+Test Case '-[ArgusSessionTests.FinancialGoalTests testGoalJournalOperationRoundTripsExactCommandIdentity]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.FinancialGoalTests testGoalSearchKeepsGoalIdentityAndActualProgress]' started.
+Test Case '-[ArgusSessionTests.FinancialGoalTests testGoalSearchKeepsGoalIdentityAndActualProgress]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.FinancialGoalTests testUnresolvedProgressHasNoMeterOrAssignedFallback]' started.
+Test Case '-[ArgusSessionTests.FinancialGoalTests testUnresolvedProgressHasNoMeterOrAssignedFallback]' passed (0.000 seconds).
+Test Suite 'FinancialGoalTests' passed at 2026-10-05 22:40:12.015.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'FinancialLoopTests' started at 2026-10-05 22:40:12.015.
+Test Case '-[ArgusSessionTests.FinancialLoopTests testActivityCursorIsQueryNotEncodedIntoPath]' started.
+Test Case '-[ArgusSessionTests.FinancialLoopTests testActivityCursorIsQueryNotEncodedIntoPath]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.FinancialLoopTests testDestinationOnlyOriginalKeepsAmountUnknownWhileSourceOwnerKeepsFullFacts]' started.
+Test Case '-[ArgusSessionTests.FinancialLoopTests testDestinationOnlyOriginalKeepsAmountUnknownWhileSourceOwnerKeepsFullFacts]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.FinancialLoopTests testExpensePreviewPreservesUnknownAndUnansweredObservation]' started.
+Test Case '-[ArgusSessionTests.FinancialLoopTests testExpensePreviewPreservesUnknownAndUnansweredObservation]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.FinancialLoopTests testForegroundProfileReadDoesNotBlockFinancialHome]' started.
+Test Case '-[ArgusSessionTests.FinancialLoopTests testForegroundProfileReadDoesNotBlockFinancialHome]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.FinancialLoopTests testHomePreservesAggregateBeyondInt64AndUnknownCoverage]' started.
+Test Case '-[ArgusSessionTests.FinancialLoopTests testHomePreservesAggregateBeyondInt64AndUnknownCoverage]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.FinancialLoopTests testOldFinancialHomeResponseCannotEnterNewOwnerSession]' started.
+Test Case '-[ArgusSessionTests.FinancialLoopTests testOldFinancialHomeResponseCannotEnterNewOwnerSession]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.FinancialLoopTests testUncertainExpenseRetryReusesExactBodyKeyAndCurrentIdentity]' started.
+Test Case '-[ArgusSessionTests.FinancialLoopTests testUncertainExpenseRetryReusesExactBodyKeyAndCurrentIdentity]' passed (0.001 seconds).
+Test Suite 'FinancialLoopTests' passed at 2026-10-05 22:40:12.021.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.005 (0.005) seconds
+Test Suite 'FinancialPlanTests' started at 2026-10-05 22:40:12.021.
+Test Case '-[ArgusSessionTests.FinancialPlanTests testForecastPreservesUnknownTotalsAndOrderedSameDayShortfall]' started.
+Test Case '-[ArgusSessionTests.FinancialPlanTests testForecastPreservesUnknownTotalsAndOrderedSameDayShortfall]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.FinancialPlanTests testLegacyPendingEnvelopeRemainsRecoverable]' started.
+Test Case '-[ArgusSessionTests.FinancialPlanTests testLegacyPendingEnvelopeRemainsRecoverable]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.FinancialPlanTests testPlanJournalRetainsTypedOperationAndOriginalVersionAcrossRelaunch]' started.
+Test Case '-[ArgusSessionTests.FinancialPlanTests testPlanJournalRetainsTypedOperationAndOriginalVersionAcrossRelaunch]' passed (0.001 seconds).
+Test Suite 'FinancialPlanTests' passed at 2026-10-05 22:40:12.023.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'FinancialSearchTests' started at 2026-10-05 22:40:12.023.
+Test Case '-[ArgusSessionTests.FinancialSearchTests testTypedRowsKeepLogicalIdentityAndCanonicalMoneyWithoutCrossKindCollision]' started.
+Test Case '-[ArgusSessionTests.FinancialSearchTests testTypedRowsKeepLogicalIdentityAndCanonicalMoneyWithoutCrossKindCollision]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.FinancialSearchTests testUnsupportedOrMismatchedDestinationCannotFallbackToAnotherPayload]' started.
+Test Case '-[ArgusSessionTests.FinancialSearchTests testUnsupportedOrMismatchedDestinationCannotFallbackToAnotherPayload]' passed (0.000 seconds).
+Test Suite 'FinancialSearchTests' passed at 2026-10-05 22:40:12.023.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'FinancialWriteJournalTests' started at 2026-10-05 22:40:12.023.
+Test Case '-[ArgusSessionTests.FinancialWriteJournalTests testAnotherOwnerCannotReadClearOrReplacePendingConfirmation]' started.
+Test Case '-[ArgusSessionTests.FinancialWriteJournalTests testAnotherOwnerCannotReadClearOrReplacePendingConfirmation]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.FinancialWriteJournalTests testDifferentSecondWriteCannotReplaceUnknownResult]' started.
+Test Case '-[ArgusSessionTests.FinancialWriteJournalTests testDifferentSecondWriteCannotReplaceUnknownResult]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.FinancialWriteJournalTests testRelaunchKeepsExactConfirmedBytesAndKeyUntilExplicitClear]' started.
+Test Case '-[ArgusSessionTests.FinancialWriteJournalTests testRelaunchKeepsExactConfirmedBytesAndKeyUntilExplicitClear]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.FinancialWriteJournalTests testUnavailableStorageFailsBeforeAnyDispatchCanBeAttempted]' started.
+Test Case '-[ArgusSessionTests.FinancialWriteJournalTests testUnavailableStorageFailsBeforeAnyDispatchCanBeAttempted]' passed (0.000 seconds).
+Test Suite 'FinancialWriteJournalTests' passed at 2026-10-05 22:40:12.024.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'HouseholdPlanTests' started at 2026-10-05 22:40:12.024.
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testBudgetNeedsReviewCarriesUnknownTotalsWithoutInventedZeroOrOverBudget]' started.
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testBudgetNeedsReviewCarriesUnknownTotalsWithoutInventedZeroOrOverBudget]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testDepartureHistoryHasNoEditContributionOrRestoreCapability]' started.
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testDepartureHistoryHasNoEditContributionOrRestoreCapability]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testEveryDefinitionRequiresServerEffectiveDateWithoutLocalFallback]' started.
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testEveryDefinitionRequiresServerEffectiveDateWithoutLocalFallback]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testExplicitDateClearDiffersFromUnchangedDate]' started.
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testExplicitDateClearDiffersFromUnchangedDate]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testFourKindsDecodeOnlyTheirDisclosedProgressAndCapabilities]' started.
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testFourKindsDecodeOnlyTheirDisclosedProgressAndCapabilities]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testGoalScheduleEditCarriesCanonicalScheduleWithoutPrivateFundingSetup]' started.
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testGoalScheduleEditCarriesCanonicalScheduleWithoutPrivateFundingSetup]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testJournalRestoresEveryTypedPlanOperationWithoutChangingBytes]' started.
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testJournalRestoresEveryTypedPlanOperationWithoutChangingBytes]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testLegacyHouseholdActivityJournalPreservesExactRecoveryEnvelope]' started.
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testLegacyHouseholdActivityJournalPreservesExactRecoveryEnvelope]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testPeopleConsentEncodesBudgetPolicyOnlyForBudgetAcrossEveryKind]' started.
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testPeopleConsentEncodesBudgetPolicyOnlyForBudgetAcrossEveryKind]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testResponsibilityContainsExactlyItsChosenScopeAndOptionalUnequalAmount]' started.
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testResponsibilityContainsExactlyItsChosenScopeAndOptionalUnequalAmount]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testRestoreCapabilityIsExplicitEvenWhenArchiveIsReadOnly]' started.
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testRestoreCapabilityIsExplicitEvenWhenArchiveIsReadOnly]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testSearchPlanHasNoInventedAccountDestination]' started.
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testSearchPlanHasNoInventedAccountDestination]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testSearchPlanRequiresTypedDestinationWhileAccountHitRemainsCompatible]' started.
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testSearchPlanRequiresTypedDestinationWhileAccountHitRemainsCompatible]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testUnknownKindAndMissingKindSpecificValuesFailClosed]' started.
+Test Case '-[ArgusSessionTests.HouseholdPlanTests testUnknownKindAndMissingKindSpecificValuesFailClosed]' passed (0.000 seconds).
+Test Suite 'HouseholdPlanTests' passed at 2026-10-05 22:40:12.030.
+	 Executed 14 tests, with 0 failures (0 unexpected) in 0.005 (0.006) seconds
+Test Suite 'IdentitySignInTests' started at 2026-10-05 22:40:12.030.
+Test Case '-[ArgusSessionTests.IdentitySignInTests testAnonymousIdTokenSessionIsRefused]' started.
+Test Case '-[ArgusSessionTests.IdentitySignInTests testAnonymousIdTokenSessionIsRefused]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.IdentitySignInTests testAppleCodeCaptureRefusesStaleIdentity]' started.
+Test Case '-[ArgusSessionTests.IdentitySignInTests testAppleCodeCaptureRefusesStaleIdentity]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.IdentitySignInTests testAppleCodeCaptureUsesTheSessionBearer]' started.
+Test Case '-[ArgusSessionTests.IdentitySignInTests testAppleCodeCaptureUsesTheSessionBearer]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.IdentitySignInTests testAppleIdTokenLandsInTheJournaledConnectedSession]' started.
+Test Case '-[ArgusSessionTests.IdentitySignInTests testAppleIdTokenLandsInTheJournaledConnectedSession]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.IdentitySignInTests testArgusRefusalRevokesTheIssuedSession]' started.
+Test Case '-[ArgusSessionTests.IdentitySignInTests testArgusRefusalRevokesTheIssuedSession]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.IdentitySignInTests testAuthServerOutageIsUnavailable]' started.
+Test Case '-[ArgusSessionTests.IdentitySignInTests testAuthServerOutageIsUnavailable]' passed (1.026 seconds).
+Test Case '-[ArgusSessionTests.IdentitySignInTests testCaptureErrorCodesAreSafeAndAnExpiredCodeNeedsFreshAuthorization]' started.
+Test Case '-[ArgusSessionTests.IdentitySignInTests testCaptureErrorCodesAreSafeAndAnExpiredCodeNeedsFreshAuthorization]' passed (0.009 seconds).
+Test Case '-[ArgusSessionTests.IdentitySignInTests testCapturePreservesSafeServerFailureAndBoundsCode]' started.
+Test Case '-[ArgusSessionTests.IdentitySignInTests testCapturePreservesSafeServerFailureAndBoundsCode]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.IdentitySignInTests testCaptureUnauthorizedNeverReplaysConsumedCode]' started.
+Test Case '-[ArgusSessionTests.IdentitySignInTests testCaptureUnauthorizedNeverReplaysConsumedCode]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.IdentitySignInTests testFailedRevokeAfterRefusalKeepsThePendingJournal]' started.
+Test Case '-[ArgusSessionTests.IdentitySignInTests testFailedRevokeAfterRefusalKeepsThePendingJournal]' passed (1.039 seconds).
+Test Case '-[ArgusSessionTests.IdentitySignInTests testGoogleSendsAccessTokenForAtHash]' started.
+Test Case '-[ArgusSessionTests.IdentitySignInTests testGoogleSendsAccessTokenForAtHash]' passed (0.003 seconds).
+Test Case '-[ArgusSessionTests.IdentitySignInTests testMalformedTokenNeverLeavesTheDevice]' started.
+Test Case '-[ArgusSessionTests.IdentitySignInTests testMalformedTokenNeverLeavesTheDevice]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.IdentitySignInTests testNonceSendsHashToProviderAndRawToSupabase]' started.
+Test Case '-[ArgusSessionTests.IdentitySignInTests testNonceSendsHashToProviderAndRawToSupabase]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.IdentitySignInTests testProviderSignInAwaitsOneCaptureAndKeepsSessionOnCaptureFailure]' started.
+Test Case '-[ArgusSessionTests.IdentitySignInTests testProviderSignInAwaitsOneCaptureAndKeepsSessionOnCaptureFailure]' passed (0.005 seconds).
+Test Case '-[ArgusSessionTests.IdentitySignInTests testProviderSignInWhileSignedInIsRefused]' started.
+Test Case '-[ArgusSessionTests.IdentitySignInTests testProviderSignInWhileSignedInIsRefused]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.IdentitySignInTests testRejectedIdTokenStoresNothingAndMapsToBoundedCode]' started.
+Test Case '-[ArgusSessionTests.IdentitySignInTests testRejectedIdTokenStoresNothingAndMapsToBoundedCode]' passed (0.000 seconds).
+Test Suite 'IdentitySignInTests' passed at 2026-10-05 22:40:14.124.
+	 Executed 16 tests, with 0 failures (0 unexpected) in 2.093 (2.094) seconds
+Test Suite 'InvitationsTests' started at 2026-10-05 22:40:14.124.
+Test Case '-[ArgusSessionTests.InvitationsTests testAccessSentAndCreatedDecodeTheContractShapes]' started.
+Test Case '-[ArgusSessionTests.InvitationsTests testAccessSentAndCreatedDecodeTheContractShapes]' passed (0.003 seconds).
+Test Case '-[ArgusSessionTests.InvitationsTests testAGroupLinkDraftHoldsTheServersLimits]' started.
+Test Case '-[ArgusSessionTests.InvitationsTests testAGroupLinkDraftHoldsTheServersLimits]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.InvitationsTests testAMalformedReplyIsUnavailableNotAnAdmission]' started.
+Test Case '-[ArgusSessionTests.InvitationsTests testAMalformedReplyIsUnavailableNotAnAdmission]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.InvitationsTests testEveryProblemCodeBecomesTheOutcomeTheScreensExplain]' started.
+Test Case '-[ArgusSessionTests.InvitationsTests testEveryProblemCodeBecomesTheOutcomeTheScreensExplain]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.InvitationsTests testOnlyTheServersTwoLinkShapesCarryAnInvitation]' started.
+Test Case '-[ArgusSessionTests.InvitationsTests testOnlyTheServersTwoLinkShapesCarryAnInvitation]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.InvitationsTests testPreviewRedeemAndGroupLinksDecodeTheContractShapes]' started.
+Test Case '-[ArgusSessionTests.InvitationsTests testPreviewRedeemAndGroupLinksDecodeTheContractShapes]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.InvitationsTests testRequestsCarryOneSecretTheRouteAndAnIdempotencyKeyOnlyForCreates]' started.
+Test Case '-[ArgusSessionTests.InvitationsTests testRequestsCarryOneSecretTheRouteAndAnIdempotencyKeyOnlyForCreates]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.InvitationsTests testTheSessionTransportSendsTheBearerToTheInvitesRoute]' started.
+Test Case '-[ArgusSessionTests.InvitationsTests testTheSessionTransportSendsTheBearerToTheInvitesRoute]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.InvitationsTests testTypedCodesLinksAndBareTokensBecomeExactlyOneSecret]' started.
+Test Case '-[ArgusSessionTests.InvitationsTests testTypedCodesLinksAndBareTokensBecomeExactlyOneSecret]' passed (0.000 seconds).
+Test Suite 'InvitationsTests' passed at 2026-10-05 22:40:14.131.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.007 (0.007) seconds
+Test Suite 'LiveFinancialAccountTests' started at 2026-10-05 22:40:14.131.
+Test Case '-[ArgusSessionTests.LiveFinancialAccountTests testLocalDurableAccountsThroughProductionClient]' started.
+/private/tmp/cuadrao-confirmed-deletion-cleanup-20261006/ios/Packages/ArgusSession/Tests/ArgusSessionTests/LiveSessionTests.swift:95: -[ArgusSessionTests.LiveFinancialAccountTests testLocalDurableAccountsThroughProductionClient] : Test skipped - Set ARGUS_SESSION_LIVE_CONFIG for the isolated local auth stack
+Test Case '-[ArgusSessionTests.LiveFinancialAccountTests testLocalDurableAccountsThroughProductionClient]' skipped (0.001 seconds).
+Test Suite 'LiveFinancialAccountTests' passed at 2026-10-05 22:40:14.132.
+	 Executed 1 test, with 1 test skipped and 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'LiveSessionTests' started at 2026-10-05 22:40:14.132.
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveConcurrentRefreshAfterExpiryMargin]' started.
+/private/tmp/cuadrao-confirmed-deletion-cleanup-20261006/ios/Packages/ArgusSession/Tests/ArgusSessionTests/LiveSessionTests.swift:95: -[ArgusSessionTests.LiveSessionTests testLiveConcurrentRefreshAfterExpiryMargin] : Test skipped - Set ARGUS_SESSION_LIVE_CONFIG for the isolated local auth stack
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveConcurrentRefreshAfterExpiryMargin]' skipped (0.000 seconds).
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveInvalidLoginAndConfirmationRequiredSignup]' started.
+/private/tmp/cuadrao-confirmed-deletion-cleanup-20261006/ios/Packages/ArgusSession/Tests/ArgusSessionTests/LiveSessionTests.swift:95: -[ArgusSessionTests.LiveSessionTests testLiveInvalidLoginAndConfirmationRequiredSignup] : Test skipped - Set ARGUS_SESSION_LIVE_CONFIG for the isolated local auth stack
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveInvalidLoginAndConfirmationRequiredSignup]' skipped (0.000 seconds).
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveRegisteredRelaunchRevocationAndAccountSwitch]' started.
+/private/tmp/cuadrao-confirmed-deletion-cleanup-20261006/ios/Packages/ArgusSession/Tests/ArgusSessionTests/LiveSessionTests.swift:95: -[ArgusSessionTests.LiveSessionTests testLiveRegisteredRelaunchRevocationAndAccountSwitch] : Test skipped - Set ARGUS_SESSION_LIVE_CONFIG for the isolated local auth stack
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveRegisteredRelaunchRevocationAndAccountSwitch]' skipped (0.000 seconds).
+Test Suite 'LiveSessionTests' passed at 2026-10-05 22:40:14.133.
+	 Executed 3 tests, with 3 tests skipped and 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'SessionControllerTests' started at 2026-10-05 22:40:14.133.
+Test Case '-[ArgusSessionTests.SessionControllerTests testAnonymousSessionIsPreservedWithoutAnyNetworkOrAccountReplacement]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testAnonymousSessionIsPreservedWithoutAnyNetworkOrAccountReplacement]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testConcurrentExpiredRequestsUseOneRefreshAndPersistRotation]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testConcurrentExpiredRequestsUseOneRefreshAndPersistRotation]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testDeleteFailureRemainsPendingUntilLocalCleanupSucceeds]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testDeleteFailureRemainsPendingUntilLocalCleanupSucceeds]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testFailedRevokePersistsPendingAndBlocksNewEntryAcrossRelaunch]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testFailedRevokePersistsPendingAndBlocksNewEntryAcrossRelaunch]' passed (2.042 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testFailedRotationPersistenceEndsUsableSessionAndRetainsRevocation]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testFailedRotationPersistenceEndsUsableSessionAndRetainsRevocation]' passed (0.004 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testJournalFailureRetainsVisiblePendingStateAndBlocksEntry]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testJournalFailureRetainsVisiblePendingStateAndBlocksEntry]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testLateProfileCannotReplaceNewAccount]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testLateProfileCannotReplaceNewAccount]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testLateRefreshCannotResurrectSignedOutCredentials]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testLateRefreshCannotResurrectSignedOutCredentials]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testLegacyProfileHasUnknownCurrencyAndSignedOutWriteHasNoDispatch]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testLegacyProfileHasUnknownCurrencyAndSignedOutWriteHasNoDispatch]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testOne401RefreshAndRetryBut503RetainsSession]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testOne401RefreshAndRetryBut503RetainsSession]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testPrimaryCurrencyReadsServerTruthAndSurvivesRelaunch]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testPrimaryCurrencyReadsServerTruthAndSurvivesRelaunch]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testProfileMustMatchSDKIdentity]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testProfileMustMatchSDKIdentity]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testRefusedCurrencyWriteLeavesProfileAndRelaunchUnchanged]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testRefusedCurrencyWriteLeavesProfileAndRelaunchUnchanged]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testRegisteredLoginRestoresCanonicalProfile]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testRegisteredLoginRestoresCanonicalProfile]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testRejectedRefreshEndsUsableSessionForBothSDKErrorShapes]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testRejectedRefreshEndsUsableSessionForBothSDKErrorShapes]' passed (0.003 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testSDKSuppressedLogout401DoesNotClaimRevoked]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testSDKSuppressedLogout401DoesNotClaimRevoked]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testSDKSwallowedWriteFailureNeverReportsSuccessfulAdoption]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testSDKSwallowedWriteFailureNeverReportsSuccessfulAdoption]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testSecond401EndsUsableSession]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testSecond401EndsUsableSession]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testSignOutJournalFailureIsVisibleAndInvalidatesOldProfile]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testSignOutJournalFailureIsVisibleAndInvalidatesOldProfile]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testSignOutWithoutStoredCredentialStillInvalidatesInFlightProfile]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testSignOutWithoutStoredCredentialStillInvalidatesInFlightProfile]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testSignupWithoutSessionRequiresConfirmationWithoutAutomaticLogin]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testSignupWithoutSessionRequiresConfirmationWithoutAutomaticLogin]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testTransientRefreshFailureKeepsSessionRetryable]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testTransientRefreshFailureKeepsSessionRetryable]' passed (1.006 seconds).
+Test Case '-[ArgusSessionTests.SessionControllerTests testWriteFailureNeverClaimsAuthenticated]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testWriteFailureNeverClaimsAuthenticated]' passed (0.001 seconds).
+Test Suite 'SessionControllerTests' passed at 2026-10-05 22:40:17.208.
+	 Executed 23 tests, with 0 failures (0 unexpected) in 3.074 (3.076) seconds
+Test Suite 'TransportAndStorageTests' started at 2026-10-05 22:40:17.208.
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testDifferentAPIOriginsCannotRestoreEachOthersCredentials]' started.
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testDifferentAPIOriginsCannotRestoreEachOthersCredentials]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testPinnedSDKCanReadNewSessionAndOldRefreshRemovesProvenance]' started.
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testPinnedSDKCanReadNewSessionAndOldRefreshRemovesProvenance]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testRetiredStorageCannotReadWriteOrDeleteCurrentAccount]' started.
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testRetiredStorageCannotReadWriteOrDeleteCurrentAccount]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testSDKCannotSwitchAccountsWithinOneEpoch]' started.
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testSDKCannotSwitchAccountsWithinOneEpoch]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testSessionMethodPersistsWithRefreshAndLegacyUnknownStaysUnknown]' started.
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testSessionMethodPersistsWithRefreshAndLegacyUnknownStaysUnknown]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testTransportConfigurationCannotStoreOrReplayCookies]' started.
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testTransportConfigurationCannotStoreOrReplayCookies]' passed (0.003 seconds).
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testTransportRejectsForeignRequestsAndRedirectResponses]' started.
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testTransportRejectsForeignRequestsAndRedirectResponses]' passed (0.000 seconds).
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testUnsupportedOrMalformedProvenanceNeverFallsBackToUnknown]' started.
+Test Case '-[ArgusSessionTests.TransportAndStorageTests testUnsupportedOrMalformedProvenanceNeverFallsBackToUnknown]' passed (0.001 seconds).
+Test Suite 'TransportAndStorageTests' passed at 2026-10-05 22:40:17.217.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.008 (0.009) seconds
+Test Suite 'ArgusSessionTests.xctest' passed at 2026-10-05 22:40:17.217.
+	 Executed 174 tests, with 4 tests skipped and 0 failures (0 unexpected) in 11.465 (11.476) seconds
+Test Suite 'All tests' passed at 2026-10-05 22:40:17.217.
+	 Executed 174 tests, with 4 tests skipped and 0 failures (0 unexpected) in 11.465 (11.477) seconds
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.

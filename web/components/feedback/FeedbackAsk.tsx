@@ -118,7 +118,7 @@ export default function FeedbackAsk({
     }
   };
 
-  const question = t("feedback.ask.question", "How is Argus doing?");
+  const question = t("feedback.ask.question", "How is Cuadrao doing?");
 
   return (
     <div

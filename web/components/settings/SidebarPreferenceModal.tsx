@@ -1,13 +1,15 @@
 "use client";
 
-import { Layout, LayoutPanelLeft, MousePointer2 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useTranslation } from "react-i18next";
-import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import { AppMiniature, PreviewChoice } from "@/components/settings/PreviewChoice";
+import SettingsSurface from "@/components/settings/SettingsSurface";
 
 export type SidebarMode = "expanded" | "collapsed" | "hover";
 
 type SidebarPreferenceModalProps = {
   mode: SidebarMode;
+  business?: boolean;
   onSelect: (mode: SidebarMode) => void;
   onClose: () => void;
   onBack?: () => void;
@@ -15,25 +17,22 @@ type SidebarPreferenceModalProps = {
 };
 
 /**
- * Centered blur modal for selecting Sidebar preference:
- * Expanded | Collapsed | Expand on Hover.
+ * The sidebar preference: Expanded, Collapsed or Expand on Hover.
  */
 export default function SidebarPreferenceModal({
   mode,
+  business = false,
   onSelect,
   onClose,
   onBack,
   backLabel,
 }: SidebarPreferenceModalProps) {
   const { t } = useTranslation();
+  const tone = useTheme().resolvedTheme === "light" ? "light" : "dark";
 
-  const handleSelect = (newMode: SidebarMode) => {
-    onSelect(newMode);
-    onClose();
-  };
-
+  // The rail changes beside the sheet as it is picked, so the sheet stays open.
   return (
-    <AdaptivePanel
+    <SettingsSurface
       title={t("settings.sidebar.title")}
       closeLabel={t("settings.sidebar.close")}
       onClose={onClose}
@@ -41,54 +40,22 @@ export default function SidebarPreferenceModal({
       backLabel={backLabel}
       width="sm"
     >
-      <p className="px-5 pt-3 text-[12px] text-black/50 dark:text-white/50">
+      <p className="px-5 pt-3 text-[14px] text-[#56635e] dark:text-white/70">
         {t("settings.sidebar.description")}
       </p>
-      <div className="p-3">
-        <div className="flex items-center justify-between p-1 bg-black/5 dark:bg-black/35 rounded-2xl">
-          <button
-            onClick={() => handleSelect("expanded")}
-            className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl transition-all ${
-              mode === "expanded"
-                ? "bg-white dark:bg-[#32363d] text-black dark:text-white shadow-sm"
-                : "text-black/45 dark:text-white/45 hover:text-black dark:hover:text-white"
-            }`}
-          >
-            <Layout className="w-[18px] h-[18px]" />
-            <span className="text-[12px] font-medium">
-              {t("settings.sidebar.expanded")}
-            </span>
-          </button>
-          
-          <button
-            onClick={() => handleSelect("collapsed")}
-            className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl transition-all ${
-              mode === "collapsed"
-                ? "bg-white dark:bg-[#32363d] text-black dark:text-white shadow-sm"
-                : "text-black/45 dark:text-white/45 hover:text-black dark:hover:text-white"
-            }`}
-          >
-            <LayoutPanelLeft className="w-[18px] h-[18px]" />
-            <span className="text-[12px] font-medium">
-              {t("settings.sidebar.collapsed")}
-            </span>
-          </button>
-          
-          <button
-            onClick={() => handleSelect("hover")}
-            className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl transition-all ${
-              mode === "hover"
-                ? "bg-white dark:bg-[#32363d] text-black dark:text-white shadow-sm"
-                : "text-black/45 dark:text-white/45 hover:text-black dark:hover:text-white"
-            }`}
-          >
-            <MousePointer2 className="w-[18px] h-[18px]" />
-            <span className="text-[12px] font-medium">
-              {t("settings.sidebar.hover")}
-            </span>
-          </button>
-        </div>
+      <div className="p-4">
+        <PreviewChoice<SidebarMode>
+          testId="sidebar-mode-options"
+          label={t("settings.sidebar.title")}
+          value={mode}
+          onChange={onSelect}
+          options={[
+            { key: "expanded", label: t("settings.sidebar.expanded"), preview: <AppMiniature tone={tone} /> },
+            { key: "collapsed", label: t("settings.sidebar.collapsed"), preview: <AppMiniature tone={tone} rail="icons" /> },
+            ...(!business ? [{ key: "hover" as const, label: t("settings.sidebar.hover"), preview: <AppMiniature tone={tone} rail="icons" /> }] : []),
+          ]}
+        />
       </div>
-    </AdaptivePanel>
+    </SettingsSurface>
   );
 }

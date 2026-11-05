@@ -1,0 +1,121 @@
+{
+  "sourceCommit": "0455fa4c2a7795064ea85b75879c83b09eec52e6",
+  "capturedAt": "2026-10-10T03:30:09.143Z",
+  "baseURL": "http://127.0.0.1:4513",
+  "signup": "Browser request intercepted with registered fixture. No signup reached the server or any provider.",
+  "browser": "Playwright Chromium headless, isolated contexts",
+  "captures": [
+    {
+      "file": "personal-es-1440-idle.png",
+      "route": "/personal",
+      "width": 1440,
+      "height": 900,
+      "state": "idle",
+      "mockedSignup": true
+    },
+    {
+      "file": "personal-es-1440-invalid.png",
+      "route": "/personal",
+      "width": 1440,
+      "height": 900,
+      "state": "invalid",
+      "mockedSignup": true
+    },
+    {
+      "file": "personal-es-1440-pending.png",
+      "route": "/personal",
+      "width": 1440,
+      "height": 900,
+      "state": "pending",
+      "mockedSignup": true
+    },
+    {
+      "file": "personal-es-1440-flight.png",
+      "route": "/personal",
+      "width": 1440,
+      "height": 900,
+      "state": "flight",
+      "mockedSignup": true
+    },
+    {
+      "file": "personal-es-1440-success.png",
+      "route": "/personal",
+      "width": 1440,
+      "height": 900,
+      "state": "success",
+      "mockedSignup": true
+    },
+    {
+      "file": "personal-en-1440-idle.png",
+      "route": "/en/personal",
+      "width": 1440,
+      "height": 900,
+      "state": "idle",
+      "mockedSignup": true
+    },
+    {
+      "file": "personal-en-1440-invalid.png",
+      "route": "/en/personal",
+      "width": 1440,
+      "height": 900,
+      "state": "invalid",
+      "mockedSignup": true
+    },
+    {
+      "file": "personal-en-1440-success.png",
+      "route": "/en/personal",
+      "width": 1440,
+      "height": 900,
+      "state": "success",
+      "mockedSignup": true
+    },
+    {
+      "file": "personal-es-390-idle.png",
+      "route": "/personal",
+      "width": 390,
+      "height": 844,
+      "state": "idle",
+      "mockedSignup": true
+    },
+    {
+      "file": "personal-es-390-invalid.png",
+      "route": "/personal",
+      "width": 390,
+      "height": 844,
+      "state": "invalid",
+      "mockedSignup": true
+    },
+    {
+      "file": "personal-es-390-success.png",
+      "route": "/personal",
+      "width": 390,
+      "height": 844,
+      "state": "success",
+      "mockedSignup": true
+    },
+    {
+      "file": "personal-en-390-idle.png",
+      "route": "/en/personal",
+      "width": 390,
+      "height": 844,
+      "state": "idle",
+      "mockedSignup": true
+    },
+    {
+      "file": "personal-en-390-invalid.png",
+      "route": "/en/personal",
+      "width": 390,
+      "height": 844,
+      "state": "invalid",
+      "mockedSignup": true
+    },
+    {
+      "file": "personal-en-390-success.png",
+      "route": "/en/personal",
+      "width": 390,
+      "height": 844,
+      "state": "success",
+      "mockedSignup": true
+    }
+  ]
+}

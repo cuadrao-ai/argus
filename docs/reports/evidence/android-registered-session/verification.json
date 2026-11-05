@@ -1,0 +1,53 @@
+{
+  "source_sha": "1e634a7795668c125378ec4f044a0762851f4482",
+  "integration_base": "19550f28e344c1004dd3ea366625c25fae4b3355",
+  "current_integration": "19550f28e344c1004dd3ea366625c25fae4b3355",
+  "date": "2026-09-28",
+  "device": "Dedicated API36 ARM64 emulator5584 (not physical hardware)",
+  "auth_stack": "Isolated android-auth-611c, unchanged API and current migrations, synthetic accounts, CAPTCHA disabled locally only",
+  "jvm_tests": 33,
+  "jvm_failures": 0,
+  "builds": [
+    "opt-in debug",
+    "default-off debug",
+    "default-off release"
+  ],
+  "lint": "pass",
+  "local_review": "Latest fixes clean; founder explicitly authorized GitHub push and PR; hosted review pending",
+  "modularity": "pass; integration unchanged, current tree is would-be merged tree",
+  "browser": "Native ACTION_VIEW URL intent verified; unchanged localhost forgot-password form rendered. Password reset not performed.",
+  "limitations": [
+    "No physical device",
+    "No production CAPTCHA, identity, signing, distribution",
+    "No financial APIs or guest conversion",
+    "No hosted CI or PR review yet"
+  ],
+  "screenshots": {
+    "font_scale": 1.3,
+    "viewports": [
+      {
+        "pixels": "1080x1920",
+        "density_dpi": 480,
+        "dp": "360x640"
+      },
+      {
+        "pixels": "1440x3120",
+        "density_dpi": 560,
+        "dp": "411x891"
+      }
+    ],
+    "states": [
+      "EN signed out",
+      "es-419 verified synthetic profile",
+      "EN failed revocation"
+    ],
+    "inspection": "Small screen scrolls vertically; large screen displays full profile/actions. No horizontal overflow observed."
+  },
+  "foundation_tests": 9,
+  "foundation_failures": 0,
+  "revalidation": {
+    "head": "19dc55a589f9c71aebb73bbdbc1b2cea3d2c71fd",
+    "android_tree": "ccb5ec18ae954175336cc83da46bb5086c037ed4",
+    "result": "Build/lint/JVM, real expiry refresh and revocation, UI account switch, separate-process restore passed. Screenshot source tree identical; only documentation/evidence changed."
+  }
+}

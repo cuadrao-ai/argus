@@ -1,0 +1,167 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test-without-building -xctestrun /private/tmp/cuadrao-apple-combined-xcode/Build/Products/apple-combined-es-419.xctestrun -destination "platform=iOS Simulator,id=AD3171CD-69D5-44E9-93AF-1E38FE5FFCD7" -parallel-testing-enabled NO "-only-testing:ArgusFoundationUITests/AuthJourneyUITests/testPrimaryCurrencySurvivesRelaunch" -resultBundlePath /private/tmp/apple-combined-live/primary-currency-es-419.xcresult
+
+Writing result bundle at path:
+	/private/tmp/apple-combined-live/primary-currency-es-419.xcresult
+
+2026-10-05 20:52:29.526733-0500 ArgusFoundationUITests-Runner[54777:12199963] [Default] Running tests...
+    t =      nans Interface orientation changed to Portrait
+Test Suite 'Selected tests' started at 2026-10-05 20:52:29.911.
+Test Suite 'ArgusFoundationUITests.xctest' started at 2026-10-05 20:52:29.911.
+Test Suite 'AuthJourneyUITests' started at 2026-10-05 20:52:29.911.
+Test Case '-[ArgusFoundationUITests.AuthJourneyUITests testPrimaryCurrencySurvivesRelaunch]' started.
+    t =     0.00s Start Test at 2026-10-05 20:52:29.912
+    t =     0.02s Set Up
+    t =     0.02s Open local.argus.apple-combined-proof
+    t =     0.02s     Launch local.argus.apple-combined-proof
+2026-10-05 20:52:29.980 xcodebuild[54776:12199755] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+2026-10-05 20:52:29.980 xcodebuild[54776:12199755] [MT] IDELaunchParametersSnapshot: no debugger version
+objc[54777]: Class UIAccessibilityLoaderWebShared is implemented in both /Library/Developer/CoreSimulator/Volumes/iOS_23F77/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.5.simruntime/Contents/Resources/RuntimeRoot/System/Library/AccessibilityBundles/WebCore.axbundle/WebCore (0x106058310) and /Library/Developer/CoreSimulator/Volumes/iOS_23F77/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.5.simruntime/Contents/Resources/RuntimeRoot/System/Library/AccessibilityBundles/WebKit.axbundle/WebKit (0x1060f4398). This may cause spurious casting failures and mysterious crashes. One of the duplicates must be removed or renamed.
+    t =     0.48s         Setting up automation session
+    t =     0.94s         Wait for local.argus.apple-combined-proof to idle
+    t =     2.14s Waiting 3.0s for "cuadrao.welcome.signin" Button to exist
+    t =     3.18s     Checking `Expect predicate `existsNoRetry == 1` for object "cuadrao.welcome.signin" Button`
+    t =     3.18s         Checking existence of `"cuadrao.welcome.signin" Button`
+    t =     3.22s Tap "cuadrao.welcome.signin" Button
+    t =     3.22s     Wait for local.argus.apple-combined-proof to idle
+    t =     3.22s     Find the "cuadrao.welcome.signin" Button
+    t =     3.23s     Check for interrupting elements affecting "cuadrao.welcome.signin" Button
+    t =     3.24s     Synthesize event
+    t =     3.53s     Wait for local.argus.apple-combined-proof to idle
+    t =     3.87s Waiting 10.0s for "cuadrao.signin.emailChoice" Button to exist
+    t =     4.89s     Checking `Expect predicate `existsNoRetry == 1` for object "cuadrao.signin.emailChoice" Button`
+    t =     4.90s         Checking existence of `"cuadrao.signin.emailChoice" Button`
+    t =     4.92s Tap "cuadrao.signin.emailChoice" Button
+    t =     4.92s     Wait for local.argus.apple-combined-proof to idle
+    t =     4.92s     Find the "cuadrao.signin.emailChoice" Button
+    t =     4.94s     Check for interrupting elements affecting "cuadrao.signin.emailChoice" Button
+    t =     4.95s     Synthesize event
+    t =     5.24s     Wait for local.argus.apple-combined-proof to idle
+    t =     5.58s Tap "auth.email" TextField
+    t =     5.58s     Wait for local.argus.apple-combined-proof to idle
+    t =     5.58s     Find the "auth.email" TextField
+    t =     5.60s     Check for interrupting elements affecting "auth.email" TextField
+    t =     5.61s     Synthesize event
+    t =     5.90s     Wait for local.argus.apple-combined-proof to idle
+    t =     5.91s Type 'apple-combined-ui-...' into "auth.email" TextField
+    t =     5.91s     Wait for local.argus.apple-combined-proof to idle
+    t =     6.39s     Find the "auth.email" TextField
+    t =     6.44s     Check for interrupting elements affecting "auth.email" TextField
+    t =     6.46s     Synthesize event
+    t =     7.77s     Wait for local.argus.apple-combined-proof to idle
+    t =     7.79s Tap "auth.password" SecureTextField
+    t =     7.79s     Wait for local.argus.apple-combined-proof to idle
+    t =     7.79s     Find the "auth.password" SecureTextField
+    t =     7.82s     Check for interrupting elements affecting "auth.password" SecureTextField
+    t =     7.84s     Synthesize event
+    t =     8.13s     Wait for local.argus.apple-combined-proof to idle
+    t =     8.49s Press "auth.password" SecureTextField for 1.1 seconds
+    t =     8.49s     Wait for local.argus.apple-combined-proof to idle
+    t =     8.49s     Find the "auth.password" SecureTextField
+    t =     8.52s     Check for interrupting elements affecting "auth.password" SecureTextField
+    t =     8.54s     Synthesize event
+    t =     9.88s     Wait for local.argus.apple-combined-proof to idle
+    t =    10.73s Waiting 3.0s for MenuItem (First Match) to exist
+    t =    11.76s     Checking `Expect predicate `existsNoRetry == 1` for object MenuItem (First Match)`
+    t =    11.76s         Checking existence of `MenuItem (First Match)`
+    t =    11.80s Tap MenuItem (First Match)
+    t =    11.80s     Wait for local.argus.apple-combined-proof to idle
+    t =    11.81s     Find the MenuItem (First Match)
+    t =    11.83s     Check for interrupting elements affecting "Pegar" MenuItem
+    t =    11.85s     Synthesize event
+    t =    12.14s     Wait for local.argus.apple-combined-proof to idle
+    t =    12.42s Waiting 1.0s for Button (First Match) to exist
+    t =    13.42s     Checking `Expect predicate `existsNoRetry == 1` for object Button (First Match)`
+    t =    13.42s         Checking existence of `Button (First Match)`
+    t =    13.48s         Capturing element debug description
+    t =    13.48s     Checking existence of `Button (First Match)`
+    t =    13.52s Collecting debug information to assist test failure triage
+    t =    13.52s     Requesting snapshot of accessibility hierarchy for app with pid 54783
+    t =    13.55s Find the "auth.submit" Button
+    t =    13.57s Tap "auth.submit" Button
+    t =    13.57s     Wait for local.argus.apple-combined-proof to idle
+    t =    13.57s     Find the "auth.submit" Button
+    t =    13.59s     Check for interrupting elements affecting "auth.submit" Button
+    t =    13.61s     Synthesize event
+    t =    13.90s     Wait for local.argus.apple-combined-proof to idle
+    t =    14.34s Waiting 30.0s for "header.profile" Button to exist
+    t =    15.36s     Checking `Expect predicate `existsNoRetry == 1` for object "header.profile" Button`
+    t =    15.36s         Checking existence of `"header.profile" Button`
+    t =    15.41s Waiting 3.0s for "header.profile" Button to exist
+    t =    16.44s     Checking `Expect predicate `existsNoRetry == 1` for object "header.profile" Button`
+    t =    16.44s         Checking existence of `"header.profile" Button`
+    t =    16.49s Tap "header.profile" Button
+    t =    16.49s     Wait for local.argus.apple-combined-proof to idle
+    t =    16.49s     Find the "header.profile" Button
+    t =    16.52s     Check for interrupting elements affecting "header.profile" Button
+    t =    16.55s     Synthesize event
+    t =    16.84s     Wait for local.argus.apple-combined-proof to idle
+    t =    16.84s Waiting 10.0s for "profile.primaryCurrency" Button to exist
+    t =    17.87s     Checking `Expect predicate `existsNoRetry == 1` for object "profile.primaryCurrency" Button`
+    t =    17.87s         Checking existence of `"profile.primaryCurrency" Button`
+    t =    17.92s Tap "profile.primaryCurrency" Button
+    t =    17.92s     Wait for local.argus.apple-combined-proof to idle
+    t =    17.92s     Find the "profile.primaryCurrency" Button
+    t =    17.95s     Check for interrupting elements affecting "profile.primaryCurrency" Button
+    t =    17.98s     Synthesize event
+    t =    18.27s     Wait for local.argus.apple-combined-proof to idle
+    t =    19.36s Tap "USD" Button
+    t =    19.36s     Wait for local.argus.apple-combined-proof to idle
+    t =    19.37s     Find the "USD" Button
+    t =    19.42s     Check for interrupting elements affecting "USD" Button
+    t =    19.45s     Synthesize event
+    t =    19.74s     Wait for local.argus.apple-combined-proof to idle
+    t =    22.16s Checking `Expect predicate `label CONTAINS "USD"` for object "profile.primaryCurrency" Button`
+    t =    22.16s     Find the "profile.primaryCurrency" Button
+    t =    22.22s Find the Target Application 'local.argus.apple-combined-proof'
+    t =    22.30s Added attachment named 'primary-currency-es-saved'
+    t =    22.30s Terminate local.argus.apple-combined-proof:54783
+    t =    23.35s Open local.argus.apple-combined-proof
+    t =    23.35s     Launch local.argus.apple-combined-proof
+2026-10-05 20:52:53.261 xcodebuild[54776:12199755] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+2026-10-05 20:52:53.261 xcodebuild[54776:12199755] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =    23.56s         Setting up automation session
+    t =    24.05s         Wait for local.argus.apple-combined-proof to idle
+    t =    25.25s Waiting 30.0s for "header.profile" Button to exist
+    t =    26.28s     Checking `Expect predicate `existsNoRetry == 1` for object "header.profile" Button`
+    t =    26.28s         Checking existence of `"header.profile" Button`
+    t =    26.37s Waiting 3.0s for "header.profile" Button to exist
+    t =    27.40s     Checking `Expect predicate `existsNoRetry == 1` for object "header.profile" Button`
+    t =    27.40s         Checking existence of `"header.profile" Button`
+    t =    27.45s Tap "header.profile" Button
+    t =    27.45s     Wait for local.argus.apple-combined-proof to idle
+    t =    27.45s     Find the "header.profile" Button
+    t =    27.48s     Check for interrupting elements affecting "header.profile" Button
+    t =    27.51s     Synthesize event
+    t =    27.80s     Wait for local.argus.apple-combined-proof to idle
+    t =    27.80s Waiting 10.0s for "profile.primaryCurrency" Button to exist
+    t =    28.83s     Checking `Expect predicate `existsNoRetry == 1` for object "profile.primaryCurrency" Button`
+    t =    28.83s         Checking existence of `"profile.primaryCurrency" Button`
+    t =    28.88s Find the "profile.primaryCurrency" Button
+    t =    28.91s Find the Target Application 'local.argus.apple-combined-proof'
+    t =    28.98s Added attachment named 'primary-currency-es-restored'
+    t =    28.98s Tap "auth.signOut" Button
+    t =    28.98s     Wait for local.argus.apple-combined-proof to idle
+    t =    28.98s     Find the "auth.signOut" Button
+    t =    29.01s     Check for interrupting elements affecting "auth.signOut" Button
+    t =    29.03s     Synthesize event
+    t =    29.32s     Wait for local.argus.apple-combined-proof to idle
+    t =    29.32s Tear Down
+    t =    29.33s     Terminate local.argus.apple-combined-proof:54830
+Test Case '-[ArgusFoundationUITests.AuthJourneyUITests testPrimaryCurrencySurvivesRelaunch]' passed (30.401 seconds).
+Test Suite 'AuthJourneyUITests' passed at 2026-10-05 20:53:00.312.
+	 Executed 1 test, with 0 failures (0 unexpected) in 30.401 (30.401) seconds
+Test Suite 'ArgusFoundationUITests.xctest' passed at 2026-10-05 20:53:00.313.
+	 Executed 1 test, with 0 failures (0 unexpected) in 30.401 (30.401) seconds
+Test Suite 'Selected tests' passed at 2026-10-05 20:53:00.313.
+	 Executed 1 test, with 0 failures (0 unexpected) in 30.401 (30.402) seconds
+2026-10-05 20:53:00.588 xcodebuild[54776:12199755] [MT] IDETestOperationsObserverDebug: 33.852 elapsed -- Testing started completed.
+2026-10-05 20:53:00.588 xcodebuild[54776:12199755] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-10-05 20:53:00.588 xcodebuild[54776:12199755] [MT] IDETestOperationsObserverDebug: 33.852 sec, +33.852 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/apple-combined-live/primary-currency-es-419.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started

@@ -1,0 +1,122 @@
+{
+  "client": "python-httpx language-neutral probe (not a native client)",
+  "suite": "guest-adapter",
+  "captured_at": "2026-09-28T17:27:14+00:00",
+  "environment": "local lane Supabase stack argus-native-auth-proof (jwt_expiry=60, confirmations on) + unchanged Argus API; Argus API launched from the fix branch at argus_api_head",
+  "results": [
+    {
+      "id": "S1",
+      "area": "handoff-transport",
+      "scenario": "Handoff creation over the proposed header transport",
+      "path": "synthetic-header-adapter",
+      "evidence_level": 2,
+      "expected": "201 with handoff_id, expires_at, handoff_secret in JSON; no Set-Cookie reaches the client",
+      "observed": {
+        "status": 201,
+        "body_keys": [
+          "expires_at",
+          "handoff_id",
+          "handoff_secret"
+        ],
+        "set_cookie_names": []
+      },
+      "verdict": "pass",
+      "note": ""
+    },
+    {
+      "id": "S2",
+      "area": "bearer-only-conversion",
+      "scenario": "Bearer-only sign-in presents the stored handoff in headers",
+      "path": "synthetic-header-adapter",
+      "evidence_level": 2,
+      "expected": "200 with guest_claim; conversation owned by the account; client told to delete its handoff",
+      "observed": {
+        "status": 200,
+        "claim_matches": true,
+        "conversation_visible": true,
+        "handoff_state_cleared": true,
+        "set_cookie_names": []
+      },
+      "verdict": "pass",
+      "note": ""
+    },
+    {
+      "id": "S3",
+      "area": "interruption",
+      "scenario": "Response lost after the claim committed; retry with the same stored handoff",
+      "path": "synthetic-header-adapter",
+      "evidence_level": 2,
+      "expected": "200 with the same guest_claim (Argus replay rule applies unchanged)",
+      "observed": {
+        "status": 200,
+        "same_conversation": true
+      },
+      "verdict": "pass",
+      "note": ""
+    },
+    {
+      "id": "S4",
+      "area": "account-mismatch",
+      "scenario": "Wrong account signs in; the session Argus created is returned beside the problem",
+      "path": "synthetic-header-adapter",
+      "evidence_level": 2,
+      "expected": "403 guest_handoff_wrong_destination with a session the app can keep or revoke",
+      "observed": {
+        "status": 403,
+        "code": "guest_handoff_wrong_destination",
+        "session_in_body": true,
+        "revoke_status": 204,
+        "handoff_state_cleared": true
+      },
+      "verdict": "pass",
+      "note": "Closes the C7 gap, where a bearer client gets no tokens for a session that exists."
+    },
+    {
+      "id": "S5",
+      "area": "new-account-conversion",
+      "scenario": "Guest signs up, confirms by email, relaunches with the handoff from secure storage",
+      "path": "synthetic-header-adapter",
+      "evidence_level": 2,
+      "expected": "Signup 200 without session; first sign-in after confirmation claims",
+      "observed": {
+        "signup_status": 200,
+        "handoff_kept_through_signup": true,
+        "claim_matches": true
+      },
+      "verdict": "pass",
+      "note": ""
+    },
+    {
+      "id": "S6",
+      "area": "secrecy",
+      "scenario": "A tampered secret, and handoff headers sent outside /api/v1/auth",
+      "path": "synthetic-header-adapter",
+      "evidence_level": 2,
+      "expected": "Tampered secret refused as guest_handoff_invalid; headers outside the auth path are not forwarded",
+      "observed": {
+        "tampered_status": 400,
+        "tampered_code": "guest_handoff_invalid",
+        "outside_auth_status": 200
+      },
+      "verdict": "pass",
+      "note": "The tampered attempt signs the user in (Argus answers the handoff problem after password success), which S4's session-in-body rule covers."
+    },
+    {
+      "id": "S7",
+      "area": "adapter-isolation",
+      "scenario": "A new install starts a guest through the adapter after other accounts signed in",
+      "path": "synthetic-header-adapter",
+      "evidence_level": 2,
+      "expected": "200 new guest; the proxy never replays another caller's Argus cookie",
+      "observed": {
+        "status": 200,
+        "code": null,
+        "account_kind": "guest"
+      },
+      "verdict": "pass",
+      "note": "Regression for a bug in the first adapter build, caught by iOS I8: its upstream client kept sb-auth-token and a new guest was treated as signed in (409)."
+    }
+  ],
+  "probe_checkout_head": "de61fd3e7d299fcd0c7fda24f3c95f5427822271",
+  "argus_api_head": "54fe7b6fe"
+}

@@ -9,23 +9,23 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from html import unescape
-from threading import Event
+from threading import Barrier, Event
 from typing import Any
 from unittest.mock import patch
 from uuid import uuid4
 
+import httpx
+import jwt
 import psycopg
 import pytest
-from argus.agent_runtime.stages.confirm import _coverage_preflight
 from argus.api import state as api_state
 from argus.api.main import app
-from argus.api.routers import agent as agent_router
 from argus.api.routers import auth as auth_router
 from argus.api.schemas import GuestPendingAction, Message
 from argus.domain.guest_cleanup import cleanup_expired_guest_workspaces
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.store import utcnow
 from argus.domain.username_signup import serialized_username_signup
-from argus.domain.visitor_usage import visitor_key_for
 from fastapi.testclient import TestClient
 from supabase_auth.errors import AuthApiError
 
@@ -72,48 +72,6 @@ def test_postgrest_utc_timestamp_rejects_real_differences_and_invalid_input() ->
         _parse_postgrest_utc_timestamp("2026-07-26T07:57:19.593040-05:00")
     with pytest.raises(ValueError):
         _parse_postgrest_utc_timestamp("not-a-timestamp")
-
-
-def _deterministic_launch_payload(language: str) -> dict[str, Any]:
-    base_launch_payload = {
-        "strategy_type": "buy_and_hold",
-        "symbol": "AAPL",
-        "symbols": ["AAPL"],
-        "asset_class": "equity",
-        "timeframe": "1D",
-        "date_range": {"start": "2024-01-01", "end": "2024-03-31"},
-        "sizing_mode": "capital_amount",
-        "capital_amount": 10_000,
-        "benchmark_symbol": "SPY",
-        "language": language,
-    }
-    preflight = _coverage_preflight(
-        base_launch_payload,
-        optional_parameter_status={},
-    )
-    assert preflight["outcome"] == "ready_to_confirm"
-    return dict(preflight["launch_payload"])
-
-
-def _deterministic_real_tool_turn(launch_payload: dict[str, Any]):
-    async def turn(**_: Any):
-        result = api_state.build_backtest_tool().run(launch_payload)
-        assert result["success"] is True
-        tool_payload = result["payload"]
-        yield {
-            "type": "final",
-            "payload": {
-                "stage_outcome": "ready_to_respond",
-                "assistant_response": "The deterministic simulation completed.",
-                "final_response_payload": {
-                    "result": tool_payload["envelope"],
-                    "result_card": tool_payload["result_card"],
-                    "explanation_context": tool_payload["explanation_context"],
-                },
-            },
-        }
-
-    return turn
 
 
 def _mailpit_messages() -> list[dict[str, Any]]:
@@ -186,11 +144,11 @@ def test_real_anonymous_identity_survives_reload(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     gateway = _gateway()
 
     user_id: str | None = None
@@ -202,7 +160,7 @@ def test_real_anonymous_identity_survives_reload(
         ):
             created = client.post(
                 "/api/v1/auth/guest",
-                json={"captcha_token": "local-captcha-proof", "language": "en"},
+                json={"age_confirmed_at": "2026-01-01T00:00:00Z", "captcha_token": "local-captcha-proof", "language": "en"},
                 headers={"origin": "http://localhost:3000"},
             )
             assert created.status_code == 200
@@ -214,7 +172,7 @@ def test_real_anonymous_identity_survives_reload(
 
             reloaded = client.post(
                 "/api/v1/auth/guest",
-                json={"captcha_token": "local-captcha-proof", "language": "en"},
+                json={"age_confirmed_at": "2026-01-01T00:00:00Z", "captcha_token": "local-captcha-proof", "language": "en"},
                 headers={"origin": "http://localhost:3000"},
             )
             assert reloaded.status_code == 200
@@ -238,11 +196,11 @@ def test_real_guest_terminal_message_settles_visitor_day_window(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     gateway = _gateway()
     user_id: str | None = None
     try:
@@ -253,7 +211,7 @@ def test_real_guest_terminal_message_settles_visitor_day_window(
         ):
             created = client.post(
                 "/api/v1/auth/guest",
-                json={"captcha_token": "local-captcha-proof", "language": "en"},
+                json={"age_confirmed_at": "2026-01-01T00:00:00Z", "captcha_token": "local-captcha-proof", "language": "en"},
                 headers={"origin": "http://localhost:3000"},
             )
             assert created.status_code == 200
@@ -371,204 +329,15 @@ def test_real_guest_terminal_message_settles_visitor_day_window(
                 gateway.delete_auth_user(user_id)
 
 
-def test_guest_run_through_real_flag_off_tool_corridor_settles_simulation(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
-    monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_DEV_MEMORY_FALLBACK", "false")
-    monkeypatch.setenv("ARGUS_MARKET_DATA_PROVIDER_MODE", "synthetic_unit_fixture")
-    monkeypatch.setenv("ARGUS_BACKTEST_JOBS_SHADOW_ENABLED", "false")
-    monkeypatch.setenv("ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED", "false")
-    monkeypatch.setenv("ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED", "false")
-    # Keep this owner-isolated proof deterministic on a reused disposable
-    # database where other accounting tests may leave unrelated queued jobs.
-    monkeypatch.setenv("ARGUS_BACKTEST_JOBS_USER_RUNNING_LIMIT", "1000")
-    monkeypatch.setenv("ARGUS_BACKTEST_JOBS_USER_QUEUED_LIMIT", "1000")
-    monkeypatch.setenv("ARGUS_BACKTEST_JOBS_GLOBAL_RUNNING_LIMIT", "1000000")
-    monkeypatch.setenv("ARGUS_BACKTEST_JOBS_GLOBAL_QUEUED_LIMIT", "1000000")
-    gateway = _gateway()
-    user_id: str | None = None
-
-    # Visitor counters outlive guest accounts by design; on a reused local
-    # database the TestClient identity accumulates, so start from zero.
-    gateway.client.table("visitor_usage_counters").delete().eq(
-        "visitor_key", visitor_key_for("testclient")
-    ).execute()
-
-    launch_payload = _deterministic_launch_payload("en")
-
-    try:
-        with (
-            patch.object(api_state, "supabase_gateway", gateway),
-            patch.object(api_state, "DATABASE_URL", LOCAL_DATABASE_URL),
-            patch.object(
-                agent_router,
-                "stream_agent_turn_events",
-                _deterministic_real_tool_turn(launch_payload),
-            ),
-            TestClient(app, base_url="http://localhost:3000") as client,
-        ):
-            created = client.post(
-                "/api/v1/auth/guest",
-                json={"captcha_token": "local-captcha-proof", "language": "en"},
-                headers={"origin": "http://localhost:3000"},
-            )
-            assert created.status_code == 200
-            user_id = str(created.json()["user"]["id"])
-            assert created.json()["user"]["is_anonymous"] is True
-
-            profile = gateway.get_user(user_id=user_id)
-            workspace = gateway.get_active_guest_workspace(
-                user_id=user_id,
-                at=datetime.now(timezone.utc),
-            )
-            assert profile is not None
-            assert workspace is not None
-            assert workspace.expires_at - workspace.created_at == timedelta(days=7)
-
-            created_conversation = client.post("/api/v1/conversations", json={})
-            assert created_conversation.status_code == 200
-            conversation_id = created_conversation.json()["conversation"]["id"]
-            confirmation_id = f"confirmation-{secrets.token_hex(8)}"
-            confirmation_payload = {
-                "strategy": {
-                    "strategy_type": "buy_and_hold",
-                    "strategy_thesis": "Buy and hold AAPL.",
-                    "asset_universe": ["AAPL"],
-                    "asset_class": "equity",
-                    "timeframe": "1D",
-                    "date_range": launch_payload["date_range"],
-                    "capital_amount": 10_000,
-                },
-                "optional_parameters": {},
-                "launch_payload": launch_payload,
-                "validation": {"status": "ready_to_run", "executable": True},
-            }
-            gateway.create_message(
-                user_id=user_id,
-                conversation_id=conversation_id,
-                role="assistant",
-                content="Ready to test AAPL.",
-                metadata={
-                    "conversation_mode": "confirm",
-                    "agent_runtime_stage_outcome": "await_approval",
-                    "confirmation_payload": confirmation_payload,
-                    "confirmation_card": {
-                        "confirmation_id": confirmation_id,
-                        "confirmation_state": "active",
-                        "title": "AAPL buy and hold",
-                        "summary": "Ready to test AAPL.",
-                        "rows": [],
-                        "actions": [],
-                    },
-                },
-            )
-
-            completed = client.post(
-                "/api/v1/chat/stream",
-                headers={
-                    "Idempotency-Key": confirmation_id,
-                    "origin": "http://localhost:3000",
-                },
-                json={
-                    "conversation_id": conversation_id,
-                    "action": {
-                        "type": "run_backtest",
-                        "label": "Run backtest",
-                        "presentation": "confirmation",
-                        "payload": {
-                            "confirmation_id": confirmation_id,
-                            "conversation_id": conversation_id,
-                        },
-                    },
-                },
-            )
-            assert completed.status_code == 200
-            assert '"result_card"' in completed.text
-
-            runs = (
-                gateway.client.table("backtest_runs")
-                .select("id")
-                .eq("user_id", user_id)
-                .eq("conversation_id", conversation_id)
-                .execute()
-                .data
-            )
-            jobs = (
-                gateway.client.table("backtest_jobs")
-                .select("id")
-                .eq("user_id", user_id)
-                .eq("conversation_id", conversation_id)
-                .execute()
-                .data
-            )
-            counters = (
-                gateway.client.table("usage_counters")
-                .select("resource,period,used_count,limit_count")
-                .eq("user_id", user_id)
-                .eq("resource", "backtest_runs")
-                .eq("period", "guest_session")
-                .execute()
-                .data
-            )
-            visitor_rows = (
-                gateway.client.table("visitor_usage_counters")
-                .select("resource,period,used_count")
-                .eq("visitor_key", visitor_key_for("testclient"))
-                .eq("resource", "backtest_runs")
-                .eq("period", "day")
-                .execute()
-                .data
-            )
-            usage = client.get("/api/v1/me/usage")
-            assert usage.status_code == 200
-            day_window = usage.json()["allowances"]["execution"]["day"]
-
-            assert len(runs) == 1
-            # The workspace-keyed reservation still owns replay identity; the
-            # visitor row is the cross-renewal bound the day window reads.
-            assert {
-                "jobs": len(jobs),
-                "counters": counters,
-                "visitor_used": [row["used_count"] for row in visitor_rows],
-                "usage": {
-                    "used": day_window["used"],
-                    "remaining": day_window["remaining"],
-                    "limit": day_window["limit"],
-                },
-            } == {
-                "jobs": 1,
-                "counters": [
-                    {
-                        "resource": "backtest_runs",
-                        "period": "guest_session",
-                        "used_count": 1,
-                        "limit_count": 2,
-                    }
-                ],
-                "visitor_used": [1],
-                "usage": {"used": 1, "remaining": 1, "limit": 2},
-            }
-    finally:
-        if user_id:
-            with suppress(Exception):
-                gateway.delete_auth_user(user_id)
-
-
 def test_expired_real_anonymous_session_renews_with_fresh_identity(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     gateway = _gateway()
     expired_user_id: str | None = None
     renewed_user_id: str | None = None
@@ -597,7 +366,7 @@ def test_expired_real_anonymous_session_renews_with_fresh_identity(
             client.cookies.set("sb-auth-token", access_token)
             renewed = client.post(
                 "/api/v1/auth/guest",
-                json={"captcha_token": "local-captcha-proof", "language": "en"},
+                json={"age_confirmed_at": "2026-01-01T00:00:00Z", "captcha_token": "local-captcha-proof", "language": "en"},
                 headers={"origin": "http://localhost:3000"},
             )
 
@@ -633,6 +402,7 @@ def test_cleanup_deletes_real_anonymous_auth_user_through_admin() -> None:
         auth_user_id = str(auth_user["id"])
         profile = gateway.get_or_create_profile_for_auth_user(auth_user)
         conversation = gateway.create_conversation(
+            scope=PERSONAL,
             user_id=profile.id,
             title="expired guest proof",
             title_source="system_default",
@@ -731,13 +501,14 @@ def test_cleanup_deletes_real_anonymous_auth_user_through_admin() -> None:
                         (aggregate_id,),
                     )
 
+
 def test_signup_taken_username_creates_no_auth_user_or_profile(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     gateway = _gateway()
     suffix = secrets.token_hex(6)
     existing_email = f"username-owner-{suffix}@example.test"
@@ -770,6 +541,7 @@ def test_signup_taken_username_creates_no_auth_user_or_profile(
             response = client.post(
                 "/api/v1/auth/signup",
                 json={
+                    "age_confirmed_at": "2026-01-01T00:00:00Z",
                     "email": fresh_email,
                     "password": f"Fresh-{secrets.token_urlsafe(18)}",
                     "captcha_token": "local-captcha-proof",
@@ -861,9 +633,9 @@ def test_concurrent_same_username_signup_calls_auth_only_for_winner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     gateway = _gateway()
     suffix = secrets.token_hex(6)
     first_email = f"username-race-first-{suffix}@example.test"
@@ -891,6 +663,7 @@ def test_concurrent_same_username_signup_calls_auth_only_for_winner(
             [{"email": first_email}, {"email": second_email}]
         ).execute()
         payload = {
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "password": password,
             "captcha_token": "local-captcha-proof",
             "username": username,
@@ -954,11 +727,11 @@ def test_signup_creates_profile_before_first_login_claims_pending_handoff(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     gateway = _gateway()
     email = f"first-login-claim-{secrets.token_hex(6)}@example.test"
     password = f"FirstLogin-{secrets.token_urlsafe(18)}"
@@ -980,6 +753,7 @@ def test_signup_creates_profile_before_first_login_claims_pending_handoff(
             created_at=guest_profile.created_at,
         )
         conversation = gateway.create_conversation(
+            scope=PERSONAL,
             user_id=source_user_id,
             title="First login claim proof",
             title_source="system_default",
@@ -1019,6 +793,7 @@ def test_signup_creates_profile_before_first_login_claims_pending_handoff(
             signed_up = signup_client.post(
                 "/api/v1/auth/signup",
                 json={
+                    "age_confirmed_at": "2026-01-01T00:00:00Z",
                     "email": email,
                     "password": password,
                     "captcha_token": "local-captcha-proof",
@@ -1086,11 +861,11 @@ def test_existing_account_claim_preserves_same_conversation_and_deletes_source_o
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
     monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("ARGUS_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     gateway = _gateway()
     email = f"block3-claim-{secrets.token_hex(6)}@example.test"
     password = f"Block3-{secrets.token_urlsafe(18)}"
@@ -1124,6 +899,7 @@ def test_existing_account_claim_preserves_same_conversation_and_deletes_source_o
             created_at=guest_profile.created_at,
         )
         conversation = gateway.create_conversation(
+            scope=PERSONAL,
             user_id=source_user_id,
             title="Claim proof",
             title_source="system_default",
@@ -1311,3 +1087,54 @@ def test_existing_account_claim_preserves_same_conversation_and_deletes_source_o
         if source_user_id:
             with suppress(Exception):
                 gateway.delete_auth_user(source_user_id)
+
+
+def test_concurrent_logins_keep_identities_and_leave_refresh_to_the_client() -> None:
+    gateway = _gateway()
+    suffix = secrets.token_hex(6)
+    password = f"Isolation-{secrets.token_urlsafe(18)}"
+    user_ids: dict[str, str] = {}
+    try:
+        for index in range(6):
+            email = f"session-isolation-{index}-{suffix}@example.test"
+            created = gateway.client.auth.admin.create_user(
+                {"email": email, "password": password, "email_confirm": True}
+            )
+            user_ids[email] = created.user.id
+
+        def login(email: str) -> dict[str, Any]:
+            return gateway.login(
+                email=email, password=password, captcha_token="local-captcha-proof"
+            )
+
+        earlier = login(next(iter(user_ids)))
+        start = Barrier(len(user_ids))
+
+        def concurrent_login(email: str) -> tuple[str, dict[str, Any]]:
+            start.wait(timeout=10)
+            return email, login(email)
+
+        with ThreadPoolExecutor(max_workers=len(user_ids)) as pool:
+            results = dict(pool.map(concurrent_login, user_ids))
+
+        subjects = {
+            email: jwt.decode(
+                result["session"]["access_token"], options={"verify_signature": False}
+            )["sub"]
+            for email, result in results.items()
+        }
+        assert subjects == user_ids
+
+        refreshed = httpx.post(
+            f"{LOCAL_URL}/auth/v1/token",
+            params={"grant_type": "refresh_token"},
+            json={"refresh_token": earlier["session"]["refresh_token"]},
+            headers={"apikey": LOCAL_ANON_KEY},
+            timeout=30,
+        )
+        assert refreshed.status_code == 200
+        assert refreshed.json()["user"]["id"] == user_ids[next(iter(user_ids))]
+    finally:
+        for user_id in user_ids.values():
+            with suppress(Exception):
+                gateway.client.auth.admin.delete_user(user_id)

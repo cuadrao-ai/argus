@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
+import assert from "node:assert/strict";
 import { join } from "node:path";
 import i18next from "i18next";
 import { createElement } from "react";
@@ -131,13 +132,7 @@ describe("Argus Alpha frontend contract", () => {
       join(root, "components/sidebar/ChatCommandPalette.tsx"),
       "utf-8",
     );
-    const flags = readFileSync(
-      join(root, "lib/private-alpha-flags.ts"),
-      "utf-8",
-    );
 
-    expect(flags).not.toContain("NEXT_PUBLIC_COLLECTIONS_ENABLED");
-    expect(flags).not.toContain("NEXT_PUBLIC_STRATEGIES_ENABLED");
     expect(chat).not.toContain("collectionsEnabled");
     expect(chat).toContain("useRecentConversations");
     expect(chat).not.toContain("trigger_create_collection");
@@ -200,9 +195,10 @@ describe("Argus Alpha frontend contract", () => {
     expect(sidebar).toContain(
       '<PanelLeft className="h-5 w-5 text-black/60 dark:text-white/60" />',
     );
-    expect(sidebar).toContain(
-      '<ArgusLogo className="h-8 w-8 text-black dark:text-white" />',
-    );
+    // One brand on every surface: the approved Cuadrao mark in both themes, never the Argus mark.
+    assert.ok(sidebar.includes("<CuadraoMark size={32}") && !sidebar.includes("ArgusLogo") && !sidebar.includes("useConversationSurface"));
+    const mark = readFileSync(join(root, "components/CuadraoMark.tsx"), "utf-8");
+    assert.ok(mark.includes('src="/brand/cuadrao-mark-light.svg"') && mark.includes('src="/brand/cuadrao-mark-dark.svg"'));
     expect(existsSync(legacyPath)).toBe(true);
     expect(existsSync(faviconPath)).toBe(true);
 
@@ -226,7 +222,7 @@ describe("Argus Alpha frontend contract", () => {
     expect(logo).not.toContain('stroke="currentColor"');
   });
 
-  test("private-alpha defaults hide exploratory chat suggestions while keeping starter chips", () => {
+  test("private-alpha defaults hide exploratory chat suggestions and investing starter chips", () => {
     const chat = readFileSync(
       join(root, "components/chat/ChatInterface.tsx"),
       "utf-8",
@@ -265,22 +261,22 @@ describe("Argus Alpha frontend contract", () => {
     expect(flags).toContain("researchRailEnabled");
     expect(flags).not.toContain("chatExploratorySuggestionsEnabled");
     expect(envExample).toContain("NEXT_PUBLIC_RESEARCH_RAIL_ENABLED=false");
-    expect(envExample).not.toContain(
-      "NEXT_PUBLIC_CHAT_EXPLORATORY_SUGGESTIONS_ENABLED",
-    );
     expect(emptyChat).toContain("researchRailEnabled");
-    // No control gates the chips. They render whenever the empty chat does and
-    // stop when it stops, so there is nothing to show, hide, or persist.
     expect(emptyChat).not.toContain("showSuggestions");
     expect(chat).not.toContain("showSuggestions");
     expect(en.chat.show_suggestions).toBeUndefined();
     expect(en.chat.hide_suggestions).toBeUndefined();
     expect(es.chat.show_suggestions).toBeUndefined();
     expect(es.chat.hide_suggestions).toBeUndefined();
-    expect(starterActions).toContain("chat.starter_actions.tsla.value");
-    expect(starterActions).toContain("chat.starter_actions.btc.value");
-    expect(starterActions).toContain("chat.starter_actions.dca.value");
-    expect(starterActions).toContain("chat.example_queries");
+    expect(starterActions).not.toContain("chat.starter_actions");
+    expect(starterActions).not.toContain("chat.example_queries");
+    expect(starterActions).toContain("if (!workspaceEntries?.length) return null;");
+    expect(en.chat.starter_actions).toBeUndefined();
+    expect(en.chat.example_queries).toBeUndefined();
+    expect(en.chat.landing_starters).toBeUndefined();
+    expect(es.chat.starter_actions).toBeUndefined();
+    expect(es.chat.example_queries).toBeUndefined();
+    expect(es.chat.landing_starters).toBeUndefined();
     expect(emptyChat).toContain("<StarterActions");
     expect(input).not.toContain("placeholder_prompts");
     expect(input).not.toContain("animState");
@@ -288,51 +284,6 @@ describe("Argus Alpha frontend contract", () => {
     expect(chat).toContain("chat.followup_placeholder");
     expect(en.chat.placeholder_prompts).toBeUndefined();
     expect(es.chat.placeholder_prompts).toBeUndefined();
-
-    const starterAndPlaceholderText = [
-      en.chat.starter_actions.tsla.value,
-      en.chat.starter_actions.btc.value,
-      en.chat.starter_actions.dca.value,
-      es.chat.starter_actions.tsla.value,
-      es.chat.starter_actions.btc.value,
-      es.chat.starter_actions.dca.value,
-      en.chat.example_queries.q1,
-      en.chat.example_queries.q2,
-      en.chat.example_queries.q3,
-      es.chat.example_queries.q1,
-      es.chat.example_queries.q2,
-      es.chat.example_queries.q3,
-    ].join("\n");
-
-    expect(starterAndPlaceholderText).not.toContain("2024");
-    expect(starterAndPlaceholderText).not.toContain("January 1");
-    expect(starterAndPlaceholderText).not.toContain("December 31");
-    expect(starterAndPlaceholderText).not.toContain("1 de enero");
-    expect(starterAndPlaceholderText).not.toContain("31 de diciembre");
-    expect(starterAndPlaceholderText).not.toContain("Strategy:");
-    expect(starterAndPlaceholderText).not.toContain("Asset:");
-    expect(starterAndPlaceholderText).not.toContain("Period:");
-    expect(starterAndPlaceholderText).not.toContain("Estrategia:");
-    expect(starterAndPlaceholderText).not.toContain("Activo:");
-    expect(starterAndPlaceholderText).not.toContain("Periodo:");
-    expect(en.chat.starter_actions.tsla.value).toBe(
-      "Compare Apple with SPY over the last 12 months.",
-    );
-    expect(en.chat.starter_actions.btc.value).toBe(
-      "What if I bought Bitcoin this year so far?",
-    );
-    expect(en.chat.starter_actions.dca.value).toBe(
-      "What if I bought $250 of Nvidia every week over the last 12 months?",
-    );
-    expect(es.chat.starter_actions.tsla.value).toBe(
-      "Compara Apple con SPY durante los últimos 12 meses.",
-    );
-    expect(es.chat.starter_actions.btc.value).toBe(
-      "¿Qué habría pasado si compraba Bitcoin en lo que va del año?",
-    );
-    expect(es.chat.starter_actions.dca.value).toBe(
-      "¿Qué habría pasado si compraba $250 de Nvidia cada semana durante el último año?",
-    );
   });
 
   test("assistant turn controls use shared tooltips and robust clipboard copy", () => {
@@ -408,10 +359,13 @@ describe("Argus Alpha frontend contract", () => {
       "appendOrReplacePendingAssistantMessage(baseMessages",
     );
     expect(chat).toContain("failedAssistantId");
-    expect(chat).toContain("renderUserMessage: false");
-    expect(chat).toContain("replacementAssistantId: failedAssistantId");
+    expect(chat).toContain("retryLastTurnSendOptions({ failedAssistantId, requestMessageId })");
+    expect(chat).toContain("keepLocalTranscript");
     expect(chat).toContain("requestMessageId");
-    expect(chat).toContain("renderUserMessage: true");
+    expect(retry).toContain("replacementAssistantId: input.failedAssistantId");
+    expect(retry).toContain("keepLocalTranscript");
+    expect(retry).toContain("renderUserMessage: false");
+    expect(retry).toContain("renderUserMessage: true");
     expect(chat).toContain(
       "const persistedErrorMessageId = event.data.message_id?.trim()",
     );
@@ -577,10 +531,6 @@ describe("Argus Alpha frontend contract", () => {
       join(root, "components/chat/StrategyResultCard.tsx"),
       "utf-8",
     );
-    const flags = readFileSync(
-      join(root, "lib/private-alpha-flags.ts"),
-      "utf-8",
-    );
     const labelHelper = readFileSync(
       join(root, "lib/result-card-display.ts"),
       "utf-8",
@@ -597,7 +547,6 @@ describe("Argus Alpha frontend contract", () => {
     expect(card).toContain("<ResultEquityChart");
     expect(card).toContain('presentation="heroDeltaEvidence"');
     expect(card).toContain("appearanceOverride={appearance}");
-    expect(flags).not.toContain("NEXT_PUBLIC_STRATEGIES_ENABLED");
     expect(card).not.toContain("strategiesEnabled");
     expect(card).not.toContain('action.type === "save_strategy"');
     expect(labelHelper).toContain('"Explain result"');
@@ -1064,7 +1013,8 @@ describe("Argus Alpha frontend contract", () => {
     expect(projection).toContain("latestAiIndex");
     expect(projection).toContain('(message.content ?? "") === ""');
     expect(chat).toContain("isStreaming={isWorkingMessage}");
-    expect(message).toContain("{!isUser && !isStreaming && (");
+    expect(message).toContain("const shouldShowAssistantFooter = !isUser && !isStreaming;");
+    expect(message).toContain("{shouldShowAssistantFooter && (");
     expect(message).not.toContain("{copyFeedback && (");
   });
 
@@ -1107,7 +1057,7 @@ describe("Argus Alpha frontend contract", () => {
     expect(`${chat}\n${emptyChat}`).toContain("<ChatInput");
     expect(chat).toContain("onSend={handleSend}");
     expect(emptyChat).toMatch(
-      /const disabled =\s*isStreamingResponse \|\| isHydratingConversation \|\| guestSubmissionPending/,
+      /const disabled =\s*isStreamingResponse \|\|\s*isHydratingConversation;/,
     );
     expect(emptyChat).toContain("disabled={disabled}");
     expect(chat).toContain("disabled={conversationComposerUnavailable}");
@@ -1301,7 +1251,7 @@ describe("Argus Alpha frontend contract", () => {
     expect(message).toContain("chat.copy_failed");
     expect(message).toContain('message.kind === "strategy_confirmation"');
     expect(chat).toContain("onToast={showToast}");
-    expect(chat).toContain("pb-[190px]");
+    expect(chat).toContain("paddingBottom: 190 + dailyCap.height");
     expect(chat).toContain('className="h-28"');
     expect(toast).toContain("absolute inset-x-0 bottom-24");
     expect(toast).toContain("flex justify-center");
@@ -1430,7 +1380,7 @@ describe("Argus Alpha frontend contract", () => {
       ),
       "utf-8",
     );
-    const api = readFileSync(join(root, "lib/argus-api.ts"), "utf-8");
+    const api = ["lib/argus-api.ts", "lib/conversation-surface-api.ts"].map((file) => readFileSync(join(root, file), "utf-8")).join("\n");
 
     expect(palette).toContain("includeLedgerGroups: true");
     expect(palette).toContain("commandPaletteItemFromSearch");
@@ -1471,7 +1421,7 @@ describe("Argus Alpha frontend contract", () => {
     expect(palette).toContain("md:flex-row");
     expect(palette).not.toContain("hidden w-[44%]");
     expect(palette).toContain('"command_palette.search_placeholder"');
-    expect(palette).toContain('"Search Argus..."');
+    expect(palette).toContain('"Search Cuadrao..."');
     expect(palette).toContain("maxLength={512}");
     expect(palette).toContain("loadMoreSearch");
     expect(api).toContain("cursor?: string");
@@ -1818,17 +1768,17 @@ describe("Argus Alpha frontend contract", () => {
       palette.indexOf("const loadLedgerBrowse"),
     );
     const searchInputChange = palette.slice(
-      palette.indexOf("onChange={(event) => {"),
+      palette.indexOf("const changeQuery = (nextQuery: string) => {"),
       palette.indexOf(
-        "placeholder={",
-        palette.indexOf("onChange={(event) => {"),
+        "const fillQuery",
+        palette.indexOf("const changeQuery = (nextQuery: string) => {"),
       ),
     );
 
     expect(palette).toContain("const isRecentsMode =");
     expect(historyEffect).toContain("!isRecentsMode");
     expect(historyEffect).toContain(
-      "[isGuest, isRecentsMode, retryNonce]",
+      "[chatAvailable, isGuest, isRecentsMode, retryNonce, searchSurface, surface]",
     );
     expect(historyRequestStart).toBeLessThan(
       palette.indexOf("const trimmed = query.trim()"),
@@ -1948,10 +1898,10 @@ describe("Argus Alpha frontend contract", () => {
       ),
     );
     const searchInputChange = palette.slice(
-      palette.indexOf("onChange={(event) => {"),
+      palette.indexOf("const changeQuery = (nextQuery: string) => {"),
       palette.indexOf(
-        "placeholder={t(",
-        palette.indexOf("onChange={(event) => {"),
+        "const fillQuery",
+        palette.indexOf("const changeQuery = (nextQuery: string) => {"),
       ),
     );
 
@@ -2269,10 +2219,10 @@ describe("Argus Alpha frontend contract", () => {
     expect(loadMoreControl).toContain('"command_palette.load_more_error"');
     expect(loadMoreControl).toContain('"command_palette.retry_load_more"');
     expect(en.command_palette.load_more_error).toBe(
-      "Argus couldn’t load more results. Your current results are still available.",
+      "Cuadrao couldn’t load more results. Your current results are still available.",
     );
     expect(es.command_palette.load_more_error).toBe(
-      "Argus no pudo cargar más resultados. Tus resultados actuales siguen disponibles.",
+      "Cuadrao no pudo cargar más resultados. Tus resultados actuales siguen disponibles.",
     );
     expect(en.command_palette.retry_load_more).toBe("Try loading more");
     expect(es.command_palette.retry_load_more).toBe(
@@ -2338,14 +2288,12 @@ describe("Argus Alpha frontend contract", () => {
     expect(dialog).toContain("expected");
     expect(dialog).toContain("actual");
     expect(dialog).toContain("includeConversationContext");
-    expect(dialog).toContain("files");
-    expect(dialog).toContain("Paperclip");
     expect(dialog).toContain("ChevronDown");
-    expect(dialog).toContain("attachmentCount: files.length");
-    expect(dialog).toContain("Maximum 5 files");
-    expect(dialog).toContain("attachments_with_count");
-    expect(dialog).toContain("Attachments ({{count}}/5)");
-    expect(dialog).toContain("Optional: add a screenshot, sketch, or example.");
+    expect(dialog).not.toContain("attachmentCount");
+    expect(dialog).not.toContain("Paperclip");
+    expect(dialog).not.toContain("type=\"file\"");
+    expect(dialog).not.toContain("attachments_with_count");
+    expect(dialog).not.toContain("Maximum 5 files");
     expect(dialog).toContain("General Feedback");
     expect(dialog).toContain("Report a Bug");
     expect(dialog).toContain("Request a Feature");
@@ -2356,7 +2304,7 @@ describe("Argus Alpha frontend contract", () => {
     expect(dialog).toContain('type === "bug"');
     expect(dialog).toContain('const title = "Provide feedback";');
     expect(dialog).toContain('"File a bug report."');
-    expect(dialog).toContain('"Share feedback about your Argus experience."');
+    expect(dialog).toContain('"Share feedback about your Cuadrao experience."');
     expect(dialog).toContain('"What worked well in this response?"');
     expect(dialog).toContain('"What should be improved in this response?"');
     expect(dialog).toContain(
@@ -2376,6 +2324,20 @@ describe("Argus Alpha frontend contract", () => {
     );
     expect(dialog).not.toContain("ThumbsUp");
     expect(dialog).not.toContain("ThumbsDown");
+
+    const en = JSON.parse(
+      readFileSync(join(root, "public/locales/en/common.json"), "utf-8"),
+    );
+    const es = JSON.parse(
+      readFileSync(join(root, "public/locales/es-419/common.json"), "utf-8"),
+    );
+    for (const locale of [en, es]) {
+      expect(locale.feedback).not.toHaveProperty("attachments");
+      expect(locale.feedback).not.toHaveProperty("attachments_with_count");
+      expect(locale.feedback).not.toHaveProperty("attach_files");
+      expect(locale.feedback).not.toHaveProperty("attach_files_feature");
+      expect(locale.feedback).not.toHaveProperty("max_files");
+    }
   });
 
   test("chat feedback rating is posted directly while dialog remains available for deliberate feedback", () => {
@@ -2406,7 +2368,7 @@ describe("Argus Alpha frontend contract", () => {
     );
     expect(chat).toContain("includeConversationContext: true");
     expect(chat).toContain("tags: []");
-    expect(chat).toContain("attachmentCount: 0");
+    expect(chat).not.toContain("attachmentCount");
     expect(chat).toContain('t("feedback.rating_message_fallback", { rating })');
     expect(chat).toContain("openFeedbackDialogState(type, context, rating, conversationId)");
     expect(
@@ -2481,7 +2443,7 @@ describe("Argus Alpha frontend contract", () => {
     expect(sidebar).toContain("if (isProfileMenuOpen) return");
   });
 
-  test("profile modal uses gated language shortcuts and deletion support request", () => {
+  test("profile modal leaves the language to Ajustes and keeps the in-app deletion command", () => {
     const profileMenu = readFileSync(
       join(root, "components/sidebar/ProfileMenu.tsx"),
       "utf-8",
@@ -2510,49 +2472,77 @@ describe("Argus Alpha frontend contract", () => {
 
     expect(languageFeatures).toContain("languageDisplayAbbreviation");
     expect(languageFeatures).toContain("localeForLanguage");
-    // The dialog's markup lives in ProfileDetailsDialog; the menu keeps the
-    // state and the requests behind it.
-    expect(detailsDialog).toContain("ENABLED_LANGUAGES");
-    expect(detailsDialog).toContain("languageDisplayAbbreviation");
+    // Perfil no longer repeats the language shortcut; Idioma de la app lives
+    // in Ajustes. The menu still keeps the deletion command's language.
+    expect(detailsDialog).not.toContain("ENABLED_LANGUAGES");
+    expect(detailsDialog).not.toContain("argus-profile-language-trigger");
     expect(profileMenu).toContain("localeForLanguage");
-    expect(profileMenu).toContain("postFeedback");
-    expect(profileMenu).toContain('type: "account_deletion_request"');
-    expect(profileMenu).toContain('source: "profile_modal"');
-    expect(detailsDialog).toContain("argus-profile-language-trigger");
-    expect(detailsDialog).toContain("absolute right-0 top-full");
+    // Lane 6: the delete button runs the deletion command; with the command
+    // off (404) it falls back to the support ticket. Success or in_progress
+    // signs out on the result; Done leaves. See account-deletion-api.test.ts.
+    expect(profileMenu).toContain("requestAccountDeletion(currentLanguage)");
+    expect(profileMenu).toContain("onLogout();");
+    expect(deleteRequestDialog).toContain(
+      "settings.profile.request_deletion.in_progress",
+    );
     // Both dialogs live in their own components, because a body-portaled
     // aria-modal surface has to register its own back, Escape, and focus.
     expect(deleteRequestDialog).toContain(
       "settings.profile.request_deletion.title",
     );
     expect(detailsDialog).toContain("useModalSurface");
-    expect(profileMenu).toContain("settings.profile.language_save_error");
+    expect(profileMenu).not.toContain("settings.profile.language_save_error");
     expect(detailsDialog).not.toContain(
       "overflow-hidden rounded-[10px] border border-black/5 bg-black/[0.015]",
     );
     expect(profileMenu).not.toContain('profile?.language ?? "en"');
     expect(api).toContain('"account_deletion_request"');
-    expect(en).toContain("Request account deletion");
+    const deletionApi = readFileSync(
+      join(root, "lib/account-deletion-api.ts"),
+      "utf-8",
+    );
+    expect(deletionApi).toContain('"/account/delete"');
+    expect(deletionApi).toContain("JSON.stringify({ confirm: true })");
+    expect(deletionApi).toContain('type: "account_deletion_request"');
+    expect(deletionApi).toContain('code === "account_deletion_incomplete"');
+    expect(deleteRequestDialog).toContain(
+      "settings.profile.request_deletion.requested",
+    );
+    expect(deleteRequestDialog).toContain(
+      "settings.profile.request_deletion.confirm",
+    );
+    expect(deleteRequestDialog).toContain(
+      "settings.profile.request_deletion.unavailable",
+    );
+    expect(en).toContain('"title": "Delete your account?"');
     expect(en).toContain(
-      "Request permanent deletion of your Argus account. Support will follow up by email.",
+      "Permanently delete your Cuadrao account and your data.",
     );
-    expect(en).toContain("Support handles account deletion. We'll verify");
-    expect(en).toContain("Request sent. We'll follow up by email.");
-    expect(es).toContain("Solicitar eliminación de cuenta");
+    expect(en).toContain('"body": "We delete your account and your personal data. This can\'t be undone."');
+    expect(en).toContain("Your account is deleted. You're signed out.");
+    expect(en).toContain("Your account is being deleted. You're signed out now");
+    expect(en).not.toContain('"shared_plans"');
+    expect(en).not.toContain("Support will follow up by email.");
+    expect(es).toContain('"title": "¿Eliminar tu cuenta?"');
     expect(es).toContain(
-      "Solicita la eliminación permanente de tu cuenta de Argus. Soporte te contactará por correo electrónico.",
+      "Elimina para siempre tu cuenta de Cuadrao y tus datos.",
     );
-    expect(es).toContain(
-      "Soporte gestiona la eliminación de cuentas. Verificaremos",
-    );
-    expect(es).toContain(
-      "Solicitud enviada. Te contactaremos por correo electrónico.",
-    );
+    expect(es).toContain('"body": "Borramos tu cuenta y tus datos personales, y no se puede deshacer."');
+    expect(es).toContain("Tu cuenta está eliminada. Ya cerraste sesión.");
+    expect(es).toContain("Estamos eliminando tu cuenta.");
   });
 
-  test("profile menu groups data controls preferences and legal links", () => {
+  test("Ajustes groups Preferencias and Controles de datos; the menu keeps Ayuda y legal", () => {
     const profileMenu = readFileSync(
       join(root, "components/sidebar/ProfileMenu.tsx"),
+      "utf-8",
+    );
+    const registry = readFileSync(
+      join(root, "components/sidebar/ProfileSettingsPanels.tsx"),
+      "utf-8",
+    );
+    const settingsWindow = readFileSync(
+      join(root, "components/settings/SettingsWindow.tsx"),
       "utf-8",
     );
     const en = readFileSync(
@@ -2566,18 +2556,12 @@ describe("Argus Alpha frontend contract", () => {
     const enCatalog = JSON.parse(en);
     const esCatalog = JSON.parse(es);
 
-    const dataStart = profileMenu.indexOf('{activeSubmenu === "data"');
-    const preferencesStart = profileMenu.indexOf(
-      '{activeSubmenu === "settings"',
-    );
     const legalStart = profileMenu.indexOf('{activeSubmenu === "help"');
-    expect(dataStart).toBeGreaterThan(-1);
-    expect(preferencesStart).toBeGreaterThan(dataStart);
-    expect(legalStart).toBeGreaterThan(preferencesStart);
-
-    const dataBlock = profileMenu.slice(dataStart, preferencesStart);
-    const preferencesBlock = profileMenu.slice(preferencesStart, legalStart);
+    expect(legalStart).toBeGreaterThan(-1);
     const legalBlock = profileMenu.slice(legalStart);
+    expect(profileMenu).toContain('openModal("settings-window")');
+    expect(profileMenu).not.toContain('{activeSubmenu === "data"');
+    expect(profileMenu).not.toContain('{activeSubmenu === "settings"');
 
     expect(en).toContain('"title": "Data Controls"');
     expect(en).toContain('"title": "Preferences"');
@@ -2588,101 +2572,30 @@ describe("Argus Alpha frontend contract", () => {
     expect(es).toContain('"title": "Ayuda y legal"');
     expect(es).toContain('"usage": "Uso"');
 
-    expect(dataBlock).toContain("settings.data.security");
-    expect(dataBlock).toContain("settings.data.usage");
-    expect(dataBlock).not.toContain("cursor-not-allowed");
-    expect(dataBlock).toContain("settings.profile.delete_account");
-    expect(dataBlock).toContain("settings.profile.delete_account_note");
-    expect(dataBlock).toContain("handleOpenDeleteRequest");
-    expect(dataBlock).toContain("hover:bg-[#d66d75]/10");
-    expect(preferencesBlock).toContain("settings.preferences.title");
-    expect(preferencesBlock).toContain("settings.app.appearance");
-    expect(preferencesBlock).toContain("settings.app.language");
-    expect(preferencesBlock).toContain("settings.app.sidebar");
-    expect(preferencesBlock).not.toContain("settings.app.security");
+    expect(registry).toContain('settings: ["settings.app.title", "Preferences"]');
+    expect(registry).toContain('data: ["settings.data.title", "Data Controls"]');
+    for (const label of ["settings.app.appearance", "settings.app.language", "settings.app.sidebar", "settings.data.usage"]) {
+      expect(registry).toContain(`label: ["${label}"`);
+    }
+    expect(settingsWindow).toContain("settings.data.security");
+    expect(settingsWindow).toContain("settings.profile.delete_account");
+    expect(settingsWindow).toContain("onSelect: onDeleteAccount");
+    expect(settingsWindow).not.toContain("cursor-not-allowed");
+    expect(settingsWindow).not.toContain("settings.app.security");
     expect(legalBlock).toContain("keyboard_shortcuts.menu_item");
     expect(legalBlock).toContain("settings.help.terms");
     expect(legalBlock).toContain("settings.help.privacy");
-    expect(legalBlock).toContain('href="/terms"');
-    expect(legalBlock).toContain('href="/privacy"');
+    expect(legalBlock).not.toContain('href="/terms"');
+    expect(legalBlock).not.toContain('href="/privacy"');
     expect(legalBlock).not.toContain("settings.help.release_notes");
     expect(enCatalog.settings.help).not.toHaveProperty("release_notes");
     expect(esCatalog.settings.help).not.toHaveProperty("release_notes");
-    expect(profileMenu).toContain('href="/terms"');
-    expect(profileMenu).toContain('href="/privacy"');
+    expect(profileMenu).not.toContain('href="/terms"');
+    expect(profileMenu).not.toContain('href="/privacy"');
   });
 
-  test("alpha legal pages exist and disclose terms privacy and providers", () => {
-    const termsPath = join(root, "app/terms/page.tsx");
-    const privacyPath = join(root, "app/privacy/page.tsx");
-    const legalPagePath = join(root, "components/legal/AlphaLegalPage.tsx");
-
-    expect(existsSync(termsPath)).toBe(true);
-    expect(existsSync(privacyPath)).toBe(true);
-    expect(existsSync(legalPagePath)).toBe(true);
-
-    const terms = readFileSync(termsPath, "utf-8");
-    const privacy = readFileSync(privacyPath, "utf-8");
-    const legalPage = readFileSync(legalPagePath, "utf-8");
-    const en = readFileSync(
-      join(root, "public/locales/en/common.json"),
-      "utf-8",
-    );
-    const es = readFileSync(
-      join(root, "public/locales/es-419/common.json"),
-      "utf-8",
-    );
-
-    expect(terms).toContain('kind="terms"');
-    expect(terms).toContain('from "@/lib/support-email"');
-    expect(terms).not.toContain("TODO");
-    expect(privacy).toContain('kind="privacy"');
-    expect(privacy).toContain('from "@/lib/support-email"');
-    expect(privacy).not.toContain("TODO");
-
-    expect(legalPage).toContain('"use client"');
-    expect(legalPage).toContain("useTranslation");
-    expect(legalPage).toContain("legal.terms.title");
-    expect(legalPage).toContain("legal.privacy.title");
-    expect(legalPage).toContain("font-display");
-    expect(legalPage).toContain("body_before_email");
-    expect(legalPage).toContain("mailto:${supportEmail}");
-
-    expect(en).toContain('"effective_date": "Effective date: August 7, 2026"');
-    expect(en).toContain('"title": "No investment advice"');
-    expect(en).toContain("not a broker");
-    expect(en).toContain("Historical simulations are hypothetical");
-    expect(en).toContain("OpenRouter");
-    expect(en).toContain("Supabase");
-    expect(en).toContain("Render");
-    expect(en).toContain("Alpaca");
-    expect(en).toContain("Kraken");
-    expect(en).toContain("TradingView Lightweight Charts");
-    expect(en).toContain("PostHog");
-    expect(en).toContain("prompts may be sent");
-
-    expect(es).toContain(
-      '"effective_date": "Fecha de entrada en vigor: 7 de agosto de 2026"',
-    );
-    expect(es).toContain("No es asesoría de inversión");
-    expect(es).toContain("Argus no es broker");
-    expect(es).toContain("Las simulaciones históricas son hipotéticas");
-    expect(es).toContain("OpenRouter");
-    expect(es).toContain("Supabase");
-    expect(es).toContain("Render");
-    expect(es).toContain("Alpaca");
-    expect(es).toContain("Kraken");
-    expect(es).toContain("TradingView Lightweight Charts");
-    expect(es).toContain("PostHog");
-    expect(es).toContain("prompts puede enviarse");
-  });
-
-  test("profile menu delete all conversations is recoverable and outcome-aware", () => {
+  test("profile menu does not offer delete all conversations", () => {
     const api = readFileSync(join(root, "lib/argus-api.ts"), "utf-8");
-    const chat = readFileSync(
-      join(root, "components/chat/ChatInterface.tsx"),
-      "utf-8",
-    );
     const sidebar = readFileSync(
       join(root, "components/sidebar/ChatSidebar.tsx"),
       "utf-8",
@@ -2700,31 +2613,17 @@ describe("Argus Alpha frontend contract", () => {
       "utf-8",
     );
 
-    expect(api).toContain("export async function deleteAllConversations");
-    expect(api).toContain("deleted_count: number");
-    expect(profileMenu).toContain("onDeleteAllConversations?: () => void");
-    expect(profileMenu).toContain("onDeleteAllConversations?.()");
-    expect(profileMenu).toContain("hover:bg-[#d66d75]/10");
-    expect(profileMenu).not.toContain(
-      "cursor-not-allowed items-center gap-2.5 px-3.5 py-2 text-[13px] text-[#d66d75]/40",
-    );
-    expect(sidebar).toContain("deleteAllConversations");
-    expect(sidebar).toContain("isDeleteAllDialogOpen");
-    expect(sidebar).toContain("settings.data.delete_all_confirm.title");
-    expect(sidebar).toContain("response.deleted_count");
-    expect(sidebar).toContain("onAllConversationsDeleted?.()");
-    expect(sidebar).toContain("settings.data.delete_all_success");
-    expect(sidebar).toContain("settings.data.delete_all_empty");
-    expect(sidebar).toContain("settings.data.delete_all_error");
-    expect(chat).toContain("handleAllConversationsDeleted");
-    expect(chat).toContain("resetToEmptyChatSurface();");
-    expect(chat).toContain("onToast={showToast}");
-    expect(en).toContain("delete_all_success_one");
-    expect(en).toContain("Moved {{count}} conversation to Recently Deleted.");
-    expect(es).toContain("delete_all_success_one");
-    expect(es).toContain(
-      "Se movió {{count}} conversación a Borrados recientemente.",
-    );
+    expect(api).not.toContain("deleteAllConversations");
+    expect(profileMenu).not.toContain("onDeleteAllConversations");
+    expect(profileMenu).not.toContain("delete_all_conversations");
+    expect(
+      readFileSync(join(root, "components/settings/SettingsWindow.tsx"), "utf-8"),
+    ).toContain("settings.profile.delete_account");
+    expect(sidebar).not.toContain("deleteAllConversations");
+    expect(sidebar).not.toContain("delete_all_confirm");
+    expect(en).not.toContain("delete_all_");
+    expect(es).not.toContain("delete_all_");
+    expect(es).toContain("Eliminar cuenta");
   });
 
   test("interactive controls expose pointer cursor affordance globally", () => {
@@ -2779,9 +2678,13 @@ describe("Argus Alpha frontend contract", () => {
     expect(es.account_security.session_check_unavailable).toBeTruthy();
   });
 
-  test("profile menu Security row navigates to account security and closes the menu", () => {
+  test("Ajustes' Security row navigates to account security and closes the window", () => {
     const menu = readFileSync(
       join(root, "components/sidebar/ProfileMenu.tsx"),
+      "utf-8",
+    );
+    const settingsWindow = readFileSync(
+      join(root, "components/settings/SettingsWindow.tsx"),
       "utf-8",
     );
     const en = JSON.parse(
@@ -2791,38 +2694,29 @@ describe("Argus Alpha frontend contract", () => {
       readFileSync(join(root, "public/locales/es-419/common.json"), "utf-8"),
     );
 
-    const securityLabel = menu.indexOf('t("settings.data.security"');
-    expect(securityLabel).toBeGreaterThan(-1);
-    const securityButton = menu.slice(
-      menu.lastIndexOf("<button", securityLabel),
-      securityLabel,
+    expect(menu).toContain(
+      'onSecurity={() => navigateFromOverlay("/account/security", closeSettingsWindow)}',
     );
-    expect(securityButton).toContain(
-      'navigateFromOverlay("/account/security", onClose)',
+    const securityRow = settingsWindow.slice(
+      settingsWindow.indexOf('id: "security"'),
+      settingsWindow.indexOf("},", settingsWindow.indexOf('id: "security"')),
     );
-    expect(securityButton).not.toContain("disabled");
-    expect(securityButton).not.toContain("cursor-not-allowed");
+    expect(securityRow).toContain("onSelect: onSecurity");
+    expect(securityRow).toContain("leaves: true");
+    expect(securityRow).not.toContain("disabled");
     expect(en.settings.data.security).toBeTruthy();
     expect(es.settings.data.security).toBeTruthy();
-
-    const usageLabel = menu.indexOf('t("settings.data.usage"');
-    expect(usageLabel).toBeGreaterThan(-1);
-    const usageButton = menu.slice(
-      menu.lastIndexOf("<button", usageLabel),
-      usageLabel,
-    );
-    expect(usageButton).toContain('openModal("usage")');
-    expect(usageButton).not.toContain("disabled");
-    expect(usageButton).not.toContain("cursor-not-allowed");
+    // Usage is a section in the window, offered outside Business only.
+    expect(menu).toContain("usage: !isBusiness,");
   });
 
   test("landing redirects authenticated sessions straight into chat", () => {
     const page = readFileSync(join(root, "app/page.tsx"), "utf-8");
 
     expect(page).toContain("await getMe()");
-    expect(page).toContain('router.replace("/chat")');
+    expect(page).toContain("router.replace(postAuthPath())");
     expect(page).toContain("skipAuthenticatedRedirect");
-    expect(page).toContain("font-display text-6xl");
+    expect(page).toContain("<CuadraoLockup width={268} />");
     expect(page).toContain("font-display flex w-full max-w-sm");
   });
 
@@ -2833,13 +2727,12 @@ describe("Argus Alpha frontend contract", () => {
       "utf-8",
     );
 
-    expect(authForm).toContain("Eye");
+    const sharedField = readFileSync(join(root, "components/ui/FormField.tsx"), "utf-8");
+    expect(authForm).toContain("<PasswordField");
     expect(authForm).toContain("EyeClosed");
-    expect(authForm).not.toContain("EyeOff");
-    expect(authForm).toContain("showPassword");
-    expect(authForm).toContain('type={showPassword ? "text" : "password"}');
-    expect(authForm).toContain("auth.password.show");
-    expect(authForm).toContain("auth.password.hide");
+    expect(sharedField).toContain('type={shown ? "text" : "password"}');
+    expect(sharedField).toContain("auth.password.show");
+    expect(sharedField).toContain("auth.password.hide");
     expect(page).toContain("signupWithEmail");
     expect(page).toContain("loginWithEmail");
     expect(page).toContain(
@@ -2848,8 +2741,9 @@ describe("Argus Alpha frontend contract", () => {
     expect(page).toContain('updateAuthMode("request")');
     expect(page).toContain('updateAuthMode("signup")');
     expect(page).toContain('const showLogin = () => updateAuthMode("login")');
-    expect(page).toContain('href="/terms"');
-    expect(page).toContain('href="/privacy"');
+    expect(page).toContain("acceptanceLinks()");
+    expect(page).not.toContain('href="/terms"');
+    expect(page).not.toContain('href="/privacy"');
     expect(page).not.toContain('const authHref = "/chat"');
     expect(page).not.toContain("href={authHref}");
     expect(page).not.toContain('href="/login"');
@@ -2857,36 +2751,53 @@ describe("Argus Alpha frontend contract", () => {
   });
 
   test("auth exits return to the clean front door", () => {
-    const chatPage = readFileSync(join(root, "app/chat/page.tsx"), "utf-8");
     const chat = readFileSync(
       join(root, "components/chat/ChatInterface.tsx"),
       "utf-8",
     );
 
-    expect(chatPage).toContain('redirect("/?auth=login")');
-    expect(chatPage).not.toContain('redirect("/login")');
-    expect(chat).toContain('window.location.href = "/"');
+    expect(existsSync(join(root, "app/chat/page.tsx"))).toBe(false);
+    expect(chat).toContain("leaveSession(");
     expect(chat).not.toContain('window.location.href = "/?auth=login"');
     expect(chat).not.toContain('window.location.href = "/login"');
   });
 
   test("ordinary logout leaves only after provider revocation and clears private state", () => {
-    const chat = readFileSync(
-      join(root, "components/chat/ChatInterface.tsx"),
-      "utf-8",
-    );
+    const chat = readFileSync(join(root, "components/chat/ChatInterface.tsx"), "utf-8");
+    const flow = readFileSync(join(root, "lib/logout-flow.ts"), "utf-8");
     const logoutHandler = chat.slice(
-      chat.indexOf("const handleLogout = async () =>"),
+      chat.indexOf("const handleLogout = async ("),
       chat.indexOf("const handleCancelConfirmationAction"),
     );
 
     expect(logoutHandler).toContain("settings.logout_error");
-    expect(logoutHandler).toContain('result.revocation === "failed"');
     expect(logoutHandler).toContain("resetToEmptyChatSurface()");
     expect(logoutHandler).toContain("clearHistory()");
-    expect(logoutHandler.indexOf("resetToEmptyChatSurface()")).toBeLessThan(
-      logoutHandler.indexOf('window.location.href = "/"'),
+    expect(flow).toContain('result?.revocation === "failed"');
+    expect(flow.indexOf('return "failed"')).toBeLessThan(flow.indexOf("deps.clearLocalState()"));
+    expect(flow).toContain("finishConversion(deps.currentUserId)");
+    expect(flow.indexOf("deps.clearLocalState()")).toBeLessThan(
+      flow.indexOf("deps.navigate(signedOutLanding(deps.businessBuild, deps.accountDeleted))"),
     );
+    const page = readFileSync(join(root, "app/page.tsx"), "utf-8");
+    const leaveClosedHome = page.slice(page.indexOf("const leaveClosedHome"), page.indexOf("const handleAuthSubmit"));
+    expect(leaveClosedHome).toContain("resetLeavingSession()");
+    expect(page).toContain("<BusinessClosedNotice navigate={leaveClosedHome} />");
+    const closedHome = readFileSync(join(root, "components/status/BusinessClosedNotice.tsx"), "utf-8");
+    expect(closedHome).toContain("setSignOutFailed(true)");
+    expect(closedHome.indexOf("setSignOutFailed(false)")).toBeGreaterThan(-1);
+    expect(closedHome.indexOf("setSignOutFailed(false)")).toBeLessThan(
+      closedHome.indexOf("leaveSession("),
+    );
+    expect(closedHome).not.toContain("onFailed() {}");
+    expect(closedHome).toContain('t("settings.logout_error")');
+    expect(closedHome).toContain('!text-[var(--cuadrao-cream)]');
+    expect(closedHome).toContain("mailto:${CUADRAO_ADMIN_EMAIL}");
+    const shots = readFileSync(join(root, "e2e/business-signed-in-home.spec.ts"), "utf-8");
+    expect(shots).toContain("E2E_SCREENSHOT_DIR");
+    expect(shots).toContain('"test-results"');
+    expect(shots).not.toContain('const shots = "/opt/cursor/artifacts/screenshots"');
+    expect(shots).toContain("screenshot directory is not a test output path");
   });
 
   test("front door auth states stay interactive during auth entry", () => {
@@ -2902,9 +2813,6 @@ describe("Argus Alpha frontend contract", () => {
     // The only subscription section lived in the unreachable full-page view.
     expect(existsSync(join(root, "components/views/SettingsView.tsx"))).toBe(
       false,
-    );
-    expect(readFileSync(join(root, ".env.local.example"), "utf-8")).not.toContain(
-      "NEXT_PUBLIC_ARGUS_SHOW_SUBSCRIPTION",
     );
   });
 
@@ -2922,13 +2830,13 @@ describe("Argus Alpha frontend contract", () => {
       "utf-8",
     );
 
-    expect(flags).not.toContain("NEXT_PUBLIC_STRATEGIES_ENABLED");
     expect(flags).toContain("NEXT_PUBLIC_OMNISEARCH_ENABLED");
     expect(flags).toContain(
       'process.env.NEXT_PUBLIC_OMNISEARCH_ENABLED !== "false"',
     );
+    expect(chat).toContain("const searchEntryEnabled = omnisearchEnabled;");
     expect(chat).toMatch(
-      /omnisearchEnabled &&\s*\(!isGuest \|\| canUseOmnisearch\) &&\s*searchOverlayOpen/,
+      /searchEntryEnabled &&\s*\(!isGuest \|\| canUseOmnisearch\) &&\s*searchOverlayOpen/,
     );
     expect(sidebar).not.toContain("strategiesEnabled");
     expect(sidebar).toContain("omnisearchEnabled");

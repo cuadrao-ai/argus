@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-05",
+  "reproduced_head": "97f948020aab0aff899d1ccc3d4522a903a40ad1",
+  "baseline_source_integration": "7c2522fb7d08f183bb1b07cd9b4aabe829089dc0",
+  "baseline_checkout_kind": "captain documentation checkout with identical runtime and guard source",
+  "baseline_guard": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 1.93
+  },
+  "worker_red_guard": {
+    "passed": 0,
+    "failed": 1,
+    "skipped": 0,
+    "seconds": 1.54
+  },
+  "worker_green_guard": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 1.37
+  },
+  "api_and_preferred_name": {
+    "passed": 123,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 7.63
+  },
+  "postgres_auth": {
+    "passed": 81,
+    "failed": 0,
+    "skipped": 0,
+    "warnings": 27,
+    "seconds": 8.47
+  },
+  "guard_changed": false,
+  "migration_changed": false,
+  "same_statement_invariant_cases_added": 4,
+  "existing_name_edit_races_strengthened": 8,
+  "provider_requests": 0,
+  "hosted_changes": false,
+  "modularity_violations": 0
+}

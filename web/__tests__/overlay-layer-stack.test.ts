@@ -176,6 +176,32 @@ describe("overlay layer stack", () => {
     expect(subject.overlayStackIds()).toEqual(["drawer", "menu"]);
   });
 
+  test("a reset after the document is gone still lets the next document be listened to", () => {
+    const log = fresh();
+    const original = (globalThis as { document?: unknown }).document;
+    subject.registerOverlayLayer(layer("left-open", log));
+
+    // A file that tears its DOM down with a layer still open.
+    delete (globalThis as { document?: unknown }).document;
+    subject.resetOverlayStack();
+
+    const added: string[] = [];
+    (globalThis as { document?: unknown }).document = {
+      activeElement: null,
+      addEventListener: (type: string) => added.push(type),
+      removeEventListener: () => undefined,
+    };
+    try {
+      subject.registerOverlayLayer(layer("next-file", log));
+      expect(added).toEqual(["keydown", "pointerdown"]);
+    } finally {
+      subject.resetOverlayStack();
+      // The discarded document's handlers went with it; a real DOM would too.
+      listeners.clear();
+      (globalThis as { document?: unknown }).document = original;
+    }
+  });
+
   test("nothing is listening once the last layer closes", () => {
     const log = fresh();
     subject.registerOverlayLayer(layer("only", log));

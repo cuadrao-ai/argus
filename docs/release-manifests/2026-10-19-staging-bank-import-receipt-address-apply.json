@@ -1,0 +1,15 @@
+{
+  "id": "staging-apply-2026-10-19-a",
+  "project_ref": "skedzwocnmrhfigiwyzi",
+  "hosts": [
+    "db.skedzwocnmrhfigiwyzi.supabase.co",
+    "aws-0-us-east-1.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "471d4dd778fe2bf6e70af2327a0e77db74d65e88",
+  "versions_sha256": "605c76c3c5048d26ef2fc140b703157c16df5b5d3926f870b27b16ceec9a62ea",
+  "issued_at": "2026-10-19T13:00:00-05:00",
+  "expires_at": "2026-10-22T13:00:00-05:00",
+  "approved_by": "founder",
+  "approval_reference": "Lucas yes, 2026-10-19 11:51 AM CT, staging only"
+}

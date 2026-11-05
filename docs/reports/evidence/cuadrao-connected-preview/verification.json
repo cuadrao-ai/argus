@@ -1,0 +1,317 @@
+{
+  "application_source": "eddb7da97f3c38135bf855cc1c73930154fb0713",
+  "integration_base": "875de09ac2115acec42e09060b92878aa5f18eff",
+  "current_integration": "f5c83cd88a0af56dc8154a89c6ea4f75d9c518ce",
+  "ui_runs": [
+    {
+      "bundle": "ui-20261005T174039Z.xcresult",
+      "result": "Failed",
+      "totalTestCount": 1,
+      "passedTests": 0,
+      "failedTests": 1,
+      "skippedTests": 0,
+      "runtimeWarnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        }
+      ],
+      "test": "FinancialLoopUITests/testRecurringFromMovementShowsInHomeUpcomingAndFulfilsOnce",
+      "source_revision": "9746bb6024e172ac617f29e16bed405ef2242aeb",
+      "os": "27.0",
+      "device": "iPhone 18 Pro",
+      "disposition": "Driver tapped outside the compact date picker instead of Apple PopoverDismissRegion. Fixed in the shared date helper; financial assertions were retained."
+    },
+    {
+      "bundle": "ui-20261005T174919Z.xcresult",
+      "result": "Failed",
+      "totalTestCount": 1,
+      "passedTests": 0,
+      "failedTests": 1,
+      "skippedTests": 0,
+      "runtimeWarnings": [],
+      "test": "FinancialLoopUITests/testRecurringFromMovementShowsInHomeUpcomingAndFulfilsOnce",
+      "source_revision": "ae78b7d02ce7454ba6a4e007613841827fa83a1a",
+      "os": "27.0",
+      "device": "iPhone 18 Pro",
+      "disposition": "Driver checked auth.email before opening Profile; native TabView does not mount offscreen tabs. Driver now selects Profile before session inspection."
+    },
+    {
+      "bundle": "ui-20261005T175437Z.xcresult",
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "runtimeWarnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        }
+      ],
+      "test": "FinancialLoopUITests/testRecurringFromMovementShowsInHomeUpcomingAndFulfilsOnce",
+      "source_revision": "a1f2aab31c8fbbea299493565f54e9c11bb79c11",
+      "os": "27.0",
+      "device": "iPhone 18 Pro"
+    },
+    {
+      "bundle": "ui-20261005T175927Z.xcresult",
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "runtimeWarnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        }
+      ],
+      "test": "FinancialLoopUITests/testHomeMovementOpensDetailAndBackKeepsPosition",
+      "source_revision": "a1f2aab31c8fbbea299493565f54e9c11bb79c11",
+      "os": "27.0",
+      "device": "iPhone 18 Pro"
+    },
+    {
+      "bundle": "ui-20261005T180134Z.xcresult",
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "runtimeWarnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        }
+      ],
+      "test": "FinancialLoopUITests/testAccountRowSwipesAddEditAndMoreArchive",
+      "source_revision": "a1f2aab31c8fbbea299493565f54e9c11bb79c11",
+      "os": "27.0",
+      "device": "iPhone 18 Pro"
+    },
+    {
+      "bundle": "ui-20261005T180319Z.xcresult",
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "runtimeWarnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        }
+      ],
+      "test": "FinancialLoopUITests/testMovementRowSwipesOpenCorrectionAndCategory",
+      "source_revision": "0fbe310cb3ad83c30b13379ec27b549e0d994bcf",
+      "os": "27.0",
+      "device": "iPhone 18 Pro"
+    },
+    {
+      "bundle": "ui-20261005T180510Z.xcresult",
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "runtimeWarnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        }
+      ],
+      "test": "FinancialLoopUITests/testPlanCardKeepsItsOriginAfterCloseAndRelaunch",
+      "source_revision": "0fbe310cb3ad83c30b13379ec27b549e0d994bcf",
+      "os": "27.0",
+      "device": "iPhone 18 Pro"
+    },
+    {
+      "bundle": "ui-20261005T180716Z.xcresult",
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "runtimeWarnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        }
+      ],
+      "test": "FinancialLoopUITests/testRecurringSetupSpanishCopy",
+      "source_revision": "0fbe310cb3ad83c30b13379ec27b549e0d994bcf",
+      "os": "27.0",
+      "device": "iPhone 18 Pro"
+    },
+    {
+      "bundle": "ui-20261005T181015Z.xcresult",
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "runtimeWarnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        }
+      ],
+      "test": "FinancialLoopUITests/testRecurringSetupResponseLossSavesOnce",
+      "source_revision": "24108a51579ebbe3cb0297399b908b7adcffd681",
+      "os": "27.0",
+      "device": "iPhone 18 Pro"
+    },
+    {
+      "bundle": "ui-20261005T181245Z.xcresult",
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "runtimeWarnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        }
+      ],
+      "test": "FinancialLoopUITests/testPlanResponseLossRecoversOnceAfterRelaunch",
+      "source_revision": "24108a51579ebbe3cb0297399b908b7adcffd681",
+      "os": "27.0",
+      "device": "iPhone 18 Pro"
+    },
+    {
+      "bundle": "ui-20261005T181824Z.xcresult",
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "runtimeWarnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        }
+      ],
+      "test": "FinancialLoopUITests/testPlanKeepsUnknownCurrencyAndLocalizedPresentation",
+      "source_revision": "24108a51579ebbe3cb0297399b908b7adcffd681",
+      "os": "27.0",
+      "device": "iPhone 18 Pro",
+      "disposition": "Passed, then visual inspection found duplicate unknown copy and an empty known-zero subtotal. d50678438 fixes both; affected journey reran successfully at 183052."
+    },
+    {
+      "bundle": "ui-20261005T182229Z.xcresult",
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "runtimeWarnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        }
+      ],
+      "test": "FinancialLoopUITests/testAccountRowSwipesAddEditAndMoreArchive",
+      "source_revision": "195c4839a0b09b670044bd8e446784eac3a21268",
+      "os": "26.5",
+      "device": "iPhone 17 Pro",
+      "disposition": "Built before the d50678438 Plan-only change. App behavior is the tested 24108a515 source; 195c4839a changed only backend tests/docs."
+    },
+    {
+      "bundle": "ui-20261005T182515Z.xcresult",
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "runtimeWarnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        }
+      ],
+      "test": "FinancialLoopUITests/testMovementRowSwipesOpenCorrectionAndCategory",
+      "source_revision": "d506784381d5023a106bd1902bf613026ea9eefd",
+      "os": "26.5",
+      "device": "iPhone 17 Pro"
+    },
+    {
+      "bundle": "ui-20261005T183052Z.xcresult",
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "runtimeWarnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        }
+      ],
+      "test": "FinancialLoopUITests/testPlanKeepsUnknownCurrencyAndLocalizedPresentation",
+      "source_revision": "d506784381d5023a106bd1902bf613026ea9eefd",
+      "os": "27.0",
+      "device": "iPhone 18 Pro"
+    },
+    {
+      "bundle": "ui-20261005T183335Z.xcresult",
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "runtimeWarnings": [],
+      "test": "ReleaseUIJourneyTests/testReleaseGatesHideAvatarEditingAndPhotos",
+      "source_revision": "d506784381d5023a106bd1902bf613026ea9eefd",
+      "os": "27.0",
+      "device": "iPhone 18 Pro"
+    }
+  ],
+  "model_checks": [
+    {
+      "filter": "testHomeDoesNotTreatAnUnreadOrRetiredAccountListAsFirstUse",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "filter": "ConnectedDetailPresentationTests",
+      "passed": 6,
+      "failed": 0
+    }
+  ],
+  "configuration_checks": {
+    "native_provider_debug": 11,
+    "native_provider_release": 11,
+    "release_forced_off_settings": 2
+  },
+  "builds": {
+    "debug": "passed",
+    "release": "passed",
+    "release_source": "eddb7da97f3c38135bf855cc1c73930154fb0713",
+    "release_log": "build_sim_2026-10-05T18-46-54-165Z_pid64643_89ab735e.log",
+    "release_warning": "Existing weak capture of auth in ConnectedCuadraoRoot.swift:27"
+  },
+  "manual_checks": [
+    {
+      "name": "Account read failure and retry",
+      "source": "eddb7da97f3c38135bf855cc1c73930154fb0713",
+      "result": "passed",
+      "read_faults_consumed": 1,
+      "screenshots": [
+        "connected/home-account-read-failed-spanish.png",
+        "connected/home-account-read-recovered-spanish.png"
+      ]
+    },
+    {
+      "name": "Accessibility XXXL header and real currency menu",
+      "source": "eddb7da97f3c38135bf855cc1c73930154fb0713",
+      "result": "passed",
+      "screenshot": "connected/home-largest-text-spanish.png",
+      "observed_currency_change": "Known DOP amount to unknown USD, no invented zero"
+    }
+  ],
+  "evidence_retention": "eddb7da97 only changes balance layout at accessibility sizes. Standard-size final screenshots and real currency selection were checked. Earlier commands, recovery, record models and gesture actions remain unchanged. Later integration merges have no financial or UI overlap.",
+  "physical_phone": "pending; neither installed app modified",
+  "performance": "not assessed; runtime invalid-frame warnings retained above"
+}

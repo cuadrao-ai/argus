@@ -1,0 +1,12 @@
+[
+  {
+    "path": "ui-build.log",
+    "original_sha256": "de81d18eceb7766ae66a1a5c73d4e77e79401de9f06a223bc48377833a9c7379",
+    "published_sha256": "e9194e017e134e15455c75f10d38c15ee1030a60296325f480983db9bea25bcf"
+  },
+  {
+    "path": "apple-and-gallery-ui.log",
+    "original_sha256": "96686024bf361b3222a20505485c3e3b1b943f240a3b778b33584689eaa0c0c9",
+    "published_sha256": "87e446054c41326d613c06e95b6c2bdee213563f907913692dc27879dc0b6d71"
+  }
+]

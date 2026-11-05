@@ -1,0 +1,59 @@
+.screen {
+  overflow-wrap: anywhere;
+  --field-surface: transparent;
+  --auth-paper: var(--cuadrao-cream);
+  min-height: 100dvh;
+  padding: 2rem 1.5rem;
+  background: var(--cuadrao-cream);
+  color: var(--auth-ink);
+}
+.column { width: 100%; max-width: 36rem; margin-inline: auto; }
+.card { border: 1px solid var(--auth-line); border-radius: 20px; padding: 1.75rem; }
+.submit { width: 100%; min-height: 3.25rem; }
+@media (max-width: 30rem) { .card { padding: 1.25rem; } }
+@media (min-width: 48rem) { .screen { padding-block: 3.5rem; } }
+
+.sessions { margin-top: 1.25rem; }
+.sessionList { margin-top: 1rem; }
+.sessionRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding-block: 1rem;
+}
+.sessionRow + .sessionRow { border-top: 1px solid var(--auth-line); }
+.sessionRow:first-child { padding-top: 0; }
+.sessionRow:last-child { padding-bottom: 0; }
+.sessionRow[data-scope="global"] { margin-top: 0.5rem; padding-top: 1.25rem; }
+.sessionCopy { min-width: 0; }
+.screen .sessions .sessionTitle {
+  color: var(--auth-ink);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.screen .sessions .sessionHint {
+  margin-top: 0.25rem;
+  color: var(--auth-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.screen .sessions button.sessionAction {
+  min-height: 44px;
+  padding-inline: 0.75rem;
+  background-color: transparent;
+  color: var(--cuadrao-green);
+  font-size: 0.875rem;
+  white-space: normal;
+  max-width: 100%;
+  text-align: center;
+}
+.screen .sessions button.sessionAction:hover:not(:disabled) { background-color: var(--auth-sage); }
+.screen .sessions button.sessionAction:disabled { cursor: not-allowed; }
+@media (max-width: 35rem) {
+  .sessionRow { grid-template-columns: minmax(0, 1fr); gap: 0.25rem; }
+  .sessionAction { justify-self: start; margin-left: -0.75rem; }
+  .sessionRow[data-scope="global"] .sessionAction { margin-left: 0; margin-top: 0.5rem; }
+}

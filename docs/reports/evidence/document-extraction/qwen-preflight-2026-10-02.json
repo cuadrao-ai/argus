@@ -1,0 +1,271 @@
+{
+  "mode": "offline_preflight_with_scripted_provider",
+  "model": "qwen/qwen3.7-plus",
+  "captured_at": "2026-10-02T17:09:44.755609+00:00",
+  "paid_calls": 0,
+  "prior_reserved_usd": "1.4030075136",
+  "remaining_reserved_capacity_usd": "0.5969924864",
+  "price_admission": "no_bounded_endpoint",
+  "endpoint_snapshot": [
+    {
+      "name": "Alibaba | qwen/qwen3.7-plus-20260602",
+      "model_id": "qwen/qwen3.7-plus",
+      "model_name": "Qwen: Qwen3.7 Plus",
+      "context_length": 1000000,
+      "pricing": {
+        "prompt": "0.00000032",
+        "completion": "0.00000128",
+        "input_cache_read": "0.000000064",
+        "input_cache_write": "0.0000004",
+        "discount": 0,
+        "overrides": [
+          {
+            "min_prompt_tokens": 256000,
+            "prompt": "0.00000096",
+            "completion": "0.00000384",
+            "input_cache_read": "0.000000192",
+            "input_cache_write": "0.0000012"
+          }
+        ]
+      },
+      "provider_name": "Alibaba",
+      "tag": "alibaba",
+      "quantization": "unknown",
+      "max_completion_tokens": 131072,
+      "max_prompt_tokens": 983616,
+      "supported_parameters": [
+        "reasoning",
+        "include_reasoning",
+        "max_tokens",
+        "temperature",
+        "top_p",
+        "seed",
+        "presence_penalty",
+        "response_format",
+        "logprobs",
+        "top_logprobs",
+        "tools",
+        "tool_choice",
+        "structured_outputs",
+        "top_k",
+        "frequency_penalty",
+        "stop"
+      ],
+      "supports_tool_choice": {
+        "none": true,
+        "auto": true,
+        "required": true,
+        "function": true
+      },
+      "status": 0,
+      "uptime_last_30m": 99.97533858073531,
+      "uptime_last_5m": 99.95776432493312,
+      "uptime_last_1d": 99.9427593597469,
+      "supports_implicit_caching": false,
+      "native_tools": {},
+      "supports_voice_cloning": false,
+      "supports_multiple_audio_references": false,
+      "supports_image_reference": false,
+      "latency_last_30m": null,
+      "throughput_last_30m": null
+    }
+  ],
+  "results": [
+    {
+      "fixture_id": "statement-usd",
+      "fixture_sha256": "ecb9500f20c436b90373b8c3bae817c67b89c34329eee1cc399c67298e8e019d",
+      "request": {
+        "model": "qwen/qwen3.7-plus",
+        "max_tokens": 12000,
+        "provider": {
+          "require_parameters": true,
+          "data_collection": "deny",
+          "zdr": true,
+          "allow_fallbacks": false
+        },
+        "schema_sha256": "dd57d1e6e7dc5e8f8315e23dbcd9cd054be60e88a28fcefb598f45d6271037f6",
+        "images": [
+          {
+            "file": "qwen-preflight-statement-usd-p1.jpg",
+            "format": "JPEG",
+            "width": 1600,
+            "height": 1131,
+            "sha256": "bef6f4c94afe5abbe50db234ee540e4a1692a6fce498c801974cc488a7e68354",
+            "bytes": 67233
+          }
+        ],
+        "supplemental_pdf_text_present": true
+      },
+      "scripted_observations": [
+        {
+          "evidence": "transaction",
+          "amount": "40.25",
+          "currency": "usd",
+          "occurred_on": "2026-09-07",
+          "direction": "outflow",
+          "kind_hint": "expense"
+        },
+        {
+          "evidence": "transaction",
+          "amount": "100.00",
+          "currency": "usd",
+          "occurred_on": "2026-09-08",
+          "direction": "inflow",
+          "kind_hint": "income"
+        },
+        {
+          "evidence": "balance",
+          "amount": "100.00",
+          "currency": "USD",
+          "direction": "unknown"
+        },
+        {
+          "evidence": "balance",
+          "amount": "159.75",
+          "currency": "USD",
+          "direction": "unknown"
+        }
+      ],
+      "canonical_candidates": [
+        {
+          "evidence": "transaction",
+          "occurred_on": "2026-09-07",
+          "amount": "40.25",
+          "currency": "USD",
+          "direction": "outflow",
+          "kind_hint": "expense",
+          "uncertain": []
+        },
+        {
+          "evidence": "transaction",
+          "occurred_on": "2026-09-08",
+          "amount": "100",
+          "currency": "USD",
+          "direction": "inflow",
+          "kind_hint": "income",
+          "uncertain": []
+        },
+        {
+          "evidence": "balance",
+          "occurred_on": null,
+          "amount": "100",
+          "currency": "USD",
+          "direction": "unknown",
+          "kind_hint": "unknown",
+          "uncertain": [
+            "occurred_on"
+          ]
+        },
+        {
+          "evidence": "balance",
+          "occurred_on": null,
+          "amount": "159.75",
+          "currency": "USD",
+          "direction": "unknown",
+          "kind_hint": "unknown",
+          "uncertain": [
+            "occurred_on"
+          ]
+        }
+      ],
+      "score": {
+        "expected_transactions": 2,
+        "observed_transactions": 2,
+        "exact_matches": 2,
+        "missing_or_mismatched": 0,
+        "invented_or_mismatched": 0,
+        "field_multiset_matches": {
+          "amount": 2,
+          "currency": 2,
+          "date": 2,
+          "direction": 2
+        },
+        "field_denominator": 2,
+        "balance_candidates": 2,
+        "balances_as_transactions": 0
+      },
+      "schema_validation": "passed",
+      "candidate_validation": "passed"
+    },
+    {
+      "fixture_id": "receipt-dop",
+      "fixture_sha256": "009f3082c0052c66be647a12a9c0967470c041fb648733cf45ba077740da25c3",
+      "request": {
+        "model": "qwen/qwen3.7-plus",
+        "max_tokens": 12000,
+        "provider": {
+          "require_parameters": true,
+          "data_collection": "deny",
+          "zdr": true,
+          "allow_fallbacks": false
+        },
+        "schema_sha256": "dd57d1e6e7dc5e8f8315e23dbcd9cd054be60e88a28fcefb598f45d6271037f6",
+        "images": [
+          {
+            "file": "qwen-preflight-receipt-dop-p1.jpg",
+            "format": "JPEG",
+            "width": 1100,
+            "height": 700,
+            "sha256": "6618f51e9f70c0acdf4a373c47e41ccaa2a7c3a60cf0ca0e18d23be1b7d77448",
+            "bytes": 52167
+          }
+        ],
+        "supplemental_pdf_text_present": false
+      },
+      "scripted_observations": [
+        {
+          "evidence": "transaction",
+          "amount": "250.50",
+          "currency": "dop",
+          "occurred_on": "2026-09-10",
+          "direction": "outflow",
+          "kind_hint": "expense"
+        }
+      ],
+      "canonical_candidates": [
+        {
+          "evidence": "transaction",
+          "occurred_on": "2026-09-10",
+          "amount": "250.5",
+          "currency": "DOP",
+          "direction": "outflow",
+          "kind_hint": "expense",
+          "uncertain": []
+        }
+      ],
+      "score": {
+        "expected_transactions": 1,
+        "observed_transactions": 1,
+        "exact_matches": 1,
+        "missing_or_mismatched": 0,
+        "invented_or_mismatched": 0,
+        "field_multiset_matches": {
+          "amount": 1,
+          "currency": 1,
+          "date": 1,
+          "direction": 1
+        },
+        "field_denominator": 1,
+        "balance_candidates": 0,
+        "balances_as_transactions": 0
+      },
+      "schema_validation": "passed",
+      "candidate_validation": "passed"
+    }
+  ],
+  "base_code_head": "1d26838355bd8352ce67cd78648a10bbcfb28aef",
+  "code_delta": "Scorer excludes exact expected transaction matches before counting balance-valued surplus rows.",
+  "diagnostic_calls_authorized": 2,
+  "diagnostic_calls_dispatched": 0,
+  "actual_new_cost_usd": "0",
+  "model_latency_ms": null,
+  "live_extraction_results": null,
+  "live_acceptance_passed": false,
+  "remaining_blocker": "Qwen pricing is not admitted by the existing conservative reservation guard under the cumulative USD 2 cap.",
+  "lowest_tier_two_request_reservation_usd": "0.67072",
+  "lowest_tier_cumulative_reservation_usd": "2.0737275136",
+  "long_context_two_request_reservation_before_cache_write_usd": "2.01216",
+  "endpoint_source": "https://openrouter.ai/api/v1/models/qwen/qwen3.7-plus/endpoints",
+  "image_readability": "Both outgoing synthetic JPEGs visually inspected; text and expected rows readable. No provider receipt or live model readability claim.",
+  "offline_validation": "80 focused document tests passed; Ruff passed."
+}

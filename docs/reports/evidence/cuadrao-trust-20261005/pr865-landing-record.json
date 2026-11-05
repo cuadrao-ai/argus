@@ -1,0 +1,44 @@
+{
+  "pr": 865,
+  "head": "4887769303119a6cdd9995034997e1a4c011448e",
+  "original_integration_base": "7018e0edebbc370b999005a857230bf3c3a1ad8b",
+  "run_original_integration_base": "875de09ac2115acec42e09060b92878aa5f18eff",
+  "reconciliation_merge": "742b952bab9f2073fbfd49f00a394b4a2e4cd6c6",
+  "integration_parent": "dd04130e8aa174db3de6139541d3b2e0f36868d0",
+  "merge": "ce7c7350af9a75019a622016ce3a65dbd17e1cc8",
+  "merged_at": "2026-10-06T00:55:34Z",
+  "tree": "112ed7a7cbcf00f7f6bf0d8c12d8a6fe2824a6a5",
+  "tree_equal": true,
+  "review": "https://github.com/lagarcess/argus/pull/865#pullrequestreview-5422506925",
+  "terminal_audit": "https://github.com/lagarcess/argus/pull/865#issuecomment-6006966785",
+  "ci": {
+    "success": 16,
+    "expected_skip": 3,
+    "failure": 0,
+    "pending": 0
+  },
+  "review_threads": 0,
+  "local_proof": {
+    "independent_config": 72,
+    "independent_recovery": 51,
+    "recovery_assertions": 159,
+    "independent_actual_bash32_loader": 17,
+    "author_mocked": 272
+  },
+  "configuration_names": [
+    "ARGUS_TRUSTED_CLIENT_IP_HEADER"
+  ],
+  "configuration_disposition": "existing API setting shared via Render YAML anchor to web; WEB release membership derives from canonical validated profile; safe example only, no hosted application",
+  "scope_and_limits": "Spoofed forwarded header cannot rotate recovery per-IP key; no silent fallback. Hosted ingress/origin sanitization694/832, fleetwide limits671 and deployment/readback remain gates. Integrationdd041 dependency install failed before tests; owned870 exact-SHA failed-job retry passed and narrow issue closed.",
+  "housekeeping": "pending protected-branch PR860",
+  "integration_checks": {
+    "CI": {
+      "run": 37396531862,
+      "conclusion": "success"
+    },
+    "Private Alpha Local Smoke": {
+      "run": 37396531822,
+      "conclusion": "success"
+    }
+  }
+}

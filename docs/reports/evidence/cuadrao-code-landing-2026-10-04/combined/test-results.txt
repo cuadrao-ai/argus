@@ -1,0 +1,16 @@
+Candidate: 25ce9a4d1a93516b21c3d52723b95468e5cbe149
+ios tree: e2404d5e1d05d51761343cd18d7747605d884794
+Device: iPhone 17e / iOS 27.0 / 8B7975F1-1338-4966-90E2-770416CAF174
+
+Test Case '-[ArgusFoundationUITests.CuadraoContextUITests testChartContextKeepsPeriodAndDistributionSelection]' passed (22.161 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoHomeChartUITests testInteractivePagingAndBalanceMeaning]' passed (14.157 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoHomeChartUITests testSpendingHighlightsAndReturn]' passed (40.991 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoSupportUITests testSearchPlansChatReturnAndRecovery]' passed (30.835 seconds).
+Test Case '-[ArgusFoundationUITests.InvitationsUITests testAnAccessCheckWithoutAnAnswerKeepsTheAppClosed]' passed (7.273 seconds).
+Test Case '-[ArgusFoundationUITests.InvitationsUITests testFounderSeesGroupLinkUsageFullAndExpiredAndCreatesOne]' passed (19.361 seconds).
+Test Case '-[ArgusFoundationUITests.InvitationsUITests testGateExplainsEachCodeOutcomeAndAdmitsWithAValidCode]' passed (41.926 seconds).
+Test Case '-[ArgusFoundationUITests.InvitationsUITests testHouseholdCodesAndLinksGoToTheHouseholdJoinStep]' passed (16.114 seconds).
+Test Case '-[ArgusFoundationUITests.InvitationsUITests testPersonalInvitationsShowTheServersQuotaAndOneTimeSecrets]' passed (12.276 seconds).
+Test Case '-[ArgusFoundationUITests.InvitationsUITests testWithTheClientFlagOffTheAppOpensAtOnceWithoutInvitations]' passed (5.404 seconds).
+
+Executed 10 tests, 0 failures, 0 skipped. TEST SUCCEEDED.

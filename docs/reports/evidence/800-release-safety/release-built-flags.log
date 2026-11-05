@@ -1,0 +1,3 @@
+ARGUS_APPLE_SIGN_IN_ENABLED=true
+ARGUS_GOOGLE_SIGN_IN_ENABLED=true
+Release runtime hides both despite these forced-on build flags.

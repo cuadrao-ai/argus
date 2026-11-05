@@ -1,0 +1,20 @@
+Test Suite 'Selected tests' started at 2026-10-05 15:03:34.932.
+Test Suite 'ArgusSessionTests.xctest' started at 2026-10-05 15:03:34.933.
+Test Suite 'LiveFinancialAccountTests' started at 2026-10-05 15:03:34.933.
+Test Case '-[ArgusSessionTests.LiveFinancialAccountTests testLocalDurableAccountsThroughProductionClient]' started.
+Test Case '-[ArgusSessionTests.LiveFinancialAccountTests testLocalDurableAccountsThroughProductionClient]' passed (0.827 seconds).
+Test Suite 'LiveFinancialAccountTests' passed at 2026-10-05 15:03:35.760.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.827 (0.827) seconds
+Test Suite 'LiveSessionTests' started at 2026-10-05 15:03:35.760.
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveConcurrentRefreshAfterExpiryMargin]' started.
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveConcurrentRefreshAfterExpiryMargin]' passed (31.694 seconds).
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveInvalidLoginAndConfirmationRequiredSignup]' started.
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveInvalidLoginAndConfirmationRequiredSignup]' passed (0.178 seconds).
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveRegisteredRelaunchRevocationAndAccountSwitch]' started.
+Test Case '-[ArgusSessionTests.LiveSessionTests testLiveRegisteredRelaunchRevocationAndAccountSwitch]' passed (0.549 seconds).
+Test Suite 'LiveSessionTests' passed at 2026-10-05 15:04:08.181.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 32.421 (32.421) seconds
+Test Suite 'ArgusSessionTests.xctest' passed at 2026-10-05 15:04:08.181.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 33.248 (33.248) seconds
+Test Suite 'Selected tests' passed at 2026-10-05 15:04:08.181.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 33.248 (33.249) seconds

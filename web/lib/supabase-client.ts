@@ -1,6 +1,9 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { observeBrowserAuth } from "./browser-auth-generation";
+import { synchronizeBusinessAccount } from "./business-grant";
+
 let cachedClient: SupabaseClient | null | undefined;
 
 export function getSupabaseClient(): SupabaseClient | null {
@@ -28,6 +31,11 @@ export function getSupabaseClient(): SupabaseClient | null {
       // distinguish valid, expired, and reused recovery links.
       detectSessionInUrl: false,
     },
+  });
+  cachedClient.auth.onAuthStateChange((_event, session) => {
+    const userId = session?.user.id ?? null;
+    observeBrowserAuth(userId);
+    synchronizeBusinessAccount(userId);
   });
   return cachedClient;
 }

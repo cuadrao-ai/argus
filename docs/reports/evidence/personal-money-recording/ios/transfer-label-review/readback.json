@@ -1,0 +1,40 @@
+{
+  "read_after": "2026-09-29T16:52:33.130775+00:00",
+  "synthetic_data": true,
+  "api": "http://127.0.0.1:58500/api/v1",
+  "unchanged": true,
+  "before": {
+    "Transfer bank DBA3B": {
+      "id": "ce6cf06f-7990-4f49-a7ed-dfe0bed88e78",
+      "balance": "750.00",
+      "version": 5
+    },
+    "Transfer cash DBA3B": {
+      "id": "623be4d9-39fb-4952-8e30-f3254fc4dab9",
+      "balance": "225.00",
+      "version": 4
+    },
+    "Everyday card FC26C": {
+      "id": "bd057884-7a06-4207-af5c-826e7cc0232a",
+      "balance": "30.00",
+      "version": 6
+    }
+  },
+  "after": {
+    "Transfer bank DBA3B": {
+      "id": "ce6cf06f-7990-4f49-a7ed-dfe0bed88e78",
+      "balance": "750.00",
+      "version": 5
+    },
+    "Transfer cash DBA3B": {
+      "id": "623be4d9-39fb-4952-8e30-f3254fc4dab9",
+      "balance": "225.00",
+      "version": 4
+    },
+    "Everyday card FC26C": {
+      "id": "bd057884-7a06-4207-af5c-826e7cc0232a",
+      "balance": "30.00",
+      "version": 6
+    }
+  }
+}

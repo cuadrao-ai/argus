@@ -1,0 +1,23 @@
+warning: /Users/garces/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/garces/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+Building for debugging...
+[Using on-disk description]
+[2 / 5] ArgusSessionTests-product
+[4 / 7] ArgusSessionTests-product
+[10 / 12] ArgusSessionTests-product
+Build complete! (1.09 sec)
+Test Suite 'Selected tests' started at 2026-10-05 21:12:26.916.
+Test Suite 'ArgusSessionTests.xctest' started at 2026-10-05 21:12:26.917.
+Test Suite 'IndependentAppleNameBoundaryTests' started at 2026-10-05 21:12:26.917.
+Test Case '-[ArgusSessionTests.IndependentAppleNameBoundaryTests testAccountSwitchRefusesStaleNameRetryAndDoesNotSeedNewOwner]' started.
+Test Case '-[ArgusSessionTests.IndependentAppleNameBoundaryTests testAccountSwitchRefusesStaleNameRetryAndDoesNotSeedNewOwner]' passed (0.006 seconds).
+Test Case '-[ArgusSessionTests.IndependentAppleNameBoundaryTests testCaptureOutageStillSavesCanonicalNameAndNeverReplaysCode]' started.
+Test Case '-[ArgusSessionTests.IndependentAppleNameBoundaryTests testCaptureOutageStillSavesCanonicalNameAndNeverReplaysCode]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.IndependentAppleNameBoundaryTests testSubsequentGrantWithoutFullNameDoesNotReseedCanonicalName]' started.
+Test Case '-[ArgusSessionTests.IndependentAppleNameBoundaryTests testSubsequentGrantWithoutFullNameDoesNotReseedCanonicalName]' passed (0.002 seconds).
+Test Suite 'IndependentAppleNameBoundaryTests' passed at 2026-10-05 21:12:26.926.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.009 (0.010) seconds
+Test Suite 'ArgusSessionTests.xctest' passed at 2026-10-05 21:12:26.926.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.009 (0.010) seconds
+Test Suite 'Selected tests' passed at 2026-10-05 21:12:26.927.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.009 (0.010) seconds

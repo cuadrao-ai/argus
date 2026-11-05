@@ -1,0 +1,32 @@
+{
+  "source_head": "f303903fdcfe8478fef33d877a2e70356c699523",
+  "date_context": "2026-10-05 America/Chicago",
+  "attempts": 1,
+  "exit_code": 70,
+  "result": "destination_rejected_before_compilation",
+  "configuration": "Release",
+  "sdk": "iphoneos",
+  "destination": "generic/platform=iOS",
+  "signing_disabled": {
+    "CODE_SIGNING_ALLOWED": "NO",
+    "CODE_SIGNING_REQUIRED": "NO",
+    "CODE_SIGN_IDENTITY": "",
+    "DEVELOPMENT_TEAM": ""
+  },
+  "cached_dependencies_only": true,
+  "package_resolution_disabled": true,
+  "source_config": "ios/Config/Development.xcconfig:12",
+  "source_config_value": "SUPPORTED_PLATFORMS = iphonesimulator",
+  "error": "Unable to find a destination matching the provided destination specifier. Any iOS Device platform does not match the app supported platforms.",
+  "archive_created": false,
+  "official_privacy_report_generated": false,
+  "distribution_signatures_verified": false,
+  "tests_executed_in_archive_attempt": 0,
+  "simulators_launched": 0,
+  "project_or_source_edits": 0,
+  "raw_log_sha256": "175bb6eda7e28d9dce3866ce208792385c6cfe39a6cc0ec14b9caad6bcf65842",
+  "raw_log_committed": false,
+  "native_diff_from_cc58": [],
+  "created_derived_data_removed": true,
+  "mac_lease_released": true
+}

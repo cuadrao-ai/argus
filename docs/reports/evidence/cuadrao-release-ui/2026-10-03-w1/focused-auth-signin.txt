@@ -1,0 +1,1 @@
+CuadraoSignInPresentationUITests testDefaultLaunchOffersNoAppleSignIn passed

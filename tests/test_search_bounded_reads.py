@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import pytest
+from argus.domain.owner_scope import PERSONAL
 
 
 class _RecordingCursor:
@@ -207,6 +208,7 @@ def test_search_first_page_is_one_candidate_one_hydration_and_one_ledger_read() 
     )
 
     result = reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="search",
         source_limit=4,
@@ -273,6 +275,7 @@ def test_search_hydrates_latest_recall_decision_without_a_run_dossier() -> None:
     )
 
     result = reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="search",
         source_limit=4,
@@ -298,6 +301,7 @@ def test_search_visible_id_recall_is_one_bounded_hydration_and_one_ledger_read()
     )
 
     result = reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="",
         source_limit=1,
@@ -327,6 +331,7 @@ def test_search_visible_id_recall_rejects_more_than_fifty_before_database_read()
 
     with pytest.raises(ValueError, match="at most 50"):
         reader_type(pool).search_rows(
+            scope=PERSONAL,
             user_id=OWNER_ID,
             query="",
             source_limit=50,
@@ -344,6 +349,7 @@ def test_search_rejects_nonpositive_bound_before_database_read() -> None:
 
     with pytest.raises(ValueError, match="positive"):
         reader_type(pool).search_rows(
+            scope=PERSONAL,
             user_id=OWNER_ID,
             query="search",
             source_limit=0,
@@ -360,6 +366,7 @@ def test_search_defers_nonempty_queries_without_an_indexable_token(
     pool = _RecordingPool([])
 
     result = reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query=query,
         source_limit=4,
@@ -384,6 +391,7 @@ def test_search_allows_symbol_only_queries_without_text_scans(symbol: str) -> No
     pool = _RecordingPool([[], []])
 
     result = reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query=symbol,
         source_limit=4,
@@ -418,6 +426,7 @@ def test_empty_search_keeps_recents_and_ledger_reads_enabled() -> None:
     pool = _RecordingPool([[], []])
 
     result = reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="",
         source_limit=4,
@@ -458,6 +467,7 @@ def test_symbol_only_search_accepts_a_conversation_cursor() -> None:
     pool = _RecordingPool([[_conversation_candidate()], []])
 
     result = reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="ba",
         source_limit=4,
@@ -476,6 +486,7 @@ def test_symbol_only_search_uses_exact_run_symbols_without_broad_text() -> None:
     pool = _RecordingPool([[]])
 
     reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="ba",
         source_limit=4,
@@ -521,6 +532,7 @@ def test_search_cursor_missing_foreign_or_ambiguous_pivot_fails_closed(
 
     with pytest.raises(cursor_error):
         reader_type(pool).search_rows(
+            scope=PERSONAL,
             user_id=OWNER_ID,
             query="search",
             source_limit=4,
@@ -537,6 +549,7 @@ def test_search_naive_cursor_fails_before_database_read() -> None:
 
     with pytest.raises(cursor_error):
         reader_type(pool).search_rows(
+            scope=PERSONAL,
             user_id=OWNER_ID,
             query="search",
             source_limit=4,
@@ -559,6 +572,7 @@ def test_search_noncanonical_cursor_uuid_fails_before_database_read(
 
     with pytest.raises(cursor_error):
         reader_type(pool).search_rows(
+            scope=PERSONAL,
             user_id=OWNER_ID,
             query="search",
             source_limit=4,
@@ -574,6 +588,7 @@ def test_search_nul_query_keeps_normalized_text_but_never_binds_raw_nul() -> Non
     pool = _RecordingPool([[]])
 
     reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="nee\x00dle",
         source_limit=4,
@@ -590,6 +605,7 @@ def test_search_binds_punctuation_preserving_single_symbol_query() -> None:
     pool = _RecordingPool([[]])
 
     reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="  bTc/uSd  ",
         source_limit=4,
@@ -617,6 +633,7 @@ def test_search_does_not_bind_true_multi_symbol_query() -> None:
     pool = _RecordingPool([[]])
 
     reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="BTC/USD TSLA",
         source_limit=4,
@@ -632,6 +649,7 @@ def test_search_uses_bound_token_array_without_row_token_splitting() -> None:
     pool = _RecordingPool([[]])
 
     reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="Alpha x beta alpha",
         source_limit=4,
@@ -654,6 +672,7 @@ def test_search_sql_shape_is_constant_as_token_count_grows() -> None:
     def rendered_sql_shape(query: str) -> tuple[int, int]:
         pool = _RecordingPool([[]])
         reader_type(pool).search_rows(
+            scope=PERSONAL,
             user_id=OWNER_ID,
             query=query,
             source_limit=4,
@@ -671,6 +690,7 @@ def test_search_groups_all_matching_layers_before_conversation_limit() -> None:
     pool = _RecordingPool([[]])
 
     reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="alpha",
         source_limit=4,
@@ -700,6 +720,7 @@ def test_conversation_symbol_rank_uses_canonical_expanding_casefold() -> None:
     pool = _RecordingPool([[]])
 
     reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="ss/eur",
         source_limit=2,
@@ -739,6 +760,7 @@ def test_asset_rollup_is_one_bounded_owner_scoped_row_outside_conversation_limit
     )
 
     result = reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="tsl",
         source_limit=4,
@@ -769,6 +791,7 @@ def test_asset_rollup_bounds_indexed_symbol_candidates_before_lineage_hydration(
     pool = _RecordingPool([[]])
 
     reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="gold",
         source_limit=4,
@@ -824,6 +847,7 @@ def test_search_guest_workspace_scope_is_inside_every_match_layer_before_limit()
     pool = _RecordingPool([[]])
 
     reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="alpha",
         source_limit=1,
@@ -850,6 +874,7 @@ def test_search_decision_filter_and_ledger_match_all_conversation_layers() -> No
     pool = _RecordingPool([[], []])
 
     reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="alpha",
         source_limit=4,
@@ -917,6 +942,7 @@ def test_search_cursor_pivots_on_conversation_projection_and_canonical_activity(
     pool = _RecordingPool([[_conversation_candidate()], []])
 
     reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="Alpha x",
         source_limit=4,
@@ -940,6 +966,7 @@ def test_search_hydration_is_one_owner_scoped_full_aggregate_without_child_cap()
     pool = _RecordingPool([[_conversation_candidate()], [_hydration_row()]])
 
     result = reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="search",
         source_limit=4,
@@ -976,6 +1003,7 @@ def test_search_hydration_projects_only_a_bounded_untaken_suggestion_bit() -> No
     pool = _RecordingPool([[_conversation_candidate()], [_hydration_row()]])
 
     reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="search",
         source_limit=4,
@@ -997,6 +1025,7 @@ def test_search_hydration_activity_mirrors_ranked_message_activity_scope() -> No
     pool = _RecordingPool([[_conversation_candidate()], [_hydration_row()]])
 
     reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="search",
         source_limit=4,
@@ -1026,6 +1055,7 @@ def test_search_full_aggregate_projects_exact_dossier_without_hydrating_all_chil
     reader_type, _ = _reader_types()
     pool = _RecordingPool([[_conversation_candidate()], [_hydration_row()]])
     result = reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="search",
         source_limit=4,
@@ -1099,6 +1129,7 @@ def test_persistent_title_match_never_trusts_an_unrelated_preview_hint() -> None
     )
     reader_type, _ = _reader_types()
     result = reader_type(_RecordingPool([[candidate], [hydration]])).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="gold",
         source_limit=4,
@@ -1136,6 +1167,7 @@ def test_persistent_preview_match_returns_preview_with_unrelated_title() -> None
     )
     reader_type, _ = _reader_types()
     result = reader_type(_RecordingPool([[candidate], [hydration]])).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="gold",
         source_limit=4,
@@ -1209,6 +1241,7 @@ def test_conversation_recall_caps_every_source_before_window_ranking() -> None:
     pool = _RecordingPool([[]])
 
     reader_type(pool).search_rows(
+        scope=PERSONAL,
         user_id=OWNER_ID,
         query="the",
         source_limit=30,

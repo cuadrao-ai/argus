@@ -140,12 +140,6 @@ No model or provider choice should be hardcoded into user-facing code.
 Suggested future config:
 
 ```bash
-ARGUS_RESEARCH_LAB_ENABLED=false
-ARGUS_PERPLEXITY_RESEARCH_MODEL_CHAIN=openai/gpt-5.4-nano,google/gemini-3.1-flash-lite,perplexity/sonar,nvidia/nemotron-3-super-120b-a12b,xai/grok-4.3
-ARGUS_PERPLEXITY_MAX_TOOL_CALLS=6
-ARGUS_PERPLEXITY_SEARCH_CONTEXT_SIZE=low
-ARGUS_RESEARCH_MAX_SOURCES=8
-ARGUS_RESEARCH_MAX_TEST_IDEAS=4
 ```
 
 The model chain above reflects the product hypothesis discussed on June 9,
@@ -207,7 +201,7 @@ The first implementation PR is not acceptable unless:
 - backtest result prose still comes from the established Argus explanation path;
 - provider/tool details remain internal unless intentionally surfaced as source
   metadata;
-- the feature is gated by `ARGUS_RESEARCH_LAB_ENABLED`;
+- the feature is gated by `[removed obsolete setting]`;
 - no service-role or provider secret reaches the frontend;
 - route receipts give enough evidence to debug cost, source quality, and tool
   usage.

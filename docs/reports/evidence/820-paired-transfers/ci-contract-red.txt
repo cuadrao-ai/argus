@@ -1,0 +1,37 @@
+Command: /private/tmp/cuadrao-scipy-env-20261005/bin/python -m pytest --no-cov -q --tb=short tests/test_environment_scripts.py::test_render_blueprint_declares_shared_render_env_contract_vars tests/test_environment_scripts.py::test_render_env_sync_audit_uses_large_render_env_page tests/test_environment_scripts.py::test_render_env_sync_audit_includes_workflow_env_parity tests/test_environment_scripts.py::test_render_env_sync_audit_accepts_required_turnstile_site_key tests/test_environment_scripts.py::test_render_env_sync_skips_workflow_env_gate_outside_real_workflow_mode tests/test_environment_scripts.py::test_render_env_sync_audit_workflow_secrets_ready_without_local_secrets tests/test_private_alpha_release_profile.py::test_render_blueprint_matches_the_authoritative_nonsecret_profile tests/test_render_release_profile_contract.py::test_render_env_sync_audit_accepts_manual_deploys_on_all_three tests/test_paired_transfers_postgres.py
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: /private/tmp/cuadrao-paired-transfer-20261005
+configfile: pyproject.toml
+plugins: benchmark-5.2.3, mock-3.15.1, Faker-30.10.0, asyncio-1.4.0, hypothesis-6.151.12, langsmith-0.7.31, respx-0.23.1, cov-7.0.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 11 items
+
+tests/test_environment_scripts.py FFFFFF                                 [ 54%]
+
+Decisive failure excerpts from the complete local log:
+E   psycopg.OperationalError: connection is bad: connection to server on socket "/tmp/.s.PGSQL.5432" failed: No such file or directory
+E   psycopg.OperationalError: connection is bad: connection to server on socket "/tmp/.s.PGSQL.5432" failed: No such file or directory
+E   psycopg.OperationalError: connection is bad: connection to server on socket "/tmp/.s.PGSQL.5432" failed: No such file or directory
+E     'CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED'
+E     forbidden argus-api:CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED unexpected_live_env
+E     forbidden argus-api:CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED unexpected_live_env
+E     forbidden argus-api:CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED unexpected_live_env
+E     forbidden argus-api:CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED unexpected_live_env
+E     forbidden argus-api:CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED unexpected_live_env
+E     'CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED'
+E     forbidden argus-api:CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED unexpected_live_env
+=========================== short test summary info ============================
+FAILED tests/test_environment_scripts.py::test_render_blueprint_declares_shared_render_env_contract_vars
+FAILED tests/test_environment_scripts.py::test_render_env_sync_audit_uses_large_render_env_page
+FAILED tests/test_environment_scripts.py::test_render_env_sync_audit_includes_workflow_env_parity
+FAILED tests/test_environment_scripts.py::test_render_env_sync_audit_accepts_required_turnstile_site_key
+FAILED tests/test_environment_scripts.py::test_render_env_sync_skips_workflow_env_gate_outside_real_workflow_mode
+FAILED tests/test_environment_scripts.py::test_render_env_sync_audit_workflow_secrets_ready_without_local_secrets
+FAILED tests/test_private_alpha_release_profile.py::test_render_blueprint_matches_the_authoritative_nonsecret_profile
+FAILED tests/test_render_release_profile_contract.py::test_render_env_sync_audit_accepts_manual_deploys_on_all_three
+ERROR tests/test_paired_transfers_postgres.py::test_concurrent_lost_response_pair_is_one_committed_revision
+ERROR tests/test_paired_transfers_postgres.py::test_failure_after_persisted_pair_rolls_back_before_receipt
+ERROR tests/test_paired_transfers_postgres.py::test_unauthorized_and_stale_pair_have_no_protected_effect
+========================= 8 failed, 3 errors in 11.35s =========================

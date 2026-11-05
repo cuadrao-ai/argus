@@ -34,6 +34,12 @@ class GuestAccountPersistenceMixin:
             raise RuntimeError("Invalid or missing user in token response.")
         return response.user.model_dump(mode="json")
 
+    def refresh_browser_session(self, refresh_token: str) -> dict[str, Any]:
+        response = self._auth().refresh_session(refresh_token)
+        if not response or not response.session:
+            raise RuntimeError("Session renewal returned no session.")
+        return response.model_dump(mode="json")
+
     def private_alpha_email_disabled(self, email: str) -> bool:
         rows = (
             self.client.table("private_alpha_allowlist")
@@ -52,8 +58,7 @@ class GuestAccountPersistenceMixin:
         language: Language,
     ) -> dict[str, Any]:
         try:
-            auth_client = self.auth_client or self.client
-            response = auth_client.auth.sign_in_anonymously(
+            response = self._auth().sign_in_anonymously(
                 {
                     "options": {
                         "captcha_token": captcha_token,
@@ -225,36 +230,7 @@ class GuestAccountPersistenceMixin:
             "new_account_signup",
         }:
             payload["handoff_kind"] = str(handoff["handoff_kind"])
-        if (
-            payload.get("handoff_kind") == "new_account_signup"
-            and payload.get("replayed") is not True
-        ):
-            self._capture_shared_signup(
-                destination_user_id, payload.get("conversation_id")
-            )
         return payload
-
-    def _capture_shared_signup(self, user_id: str, conversation_id: Any) -> None:
-        """Best-effort count on the canonical, nonreplayed signup handoff."""
-        from argus.observability.product_events import capture_product_event
-
-        try:
-            imported = _row_one(
-                self.client.table("messages")
-                .select("id")
-                .eq("user_id", user_id)
-                .eq("conversation_id", str(conversation_id))
-                .contains("metadata", {"shared_conversation": {}})
-                .limit(1)
-                .execute()
-            )
-            if imported:
-                capture_product_event(
-                    "receipt_signed_up", user_id=None, status="signed_up"
-                )
-        except Exception:
-            # Counts never change a completed ownership transfer.
-            pass
 
     def get_active_guest_workspace(
         self,

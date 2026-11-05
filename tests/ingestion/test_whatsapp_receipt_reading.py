@@ -1,0 +1,418 @@
+"""A receipt sent by WhatsApp is read only while the owner's stored
+receipt-reading setting is on."""
+
+from collections.abc import Callable
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from typing import Any
+from unittest.mock import Mock
+from uuid import uuid4
+
+import pytest
+from argus.api import whatsapp as whatsapp_api
+from argus.api.document_jobs import (
+    drain_document_jobs,
+    start_document_jobs,
+    stop_document_jobs,
+)
+from argus.api.whatsapp import DocumentsDestination
+from argus.domain.business.spaces import InMemorySpaceStore
+from argus.domain.ingestion.connections import InMemoryConnectionRepository
+from argus.domain.ingestion.contract import ImportCandidate, SourceRef
+from argus.domain.ingestion.documents import worker as reading
+from argus.domain.ingestion.documents.config import DocumentJobSettings
+from argus.domain.ingestion.documents.models import ExtractionBatch
+from argus.domain.ingestion.documents.service import (
+    DocumentServiceError,
+    DocumentsService,
+)
+from argus.domain.ingestion.documents.store import InMemoryDocumentStore
+from argus.domain.ingestion.hub import IngestionHub
+from argus.domain.ingestion.sink import SubmitResult
+from argus.domain.ingestion.whatsapp.replies import ReplyFailed
+from argus.domain.ingestion.whatsapp.store import InMemoryWhatsAppStore
+
+from tests.business_reading_support import reading_setting, turn_reading
+from tests.document_extractor_support import StubPreparation, start_request
+from tests.ingestion import whatsapp_cases as cases
+from tests.ingestion.whatsapp_support import ALICE_PHONE, RECEIPT_PNG, Media
+
+
+class Extractor(StubPreparation):
+    def __init__(self) -> None:
+        self.calls = 0
+        self.fail = False
+        self.merchant: str | None = "Ferretería Ochoa"
+
+    async def extract(self, **kwargs: Any) -> ExtractionBatch:
+        await start_request(kwargs)
+        self.calls += 1
+        if self.fail:
+            raise RuntimeError("provider down")
+        return ExtractionBatch(
+            candidates=(
+                ImportCandidate(
+                    source=SourceRef(
+                        source="statement",
+                        connection_id=kwargs["connection_id"],
+                        external_id="document:p1:r1",
+                        observed_at=kwargs["observed_at"],
+                    ),
+                    evidence="transaction",
+                    amount="850.00",
+                    merchant=self.merchant,
+                    currency="DOP",
+                    direction="outflow",
+                ),
+            )
+        )
+
+
+def _world(*, on: bool) -> tuple[cases.World, Extractor, Callable[[bool], None]]:
+    """The world, the provider stand-in and the owner's setting switch."""
+
+    clock = cases.Clock()
+    connections = InMemoryConnectionRepository()
+    sink = Mock()
+    sink.submit.return_value = SubmitResult(1, 0, 0)
+    hub = IngestionHub(connections, box=None, sink=sink, clock=clock)
+    extractor = Extractor()
+    documents = DocumentsService(hub, InMemoryDocumentStore(connections), extractor)
+    setting = reading_setting()
+    documents.business_receipt_consent = setting
+    spaces, store = InMemorySpaceStore(), InMemoryWhatsAppStore()
+    world = cases.build_world(
+        documents=documents,
+        store=store,
+        clock=clock,
+        alice=str(uuid4()),
+        bob=str(uuid4()),
+        spaces=spaces,
+    )
+
+    def turn(enabled: bool) -> None:
+        turn_reading(setting, world.business(world.alice).space_id, world.alice, enabled)
+
+    turn(on)
+    world.intake.destination = DocumentsDestination(
+        documents,
+        spaces,
+        lambda owner: setting.enabled(world.business(owner).space_id, owner),
+    )
+    return world, extractor, turn
+
+
+async def _send(world: cases.World, message_id: str) -> str:
+    await world.link(world.alice, ALICE_PHONE)
+    world.graph.media["700000000000201"] = Media(RECEIPT_PNG, "image/png")
+    await world.deliver(cases.image("700000000000201", message_id))
+    [connection_id] = world.captures(world.alice)
+    return connection_id
+
+
+def _status(world: cases.World, connection_id: str) -> str:
+    return world.documents.get(
+        user_id=world.alice,
+        connection_id=connection_id,
+        scope=world.business(world.alice),
+    ).status
+
+
+@pytest.mark.asyncio
+async def test_with_the_switch_on_the_receipt_is_read_and_followed_up_once() -> None:
+    world, extractor, _ = _world(on=True)
+    connection_id = await _send(world, "wamid.READ-ON")
+    link = f"{cases.ORIGIN}/biz?receipt={connection_id}"
+    assert _status(world, connection_id) == "review_ready"
+    assert extractor.calls == 1
+    assert world.transport.bodies()[-2:] == [
+        "Recibido. Lo estoy leyendo.",
+        f"Leí: Ferretería Ochoa, 850 DOP. Revísalo antes de guardar: {link}",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_with_the_switch_off_the_receipt_waits_unread_and_no_follow_up() -> None:
+    world, extractor, _ = _world(on=False)
+    connection_id = await _send(world, "wamid.READ-OFF")
+    assert _status(world, connection_id) == "saved"
+    assert extractor.calls == 0
+    assert len(world.transport.sent) == 2
+    assert world.transport.bodies()[-1] == (
+        f"Recibido. Revísalo aquí: {cases.ORIGIN}/biz?receipt={connection_id}"
+    )
+
+
+class TestTheReadRunsOnThePuller:
+    """As in the running API: the delivery records the attempt and waits while
+    a puller reads it, then follows up with what it read."""
+
+    @pytest.fixture
+    def reads_finish_inside_the_request(self) -> None:
+        """The process's real puller reads here, not the delivery."""
+
+    @pytest.fixture
+    def puller(self, monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
+        monkeypatch.setenv("CUADRAO_DOCUMENT_EXTRACTION_ENABLED", "true")
+        # Only the delivery's own wake can start the read.
+        monkeypatch.setattr(reading, "POLL_SECONDS", 3600)
+        monkeypatch.setattr(whatsapp_api, "SETTLE_POLL_SECONDS", 0.01)
+
+        @asynccontextmanager
+        async def running(world: cases.World):  # noqa: ANN202
+            start_document_jobs(world.documents, DocumentJobSettings(sweep_seconds=3600))
+            try:
+                yield
+            finally:
+                await drain_document_jobs()
+                stop_document_jobs()
+
+        return running
+
+    @pytest.mark.asyncio
+    async def test_the_follow_up_carries_what_the_puller_read(self, puller) -> None:  # noqa: ANN001
+        world, extractor, _ = _world(on=True)
+        async with puller(world):
+            connection_id = await _send(world, "wamid.READ-PULLED")
+        link = f"{cases.ORIGIN}/biz?receipt={connection_id}"
+        job = world.documents.store.job(user_id=world.alice, connection_id=connection_id)
+        assert (job.attempt, job.dispatched_at is not None) == (1, True), "a pull took it"
+        assert (_status(world, connection_id), extractor.calls) == ("review_ready", 1)
+        assert world.transport.bodies()[-2:] == [
+            "Recibido. Lo estoy leyendo.",
+            f"Leí: Ferretería Ochoa, 850 DOP. Revísalo antes de guardar: {link}",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_a_read_no_puller_settles_in_time_still_sends_the_link(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(whatsapp_api, "SETTLE_POLL_SECONDS", 0.01)
+        monkeypatch.setattr(whatsapp_api, "read_seconds", lambda: 0.05)
+        world, extractor, _ = _world(on=True)
+        connection_id = await _send(world, "wamid.READ-WAITING")
+        job = world.documents.store.job(user_id=world.alice, connection_id=connection_id)
+        assert (job.attempt, job.dispatched_at) == (1, None), "it waits on its row"
+        assert (_status(world, connection_id), extractor.calls) == ("queued", 0)
+        assert world.transport.bodies()[-2:] == [
+            "Recibido. Lo estoy leyendo.",
+            f"Recibido. Revísalo aquí: {cases.ORIGIN}/biz?receipt={connection_id}",
+        ]
+
+
+@pytest.mark.asyncio
+async def test_a_switch_turned_off_after_capture_stops_the_read() -> None:
+    world, extractor, turn = _world(on=True)
+    await world.link(world.alice, ALICE_PHONE)
+    world.graph.media["700000000000201"] = Media(RECEIPT_PNG, "image/png")
+    # The owner revokes between the save and the read.
+    original = world.intake.destination.read
+
+    async def revoke_then_read(**kwargs: Any) -> str | None:
+        turn(False)
+        return await original(**kwargs)
+
+    world.intake.destination.read = revoke_then_read
+    await world.deliver(cases.image("700000000000201", "wamid.READ-REVOKED"))
+    [connection_id] = world.captures(world.alice)
+    assert extractor.calls == 0
+    assert _status(world, connection_id) == "saved"
+    assert world.transport.bodies()[-2:] == _promised_then_link(connection_id)
+
+
+def _promised_then_link(connection_id: str) -> list[str]:
+    """A reading acknowledgement whose read never settled, then the standard
+    acknowledgement with the link in its place."""
+
+    return [
+        "Recibido. Lo estoy leyendo.",
+        f"Recibido. Revísalo aquí: {cases.ORIGIN}/biz?receipt={connection_id}",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_read_that_cannot_start_falls_back_to_the_link() -> None:
+    world, extractor, _ = _world(on=True)
+    # Preparation must go through Business actions, and none are wired.
+    world.documents.business_preparation_required = True
+    connection_id = await _send(world, "wamid.READ-NO-START")
+    assert extractor.calls == 0
+    assert _status(world, connection_id) == "saved"
+    assert world.transport.bodies()[-2:] == _promised_then_link(connection_id)
+
+
+@pytest.mark.asyncio
+async def test_a_follow_up_that_fails_to_send_falls_back_to_the_link() -> None:
+    world, extractor, _ = _world(on=True)
+    record = world.transport.send
+
+    async def send(payload: dict[str, Any]) -> None:
+        if payload["text"]["body"].startswith("Leí:"):
+            raise ReplyFailed("transport")
+        await record(payload)
+
+    world.transport.send = send
+    connection_id = await _send(world, "wamid.READ-SEND-FAIL")
+    assert extractor.calls == 1
+    assert _status(world, connection_id) == "review_ready"
+    assert world.transport.bodies()[-2:] == _promised_then_link(connection_id)
+
+
+@pytest.mark.asyncio
+async def test_a_read_that_fails_sends_the_open_it_follow_up() -> None:
+    world, extractor, _ = _world(on=True)
+    extractor.fail = True
+    connection_id = await _send(world, "wamid.READ-FAIL")
+    assert _status(world, connection_id) == "needs_attention"
+    assert world.transport.bodies()[-2:] == [
+        "Recibido. Lo estoy leyendo.",
+        "No pudimos leer bien tu recibo. Ábrelo en Cuadrao para completarlo: "
+        f"{cases.ORIGIN}/biz?receipt={connection_id}",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_no_follow_up_outside_the_service_window() -> None:
+    world, extractor, _ = _world(on=True)
+    await world.link(world.alice, ALICE_PHONE)
+    world.graph.media["700000000000201"] = Media(RECEIPT_PNG, "image/png")
+    sent = datetime(2026, 10, 5, 12, tzinfo=timezone.utc)
+    await world.deliver(cases.image("700000000000201", "wamid.READ-OLD"), sent)
+    assert extractor.calls == 1
+    assert len(world.transport.sent) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_read_that_stops_leaves_the_receipt_saved_and_the_owner_unharmed() -> (
+    None
+):
+    world, extractor, _ = _world(on=True)
+    await world.link(world.alice, ALICE_PHONE)
+    world.graph.media["700000000000201"] = Media(RECEIPT_PNG, "image/png")
+
+    async def stopped(**_: Any) -> None:
+        raise RuntimeError("process stopped")
+
+    world.intake.destination.read = stopped
+    await world.deliver(cases.image("700000000000201", "wamid.READ-STOP"))
+    [connection_id] = world.captures(world.alice)
+    assert _status(world, connection_id) == "queued"
+    assert world.record("wamid.READ-STOP").status == "captured"
+    assert world.transport.bodies()[-2:] == _promised_then_link(connection_id)
+
+
+@pytest.mark.asyncio
+async def test_a_redelivered_message_sends_one_follow_up() -> None:
+    world, extractor, _ = _world(on=True)
+    await world.link(world.alice, ALICE_PHONE)
+    world.graph.media["700000000000201"] = Media(RECEIPT_PNG, "image/png")
+    body = cases.image("700000000000201", "wamid.READ-TWICE")
+    await world.deliver(body)
+    await world.deliver(body)
+    assert extractor.calls == 1
+    assert len([b for b in world.transport.bodies() if b.startswith("Leí:")]) == 1
+
+
+@pytest.mark.asyncio
+async def test_same_bytes_resent_in_a_new_message_keep_one_receipt_and_one_read() -> None:
+    world, extractor, _ = _world(on=True)
+    connection_id = await _send(world, "wamid.READ-FIRST")
+    await world.deliver(cases.image("700000000000201", "wamid.READ-RESENT"))
+    await world.deliver(cases.image("700000000000201", "wamid.READ-RESENT"))
+    assert world.captures(world.alice) == [connection_id]
+    assert world.captures(world.bob) == []
+    assert extractor.calls == 1
+    assert _status(world, connection_id) == "review_ready"
+    assert world.record("wamid.READ-RESENT").connection_id == connection_id
+    assert world.transport.bodies()[-1].startswith("Ya lo teníamos.")
+
+
+@pytest.mark.asyncio
+async def test_with_outbound_off_the_receipt_is_read_and_nothing_is_sent() -> None:
+    world, extractor, _ = _world(on=True)
+    await world.link(world.alice, ALICE_PHONE)
+    sent_before = len(world.transport.sent)
+    world.intake.send_enabled = lambda: False
+    world.graph.media["700000000000201"] = Media(RECEIPT_PNG, "image/png")
+    await world.deliver(cases.image("700000000000201", "wamid.READ-QUIET"))
+    [connection_id] = world.captures(world.alice)
+    assert _status(world, connection_id) == "review_ready"
+    assert len(world.transport.sent) == sent_before
+
+
+@pytest.mark.asyncio
+async def test_the_follow_up_names_merchant_amount_and_currency_as_read() -> None:
+    world, _, _ = _world(on=True)
+    connection_id = await _send(world, "wamid.READ-FIELDS")
+    assert world.transport.bodies()[-1] == (
+        "Leí: Ferretería Ochoa, 850 DOP. Revísalo antes de guardar: "
+        f"{cases.ORIGIN}/biz?receipt={connection_id}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_read_without_a_merchant_says_only_that_it_is_ready() -> None:
+    world, extractor, _ = _world(on=True)
+    extractor.merchant = None
+    connection_id = await _send(world, "wamid.READ-NO-MERCHANT")
+    assert world.transport.bodies()[-1] == (
+        "Ya leímos tu recibo. Revísalo y confírmalo en Cuadrao: "
+        f"{cases.ORIGIN}/biz?receipt={connection_id}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_prepare_from_the_web_with_the_switch_off_is_refused_not_queued() -> None:
+    world, extractor, _ = _world(on=False)
+    connection_id = await _send(world, "wamid.READ-WEB")
+    scope = world.business(world.alice)
+    with pytest.raises(DocumentServiceError) as refused:
+        world.documents.queue(
+            user_id=world.alice, connection_id=connection_id, consent=True, scope=scope
+        )
+    assert refused.value.code == "business_receipt_reading_off"
+    assert _status(world, connection_id) == "saved"
+    assert extractor.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_a_switch_turned_off_while_the_source_is_read_stops_before_the_provider() -> (
+    None
+):
+    world, extractor, turn = _world(on=True)
+    store = world.documents.store
+    source = store.source
+
+    def revoke_while_reading(**kwargs: Any) -> bytes | None:
+        turn(False)
+        return source(**kwargs)
+
+    store.source = revoke_while_reading
+    connection_id = await _send(world, "wamid.READ-LATE")
+    assert extractor.calls == 0
+    assert _status(world, connection_id) == "saved"
+    assert world.transport.bodies()[-2:] == _promised_then_link(connection_id)
+
+
+@pytest.mark.parametrize(
+    "merchant",
+    ["evil.com/login *x*", "visit evil.com", "a_b", "`x`", "x@y", "~~", ""],
+)
+@pytest.mark.asyncio
+async def test_an_unsafe_merchant_never_reaches_the_message(merchant: str) -> None:
+    world, extractor, _ = _world(on=True)
+    extractor.merchant = merchant
+    connection_id = await _send(world, "wamid.READ-UNSAFE")
+    assert world.transport.bodies()[-1] == (
+        "Ya leímos tu recibo. Revísalo y confírmalo en Cuadrao: "
+        f"{cases.ORIGIN}/biz?receipt={connection_id}"
+    )
+
+
+def test_plain_merchants_keep_their_letters() -> None:
+    from argus.api.whatsapp import plain_merchant
+
+    assert plain_merchant("Ferretería Ochoa") == "Ferretería Ochoa"
+    assert plain_merchant("Pan & Café O'Neil-2 S.R.L.") == "Pan & Café O'Neil-2 S.R.L."
+    assert plain_merchant("  Ferretería   Ochoa ") == "Ferretería Ochoa"
+    assert plain_merchant("x" * 50) is None

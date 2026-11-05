@@ -1,0 +1,44 @@
+$ playwright test "e2e/touchup.spec.ts"
+(node:66003) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[WebServer] (node:66004) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:66005) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:66007) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 20 tests using 1 worker
+
+(node:66008) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:66008) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:66008) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [desktop] › e2e/touchup.spec.ts:4:7 › / preserves the capture story and accessible progress rail (147ms)
+  ✓   2 [desktop] › e2e/touchup.spec.ts:4:7 › /en preserves the capture story and accessible progress rail (111ms)
+  ✓   3 [desktop] › e2e/touchup.spec.ts:24:5 › header blends at the top and becomes a pill after scrolling (108ms)
+  ✓   4 [desktop] › e2e/touchup.spec.ts:56:5 › footer rests at the crop, peeks on extra wheel input and settles without added height (1.0s)
+  ✓   5 [desktop] › e2e/touchup.spec.ts:80:5 › footer preserves upward wheel and keyboard navigation (737ms)
+  ✓   6 [desktop] › e2e/touchup.spec.ts:96:5 › footer responds to dispatched touch drag and release (490ms)
+  ✓   7 [desktop] › e2e/touchup.spec.ts:110:5 › reduced motion keeps the crop fixed under extra scroll input (379ms)
+  ✓   8 [desktop] › e2e/touchup.spec.ts:120:5 › reduced motion is static and small screens do not overflow (287ms)
+  ✓   9 [desktop] › e2e/touchup.spec.ts:151:7 › / loads editorial photographs without the withdrawn product capture (134ms)
+  ✓  10 [desktop] › e2e/touchup.spec.ts:151:7 › /en loads editorial photographs without the withdrawn product capture (122ms)
+(node:66025) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:66025) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:66025) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  11 [mobile] › e2e/touchup.spec.ts:4:7 › / preserves the capture story and accessible progress rail (127ms)
+  ✓  12 [mobile] › e2e/touchup.spec.ts:4:7 › /en preserves the capture story and accessible progress rail (109ms)
+  ✓  13 [mobile] › e2e/touchup.spec.ts:24:5 › header blends at the top and becomes a pill after scrolling (102ms)
+  ✓  14 [mobile] › e2e/touchup.spec.ts:56:5 › footer rests at the crop, peeks on extra wheel input and settles without added height (1.0s)
+  ✓  15 [mobile] › e2e/touchup.spec.ts:80:5 › footer preserves upward wheel and keyboard navigation (752ms)
+  ✓  16 [mobile] › e2e/touchup.spec.ts:96:5 › footer responds to dispatched touch drag and release (493ms)
+  ✓  17 [mobile] › e2e/touchup.spec.ts:110:5 › reduced motion keeps the crop fixed under extra scroll input (402ms)
+  ✓  18 [mobile] › e2e/touchup.spec.ts:120:5 › reduced motion is static and small screens do not overflow (291ms)
+  ✓  19 [mobile] › e2e/touchup.spec.ts:151:7 › / loads editorial photographs without the withdrawn product capture (122ms)
+  ✓  20 [mobile] › e2e/touchup.spec.ts:151:7 › /en loads editorial photographs without the withdrawn product capture (122ms)
+
+  20 passed (8.7s)

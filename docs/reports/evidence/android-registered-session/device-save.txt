@@ -1,0 +1,8 @@
+
+ai.argus.foundation.SessionDeviceContractTest:.
+
+Time: 1.207
+
+OK (1 test)
+
+

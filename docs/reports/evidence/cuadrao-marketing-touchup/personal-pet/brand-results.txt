@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+__tests__/brand-mark.test.ts:
+(pass) light-background mark > draws the same three shapes as the tiled icon [3.83ms]
+(pass) light-background mark > keeps the lean transform and omits the tile [0.20ms]
+(pass) dark-background mark > is the tiled icon's own shapes, transform and colours without the tile [0.29ms]
+(pass) lockups > cuadrao-lockup-light.svg embeds the shapes of cuadrao-mark-light.svg [0.29ms]
+(pass) lockups > cuadrao-lockup-dark.svg embeds the shapes of cuadrao-mark-dark.svg [0.16ms]
+(pass) lockups > the wordmark paths are the same letters in both colours [0.34ms]
+(pass) wordmark specification > states the styling the website's .wordmark rule uses [0.63ms]
+(pass) intrinsic size > cuadrao-lockup-light.svg declares a width and height in the aspect of its viewBox [0.73ms]
+(pass) intrinsic size > cuadrao-lockup-dark.svg declares a width and height in the aspect of its viewBox [0.03ms]
+(pass) intrinsic size > cuadrao-wordmark.svg declares a width and height in the aspect of its viewBox [0.14ms]
+(pass) intrinsic size > cuadrao-wordmark-dark.svg declares a width and height in the aspect of its viewBox [0.02ms]
+(pass) whole mark group > is identical, with its opacity, in the icon, the dark mark and the dark lockup [0.16ms]
+(pass) whole mark group > is identical in the light mark and the light lockup [0.03ms]
+(pass) whole mark group > the dark lockup carries the same wordmark path in the paper colour [0.72ms]
+(pass) whole mark group > the icon tile is the site's ink
+
+ 15 pass
+ 0 fail
+ 37 expect() calls
+Ran 15 tests across 1 file. [31.00ms]

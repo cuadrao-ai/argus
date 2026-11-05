@@ -71,7 +71,7 @@ def _is_source_refusal(error: BaseException) -> bool:
 
 def evidence_receipt_sharing_enabled() -> bool:
     """Default off. Landing this lane does not turn sharing on."""
-    raw_value = os.getenv("ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED", "")
+    raw_value = os.getenv("CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED", "")
     return raw_value.strip().lower() in _TRUE_VALUES
 
 

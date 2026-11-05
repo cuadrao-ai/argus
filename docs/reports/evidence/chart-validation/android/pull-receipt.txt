@@ -1,0 +1,1 @@
+/sdcard/Android/data/ai.argus.chartprototype/files/./: 16 files pulled, 0 skipped. 82.5 MB/s (2047473 bytes in 0.024s)

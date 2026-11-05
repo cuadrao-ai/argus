@@ -16,6 +16,7 @@ from argus.api.schemas import (
 from argus.domain.conversation_recall import (
     project_conversation_recall,
 )
+from argus.domain.owner_scope import PERSONAL, OwnerScope
 
 ScoredSearchItem = tuple[int, SearchItem]
 
@@ -30,6 +31,7 @@ class MemorySearchRead:
 def memory_search_read(
     *,
     user: User,
+    scope: OwnerScope,
     query: str,
     source_limit: int,
     decision_action_availability: DecisionActionAvailability | None = "available",
@@ -45,6 +47,7 @@ def memory_search_read(
     snapshot = bounded_memory_search_snapshot(
         store=api_state.store,
         user=user,
+        scope=scope,
         query=query,
         source_limit=source_limit,
         include_conversation_rows=include_conversation_rows,
@@ -79,6 +82,7 @@ def memory_search_read(
 def scored_memory_search_items(*, user: User, query: str) -> list[ScoredSearchItem]:
     return memory_search_read(
         user=user,
+        scope=PERSONAL,
         query=query,
         source_limit=101,
     ).scored_items

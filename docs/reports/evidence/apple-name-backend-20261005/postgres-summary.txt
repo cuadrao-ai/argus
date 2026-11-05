@@ -1,0 +1,6 @@
+collected 46 items
+tests/test_apple_name_postgres.py ................................       [ 69%]
+tests/test_apple_name_api_postgres.py .                                  [ 71%]
+tests/test_profile_currency_api_postgres.py .                            [ 73%]
+tests/test_apple_identity_postgres.py ............                       [100%]
+============================== 46 passed in 5.74s ==============================

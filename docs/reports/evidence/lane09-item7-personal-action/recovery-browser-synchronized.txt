@@ -1,0 +1,21 @@
+(node:57032) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[WebServer] $ next start --port "3197"
+[WebServer] (node:57047) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 6 tests using 1 worker
+
+(node:57048) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:57048) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:57048) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › e2e/business-upload-controls.spec.ts:38:7 › owner upload and failed receipt recovery at 1280px (2.3s)
+  ✓  2 [chromium] › e2e/business-upload-controls.spec.ts:38:7 › owner upload and failed receipt recovery at 390px (2.3s)
+  ✓  3 [chromium] › e2e/business-upload-controls.spec.ts:100:7 › recovery follows server permission {"enterable":false,"preparable":false} (374ms)
+  ✓  4 [chromium] › e2e/business-upload-controls.spec.ts:100:7 › recovery follows server permission {"enterable":true,"preparable":false} (724ms)
+  ✓  5 [chromium] › e2e/business-upload-controls.spec.ts:100:7 › recovery follows server permission {"enterable":false,"preparable":true} (722ms)
+  ✓  6 [chromium] › e2e/business-upload-controls.spec.ts:109:5 › English keeps existing canonical labels and accountant has no upload hero (1.1s)
+
+  6 passed (8.3s)

@@ -1,0 +1,469 @@
+{
+  "source": "real local API reading retained Postgres records",
+  "api_base": "http://127.0.0.1:58500/api/v1",
+  "synthetic_data": true,
+  "accounts": [
+    {
+      "nickname": "Daily money 4D01D",
+      "currency": "DOP",
+      "balance": {
+        "state": "known",
+        "amount_minor": 190000,
+        "amount": "1900.00",
+        "as_of": "2026-09-29T08:30:48-05:00",
+        "basis": "opening",
+        "activity_since_tracking_minor": 90000,
+        "credit_minor": null
+      },
+      "activity": [
+        {
+          "record_id": "8d60996d-3740-41c6-a1f5-c58e555dd841",
+          "revision": 2,
+          "kind": "refund",
+          "activity_id": "8d60996d-3740-41c6-a1f5-c58e555dd841",
+          "role": "single",
+          "active": true,
+          "amount_minor": 7500,
+          "balance_movement_minor": 7500,
+          "note": "Returned groceries 4D01D",
+          "reason": "Actual refund received",
+          "coverage": [
+            {
+              "observation_id": "cbe18882-feaa-46c7-b463-c1260d971de9",
+              "included": false
+            }
+          ]
+        },
+        {
+          "record_id": "c4293a56-36fe-439f-8b5c-219a53d24507",
+          "revision": 2,
+          "kind": "expense",
+          "activity_id": "c4293a56-36fe-439f-8b5c-219a53d24507",
+          "role": "single",
+          "active": true,
+          "amount_minor": 27500,
+          "balance_movement_minor": -27500,
+          "note": "Groceries 4D01D",
+          "reason": "Receipt correction",
+          "coverage": [
+            {
+              "observation_id": "cbe18882-feaa-46c7-b463-c1260d971de9",
+              "included": false
+            }
+          ]
+        },
+        {
+          "record_id": "9b60cb77-44d0-4182-bad0-aa50ca72f7c6",
+          "revision": 2,
+          "kind": "income",
+          "activity_id": "9b60cb77-44d0-4182-bad0-aa50ca72f7c6",
+          "role": "single",
+          "active": true,
+          "amount_minor": 110000,
+          "balance_movement_minor": 110000,
+          "note": "Salary 4D01D",
+          "reason": "Include received commission",
+          "coverage": [
+            {
+              "observation_id": "cbe18882-feaa-46c7-b463-c1260d971de9",
+              "included": false
+            }
+          ]
+        }
+      ],
+      "checks": []
+    },
+    {
+      "nickname": "Transfer bank DBA3B",
+      "currency": "DOP",
+      "balance": {
+        "state": "known",
+        "amount_minor": 75000,
+        "amount": "750.00",
+        "as_of": "2026-09-29T08:37:12-05:00",
+        "basis": "opening",
+        "activity_since_tracking_minor": -25000,
+        "credit_minor": null
+      },
+      "activity": [
+        {
+          "record_id": "077b6b4e-47c0-406d-b272-c75df1e9a7de",
+          "revision": 2,
+          "kind": "transfer",
+          "activity_id": "f680200f-631c-4323-9cee-0a727ca820e5",
+          "role": "source",
+          "active": true,
+          "amount_minor": 25000,
+          "balance_movement_minor": -25000,
+          "note": "Cash withdrawal DBA3B",
+          "reason": "Correct withdrawal amount",
+          "coverage": [
+            {
+              "observation_id": "50655760-c11b-48fd-acb8-fde1c5a438f1",
+              "included": false
+            }
+          ]
+        },
+        {
+          "record_id": "83b50133-dd3f-4370-9781-6c78d8b85ab0",
+          "revision": 2,
+          "kind": "expense",
+          "activity_id": "83b50133-dd3f-4370-9781-6c78d8b85ab0",
+          "role": "single",
+          "active": false,
+          "amount_minor": 0,
+          "balance_movement_minor": 0,
+          "note": "Cash groceries DBA3B",
+          "reason": "Receipt was paid in cash",
+          "coverage": [
+            {
+              "observation_id": "50655760-c11b-48fd-acb8-fde1c5a438f1",
+              "included": false
+            }
+          ]
+        }
+      ],
+      "checks": []
+    },
+    {
+      "nickname": "Transfer cash DBA3B",
+      "currency": "DOP",
+      "balance": {
+        "state": "known",
+        "amount_minor": 22500,
+        "amount": "225.00",
+        "as_of": "2026-09-29T08:37:12-05:00",
+        "basis": "opening",
+        "activity_since_tracking_minor": 12500,
+        "credit_minor": null
+      },
+      "activity": [
+        {
+          "record_id": "c3630226-ff4d-40fb-aa07-fcf623f9e8e4",
+          "revision": 2,
+          "kind": "transfer",
+          "activity_id": "f680200f-631c-4323-9cee-0a727ca820e5",
+          "role": "destination",
+          "active": true,
+          "amount_minor": 25000,
+          "balance_movement_minor": 25000,
+          "note": "Cash withdrawal DBA3B",
+          "reason": "Correct withdrawal amount",
+          "coverage": [
+            {
+              "observation_id": "ea280760-b1a0-4fef-929c-136caeac0490",
+              "included": false
+            }
+          ]
+        },
+        {
+          "record_id": "987c843f-54fb-4cad-acda-4daa1f65a3d0",
+          "revision": 1,
+          "kind": "expense",
+          "activity_id": "83b50133-dd3f-4370-9781-6c78d8b85ab0",
+          "role": "single",
+          "active": true,
+          "amount_minor": 12500,
+          "balance_movement_minor": -12500,
+          "note": "Cash groceries DBA3B",
+          "reason": "Receipt was paid in cash",
+          "coverage": [
+            {
+              "observation_id": "ea280760-b1a0-4fef-929c-136caeac0490",
+              "included": false
+            }
+          ]
+        }
+      ],
+      "checks": []
+    },
+    {
+      "nickname": "Card funding FC26C",
+      "currency": "DOP",
+      "balance": {
+        "state": "known",
+        "amount_minor": 80000,
+        "amount": "800.00",
+        "as_of": "2026-09-29T08:43:56-05:00",
+        "basis": "opening",
+        "activity_since_tracking_minor": -20000,
+        "credit_minor": null
+      },
+      "activity": [
+        {
+          "record_id": "18880dc0-3e85-440f-bca6-ab6856cba9b4",
+          "revision": 1,
+          "kind": "refund",
+          "activity_id": "18880dc0-3e85-440f-bca6-ab6856cba9b4",
+          "role": "single",
+          "active": true,
+          "amount_minor": 5000,
+          "balance_movement_minor": 5000,
+          "note": "Returned card purchase FC26C",
+          "reason": null,
+          "coverage": [
+            {
+              "observation_id": "15951e50-67e5-4593-bba9-b1caf9e03685",
+              "included": false
+            }
+          ]
+        },
+        {
+          "record_id": "e33b8fc2-3de7-4564-9b77-20931e9b8298",
+          "revision": 2,
+          "kind": "card_payment",
+          "activity_id": "d07011f7-4546-41e0-bd6f-96940aae94c1",
+          "role": "source",
+          "active": true,
+          "amount_minor": 25000,
+          "balance_movement_minor": -25000,
+          "note": "Card payment FC26C",
+          "reason": "Correct payment amount",
+          "coverage": [
+            {
+              "observation_id": "15951e50-67e5-4593-bba9-b1caf9e03685",
+              "included": false
+            }
+          ]
+        }
+      ],
+      "checks": []
+    },
+    {
+      "nickname": "Everyday card FC26C",
+      "currency": "DOP",
+      "balance": {
+        "state": "known",
+        "amount_minor": 3000,
+        "amount": "30.00",
+        "as_of": "2026-09-29T08:45:24-05:00",
+        "basis": "opening",
+        "activity_since_tracking_minor": 33000,
+        "credit_minor": 3000
+      },
+      "activity": [
+        {
+          "record_id": "48a9545a-4251-422a-a716-165a46aa1d6d",
+          "revision": 1,
+          "kind": "refund",
+          "activity_id": "48a9545a-4251-422a-a716-165a46aa1d6d",
+          "role": "single",
+          "active": true,
+          "amount_minor": 20000,
+          "balance_movement_minor": 20000,
+          "note": "Earlier purchase refund FC26C",
+          "reason": null,
+          "coverage": [
+            {
+              "observation_id": "7563a22b-1437-4b59-b9ae-d70c77d62ede",
+              "included": false
+            }
+          ]
+        },
+        {
+          "record_id": "f5acbe09-c80c-4cf7-b0b7-7d25afc22e68",
+          "revision": 2,
+          "kind": "card_payment",
+          "activity_id": "d07011f7-4546-41e0-bd6f-96940aae94c1",
+          "role": "destination",
+          "active": true,
+          "amount_minor": 25000,
+          "balance_movement_minor": 25000,
+          "note": "Card payment FC26C",
+          "reason": "Correct payment amount",
+          "coverage": [
+            {
+              "observation_id": "7563a22b-1437-4b59-b9ae-d70c77d62ede",
+              "included": false
+            }
+          ]
+        },
+        {
+          "record_id": "076327a0-b562-49c9-92c6-e5a256b91fa1",
+          "revision": 1,
+          "kind": "expense",
+          "activity_id": "076327a0-b562-49c9-92c6-e5a256b91fa1",
+          "role": "single",
+          "active": true,
+          "amount_minor": 12000,
+          "balance_movement_minor": -12000,
+          "note": "Card purchase FC26C",
+          "reason": null,
+          "coverage": [
+            {
+              "observation_id": "7563a22b-1437-4b59-b9ae-d70c77d62ede",
+              "included": false
+            }
+          ]
+        }
+      ],
+      "checks": []
+    },
+    {
+      "nickname": "Checked bank 76CC7",
+      "currency": "DOP",
+      "balance": {
+        "state": "known",
+        "amount_minor": 94000,
+        "amount": "940.00",
+        "as_of": "2026-09-29T08:49:09-05:00",
+        "basis": "balance_check",
+        "activity_since_tracking_minor": -6000,
+        "credit_minor": null
+      },
+      "activity": [
+        {
+          "record_id": "6207afa5-3065-4ca7-89b5-e701a5857e52",
+          "revision": 1,
+          "kind": "transfer",
+          "activity_id": "9ad5f456-8ab6-4c9e-aedc-440b32c89e5c",
+          "role": "source",
+          "active": true,
+          "amount_minor": 6000,
+          "balance_movement_minor": -6000,
+          "note": "Late withdrawal 76CC7",
+          "reason": null,
+          "coverage": [
+            {
+              "observation_id": "07e757be-aa42-461c-9885-8a7b80c46b0e",
+              "included": true
+            },
+            {
+              "observation_id": "1bca28ba-9ce9-4617-9bee-fc20a023a869",
+              "included": false
+            }
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "kind": "balance_check",
+          "observed_amount_minor": 94000,
+          "difference_minor": -6000,
+          "unexplained_minor": 0
+        }
+      ]
+    },
+    {
+      "nickname": "Checked cash 76CC7",
+      "currency": "DOP",
+      "balance": {
+        "state": "known",
+        "amount_minor": 56000,
+        "amount": "560.00",
+        "as_of": "2026-09-29T08:49:09-05:00",
+        "basis": "balance_check",
+        "activity_since_tracking_minor": 6000,
+        "credit_minor": null
+      },
+      "activity": [
+        {
+          "record_id": "ca46305c-f0b8-4c2b-a613-338ef3794d61",
+          "revision": 1,
+          "kind": "transfer",
+          "activity_id": "9ad5f456-8ab6-4c9e-aedc-440b32c89e5c",
+          "role": "destination",
+          "active": true,
+          "amount_minor": 6000,
+          "balance_movement_minor": 6000,
+          "note": "Late withdrawal 76CC7",
+          "reason": null,
+          "coverage": [
+            {
+              "observation_id": "140a3726-6602-41ec-a7bd-1df475ce8bda",
+              "included": false
+            },
+            {
+              "observation_id": "c32b1cd0-3f8b-47b2-ac17-b2aa2b3e76e8",
+              "included": false
+            }
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "kind": "balance_check",
+          "observed_amount_minor": 50000,
+          "difference_minor": 0,
+          "unexplained_minor": 0
+        }
+      ]
+    },
+    {
+      "nickname": "Unknown dollars 76CC7",
+      "currency": "USD",
+      "balance": {
+        "state": "unknown",
+        "amount_minor": null,
+        "amount": null,
+        "as_of": null,
+        "basis": null,
+        "activity_since_tracking_minor": 12500,
+        "credit_minor": null
+      },
+      "activity": [
+        {
+          "record_id": "d1660f18-177a-4a6b-b4e5-c362e0abb5c3",
+          "revision": 1,
+          "kind": "refund",
+          "activity_id": "d1660f18-177a-4a6b-b4e5-c362e0abb5c3",
+          "role": "single",
+          "active": true,
+          "amount_minor": 2500,
+          "balance_movement_minor": 2500,
+          "note": "Foreign return 76CC7",
+          "reason": null,
+          "coverage": []
+        },
+        {
+          "record_id": "aa07267f-bb62-47a3-8d7e-9c3276b52d90",
+          "revision": 1,
+          "kind": "income",
+          "activity_id": "aa07267f-bb62-47a3-8d7e-9c3276b52d90",
+          "role": "single",
+          "active": true,
+          "amount_minor": 10000,
+          "balance_movement_minor": 10000,
+          "note": "Dollar income 76CC7",
+          "reason": null,
+          "coverage": []
+        }
+      ],
+      "checks": []
+    },
+    {
+      "nickname": "Recovery 7CB3B",
+      "currency": "DOP",
+      "balance": {
+        "state": "known",
+        "amount_minor": 12500,
+        "amount": "125.00",
+        "as_of": "2026-09-29T08:56:02-05:00",
+        "basis": "opening",
+        "activity_since_tracking_minor": 2500,
+        "credit_minor": null
+      },
+      "activity": [
+        {
+          "record_id": "ed3eb672-17df-4836-a5de-7e5b7c0c708f",
+          "revision": 1,
+          "kind": "income",
+          "activity_id": "ed3eb672-17df-4836-a5de-7e5b7c0c708f",
+          "role": "single",
+          "active": true,
+          "amount_minor": 2500,
+          "balance_movement_minor": 2500,
+          "note": "Recovered income 7CB3B",
+          "reason": null,
+          "coverage": [
+            {
+              "observation_id": "388cd9f1-212e-4292-a48b-d3f379ffd240",
+              "included": false
+            }
+          ]
+        }
+      ],
+      "checks": []
+    }
+  ]
+}

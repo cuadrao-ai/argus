@@ -1,0 +1,370 @@
+import assert from "node:assert/strict";
+import { afterAll, beforeAll, describe, mock, test } from "bun:test";
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import type { ReactNode } from "react";
+import english from "@/public/locales/en/common.json";
+import spanish from "@/public/locales/es-419/common.json";
+import type { BusinessDataSource } from "@/components/business-app/business-data";
+import type { ChatShellBridge, WorkspaceSearch } from "@/components/chat/ChatWorkspace";
+import { useBusiness as useBusinessContext } from "@/components/business-app/BusinessWorkspace";
+
+// Sprint map §1.8, the three locked polish lines, checked on the real
+// Business components in Spanish over the sample data source.
+mock.module("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(""),
+  useRouter: () => ({ push: () => undefined, replace: () => undefined }),
+  usePathname: () => "/biz",
+}));
+
+beforeAll(() => {
+  GlobalRegistrator.register({ url: "http://localhost/biz" });
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+});
+afterAll(async () => {
+  await GlobalRegistrator.unregister();
+});
+
+type Shell = Pick<ChatShellBridge, "currentView" | "conversationId" | "isBelowTablet" | "sidebarCollapsed" | "showWorkspace" | "newChat" | "prepareQuestion">;
+const shell = (overrides: Partial<Shell> = {}): ChatShellBridge =>
+  ({ currentView: "workspace", conversationId: null, isBelowTablet: false, sidebarCollapsed: false, showWorkspace: () => undefined, newChat: () => undefined, prepareQuestion: () => undefined, ...overrides }) as ChatShellBridge;
+
+function flatten(node: unknown, prefix = "", out = new Map<string, string>()) {
+  for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (value && typeof value === "object") flatten(value, path, out);
+    else out.set(path, String(value));
+  }
+  return out;
+}
+const SPANISH = flatten(spanish);
+const ENGLISH = flatten(english);
+const SPANISH_VALUES = new Set(SPANISH.values());
+/** Text that exists only in English: shown to a Spanish reader, it is a missed translation. */
+const ENGLISH_ONLY = new Set([...ENGLISH.values()].filter((value) => !SPANISH_VALUES.has(value)));
+
+type Mounted = Awaited<ReturnType<typeof mount>>;
+
+async function mount(
+  view: (api: { shell: ChatShellBridge }) => ReactNode,
+  overrides: Partial<BusinessDataSource> = {},
+) {
+  const { act } = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const i18next = (await import("i18next")).default;
+  const { I18nextProvider } = await import("react-i18next");
+  const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
+  const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
+  const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+  const { setChosenGrant } = await import("@/lib/business-grant");
+  setChosenGrant(null);
+  const i18n = i18next.createInstance();
+  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+  const source = { ...createFixtureBusinessDataSource({ chatAvailable: true }), ...overrides };
+  let business: ReturnType<typeof useBusiness> | null = null;
+  function Probe() {
+    business = useBusiness();
+    return <>{view({ shell: shell() })}</>;
+  }
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  await act(async () => {
+    root.render(
+      <I18nextProvider i18n={i18n}>
+        <BusinessConsentTestProvider accepted>
+          <BusinessWorkspaceProvider source={source as never}>
+            <Probe />
+          </BusinessWorkspaceProvider>
+        </BusinessConsentTestProvider>
+      </I18nextProvider>,
+    );
+  });
+  const settle = async (done: () => boolean) => {
+    for (let i = 0; i < 80; i += 1) {
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
+      if (done()) return;
+    }
+  };
+  const click = async (element: Element | null | undefined) => {
+    assert.ok(element, "the control is on screen");
+    await act(async () => { (element as HTMLElement).click(); });
+  };
+  const buttons = (name: string) => [...host.querySelectorAll("button")].filter((button) => button.textContent?.trim() === name);
+  const close = () => act(async () => root.unmount());
+  return { act, host, settle, click, buttons, close, business: () => business!, source };
+}
+
+const overviewTitle = (page: Mounted) => page.host.querySelector("#business-overview-title")?.textContent ?? null;
+const markName = (page: Mounted) => page.host.querySelector('[data-testid="business-current-name"]')?.textContent ?? null;
+
+describe("§1.8 line 100: the Business is named by its name, and Argus is not named", () => {
+  const ownSpace = (name: string): Partial<BusinessDataSource> => ({
+    spaces: async () => [{ space_id: "own", name, grant_id: "own-grant", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true }],
+  });
+  const mountMark = async (name: string) => {
+    const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
+    function Mark() {
+      const workspace = useChatWorkspace();
+      return <header>{workspace?.sidebarHeader?.(shell())}</header>;
+    }
+    const page = await mount(() => <Mark />, ownSpace(name));
+    await page.settle(() => markName(page) !== null);
+    return page;
+  };
+
+  test("the sidebar Business mark is the owner's business name and the Inicio title greets instead", async () => {
+    const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
+    const mark = await mountMark("Colmado Lucía");
+    assert.equal(markName(mark), "Colmado Lucía");
+    await mark.close();
+    const page = await mount(() => <BusinessOverviewPanel />, ownSpace("Colmado Lucía"));
+    await page.settle(() => page.business().spaces !== null && page.host.querySelector('[data-testid="month-close-cards"]') !== null);
+    assert.equal(overviewTitle(page), null, "the desktop greeting belongs to the top bar");
+    assert.equal(page.host.querySelector('[data-testid="home-heading"]'), null);
+    assert.equal(page.host.querySelector('[data-testid="inicio-greeting-row"]'), null, "the old greeting row is gone");
+    const head = page.host.querySelector('[data-testid="month-close-month-block"] > [data-testid="month-close-head"]');
+    assert.ok(head?.querySelector('[data-testid="month-close-switcher"]'), "the month heads its own block");
+    const cards = page.host.querySelector('[data-testid="month-close-cards"]')!;
+    assert.ok((head!.compareDocumentPosition(cards) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0, "the month stays above its figures and checklist");
+    await page.close();
+  });
+
+  test("a Business without a name is called Mi negocio, never Tu negocio or My business", async () => {
+    const page = await mountMark("");
+    assert.equal(markName(page), "Mi negocio");
+    assert.equal(page.host.textContent?.includes("Tu negocio"), false);
+    assert.equal(page.host.textContent?.includes("My business"), false);
+    await page.close();
+  });
+
+  test("a saved English default uses the Spanish fallback without changing a custom name", async () => {
+    for (const [saved, displayed] of [["My business", "Mi negocio"], ["My business supplies", "My business supplies"]]) {
+      const page = await mountMark(saved);
+      assert.equal(markName(page), displayed);
+      assert.equal(page.business().chosen?.name, saved, "the saved name remains unchanged");
+      await page.close();
+    }
+  });
+
+  test("the name question asks how we should call you, in both languages", () => {
+    assert.equal(SPANISH.get("settings.profile.preferred_name"), "¿Cómo quieres que te llamemos?");
+    assert.equal(ENGLISH.get("settings.profile.preferred_name"), "What should we call you?");
+  });
+
+  test("no Business string names Argus or says My business in Spanish", () => {
+    const business = [...SPANISH].filter(([key]) => /^(business|business_access)\./.test(key) || key === "settings.profile.preferred_name");
+    assert.ok(business.length > 300, "the Business strings were found");
+    assert.deepEqual(business.filter(([, value]) => /Argus|My business/.test(value)), []);
+    const englishBusiness = [...ENGLISH].filter(([key]) => /^(business|business_access)\./.test(key) || key === "settings.profile.preferred_name");
+    assert.deepEqual(englishBusiness.filter(([, value]) => /Argus/.test(value)), []);
+  });
+});
+
+describe("§1.8 line 101: dates read 1 oct 2026 and the period label follows the period", () => {
+  test("a fixed day reads 1 oct 2026 wherever a Business date is shown", async () => {
+    const { formatDay, formatTimestamp } = await import("@/components/business-app/business-format");
+    assert.equal(formatDay("2026-10-01", "es-419"), "1 oct 2026");
+    assert.equal(formatDay("2026-10-01T23:30:00Z", "es-419"), "1 oct 2026");
+    assert.match(formatTimestamp("2026-10-01T16:00:00Z", "es-419"), /^1 oct 2026, /);
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const i18next = (await import("i18next")).default;
+    const { I18nextProvider } = await import("react-i18next");
+    const { AccessList } = await import("@/components/business-app/BusinessAccessPanel");
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
+    const html = renderToStaticMarkup(
+      <I18nextProvider i18n={i18n}>
+        <AccessList access={{ grants: [{ id: "g", email: null, display_name: "Lucía", capabilities: ["read"], created_at: "2026-10-01T16:00:00Z", owner: true }], invites: [] }} busyId={null} onRemove={() => undefined} onResend={() => undefined} />
+      </I18nextProvider>,
+    );
+    assert.ok(html.includes("Desde 1 oct 2026"));
+  });
+
+  test("the Resumen leads with what to review, ahead of the month figures", async () => {
+    const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
+    const page = await mount(() => <BusinessOverviewPanel />);
+    const needs = () => page.host.querySelector('[data-testid="home-needs-attention"]');
+    await page.settle(() => page.host.querySelector('[data-testid="month-close-cards"]') !== null && (needs()?.querySelectorAll("li button").length ?? 0) > 0);
+    assert.equal(page.host.querySelector('[data-testid="overview-real-expenses"]'), null);
+    assert.equal(page.host.querySelector('[data-testid="inicio-por-revisar"]'), null, "the old card is gone");
+    const action = needs();
+    const cards = page.host.querySelector('[data-testid="month-close-cards"]');
+    assert.ok(action && cards && (action.compareDocumentPosition(cards) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0);
+    await page.close();
+  });
+});
+
+describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings and Spanish labels", () => {
+  test("removing access is a red action that asks first; only the confirmation removes", async () => {
+    const BusinessAccessPanel = (await import("@/components/business-app/BusinessAccessPanel")).default;
+    const revoked: string[] = [];
+    const page = await mount(() => <BusinessAccessPanel />, { revokeAccessGrant: async (id: string) => { revoked.push(id); } });
+    await page.settle(() => page.buttons("Quitar acceso").length === 1);
+    const remove = page.buttons("Quitar acceso")[0];
+    assert.match(remove.className, /text-\[#9e2f39\]/, "the destructive red DESIGN.md names");
+    await page.click(remove);
+    const dialog = document.querySelector('[role="alertdialog"]');
+    assert.ok(dialog, "removing access is a full-stop alert");
+    assert.equal(dialog.querySelector("h2")?.textContent, "¿Quitar el acceso de contadora@example.test?");
+    assert.equal(dialog.querySelector("p")?.textContent, "Deja de ver y preparar tus registros al instante.");
+    const confirm = dialog.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]')!;
+    const cancel = [...dialog.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Mantener")!;
+    assert.equal(confirm.textContent?.trim(), "Quitar acceso");
+    assert.equal(confirm.style.backgroundColor !== "", true);
+    assert.ok(cancel, "Mantener keeps the access");
+    assert.deepEqual(revoked, [], "nothing is removed before the confirmation");
+    await page.click(confirm);
+    assert.deepEqual(revoked, ["grant-contadora"]);
+    await page.close();
+  });
+
+  test("Crear is a labeled button at least 44px tall, in the sidebar and on a phone", async () => {
+    const BusinessCreateMenu = (await import("@/components/business-app/BusinessCreateMenu")).default;
+    const page = await mount(({ shell }) => (
+      <>
+        <div data-testid="rail"><BusinessCreateMenu shell={shell} /></div>
+        <div data-testid="phone"><BusinessCreateMenu shell={shell} compact /></div>
+      </>
+    ));
+    for (const id of ["business-create", "business-create-compact"]) {
+      const button = page.host.querySelector(`[data-testid="${id}"]`);
+      assert.ok(button, id);
+      assert.equal(button.textContent?.trim(), "Crear", `${id} shows the word Crear`);
+      assert.match(button.className, /(^|\s)(min-)?h-11(\s|$)/, `${id} is at least 44px tall`);
+    }
+    await page.close();
+  });
+
+  test("every sidebar icon carries its Spanish name, also when the sidebar is collapsed", async () => {
+    const BusinessSidebarNav = (await import("@/components/business-app/BusinessSidebarNav")).default;
+    for (const sidebarCollapsed of [false, true]) {
+      const page = await mount(() => <BusinessSidebarNav shell={shell({ sidebarCollapsed })} />);
+      const nav = page.host.querySelector('[data-testid="business-sidebar-nav"]');
+      assert.equal(nav?.getAttribute("aria-label"), "Negocio");
+      const items = [...(nav?.querySelectorAll("button") ?? [])];
+      const names = items.map((button) => {
+        const accessible = button.cloneNode(true) as HTMLElement;
+        accessible.querySelectorAll('[aria-hidden="true"]').forEach((element) => element.remove());
+        return accessible.getAttribute("aria-label") ?? accessible.textContent?.replace(/\d+$/, "").trim();
+      });
+      assert.deepEqual(names, ["Inicio", "Bandeja", "Registros", "Actividad"]);
+      assert.ok(items.every((button) => button.querySelector("svg")), "each name sits with its icon");
+      await page.close();
+    }
+  });
+
+  test("the header mark opens Configurar negocio and the foot carries the Cuadrao mark and no row", async () => {
+    const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
+    let accountInHeader: boolean | undefined;
+    function Rail({ sidebarCollapsed }: { sidebarCollapsed: boolean }) {
+      const workspace = useChatWorkspace();
+      accountInHeader = workspace?.profileInHeader;
+      const bridge = shell({ sidebarCollapsed });
+      return <>
+        <header>{workspace?.sidebarHeader?.(bridge)}</header>
+        <aside data-testid="closed-rail-mark">{workspace?.sidebarMark?.(bridge)}</aside>
+        <footer>{workspace?.sidebarFooter(bridge)}</footer>
+      </>;
+    }
+    for (const sidebarCollapsed of [false, true]) {
+      const page = await mount(() => <Rail sidebarCollapsed={sidebarCollapsed} />);
+      try {
+        await page.settle(() => page.host.querySelector("header button") !== null);
+        const mark = page.host.querySelector("header button");
+        assert.ok(mark, "the business mark is in the header");
+        assert.equal(mark.getAttribute("aria-haspopup"), "menu");
+        assert.equal(page.host.textContent?.includes("Tu negocio"), false);
+        await page.settle(() => page.host.querySelector('[data-testid="closed-rail-mark"] svg.lucide-briefcase-business') !== null);
+        assert.ok(page.host.querySelector('[data-testid="closed-rail-mark"] svg.lucide-briefcase-business'), "the closed rail shows the default business mark");
+        assert.equal(accountInHeader, true, "a desktop Business puts the account at the top right");
+        assert.deepEqual([...page.host.querySelectorAll("footer button")], [], "the foot has no row");
+        const brand = page.host.querySelector('footer [data-testid="sidebar-brand"]');
+        assert.ok(brand?.querySelector('img[src*="cuadrao-mark"]'), "the Cuadrao mark sits at the foot");
+        assert.equal(brand?.querySelector('span[aria-hidden="true"]') !== null, sidebarCollapsed, "the word fades out (and leaves the reading order) on a closed rail");
+        assert.equal(page.business().panel.kind, "overview");
+        await page.click(mark);
+        const items = [...document.querySelectorAll('[role="menuitem"]')];
+        assert.equal(items.some((item) => item.textContent?.includes("Equipo y accesos")), false);
+        const settings = items.find((item) => item.textContent?.trim() === "Configurar");
+        assert.ok(settings, "Configurar is in the menu");
+        await page.click(settings);
+        assert.deepEqual(page.business().panel, { kind: "business" }, "the menu opens the Negocio page");
+      } finally {
+        await page.close();
+      }
+    }
+  });
+
+  test("phone tabs name Inicio, Bandeja and Registros and do not include a menu button", async () => {
+    const BusinessBottomTabs = (await import("@/components/business-app/BusinessBottomTabs")).default;
+    const page = await mount(() => <BusinessBottomTabs shell={shell({ isBelowTablet: true })} />);
+    const tabs = page.host.querySelector('[data-testid="business-bottom-tabs"]');
+    assert.ok(tabs);
+    const names = [...tabs.querySelectorAll("button")].map((button) => button.textContent?.trim());
+    assert.deepEqual(names, ["Inicio", "Bandeja", "Registros"]);
+    assert.equal(page.host.querySelector('[data-testid="chat-shell-menu-trigger"]'), null);
+    await page.close();
+  });
+
+  test("the email Historial says so when no email has arrived", async () => {
+    const { EmailHistory } = await import("@/components/business-app/BusinessEmailDeliveries");
+    const page = await mount(() => <EmailHistory />, { emailDeliveries: async () => [] });
+    await page.settle(() => (page.host.textContent ?? "").includes("Todavía no has recibido correos."));
+    // The section is named by its visible heading, and the empty line sits inside it.
+    const section = [...page.host.querySelectorAll("section[aria-labelledby]")].find((item) => document.getElementById(item.getAttribute("aria-labelledby")!)?.textContent === "Historial");
+    assert.ok(section, "a section named Historial");
+    assert.ok((section.textContent ?? "").includes("Todavía no has recibido correos."));
+    await page.close();
+  });
+
+  test("Buscar finds nothing for an unknown word and gives the Spanish hint for the empty result", async () => {
+    const { useBusinessSearch } = await import("@/components/business-app/useBusinessSearch");
+    let built: WorkspaceSearch | null = null;
+    const page = await mount(() => {
+      function Probe() {
+        const { source } = useBusinessContext();
+        built = useBusinessSearch({ source, accounts: [], openPanel: () => undefined, actions: { create: [], composer: [], starterEntries: [] }, owner: true, scope: "own" });
+        return null;
+      }
+      return <Probe />;
+    });
+    const search = built as WorkspaceSearch | null;
+    assert.ok(search);
+    assert.equal(search.copy.noResultsHint, "Busca por comercio, monto, categoría, cuenta o el texto de una nota.");
+    assert.equal(search.copy.placeholder, "Busca comercio, monto o nota");
+    const groups = await search.find("zzqqxx");
+    assert.deepEqual(groups.flatMap((group) => group.hits), []);
+    await page.close();
+  });
+
+  test("the Business screens have no empty heading and no English label for a Spanish reader", async () => {
+    const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
+    const BusinessInboxPanel = (await import("@/components/business-app/BusinessInboxPanel")).default;
+    const TransaccionesPanel = (await import("@/components/business-app/transacciones/TransaccionesPanel")).default;
+    const BusinessAccessPanel = (await import("@/components/business-app/BusinessAccessPanel")).default;
+    const BusinessSidebarNav = (await import("@/components/business-app/BusinessSidebarNav")).default;
+    const BusinessCreateMenu = (await import("@/components/business-app/BusinessCreateMenu")).default;
+    const page = await mount(({ shell }) => (
+      <>
+        <BusinessSidebarNav shell={shell} />
+        <BusinessCreateMenu shell={shell} />
+        <BusinessCreateMenu shell={shell} compact />
+        <BusinessOverviewPanel />
+        <BusinessInboxPanel />
+        <TransaccionesPanel />
+        <BusinessAccessPanel />
+      </>
+    ));
+    await page.settle(() => page.host.querySelectorAll('[data-testid="reception-row"]').length > 0 && page.buttons("Quitar acceso").length > 0);
+    const headings = [...page.host.querySelectorAll("h1,h2,h3,h4,h5,h6,[role=heading]")];
+    assert.ok(headings.length >= 5);
+    assert.deepEqual(headings.filter((heading) => !heading.textContent?.trim()).map((heading) => heading.outerHTML), []);
+    const labels = [...page.host.querySelectorAll("[aria-label],[title],[placeholder]")].flatMap((element) =>
+      ["aria-label", "title", "placeholder"].map((name) => element.getAttribute(name)).filter((value): value is string => Boolean(value)),
+    );
+    assert.ok(labels.length >= 5);
+    assert.deepEqual(labels.filter((label) => ENGLISH_ONLY.has(label) || /Argus/.test(label)), []);
+    assert.deepEqual([...page.host.querySelectorAll("*")].map((element) => element.childNodes).flatMap((nodes) => [...nodes]).filter((node) => node.nodeType === 3 && /Argus|My business/.test(node.textContent ?? "")).map((node) => node.textContent), []);
+    await page.close();
+  });
+});

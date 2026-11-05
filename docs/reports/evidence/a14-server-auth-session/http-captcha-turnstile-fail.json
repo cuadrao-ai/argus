@@ -1,0 +1,27 @@
+{
+  "client": "python-httpx language-neutral probe (not a native client)",
+  "suite": "captcha",
+  "captured_at": "2026-09-28T17:28:16+00:00",
+  "environment": "local lane Supabase stack argus-native-auth-proof (jwt_expiry=60, confirmations on) + unchanged Argus API; Argus API launched from the fix branch at argus_api_head",
+  "results": [
+    {
+      "id": "B3",
+      "area": "captcha",
+      "scenario": "Test secret that always fails",
+      "path": "unchanged-argus + local Supabase Auth with a Cloudflare test secret",
+      "evidence_level": 3,
+      "expected": "Guest start and sign-in refused",
+      "observed": {
+        "guest_status": 503,
+        "guest_code": "guest_bootstrap_failed",
+        "login_status": 401,
+        "login_code": "unauthorized",
+        "login_detail_says_password": true
+      },
+      "verdict": "pass",
+      "note": "Argus maps a rejected captcha to 401 'Invalid email or password' on sign-in and 503 guest_bootstrap_failed on guest start. A native client cannot tell a failed check from a wrong password (proposal P5)."
+    }
+  ],
+  "probe_checkout_head": "de61fd3e7d299fcd0c7fda24f3c95f5427822271",
+  "argus_api_head": "54fe7b6fe"
+}

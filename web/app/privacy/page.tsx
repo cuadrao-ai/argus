@@ -1,6 +1,7 @@
-import AlphaLegalPage from "@/components/legal/AlphaLegalPage";
-import { supportEmail } from "@/lib/support-email";
+import { redirect } from "next/navigation";
 
-export default function PrivacyPage() {
-  return <AlphaLegalPage kind="privacy" supportEmail={supportEmail} />;
+import { cuadraoLegalLinks } from "@/lib/cuadrao-legal-links";
+
+export default function PrivacyPage(): never {
+  redirect(cuadraoLegalLinks().privacy);
 }

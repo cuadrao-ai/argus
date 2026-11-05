@@ -1,0 +1,8 @@
+
+ai.argus.foundation.SessionUiTest:..........
+
+Time: 28.386
+
+OK (10 tests)
+
+

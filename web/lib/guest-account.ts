@@ -24,7 +24,8 @@ export type ApiUser = {
    * which means greetings use no name.
    */
   preferred_name?: string | null;
-  language: "en" | "es-419";
+  /** The language the web may show for the account: null on Business until the person saved one. */
+  language: "en" | "es-419" | null;
   locale: "en-US" | "es-419";
   avatar_theme?: AvatarTheme;
   /**
@@ -34,6 +35,8 @@ export type ApiUser = {
   country?: string | null;
   currency_override?: string | null;
   currency?: string | null;
+  /** Row height for dense tables such as Transacciones; registered-only, `normal` until chosen. */
+  table_density?: "compacto" | "normal" | "amplio";
   onboarding: {
     completed: boolean;
     stage: LegacyOnboardingStage;

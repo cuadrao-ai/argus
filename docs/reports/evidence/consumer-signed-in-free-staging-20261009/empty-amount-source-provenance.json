@@ -1,0 +1,18 @@
+{
+  "integration_base": "cd14c9883f180876d27c121f0787b25a73529492",
+  "test_product": "EmptyAmountRepairs.xctestproducts",
+  "sources": {
+    "ios/ArgusFoundationUITests/ConnectedChrome.swift": "f8335d905dd50e329eca92005959f1dc4257ac49fada66fb6b81254ee217fefa",
+    "ios/ArgusFoundationUITests/FinancialLoopUITests.swift": "ac64565e35f314bdc708ed9348a6417d6e9e7b53ac6e04fc6342d9fc77a6f0b7",
+    "ios/ArgusFoundationUITests/PersonalMoneyUITests.swift": "216dac0afc88a638ca92e84137b0d8b9899792afc3d9934f26bde429d71fc4b6",
+    "ios/ArgusFoundationUITests/ConnectedBudgetUITests.swift": "24c3d9b3db5e5cd62438450f5707a62084bbdf742a220dd1c559a3979bfeec60",
+    "ios/ArgusFoundationUITests/ConnectedGoalUITests.swift": "badd72079598491af10fd0e5ab8e76937e6723b88c266dbcddc74485fd11e89a",
+    "ios/ArgusFoundationUITests/SearchUITests.swift": "1ce73916bc8a48cccb4f68dbca0a24ab499deef521fac3463cc654e6c0b1ebee",
+    "ios/ArgusFoundationUITests/ConnectedReleaseSurfaceUITests.swift": "695975cf215c8eeabb6316081dd72e3d894d39022023b51258100b20c248f52e",
+    "ios/ArgusFoundationUITests/ConnectedPlanUITests.swift": "fd2d352bb48996f87fdda5245186bd1e9f3b54e3487b977e7e6838b0bdb81402"
+  },
+  "app_source_tree": "0d9584a4489c5081a1856665e2fa2aba392b5ec2",
+  "source_commit": "bc8e6afa92f92f3c7ac7407c7c215a8e01624a34",
+  "app_source_unchanged": true,
+  "revalidated_after_commit": true
+}

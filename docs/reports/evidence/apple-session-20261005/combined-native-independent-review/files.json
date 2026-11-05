@@ -1,0 +1,206 @@
+[
+  {
+    "path": "CombinedCurrencyAdmissionTests.swift",
+    "sha256": "a0d0b990a199f56faaba9afaee1a69ab489f713c3e2a4ddadb00c0e81552867c"
+  },
+  {
+    "path": "LiveCurrencyTests.swift",
+    "sha256": "12f8d6297426bf3149cfa5ed187941ab3505fafe612582555e28a3b6bf204f5c"
+  },
+  {
+    "path": "README.md",
+    "sha256": "71b7e13311b82ecd94404fc46da2ce218b093f760081ca3b2a237a80886e41a8"
+  },
+  {
+    "path": "apple-and-gallery-journeys/04031929-C486-447D-B078-00227258366F.png",
+    "sha256": "d3305166e1fc6af0226bfe684d61781816deed5ea17eb95a1e50cde4fb5a77dc"
+  },
+  {
+    "path": "apple-and-gallery-journeys/18092A25-0367-4390-A4EB-5C853C726E9F.png",
+    "sha256": "1da01d32c920066d876751df8d7b786820b566420957560b2439bce7801ca9ca"
+  },
+  {
+    "path": "apple-and-gallery-journeys/1F6C36CC-8B20-406F-8CB0-4121730B3220.png",
+    "sha256": "0864bd4797c109b17bd349e26107a4a22ae241bb7cdee36bbbbac20e8ad642b1"
+  },
+  {
+    "path": "apple-and-gallery-journeys/27AE3198-BC2B-4F91-95A7-10E29C144ED0.png",
+    "sha256": "88fd1e81f0df8b6b2e916d4208f1850c071ec7854a6e8d67635e3c0890eef922"
+  },
+  {
+    "path": "apple-and-gallery-journeys/307F66BE-CFB0-40E4-8E37-8C51C418D7C9.png",
+    "sha256": "1864ad0707b92cee21093cdb1b9274281f391b40d5c46f2e5ab5188664e3e218"
+  },
+  {
+    "path": "apple-and-gallery-journeys/3AF528F0-1BB2-4924-ACAD-02E6F90E0411.png",
+    "sha256": "776bd9239a106e5e41d98c30cdf420ccbd49daccd865cf397f14b9892283c575"
+  },
+  {
+    "path": "apple-and-gallery-journeys/3EF7E9EA-2CB3-40AE-90D5-E10CADE1F683.png",
+    "sha256": "c4b16bf2b776c0eebcff8d2e4d886ea63d0aa4142d461b2493e5d35b011e9aa5"
+  },
+  {
+    "path": "apple-and-gallery-journeys/52FB7FDD-DB29-4D24-9F27-3551EFA31211.png",
+    "sha256": "65e22f000f8e5160be898d5a36b13979b7f8c0980b14f4a52d0cb784b72134df"
+  },
+  {
+    "path": "apple-and-gallery-journeys/790F072E-7AD5-4106-AACE-84C7ADA2C126.png",
+    "sha256": "da933471c2e647b7b625e60d34b7fee44304b715c6cf47a67341748775b76080"
+  },
+  {
+    "path": "apple-and-gallery-journeys/8708E508-B710-455E-BD51-87915DF0B795.png",
+    "sha256": "df981d9f05572a182e08101f6169986a9f87fec7d3d0e49f9b9bee950fce1226"
+  },
+  {
+    "path": "apple-and-gallery-journeys/897254E1-DD3E-4690-ABC6-17EF7A915FF2.png",
+    "sha256": "888f38258b5d1ed73de295de1e850b18104c8e897b3dcd67b913bf574f52908a"
+  },
+  {
+    "path": "apple-and-gallery-journeys/941B6B09-AE13-41C7-ABC2-298315B11C3E.png",
+    "sha256": "ae51ef76bcb91cc2bab3663d2936e6233298b7e429b1d7c422093afeda3a6977"
+  },
+  {
+    "path": "apple-and-gallery-journeys/97303252-2DBA-496B-BB75-F6B0FCBE6CDC.png",
+    "sha256": "608f90928b3dbb603c010edd948bc827e5472bd51730f335a86de47e93cc1ba8"
+  },
+  {
+    "path": "apple-and-gallery-journeys/9849A6DA-F642-4652-AFA5-629A4040EDAF.png",
+    "sha256": "0185b08a6995b5025f5ebba77dd7e061a96f4095641670afed490ec5d903d458"
+  },
+  {
+    "path": "apple-and-gallery-journeys/ADFBA8D1-366C-4DCA-82C8-80734D7B1FBC.png",
+    "sha256": "ecc4bb288eaec1e5dc1ac28ae9c1bf109efddd1fddbb1691f962aa9f8f43bfbb"
+  },
+  {
+    "path": "apple-and-gallery-journeys/B2A61299-C03D-4A80-95EE-2846C1EDC2A6.png",
+    "sha256": "e8bc908829b836b84ea23c2e9aff07dff740c65021dbc30a086bcfcdaad541bc"
+  },
+  {
+    "path": "apple-and-gallery-journeys/D6DFDBE6-2170-46A3-8BE8-25DE10379CC7.png",
+    "sha256": "0ceb8a7cd7d2a5398f9b685e22ab74b6a192f35aa1a7659a5d11d8f8d8daa79d"
+  },
+  {
+    "path": "apple-and-gallery-journeys/manifest.json",
+    "sha256": "957dd66a715cbfe248aba6d247e8cafd71e4d7b7578511eddfffdfe2944f6856"
+  },
+  {
+    "path": "apple-and-gallery-ui.log",
+    "sha256": "87e446054c41326d613c06e95b6c2bdee213563f907913692dc27879dc0b6d71"
+  },
+  {
+    "path": "cleanup.json",
+    "sha256": "ba552cfb88f53a9f16a1d0ed16e79ee556457bade5aa9831b6a245cd1d4ce426"
+  },
+  {
+    "path": "currency-admission.log",
+    "sha256": "4430a0f8338eb56047efa599e98d761b22c2aefe5bf5ccd5363e4b0138fe3692"
+  },
+  {
+    "path": "household.log",
+    "sha256": "3bcc0f3696708f2bb0892acfe421952218528279e70a5d01fa2ebeb59506d6e1"
+  },
+  {
+    "path": "live-cleanup.log",
+    "sha256": "1bb4ee2647aad5cd680326e654e7d303210c7b9e3b86621e84664d625b3faec6"
+  },
+  {
+    "path": "mapper.log",
+    "sha256": "b545070aa4e5fc5cda1471d714010de5ba3e450e6678a0fc5c6f733857ce12ed"
+  },
+  {
+    "path": "notification-admission/321DA98D-5813-440B-A747-53B8B8637B47.png",
+    "sha256": "bc42394697106e609eaefcc6c784549d6e24179b4d534186b494f076d9b28b35"
+  },
+  {
+    "path": "notification-admission/interval-probe.patch",
+    "sha256": "b444c50ecf3a3dbbb48842850a400006dc86c8b08c416a0fd8636bf0cbfb7d7e"
+  },
+  {
+    "path": "notification-admission/manifest.json",
+    "sha256": "fec14dfd968c44155fc7400096676afb5226e9edd2173e375315d34883ee6ade"
+  },
+  {
+    "path": "notification-after.json",
+    "sha256": "397fb0df7bb6ac41078301b6d1e8b237c1dbbee5b85f22a8c273dcc2d8511dcd"
+  },
+  {
+    "path": "notification-before.json",
+    "sha256": "29108d686507c2294fe35bf266ac66344d935ed92ec26b1fcd2104c95389a968"
+  },
+  {
+    "path": "notification-probe.log",
+    "sha256": "bc18a65ec32659e5d8b2a9559a81b6f92f4e3ba97f2eb13c41ab3a52a74289a9"
+  },
+  {
+    "path": "notification-result.json",
+    "sha256": "59aaa140940c1516cc1a4d7158c98487bc37679eff94767469ea6ca73f037533"
+  },
+  {
+    "path": "package.log",
+    "sha256": "f03564217d13324d8df6ecaa1ff0d80dc77dbd93ed8cfb074f949c51bce58463"
+  },
+  {
+    "path": "postgres.log",
+    "sha256": "3e79c6bbdc8a3ec6915c567c8fdabc95e448f87542264589965b17b94b8a2986"
+  },
+  {
+    "path": "postgres.py",
+    "sha256": "586d59bbf120f8bec9ac5eeaca66759095e5205883b27a633bcc50a3bdc73626"
+  },
+  {
+    "path": "primary-currency-en/5D912CFC-61C2-4C7F-ACF7-8A7FCCFD4559.png",
+    "sha256": "afcc7f79e2b14f97bda2acc3c18879bf870e5862193b1f9658e8f97b46e977d5"
+  },
+  {
+    "path": "primary-currency-en/B94F260A-12D9-4997-A3AB-37210DDF2669.png",
+    "sha256": "afcc7f79e2b14f97bda2acc3c18879bf870e5862193b1f9658e8f97b46e977d5"
+  },
+  {
+    "path": "primary-currency-en/manifest.json",
+    "sha256": "2e3d8dd28664bc87a05537f4e070da95d4d52b9c3bf9a642825107bfaab09006"
+  },
+  {
+    "path": "primary-currency-en.log",
+    "sha256": "cdadc851c71f41f4be39a4d6f8a12c8978467ca51045e7943b4194920bf9eb51"
+  },
+  {
+    "path": "primary-currency-es-419/231C12A5-7E76-4072-ADBE-FFC81608750E.png",
+    "sha256": "72e30e9aead792e3143b48912f550cbf26b3259a1c937055892e3b7d66462386"
+  },
+  {
+    "path": "primary-currency-es-419/B5FD62D0-A692-40ED-B655-4F78AE20ABAF.png",
+    "sha256": "72e30e9aead792e3143b48912f550cbf26b3259a1c937055892e3b7d66462386"
+  },
+  {
+    "path": "primary-currency-es-419/manifest.json",
+    "sha256": "953a4af090c4c064702f6b17df8e6b6d2fbcd3f2f54a1afb88747f2039068e98"
+  },
+  {
+    "path": "primary-currency-es-419.log",
+    "sha256": "cbd53c3d0213e5b4ebc7ac7f1c8080670b2687b93d7f750253069ddb172abb17"
+  },
+  {
+    "path": "provenance.json",
+    "sha256": "cfbd388ac85e224b14cbb0fe3c0e551cc478c61a91139f06512e0b9d7b3445ff"
+  },
+  {
+    "path": "run.py",
+    "sha256": "886616d2dcf07d42fd42b80b41e70067daa1f295db92badf0b0f719809622b7e"
+  },
+  {
+    "path": "swift-live.log",
+    "sha256": "f2ea7ef9790957ab104658bbd93eb89af209647e135bad216aa7ad6c3d28b16b"
+  },
+  {
+    "path": "ui-build.log",
+    "sha256": "e9194e017e134e15455c75f10d38c15ee1030a60296325f480983db9bea25bcf"
+  },
+  {
+    "path": "ui-driver.log",
+    "sha256": "c26fb0c748c58380c0fa227e3e0540045d764d87174baf62a192b117a26ada43"
+  },
+  {
+    "path": "ui.py",
+    "sha256": "989b30e72369f99128e12919c79706bd236a0e0f315db8b67fba7c383502768c"
+  }
+]

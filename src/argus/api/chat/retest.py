@@ -7,7 +7,7 @@ canonical state. Provider coverage is resolved before a runnable card persists.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date
 from typing import Any, cast
@@ -135,8 +135,14 @@ def prepare_retest_turn(
     language: str | None,
     today: date | None = None,
     confirmation_id: str | None = None,
+    before_provider_work: Callable[[], None] | None = None,
 ) -> RetestTurn | None:
-    """Resolve canonical truth before admission, or reject as invalid state."""
+    """Resolve canonical truth before admission, or reject as invalid state.
+
+    ``before_provider_work`` runs after the cheap state checks and before
+    market-data coverage, so a rejected retest costs no daily unit while an
+    over-cap user cannot reach provider work (#692).
+    """
     if not is_retest_action(payload) or payload.action is None:
         return None
     source_run_id = retest_action_source_run_id(payload.action.payload)
@@ -164,6 +170,8 @@ def prepare_retest_turn(
         if setup is not None and availability is not None
         else setup
     )
+    if admitted_setup is not None and before_provider_work is not None:
+        before_provider_work()
     confirmation = (
         prepare_retest_confirmation_payload(
             admitted_setup,

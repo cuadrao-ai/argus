@@ -1,0 +1,17 @@
+{
+  "credential_deleted": true,
+  "environment": "sandbox",
+  "item_get_after_remove": "ITEM_NOT_FOUND",
+  "item_remove_attempts": 1,
+  "provider_calls": {
+    "/institutions/get_by_id": 1,
+    "/item/get": 2,
+    "/item/public_token/exchange": 1,
+    "/item/remove": 1,
+    "/sandbox/public_token/create": 1
+  },
+  "provider_calls_total": 6,
+  "provider_revocation": "revoked",
+  "run_at": "2026-10-01T21:44:56+00:00",
+  "status": "disconnected"
+}

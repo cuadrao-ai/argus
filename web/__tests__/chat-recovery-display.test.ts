@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { tFromCatalog } from "./support/catalog-translator";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -12,6 +13,7 @@ import {
   recoveryDisplayText,
   unsupportedStrategyActionsFromMetadata,
   unsupportedTimeframeActionsFromMetadata,
+  wearsQuietFailureNotice,
 } from "../lib/chat-recovery-display";
 
 const root = join(import.meta.dir, "..");
@@ -21,30 +23,6 @@ const enCatalog = JSON.parse(
 const esCatalog = JSON.parse(
   readFileSync(join(root, "public/locales/es-419/common.json"), "utf8"),
 ) as Record<string, unknown>;
-
-function tFromCatalog(catalog: Record<string, unknown>) {
-  return (key: string, options?: Record<string, unknown> | string) => {
-    const template = key
-      .split(".")
-      .reduce<unknown>(
-        (value, segment) =>
-          typeof value === "object" && value !== null && !Array.isArray(value)
-            ? (value as Record<string, unknown>)[segment]
-            : undefined,
-        catalog,
-      );
-    if (typeof template !== "string") {
-      return key;
-    }
-    const values =
-      typeof options === "object" && options !== null
-        ? options
-        : ({} as Record<string, unknown>);
-    return template.replace(/\{\{(\w+)\}\}/g, (_, name: string) =>
-      String(values[name] ?? ""),
-    );
-  };
-}
 
 function flattenedKeys(value: unknown, prefix = ""): string[] {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -980,5 +958,35 @@ describe("calculation missing inputs", () => {
     expect(text(display, tFromCatalog(esCatalog), "es-419")).toBe(
       "Para calcularlo, dime pago por período y períodos.",
     );
+  });
+});
+
+
+describe("daily chat admission errors", () => {
+  test("signed-in claim 503 uses its recovery key, never the backend detail", () => {
+    const display = chatHttpErrorDisplay("registered_compute_claim_unavailable", "Internal detail");
+    expect(display).toEqual({ content: "", recoveryDisplay: {
+      kind: "recovery_code", code: "registered_compute_claim_unavailable",
+    } });
+    for (const catalog of [enCatalog, esCatalog]) {
+      const text = recoveryDisplayText(display.recoveryDisplay, tFromCatalog(catalog));
+      expect(text).not.toContain("Internal detail");
+      expect(text).not.toContain("chat.recovery.");
+    }
+  });
+
+  test("chat 429 stores the reset instant and localizes the daily-cap key", () => {
+    const display = chatHttpErrorDisplay("too_many_requests", "Wait a moment", {
+      status: 429, retryAfter: "21600", nowMs: Date.parse("2026-09-26T18:00:00Z"),
+    });
+    expect(display).toEqual({ content: "", recoveryDisplay: {
+      kind: "recovery_code", code: "daily_cap_reached",
+      values: { resetAt: "2026-09-27T00:00:00.000Z" },
+    } });
+    const text = recoveryDisplayText(display.recoveryDisplay, tFromCatalog(enCatalog), "en");
+    expect(text).toContain("You've reached today's question limit. It resets at ");
+    expect(text).not.toContain("Wait a moment");
+    expect(wearsQuietFailureNotice(display.recoveryDisplay)).toBe(false);
+    expect(chatHttpErrorDisplay("too_many_requests", "Unrelated error").content).toBe("Unrelated error");
   });
 });

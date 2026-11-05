@@ -1,0 +1,14 @@
+{
+  "source_head": "41cd27ac93a0e00f39f8190aea0838aa1b59104f",
+  "retry_plan": {
+    "kind": "budget",
+    "id": "f568966f-1737-4c72-89d9-f76d43dbe196"
+  },
+  "one_contribution_minor": "700",
+  "one_additional_source_debit_minor": -700,
+  "claim_count": 1,
+  "native_case": "testSharedPlanningCommittedResponseLossKeepsOneContribution",
+  "transport": "Upstream committed; native socket response dropped; relaunch and original exact retry return one outcome",
+  "proxy": "59762 stopped; API59750 direct configuration and app rebuilt/reinstalled",
+  "other_financial_deltas_retained": true
+}

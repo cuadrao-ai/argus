@@ -4,7 +4,7 @@ import asyncio
 import json
 import os
 import time
-from collections.abc import Iterable
+from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
@@ -12,14 +12,26 @@ from threading import Lock
 from typing import Literal, TypeVar, cast
 
 import httpx
-from langchain_openrouter import ChatOpenRouter
 from loguru import logger
 from pydantic import BaseModel
 
-from argus.agent_runtime import turn_execution
 from argus.env import load_project_dotenv
+from argus.llm import openrouter_model_env as model_policy
+from argus.llm import openrouter_transport as transport
+from argus.llm import provider_permit
 from argus.llm.openrouter_key_policy import resolve_openrouter_api_key
-from argus.llm.openrouter_model_env import TIER_FALLBACK_ENV, TIER_PRIMARY_ENV
+from argus.llm.openrouter_langchain import ChatOpenRouter
+from argus.llm.openrouter_request_policy import (
+    guard_openrouter_request as _guard_request,  # noqa: F401
+)
+from argus.llm.openrouter_request_policy import (
+    openrouter_request_guard as openrouter_request_guard,
+)
+from argus.llm.openrouter_retention import (
+    OpenRouterRoutingError,
+    openrouter_provider_policy,
+    raise_for_retention_error,
+)
 from argus.llm.openrouter_tasks import (
     OPENROUTER_PROFILES,
     OPENROUTER_TASK_MODEL_TIERS,
@@ -28,6 +40,7 @@ from argus.llm.openrouter_tasks import (
     OpenRouterReasoningEffort,
     OpenRouterTask,
 )
+from argus.llm.openrouter_transport import OpenRouterRetryAttempt
 from argus.llm.openrouter_usage import (
     merge_openrouter_token_usage,
     normalize_openrouter_token_usage,
@@ -39,10 +52,9 @@ from argus.llm.tool_call_receipts import current_tool_call_receipt_scope
 from argus.llm.tool_call_receipts import (
     tool_call_receipt_scope as tool_call_receipt_scope,
 )
+from argus.log_sink import exception_origin
 
 load_project_dotenv()
-
-_OpenRouterRetryAttempt = tuple[OpenRouterTask, float, str, Literal["json_schema", "chat_model"], str | None, list[str] | None]
 
 SchemaModelT = TypeVar("SchemaModelT", bound=BaseModel)
 
@@ -95,13 +107,13 @@ _ROUTE_RECEIPT_CAPTURE: ContextVar[list[OpenRouterRouteReceipt] | None] = Contex
 )
 
 
-_TIER_PRIMARY_ENV = TIER_PRIMARY_ENV
-_TIER_FALLBACK_ENV = TIER_FALLBACK_ENV
+_TIER_PRIMARY_ENV = model_policy.TIER_PRIMARY_ENV
+_TIER_FALLBACK_ENV = model_policy.TIER_FALLBACK_ENV
 
 _VALID_REASONING_EFFORTS = frozenset(("xhigh", "high", "medium", "low", "minimal", "none"))
 _REASONING_EFFORT_ENV_BY_TASK: dict[OpenRouterTask, str] = {
-    "interpretation": "ARGUS_STRUCTURED_REASONING_EFFORT",
-    "capability_conflict": "ARGUS_CAPABILITY_REASONING_EFFORT",
+    "interpretation": "CUADRAO_STRUCTURED_REASONING_EFFORT",
+    "capability_conflict": "CUADRAO_CAPABILITY_REASONING_EFFORT",
 }
 _PROMPT_CACHE_STRUCTURED_ARTIFACT_TASKS = frozenset(("interpretation", "interpretation_repair", "field_fidelity", "capability_conflict"))
 
@@ -197,11 +209,12 @@ def build_openrouter_model(
 
     return ChatOpenRouter(
         model_name=resolved_model,
-        temperature=profile.temperature,
+        **model_policy.model_sampling_parameters(resolved_model, profile.temperature),
         max_tokens=profile.max_tokens,
         timeout=profile.timeout_seconds,
         max_retries=profile.max_retries,
         openrouter_api_key=api_key,
+        openrouter_provider=openrouter_provider_policy(),
     )
 
 
@@ -223,7 +236,8 @@ def openrouter_profile_for_task(task: OpenRouterTask) -> OpenRouterProfile:
 
 
 def _task_timeout_override_seconds(task: OpenRouterTask) -> int | None:
-    raw_value = os.getenv(f"ARGUS_OPENROUTER_{task.upper()}_TIMEOUT_SECONDS", "")
+    prefix = "CUADRAO" if task in model_policy.CANONICAL_TIMEOUT_TASKS else "ARGUS"
+    raw_value = os.getenv(f"{prefix}_OPENROUTER_{task.upper()}_TIMEOUT_SECONDS", "")
     if not raw_value.strip():
         return None
     try:
@@ -347,10 +361,10 @@ def annotate_latest_openrouter_route_receipt(
     return False
 
 
-def _reserve_openrouter_attempt(task: OpenRouterTask, timeout_seconds: float, model_name: str, mode: Literal["json_schema", "chat_model"], schema_name: str | None, context_packet_ids: list[str] | None) -> turn_execution.ProviderCallPermit | None:
-    if (permit := turn_execution.reserve_provider_call(task, timeout_seconds)) is not None:
+def _reserve_openrouter_attempt(task: OpenRouterTask, timeout_seconds: float, model_name: str, mode: Literal["json_schema", "chat_model"], schema_name: str | None, context_packet_ids: list[str] | None) -> provider_permit.ProviderCallPermit | None:
+    if (permit := provider_permit.reserve_provider_call(task, timeout_seconds)) is not None:
         return permit
-    record_openrouter_route_receipt(task=task, model_name=model_name, mode=mode, schema_name=schema_name, latency_ms=0, outcome="skipped", failure_mode=turn_execution.turn_budget_block_reason(), context_packet_ids=context_packet_ids)
+    record_openrouter_route_receipt(task=task, model_name=model_name, mode=mode, schema_name=schema_name, latency_ms=0, outcome="skipped", failure_mode=provider_permit.turn_budget_block_reason(), context_packet_ids=context_packet_ids)
     return None
 
 
@@ -420,11 +434,12 @@ def summarize_openrouter_route_receipts(
 async def invoke_openrouter_json_schema(
     *,
     task: OpenRouterTask,
-    messages: list[dict[str, str]],
+    messages: Sequence[Mapping[str, object]],
     schema_model: type[SchemaModelT],
     schema_name: str,
     model_name: str | None = None,
     context_packet_ids: list[str] | None = None,
+    before_request: Callable[[], Awaitable[None]] | None = None,
 ) -> SchemaModelT | None:
     started_at = time.perf_counter()
     api_key = resolve_openrouter_api_key()
@@ -459,6 +474,7 @@ async def invoke_openrouter_json_schema(
 
     profile = openrouter_profile_for_task(task)
     last_exc: Exception | None = None
+    admitted = False
     for index, candidate_model in enumerate(candidate_models):
         attempt_started_at = time.perf_counter()
         if (permit := _reserve_openrouter_attempt(task, profile.timeout_seconds, candidate_model, "json_schema", schema_name, context_packet_ids)) is None:
@@ -470,20 +486,40 @@ async def invoke_openrouter_json_schema(
             schema_name=schema_name,
             profile=profile,
         )
+        data: dict[str, object] = {}
         try:
             async with httpx.AsyncClient(timeout=permit.timeout_seconds) as client:
+                request_args = {}
+                if before_request is not None:
+                    request_args["prepared_request"] = transport.prepare_json_schema_request(
+                        client=client, api_key=api_key, payload=payload, task=task,
+                    )
+                    if not admitted:
+                        try:
+                            await before_request()
+                        except Exception as error:
+                            raise provider_permit.ProviderAdmissionError(error) from None
+                        admitted = True
                 if (response := await asyncio.wait_for(
                     _post_openrouter_json_schema(
                         client=client,
                         api_key=api_key,
                         payload=payload,
                         retry_attempt=(task, profile.timeout_seconds, candidate_model, "json_schema", schema_name, context_packet_ids),
+                        **request_args,
                     ),
                     timeout=permit.timeout_seconds,
                 )) is None:
                     return None
-            data = response.json()
-            _raise_openrouter_payload_error(data)
+            body = response.json()
+            if not isinstance(body, dict):
+                raise ValueError("Invalid OpenRouter response")
+            data = body
+            _raise_openrouter_payload_error(data, candidate_model)
+            if task == "document_extraction":
+                choices = data.get("choices")
+                if not isinstance(choices, list) or len(choices) != 1 or not isinstance(choices[0], dict) or choices[0].get("finish_reason") != "stop":
+                    raise ValueError("Incomplete document response")
             content = _openrouter_message_content(data)
             if not content:
                 raise ValueError(
@@ -492,6 +528,8 @@ async def invoke_openrouter_json_schema(
             result = schema_model.model_validate_json(
                 _json_content_without_code_fences(content)
             )
+        except provider_permit.ProviderAdmissionError:
+            raise
         except Exception as exc:
             last_exc = exc
             record_openrouter_route_receipt(
@@ -502,8 +540,12 @@ async def invoke_openrouter_json_schema(
                 latency_ms=_elapsed_ms(attempt_started_at),
                 outcome="failed",
                 failure_mode=type(exc).__name__,
+                token_usage=openrouter_token_usage_from_payload(data),
+                usage_cost_usd=openrouter_usage_cost_from_payload(data),
                 context_packet_ids=context_packet_ids,
             )
+            if isinstance(exc, OpenRouterRoutingError):
+                raise
             if index + 1 < len(candidate_models):
                 log_openrouter_failure(
                     task=task,
@@ -533,7 +575,7 @@ async def invoke_openrouter_json_schema(
 async def invoke_openrouter_chat_completion(
     *,
     task: OpenRouterTask,
-    messages: list[dict[str, str]],
+    messages: Sequence[Mapping[str, object]],
     model_name: str | None = None,
     context_packet_ids: list[str] | None = None,
 ) -> str | None:
@@ -577,7 +619,7 @@ async def invoke_openrouter_chat_completion(
         payload: dict[str, object] = {
             "model": candidate_model,
             "messages": messages,
-            "temperature": profile.temperature,
+            **model_policy.model_sampling_parameters(candidate_model, profile.temperature),
             "max_tokens": profile.max_tokens,
         }
         try:
@@ -594,7 +636,7 @@ async def invoke_openrouter_chat_completion(
                 if response is None:
                     return None
                 data = response.json()
-                _raise_openrouter_payload_error(data)
+                _raise_openrouter_payload_error(data, candidate_model)
         except Exception as exc:
             last_exc = exc
             record_openrouter_route_receipt(
@@ -607,6 +649,8 @@ async def invoke_openrouter_chat_completion(
                 failure_mode=type(exc).__name__,
                 context_packet_ids=context_packet_ids,
             )
+            if isinstance(exc, OpenRouterRoutingError):
+                raise
             if index + 1 < len(candidate_models):
                 log_openrouter_failure(
                     task=task,
@@ -656,7 +700,7 @@ async def invoke_openrouter_chat_completion(
 def invoke_openrouter_json_schema_sync(
     *,
     task: OpenRouterTask,
-    messages: list[dict[str, str]],
+    messages: Sequence[Mapping[str, object]],
     schema_model: type[SchemaModelT],
     schema_name: str,
     model_name: str | None = None,
@@ -717,7 +761,7 @@ def invoke_openrouter_json_schema_sync(
             if response is None:
                 return None
             data = response.json()
-            _raise_openrouter_payload_error(data)
+            _raise_openrouter_payload_error(data, candidate_model)
             content = _openrouter_message_content(data)
             if not content:
                 raise ValueError(
@@ -738,6 +782,8 @@ def invoke_openrouter_json_schema_sync(
                 failure_mode=type(exc).__name__,
                 context_packet_ids=context_packet_ids,
             )
+            if isinstance(exc, OpenRouterRoutingError):
+                raise
             if index + 1 < len(candidate_models):
                 log_openrouter_failure(
                     task=task,
@@ -801,11 +847,16 @@ def _apply_reasoning_for_structured_artifact(
     payload: dict[str, object],
     profile: OpenRouterProfile,
 ) -> None:
-    payload["reasoning"] = {"effort": profile.reasoning_effort}
+    if profile.task == "document_extraction":
+        if payload["model"] != model_policy.SONNET_5_5_MODEL:
+            return
+    payload["reasoning"] = model_policy.model_reasoning_parameters(
+        str(payload["model"]), profile.reasoning_effort
+    )
 
 
 def _messages_with_stable_prefix_prompt_cache(
-    messages: list[dict[str, str]],
+    messages: Sequence[Mapping[str, object]],
     *,
     model: str,
     task: OpenRouterTask,
@@ -829,29 +880,50 @@ _SCHEMA_IN_PROMPT_INSTRUCTION = (
 )
 
 
+def _document_wire_schema(node: object, *, fields: bool = False) -> object:
+    if isinstance(node, list):
+        return [_document_wire_schema(item) for item in node]
+    if not isinstance(node, dict):
+        return node
+    # Provider grammar limits do not weaken local Pydantic validation.
+    unsupported = {"default", "minLength", "maxLength", "pattern", "format", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf", "minItems", "maxItems", "uniqueItems", "minProperties", "maxProperties"}
+    projected = {
+        key: _document_wire_schema(item, fields=not fields and key in {"properties", "$defs"})
+        for key, item in node.items() if fields or key not in unsupported
+    }
+    if not fields and "properties" in projected:
+        projected["required"] = list(projected["properties"])
+        projected["additionalProperties"] = False
+    return projected
+
+
 def _json_schema_payload(
     *,
     model: str,
-    messages: list[dict[str, str]],
+    messages: Sequence[Mapping[str, object]],
     schema_model: type[SchemaModelT],
     schema_name: str,
     profile: OpenRouterProfile,
 ) -> dict[str, object]:
-    sampling_parameters = (
-        {} if openrouter_model_tier_for_task(profile.task) == "readout"
-        else {"temperature": profile.temperature}
+    schema = schema_model.model_json_schema()
+    projected_document = profile.task == "document_extraction" and model.startswith(
+        ("openai/", "google/")
     )
-    if model.startswith("anthropic/"):
-        # Anthropic strict structured outputs reject core shapes of our
-        # schemas (numeric bounds, any-typed values, open objects such as
-        # extra_parameters), so every native json_schema call 400s. Embed the
-        # schema in a system message instead; client-side pydantic validation
-        # and the candidate retry loop own correctness either way.
+    sampling_parameters = (
+        {}
+        if projected_document or openrouter_model_tier_for_task(profile.task) == "readout"
+        else model_policy.model_sampling_parameters(model, profile.temperature)
+    )
+    if model_policy.uses_schema_message(
+        model, schema, projected=projected_document, schema_name=schema_name
+    ):
+        # Native grammar eligibility never changes the canonical schema.
+        # Prompt-schema responses still require exact local typed validation.
         schema_message = {
             "role": "system",
             "content": (
                 _SCHEMA_IN_PROMPT_INSTRUCTION
-                + json.dumps(schema_model.model_json_schema())
+                + json.dumps(schema)
             ),
         }
         payload: dict[str, object] = {
@@ -860,6 +932,7 @@ def _json_schema_payload(
             **sampling_parameters,
             "max_tokens": profile.max_tokens,
         }
+        payload["provider"] = openrouter_provider_policy()
         _apply_reasoning_for_structured_artifact(payload, profile)
         return payload
     payload = {
@@ -870,15 +943,18 @@ def _json_schema_payload(
             "json_schema": {
                 "name": schema_name,
                 "strict": True,
-                "schema": schema_model.model_json_schema(),
+                "schema": _document_wire_schema(schema) if projected_document else schema,
             },
         },
-        "provider": {"require_parameters": True},
+        "provider": openrouter_provider_policy(),
         **sampling_parameters,
-        "max_tokens": profile.max_tokens,
+        "max_completion_tokens" if profile.task == "document_extraction" and model.startswith("openai/") else "max_tokens": profile.max_tokens,
     }
     _apply_reasoning_for_structured_artifact(payload, profile)
     return payload
+
+
+openrouter_schema_payload = _json_schema_payload
 
 
 def _json_content_without_code_fences(content: str) -> str:
@@ -921,64 +997,16 @@ def _json_content_without_code_fences(content: str) -> str:
     return text.strip()
 
 
-async def _post_openrouter_json_schema(
-    *,
-    client: httpx.AsyncClient,
-    api_key: str,
-    payload: dict[str, object],
-    retry_attempt: _OpenRouterRetryAttempt,
-) -> httpx.Response | None:
-    response = await client.post(
-        "https://openrouter.ai/api/v1/chat/completions", headers=_openrouter_headers(api_key), json=payload
-    )
-    try:
-        response.raise_for_status()
-    except httpx.HTTPStatusError as exc:
-        if exc.response.status_code != 400 or "reasoning" not in payload:
-            raise
-        if (permit := _reserve_openrouter_attempt(*retry_attempt)) is None:
-            return None
-        fallback_payload = {key: value for key, value in payload.items() if key != "reasoning"}
-        response = await client.post(
-            "https://openrouter.ai/api/v1/chat/completions", headers=_openrouter_headers(api_key),
-            json=fallback_payload,
-            timeout=permit.timeout_seconds,
-        )
-        response.raise_for_status()
-    return response
+async def _post_openrouter_json_schema(*, client: httpx.AsyncClient, api_key: str, payload: dict[str, object], retry_attempt: OpenRouterRetryAttempt, prepared_request: httpx.Request | None = None) -> httpx.Response | None:
+    return await transport._post_openrouter_json_schema(client=client, api_key=api_key, payload=payload, retry_attempt=retry_attempt, reserve_attempt=_reserve_openrouter_attempt, prepared_request=prepared_request)
 
 
-def _post_openrouter_json_schema_sync(
-    *,
-    client: httpx.Client,
-    api_key: str,
-    payload: dict[str, object],
-    retry_attempt: _OpenRouterRetryAttempt,
-) -> httpx.Response | None:
-    response = client.post(
-        "https://openrouter.ai/api/v1/chat/completions", headers=_openrouter_headers(api_key), json=payload
-    )
-    try:
-        response.raise_for_status()
-    except httpx.HTTPStatusError as exc:
-        if exc.response.status_code != 400 or "reasoning" not in payload:
-            raise
-        if (permit := _reserve_openrouter_attempt(*retry_attempt)) is None:
-            return None
-        fallback_payload = {key: value for key, value in payload.items() if key != "reasoning"}
-        response = client.post(
-            "https://openrouter.ai/api/v1/chat/completions", headers=_openrouter_headers(api_key),
-            json=fallback_payload,
-            timeout=permit.timeout_seconds,
-        )
-        response.raise_for_status()
-    return response
-
-def _openrouter_headers(api_key: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+def _post_openrouter_json_schema_sync(*, client: httpx.Client, api_key: str, payload: dict[str, object], retry_attempt: OpenRouterRetryAttempt) -> httpx.Response | None:
+    return transport._post_openrouter_json_schema_sync(client=client, api_key=api_key, payload=payload, retry_attempt=retry_attempt, reserve_attempt=_reserve_openrouter_attempt)
 
 
-def _raise_openrouter_payload_error(data: dict[str, object]) -> None:
+def _raise_openrouter_payload_error(data: dict[str, object], model: str) -> None:
+    raise_for_retention_error(model, None, data)
     error = data.get("error")
     if isinstance(error, dict):
         message = str(error.get("message") or "OpenRouter returned an error payload")
@@ -1012,38 +1040,6 @@ def _openrouter_message_content(data: dict[str, object]) -> str:
     return ""
 
 
-OPENROUTER_ERROR_DETAIL_MAX_CHARS = 300
-
-
-def _format_safe(value: str) -> str:
-    # loguru formats the message whenever bound fields are passed, so braces
-    # coming from an exception detail have to be escaped.
-    return value.replace("{", "{{").replace("}", "}}")
-
-
-def _bounded_error_detail(detail: str) -> str:
-    collapsed = " ".join(detail.split())
-    if not collapsed:
-        return "<no detail>"
-    if len(collapsed) <= OPENROUTER_ERROR_DETAIL_MAX_CHARS:
-        return collapsed
-    return f"{collapsed[:OPENROUTER_ERROR_DETAIL_MAX_CHARS]}...<truncated>"
-
-
-def _exception_origin(exc: BaseException) -> str:
-    # Deepest argus frame, so a local rejection points at the raising line
-    # rather than at the generic call site that caught it.
-    traceback = exc.__traceback__
-    origin = ""
-    while traceback is not None:
-        frame = traceback.tb_frame
-        filename = frame.f_code.co_filename
-        if f"{os.sep}argus{os.sep}" in filename:
-            origin = f"{os.path.basename(filename)}:{traceback.tb_lineno}"
-        traceback = traceback.tb_next
-    return origin
-
-
 def log_openrouter_failure(
     *,
     task: OpenRouterTask,
@@ -1056,21 +1052,18 @@ def log_openrouter_failure(
     error_type = type(exc).__name__
     # The default loguru sink renders only the message, so anything a reader
     # needs in production has to live in the formatted string, not in extra.
-    # Bounded because a provider error payload can echo the request back.
-    error_detail = _bounded_error_detail(str(exc))
-    error_origin = _exception_origin(exc)
+    # Exception text and validation locations can echo private request values.
+    error_origin = exception_origin(exc)
     logger.warning(
         (
             f"{message} "
             f"task={task} model={resolved_model} "
             f"max_tokens={profile.max_tokens} error_type={error_type} "
-            f"error_origin={error_origin or '<unknown>'} "
-            f"error_detail={_format_safe(error_detail)}"
+            f"error_origin={error_origin or '<unknown>'}"
         ),
         llm_task=task,
         model=resolved_model,
         max_tokens=profile.max_tokens,
         error_type=error_type,
         error_origin=error_origin,
-        error=error_detail,
     )

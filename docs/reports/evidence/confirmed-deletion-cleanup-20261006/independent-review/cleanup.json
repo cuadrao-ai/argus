@@ -1,0 +1,12 @@
+{
+  "own60343_free": true,
+  "own_test_users_remaining": 0,
+  "own_credential_fixture_deleted": true,
+  "own_run_cleaned": "verified by exclusive before/after ID set and finally",
+  "root_auth_health": 200,
+  "root_postgres_responding": true,
+  "auth_config_changed": false,
+  "candidate_clean": true,
+  "simulator_created": false,
+  "app_support_or_receipt_store_touched": false
+}

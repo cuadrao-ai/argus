@@ -1,0 +1,46 @@
+import { expect, test, type Page } from "@playwright/test";
+import { installBreakpointFixture } from "./support/breakpoint-fixture";
+import { reviewAction } from "./support/business-receipt-fixture";
+
+async function capture(page: Page, name: string) {
+  const directory = process.env.CUADRAO_RECORD_EVIDENCE_DIR;
+  if (!directory) return;
+  await expect(page.getByText(/^Cargando/)).toHaveCount(0);
+  await page.screenshot({ path: `${directory}/${name}.png` });
+}
+
+for (const theme of ["light", "dark"] as const) {
+  for (const viewport of [{ name: "desktop", width: 1280, height: 900 }, { name: "phone", width: 390, height: 844 }]) {
+    test(`Aprobar y siguiente opens the next receipt of the Bandeja: ${theme} ${viewport.name}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
+      await installBreakpointFixture(page, { language: "es-419", theme, emptyChat: true });
+      await page.goto("/dev/business-preview?view=inbox");
+      const badge = page.getByTestId("business-inbox-count");
+      let waiting = 0;
+      if (viewport.name === "desktop") {
+        await expect(badge).toBeVisible();
+        waiting = Number(await badge.textContent());
+        expect(waiting).toBeGreaterThan(1);
+      }
+      await reviewAction(page, /Ferretería La Esquina/).click();
+
+      await expect(page.getByLabel("Pagado desde")).toHaveCount(0);
+      const next = page.getByRole("button", { name: /^Aprobar y siguiente/ });
+      await expect(next).toBeEnabled();
+      await expect(page.getByRole("button", { name: "Aprobar", exact: true })).toBeEnabled();
+      await next.scrollIntoViewIfNeeded();
+      await capture(page, `approve-next-${theme}-${viewport.name}`);
+
+      await next.click();
+      await expect(page).toHaveURL(/receipt=rcpt-papeleria/);
+      await expect(page.getByRole("heading", { name: "Papelería Central" })).toBeVisible();
+      await expect(page.getByTestId("receipt-current-facts")).toContainText("Papelería Central");
+      if (viewport.name === "desktop") {
+        test.info().annotations.push({ type: "issue", description: "The preview keeps the approved receipt in Bandeja when no funding account is set." });
+        await expect(badge).toHaveText(String(waiting - 1));
+      }
+      await capture(page, `next-receipt-${theme}-${viewport.name}`);
+    });
+  }
+}

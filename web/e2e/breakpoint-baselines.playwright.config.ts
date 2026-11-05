@@ -38,7 +38,7 @@ import { defineConfig, devices } from "@playwright/test";
  *     node ./node_modules/@playwright/test/cli.js \
  *     -c e2e/breakpoint-baselines.playwright.config.ts --update-snapshots
  *
- * That path is not proven end to end: legal and auth capture cleanly, but the
+ * That path is not proven end to end: auth capture cleanly, but the
  * settings walk needs a /chat boot and timed out against a host-side dev server.
  * Running the dev server inside the container instead is the likely fix, and is
  * work for whoever wires this into CI.

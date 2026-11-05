@@ -1,0 +1,16 @@
+2026-10-08 02:09:55.298 | INFO     | argus.api.app_setup:lifespan:65 - Using Supabase product persistence with memory LangGraph checkpointer
+2026-10-08 02:09:55.305 | INFO     | argus.api.shortcuts:start_shortcuts:90 - Shortcuts connector ready
+list: {"http": 200, "items": [{"connection_id": "f3d02d8d-40b5-4c52-8a19-a6901ac5122a", "status": "saved", "source_available": true}, {"connection_id": "c010941a-6883-480c-89d2-41586c86b140", "status": "saved", "source_available": true}]}
+get_a: {"http": 200, "status": "saved", "connection_id": "f3d02d8d-40b5-4c52-8a19-a6901ac5122a", "source_available": true}
+source_a: {"http": 422, "code": "document_source_unavailable", "status": 422}
+row_a: {"source_bytes_len": null, "source_path": "8f3afe96-d3d0-422f-b28d-3f530727a7b3/f3d02d8d-40b5-4c52-8a19-a6901ac5122a/a725a99d4c64a1f6a7ddae8e48a41dc98119dc9ed385dca007c038404522bc8f"}
+replay_upload_a: {"http": 503, "code": "document_extraction_unavailable", "status": 503}
+row_a_after_replay: {"source_bytes_len": null, "source_path": "8f3afe96-d3d0-422f-b28d-3f530727a7b3/f3d02d8d-40b5-4c52-8a19-a6901ac5122a/a725a99d4c64a1f6a7ddae8e48a41dc98119dc9ed385dca007c038404522bc8f"}
+disconnect_b: {"http": 200}
+row_b_after_disconnect: null
+objects_u_after_disconnect_b: ["8f3afe96-d3d0-422f-b28d-3f530727a7b3/c010941a-6883-480c-89d2-41586c86b140/0afbddff334ab079fd4e72e1ddbe35fc7b26e51008088db07b5b518ea9456c29", "8f3afe96-d3d0-422f-b28d-3f530727a7b3/f3d02d8d-40b5-4c52-8a19-a6901ac5122a/a725a99d4c64a1f6a7ddae8e48a41dc98119dc9ed385dca007c038404522bc8f"]
+2026-10-08 02:09:55.719 | WARNING  | argus.api.account_deletion_runtime:standalone_apple:123 - Apple revoke for deletion unavailable
+account_delete_v: {"http": 200, "status": "done", "pending": []}
+auth_user_v_exists: false
+objects_v_after_account_delete: ["87a7b851-4fe0-4414-8f88-ce334ad0c004/a81396a7-c27e-4727-a164-d785a0017622/bb8f80a6132e3264b1c9ca267e2a486888b00a3644b03c1ed1a0c77f360612af"]
+exit=0

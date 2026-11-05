@@ -1,0 +1,9 @@
+Test Case '-[ArgusFoundationUITests.CuadraoReceiptUITests testPhotoImportKeepsOriginalWithoutInventedItems]' passed (52.274 seconds).
+	 Executed 1 test, with 0 failures (0 unexpected) in 52.274 (52.276) seconds
+Test Case '-[ArgusFoundationUITests.CuadraoSupportUITests testHomeActivityReturnsToSameRow]' passed (13.779 seconds).
+	 Executed 1 test, with 0 failures (0 unexpected) in 13.779 (13.779) seconds
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testUpdatesNoDataAndReadOnlyHistory]' passed (11.104 seconds).
+	 Executed 1 test, with 0 failures (0 unexpected) in 11.104 (11.104) seconds
+	 Executed 3 tests, with 0 failures (0 unexpected) in 77.157 (77.161) seconds
+	 Executed 3 tests, with 0 failures (0 unexpected) in 77.157 (77.162) seconds
+exit=0 seconds=81

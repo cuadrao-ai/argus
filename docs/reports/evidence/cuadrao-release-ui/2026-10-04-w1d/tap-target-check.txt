@@ -1,0 +1,333 @@
+== 9ac2023b862c  ArgusFoundation/Accounts/AccountActivityView.swift:34-36  ArgusFoundation/Accounts/AccountActivityView.swift: FinancialActivityRow carries the shape
+   Button { inspected = activity } label: {
+   FinancialActivityRow(activity: activity, currency: account.currency)
+   }.buttonStyle(.plain).accessibilityIdentifier("activity.row." + activity.recordId.uuidString)
+== 6f087ece4b6f  ArgusFoundation/Accounts/AccountsView.swift:94-96  ArgusFoundation/Accounts/AccountsView.swift: AccountRow carries the shape
+   Button { Task { await model.open(account); await loop.open(account) } } label: {
+   AccountRow(account: account)
+   }.buttonStyle(.plain).accessibilityIdentifier("accounts.row.\(account.id)")
+== 493a429d01cf  ArgusFoundation/Accounts/FinancialHomeView.swift:73-75  ArgusFoundation/Accounts/FinancialHomeView.swift: FinancialActivityRow carries the shape
+   Button { destination = .accounts; Task { await accounts.open(account); await loop.open(account) } } label: {
+   FinancialActivityRow(activity: activity, currency: account.currency)
+   }.buttonStyle(.plain)
+== 29d959781500  ArgusFoundation/Accounts/FinancialHomeView.swift:91-93  ArgusFoundation/Accounts/FinancialHomeView.swift: AccountRow carries the shape
+   Button { destination = .accounts; Task { await accounts.open(account); await loop.open(account) } } label: {
+   AccountRow(account: account)
+   }.buttonStyle(.plain)
+== df92710d4aa3  ArgusFoundation/Connected/ConnectedCuadraoAuth.swift:58-66  ArgusFoundation/Connected/ConnectedCuadraoAuth.swift: filled label, opaque across its frame
+   NavigationLink {
+   ConnectedCreateAccount(spanish: spanish)
+   } label: {
+   Text(spanish ? "Crear cuenta" : "Create account")
+   .font(.system(.body, weight: .semibold))
+   .frame(maxWidth: .infinity, minHeight: 56)
+   .foregroundStyle(.white)
+   .background(WelcomePalette.pine, in: RoundedRectangle(cornerRadius: 16))
+   }.buttonStyle(.plain)
+== dfeb616271af  ArgusFoundation/Connected/ConnectedCuadraoAuth.swift:633-641  ArgusFoundation/Connected/ConnectedCuadraoAuth.swift: filled label, opaque across its frame
+   NavigationLink {
+   ConnectedEmailSignIn(spanish: spanish)
+   } label: {
+   Text(spanish ? "Ir a iniciar sesión" : "Go to sign in")
+   .font(.body.weight(.semibold))
+   .frame(maxWidth: .infinity, minHeight: 56)
+   .foregroundStyle(.white)
+   .background(WelcomePalette.pine, in: RoundedRectangle(cornerRadius: 16))
+   }.buttonStyle(.plain)
+== 75b2445df572  ArgusFoundation/Connected/ConnectedCuadraoHome.swift:313-320  ArgusFoundation/Connected/ConnectedCuadraoHome.swift: FinancialActivityRow carries the shape
+   Button {
+   Task {
+   await accounts.open(account)
+   await loop.open(account)
+   }
+   } label: {
+   FinancialActivityRow(activity: entry, currency: account.currency)
+   }.buttonStyle(.plain)
+== a3282371b7d4  ArgusFoundation/Connected/ConnectedCuadraoHome.swift:425-433  ArgusFoundation/Connected/ConnectedCuadraoHome.swift: ConnectedAccountRow carries the shape
+   Button {
+   Task {
+   await accounts.open(account)
+   dismiss()
+   }
+   } label: {
+   ConnectedAccountRow(account: account, spanish: spanish)
+   }
+   .buttonStyle(.plain)
+== 317eb1d7bc38  ArgusFoundation/Connected/ConnectedCuadraoProfile.swift:17-18  ArgusFoundation/Connected/ConnectedCuadraoProfile.swift: identity(editable:) carries the shape
+   Button { editingAvatar = true } label: { identity(editable: true) }
+   .buttonStyle(.plain).accessibilityIdentifier("release.profile.avatar")
+== 88d0d284ae21  ArgusFoundation/Cuadrao/CuadraoAccountsCollection.swift:21-23  ArgusFoundation/Cuadrao/CuadraoAccountsCollection.swift: CanvasAccountRow carries the shape
+   Button { path.append(account.id) } label: {
+   CanvasAccountRow(account: account, spanish: spanish)
+   }.buttonStyle(.plain).disabled(mode.isEditing)
+== 86643708f5e2  ArgusFoundation/Cuadrao/CuadraoAmountField.swift:17-18  ArgusFoundation/Cuadrao/CuadraoAmountField.swift: CuadraoChoiceLabel carries the shape
+   Button { choosingCurrency = true } label: { CuadraoChoiceLabel(title: currency) }
+   .buttonStyle(.plain)
+== 8e87782c836e  ArgusFoundation/Cuadrao/CuadraoCanvas.swift:89-97  ArgusFoundation/Cuadrao/CuadraoCanvas.swift: filled label, opaque across its frame
+   NavigationLink {
+   CuadraoCreateAccount(spanish: spanish)
+   } label: {
+   Text(spanish ? "Crear cuenta" : "Create account")
+   .font(.system(.body, weight: .semibold))
+   .frame(maxWidth: .infinity, minHeight: 56)
+   .foregroundStyle(WelcomePalette.onAccent)
+   .background(WelcomePalette.pine, in: RoundedRectangle(cornerRadius: 16))
+   }.buttonStyle(.plain)
+== f40248e0c29a  ArgusFoundation/Cuadrao/CuadraoChatAnswer.swift:58-71  ArgusFoundation/Cuadrao/CuadraoChatAnswer.swift: filled card, opaque across its frame
+   Button(action: showDetails) {
+   VStack(alignment: .leading, spacing: 14) {
+   Text(es ? "En seis meses" : "In six months").font(.subheadline).foregroundStyle(.secondary)
+   HStack(alignment: .firstTextBaseline, spacing: 8) {
+   Text("DOP").font(.subheadline).foregroundStyle(.secondary)
+   Text(CanvasChatCalculation.amount(CanvasChatCalculation.total)).font(CuadraoTypography.amount).monospacedDigit()
+   }
+   Divider()
+   HStack {
+   Text(es ? "Ver cálculo" : "View calculation")
+   Spacer(); Image(systemName: "chevron.right").font(.caption)
+   }.font(.subheadline)
+   }.padding(20).background(WelcomePalette.surface, in: RoundedRectangle(cornerRadius: 20))
+   }.buttonStyle(.plain).accessibilityIdentifier("chat-calculation")
+== 34054fbb3e96  ArgusFoundation/Cuadrao/CuadraoEmailConfirmation.swift:38-46  ArgusFoundation/Cuadrao/CuadraoEmailConfirmation.swift: filled label, opaque across its frame
+   NavigationLink {
+   CuadraoEmailSignIn(spanish: spanish, initialEmail: email)
+   } label: {
+   Text(spanish ? "Ir a iniciar sesión" : "Go to sign in")
+   .font(.body.weight(.semibold))
+   .frame(maxWidth: .infinity, minHeight: 56)
+   .foregroundStyle(WelcomePalette.onAccent)
+   .background(WelcomePalette.pine, in: RoundedRectangle(cornerRadius: 16))
+   }.buttonStyle(.plain)
+== a9024b606f1c  ArgusFoundation/Cuadrao/CuadraoFirstAccountSheet.swift:129-136  ArgusFoundation/Cuadrao/CuadraoFirstAccountSheet.swift: filled label, opaque across its frame
+   Button { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { pickingType = true } } label: {
+   HStack(spacing: 14) {
+   CanvasAccountIcon(kind: kind)
+   Text(kind.title(spanish)).foregroundStyle(.primary)
+   Spacer()
+   Image(systemName: "chevron.down").font(.caption).foregroundStyle(.secondary)
+   }.padding(18).background(WelcomePalette.sage.opacity(0.65), in: RoundedRectangle(cornerRadius: 16))
+   }.buttonStyle(.plain).accessibilityLabel(spanish ? "Cambiar tipo, \(kind.title(spanish))" : "Change type, \(kind.title(spanish))")
+== 5f56d7f6826c  ArgusFoundation/Cuadrao/CuadraoFirstAccountSheet.swift:153-167  ArgusFoundation/Cuadrao/CuadraoFirstAccountSheet.swift: filled tile, opaque across its frame
+   Button {
+   nameFocused = false
+   withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) {
+   kind = item; pickingType = false
+   }
+   if (item.isDebt || item.isAsset), (Decimal(string: amount) ?? 0) < 0 {
+   error = spanish ? "Introduce un monto positivo." : "Enter a positive amount."
+   }
+   } label: {
+   VStack(spacing: 11) {
+   CanvasAccountIcon(kind: item, size: 26)
+   Text(item.title(spanish)).font(.caption).multilineTextAlignment(.center).foregroundStyle(.primary)
+   }.frame(maxWidth: .infinity, minHeight: 91)
+   .background(kind == item ? WelcomePalette.sage : WelcomePalette.surface, in: RoundedRectangle(cornerRadius: 16))
+   }.buttonStyle(.plain).accessibilityIdentifier("account-type-" + item.rawValue)
+== e79cf69f8796  ArgusFoundation/Cuadrao/CuadraoHomeCanvas.swift:283-287  ArgusFoundation/Cuadrao/CuadraoHomeCanvas.swift: feedRow carries the shape
+   NavigationLink(value: HomeRoute.activity(entry.id)) {
+   feedRow(entry.title, detail: account.displayName(spanish),
+   amount: (entry.income ? "+" : "−") + CanvasMoney.format(entry.amount, currency: account.currency),
+   icon: entry.income ? "arrow.down.left" : "arrow.up.right")
+   }.buttonStyle(.plain).accessibilityIdentifier("home-activity.\(entry.id.uuidString)")
+== a16ae8e4b581  ArgusFoundation/Cuadrao/CuadraoLiveVoiceCanvas.swift:81-91  ArgusFoundation/Cuadrao/CuadraoLiveVoiceCanvas.swift: material-filled circle; the style sits on the enclosing HStack
+   Button { choosingVoice = true } label: {
+   Image(systemName: "slider.horizontal.3").font(.system(size: 20))
+   .frame(width: 48, height: 48)
+   .background(.ultraThinMaterial, in: Circle())
+   }.accessibilityLabel(es ? "Elegir voz" : "Choose voice")
+   .accessibilityIdentifier("voice-choose")
+   } else {
+   // Keeps the title centered while voice selection is off.
+   Color.clear.frame(width: 48, height: 48).accessibilityHidden(true)
+   }
+   }.buttonStyle(.plain).padding(.horizontal, 24).padding(.top, 12)
+== 85fdfd09be7e  ArgusFoundation/Cuadrao/CuadraoProfileCanvas.swift:161-163  ArgusFoundation/Cuadrao/CuadraoProfileCanvas.swift: CanvasProfileRow carries the shape
+   NavigationLink(value: route) {
+   CanvasProfileRow(route: route, spanish: spanish)
+   }.buttonStyle(.plain).accessibilityIdentifier("cuadrao.profile.\(route)")
+== 0fd6b99e1d66  ArgusFoundation/Cuadrao/CuadraoSearchCanvas.swift:90-92  ArgusFoundation/Cuadrao/CuadraoSearchCanvas.swift: resultRow carries the shape
+   NavigationLink(value: Route.account(account.id)) {
+   resultRow(account.displayName(spanish), detail: subtitle(account), accountKind: account.kind)
+   }.buttonStyle(.plain)
+== ae491bb6b7d8  ArgusFoundation/Cuadrao/CuadraoSearchCanvas.swift:100-104  ArgusFoundation/Cuadrao/CuadraoSearchCanvas.swift: resultRow carries the shape
+   NavigationLink(value: Route.activity(entry.id)) {
+   resultRow(entry.title, detail: account.displayName(spanish) + " · " + account.currency + " "
+   + (entry.income ? "+" : "−") + CanvasMoney.format(entry.amount, currency: account.currency),
+   symbol: entry.income ? "arrow.down.left" : nil, category: entry.income ? nil : entry.category)
+   }.buttonStyle(.plain).accessibilityIdentifier("cuadrao.search.activity.\(entry.id)")
+== 24d60a683095  ArgusFoundation/Cuadrao/CuadraoSearchCanvas.swift:112-116  ArgusFoundation/Cuadrao/CuadraoSearchCanvas.swift: resultRow carries the shape
+   NavigationLink(value: Route.plan(plan.id)) {
+   resultRow(plan.name, detail: [plan.kind.title(spanish),
+   PlanFormat.space(plan.spaceID, accounts: data, spanish: spanish),
+   plan.archived ? (spanish ? "Archivado" : "Archived") : nil].compactMap { $0 }.joined(separator: " · "), symbol: plan.look.symbol)
+   }.buttonStyle(.plain).accessibilityIdentifier("cuadrao.search.plan.\(plan.id)")
+== b8a9a65cbca8  ArgusFoundation/Cuadrao/CuadraoSearchCanvas.swift:120-123  ArgusFoundation/Cuadrao/CuadraoSearchCanvas.swift: resultRow carries the shape
+   NavigationLink(value: Route.group(group.id)) {
+   resultRow(group.name, detail: [group.kind.title(spanish), group.currency,
+   group.archived ? (spanish ? "Archivado" : "Archived") : nil].compactMap { $0 }.joined(separator: " · "), symbol: group.look.symbol)
+   }.buttonStyle(.plain).accessibilityIdentifier("cuadrao.search.group.\(group.id)")
+== d9b102efb3ae  ArgusFoundation/Cuadrao/CuadraoSearchCanvas.swift:133-135  ArgusFoundation/Cuadrao/CuadraoSearchCanvas.swift: resultRow carries the shape
+   Button { focused = false; openChat(thread) } label: {
+   resultRow(item.title, detail: item.detail, date: thread.lastMessageDate, symbol: "bubble.left")
+   }.buttonStyle(.plain)
+== ff6872434883  ArgusFoundation/Cuadrao/CuadraoSearchCanvas.swift:137-139  ArgusFoundation/Cuadrao/CuadraoSearchCanvas.swift: resultRow carries the shape
+   NavigationLink(value: Route.reference(item.id)) {
+   resultRow(item.title, detail: item.detail, symbol: item.kind == .memory ? "brain" : "doc")
+   }.buttonStyle(.plain)
+== 491c5800f0ee  ArgusFoundation/Cuadrao/CuadraoSpacesSheet.swift:10-14  ArgusFoundation/Cuadrao/CuadraoSpacesSheet.swift: spaceChoice carries the shape
+   NavigationLink {
+   CuadraoHouseholdIntroduction(data: data, spanish: spanish, finished: { dismiss() })
+   } label: {
+   spaceChoice(.household, subtitle: spanish ? "Lo que comparten en casa" : "What you share at home")
+   }.buttonStyle(.plain)
+== 2fcf20220b6f  ArgusFoundation/Cuadrao/CuadraoSpacesSheet.swift:17-23  ArgusFoundation/Cuadrao/CuadraoSpacesSheet.swift: spaceChoice carries the shape
+   NavigationLink {
+   CuadraoSpaceNameForm(data: data, kind: kind, spanish: spanish, finished: { dismiss() })
+   } label: {
+   spaceChoice(kind, subtitle: kind == .business
+   ? (spanish ? "Tus finanzas del negocio" : "Your business finances")
+   : (spanish ? "Un espacio a tu manera" : "A space of your own"))
+   }.buttonStyle(.plain)
+== 9392d175d509  ArgusFoundation/Cuadrao/CuadraoSpendingTrends.swift:20-45  ArgusFoundation/Cuadrao/CuadraoSpendingTrends.swift: filled card, opaque across its frame
+   NavigationLink {
+   CuadraoSpendingTrendEvidence(insight: insight, story: story, currency: currency, spanish: spanish)
+   } label: {
+   VStack(alignment: .leading, spacing: 16) {
+   HStack(spacing: 12) {
+   if let category = insight.category { CuadraoExpenseCategoryIcon(category: category) }
+   else { Image(systemName: "chart.bar.xaxis").font(.title3).foregroundStyle(color).frame(width: 42, height: 42).background(color.opacity(0.1), in: RoundedRectangle(cornerRa
+   Text(insight.category?.title(spanish) ?? (spanish ? "Promedio de \(insight.months.count) meses" : "\(insight.months.count)-month average"))
+   .font(CuadraoTypography.supporting).foregroundStyle(color)
+   Spacer(minLength: 0)
+   Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
+   }
+   Text(statement).font(CuadraoTypography.body).fixedSize(horizontal: false, vertical: true)
+   Divider()
+   chart
+   if insight.kind == .trend {
+   HStack(alignment: .top, spacing: 16) {
+   reference(insight.priorAverage, title: spanish ? "9 meses anteriores" : "Previous 9 months", color: .secondary)
+   Spacer(minLength: 0)
+   reference(insight.recentAverage, title: spanish ? "3 meses recientes" : "Recent 3 months", color: color)
+   }
+   } else { reference(insight.average, title: spanish ? "por mes" : "per month", color: color) }
+   Text(windowLabel).font(CuadraoTypography.caption).foregroundStyle(.secondary)
+   }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+   .background(WelcomePalette.surface, in: RoundedRectangle(cornerRadius: 24))
+   }.buttonStyle(.plain).accessibilityIdentifier("home-highlight-" + insight.id)
+== 3b293c8c2d90  ArgusFoundation/Cuadrao/CuadraoUpdatesCanvas.swift:100-104  ArgusFoundation/Cuadrao/CuadraoUpdatesCanvas.swift: row(_:) carries the shape
+   Button {
+   guard items.contains(item) else { return }
+   readIDs.insert(item); path.append(item)
+   } label: { row(item) }
+   .buttonStyle(.plain).listRowBackground(Color.clear)
+== 6e1228b1526b  ArgusFoundation/Cuadrao/CuadraoVoiceMessagePanel.swift:107-114  ArgusFoundation/Cuadrao/CuadraoVoiceMessagePanel.swift: filled capsule, opaque across its frame
+   Button { message.stop() } label: {
+   Label(es ? "Detener" : "Stop", systemImage: "stop.fill")
+   .font(CuadraoTypography.action).fixedSize(horizontal: false, vertical: true)
+   .padding(.horizontal, 22).padding(.vertical, 10).frame(minHeight: 48)
+   .foregroundStyle(WelcomePalette.onAccent)
+   .background(WelcomePalette.pine, in: Capsule())
+   }.accessibilityIdentifier("voice-message-stop")
+   }.buttonStyle(.plain)
+== 592c27234470  ArgusFoundation/Cuadrao/CuadraoVoicePicker.swift:112-122  ArgusFoundation/Cuadrao/CuadraoVoicePicker.swift: filled capsule, opaque across its frame
+   Button { sample.toggle(selected) } label: {
+   HStack(spacing: 8) {
+   Image(systemName: sample.playing == selected ? "stop.fill" : "play.fill")
+   .font(.system(size: 12, weight: .semibold))
+   Text(sample.playing == selected
+   ? (spanish ? "Detener muestra" : "Stop preview")
+   : (spanish ? "Escuchar muestra" : "Play preview"))
+   .font(.subheadline.weight(.medium))
+   }.frame(minWidth: 180, minHeight: 44)
+   .background(WelcomePalette.surface, in: Capsule())
+   }.buttonStyle(.plain)
+== d91a69540884  ArgusFoundation/Cuadrao/Planning/CuadraoPlanVisuals.swift:35-42  ArgusFoundation/Cuadrao/Planning/CuadraoPlanVisuals.swift: filled capsule, opaque across its frame
+   Button(action: action) {
+   HStack(spacing: 8) {
+   Text(title)
+   if let symbol { Image(systemName: symbol) }
+   }.font(CuadraoTypography.action).frame(maxWidth: .infinity, minHeight: 52)
+   .foregroundStyle(WelcomePalette.onAccent)
+   .background(WelcomePalette.pine, in: Capsule())
+   }.buttonStyle(.plain)
+== a0e03c556626  ArgusFoundation/Cuadrao/Planning/PlanCurrencyChoice.swift:1-18  ArgusFoundation/Cuadrao/Planning/PlanCurrencyChoice.swift: CuadraoChoiceMenu carries the shape
+   import SwiftUI
+
+   struct PlanCurrencyChoice: View {
+   @Binding var currency: String
+   let locked: Bool
+   let spanish: Bool
+   var showLock = true
+   var body: some View {
+   if locked {
+   CuadraoChoiceLabel(title: currency, selectable: false, locked: showLock)
+   .foregroundStyle(.secondary)
+   .accessibilityElement(children: .ignore)
+   .accessibilityLabel(spanish ? "Moneda fija: \(currency)" : "Fixed currency: \(currency)")
+   .accessibilityIdentifier(showLock ? "plan-currency-fixed" : "plan-currency-inherited")
+   } else {
+   CuadraoChoiceMenu(title: spanish ? "Moneda" : "Currency", selection: $currency,
+   values: PlanCurrency.supported, valueTitle: { $0 })
+   .buttonStyle(.plain).foregroundStyle(WelcomePalette.pine)
+== c5c6a6dba0e1  ArgusFoundation/Cuadrao/Receipts/CuadraoReceiptSupport.swift:130-142  ArgusFoundation/Cuadrao/Receipts/CuadraoReceiptSupport.swift: filled card, opaque across its frame
+   Button(action: open) {
+   HStack(spacing: 14) {
+   Image(systemName: draft.prepared ? "receipt" : "checkmark.seal").frame(width: 40, height: 44)
+   .foregroundStyle(WelcomePalette.pine)
+   VStack(alignment: .leading, spacing: 4) {
+   Text(draft.merchant.isEmpty ? (spanish ? "Recibo guardado" : "Saved receipt") : draft.merchant).font(CuadraoTypography.supporting)
+   Text(draft.prepared ? (spanish ? "Por revisar · solo tú" : "Ready to review · only you") : (spanish ? "Confirmado" : "Confirmed")).font(.caption).foregroundStyle(.seconda
+   }
+   Spacer()
+   if draft.total > 0, let currency = draft.currency { Text(CanvasMoney.format(Decimal(draft.total) / 100, currency: currency)).font(CuadraoTypography.rowAmount) }
+   Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.secondary)
+   }.foregroundStyle(WelcomePalette.ink).padding(12).background(WelcomePalette.surface, in: RoundedRectangle(cornerRadius: 18))
+   }.buttonStyle(.plain).accessibilityIdentifier("receipt-card-\(draft.id)")
+== 73fe15564e24  ArgusFoundation/DesignSystem.swift:119-120  ArgusFoundation/DesignSystem.swift: SampleRow content carries the shape
+   Button(action: action) { content }
+   .buttonStyle(.plain)
+== 749c2924f68e  ArgusFoundation/FoundationSheets.swift:38-44  ArgusFoundation/FoundationSheets.swift: SampleRow content carries the shape
+   NavigationLink {
+   AppearancePreferencesView(appearance: $appearance)
+   .modifier(SheetCloseToolbar(close: { dismiss() }))
+   } label: {
+   SampleRow(title: "profile.preferences", subtitle: "profile.preferences.detail", symbol: "paintpalette")
+   }
+   .buttonStyle(.plain)
+== a535259d2cd2  ArgusFoundation/Plan/FinancialBudgetView.swift:126-127  ArgusFoundation/Plan/FinancialBudgetView.swift: contributor(_:) carries the shape
+   Button { model.activity(item.activityId) } label: { contributor(item) }
+   .buttonStyle(.plain).id(item.activityId).accessibilityIdentifier("budget.activity." + item.activityId.uuidString)
+== 81054c0416c7  ArgusFoundation/Plan/FinancialPlanView.swift:120-121  ArgusFoundation/Plan/FinancialPlanView.swift: FinancialOccurrenceRow carries the shape
+   Button { Task { await model.open(occurrence) } } label: { FinancialOccurrenceRow(occurrence: occurrence) }
+   .buttonStyle(.plain).accessibilityIdentifier("plan.occurrence." + occurrence.id)
+== cf242bbfe912  ArgusFoundation/Plan/FinancialPlanView.swift:294-294  ArgusFoundation/Plan/FinancialPlanView.swift: FinancialOccurrenceRow carries the shape
+   Button(action: viewPlan) { FinancialOccurrenceRow(occurrence: occurrence) }.buttonStyle(.plain)
+== 6bb8f06b0d8a  ArgusFoundation/ReleaseUI/Identity/ReleaseSocialSignInView.swift:66-80  ArgusFoundation/ReleaseUI/Identity/ReleaseSocialSignInView.swift: filled label, opaque across its frame
+   Button { onSignIn(provider, pendingInvite) } label: {
+   HStack(spacing: 10) {
+   if provider == .apple { Image(systemName: "apple.logo").accessibilityHidden(true) }
+   Text(text("Continuar con \(provider.title)", "Continue with \(provider.title)"))
+   .multilineTextAlignment(.center)
+   }
+   .font(CuadraoTypography.action)
+   .padding(.horizontal, 16).padding(.vertical, 14)
+   .frame(maxWidth: .infinity, minHeight: 52)
+   .foregroundStyle(provider == .apple ? Color(uiColor: .systemBackground) : Color.primary)
+   .background(provider == .apple ? Color.primary : Color(uiColor: .secondarySystemBackground),
+   in: RoundedRectangle(cornerRadius: 14))
+   .overlay { RoundedRectangle(cornerRadius: 14).stroke(Color(uiColor: .separator), lineWidth: 0.5) }
+   }
+   .buttonStyle(.plain).disabled(state.isBusy)
+== 587a96f7a90f  ArgusFoundation/ReleaseUI/Updates/ReleaseUpdatesInbox.swift:34-38  ArgusFoundation/ReleaseUI/Updates/ReleaseUpdatesInbox.swift: row(_:) carries the shape
+   NavigationLink {
+   detail(item)
+   .onAppear { if !item.isRead { markRead(item.id) } }
+   } label: { row(item) }
+   .buttonStyle(.plain).accessibilityIdentifier("updates-row-" + item.id)
+== 7999f60ac599  ArgusFoundation/Search/FinancialSearchView.swift:128-130  ArgusFoundation/Search/FinancialSearchView.swift: FinancialSearchRow carries the shape
+   Button { focused = false; Task { await model.open(hit, accounts: accounts, loop: loop) } } label: {
+   FinancialSearchRow(hit: hit)
+   }.buttonStyle(.plain).disabled(model.opening)
+plain-style statements without a content shape: 42, reviewed: 42, unreviewed: 0, stale entries: 0
+exit=0

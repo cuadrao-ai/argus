@@ -2,7 +2,7 @@
 
 Router and composition locks for the scenario contract: the typed signal
 selects the scenario instructions and the balanced shape on every kind, the
-answer publishes only on cited inputs on the inline, background and cache-hit
+answer publishes only on cited inputs on the inline, background and repeated-turn
 paths, a claim about crypto is grounded on public pages, and a failed
 scenario is recorded under the shape it was selected for.
 """
@@ -222,13 +222,13 @@ def test_the_background_scenario_preserves_research_without_a_calculation() -> N
     assert packet.answer_markdown in composed["answer"]
 
 
-def test_a_comparison_scenario_preserves_research_on_a_cache_hit(
+def test_a_comparison_scenario_preserves_research_on_an_uncached_repeat(
     monkeypatch,
 ) -> None:
     """A scenario computes from retrieved inputs on the balanced path, so a
     named comparison asked as a scenario never takes the thorough job. A
-    scenario with an unusable calculation is cached so the same question is not
-    billed twice; the repeat preserves its research prose in the same way."""
+    repeat retrieves its own answer and preserves its research prose even
+    when the calculation inputs are unusable."""
     set_research_query(
         monkeypatch,
         globals(),
@@ -250,7 +250,8 @@ def test_a_comparison_scenario_preserves_research_on_a_cache_hit(
                 sources=["https://www.reuters.com/markets/nvidia-outlook/"],
                 tickers=["NVDA", "AMD"],
             )
-        ],
+        ]
+        * 2,
     )
 
     first = _run("Which of NVDA or AMD will be worth more in ten years?")
@@ -262,9 +263,9 @@ def test_a_comparison_scenario_preserves_research_on_a_cache_hit(
 
     repeat = _run("Which of NVDA or AMD will be worth more in ten years?")
     assert repeat is not None
-    assert len(transport.requests) == 1, "a cache hit must not touch the provider"
+    assert len(transport.requests) == 2, "the repeated scenario retrieves fresh inputs"
     sidecar = repeat.stage_patch["research"]
-    assert sidecar["usage"]["cache_status"] == "hit"
+    assert sidecar["usage"]["cache_status"] == "miss"
     assert "degraded" not in sidecar
     assert "written from memory" in repeat.stage_patch["assistant_response"]
     assert "calculation_inputs_not_found" in repeat.decision.reason_codes

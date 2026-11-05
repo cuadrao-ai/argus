@@ -1,0 +1,40 @@
+warning: /Users/garces/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/garces/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+Building for debugging...
+[Constructing description]
+[Planning deferred tasks]
+[11 / 55] ConcurrencyExtras
+[34 / 97] IssueReporting
+[50 / 117] IssueReporting
+[62 / 117] Crypto
+[74 / 117] Crypto
+[87 / 127] Crypto
+[97 / 130] _IssueReporting
+[109 / 141] Clocks
+[116 / 148] Clocks
+[122 / 152] Helpers
+[141 / 171] Helpers
+[143 / 171] Helpers
+[151 / 177] Auth
+[170 / 196] Auth
+[174 / 198] ArgusSession
+[192 / 217] ArgusSession
+[193 / 217] ArgusSession
+[198 / 214] ArgusSession
+[201 / 214] Auth
+[204 / 213] ArgusSessionTests-product
+[223 / 232] ArgusSessionTests-product
+[228 / 232] ArgusSessionTests-product
+[230 / 232] ArgusSessionTests-product
+Build complete! (5.18 sec)
+Test Suite 'Selected tests' started at 2026-10-05 22:37:53.900.
+Test Suite 'ArgusSessionTests.xctest' started at 2026-10-05 22:37:53.900.
+Test Suite 'BaselineDeletionCleanupGapTests' started at 2026-10-05 22:37:53.900.
+Test Case '-[ArgusSessionTests.BaselineDeletionCleanupGapTests testExternalCleanupRemovesAWhileBOwnsSessionBeforeAcknowledgementRejects]' started.
+Test Case '-[ArgusSessionTests.BaselineDeletionCleanupGapTests testExternalCleanupRemovesAWhileBOwnsSessionBeforeAcknowledgementRejects]' passed (0.007 seconds).
+Test Suite 'BaselineDeletionCleanupGapTests' passed at 2026-10-05 22:37:53.908.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.007 (0.008) seconds
+Test Suite 'ArgusSessionTests.xctest' passed at 2026-10-05 22:37:53.908.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.007 (0.008) seconds
+Test Suite 'Selected tests' passed at 2026-10-05 22:37:53.908.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.007 (0.008) seconds

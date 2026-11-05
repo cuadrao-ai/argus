@@ -12,6 +12,7 @@ from loguru import logger
 from pydantic import ValidationError
 
 from argus.api import state as api_state
+from argus.api.business_spaces import business_access
 from argus.api.guest_access import permanent_account_access_allowed
 from argus.api.ops_contract import (
     ACCESS_REQUEST_APPROVE_PATH,
@@ -24,6 +25,7 @@ from argus.domain.access_approval_email import (
     send_access_welcome_email,
 )
 from argus.domain.market_data import warm_asset_universe
+from argus.settings_names import setting_value
 
 router = APIRouter(tags=["ops"])
 
@@ -32,15 +34,25 @@ _INELIGIBLE_DETAIL = "Access request is not eligible for approval."
 
 
 def _ops_token() -> str:
-    return (os.getenv("ARGUS_OPS_TOKEN") or "").strip()
+    return (os.getenv("CUADRAO_OPS_TOKEN") or "").strip()
+
+
+def _latin1_bytes(value: str) -> bytes | None:
+    try:
+        return value.encode("latin-1")
+    except UnicodeEncodeError:
+        return None
 
 
 def _require_ops_token(authorization: str | None) -> None:
     expected = _ops_token()
     if not expected:
         raise HTTPException(status_code=404, detail="Not found")
-    expected_header = f"Bearer {expected}"
-    if authorization is None or not hmac.compare_digest(authorization, expected_header):
+    expected_header = _latin1_bytes(f"Bearer {expected}")
+    provided = _latin1_bytes(authorization or "")
+    if expected_header is None or provided is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    if not hmac.compare_digest(provided, expected_header):
         raise HTTPException(status_code=404, detail="Not found")
 
 
@@ -133,10 +145,25 @@ async def run_readiness_checks(request: Request, *, force: bool) -> dict[str, An
             )
         )
 
+    invite_codes = _invite_code_check()
+    if invite_codes is not None:
+        checks.append(invite_codes)
+
     status = (
         "ready" if all(check["status"] == "ready" for check in checks) else "degraded"
     )
     return {"status": status, "checks": checks}
+
+
+def _invite_code_check() -> dict[str, Any] | None:
+    """With a code surface on, a missing or short secret makes readiness fail."""
+    from argus.domain.household.invite_codes import code_secret_problem, code_surface_on
+
+    if not code_surface_on():
+        return None
+    if code_secret_problem() is None:
+        return _check("invite_codes", "ready", 0)
+    return _check("invite_codes", "degraded", 0, reason="invite_code_secret_unusable")
 
 
 @router.get("/internal/readiness")
@@ -166,14 +193,13 @@ async def requested_signup_denial(request: Request) -> dict[str, bool]:
         raise HTTPException(status_code=503, detail="Canary probe is unavailable.")
     return {
         "denied": not permanent_account_access_allowed(
-            api_state.supabase_gateway,
-            body.email,
+            api_state.supabase_gateway, body.email, business_access()
         )
     }
 
 
 def _approval_signup_url() -> str:
-    origin = (os.getenv("ARGUS_APP_ORIGIN") or "").strip().rstrip("/")
+    origin = (setting_value("APP_ORIGIN") or "").strip().rstrip("/")
     if not origin:
         raise RuntimeError("Approval signup origin is unavailable.")
     return f"{origin}/?auth=signup"

@@ -1,0 +1,287 @@
+{
+  "verified_at": "2026-09-29T14:00:26.666125+00:00",
+  "scope": "local simulator only; synthetic registered identities; real local API and Supabase/Postgres",
+  "native_product_equivalent_sha": "2e678d3d42d4eaaf93a83e4cf7eaac061ff4e144",
+  "native_app_tree": "b76ca81a4f386eeeab8045c523b2cfc84032f7be",
+  "session_package_tree": "4878b527fae1fa14057f709b54eeca127704e8e6",
+  "api_source": "062fd2aa82c0044f55eb9ae35162b3a1eec0f05d",
+  "runtime": {
+    "xcode": "27.0 (27A266a)",
+    "os": "iOS27",
+    "device": "iPhone17e",
+    "simulator": "DD9EF306-EFED-41F1-9A8E-B42EBCEE07DA",
+    "bundle": "local.argus.foundation"
+  },
+  "final_api": "http://127.0.0.1:58500",
+  "proxy": {
+    "address": "http://127.0.0.1:58512",
+    "armed": false,
+    "committed_responses_dropped": 1,
+    "final_demo_uses_proxy": false
+  },
+  "native_cases": [
+    {
+      "log": "ui-20260929T131712Z.log",
+      "source": "9c3fc3881e100d18ab6568e7f64f43e7b439c447",
+      "test_source": "174ed9d04a9a566d41ad23a06f15f5aa8653952a",
+      "uncommitted_test_draft": true,
+      "terminal_case": "Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testAccountAndActivityRowsOpenFromCenter]' passed (72.141 seconds).",
+      "result_bundle_finalized": false,
+      "runner_exit": "completed case; stalled finalizer terminated"
+    },
+    {
+      "log": "ui-20260929T132906Z.log",
+      "source": "b40920dd1b92d05c692b56d1e0de9d0d7e9c2f66",
+      "test_source": "b40920dd1b92d05c692b56d1e0de9d0d7e9c2f66",
+      "uncommitted_test_draft": false,
+      "terminal_case": "Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testIncomeSpendingRefundAndCorrections]' passed (326.433 seconds).",
+      "result_bundle_finalized": false,
+      "runner_exit": "completed case; stalled finalizer terminated"
+    },
+    {
+      "log": "ui-20260929T133516Z.log",
+      "source": "afb06bc338dfcea22d25ce23fd209c179399e732",
+      "test_source": "afb06bc338dfcea22d25ce23fd209c179399e732",
+      "uncommitted_test_draft": false,
+      "terminal_case": "Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testTransferAndWrongAccountCorrection]' passed (318.747 seconds).",
+      "result_bundle_finalized": false,
+      "runner_exit": "completed case; stalled finalizer terminated"
+    },
+    {
+      "log": "ui-20260929T134103Z.log",
+      "source": "afb06bc338dfcea22d25ce23fd209c179399e732",
+      "test_source": "afb06bc338dfcea22d25ce23fd209c179399e732",
+      "uncommitted_test_draft": false,
+      "terminal_case": "Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testCardPaymentRefundAndCreditBalance]' passed (322.893 seconds).",
+      "result_bundle_finalized": false,
+      "runner_exit": "completed case; stalled finalizer terminated"
+    },
+    {
+      "log": "ui-20260929T134706Z.log",
+      "source": "831ec1f585a9fbde6daf5299a7dac061070658cb",
+      "test_source": "831ec1f585a9fbde6daf5299a7dac061070658cb",
+      "uncommitted_test_draft": false,
+      "terminal_case": "Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testMoneyReconciliationCurrenciesAndIdentity]' passed (423.703 seconds).",
+      "result_bundle_finalized": false,
+      "runner_exit": "completed case; stalled finalizer terminated",
+      "claim_limit": "Original identity-isolation absence assertions were insufficient and are superseded by review_delta; reconciliation/currency/Spanish observations retained."
+    },
+    {
+      "log": "ui-20260929T135454Z.log",
+      "source": "c7321051866eff62e78e497aa1219c120989d344",
+      "test_source": "c7321051866eff62e78e497aa1219c120989d344",
+      "uncommitted_test_draft": false,
+      "terminal_case": "Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testCommittedResponseLossSurvivesRelaunch]' passed (126.763 seconds).",
+      "result_bundle_finalized": false,
+      "runner_exit": "completed case; stalled finalizer terminated"
+    },
+    {
+      "log": "ui-20260929T135754Z.log",
+      "source": "d634dce04357d2cc3b12e1e3c0cf59305a8619dd",
+      "test_source": "d634dce04357d2cc3b12e1e3c0cf59305a8619dd",
+      "uncommitted_test_draft": false,
+      "terminal_case": "Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testRetainedHomeSurvivesReopening]' passed (15.513 seconds).",
+      "result_bundle_finalized": true,
+      "runner_exit": 0
+    }
+  ],
+  "launcher_tests": {
+    "passed": 2,
+    "failed": 0
+  },
+  "canonical_native_readback": "native-record-readback.json",
+  "video": {
+    "file": "personal-money-loop.mp4",
+    "duration_seconds": 175.4517,
+    "fps": 12,
+    "speed": 1.1,
+    "edited": true,
+    "clips": [
+      {
+        "source_log": "ui-20260929T132229Z.log",
+        "account": "Daily money 67533",
+        "source_commit": "65029b3f9",
+        "raw_start": 36,
+        "raw_duration": 99,
+        "scope": "successful income/spending/refund and Home; later test-selector failure excluded, full correction case passed separately"
+      },
+      {
+        "source_log": "ui-20260929T133516Z.log",
+        "accounts": [
+          "Transfer bank DBA3B",
+          "Transfer cash DBA3B"
+        ],
+        "source_commit": "afb06bc33",
+        "raw_start": 90,
+        "raw_duration": 47
+      },
+      {
+        "source_log": "ui-20260929T134103Z.log",
+        "accounts": [
+          "Card funding FC26C",
+          "Everyday card FC26C"
+        ],
+        "source_commit": "afb06bc33",
+        "raw_start": 109,
+        "raw_duration": 47
+      }
+    ]
+  },
+  "limitations": [
+    "No physical iPhone, existing founder identity, internet or deployed app verification",
+    "Same-currency movements; no invented FX or unresolved loan allocation",
+    "Existing balance-check-before-latest-observation restriction",
+    "Six selected cases passed but stalled Xcode result finalizers were stopped; final direct-API smoke has clean exit0",
+    "Earlier failed exploratory selector runs are not counted as passes"
+  ],
+  "artifacts": {
+    "card-payment-excluded-refund-net-delta.png": {
+      "bytes": 361031,
+      "sha256": "e4b89b91f521364f891f307f04fc430e7cf3348afae258f6ff6290a429b6e3ba"
+    },
+    "wrong-account-correction-history.png": {
+      "bytes": 333991,
+      "sha256": "71d6d2e3df6943f96b44c76326e9b73ab56b413658c2e35708c153db6bfd8c30"
+    },
+    "separate-currency-unknown-negative-net.png": {
+      "bytes": 357219,
+      "sha256": "a386d70d3591f14de1db205069e14a2ff38de3b338fbcc7f365739287f73a41d"
+    },
+    "card-credit-after-refund.png": {
+      "bytes": 375716,
+      "sha256": "bbb92ef1ed6973714b7b83564901125d8518f88bfbde5a84232f3fa0c6a71195"
+    },
+    "per-account-reconciliation.png": {
+      "bytes": 350494,
+      "sha256": "4f6d2931630684fdab4bfe121a26a1c6fc6196263d60dc212a77a8105f616b28"
+    },
+    "second-identity-isolated.png": {
+      "bytes": 200937,
+      "sha256": "dc8477f4e948875a63b6469c6136baf0456736869f48f71fc2c07b1500f91b4c"
+    },
+    "retained-demo-home.png": {
+      "bytes": 346200,
+      "sha256": "a55d37165e77d605ff005038a8c261d6950f1e1267a5dd06554490668660aad6"
+    },
+    "personal-money-loop.mp4": {
+      "bytes": 29802309,
+      "sha256": "3e47b6c3cf1d114b110d957304a72cf37572bd3ba258ad749d1b53ec2be8057b"
+    },
+    "paired-records-preserved-after-reopen.png": {
+      "bytes": 324341,
+      "sha256": "b0ece759b9bfdf8b0c33a02956d5d54e0f84f586ccb68f8fa51c2e6b659312c7"
+    },
+    "income-spending-refund-home.png": {
+      "bytes": 359078,
+      "sha256": "8d6194b6cd0bad0fc097bc28dd1295dbb7b1f5ad84e12ebb7f11b584b8eef776"
+    },
+    "committed-response-lost.png": {
+      "bytes": 187540,
+      "sha256": "dc5edb1480cec90ea154ab257770afd91d38eae1debaa78525e5f45f633c1b50"
+    },
+    "income-review-dark.png": {
+      "bytes": 293457,
+      "sha256": "754bf92615387c2264acc3900a6bf3bc4f7598dccb9681e59725f19d4083025e"
+    },
+    "same-key-recovery-once.png": {
+      "bytes": 299935,
+      "sha256": "62ad7e7d7540e31ce2c0856fcd45e9f7bb5a3d13037e2df02200f22a99714c0f"
+    },
+    "linked-transfer-details.png": {
+      "bytes": 155324,
+      "sha256": "3872b73bbde9b143d65a52ed0eca5aeb65ba354ec8abca79fbed26f2c6faa621"
+    },
+    "pending-recovery-after-relaunch.png": {
+      "bytes": 357926,
+      "sha256": "9920b22b1d190daa585cedaa54cbef824459bfeeabd128ecb00ef3c76ff05a45"
+    },
+    "income-spanish-light.png": {
+      "bytes": 179257,
+      "sha256": "3af77898163021fedac2216486496512c5bebf173b339c6d8cbd60e85381363b"
+    },
+    "full-row-tap-opens-details.png": {
+      "bytes": 128523,
+      "sha256": "6f915200dcf260ef64dbae7428430fbce1ce94efe5a77ad88ee3fe0fefd31610"
+    },
+    "linked-refund-correction-history.png": {
+      "bytes": 218930,
+      "sha256": "b97000fc18b2d20801ab6e43528afc2293bb085dd2bf696058eb9569f2682c0c"
+    }
+  },
+  "review_delta": {
+    "finding": "https://github.com/lagarcess/argus/pull/747#discussion_r4134599936",
+    "verified_at": "2026-09-29T14:36:04.484538+00:00",
+    "base_and_api_source": "5a982bc2b9df93c5015f20cc79b470d095d5b40f",
+    "native_source": "3106f2f6e1d91570f98239beb7ff2cafe31e7fd5",
+    "scope": "Only native pending-write identity isolation acceptance; no runtime changes",
+    "supersedes": "Native identity-isolation claims from ui-20260929T134706Z.log and second-identity-isolated.png; positive B load and pending A command were not established there",
+    "native_cases": [
+      {
+        "log": "ui-20260929T142849Z.log",
+        "terminal_case": "Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testPendingMoneyWriteRemainsIsolatedAcrossIdentities]' passed (232.846 seconds).",
+        "source": "3106f2f6e1d91570f98239beb7ff2cafe31e7fd5",
+        "runner_exit": 0,
+        "result_bundle_finalized": true
+      },
+      {
+        "log": "ui-20260929T143325Z.log",
+        "terminal_case": "Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testRetainedHomeSurvivesReopening]' passed (15.469 seconds).",
+        "source": "3106f2f6e1d91570f98239beb7ff2cafe31e7fd5",
+        "runner_exit": 0,
+        "result_bundle_finalized": true
+      }
+    ],
+    "proof": "isolation-review/README.md",
+    "canonical_readback": "isolation-review/readback.json",
+    "proxy": {
+      "port": 58512,
+      "committed_responses_dropped": 1,
+      "armed_at_stop": false,
+      "stopped": true
+    },
+    "final_demo": {
+      "api_port": 58500,
+      "signed_in_identity": "A",
+      "surface": "Home",
+      "data_preserved": true
+    },
+    "artifacts": {
+      "isolation-a-committed-response-lost.png": {
+        "bytes": 188266,
+        "sha256": "724dce53d8128b427576dbfe28e797eb27369802f93045e472d0cbc76a4379d9"
+      },
+      "isolation-b-own-account-loaded.png": {
+        "bytes": 284829,
+        "sha256": "491d1e98f82f53d4e5ff8fb3decc4360bbf79e8c697d960673568a6891df9d60"
+      },
+      "README.md": {
+        "bytes": 3807,
+        "sha256": "c1ed951199eb92277076fc5f909782c58bcfc13f1278fcc24ed57a9b0a797362"
+      },
+      "isolation-a-recovered-once-after-reopen.png": {
+        "bytes": 303227,
+        "sha256": "e6e262065a8d443d2272a2789ed1b34c2b02ee7920dab0a16882064240bac972"
+      },
+      "isolation-a-pending-before-switch.png": {
+        "bytes": 359119,
+        "sha256": "91c104d4f14b5504bbffab3042b2cfb2f45fb58d65a91a6744b08ada985e37e3"
+      },
+      "readback.json": {
+        "bytes": 1352,
+        "sha256": "ffe78e75ce38ec569e39cbca100add436c005c8cf18327b625bba1540a18c8c0"
+      },
+      "terminal-cases.txt": {
+        "bytes": 367,
+        "sha256": "587248d48c6424a6ef1c4cf14dd9ac4667d3959bbfdf3e76e98b0a25756fece1"
+      },
+      "isolation-a-pending-restored.png": {
+        "bytes": 359750,
+        "sha256": "ef03d6c0ab5427d1ab37fbaba3c9c51e06780993a6b105f98c2058a5b5dc57c8"
+      },
+      "isolation-b-home-without-a-pending.png": {
+        "bytes": 319105,
+        "sha256": "8bd6ce6bbb2e92de20e4da24ad74a68ab6236be6f830e50b1930f8c84e5deaf5"
+      }
+    }
+  }
+}

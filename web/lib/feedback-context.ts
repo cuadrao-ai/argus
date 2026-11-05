@@ -25,7 +25,6 @@ type FeedbackContextOptions = {
   includeConversationContext: boolean;
   rating?: FeedbackRating;
   tags: string[];
-  attachmentCount: number;
 };
 
 function copyScalar(
@@ -55,7 +54,5 @@ export function feedbackContextForSubmission(
   }
   if (options.rating) result.rating = options.rating;
   result.tags = options.tags;
-  result.hasAttachments = options.attachmentCount > 0;
-  result.attachmentCount = options.attachmentCount;
   return result;
 }

@@ -1,0 +1,101 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "17CEB918-F86D-4EC1-9556-EC60EC7B54DC",
+        "deviceName" : "CuadraoIndependentAppleReview",
+        "exportedFileName" : "E9051918-5CC9-468B-82F3-56AC16FA659A.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "apple-revoked-signed-out-es-419_0_63B4E780-1421-4700-BDFA-DF8111CB30FA.png",
+        "timestamp" : 1791230569.724
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "17CEB918-F86D-4EC1-9556-EC60EC7B54DC",
+        "deviceName" : "CuadraoIndependentAppleReview",
+        "exportedFileName" : "1D8453AC-965A-42CF-87B1-75288D593A7B.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "apple-validation-retry-es-419_0_B035A6A3-5F74-4E1F-A521-0E671BAB1E6F.png",
+        "timestamp" : 1791230564.729
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "17CEB918-F86D-4EC1-9556-EC60EC7B54DC",
+        "deviceName" : "CuadraoIndependentAppleReview",
+        "exportedFileName" : "D30EB967-FD0B-4486-81E7-2764CBD72181.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "apple-capture-failed-es-419_0_8D7D4712-988E-4F19-AD53-F44C52C36493.png",
+        "timestamp" : 1791230561.538
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "17CEB918-F86D-4EC1-9556-EC60EC7B54DC",
+        "deviceName" : "CuadraoIndependentAppleReview",
+        "exportedFileName" : "F039FB93-BEAB-4A84-B8B0-2A2AA8D056A8.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "apple-revoked-signed-out-en_0_1B00BF1D-FADA-456E-9916-E4FD99E04966.png",
+        "timestamp" : 1791230552.095
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "17CEB918-F86D-4EC1-9556-EC60EC7B54DC",
+        "deviceName" : "CuadraoIndependentAppleReview",
+        "exportedFileName" : "2960BC74-98E6-4E4F-8F00-2FBA3C1E24D0.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "apple-validation-retry-en_0_730632CB-23D9-49B7-9F6E-994C9F4CE255.png",
+        "timestamp" : 1791230547.005
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "17CEB918-F86D-4EC1-9556-EC60EC7B54DC",
+        "deviceName" : "CuadraoIndependentAppleReview",
+        "exportedFileName" : "0545BECA-5444-4A32-9A61-5DF54212AF0E.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "apple-capture-failed-en_0_C97AE49D-B3B1-4376-9834-D48BDFD346CD.png",
+        "timestamp" : 1791230543.801
+      }
+    ],
+    "testIdentifier" : "AppleSessionJourneyUITests/testCaptureFailureRecoveryAndRevocationInEnglishAndSpanish()",
+    "testIdentifierURL" : "test://com.apple.xcode/ArgusFoundation/ArgusFoundationUITests/AppleSessionJourneyUITests/testCaptureFailureRecoveryAndRevocationInEnglishAndSpanish"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "17CEB918-F86D-4EC1-9556-EC60EC7B54DC",
+        "deviceName" : "CuadraoIndependentAppleReview",
+        "exportedFileName" : "A1F45E77-9468-43F6-AC73-989B86CFCDD8.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "apple-explicit-sign-in-again_0_326E55BE-B2A8-47A7-B56C-A3718768F6A4.png",
+        "timestamp" : 1791230588.109
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "17CEB918-F86D-4EC1-9556-EC60EC7B54DC",
+        "deviceName" : "CuadraoIndependentAppleReview",
+        "exportedFileName" : "E1F0619A-84CC-45CB-8F1B-252ACC85FF82.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "email-with-apple-link_0_B9802DF7-00BB-4496-AA8A-3975B3B521FC.png",
+        "timestamp" : 1791230580.284
+      }
+    ],
+    "testIdentifier" : "AppleSessionJourneyUITests/testKnownEmailIgnoresLinkedAppleAndMissingAppleSubjectRequiresNewSignIn()",
+    "testIdentifierURL" : "test://com.apple.xcode/ArgusFoundation/ArgusFoundationUITests/AppleSessionJourneyUITests/testKnownEmailIgnoresLinkedAppleAndMissingAppleSubjectRequiresNewSignIn"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "17CEB918-F86D-4EC1-9556-EC60EC7B54DC",
+        "deviceName" : "CuadraoIndependentAppleReview",
+        "exportedFileName" : "33102767-C9C5-430B-B336-F0FBD68F7587.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "apple-notification-during-validation_0_94F28E80-6458-490F-9E5A-32121ADF66CE.png",
+        "timestamp" : 1791230603.071
+      }
+    ],
+    "testIdentifier" : "AppleSessionJourneyUITests/testNotificationDuringBusyValidationIsCoalescedByTheActualModel()",
+    "testIdentifierURL" : "test://com.apple.xcode/ArgusFoundation/ArgusFoundationUITests/AppleSessionJourneyUITests/testNotificationDuringBusyValidationIsCoalescedByTheActualModel"
+  }
+]

@@ -3,7 +3,7 @@
   "stack": {
     "backend": "this worktree, fastapi dev on 127.0.0.1:8010",
     "frontend": "this worktree, next dev on 127.0.0.1:3010",
-    "mode": "ARGUS_PERSISTENCE_MODE=memory, ARGUS_MARKET_DATA_PROVIDER_MODE=synthetic_unit_fixture, ARGUS_MOCK_AUTH=true, real OpenRouter provider",
+    "mode": "CUADRAO_PERSISTENCE_MODE=memory, ARGUS_MARKET_DATA_PROVIDER_MODE=synthetic_unit_fixture, CUADRAO_MOCK_AUTH=true, real OpenRouter provider",
     "note": "No env file was written. Values were injected into the launched processes only."
   },
   "cases": [
@@ -29,7 +29,7 @@
     {
       "issue": 489,
       "language": "es-419",
-      "forced_condition": "ARGUS_OPENROUTER_CLARIFICATION_TIMEOUT_SECONDS=1, so the LLM clarifier times out and the deterministic fallback fires",
+      "forced_condition": "CUADRAO_OPENROUTER_CLARIFICATION_TIMEOUT_SECONDS=1, so the LLM clarifier times out and the deterministic fallback fires",
       "prompt": "Mejor pruebalo con barras de 5 minutos",
       "stream": {
         "clarification": {"kind": "unsupported_recovery", "reason_code": "unsupported_strategy_logic", "prompt_source": "degraded_fallback"},

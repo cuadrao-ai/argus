@@ -1,0 +1,20 @@
+Source: c4ca2a517e05339515e753d7bad0b52b03b67861
+Mode: local synthetic auth; no paid providers
+
+✓   1 e2e/issue-688-browser-safety.spec.ts:53:7 › two-tab account switch invalidates stale draft (4.2s)
+✓   2 e2e/issue-688-browser-safety.spec.ts:53:7 › two-tab logout invalidates stale draft (2.4s)
+✓   3 e2e/issue-688-browser-safety.spec.ts:65:5 › same-user refresh preserves draft and sends with refreshed identity (2.5s)
+✓   4 e2e/issue-688-browser-safety.spec.ts:75:5 › private, research and shared Markdown never request remote images (2.7s)
+✓   5 e2e/issue-688-browser-safety.spec.ts:97:7 › account switch during pending stream cannot resend under B (2.6s)
+✓   6 e2e/issue-688-browser-safety.spec.ts:97:7 › account switch during pending 404 cannot resend under B (2.5s)
+✓   7 e2e/issue-688-browser-safety.spec.ts:97:7 › account switch during pending create cannot resend under B (2.6s)
+✓   8 e2e/issue-688-browser-safety.spec.ts:97:7 › account switch during pending initial-create cannot resend under B (3.5s)
+✓   9 e2e/issue-688-browser-safety.spec.ts:129:5 › ordinary submission rejects changed cookie even before cross-tab event (2.6s)
+✓  10 e2e/issue-688-browser-safety.spec.ts:136:5 › same-user 404 creates a replacement and resends once (1.9s)
+✓  11 e2e/issue-688-browser-safety.spec.ts:149:5 › public receipt Markdown produces no external image request (2.0s)
+✓  12 e2e/issue-688-browser-safety.spec.ts:162:5 › explicit guest claim retains destination identity with successful Recents refresh (3.1s)
+✓  13 e2e/issue-688-browser-safety.spec.ts:162:5 › explicit guest claim retains destination identity with failed Recents refresh (3.1s)
+✓  14 e2e/issue-688-browser-safety.spec.ts:162:5 › explicit guest claim retains destination identity with held Recents refresh (3.7s)
+✓  15 e2e/issue-688-browser-safety.spec.ts:242:5 › account change notice uses Spanish resources (2.4s)
+✓  16 e2e/issue-688-browser-safety.spec.ts:251:5 › cold guest first send bootstraps its own identity and submits once (2.8s)
+16 passed (47.6s)

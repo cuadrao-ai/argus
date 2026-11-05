@@ -10,6 +10,7 @@ import {
   retryLoadConversationIdFromAction,
   retryLastTurnMessageFromAction,
   retryLastTurnRequestMessageIdFromAction,
+  retryLastTurnSendOptions,
   isRetryAction,
   normalizeDurableRetryActionHistory,
 } from "../lib/chat-retry-actions";
@@ -157,6 +158,22 @@ describe("failed-action retry UI contract", () => {
     expect(retryLastTurnMessageFromAction(action)).toBe(
       "what if I bought $125 of BTC every two weeks in 2022?",
     );
+    expect(
+      retryLastTurnSendOptions({
+        failedAssistantId: "assistant-failed-1",
+        requestMessageId: null,
+      }),
+    ).toEqual({
+      renderUserMessage: false,
+      replacementAssistantId: "assistant-failed-1",
+      keepLocalTranscript: true,
+    });
+    expect(
+      retryLastTurnSendOptions({
+        failedAssistantId: null,
+        requestMessageId: "request-message-1",
+      }),
+    ).toEqual({ renderUserMessage: true });
   });
 
   test("hydrates a retry-last-turn action from persisted failure metadata", () => {
@@ -191,6 +208,31 @@ describe("failed-action retry UI contract", () => {
     expect(retryLastTurnRequestMessageIdFromAction(action)).toBe(
       "request-message-1",
     );
+  });
+
+  test("preserves a discovery pick so Retry does not send the chip label alone", () => {
+    const action = retryLastTurnActionFromMessage("AAPL", {
+      assistantMessageId: "assistant-claim-2",
+      chatAction: {
+        type: "select_discovery_candidate",
+        label: "AAPL",
+        payload: {
+          symbol: "AAPL",
+          name: "Apple Inc.",
+          asset_class: "equity",
+        },
+      },
+    });
+
+    expect(retryLastTurnChatActionFromAction(action)).toEqual({
+      type: "select_discovery_candidate",
+      label: "AAPL",
+      payload: {
+        symbol: "AAPL",
+        name: "Apple Inc.",
+        asset_class: "equity",
+      },
+    });
   });
 
   test("preserves a typed chat action for finalization retry", () => {

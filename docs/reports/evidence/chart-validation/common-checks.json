@@ -1,0 +1,46 @@
+{
+  "captured_at": "2026-09-28T21:02:16.619662+00:00",
+  "source_head": "f5f4f4467fe53c3a1990cda9574b353c8b72d83f",
+  "fixture_sha256": "a12a24634763f951f6daad7d200614dd777e83785d9ed4da9907720e5bdf418f",
+  "checks": [
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "prototypes/chart-validation/scripts",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "test_all_platforms_receive_well_defined_dates_units_and_values (test_fixtures.FixtureTests.test_all_platforms_receive_well_defined_dates_units_and_values) ... ok\ntest_ambiguous_or_invalid_facts_are_rejected (test_fixtures.FixtureTests.test_ambiguous_or_invalid_facts_are_rejected) ... ok\ntest_contribution_jump_is_nominal_value_not_a_return (test_fixtures.FixtureTests.test_contribution_jump_is_nominal_value_not_a_return) ... ok\ntest_matrix_covers_edge_cases_and_strategy_shapes (test_fixtures.FixtureTests.test_matrix_covers_edge_cases_and_strategy_shapes) ... ok\ntest_shared_series_colors_remain_visible_on_both_surfaces (test_fixtures.FixtureTests.test_shared_series_colors_remain_visible_on_both_surfaces) ... ok\n\n----------------------------------------------------------------------\nRan 5 tests in 0.015s\n\nOK\n"
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/check_modularity_budget.py",
+        "--top",
+        "3"
+      ],
+      "exit_code": 0,
+      "stdout": "Modularity budget report\n========================\n\nTop scanned files by current line count:\n- tests/agent_runtime/test_interpret_stage.py: 10921 lines (watched)\n- tests/agent_runtime/test_conversational_contract_hardening.py: 7288 lines (watched)\n- tests/test_chat_runtime_reload_guardrails.py: 6279 lines (watched)\n\nWatched-file budget status:\n- tests/agent_runtime/test_interpret_stage.py: 10921 lines (baseline 11010, growth -89, limit 11085)\n- tests/agent_runtime/test_conversational_contract_hardening.py: 7288 lines (baseline 7285, growth +3, limit 7360)\n- tests/test_chat_runtime_reload_guardrails.py: 6279 lines (baseline 6280, growth -1, limit 6355)\n\nBudget violations:\n- none\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check",
+        "origin/codex/private-alpha-next...HEAD"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "visual_style_sha256": "d1ab2aee8e20f5fe032759114e271d998406926e352d879b3b468aebe59ede72"
+}

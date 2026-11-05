@@ -26,7 +26,6 @@ from argus.domain.backtest_finalization import (
     PreparedBacktestFinalization,
 )
 from argus.domain.store import AlphaStore, utcnow
-from argus.llm.openrouter import OpenRouterRouteReceipt
 
 
 def _run() -> BacktestRun:
@@ -352,45 +351,3 @@ def test_persist_runtime_backtest_run_attaches_immutable_context_packets(
     assert gateway.attachments[0]["run_id"] == run.id
     assert gateway.attachments[0]["immutable_snapshot"] is True
 
-
-def test_route_receipt_persistence_keeps_run_and_message_context(monkeypatch) -> None:
-    from argus.api.chat.route_receipts import persist_route_receipts
-
-    class Gateway:
-        def __init__(self) -> None:
-            self.receipts: list[dict[str, Any]] = []
-
-        def create_route_receipt(self, **kwargs: Any) -> dict[str, Any]:
-            self.receipts.append(kwargs)
-            return kwargs
-
-    gateway = Gateway()
-    monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-
-    persist_route_receipts(
-        receipts=[
-            OpenRouterRouteReceipt(
-                task="result_summary",
-                tier="chat",
-                model="chat/primary",
-                fallback_model="chat/fallback",
-                mode="chat_model",
-                schema_name=None,
-                latency_ms=42,
-                outcome="succeeded",
-                token_usage={"total_tokens": 17},
-                context_packet_ids=["packet-1"],
-            )
-        ],
-        user_id="user-1",
-        conversation_id="conversation-1",
-        run_id="run-1",
-        message_id="message-1",
-        metadata={"stage_outcome": "ready_to_respond"},
-    )
-
-    assert gateway.receipts[0]["run_id"] == "run-1"
-    assert gateway.receipts[0]["message_id"] == "message-1"
-    assert gateway.receipts[0]["metadata"]["stage_outcome"] == "ready_to_respond"
-    assert gateway.receipts[0]["receipt"]["token_usage"] == {"total_tokens": 17}
-    assert gateway.receipts[0]["receipt"]["context_packet_ids"] == ["packet-1"]

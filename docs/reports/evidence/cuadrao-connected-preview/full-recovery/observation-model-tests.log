@@ -1,0 +1,43 @@
+Building for debugging...
+[Constructing description]
+[Planning 256 / 394]
+[Finalizing plan]
+[15 / 67]
+[19 / 71] ConcurrencyExtras
+[29 / 69] _IssueReporting
+[34 / 68] XCTestDynamicOverlay
+[40 / 71] Helpers
+[40 / 70] Auth
+[43 / 71] ArgusSession
+[45 / 72] ArgusSession
+[48 / 72] FinancialModels
+[67 / 91] FinancialModels
+[74 / 90] FinancialModels
+[80 / 91] FinancialModelTests-product
+[87 / 98] FinancialModelTests-product
+[92 / 98] FinancialModelTests-product
+[94 / 98] FinancialModelTests-product
+Build complete! (4.86 sec)
+Test Suite 'Selected tests' started at 2026-10-05 22:50:07.945.
+Test Suite 'FinancialModelTests.xctest' started at 2026-10-05 22:50:07.945.
+Test Suite 'FinancialObservationReadTests' started at 2026-10-05 22:50:07.945.
+Test Case '-[FinancialModelTests.FinancialObservationReadTests testAcceptedCorrectionsKeepRawAmountsAndCurrentMetadata]' started.
+Test Case '-[FinancialModelTests.FinancialObservationReadTests testAcceptedCorrectionsKeepRawAmountsAndCurrentMetadata]' passed (0.007 seconds).
+Test Case '-[FinancialModelTests.FinancialObservationReadTests testBackwardClockOrderKeepsRawFactsButWithholdsComparison]' started.
+Test Case '-[FinancialModelTests.FinancialObservationReadTests testBackwardClockOrderKeepsRawFactsButWithholdsComparison]' passed (0.005 seconds).
+Test Case '-[FinancialModelTests.FinancialObservationReadTests testBracketMismatchAndIncompleteReadsReturnNoData]' started.
+Test Case '-[FinancialModelTests.FinancialObservationReadTests testBracketMismatchAndIncompleteReadsReturnNoData]' passed (0.028 seconds).
+Test Case '-[FinancialModelTests.FinancialObservationReadTests testCompletePagesKeepEqualInstantReviewOrderAndDoNotPublishState]' started.
+Test Case '-[FinancialModelTests.FinancialObservationReadTests testCompletePagesKeepEqualInstantReviewOrderAndDoNotPublishState]' passed (0.003 seconds).
+Test Case '-[FinancialModelTests.FinancialObservationReadTests testHeldReadsRetireOnCancellationSignOutOwnerSwitchOrRebind]' started.
+Test Case '-[FinancialModelTests.FinancialObservationReadTests testHeldReadsRetireOnCancellationSignOutOwnerSwitchOrRebind]' passed (0.013 seconds).
+Test Case '-[FinancialModelTests.FinancialObservationReadTests testOverflowAndInvalidFactsCannotProduceAComparison]' started.
+Test Case '-[FinancialModelTests.FinancialObservationReadTests testOverflowAndInvalidFactsCannotProduceAComparison]' passed (0.008 seconds).
+Test Case '-[FinancialModelTests.FinancialObservationReadTests testPeriodSelectionKeepsMissingSinglePartialAndPriorFactsDistinct]' started.
+Test Case '-[FinancialModelTests.FinancialObservationReadTests testPeriodSelectionKeepsMissingSinglePartialAndPriorFactsDistinct]' passed (0.010 seconds).
+Test Suite 'FinancialObservationReadTests' passed at 2026-10-05 22:50:08.020.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.074 (0.075) seconds
+Test Suite 'FinancialModelTests.xctest' passed at 2026-10-05 22:50:08.020.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.074 (0.075) seconds
+Test Suite 'Selected tests' passed at 2026-10-05 22:50:08.020.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.074 (0.076) seconds

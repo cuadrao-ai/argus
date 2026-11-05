@@ -20,7 +20,7 @@ remain separate decisions:
 
 - Guest code may integrate without completing this checklist.
 - Internet-facing Guest traffic requires this checklist and founder approval.
-- `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` is a separate policy that the
+- `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` is a separate policy that the
   founder approved and opened in production on 2026-08-12, so this checklist
   never gated it and does not gate it now; explicit `false` closes it again. The
   minimum bundle below is still the abuse-control reference for any
@@ -195,7 +195,7 @@ boundary ineffective.
 
 - [ ] Apply migrations through
       `20260727230000_add_visitor_usage_counters.sql`.
-- [ ] Set a unique, high-entropy `ARGUS_VISITOR_KEY_SECRET` for this
+- [ ] Set a unique, high-entropy `CUADRAO_VISITOR_KEY_SECRET` for this
       environment; do not reuse a local or staging value.
 - [ ] Set and record `ARGUS_DISCOVERY_GLOBAL_DAILY_CEILING`.
 - [ ] Confirm a renewed Guest workspace does not restore the visitor's two

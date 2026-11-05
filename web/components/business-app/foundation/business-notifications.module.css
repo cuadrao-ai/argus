@@ -1,0 +1,53 @@
+.popover, .sheetBody { --notification-muted: #56635e; --notification-border: #dce0da; }
+:global(.dark) .popover, :global(.dark) .sheetBody { --notification-muted: rgb(255 255 255 / 65%); --notification-border: rgb(255 255 255 / 10%); }
+.bellDot { position: absolute; top: 9px; right: 10px; width: 6px; height: 6px; border-radius: 50%; background: var(--cuadrao-green); }
+.popover {
+  display: flex;
+  flex-direction: column;
+  width: min(400px, calc(100vw - 24px));
+  max-height: calc(100dvh - 88px);
+  padding: 8px 0 0;
+  overflow: hidden;
+  transform-origin: top right;
+  animation: appear 180ms ease-out;
+}
+.body { display: flex; flex-direction: column; min-height: 0; }
+.heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 12px 0 20px; }
+.businessName { flex: 1; font-size: 12px; color: var(--notification-muted); overflow-wrap: anywhere; }
+.toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 16px 8px; }
+.filter { position: relative; }
+.filterTrigger, .filterOption { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; min-width: 44px; padding: 0 8px; border-radius: 12px; font-size: 14px; }
+.filterMenu { position: absolute; top: 100%; right: 0; z-index: 1; width: 150px; padding: 4px; border: 1px solid var(--notification-border); border-radius: 16px; background: var(--cuadrao-menu-surface); }
+.filterOption { width: 100%; }
+.filterOption:hover, .filterOption:focus-visible, .filterTrigger:hover, .dismiss:hover { background: color-mix(in srgb, currentColor 6%, transparent); }
+.chevron { transition: transform 160ms ease; }
+.chevronOpen { transform: rotate(180deg); }
+.markAll { justify-content: center; width: 44px; flex-shrink: 0; }
+.list { min-height: 100px; overflow-y: auto; overscroll-behavior: contain; }
+.list ul { list-style: none; margin: 0; padding: 0; }
+.row { padding: 14px 16px 4px; border-top: 1px solid var(--notification-border); }
+.productUpdate { background: color-mix(in srgb, currentColor 3%, transparent); }
+.rowHeading { display: flex; align-items: baseline; gap: 8px; }
+.dotSlot { flex: 0 0 6px; }
+.dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--cuadrao-green); }
+.unreadTitle, .readTitle { flex: 1; min-width: 0; font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+.unreadTitle { font-weight: 650; }
+.readTitle { font-weight: 500; }
+.timestamp { flex-shrink: 0; font-size: 12px; color: var(--notification-muted); }
+.description { margin: 5px 0 0 14px; font-size: 14px; line-height: 1.5; color: var(--notification-muted); }
+.rowActions { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-left: 10px; }
+.rowAction { font-size: 14px; min-width: 44px; }
+.dismiss { display: flex; flex-shrink: 0; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; border-radius: 50%; color: var(--notification-muted); }
+.dismiss:focus-visible, .filterTrigger:focus-visible, .filterOption:focus-visible { outline: 2px solid var(--cuadrao-green); outline-offset: 2px; }
+.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 260px; padding: 12px 24px 16px; text-align: center; }
+.emptyArt { display: grid; place-items: center; flex-shrink: 0; width: 104px; height: 96px; margin-bottom: 8px; border-radius: 50%; background: radial-gradient(ellipse, rgb(227 235 225 / 45%), transparent 70%); }
+.emptyArt img { width: 88px; height: 88px; object-fit: contain; }
+:global(.dark) .emptyArt { background: radial-gradient(ellipse, rgb(143 203 176 / 12%), transparent 70%); }
+.emptyTitle { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.4; }
+.emptyTitle:focus-visible { outline: 2px solid var(--cuadrao-green); outline-offset: 4px; border-radius: 4px; }
+.emptyDescription { max-width: 280px; margin: 8px 0 0; font-size: 14px; line-height: 1.5; color: var(--notification-muted); overflow-wrap: anywhere; }
+.emptyAction { display: flex; align-items: center; justify-content: center; min-height: 44px; margin-top: 4px; }
+.sheetBody { display: flex; flex-direction: column; max-height: calc(80dvh - 100px); padding-bottom: 12px; }
+@keyframes appear { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .popover { animation: fade 120ms ease-out; } .chevron { transition: none; } }

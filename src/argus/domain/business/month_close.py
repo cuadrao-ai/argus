@@ -1,0 +1,773 @@
+"""Month close over the same recorded activities the export already reads.
+
+Amounts stay on the activity. ITBIS, RNC, and the fiscal number stay on the
+draft. This module only settles a document and adds those stored parts.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from typing import Literal
+
+from loguru import logger
+from pydantic import ValidationError
+
+from argus.domain.business.authority import ActionError
+from argus.domain.business.contracts.dgii import PurchaseDeclaration, SalesDeclaration
+from argus.domain.business.contracts.facts import (
+    BusinessResolution,
+    Known,
+    fiscal_inclusion,
+    is_personal,
+    is_sin_comprobante,
+    personal_mark_admits,
+)
+from argus.domain.business.dgii_validation import credit_note, declarable, reportable_607
+from argus.domain.business.document_type import (
+    SALE,
+    DocumentType,
+    direction,
+    money_document_type,
+)
+from argus.domain.business.fiscal_identity import normalized_ncf
+from argus.domain.business.ledger import occurred_on
+from argus.domain.recording.currency import (
+    currency_exponent,
+    format_minor_units,
+    parse_minor_units,
+)
+from argus.domain.recording.errors import RecordingInputError
+
+DocumentKind = Literal["invoice", "receipt"]
+PAYMENT_METHODS = ("efectivo", "transferencia", "tarjeta", "credito", "otro")
+_STATUS = {
+    "invoice": frozenset({"pendiente", "cobrado"}),
+    "receipt": frozenset({"pendiente", "pagado"}),
+}
+
+
+@dataclass(frozen=True)
+class MonthDocument:
+    activity_id: str
+    space_id: str
+    role: DocumentKind
+    currency: str
+    total_minor: int
+    itbis_minor: int | None
+    occurred_on: date
+    rnc: str | None
+    ncf: str | None
+    ecf: str | None
+    personal: bool
+    include_606: bool | None
+    status: str
+    settled_on: date | None
+    payment_method: str | None
+    declared_base_minor: int | None = None
+    counterparty: str | None = None
+    sin_comprobante: bool = False
+    due_on: date | None = None
+    #: A receipt's 606 Forma de Pago code, from its declaration; the one
+    #: value the review, the approval and the export read.
+    payment_form: str | None = None
+
+
+@dataclass(frozen=True)
+class Settlement:
+    status: str
+    settled_on: date | None
+    payment_method: str | None
+
+
+IMPLICIT = Settlement("pendiente", None, None)
+Write = Callable[[Settlement, Settlement], None]
+
+
+def month_period(month: str) -> tuple[date, date]:
+    if len(month) != 7 or month[4] != "-":
+        raise ValueError("month_invalid")
+    year_text, month_text = month[:4], month[5:]
+    if not (year_text.isdigit() and month_text.isdigit()):
+        raise ValueError("month_invalid")
+    year, number = int(year_text), int(month_text)
+    if not 1 <= number <= 12:
+        raise ValueError("month_invalid")
+    start = date(year, number, 1)
+    end = (
+        date(year + 1, 1, 1) - timedelta(days=1)
+        if number == 12
+        else date(year, number + 1, 1) - timedelta(days=1)
+    )
+    return start, end
+
+
+def to_minor(text: str, currency: str) -> int:
+    """Round half up to the currency's digits, then take the integer minor units.
+
+    The source string is not written back. Extra digits exist only inside this
+    conversion.
+    """
+
+    exponent = currency_exponent(currency)
+    quantum = Decimal(1).scaleb(-exponent)
+    rounded = Decimal(text).quantize(quantum, rounding=ROUND_HALF_UP)
+    return parse_minor_units(format(rounded, "f"), currency)
+
+
+def before_itbis(total_minor: int, itbis_minor: int | None) -> int:
+    return total_minor - (itbis_minor or 0)
+
+
+def expense_base(document: MonthDocument) -> int:
+    """A purchase's cost before creditable ITBIS. ITBIS without a comprobante
+    cannot be credited, so a sin comprobante purchase costs its whole total."""
+
+    if document.sin_comprobante:
+        return document.total_minor
+    return before_itbis(document.total_minor, document.itbis_minor)
+
+
+def net_result(income_before: int, expense_before: int) -> int:
+    return income_before - expense_before
+
+
+def itbis_owed(charged: int, paid: int) -> int:
+    return charged - paid
+
+
+def _fiscal(document: MonthDocument) -> bool:
+    return bool(document.ncf or document.ecf)
+
+
+def in_month(document: MonthDocument, start: date, end: date) -> bool:
+    return start <= document.occurred_on <= end
+
+
+def in_close(document: MonthDocument) -> bool:
+    return personal_mark_admits(
+        document.personal, document.include_606, sale=document.role == "invoice"
+    )
+
+
+def in_606(document: MonthDocument) -> bool:
+    return (
+        document.role == "receipt"
+        and normalized_ncf(document.ecf or document.ncf) is not None
+        and in_close(document)
+    )
+
+
+def in_607(document: MonthDocument) -> bool:
+    return (
+        document.role == "invoice"
+        and in_close(document)
+        and reportable_607(document.ecf or document.ncf)
+    )
+
+
+def sales_base(document: MonthDocument) -> int:
+    """607 Monto Facturado when the draft declares it, otherwise total minus ITBIS.
+
+    A credit note is stored positive and subtracted, the same way the 607 export nets it.
+    """
+
+    base = (
+        document.declared_base_minor
+        if document.declared_base_minor is not None
+        else before_itbis(document.total_minor, document.itbis_minor)
+    )
+    if credit_note(document.ecf or document.ncf):
+        return -base
+    return base
+
+
+@dataclass(frozen=True)
+class FormatoCurrency:
+    income_before_itbis: int = 0
+    expense_before_itbis: int = 0
+    itbis_charged: int = 0
+    itbis_paid: int = 0
+    itbis_collected: int = 0
+
+
+def _charge(bucket: list[int], document: MonthDocument, tax: int) -> None:
+    bucket[2] += tax
+    if document.status == "cobrado":
+        bucket[4] += tax
+
+
+def formato_totals(
+    documents: Sequence[MonthDocument], start: date, end: date
+) -> dict[str, FormatoCurrency]:
+    """Income and expense from the 607 and 606 lines plus the business
+    documents marked sin comprobante. ITBIS stated on a sin comprobante sale
+    is charged; a sin comprobante purchase pays no creditable ITBIS. ITBIS
+    collected is the charged part of the sales already marked cobrado."""
+
+    totals: dict[str, list[int]] = {}
+    for document in documents:
+        if not in_month(document, start, end):
+            continue
+        bucket = totals.setdefault(document.currency, [0, 0, 0, 0, 0])
+        if in_607(document):
+            bucket[0] += sales_base(document)
+            tax = document.itbis_minor or 0
+            _charge(
+                bucket,
+                document,
+                -tax if credit_note(document.ecf or document.ncf) else tax,
+            )
+        elif in_606(document):
+            bucket[1] += before_itbis(document.total_minor, document.itbis_minor)
+            bucket[3] += document.itbis_minor or 0
+        elif document.sin_comprobante and in_close(document):
+            if document.role == "invoice":
+                bucket[0] += sales_base(document)
+                _charge(bucket, document, document.itbis_minor or 0)
+            else:
+                bucket[1] += expense_base(document)
+    return {
+        currency: FormatoCurrency(*parts)
+        for currency, parts in sorted(totals.items())
+        if any(parts)
+    }
+
+
+def plan_settlement(
+    kind: DocumentKind, current: Settlement, command: Settlement
+) -> Settlement | None:
+    allowed = _STATUS[kind]
+    if command.status not in allowed:
+        raise ActionError("invalid_input", "business_status_invalid")
+    if (
+        command.payment_method is not None
+        and command.payment_method not in PAYMENT_METHODS
+    ):
+        raise ActionError("invalid_input", "business_payment_method_invalid")
+    pending = command.status == "pendiente"
+    if pending and (command.settled_on is not None or command.payment_method is not None):
+        raise ActionError("invalid_input", "business_settlement_incomplete")
+    if not pending and (command.settled_on is None or command.payment_method is None):
+        raise ActionError("invalid_input", "business_settlement_incomplete")
+    if command == current:
+        return None
+    return command
+
+
+def set_document_status(
+    auth,
+    documents: Sequence[MonthDocument],
+    space_id: str,
+    activity_id: str,
+    command: Settlement,
+    current: Settlement,
+    write: Write,
+) -> tuple[DocumentKind, Settlement, bool]:
+    auth.require("prepare")
+    match = next(
+        (
+            document
+            for document in documents
+            if document.activity_id == activity_id and document.space_id == space_id
+        ),
+        None,
+    )
+    if match is None:
+        raise ActionError("not_found", "business_record_not_found")
+    planned = plan_settlement(match.role, current, command)
+    if planned is None:
+        return match.role, current, False
+    write(current, planned)
+    return match.role, planned, True
+
+
+def _line(document: MonthDocument) -> dict:
+    currency = document.currency
+    before = (
+        expense_base(document)
+        if document.role == "receipt"
+        else before_itbis(document.total_minor, document.itbis_minor)
+    )
+    itbis = document.itbis_minor
+    return {
+        "activity_id": document.activity_id,
+        "document_kind": document.role,
+        "currency": currency,
+        "occurred_on": document.occurred_on.isoformat(),
+        "total_minor": document.total_minor,
+        "total": format_minor_units(document.total_minor, currency),
+        "before_itbis_minor": before,
+        "before_itbis": format_minor_units(before, currency),
+        "itbis_minor": itbis,
+        "itbis": None if itbis is None else format_minor_units(itbis, currency),
+        "counterparty": document.counterparty,
+        "rnc": document.rnc,
+        "ncf": document.ncf,
+        "ecf": document.ecf,
+        "status": document.status,
+        "sin_comprobante": document.sin_comprobante,
+        "due_on": None if document.due_on is None else document.due_on.isoformat(),
+        "payment_form": document.payment_form,
+    }
+
+
+def _pair(minor: int, currency: str) -> dict[str, int | str]:
+    return {"minor": minor, "amount": format_minor_units(minor, currency)}
+
+
+def summarize(
+    documents: Sequence[MonthDocument],
+    start: date,
+    end: date,
+    no_payment_form: Collection[str] = (),
+    missing: Mapping[str, Sequence[str]] | None = None,
+) -> dict:
+    """The month's money and lists. ``no_payment_form`` names the activities the
+    606 holds for a missing Forma de Pago, and ``missing`` what the 606 or 607
+    still needs from each activity it holds, in the export's own words; the
+    export owns both rules. ``closed`` is month completion alone."""
+
+    chosen = [
+        document
+        for document in documents
+        if in_month(document, start, end) and in_close(document)
+    ]
+    money = formato_totals(documents, start, end)
+    reasons = []
+    missing_rnc = []
+    missing_ncf = []
+    ncf_malformed = []
+    missing_payment_form = []
+    missing_fiscal_data = []
+    for document in sorted(chosen, key=lambda item: (item.occurred_on, item.activity_id)):
+        if missing and document.activity_id in missing:
+            missing_fiscal_data.append(
+                {**_line(document), "missing": list(missing[document.activity_id])}
+            )
+        if document.sin_comprobante:
+            continue
+        if (
+            document.activity_id in no_payment_form
+            and document.role == "receipt"
+            and document.payment_form is None
+        ):
+            missing_payment_form.append(_line(document))
+        if not document.rnc:
+            reasons.append(
+                {
+                    "code": "missing_rnc",
+                    "activity_id": document.activity_id,
+                    "document_kind": document.role,
+                }
+            )
+            missing_rnc.append(_line(document))
+        if not _fiscal(document) or normalized_ncf(document.ecf or document.ncf) is None:
+            reasons.append(
+                {
+                    "code": "missing_ncf",
+                    "activity_id": document.activity_id,
+                    "document_kind": document.role,
+                }
+            )
+            missing_ncf.append(_line(document))
+            if _fiscal(document):
+                ncf_malformed.append(_line(document))
+    receivables = [
+        _line(document)
+        for document in chosen
+        if document.role == "invoice" and document.status == "pendiente"
+    ]
+    payables = [
+        _line(document)
+        for document in chosen
+        if document.role == "receipt" and document.status == "pendiente"
+    ]
+    currencies = sorted({document.currency for document in chosen} | set(money))
+    blocks = []
+    for currency in currencies:
+        part = money.get(currency, FormatoCurrency())
+        status = {
+            "invoices": {
+                "pendiente": {"count": 0, "before_itbis_minor": 0},
+                "cobrado": {"count": 0, "before_itbis_minor": 0},
+            },
+            "receipts": {
+                "pendiente": {"count": 0, "before_itbis_minor": 0},
+                "pagado": {"count": 0, "before_itbis_minor": 0},
+            },
+        }
+        # A foreign line has no rate yet, so its currency's net is not final.
+        pending_rate = not declarable(currency) and any(
+            document.currency == currency and not document.sin_comprobante
+            for document in chosen
+        )
+        for document in chosen:
+            if document.currency != currency:
+                continue
+            group = "invoices" if document.role == "invoice" else "receipts"
+            cell = status[group][document.status]
+            cell["count"] += 1
+            cell["before_itbis_minor"] += (
+                sales_base(document)
+                if document.role == "invoice"
+                else expense_base(document)
+            )
+        income = part.income_before_itbis
+        expense = part.expense_before_itbis
+        charged = part.itbis_charged
+        paid = part.itbis_paid
+        pending_count = (
+            status["invoices"]["pendiente"]["count"]
+            + status["receipts"]["pendiente"]["count"]
+        )
+        receivable = sum(
+            item["total_minor"] for item in receivables if item["currency"] == currency
+        )
+        payable = sum(
+            item["total_minor"] for item in payables if item["currency"] == currency
+        )
+        shown = {
+            "income_before_itbis": _pair(income, currency),
+            "expense_before_itbis": _pair(expense, currency),
+            "net_result": _pair(net_result(income, expense), currency),
+            "itbis_charged": _pair(charged, currency),
+            "itbis_paid": _pair(paid, currency),
+            "itbis_owed": _pair(itbis_owed(charged, paid), currency),
+            "itbis_cobrado": _pair(part.itbis_collected, currency),
+            "cuentas_por_cobrar": _pair(receivable, currency),
+            "cuentas_por_pagar": _pair(payable, currency),
+        }
+        blocks.append(
+            {
+                "currency": currency,
+                "income_before_itbis_minor": shown["income_before_itbis"]["minor"],
+                "income_before_itbis": shown["income_before_itbis"]["amount"],
+                "expense_before_itbis_minor": shown["expense_before_itbis"]["minor"],
+                "expense_before_itbis": shown["expense_before_itbis"]["amount"],
+                "net_result_minor": shown["net_result"]["minor"],
+                "net_result": shown["net_result"]["amount"],
+                "itbis_charged_minor": shown["itbis_charged"]["minor"],
+                "itbis_charged": shown["itbis_charged"]["amount"],
+                "itbis_paid_minor": shown["itbis_paid"]["minor"],
+                "itbis_paid": shown["itbis_paid"]["amount"],
+                "itbis_owed_minor": shown["itbis_owed"]["minor"],
+                "itbis_owed": shown["itbis_owed"]["amount"],
+                "itbis_cobrado_minor": shown["itbis_cobrado"]["minor"],
+                "itbis_cobrado": shown["itbis_cobrado"]["amount"],
+                "cuentas_por_cobrar_minor": shown["cuentas_por_cobrar"]["minor"],
+                "cuentas_por_cobrar": shown["cuentas_por_cobrar"]["amount"],
+                "cuentas_por_pagar_minor": shown["cuentas_por_pagar"]["minor"],
+                "cuentas_por_pagar": shown["cuentas_por_pagar"]["amount"],
+                "by_status": status,
+                "net_result_final": pending_count == 0 and not pending_rate,
+            }
+        )
+    in_scope = [document.occurred_on for document in documents if in_close(document)]
+    return {
+        "from": start.isoformat(),
+        "to": end.isoformat(),
+        "closed": not reasons,
+        "reasons": reasons,
+        "earliest_month": min(in_scope).strftime("%Y-%m") if in_scope else None,
+        "currencies": blocks,
+        "missing_rnc": missing_rnc,
+        "ncf_malformed": ncf_malformed,
+        "missing_ncf": missing_ncf,
+        "missing_payment_form": missing_payment_form,
+        "missing_fiscal_data": missing_fiscal_data,
+        "cuentas_por_cobrar": receivables,
+        "cuentas_por_pagar": payables,
+    }
+
+
+def draft_close_day(receipt_on: object, arrived_at: object) -> date:
+    """The day a draft still in the Bandeja counts toward for month close: its
+    receipt date when known, otherwise the day it arrived in the recording
+    time zone. Notes pass no receipt date."""
+
+    if receipt_on not in (None, ""):
+        return _as_date(receipt_on)
+    from argus.domain.recording.records import DEFAULT_TIME_ZONE
+
+    if isinstance(arrived_at, str):
+        arrived_at = datetime.fromisoformat(arrived_at.replace("Z", "+00:00"))
+    return occurred_on({"occurred_at": arrived_at, "time_zone": DEFAULT_TIME_ZONE})
+
+
+def unreviewed_in_month(days: Iterable[date], start: date, end: date) -> int:
+    return sum(start <= day <= end for day in days)
+
+
+#: The export's status words under which a form stands as it is.
+FORM_STANDS = frozenset({"prepared_candidate", "no_operations", "summary_only"})
+
+
+def with_unreviewed(summary: dict, count: int, month_unknown: bool = False) -> dict:
+    """The month close with drafts still in the Bandeja as one blocking reason,
+    and ``filing_ready``: the one fact "ready for the 606 and 607", true only
+    when both forms stand by the export's verdict and no step of this month
+    remains: nothing still in the Bandeja (reading, waiting or unreadable),
+    nothing the forms hold, nothing left to mark cobrado or pagado. While a
+    read in flight has no date, ``month_unknown`` holds every month: nobody yet
+    knows which one it belongs to. It adds no count and no reason. The web
+    words the reason from the code, the count and the month."""
+
+    reasons = list(summary["reasons"])
+    if count:
+        reasons.append({"code": "movimientos_sin_revisar", "count": count})
+    forms_stand = all(status in FORM_STANDS for status in summary["dgii_forms"].values())
+    return {
+        **summary,
+        "closed": summary["closed"] and not count,
+        "reasons": reasons,
+        "unreviewed_movements_count": count,
+        "filing_ready": forms_stand
+        and not count
+        and not month_unknown
+        and not summary["missing_fiscal_data"]
+        and not summary["cuentas_por_cobrar"]
+        and not summary["cuentas_por_pagar"],
+    }
+
+
+OPEN_ITEMS_CAP = 100
+
+
+def overdue(document: MonthDocument, today: date) -> bool:
+    """Still pending past its due date. A document with no due date is never
+    overdue, and neither is one due today."""
+
+    return (
+        document.status == "pendiente"
+        and document.due_on is not None
+        and document.due_on < today
+    )
+
+
+def open_items(
+    documents: Sequence[MonthDocument], today: date, cap: int = OPEN_ITEMS_CAP
+) -> dict:
+    """Every pending document the month close would list, from any month.
+
+    Soonest due date first; documents with no due date follow, oldest first.
+    ``count``, the per-currency totals and ``overdue`` cover every pending
+    document, including the ones past ``cap``.
+    """
+
+    pending = sorted(
+        (
+            document
+            for document in documents
+            if in_close(document) and document.status == "pendiente"
+        ),
+        key=lambda document: (
+            document.due_on is None,
+            document.due_on or date.min,
+            document.occurred_on,
+            document.activity_id,
+        ),
+    )
+    return {
+        "today": today.isoformat(),
+        "cuentas_por_cobrar": _open_list(
+            [document for document in pending if document.role == "invoice"], today, cap
+        ),
+        "cuentas_por_pagar": _open_list(
+            [document for document in pending if document.role == "receipt"], today, cap
+        ),
+    }
+
+
+def _currency_totals(documents: Sequence[MonthDocument]) -> list[dict]:
+    totals: dict[str, int] = {}
+    for document in documents:
+        currency = document.currency
+        totals[currency] = totals.get(currency, 0) + document.total_minor
+    return [
+        {
+            "currency": currency,
+            "total_minor": minor,
+            "total": format_minor_units(minor, currency),
+        }
+        for currency, minor in sorted(totals.items())
+    ]
+
+
+def _open_list(documents: Sequence[MonthDocument], today: date, cap: int) -> dict:
+    late = [document for document in documents if overdue(document, today)]
+    return {
+        "count": len(documents),
+        "totals": _currency_totals(documents),
+        "overdue": {"count": len(late), "totals": _currency_totals(late)},
+        "items": [_line(document) for document in documents[:cap]],
+    }
+
+
+def itbis_or_none(text: str | None, currency: str) -> int | None:
+    if text is None:
+        return None
+    try:
+        return to_minor(text, currency)
+    except (RecordingInputError, InvalidOperation):
+        return None
+
+
+@dataclass(frozen=True)
+class FiscalParts:
+    rnc: str | None
+    ncf: str | None
+    ecf: str | None
+    itbis_minor: int | None
+    personal: bool
+    include_606: bool | None
+    declared_base_minor: int | None = None
+    counterparty: str | None = None
+    sin_comprobante: bool = False
+    due_on: date | None = None
+    payment_form: str | None = None
+    #: The draft's type, the one owner of invoice or receipt. None with no draft.
+    document_type: DocumentType | None = None
+
+
+_NO_FISCAL = FiscalParts(None, None, None, None, False, None)
+
+
+def _known(fact: object) -> object | None:
+    return fact.value if isinstance(fact, Known) else None
+
+
+def read_fiscal(resolution: Mapping | None, currency: str) -> FiscalParts:
+    """RNC, fiscal number, ITBIS, marks, counterparty, and due date from one draft.
+
+    An unreadable draft contributes no fiscal parts. The activity total is not
+    read from the draft.
+    """
+
+    typed = resolution.get("business") if isinstance(resolution, Mapping) else None
+    if not isinstance(typed, Mapping):
+        return _NO_FISCAL
+    try:
+        parsed = BusinessResolution.model_validate(typed)
+    except ValidationError:
+        logger.info("month_close_resolution_unreadable")
+        return _NO_FISCAL
+    facts = parsed.facts
+    fiscal = facts.fiscal
+    rnc = ncf = ecf = None
+    itbis_minor = None
+    if fiscal is not None:
+        rnc = _text(_known(fiscal.rnc))
+        ncf = _text(_known(fiscal.ncf))
+        ecf = _text(_known(fiscal.ecf))
+        itbis_minor = itbis_or_none(_text(_known(fiscal.itbis)), currency)
+    declared = None
+    if (
+        isinstance(parsed.dgii, SalesDeclaration)
+        and parsed.dgii.billed_amount is not None
+    ):
+        declared = itbis_or_none(parsed.dgii.billed_amount, currency)
+    return FiscalParts(
+        rnc,
+        ncf,
+        ecf,
+        itbis_minor,
+        is_personal(facts),
+        fiscal_inclusion(facts),
+        declared,
+        _text(_known(facts.counterparty)),
+        is_sin_comprobante(facts),
+        parsed.due_on,
+        parsed.dgii.payment_method
+        if isinstance(parsed.dgii, PurchaseDeclaration)
+        else None,
+        parsed.document_type,
+    )
+
+
+def _text(value: object) -> str | None:
+    if value is None or value == "":
+        return None
+    return str(value)
+
+
+def _as_date(value: object) -> date | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    return date.fromisoformat(str(value))
+
+
+def document_settlement(
+    activity: Mapping, settlements: Mapping[str, Mapping]
+) -> Settlement | None:
+    """The settlement of a recorded income or expense: ``pendiente`` until a
+    stored row settles it. A transfer has none."""
+
+    if activity.get("kind") not in {"income", "expense"}:
+        return None
+    row = settlements.get(str(activity["activity_id"]))
+    if row is None:
+        return IMPLICIT
+    return Settlement(
+        str(row["status"]),
+        _as_date(row.get("settled_on")),
+        _text(row.get("payment_method")),
+    )
+
+
+def project_documents(
+    activities: Sequence[Mapping],
+    resolutions: Sequence[Mapping],
+    settlements: Mapping[str, Mapping],
+    space_id: str,
+) -> list[MonthDocument]:
+    """One document per recorded income or expense. Transfers stay out.
+
+    ``resolutions`` is newest first. The first draft for an activity wins.
+    Status comes only from ``settlements``.
+    """
+
+    latest: dict[str, Mapping] = {}
+    for row in resolutions:
+        latest.setdefault(str(row["activity_id"]), row)
+    documents = []
+    for activity in activities:
+        settlement = document_settlement(activity, settlements)
+        if settlement is None:
+            continue
+        activity_id = str(activity["activity_id"])
+        parts = read_fiscal(
+            latest.get(activity_id, {}).get("resolution"), activity["currency"]
+        )
+        document_type = parts.document_type or money_document_type(activity["kind"])
+        documents.append(
+            MonthDocument(
+                activity_id=activity_id,
+                space_id=space_id,
+                role="invoice" if direction(document_type) is SALE else "receipt",
+                currency=str(activity["currency"]),
+                total_minor=int(activity["amount_minor"]),
+                itbis_minor=parts.itbis_minor,
+                occurred_on=occurred_on(activity),
+                rnc=parts.rnc,
+                ncf=parts.ncf,
+                ecf=parts.ecf,
+                personal=parts.personal,
+                include_606=parts.include_606,
+                declared_base_minor=parts.declared_base_minor,
+                counterparty=parts.counterparty,
+                sin_comprobante=parts.sin_comprobante,
+                due_on=parts.due_on,
+                payment_form=parts.payment_form,
+                status=settlement.status,
+                settled_on=settlement.settled_on,
+                payment_method=settlement.payment_method,
+            )
+        )
+    return documents

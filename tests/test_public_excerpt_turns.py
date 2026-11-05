@@ -295,7 +295,7 @@ def test_owner_candidate_preview_create_routes_and_drift(owner, monkeypatch):
     from argus.api.main import app
     from fastapi.testclient import TestClient
 
-    monkeypatch.setenv("ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED", "true")
     _, message = add_pair(owner)
     base = f"/api/v1/conversations/{owner[1].id}/public-excerpt"
     client = TestClient(app)
@@ -323,7 +323,7 @@ def test_selection_routes_flag_off_byte_identity(owner, monkeypatch, suffix):
     from argus.api.main import app
     from fastapi.testclient import TestClient
 
-    monkeypatch.setenv("ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED", "false")
     client = TestClient(app)
     reference = client.get("/api/v1/absent-share-answer")
     response = client.post(
@@ -458,7 +458,7 @@ def assert_incomplete_backtest_refused(owner, monkeypatch, change_run):
     from argus.api.routers.evidence_receipts import reset_receipt_create_limiter_for_tests
     from fastapi.testclient import TestClient
 
-    monkeypatch.setenv("ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED", "true")
     reset_receipt_create_limiter_for_tests()
     artifact, run, message = seed_backtest(owner)
     _, research = add_pair(owner, index=2)
@@ -717,7 +717,7 @@ def test_disabled_selection_routes_do_not_advertise_via_slash_redirect(
     from argus.api.main import app
     from fastapi.testclient import TestClient
 
-    monkeypatch.setenv("ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED", "false")
     client = TestClient(app, follow_redirects=False)
     response = client.get(f"/api/v1/conversations/{owner[1].id}/public-excerpt{suffix}/")
     assert response.status_code == 404

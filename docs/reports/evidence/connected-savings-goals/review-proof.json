@@ -1,0 +1,25 @@
+{
+  "reviewer": "goals_independent_review",
+  "model": "gpt-6.1-sol",
+  "context": "fresh, bounded independent source review; no inherited task history",
+  "base": "6a9d0338d2b2e7106877e0e5d1f9f5aaa70d67ec",
+  "full_review_head": "756340afdd38fba9dffaba179faa13edfaf14501",
+  "full_review_outcome": "one confirmed P2: explicit archived:null persisted unreadable lifecycle",
+  "accepted_fix": "09994ce2a01c594c0be092b207fd20cb5cdd9dad",
+  "fix_delta_outcome": "clean; lifecycle null ignored, nullable date remains clearable; Goal/Home/Plan/Search API regression",
+  "final_reviewed_delta": "4689e81ae799be67948fb0e8b54ba91a661fd231",
+  "final_delta_outcome": "clean; native confirmation returns to goal and independently checks800",
+  "assembled_source_head": "83523335d43e6f6e98ac1ddd05fb47a0531ddc83",
+  "remaining_confirmed_findings": 0,
+  "coverage": [
+    "allocation/backing/currency/unknown policy",
+    "canonical current contribution/correction and shared uniqueness",
+    "receipts/replay/CAS/serialization/rollback",
+    "migration/RLS/owner isolation",
+    "recurrence/forecast fulfillment",
+    "native identity/journal/navigation/localization",
+    "API contracts and meaningful tests",
+    "bounded comment truth audit"
+  ],
+  "limits": "Source review and pure in-memory reproduction. Simulator and real API/Postgres acceptance belong to captain, recorded separately. No exhausted Codex review requested."
+}

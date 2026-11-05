@@ -1,0 +1,1 @@
+{"note": "row inserted by SQL; no route on this branch writes a Business conversation", "GET /conversations lists it": true, "status": 200, "GET /search?q=PLANTED finds it": true, "search_status": 200, "GET /conversations/{id}/messages": 200}

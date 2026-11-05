@@ -1,0 +1,110 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: /private/tmp/cuadrao-apple-session-20261005
+configfile: pyproject.toml
+plugins: benchmark-5.2.3, mock-3.15.1, Faker-30.10.0, asyncio-1.4.0, hypothesis-6.151.12, langsmith-0.7.31, respx-0.23.1, cov-7.0.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 2 items
+
+tests/test_alpha_artifacts.py F                                          [ 50%]
+tests/test_guest_access_policy.py F                                      [100%]
+
+=================================== FAILURES ===================================
+_____ test_authenticated_openapi_declares_session_verification_unavailable _____
+
+    def test_authenticated_openapi_declares_session_verification_unavailable() -> None:
+        openapi = ROOT / "docs" / "api" / "openapi.yaml"
+
+        text = openapi.read_text(encoding="utf-8")
+        assert "AuthSessionVerificationUnavailable" in text
+        assert "auth_session_verification_unavailable" in text
+        contract = yaml.safe_load(text)
+        unauthenticated_paths = {
+            "/api/v1/auth/signup",
+            "/api/v1/auth/login",
+            "/api/v1/auth/access-requests",
+            "/api/v1/auth/guest",
+            "/api/v1/auth/logout",
+        }
+        for path, path_contract in contract["paths"].items():
+            if path in unauthenticated_paths:
+                continue
+            for method in ("get", "post", "patch", "put", "delete"):
+                operation = path_contract.get(method)
+                if operation is None:
+                    continue
+                if path == "/api/v1/backtests/run":
+                    response = operation["responses"]["503"]
+                    assert "auth_session_verification_unavailable" in response["description"]
+                    assert "market_data_unavailable" in response["description"]
+                    assert response["content"]["application/json"]["schema"] == {
+                        "$ref": "#/components/schemas/Error"
+                    }
+                    continue
+                if path == "/api/v1/account/delete":
+                    # Lane 6: the deletion POST adds its own 503s (note 7).
+                    response = operation["responses"]["503"]
+                    assert "auth_session_verification_unavailable" in response["description"]
+                    assert "account_deletion_incomplete" in response["description"]
+                    assert "account_deletion_unavailable" in response["description"]
+                    assert response["content"]["application/json"]["schema"] == {
+                        "$ref": "#/components/schemas/Error"
+                    }
+                    continue
+                if path == "/api/v1/search":
+                    response = operation["responses"]["503"]
+                    assert "exact bounded recall" in response["description"]
+                    assert "authentication-session verification" in response["description"]
+                    assert response["content"]["application/json"]["schema"] == {
+                        "$ref": "#/components/schemas/Error"
+                    }
+                    continue
+>               assert operation["responses"]["503"] == {
+                    "$ref": "#/components/responses/AuthSessionVerificationUnavailable"
+                }
+E               AssertionError: assert {'content': {...be verified.'} == {'$ref': '#/c...nUnavailable'}
+E
+E                 Left contains 2 more items:
+E                 {'content': {'application/json': {'schema': {'$ref': '#/components/schemas/Error'}}},
+E                  'description': '`apple_identity_unavailable`: current linked identity could '
+E                                 'not be verified. `auth_session_verification_unavailable`: the '
+E                                 'session could not be verified.'}
+E                 Right contains 1 more item:
+E                 {'$ref': '#/components/responses/AuthSessionVerificationUnavailable'}
+E                 Use -v to get more diff
+
+tests/test_alpha_artifacts.py:532: AssertionError
+________ test_registered_auth_truth_ignores_editable_anonymous_metadata ________
+
+    def test_registered_auth_truth_ignores_editable_anonymous_metadata() -> None:
+        gateway = MagicMock(spec=SupabaseGateway)
+        profile = _profile(email="member@example.com")
+        gateway.get_auth_user_from_token.return_value = {
+            "id": USER_ID,
+            "email": "member@example.com",
+            "is_anonymous": False,
+            "user_metadata": {"is_anonymous": True},
+        }
+        gateway.private_alpha_email_allowed.return_value = True
+        gateway.get_or_create_profile_for_auth_user.return_value = profile
+        gateway.get_user.return_value = profile
+
+        with (
+            patch.object(api_state, "supabase_gateway", gateway),
+            patch("argus.api.dependencies.auth_session_is_active", return_value=True),
+        ):
+            response = client.get(
+                "/api/v1/me",
+                headers={"Authorization": "Bearer verified-member-token"},
+            )
+
+>       assert response.status_code == 200
+E       assert 503 == 200
+E        +  where 503 = <Response [503 Service Unavailable]>.status_code
+
+tests/test_guest_access_policy.py:164: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_alpha_artifacts.py::test_authenticated_openapi_declares_session_verification_unavailable
+FAILED tests/test_guest_access_policy.py::test_registered_auth_truth_ignores_editable_anonymous_metadata
+============================== 2 failed in 2.39s ===============================

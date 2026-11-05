@@ -1,0 +1,9 @@
+Test Case '-[ArgusFoundationUITests.CuadraoConsistencyUITests testMoneyEntryAndBlankCreationSpanish]' passed (24.955 seconds).
+ios/ArgusFoundationUITests/CuadraoGroupDesignUITests.swift:56: error: -[ArgusFoundationUITests.CuadraoGroupDesignUITests testSharedJourneySpanish] : XCTAssertFalse failed
+Test Case '-[ArgusFoundationUITests.CuadraoGroupDesignUITests testSharedJourneySpanish]' failed (51.446 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoPlanDesignUITests testExactAmountsDarkModeAndVoiceContinuity]' passed (22.094 seconds).
+W1B-MONEY-CHAR 1,250.5
+Test Case '-[ArgusFoundationUITests.W1bDiagnosticUITests testMoneyPerCharacterNoPause]' passed (12.974 seconds).
+W1B-MONEY-FAST 1,250.5
+Test Case '-[ArgusFoundationUITests.W1bDiagnosticUITests testMoneyWholeString]' passed (11.519 seconds).
+exit=65 seconds=3856

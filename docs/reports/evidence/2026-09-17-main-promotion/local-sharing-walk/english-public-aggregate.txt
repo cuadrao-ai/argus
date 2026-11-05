@@ -1,0 +1,13 @@
+# Signed-out English public page aggregate (privacy-safe)
+
+Result: public page pass.
+Aggregate facts only — no browser accessibility tree, no guest Q/A dump,
+no Auth UUID, no conversation/artifact ids, no raw receipt slug.
+
+- Opened `/r/<redacted-receipt-slug>` signed-out; zero cookies and no
+  auth-token storage keys before follow-up.
+- Public page showed the original savings question, six-month answer,
+  $1,200 starting balance, $300 contribution, and $3,000 target.
+- Follow-up composer present (“Follow up in your own chat”).
+- Link was loopback-only and ceased to exist after teardown.
+- Console before follow-up: zero errors, one font preload warning.

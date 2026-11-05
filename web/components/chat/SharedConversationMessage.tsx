@@ -1,7 +1,6 @@
 "use client";
 
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import SafeMarkdown from "@/components/chat/SafeMarkdown";
 import { useTranslation } from 'react-i18next';
 import ReceiptTurnContent from '@/components/receipt/ReceiptTurnContent';
 import { receiptPresentations } from '@/lib/receipt-presentation';
@@ -20,6 +19,6 @@ export default function SharedConversationMessage({ message }: { message: Messag
     <p className="text-xs text-black/50 dark:text-white/50">{copy.thread.carried.replace('{{date}}', formatReceiptDate(shared.snapshot_at, language) ?? shared.snapshot_at)}</p>
     {message.role === 'user' ? <div className="max-w-[85%] rounded-[24px] rounded-br-sm bg-black/5 px-5 py-3.5 text-base leading-normal dark:bg-white/10">{message.content}</div>
       : entry ? <ReceiptTurnContent entry={entry} copy={copy} language={language} />
-      : <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>}
+      : <SafeMarkdown>{message.content}</SafeMarkdown>}
   </div>;
 }

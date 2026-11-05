@@ -1,6 +1,5 @@
 import { Fragment } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import SafeMarkdown from "@/components/chat/SafeMarkdown";
 import { type ReceiptCopy, formatReceiptDay } from "@/lib/receipt-copy";
 import type { ReceiptFigures, ReceiptPresentation } from "@/lib/receipt-presentation";
 import type { ArgusLanguage } from "@/lib/language-features";
@@ -30,10 +29,10 @@ function Plan({ plan }: { plan: NonNullable<ReceiptFigures["plan"]> }) {
 
 function Answer({ answer, language }: { answer: string; language: ArgusLanguage }) {
   return <div lang={language} className="min-w-0 break-words text-[16px] leading-[1.6] tracking-[0.24px] [&_p]:mb-4 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-1 [&_h2]:my-4 [&_h2]:font-medium [&_h3]:my-3 [&_h3]:font-medium [&_a]:underline [&_a]:underline-offset-4">
-    <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml allowedElements={["p", "strong", "em", "ul", "ol", "li", "a", "blockquote", "h2", "h3", "br", "code", "table", "thead", "tbody", "tr", "th", "td"]} unwrapDisallowed components={{
+    <SafeMarkdown allowedElements={["img", "p", "strong", "em", "ul", "ol", "li", "a", "blockquote", "h2", "h3", "br", "code", "table", "thead", "tbody", "tr", "th", "td"]} unwrapDisallowed components={{
       a: ({ children, href }) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>,
       table: ({ children }) => <div className="my-4 max-w-full overflow-x-auto"><table className="w-full border-collapse text-left text-sm leading-relaxed [&_th]:border-b [&_th]:border-black/15 [&_th]:px-3 [&_th]:py-2 [&_th]:font-medium [&_td]:border-b [&_td]:border-black/10 [&_td]:px-3 [&_td]:py-2 [&_td]:align-top dark:[&_th]:border-white/15 dark:[&_td]:border-white/10">{children}</table></div>,
-    }}>{answer}</ReactMarkdown>
+    }}>{answer}</SafeMarkdown>
   </div>;
 }
 

@@ -1,0 +1,89 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project prototypes/chart-validation/ios/ChartPrototype.xcodeproj -scheme ChartPrototype -sdk iphonesimulator -destination id=AAC78F82-61C2-4E51-A14C-4F341CD19A79 -derivedDataPath /tmp/argus-chart-ios -resultBundlePath /tmp/argus-chart-ios-motion-1790629260.xcresult test-without-building CODE_SIGNING_ALLOWED=NO -parallel-testing-enabled NO "-only-testing:ChartPrototypeUITests/ChartUITests/testHorizontalReleaseAndVerticalScroll"
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+    SDKROOT = iphonesimulator27.0
+
+Writing result bundle at path:
+	/tmp/argus-chart-ios-motion-1790629260.xcresult
+
+2026-09-28 16:01:02.821347-0500 ChartPrototypeUITests-Runner[52144:23630998] [Default] Running tests...
+    t =      nans Interface orientation changed to Portrait
+Test Suite 'Selected tests' started at 2026-09-28 16:01:03.438.
+Test Suite 'ChartPrototypeUITests.xctest' started at 2026-09-28 16:01:03.438.
+Test Suite 'ChartUITests' started at 2026-09-28 16:01:03.439.
+Test Case '-[ChartPrototypeUITests.ChartUITests testHorizontalReleaseAndVerticalScroll]' started.
+    t =     0.00s Start Test at 2026-09-28 16:01:03.440
+    t =     0.02s Set Up
+    t =     0.02s Open ai.argus.chartprototype
+    t =     0.02s     Launch ai.argus.chartprototype
+    t =     0.02s         Terminate ai.argus.chartprototype:51903
+objc[52144]: Class UIAccessibilityLoaderWebShared is implemented in both /Library/Developer/CoreSimulator/Volumes/iOS_23F77/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.5.simruntime/Contents/Resources/RuntimeRoot/System/Library/AccessibilityBundles/WebCore.axbundle/WebCore (0x108878310) and /Library/Developer/CoreSimulator/Volumes/iOS_23F77/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.5.simruntime/Contents/Resources/RuntimeRoot/System/Library/AccessibilityBundles/WebKit.axbundle/WebKit (0x1088f4398). This may cause spurious casting failures and mysterious crashes. One of the duplicates must be removed or renamed.
+2026-09-28 16:01:04.535 xcodebuild[52127:23630540] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+2026-09-28 16:01:04.535 xcodebuild[52127:23630540] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.51s         Setting up automation session
+    t =     2.32s         Wait for ai.argus.chartprototype to idle
+    t =     3.75s Waiting 15.0s for "selectedDate" StaticText to exist
+    t =     4.79s     Checking `Expect predicate `existsNoRetry == 1` for object "selectedDate" StaticText`
+    t =     4.79s         Checking existence of `"selectedDate" StaticText`
+    t =     4.87s Checking existence of `"financialChart" Other`
+    t =     4.90s Press "financialChart" Other[0.20, 0.50] for 0.1 seconds, then drag to "financialChart" Other[0.85, 0.50] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds
+    t =     4.90s     Wait for ai.argus.chartprototype to idle
+    t =     4.90s     Find the "financialChart" Other
+    t =     4.93s     Check for interrupting elements affecting "financialChart" Other
+    t =     4.95s     Synthesize event
+    t =     4.96s         Find the "financialChart" Other
+    t =     4.99s         Find the "financialChart" Other
+    t =     5.03s         Find the "financialChart" Other
+    t =     5.06s         Find the "financialChart" Other
+Note: No display specified. Defaulting to display: D8E6CD7F-BE43-4098-8B27-A906917760AE (screenID: 1, name: LCD)
+Recording started
+    t =     5.10s         Find the "financialChart" Other
+    t =     5.88s     Wait for ai.argus.chartprototype to idle
+    t =     5.88s Find the "selectedDate" StaticText
+    t =     5.98s Added attachment named 'horizontal-release'
+    t =     5.98s Find the "selectedDate" StaticText
+    t =     6.00s Find the "financialChart" Other
+    t =     6.04s Press "financialChart" Other[0.50, 0.85] for 0.1 seconds, then drag to "financialChart" Other[0.50, 0.05] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds
+    t =     6.04s     Wait for ai.argus.chartprototype to idle
+    t =     6.04s     Find the "financialChart" Other
+    t =     6.07s     Check for interrupting elements affecting "financialChart" Other
+    t =     6.09s     Synthesize event
+    t =     6.09s         Find the "financialChart" Other
+    t =     6.12s         Find the "financialChart" Other
+    t =     6.16s         Find the "financialChart" Other
+    t =     6.20s         Find the "financialChart" Other
+    t =     6.24s         Find the "financialChart" Other
+    t =     6.92s     Wait for ai.argus.chartprototype to idle
+    t =     6.92s Find the "selectedDate" StaticText
+    t =     6.95s Find the "financialChart" Other
+    t =     6.98s Swipe up Target Application 'ai.argus.chartprototype'
+    t =     6.98s     Wait for ai.argus.chartprototype to idle
+    t =     6.98s     Find the Target Application 'ai.argus.chartprototype'
+    t =     7.00s     Check for interrupting elements affecting "ChartPrototype" Application
+    t =     7.01s     Synthesize event
+    t =     7.44s     Wait for ai.argus.chartprototype to idle
+    t =     8.00s Find the "scrollEnd" StaticText
+    t =     8.10s Added attachment named 'vertical-scroll'
+Recording completed. Writing to disk.
+
+Wrote video to: /Users/garces/.codex/worktrees/2825/private-alpha-next/docs/reports/evidence/chart-validation/ios/scrub-and-scroll.mp4
+    t =     8.10s Tear Down
+Test Case '-[ChartPrototypeUITests.ChartUITests testHorizontalReleaseAndVerticalScroll]' passed (8.348 seconds).
+Test Suite 'ChartUITests' passed at 2026-09-28 16:01:11.788.
+	 Executed 1 test, with 0 failures (0 unexpected) in 8.348 (8.349) seconds
+Test Suite 'ChartPrototypeUITests.xctest' passed at 2026-09-28 16:01:11.788.
+	 Executed 1 test, with 0 failures (0 unexpected) in 8.348 (8.350) seconds
+Test Suite 'Selected tests' passed at 2026-09-28 16:01:11.789.
+	 Executed 1 test, with 0 failures (0 unexpected) in 8.348 (8.350) seconds
+2026-09-28 16:01:12.081 xcodebuild[52127:23630540] [MT] IDETestOperationsObserverDebug: 10.265 elapsed -- Testing started completed.
+2026-09-28 16:01:12.081 xcodebuild[52127:23630540] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-09-28 16:01:12.081 xcodebuild[52127:23630540] [MT] IDETestOperationsObserverDebug: 10.265 sec, +10.265 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/argus-chart-ios-motion-1790629260.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started

@@ -1,0 +1,17 @@
+Command: /private/tmp/cuadrao-scipy-env-20261005/bin/python -m pytest --no-cov -q --tb=short tests/test_paired_transfers_postgres.py -vv
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0 -- /private/tmp/cuadrao-scipy-env-20261005/bin/python
+cachedir: .pytest_cache
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+hypothesis profile 'default'
+rootdir: /private/tmp/cuadrao-paired-transfer-20261005
+configfile: pyproject.toml
+plugins: benchmark-5.2.3, mock-3.15.1, Faker-30.10.0, asyncio-1.4.0, hypothesis-6.151.12, langsmith-0.7.31, respx-0.23.1, cov-7.0.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 3 items
+
+tests/test_paired_transfers_postgres.py::test_concurrent_lost_response_pair_is_one_committed_revision PASSED [ 33%]
+tests/test_paired_transfers_postgres.py::test_failure_after_persisted_pair_rolls_back_before_receipt PASSED [ 66%]
+tests/test_paired_transfers_postgres.py::test_unauthorized_and_stale_pair_have_no_protected_effect PASSED [100%]
+
+============================== 3 passed in 1.16s ===============================

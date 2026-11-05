@@ -3,7 +3,7 @@
 ``update_message_artifact`` is the primitive every non-turn confirmation
 change writes through, and until this file it had only memory-store parity.
 This proof runs the real Supabase gateway against the disposable local stack
-(the guest-release-gates job exports the URL and keys, and the
+(the database-checks job exports the URL and keys, and the
 ``tests/test_*_postgres.py`` glob carries this file without a workflow
 edit): the same row is rewritten in place, the transcript never grows, and
 ownership is enforced by the update itself.

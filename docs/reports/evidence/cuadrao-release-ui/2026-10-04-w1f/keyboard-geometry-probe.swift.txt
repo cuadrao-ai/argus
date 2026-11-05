@@ -1,0 +1,51 @@
+import XCTest
+
+final class W1fDiagnosticUITests: XCTestCase {
+    func testFeedbackKeyboardGeometry() {
+        continueAfterFailure = true
+        let app = XCUIApplication.cuadraoPreview()
+        app.launchArguments = CuadraoPreviewLaunch.arguments + ["--plan-reset", "-cuadrao.design.appearance", "light"]
+        app.launch()
+        app.buttons["header.profile"].tap()
+        let help = app.buttons["cuadrao.profile.help"]
+        for _ in 0..<6 where !help.isHittable { app.swipeUp() }
+        help.tap(); app.buttons["Comentarios"].tap()
+        let choice = app.buttons["cuadrao.feedback.kind"]
+        choice.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        app.buttons["Un problema"].tap()
+        let title = app.textFields["cuadrao.feedback.title"]
+        title.tap(); title.typeText("El gráfico tarda")
+        let save = app.buttons["cuadrao.feedback.save"]
+        let keyboard = app.keyboards.firstMatch
+        func state(_ tag: String) {
+            print("W1F \(tag) app=\(app.frame) keyboard=\(keyboard.exists ? "\(keyboard.frame)" : "none") save.exists=\(save.exists) save.frame=\(save.exists ? "\(save.frame)" : "-") save.hittable=\(save.exists && save.isHittable) title.frame=\(title.frame)")
+        }
+        state("typed")
+        for _ in 0..<50 where keyboard.frame.minY >= app.frame.maxY { Thread.sleep(forTimeInterval: 0.1) }
+        let bar = app.otherElements["Typing Predictions"]
+        state("keyboard-settled")
+        print("W1F bar=\(bar.exists ? "\(bar.frame)" : "none")")
+        let minY = keyboard.frame.minY
+        for offset in [10.0, 30.0, 43.0, 51.0, 90.0] {
+            let y = minY - offset
+            let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: app.frame.midX, dy: y))
+            let end = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: app.frame.midX, dy: y - 60))
+            let before = save.frame.minY
+            start.press(forDuration: 0.01, thenDragTo: end)
+            Thread.sleep(forTimeInterval: 0.8)
+            print("W1F drag startY=\(y) (keyboard.minY-\(offset)) save moved up by \(before - save.frame.minY)")
+        }
+        for _ in 0..<4 where !(save.isHittable && save.frame.maxY < minY - 44) {
+            let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: app.frame.midX, dy: minY - 90))
+            start.press(forDuration: 0.01, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25)))
+            Thread.sleep(forTimeInterval: 0.8)
+        }
+        state("after-drags")
+        print("W1F-HIERARCHY-BEGIN\n\(app.debugDescription)\nW1F-HIERARCHY-END")
+        let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "w1f-save-above-keyboard"; shot.lifetime = .keepAlways; add(shot)
+        print("W1F-ATTACH \(Date().timeIntervalSince1970)")
+        Thread.sleep(forTimeInterval: 12)
+        let t = Date(); _ = save.label
+        print("W1F-IDLE-WAIT \(Date().timeIntervalSince(t))")
+    }
+}

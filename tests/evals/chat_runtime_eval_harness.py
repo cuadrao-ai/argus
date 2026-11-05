@@ -19,7 +19,6 @@ from argus.observability.cost_ledger import (
     CostLedgerGateway,
     persist_openrouter_cost_ledger_entries,
 )
-from argus.observability.product_events import capture_product_event
 
 MANIFEST_PATH = Path(__file__).with_name("chat_runtime_scenarios.json")
 ALPHA_TRAJECTORY_PATH = Path(__file__).with_name("alpha_session_trajectories.json")
@@ -854,16 +853,6 @@ def iter_eval_cases(
                     judge_rubric=scenario["judge_rubric"],
                 )
             )
-    capture_product_event(
-        "eval_readiness",
-        user_id=None,
-        status="completed",
-        attributes={
-            "priority": priority or "all",
-            "case_count": len(cases),
-            "scenario_count": len(source["scenarios"]),
-        },
-    )
     return cases
 
 

@@ -34,7 +34,7 @@ Local stack, no production writes:
 
 | Layer | Setting |
 | :--- | :--- |
-| Backend | `uvicorn argus.api.main:app`, memory persistence, mock auth, synthetic market data, real interpreter through OpenRouter, `ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED=true`, `ARGUS_RESEARCH_RAIL_ENABLED=true`, `ARGUS_APP_ORIGIN=http://localhost:3000` |
+| Backend | `uvicorn argus.api.main:app`, memory persistence, mock auth, synthetic market data, real interpreter through OpenRouter, `CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED=true`, `ARGUS_RESEARCH_RAIL_ENABLED=true`, `ARGUS_APP_ORIGIN=http://localhost:3000` |
 | Web | `next dev`, `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED=true`, `NEXT_PUBLIC_MOCK_AUTH=true`, Spanish enabled |
 | Driver | Headless Playwright 1.59, scripts under `2026-09-03-end-to-end/drivers/` |
 | Production | Three read-only `GET` probes, listed at the end |

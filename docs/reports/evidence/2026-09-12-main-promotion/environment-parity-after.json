@@ -48,23 +48,7 @@
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_ALPHA_METRICS_SUPABASE_SERVICE_ROLE_KEY": {
-      "sites": [
-        "scripts/ops/alpha_readiness_metrics.py:280",
-        "scripts/ops/alpha_readiness_metrics.py:39"
-      ],
-      "canonical_file_present": true,
-      "documented": true
-    },
-    "ARGUS_ALPHA_METRICS_SUPABASE_URL": {
-      "sites": [
-        "scripts/ops/alpha_readiness_metrics.py:279",
-        "scripts/ops/alpha_readiness_metrics.py:30"
-      ],
-      "canonical_file_present": true,
-      "documented": true
-    },
-    "ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD": {
+    "CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD": {
       "sites": [
         "src/argus/domain/resend_email.py:9"
       ],
@@ -201,28 +185,28 @@
       "canonical_file_present": false,
       "documented": true
     },
-    "ARGUS_CAPABILITY_REASONING_EFFORT": {
+    "CUADRAO_CAPABILITY_REASONING_EFFORT": {
       "sites": [
         "src/argus/llm/openrouter.py:104"
       ],
       "canonical_file_present": false,
       "documented": true
     },
-    "ARGUS_CHAT_FALLBACK_MODEL": {
+    "CUADRAO_CHAT_FALLBACK_MODEL": {
       "sites": [
         "src/argus/llm/openrouter_model_env.py:16"
       ],
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_CHAT_MODEL": {
+    "CUADRAO_CHAT_MODEL": {
       "sites": [
         "src/argus/llm/openrouter_model_env.py:8"
       ],
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_CHECKPOINTER_MODE": {
+    "CUADRAO_CHECKPOINTER_MODE": {
       "sites": [
         "src/argus/api/state.py:24",
         "src/argus/api/chat/runtime_worker.py:27"
@@ -230,14 +214,14 @@
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_CONTEXT_FALLBACK_MODEL": {
+    "CUADRAO_CONTEXT_FALLBACK_MODEL": {
       "sites": [
         "src/argus/llm/openrouter_model_env.py:18"
       ],
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_CONTEXT_MODEL": {
+    "CUADRAO_CONTEXT_MODEL": {
       "sites": [
         "src/argus/llm/openrouter_model_env.py:10"
       ],
@@ -258,7 +242,7 @@
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_CORS_ALLOW_ORIGINS": {
+    "CUADRAO_CORS_ALLOW_ORIGINS": {
       "sites": [
         "src/argus/api/app_setup.py:42"
       ],
@@ -365,7 +349,7 @@
       "canonical_file_present": false,
       "documented": true
     },
-    "ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED": {
+    "CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED": {
       "sites": [
         "src/argus/api/public_excerpts.py:74"
       ],
@@ -386,14 +370,14 @@
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_GUEST_ACCESS_ENABLED": {
+    "CUADRAO_GUEST_ACCESS_ENABLED": {
       "sites": [
         "src/argus/api/guest_access.py:27"
       ],
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY": {
+    "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY": {
       "sites": [
         "src/argus/llm/openrouter_key_policy.py:13"
       ],
@@ -448,7 +432,7 @@
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_MOCK_AUTH": {
+    "CUADRAO_MOCK_AUTH": {
       "sites": [
         "src/argus/api/dependencies.py:396",
         "src/argus/api/routers/dev.py:17"
@@ -456,28 +440,28 @@
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_OPENROUTER_ASSET_MENTION_PREFLIGHT_TIMEOUT_SECONDS": {
+    "CUADRAO_OPENROUTER_ASSET_MENTION_PREFLIGHT_TIMEOUT_SECONDS": {
       "sites": [
         "src/argus/llm/openrouter.py:226"
       ],
       "canonical_file_present": false,
       "documented": true
     },
-    "ARGUS_OPENROUTER_CAPABILITY_CONFLICT_TIMEOUT_SECONDS": {
+    "CUADRAO_OPENROUTER_CAPABILITY_CONFLICT_TIMEOUT_SECONDS": {
       "sites": [
         "src/argus/llm/openrouter.py:226"
       ],
       "canonical_file_present": false,
       "documented": true
     },
-    "ARGUS_OPENROUTER_CHAT_COMPOSER_TIMEOUT_SECONDS": {
+    "CUADRAO_OPENROUTER_CHAT_COMPOSER_TIMEOUT_SECONDS": {
       "sites": [
         "src/argus/llm/openrouter.py:226"
       ],
       "canonical_file_present": false,
       "documented": true
     },
-    "ARGUS_OPENROUTER_CLARIFICATION_TIMEOUT_SECONDS": {
+    "CUADRAO_OPENROUTER_CLARIFICATION_TIMEOUT_SECONDS": {
       "sites": [
         "src/argus/llm/openrouter.py:226"
       ],
@@ -505,35 +489,35 @@
       "canonical_file_present": false,
       "documented": true
     },
-    "ARGUS_OPENROUTER_FIELD_FIDELITY_TIMEOUT_SECONDS": {
+    "CUADRAO_OPENROUTER_FIELD_FIDELITY_TIMEOUT_SECONDS": {
       "sites": [
         "src/argus/llm/openrouter.py:226"
       ],
       "canonical_file_present": false,
       "documented": true
     },
-    "ARGUS_OPENROUTER_INTERPRETATION_REPAIR_TIMEOUT_SECONDS": {
+    "CUADRAO_OPENROUTER_INTERPRETATION_REPAIR_TIMEOUT_SECONDS": {
       "sites": [
         "src/argus/llm/openrouter.py:226"
       ],
       "canonical_file_present": false,
       "documented": true
     },
-    "ARGUS_OPENROUTER_INTERPRETATION_TIMEOUT_SECONDS": {
+    "CUADRAO_OPENROUTER_INTERPRETATION_TIMEOUT_SECONDS": {
       "sites": [
         "src/argus/llm/openrouter.py:226"
       ],
       "canonical_file_present": false,
       "documented": true
     },
-    "ARGUS_OPENROUTER_KNOWLEDGE_ROUTE_TIMEOUT_SECONDS": {
+    "CUADRAO_OPENROUTER_KNOWLEDGE_ROUTE_TIMEOUT_SECONDS": {
       "sites": [
         "src/argus/llm/openrouter.py:226"
       ],
       "canonical_file_present": false,
       "documented": true
     },
-    "ARGUS_OPENROUTER_KNOWLEDGE_VOICING_TIMEOUT_SECONDS": {
+    "CUADRAO_OPENROUTER_KNOWLEDGE_VOICING_TIMEOUT_SECONDS": {
       "sites": [
         "src/argus/llm/openrouter.py:226"
       ],
@@ -547,28 +531,28 @@
       "canonical_file_present": false,
       "documented": true
     },
-    "ARGUS_OPENROUTER_NAME_SUGGESTION_TIMEOUT_SECONDS": {
+    "CUADRAO_OPENROUTER_NAME_SUGGESTION_TIMEOUT_SECONDS": {
       "sites": [
         "src/argus/llm/openrouter.py:226"
       ],
       "canonical_file_present": false,
       "documented": true
     },
-    "ARGUS_OPENROUTER_RESULT_SUMMARY_TIMEOUT_SECONDS": {
+    "CUADRAO_OPENROUTER_RESULT_SUMMARY_TIMEOUT_SECONDS": {
       "sites": [
         "src/argus/llm/openrouter.py:226"
       ],
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_OPS_TOKEN": {
+    "CUADRAO_OPS_TOKEN": {
       "sites": [
         "src/argus/api/routers/ops.py:35"
       ],
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_PERSISTENCE_MODE": {
+    "CUADRAO_PERSISTENCE_MODE": {
       "sites": [
         "src/argus/api/state.py:22",
         "src/argus/api/chat/runtime_worker.py:28"
@@ -576,7 +560,7 @@
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_POSTHOG_TIMEOUT_SECONDS": {
+    "CUADRAO_POSTHOG_TIMEOUT_SECONDS": {
       "sites": [
         "src/argus/observability/envelope.py:443"
       ],
@@ -597,14 +581,14 @@
       "canonical_file_present": false,
       "documented": true
     },
-    "ARGUS_PROD_OPENROUTER_API_KEY": {
+    "CUADRAO_PROD_OPENROUTER_API_KEY": {
       "sites": [
         "src/argus/llm/openrouter_key_policy.py:14"
       ],
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED": {
+    "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED": {
       "sites": [
         "src/argus/api/guest_access.py:38"
       ],
@@ -618,14 +602,14 @@
       "canonical_file_present": false,
       "documented": true
     },
-    "ARGUS_READOUT_FALLBACK_MODEL": {
+    "CUADRAO_READOUT_FALLBACK_MODEL": {
       "sites": [
         "src/argus/llm/openrouter_model_env.py:19"
       ],
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_READOUT_MODEL": {
+    "CUADRAO_READOUT_MODEL": {
       "sites": [
         "src/argus/llm/openrouter_model_env.py:11"
       ],
@@ -675,14 +659,14 @@
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_RUNTIME_EVENT_KEEPALIVE_SECONDS": {
+    "CUADRAO_RUNTIME_EVENT_KEEPALIVE_SECONDS": {
       "sites": [
         "src/argus/api/routers/agent.py:173"
       ],
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_RUNTIME_EVENT_TIMEOUT_SECONDS": {
+    "CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS": {
       "sites": [
         "src/argus/api/routers/agent.py:162",
         "src/argus/agent_runtime/turn_execution.py:503"
@@ -690,14 +674,14 @@
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_RUNTIME_STREAM_WORKER": {
+    "CUADRAO_RUNTIME_STREAM_WORKER": {
       "sites": [
         "src/argus/api/chat/runtime_worker.py:22"
       ],
       "canonical_file_present": false,
       "documented": true
     },
-    "ARGUS_RUNTIME_STREAM_WORKERS": {
+    "CUADRAO_RUNTIME_STREAM_WORKERS": {
       "sites": [
         "src/argus/api/chat/runtime_worker.py:150"
       ],
@@ -720,56 +704,56 @@
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_STRUCTURED_FALLBACK_MODEL": {
+    "CUADRAO_STRUCTURED_FALLBACK_MODEL": {
       "sites": [
         "src/argus/llm/openrouter_model_env.py:17"
       ],
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_STRUCTURED_MODEL": {
+    "CUADRAO_STRUCTURED_MODEL": {
       "sites": [
         "src/argus/llm/openrouter_model_env.py:9"
       ],
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_STRUCTURED_REASONING_EFFORT": {
+    "CUADRAO_STRUCTURED_REASONING_EFFORT": {
       "sites": [
         "src/argus/llm/openrouter.py:103"
       ],
       "canonical_file_present": false,
       "documented": true
     },
-    "ARGUS_TURN_CALL_ALLOWANCE": {
+    "CUADRAO_TURN_CALL_ALLOWANCE": {
       "sites": [
         "src/argus/agent_runtime/turn_execution.py:514"
       ],
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_TURN_DEADLINE_SECONDS": {
+    "CUADRAO_TURN_DEADLINE_SECONDS": {
       "sites": [
         "src/argus/agent_runtime/turn_execution.py:501"
       ],
       "canonical_file_present": false,
       "documented": true
     },
-    "ARGUS_UTILITY_FALLBACK_MODEL": {
+    "CUADRAO_UTILITY_FALLBACK_MODEL": {
       "sites": [
         "src/argus/llm/openrouter_model_env.py:15"
       ],
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_UTILITY_MODEL": {
+    "CUADRAO_UTILITY_MODEL": {
       "sites": [
         "src/argus/llm/openrouter_model_env.py:7"
       ],
       "canonical_file_present": true,
       "documented": true
     },
-    "ARGUS_VISITOR_KEY_SECRET": {
+    "CUADRAO_VISITOR_KEY_SECRET": {
       "sites": [
         "src/argus/domain/visitor_usage.py:27"
       ],
@@ -1122,8 +1106,8 @@
   "hosted_required_change": "none; optional keys omitted from the release contract retain code defaults",
   "template_additions": {
     "added_keys": [
-      "ARGUS_STRUCTURED_REASONING_EFFORT",
-      "ARGUS_CAPABILITY_REASONING_EFFORT",
+      "CUADRAO_STRUCTURED_REASONING_EFFORT",
+      "CUADRAO_CAPABILITY_REASONING_EFFORT",
       "ARGUS_ENV",
       "ARGUS_APP_ENV",
       "ENVIRONMENT",
@@ -1139,19 +1123,19 @@
       "ARGUS_PRODUCTION_DATABASE_SSL_ROOT_CERT",
       "RENDER_TASK_RUN_ID",
       "MEM0_TELEMETRY",
-      "ARGUS_OPENROUTER_INTERPRETATION_TIMEOUT_SECONDS",
-      "ARGUS_OPENROUTER_INTERPRETATION_REPAIR_TIMEOUT_SECONDS",
-      "ARGUS_OPENROUTER_ASSET_MENTION_PREFLIGHT_TIMEOUT_SECONDS",
-      "ARGUS_OPENROUTER_FIELD_FIDELITY_TIMEOUT_SECONDS",
-      "ARGUS_OPENROUTER_CAPABILITY_CONFLICT_TIMEOUT_SECONDS",
-      "ARGUS_OPENROUTER_CLARIFICATION_TIMEOUT_SECONDS",
-      "ARGUS_OPENROUTER_CHAT_COMPOSER_TIMEOUT_SECONDS",
-      "ARGUS_OPENROUTER_NAME_SUGGESTION_TIMEOUT_SECONDS",
+      "CUADRAO_OPENROUTER_INTERPRETATION_TIMEOUT_SECONDS",
+      "CUADRAO_OPENROUTER_INTERPRETATION_REPAIR_TIMEOUT_SECONDS",
+      "CUADRAO_OPENROUTER_ASSET_MENTION_PREFLIGHT_TIMEOUT_SECONDS",
+      "CUADRAO_OPENROUTER_FIELD_FIDELITY_TIMEOUT_SECONDS",
+      "CUADRAO_OPENROUTER_CAPABILITY_CONFLICT_TIMEOUT_SECONDS",
+      "CUADRAO_OPENROUTER_CLARIFICATION_TIMEOUT_SECONDS",
+      "CUADRAO_OPENROUTER_CHAT_COMPOSER_TIMEOUT_SECONDS",
+      "CUADRAO_OPENROUTER_NAME_SUGGESTION_TIMEOUT_SECONDS",
       "ARGUS_OPENROUTER_DISCOVERY_EXTRACTION_TIMEOUT_SECONDS",
       "ARGUS_OPENROUTER_DISCOVERY_VOICING_TIMEOUT_SECONDS",
       "ARGUS_OPENROUTER_DISCOVERY_MODEL_KNOWLEDGE_TIMEOUT_SECONDS",
-      "ARGUS_OPENROUTER_KNOWLEDGE_ROUTE_TIMEOUT_SECONDS",
-      "ARGUS_OPENROUTER_KNOWLEDGE_VOICING_TIMEOUT_SECONDS",
+      "CUADRAO_OPENROUTER_KNOWLEDGE_ROUTE_TIMEOUT_SECONDS",
+      "CUADRAO_OPENROUTER_KNOWLEDGE_VOICING_TIMEOUT_SECONDS",
       "ARGUS_OPENROUTER_MEMORY_SENSITIVITY_TIMEOUT_SECONDS"
     ],
     "count": 31,

@@ -255,11 +255,21 @@ def test_one_guest_never_spends_another_guests_allowance(guest_store) -> None:
     ).available
 
 
-def test_a_signed_in_user_has_no_research_ceiling_of_their_own(guest_store) -> None:
-    """Spec section 9: a user's research meters through their message
-    allowance, so far past three the rail is still open to them."""
-    _spend(GUEST_RESEARCH_ALLOWANCE * 4, guest_visitor_key=None)
-    assert evidence.claim_research_provider_attempt().available
+def test_a_signed_in_user_has_a_daily_research_ceiling(guest_store, monkeypatch) -> None:
+    from argus.domain.usage_limits import registered_daily_research_ceiling
+    from argus.domain.visitor_usage import registered_account_usage_key
+
+    monkeypatch.delenv("ARGUS_REGISTERED_DAILY_RESEARCH_CEILING", raising=False)
+    assert registered_daily_research_ceiling() == 15
+    key = registered_account_usage_key("00000000-0000-0000-0000-000000000099")
+    for _ in range(15):
+        assert evidence.claim_research_provider_attempt(
+            guest_visitor_key=key
+        ).available
+    sixteenth = evidence.claim_research_provider_attempt(guest_visitor_key=key)
+    assert sixteenth.available is False
+    assert sixteenth.registered_exhausted is True
+    assert sixteenth.guest_exhausted is False
 
 
 def test_a_cache_hit_costs_a_guest_nothing(guest_store) -> None:
@@ -303,9 +313,8 @@ def test_the_visitor_key_is_a_digest_not_an_address() -> None:
     )
     assert key is not None
     assert "203.0.113.42" not in key
-    assert (
-        evidence.guest_research_visitor_key(
-            is_guest=False, client_identity="203.0.113.42"
-        )
-        is None
-    )
+    assert evidence.guest_research_visitor_key(
+        is_guest=False,
+        client_identity="203.0.113.42",
+        user_id="00000000-0000-0000-0000-000000000099",
+    ) == "user:00000000-0000-0000-0000-000000000099"

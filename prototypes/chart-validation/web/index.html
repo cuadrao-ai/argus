@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Argus · Chart validation</title><link rel="stylesheet" href="/style.css"></head>
+<body><main>
+<header><p class="eyebrow">ARGUS · <span data-text="synthetic"></span></p><h1 data-text="heading"></h1></header>
+<section class="card"><div class="card-heading"><h2 id="case-title"></h2><span id="currency"></span></div>
+<div id="readout" role="status" aria-live="polite" aria-atomic="true"></div>
+<div class="legend"><span class="actual" data-text="actual"></span><span class="projected" data-text="projected"></span></div>
+<div id="plot-wrap"><div id="chart" aria-hidden="true"></div><div id="scrub" role="group" aria-label="Chart touch surface" aria-describedby="instructions"><div id="selection-line" hidden></div><span id="empty" hidden data-text="empty"></span></div></div>
+<div class="actions"><button id="previous" data-text="previous"></button><button id="next" data-text="next"></button><button id="reset" data-text="reset"></button></div>
+<p class="attribution">TradingView Lightweight Charts™<br>Copyright (с) 2025 TradingView, Inc. <a href="https://www.tradingview.com/" target="_blank" rel="noreferrer">TradingView</a></p>
+</section>
+<section class="lab"><h2 data-text="prototype"></h2><p data-text="intro"></p>
+<div class="settings"><label><span data-text="scenario"></span><select id="scenario"></select></label><label><span data-text="language"></span><select id="locale"><option value="en">English</option><option value="es-419">Español (Latinoamérica)</option></select></label><label><span data-text="appearance"></span><select id="theme"><option value="system" data-text="system"></option><option value="light" data-text="light"></option><option value="dark" data-text="dark"></option></select></label></div>
+<p id="unit"></p><p id="instructions" data-text="instructions"></p><p data-text="truth"></p><p data-text="scroll"></p></section>
+</main><script type="module" src="/app.mjs"></script></body></html>

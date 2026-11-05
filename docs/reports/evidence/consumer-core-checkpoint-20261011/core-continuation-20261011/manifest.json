@@ -1,0 +1,18 @@
+{
+  "screenshots": [
+    {
+      "file": "retained-home.png",
+      "sha256": "62862ed0b36b2d6c5a974dffb08ffaa535450ef9ac85f055b83bb265e19d504b",
+      "description": "XCTest retained Home after relaunch, DOP 26,518.50 and five unknown balances"
+    },
+    {
+      "file": "signed-out-after-run.jpg",
+      "sha256": "93fe25d80e5778b10e4645f94b9b32cdf6a9b4fdaf83f2a1c611ddf04e23d661",
+      "description": "Manual app launch after the failed fresh sign-ins shows the signed-out welcome"
+    }
+  ],
+  "product_changes": false,
+  "provider_calls": 0,
+  "new_hosted_changes": 0,
+  "phone_actions": 0
+}

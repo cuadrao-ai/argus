@@ -1,0 +1,66 @@
+{
+  "source_commit": "8fe35fd32abf0c27ffbc08312db082a4478ba964",
+  "app_main_tree": "a5618ee4b264947e4d0f27741dee1e5354522d8e",
+  "gradle_instrumentation_english": [
+    {
+      "device": "TEST-Argus_Foundation_Large(AVD) - 16-_app-.xml",
+      "tests": "9",
+      "failures": "0",
+      "errors": "0",
+      "cases": []
+    },
+    {
+      "device": "TEST-Argus_Foundation_Small(AVD) - 16-_app-.xml",
+      "tests": "9",
+      "failures": "0",
+      "errors": "0",
+      "cases": []
+    }
+  ],
+  "jvm_tests": 3,
+  "lint": "pass; rolling upgrade notices excluded, all other warnings treated as errors",
+  "mocked_backend_harness": "blocked during collection by scipy _spropack Mach-O loading failure",
+  "device_matrix": [
+    {
+      "locale": "en-US",
+      "font_scale": 1.0,
+      "device": "small-360dp",
+      "tests": 9,
+      "passed": 9,
+      "failed": 0
+    },
+    {
+      "locale": "en-US",
+      "font_scale": 1.0,
+      "device": "large-411dp",
+      "tests": 9,
+      "passed": 9,
+      "failed": 0
+    },
+    {
+      "locale": "es-419",
+      "font_scale": 1.3,
+      "device": "small-360dp",
+      "tests": 9,
+      "passed": 9,
+      "failed": 0
+    },
+    {
+      "locale": "es-419",
+      "font_scale": 1.3,
+      "device": "large-411dp",
+      "tests": 9,
+      "passed": 9,
+      "failed": 0
+    }
+  ],
+  "review_fix": {
+    "source_commit": "2df05cd88725b1d00160bdc111c651ed650a0e03",
+    "app_main_tree": "b54c201a96b643eb10330d6632eb864f5bcf0d7b",
+    "change": "Remember sample composer in Android saved UI state; assert draft after activity recreation",
+    "english_tests_per_phone": 9,
+    "english_failures": 0,
+    "english_tab_captures": "recaptured",
+    "retained_evidence": "Spanish layout, appearance cold restart, and IME/Back behavior retained: the only production delta changes the composer state holder, with no rendering, localization, theme, navigation, or storage-owner changes."
+  }
+}

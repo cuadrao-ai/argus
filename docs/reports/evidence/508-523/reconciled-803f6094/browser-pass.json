@@ -2,7 +2,7 @@
   "captured_at": "2026-08-23",
   "head": "803f6094",
   "base": "8bf55aeb (origin/codex/private-alpha-next)",
-  "topology": "local backend from this worktree at 803f6094 (uvicorn, ARGUS_MOCK_AUTH=true, ARGUS_PERSISTENCE_MODE=memory, ARGUS_MARKET_DATA_PROVIDER_MODE=live_provider via Alpaca, real OpenRouter interpretation with the integration env's model tiers, canonical env sourced into the process only, no env file written) + web dev server at 803f6094 (NEXT_PUBLIC_MOCK_AUTH=true, NEXT_PUBLIC_ENABLE_SPANISH=true) + headed Playwright Chromium driving the rendered app; workspace language set through PATCH /me and the i18n storage key",
+  "topology": "local backend from this worktree at 803f6094 (uvicorn, CUADRAO_MOCK_AUTH=true, CUADRAO_PERSISTENCE_MODE=memory, ARGUS_MARKET_DATA_PROVIDER_MODE=live_provider via Alpaca, real OpenRouter interpretation with the integration env's model tiers, canonical env sourced into the process only, no env file written) + web dev server at 803f6094 (NEXT_PUBLIC_MOCK_AUTH=true, NEXT_PUBLIC_ENABLE_SPANISH=true) + headed Playwright Chromium driving the rendered app; workspace language set through PATCH /me and the i18n storage key",
   "scenarios": [
     {
       "id": "en-approve",

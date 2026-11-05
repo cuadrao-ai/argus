@@ -1,0 +1,186 @@
+{
+  "tested_source": "a6efe6e3360f1c4e58c97807b91547de527b0b04",
+  "source_manifest": "files.json is preserved original source manifest, not hashes of normalized published logs",
+  "files": [
+    {
+      "path": "060-delete-recovery-fail.log",
+      "source_sha256": "73c2cf905be944959f6d382b88a4011cbeec881c803c1c9eeba772769ad51e8b",
+      "published_sha256": "73c2cf905be944959f6d382b88a4011cbeec881c803c1c9eeba772769ad51e8b",
+      "normalization": "none"
+    },
+    {
+      "path": "060-independent-boundaries.log",
+      "source_sha256": "a9ef23576fcf84c835ac4bfecc9daddeb10d3de3f910baf432bcebc0d0db3571",
+      "published_sha256": "a9ef23576fcf84c835ac4bfecc9daddeb10d3de3f910baf432bcebc0d0db3571",
+      "normalization": "none"
+    },
+    {
+      "path": "060-package-regression.log",
+      "source_sha256": "1816bfc435f939aae09c052dc1dd966411cc3d6f2427845855f60b64b67f98fa",
+      "published_sha256": "1816bfc435f939aae09c052dc1dd966411cc3d6f2427845855f60b64b67f98fa",
+      "normalization": "none"
+    },
+    {
+      "path": "07f768-compile-failure.log",
+      "source_sha256": "fd13a1289215d7656c8b70ed41ac40b0be200fbbf47ccd467203ca5cc145d974",
+      "published_sha256": "34f0afceab471e04e4a82bc76ac41c221542e1b7d973d7a713fff0c7390d08de",
+      "normalization": "log trailing horizontal whitespace and final newline"
+    },
+    {
+      "path": "8d60-baseline-package.log",
+      "source_sha256": "2cacf3b59c687bb287305bbdef56ef9d70143ed917e0d13f1e6a753bcbeb4838",
+      "published_sha256": "2cacf3b59c687bb287305bbdef56ef9d70143ed917e0d13f1e6a753bcbeb4838",
+      "normalization": "none"
+    },
+    {
+      "path": "8d60-delete-recovery-pass.log",
+      "source_sha256": "41df21871ec7c4b08244f4e76e38eefae43159b05da6aee364103606b35b9be8",
+      "published_sha256": "41df21871ec7c4b08244f4e76e38eefae43159b05da6aee364103606b35b9be8",
+      "normalization": "none"
+    },
+    {
+      "path": "IndependentAppleNameBoundaryTests.swift",
+      "source_sha256": "c5c9c4a18dd231cbad01e912b188558e13c85436bac24619b44f57fed7609240",
+      "published_sha256": "c5c9c4a18dd231cbad01e912b188558e13c85436bac24619b44f57fed7609240",
+      "normalization": "none"
+    },
+    {
+      "path": "README.md",
+      "source_sha256": "41d76654ad54a93743b010e87e449cb8498c170733d0053ad97c00d7889f019c",
+      "published_sha256": "d89a345c362ac96e79364fceb38949decf9619391cd5a1612a06d0a4dad1cb31",
+      "normalization": "correct evidence filename typo"
+    },
+    {
+      "path": "a6-focused16.log",
+      "source_sha256": "452094dac3d5248be4e78bf138bbc895215872c8a85edb9d67b2eadf55295f08",
+      "published_sha256": "452094dac3d5248be4e78bf138bbc895215872c8a85edb9d67b2eadf55295f08",
+      "normalization": "none"
+    },
+    {
+      "path": "a6-independent3.log",
+      "source_sha256": "cbb2b2e1330c9ccc6e03275b4c566f9be853bfa673392bb0da75fa203d35dba4",
+      "published_sha256": "cbb2b2e1330c9ccc6e03275b4c566f9be853bfa673392bb0da75fa203d35dba4",
+      "normalization": "none"
+    },
+    {
+      "path": "a6-package.log",
+      "source_sha256": "ecda46c0f21b6c34467d1413f39992de89b7172a1a9f7c2256eabb2612aea96f",
+      "published_sha256": "ecda46c0f21b6c34467d1413f39992de89b7172a1a9f7c2256eabb2612aea96f",
+      "normalization": "none"
+    },
+    {
+      "path": "a6-provider-config.log",
+      "source_sha256": "85ddc74c764f0ae39f05314c40cc22ae67af2f18c0e84b25215b066b047286a7",
+      "published_sha256": "85ddc74c764f0ae39f05314c40cc22ae67af2f18c0e84b25215b066b047286a7",
+      "normalization": "none"
+    },
+    {
+      "path": "a6-signed-local.log",
+      "source_sha256": "22b451842f07dd6b560a39007184d9259ac79d1a07d6105b25d30077119f2593",
+      "published_sha256": "22b451842f07dd6b560a39007184d9259ac79d1a07d6105b25d30077119f2593",
+      "normalization": "none"
+    },
+    {
+      "path": "a6-ui-summary.json",
+      "source_sha256": "31c7a78a0a1cec33ac6f55da0745a764eba1ad2f2e7e2254a60e6358e1800b86",
+      "published_sha256": "31c7a78a0a1cec33ac6f55da0745a764eba1ad2f2e7e2254a60e6358e1800b86",
+      "normalization": "none"
+    },
+    {
+      "path": "a6-ui.log",
+      "source_sha256": "6a2462862906bcd57abbf06f64bd9b2526b52fb7acd9fa55ffedc1c8560dfe57",
+      "published_sha256": "6b5769e97dbd837d3a8464090f724b46c4dddc5e214c599b95f8336b89b86d29",
+      "normalization": "log trailing horizontal whitespace and final newline"
+    },
+    {
+      "path": "cleanup.json",
+      "source_sha256": "81951df1daa8c4f978dc253526918e9b0a9bba3a89440d444f5bfd7f55e0cb9e",
+      "published_sha256": "81951df1daa8c4f978dc253526918e9b0a9bba3a89440d444f5bfd7f55e0cb9e",
+      "normalization": "none"
+    },
+    {
+      "path": "diagnostic-status.json",
+      "source_sha256": "33ff083a635b0b7cc02ce59841753075c7d37ad327b6b86f41991d13dbc88f15",
+      "published_sha256": "33ff083a635b0b7cc02ce59841753075c7d37ad327b6b86f41991d13dbc88f15",
+      "normalization": "none"
+    },
+    {
+      "path": "files.json",
+      "source_sha256": "0f066f8855ed88dd8f056827d6740892067d62b7a2d9010992ac4fc54fc6c730",
+      "published_sha256": "0f066f8855ed88dd8f056827d6740892067d62b7a2d9010992ac4fc54fc6c730",
+      "normalization": "none"
+    },
+    {
+      "path": "fixture-rename.diff",
+      "source_sha256": "57da02300cfa5d23c3626211e52247deefdd6799545f118a368a9fc800d3de3a",
+      "published_sha256": "57da02300cfa5d23c3626211e52247deefdd6799545f118a368a9fc800d3de3a",
+      "normalization": "none"
+    },
+    {
+      "path": "independent-harness.patch",
+      "source_sha256": "08f9c909adec234649deaf54eb6abce441f6915bc239a89141fa1a94a3df62cc",
+      "published_sha256": "08f9c909adec234649deaf54eb6abce441f6915bc239a89141fa1a94a3df62cc",
+      "normalization": "none"
+    },
+    {
+      "path": "journey/058971A9-CC5F-48B5-B99F-0F0E9CCCDCA1.png",
+      "source_sha256": "9d80e2e57e73512bcf7442de523002175ee76f016171570d32b51e940eb98f36",
+      "published_sha256": "9d80e2e57e73512bcf7442de523002175ee76f016171570d32b51e940eb98f36",
+      "normalization": "none"
+    },
+    {
+      "path": "journey/23A1C79E-2AA2-40FC-945B-69A34EA6934A.png",
+      "source_sha256": "d97bb171d3cac53f81e9bd5cfcf22609626f8bf400f8c955a92d8c4390806254",
+      "published_sha256": "d97bb171d3cac53f81e9bd5cfcf22609626f8bf400f8c955a92d8c4390806254",
+      "normalization": "none"
+    },
+    {
+      "path": "journey/7028BD00-08FB-486B-B77B-350B47CE600F.png",
+      "source_sha256": "90268d52f2e7cf3f0a96db80c379a1e3b301c3afc1e040f6c45184403809856d",
+      "published_sha256": "90268d52f2e7cf3f0a96db80c379a1e3b301c3afc1e040f6c45184403809856d",
+      "normalization": "none"
+    },
+    {
+      "path": "journey/74B42222-F40E-4687-8732-B63CBC8BCA2B.png",
+      "source_sha256": "da9fb6ab0a8fa9f4984a37db4ae4e6073f196d15a7dd4cdec7fe52a1b24b2364",
+      "published_sha256": "da9fb6ab0a8fa9f4984a37db4ae4e6073f196d15a7dd4cdec7fe52a1b24b2364",
+      "normalization": "none"
+    },
+    {
+      "path": "journey/manifest.json",
+      "source_sha256": "7313d935dbefe2daced9f8422bf220da9460b8dc8bfc5544164823c72c71426b",
+      "published_sha256": "7313d935dbefe2daced9f8422bf220da9460b8dc8bfc5544164823c72c71426b",
+      "normalization": "none"
+    },
+    {
+      "path": "provenance.json",
+      "source_sha256": "3d6ab1ade2fb1bbe6a6aed0adde184fb1ed739a09bd832d6cac62065bc85f731",
+      "published_sha256": "3d6ab1ade2fb1bbe6a6aed0adde184fb1ed739a09bd832d6cac62065bc85f731",
+      "normalization": "none"
+    },
+    {
+      "path": "signed-local.py",
+      "source_sha256": "42df5af1a09a17619ebf555aacb0c25f01d6e8e07a4ea8a1cd49954ebaf1cc06",
+      "published_sha256": "42df5af1a09a17619ebf555aacb0c25f01d6e8e07a4ea8a1cd49954ebaf1cc06",
+      "normalization": "none"
+    },
+    {
+      "path": "ui-after.json",
+      "source_sha256": "953b5430449324a5228efa9d0baa6ecdb4f1267b3214fa07b611bafdb20fd2ae",
+      "published_sha256": "953b5430449324a5228efa9d0baa6ecdb4f1267b3214fa07b611bafdb20fd2ae",
+      "normalization": "none"
+    },
+    {
+      "path": "ui-before.json",
+      "source_sha256": "0fb7abb5d67dc3d5d69c38e8c3090b7a673a1cd56d00888418ad3fa9c0b78f8d",
+      "published_sha256": "0fb7abb5d67dc3d5d69c38e8c3090b7a673a1cd56d00888418ad3fa9c0b78f8d",
+      "normalization": "none"
+    },
+    {
+      "path": "ui-harness-initial-compile-failure.log",
+      "source_sha256": "6b36e171c03fbca07fe27fd57221df71ec9da3e1f3c4310f67c7d6bb04730eaf",
+      "published_sha256": "9ce3a8046e47814e1f3b61fb5f338b643dc7c355fa1ed85647cfad7f67adacdf",
+      "normalization": "log trailing horizontal whitespace and final newline"
+    }
+  ]
+}

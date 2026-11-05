@@ -1,0 +1,149 @@
+bun test v1.4.2 (744846f84)
+
+web/__tests__/recovery-client-ip.test.ts:
+33 |         "CF-Connecting-IP": `192.0.2.${i + 1}`,
+34 |         "X-Forwarded-For": `198.51.100.${i + 1}, 192.0.2.1`,
+35 |         "X-Real-IP": `198.51.100.${i + 1}`,
+36 |         [setting?.trim() || "CF-Connecting-IP"]: "203.0.113.55",
+37 |       });
+38 |       expect(response.status).toBe(i < attemptLimit ? 202 : 429);
+                                   ^
+error: expect(received).toBe(expected)
+
+Expected: 429
+Received: 202
+
+      at <anonymous> (/Users/garces/.codex/worktrees/recovery-trusted-ip/private-alpha-next/web/__tests__/recovery-client-ip.test.ts:38:31)
+(fail) trusted address survives rotated forwarding headers: undefined [3.23ms]
+33 |         "CF-Connecting-IP": `192.0.2.${i + 1}`,
+34 |         "X-Forwarded-For": `198.51.100.${i + 1}, 192.0.2.1`,
+35 |         "X-Real-IP": `198.51.100.${i + 1}`,
+36 |         [setting?.trim() || "CF-Connecting-IP"]: "203.0.113.55",
+37 |       });
+38 |       expect(response.status).toBe(i < attemptLimit ? 202 : 429);
+                                   ^
+error: expect(received).toBe(expected)
+
+Expected: 429
+Received: 202
+
+      at <anonymous> (/Users/garces/.codex/worktrees/recovery-trusted-ip/private-alpha-next/web/__tests__/recovery-client-ip.test.ts:38:31)
+(fail) trusted address survives rotated forwarding headers: "" [0.24ms]
+33 |         "CF-Connecting-IP": `192.0.2.${i + 1}`,
+34 |         "X-Forwarded-For": `198.51.100.${i + 1}, 192.0.2.1`,
+35 |         "X-Real-IP": `198.51.100.${i + 1}`,
+36 |         [setting?.trim() || "CF-Connecting-IP"]: "203.0.113.55",
+37 |       });
+38 |       expect(response.status).toBe(i < attemptLimit ? 202 : 429);
+                                   ^
+error: expect(received).toBe(expected)
+
+Expected: 429
+Received: 202
+
+      at <anonymous> (/Users/garces/.codex/worktrees/recovery-trusted-ip/private-alpha-next/web/__tests__/recovery-client-ip.test.ts:38:31)
+(fail) trusted address survives rotated forwarding headers: "   " [0.21ms]
+33 |         "CF-Connecting-IP": `192.0.2.${i + 1}`,
+34 |         "X-Forwarded-For": `198.51.100.${i + 1}, 192.0.2.1`,
+35 |         "X-Real-IP": `198.51.100.${i + 1}`,
+36 |         [setting?.trim() || "CF-Connecting-IP"]: "203.0.113.55",
+37 |       });
+38 |       expect(response.status).toBe(i < attemptLimit ? 202 : 429);
+                                   ^
+error: expect(received).toBe(expected)
+
+Expected: 429
+Received: 202
+
+      at <anonymous> (/Users/garces/.codex/worktrees/recovery-trusted-ip/private-alpha-next/web/__tests__/recovery-client-ip.test.ts:38:31)
+(fail) trusted address survives rotated forwarding headers: " X-Verified-Client-IP " [0.13ms]
+48 |     for (let i = 0; i <= attemptLimit; i += 1) {
+49 |       const response = await f.request(i, {
+50 |         "X-Forwarded-For": `198.51.100.${i + 1}`, "X-Real-IP": `192.0.2.${i + 1}`,
+51 |         ...(setting ? { "CF-Connecting-IP": `203.0.113.${i + 1}` } : {}),
+52 |       });
+53 |       expect(response.status).toBe(i < attemptLimit ? 202 : 429);
+                                   ^
+error: expect(received).toBe(expected)
+
+Expected: 429
+Received: 202
+
+      at <anonymous> (/Users/garces/.codex/worktrees/recovery-trusted-ip/private-alpha-next/web/__tests__/recovery-client-ip.test.ts:53:31)
+(fail) missing selected header shares the unknown bucket: undefined [4.22ms]
+48 |     for (let i = 0; i <= attemptLimit; i += 1) {
+49 |       const response = await f.request(i, {
+50 |         "X-Forwarded-For": `198.51.100.${i + 1}`, "X-Real-IP": `192.0.2.${i + 1}`,
+51 |         ...(setting ? { "CF-Connecting-IP": `203.0.113.${i + 1}` } : {}),
+52 |       });
+53 |       expect(response.status).toBe(i < attemptLimit ? 202 : 429);
+                                   ^
+error: expect(received).toBe(expected)
+
+Expected: 429
+Received: 202
+
+      at <anonymous> (/Users/garces/.codex/worktrees/recovery-trusted-ip/private-alpha-next/web/__tests__/recovery-client-ip.test.ts:53:31)
+(fail) missing selected header shares the unknown bucket: X-Verified-Client-IP [0.11ms]
+58 | 
+59 | for (const address of ["not-an-ip", "1".repeat(46), "203.0.113.55, 198.51.100.1"]) {
+60 |   test(`invalid trusted address rejects before sending: ${address}`, async () => {
+61 |     const f = fixture();
+62 |     const response = await f.request(0, { "CF-Connecting-IP": address, "X-Forwarded-For": "192.0.2.1" });
+63 |     expect(response.status).toBe(400);
+                                 ^
+error: expect(received).toBe(expected)
+
+Expected: 400
+Received: 202
+
+      at <anonymous> (/Users/garces/.codex/worktrees/recovery-trusted-ip/private-alpha-next/web/__tests__/recovery-client-ip.test.ts:63:29)
+(fail) invalid trusted address rejects before sending: not-an-ip [0.13ms]
+58 | 
+59 | for (const address of ["not-an-ip", "1".repeat(46), "203.0.113.55, 198.51.100.1"]) {
+60 |   test(`invalid trusted address rejects before sending: ${address}`, async () => {
+61 |     const f = fixture();
+62 |     const response = await f.request(0, { "CF-Connecting-IP": address, "X-Forwarded-For": "192.0.2.1" });
+63 |     expect(response.status).toBe(400);
+                                 ^
+error: expect(received).toBe(expected)
+
+Expected: 400
+Received: 202
+
+      at <anonymous> (/Users/garces/.codex/worktrees/recovery-trusted-ip/private-alpha-next/web/__tests__/recovery-client-ip.test.ts:63:29)
+(fail) invalid trusted address rejects before sending: 1111111111111111111111111111111111111111111111 [0.06ms]
+58 | 
+59 | for (const address of ["not-an-ip", "1".repeat(46), "203.0.113.55, 198.51.100.1"]) {
+60 |   test(`invalid trusted address rejects before sending: ${address}`, async () => {
+61 |     const f = fixture();
+62 |     const response = await f.request(0, { "CF-Connecting-IP": address, "X-Forwarded-For": "192.0.2.1" });
+63 |     expect(response.status).toBe(400);
+                                 ^
+error: expect(received).toBe(expected)
+
+Expected: 400
+Received: 202
+
+      at <anonymous> (/Users/garces/.codex/worktrees/recovery-trusted-ip/private-alpha-next/web/__tests__/recovery-client-ip.test.ts:63:29)
+(fail) invalid trusted address rejects before sending: 203.0.113.55, 198.51.100.1 [0.03ms]
+(pass) same email remains bounded across trusted addresses [0.13ms]
+76 | 
+77 | test("global budget bounds distinct trusted addresses and emails", async () => {
+78 |   const f = fixture();
+79 |   for (let i = 0; i <= globalLimit; i += 1) {
+80 |     const response = await f.request(i, { "CF-Connecting-IP": `203.0.113.${i + 1}` });
+81 |     expect(response.status).toBe(i < globalLimit ? 202 : 429);
+                                 ^
+error: expect(received).toBe(expected)
+
+Expected: 202
+Received: 429
+
+      at <anonymous> (/Users/garces/.codex/worktrees/recovery-trusted-ip/private-alpha-next/web/__tests__/recovery-client-ip.test.ts:81:29)
+(fail) global budget bounds distinct trusted addresses and emails [0.10ms]
+
+ 1 pass
+ 10 fail
+ 52 expect() calls
+Ran 11 tests across 1 file. [31.00ms]

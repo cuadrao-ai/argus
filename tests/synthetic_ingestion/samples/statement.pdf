@@ -1,0 +1,32 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Length 901 >>
+stream
+BT /F1 8 Tf 30 760 Td 15 TL (SYNTHETIC - FICTIONAL - NOT A REAL BANK FORMAT) Tj T* (Banco Nube de Papel \(fictional\)) Tj T* (Statement period: 2026-09-01 to 2026-09-30; account statement-dop) Tj T* (Opening DOP 1000.00; Closing DOP 1974.50) Tj T* (SYNTHETIC STATEMENT ROWS) Tj T* (source_id | date | description | amount | currency | kind | account | destination) Tj T* (statement-01 | 2026-09-10 | Synthetic income | 1200.00 | DOP | income | statement-dop | personal) Tj T* (statement-02 | 2026-09-10 | Synthetic purchase A | 125.50 | DOP | expense | statement-dop | personal) Tj T* (statement-03 | 2026-09-10 | Synthetic purchase B | 125.50 | DOP | expense | statement-dop | personal) Tj T* (statement-04 | 2026-09-10 | Synthetic refund | 25.50 | DOP | refund | statement-dop | personal) Tj T* (END SYNTHETIC STATEMENT ROWS) Tj T* (Positive amounts; expense subtracts, income/refund adds.) Tj T* ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000336 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1288
+%%EOF

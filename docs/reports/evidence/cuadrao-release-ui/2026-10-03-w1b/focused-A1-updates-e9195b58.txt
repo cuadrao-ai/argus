@@ -1,0 +1,3 @@
+ios/ArgusFoundationUITests/ReleaseUIJourneyTests.swift:106: error: -[ArgusFoundationUITests.ReleaseUIJourneyTests testUpdatesNoDataAndReadOnlyHistory] : Failed to tap "updates-gallery-truth" Button: No matches found for Elements matching predicate '"updates-gallery-truth" IN identifiers' from input {(
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testUpdatesNoDataAndReadOnlyHistory]' failed (10.128 seconds).
+exit=65 seconds=618

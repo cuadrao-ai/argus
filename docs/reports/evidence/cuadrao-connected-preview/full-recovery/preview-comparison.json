@@ -1,0 +1,213 @@
+[
+  {
+    "screen": "chat-es-dark.jpg",
+    "size": [
+      368,
+      800
+    ],
+    "comparison_box": [
+      0,
+      55,
+      368,
+      782
+    ],
+    "mean_absolute_rgb_difference": 0.0,
+    "exact": true
+  },
+  {
+    "screen": "chat-es-light.jpg",
+    "size": [
+      368,
+      800
+    ],
+    "comparison_box": [
+      0,
+      55,
+      368,
+      782
+    ],
+    "mean_absolute_rgb_difference": 0.0,
+    "exact": true
+  },
+  {
+    "screen": "home-es-dark.jpg",
+    "size": [
+      368,
+      800
+    ],
+    "comparison_box": [
+      0,
+      55,
+      368,
+      782
+    ],
+    "mean_absolute_rgb_difference": 0.0,
+    "exact": true
+  },
+  {
+    "screen": "home-es-light.jpg",
+    "size": [
+      368,
+      800
+    ],
+    "comparison_box": [
+      0,
+      55,
+      368,
+      782
+    ],
+    "mean_absolute_rgb_difference": 6.354285030799594e-05,
+    "exact": false
+  },
+  {
+    "screen": "household-es-light.jpg",
+    "size": [
+      368,
+      800
+    ],
+    "comparison_box": [
+      0,
+      55,
+      368,
+      782
+    ],
+    "mean_absolute_rgb_difference": 0.0,
+    "exact": true
+  },
+  {
+    "screen": "insights-es-light.jpg",
+    "size": [
+      368,
+      800
+    ],
+    "comparison_box": [
+      0,
+      55,
+      368,
+      782
+    ],
+    "mean_absolute_rgb_difference": 0.023955654566114468,
+    "exact": false
+  },
+  {
+    "screen": "plan-es-dark.jpg",
+    "size": [
+      368,
+      800
+    ],
+    "comparison_box": [
+      0,
+      55,
+      368,
+      782
+    ],
+    "mean_absolute_rgb_difference": 0.0,
+    "exact": true
+  },
+  {
+    "screen": "plan-es-light.jpg",
+    "size": [
+      368,
+      800
+    ],
+    "comparison_box": [
+      0,
+      55,
+      368,
+      782
+    ],
+    "mean_absolute_rgb_difference": 0.0,
+    "exact": true
+  },
+  {
+    "screen": "profile-es-dark.jpg",
+    "size": [
+      368,
+      800
+    ],
+    "comparison_box": [
+      0,
+      55,
+      368,
+      782
+    ],
+    "mean_absolute_rgb_difference": 0.0,
+    "exact": true
+  },
+  {
+    "screen": "profile-es-light.jpg",
+    "size": [
+      368,
+      800
+    ],
+    "comparison_box": [
+      0,
+      55,
+      368,
+      782
+    ],
+    "mean_absolute_rgb_difference": 0.0,
+    "exact": true
+  },
+  {
+    "screen": "search-es-dark.jpg",
+    "size": [
+      368,
+      800
+    ],
+    "comparison_box": [
+      0,
+      55,
+      368,
+      782
+    ],
+    "mean_absolute_rgb_difference": 0.0,
+    "exact": true
+  },
+  {
+    "screen": "search-es-light.jpg",
+    "size": [
+      368,
+      800
+    ],
+    "comparison_box": [
+      0,
+      55,
+      368,
+      782
+    ],
+    "mean_absolute_rgb_difference": 0.0,
+    "exact": true
+  },
+  {
+    "screen": "updates-es-light.jpg",
+    "size": [
+      368,
+      800
+    ],
+    "comparison_box": [
+      0,
+      55,
+      368,
+      782
+    ],
+    "mean_absolute_rgb_difference": 0.009410571536790065,
+    "exact": false
+  },
+  {
+    "screen": "plan-detail-es-light.jpg",
+    "size": [
+      368,
+      800
+    ],
+    "comparison_box": [
+      0,
+      55,
+      368,
+      782
+    ],
+    "mean_absolute_rgb_difference": 0.007288738711799535,
+    "exact": false,
+    "source_revision": "2f243fac2"
+  }
+]

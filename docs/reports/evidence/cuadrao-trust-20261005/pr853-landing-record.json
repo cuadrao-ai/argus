@@ -1,0 +1,32 @@
+{
+  "pr": 853,
+  "head": "c86981c076d4512aaee8d6c61d278f60ef597e75",
+  "original_integration_base": "875de09ac2115acec42e09060b92878aa5f18eff",
+  "reconciliation_merge": "33d9123d504c38ee2b202e94324727afd7650fee",
+  "integration_parent": "d08a133a4e81082ffb3f2738dae92f544cba055a",
+  "merge": "2b2d0d9e8ed311c11b7585fbd757fb37f915e12f",
+  "merged_at": "2026-10-05T22:12:38Z",
+  "tree_equal": true,
+  "tree": "2978d8255ef448302274b963246d7d13d7534e1f",
+  "review": "https://github.com/lagarcess/argus/pull/853#pullrequestreview-5421164609",
+  "terminal_audit": "https://github.com/lagarcess/argus/pull/853#issuecomment-6004171777",
+  "ci": {
+    "success": 17,
+    "expected_skip": 3,
+    "failure": 0,
+    "pending": 0
+  },
+  "review_threads": 0,
+  "local_context_proof": {
+    "profile_cases": 41,
+    "canary_patch_cases": 28,
+    "failure": 0,
+    "skip": 0
+  },
+  "retained_proof": "One real local Auth/API/PostgreSQL regression,23 native cases,two localized simulator journeys; unchanged-owner comparison recorded in final review",
+  "new_configuration_names": [],
+  "closed_issue": 848,
+  "parent_issue_820": "open; currency consumers,onboarding,forecast,paired transfers and complete connected/device acceptance remain",
+  "phone_hosted_activation": "open",
+  "housekeeping": "pending protected-branch evidence PR"
+}

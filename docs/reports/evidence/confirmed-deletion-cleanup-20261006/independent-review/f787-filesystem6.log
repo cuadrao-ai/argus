@@ -1,0 +1,26 @@
+warning: /Users/garces/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/garces/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+Building for debugging...
+[Using on-disk description]
+Build complete! (0.32 sec)
+Test Suite 'Selected tests' started at 2026-10-05 22:40:58.672.
+Test Suite 'ArgusSessionTests.xctest' started at 2026-10-05 22:40:58.673.
+Test Suite 'AccountDeletionTests' started at 2026-10-05 22:40:58.673.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcknowledgementStorageFailureAfterCleanupRetainsIdempotentRetryObligation]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcknowledgementStorageFailureAfterCleanupRetainsIdempotentRetryObligation]' passed (0.005 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testCleanupCallbackFailureRetainsJournalAndRelaunchRetriesCleanupOnly]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testCleanupCallbackFailureRetainsJournalAndRelaunchRetriesCleanupOnly]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testCleanupCannotInterruptBAdoptionBeforeSDKProofIsStored]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testCleanupCannotInterruptBAdoptionBeforeSDKProofIsStored]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testCompletedCleanupUsesValidatedOwnerAndMissingDirectoryIsIdempotent]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testCompletedCleanupUsesValidatedOwnerAndMissingDirectoryIsIdempotent]' passed (0.003 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testPendingUncertaintyAndOrdinarySignOutCannotAuthorizeCleanup]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testPendingUncertaintyAndOrdinarySignOutCannotAuthorizeCleanup]' passed (0.005 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testStaleCompletedCleanupHasNoFilesystemEffectsWhileBOwnsSession]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testStaleCompletedCleanupHasNoFilesystemEffectsWhileBOwnsSession]' passed (0.002 seconds).
+Test Suite 'AccountDeletionTests' passed at 2026-10-05 22:40:58.693.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.020 (0.020) seconds
+Test Suite 'ArgusSessionTests.xctest' passed at 2026-10-05 22:40:58.693.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.020 (0.020) seconds
+Test Suite 'Selected tests' passed at 2026-10-05 22:40:58.693.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.020 (0.021) seconds

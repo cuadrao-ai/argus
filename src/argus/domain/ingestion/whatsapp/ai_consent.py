@@ -1,0 +1,388 @@
+from __future__ import annotations
+
+import hashlib
+import json
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any, Literal
+from uuid import UUID
+
+from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
+from pydantic import Field
+
+from argus.domain.business.authority import ActionError, authorize
+from argus.domain.business.contracts.authority import TrustedActor
+from argus.domain.business.contracts.facts import Contract
+from argus.domain.ingestion.whatsapp.business_store import BusinessTurnStore
+
+SCOPE_VERSION = 1
+PURPOSE = "business_whatsapp_draft_assistance"
+DISCLOSURE = (
+    "Allow AI assistance for this Business's linked WhatsApp number: send your "
+    "message text and necessary authorized draft context through the disclosed "
+    "provider routes to understand, clarify and prepare drafts. You can revoke "
+    "this permission. Recording an expense still requires separate human approval."
+)
+
+
+@dataclass(frozen=True)
+class ConsentScope:
+    """What a permission covers. The text the owner was shown, in their language,
+    is the one stored and hashed; a change to either text asks for consent again."""
+
+    version: int
+    purpose: str
+    disclosure: str
+    disclosure_es: str | None = None
+
+    def text(self, language: str | None) -> str:
+        spanish = bool(language) and language.lower().startswith("es")
+        return self.disclosure_es if spanish and self.disclosure_es else self.disclosure
+
+    def texts(self) -> tuple[str, ...]:
+        return tuple(t for t in (self.disclosure, self.disclosure_es) if t)
+
+
+AGENT_SCOPE = ConsentScope(SCOPE_VERSION, PURPOSE, DISCLOSURE)
+# The one short disclosure for reading receipts. The legal wording pass changes
+# only these two sentences.
+RECEIPT_SCOPE = ConsentScope(
+    2,
+    "business_whatsapp_receipt_reading",
+    "Cuadrao reads the receipts you send by WhatsApp with AI: the photo or PDF "
+    "goes to OpenRouter and the model below, only to read the merchant, amount "
+    "and date. You can turn this off at any time. Recording money always needs "
+    "your approval.",
+    "Cuadrao lee con IA los recibos que envías por WhatsApp: la foto o el PDF va "
+    "a OpenRouter y al modelo de abajo, solo para leer comercio, monto y fecha. "
+    "Puedes desactivarlo cuando quieras. Registrar dinero siempre necesita tu "
+    "aprobación.",
+)
+
+
+class EnableAIConsent(Contract):
+    action: Literal["enable"]
+    disclosure_token: str = Field(pattern=r"^[0-9a-f]{64}$")
+    language: str | None = Field(default=None, max_length=16)
+
+
+class ConsentError(PermissionError):
+    def __init__(self, code: str, status: int = 403) -> None:
+        self.code, self.status = code, status
+        super().__init__(code)
+
+
+def digest(value: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode()
+    ).hexdigest()
+
+
+class AIConsentStore:
+    def __init__(
+        self,
+        pool,
+        route: Callable[[], dict[str, Any]],
+        scope: ConsentScope = AGENT_SCOPE,
+    ) -> None:
+        self.pool, self.route, self.scope = pool, route, scope
+
+    def _route(self) -> dict[str, Any]:
+        try:
+            route = self.route()
+        except ValueError as error:
+            raise ConsentError("whatsapp_ai_route_unavailable", 503) from error
+        if not route:
+            raise ConsentError("whatsapp_ai_route_unavailable", 503)
+        return route
+
+    def _link(self, connection, owner_id: UUID, *, prepare: bool):
+        row = connection.execute(
+            "select l.id,l.destination_space_id,l.destination_owner_id,l.wa_id_hash,l.last4"
+            " from public.whatsapp_sender_links l join public.spaces s"
+            " on s.id=l.destination_space_id and s.created_by=l.destination_owner_id"
+            " where l.destination_owner_id=%s and l.status='active'"
+            " and s.kind='business' and s.closed_at is null for update of l",
+            (owner_id,),
+        ).fetchone()
+        if row is None:
+            raise ConsentError("whatsapp_link_required", 409)
+        auth = authorize(
+            connection,
+            TrustedActor(actor_id=owner_id, space_id=row[1], actor_kind="member"),
+        )
+        auth.require("prepare" if prepare else "read")
+        return row, auth
+
+    @staticmethod
+    def _latest(connection, link_id):
+        with connection.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(
+                "select * from public.business_whatsapp_ai_consents where sender_link_id=%s"
+                " order by consented_at desc,id desc limit 1",
+                (link_id,),
+            )
+            return cursor.fetchone()
+
+    def _view(self, link, latest, route, language: str | None = None):
+        token = digest(
+            {
+                "link": str(link[0]),
+                "scope": self.scope.version,
+                "disclosure": self.scope.text(language),
+                "route": route,
+                "previous": str(latest["id"]) if latest else None,
+                "revoked": str(latest["revoked_at"]) if latest else None,
+            }
+        )
+        return {
+            "linked": True,
+            "available": True,
+            "reason": None,
+            "last4": link[4],
+            "scope_version": self.scope.version,
+            "purpose": self.scope.purpose,
+            "active_scope_version": latest["scope_version"]
+            if latest and latest["revoked_at"] is None
+            else None,
+            "disclosure": self.scope.text(language),
+            "route": route,
+            "disclosure_token": token,
+            "enabled": bool(
+                latest
+                and latest["revoked_at"] is None
+                and self._matches_disclosure(latest, route)
+            ),
+            "consented_at": latest["consented_at"] if latest else None,
+            "revoked_at": latest["revoked_at"] if latest else None,
+        }
+
+    def _matches_disclosure(self, row, route) -> bool:
+        return (
+            row["scope_version"] == self.scope.version
+            and row["disclosure"] in self.scope.texts()
+            and row["route_hash"] == digest(route)
+        )
+
+    def status(
+        self,
+        owner_id: UUID,
+        unavailable_reason: str | None = None,
+        language: str | None = None,
+    ) -> dict:
+        with self.pool.connection() as connection, connection.transaction():
+            link = connection.execute(
+                "select id,destination_space_id,destination_owner_id,wa_id_hash,last4"
+                " from public.whatsapp_sender_links where destination_owner_id=%s and status='active'",
+                (owner_id,),
+            ).fetchone()
+            if link is None:
+                return {
+                    "linked": False,
+                    "available": False,
+                    "reason": "whatsapp_link_required",
+                    "last4": None,
+                    "scope_version": self.scope.version,
+                    "purpose": self.scope.purpose,
+                    "active_scope_version": None,
+                    "disclosure": self.scope.text(language),
+                    "route": None,
+                    "disclosure_token": None,
+                    "enabled": False,
+                    "consented_at": None,
+                    "revoked_at": None,
+                }
+            try:
+                route = self._route()
+            except ConsentError:
+                route = None
+                unavailable_reason = "whatsapp_ai_route_unavailable"
+            latest = self._latest(connection, link[0])
+            view = self._view(link, latest, route, language)
+            view["enabled"] = view["enabled"] and self._valid_grant(connection, latest)
+            owner = connection.execute(
+                "select 1 from public.spaces where id=%s and created_by=%s"
+                " and kind='business' and closed_at is null",
+                (link[1], owner_id),
+            ).fetchone()
+            if owner is None:
+                unavailable_reason = "business_unavailable"
+            else:
+                try:
+                    authorize(
+                        connection,
+                        TrustedActor(
+                            actor_id=owner_id, space_id=link[1], actor_kind="member"
+                        ),
+                    ).require("prepare")
+                except ActionError:
+                    unavailable_reason = "business_permission_denied"
+            if unavailable_reason:
+                view.update(
+                    available=False, reason=unavailable_reason, disclosure_token=None
+                )
+            return view
+
+    @staticmethod
+    def _valid_grant(connection, row) -> bool:
+        try:
+            auth = authorize(
+                connection,
+                TrustedActor(
+                    actor_id=row["owner_id"],
+                    space_id=row["space_id"],
+                    actor_kind="member",
+                ),
+                row["grant_id"],
+            )
+            auth.require("prepare")
+            return auth.provenance.issuer_id == row["issuer_id"]
+        except ActionError:
+            return False
+
+    def enable(self, owner_id: UUID, request: EnableAIConsent, key: str) -> dict:
+        if not 1 <= len(key) <= 80 or "\x00" in key:
+            raise ConsentError("invalid_idempotency_key", 422)
+        route = self._route()
+        input_hash = digest(request.model_dump(mode="json"))
+        with self.pool.connection() as connection, connection.transaction():
+            link, auth = self._link(connection, owner_id, prepare=True)
+            with connection.cursor(row_factory=dict_row) as cursor:
+                cursor.execute(
+                    "select * from public.business_whatsapp_ai_consents"
+                    " where owner_id=%s and idempotency_key=%s",
+                    (owner_id, key),
+                )
+                prior = cursor.fetchone()
+            if prior:
+                if (
+                    prior["input_hash"] != input_hash
+                    or prior["sender_link_id"] != link[0]
+                ):
+                    raise ConsentError("whatsapp_consent_idempotency_conflict", 409)
+                if not self._valid_grant(connection, prior):
+                    raise ConsentError("whatsapp_ai_consent_authority_changed")
+                return self._view(link, prior, route)
+            latest = self._latest(connection, link[0])
+            view = self._view(link, latest, route, request.language)
+            if request.disclosure_token != view["disclosure_token"]:
+                raise ConsentError("whatsapp_consent_disclosure_stale", 409)
+            if latest and latest["revoked_at"] is None:
+                if latest["scope_version"] == self.scope.version:
+                    raise ConsentError("whatsapp_consent_already_enabled", 409)
+                # One active permission per number: this scope replaces the other.
+                connection.execute(
+                    "update public.business_whatsapp_ai_consents"
+                    " set revoked_at=clock_timestamp(),revoked_by=%s where id=%s",
+                    (owner_id, latest["id"]),
+                )
+            connection.execute(
+                "insert into public.business_whatsapp_ai_consents"
+                " (sender_link_id,space_id,owner_id,sender_hash,consenting_actor_id,grant_id,issuer_id,"
+                " scope_version,purpose,disclosure,route,route_hash,idempotency_key,input_hash)"
+                " values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                (
+                    link[0],
+                    link[1],
+                    owner_id,
+                    link[3],
+                    owner_id,
+                    auth.context.grant_id,
+                    auth.provenance.issuer_id,
+                    self.scope.version,
+                    self.scope.purpose,
+                    self.scope.text(request.language),
+                    Jsonb(route),
+                    digest(route),
+                    key,
+                    input_hash,
+                ),
+            )
+            return self._view(link, self._latest(connection, link[0]), route)
+
+    def revoke(self, owner_id: UUID) -> None:
+        with self.pool.connection() as connection, connection.transaction():
+            connection.execute(
+                "select id from public.whatsapp_sender_links where destination_owner_id=%s for update",
+                (owner_id,),
+            ).fetchall()
+            connection.execute(
+                "update public.business_whatsapp_ai_consents set revoked_at=clock_timestamp(),revoked_by=%s"
+                " where owner_id=%s and revoked_at is null",
+                (owner_id, owner_id),
+            )
+
+    def capture_consent(self, connection, link_id: UUID) -> UUID | None:
+        try:
+            route = self._route()
+        except ConsentError:
+            return None
+        row = self._latest(connection, link_id)
+        if (
+            row
+            and row["revoked_at"] is None
+            and self._matches_disclosure(row, route)
+            and self._valid_grant(connection, row)
+        ):
+            return row["id"]
+        return None
+
+    def original_grant(self, captured) -> UUID | None:
+        if captured.ai_consent_id is None:
+            return None
+        with self.pool.connection() as connection:
+            row = connection.execute(
+                "select grant_id from public.business_whatsapp_ai_consents"
+                " where id=%s and sender_link_id=%s and owner_id=%s and space_id=%s",
+                (
+                    captured.ai_consent_id,
+                    captured.link_id,
+                    captured.owner_id,
+                    captured.space_id,
+                ),
+            ).fetchone()
+        return row[0] if row else None
+
+    def require_access(self, captured, authorization, *, lease) -> None:
+        if captured.ai_consent_id is None:
+            raise ConsentError("whatsapp_ai_consent_required")
+        if (
+            authorization.actor.actor_id != captured.owner_id
+            or authorization.actor.space_id != captured.space_id
+            or lease.space_id != captured.space_id
+            or lease.sender_hash != captured.sender_hash.hex()
+        ):
+            raise ConsentError("whatsapp_ai_consent_authority_changed")
+        route = self._route()
+        with self.pool.connection() as connection, connection.transaction():
+            BusinessTurnStore.require_lease(connection, lease)
+            with connection.cursor(row_factory=dict_row) as cursor:
+                cursor.execute(
+                    "select c.* from public.business_whatsapp_ai_consents c"
+                    " join public.whatsapp_sender_links l on l.id=c.sender_link_id"
+                    " where c.id=%s and c.sender_link_id=%s and c.space_id=%s and c.owner_id=%s"
+                    " and c.sender_hash=%s and c.revoked_at is null and l.status='active'"
+                    " for share of c,l",
+                    (
+                        captured.ai_consent_id,
+                        captured.link_id,
+                        captured.space_id,
+                        captured.owner_id,
+                        captured.sender_hash,
+                    ),
+                )
+                row = cursor.fetchone()
+            if row is None or not self._matches_disclosure(row, route):
+                raise ConsentError("whatsapp_ai_consent_required")
+            auth = authorize(connection, authorization.actor, authorization.grant_id)
+            auth.require("prepare")
+            if (
+                str(auth.context.owner_id) != str(captured.owner_id)
+                or auth.context.grant_id != row["grant_id"]
+                or auth.provenance.issuer_id != row["issuer_id"]
+            ):
+                raise ConsentError("whatsapp_ai_consent_authority_changed")
+            BusinessTurnStore.require_lease(connection, lease)

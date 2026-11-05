@@ -1,0 +1,12 @@
+# Spanish public-page aggregate (privacy-safe)
+
+Result: Spanish page pass.
+Aggregate facts only — no browser transcript dump, no Auth UUID, no
+conversation/artifact ids, no raw receipt slug.
+
+- Third empty browser session requested the same public link with
+  Accept-Language: es-419,es;q=0.9.
+- Labels, date, calculation units, disclaimer, and follow-up composer rendered
+  in Spanish (including “6 meses”, “Continúa en tu propio chat”).
+- Immutable authored question/answer remained English.
+- Console: zero errors, one font preload warning.

@@ -1,0 +1,8 @@
+{
+  "source": "https://openrouter.ai/api/v1/endpoints/zdr",
+  "checked_at": "2026-10-02T17:40:15.863970+00:00",
+  "http_status": 200,
+  "endpoints_count": 924,
+  "model": "qwen/qwen3.7-plus",
+  "matching_endpoints": []
+}

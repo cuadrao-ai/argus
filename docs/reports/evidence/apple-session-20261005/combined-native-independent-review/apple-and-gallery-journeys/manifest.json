@@ -1,0 +1,185 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AD3171CD-69D5-44E9-93AF-1E38FE5FFCD7",
+        "deviceName" : "Cuadrao-Apple-Combined-QA",
+        "exportedFileName" : "790F072E-7AD5-4106-AACE-84C7ADA2C126.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "apple-revoked-signed-out-es-419_0_23E132B8-0494-4251-9A0C-A79B0FD5B5C5.png",
+        "timestamp" : 1791251230.069
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AD3171CD-69D5-44E9-93AF-1E38FE5FFCD7",
+        "deviceName" : "Cuadrao-Apple-Combined-QA",
+        "exportedFileName" : "ADFBA8D1-366C-4DCA-82C8-80734D7B1FBC.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "apple-validation-retry-es-419_0_D69B9427-43C7-4D41-B0C7-1608C728DEDF.png",
+        "timestamp" : 1791251225.162
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AD3171CD-69D5-44E9-93AF-1E38FE5FFCD7",
+        "deviceName" : "Cuadrao-Apple-Combined-QA",
+        "exportedFileName" : "307F66BE-CFB0-40E4-8E37-8C51C418D7C9.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "apple-capture-failed-es-419_0_488FF7C5-B868-4146-A1B7-D99E43D741C9.png",
+        "timestamp" : 1791251222.008
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AD3171CD-69D5-44E9-93AF-1E38FE5FFCD7",
+        "deviceName" : "Cuadrao-Apple-Combined-QA",
+        "exportedFileName" : "27AE3198-BC2B-4F91-95A7-10E29C144ED0.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "apple-revoked-signed-out-en_0_1F881579-9C80-4D04-94DF-DE0FEF9D9FA1.png",
+        "timestamp" : 1791251213.069
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AD3171CD-69D5-44E9-93AF-1E38FE5FFCD7",
+        "deviceName" : "Cuadrao-Apple-Combined-QA",
+        "exportedFileName" : "8708E508-B710-455E-BD51-87915DF0B795.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "apple-validation-retry-en_0_8E65E82E-2AF7-46B9-A480-F21379DBA9F3.png",
+        "timestamp" : 1791251208.149
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AD3171CD-69D5-44E9-93AF-1E38FE5FFCD7",
+        "deviceName" : "Cuadrao-Apple-Combined-QA",
+        "exportedFileName" : "B2A61299-C03D-4A80-95EE-2846C1EDC2A6.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "apple-capture-failed-en_0_7FF2A542-673D-41E7-B0D6-FC3EE30820C5.png",
+        "timestamp" : 1791251204.968
+      }
+    ],
+    "testIdentifier" : "AppleSessionJourneyUITests/testCaptureFailureRecoveryAndRevocationInEnglishAndSpanish()",
+    "testIdentifierURL" : "test://com.apple.xcode/ArgusFoundation/ArgusFoundationUITests/AppleSessionJourneyUITests/testCaptureFailureRecoveryAndRevocationInEnglishAndSpanish"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AD3171CD-69D5-44E9-93AF-1E38FE5FFCD7",
+        "deviceName" : "Cuadrao-Apple-Combined-QA",
+        "exportedFileName" : "52FB7FDD-DB29-4D24-9F27-3551EFA31211.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "apple-explicit-sign-in-again_0_5157F91C-3FB9-44E1-B64D-89AA70485E7E.png",
+        "timestamp" : 1791251247.906
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AD3171CD-69D5-44E9-93AF-1E38FE5FFCD7",
+        "deviceName" : "Cuadrao-Apple-Combined-QA",
+        "exportedFileName" : "897254E1-DD3E-4690-ABC6-17EF7A915FF2.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "email-with-apple-link_0_47DB5DD3-DA6E-45B8-B7D6-A840829DBE8E.png",
+        "timestamp" : 1791251240.121
+      }
+    ],
+    "testIdentifier" : "AppleSessionJourneyUITests/testKnownEmailIgnoresLinkedAppleAndMissingAppleSubjectRequiresNewSignIn()",
+    "testIdentifierURL" : "test://com.apple.xcode/ArgusFoundation/ArgusFoundationUITests/AppleSessionJourneyUITests/testKnownEmailIgnoresLinkedAppleAndMissingAppleSubjectRequiresNewSignIn"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AD3171CD-69D5-44E9-93AF-1E38FE5FFCD7",
+        "deviceName" : "Cuadrao-Apple-Combined-QA",
+        "exportedFileName" : "18092A25-0367-4390-A4EB-5C853C726E9F.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "apple-notification-during-validation_0_0B8EA56F-19AE-4C27-8F01-BC102000D033.png",
+        "timestamp" : 1791251262.807
+      }
+    ],
+    "testIdentifier" : "AppleSessionJourneyUITests/testNotificationDuringBusyValidationIsCoalescedByTheActualModel()",
+    "testIdentifierURL" : "test://com.apple.xcode/ArgusFoundation/ArgusFoundationUITests/AppleSessionJourneyUITests/testNotificationDuringBusyValidationIsCoalescedByTheActualModel"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AD3171CD-69D5-44E9-93AF-1E38FE5FFCD7",
+        "deviceName" : "Cuadrao-Apple-Combined-QA",
+        "exportedFileName" : "3EF7E9EA-2CB3-40AE-90D5-E10CADE1F683.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "currency-personal-fixed-en_0_597EBE82-CB55-4F64-9403-E507C229363C.png",
+        "timestamp" : 1791251301.185
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AD3171CD-69D5-44E9-93AF-1E38FE5FFCD7",
+        "deviceName" : "Cuadrao-Apple-Combined-QA",
+        "exportedFileName" : "D6DFDBE6-2170-46A3-8BE8-25DE10379CC7.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "currency-personal-choice-en_0_D7C052FE-BAAA-4530-ADE7-F695B5807FFF.png",
+        "timestamp" : 1791251295.324
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AD3171CD-69D5-44E9-93AF-1E38FE5FFCD7",
+        "deviceName" : "Cuadrao-Apple-Combined-QA",
+        "exportedFileName" : "97303252-2DBA-496B-BB75-F6B0FCBE6CDC.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "amount-personal-focused-en_0_5267B6B2-12AF-42DE-A69A-90378E8B8D8B.png",
+        "timestamp" : 1791251289.509
+      }
+    ],
+    "testIdentifier" : "CuadraoPlanCurrencyUITests/testPersonalEuroCreationAndLockEnglish()",
+    "testIdentifierURL" : "test://com.apple.xcode/ArgusFoundation/ArgusFoundationUITests/CuadraoPlanCurrencyUITests/testPersonalEuroCreationAndLockEnglish"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AD3171CD-69D5-44E9-93AF-1E38FE5FFCD7",
+        "deviceName" : "Cuadrao-Apple-Combined-QA",
+        "exportedFileName" : "04031929-C486-447D-B078-00227258366F.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "currency-group-fixed-es_0_EFCB3958-2477-4958-9F7F-BBC177387B57.png",
+        "timestamp" : 1791251347.191
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AD3171CD-69D5-44E9-93AF-1E38FE5FFCD7",
+        "deviceName" : "Cuadrao-Apple-Combined-QA",
+        "exportedFileName" : "9849A6DA-F642-4652-AFA5-629A4040EDAF.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "currency-dollar-balance-es_0_81A1A0A5-A1D6-482F-85E3-C10F68A5F3F3.png",
+        "timestamp" : 1791251343.5
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AD3171CD-69D5-44E9-93AF-1E38FE5FFCD7",
+        "deviceName" : "Cuadrao-Apple-Combined-QA",
+        "exportedFileName" : "1F6C36CC-8B20-406F-8CB0-4121730B3220.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "amount-repayment-es_0_524B1705-C5E2-401A-BA94-F94C453CC8A5.png",
+        "timestamp" : 1791251342.053
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AD3171CD-69D5-44E9-93AF-1E38FE5FFCD7",
+        "deviceName" : "Cuadrao-Apple-Combined-QA",
+        "exportedFileName" : "3AF528F0-1BB2-4924-ACAD-02E6F90E0411.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "currency-dollar-split-es_0_792D4E13-0CD5-4E6B-9F3C-DAB5DEEEB566.png",
+        "timestamp" : 1791251334.812
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AD3171CD-69D5-44E9-93AF-1E38FE5FFCD7",
+        "deviceName" : "Cuadrao-Apple-Combined-QA",
+        "exportedFileName" : "941B6B09-AE13-41C7-ABC2-298315B11C3E.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "currency-group-choice-es_0_046E76F6-6603-4D4D-84C1-58576B708FF8.png",
+        "timestamp" : 1791251318.66
+      }
+    ],
+    "testIdentifier" : "CuadraoPlanCurrencyUITests/testSharedDollarSplitAndRepaymentSpanish()",
+    "testIdentifierURL" : "test://com.apple.xcode/ArgusFoundation/ArgusFoundationUITests/CuadraoPlanCurrencyUITests/testSharedDollarSplitAndRepaymentSpanish"
+  }
+]

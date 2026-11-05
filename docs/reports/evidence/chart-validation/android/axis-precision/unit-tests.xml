@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="ai.argus.chartprototype.SelectionTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-28T21:31:35.730Z" hostname="mb-pro" time="0.172">
+  <properties/>
+  <testcase name="datesUseElapsedDaysNotRowIndexAndTiesChooseEarlier" classname="ai.argus.chartprototype.SelectionTest" time="0.021"/>
+  <testcase name="axisAndReadoutPreserveCanonicalFixtureCents" classname="ai.argus.chartprototype.SelectionTest" time="0.14"/>
+  <testcase name="nullTerminatesEachSeriesIndependently" classname="ai.argus.chartprototype.SelectionTest" time="0.005"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

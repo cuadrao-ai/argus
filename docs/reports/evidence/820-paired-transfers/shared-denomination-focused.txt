@@ -1,0 +1,45 @@
+Command: python -m pytest --no-cov -q --tb=short tests/financial_accounts/test_paired_transfers.py tests/test_paired_transfers_postgres.py tests/household/test_paired_transfers.py tests/financial_accounts/test_personal_money.py tests/test_personal_money_postgres.py tests/financial_accounts/test_goals.py tests/financial_accounts/test_goal_edges.py tests/household/test_shared_planning_money.py tests/household/test_household_financial_boundaries.py tests/test_openapi_compatibility.py tests/financial_accounts/test_money_api.py tests/household/test_shared_planning_api.py tests/household/test_shared_plan_wire.py tests/household/test_shared_goal_edits.py tests/household/test_shared_planning_invariants.py tests/household/test_shared_personal_bridge.py
+
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: /private/tmp/cuadrao-paired-transfer-20261005
+configfile: pyproject.toml
+plugins: benchmark-5.2.3, mock-3.15.1, Faker-30.10.0, asyncio-1.4.0, hypothesis-6.151.12, langsmith-0.7.31, respx-0.23.1, cov-7.0.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 232 items
+
+tests/financial_accounts/test_paired_transfers.py ...................... [  9%]
+.....................................                                    [ 25%]
+tests/test_paired_transfers_postgres.py ...                              [ 26%]
+tests/household/test_paired_transfers.py ....                            [ 28%]
+tests/financial_accounts/test_personal_money.py ........................ [ 38%]
+....                                                                     [ 40%]
+tests/test_personal_money_postgres.py .........                          [ 44%]
+tests/financial_accounts/test_goals.py ................                  [ 51%]
+tests/financial_accounts/test_goal_edges.py ............................ [ 63%]
+                                                                         [ 63%]
+tests/household/test_shared_planning_money.py .....                      [ 65%]
+tests/household/test_household_financial_boundaries.py ................. [ 72%]
+...                                                                      [ 74%]
+tests/test_openapi_compatibility.py ........................             [ 84%]
+tests/financial_accounts/test_money_api.py ......                        [ 87%]
+tests/household/test_shared_planning_api.py ......                       [ 89%]
+tests/household/test_shared_plan_wire.py ..                              [ 90%]
+tests/household/test_shared_goal_edits.py ...                            [ 91%]
+tests/household/test_shared_planning_invariants.py .............         [ 97%]
+tests/household/test_shared_personal_bridge.py ......                    [100%]
+
+=============================== warnings summary ===============================
+tests/household/test_paired_transfers.py: 4 warnings
+tests/household/test_shared_planning_money.py: 5 warnings
+tests/household/test_household_financial_boundaries.py: 20 warnings
+tests/household/test_shared_planning_api.py: 6 warnings
+tests/household/test_shared_goal_edits.py: 3 warnings
+tests/household/test_shared_planning_invariants.py: 13 warnings
+tests/household/test_shared_personal_bridge.py: 6 warnings
+  /private/tmp/cuadrao-scipy-env-20261005/lib/python3.11/site-packages/psycopg_pool/pool.py:134: DeprecationWarning: the default for the ConnectionPool 'open' parameter will become 'False' in a future release. Please use open={True|False} explicitly, or use the pool as context manager using: `with ConnectionPool(...) as pool: ...`
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+====================== 232 passed, 57 warnings in 18.65s =======================

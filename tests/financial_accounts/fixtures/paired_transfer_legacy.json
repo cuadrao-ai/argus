@@ -1,0 +1,169 @@
+[
+  {
+    "input": {
+      "amount": "10.25",
+      "occurred_at": "2026-10-05T12:00:00+00:00",
+      "kind": "transfer",
+      "source_account_id": "00000000-0000-4000-8000-000000000001",
+      "destination_account_id": "00000000-0000-4000-8000-000000000002"
+    },
+    "serialized": {
+      "kind": "transfer",
+      "account_id": null,
+      "source_account_id": "00000000-0000-4000-8000-000000000001",
+      "destination_account_id": "00000000-0000-4000-8000-000000000002",
+      "amount": "10.25",
+      "principal": null,
+      "interest": null,
+      "fees": null,
+      "reversal_of_activity_id": null,
+      "occurred_at": "2026-10-05T12:00:00Z",
+      "time_zone": "America/Santo_Domingo",
+      "note": null,
+      "category_id": null,
+      "source_id": null,
+      "purchase_activity_id": null,
+      "expected_revision": null,
+      "reason": null,
+      "expected_versions": {},
+      "coverage": [],
+      "preview_token": null
+    },
+    "identity": "sha256:c7a0da8a9c1014021bab7fb3d81e3ef3b903fd6e7dd020d317667da965a572ad",
+    "nested": {
+      "activity": {
+        "kind": "transfer",
+        "account_id": null,
+        "source_account_id": "00000000-0000-4000-8000-000000000001",
+        "destination_account_id": "00000000-0000-4000-8000-000000000002",
+        "amount": "10.25",
+        "principal": null,
+        "interest": null,
+        "fees": null,
+        "reversal_of_activity_id": null,
+        "occurred_at": "2026-10-05T12:00:00Z",
+        "time_zone": "America/Santo_Domingo",
+        "note": null,
+        "category_id": null,
+        "source_id": null,
+        "purchase_activity_id": null,
+        "expected_revision": null,
+        "reason": null,
+        "expected_versions": {},
+        "coverage": [],
+        "preview_token": null
+      }
+    }
+  },
+  {
+    "input": {
+      "amount": "10.25",
+      "occurred_at": "2026-10-05T12:00:00+00:00",
+      "kind": "refund",
+      "account_id": "00000000-0000-4000-8000-000000000001"
+    },
+    "serialized": {
+      "kind": "refund",
+      "account_id": "00000000-0000-4000-8000-000000000001",
+      "source_account_id": null,
+      "destination_account_id": null,
+      "amount": "10.25",
+      "principal": null,
+      "interest": null,
+      "fees": null,
+      "reversal_of_activity_id": null,
+      "occurred_at": "2026-10-05T12:00:00Z",
+      "time_zone": "America/Santo_Domingo",
+      "note": null,
+      "category_id": null,
+      "source_id": null,
+      "purchase_activity_id": null,
+      "expected_revision": null,
+      "reason": null,
+      "expected_versions": {},
+      "coverage": [],
+      "preview_token": null
+    },
+    "identity": "sha256:5d9851bbfbbffe6d2f00d858b7f585047985bb78245c838a29ae0fc00f1e7a55",
+    "nested": {
+      "activity": {
+        "kind": "refund",
+        "account_id": "00000000-0000-4000-8000-000000000001",
+        "source_account_id": null,
+        "destination_account_id": null,
+        "amount": "10.25",
+        "principal": null,
+        "interest": null,
+        "fees": null,
+        "reversal_of_activity_id": null,
+        "occurred_at": "2026-10-05T12:00:00Z",
+        "time_zone": "America/Santo_Domingo",
+        "note": null,
+        "category_id": null,
+        "source_id": null,
+        "purchase_activity_id": null,
+        "expected_revision": null,
+        "reason": null,
+        "expected_versions": {},
+        "coverage": [],
+        "preview_token": null
+      }
+    }
+  },
+  {
+    "input": {
+      "amount": "10.25",
+      "occurred_at": "2026-10-05T12:00:00+00:00",
+      "kind": "refund",
+      "account_id": "00000000-0000-4000-8000-000000000001",
+      "purchase_activity_id": null
+    },
+    "serialized": {
+      "kind": "refund",
+      "account_id": "00000000-0000-4000-8000-000000000001",
+      "source_account_id": null,
+      "destination_account_id": null,
+      "amount": "10.25",
+      "principal": null,
+      "interest": null,
+      "fees": null,
+      "reversal_of_activity_id": null,
+      "occurred_at": "2026-10-05T12:00:00Z",
+      "time_zone": "America/Santo_Domingo",
+      "note": null,
+      "category_id": null,
+      "source_id": null,
+      "purchase_activity_id": null,
+      "expected_revision": null,
+      "reason": null,
+      "expected_versions": {},
+      "coverage": [],
+      "preview_token": null
+    },
+    "identity": "sha256:57aa1ebd40a98a23b9a6b76f8bf2b6bbbab0668b11b5aa6fac8a5057bf00c7cd",
+    "nested": {
+      "activity": {
+        "kind": "refund",
+        "account_id": "00000000-0000-4000-8000-000000000001",
+        "source_account_id": null,
+        "destination_account_id": null,
+        "amount": "10.25",
+        "principal": null,
+        "interest": null,
+        "fees": null,
+        "reversal_of_activity_id": null,
+        "occurred_at": "2026-10-05T12:00:00Z",
+        "time_zone": "America/Santo_Domingo",
+        "note": null,
+        "category_id": null,
+        "source_id": null,
+        "purchase_activity_id": null,
+        "expected_revision": null,
+        "reason": null,
+        "expected_versions": {},
+        "coverage": [],
+        "preview_token": null
+      }
+    }
+  }
+]

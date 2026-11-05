@@ -1,0 +1,24 @@
+(node:49297) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+Running 12 tests using 1 worker
+
+(node:49307) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:49307) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:49307) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [chromium] › e2e/693-before.tmp.spec.ts:7:11 › before registered 503 en mobile (899ms)
+  ✓   2 [chromium] › e2e/693-before.tmp.spec.ts:7:11 › before guest 429 en mobile (867ms)
+  ✓   3 [chromium] › e2e/693-before.tmp.spec.ts:7:11 › before registered 429 en mobile (871ms)
+  ✓   4 [chromium] › e2e/693-before.tmp.spec.ts:7:11 › before registered 503 en desktop (888ms)
+  ✓   5 [chromium] › e2e/693-before.tmp.spec.ts:7:11 › before guest 429 en desktop (890ms)
+  ✓   6 [chromium] › e2e/693-before.tmp.spec.ts:7:11 › before registered 429 en desktop (902ms)
+  ✓   7 [chromium] › e2e/693-before.tmp.spec.ts:7:11 › before registered 503 es-419 mobile (878ms)
+  ✓   8 [chromium] › e2e/693-before.tmp.spec.ts:7:11 › before guest 429 es-419 mobile (869ms)
+  ✓   9 [chromium] › e2e/693-before.tmp.spec.ts:7:11 › before registered 429 es-419 mobile (872ms)
+  ✓  10 [chromium] › e2e/693-before.tmp.spec.ts:7:11 › before registered 503 es-419 desktop (897ms)
+  ✓  11 [chromium] › e2e/693-before.tmp.spec.ts:7:11 › before guest 429 es-419 desktop (889ms)
+  ✓  12 [chromium] › e2e/693-before.tmp.spec.ts:7:11 › before registered 429 es-419 desktop (894ms)
+
+  12 passed (11.0s)

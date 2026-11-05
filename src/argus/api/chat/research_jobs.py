@@ -123,6 +123,7 @@ def apply_research_job_request(
         composed = research_capacity_exhausted_for_job(
             job_request,
             guest_allowance_exhausted=exc.admission.guest_exhausted,
+            registered_allowance_exhausted=exc.admission.registered_exhausted,
         )
         runtime_result["assistant_response"] = composed["answer"]
         runtime_result["research"] = composed["research"]

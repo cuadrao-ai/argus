@@ -1,0 +1,184 @@
+{
+  "schema_version": 1,
+  "limitations": [
+    "Tiny convenience sample. No accuracy/generalization or Dominican bank compatibility claim.",
+    "Public receipts have no readable transaction date or explicit currency; both remain null.",
+    "Synthetic images are photo-like renderings, not camera captures.",
+    "Expected labels are evaluation-only and must never be supplied to extraction.",
+    "Duplicate upload test reuses identical bytes, not a second independently extracted fixture."
+  ],
+  "attribution": {
+    "title": "CORD: A Consolidated Receipt Dataset for Post-OCR Parsing",
+    "authors": "Seunghyun Park, Seung Shin, Bado Lee, Junyeop Lee, Jaeheung Surh, Minjoon Seo, Hwalsuk Lee",
+    "year": 2019,
+    "source": "https://github.com/clovaai/cord",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "license_file": "LICENSE-CORD.txt",
+    "modifications": "Two official Hugging Face dataset-viewer JPEG derivatives retained unchanged. Original ground_truth JSON strings retained unchanged. Independent financial expectations added."
+  },
+  "samples": [
+    {
+      "id": "cord-test-0",
+      "file": "cord-test-0.jpg",
+      "original_labels": "cord-test-0.original.json",
+      "source_url": "https://huggingface.co/datasets/naver-clova-ix/cord-v2/viewer/default/test?row=0",
+      "dataset_revision": "7f0115a4b758a71d6473b8d085751692da2fef98",
+      "license": "CC-BY-4.0",
+      "synthetic": false,
+      "expected_status": "needs_review",
+      "expected_rows": [
+        {
+          "date": null,
+          "description": null,
+          "amount": "60000.00",
+          "currency": null,
+          "kind": "expense",
+          "page": 1
+        }
+      ],
+      "validation": {
+        "image_inspected": true,
+        "total_label": "60.000",
+        "notes": "Visible receipt TOTAL agrees with original total.total_price annotation. No readable date or explicit currency. One purchase total, not separate line-item/tax/cash/change transactions."
+      },
+      "sha256": "4e13b815b540420a4d68229494bd6259768c226a595114609970edae9a620aa9",
+      "labels_sha256": "2cee3d83487a721463376c8bcc6ba03a8106d2b1f2bb5e7179cf8b60c648f2af"
+    },
+    {
+      "id": "cord-test-1",
+      "file": "cord-test-1.jpg",
+      "original_labels": "cord-test-1.original.json",
+      "source_url": "https://huggingface.co/datasets/naver-clova-ix/cord-v2/viewer/default/test?row=1",
+      "dataset_revision": "7f0115a4b758a71d6473b8d085751692da2fef98",
+      "license": "CC-BY-4.0",
+      "synthetic": false,
+      "expected_status": "needs_review",
+      "expected_rows": [
+        {
+          "date": null,
+          "description": null,
+          "amount": "91000.00",
+          "currency": null,
+          "kind": "expense",
+          "page": 1
+        }
+      ],
+      "validation": {
+        "image_inspected": true,
+        "total_label": "91000",
+        "notes": "Visible receipt TOTAL agrees with original total.total_price annotation. No readable date or explicit currency. One purchase total, not separate line-item/tax/cash/change transactions."
+      },
+      "sha256": "636284664cfc357e05f7b10d67ddb380f828a1be0a20809514f9e7fc0c611a9f",
+      "labels_sha256": "b74f83fd2becd63f860dc755786565facd0d6554aba00e03204919478895a69d"
+    },
+    {
+      "id": "statement-dop",
+      "file": "statement-dop.pdf",
+      "expected_rows": [
+        {
+          "date": "2026-09-01",
+          "description": "Ingreso quincena",
+          "amount": "1200.00",
+          "currency": "DOP",
+          "kind": "income",
+          "page": 1
+        },
+        {
+          "date": "2026-09-02",
+          "description": "Compra mercado",
+          "amount": "125.50",
+          "currency": "DOP",
+          "kind": "expense",
+          "page": 1
+        },
+        {
+          "date": "2026-09-03",
+          "description": "Compra mercado",
+          "amount": "125.50",
+          "currency": "DOP",
+          "kind": "expense",
+          "page": 2
+        },
+        {
+          "date": "2026-09-04",
+          "description": "Devolucion",
+          "amount": "25.50",
+          "currency": "DOP",
+          "kind": "refund",
+          "page": 2
+        }
+      ],
+      "excluded_balances": {
+        "opening": "1000.00",
+        "closing": "1974.50",
+        "currency": "DOP"
+      },
+      "pages": 2,
+      "synthetic": true,
+      "license": "repository-authored synthetic fixture",
+      "expected_status": "review_required",
+      "sha256": "e0d90e2e9872986b4b4619185ce3831ea5becd70cd96262cce43f6f285bcbd0b"
+    },
+    {
+      "id": "statement-usd",
+      "file": "statement-usd.pdf",
+      "expected_rows": [
+        {
+          "date": "2026-09-07",
+          "description": "Compra en linea",
+          "amount": "40.25",
+          "currency": "USD",
+          "kind": "expense",
+          "page": 1
+        },
+        {
+          "date": "2026-09-08",
+          "description": "Ingreso",
+          "amount": "100.00",
+          "currency": "USD",
+          "kind": "income",
+          "page": 1
+        }
+      ],
+      "excluded_balances": {
+        "opening": "100.00",
+        "closing": "159.75",
+        "currency": "USD"
+      },
+      "pages": 1,
+      "synthetic": true,
+      "license": "repository-authored synthetic fixture",
+      "expected_status": "review_required",
+      "sha256": "ecb9500f20c436b90373b8c3bae817c67b89c34329eee1cc399c67298e8e019d"
+    },
+    {
+      "id": "receipt-dop",
+      "file": "receipt-dop.png",
+      "expected_rows": [
+        {
+          "date": "2026-09-10",
+          "description": "Colmado Nube de Papel",
+          "amount": "250.50",
+          "currency": "DOP",
+          "kind": "expense",
+          "page": 1
+        }
+      ],
+      "pages": 1,
+      "synthetic": true,
+      "license": "repository-authored synthetic fixture",
+      "expected_status": "review_required",
+      "sha256": "009f3082c0052c66be647a12a9c0967470c041fb648733cf45ba077740da25c3"
+    },
+    {
+      "id": "unreadable",
+      "file": "unreadable.png",
+      "expected_rows": [],
+      "expected_status": "unreadable",
+      "pages": 1,
+      "synthetic": true,
+      "license": "repository-authored synthetic fixture",
+      "sha256": "b822720e186af2390eea6b1c221536267b7c3ee96b2239e16719020759b59307"
+    }
+  ]
+}

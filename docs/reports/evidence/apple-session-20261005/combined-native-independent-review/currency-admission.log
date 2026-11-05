@@ -1,0 +1,59 @@
+warning: /Users/garces/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/garces/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+Building for debugging...
+[Constructing description]
+[Planning deferred tasks]
+[96 / 193]
+[100 / 197] ConcurrencyExtras
+[110 / 295]
+[118 / 295]
+[120 / 295]
+[125 / 295]
+[129 / 295]
+[133 / 295]
+[135 / 295]
+[136 / 295]
+[156 / 295] Crypto
+[157 / 295] ConcurrencyExtras
+[192 / 295] HTTPTypes
+[196 / 295] HTTPTypes
+[199 / 295] Crypto
+[203 / 295] Crypto-product
+[221 / 295] Crypto
+[232 / 297] ConcurrencyExtras
+[232 / 297] _IssueReporting
+[243 / 300] Clocks
+[263 / 339] XCTestDynamicOverlay
+[270 / 343] XCTestDynamicOverlay
+[279 / 343]
+[284 / 343]
+[294 / 343] Clocks
+[301 / 344] Clocks
+[301 / 344] Helpers
+[319 / 363] Helpers
+[327 / 364] Helpers
+[328 / 364] Auth
+[347 / 384] Auth
+[350 / 384] Auth
+[351 / 384] Auth
+[358 / 385] Auth
+[376 / 404] ArgusSession
+[377 / 404] ArgusSession
+[394 / 405] ArgusSessionTests-product
+[398 / 429]
+[399 / 429]
+[418 / 429] ArgusSessionTests-product
+[423 / 429] ArgusSessionTests-product
+[425 / 429] ArgusSessionTests-product
+Build complete! (10.73 sec)
+Test Suite 'Selected tests' started at 2026-10-05 20:49:42.930.
+Test Suite 'ArgusSessionTests.xctest' started at 2026-10-05 20:49:42.931.
+Test Suite 'CombinedCurrencyAdmissionTests' started at 2026-10-05 20:49:42.931.
+Test Case '-[ArgusSessionTests.CombinedCurrencyAdmissionTests testCurrencyHasZeroDispatchDuringValidationAndUnknownLinkedRestore]' started.
+Test Case '-[ArgusSessionTests.CombinedCurrencyAdmissionTests testCurrencyHasZeroDispatchDuringValidationAndUnknownLinkedRestore]' passed (0.008 seconds).
+Test Suite 'CombinedCurrencyAdmissionTests' passed at 2026-10-05 20:49:42.939.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.008 (0.008) seconds
+Test Suite 'ArgusSessionTests.xctest' passed at 2026-10-05 20:49:42.939.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.008 (0.008) seconds
+Test Suite 'Selected tests' passed at 2026-10-05 20:49:42.940.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.008 (0.010) seconds

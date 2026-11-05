@@ -1,16 +1,9 @@
-import GuestEmptyStateIntro from "@/components/guest/GuestEmptyStateIntro";
+import { CuadraoLockup } from "@/components/CuadraoLockup";
 
-export default function EmptyChatHeading({ isGuest }: { isGuest: boolean }) {
+export default function EmptyChatHeading() {
   return (
-    <>
-      <h1
-        className={`font-display text-[40px] font-medium tracking-tight text-black dark:text-white ${
-          isGuest ? "mb-3" : "mb-8"
-        }`}
-      >
-        argus
-      </h1>
-      {isGuest ? <GuestEmptyStateIntro /> : null}
-    </>
+    <h1 aria-label="Cuadrao" className="mb-8 flex justify-center">
+      <CuadraoLockup width={200} />
+    </h1>
   );
 }

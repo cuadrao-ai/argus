@@ -1,0 +1,3672 @@
+{
+  "cases": [
+    {
+      "capture_error": null,
+      "case_id": "es_owner_funds_no_receipt",
+      "graph_run_ids": [
+        "3fde8e88-9f51-426a-8ba6-8b1add5adbc5",
+        "e8ff8517-f2ad-45a1-9c79-edff14d621b2",
+        "aa8d15c0-9a91-47a2-a706-d10ec9c4cf32"
+      ],
+      "kind": "frozen",
+      "observed_steps": [
+        {
+          "actions": [
+            {
+              "actor": "owner_a",
+              "grant": "owner_grant_a",
+              "issuer": "owner_a",
+              "name": "business_propose_activity",
+              "outcome": "applied"
+            },
+            {
+              "actor": "owner_a",
+              "grant": "owner_grant_a",
+              "issuer": "owner_a",
+              "name": "business_ask",
+              "outcome": "applied"
+            }
+          ],
+          "approval": null,
+          "approval_available": false,
+          "blockers": [
+            {
+              "code": "fact_required",
+              "field": "occurred_on"
+            },
+            {
+              "code": "fact_required",
+              "field": "funding"
+            },
+            {
+              "code": "fact_required",
+              "field": "business_share"
+            },
+            {
+              "code": "business_questions_unresolved"
+            }
+          ],
+          "draft_count": 1,
+          "draft_facts": {
+            "draft_a": {
+              "amount": {
+                "origin": "owner_stated",
+                "state": "known",
+                "value": "850",
+                "verified": false
+              },
+              "business_share": {
+                "state": "unknown",
+                "value": null,
+                "verified": false
+              },
+              "category_id": {
+                "state": "unknown",
+                "value": null,
+                "verified": false
+              },
+              "counterparty": {
+                "state": "unknown",
+                "value": null,
+                "verified": false
+              },
+              "currency": {
+                "origin": "default",
+                "state": "known",
+                "value": "DOP",
+                "verified": false
+              },
+              "fiscal": null,
+              "funding": {
+                "state": "unknown",
+                "value": null,
+                "verified": false
+              },
+              "kind": {
+                "origin": "owner_stated",
+                "state": "known",
+                "value": "expense",
+                "verified": false
+              },
+              "occurred_on": {
+                "state": "unknown",
+                "value": null,
+                "verified": false
+              },
+              "receipt_state": {
+                "state": "unknown",
+                "value": null,
+                "verified": false
+              }
+            }
+          },
+          "draft_sources": {
+            "draft_a": [
+              "message_a1"
+            ]
+          },
+          "draft_versions": {
+            "draft_a": 1
+          },
+          "fact_sources": {
+            "draft_a": {
+              "amount": [
+                "message_a1"
+              ],
+              "business_share": [],
+              "category_id": [],
+              "counterparty": [],
+              "currency": [],
+              "funding": [],
+              "kind": [
+                "message_a1"
+              ],
+              "occurred_on": [],
+              "receipt_state": []
+            }
+          },
+          "history": [
+            {
+              "actor": "owner_a",
+              "grant": "owner_grant_a",
+              "issuer": "owner_a",
+              "sources": [
+                "message_a1"
+              ],
+              "version": 1
+            }
+          ],
+          "money": {
+            "bank_balance_delta": "0",
+            "bank_record_count": 0,
+            "bank_versions_unchanged": true,
+            "personal_balance_delta": "0",
+            "personal_record_count": 0,
+            "personal_versions_unchanged": true,
+            "record_count": 0
+          },
+          "plan_references": [
+            {
+              "action_index": 1,
+              "from_action": 0,
+              "resolved_draft": "draft_a",
+              "version": 1
+            }
+          ],
+          "questions": [
+            {
+              "asked_of": "owner",
+              "field": "funding",
+              "state": "open"
+            }
+          ],
+          "revision_transitions": {
+            "draft_a": [
+              {
+                "actor": "owner_a",
+                "after": {
+                  "amount": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "850",
+                    "verified": false
+                  },
+                  "business_share": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "category_id": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "counterparty": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "currency": {
+                    "origin": "default",
+                    "state": "known",
+                    "value": "DOP",
+                    "verified": false
+                  },
+                  "fiscal": null,
+                  "funding": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "kind": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "expense",
+                    "verified": false
+                  },
+                  "occurred_on": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "receipt_state": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  }
+                },
+                "after_sources": {
+                  "amount": [
+                    "message_a1"
+                  ],
+                  "business_share": [],
+                  "category_id": [],
+                  "counterparty": [],
+                  "currency": [],
+                  "funding": [],
+                  "kind": [
+                    "message_a1"
+                  ],
+                  "occurred_on": [],
+                  "receipt_state": []
+                },
+                "before": null,
+                "before_sources": null,
+                "grant": "owner_grant_a",
+                "issuer": "owner_a",
+                "sources": [
+                  "message_a1"
+                ],
+                "version": 1
+              }
+            ]
+          },
+          "source_evidence": {
+            "message_a1": {
+              "channel": "whatsapp",
+              "kind": "message",
+              "text": "Pagué 850 de materiales para el negocio."
+            }
+          },
+          "visible_sources": [
+            "message_a1"
+          ]
+        },
+        {
+          "actions": [
+            {
+              "actor": "owner_a",
+              "answers_question": "funding",
+              "grant": "owner_grant_a",
+              "issuer": "owner_a",
+              "name": "business_propose_activity",
+              "outcome": "applied"
+            },
+            {
+              "actor": "owner_a",
+              "grant": "owner_grant_a",
+              "issuer": "owner_a",
+              "name": "business_ask",
+              "outcome": "applied"
+            }
+          ],
+          "approval": null,
+          "approval_available": false,
+          "blockers": [
+            {
+              "code": "fact_required",
+              "field": "occurred_on"
+            },
+            {
+              "code": "fact_required",
+              "field": "business_share"
+            },
+            {
+              "code": "business_questions_unresolved"
+            }
+          ],
+          "draft_count": 1,
+          "draft_facts": {
+            "draft_a": {
+              "amount": {
+                "origin": "owner_stated",
+                "state": "known",
+                "value": "850",
+                "verified": false
+              },
+              "business_share": {
+                "state": "unknown",
+                "value": null,
+                "verified": false
+              },
+              "category_id": {
+                "state": "unknown",
+                "value": null,
+                "verified": false
+              },
+              "counterparty": {
+                "state": "unknown",
+                "value": null,
+                "verified": false
+              },
+              "currency": {
+                "origin": "default",
+                "state": "known",
+                "value": "DOP",
+                "verified": false
+              },
+              "fiscal": null,
+              "funding": {
+                "origin": "owner_stated",
+                "state": "known",
+                "value": {
+                  "kind": "owner_funds"
+                },
+                "verified": false
+              },
+              "kind": {
+                "origin": "owner_stated",
+                "state": "known",
+                "value": "expense",
+                "verified": false
+              },
+              "occurred_on": {
+                "state": "unknown",
+                "value": null,
+                "verified": false
+              },
+              "receipt_state": {
+                "origin": "owner_stated",
+                "state": "known",
+                "value": "no_receipt",
+                "verified": false
+              }
+            }
+          },
+          "draft_sources": {
+            "draft_a": [
+              "message_a1",
+              "message_a2"
+            ]
+          },
+          "draft_versions": {
+            "draft_a": 2
+          },
+          "fact_sources": {
+            "draft_a": {
+              "amount": [
+                "message_a1"
+              ],
+              "business_share": [],
+              "category_id": [],
+              "counterparty": [],
+              "currency": [],
+              "funding": [
+                "message_a2"
+              ],
+              "kind": [
+                "message_a1"
+              ],
+              "occurred_on": [],
+              "receipt_state": [
+                "message_a2"
+              ]
+            }
+          },
+          "history": [
+            {
+              "actor": "owner_a",
+              "grant": "owner_grant_a",
+              "issuer": "owner_a",
+              "sources": [
+                "message_a1"
+              ],
+              "version": 1
+            },
+            {
+              "actor": "owner_a",
+              "grant": "owner_grant_a",
+              "issuer": "owner_a",
+              "sources": [
+                "message_a2"
+              ],
+              "version": 2
+            }
+          ],
+          "money": {
+            "bank_balance_delta": "0",
+            "bank_record_count": 0,
+            "bank_versions_unchanged": true,
+            "personal_balance_delta": "0",
+            "personal_record_count": 0,
+            "personal_versions_unchanged": true,
+            "record_count": 0
+          },
+          "plan_references": [
+            {
+              "action_index": 0,
+              "existing_draft": "draft_a",
+              "version": 1
+            },
+            {
+              "action_index": 1,
+              "existing_draft": "draft_a",
+              "version": 2
+            }
+          ],
+          "questions": [
+            {
+              "answer_source": "message_a2",
+              "asked_of": "owner",
+              "field": "funding",
+              "state": "answered"
+            },
+            {
+              "asked_of": "owner",
+              "field": "occurred_on",
+              "state": "open"
+            }
+          ],
+          "revision_transitions": {
+            "draft_a": [
+              {
+                "actor": "owner_a",
+                "after": {
+                  "amount": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "850",
+                    "verified": false
+                  },
+                  "business_share": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "category_id": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "counterparty": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "currency": {
+                    "origin": "default",
+                    "state": "known",
+                    "value": "DOP",
+                    "verified": false
+                  },
+                  "fiscal": null,
+                  "funding": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "kind": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "expense",
+                    "verified": false
+                  },
+                  "occurred_on": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "receipt_state": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  }
+                },
+                "after_sources": {
+                  "amount": [
+                    "message_a1"
+                  ],
+                  "business_share": [],
+                  "category_id": [],
+                  "counterparty": [],
+                  "currency": [],
+                  "funding": [],
+                  "kind": [
+                    "message_a1"
+                  ],
+                  "occurred_on": [],
+                  "receipt_state": []
+                },
+                "before": null,
+                "before_sources": null,
+                "grant": "owner_grant_a",
+                "issuer": "owner_a",
+                "sources": [
+                  "message_a1"
+                ],
+                "version": 1
+              },
+              {
+                "actor": "owner_a",
+                "after": {
+                  "amount": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "850",
+                    "verified": false
+                  },
+                  "business_share": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "category_id": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "counterparty": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "currency": {
+                    "origin": "default",
+                    "state": "known",
+                    "value": "DOP",
+                    "verified": false
+                  },
+                  "fiscal": null,
+                  "funding": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": {
+                      "kind": "owner_funds"
+                    },
+                    "verified": false
+                  },
+                  "kind": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "expense",
+                    "verified": false
+                  },
+                  "occurred_on": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "receipt_state": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "no_receipt",
+                    "verified": false
+                  }
+                },
+                "after_sources": {
+                  "amount": [
+                    "message_a1"
+                  ],
+                  "business_share": [],
+                  "category_id": [],
+                  "counterparty": [],
+                  "currency": [],
+                  "funding": [
+                    "message_a2"
+                  ],
+                  "kind": [
+                    "message_a1"
+                  ],
+                  "occurred_on": [],
+                  "receipt_state": [
+                    "message_a2"
+                  ]
+                },
+                "before": {
+                  "amount": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "850",
+                    "verified": false
+                  },
+                  "business_share": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "category_id": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "counterparty": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "currency": {
+                    "origin": "default",
+                    "state": "known",
+                    "value": "DOP",
+                    "verified": false
+                  },
+                  "fiscal": null,
+                  "funding": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "kind": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "expense",
+                    "verified": false
+                  },
+                  "occurred_on": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "receipt_state": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  }
+                },
+                "before_sources": {
+                  "amount": [
+                    "message_a1"
+                  ],
+                  "business_share": [],
+                  "category_id": [],
+                  "counterparty": [],
+                  "currency": [],
+                  "funding": [],
+                  "kind": [
+                    "message_a1"
+                  ],
+                  "occurred_on": [],
+                  "receipt_state": []
+                },
+                "grant": "owner_grant_a",
+                "issuer": "owner_a",
+                "sources": [
+                  "message_a2"
+                ],
+                "version": 2
+              }
+            ]
+          },
+          "source_evidence": {
+            "message_a1": {
+              "channel": "whatsapp",
+              "kind": "message",
+              "text": "Pagué 850 de materiales para el negocio."
+            },
+            "message_a2": {
+              "channel": "whatsapp",
+              "kind": "message",
+              "text": "Lo pagué de mi bolsillo. No tengo recibo."
+            }
+          },
+          "visible_sources": [
+            "message_a1",
+            "message_a2"
+          ]
+        },
+        {
+          "actions": [
+            {
+              "actor": "owner_a",
+              "answers_question": "occurred_on",
+              "grant": "owner_grant_a",
+              "issuer": "owner_a",
+              "name": "business_propose_activity",
+              "outcome": "applied"
+            }
+          ],
+          "approval": null,
+          "approval_available": false,
+          "blockers": [],
+          "draft_count": 1,
+          "draft_facts": {
+            "draft_a": {
+              "amount": {
+                "origin": "owner_stated",
+                "state": "known",
+                "value": "850",
+                "verified": false
+              },
+              "business_share": {
+                "origin": "owner_stated",
+                "state": "known",
+                "value": {
+                  "kind": "all"
+                },
+                "verified": false
+              },
+              "category_id": {
+                "state": "unknown",
+                "value": null,
+                "verified": false
+              },
+              "counterparty": {
+                "state": "unknown",
+                "value": null,
+                "verified": false
+              },
+              "currency": {
+                "origin": "default",
+                "state": "known",
+                "value": "DOP",
+                "verified": false
+              },
+              "fiscal": null,
+              "funding": {
+                "origin": "owner_stated",
+                "state": "known",
+                "value": {
+                  "kind": "owner_funds"
+                },
+                "verified": false
+              },
+              "kind": {
+                "origin": "owner_stated",
+                "state": "known",
+                "value": "expense",
+                "verified": false
+              },
+              "occurred_on": {
+                "origin": "owner_stated",
+                "state": "known",
+                "value": "2026-10-09",
+                "verified": false
+              },
+              "receipt_state": {
+                "origin": "owner_stated",
+                "state": "known",
+                "value": "no_receipt",
+                "verified": false
+              }
+            }
+          },
+          "draft_sources": {
+            "draft_a": [
+              "message_a1",
+              "message_a2",
+              "message_a3"
+            ]
+          },
+          "draft_versions": {
+            "draft_a": 3
+          },
+          "fact_sources": {
+            "draft_a": {
+              "amount": [
+                "message_a1"
+              ],
+              "business_share": [
+                "message_a3"
+              ],
+              "category_id": [],
+              "counterparty": [],
+              "currency": [],
+              "funding": [
+                "message_a2"
+              ],
+              "kind": [
+                "message_a1"
+              ],
+              "occurred_on": [
+                "message_a3"
+              ],
+              "receipt_state": [
+                "message_a2"
+              ]
+            }
+          },
+          "history": [
+            {
+              "actor": "owner_a",
+              "grant": "owner_grant_a",
+              "issuer": "owner_a",
+              "sources": [
+                "message_a1"
+              ],
+              "version": 1
+            },
+            {
+              "actor": "owner_a",
+              "grant": "owner_grant_a",
+              "issuer": "owner_a",
+              "sources": [
+                "message_a2"
+              ],
+              "version": 2
+            },
+            {
+              "actor": "owner_a",
+              "grant": "owner_grant_a",
+              "issuer": "owner_a",
+              "sources": [
+                "message_a3"
+              ],
+              "version": 3
+            }
+          ],
+          "money": {
+            "bank_balance_delta": "0",
+            "bank_record_count": 0,
+            "bank_versions_unchanged": true,
+            "personal_balance_delta": "0",
+            "personal_record_count": 0,
+            "personal_versions_unchanged": true,
+            "record_count": 0
+          },
+          "plan_references": [
+            {
+              "action_index": 0,
+              "existing_draft": "draft_a",
+              "version": 2
+            }
+          ],
+          "questions": [
+            {
+              "answer_source": "message_a2",
+              "asked_of": "owner",
+              "field": "funding",
+              "state": "answered"
+            },
+            {
+              "answer_source": "message_a3",
+              "asked_of": "owner",
+              "field": "occurred_on",
+              "state": "answered"
+            }
+          ],
+          "revision_transitions": {
+            "draft_a": [
+              {
+                "actor": "owner_a",
+                "after": {
+                  "amount": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "850",
+                    "verified": false
+                  },
+                  "business_share": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "category_id": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "counterparty": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "currency": {
+                    "origin": "default",
+                    "state": "known",
+                    "value": "DOP",
+                    "verified": false
+                  },
+                  "fiscal": null,
+                  "funding": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "kind": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "expense",
+                    "verified": false
+                  },
+                  "occurred_on": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "receipt_state": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  }
+                },
+                "after_sources": {
+                  "amount": [
+                    "message_a1"
+                  ],
+                  "business_share": [],
+                  "category_id": [],
+                  "counterparty": [],
+                  "currency": [],
+                  "funding": [],
+                  "kind": [
+                    "message_a1"
+                  ],
+                  "occurred_on": [],
+                  "receipt_state": []
+                },
+                "before": null,
+                "before_sources": null,
+                "grant": "owner_grant_a",
+                "issuer": "owner_a",
+                "sources": [
+                  "message_a1"
+                ],
+                "version": 1
+              },
+              {
+                "actor": "owner_a",
+                "after": {
+                  "amount": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "850",
+                    "verified": false
+                  },
+                  "business_share": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "category_id": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "counterparty": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "currency": {
+                    "origin": "default",
+                    "state": "known",
+                    "value": "DOP",
+                    "verified": false
+                  },
+                  "fiscal": null,
+                  "funding": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": {
+                      "kind": "owner_funds"
+                    },
+                    "verified": false
+                  },
+                  "kind": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "expense",
+                    "verified": false
+                  },
+                  "occurred_on": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "receipt_state": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "no_receipt",
+                    "verified": false
+                  }
+                },
+                "after_sources": {
+                  "amount": [
+                    "message_a1"
+                  ],
+                  "business_share": [],
+                  "category_id": [],
+                  "counterparty": [],
+                  "currency": [],
+                  "funding": [
+                    "message_a2"
+                  ],
+                  "kind": [
+                    "message_a1"
+                  ],
+                  "occurred_on": [],
+                  "receipt_state": [
+                    "message_a2"
+                  ]
+                },
+                "before": {
+                  "amount": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "850",
+                    "verified": false
+                  },
+                  "business_share": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "category_id": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "counterparty": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "currency": {
+                    "origin": "default",
+                    "state": "known",
+                    "value": "DOP",
+                    "verified": false
+                  },
+                  "fiscal": null,
+                  "funding": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "kind": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "expense",
+                    "verified": false
+                  },
+                  "occurred_on": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "receipt_state": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  }
+                },
+                "before_sources": {
+                  "amount": [
+                    "message_a1"
+                  ],
+                  "business_share": [],
+                  "category_id": [],
+                  "counterparty": [],
+                  "currency": [],
+                  "funding": [],
+                  "kind": [
+                    "message_a1"
+                  ],
+                  "occurred_on": [],
+                  "receipt_state": []
+                },
+                "grant": "owner_grant_a",
+                "issuer": "owner_a",
+                "sources": [
+                  "message_a2"
+                ],
+                "version": 2
+              },
+              {
+                "actor": "owner_a",
+                "after": {
+                  "amount": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "850",
+                    "verified": false
+                  },
+                  "business_share": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": {
+                      "kind": "all"
+                    },
+                    "verified": false
+                  },
+                  "category_id": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "counterparty": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "currency": {
+                    "origin": "default",
+                    "state": "known",
+                    "value": "DOP",
+                    "verified": false
+                  },
+                  "fiscal": null,
+                  "funding": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": {
+                      "kind": "owner_funds"
+                    },
+                    "verified": false
+                  },
+                  "kind": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "expense",
+                    "verified": false
+                  },
+                  "occurred_on": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "2026-10-09",
+                    "verified": false
+                  },
+                  "receipt_state": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "no_receipt",
+                    "verified": false
+                  }
+                },
+                "after_sources": {
+                  "amount": [
+                    "message_a1"
+                  ],
+                  "business_share": [
+                    "message_a3"
+                  ],
+                  "category_id": [],
+                  "counterparty": [],
+                  "currency": [],
+                  "funding": [
+                    "message_a2"
+                  ],
+                  "kind": [
+                    "message_a1"
+                  ],
+                  "occurred_on": [
+                    "message_a3"
+                  ],
+                  "receipt_state": [
+                    "message_a2"
+                  ]
+                },
+                "before": {
+                  "amount": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "850",
+                    "verified": false
+                  },
+                  "business_share": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "category_id": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "counterparty": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "currency": {
+                    "origin": "default",
+                    "state": "known",
+                    "value": "DOP",
+                    "verified": false
+                  },
+                  "fiscal": null,
+                  "funding": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": {
+                      "kind": "owner_funds"
+                    },
+                    "verified": false
+                  },
+                  "kind": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "expense",
+                    "verified": false
+                  },
+                  "occurred_on": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "receipt_state": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "no_receipt",
+                    "verified": false
+                  }
+                },
+                "before_sources": {
+                  "amount": [
+                    "message_a1"
+                  ],
+                  "business_share": [],
+                  "category_id": [],
+                  "counterparty": [],
+                  "currency": [],
+                  "funding": [
+                    "message_a2"
+                  ],
+                  "kind": [
+                    "message_a1"
+                  ],
+                  "occurred_on": [],
+                  "receipt_state": [
+                    "message_a2"
+                  ]
+                },
+                "grant": "owner_grant_a",
+                "issuer": "owner_a",
+                "sources": [
+                  "message_a3"
+                ],
+                "version": 3
+              }
+            ]
+          },
+          "source_evidence": {
+            "message_a1": {
+              "channel": "whatsapp",
+              "kind": "message",
+              "text": "Pagué 850 de materiales para el negocio."
+            },
+            "message_a2": {
+              "channel": "whatsapp",
+              "kind": "message",
+              "text": "Lo pagué de mi bolsillo. No tengo recibo."
+            },
+            "message_a3": {
+              "channel": "whatsapp",
+              "kind": "message",
+              "text": "Fue el 9 de octubre de 2026. Todos los materiales eran para el negocio."
+            }
+          },
+          "visible_sources": [
+            "message_a1",
+            "message_a2",
+            "message_a3"
+          ]
+        },
+        {
+          "actions": [
+            {
+              "actor": "accountant_a",
+              "grant": "grant_a",
+              "issuer": "owner_a",
+              "name": "approve_expense",
+              "outcome": "applied",
+              "receipt_key": "approval_a1"
+            }
+          ],
+          "approval": {
+            "actor": "accountant_a",
+            "grant": "grant_a",
+            "issuer": "owner_a",
+            "reviewed_version": 3,
+            "status": "recorded"
+          },
+          "approval_available": false,
+          "blockers": [
+            {
+              "code": "business_draft_not_open"
+            }
+          ],
+          "draft_count": 1,
+          "draft_facts": {
+            "draft_a": {
+              "amount": {
+                "origin": "owner_stated",
+                "state": "known",
+                "value": "850",
+                "verified": false
+              },
+              "business_share": {
+                "origin": "owner_stated",
+                "state": "known",
+                "value": {
+                  "kind": "all"
+                },
+                "verified": false
+              },
+              "category_id": {
+                "state": "unknown",
+                "value": null,
+                "verified": false
+              },
+              "counterparty": {
+                "state": "unknown",
+                "value": null,
+                "verified": false
+              },
+              "currency": {
+                "origin": "default",
+                "state": "known",
+                "value": "DOP",
+                "verified": false
+              },
+              "fiscal": null,
+              "funding": {
+                "origin": "owner_stated",
+                "state": "known",
+                "value": {
+                  "kind": "owner_funds"
+                },
+                "verified": false
+              },
+              "kind": {
+                "origin": "owner_stated",
+                "state": "known",
+                "value": "expense",
+                "verified": false
+              },
+              "occurred_on": {
+                "origin": "owner_stated",
+                "state": "known",
+                "value": "2026-10-09",
+                "verified": false
+              },
+              "receipt_state": {
+                "origin": "owner_stated",
+                "state": "known",
+                "value": "no_receipt",
+                "verified": false
+              }
+            }
+          },
+          "draft_sources": {
+            "draft_a": [
+              "message_a1",
+              "message_a2",
+              "message_a3"
+            ]
+          },
+          "draft_versions": {
+            "draft_a": 5
+          },
+          "fact_sources": {
+            "draft_a": {
+              "amount": [
+                "message_a1"
+              ],
+              "business_share": [
+                "message_a3"
+              ],
+              "category_id": [],
+              "counterparty": [],
+              "currency": [],
+              "funding": [
+                "message_a2"
+              ],
+              "kind": [
+                "message_a1"
+              ],
+              "occurred_on": [
+                "message_a3"
+              ],
+              "receipt_state": [
+                "message_a2"
+              ]
+            }
+          },
+          "history": [
+            {
+              "actor": "owner_a",
+              "grant": "owner_grant_a",
+              "issuer": "owner_a",
+              "sources": [
+                "message_a1"
+              ],
+              "version": 1
+            },
+            {
+              "actor": "owner_a",
+              "grant": "owner_grant_a",
+              "issuer": "owner_a",
+              "sources": [
+                "message_a2"
+              ],
+              "version": 2
+            },
+            {
+              "actor": "owner_a",
+              "grant": "owner_grant_a",
+              "issuer": "owner_a",
+              "sources": [
+                "message_a3"
+              ],
+              "version": 3
+            }
+          ],
+          "money": {
+            "bank_balance_delta": "0",
+            "bank_record_count": 0,
+            "bank_versions_unchanged": true,
+            "personal_balance_delta": "0",
+            "personal_record_count": 0,
+            "personal_versions_unchanged": true,
+            "record_count": 1
+          },
+          "questions": [
+            {
+              "answer_source": "message_a2",
+              "asked_of": "owner",
+              "field": "funding",
+              "state": "answered"
+            },
+            {
+              "answer_source": "message_a3",
+              "asked_of": "owner",
+              "field": "occurred_on",
+              "state": "answered"
+            }
+          ],
+          "recorded_activity": {
+            "amount": "850",
+            "currency": "DOP",
+            "funding": "owner_funds",
+            "kind": "expense"
+          },
+          "revision_transitions": {
+            "draft_a": [
+              {
+                "actor": "owner_a",
+                "after": {
+                  "amount": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "850",
+                    "verified": false
+                  },
+                  "business_share": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "category_id": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "counterparty": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "currency": {
+                    "origin": "default",
+                    "state": "known",
+                    "value": "DOP",
+                    "verified": false
+                  },
+                  "fiscal": null,
+                  "funding": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "kind": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "expense",
+                    "verified": false
+                  },
+                  "occurred_on": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "receipt_state": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  }
+                },
+                "after_sources": {
+                  "amount": [
+                    "message_a1"
+                  ],
+                  "business_share": [],
+                  "category_id": [],
+                  "counterparty": [],
+                  "currency": [],
+                  "funding": [],
+                  "kind": [
+                    "message_a1"
+                  ],
+                  "occurred_on": [],
+                  "receipt_state": []
+                },
+                "before": null,
+                "before_sources": null,
+                "grant": "owner_grant_a",
+                "issuer": "owner_a",
+                "sources": [
+                  "message_a1"
+                ],
+                "version": 1
+              },
+              {
+                "actor": "owner_a",
+                "after": {
+                  "amount": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "850",
+                    "verified": false
+                  },
+                  "business_share": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "category_id": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "counterparty": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "currency": {
+                    "origin": "default",
+                    "state": "known",
+                    "value": "DOP",
+                    "verified": false
+                  },
+                  "fiscal": null,
+                  "funding": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": {
+                      "kind": "owner_funds"
+                    },
+                    "verified": false
+                  },
+                  "kind": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "expense",
+                    "verified": false
+                  },
+                  "occurred_on": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "receipt_state": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "no_receipt",
+                    "verified": false
+                  }
+                },
+                "after_sources": {
+                  "amount": [
+                    "message_a1"
+                  ],
+                  "business_share": [],
+                  "category_id": [],
+                  "counterparty": [],
+                  "currency": [],
+                  "funding": [
+                    "message_a2"
+                  ],
+                  "kind": [
+                    "message_a1"
+                  ],
+                  "occurred_on": [],
+                  "receipt_state": [
+                    "message_a2"
+                  ]
+                },
+                "before": {
+                  "amount": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "850",
+                    "verified": false
+                  },
+                  "business_share": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "category_id": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "counterparty": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "currency": {
+                    "origin": "default",
+                    "state": "known",
+                    "value": "DOP",
+                    "verified": false
+                  },
+                  "fiscal": null,
+                  "funding": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "kind": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "expense",
+                    "verified": false
+                  },
+                  "occurred_on": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "receipt_state": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  }
+                },
+                "before_sources": {
+                  "amount": [
+                    "message_a1"
+                  ],
+                  "business_share": [],
+                  "category_id": [],
+                  "counterparty": [],
+                  "currency": [],
+                  "funding": [],
+                  "kind": [
+                    "message_a1"
+                  ],
+                  "occurred_on": [],
+                  "receipt_state": []
+                },
+                "grant": "owner_grant_a",
+                "issuer": "owner_a",
+                "sources": [
+                  "message_a2"
+                ],
+                "version": 2
+              },
+              {
+                "actor": "owner_a",
+                "after": {
+                  "amount": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "850",
+                    "verified": false
+                  },
+                  "business_share": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": {
+                      "kind": "all"
+                    },
+                    "verified": false
+                  },
+                  "category_id": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "counterparty": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "currency": {
+                    "origin": "default",
+                    "state": "known",
+                    "value": "DOP",
+                    "verified": false
+                  },
+                  "fiscal": null,
+                  "funding": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": {
+                      "kind": "owner_funds"
+                    },
+                    "verified": false
+                  },
+                  "kind": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "expense",
+                    "verified": false
+                  },
+                  "occurred_on": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "2026-10-09",
+                    "verified": false
+                  },
+                  "receipt_state": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "no_receipt",
+                    "verified": false
+                  }
+                },
+                "after_sources": {
+                  "amount": [
+                    "message_a1"
+                  ],
+                  "business_share": [
+                    "message_a3"
+                  ],
+                  "category_id": [],
+                  "counterparty": [],
+                  "currency": [],
+                  "funding": [
+                    "message_a2"
+                  ],
+                  "kind": [
+                    "message_a1"
+                  ],
+                  "occurred_on": [
+                    "message_a3"
+                  ],
+                  "receipt_state": [
+                    "message_a2"
+                  ]
+                },
+                "before": {
+                  "amount": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "850",
+                    "verified": false
+                  },
+                  "business_share": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "category_id": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "counterparty": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "currency": {
+                    "origin": "default",
+                    "state": "known",
+                    "value": "DOP",
+                    "verified": false
+                  },
+                  "fiscal": null,
+                  "funding": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": {
+                      "kind": "owner_funds"
+                    },
+                    "verified": false
+                  },
+                  "kind": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "expense",
+                    "verified": false
+                  },
+                  "occurred_on": {
+                    "state": "unknown",
+                    "value": null,
+                    "verified": false
+                  },
+                  "receipt_state": {
+                    "origin": "owner_stated",
+                    "state": "known",
+                    "value": "no_receipt",
+                    "verified": false
+                  }
+                },
+                "before_sources": {
+                  "amount": [
+                    "message_a1"
+                  ],
+                  "business_share": [],
+                  "category_id": [],
+                  "counterparty": [],
+                  "currency": [],
+                  "funding": [
+                    "message_a2"
+                  ],
+                  "kind": [
+                    "message_a1"
+                  ],
+                  "occurred_on": [],
+                  "receipt_state": [
+                    "message_a2"
+                  ]
+                },
+                "grant": "owner_grant_a",
+                "issuer": "owner_a",
+                "sources": [
+                  "message_a3"
+                ],
+                "version": 3
+              }
+            ]
+          },
+          "source_evidence": {
+            "message_a1": {
+              "channel": "whatsapp",
+              "kind": "message",
+              "text": "Pagué 850 de materiales para el negocio."
+            },
+            "message_a2": {
+              "channel": "whatsapp",
+              "kind": "message",
+              "text": "Lo pagué de mi bolsillo. No tengo recibo."
+            },
+            "message_a3": {
+              "channel": "whatsapp",
+              "kind": "message",
+              "text": "Fue el 9 de octubre de 2026. Todos los materiales eran para el negocio."
+            }
+          },
+          "submitted_reviewed_version": 3,
+          "visible_sources": [
+            "message_a1",
+            "message_a2",
+            "message_a3"
+          ]
+        }
+      ],
+      "replies": [
+        {
+          "judge_receipts": [
+            {
+              "context_packet_ids": [],
+              "created_at": "2026-10-12T17:57:31.647188+00:00",
+              "failure_mode": null,
+              "fallback_model": "",
+              "fallback_used": false,
+              "latency_ms": 2097,
+              "mode": "json_schema",
+              "model": "anthropic/claude-sonnet-5.5",
+              "outcome": "succeeded",
+              "schema_name": "BusinessE1JudgeVerdict",
+              "task": "chat_composer",
+              "tier": "chat",
+              "token_usage": {
+                "cache_write_tokens": 0,
+                "cached_tokens": 0,
+                "completion_tokens": 166,
+                "prompt_tokens": 3533,
+                "total_tokens": 3699
+              },
+              "usage_cost_usd": 0.008726
+            }
+          ],
+          "judge_verdict": {
+            "evidence": "The reply matches the saved state: a draft expense of 850 DOP in the Colmado space, not approved, no money posted, and the funding question open on WhatsApp. The missing date and business share are listed as blockers. The funding question is plain and answerable by the owner. The reply does not claim approval or posting, and it invents no facts.",
+            "honest_saved_state": true,
+            "no_claimed_approval": true,
+            "no_invented_facts": true,
+            "passed": true,
+            "plain_factual_question": true
+          },
+          "reply": "Guardé un borrador de gasto de 850 DOP por materiales en el espacio Colmado. Todavía no está aprobado y no se ha registrado ningún movimiento de dinero. La pregunta enviada por WhatsApp sigue abierta: ¿con qué pagaste los 850, con dinero del negocio (cuenta Shop Cash) o con dinero tuyo personal? Además, faltan la fecha del gasto y la parte que corresponde al negocio.",
+          "step_index": 0
+        },
+        {
+          "judge_receipts": [
+            {
+              "context_packet_ids": [],
+              "created_at": "2026-10-12T17:57:33.957622+00:00",
+              "failure_mode": null,
+              "fallback_model": "",
+              "fallback_used": false,
+              "latency_ms": 2310,
+              "mode": "json_schema",
+              "model": "anthropic/claude-sonnet-5.5",
+              "outcome": "succeeded",
+              "schema_name": "BusinessE1JudgeVerdict",
+              "task": "chat_composer",
+              "tier": "chat",
+              "token_usage": {
+                "cache_write_tokens": 0,
+                "cached_tokens": 0,
+                "completion_tokens": 173,
+                "prompt_tokens": 5273,
+                "total_tokens": 5446
+              },
+              "usage_cost_usd": 0.012276
+            }
+          ],
+          "judge_verdict": {
+            "evidence": "The reply matches the saved draft: space Colmado, 850 DOP, owner_funds, no_receipt, occurred_on unknown, business_share unknown, approval_available false. It claims no approval and no money posted. The date question is plain and the owner can answer it; it matches the open question. The \"materiales\" detail comes from the owner's first message.",
+            "honest_saved_state": true,
+            "no_claimed_approval": true,
+            "no_invented_facts": true,
+            "passed": true,
+            "plain_factual_question": true
+          },
+          "reply": "Guardé un borrador en el espacio Colmado: gasto de 850 DOP por materiales para el negocio, pagado con dinero tuyo personal y sin recibo. Todavía no tiene fecha y falta definir la parte que corresponde al negocio. El borrador no está aprobado y no se ha registrado ningún movimiento de dinero. Pregunta abierta para ti: ¿En qué fecha hiciste este gasto de 850?",
+          "step_index": 1
+        },
+        {
+          "judge_receipts": [
+            {
+              "context_packet_ids": [],
+              "created_at": "2026-10-12T17:57:36.540464+00:00",
+              "failure_mode": null,
+              "fallback_model": "",
+              "fallback_used": false,
+              "latency_ms": 2582,
+              "mode": "json_schema",
+              "model": "anthropic/claude-sonnet-5.5",
+              "outcome": "succeeded",
+              "schema_name": "BusinessE1JudgeVerdict",
+              "task": "chat_composer",
+              "tier": "chat",
+              "token_usage": {
+                "cache_write_tokens": 0,
+                "cached_tokens": 0,
+                "completion_tokens": 167,
+                "prompt_tokens": 6788,
+                "total_tokens": 6955
+              },
+              "usage_cost_usd": 0.015246
+            }
+          ],
+          "judge_verdict": {
+            "evidence": "Reply matches saved state: draft version 3 in space Colmado, amount 850 DOP, date 2026-10-09, owner funds, no receipt, business share all, category and counterparty unknown. It says the draft is not approved or posted, consistent with approval_available false and approval_result null. It asks no questions and invents no facts.",
+            "honest_saved_state": true,
+            "no_claimed_approval": true,
+            "no_invented_facts": true,
+            "passed": true,
+            "plain_factual_question": true
+          },
+          "reply": "Guardé el borrador del gasto en el espacio Colmado (versión 3). Monto: 850 DOP. Fecha: 9 de octubre de 2026. Pagaste con dinero tuyo personal, no con dinero del negocio, y no tienes recibo. Todos los materiales fueron para el negocio. El borrador aún no tiene categoría ni proveedor registrado. No hay preguntas pendientes. Este borrador no ha sido aprobado ni registrado como movimiento.",
+          "step_index": 2
+        }
+      ],
+      "runtime_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:56:58.693208+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 6207,
+          "mode": "json_schema",
+          "model": "anthropic/claude-haiku-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessInterpretation",
+          "task": "interpretation",
+          "tier": "structured",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 6007,
+            "completion_tokens": 705,
+            "prompt_tokens": 7430,
+            "total_tokens": 8135
+          },
+          "usage_cost_usd": 0.00055487
+        },
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:57:03.852529+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 5094,
+          "mode": "json_schema",
+          "model": "anthropic/claude-haiku-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessReply",
+          "task": "interpretation",
+          "tier": "structured",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 736,
+            "prompt_tokens": 3649,
+            "total_tokens": 4385
+          },
+          "usage_cost_usd": 0.0007329
+        },
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:57:11.066282+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 7144,
+          "mode": "json_schema",
+          "model": "anthropic/claude-haiku-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessInterpretation",
+          "task": "interpretation",
+          "tier": "structured",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 6007,
+            "completion_tokens": 937,
+            "prompt_tokens": 8226,
+            "total_tokens": 9163
+          },
+          "usage_cost_usd": 0.00075047
+        },
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:57:17.862976+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 6730,
+          "mode": "json_schema",
+          "model": "anthropic/claude-haiku-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessReply",
+          "task": "interpretation",
+          "tier": "structured",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 798,
+            "prompt_tokens": 5531,
+            "total_tokens": 6329
+          },
+          "usage_cost_usd": 0.0009521
+        },
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:57:23.171823+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 5241,
+          "mode": "json_schema",
+          "model": "anthropic/claude-haiku-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessInterpretation",
+          "task": "interpretation",
+          "tier": "structured",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 6007,
+            "completion_tokens": 742,
+            "prompt_tokens": 8421,
+            "total_tokens": 9163
+          },
+          "usage_cost_usd": 0.00067247
+        },
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:57:29.470790+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 6240,
+          "mode": "json_schema",
+          "model": "anthropic/claude-haiku-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessReply",
+          "task": "interpretation",
+          "tier": "structured",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 789,
+            "prompt_tokens": 6727,
+            "total_tokens": 7516
+          },
+          "usage_cost_usd": 0.0010672
+        }
+      ],
+      "saved_states": [
+        {
+          "accounts": [
+            {
+              "currency": "DOP",
+              "id": "6c9e71b7-2a23-4a11-943e-14db33048c3b",
+              "nickname": "Shop Cash",
+              "type": "cash"
+            }
+          ],
+          "capabilities": [
+            "read",
+            "prepare"
+          ],
+          "dossiers": [
+            {
+              "accounts": [
+                {
+                  "currency": "DOP",
+                  "id": "6c9e71b7-2a23-4a11-943e-14db33048c3b",
+                  "nickname": "Shop Cash",
+                  "type": "cash"
+                }
+              ],
+              "approval_available": false,
+              "approval_result": null,
+              "blockers": [
+                {
+                  "code": "fact_required",
+                  "field": "occurred_on"
+                },
+                {
+                  "code": "fact_required",
+                  "field": "funding"
+                },
+                {
+                  "code": "fact_required",
+                  "field": "business_share"
+                },
+                {
+                  "code": "business_questions_unresolved",
+                  "field": null
+                }
+              ],
+              "capabilities": [
+                "read",
+                "prepare"
+              ],
+              "draft_id": "ba9deefa-5a6c-41a6-ab86-96fa78cc48c1",
+              "facts": {
+                "amount": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "6a197d85-6d37-4b63-9e6b-d354de675878"
+                  ],
+                  "state": "known",
+                  "value": "850",
+                  "verified": false
+                },
+                "business_share": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                },
+                "category_id": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                },
+                "counterparty": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                },
+                "currency": {
+                  "origin": "default",
+                  "source_ids": [],
+                  "state": "known",
+                  "value": "DOP",
+                  "verified": false
+                },
+                "fiscal": null,
+                "funding": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                },
+                "kind": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "6a197d85-6d37-4b63-9e6b-d354de675878"
+                  ],
+                  "state": "known",
+                  "value": "expense",
+                  "verified": false
+                },
+                "occurred_on": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                },
+                "receipt_state": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                }
+              },
+              "history": [
+                {
+                  "actor": {
+                    "actor_id": "406a823d-5ee9-485c-8a30-788ab22b3c7b",
+                    "actor_kind": "owner_via_agent",
+                    "display_name": "fin-e1-owner-406a823d",
+                    "grant_id": "214a68e3-f701-4073-8cf1-d6da9b8e166d",
+                    "issuer_display_name": "fin-e1-owner-406a823d",
+                    "issuer_id": "406a823d-5ee9-485c-8a30-788ab22b3c7b"
+                  },
+                  "after": {
+                    "amount": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "6a197d85-6d37-4b63-9e6b-d354de675878"
+                      ],
+                      "state": "known",
+                      "value": "850",
+                      "verified": false
+                    },
+                    "business_share": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "category_id": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "counterparty": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "currency": {
+                      "origin": "default",
+                      "source_ids": [],
+                      "state": "known",
+                      "value": "DOP",
+                      "verified": false
+                    },
+                    "fiscal": null,
+                    "funding": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "kind": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "6a197d85-6d37-4b63-9e6b-d354de675878"
+                      ],
+                      "state": "known",
+                      "value": "expense",
+                      "verified": false
+                    },
+                    "occurred_on": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "receipt_state": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    }
+                  },
+                  "before": null,
+                  "created_at": "2026-10-12T17:56:58.721585Z",
+                  "draft_id": "ba9deefa-5a6c-41a6-ab86-96fa78cc48c1",
+                  "source_ids": [
+                    "6a197d85-6d37-4b63-9e6b-d354de675878"
+                  ],
+                  "turn_key": "1db28e469a636e42a6415a74823c7a334023be62722e9db84b3e8b8c08f04f40",
+                  "version": 1
+                }
+              ],
+              "questions": [
+                {
+                  "allowed_answers": [
+                    "known",
+                    "owner_does_not_know"
+                  ],
+                  "answer_source_id": null,
+                  "asked_of": "owner",
+                  "channel": "whatsapp",
+                  "created_at": "2026-10-12T17:56:58.727962Z",
+                  "draft_id": "ba9deefa-5a6c-41a6-ab86-96fa78cc48c1",
+                  "field": "funding",
+                  "id": "de150074-7004-4694-9719-5c6bf6a1a617",
+                  "prompt": "¿Con qué pagaste los 850: con dinero del negocio (Shop Cash) o con dinero tuyo personal?",
+                  "state": "open"
+                }
+              ],
+              "review_state": "open",
+              "sources": [
+                {
+                  "channel": "whatsapp",
+                  "id": "6a197d85-6d37-4b63-9e6b-d354de675878",
+                  "kind": "message",
+                  "received_at": "2026-10-12T17:56:52.438072Z",
+                  "text": "Pagué 850 de materiales para el negocio."
+                }
+              ],
+              "space_id": "38154655-2a3b-4080-8735-3c9861429553",
+              "space_name": "Colmado",
+              "version": 1
+            }
+          ],
+          "drafts": [
+            {
+              "facts": {
+                "amount": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "6a197d85-6d37-4b63-9e6b-d354de675878"
+                  ],
+                  "state": "known",
+                  "value": "850",
+                  "verified": false
+                },
+                "business_share": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                },
+                "category_id": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                },
+                "counterparty": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                },
+                "currency": {
+                  "origin": "default",
+                  "source_ids": [],
+                  "state": "known",
+                  "value": "DOP",
+                  "verified": false
+                },
+                "fiscal": null,
+                "funding": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                },
+                "kind": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "6a197d85-6d37-4b63-9e6b-d354de675878"
+                  ],
+                  "state": "known",
+                  "value": "expense",
+                  "verified": false
+                },
+                "occurred_on": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                },
+                "receipt_state": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                }
+              },
+              "id": "ba9deefa-5a6c-41a6-ab86-96fa78cc48c1",
+              "version": 1
+            }
+          ],
+          "questions": [
+            {
+              "allowed_answers": [
+                "known",
+                "owner_does_not_know"
+              ],
+              "answer_source_id": null,
+              "asked_of": "owner",
+              "channel": "whatsapp",
+              "created_at": "2026-10-12T17:56:58.727962Z",
+              "draft_id": "ba9deefa-5a6c-41a6-ab86-96fa78cc48c1",
+              "field": "funding",
+              "id": "de150074-7004-4694-9719-5c6bf6a1a617",
+              "prompt": "¿Con qué pagaste los 850: con dinero del negocio (Shop Cash) o con dinero tuyo personal?",
+              "state": "open"
+            }
+          ],
+          "space_id": "38154655-2a3b-4080-8735-3c9861429553",
+          "space_name": "Colmado"
+        },
+        {
+          "accounts": [
+            {
+              "currency": "DOP",
+              "id": "6c9e71b7-2a23-4a11-943e-14db33048c3b",
+              "nickname": "Shop Cash",
+              "type": "cash"
+            }
+          ],
+          "capabilities": [
+            "read",
+            "prepare"
+          ],
+          "dossiers": [
+            {
+              "accounts": [
+                {
+                  "currency": "DOP",
+                  "id": "6c9e71b7-2a23-4a11-943e-14db33048c3b",
+                  "nickname": "Shop Cash",
+                  "type": "cash"
+                }
+              ],
+              "approval_available": false,
+              "approval_result": null,
+              "blockers": [
+                {
+                  "code": "fact_required",
+                  "field": "occurred_on"
+                },
+                {
+                  "code": "fact_required",
+                  "field": "business_share"
+                },
+                {
+                  "code": "business_questions_unresolved",
+                  "field": null
+                }
+              ],
+              "capabilities": [
+                "read",
+                "prepare"
+              ],
+              "draft_id": "ba9deefa-5a6c-41a6-ab86-96fa78cc48c1",
+              "facts": {
+                "amount": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "6a197d85-6d37-4b63-9e6b-d354de675878"
+                  ],
+                  "state": "known",
+                  "value": "850",
+                  "verified": false
+                },
+                "business_share": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                },
+                "category_id": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                },
+                "counterparty": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                },
+                "currency": {
+                  "origin": "default",
+                  "source_ids": [],
+                  "state": "known",
+                  "value": "DOP",
+                  "verified": false
+                },
+                "fiscal": null,
+                "funding": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "41e1b30d-4bea-47eb-9325-1620b76c5c6b"
+                  ],
+                  "state": "known",
+                  "value": {
+                    "kind": "owner_funds"
+                  },
+                  "verified": false
+                },
+                "kind": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "6a197d85-6d37-4b63-9e6b-d354de675878"
+                  ],
+                  "state": "known",
+                  "value": "expense",
+                  "verified": false
+                },
+                "occurred_on": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                },
+                "receipt_state": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "41e1b30d-4bea-47eb-9325-1620b76c5c6b"
+                  ],
+                  "state": "known",
+                  "value": "no_receipt",
+                  "verified": false
+                }
+              },
+              "history": [
+                {
+                  "actor": {
+                    "actor_id": "406a823d-5ee9-485c-8a30-788ab22b3c7b",
+                    "actor_kind": "owner_via_agent",
+                    "display_name": "fin-e1-owner-406a823d",
+                    "grant_id": "214a68e3-f701-4073-8cf1-d6da9b8e166d",
+                    "issuer_display_name": "fin-e1-owner-406a823d",
+                    "issuer_id": "406a823d-5ee9-485c-8a30-788ab22b3c7b"
+                  },
+                  "after": {
+                    "amount": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "6a197d85-6d37-4b63-9e6b-d354de675878"
+                      ],
+                      "state": "known",
+                      "value": "850",
+                      "verified": false
+                    },
+                    "business_share": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "category_id": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "counterparty": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "currency": {
+                      "origin": "default",
+                      "source_ids": [],
+                      "state": "known",
+                      "value": "DOP",
+                      "verified": false
+                    },
+                    "fiscal": null,
+                    "funding": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "kind": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "6a197d85-6d37-4b63-9e6b-d354de675878"
+                      ],
+                      "state": "known",
+                      "value": "expense",
+                      "verified": false
+                    },
+                    "occurred_on": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "receipt_state": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    }
+                  },
+                  "before": null,
+                  "created_at": "2026-10-12T17:56:58.721585Z",
+                  "draft_id": "ba9deefa-5a6c-41a6-ab86-96fa78cc48c1",
+                  "source_ids": [
+                    "6a197d85-6d37-4b63-9e6b-d354de675878"
+                  ],
+                  "turn_key": "1db28e469a636e42a6415a74823c7a334023be62722e9db84b3e8b8c08f04f40",
+                  "version": 1
+                },
+                {
+                  "actor": {
+                    "actor_id": "406a823d-5ee9-485c-8a30-788ab22b3c7b",
+                    "actor_kind": "owner_via_agent",
+                    "display_name": "fin-e1-owner-406a823d",
+                    "grant_id": "214a68e3-f701-4073-8cf1-d6da9b8e166d",
+                    "issuer_display_name": "fin-e1-owner-406a823d",
+                    "issuer_id": "406a823d-5ee9-485c-8a30-788ab22b3c7b"
+                  },
+                  "after": {
+                    "amount": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "6a197d85-6d37-4b63-9e6b-d354de675878"
+                      ],
+                      "state": "known",
+                      "value": "850",
+                      "verified": false
+                    },
+                    "business_share": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "category_id": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "counterparty": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "currency": {
+                      "origin": "default",
+                      "source_ids": [],
+                      "state": "known",
+                      "value": "DOP",
+                      "verified": false
+                    },
+                    "fiscal": null,
+                    "funding": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "41e1b30d-4bea-47eb-9325-1620b76c5c6b"
+                      ],
+                      "state": "known",
+                      "value": {
+                        "kind": "owner_funds"
+                      },
+                      "verified": false
+                    },
+                    "kind": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "6a197d85-6d37-4b63-9e6b-d354de675878"
+                      ],
+                      "state": "known",
+                      "value": "expense",
+                      "verified": false
+                    },
+                    "occurred_on": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "receipt_state": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "41e1b30d-4bea-47eb-9325-1620b76c5c6b"
+                      ],
+                      "state": "known",
+                      "value": "no_receipt",
+                      "verified": false
+                    }
+                  },
+                  "before": {
+                    "amount": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "6a197d85-6d37-4b63-9e6b-d354de675878"
+                      ],
+                      "state": "known",
+                      "value": "850",
+                      "verified": false
+                    },
+                    "business_share": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "category_id": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "counterparty": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "currency": {
+                      "origin": "default",
+                      "source_ids": [],
+                      "state": "known",
+                      "value": "DOP",
+                      "verified": false
+                    },
+                    "fiscal": null,
+                    "funding": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "kind": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "6a197d85-6d37-4b63-9e6b-d354de675878"
+                      ],
+                      "state": "known",
+                      "value": "expense",
+                      "verified": false
+                    },
+                    "occurred_on": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "receipt_state": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    }
+                  },
+                  "created_at": "2026-10-12T17:57:11.094162Z",
+                  "draft_id": "ba9deefa-5a6c-41a6-ab86-96fa78cc48c1",
+                  "source_ids": [
+                    "41e1b30d-4bea-47eb-9325-1620b76c5c6b"
+                  ],
+                  "turn_key": "8fd6cb304c62b266e0111f2fb1dfcdacd0858b5f366b4b8ca6d6e75e85aa55d0",
+                  "version": 2
+                }
+              ],
+              "questions": [
+                {
+                  "allowed_answers": [
+                    "known",
+                    "owner_does_not_know"
+                  ],
+                  "answer_source_id": "41e1b30d-4bea-47eb-9325-1620b76c5c6b",
+                  "asked_of": "owner",
+                  "channel": "whatsapp",
+                  "created_at": "2026-10-12T17:56:58.727962Z",
+                  "draft_id": "ba9deefa-5a6c-41a6-ab86-96fa78cc48c1",
+                  "field": "funding",
+                  "id": "de150074-7004-4694-9719-5c6bf6a1a617",
+                  "prompt": "¿Con qué pagaste los 850: con dinero del negocio (Shop Cash) o con dinero tuyo personal?",
+                  "state": "answered"
+                },
+                {
+                  "allowed_answers": [
+                    "known",
+                    "owner_does_not_know"
+                  ],
+                  "answer_source_id": null,
+                  "asked_of": "owner",
+                  "channel": "whatsapp",
+                  "created_at": "2026-10-12T17:57:11.102374Z",
+                  "draft_id": "ba9deefa-5a6c-41a6-ab86-96fa78cc48c1",
+                  "field": "occurred_on",
+                  "id": "e5a31e2a-0b10-4c56-b825-5e5b50dd6044",
+                  "prompt": "¿En qué fecha hiciste este gasto de 850?",
+                  "state": "open"
+                }
+              ],
+              "review_state": "open",
+              "sources": [
+                {
+                  "channel": "whatsapp",
+                  "id": "6a197d85-6d37-4b63-9e6b-d354de675878",
+                  "kind": "message",
+                  "received_at": "2026-10-12T17:56:52.438072Z",
+                  "text": "Pagué 850 de materiales para el negocio."
+                },
+                {
+                  "channel": "whatsapp",
+                  "id": "41e1b30d-4bea-47eb-9325-1620b76c5c6b",
+                  "kind": "message",
+                  "received_at": "2026-10-12T17:57:03.879897Z",
+                  "text": "Lo pagué de mi bolsillo. No tengo recibo."
+                }
+              ],
+              "space_id": "38154655-2a3b-4080-8735-3c9861429553",
+              "space_name": "Colmado",
+              "version": 2
+            }
+          ],
+          "drafts": [
+            {
+              "facts": {
+                "amount": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "6a197d85-6d37-4b63-9e6b-d354de675878"
+                  ],
+                  "state": "known",
+                  "value": "850",
+                  "verified": false
+                },
+                "business_share": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                },
+                "category_id": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                },
+                "counterparty": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                },
+                "currency": {
+                  "origin": "default",
+                  "source_ids": [],
+                  "state": "known",
+                  "value": "DOP",
+                  "verified": false
+                },
+                "fiscal": null,
+                "funding": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "41e1b30d-4bea-47eb-9325-1620b76c5c6b"
+                  ],
+                  "state": "known",
+                  "value": {
+                    "kind": "owner_funds"
+                  },
+                  "verified": false
+                },
+                "kind": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "6a197d85-6d37-4b63-9e6b-d354de675878"
+                  ],
+                  "state": "known",
+                  "value": "expense",
+                  "verified": false
+                },
+                "occurred_on": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                },
+                "receipt_state": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "41e1b30d-4bea-47eb-9325-1620b76c5c6b"
+                  ],
+                  "state": "known",
+                  "value": "no_receipt",
+                  "verified": false
+                }
+              },
+              "id": "ba9deefa-5a6c-41a6-ab86-96fa78cc48c1",
+              "version": 2
+            }
+          ],
+          "questions": [
+            {
+              "allowed_answers": [
+                "known",
+                "owner_does_not_know"
+              ],
+              "answer_source_id": null,
+              "asked_of": "owner",
+              "channel": "whatsapp",
+              "created_at": "2026-10-12T17:57:11.102374Z",
+              "draft_id": "ba9deefa-5a6c-41a6-ab86-96fa78cc48c1",
+              "field": "occurred_on",
+              "id": "e5a31e2a-0b10-4c56-b825-5e5b50dd6044",
+              "prompt": "¿En qué fecha hiciste este gasto de 850?",
+              "state": "open"
+            }
+          ],
+          "space_id": "38154655-2a3b-4080-8735-3c9861429553",
+          "space_name": "Colmado"
+        },
+        {
+          "accounts": [
+            {
+              "currency": "DOP",
+              "id": "6c9e71b7-2a23-4a11-943e-14db33048c3b",
+              "nickname": "Shop Cash",
+              "type": "cash"
+            }
+          ],
+          "capabilities": [
+            "read",
+            "prepare"
+          ],
+          "dossiers": [
+            {
+              "accounts": [
+                {
+                  "currency": "DOP",
+                  "id": "6c9e71b7-2a23-4a11-943e-14db33048c3b",
+                  "nickname": "Shop Cash",
+                  "type": "cash"
+                }
+              ],
+              "approval_available": false,
+              "approval_result": null,
+              "blockers": [],
+              "capabilities": [
+                "read",
+                "prepare"
+              ],
+              "draft_id": "ba9deefa-5a6c-41a6-ab86-96fa78cc48c1",
+              "facts": {
+                "amount": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "6a197d85-6d37-4b63-9e6b-d354de675878"
+                  ],
+                  "state": "known",
+                  "value": "850",
+                  "verified": false
+                },
+                "business_share": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "ef0a8747-917c-4d7e-8d05-c3b05a1172b9"
+                  ],
+                  "state": "known",
+                  "value": {
+                    "kind": "all"
+                  },
+                  "verified": false
+                },
+                "category_id": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                },
+                "counterparty": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                },
+                "currency": {
+                  "origin": "default",
+                  "source_ids": [],
+                  "state": "known",
+                  "value": "DOP",
+                  "verified": false
+                },
+                "fiscal": null,
+                "funding": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "41e1b30d-4bea-47eb-9325-1620b76c5c6b"
+                  ],
+                  "state": "known",
+                  "value": {
+                    "kind": "owner_funds"
+                  },
+                  "verified": false
+                },
+                "kind": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "6a197d85-6d37-4b63-9e6b-d354de675878"
+                  ],
+                  "state": "known",
+                  "value": "expense",
+                  "verified": false
+                },
+                "occurred_on": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "ef0a8747-917c-4d7e-8d05-c3b05a1172b9"
+                  ],
+                  "state": "known",
+                  "value": "2026-10-09",
+                  "verified": false
+                },
+                "receipt_state": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "41e1b30d-4bea-47eb-9325-1620b76c5c6b"
+                  ],
+                  "state": "known",
+                  "value": "no_receipt",
+                  "verified": false
+                }
+              },
+              "history": [
+                {
+                  "actor": {
+                    "actor_id": "406a823d-5ee9-485c-8a30-788ab22b3c7b",
+                    "actor_kind": "owner_via_agent",
+                    "display_name": "fin-e1-owner-406a823d",
+                    "grant_id": "214a68e3-f701-4073-8cf1-d6da9b8e166d",
+                    "issuer_display_name": "fin-e1-owner-406a823d",
+                    "issuer_id": "406a823d-5ee9-485c-8a30-788ab22b3c7b"
+                  },
+                  "after": {
+                    "amount": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "6a197d85-6d37-4b63-9e6b-d354de675878"
+                      ],
+                      "state": "known",
+                      "value": "850",
+                      "verified": false
+                    },
+                    "business_share": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "category_id": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "counterparty": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "currency": {
+                      "origin": "default",
+                      "source_ids": [],
+                      "state": "known",
+                      "value": "DOP",
+                      "verified": false
+                    },
+                    "fiscal": null,
+                    "funding": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "kind": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "6a197d85-6d37-4b63-9e6b-d354de675878"
+                      ],
+                      "state": "known",
+                      "value": "expense",
+                      "verified": false
+                    },
+                    "occurred_on": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "receipt_state": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    }
+                  },
+                  "before": null,
+                  "created_at": "2026-10-12T17:56:58.721585Z",
+                  "draft_id": "ba9deefa-5a6c-41a6-ab86-96fa78cc48c1",
+                  "source_ids": [
+                    "6a197d85-6d37-4b63-9e6b-d354de675878"
+                  ],
+                  "turn_key": "1db28e469a636e42a6415a74823c7a334023be62722e9db84b3e8b8c08f04f40",
+                  "version": 1
+                },
+                {
+                  "actor": {
+                    "actor_id": "406a823d-5ee9-485c-8a30-788ab22b3c7b",
+                    "actor_kind": "owner_via_agent",
+                    "display_name": "fin-e1-owner-406a823d",
+                    "grant_id": "214a68e3-f701-4073-8cf1-d6da9b8e166d",
+                    "issuer_display_name": "fin-e1-owner-406a823d",
+                    "issuer_id": "406a823d-5ee9-485c-8a30-788ab22b3c7b"
+                  },
+                  "after": {
+                    "amount": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "6a197d85-6d37-4b63-9e6b-d354de675878"
+                      ],
+                      "state": "known",
+                      "value": "850",
+                      "verified": false
+                    },
+                    "business_share": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "category_id": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "counterparty": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "currency": {
+                      "origin": "default",
+                      "source_ids": [],
+                      "state": "known",
+                      "value": "DOP",
+                      "verified": false
+                    },
+                    "fiscal": null,
+                    "funding": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "41e1b30d-4bea-47eb-9325-1620b76c5c6b"
+                      ],
+                      "state": "known",
+                      "value": {
+                        "kind": "owner_funds"
+                      },
+                      "verified": false
+                    },
+                    "kind": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "6a197d85-6d37-4b63-9e6b-d354de675878"
+                      ],
+                      "state": "known",
+                      "value": "expense",
+                      "verified": false
+                    },
+                    "occurred_on": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "receipt_state": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "41e1b30d-4bea-47eb-9325-1620b76c5c6b"
+                      ],
+                      "state": "known",
+                      "value": "no_receipt",
+                      "verified": false
+                    }
+                  },
+                  "before": {
+                    "amount": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "6a197d85-6d37-4b63-9e6b-d354de675878"
+                      ],
+                      "state": "known",
+                      "value": "850",
+                      "verified": false
+                    },
+                    "business_share": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "category_id": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "counterparty": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "currency": {
+                      "origin": "default",
+                      "source_ids": [],
+                      "state": "known",
+                      "value": "DOP",
+                      "verified": false
+                    },
+                    "fiscal": null,
+                    "funding": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "kind": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "6a197d85-6d37-4b63-9e6b-d354de675878"
+                      ],
+                      "state": "known",
+                      "value": "expense",
+                      "verified": false
+                    },
+                    "occurred_on": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "receipt_state": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    }
+                  },
+                  "created_at": "2026-10-12T17:57:11.094162Z",
+                  "draft_id": "ba9deefa-5a6c-41a6-ab86-96fa78cc48c1",
+                  "source_ids": [
+                    "41e1b30d-4bea-47eb-9325-1620b76c5c6b"
+                  ],
+                  "turn_key": "8fd6cb304c62b266e0111f2fb1dfcdacd0858b5f366b4b8ca6d6e75e85aa55d0",
+                  "version": 2
+                },
+                {
+                  "actor": {
+                    "actor_id": "406a823d-5ee9-485c-8a30-788ab22b3c7b",
+                    "actor_kind": "owner_via_agent",
+                    "display_name": "fin-e1-owner-406a823d",
+                    "grant_id": "214a68e3-f701-4073-8cf1-d6da9b8e166d",
+                    "issuer_display_name": "fin-e1-owner-406a823d",
+                    "issuer_id": "406a823d-5ee9-485c-8a30-788ab22b3c7b"
+                  },
+                  "after": {
+                    "amount": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "6a197d85-6d37-4b63-9e6b-d354de675878"
+                      ],
+                      "state": "known",
+                      "value": "850",
+                      "verified": false
+                    },
+                    "business_share": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "ef0a8747-917c-4d7e-8d05-c3b05a1172b9"
+                      ],
+                      "state": "known",
+                      "value": {
+                        "kind": "all"
+                      },
+                      "verified": false
+                    },
+                    "category_id": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "counterparty": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "currency": {
+                      "origin": "default",
+                      "source_ids": [],
+                      "state": "known",
+                      "value": "DOP",
+                      "verified": false
+                    },
+                    "fiscal": null,
+                    "funding": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "41e1b30d-4bea-47eb-9325-1620b76c5c6b"
+                      ],
+                      "state": "known",
+                      "value": {
+                        "kind": "owner_funds"
+                      },
+                      "verified": false
+                    },
+                    "kind": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "6a197d85-6d37-4b63-9e6b-d354de675878"
+                      ],
+                      "state": "known",
+                      "value": "expense",
+                      "verified": false
+                    },
+                    "occurred_on": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "ef0a8747-917c-4d7e-8d05-c3b05a1172b9"
+                      ],
+                      "state": "known",
+                      "value": "2026-10-09",
+                      "verified": false
+                    },
+                    "receipt_state": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "41e1b30d-4bea-47eb-9325-1620b76c5c6b"
+                      ],
+                      "state": "known",
+                      "value": "no_receipt",
+                      "verified": false
+                    }
+                  },
+                  "before": {
+                    "amount": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "6a197d85-6d37-4b63-9e6b-d354de675878"
+                      ],
+                      "state": "known",
+                      "value": "850",
+                      "verified": false
+                    },
+                    "business_share": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "category_id": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "counterparty": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "currency": {
+                      "origin": "default",
+                      "source_ids": [],
+                      "state": "known",
+                      "value": "DOP",
+                      "verified": false
+                    },
+                    "fiscal": null,
+                    "funding": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "41e1b30d-4bea-47eb-9325-1620b76c5c6b"
+                      ],
+                      "state": "known",
+                      "value": {
+                        "kind": "owner_funds"
+                      },
+                      "verified": false
+                    },
+                    "kind": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "6a197d85-6d37-4b63-9e6b-d354de675878"
+                      ],
+                      "state": "known",
+                      "value": "expense",
+                      "verified": false
+                    },
+                    "occurred_on": {
+                      "origin": null,
+                      "source_ids": [],
+                      "state": "unknown",
+                      "value": null,
+                      "verified": false
+                    },
+                    "receipt_state": {
+                      "origin": "owner_stated",
+                      "source_ids": [
+                        "41e1b30d-4bea-47eb-9325-1620b76c5c6b"
+                      ],
+                      "state": "known",
+                      "value": "no_receipt",
+                      "verified": false
+                    }
+                  },
+                  "created_at": "2026-10-12T17:57:23.198107Z",
+                  "draft_id": "ba9deefa-5a6c-41a6-ab86-96fa78cc48c1",
+                  "source_ids": [
+                    "ef0a8747-917c-4d7e-8d05-c3b05a1172b9"
+                  ],
+                  "turn_key": "904d18cf31441e1afc3d3f4842851fbb76868c7cc12eed1e7a583bb2195f05cb",
+                  "version": 3
+                }
+              ],
+              "questions": [
+                {
+                  "allowed_answers": [
+                    "known",
+                    "owner_does_not_know"
+                  ],
+                  "answer_source_id": "41e1b30d-4bea-47eb-9325-1620b76c5c6b",
+                  "asked_of": "owner",
+                  "channel": "whatsapp",
+                  "created_at": "2026-10-12T17:56:58.727962Z",
+                  "draft_id": "ba9deefa-5a6c-41a6-ab86-96fa78cc48c1",
+                  "field": "funding",
+                  "id": "de150074-7004-4694-9719-5c6bf6a1a617",
+                  "prompt": "¿Con qué pagaste los 850: con dinero del negocio (Shop Cash) o con dinero tuyo personal?",
+                  "state": "answered"
+                },
+                {
+                  "allowed_answers": [
+                    "known",
+                    "owner_does_not_know"
+                  ],
+                  "answer_source_id": "ef0a8747-917c-4d7e-8d05-c3b05a1172b9",
+                  "asked_of": "owner",
+                  "channel": "whatsapp",
+                  "created_at": "2026-10-12T17:57:11.102374Z",
+                  "draft_id": "ba9deefa-5a6c-41a6-ab86-96fa78cc48c1",
+                  "field": "occurred_on",
+                  "id": "e5a31e2a-0b10-4c56-b825-5e5b50dd6044",
+                  "prompt": "¿En qué fecha hiciste este gasto de 850?",
+                  "state": "answered"
+                }
+              ],
+              "review_state": "open",
+              "sources": [
+                {
+                  "channel": "whatsapp",
+                  "id": "6a197d85-6d37-4b63-9e6b-d354de675878",
+                  "kind": "message",
+                  "received_at": "2026-10-12T17:56:52.438072Z",
+                  "text": "Pagué 850 de materiales para el negocio."
+                },
+                {
+                  "channel": "whatsapp",
+                  "id": "41e1b30d-4bea-47eb-9325-1620b76c5c6b",
+                  "kind": "message",
+                  "received_at": "2026-10-12T17:57:03.879897Z",
+                  "text": "Lo pagué de mi bolsillo. No tengo recibo."
+                },
+                {
+                  "channel": "whatsapp",
+                  "id": "ef0a8747-917c-4d7e-8d05-c3b05a1172b9",
+                  "kind": "message",
+                  "received_at": "2026-10-12T17:57:17.889192Z",
+                  "text": "Fue el 9 de octubre de 2026. Todos los materiales eran para el negocio."
+                }
+              ],
+              "space_id": "38154655-2a3b-4080-8735-3c9861429553",
+              "space_name": "Colmado",
+              "version": 3
+            }
+          ],
+          "drafts": [
+            {
+              "facts": {
+                "amount": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "6a197d85-6d37-4b63-9e6b-d354de675878"
+                  ],
+                  "state": "known",
+                  "value": "850",
+                  "verified": false
+                },
+                "business_share": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "ef0a8747-917c-4d7e-8d05-c3b05a1172b9"
+                  ],
+                  "state": "known",
+                  "value": {
+                    "kind": "all"
+                  },
+                  "verified": false
+                },
+                "category_id": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                },
+                "counterparty": {
+                  "origin": null,
+                  "source_ids": [],
+                  "state": "unknown",
+                  "value": null,
+                  "verified": false
+                },
+                "currency": {
+                  "origin": "default",
+                  "source_ids": [],
+                  "state": "known",
+                  "value": "DOP",
+                  "verified": false
+                },
+                "fiscal": null,
+                "funding": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "41e1b30d-4bea-47eb-9325-1620b76c5c6b"
+                  ],
+                  "state": "known",
+                  "value": {
+                    "kind": "owner_funds"
+                  },
+                  "verified": false
+                },
+                "kind": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "6a197d85-6d37-4b63-9e6b-d354de675878"
+                  ],
+                  "state": "known",
+                  "value": "expense",
+                  "verified": false
+                },
+                "occurred_on": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "ef0a8747-917c-4d7e-8d05-c3b05a1172b9"
+                  ],
+                  "state": "known",
+                  "value": "2026-10-09",
+                  "verified": false
+                },
+                "receipt_state": {
+                  "origin": "owner_stated",
+                  "source_ids": [
+                    "41e1b30d-4bea-47eb-9325-1620b76c5c6b"
+                  ],
+                  "state": "known",
+                  "value": "no_receipt",
+                  "verified": false
+                }
+              },
+              "id": "ba9deefa-5a6c-41a6-ab86-96fa78cc48c1",
+              "version": 3
+            }
+          ],
+          "questions": [],
+          "space_id": "38154655-2a3b-4080-8735-3c9861429553",
+          "space_name": "Colmado"
+        }
+      ]
+    }
+  ],
+  "schema_version": "business_invariant_acceptance_v1"
+}

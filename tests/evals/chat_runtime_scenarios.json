@@ -1,7 +1,7 @@
 {
   "version": 1,
   "release_slice": "artifact_runtime_second_pass",
-  "source_spec": "docs/superpowers/specs/2026-05-13-artifact-runtime-production-readiness-second-pass.md",
+  "source_spec": "docs/CONVERSATIONAL_RUNTIME.md",
   "scoring": {
     "must_pass": "Hard runtime, artifact, action, reload, and truthful capability invariants. A failure blocks release.",
     "should_pass": "Quality or polish signal. A failure can ship only with an explicit follow-up owner.",

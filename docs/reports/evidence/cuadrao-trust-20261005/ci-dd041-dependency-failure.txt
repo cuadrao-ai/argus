@@ -1,0 +1,8 @@
+Integration dd04130e8aa174db3de6139541d3b2e0f36868d0, CI37395042662 attempt1. Failed before backend tests, dependency installation; smoke passed.
+backend-checks	Install frontend dependencies for cross-runtime contract tests	2026-10-06T00:39:01.7217199Z error: Fail extracting tarball for "next"
+backend-checks	Install frontend dependencies for cross-runtime contract tests	2026-10-06T00:39:04.3828840Z error: Fail extracting tarball from next
+backend-checks	Install frontend dependencies for cross-runtime contract tests	2026-10-06T00:39:04.3901141Z ##[error]Process completed with exit code 1.
+ci	All checks passed	2026-10-06T00:50:42.7728245Z ##[error]Process completed with exit code 1.
+Workflow, web package and Bun lock unchanged from prior successful7d037. This is not a claim of a pre-existing application failure. Only failed jobs rerun on identical SHA; attempt2 completed successfully on identical SHA.
+
+CI37395042662 attempt2:success; earlier failure remains preserved. No source/version/test/gate changes were made to resolve it.

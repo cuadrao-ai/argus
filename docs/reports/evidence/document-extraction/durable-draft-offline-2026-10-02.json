@@ -1,0 +1,52 @@
+{
+  "mode": "offline_captured_typed_observations_replay",
+  "code_head": "e5d97f6beec9005e417a2bb8a1b474af88c3964f",
+  "model_calls": 0,
+  "model": "openai/gpt-6-luna",
+  "capture_sha256": "834bdc9d7d3303c01d94827d9b379d4e81138de5289dc78a748845985ae92d2e",
+  "capture_scope": "Retained typed financial observations; original diagnostic excludes account/free-text fields. No document content is repeated here.",
+  "observation_count": 5,
+  "canonical_candidate_count": 4,
+  "transaction_count": 2,
+  "unknown_balance_scope_preserved": true,
+  "issues": [
+    {
+      "page": 1,
+      "row": 2,
+      "code": "candidate_incompatible",
+      "fields": [
+        "balance_scope"
+      ]
+    }
+  ],
+  "quality": {
+    "expected_transactions": 2,
+    "observed_transactions": 2,
+    "exact_matches": 2,
+    "missing_or_mismatched": 0,
+    "invented_or_mismatched": 0,
+    "field_multiset_matches": {
+      "amount": 2,
+      "currency": 2,
+      "date": 2,
+      "direction": 2
+    },
+    "field_denominator": 2,
+    "balance_candidates": 1,
+    "balances_as_transactions": 0
+  },
+  "verification": {
+    "focused_passed": 662,
+    "local_postgres_skipped": 3,
+    "mocked_evals_passed": 272,
+    "openapi_passed": 23,
+    "ruff": "passed",
+    "modularity": "passed",
+    "review": "clean after participant-reference bound fix"
+  },
+  "cumulative_reserved_usd": "2.9205875136",
+  "new_actual_cost_usd": "0",
+  "cumulative_known_actual_cost_usd": "0.00601217036",
+  "cumulative_actual_cost_usd": null,
+  "remaining_reservation_usd": "3.0794124864"
+}

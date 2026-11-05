@@ -9,12 +9,12 @@
   },
   "readout_values": {
     "argus-backtests": {
-      "ARGUS_READOUT_MODEL": "openai/gpt-5.6-luna",
-      "ARGUS_READOUT_FALLBACK_MODEL": "openai/gpt-5.6-luna"
+      "CUADRAO_READOUT_MODEL": "openai/gpt-5.6-luna",
+      "CUADRAO_READOUT_FALLBACK_MODEL": "openai/gpt-5.6-luna"
     },
     "argus-api": {
-      "ARGUS_READOUT_MODEL": "openai/gpt-5.6-luna",
-      "ARGUS_READOUT_FALLBACK_MODEL": "openai/gpt-5.6-luna"
+      "CUADRAO_READOUT_MODEL": "openai/gpt-5.6-luna",
+      "CUADRAO_READOUT_FALLBACK_MODEL": "openai/gpt-5.6-luna"
     }
   }
 }

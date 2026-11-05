@@ -42,10 +42,10 @@ screenshots are named for local correlation but are not committed.
   non-admin QA identity.
 - Before the browser opened, the backend effective environment was verified
   from its running process without printing credentials:
-  `ARGUS_PERSISTENCE_MODE=supabase`,
+  `CUADRAO_PERSISTENCE_MODE=supabase`,
   `ARGUS_DEV_MEMORY_FALLBACK=false`,
   `ARGUS_MARKET_DATA_PROVIDER_MODE=live_provider`,
-  `ARGUS_CHECKPOINTER_MODE=postgres`, `ARGUS_MOCK_AUTH=false`,
+  `CUADRAO_CHECKPOINTER_MODE=postgres`, `CUADRAO_MOCK_AUTH=false`,
   shadow/dispatch/workflow execution enabled,
   `RENDER_USE_LOCAL_DEV=true`, and
   `RENDER_LOCAL_DEV_URL=http://127.0.0.1:8740`.

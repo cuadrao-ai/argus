@@ -18,7 +18,7 @@ gone from the payload and the card says the same thing from the typed facts. The
 English card is unchanged: `No fees · No slippage` still render, from the same
 facts.
 
-**#489, both languages.** Forcing `ARGUS_OPENROUTER_CLARIFICATION_TIMEOUT_SECONDS=1`
+**#489, both languages.** Forcing `CUADRAO_OPENROUTER_CLARIFICATION_TIMEOUT_SECONDS=1`
 makes the LLM clarifier time out, which is the production condition the issue
 describes. The stream then carries `prompt_source: "degraded_fallback"`, an
 English `assistant_prompt`, and a typed contract with a `reason_code`. The

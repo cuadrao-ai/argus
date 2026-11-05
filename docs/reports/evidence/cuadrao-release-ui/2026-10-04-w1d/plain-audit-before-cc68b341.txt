@@ -1,0 +1,538 @@
+== ios/ArgusFoundation/Accounts/AccountActivityView.swift:34-36
+   Button { inspected = activity } label: {
+   FinancialActivityRow(activity: activity, currency: account.currency)
+   }.buttonStyle(.plain).accessibilityIdentifier("activity.row." + activity.recordId.uuidString)
+== ios/ArgusFoundation/Accounts/AccountsView.swift:94-96
+   Button { Task { await model.open(account); await loop.open(account) } } label: {
+   AccountRow(account: account)
+   }.buttonStyle(.plain).accessibilityIdentifier("accounts.row.\(account.id)")
+== ios/ArgusFoundation/Accounts/FinancialHomeView.swift:73-75
+   Button { destination = .accounts; Task { await accounts.open(account); await loop.open(account) } } label: {
+   FinancialActivityRow(activity: activity, currency: account.currency)
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Accounts/FinancialHomeView.swift:91-93
+   Button { destination = .accounts; Task { await accounts.open(account); await loop.open(account) } } label: {
+   AccountRow(account: account)
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Connected/ConnectedCuadraoAuth.swift:58-66
+   NavigationLink {
+   ConnectedCreateAccount(spanish: spanish)
+   } label: {
+   Text(spanish ? "Crear cuenta" : "Create account")
+   .font(.system(.body, weight: .semibold))
+   .frame(maxWidth: .infinity, minHeight: 56)
+   .foregroundStyle(.white)
+   .background(WelcomePalette.pine, in: RoundedRectangle(cornerRadius: 16))
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Connected/ConnectedCuadraoAuth.swift:68-78
+   NavigationLink {
+   ConnectedCreateAccount(spanish: spanish, signingIn: true)
+   } label: {
+   Text(spanish ? "Iniciar sesión" : "Sign in")
+   .font(.system(.body, weight: .semibold))
+   .frame(maxWidth: .infinity, minHeight: 56)
+   .overlay {
+   RoundedRectangle(cornerRadius: 16)
+   .stroke(Color(white: 0.80), lineWidth: 1)
+   }
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Connected/ConnectedCuadraoAuth.swift:182-192
+   Button { signingIn.toggle() } label: {
+   (Text(signingIn ? (spanish ? "¿Primera vez aquí? " : "New here? ")
+   : (spanish ? "¿Ya tienes cuenta? " : "Already have an account? "))
+   .foregroundColor(.secondary)
+   + Text(signingIn ? (spanish ? "Crea una cuenta" : "Create an account")
+   : (spanish ? "Inicia sesión" : "Sign in"))
+   .foregroundColor(WelcomePalette.pine).bold())
+   .font(.subheadline)
+   .frame(maxWidth: .infinity, minHeight: 48)
+   }
+   .buttonStyle(.plain)
+== ios/ArgusFoundation/Connected/ConnectedCuadraoAuth.swift:632-640
+   NavigationLink {
+   ConnectedEmailSignIn(spanish: spanish)
+   } label: {
+   Text(spanish ? "Ir a iniciar sesión" : "Go to sign in")
+   .font(.body.weight(.semibold))
+   .frame(maxWidth: .infinity, minHeight: 56)
+   .foregroundStyle(.white)
+   .background(WelcomePalette.pine, in: RoundedRectangle(cornerRadius: 16))
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Connected/ConnectedCuadraoHome.swift:313-320
+   Button {
+   Task {
+   await accounts.open(account)
+   await loop.open(account)
+   }
+   } label: {
+   FinancialActivityRow(activity: entry, currency: account.currency)
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Connected/ConnectedCuadraoHome.swift:425-433
+   Button {
+   Task {
+   await accounts.open(account)
+   dismiss()
+   }
+   } label: {
+   ConnectedAccountRow(account: account, spanish: spanish)
+   }
+   .buttonStyle(.plain)
+== ios/ArgusFoundation/Connected/ConnectedCuadraoProfile.swift:17-18
+   Button { editingAvatar = true } label: { identity(editable: true) }
+   .buttonStyle(.plain).accessibilityIdentifier("release.profile.avatar")
+== ios/ArgusFoundation/Cuadrao/CuadraoAccountCanvas.swift:105-108
+   Button(spanish ? "Archivar" : "Archive", systemImage: "archivebox") { actions(.archive(accountID)) }
+   } label: {
+   Image(systemName: "ellipsis").frame(width: 44, height: 44)
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/CuadraoAccountsCollection.swift:21-23
+   Button { path.append(account.id) } label: {
+   CanvasAccountRow(account: account, spanish: spanish)
+   }.buttonStyle(.plain).disabled(mode.isEditing)
+== ios/ArgusFoundation/Cuadrao/CuadraoActivityDetail.swift:48-53
+   Button {
+   chatFocus = .activity(id: entry.id, title: entry.title)
+   } label: {
+   Label(spanish ? "Preguntar a Cuadrao" : "Ask Cuadrao", systemImage: "bubble")
+   .font(.subheadline).frame(minHeight: 44)
+   }.buttonStyle(.plain).foregroundStyle(WelcomePalette.pine)
+== ios/ArgusFoundation/Cuadrao/CuadraoAmountField.swift:17-18
+   Button { choosingCurrency = true } label: { CuadraoChoiceLabel(title: currency) }
+   .buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/CuadraoCanvas.swift:89-97
+   NavigationLink {
+   CuadraoCreateAccount(spanish: spanish)
+   } label: {
+   Text(spanish ? "Crear cuenta" : "Create account")
+   .font(.system(.body, weight: .semibold))
+   .frame(maxWidth: .infinity, minHeight: 56)
+   .foregroundStyle(WelcomePalette.onAccent)
+   .background(WelcomePalette.pine, in: RoundedRectangle(cornerRadius: 16))
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/CuadraoCanvas.swift:99-109
+   NavigationLink {
+   CuadraoCreateAccount(spanish: spanish, signingIn: true)
+   } label: {
+   Text(spanish ? "Iniciar sesión" : "Sign in")
+   .font(.system(.body, weight: .semibold))
+   .frame(maxWidth: .infinity, minHeight: 56)
+   .overlay {
+   RoundedRectangle(cornerRadius: 16)
+   .stroke(WelcomePalette.border, lineWidth: 1)
+   }
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/CuadraoChatAnswer.swift:58-71
+   Button(action: showDetails) {
+   VStack(alignment: .leading, spacing: 14) {
+   Text(es ? "En seis meses" : "In six months").font(.subheadline).foregroundStyle(.secondary)
+   HStack(alignment: .firstTextBaseline, spacing: 8) {
+   Text("DOP").font(.subheadline).foregroundStyle(.secondary)
+   Text(CanvasChatCalculation.amount(CanvasChatCalculation.total)).font(CuadraoTypography.amount).monospacedDigit()
+   }
+   Divider()
+   HStack {
+   Text(es ? "Ver cálculo" : "View calculation")
+   Spacer(); Image(systemName: "chevron.right").font(.caption)
+   }.font(.subheadline)
+   }.padding(20).background(WelcomePalette.surface, in: RoundedRectangle(cornerRadius: 20))
+   }.buttonStyle(.plain).accessibilityIdentifier("chat-calculation")
+== ios/ArgusFoundation/Cuadrao/CuadraoChatCanvas.swift:101-107
+   Button {
+   if store.hasTemporaryContent { ending = true }
+   else { store.leaveTemporary(for: .newRegular) }
+   } label: {
+   Image("CuadraoNewChat").resizable().scaledToFit().frame(width: 20, height: 20)
+   .frame(width: 44, height: 44)
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/CuadraoChatCanvas.swift:121-124
+   Button { sheet = .share } label: {
+   Image("CuadraoShare").resizable().scaledToFit().frame(width: 20, height: 20)
+   .frame(width: 44, height: 44)
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/CuadraoChatCanvas.swift:258-261
+   Button { if sample == .document { sheet = .attachment("doc") } else { store.send(example: sample, spanish: es) } } label: {
+   Text(sample.title(es)).font(.subheadline).padding(.horizontal, 16).frame(minHeight: 44)
+   .overlay { Capsule().stroke(WelcomePalette.separator, lineWidth: 1) }
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/CuadraoChatCanvas.swift:364-373
+   Button {
+   tray = false
+   if symbol == "doc.viewfinder", let workspace = receiptWorkspace {
+   if store.temporary { temporaryReceipt = true }
+   else { workspace.capture(ReceiptOrigin(groupID: store.current.focus?.groupID, threadID: store.current.id), .scan) }
+   } else { sheet = .attachment(symbol) }
+   } label: {
+   VStack(spacing: 9) { Image(systemName: symbol).font(.title3); Text(title).font(.caption) }
+   .frame(maxWidth: .infinity, minHeight: 70)
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/CuadraoChatCanvas.swift:376-377
+   Button(action: action) { Image(systemName: symbol).font(.system(size: 19)).frame(width: 44, height: 44) }
+   .buttonStyle(.plain).accessibilityLabel(label).accessibilityIdentifier(id)
+== ios/ArgusFoundation/Cuadrao/CuadraoChatContext.swift:124-125
+   Button(action: remove) { Image(systemName: "xmark").frame(width: 44, height: 44) }
+   .buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/CuadraoCreateAccount.swift:69-81
+   Button {
+   signingIn.toggle()
+   } label: {
+   (Text(signingIn ? (spanish ? "¿Primera vez aquí? " : "New here? ")
+   : (spanish ? "¿Ya tienes cuenta? " : "Already have an account? "))
+   .foregroundColor(.secondary)
+   + Text(signingIn ? (spanish ? "Crea una cuenta" : "Create an account")
+   : (spanish ? "Inicia sesión" : "Sign in"))
+   .foregroundColor(WelcomePalette.pine).bold())
+   .font(.subheadline)
+   .frame(maxWidth: .infinity, minHeight: 48)
+   }
+   .buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/CuadraoEmailConfirmation.swift:38-46
+   NavigationLink {
+   CuadraoEmailSignIn(spanish: spanish, initialEmail: email)
+   } label: {
+   Text(spanish ? "Ir a iniciar sesión" : "Go to sign in")
+   .font(.body.weight(.semibold))
+   .frame(maxWidth: .infinity, minHeight: 56)
+   .foregroundStyle(WelcomePalette.onAccent)
+   .background(WelcomePalette.pine, in: RoundedRectangle(cornerRadius: 16))
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/CuadraoFirstAccountSheet.swift:129-136
+   Button { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { pickingType = true } } label: {
+   HStack(spacing: 14) {
+   CanvasAccountIcon(kind: kind)
+   Text(kind.title(spanish)).foregroundStyle(.primary)
+   Spacer()
+   Image(systemName: "chevron.down").font(.caption).foregroundStyle(.secondary)
+   }.padding(18).background(WelcomePalette.sage.opacity(0.65), in: RoundedRectangle(cornerRadius: 16))
+   }.buttonStyle(.plain).accessibilityLabel(spanish ? "Cambiar tipo, \(kind.title(spanish))" : "Change type, \(kind.title(spanish))")
+== ios/ArgusFoundation/Cuadrao/CuadraoFirstAccountSheet.swift:153-167
+   Button {
+   nameFocused = false
+   withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) {
+   kind = item; pickingType = false
+   }
+   if (item.isDebt || item.isAsset), (Decimal(string: amount) ?? 0) < 0 {
+   error = spanish ? "Introduce un monto positivo." : "Enter a positive amount."
+   }
+   } label: {
+   VStack(spacing: 11) {
+   CanvasAccountIcon(kind: item, size: 26)
+   Text(item.title(spanish)).font(.caption).multilineTextAlignment(.center).foregroundStyle(.primary)
+   }.frame(maxWidth: .infinity, minHeight: 91)
+   .background(kind == item ? WelcomePalette.sage : WelcomePalette.surface, in: RoundedRectangle(cornerRadius: 16))
+   }.buttonStyle(.plain).accessibilityIdentifier("account-type-" + item.rawValue)
+== ios/ArgusFoundation/Cuadrao/CuadraoHomeCanvas.swift:55-58
+   Button { sheet = .household } label: {
+   PlanAvatarStack(members: data.acceptedHouseholdMembers(spanish: spanish))
+   .frame(minHeight: 44)
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/CuadraoHomeCanvas.swift:244-249
+   Button { sheet = .account(.manageAccounts(editing: false)) } label: {
+   HStack(spacing: 8) {
+   sectionTitle(spanish ? "Cuentas" : "Accounts")
+   Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.secondary)
+   }.frame(minHeight: 44)
+   }.buttonStyle(.plain).accessibilityIdentifier("home-accounts-open")
+== ios/ArgusFoundation/Cuadrao/CuadraoHomeCanvas.swift:283-287
+   NavigationLink(value: HomeRoute.activity(entry.id)) {
+   feedRow(entry.title, detail: account.displayName(spanish),
+   amount: (entry.income ? "+" : "−") + CanvasMoney.format(entry.amount, currency: account.currency),
+   icon: entry.income ? "arrow.down.left" : "arrow.up.right")
+   }.buttonStyle(.plain).accessibilityIdentifier("home-activity.\(entry.id.uuidString)")
+== ios/ArgusFoundation/Cuadrao/CuadraoLiveVoiceCanvas.swift:81-91
+   Button { choosingVoice = true } label: {
+   Image(systemName: "slider.horizontal.3").font(.system(size: 20))
+   .frame(width: 48, height: 48)
+   .background(.ultraThinMaterial, in: Circle())
+   }.accessibilityLabel(es ? "Elegir voz" : "Choose voice")
+   .accessibilityIdentifier("voice-choose")
+   } else {
+   // Keeps the title centered while voice selection is off.
+   Color.clear.frame(width: 48, height: 48).accessibilityHidden(true)
+   }
+   }.buttonStyle(.plain).padding(.horizontal, 24).padding(.top, 12)
+== ios/ArgusFoundation/Cuadrao/CuadraoLiveVoiceCanvas.swift:106-109
+   Button { previewDetails = true } label: {
+   Label(es ? "Vista previa · Sin conexión" : "Preview · Not connected", systemImage: "info.circle")
+   .font(.caption).foregroundStyle(.secondary).frame(minHeight: 44)
+   }.buttonStyle(.plain).accessibilityIdentifier("voice-preview-info")
+== ios/ArgusFoundation/Cuadrao/CuadraoLiveVoiceCanvas.swift:114-118
+   Button(action: action) {
+   Image(systemName: symbol).font(.system(size: 22, weight: .regular))
+   .frame(width: 52, height: 52)
+   .background(selected ? WelcomePalette.sage : Color.clear, in: Circle())
+   }.buttonStyle(.plain).accessibilityIdentifier(id)
+== ios/ArgusFoundation/Cuadrao/CuadraoOrderedCollection.swift:50-51
+   Button(spanish ? "Archivar" : "Archive", systemImage: "archivebox") { archive(item) }
+   }.font(.caption).frame(minHeight: 44).buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/CuadraoProfileAvatar.swift:90-101
+   return Button { select(style) } label: {
+   VStack(spacing: 6) {
+   CanvasProfileAvatar(name: name, style: style)
+   .overlay(alignment: .bottomTrailing) {
+   if avatar == style {
+   Image(systemName: "checkmark.circle.fill")
+   .foregroundStyle(WelcomePalette.pine, WelcomePalette.background)
+   }
+   }
+   Text(title).font(.caption).foregroundStyle(.primary)
+   }.frame(minHeight: 88)
+   }.buttonStyle(.plain).accessibilityLabel(title)
+== ios/ArgusFoundation/Cuadrao/CuadraoProfileCanvas.swift:161-163
+   NavigationLink(value: route) {
+   CanvasProfileRow(route: route, spanish: spanish)
+   }.buttonStyle(.plain).accessibilityIdentifier("cuadrao.profile.\(route)")
+== ios/ArgusFoundation/Cuadrao/CuadraoSearchCanvas.swift:90-92
+   NavigationLink(value: Route.account(account.id)) {
+   resultRow(account.displayName(spanish), detail: subtitle(account), accountKind: account.kind)
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/CuadraoSearchCanvas.swift:100-104
+   NavigationLink(value: Route.activity(entry.id)) {
+   resultRow(entry.title, detail: account.displayName(spanish) + " · " + account.currency + " "
+   + (entry.income ? "+" : "−") + CanvasMoney.format(entry.amount, currency: account.currency),
+   symbol: entry.income ? "arrow.down.left" : nil, category: entry.income ? nil : entry.category)
+   }.buttonStyle(.plain).accessibilityIdentifier("cuadrao.search.activity.\(entry.id)")
+== ios/ArgusFoundation/Cuadrao/CuadraoSearchCanvas.swift:112-116
+   NavigationLink(value: Route.plan(plan.id)) {
+   resultRow(plan.name, detail: [plan.kind.title(spanish),
+   PlanFormat.space(plan.spaceID, accounts: data, spanish: spanish),
+   plan.archived ? (spanish ? "Archivado" : "Archived") : nil].compactMap { $0 }.joined(separator: " · "), symbol: plan.look.symbol)
+   }.buttonStyle(.plain).accessibilityIdentifier("cuadrao.search.plan.\(plan.id)")
+== ios/ArgusFoundation/Cuadrao/CuadraoSearchCanvas.swift:120-123
+   NavigationLink(value: Route.group(group.id)) {
+   resultRow(group.name, detail: [group.kind.title(spanish), group.currency,
+   group.archived ? (spanish ? "Archivado" : "Archived") : nil].compactMap { $0 }.joined(separator: " · "), symbol: group.look.symbol)
+   }.buttonStyle(.plain).accessibilityIdentifier("cuadrao.search.group.\(group.id)")
+== ios/ArgusFoundation/Cuadrao/CuadraoSearchCanvas.swift:133-135
+   Button { focused = false; openChat(thread) } label: {
+   resultRow(item.title, detail: item.detail, date: thread.lastMessageDate, symbol: "bubble.left")
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/CuadraoSearchCanvas.swift:137-139
+   NavigationLink(value: Route.reference(item.id)) {
+   resultRow(item.title, detail: item.detail, symbol: item.kind == .memory ? "brain" : "doc")
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/CuadraoSearchCanvas.swift:153-160
+   Button { kind = value; focused = false } label: {
+   Text(title(value)).font(.subheadline)
+   .foregroundStyle(kind == value ? Color.primary : .secondary)
+   .frame(minHeight: 44)
+   .overlay(alignment: .bottom) {
+   Rectangle().fill(kind == value ? WelcomePalette.pine : .clear).frame(height: 2)
+   }
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/CuadraoSpacesSheet.swift:10-14
+   NavigationLink {
+   CuadraoHouseholdIntroduction(data: data, spanish: spanish, finished: { dismiss() })
+   } label: {
+   spaceChoice(.household, subtitle: spanish ? "Lo que comparten en casa" : "What you share at home")
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/CuadraoSpacesSheet.swift:17-23
+   NavigationLink {
+   CuadraoSpaceNameForm(data: data, kind: kind, spanish: spanish, finished: { dismiss() })
+   } label: {
+   spaceChoice(kind, subtitle: kind == .business
+   ? (spanish ? "Tus finanzas del negocio" : "Your business finances")
+   : (spanish ? "Un espacio a tu manera" : "A space of your own"))
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/CuadraoSpacesSheet.swift:26-31
+   NavigationLink {
+   CuadraoManageSpaces(data: data, spanish: spanish, open: { dismiss() })
+   } label: {
+   Label(spanish ? "Gestionar espacios" : "Manage spaces", systemImage: "slider.horizontal.3")
+   .font(.subheadline).foregroundStyle(.secondary).frame(minHeight: 52)
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/CuadraoSpendingChart.swift:204-205
+   Button(spanish ? "Todo" : "All") { selectedCategory = nil }
+   .frame(minHeight: 44).buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/CuadraoSpendingTrends.swift:20-45
+   NavigationLink {
+   CuadraoSpendingTrendEvidence(insight: insight, story: story, currency: currency, spanish: spanish)
+   } label: {
+   VStack(alignment: .leading, spacing: 16) {
+   HStack(spacing: 12) {
+   if let category = insight.category { CuadraoExpenseCategoryIcon(category: category) }
+   else { Image(systemName: "chart.bar.xaxis").font(.title3).foregroundStyle(color).frame(width: 42, height: 42).background(color.opacity(0.1), in: RoundedRectangle(cornerRa
+   Text(insight.category?.title(spanish) ?? (spanish ? "Promedio de \(insight.months.count) meses" : "\(insight.months.count)-month average"))
+   .font(CuadraoTypography.supporting).foregroundStyle(color)
+   Spacer(minLength: 0)
+   Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
+   }
+   Text(statement).font(CuadraoTypography.body).fixedSize(horizontal: false, vertical: true)
+   Divider()
+   chart
+   if insight.kind == .trend {
+   HStack(alignment: .top, spacing: 16) {
+   reference(insight.priorAverage, title: spanish ? "9 meses anteriores" : "Previous 9 months", color: .secondary)
+   Spacer(minLength: 0)
+   reference(insight.recentAverage, title: spanish ? "3 meses recientes" : "Recent 3 months", color: color)
+   }
+   } else { reference(insight.average, title: spanish ? "por mes" : "per month", color: color) }
+   Text(windowLabel).font(CuadraoTypography.caption).foregroundStyle(.secondary)
+   }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+   .background(WelcomePalette.surface, in: RoundedRectangle(cornerRadius: 24))
+   }.buttonStyle(.plain).accessibilityIdentifier("home-highlight-" + insight.id)
+== ios/ArgusFoundation/Cuadrao/CuadraoUpdatesCanvas.swift:100-104
+   Button {
+   guard items.contains(item) else { return }
+   readIDs.insert(item); path.append(item)
+   } label: { row(item) }
+   .buttonStyle(.plain).listRowBackground(Color.clear)
+== ios/ArgusFoundation/Cuadrao/CuadraoVoiceBar.swift:38-42
+   Button { voice.end() } label: {
+   Image(systemName: "xmark").frame(width: 44, height: 48)
+   }.accessibilityLabel(spanish ? "Terminar conversación de voz" : "End voice conversation")
+   .accessibilityIdentifier("voice-end-compact")
+   }.buttonStyle(.plain).foregroundStyle(WelcomePalette.ink)
+== ios/ArgusFoundation/Cuadrao/CuadraoVoiceMessagePanel.swift:107-114
+   Button { message.stop() } label: {
+   Label(es ? "Detener" : "Stop", systemImage: "stop.fill")
+   .font(CuadraoTypography.action).fixedSize(horizontal: false, vertical: true)
+   .padding(.horizontal, 22).padding(.vertical, 10).frame(minHeight: 48)
+   .foregroundStyle(WelcomePalette.onAccent)
+   .background(WelcomePalette.pine, in: Capsule())
+   }.accessibilityIdentifier("voice-message-stop")
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/CuadraoVoicePicker.swift:112-122
+   Button { sample.toggle(selected) } label: {
+   HStack(spacing: 8) {
+   Image(systemName: sample.playing == selected ? "stop.fill" : "play.fill")
+   .font(.system(size: 12, weight: .semibold))
+   Text(sample.playing == selected
+   ? (spanish ? "Detener muestra" : "Stop preview")
+   : (spanish ? "Escuchar muestra" : "Play preview"))
+   .font(.subheadline.weight(.medium))
+   }.frame(minWidth: 180, minHeight: 44)
+   .background(WelcomePalette.surface, in: Capsule())
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/Planning/CuadraoGroupExpenseEditor.swift:73-78
+   Button {
+   if selected.contains(member.id) { selected.remove(member.id) } else { selected.insert(member.id) }
+   } label: {
+   HStack { Image(systemName: selected.contains(member.id) ? "checkmark.circle.fill" : "circle"); PlanMemberAvatar(member: member, index: index); Text(member.name) }
+   .frame(minHeight: 44)
+   }.buttonStyle(.plain).accessibilityLabel("\(member.name), \(selected.contains(member.id) ? (spanish ? "incluido" : "included") : (spanish ? "excluido" : "excluded"))")
+== ios/ArgusFoundation/Cuadrao/Planning/CuadraoPlanCanvas.swift:122-129
+   NavigationLink {
+   CuadraoForecastPlayground(store: store, scope: scope, scopeName: scopeName, spanish: spanish, bottomSpace: bottomSpace)
+   } label: {
+   HStack {
+   Text(spanish ? "Explorar escenarios" : "Explore scenarios")
+   Image(systemName: "chevron.right").font(.caption2).accessibilityHidden(true)
+   }.font(CuadraoTypography.supporting).foregroundStyle(.secondary).frame(minHeight: 44)
+   }.buttonStyle(.plain).accessibilityIdentifier("plan-explore")
+== ios/ArgusFoundation/Cuadrao/Planning/CuadraoPlanVisuals.swift:35-42
+   Button(action: action) {
+   HStack(spacing: 8) {
+   Text(title)
+   if let symbol { Image(systemName: symbol) }
+   }.font(CuadraoTypography.action).frame(maxWidth: .infinity, minHeight: 52)
+   .foregroundStyle(WelcomePalette.onAccent)
+   .background(WelcomePalette.pine, in: Capsule())
+   }.buttonStyle(.plain)
+== ios/ArgusFoundation/Cuadrao/Planning/PlanCurrencyChoice.swift:1-18
+   import SwiftUI
+
+   struct PlanCurrencyChoice: View {
+   @Binding var currency: String
+   let locked: Bool
+   let spanish: Bool
+   var showLock = true
+   var body: some View {
+   if locked {
+   CuadraoChoiceLabel(title: currency, selectable: false, locked: showLock)
+   .foregroundStyle(.secondary)
+   .accessibilityElement(children: .ignore)
+   .accessibilityLabel(spanish ? "Moneda fija: \(currency)" : "Fixed currency: \(currency)")
+   .accessibilityIdentifier(showLock ? "plan-currency-fixed" : "plan-currency-inherited")
+   } else {
+   CuadraoChoiceMenu(title: spanish ? "Moneda" : "Currency", selection: $currency,
+   values: PlanCurrency.supported, valueTitle: { $0 })
+   .buttonStyle(.plain).foregroundStyle(WelcomePalette.pine)
+== ios/ArgusFoundation/Cuadrao/Receipts/CuadraoReceiptReview.swift:301-313
+   Button {
+   guard let index = draft.lines.firstIndex(where: { $0.id == line.id }) else { return }
+   if draft.lines[index].members.contains(member.id) { draft.lines[index].members.remove(member.id) }
+   else { draft.lines[index].members.insert(member.id) }
+   } label: {
+   HStack(spacing: 6) {
+   Image(systemName: line.members.contains(member.id) ? "checkmark.circle.fill" : "circle")
+   Text(member.name)
+   }
+   .font(.subheadline).fixedSize(horizontal: !vertical, vertical: true)
+   .padding(.horizontal, 8).frame(minHeight: 44)
+   .background(line.members.contains(member.id) ? WelcomePalette.sage : .clear, in: Capsule())
+   }.buttonStyle(.plain).accessibilityIdentifier("receipt-assign-\(draft.lines.firstIndex(where: { $0.id == line.id }) ?? 0)-\(group.activeMembers.firstIndex(where: { $0.id
+== ios/ArgusFoundation/Cuadrao/Receipts/CuadraoReceiptSupport.swift:130-142
+   Button(action: open) {
+   HStack(spacing: 14) {
+   Image(systemName: draft.prepared ? "receipt" : "checkmark.seal").frame(width: 40, height: 44)
+   .foregroundStyle(WelcomePalette.pine)
+   VStack(alignment: .leading, spacing: 4) {
+   Text(draft.merchant.isEmpty ? (spanish ? "Recibo guardado" : "Saved receipt") : draft.merchant).font(CuadraoTypography.supporting)
+   Text(draft.prepared ? (spanish ? "Por revisar · solo tú" : "Ready to review · only you") : (spanish ? "Confirmado" : "Confirmed")).font(.caption).foregroundStyle(.seconda
+   }
+   Spacer()
+   if draft.total > 0, let currency = draft.currency { Text(CanvasMoney.format(Decimal(draft.total) / 100, currency: currency)).font(CuadraoTypography.rowAmount) }
+   Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.secondary)
+   }.foregroundStyle(WelcomePalette.ink).padding(12).background(WelcomePalette.surface, in: RoundedRectangle(cornerRadius: 18))
+   }.buttonStyle(.plain).accessibilityIdentifier("receipt-card-\(draft.id)")
+== ios/ArgusFoundation/DesignSystem.swift:119-120
+   Button(action: action) { content }
+   .buttonStyle(.plain)
+== ios/ArgusFoundation/FoundationSheets.swift:38-44
+   NavigationLink {
+   AppearancePreferencesView(appearance: $appearance)
+   .modifier(SheetCloseToolbar(close: { dismiss() }))
+   } label: {
+   SampleRow(title: "profile.preferences", subtitle: "profile.preferences.detail", symbol: "paintpalette")
+   }
+   .buttonStyle(.plain)
+== ios/ArgusFoundation/Plan/FinancialBudgetView.swift:126-127
+   Button { model.activity(item.activityId) } label: { contributor(item) }
+   .buttonStyle(.plain).id(item.activityId).accessibilityIdentifier("budget.activity." + item.activityId.uuidString)
+== ios/ArgusFoundation/Plan/FinancialPlanView.swift:38-43
+   Button { model.section = item } label: {
+   Text(item.title).font(ArgusStyle.body(14, relativeTo: .subheadline))
+   .frame(minWidth: 44, minHeight: 48)
+   .foregroundStyle(model.section == item ? ArgusStyle.ink : ArgusStyle.secondary)
+   .overlay(alignment: .bottom) { Rectangle().fill(model.section == item ? ArgusStyle.ink : .clear).frame(height: 1) }
+   }.buttonStyle(.plain).accessibilityIdentifier("plan." + item.rawValue)
+== ios/ArgusFoundation/Plan/FinancialPlanView.swift:120-121
+   Button { Task { await model.open(occurrence) } } label: { FinancialOccurrenceRow(occurrence: occurrence) }
+   .buttonStyle(.plain).accessibilityIdentifier("plan.occurrence." + occurrence.id)
+== ios/ArgusFoundation/Plan/FinancialPlanView.swift:294-294
+   Button(action: viewPlan) { FinancialOccurrenceRow(occurrence: occurrence) }.buttonStyle(.plain)
+== ios/ArgusFoundation/ReleaseUI/Identity/ReleaseSocialSignInView.swift:66-80
+   Button { onSignIn(provider, pendingInvite) } label: {
+   HStack(spacing: 10) {
+   if provider == .apple { Image(systemName: "apple.logo").accessibilityHidden(true) }
+   Text(text("Continuar con \(provider.title)", "Continue with \(provider.title)"))
+   .multilineTextAlignment(.center)
+   }
+   .font(CuadraoTypography.action)
+   .padding(.horizontal, 16).padding(.vertical, 14)
+   .frame(maxWidth: .infinity, minHeight: 52)
+   .foregroundStyle(provider == .apple ? Color(uiColor: .systemBackground) : Color.primary)
+   .background(provider == .apple ? Color.primary : Color(uiColor: .secondarySystemBackground),
+   in: RoundedRectangle(cornerRadius: 14))
+   .overlay { RoundedRectangle(cornerRadius: 14).stroke(Color(uiColor: .separator), lineWidth: 0.5) }
+   }
+   .buttonStyle(.plain).disabled(state.isBusy)
+== ios/ArgusFoundation/ReleaseUI/Updates/ReleaseUpdatesInbox.swift:34-38
+   NavigationLink {
+   detail(item)
+   .onAppear { if !item.isRead { markRead(item.id) } }
+   } label: { row(item) }
+   .buttonStyle(.plain).accessibilityIdentifier("updates-row-" + item.id)
+== ios/ArgusFoundation/Search/FinancialSearchView.swift:94-101
+   Button { focused = false; model.update(kind: .some(kind)) } label: {
+   Text(LocalizedStringKey("search.filter." + (kind?.rawValue ?? "all")))
+   .font(ArgusStyle.body(14)).frame(minWidth: 44, minHeight: 48)
+   .foregroundStyle(model.origin.kind == kind ? WelcomePalette.pine : ArgusStyle.secondary)
+   .overlay(alignment: .bottom) {
+   Rectangle().fill(model.origin.kind == kind ? WelcomePalette.pine : .clear).frame(height: 2)
+   }
+   }.buttonStyle(.plain).accessibilityIdentifier("search.filter." + (kind?.rawValue ?? "all"))
+== ios/ArgusFoundation/Search/FinancialSearchView.swift:128-130
+   Button { focused = false; Task { await model.open(hit, accounts: accounts, loop: loop) } } label: {
+   FinancialSearchRow(hit: hit)
+   }.buttonStyle(.plain).disabled(model.opening)

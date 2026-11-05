@@ -1,0 +1,20 @@
+{
+  "source_head": "09a179f00b89968921d9a8f997eee53d19879f5a",
+  "build_result": "PASS",
+  "changed_info_keys": [
+    "ARGUS_CAPTCHA_URL"
+  ],
+  "captcha_url": "https://cuadrao-web-staging.onrender.com/auth/native-captcha",
+  "api_url": "https://cuadrao-api-staging.onrender.com",
+  "web_url": "http://127.0.0.1:59485",
+  "bundle_id": "local.argus.consumer.staging",
+  "override_sha256": "c3b41bd93299dc46a3dddb924aac45b56db397d6774b0cb15414f9b75226d349",
+  "executable_sha256": "00b33dfcde5d600dccd6a8dbcaf4e5e42758f639230f4bc72b1fd6113a04b03b",
+  "log_sha256": "bbb0cafd840c696d4d8d0e05b99acc8aff7e109b0dd5c3cdc2e0f96526a3bf18",
+  "products": "/Users/garces/.codex/worktrees/4a54/private-alpha-next/ios/.build/consumer-staging/core-native-captcha-20261011/Candidate.xctestproducts",
+  "installed": false,
+  "launched": false,
+  "challenge_attempts": 0,
+  "authentication_attempts": 0,
+  "hosted_changes": false
+}

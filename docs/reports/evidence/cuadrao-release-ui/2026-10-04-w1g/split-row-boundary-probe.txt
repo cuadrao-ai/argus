@@ -1,0 +1,92 @@
+# testSplitBoundaryProbe on iPhone 18 Pro (8AFB6084-8918-416E-9164-E21061306BEC), sources = commit tree with the overlay removed
+# run 1 asserted no toggle anywhere in the gap and failed on taps 2 to 12 pt past the label (system touch tolerance); run 2 asserts no toggle within 44 pt of the money field and passed
+# run 1
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=135.333345413208 toggled=true keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=139.333345413208 toggled=true keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=145.333345413208 toggled=true keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=219.666672706604 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=262.0 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=270.0 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=274.0 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=278.0 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=282.0 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=286.0 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=290.0 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=294.0 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=298.0 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=302.0 toggled=false keyboard=false
+splitprobe mode=equal label dx=0.1 x=36.43333396911621 toggled=true
+splitprobe mode=equal label dx=0.5 x=79.5000057220459 toggled=true
+splitprobe mode=equal label dx=0.9 x=122.56667747497559 toggled=true
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=135.333345413208 toggled=true keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=139.333345413208 toggled=true keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=145.333345413208 toggled=true keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=185.666672706604 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=194.0 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=202.0 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=206.0 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=210.0 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=214.0 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=218.0 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=222.0 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=226.0 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=230.0 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=234.0 toggled=false keyboard=false
+splitprobe mode=exact label dx=0.1 x=36.43333396911621 toggled=true
+splitprobe mode=exact label dx=0.5 x=79.5000057220459 toggled=true
+splitprobe mode=exact label dx=0.9 x=122.56667747497559 toggled=true
+Test Case '-[ArgusFoundationUITests.ZZSplitRowProbeUITests testSplitBoundaryProbe]' failed (96.466 seconds).
+# run 2
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=135.333345413208 toggled=true keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=139.333345413208 toggled=true keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=143.333345413208 toggled=true keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=147.333345413208 toggled=true keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=149.333345413208 toggled=true keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=151.333345413208 toggled=true keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=153.333345413208 toggled=true keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=155.333345413208 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=157.333345413208 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=161.333345413208 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=165.333345413208 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=173.333345413208 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=219.666672706604 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=262.0 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=270.0 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=274.0 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=278.0 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=282.0 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=286.0 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=290.0 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=294.0 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=298.0 toggled=false keyboard=false
+splitprobe mode=equal labelMaxX=133.333345413208 trailingMinX=306.0 x=302.0 toggled=false keyboard=false
+splitprobe mode=equal label dx=0.1 x=36.43333396911621 toggled=true
+splitprobe mode=equal label dx=0.5 x=79.5000057220459 toggled=true
+splitprobe mode=equal label dx=0.9 x=122.56667747497559 toggled=true
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=135.333345413208 toggled=true keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=139.333345413208 toggled=true keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=143.333345413208 toggled=true keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=147.333345413208 toggled=true keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=149.333345413208 toggled=true keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=151.333345413208 toggled=true keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=153.333345413208 toggled=true keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=155.333345413208 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=157.333345413208 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=161.333345413208 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=165.333345413208 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=173.333345413208 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=185.666672706604 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=194.0 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=202.0 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=206.0 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=210.0 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=214.0 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=218.0 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=222.0 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=226.0 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=230.0 toggled=false keyboard=false
+splitprobe mode=exact labelMaxX=133.333345413208 trailingMinX=238.0 x=234.0 toggled=false keyboard=false
+splitprobe mode=exact label dx=0.1 x=36.43333396911621 toggled=true
+splitprobe mode=exact label dx=0.5 x=79.5000057220459 toggled=true
+splitprobe mode=exact label dx=0.9 x=122.56667747497559 toggled=true
+Test Case '-[ArgusFoundationUITests.ZZSplitRowProbeUITests testSplitBoundaryProbe]' passed (134.925 seconds).

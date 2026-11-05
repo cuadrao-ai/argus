@@ -1,0 +1,27 @@
+{
+  "before": {
+    "amount_minor": "2000",
+    "currency": "DOP",
+    "applied_minor": "2000",
+    "status": "current"
+  },
+  "actual_legs": [
+    {
+      "role": "source",
+      "amount_minor": 100,
+      "currency": "USD"
+    },
+    {
+      "role": "destination",
+      "amount_minor": 6000,
+      "currency": "DOP"
+    }
+  ],
+  "disclosed_without_private_account_access": {
+    "amount_minor": null,
+    "currency": "DOP",
+    "applied_minor": null,
+    "status": "needs_review",
+    "original": null
+  }
+}

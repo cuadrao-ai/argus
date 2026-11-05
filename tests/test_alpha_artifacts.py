@@ -322,14 +322,11 @@ def test_active_openapi_uses_alpha_contract_names() -> None:
     for path in (
         "/api/v1/me",
         "/api/v1/conversations",
-        "/api/v1/chat/stream",
-        "/api/v1/backtests/run",
         "/api/v1/history",
     ):
         assert path in text
     assert "/api/v1/collections" not in text
     assert "/api/v1/strategies" not in text
-    assert "conversation_result_card" in text
     assert "backtest_runs" in text
     assert "portfolios" not in text.lower()
     assert "simulations" not in text.lower()
@@ -342,7 +339,6 @@ def test_active_openapi_uses_alpha_contract_names() -> None:
 
 
 def test_guest_identity_policy_contract_is_active_across_canon_and_openapi() -> None:
-    product = (ROOT / "docs" / "PRODUCT.md").read_text(encoding="utf-8")
     architecture = (ROOT / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
     api_contract = (ROOT / "docs" / "API_CONTRACT.md").read_text(encoding="utf-8")
     data_model = (ROOT / "docs" / "DATA_MODEL.md").read_text(encoding="utf-8")
@@ -353,14 +349,11 @@ def test_guest_identity_policy_contract_is_active_across_canon_and_openapi() -> 
         (ROOT / "docs" / "api" / "openapi.yaml").read_text(encoding="utf-8")
     )
 
-    assert "Guest Entry (Default-On Kill Switch)" in product
-    assert "`ARGUS_GUEST_ACCESS_ENABLED=true`" in product
     # The flag's value belongs to the release profile, asserted against every
     # standing doc by test_private_alpha_release_docs.py. Pinning it here too
     # is what let PRODUCT.md keep claiming `false` after production opened.
-    assert "ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED" in product
-    assert "ARGUS_GUEST_ACCESS_ENABLED" in architecture
-    assert "ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED" in architecture
+    assert "CUADRAO_GUEST_ACCESS_ENABLED" in architecture
+    assert "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED" in architecture
     assert "`POST /api/v1/auth/guest`" in api_contract
     assert "`POST /api/v1/auth/guest/signup`" in api_contract
     assert "`POST /api/v1/auth/guest/handoffs`" in api_contract
@@ -411,42 +404,6 @@ def test_guest_identity_policy_contract_is_active_across_canon_and_openapi() -> 
     assert (
         "avatar_theme" not in openapi["components"]["schemas"]["GuestUser"]["properties"]
     )
-
-
-def test_backtests_run_openapi_requires_idempotency_key() -> None:
-    openapi = ROOT / "docs" / "api" / "openapi.yaml"
-
-    document = yaml.safe_load(openapi.read_text(encoding="utf-8"))
-    operation = document["paths"]["/api/v1/backtests/run"]["post"]
-    parameters = {
-        parameter["name"]: parameter for parameter in operation.get("parameters", [])
-    }
-    idempotency = parameters["Idempotency-Key"]
-    assert idempotency["in"] == "header"
-    assert idempotency["required"] is True
-    assert idempotency["schema"] == {"type": "string"}
-
-
-def test_by_action_backtest_job_lookup_is_declared_in_openapi() -> None:
-    openapi = ROOT / "docs" / "api" / "openapi.yaml"
-    contract = yaml.safe_load(openapi.read_text(encoding="utf-8"))
-
-    operation = contract["paths"]["/api/v1/backtest-jobs/by-action/{confirmation_id}"][
-        "get"
-    ]
-
-    assert operation["parameters"] == [
-        {
-            "name": "confirmation_id",
-            "in": "path",
-            "required": True,
-            "schema": {"type": "string"},
-        }
-    ]
-    assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
-        "$ref": "#/components/schemas/BacktestJobResponse"
-    }
-    assert {"404", "409", "500"}.issubset(operation["responses"])
 
 
 def test_logout_openapi_declares_browser_origin_rejection() -> None:
@@ -503,10 +460,22 @@ def test_authenticated_openapi_declares_session_verification_unavailable() -> No
             operation = path_contract.get(method)
             if operation is None:
                 continue
-            if path == "/api/v1/backtests/run":
+            if path == "/api/v1/me":
                 response = operation["responses"]["503"]
                 assert "auth_session_verification_unavailable" in response["description"]
-                assert "market_data_unavailable" in response["description"]
+                assert "apple_identity_unavailable" in response["description"]
+                assert response["content"]["application/json"]["schema"] == {
+                    "$ref": "#/components/schemas/Error"
+                }
+                continue
+            if path in {"/api/v1/account/delete", "/api/v1/account/deletion"}:
+                # Lane 6: the deletion POST adds its own 503s (note 7); the
+                # check before it says only that it is unavailable.
+                response = operation["responses"]["503"]
+                assert "auth_session_verification_unavailable" in response["description"]
+                if path.endswith("/delete"):
+                    assert "account_deletion_incomplete" in response["description"]
+                assert "account_deletion_unavailable" in response["description"]
                 assert response["content"]["application/json"]["schema"] == {
                     "$ref": "#/components/schemas/Error"
                 }
@@ -534,17 +503,6 @@ def test_api_contract_documents_recovery_transport_rejections() -> None:
     assert "4,096 bytes" in recovery_contract
     assert "`415 Unsupported Media Type`" in recovery_contract
     assert "`application/json`" in recovery_contract
-
-
-def test_chat_stream_openapi_declares_stale_action_problem_response() -> None:
-    document = yaml.safe_load(
-        (ROOT / "docs" / "api" / "openapi.yaml").read_text(encoding="utf-8")
-    )
-
-    responses = document["paths"]["/api/v1/chat/stream"]["post"]["responses"]
-    stale = responses["409"]["content"]["application/json"]
-    assert stale["schema"] == {"$ref": "#/components/schemas/Error"}
-    assert list(responses["200"]["content"]) == ["text/event-stream"]
 
 
 def test_supabase_migration_matches_alpha_data_model() -> None:

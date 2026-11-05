@@ -94,7 +94,7 @@ test.describe("issue-248 session scope journeys (local real auth)", () => {
     // The sidebar may start collapsed and its hover behavior can swallow the
     // first toggle, so expand it and re-open the menu once if needed.
     const openProfileMenu = async () => {
-      const expand = a.page.getByRole("button", { name: "Expand sidebar" });
+      const expand = a.page.getByRole("button", { name: "Expand", exact: true });
       if (await expand.isVisible().catch(() => false)) {
         await expand.click();
       }

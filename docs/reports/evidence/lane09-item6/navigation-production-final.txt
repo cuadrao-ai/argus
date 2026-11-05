@@ -1,0 +1,25 @@
+(node:53071) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[WebServer] (node:53086) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 11 tests using 1 worker
+
+(node:53110) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:53110) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:53110) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [chromium] › e2e/business-clutter.spec.ts:30:7 › action first and one inbox subhead at 1280px (1.3s)
+  ✓   2 [chromium] › e2e/business-clutter.spec.ts:30:7 › action first and one inbox subhead at 390px (1.2s)
+  ✓   3 [chromium] › e2e/business-clutter.spec.ts:53:7 › empty inbox requires saved approval proof for new (727ms)
+  ✓   4 [chromium] › e2e/business-clutter.spec.ts:53:7 › empty inbox requires saved approval proof for approved (726ms)
+  ✓   5 [chromium] › e2e/business-clutter.spec.ts:53:7 › empty inbox requires saved approval proof for dismissed (720ms)
+  ✓   6 [chromium] › e2e/business-clutter.spec.ts:53:7 › empty inbox requires saved approval proof for filtered (723ms)
+  ✓   7 [chromium] › e2e/business-clutter.spec.ts:53:7 › empty inbox requires saved approval proof for unknown (723ms)
+  ✓   8 [chromium] › e2e/business-clutter.spec.ts:53:7 › empty inbox requires saved approval proof for unapproved (723ms)
+  ✓   9 [chromium] › e2e/business-clutter.spec.ts:53:7 › empty inbox requires saved approval proof for unavailable (720ms)
+  ✓  10 [chromium] › e2e/business-clutter.spec.ts:62:5 › English keeps the existing empty copy (716ms)
+  ✓  11 [chromium] › e2e/business-navigation-focus.spec.ts:5:5 › production approve-next keeps the next receipt title focused (1.8s)
+
+  11 passed (10.8s)

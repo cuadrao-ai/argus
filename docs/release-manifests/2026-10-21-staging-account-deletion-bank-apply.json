@@ -1,0 +1,15 @@
+{
+  "id": "staging-apply-2026-10-21-account-deletion-bank",
+  "project_ref": "skedzwocnmrhfigiwyzi",
+  "hosts": [
+    "db.skedzwocnmrhfigiwyzi.supabase.co",
+    "aws-0-us-east-1.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "59f58326f50463bf88f48cbdb39288a2d384341d",
+  "versions_sha256": "b6654ddf962247741ac2d54d815d686608725da46150106e827b85fa6931703b",
+  "issued_at": "2026-10-21T22:05:00Z",
+  "expires_at": "2026-10-24T22:05:00Z",
+  "approved_by": "founder",
+  "approval_reference": "Lucas standing rule, 2026-10-21, staging only, verbatim: \"any migration whose PR got Eval SHIP may be applied to staging skedzwocnmrhfigiwyzi only, with a committed approval record and a dry run first, before that PR merges. Never prod. Tell me after each one.\" #1357 Eval SHIP at 59f58326f50463bf88f48cbdb39288a2d384341d: https://github.com/lagarcess/argus/pull/1357#issuecomment-6327560059"
+}

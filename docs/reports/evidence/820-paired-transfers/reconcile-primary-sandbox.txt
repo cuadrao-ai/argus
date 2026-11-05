@@ -1,0 +1,221 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: <worker-checkout>
+configfile: pyproject.toml
+plugins: benchmark-5.2.3, mock-3.15.1, Faker-30.10.0, asyncio-1.4.0, hypothesis-6.151.12, langsmith-0.7.31, respx-0.23.1, cov-7.0.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 346 items
+
+tests/test_environment_scripts.py ...................................... [ 10%]
+..........                                                               [ 13%]
+tests/test_private_alpha_release_profile.py ..............               [ 17%]
+tests/test_render_release_profile_contract.py ..........                 [ 20%]
+tests/test_release_environment_membership.py ..                          [ 21%]
+tests/test_paired_transfers_postgres.py sss                              [ 22%]
+tests/test_apple_identity.py ...........                                 [ 25%]
+tests/test_apple_sign_in_api.py ..............................           [ 34%]
+tests/test_apple_sign_in_client.py ..................................... [ 44%]
+...                                                                      [ 45%]
+tests/test_openapi_compatibility.py ........................             [ 52%]
+tests/test_home_country.py .................................             [ 62%]
+tests/test_alpha_api_supabase.py ....................................... [ 73%]
+.....................................................................    [ 93%]
+tests/test_private_alpha_canary_split.py .........FFFFFF...FFFFF         [100%]
+
+=================================== FAILURES ===================================
+_ test_session_tool_mints_private_storage_state_and_revokes_it[immediate-close] _
+tests/test_private_alpha_canary_split.py:435: in test_session_tool_mints_private_storage_state_and_revokes_it
+    with _supabase_session_stub(
+<python-runtime>/lib/python3.11/contextlib.py:137: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/test_private_alpha_canary_split.py:238: in _supabase_session_stub
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<python-runtime>/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+<python-runtime>/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+<python-runtime>/lib/python3.11/socketserver.py:472: in server_bind
+    self.socket.bind(self.server_address)
+E   PermissionError: [Errno 1] Operation not permitted
+_ test_session_tool_mints_private_storage_state_and_revokes_it[delayed-close] __
+tests/test_private_alpha_canary_split.py:435: in test_session_tool_mints_private_storage_state_and_revokes_it
+    with _supabase_session_stub(
+<python-runtime>/lib/python3.11/contextlib.py:137: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/test_private_alpha_canary_split.py:238: in _supabase_session_stub
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<python-runtime>/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+<python-runtime>/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+<python-runtime>/lib/python3.11/socketserver.py:472: in server_bind
+    self.socket.bind(self.server_address)
+E   PermissionError: [Errno 1] Operation not permitted
+____ test_session_tool_retries_a_transient_allowlist_lookup_and_reports_it _____
+tests/test_private_alpha_canary_split.py:501: in test_session_tool_retries_a_transient_allowlist_lookup_and_reports_it
+    with _supabase_session_stub(
+<python-runtime>/lib/python3.11/contextlib.py:137: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/test_private_alpha_canary_split.py:238: in _supabase_session_stub
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<python-runtime>/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+<python-runtime>/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+<python-runtime>/lib/python3.11/socketserver.py:472: in server_bind
+    self.socket.bind(self.server_address)
+E   PermissionError: [Errno 1] Operation not permitted
+____ test_session_tool_revokes_a_minted_session_that_fails_least_privilege _____
+tests/test_private_alpha_canary_split.py:552: in test_session_tool_revokes_a_minted_session_that_fails_least_privilege
+    with _supabase_session_stub(
+<python-runtime>/lib/python3.11/contextlib.py:137: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/test_private_alpha_canary_split.py:238: in _supabase_session_stub
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<python-runtime>/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+<python-runtime>/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+<python-runtime>/lib/python3.11/socketserver.py:472: in server_bind
+    self.socket.bind(self.server_address)
+E   PermissionError: [Errno 1] Operation not permitted
+__ test_session_tool_preserves_a_private_retry_handoff_when_revocation_fails ___
+tests/test_private_alpha_canary_split.py:597: in test_session_tool_preserves_a_private_retry_handoff_when_revocation_fails
+    with _supabase_session_stub(
+<python-runtime>/lib/python3.11/contextlib.py:137: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/test_private_alpha_canary_split.py:238: in _supabase_session_stub
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<python-runtime>/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+<python-runtime>/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+<python-runtime>/lib/python3.11/socketserver.py:472: in server_bind
+    self.socket.bind(self.server_address)
+E   PermissionError: [Errno 1] Operation not permitted
+_________ test_session_tool_rejects_a_stale_admin_profile_before_mint __________
+tests/test_private_alpha_canary_split.py:659: in test_session_tool_rejects_a_stale_admin_profile_before_mint
+    with _supabase_session_stub(
+<python-runtime>/lib/python3.11/contextlib.py:137: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/test_private_alpha_canary_split.py:238: in _supabase_session_stub
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<python-runtime>/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+<python-runtime>/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+<python-runtime>/lib/python3.11/socketserver.py:472: in server_bind
+    self.socket.bind(self.server_address)
+E   PermissionError: [Errno 1] Operation not permitted
+_________ test_session_tool_provisions_only_a_safe_dedicated_identity __________
+tests/test_private_alpha_canary_split.py:804: in test_session_tool_provisions_only_a_safe_dedicated_identity
+    with _supabase_session_stub(
+<python-runtime>/lib/python3.11/contextlib.py:137: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/test_private_alpha_canary_split.py:238: in _supabase_session_stub
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<python-runtime>/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+<python-runtime>/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+<python-runtime>/lib/python3.11/socketserver.py:472: in server_bind
+    self.socket.bind(self.server_address)
+E   PermissionError: [Errno 1] Operation not permitted
+_____ test_session_tool_revokes_and_rolls_back_a_failed_profile_bootstrap ______
+tests/test_private_alpha_canary_split.py:864: in test_session_tool_revokes_and_rolls_back_a_failed_profile_bootstrap
+    with _supabase_session_stub(
+<python-runtime>/lib/python3.11/contextlib.py:137: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/test_private_alpha_canary_split.py:238: in _supabase_session_stub
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<python-runtime>/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+<python-runtime>/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+<python-runtime>/lib/python3.11/socketserver.py:472: in server_bind
+    self.socket.bind(self.server_address)
+E   PermissionError: [Errno 1] Operation not permitted
+______ test_session_tool_refuses_to_relabel_an_existing_unknown_identity _______
+tests/test_private_alpha_canary_split.py:907: in test_session_tool_refuses_to_relabel_an_existing_unknown_identity
+    with _supabase_session_stub(
+<python-runtime>/lib/python3.11/contextlib.py:137: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/test_private_alpha_canary_split.py:238: in _supabase_session_stub
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<python-runtime>/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+<python-runtime>/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+<python-runtime>/lib/python3.11/socketserver.py:472: in server_bind
+    self.socket.bind(self.server_address)
+E   PermissionError: [Errno 1] Operation not permitted
+______ test_session_tool_refuses_to_overwrite_an_elevated_allowlist_role _______
+tests/test_private_alpha_canary_split.py:945: in test_session_tool_refuses_to_overwrite_an_elevated_allowlist_role
+    with _supabase_session_stub(
+<python-runtime>/lib/python3.11/contextlib.py:137: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/test_private_alpha_canary_split.py:238: in _supabase_session_stub
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<python-runtime>/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+<python-runtime>/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+<python-runtime>/lib/python3.11/socketserver.py:472: in server_bind
+    self.socket.bind(self.server_address)
+E   PermissionError: [Errno 1] Operation not permitted
+______ test_session_tool_refuses_to_provision_over_a_stale_admin_profile _______
+tests/test_private_alpha_canary_split.py:983: in test_session_tool_refuses_to_provision_over_a_stale_admin_profile
+    with _supabase_session_stub(
+<python-runtime>/lib/python3.11/contextlib.py:137: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/test_private_alpha_canary_split.py:238: in _supabase_session_stub
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<python-runtime>/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+<python-runtime>/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+<python-runtime>/lib/python3.11/socketserver.py:472: in server_bind
+    self.socket.bind(self.server_address)
+E   PermissionError: [Errno 1] Operation not permitted
+=============================== warnings summary ===============================
+tests/test_alpha_api_supabase.py::test_unauthorized_revoked_supabase_session
+  <isolated-python>/lib/python3.11/site-packages/starlette/testclient.py:445: DeprecationWarning: Setting per-request cookies=<...> is being deprecated, because the expected behaviour on cookie persistence is ambiguous. Set cookies directly on the client instance instead.
+    return super().request(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_mints_private_storage_state_and_revokes_it[immediate-close]
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_mints_private_storage_state_and_revokes_it[delayed-close]
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_retries_a_transient_allowlist_lookup_and_reports_it
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_revokes_a_minted_session_that_fails_least_privilege
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_preserves_a_private_retry_handoff_when_revocation_fails
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_rejects_a_stale_admin_profile_before_mint
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_provisions_only_a_safe_dedicated_identity
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_revokes_and_rolls_back_a_failed_profile_bootstrap
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_refuses_to_relabel_an_existing_unknown_identity
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_refuses_to_overwrite_an_elevated_allowlist_role
+FAILED tests/test_private_alpha_canary_split.py::test_session_tool_refuses_to_provision_over_a_stale_admin_profile
+============ 11 failed, 332 passed, 3 skipped, 1 warning in 53.45s =============

@@ -1,0 +1,125 @@
+{
+  "calibration": {
+    "fixture_sha256": "dc0850207a6e8d325e73bb2ec9452088da1f5a44773f10bffe2b81d7dfba33c6",
+    "judge_model": "anthropic/claude-sonnet-5.5",
+    "report": "docs/reports/evidence/cuadrao-business-agent-20261012/judge-calibration-claude-sonnet-5.5.json",
+    "rubric_version": "cuadrao-business-reply-v2",
+    "status": "passed"
+  },
+  "candidate_sha": "434410e200cef9972849948defd14cfe1290eb1c",
+  "case_ids": {
+    "frozen": [
+      "es_owner_funds_no_receipt",
+      "en_funding_correction",
+      "es_owner_does_not_know_amount",
+      "es_cross_client_approval_injection",
+      "en_amount_not_supplied",
+      "en_replay_stale_and_current_grant",
+      "en_revoked_accountant_read"
+    ],
+    "varied": []
+  },
+  "cases": [
+    {
+      "case_id": "es_owner_funds_no_receipt",
+      "failed_checks": [],
+      "judge_receipts": [
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:57:31.647188+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2097,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 166,
+            "prompt_tokens": 3533,
+            "total_tokens": 3699
+          },
+          "usage_cost_usd": 0.008726
+        },
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:57:33.957622+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2310,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 173,
+            "prompt_tokens": 5273,
+            "total_tokens": 5446
+          },
+          "usage_cost_usd": 0.012276
+        },
+        {
+          "context_packet_ids": [],
+          "created_at": "2026-10-12T17:57:36.540464+00:00",
+          "failure_mode": null,
+          "fallback_model": "",
+          "fallback_used": false,
+          "latency_ms": 2582,
+          "mode": "json_schema",
+          "model": "anthropic/claude-sonnet-5.5",
+          "outcome": "succeeded",
+          "schema_name": "BusinessE1JudgeVerdict",
+          "task": "chat_composer",
+          "tier": "chat",
+          "token_usage": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0,
+            "completion_tokens": 167,
+            "prompt_tokens": 6788,
+            "total_tokens": 6955
+          },
+          "usage_cost_usd": 0.015246
+        }
+      ],
+      "kind": "frozen",
+      "status": "passed",
+      "total_cost_usd": 0.040978009999999995,
+      "total_latency_ms": 43645
+    }
+  ],
+  "frozen_fixture_sha256": "ae7f52c30847dde3587bbd2ac34a23089368150698f52de31714ac7293cef959",
+  "judge_model": "anthropic/claude-sonnet-5.5",
+  "measurement_kind": "invariant_measurement",
+  "runtime_model": "anthropic/claude-haiku-5.5",
+  "schema_version": "business_invariant_acceptance_v1",
+  "scope": "business",
+  "status": "passed",
+  "surface": {
+    "src/argus/agent_runtime/business/interpretation.py": {
+      "chars": 4610,
+      "entries": 6,
+      "sha256": "f8c5121a4acf1a9a486bcb62cc54f0aba2ee2058e8978e9920705baaafdeb666"
+    },
+    "src/argus/domain/business/tools/declarations.py": {
+      "chars": 428,
+      "entries": 7,
+      "sha256": "c3eab082a2014031d114c6a4398a4920c0280432b6160f4fad63bd7ad55327d3"
+    }
+  },
+  "totals": {
+    "failed": 0,
+    "passed": 1,
+    "unavailable": 0
+  },
+  "variety_fixture_sha256": "7fcc3e1246b4289981131541ceb954ceed8b887fe7647f182709c5ce64224874"
+}

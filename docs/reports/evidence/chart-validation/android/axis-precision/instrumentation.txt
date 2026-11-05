@@ -1,0 +1,6 @@
+
+ai.argus.chartprototype.ChartProofTest:........
+
+Time: 31.021
+
+OK (8 tests)

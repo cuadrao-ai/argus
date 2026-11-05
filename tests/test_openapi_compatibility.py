@@ -256,14 +256,14 @@ def test_required_parameter_drift_fails_with_named_difference(
     generated: dict, checked: dict
 ) -> None:
     broken = copy.deepcopy(checked)
-    run_parameters = broken["paths"]["/api/v1/backtests/run"]["post"]["parameters"]
-    for parameter in run_parameters:
+    parameters = broken["paths"]["/api/v1/business/report-views"]["post"]["parameters"]
+    for parameter in parameters:
         if parameter["name"] == "Idempotency-Key":
             parameter["required"] = False
 
     failures = openapi_compat.structural_failures(generated, broken)
     assert any(
-        "POST /api/v1/backtests/run" in failure and "required" in failure
+        "POST /api/v1/business/report-views" in failure and "required" in failure
         for failure in failures
     ), failures
 
@@ -321,27 +321,6 @@ def test_response_schema_drift_fails_with_named_difference(
     assert any(
         "GET /api/v1/me/responses/200" in failure for failure in failures
     ), failures
-
-
-def test_streaming_normalization_is_narrow(generated: dict, checked: dict) -> None:
-    projection = openapi_compat.structural_projection(checked)
-    stream = projection["POST /api/v1/chat/stream"]
-    assert stream["responses"]["200"] == {"text/event-stream": {}}
-    # The request schema and error responses remain structural gate inputs.
-    assert stream["request"], "chat stream request schema must stay compared"
-    assert "409" in stream["responses"]
-    assert "422" in stream["responses"]
-    assert "503" in stream["responses"]
-
-
-def test_chat_stream_declares_the_approved_request_boundary_failures(
-    generated: dict,
-) -> None:
-    responses = generated["paths"]["/api/v1/chat/stream"]["post"]["responses"]
-    for status in ("413", "500"):
-        assert responses[status]["content"]["application/json"]["schema"] == {
-            "$ref": "#/components/schemas/Error"
-        }
 
 
 def test_openapi_contract_exposes_lazy_run_dossier_history(
@@ -460,3 +439,17 @@ def test_regeneration_script_matches_checked_artifact() -> None:
         build_artifact_document(), checked_document
     )
     assert failures == [], "\n".join(failures)
+
+
+def test_account_deletion_lists_every_refusal(generated: dict, checked: dict) -> None:
+    """Priya #801 note 7: starting and resuming a deletion are one POST, and
+    its contract lists each refusal a client must handle."""
+    for document in (generated, checked):
+        responses = document["paths"]["/api/v1/account/delete"]["post"]["responses"]
+        assert {"200", "202", "401", "403", "404", "429", "503"} <= set(responses)
+        for status_code in ("401", "403", "404", "429", "503"):
+            assert responses[status_code]["content"]["application/json"]["schema"] == {
+                "$ref": "#/components/schemas/Error"
+            }
+        assert "account_deletion_incomplete" in responses["503"]["description"]
+        assert "account_deletion_not_allowed" in responses["403"]["description"]

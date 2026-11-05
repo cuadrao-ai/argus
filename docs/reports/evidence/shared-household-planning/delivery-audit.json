@@ -1,0 +1,142 @@
+{
+  "recorded_at": "2026-10-01T23:58:03.058485+00:00",
+  "source_head": "41cd27ac93a0e00f39f8190aea0838aa1b59104f",
+  "financial_source": "942f1f009a5927816176d166f6c1357577e0ce51",
+  "original_base": "15e57931584b21dd7f9e453dbeb9127fc4b8cff3",
+  "current_integration": "15e57931584b21dd7f9e453dbeb9127fc4b8cff3",
+  "reconciliation_merge": null,
+  "semantic_overlap": "No integration advance. Product runtime, native source and evidence unchanged; one bounded concurrency-test verification repair reviewed/tested independently.",
+  "status": "Complete locally verified journey, clean native/source and affected verification review. Final publication CI/head recorded in terminal PR comment before READY.",
+  "native_cases": {
+    "main": {
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "startTime": 1790897012.266,
+      "finishTime": 1790897836.65
+    },
+    "recovery": {
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "startTime": 1790897909.425,
+      "finishTime": 1790898086.856
+    },
+    "identities": {
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "startTime": 1790898472.489,
+      "finishTime": 1790898651.668
+    },
+    "default-off": {
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "startTime": 1790898716.648,
+      "finishTime": 1790898794.538
+    }
+  },
+  "independent_expected_totals_minor": {
+    "budget_spent": 4000,
+    "planned_responsibilities": [
+      7000,
+      3000
+    ],
+    "bill_agreed": 6000,
+    "bill_paid": 2000,
+    "goal_backed": 2000,
+    "debt_paid": 2000,
+    "recovered_claim": 700
+  },
+  "backend_tests": {
+    "passed": 481,
+    "skipped": 0,
+    "focused_departure_passed": 185,
+    "new_departure_cases": 13
+  },
+  "review": {
+    "reviewer": "shared_plan_independent_review",
+    "latest_reviewed_commit": "d290207646956a60ad1b1eb62b4a49a20e91901a",
+    "outcome": "Clean affected-only review; completed before terminal audit",
+    "whole_diff_review": "5bd9417a671b6dbdabe2c558794c55d289410352",
+    "scope": "Fresh independent reviewer substitution permitted; only affected confirmed fixes reviewed afterward",
+    "native_reviewed_commit": "41cd27ac93a0e00f39f8190aea0838aa1b59104f",
+    "latest_scope": "Test-only ordered allocation/recording CAS assertions; final delta clean"
+  },
+  "github_finding": {
+    "thread": "PRRT_kwDOR50h4s6oKYJd",
+    "resolved": true,
+    "reply": "https://github.com/lagarcess/argus/pull/773#discussion_r4161337635",
+    "reaction": "accepted +1"
+  },
+  "source_ci": {
+    "head": "41cd27ac93a0e00f39f8190aea0838aa1b59104f",
+    "outcome": "All applicable CI and local smoke SUCCESS; docs checks SKIPPED by normal code-path policy; Supabase preview SKIPPED with no preview created"
+  },
+  "ingestion_handoff": {
+    "range": [
+      "20261002120000",
+      "20261002120300"
+    ],
+    "verified_pr772_head": "5608a83ef7a28c3359195e947acc12c428cbe4f0",
+    "collision": false,
+    "published": "https://github.com/lagarcess/argus/pull/773#issuecomment-5942896362",
+    "branches": "Owners edit only their respective branches/PRs"
+  },
+  "resources": {
+    "api": 59750,
+    "auth": 59751,
+    "postgres": 59752,
+    "captcha": 59755,
+    "simulator": "C93072E7-D29A-4B0A-BE76-E6418E4E9F88",
+    "bundle": "local.argus.shared-household-planning-demo",
+    "temporary_proxy": "59762 stopped",
+    "device_scope": "Simulator only; design/phone/other demos preserved"
+  },
+  "limits": [
+    "Physical-phone/internet, hosted enablement and production migration are not verified or authorized",
+    "No external invitation delivery, automatic money movement, voice or chat-runtime expansion",
+    "Personal full model harness has the same six baseline assertions in four cases; focused affected checks pass",
+    "One non-blocking Invalid frame dimension runtime warning in native main result; approved design/root unchanged"
+  ],
+  "evidence": [
+    "native-provenance.json",
+    "native-canonical-readback.json",
+    "native-recovery-readback.json",
+    "shared-plan-demo.mp4",
+    "backend-final-provenance.json",
+    "merged-tree-modularity.json"
+  ],
+  "cleanup": "All writers/reviewer and temporary recording/fault/diagnostic helpers stopped. Owned demo API/Auth/Postgres/CAPTCHA and app preserved.",
+  "verification_fix": {
+    "test_source": "15503fce44087f7acdc5d28640bd9322710f0df5",
+    "changes": [
+      "tests/test_connected_goals_postgres.py"
+    ],
+    "failed_original_run": 36943678943,
+    "original_pr_run": 36943684986,
+    "original_pr_outcome": "SUCCESS; parallel push guest gate failed on legitimate stale account CAS escaping the old test",
+    "cause": "The allocation helper reads reviewed account versions before owner serialization; spending may advance the account while allocation waits. A stale rejection is correct.",
+    "fix": "Only documented allocation StaleVersion or goal_backing_shortfall accepted; outcome-correlated assigned/support pairs; final80000 cash; one20000 expense; ordered interleavings plus concurrent race",
+    "verification": {
+      "passed": 7,
+      "skipped": 0,
+      "files": [
+        "goal-cas-regression.txt",
+        "goal-cas-regression.xml",
+        "goal-cas-commands.txt"
+      ]
+    },
+    "production_source": "unchanged; no CAS relaxation, schema/service/UI/fixture changes",
+    "review": "Clean affected-only review atd2902076; ordered-case oracle finding fixed, no unchanged review expansion",
+    "final_test_source": "d290207646956a60ad1b1eb62b4a49a20e91901a",
+    "test_sha256": "a0f9e2789664ad85cf05c4fdc87f4e96b550af990bc3a336c82eed1ec244b50a",
+    "final_verification": {
+      "passed": 7,
+      "skipped": 0,
+      "log": "goal-cas-final.txt",
+      "junit": "goal-cas-final.xml"
+    }
+  }
+}

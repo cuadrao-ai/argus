@@ -1,0 +1,31 @@
+Test Case '-[ArgusFoundationUITests.CuadraoProfileFollowupUITests testReleaseGatesHideUnfinishedRowsAndPhotos]' passed (24.941 seconds).
+ios/ArgusFoundationUITests/CuadraoSupportUITests.swift:104: error: -[ArgusFoundationUITests.CuadraoSupportUITests testHomeActivityReturnsToSameRow] : XCTAssertTrue failed
+Test Case '-[ArgusFoundationUITests.CuadraoSupportUITests testHomeActivityReturnsToSameRow]' failed (12.873 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testAIConsentCanBeDeclined]' passed (9.892 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testAvatarEnglishLargeText]' passed (9.735 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testAvatarSaveCancelAndDefaultIcon]' passed (13.303 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testDeletionCodeResendClearsOldCode]' passed (19.801 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testDeletionConfirmationPendingAndFinish]' passed (20.173 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testDeletionSharedConsequencesEnglish]' passed (8.043 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testFullPreviewSharesProfileAvatarWithNavigation]' passed (15.259 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testInviteFullStateAndQRSharing]' passed (10.824 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testPhotoCropAndTabAvatarInDarkAppearance]' passed (16.847 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testReleaseGatesHideAvatarEditingAndPhotos]' passed (15.267 seconds).
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testSocialCancellationAndNameRecovery]' passed (17.613 seconds).
+ios/ArgusFoundationUITests/ReleaseUIJourneyTests.swift:133: error: -[ArgusFoundationUITests.ReleaseUIJourneyTests testUpdatesNoDataAndReadOnlyHistory] : Failed to tap "updates-gallery-truth" Button: No matches found for Elements matching predicate '"updates-gallery-truth" IN identifiers' from input {(
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testUpdatesNoDataAndReadOnlyHistory]' failed (10.627 seconds).
+W1B-AFTER-UNREAD 1791085409.215393
+W1B-ATTACH 1791085416.962772
+W1B-IDLE-WAIT 0.06972801685333252
+Test Case '-[ArgusFoundationUITests.W1bDiagnosticUITests testRecentsFullPrefixIdle]' passed (52.797 seconds).
+    t =    72.16s App animations complete notification not received, will attempt to continue.
+    t =   133.32s App animations complete notification not received, will attempt to continue.
+    t =   193.74s App animations complete notification not received, will attempt to continue.
+    t =   253.77s App animations complete notification not received, will attempt to continue.
+    t =   314.25s App animations complete notification not received, will attempt to continue.
+    t =   375.30s App animations complete notification not received, will attempt to continue.
+    t =   435.82s App animations complete notification not received, will attempt to continue.
+W1B-ATTACH 1791085883.1001291
+W1B-IDLE-WAIT 0.024981021881103516
+Test Case '-[ArgusFoundationUITests.W1bDiagnosticUITests testRecentsRenameIdle]' passed (466.107 seconds).
+exit=65 seconds=3513

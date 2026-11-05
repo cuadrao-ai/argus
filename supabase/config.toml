@@ -263,11 +263,27 @@ otp_expiry = 60
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
 
-# Uncomment to customize notification email template
-# [auth.email.notification.password_changed]
-# enabled = true
-# subject = "Your password has been changed"
-# content_path = "./templates/password_changed_notification.html"
+# Reviewed notification scope. Hosted settings require a separate operator action.
+[auth.email.notification.password_changed]
+enabled = true
+
+[auth.email.notification.email_changed]
+enabled = true
+
+[auth.email.notification.phone_changed]
+enabled = false
+
+[auth.email.notification.identity_linked]
+enabled = false
+
+[auth.email.notification.identity_unlinked]
+enabled = false
+
+[auth.email.notification.mfa_factor_enrolled]
+enabled = false
+
+[auth.email.notification.mfa_factor_unenrolled]
+enabled = false
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.

@@ -1,0 +1,227 @@
+"""Canonical receipt activity and person-scoped seen mutations."""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Mapping, Sequence
+from uuid import UUID
+
+from argus.domain.business.actions.listos import linked_standings
+from argus.domain.business.bandeja_group import group_of
+from argus.domain.business.receipt_activity import (
+    aggregate_activity,
+    awaiting_owner,
+    bandeja,
+    inbox_counts,
+    project_activity,
+    reading_undated,
+)
+from argus.domain.business.transactions import GrantImportStore, transaction
+
+
+def _stamp(draft: dict, view: dict) -> str | None:
+    if draft.get("status") not in ("review_ready", "needs_attention") or view.get(
+        "preparable"
+    ):
+        return None
+    return str(draft["version"])
+
+
+def project(
+    context,
+    views: list[dict],
+    *,
+    acknowledge_id: str | None = None,
+    cursor: str | None = None,
+) -> list[dict]:
+    documents = context.service.documents
+    store = context.service.imports.store
+    person = str(context.scope.actor_id or context.scope.person_id)
+    business = str(context.scope.owner.space_id)
+    if isinstance(store, GrantImportStore):
+        with transaction(store.authority, store.context) as tx:
+            ids = [UUID(view["id"]) for view in views]
+            rows = tx.rows(
+                "select d.connection_id,d.draft,r.completion_cursor from public.financial_document_extractions d"
+                " join public.financial_source_connections c on c.id=d.connection_id and c.user_id=d.user_id"
+                " left join public.business_receipt_read_states r on r.connection_id=d.connection_id and r.space_id=c.owner_space_id and r.person_id=%s"
+                " where c.owner_space_id=%s and c.user_id=%s and c.id=any(%s)"
+                + (" for update of c,d" if acknowledge_id else ""),
+                (person, business, context.scope.person_id, ids),
+            )
+            from argus.api.business_drafts import draft_overlay, linked_drafts
+
+            drafts = linked_drafts(tx, [view["id"] for view in views])
+            views = [draft_overlay(view, drafts.get(view["id"], [])) for view in views]
+            states = {str(row["connection_id"]): row for row in rows}
+            baseline = tx.rows(
+                "select established_at from public.business_receipt_activity_baseline where singleton=true"
+            )[0]["established_at"]
+            result = _project(
+                views, states, baseline, drafts, linked_standings(tx, drafts)
+            )
+            if acknowledge_id:
+                chosen = next(view for view in result if view["id"] == acknowledge_id)
+                activity = chosen["activity"]
+                if (
+                    activity["state"] == "ready"
+                    and cursor == activity["completion_cursor"]
+                ):
+                    tx.rows(
+                        "insert into public.business_receipt_read_states(space_id,person_id,connection_id,completion_cursor) values (%s,%s,%s,%s) on conflict (space_id,person_id,connection_id) do update set completion_cursor=excluded.completion_cursor,seen_at=clock_timestamp()",
+                        (business, person, acknowledge_id, cursor),
+                    )
+                    activity["unread"] = False
+            return result
+    if not hasattr(documents, "receipt_seen"):
+        documents.receipt_seen = {}
+        documents.receipt_baseline = datetime.now(timezone.utc)
+    states = {}
+    for view in views:
+        draft = documents.store.draft(
+            user_id=context.scope.person_id, connection_id=view["id"]
+        )
+        if draft:
+            states[view["id"]] = {
+                "draft": draft.model_dump(mode="json"),
+                "completion_cursor": documents.receipt_seen.get(
+                    (business, person, view["id"])
+                ),
+            }
+    result = _project(views, states, documents.receipt_baseline)
+    if acknowledge_id:
+        chosen = next(view for view in result if view["id"] == acknowledge_id)
+        activity = chosen["activity"]
+        if activity["state"] == "ready" and cursor == activity["completion_cursor"]:
+            documents.receipt_seen[(business, person, acknowledge_id)] = cursor
+            activity["unread"] = False
+    return result
+
+
+def _project(views, states, baseline, drafts=None, standings=None):
+    output = []
+    for view in views:
+        row = states.get(view["id"], {})
+        draft = row.get("draft") or {}
+        completed = draft.get("updated_at")
+        if isinstance(completed, str):
+            completed = datetime.fromisoformat(completed.replace("Z", "+00:00"))
+        canonical = (drafts or {}).get(view["id"], [])
+        stamp = _stamp(draft, view)
+        if (
+            canonical
+            and view["status"] in ("review_ready", "needs_attention")
+            and not view.get("read_pending")
+        ):
+            stamp = str(draft["version"])
+        if canonical and stamp is not None:
+            stamp += ":" + ":".join(f"{row['id']}@{row['version']}" for row in canonical)
+            completed = max([completed, *(row["updated_at"] for row in canonical)])
+        activity = project_activity(
+            view,
+            completion=stamp,
+            seen=row.get("completion_cursor"),
+            baseline=baseline,
+            completed_at=completed,
+        )
+        row = {**view, "activity": activity.wire()}
+        standing = (
+            (standings or {}).get(str(canonical[0]["id"]))
+            if len(canonical) == 1
+            else None
+        )
+        output.append(
+            {**row, "bandeja": bandeja(row), "bandeja_group": group_of(row, standing)}
+        )
+    return output
+
+
+def inbox(
+    context,  # noqa: ANN001
+    views: list[dict],
+    emails: Sequence[str] | None = None,
+) -> dict[str, int]:
+    """The Bandeja's counts over these receipt views, the Business's saved
+    notes awaiting review (the in-memory app keeps no notes) and the emails
+    that are a row of their own; ``emails`` are their standings, read here
+    when not given."""
+
+    from argus.api.email_intake import email_standings
+
+    store = context.service.imports.store
+    notes = 0
+    por_igualar = None
+    if isinstance(store, GrantImportStore):
+        from argus.domain.business.actions.captures import awaiting_notes
+
+        with transaction(store.authority, store.context) as tx:
+            notes = awaiting_notes(tx)
+        from argus.domain.business.bank.service import bank_matching_on
+
+        if bank_matching_on():
+            from argus.domain.business.bank.movements_store import por_igualar_count
+
+            por_igualar = por_igualar_count(store.authority.pool, store.context)
+    if emails is None:
+        emails = email_standings(str(context.scope.owner.space_id))
+    return inbox_counts(views, notes, emails, por_igualar)
+
+
+def unreviewed_days(
+    context,  # noqa: ANN001
+    views: list[dict],
+    receipt_dates: Mapping[str, str] | None = None,
+) -> list:
+    """The month-close day of every receipt and note draft the Bandeja still
+    lists. A receipt with no date in its proposal keeps the date its read
+    found (``receipt_dates`` by id) before falling back to arrival. Notes
+    count by the day they arrived."""
+
+    from argus.domain.business.month_close import draft_close_day
+
+    retained = receipt_dates or {}
+    days = [
+        draft_close_day(
+            view.get("occurred_on") or retained.get(str(view.get("id"))),
+            view["received_at"],
+        )
+        for view in views
+        if awaiting_owner(view)
+    ]
+    store = context.service.imports.store
+    if isinstance(store, GrantImportStore):
+        from argus.domain.business.actions.captures import awaiting_note_arrivals
+
+        with transaction(store.authority, store.context) as tx:
+            days += [draft_close_day(None, at) for at in awaiting_note_arrivals(tx)]
+    return days
+
+
+def month_unknown(
+    context,  # noqa: ANN001
+    views: list[dict],
+    receipt_dates: Mapping[str, str] | None = None,
+) -> bool:
+    """Whether the Bandeja holds a read in flight that no month can claim yet:
+    a receipt being read with no date known, or an email being read. The same
+    views and email standings the Bandeja counts."""
+
+    from argus.api.email_intake import email_standings
+
+    retained = receipt_dates or {}
+    return any(reading_undated(view, retained) for view in views) or (
+        "reading" in email_standings(str(context.scope.owner.space_id))
+    )
+
+
+def counts(context, views: list[dict]) -> dict:  # noqa: ANN001
+    """One answer for the sidebar badge, the Bandeja and the Resumen, over
+    every receipt of the Business, whichever view the caller reads."""
+
+    from argus.api.email_intake import email_standings
+
+    emails = email_standings(str(context.scope.owner.space_id))
+    return {
+        **aggregate_activity(views, reading_emails=emails.count("reading")),
+        **inbox(context, views, emails),
+    }

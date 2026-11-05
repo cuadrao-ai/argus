@@ -1,0 +1,23 @@
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: <worker-checkout>
+configfile: pyproject.toml
+plugins: benchmark-5.2.3, mock-3.15.1, Faker-30.10.0, asyncio-1.4.0, hypothesis-6.151.12, langsmith-0.7.31, respx-0.23.1, cov-7.0.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 182 items
+
+tests/test_environment_scripts.py ...................................... [ 20%]
+..........                                                               [ 26%]
+tests/test_private_alpha_release_profile.py ..............               [ 34%]
+tests/test_render_release_profile_contract.py ..........                 [ 39%]
+tests/test_release_environment_membership.py ..                          [ 40%]
+tests/test_paired_transfers_postgres.py sss                              [ 42%]
+tests/test_apple_identity.py ...........                                 [ 48%]
+tests/test_apple_sign_in_api.py ..............................           [ 64%]
+tests/test_apple_sign_in_client.py ..................................... [ 85%]
+...                                                                      [ 86%]
+tests/test_openapi_compatibility.py ........................             [100%]
+
+======================= 179 passed, 3 skipped in 24.45s ========================

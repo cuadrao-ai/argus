@@ -1,0 +1,17 @@
+# Follow-up walk aggregate (privacy-safe)
+
+Result: navigation/context display pass; answer continuity fail.
+Aggregate facts only — no browser transcript dump, no Auth UUID, no
+conversation/artifact ids, no raw receipt slug.
+
+- Public page opened signed-out with zero cookies / auth-token keys before
+  follow-up.
+- Follow-up opened a distinct guest conversation with the shared question and
+  answer visibly attached.
+- Actual reply asked which asset and time period to invest monthly $450
+  (investing clarification).
+- Expected arithmetic from displayed savings context: four months.
+- Console during transition: three 401 resource errors (conversations, me,
+  memory availability); guest creation still completed. Final reader console:
+  three errors, two font preload warnings.
+- No uncaught JavaScript exception in retained console logs.

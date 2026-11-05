@@ -1,0 +1,7 @@
+# Run at 567f59819 (source identical to the pushed head; later commits are evidence only)
+## SIMULATOR_ID=0335699A-C522-492B-A8C3-8FD3D7CAC06A ios/scripts/verify.sh build
+** BUILD SUCCEEDED **
+## xcodebuild build -project ios/ArgusFoundation.xcodeproj -scheme ArgusFoundation -configuration Release -destination 'platform=iOS Simulator,id=0335699A-C522-492B-A8C3-8FD3D7CAC06A' -derivedDataPath ios/.build/DerivedData CODE_SIGNING_REQUIRED=NO
+** BUILD SUCCEEDED **
+## xcodebuild build-for-testing -project ios/ArgusFoundation.xcodeproj -scheme ArgusFoundation -configuration Debug -destination 'platform=iOS Simulator,id=0335699A-C522-492B-A8C3-8FD3D7CAC06A' -derivedDataPath ios/.build/DerivedData CODE_SIGNING_REQUIRED=NO
+** TEST BUILD SUCCEEDED **

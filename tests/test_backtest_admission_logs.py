@@ -50,7 +50,6 @@ def test_refusal_reason_is_visible_without_loguru_extras(
     gateway.admit_backtest_job.return_value = {"decision": decision}
     gateway.record_backtest_job_rejection.return_value = {"status": "failed"}
     monkeypatch.setattr(flow, "visitor_within_limits", lambda *a, **k: visitor_available)
-    monkeypatch.setattr(flow, "emit_verified_guest_funnel_event", lambda *a, **k: None)
     lines: list[str] = []
     sink = logger.add(lambda message: lines.append(str(message)), level="WARNING")
     try:

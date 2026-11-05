@@ -1,0 +1,16 @@
+<unknown>:0: warning: -[ArgusFoundationUITests.CuadraoConsistencyUITests testMoneyEntryAndBlankCreationSpanish] : Modifying state during view update, this will cause undefined behavior.
+ios/ArgusFoundationUITests/CuadraoConsistencyUITests.swift:14: error: -[ArgusFoundationUITests.CuadraoConsistencyUITests testMoneyEntryAndBlankCreationSpanish] : XCTAssertEqual failed: ("Optional("125")") is not equal to ("Optional("1,250.5")")
+Test Case '-[ArgusFoundationUITests.CuadraoConsistencyUITests testMoneyEntryAndBlankCreationSpanish]' failed (12.187 seconds).
+<unknown>:0: warning: -[ArgusFoundationUITests.CuadraoGroupDesignUITests testSharedJourneySpanish] : Modifying state during view update, this will cause undefined behavior.
+ios/ArgusFoundationUITests/CuadraoGroupDesignUITests.swift:48: error: -[ArgusFoundationUITests.CuadraoGroupDesignUITests testSharedJourneySpanish] : XCTAssertTrue failed
+Test Case '-[ArgusFoundationUITests.CuadraoGroupDesignUITests testSharedJourneySpanish]' failed (45.006 seconds).
+ios/ArgusFoundationUITests/CuadraoHistoryDesignUITests.swift:69: error: -[ArgusFoundationUITests.CuadraoHistoryDesignUITests testScanAndEnglishParity] : XCTAssertTrue failed
+Test Case '-[ArgusFoundationUITests.CuadraoHistoryDesignUITests testScanAndEnglishParity]' failed (12.902 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoPlanDesignUITests testExactAmountsDarkModeAndVoiceContinuity]' passed (22.658 seconds).
+ios/ArgusFoundationUITests/CuadraoReceiptUITests.swift:310: error: -[ArgusFoundationUITests.CuadraoReceiptUITests testPhotoImportKeepsOriginalWithoutInventedItems] : XCTAssertTrue failed - USD
+Test Case '-[ArgusFoundationUITests.CuadraoReceiptUITests testPhotoImportKeepsOriginalWithoutInventedItems]' failed (90.272 seconds).
+ios/ArgusFoundationUITests/CuadraoReceiptUITests.swift:155: error: -[ArgusFoundationUITests.CuadraoReceiptUITests testReceiptShowsYouOweWhenAnotherPersonPaid] : Failed to tap "Ana" Button: Find single matching element. Multiple matching elements found for <XCUIElementQuery: 0x10a50c4b0>.
+Test Case '-[ArgusFoundationUITests.CuadraoReceiptUITests testReceiptShowsYouOweWhenAnotherPersonPaid]' failed (32.060 seconds).
+ios/ArgusFoundationUITests/SharedHouseholdPlanningUITests.swift:61: error: -[ArgusFoundationUITests.FinancialLoopUITests testSharedPlanningFourKindsPrivateContributionsCorrectionsAndReopen] : XCTUnwrap failed: expected non-nil value of type "String"
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSharedPlanningFourKindsPrivateContributionsCorrectionsAndReopen]' failed (0.049 seconds).
+exit=65 seconds=1698

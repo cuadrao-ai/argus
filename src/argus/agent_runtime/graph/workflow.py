@@ -110,6 +110,7 @@ class WorkflowState(TypedDict, total=False):
     research: dict[str, Any]
     research_job_request: dict[str, Any]
     tool_effects: list[dict[str, Any]]
+    business_plan: dict[str, Any]
 
 
 RUN_STATE_FIELD_NAMES = frozenset(RunState.model_fields)
@@ -177,11 +178,14 @@ def build_workflow(
     clarification_generator: StructuredClarificationGenerator | None = None,
     checkpointer: Any | None = None,
     tool_catalog: ToolCatalog | None = None,
+    business_runtime: Any | None = None,
 ):
     active_contract = contract or build_default_capability_contract()
     active_tool = tool or DefaultBacktestTool()
 
     async def interpret_node(state: WorkflowState) -> WorkflowState:
+        if business_runtime is not None:
+            return await business_runtime.interpret(state)
         return await _interpret_node_async(
             state,
             structured_interpreter=structured_interpreter,
@@ -195,6 +199,8 @@ def build_workflow(
         )
 
     async def execute_node(state: WorkflowState) -> WorkflowState:
+        if business_runtime is not None:
+            return await business_runtime.execute(state)
         return await _execute_node_async(
             state,
             tool=active_tool,

@@ -1,0 +1,5 @@
+Integration base 875de09ac2115acec42e09060b92878aa5f18eff
+Debug matrix failed.
+Precondition failed: Google requires Apple and valid callback
+Synthetic Google flag on with Apple flag off exposed Google.
+Runner terminated with SIGTRAP, exit 1.

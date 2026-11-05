@@ -1,0 +1,9 @@
+{
+  "action": "unavailable",
+  "source_commit": "a0424297e5559af641bfc4b8181fced662d428e2",
+  "captured_at": "2026-09-29T03:15:40.439563+00:00",
+  "environment": "ios-accounts local real Supabase auth and Postgres; synthetic users; no hosted/provider calls",
+  "passed_checks": [
+    "flag off unavailable before authentication"
+  ]
+}

@@ -1,0 +1,180 @@
+{
+  "allocation": 59200,
+  "checks": {
+    "archived": true,
+    "card_no_second_purchase": {
+      "bank_minor": 30000,
+      "budget_spent_minor": 12000,
+      "debt_state": "recorded_clear",
+      "goal_state": "needs_review",
+      "loan_position_minor": 18000,
+      "occurrence_remaining_minor": 0
+    },
+    "card_return_cost_zero": {
+      "bank_minor": 160000,
+      "budget_spent_minor": 7000,
+      "debt_state": "active",
+      "goal_state": "active",
+      "loan_position_minor": -57000,
+      "occurrence_remaining_minor": 0
+    },
+    "conditional_projection": {
+      "apr_percent": 12,
+      "monthly_fees_minor": 0,
+      "no_new_borrowing": true,
+      "payments": 2,
+      "projected_interest_minor": 505,
+      "recorded_costs_minor": 8500,
+      "recorded_principal_minor": 50000
+    },
+    "constraints": {
+      "component_return_cap": "rejected",
+      "correction_below_returned": "rejected",
+      "missing_split": "rejected",
+      "mixed_currency": "rejected",
+      "stale_link": "rejected"
+    },
+    "corrected_partial": {
+      "bank_minor": 170000,
+      "budget_spent_minor": 5000,
+      "debt_state": "active",
+      "goal_state": "active",
+      "loan_position_minor": -75000,
+      "occurrence_remaining_minor": 20000
+    },
+    "currency_isolation": {
+      "dop_budget_spent_minor": 8500,
+      "usd_bank_minor": 89000,
+      "usd_debt_minor": -40000
+    },
+    "edited_projection": true,
+    "explicit_partial_return": {
+      "bank_minor": 40000,
+      "budget_spent_minor": 10000,
+      "debt_state": "recorded_clear",
+      "goal_state": "needs_review",
+      "loan_position_minor": 10000,
+      "occurrence_remaining_minor": 0
+    },
+    "fulfilled_once": {
+      "bank_minor": 150000,
+      "budget_spent_minor": 7000,
+      "debt_state": "active",
+      "goal_state": "active",
+      "loan_position_minor": -57000,
+      "occurrence_remaining_minor": 0
+    },
+    "initial": {
+      "account_balances_minor": {
+        "bank": 200000,
+        "card": -40000,
+        "loan": -100000,
+        "savings": 30000,
+        "unknown": null,
+        "usd_bank": 100000,
+        "usd_loan": -50000
+      },
+      "budget_spent_minor": 0,
+      "goal_planned_minor": 0,
+      "goal_supported_minor": 150000
+    },
+    "interest_only_real": {
+      "bank_minor": 146000,
+      "cost_minor": 10000,
+      "loan_position_minor": -50000,
+      "principal_minor": 0
+    },
+    "interest_only_return": {
+      "bank_minor": 156000,
+      "loan_position_minor": -50000,
+      "net_cost_minor": 0
+    },
+    "linked_partial": {
+      "bank_minor": 165000,
+      "budget_spent_minor": 5000,
+      "debt_state": "active",
+      "goal_state": "active",
+      "loan_position_minor": -70000,
+      "occurrence_remaining_minor": 15000
+    },
+    "no_invented_terms": true,
+    "overpayment_credit_and_savings_shortfall": {
+      "bank_minor": 70000,
+      "budget_spent_minor": 12000,
+      "debt_state": "recorded_clear",
+      "goal_state": "needs_review",
+      "loan_position_minor": 18000,
+      "occurrence_remaining_minor": 0
+    },
+    "owner_isolation": true,
+    "restored": true,
+    "return_month_and_missed_occurrence": {
+      "net_principal_paid_minor": 5000,
+      "original_costs_minor": 2000,
+      "overdue_remaining_minor": 6000,
+      "payment_month": "2026-08",
+      "return_month": "2026-09",
+      "returned_costs_minor": 1000
+    },
+    "returned_payment_reopens_debt": {
+      "bank_minor": 110000,
+      "budget_spent_minor": 7000,
+      "debt_state": "active",
+      "goal_state": "needs_review",
+      "loan_position_minor": -57000,
+      "occurrence_remaining_minor": 0
+    },
+    "unknown_stays_unknown": {
+      "bank_minor": 156000,
+      "budget_spent_minor": 8500,
+      "debt_state": "active",
+      "goal_state": "active",
+      "loan_position_minor": -57000,
+      "occurrence_remaining_minor": 0
+    }
+  },
+  "committed_response_loss": true,
+  "current_accounts": {
+    "bank": {
+      "amount_minor": 156000,
+      "currency": "DOP",
+      "state": "known"
+    },
+    "card": {
+      "amount_minor": -10000,
+      "currency": "DOP",
+      "state": "known"
+    },
+    "loan": {
+      "amount_minor": -50000,
+      "currency": "DOP",
+      "state": "known"
+    },
+    "savings": {
+      "amount_minor": 30000,
+      "currency": "DOP",
+      "state": "known"
+    },
+    "unknown": {
+      "amount_minor": null,
+      "currency": "DOP",
+      "state": "unknown"
+    },
+    "usd_bank": {
+      "amount_minor": 89000,
+      "currency": "USD",
+      "state": "known"
+    },
+    "usd_loan": {
+      "amount_minor": -40000,
+      "currency": "USD",
+      "state": "known"
+    }
+  },
+  "observational": false,
+  "readback_at": "2026-09-30T21:11:40.611147+00:00",
+  "readback_commit": "70e34fe94641806ca3e80ac9ac6fff9ad73603f3",
+  "retained_state_verified": true,
+  "stage": "api_complete",
+  "suffix": "c801d065"
+}

@@ -1,0 +1,2 @@
+GNU bash, version 3.2.57(1)-release (arm64-apple-darwin26)
+17 loader boundary checks passed; outside cwd, spaced checkout, nounset, malformed/missing/empty/partial failures, resolved API/web keys.

@@ -9,11 +9,11 @@
   verified Supabase anonymous Guest
 - Environment: local-only Next.js `http://localhost:3001`, FastAPI
   `http://localhost:8001`, and the loopback Supabase CLI stack
-- Backend overrides: `ARGUS_PERSISTENCE_MODE=supabase`,
+- Backend overrides: `CUADRAO_PERSISTENCE_MODE=supabase`,
   `ARGUS_DEV_MEMORY_FALLBACK=false`,
   `ARGUS_MARKET_DATA_PROVIDER_MODE=synthetic_unit_fixture`,
-  `ARGUS_CHECKPOINTER_MODE=memory`, `ARGUS_MOCK_AUTH=false`,
-  `ARGUS_CORS_ALLOW_ORIGINS=http://localhost:3001`, Guest access enabled,
+  `CUADRAO_CHECKPOINTER_MODE=memory`, `CUADRAO_MOCK_AUTH=false`,
+  `CUADRAO_CORS_ALLOW_ORIGINS=http://localhost:3001`, Guest access enabled,
   provider credentials blanked for the launched process
 - Frontend overrides: `NEXT_PUBLIC_ARGUS_API_URL=http://localhost:8001/api/v1`,
   `NEXT_PUBLIC_MOCK_AUTH=false`,

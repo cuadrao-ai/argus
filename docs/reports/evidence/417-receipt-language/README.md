@@ -1,7 +1,7 @@
 # Issue #417: a receipt no longer freezes the author's language
 
 Captured at lane head against a **production build** with
-`ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED=true`,
+`CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED=true`,
 `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED=true` and
 `NEXT_PUBLIC_ENABLE_SPANISH=true`, on a local memory-mode backend with no provider
 keys. Enabling sharing stays a separate founder decision; both flags default to

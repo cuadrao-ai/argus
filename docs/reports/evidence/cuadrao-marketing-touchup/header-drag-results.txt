@@ -1,0 +1,77 @@
+$ playwright test "e2e/touchup.spec.ts"
+(node:73575) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[WebServer] (node:73578) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:73579) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:73581) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 26 tests using 1 worker
+
+(node:73582) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:73582) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:73582) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [desktop] › e2e/touchup.spec.ts:4:7 › / preserves the capture story and accessible progress rail (238ms)
+  ✓   2 [desktop] › e2e/touchup.spec.ts:4:7 › /en preserves the capture story and accessible progress rail (125ms)
+  ✓   3 [desktop] › e2e/touchup.spec.ts:24:5 › header blends at the top and becomes a pill after scrolling (111ms)
+  ✓   4 [desktop] › e2e/touchup.spec.ts:42:7 › es header separates language controls and links to how it works (189ms)
+  ✓   5 [desktop] › e2e/touchup.spec.ts:42:7 › en header separates language controls and links to how it works (200ms)
+  ✓   6 [desktop] › e2e/touchup.spec.ts:87:5 › footer rests at the crop, peeks on extra wheel input and settles without added height (1.0s)
+  ✓   7 [desktop] › e2e/touchup.spec.ts:111:5 › footer accumulates gentle wheel input without losing it between paint frames (1.0s)
+  ✓   8 [desktop] › e2e/touchup.spec.ts:124:5 › footer preserves upward wheel and keyboard navigation (721ms)
+  ✓   9 [desktop] › e2e/touchup.spec.ts:140:5 › footer holds a dispatched touch drag open until release (1.7s)
+  ✓  10 [desktop] › e2e/touchup.spec.ts:156:5 › reduced motion keeps the crop fixed under extra scroll input (387ms)
+  ✓  11 [desktop] › e2e/touchup.spec.ts:166:5 › reduced motion is static and small screens do not overflow (289ms)
+  ✓  12 [desktop] › e2e/touchup.spec.ts:197:7 › / loads editorial photographs without the withdrawn product capture (121ms)
+  ✓  13 [desktop] › e2e/touchup.spec.ts:197:7 › /en loads editorial photographs without the withdrawn product capture (122ms)
+(node:73680) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:73680) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:73680) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  14 [mobile] › e2e/touchup.spec.ts:4:7 › / preserves the capture story and accessible progress rail (130ms)
+  ✓  15 [mobile] › e2e/touchup.spec.ts:4:7 › /en preserves the capture story and accessible progress rail (107ms)
+  ✓  16 [mobile] › e2e/touchup.spec.ts:24:5 › header blends at the top and becomes a pill after scrolling (101ms)
+  ✓  17 [mobile] › e2e/touchup.spec.ts:42:7 › es header separates language controls and links to how it works (236ms)
+  ✓  18 [mobile] › e2e/touchup.spec.ts:42:7 › en header separates language controls and links to how it works (230ms)
+  ✓  19 [mobile] › e2e/touchup.spec.ts:87:5 › footer rests at the crop, peeks on extra wheel input and settles without added height (1.0s)
+  ✓  20 [mobile] › e2e/touchup.spec.ts:111:5 › footer accumulates gentle wheel input without losing it between paint frames (1.0s)
+  ✓  21 [mobile] › e2e/touchup.spec.ts:124:5 › footer preserves upward wheel and keyboard navigation (740ms)
+  ✓  22 [mobile] › e2e/touchup.spec.ts:140:5 › footer holds a dispatched touch drag open until release (1.2s)
+  ✓  23 [mobile] › e2e/touchup.spec.ts:156:5 › reduced motion keeps the crop fixed under extra scroll input (403ms)
+  ✓  24 [mobile] › e2e/touchup.spec.ts:166:5 › reduced motion is static and small screens do not overflow (289ms)
+  ✓  25 [mobile] › e2e/touchup.spec.ts:197:7 › / loads editorial photographs without the withdrawn product capture (124ms)
+  ✓  26 [mobile] › e2e/touchup.spec.ts:197:7 › /en loads editorial photographs without the withdrawn product capture (122ms)
+
+  26 passed (13.7s)
+
+$ playwright test "e2e/site.spec.ts" -g "language links keep the visitor on the same page"
+(node:73895) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[WebServer] (node:73896) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:73897) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:73898) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+(node:73915) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:73915) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:73915) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [desktop] › e2e/site.spec.ts:55:7 › page identity › language links keep the visitor on the same page (232ms)
+(node:73920) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:73920) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:73920) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  2 [mobile] › e2e/site.spec.ts:55:7 › page identity › language links keep the visitor on the same page (233ms)
+
+  2 passed (2.0s)

@@ -1,0 +1,42 @@
+Focused runs, iPhone 18 Pro Max 0335699A-C522-492B-A8C3-8FD3D7CAC06A, each under lockf -k mac-sim.lock, -collect-test-diagnostics never, -parallel-testing-enabled NO
+never-idle = count of 'App animations complete notification not received'
+
+== repro1 (e694d5da2-before-fix)
+	 Executed 1 test, with 0 failures (0 unexpected) in 336.046 (336.047) seconds
+	 Executed 1 test, with 0 failures (0 unexpected) in 336.046 (336.048) seconds
+Test Case '-[ArgusFoundationUITests.CuadraoProfileFollowupUITests testFeedbackPreservesKindsAndPartialDrafts]' passed (336.046 seconds).
+never-idle: 5
+t =    21.46s Press Target Application 'local.argus.foundation'[0.50, 0.63] for 0.0 seconds, then drag to Target Application 'local.argus.fo
+
+== context1 (e694d5da2)
+	 Executed 1 test, with 0 failures (0 unexpected) in 52.841 (52.843) seconds
+	 Executed 1 test, with 0 failures (0 unexpected) in 52.841 (52.844) seconds
+	 Executed 1 test, with 0 failures (0 unexpected) in 52.841 (52.845) seconds
+Test Case '-[ArgusFoundationUITests.CuadraoContextUITests testGroupContextPreservesDraftAttachmentsAndReturn]' passed (52.841 seconds).
+never-idle: 0
+
+== fix-run1 (helper-fix)
+	 Executed 1 test, with 0 failures (0 unexpected) in 36.557 (36.558) seconds
+	 Executed 1 test, with 0 failures (0 unexpected) in 36.557 (36.559) seconds
+Test Case '-[ArgusFoundationUITests.CuadraoProfileFollowupUITests testFeedbackPreservesKindsAndPartialDrafts]' passed (36.557 seconds).
+never-idle: 0
+t =    21.41s Press Target Application 'local.argus.foundation'[0.50, 0.59] for 0.0 seconds, then drag to Target Application 'local.argus.fo
+
+== fix-run2 (helper-fix)
+	 Executed 1 test, with 0 failures (0 unexpected) in 38.520 (38.522) seconds
+	 Executed 1 test, with 0 failures (0 unexpected) in 38.520 (38.523) seconds
+Test Case '-[ArgusFoundationUITests.CuadraoProfileFollowupUITests testFeedbackPreservesKindsAndPartialDrafts]' passed (38.520 seconds).
+never-idle: 0
+t =    23.28s Press Target Application 'local.argus.foundation'[0.50, 0.59] for 0.0 seconds, then drag to Target Application 'local.argus.fo
+
+== class1 (helper-fix)
+	 Executed 6 tests, with 0 failures (0 unexpected) in 186.520 (186.525) seconds
+	 Executed 6 tests, with 0 failures (0 unexpected) in 186.520 (186.526) seconds
+Test Case '-[ArgusFoundationUITests.CuadraoProfileFollowupUITests testFeedbackPreservesKindsAndPartialDrafts]' passed (36.249 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoProfileFollowupUITests testPhotoCropCancelPanZoomAndReedit]' passed (46.687 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoProfileFollowupUITests testPhotoPickerSaveCancelAndRemove]' passed (33.766 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoProfileFollowupUITests testReleaseGatesHideUnfinishedRowsAndPhotos]' passed (24.953 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoProfileFollowupUITests testSettingsNavigationAndSignOutClearanceAtLargeText]' passed (22.909 seconds).
+Test Case '-[ArgusFoundationUITests.CuadraoProfileFollowupUITests testSettingsNavigationAndSignOutClearance]' passed (21.957 seconds).
+never-idle: 0
+t =    21.29s Press Target Application 'local.argus.foundation'[0.50, 0.59] for 0.0 seconds, then drag to Target Application 'local.argus.fo

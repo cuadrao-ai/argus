@@ -1,0 +1,55 @@
+{
+  "status": "local component proof; physical iPhone acceptance pending",
+  "date": "2026-09-29",
+  "source_commit": "92020058d503459dbb7f9e2efa828dd5cddb1637",
+  "delivery_assembly_commit": "ba69fecd6728a978bec993b00ba1de48470db35c",
+  "environment": "isolated localhost Auth, API and Postgres; synthetic users only",
+  "focused_tests": {
+    "passed": 108,
+    "failed": 0,
+    "verification": "Repeated against the assembled candidate with disposable local Postgres; 108 passed."
+  },
+  "independent_delta_review": {
+    "result": "clean",
+    "reviewed_from": "be4063355",
+    "reviewed_to": "92020058d503459dbb7f9e2efa828dd5cddb1637",
+    "independent_regressions_passed": 4
+  },
+  "captain_http_verification": {
+    "result": "passed",
+    "account_balance_minor": 700000,
+    "original_check_difference_minor": -60000,
+    "current_unexplained_minor": 0,
+    "home": "exact position and spending deltas after each write and replay",
+    "retry": "same accepted record after intervening writes",
+    "isolation": "second owner denied account and activity reads",
+    "unknown": "preserved",
+    "reopen": "new HTTP client reads durable balance",
+    "command": "python scripts/verify_financial_loop.py --fixture <ignored local verification-client.json>"
+  },
+  "limits": [
+    "No native interaction is proved by this artifact.",
+    "No hosted migration, deployment, provisioning or phone verification occurred.",
+    "Native simulator evidence is recorded separately; signed installation and internet phone acceptance remain pending."
+  ],
+  "assembled_candidate": {
+    "modularity_budget": "passed; no violations",
+    "unsigned_physical_ios_build": "passed; signing disabled; temporary override removed",
+    "native_feature_source": "Matches d5299f65; device configuration and setup docs are the only additional ios differences."
+  },
+  "review_followup": {
+    "source_commit": "c2425f2e2d49d8b99a39a1d52da468a109048818",
+    "assembled_candidate": "08254e668",
+    "focused_backend_passed": 126,
+    "failed": 0,
+    "checks": [
+      "memory and real-Postgres source-timezone projection",
+      "check/value-update type locks",
+      "DST freshness instant ordering",
+      "full Ruff",
+      "modularity budget"
+    ],
+    "publication": "local fixes; PR745 published b5cfedef CI passed, correction CI and follow-up review pending",
+    "original_evidence": "Original HTTP/money-loop proof above retains its recorded source; this follow-up replaces proof for the changed timezone/type-lock surfaces."
+  }
+}

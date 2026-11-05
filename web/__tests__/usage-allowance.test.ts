@@ -286,7 +286,7 @@ describe("private-alpha usage allowance", () => {
     expect(usageLib).toContain("grounding: OperationClassAllowance;");
     expect(usageLib).toContain("execution: UsageAllowance;");
     expect(usageLib).toContain('limiting_window: "hour" | "day"');
-    expect(profileMenu).toContain('openModal("usage")');
+    expect(profileMenu).toContain("usage: !isBusiness,");
     expect(
       readFileSync(
         join(root, "components/sidebar/ProfileSettingsPanels.tsx"),
@@ -340,8 +340,12 @@ describe("private-alpha usage allowance", () => {
     // Tab containment belongs to the shared hook now. Running a private copy
     // beside it moved focus twice per press and skipped a control each time.
     expect(modal).not.toContain("dialogTabTarget");
-    // Ownership moved to the shell, which supplies it to every panel.
-    expect(modal).toContain("AdaptivePanel");
+    // Ownership moved to the shell, which supplies it to every panel: the
+    // sheet outside Ajustes, the window inside it.
+    expect(modal).toContain("<SettingsSurface");
+    expect(
+      readFileSync(join(root, "components/settings/SettingsSurface.tsx"), "utf-8"),
+    ).toContain("<AdaptivePanel {...props} />");
     expect(
       readFileSync(join(root, "components/ui/AdaptivePanel.tsx"), "utf-8"),
     ).toContain("useModalSurface");
@@ -352,17 +356,18 @@ describe("private-alpha usage allowance", () => {
   });
 
   test("uses flat styling and mobile-sized Usage controls", () => {
-    const profileMenu = readFileSync(
-      join(root, "components/sidebar/ProfileMenu.tsx"),
+    const settingsWindow = readFileSync(
+      join(root, "components/settings/SettingsWindow.tsx"),
       "utf-8",
     );
     const modal = readFileSync(
       join(root, "components/settings/UsageModal.tsx"),
       "utf-8",
     );
-    const usageButton = profileMenu.slice(
-      profileMenu.indexOf('onClick={() => openModal("usage")}'),
-      profileMenu.indexOf('onClick={() => openModal("usage")}') + 350,
+    // Usage is a row in Ajustes, and every row there shares one 44px class.
+    const usageButton = settingsWindow.slice(
+      settingsWindow.indexOf("const rowBase ="),
+      settingsWindow.indexOf("const rowBase =") + 120,
     );
 
     expect(modal).not.toContain("shadow-sm");
@@ -384,15 +389,15 @@ describe("private-alpha usage allowance", () => {
     expect(en.no_limit).toBe("No limit");
     expect(en.messages).toBeUndefined();
     expect(en.message_rule).toBeUndefined();
-    expect(en.left_today).toContain("{{count}}");
-    expect(en.hourly_available).toContain("{{count}}");
-    expect(en.workspace_available).toContain("{{count}}");
+    expect(en.left_today_other).toContain("{{count}}");
+    expect(en.hourly_available_other).toContain("{{count}}");
+    expect(en.workspace_available_other).toContain("{{count}}");
     expect(en.what_counts).toBe("What counts?");
     expect(en.conversation_rule).toBe(
       "Conversation is free. Asking questions and reading answers never counts.",
     );
     expect(en.search_rule).toBe(
-      "Searches with sources count once per search Argus runs for you. Answers from Argus data don’t count.",
+      "Searches with sources count once per search Cuadrao runs for you. Answers from Cuadrao data don’t count.",
     );
     expect(en.simulation_rule).toBe(
       "New simulations count once. Retrying the same simulation doesn’t count again.",
@@ -406,15 +411,15 @@ describe("private-alpha usage allowance", () => {
     expect(es.no_limit).toBe("Sin límite");
     expect(es.messages).toBeUndefined();
     expect(es.message_rule).toBeUndefined();
-    expect(es.left_today).toContain("{{count}}");
-    expect(es.hourly_available).toContain("{{count}}");
-    expect(es.workspace_available).toContain("{{count}}");
+    expect(es.left_today_other).toContain("{{count}}");
+    expect(es.hourly_available_other).toContain("{{count}}");
+    expect(es.workspace_available_other).toContain("{{count}}");
     expect(es.what_counts.length).toBeGreaterThan(0);
     expect(es.conversation_rule).toBe(
       "La conversación es gratis. Preguntar y leer respuestas nunca cuenta.",
     );
     expect(es.search_rule).toBe(
-      "Las búsquedas con fuentes cuentan una vez por cada búsqueda que Argus hace por ti. Las respuestas con datos de Argus no cuentan.",
+      "Las búsquedas con fuentes cuentan una vez por cada búsqueda que Cuadrao hace por ti. Las respuestas con datos de Cuadrao no cuentan.",
     );
     expect(es.simulation_rule).toBe(
       "Las simulaciones nuevas cuentan una vez. Reintentar la misma simulación no vuelve a contar.",
@@ -483,9 +488,8 @@ describe("private-alpha usage allowance", () => {
     ).toBe("Quedan 2 en este chat temporal · vence 10 sep");
 
     const es = readLocale("es-419");
-    expect(es.command_palette.decision_note_count).toBe("{{count}} / {{max}}");
-    expect(es.feedback.attachments_with_count).toBe("Adjuntos ({{count}}/5)");
-    expect(es.chat.confirmation.asset_count).toBe("{{count}} activos");
+    expect(es.command_palette.decision_note_count_other).toBe("{{count}} / {{max}}");
+    expect(es.chat.confirmation.asset_count_other).toBe("{{count}} activos");
   });
 
   test("presents a flat quiet gauge with one What counts disclosure", () => {

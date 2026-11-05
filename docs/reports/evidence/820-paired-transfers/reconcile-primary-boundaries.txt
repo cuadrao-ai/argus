@@ -1,0 +1,31 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: <worker-checkout>
+configfile: pyproject.toml
+plugins: benchmark-5.2.3, mock-3.15.1, Faker-30.10.0, asyncio-1.4.0, hypothesis-6.151.12, langsmith-0.7.31, respx-0.23.1, cov-7.0.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 323 items
+
+tests/test_environment_scripts.py ...................................... [ 11%]
+..........                                                               [ 14%]
+tests/test_private_alpha_release_profile.py ..............               [ 19%]
+tests/test_render_release_profile_contract.py ..........                 [ 22%]
+tests/test_release_environment_membership.py ..                          [ 22%]
+tests/test_paired_transfers_postgres.py sss                              [ 23%]
+tests/test_apple_identity.py ...........                                 [ 27%]
+tests/test_apple_sign_in_api.py ..............................           [ 36%]
+tests/test_apple_sign_in_client.py ..................................... [ 47%]
+...                                                                      [ 48%]
+tests/test_openapi_compatibility.py ........................             [ 56%]
+tests/test_home_country.py .................................             [ 66%]
+tests/test_alpha_api_supabase.py ....................................... [ 78%]
+.....................................................................    [100%]
+
+=============================== warnings summary ===============================
+tests/test_alpha_api_supabase.py::test_unauthorized_revoked_supabase_session
+  <isolated-python>/lib/python3.11/site-packages/starlette/testclient.py:445: DeprecationWarning: Setting per-request cookies=<...> is being deprecated, because the expected behaviour on cookie persistence is ambiguous. Set cookies directly on the client instance instead.
+    return super().request(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================== 320 passed, 3 skipped, 1 warning in 52.08s ==================

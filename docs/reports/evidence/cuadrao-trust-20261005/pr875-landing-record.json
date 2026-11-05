@@ -1,0 +1,41 @@
+{
+  "pr": 875,
+  "head": "a4d403089b91536b0adcf02e2e7164ce921eab94",
+  "original_dependency_head": "07f768f28be6f900b1a3d2e7b242bcdbad25d93a",
+  "original_integration_reference": "7d037b07d4b98b34c6c0ad3026811c7d2f28ae47",
+  "run_original_integration_base": "875de09ac2115acec42e09060b92878aa5f18eff",
+  "reconciliation_merge": "03e9954744240c2bfd5b21d03005a7faa7e30fe8",
+  "integration_parent": "a2c65549b3ffcb97ee0be24b971110be8c090b32",
+  "merge": "8146d16e90633eb543781f8882665482f0d5dca9",
+  "merged_at": "2026-10-06T03:25:26Z",
+  "tree": "e13a0ef0ccbfc8752fe507e409b148cea1f8dbee",
+  "tree_equal": true,
+  "review": "https://github.com/lagarcess/argus/pull/875#pullrequestreview-5423424546",
+  "terminal_audit": "https://github.com/lagarcess/argus/pull/875#issuecomment-6008703490",
+  "ci": {
+    "success": 17,
+    "expected_skip": 3,
+    "failure": 0,
+    "pending": 0
+  },
+  "review_threads": 0,
+  "local_proof": {
+    "package_passed": 164,
+    "package_optional_local_skipped": 4,
+    "focused_passed": 19,
+    "actual_local_sdk_api_auth_postgres_passed": 1,
+    "generic_app_build": "success"
+  },
+  "retention": "All 403 native fingerprints match tested cc58. Evidence normalization and five baseline/introduced notification failures/fix verified. Incoming fixed fixtures retained.",
+  "configuration_names": [],
+  "scope_and_limits": "Typed journaled native deletion command, interrupted/retry/adoption protection, 202 session retirement, 503 uncertainty quarantine, validated 200 receipt. Final UI and atomic filesystem cleanup remain separate; fake analytics is not provider deletion proof; parents805-807 remain open, features disabled.",
+  "housekeeping": "protected-branch PR873 pending; exact integration CI and smoke passed",
+  "integration_checks": {
+    "sha": "8146d16e90633eb543781f8882665482f0d5dca9",
+    "ci_run": 37408905271,
+    "ci": "success",
+    "smoke_run": 37408905356,
+    "smoke": "success",
+    "canonical_clean_parity": true
+  }
+}

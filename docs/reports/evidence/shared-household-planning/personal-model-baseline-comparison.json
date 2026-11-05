@@ -1,0 +1,47 @@
+{
+  "baseline_ref": "15e57931584b21dd7f9e453dbeb9127fc4b8cff3",
+  "current_native_ref": "05d6c2e0dc820dbc9495fba1d076ea178f3c35fc",
+  "baseline_source_export_verified_sha256": {
+    "ios/ArgusFoundation/Accounts/AccountsView.swift": "8bc83af295c69a74205683a2d7faa8ad02968c20f3d782e5d445b3a0fb28451a",
+    "ios/ArgusFoundation/Accounts/FinancialActivityEditor.swift": "f9154b8fdf5ca2d453bf29830468531762293a722a63c5310bad87a780808fe0",
+    "ios/ArgusFoundation/Accounts/FinancialLoopModel.swift": "7937735742f40946b02f97ccec14202ff4af1d673e7970fb626510fc3900d260",
+    "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialActivityTypes.swift": "3bcd402e782f36a07ecf678d2234d9a0d486e93063e5340dcbf567931dc5dd8a",
+    "ios/FinancialModelTests/FinancialModelTests.swift": "e49759c377a1b46a2b11a1ae678de6d90dd8dd5fb7da53c683c22bad61abcd74"
+  },
+  "same_repaired_runner_sha256": "f170c2034984489ef3a41b06550dd01334616e6322fbba4c3fa8e1ef920c8589",
+  "logs": {
+    "current": "/private/tmp/argus-shared-household-planning-native-model-build/personal-model-full-check.log",
+    "baseline": "/private/tmp/argus-shared-household-planning-native-model-build/personal-model-baseline-check.log"
+  },
+  "matching_assertion_failures": [
+    [
+      "testEmptyPlanSelectionIsAnExplicitJournaledPut",
+      "XCTUnwrap failed: expected non-nil value of type \"PendingFinancialConfirmation\""
+    ],
+    [
+      "testPlanConfirmationSurvivesRelaunchAndDifferentOwnerCannotReplay",
+      "XCTAssertNotNil failed"
+    ],
+    [
+      "testPlanConfirmationSurvivesRelaunchAndDifferentOwnerCannotReplay",
+      "XCTUnwrap failed: expected non-nil value of type \"FinancialExpectationDraft\""
+    ],
+    [
+      "testPostSaveHomeWinsOverEarlierRead",
+      "XCTAssertEqual failed: (\"nil\") is not equal to (\"Optional(\"8000\")\")"
+    ],
+    [
+      "testPostSaveHomeWinsOverEarlierRead",
+      "XCTAssertEqual failed: (\"nil\") is not equal to (\"Optional(\"8000\")\")"
+    ],
+    [
+      "testSearchAccountNavigationAndAcceptedEditsPreserveAccountsSelection",
+      "XCTAssertEqual failed: (\"Optional(<synthetic-uuid>)\") is not equal to (\"Optional(<synthetic-uuid>)\")"
+    ]
+  ],
+  "matching_failure_count": 6,
+  "baseline_executed": 22,
+  "current_executed": 23,
+  "new_redacted_original_case": "passed in current full and focused runs",
+  "scope": "Read-only immutable Git source export; no other checkout, app, simulator, service or hosted operation"
+}

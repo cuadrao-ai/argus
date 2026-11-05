@@ -1,0 +1,11 @@
+One unsigned diagnostic archive attempt.
+Source f303903fdcfe8478fef33d877a2e70356c699523
+Exit 70. Compilation did not start. No tests executed.
+SDK iphoneos. Configuration Release. Destination generic/platform=iOS.
+CODE_SIGNING_ALLOWED=NO; CODE_SIGNING_REQUIRED=NO; CODE_SIGN_IDENTITY and DEVELOPMENT_TEAM empty.
+Automatic package resolution disabled; package updates skipped; resolved versions required.
+Error: Unable to find a destination matching the provided destination specifier.
+Any iOS Device does not match the app supported platforms.
+Owner: ios/Config/Development.xcconfig:12, SUPPORTED_PLATFORMS = iphonesimulator.
+No archive or official privacy report created. No retry or platform override.
+Only new owned derived data removed. Existing package cache and simulator bundles preserved.

@@ -1,0 +1,31 @@
+W1C home settled row=(31.66666603088379, 731.3333129882812, 384.3333435058594, 39.66668701171875) hittable=true id=home-activity.CBA56A38-9F0B-4756-8F80-668CC0CE7AF5
+W1C home element-tap opened=false row=(31.66666603088379, 731.3333129882812, 384.3333435058594, 39.66668701171875)
+W1C home coordinate-tap opened=true
+W1C receipt currency=(20.0, 500.3333333333333, 400.0, 51.99999999999994) hittable=true enabled=true
+W1C receipt usd-after-tap=false
+W1C receipt usd-after-coordinate=false
+W1C updates row=(24.0, 192.0, 392.0, 66.66665649414062) hittable=true bars=["Novedades"]
+W1C element-tap step=0 bars=["Novedades"]
+W1C element-tap step=1 bars=["Novedades"]
+W1C element-tap step=2 bars=["Novedades"]
+W1C element-tap step=3 bars=["Novedades"]
+W1C element-tap step=4 bars=["Novedades"]
+W1C element-tap step=5 bars=["Novedades"]
+W1C element-tap step=6 bars=["Novedades"]
+W1C element-tap step=7 bars=["Novedades"]
+W1C coordinate-tap step=0 bars=["Novedades"]
+W1C coordinate-tap step=1 bars=["Novedades"]
+W1C coordinate-tap step=2 bars=["Novedades"]
+W1C coordinate-tap step=3 bars=["Novedades"]
+W1C coordinate-tap step=4 bars=["Novedades"]
+W1C coordinate-tap step=5 bars=["Novedades"]
+W1C coordinate-tap step=6 bars=["Novedades"]
+W1C coordinate-tap step=7 bars=["Novedades"]
+W1C press-0.15 step=0 bars=["Novedad"]
+W1C press-0.15 step=1 bars=["Novedad"]
+W1C press-0.15 step=2 bars=["Novedad"]
+W1C press-0.15 step=3 bars=["Novedad"]
+W1C press-0.15 step=4 bars=["Novedad"]
+W1C press-0.15 step=5 bars=["Novedad"]
+W1C press-0.15 step=6 bars=["Novedad"]
+W1C press-0.15 step=7 bars=["Novedad"]

@@ -6,8 +6,6 @@ from typing import Protocol
 
 from loguru import logger
 
-from argus.observability.guest_funnel import capture_guest_funnel_event
-
 
 class GuestCleanupGateway(Protocol):
     def claim_expired_guest_workspaces(
@@ -106,21 +104,6 @@ def cleanup_expired_guest_workspaces(
             failed += 1
         elif candidate.get("auth_deleted") is True:
             deleted += 1
-            if candidate.get("cleanup_reason") != "expired_workspace":
-                continue
-            try:
-                capture_guest_funnel_event(
-                    "guest_session_expired",
-                    user_id=user_id,
-                    surface="cleanup",
-                    product_capability="account",
-                    terminal_outcome="expired",
-                )
-            except Exception:
-                logger.opt(exception=True).warning(
-                    "Guest expiry event emission failed",
-                    product_event="guest_session_expired",
-                )
         else:
             preserved += 1
     purged = purge_expired_visitor_data(gateway)

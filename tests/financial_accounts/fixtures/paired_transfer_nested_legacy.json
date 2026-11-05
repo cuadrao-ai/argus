@@ -1,0 +1,257 @@
+[
+  {
+    "module": "argus.domain.household.financial_schemas",
+    "name": "FinancialCommand",
+    "input": {
+      "membership_id": "00000000-0000-4000-8000-000000000003",
+      "expected_version": 1,
+      "activity": {
+        "amount": "10.25",
+        "occurred_at": "2026-10-05T12:00:00+00:00",
+        "kind": "transfer",
+        "source_account_id": "00000000-0000-4000-8000-000000000001",
+        "destination_account_id": "00000000-0000-4000-8000-000000000002"
+      }
+    },
+    "serialized": {
+      "expected_version": 1,
+      "membership_id": "00000000-0000-4000-8000-000000000003",
+      "activity": {
+        "kind": "transfer",
+        "account_id": null,
+        "source_account_id": "00000000-0000-4000-8000-000000000001",
+        "destination_account_id": "00000000-0000-4000-8000-000000000002",
+        "amount": "10.25",
+        "principal": null,
+        "interest": null,
+        "fees": null,
+        "reversal_of_activity_id": null,
+        "occurred_at": "2026-10-05T12:00:00Z",
+        "time_zone": "America/Santo_Domingo",
+        "note": null,
+        "category_id": null,
+        "source_id": null,
+        "purchase_activity_id": null,
+        "expected_revision": null,
+        "reason": null,
+        "expected_versions": {},
+        "coverage": [],
+        "preview_token": null
+      }
+    },
+    "identity": "sha256:695077be92462baee725e319348373ecddb1344e138f4ecbc38ae88b12324bb3"
+  },
+  {
+    "module": "argus.domain.household.planning_schemas",
+    "name": "ContributionRecord",
+    "input": {
+      "membership_id": "00000000-0000-4000-8000-000000000003",
+      "expected_authorization_version": 1,
+      "expected_plan_version": 1,
+      "purpose": "funding",
+      "activity": {
+        "amount": "10.25",
+        "occurred_at": "2026-10-05T12:00:00+00:00",
+        "kind": "transfer",
+        "source_account_id": "00000000-0000-4000-8000-000000000001",
+        "destination_account_id": "00000000-0000-4000-8000-000000000002"
+      }
+    },
+    "serialized": {
+      "membership_id": "00000000-0000-4000-8000-000000000003",
+      "expected_authorization_version": 1,
+      "expected_plan_version": 1,
+      "activity": {
+        "kind": "transfer",
+        "account_id": null,
+        "source_account_id": "00000000-0000-4000-8000-000000000001",
+        "destination_account_id": "00000000-0000-4000-8000-000000000002",
+        "amount": "10.25",
+        "principal": null,
+        "interest": null,
+        "fees": null,
+        "reversal_of_activity_id": null,
+        "occurred_at": "2026-10-05T12:00:00Z",
+        "time_zone": "America/Santo_Domingo",
+        "note": null,
+        "category_id": null,
+        "source_id": null,
+        "purchase_activity_id": null,
+        "expected_revision": null,
+        "reason": null,
+        "expected_versions": {},
+        "coverage": [],
+        "preview_token": null
+      },
+      "purpose": "funding",
+      "occurrence_id": null
+    },
+    "identity": "sha256:6c40254b66c7f0a72efc689ead040c088dda61ab9eea5dcc6a5f7a7227669dca"
+  },
+  {
+    "module": "argus.domain.household.planning_schemas",
+    "name": "ContributionCorrection",
+    "input": {
+      "membership_id": "00000000-0000-4000-8000-000000000003",
+      "expected_authorization_version": 1,
+      "expected_plan_version": 1,
+      "activity": {
+        "amount": "10.25",
+        "occurred_at": "2026-10-05T12:00:00+00:00",
+        "kind": "transfer",
+        "source_account_id": "00000000-0000-4000-8000-000000000001",
+        "destination_account_id": "00000000-0000-4000-8000-000000000002"
+      }
+    },
+    "serialized": {
+      "membership_id": "00000000-0000-4000-8000-000000000003",
+      "expected_authorization_version": 1,
+      "expected_plan_version": 1,
+      "activity": {
+        "kind": "transfer",
+        "account_id": null,
+        "source_account_id": "00000000-0000-4000-8000-000000000001",
+        "destination_account_id": "00000000-0000-4000-8000-000000000002",
+        "amount": "10.25",
+        "principal": null,
+        "interest": null,
+        "fees": null,
+        "reversal_of_activity_id": null,
+        "occurred_at": "2026-10-05T12:00:00Z",
+        "time_zone": "America/Santo_Domingo",
+        "note": null,
+        "category_id": null,
+        "source_id": null,
+        "purchase_activity_id": null,
+        "expected_revision": null,
+        "reason": null,
+        "expected_versions": {},
+        "coverage": [],
+        "preview_token": null
+      }
+    },
+    "identity": "sha256:98fdfc79eda58fb090647301ca97c1351191b47c3de886fd617b3a66255e4162"
+  },
+  {
+    "module": "argus.domain.planning.goal_schemas",
+    "name": "ContributionRecord",
+    "input": {
+      "expected_version": 1,
+      "activity": {
+        "amount": "10.25",
+        "occurred_at": "2026-10-05T12:00:00+00:00",
+        "kind": "transfer",
+        "source_account_id": "00000000-0000-4000-8000-000000000001",
+        "destination_account_id": "00000000-0000-4000-8000-000000000002"
+      }
+    },
+    "serialized": {
+      "expected_version": 1,
+      "activity": {
+        "kind": "transfer",
+        "account_id": null,
+        "source_account_id": "00000000-0000-4000-8000-000000000001",
+        "destination_account_id": "00000000-0000-4000-8000-000000000002",
+        "amount": "10.25",
+        "principal": null,
+        "interest": null,
+        "fees": null,
+        "reversal_of_activity_id": null,
+        "occurred_at": "2026-10-05T12:00:00Z",
+        "time_zone": "America/Santo_Domingo",
+        "note": null,
+        "category_id": null,
+        "source_id": null,
+        "purchase_activity_id": null,
+        "expected_revision": null,
+        "reason": null,
+        "expected_versions": {},
+        "coverage": [],
+        "preview_token": null
+      },
+      "occurrence_id": null
+    },
+    "identity": "sha256:a843468bf40a1737ed80fdde9fb620b7c0da4b027643142b448efd4b21dff65f"
+  },
+  {
+    "module": "argus.domain.planning.debt_schemas",
+    "name": "DebtRecord",
+    "input": {
+      "expected_version": 1,
+      "activity": {
+        "amount": "10.25",
+        "occurred_at": "2026-10-05T12:00:00+00:00",
+        "kind": "transfer",
+        "source_account_id": "00000000-0000-4000-8000-000000000001",
+        "destination_account_id": "00000000-0000-4000-8000-000000000002"
+      }
+    },
+    "serialized": {
+      "expected_version": 1,
+      "activity": {
+        "kind": "transfer",
+        "account_id": null,
+        "source_account_id": "00000000-0000-4000-8000-000000000001",
+        "destination_account_id": "00000000-0000-4000-8000-000000000002",
+        "amount": "10.25",
+        "principal": null,
+        "interest": null,
+        "fees": null,
+        "reversal_of_activity_id": null,
+        "occurred_at": "2026-10-05T12:00:00Z",
+        "time_zone": "America/Santo_Domingo",
+        "note": null,
+        "category_id": null,
+        "source_id": null,
+        "purchase_activity_id": null,
+        "expected_revision": null,
+        "reason": null,
+        "expected_versions": {},
+        "coverage": [],
+        "preview_token": null
+      },
+      "occurrence_id": null
+    },
+    "identity": "sha256:a843468bf40a1737ed80fdde9fb620b7c0da4b027643142b448efd4b21dff65f"
+  },
+  {
+    "module": "argus.domain.planning.schemas",
+    "name": "Fulfillment",
+    "input": {
+      "expected_version": 1,
+      "activity": {
+        "amount": "10.25",
+        "occurred_at": "2026-10-05T12:00:00+00:00",
+        "kind": "transfer",
+        "source_account_id": "00000000-0000-4000-8000-000000000001",
+        "destination_account_id": "00000000-0000-4000-8000-000000000002"
+      }
+    },
+    "serialized": {
+      "expected_version": 1,
+      "activity": {
+        "kind": "transfer",
+        "account_id": null,
+        "source_account_id": "00000000-0000-4000-8000-000000000001",
+        "destination_account_id": "00000000-0000-4000-8000-000000000002",
+        "amount": "10.25",
+        "principal": null,
+        "interest": null,
+        "fees": null,
+        "reversal_of_activity_id": null,
+        "occurred_at": "2026-10-05T12:00:00Z",
+        "time_zone": "America/Santo_Domingo",
+        "note": null,
+        "category_id": null,
+        "source_id": null,
+        "purchase_activity_id": null,
+        "expected_revision": null,
+        "reason": null,
+        "expected_versions": {},
+        "coverage": [],
+        "preview_token": null
+      }
+    },
+    "identity": "sha256:ce5db9f467868a9de1d35be57bd13144a6f8af58714bbc3fa7f64edc3b5b2d52"
+  }
+]

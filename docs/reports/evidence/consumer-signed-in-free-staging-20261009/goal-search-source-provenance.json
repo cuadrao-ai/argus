@@ -1,0 +1,20 @@
+{
+  "integration_base": "cd14c9883f180876d27c121f0787b25a73529492",
+  "test_source_commit": "333751f2124045fff4bfe333a5319b69a8706816",
+  "test_product": "GoalSearchRepairs.xctestproducts",
+  "app_source_tree": "0d9584a4489c5081a1856665e2fa2aba392b5ec2",
+  "app_source_unchanged": true,
+  "sources": {
+    "ios/ArgusFoundationUITests/ConnectedChrome.swift": "40f0eae641904884bfb2f40df6336360c8b8ba66126c8434e8935ff2b6d2a541",
+    "ios/ArgusFoundationUITests/FinancialLoopUITests.swift": "38dee5626ea10e4cc17a905db5215999488bb6ac7aa76a9f1b4ddb9316b4dde6",
+    "ios/ArgusFoundationUITests/PersonalMoneyUITests.swift": "216dac0afc88a638ca92e84137b0d8b9899792afc3d9934f26bde429d71fc4b6",
+    "ios/ArgusFoundationUITests/ConnectedBudgetUITests.swift": "24c3d9b3db5e5cd62438450f5707a62084bbdf742a220dd1c559a3979bfeec60",
+    "ios/ArgusFoundationUITests/ConnectedGoalUITests.swift": "21da14664e3884a22093f770e84b8085f9f4c03206c86c6d1d53fd1972e4d51c",
+    "ios/ArgusFoundationUITests/SearchUITests.swift": "c279388443869166adb61218a48cc8fb51f9dbc21c8548790a0e9abb9eae8188",
+    "ios/ArgusFoundationUITests/ConnectedReleaseSurfaceUITests.swift": "695975cf215c8eeabb6316081dd72e3d894d39022023b51258100b20c248f52e",
+    "ios/ArgusFoundationUITests/ConnectedPlanUITests.swift": "fd2d352bb48996f87fdda5245186bd1e9f3b54e3487b977e7e6838b0bdb81402"
+  },
+  "independent_review": "clean; canonical navigation and no-write retained replay",
+  "retained_record": "Emergency DC955",
+  "expected_supported": "DOP 750.00"
+}

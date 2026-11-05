@@ -1,0 +1,16 @@
+{
+  "results": [
+    "es/320: 10 selected states fit",
+    "es/390: 10 selected states fit",
+    "es/768: 10 selected states fit",
+    "es/1440: 10 selected states fit",
+    "es: currencies, keyboard, forecast, five capture methods, edited confirmation, assistant reminder, search return, update destinations, receipt and invoice pass",
+    "en/320: 10 selected states fit",
+    "en/390: 10 selected states fit",
+    "en/768: 10 selected states fit",
+    "en/1440: 10 selected states fit",
+    "en: currencies, keyboard, forecast, five capture methods, edited confirmation, assistant reminder, search return, update destinations, receipt and invoice pass"
+  ],
+  "pageErrors": [],
+  "note": "Only labelled local examples exercised; no contact or waitlist submissions."
+}

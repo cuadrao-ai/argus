@@ -15,7 +15,6 @@
     "api_data_contract": "No incoming API or persisted data contract change; profile writes use existing getMe/patchMe. Registry adds recompute API independently.",
     "ui_state_owner": "Profile state queue and rollback are upstream-owned. Chat shell and bilingual rendering acceptance repeated after merge.",
     "migration": "No incoming or registry migration diff.",
-    "environment": "Upstream deletes obsolete NEXT_PUBLIC_ARGUS_SHOW_SUBSCRIPTION example flag. Registry adds no environment variable.",
     "tests": "Both independent alpha-frontend assertions survive the normal merge. Complete frontend tests, lint/build and registry browser matrix repeated; no fixture assertions relaxed."
   },
   "evidence_retained": {

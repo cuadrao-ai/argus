@@ -27,7 +27,7 @@ from argus.api import state as api_state
 from argus.api.main import app
 
 from tests.test_chat_stream_contract import _final_payload
-from tests.test_confirmation_direct_edit import _client, _conversation, _direct_edit
+from tests.test_confirmation_direct_edit import _conversation, _direct_edit
 
 IDEA_WINDOW = {"start": "2023-01-02", "end": "2023-12-29"}
 DRAWER_WINDOW = {"start": "2022-08-11", "end": "2023-12-29"}
@@ -205,50 +205,6 @@ def _persisted_card_payload(client: Any, conversation_id: str) -> dict[str, Any]
         "items"
     ]
     return messages[-1]["metadata"]["confirmation_payload"]
-
-
-def test_stated_duration_after_cancelled_drawer_edited_draft_is_applied(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    client = _client()
-    final, cancelled_id = _cancelled_drawer_edited_draft(
-        client, monkeypatch, _stated_duration_applied()
-    )
-
-    assert final["stage_outcome"] == "await_approval"
-    payload = final["confirmation_payload"]
-    assert payload["strategy"]["date_range"] == SIX_MONTH_WINDOW, (
-        "the turn's own card must be published; the drawer-edited window "
-        "belonged to the cancelled card"
-    )
-    assert payload["launch_payload"]["date_range"] == SIX_MONTH_WINDOW
-    card = final["confirmation"]
-    assert str(card.get("confirmation_id") or card.get("confirmationId")) != cancelled_id
-    assert card["date_range"]["start"] == SIX_MONTH_WINDOW["start"]
-    persisted = _persisted_card_payload(client, _conversation_of(client))
-    assert persisted["strategy"]["date_range"] == SIX_MONTH_WINDOW
-
-
-def test_refused_duration_after_cancelled_drawer_edited_draft_is_disclosed(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    client = _client()
-    final, _ = _cancelled_drawer_edited_draft(
-        client, monkeypatch, _stated_duration_refused()
-    )
-
-    assert final["stage_outcome"] == "await_approval"
-    payload = final["confirmation_payload"]
-    assert payload["strategy"]["date_range"] == DRAWER_WINDOW
-    assert payload["edit_disclosure"]["unapplied"] == [UNAPPLIED_DATE_WINDOW], (
-        "a change the turn could not apply is surfaced as a typed record on "
-        "the card it produced; there is no silent third outcome"
-    )
-    assert final["confirmation"]["edit_disclosure"]["unapplied"] == [
-        UNAPPLIED_DATE_WINDOW
-    ]
-    persisted = _persisted_card_payload(client, _conversation_of(client))
-    assert persisted["edit_disclosure"] == {"unapplied": [UNAPPLIED_DATE_WINDOW]}
 
 
 def _conversation_of(client: Any) -> str:

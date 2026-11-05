@@ -1,0 +1,62 @@
+{
+  "verified_at": "2026-09-29T16:54:00.070688+00:00",
+  "native_source": "7a3bf64fcfa34b48281f6ba33bec08f19e604f41",
+  "api": "http://127.0.0.1:58500",
+  "synthetic_data": true,
+  "build": "TEST BUILD SUCCEEDED",
+  "case_terminal": "Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testTransferLabelClarityWithoutSaving]' passed (163.259 seconds).",
+  "test_finalizer": "stalled after terminal pass; terminated",
+  "financial_writes": 0,
+  "unchanged_readback": true,
+  "driver_in_compiled_test_target": false,
+  "artifacts": {
+    "card-picker-smoke-en-dark.png": {
+      "bytes": 184996,
+      "sha256": "9a33363b46c1c26e3a604adf0c1f1cb78053e5080cae4cd51e31e99095167a29"
+    },
+    "TransferLabelCheck.swift": {
+      "bytes": 4530,
+      "sha256": "19e06b7d08efe581d0fcbf90aab5089f73ee7eb9ea94555adfe2138bb444a3bb"
+    },
+    "README.md": {
+      "bytes": 2657,
+      "sha256": "6951ec005354b932b2688114a736f7e644a0f500ff6fe6688e25185fb197a243"
+    },
+    "readback.json": {
+      "bytes": 981,
+      "sha256": "5bd2815deb630d555585c8a4a096c118449193d65d638617e6a04211d0a64795"
+    },
+    "transfer-labels-en-dark.png": {
+      "bytes": 179968,
+      "sha256": "f2ba55c2c49dc21286d22d7b54d0640f85f85d0107a43b8642c6c5c410f9e2a5"
+    },
+    "expense-picker-smoke-en-dark.png": {
+      "bytes": 180757,
+      "sha256": "8ce90bca23ca70a76f59ddd0fce0806e3e8c447d84904e2ebe462c7344c604d6"
+    },
+    "transfer-labels-es-419-light.png": {
+      "bytes": 178381,
+      "sha256": "061b04fe7fd8581eae1ce31117cfbd5615eba664195756f9cd61337e087b99ab"
+    },
+    "transfer-labels-review-es-419-light.png": {
+      "bytes": 242482,
+      "sha256": "1d114b59a48927d7369cbd283be267d6f0551b753a155c9b1fe8a31c52898e0c"
+    },
+    "transfer-labels-final-home.png": {
+      "bytes": 347346,
+      "sha256": "4e57d40a89af6a4b769181ef29d9111bd93e6ccee46a28e9a0d60c964c6a58a3"
+    },
+    "transfer-labels-review-en-dark.png": {
+      "bytes": 245893,
+      "sha256": "73101628147bc7d61a2df0eedca325082339d7699b57368de2cceb0923e71bdc"
+    },
+    "terminal-status.txt": {
+      "bytes": 368,
+      "sha256": "63000543bb8f151cb5f823b70706b3589f9fc6ebc6fc5f1836c461c7738ee3f2"
+    },
+    "transfer-correction-labels-en-dark.png": {
+      "bytes": 185591,
+      "sha256": "e5d065f535627448ae2bfc05332f1edaf76ca486ed18ec127340f1b91ad0d0a2"
+    }
+  }
+}

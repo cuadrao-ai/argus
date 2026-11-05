@@ -57,13 +57,14 @@ describe("what Argus calls the user", () => {
 
   test("the settings field is separate from display name", () => {
     // display_name is an identity field people fill with a legal name.
-    const dialog = source("components/sidebar/ProfileDetailsDialog.tsx");
+    // Perfil edits both names in place through ProfileNameFields.
+    const dialog = source("components/sidebar/ProfileNameFields.tsx");
     const menu = source("components/sidebar/ProfileMenu.tsx");
     const en = JSON.parse(source("public/locales/en/common.json"));
     const es = JSON.parse(source("public/locales/es-419/common.json"));
 
     expect(dialog).toContain("settings.profile.preferred_name");
-    expect(dialog).toContain("argus-profile-preferred-name");
+    expect(dialog).toContain("profile-preferred-name");
     expect(menu).toContain(
       "saveProfile({ preferred_name: trimmed || null }, applyPatchedProfile)",
     );
@@ -72,7 +73,7 @@ describe("what Argus calls the user", () => {
     );
     // Blank clears it, which is how a user opts out after opting in.
     expect(en.settings.profile.preferred_name).toBe(
-      "What should Argus call you?",
+      "What should we call you?",
     );
     for (const catalog of [en, es]) {
       for (const key of [

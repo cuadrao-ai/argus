@@ -1,0 +1,17 @@
+--- voice bar mute, shape removed: exit 1
+UNREVIEWED 7bb0741ab7db  ArgusFoundation/Cuadrao/CuadraoVoiceBar.swift:35-37
+--- ordered collection Edit, shape removed: exit 1
+UNREVIEWED 835884728ad5  ArgusFoundation/Cuadrao/CuadraoOrderedCollection.swift:48-48
+--- voice message Cancel, shape removed: exit 1
+UNREVIEWED c36d14f19969  ArgusFoundation/Cuadrao/CuadraoVoiceMessagePanel.swift:104-106
+--- voice bar, style moved back to the container: exit 1
+CONTAINER 9735eab53ddc  ArgusFoundation/Cuadrao/CuadraoVoiceBar.swift:20-42  the plain style sits on a container; set it on each control
+--- FinancialActivityRow helper, shape removed: exit 1
+HELPER 9ac2023b862c  ArgusFoundation/Accounts/AccountActivityView.swift:34-36  FinancialActivityRow has no content shape
+HELPER 493a429d01cf  ArgusFoundation/Accounts/FinancialHomeView.swift:73-75  FinancialActivityRow has no content shape
+HELPER 75b2445df572  ArgusFoundation/Connected/ConnectedCuadraoHome.swift:313-320  FinancialActivityRow has no content shape
+--- CuadraoChoiceLabel helper, shape removed: exit 1
+HELPER 86643708f5e2  ArgusFoundation/Cuadrao/CuadraoAmountField.swift:17-18  CuadraoChoiceLabel has no content shape
+HELPER 52c6ad8a724d  ArgusFoundation/Cuadrao/Planning/PlanCurrencyChoice.swift:16-18  CuadraoChoiceLabel has no content shape
+plain-style statements: 127, without a content shape: 43, reviewed: 43, unreviewed: 0, stale entries: 0, container styles: 0, helpers without a shape: 0
+--- unmutated copy: exit 0

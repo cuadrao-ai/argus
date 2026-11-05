@@ -1,0 +1,30 @@
+{
+  "integration_base": "cd14c9883f180876d27c121f0787b25a73529492",
+  "test_source_commit": "7a66caad04e3c4ecadd48c8ae6a11042fd077bcc",
+  "test_product": "PlanIdentityApproved.xctestproducts",
+  "app_source_tree": "6f6e052f8ad348c247145915c5cb0c89c5d76c36",
+  "app_source_change": "Only move the amount field identifier assignment from makeUIView to updateUIView. No money parsing, values, focus, selection, layout or persistence behavior changed.",
+  "user_approval": "2026-10-10: Approve the one-line identifier fix and open the draft PR. No phone install. Keep backend cad1cbe1e. No further hosted changes.",
+  "sources": {
+    "ios/ArgusFoundation/Cuadrao/CanvasDecimalInput.swift": "6e2fd3d3660266cc3cf61e645513151eea75e25007e39898ed71d74ae4447103",
+    "ios/ArgusFoundationUITests/ConnectedPlanUITests.swift": "fd2d352bb48996f87fdda5245186bd1e9f3b54e3487b977e7e6838b0bdb81402",
+    "ios/ArgusFoundationUITests/ConnectedBudgetUITests.swift": "24c3d9b3db5e5cd62438450f5707a62084bbdf742a220dd1c559a3979bfeec60",
+    "ios/ArgusFoundationUITests/FinancialLoopUITests.swift": "38dee5626ea10e4cc17a905db5215999488bb6ac7aa76a9f1b4ddb9316b4dde6",
+    "ios/ArgusFoundationUITests/PersonalMoneyUITests.swift": "216dac0afc88a638ca92e84137b0d8b9899792afc3d9934f26bde429d71fc4b6",
+    "ios/ArgusFoundationUITests/ConnectedChrome.swift": "40f0eae641904884bfb2f40df6336360c8b8ba66126c8434e8935ff2b6d2a541"
+  },
+  "independent_review": "Previously prepared exact one-line patch reviewed clean; applied without expansion.",
+  "native_regression": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "budget_rerun": {
+    "passed": 0,
+    "failed": 1,
+    "skipped": 0,
+    "result": "Failed before the first account editor opened: accounts.add could not reach the visible scroll area. No budget was created; no Save, Review or Confirm action occurred in this run. The broader budget journey remains unverified.",
+    "evidence": "results/budget-after-identifier-fix.json"
+  },
+  "prior_evidence": "Retained at earlier recorded source. The only subsequent product delta refreshes a test identifier; it does not change numerical or visible UI behavior."
+}

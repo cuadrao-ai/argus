@@ -1,0 +1,138 @@
+{
+  "canonical_activity_count": 4,
+  "committed_response_loss": true,
+  "integration_base": "6a9d0338d2b2e7106877e0e5d1f9f5aaa70d67ec",
+  "journey": "connected_savings_goals_real_http",
+  "local_allocation": 59100,
+  "main_supported_minor": "40000",
+  "main_target_minor": 100000,
+  "mode": "initial_retained_scene",
+  "original_contribution_detail": true,
+  "owner_isolation": true,
+  "planned_minor": "10000",
+  "scenario_checks": {
+    "allocated": {
+      "a_assigned_minor": 60000,
+      "a_supported_minor": 60000,
+      "available_minor": 10000,
+      "b_assigned_minor": 30000,
+      "b_supported_minor": 30000,
+      "bank_minor": 100000,
+      "savings_minor": 100000,
+      "shortfall_minor": 0
+    },
+    "contribution_corrected": {
+      "a_assigned_minor": 73000,
+      "a_supported_minor": 73000,
+      "available_minor": 10000,
+      "b_assigned_minor": 30000,
+      "b_supported_minor": 30000,
+      "bank_minor": 87000,
+      "savings_minor": 113000,
+      "shortfall_minor": 0
+    },
+    "included": {
+      "a_assigned_minor": 60000,
+      "a_supported_minor": 60000,
+      "available_minor": 10000,
+      "b_assigned_minor": 30000,
+      "b_supported_minor": 30000,
+      "bank_minor": 100000,
+      "savings_minor": 100000,
+      "shortfall_minor": 0
+    },
+    "new_contribution": {
+      "a_assigned_minor": 75000,
+      "a_supported_minor": 75000,
+      "available_minor": 10000,
+      "b_assigned_minor": 30000,
+      "b_supported_minor": 30000,
+      "bank_minor": 85000,
+      "savings_minor": 115000,
+      "shortfall_minor": 0
+    },
+    "original150": {
+      "a_assigned_minor": 55000,
+      "a_supported_minor": 55000,
+      "available_minor": 10000,
+      "b_assigned_minor": 30000,
+      "b_supported_minor": 30000,
+      "bank_minor": 105000,
+      "savings_minor": 95000,
+      "shortfall_minor": 0
+    },
+    "original250": {
+      "a_assigned_minor": 65000,
+      "a_supported_minor": 65000,
+      "available_minor": 10000,
+      "b_assigned_minor": 30000,
+      "b_supported_minor": 30000,
+      "bank_minor": 95000,
+      "savings_minor": 105000,
+      "shortfall_minor": 0
+    },
+    "readback": {
+      "a_assigned_minor": 40000,
+      "a_supported_minor": 40000,
+      "available_minor": 0,
+      "b_assigned_minor": 1000,
+      "b_supported_minor": 1000,
+      "bank_minor": 159000,
+      "savings_minor": 41000,
+      "shortfall_minor": 0
+    },
+    "rejected_claims": {
+      "a_assigned_minor": 65000,
+      "a_supported_minor": 65000,
+      "available_minor": 10000,
+      "b_assigned_minor": 30000,
+      "b_supported_minor": 30000,
+      "bank_minor": 95000,
+      "savings_minor": 105000,
+      "shortfall_minor": 0
+    },
+    "resolved": {
+      "a_assigned_minor": 40000,
+      "a_supported_minor": 40000,
+      "available_minor": 0,
+      "b_assigned_minor": 3000,
+      "b_supported_minor": 3000,
+      "bank_minor": 157000,
+      "savings_minor": 43000,
+      "shortfall_minor": 0
+    },
+    "restored_needs_review": {
+      "a_assigned_minor": 40000,
+      "a_supported_minor": null,
+      "available_minor": 0,
+      "b_assigned_minor": 3000,
+      "b_supported_minor": null,
+      "bank_minor": 159000,
+      "savings_minor": 41000,
+      "shortfall_minor": 2000
+    },
+    "retained": {
+      "a_assigned_minor": 40000,
+      "a_supported_minor": 40000,
+      "available_minor": 0,
+      "b_assigned_minor": 1000,
+      "b_supported_minor": 1000,
+      "bank_minor": 159000,
+      "savings_minor": 41000,
+      "shortfall_minor": 0
+    },
+    "shared_shortfall": {
+      "a_assigned_minor": 73000,
+      "a_supported_minor": null,
+      "available_minor": 0,
+      "b_assigned_minor": 30000,
+      "b_supported_minor": null,
+      "bank_minor": 157000,
+      "savings_minor": 43000,
+      "shortfall_minor": 60000
+    }
+  },
+  "scope": "Retained synthetic registered-owner scene through real local Auth/API/Postgres59102; unrelated native fixtures and correction revisions preserved; not hosted or physical-device proof",
+  "search_goal_identity": true,
+  "source_head": "83523335d43e6f6e98ac1ddd05fb47a0531ddc83"
+}

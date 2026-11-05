@@ -1,0 +1,19 @@
+{
+  "pr": 846,
+  "original_base": "875de09ac2115acec42e09060b92878aa5f18eff",
+  "integration_parent": "a6688eea10895d9f57664f1ece8a7eba96503732",
+  "head": "cea9f6e18c582615dee44cf1a7d3a05b936b660a",
+  "merge": "26c0692d634953bd542a6cca6504138e6e420e6c",
+  "merged_at": "2026-10-05T17:52:01Z",
+  "tree_equal": true,
+  "review": "https://github.com/lagarcess/argus/pull/846#issuecomment-5999811273",
+  "independent_tests": 48,
+  "independent_postgres_tests": 28,
+  "skips_or_failures": 0,
+  "ci_success": 16,
+  "ci_skips": 3,
+  "pending_or_failed": 0,
+  "environment_changes": [],
+  "hosted_operator_phone_gates": "open",
+  "housekeeping": "pending protected-branch PR"
+}

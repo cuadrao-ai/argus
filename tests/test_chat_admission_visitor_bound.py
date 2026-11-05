@@ -127,28 +127,21 @@ def test_replay_decision_never_charges_the_visitor(monkeypatch) -> None:
     assert charges == []
 
 
-def test_only_first_fresh_admission_emits_first_simulation(monkeypatch) -> None:
+def test_fresh_admission_sends_no_retired_funnel_event(monkeypatch) -> None:
+    """first_simulation_admitted was retired by SPEC 0 package 0C-1; admission
+    no longer reads the guest-session counter for it or sends anything."""
     monkeypatch.setattr(flow, "visitor_within_limits", lambda *a, **k: True)
     monkeypatch.setattr(flow, "settle_visitor_usage", lambda *a, **k: None)
-    events: list[str] = []
+    posts: list[object] = []
+    monkeypatch.setenv("POSTHOG_PROJECT_TOKEN", "ph_project_token")
+    monkeypatch.setenv("POSTHOG_REGION", "us")
     monkeypatch.setattr(
-        flow,
-        "emit_verified_guest_funnel_event",
-        lambda kind, **kwargs: events.append(kind),
+        "argus.observability.envelope.httpx.post",
+        lambda *args, **kwargs: posts.append((args, kwargs)),
     )
 
-    first = _gateway(reservation=None, decision="admitted")
-    first.list_current_usage_counters.return_value = [
-        {"resource": "backtest_runs", "used_count": 1}
-    ]
-    _admit(first)
+    gateway = _gateway(reservation=None, decision="admitted")
+    _admit(gateway)
 
-    second = _gateway(reservation=None, decision="admitted")
-    # The visitor-day counter can reset between these admissions. The durable
-    # guest-session counter is the identity that must suppress the duplicate.
-    second.list_current_usage_counters.return_value = [
-        {"resource": "backtest_runs", "used_count": 2}
-    ]
-    _admit(second)
-
-    assert events == ["first_simulation_admitted"]
+    assert posts == []
+    gateway.list_current_usage_counters.assert_not_called()

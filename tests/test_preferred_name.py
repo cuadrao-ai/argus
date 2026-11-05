@@ -202,7 +202,8 @@ def test_the_migration_bounds_it_and_keeps_it_off_the_guest_surface() -> None:
 
 def test_nothing_infers_a_preferred_name_from_conversation() -> None:
     # This is a setting, never a memory. Guessing a nickname from how someone
-    # types would be the creepiest thing in the product.
+    # types would be the creepiest thing in the product. Only profile creation
+    # writes it, and only for a new row, from the name typed at sign-up.
     writers = [
         path
         for path in (ROOT / "src").rglob("*.py")
@@ -210,5 +211,6 @@ def test_nothing_infers_a_preferred_name_from_conversation() -> None:
     ]
 
     assert {path.relative_to(ROOT).as_posix() for path in writers} == {
-        "src/argus/api/schemas.py"
+        "src/argus/api/schemas.py",
+        "src/argus/domain/supabase_gateway.py",
     }

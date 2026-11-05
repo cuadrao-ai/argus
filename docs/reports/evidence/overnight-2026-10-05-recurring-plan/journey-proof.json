@@ -1,0 +1,122 @@
+{
+  "checks": [
+    {
+      "assertions": 12,
+      "name": "movement becomes a prefilled expectation without touching the original"
+    },
+    {
+      "assertions": 11,
+      "name": "Home default window is independent of Plan horizon"
+    },
+    {
+      "assertions": 6,
+      "name": "currency separation"
+    },
+    {
+      "assertions": 9,
+      "name": "link an actual payment fulfils the occurrence once"
+    },
+    {
+      "assertions": 8,
+      "name": "record a new payment through fulfillment"
+    },
+    {
+      "assertions": 8,
+      "name": "correcting the linked payment follows the stored contract"
+    },
+    {
+      "assertions": 8,
+      "name": "authorization"
+    },
+    {
+      "assertions": 4,
+      "name": "a due date never posts money"
+    },
+    {
+      "assertions": 3,
+      "name": "unknown balance is not counted as known"
+    },
+    {
+      "assertions": 2,
+      "name": "empty plan invents no totals"
+    },
+    {
+      "assertions": 6,
+      "name": "cadence dates"
+    }
+  ],
+  "every_two_weeks_dates": [
+    "2026-10-05",
+    "2026-10-19",
+    "2026-11-02",
+    "2026-11-16",
+    "2026-11-30",
+    "2026-12-14",
+    "2026-12-28",
+    "2027-01-11",
+    "2027-01-25",
+    "2027-02-08",
+    "2027-02-22",
+    "2027-03-08",
+    "2027-03-22",
+    "2027-04-05",
+    "2027-04-19",
+    "2027-05-03",
+    "2027-05-17",
+    "2027-05-31",
+    "2027-06-14",
+    "2027-06-28",
+    "2027-07-12",
+    "2027-07-26",
+    "2027-08-09",
+    "2027-08-23",
+    "2027-09-06",
+    "2027-09-20",
+    "2027-10-04"
+  ],
+  "identities": 3,
+  "month_end_dates": [
+    "2026-10-31",
+    "2026-11-30",
+    "2026-12-31",
+    "2027-01-31",
+    "2027-02-28",
+    "2027-03-31",
+    "2027-04-30",
+    "2027-05-31",
+    "2027-06-30",
+    "2027-07-31",
+    "2027-08-31",
+    "2027-09-30"
+  ],
+  "run_date": "2026-10-05",
+  "runtime": "real isolated Auth59801/API59800/Postgres59802, synthetic market data, no provider keys",
+  "source_head": "f0288636517fd20955977bdd1f65ade0515048fb",
+  "total_assertions": 77,
+  "twice_monthly_dates": [
+    "2026-10-15",
+    "2026-10-31",
+    "2026-11-15",
+    "2026-11-30",
+    "2026-12-15",
+    "2026-12-31",
+    "2027-01-15",
+    "2027-01-31",
+    "2027-02-15",
+    "2027-02-28",
+    "2027-03-15",
+    "2027-03-31",
+    "2027-04-15",
+    "2027-04-30",
+    "2027-05-15",
+    "2027-05-31",
+    "2027-06-15",
+    "2027-06-30",
+    "2027-07-15",
+    "2027-07-31",
+    "2027-08-15",
+    "2027-08-31",
+    "2027-09-15",
+    "2027-09-30"
+  ]
+}

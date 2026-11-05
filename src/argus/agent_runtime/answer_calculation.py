@@ -592,7 +592,11 @@ def latest_market_close(symbol: str) -> tuple[float, str] | None:
             "1d",
         )
     except Exception as exc:  # noqa: BLE001
-        logger.info("Answer market close unavailable", symbol=symbol, error=str(exc))
+        logger.info(
+            "Answer market close unavailable error_type={}",
+            type(exc).__name__,
+            error_type=type(exc).__name__,
+        )
         return None
     closes = [
         (index, float(value))
@@ -955,9 +959,8 @@ def _blank_inputs(
 def _note(notes: list[str], code: str, **context: Any) -> None:
     if code not in notes:
         notes.append(code)
-    logger.info(
-        "Answer calculation guard {} {}", code, context, failure_classification=code
-    )
+    # Context can contain model-supplied names, references and private values.
+    logger.info("Answer calculation guard {}", code, failure_classification=code)
 
 
 _PROSE_FIGURE = re.compile(
@@ -1084,10 +1087,9 @@ def record_unsourced_figures(
             notes.append(UNSOURCED_FIGURE_REASON_CODE)
         logger.info(
             "Answer prose figures with no cited row or calculation value "
-            "count={} figures={} question={}",
+            "count={}",
             len(figures),
-            figures[:20],
-            " ".join(str(message).split())[:160],
+            figure_count=len(figures),
             failure_classification=UNSOURCED_FIGURE_REASON_CODE,
         )
     return len(figures)

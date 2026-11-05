@@ -1,0 +1,14 @@
+# Link-created owner share aggregate (privacy-safe)
+
+Result: link publication pass.
+Aggregate facts only — no conversation UI tree dump, no Auth UUID, no
+conversation/artifact ids, no raw receipt slug.
+
+- Guest UI has no sharing control; disposable guest converted through local
+  signup; conversation preserved.
+- Owner selected the question/answer, previewed, and clicked “Make the link.”
+- Share modal showed loopback URL with path `/r/<redacted-receipt-slug>` and
+  Copy link control (see redacted `02-link-created.png`).
+- Reloaded signed-in owner/share page console: zero errors, four unused Space
+  Grotesk preload warnings.
+- No external email delivery; local Auth confirmations disabled.

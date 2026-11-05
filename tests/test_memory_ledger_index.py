@@ -10,6 +10,7 @@ from argus.api import memory_ledger_index, memory_search_candidates
 from argus.api import state as api_state
 from argus.api.memory_ledger_index import MemoryLedgerWorkLimitExceeded
 from argus.api.schemas import Conversation, DecisionNote, DecisionState, Message
+from argus.domain.owner_scope import PERSONAL
 
 
 @pytest.fixture(autouse=True)
@@ -85,8 +86,7 @@ def test_memory_ledger_index_uses_fts5_and_excludes_undecided_candidates() -> No
 
     assert indexed_rows == (1,)
     assert any(
-        "SCAN searchable_candidates VIRTUAL TABLE INDEX" in str(row[3])
-        for row in plan
+        "SCAN searchable_candidates VIRTUAL TABLE INDEX" in str(row[3]) for row in plan
     )
 
 
@@ -275,6 +275,7 @@ def test_memory_ledger_counts_broad_matches_without_python_exact_scan(
     )
 
     snapshot = memory_search_candidates.bounded_memory_search_snapshot(
+        scope=PERSONAL,
         store=api_state.store,
         user=user,
         query="needle",
@@ -311,6 +312,7 @@ def test_memory_ledger_counts_require_one_exact_candidate_and_dedupe() -> None:
     )
 
     false_positive = memory_search_candidates.bounded_memory_search_snapshot(
+        scope=PERSONAL,
         store=api_state.store,
         user=user,
         query="abcdef",
@@ -319,6 +321,7 @@ def test_memory_ledger_counts_require_one_exact_candidate_and_dedupe() -> None:
         include_ledger_groups=True,
     )
     exact_candidate = memory_search_candidates.bounded_memory_search_snapshot(
+        scope=PERSONAL,
         store=api_state.store,
         user=user,
         query="alpha beta",
@@ -356,6 +359,7 @@ def test_memory_ledger_counts_unicode_punctuation_and_guest_scope() -> None:
     )
 
     snapshot = memory_search_candidates.bounded_memory_search_snapshot(
+        scope=PERSONAL,
         store=api_state.store,
         user=user,
         query="ss/eur café",
@@ -376,6 +380,7 @@ def test_memory_ledger_counts_unicode_punctuation_and_guest_scope() -> None:
 def test_memory_ledger_index_rebuilds_after_search_revision() -> None:
     user = api_state.store.get_or_create_dev_user()
     initial = memory_search_candidates.bounded_memory_search_snapshot(
+        scope=PERSONAL,
         store=api_state.store,
         user=user,
         query="revision needle",
@@ -390,6 +395,7 @@ def test_memory_ledger_index_rebuilds_after_search_revision() -> None:
         decision_state="promising",
     )
     rebuilt = memory_search_candidates.bounded_memory_search_snapshot(
+        scope=PERSONAL,
         store=api_state.store,
         user=user,
         query="revision needle",

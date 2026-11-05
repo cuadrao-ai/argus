@@ -1,6 +1,7 @@
-import AlphaLegalPage from "@/components/legal/AlphaLegalPage";
-import { supportEmail } from "@/lib/support-email";
+import { redirect } from "next/navigation";
 
-export default function TermsPage() {
-  return <AlphaLegalPage kind="terms" supportEmail={supportEmail} />;
+import { cuadraoLegalLinks } from "@/lib/cuadrao-legal-links";
+
+export default function TermsPage(): never {
+  redirect(cuadraoLegalLinks().terms);
 }

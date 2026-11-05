@@ -1,0 +1,156 @@
+diff --git a/ios/ArgusFoundation/Cuadrao/CanvasDecimalInput.swift b/ios/ArgusFoundation/Cuadrao/CanvasDecimalInput.swift
+index 07bc86326..65a381f80 100644
+--- a/ios/ArgusFoundation/Cuadrao/CanvasDecimalInput.swift
++++ b/ios/ArgusFoundation/Cuadrao/CanvasDecimalInput.swift
+@@ -1,5 +1,8 @@
+ import SwiftUI
+ import UIKit
++#if DEBUG
++import os
++#endif
+
+ /// Native editable text keeps selection and the caret while adding grouping separators.
+ struct CanvasDecimalInput: UIViewRepresentable {
+@@ -57,9 +60,18 @@ struct CanvasDecimalInput: UIViewRepresentable {
+         (field.inputAccessoryView as? UIToolbar)?.items?.last?.title = spanish ? "Listo" : "Done"
+         field.font = CuadraoTypography.moneyFont(size, category: contentSizeCategory)
+         field.textAlignment = alignment
++        #if DEBUG
++        W1iProbe.startStall()
++        if raw != context.coordinator.raw { W1iProbe.note("\(identifier) update raw='\(raw)' coord='\(context.coordinator.raw)' field='\(field.text ?? "")' pending=\(context.coordinator.pending)") }
++        #endif
+         if context.coordinator.pending == 0 && raw != context.coordinator.raw {
+             context.coordinator.raw = raw
+-            if (field.text ?? "").replacingOccurrences(of: ",", with: "") != raw { field.text = Coordinator.group(raw) }
++            if (field.text ?? "").replacingOccurrences(of: ",", with: "") != raw {
++                #if DEBUG
++                W1iProbe.note("\(identifier) REWRITE field '\(field.text ?? "")' -> '\(Coordinator.group(raw))'")
++                #endif
++                field.text = Coordinator.group(raw)
++            }
+         }
+         field.placeholder = CanvasMoney.format(0, currency: currency)
+         field.accessibilityLabel = title ?? (spanish ? "Monto" : "Amount")
+@@ -77,7 +89,14 @@ struct CanvasDecimalInput: UIViewRepresentable {
+         @objc func done() { field?.resignFirstResponder() }
+         func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+             let old = textField.text ?? ""
+-            guard let r = Range(range, in: old) else { return false }
++            #if DEBUG
++            W1iProbe.note("\(parent.identifier) key old='\(old)' range=\(range.location),\(range.length) str='\(string)' pending=\(pending)")
++            #endif
++            guard let r = Range(range, in: old) else {
++                #if DEBUG
++                W1iProbe.note("\(parent.identifier) REFUSED range-out-of-bounds")
++                #endif
++                return false }
+             var proposed = old.replacingCharacters(in: r, with: string)
+             var logical = old[..<r.lowerBound].filter { $0 != "," }.count + string.filter { $0 != "," }.count
+             if string.isEmpty, old[r] == ",", range.location > 0 {
+@@ -88,22 +107,25 @@ struct CanvasDecimalInput: UIViewRepresentable {
+             }
+             if string.count > 1 && string.contains(",") &&
+                 string.range(of: #"^-?(?:[0-9]{1,3}(?:,[0-9]{3})+)(?:\.[0-9]*)?$"#, options: .regularExpression) == nil {
+-                commit(error: parent.spanish ? "Revisa las comas del monto." : "Check the amount’s grouping."); return false
++                W1iProbe.refuse(parent.identifier, "Revisa las c", normalizedOrProposed: textField.text ?? ""); commit(error: parent.spanish ? "Revisa las comas del monto." : "Check the amount’s grouping."); return false
+             }
+             var normalized = proposed.replacingOccurrences(of: ",", with: "")
+             let pattern = parent.allowNegative ? #"^-?[0-9]*(?:\.[0-9]*)?$"# : #"^[0-9]*(?:\.[0-9]*)?$"#
+             guard normalized.range(of: pattern, options: .regularExpression) != nil else {
+-                commit(error: parent.spanish ? "Usa números y un punto decimal." : "Use digits and a decimal point."); return false
++                W1iProbe.refuse(parent.identifier, "Usa números", normalizedOrProposed: textField.text ?? ""); commit(error: parent.spanish ? "Usa números y un punto decimal." : "Use digits and a decimal point."); return false
+             }
+             if normalized.hasPrefix(".") { normalized = "0" + normalized; logical += 1 }
+             let fraction = normalized.split(separator: ".", omittingEmptySubsequences: false).dropFirst().first?.count ?? 0
+             guard fraction <= CanvasMoney.digits(parent.currency) else {
+-                commit(error: parent.spanish ? "Revisa los decimales para \(parent.currency)." : "Check decimal places for \(parent.currency)."); return false
++                W1iProbe.refuse(parent.identifier, "Revisa los d", normalizedOrProposed: textField.text ?? ""); commit(error: parent.spanish ? "Revisa los decimales para \(parent.currency)." : "Check decimal places for \(parent.currency)."); return false
+             }
+             guard abs(Decimal(string: normalized) ?? 0) <= CanvasMoney.maximum, normalized.count <= 24 else {
+-                commit(error: parent.spanish ? "Máximo: 9,999,999.99" : "Maximum: 9,999,999.99"); return false
++                W1iProbe.refuse(parent.identifier, "Máximo: 9", normalizedOrProposed: textField.text ?? ""); commit(error: parent.spanish ? "Máximo: 9,999,999.99" : "Maximum: 9,999,999.99"); return false
+             }
+             raw = normalized
++            #if DEBUG
++            W1iProbe.note("\(parent.identifier) accept -> '\(normalized)'")
++            #endif
+             commit(raw: normalized, error: "")
+             let grouped = Self.group(normalized)
+             textField.text = grouped
+@@ -129,6 +151,9 @@ struct CanvasDecimalInput: UIViewRepresentable {
+             guard fraction <= CanvasMoney.digits(parent.currency) else { return }
+             let formatted = CanvasMoney.format(value, currency: parent.currency)
+             raw = formatted.replacingOccurrences(of: ",", with: "")
++            #if DEBUG
++            W1iProbe.note("\(parent.identifier) endEditing -> '\(raw)'")
++            #endif
+             commit(raw: raw)
+             textField.text = formatted
+         }
+@@ -137,6 +162,9 @@ struct CanvasDecimalInput: UIViewRepresentable {
+             let parent = parent
+             pending += 1
+             DispatchQueue.main.async { [self] in
++                #if DEBUG
++                if let raw { W1iProbe.note("\(parent.identifier) commit raw='\(raw)' binding was '\(parent.raw)'") }
++                #endif
+                 if let raw { parent.raw = raw }
+                 if let error { parent.error = error }
+                 pending -= 1
+@@ -154,3 +182,26 @@ struct CanvasDecimalInput: UIViewRepresentable {
+         }
+     }
+ }
++
++#if DEBUG
++enum W1iProbe {
++    static let arguments = ProcessInfo.processInfo.arguments
++    static let heavy = arguments.contains("-W1iStallHeavy")
++    static let stall = heavy || arguments.contains("-W1iStall")
++    static let enabled = stall || arguments.contains("-W1iLog")
++    static let log = Logger(subsystem: "w1i.probe", category: "money")
++    static var started = false
++    static func note(_ text: String) { if enabled { log.notice("W1I \(text, privacy: .public)") } }
++    static func refuse(_ id: String, _ reason: String, normalizedOrProposed: String) { note("\(id) REFUSED \(reason) field='\(normalizedOrProposed)'") }
++    static func startStall() {
++        guard stall, !started else { return }
++        started = true
++        func tick() {
++            let ms = heavy ? UInt32.random(in: 250...600) : UInt32.random(in: 60...150)
++            usleep(ms * 1000)
++            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(heavy ? Int.random(in: 5...60) : Int.random(in: 20...120)), execute: tick)
++        }
++        DispatchQueue.main.async(execute: tick)
++    }
++}
++#endif
+diff --git a/ios/ArgusFoundation/Cuadrao/CanvasMoneyValueInput.swift b/ios/ArgusFoundation/Cuadrao/CanvasMoneyValueInput.swift
+index bba382012..55a33c207 100644
+--- a/ios/ArgusFoundation/Cuadrao/CanvasMoneyValueInput.swift
++++ b/ios/ArgusFoundation/Cuadrao/CanvasMoneyValueInput.swift
+@@ -17,13 +17,23 @@ struct CanvasMoneyValueInput: View {
+         CanvasDecimalInput(raw: $raw, error: $error, currency: currency, spanish: spanish,
+                            identifier: identifier, title: title, size: size, alignment: alignment, onFocus: onFocus)
+             .onAppear { syncValue() }
+-            .onChange(of: value) { _, _ in
++            .onChange(of: value) { old, new in
++                #if DEBUG
++                W1iProbe.note("\(identifier) onChange(value) \(old)->\(new) live=\(value) raw='\(raw)' resync=\(numericValue != value)")
++                #endif
+                 if numericValue != value { syncValue() }
+             }
+-            .onChange(of: raw) { _, _ in value = numericValue }
++            .onChange(of: raw) { old, new in
++                #if DEBUG
++                W1iProbe.note("\(identifier) onChange(raw) '\(old)'->'\(new)' write value \(numericValue) (was \(value))")
++                #endif
++                value = numericValue }
+     }
+     private var numericValue: Double { NSDecimalNumber(decimal: Decimal(string: raw) ?? 0).doubleValue }
+     private func syncValue() {
++        #if DEBUG
++        W1iProbe.note("\(identifier) SYNC raw '\(raw)' from value \(value)")
++        #endif
+         raw = value.isFinite && value != 0 ? CanvasMoney.format(Decimal(string: String(value)) ?? 0, currency: currency).replacingOccurrences(of: ",", with: "") : ""
+     }
+ }

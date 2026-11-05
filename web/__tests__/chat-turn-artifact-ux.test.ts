@@ -284,28 +284,25 @@ describe("chat turn artifact UX", () => {
     expect(message).not.toContain("const shouldShowTextFooter =");
   });
 
-  test("card-scoped confirmation actions close only after guest admission", () => {
+  test("card-scoped confirmation actions close when the send is accepted", () => {
     const chat = readFileSync(
       join(root, "components/chat/ChatInterface.tsx"),
       "utf-8",
     );
     const handleSendStart = chat.indexOf("const handleSend =");
-    const handleSendEnd = chat.indexOf("// ── Conversation", handleSendStart);
+    const handleSendEnd = chat.indexOf("const receiptFollowup", handleSendStart);
     const handleSendBlock = chat.slice(handleSendStart, handleSendEnd);
-    const admissionIndex = handleSendBlock.indexOf(
-      "await guestExperience.admitSend",
-    );
     const consumeIndex = handleSendBlock.indexOf(
       "consumeConfirmationActionOnMessages",
     );
 
     expect(handleSendStart).toBeGreaterThan(-1);
-    expect(admissionIndex).toBeGreaterThan(-1);
-    expect(consumeIndex).toBeGreaterThan(admissionIndex);
+    expect(handleSendBlock).not.toContain("admitSend");
+    expect(consumeIndex).toBeGreaterThan(-1);
     expect(handleSendBlock).toContain("setMessages((prev) =>");
   });
 
-  test("first guest submit locks synchronously and stays neutral before SSE", () => {
+  test("a send does not take the guest admission path", () => {
     const chat = readFileSync(
       join(root, "components/chat/ChatInterface.tsx"),
       "utf-8",
@@ -315,15 +312,14 @@ describe("chat turn artifact UX", () => {
       "utf-8",
     );
     const handleSendStart = chat.indexOf("const handleSend =");
-    const handleSendEnd = chat.indexOf("// ── Conversation", handleSendStart);
+    const handleSendEnd = chat.indexOf("const receiptFollowup", handleSendStart);
     const handleSendBlock = chat.slice(handleSendStart, handleSendEnd);
 
     expect(handleSendBlock).toContain("sendAdmissionInFlightRef.current");
-    expect(handleSendBlock).toContain("setGuestSubmissionPending(true)");
-    expect(handleSendBlock).toContain("guestExperience.admitSend");
-    expect(emptyChat).toContain('t("guest.entry.sending", "Sending...")');
-    expect(emptyChat).toContain("aria-busy={guestSubmissionPending}");
-    expect(emptyChat).toContain('t("common.try_again", "Try again")');
+    expect(handleSendBlock).not.toContain("setGuestSubmissionPending");
+    expect(handleSendBlock).not.toContain("admitSend");
+    expect(emptyChat).not.toContain("guest.entry.sending");
+    expect(emptyChat).not.toContain("guestSubmissionPending");
   });
 
   test("final recovery responses hydrate retry controls from structured metadata", () => {

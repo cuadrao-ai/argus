@@ -1,0 +1,183 @@
+"""Document extraction settings.
+
+``CUADRAO_DOCUMENT_EXTRACTION_ENABLED`` (or the older ``ARGUS_`` name) uses the same true-value set as the
+other default-off surfaces. Anything else, including a blank or unrecognized
+value, leaves extraction off. A setting that cannot be read leaves the
+document surface off and is logged; it never raises into ingestion startup
+or a document route.
+"""
+
+from __future__ import annotations
+
+from typing import Annotated
+
+from loguru import logger
+from pydantic import BeforeValidator, Field, ValidationError
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from argus.api.financial_accounts import TRUE_VALUES
+from argus.llm.openrouter import openrouter_profile_for_task
+from argus.settings_names import setting_aliases, setting_value
+
+# The bucket in 20261008100000 repeats both, checked by a real-Postgres test.
+SOURCE_MAX_BYTES = 10 * 1024 * 1024
+# Each accepted source type and the suffix its download is named with.
+SOURCE_MEDIA_TYPES = {
+    "application/pdf": "pdf",
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "text/plain": "txt",
+    "text/csv": "csv",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    "application/xml": "xml",
+    "text/xml": "xml",
+    "message/rfc822": "eml",
+}
+_MAX_PAGES = 8
+_UPLOADS_PER_MINUTE = 60
+_UPLOADS_IN_FLIGHT = 3
+_RECOGNIZED_OFF = frozenset({"0", "false", "no", "off"})
+_warned_flags: set[str] = set()
+_warned_invalid = False
+
+
+def enabled_flag(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() in TRUE_VALUES
+
+
+class DocumentExtractionSettings(BaseSettings):
+    model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
+    enabled: Annotated[bool, BeforeValidator(enabled_flag)] = Field(
+        default=False, validation_alias=setting_aliases("DOCUMENT_EXTRACTION_ENABLED")
+    )
+    max_bytes: int = Field(
+        default=SOURCE_MAX_BYTES,
+        ge=1,
+        le=SOURCE_MAX_BYTES,
+        validation_alias=setting_aliases("DOCUMENT_EXTRACTION_MAX_BYTES"),
+    )
+    max_pages: int = Field(
+        default=_MAX_PAGES,
+        ge=1,
+        le=_MAX_PAGES,
+        validation_alias=setting_aliases("DOCUMENT_EXTRACTION_MAX_PAGES"),
+    )
+    # Web uploads one person may start in a minute. Uploading is cheap; the
+    # Business read budget guards the reads.
+    uploads_per_minute: int = Field(
+        default=_UPLOADS_PER_MINUTE,
+        ge=1,
+        le=600,
+        validation_alias=setting_aliases("DOCUMENT_UPLOADS_PER_MINUTE"),
+    )
+    # Web uploads one person may have in flight at once; the next waits a second.
+    # Each one holds its bytes in API memory until it is saved.
+    uploads_in_flight: int = Field(
+        default=_UPLOADS_IN_FLIGHT,
+        ge=1,
+        le=64,
+        validation_alias=setting_aliases("DOCUMENT_UPLOADS_IN_FLIGHT"),
+    )
+
+
+def _disabled_document_extraction_settings() -> DocumentExtractionSettings:
+    return DocumentExtractionSettings.model_construct(
+        enabled=False,
+        max_bytes=SOURCE_MAX_BYTES,
+        max_pages=_MAX_PAGES,
+        uploads_per_minute=_UPLOADS_PER_MINUTE,
+        uploads_in_flight=_UPLOADS_IN_FLIGHT,
+    )
+
+
+def _warn_unusable_flag() -> None:
+    raw = setting_value("DOCUMENT_EXTRACTION_ENABLED")
+    if raw is None:
+        return
+    normalized = raw.strip().lower()
+    if normalized in TRUE_VALUES or normalized in _RECOGNIZED_OFF:
+        return
+    if normalized in _warned_flags:
+        return
+    _warned_flags.add(normalized)
+    logger.warning(
+        "Document extraction flag is blank or unrecognized; document surface stays off"
+    )
+
+
+def load_document_extraction_settings() -> DocumentExtractionSettings:
+    """Read document settings, or a disabled snapshot when they cannot be read."""
+
+    global _warned_invalid
+    _warn_unusable_flag()
+    try:
+        return DocumentExtractionSettings()
+    except ValidationError:
+        if not _warned_invalid:
+            _warned_invalid = True
+            logger.warning(
+                "Document extraction settings are invalid; document surface stays off",
+                failure_mode="ValidationError",
+            )
+        return _disabled_document_extraction_settings()
+
+
+# Provider calls one read may make: the first, and one more when it times out.
+PROVIDER_CALLS_PER_READ = 2
+# Local work around the provider calls: decoding, the budget charge, the saves.
+_READ_LOCAL_SECONDS = 30.0
+# How long a read cancelled at the end of a drain gets to release its lease.
+CANCEL_SECONDS = 5.0
+
+
+def read_seconds() -> float:
+    """The longest one read can take: every provider call at its timeout, plus
+    the local work around them. Every wait sized for a read derives from it."""
+    timeout = openrouter_profile_for_task("document_extraction").timeout_seconds
+    return PROVIDER_CALLS_PER_READ * timeout + _READ_LOCAL_SECONDS
+
+
+class DocumentJobSettings(BaseSettings):
+    """The one read path: every read waits on its row until a puller takes it.
+    Nothing here can turn that off."""
+
+    model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
+    sweep_seconds: float = Field(
+        default=30.0,
+        gt=0,
+        le=3600,
+        validation_alias=setting_aliases("DOCUMENT_JOBS_SWEEP_SECONDS"),
+    )
+    # Reads at once across every puller: each API instance and any worker.
+    max_reads: int = Field(
+        default=3,
+        ge=1,
+        le=32,
+        validation_alias=setting_aliases("DOCUMENT_JOBS_MAX_READS"),
+    )
+    # Covers one read, retry included, in the worker and in the API.
+    drain_seconds: float = Field(
+        default_factory=read_seconds,
+        gt=0,
+        le=300,
+        validation_alias=setting_aliases("DOCUMENT_JOBS_DRAIN_SECONDS"),
+    )
+
+
+def load_document_job_settings() -> DocumentJobSettings:
+    """Read job settings, or the defaults when they cannot be read."""
+
+    try:
+        return DocumentJobSettings()
+    except ValidationError:
+        logger.warning(
+            "Document job settings are invalid; the defaults apply",
+            failure_mode="ValidationError",
+        )
+        return DocumentJobSettings.model_construct(
+            sweep_seconds=30.0, max_reads=3, drain_seconds=read_seconds()
+        )

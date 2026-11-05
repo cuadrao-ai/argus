@@ -1,0 +1,16 @@
+{
+  "product_head": "caa7e702705a78ae925f2e06d749d3e524d22f6f",
+  "instrumentation": "interval-probe.patch",
+  "test": "AppleSessionJourneyUITests/testIndependentQueuedNotificationDispatchProbe",
+  "run": "after",
+  "executed": 1,
+  "passed": 1,
+  "failures": 0,
+  "seconds": 12.981,
+  "displayed_result": "BLOCKED Optional(ArgusSession.SessionFailure.staleOperation) at check 2",
+  "counter_before": 4,
+  "counter_after": 5,
+  "positive_control_dispatches": 1,
+  "forbidden_interval_dispatches": 0,
+  "same_instrumentation_and_order_as": "before.json"
+}

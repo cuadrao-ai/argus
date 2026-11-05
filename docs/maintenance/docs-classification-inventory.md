@@ -15,21 +15,16 @@ stubs preserve old links. The duplicate active P2.1 audit was replaced with its
 existing archive pointer. The next founder-selected pillar is **Argus always
 progresses**, ready for specification only.
 
-Current source stack after the canon docs:
+2026-10-18 pass: the legacy agent-docs cleanup removed the agent working notes,
+the old agent rule and workflow files, the intake-agent instructions and the
+handoff templates. Their rows are gone from the table below, and the prior banner pass
+lists them by count only.
 
-1. `docs/specs/argus-grounded-finance-roadmap.md` is the active execution board
-   (opened 2026-09-05). It owns current priorities, execution order, and the
-   serial-versus-parallel rules. `docs/specs/argus-active-roadmap.md` is
-   superseded history.
-2. `docs/specs/private-alpha-next-roadmap.md` is superseded P2 history and
-   contract reference. The interim roadmap completed with the 2026-08-05
-   promotion and is archived.
-3. `docs/specs/private-alpha-next-decision-memo.md` is the active strategic
-   north star and slice-onboarding source.
-4. `docs/specs/private-alpha-ci-cd-sota.md`,
-   `docs/PRIVATE_LAUNCH_RUNBOOK.md`, and
-   `docs/release-manifests/TEMPLATE.md` are release-discipline references.
-5. `docs/specs/private-alpha-next-integration.md` is staging/process context.
+Current source ownership is defined in
+[documentation authority](../DOCUMENTATION_AUTHORITY.md). Read the MVEE for
+approved experience and the explicitly assigned package for implementation
+scope. The inventory below classifies documents; it does not assign work or
+maintain a second priority order. Earlier dated passes above are history.
 
 Quarantine branches are reference material only. Do not broad cherry-pick
 runtime work from `codex/private-alpha-next-quarantine-fc231e8`; promote only
@@ -67,16 +62,19 @@ roadmap links.
 | File | Classification | Rationale | Recommended next action | Notes / possible stale references |
 | :--- | :--- | :--- | :--- | :--- |
 | `AGENTS.md` | canon | Root level agent instructions and canon pointer. | None | Current |
+| `docs/DOCUMENTATION_AUTHORITY.md` | authority map | Owns document precedence and assignment boundaries. | Start here for source ownership. | Current |
+| `docs/specs/argus-minimum-viable-ecosystem-experience.md` | approved experience | Owns the founder-approved ecosystem experience. | Define technical scope before implementation. | Current direction, not a shipped inventory |
 | `docs/PRODUCT.md` | canon | Defined as canon product source of truth. | None | Current |
 | `docs/ARCHITECTURE.md` | canon | Defined as canon architecture source of truth. | None | Current |
 | `docs/API_CONTRACT.md` | canon | Defined as canon API contract source of truth. | None | Current |
 | `docs/DATA_MODEL.md` | canon | Defined as canon data model source of truth. | None | Current |
 | `.agent/designs/argus/DESIGN.md` | canon | Explicitly listed as canon design source of truth. | None | Current |
-| `docs/specs/argus-grounded-finance-roadmap.md` | active execution board | Owns current priorities, items, operating rules, landing status, and the deliberately-not-doing list. | Use as the first non-canon execution source. | Opened 2026-09-05 |
-| `docs/specs/argus-active-roadmap.md` | superseded reference | Previous board; its landed work and tracker state remain valid history. | Read for provenance; do not take work from it. | Superseded 2026-09-05 |
+| `docs/specs/argus-answers-that-stay-true-roadmap.md` | historical compatibility pointer | Links the archived answers board and carried-work history. | Follow documentation authority for current ownership; do not dispatch from the archived queue. | Archived 2026-09-26 |
+| `docs/archive/2026-09-17-argus-grounded-finance-roadmap.md` | archived | Grounded-finance board; every item shipped to production `a9286b21` on 2026-09-17. Pointer stub remains in `docs/specs/`. | Historical reference only; open ends moved to the active board. | Archived 2026-09-18 |
+| `docs/archive/2026-09-05-argus-active-roadmap.md` | archived | Board before grounded finance; landed work remains valid history. Pointer stub remains in `docs/specs/`. | Historical reference only. | Archived 2026-09-18 |
 | `docs/archive/private-alpha-interim-roadmap.md` | archived | Interim pivot slate; completed with the 2026-08-05 production promotion. | Historical reference only. | Archived 2026-08-06 |
 | `docs/specs/private-alpha-next-roadmap.md` | superseded reference | P2 history, execution-realism contract, and slice provenance. | Read for provenance; do not take work from it. | Superseded 2026-08-06 |
-| `docs/specs/private-alpha-next-decision-memo.md` | active strategic source | Strategic north star for Private Alpha Next; contains the addenda and details each slice must onboard through. | Read relevant sections before planning or implementation. | Current |
+| `docs/specs/private-alpha-next-decision-memo.md` | historical compatibility pointer | Links archived strategic and technical rationale. | Read relevant historical contracts for a named assignment; approved experience belongs to the MVEE. | Archived 2026-09-26 |
 | `docs/specs/private-alpha-ci-cd-sota.md` | release-discipline reference | Completed CI/CD SOTA plan; still owns canary, manifest, Render validation, and deployment discipline. | Use for release gates, not product sequencing. | Completed/reference |
 | `docs/PRIVATE_LAUNCH_RUNBOOK.md` | release-discipline reference | Operational gate for controlled private-alpha validation and launch steps. | Keep as operator runbook. | Current release ops |
 | `docs/release-manifests/TEMPLATE.md` | release-discipline reference | Template for candidate SHA, env fingerprint, evidence, approver, and rollback target. | Use when producing a candidate manifest. | Current release ops |
@@ -91,7 +89,7 @@ roadmap links.
 | `docs/archive/private-alpha-readiness-orchestration.md` | archived branch-specific context | Coordination note for `codex/private-alpha-readiness-clean`; not the current Private Alpha Next roadmap. | Keep archived for readiness-lane archaeology. | Readiness lane |
 | `docs/archive/private-alpha-controlled-readiness-panel.md` | archived branch/lane-specific context | Controlled-alpha readiness panel for readiness decisions; useful evidence but not the active roadmap. | Keep archived for readiness-lane archaeology. | Readiness lane |
 | `docs/archive/private-alpha-performance-readiness-audit.md` | archived branch/lane-specific context | Supporting performance addendum for the controlled readiness slice. | Keep archived for readiness-lane archaeology. | Readiness lane |
-| `docs/specs/evidence-aware-idea-loop.md` | source thesis / strategic background | Source product thesis for the durable idea loop. It directly informed `docs/specs/private-alpha-next-decision-memo.md`, which now owns current strategy. | Keep in `docs/specs/` with a clear source-thesis banner; do not treat as the active sequencing doc. | Provenance for the current decision memo |
+| `docs/specs/evidence-aware-idea-loop.md` | source thesis / strategic background | Source product thesis for the durable idea loop. It directly informed `docs/specs/private-alpha-next-decision-memo.md`, now preserved as archived rationale. | Keep in `docs/specs/` with a clear source-thesis banner; do not treat as the active sequencing doc. | Provenance for the archived decision memo |
 | `docs/archive/research-lab-thesis.md` | archived historical evidence | Earlier Research Lab thesis draft. It is retained for context and refined by `docs/specs/evidence-aware-idea-loop.md`, which then informed the decision memo. | Keep archived for product archaeology. | Superseded by evidence-aware source thesis and current decision memo |
 | `docs/archive/private-alpha-backtest-execution-capacity.md` | archived historical evidence | Draft from 2026-06-05; later release/runtime docs own active deployment discipline and architecture truth. | Keep archived for runtime-capacity archaeology. | Historical capacity draft |
 | `docs/archive/agent-architecture.md` | archived historical evidence | Proposed architecture from 2026-04-29. Predates the conversation trust milestone. | Keep archived for architecture archaeology. | Stale date |
@@ -100,35 +98,7 @@ roadmap links.
 | `docs/archive/ARGUS_SYSTEM_STEERING.md` | historical evidence | "Pre-private-launch steering reference... planning reference, not an implementation ticket" from 2026-05-19. | Moved to `docs/archive/` (2026-07-07); carries its historical banner. |  |
 | `docs/QA_CONVERSATIONAL_TRANSCRIPTS.md` | active QA process | Canonical manual browser-QA script for the conversational runtime; matches current runtime contracts (start command, action chips, result actions, provider/metric rules). The "legacy orchestrator path?" worry was unfounded. | Keep active. Resolved + refreshed 2026-07-07 (status banner + Spanish/language-mismatch transcripts). |  |
 | `docs/archive/PRODUCTION_READINESS_AUDIT.md` | historical evidence | Audit for `codex/production-readiness-gap-implementation` from 2026-05-05. | Moved to `docs/archive/` (2026-07-07); carries its historical banner. |  |
-| `docs/superpowers/plans/2026-05-06-streaming-persistence-ui-orchestration.md` | historical evidence | Implementation plan for Phase 5 from 2026-05-06. | Add historical banner. |  |
-| `docs/superpowers/plans/2026-05-12-conversational-contract-hardening.md` | historical evidence | Implementation plan from 2026-05-12. | Add historical banner. |  |
-| `docs/superpowers/plans/2026-05-06-agent-runtime-phase-6-structural-hygiene.md` | historical evidence | Implementation plan from 2026-05-06. | Add historical banner. |  |
-| `docs/superpowers/plans/2026-05-06-agent-runtime-phase-2-retire-legacy-orchestrator.md` | historical evidence | Implementation plan from 2026-05-06. | Add historical banner. |  |
-| `docs/superpowers/plans/2026-05-06-agent-runtime-phase-3-4-nlu-collapse.md` | historical evidence | Implementation plan from 2026-05-06. | Add historical banner. |  |
-| `docs/superpowers/plans/2026-06-03-conversation-artifact-continuity.md` | historical evidence | Implementation plan from 2026-06-03. | Add historical banner. |  |
-| `docs/superpowers/plans/2026-05-06-agent-runtime-phase-5-streaming-persistence.md` | historical evidence | Implementation plan from 2026-05-06. | Add historical banner. |  |
-| `docs/superpowers/plans/2026-06-06-render-workflow-proof.md` | historical evidence | Implementation plan from 2026-06-06. | Add historical banner. |  |
-| `docs/superpowers/plans/2026-05-06-agent-runtime-phase-1-remediation.md` | historical evidence | Implementation plan from 2026-05-06. | Add historical banner. |  |
-| `docs/superpowers/plans/2026-06-06-async-backtest-job-state.md` | historical evidence | Implementation plan from 2026-06-06. | Add historical banner. |  |
-| `docs/superpowers/plans/2026-04-29-conversational-backtest-agent-runtime.md` | historical evidence | Implementation plan from 2026-04-29. | Add historical banner. |  |
-| `docs/superpowers/plans/2026-06-04-private-alpha-reliability-hardening.md` | historical evidence | Implementation plan from 2026-06-04. | Add historical banner. |  |
-| `docs/superpowers/specs/2026-06-03-chat-disclaimer-design.md` | unclear/needs owner decision | Spec from 2026-06-03. Unknown if fully implemented or still active. | Verify implementation status. |  |
-| `docs/superpowers/specs/2026-05-13-artifact-centered-runtime-rebuild-scope.md` | historical evidence | Spec from 2026-05-13. | Add historical banner. |  |
-| `docs/superpowers/specs/2026-05-13-artifact-runtime-production-readiness-second-pass.md` | historical evidence | Spec from 2026-05-13. | Add historical banner. |  |
-| `docs/superpowers/specs/2026-05-17-sidebar-revamp-runtime-parity-qa.md` | historical evidence | QA doc from 2026-05-17. | Add historical banner. |  |
-| `docs/superpowers/specs/2026-05-15-artifact-runtime-milestone-checkpoint.md` | historical evidence | Checkpoint doc from 2026-05-15. | Add historical banner. |  |
-| `.agent/rules/git-workflow.md` | unclear/needs owner decision | Active rule for agents, but might be considered "canon" for agent rules. Will mark as unclear. | Clarify if agent rules are "canon" or separate. |  |
-| `.agent/rules/testing.md` | unclear/needs owner decision | Active rule. | Clarify if agent rules are "canon". |  |
-| `.agent/rules/workspace.md` | unclear/needs owner decision | Active rule. | Clarify if agent rules are "canon". |  |
-| `.agent/rules/performance.md` | unclear/needs owner decision | Active rule. | Clarify if agent rules are "canon". |  |
-| `.agent/rules/coding-standards.md` | unclear/needs owner decision | Active rule. | Clarify if agent rules are "canon". |  |
-| `.agent/workflows/*.md` | unclear/needs owner decision | Active workflows. | Clarify if workflows are "canon". |  |
-| `.agent/.jules/realignment.md` | unclear/needs owner decision | Active instructions. | Clarify if .jules instructions are "canon". |  |
-| `.agent/.jules/README.md` | unclear/needs owner decision | Active instructions. | Clarify if .jules instructions are "canon". |  |
 | `.agent/ownership/README.md` | unclear/needs owner decision | Active ownership rules. | Clarify if ownership docs are "canon". |  |
-| `.agent/handoffs/HANDOFF_PACKET_TEMPLATE.md` | unclear/needs owner decision | Template for handoffs. Needs verification if this is canon. | Verify if handoff template is 'canon'. | |
-| `.agent/handoffs/SECTION3_OWNERSHIP_CHECKLIST.md` | unclear/needs owner decision | Handoff checklist. Needs verification if this is canon. | Verify if handoff checklist is 'canon'. | |
-| `.agent/handoffs/SECTION4_OWNERSHIP_CHECKLIST.md` | unclear/needs owner decision | Handoff checklist. Needs verification if this is canon. | Verify if handoff checklist is 'canon'. | |
 | `docs/maintenance/dead-code-candidates.md` | maintenance | Inventory of dead code candidates. | Keep updated as codebase evolves. | |
 | `docs/maintenance/docs-classification-inventory.md` | maintenance | This file. | Keep updated as docs evolve. | |
 | `docs/maintenance/i18n-key-audit.md` | maintenance | Inventory of i18n keys. | Keep updated as keys are added/removed. | |
@@ -146,22 +116,7 @@ use the inventory table above for current classification.
 - `docs/ARGUS_SYSTEM_STEERING.md` -> AGENTS.md, docs/specs/private-alpha-next-integration.md
 - `docs/PRODUCTION_READINESS_AUDIT.md` -> docs/archive/private-alpha-conversation-trust.md
 - `docs/archive/agent-architecture.md` -> docs/ARCHITECTURE.md
-- `docs/superpowers/plans/2026-04-29-conversational-backtest-agent-runtime.md`
-- `docs/superpowers/plans/2026-05-06-agent-runtime-phase-1-remediation.md`
-- `docs/superpowers/plans/2026-05-06-agent-runtime-phase-2-retire-legacy-orchestrator.md`
-- `docs/superpowers/plans/2026-05-06-agent-runtime-phase-3-4-nlu-collapse.md`
-- `docs/superpowers/plans/2026-05-06-agent-runtime-phase-5-streaming-persistence.md`
-- `docs/superpowers/plans/2026-05-06-agent-runtime-phase-6-structural-hygiene.md`
-- `docs/superpowers/plans/2026-05-06-streaming-persistence-ui-orchestration.md`
-- `docs/superpowers/plans/2026-05-12-conversational-contract-hardening.md`
-- `docs/superpowers/plans/2026-06-03-conversation-artifact-continuity.md`
-- `docs/superpowers/plans/2026-06-04-private-alpha-reliability-hardening.md`
-- `docs/superpowers/plans/2026-06-06-async-backtest-job-state.md`
-- `docs/superpowers/plans/2026-06-06-render-workflow-proof.md`
-- `docs/superpowers/specs/2026-05-13-artifact-centered-runtime-rebuild-scope.md`
-- `docs/superpowers/specs/2026-05-13-artifact-runtime-production-readiness-second-pass.md`
-- `docs/superpowers/specs/2026-05-15-artifact-runtime-milestone-checkpoint.md`
-- `docs/superpowers/specs/2026-05-17-sidebar-revamp-runtime-parity-qa.md`
+- 16 more files, since removed in the 2026-10-18 legacy agent-docs cleanup
 
 ### Files that already carry or were recommended for superseded treatment:
 - `docs/archive/LAUNCH_GATE_FINAL_CLOSURE_PLAN.md` -> docs/archive/private-alpha-conversation-trust.md
@@ -169,22 +124,10 @@ use the inventory table above for current classification.
 ### Files intentionally skipped (unclear/needs owner decision):
 - `docs/CONVERSATIONAL_RUNTIME.md`
 - `docs/QA_CONVERSATIONAL_TRANSCRIPTS.md`
-- `docs/superpowers/specs/2026-06-03-chat-disclaimer-design.md`
-- `.agent/rules/git-workflow.md`
-- `.agent/rules/testing.md`
-- `.agent/rules/workspace.md`
-- `.agent/rules/performance.md`
-- `.agent/rules/coding-standards.md`
-- `.agent/workflows/*.md`
-- `.agent/.jules/realignment.md`
-- `.agent/.jules/README.md`
 - `.agent/ownership/README.md`
-- `.agent/handoffs/HANDOFF_PACKET_TEMPLATE.md`
-- `.agent/handoffs/SECTION3_OWNERSHIP_CHECKLIST.md`
-- `.agent/handoffs/SECTION4_OWNERSHIP_CHECKLIST.md`
+- 12 more files, since removed in the 2026-10-18 legacy agent-docs cleanup
 
 ## Out of scope observations
 
-*   Multiple detailed references and templates exist under `.agent/skills/` which were intentionally excluded from this inventory to keep it focused on high-level workflows and product documentation.
-*   No high-risk, obviously stale instructions were immediately identified in the high-level scan of the skills directory, but a deeper audit of `.agent/skills/` may be beneficial later.
+*   The vendored agent skills were excluded from this inventory and were later removed in the legacy agent-docs cleanup.
 *   `docs/archive/research-lab-thesis.md` already carries its own historical/refined status banner from the active evidence-aware idea-loop spec and did not need a second Jules banner pass.

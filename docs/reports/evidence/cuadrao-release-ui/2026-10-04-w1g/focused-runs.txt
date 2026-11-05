@@ -1,0 +1,5 @@
+Focused runs, each under lockf -k ~/.claude/orchestrate/cuadrao-iphone-candidate/mac-sim.lock, xcodebuild test-without-building -collect-test-diagnostics never, iPhone 18 Pro 8AFB6084-8918-416E-9164-E21061306BEC, one run at a time
+group-1: Test Case '-[ArgusFoundationUITests.CuadraoGroupDesignUITests testSharedJourneySpanish]' passed (62.356 seconds). ** TEST EXECUTE SUCCEEDED **
+group-2: Test Case '-[ArgusFoundationUITests.CuadraoGroupDesignUITests testSharedJourneySpanish]' passed (62.458 seconds). ** TEST EXECUTE SUCCEEDED **
+group-3: Test Case '-[ArgusFoundationUITests.CuadraoGroupDesignUITests testSharedJourneySpanish]' passed (61.690 seconds). ** TEST EXECUTE SUCCEEDED **
+receipt-1: Test Case '-[ArgusFoundationUITests.CuadraoReceiptUITests testExpenseEditsSurviveReceiptCapture]' passed (43.732 seconds). ** TEST EXECUTE SUCCEEDED **

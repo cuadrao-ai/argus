@@ -1,0 +1,8 @@
+
+ai.argus.foundation.RegisteredSessionLocalTest:.
+
+Time: 15.02
+
+OK (1 test)
+
+

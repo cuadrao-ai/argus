@@ -7,7 +7,8 @@ import {
   RotateCcw,
   } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import { useConversationSurface } from "@/components/chat/ChatWorkspace";
+import SettingsSurface from "@/components/settings/SettingsSurface";
 import { conversationPreviewText } from "@/lib/conversation-preview-display";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { listConversations, patchConversation, type Conversation } from "@/lib/argus-api";
@@ -26,12 +27,13 @@ export default function ArchivedChatsView({ onClose, onBack, backLabel, onRestor
   const { t } = useTranslation();
   const [archivedChats, setArchivedChats] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const surface = useConversationSurface();
 
   useEffect(() => {
-    listConversations({ archived: true })
+    listConversations({ archived: true, surface })
       .then(({ items }) => setArchivedChats(items))
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [surface]);
 
   const handleUnarchive = async (id: string) => {
     try {
@@ -44,7 +46,7 @@ export default function ArchivedChatsView({ onClose, onBack, backLabel, onRestor
   };
 
   return (
-    <AdaptivePanel
+    <SettingsSurface
       title={t("settings.data.archived_chats")}
       closeLabel={t("settings.data.close_archived", "Close archived chats")}
       onClose={onClose}
@@ -96,6 +98,6 @@ export default function ArchivedChatsView({ onClose, onBack, backLabel, onRestor
             </div>
           )}
         </div>
-    </AdaptivePanel>
+    </SettingsSurface>
   );
 }

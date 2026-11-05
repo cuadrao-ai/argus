@@ -1,0 +1,23 @@
+Runtime and test head: bd889e41d8d2e429081254a2033d747232370230
+Browser: Chromium; America/Santo_Domingo
+API/auth: Playwright mocked routes only; no backend/provider calls
+Scope: admitted structured action clears the notice; cancellation retains it; successful question clears it after reload and across navigation
+Command: PLAYWRIGHT_BASE_URL=http://127.0.0.1:31693 bunx playwright test e2e/daily-cap-429.spec.ts --workers=1 --grep "successful admitted structured action|successful cancellation|accepted manual question|accepted response clears"
+Screenshots: unchanged; no capture requested for this behavioral boundary
+
+(node:57018) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+Running 4 tests using 1 worker
+
+(node:57028) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:57028) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:57028) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › e2e/daily-cap-429.spec.ts:167:5 › an accepted manual question clears the notice across reload (1.9s)
+  ✓  2 [chromium] › e2e/daily-cap-429.spec.ts:180:5 › a successful admitted structured action clears the daily question notice (1.7s)
+  ✓  3 [chromium] › e2e/daily-cap-429.spec.ts:197:5 › a successful cancellation retains the daily question notice (1.7s)
+  ✓  4 [chromium] › e2e/daily-cap-429.spec.ts:213:5 › an accepted response clears the account notice after navigating to New chat (1.1s)
+
+  4 passed (6.7s)

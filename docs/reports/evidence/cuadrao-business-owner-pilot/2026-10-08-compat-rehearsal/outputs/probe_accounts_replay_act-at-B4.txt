@@ -1,0 +1,9 @@
+function_signatures: ["p_user_id uuid, p_idempotency_key text, p_identity_hash text, p_type text, p_currency text, p_nickname text, p_ownership_share_bps integer, p_opening_amount_minor bigint, p_opening_as_of timestamp with time zone, p_opening_zone text, p_owner_space_id uuid"]
+code_takes_scope: true
+replay_K1_same_request: {"account_id": "27dbc3da-2a4a-4ee2-b74a-4f6de61fda11", "created": false}
+replay_K1_changed_request: {"error": "IdempotencyConflict: "}
+new_key_act: {"account_id": "a115eff3-2db9-464e-895d-132f970be8c3", "created": true}
+replay_K1_from_business_scope: {"error": "IdempotencyConflict: "}
+stored_identity_hash_K1_now: true
+accounts_for_user: [3, 0]
+exit=0

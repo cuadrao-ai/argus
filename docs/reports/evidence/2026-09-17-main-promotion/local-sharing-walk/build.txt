@@ -9,9 +9,9 @@ $ next build
   Finished TypeScript in 3.9s ...
   Collecting page data using 17 workers ...
   Generating static pages using 17 workers (0/12) ...
-  Generating static pages using 17 workers (3/12) 
-  Generating static pages using 17 workers (6/12) 
-  Generating static pages using 17 workers (9/12) 
+  Generating static pages using 17 workers (3/12)
+  Generating static pages using 17 workers (6/12)
+  Generating static pages using 17 workers (9/12)
 ✓ Generating static pages using 17 workers (12/12) in 101ms
   Finalizing page optimization ...
 
@@ -37,4 +37,3 @@ Route (app)
 
 ○  (Static)   prerendered as static content
 ƒ  (Dynamic)  server-rendered on demand
-

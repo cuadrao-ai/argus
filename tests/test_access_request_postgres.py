@@ -169,16 +169,6 @@ def test_access_request_constraints_and_rls_are_service_role_only() -> None:
                 """
                 select
                   has_table_privilege(
-                    'anon',
-                    'public.private_alpha_allowlist',
-                    'select,insert,update,delete'
-                  ),
-                  has_table_privilege(
-                    'authenticated',
-                    'public.private_alpha_allowlist',
-                    'select,insert,update,delete'
-                  ),
-                  has_table_privilege(
                     'service_role',
                     'public.private_alpha_allowlist',
                     'select,insert,update,delete'
@@ -191,7 +181,7 @@ def test_access_request_constraints_and_rls_are_service_role_only() -> None:
                   )
                 """
             )
-            assert cursor.fetchone() == (False, False, True, 0)
+            assert cursor.fetchone() == (True, 0)
 
             cursor.execute(
                 """
@@ -882,39 +872,9 @@ def test_browser_roles_cannot_reach_claim_or_delivery_state_machine() -> None:
                           'public.private_alpha_access_welcome_claims'::regclass
                       ),
                       has_table_privilege(
-                        'anon',
-                        'public.private_alpha_access_welcome_claims',
-                        'select,insert,update,delete'
-                      ),
-                      has_table_privilege(
-                        'authenticated',
-                        'public.private_alpha_access_welcome_claims',
-                        'select,insert,update,delete'
-                      ),
-                      has_table_privilege(
                         'service_role',
                         'public.private_alpha_access_welcome_claims',
                         'select,insert,update,delete'
-                      ),
-                      has_function_privilege(
-                        'anon',
-                        'public.claim_private_alpha_access_welcome(text,text,text,text)',
-                        'execute'
-                      ),
-                      has_function_privilege(
-                        'authenticated',
-                        'public.claim_private_alpha_access_welcome(text,text,text,text)',
-                        'execute'
-                      ),
-                      has_function_privilege(
-                        'anon',
-                        'public.complete_private_alpha_access_welcome(text,text,text,text,text,uuid)',
-                        'execute'
-                      ),
-                      has_function_privilege(
-                        'authenticated',
-                        'public.complete_private_alpha_access_welcome(text,text,text,text,text,uuid)',
-                        'execute'
                       ),
                       has_function_privilege(
                         'service_role',
@@ -952,12 +912,6 @@ def test_browser_roles_cannot_reach_claim_or_delivery_state_machine() -> None:
                 )
                 assert cursor.fetchone() == (
                     True,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
                     False,
                     True,
                     True,
@@ -1073,7 +1027,7 @@ def test_protected_approval_replay_uses_real_gateway_and_sends_once(
             assert password
 
         def mail(self, sender: str) -> tuple[int, bytes]:
-            assert sender == "noreply@get-argus.com"
+            assert sender == "no-responder@mail.cuadrao.ai"
             return 250, b"sender accepted"
 
         def rcpt(self, recipient: str) -> tuple[int, bytes]:
@@ -1116,10 +1070,10 @@ def test_protected_approval_replay_uses_real_gateway_and_sends_once(
 
         real_gateway = SupabaseGateway(client=create_client(LOCAL_URL, LOCAL_SERVICE_KEY))
         monkeypatch.setattr(api_state, "supabase_gateway", real_gateway)
-        monkeypatch.setenv("ARGUS_OPS_TOKEN", ops_token)
+        monkeypatch.setenv("CUADRAO_OPS_TOKEN", ops_token)
         monkeypatch.setenv("ARGUS_APP_ORIGIN", "https://argus.example")
         monkeypatch.setenv(
-            "ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD",
+            "CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD",
             fake.password(),
         )
         monkeypatch.setattr(

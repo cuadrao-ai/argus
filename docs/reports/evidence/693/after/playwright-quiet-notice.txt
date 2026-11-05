@@ -1,0 +1,34 @@
+(node:51722) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+Running 22 tests using 1 worker
+
+(node:51732) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:51732) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:51732) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [chromium] › e2e/daily-cap-429.spec.ts:31:13 › daily cap states the local reset: guest, en, mobile, midnight header (1.2s)
+  ✓   2 [chromium] › e2e/daily-cap-429.spec.ts:31:13 › daily cap states the local reset: guest, en, mobile, missing header (896ms)
+  ✓   3 [chromium] › e2e/daily-cap-429.spec.ts:31:13 › daily cap states the local reset: registered, en, mobile, midnight header (901ms)
+  ✓   4 [chromium] › e2e/daily-cap-429.spec.ts:31:13 › daily cap states the local reset: registered, en, mobile, missing header (892ms)
+  ✓   5 [chromium] › e2e/daily-cap-429.spec.ts:31:13 › daily cap states the local reset: guest, en, desktop, midnight header (918ms)
+  ✓   6 [chromium] › e2e/daily-cap-429.spec.ts:31:13 › daily cap states the local reset: guest, en, desktop, missing header (900ms)
+  ✓   7 [chromium] › e2e/daily-cap-429.spec.ts:31:13 › daily cap states the local reset: registered, en, desktop, midnight header (917ms)
+  ✓   8 [chromium] › e2e/daily-cap-429.spec.ts:31:13 › daily cap states the local reset: registered, en, desktop, missing header (883ms)
+  ✓   9 [chromium] › e2e/daily-cap-429.spec.ts:31:13 › daily cap states the local reset: guest, es-419, mobile, midnight header (892ms)
+  ✓  10 [chromium] › e2e/daily-cap-429.spec.ts:31:13 › daily cap states the local reset: guest, es-419, mobile, missing header (878ms)
+  ✓  11 [chromium] › e2e/daily-cap-429.spec.ts:31:13 › daily cap states the local reset: registered, es-419, mobile, midnight header (865ms)
+  ✓  12 [chromium] › e2e/daily-cap-429.spec.ts:31:13 › daily cap states the local reset: registered, es-419, mobile, missing header (884ms)
+  ✓  13 [chromium] › e2e/daily-cap-429.spec.ts:31:13 › daily cap states the local reset: guest, es-419, desktop, midnight header (919ms)
+  ✓  14 [chromium] › e2e/daily-cap-429.spec.ts:31:13 › daily cap states the local reset: guest, es-419, desktop, missing header (895ms)
+  ✓  15 [chromium] › e2e/daily-cap-429.spec.ts:31:13 › daily cap states the local reset: registered, es-419, desktop, midnight header (897ms)
+  ✓  16 [chromium] › e2e/daily-cap-429.spec.ts:31:13 › daily cap states the local reset: registered, es-419, desktop, missing header (882ms)
+  ✓  17 [chromium] › e2e/daily-cap-429.spec.ts:54:5 › a new chat keeps the rejected question and its daily reset notice (836ms)
+  ✓  18 [chromium] › e2e/registered-compute-claim-503.spec.ts:15:9 › signed-in 503 preserves the turn through manual retries: en, mobile (1.2s)
+  ✓  19 [chromium] › e2e/registered-compute-claim-503.spec.ts:15:9 › signed-in 503 preserves the turn through manual retries: en, desktop (1.2s)
+  ✓  20 [chromium] › e2e/registered-compute-claim-503.spec.ts:15:9 › signed-in 503 preserves the turn through manual retries: es-419, mobile (1.1s)
+  ✓  21 [chromium] › e2e/registered-compute-claim-503.spec.ts:15:9 › signed-in 503 preserves the turn through manual retries: es-419, desktop (1.2s)
+  ✓  22 [chromium] › e2e/registered-compute-claim-503.spec.ts:57:5 › signed-in claim failure in a new chat keeps its prompt and uses the 15-second fallback (955ms)
+
+  22 passed (21.6s)

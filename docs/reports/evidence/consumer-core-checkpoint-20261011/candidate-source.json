@@ -1,0 +1,10 @@
+{
+  "source_head": "ed133f1d9a6725bcc375589daae4096b241f469e",
+  "files": {
+    "ios/ArgusFoundation/Accounts/ConnectedTransactionSheet.swift": "116856373b34cb1895df31477354936e5022a20e0f858b49bb657179f0c26d3a",
+    "ios/ArgusFoundationUITests/ConnectedReleaseSurfaceUITests.swift": "5f5217f1fde6a52c14d90725bc5e55ee691dae6a2abcfbbf671637f22c98c7a2",
+    "ios/ArgusFoundationUITests/FinancialLoopUITests.swift": "fbe9c68f35b61f7647716955d013f0e581c737675386135e5ec611cb18b84a71"
+  },
+  "backend_commit": "cad1cbe1ec27ff89c08eadbec31718a0e627383c",
+  "diagnostic_removed": true
+}

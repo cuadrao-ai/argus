@@ -1,0 +1,2 @@
+ios/ArgusFoundationUITests/CuadraoSupportUITests.swift:104: error: -[ArgusFoundationUITests.CuadraoSupportUITests testHomeActivityReturnsToSameRow] : XCTAssertTrue failed
+Test Case '-[ArgusFoundationUITests.CuadraoSupportUITests testHomeActivityReturnsToSameRow]' failed (12.523 seconds).

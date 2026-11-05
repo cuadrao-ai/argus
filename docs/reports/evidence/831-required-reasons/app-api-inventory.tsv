@@ -1,0 +1,36 @@
+category	path	line	source
+UserDefaults	ios/ArgusFoundation/ArgusFoundationApp.swift	23	@AppStorage(AppearancePreference.storageKey) private var appearance = AppearancePreference.system
+UserDefaults	ios/ArgusFoundation/ArgusFoundationApp.swift	25	@AppStorage(CuadraoAppearancePicker.storageKey) private var previewAppearance = AppearancePreference.light
+UserDefaults	ios/ArgusFoundation/Connected/ConnectedCuadraoHome.swift	14	@AppStorage("cuadrao.design.home-section-order") private var homeOrder = CuadraoHomeSection.defaultOrder
+UserDefaults	ios/ArgusFoundation/Cuadrao/CuadraoAccountsPreview.swift	80	UserDefaults.standard.set(accounts.map { $0.id.uuidString }, forKey: "cuadrao.design.account-order")
+UserDefaults	ios/ArgusFoundation/Cuadrao/CuadraoAccountsPreview.swift	108	if ProcessInfo.processInfo.arguments.contains("--plan-reset") { UserDefaults.standard.removeObject(forKey: orderKey) }
+UserDefaults	ios/ArgusFoundation/Cuadrao/CuadraoAccountsPreview.swift	109	let saved = (UserDefaults.standard.stringArray(forKey: orderKey) ?? []).compactMap(UUID.init(uuidString:))
+UserDefaults	ios/ArgusFoundation/Cuadrao/CuadraoAppearancePicker.swift	7	@AppStorage(Self.storageKey) private var selection = AppearancePreference.light
+UserDefaults	ios/ArgusFoundation/Cuadrao/CuadraoChatCanvas.swift	17	@AppStorage("cuadrao.design.voice-entry-learned") private var voiceEntryLearned = false
+UserDefaults	ios/ArgusFoundation/Cuadrao/CuadraoDesignGallery.swift	6	@AppStorage(CuadraoAppearancePicker.storageKey) private var appearance = AppearancePreference.light
+UserDefaults	ios/ArgusFoundation/Cuadrao/CuadraoHomeCanvas.swift	5	@AppStorage("cuadrao.design.home-section-order") private var homeOrder = CuadraoHomeSection.defaultOrder
+SystemBootTime	ios/ArgusFoundation/Cuadrao/CuadraoVoiceMessagePreview.swift	21	func begin(liveVoiceActive: Bool, held: Bool, now: Double = ProcessInfo.processInfo.systemUptime) {
+SystemBootTime	ios/ArgusFoundation/Cuadrao/CuadraoVoiceMessagePreview.swift	41	func release(now: Double = ProcessInfo.processInfo.systemUptime) {
+SystemBootTime	ios/ArgusFoundation/Cuadrao/CuadraoVoiceMessagePreview.swift	46	func stop(now: Double = ProcessInfo.processInfo.systemUptime) {
+SystemBootTime	ios/ArgusFoundation/Cuadrao/CuadraoVoiceMessagePreview.swift	57	func elapsed(now: Double = ProcessInfo.processInfo.systemUptime) -> Double {
+UserDefaults	ios/ArgusFoundation/Cuadrao/CuadraoVoicePicker.swift	21	@AppStorage(CuadraoVoiceOption.preferenceKey) private var selected = CuadraoVoiceOption.ara
+UserDefaults	ios/ArgusFoundation/Cuadrao/CuadraoVoicePicker.swift	38	@AppStorage(CuadraoVoiceOption.preferenceKey) private var selected = CuadraoVoiceOption.ara
+UserDefaults	ios/ArgusFoundation/Cuadrao/Planning/CuadraoGroupPreview.swift	111	private let defaults: UserDefaults?
+UserDefaults	ios/ArgusFoundation/Cuadrao/Planning/CuadraoGroupPreview.swift	115	init(spanish: Bool, defaults: UserDefaults? = .standard, reset: Bool = false, empty: Bool = false, storageURL: URL? = nil) {
+UserDefaults	ios/ArgusFoundation/Cuadrao/Planning/CuadraoGroupPreview.swift	117	self.defaults = defaults === UserDefaults.standard && !CuadraoDesignPreview.isActive ? nil : defaults
+UserDefaults	ios/ArgusFoundation/Cuadrao/Planning/CuadraoGroupPreview.swift	118	self.storageURL = storageURL ?? (self.defaults !== UserDefaults.standard ? nil : FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("cuadrao-groups.json"))
+UserDefaults	ios/ArgusFoundation/Cuadrao/Planning/CuadraoPlanPreview.swift	146	private let defaults: UserDefaults?
+UserDefaults	ios/ArgusFoundation/Cuadrao/Planning/CuadraoPlanPreview.swift	152	init(spanish: Bool, defaults: UserDefaults? = .standard, reset: Bool = false, empty: Bool = false) {
+UserDefaults	ios/ArgusFoundation/Cuadrao/Planning/CuadraoPlanPreview.swift	154	self.defaults = defaults === UserDefaults.standard && !CuadraoDesignPreview.isActive ? nil : defaults
+UserDefaults	ios/ArgusFoundation/Household/HouseholdModel.swift	63	selectedId = storageKey.flatMap { UserDefaults.standard.string(forKey: $0) }.flatMap(UUID.init(uuidString:))
+UserDefaults	ios/ArgusFoundation/Household/HouseholdModel.swift	75	if let storageKey { UserDefaults.standard.set(id?.uuidString, forKey: storageKey) }
+UserDefaults	ios/ArgusFoundation/Household/HouseholdModel.swift	225	if let storageKey { UserDefaults.standard.set(selectedId?.uuidString, forKey: storageKey) }
+UserDefaults	ios/ArgusFoundation/Household/HouseholdModel.swift	332	if let storageKey { UserDefaults.standard.removeObject(forKey: storageKey) }
+UserDefaults	ios/ArgusFoundation/Plan/FinancialBudgetModel.swift	26	private let defaults: UserDefaults
+UserDefaults	ios/ArgusFoundation/Plan/FinancialBudgetModel.swift	29	init(controller: SessionController, loop: FinancialLoopModel, defaults: UserDefaults = .standard) {
+UserDefaults	ios/ArgusFoundation/Plan/FinancialDebtModel.swift	30	private let defaults: UserDefaults
+UserDefaults	ios/ArgusFoundation/Plan/FinancialDebtModel.swift	34	init(controller: SessionController, loop: FinancialLoopModel, defaults: UserDefaults = .standard) {
+UserDefaults	ios/ArgusFoundation/Plan/FinancialGoalModel.swift	30	private let defaults: UserDefaults
+UserDefaults	ios/ArgusFoundation/Plan/FinancialGoalModel.swift	33	init(controller: SessionController, loop: FinancialLoopModel, defaults: UserDefaults = .standard) {
+UserDefaults	ios/ArgusFoundation/Search/FinancialSearchModel.swift	47	private let defaults: UserDefaults
+UserDefaults	ios/ArgusFoundation/Search/FinancialSearchModel.swift	55	init(controller: SessionController, defaults: UserDefaults = .standard, prefix: String = "financial.search.origin.") {

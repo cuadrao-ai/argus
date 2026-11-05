@@ -1,0 +1,18 @@
+{
+  "preparation_started_at_utc": "2026-10-11T19:58:52Z",
+  "recorded_at_utc": "2026-10-11T20:00:14.211137+00:00",
+  "current_head": "4a24d159391bb858e04479d85a3e2bf513498e7c",
+  "tested_native_source": "40ff4967040c854ca5dd0764115227544011a6e2",
+  "bundle_id": "local.argus.consumer.staging",
+  "bundle_version": "1",
+  "app_version": "0.1.0",
+  "executable_sha256": "1bc275b457ae6cb4121052377824138c6076fd01c0a0b734e83d42b542f1eab2",
+  "simulator": "Cuadrao Consumer checkpoint 937",
+  "simulator_id": "C85CDCF9-E5DB-4A86-97FB-65C46B349B35",
+  "os": "iOS 27.0",
+  "api": "https://cuadrao-api-staging.onrender.com",
+  "assigned_backend_pin": "cad1cbe1ec27ff89c08eadbec31718a0e627383c",
+  "test_identity": "existing signed-in synthetic free account",
+  "provider_calls": 0,
+  "product_changes": false
+}

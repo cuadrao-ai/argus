@@ -1,6 +1,6 @@
 # Public-signup branch acceptance correction
 
-The modal branch is correct. The earlier acceptance API harness explicitly set `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=false`; its browser assertions also selected the request-access translations. That was an acceptance configuration error. The transport proof stands, but those screenshots did not represent the public-signup configuration the founder confirmed for production.
+The modal branch is correct. The earlier acceptance API harness explicitly set `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=false`; its browser assertions also selected the request-access translations. That was an acceptance configuration error. The transport proof stands, but those screenshots did not represent the public-signup configuration the founder confirmed for production.
 
 No product code was changed for this correction. The same compiled frontend now renders the signup form when the local API flag is true. Both third-run paths pass in both languages.
 
@@ -13,7 +13,7 @@ All four captures assert the localized create-account heading, signup button, pa
 
 ## What selects the branch
 
-1. [`public_account_access_enabled()`](https://github.com/lagarcess/argus/blob/5cecbe43d87f1e624f102789e5f98aa82774e81a/src/argus/api/guest_access.py#L37) reads `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED` on the server.
+1. [`public_account_access_enabled()`](https://github.com/lagarcess/argus/blob/5cecbe43d87f1e624f102789e5f98aa82774e81a/src/argus/api/guest_access.py#L37) reads `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED` on the server.
 2. [`_user_response`](https://github.com/lagarcess/argus/blob/5cecbe43d87f1e624f102789e5f98aa82774e81a/src/argus/api/routers/profile.py#L58) includes it in `/me` as `public_account_access_enabled`. Unlike the formerly missing final-response code, this field is declared in both Python `UserResponse` and the frontend type.
 3. `getMe()` reads `/me`; `ChatInterface` stores that response as `account` and passes it into `useGuestExperience` and `useGuestConversion`.
 4. [`useGuestConversion`](https://github.com/lagarcess/argus/blob/5cecbe43d87f1e624f102789e5f98aa82774e81a/web/components/guest/useGuestConversion.ts#L236) returns `account?.public_account_access_enabled ?? false`; `GuestExperienceSurfaces` passes that value to `GuestConversionModal`.
@@ -25,7 +25,7 @@ The modal does not read a separate browser build flag. It derives from the API r
 
 - Source/browser code: `5cecbe43d87f1e624f102789e5f98aa82774e81a`; current pre-correction PR head `b25228262a92f949d69845c5745a37810f569be0` has identical product code, tests, and dependencies.
 - Integration base remains `77be94d68ae2217f43148883fc8c56348c4a40dc`; no reconciliation or overlap.
-- Reused the existing optimized Next build. The only product setting changed from the preceding acceptance run is `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` on the local API. No frontend rebuild, source patch, network interception, or injected response code was used.
+- Reused the existing optimized Next build. The only product setting changed from the preceding acceptance run is `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true` on the local API. No frontend rebuild, source patch, network interception, or injected response code was used.
 - The revised [server harness](harness/server.py) requires the public-access flag to be explicitly supplied by the caller instead of forcing false. The [browser harness](harness/browser.cjs) fails unless both its initial `/me` read and every captured browser `/me` response report true. It also checks the actual rendered signup form and rejects approval-queue copy.
 - Each language used a fresh disposable guest, completed two real engine runs with synthetic market data and real PostgreSQL admission, then clicked Run a third time. For the second path, the harness moved the visitor-day counter to the prior UTC day and called real `replace_guest_conversation`. Workspace usage stayed 2/2.
 - The next-day refusal still leaves one failed job with `account_conversion_required`, zero completed runs after history clear, and no added allowance charge. #543's durable-receipt behavior and the `FinalResponsePayload.code` fix are preserved.
@@ -35,6 +35,6 @@ The `*-state.json` files include actual browser `/me` responses, usage responses
 
 This is local acceptance against the production public-signup setting supplied by the founder, not a hosted production signup test or an independent reread of Render configuration. Production was not accessed or changed. Both fixture guests, local servers, and disposable PostgreSQL/PostgREST containers were cleaned up.
 
-Reproduction uses the same migration and compiled-candidate setup documented in the [original evidence](../README.md). Place the new harness under `temp/542-public-signup`, retain the candidate under `temp/542-conversion-fix/candidate`, and start each locale with `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true .venv/bin/python temp/542-public-signup/server.py temp/542-conversion-fix/candidate temp/542-public-signup/evidence/<locale>-trace.jsonl <locale>`. Then run `node temp/542-public-signup/browser.cjs <locale>`. Supported locales are `en` and `es-419`.
+Reproduction uses the same migration and compiled-candidate setup documented in the [original evidence](../README.md). Place the new harness under `temp/542-public-signup`, retain the candidate under `temp/542-conversion-fix/candidate`, and start each locale with `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true .venv/bin/python temp/542-public-signup/server.py temp/542-conversion-fix/candidate temp/542-public-signup/evidence/<locale>-trace.jsonl <locale>`. Then run `node temp/542-public-signup/browser.cjs <locale>`. Supported locales are `en` and `es-419`.
 
 **Disposition:** evidence correction only. PR #547 remains unmerged; #542 remains open. The separate allowance-availability defect remains #546.

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from datetime import datetime, timezone
+from functools import partial
 from typing import Any
 
 import httpx
@@ -14,6 +15,11 @@ from argus.domain.research.search.contracts import (
     sanitize_search_result,
 )
 from argus.domain.research.search.http_post import post_json
+from argus.llm.openrouter_retention import (
+    check_retention_response,
+    openrouter_provider_policy,
+    raise_for_retention_error,
+)
 
 OPENROUTER_CHAT_COMPLETIONS_URL = "https://openrouter.ai/api/v1/chat/completions"
 _CLAIM_ABBREVIATIONS = frozenset(
@@ -66,12 +72,15 @@ class OpenRouterWebSearchProvider:
             transport=self._transport,
             timeout_seconds=timeout_seconds,
             headers={"Authorization": f"Bearer {self._api_key}"},
+            check_response=partial(check_retention_response, model=self._model),
             body={
                 "model": self._model,
+                "provider": openrouter_provider_policy(),
                 "messages": [{"role": "user", "content": query}],
                 "plugins": [{"id": "web", "max_results": bounded_results}],
             },
         )
+        raise_for_retention_error(self._model, None, payload)
         latency_ms = int((time.monotonic() - started) * 1000)
         return SearchResultPacket(
             results=_sanitized_citations(payload),

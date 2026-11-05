@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 OpenRouterTask = Literal[
+    "document_extraction",
     "interpretation",
     "interpretation_repair",
     "asset_mention_preflight",
@@ -26,7 +27,7 @@ OpenRouterTask = Literal[
     "knowledge_voicing",
     "memory_sensitivity",
 ]
-OpenRouterModelTier = Literal["utility", "chat", "structured", "context", "readout"]
+OpenRouterModelTier = Literal["utility", "chat", "structured", "context", "readout", "vision"]
 OpenRouterReasoningEffort = Literal["xhigh", "high", "medium", "low", "minimal", "none"]
 
 
@@ -41,6 +42,7 @@ class OpenRouterProfile:
 
 
 OPENROUTER_PROFILES: dict[OpenRouterTask, OpenRouterProfile] = {
+    "document_extraction": OpenRouterProfile("document_extraction", temperature=0, max_tokens=12000, timeout_seconds=90, max_retries=0),
     "interpretation": OpenRouterProfile(
         "interpretation",
         temperature=0,
@@ -106,6 +108,7 @@ OPENROUTER_PROFILES: dict[OpenRouterTask, OpenRouterProfile] = {
 }
 
 OPENROUTER_TASK_MODEL_TIERS: dict[OpenRouterTask, OpenRouterModelTier] = {
+    "document_extraction": "vision",
     "interpretation": "structured",
     "interpretation_repair": "structured",
     "asset_mention_preflight": "structured",

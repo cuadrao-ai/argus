@@ -1,0 +1,48 @@
+{
+  "synthetic": true,
+  "extraction_mode": "stub",
+  "source_file": "scanned-statement.png",
+  "limitations": "Authored proposals for lifecycle tests; not extraction or confidence evidence.",
+  "proposals": [
+    {
+      "source_id": "scan-01",
+      "date": "2026-09-10",
+      "description": "Compra sintética",
+      "amount": "500.00",
+      "currency": "DOP",
+      "kind": "income",
+      "account": "scan-dop",
+      "destination": "personal",
+      "source_ref": {
+        "page": 1,
+        "region": [
+          35,
+          360,
+          1050,
+          400
+        ],
+        "label": "2026-09-10 Ingreso: 500.00 | destino: personal"
+      }
+    },
+    {
+      "source_id": "scan-02",
+      "date": "2026-09-11",
+      "description": "Compra sintética",
+      "amount": "",
+      "currency": "DOP",
+      "kind": "expense",
+      "account": "scan-dop",
+      "destination": "personal",
+      "source_ref": {
+        "page": 1,
+        "region": [
+          35,
+          425,
+          1050,
+          465
+        ],
+        "label": "2026-09-11 Gasto: [ILEGIBLE] | destino: personal"
+      }
+    }
+  ]
+}

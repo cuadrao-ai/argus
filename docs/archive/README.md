@@ -3,11 +3,19 @@
 Historical docs in this directory are preserved for branch archaeology and
 review context. They are not active execution sources of truth.
 
-For current Private Alpha Next product sequencing, use:
+For current product experience and document ownership, use:
 
-- `docs/specs/private-alpha-interim-roadmap.md` while the interim pivot is active
-- `docs/specs/private-alpha-next-roadmap.md`
-- `docs/specs/private-alpha-next-decision-memo.md`
+- [MVEE](../specs/argus-minimum-viable-ecosystem-experience.md)
+- [Documentation authority](../DOCUMENTATION_AUTHORITY.md)
+- The explicitly assigned package; [Wave 1](../specs/wave-1/README.md) retains its existing gates for assigned work
+
+Retired strategy narratives:
+
+- [Pivot strategy](2026-09-26-argus-pivot-strategy.md)
+- [Answers that stay true](2026-09-26-argus-answers-that-stay-true-roadmap.md)
+- [Private Alpha Next decision memo](2026-09-26-private-alpha-next-decision-memo.md)
+
+Their former paths now contain compatibility pointers, not competing product mandates.
 
 For the release gate, canary evidence, and deploy discipline, use:
 
@@ -51,6 +59,15 @@ Added in the 2026-07-23 interim-slate reconciliation:
   #241 / PR #266 design and acceptance contract.
 - `private-alpha-interim-issue-roadmap-2026-07-21.md` — retired issue/wave
   dependency plan; founder outcomes now own sequencing.
+
+Added in the 2026-10-04 Cuadrao docs cleanup (Argus-era specs both halves of
+the Cuadrao master plan list for archiving):
+
+- `private-alpha-next-conversational-edit-contract.md` — Argus web chat
+  conversational edit contract, built and landed in `0fb32c1`; web chat frozen.
+- `graded-interpretation-routing.md` — Argus chat interpreter routing lane.
+- `evidence-aware-idea-loop.md` — Argus research-lab source thesis behind the
+  archived decision memo.
 
 Compatibility pointers remain at the former spec/plan paths where existing
 issues, PRs, or historical plans link to them.

@@ -1,0 +1,25 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: /private/tmp/cuadrao-apple-session-20261005
+configfile: pyproject.toml
+plugins: benchmark-5.2.3, mock-3.15.1, Faker-30.10.0, asyncio-1.4.0, hypothesis-6.151.12, langsmith-0.7.31, respx-0.23.1, cov-7.0.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 272 items
+
+tests/evals/test_measurement_eval_harness.py ..........................  [  9%]
+tests/evals/test_measurement_eval_dca_semantics.py ...                   [ 10%]
+tests/evals/test_measurement_eval_scorecard.py ..................        [ 17%]
+tests/evals/test_measurement_eval_live_environment.py .................. [ 23%]
+                                                                         [ 23%]
+tests/evals/test_chat_runtime_eval_manifest.py ............              [ 28%]
+tests/evals/test_chat_runtime_trajectory_harness.py .................... [ 35%]
+...............                                                          [ 41%]
+tests/evals/test_measurement_availability.py ..........                  [ 44%]
+tests/evals/test_measurement_delivery.py ............................... [ 56%]
+.................................................                        [ 74%]
+tests/evals/test_measurement_outcome.py .............                    [ 79%]
+tests/evals/test_prose_evidence.py ..................................... [ 92%]
+....................                                                     [100%]
+
+============================= 272 passed in 9.14s ==============================

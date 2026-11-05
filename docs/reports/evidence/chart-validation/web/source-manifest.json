@@ -1,0 +1,28 @@
+{
+  "browserCaptureHead": "49b0495bd0217b94be57b00d8ae96ba6a98b8830",
+  "motionCaptureHead": "de8f9cdf6874e8e46d04c887393f003fb5b74492",
+  "sourceEqualityRevalidatedAtHead": "b6aecdfdaf964f81aeb411110c003d9662bd5e68",
+  "revalidation": "git diff --exit-code empty for web source, shared series/style, fonts and web lockfile between both capture heads and revalidation head",
+  "fontSource": "Existing repository-local WOFF2 assets, with their committed OFL licenses and attribution. No CDN requests.",
+  "files": {
+    "prototypes/chart-validation/fixtures/series.json": "a12a24634763f951f6daad7d200614dd777e83785d9ed4da9907720e5bdf418f",
+    "prototypes/chart-validation/fixtures/visual-style.json": "d1ab2aee8e20f5fe032759114e271d998406926e352d879b3b468aebe59ede72",
+    "prototypes/chart-validation/web/README.md": "107399dda94f0884af043d91d2614441b44b835d3977866b73071c8bbf1cb17b",
+    "prototypes/chart-validation/web/app.mjs": "6f6a2e54234530e354701e02c3feaf3f7db7b44ea9be5d7b16e3519240581bb5",
+    "prototypes/chart-validation/web/index.html": "787559ef0fbebc09e00abc996332522574406e1a76606a1fd5244de3ef06a4f0",
+    "prototypes/chart-validation/web/model.mjs": "03fabdb005dba37c796b3dbf62660c2d684f742b4398bf99e97c770c74c50525",
+    "prototypes/chart-validation/web/model.test.mjs": "3decae0d650602da3ac105b85b5e5539b326f26779fa1a093a606e02b967a4cb",
+    "prototypes/chart-validation/web/motion.mjs": "2559ae1b4d885d87eb9d1494196f056eaae747a6b905815215ede06b00775cbc",
+    "prototypes/chart-validation/web/server.mjs": "1329f5047112ba2c505d6cf2785c1c3afdca21110effda9230f99b643a577e4a",
+    "prototypes/chart-validation/web/style.css": "c982d2bb29570510cd2eb325d834674ff3e465fca07c3147911addd59f78db6b",
+    "prototypes/chart-validation/web/verify.mjs": "a64fb325f9b212198b2e8ae7bf91cb0d43ace94d207facefa899cd5b6cf3eedb",
+    "web/app/fonts/FONT-ATTRIBUTION.md": "a10958f142e38690c509e98f0ef798492caea5df6da8ade65ffbc8942323bbf0",
+    "web/app/fonts/InterVariable.woff2": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3",
+    "web/app/fonts/OFL-1.1-Inter.txt": "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a",
+    "web/app/fonts/OFL-1.1-Space-Grotesk.txt": "18a4de52385f6b988782639d5d0cc1326e5a8c2de9a7f01d7b20d9aedcc60943",
+    "web/app/fonts/SpaceGrotesk[wght].woff2": "8e085aa438094f11487a836652edd5c054fa6a96f63fc7c282105ee3a4b08c07",
+    "web/bun.lock": "d09176487ee8572906e47637dfefcff7a0a858cfab51916d3e4c33e2600aa19f",
+    "web/node_modules/lightweight-charts/dist/lightweight-charts.standalone.production.mjs": "66ac22df1b08de08ec2fae2b401b0f9731a4653a28e18a9837c7c3553c33dbe2",
+    "web/node_modules/lightweight-charts/package.json": "c2f09308bebfb70fc4f7356aee42416103686ce8db1a8149e2759458ed6a4244"
+  }
+}

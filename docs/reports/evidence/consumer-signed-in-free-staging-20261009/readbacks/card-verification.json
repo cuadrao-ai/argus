@@ -1,0 +1,20 @@
+{
+  "journey": "card",
+  "passed": true,
+  "deltas": {
+    "DOP": {
+      "assets_minor": 83000,
+      "cash_minor": 80000,
+      "other_assets_minor": 3000,
+      "debts_minor": 0,
+      "net_worth_minor": 83000,
+      "recorded_spending_minor": 12000,
+      "gross_income_minor": 0,
+      "gross_purchases_minor": 12000,
+      "refunds_minor": 25000,
+      "net_spending_minor": -13000,
+      "known_accounts": 2,
+      "unknown_accounts": 0
+    }
+  }
+}

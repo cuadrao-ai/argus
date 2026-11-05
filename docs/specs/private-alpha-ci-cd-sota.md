@@ -10,10 +10,10 @@ This document is the release-discipline reference for
 Render validation posture, and deployment discipline. It no longer owns the
 Private Alpha Next product roadmap.
 
-For current product sequencing, use
-`docs/specs/private-alpha-next-roadmap.md` and onboard every slice through the
-relevant details and addenda in
-`docs/specs/private-alpha-next-decision-memo.md`.
+For current product ownership, use
+[documentation authority](../DOCUMENTATION_AUTHORITY.md). Build only the
+explicitly assigned package; historical roadmap and memo references do not
+assign work or override the approved MVEE experience.
 
 Implementation note: the release gate now centers on local smoke, exact-candidate
 production migration parity before deploy, Render release-config audit, live
@@ -217,7 +217,11 @@ Release readiness should be checked at five layers together:
 
 ### Promotion Path
 
-Use the following progression when moving from integration to `main`:
+Use the following progression when moving from integration to `main`.
+The ordered Cuadrao staging-to-production checklist, including the current
+migration inventory and production env gates, is the launch runbook section
+[Cuadrao production promotion](../PRIVATE_LAUNCH_RUNBOOK.md#cuadrao-production-promotion).
+This progression is the commit, schema, and deploy discipline that checklist follows.
 
 1. Develop on a focused `codex/private-alpha-next` slice.
 2. Validate on the staging/private-alpha surface with the proof workflow task.
@@ -680,9 +684,20 @@ Before any guest traffic:
   projections must remain explicitly unmeasured.
 
 Canary failure rolls back presentation first, then server guest bootstrap. It
-does not touch `ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED=true`, which the founder
+does not touch `CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=true`, which the founder
 authorized separately on 2026-08-12; closing public registration again is its
 own founder decision. A local Block 4 pass is not “public ready.”
+
+## CI triggers and tooling (October 13, 2026)
+
+- **Trigger rules (#1040).** In `.github/workflows/ci.yml`, the `push` trigger runs
+  only for `main`, `codex/private-alpha-next` and
+  `codex/private-alpha-next-jules-intake`. A feature branch with a PR runs CI once
+  per push, through `pull_request` against those three base branches. A push to a
+  feature branch without a PR runs no CI.
+- **PDF tools (#1042).** The `docs-checks` job installs `poppler-utils`, so the
+  docs-reading backend tests have `pdftotext`. The `backend-checks` job installs
+  it too.
 
 ## Non-Goals
 

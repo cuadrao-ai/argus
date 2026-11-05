@@ -1,0 +1,300 @@
+{
+  "status": "passed",
+  "source_commit": "36abc0bc41fe0c12cb8651582e177dfd652013b0",
+  "native_test": "testConnectedPlanRecordsLinksCorrectsAndReopens",
+  "account": {
+    "id": "e71759a8-f8e4-45b7-bff0-f5e7637b0a24",
+    "type": "checking",
+    "nature": "asset",
+    "currency": "DOP",
+    "currency_fraction_digits": 2,
+    "nickname": "Plan bank 5E1B",
+    "archived": false,
+    "ownership_share_bps": 10000,
+    "version": 4,
+    "created_at": "2026-09-29T18:56:33.839580Z",
+    "updated_at": "2026-09-29T19:00:13.643926Z",
+    "balance": {
+      "state": "known",
+      "amount_minor": 37000,
+      "amount": "370.00",
+      "as_of": "2026-09-29T13:59:53-05:00",
+      "basis": "opening",
+      "activity_since_tracking_minor": 27000,
+      "credit_minor": null
+    },
+    "opening": {
+      "record_id": "238b087c-0a5b-4fa9-9c78-c9e1a3581972",
+      "revision": 1,
+      "amount_minor": 10000,
+      "amount": "100.00",
+      "as_of": "2026-09-29T14:56:22-04:00",
+      "time_zone": "America/Santo_Domingo",
+      "reason": null,
+      "recorded_at": "2026-09-29T18:56:33.839580Z",
+      "revisions": [
+        {
+          "revision": 1,
+          "amount_minor": 10000,
+          "amount": "100.00",
+          "as_of": "2026-09-29T14:56:22-04:00",
+          "time_zone": "America/Santo_Domingo",
+          "reason": null,
+          "recorded_by": "0574c75c-1b3d-4f82-b4a5-1391f0f84a15",
+          "recorded_at": "2026-09-29T18:56:33.839580Z"
+        }
+      ]
+    }
+  },
+  "expectations": [
+    {
+      "id": "17099f6e-4b7f-4fd6-8a58-70a51e160cc5",
+      "version": 1,
+      "kind": "bill",
+      "title": "Electricity 5E1B",
+      "currency": "DOP",
+      "currency_fraction_digits": 2,
+      "amount_minor": 20000,
+      "amount": "200.00",
+      "account_id": "e71759a8-f8e4-45b7-bff0-f5e7637b0a24",
+      "schedule": {
+        "cadence": "once",
+        "start_date": "2026-09-29",
+        "end_date": null,
+        "month_days": []
+      },
+      "archived": false,
+      "earliest_effective_date": "2026-09-30"
+    },
+    {
+      "id": "63f04306-9e0c-455d-a83a-6ade7c65e7c1",
+      "version": 2,
+      "kind": "income",
+      "title": "Commission 5E1B",
+      "currency": "DOP",
+      "currency_fraction_digits": 2,
+      "amount_minor": 60000,
+      "amount": "600.00",
+      "account_id": "e71759a8-f8e4-45b7-bff0-f5e7637b0a24",
+      "schedule": {
+        "cadence": "once",
+        "start_date": "2026-10-04",
+        "end_date": null,
+        "month_days": []
+      },
+      "archived": false,
+      "earliest_effective_date": "2026-10-05"
+    },
+    {
+      "id": "d7a15eea-0f42-4cd3-b036-26cd4b2ce4cb",
+      "version": 1,
+      "kind": "bill",
+      "title": "Weekly transport 5E1B",
+      "currency": "DOP",
+      "currency_fraction_digits": 2,
+      "amount_minor": 1000,
+      "amount": "10.00",
+      "account_id": "e71759a8-f8e4-45b7-bff0-f5e7637b0a24",
+      "schedule": {
+        "cadence": "weekly",
+        "start_date": "2026-10-06",
+        "end_date": null,
+        "month_days": []
+      },
+      "archived": false,
+      "earliest_effective_date": "2026-09-29"
+    }
+  ],
+  "occurrences": [
+    {
+      "id": "25680dfa-41f7-5372-be06-7d99a07070ee",
+      "expectation_id": "17099f6e-4b7f-4fd6-8a58-70a51e160cc5",
+      "expectation_version": 1,
+      "kind": "bill",
+      "title": "Electricity 5E1B",
+      "currency": "DOP",
+      "currency_fraction_digits": 2,
+      "amount_minor": 20000,
+      "amount": "200.00",
+      "account_id": "e71759a8-f8e4-45b7-bff0-f5e7637b0a24",
+      "due_date": "2026-09-29",
+      "projection_date": "2026-09-29",
+      "status": "fulfilled",
+      "activity_id": "b5b5e8ec-3906-44f5-a9dd-8ed58c193081",
+      "activity_revision": 2,
+      "exclusion_reason": null,
+      "overdue": false
+    },
+    {
+      "id": "433afd0f-006e-5a58-a659-edb100f4726b",
+      "expectation_id": "63f04306-9e0c-455d-a83a-6ade7c65e7c1",
+      "expectation_version": 2,
+      "kind": "income",
+      "title": "Commission 5E1B",
+      "currency": "DOP",
+      "currency_fraction_digits": 2,
+      "amount_minor": 50000,
+      "amount": "500.00",
+      "account_id": "e71759a8-f8e4-45b7-bff0-f5e7637b0a24",
+      "due_date": "2026-10-04",
+      "projection_date": "2026-10-04",
+      "status": "fulfilled",
+      "activity_id": "bd126bd4-e34f-4ebf-bc85-550c91b483bd",
+      "activity_revision": 1,
+      "exclusion_reason": null,
+      "overdue": false
+    },
+    {
+      "id": "b526501a-e049-5191-b9d8-bceb95708599",
+      "expectation_id": "d7a15eea-0f42-4cd3-b036-26cd4b2ce4cb",
+      "expectation_version": 1,
+      "kind": "bill",
+      "title": "Weekly transport 5E1B",
+      "currency": "DOP",
+      "currency_fraction_digits": 2,
+      "amount_minor": 1000,
+      "amount": "10.00",
+      "account_id": "e71759a8-f8e4-45b7-bff0-f5e7637b0a24",
+      "due_date": "2026-10-06",
+      "projection_date": "2026-10-06",
+      "status": "planned",
+      "activity_id": null,
+      "activity_revision": null,
+      "exclusion_reason": null,
+      "overdue": false
+    },
+    {
+      "id": "14cc4a1f-27c7-5802-8744-af78d8b3f1ef",
+      "expectation_id": "d7a15eea-0f42-4cd3-b036-26cd4b2ce4cb",
+      "expectation_version": 1,
+      "kind": "bill",
+      "title": "Weekly transport 5E1B",
+      "currency": "DOP",
+      "currency_fraction_digits": 2,
+      "amount_minor": 1000,
+      "amount": "10.00",
+      "account_id": "e71759a8-f8e4-45b7-bff0-f5e7637b0a24",
+      "due_date": "2026-10-13",
+      "projection_date": "2026-10-13",
+      "status": "planned",
+      "activity_id": null,
+      "activity_revision": null,
+      "exclusion_reason": null,
+      "overdue": false
+    },
+    {
+      "id": "3f943c29-9fd5-5d30-a3b2-1a5053ab08a7",
+      "expectation_id": "d7a15eea-0f42-4cd3-b036-26cd4b2ce4cb",
+      "expectation_version": 1,
+      "kind": "bill",
+      "title": "Weekly transport 5E1B",
+      "currency": "DOP",
+      "currency_fraction_digits": 2,
+      "amount_minor": 1000,
+      "amount": "10.00",
+      "account_id": "e71759a8-f8e4-45b7-bff0-f5e7637b0a24",
+      "due_date": "2026-10-20",
+      "projection_date": "2026-10-20",
+      "status": "planned",
+      "activity_id": null,
+      "activity_revision": null,
+      "exclusion_reason": null,
+      "overdue": false
+    },
+    {
+      "id": "b774dadb-d22a-5710-be10-ee41195d5e6b",
+      "expectation_id": "d7a15eea-0f42-4cd3-b036-26cd4b2ce4cb",
+      "expectation_version": 1,
+      "kind": "bill",
+      "title": "Weekly transport 5E1B",
+      "currency": "DOP",
+      "currency_fraction_digits": 2,
+      "amount_minor": 1000,
+      "amount": "10.00",
+      "account_id": "e71759a8-f8e4-45b7-bff0-f5e7637b0a24",
+      "due_date": "2026-10-27",
+      "projection_date": "2026-10-27",
+      "status": "planned",
+      "activity_id": null,
+      "activity_revision": null,
+      "exclusion_reason": null,
+      "overdue": false
+    }
+  ],
+  "linked_activities": [
+    {
+      "activity_id": "b5b5e8ec-3906-44f5-a9dd-8ed58c193081",
+      "revision": 2,
+      "kind": "expense",
+      "amount_minor": 18000,
+      "amount": "180.00",
+      "currency": "DOP",
+      "currency_fraction_digits": 2,
+      "occurred_at": "2026-09-29T18:58:47Z",
+      "time_zone": "America/Chicago",
+      "note": "Electricity 5E1B",
+      "category_id": null,
+      "source_id": null,
+      "purchase_activity_id": null,
+      "purchase_revision": null,
+      "reason": "Correct electricity receipt",
+      "recorded_at": "2026-09-29T18:59:40.781329Z",
+      "recorded_by": "0574c75c-1b3d-4f82-b4a5-1391f0f84a15",
+      "legs": [
+        {
+          "record_id": "b5b5e8ec-3906-44f5-a9dd-8ed58c193081",
+          "record_revision": 2,
+          "account_id": "e71759a8-f8e4-45b7-bff0-f5e7637b0a24",
+          "role": "single",
+          "balance_movement_minor": -18000,
+          "coverage": [
+            {
+              "observation_id": "238b087c-0a5b-4fa9-9c78-c9e1a3581972",
+              "included": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "activity_id": "bd126bd4-e34f-4ebf-bc85-550c91b483bd",
+      "revision": 1,
+      "kind": "income",
+      "amount_minor": 45000,
+      "amount": "450.00",
+      "currency": "DOP",
+      "currency_fraction_digits": 2,
+      "occurred_at": "2026-09-29T18:59:53Z",
+      "time_zone": "America/Chicago",
+      "note": "Commission 5E1B",
+      "category_id": null,
+      "source_id": null,
+      "purchase_activity_id": null,
+      "purchase_revision": null,
+      "reason": null,
+      "recorded_at": "2026-09-29T19:00:13.665972Z",
+      "recorded_by": "0574c75c-1b3d-4f82-b4a5-1391f0f84a15",
+      "legs": [
+        {
+          "record_id": "bd126bd4-e34f-4ebf-bc85-550c91b483bd",
+          "record_revision": 1,
+          "account_id": "e71759a8-f8e4-45b7-bff0-f5e7637b0a24",
+          "role": "single",
+          "balance_movement_minor": 45000,
+          "coverage": [
+            {
+              "observation_id": "238b087c-0a5b-4fa9-9c78-c9e1a3581972",
+              "included": false
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "assertions": [
+    "Actual account370 after corrected bill180 and received income450 from starting100",
+    "Two fulfilled occurrences link to exactly two canonical activities",
+    "Edited expected income600 remains fulfilled by actual450",
+    "Weekly expectations are planned only"
+  ]
+}

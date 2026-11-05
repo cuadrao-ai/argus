@@ -1,0 +1,59 @@
+$ playwright test "e2e/personal.spec.ts" "e2e/personal-motion.spec.ts"
+(node:1563) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[WebServer] (node:1564) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:1565) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:1566) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 34 tests using 1 worker
+
+(node:1567) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1567) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:1567) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [desktop] › e2e/personal-motion.spec.ts:13:5 › waits for confirmed registration, then delivers once while confirmation receives focus (2.2s)
+  ✓   2 [desktop] › e2e/personal-motion.spec.ts:36:5 › failed and unexpected responses preserve the email without a flight, then allow retry (643ms)
+  ✓   3 [desktop] › e2e/personal-motion.spec.ts:56:5 › fine-pointer eyes follow and reset without changing form focus (116ms)
+  ✓   4 [desktop] › e2e/personal-motion.spec.ts:69:5 › reduced motion confirms directly with a still pet (225ms)
+  ✓   5 [desktop] › e2e/personal-motion.spec.ts:82:7 › narrow 320px form confirms without scrolling toward the offscreen phone (225ms)
+  ✓   6 [desktop] › e2e/personal-motion.spec.ts:82:7 › narrow 390px form confirms without scrolling toward the offscreen phone (220ms)
+  ✓   7 [desktop] › e2e/personal-motion.spec.ts:98:5 › scrolling during delivery removes the flight and keeps the true confirmation (214ms)
+  ✓   8 [desktop] › e2e/personal.spec.ts:25:9 › personal signup es › registers durably and confirms only after the database accepted the row (224ms)
+  ✓   9 [desktop] › e2e/personal.spec.ts:37:9 › personal signup es › a repeat registration looks the same and stores one row (637ms)
+  ✓  10 [desktop] › e2e/personal.spec.ts:48:9 › personal signup es › an unavailable database keeps the email and never claims success (1.1s)
+  ✓  11 [desktop] › e2e/personal.spec.ts:65:9 › personal signup es › links to the privacy page near the form (142ms)
+  ✓  12 [desktop] › e2e/personal.spec.ts:72:7 › personal es cannot submit natively before hydration (84ms)
+  ✓  13 [desktop] › e2e/personal.spec.ts:25:9 › personal signup en › registers durably and confirms only after the database accepted the row (213ms)
+  ✓  14 [desktop] › e2e/personal.spec.ts:37:9 › personal signup en › a repeat registration looks the same and stores one row (638ms)
+  ✓  15 [desktop] › e2e/personal.spec.ts:48:9 › personal signup en › an unavailable database keeps the email and never claims success (1.0s)
+  ✓  16 [desktop] › e2e/personal.spec.ts:65:9 › personal signup en › links to the privacy page near the form (131ms)
+  ✓  17 [desktop] › e2e/personal.spec.ts:72:7 › personal en cannot submit natively before hydration (78ms)
+(node:1598) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1598) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:1598) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  18 [mobile] › e2e/personal-motion.spec.ts:13:5 › waits for confirmed registration, then delivers once while confirmation receives focus (2.1s)
+  ✓  19 [mobile] › e2e/personal-motion.spec.ts:36:5 › failed and unexpected responses preserve the email without a flight, then allow retry (644ms)
+  -  20 [mobile] › e2e/personal-motion.spec.ts:56:5 › fine-pointer eyes follow and reset without changing form focus
+  ✓  21 [mobile] › e2e/personal-motion.spec.ts:69:5 › reduced motion confirms directly with a still pet (111ms)
+  ✓  22 [mobile] › e2e/personal-motion.spec.ts:82:7 › narrow 320px form confirms without scrolling toward the offscreen phone (224ms)
+  ✓  23 [mobile] › e2e/personal-motion.spec.ts:82:7 › narrow 390px form confirms without scrolling toward the offscreen phone (222ms)
+  ✓  24 [mobile] › e2e/personal-motion.spec.ts:98:5 › scrolling during delivery removes the flight and keeps the true confirmation (218ms)
+  ✓  25 [mobile] › e2e/personal.spec.ts:25:9 › personal signup es › registers durably and confirms only after the database accepted the row (219ms)
+  ✓  26 [mobile] › e2e/personal.spec.ts:37:9 › personal signup es › a repeat registration looks the same and stores one row (546ms)
+  ✓  27 [mobile] › e2e/personal.spec.ts:48:9 › personal signup es › an unavailable database keeps the email and never claims success (1.0s)
+  ✓  28 [mobile] › e2e/personal.spec.ts:65:9 › personal signup es › links to the privacy page near the form (129ms)
+  ✓  29 [mobile] › e2e/personal.spec.ts:72:7 › personal es cannot submit natively before hydration (79ms)
+  ✓  30 [mobile] › e2e/personal.spec.ts:25:9 › personal signup en › registers durably and confirms only after the database accepted the row (221ms)
+  ✓  31 [mobile] › e2e/personal.spec.ts:37:9 › personal signup en › a repeat registration looks the same and stores one row (539ms)
+  ✓  32 [mobile] › e2e/personal.spec.ts:48:9 › personal signup en › an unavailable database keeps the email and never claims success (1.0s)
+  ✓  33 [mobile] › e2e/personal.spec.ts:65:9 › personal signup en › links to the privacy page near the form (131ms)
+  ✓  34 [mobile] › e2e/personal.spec.ts:72:7 › personal en cannot submit natively before hydration (74ms)
+
+  1 skipped
+  33 passed (17.5s)

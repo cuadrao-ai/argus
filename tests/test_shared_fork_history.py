@@ -14,13 +14,18 @@ from argus.api.public_excerpt_schemas import (
     PublicExcerptAnswerTurn,
     PublicExcerptTurnsPayload,
 )
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.public_excerpt_forks import FORK_TEXT_BYTES, carried_messages
 
 
 def seed_imported(*, count=12, ordinary=25):
     user_id = str(uuid4())
     conversation = memory_conversation(
-        user_id=user_id, title="New idea", title_source="system_default", language="en"
+        scope=PERSONAL,
+        user_id=user_id,
+        title="New idea",
+        title_source="system_default",
+        language="en",
     )
     payload = PublicExcerptTurnsPayload(
         turns=[
@@ -114,7 +119,9 @@ def test_model_history_preserves_import_through_runtime_and_checkpoint(
     assert "shared_context" not in str([message.model_dump() for message in messages])
 
 
-def test_interpretation_and_answer_adapters_keep_imports_but_clarifier_uses_current_reason(monkeypatch):
+def test_interpretation_and_answer_adapters_keep_imports_but_clarifier_uses_current_reason(
+    monkeypatch,
+):
     from types import SimpleNamespace
 
     from argus.agent_runtime.calculated_answer import _messages as answer_messages

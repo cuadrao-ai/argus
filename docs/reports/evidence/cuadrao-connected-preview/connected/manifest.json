@@ -1,0 +1,226 @@
+[
+  {
+    "image": "connected/home-upcoming-preserved-after-reopen.png",
+    "test": "FinancialLoopUITests/testRecurringFromMovementShowsInHomeUpcomingAndFulfilsOnce()",
+    "source_revision": "a1f2aab31",
+    "result_bundle": "ui-20261005T175437Z.xcresult",
+    "captured_at_unix": 1791223103.879,
+    "sha256": "755c95b98d32073e5a423c3d67c8f5f22a612d0ee32954c8712e08ef46c58dd3"
+  },
+  {
+    "image": "connected/home-upcoming-recurring.png",
+    "test": "FinancialLoopUITests/testRecurringFromMovementShowsInHomeUpcomingAndFulfilsOnce()",
+    "source_revision": "a1f2aab31",
+    "result_bundle": "ui-20261005T175437Z.xcresult",
+    "captured_at_unix": 1791223011.344,
+    "sha256": "eb61fceab4da7000913779f33dfea4c19d39fb757aec3cf6d08637cb0d3b781a"
+  },
+  {
+    "image": "connected/recurring-review-form-prefilled.png",
+    "test": "FinancialLoopUITests/testRecurringFromMovementShowsInHomeUpcomingAndFulfilsOnce()",
+    "source_revision": "a1f2aab31",
+    "result_bundle": "ui-20261005T175437Z.xcresult",
+    "captured_at_unix": 1791222971.649,
+    "sha256": "bedf574c2b32a3f4ed9d8d1032fe1b4fc605e3d84b90fd9365110bf65d0fed79"
+  },
+  {
+    "image": "connected/recurring-movement-detail-action.png",
+    "test": "FinancialLoopUITests/testRecurringFromMovementShowsInHomeUpcomingAndFulfilsOnce()",
+    "source_revision": "a1f2aab31",
+    "result_bundle": "ui-20261005T175437Z.xcresult",
+    "captured_at_unix": 1791222968.138,
+    "sha256": "868e50503151ae540fbb532b49ef20ba2f68b1418e4c314ae41844b3c09681dc"
+  },
+  {
+    "image": "connected/home-movement-back-same-position.png",
+    "test": "FinancialLoopUITests/testHomeMovementOpensDetailAndBackKeepsPosition()",
+    "source_revision": "a1f2aab31",
+    "result_bundle": "ui-20261005T175927Z.xcresult",
+    "captured_at_unix": 1791223286.147,
+    "sha256": "9baa3aa1cd9ede3533277f87705be8045adb51c16a30263172dfae2fd2000696"
+  },
+  {
+    "image": "connected/home-movement-row-before-open.png",
+    "test": "FinancialLoopUITests/testHomeMovementOpensDetailAndBackKeepsPosition()",
+    "source_revision": "a1f2aab31",
+    "result_bundle": "ui-20261005T175927Z.xcresult",
+    "captured_at_unix": 1791223266.745,
+    "sha256": "9baa3aa1cd9ede3533277f87705be8045adb51c16a30263172dfae2fd2000696"
+  },
+  {
+    "image": "connected/account-swipe-edit-more.png",
+    "test": "FinancialLoopUITests/testAccountRowSwipesAddEditAndMoreArchive()",
+    "source_revision": "a1f2aab31",
+    "result_bundle": "ui-20261005T180134Z.xcresult",
+    "captured_at_unix": 1791223365.895,
+    "sha256": "3610d760c65dbd51c4d5df276b49d5dad124de462e6731c5945d9cbc2164ea27"
+  },
+  {
+    "image": "connected/account-swipe-add-movement.png",
+    "test": "FinancialLoopUITests/testAccountRowSwipesAddEditAndMoreArchive()",
+    "source_revision": "a1f2aab31",
+    "result_bundle": "ui-20261005T180134Z.xcresult",
+    "captured_at_unix": 1791223355.003,
+    "sha256": "4e9dc34459406547a42105c7c6d58e41f3ddc8106f97d52744baf4f7474e5ce7"
+  },
+  {
+    "image": "connected/movement-category-shortcut.png",
+    "test": "FinancialLoopUITests/testMovementRowSwipesOpenCorrectionAndCategory()",
+    "source_revision": "0fbe310cb",
+    "result_bundle": "ui-20261005T180319Z.xcresult",
+    "captured_at_unix": 1791223503.621,
+    "sha256": "792b5c50304ca5fcd7cbe7485f3f9a775ce23222b7aaff22937777b689698f1a"
+  },
+  {
+    "image": "connected/movement-swipe-category.png",
+    "test": "FinancialLoopUITests/testMovementRowSwipesOpenCorrectionAndCategory()",
+    "source_revision": "0fbe310cb",
+    "result_bundle": "ui-20261005T180319Z.xcresult",
+    "captured_at_unix": 1791223498.201,
+    "sha256": "5e0b7b6c1aae08c8f5406e11e947cc38919ccade5ffd87ad9e81fb7e8fda2063"
+  },
+  {
+    "image": "connected/recurring-movement-detail-spanish.png",
+    "test": "FinancialLoopUITests/testRecurringSetupSpanishCopy()",
+    "source_revision": "0fbe310cb",
+    "result_bundle": "ui-20261005T180716Z.xcresult",
+    "captured_at_unix": 1791223728.276,
+    "sha256": "0746444971f18e5be4bd28aedfcaed986473f0734d267501b46100bc34b09571"
+  },
+  {
+    "image": "connected/recurring-saved-once-after-retry.png",
+    "test": "FinancialLoopUITests/testRecurringSetupResponseLossSavesOnce()",
+    "source_revision": "24108a515",
+    "result_bundle": "ui-20261005T181015Z.xcresult",
+    "captured_at_unix": 1791223950.78,
+    "sha256": "f46077dd7e8a77469493cecad86abf7d976020ff7cff066df247ea4310e3d800"
+  },
+  {
+    "image": "connected/recurring-save-response-lost.png",
+    "test": "FinancialLoopUITests/testRecurringSetupResponseLossSavesOnce()",
+    "source_revision": "24108a515",
+    "result_bundle": "ui-20261005T181015Z.xcresult",
+    "captured_at_unix": 1791223932.966,
+    "sha256": "bec7c7ac088dfb33af7df9a07367c63b568f23234f429b59c10e3e0666ffb7ab"
+  },
+  {
+    "image": "connected/plan-payment-recovered-once-after-reopen.png",
+    "test": "FinancialLoopUITests/testPlanResponseLossRecoversOnceAfterRelaunch()",
+    "source_revision": "24108a515",
+    "result_bundle": "ui-20261005T181245Z.xcresult",
+    "captured_at_unix": 1791224303.461,
+    "sha256": "d8e6da03fca2224731b29ae1433631197ecb36b273558d5fc7189d5052b8758c"
+  },
+  {
+    "image": "connected/plan-pending-command-isolated-from-user-b.png",
+    "test": "FinancialLoopUITests/testPlanResponseLossRecoversOnceAfterRelaunch()",
+    "source_revision": "24108a515",
+    "result_bundle": "ui-20261005T181245Z.xcresult",
+    "captured_at_unix": 1791224237.412,
+    "sha256": "21a21a149cb942256b89bd98dc7086a08c2448a0c7d59b79ce91c4b24085a348"
+  },
+  {
+    "image": "connected/plan-committed-payment-response-lost.png",
+    "test": "FinancialLoopUITests/testPlanResponseLossRecoversOnceAfterRelaunch()",
+    "source_revision": "24108a515",
+    "result_bundle": "ui-20261005T181245Z.xcresult",
+    "captured_at_unix": 1791224180.956,
+    "sha256": "d430fa9ccece7c9da89b5100c57d7722ba31df8fa01ccfd15aa182f61632097e"
+  },
+  {
+    "image": "connected/observed-plan-spanish-light-unknown-currency.png",
+    "test": "FinancialLoopUITests/testPlanKeepsUnknownCurrencyAndLocalizedPresentation()",
+    "source_revision": "24108a515",
+    "result_bundle": "ui-20261005T181824Z.xcresult",
+    "captured_at_unix": 1791224442.685,
+    "disposition": "Before d50678438; retained to show the misleading empty known-balance subtotal.",
+    "sha256": "8be0f6fe865b146a51af7318deba44e03669a2d23e170684c164e2814a60eb3b"
+  },
+  {
+    "image": "connected/observed-plan-unknown-dollar-balance.png",
+    "test": "FinancialLoopUITests/testPlanKeepsUnknownCurrencyAndLocalizedPresentation()",
+    "source_revision": "24108a515",
+    "result_bundle": "ui-20261005T181824Z.xcresult",
+    "captured_at_unix": 1791224426.011,
+    "disposition": "Before d50678438; retained to show the misleading empty known-balance subtotal.",
+    "sha256": "b06a9b2fc3f292f46e50753c017dc1cbdb980e8363f53070e1f6ea97784e6808"
+  },
+  {
+    "image": "connected/plan-expectation-entry.png",
+    "test": "FinancialLoopUITests/testPlanKeepsUnknownCurrencyAndLocalizedPresentation()",
+    "source_revision": "24108a515",
+    "result_bundle": "ui-20261005T181824Z.xcresult",
+    "captured_at_unix": 1791224397.902,
+    "sha256": "31929c289feb72a4304d0b877105366c95e68ad3575b9afd044331ee3a5b2fc6"
+  },
+  {
+    "image": "connected/plan-spanish-light-unknown-currency.png",
+    "test": "FinancialLoopUITests/testPlanKeepsUnknownCurrencyAndLocalizedPresentation()",
+    "source_revision": "d506784381d5023a106bd1902bf613026ea9eefd",
+    "result_bundle": "ui-20261005T183052Z.xcresult",
+    "captured_at_unix": 1791225197.41,
+    "sha256": "cc8b1a6f7652d68a95e94ba0a6e21f9314acbbf40abe5872561c47fb59655ec6"
+  },
+  {
+    "image": "connected/plan-unknown-dollar-balance.png",
+    "test": "FinancialLoopUITests/testPlanKeepsUnknownCurrencyAndLocalizedPresentation()",
+    "source_revision": "d506784381d5023a106bd1902bf613026ea9eefd",
+    "result_bundle": "ui-20261005T183052Z.xcresult",
+    "captured_at_unix": 1791225180.499,
+    "sha256": "04579e2effde9167ae5bfbd19cd08b5af0d23c629cce33ebc0dcef48f12dc06d"
+  },
+  {
+    "image": "connected/home-light-spanish.png",
+    "source_revision": "d506784381d5023a106bd1902bf613026ea9eefd",
+    "method": "Manual simulator control with XcodeBuildMCP and raw simctl capture",
+    "note": "Connected Home with real local accounts; shared selector and amount.",
+    "locale": "es-419, es_DO",
+    "date": "2026-10-05",
+    "sha256": "8fff2925596ba0078cfb3dc693936a590e56f1312755b32213906d7168b6951d"
+  },
+  {
+    "image": "connected/home-balance-breakdown-spanish.png",
+    "source_revision": "d506784381d5023a106bd1902bf613026ea9eefd",
+    "method": "Manual simulator control with XcodeBuildMCP and raw simctl capture",
+    "note": "Expanded balance exposes actual cash and debt and observation date.",
+    "locale": "es-419, es_DO",
+    "date": "2026-10-05",
+    "sha256": "060bec9f2cca0352b52ffef9a98000b0ac111ad4c8150f86d97ba7f865f067d7"
+  },
+  {
+    "image": "connected/observed-home-largest-text-before.png",
+    "source_revision": "d506784381d5023a106bd1902bf613026ea9eefd",
+    "method": "Manual simulator control with XcodeBuildMCP and raw simctl capture",
+    "note": "Before eddb7da97. Currency wraps at Accessibility XXXL.",
+    "locale": "es-419, es_DO",
+    "date": "2026-10-05",
+    "sha256": "5b59844f9caf2122193c2d2978786c6d57b682e9960b0c3b65097fe4cf08516e"
+  },
+  {
+    "image": "connected/home-largest-text-spanish.png",
+    "source_revision": "eddb7da97f3c38135bf855cc1c73930154fb0713",
+    "method": "Manual simulator control with XcodeBuildMCP and raw simctl capture",
+    "note": "Accessibility XXXL. Currency and amount stack; menu changes DOP to unknown USD without inventing zero.",
+    "locale": "es-419, es_DO",
+    "date": "2026-10-05",
+    "sha256": "0026a1e49a30c8507d1fdec0a970fde0914003a6020cb40dea7c31273b54d98a"
+  },
+  {
+    "image": "connected/home-account-read-failed-spanish.png",
+    "source_revision": "eddb7da97f3c38135bf855cc1c73930154fb0713",
+    "method": "Manual simulator control with XcodeBuildMCP and raw simctl capture",
+    "note": "One GET financial-accounts returned 503 through the local proxy. Reintentar is shown; no first-use claim.",
+    "locale": "es-419, es_DO",
+    "date": "2026-10-05",
+    "sha256": "f086003e7c226380ed3be6a7c69a912b6cfd381161a28861b2c4b6255c590115"
+  },
+  {
+    "image": "connected/home-account-read-recovered-spanish.png",
+    "source_revision": "eddb7da97f3c38135bf855cc1c73930154fb0713",
+    "method": "Manual simulator control with XcodeBuildMCP and raw simctl capture",
+    "note": "Tapped Reintentar. Error disappears and existing accounts return; the proxy consumed one read fault.",
+    "locale": "es-419, es_DO",
+    "date": "2026-10-05",
+    "sha256": "58ffa569686abab961de48f0701d31a6946e3ed2a84ba005856c90fc930668b3"
+  }
+]

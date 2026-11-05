@@ -1,0 +1,241 @@
+{
+  "model": "deepseek/deepseek-v4-flash-vision-exp",
+  "approved_documents": 6,
+  "approved_cap_usd": "2",
+  "attempts": 6,
+  "retries": 0,
+  "benchmark_attempts_complete": true,
+  "live_acceptance_passed": false,
+  "canonical_candidate_and_money_contract_changed": false,
+  "development_key_used": true,
+  "key_limits_changed": false,
+  "known_cost_usd": "0.00489199536",
+  "actual_total_cost_usd": null,
+  "unknown_cost_attempts": 3,
+  "budget": {
+    "model": "deepseek/deepseek-v4-flash-vision-exp",
+    "provider": "deepinfra/fp8",
+    "context_tokens": 1048576,
+    "output_tokens": 12000,
+    "prompt_usd_per_token": "2.156E-7",
+    "completion_usd_per_token": "6.468E-7",
+    "maximum_request_usd": "0.2338345856",
+    "approved_cap_usd": "2",
+    "maximum_run_usd": "1.4030075136",
+    "reserved_usd": "1.4030075136",
+    "attempts": 6,
+    "attempted_fixtures": [
+      "cord-test-0",
+      "cord-test-1",
+      "receipt-dop",
+      "statement-dop",
+      "statement-usd",
+      "unreadable"
+    ]
+  },
+  "provider_schema_failure": {
+    "code": 400,
+    "message": "Upstream error from DeepInfra: Grammar error: Unimplemented keys: [\"uniqueItems\"]",
+    "confirmed_on": "statement-dop",
+    "fix": "Model-facing uncertain array uses tuple; canonical ImportCandidate remains frozenset."
+  },
+  "post_fix_quality": {
+    "expected_transactions": 3,
+    "classified_transactions": 0,
+    "exact_matches": 0,
+    "balances_as_transactions": 0,
+    "unreadable_correctly_rejected": true
+  },
+  "results": [
+    {
+      "fixture_id": "cord-test-0",
+      "sha256": "4e13b815b540420a4d68229494bd6259768c226a595114609970edae9a620aa9",
+      "latency_ms": 811,
+      "error_code": "extraction_provider_failed",
+      "expected_rejection": false,
+      "rejection_correct": false,
+      "quality": {
+        "expected_transactions": 1,
+        "observed_transactions": 0,
+        "exact_matches": 0,
+        "missing_or_mismatched": 1,
+        "invented_or_mismatched": 0,
+        "field_multiset_matches": {
+          "amount": 0,
+          "currency": 0,
+          "date": 0,
+          "direction": 0
+        },
+        "field_denominator": 1,
+        "balance_candidates": 0,
+        "balances_as_transactions": 0
+      },
+      "git_head": "51469c10272d65836bb73939fddf6e36928ba937"
+    },
+    {
+      "fixture_id": "cord-test-1",
+      "sha256": "636284664cfc357e05f7b10d67ddb380f828a1be0a20809514f9e7fc0c611a9f",
+      "latency_ms": 938,
+      "error_code": "extraction_provider_failed",
+      "expected_rejection": false,
+      "rejection_correct": false,
+      "quality": {
+        "expected_transactions": 1,
+        "observed_transactions": 0,
+        "exact_matches": 0,
+        "missing_or_mismatched": 1,
+        "invented_or_mismatched": 0,
+        "field_multiset_matches": {
+          "amount": 0,
+          "currency": 0,
+          "date": 0,
+          "direction": 0
+        },
+        "field_denominator": 1,
+        "balance_candidates": 0,
+        "balances_as_transactions": 0
+      },
+      "git_head": "752c8865303f60ef9ecb819fd33fb04b23301e53"
+    },
+    {
+      "fixture_id": "statement-dop",
+      "sha256": "e0d90e2e9872986b4b4619185ce3831ea5becd70cd96262cce43f6f285bcbd0b",
+      "latency_ms": 1188,
+      "error_code": "extraction_provider_failed",
+      "expected_rejection": false,
+      "rejection_correct": false,
+      "quality": {
+        "expected_transactions": 4,
+        "observed_transactions": 0,
+        "exact_matches": 0,
+        "missing_or_mismatched": 4,
+        "invented_or_mismatched": 0,
+        "field_multiset_matches": {
+          "amount": 0,
+          "currency": 0,
+          "date": 0,
+          "direction": 0
+        },
+        "field_denominator": 4,
+        "balance_candidates": 0,
+        "balances_as_transactions": 0
+      },
+      "git_head": "752c8865303f60ef9ecb819fd33fb04b23301e53"
+    },
+    {
+      "fixture_id": "statement-usd",
+      "sha256": "ecb9500f20c436b90373b8c3bae817c67b89c34329eee1cc399c67298e8e019d",
+      "latency_ms": 77627,
+      "error_code": null,
+      "expected_rejection": false,
+      "rejection_correct": true,
+      "quality": {
+        "expected_transactions": 2,
+        "observed_transactions": 0,
+        "exact_matches": 0,
+        "missing_or_mismatched": 2,
+        "invented_or_mismatched": 0,
+        "field_multiset_matches": {
+          "amount": 0,
+          "currency": 0,
+          "date": 0,
+          "direction": 0
+        },
+        "field_denominator": 2,
+        "balance_candidates": 1,
+        "balances_as_transactions": 0
+      },
+      "usage": {
+        "model": "deepseek/deepseek-v4-flash-vision-exp",
+        "token_usage": {
+          "prompt_tokens": 872,
+          "completion_tokens": 4411,
+          "total_tokens": 5283,
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        },
+        "cost_usd": "0.003041038"
+      },
+      "git_head": "e624cb9a"
+    },
+    {
+      "fixture_id": "receipt-dop",
+      "sha256": "009f3082c0052c66be647a12a9c0967470c041fb648733cf45ba077740da25c3",
+      "latency_ms": 16818,
+      "error_code": null,
+      "expected_rejection": false,
+      "rejection_correct": true,
+      "quality": {
+        "expected_transactions": 1,
+        "observed_transactions": 0,
+        "exact_matches": 0,
+        "missing_or_mismatched": 1,
+        "invented_or_mismatched": 0,
+        "field_multiset_matches": {
+          "amount": 0,
+          "currency": 0,
+          "date": 0,
+          "direction": 0
+        },
+        "field_denominator": 1,
+        "balance_candidates": 0,
+        "balances_as_transactions": 0
+      },
+      "usage": {
+        "model": "deepseek/deepseek-v4-flash-vision-exp",
+        "token_usage": {
+          "prompt_tokens": 713,
+          "completion_tokens": 2206,
+          "total_tokens": 2919,
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        },
+        "cost_usd": "0.0015805636"
+      },
+      "git_head": "e624cb9a"
+    },
+    {
+      "fixture_id": "unreadable",
+      "sha256": "b822720e186af2390eea6b1c221536267b7c3ee96b2239e16719020759b59307",
+      "latency_ms": 3387,
+      "error_code": "unreadable_document",
+      "expected_rejection": true,
+      "rejection_correct": true,
+      "quality": {
+        "expected_transactions": 0,
+        "observed_transactions": 0,
+        "exact_matches": 0,
+        "missing_or_mismatched": 0,
+        "invented_or_mismatched": 0,
+        "field_multiset_matches": {
+          "amount": 0,
+          "currency": 0,
+          "date": 0,
+          "direction": 0
+        },
+        "field_denominator": 0,
+        "balance_candidates": 0,
+        "balances_as_transactions": 0
+      },
+      "usage": {
+        "model": "deepseek/deepseek-v4-flash-vision-exp",
+        "token_usage": {
+          "prompt_tokens": 713,
+          "completion_tokens": 263,
+          "total_tokens": 976,
+          "cached_tokens": 256,
+          "cache_write_tokens": 0
+        },
+        "cost_usd": "0.00027039376"
+      },
+      "git_head": "e624cb9a"
+    }
+  ],
+  "limitations": [
+    "Three schema-rejected samples were not repeated on the fixed schema.",
+    "Strict scoring counts transaction evidence only; other candidate evidence kinds do not establish correct transaction extraction.",
+    "Original candidate field snapshots were not retained, so the misclassification cause is not inferred.",
+    "Small public/synthetic fixtures do not establish Dominican-bank compatibility.",
+    "The existing HTTP-to-confirmed-MoneyService proof uses a scripted provider response; live results here measure extraction separately."
+  ]
+}

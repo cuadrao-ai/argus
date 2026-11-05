@@ -1,0 +1,219 @@
+{
+  "practice_label": "PRÁCTICA",
+  "business_name": "Taller Ensayo",
+  "period": "202609",
+  "schema_source": "src/argus/domain/business/contracts/dgii.py",
+  "no_hosted_write_performed": true,
+  "records": [
+    {
+      "record_id": "P01",
+      "practice_label": "PRÁCTICA",
+      "source_pdf": "P01-PRACTICA.pdf",
+      "input": {
+        "fiscal": {
+          "rnc": "199990021",
+          "ncf": "B0100000001",
+          "itbis": "180.00"
+        },
+        "declaration": {
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": "0.00",
+          "other_taxes": "0.00",
+          "legal_tip": "0.00",
+          "form": "606",
+          "category": "09",
+          "paid_on": "2026-09-03",
+          "services_amount": "0.00",
+          "goods_amount": "1000.00",
+          "itbis_withheld": "0.00",
+          "itbis_proportionality": "0.00",
+          "itbis_cost": "0.00",
+          "itbis_perceived": "0.00",
+          "income_withholding_type": null,
+          "income_withheld": "0.00",
+          "income_perceived": "0.00",
+          "payment_method": "01",
+          "actual_refund": false,
+          "purchase_activity_id": null
+        }
+      },
+      "owner_instruction": "Use app manual input only after owner staging acceptance is authorized."
+    },
+    {
+      "record_id": "P02",
+      "practice_label": "PRÁCTICA",
+      "source_pdf": "P02-PRACTICA.pdf",
+      "input": {
+        "fiscal": {
+          "rnc": "199990031",
+          "ncf": "B0100000001",
+          "itbis": "90.00"
+        },
+        "declaration": {
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": "0.00",
+          "other_taxes": "0.00",
+          "legal_tip": "0.00",
+          "form": "606",
+          "category": "02",
+          "paid_on": "2026-09-05",
+          "services_amount": "500.00",
+          "goods_amount": "0.00",
+          "itbis_withheld": "0.00",
+          "itbis_proportionality": "0.00",
+          "itbis_cost": "0.00",
+          "itbis_perceived": "0.00",
+          "income_withholding_type": null,
+          "income_withheld": "0.00",
+          "income_perceived": "0.00",
+          "payment_method": "02",
+          "actual_refund": false,
+          "purchase_activity_id": null
+        }
+      },
+      "owner_instruction": "Use app manual input only after owner staging acceptance is authorized."
+    },
+    {
+      "record_id": "P03",
+      "practice_label": "PRÁCTICA",
+      "source_pdf": "P03-PRACTICA.pdf",
+      "input": {
+        "fiscal": {
+          "rnc": "199990048",
+          "ncf": "B0200000001",
+          "itbis": "36.00"
+        },
+        "declaration": {
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": "0.00",
+          "other_taxes": "0.00",
+          "legal_tip": "0.00",
+          "form": "606",
+          "category": "02",
+          "paid_on": "2026-09-08",
+          "services_amount": "0.00",
+          "goods_amount": "200.00",
+          "itbis_withheld": "0.00",
+          "itbis_proportionality": "0.00",
+          "itbis_cost": "0.00",
+          "itbis_perceived": "0.00",
+          "income_withholding_type": null,
+          "income_withheld": "0.00",
+          "income_perceived": "0.00",
+          "payment_method": "01",
+          "actual_refund": false,
+          "purchase_activity_id": null
+        }
+      },
+      "owner_instruction": "Use app manual input only after owner staging acceptance is authorized."
+    },
+    {
+      "record_id": "P04",
+      "practice_label": "PRÁCTICA",
+      "source_pdf": "P04-PRACTICA.pdf",
+      "input": {
+        "fiscal": {
+          "rnc": "199990021",
+          "ncf": "B0400000001",
+          "itbis": "18.00"
+        },
+        "declaration": {
+          "id_type": "1",
+          "modified_ncf": "B0100000001",
+          "selective_tax": "0.00",
+          "other_taxes": "0.00",
+          "legal_tip": "0.00",
+          "form": "606",
+          "category": "09",
+          "paid_on": "2026-09-12",
+          "services_amount": "0.00",
+          "goods_amount": "100.00",
+          "itbis_withheld": "0.00",
+          "itbis_proportionality": "0.00",
+          "itbis_cost": "0.00",
+          "itbis_perceived": "0.00",
+          "income_withholding_type": null,
+          "income_withheld": "0.00",
+          "income_perceived": "0.00",
+          "payment_method": "06",
+          "actual_refund": true,
+          "purchase_activity_id": null
+        }
+      },
+      "owner_instruction": "Replace declaration.purchase_activity_id with P01 actual app activity UUID before reviewing this actual refund."
+    },
+    {
+      "record_id": "S01",
+      "practice_label": "PRÁCTICA",
+      "source_pdf": "S01-PRACTICA.pdf",
+      "input": {
+        "fiscal": {
+          "rnc": "199990056",
+          "ncf": "B0100000001",
+          "itbis": "360.00"
+        },
+        "declaration": {
+          "id_type": "1",
+          "modified_ncf": null,
+          "selective_tax": "0.00",
+          "other_taxes": "0.00",
+          "legal_tip": "0.00",
+          "form": "607",
+          "income_type": "01",
+          "withheld_on": null,
+          "billed_amount": "2000.00",
+          "itbis_withheld_by_third_parties": "0.00",
+          "itbis_perceived": "0.00",
+          "income_withheld_by_third_parties": "0.00",
+          "income_perceived": "0.00",
+          "cash": "0.00",
+          "bank": "2360.00",
+          "card": "0.00",
+          "credit": "0.00",
+          "gift": "0.00",
+          "barter": "0.00",
+          "other_payment": "0.00"
+        }
+      },
+      "owner_instruction": "Use app manual input only after owner staging acceptance is authorized."
+    },
+    {
+      "record_id": "S02",
+      "practice_label": "PRÁCTICA",
+      "source_pdf": "S02-PRACTICA.pdf",
+      "input": {
+        "fiscal": {
+          "rnc": null,
+          "ncf": "B0200000001",
+          "itbis": "90.00"
+        },
+        "declaration": {
+          "id_type": null,
+          "modified_ncf": null,
+          "selective_tax": "0.00",
+          "other_taxes": "0.00",
+          "legal_tip": "0.00",
+          "form": "607",
+          "income_type": "01",
+          "withheld_on": null,
+          "billed_amount": "500.00",
+          "itbis_withheld_by_third_parties": "0.00",
+          "itbis_perceived": "0.00",
+          "income_withheld_by_third_parties": "0.00",
+          "income_perceived": "0.00",
+          "cash": "590.00",
+          "bank": "0.00",
+          "card": "0.00",
+          "credit": "0.00",
+          "gift": "0.00",
+          "barter": "0.00",
+          "other_payment": "0.00"
+        }
+      },
+      "owner_instruction": "Use app manual input only after owner staging acceptance is authorized."
+    }
+  ]
+}

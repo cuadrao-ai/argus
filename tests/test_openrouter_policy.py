@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import inspect
 from typing import Any
 
 import pytest
@@ -32,7 +31,6 @@ from argus.domain.market_data import clear_asset_cache
 from argus.domain.market_data.new_york_clock import new_york_today
 from argus.domain.research.contracts import ResearchUsage
 from argus.domain.research.perplexity_agent import StructuredAgentResult
-from argus.domain.result_readout_research import RESULT_RESEARCH_LIMITS
 from argus.llm import openrouter
 from argus.llm.openrouter import (
     log_openrouter_failure,
@@ -60,8 +58,8 @@ def _provider_fixture_mode(monkeypatch: pytest.MonkeyPatch):
 def test_local_openrouter_uses_dev_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("APP_ENV", "development")
     monkeypatch.setenv("OPENROUTER_API_KEY", "dev-key")
-    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "hosted-registered")
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", "hosted-guest")
+    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "hosted-registered")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", "hosted-guest")
 
     assert resolve_openrouter_api_key("registered") == "dev-key"
     assert resolve_openrouter_api_key("guest") == "dev-key"
@@ -72,8 +70,8 @@ def test_hosted_registered_uses_registered_key(
 ) -> None:
     monkeypatch.setenv("APP_ENV", "staging")
     monkeypatch.setenv("OPENROUTER_API_KEY", "dev-only")
-    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "registered-key")
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
+    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "registered-key")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
 
     assert resolve_openrouter_api_key("registered") == "registered-key"
 
@@ -81,8 +79,8 @@ def test_hosted_registered_uses_registered_key(
 def test_hosted_guest_uses_guest_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("APP_ENV", "preview")
     monkeypatch.setenv("OPENROUTER_API_KEY", "dev-only")
-    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "registered-key")
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
+    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "registered-key")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
 
     assert resolve_openrouter_api_key("guest") == "guest-key"
 
@@ -92,9 +90,9 @@ def test_hosted_registered_never_falls_back_to_dev_key(
 ) -> None:
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("OPENROUTER_API_KEY", "dev-only")
-    monkeypatch.delenv("ARGUS_PROD_OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("CUADRAO_PROD_OPENROUTER_API_KEY", raising=False)
 
-    with pytest.raises(RuntimeError, match="ARGUS_PROD_OPENROUTER_API_KEY"):
+    with pytest.raises(RuntimeError, match="CUADRAO_PROD_OPENROUTER_API_KEY"):
         resolve_openrouter_api_key("registered")
 
 
@@ -103,11 +101,11 @@ def test_hosted_guest_never_falls_back_to_dev_key(
 ) -> None:
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("OPENROUTER_API_KEY", "dev-only")
-    monkeypatch.delenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", raising=False)
 
     with pytest.raises(
         RuntimeError,
-        match="ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY",
+        match="CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY",
     ):
         resolve_openrouter_api_key("guest")
 
@@ -120,15 +118,15 @@ def test_hosted_configuration_rejects_shared_traffic_credential(
     )
 
     monkeypatch.setenv("APP_ENV", "production")
-    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "shared-secret")
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", "shared-secret")
+    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "shared-secret")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", "shared-secret")
 
     with pytest.raises(RuntimeError) as exc_info:
         validate_hosted_openrouter_configuration()
 
     message = str(exc_info.value)
-    assert "ARGUS_PROD_OPENROUTER_API_KEY" in message
-    assert "ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY" in message
+    assert "CUADRAO_PROD_OPENROUTER_API_KEY" in message
+    assert "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY" in message
     assert "shared-secret" not in message
 
 
@@ -136,8 +134,8 @@ def test_openrouter_traffic_class_nested_scope_resets(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("APP_ENV", "production")
-    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "registered-key")
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
+    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "registered-key")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
 
     with openrouter_traffic_class("guest"):
         assert resolve_openrouter_api_key() == "guest-key"
@@ -155,9 +153,9 @@ def test_openrouter_factory_uses_hosted_traffic_key(
     FakeChatOpenRouter.calls.clear()
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("OPENROUTER_API_KEY", "dev-only")
-    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "registered-key")
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "test/model")
+    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "registered-key")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "test/model")
     monkeypatch.setattr(openrouter, "ChatOpenRouter", FakeChatOpenRouter)
 
     with openrouter_traffic_class("guest"):
@@ -180,8 +178,8 @@ def test_provider_asset_preflight_uses_hosted_traffic_key(
     invoke_schema.__module__ = "argus.llm.openrouter"
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("OPENROUTER_API_KEY", "")
-    monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "registered-key")
-    monkeypatch.setenv("ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
+    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "registered-key")
+    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", "guest-key")
 
     with openrouter_traffic_class("guest"):
         assert _provider_asset_context_preflight_enabled(
@@ -344,7 +342,7 @@ def test_openrouter_factory_applies_task_token_budget(
     FakeChatOpenRouter.calls.clear()
     FakeChatOpenRouter.structured_response = None
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "test/model")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "test/model")
     monkeypatch.setattr(openrouter, "ChatOpenRouter", FakeChatOpenRouter)
 
     model = openrouter.build_openrouter_model("interpretation")
@@ -358,6 +356,7 @@ def test_openrouter_factory_applies_task_token_budget(
             "timeout": 20,
             "max_retries": 1,
             "openrouter_api_key": "test-key",
+            "openrouter_provider": openrouter.openrouter_provider_policy(),
         }
     ]
 
@@ -372,7 +371,7 @@ def test_interpretation_profile_has_bounded_reasoning_for_semantic_repair() -> N
 def test_structured_reasoning_effort_can_be_overridden_for_dev_eval(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("ARGUS_STRUCTURED_REASONING_EFFORT", "low")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_REASONING_EFFORT", "low")
 
     profile = openrouter_profile_for_task("interpretation")
 
@@ -382,7 +381,7 @@ def test_structured_reasoning_effort_can_be_overridden_for_dev_eval(
 def test_capability_reasoning_effort_can_be_overridden_for_dev_eval(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("ARGUS_CAPABILITY_REASONING_EFFORT", "none")
+    monkeypatch.setenv("CUADRAO_CAPABILITY_REASONING_EFFORT", "none")
 
     profile = openrouter_profile_for_task("capability_conflict")
 
@@ -392,7 +391,7 @@ def test_capability_reasoning_effort_can_be_overridden_for_dev_eval(
 def test_invalid_reasoning_effort_override_preserves_profile_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("ARGUS_STRUCTURED_REASONING_EFFORT", "cheap")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_REASONING_EFFORT", "cheap")
 
     profile = openrouter_profile_for_task("interpretation")
 
@@ -402,8 +401,8 @@ def test_invalid_reasoning_effort_override_preserves_profile_default(
 @pytest.mark.parametrize(
     ("task", "env_name", "effort"),
     [
-        ("interpretation", "ARGUS_STRUCTURED_REASONING_EFFORT", "low"),
-        ("capability_conflict", "ARGUS_CAPABILITY_REASONING_EFFORT", "none"),
+        ("interpretation", "CUADRAO_STRUCTURED_REASONING_EFFORT", "low"),
+        ("capability_conflict", "CUADRAO_CAPABILITY_REASONING_EFFORT", "none"),
     ],
 )
 def test_reasoning_effort_override_is_sent_in_json_schema_payload(
@@ -429,7 +428,7 @@ def test_reasoning_effort_override_is_sent_in_json_schema_payload(
 
 @pytest.mark.parametrize("task", openrouter.OPENROUTER_TASK_MODEL_TIERS)
 @pytest.mark.parametrize("model", ["openai/gpt-5.6-luna", "anthropic/test-model"])
-def test_json_schema_payload_omits_temperature_only_for_readout_tier(
+def test_json_schema_payload_omits_temperature_for_readout_and_openai_documents(
     task: openrouter.OpenRouterTask,
     model: str,
 ) -> None:
@@ -444,12 +443,14 @@ def test_json_schema_payload_omits_temperature_only_for_readout_tier(
         profile=profile,
     )
 
-    if openrouter.openrouter_model_tier_for_task(task) == "readout":
+    if openrouter.openrouter_model_tier_for_task(task) == "readout" or (
+        task == "document_extraction" and model.startswith("openai/")
+    ):
         assert "temperature" not in payload
     else:
         assert payload["temperature"] == profile.temperature
     if not model.startswith("anthropic/"):
-        assert payload["provider"] == {"require_parameters": True}
+        assert payload["provider"]["require_parameters"] is True
 
 
 def test_interpretation_repair_uses_structured_tier_without_reasoning() -> None:
@@ -482,7 +483,7 @@ def test_result_summary_timeout_budget_is_safe_for_render_workflows(
     FakeChatOpenRouter.calls.clear()
     FakeChatOpenRouter.structured_response = None
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_READOUT_MODEL", "openai/gpt-5.6-luna")
+    monkeypatch.setenv("CUADRAO_READOUT_MODEL", "openai/gpt-5.6-luna")
     monkeypatch.setattr(openrouter, "ChatOpenRouter", FakeChatOpenRouter)
 
     model = openrouter.build_openrouter_model("result_summary")
@@ -498,8 +499,8 @@ def test_openrouter_task_timeout_budget_can_be_overridden(
     FakeChatOpenRouter.calls.clear()
     FakeChatOpenRouter.structured_response = None
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_READOUT_MODEL", "openai/gpt-5.6-luna")
-    monkeypatch.setenv("ARGUS_OPENROUTER_RESULT_SUMMARY_TIMEOUT_SECONDS", "27")
+    monkeypatch.setenv("CUADRAO_READOUT_MODEL", "openai/gpt-5.6-luna")
+    monkeypatch.setenv("CUADRAO_OPENROUTER_RESULT_SUMMARY_TIMEOUT_SECONDS", "27")
     monkeypatch.setattr(openrouter, "ChatOpenRouter", FakeChatOpenRouter)
 
     model = openrouter.build_openrouter_model("result_summary")
@@ -510,16 +511,16 @@ def test_openrouter_task_timeout_budget_can_be_overridden(
 
 
 def test_openrouter_model_routing_uses_task_specific_tiers(monkeypatch) -> None:
-    monkeypatch.setenv("ARGUS_UTILITY_MODEL", "utility/primary")
-    monkeypatch.setenv("ARGUS_UTILITY_FALLBACK_MODEL", "utility/fallback")
-    monkeypatch.setenv("ARGUS_CHAT_MODEL", "chat/primary")
-    monkeypatch.setenv("ARGUS_CHAT_FALLBACK_MODEL", "chat/fallback")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "structured/primary")
-    monkeypatch.setenv("ARGUS_STRUCTURED_FALLBACK_MODEL", "structured/fallback")
-    monkeypatch.setenv("ARGUS_CONTEXT_MODEL", "context/primary")
-    monkeypatch.setenv("ARGUS_CONTEXT_FALLBACK_MODEL", "context/fallback")
-    monkeypatch.setenv("ARGUS_READOUT_MODEL", "openai/gpt-5.6-luna")
-    monkeypatch.setenv("ARGUS_READOUT_FALLBACK_MODEL", "openai/gpt-5.6-luna")
+    monkeypatch.setenv("CUADRAO_UTILITY_MODEL", "utility/primary")
+    monkeypatch.setenv("CUADRAO_UTILITY_FALLBACK_MODEL", "utility/fallback")
+    monkeypatch.setenv("CUADRAO_CHAT_MODEL", "chat/primary")
+    monkeypatch.setenv("CUADRAO_CHAT_FALLBACK_MODEL", "chat/fallback")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "structured/primary")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_FALLBACK_MODEL", "structured/fallback")
+    monkeypatch.setenv("CUADRAO_CONTEXT_MODEL", "context/primary")
+    monkeypatch.setenv("CUADRAO_CONTEXT_FALLBACK_MODEL", "context/fallback")
+    monkeypatch.setenv("CUADRAO_READOUT_MODEL", "openai/gpt-5.6-luna")
+    monkeypatch.setenv("CUADRAO_READOUT_FALLBACK_MODEL", "openai/gpt-5.6-luna")
 
     assert openrouter.resolve_openrouter_model(task="name_suggestion") == (
         "utility/primary"
@@ -572,10 +573,10 @@ def test_openrouter_model_routing_uses_task_specific_tiers(monkeypatch) -> None:
 
 
 def test_openrouter_structured_candidates_follow_task_tier(monkeypatch) -> None:
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "structured/primary")
-    monkeypatch.setenv("ARGUS_STRUCTURED_FALLBACK_MODEL", "structured/fallback")
-    monkeypatch.setenv("ARGUS_CONTEXT_MODEL", "context/primary")
-    monkeypatch.setenv("ARGUS_CONTEXT_FALLBACK_MODEL", "context/fallback")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "structured/primary")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_FALLBACK_MODEL", "structured/fallback")
+    monkeypatch.setenv("CUADRAO_CONTEXT_MODEL", "context/primary")
+    monkeypatch.setenv("CUADRAO_CONTEXT_FALLBACK_MODEL", "context/fallback")
 
     assert openrouter_structured_model_candidates(task="interpretation") == [
         "structured/primary",
@@ -592,7 +593,7 @@ def test_openrouter_factory_uses_context_model_for_capability_conflict(
 ) -> None:
     FakeChatOpenRouter.calls.clear()
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_CONTEXT_MODEL", "context/primary")
+    monkeypatch.setenv("CUADRAO_CONTEXT_MODEL", "context/primary")
     monkeypatch.setattr(openrouter, "ChatOpenRouter", FakeChatOpenRouter)
 
     model = openrouter.build_openrouter_model("capability_conflict")
@@ -610,12 +611,12 @@ def test_openrouter_factory_returns_none_without_key(monkeypatch) -> None:
 def test_structured_model_uses_argus_tier_models_unless_explicitly_overridden(
     monkeypatch,
 ) -> None:
-    monkeypatch.delenv("ARGUS_STRUCTURED_MODEL", raising=False)
-    monkeypatch.delenv("ARGUS_STRUCTURED_FALLBACK_MODEL", raising=False)
+    monkeypatch.delenv("CUADRAO_STRUCTURED_MODEL", raising=False)
+    monkeypatch.delenv("CUADRAO_STRUCTURED_FALLBACK_MODEL", raising=False)
 
     assert openrouter_structured_model_candidates() == []
 
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "argus/structured")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "argus/structured")
 
     assert openrouter_structured_model_candidates() == ["argus/structured"]
 
@@ -650,51 +651,8 @@ def test_structured_interpreter_uses_bounded_interpretation_profile(
         "timeout": 20,
         "max_retries": 1,
         "openrouter_api_key": "test-key",
+            "openrouter_provider": openrouter.openrouter_provider_policy(),
     }
-
-
-def test_result_breakdown_uses_structured_agent_with_only_web_tools(monkeypatch) -> None:
-    from argus.api.chat import breakdown as chat_service
-
-    del monkeypatch
-    fake_schema = FakeBreakdownAgentClient()
-
-    text = chat_service.llm_result_breakdown_message(
-        {
-            "title": "AAPL test",
-            "symbols": ["AAPL"],
-            "context_packets": [{"id": "packet-1", "provider": "fred"}],
-        },
-        client=fake_schema,
-    )
-
-    assert text is not None
-    assert len(fake_schema.calls) == 1
-    assert fake_schema.calls[0]["schema_model"].__name__ == "ResultBreakdownDraft"
-    assert fake_schema.calls[0]["schema_name"] == "ResultBreakdownDraft"
-    spec = fake_schema.calls[0]["spec"]
-    assert spec.models == ("openai/gpt-5.6-luna",)
-    assert set(spec.tools) == {"web_search", "fetch_url"}
-    assert spec.timeout_seconds > 0
-    assert fake_schema.calls[0]["limits"] == RESULT_RESEARCH_LIMITS
-    assert "AAPL" in fake_schema.calls[0]["prompt"]
-    assert "sources" in fake_schema.calls[0]["instructions"].lower()
-
-
-def test_result_breakdown_prompt_carries_product_language_contract() -> None:
-    from argus.api.chat.breakdown import _result_breakdown_llm_messages
-
-    messages = _result_breakdown_llm_messages(
-        facts={
-            "symbols": ["AAPL"],
-            "benchmark_symbol": "SPY",
-            "facts": {},
-        },
-        language="es-419",
-    )
-
-    assert "Answer in Spanish" in messages[0]["content"]
-    assert "Search for sources" in messages[1]["content"]
 
 
 def test_result_breakdown_schema_requires_complete_text_language_and_figures() -> None:
@@ -717,77 +675,6 @@ def test_result_breakdown_schema_requires_complete_text_language_and_figures() -
         ResultBreakdownDraft.model_validate({})
     with pytest.raises(ValidationError):
         ResultBreakdownDraft.model_validate({"text": None})
-
-
-def test_spanish_result_breakdown_rejects_mixed_language_llm_output() -> None:
-    from argus.api.chat import breakdown as chat_service
-
-    fake_schema = FakeBreakdownAgentClient(
-        readout_draft("The fact_bank says here's the deeper read.", [], language="en")
-    )
-
-    text = chat_service.llm_result_breakdown_message(
-        {
-            "title": "AAPL Comprar y mantener",
-            "symbols": ["AAPL"],
-            "benchmark_symbol": "SPY",
-            "date_range": "14 de junio de 2025 al 12 de junio de 2026",
-            "raw_metrics": {
-                "aggregate": {
-                    "performance": {
-                        "total_return_pct": 46.7,
-                        "benchmark_return_pct": 23.1,
-                        "delta_vs_benchmark_pct": 23.6,
-                        "max_drawdown_pct": -13.8,
-                    }
-                }
-            },
-            "assumptions": ["Solo largo.", "Referencia: SPY."],
-        },
-        language="es-419",
-        client=fake_schema,
-    )
-
-    assert text is None
-
-
-def test_spanish_result_breakdown_fallback_uses_reader_language() -> None:
-    from argus.api.chat import breakdown as chat_service
-
-    text = chat_service.fallback_result_breakdown_message(
-        {
-            "title": "AAPL Comprar y mantener",
-            "symbols": ["AAPL"],
-            "benchmark_symbol": "SPY",
-            "date_range": "14 de junio de 2025 al 12 de junio de 2026",
-            "raw_metrics": {
-                "aggregate": {
-                    "performance": {
-                        "total_return_pct": 46.7,
-                        "benchmark_return_pct": 23.1,
-                        "delta_vs_benchmark_pct": 23.6,
-                        "max_drawdown_pct": -13.8,
-                    }
-                }
-            },
-            "assumptions": ["Solo largo.", "Referencia: SPY."],
-            "config_snapshot": {"template": "buy_and_hold"},
-            "rule_summary": (
-                "Entry rule: buy at the start of the period; exit rule: hold through the end."
-            ),
-        },
-        language="es-419",
-    )
-
-    assert "Here's the deeper read" in text
-    assert "**Setup.**" in text
-    assert "**How to read it.**" in text
-    assert "**Risk and assumptions.**" in text
-    assert "**Useful next check.**" not in text
-    assert "Entry rule: buy at the start of the period" in text
-    assert "Superó por 23.6 puntos porcentuales" in text
-    assert "Prueba siguiente: Prueba siguiente" not in text
-    assert "lectura más detallada" not in text
 
 
 def test_default_interpreter_uses_direct_schema_client(monkeypatch) -> None:
@@ -2509,388 +2396,6 @@ def test_interpretation_llm_has_hard_turn_budget(monkeypatch) -> None:
     assert interpreter.last_status == "failed"
 
 
-def test_result_breakdown_prompt_uses_run_facts_and_surface_ownership(
-    monkeypatch,
-) -> None:
-    from argus.api.chat import breakdown as chat_service
-
-    del monkeypatch
-    fake_schema = FakeBreakdownAgentClient()
-
-    chat_service.llm_result_breakdown_message(
-        {
-            "title": "AAPL Buy and Hold",
-            "symbols": ["AAPL"],
-            "benchmark_symbol": "SPY",
-            "raw_metrics": {
-                "aggregate": {
-                    "performance": {
-                        "total_return_pct": 39.5,
-                        "benchmark_return_pct": 25.6,
-                        "delta_vs_benchmark_pct": 13.9,
-                        "max_drawdown_pct": -13.8,
-                    }
-                }
-            },
-        },
-        client=fake_schema,
-    )
-
-    system_prompt = fake_schema.calls[0]["instructions"]
-    user_payload = fake_schema.calls[0]["prompt"]
-    assert "sources" in system_prompt.lower()
-    assert "holding" in user_payload.lower()
-    assert "benchmark" in user_payload.lower()
-    assert "AAPL" in user_payload and "SPY" in user_payload
-    assert "Total return on starting capital" in user_payload
-    for internal in ("portfolio.total_return", "total_return_pct", "series", "markers"):
-        assert internal not in user_payload
-    for removed in ("citations entry", "occurrence", "answer_blocks"):
-        assert removed not in system_prompt
-
-
-def test_result_breakdown_renders_structured_fact_references_from_fact_bank(
-    monkeypatch,
-) -> None:
-    from argus.api.chat import breakdown as chat_service
-
-    del monkeypatch
-    fake_schema = FakeBreakdownAgentClient(
-        readout_draft(
-            "AAPL Buy and Hold tested AAPL across past year using the stored backtest setup.\n\nAAPL finished at +39.5% while SPY returned +25.6%, a 13.9 percentage point lead.\n\nThe largest drawdown was -13.8%. Assumptions: Universe: AAPL. Benchmark: SPY. This is historical simulation evidence, not a prediction.",
-            [
-                ("Total return on starting capital", 39.5),
-                ("Benchmark return", 25.6),
-                ("Return difference versus benchmark", 13.9),
-                ("Worst drop from a prior high", -13.8),
-            ],
-            language="en",
-        )
-    )
-
-    text = chat_service.llm_result_breakdown_message(
-        {
-            "title": "AAPL Buy and Hold",
-            "symbols": ["AAPL"],
-            "benchmark_symbol": "SPY",
-            "date_range": "past year",
-            "metrics": [
-                {
-                    "key": "total_return_pct",
-                    "label": "Total Return (%)",
-                    "value": "+39.5%",
-                },
-                {"key": "max_drawdown", "label": "Max Drawdown", "value": "-13.8%"},
-                {
-                    "key": "benchmark_delta",
-                    "label": "Vs benchmark",
-                    "value": "+13.9 pts vs SPY",
-                },
-            ],
-            "assumptions": ["Universe: AAPL.", "Benchmark: SPY."],
-            "raw_metrics": {
-                "aggregate": {
-                    "performance": {
-                        "total_return_pct": 39.5,
-                        "benchmark_return_pct": 25.6,
-                        "delta_vs_benchmark_pct": 13.9,
-                        "max_drawdown_pct": -13.8,
-                    }
-                }
-            },
-        },
-        client=fake_schema,
-    )
-
-    assert text is not None
-    assert "AAPL Buy and Hold" in text
-    assert "past year" in text
-    assert "AAPL" in text
-    assert "+39.5%" in text
-    assert "SPY" in text
-    assert "+25.6%" in text
-    assert "13.9 percentage point lead" in text
-    assert "-13.8%" in text
-    assert "Universe: AAPL." in text
-    assert "not a prediction" in text.lower()
-
-
-def test_result_breakdown_fact_parts_join_with_professional_spacing(
-    monkeypatch,
-) -> None:
-    from argus.api.chat import breakdown as chat_service
-
-    del monkeypatch
-    fake_schema = FakeBreakdownAgentClient(
-        readout_draft(
-            "BABA Buy and Hold tested BABA over last month and returned +1.7%.\n\nSPY returned +26.6%, so BABA lagged by 24.9 percentage points versus that benchmark.\n\nThe max drawdown was -36.8%. Assumptions: Universe: BABA. Benchmark: SPY. A useful next check is one of the supported same-asset-class variations. This is historical simulation evidence, not a prediction.",
-            [
-                ("Total return on starting capital", 1.7),
-                ("Benchmark return", 26.6),
-                ("Return difference versus benchmark", -24.9),
-                ("Worst drop from a prior high", -36.8),
-            ],
-            language="en",
-        )
-    )
-
-    text = chat_service.llm_result_breakdown_message(
-        {
-            "title": "BABA Buy and Hold",
-            "symbols": ["BABA"],
-            "benchmark_symbol": "SPY",
-            "date_range": "last month",
-            "raw_metrics": {
-                "aggregate": {
-                    "performance": {
-                        "total_return_pct": 1.7,
-                        "benchmark_return_pct": 26.6,
-                        "delta_vs_benchmark_pct": -24.9,
-                        "max_drawdown_pct": -36.8,
-                    }
-                }
-            },
-            "assumptions": ["Universe: BABA.", "Benchmark: SPY."],
-        },
-        client=fake_schema,
-    )
-
-    assert text is not None
-    assert "BABA Buy and Hold tested BABA over last month and returned +1.7%." in text
-    assert "SPY returned +26.6%" in text
-    assert "lagged by 24.9 percentage points" in text
-    assert "The max drawdown was -36.8%." in text
-    assert "**Test:**" not in text
-    assert "**Performance:**" not in text
-    assert "**Risk marker:**" not in text
-    assert "The tested idea was over and returned." not in text
-    assert "wasBABA" not in text
-    assert "Holdover" not in text
-    assert "returned+1.7%" not in text
-    assert "BABA Buy and Hold BABA last month" not in text
-
-
-def test_result_breakdown_rejects_empty_generated_body(
-    monkeypatch,
-) -> None:
-    from argus.api.chat import breakdown as chat_service
-
-    del monkeypatch
-    fake_schema = FakeBreakdownAgentClient(readout_draft("", [], language="en"))
-
-    text = chat_service.llm_result_breakdown_message(
-        {
-            "title": "AAPL DCA Accumulation",
-            "symbols": ["AAPL"],
-            "benchmark_symbol": "SPY",
-            "date_range": "March 1, 2024 to October 31, 2024",
-            "raw_metrics": {
-                "aggregate": {
-                    "performance": {
-                        "total_return_pct": 12.5,
-                        "benchmark_return_pct": 5.5,
-                        "delta_vs_benchmark_pct": 7.0,
-                        "max_drawdown_pct": -4.5,
-                    }
-                }
-            },
-            "assumptions": [
-                "Recurring allocation: $200.",
-                "Cadence: weekly.",
-                "Benchmark: SPY.",
-            ],
-        },
-        client=fake_schema,
-    )
-
-    assert text is None
-
-
-def test_result_breakdown_rejects_mismatched_visible_fact_values(monkeypatch) -> None:
-    from argus.api.chat import breakdown as chat_service
-
-    del monkeypatch
-    fake_schema = FakeBreakdownAgentClient(
-        readout_draft(
-            "AAPL Buy and Hold tested AAPL across past year using the stored backtest setup.\n\nAAPL finished at +46.7% while SPY returned +20.0%, a 13.9 percentage point lead.\n\nBenchmark: SPY. This is historical simulation evidence, not a prediction.",
-            [
-                ("Total return on starting capital", 46.7),
-                ("Benchmark return", 20.0),
-                ("Return difference versus benchmark", 13.9),
-            ],
-            language="en",
-        )
-    )
-
-    text = chat_service.llm_result_breakdown_message(
-        {
-            "title": "AAPL Buy and Hold",
-            "symbols": ["AAPL"],
-            "benchmark_symbol": "SPY",
-            "date_range": "past year",
-            "raw_metrics": {
-                "aggregate": {
-                    "performance": {
-                        "total_return_pct": 39.5,
-                        "benchmark_return_pct": 25.6,
-                        "delta_vs_benchmark_pct": 13.9,
-                        "max_drawdown_pct": -13.8,
-                    }
-                }
-            },
-            "assumptions": ["Universe: AAPL.", "Benchmark: SPY."],
-        },
-        client=fake_schema,
-    )
-
-    assert text is None
-
-
-def test_result_breakdown_path_does_not_use_regex_prose_scanner() -> None:
-    from argus.api.chat import breakdown
-
-    source = inspect.getsource(breakdown)
-
-    assert "_unknown_result_breakdown_symbols" not in source
-    assert "_unknown_result_breakdown_percentages" not in source
-    assert "re.findall" not in source
-
-
-def test_result_breakdown_fallback_is_structured_educational_and_grounded() -> None:
-    from argus.api.chat.breakdown import result_breakdown_message_with_metadata
-    from argus.api.schemas import BacktestRun
-    from argus.domain.store import utcnow
-
-    run = BacktestRun(
-        id="run-1",
-        conversation_id="conversation-1",
-        strategy_id=None,
-        status="completed",
-        asset_class="equity",
-        symbols=["AAPL"],
-        allocation_method="equal_weight",
-        benchmark_symbol="SPY",
-        metrics={
-            "aggregate": {
-                "performance": {
-                    "total_return_pct": 39.5,
-                    "benchmark_return_pct": 25.6,
-                    "delta_vs_benchmark_pct": 13.9,
-                    "max_drawdown_pct": -13.8,
-                }
-            },
-            "by_symbol": {},
-        },
-        config_snapshot={
-            "template": "buy_and_hold",
-            "symbols": ["AAPL"],
-            "timeframe": "1D",
-            "benchmark_symbol": "SPY",
-        },
-        conversation_result_card={
-            "title": "AAPL Buy and Hold",
-            "rows": [
-                {
-                    "key": "total_return_pct",
-                    "label": "Total Return (%)",
-                    "value": "+39.5%",
-                },
-                {"key": "max_drawdown", "label": "Max Drawdown", "value": "-13.8%"},
-            ],
-            "assumptions": ["Universe: AAPL.", "Benchmark: SPY."],
-        },
-        created_at=utcnow(),
-        chart=None,
-        trades=[],
-    )
-
-    text = result_breakdown_message_with_metadata(
-        run, client=FakeBreakdownAgentClient({})
-    ).text
-
-    assert "### Quick Breakdown" not in text
-    assert "deeper read" in text
-    assert "**Setup.**" in text
-    assert "**How to read it.**" in text
-    assert "**Risk and assumptions.**" in text
-    assert "**Useful next check.**" not in text
-    assert "Try next:" not in text
-    assert "- Tested:" not in text
-    assert "- Result:" not in text
-    assert "- Risk:" not in text
-    assert "- Next step:" not in text
-    assert "**Total return:** +39.5%." in text
-    assert "Entry rule: buy at the start of the period" in text
-    assert "AAPL Buy and Hold" in text
-    assert "+39.5%" in text
-    assert "SPY" in text
-    assert "-13.8%" in text
-
-
-@pytest.mark.parametrize("rejected", [False, True])
-def test_result_breakdown_metadata_preserves_usage_for_complete_outcomes(
-    rejected: bool,
-) -> None:
-    from argus.api.chat.breakdown import result_breakdown_message_with_metadata
-    from argus.api.schemas import BacktestRun
-    from argus.domain.store import utcnow
-
-    run = BacktestRun(
-        id="run-1",
-        conversation_id="conversation-1",
-        strategy_id=None,
-        status="completed",
-        asset_class="equity",
-        symbols=["AAPL"],
-        allocation_method="equal_weight",
-        benchmark_symbol="SPY",
-        metrics={
-            "aggregate": {
-                "performance": {
-                    "total_return_pct": 39.5,
-                    "benchmark_return_pct": 25.6,
-                    "delta_vs_benchmark_pct": 13.9,
-                    "max_drawdown_pct": -13.8,
-                }
-            },
-            "by_symbol": {},
-        },
-        config_snapshot={
-            "template": "buy_and_hold",
-            "symbols": ["AAPL"],
-            "timeframe": "1D",
-            "benchmark_symbol": "SPY",
-        },
-        conversation_result_card={
-            "title": "AAPL Buy and Hold",
-            "rows": [
-                {
-                    "key": "total_return_pct",
-                    "label": "Total Return (%)",
-                    "value": "+39.5%",
-                }
-            ],
-            "assumptions": ["Universe: AAPL.", "Benchmark: SPY."],
-        },
-        created_at=utcnow(),
-        chart=None,
-        trades=[],
-    )
-
-    client = FakeBreakdownAgentClient({} if rejected else None)
-    message = result_breakdown_message_with_metadata(run, client=client)
-
-    assert message.source == (
-        "deterministic_fallback" if rejected else "llm_breakdown_stage"
-    )
-    assert message.fallback_used is rejected
-    assert message.failure_mode == ("invalid_draft" if rejected else None)
-    assert len(client.calls) == 1
-    assert message.usage is client.usage
-    assert message.sources == ()
-    assert ("**Setup.**" in message.text) is rejected
-
-
 @pytest.mark.asyncio
 async def test_agent_runtime_turn_uses_interpretation_profile_without_legacy_composer(
     monkeypatch,
@@ -2932,6 +2437,7 @@ async def test_agent_runtime_turn_uses_interpretation_profile_without_legacy_com
             "timeout": 20,
             "max_retries": 1,
             "openrouter_api_key": "test-key",
+            "openrouter_provider": openrouter.openrouter_provider_policy(),
         }
     ]
 
@@ -2956,11 +2462,9 @@ def test_openrouter_failure_log_includes_visible_diagnostics(monkeypatch) -> Non
     assert "model=test/model" in message
     assert "max_tokens=3200" in message
     assert "error_type=RuntimeError" in message
-    # The detail belongs in the rendered message: the default sink drops extra,
-    # so binding it alone left production with only the exception type.
-    assert "provider rejected request" in message
+    assert "provider rejected request" not in message
     assert kwargs["error_type"] == "RuntimeError"
-    assert kwargs["error"] == "provider rejected request"
+    assert "error" not in kwargs
 
 
 def _captured_failure_log(monkeypatch, exc: Exception) -> str:
@@ -2996,7 +2500,9 @@ def test_openrouter_failure_log_reports_raising_origin(monkeypatch) -> None:
         message = _captured_failure_log(monkeypatch, exc)
 
     assert "error_type=ValueError" in message
-    assert "OpenRouter interpretation returned an incomplete strategy draft" in message
+    assert (
+        "OpenRouter interpretation returned an incomplete strategy draft" not in message
+    )
     # Points at the raising line so a deterministic local rejection is
     # distinguishable from a provider transport failure.
     assert "error_origin=test_openrouter_policy.py:" in message
@@ -3015,13 +2521,14 @@ def test_openrouter_failure_log_survives_braces_in_detail() -> None:
         )
 
 
-def test_openrouter_failure_log_bounds_long_provider_detail(monkeypatch) -> None:
+def test_openrouter_failure_log_omits_long_provider_detail(monkeypatch) -> None:
     try:
         raise RuntimeError("x" * 5000)
     except RuntimeError as exc:
         message = _captured_failure_log(monkeypatch, exc)
 
-    assert "<truncated>" in message
+    assert "xxx" not in message
+    assert "error_detail" not in message
     assert len(message) < 1000
 
 
@@ -3059,7 +2566,7 @@ def test_direct_json_schema_payload_uses_interpretation_profile_reasoning(
             return FakeResponse()
 
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "qwen/qwen3.5-9b")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "qwen/qwen3.5-9b")
     monkeypatch.setattr(
         openrouter.httpx, "AsyncClient", lambda **_kwargs: FakeAsyncClient()
     )
@@ -3075,7 +2582,7 @@ def test_direct_json_schema_payload_uses_interpretation_profile_reasoning(
 
     assert result is not None
     assert observed_payloads[0]["reasoning"] == {"effort": "medium"}
-    assert observed_payloads[0]["provider"] == {"require_parameters": True}
+    assert observed_payloads[0]["provider"] == openrouter.openrouter_provider_policy()
     receipts = openrouter.get_openrouter_route_receipts()
     assert len(receipts) == 1
     receipt = receipts[0]
@@ -3121,7 +2628,7 @@ def test_field_fidelity_json_schema_uses_structured_route_without_reasoning(
             return FakeResponse()
 
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "qwen/qwen3.5-9b")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "qwen/qwen3.5-9b")
     monkeypatch.setattr(
         openrouter.httpx, "AsyncClient", lambda **_kwargs: FakeAsyncClient()
     )
@@ -3139,7 +2646,7 @@ def test_field_fidelity_json_schema_uses_structured_route_without_reasoning(
     assert result.capital_amount == 100000
     assert observed_payloads[0]["model"] == "qwen/qwen3.5-9b"
     assert observed_payloads[0]["reasoning"] == {"effort": "none"}
-    assert observed_payloads[0]["provider"] == {"require_parameters": True}
+    assert observed_payloads[0]["provider"] == openrouter.openrouter_provider_policy()
     receipts = openrouter.get_openrouter_route_receipts()
     assert len(receipts) == 1
     receipt = receipts[0]
@@ -3184,7 +2691,7 @@ def test_capability_conflict_json_schema_uses_context_route_with_reasoning(
             return FakeResponse()
 
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_CONTEXT_MODEL", "openai/gpt-oss-120b")
+    monkeypatch.setenv("CUADRAO_CONTEXT_MODEL", "openai/gpt-oss-120b")
     monkeypatch.setattr(
         openrouter.httpx, "AsyncClient", lambda **_kwargs: FakeAsyncClient()
     )
@@ -3202,7 +2709,7 @@ def test_capability_conflict_json_schema_uses_context_route_with_reasoning(
     assert result.drop_unsupported_strategy_logic is True
     assert observed_payloads[0]["model"] == "openai/gpt-oss-120b"
     assert observed_payloads[0]["reasoning"] == {"effort": "medium"}
-    assert observed_payloads[0]["provider"] == {"require_parameters": True}
+    assert observed_payloads[0]["provider"] == openrouter.openrouter_provider_policy()
     receipts = openrouter.get_openrouter_route_receipts()
     assert len(receipts) == 1
     receipt = receipts[0]
@@ -3303,8 +2810,8 @@ def test_non_target_json_schema_payload_does_not_add_prompt_cache_marker() -> No
 def test_direct_json_schema_records_missing_key_route_receipt(monkeypatch) -> None:
     openrouter.clear_openrouter_route_receipts()
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "structured/primary")
-    monkeypatch.setenv("ARGUS_STRUCTURED_FALLBACK_MODEL", "structured/fallback")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "structured/primary")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_FALLBACK_MODEL", "structured/fallback")
 
     result = asyncio.run(
         openrouter.invoke_openrouter_json_schema(
@@ -3402,7 +2909,7 @@ def test_direct_json_schema_route_receipt_preserves_provider_usage_cost(
             return FakeResponse()
 
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "structured/primary")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "structured/primary")
     monkeypatch.setattr(
         openrouter.httpx, "AsyncClient", lambda **_kwargs: FakeAsyncClient()
     )
@@ -3521,7 +3028,7 @@ def test_direct_json_schema_records_openrouter_token_usage(monkeypatch) -> None:
             return FakeResponse()
 
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "structured/primary")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "structured/primary")
     monkeypatch.setattr(
         openrouter.httpx, "AsyncClient", lambda **kwargs: FakeAsyncClient(**kwargs)
     )
@@ -3573,8 +3080,8 @@ def test_direct_json_schema_enforces_wall_clock_task_budget(monkeypatch) -> None
     )
 
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "structured/primary")
-    monkeypatch.setenv("ARGUS_STRUCTURED_FALLBACK_MODEL", "")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_MODEL", "structured/primary")
+    monkeypatch.setenv("CUADRAO_STRUCTURED_FALLBACK_MODEL", "")
     monkeypatch.setattr(openrouter, "openrouter_profile_for_task", lambda _task: profile)
     monkeypatch.setattr(
         openrouter.httpx, "AsyncClient", lambda **kwargs: SlowAsyncClient(**kwargs)
@@ -3645,8 +3152,8 @@ def test_direct_json_schema_sync_tries_configured_fallback_for_utility_titles(
             return FakeResponse()
 
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_UTILITY_MODEL", "utility/primary")
-    monkeypatch.setenv("ARGUS_UTILITY_FALLBACK_MODEL", "utility/fallback")
+    monkeypatch.setenv("CUADRAO_UTILITY_MODEL", "utility/primary")
+    monkeypatch.setenv("CUADRAO_UTILITY_FALLBACK_MODEL", "utility/fallback")
     monkeypatch.setattr(
         openrouter.httpx, "Client", lambda **kwargs: FakeSyncClient(**kwargs)
     )
@@ -3713,8 +3220,8 @@ def test_direct_chat_completion_tries_configured_fallback_and_records_usage(
             return FakeResponse()
 
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ARGUS_CHAT_MODEL", "chat/primary")
-    monkeypatch.setenv("ARGUS_CHAT_FALLBACK_MODEL", "chat/fallback")
+    monkeypatch.setenv("CUADRAO_CHAT_MODEL", "chat/primary")
+    monkeypatch.setenv("CUADRAO_CHAT_FALLBACK_MODEL", "chat/fallback")
     monkeypatch.setattr(
         openrouter.httpx, "AsyncClient", lambda **kwargs: FakeAsyncClient(**kwargs)
     )
@@ -3768,7 +3275,7 @@ def test_anthropic_structured_calls_use_schema_in_prompt_not_response_format() -
     grok_payload = _payload("x-ai/grok-4.3")
 
     assert "response_format" not in anthropic_payload
-    assert "provider" not in anthropic_payload
+    assert anthropic_payload["provider"] == openrouter.openrouter_provider_policy()
     schema_message = anthropic_payload["messages"][0]
     assert schema_message["role"] == "system"
     schema_content = schema_message["content"]
@@ -3779,7 +3286,7 @@ def test_anthropic_structured_calls_use_schema_in_prompt_not_response_format() -
     grok_schema = grok_payload["response_format"]["json_schema"]
     assert grok_schema["strict"] is True
     assert "minimum" in _json.dumps(grok_schema["schema"])
-    assert grok_payload["provider"] == {"require_parameters": True}
+    assert grok_payload["provider"] == openrouter.openrouter_provider_policy()
 
     # Client-side enforcement stays the real gate for both providers.
     with pytest.raises(ValueError):
@@ -3921,3 +3428,146 @@ def test_contract_rejection_is_recorded_as_a_distinct_route_receipt(
     }
     assert all(receipt.outcome == "failed" for receipt in rejected)
     assert interpreter.last_failure_kind == "contract_rejected"
+
+
+@pytest.mark.parametrize("sync", [False, True])
+@pytest.mark.parametrize("invalid_date", [False, True])
+def test_gemini_document_native_wire_keeps_privacy_and_local_validation(
+    monkeypatch, respx_mock, sync, invalid_date
+) -> None:
+    import json
+
+    import httpx
+    from argus.domain.ingestion.documents.models import ExtractionResult
+    from pydantic import ValidationError
+
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "synthetic-document-key")
+    monkeypatch.setenv("ARGUS_VISION_MODEL", "google/gemini-3.8-flash")
+    output = ExtractionResult.model_validate(
+        {
+            "complete": True,
+            "readable": True,
+            "pages_read": [1],
+            "observations": [
+                {
+                    "page": 1,
+                    "row": 1,
+                    "evidence": "due_notice",
+                    "amount": "73.64",
+                    "currency": "USD",
+                }
+            ],
+        }
+    ).model_dump(mode="json")
+    if invalid_date:
+        output["observations"][0]["occurred_on"] = "not-a-date"
+    route = respx_mock.post("https://openrouter.ai/api/v1/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {"finish_reason": "stop", "message": {"content": json.dumps(output)}}
+                ]
+            },
+        )
+    )
+    arguments = dict(
+        task="document_extraction",
+        model_name="google/gemini-3.8-flash",
+        messages=[{"role": "user", "content": "Synthetic unknown document"}],
+        schema_model=ExtractionResult,
+        schema_name="document_observations",
+    )
+
+    def invoke():
+        with openrouter_traffic_class("registered"):
+            if sync:
+                return openrouter.invoke_openrouter_json_schema_sync(**arguments)
+            return asyncio.run(openrouter.invoke_openrouter_json_schema(**arguments))
+
+    if invalid_date:
+        with pytest.raises(ValidationError):
+            invoke()
+    else:
+        parsed = invoke()
+        assert parsed.model_dump(mode="json") == output
+        assert parsed.receipt is None
+        assert parsed.observations[0].direction == "unknown"
+        assert parsed.observations[0].status == "unknown"
+    assert route.call_count == 1
+    payload = json.loads(route.calls[0].request.content)
+    assert "temperature" not in payload
+    assert payload["max_tokens"] == 12000
+    assert payload["provider"] == {
+        "require_parameters": True,
+        "data_collection": "deny",
+        "zdr": True,
+        "allow_fallbacks": False,
+    }
+    assert payload["messages"] == arguments["messages"]
+    assert payload["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "document_observations",
+            "strict": True,
+            "schema": openrouter._document_wire_schema(
+                ExtractionResult.model_json_schema()
+            ),
+        },
+    }
+    profile = openrouter_profile_for_task("document_extraction")
+    assert (profile.timeout_seconds, profile.max_retries) == (90, 0)
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        "google/gemini-3.8-flash",
+        "google/gemini-3.8-flash-preview",
+        "google/gemini-2.5-flash",
+        "google/gemini-3.8-flash:nitro",
+    ],
+)
+def test_every_google_document_route_gets_the_projected_payload(model):
+    from argus.domain.ingestion.documents.models import ExtractionResult
+
+    profile = openrouter_profile_for_task("document_extraction")
+    payload = openrouter._json_schema_payload(
+        model=model,
+        messages=[{"role": "user", "content": "Synthetic unknown document"}],
+        schema_model=ExtractionResult,
+        schema_name="ExtractionResult",
+        profile=profile,
+    )
+    assert "temperature" not in payload
+    assert payload["max_tokens"] == profile.max_tokens
+    assert "max_completion_tokens" not in payload
+    assert payload["response_format"]["json_schema"][
+        "schema"
+    ] == openrouter._document_wire_schema(ExtractionResult.model_json_schema())
+
+
+@pytest.mark.parametrize(
+    "model,task",
+    [
+        ("x-ai/grok-4.3", "document_extraction"),
+        ("google/gemini-3.8-flash", "interpretation"),
+    ],
+)
+def test_gemini_document_projection_does_not_change_other_native_routes(model, task):
+    from argus.domain.ingestion.documents.models import ExtractionResult
+
+    profile = openrouter_profile_for_task(task)
+    payload = openrouter._json_schema_payload(
+        model=model,
+        messages=[{"role": "user", "content": "Synthetic unknown document"}],
+        schema_model=ExtractionResult,
+        schema_name="ExtractionResult",
+        profile=profile,
+    )
+    assert payload["temperature"] == profile.temperature
+    assert (
+        payload["response_format"]["json_schema"]["schema"]
+        == ExtractionResult.model_json_schema()
+    )

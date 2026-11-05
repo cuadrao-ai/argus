@@ -1,0 +1,9 @@
+V_business_expenses: [["build2_expense_in_business_account", "55.00"], ["business_expense", "250.50"]]
+V_business_accounts: ["business_account"]
+V_business_receipts: [["business_job_prepared", "confirmed"], ["business_receipt", "review_ready"]]
+V_personal_accounts: ["personal_account"]
+V_personal_open_events: ["personal_job_prepared", "personal_job_queued", "personal_receipt"]
+V_activation_runs_its_pending_attempt_after_build2_prepared: {"ok": true, "value": "document_attempt_superseded"}
+V_job_after_activation_attempt: ["review_ready", {"retry": false, "attempt": 1, "claimed": false, "attempt_id": "7568337d-e435-48cb-b69a-304c2f87fc19", "dispatched_at": "2026-10-08T08:01:12.744018Z", "draft_version": 1, "provider_call_started_at": null}]
+V_document_personal_job_queued: {"ok": true, "value": "review_ready"}
+exit=0

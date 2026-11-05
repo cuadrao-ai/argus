@@ -1,0 +1,28 @@
+warning: /Users/garces/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/garces/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+Building for debugging...
+[Constructing description]
+[Planning deferred tasks]
+[15 / 37] ArgusSession
+[18 / 40] ArgusSession
+[30 / 52] ArgusSession
+[35 / 57] ArgusSession
+[37 / 57] FinancialModels
+[53 / 73] FinancialModels
+[59 / 75] FinancialModels
+[65 / 76] FinancialModelTests-product
+[69 / 80] FinancialModelTests-product
+[74 / 80] FinancialModelTests-product
+[76 / 80] FinancialModelTests-product
+Build complete! (3.85 sec)
+Test Suite 'Selected tests' started at 2026-10-05 20:45:01.117.
+Test Suite 'FinancialModelTests.xctest' started at 2026-10-05 20:45:01.118.
+Test Suite 'FinancialModelTests' started at 2026-10-05 20:45:01.118.
+Test Case '-[FinancialModelTests.FinancialModelTests testServerFailuresStayConnectionErrorsWhileValidationKeepsItsMessage]' started.
+Test Case '-[FinancialModelTests.FinancialModelTests testServerFailuresStayConnectionErrorsWhileValidationKeepsItsMessage]' passed (0.000 seconds).
+Test Suite 'FinancialModelTests' passed at 2026-10-05 20:45:01.118.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'FinancialModelTests.xctest' passed at 2026-10-05 20:45:01.118.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' passed at 2026-10-05 20:45:01.118.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.000 (0.001) seconds

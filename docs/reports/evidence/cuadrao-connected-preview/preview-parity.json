@@ -1,0 +1,102 @@
+{
+  "source_revision": "9746bb6024e172ac617f29e16bed405ef2242aeb",
+  "baseline_revision": "875de09ac2115acec42e09060b92878aa5f18eff",
+  "captures": [
+    {
+      "name": "account-light.png",
+      "dimensions": [
+        1206,
+        2622
+      ],
+      "diff_bbox": null,
+      "changed_pixels": 0,
+      "max_channel_difference": 0,
+      "baseline_sha256": "219091619015a193ec5c5d560d8cfe701b7e83442545bf7981c1274fe0d070b0",
+      "candidate_sha256": "219091619015a193ec5c5d560d8cfe701b7e83442545bf7981c1274fe0d070b0"
+    },
+    {
+      "name": "activity-light.png",
+      "dimensions": [
+        1206,
+        2622
+      ],
+      "diff_bbox": null,
+      "changed_pixels": 0,
+      "max_channel_difference": 0,
+      "baseline_sha256": "5e09b0f68ec751602b5d9890d1f53ae8faedddfa3e8ffa9a0a6c0d9b3825af96",
+      "candidate_sha256": "5e09b0f68ec751602b5d9890d1f53ae8faedddfa3e8ffa9a0a6c0d9b3825af96"
+    },
+    {
+      "name": "home-dark.png",
+      "dimensions": [
+        1206,
+        2622
+      ],
+      "diff_bbox": null,
+      "changed_pixels": 0,
+      "max_channel_difference": 0,
+      "baseline_sha256": "2f77199f7d450d1bd83035c5dc9cec4d727ed2a96bdd032a46c178bbe0e0fdcc",
+      "candidate_sha256": "2f77199f7d450d1bd83035c5dc9cec4d727ed2a96bdd032a46c178bbe0e0fdcc"
+    },
+    {
+      "name": "home-empty-light.png",
+      "dimensions": [
+        1206,
+        2622
+      ],
+      "diff_bbox": null,
+      "changed_pixels": 0,
+      "max_channel_difference": 0,
+      "baseline_sha256": "352f9c2a8fb44e7f0eb85413bddb2caa588effc538ae013042927f5e79f6c9e3",
+      "candidate_sha256": "352f9c2a8fb44e7f0eb85413bddb2caa588effc538ae013042927f5e79f6c9e3"
+    },
+    {
+      "name": "home-light.png",
+      "dimensions": [
+        1206,
+        2622
+      ],
+      "diff_bbox": null,
+      "changed_pixels": 0,
+      "max_channel_difference": 0,
+      "baseline_sha256": "dc49c404b1670f7a63a4c982677996f0ba5e6f0c227fcb56ecbd6d1722d3e472",
+      "candidate_sha256": "dc49c404b1670f7a63a4c982677996f0ba5e6f0c227fcb56ecbd6d1722d3e472"
+    },
+    {
+      "name": "plan-dark.png",
+      "dimensions": [
+        1206,
+        2622
+      ],
+      "diff_bbox": null,
+      "changed_pixels": 0,
+      "max_channel_difference": 0,
+      "baseline_sha256": "8604a79f3d8cc84934fbb060e5bddac952ad1c271c3df10ed6059d2539574654",
+      "candidate_sha256": "8604a79f3d8cc84934fbb060e5bddac952ad1c271c3df10ed6059d2539574654"
+    },
+    {
+      "name": "plan-light.png",
+      "dimensions": [
+        1206,
+        2622
+      ],
+      "diff_bbox": [
+        1067,
+        2327,
+        1147,
+        2484
+      ],
+      "changed_pixels": 31,
+      "max_channel_difference": 1,
+      "baseline_sha256": "b9d6a594ba2471df81fb9c59fa5c14b87c9fa07acbe452bcaf6f45c1d76e243d",
+      "candidate_sha256": "99ea9880871d4041f4a7c6eb80dcb0535df93f1b079dbcaa722a3df76db49774"
+    }
+  ],
+  "plan_light_replay": {
+    "method": "Reinstalled the unmodified original baseline app binary; same fixture and simulator",
+    "baseline_replay_sha256": "99ea9880871d4041f4a7c6eb80dcb0535df93f1b079dbcaa722a3df76db49774",
+    "candidate_sha256": "99ea9880871d4041f4a7c6eb80dcb0535df93f1b079dbcaa722a3df76db49774",
+    "byte_identical": true
+  },
+  "disposition": "Six original captures are byte-identical. Plan light differs by 31 pixels at at most 1 channel level. The original binary replay is byte-identical to the candidate. No baseline was replaced."
+}

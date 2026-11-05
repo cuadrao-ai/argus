@@ -1,0 +1,28 @@
+{
+  "synthetic": true,
+  "extraction_mode": "stub",
+  "source_file": "receipt.png",
+  "limitations": "Authored proposals for lifecycle tests; not extraction or confidence evidence.",
+  "proposals": [
+    {
+      "source_id": "receipt-01",
+      "date": "2026-09-10",
+      "description": "Partially unreadable receipt",
+      "amount": "",
+      "currency": "DOP",
+      "kind": "expense",
+      "account": "cash-dop",
+      "destination": "personal",
+      "source_ref": {
+        "page": 1,
+        "region": [
+          35,
+          425,
+          1050,
+          475
+        ],
+        "label": "TOTAL DOP [ILEGIBLE]"
+      }
+    }
+  ]
+}

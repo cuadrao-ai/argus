@@ -1,0 +1,10 @@
+2026-10-08 02:09:20.541 | INFO     | argus.api.app_setup:lifespan:65 - Using Supabase product persistence with memory LangGraph checkpointer
+2026-10-08 02:09:20.548 | INFO     | argus.api.shortcuts:start_shortcuts:90 - Shortcuts connector ready
+upload: {"http": 503, "code": "document_storage_unavailable", "status": 503}
+Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-garces-Documents-projects-repos-argus--claude-worktrees-decision-attachment-refactor-098d43/a87878b8-b98a-412b-99b4-afda86e843b6/scratchpad/compat/probe_docs.py", line 237, in <module>
+    {"cycle": cycle, "seed": seed, "read": read}[sys.argv[1]]()
+  File "/private/tmp/claude-501/-Users-garces-Documents-projects-repos-argus--claude-worktrees-decision-attachment-refactor-098d43/a87878b8-b98a-412b-99b4-afda86e843b6/scratchpad/compat/probe_docs.py", line 171, in cycle
+    cid = up.json()["connection_id"]
+KeyError: 'connection_id'
+exit=1

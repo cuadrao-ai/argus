@@ -11,7 +11,7 @@ The user-message role, id, and creation time come from the raw message API,
 before UI projection. Repeated reads of that same message never extend its
 turn deadline. The check stops on a saved assistant reply, a canonical streamed
 reply already shown by the sender, or the runtime timeout. The web build exposes
-only `ARGUS_RUNTIME_EVENT_TIMEOUT_SECONDS`, with the requested 180-second default.
+only `CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS`, with the requested 180-second default.
 Old unanswered messages do not start a new timeout window; expiry aborts an
 in-flight reply check and ignores its late result.
 

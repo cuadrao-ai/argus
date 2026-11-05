@@ -1,0 +1,54 @@
+warning: /Users/garces/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/garces/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+Building for debugging...
+[Using on-disk description]
+Build complete! (0.35 sec)
+Test Suite 'Selected tests' started at 2026-10-05 22:41:45.742.
+Test Suite 'ArgusSessionTests.xctest' started at 2026-10-05 22:41:45.743.
+Test Suite 'AccountDeletionTests' started at 2026-10-05 22:41:45.743.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcceptedAcknowledgementAllowsAnotherAccountWithoutRetiringIt]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcceptedAcknowledgementAllowsAnotherAccountWithoutRetiringIt]' passed (0.005 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcceptedAJournalCannotRetireBDuringSDKAdoption]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcceptedAJournalCannotRetireBDuringSDKAdoption]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcceptedRetiresProofAndRelaunchCannotRetry]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcceptedRetiresProofAndRelaunchCannotRetry]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcknowledgementStorageFailureAfterCleanupRetainsIdempotentRetryObligation]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAcknowledgementStorageFailureAfterCleanupRetainsIdempotentRetryObligation]' passed (0.006 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAppleNotificationDuringRefusedDeletionDoesNotRestoreStaleAuthenticatedAccess]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testAppleNotificationDuringRefusedDeletionDoesNotRestoreStaleAuthenticatedAccess]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testCleanupCallbackFailureRetainsJournalAndRelaunchRetriesCleanupOnly]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testCleanupCallbackFailureRetainsJournalAndRelaunchRetriesCleanupOnly]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testCleanupCannotInterruptBAdoptionBeforeSDKProofIsStored]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testCleanupCannotInterruptBAdoptionBeforeSDKProofIsStored]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testCompletedCleanupUsesValidatedOwnerAndMissingDirectoryIsIdempotent]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testCompletedCleanupUsesValidatedOwnerAndMissingDirectoryIsIdempotent]' passed (0.004 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testConcurrentDuplicateIsDeniedWhileJournalAlreadyQuarantinesProtectedWork]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testConcurrentDuplicateIsDeniedWhileJournalAlreadyQuarantinesProtectedWork]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testDoneIssuesOwnerReceiptAndRetiresWithoutRefreshOrCapture]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testDoneIssuesOwnerReceiptAndRetiresWithoutRefreshOrCapture]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testExpiredProofUsesSupportWithoutRefreshOrDispatch]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testExpiredProofUsesSupportWithoutRefreshOrDispatch]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testIncompleteHonorsRetryAfterAndMalformedDoneCannotIssueReceipt]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testIncompleteHonorsRetryAfterAndMalformedDoneCannotIssueReceipt]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testInterruptedCompletedCleanupReceiptCanBeRecoveredAndAcknowledged]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testInterruptedCompletedCleanupReceiptCanBeRecoveredAndAcknowledged]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testJournalFailureHasNoCommandEffects]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testJournalFailureHasNoCommandEffects]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testLostResponseSurvivesRelaunchAndBlocksProtectedDispatchBeforeSameCommandResolution]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testLostResponseSurvivesRelaunchAndBlocksProtectedDispatchBeforeSameCommandResolution]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testNoAdmissionRefusalsRestoreCurrentIdentityAndNeverClearCredentials]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testNoAdmissionRefusalsRestoreCurrentIdentityAndNeverClearCredentials]' passed (0.003 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testPendingUncertaintyAndOrdinarySignOutCannotAuthorizeCleanup]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testPendingUncertaintyAndOrdinarySignOutCannotAuthorizeCleanup]' passed (0.006 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testRecoveryRefusalCannotTurnLostResponseIntoNoAdmission]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testRecoveryRefusalCannotTurnLostResponseIntoNoAdmission]' passed (0.001 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testStaleCompletedCleanupHasNoFilesystemEffectsWhileBOwnsSession]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testStaleCompletedCleanupHasNoFilesystemEffectsWhileBOwnsSession]' passed (0.002 seconds).
+Test Case '-[ArgusSessionTests.AccountDeletionTests testUnauthorizedNeverRefreshesAndKeepsUncertaintyForSupport]' started.
+Test Case '-[ArgusSessionTests.AccountDeletionTests testUnauthorizedNeverRefreshesAndKeepsUncertaintyForSupport]' passed (0.001 seconds).
+Test Suite 'AccountDeletionTests' passed at 2026-10-05 22:41:45.784.
+	 Executed 20 tests, with 0 failures (0 unexpected) in 0.041 (0.042) seconds
+Test Suite 'ArgusSessionTests.xctest' passed at 2026-10-05 22:41:45.784.
+	 Executed 20 tests, with 0 failures (0 unexpected) in 0.041 (0.042) seconds
+Test Suite 'Selected tests' passed at 2026-10-05 22:41:45.784.
+	 Executed 20 tests, with 0 failures (0 unexpected) in 0.041 (0.042) seconds

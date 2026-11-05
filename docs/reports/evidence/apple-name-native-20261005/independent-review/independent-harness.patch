@@ -1,0 +1,270 @@
+--- a/ios/ArgusFoundation/Auth/AppleSessionHarness.swift
++++ b/ios/ArgusFoundation/Auth/AppleSessionHarness.swift
+@@ -9,6 +9,9 @@
+     @StateObject private var model: ProfileAuthModel
+     @State private var checker: HarnessAppleChecker
+     @State private var checks = 0
++    @State private var nameAuthorization: AppleNameAuthorization?
++    @State private var preparedName = ""
++    @State private var namePreparation = "not prepared"
+     @State private var identityChangePending = false
+     @State private var identityReceipt = ""
+     @State private var checkerWaiting = false
+@@ -30,59 +33,49 @@
+     }
+ 
+     var body: some View {
+-        VStack(spacing: 8) {
+-            Text("Synthetic Apple session proof").font(.caption)
+-            Text("Checks: \(checks)").accessibilityIdentifier("harness.checks")
+-            Text(identityReceipt).font(.caption).accessibilityIdentifier("harness.identity-receipt")
+-            if checkerWaiting { Text("Checker waiting").accessibilityIdentifier("harness.checker-waiting") }
+-            HStack {
+-                Button("Apple") { Task {
+-                    _ = await model.signIn(with: .init(provider: .apple, idToken: "a.b.c", nonce: SignInNonce()), appleAuthorizationCode: "synthetic-code")
+-                    checks = checker.count
+-                } }.accessibilityIdentifier("harness.apple")
+-                Button("Email") { Task {
+-                    await model.authenticate(email: "synthetic@example.test", password: "synthetic", captchaToken: "synthetic", signup: false, language: "en", displayName: "")
+-                } }.accessibilityIdentifier("harness.email")
+-                Button("Check") { Task { await model.restore(); checks = checker.count } }
+-                    .accessibilityIdentifier("harness.check")
+-            }.buttonStyle(.bordered).disabled(model.busy || identityChangePending)
+-            HStack {
+-                Button("Authorized") { checker.set(.authorized) }.accessibilityIdentifier("harness.authorized")
+-                Button("Error") { checker.set(nil) }.accessibilityIdentifier("harness.error")
+-                Button("Revoked") { checker.set(.revoked) }.accessibilityIdentifier("harness.revoked")
+-                Button("Transferred") { checker.set(.transferred) }.accessibilityIdentifier("harness.transferred")
+-            }.font(.caption)
+-            HStack {
+-                Button("Link") { setLinkedIdentity(true) }.accessibilityIdentifier("harness.link")
+-                Button("No link") { setLinkedIdentity(false) }.accessibilityIdentifier("harness.unlink")
+-                Button("Notify twice") {
+-                NotificationCenter.default.post(name: ASAuthorizationAppleIDProvider.credentialRevokedNotification, object: nil)
+-                NotificationCenter.default.post(name: ASAuthorizationAppleIDProvider.credentialRevokedNotification, object: nil)
+-                }.accessibilityIdentifier("harness.notify")
+-            }
+-            HStack {
+-                Button("Hold check") {
+-                    checker.holdNext { checkerWaiting = true }
+-                    Task {
+-                        await model.restore()
+-                        checks = checker.count
+-                        checkerWaiting = false
+-                    }
+-                }.accessibilityIdentifier("harness.hold-check").disabled(model.busy || identityChangePending)
+-                Button("Revoke + notify") {
+-                    checker.set(.revoked)
+-                    NotificationCenter.default.post(name: ASAuthorizationAppleIDProvider.credentialRevokedNotification, object: nil)
+-                }.accessibilityIdentifier("harness.revoke-notify")
+-                Button("Release") { checker.release() }.accessibilityIdentifier("harness.release")
+-            }.font(.caption)
+-            Button("Error after sign-in") { checker.failAfterAuthorizedCheck() }
+-                .accessibilityIdentifier("harness.error-after-signin")
+-            Divider()
+-            if model.state == .credentialValidationRequired || model.state == .reauthenticationRequired || model.state == .pendingSignOut {
+-                ConnectedCuadraoAuthFlow().environmentObject(model)
+-            } else {
+-                ScrollView { ProfileAccountSection(model: model).padding(24) }
+-            }
++        ScrollView {
++            VStack(spacing: 8) {
++                Text("Independent synthetic first-name proof")
++            Text(preparedName).accessibilityIdentifier("name.prepared")
++            Text(namePreparation).accessibilityIdentifier("name.pregrant")
++            Text(model.profile?.displayName ?? "<none>").accessibilityIdentifier("name.canonical")
++            Text(model.appleNameSave == nil ? "none" : String(describing: model.appleNameSave!))
++                .accessibilityIdentifier("name.outcome")
++            Button("Prepare first name") {
++                var components = PersonNameComponents()
++                components.givenName = "María"
++                components.middleName = "del Carmen"
++                components.familyName = "王"
++                // Same Foundation formatter as the compiled production callback.
++                let formatted = PersonNameComponentsFormatter().string(from: components)
++                do {
++                    nameAuthorization = try model.prepareAppleName(displayName: formatted, subject: "synthetic-canonical-subject")
++                    preparedName = formatted
++                    let config = model.configuration!.session
++                    let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
++                        kSecAttrService as String: config.keychainService,
++                        kSecAttrAccount as String: config.storagePrefix + ".apple-name",
++                        kSecAttrSynchronizable as String: false,
++                        kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]
++                    var result: AnyObject?
++                    precondition(SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess)
++                    let data = result as! Data
++                    let fields = try JSONSerialization.jsonObject(with: data) as! [String: Any]
++                    precondition(Set(fields.keys) == Set(["id", "subject", "displayName", "createdAt"]))
++                    precondition(fields["displayName"] as? String == formatted)
++                    namePreparation = "Durable intent fields: 4"
++                } catch { namePreparation = "Preparation failed" }
++            }.accessibilityIdentifier("name.prepare")
++            Button("Grant prepared name") {
++                Task {
++                    _ = await model.signIn(with: .init(provider: .apple, idToken: "a.b.c", nonce: SignInNonce()),
++                        appleAuthorizationCode: "synthetic-code", appleNameAuthorization: nameAuthorization)
++                }
++            }.accessibilityIdentifier("name.grant")
++            Button("Retry canonical name") { Task { await model.retryAppleNameSave() } }
++                .accessibilityIdentifier("name.retry")
++                ProfileAccountSection(model: model).padding(12)
++            }.padding(12)
+         }
+         .modifier(SessionLifecycle(model: model))
+         .alert("auth.apple.capture.title", isPresented: $model.captureNoticePresented) {
+--- a/ios/scripts/auth/apple-session-server.py
++++ b/ios/scripts/auth/apple-session-server.py
+@@ -37,6 +37,10 @@
+ 
+ class Handler(BaseHTTPRequestHandler):
+     linked = True
++    display_name = None
++    name_calls = 0
++    code_calls = 0
++    grant_calls = 0
+ 
+     def log_message(self, *_):
+         pass
+@@ -45,18 +49,28 @@
+         self.respond()
+ 
+     def do_POST(self):
+-        self.rfile.read(int(self.headers.get("Content-Length", "0")))
++        self.body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0"))) or b"{}")
+         self.respond()
+ 
+     def respond(self):
+         path = self.path.split("?")[0]
+         status = 200
+-        if path.startswith("/synthetic/identity-"):
++        if path == "/synthetic/name-count":
++            body = {"name_calls": Handler.name_calls, "code_calls": Handler.code_calls, "grant_calls": Handler.grant_calls}
++        elif path == "/api/v1/me/apple-name":
++            Handler.name_calls += 1
++            if Handler.name_calls == 1:
++                status, body = 503, {"code": "apple_name_unavailable"}
++            else:
++                if Handler.display_name is None: Handler.display_name = self.body["display_name"]
++                body = {"user": {"id":OWNER,"email":USER["email"],"display_name":Handler.display_name,"language":"en"},"apple_identity":{"subject":"synthetic-canonical-subject"}}
++        elif path.startswith("/synthetic/identity-"):
+             Handler.linked = path.endswith("identity-present")
+             body = {}
+         elif path == "/api/v1/auth/login":
+             body = {"session": session()}
+         elif path == "/auth/v1/token":
++            Handler.grant_calls += 1
+             body = session()
+         elif path == "/auth/v1/user":
+             body = USER
+@@ -67,7 +81,7 @@
+                 "user": {
+                     "id": OWNER,
+                     "email": USER["email"],
+-                    "display_name": "Synthetic owner",
++                    "display_name": Handler.display_name,
+                     "language": "en",
+                 },
+                 "apple_identity": {"subject": "synthetic-canonical-subject"}
+@@ -75,6 +89,7 @@
+                 else None,
+             }
+         elif path == "/api/v1/auth/apple/authorization-code":
++            Handler.code_calls += 1
+             status, body = 503, {"code": "apple_sign_in_unavailable"}
+         else:
+             status, body = 404, {"detail": "Not Found"}
+--- /dev/null
++++ b/ios/ArgusFoundationUITests/IndependentAppleNameUITests.swift
+@@ -0,0 +1,35 @@
++import XCTest
++final class IndependentAppleNameUITests: XCTestCase {
++ func testFormattedFirstNameIsDurableBeforeGrantAndCanonicalAfterRetryAndRelaunch() {
++  continueAfterFailure = false
++  let app = XCUIApplication()
++  app.launchArguments = ["--apple-session-harness", "--reset-apple-session-harness", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
++  app.launch()
++  XCTAssertTrue(app.buttons["name.prepare"].waitForExistence(timeout: 10))
++  app.buttons["name.prepare"].tap()
++  XCTAssertEqual(app.staticTexts["name.pregrant"].label, "Durable intent fields: 4")
++  let formatted = app.staticTexts["name.prepared"].label
++  XCTAssertTrue(formatted.contains("María")); XCTAssertTrue(formatted.contains("王"))
++  capture(app,"first-name-durable-before-grant")
++  app.buttons["name.grant"].tap()
++  XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 10))
++  app.alerts.buttons.firstMatch.tap()
++  XCTAssertTrue(app.staticTexts["auth.identity"].waitForExistence(timeout: 10))
++  XCTAssertEqual(app.staticTexts["name.canonical"].label, "<none>")
++  XCTAssertTrue(app.staticTexts["name.outcome"].label.hasPrefix("pending"))
++  capture(app,"first-name-outage-capture-failed")
++  app.buttons["name.retry"].tap()
++  expectation(for:NSPredicate(format:"label == %@",formatted),evaluatedWith:app.staticTexts["name.canonical"])
++  waitForExpectations(timeout:10)
++  capture(app,"first-name-canonical-after-retry")
++  app.terminate()
++  app.launchArguments = ["--apple-session-harness", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
++  app.launch()
++  XCTAssertTrue(app.staticTexts["auth.identity"].waitForExistence(timeout:10))
++  XCTAssertEqual(app.staticTexts["name.canonical"].label,formatted)
++  capture(app,"first-name-canonical-after-relaunch")
++ }
++ private func capture(_ app:XCUIApplication,_ name:String) {
++  let a=XCTAttachment(screenshot:app.screenshot());a.name=name;a.lifetime = .keepAlways;add(a)
++ }
++}
+--- /dev/null
++++ b/ios/Packages/ArgusSession/Tests/ArgusSessionTests/IndependentAppleNameBoundaryTests.swift
+@@ -0,0 +1,53 @@
++import XCTest
++@testable import ArgusSession
++final class IndependentAppleNameBoundaryTests: XCTestCase, @unchecked Sendable {
++ func testCaptureOutageStillSavesCanonicalNameAndNeverReplaysCode() async throws {
++  let fixture = try SessionFixture(), client = try fixture.controller()
++  await fixture.server.configureAppleName()
++  await fixture.server.configureCapture(status: 503, code: "apple_sign_in_unavailable")
++  let authorization = try client.prepareAppleName(displayName: "María 王", subject: "canonical-apple-subject")
++  let outcome = try await client.signIn(with: .init(provider: .apple, idToken: AuthServer.aliceIdToken, nonce: SignInNonce()), appleAuthorizationCode: "one-time-code", appleNameAuthorization: authorization)
++  XCTAssertEqual(outcome.session.phase, .authenticated)
++  XCTAssertEqual(outcome.session.profile?.displayName, "María 王")
++  XCTAssertEqual(outcome.appleCapture, .failed(.rejected(status: 503, code: "apple_sign_in_unavailable")))
++  XCTAssertEqual(outcome.appleName, .saved)
++  _ = try await fixture.controller().restore()
++  let requests = await fixture.server.captured()
++  XCTAssertEqual(requests.filter { $0.url?.path.hasSuffix("/apple-name") == true }.count, 1)
++  XCTAssertEqual(requests.filter { $0.url?.path.hasSuffix("/authorization-code") == true }.count, 1)
++ }
++ func testAccountSwitchRefusesStaleNameRetryAndDoesNotSeedNewOwner() async throws {
++  let fixture = try SessionFixture(), client = try fixture.controller()
++  await fixture.server.configureAppleName(statuses: [503])
++  let authorization = try client.prepareAppleName(displayName: "Alice only", subject: "canonical-apple-subject")
++  let alice = try await client.signIn(with: .init(provider: .apple, idToken: AuthServer.aliceIdToken, nonce: SignInNonce()), appleAuthorizationCode: "one-time-code", appleNameAuthorization: authorization)
++  _ = try await client.signOut()
++  let bob = try await fixture.login(client, email: "bob@example.test")
++  XCTAssertEqual(bob.profile?.id, fixture.server.bob.uuidString)
++  XCTAssertNil(bob.profile?.displayName)
++  let before = await fixture.server.captured().count
++  do { _ = try await client.retryAppleNameInitialization(expectedIdentity: alice.session); XCTFail("Stale account retry must fail") }
++  catch { XCTAssertEqual(error as? SessionFailure, .staleOperation) }
++  let after = await fixture.server.captured().count
++  XCTAssertEqual(before, after)
++  let reopened = try await fixture.controller().restore()
++  XCTAssertEqual(reopened.profile?.id, fixture.server.bob.uuidString)
++  XCTAssertNil(reopened.profile?.displayName)
++  let requests = await fixture.server.captured()
++  XCTAssertEqual(requests.filter { $0.url?.path.hasSuffix("/apple-name") == true }.count, 1)
++ }
++ func testSubsequentGrantWithoutFullNameDoesNotReseedCanonicalName() async throws {
++  let fixture = try SessionFixture(), client = try fixture.controller()
++  await fixture.server.configureAppleName()
++  let first = try client.prepareAppleName(displayName: "María 王", subject: "canonical-apple-subject")
++  _ = try await client.signIn(with: .init(provider: .apple, idToken: AuthServer.aliceIdToken, nonce: SignInNonce()), appleAuthorizationCode: "first-fresh-code", appleNameAuthorization: first)
++  _ = try await client.signOut()
++  let second = try client.prepareAppleName(displayName: nil, subject: "canonical-apple-subject")
++  let outcome = try await client.signIn(with: .init(provider: .apple, idToken: AuthServer.aliceIdToken, nonce: SignInNonce()), appleAuthorizationCode: "second-fresh-code", appleNameAuthorization: second)
++  XCTAssertEqual(outcome.session.profile?.displayName, "María 王")
++  XCTAssertNil(outcome.appleName)
++  let requests = await fixture.server.captured()
++  XCTAssertEqual(requests.filter { $0.url?.path.hasSuffix("/apple-name") == true }.count, 1)
++ }
++
++}

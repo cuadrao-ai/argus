@@ -1,0 +1,34 @@
+#!/bin/bash
+# Usage: summarize.sh <name>...  Reads <name>.applog (os_log export) and <name>.log (xcodebuild) in the w1i folder.
+W=~/.claude/orchestrate/cuadrao-iphone-candidate/w1i
+for n in "$@"; do
+  sed 's/^.*W1I //' "$W/$n.applog" | grep -v "^Timestamp\|getpwuid" > "$W/$n.events"
+  e="$W/$n.events"
+  echo "== $n"
+  grep -E "Test Case .*(passed|failed)|W1I-PROBE|W1I-FRESH" "$W/$n.log"
+  echo "replacements read back: $(grep -c 'W1I-ROUND' "$W/$n.log")  mismatches logged: $(grep -c 'W1I-MISMATCH' "$W/$n.log")"
+  echo "keystrokes handled: $(grep -c ' key old=' "$e")  accepted: $(grep -c ' accept -> ' "$e")  refused at range guard: $(grep -c 'REFUSED range' "$e")  refused by validation: $(grep 'REFUSED' "$e" | grep -vc 'REFUSED range')"
+  echo "keystrokes handled while earlier writes were queued (pending>0): $(grep ' key old=' "$e" | grep -vc 'pending=0')  max pending: $(grep -o 'pending=[0-9]*' "$e" | cut -d= -f2 | sort -n | tail -1)"
+  echo "field rewrites by update: $(grep -c 'REWRITE' "$e")  of which onto a non-empty field: $(grep 'REWRITE' "$e" | grep -vc "field '' ->")"
+  echo "re-syncs from value: $(grep -c ' SYNC ' "$e")  of which onto a non-empty raw: $(grep ' SYNC ' "$e" | grep -vc "raw '' from")  onChange(value) asking for re-sync: $(grep -c 'resync=true' "$e")"
+  awk '/onChange\(raw\)/{seen=1; between=0; next} /commit raw=|accept ->/{ if(seen) between=1 } /onChange\(value\)/{ total++; if(between) gap++; seen=0 } END{print "value change reports:", total+0, " with a keystroke or queued write between the value write and its report:", gap+0}' "$e"
+  echo "end-editing reformats: $(grep -c 'endEditing' "$e")"
+done
+for n in "$@"; do
+python3 - "$W/$n" <<'PY'
+import re, sys
+base = sys.argv[1]
+ev = [l.strip() for l in open(base + '.events')]
+bursts, cur = [], None
+for l in ev:
+    if ' key old=' in l:
+        ident = l.split()[0]
+        if cur is None or cur[0] != ident: cur = [ident, 0]; bursts.append(cur)
+        cur[1] += 1
+    elif 'endEditing' in l: cur = None
+rounds = [m.groups() for m in (re.search(r"W1I-ROUND (.*) before '([^']*)' cleared '([^']*)' typed '([^']*)'", l) for l in open(base + '.log')) if m]
+# A delete that removes a grouping comma also removes it, so an amount needs one delete per non-comma character.
+short = [(r[0], b[1]) for r, b in zip(rounds, bursts) if (0 if r[1] in ('', '0.00') else len(r[1].replace(',', ''))) + len(r[3]) != b[1]]
+print(base.split('/')[-1], 'replacements', len(rounds), 'bursts', len(bursts), 'with keystrokes sent but not handled:', len(short), short[:5])
+PY
+done

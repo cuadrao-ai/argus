@@ -1,0 +1,323 @@
+{
+  "source_head": "cc58b16f7f8ee4f520ffa4658f1396ba7a0cc4d7",
+  "equivalent_integration": "8146d16e90633eb543781f8882665482f0d5dca9",
+  "recorded_ios_files": 403,
+  "fingerprint_mismatches": [],
+  "ios_tree_diff": [],
+  "app_artifact_path": "/private/tmp/cuadrao-deletion-core-xcode/Build/Products/Debug-iphonesimulator/ArgusFoundation.app",
+  "build_evidence": "docs/reports/evidence/native-deletion-core-20261005/independent-review/cc58-app-build.log",
+  "configuration": "Debug",
+  "sdk": "iphonesimulator",
+  "manifest_count": 12,
+  "app_manifests": 1,
+  "dependency_manifests": 11,
+  "manifests": [
+    {
+      "bundle_relative_path": "AppAuth_AppAuth.bundle/PrivacyInfo.xcprivacy",
+      "sha256": "5ade962faaea1eddbbdd06c4cf8a872cec554f64c55a00e00136004d378e1ced",
+      "matches_849": true,
+      "required_api_declarations": [],
+      "collected_data_types": [],
+      "tracking": false,
+      "tracking_key_present": true
+    },
+    {
+      "bundle_relative_path": "AppAuth_AppAuthCore.bundle/PrivacyInfo.xcprivacy",
+      "sha256": "5ade962faaea1eddbbdd06c4cf8a872cec554f64c55a00e00136004d378e1ced",
+      "matches_849": true,
+      "required_api_declarations": [],
+      "collected_data_types": [],
+      "tracking": false,
+      "tracking_key_present": true
+    },
+    {
+      "bundle_relative_path": "GTMAppAuth_GTMAppAuth.bundle/PrivacyInfo.xcprivacy",
+      "sha256": "5a9b8fc0cddb10201bb47cc2804b3f004c7251476622d25bfc4eb54ed46e1084",
+      "matches_849": true,
+      "required_api_declarations": [],
+      "collected_data_types": [],
+      "tracking": false,
+      "tracking_key_present": true
+    },
+    {
+      "bundle_relative_path": "GTMSessionFetcher_GTMSessionFetcherCore.bundle/PrivacyInfo.xcprivacy",
+      "sha256": "3e4a93cbe86acef7dd7e063a28c849992f556e7f52cadc5f37c1e8b0e1b54686",
+      "matches_849": true,
+      "required_api_declarations": [
+        {
+          "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+          "NSPrivacyAccessedAPITypeReasons": [
+            "CA92.1"
+          ]
+        }
+      ],
+      "collected_data_types": [],
+      "tracking": false,
+      "tracking_key_present": true
+    },
+    {
+      "bundle_relative_path": "GoogleSignIn_GoogleSignIn.bundle/PrivacyInfo.xcprivacy",
+      "sha256": "9300972853096f7d570d6c4a4bf7152a36c798e89c4f0d81d3b4c6b5dfaddfd0",
+      "matches_849": true,
+      "required_api_declarations": [
+        {
+          "NSPrivacyAccessedAPITypeReasons": [
+            "CA92.1"
+          ],
+          "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults"
+        }
+      ],
+      "collected_data_types": [
+        {
+          "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeName",
+          "NSPrivacyCollectedDataTypeLinked": true,
+          "NSPrivacyCollectedDataTypeTracking": false,
+          "NSPrivacyCollectedDataTypePurposes": [
+            "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+          ]
+        },
+        {
+          "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeEmailAddress",
+          "NSPrivacyCollectedDataTypeLinked": true,
+          "NSPrivacyCollectedDataTypeTracking": false,
+          "NSPrivacyCollectedDataTypePurposes": [
+            "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+          ]
+        },
+        {
+          "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypePhoneNumber",
+          "NSPrivacyCollectedDataTypeLinked": true,
+          "NSPrivacyCollectedDataTypeTracking": false,
+          "NSPrivacyCollectedDataTypePurposes": [
+            "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+          ]
+        },
+        {
+          "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeOtherDataTypes",
+          "NSPrivacyCollectedDataTypeLinked": true,
+          "NSPrivacyCollectedDataTypeTracking": false,
+          "NSPrivacyCollectedDataTypePurposes": [
+            "NSPrivacyCollectedDataTypePurposeAppFunctionality",
+            "NSPrivacyCollectedDataTypePurposeAnalytics"
+          ]
+        },
+        {
+          "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeCoarseLocation",
+          "NSPrivacyCollectedDataTypeLinked": true,
+          "NSPrivacyCollectedDataTypeTracking": false,
+          "NSPrivacyCollectedDataTypePurposes": [
+            "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+          ]
+        },
+        {
+          "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeUserID",
+          "NSPrivacyCollectedDataTypeLinked": true,
+          "NSPrivacyCollectedDataTypeTracking": false,
+          "NSPrivacyCollectedDataTypePurposes": [
+            "NSPrivacyCollectedDataTypePurposeAppFunctionality",
+            "NSPrivacyCollectedDataTypePurposeAnalytics"
+          ]
+        },
+        {
+          "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeDeviceID",
+          "NSPrivacyCollectedDataTypeLinked": true,
+          "NSPrivacyCollectedDataTypeTracking": false,
+          "NSPrivacyCollectedDataTypePurposes": [
+            "NSPrivacyCollectedDataTypePurposeAnalytics"
+          ]
+        },
+        {
+          "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeOtherUsageData",
+          "NSPrivacyCollectedDataTypeLinked": true,
+          "NSPrivacyCollectedDataTypeTracking": false,
+          "NSPrivacyCollectedDataTypePurposes": [
+            "NSPrivacyCollectedDataTypePurposeAnalytics"
+          ]
+        }
+      ],
+      "tracking": false,
+      "tracking_key_present": true
+    },
+    {
+      "bundle_relative_path": "GoogleSignIn_GoogleSignInSwift.bundle/PrivacyInfo.xcprivacy",
+      "sha256": "5a9b8fc0cddb10201bb47cc2804b3f004c7251476622d25bfc4eb54ed46e1084",
+      "matches_849": true,
+      "required_api_declarations": [],
+      "collected_data_types": [],
+      "tracking": false,
+      "tracking_key_present": true
+    },
+    {
+      "bundle_relative_path": "GoogleUtilities_GoogleUtilities-Environment.bundle/PrivacyInfo.xcprivacy",
+      "sha256": "b08273d687379394792f71c94c1083616a04af8afaa396d8058980f444cfb3d4",
+      "matches_849": true,
+      "required_api_declarations": [
+        {
+          "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+          "NSPrivacyAccessedAPITypeReasons": [
+            "C56D.1"
+          ]
+        }
+      ],
+      "collected_data_types": [],
+      "tracking": false,
+      "tracking_key_present": true
+    },
+    {
+      "bundle_relative_path": "GoogleUtilities_GoogleUtilities-Logger.bundle/PrivacyInfo.xcprivacy",
+      "sha256": "1377eccedff8f8320f78040e9c9d3e17ecc0ea569594b56af0ef17be44197c7a",
+      "matches_849": true,
+      "required_api_declarations": [],
+      "collected_data_types": [],
+      "tracking": false,
+      "tracking_key_present": true
+    },
+    {
+      "bundle_relative_path": "GoogleUtilities_GoogleUtilities-UserDefaults.bundle/PrivacyInfo.xcprivacy",
+      "sha256": "fac507c510aba7884e805fb5feff1a8a8d0c7f42c01d174f927a2bdfaa7130b4",
+      "matches_849": true,
+      "required_api_declarations": [
+        {
+          "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+          "NSPrivacyAccessedAPITypeReasons": [
+            "1C8F.1",
+            "C56D.1"
+          ]
+        }
+      ],
+      "collected_data_types": [],
+      "tracking": false,
+      "tracking_key_present": true
+    },
+    {
+      "bundle_relative_path": "PrivacyInfo.xcprivacy",
+      "sha256": "1faaebba42e775c8eb0b40256c2acecd72c3a4a1ff23870fd08940180e275972",
+      "matches_849": true,
+      "required_api_declarations": [
+        {
+          "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+          "NSPrivacyAccessedAPITypeReasons": [
+            "CA92.1"
+          ]
+        },
+        {
+          "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategorySystemBootTime",
+          "NSPrivacyAccessedAPITypeReasons": [
+            "35F9.1"
+          ]
+        }
+      ],
+      "collected_data_types": [],
+      "tracking": null,
+      "tracking_key_present": false
+    },
+    {
+      "bundle_relative_path": "Promises_FBLPromises.bundle/PrivacyInfo.xcprivacy",
+      "sha256": "74b0cd72fc23c1ef302f22ee2753f61817cdc5af0ff7a7f2d0632b524fb8acea",
+      "matches_849": true,
+      "required_api_declarations": [],
+      "collected_data_types": [],
+      "tracking": false,
+      "tracking_key_present": true
+    },
+    {
+      "bundle_relative_path": "swift-crypto_Crypto.bundle/PrivacyInfo.xcprivacy",
+      "sha256": "42fb8a30dd8d7ba0900e1bf17fe64ed8c12cfdb8a9c791ab6b4e1eceb0f299c0",
+      "matches_849": true,
+      "required_api_declarations": [],
+      "collected_data_types": [],
+      "tracking": false,
+      "tracking_key_present": true
+    }
+  ],
+  "compiled_permission_purposes": {
+    "NSCameraUsageDescription": "Scan a receipt when you choose Scan Receipt.",
+    "NSLocationWhenInUseUsageDescription": "Add your current location to a receipt only when you choose to.",
+    "NSPhotoLibraryAddUsageDescription": "Save a sample group card to Photos when you choose Save Image."
+  },
+  "dependencies": [
+    {
+      "identity": "app-check",
+      "version": "11.3.2",
+      "cached_checkout_version": "11.3.2"
+    },
+    {
+      "identity": "appauth-ios",
+      "version": "2.1.0",
+      "cached_checkout_version": "2.1.0"
+    },
+    {
+      "identity": "googlesignin-ios",
+      "version": "9.2.0",
+      "cached_checkout_version": "9.2.0"
+    },
+    {
+      "identity": "googleutilities",
+      "version": "8.1.4",
+      "cached_checkout_version": "8.1.4"
+    },
+    {
+      "identity": "gtm-session-fetcher",
+      "version": "3.5.0",
+      "cached_checkout_version": "3.5.0"
+    },
+    {
+      "identity": "gtmappauth",
+      "version": "5.0.0",
+      "cached_checkout_version": "5.0.0"
+    },
+    {
+      "identity": "interop-ios-for-google-sdks",
+      "version": "101.0.0",
+      "cached_checkout_version": "101.0.0"
+    },
+    {
+      "identity": "promises",
+      "version": "2.4.1",
+      "cached_checkout_version": "2.4.1"
+    },
+    {
+      "identity": "supabase-swift",
+      "version": "2.55.2",
+      "cached_checkout_version": "2.55.2"
+    },
+    {
+      "identity": "swift-asn1",
+      "version": "1.7.3",
+      "cached_checkout_version": "1.7.3"
+    },
+    {
+      "identity": "swift-clocks",
+      "version": "1.1.1",
+      "cached_checkout_version": "1.1.1"
+    },
+    {
+      "identity": "swift-concurrency-extras",
+      "version": "1.4.1",
+      "cached_checkout_version": "1.4.1"
+    },
+    {
+      "identity": "swift-crypto",
+      "version": "4.5.2",
+      "cached_checkout_version": "4.5.2"
+    },
+    {
+      "identity": "swift-http-types",
+      "version": "1.8.0",
+      "cached_checkout_version": "1.8.0"
+    },
+    {
+      "identity": "swift-issue-reporting",
+      "version": "2.1.1",
+      "cached_checkout_version": "2.1.1"
+    },
+    {
+      "identity": "xctest-dynamic-overlay",
+      "version": "1.13.1",
+      "cached_checkout_version": "1.13.1"
+    }
+  ],
+  "source_app_manifest_match": true,
+  "not_distribution_archive": true,
+  "physical_device_verified": false
+}

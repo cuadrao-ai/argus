@@ -76,7 +76,7 @@ describe("ChatHeaderMenu unread control", () => {
     expect(html).toContain("w-[260px]");
     expect(html).not.toContain("fixed inset-x-0 bottom-0");
     expect(source).toContain("<BottomSheet");
-    expect(source).toContain('height="auto"');
+    expect(source).toContain('snaps="fit"');
   });
 
   test("disables only the read mutation action", async () => {

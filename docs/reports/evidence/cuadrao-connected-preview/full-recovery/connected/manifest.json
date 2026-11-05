@@ -1,0 +1,200 @@
+[
+  {
+    "file": "chat-draft-preserved.jpg",
+    "source_revision": "e6b7cf325",
+    "meaning": "Chat draft after Plan and return",
+    "original_attachment": "AFF5877E-548A-40DC-AA53-BFEDF7B27FD3.png",
+    "dimensions": [
+      1206,
+      2622
+    ],
+    "method": "XCUITest screenshot from passing journey on iOS 27 simulator; local API and Postgres, synthetic accounts"
+  },
+  {
+    "file": "profile-connected.jpg",
+    "source_revision": "e6b7cf325",
+    "meaning": "Connected Profile with real identity",
+    "original_attachment": "8F0C638F-7C61-4964-BBC5-EC143AA2BFB4.png",
+    "dimensions": [
+      1206,
+      2622
+    ],
+    "method": "XCUITest screenshot from passing journey on iOS 27 simulator; local API and Postgres, synthetic accounts"
+  },
+  {
+    "file": "search-spanish-relaunch.jpg",
+    "source_revision": "e6b7cf325",
+    "meaning": "Spanish Search after durable edits and relaunch",
+    "original_attachment": "F0AEC87B-441D-4E9C-91AB-35F8A4B11542.png",
+    "dimensions": [
+      1206,
+      2622
+    ],
+    "method": "XCUITest screenshot from passing journey on iOS 27 simulator; local API and Postgres, synthetic accounts"
+  },
+  {
+    "file": "updates-settings-return.jpg",
+    "source_revision": "e6b7cf325",
+    "meaning": "Updates to notification settings return",
+    "original_attachment": "9E8C1898-D06B-4BB3-AB04-3D352036FAA7.png",
+    "dimensions": [
+      1206,
+      2622
+    ],
+    "method": "XCUITest screenshot from passing journey on iOS 27 simulator; local API and Postgres, synthetic accounts"
+  },
+  {
+    "file": "upcoming-relaunch.jpg",
+    "source_revision": "f02ad86c9",
+    "meaning": "Real Upcoming after payment and relaunch",
+    "original_attachment": "B5EC033D-FCDA-4C6C-930D-9D7ACDD480B0.png",
+    "dimensions": [
+      1206,
+      2622
+    ],
+    "method": "XCUITest screenshot from passing journey on iOS 27 simulator; local API and Postgres, synthetic accounts"
+  },
+  {
+    "file": "recurring-review.jpg",
+    "source_revision": "f02ad86c9",
+    "meaning": "Recurring review prefills the existing movement",
+    "original_attachment": "A145D32A-9D8A-4FB2-BC8B-47E96B8A57E6.png",
+    "dimensions": [
+      1206,
+      2622
+    ],
+    "method": "XCUITest screenshot from passing journey on iOS 27 simulator; local API and Postgres, synthetic accounts"
+  },
+  {
+    "file": "upcoming-payment-confirmed.jpg",
+    "source_revision": "f02ad86c9",
+    "meaning": "Upcoming after confirmed payment",
+    "original_attachment": "EB6D5AD4-77C0-4EC3-88AA-B636AE9E02D9.png",
+    "dimensions": [
+      1206,
+      2622
+    ],
+    "method": "XCUITest screenshot from passing journey on iOS 27 simulator; local API and Postgres, synthetic accounts"
+  },
+  {
+    "file": "receipt-person-isolation.jpg",
+    "source_revision": "80e06c44f",
+    "meaning": "Saved receipt draft is absent for the other signed-in person",
+    "original_attachment": "A62C83B5-1FF8-4835-8CCE-15D6560E57ED.png",
+    "dimensions": [
+      1206,
+      2622
+    ],
+    "method": "XCUITest screenshot from passing journey on iOS 27 simulator; local API and Postgres, synthetic accounts"
+  },
+  {
+    "file": "receipt-original-reopened.jpg",
+    "source_revision": "80e06c44f",
+    "meaning": "Original receipt remains available after Later and relaunch",
+    "original_attachment": "6FE212AC-0916-4725-B676-D099B2311E27.png",
+    "dimensions": [
+      1206,
+      2622
+    ],
+    "method": "XCUITest screenshot from passing journey on iOS 27 simulator; local API and Postgres, synthetic accounts"
+  },
+  {
+    "file": "receipt-local-draft.jpg",
+    "source_revision": "80e06c44f",
+    "meaning": "Connected receipt remains a local draft and does not post money",
+    "original_attachment": "8FA9FF6A-E229-4F57-A1BD-CC82E76C50DA.png",
+    "dimensions": [
+      1206,
+      2622
+    ],
+    "method": "XCUITest screenshot from passing journey on iOS 27 simulator; local API and Postgres, synthetic accounts"
+  },
+  {
+    "file": "plan-card-origin-restored.jpg",
+    "source_revision": "80e06c44f",
+    "meaning": "Native Plan detail returns to the originating overview after relaunch",
+    "original_attachment": "DE1A5A4F-4DDC-4297-A7C4-EE4DF6158B8D.png",
+    "dimensions": [
+      1206,
+      2622
+    ],
+    "method": "XCUITest screenshot from passing journey on iOS 27 simulator; local API and Postgres, synthetic accounts"
+  },
+  {
+    "file": "currency-saved-relaunch.jpg",
+    "source_revision": "63345b7ff",
+    "meaning": "Server-owned primary currency survives relaunch",
+    "original_attachment": "16F055E8-48F5-4BBE-B93D-F6D6DBE4DF0D.png",
+    "dimensions": [
+      1206,
+      2622
+    ],
+    "method": "XCUITest screenshot from passing journey on iOS27 simulator; local API and Postgres with synthetic accounts"
+  },
+  {
+    "file": "household-view-only.jpg",
+    "source_revision": "63345b7ff",
+    "meaning": "Shared account is view-only until explicit edit permission",
+    "original_attachment": "1C237060-2525-4161-A3FB-B6AF0A1BFBE9.png",
+    "dimensions": [
+      1206,
+      2622
+    ],
+    "method": "XCUITest screenshot from passing journey on iOS27 simulator; local API and Postgres with synthetic accounts"
+  },
+  {
+    "file": "household-corrected-account.jpg",
+    "source_revision": "63345b7ff",
+    "meaning": "Shared correction reaches the canonical account",
+    "original_attachment": "CBE39E86-00C8-4AD2-AC19-21AA8B80C83C.png",
+    "dimensions": [
+      1206,
+      2622
+    ],
+    "method": "XCUITest screenshot from passing journey on iOS27 simulator; local API and Postgres with synthetic accounts"
+  },
+  {
+    "file": "household-spanish.jpg",
+    "source_revision": "63345b7ff",
+    "meaning": "Shared account remains available on Spanish relaunch",
+    "original_attachment": "C1B8BF96-BBAF-4FBE-AE58-DCD25C9B3CFE.png",
+    "dimensions": [
+      1206,
+      2622
+    ],
+    "method": "XCUITest screenshot from passing journey on iOS27 simulator; local API and Postgres with synthetic accounts"
+  },
+  {
+    "file": "household-revoked.jpg",
+    "source_revision": "63345b7ff",
+    "meaning": "Revoked shared account disappears after relaunch",
+    "original_attachment": "00F87CD4-7D51-4528-9959-DA0C57A7EA86.png",
+    "dimensions": [
+      1206,
+      2622
+    ],
+    "method": "XCUITest screenshot from passing journey on iOS27 simulator; local API and Postgres with synthetic accounts"
+  },
+  {
+    "file": "budget-cold-restore-before.jpg",
+    "source_revision": "2f243fac2",
+    "meaning": "Budget account names and viewport before termination",
+    "original_attachment": "479243C1-8F8E-455B-8C4D-EA72162F2116.png",
+    "dimensions": [
+      1206,
+      2622
+    ],
+    "method": "XCUITest screenshot from passing retained-budget regression; application and tests built from the exact diff committed at2f243fac2"
+  },
+  {
+    "file": "budget-cold-restore-after.jpg",
+    "source_revision": "2f243fac2",
+    "meaning": "Same account names and viewport restored before successfully opening correction and Edit",
+    "original_attachment": "B4BA4A63-2DBD-4DCE-838A-6949EDF9A1C4.png",
+    "dimensions": [
+      1206,
+      2622
+    ],
+    "method": "XCUITest screenshot from passing retained-budget regression; application and tests built from the exact diff committed at2f243fac2"
+  }
+]

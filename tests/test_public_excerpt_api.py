@@ -15,7 +15,7 @@ from urllib.parse import quote
 import pytest
 from argus.api import state as api_state
 from argus.api.main import app
-from argus.api.routers import evidence_receipts, public_receipts
+from argus.api.routers import evidence_receipts
 from argus.domain.public_excerpts import PUBLIC_EXCERPT_PATH_PREFIX
 from fastapi.testclient import TestClient
 
@@ -37,17 +37,16 @@ LIST_PATH = "/api/v1/public-excerpts"
 def _memory_backend(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(api_state, "supabase_gateway", None)
     evidence_receipts.reset_receipt_create_limiter_for_tests()
-    public_receipts.reset_receipt_funnel_limiter_for_tests()
 
 
 @pytest.fixture
 def sharing_on(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED", "true")
 
 
 @pytest.fixture
 def sharing_off(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED", raising=False)
+    monkeypatch.delenv("CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED", raising=False)
 
 
 def _client() -> TestClient:
@@ -376,34 +375,33 @@ def test_reading_a_receipt_never_counts_a_view(
     sharing_on: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The read endpoint answers metadata passes and preview images too.
-
-    Counting a view here would log several views for a link that was pasted into a
-    chat and never opened by anyone.
-    """
-    events: list[str] = []
+    """The read endpoint answers metadata passes and preview images too, and the
+    funnel endpoint is a no-op in wave 1: neither reaches PostHog."""
+    posts: list[object] = []
+    monkeypatch.setenv("POSTHOG_PROJECT_TOKEN", "ph_project_token")
+    monkeypatch.setenv("POSTHOG_REGION", "us")
     monkeypatch.setattr(
-        public_receipts,
-        "capture_product_event",
-        lambda kind, **kwargs: events.append(kind),
+        "argus.observability.envelope.httpx.post",
+        lambda *args, **kwargs: posts.append((args, kwargs)),
     )
     client = _client()
     _seed(client)
     receipt = _create(client)
+    posts.clear()
 
     for _ in range(3):
         assert (
             client.get(f"/api/v1/public/receipts/{receipt['public_id']}").status_code
             == 200
         )
-    assert events == []
-
-    # The rendered page is what reports a view.
-    assert (
-        client.post("/api/v1/public/receipt-funnel", json={"stage": "viewed"}).status_code
-        == 204
-    )
-    assert events == ["receipt_viewed"]
+    for stage in ("viewed", "try_argus", "followed_up", "signed_up"):
+        assert (
+            client.post(
+                "/api/v1/public/receipt-funnel", json={"stage": stage}
+            ).status_code
+            == 204
+        )
+    assert posts == []
 
 
 def test_an_admin_is_not_rate_limited_on_creation(sharing_on: None) -> None:
@@ -508,7 +506,6 @@ def test_the_public_route_module_holds_only_the_reader_and_the_funnel() -> None:
         if isinstance(node, ast.FunctionDef) and not node.name.startswith("_")
     ]
     assert functions == [
-        "reset_receipt_funnel_limiter_for_tests",
         "read_public_receipt",
         "record_receipt_funnel_stage",
     ]
@@ -668,7 +665,7 @@ def test_flag_off_is_identical_for_an_unauthenticated_production_client(
     this covers the path the mock-auth tests above cannot reach.
     """
     monkeypatch.delenv("NEXT_PUBLIC_MOCK_AUTH", raising=False)
-    monkeypatch.delenv("ARGUS_MOCK_AUTH", raising=False)
+    monkeypatch.delenv("CUADRAO_MOCK_AUTH", raising=False)
     client = _client()
     reference = client.get("/api/v1/definitely-not-a-route")
     assert reference.status_code == 404
@@ -781,15 +778,16 @@ def test_an_unrelated_insert_failure_is_not_masked_as_not_available(
     assert response.json()["code"] == "internal_error"
 
 
-def test_revoking_twice_reports_one_revocation(
+def test_revoking_twice_reports_one_revocation_and_emits_nothing(
     sharing_on: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    events: list[str] = []
+    posts: list[object] = []
+    monkeypatch.setenv("POSTHOG_PROJECT_TOKEN", "ph_project_token")
+    monkeypatch.setenv("POSTHOG_REGION", "us")
     monkeypatch.setattr(
-        evidence_receipts,
-        "capture_product_event",
-        lambda kind, **kwargs: events.append(kind),
+        "argus.observability.envelope.httpx.post",
+        lambda *args, **kwargs: posts.append((args, kwargs)),
     )
     client = _client()
     _seed(client)
@@ -802,7 +800,7 @@ def test_revoking_twice_reports_one_revocation(
     assert (
         first.json()["receipt"]["revoked_at"] == (second.json()["receipt"]["revoked_at"])
     )
-    assert [kind for kind in events if kind == "receipt_revoked"] == ["receipt_revoked"]
+    assert posts == []
 
 
 # ── Review round 4: frozen means frozen, transient never reads as permanent ────

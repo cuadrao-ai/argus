@@ -13,6 +13,10 @@ export async function expectOneCanonicalCard(
   const ownership = await surface.evaluate<CardOwnership>((element) => {
     const elements = [element, ...element.querySelectorAll<HTMLElement>("*")];
     const cardOwnerCount = elements.filter((candidate) => {
+      const tag = candidate.tagName;
+      if (tag === "INPUT" || tag === "BUTTON" || tag === "TEXTAREA" || tag === "SELECT") {
+        return false;
+      }
       const style = getComputedStyle(candidate);
       return (
         parseFloat(style.borderTopWidth) > 0 &&

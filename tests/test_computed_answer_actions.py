@@ -406,6 +406,54 @@ def test_refresh_names_the_readers_country_and_currency_in_the_lookup(
     )
 
 
+def test_a_failed_refresh_returns_the_signed_in_research_claim(
+    client, monkeypatch
+) -> None:
+    from argus.agent_runtime import research_grounded as grounded
+    from argus.api import state as api_state
+    from argus.api.chat.research_evidence import RESEARCH_USAGE_RESOURCE
+    from argus.domain.research.contracts import ResearchUnavailableError
+    from argus.domain.visitor_usage import (
+        read_memory_visitor_used,
+        registered_account_usage_key,
+    )
+
+    monkeypatch.setenv("ARGUS_RESEARCH_RAIL_ENABLED", "true")
+    monkeypatch.setattr(api_state, "supabase_gateway", None)
+
+    class _FailingClient:
+        def run_research(self, *_args: Any, **_kwargs: Any):
+            raise ResearchUnavailableError("timeout")
+
+    monkeypatch.setattr(grounded, "_client", lambda: _FailingClient())
+    owner = client.get("/api/v1/me").json()["user"]["id"]
+    key = registered_account_usage_key(owner)
+    conversation = _conversation(client)
+    message_id = _answer(
+        client,
+        conversation,
+        "valuation_scenarios",
+        CITED_VALUATION,
+        "What will NVDA be worth?",
+    )
+
+    response = client.post(
+        f"/api/v1/conversations/{conversation}/messages/{message_id}/computation/refresh"
+    )
+
+    assert response.status_code == 503
+    assert "research_unavailable" in response.text
+    assert (
+        read_memory_visitor_used(
+            api_state.store.visitor_usage_counters,
+            visitor_key=key,
+            resource=RESEARCH_USAGE_RESOURCE,
+            period="day",
+        )
+        == 0
+    )
+
+
 def test_refresh_is_refused_before_any_provider_work_when_the_allowance_is_spent(
     client, monkeypatch
 ) -> None:
@@ -481,3 +529,93 @@ def test_no_computed_answer_action_writes_personalization_memory(client) -> None
         assert store.list_records(RegisteredMemoryOwner(owner_id=owner)) == ()
     finally:
         configure_memory_service(None)
+
+
+def test_a_continued_business_answer_stays_in_business(client, monkeypatch) -> None:
+    from argus.api.business_spaces import business_spaces, configure_business_spaces
+    from argus.domain.business.spaces import InMemorySpaceStore
+
+    monkeypatch.setenv("ARGUS_BUSINESS_PILOT_ENABLED", "true")
+    monkeypatch.setenv("ARGUS_BUSINESS_CHAT_ENABLED", "true")
+    previous = business_spaces()
+    spaces = InMemorySpaceStore()
+    configure_business_spaces(spaces)
+    try:
+        person = client.get("/api/v1/me").json()["user"]["id"]
+        spaces.create(person, "Mi negocio")
+        source = client.post(
+            "/api/v1/conversations", json={"title": "Shop", "surface": "business"}
+        ).json()["conversation"]["id"]
+        message_id = _answer(
+            client, source, "price_multiple", _multiple(150), "Apple at 150?"
+        )
+
+        response = client.post(
+            f"/api/v1/conversations/{source}/messages/{message_id}/continue"
+        )
+
+        assert response.status_code == 200, response.text
+        continued = response.json()["conversation"]["id"]
+
+        def listed(surface: str) -> list[str]:
+            return [
+                item["id"]
+                for item in client.get(
+                    "/api/v1/conversations", params={"surface": surface}
+                ).json()["items"]
+            ]
+
+        assert sorted(listed("business")) == sorted([source, continued])
+        assert continued not in listed("personal")
+    finally:
+        configure_business_spaces(previous)
+
+
+def test_the_picker_lists_only_the_answers_on_its_own_side(client, monkeypatch) -> None:
+    from argus.api import state as api_state
+    from argus.api.business_spaces import business_spaces, configure_business_spaces
+    from argus.domain.business.spaces import InMemorySpaceStore
+
+    monkeypatch.setenv("ARGUS_BUSINESS_PILOT_ENABLED", "true")
+    monkeypatch.setenv("ARGUS_BUSINESS_CHAT_ENABLED", "true")
+    previous = business_spaces()
+    spaces = InMemorySpaceStore()
+    configure_business_spaces(spaces)
+    try:
+        spaces.create(client.get("/api/v1/me").json()["user"]["id"], "Mi negocio")
+        personal = _conversation(client, "Home")
+        business = client.post(
+            "/api/v1/conversations", json={"title": "Shop", "surface": "business"}
+        ).json()["conversation"]["id"]
+        stranger = _conversation(client, "Someone else")
+        personal_answer = _answer(
+            client, personal, "price_multiple", _multiple(150), "Apple at 150?"
+        )
+        business_answer = _answer(
+            client, business, "price_multiple", _multiple(180), "Apple at 180?"
+        )
+        _answer(client, stranger, "price_multiple", _multiple(200), "Apple at 200?")
+        api_state.store.conversation_owners[stranger] = fake.uuid4()
+
+        def listed(**params: str) -> list[str]:
+            response = client.get(
+                "/api/v1/computations/answers",
+                params={"kind": "price_multiple", **params},
+            )
+            assert response.status_code == 200, response.text
+            return [item["message_id"] for item in response.json()["items"]]
+
+        assert listed() == [personal_answer]
+        assert listed(surface="personal") == [personal_answer]
+        assert listed(surface="business") == [business_answer]
+        monkeypatch.delenv("ARGUS_BUSINESS_PILOT_ENABLED")
+        refused = client.get(
+            "/api/v1/computations/answers",
+            params={"kind": "price_multiple", "surface": "business"},
+        )
+        assert (refused.status_code, refused.json()["code"]) == (
+            404,
+            "business_unavailable",
+        )
+    finally:
+        configure_business_spaces(previous)

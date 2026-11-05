@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Literal
+from typing import Any
 
 from loguru import logger
 
@@ -13,7 +13,6 @@ from argus.domain.guest_funnel_milestones import (
 )
 from argus.domain.usage_limits import (
     MESSAGE_USAGE_RESOURCE,
-    SIMULATION_USAGE_RESOURCE,
     read_memory_usage,
 )
 from argus.observability.guest_funnel import (
@@ -228,44 +227,6 @@ def emit_first_guest_message_event(
     )
 
 
-def emit_first_guest_simulation_event(
-    *,
-    account: AccountContext,
-    kind: Literal["first_simulation_admitted", "first_result_completed"],
-    user_id: str,
-    conversation_id: str | None,
-    job_id: str | None,
-    backtest_run_id: str | None = None,
-    message_id: str | None = None,
-    language: GuestFunnelLanguage | None = None,
-    terminal_outcome: Literal["admitted", "completed"],
-) -> None:
-    try:
-        used_count = current_guest_usage_count(
-            account=account,
-            user_id=user_id,
-            resource=SIMULATION_USAGE_RESOURCE,
-        )
-    except Exception:
-        logger.opt(exception=True).warning("Guest first-simulation counter read failed")
-        return
-    if used_count != 1:
-        return
-    emit_guest_funnel_event(
-        account=account,
-        kind=kind,
-        user_id=user_id,
-        conversation_id=conversation_id,
-        message_id=message_id,
-        job_id=job_id,
-        backtest_run_id=backtest_run_id,
-        language=language,
-        surface="backtest",
-        product_capability="simulation",
-        terminal_outcome=terminal_outcome,
-    )
-
-
 def emit_guest_turn_funnel_events(
     *,
     account: AccountContext,
@@ -274,9 +235,6 @@ def emit_guest_turn_funnel_events(
     language: GuestFunnelLanguage | None,
     assistant_message_id: str | None,
     is_run_backtest_turn: bool,
-    confirmation_reached: bool,
-    backtest_run_id: str | None,
-    job_id: str | None,
 ) -> None:
     if assistant_message_id is not None and not is_run_backtest_turn:
         emit_first_guest_message_event(
@@ -285,28 +243,4 @@ def emit_guest_turn_funnel_events(
             conversation_id=conversation_id,
             message_id=assistant_message_id,
             language=language,
-        )
-    if confirmation_reached:
-        emit_guest_funnel_event(
-            account=account,
-            kind="confirmation_reached",
-            user_id=user_id,
-            conversation_id=conversation_id,
-            message_id=assistant_message_id,
-            language=language,
-            surface="confirmation",
-            product_capability="simulation",
-            terminal_outcome="completed",
-        )
-    if backtest_run_id is not None:
-        emit_first_guest_simulation_event(
-            account=account,
-            kind="first_result_completed",
-            user_id=user_id,
-            conversation_id=conversation_id,
-            message_id=assistant_message_id,
-            job_id=job_id,
-            backtest_run_id=backtest_run_id,
-            language=language,
-            terminal_outcome="completed",
         )

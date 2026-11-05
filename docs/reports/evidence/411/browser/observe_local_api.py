@@ -19,10 +19,10 @@ sys.path.insert(0, str(SOURCE_ROOT / "src"))
 OUT.mkdir(parents=True, exist_ok=True)
 load_dotenv(ROOT / ".env", override=True)
 LOCAL_ENV = {
-    "ARGUS_PERSISTENCE_MODE": "memory",
+    "CUADRAO_PERSISTENCE_MODE": "memory",
     "ARGUS_DEV_MEMORY_FALLBACK": "true",
-    "ARGUS_CHECKPOINTER_MODE": "memory",
-    "ARGUS_MOCK_AUTH": "true",
+    "CUADRAO_CHECKPOINTER_MODE": "memory",
+    "CUADRAO_MOCK_AUTH": "true",
     "ARGUS_MARKET_DATA_PROVIDER_MODE": "live_provider",
     "ARGUS_ASSET_PROVIDER_MODE": "live_provider",
     "ENABLE_MARKET_DATA_CACHE": "false",
@@ -32,7 +32,7 @@ LOCAL_ENV = {
     "ARGUS_CONTEXT_PACKETS_ENABLED": "false",
     "ARGUS_RESEARCH_RAIL_ENABLED": "true",
     "ARGUS_GROUNDED_DISCOVERY_ENABLED": "false",
-    "ARGUS_CORS_ALLOW_ORIGINS": "http://localhost:3200",
+    "CUADRAO_CORS_ALLOW_ORIGINS": "http://localhost:3200",
     "ARGUS_APP_ORIGIN": "http://localhost:3200",
     "DATABASE_URL": "",
 }

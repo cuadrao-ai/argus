@@ -343,15 +343,13 @@ def test_find_turns_share_the_research_cache_across_users(monkeypatch) -> None:
     set_research_query(monkeypatch, globals(), question_kind="find_assets", symbols=[])
     provider = _FakeSearchProvider(_search_packet())
     _wire_find(monkeypatch, provider=provider)
-    decision = _decision(
-        relationship="category", category_description="cybersecurity stocks"
-    )
+    decision = _decision(relationship="comparison", anchor_symbols=["AAPL"])
 
     first = asyncio.run(
         ra.discovery_turn_stage_result(
             interpretation=_interpretation(),
             decision=decision,
-            state=_state("Find me cybersecurity stocks"),
+            state=_state("Find peers of AAPL"),
             user=USER,
         )
     )
@@ -359,7 +357,7 @@ def test_find_turns_share_the_research_cache_across_users(monkeypatch) -> None:
         ra.discovery_turn_stage_result(
             interpretation=_interpretation(),
             decision=decision,
-            state=_state("Find me cybersecurity stocks"),
+            state=_state("Find peers of AAPL"),
             user=UserState(user_id="someone-else", language_preference="en"),
         )
     )
@@ -470,9 +468,7 @@ def test_unconfigured_find_provider_never_claims_capacity(
         )
 
     assert result is not None
-    assert result.stage_patch["research"]["degraded"] == {
-        "code": "search_not_configured"
-    }
+    assert result.stage_patch["research"]["degraded"] == {"code": "search_not_configured"}
 
 
 def test_knowledge_entry_find_shape_uses_primary_discovery_request(
@@ -652,19 +648,9 @@ def test_follow_up_producer_block_rides_every_research_sidecar(monkeypatch) -> N
     assert follow_up["open_thread"]["period_of_interest"] == "last three years"
 
 
-def test_grounded_puts_store_under_the_data_class_ttls(monkeypatch) -> None:
-    """The section 7 table governs what gets stored: a holdings answer lives
-    for months, a live quote for two minutes."""
-    from argus.domain.research.cache import DATA_CLASS_TTL_SECONDS
-
-    recorded: list[float] = []
-    real_put = grounded.cache_put
-
-    def spy(key, packet, *, ttl_seconds):
-        recorded.append(ttl_seconds)
-        real_put(key, packet, ttl_seconds=ttl_seconds)
-
-    monkeypatch.setattr(grounded, "cache_put", spy)
+def test_grounded_holdings_and_quotes_never_enter_shared_cache(monkeypatch) -> None:
+    """The packet data class does not make a freeform answer safe to share."""
+    from argus.domain.research.cache import cache_stats
 
     set_research_query(
         monkeypatch, globals(), question_kind="etf_constituents", symbols=["SPY"]
@@ -692,7 +678,7 @@ def test_grounded_puts_store_under_the_data_class_ttls(monkeypatch) -> None:
         )
     )
     assert result is not None
-    assert recorded[-1] == DATA_CLASS_TTL_SECONDS["peers_constituents"]
+    assert cache_stats()["entries"] == 0
 
     set_research_query(
         monkeypatch, globals(), question_kind="live_quote", symbols=["AAPL"]
@@ -711,4 +697,4 @@ def test_grounded_puts_store_under_the_data_class_ttls(monkeypatch) -> None:
         )
     )
     assert result is not None
-    assert recorded[-1] == DATA_CLASS_TTL_SECONDS["quotes"]
+    assert cache_stats()["entries"] == 0

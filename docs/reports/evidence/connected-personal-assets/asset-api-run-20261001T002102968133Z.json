@@ -1,0 +1,57 @@
+{
+  "source_head": "1e0eeefc77dd94f4ed6df790d13466bffe0222f0",
+  "checks": [
+    "unknown-zero",
+    "whole-and-personal-share",
+    "revision-basis",
+    "selected-old-correction",
+    "existing-debt-counted-once",
+    "linked-debt-principal-update",
+    "cash-budget-savings-forecast-unchanged",
+    "cross-currency",
+    "archive-restore",
+    "owner-isolation",
+    "search-canonical-detail-and-linked-debt",
+    "search-owner-isolation-and-return",
+    "exact-replay"
+  ],
+  "currencies": {
+    "DOP": {
+      "currency": "DOP",
+      "currency_fraction_digits": 2,
+      "assets_minor": "510100000",
+      "cash_minor": "100000",
+      "other_assets_minor": "510000000",
+      "debts_minor": "90000000",
+      "net_worth_minor": "420100000",
+      "known_accounts": 5,
+      "unknown_accounts": 1,
+      "gross_income_minor": "0",
+      "gross_purchases_minor": "0",
+      "refunds_minor": "0",
+      "net_spending_minor": "0",
+      "recorded_spending_minor": "0",
+      "as_of": "2026-09-30T20:13:44.745860-04:00"
+    },
+    "USD": {
+      "currency": "USD",
+      "currency_fraction_digits": 2,
+      "assets_minor": "50000",
+      "cash_minor": "0",
+      "other_assets_minor": "50000",
+      "debts_minor": "0",
+      "net_worth_minor": "50000",
+      "known_accounts": 1,
+      "unknown_accounts": 1,
+      "gross_income_minor": "0",
+      "gross_purchases_minor": "0",
+      "refunds_minor": "0",
+      "net_spending_minor": "0",
+      "recorded_spending_minor": "0",
+      "as_of": "2026-09-20T20:13:44.745860-04:00"
+    }
+  },
+  "asset_query": "Asset demo house 2d98b290",
+  "action": "run",
+  "observed_at": "20261001T002102968133Z"
+}

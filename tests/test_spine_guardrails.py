@@ -154,7 +154,6 @@ def test_locale_scan_covers_expected_files() -> None:
 # and API schema aliases out until their typed frontend/API contracts are explicit.
 ISSUE_154_MIGRATED_LANGUAGE_SURFACES = [
     ARGUS_SRC / "agent_runtime" / "stages" / "explain.py",
-    ARGUS_SRC / "api" / "chat" / "breakdown.py",
     ARGUS_SRC / "api" / "chat" / "confirmation.py",
     ARGUS_SRC / "api" / "chat" / "confirmation_lifecycle.py",
     ARGUS_SRC / "api" / "chat" / "confirmation_research_peers.py",
@@ -162,7 +161,6 @@ ISSUE_154_MIGRATED_LANGUAGE_SURFACES = [
     ARGUS_SRC / "agent_runtime" / "clarification_contract.py",
     ARGUS_SRC / "agent_runtime" / "artifact_action_recovery.py",
     ARGUS_SRC / "agent_runtime" / "stages" / "execute.py",
-    ARGUS_SRC / "api" / "chat" / "result_actions.py",
     ARGUS_SRC / "agent_runtime" / "response_style.py",
 ]
 

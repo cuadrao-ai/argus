@@ -18,7 +18,8 @@ export type StorageConcept =
   | "appearance"
   | "layout"
   | "tips"
-  | "temporary";
+  | "temporary"
+  | "campaign";
 
 /**
  * Keys two dependencies own. We pass these to them explicitly rather than
@@ -32,13 +33,36 @@ export const LANGUAGE_STORAGE_KEY = "i18nextLng";
 export const STORAGE_REGISTRY = {
   [LANGUAGE_STORAGE_KEY]: "language",
   [THEME_STORAGE_KEY]: "appearance",
+  "cuadrao-business-preview-language": "language",
+  "cuadrao-preview-business-names-v1": "temporary",
   "argus:sidebar_mode": "layout",
+  // The Business rail's own expanded, collapsed or hover choice.
+  "cuadrao:business_sidebar_mode": "layout",
+  // Whether money amounts show blurred, for sharing a screen or working in public.
+  "cuadrao:hide_amounts": "layout",
+  "cuadrao:home-greeting-seen": "temporary",
+  "cuadrao:recovery-session:v1": "temporary",
+  // Whether every switch shows its Sí and No words, until the account keeps the choice.
+  "cuadrao:switch_labels": "appearance",
   "argus:command_palette_layout": "layout",
   "argus:guest-hint:confirmation:v1": "tips",
   "argus:guest-hint:result:v1": "tips",
   "argus:feedback-ask:v1": "tips",
   "argus.memoryOptOutConversations.v1": "temporary",
   "argus:receipt-followup:v1": "temporary",
+  "argus:daily-cap-notice:v1": "temporary",
+  "argus:landing-intent:v1": "campaign",
+  "argus:landing-starter:v1": "temporary",
+  // The Business the person was working in, as the grant that admits them.
+  "argus:business-grant:v1": "layout",
+  // The last few Business searches that led to a record, per Business, on this device only.
+  "cuadrao:business_recent_searches:v1": "layout",
+  // Each person's Inicio section order per Business, on this device only, until the account keeps it.
+  "cuadrao:home_section_order:v1": "layout",
+  "cuadrao:business_creation:v1": "temporary",
+  // Which currency Inicio's month figures show, per Business, until the account keeps it.
+  "cuadrao:business_currency_view:v1": "layout",
+  "cuadrao:invoice_commands:v1": "temporary",
 } as const satisfies Record<string, StorageConcept>;
 
 export type StorageKey = keyof typeof STORAGE_REGISTRY;

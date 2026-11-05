@@ -1,0 +1,1 @@
+$ eslint components/business-app/BusinessInboxPanel.tsx components/business-app/ActionMenu.tsx __tests__/receipt-marks.dom.test.tsx "e2e/business-personal-menu.spec.ts" "e2e/business-personal-menu.playwright.config.ts" "e2e/business-upload-controls.spec.ts"

@@ -1,0 +1,16 @@
+2026-10-08 02:10:00.450 | INFO     | argus.api.app_setup:lifespan:65 - Using Supabase product persistence with memory LangGraph checkpointer
+2026-10-08 02:10:00.455 | INFO     | argus.api.shortcuts:start_shortcuts:90 - Shortcuts connector ready
+list: {"http": 200, "items": [{"connection_id": "099d412d-35e6-44e2-8c90-95645aff2c46", "status": "saved", "source_available": true}, {"connection_id": "c233b2d7-de14-4a01-ab14-3367b13931af", "status": "saved", "source_available": true}]}
+get_a: {"http": 200, "status": "saved", "connection_id": "099d412d-35e6-44e2-8c90-95645aff2c46", "source_available": true}
+source_a: {"http": 200, "bytes": 5910}
+row_a: {"source_bytes_len": 5910, "source_path": null}
+replay_upload_a: {"http": 200, "status": "saved", "replayed": true, "connection_id": "099d412d-35e6-44e2-8c90-95645aff2c46"}
+row_a_after_replay: {"source_bytes_len": 5910, "source_path": null}
+disconnect_b: {"http": 200}
+row_b_after_disconnect: null
+objects_u_after_disconnect_b: []
+2026-10-08 02:10:00.827 | WARNING  | argus.api.account_deletion_runtime:standalone_apple:123 - Apple revoke for deletion unavailable
+account_delete_v: {"http": 200, "status": "done", "pending": []}
+auth_user_v_exists: false
+objects_v_after_account_delete: []
+exit=0

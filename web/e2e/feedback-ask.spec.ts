@@ -247,9 +247,9 @@ for (const language of ["en", "es-419"] as const) {
       evidence_artifact_id: RESULT_CARD.evidence_artifact_id,
       rating: "positive",
       tags: [],
-      hasAttachments: false,
-      attachmentCount: 0,
     });
+    expect(rated.context).not.toHaveProperty("hasAttachments");
+    expect(rated.context).not.toHaveProperty("attachmentCount");
     expectNoConversationText(rated, language);
 
     await expect(ask).toContainText(copy.ask.thanks);
@@ -266,6 +266,7 @@ for (const language of ["en", "es-419"] as const) {
     await expect(includeConversation).toBeVisible();
     await expect(includeConversation).not.toBeChecked();
     await expect(ask).toHaveCount(0);
+    await expect(dialog.locator('input[type="file"]')).toHaveCount(0);
     await capture(page, `${language}-3-tell-us-more-dialog`);
 
     // Unticked, the detail carries the ask's source and nothing that points at the conversation.
@@ -282,8 +283,6 @@ for (const language of ["en", "es-419"] as const) {
       source: "feedback_ask",
       surface: "chat",
       tags: [],
-      hasAttachments: false,
-      attachmentCount: 0,
     });
 
     await reloadConversation(page);

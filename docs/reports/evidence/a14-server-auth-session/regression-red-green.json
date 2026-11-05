@@ -1,0 +1,45 @@
+{
+  "what": "tests/test_auth_client_isolation.py in a Linux python:3.10 container with the locked dependencies",
+  "runs": [
+    {
+      "tree": "dd346924e (test only, gateway unchanged)",
+      "cases": [
+        {
+          "test": "test_each_auth_call_carries_only_the_public_key",
+          "outcome": "fail",
+          "first_failure_line": "AssertionError: assert ['Bearer anon...@example.com'] == ['Bearer anon...olation-test']"
+        },
+        {
+          "test": "test_argus_never_refreshes_a_session_it_returned",
+          "outcome": "fail",
+          "first_failure_line": "AssertionError: assert [{'authorizat...th/v1/token'}] == []"
+        },
+        {
+          "test": "test_concurrent_sign_ins_keep_identities_apart",
+          "outcome": "fail",
+          "first_failure_line": "AssertionError: assert {'Bearer acce...olation-test'} == {'Bearer anon...olation-test'}"
+        }
+      ]
+    },
+    {
+      "tree": "be81feb91 (fix; affected suites: 223 passed)",
+      "cases": [
+        {
+          "test": "test_each_auth_call_carries_only_the_public_key",
+          "outcome": "pass",
+          "first_failure_line": null
+        },
+        {
+          "test": "test_argus_never_refreshes_a_session_it_returned",
+          "outcome": "pass",
+          "first_failure_line": null
+        },
+        {
+          "test": "test_concurrent_sign_ins_send_no_user_token_and_return_their_own_identity",
+          "outcome": "pass",
+          "first_failure_line": null
+        }
+      ]
+    }
+  ]
+}

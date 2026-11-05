@@ -9,12 +9,12 @@
 36. [GET] http://127.0.0.1:8138/api/v1/me => [200] OK
 37. [GET] http://127.0.0.1:8138/api/v1/me => [200] OK
 38. [GET] http://127.0.0.1:8138/api/v1/conversations?limit=30&archived=false&deleted=false => [200] OK
-39. [POST] http://127.0.0.1:8138/api/v1/public/receipts/B8CJ9GWVjm7rfmtvCDuH6GPXPTfp3D3X/fork => [200] OK
-40. [GET] http://127.0.0.1:8138/api/v1/conversations/8691910b-35f6-450b-a1b9-02646b9995fc/messages?limit=100 => [200] OK
+39. [POST] http://127.0.0.1:8138/api/v1/public/receipts/<redacted-receipt-slug>/fork => [200] OK
+40. [GET] http://127.0.0.1:8138/api/v1/conversations/<redacted-reader-conversation-id>/messages?limit=100 => [200] OK
 42. [GET] http://127.0.0.1:8138/api/v1/conversations?limit=30&archived=false&deleted=false => [200] OK
-43. [GET] http://127.0.0.1:8138/api/v1/conversations/8691910b-35f6-450b-a1b9-02646b9995fc/messages?limit=100 => [200] OK
+43. [GET] http://127.0.0.1:8138/api/v1/conversations/<redacted-reader-conversation-id>/messages?limit=100 => [200] OK
 44. [GET] http://127.0.0.1:8138/api/v1/conversations?limit=30&archived=false&deleted=false => [200] OK
-45. [GET] http://127.0.0.1:8138/api/v1/conversations/8691910b-35f6-450b-a1b9-02646b9995fc/messages?limit=100 => [200] OK
+45. [GET] http://127.0.0.1:8138/api/v1/conversations/<redacted-reader-conversation-id>/messages?limit=100 => [200] OK
 46. [POST] http://127.0.0.1:8138/api/v1/chat/stream => [200] OK
 47. [GET] http://127.0.0.1:8138/api/v1/conversations?limit=30&archived=false&deleted=false => [200] OK
 48. [GET] http://127.0.0.1:8138/api/v1/conversations?limit=30&archived=false&deleted=false => [200] OK
@@ -31,7 +31,7 @@
 59. [GET] http://127.0.0.1:8138/api/v1/conversations?limit=30&archived=false&deleted=false => [200] OK
 60. [GET] http://127.0.0.1:8138/api/v1/conversations?limit=30&archived=false&deleted=false => [200] OK
 61. [GET] http://127.0.0.1:8138/api/v1/conversations?limit=50 => [200] OK
-62. [PATCH] http://127.0.0.1:8138/api/v1/conversations/8691910b-35f6-450b-a1b9-02646b9995fc/activity => [200] OK
+62. [PATCH] http://127.0.0.1:8138/api/v1/conversations/<redacted-reader-conversation-id>/activity => [200] OK
 63. [GET] http://127.0.0.1:8138/api/v1/conversations?limit=30&archived=false&deleted=false => [200] OK
 64. [GET] http://127.0.0.1:8138/api/v1/conversations?limit=30&archived=false&deleted=false => [200] OK
 65. [GET] http://127.0.0.1:8138/api/v1/conversations?limit=50 => [200] OK

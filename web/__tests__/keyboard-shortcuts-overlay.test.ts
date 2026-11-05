@@ -23,7 +23,7 @@ describe("keyboard shortcuts overlay", () => {
     const keyboardShortcutHook = source(
       "components/keyboard/useChatKeyboardShortcuts.ts",
     );
-    const guestShellActions = source("components/guest/useGuestShellActions.ts");
+    const guestShellActions = source("components/chat/useChatShellCapabilities.ts");
     const menu = source("components/sidebar/ProfileMenu.tsx");
 
     expect(overlay).toContain("KEYBOARD_SHORTCUTS.filter");
@@ -112,15 +112,12 @@ describe("keyboard shortcuts overlay", () => {
       "isMenuOpen || isTriggerFocused || !quickJumpHint",
     );
     expect(profileMenu).toContain("!isQuickJumpActive && (");
-    expect(profileMenu).toContain("min-w-[304px]");
-    expect(profileMenu).toContain("h-[294px]");
-    expect(profileMenu).toContain("min-h-[88px]");
-    expect(profileMenu).toContain("h-[22px] w-full");
-    expect(profileMenu.match(/min-w-\[248px\]/g)).toHaveLength(3);
+    // Ayuda y legal is the one submenu left; Ajustes holds the rest.
+    expect(profileMenu.match(/min-w-\[248px\]/g)).toHaveLength(1);
     expect(profileMenu).toContain("min-h-[38px]");
     expect(profileMenu).toContain("keyboard_shortcuts.menu_item");
-    expect(profileMenu).toContain('href="/terms"');
-    expect(profileMenu).toContain('href="/privacy"');
+    expect(profileMenu).not.toContain('href="/terms"');
+    expect(profileMenu).not.toContain('href="/privacy"');
     expect(profileMenu).not.toContain("settings.help.release_notes");
     expect(profileMenu).toContain('className="whitespace-nowrap"');
     expect(sidebarNavButton).toContain("KeyboardShortcutKeycap");

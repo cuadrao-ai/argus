@@ -1,0 +1,50 @@
+import XCTest
+
+final class W1hSplitDiagnosticUITests: XCTestCase {
+    func testShareReplaceReadBack() {
+        continueAfterFailure = true
+        let app = XCUIApplication.cuadraoPreview()
+        app.launchArguments = CuadraoPreviewLaunch.arguments + ["--plan-reset", "-cuadrao.design.appearance", "light"]
+        app.launch(); app.buttons["tab.plan"].tap()
+        app.segmentedControls["plan-audience"].buttons["En grupo"].tap()
+        app.buttons["group-card-trip"].tap()
+        XCTAssertTrue(app.staticTexts["group-own-share"].waitForExistence(timeout: 3))
+        app.segmentedControls["group-sections"].buttons["Gastos"].tap()
+        app.buttons["group-add-expense"].tap()
+        app.textFields["group-expense-name"].tap(); app.textFields["group-expense-name"].typeText("Cena del viernes\n")
+        replace(app.textFields["group-expense-amount"], with: "2000")
+        if app.toolbars.buttons["Listo"].exists { app.toolbars.buttons["Listo"].tap() }
+        reveal(app, app.buttons["group-expense-draft"])
+        app.buttons["group-expense-draft"].tap()
+        XCTAssertTrue(app.buttons["group-entry-draft"].waitForExistence(timeout: 3))
+        app.buttons["group-entry-draft"].tap()
+        reveal(app, app.buttons["group-expense-save"]); app.buttons["group-expense-save"].tap()
+        app.buttons.matching(identifier: "group-entry-recorded").element(boundBy: 0).tap()
+        var mismatches = 0
+        for round in 0..<12 {
+            for name in ["Tú", "Ana"] {
+                let field = app.textFields["Parte de \(name)"]
+                let typed = String(300 + round * 7 + (name == "Ana" ? 1 : 0))
+                let before = field.value as? String ?? ""
+                replace(field, with: typed)
+                let after = field.value as? String ?? ""
+                print("W1H-SPLIT round \(round) \(name) before '\(before)' typed '\(typed)' after '\(after)'")
+                if after != typed { mismatches += 1; XCTFail("round \(round) \(name): before '\(before)' typed '\(typed)' read '\(after)'") }
+            }
+        }
+        if app.toolbars.buttons["Listo"].exists { app.toolbars.buttons["Listo"].tap() }
+        print("W1H-SPLIT mismatches \(mismatches)")
+    }
+    private func replace(_ field: XCUIElement, with text: String) {
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap(); field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (field.value as? String ?? "").count)); field.typeText(text)
+    }
+    private func reveal(_ app: XCUIApplication, _ element: XCUIElement) {
+        for _ in 0..<7 {
+            let navigation = app.buttons["tab.home"]
+            let bottom = navigation.exists ? navigation.frame.minY - 12 : app.frame.maxY
+            if element.isHittable && element.frame.midY < bottom { return }
+            app.swipeUp()
+        }
+        XCTAssertTrue(element.isHittable)
+    }
+}

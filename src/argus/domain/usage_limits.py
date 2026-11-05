@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, Protocol
 
+from loguru import logger
+
 if TYPE_CHECKING:
     from argus.api.guest_access import AccountContext
 
@@ -52,13 +54,116 @@ GUEST_SIMULATION_VISITOR_LIMITS: list[tuple[str, int]] = [
 # Anti-abuse, not an allowance. Conversation is compute: free, and the product
 # surface says so with no limit. An anonymous endpoint still cannot be
 # unbounded, so a guest's turns count against a visitor-keyed daily ceiling
-# sized so no real person reaches it. Never rendered, never promised, and a
-# registered account carries none.
+# sized so no real person reaches it. Never rendered, never promised.
+# A signed-in account has its own daily ceiling so one login cannot run
+# unbounded LLM spend; that cap is also never projected as an allowance.
 GUEST_COMPUTE_CEILING_RESOURCE = "guest_compute_turns"
 GUEST_COMPUTE_DAILY_CEILING = 300
 GUEST_COMPUTE_CEILING_LIMITS: list[tuple[str, int]] = [
     ("day", GUEST_COMPUTE_DAILY_CEILING)
 ]
+REGISTERED_COMPUTE_CEILING_RESOURCE = "account_compute_turns"
+# One authenticated guest workspace is one person. The visitor (IP) ceiling
+# stays 300 so a shared NAT still has headroom. A single session hopping
+# IPs must not inherit that headroom. 100 is still far above any honest
+# guest conversation day and is env-overridable without a deploy.
+_GUEST_SESSION_DAILY_TURN_CEILING_DEFAULT = 100
+# Signed-in chat: 200 bounds worst-case spend at roughly $50/user/day.
+# Honest heavy users can hit it. Env-overridable without a deploy.
+_REGISTERED_DAILY_TURN_CEILING_DEFAULT = 200
+_REGISTERED_DAILY_RESEARCH_CEILING_DEFAULT = 15
+REGISTERED_DAILY_TURN_CEILING_ENV = "CUADRAO_REGISTERED_DAILY_TURN_CEILING"
+REGISTERED_DAILY_RESEARCH_CEILING_ENV = "ARGUS_REGISTERED_DAILY_RESEARCH_CEILING"
+# One user-facing refusal for every compute ceiling. Guest and signed-in
+# 429s raise this exact detail so the copy cannot drift.
+COMPUTE_TURN_CEILING_DETAIL = "Too many conversation turns today."
+COMPUTE_CLAIM_UNAVAILABLE_DETAIL = (
+    "Argus could not start this turn. Please try again."
+)
+# One Retry-After for every compute-claim outage. Guest and signed-in 503s
+# both read this so the wait cannot drift.
+COMPUTE_CLAIM_UNAVAILABLE_RETRY_AFTER_SECONDS = 15
+
+
+# Postgres ``integer`` max. A typo like 3000000000 overflows the claim
+# RPC and turns every signed-in request into a 503.
+POSTGRES_INTEGER_MAX = 2**31 - 1
+_INVALID_POSITIVE_INT_ENV_WARNED: set[str] = set()
+
+
+def reset_positive_int_env_warnings_for_tests() -> None:
+    _INVALID_POSITIVE_INT_ENV_WARNED.clear()
+
+
+def positive_int_env(name: str, default: int) -> int:
+    """Blank, invalid, non-positive, or overflow values keep the default.
+
+    Overflow is the same class of unusable env as garbage: fall back with
+    one warning per process so a typo cannot take the API down or flood
+    logs on every claim. Guest session, registered chat, registered
+    research, and the two global ceilings share this helper.
+    """
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        parsed = int(raw)
+    except ValueError:
+        _warn_invalid_positive_int_env(name, raw, default)
+        return default
+    if parsed < 1 or parsed > POSTGRES_INTEGER_MAX:
+        _warn_invalid_positive_int_env(name, raw, default)
+        return default
+    return parsed
+
+
+def _warn_invalid_positive_int_env(name: str, raw: str, default: int) -> None:
+    if name in _INVALID_POSITIVE_INT_ENV_WARNED:
+        return
+    _INVALID_POSITIVE_INT_ENV_WARNED.add(name)
+    logger.warning(
+        "Invalid usage-limit env; using the code-owned default",
+        name=name,
+        value=raw,
+        default=default,
+    )
+
+
+def guest_session_daily_turn_ceiling() -> int:
+    return positive_int_env(
+        "CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING",
+        _GUEST_SESSION_DAILY_TURN_CEILING_DEFAULT,
+    )
+
+
+def registered_daily_turn_ceiling() -> int:
+    return positive_int_env(
+        REGISTERED_DAILY_TURN_CEILING_ENV,
+        _REGISTERED_DAILY_TURN_CEILING_DEFAULT,
+    )
+
+
+def registered_daily_research_ceiling() -> int:
+    return positive_int_env(
+        REGISTERED_DAILY_RESEARCH_CEILING_ENV,
+        _REGISTERED_DAILY_RESEARCH_CEILING_DEFAULT,
+    )
+
+
+def guest_session_ceiling_limits() -> list[tuple[str, int]]:
+    return [("day", guest_session_daily_turn_ceiling())]
+
+
+def guest_compute_ceiling_limits() -> list[tuple[str, int]]:
+    return list(GUEST_COMPUTE_CEILING_LIMITS)
+
+
+def registered_compute_ceiling_limits() -> list[tuple[str, int]]:
+    return [("day", registered_daily_turn_ceiling())]
+
+
+def registered_research_limits() -> list[tuple[str, int]]:
+    return [("day", registered_daily_research_ceiling())]
 
 # One ceiling for every research shape, not one per tier. A stranger cannot
 # tell a fast lookup from a thorough comparison, and a meter they cannot
@@ -83,14 +188,10 @@ GLOBAL_DISCOVERY_CEILING_SUBJECT = "00000000-0000-4000-8000-000000000d15"
 
 
 def global_discovery_daily_ceiling() -> int:
-    raw = os.getenv("ARGUS_DISCOVERY_GLOBAL_DAILY_CEILING", "").strip()
-    if not raw:
-        return _GLOBAL_DISCOVERY_DAILY_CEILING_DEFAULT
-    try:
-        parsed = int(raw)
-    except ValueError:
-        return _GLOBAL_DISCOVERY_DAILY_CEILING_DEFAULT
-    return parsed if parsed > 0 else _GLOBAL_DISCOVERY_DAILY_CEILING_DEFAULT
+    return positive_int_env(
+        "ARGUS_DISCOVERY_GLOBAL_DAILY_CEILING",
+        _GLOBAL_DISCOVERY_DAILY_CEILING_DEFAULT,
+    )
 
 
 # The research rail rides the default question path, not an opt-in surface, so
@@ -102,14 +203,10 @@ GLOBAL_RESEARCH_CEILING_SUBJECT = "00000000-0000-4000-8000-000000000d16"
 
 
 def global_research_daily_ceiling() -> int:
-    raw = os.getenv("ARGUS_RESEARCH_GLOBAL_DAILY_CEILING", "").strip()
-    if not raw:
-        return _GLOBAL_RESEARCH_DAILY_CEILING_DEFAULT
-    try:
-        parsed = int(raw)
-    except ValueError:
-        return _GLOBAL_RESEARCH_DAILY_CEILING_DEFAULT
-    return parsed if parsed > 0 else _GLOBAL_RESEARCH_DAILY_CEILING_DEFAULT
+    return positive_int_env(
+        "ARGUS_RESEARCH_GLOBAL_DAILY_CEILING",
+        _GLOBAL_RESEARCH_DAILY_CEILING_DEFAULT,
+    )
 
 
 _REGISTERED_ALLOWANCES: dict[str, list[tuple[str, int]]] = {

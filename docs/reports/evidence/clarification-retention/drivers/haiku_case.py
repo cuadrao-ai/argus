@@ -3,14 +3,14 @@ import json, os, sys
 from pathlib import Path
 ROOT = Path(os.environ["ARGUS_REPO_ROOT"]); ENV = Path(os.environ["ARGUS_ENV_FILE"])
 sys.path.insert(0, str(ROOT / "src")); sys.path.insert(0, str(ROOT))
-os.environ["ARGUS_STRUCTURED_MODEL"] = "anthropic/claude-haiku-4.5"
-os.environ["ARGUS_STRUCTURED_FALLBACK_MODEL"] = "anthropic/claude-haiku-4.5"
+os.environ["CUADRAO_STRUCTURED_MODEL"] = "anthropic/claude-haiku-4.5"
+os.environ["CUADRAO_STRUCTURED_FALLBACK_MODEL"] = "anthropic/claude-haiku-4.5"
 from dotenv import load_dotenv
 load_dotenv(ENV, override=False)
 os.environ["ARGUS_MARKET_DATA_PROVIDER_MODE"] = "live_provider"
 os.environ["ARGUS_ASSET_PROVIDER_MODE"] = "live_provider"
 import argus
-print("argus from", argus.__file__, "structured model", os.environ["ARGUS_STRUCTURED_MODEL"], flush=True)
+print("argus from", argus.__file__, "structured model", os.environ["CUADRAO_STRUCTURED_MODEL"], flush=True)
 from argus.domain.market_data.assets import clear_asset_cache
 from tests.evals.measurement_eval_harness import load_eval_cases, run_eval_case
 clear_asset_cache()

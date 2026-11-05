@@ -1,0 +1,674 @@
+{
+  "synthetic_only": true,
+  "purpose": "Local scripted lifecycle simulation, not real-bank accuracy evidence",
+  "extraction_checks": [
+    {
+      "file": "manual.json",
+      "mode": "actual_manual_json",
+      "ids": [
+        "7d9253f4d9de5c5119eee0be",
+        "a867d56f564a263dc916e729",
+        "b01c69611b54bc11cb19095a"
+      ],
+      "errors": []
+    },
+    {
+      "file": "transactions.csv",
+      "mode": "actual_csv",
+      "ids": [
+        "b0e171d7b725641af27b60b5",
+        "c6ba6ac2146b2cd6f330d864",
+        "ca39e7a33476c74a3757ec03",
+        "dccf754acb4d28ca96b10696",
+        "9be1b55d80f904a557b6ae7b",
+        "ea0d046af65b11082f600812",
+        "e1d202ae8b292ef00a3d7a03",
+        "596fcea8d7854e313e76483c",
+        "8a79c2aef6b45c4af31a1a84",
+        "421b4f623103c4a6733c440d",
+        "945330e096e87c49d8ee6305"
+      ],
+      "errors": []
+    },
+    {
+      "file": "statement.pdf",
+      "mode": "actual_synthetic_pdf_text",
+      "ids": [
+        "57bafe9d8d478168c7f9af57",
+        "61e39ec91594501515e9bbb3",
+        "04e3cfa0e61c19a54757b0a1",
+        "8a6d4ddee67e28e7ae7edb5c"
+      ],
+      "errors": []
+    },
+    {
+      "file": "overlapping.csv",
+      "mode": "actual_csv",
+      "ids": [
+        "59925237908d6dcb4f985dee",
+        "83484980dc1909e2843d358f"
+      ],
+      "errors": []
+    },
+    {
+      "file": "statement-overlap.pdf",
+      "mode": "actual_synthetic_pdf_text",
+      "ids": [
+        "ed50a09856487127c5c45ae7",
+        "942c7d053d0cab89a0df55e1",
+        "1d0bad3fe57ac4458dda80da",
+        "38f4d24b615a8ede0dc0bd9c",
+        "9aceffc7292af44c1f0577ed"
+      ],
+      "errors": []
+    },
+    {
+      "file": "conversation-es.txt",
+      "mode": "unsupported",
+      "errors": [
+        "Extraction unavailable; OCR/STT and natural-language interpretation are untested"
+      ]
+    },
+    {
+      "file": "conversation-es.txt",
+      "mode": "stub",
+      "ids": [
+        "d75d3e10323706f55f893429",
+        "90dc60483bcdee886af82c47"
+      ],
+      "errors": []
+    },
+    {
+      "file": "conversation-en.txt",
+      "mode": "unsupported",
+      "errors": [
+        "Extraction unavailable; OCR/STT and natural-language interpretation are untested"
+      ]
+    },
+    {
+      "file": "conversation-en.txt",
+      "mode": "stub",
+      "ids": [
+        "7f55c732d24344be0c295673"
+      ],
+      "errors": []
+    },
+    {
+      "file": "voice-transcript-es.txt",
+      "mode": "unsupported",
+      "errors": [
+        "Extraction unavailable; OCR/STT and natural-language interpretation are untested"
+      ]
+    },
+    {
+      "file": "voice-transcript-es.txt",
+      "mode": "stub",
+      "ids": [
+        "b7684d758f0e8b1a6adab798",
+        "7fa32e2d5637e5f15be1f7ee"
+      ],
+      "errors": []
+    },
+    {
+      "file": "receipt.png",
+      "mode": "unsupported",
+      "errors": [
+        "Extraction unavailable; OCR/STT and natural-language interpretation are untested"
+      ]
+    },
+    {
+      "file": "receipt.png",
+      "mode": "stub",
+      "ids": [
+        "5c605e32a6173c1886be3938"
+      ],
+      "errors": []
+    },
+    {
+      "file": "scanned-statement.png",
+      "mode": "unsupported",
+      "errors": [
+        "Extraction unavailable; OCR/STT and natural-language interpretation are untested"
+      ]
+    },
+    {
+      "file": "scanned-statement.png",
+      "mode": "stub",
+      "ids": [
+        "9ad1cc2188c1e4635091cdd5",
+        "5e7c32415ba4579fc060e0a3"
+      ],
+      "errors": []
+    }
+  ],
+  "lifecycle_actions": [
+    {
+      "action": "explicit_simulated_batch_confirmation",
+      "file": "manual.json",
+      "result": {
+        "confirmed": [],
+        "skipped": {}
+      }
+    },
+    {
+      "action": "explicit_simulated_batch_confirmation",
+      "file": "transactions.csv",
+      "result": {
+        "confirmed": [],
+        "skipped": {
+          "596fcea8d7854e313e76483c": [
+            "date"
+          ],
+          "8a79c2aef6b45c4af31a1a84": [
+            "amount"
+          ],
+          "421b4f623103c4a6733c440d": [
+            "date",
+            "amount",
+            "account"
+          ],
+          "945330e096e87c49d8ee6305": [
+            "destination"
+          ]
+        }
+      }
+    },
+    {
+      "action": "explicit_simulated_batch_confirmation",
+      "file": "statement.pdf",
+      "result": {
+        "confirmed": [],
+        "skipped": {}
+      }
+    },
+    {
+      "action": "explicit_simulated_batch_confirmation",
+      "file": "overlapping.csv",
+      "result": {
+        "confirmed": [],
+        "skipped": {
+          "59925237908d6dcb4f985dee": [
+            "possible_overlap"
+          ]
+        }
+      }
+    },
+    {
+      "action": "explicit_simulated_batch_confirmation",
+      "file": "statement-overlap.pdf",
+      "result": {
+        "confirmed": [],
+        "skipped": {
+          "ed50a09856487127c5c45ae7": [
+            "possible_overlap"
+          ],
+          "942c7d053d0cab89a0df55e1": [
+            "possible_overlap"
+          ],
+          "1d0bad3fe57ac4458dda80da": [
+            "possible_overlap"
+          ],
+          "38f4d24b615a8ede0dc0bd9c": [
+            "possible_overlap"
+          ]
+        }
+      }
+    },
+    {
+      "action": "explicit_simulated_batch_confirmation",
+      "file": "conversation-es.txt",
+      "result": {
+        "confirmed": [],
+        "skipped": {
+          "90dc60483bcdee886af82c47": [
+            "currency",
+            "account"
+          ]
+        }
+      }
+    },
+    {
+      "action": "explicit_simulated_batch_confirmation",
+      "file": "conversation-en.txt",
+      "result": {
+        "confirmed": [],
+        "skipped": {}
+      }
+    },
+    {
+      "action": "explicit_simulated_batch_confirmation",
+      "file": "voice-transcript-es.txt",
+      "result": {
+        "confirmed": [],
+        "skipped": {
+          "7fa32e2d5637e5f15be1f7ee": [
+            "date",
+            "account",
+            "destination"
+          ]
+        }
+      }
+    },
+    {
+      "action": "explicit_simulated_batch_confirmation",
+      "file": "receipt.png",
+      "result": {
+        "confirmed": [],
+        "skipped": {
+          "5c605e32a6173c1886be3938": [
+            "amount"
+          ]
+        }
+      }
+    },
+    {
+      "action": "explicit_simulated_batch_confirmation",
+      "file": "scanned-statement.png",
+      "result": {
+        "confirmed": [],
+        "skipped": {
+          "5e7c32415ba4579fc060e0a3": [
+            "amount"
+          ]
+        }
+      }
+    },
+    {
+      "action": "explicit_simulated_overlap_review",
+      "flagged_ids": [
+        "1d0bad3fe57ac4458dda80da",
+        "38f4d24b615a8ede0dc0bd9c",
+        "942c7d053d0cab89a0df55e1",
+        "ed50a09856487127c5c45ae7"
+      ],
+      "decision": "Reject repeated CSV income; keep other potential overlaps visible"
+    },
+    {
+      "action": "retry_identical_source",
+      "duplicate_count": 0
+    }
+  ],
+  "before_correction": {
+    "DOP": {
+      "personal": {
+        "expense": "1376.00",
+        "income": "3900.00",
+        "transfer": "500.00"
+      }
+    },
+    "USD": {
+      "personal": {
+        "expense": "40.00",
+        "income": "90.00",
+        "transfer": "0.00"
+      }
+    }
+  },
+  "after_correction_and_reload": {
+    "DOP": {
+      "personal": {
+        "expense": "1376.00",
+        "income": "3900.00",
+        "transfer": "500.00"
+      }
+    },
+    "USD": {
+      "personal": {
+        "expense": "40.00",
+        "income": "90.00",
+        "transfer": "0.00"
+      }
+    }
+  },
+  "reload_matches": true,
+  "confirmed_records": 20,
+  "review_exceptions": [
+    {
+      "fields": {
+        "account": "statement-dop",
+        "amount": "125.50",
+        "currency": "DOP",
+        "date": "2026-09-10",
+        "description": "Synthetic purchase B",
+        "destination": "personal",
+        "kind": "expense",
+        "source_id": "statement-03"
+      },
+      "id": "1d0bad3fe57ac4458dda80da",
+      "issues": [
+        "possible_overlap"
+      ],
+      "mode": "actual_synthetic_pdf_text",
+      "source_ref": {
+        "digest": "dc2835861b6ba918c2da9e29232983d59e20a28ea2e9698f964665b7e52c8ace",
+        "file": "statement-overlap.pdf",
+        "page": 1,
+        "row": 3
+      },
+      "status": "proposed"
+    },
+    {
+      "fields": {
+        "account": "statement-dop",
+        "amount": "25.50",
+        "currency": "DOP",
+        "date": "2026-09-10",
+        "description": "Synthetic refund",
+        "destination": "personal",
+        "kind": "refund",
+        "source_id": "statement-04"
+      },
+      "id": "38f4d24b615a8ede0dc0bd9c",
+      "issues": [
+        "possible_overlap"
+      ],
+      "mode": "actual_synthetic_pdf_text",
+      "source_ref": {
+        "digest": "dc2835861b6ba918c2da9e29232983d59e20a28ea2e9698f964665b7e52c8ace",
+        "file": "statement-overlap.pdf",
+        "page": 1,
+        "row": 4
+      },
+      "status": "proposed"
+    },
+    {
+      "fields": {
+        "account": "",
+        "amount": "",
+        "currency": "DOP",
+        "date": "",
+        "description": "Compra sintética",
+        "destination": "personal",
+        "kind": "expense",
+        "source_id": "tx-missing"
+      },
+      "id": "421b4f623103c4a6733c440d",
+      "issues": [
+        "date",
+        "amount",
+        "account"
+      ],
+      "mode": "actual_csv",
+      "source_ref": {
+        "digest": "ba7c8753f79438fd5a083661de781a12e9743a3a4c00c1781d4f98b1666d9366",
+        "file": "transactions.csv",
+        "row": 10
+      },
+      "status": "proposed"
+    },
+    {
+      "fields": {
+        "account": "cash-dop",
+        "amount": "80.00",
+        "currency": "DOP",
+        "date": "03/04/2026",
+        "description": "Compra sintética",
+        "destination": "personal",
+        "kind": "expense",
+        "source_id": "tx-date"
+      },
+      "id": "596fcea8d7854e313e76483c",
+      "issues": [
+        "date"
+      ],
+      "mode": "actual_csv",
+      "source_ref": {
+        "digest": "ba7c8753f79438fd5a083661de781a12e9743a3a4c00c1781d4f98b1666d9366",
+        "file": "transactions.csv",
+        "row": 8
+      },
+      "status": "proposed"
+    },
+    {
+      "fields": {
+        "account": "cash-dop",
+        "amount": "1200.00",
+        "currency": "DOP",
+        "date": "2026-09-10",
+        "description": "Ingreso sintético",
+        "destination": "personal",
+        "kind": "income",
+        "source_id": "tx-dop-01"
+      },
+      "id": "59925237908d6dcb4f985dee",
+      "issues": [],
+      "mode": "actual_csv",
+      "source_ref": {
+        "digest": "7b086041a95976b3e857c4fe7c1b9b0dac69e5293b8a869aea264960628ff05a",
+        "file": "overlapping.csv",
+        "row": 1
+      },
+      "status": "rejected"
+    },
+    {
+      "fields": {
+        "account": "cash-dop",
+        "amount": "",
+        "currency": "DOP",
+        "date": "2026-09-10",
+        "description": "Partially unreadable receipt",
+        "destination": "personal",
+        "kind": "expense",
+        "source_id": "receipt-01"
+      },
+      "id": "5c605e32a6173c1886be3938",
+      "issues": [
+        "amount"
+      ],
+      "mode": "stub",
+      "source_ref": {
+        "digest": "83c086bd67466b7769e7dd5af8963831f672f4ca9dacee2dec5ba383e4b076b8",
+        "file": "receipt.png",
+        "page": 1,
+        "region": [
+          35,
+          425,
+          1050,
+          475
+        ],
+        "row": 1,
+        "stub_digest": "3f759ba6562fdf3b237b956f8bd9e938b28c5482bf9888bfe632a77e8a9ef3ef"
+      },
+      "status": "proposed"
+    },
+    {
+      "fields": {
+        "account": "scan-dop",
+        "amount": "",
+        "currency": "DOP",
+        "date": "2026-09-11",
+        "description": "Compra sintética",
+        "destination": "personal",
+        "kind": "expense",
+        "source_id": "scan-02"
+      },
+      "id": "5e7c32415ba4579fc060e0a3",
+      "issues": [
+        "amount"
+      ],
+      "mode": "stub",
+      "source_ref": {
+        "digest": "e5fca617d1c70b2a78c422a128312f5e4e3927db59d4c37f07f5a5ce038b9805",
+        "file": "scanned-statement.png",
+        "page": 1,
+        "region": [
+          35,
+          425,
+          1050,
+          465
+        ],
+        "row": 2,
+        "stub_digest": "c54d4de1972e49930e9c196eca108832bf1a0a1687467d83d29202c02422d0db"
+      },
+      "status": "proposed"
+    },
+    {
+      "fields": {
+        "account": "",
+        "amount": "700.00",
+        "currency": "DOP",
+        "date": "",
+        "description": "Compra sintética",
+        "destination": "personal or household",
+        "kind": "expense",
+        "source_id": "voice-02"
+      },
+      "id": "7fa32e2d5637e5f15be1f7ee",
+      "issues": [
+        "date",
+        "account",
+        "destination"
+      ],
+      "mode": "stub",
+      "source_ref": {
+        "char_end": 252,
+        "char_start": 178,
+        "digest": "d470ec119f4b5d4159e11df62fe6c2b222a32bd77be73c3db520416e60ab0593",
+        "file": "voice-transcript-es.txt",
+        "quote": "Y setecientos de la compra de casa, no sé si ponerlo personal o del hogar.",
+        "row": 2,
+        "stub_digest": "10b470b1900c07ca1b07b298bc3fae9953ddb107a8a2d3e73ff636b27674ec7f"
+      },
+      "status": "proposed"
+    },
+    {
+      "fields": {
+        "account": "cash-dop",
+        "amount": "1.234,56",
+        "currency": "DOP",
+        "date": "2026-09-10",
+        "description": "Compra sintética",
+        "destination": "personal",
+        "kind": "expense",
+        "source_id": "tx-number"
+      },
+      "id": "8a79c2aef6b45c4af31a1a84",
+      "issues": [
+        "amount"
+      ],
+      "mode": "actual_csv",
+      "source_ref": {
+        "digest": "ba7c8753f79438fd5a083661de781a12e9743a3a4c00c1781d4f98b1666d9366",
+        "file": "transactions.csv",
+        "row": 9
+      },
+      "status": "proposed"
+    },
+    {
+      "fields": {
+        "account": "",
+        "amount": "20.00",
+        "currency": "$",
+        "date": "2026-09-10",
+        "description": "Compra sintética",
+        "destination": "personal",
+        "kind": "expense",
+        "source_id": "chat-es-02"
+      },
+      "id": "90dc60483bcdee886af82c47",
+      "issues": [
+        "currency",
+        "account"
+      ],
+      "mode": "stub",
+      "source_ref": {
+        "char_end": 138,
+        "char_start": 88,
+        "digest": "98f99ac44f7e4f34cc68ba30ad60a93a1c13d1c8e1c40ba2b172d1ef2d5a0a11",
+        "file": "conversation-es.txt",
+        "quote": "También pagué $20; no dije la moneda ni la cuenta.",
+        "row": 2,
+        "stub_digest": "d34c03ae0944774808b6d73e6f0d4db37c462ecabdcb18144f864485db18e2cf"
+      },
+      "status": "proposed"
+    },
+    {
+      "fields": {
+        "account": "statement-dop",
+        "amount": "125.50",
+        "currency": "DOP",
+        "date": "2026-09-10",
+        "description": "Synthetic purchase A",
+        "destination": "personal",
+        "kind": "expense",
+        "source_id": "statement-02"
+      },
+      "id": "942c7d053d0cab89a0df55e1",
+      "issues": [
+        "possible_overlap"
+      ],
+      "mode": "actual_synthetic_pdf_text",
+      "source_ref": {
+        "digest": "dc2835861b6ba918c2da9e29232983d59e20a28ea2e9698f964665b7e52c8ace",
+        "file": "statement-overlap.pdf",
+        "page": 1,
+        "row": 2
+      },
+      "status": "proposed"
+    },
+    {
+      "fields": {
+        "account": "cash-dop",
+        "amount": "700.00",
+        "currency": "DOP",
+        "date": "2026-09-10",
+        "description": "Compra sintética",
+        "destination": "personal or household",
+        "kind": "expense",
+        "source_id": "tx-household"
+      },
+      "id": "945330e096e87c49d8ee6305",
+      "issues": [
+        "destination"
+      ],
+      "mode": "actual_csv",
+      "source_ref": {
+        "digest": "ba7c8753f79438fd5a083661de781a12e9743a3a4c00c1781d4f98b1666d9366",
+        "file": "transactions.csv",
+        "row": 11
+      },
+      "status": "proposed"
+    },
+    {
+      "fields": {
+        "account": "statement-dop",
+        "amount": "1200.00",
+        "currency": "DOP",
+        "date": "2026-09-10",
+        "description": "Synthetic income",
+        "destination": "personal",
+        "kind": "income",
+        "source_id": "statement-01"
+      },
+      "id": "ed50a09856487127c5c45ae7",
+      "issues": [
+        "possible_overlap"
+      ],
+      "mode": "actual_synthetic_pdf_text",
+      "source_ref": {
+        "digest": "dc2835861b6ba918c2da9e29232983d59e20a28ea2e9698f964665b7e52c8ace",
+        "file": "statement-overlap.pdf",
+        "page": 1,
+        "row": 1
+      },
+      "status": "proposed"
+    }
+  ],
+  "statement_reconciliation": {
+    "status": "checked",
+    "source": "actual PDF bytes",
+    "currency": "DOP",
+    "opening": "1000.00",
+    "closing": "1974.50",
+    "activity": "974.50",
+    "derived_closing": "1974.50",
+    "matches": true
+  },
+  "untested": [
+    "OCR",
+    "audio/STT",
+    "real bank layouts",
+    "household permissions",
+    "production storage"
+  ]
+}

@@ -1,0 +1,2 @@
+Test Case '-[ArgusFoundationUITests.ReleaseUIJourneyTests testInvitationProminentLabelsLightAndDark]' passed (24.039 seconds).
+exit=0 seconds=944

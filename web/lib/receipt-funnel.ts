@@ -1,4 +1,4 @@
-import { ARGUS_API_BASE_URL } from "./argus-api-transport";
+import { CUADRAO_API_BASE_URL } from "./argus-api-transport";
 import type { ReceiptKind } from "./public-receipt-turns";
 
 /** The viewer-side funnel stages. Neither carries an identifier. */
@@ -9,7 +9,7 @@ export type ReceiptFunnelStage = "viewed" | "try_argus";
  * and a failed beacon is simply an uncounted stage.
  */
 export function reportReceiptFunnelStage(stage: ReceiptFunnelStage, kind: ReceiptKind = "backtest"): void {
-  const url = `${ARGUS_API_BASE_URL}/public/receipt-funnel`;
+  const url = `${CUADRAO_API_BASE_URL}/public/receipt-funnel`;
   const body = JSON.stringify({ stage, kind });
   try {
     if (navigator.sendBeacon) {

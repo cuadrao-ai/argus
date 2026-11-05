@@ -1,0 +1,60 @@
+    version     |               name                
+----------------+-----------------------------------
+ 20261005230000 | apple_name_initialization
+ 20261008100000 | financial_document_source_objects
+ 20261008110000 | document_preparation_jobs
+ 20261008130000 | whatsapp_intake
+ 20261008140000 | business_spaces
+
+ rows_with_storage_ref | rows_with_legacy_bytes 
+-----------------------+------------------------
+                     6 |                      1
+
+ objects_in_bucket 
+-------------------
+                24
+
+ rows_with_job | drafts_queued_or_preparing 
+---------------+----------------------------
+             3 |                          0
+
+ codes | links | inbound 
+-------+-------+---------
+     1 |     1 |      12
+
+       on_table        |                   conname                    
+-----------------------+----------------------------------------------
+ whatsapp_sender_links | whatsapp_sender_links_destination_space_fkey
+
+           on_table            |            tgname             
+-------------------------------+-------------------------------
+ whatsapp_sender_links         | fill_sender_link_space
+ financial_import_observations | import_observation_same_space
+ household_account_grants      | refuse_business_account_grant
+ whatsapp_inbound_messages     | whatsapp_capture_same_space
+
+          table_name          |     column_name      
+------------------------------+----------------------
+ conversations                | owner_space_id
+ financial_accounts           | owner_space_id
+ financial_import_events      | owner_space_id
+ financial_source_connections | owner_space_id
+ whatsapp_sender_links        | destination_space_id
+
+ spaces | business_accounts | business_connections | business_events 
+--------+-------------------+----------------------+-----------------
+      2 |                 1 |                    3 |               2
+
+ references |          from_table          | on_delete 
+------------+------------------------------+-----------
+ spaces     | conversations                | c
+ spaces     | financial_accounts           | c
+ spaces     | financial_source_connections | c
+ spaces     | financial_import_events      | c
+ spaces     | whatsapp_sender_links        | c
+
+                                                    oid                                                    
+-----------------------------------------------------------------------------------------------------------
+ business_space_of(uuid)
+ create_financial_account(uuid,text,text,text,text,text,integer,bigint,timestamp with time zone,text,uuid)
+

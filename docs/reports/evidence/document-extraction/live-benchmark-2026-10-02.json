@@ -1,0 +1,294 @@
+{
+  "mode": "live",
+  "results": [
+    {
+      "fixture_id": "cord-test-0",
+      "sha256": "4e13b815b540420a4d68229494bd6259768c226a595114609970edae9a620aa9",
+      "latency_ms": 811,
+      "error_code": "extraction_provider_failed",
+      "expected_rejection": false,
+      "rejection_correct": false,
+      "quality": {
+        "expected_transactions": 1,
+        "observed_transactions": 0,
+        "exact_matches": 0,
+        "missing_or_mismatched": 1,
+        "invented_or_mismatched": 0,
+        "field_multiset_matches": {
+          "amount": 0,
+          "currency": 0,
+          "date": 0,
+          "direction": 0
+        },
+        "field_denominator": 1,
+        "balance_candidates": 0,
+        "balances_as_transactions": 0
+      }
+    }
+  ],
+  "fixture_count": 6,
+  "fixtures": [
+    {
+      "id": "cord-test-0",
+      "sha256": "4e13b815b540420a4d68229494bd6259768c226a595114609970edae9a620aa9"
+    },
+    {
+      "id": "cord-test-1",
+      "sha256": "636284664cfc357e05f7b10d67ddb380f828a1be0a20809514f9e7fc0c611a9f"
+    },
+    {
+      "id": "statement-dop",
+      "sha256": "e0d90e2e9872986b4b4619185ce3831ea5becd70cd96262cce43f6f285bcbd0b"
+    },
+    {
+      "id": "statement-usd",
+      "sha256": "ecb9500f20c436b90373b8c3bae817c67b89c34329eee1cc399c67298e8e019d"
+    },
+    {
+      "id": "receipt-dop",
+      "sha256": "009f3082c0052c66be647a12a9c0967470c041fb648733cf45ba077740da25c3"
+    },
+    {
+      "id": "unreadable",
+      "sha256": "b822720e186af2390eea6b1c221536267b7c3ee96b2239e16719020759b59307"
+    }
+  ],
+  "manifest_sha256": "73679ad70285f8723e65b8df2edf66105a84aac4cdea6105c05d39269aca371c",
+  "git_head": "51469c10272d65836bb73939fddf6e36928ba937",
+  "model": "deepseek/deepseek-v4-flash-vision-exp",
+  "actual_cost_usd": null,
+  "complete": false,
+  "scope": "Small public/synthetic sample; no Dominican-bank compatibility claim.",
+  "approved_cap_usd": "2",
+  "pricing_observed_at": "2026-10-02T05:04:14.636841+00:00",
+  "endpoint_snapshot": [
+    {
+      "name": "DeepInfra | deepseek/deepseek-v4-flash-vision-exp-20260821",
+      "model_id": "deepseek/deepseek-v4-flash-vision-exp",
+      "model_name": "DeepSeek: DeepSeek V4 Flash Vision Exp",
+      "context_length": 1048576,
+      "pricing": {
+        "prompt": "0.0000002156",
+        "completion": "0.0000006468",
+        "input_cache_read": "0.00000000686",
+        "discount": 0.51
+      },
+      "provider_name": "DeepInfra",
+      "tag": "deepinfra/fp8",
+      "quantization": "fp8",
+      "max_completion_tokens": 262144,
+      "max_prompt_tokens": null,
+      "supported_parameters": [
+        "reasoning",
+        "include_reasoning",
+        "max_tokens",
+        "temperature",
+        "top_p",
+        "stop",
+        "frequency_penalty",
+        "presence_penalty",
+        "repetition_penalty",
+        "top_k",
+        "seed",
+        "min_p",
+        "logit_bias",
+        "response_format",
+        "structured_outputs",
+        "tools",
+        "tool_choice",
+        "reasoning_effort"
+      ],
+      "supports_tool_choice": {
+        "none": true,
+        "auto": true,
+        "required": true,
+        "function": true
+      },
+      "status": 0,
+      "uptime_last_30m": 99.63298262784438,
+      "uptime_last_5m": 99.20127795527156,
+      "uptime_last_1d": 99.57552693208432,
+      "supports_implicit_caching": false,
+      "native_tools": {},
+      "supports_voice_cloning": false,
+      "supports_multiple_audio_references": false,
+      "supports_image_reference": false,
+      "latency_last_30m": null,
+      "throughput_last_30m": null
+    },
+    {
+      "name": "GMICloud | deepseek/deepseek-v4-flash-vision-exp-20260821",
+      "model_id": "deepseek/deepseek-v4-flash-vision-exp",
+      "model_name": "DeepSeek: DeepSeek V4 Flash Vision Exp",
+      "context_length": 1048575,
+      "pricing": {
+        "prompt": "0.00000044",
+        "completion": "0.00000132",
+        "input_cache_read": "0.000000014",
+        "discount": 0
+      },
+      "provider_name": "GMICloud",
+      "tag": "gmicloud/fp8",
+      "quantization": "fp8",
+      "max_completion_tokens": 943717,
+      "max_prompt_tokens": null,
+      "supported_parameters": [
+        "reasoning",
+        "include_reasoning",
+        "max_tokens",
+        "temperature",
+        "top_p",
+        "seed",
+        "response_format",
+        "tools",
+        "tool_choice",
+        "logprobs",
+        "top_logprobs",
+        "reasoning_effort"
+      ],
+      "supports_tool_choice": {
+        "none": true,
+        "auto": true,
+        "required": false,
+        "function": false
+      },
+      "status": 0,
+      "uptime_last_30m": 100,
+      "uptime_last_5m": 100,
+      "uptime_last_1d": 99.89851150202978,
+      "supports_implicit_caching": false,
+      "native_tools": {},
+      "supports_voice_cloning": false,
+      "supports_multiple_audio_references": false,
+      "supports_image_reference": false,
+      "latency_last_30m": null,
+      "throughput_last_30m": null
+    },
+    {
+      "name": "SiliconFlow | deepseek/deepseek-v4-flash-vision-exp-20260821",
+      "model_id": "deepseek/deepseek-v4-flash-vision-exp",
+      "model_name": "DeepSeek: DeepSeek V4 Flash Vision Exp",
+      "context_length": 1048576,
+      "pricing": {
+        "prompt": "0.00000044",
+        "completion": "0.00000132",
+        "input_cache_read": "0.000000028",
+        "discount": 0
+      },
+      "provider_name": "SiliconFlow",
+      "tag": "siliconflow/fp8",
+      "quantization": "fp8",
+      "max_completion_tokens": 393216,
+      "max_prompt_tokens": null,
+      "supported_parameters": [
+        "reasoning",
+        "include_reasoning",
+        "temperature",
+        "top_p",
+        "top_k",
+        "frequency_penalty",
+        "max_tokens",
+        "tools",
+        "tool_choice",
+        "reasoning_effort"
+      ],
+      "supports_tool_choice": {
+        "none": true,
+        "auto": true,
+        "required": false,
+        "function": false
+      },
+      "status": 0,
+      "uptime_last_30m": 100,
+      "uptime_last_5m": null,
+      "uptime_last_1d": 98.12336644014637,
+      "supports_implicit_caching": false,
+      "native_tools": {},
+      "supports_voice_cloning": false,
+      "supports_multiple_audio_references": false,
+      "supports_image_reference": false,
+      "latency_last_30m": null,
+      "throughput_last_30m": null
+    },
+    {
+      "name": "Novita | deepseek/deepseek-v4-flash-vision-exp-20260821",
+      "model_id": "deepseek/deepseek-v4-flash-vision-exp",
+      "model_name": "DeepSeek: DeepSeek V4 Flash Vision Exp",
+      "context_length": 1048576,
+      "pricing": {
+        "prompt": "0.00000044",
+        "completion": "0.00000132",
+        "input_cache_read": "0.000000028",
+        "discount": 0
+      },
+      "provider_name": "Novita",
+      "tag": "novita",
+      "quantization": "unknown",
+      "max_completion_tokens": 393216,
+      "max_prompt_tokens": null,
+      "supported_parameters": [
+        "reasoning",
+        "include_reasoning",
+        "max_tokens",
+        "temperature",
+        "top_p",
+        "stop",
+        "frequency_penalty",
+        "presence_penalty",
+        "seed",
+        "top_k",
+        "repetition_penalty",
+        "response_format",
+        "tools",
+        "tool_choice",
+        "logprobs",
+        "top_logprobs",
+        "reasoning_effort"
+      ],
+      "supports_tool_choice": {
+        "none": true,
+        "auto": true,
+        "required": false,
+        "function": false
+      },
+      "status": 0,
+      "uptime_last_30m": 100,
+      "uptime_last_5m": 100,
+      "uptime_last_1d": 98.74125084669225,
+      "supports_implicit_caching": false,
+      "native_tools": {},
+      "supports_voice_cloning": false,
+      "supports_multiple_audio_references": false,
+      "supports_image_reference": false,
+      "latency_last_30m": null,
+      "throughput_last_30m": null
+    }
+  ],
+  "budget": {
+    "model": "deepseek/deepseek-v4-flash-vision-exp",
+    "provider": "deepinfra/fp8",
+    "context_tokens": 1048576,
+    "output_tokens": 12000,
+    "prompt_usd_per_token": "2.156E-7",
+    "completion_usd_per_token": "6.468E-7",
+    "maximum_request_usd": "0.2338345856",
+    "approved_cap_usd": "2",
+    "maximum_run_usd": "1.4030075136",
+    "reserved_usd": "0.2338345856",
+    "attempts": 1,
+    "attempted_fixtures": [
+      "cord-test-0"
+    ]
+  },
+  "stop_reason": "unknown_cost_or_multiple_attempts",
+  "known_cost_usd": "0",
+  "diagnostic": {
+    "attempts": 1,
+    "remaining_documents_not_sent": 5,
+    "route_receipt_failure_mode": "ValueError",
+    "route_receipt_latency_ms": 799,
+    "dev_key_allowance_available": true,
+    "dev_key_day_usage_usd_at_followup": 0,
+    "cost_note": "No cost receipt. Key-wide usage is not request-specific proof of zero charge. Reserved maximum retained. No retry."
+  }
+}

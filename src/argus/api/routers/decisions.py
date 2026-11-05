@@ -12,6 +12,7 @@ from argus.api.chat.decisions import (
     open_decision,
     rerun_message_computation,
 )
+from argus.api.conversation_surface import require_personal_conversation
 from argus.api.decision_contract import (
     DecisionNoteCreate,
     DecisionOpenResponse,
@@ -28,6 +29,7 @@ router = APIRouter(prefix="/api/v1", tags=["decisions"])
 @router.post(
     "/conversations/{conversation_id}/messages/{message_id}/decision",
     response_model=MessageDecisionResponse,
+    dependencies=[Depends(require_personal_conversation)],
 )
 def create_message_decision(
     conversation_id: str,
@@ -135,6 +137,7 @@ def rerun_decision_route(
 @router.post(
     "/conversations/{conversation_id}/messages/{message_id}/computation/rerun",
     response_model=MessageComputationRerunResponse,
+    dependencies=[Depends(require_personal_conversation)],
 )
 def rerun_message_computation_route(
     conversation_id: str,

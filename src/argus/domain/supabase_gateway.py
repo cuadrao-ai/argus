@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import http.cookiejar
 import os
 import time
 from collections.abc import Callable
@@ -10,7 +11,10 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import httpx
+from loguru import logger
+from supabase_auth import SyncGoTrueClient
 
+from argus.api.age_confirmation import parse_age_confirmation
 from argus.api.schemas import (
     BacktestRun,
     Conversation,
@@ -36,6 +40,11 @@ from argus.domain.decision_attachment import (
     DECISION_STATE_METADATA_KEY,
 )
 from argus.domain.evidence import CapturedEvidence, attach_decision_to_result_card
+from argus.domain.login_browser_check import (
+    LOGIN_PROVIDER_TIMEOUT_SECONDS,
+    complete_password_login,
+)
+from argus.domain.owner_scope import OwnerScope, postgrest_scoped, scope_of, space_id
 from argus.domain.postgres_history_reader import (
     PostgresHistoryReader,
     history_reader_for_database_url,
@@ -52,6 +61,7 @@ from argus.domain.postgres_search_reader import (
     PostgresSearchReader,
     SearchReadResult,
 )
+from argus.domain.preferred_name import first_name_typed
 from argus.domain.store import utcnow
 from argus.domain.supabase_backtest_finalization import finalize_backtest
 from argus.domain.supabase_computed_answers import SupabaseComputedAnswerReadMixin
@@ -77,6 +87,7 @@ from argus.domain.supabase_message_reads import (
 )
 from argus.domain.supabase_public_excerpts import SupabasePublicExcerptMixin
 from argus.domain.supabase_query_helpers import fetch_all_rows as fetch_all_rows_batched
+from argus.domain.supabase_signup import SupabaseSignupMixin
 from argus.domain.usage_counter_reader import UsageCounterReader, align_usage_period
 from argus.domain.usage_limits import (
     USAGE_COUNTER_LOCK as _USAGE_COUNTER_LOCK,
@@ -136,8 +147,40 @@ def _supabase_client_options() -> ClientOptions:
     )
 
 
+AuthClientFactory = Callable[[], SyncGoTrueClient]
+
+
+def _auth_client_factory(url: str, key: str) -> AuthClientFactory:
+    """One throwaway Auth client per call: the server keeps no user's session.
+
+    A shared supabase-py client retains, auto-refreshes, and forwards as its
+    default Authorization header the last session it signed in.
+    """
+    auth_url = f"{url.rstrip('/')}/auth/v1"
+    headers = {"apiKey": key, "Authorization": f"Bearer {key}"}
+    refuse_cookies = http.cookiejar.DefaultCookiePolicy(allowed_domains=[])
+    http_client = httpx.Client(
+        http2=False,
+        timeout=120,
+        cookies=http.cookiejar.CookieJar(policy=refuse_cookies),
+    )
+
+    def build() -> SyncGoTrueClient:
+        return SyncGoTrueClient(
+            url=auth_url,
+            headers=dict(headers),
+            auto_refresh_token=False,
+            persist_session=False,
+            flow_type="pkce",
+            http_client=http_client,
+        )
+
+    return build
+
+
 @dataclass
 class SupabaseGateway(
+    SupabaseSignupMixin,
     GuestAccountPersistenceMixin,
     ChatTurnLifecycleGatewayMixin,
     SupabaseConversationActivityMixin,
@@ -149,7 +192,7 @@ class SupabaseGateway(
     SupabaseComputedAnswerReadMixin,
 ):
     client: Client
-    auth_client: Client | None = None
+    auth_client_factory: AuthClientFactory | None = None
     history_reader: PostgresHistoryReader | None = None
     search_reader: PostgresSearchReader | None = None
     keyset_reader: PostgresKeysetReader | None = None
@@ -170,16 +213,16 @@ class SupabaseGateway(
                 "and DATABASE_URL."
             )
         auth_key = (
-            os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON_PUBLIC_KEY") or key
+            os.getenv("SUPABASE_ANON_KEY", "").strip()
+            or os.getenv("SUPABASE_ANON_PUBLIC_KEY", "").strip()
         )
+        if not auth_key:
+            logger.error("startup_config_refused{reason=missing_SUPABASE_ANON_KEY}")
+            raise RuntimeError("Set SUPABASE_ANON_KEY or SUPABASE_ANON_PUBLIC_KEY.")
         history_reader = history_reader_for_database_url(database_url)
         return cls(
             client=create_client(url, key, options=_supabase_client_options()),
-            auth_client=create_client(
-                url,
-                auth_key,
-                options=_supabase_client_options(),
-            ),
+            auth_client_factory=_auth_client_factory(url, auth_key),
             history_reader=history_reader,
             keyset_reader=PostgresKeysetReader(history_reader.pool),
             search_reader=PostgresSearchReader(history_reader.pool),
@@ -188,6 +231,11 @@ class SupabaseGateway(
 
     def new_id(self) -> str:
         return str(uuid4())
+
+    def _auth(self) -> SyncGoTrueClient:
+        if self.auth_client_factory is None:
+            raise RuntimeError("Supabase Auth is not configured.")
+        return self.auth_client_factory()
 
     def _fetch_all_rows(
         self,
@@ -295,41 +343,6 @@ class SupabaseGateway(
         self._cached_mock_user = user
         return user
 
-    def signup(
-        self,
-        email: str,
-        password: str,
-        captcha_token: str,
-        display_name: str | None = None,
-        username: str | None = None,
-        language: Language = "en",
-        guest_signup_handoff: dict[str, str] | None = None,
-    ) -> dict[str, Any]:
-        try:
-            auth_client = self.auth_client or self.client
-            metadata: dict[str, Any] = {
-                "display_name": display_name,
-                "username": username,
-                "language": language,
-            }
-            if guest_signup_handoff is not None:
-                metadata["argus_guest_signup"] = guest_signup_handoff
-            response = auth_client.auth.sign_up(
-                {
-                    "email": email,
-                    "password": password,
-                    "options": {
-                        "data": metadata,
-                        "captcha_token": captcha_token,
-                    },
-                }
-            )
-            if not response.user:
-                raise RuntimeError("Signup failed: No user returned.")
-            return response.model_dump(mode="json")
-        except Exception as e:
-            raise RuntimeError(f"Signup failed: {e}") from e
-
     def get_auth_user_by_id(self, user_id: str) -> dict[str, Any]:
         response = self.client.auth.admin.get_user_by_id(user_id)
         if response.user is None:
@@ -337,8 +350,7 @@ class SupabaseGateway(
         return response.user.model_dump(mode="json")
 
     def resend_signup_confirmation(self, *, email: str, captcha_token: str) -> None:
-        auth_client = self.auth_client or self.client
-        auth_client.auth.resend(
+        self._auth().resend(
             {
                 "type": "signup",
                 "email": email,
@@ -459,30 +471,22 @@ class SupabaseGateway(
         ).execute()
         return int(result.data or 0)
 
-    def login(
-        self,
-        email: str,
-        password: str,
-        captcha_token: str,
-    ) -> dict[str, Any]:
-        try:
-            auth_client = self.auth_client or self.client
-            response = auth_client.auth.sign_in_with_password(
+    def login(self, email: str, password: str, captcha_token: str) -> dict[str, Any]:
+        return complete_password_login(
+            lambda: self._auth().sign_in_with_password(
                 {
                     "email": email,
                     "password": password,
                     "options": {"captcha_token": captcha_token},
                 }
-            )
-            if not response.session:
-                raise RuntimeError("Login failed: No session returned.")
-            return response.model_dump(mode="json")
-        except Exception as e:
-            raise RuntimeError(f"Login failed: {e}") from e
+            ),
+            LOGIN_PROVIDER_TIMEOUT_SECONDS,
+        )
 
     def update_user(self, user_id: str, updates: dict[str, Any]) -> User:
-        updates["updated_at"] = _now_iso()
-        self.client.table("profiles").upsert(updates, on_conflict="id").execute()
+        payload = {key: value for key, value in updates.items() if key != "id"}
+        payload["updated_at"] = _now_iso()
+        self.client.table("profiles").update(payload).eq("id", user_id).execute()
         loaded = (
             self.client.table("profiles").select("*").eq("id", user_id).single().execute()
         )
@@ -496,10 +500,16 @@ class SupabaseGateway(
         return User.model_validate(row) if row else None
 
     def create_conversation(
-        self, *, user_id: str, title: str, title_source: str, language: str | None
+        self,
+        *,
+        user_id: str,
+        title: str,
+        title_source: str,
+        language: str | None,
+        scope: OwnerScope,
     ) -> Conversation:
         now = _now_iso()
-        payload = {
+        payload: dict[str, Any] = {
             "user_id": user_id,
             "title": title,
             "title_source": title_source,
@@ -509,6 +519,8 @@ class SupabaseGateway(
             "pinned": False,
             "archived": False,
         }
+        if (owner_space_id := space_id(scope)) is not None:
+            payload["owner_space_id"] = owner_space_id
         created = self.client.table("conversations").insert(payload).execute()
         return Conversation.model_validate(_row_one(created))
 
@@ -516,6 +528,7 @@ class SupabaseGateway(
         self,
         *,
         user_id: str,
+        scope: OwnerScope,
         limit: int | None,
         archived: bool | None = None,
         deleted: bool = False,
@@ -539,6 +552,7 @@ class SupabaseGateway(
             try:
                 keyset_rows = self.keyset_reader.list_conversation_rows(
                     user_id=user_id,
+                    scope=scope,
                     limit=limit,
                     archived=archived,
                     deleted=deleted,
@@ -573,7 +587,11 @@ class SupabaseGateway(
                 raise ConversationCursorError("invalid conversation cursor pivot")
             cursor_pinned = pinned
 
-        query = self.client.table("conversations").select("*").eq("user_id", user_id)
+        query = postgrest_scoped(
+            self.client.table("conversations").select("*").eq("user_id", user_id),
+            scope,
+            "owner_space_id",
+        )
         if deleted:
             query = query.not_.is_("deleted_at", "null")
         else:
@@ -643,16 +661,31 @@ class SupabaseGateway(
         )
         return bool(result.data)
 
-    def soft_delete_all_conversations(self, *, user_id: str) -> int:
+    def soft_delete_all_conversations(self, *, user_id: str, scope: OwnerScope) -> int:
         now = _now_iso()
-        result = (
+        query = (
             self.client.table("conversations")
             .update({"deleted_at": now, "updated_at": now})
             .eq("user_id", user_id)
             .is_("deleted_at", "null")
+        )
+        result = postgrest_scoped(query, scope, "owner_space_id").execute()
+        return len(result.data or [])
+
+    def conversation_scope(
+        self, *, user_id: str, conversation_id: str
+    ) -> OwnerScope | None:
+        """The stored conversation's scope, or None when the person has no such row."""
+        rows = (
+            self.client.table("conversations")
+            .select("owner_space_id")
+            .eq("user_id", user_id)
+            .eq("id", conversation_id)
+            .limit(1)
             .execute()
         )
-        return len(result.data or [])
+        row = _row_one(rows)
+        return scope_of(row.get("owner_space_id")) if row else None
 
     def create_backtest_run(self, *, user_id: str, run: BacktestRun) -> BacktestRun:
         self._require_owned_conversation(
@@ -1766,6 +1799,7 @@ class SupabaseGateway(
         self,
         *,
         user_id: str,
+        scope: OwnerScope,
         limit: int,
         archived: bool = False,
         deleted: bool = False,
@@ -1778,6 +1812,7 @@ class SupabaseGateway(
             raise RuntimeError("Persistent History requires its Postgres reader.")
         return self.history_reader.list_rows(
             user_id=user_id,
+            scope=scope,
             limit=limit,
             archived=archived,
             deleted=deleted,
@@ -1800,6 +1835,7 @@ class SupabaseGateway(
         self,
         *,
         user_id: str,
+        scope: OwnerScope,
         query: str,
         source_limit: int,
         cursor_updated_at: datetime | None = None,
@@ -1814,6 +1850,7 @@ class SupabaseGateway(
             raise RuntimeError("Persistent Search requires its Postgres reader.")
         kwargs: dict[str, Any] = {
             "user_id": user_id,
+            "scope": scope,
             "query": query,
             "source_limit": source_limit,
             "cursor_updated_at": cursor_updated_at,
@@ -2002,6 +2039,18 @@ class SupabaseGateway(
             "created_at": now,
             "updated_at": now,
         }
+
+        greeting_name = (
+            None if is_anonymous else first_name_typed(payload["display_name"])
+        )
+        if greeting_name is not None:
+            payload["preferred_name"] = greeting_name
+
+        if user_metadata.get("age_confirmed_at") is not None:
+            with suppress(ValueError):
+                payload["age_confirmed_at"] = parse_age_confirmation(
+                    user_metadata["age_confirmed_at"]
+                ).isoformat()
 
         created = (
             self.client.table("profiles")

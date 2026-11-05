@@ -1,0 +1,37 @@
+{
+  "mode": "offline",
+  "results": [],
+  "fixture_count": 6,
+  "fixtures": [
+    {
+      "id": "cord-test-0",
+      "sha256": "4e13b815b540420a4d68229494bd6259768c226a595114609970edae9a620aa9"
+    },
+    {
+      "id": "cord-test-1",
+      "sha256": "636284664cfc357e05f7b10d67ddb380f828a1be0a20809514f9e7fc0c611a9f"
+    },
+    {
+      "id": "statement-dop",
+      "sha256": "e0d90e2e9872986b4b4619185ce3831ea5becd70cd96262cce43f6f285bcbd0b"
+    },
+    {
+      "id": "statement-usd",
+      "sha256": "ecb9500f20c436b90373b8c3bae817c67b89c34329eee1cc399c67298e8e019d"
+    },
+    {
+      "id": "receipt-dop",
+      "sha256": "009f3082c0052c66be647a12a9c0967470c041fb648733cf45ba077740da25c3"
+    },
+    {
+      "id": "unreadable",
+      "sha256": "b822720e186af2390eea6b1c221536267b7c3ee96b2239e16719020759b59307"
+    }
+  ],
+  "manifest_sha256": "73679ad70285f8723e65b8df2edf66105a84aac4cdea6105c05d39269aca371c",
+  "git_head": "cb99ea9d78ba6741f680afeb3794cb1035e08811",
+  "model": "",
+  "actual_cost_usd": "0",
+  "complete": true,
+  "scope": "Small public/synthetic sample; no Dominican-bank compatibility claim."
+}

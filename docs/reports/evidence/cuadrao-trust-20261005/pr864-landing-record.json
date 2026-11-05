@@ -1,0 +1,50 @@
+{
+  "pr": 864,
+  "head": "49215121969c17347bcf2e702199196e23ec4ede",
+  "original_integration_base": "f5c83cd88a0af56dc8154a89c6ea4f75d9c518ce",
+  "reconciliation_merge": "bf116842d7fd12c3c04ae01bb6cd91339e17b639",
+  "integration_parent": "13a1a339cbab1a3896e10779477658af63e062b3",
+  "merge": "5d46a73d4d97b0412dccff517eb43c73e4316977",
+  "merged_at": "2026-10-06T02:46:33Z",
+  "tree": "249150689d9d84c74c603c6ac48f42e1f70aea0d",
+  "tree_equal": true,
+  "review": "https://github.com/lagarcess/argus/pull/864#pullrequestreview-5423144255",
+  "terminal_audit": "https://github.com/lagarcess/argus/pull/864#issuecomment-6008286075",
+  "ci": {
+    "success": 17,
+    "expected_skip": 3,
+    "failure": 0,
+    "pending": 0
+  },
+  "review_threads": 0,
+  "exact_head_ci_proof": {
+    "backend_passed": 10398,
+    "backend_skipped": 1248,
+    "backend_warnings": 5,
+    "required_postgres_each": 731,
+    "required_postgres_skipped": 0,
+    "required_postgres_warnings_each": 80,
+    "pinned_guest_unit_passed": 135,
+    "pinned_anonymous_auth_passed": 13
+  },
+  "accepted_native_proof": "committed combined-native-independent-review; source comparisons retain separate package135+four exercised opted cases/fifth currency case, models51, UI8, notification probe1, PG7; see README for individual counts/warnings",
+  "configuration_names": [],
+  "scope_and_limits": "Approved Apple session provenance/revalidation and authoritative profile identity. Release providers remain off. Physical/provider/hosted/activation gates and native name/deletion adapters remain open. Parents800/803/798 remain open.",
+  "housekeeping": "protected-branch PR873 pending; exact integration CI and smoke passed",
+  "run_original_integration_base": "875de09ac2115acec42e09060b92878aa5f18eff",
+  "root_config_proof": {
+    "passed": 35,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 8.95,
+    "evidence": "root-config-5d46.txt"
+  },
+  "integration_checks": {
+    "sha": "5d46a73d4d97b0412dccff517eb43c73e4316977",
+    "ci_run": 37405778022,
+    "ci": "success",
+    "smoke_run": 37405778015,
+    "smoke": "success",
+    "canonical_clean_parity": true
+  }
+}

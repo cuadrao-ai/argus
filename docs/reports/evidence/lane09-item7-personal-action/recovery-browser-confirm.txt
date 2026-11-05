@@ -1,0 +1,38 @@
+(node:56716) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[WebServer] $ next start --port "3197"
+[WebServer] (node:56731) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+(node:56732) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:56732) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:56732) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › e2e/business-upload-controls.spec.ts:38:7 › owner upload and failed receipt recovery at 1280px (2.3s)
+  ✘  2 [chromium] › e2e/business-upload-controls.spec.ts:38:7 › owner upload and failed receipt recovery at 390px (769ms)
+
+
+  1) [chromium] › e2e/business-upload-controls.spec.ts:38:7 › owner upload and failed receipt recovery at 390px 
+
+    Error: page.goto: net::ERR_ABORTED at http://localhost:3197/biz?view=inbox
+    Call log:
+      - navigating to "http://localhost:3197/biz?view=inbox", waiting until "load"
+
+
+      60 |       await expect(page.getByRole("dialog")).toHaveCount(0);
+      61 |     }
+    > 62 |     await page.goto("/biz?view=inbox");
+         |                ^
+      63 |     const row = page.getByTestId("business-inbox-receipts").locator("li").first();
+      64 |     await expect(row).toContainText("recibo-interrumpido.jpg");
+      65 |     await row.scrollIntoViewIfNeeded();
+        at /private/tmp/cuadrao-lane09-item7-personal-action/web/e2e/business-upload-controls.spec.ts:62:16
+
+    Error Context: temp/item7-playwright/business-upload-controls-o-8b60b-d-receipt-recovery-at-390px-chromium/error-context.md
+
+  1 failed
+    [chromium] › e2e/business-upload-controls.spec.ts:38:7 › owner upload and failed receipt recovery at 390px 
+  1 passed (3.8s)

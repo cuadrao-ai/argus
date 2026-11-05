@@ -1,0 +1,2005 @@
+{
+  "tested_head": "0a45e1de92037002eb6f836fcca17011fa82626e",
+  "revalidated_native_tree_from": "7f920b1c14eac6d3642b195b1ec4d127431b450b",
+  "ios_diff_since_reconciliation": [],
+  "integration_docs_only": "13a1a339c",
+  "integration_native_changes": [],
+  "simulator": "AD3171CD-69D5-44E9-93AF-1E38FE5FFCD7",
+  "files": [
+    {
+      "path": "ios/.gitignore",
+      "git_object": "77349ed0e0077496f22af2d7d07280a17d78760a",
+      "sha256": "2a8943b01caedc13ccad97f71783f526b48acdd8295807f56f7fe56e5c414183"
+    },
+    {
+      "path": "ios/ACCOUNTS_SETUP.md",
+      "git_object": "153126988919c6fa624653b9a96d525b41144e5e",
+      "sha256": "2682bbad09e974889033cd683c3b4b0cce5daf17807e7ae6c185f1eb9bac4fad"
+    },
+    {
+      "path": "ios/AUTH_SETUP.md",
+      "git_object": "a66e45e45a7d6ea0d608dd1d0379f084d14909ed",
+      "sha256": "ad437dbde54b638870696291ab5e5a748f20b6cc3bdd4e778dc388810c561a1b"
+    },
+    {
+      "path": "ios/ArgusFoundation.xcodeproj/project.pbxproj",
+      "git_object": "48fbf85bac0401d0df37e1cb8c201ec528c9df2d",
+      "sha256": "44a7275ae931512dafb11729eea58517a2a035086824dc671b44f7ebd9c9f9d0"
+    },
+    {
+      "path": "ios/ArgusFoundation.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+      "git_object": "acc25f412db555a148e3580f00e3b72a2bbbced8",
+      "sha256": "b87616c2e4faa4fd5a90b0c05a5df8e6a3309eec4284d22aaee92f2ea1f6fba3"
+    },
+    {
+      "path": "ios/ArgusFoundation.xcodeproj/xcshareddata/xcschemes/ArgusFoundation.xcscheme",
+      "git_object": "264d4669f80dc88f7c710173a3ba786c2dcfc86b",
+      "sha256": "23b52e0afae55e874f4303db83bd511581c51d0c1aedf24869d888c820c738b4"
+    },
+    {
+      "path": "ios/ArgusFoundation/Accounts/AccountActivityView.swift",
+      "git_object": "e2ff86016bc740055981c4d8513124cdf9e02e05",
+      "sha256": "33bf2fd2ee8aea4e9aed20a7a9a919cd81a4c0f9ee854d6638a8d17711e067b1"
+    },
+    {
+      "path": "ios/ArgusFoundation/Accounts/AccountEntry.swift",
+      "git_object": "f49a1ed91b8267b294ad533706bfe2de97e3533f",
+      "sha256": "9aace33ebed892a75b18e11a1b09c375c9f824bfb4583de5e5c0372f2f06c6be"
+    },
+    {
+      "path": "ios/ArgusFoundation/Accounts/AccountForm.swift",
+      "git_object": "3bfbbe1c21a33f39fa5233ae26e6029ab254965d",
+      "sha256": "ba6cec9fe54de9d5228b4c1777efe51a01f9acacf9b00b8015de409154416d0c"
+    },
+    {
+      "path": "ios/ArgusFoundation/Accounts/AccountsModel.swift",
+      "git_object": "e405a29a47bc6172049567f54e3186826275393d",
+      "sha256": "2bd0fb3e2381f7f468d7f1c89941eb4c3ea18978349d249f496df9c864035457"
+    },
+    {
+      "path": "ios/ArgusFoundation/Accounts/AccountsView.swift",
+      "git_object": "9cab9c0148cd64d09722816429cf43db90b5b422",
+      "sha256": "7ae168b81ad30092138fb0a87d745e695b2d3a490c127442e41d655b2909ba91"
+    },
+    {
+      "path": "ios/ArgusFoundation/Accounts/AssetDetailView.swift",
+      "git_object": "87aab5da2393fbd6565a94e57ad9551488fdc37f",
+      "sha256": "28d83cbce7181ac56407fa81f7bb2e940fc71fc43f15ac821d77a3d43b5b0385"
+    },
+    {
+      "path": "ios/ArgusFoundation/Accounts/FinancialActivityEditor.swift",
+      "git_object": "ac0fdb8b0595923a17854e6c3207541e40bba980",
+      "sha256": "21d232d68d6dc326d5a7fc8eca069e5c49d810fb0fed06b064a3525f2b7ad64d"
+    },
+    {
+      "path": "ios/ArgusFoundation/Accounts/FinancialActivityEditorView.swift",
+      "git_object": "5fd0f82f5121c0a52f168c00f218a05f3cf3284b",
+      "sha256": "b4ba39804352ed85fd30b48044065badfa3da21f0ea677b4035c736bc555374a"
+    },
+    {
+      "path": "ios/ArgusFoundation/Accounts/FinancialAssetEditor.swift",
+      "git_object": "32d86269cbc50f3b2f0801a3b78616a672fd4bf9",
+      "sha256": "7663b411bede22e0763689bcc59f1ba3793e19d0d10c1230652923a309c405db"
+    },
+    {
+      "path": "ios/ArgusFoundation/Accounts/FinancialEditorView.swift",
+      "git_object": "932018f4d7d67268228dd0c4981f23d1679bc3cb",
+      "sha256": "757cdc62b7579522035b8d178e179069402c0442690eaaf6e4daea05eb9f693c"
+    },
+    {
+      "path": "ios/ArgusFoundation/Accounts/FinancialHomeView.swift",
+      "git_object": "77c077d57a1f1a53ae70ef9f9cd354675f9d53b7",
+      "sha256": "cab7f347a07484298e6d9b908f74f65d8c9f5ca52862dafe0d2e19d34cff9125"
+    },
+    {
+      "path": "ios/ArgusFoundation/Accounts/FinancialLoopModel.swift",
+      "git_object": "8d07409ea33b94c12714dbb702f9de3d3ee79502",
+      "sha256": "97a5e9c1c194746d97f27ba06a592eaaeaf53da558e53d15bdec5a91584d9ce6"
+    },
+    {
+      "path": "ios/ArgusFoundation/ArgusFoundationApp.swift",
+      "git_object": "493f8ae9331945f898171788aff330f72bc5e2f1",
+      "sha256": "0dfa895dbadd7f83f23cf59771ad52337eab115f109d4c127cae1961fac5d1c6"
+    },
+    {
+      "path": "ios/ArgusFoundation/Auth/AppleSessionHarness.swift",
+      "git_object": "1b470c9eed4fc5b5c8d87b8b9b10ee74a7367c6f",
+      "sha256": "af9d880f1dc7924f6a4bf8910896d2fc18a878e9fc8c31a4af39afadc59b8c53"
+    },
+    {
+      "path": "ios/ArgusFoundation/Auth/CaptchaChallengeView.swift",
+      "git_object": "a4361bb33f73b908f0bf81b56d24c7febd1a87de",
+      "sha256": "18df991d2c5bbaebffea503e0ca4a5626c1a4ab0d80ad3b78f30fda2694f9a43"
+    },
+    {
+      "path": "ios/ArgusFoundation/Auth/NativeAuthConfiguration.swift",
+      "git_object": "0d66285cd44c52c33ef7efff4487a29dcbce6b22",
+      "sha256": "3a62ff25479e300a33110fce4d89a19d73c205a921a3672283ba11bb9b73f8ab"
+    },
+    {
+      "path": "ios/ArgusFoundation/Auth/NativeProviderSignIn.swift",
+      "git_object": "95616c11927aa33041e4ecb7454a5fcea057a760",
+      "sha256": "ec82b7c3c2c2eade91ea14e3edb8ec8ca96e5720ecb9af5f0244cccfd8b32c04"
+    },
+    {
+      "path": "ios/ArgusFoundation/Auth/ProfileAccountSection.swift",
+      "git_object": "3359f74a26cd0a92206845416ca13a76a73421c6",
+      "sha256": "0f76d21050149693fc5f72b85022a4d3210ae7991ec10d95c31245f8f11db1e3"
+    },
+    {
+      "path": "ios/ArgusFoundation/Auth/ProfileAuthModel.swift",
+      "git_object": "3e7f638ea62f53828a23cfaedd6ef7f48204247a",
+      "sha256": "0de2cc7d8bc4c7fc8d5f03cd42da19faf5bd5c84dc68aa39cfb94c379991623e"
+    },
+    {
+      "path": "ios/ArgusFoundation/Connected/ConnectedCuadraoAuth.swift",
+      "git_object": "b709d0dd1a839fad200b594035b68a56db356c0d",
+      "sha256": "56d7acb0c3628081482d818d6330c677a26c16ed2e0f963606fcdc5c09a5e184"
+    },
+    {
+      "path": "ios/ArgusFoundation/Connected/ConnectedCuadraoHome.swift",
+      "git_object": "8e703061e98f558b6e97e963018d0df4094efdcc",
+      "sha256": "7073d07e6e2d510176b6109bb31bbac9b365d44dfecb6808ec10f924aa95022c"
+    },
+    {
+      "path": "ios/ArgusFoundation/Connected/ConnectedCuadraoProfile.swift",
+      "git_object": "65276d12e2350b310351b28cbbcd8bf5925f0238",
+      "sha256": "aabe93e8555a830f97fc482236493224d5371f51743a3500053f5f12bd47bfc6"
+    },
+    {
+      "path": "ios/ArgusFoundation/Connected/ConnectedCuadraoRoot.swift",
+      "git_object": "704f0a5733e693a4128c91f4ffafc4bc1e375beb",
+      "sha256": "9089f55ef67e0905ff3834c14357989504ac52a94dc96ea437f6fc1dd21e3485"
+    },
+    {
+      "path": "ios/ArgusFoundation/Connected/ConnectedCuadraoShell.swift",
+      "git_object": "c55c9626f4e1f0fe45ca98a164394837b489d110",
+      "sha256": "930f14977a790aa5b9bbf0aabbf6118ad5f9a4ca7952a2aeb9434d11a5477177"
+    },
+    {
+      "path": "ios/ArgusFoundation/Connected/ConnectedHomeRoute.swift",
+      "git_object": "d7bff184dd4c9bd6c7e828e4f92fc95ce3a9ba6a",
+      "sha256": "a4340d2da4fb2fdee732b0d575e0239967e705a4a087db3f77c2866a6c45bbc6"
+    },
+    {
+      "path": "ios/ArgusFoundation/Connected/ConnectedSwipeRow.swift",
+      "git_object": "bf8df51f969863efad64d8618f7aa65d79cdbde7",
+      "sha256": "771a8a4b31bd2254232c2a6c2a9c95b4dd838da836784312d14f2e754211ae5b"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CanvasDecimalInput.swift",
+      "git_object": "07bc8632644d81567361123b1f6388c94f2e9839",
+      "sha256": "bfcd005e17a8f8e46266e423cf1ee100a0a6332fabcb74361306f75415b41488"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CanvasMoney.swift",
+      "git_object": "5d06218a246032a33aeb8db37fcd1942cdc4598e",
+      "sha256": "073e5c23bdf6c8dfefb746eeb76e2ded4f7c4872d0b85d52e88735f65d5855d0"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CanvasMoneyValueInput.swift",
+      "git_object": "bba3820127439bc5014653e6899e97d318c26ca3",
+      "sha256": "e0dbbcc6d28c9aefc087911ebc6f9ecec686b95f46f646c620400ef46c973c1c"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoAccountCanvas.swift",
+      "git_object": "c41772e7f43b638f17112f587f27607361444353",
+      "sha256": "244708285d01126ef363cb8da3e3e3595130a5efdf0ac27e81b8f56474fa23f3"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoAccountDetail.swift",
+      "git_object": "8104764c23a9ae3932e3aef1d58300df147f4181",
+      "sha256": "43d793cd9122a3ff11b3c4f1709d822d0c7a849dafcd7824d2e342ac25565a1e"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoAccountManagement.swift",
+      "git_object": "7d57f368abc95f0e0be2bacb9354dc62ea31c084",
+      "sha256": "2bdaab2bcdf5cfd2b6c9298315c2ebf6af95d2a849bb66929efd96c60b6f3d13"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoAccountModal.swift",
+      "git_object": "b02ea3ce97834f69dd7341840db89cbfddc06ad2",
+      "sha256": "09fa1224ea02f41be3a6e456fb82dbcdc6cacd40c1a4e62a3bb3b915ec494968"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoAccountsCollection.swift",
+      "git_object": "48dc21a853f8f7e9de3441ec49d9f6e37b505579",
+      "sha256": "b1828dd01f09d621102a2b3a1b700803ade495127a18d6f9b83b2fe4f28ebd49"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoAccountsPreview.swift",
+      "git_object": "852489295ae016bb6a698d4fff1ca68db234f628",
+      "sha256": "f542ab70cf805f070e01e3f8e2c14efa5ea139650514568c8e68a7a22d96aa3b"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoActivityDetail.swift",
+      "git_object": "ab1ebeec3ae655df9ffbee308347cae9a9bf91ed",
+      "sha256": "1c9e698f942019546a44783cd4e023e6ae261e46a6277298b53a7c0e1e80bf95"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoAllocationBar.swift",
+      "git_object": "dc5c06f9a518e5b85f02c4f88366cb97123611f9",
+      "sha256": "b92f0fddfa6ec3e54b11131f1b3ea041181fd94e7db1eccd3393547de366e6aa"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoAmountField.swift",
+      "git_object": "0ada06525d91423be0e6d134e28676515c6d6f15",
+      "sha256": "e57ffb3f63fd48377a0a2dbe2e66fe25f978ff6b9e4bdcc91f1100c6440ae8b3"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoAppearancePicker.swift",
+      "git_object": "246b1bc3303a57ee05b006a9b1ece36d45e7ff77",
+      "sha256": "ff4eb468cce0d06380f643583510cc4230c70618f037ec1a2c4f1d3a67e5c4f6"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoAvatarCrop.swift",
+      "git_object": "dc275efbf1c36d6e3415af59062159097ed9b73c",
+      "sha256": "42fcc8d6a89b81e2584503545cca508e4f0d5c5598ee6e469662ed4cdd9eb962"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoAvatarCropGeometry.swift",
+      "git_object": "096a5b0b5fc1eed79e0c707a25c6edfa284602ca",
+      "sha256": "1f1de51b500ca0db26156f807bacc7504171bfe894f7854e789b081f7663b36d"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoAvatarPhoto.swift",
+      "git_object": "6321dfac4a94f4254115166387b19c7b545604bd",
+      "sha256": "1386b57460178e2ba82020e9df9bd908fe9e4201a4cb0ee651b675823748b9ff"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoBalanceBreakdown.swift",
+      "git_object": "83d0e1861558129a6559a047e61482979ebd9b07",
+      "sha256": "ab6b425954e2b17f14151f35d82d886c50f1b52cf421f3167597f79140d7cbb6"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoBalanceHistory.swift",
+      "git_object": "450415695294e888b4b4e8645de6938808587b35",
+      "sha256": "a85306943fe5ff00b7288dc1adc49c24fa9fe68489cce372ac560e7badfcf9ad"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoBalancePeriod.swift",
+      "git_object": "fc9c804372f2ba1e0431416894295b3109edb30e",
+      "sha256": "adc22bc8ae1f8413793ca232ed9166bc904cf87801e61c95204f67de3cbb0884"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoBrand.swift",
+      "git_object": "1f86c6503b600893e6f15265fcb001789b6cd95e",
+      "sha256": "0f2665ee294adb2ad6de1900f7b4d9cb873fc9a66108a2a60b703d5ba91183b8"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoCanvas.swift",
+      "git_object": "8e821ddfffbfc448deea27c389b0454e03876dcf",
+      "sha256": "d17080aa9e79194f4ac8adbcc48339898bf1ae62cd6aed41df7e249c97f626d5"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoChartControls.swift",
+      "git_object": "3e2d19c0b9fcdaf9de69fe294f5772b3d7f51a0b",
+      "sha256": "f81a4fd681925b5086e543d5ce5509f7b9a1a687841923b2a10ea42956663c23"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoChartState.swift",
+      "git_object": "421aca00e0040fe8e9f702f030a6aa40b96df90f",
+      "sha256": "c5dcdede76ca43f9803bb3280b3d586ca544f43638d92b5c86b3008ec286d5d7"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoChartTouchSurface.swift",
+      "git_object": "e0e2e2c64c56cc1bcf8ff150ab5f0bc61e385810",
+      "sha256": "48a6d517d1294e1ee0cb7a640f55883845637dbd2ad8e469a1c8645dcd034660"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoChatAnswer.swift",
+      "git_object": "df2df32bb8164e9381114c96a835c3799e45aa1c",
+      "sha256": "97626c0cfccee348caf5954f1979e9144b5e600ba7d2e10771fd33fcb734d2de"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoChatCanvas.swift",
+      "git_object": "ba284f7de6cb75deb0cac2546ab94c775466174e",
+      "sha256": "8835cd56a68acbe51d6b7e390e278f05bef3a65b0189fb1e4081b223e35bb0e4"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoChatContext.swift",
+      "git_object": "054b7161f8ec37be28cc8f68862b9225e276830e",
+      "sha256": "f199fac3bf0130d990056edb3f09dbdccab53d2ec4213885e27f8dff9633b687"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoChatDate.swift",
+      "git_object": "ef413b07bd3bf0d1d889df22dad9d4adaaeaf861",
+      "sha256": "9262d85502bce1b9ccb5d2c3e50029838f9c408cc849ab948bb8178d984bbbfb"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoChatHistory.swift",
+      "git_object": "3ae4905c4591e2bac11a26f4e56cc101f6125c15",
+      "sha256": "c871d5713e1b58c8878af05cbb32f80b77658501649a76a8ee7998075bb957ea"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoChatPreview.swift",
+      "git_object": "1288729b7e1daf9968b5e52dfcb323ba9af84baf",
+      "sha256": "f2462da6cd8ce85204d0a3a58268ef09ab5cf12e1dcbb34e8064d82a35c6f3b8"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoChatSheet.swift",
+      "git_object": "695f3d08b4f78a5e8153b5caae15bd778701f90c",
+      "sha256": "8d0ff924574220ec6084dbf67ee7b985e71376681e990eac5e97bf755ad5060b"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoChoiceControls.swift",
+      "git_object": "d29e7e1440d2ab4dd4564b7a31e846cf3178dab5",
+      "sha256": "f2256bdb123dd1cc571c6cbb435dbdd7f6ee4b6695e024ca287299a5a42ff0e0"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoCollectionOrder.swift",
+      "git_object": "7aa54e0b8dbdcd4f7832891982788a12367ca386",
+      "sha256": "e36c50187e1e96e5d90cbbb51839fdc1a9b29efa83a14ec6158c82a336025748"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoComponents.swift",
+      "git_object": "ecbaabfb721d4cbf6760879db31f8108855fca45",
+      "sha256": "127103ae1c191fe6ac8dabe4497620bdefb60c4b9694632aeeb4b87dcba0a2e6"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoCreateAccount.swift",
+      "git_object": "d75d31d2c32dbf918b7d63bb92f89442ca14dbdd",
+      "sha256": "821067bea85de45a99f0ac2124ff91436330ee48ed9531eca7c6b6c75658bd53"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoDesignGallery.swift",
+      "git_object": "3cef59064333afb6a89e93a422bcfc3b65a86003",
+      "sha256": "9b99a133d91895fa680bd2e37a907423d9209b74571f68000cc8efe57fb9322a"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoDesignPreview.swift",
+      "git_object": "9eca38fa3329dbac790c51618cd3a875df81edc7",
+      "sha256": "da4c32e07e04104d3f8f9142a3aff43e0b8374a1ff9a243232d9cc4da478e7b2"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoDesignSample.swift",
+      "git_object": "f071d70d7de0186aba67d379640ba556cb0ad351",
+      "sha256": "7daaa56132cc46407e6f8de2d697fd6f2ff801b022d142a45a80201da28d092d"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoEmailConfirmation.swift",
+      "git_object": "d6fa7deaf9412f6e6446163c83dd6b91f56bed97",
+      "sha256": "869ede92b5944ab1760a6ad4014a8d42fb5ca19087cbbec47200cfdc53ad055d"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoEmailRegistration.swift",
+      "git_object": "4acc2ddbbc747161153ff1a4ea7b699696dfd03f",
+      "sha256": "6799e8e4f377cf43c3f9ee6357ab3220e5ba5c4eddb3cdebb888f3c257417e72"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoEmailSignIn.swift",
+      "git_object": "c6cba57fb51d0d0ace7cc3ca069584aa0583a7b5",
+      "sha256": "a5f17a44ffb74021173b1d81939bf14c3355cc8b1d4ce1b7aeb1440c6c5d6cf5"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoExpenseCategoryStyle.swift",
+      "git_object": "1d9cff81e4f6c91e0f41bec8393c304cc36a888e",
+      "sha256": "e5d29f9a671bcdbd5995bc6e8942448ec1e040e7db46d078b0121e685532ea7b"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoFeedbackPage.swift",
+      "git_object": "c0e29d36bc9279ca62423cd19e0c2710ae650869",
+      "sha256": "0a65660660b42f5f907e82d5272f2fdfad30e0bd510279a12a3cea69d356e9c7"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoFirstAccountSheet.swift",
+      "git_object": "1baf1d15ef7b6ac39087cd8d82bfde275021c687",
+      "sha256": "27b8f13828a8adfb40b36b2c87f1ea1882600dc6e90e5ad4be99bc380e95167e"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoFirstReleaseSignIn.swift",
+      "git_object": "776a6eff1564f078c75c76f5e721bdcef265c4d9",
+      "sha256": "fe7d253d8001eaccaf5e964f14a94c677c120007cea50806313dd518ed865ce4"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoFormKeyboard.swift",
+      "git_object": "cabe9a73f50202028d3268dc95229654b49a5feb",
+      "sha256": "ea9c0eff7b5a85f7a6add2605462f344a09cfb24f562f706966f8e6d4201a0df"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoHomeBalanceChart.swift",
+      "git_object": "1bef848c7951ef57aa3cf8e6a04d1b6b8a7ebfec",
+      "sha256": "7c6f0e94ab5164c010d4db19a10c27a099f92cacaff54e6c33cb67a1d81f5832"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoHomeCanvas.swift",
+      "git_object": "4e089bb51aa1dba3c88a085ce9c5774d51b54f47",
+      "sha256": "cae66c23a5709cb65306706d12d63ab5c01e5c1202ca81828b8a49a1eda783c9"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoHomeDistribution.swift",
+      "git_object": "91ab24834a53fd68cf8643f7e8fbe5bb8b3f46d4",
+      "sha256": "94523df8e3178c5b4f1baefd31d799837bbeb17cf3b71a06ef1e493020a1e553"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoHomeEmptyState.swift",
+      "git_object": "cd86fe3132e59ef72418477140ebec00acebf41e",
+      "sha256": "887105e9e4bd57db037450223ce75ad1ec88c8da2332423efd04893a1ffc3557"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoHomeInsights.swift",
+      "git_object": "4d1e4bb462b712e5e1d2fddd2dec1875bdd41b57",
+      "sha256": "eca23123ca264dc56210e87edbab20786ebfc2894218c3780e859abd0b8192a6"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoHomeLayout.swift",
+      "git_object": "dd866229a57cf4f4d97a429b81a2e0cdd5d3f00c",
+      "sha256": "337dd72a23f6fcc6a60be4dc976073c69df5c4091eda19796e2e064cd5d96fcb"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoHomeOverview.swift",
+      "git_object": "4607eefe3f086ba4221d86a2bdc11d9f660cbdd3",
+      "sha256": "2f75d0a72fb7f87bcafcdc2c70f732d1528d5c8513dcfc0b7cbf4e5dcda66c60"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoHouseholdInvitation.swift",
+      "git_object": "00789c4584ec003ee3a34627a73d14036db5d6e3",
+      "sha256": "ae9cd3d781ed3d097a6b0f79b8681d8312e742067e3d393f71c6c3e3120f78a9"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoHouseholdSheet.swift",
+      "git_object": "3cbda45d39ad4dbac2ae6ddf888279cb8aa5fdee",
+      "sha256": "528f177eda12da78dce36f9f585cd5dd30494dec89e8ed9c1ef46f479a262a9c"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoLiveVoiceCanvas.swift",
+      "git_object": "37bd03ac95ac9a9c13c18ad3b51baaba9352981d",
+      "sha256": "2a92c080e478e73055904afb1bd717d93269c98d7da360d3322e7c9763550b66"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoNavigationBar.swift",
+      "git_object": "c3860006f07a798236388041caab7c55d5b79698",
+      "sha256": "021c462d9e9e63c244ff23e729590e17f0d27ff10f21aa8823a7881a8a8772b0"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoOrderedCollection.swift",
+      "git_object": "f6be275d9e55e50bc95aeb3b3b341183496c1d34",
+      "sha256": "54717caad7fe679634ba3821f091304e48eae1dc4ff35df8b3f268dc0fb345e6"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoPasswordRecovery.swift",
+      "git_object": "12ee6994694f39487b3772fb75f168756e6ef03f",
+      "sha256": "4832aedf61a8e9c13a6817c02a6e19c0c8f7eb951aa8c88411c6e5a400ee7051"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoProfileAvatar.swift",
+      "git_object": "7c6026fb54d7a9eab94cbed9c39ff31f65005e5e",
+      "sha256": "5b5c93868bf9f8761d8f45482b8ef6571f61f270e866a414022bc8be640fb196"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoProfileCanvas.swift",
+      "git_object": "d436a8a505d61679e5f4402fe29be2d8ac682ba9",
+      "sha256": "b97bae72204e82d9d2258b7a1cdc8dfe82ec16b1291d5fcbfe96823ae1cbc428"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoProfilePage.swift",
+      "git_object": "0851a23fb7c08b29b77498a2e66e7b9c01226b02",
+      "sha256": "7a906c1f7614e3036be0957f07faa1b4dd8639322d484e11c0bae0da64b5b2f3"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoRegistrationStyle.swift",
+      "git_object": "a20b4a0e7e17d3a6c8aafa032bfae1636ae6bfc7",
+      "sha256": "68363b1892d784ccf66fea7e177941cc293884f9e2a5d95a45bdd0dff67011e5"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoSampleData.swift",
+      "git_object": "258f1564acb27aad14821c4c8f5d073ab0f09a5e",
+      "sha256": "26e369d5288f596a393090bd6514a76a4c45f4e0b7e53d06ebd31048bbc9858d"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoScrollChrome.swift",
+      "git_object": "b690b1a4b02ae5dd653e62bcbe31bf572d06c29b",
+      "sha256": "9ef4a06c0c7b6d7e5653bc126380266ad3ee39be6bc5f9c39b6b46200f46e91d"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoSearchCanvas.swift",
+      "git_object": "51a20ad8d8079935e711591a7e4e6adc14417709",
+      "sha256": "15e7d3ab8c2da398c5eaf33113cba8b93591dbe181414bc082208ae252946c83"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoSearchReferences.swift",
+      "git_object": "24f636a382f4a0b66a8396106bd53225cb0dbbfe",
+      "sha256": "49acb6c0155afa303257bcf6ee8042610f4695bc549798acc91eacafca8eae04"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoSpaceSelector.swift",
+      "git_object": "2bfd868ab87939c60d889e8950995b738fdbe94c",
+      "sha256": "ce50123898005d6a5ac35bf8e24c0451e598469aa1dd0ec3f86bee89dadfcefb"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoSpacesPreview.swift",
+      "git_object": "7c5ad3bf2bdd531d4ccfb688da151f19643e47d5",
+      "sha256": "764f5d4a901df506e7aab96b5a0e9bd6d83354f73edbfaa059fa52057b0dd8e2"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoSpacesSheet.swift",
+      "git_object": "bb434ccdbdfc54adc55b8073af707f2b9d9b8ed3",
+      "sha256": "49527025345551b0a8bfb0047f817aead2fc0dbd05767779dd843cc03aa0ed38"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoSpendingChart.swift",
+      "git_object": "12bfe172a20fe5ee497183539e426255e14fdaf6",
+      "sha256": "523053132d2db136b83718eaaad5531dcf1c3e90298261b9c9722ed548f790a4"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoSpendingHighlights.swift",
+      "git_object": "11e280930811ba6c4916b63b0a6be793f1a8e586",
+      "sha256": "0090ff0d4840a5499f490db0e1088fa394dc87050f054b23f3fddcbe9f2e5447"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoSpendingHistory.swift",
+      "git_object": "cd12e7eea4696c54ba9e17176f351abf90addbaa",
+      "sha256": "a4ee91a0978c6c18e97a9cf10dc99ef8ded0997fe299e9539536601e815ae21e"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoSpendingStory.swift",
+      "git_object": "c02bd3021af2738356751273b6cd072050461e85",
+      "sha256": "d03734bc9f48ed3bbc5c6e26021e9e96c091cfb2b40ba2683050be34f15167cf"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoSpendingTrends.swift",
+      "git_object": "f46c51fe7a55fb07c672e97f8ff7a35469f115c9",
+      "sha256": "d453aa9f47d381fb01521007839648952a8f61703231e80a4e018f277e34f789"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoTemporaryChatSettings.swift",
+      "git_object": "32c02c3c48f68370217efb02baca20f70ffde78c",
+      "sha256": "e64b96c07ee72089ff5a36e865a5c86229d62149531200405ee6cf690aff532a"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoTypography.swift",
+      "git_object": "7d279a5d66add2f0a901551c47c81445ed3b94a5",
+      "sha256": "e7826a7a0405d8f359e8519020a59d7e2a8e26f3bf027c118bc9fbcb4d6899e0"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoUpdatesCanvas.swift",
+      "git_object": "9d3a24e5fcca8ea87feea04655c4aa095fc9e46d",
+      "sha256": "817860cbf809ca733c8e8600f11c814438078b8a0135b6659f6244eb6b92be7e"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoVoiceBar.swift",
+      "git_object": "d6567871c247b5c24c6df1c5bc7e01c996553067",
+      "sha256": "17ed48573f2d4d23a7e3daa0812da127c91a7f0d17a39e9e2334bce6447b8a95"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoVoiceEntry.swift",
+      "git_object": "d8b5d8dd08e464d2ad2f19df7cffde3ad5a3cbea",
+      "sha256": "26df43534e6fc5524eadd2157b15ab7f0ee7da660479b6b02104bded7ab1e6b2"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoVoiceMessagePanel.swift",
+      "git_object": "58fee26c83198580427fe78f97081b92fd4fdb6b",
+      "sha256": "ff5b02dcaae8002f78318e5022320df2c09fb2c8223f46f26c454f8edc864b62"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoVoiceMessagePreview.swift",
+      "git_object": "527e3e36ee964c1feaf60c37de2a033e4ad02643",
+      "sha256": "92015e6587a64c2eacac298803cb7f8b1864e299a7de5ea00522496ac320dd67"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoVoicePicker.swift",
+      "git_object": "c0ab178fa7416aee632efc9d4069e7130c88da5e",
+      "sha256": "16b6e988f6294db2de284fdb6cc5c461d7967bdfeca07ad651378b0b73794a68"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoVoicePresentation.swift",
+      "git_object": "37c6a649ab5d875da6e600a038925140dd0c2737",
+      "sha256": "24381d1069d39281b4b476542ce0dd3567ef26432f2fa380e3e75cbfee0e0f65"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoVoicePreview.swift",
+      "git_object": "dfec77c5daa42ff35271d01b60f0524a8d4e5d5b",
+      "sha256": "7738aca4118961900c187280536b03e72c65ea9ef7e74ffa044482d025878f84"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoVoiceProposalCanvas.swift",
+      "git_object": "718b569dd2da77addb91537c8123fb9712012320",
+      "sha256": "313e4234b2890a14f17aa50044829d2bfe96654c3c67be3680d3bb3a2ed5b904"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/CuadraoVoiceSea.swift",
+      "git_object": "9f110a927aab209d7334d1e74bf63ac714beeded",
+      "sha256": "e7e20c5669eeac0c01a0c9d2eac10fed6ab21d997112c106d35ed62e4d8b610e"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/Contents.json",
+      "git_object": "74d6a722cf39b2dd5bef11f166e6ac9b99568a01",
+      "sha256": "f5fb0e1f3a8142892ed092efb5955c1c2cc537003a89ad7bbdb9dade7fe8985f"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoAccount-asset.imageset/Contents.json",
+      "git_object": "d08f6b753035a88b83e6804f5401c08bfddfe9da",
+      "sha256": "4369e56c0feaf98a46a83b7ac8de5f4dc4bfe031a77aeffc8abc5d202434f2c5"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoAccount-asset.imageset/CuadraoAccount-asset.svg",
+      "git_object": "eefe242523a75c86bd2047d9d16ab275338e6e72",
+      "sha256": "591ce72e5a806ee2275a6e8904b6b7ed70babf47dfacf699536094a4248775b9"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoAccount-card.imageset/Contents.json",
+      "git_object": "7a39813fb13b456b92c81a91df29bc8fa6f16dec",
+      "sha256": "669d68b39b23abc6155341cbdaa35ed5253a0686f07bb5f595aacb69caa1aa5e"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoAccount-card.imageset/CuadraoAccount-card.svg",
+      "git_object": "e5555174c29cab1d2bccc7b67c0ef06e6376155d",
+      "sha256": "b206fb7b7c91d2a1f73b7402e344d763382d769ccfe2207e18de384d7c0dfa1c"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoAccount-cash.imageset/Contents.json",
+      "git_object": "7a6c136eaa5ccebc67458e7b90831b2273efe242",
+      "sha256": "0d21f0817e34a3689257d0bfcfb3f728fa7bd996a4f32ff0a614c4e5b6addbd2"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoAccount-cash.imageset/CuadraoAccount-cash.svg",
+      "git_object": "cc9149b5e5f87da3e348083d14c7b3ce6372dcf9",
+      "sha256": "abcc06b34f9fdff7a04c3a3f66bfae179bf315d5db4fabd0e94eeaa794bce7ed"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoAccount-checking.imageset/Contents.json",
+      "git_object": "acb681a7bd55111c3d608ae76c17c999fff3cdf4",
+      "sha256": "46e0ef8d341776093ecb92b0907804292ec5299506ea7fb5aab737762bcc267d"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoAccount-checking.imageset/CuadraoAccount-checking.svg",
+      "git_object": "2042acfe79f3fe9a6543230950af609e2d8b62f6",
+      "sha256": "e1e45c306bdbe8c4620b554eb0f4e8dad2a70486016a032b524b6f1f12dc35fb"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoAccount-investment.imageset/Contents.json",
+      "git_object": "12037d29be0386a35a6a29f6940fd25b263ebb7f",
+      "sha256": "a0e5e426a756855e9dfbaceffa3622918b856a2dda917201e56dc0fe021e2bae"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoAccount-investment.imageset/CuadraoAccount-investment.svg",
+      "git_object": "567e69e2db25ce49e7f5dd44977fb7be0c16e633",
+      "sha256": "7dec496eb813f3c16696cf5050363f9509f70a8e96a2f87e30ff16358e89e4b0"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoAccount-loan.imageset/Contents.json",
+      "git_object": "6978e73fc3cf0b93801c8b4155f390737f19b236",
+      "sha256": "bdad0e79a61ba4ba00faa707ed2744a01d77df31cf4f578fb24da36aad195de6"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoAccount-loan.imageset/CuadraoAccount-loan.svg",
+      "git_object": "311bf926a12454a49bab0e13e366513dca320af2",
+      "sha256": "bbd4c0e3d5f95debebdff65d030b2343d4c7abbd44498e2364af7ea9199c19f0"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoAccount-property.imageset/Contents.json",
+      "git_object": "1c8fc21a2cd931fd884cfa9531887234fc959ba3",
+      "sha256": "f92afc6f92d120e40d07bdec4489fd3cd37284b52c0cec91248450f89925572a"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoAccount-property.imageset/CuadraoAccount-property.svg",
+      "git_object": "f618655068ca96b4956a7a5cae09a53b55db076e",
+      "sha256": "90dde8cdf68448489c6db39c368f28a5344b0042c2b5469e17787406bc74974e"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoAccount-savings.imageset/Contents.json",
+      "git_object": "9cf87328580e8739e157a301a43265e1adf57556",
+      "sha256": "7dce4f23f66231f0bcc0d5088b7d7a218a966355aad2fa66c136124d98d8ae4c"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoAccount-savings.imageset/CuadraoAccount-savings.svg",
+      "git_object": "b0a8403b5f3f4183d76e23bd80720bcbfa4615d8",
+      "sha256": "5eb952838a30ac752ee3237aaa0b8c40b526a71f7c578f12da9d6a65b5f533c3"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoAccount-vehicle.imageset/Contents.json",
+      "git_object": "15a822acbfdc50c6d37b429ec67a431660bbabac",
+      "sha256": "5da90ad5cce2c17bb5407bb63a34765df5456f4fdf35152c4ded36ebf6713146"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoAccount-vehicle.imageset/CuadraoAccount-vehicle.svg",
+      "git_object": "735a29ac3fe6a2341495c8009cb519a065089d3c",
+      "sha256": "6c90bfdb97a2cb5d55eec19603d48545dd7c5b65fa7240e0eeb7596bf4a6508c"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoCategory-food.imageset/Contents.json",
+      "git_object": "57127ed4191d38af0769060c36f87d19f248ab1b",
+      "sha256": "c9697089a099e1c3474d65602c9755b70110b1b73b625b6a56eeb552e90d837d"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoCategory-food.imageset/CuadraoCategory-food.svg",
+      "git_object": "326fb2217d6e93215d1155ce77df12a8a6bd34a9",
+      "sha256": "274881eb0be0a8d6974c67e4e6f470dd3a8c5317cdb8a216a19fb3da59322495"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoCategory-groceries.imageset/Contents.json",
+      "git_object": "d7a93d48f2f714364d1f674b6790ce31282199ee",
+      "sha256": "4392d1f47993eb5c6e5dc6250c9a289ef007094047f730fbb352f175ada85ef6"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoCategory-groceries.imageset/CuadraoCategory-groceries.svg",
+      "git_object": "af9a0bace2f74efd54daf0b1ea93568cab8795ee",
+      "sha256": "404680936f42f8a85168472b8d61de41ededdbe9447e751f3d6a749385eaba93"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoCategory-leisure.imageset/Contents.json",
+      "git_object": "a24c5461ec37f4dc922507330dd37dbefaba72e3",
+      "sha256": "bb32bc6e7f0dd24254aa735199b463ab14ae252cd4542080ba6270c8ee354858"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoCategory-leisure.imageset/CuadraoCategory-leisure.svg",
+      "git_object": "01f8a69139635450baf8aca6d61bc121d7ba3f41",
+      "sha256": "f32ff47dbbbce9ffa8af98240a9b94ee327a0d87e4c98f8790648138f45e9c8b"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoHomeOutline.imageset/Contents.json",
+      "git_object": "d2175c31ee6f44832073609996f4a6918561ad1a",
+      "sha256": "6f2109ab7566ea283c187cc73e707caf8f4033c1e6fda96586ee9c4b679f452a"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoHomeOutline.imageset/CuadraoHomeOutline.svg",
+      "git_object": "5a743deda4ef8c8b401c8221795c3c887b2984e5",
+      "sha256": "92032887c61cb9e132adb080d564bdb5ddb803e0f778f41b810331a796c292a2"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoHomeSelected.imageset/Contents.json",
+      "git_object": "b8ff1a558b3f9327f15e609bcf758c2a5f269755",
+      "sha256": "0c1c61693f55b3412e95453edf26f83b5df9954af847ae51aa9113456cab4aaf"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoHomeSelected.imageset/CuadraoHomeSelected.svg",
+      "git_object": "755c527c0760db398a6846bf28c4216749841e81",
+      "sha256": "78cc7597a2a729b21a28f0d08932aaa48b471426cfe9ef12bf8466e6cf19be99"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoNewChat.imageset/Contents.json",
+      "git_object": "a98fb924095dc2ad79de069026d1f61463d42e19",
+      "sha256": "ccdd942bafeaef69ad252ac712d8bca840dbe44e74f36ed110f42abc010fb3c3"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoNewChat.imageset/CuadraoNewChat.svg",
+      "git_object": "15d981adfd80ac3ef6b3ac62c95a4f03c26245f8",
+      "sha256": "b440c6d05d647c557bc83767fa291df9fe58c2767a8e6b38fa9b4693ef1b53c6"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoNotifications.imageset/Contents.json",
+      "git_object": "8ce1913335b3dfd21e0ca79fafee61546143931a",
+      "sha256": "d18120d9a0ebd7649ec47399506dbaf756e7bcff22dd75796e2678bc902df928"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoNotifications.imageset/CuadraoNotifications.svg",
+      "git_object": "144fff9d461178de6363ac798eac72084e83be77",
+      "sha256": "200e8d76a77fec339139ed2a1bc5eaaa2b06bc5c95509219629cd1ea907e815b"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoPlan.imageset/Contents.json",
+      "git_object": "9c3fa07060ba8cbc2015f070440904fd04218e08",
+      "sha256": "f9d65df66cba1cec1de7fb9ec236ccada76a5332161961c1f1648c87327d495d"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoPlan.imageset/CuadraoPlan.svg",
+      "git_object": "544cccf205258f17983be49602763d13b626f849",
+      "sha256": "dc4831fcd66221b416a685b6b72ee65f829031387a10079159eae18173c59233"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoProfile.imageset/Contents.json",
+      "git_object": "858600d79fb0d00ad9a8d0dff75a0c789ea23089",
+      "sha256": "41b961f498c8d20cf9cb7d9e2dc7c1e589587261fc58b88df594627fbdfadc65"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoProfile.imageset/CuadraoProfile.svg",
+      "git_object": "25379adf2043eea4613709a68320716ad3390262",
+      "sha256": "b6c8c5a12512d159cb1edbd091b3a2fa14e60b60d352cd19fc63e80cda6ebe6d"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoShare.imageset/Contents.json",
+      "git_object": "3d8789fa81a540ded18c3af3ca7c2111b5751d4d",
+      "sha256": "43652f9f1c35190ea86c581f393572498bb6b3931195a7f1c2e21fff8ff35919"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoShare.imageset/CuadraoShare.svg",
+      "git_object": "dc1cd51c2cb63623e92ae5ec5c5b3c88bcada52d",
+      "sha256": "172a778c96288eac61c22f899794b561612d831bcfbdd427dfe126aaabf54078"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoTemporaryChat.imageset/Contents.json",
+      "git_object": "acd977d243013092012eab75e142de92875f4d8e",
+      "sha256": "e238e63eb6b73a42cf31acea3f835e7c1b48ac547444b9d046afdb490b291e05"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/CuadraoTemporaryChat.imageset/CuadraoTemporaryChat.svg",
+      "git_object": "a18ed4040698af65ab0e5f1acd077ba0c350fb61",
+      "sha256": "85c03ce625e5bfa2e84d861434271529819e086901d0d12bae8a92b6befc0fff"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/NavigationIcons.xcassets/SOURCE.md",
+      "git_object": "9375a33d8f0904d53715d3aa907bfa0592488f33",
+      "sha256": "ca87bad3222112b97bc9a4ad7ed6ea3c280b07a6c1d3e7f47e26eb2264ff8a14"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/Planning/CuadraoForecastPlayground.swift",
+      "git_object": "288160b3d0b94be6aae653a2867816287c579bbf",
+      "sha256": "e699a862862e525cb7b68b121c3b547e907494c91862cc316d82985d8b3f72db"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/Planning/CuadraoGroupCodeCard.swift",
+      "git_object": "f35fdf5fcce7a84721de1d874eb679d848bf3c40",
+      "sha256": "75af4352a700dfc4f0be4f3a3eccc9f8b1640258578ebf3f1aa2e52a17f67a9c"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/Planning/CuadraoGroupCollection.swift",
+      "git_object": "dfd723ea2ba567eba9f4f0055708bd4fab00b91f",
+      "sha256": "cb71e4cdc97cd47de7848897b4ee0bf63fbccd3db78a0d382bcdeb98e146cb3a"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/Planning/CuadraoGroupDetail.swift",
+      "git_object": "db5642089665aef5c1f00155b5660a2353c9f31a",
+      "sha256": "8243d20785aa0f012f790592994745239986822936aa8184e80ac1a13a6d9819"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/Planning/CuadraoGroupEditor.swift",
+      "git_object": "1642f82ce4672411df07fd1128769e35b6ee8d8b",
+      "sha256": "24280d2b5a3f7f51b6430a8f633111cae06ebaf302ffbc942a206d8836b85237"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/Planning/CuadraoGroupExpenseEditor.swift",
+      "git_object": "a923fdeeaea046052338e5f8ca2aff336739d6f0",
+      "sha256": "7427cdb062ba7d525f3a978715cdcb52077209b5dda2648018a04c84b5e3860c"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/Planning/CuadraoGroupInvitation.swift",
+      "git_object": "1f93bb5a28253904489cd92707abef6635765089",
+      "sha256": "dafc6b54a90e21d7d59d9d19d776a42540c407f19023e9bc8881b13080b1e585"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/Planning/CuadraoGroupMemberReview.swift",
+      "git_object": "2100e02776bebd86c0c9117086fe4deafb1c5ad9",
+      "sha256": "3a3388a06844a79833bace71452c43a9465b3487acf0d67509d3e384aeb2dc4e"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/Planning/CuadraoGroupPreview.swift",
+      "git_object": "ad6834fa62889bc92c9d516a44e4155981e3beb7",
+      "sha256": "3167ed06d3b4fb821d54b8d5f41aa4bd60a5796794edcfc3f92ab661cb1f2363"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/Planning/CuadraoPlanCanvas.swift",
+      "git_object": "ff60b9ec3eaab0c84b25fad25cef905a79b2904f",
+      "sha256": "77cfb4381205f27f10725dc6a90671dc00bea2ca3ba1d8c0c07ff049afec3a44"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/Planning/CuadraoPlanDetail.swift",
+      "git_object": "5a59cea74ffe48a65d9cdb3e5e0db21e42f45f6d",
+      "sha256": "0a5493327e89320a04fcbec5b680f0822cb4ce4c32a1517a64384605c2330c4b"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/Planning/CuadraoPlanEditor.swift",
+      "git_object": "8eb03488924ee0cc80f8338c20b8ba86fa5728d0",
+      "sha256": "65064543bae5895f1d83541097a875f1e355472fbaeeb70e17aaa555291802eb"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/Planning/CuadraoPlanPreview.swift",
+      "git_object": "bb044c03ecaf42f2583d89e6550c8390dac4a2dd",
+      "sha256": "66775ee4f1cf3889a8af9b4bd81475352f128daef3db14d717afb8cf90a0d2c2"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/Planning/CuadraoPlanVisuals.swift",
+      "git_object": "0f4aaf83890f486d5abc3850105c451d9d8ade12",
+      "sha256": "db271df02f78bed60c79e4c2f012c73c5d7ba9db1a99440c6fc84b3679c92e4d"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/Planning/PlanAmountInput.swift",
+      "git_object": "cf5a891e3880eefe4480e5d2c1c79bdef07477c8",
+      "sha256": "7b5efe45f7b1ced7f6d042be0b8e52b51b8878f42c1f70d47a55a9857b5f3a24"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/Planning/PlanCurrencyChoice.swift",
+      "git_object": "0dd6478b07072bd5977c7084748b5b6bd301b002",
+      "sha256": "1d92aba4ca250e70c8bab10a33503790ea6a5b012bf2abf841ff9ce67d53eaf6"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/Receipts/CuadraoReceipt.swift",
+      "git_object": "5cac22779c0a9eb9118f80b44de5b61ed1817278",
+      "sha256": "381aed1e0f69b3582faa4f8b0a98e3f36a7717b1b0ac371e9ac9b7bfde836747"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/Receipts/CuadraoReceiptCapture.swift",
+      "git_object": "2972920011c5e8a5543b637f031536d63d833ad6",
+      "sha256": "28a146d20d9bfdc807daf4daa35059db71e5ca6e3a3ebaf06b68f5534f4d8c43"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/Receipts/CuadraoReceiptNativePicker.swift",
+      "git_object": "5b5a7580d18551d70d912c716fa5447a81ba79bc",
+      "sha256": "2dcc5e26c8137ca5fe9bc62f0b3082470b16f4fe9504a1b646f5ff3c927cdc5f"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/Receipts/CuadraoReceiptReview.swift",
+      "git_object": "5369979210f7b1c0b499473a97dc313b35b69dd7",
+      "sha256": "444025ef43f9f1b48851969f175399ea30c29fb6260bfc68fbc49bb6848eb364"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/Receipts/CuadraoReceiptStore.swift",
+      "git_object": "c713f004b4e08a5c2e88f88cd8a701316aa381b8",
+      "sha256": "df41d5049136a9c47f3e9cf73f940b0ec2f3f3efc8a2849ecf935c7ff9e8f9f2"
+    },
+    {
+      "path": "ios/ArgusFoundation/Cuadrao/Receipts/CuadraoReceiptSupport.swift",
+      "git_object": "1badb3e84466623d88554ee601d23c679d454582",
+      "sha256": "e8fcba09cbaba02f7302d1170f8ef8a1a60f1e99392d6be45c7d97616bafc320"
+    },
+    {
+      "path": "ios/ArgusFoundation/DesignSystem.swift",
+      "git_object": "6ba59f173ef66d51d2368d4105e76622a4a5fdaf",
+      "sha256": "e16ee9b5b994a7ea3c6aaf1c5bd8f7cf785641b2c7602bca70cece610aa7c204"
+    },
+    {
+      "path": "ios/ArgusFoundation/FoundationSheets.swift",
+      "git_object": "b7f42b56da35003051b27c51d8355916e7685ee8",
+      "sha256": "75dbeccc3fb37e80ac0aca5da6b88708a4abdd830aa92b0cc5226611b377e982"
+    },
+    {
+      "path": "ios/ArgusFoundation/FoundationShell.swift",
+      "git_object": "28045df8a918a7aa5234ecba62b1f380909d00b7",
+      "sha256": "2ebf9b9b0ae00a97213ce2c5433e0e9cef0828135a1d3528519979fd7856cfb6"
+    },
+    {
+      "path": "ios/ArgusFoundation/Household/HouseholdActivityEditor.swift",
+      "git_object": "7cedd058bcee8a4bbf37b6edc1072cd9bf5ac609",
+      "sha256": "0859f32d22e1d0cc88a4b81f6e3ef974fba15ad65245c6f13331bc3b2c0d246c"
+    },
+    {
+      "path": "ios/ArgusFoundation/Household/HouseholdContributionEditor.swift",
+      "git_object": "43143c84f2bbb1397faa31a1962cced335de7976",
+      "sha256": "12c6d1af20489c8e94c317fde62c49f452d2a20747cad557e310ee2c833cb0e8"
+    },
+    {
+      "path": "ios/ArgusFoundation/Household/HouseholdInvitationOutcome.swift",
+      "git_object": "97f54824869a2ea4d2fafae9732580842bd77eb9",
+      "sha256": "a57c8fcee8e56d3d878f60a241b1b65b1b116686985e7436008ed8ef2af00bd6"
+    },
+    {
+      "path": "ios/ArgusFoundation/Household/HouseholdManagement.swift",
+      "git_object": "099a4a6a0e131fdf43678210dad6fc63fb6c2ae1",
+      "sha256": "93c9b6856ba1692399523b5045e01e5c1e4ce737e6b35253d19e1f266cfa8194"
+    },
+    {
+      "path": "ios/ArgusFoundation/Household/HouseholdModel.swift",
+      "git_object": "e6690002a66ddfcddf42f9f75a2a2cb8e13a1d52",
+      "sha256": "87d35018d97cf3a0a9897db0de0cf41fa6cb7b4797e092a28ee61ada833a5c7f"
+    },
+    {
+      "path": "ios/ArgusFoundation/Household/HouseholdPlanActions.swift",
+      "git_object": "ccd2a5ebec8e2d49330b57863f85f1dd47246373",
+      "sha256": "390dbd1be961053de41d7037559e4b044d0da8502a2d5abf15f073992d56ab80"
+    },
+    {
+      "path": "ios/ArgusFoundation/Household/HouseholdPlanDefinitionEditor.swift",
+      "git_object": "4e636beae197089a97df18fd805c3b373357a9c7",
+      "sha256": "9c3535ceb8c33bdc5e525e259a81ea10ecbca73dfe407126c7ddecc8d583db78"
+    },
+    {
+      "path": "ios/ArgusFoundation/Household/HouseholdPlanModel.swift",
+      "git_object": "fa0e5cfb045d0c5e9485fa7fd5113f2857a3b41b",
+      "sha256": "0bdad55d5e6e4b7965676771d387342898de5c164b5305c75b3b3c62e21b2125"
+    },
+    {
+      "path": "ios/ArgusFoundation/Household/HouseholdPlanPeople.swift",
+      "git_object": "bd1a191aeeca8dca4a9597f09451402a10c18e44",
+      "sha256": "e96e962c7a7cdce731542657f81881a9e23bd0ec847982ef4917aa288952615b"
+    },
+    {
+      "path": "ios/ArgusFoundation/Household/HouseholdPlanViews.swift",
+      "git_object": "b64854d8f71934a5eede69d2450b528b1e3cd3b1",
+      "sha256": "bed1ac0a00ef5aceb2d54a5509d0c86414ee91e7a3f64ecb86d256c418976d59"
+    },
+    {
+      "path": "ios/ArgusFoundation/Household/HouseholdViews.swift",
+      "git_object": "c8aa02cf9896b5752c642127965142dee30ac62b",
+      "sha256": "5cdd8fc87682b314551f340e3b590449f04e5d48cc4253eae0cd9a945b72e597"
+    },
+    {
+      "path": "ios/ArgusFoundation/Invitations/InvitationViews.swift",
+      "git_object": "8bf6294f68d4008422731507a4fac90ba1694608",
+      "sha256": "7f4abf0412e1c01dc0e75d5828f3045b0bf45cc1ad251b11eb24fd693c6ea8c0"
+    },
+    {
+      "path": "ios/ArgusFoundation/Invitations/InvitationsHarness.swift",
+      "git_object": "68f000233d13ae66daa1af7111221eb1c35be6fd",
+      "sha256": "66b2bafb7c38bb9e5d297704c6893e1ac0fcc6b98ea23d23207863448a27c562"
+    },
+    {
+      "path": "ios/ArgusFoundation/Invitations/InvitationsModel.swift",
+      "git_object": "1c64acbf9fb8b82bf1512078096b39b248c78b2a",
+      "sha256": "20e4d6bdf30dc8016b3ea20309c571d77d5326d54e635fa9f1372d6792d7d99f"
+    },
+    {
+      "path": "ios/ArgusFoundation/Plan/FinancialBudgetForm.swift",
+      "git_object": "378ad66fb42d5eb62e89af450419765961f6dc8a",
+      "sha256": "c6d61fdc4197d9b087554aac641b939070afc3a501b2524a4a71e0b9baa6b327"
+    },
+    {
+      "path": "ios/ArgusFoundation/Plan/FinancialBudgetModel.swift",
+      "git_object": "958ad7064f9e17fcc5c9e686dc7727b955c96959",
+      "sha256": "eb4a72e5be8fcb34d9b71c5cd6b033c525608469ed812478e9db52b991e3b768"
+    },
+    {
+      "path": "ios/ArgusFoundation/Plan/FinancialBudgetView.swift",
+      "git_object": "e1708c8305c9dda8fbfb77bc8ad428917ff08c39",
+      "sha256": "603df3e3f2149fbdcdff3be875bc262fad7144103a66d53bcdb48b77a51ec284"
+    },
+    {
+      "path": "ios/ArgusFoundation/Plan/FinancialComingUpView.swift",
+      "git_object": "ea2f21b11234a603480e38bb25d5750d9a20c214",
+      "sha256": "e2bf7d63cd23b8a6c1b325673cf52b1505de612b709170590f17fdb997fa53bf"
+    },
+    {
+      "path": "ios/ArgusFoundation/Plan/FinancialDebtForm.swift",
+      "git_object": "bfae54740d9851e912d5bf840880c31092f03e25",
+      "sha256": "97b484f21b19497ca3fcbc998a29fcbf4dcb6d08d4337c51e8e564d1061aee15"
+    },
+    {
+      "path": "ios/ArgusFoundation/Plan/FinancialDebtModel.swift",
+      "git_object": "d6f9ca4dd6032f7e9a6b20c66e4f0aee910f455b",
+      "sha256": "cf4b9669b929356f7ba8c6caa714b1633d754e385fda9aa87bdcd9ebb131ed44"
+    },
+    {
+      "path": "ios/ArgusFoundation/Plan/FinancialDebtView.swift",
+      "git_object": "71a8b6e2090bc29b0c5647a5967487e9a1f8fb1d",
+      "sha256": "680fa002b68434470976ab36d45d0726d1bfb9509ed29c69afa9d53fd18e5bd9"
+    },
+    {
+      "path": "ios/ArgusFoundation/Plan/FinancialGoalActions.swift",
+      "git_object": "d8212bf7bde46e036d9099284a68a8258d0d15e2",
+      "sha256": "01c164658f89c451b1507759d633107582e947fa906f9545a2514e0a8738ef74"
+    },
+    {
+      "path": "ios/ArgusFoundation/Plan/FinancialGoalForm.swift",
+      "git_object": "3741604c73fda438aca7d2f8eb242fcaf0edb88e",
+      "sha256": "cd9e03131037e0c27d72c5ea1e62ae4c3df25a24e1d2a409ac4d59546a83df1d"
+    },
+    {
+      "path": "ios/ArgusFoundation/Plan/FinancialGoalModel.swift",
+      "git_object": "e32cb0411cad9d601a13b49dd5431cd431325cb3",
+      "sha256": "002caf1a29b6558bf0b6c4dde993d7f1b2bae83aa88905151f25feafd6551447"
+    },
+    {
+      "path": "ios/ArgusFoundation/Plan/FinancialGoalView.swift",
+      "git_object": "38053fa029bd856c33a2607d7a3a730c25f6698f",
+      "sha256": "b83fdfc0fa3ddbc8cac706aad12080a9f1c7e9f1dd83a94ce68365ec7d787f79"
+    },
+    {
+      "path": "ios/ArgusFoundation/Plan/FinancialPlanForms.swift",
+      "git_object": "6d227b5b0d7ead0c2db0e8c935ff38843a88c9f3",
+      "sha256": "1b2050127f3e371e1c73480762deecb81c887c77bad0aa1f6ddecb471af902d3"
+    },
+    {
+      "path": "ios/ArgusFoundation/Plan/FinancialPlanModel.swift",
+      "git_object": "e30796b7b44801e1cdc600acb3b7db10ffa0249b",
+      "sha256": "54606255e6fd4f34e153d2cd19a0b67f0845e776e7cda8bf82fd3a123b9441df"
+    },
+    {
+      "path": "ios/ArgusFoundation/Plan/FinancialPlanView.swift",
+      "git_object": "61d5aa3a1ef1097f879ee49013759277834a8558",
+      "sha256": "9fb2e928c4f309f5cbfe668fb5f693d8f577274dc2613bca861f162c29cfcceb"
+    },
+    {
+      "path": "ios/ArgusFoundation/PrivacyInfo.xcprivacy",
+      "git_object": "9ef9932f28b8ce87b95872110504064c9ee32a7e",
+      "sha256": "1faaebba42e775c8eb0b40256c2acecd72c3a4a1ff23870fd08940180e275972"
+    },
+    {
+      "path": "ios/ArgusFoundation/ReleaseUI/Identity/ReleaseAIConsentView.swift",
+      "git_object": "7592ffaf64d280991c05133628170e6dbfedd93a",
+      "sha256": "a7cadd7a90f77a962a319a20bc1b646d693decc020dbac15d8642bc447a979f4"
+    },
+    {
+      "path": "ios/ArgusFoundation/ReleaseUI/Identity/ReleaseConnectedSourcesView.swift",
+      "git_object": "35ff511d80c5624e098d526fa5b5f8243fd27a74",
+      "sha256": "39ddd1bac0552249fda2f1b4a180cc6f8787ca66c132f394712d1f97ca97308f"
+    },
+    {
+      "path": "ios/ArgusFoundation/ReleaseUI/Identity/ReleaseDeleteAccountView.swift",
+      "git_object": "d1816a6d6eb6ec6ab64b3b7a9245de8a6a853d47",
+      "sha256": "5b1c5406a7ebd4f744a9a50be57f8a65d748e6b14b945aae18c1c75e79fb12fb"
+    },
+    {
+      "path": "ios/ArgusFoundation/ReleaseUI/Identity/ReleaseIdentityGallery.swift",
+      "git_object": "55ac1a0f81b3baa4e8acd3fc49560386722fe0bc",
+      "sha256": "e7ba01ce866ea44cb2a6544dd82289d19b98af012f3d44eced92069e504bca8c"
+    },
+    {
+      "path": "ios/ArgusFoundation/ReleaseUI/Identity/ReleaseIdentityModels.swift",
+      "git_object": "842fc6bb5fdbd7bc6923f0b5fc99049992ce7e63",
+      "sha256": "bc5cc85335e38f906fd100872b07d4491fac33e8b17bb7fd8f5840cbdba8878d"
+    },
+    {
+      "path": "ios/ArgusFoundation/ReleaseUI/Identity/ReleaseMemoryControlsView.swift",
+      "git_object": "635949600cd389a9aa45e60b39cffa5c9f41570b",
+      "sha256": "590f0e3a8dc0d95e65027c7aeeb3b9b86bef46047e9de18c337f06efd0573af2"
+    },
+    {
+      "path": "ios/ArgusFoundation/ReleaseUI/Identity/ReleaseSocialSignInView.swift",
+      "git_object": "2d757b952c4d791be888d7f86efc99589a702fea",
+      "sha256": "3098a36e1ec48006bd217b138dd83e1cb331a177f61a89b0988745a2d62c5ca0"
+    },
+    {
+      "path": "ios/ArgusFoundation/ReleaseUI/Invitations/ReleaseInvitationSenders.swift",
+      "git_object": "c001348c375e2ce591a02cafb4f0fa0003191bef",
+      "sha256": "e2aaf368f1dd12990cb53ea5c64090b2845a9dd9d3b5addd50d7c54d4e7444a4"
+    },
+    {
+      "path": "ios/ArgusFoundation/ReleaseUI/Invitations/ReleaseInvitationShare.swift",
+      "git_object": "81e9b4d9a4d8f18113cb99dd136eb1c6ef04b2c5",
+      "sha256": "7c1b3210a070e4beb6cea098197719024921fac0f62a2457b00c0dd80105099c"
+    },
+    {
+      "path": "ios/ArgusFoundation/ReleaseUI/Invitations/ReleaseInvitationsGallery.swift",
+      "git_object": "8dc6060608283f6b875f7df85d67f71ac27ea0fa",
+      "sha256": "c11b93f4c4620c179fc0e4fa5f7db11284a32815f5abca65e235c05b5be7f241"
+    },
+    {
+      "path": "ios/ArgusFoundation/ReleaseUI/Invitations/ReleaseInviteGate.swift",
+      "git_object": "c77260f905eebb165cb1926ffa857d4d8a4a088f",
+      "sha256": "a5a720c3cca4b81a03fab1fa1dab66ec410b0e6c751b75d739fa66a4664ae37b"
+    },
+    {
+      "path": "ios/ArgusFoundation/ReleaseUI/Profile/CuadraoProfileIdentity.swift",
+      "git_object": "7d0adea42a15af6629d89ef94096eb84e2c03c24",
+      "sha256": "9b849b0f60efff8561c28c3955e19979f03dd786ef7bdab6fa6eb215633b56e0"
+    },
+    {
+      "path": "ios/ArgusFoundation/ReleaseUI/ReleaseUIReview.swift",
+      "git_object": "fa120c1ff26aada5555fcd905589ad63feec836b",
+      "sha256": "5b593d35cf6950cc4b8d38fcaa824afc2a17a1d876adff97e8fe7a238d0010fa"
+    },
+    {
+      "path": "ios/ArgusFoundation/ReleaseUI/Updates/ReleaseDataTruthViews.swift",
+      "git_object": "2dd17044a095b86119ef42ed665dd5b3bb156e20",
+      "sha256": "6576331ba144906c0f376f536d0620732f0027140aa964f781a89118dd4b9e95"
+    },
+    {
+      "path": "ios/ArgusFoundation/ReleaseUI/Updates/ReleaseNotificationPreferences.swift",
+      "git_object": "434598ef2df0e9d540092a9cc37d72101835d6c1",
+      "sha256": "a47f3eb06c4d77f7cbd1732fff8bf805a832b08ab5036e87a30cc0ab289d1a02"
+    },
+    {
+      "path": "ios/ArgusFoundation/ReleaseUI/Updates/ReleaseUpdateCopy.swift",
+      "git_object": "c6470c8f0a571e74c4dde5cdbc4c551ad32f4e59",
+      "sha256": "396809267667a32e965a67b43117d9505dae2a068c334cc358533d0fada67eb4"
+    },
+    {
+      "path": "ios/ArgusFoundation/ReleaseUI/Updates/ReleaseUpdateModels.swift",
+      "git_object": "f38eb05b43b040d44b12fdd8ba09450b4ea309ef",
+      "sha256": "6bdd75f3908b70c91404ed46a0d2b761be43054afc6d050140d4eb9ff1fc3a0a"
+    },
+    {
+      "path": "ios/ArgusFoundation/ReleaseUI/Updates/ReleaseUpdatesGallery.swift",
+      "git_object": "c47e526c625cb1666613916cfe2b9db1b019af6b",
+      "sha256": "51a3ac9d6459650d43c46907782741bc76023d6a4ab92c39093df89264b531a9"
+    },
+    {
+      "path": "ios/ArgusFoundation/ReleaseUI/Updates/ReleaseUpdatesInbox.swift",
+      "git_object": "c552fb0d6598ca5b03bfe4a4720fd5a96aea9b1a",
+      "sha256": "aa0902f7847026ce82a0cce993ef0bb5eddb086f8b2450d0c64a3a2197685621"
+    },
+    {
+      "path": "ios/ArgusFoundation/Resources/Fonts/Inter-Medium.ttf",
+      "git_object": "d09343475d14c7205bdba14f6ceb4ad6c88d0bbb",
+      "sha256": "57200390209c94913993d8709f0f2f483fe6907ee541869d82888752f2439ebc"
+    },
+    {
+      "path": "ios/ArgusFoundation/Resources/Fonts/Inter-Regular.ttf",
+      "git_object": "d370ab6ae3c3a08abbe516ce851c5322b136d6cc",
+      "sha256": "34271b41d93a549e7146571ea6b94ff983205c1fe7a34f0fd37d4ff1d91ed09c"
+    },
+    {
+      "path": "ios/ArgusFoundation/Resources/Fonts/OFL-1.1-Inter.txt",
+      "git_object": "9b2ca37b3ffc77391d8b2ebef4a974ef32bf46ea",
+      "sha256": "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a"
+    },
+    {
+      "path": "ios/ArgusFoundation/Resources/Fonts/OFL-1.1-Space-Grotesk.txt",
+      "git_object": "d5666d70873cb905b4421d2c0d2e60747aae8573",
+      "sha256": "18a4de52385f6b988782639d5d0cc1326e5a8c2de9a7f01d7b20d9aedcc60943"
+    },
+    {
+      "path": "ios/ArgusFoundation/Resources/Fonts/SpaceGrotesk-Medium.ttf",
+      "git_object": "3a1eb268b978a4598d3e888a7c270de06c382da1",
+      "sha256": "c9edbe0cba2f0ceeebf35e76e4bcc849eb0e0edf360e666e9dea693695c0030e"
+    },
+    {
+      "path": "ios/ArgusFoundation/Resources/en.lproj/InfoPlist.strings",
+      "git_object": "5ec7ff0da13966c1ee9851ac8f160aac5111952e",
+      "sha256": "5de9b347a6198260cabe1ce3f75ffa682e4f4dde0de15ded4561ea680806bf0c"
+    },
+    {
+      "path": "ios/ArgusFoundation/Resources/en.lproj/Localizable.strings",
+      "git_object": "35c544bc633e2b965f2878e4313d8430891b8129",
+      "sha256": "59d39948fa0eb0f5426ffa389e98f49501cc683518c288cfe87973da839eb51b"
+    },
+    {
+      "path": "ios/ArgusFoundation/Resources/es-419.lproj/InfoPlist.strings",
+      "git_object": "01705cf410f5de408ccaece9c25c5cf20fcc869d",
+      "sha256": "434a1cb828a6febb83bccb3d4cb9fa3c04bf10af6b671a19362c11591b14cf9d"
+    },
+    {
+      "path": "ios/ArgusFoundation/Resources/es-419.lproj/Localizable.strings",
+      "git_object": "a88313230162bf66c78e4afbb4cef75e68e32e87",
+      "sha256": "4a6ef5154cbb1688a073a035493348b89b87ee8b2bfd9b9b9702b01aae660ad3"
+    },
+    {
+      "path": "ios/ArgusFoundation/SampleDestinations.swift",
+      "git_object": "420d15e41703b7c00977e2c17a23ad1899aa4570",
+      "sha256": "79fce066f13d46a95a7385d164d3ba542470918d735d058f0fdfbce9ba5d6c0b"
+    },
+    {
+      "path": "ios/ArgusFoundation/Search/FinancialSearchModel.swift",
+      "git_object": "42736cb45c9ce99c8a4e25d588f5c274f693dec2",
+      "sha256": "b64c49d51a00fc97d386031aa5268aacfc3a0d59e78813dae59f2d83cf5a121a"
+    },
+    {
+      "path": "ios/ArgusFoundation/Search/FinancialSearchView.swift",
+      "git_object": "b2cecb6dc2cb81bbd304a77c5de11cede55f7f9a",
+      "sha256": "929e5cbb530bf4fa53ff76ee0d78d0055f297ca5dc68abfead6ee3f9581b9953"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/AppleSessionJourneyUITests.swift",
+      "git_object": "dba818ccac6c20298a25273d55dd918b600ef48e",
+      "sha256": "632a77a50d0b847ad77ec0027187237e039e3bd575feaac6187ea5b1bf976568"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/AuthJourneyUITests.swift",
+      "git_object": "d496774137e43448dde056920028fdea3a466b7c",
+      "sha256": "bf9367f18411f05299c93ead204dcd1cba8d2e16ab62b8e13371f6334490e27e"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/AuthUITests.swift",
+      "git_object": "d3f4ccb56333f945be68c4588e153eda8503ae81",
+      "sha256": "3be3fa941cca6ac67ec3950ba7d9f9b51e30dc345e86e88396101405a7edbafd"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/ConnectedAssetUITests.swift",
+      "git_object": "d8c964a004721d8deb86f5548e56e7b4184d7f76",
+      "sha256": "157a80d763bd7be1eabf1321e207f8737f26d82027dbe1743e4c58e055e1c02d"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/ConnectedBudgetUITests.swift",
+      "git_object": "847f14ed51a055c35564166310229ec3dfbde5c3",
+      "sha256": "dcfde62d46b36eb237954fcf24e8f44a9e5a712c20b6f3c84a6d579f10072205"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/ConnectedChrome.swift",
+      "git_object": "922b73c3f12df67907d8a8b7ca9fdd724ca3503b",
+      "sha256": "09634a3db6082e2a0f10ccf40cce3336e8b363e08d33cbb3699a32bfec053057"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/ConnectedDebtUITests.swift",
+      "git_object": "d20d2c74e41ceee323545534cc052a60d6120398",
+      "sha256": "7f6ab7f6b647894c71ff62dc7ac17979d8f01b02fb3c190bc4dd895d4267574d"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/ConnectedGoalUITests.swift",
+      "git_object": "d569fd821eaa1aeac2ec91285bdb0e9d1c0adc86",
+      "sha256": "3f70865d2ad5c8ef0cc1544547e21b867e334561a8921396d6b39a70c911713b"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/ConnectedHomeGestureUITests.swift",
+      "git_object": "783d9276cea9f632601a26e08209412b4746755b",
+      "sha256": "6dc8ddef67c3799ba30c41730c8a6fcf8662c0105bc4615d4960ac93024432c2"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/ConnectedPlanUITests.swift",
+      "git_object": "ec5a177ccbae3ca28c763190543608c5037bd5bf",
+      "sha256": "322f991e6b911cd6cdd472cde40406f978108b14aa97ce1383b54e4dba58221a"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/ConnectedRecurringUITests.swift",
+      "git_object": "02cd34916672342ffd93809f54cec5808239fd07",
+      "sha256": "e74c52e55dee65406fded0b4949a1f879e2e4130c9685f5f0f57d0943ac0decb"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/CuadraoCollectionUITests.swift",
+      "git_object": "f1cf78fe6f4efdc0a0ec073e17d73744cf71205d",
+      "sha256": "9883363ce19f43fd5c911415d4dccd89a1408ad026eaa7f50fe41f87c811b9d2"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/CuadraoConsistencyUITests.swift",
+      "git_object": "1217aeac26fb0124694f7dc942976323e752a78a",
+      "sha256": "ec608fe7f46647b0331c3d947f34be17e6d9a1849fd4d9f17b477c0bc0de1180"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/CuadraoContextUITests.swift",
+      "git_object": "5739bad575e4f7aebade3f27216233ff092b6c23",
+      "sha256": "581ff28ad0d857c65f8ba79cfc49ccede19ee055b2904c57323d3b9887869883"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/CuadraoGroupDesignUITests.swift",
+      "git_object": "5fc9b7a4276d7c8dd4490b5aa642542e7f1fa1c9",
+      "sha256": "6770213baa37937d8e7a4fc7762fd6463b30b608342e6bb419935f0dbbbf00b2"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/CuadraoHistoryDesignUITests.swift",
+      "git_object": "e3ef0231c288ff5130f47bf61aa7babef0d3aa27",
+      "sha256": "e7c8c491cbcf006dbe2aa881c2003e181a457b6f507d355d25f1eccf9342f523"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/CuadraoHomeChartUITests.swift",
+      "git_object": "752c3cec15980da722638de2a2ea9205e311804d",
+      "sha256": "6742fbe9d8c6a593a7e0807444ce8885f8f69fe0d3ae92102abb5036516dc13f"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/CuadraoPlanCurrencyUITests.swift",
+      "git_object": "75d1319df846a152c9ee055eee06666c6524a8ac",
+      "sha256": "a34e5f4ce30416a9093bf93086a0f1b3591dc427d0023610fa11e2ed295b610b"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/CuadraoPlanDesignUITests.swift",
+      "git_object": "abd81d37cf4be17fc5cbc1825d9aae5641dc77e0",
+      "sha256": "11296d90dd71c2572ce2a3fe32703104dcae8ed92c0bb22cc2891af35633e7f4"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/CuadraoPolishUITests.swift",
+      "git_object": "d25da7ca5124d076c13efa9c9f961fa0360d8b66",
+      "sha256": "296fcce680db6136b337273c1402317f443a911422437836552be1de80ed4605"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/CuadraoPreviewLaunch.swift",
+      "git_object": "57f13b3057ec3f6b250a208ca9a7370e62afc082",
+      "sha256": "2d02f4bebd1814e4120e1f8b2f61a81a939483b0b8dc31f020b4ae962e46b1ef"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/CuadraoProfileFollowupUITests.swift",
+      "git_object": "bbb2a07c5e0808ee311d1b067760d626fe61e658",
+      "sha256": "63a3aa3cf6f272a48e821bca8a0669fc28a1aefd86492d13062b8d6fb1799636"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/CuadraoReceiptPermissionUITests.swift",
+      "git_object": "b53fbfc57b02e594aee70a02aef1d17140edd263",
+      "sha256": "a47b9f32867b9a47ef4c863a6580feec7d233763b67f84b04ed1d4c25da15ae4"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/CuadraoReceiptUITests.swift",
+      "git_object": "fe61fd03a5e26da7811d3207d75eb023d987aced",
+      "sha256": "c976f562d24d14a30dfb9d9be43ed5294ec9c0fda07066a7b01c7ec7e25910a1"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/CuadraoSignInPresentationUITests.swift",
+      "git_object": "46346ab6b11893981da572108ebaf2328fc598d7",
+      "sha256": "be0136b4d41f84fb16687d75ad2c1035737b86a79b5408781b637611ba7f5bf3"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/CuadraoSupportUITests.swift",
+      "git_object": "21f6d1f2f8ba55740861f3ca1c491c9cefc44bc4",
+      "sha256": "747839b5ee2d2018754e8f83768bbe4aaa0b9f17efb03c3c71de163844dff319"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/CuadraoVoiceDesignUITests.swift",
+      "git_object": "8a6afe9313600381b88badad264258303aaa514b",
+      "sha256": "ce056bcad584a18e07eeae5e26a57bb4dcbaa05c3c3a8669f14f07f7a0c22625"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/FinancialLoopUITests.swift",
+      "git_object": "0ae37de5ebfd59b0b27c3a50b7bfec2f2bb22232",
+      "sha256": "dcbd4edf1d9174dbf82cdbd1826dd4e67434f8c324ad44cb0016ea1052887c46"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/FoundationUITests.swift",
+      "git_object": "69a6a9fc12b8c2a968ae9bd9dda302bc30ffcbae",
+      "sha256": "c2148bf40c0ab9c868551efff60563e53a7984137c9fc6fa46a2eb7bc2f905e8"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/HouseholdUITests.swift",
+      "git_object": "9f1eb9892b0095d6192043cb56c4af789d0b291c",
+      "sha256": "924ea491b7d23963ba946d48f013b428a22c952f16c45d3a4ebfeea0c0dd7b63"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/InvitationsUITests.swift",
+      "git_object": "79e88f4331c1458629fe7a90b73c28911a930a67",
+      "sha256": "4053d215489eb04cb4d4df52c551b482759c1ee39ac8ac2219e0f9b01a3ddfba"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/NativeProviderAppearanceUITests.swift",
+      "git_object": "59ab770681e52755b0856f34d0605944fe45ab1f",
+      "sha256": "9edfe9b4a56f1f370ee75dc59676a8d9c9af9c5e43d1725efbffbc9a394ebb95"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/PersonalMoneyUITests.swift",
+      "git_object": "cdd7371b19d7cbffd20656bfb3a1ef6392f8884c",
+      "sha256": "7b15bec470997bd87ea9d9ba843501ff848bd7aaad2882fbfcbf11dd498c9ae7"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/ReleaseUIJourneyTests.swift",
+      "git_object": "0c1ebf74d6aef0dede3e239597ed756bad04aa96",
+      "sha256": "09b3e192fc647c2426555fc73da3bf6d0136a741638d22a13ab0a07f453be993"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/SearchUITests.swift",
+      "git_object": "03f29e021fc4dc2f3eb97e1448b3f2d16306cc30",
+      "sha256": "cad8c223caedeaeeebe376c780c0b8f4f09d5eb709f96c06c06c005b57c52271"
+    },
+    {
+      "path": "ios/ArgusFoundationUITests/SharedHouseholdPlanningUITests.swift",
+      "git_object": "8057f269bc0ac95285ec3ffd57f9caf9616ca48a",
+      "sha256": "fe6f759ed5a397ba97f2b29719d86b602e7ed7d0eb5bac4bc1fb5d53f54c6864"
+    },
+    {
+      "path": "ios/Config/Development.xcconfig",
+      "git_object": "184195805af323fc9cd1d0a7f01eb77023b70aa9",
+      "sha256": "5adff9cd2431f45c1fb274b017bcf5ba811d324673654f722036522e279b0ed6"
+    },
+    {
+      "path": "ios/Config/Device.local.xcconfig.example",
+      "git_object": "eb351f1d2451e3190239ebe72aa93a49869dd79b",
+      "sha256": "cc72ac0f035464ea1e5f9e000df90d0d1b4221c18bd08798ad0f7db392a0137e"
+    },
+    {
+      "path": "ios/Config/Info.plist",
+      "git_object": "a80056abe1e6b74d532f885d3bea4feaa166b58c",
+      "sha256": "9ffe6d8045cea407c0d5609214c644e38c41c8edcdc8e27df3f56fe8516ea2f8"
+    },
+    {
+      "path": "ios/Config/Local.xcconfig.example",
+      "git_object": "2b7102fc6cd7718f9793b5d9d00a881d9b9c3ec9",
+      "sha256": "a62676ea946d76b1c14742df8581e1ce0f14a4deb08b80f52f0bb53fd3ee53d6"
+    },
+    {
+      "path": "ios/Config/Release.xcconfig",
+      "git_object": "6da11a20c62bbec48266e05a240456a23a17c0bb",
+      "sha256": "4971a0807ef92bae1e4fb78c066cfcfede8ac52af85ae478f7cf36e9682a8bb7"
+    },
+    {
+      "path": "ios/Config/SignInWithApple.entitlements",
+      "git_object": "2d90af5080eab7ca8ab1ec58d930d0b4542b0958",
+      "sha256": "490026a6dd99237ac7cac25be67c404c6c8ad9b4ccd0e8ce0207a47e2577a93e"
+    },
+    {
+      "path": "ios/Config/Simulator.entitlements",
+      "git_object": "eb7422a3b144e237aa160ae8a0b76273ea8cba94",
+      "sha256": "0de2fc4b2644aab9f7a667c9ef1c27ce266f07466a9ecaa150a374a94554d902"
+    },
+    {
+      "path": "ios/DesignPreviewTests/AvatarCropChecks.swift",
+      "git_object": "eb1c145aaaaa929126616c7dfba1945e46a3adc8",
+      "sha256": "7c2b0de1a8ea6a9eb716d7774d1abefada35b417970336fd97df61111f0724b7"
+    },
+    {
+      "path": "ios/DesignPreviewTests/GroupPreviewChecks.swift",
+      "git_object": "9715dd4421799a968d3b4f39cc756f4d39c26d1c",
+      "sha256": "2ecca48211b47b2df418fc584b36070573bf6e34f0664ccd957df6228d127cb8"
+    },
+    {
+      "path": "ios/DesignPreviewTests/HomeBalanceChecks.swift",
+      "git_object": "d7ae76b1eb1ee7591aa4c30c7dc6148978a1c596",
+      "sha256": "1d29533ba2871b5328461312b5daa1f9c84b60b88bc8a3fb707f9c961f9513f5"
+    },
+    {
+      "path": "ios/DesignPreviewTests/MoneyFormatChecks.swift",
+      "git_object": "6208e92b4d2b1d54c634bf84efb4440e19331c12",
+      "sha256": "ff6f7e8993186e138e609ee63106089ea5ec11d941d70022705c8ee22f782b0a"
+    },
+    {
+      "path": "ios/DesignPreviewTests/PlanPreviewChecks.swift",
+      "git_object": "0e3ae7b986d05b0e6896b25bb79e846c839a0685",
+      "sha256": "d18c7fb55f019e7f489a4e0dae5ab6c74ce579ffe77469b547db496e2df4f10f"
+    },
+    {
+      "path": "ios/DesignPreviewTests/ReceiptPreviewChecks.swift",
+      "git_object": "c89109c64c87fc1d83380f94e6d17902b8c66684",
+      "sha256": "2884cbe11270222e654aef8821ad546a8ebaa888da0f22323cbbcce33e5fc728"
+    },
+    {
+      "path": "ios/DesignPreviewTests/ReleaseIdentityChecks.swift",
+      "git_object": "f77c4b4ed2225725aac1e2fd1bcc7529573b5b78",
+      "sha256": "9e1921b056a8829896b2a027982282c72cc46845bb246ae9ac1e17f7cacfd9ec"
+    },
+    {
+      "path": "ios/DesignPreviewTests/ReleaseUpdatesChecks.swift",
+      "git_object": "94d1f1c63a088d9e449b3a5c5219885fdbdbc3cd",
+      "sha256": "e64f287ecab4d8fe5a94d7bfa34ebfb3d105af83f6ae1676f91d61a0150d4e31"
+    },
+    {
+      "path": "ios/DesignPreviewTests/TemporaryChatChecks.swift",
+      "git_object": "7be3aa663a8f2a48cabd1e8f892417b6db7060ba",
+      "sha256": "f06d4d329c45c301cda1cc004f13e5268eadfb0420f174b8f4413621ff50845c"
+    },
+    {
+      "path": "ios/DesignPreviewTests/run_avatar_crop.py",
+      "git_object": "4a9db1241ffd50753b25068a82ab602967b6c4a4",
+      "sha256": "9504cbe647d92f0109213044365a52e9be90fcfff453cebb4fef271ba74c107f"
+    },
+    {
+      "path": "ios/DesignPreviewTests/run_group_preview.py",
+      "git_object": "943822d48c5c9c6868980cef845adfa1ad2a2ff1",
+      "sha256": "5b56f9fc2f64795d20cfd457f44b37a3bb9208693deb67e9aee5992262e9f8e0"
+    },
+    {
+      "path": "ios/DesignPreviewTests/run_home_balance.py",
+      "git_object": "8a90ba501b90a456611269eb7377702f2b57ba7d",
+      "sha256": "5a9903a2a44112683c2fc278898b6d0e9d645d02343f03be3ab1a5cdf5b0166e"
+    },
+    {
+      "path": "ios/DesignPreviewTests/run_linux.py",
+      "git_object": "4352d69d737a97938c23d5285e2c8f58c6e94048",
+      "sha256": "3fa6276e8a034c3837517abcc566929159c10c166d7048368a2bfe83c8db5ffd"
+    },
+    {
+      "path": "ios/DesignPreviewTests/run_money_format.py",
+      "git_object": "84a68018ad98495f77111420c5c62649cdd87961",
+      "sha256": "c0c97ca1557fc3d1641938e0236bc2de82beeb079c52eac08d9312ee037ef0ef"
+    },
+    {
+      "path": "ios/DesignPreviewTests/run_native_provider_config.py",
+      "git_object": "33b3ddb1d8e5e5947ec4347d57f3477e1c82a66c",
+      "sha256": "f711c403d34cccbba09216e5d87842621ca470ea399aafe3b5c6558875116d94"
+    },
+    {
+      "path": "ios/DesignPreviewTests/run_plan_preview.py",
+      "git_object": "05a77b04bd7e2008f9cd8e054aad6c8559c5f69e",
+      "sha256": "0f36c76c1674e2eefc155f78c5709e92682910ea848a79101111bf4e96f71aab"
+    },
+    {
+      "path": "ios/DesignPreviewTests/run_receipt_preview.py",
+      "git_object": "bffa564915c99cde489be62b7dce603b28f5d36d",
+      "sha256": "7976c14bb5eb8e6c370fbe11404635f8b8bd96ba5ceb1a75c8777c5846db4924"
+    },
+    {
+      "path": "ios/DesignPreviewTests/run_release_identity.py",
+      "git_object": "ca86c2d18a62c519fb32ac4ac91d9c06fa43648e",
+      "sha256": "cd81485a7868bc848d88917ae0182c8e7a51cf3b7468fb374989acd547e5650f"
+    },
+    {
+      "path": "ios/DesignPreviewTests/run_release_updates.py",
+      "git_object": "3c168f65bea7f0f5e2cb593663bcd100f0a58559",
+      "sha256": "fb7edf7e61b817ab3fa921ff3129b15f2988891f91d88367ebc217ddec0b6b25"
+    },
+    {
+      "path": "ios/DesignPreviewTests/run_social_release_settings.py",
+      "git_object": "5d03a283c3cda566922bdfa7e913b902c408762d",
+      "sha256": "6a3bc0a4cbf03c55421030177da120102ce801add9ab8411b67329748a9234ab"
+    },
+    {
+      "path": "ios/DesignPreviewTests/run_tap_targets.py",
+      "git_object": "a87ab9e9f74cb5e5512606b5eaafdc33a4e51206",
+      "sha256": "0f61059c463abaf14f71a3b31b360acb572a5c8e61abef8555f7b4af94497c84"
+    },
+    {
+      "path": "ios/DesignPreviewTests/run_temporary_chat.py",
+      "git_object": "e21ce1a4b81ffe1365f87899b250f2103fe32798",
+      "sha256": "4c4e58a7b5375511f5d398cc7ca57e6206c9b2d8696022df529c3fb5d1369d1b"
+    },
+    {
+      "path": "ios/DesignPreviewTests/tap_targets_reviewed.txt",
+      "git_object": "363669b5db2627d5248314ae127b984c06203622",
+      "sha256": "8560d3598240515971c0b231b6b97d32f9a3fe09be3e847cb9b9388ee912abdd"
+    },
+    {
+      "path": "ios/FinancialModelTests/FinancialDebtDraftTests.swift",
+      "git_object": "eb3715e95cae36f3fe34341e5b4b9582829e74b2",
+      "sha256": "e47b6a3ea2ce7e8ff9ef631200bb8f98c7102c2694f30322eecfe82db9ba6f3b"
+    },
+    {
+      "path": "ios/FinancialModelTests/FinancialModelTests.swift",
+      "git_object": "e99c7cd0fde34c60b8a7ebf1725f674ea19dc0d0",
+      "sha256": "6f2919e6b9f0e8ac82b3f7b05067475f311bf233e22ca9d5651540e91090ea08"
+    },
+    {
+      "path": "ios/FinancialModelTests/HouseholdModelTests.swift",
+      "git_object": "93b5f538839e33c934b17f7519b55ff77b28e61b",
+      "sha256": "59b8a2d30868c3f4620dcc1df89f0cb2fd20f0c17553802e6fdbd4b34d4fcf8a"
+    },
+    {
+      "path": "ios/FinancialModelTests/HouseholdPlanModelTests.swift",
+      "git_object": "de36dba28b8ebdcc04c0d74e2b16fc1efa5c4d1b",
+      "sha256": "39cd8dc763161f193e2b3e25156ea50a25937f5553204425347da58f2ee75da0"
+    },
+    {
+      "path": "ios/FinancialModelTests/InvitationsModelTests.swift",
+      "git_object": "28669e80d9e1924af697822e040fb7f80f6c4b31",
+      "sha256": "f97e40c6c266950301a8400412b90d409b18db00509aa37b16774b8c072e4791"
+    },
+    {
+      "path": "ios/FinancialModelTests/run.py",
+      "git_object": "d396a4bbcb2857de7cf68d7b378fdb61ce706403",
+      "sha256": "f170c2034984489ef3a41b06550dd01334616e6322fbba4c3fa8e1ef920c8589"
+    },
+    {
+      "path": "ios/FinancialModelTests/run_debts.py",
+      "git_object": "019adb077a0df378cf785845bcccff86f5de1256",
+      "sha256": "a0394b79e122320c5bcf799f3393ab294dbeecc9852f6860750d0a6de7f0754e"
+    },
+    {
+      "path": "ios/FinancialModelTests/run_household.py",
+      "git_object": "3b1e4aa49e0c004b87c40a36840e82f2a511a84b",
+      "sha256": "bc31f07fd972da14a988ef98928b73fe7ce38dedafa0485128407cc7fb13ec0b"
+    },
+    {
+      "path": "ios/FinancialModelTests/run_invitations.py",
+      "git_object": "b81badcc8fdf2450b779d051cf4fe01b19069c84",
+      "sha256": "5d380fc4bfaf94936d2a723e1cdf6335c0bba6e607524628f72122a5196b4867"
+    },
+    {
+      "path": "ios/HOUSEHOLD_SETUP.md",
+      "git_object": "8b74445d9ff0d5ca8e915f225867a58b79a16493",
+      "sha256": "349b6ab821177596e9ee284b0d4d2860c2cdcb9ca86fc5a6f3a5b1be2c2149fb"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/.gitignore",
+      "git_object": "2d9f16e2d276179d73c91ec2022a23834caec180",
+      "sha256": "acc718146d21aae829cba1761475e05de39d73209d83af2ab8487a74843cead0"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Package.resolved",
+      "git_object": "cceb902a3ef3dba7770683a8a13fc2888ddd55b3",
+      "sha256": "b5917084b614e8533859a427c6589ce76c28115d5caab90355368ed902d4af41"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Package.swift",
+      "git_object": "86b0b925696179429f83cd90e379c14622e1b1a7",
+      "sha256": "f8ddeeb9bc728e6e6aa728e46651d756b3821d6ba5d2fc1c7ef5b3cc5b4ed2b5"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/README.md",
+      "git_object": "a637864a9ea169a0984d1ee46b490eb330000d06",
+      "sha256": "7859849b179640982220a6d0e8a9653fa466425c330a31a00a779e578aedd240"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/CredentialStorage.swift",
+      "git_object": "d6788898cac67974c7b3ade9d05493c8afd763e2",
+      "sha256": "84055613d96393148b91ecedd5b7ebc64f9b647f20edb50ef9356264884f0f13"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialAccountTypes.swift",
+      "git_object": "54c7dd399704030b6070626f5da3eefc32cd3615",
+      "sha256": "502056b33145e97e667f8cfb8ff99c930a8b6f5f9b5d75889145c8c4f73454a9"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialActivityTypes.swift",
+      "git_object": "279e6419c3066db373818d6331a5e48c85518fa2",
+      "sha256": "31aa04d2ec970bb18ab9e07c234ba5e101cf471d962d6dbff3d973cab1389ac3"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialAsset.swift",
+      "git_object": "61113f90f74a03030496ee7424faeb0177285f66",
+      "sha256": "915fb3170f1507e9bfc9b6546edd95519a61b760e46e42d7278607ce96f90061"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialBudget.swift",
+      "git_object": "b3f23fa576f05e07aee71676e68e1719f1cd3db3",
+      "sha256": "5262395b78048c9e0aa180e80dd2087334622de499955661c8d42569fff92bb5"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialDebt.swift",
+      "git_object": "d781155b2bb87c1628d3522cc8f80004cef3647a",
+      "sha256": "9e7146f75efc0e317fc6d5b978eaa656a1b3082e73f84b6b0cf9999e302df3b0"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialExpectationSeed.swift",
+      "git_object": "6758aa8cf545d03adceba59626bb7f13fa668035",
+      "sha256": "76aa3aee586e441d99da6da1800d3f968d0fa759d18f178531448f0059ce1751"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialGoal.swift",
+      "git_object": "3cf714d80637924804af8d89d65fee5e19947ddc",
+      "sha256": "6cc5cb9e7b169d35a905aad3daec6d1e4e6161bc88ee1588097d53c50c935dee"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialLoopTransport.swift",
+      "git_object": "4454f31bf4643e6e0cfb103a34582835fc78cbf8",
+      "sha256": "51c91dab6a37c4697d5c0531a65c04d83cd157e3d917e325567871c8cc47bd53"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialLoopTypes.swift",
+      "git_object": "4b7a306a2f643467c51fdf984b84018f92d5fed5",
+      "sha256": "c57ff8ea64669c96c0d16bd07be53275ffb0c4c34c49750dd3b5c60924588002"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialPlanTransport.swift",
+      "git_object": "4d22909ab873db3f682d60cbd30db6aa0242661c",
+      "sha256": "b522faeeab87f9341aed7c55eac09e76182a40b2306991b8a274f66ae8c6bfbd"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialPlanTypes.swift",
+      "git_object": "dc8e2b456e25ba3a86912efc7c2d0c0eff296cb8",
+      "sha256": "8413634496385b7fac09cf138fb1552ed1116d56427d64b83bda64ec63acc1ae"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialSearch.swift",
+      "git_object": "44891fafc1feea41ad10f542cba03ed0ccea62e0",
+      "sha256": "46d7473374754315861a351a13652a0830187afedf3672ba53422ac77d4edcf9"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/FinancialWriteJournal.swift",
+      "git_object": "5414db4a869a68b6df4c74eab6102dd891e646f6",
+      "sha256": "76765b3cf9b6627cea3ce0ab04024399196020f4cdfdbaf11190a8ef927c5d01"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/Household.swift",
+      "git_object": "a1fa0d98642e0d7b8adc81a0e95150dacb6afb0b",
+      "sha256": "bd540da244088e10432be4465513b99e940eba4bd2818f25236cdc78c38e7e6c"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/HouseholdPlan.swift",
+      "git_object": "e6e8793e7780e0bc768d15c0372bef8fa5e2725c",
+      "sha256": "c917d70840802324b8628bd537e1d4f4591ff1a54210f7d13cbddaff548f9c4d"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/HouseholdPlanCommands.swift",
+      "git_object": "91032e867c9ac9550a95874f7cc391ed2337b01c",
+      "sha256": "a33f23c73dfa763b02b697bf7334a613b2078ed84580eaeb0e9af00d8649d33d"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/HouseholdPlanValues.swift",
+      "git_object": "67cf67294d52bde48c07e4b77432b7c5532b2cc1",
+      "sha256": "5ae1d55db4e5070f0409cbbcc257dd4ae4a7c683044059a1761f4740197c9461"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/IdentityProviderSignIn.swift",
+      "git_object": "0a8aeacfeddc54883d36f7567d1d0b7cb0fbc222",
+      "sha256": "626ec8a372f67028156fd77c83ad244b53a14ded1485cf683524cdd829d10c8e"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/Invitations.swift",
+      "git_object": "1e5afa652659d4f7fceb598924580987366bb162",
+      "sha256": "0909c25784d40a7c1c7197fa660f4abb6c8ec90c912c55b46e3417e9cac10973"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/SessionConfiguration.swift",
+      "git_object": "88261996754049d9e1c16e5c4fe6221a77fdbbd2",
+      "sha256": "f97c3400379b43e4bfab1396833a885fb929afc886dcac7f458fd78c08c19345"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/SessionController.swift",
+      "git_object": "1ec0e62e0b2b639e51ec8290f32fecd9c7755d51",
+      "sha256": "f0949de5d63863ba3c4da859806318c40379d788af0ff6914f7d02a59f4d289b"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/SessionTransport.swift",
+      "git_object": "4f43a04c0be2f3e6ec72bddad69d9220e6314429",
+      "sha256": "911bf67316821b64b5980fc8db582b71b9d6a22ea9417f0474259fb9a8f1f4c5"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Sources/ArgusSession/SessionTypes.swift",
+      "git_object": "0284119d98e3c708a86d1585807d984f60767116",
+      "sha256": "0fafaae665b6b3778f8ba54c9a877ef74ddd2e31dde0ca50820a3e312548980d"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/AppleCredentialValidationTests.swift",
+      "git_object": "81ff4f62391c4a33c7d25a5e78b986415eb57d1c",
+      "sha256": "fc2f38038a054381c10168e633c6bdbd596f6b04263b7c82a5a5835deca7d78d"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/ConfigurationTests.swift",
+      "git_object": "661901c3e8d0b304a308d4de87c56f956e9152f7",
+      "sha256": "9d11a5d796b3174500beb28fed92a7ffda1608e96d7adefc3712c4f4b6cb17cd"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/FinancialAccountTests.swift",
+      "git_object": "9cad6b52b1e98acb21170a6a0d0b58df8cdc099d",
+      "sha256": "c5426d7cfdbe5f5a199a6a9412ff183e8583498174b5a134d35c7e9e33bd8ac5"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/FinancialAssetTests.swift",
+      "git_object": "6517312d0786e366c6380927f4715edef3a29e3e",
+      "sha256": "7fa42aec8788fb7d0596939954876ba02514fd4c502a3eb2b2226118a71567d8"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/FinancialBudgetTests.swift",
+      "git_object": "2352fd29b679cefdf109a7b8723cc690c81e9807",
+      "sha256": "150d7c4c43489b308214b0faf112d2cb0d6568dba4aa407fcf15b3102ab72eb0"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/FinancialDebtTests.swift",
+      "git_object": "e9f83fde704c83a6a33a07f46ec4b5bc9e08c25f",
+      "sha256": "abb6793188fe128baec434996993f10195dcadbf33979c520fc566772c529a0a"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/FinancialExpectationSeedTests.swift",
+      "git_object": "9b2f0062a63455966473206d1b7a7b1977bde129",
+      "sha256": "f3dfc173e4abadbe0402de2ec94ad7a94ec6df9e0b45dc7b1099255fe2299269"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/FinancialGoalTests.swift",
+      "git_object": "96f6b180fcbf3a0ae12f4d362c73a5c00c3dbe4d",
+      "sha256": "45ab2a689a1c4a73cc7a971c8eee0752c40457209a28bfe5b09b572cfc4b85fc"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/FinancialLoopTests.swift",
+      "git_object": "f374c63d15e465766fd4bc7de30132ee5429e272",
+      "sha256": "d363692e87308a6edc98cf1d69403559fc466ec2dccc19309470ff270870f3d0"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/FinancialPlanTests.swift",
+      "git_object": "ac6e29cb501c42589b69ac1f43ac00d7a26e8cb8",
+      "sha256": "5d5c683e170c9cb3fe7ff5d5841b346fd1d6df1e0b9090f2ab124eaa3d8daede"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/FinancialSearchTests.swift",
+      "git_object": "d6254591c7e87bc35f5f58183f9f72ab0b9d9e61",
+      "sha256": "a678e3f270256d7403f63bc93b921be5304d4016e80f7c8d1cc103b51fb0035c"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/FinancialWriteJournalTests.swift",
+      "git_object": "322a4046aa7a338b1f3276ff108f9dc8fa0ab204",
+      "sha256": "cfc13f4c7255c2fcf6ca3d54cf4fc16eaec91b7067c91593e127c4f678c4eabb"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/HouseholdPlanTests.swift",
+      "git_object": "08c0bfb7f380be841b3c706f21c1da8ebbb36515",
+      "sha256": "9ce16b3a46ed5db2e257e9a30f7386ae22177e0b7b22545515ae3f79933bfd52"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/IdentitySignInTests.swift",
+      "git_object": "cac24d836066e132c27cd7859fdb60addcbb6428",
+      "sha256": "a64ba8997b6bf6772f64aa899cfc334c1c393b460ac3b4652ea872d1ad615d81"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/InvitationsTests.swift",
+      "git_object": "3f50795f3a6af58b4f31a21f24ada63f052250c6",
+      "sha256": "bfdd51e8bef69353a8ace6a0c38f768f0c5db82e8e947158df6722639c94170a"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/LiveFinancialAccountTests.swift",
+      "git_object": "0da16d7bc18ce5c7084ac8fc49837ffeee683f56",
+      "sha256": "1083065da7acafaec7baa5963475ed13c5a3129bb5de2681b2eec09bddf80d65"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/LiveSessionTests.swift",
+      "git_object": "7ab13040fb4b163f88342c1acab0a0bd9140e154",
+      "sha256": "bc131ee43e14138e0dcab534849af018596aae48e174e40bd8cd66e62d50c7d4"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/SessionControllerTests.swift",
+      "git_object": "806ed18e67623bd5a829d2422eb78f7d48d17d2b",
+      "sha256": "2ad1071a87af12472becdf25ccc6a6c569d608127a657cbc5459d3c85a0892e1"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/TestSupport.swift",
+      "git_object": "6bad11f70e1ab1cb9a26fd8760af42f81e0d23f8",
+      "sha256": "be74e2f1f0a95fdc9e98ce3b8b1e4c5f5253111b7341a5761168de84e6f397f0"
+    },
+    {
+      "path": "ios/Packages/ArgusSession/Tests/ArgusSessionTests/TransportAndStorageTests.swift",
+      "git_object": "1eec29441ff473b923d1e9bcb866fd727cc7c7eb",
+      "sha256": "d3497ce3802de007955809928af61b20ef4328deb4ec528959db5f2c0f117ef9"
+    },
+    {
+      "path": "ios/README.md",
+      "git_object": "704650d864f6f5cbc6c8dd3b3e2fdf5587498a8d",
+      "sha256": "18eec753ada7ee59548c1867a9d925b8fcaf6b831e0229c2ac700a5f80810218"
+    },
+    {
+      "path": "ios/scripts/accounts-acceptance.py",
+      "git_object": "b7c18db72460f460a83349d671369057e4037545",
+      "sha256": "217d0795ccdda8d04a9e5184f58f110a5218d231111323446b573baa1e58d667"
+    },
+    {
+      "path": "ios/scripts/assets-journey.py",
+      "git_object": "2c02637febcfcdac04572eaf33e04918322bc248",
+      "sha256": "c88e96227eac40f72e339fdb48e410899d03b0a629feb9d412a4a4a1ff640950"
+    },
+    {
+      "path": "ios/scripts/assets-local-runtime.py",
+      "git_object": "e3d915337161d0a46a42f0a8d307cbd20971339e",
+      "sha256": "fc8f4007bc67bc69c7e92e1813e981d8b62e8d3a69f3008c6439da1edb4f9c36"
+    },
+    {
+      "path": "ios/scripts/auth/apple-session-server.py",
+      "git_object": "fef4dce7020381aebdc3f2baff219f8ee3c37053",
+      "sha256": "af92ad0416f13eb2191d6299ecb60abff3af90a6a727687a1d26becc45e091e5"
+    },
+    {
+      "path": "ios/scripts/auth/bridge.py",
+      "git_object": "6eba851f110a1dcd928a8d972191f576e1b170cb",
+      "sha256": "83e7d9837da1b959e045a7601de5c901dc8c0bf466f8a7b4ffd755bca9321307"
+    },
+    {
+      "path": "ios/scripts/auth/captcha.html",
+      "git_object": "1aa314797b613b534b218d0b755f7a3100dbb6a9",
+      "sha256": "e550fb44b36511ec0d93f3fcb19b2aa21cd67be28c31f9bec73e8476882322d7"
+    },
+    {
+      "path": "ios/scripts/auth/local_stack.py",
+      "git_object": "ca2a93af1112ddeff0a21a52414ec7d01d42e9ce",
+      "sha256": "6bfffb8afd92e590d976ff3900455b2abcaf16bf764ef99189e48bc78842a024"
+    },
+    {
+      "path": "ios/scripts/auth/recovery-browser.py",
+      "git_object": "1ec7c70d707a27f54933f1bd2e87ad36bb99ff5b",
+      "sha256": "cbf3af3bf916243fff71b25728bb005c542bfbe95e88e972c37f14f0255e18c6"
+    },
+    {
+      "path": "ios/scripts/auth/run-ui.py",
+      "git_object": "e379bc83f473431831158819d199a05957dbfc6d",
+      "sha256": "4c98ed943c0832b873c51b7cf73cbe147d175b751ecf650ff006c90da2d636de"
+    },
+    {
+      "path": "ios/scripts/auth/shared_plan_scene.py",
+      "git_object": "96aed6553a894ed10d8cb9a3247f469260e08b41",
+      "sha256": "5036a47e4a8c08215b4819b62202aacd1b66985c7e2b7645961ee72919bf13a6"
+    },
+    {
+      "path": "ios/scripts/auth/test_local_stack.py",
+      "git_object": "f68a172f92f78eb17f1e5a95993accf1b2d6e461",
+      "sha256": "a8264924dba10193799b44f09931f7862844659a1f3814289fa1a3e32e771960"
+    },
+    {
+      "path": "ios/scripts/auth/test_run_ui.py",
+      "git_object": "69fcbf99bcade90fa09b59ea98039b3c17ac1d19",
+      "sha256": "a35bc5153c07e232aad8c59e261785db4c75b1c60f48aaa5045d841edca90cca"
+    },
+    {
+      "path": "ios/scripts/auth/test_shared_plan_scene.py",
+      "git_object": "106502ed6c70e2aaef069c6611b881ceed3f480a",
+      "sha256": "3999dfe83ba9f2d46e4f40c5bd32efce9007764bd7563acd7f01cc2248fdee82"
+    },
+    {
+      "path": "ios/scripts/budgets-acceptance.py",
+      "git_object": "11626dfbb30f02b5b5679afafc853b4ca4a65d76",
+      "sha256": "42240e097fd1899f021c9d3a186ed97f867fcb68d9d08e77a954a9db3d45c6bd"
+    },
+    {
+      "path": "ios/scripts/budgets-journey.py",
+      "git_object": "bcc1071a4dafebc2ce3303fbb69a543fdfcad7d9",
+      "sha256": "2cfc64bb46f3e387539ba9e0db76616be71126a111adf9635bdbb91bf0d0c90f"
+    },
+    {
+      "path": "ios/scripts/cuadrao-design-mac-pass.sh",
+      "git_object": "48cbf73b6784a8e0b2ae9edc251c1fa19df4be47",
+      "sha256": "ac8551dfcc626178ec8b899374bb86794b60e2fde24c71f9f0ec5bdd3baf3980"
+    },
+    {
+      "path": "ios/scripts/debts-journey.py",
+      "git_object": "21b79dd3cf1836a6c41dad04877afa44544bd86c",
+      "sha256": "82b929b440c0f044ef914d216dd88232ad66ddc96fcdb4a59cde613fc8198a8f"
+    },
+    {
+      "path": "ios/scripts/derive_fonts.py",
+      "git_object": "45f9328ed861ac93e39b056fb9517dee623a66fa",
+      "sha256": "a3512ed021f294ebb02984f907f312ae914ad60502fe4ce72e1988a3a459e992"
+    },
+    {
+      "path": "ios/scripts/goals-journey.py",
+      "git_object": "2b16a56b29fa26594a8fd9db6588b6458bd7d5c7",
+      "sha256": "0bb7b2910acb40d7c9203799d61f03c3ded5074930172671ca8f95d05ce8a4e1"
+    },
+    {
+      "path": "ios/scripts/recurring-plan-journey.py",
+      "git_object": "f63a6c9b146465923458848a4c3ebec675d07260",
+      "sha256": "4120fceed0fa3fd5d75b2ade43be0ee1c5c0869000a5dd580c0ea7fc54f3f1ef"
+    },
+    {
+      "path": "ios/scripts/shared-plans-journey.py",
+      "git_object": "276c111438848740a5ffaf223e548cc226805286",
+      "sha256": "a4fbf6b683103149d969c3f93544b7b8d17eb9a9b358c6c7629c370a3908fbc8"
+    },
+    {
+      "path": "ios/scripts/shared-plans-readback.py",
+      "git_object": "ffbcb292cf269ba985d1a0ff06ada0ccadc8678c",
+      "sha256": "4983e3cc463a4a8dfdd22d3617e020c81a6a9f58b983dfb58423fb60c2bee94a"
+    },
+    {
+      "path": "ios/scripts/test_budgets_acceptance.py",
+      "git_object": "f0ed359344553b7b30c22f4e26edf24b41bb2dcf",
+      "sha256": "5306a2304c95a7f26773d8166da64783e3e56f9c332c9887f80cd2c87b5e177a"
+    },
+    {
+      "path": "ios/scripts/test_budgets_journey.py",
+      "git_object": "a93fb8027711154e21c4e73501f433361296f0e2",
+      "sha256": "a70bc58ea606ffee617d48156bc492164e5b3233873450171bc22b02692399db"
+    },
+    {
+      "path": "ios/scripts/test_goals_journey.py",
+      "git_object": "d294dc6ea2df2e9ba479f256798aa3711b168789",
+      "sha256": "e5f67a03e619f83df1d17b37f934952da528dd11de0bf9c4c7e69c1d0a611595"
+    },
+    {
+      "path": "ios/scripts/test_recurring_plan_journey.py",
+      "git_object": "afe5b49bb96f9b7dde4dfc275ee7e884e1b684e4",
+      "sha256": "bad75492af1e47d2014f3767467a3f6440b303964d31a1f41935a66870ed9445"
+    },
+    {
+      "path": "ios/scripts/test_shared_plans_journey.py",
+      "git_object": "296bead2548e8a5998af3586532545f24d639e1d",
+      "sha256": "1208a2d82c6b57aa4cee2e1f3bfb53800c9193c776c1583a758c33950cd9f2af"
+    },
+    {
+      "path": "ios/scripts/verify.sh",
+      "git_object": "9b130bdacc8b919616cccf5bf656717b2070c8cc",
+      "sha256": "603ec4eff3fa967452de090d1fef85e45372e4677b7272659e81ff3ad462c32e"
+    }
+  ]
+}

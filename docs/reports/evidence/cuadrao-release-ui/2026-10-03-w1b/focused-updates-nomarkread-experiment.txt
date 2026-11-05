@@ -1,0 +1,3 @@
+W1B-AFTER-BACK truth=false row0=false root=true
+Test Case '-[ArgusFoundationUITests.W1bDiagnosticUITests testUpdatesBackTrace]' passed (11.100 seconds).
+exit=0 seconds=964

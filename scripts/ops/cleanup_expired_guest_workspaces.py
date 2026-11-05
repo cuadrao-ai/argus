@@ -31,6 +31,9 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    from argus.log_sink import configure_logging
+
+    configure_logging()
     parser = _parser()
     args = parser.parse_args(argv)
     try:

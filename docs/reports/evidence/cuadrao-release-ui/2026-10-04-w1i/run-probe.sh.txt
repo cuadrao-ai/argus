@@ -1,0 +1,15 @@
+#!/bin/bash
+# Usage: run.sh <xctestrun> <result-name> <only-testing>...   (inside the caller's lockf hold)
+set -u
+W=~/.claude/orchestrate/cuadrao-iphone-candidate/w1i
+run="$1"; name="$2"; shift 2
+args=(); for t in "$@"; do args+=("-only-testing:ArgusFoundationUITests/$t"); done
+start=$(date "+%Y-%m-%d %H:%M:%S")
+xcodebuild test-without-building -xctestrun "$run" \
+  -destination "platform=iOS Simulator,id=8AFB6084-8918-416E-9164-E21061306BEC" \
+  -resultBundlePath "$W/$name.xcresult" -collect-test-diagnostics never \
+  -parallel-testing-enabled NO "${args[@]}" > "$W/$name.log" 2>&1
+code=$?
+xcrun simctl spawn 8AFB6084-8918-416E-9164-E21061306BEC log show --style compact --start "$start" --predicate 'subsystem == "w1i.probe"' > "$W/$name.applog" 2>&1
+echo "$name exit $code"
+grep -E "Test Case .*(passed|failed)|W1I-PROBE|W1I-MISMATCH" "$W/$name.log" | head -40

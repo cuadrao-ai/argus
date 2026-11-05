@@ -1,0 +1,268 @@
+{
+  "mode": "live",
+  "model": "openai/gpt-6-luna",
+  "git_head": "e00bec8931716437608f24e460df4f938f1491ad",
+  "runner_sha256": "287f5a3ad465d563163e60741363b28f74d7a0e8213741478fefbff54e1adfe4",
+  "started_at": "2026-10-02T18:30:10.394435+00:00",
+  "cumulative_ceiling_usd": "6",
+  "prior_reserved_usd": "2.6490875136",
+  "prior_known_cost_usd": "0.00489199536",
+  "prior_cost_unknown": true,
+  "prior_report": "qwen-live-2026-10-02.json",
+  "endpoint_snapshot": [
+    {
+      "name": "Azure | openai/gpt-6-luna-20260922",
+      "model_id": "openai/gpt-6-luna",
+      "model_name": "OpenAI: GPT-6 Luna",
+      "context_length": 1050000,
+      "pricing": {
+        "prompt": "0.0000001",
+        "completion": "0.0000005",
+        "web_search": "0.01",
+        "input_cache_read": "0.00000001",
+        "input_cache_write": "0.000000125",
+        "discount": 0,
+        "overrides": [
+          {
+            "min_prompt_tokens": 272000,
+            "prompt": "0.0000002",
+            "completion": "0.00000075",
+            "input_cache_read": "0.00000002",
+            "input_cache_write": "0.00000025"
+          }
+        ]
+      },
+      "provider_name": "Azure",
+      "tag": "azure",
+      "quantization": "unknown",
+      "max_completion_tokens": 128000,
+      "max_prompt_tokens": 922000,
+      "supported_parameters": [
+        "reasoning",
+        "include_reasoning",
+        "max_completion_tokens",
+        "tools",
+        "tool_choice",
+        "seed",
+        "response_format",
+        "structured_outputs",
+        "verbosity",
+        "reasoning_effort"
+      ],
+      "supports_tool_choice": {
+        "none": true,
+        "auto": true,
+        "required": true,
+        "function": true
+      },
+      "status": 0,
+      "uptime_last_30m": 99.96566700427447,
+      "uptime_last_5m": 99.92841071793823,
+      "uptime_last_1d": 99.97961059201388,
+      "supports_implicit_caching": false,
+      "native_tools": {
+        "openrouter:web_search": {
+          "type": "web_search"
+        },
+        "openrouter:apply_patch": {
+          "type": "apply_patch"
+        }
+      },
+      "supports_voice_cloning": false,
+      "supports_multiple_audio_references": false,
+      "supports_image_reference": false,
+      "latency_last_30m": null,
+      "throughput_last_30m": null
+    }
+  ],
+  "capability_preflight": {
+    "image_input": true,
+    "structured_outputs": true,
+    "azure_zdr_listed": true,
+    "regional_variants_excluded": [
+      "azure/us",
+      "azure/eu"
+    ]
+  },
+  "proposed_cumulative_reservation_usd": "3.1920875136",
+  "stop_reason": "extraction_or_accuracy_failed",
+  "complete": false,
+  "new_budget": {
+    "model": "openai/gpt-6-luna",
+    "provider": "azure",
+    "context_tokens": 1050000,
+    "output_tokens": 12000,
+    "output_parameter": "max_completion_tokens",
+    "prompt_usd_per_token": "2E-7",
+    "completion_usd_per_token": "7.5E-7",
+    "cache_read_usd_per_token": "2E-8",
+    "cache_write_usd_per_token": "2.5E-7",
+    "reserved_input_usd_per_token": "2.5E-7",
+    "maximum_request_usd": "0.27150000",
+    "approved_cap_usd": "3.3509124864",
+    "maximum_run_usd": "0.54300000",
+    "reserved_usd": "0.27150000",
+    "attempts": 1,
+    "attempted_fixtures": [
+      "statement-usd"
+    ]
+  },
+  "cumulative_reserved_usd": "2.9205875136",
+  "new_known_cost_usd": "0.001120175",
+  "new_actual_cost_usd": "0.001120175",
+  "cumulative_known_cost_usd": "0.00601217036",
+  "cumulative_actual_cost_usd": null,
+  "results": [
+    {
+      "fixture_id": "statement-usd",
+      "fixture_sha256": "ecb9500f20c436b90373b8c3bae817c67b89c34329eee1cc399c67298e8e019d",
+      "error_code": "invalid_extraction",
+      "request": {
+        "model": "openai/gpt-6-luna",
+        "output_parameter": "max_completion_tokens",
+        "output_tokens": 12000,
+        "provider": {
+          "require_parameters": true,
+          "data_collection": "deny",
+          "zdr": true,
+          "allow_fallbacks": false,
+          "ignore": [
+            "azure/us",
+            "azure/eu"
+          ],
+          "only": [
+            "azure"
+          ],
+          "max_price": {
+            "prompt": 0.2,
+            "completion": 0.75,
+            "request": 0,
+            "image": 0
+          }
+        },
+        "schema_sha256": "890924e5c8e8e9942e96f144a7140174a09e222310043d6063fd8e7c53f305f1",
+        "images": [
+          {
+            "width": 1600,
+            "height": 1131,
+            "sha256": "bef6f4c94afe5abbe50db234ee540e4a1692a6fce498c801974cc488a7e68354",
+            "bytes": 67233
+          }
+        ],
+        "supplemental_pdf_text_chars": 400
+      },
+      "http_status": 200,
+      "response_model": "openai/gpt-6-luna",
+      "response_provider": "Azure",
+      "provider_error_code": null,
+      "finish_reasons": [
+        "stop"
+      ],
+      "model_completion": {
+        "readable": true,
+        "complete": true,
+        "pages_read": [
+          1
+        ]
+      },
+      "schema_validation": "passed",
+      "candidate_validation": "failed_or_not_reached",
+      "latency_ms": 13273,
+      "usage": {
+        "model": "openai/gpt-6-luna",
+        "token_usage": {
+          "prompt_tokens": 3282,
+          "completion_tokens": 1420,
+          "total_tokens": 4702,
+          "cached_tokens": 0,
+          "cache_write_tokens": 3279
+        },
+        "cost_usd": "0.001120175"
+      },
+      "accuracy_passed": false,
+      "model_observation_counts": {
+        "statement_period": 1,
+        "balance": 2,
+        "transaction": 2
+      },
+      "model_transaction_score": {
+        "expected_transactions": 2,
+        "observed_transactions": 2,
+        "exact_matches": 2,
+        "missing_or_mismatched": 0,
+        "invented_or_mismatched": 0,
+        "field_multiset_matches": {
+          "amount": 2,
+          "currency": 2,
+          "date": 2,
+          "direction": 2
+        },
+        "field_denominator": 2,
+        "balance_candidates": 2,
+        "balances_as_transactions": 0
+      },
+      "observation_checks": [
+        {
+          "observation_index": 1,
+          "model_classification": "statement_period",
+          "canonical_validation": "passed",
+          "retained_evidence": "statement_period"
+        },
+        {
+          "observation_index": 2,
+          "model_classification": "balance",
+          "canonical_validation": "invalid_extraction",
+          "failure_category": "balance_scope_missing"
+        },
+        {
+          "observation_index": 3,
+          "model_classification": "transaction",
+          "canonical_validation": "passed",
+          "retained_evidence": "transaction",
+          "field_matches": {
+            "amount": true,
+            "currency": true,
+            "date": true,
+            "direction": true,
+            "kind": true
+          },
+          "normalization_preserved_fields": true
+        },
+        {
+          "observation_index": 4,
+          "model_classification": "transaction",
+          "canonical_validation": "passed",
+          "retained_evidence": "transaction",
+          "field_matches": {
+            "amount": true,
+            "currency": true,
+            "date": true,
+            "direction": true,
+            "kind": true
+          },
+          "normalization_preserved_fields": true
+        },
+        {
+          "observation_index": 5,
+          "model_classification": "balance",
+          "canonical_validation": "passed",
+          "retained_evidence": "balance"
+        }
+      ],
+      "delivered_candidates": 0,
+      "delivered_transactions": 0,
+      "transaction_totals_match": true,
+      "balance_values_match_fixture": true
+    },
+    {
+      "fixture_id": "receipt-dop",
+      "attempted": false,
+      "reason": "stopped_after_statement_canonical_validation_failure",
+      "expected_transactions": 1
+    }
+  ],
+  "remaining_reservation_usd": "3.0794124864",
+  "diagnosis": "Opening balance has no canonical scope. Model returned balance with null scope; schema accepts it, canonical validation rejects the entire batch. Two transaction observations match all expected financial fields. No reviewable batch or financial records were produced.",
+  "offline_replay_scope": "Captured typed financial fields only; free text and account data were excluded. Per-row checks diagnose the scope mismatch without changing or resending the response.",
+  "privacy": "No document contents, observation values, candidate values, account details, credentials, provider request identifiers or image bytes in this report."
+}

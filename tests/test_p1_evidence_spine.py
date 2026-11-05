@@ -270,45 +270,24 @@ def test_memory_search_waits_for_complete_backtest_finalization(monkeypatch) -> 
     assert item.dossier.run_id == run.id
 
 
-def test_completed_backtest_capture_emits_product_event(monkeypatch) -> None:
+def test_completed_backtest_capture_sends_no_evidence_capture_event(monkeypatch) -> None:
+    """evidence_capture was retired by SPEC 0 package 0C-1."""
     from argus.api.chat.evidence import auto_capture_completed_backtest
 
-    observed: list[dict[str, object]] = []
-
-    def fake_capture(kind: str, **kwargs: object) -> None:
-        observed.append({"kind": kind, **kwargs})
-
+    observed: list[str] = []
     monkeypatch.setattr(
         "argus.api.chat.evidence.capture_product_event",
-        fake_capture,
-        raising=False,
+        lambda kind, **kwargs: observed.append(kind),
     )
     api_state.store.reset()
-    user = _user()
-    conversation = _conversation()
-    run = _run()
 
     auto_capture_completed_backtest(
-        user=user,
-        conversation=conversation,
-        run=run,
+        user=_user(),
+        conversation=_conversation(),
+        run=_run(),
     )
 
-    assert observed == [
-        {
-            "kind": "evidence_capture",
-            "user_id": user.id,
-            "conversation_id": conversation.id,
-            "backtest_run_id": run.id,
-            "status": "completed",
-            "attributes": {
-                "asset_class": "equity",
-                "symbol_count": 3,
-                "benchmark_present": True,
-                "persistence": "memory",
-            },
-        }
-    ]
+    assert observed == []
 
 
 def test_decision_capture_emits_product_event(monkeypatch) -> None:

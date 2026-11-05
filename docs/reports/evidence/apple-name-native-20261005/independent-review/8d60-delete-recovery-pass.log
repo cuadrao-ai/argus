@@ -1,0 +1,39 @@
+warning: /Users/garces/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/garces/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+Building for debugging...
+[Using on-disk description]
+[12 / 56] ConcurrencyExtras
+[29 / 98] Crypto
+[31 / 117] Crypto
+[49 / 118] IssueReporting
+[59 / 118] Crypto
+[69 / 118] Crypto
+[87 / 126] IssueReporting
+[90 / 128] _IssueReporting
+[110 / 142] XCTestDynamicOverlay
+[117 / 149] XCTestDynamicOverlay
+[123 / 153] XCTestDynamicOverlay
+[144 / 172] Helpers
+[147 / 173] Helpers
+[152 / 178] Auth
+[171 / 197] Auth
+[175 / 199] ArgusSession
+[193 / 218] ArgusSession
+[194 / 218] ArgusSession
+[199 / 215] ArgusSession
+[205 / 214] ArgusSessionTests-product
+[224 / 233] ArgusSessionTests-product
+[228 / 232] ArgusSessionTests-product
+[230 / 232] ArgusSessionTests-product
+Build complete! (5.19 sec)
+Test Suite 'Selected tests' started at 2026-10-05 21:08:36.898.
+Test Suite 'ArgusSessionTests.xctest' started at 2026-10-05 21:08:36.899.
+Test Suite 'SessionControllerTests' started at 2026-10-05 21:08:36.899.
+Test Case '-[ArgusSessionTests.SessionControllerTests testDeleteFailureRemainsPendingUntilLocalCleanupSucceeds]' started.
+Test Case '-[ArgusSessionTests.SessionControllerTests testDeleteFailureRemainsPendingUntilLocalCleanupSucceeds]' passed (0.005 seconds).
+Test Suite 'SessionControllerTests' passed at 2026-10-05 21:08:36.904.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.005 (0.005) seconds
+Test Suite 'ArgusSessionTests.xctest' passed at 2026-10-05 21:08:36.904.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.005 (0.005) seconds
+Test Suite 'Selected tests' passed at 2026-10-05 21:08:36.904.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.005 (0.005) seconds

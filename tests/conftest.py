@@ -5,10 +5,13 @@ import pytest
 
 PROVIDER_CREDENTIAL_ENV_VARS = (
     "OPENROUTER_API_KEY",
+    "CUADRAO_OPENROUTER_API_KEY_DEV",
+    "CUADRAO_OPENROUTER_API_KEY_STG",
+    "CUADRAO_OPENROUTER_API_KEY_PROD",
     "ALPACA_API_KEY",
     "ALPACA_SECRET_KEY",
     "PERPLEXITY_API_KEY",
-    "ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD",
+    "CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD",
 )
 
 
@@ -18,9 +21,18 @@ def _live_evals_requested() -> bool:
 
 @pytest.fixture(autouse=True)
 def mock_auth_env(monkeypatch):
+    monkeypatch.setenv("APP_ENV", os.getenv("APP_ENV", "test"))
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "true")
     monkeypatch.setenv("ARGUS_DEV_MEMORY_FALLBACK", "true")
     monkeypatch.setenv("ARGUS_CONTEXT_PACKETS_ENABLED", "false")
+
+
+@pytest.fixture(autouse=True)
+def reads_finish_inside_the_request(monkeypatch):
+    """Tests that watch the app's real document puller override this by name."""
+    from tests.document_reads_support import read_inside_each_dispatch
+
+    read_inside_each_dispatch(monkeypatch)
 
 
 @pytest.fixture(autouse=True)
@@ -34,10 +46,23 @@ def reset_guest_funnel_milestones():
     api_state.store.guest_funnel_milestones.clear()
 
 
+@pytest.fixture(autouse=True)
+def reset_usage_counters():
+    """Daily claim rows are process-local in tests; leftover counts would
+    trip the signed-in ceiling in a later case."""
+    from argus.api import state as api_state
+
+    api_state.store.visitor_usage_counters.clear()
+    api_state.store.usage_counters.clear()
+    yield
+    api_state.store.visitor_usage_counters.clear()
+    api_state.store.usage_counters.clear()
+
+
 @pytest.fixture
 def freeze_new_york_clock(monkeypatch):
     """Freeze the one clock every "today" reads at an aware instant."""
-    from argus.domain.market_data import new_york_clock
+    from argus.domain import clock as new_york_clock
 
     def freeze(at: datetime) -> None:
         assert at.tzinfo is not None, "freeze the clock at an aware instant"

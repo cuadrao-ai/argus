@@ -48,6 +48,7 @@ function openLayer(id: string): void {
 const pushOverlay = openLayer;
 const popOverlay = unregisterOverlayLayer;
 import { sidebarDrawerDragOutcome } from "../components/sidebar/SidebarDrawer";
+import { sidebarModeKey } from "../components/chat/useMobileShell";
 import ChatShellMenuTrigger from "../components/chat/ChatShellMenuTrigger";
 import SidebarHeader from "../components/sidebar/SidebarHeader";
 import SidebarShell from "../components/sidebar/SidebarShell";
@@ -366,6 +367,14 @@ describe("sidebar header", () => {
 });
 
 describe("mobile top bar", () => {
+  test("a leading control replaces the menu button", async () => {
+    const markup = await render(
+      <ChatShellMenuTrigger onOpen={() => undefined} leading={<span data-testid="business-mark">MP</span>} />,
+    );
+    expect(markup).toContain('data-testid="business-mark"');
+    expect(markup).not.toContain('data-testid="chat-shell-menu-trigger"');
+  });
+
   test("the trigger is a menu glyph with an accessible name", async () => {
     const markup = await render(
       <ChatShellMenuTrigger onOpen={() => undefined} />,
@@ -399,19 +408,32 @@ describe("mobile top bar", () => {
     expect(chatInterface).toContain("mobileShell.isDrawerOpen\n                      ? null");
   });
 
-  test("guest keeps Sign up pinned right and loses only the gear", () => {
-    expect(chatInterface).toContain("showSettings={!mobileShell.isBelowTablet}");
+  test("the guest header is gone and the shell menu trigger remains", () => {
+    expect(chatInterface).not.toContain("GuestHeader");
+    expect(chatInterface).not.toContain("showSettings={!mobileShell.isBelowTablet}");
+    expect(chatInterface).toContain("<ChatShellMenuTrigger");
   });
 
-  test("the drawer carries guest settings at its bottom", () => {
-    expect(chatInterface).toContain('placement="drawer"');
-    expect(chatSidebar).toContain('data-testid="sidebar-guest-settings"');
+  test("a workspace with a top-bar search drops the sidebar's Buscar row from the tablet stop up, and a phone keeps its search", () => {
+    expect(chatInterface).toContain("!(workspace?.headerSearch && !mobileShell.isBelowTablet)");
+    expect(chatInterface).toContain("workspace?.headerSearch && !mobileShell.isBelowTablet ? (");
   });
 
-  test("the rail preference entry is absent in drawer mode, not greyed", () => {
+  test("the drawer does not carry guest settings", () => {
+    expect(chatInterface).toContain("guestSettings={null}");
+    expect(chatInterface).not.toContain('placement="drawer"');
+  });
+
+  test("the rail preference entry is absent in drawer mode, not greyed, and present in Business", () => {
     expect(chatSidebar).toContain(
-      "const sidebarPreferenceHandler = isDrawer ? undefined : onOpenSidebarPreference;",
+      "const railPreference = isDrawer ? undefined : sidebarPreference;",
     );
+  });
+
+  test("Business saves its rail preference apart from the personal one", () => {
+    expect(sidebarModeKey("business")).toBe("cuadrao:business_sidebar_mode");
+    expect(sidebarModeKey(undefined)).toBe("argus:sidebar_mode");
+    expect(sidebarModeKey("personal")).toBe("argus:sidebar_mode");
   });
 });
 
@@ -424,7 +446,7 @@ describe("omnisearch below threshold", () => {
 
   test("hides the layout toggle where the band forces collapsed", () => {
     expect(commandPalette).toContain(
-      "onToggleLayout={isBelowTablet ? undefined : toggleLayout}",
+      "onToggleLayout={isBelowTablet || !hasPreviewPane ? undefined : toggleLayout}",
     );
   });
 
@@ -594,9 +616,10 @@ describe("omnisearch below threshold", () => {
       "../components/sidebar/KeyboardShortcutsOverlay.tsx",
     ]) {
       const source = readFileSync(join(import.meta.dir, file), "utf-8");
-      // Managed means it registers, or renders through a shell that does.
+      // Managed means it registers, or renders through a shell that does:
+      // SettingsSurface is the sheet outside Ajustes and the window's pane inside it.
       expect(
-        /useModalSurface|AdaptivePanel|BottomSheet/.test(source),
+        /useModalSurface|AdaptivePanel|BottomSheet|<SettingsSurface/.test(source),
       ).toBe(true);
     }
   });
@@ -607,7 +630,7 @@ describe("omnisearch below threshold", () => {
     // unregistered behind the ones that had already been fixed. The menu is
     // held to owning none of its own, or a panel could re-enter past the
     // dispatch and out of this enumeration's sight.
-    const settingsImport = /import (\w+) from "@\/components\/settings\/([\w/]+)"/g;
+    const settingsImport = /import (\w+)(?:, \{[^}]*\})? from "@\/components\/settings\/([\w/]+)"/g;
     const panels = readFileSync(
       join(import.meta.dir, "../components/sidebar/ProfileSettingsPanels.tsx"),
       "utf-8",
@@ -616,7 +639,10 @@ describe("omnisearch below threshold", () => {
       join(import.meta.dir, "../components/sidebar/ProfileMenu.tsx"),
       "utf-8",
     );
-    expect([...menu.matchAll(settingsImport)]).toEqual([]);
+    // The one settings import the menu owns is the Ajustes window, which only
+    // renders the registry; it is managed itself.
+    expect([...menu.matchAll(settingsImport)].map((match) => match[2])).toEqual(["SettingsWindow"]);
+    expect(readFileSync(join(import.meta.dir, "../components/settings/SettingsWindow.tsx"), "utf-8")).toContain("useModalSurface");
     const imported = [...panels.matchAll(settingsImport)];
     expect(imported.length).toBeGreaterThanOrEqual(6);
     // An import that never reaches the registry is a panel nothing can open,
@@ -625,14 +651,18 @@ describe("omnisearch below threshold", () => {
     expect(
       imported.map((match) => match[1]).filter((name) => !registry.includes(name)),
     ).toEqual([]);
+    const hasManagedSurface = (file: string, visited = new Set<string>()): boolean => {
+      if (visited.has(file)) return false;
+      visited.add(file);
+      const source = readFileSync(join(import.meta.dir, file), "utf-8");
+      if (/useModalSurface|AdaptivePanel|BottomSheet/.test(source)) return true;
+      return [...source.matchAll(/import (\w+)(?:, \{[^}]*\})? from "@\/components\/([\w/-]+)"/g)]
+        .some((match) => new RegExp(`<${match[1]}\\b`).test(source)
+          && hasManagedSurface(`../components/${match[2]}.tsx`, visited));
+    };
     const unmanaged = imported
       .map((match) => `../components/settings/${match[2]}.tsx`)
-      .filter(
-        (file) =>
-          !/useModalSurface|AdaptivePanel|BottomSheet/.test(
-            readFileSync(join(import.meta.dir, file), "utf-8"),
-          ),
-      );
+      .filter((file) => !hasManagedSurface(file));
     expect(unmanaged).toEqual([]);
   });
 
@@ -641,10 +671,10 @@ describe("omnisearch below threshold", () => {
     // mounted as the new topmost layer at a lower z-index, invisible but
     // holding focus and the keys meant for the dialog on screen.
     const shell = readFileSync(
-      join(import.meta.dir, "../components/guest/useGuestShellActions.ts"),
+      join(import.meta.dir, "../components/chat/useChatShellCapabilities.ts"),
       "utf-8",
     );
-    expect(shell).toContain("if (hasOpenOverlay()) {");
+    expect(shell).toContain("if (hasOpenOverlay()) return;");
     const registry = readFileSync(
       join(import.meta.dir, "../components/layout/overlayStack.ts"),
       "utf-8",

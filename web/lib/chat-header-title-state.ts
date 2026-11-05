@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useConversationSurface } from "@/components/chat/ChatWorkspace";
 import {
   listConversations,
   type HistoryItem,
   type TitleSource,
 } from "@/lib/argus-api";
-import { conversationDisplayTitle } from "@/lib/chat-title-display";
+import { conversationDisplayTitle, conversationTabTitle } from "@/lib/chat-title-display";
 
 type FallbackTitleConversation = {
   id: string;
@@ -47,6 +48,7 @@ export function useActiveConversationTitle({
   const [fallbackTitleConversation, setFallbackTitleConversation] =
     useState<FallbackTitleConversation | null>(null);
   const fallbackTitleFetchedForRef = useRef<string | null>(null);
+  const surface = useConversationSurface();
 
   useEffect(() => {
     setFallbackTitleConversation((prev) =>
@@ -66,7 +68,7 @@ export function useActiveConversationTitle({
     if (fallbackTitleFetchedForRef.current === conversationId) return;
     fallbackTitleFetchedForRef.current = conversationId;
     let cancelled = false;
-    listConversations({ limit: 50 })
+    listConversations({ limit: 50, surface })
       .then(({ items }) => {
         if (cancelled) return;
         const conversation = items.find((item) => item.id === conversationId);
@@ -81,7 +83,7 @@ export function useActiveConversationTitle({
     return () => {
       cancelled = true;
     };
-  }, [conversationId, activeHistoryChat, messageCount, isStreamingResponse]);
+  }, [conversationId, activeHistoryChat, messageCount, isStreamingResponse, surface]);
 
   const activeTitleRecord =
     activeHistoryChat ??
@@ -95,14 +97,8 @@ export function useActiveConversationTitle({
   const headerConversationTitleSource = activeTitleRecord?.title_source ?? null;
 
   useEffect(() => {
-    const named =
-      isChatViewActive &&
-      activeTitleRecord &&
-      (activeTitleRecord.title_source === "ai_generated" ||
-        activeTitleRecord.title_source === "user_renamed") &&
-      activeTitleRecord.title.trim();
-    document.title = named ? `${activeTitleRecord.title} · Argus` : "Argus";
-  }, [isChatViewActive, activeTitleRecord]);
+    document.title = conversationTabTitle(activeTitleRecord, isChatViewActive);
+  }, [isChatViewActive, activeTitleRecord, surface]);
 
   return {
     activeTitleRecord,

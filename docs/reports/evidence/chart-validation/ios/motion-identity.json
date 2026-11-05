@@ -1,0 +1,9 @@
+{
+  "head": "f5f4f4467fe53c3a1990cda9574b353c8b72d83f",
+  "device": "AAC78F82-61C2-4E51-A14C-4F341CD19A79",
+  "test_result_bundle": "/tmp/argus-chart-ios-motion-1790629260.xcresult",
+  "recording": "scrub-and-scroll.mp4",
+  "scope": "App-only horizontal scrub and vertical page scroll; XCTest drives real simulator gestures",
+  "duration_seconds": 3.02,
+  "inspection": "AVFoundation decoded successfully; inspected beginning/end frames contain only the chart prototype"
+}

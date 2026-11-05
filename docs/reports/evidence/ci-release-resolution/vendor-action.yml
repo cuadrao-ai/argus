@@ -1,0 +1,19 @@
+name: Supabase CLI Action
+description: Setup Supabase CLI, supabase, on GitHub Actions runners
+author: Supabase
+inputs:
+  version:
+    description: Version of Supabase CLI to install
+    required: false
+    default: 2.20.3
+  github-token:
+    description:
+      GitHub token used to resolve the latest Supabase CLI release without
+      hitting unauthenticated API limits.
+    required: false
+outputs:
+  version:
+    description: Version of installed Supabase CLI
+runs:
+  using: node20
+  main: dist/index.js

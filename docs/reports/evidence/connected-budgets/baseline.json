@@ -1,0 +1,29 @@
+{
+  "kind": "pre-implementation baseline",
+  "integration_sha": "9f51912198c2c77e239f670a2b3f78da2942afed",
+  "source_sha": "17d8e7509957cf4dd9d0d8987a7a9fe63b0a5260",
+  "source_changes_since_integration": "execution-manifest documentation only",
+  "environment": "isolated loopback real Auth/API/Postgres with synthetic users, no paid providers",
+  "allocation": 59000,
+  "simulator": "CC81C737-2F0A-48EA-961C-D9ECFFACA219",
+  "native": {
+    "test": "AuthJourneyUITests/testRegisteredSessionSurvivesRelaunchAndSignsOut",
+    "passed": 1,
+    "result": "ui-20260930T001256Z.xcresult"
+  },
+  "financial_regression": {
+    "suites": [
+      "tests/financial_accounts",
+      "tests/test_connected_plan_postgres.py",
+      "tests/test_personal_money_postgres.py",
+      "tests/test_financial_search_postgres.py"
+    ],
+    "passed": 203,
+    "skipped": 0,
+    "failed": 0,
+    "seconds": 33.97,
+    "local_log": "ios/.build/accounts-local-59000/financial-baseline.log"
+  },
+  "budget_implementation": "pending required product policy answer",
+  "budget_acceptance": "not run"
+}

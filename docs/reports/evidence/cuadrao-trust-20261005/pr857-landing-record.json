@@ -1,0 +1,13 @@
+{
+  "pr": 857,
+  "head": "fb847fc340a7c7acac55922691fa0f99c50e33a6",
+  "integration_parent": "f5c83cd88a0af56dc8154a89c6ea4f75d9c518ce",
+  "merge": "7018e0edebbc370b999005a857230bf3c3a1ad8b",
+  "merged_at": "2026-10-05T18:59:59Z",
+  "tree_equal": true,
+  "review": "https://github.com/lagarcess/argus/pull/857#pullrequestreview-5419196208",
+  "ci": "terminal applicable success before guarded merge",
+  "review_threads": 0,
+  "hosted_phone_provider_activation_gates": "open",
+  "housekeeping": "pending protected-branch evidence PR"
+}

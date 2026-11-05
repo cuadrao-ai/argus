@@ -10,6 +10,8 @@ export type SendOptions = {
   onTerminal?: () => void;
   renderUserMessage?: boolean;
   replacementAssistantId?: string;
+  /** Keep the local turn when a pre-persist claim 503 has nothing durable to reload. */
+  keepLocalTranscript?: boolean;
   bypassGuestGate?: boolean;
   /** Start a fresh conversation for this send, whatever the surface shows now. */
   startNewConversation?: boolean;
