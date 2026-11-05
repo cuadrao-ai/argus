@@ -132,15 +132,22 @@ def _wire(records):
     return MonthClose.model_validate(body).model_dump(by_alias=True, mode="json")
 
 
-def test_an_undeclared_dollar_line_counts_on_both_forms_it_puts_in_review():
+def test_an_undeclared_dollar_line_counts_on_the_one_form_its_type_puts_in_review():
+    """With no declaration the type still names the form: a receipt's dollar
+    line holds the 606 and a Venta's the 607, never both."""
+
     records = practice_records()
-    for kind in ("expense", "refund", "income"):
+    for kind, form, other in (
+        ("expense", "606", "607"),
+        ("refund", "606", "607"),
+        ("income", "607", "606"),
+    ):
         line = next(r for r in records if r.kind == kind)
         wire = _wire((replace(line, currency="USD", declaration=None),))
-        assert wire["dgii_forms"] == {"606": "needs_review", "607": "needs_review"}
+        assert wire["dgii_forms"] == {form: "needs_review", other: "no_operations"}, kind
         assert wire["dgii_foreign_currency"] == {
-            "606": {"pending_rate_count": 1, "reason": NOTE},
-            "607": {"pending_rate_count": 1, "reason": NOTE},
+            form: {"pending_rate_count": 1, "reason": NOTE},
+            other: {"pending_rate_count": 0, "reason": None},
         }, kind
 
 
@@ -148,7 +155,14 @@ def test_a_dollar_money_movement_is_never_a_pending_rate_line():
     expense = next(r for r in practice_records() if r.kind == "expense")
     for kind in ("transfer", "owner_withdrawal"):
         for declaration in (None, expense.declaration):
-            line = replace(expense, kind=kind, currency="USD", declaration=declaration)
+            # Money with no document has no type, as the snapshot builds it.
+            line = replace(
+                expense,
+                kind=kind,
+                currency="USD",
+                declaration=declaration,
+                document_type=None,
+            )
             manifest, rows = fiscal_manifest((line,), **SEPTEMBER)
             assert rows == {"606": [], "607": []}
             for form in ("606", "607"):

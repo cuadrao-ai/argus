@@ -7,11 +7,14 @@ the draft is open. The reader is unchanged: the type gives the printed RNC, NCF,
 and ITBIS their meaning afterwards.
 
 The type is the one answer to purchase or sale. The kind is never a second
-answer: a known kind is always one the type admits.
+answer: a known kind is always one the type admits. Every reader that places
+a record on the 606 or the 607, or under Compras or Ventas, asks ``direction``;
+none decides from the kind or from a saved declaration.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
 from loguru import logger
@@ -38,6 +41,51 @@ TYPE_KINDS: dict[DocumentType, tuple[ActivityKind, ...]] = {
 TYPE_OF_KIND: dict[str, DocumentType] = {
     kind: document_type for document_type, kinds in TYPE_KINDS.items() for kind in kinds
 }
+
+
+@dataclass(frozen=True)
+class Direction:
+    """What a type is for the Business: the Registros family and the DGII form."""
+
+    family: Literal["purchase", "sale"]
+    form: Literal["606", "607"]
+
+
+PURCHASE = Direction("purchase", "606")
+SALE = Direction("sale", "607")
+
+
+def direction(document_type: DocumentType | None) -> Direction | None:
+    """The one answer to purchase or sale. A receipt is a purchase on the 606;
+    a Venta is a sale on the 607. Money with no document is on neither form."""
+
+    if document_type is None:
+        return None
+    return SALE if document_type == "venta" else PURCHASE
+
+
+def money_document_type(kind: str) -> DocumentType | None:
+    """The type a recorded money row with no draft stands under: the one
+    whose kinds include it. None for a transfer or any other movement."""
+
+    return TYPE_OF_KIND.get(kind)
+
+
+def resolved_document_type(
+    named: DocumentType | None, issuer_tax_id: str | None, business_tax_id: str | None
+) -> tuple[DocumentType, bool]:
+    """The type a new draft takes, and whether the read chose it. A named type
+    wins. Otherwise the issuer decides: the Business's own number is a Venta,
+    any other a receipt. With no issuer or no Business number to compare, a
+    receipt by default, never marked as the read's choice."""
+
+    if named is not None:
+        return named, False
+    issuer = normalized_taxpayer_id(issuer_tax_id)
+    own = normalized_taxpayer_id(business_tax_id)
+    if issuer is None or own is None:
+        return "recibo", False
+    return ("venta" if issuer == own else "recibo"), True
 
 
 def kind_disagrees(document_type: DocumentType, facts: BusinessFacts) -> bool:
@@ -96,15 +144,6 @@ def parse_document_type(value: str | None) -> DocumentType | None:
     if value in ("recibo", "venta"):
         return value
     raise ValueError("document_type_invalid")
-
-
-def detected_document_type(
-    issuer_tax_id: str | None, business_tax_id: str | None
-) -> DocumentType:
-    issuer = normalized_taxpayer_id(issuer_tax_id)
-    if issuer is not None and issuer == normalized_taxpayer_id(business_tax_id):
-        return "venta"
-    return "recibo"
 
 
 def typed_facts(

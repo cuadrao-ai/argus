@@ -12,7 +12,7 @@ import pytest
 from argus.domain.business.actions import mutations, sources
 from argus.domain.business.contracts.actions import ExistingDraft
 from argus.domain.business.contracts.facts import BusinessFacts, Known
-from argus.domain.business.document_type import detected_document_type
+from argus.domain.business.document_type import resolved_document_type
 from argus.domain.ingestion.documents.dgii_qr import parse_dgii_url
 from argus.domain.ingestion.documents.models import ExtractionBatch, ReceiptDetails
 from argus.domain.ingestion.reconcile.model import ImportEvent
@@ -42,7 +42,7 @@ OTHER = "101000007"
     ],
 )
 def test_only_the_business_own_identity_reads_as_a_venta(issuer, own, expected):
-    assert detected_document_type(issuer, own) == expected
+    assert resolved_document_type(None, issuer, own)[0] == expected
 
 
 def _batch(rnc: str | None, qr: bool = False) -> ExtractionBatch:

@@ -14,6 +14,12 @@ from argus.domain.business.contracts.dgii import (
 )
 from argus.domain.business.contracts.facts import BusinessFacts, Known
 from argus.domain.business.dgii_columns import OPTIONAL_AMOUNTS, PAYMENT_BUCKETS
+from argus.domain.business.document_type import (
+    SALE,
+    TYPE_KINDS,
+    DocumentType,
+    direction,
+)
 from argus.domain.business.fiscal_identity import (
     COUNTERPARTY_ID_LENGTH,
     normalized_ncf,
@@ -31,6 +37,9 @@ class FiscalRecord:
     amount: str
     currency: str
     kind: str
+    #: The one owner of purchase or sale: the draft's type, or for money with
+    #: no draft the type whose kinds include it. None is on neither form.
+    document_type: DocumentType | None
     facts: BusinessFacts
     declaration: DgiiDeclaration | None
     source_ids: tuple[str, ...]
@@ -94,6 +103,10 @@ def record_issues(
     if declaration is None:
         issue("fiscal_declaration_missing", "declaration")
         return issues
+    if record.kind not in TYPE_KINDS[record.document_type]:
+        # Recorded before the type owned the kind: the money says one
+        # direction, the document the other. Held until a person settles it.
+        issue("fiscal_direction_conflict", "kind")
     if not declarable(record.currency):
         issue("fiscal_conversion_required", "currency")
     if record.approved_revision < 1 or not record.source_ids:
@@ -159,7 +172,7 @@ def record_issues(
             (
                 item
                 for item in originals.values()
-                if item.kind == "income"
+                if direction(item.document_type) is SALE
                 and not is_credit(item)
                 and normalized_ncf(fact_value(item, "ncf"))
                 == normalized_ncf(declaration.modified_ncf)
@@ -219,7 +232,11 @@ def record_issues(
             issue("fiscal_supplier_must_match_filer", "rnc")
         if declaration.id_type == "3":
             issue("fiscal_identity_type_unsupported", "id_type")
-        if record.kind != ("refund" if is_credit(record) else "expense"):
+        if record.kind in TYPE_KINDS["recibo"] and record.kind != (
+            "refund" if is_credit(record) else "expense"
+        ):
+            # A credit note returns money; an invoice spends it. The
+            # comprobante and the recorded money must say the same.
             issue("fiscal_direction_conflict", "kind")
         if (
             declaration.itbis_cost is not None
@@ -284,8 +301,6 @@ def record_issues(
     else:
         if ncf and not reportable_607(ncf):
             issue("fiscal_607_ecf_excluded", "ncf")
-        if record.kind != "income":
-            issue("fiscal_direction_unsupported", "kind")
         if is_credit(record):
             modified = normalized_ncf(declaration.modified_ncf)
             original = original_sale
